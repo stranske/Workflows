@@ -44,21 +44,43 @@ def _workflow_step_by_id(path: Path, step_id: str) -> dict:
     raise AssertionError(f"{path} must define step id {step_id!r}")
 
 
+def _workflow_run_event_allowed(evaluate_condition: str, event: str) -> bool:
+    """Evaluate the workflow-run event clause for one concrete Gate source event."""
+    match = re.search(
+        r"github\.event\.workflow_run\.event\s*(==|!=)\s*'([^']+)'",
+        evaluate_condition,
+    )
+    assert match is not None, "evaluate must explicitly gate the upstream Gate event"
+    operator, expected = match.groups()
+    return event == expected if operator == "==" else event != expected
+
+
 def test_keepalive_loop_avoids_non_actionable_runner_allocation():
+    """Reject push Gate runs while preserving PR and manual recovery paths."""
     workflow = _load_workflow_yaml("agents-keepalive-loop.yml")
     jobs = workflow["jobs"]
 
     evaluate_condition = jobs["evaluate"]["if"]
     assert "github.event.pull_request.labels.*.name" in evaluate_condition
     assert "agents:keepalive" in evaluate_condition
+    assert "github.event_name != 'workflow_run'" in evaluate_condition
+    assert "github.event.workflow_run.event != 'push'" in evaluate_condition
+    assert not _workflow_run_event_allowed(evaluate_condition, "push")
+    assert _workflow_run_event_allowed(evaluate_condition, "pull_request")
+    assert _workflow_run_event_allowed(evaluate_condition, "workflow_dispatch")
+    # Preserve head-SHA recovery when a real PR Gate omits its PR association.
     assert "workflow_run.pull_requests[0] != null" not in evaluate_condition
-    assert "resolves that\n    # case through the run head SHA" in (
+    assert "resolves that case through the run head SHA" in (
         (WORKFLOWS_DIR / "agents-keepalive-loop.yml").read_text(encoding="utf-8")
     )
     assert "test-job" not in jobs
 
     summary_condition = jobs["summary"]["if"]
     assert "needs.evaluate.outputs.pr_number != '0'" in summary_condition
+    assert "needs.evaluate.outputs.reason != 'missing-agent-label'" in summary_condition
+    assert "needs.evaluate.outputs.action != 'wait'" in summary_condition
+    assert "needs.evaluate.outputs.action != 'skip'" in summary_condition
+    # Review and stop remain summary-bearing state transitions.
     for action in ("run", "fix", "conflict"):
         assert f"needs.evaluate.outputs.action == '{action}'" not in summary_condition
 

@@ -195,6 +195,39 @@ test('resolvePrNumber accepts base-defined pull_request_target events', async ()
   assert.equal(prNumber, 123);
 });
 
+test('resolvePrNumber recovers an empty workflow_run association by head SHA', async () => {
+  const requests = [];
+  const github = {
+    rest: {
+      repos: {
+        async listPullRequestsAssociatedWithCommit(request) {
+          requests.push(request);
+          return { data: [{ number: 321 }] };
+        },
+      },
+    },
+  };
+  const context = buildContext(0, 9002, {
+    eventName: 'workflow_run',
+    payload: {
+      workflow_run: {
+        event: 'workflow_dispatch',
+        head_sha: 'manual-gate-head',
+        pull_requests: [],
+      },
+    },
+  });
+
+  const prNumber = await resolvePrNumber({ github, context, core: buildCore() });
+
+  assert.equal(prNumber, 321);
+  assert.deepEqual(requests, [{
+    owner: 'octo',
+    repo: 'workflows',
+    commit_sha: 'manual-gate-head',
+  }]);
+});
+
 test('countCheckboxes tallies checked and unchecked tasks', () => {
   const counts = countCheckboxes('- [ ] one\n- [x] two\n- [X] three\n- [ ] four');
   assert.deepEqual(counts, { total: 4, checked: 2, unchecked: 2 });
