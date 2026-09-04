@@ -20,6 +20,7 @@ def test_reusable_bot_comment_handler_ignores_agents_paths() -> None:
 
     bot_authors = inputs.get("bot_authors", {}).get("default", "")
     assert "copilot-pull-request-reviewer" in bot_authors
+    assert "copilot-pull-request-reviewer[bot]" in bot_authors
     assert "chatgpt-codex-connector[bot]" in bot_authors
 
 

@@ -39,6 +39,7 @@ on:
         type: string
         default: >-
           Copilot,copilot[bot],copilot-pull-request-reviewer,
+          copilot-pull-request-reviewer[bot],
           github-actions[bot],coderabbitai[bot],
           chatgpt-codex-connector,chatgpt-codex-connector[bot]
       skip_if_human_replied:
@@ -70,6 +71,7 @@ on:
         type: string
         default: >-
           Copilot,copilot[bot],copilot-pull-request-reviewer,
+          copilot-pull-request-reviewer[bot],
           github-actions[bot],coderabbitai[bot],
           chatgpt-codex-connector,chatgpt-codex-connector[bot]
       skip_if_human_replied:
