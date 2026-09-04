@@ -669,7 +669,9 @@ def test_refresh_map_rebuilds_after_analyzer_reports_corruption(
     assert "analyzer reported database corruption" in message
 
 
-@pytest.mark.parametrize("meta", [[], {"lastCommit": "abc123", "stats": []}, {"lastCommit": "abc123", "stats": "bad"}])
+@pytest.mark.parametrize(
+    "meta", [[], {"lastCommit": "abc123", "stats": []}, {"lastCommit": "abc123", "stats": "bad"}]
+)
 def test_refresh_map_rejects_non_object_metadata(
     tmp_path: Path, monkeypatch: pytest.MonkeyPatch, meta: object
 ) -> None:
