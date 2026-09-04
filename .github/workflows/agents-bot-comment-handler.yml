@@ -480,7 +480,7 @@ jobs:
     with:
       pr_number: ${{ needs.resolve.outputs.pr_number }}
       dry_run: ${{ inputs.dry_run == true }}
-      ignored_paths: '.agents/,scripts/langchain/prompts/,docs/,templates/'
+      ignored_paths: '.agents/,scripts/langchain/prompts/,docs/'
     secrets:
       service_bot_pat: ${{ secrets.SERVICE_BOT_PAT }}
       gh_app_client_id: ${{ secrets.WORKFLOWS_APP_CLIENT_ID }}

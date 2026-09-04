@@ -38,7 +38,8 @@ on:
         required: false
         type: string
         default: >-
-          Copilot,copilot[bot],github-actions[bot],coderabbitai[bot],
+          Copilot,copilot[bot],copilot-pull-request-reviewer,
+          github-actions[bot],coderabbitai[bot],
           chatgpt-codex-connector,chatgpt-codex-connector[bot]
       skip_if_human_replied:
         description: 'Legacy option: skip active threads after any non-bot reply'
@@ -68,7 +69,8 @@ on:
         required: false
         type: string
         default: >-
-          Copilot,copilot[bot],github-actions[bot],coderabbitai[bot],
+          Copilot,copilot[bot],copilot-pull-request-reviewer,
+          github-actions[bot],coderabbitai[bot],
           chatgpt-codex-connector,chatgpt-codex-connector[bot]
       skip_if_human_replied:
         description: 'Legacy option: skip active threads after any non-bot reply'
