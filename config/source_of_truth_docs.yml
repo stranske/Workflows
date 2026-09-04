@@ -160,3 +160,8 @@ repos:
         focus: design plan; Phase 1 Minimum Core, Minimum Demo Criterion, Milestone 0-4 deliverables and acceptance criteria, SchedulerEvidenceAdapter, ownership-boundary enforcement, export/import contract
       - path: docs/product/early-design-decisions.md
         focus: segmented decision queue; especially Segments 2 (mastery), 7 (stack), 8 (sustainability), 9 (privacy), 10 (LLM cost/routing)
+  stranske/Doc-Lineage:
+    local_path: Doc-Lineage
+    docs:
+      - path: README.md
+        focus: intent, scope and interoperability commitments of the document-lineage engine

@@ -43,6 +43,7 @@ def test_every_maintained_consumer_has_an_observability_state() -> None:
         "stranske/Ready",
         "stranske/Collab-Admin",
         "stranske/Orchestrator",
+        "stranske/Doc-Lineage",
     }
     assert {entry["status"] for entry in allowlist["repos"]} == {"not-applicable"}
 

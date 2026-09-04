@@ -114,6 +114,13 @@
       "status": "ignored",
       "cadence": "manual",
       "decision_anchor": "Template repo; include only when template-specific design work is requested."
+    },
+    {
+      "repo": "stranske/Doc-Lineage",
+      "local_path": "Doc-Lineage",
+      "status": "paused",
+      "cadence": "manual",
+      "decision_anchor": "Document lineage/blackline engine scaffolded 2026-09-04; activate the design review once the research-program briefs R1/R2 land its design docs and first issues."
     }
   ]
 }
