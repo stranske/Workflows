@@ -37,6 +37,7 @@ import json
 import shutil
 import subprocess
 import sys
+import tomllib
 from dataclasses import dataclass
 from datetime import UTC, datetime
 from pathlib import Path
@@ -65,6 +66,29 @@ except ModuleNotFoundError:  # pragma: no cover - direct script execution
 # ---------------------------------------------------------------------------
 # Skip-this-cycle gate
 # ---------------------------------------------------------------------------
+
+
+def configured_repair_attempts(config_path: Path | None = None) -> int:
+    """Return the repository-configured repair budget, with a safe default."""
+    path = config_path or (
+        Path(__file__).resolve().parent.parent / "config" / "repo_review_automation.toml"
+    )
+    try:
+        with path.open("rb") as handle:
+            value = tomllib.load(handle)["automation"]["timeouts"]["repair_attempts_per_phase"]
+    except (OSError, KeyError, TypeError, tomllib.TOMLDecodeError):
+        return 2
+    if isinstance(value, bool) or not isinstance(value, int) or value < 0:
+        return 2
+    return value
+
+
+def nonnegative_int(value: str) -> int:
+    """Argparse type for counts that may be zero but never negative."""
+    parsed = int(value)
+    if parsed < 0:
+        raise argparse.ArgumentTypeError("must be greater than or equal to zero")
+    return parsed
 
 
 def candidate_fingerprint(candidates: list[dict[str, Any]]) -> tuple[tuple[str, ...], ...]:
@@ -452,13 +476,31 @@ def run_subprocess_with_repairs(
         )
         if result.succeeded or attempt_number > repair_attempts:
             break
-        repair = prepare_phase_retry(
-            phase=name,
-            repo=repo,
-            output_dir=output_dir,
-            failed_log=log_path,
-            repair_number=attempt_number,
-        )
+        try:
+            repair = prepare_phase_retry(
+                phase=name,
+                repo=repo,
+                output_dir=output_dir,
+                failed_log=log_path,
+                repair_number=attempt_number,
+            )
+        except OSError as exc:
+            result = StepResult(
+                name=name,
+                succeeded=False,
+                duration_seconds=result.duration_seconds,
+                notes=f"repair preparation failed: {exc}",
+            )
+            repairs.append(
+                {
+                    "phase": name,
+                    "repo": repo,
+                    "repair_number": attempt_number,
+                    "succeeded": False,
+                    "diagnostic": str(exc),
+                }
+            )
+            break
         repairs.append(repair)
         print(
             f"[coordinator] {repo}: {name} failed; repair {attempt_number} "
@@ -1050,9 +1092,9 @@ def main() -> int:
     )
     parser.add_argument(
         "--repair-attempts",
-        type=int,
-        default=2,
-        help="repo-scoped repair-and-retry attempts per failed phase (default: 2)",
+        type=nonnegative_int,
+        default=configured_repair_attempts(),
+        help="repo-scoped repair-and-retry attempts per failed phase (default: config)",
     )
     parser.add_argument(
         "--docs-drift-timeout",

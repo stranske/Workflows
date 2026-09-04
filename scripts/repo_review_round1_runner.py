@@ -224,8 +224,10 @@ def sync_repo_to_origin(
                     "-u",
                 ]
             )
-            if stash.returncode == 0:
-                notes.append("stashed dirty changes")
+            if stash.returncode != 0:
+                diagnostic = (stash.stderr or stash.stdout).strip()[:200]
+                return False, f"git stash failed: {diagnostic or 'unknown error'}"
+            notes.append("stashed dirty changes")
 
         # 5. Review the exact fetched commit without acquiring or advancing a
         #    local branch. If the checkout is already on main at that commit,
@@ -299,16 +301,22 @@ def refresh_map_blocking(
 
     conflict_artifacts = find_conflict_artifacts()
     if conflict_artifacts:
-        quarantine_cache(
-            "Dropbox-conflicted derived WAL artifact: "
-            + ", ".join(path.name for path in conflict_artifacts[:3])
-        )
+        try:
+            quarantine_cache(
+                "Dropbox-conflicted derived WAL artifact: "
+                + ", ".join(path.name for path in conflict_artifacts[:3])
+            )
+        except OSError as exc:
+            return False, f"GitNexus cache quarantine failed: {exc}"
 
     ok, output = run_gitnexus_analyze(
         repo_path, gitnexus_bin, with_embeddings=True, force=True, timeout=timeout
     )
     if not ok and "corruption detected" in output.casefold():
-        quarantine_cache("analyzer reported database corruption")
+        try:
+            quarantine_cache("analyzer reported database corruption")
+        except OSError as exc:
+            return False, f"GitNexus cache quarantine failed: {exc}"
         ok, output = run_gitnexus_analyze(
             repo_path,
             gitnexus_bin,
@@ -324,7 +332,10 @@ def refresh_map_blocking(
     # They are not inputs to the completed primary database, so retain the
     # verified cache and quarantine only those late artifacts before consumers
     # query it.
-    quarantine_conflict_artifacts(find_conflict_artifacts(), "created during analyzer rebuild")
+    try:
+        quarantine_conflict_artifacts(find_conflict_artifacts(), "created during analyzer rebuild")
+    except OSError as exc:
+        return False, f"GitNexus artifact quarantine failed: {exc}"
 
     meta_path = cache_dir / "meta.json"
     try:

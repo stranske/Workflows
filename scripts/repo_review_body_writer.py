@@ -41,6 +41,7 @@ import json
 import re
 import subprocess
 import sys
+from copy import deepcopy
 from pathlib import Path
 
 try:
@@ -101,6 +102,12 @@ VERIFICATION_GATE_PATTERNS = (
 )
 _VERIFICATION_GATE_RE = re.compile("|".join(VERIFICATION_GATE_PATTERNS), re.IGNORECASE)
 _ACCEPTANCE_HEADINGS = ("## acceptance criteria", "## acceptance")
+_PATH_RE = re.compile(
+    r"(?<![A-Za-z0-9_.-])(?:\.github|config|docs|out|scripts|src|tests)/"
+    r"[A-Za-z0-9_./*{}@+-]+(?:::\w+|:\d+)?|"
+    r"(?<![A-Za-z0-9_.-])(?:AGENTS|CLAUDE|README)\.md|"
+    r"(?<![A-Za-z0-9_.-])pyproject\.toml"
+)
 
 
 # ---------------------------------------------------------------------------
@@ -159,16 +166,13 @@ def sync_check_required(repo_path: Path, workflows_steward_root: Path) -> bool:
 # ---------------------------------------------------------------------------
 
 
-def _acceptance_block(body: str) -> str:
-    """Return the text of the `## Acceptance Criteria` section (through the next
-    `## ` heading), or "" if no such heading is present. Heading match is
-    case-insensitive and accepts the `## Acceptance` alias.
-    """
+def _section_block(body: str, headings: tuple[str, ...]) -> str:
+    """Return one level-two Markdown section, excluding its heading."""
     lines = body.splitlines()
     start: int | None = None
     for i, line in enumerate(lines):
         stripped = line.strip().lower()
-        if any(stripped == h or stripped.startswith(h + " ") for h in _ACCEPTANCE_HEADINGS):
+        if any(stripped == heading or stripped.startswith(heading + " ") for heading in headings):
             start = i
             break
     if start is None:
@@ -178,6 +182,41 @@ def _acceptance_block(body: str) -> str:
         len(lines),
     )
     return "\n".join(lines[start + 1 : end])
+
+
+def _acceptance_block(body: str) -> str:
+    """Return the text of the `## Acceptance Criteria` section (through the next
+    `## ` heading), or "" if no such heading is present. Heading match is
+    case-insensitive and accepts the `## Acceptance` alias.
+    """
+    return _section_block(body, _ACCEPTANCE_HEADINGS)
+
+
+def _reference_paths(section: str) -> set[str]:
+    """Extract normalized repository-relative paths from a Markdown section."""
+    paths: set[str] = set()
+    values = [match.group(0) for match in _PATH_RE.finditer(section)]
+    for code_span in re.findall(r"`([^`\n]+)`", section):
+        for token in code_span.split():
+            value = token.strip("'\"(),.;")
+            if (
+                "/" in value
+                and not value.startswith(("/", "http://", "https://", "github.com/"))
+                and re.fullmatch(r"[A-Za-z0-9_.-]+/[A-Za-z0-9_./*{}@:+-]+", value)
+            ):
+                values.append(value)
+    for value in values:
+        value = value.rstrip(".,;:)")
+        value = re.sub(r"::[A-Za-z0-9_]+$", "", value)
+        value = re.sub(r":\d+$", "", value)
+        paths.add(value)
+    return paths
+
+
+def _path_resolves(repo_path: Path, reference: str) -> bool:
+    if any(char in reference for char in "*?["):
+        return any(repo_path.glob(reference))
+    return (repo_path / reference).exists()
 
 
 def acceptance_has_verification_gate(body: str) -> bool:
@@ -197,7 +236,7 @@ def acceptance_has_verification_gate(body: str) -> bool:
     return bool(_VERIFICATION_GATE_RE.search(block))
 
 
-def body_quality_errors(body: str) -> list[str]:
+def body_quality_errors(body: str, *, repo_path: Path | None = None) -> list[str]:
     """Lightweight quality check for written bodies. Mirrors the
     AGENT_ISSUE_FORMAT.md standard at validation time so low-quality bodies
     can be rejected before upload.
@@ -234,7 +273,78 @@ def body_quality_errors(body: str) -> list[str]:
             f"body is too short ({len(body)} chars); reference issues like #468 "
             "and #908 sit at 3000-5000 chars"
         )
+    task_paths = _reference_paths(_section_block(body, ("## tasks", "## task list")))
+    if len(task_paths) < 4:
+        errors.append(
+            f"Tasks reference {len(task_paths)} distinct repository paths; at least 4 are required"
+        )
+    implementation_paths = _reference_paths(_section_block(body, ("## implementation notes",)))
+    if len(implementation_paths) < 6:
+        errors.append(
+            "Implementation Notes reference "
+            f"{len(implementation_paths)} distinct repository paths; at least 6 are required"
+        )
+    if repo_path is not None:
+        unresolved = sorted(
+            reference
+            for reference in task_paths | implementation_paths
+            if not _path_resolves(repo_path, reference)
+        )
+        if unresolved:
+            errors.append(
+                "body contains repository paths that do not resolve: " + ", ".join(unresolved[:8])
+            )
     return errors
+
+
+def candidate_records(data: object) -> tuple[list[dict[str, object]], list[str]]:
+    """Return candidate records only when their container shapes are safe."""
+    if not isinstance(data, dict):
+        return [], ["converged.json root must be an object"]
+    raw = data.get("converged_candidates")
+    if not isinstance(raw, list):
+        return [], ["converged_candidates must be a list of objects"]
+    errors = [
+        f"converged_candidates[{index}] must be an object"
+        for index, candidate in enumerate(raw)
+        if not isinstance(candidate, dict)
+    ]
+    if errors:
+        return [], errors
+    records = list(raw)
+    meta = data.get("meta_candidate")
+    if meta is not None and not isinstance(meta, dict):
+        return [], ["meta_candidate must be an object or null"]
+    if isinstance(meta, dict):
+        records.append(meta)
+    return records, []
+
+
+def restore_non_body_fields(
+    before: dict[str, object], after: object
+) -> tuple[dict[str, object], list[str], int]:
+    """Preserve every pre-invocation field except candidate body values."""
+    before_records, before_errors = candidate_records(before)
+    after_records, after_errors = candidate_records(after)
+    errors = [*before_errors, *after_errors]
+    if errors or len(before_records) != len(after_records):
+        if not errors:
+            errors.append("candidate count changed during body writing")
+        return deepcopy(before), errors, 0
+
+    restored = deepcopy(before)
+    restored_records, _ = candidate_records(restored)
+    restored_count = 0
+    for old, new, destination in zip(before_records, after_records, restored_records, strict=True):
+        if {key: value for key, value in old.items() if key != "body"} != {
+            key: value for key, value in new.items() if key != "body"
+        }:
+            restored_count += 1
+        if "body" in new:
+            destination["body"] = deepcopy(new["body"])
+        else:
+            destination.pop("body", None)
+    return restored, [], restored_count
 
 
 # ---------------------------------------------------------------------------
@@ -250,12 +360,11 @@ def build_prompt(*, repo: str, output_dir: Path, repo_path: Path) -> str:
     if cj.is_file():
         try:
             data = json.loads(cj.read_text(encoding="utf-8"))
-            candidates = list(data.get("converged_candidates") or [])
-            meta = data.get("meta_candidate")
-            if isinstance(meta, dict):
-                candidates.append(meta)
+            candidates, shape_errors = candidate_records(data)
+            if shape_errors:
+                repair_targets.append("- converged.json structure: " + "; ".join(shape_errors))
             for index, candidate in enumerate(candidates, start=1):
-                errors = body_quality_errors(str(candidate.get("body") or ""))
+                errors = body_quality_errors(str(candidate.get("body") or ""), repo_path=repo_path)
                 if errors:
                     repair_targets.append(
                         f"- candidate #{index} {candidate.get('title', '?')!r}: "
@@ -363,6 +472,21 @@ def run(args: argparse.Namespace) -> int:
     attempt = begin_attempt(state, phase="body-writer", agent=args.agent)
     save_state(output_dir, state)
 
+    try:
+        original_data = json.loads(cj.read_text(encoding="utf-8"))
+    except (OSError, json.JSONDecodeError) as exc:
+        finish_attempt(state, attempt, succeeded=False, notes=f"cannot parse converged.json: {exc}")
+        save_state(output_dir, state)
+        print(f"[body-writer] {args.repo}: cannot parse converged.json: {exc}", file=sys.stderr)
+        return 1
+    _records, initial_shape_errors = candidate_records(original_data)
+    if initial_shape_errors:
+        notes = "; ".join(initial_shape_errors)
+        finish_attempt(state, attempt, succeeded=False, notes=notes)
+        save_state(output_dir, state)
+        print(f"[body-writer] {args.repo}: {notes}", file=sys.stderr)
+        return 1
+
     print(
         f"[body-writer] {args.repo}: spawning agent={args.agent} "
         f"(timeout={args.timeout}s, log: {log_dir / f'body-writer-{args.repo.replace(chr(47), chr(95) * 2)}.log'})"
@@ -394,11 +518,18 @@ def run(args: argparse.Namespace) -> int:
         )
         return 1
 
-    schema_errors = validate_converged_set(data, expected_repo=args.repo)
-    candidates = list(data.get("converged_candidates") or [])
-    meta = data.get("meta_candidate")
-    if isinstance(meta, dict):
-        candidates.append(meta)
+    data, preservation_errors, restored_non_body = restore_non_body_fields(original_data, data)
+    if preservation_errors or restored_non_body:
+        try:
+            cj.write_text(json.dumps(data, indent=2) + "\n", encoding="utf-8")
+        except OSError as exc:
+            preservation_errors.append(f"cannot restore non-body fields: {exc}")
+    schema_errors = [
+        *validate_converged_set(data, expected_repo=args.repo),
+        *preservation_errors,
+    ]
+    candidates, shape_errors = candidate_records(data)
+    schema_errors.extend(shape_errors)
 
     body_failures: list[str] = []
     insufficient_count = 0
@@ -409,7 +540,7 @@ def run(args: argparse.Namespace) -> int:
         if body.strip().startswith("INSUFFICIENT_EVIDENCE"):
             insufficient_count += 1
             continue
-        errors = body_quality_errors(body)
+        errors = body_quality_errors(body, repo_path=repo_path)
         if errors:
             body_failures.append(f"  candidate #{i} '{title}': {'; '.join(errors[:3])}")
         else:
@@ -417,7 +548,8 @@ def run(args: argparse.Namespace) -> int:
 
     summary = (
         f"written={written_count}, insufficient={insufficient_count}, "
-        f"failures={len(body_failures)}, schema_errors={len(schema_errors)}"
+        f"failures={len(body_failures)}, schema_errors={len(schema_errors)}, "
+        f"restored_non_body={restored_non_body}"
     )
     succeeded = not schema_errors and not body_failures
     finish_attempt(state, attempt, succeeded=succeeded, notes=summary)

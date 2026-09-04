@@ -405,6 +405,7 @@ class TestSyncRepoToOrigin:
         assert "detached at origin/main (was main)" in message
         assert "HEAD now abc123 on origin/main" in message
         assert not any("pull" in call for call in calls)
+        assert any(call[-3:] == ["checkout", "--detach", "origin/main"] for call in calls)
 
     def test_preserves_executing_steward_checkout(self, tmp_path: Path) -> None:
         repo_path = tmp_path / "repo"
@@ -420,8 +421,10 @@ class TestSyncRepoToOrigin:
             timeout: int = 120,
         ) -> subprocess.CompletedProcess[str]:
             calls.append(args)
-            if "fetch" in args or "status" in args:
+            if "fetch" in args:
                 return self._make_result(0, "")
+            if "status" in args:
+                return self._make_result(0, " M scripts/repo_review_coordinator.py\n")
             if "--verify" in args and "origin/main" in args:
                 return self._make_result(0, "origin123")
             if "--abbrev-ref" in args:
@@ -437,6 +440,35 @@ class TestSyncRepoToOrigin:
         assert "preserved executing steward checkout at repair456" in message
         assert not any("checkout" in call or "pull" in call for call in calls)
         assert not any("stash" in call for call in calls)
+
+    def test_stash_failure_stops_before_checkout(self, tmp_path: Path) -> None:
+        repo_path = tmp_path / "repo"
+        repo_path.mkdir()
+        calls: list[list[str]] = []
+
+        def fake_run(args: list[str], **_kwargs) -> subprocess.CompletedProcess[str]:
+            calls.append(args)
+            if "fetch" in args:
+                return self._make_result(0)
+            if "--verify" in args:
+                return self._make_result(0, "origin123")
+            if "--abbrev-ref" in args:
+                return self._make_result(0, "feature")
+            if args[-2:] == ["rev-parse", "HEAD"]:
+                return self._make_result(0, "local456")
+            if "status" in args:
+                return self._make_result(0, " M local.txt\n")
+            if "stash" in args:
+                return self._make_result(1, stderr="unable to write index")
+            return self._make_result(0)
+
+        with patch("subprocess.run", fake_run):
+            ok, message = runner.sync_repo_to_origin(repo_path)
+
+        assert ok is False
+        assert "git stash failed" in message
+        assert "unable to write index" in message
+        assert not any("checkout" in call for call in calls)
 
     def test_timeout_handling(self, tmp_path: Path) -> None:
         repo_path = tmp_path / "repo"
@@ -626,6 +658,30 @@ def test_refresh_map_quarantines_conflicted_wal_and_verifies_rebuild(
     assert (cache_dir / "meta.json").is_file()
     quarantined = list((tmp_path / "repairs").glob("repo/*/.gitnexus/*conflicted copy*"))
     assert len(quarantined) == 1
+
+
+def test_refresh_map_returns_failure_when_quarantine_move_fails(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    repo_path = tmp_path / "repo"
+    cache_dir = repo_path / ".gitnexus"
+    cache_dir.mkdir(parents=True)
+    (cache_dir / "lbug (conflicted copy).wal").write_text("broken", encoding="utf-8")
+
+    def fail_move(*_args, **_kwargs):
+        raise OSError("Dropbox lock")
+
+    monkeypatch.setattr(runner.shutil, "move", fail_move)
+
+    ok, message = runner.refresh_map_blocking(
+        repo_path,
+        gitnexus_bin="gitnexus",
+        repair_root=tmp_path / "repairs",
+    )
+
+    assert ok is False
+    assert "quarantine failed" in message
+    assert "Dropbox lock" in message
 
 
 def test_refresh_map_rebuilds_after_analyzer_reports_corruption(

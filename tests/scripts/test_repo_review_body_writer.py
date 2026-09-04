@@ -20,8 +20,10 @@ the load-bearing surface for upload-quality.
 from __future__ import annotations
 
 import argparse
+import json
 import subprocess
 from pathlib import Path
+from types import SimpleNamespace
 
 import pytest
 from scripts import repo_review_body_writer as body_writer
@@ -49,9 +51,9 @@ runner produces synthetic findings instead of real ones.
 
 ## Tasks
 
-- [ ] Wire `_finding_from_readiness_row` to consume `out/readiness.json` rows.
-- [ ] Wire `_finding_from_extraction_row` to consume `out/extraction.json` rows.
-- [ ] Raise `ReviewableFindingsArtifactError` when either source path is missing.
+- [ ] Wire `scripts/reviewable_findings.py` to consume `out/readiness.json` rows.
+- [ ] Wire `src/reviewable_findings/extract.py` to consume `out/extraction.json` rows.
+- [ ] Add the missing-source assertion in `tests/test_findings_chains.py`.
 - [ ] Update README to drop the "while generator wiring is finalized" qualifier.
 
 ## Acceptance Criteria
@@ -62,11 +64,12 @@ runner produces synthetic findings instead of real ones.
 
 ## Implementation Notes
 
+The implementation spans `scripts/reviewable_findings.py`,
+`src/reviewable_findings/extract.py`, `tests/test_findings_chains.py`,
+`tests/fixtures/findings.json`, `docs/reviewable-findings.md`, and `README.md`.
 The fixture finding IDs `finding:demo:fixture:*` should no longer appear in
 real-data output; the chain step should derive `finding:<plan_id>:<period>:<source>`
-from the real `plan_id` and `period` columns in the readiness rows. The
-existing chain step's signature is preserved; only the source-of-input
-changes from `tests/fixtures/findings.json` to the real artifact paths.
+from the real `plan_id` and `period` columns in the readiness rows.
 
 Reference example issues live at github.com/.../issues/468 and
 github.com/.../issues/908. Both follow the same Why / Scope / Non-Goals /
@@ -223,6 +226,53 @@ def test_missing_acceptance_section_not_double_flagged_for_gate() -> None:
     assert not any("falsifiable gate" in e for e in errors)
 
 
+def test_body_quality_errors_enforces_documented_file_reference_counts() -> None:
+    body = (
+        "## Why\n\n" + _FILLER + "\n\n"
+        "## Tasks\n\n"
+        "- [ ] Update `src/a.py`, `src/b.py`, and `tests/test_a.py`.\n\n"
+        "## Acceptance Criteria\n\n"
+        "- [ ] `pytest tests/test_a.py -q` passes.\n\n"
+        "## Implementation Notes\n\n"
+        "Inspect `src/a.py`, `src/b.py`, `tests/test_a.py`, `docs/a.md`, and `README.md`.\n\n"
+        + _FILLER
+    )
+
+    errors = body_writer.body_quality_errors(body)
+
+    assert len(errors) == 2
+    assert any("Tasks reference 3" in error for error in errors)
+    assert any("Implementation Notes reference 5" in error for error in errors)
+
+
+def test_body_quality_errors_rejects_unresolvable_paths(tmp_path: Path) -> None:
+    for relative in (
+        "src/a.py",
+        "src/b.py",
+        "tests/test_a.py",
+        "docs/a.md",
+        "docs/b.md",
+        "scripts/check.py",
+    ):
+        path = tmp_path / relative
+        path.parent.mkdir(parents=True, exist_ok=True)
+        path.write_text("ok\n", encoding="utf-8")
+    body = (
+        "## Why\n\n" + _FILLER + "\n\n"
+        "## Tasks\n\n"
+        "- [ ] Update `src/a.py`, `src/b.py`, `tests/test_a.py`, and `missing/x.py`.\n\n"
+        "## Acceptance Criteria\n\n"
+        "- [ ] `pytest tests/test_a.py -q` passes.\n\n"
+        "## Implementation Notes\n\n"
+        "Inspect `src/a.py`, `src/b.py`, `tests/test_a.py`, `docs/a.md`, `docs/b.md`, "
+        "and `scripts/check.py`.\n\n" + _FILLER
+    )
+
+    errors = body_writer.body_quality_errors(body, repo_path=tmp_path)
+
+    assert any("missing/x.py" in error for error in errors)
+
+
 # ---------------------------------------------------------------------------
 # converged_path + canonical_body_writer_prompt
 # ---------------------------------------------------------------------------
@@ -299,6 +349,177 @@ def test_build_prompt_requires_rewrite_of_nonempty_invalid_body(
     assert "BODY REPAIR REQUIRED" in prompt
     assert "candidate #1 'Repair me'" in prompt
     assert "rewrite every target" in prompt
+
+
+def test_restore_non_body_fields_keeps_only_agent_body_changes() -> None:
+    before = {
+        "repo": "stranske/Example",
+        "converged_candidates": [
+            {"title": "Original", "design_refs": ["docs/design.md"], "body": ""}
+        ],
+        "meta_candidate": None,
+    }
+    after = {
+        "repo": "stranske/Wrong",
+        "converged_candidates": [
+            {"title": "Mutated", "design_refs": ["README.md"], "body": "new body"}
+        ],
+        "meta_candidate": None,
+    }
+
+    restored, errors, restored_count = body_writer.restore_non_body_fields(before, after)
+
+    assert errors == []
+    assert restored_count == 1
+    assert restored["repo"] == "stranske/Example"
+    assert restored["converged_candidates"][0]["title"] == "Original"
+    assert restored["converged_candidates"][0]["design_refs"] == ["docs/design.md"]
+    assert restored["converged_candidates"][0]["body"] == "new body"
+
+
+@pytest.mark.parametrize(
+    "candidates",
+    [
+        {"title": "not a list"},
+        [{"title": "valid object"}, "not an object"],
+    ],
+)
+def test_candidate_records_rejects_malformed_candidate_shapes(candidates: object) -> None:
+    records, errors = body_writer.candidate_records(
+        {"converged_candidates": candidates, "meta_candidate": None}
+    )
+    assert records == []
+    assert errors
+
+
+def _run_args(output_dir: Path, registry_path: Path) -> SimpleNamespace:
+    return SimpleNamespace(
+        output_dir=str(output_dir),
+        registry=str(registry_path),
+        repo="stranske/Example",
+        skip_sync_check=False,
+        agent="claude",
+        timeout=30,
+    )
+
+
+def _write_empty_converged(output_dir: Path) -> None:
+    path = body_writer.converged_path(output_dir, "stranske/Example")
+    path.parent.mkdir(parents=True, exist_ok=True)
+    path.write_text(
+        json.dumps(
+            {
+                "repo": "stranske/Example",
+                "converged_candidates": [],
+                "meta_candidate": None,
+            }
+        ),
+        encoding="utf-8",
+    )
+
+
+def test_run_skips_sync_verification_for_executing_steward(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    steward = tmp_path / "Workflows-steward"
+    registry_path = steward / "config" / "repo_review_registry.json"
+    registry_path.parent.mkdir(parents=True)
+    registry_path.write_text("{}", encoding="utf-8")
+    output_dir = tmp_path / "out"
+    _write_empty_converged(output_dir)
+    monkeypatch.setattr(
+        body_writer,
+        "load_registry",
+        lambda _path: (
+            tmp_path,
+            [],
+            [SimpleNamespace(repo="stranske/Example", local_path="Workflows-steward")],
+            [],
+        ),
+    )
+
+    def unexpected_sync(_path):
+        raise AssertionError("steward sync verification must be skipped")
+
+    monkeypatch.setattr(body_writer, "verify_clean_sync", unexpected_sync)
+    monkeypatch.setattr(body_writer, "run_body_writer", lambda **_kwargs: (False, "stop"))
+
+    assert body_writer.run(_run_args(output_dir, registry_path)) == 1
+
+
+def test_run_calls_sync_verification_for_consumer(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    steward = tmp_path / "Workflows-steward"
+    registry_path = steward / "config" / "repo_review_registry.json"
+    registry_path.parent.mkdir(parents=True)
+    registry_path.write_text("{}", encoding="utf-8")
+    output_dir = tmp_path / "out"
+    _write_empty_converged(output_dir)
+    monkeypatch.setattr(
+        body_writer,
+        "load_registry",
+        lambda _path: (
+            tmp_path,
+            [],
+            [SimpleNamespace(repo="stranske/Example", local_path="consumer")],
+            [],
+        ),
+    )
+    seen: list[Path] = []
+
+    def fail_sync(path: Path) -> tuple[bool, str]:
+        seen.append(path)
+        return False, "not current"
+
+    monkeypatch.setattr(body_writer, "verify_clean_sync", fail_sync)
+
+    assert body_writer.run(_run_args(output_dir, registry_path)) == 1
+    assert seen == [tmp_path / "consumer"]
+
+
+@pytest.mark.parametrize(
+    "candidates",
+    [{"title": "bad"}, [{"title": "ok"}, 3]],
+)
+def test_run_records_malformed_candidate_shape_as_failed_attempt(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch, candidates: object
+) -> None:
+    steward = tmp_path / "Workflows-steward"
+    registry_path = steward / "config" / "repo_review_registry.json"
+    registry_path.parent.mkdir(parents=True)
+    registry_path.write_text("{}", encoding="utf-8")
+    output_dir = tmp_path / "out"
+    path = body_writer.converged_path(output_dir, "stranske/Example")
+    path.parent.mkdir(parents=True)
+    path.write_text(
+        json.dumps({"converged_candidates": candidates, "meta_candidate": None}),
+        encoding="utf-8",
+    )
+    monkeypatch.setattr(
+        body_writer,
+        "load_registry",
+        lambda _path: (
+            tmp_path,
+            [],
+            [SimpleNamespace(repo="stranske/Example", local_path="Workflows-steward")],
+            [],
+        ),
+    )
+    invoked = False
+
+    def fake_writer(**_kwargs):
+        nonlocal invoked
+        invoked = True
+        return True, "ok"
+
+    monkeypatch.setattr(body_writer, "run_body_writer", fake_writer)
+
+    assert body_writer.run(_run_args(output_dir, registry_path)) == 1
+    assert invoked is False
+    state_path = output_dir / "round2" / "stranske__Example" / "state.json"
+    state = json.loads(state_path.read_text(encoding="utf-8"))
+    assert state["attempts"][-1]["succeeded"] is False
 
 
 # ---------------------------------------------------------------------------
