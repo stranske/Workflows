@@ -39,6 +39,28 @@ const ROUTE_WEIGHT_TASK_TYPES = {
 };
 
 /**
+ * Resolve the keepalive round kind used to look up a route-weights task type.
+ *
+ * `state.last_action` (the keepalive step: run/fix/conflict/review/wait/...)
+ * never itself takes the value `testgen` — test-writing work is signalled by
+ * the issue/PR `testgen` label instead (see docs/LABELS.md task-type
+ * precedence). Without checking the label first, a testgen-labelled PR would
+ * always be misclassified as `implement` when consulting route-weights.
+ *
+ * @param {Object} [options]
+ * @param {Array<string>} [options.labels] - Normalized (lowercase) PR labels
+ * @param {Object} [options.state] - Keepalive state
+ * @returns {string}
+ */
+function resolveRoundKind({ labels = [], state = {} } = {}) {
+  const normalizedLabels = labels.map((label) => String(label).toLowerCase());
+  if (normalizedLabels.includes('testgen')) {
+    return 'testgen';
+  }
+  return state.last_action || state.pending_action || 'implement';
+}
+
+/**
  * Fetch and validate the Orchestrator route-weights export. Never throws.
  *
  * @param {Object} [options]
@@ -633,6 +655,7 @@ function formatDelegationSummary({ decision, effectiveness, state = {} }) {
 module.exports = {
   DEFAULT_ROUTE_WEIGHTS_URL,
   ROUTE_WEIGHT_TASK_TYPES,
+  resolveRoundKind,
   loadRouteWeights,
   selectAgentFromRouteWeights,
   getRouteWeightReserveAgents,

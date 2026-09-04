@@ -13,6 +13,7 @@ const assert = require('node:assert/strict');
 const {
   decideNextAgent,
   loadRouteWeights,
+  resolveRoundKind,
 } = require('../agent_delegation_policy.js');
 
 const mockRegistry = {
@@ -273,6 +274,30 @@ test('reserve never chosen', async () => {
   assert.equal(result.agent, 'cursor');
   assert.equal(result.delegationSource, 'route_weights');
   assert.ok(result.reason.includes('delegation_source: route_weights'));
+});
+
+test('resolveRoundKind maps the testgen label ahead of the keepalive action state', () => {
+  const result = resolveRoundKind({
+    labels: ['agent:auto', 'testgen'],
+    state: { last_action: 'run' },
+  });
+
+  assert.equal(result, 'testgen');
+});
+
+test('resolveRoundKind falls back to the keepalive action state without the testgen label', () => {
+  const result = resolveRoundKind({
+    labels: ['agent:auto', 'review'],
+    state: { last_action: 'review' },
+  });
+
+  assert.equal(result, 'review');
+});
+
+test('resolveRoundKind defaults to implement with no label or action state', () => {
+  const result = resolveRoundKind({ labels: [], state: {} });
+
+  assert.equal(result, 'implement');
 });
 
 test('stalled agent never re-chosen', () => {
