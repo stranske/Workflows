@@ -87,7 +87,9 @@ checkout to remain detached and avoids failures from a sibling worktree owning
 `main` or from damaged local pull bookkeeping such as `ORIG_HEAD`. When the
 repo under review is the executing Workflows steward itself, round 1 preserves
 that checkout for the lifetime of the coordinator; replacing live script files
-mid-cycle could otherwise make round 2 load a different implementation.
+mid-cycle could otherwise make round 2 load a different implementation. The
+body-writer applies the same exception to its exact-origin check for that one
+checkout; consumer repos must still match `origin/main`.
 
 `python scripts/repo_review_evaluator.py` remains valid as a standalone
 preflight step: it produces the per-repo `review-inputs.md` artifacts without

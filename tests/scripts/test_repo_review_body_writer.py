@@ -322,6 +322,14 @@ def test_verify_clean_sync_fails_when_head_diverges(fake_repo: Path) -> None:
     assert "does not match" in message
 
 
+def test_sync_check_not_required_for_executing_steward(tmp_path: Path) -> None:
+    steward = tmp_path / "Workflows-steward"
+    steward.mkdir()
+
+    assert body_writer.sync_check_required(steward, steward) is False
+    assert body_writer.sync_check_required(tmp_path / "consumer", steward) is True
+
+
 # ---------------------------------------------------------------------------
 # Generic boilerplate phrase inventory — keep aligned with the script.
 # ---------------------------------------------------------------------------
@@ -331,9 +339,9 @@ def test_verify_clean_sync_fails_when_head_diverges(fake_repo: Path) -> None:
 def test_each_generic_boilerplate_phrase_is_flagged(phrase: str) -> None:
     body = CLEAN_BODY + f"\n\nNote: {phrase}.\n"
     errors = body_writer.body_quality_errors(body)
-    assert any(
-        repr(phrase) in e or phrase in e for e in errors
-    ), f"phrase {phrase!r} should be flagged by body_quality_errors"
+    assert any(repr(phrase) in e or phrase in e for e in errors), (
+        f"phrase {phrase!r} should be flagged by body_quality_errors"
+    )
 
 
 # ---------------------------------------------------------------------------

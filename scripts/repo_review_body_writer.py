@@ -143,6 +143,16 @@ def verify_clean_sync(repo_path: Path) -> tuple[bool, str]:
     )
 
 
+def sync_check_required(repo_path: Path, workflows_steward_root: Path) -> bool:
+    """Do not reject the executing steward for running unreleased repair code.
+
+    Round 1 preserves this checkout so later phases cannot load a different
+    implementation mid-cycle. Every consumer repo must still match
+    ``origin/main`` before body writing.
+    """
+    return repo_path.resolve() != workflows_steward_root.resolve()
+
+
 # ---------------------------------------------------------------------------
 # Body quality gate (post-write)
 # ---------------------------------------------------------------------------
@@ -305,12 +315,17 @@ def run(args: argparse.Namespace) -> int:
         )
         return 2
 
-    if not args.skip_sync_check:
+    if not args.skip_sync_check and sync_check_required(repo_path, workflows_steward_root):
         ok, message = verify_clean_sync(repo_path)
         if not ok:
             print(f"[body-writer] {args.repo}: sync check failed — {message}", file=sys.stderr)
             return 1
         print(f"[body-writer] {args.repo}: {message}")
+    elif not args.skip_sync_check:
+        print(
+            f"[body-writer] {args.repo}: preserving executing steward checkout "
+            "for phase consistency"
+        )
 
     log_dir = output_dir / "logs" / "body-writer"
     log_dir.mkdir(parents=True, exist_ok=True)
