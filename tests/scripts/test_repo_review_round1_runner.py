@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import json
 import subprocess
 from pathlib import Path
 from unittest.mock import MagicMock, patch
@@ -248,6 +249,8 @@ class TestSyncRepoToOrigin:
                     return self._make_result(0, "main")
                 elif "--short" in args:
                     return self._make_result(0, "abc1234")
+                elif args[-2:] == ["rev-parse", "HEAD"]:
+                    return self._make_result(0, "abc123")
             elif "pull" in args or "checkout" in args:
                 return self._make_result(0)
 
@@ -357,12 +360,13 @@ class TestSyncRepoToOrigin:
             ok, message = runner.sync_repo_to_origin(repo_path)
 
         assert ok is False
-        assert "checkout main failed" in message
+        assert "checkout --detach origin/main failed" in message
         assert "pathspec error" in message
 
-    def test_failure_on_pull_error(self, tmp_path: Path) -> None:
+    def test_stale_main_detaches_at_origin_without_pull(self, tmp_path: Path) -> None:
         repo_path = tmp_path / "repo"
         repo_path.mkdir()
+        calls: list[list[str]] = []
 
         def fake_run(
             args: list[str],
@@ -372,6 +376,7 @@ class TestSyncRepoToOrigin:
             text: bool = True,
             timeout: int = 120,
         ) -> subprocess.CompletedProcess[str]:
+            calls.append(args)
             if "fetch" in args:
                 return self._make_result(0)
             elif "status" in args:
@@ -380,8 +385,10 @@ class TestSyncRepoToOrigin:
                 return self._make_result(0, "abc123")
             elif "--abbrev-ref" in args and "HEAD" in args:
                 return self._make_result(0, "main")  # already on main
-            elif "pull" in args:
-                return self._make_result(1, stderr="pull failed: non-ff merge required")
+            elif args[-2:] == ["rev-parse", "HEAD"]:
+                return self._make_result(0, "old123")
+            elif "checkout" in args:
+                return self._make_result(0)
             elif "--short" in args:
                 return self._make_result(0, "abc123")
             return self._make_result(0)
@@ -394,9 +401,10 @@ class TestSyncRepoToOrigin:
         ):
             ok, message = runner.sync_repo_to_origin(repo_path)
 
-        assert ok is False
-        assert "pull --ff-only failed" in message
-        assert "non-ff merge required" in message
+        assert ok is True
+        assert "detached at origin/main (was main)" in message
+        assert "HEAD now abc123 on origin/main" in message
+        assert not any("pull" in call for call in calls)
 
     def test_timeout_handling(self, tmp_path: Path) -> None:
         repo_path = tmp_path / "repo"
@@ -546,5 +554,84 @@ class TestSyncRepoToOrigin:
             ok, message = runner.sync_repo_to_origin(repo_path)
 
         assert ok is True
-        assert "checked out main (was develop)" in message
-        assert "HEAD now def456 on main" in message
+        assert "detached at origin/main (was develop)" in message
+        assert "HEAD now def456 on origin/main" in message
+
+
+def test_refresh_map_quarantines_conflicted_wal_and_verifies_rebuild(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    repo_path = tmp_path / "repo"
+    cache_dir = repo_path / ".gitnexus"
+    cache_dir.mkdir(parents=True)
+    (cache_dir / "lbug (Tim's conflicted copy 2026-09-03).wal").write_text("", encoding="utf-8")
+
+    def fake_analyze(*_args, **_kwargs):
+        cache_dir.mkdir(parents=True, exist_ok=True)
+        (cache_dir / "meta.json").write_text(
+            json.dumps({"lastCommit": "abc123", "stats": {"embeddings": 12}}),
+            encoding="utf-8",
+        )
+        return True, "GitNexus Analyzer complete"
+
+    monkeypatch.setattr(runner, "run_gitnexus_analyze", fake_analyze)
+    monkeypatch.setattr(
+        subprocess,
+        "run",
+        lambda *_args, **_kwargs: subprocess.CompletedProcess(
+            args=["git"], returncode=0, stdout="abc123\n", stderr=""
+        ),
+    )
+
+    ok, message = runner.refresh_map_blocking(
+        repo_path,
+        gitnexus_bin="gitnexus",
+        repair_root=tmp_path / "repairs",
+    )
+
+    assert ok is True
+    assert "quarantined GitNexus cache" in message
+    assert (cache_dir / "meta.json").is_file()
+    quarantined = list((tmp_path / "repairs").glob("repo/*/.gitnexus/*conflicted copy*"))
+    assert len(quarantined) == 1
+
+
+def test_refresh_map_rebuilds_after_analyzer_reports_corruption(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    repo_path = tmp_path / "repo"
+    cache_dir = repo_path / ".gitnexus"
+    cache_dir.mkdir(parents=True)
+    (cache_dir / "lbug").write_bytes(b"broken")
+    calls = 0
+
+    def fake_analyze(*_args, **_kwargs):
+        nonlocal calls
+        calls += 1
+        if calls == 1:
+            return False, "GitNexus corruption detected (corrupted wal file)"
+        cache_dir.mkdir(parents=True, exist_ok=True)
+        (cache_dir / "meta.json").write_text(
+            json.dumps({"lastCommit": "abc123", "stats": {"embeddings": 8}}),
+            encoding="utf-8",
+        )
+        return True, "rebuilt"
+
+    monkeypatch.setattr(runner, "run_gitnexus_analyze", fake_analyze)
+    monkeypatch.setattr(
+        subprocess,
+        "run",
+        lambda *_args, **_kwargs: subprocess.CompletedProcess(
+            args=["git"], returncode=0, stdout="abc123\n", stderr=""
+        ),
+    )
+
+    ok, message = runner.refresh_map_blocking(
+        repo_path,
+        gitnexus_bin="gitnexus",
+        repair_root=tmp_path / "repairs",
+    )
+
+    assert ok is True
+    assert calls == 2
+    assert "analyzer reported database corruption" in message

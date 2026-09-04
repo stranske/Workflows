@@ -1,9 +1,45 @@
 import importlib
 import json
 from pathlib import Path
+from types import SimpleNamespace
 
 import pytest
 from scripts import repo_review_round2_runner as runner
+
+
+def test_invoke_codex_uses_supported_approval_flag(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    captured: dict[str, object] = {}
+    monkeypatch.setattr(runner.shutil, "which", lambda _name: "/usr/local/bin/codex")
+    monkeypatch.setattr(
+        runner.subprocess,
+        "run",
+        lambda *_args, **_kwargs: SimpleNamespace(
+            returncode=0,
+            stdout="Usage: codex exec [OPTIONS]\n  --approve-for-me",
+            stderr="",
+        ),
+    )
+
+    def fake_heartbeat(cmd, **kwargs):
+        captured["cmd"] = cmd
+        return SimpleNamespace(
+            succeeded=True,
+            stuck=False,
+            timed_out=False,
+            returncode=0,
+            note="ok",
+        )
+
+    monkeypatch.setattr(runner, "run_with_heartbeat", fake_heartbeat)
+    ok, _message = runner.invoke_codex(
+        "prompt", cwd=tmp_path, log_file=tmp_path / "codex.log", timeout=30
+    )
+
+    assert ok is True
+    assert "--approve-for-me" in captured["cmd"]
+    assert "--full-auto" not in captured["cmd"]
 
 
 def _candidate(title: str = "Keep approved repo-local work") -> dict[str, object]:

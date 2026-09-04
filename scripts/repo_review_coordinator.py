@@ -34,6 +34,7 @@ from __future__ import annotations
 
 import argparse
 import json
+import shutil
 import subprocess
 import sys
 from dataclasses import dataclass
@@ -44,6 +45,8 @@ from typing import Any
 try:
     from scripts.repo_review_evaluator import load_registry
     from scripts.repo_review_state import (
+        begin_attempt,
+        finish_attempt,
         load_state,
         save_state,
         transition,
@@ -51,6 +54,8 @@ try:
 except ModuleNotFoundError:  # pragma: no cover - direct script execution
     from repo_review_evaluator import load_registry  # type: ignore[no-redef]
     from repo_review_state import (  # type: ignore[no-redef]
+        begin_attempt,
+        finish_attempt,
         load_state,
         save_state,
         transition,
@@ -328,6 +333,130 @@ def run_subprocess(
     )
 
 
+def prepare_phase_retry(
+    *,
+    phase: str,
+    repo: str,
+    output_dir: Path,
+    failed_log: Path,
+    repair_number: int,
+) -> dict[str, Any]:
+    """Preserve a failed attempt and remove only poisoned derived outputs.
+
+    The repair is deliberately repo-scoped. Valid round-1 findings remain in
+    place so a successful peer is reused. Round-2 turn outputs are quarantined
+    because the runner treats an existing JSON file as reusable before schema
+    validation; one malformed partial file would otherwise poison every retry.
+    """
+    safe = repo.replace("/", "__")
+    timestamp = datetime.now(UTC).strftime("%Y%m%dT%H%M%S.%fZ")
+    repair_dir = output_dir / "repairs" / safe / f"{timestamp}-{phase}-{repair_number}"
+    repair_dir.mkdir(parents=True, exist_ok=False)
+    preserved: list[str] = []
+    quarantined: list[str] = []
+
+    if failed_log.is_file():
+        destination = repair_dir / failed_log.name
+        shutil.copy2(failed_log, destination)
+        preserved.append(str(destination))
+
+    related_logs: list[Path] = []
+    if phase == "round-1":
+        related_logs.extend((output_dir / "logs" / "round1").glob(f"*-{safe}.log*"))
+    elif phase == "round-2":
+        repo_round2 = output_dir / "round2" / safe
+        for path in sorted(repo_round2.glob("turn-*")):
+            destination = repair_dir / path.name
+            shutil.move(str(path), str(destination))
+            quarantined.append(str(destination))
+        for name in ("converged.json", "logs"):
+            path = repo_round2 / name
+            if path.exists():
+                destination = repair_dir / name
+                shutil.move(str(path), str(destination))
+                quarantined.append(str(destination))
+    elif phase == "body-writer":
+        related_logs.extend((output_dir / "logs" / "body-writer").glob(f"*-{safe}.log*"))
+
+    for path in related_logs:
+        if not path.is_file():
+            continue
+        destination = repair_dir / path.name
+        if destination.exists():
+            continue
+        shutil.copy2(path, destination)
+        preserved.append(str(destination))
+
+    actions = {
+        "phase": phase,
+        "repo": repo,
+        "repair_number": repair_number,
+        "created_at": datetime.now(UTC).isoformat(),
+        "repair_dir": str(repair_dir),
+        "preserved": preserved,
+        "quarantined": quarantined,
+    }
+    (repair_dir / "repair.json").write_text(json.dumps(actions, indent=2) + "\n", encoding="utf-8")
+
+    state = load_state(output_dir, repo)
+    attempt = begin_attempt(state, phase=f"{phase}-repair", agent="coordinator")
+    notes = (
+        f"repair {repair_number}: preserved={len(preserved)} "
+        f"quarantined={len(quarantined)} at {repair_dir}"
+    )
+    finish_attempt(state, attempt, succeeded=True, notes=notes)
+    save_state(output_dir, state)
+    return actions
+
+
+def run_subprocess_with_repairs(
+    cmd: list[str],
+    *,
+    cwd: Path,
+    log_path: Path,
+    name: str,
+    timeout: int,
+    repo: str,
+    output_dir: Path,
+    repair_attempts: int,
+) -> tuple[StepResult, list[dict[str, Any]], list[dict[str, Any]]]:
+    """Run a repo phase and perform a recorded, bounded repair before retry."""
+    attempts: list[dict[str, Any]] = []
+    repairs: list[dict[str, Any]] = []
+    result = StepResult(name=name, succeeded=False, duration_seconds=0.0)
+    for attempt_number in range(1, repair_attempts + 2):
+        result = run_subprocess(
+            cmd,
+            cwd=cwd,
+            log_path=log_path,
+            name=name,
+            timeout=timeout,
+        )
+        attempts.append(
+            {
+                "attempt": attempt_number,
+                "succeeded": result.succeeded,
+                "duration_seconds": result.duration_seconds,
+                "notes": result.notes,
+            }
+        )
+        if result.succeeded or attempt_number > repair_attempts:
+            break
+        repair = prepare_phase_retry(
+            phase=name,
+            repo=repo,
+            output_dir=output_dir,
+            failed_log=log_path,
+            repair_number=attempt_number,
+        )
+        repairs.append(repair)
+        print(
+            f"[coordinator] {repo}: {name} failed; repair {attempt_number} "
+            f"recorded at {repair['repair_dir']}; retrying"
+        )
+    return result, attempts, repairs
+
+
 # ---------------------------------------------------------------------------
 # Per-repo coordinator
 # ---------------------------------------------------------------------------
@@ -361,6 +490,7 @@ def coordinate_repo(
     round2_timeout: int,
     max_turns: int,
     skip_gate_enabled: bool,
+    repair_attempts: int = 2,
 ) -> dict[str, Any]:
     """Run the full Phase-4 flow for one repo. Returns a small report dict."""
     safe = repo.replace("/", "__")
@@ -372,6 +502,7 @@ def coordinate_repo(
         "started_at": datetime.now(UTC).isoformat(),
         "round1": None,
         "round2": None,
+        "body_writer": None,
         "skip_gate_fired": False,
         "skip_reason": "",
     }
@@ -391,17 +522,22 @@ def coordinate_repo(
         "--turn-timeout",
         str(round1_timeout),
     ]
-    r1_result = run_subprocess(
+    r1_result, r1_attempts, r1_repairs = run_subprocess_with_repairs(
         r1_cmd,
         cwd=workflows_steward_root,
         log_path=repo_log_dir / "round1-runner.log",
         name="round-1",
         timeout=round1_timeout + 1500,
+        repo=repo,
+        output_dir=output_dir,
+        repair_attempts=repair_attempts,
     )
     report["round1"] = {
         "succeeded": r1_result.succeeded,
         "duration_seconds": r1_result.duration_seconds,
         "notes": r1_result.notes,
+        "attempts": r1_attempts,
+        "repairs": r1_repairs,
     }
     if not r1_result.succeeded:
         return report
@@ -442,17 +578,22 @@ def coordinate_repo(
         "--turn-timeout",
         str(round2_timeout),
     ]
-    r2_result = run_subprocess(
+    r2_result, r2_attempts, r2_repairs = run_subprocess_with_repairs(
         r2_cmd,
         cwd=workflows_steward_root,
         log_path=repo_log_dir / "round2-runner.log",
         name="round-2",
         timeout=round2_subprocess_timeout(round2_timeout, max_turns, len(agents)),
+        repo=repo,
+        output_dir=output_dir,
+        repair_attempts=repair_attempts,
     )
     report["round2"] = {
         "succeeded": r2_result.succeeded,
         "duration_seconds": r2_result.duration_seconds,
         "notes": r2_result.notes,
+        "attempts": r2_attempts,
+        "repairs": r2_repairs,
     }
     if not r2_result.succeeded:
         return report
@@ -485,17 +626,22 @@ def coordinate_repo(
         "--timeout",
         str(min(round2_timeout, 60 * 60)),
     ]
-    bw_result = run_subprocess(
+    bw_result, bw_attempts, bw_repairs = run_subprocess_with_repairs(
         bw_cmd,
         cwd=workflows_steward_root,
         log_path=repo_log_dir / "body-writer.log",
         name="body-writer",
         timeout=min(round2_timeout, 60 * 60) + 600,
+        repo=repo,
+        output_dir=output_dir,
+        repair_attempts=repair_attempts,
     )
     report["body_writer"] = {
         "succeeded": bw_result.succeeded,
         "duration_seconds": bw_result.duration_seconds,
         "notes": bw_result.notes,
+        "attempts": bw_attempts,
+        "repairs": bw_repairs,
     }
 
     return report
@@ -591,6 +737,7 @@ def run(args: argparse.Namespace) -> int:
             round2_timeout=args.round2_timeout,
             max_turns=args.max_turns,
             skip_gate_enabled=not args.disable_skip_gate,
+            repair_attempts=getattr(args, "repair_attempts", 2),
         )
         reports.append(report)
 
@@ -744,7 +891,7 @@ def run(args: argparse.Namespace) -> int:
             cwd=workflows_steward_root,
             log_path=log_dir / "docs-drift-scan.log",
             name="docs-drift-scan",
-            timeout=300,  # same timeout pattern as backlog-scan
+            timeout=getattr(args, "docs_drift_timeout", 1800),
         )
         if not docs_drift_result.succeeded:
             print(
@@ -800,10 +947,15 @@ def run(args: argparse.Namespace) -> int:
             continue
         r1 = report.get("round1") or {}
         r2 = report.get("round2") or {}
+        body_writer = report.get("body_writer") or {}
         r1_label = "ok" if r1.get("succeeded") else "FAIL"
         r2_label = "ok" if r2.get("succeeded") else ("FAIL" if r2 else "n/a")
+        body_writer_label = (
+            "ok" if body_writer.get("succeeded") else ("FAIL" if body_writer else "n/a")
+        )
         print(
             f"  - {repo}: round1={r1_label} round2={r2_label} "
+            f"body-writer={body_writer_label} "
             f"(r1 {int(r1.get('duration_seconds') or 0)}s, "
             f"r2 {int((r2 or {}).get('duration_seconds') or 0)}s)"
         )
@@ -812,9 +964,16 @@ def run(args: argparse.Namespace) -> int:
         0
         if all(
             (r.get("round1") or {}).get("succeeded")
-            and (r.get("skip_gate_fired") or (r.get("round2") or {}).get("succeeded"))
+            and (
+                r.get("skip_gate_fired")
+                or (
+                    (r.get("round2") or {}).get("succeeded")
+                    and (r.get("body_writer") or {}).get("succeeded")
+                )
+            )
             for r in reports
         )
+        and final_result.succeeded
         else 1
     )
 
@@ -870,6 +1029,18 @@ def main() -> int:
         type=int,
         default=3,
         help="maximum negotiation turns per round-2 run (default: 3)",
+    )
+    parser.add_argument(
+        "--repair-attempts",
+        type=int,
+        default=2,
+        help="repo-scoped repair-and-retry attempts per failed phase (default: 2)",
+    )
+    parser.add_argument(
+        "--docs-drift-timeout",
+        type=int,
+        default=1800,
+        help="docs-drift scan timeout in seconds (default: 1800)",
     )
     parser.add_argument(
         "--disable-skip-gate",

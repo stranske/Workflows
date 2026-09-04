@@ -193,6 +193,7 @@ def test_run_orders_docs_drift_between_backlog_and_notify(tmp_path: Path, monkey
             "repo": "stranske/Example",
             "round1": {"succeeded": True, "duration_seconds": 0.01},
             "round2": {"succeeded": True, "duration_seconds": 0.01},
+            "body_writer": {"succeeded": True, "duration_seconds": 0.01},
             "skip_gate_fired": False,
         },
     )
@@ -232,7 +233,8 @@ def test_run_orders_docs_drift_between_backlog_and_notify(tmp_path: Path, monkey
         "docs-drift-scan",
         "notify",
     ]
-    assert dict(calls)["docs-drift-scan"] == dict(calls)["backlog-scan"] == 300
+    assert dict(calls)["docs-drift-scan"] == 1800
+    assert dict(calls)["backlog-scan"] == 300
     assert dict(calls)["scorecard-scan"] == 300
 
 
@@ -260,6 +262,7 @@ def test_run_orders_scorecard_before_final_evaluator(tmp_path: Path, monkeypatch
             "repo": "stranske/Example",
             "round1": {"succeeded": True, "duration_seconds": 0.01},
             "round2": {"succeeded": True, "duration_seconds": 0.01},
+            "body_writer": {"succeeded": True, "duration_seconds": 0.01},
             "skip_gate_fired": False,
         },
     )
@@ -319,6 +322,7 @@ def test_run_keeps_scorecard_failure_non_fatal(tmp_path: Path, monkeypatch) -> N
             "repo": "stranske/Example",
             "round1": {"succeeded": True, "duration_seconds": 0.01},
             "round2": {"succeeded": True, "duration_seconds": 0.01},
+            "body_writer": {"succeeded": True, "duration_seconds": 0.01},
             "skip_gate_fired": False,
         },
     )
@@ -378,6 +382,7 @@ def test_run_keeps_docs_drift_failure_non_fatal(tmp_path: Path, monkeypatch) -> 
             "repo": "stranske/Example",
             "round1": {"succeeded": True, "duration_seconds": 0.01},
             "round2": {"succeeded": True, "duration_seconds": 0.01},
+            "body_writer": {"succeeded": True, "duration_seconds": 0.01},
             "skip_gate_fired": False,
         },
     )
@@ -421,3 +426,65 @@ def test_round2_subprocess_timeout_covers_multiturn_budget() -> None:
     """
     result = coordinator.round2_subprocess_timeout(2700, 3, 2)
     assert result >= 3 * 2 * 2700
+
+
+def test_coordinate_repo_repairs_failed_round1_then_retries(tmp_path: Path, monkeypatch) -> None:
+    repo = "stranske/Example"
+    output_dir = tmp_path / "review"
+    calls: list[str] = []
+
+    def fake_run_subprocess(cmd, *, cwd, log_path, name, timeout):
+        calls.append(name)
+        log_path.parent.mkdir(parents=True, exist_ok=True)
+        log_path.write_text(f"{name} attempt\n", encoding="utf-8")
+        if name == "round-1" and calls.count("round-1") == 1:
+            return coordinator.StepResult(
+                name=name, succeeded=False, duration_seconds=0.01, notes="exit 1"
+            )
+        return coordinator.StepResult(name=name, succeeded=True, duration_seconds=0.01)
+
+    monkeypatch.setattr(coordinator, "run_subprocess", fake_run_subprocess)
+    report = coordinator.coordinate_repo(
+        repo=repo,
+        output_dir=output_dir,
+        workflows_steward_root=tmp_path,
+        registry_path=tmp_path / "config" / "repo_review_registry.json",
+        agents=["codex", "claude"],
+        log_dir=output_dir / "logs" / "coordinator",
+        round1_timeout=30,
+        round2_timeout=30,
+        max_turns=3,
+        skip_gate_enabled=False,
+        repair_attempts=2,
+    )
+
+    assert calls == ["round-1", "round-1", "round-2", "body-writer"]
+    assert report["round1"]["succeeded"] is True
+    assert len(report["round1"]["attempts"]) == 2
+    assert len(report["round1"]["repairs"]) == 1
+    assert list((output_dir / "repairs" / "stranske__Example").glob("*/repair.json"))
+
+
+def test_prepare_round2_retry_quarantines_poisoned_turn_outputs(tmp_path: Path) -> None:
+    output_dir = tmp_path / "review"
+    repo = "stranske/Example"
+    repo_dir = output_dir / "round2" / "stranske__Example"
+    turn_file = repo_dir / "turn-1" / "codex.json"
+    turn_file.parent.mkdir(parents=True)
+    turn_file.write_text("{malformed", encoding="utf-8")
+    (repo_dir / "converged.json").write_text("{}\n", encoding="utf-8")
+    failed_log = output_dir / "logs" / "coordinator" / "round2-runner.log"
+    failed_log.parent.mkdir(parents=True)
+    failed_log.write_text("schema failure\n", encoding="utf-8")
+
+    repair = coordinator.prepare_phase_retry(
+        phase="round-2",
+        repo=repo,
+        output_dir=output_dir,
+        failed_log=failed_log,
+        repair_number=1,
+    )
+
+    assert not turn_file.exists()
+    assert not (repo_dir / "converged.json").exists()
+    assert any("turn-1" in path for path in repair["quarantined"])

@@ -33,9 +33,11 @@ from __future__ import annotations
 import argparse
 import contextlib
 import json
+import shutil
 import sys
 from concurrent.futures import ThreadPoolExecutor
 from dataclasses import dataclass
+from datetime import UTC, datetime
 from pathlib import Path
 
 # Re-use agent invocation + state primitives from sibling scripts.
@@ -144,15 +146,18 @@ def sync_repo_to_origin(
     *,
     timeout: int = 120,
 ) -> tuple[bool, str]:
-    """Sync the local working tree to origin's canonical main branch.
+    """Sync the local working tree to the exact origin/main commit.
 
     Per the iter-9 lesson: round-1 reviewers MUST run against current main, not
     a stale local checkout. A stale checkout silently produces false negatives
     (cited files no longer exist locally → INSUFFICIENT_EVIDENCE) and false
     positives (gaps that have already shipped in unpulled PRs get re-raised).
 
-    Procedure: stash any dirty changes (preserved as a stash entry), checkout
-    the canonical `main` branch, `git pull --ff-only`.
+    Procedure: stash any dirty changes (preserved as a stash entry), fetch
+    ``origin/main``, and detach at that exact commit when the current checkout
+    does not already point there. Detaching avoids two recurring local-only
+    failures: ``main`` may be owned by a sibling worktree, and a damaged
+    ``ORIG_HEAD`` can make ``git pull`` fail even after a successful fetch.
     Returns (ok, summary). Untracked workloop-state.md is removed proactively
     because upstream often adds a tracked version with the same name.
     """
@@ -206,21 +211,23 @@ def sync_repo_to_origin(
         if check.returncode != 0:
             return False, "origin/main does not exist"
 
-        # 5. Checkout the target branch if not already on it.
+        # 5. Review the exact fetched commit without acquiring or advancing a
+        #    local branch. If the checkout is already on main at that commit,
+        #    leave it alone; otherwise detach at origin/main.
         current = _git(["rev-parse", "--abbrev-ref", "HEAD"]).stdout.strip()
-        if current != target:
-            checkout = _git(["checkout", target])
+        current_head = _git(["rev-parse", "HEAD"]).stdout.strip()
+        origin_head = check.stdout.strip()
+        if current != target or current_head != origin_head:
+            checkout = _git(["checkout", "--detach", "origin/main"])
             if checkout.returncode != 0:
-                return False, (f"checkout {target} failed: {checkout.stderr.strip()[:200]}")
-            notes.append(f"checked out {target} (was {current})")
-
-        # 6. Fast-forward pull.
-        pull = _git(["pull", "--ff-only", "origin", target])
-        if pull.returncode != 0:
-            return False, f"pull --ff-only failed: {pull.stderr.strip()[:200]}"
+                return False, (
+                    f"checkout --detach origin/main failed: {checkout.stderr.strip()[:200]}"
+                )
+            notes.append(f"detached at origin/main (was {current or 'unknown'})")
 
         head = _git(["rev-parse", "--short", "HEAD"]).stdout.strip()
-        notes.append(f"HEAD now {head} on {target}")
+        location = "main" if current == target and current_head == origin_head else "origin/main"
+        notes.append(f"HEAD now {head} on {location}")
         return True, "; ".join(notes)
     except subprocess.TimeoutExpired:
         return False, f"sync timed out after {timeout}s"
@@ -231,6 +238,7 @@ def refresh_map_blocking(
     *,
     gitnexus_bin: str,
     timeout: int = 1200,
+    repair_root: Path | None = None,
 ) -> tuple[bool, str]:
     """Refresh the GitNexus map for `repo_path` BEFORE spawning agents.
 
@@ -239,9 +247,77 @@ def refresh_map_blocking(
     Always passes `--force --embeddings`: forces rebuild on commit-current
     maps when embeddings are absent (otherwise analyze short-circuits).
     """
-    return run_gitnexus_analyze(
+    cache_dir = repo_path / ".gitnexus"
+    repair_root = repair_root or repo_path.parent / ".repo-review-repairs"
+    repair_notes: list[str] = []
+
+    def quarantine_cache(reason: str) -> Path | None:
+        if not cache_dir.exists():
+            return None
+        timestamp = datetime.now(UTC).strftime("%Y%m%dT%H%M%S.%fZ")
+        destination = repair_root / repo_path.name / timestamp / ".gitnexus"
+        destination.parent.mkdir(parents=True, exist_ok=False)
+        shutil.move(str(cache_dir), str(destination))
+        repair_notes.append(f"quarantined GitNexus cache ({reason}) at {destination}")
+        return destination
+
+    conflict_artifacts = sorted(
+        path
+        for path in cache_dir.glob("**/*")
+        if path.is_file() and "conflicted copy" in path.name.casefold()
+    )
+    if conflict_artifacts:
+        quarantine_cache(
+            "Dropbox-conflicted derived WAL artifact: "
+            + ", ".join(path.name for path in conflict_artifacts[:3])
+        )
+
+    ok, output = run_gitnexus_analyze(
         repo_path, gitnexus_bin, with_embeddings=True, force=True, timeout=timeout
     )
+    if not ok and "corruption detected" in output.casefold():
+        quarantine_cache("analyzer reported database corruption")
+        ok, output = run_gitnexus_analyze(
+            repo_path,
+            gitnexus_bin,
+            with_embeddings=True,
+            force=True,
+            timeout=timeout,
+        )
+
+    if not ok:
+        return False, "; ".join([*repair_notes, output])
+
+    meta_path = cache_dir / "meta.json"
+    try:
+        meta = json.loads(meta_path.read_text(encoding="utf-8"))
+        indexed_commit = str(meta.get("lastCommit") or "")
+        embeddings = int((meta.get("stats") or {}).get("embeddings") or 0)
+    except (OSError, json.JSONDecodeError, TypeError, ValueError) as exc:
+        return False, "; ".join([*repair_notes, f"rebuilt GitNexus meta.json is invalid: {exc}"])
+
+    import subprocess
+
+    head_result = subprocess.run(
+        ["git", "-C", str(repo_path), "rev-parse", "HEAD"],
+        check=False,
+        capture_output=True,
+        text=True,
+        timeout=min(timeout, 120),
+    )
+    head_commit = head_result.stdout.strip()
+    if head_result.returncode != 0 or not head_commit or indexed_commit != head_commit:
+        return False, "; ".join(
+            [
+                *repair_notes,
+                "GitNexus rebuild did not index the current HEAD "
+                f"(indexed={indexed_commit or 'missing'}, head={head_commit or 'unknown'})",
+            ]
+        )
+    if embeddings <= 0:
+        return False, "; ".join([*repair_notes, "GitNexus rebuild completed without embeddings"])
+
+    return True, "; ".join([*repair_notes, output or "GitNexus map verified clean"])
 
 
 # ---------------------------------------------------------------------------
@@ -476,6 +552,7 @@ def run(args: argparse.Namespace) -> int:
             repo_path,
             gitnexus_bin=args.gitnexus_bin,
             timeout=args.map_refresh_timeout,
+            repair_root=output_dir / "repairs" / "gitnexus",
         )
         finish_attempt(state, attempt, succeeded=ok, notes=message[:400])
         save_state(output_dir, state)

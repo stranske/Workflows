@@ -118,3 +118,14 @@ MCP server is available and indexes are fresh. Good uses include:
 - checking whether a change belongs in `Workflows` or a consumer repo
 
 If GitNexus is unavailable or stale, continue with normal repo exploration.
+
+## Weekly review corruption repair
+
+The weekly repo-review runner treats corruption messages as failures even when
+`gitnexus analyze` exits successfully. Before review fan-out it also detects
+Dropbox `conflicted copy` WAL artifacts. In either case it moves the entire
+derived `.gitnexus` cache into
+`docs/reports/repo-review/repairs/gitnexus/<repo>/<timestamp>/.gitnexus`, runs a
+forced embeddings rebuild, and verifies that the rebuilt metadata targets the
+current `HEAD` with a positive embedding count. The quarantined cache is kept
+for diagnosis; it is not deleted.
