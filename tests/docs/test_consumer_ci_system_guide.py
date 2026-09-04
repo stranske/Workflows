@@ -68,10 +68,26 @@ def test_consumer_operator_docs_match_gate_followup_topology() -> None:
         job_id = f"run-{agent}"
         job = jobs[job_id]
         assert job["uses"] == f"stranske/Workflows/.github/workflows/reusable-{agent}-run.yml@main"
-        assert f"needs.evaluate.outputs.agent_type == '{agent}'" in job["if"]
-        assert f"Routes consumer Gate-followup keepalive to the {display_name} runner" in labels
-        assert f"Dispatches the `{job_id}` consumer PR keepalive job" in labels
-        assert f"dispatches `reusable-{agent}-run.yml`" in labels
+        expected_condition = " ".join(
+            (
+                f"needs.evaluate.outputs.agent_type == '{agent}' &&",
+                "needs.evaluate.outputs.dispatch_should_run == 'true' &&",
+                "(needs.evaluate.outputs.action == 'run' ||",
+                "needs.evaluate.outputs.action == 'fix' ||",
+                "needs.evaluate.outputs.action == 'conflict')",
+            )
+        )
+        assert " ".join(job["if"].split()) == expected_condition
+
+        section_start = labels.index(f"### `agent:{agent}`")
+        section_end = labels.index("\n---", section_start)
+        label_section = labels[section_start:section_end]
+        assert (
+            f"| `agent:{agent}` | Issue or PR labeled | "
+            f"Routes consumer Gate-followup keepalive to the {display_name} runner"
+        ) in labels
+        assert f"Dispatches the `{job_id}` consumer PR keepalive job" in label_section
+        assert f"dispatches `reusable-{agent}-run.yml`" in label_section
     assert "applying the label does not trigger a retry by itself" in labels
     assert "Does not set `force_retry`" in labels
     assert "agents-keepalive-loop.yml" not in labels
