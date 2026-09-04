@@ -1,5 +1,6 @@
 import importlib
 import json
+from datetime import UTC, datetime, timedelta
 from pathlib import Path
 from types import SimpleNamespace
 
@@ -192,6 +193,106 @@ def test_read_claude_oauth_token_uses_configured_file(
     monkeypatch.setattr(runner, "CLAUDE_OAUTH_TOKEN_FILE", token_path)
 
     assert runner._read_claude_oauth_token() == expected
+
+
+def test_claude_capacity_reset_at_parses_stated_timezone(tmp_path: Path) -> None:
+    log = tmp_path / "claude.log"
+    log.write_text(
+        "You've hit your session limit · resets 8pm (America/Chicago)\n",
+        encoding="utf-8",
+    )
+
+    reset = runner.claude_capacity_reset_at(
+        log,
+        now=datetime(2026, 9, 4, 22, 42, tzinfo=UTC),
+    )
+
+    assert reset == datetime(2026, 9, 5, 1, 0, tzinfo=UTC)
+
+
+def test_claude_capacity_reset_at_ignores_ordinary_failure(tmp_path: Path) -> None:
+    log = tmp_path / "claude.log"
+    log.write_text("authentication failed\n", encoding="utf-8")
+
+    assert runner.claude_capacity_reset_at(log) is None
+
+
+def test_defer_for_claude_capacity_preserves_evidence_and_status(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    log = tmp_path / "claude.log"
+    log.write_text("You've hit your session limit · resets 8pm (America/Chicago)\n")
+    now = datetime(2026, 9, 4, 22, 42, tzinfo=UTC)
+    slept: list[int] = []
+    monkeypatch.setattr(runner, "provider_capacity_wait_max_seconds", lambda: 600)
+    monkeypatch.setattr(runner.time, "sleep", lambda seconds: slept.append(seconds))
+
+    ok, _note = runner.defer_for_claude_capacity(
+        log,
+        now + timedelta(seconds=30),
+        now=now,
+    )
+
+    assert ok is True
+    assert slept == [30 + runner.PROVIDER_CAPACITY_WAIT_GRACE_SECONDS]
+    status = json.loads(runner.capacity_wait_path(log).read_text(encoding="utf-8"))
+    assert status["state"] == "resuming"
+    assert Path(status["preserved_log"]).read_text(encoding="utf-8") == log.read_text(
+        encoding="utf-8"
+    )
+
+
+def test_invoke_claude_defers_capacity_without_returning_failure(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    log = tmp_path / "claude.log"
+    calls: list[int] = []
+    deferred: list[datetime] = []
+    reset_at = datetime(2026, 9, 5, 1, 0, tzinfo=UTC)
+    monkeypatch.setattr(runner, "_resolve_claude_binary", lambda: "/usr/local/bin/claude")
+    monkeypatch.setattr(runner, "_build_claude_env", lambda: {})
+
+    def fake_heartbeat(_cmd, **kwargs):
+        calls.append(1)
+        if len(calls) == 1:
+            kwargs["log_file"].write_text(
+                "You've hit your session limit · resets 8pm (America/Chicago)\n",
+                encoding="utf-8",
+            )
+            return SimpleNamespace(
+                succeeded=False,
+                stuck=False,
+                timed_out=False,
+                returncode=1,
+                note="exited rc=1",
+            )
+        return SimpleNamespace(
+            succeeded=True,
+            stuck=False,
+            timed_out=False,
+            returncode=0,
+            note="exited rc=0",
+        )
+
+    monkeypatch.setattr(runner, "run_with_heartbeat", fake_heartbeat)
+    monkeypatch.setattr(runner, "claude_capacity_reset_at", lambda _log: reset_at)
+    monkeypatch.setattr(
+        runner,
+        "defer_for_claude_capacity",
+        lambda _log, reset: (deferred.append(reset) or True, "deferred"),
+    )
+
+    ok, _message = runner.invoke_claude(
+        "prompt",
+        cwd=tmp_path,
+        additional_dirs=[tmp_path],
+        log_file=log,
+        timeout=30,
+    )
+
+    assert ok is True
+    assert len(calls) == 2
+    assert deferred == [reset_at]
 
 
 def test_compute_convergence_uses_implicit_source_agent_agree_keep() -> None:

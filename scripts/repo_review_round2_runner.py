@@ -42,14 +42,17 @@ import argparse
 import concurrent.futures
 import json
 import os
+import re
 import shutil
 import subprocess
 import sys
 import time
+from contextlib import suppress
 from dataclasses import dataclass, field
-from datetime import UTC, datetime
+from datetime import UTC, datetime, timedelta
 from pathlib import Path
 from typing import Any
+from zoneinfo import ZoneInfo, ZoneInfoNotFoundError
 
 try:
     from scripts.repo_review_round2_schema import (
@@ -95,6 +98,23 @@ DEFAULT_MAX_TURNS = 3
 DEFAULT_TURN_TIMEOUT_SECONDS = 1800  # 30 min
 DEFAULT_RETRIES = 2
 META_PATTERN_OVERLAP_FLOOR = 0.5  # ≥ half the supporting refs in common
+DEFAULT_PROVIDER_CAPACITY_WAIT_MAX_SECONDS = 6 * 60 * 60
+PROVIDER_CAPACITY_WAIT_GRACE_SECONDS = 90
+_CLAUDE_CAPACITY_MARKERS = (
+    "you've hit your session limit",
+    "you've hit your weekly limit",
+    "you've hit your usage limit",
+    "you have hit your session limit",
+    "you have hit your weekly limit",
+    "you have hit your usage limit",
+    "usage limit reached",
+)
+_CLAUDE_RESET_RE = re.compile(
+    r"resets?\s+(?:(today|tomorrow)\s+)?(?:at\s+)?"
+    r"(\d{1,2})(?::(\d{2}))?\s*(am|pm)"
+    r"(?:\s*\(([^)]+)\))?",
+    re.IGNORECASE,
+)
 
 
 # ---------------------------------------------------------------------------
@@ -487,6 +507,135 @@ def _build_claude_env() -> dict[str, str]:
     return env
 
 
+def provider_capacity_wait_max_seconds() -> int:
+    """Return the bounded provider-capacity deferral budget.
+
+    A provider reset is availability, not a bad review attempt.  The limit is
+    deliberately environment-configurable so a scheduled run can wait for a
+    normal session-window reset without waiting indefinitely for a weekly or
+    account-level outage.
+    """
+    raw = os.environ.get("REPO_REVIEW_CAPACITY_WAIT_MAX_SECONDS", "").strip()
+    if not raw:
+        return DEFAULT_PROVIDER_CAPACITY_WAIT_MAX_SECONDS
+    try:
+        value = int(raw)
+    except ValueError:
+        return DEFAULT_PROVIDER_CAPACITY_WAIT_MAX_SECONDS
+    return max(0, value)
+
+
+def claude_capacity_reset_at(
+    log_file: Path,
+    *,
+    now: datetime | None = None,
+) -> datetime | None:
+    """Parse a stated Claude session-limit reset from the invocation log.
+
+    Returns an aware UTC datetime only for a recognized capacity message with
+    a concrete reset time.  Authentication, malformed-output, and ordinary
+    nonzero exits remain normal failures and consume the existing retry budget.
+    """
+    try:
+        text = log_file.read_text(encoding="utf-8", errors="replace")[-16_000:]
+    except OSError:
+        return None
+    lowered = text.lower()
+    if not any(marker in lowered for marker in _CLAUDE_CAPACITY_MARKERS):
+        return None
+    match = _CLAUDE_RESET_RE.search(text)
+    if match is None:
+        return None
+
+    day_hint, hour_text, minute_text, meridiem, timezone_name = match.groups()
+    hour = int(hour_text) % 12
+    if meridiem.lower() == "pm":
+        hour += 12
+    minute = int(minute_text or "0")
+    if hour > 23 or minute > 59:
+        return None
+
+    current_utc = now or datetime.now(UTC)
+    if current_utc.tzinfo is None:
+        current_utc = current_utc.replace(tzinfo=UTC)
+    try:
+        zone = ZoneInfo(timezone_name) if timezone_name else current_utc.astimezone().tzinfo
+    except ZoneInfoNotFoundError:
+        return None
+    if zone is None:
+        zone = UTC
+    local_now = current_utc.astimezone(zone)
+    reset_local = local_now.replace(hour=hour, minute=minute, second=0, microsecond=0)
+    if (day_hint or "").lower() == "tomorrow" or reset_local < local_now - timedelta(
+        minutes=5
+    ):
+        reset_local += timedelta(days=1)
+    elif reset_local < local_now:
+        reset_local = local_now
+    return reset_local.astimezone(UTC)
+
+
+def capacity_wait_path(log_file: Path) -> Path:
+    return log_file.with_name(log_file.name + ".capacity-wait.json")
+
+
+def defer_for_claude_capacity(
+    log_file: Path,
+    reset_at: datetime,
+    *,
+    now: datetime | None = None,
+) -> tuple[bool, str]:
+    """Preserve capacity evidence and wait for the stated reset when bounded."""
+    current = now or datetime.now(UTC)
+    if current.tzinfo is None:
+        current = current.replace(tzinfo=UTC)
+    wait_seconds = max(0, int((reset_at - current.astimezone(UTC)).total_seconds()))
+    wait_seconds += PROVIDER_CAPACITY_WAIT_GRACE_SECONDS
+    max_wait = provider_capacity_wait_max_seconds()
+    if wait_seconds > max_wait:
+        return (
+            False,
+            f"claude capacity resets at {reset_at.isoformat()}, requiring {wait_seconds}s "
+            f"which exceeds the configured {max_wait}s deferral budget",
+        )
+
+    timestamp = current.astimezone(UTC).strftime("%Y%m%dT%H%M%S.%fZ")
+    preserved_log = log_file.with_name(f"{log_file.name}.capacity-{timestamp}")
+    try:
+        shutil.copy2(log_file, preserved_log)
+    except OSError as exc:
+        return False, f"cannot preserve Claude capacity evidence: {exc}"
+
+    wait_file = capacity_wait_path(log_file)
+    payload = {
+        "schema_version": "v1",
+        "provider": "claude",
+        "state": "waiting",
+        "detected_at": current.astimezone(UTC).isoformat(),
+        "reset_at": reset_at.astimezone(UTC).isoformat(),
+        "wait_seconds": wait_seconds,
+        "preserved_log": str(preserved_log),
+    }
+    try:
+        wait_file.write_text(json.dumps(payload, indent=2) + "\n", encoding="utf-8")
+    except OSError as exc:
+        return False, f"cannot record Claude capacity deferral: {exc}"
+
+    print(
+        f"[provider-capacity] claude unavailable until {reset_at.isoformat()}; "
+        f"waiting {wait_seconds}s without consuming an agent retry "
+        f"(evidence: {preserved_log})",
+        file=sys.stderr,
+        flush=True,
+    )
+    time.sleep(wait_seconds)
+    payload["state"] = "resuming"
+    payload["resumed_at"] = datetime.now(UTC).isoformat()
+    with suppress(OSError):
+        wait_file.write_text(json.dumps(payload, indent=2) + "\n", encoding="utf-8")
+    return True, f"deferred until {reset_at.isoformat()}"
+
+
 def invoke_claude(
     prompt: str,
     *,
@@ -512,18 +661,29 @@ def invoke_claude(
     for extra in additional_dirs:
         cmd.extend(["--add-dir", str(extra)])
     env = _build_claude_env()
-    result = run_with_heartbeat(
-        cmd,
-        prompt=prompt,
-        cwd=cwd,
-        env=env,
-        log_file=log_file,
-        timeout=timeout,
-        heartbeat_interval=_HEARTBEAT_INTERVAL,
-        stall_threshold=_STALL_THRESHOLD,
-        label="claude",
-        progress_files=progress_files,
-    )
+    capacity_deferred = False
+    while True:
+        result = run_with_heartbeat(
+            cmd,
+            prompt=prompt,
+            cwd=cwd,
+            env=env,
+            log_file=log_file,
+            timeout=timeout,
+            heartbeat_interval=_HEARTBEAT_INTERVAL,
+            stall_threshold=_STALL_THRESHOLD,
+            label="claude",
+            progress_files=progress_files,
+        )
+        if result.succeeded or capacity_deferred:
+            break
+        reset_at = claude_capacity_reset_at(log_file)
+        if reset_at is None:
+            break
+        deferred, note = defer_for_claude_capacity(log_file, reset_at)
+        if not deferred:
+            return False, note
+        capacity_deferred = True
     if result.succeeded:
         return True, str(log_file)
     if result.stuck:

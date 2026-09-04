@@ -34,6 +34,7 @@ from __future__ import annotations
 
 import argparse
 import json
+import os
 import shutil
 import subprocess
 import sys
@@ -67,6 +68,21 @@ except ModuleNotFoundError:  # pragma: no cover - direct script execution
 # ---------------------------------------------------------------------------
 # Skip-this-cycle gate
 # ---------------------------------------------------------------------------
+
+
+DEFAULT_PROVIDER_CAPACITY_WAIT_MAX_SECONDS = 6 * 60 * 60
+
+
+def provider_capacity_wait_max_seconds() -> int:
+    """Mirror the child runner's bounded provider-capacity wait budget."""
+    raw = os.environ.get("REPO_REVIEW_CAPACITY_WAIT_MAX_SECONDS", "").strip()
+    if not raw:
+        return DEFAULT_PROVIDER_CAPACITY_WAIT_MAX_SECONDS
+    try:
+        value = int(raw)
+    except ValueError:
+        return DEFAULT_PROVIDER_CAPACITY_WAIT_MAX_SECONDS
+    return max(0, value)
 
 
 def configured_repair_attempts(config_path: Path | None = None) -> int:
@@ -581,10 +597,14 @@ def round2_subprocess_timeout(
 
     ``round2_timeout`` is the per-agent-turn budget (passed as ``--turn-timeout``
     to the runner).  The runner's legitimate worst-case runtime is
-    ``max_turns * n_agents * round2_timeout`` plus a fixed buffer for synthesis
-    and overhead.
+    ``max_turns * n_agents * round2_timeout`` plus the bounded provider reset
+    waits and a fixed buffer for synthesis and overhead.
     """
-    return max_turns * n_agents * round2_timeout + buffer
+    return (
+        max_turns * n_agents * round2_timeout
+        + max_turns * provider_capacity_wait_max_seconds()
+        + buffer
+    )
 
 
 def coordinate_repo(
@@ -636,7 +656,7 @@ def coordinate_repo(
         cwd=workflows_steward_root,
         log_path=repo_log_dir / "round1-runner.log",
         name="round-1",
-        timeout=round1_timeout + 1500,
+        timeout=round1_timeout + provider_capacity_wait_max_seconds() + 1500,
         repo=repo,
         output_dir=output_dir,
         repair_attempts=repair_attempts,
@@ -750,7 +770,11 @@ def coordinate_repo(
         cwd=workflows_steward_root,
         log_path=repo_log_dir / "body-writer.log",
         name="body-writer",
-        timeout=min(round2_timeout, 60 * 60) + 600,
+        timeout=(
+            min(round2_timeout, 60 * 60)
+            + provider_capacity_wait_max_seconds()
+            + 600
+        ),
         repo=repo,
         output_dir=output_dir,
         repair_attempts=repair_attempts,

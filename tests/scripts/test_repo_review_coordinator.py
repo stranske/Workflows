@@ -430,6 +430,46 @@ def test_round2_subprocess_timeout_covers_multiturn_budget() -> None:
     assert result >= 3 * 2 * 2700
 
 
+def test_round2_subprocess_timeout_includes_provider_capacity_waits(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    monkeypatch.setenv("REPO_REVIEW_CAPACITY_WAIT_MAX_SECONDS", "123")
+
+    result = coordinator.round2_subprocess_timeout(30, 3, 2, buffer=10)
+
+    assert result == (3 * 2 * 30) + (3 * 123) + 10
+
+
+def test_coordinate_repo_parent_timeouts_cover_capacity_deferral(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    observed: dict[str, int] = {}
+    monkeypatch.setenv("REPO_REVIEW_CAPACITY_WAIT_MAX_SECONDS", "123")
+
+    def fake_run_subprocess(_cmd, *, cwd, log_path, name, timeout):
+        observed[name] = timeout
+        return coordinator.StepResult(name=name, succeeded=True, duration_seconds=0.01)
+
+    monkeypatch.setattr(coordinator, "run_subprocess", fake_run_subprocess)
+    coordinator.coordinate_repo(
+        repo="stranske/Example",
+        output_dir=tmp_path / "review",
+        workflows_steward_root=tmp_path,
+        registry_path=tmp_path / "config" / "repo_review_registry.json",
+        agents=["codex", "claude"],
+        log_dir=tmp_path / "review" / "logs" / "coordinator",
+        round1_timeout=30,
+        round2_timeout=40,
+        max_turns=3,
+        skip_gate_enabled=False,
+        repair_attempts=2,
+    )
+
+    assert observed["round-1"] == 30 + 123 + 1500
+    assert observed["round-2"] == (3 * 2 * 40) + (3 * 123) + 1500
+    assert observed["body-writer"] == 40 + 123 + 600
+
+
 def test_configured_repair_attempts_reads_toml_and_rejects_negative(tmp_path: Path) -> None:
     config = tmp_path / "repo_review_automation.toml"
     config.write_text("[automation.timeouts]\nrepair_attempts_per_phase = 4\n", encoding="utf-8")
