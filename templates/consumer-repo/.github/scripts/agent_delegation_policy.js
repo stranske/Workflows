@@ -40,6 +40,28 @@ const ROUTE_WEIGHT_TASK_TYPES = {
 };
 
 /**
+ * Resolve the keepalive round kind used to look up a route-weights task type.
+ *
+ * `state.last_action` (the keepalive step: run/fix/conflict/review/wait/...)
+ * never itself takes the value `testgen` — test-writing work is signalled by
+ * the issue/PR `testgen` label instead (see docs/LABELS.md task-type
+ * precedence). Without checking the label first, a testgen-labelled PR would
+ * always be misclassified as `implement` when consulting route-weights.
+ *
+ * @param {Object} [options]
+ * @param {Array<string>} [options.labels] - Normalized (lowercase) PR labels
+ * @param {Object} [options.state] - Keepalive state
+ * @returns {string}
+ */
+function resolveRoundKind({ labels = [], state = {} } = {}) {
+  const normalizedLabels = labels.map((label) => String(label).toLowerCase());
+  if (normalizedLabels.includes('testgen')) {
+    return 'testgen';
+  }
+  return state.last_action || state.pending_action || 'implement';
+}
+
+/**
  * Fetch and validate the Orchestrator route-weights export. Never throws.
  *
  * @param {Object} [options]
@@ -120,6 +142,27 @@ async function loadRouteWeights({ url = DEFAULT_ROUTE_WEIGHTS_URL, fetchImpl, no
 }
 
 /**
+ * Return the reserved agent names for a route-weights task type.
+ *
+ * The export currently stores reservations by task type as rows, while an
+ * array of strings is accepted for backward-compatible fixtures and exports.
+ *
+ * @param {Object|Array|string[]|undefined} reserve
+ * @param {string} taskType
+ * @returns {string[]}
+ */
+function getRouteWeightReserveAgents(reserve, taskType) {
+  const entries = Array.isArray(reserve)
+    ? reserve
+    : (Array.isArray(reserve?.[taskType]) ? reserve[taskType] : []);
+
+  return entries
+    .map((entry) => (typeof entry === 'string' ? entry : entry?.agent))
+    .filter(Boolean)
+    .map((agent) => String(agent).toLowerCase());
+}
+
+/**
  * @param {Object} options
  * @returns {{ agent: string|null, delegationSource: 'route_weights'|'static', staticReason?: string }}
  */
@@ -129,12 +172,11 @@ function selectAgentFromRouteWeights({
   currentAgent,
   availableAgents,
   agents,
-  reserve = [],
+  reserve = routeWeights?.reserve,
 }) {
-  const reserveSet = new Set(
-    (Array.isArray(reserve) ? reserve : []).map((name) => String(name).toLowerCase()),
-  );
+  const reserveSet = new Set(getRouteWeightReserveAgents(reserve, taskType));
   const taskEntry = routeWeights?.task_types?.[taskType];
+  const normalizedCurrentAgent = String(currentAgent || '').toLowerCase();
 
   if (!routeWeights || !taskEntry || taskEntry.evidence_ok !== true) {
     return {
@@ -147,7 +189,7 @@ function selectAgentFromRouteWeights({
   const ranking = Array.isArray(taskEntry.ranking) ? taskEntry.ranking : [];
   for (const row of ranking) {
     const candidate = String(row?.agent || '').toLowerCase();
-    if (!candidate || candidate === currentAgent || reserveSet.has(candidate)) {
+    if (!candidate || candidate === normalizedCurrentAgent || reserveSet.has(candidate)) {
       continue;
     }
     if (!availableAgents.includes(candidate)) {
@@ -300,6 +342,7 @@ function decideNextAgent({
   if (stall.isStalled) {
     const alternatives = availableAgents.filter((a) => a !== currentAgent);
     const taskType = ROUTE_WEIGHT_TASK_TYPES[roundKind] || ROUTE_WEIGHT_TASK_TYPES.implement;
+    const reservedAgents = new Set(getRouteWeightReserveAgents(routeWeights?.reserve, taskType));
     const weighted = selectAgentFromRouteWeights({
       routeWeights,
       taskType,
@@ -309,7 +352,13 @@ function decideNextAgent({
       reserve: routeWeights?.reserve,
     });
 
-    const nextAgent = weighted.agent || alternatives[0] || currentAgent;
+    // A valid evidence-bearing export may never be bypassed to select one of
+    // its explicitly reserved seats. The ordinary static fallback remains
+    // unchanged when the export is absent or lacks sufficient evidence.
+    const eligibleStaticAlternatives = routeWeights?.task_types?.[taskType]?.evidence_ok === true
+      ? alternatives.filter((agent) => !reservedAgents.has(String(agent).toLowerCase()))
+      : alternatives;
+    const nextAgent = weighted.agent || eligibleStaticAlternatives[0] || currentAgent;
     const delegationSource = weighted.agent ? weighted.delegationSource : 'static';
 
     const sourceSuffix =
@@ -606,8 +655,10 @@ function formatDelegationSummary({ decision, effectiveness, state = {} }) {
 module.exports = {
   DEFAULT_ROUTE_WEIGHTS_URL,
   ROUTE_WEIGHT_TASK_TYPES,
+  resolveRoundKind,
   loadRouteWeights,
   selectAgentFromRouteWeights,
+  getRouteWeightReserveAgents,
   decideNextAgent,
   checkPrerequisites,
   calculateEffectiveness,
