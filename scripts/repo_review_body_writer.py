@@ -39,6 +39,7 @@ from __future__ import annotations
 import argparse
 import json
 import re
+import shlex
 import subprocess
 import sys
 from contextlib import suppress
@@ -367,7 +368,13 @@ def restore_non_body_fields(
 # ---------------------------------------------------------------------------
 
 
-def build_prompt(*, repo: str, output_dir: Path, repo_path: Path) -> str:
+def build_prompt(
+    *,
+    repo: str,
+    output_dir: Path,
+    repo_path: Path,
+    registry_path: Path | None = None,
+) -> str:
     template = canonical_body_writer_prompt().read_text(encoding="utf-8")
     safe = repo.replace("/", "__")
     cj = converged_path(output_dir, repo)
@@ -396,7 +403,7 @@ def build_prompt(*, repo: str, output_dir: Path, repo_path: Path) -> str:
     repair_feedback = ""
     if feedback_path.is_file():
         with suppress(OSError):
-            repair_feedback = feedback_path.read_text(encoding="utf-8")[-12_000:]
+            repair_feedback = feedback_path.read_text(encoding="utf-8", errors="replace")[-12_000:]
 
     repair_directive = ""
     if repair_targets:
@@ -431,8 +438,10 @@ def build_prompt(*, repo: str, output_dir: Path, repo_path: Path) -> str:
         f"  python scripts/repo_review_round2_schema.py --converged {cj} --expected-repo {repo}\n\n"
         "Then run the stricter body/path validator. Do not report success unless it "
         "exits zero:\n\n"
-        f"  python scripts/repo_review_body_writer.py --repo {repo} --output-dir {output_dir} "
-        "--registry config/repo_review_registry.json --validate-only --skip-sync-check\n\n"
+        f"  python scripts/repo_review_body_writer.py --repo {shlex.quote(repo)} "
+        f"--output-dir {shlex.quote(str(output_dir))} --registry "
+        f"{shlex.quote(str(registry_path or Path('config/repo_review_registry.json')))} "
+        "--validate-only --skip-sync-check\n\n"
         "Return a SHORT (<200 words) report: titles + char counts of new or "
         "repaired bodies, any INSUFFICIENT_EVIDENCE markings, validation result.\n\n"
         + repair_directive
@@ -501,13 +510,19 @@ def run_body_writer(
     repo: str,
     repo_path: Path,
     output_dir: Path,
+    registry_path: Path,
     workflows_steward_root: Path,
     log_dir: Path,
     timeout: int,
     agent: str,
 ) -> tuple[bool, str]:
     log_path = log_dir / f"body-writer-{repo.replace('/', '__')}.log"
-    prompt = build_prompt(repo=repo, output_dir=output_dir, repo_path=repo_path)
+    prompt = build_prompt(
+        repo=repo,
+        output_dir=output_dir,
+        repo_path=repo_path,
+        registry_path=registry_path,
+    )
     additional_dirs = sorted({workflows_steward_root, output_dir, repo_path})
     return invoke_agent(
         agent,
@@ -607,6 +622,7 @@ def run(args: argparse.Namespace) -> int:
         repo=args.repo,
         repo_path=repo_path,
         output_dir=output_dir,
+        registry_path=registry_path,
         workflows_steward_root=workflows_steward_root,
         log_dir=log_dir,
         timeout=args.timeout,

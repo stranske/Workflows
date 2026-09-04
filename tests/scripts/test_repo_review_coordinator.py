@@ -528,6 +528,7 @@ def test_run_returns_nonzero_after_body_writer_repairs_exhausted(
 
 
 def test_run_stops_before_next_repo_when_repairs_are_exhausted(tmp_path: Path, monkeypatch) -> None:
+    """A required-phase failure must block later repos and aggregate outputs."""
     registry_path = tmp_path / "config" / "repo_review_registry.json"
     registry_path.parent.mkdir(parents=True)
     registry_path.write_text("{}", encoding="utf-8")
@@ -546,6 +547,7 @@ def test_run_stops_before_next_repo_when_repairs_are_exhausted(tmp_path: Path, m
     coordinated: list[str] = []
 
     def fake_coordinate_repo(**kwargs):
+        """Record the only repo the fail-closed loop may execute."""
         coordinated.append(kwargs["repo"])
         return {
             "repo": kwargs["repo"],
@@ -646,6 +648,7 @@ def test_prepare_round2_retry_quarantines_poisoned_turn_outputs(tmp_path: Path) 
 
 
 def test_prepare_body_retry_carries_validator_feedback_into_next_attempt(tmp_path: Path) -> None:
+    """The next body attempt receives the exact prior deterministic failure."""
     output_dir = tmp_path / "review"
     repo = "stranske/Example"
     repo_dir = output_dir / "round2" / "stranske__Example"
@@ -673,3 +676,27 @@ def test_prepare_body_retry_carries_validator_feedback_into_next_attempt(tmp_pat
     feedback = (repo_dir / "body-writer-repair-feedback.txt").read_text(encoding="utf-8")
     assert "schema-only validation is insufficient" in feedback
     assert "candidate #1: Tasks reference 1 distinct repository paths" in feedback
+
+
+def test_prepare_body_retry_replaces_invalid_utf8_diagnostics(tmp_path: Path) -> None:
+    """Corrupt log bytes become replacement text instead of an I/O failure."""
+    output_dir = tmp_path / "review"
+    repo = "stranske/Example"
+    repo_dir = output_dir / "round2" / "stranske__Example"
+    repo_dir.mkdir(parents=True)
+    (repo_dir / "converged.json").write_text("{}\n", encoding="utf-8")
+    (repo_dir / "converged.pre-body-writer.json").write_text("{}\n", encoding="utf-8")
+    failed_log = output_dir / "logs" / "coordinator" / "body-writer.log"
+    failed_log.parent.mkdir(parents=True)
+    failed_log.write_bytes(b"validator failure: \xff\xfe\n")
+
+    coordinator.prepare_phase_retry(
+        phase="body-writer",
+        repo=repo,
+        output_dir=output_dir,
+        failed_log=failed_log,
+        repair_number=1,
+    )
+
+    feedback = (repo_dir / "body-writer-repair-feedback.txt").read_text(encoding="utf-8")
+    assert "validator failure: \ufffd\ufffd" in feedback

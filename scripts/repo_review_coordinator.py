@@ -417,7 +417,7 @@ def prepare_phase_retry(
         diagnostic = ""
         if failed_log.is_file():
             with suppress(OSError):
-                diagnostic = failed_log.read_text(encoding="utf-8")[-12_000:]
+                diagnostic = failed_log.read_text(encoding="utf-8", errors="replace")[-12_000:]
         feedback.write_text(
             "The previous body-writer attempt failed deterministic validation.\n"
             "Correct every failure below; schema-only validation is insufficient.\n\n" + diagnostic,
