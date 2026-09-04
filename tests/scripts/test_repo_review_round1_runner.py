@@ -163,6 +163,49 @@ def test_invoke_round1_attests_valid_defensive_output_after_agent_failure(
     assert provenance["source_commit"] == "abc123"
 
 
+def test_invoke_round1_preserves_invalid_agent_output_before_retry(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    findings = runner.round1_findings_path(tmp_path / "out", "codex", "stranske/Example")
+    invocations = 0
+
+    def fake_validate(path: Path, **_kwargs) -> list[str]:
+        return [] if '"valid"' in path.read_text(encoding="utf-8") else ["invalid"]
+
+    def fake_invoke(*_args, **_kwargs):
+        nonlocal invocations
+        invocations += 1
+        findings.parent.mkdir(parents=True, exist_ok=True)
+        findings.write_text(
+            '{"invalid": true}\n' if invocations == 1 else '{"valid": true}\n',
+            encoding="utf-8",
+        )
+        return True, "ok"
+
+    monkeypatch.setattr(runner, "_validate_findings_file", fake_validate)
+    monkeypatch.setattr(runner, "invoke_agent", fake_invoke)
+    result = runner.invoke_round1_agent(
+        agent="codex",
+        repo="stranske/Example",
+        repo_path=tmp_path / "repo",
+        output_dir=tmp_path / "out",
+        workspace_root=tmp_path,
+        template_path=tmp_path / "prompt.md",
+        log_dir=tmp_path / "logs",
+        timeout=30,
+        retries=1,
+        workflows_steward_root=tmp_path,
+        source_commit="abc123",
+    )
+
+    assert result.succeeded is True
+    assert invocations == 2
+    stale = list(findings.parent.glob("findings.stale-*.json"))
+    assert len(stale) == 1
+    assert stale[0].read_text(encoding="utf-8") == '{"invalid": true}\n'
+    assert findings.read_text(encoding="utf-8") == '{"valid": true}\n'
+
+
 def test_findings_path_handles_repo_names_with_multiple_slashes(tmp_path: Path) -> None:
     output_dir = tmp_path / "output"
     result = runner.round1_findings_path(output_dir, "claude", "org/suborg/project")

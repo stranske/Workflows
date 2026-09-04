@@ -31,7 +31,6 @@ CLI flags mirror the round-2 runner where applicable.
 from __future__ import annotations
 
 import argparse
-import contextlib
 import json
 import shutil
 import subprocess
@@ -602,9 +601,11 @@ def invoke_round1_agent(
                 f"attempt {attempt + 1}: findings.json failed schema validation: "
                 + "; ".join(errors[:3])
             )
-            # Overwrite invalid file so retry is fresh.
-            with contextlib.suppress(OSError):
-                findings_path.unlink()
+            try:
+                preserve_stale_findings(findings_path)
+            except OSError as exc:
+                last_error += f"; cannot preserve invalid findings: {exc}"
+                break
             continue
 
         try:
