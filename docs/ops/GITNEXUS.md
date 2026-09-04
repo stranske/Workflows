@@ -129,3 +129,7 @@ derived `.gitnexus` cache into
 forced embeddings rebuild, and verifies that the rebuilt metadata targets the
 current `HEAD` with a positive embedding count. The quarantined cache is kept
 for diagnosis; it is not deleted.
+
+Because Dropbox may recreate a conflicted WAL copy during a long rebuild, the
+runner also quarantines late conflicted-copy artifacts after analysis and
+before the verified cache is exposed to review agents.

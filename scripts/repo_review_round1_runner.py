@@ -261,6 +261,13 @@ def refresh_map_blocking(
     repair_root = repair_root or repo_path.parent / ".repo-review-repairs"
     repair_notes: list[str] = []
 
+    def find_conflict_artifacts() -> list[Path]:
+        return sorted(
+            path
+            for path in cache_dir.glob("**/*")
+            if path.is_file() and "conflicted copy" in path.name.casefold()
+        )
+
     def quarantine_cache(reason: str) -> Path | None:
         if not cache_dir.exists():
             return None
@@ -271,11 +278,23 @@ def refresh_map_blocking(
         repair_notes.append(f"quarantined GitNexus cache ({reason}) at {destination}")
         return destination
 
-    conflict_artifacts = sorted(
-        path
-        for path in cache_dir.glob("**/*")
-        if path.is_file() and "conflicted copy" in path.name.casefold()
-    )
+    def quarantine_conflict_artifacts(paths: list[Path], reason: str) -> Path | None:
+        if not paths:
+            return None
+        timestamp = datetime.now(UTC).strftime("%Y%m%dT%H%M%S.%fZ")
+        destination = repair_root / repo_path.name / timestamp / "conflicted-artifacts"
+        for path in paths:
+            relative = path.relative_to(cache_dir)
+            target = destination / relative
+            target.parent.mkdir(parents=True, exist_ok=True)
+            shutil.move(str(path), str(target))
+        repair_notes.append(
+            f"quarantined {len(paths)} GitNexus conflicted-copy artifact(s) "
+            f"({reason}) at {destination}"
+        )
+        return destination
+
+    conflict_artifacts = find_conflict_artifacts()
     if conflict_artifacts:
         quarantine_cache(
             "Dropbox-conflicted derived WAL artifact: "
@@ -297,6 +316,12 @@ def refresh_map_blocking(
 
     if not ok:
         return False, "; ".join([*repair_notes, output])
+
+    # Dropbox can recreate conflicted WAL copies while the analyzer is writing.
+    # They are not inputs to the completed primary database, so retain the
+    # verified cache and quarantine only those late artifacts before consumers
+    # query it.
+    quarantine_conflict_artifacts(find_conflict_artifacts(), "created during analyzer rebuild")
 
     meta_path = cache_dir / "meta.json"
     try:

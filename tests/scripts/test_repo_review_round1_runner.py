@@ -666,3 +666,40 @@ def test_refresh_map_rebuilds_after_analyzer_reports_corruption(
     assert ok is True
     assert calls == 2
     assert "analyzer reported database corruption" in message
+
+
+def test_refresh_map_quarantines_conflicted_wal_created_during_rebuild(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    repo_path = tmp_path / "repo"
+    cache_dir = repo_path / ".gitnexus"
+    cache_dir.mkdir(parents=True)
+
+    def fake_analyze(*_args, **_kwargs):
+        (cache_dir / "meta.json").write_text(
+            json.dumps({"lastCommit": "abc123", "stats": {"embeddings": 12}}),
+            encoding="utf-8",
+        )
+        (cache_dir / "lbug (Tim's conflicted copy 2026-09-03).wal").write_text("", encoding="utf-8")
+        return True, "GitNexus Analyzer complete"
+
+    monkeypatch.setattr(runner, "run_gitnexus_analyze", fake_analyze)
+    monkeypatch.setattr(
+        subprocess,
+        "run",
+        lambda *_args, **_kwargs: subprocess.CompletedProcess(
+            args=["git"], returncode=0, stdout="abc123\n", stderr=""
+        ),
+    )
+
+    ok, message = runner.refresh_map_blocking(
+        repo_path,
+        gitnexus_bin="gitnexus",
+        repair_root=tmp_path / "repairs",
+    )
+
+    assert ok is True
+    assert "created during analyzer rebuild" in message
+    assert not list(cache_dir.glob("**/*conflicted copy*"))
+    quarantined = list((tmp_path / "repairs").glob("repo/*/conflicted-artifacts/*conflicted copy*"))
+    assert len(quarantined) == 1
