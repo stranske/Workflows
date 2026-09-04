@@ -436,6 +436,7 @@ class TestSyncRepoToOrigin:
         assert ok is True
         assert "preserved executing steward checkout at repair456" in message
         assert not any("checkout" in call or "pull" in call for call in calls)
+        assert not any("stash" in call for call in calls)
 
     def test_timeout_handling(self, tmp_path: Path) -> None:
         repo_path = tmp_path / "repo"
@@ -668,6 +669,68 @@ def test_refresh_map_rebuilds_after_analyzer_reports_corruption(
     assert "analyzer reported database corruption" in message
 
 
+@pytest.mark.parametrize("meta", [[], {"lastCommit": "abc123", "stats": []}, {"lastCommit": "abc123", "stats": "bad"}])
+def test_refresh_map_rejects_non_object_metadata(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch, meta: object
+) -> None:
+    repo_path = tmp_path / "repo"
+    cache_dir = repo_path / ".gitnexus"
+    cache_dir.mkdir(parents=True)
+    (cache_dir / "meta.json").write_text(json.dumps(meta), encoding="utf-8")
+    monkeypatch.setattr(runner, "run_gitnexus_analyze", lambda *_args, **_kwargs: (True, "rebuilt"))
+
+    ok, message = runner.refresh_map_blocking(repo_path, gitnexus_bin="gitnexus")
+
+    assert ok is False
+    assert "meta.json is invalid" in message
+
+
+def test_refresh_map_allows_structural_index_without_embeddings(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    repo_path = tmp_path / "repo"
+    cache_dir = repo_path / ".gitnexus"
+    cache_dir.mkdir(parents=True)
+    (cache_dir / "meta.json").write_text(
+        json.dumps({"lastCommit": "abc123", "stats": {"embeddings": 0}}), encoding="utf-8"
+    )
+    monkeypatch.setattr(runner, "run_gitnexus_analyze", lambda *_args, **_kwargs: (True, "rebuilt"))
+    monkeypatch.setattr(
+        subprocess,
+        "run",
+        lambda *_args, **_kwargs: subprocess.CompletedProcess(
+            args=["git"], returncode=0, stdout="abc123\n", stderr=""
+        ),
+    )
+
+    ok, message = runner.refresh_map_blocking(repo_path, gitnexus_bin="gitnexus")
+
+    assert ok is True
+    assert "rebuilt" in message
+
+
+def test_refresh_map_returns_failed_result_when_head_check_times_out(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    repo_path = tmp_path / "repo"
+    cache_dir = repo_path / ".gitnexus"
+    cache_dir.mkdir(parents=True)
+    (cache_dir / "meta.json").write_text(
+        json.dumps({"lastCommit": "abc123", "stats": {"embeddings": 1}}), encoding="utf-8"
+    )
+    monkeypatch.setattr(runner, "run_gitnexus_analyze", lambda *_args, **_kwargs: (True, "rebuilt"))
+    monkeypatch.setattr(
+        subprocess,
+        "run",
+        lambda *_args, **_kwargs: (_ for _ in ()).throw(subprocess.TimeoutExpired(["git"], 1)),
+    )
+
+    ok, message = runner.refresh_map_blocking(repo_path, gitnexus_bin="gitnexus")
+
+    assert ok is False
+    assert "HEAD verification timed out" in message
+
+
 def test_refresh_map_quarantines_conflicted_wal_created_during_rebuild(
     tmp_path: Path, monkeypatch: pytest.MonkeyPatch
 ) -> None:
@@ -693,9 +756,7 @@ def test_refresh_map_quarantines_conflicted_wal_created_during_rebuild(
     )
 
     ok, message = runner.refresh_map_blocking(
-        repo_path,
-        gitnexus_bin="gitnexus",
-        repair_root=tmp_path / "repairs",
+        repo_path, gitnexus_bin="gitnexus", repair_root=tmp_path / "repairs"
     )
 
     assert ok is True

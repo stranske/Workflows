@@ -183,41 +183,15 @@ def sync_repo_to_origin(
         if result.returncode != 0:
             return False, f"git fetch failed: {result.stderr.strip()[:200]}"
 
-        # 2. Remove untracked workloop-state.md if upstream has a tracked version.
-        wls = repo_path / "workloop-state.md"
-        if wls.exists():
-            tracked = _git(["ls-files", "--error-unmatch", "workloop-state.md"])
-            if tracked.returncode != 0:
-                # Untracked locally; check if upstream has it tracked.
-                show = _git(["cat-file", "-e", "origin/main:workloop-state.md"])
-                if show.returncode == 0:
-                    wls.unlink()
-                    notes.append("removed untracked workloop-state.md (upstream tracked)")
-
-        # 3. Stash any dirty changes so checkout is safe.
-        dirty = _git(["status", "--short"])
-        if dirty.stdout.strip():
-            stash = _git(
-                [
-                    "stash",
-                    "push",
-                    "-m",
-                    "round1-runner sync: stash before sync to origin head",
-                    "-u",  # include untracked
-                ]
-            )
-            if stash.returncode == 0:
-                notes.append("stashed dirty changes")
-
-        # 4. Confirm the fleet's canonical branch exists.
+        # 2. Confirm the fleet's canonical branch exists.
         target = "main"
         check = _git(["rev-parse", "--verify", "origin/main"])
         if check.returncode != 0:
             return False, "origin/main does not exist"
 
-        # 5. Review the exact fetched commit without acquiring or advancing a
-        #    local branch. If the checkout is already on main at that commit,
-        #    leave it alone; otherwise detach at origin/main.
+        # Preserve the executing steward before changing its working tree. A
+        # stash here would make subsequent coordinator subprocesses read a
+        # different implementation even though we later return successfully.
         current = _git(["rev-parse", "--abbrev-ref", "HEAD"]).stdout.strip()
         current_head = _git(["rev-parse", "HEAD"]).stdout.strip()
         origin_head = check.stdout.strip()
@@ -227,6 +201,35 @@ def sync_repo_to_origin(
                 f"at {current_head[:12]} (origin/main {origin_head[:12]})"
             )
             return True, "; ".join(notes)
+
+        # 3. Remove untracked workloop-state.md if upstream has a tracked version.
+        wls = repo_path / "workloop-state.md"
+        if wls.exists():
+            tracked = _git(["ls-files", "--error-unmatch", "workloop-state.md"])
+            if tracked.returncode != 0:
+                show = _git(["cat-file", "-e", "origin/main:workloop-state.md"])
+                if show.returncode == 0:
+                    wls.unlink()
+                    notes.append("removed untracked workloop-state.md (upstream tracked)")
+
+        # 4. Stash any dirty changes so checkout is safe.
+        dirty = _git(["status", "--short"])
+        if dirty.stdout.strip():
+            stash = _git(
+                [
+                    "stash",
+                    "push",
+                    "-m",
+                    "round1-runner sync: stash before sync to origin head",
+                    "-u",
+                ]
+            )
+            if stash.returncode == 0:
+                notes.append("stashed dirty changes")
+
+        # 5. Review the exact fetched commit without acquiring or advancing a
+        #    local branch. If the checkout is already on main at that commit,
+        #    leave it alone; otherwise detach at origin/main.
         if current != target or current_head != origin_head:
             checkout = _git(["checkout", "--detach", "origin/main"])
             if checkout.returncode != 0:
@@ -326,20 +329,25 @@ def refresh_map_blocking(
     meta_path = cache_dir / "meta.json"
     try:
         meta = json.loads(meta_path.read_text(encoding="utf-8"))
+        if not isinstance(meta, dict) or not isinstance(meta.get("stats"), dict):
+            raise ValueError("meta.json and meta.stats must be objects")
         indexed_commit = str(meta.get("lastCommit") or "")
-        embeddings = int((meta.get("stats") or {}).get("embeddings") or 0)
-    except (OSError, json.JSONDecodeError, TypeError, ValueError) as exc:
+        embeddings = int(meta["stats"].get("embeddings") or 0)
+    except (OSError, json.JSONDecodeError, TypeError, ValueError, AttributeError) as exc:
         return False, "; ".join([*repair_notes, f"rebuilt GitNexus meta.json is invalid: {exc}"])
 
     import subprocess
 
-    head_result = subprocess.run(
-        ["git", "-C", str(repo_path), "rev-parse", "HEAD"],
-        check=False,
-        capture_output=True,
-        text=True,
-        timeout=min(timeout, 120),
-    )
+    try:
+        head_result = subprocess.run(
+            ["git", "-C", str(repo_path), "rev-parse", "HEAD"],
+            check=False,
+            capture_output=True,
+            text=True,
+            timeout=min(timeout, 120),
+        )
+    except subprocess.TimeoutExpired:
+        return False, "; ".join([*repair_notes, "GitNexus rebuild HEAD verification timed out"])
     head_commit = head_result.stdout.strip()
     if head_result.returncode != 0 or not head_commit or indexed_commit != head_commit:
         return False, "; ".join(
@@ -350,7 +358,9 @@ def refresh_map_blocking(
             ]
         )
     if embeddings <= 0:
-        return False, "; ".join([*repair_notes, "GitNexus rebuild completed without embeddings"])
+        return True, "; ".join(
+            [*repair_notes, output or "GitNexus structural map verified; embeddings unavailable"]
+        )
 
     return True, "; ".join([*repair_notes, output or "GitNexus map verified clean"])
 

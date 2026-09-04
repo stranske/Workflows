@@ -377,6 +377,16 @@ def prepare_phase_retry(
                 quarantined.append(str(destination))
     elif phase == "body-writer":
         related_logs.extend((output_dir / "logs" / "body-writer").glob(f"*-{safe}.log*"))
+        repo_round2 = output_dir / "round2" / safe
+        converged = repo_round2 / "converged.json"
+        baseline = repo_round2 / "converged.pre-body-writer.json"
+        if converged.exists():
+            destination = repair_dir / converged.name
+            shutil.move(str(converged), str(destination))
+            quarantined.append(str(destination))
+        if baseline.is_file():
+            shutil.copy2(baseline, converged)
+            preserved.append(str(baseline))
 
     for path in related_logs:
         if not path.is_file():
@@ -597,6 +607,14 @@ def coordinate_repo(
     }
     if not r2_result.succeeded:
         return report
+
+    # A body-writer retry must start from the converged round-2 data. The
+    # writer deliberately leaves nonempty bodies alone, so retrying against a
+    # malformed or quality-gate-failed body would reproduce the same failure.
+    converged_path = output_dir / "round2" / safe / "converged.json"
+    baseline_path = converged_path.with_name("converged.pre-body-writer.json")
+    if converged_path.is_file():
+        shutil.copy2(converged_path, baseline_path)
 
     # 4. Body-writer pass (iter-9 lesson): convert structured candidates into
     #    AGENT_ISSUE_FORMAT.md-compliant agent-ready issue bodies. The local
