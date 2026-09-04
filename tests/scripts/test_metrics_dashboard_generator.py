@@ -1,7 +1,7 @@
 import datetime as dt
 import importlib
-import json
 import importlib.util
+import json
 import sys
 from pathlib import Path
 from types import ModuleType
@@ -14,16 +14,16 @@ import pytest
 # single visible guard and stops every legitimate registration from reddening these dashboards.
 REGISTRY_SIZE = len(
     json.loads(
-        (Path(__file__).resolve().parents[2] / "config" / "langsmith_fleet_registry.json").read_text(
-            encoding="utf-8"
-        )
+        (
+            Path(__file__).resolve().parents[2] / "config" / "langsmith_fleet_registry.json"
+        ).read_text(encoding="utf-8")
     )["repos"]
 )
 ALLOWLIST_SIZE = len(
     json.loads(
-        (Path(__file__).resolve().parents[2] / "config" / "langsmith_fleet_allowlist.json").read_text(
-            encoding="utf-8"
-        )
+        (
+            Path(__file__).resolve().parents[2] / "config" / "langsmith_fleet_allowlist.json"
+        ).read_text(encoding="utf-8")
     )["repos"]
 )
 
