@@ -60,7 +60,7 @@ def test_reusable_runner_is_read_only_exact_cli_and_has_no_write_lane():
     job = workflow["jobs"]["run-single-arm"]
     assert job["permissions"] == {"contents": "read"}
     source = RUNNER.read_text(encoding="utf-8")
-    assert "@openai/codex@0.153.2" in source
+    assert "npm ci --prefix runner-src/.github/actions/verifier-codex-cli --ignore-scripts" in source
     assert "--sandbox read-only" in source
     assert 'model_reasoning_effort="high"' in source
     assert "--ignore-user-config" in source
