@@ -1091,8 +1091,16 @@ def test_build_anthropic_keeps_temperature_for_incumbent():
     assert client.kwargs["temperature"] == 0.1
 
 
-def test_astra_client_uses_high_reasoning_responses_without_sampling_controls():
-    from tools.langchain_client import _build_openai_client
+@pytest.mark.parametrize(
+    "relative", ["tools/langchain_client.py", "templates/consumer-repo/tools/langchain_client.py"]
+)
+def test_astra_client_uses_high_reasoning_responses_without_sampling_controls(relative):
+    import runpy
+    from pathlib import Path
+
+    _build_openai_client = runpy.run_path(str(Path(__file__).resolve().parents[2] / relative))[
+        "_build_openai_client"
+    ]
 
     received = {}
 
