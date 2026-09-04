@@ -2445,6 +2445,7 @@ test('buildMergeReport provides machine-readable summary counts', () => {
     merged: 0,
     merge_failed: 0,
     delivery_contract_blocked: 0,
+    delivery_plan_handoff: 0,
     evidence_recovered: 0,
     error: 0,
   });
@@ -3356,11 +3357,22 @@ test('maint71 real execution never closes a candidate owned by a different plan'
     });
 
     const report = JSON.parse(fs.readFileSync(reportPath, 'utf8'));
-    assert.equal(report.results[0].status, 'delivery_contract_blocked');
+    assert.equal(report.results[0].status, 'delivery_plan_handoff');
     assert.equal(report.results[0].delivery_reason, 'plan_mismatch');
     assert.equal(report.results[0].observed_plan_id, planId);
     assert.equal(report.results[0].next_command, 'resume-owning-plan');
     assert.deepEqual(mutations, []);
+    assert.equal(report.handoff_records.length, 1);
+    const handoff = report.handoff_records[0];
+    assert.equal(handoff.plan_id, planId);
+    assert.equal(handoff.source_commit, sourceCommit);
+    assert.equal(handoff.scope_base_sha, scopeBaseSha);
+    assert.equal(handoff.plan_scope, 'source-delta');
+    assert.equal(handoff.delivery_generation, 'delivery-record-generation');
+    assert.equal(handoff.continuation.class, 'transient');
+    assert.equal(handoff.continuation.lane, 'candidate');
+    assert.equal(handoff.continuation.reason, 'delivery_plan_handoff');
+    assert.ok(Date.parse(handoff.continuation.resume_after));
     assert.deepEqual(failures, []);
   } finally {
     process.chdir(originalCwd);

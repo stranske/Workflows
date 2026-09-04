@@ -1902,11 +1902,19 @@ async function run({ github, context, core }) {
       }
   
       if (selection.foreignPlan) {
+        const owningMetadata = syncMetadata(selection.active);
         console.log(`Leaving PR #${selection.active.number} untouched: it belongs to another plan`);
         results.push({
           owner, repo, pr: selection.active.number, branch: selection.active.head.ref,
           head_sha: selection.active.head.sha,
-          status: 'delivery_contract_blocked', delivery_reason: 'plan_mismatch',
+          status: 'delivery_plan_handoff', delivery_reason: 'plan_mismatch',
+          delivery_generation: selection.deliveryRecord.generation,
+          plan_id: selection.deliveryRecord.plan_id,
+          plan_scope: owningMetadata?.plan_scope || 'full',
+          scope_base_sha: owningMetadata?.scope_base_sha || '',
+          source_commit: selection.deliveryRecord.source_commit,
+          continuation_lane: selectedSyncHash === 'candidate' ? 'candidate' : requestedSyncHash,
+          check_state: 'checks_pending', review_state: 'not-applicable',
           delivery_disposition: 'other-plan', blocker_owner: 'maint-71',
           expected_plan_id: expectedPlanId, observed_plan_id: selection.deliveryRecord.plan_id,
           next_command: 'resume-owning-plan',

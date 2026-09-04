@@ -1089,6 +1089,7 @@ function summarizeResults(results) {
     merged: 0,
     merge_failed: 0,
     delivery_contract_blocked: 0,
+    delivery_plan_handoff: 0,
     evidence_recovered: 0,
     error: 0,
   };
@@ -1203,6 +1204,7 @@ function classifyDeliveryContinuation(result = {}, observedAt = new Date().toISO
   const terminal = new Set(['merged', 'stale_closed', 'evidence_recovered', 'campaign_prepared']);
   const transient = new Set([
     'candidate_evidence_required',
+    'delivery_plan_handoff',
     'checks_pending',
     'delivery_review_not_started',
     'delivery_sealed_checks_pending',
