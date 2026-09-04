@@ -53,7 +53,9 @@ step = "2. Per-repo round-1 + round-2 + body-writer"
 description = """
 For each active repo, sequentially:
   a. Round-1: two independent reviewer agents (codex + claude) each produce
-     findings.json with a ranked candidate set.
+     findings.json with a ranked candidate set. Reuse requires a runner-written
+     findings.provenance.json whose source_commit exactly matches the current
+     review checkout; stale findings are preserved and regenerated.
   b. Skip-this-cycle gate: if round-1 fingerprint matches the prior cycle's
      converged set, skip round-2 and write a stub converged.json.
   c. Round-2: negotiation + synthesis → converged.json.
