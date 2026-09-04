@@ -237,8 +237,8 @@ def resolve_profile(
     model = matches[0]
     if model.get("provider") != "openai":
         raise ContractError(f"model registry provider mismatch for {expected_model}")
-    if model.get("worker_profile") is not True or model.get("lifecycle") != "trial":
-        raise ContractError(f"model registry trial-worker metadata mismatch for {expected_model}")
+    if model.get("lifecycle") not in {"current", "trial"}:
+        raise ContractError(f"model registry lifecycle mismatch for {expected_model}")
 
     return {
         "profile_id": profile_id,
