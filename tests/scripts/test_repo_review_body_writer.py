@@ -275,6 +275,32 @@ def test_build_prompt_injects_repo_variables(tmp_path: Path, monkeypatch) -> Non
     assert "scripts/repo_review_round2_schema.py" in prompt
 
 
+def test_build_prompt_requires_rewrite_of_nonempty_invalid_body(
+    tmp_path: Path, monkeypatch
+) -> None:
+    fake_prompt = tmp_path / "prompt.md"
+    fake_prompt.write_text("PROMPT_TEMPLATE_BODY\n", encoding="utf-8")
+    monkeypatch.setattr(body_writer, "canonical_body_writer_prompt", lambda: fake_prompt)
+    output_dir = tmp_path / "out"
+    path = body_writer.converged_path(output_dir, "stranske/Workflows")
+    path.parent.mkdir(parents=True)
+    path.write_text(
+        '{"converged_candidates":[{"title":"Repair me","body":"non-empty but short"}],'
+        '"meta_candidate":null}',
+        encoding="utf-8",
+    )
+
+    prompt = body_writer.build_prompt(
+        repo="stranske/Workflows",
+        output_dir=output_dir,
+        repo_path=tmp_path / "repo",
+    )
+
+    assert "BODY REPAIR REQUIRED" in prompt
+    assert "candidate #1 'Repair me'" in prompt
+    assert "rewrite every target" in prompt
+
+
 # ---------------------------------------------------------------------------
 # verify_clean_sync — exercises a real git repo fixture
 # ---------------------------------------------------------------------------
@@ -339,9 +365,9 @@ def test_sync_check_not_required_for_executing_steward(tmp_path: Path) -> None:
 def test_each_generic_boilerplate_phrase_is_flagged(phrase: str) -> None:
     body = CLEAN_BODY + f"\n\nNote: {phrase}.\n"
     errors = body_writer.body_quality_errors(body)
-    assert any(
-        repr(phrase) in e or phrase in e for e in errors
-    ), f"phrase {phrase!r} should be flagged by body_quality_errors"
+    assert any(repr(phrase) in e or phrase in e for e in errors), (
+        f"phrase {phrase!r} should be flagged by body_quality_errors"
+    )
 
 
 # ---------------------------------------------------------------------------

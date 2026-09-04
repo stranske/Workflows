@@ -13,8 +13,9 @@ This pass invokes a focused agent per repo that:
 1. Reads the canonical prompt at `docs/ops/REPO_REVIEW_BODY_WRITER_PROMPT.md`.
 2. Reads the converged.json for the target repo.
 3. For each `converged_candidates[*]` and (if present) `meta_candidate` whose
-   `body` field is empty or missing, reads the cited files at the cited line
-   numbers, then composes a body matching the 468/908 reference depth.
+   `body` field is empty, missing, or fails the deterministic quality gate,
+   reads the cited files at the cited line numbers, then composes or repairs a
+   body matching the 468/908 reference depth.
 4. If cited files no longer match current main (gap was fixed in an unpulled
    PR), records `body: "INSUFFICIENT_EVIDENCE: <reason>"` instead of
    fabricating — these become deeper-review items in the human packet.
@@ -245,6 +246,32 @@ def build_prompt(*, repo: str, output_dir: Path, repo_path: Path) -> str:
     template = canonical_body_writer_prompt().read_text(encoding="utf-8")
     safe = repo.replace("/", "__")
     cj = converged_path(output_dir, repo)
+    repair_targets: list[str] = []
+    if cj.is_file():
+        try:
+            data = json.loads(cj.read_text(encoding="utf-8"))
+            candidates = list(data.get("converged_candidates") or [])
+            meta = data.get("meta_candidate")
+            if isinstance(meta, dict):
+                candidates.append(meta)
+            for index, candidate in enumerate(candidates, start=1):
+                errors = body_quality_errors(str(candidate.get("body") or ""))
+                if errors:
+                    repair_targets.append(
+                        f"- candidate #{index} {candidate.get('title', '?')!r}: "
+                        + "; ".join(errors)
+                    )
+        except (OSError, json.JSONDecodeError, TypeError):
+            pass
+
+    repair_directive = ""
+    if repair_targets:
+        repair_directive = (
+            "BODY REPAIR REQUIRED: rewrite every target below even when it already "
+            "has a non-empty `body`; the current body failed the deterministic "
+            "post-write gate. Preserve all non-body fields.\n" + "\n".join(repair_targets) + "\n\n"
+        )
+
     header = (
         f"You are running the body-writer pass for **{repo}**.\n\n"
         f"Variables:\n"
@@ -260,8 +287,10 @@ def build_prompt(*, repo: str, output_dir: Path, repo_path: Path) -> str:
         "fabricating. INSUFFICIENT_EVIDENCE is a legitimate outcome.\n\n"
         "After writing, validate:\n\n"
         f"  python scripts/repo_review_round2_schema.py --converged {cj} --expected-repo {repo}\n\n"
-        "Return a SHORT (<200 words) report: titles + char counts of new "
-        "bodies, any INSUFFICIENT_EVIDENCE markings, validation result.\n\n---\n\n"
+        "Return a SHORT (<200 words) report: titles + char counts of new or "
+        "repaired bodies, any INSUFFICIENT_EVIDENCE markings, validation result.\n\n"
+        + repair_directive
+        + "---\n\n"
     )
     return header + template
 
