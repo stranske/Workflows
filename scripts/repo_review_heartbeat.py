@@ -57,6 +57,7 @@ def _write_sentinel(
     started_at: float,
     last_check: float,
     last_log_mtime: float | None,
+    last_progress_mtime: float | None = None,
     elapsed: float,
     stall_for: float | None,
     note: str = "",
@@ -67,6 +68,7 @@ def _write_sentinel(
         "started_at": started_at,
         "last_check": last_check,
         "last_log_mtime": last_log_mtime,
+        "last_progress_mtime": last_progress_mtime,
         "elapsed_seconds": round(elapsed, 1),
         "stall_seconds": round(stall_for, 1) if stall_for is not None else None,
         "note": note,
@@ -93,13 +95,17 @@ def run_with_heartbeat(
     heartbeat_interval: int = 60,
     stall_threshold: int = 600,
     label: str = "agent",
+    progress_files: tuple[Path, ...] = (),
 ) -> HeartbeatResult:
     """Spawn cmd with stdout/stderr → log_file, supervised by a heartbeat loop.
 
     - `heartbeat_interval`: seconds between mtime checks. Default 60s.
-    - `stall_threshold`: seconds the log can go without growing before we declare
-      the agent stuck and SIGTERM it. Default 600s (10 min). Set to a value
-      ≥ timeout to disable stall detection.
+    - `stall_threshold`: seconds the log and all tracked progress files can go
+      without changing before we declare the agent stuck and SIGTERM it.
+      Default 600s (10 min). Set to a value ≥ timeout to disable stall detection.
+    - `progress_files`: optional output artifacts whose mtime also proves useful
+      activity. This prevents a file-writing agent with quiet stdout from being
+      killed while it is still advancing its required output.
     - `timeout`: hard wall. The agent is SIGTERM'd at this point regardless.
 
     The first `stall_threshold` seconds are NOT checked for stalls — agents
@@ -110,6 +116,11 @@ def run_with_heartbeat(
     sentinel_path = _sentinel_path_for_log(log_file)
     started_at = time.time()
     last_log_mtime: float | None = None
+    progress_mtimes = {path: _safe_mtime(path) for path in progress_files}
+    last_progress_mtime = max(
+        (mtime for mtime in progress_mtimes.values() if mtime is not None),
+        default=None,
+    )
     last_growth_time: float = started_at
 
     _write_sentinel(
@@ -119,6 +130,7 @@ def run_with_heartbeat(
         started_at=started_at,
         last_check=started_at,
         last_log_mtime=None,
+        last_progress_mtime=last_progress_mtime,
         elapsed=0.0,
         stall_for=None,
         note=f"{label}: spawning",
@@ -180,10 +192,25 @@ def run_with_heartbeat(
             now = time.time()
             elapsed = now - started_at
             current_mtime = _safe_mtime(log_file)
+            activity_changed = False
             if current_mtime is not None and (
                 last_log_mtime is None or current_mtime > last_log_mtime
             ):
                 last_log_mtime = current_mtime
+                activity_changed = True
+            for progress_path in progress_files:
+                current_progress_mtime = _safe_mtime(progress_path)
+                prior_progress_mtime = progress_mtimes[progress_path]
+                if current_progress_mtime is not None and (
+                    prior_progress_mtime is None or current_progress_mtime > prior_progress_mtime
+                ):
+                    progress_mtimes[progress_path] = current_progress_mtime
+                    last_progress_mtime = max(
+                        last_progress_mtime or current_progress_mtime,
+                        current_progress_mtime,
+                    )
+                    activity_changed = True
+            if activity_changed:
                 last_growth_time = now
             stall_for = now - last_growth_time
 
@@ -196,6 +223,7 @@ def run_with_heartbeat(
                     started_at=started_at,
                     last_check=now,
                     last_log_mtime=last_log_mtime,
+                    last_progress_mtime=last_progress_mtime,
                     elapsed=elapsed,
                     stall_for=stall_for,
                     note=f"exited rc={rc}",
@@ -213,7 +241,7 @@ def run_with_heartbeat(
 
             if elapsed >= timeout:
                 timed_out = True
-                note = f"hard timeout after {timeout}s (log mtime advanced {stall_for:.0f}s ago)"
+                note = f"hard timeout after {timeout}s (tracked activity {stall_for:.0f}s ago)"
                 break
 
             # Stall detection: only after the initial stall_threshold seconds
@@ -226,7 +254,7 @@ def run_with_heartbeat(
             ):
                 stuck = True
                 note = (
-                    f"stuck: log mtime has not advanced for {stall_for:.0f}s "
+                    f"stuck: no tracked log/output activity for {stall_for:.0f}s "
                     f"(threshold {stall_threshold}s, elapsed {elapsed:.0f}s)"
                 )
                 break
@@ -238,9 +266,13 @@ def run_with_heartbeat(
                 started_at=started_at,
                 last_check=now,
                 last_log_mtime=last_log_mtime,
+                last_progress_mtime=last_progress_mtime,
                 elapsed=elapsed,
                 stall_for=stall_for,
-                note=f"{label}: alive, log {'growing' if stall_for < heartbeat_interval else f'idle for {stall_for:.0f}s'}",
+                note=(
+                    f"{label}: alive, tracked activity "
+                    f"{'recent' if stall_for < heartbeat_interval else f'idle for {stall_for:.0f}s'}"
+                ),
             )
             time.sleep(heartbeat_interval)
 
@@ -262,6 +294,7 @@ def run_with_heartbeat(
             started_at=started_at,
             last_check=time.time(),
             last_log_mtime=last_log_mtime,
+            last_progress_mtime=last_progress_mtime,
             elapsed=elapsed,
             stall_for=time.time() - last_growth_time,
             note=note,

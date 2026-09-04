@@ -292,3 +292,40 @@ def test_steward_root_resolves_from_env_or_module(
     reloaded2 = importlib.reload(mod)
     expected = Path(reloaded2.__file__).resolve().parent.parent
     assert expected == reloaded2.WORKFLOWS_STEWARD
+
+
+def test_run_one_turn_tracks_turn_output_as_progress(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    repo = "stranske/Example"
+    output_dir = tmp_path / "review"
+    agents = {
+        "codex": tmp_path / "codex-findings.json",
+        "claude": tmp_path / "claude-findings.json",
+    }
+    captured: dict[str, tuple[Path, ...]] = {}
+    monkeypatch.setattr(runner, "WORKFLOWS_STEWARD", tmp_path)
+    monkeypatch.setattr(runner, "build_prompt", lambda **_kwargs: "prompt")
+
+    def fake_invoke(agent_label, _prompt, **kwargs):
+        progress_files = kwargs["progress_files"]
+        captured[agent_label] = progress_files
+        progress_files[0].write_text("{}\n", encoding="utf-8")
+        return True, "ok"
+
+    monkeypatch.setattr(runner, "invoke_agent", fake_invoke)
+    results = runner.run_one_turn(
+        repo=repo,
+        turn=1,
+        output_dir=output_dir,
+        agents=agents,
+        additional_dirs=[tmp_path],
+        timeout=30,
+        retries=0,
+        dry_run=False,
+        log_dir=tmp_path / "logs",
+    )
+
+    assert all(result.succeeded for result in results.values())
+    for agent_label, progress_files in captured.items():
+        assert progress_files == (runner.round2_turn_path(output_dir, repo, 1, agent_label),)

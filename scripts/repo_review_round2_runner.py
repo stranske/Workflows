@@ -312,7 +312,14 @@ _HEARTBEAT_INTERVAL = int(os.environ.get("REPO_REVIEW_HEARTBEAT_INTERVAL", "60")
 _STALL_THRESHOLD = int(os.environ.get("REPO_REVIEW_STALL_THRESHOLD", "900"))  # 15 min
 
 
-def invoke_codex(prompt: str, *, cwd: Path, log_file: Path, timeout: int) -> tuple[bool, str]:
+def invoke_codex(
+    prompt: str,
+    *,
+    cwd: Path,
+    log_file: Path,
+    timeout: int,
+    progress_files: tuple[Path, ...] = (),
+) -> tuple[bool, str]:
     codex_bin = shutil.which("codex")
     if codex_bin is None:
         return False, "codex CLI not on PATH"
@@ -360,13 +367,14 @@ def invoke_codex(prompt: str, *, cwd: Path, log_file: Path, timeout: int) -> tup
         heartbeat_interval=_HEARTBEAT_INTERVAL,
         stall_threshold=_STALL_THRESHOLD,
         label="codex",
+        progress_files=progress_files,
     )
     if result.succeeded:
         return True, str(log_file)
     if result.stuck:
         return (
             False,
-            f"codex stuck (no log growth for >{_STALL_THRESHOLD}s; terminated): {log_file}",
+            f"codex stuck (no tracked activity for >{_STALL_THRESHOLD}s; terminated): {log_file}",
         )
     if result.timed_out:
         return False, f"codex timed out after {timeout}s (log: {log_file})"
@@ -480,7 +488,13 @@ def _build_claude_env() -> dict[str, str]:
 
 
 def invoke_claude(
-    prompt: str, *, cwd: Path, additional_dirs: list[Path], log_file: Path, timeout: int
+    prompt: str,
+    *,
+    cwd: Path,
+    additional_dirs: list[Path],
+    log_file: Path,
+    timeout: int,
+    progress_files: tuple[Path, ...] = (),
 ) -> tuple[bool, str]:
     binary = _resolve_claude_binary()
     if binary is None:
@@ -508,13 +522,14 @@ def invoke_claude(
         heartbeat_interval=_HEARTBEAT_INTERVAL,
         stall_threshold=_STALL_THRESHOLD,
         label="claude",
+        progress_files=progress_files,
     )
     if result.succeeded:
         return True, str(log_file)
     if result.stuck:
         return (
             False,
-            f"claude stuck (no log growth for >{_STALL_THRESHOLD}s; terminated): {log_file}",
+            f"claude stuck (no tracked activity for >{_STALL_THRESHOLD}s; terminated): {log_file}",
         )
     if result.timed_out:
         return False, f"claude timed out after {timeout}s (log: {log_file})"
@@ -529,6 +544,7 @@ def invoke_agent(
     additional_dirs: list[Path],
     log_file: Path,
     timeout: int,
+    progress_files: tuple[Path, ...] = (),
 ) -> tuple[bool, str]:
     """Dispatch to the right invoker by agent_label.
 
@@ -539,7 +555,13 @@ def invoke_agent(
     if agent_label.startswith("pilot-"):
         base = agent_label[len("pilot-") :]
     if base == "codex":
-        return invoke_codex(prompt, cwd=cwd, log_file=log_file, timeout=timeout)
+        return invoke_codex(
+            prompt,
+            cwd=cwd,
+            log_file=log_file,
+            timeout=timeout,
+            progress_files=progress_files,
+        )
     if base == "claude":
         return invoke_claude(
             prompt,
@@ -547,6 +569,7 @@ def invoke_agent(
             additional_dirs=additional_dirs,
             log_file=log_file,
             timeout=timeout,
+            progress_files=progress_files,
         )
     return False, f"unknown agent label {agent_label!r} (base {base!r})"
 
@@ -613,6 +636,7 @@ def run_one_turn(
                 additional_dirs=additional_dirs,
                 log_file=log_file,
                 timeout=timeout,
+                progress_files=(out_path,),
             )
             if ok and out_path.is_file():
                 return AgentTurnResult(

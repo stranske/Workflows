@@ -191,6 +191,36 @@ def test_stall_detection_skipped_during_initial_grace_window(tmp_path: Path) -> 
     assert result.timed_out is False
 
 
+def test_progress_file_activity_prevents_false_stall(tmp_path: Path) -> None:
+    """A quiet agent advancing its required artifact must remain healthy."""
+    log = tmp_path / "artifact-writer.log"
+    progress = tmp_path / "result.json"
+    cmd = [
+        "/bin/sh",
+        "-c",
+        "echo starting; sleep 1; touch result.json; sleep 1; touch result.json; "
+        "sleep 1; touch result.json; sleep 1",
+    ]
+
+    result = heartbeat.run_with_heartbeat(
+        cmd,
+        prompt=None,
+        cwd=tmp_path,
+        env=None,
+        log_file=log,
+        timeout=10,
+        heartbeat_interval=1,
+        stall_threshold=2,
+        label="artifact-writer",
+        progress_files=(progress,),
+    )
+
+    assert result.succeeded is True
+    assert result.stuck is False
+    sentinel = json.loads(result.sentinel_path.read_text(encoding="utf-8"))
+    assert sentinel["last_progress_mtime"] is not None
+
+
 def test_prompt_is_piped_to_stdin(tmp_path: Path) -> None:
     log = tmp_path / "stdin.log"
     result = heartbeat.run_with_heartbeat(
@@ -229,6 +259,7 @@ def test_sentinel_payload_has_expected_fields(tmp_path: Path) -> None:
         "started_at",
         "last_check",
         "last_log_mtime",
+        "last_progress_mtime",
         "elapsed_seconds",
         "stall_seconds",
         "note",

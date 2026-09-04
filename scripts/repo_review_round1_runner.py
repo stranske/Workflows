@@ -563,6 +563,7 @@ def invoke_round1_agent(
             additional_dirs=additional_dirs,
             log_file=log_path,
             timeout=timeout,
+            progress_files=(findings_path,),
         )
         if not ok:
             last_error = f"attempt {attempt + 1}: {message}"
