@@ -435,6 +435,9 @@ def refinement_boundary(monkeypatch):
 
     prompts = types.ModuleType("langchain_core.prompts")
     prompts.ChatPromptTemplate = types.SimpleNamespace(from_template=Prompt)
+    core = types.ModuleType("langchain_core")
+    core.prompts = prompts
+    monkeypatch.setitem(sys.modules, "langchain_core", core)
     monkeypatch.setitem(sys.modules, "langchain_core.prompts", prompts)
     primary, fallback = object(), object()
     select = Mock(return_value=(primary, "github-models"))
