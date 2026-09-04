@@ -43,6 +43,7 @@ import concurrent.futures
 import json
 import os
 import shutil
+import subprocess
 import sys
 import time
 from dataclasses import dataclass, field
@@ -312,17 +313,38 @@ _STALL_THRESHOLD = int(os.environ.get("REPO_REVIEW_STALL_THRESHOLD", "900"))  # 
 
 
 def invoke_codex(prompt: str, *, cwd: Path, log_file: Path, timeout: int) -> tuple[bool, str]:
-    if shutil.which("codex") is None:
+    codex_bin = shutil.which("codex")
+    if codex_bin is None:
         return False, "codex CLI not on PATH"
     # `--ephemeral` is critical when this runner is itself spawned from inside
     # another `codex exec` (the cron pattern). Without it, the nested codex
     # tries to write session files at `~/.codex/sessions/`, which the outer
     # codex's workspace-write sandbox blocks (EPERM). With `--ephemeral`,
     # session state lives only in memory and the nested codex starts cleanly.
+    try:
+        help_result = subprocess.run(
+            [codex_bin, "exec", "--help"],
+            check=False,
+            capture_output=True,
+            text=True,
+            timeout=30,
+        )
+    except (OSError, subprocess.TimeoutExpired) as exc:
+        return False, f"could not inspect codex exec capabilities: {exc}"
+    help_text = "\n".join([help_result.stdout, help_result.stderr])
+    if help_result.returncode != 0:
+        return False, "codex exec --help failed; refusing an unverified invocation"
+    if "--approve-for-me" in help_text:
+        automation_flag = "--approve-for-me"
+    elif "--full-auto" in help_text:
+        automation_flag = "--full-auto"
+    else:
+        return False, "codex exec exposes no supported non-interactive approval flag"
+
     cmd = [
-        "codex",
+        codex_bin,
         "exec",
-        "--full-auto",
+        automation_flag,
         "--skip-git-repo-check",
         "--ephemeral",
         "-C",

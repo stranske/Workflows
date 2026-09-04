@@ -24,6 +24,7 @@ registry = "config/repo_review_registry.json"
 [automation.timeouts]
 round1_per_agent_seconds = 5400   # 90 min
 round2_per_turn_seconds = 2700    # 45 min
+repair_attempts_per_phase = 2     # preserve failure evidence, repair, then retry
 backlog_scan_seconds = 300
 docs_drift_scan_seconds = 1800    # ~5-10 min across 9 repos
 scorecard_scan_seconds = 300
@@ -61,9 +62,16 @@ For each active repo, sequentially:
      nesting on apply_patch (empirically verified 2026-05-07).
 Sequential execution is intentional: "1 repo per hour" rate-limit-conservative
 cadence. No global state file — each repo's state lives in state.json.
+
+Each repo phase has a bounded repair loop (two repairs by default). A failed
+attempt is preserved under docs/reports/repo-review/repairs/<repo>/, poisoned
+round-2 turn outputs are quarantined, and the phase is retried. Round-1 also
+repairs derived GitNexus corruption by quarantining .gitnexus and requiring a
+clean forced rebuild at the exact reviewed commit. The coordinator returns
+failure if round-1, round-2, body-writer, or the final evaluator remains failed.
 """
 output = "docs/reports/repo-review/round2/<owner>__<repo>/converged.json"
-if_failed = "round1=FAIL aborts that repo; round2=FAIL is surfaced in the summary but does not block other repos."
+if_failed = "The phase is repaired and retried twice. A persistent failure remains visible in state.json and makes the coordinator exit nonzero."
 
 [operational_notes.queue_builder]
 step = "3. Queue-builder preview (does NOT write the artifact)"

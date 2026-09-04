@@ -71,6 +71,26 @@ python scripts/repo_review_coordinator.py \
     --repos stranske/Manager-Database stranske/trip-planner
 ```
 
+Every repo phase runs through a bounded repair loop (two repair attempts by
+default, configurable with `--repair-attempts`). Before a retry, the
+coordinator preserves the failed log and a machine-readable `repair.json`
+under `docs/reports/repo-review/repairs/<owner>__<repo>/`. It keeps validated
+round-1 work, but quarantines existing round-2 turn outputs because a malformed
+partial JSON file would otherwise be reused on every retry. A body-writer
+failure now fails the repo, and a final-evaluator failure makes the whole
+coordinator return nonzero.
+
+Round-1 sync reviews the exact fetched `origin/main` commit. When the local
+checkout is not already at that commit it detaches there instead of acquiring
+or advancing the local `main` branch. This permits the Workflows steward
+checkout to remain detached and avoids failures from a sibling worktree owning
+`main` or from damaged local pull bookkeeping such as `ORIG_HEAD`. When the
+repo under review is the executing Workflows steward itself, round 1 preserves
+that checkout for the lifetime of the coordinator; replacing live script files
+mid-cycle could otherwise make round 2 load a different implementation. The
+body-writer applies the same exception to its exact-origin check for that one
+checkout; consumer repos must still match `origin/main`.
+
 `python scripts/repo_review_evaluator.py` remains valid as a standalone
 preflight step: it produces the per-repo `review-inputs.md` artifacts without
 running the multi-agent round-1/round-2 negotiation. Use it when you only need
@@ -84,6 +104,15 @@ active maps with `gitnexus analyze <repo> --skip-agents-md` when the CLI is
 available. Use `--no-refresh-stale-gitnexus` to report stale maps without
 refreshing, or `--skip-gitnexus-preflight` only when GitNexus is deliberately
 out of scope for that run.
+
+Round-1 treats GitNexus corruption text as failure even when the analyzer exits
+zero. Dropbox-conflicted WAL artifacts or analyzer corruption signatures cause
+the derived `.gitnexus` directory to be moved into the repo's repair archive,
+followed by a forced rebuild with embeddings. The rebuild is accepted only
+when `meta.json` is valid, its indexed commit equals the reviewed `HEAD`, and
+the embedding count is positive. GitNexus remains optional discovery context;
+repo-review correctness still falls back to direct files, `rg`, Git history,
+and tests.
 
 ### Docs-drift fix-agent
 

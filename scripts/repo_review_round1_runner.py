@@ -33,9 +33,11 @@ from __future__ import annotations
 import argparse
 import contextlib
 import json
+import shutil
 import sys
 from concurrent.futures import ThreadPoolExecutor
 from dataclasses import dataclass
+from datetime import UTC, datetime
 from pathlib import Path
 
 # Re-use agent invocation + state primitives from sibling scripts.
@@ -143,16 +145,23 @@ def sync_repo_to_origin(
     repo_path: Path,
     *,
     timeout: int = 120,
+    preserve_checkout: bool = False,
 ) -> tuple[bool, str]:
-    """Sync the local working tree to origin's canonical main branch.
+    """Sync the local working tree to the exact origin/main commit.
 
     Per the iter-9 lesson: round-1 reviewers MUST run against current main, not
     a stale local checkout. A stale checkout silently produces false negatives
     (cited files no longer exist locally → INSUFFICIENT_EVIDENCE) and false
     positives (gaps that have already shipped in unpulled PRs get re-raised).
 
-    Procedure: stash any dirty changes (preserved as a stash entry), checkout
-    the canonical `main` branch, `git pull --ff-only`.
+    Procedure: stash any dirty changes (preserved as a stash entry), fetch
+    ``origin/main``, and detach at that exact commit when the current checkout
+    does not already point there. ``preserve_checkout`` is reserved for the
+    executing Workflows steward: replacing the files beneath the live runner
+    would make later phases load a different implementation. Detaching avoids
+    two recurring local-only failures: ``main`` may be owned by a sibling
+    worktree, and a damaged ``ORIG_HEAD`` can make ``git pull`` fail even after
+    a successful fetch.
     Returns (ok, summary). Untracked workloop-state.md is removed proactively
     because upstream often adds a tracked version with the same name.
     """
@@ -174,18 +183,36 @@ def sync_repo_to_origin(
         if result.returncode != 0:
             return False, f"git fetch failed: {result.stderr.strip()[:200]}"
 
-        # 2. Remove untracked workloop-state.md if upstream has a tracked version.
+        # 2. Confirm the fleet's canonical branch exists.
+        target = "main"
+        check = _git(["rev-parse", "--verify", "origin/main"])
+        if check.returncode != 0:
+            return False, "origin/main does not exist"
+
+        # Preserve the executing steward before changing its working tree. A
+        # stash here would make subsequent coordinator subprocesses read a
+        # different implementation even though we later return successfully.
+        current = _git(["rev-parse", "--abbrev-ref", "HEAD"]).stdout.strip()
+        current_head = _git(["rev-parse", "HEAD"]).stdout.strip()
+        origin_head = check.stdout.strip()
+        if preserve_checkout:
+            notes.append(
+                "preserved executing steward checkout "
+                f"at {current_head[:12]} (origin/main {origin_head[:12]})"
+            )
+            return True, "; ".join(notes)
+
+        # 3. Remove untracked workloop-state.md if upstream has a tracked version.
         wls = repo_path / "workloop-state.md"
         if wls.exists():
             tracked = _git(["ls-files", "--error-unmatch", "workloop-state.md"])
             if tracked.returncode != 0:
-                # Untracked locally; check if upstream has it tracked.
                 show = _git(["cat-file", "-e", "origin/main:workloop-state.md"])
                 if show.returncode == 0:
                     wls.unlink()
                     notes.append("removed untracked workloop-state.md (upstream tracked)")
 
-        # 3. Stash any dirty changes so checkout is safe.
+        # 4. Stash any dirty changes so checkout is safe.
         dirty = _git(["status", "--short"])
         if dirty.stdout.strip():
             stash = _git(
@@ -194,33 +221,28 @@ def sync_repo_to_origin(
                     "push",
                     "-m",
                     "round1-runner sync: stash before sync to origin head",
-                    "-u",  # include untracked
+                    "-u",
                 ]
             )
-            if stash.returncode == 0:
-                notes.append("stashed dirty changes")
+            if stash.returncode != 0:
+                diagnostic = (stash.stderr or stash.stdout).strip()[:200]
+                return False, f"git stash failed: {diagnostic or 'unknown error'}"
+            notes.append("stashed dirty changes")
 
-        # 4. Confirm the fleet's canonical branch exists.
-        target = "main"
-        check = _git(["rev-parse", "--verify", "origin/main"])
-        if check.returncode != 0:
-            return False, "origin/main does not exist"
-
-        # 5. Checkout the target branch if not already on it.
-        current = _git(["rev-parse", "--abbrev-ref", "HEAD"]).stdout.strip()
-        if current != target:
-            checkout = _git(["checkout", target])
+        # 5. Review the exact fetched commit without acquiring or advancing a
+        #    local branch. If the checkout is already on main at that commit,
+        #    leave it alone; otherwise detach at origin/main.
+        if current != target or current_head != origin_head:
+            checkout = _git(["checkout", "--detach", "origin/main"])
             if checkout.returncode != 0:
-                return False, (f"checkout {target} failed: {checkout.stderr.strip()[:200]}")
-            notes.append(f"checked out {target} (was {current})")
-
-        # 6. Fast-forward pull.
-        pull = _git(["pull", "--ff-only", "origin", target])
-        if pull.returncode != 0:
-            return False, f"pull --ff-only failed: {pull.stderr.strip()[:200]}"
+                return False, (
+                    f"checkout --detach origin/main failed: {checkout.stderr.strip()[:200]}"
+                )
+            notes.append(f"detached at origin/main (was {current or 'unknown'})")
 
         head = _git(["rev-parse", "--short", "HEAD"]).stdout.strip()
-        notes.append(f"HEAD now {head} on {target}")
+        location = "main" if current == target and current_head == origin_head else "origin/main"
+        notes.append(f"HEAD now {head} on {location}")
         return True, "; ".join(notes)
     except subprocess.TimeoutExpired:
         return False, f"sync timed out after {timeout}s"
@@ -231,6 +253,7 @@ def refresh_map_blocking(
     *,
     gitnexus_bin: str,
     timeout: int = 1200,
+    repair_root: Path | None = None,
 ) -> tuple[bool, str]:
     """Refresh the GitNexus map for `repo_path` BEFORE spawning agents.
 
@@ -239,9 +262,118 @@ def refresh_map_blocking(
     Always passes `--force --embeddings`: forces rebuild on commit-current
     maps when embeddings are absent (otherwise analyze short-circuits).
     """
-    return run_gitnexus_analyze(
+    cache_dir = repo_path / ".gitnexus"
+    repair_root = repair_root or repo_path.parent / ".repo-review-repairs"
+    repair_notes: list[str] = []
+
+    def find_conflict_artifacts() -> list[Path]:
+        return sorted(
+            path
+            for path in cache_dir.glob("**/*")
+            if path.is_file() and "conflicted copy" in path.name.casefold()
+        )
+
+    def quarantine_cache(reason: str) -> Path | None:
+        if not cache_dir.exists():
+            return None
+        timestamp = datetime.now(UTC).strftime("%Y%m%dT%H%M%S.%fZ")
+        destination = repair_root / repo_path.name / timestamp / ".gitnexus"
+        destination.parent.mkdir(parents=True, exist_ok=False)
+        shutil.move(str(cache_dir), str(destination))
+        repair_notes.append(f"quarantined GitNexus cache ({reason}) at {destination}")
+        return destination
+
+    def quarantine_conflict_artifacts(paths: list[Path], reason: str) -> Path | None:
+        if not paths:
+            return None
+        timestamp = datetime.now(UTC).strftime("%Y%m%dT%H%M%S.%fZ")
+        destination = repair_root / repo_path.name / timestamp / "conflicted-artifacts"
+        for path in paths:
+            relative = path.relative_to(cache_dir)
+            target = destination / relative
+            target.parent.mkdir(parents=True, exist_ok=True)
+            shutil.move(str(path), str(target))
+        repair_notes.append(
+            f"quarantined {len(paths)} GitNexus conflicted-copy artifact(s) "
+            f"({reason}) at {destination}"
+        )
+        return destination
+
+    conflict_artifacts = find_conflict_artifacts()
+    if conflict_artifacts:
+        try:
+            quarantine_cache(
+                "Dropbox-conflicted derived WAL artifact: "
+                + ", ".join(path.name for path in conflict_artifacts[:3])
+            )
+        except OSError as exc:
+            return False, f"GitNexus cache quarantine failed: {exc}"
+
+    ok, output = run_gitnexus_analyze(
         repo_path, gitnexus_bin, with_embeddings=True, force=True, timeout=timeout
     )
+    if not ok and "corruption detected" in output.casefold():
+        try:
+            quarantine_cache("analyzer reported database corruption")
+        except OSError as exc:
+            return False, f"GitNexus cache quarantine failed: {exc}"
+        ok, output = run_gitnexus_analyze(
+            repo_path,
+            gitnexus_bin,
+            with_embeddings=True,
+            force=True,
+            timeout=timeout,
+        )
+
+    if not ok:
+        return False, "; ".join([*repair_notes, output])
+
+    # Dropbox can recreate conflicted WAL copies while the analyzer is writing.
+    # They are not inputs to the completed primary database, so retain the
+    # verified cache and quarantine only those late artifacts before consumers
+    # query it.
+    try:
+        quarantine_conflict_artifacts(find_conflict_artifacts(), "created during analyzer rebuild")
+    except OSError as exc:
+        return False, f"GitNexus artifact quarantine failed: {exc}"
+
+    meta_path = cache_dir / "meta.json"
+    try:
+        meta = json.loads(meta_path.read_text(encoding="utf-8"))
+        if not isinstance(meta, dict) or not isinstance(meta.get("stats"), dict):
+            raise ValueError("meta.json and meta.stats must be objects")
+        indexed_commit = str(meta.get("lastCommit") or "")
+        embeddings = int(meta["stats"].get("embeddings") or 0)
+    except (OSError, json.JSONDecodeError, TypeError, ValueError, AttributeError) as exc:
+        return False, "; ".join([*repair_notes, f"rebuilt GitNexus meta.json is invalid: {exc}"])
+
+    import subprocess
+
+    try:
+        head_result = subprocess.run(
+            ["git", "-C", str(repo_path), "rev-parse", "HEAD"],
+            check=False,
+            capture_output=True,
+            text=True,
+            timeout=min(timeout, 120),
+        )
+    except subprocess.TimeoutExpired:
+        return False, "; ".join([*repair_notes, "GitNexus rebuild HEAD verification timed out"])
+    head_commit = head_result.stdout.strip()
+    if head_result.returncode != 0 or not head_commit or indexed_commit != head_commit:
+        return False, "; ".join(
+            [
+                *repair_notes,
+                "GitNexus rebuild did not index the current HEAD "
+                f"(indexed={indexed_commit or 'missing'}, head={head_commit or 'unknown'})",
+            ]
+        )
+    if embeddings <= 0:
+        return True, "; ".join(
+            [*repair_notes, output or "GitNexus structural map verified; embeddings unavailable"]
+        )
+
+    return True, "; ".join([*repair_notes, output or "GitNexus map verified clean"])
 
 
 # ---------------------------------------------------------------------------
@@ -451,7 +583,10 @@ def run(args: argparse.Namespace) -> int:
     if not args.skip_local_sync:
         attempt = begin_attempt(state, phase="round-1-sync", agent="runner")
         save_state(output_dir, state)
-        ok, message = sync_repo_to_origin(repo_path)
+        ok, message = sync_repo_to_origin(
+            repo_path,
+            preserve_checkout=repo_path.resolve() == workflows_steward_root.resolve(),
+        )
         finish_attempt(state, attempt, succeeded=ok, notes=message[:400])
         save_state(output_dir, state)
         if not ok:
@@ -476,6 +611,7 @@ def run(args: argparse.Namespace) -> int:
             repo_path,
             gitnexus_bin=args.gitnexus_bin,
             timeout=args.map_refresh_timeout,
+            repair_root=output_dir / "repairs" / "gitnexus",
         )
         finish_attempt(state, attempt, succeeded=ok, notes=message[:400])
         save_state(output_dir, state)
