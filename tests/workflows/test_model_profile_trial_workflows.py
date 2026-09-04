@@ -35,6 +35,7 @@ def test_dispatch_shim_is_single_arm_and_calls_only_pinned_reusable_runner():
     }
     assert all(value["required"] is True for value in inputs.values())
     assert inputs["profile_id"]["options"] == [
+        "codex-6-astra-high",
         "codex-5.6-sol-high",
         "codex-5.6-terra-high",
         "codex-5.6-luna-high",
@@ -142,6 +143,7 @@ def test_registry_trial_profiles_share_exact_pinned_read_only_contract():
     assert trial["runtime_fallback_allowed"] is False
     assert trial["auxiliary_evaluator_allowed"] is False
     for profile_id in (
+        "codex-6-astra-high",
         "codex-5.6-sol-high",
         "codex-5.6-terra-high",
         "codex-5.6-luna-high",

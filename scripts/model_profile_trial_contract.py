@@ -30,6 +30,7 @@ MAX_SOURCE_FILES = 20_000
 MAX_SOURCE_BYTES = 200 * 1024 * 1024
 SOURCE_SKIP_DIRS = {".git", ".venv", "venv", "node_modules", "dist", "build", "__pycache__"}
 EXPECTED_PROFILES = {
+    "codex-6-astra-high": "gpt-6-astra",
     "codex-5.6-sol-high": "gpt-5.6-sol",
     "codex-5.6-terra-high": "gpt-5.6-terra",
     "codex-5.6-luna-high": "gpt-5.6-luna",

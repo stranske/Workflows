@@ -47,6 +47,17 @@ execution_profiles:
     capacity_pool: codex-standard
     safety: standard
     lifecycle: active
+  codex-6-astra-high:
+    agent: codex
+    model: gpt-6-astra
+    fallback_model: gpt-5.6-sol
+    runner: reusable-model-profile-trial
+    runner_ref: stranske/Workflows/.github/workflows/reusable-model-profile-trial.yml@822e323eefba3edb640e0bd9c922caec6fffee65
+    capacity_pool: codex-standard
+    safety: read-only
+    lifecycle: trial
+    reasoning_effort: high
+    permission_mode: read-only
   codex-5.6-sol-high:
     agent: codex
     model: gpt-5.6-sol

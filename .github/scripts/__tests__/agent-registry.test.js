@@ -229,6 +229,7 @@ test('resolveExecutionProfile returns registry-backed codex model contract', () 
 
 test('resolveExecutionProfile rejects trial profiles from ordinary agent execution', () => {
   for (const profileId of [
+    'codex-6-astra-high',
     'codex-5.6-sol-high',
     'codex-5.6-terra-high',
     'codex-5.6-luna-high',
