@@ -771,11 +771,24 @@ function selectMergeEligibleSyncPr(
   prs,
   { syncHash = '', now, planId = '', repository = '', desiredTreeHash = '' } = {},
 ) {
+  const expectedPlanId = String(planId || '').trim();
   const selection = selectActiveSyncPr(prs, syncHash);
   if (!selection.active) return { ...selection, eligibility: null };
   const record = parseDeliveryRecord(selection.active.body || '');
+  // A plan-bound retry owns only that plan. A stable branch may already carry
+  // a successor campaign; a mismatch is not proof that the delivery is stale.
+  const foreignPlan = Boolean(expectedPlanId && record && record.plan_id !== expectedPlanId);
+  if (foreignPlan) {
+    return { ...selection, stale: [], deliveryRecord: record, foreignPlan,
+      eligibility: { eligible: false, reason: 'plan_mismatch' } };
+  }
+  if (expectedPlanId) {
+    selection.stale = selection.stale.filter(
+      (pr) => parseDeliveryRecord(pr.body || '')?.plan_id === expectedPlanId,
+    );
+  }
   const eligibility = record
-    ? mergeEligibility(record, { now, planId, repository, desiredTreeHash })
+    ? mergeEligibility(record, { now, planId: expectedPlanId, repository, desiredTreeHash })
     : { eligible: false, reason: 'missing_delivery_record' };
   return { ...selection, deliveryRecord: record, eligibility };
 }
@@ -1077,6 +1090,7 @@ function summarizeResults(results) {
     merged: 0,
     merge_failed: 0,
     delivery_contract_blocked: 0,
+    delivery_plan_handoff: 0,
     evidence_recovered: 0,
     error: 0,
   };
@@ -1191,6 +1205,7 @@ function classifyDeliveryContinuation(result = {}, observedAt = new Date().toISO
   const terminal = new Set(['merged', 'stale_closed', 'evidence_recovered', 'campaign_prepared']);
   const transient = new Set([
     'candidate_evidence_required',
+    'delivery_plan_handoff',
     'checks_pending',
     'delivery_review_not_started',
     'delivery_sealed_checks_pending',

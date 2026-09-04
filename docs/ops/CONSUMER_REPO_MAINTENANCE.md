@@ -539,6 +539,12 @@ scheduled, repository-dispatch, workflow-call, mixed-repository, unscoped, or
 other selector runs. Maint 71 still applies the normal exact-head, review,
 required-check, seal, and signature gates before any merge.
 
+A plan-bound retry leaves a stable PR carrying a different plan untouched. A
+plan ID mismatch establishes lack of ownership, not supersession: Maint 71 reports
+`delivery_plan_handoff` with the expected and observed plan IDs and persists a
+transient Maint 82 continuation bound to the owning plan, source, scope and head. Stale-PR cleanup is likewise restricted to the selected plan.
+This prevents a delayed prior campaign from closing a newer candidate or delivery.
+
 Active non-outdated review threads remain merge blockers. When a shared source
 repair proves a finding obsolete on the current generated head, an authenticated
 operator may pass `review_resolution_json` to Maint 71. Each
