@@ -1,0 +1,187 @@
+version: 1
+issue: 3371
+base: main
+branch: codex/issue-3371
+tasks:
+  - id: task-01
+    title: "Create `docs/contracts/schemas/tracked-variable-v1.schema.json` with `schema_version`\
+      \ const `tracked-variable/v1`, required embedded `evidence` object conforming\
+      \ to `evidence-object/v1`, and dual `provenance.document` and `provenance.mirror`\
+      \ objects per B3 \xA73.1."
+    status: done
+    started_at: '2026-09-04T20:08:35Z'
+    finished_at: '2026-09-04T20:08:48Z'
+    commit: 425953aa758c68e6d60d8432605514830cc1be02
+    notes: []
+  - id: task-02
+    title: 'Create the base `docs/contracts/schemas/tracked-variable-v1.schema.json`
+      file with `schema_version` const set to `tracked-variable/v1` (verify: docs
+      updated)'
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-03
+    title: 'Define the required embedded `evidence` object property that conforms
+      to `evidence-object/v1` schema (verify: confirm completion in repo)'
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-04
+    title: 'Add the dual `provenance.document` (verify: confirm completion in repo)'
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-05
+    title: "`provenance.mirror` object structures per B3 \xA73.1 specification (verify:\
+      \ confirm completion in repo)"
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-06
+    title: 'Create `docs/contracts/tracked-variable-v1.md` normative spec cross-linking
+      `docs/contracts/schemas/evidence-object-v1.schema.json:1-20`, including the
+      `clause-variable/v1` alias and `ontology_family: "clause"`.'
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-07
+    title: 'Write the normative specification document `docs/contracts/tracked-variable-v1.md`
+      with schema overview (verify: docs updated)'
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-08
+    title: 'Write the normative specification document `docs/contracts/tracked-variable-v1.md`
+      with usage guidelines (verify: docs updated)'
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-09
+    title: 'Add cross-references to `docs/contracts/schemas/evidence-object-v1.schema.json:1-20`
+      in the specification document (verify: docs updated)'
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-10
+    title: 'Document the `clause-variable/v1` alias (verify: confirm completion in
+      repo)'
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-11
+    title: 'explain the `ontology_family: "clause"` wire shape equivalence (verify:
+      confirm completion in repo)'
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-12
+    title: "Add `tests/fixtures/backplane/valid_tracked_variable.json` and `tests/fixtures/backplane/invalid_tracked_variable_missing_evidence.json`\
+      \ per B3 \xA76.2."
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-13
+    title: Update `tests/contracts/test_backplane_schemas.py:17-21` `SCHEMAS` dict
+      to include `tracked-variable-v1.schema.json`.
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-14
+    title: Add `test_tracked_variable_fixture_validates` in `tests/contracts/test_backplane_schemas.py`
+      loading the golden fixture through `Draft202012Validator`.
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-15
+    title: Append `.github/sync-manifest.yml` entries for the new schema and spec,
+      mirroring `evidence-object-v1` entries around line 169 in the `renovate-presets/consumer-managed-paths.json`
+      pattern.
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-16
+    title: 'Add sync-manifest entry for `tracked-variable-v1.schema.json` following
+      the `evidence-object-v1` pattern around line 169 (verify: confirm completion
+      in repo)'
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-17
+    title: 'Add sync-manifest entry for `tracked-variable-v1.md` specification document
+      using the same pattern (verify: confirm completion in repo)'
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-18
+    title: Verify both entries follow the `renovate-presets/consumer-managed-paths.json`
+      pattern structure
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-19
+    title: "Update `scripts/validate_run_contract.py:48-52` schema map with a `--tracked-variables`\
+      \ flag per B3 \xA76.2."
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-20
+    title: '`python -m pytest tests/contracts/test_backplane_schemas.py::test_tracked_variable_fixture_validates
+      -q` passes.'
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-21
+    title: Deleting the `"evidence"` key from `tests/fixtures/backplane/valid_tracked_variable.json`
+      causes `test_tracked_variable_fixture_validates` to fail; restoring the key
+      makes it pass.
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-22
+    title: '`python scripts/validate_run_contract.py --help` lists `--tracked-variables`
+      and exits 0.'
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
