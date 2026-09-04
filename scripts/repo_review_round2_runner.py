@@ -608,43 +608,58 @@ def claude_capacity_reset_at(
             parsed_date: datetime | None = None
             has_year = bool(re.search(r"\b\d{4}\b", normalized_date))
             formats = (
-                "%Y-%m-%d",
-                "%b %d, %Y",
-                "%B %d, %Y",
-                "%b %d %Y",
-                "%B %d %Y",
-                "%b %d",
-                "%B %d",
+                ("%Y-%m-%d", normalized_date),
+                ("%b %d, %Y", normalized_date),
+                ("%B %d, %Y", normalized_date),
+                ("%b %d %Y", normalized_date),
+                ("%B %d %Y", normalized_date),
+                ("%b %d %Y", f"{normalized_date} 2000"),
+                ("%B %d %Y", f"{normalized_date} 2000"),
             )
-            for date_format in formats:
+            for date_format, date_text in formats:
                 try:
-                    parsed_date = datetime.strptime(normalized_date, date_format)
+                    parsed_date = datetime.strptime(date_text, date_format)
                     break
                 except ValueError:
                     continue
             if parsed_date is None:
                 return None
-            if not has_year:
+            if has_year:
                 try:
-                    parsed_date = parsed_date.replace(year=local_now.year)
+                    reset_local = local_now.replace(
+                        year=parsed_date.year,
+                        month=parsed_date.month,
+                        day=parsed_date.day,
+                        hour=hour,
+                        minute=minute,
+                        second=0,
+                        microsecond=0,
+                    )
                 except ValueError:
                     return None
-            reset_local = local_now.replace(
-                year=parsed_date.year,
-                month=parsed_date.month,
-                day=parsed_date.day,
-                hour=hour,
-                minute=minute,
-                second=0,
-                microsecond=0,
-            )
-            if not has_year and reset_local < local_now - timedelta(minutes=5):
-                try:
-                    reset_local = reset_local.replace(year=reset_local.year + 1)
-                except ValueError:
+                if reset_local < local_now - timedelta(minutes=5):
                     return None
-            elif has_year and reset_local < local_now - timedelta(minutes=5):
-                return None
+            else:
+                next_reset: datetime | None = None
+                for candidate_year in range(local_now.year, local_now.year + 9):
+                    try:
+                        candidate = local_now.replace(
+                            year=candidate_year,
+                            month=parsed_date.month,
+                            day=parsed_date.day,
+                            hour=hour,
+                            minute=minute,
+                            second=0,
+                            microsecond=0,
+                        )
+                    except ValueError:
+                        continue
+                    if candidate >= local_now - timedelta(minutes=5):
+                        next_reset = candidate
+                        break
+                if next_reset is None:
+                    return None
+                reset_local = next_reset
     elif reset_local < local_now - timedelta(minutes=5):
         reset_local += timedelta(days=1)
     if reset_local < local_now:
