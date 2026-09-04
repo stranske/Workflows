@@ -3255,6 +3255,9 @@ test('plan-bound selection preserves successor deliveries and excludes other-pla
   const current = selectMergeEligibleSyncPr([successor, legacy], {syncHash: 'candidate', planId: 'plan-new'});
   assert.equal(current.eligibility.eligible, true);
   assert.deepEqual(current.stale, []);
+  const padded = selectMergeEligibleSyncPr([successor, legacy], {syncHash: 'candidate', planId: '  plan-new  '});
+  assert.equal(padded.eligibility.eligible, true);
+  assert.deepEqual(padded.stale, []);
 });
 
 test('maint71 real execution never closes a candidate owned by a different plan', async () => {
