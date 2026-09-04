@@ -160,3 +160,8 @@ repos:
         focus: design plan; Phase 1 Minimum Core, Minimum Demo Criterion, Milestone 0-4 deliverables and acceptance criteria, SchedulerEvidenceAdapter, ownership-boundary enforcement, export/import contract
       - path: docs/product/early-design-decisions.md
         focus: segmented decision queue; especially Segments 2 (mastery), 7 (stack), 8 (sustainability), 9 (privacy), 10 (LLM cost/routing)
+  stranske/Deliverable-Render:
+    local_path: Deliverable-Render
+    docs:
+      - path: README.md
+        focus: renderer scope and the environment constraints the outputs must respect

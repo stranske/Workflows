@@ -114,6 +114,13 @@
       "status": "ignored",
       "cadence": "manual",
       "decision_anchor": "Template repo; include only when template-specific design work is requested."
+    },
+    {
+      "repo": "stranske/Deliverable-Render",
+      "local_path": "Deliverable-Render",
+      "status": "paused",
+      "cadence": "manual",
+      "decision_anchor": "Renderer library scaffolded 2026-09-04 from the work-environment inventory; activate review once the HTML hub and deck builder land."
     }
   ]
 }
