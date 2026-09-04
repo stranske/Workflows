@@ -1,7 +1,18 @@
+"""Behavioral coverage for the highest-ranked unclaimed low-blast-radius provider surface.
+
+``tools/embedding_provider.py`` ranks next after previously covered or control-plane targets: ten
+fix commits, eleven total touches, and sixteen unexercised statements in the fresh Linux report.
+The gaps below are provider-boundary decisions, not SDK implementation details: credential and
+dependency availability, empty-batch behavior, finite fallback output, registry encapsulation,
+and fail-closed eligibility filters.
+"""
+
 import hashlib
 import sys
 import types
+from collections.abc import Iterable
 
+import pytest
 from tools import embedding_provider
 
 
@@ -111,3 +122,151 @@ def test_registry_selection_is_deterministic(monkeypatch):
     assert second is not None
     assert first.provider.provider_id == second.provider.provider_id
     assert first.model == second.model
+
+
+def test_openai_availability_requires_credentials_and_dependency(monkeypatch):
+    provider = embedding_provider.OpenAIEmbeddingProvider()
+    monkeypatch.delenv("OPENAI_API_KEY", raising=False)
+    _install_stub_langchain(monkeypatch)
+
+    assert provider.is_available() is False
+
+    monkeypatch.setenv("OPENAI_API_KEY", "token")
+    monkeypatch.setitem(sys.modules, "langchain_openai", None)
+
+    assert provider.is_available() is False
+
+
+def test_openai_empty_batch_is_a_metadata_only_noop(monkeypatch):
+    monkeypatch.delenv("OPENAI_API_KEY", raising=False)
+    monkeypatch.setitem(sys.modules, "langchain_openai", None)
+
+    response = embedding_provider.OpenAIEmbeddingProvider().embed(
+        ["", "  ", "\n\t"], model="requested-model"
+    )
+
+    assert response == embedding_provider.EmbeddingResponse(
+        vectors=[],
+        metadata=embedding_provider.EmbeddingMetadata(
+            provider="openai",
+            model="requested-model",
+            dimensions=None,
+            is_fallback=False,
+        ),
+    )
+
+
+def test_openai_nonempty_batch_requires_credentials(monkeypatch):
+    monkeypatch.delenv("OPENAI_API_KEY", raising=False)
+    monkeypatch.setitem(sys.modules, "langchain_openai", None)
+
+    with pytest.raises(RuntimeError, match="without OPENAI_API_KEY configured"):
+        embedding_provider.OpenAIEmbeddingProvider().embed(["alpha"])
+
+
+def test_openai_nonempty_batch_reports_missing_optional_dependency(monkeypatch):
+    monkeypatch.setenv("OPENAI_API_KEY", "token")
+    monkeypatch.setitem(sys.modules, "langchain_openai", None)
+
+    with pytest.raises(
+        RuntimeError,
+        match="langchain_openai and its dependencies are required",
+    ) as raised:
+        embedding_provider.OpenAIEmbeddingProvider().embed(["alpha"])
+
+    assert isinstance(raised.value.__cause__, ImportError)
+
+
+def test_fallback_empty_batch_preserves_local_metadata():
+    response = embedding_provider.LocalFallbackEmbeddingProvider().embed(
+        ["", "  "], model="explicit-local-model"
+    )
+
+    assert response == embedding_provider.EmbeddingResponse(
+        vectors=[],
+        metadata=embedding_provider.EmbeddingMetadata(
+            provider="fallback",
+            model="explicit-local-model",
+            dimensions=embedding_provider.FALLBACK_DIMENSIONS,
+            is_fallback=True,
+        ),
+    )
+
+
+def test_fallback_punctuation_only_text_produces_a_finite_zero_vector():
+    response = embedding_provider.LocalFallbackEmbeddingProvider().embed(["!!!"])
+
+    assert response.metadata.dimensions == embedding_provider.FALLBACK_DIMENSIONS
+    assert response.vectors == [[0.0] * embedding_provider.FALLBACK_DIMENSIONS]
+
+
+def test_registry_list_is_a_snapshot_not_mutable_registry_state():
+    registry = embedding_provider.bootstrap_registry()
+
+    snapshot = registry.list()
+    snapshot.clear()
+
+    registered = registry.list()
+    assert len(registered) == 2
+    assert {provider.provider_id for provider in registered} == {"openai", "fallback"}
+
+
+class _ControlledProvider(embedding_provider.EmbeddingProvider):
+    def __init__(
+        self,
+        name: str,
+        *,
+        capabilities: set[str],
+        supports_requested_model: bool = True,
+        available: bool = True,
+        priority: int = 0,
+    ) -> None:
+        self.name = name
+        self.capabilities = frozenset(capabilities)
+        self._supports_requested_model = supports_requested_model
+        self._available = available
+        self.priority = priority
+
+    def supports_model(self, model: str | None) -> bool:
+        return self._supports_requested_model and model == "requested-model"
+
+    def is_available(self) -> bool:
+        return self._available
+
+    def embed(
+        self, texts: Iterable[str], *, model: str | None = None
+    ) -> embedding_provider.EmbeddingResponse:
+        raise AssertionError("selection tests do not invoke providers")
+
+
+def test_registry_rejects_capability_model_and_runtime_mismatches():
+    registry = embedding_provider.EmbeddingProviderRegistry()
+    registry.register(_ControlledProvider("missing-capability", capabilities=set(), priority=103))
+    registry.register(
+        _ControlledProvider(
+            "wrong-model",
+            capabilities={"embeddings"},
+            supports_requested_model=False,
+            priority=102,
+        )
+    )
+    registry.register(
+        _ControlledProvider(
+            "unavailable",
+            capabilities={"embeddings"},
+            available=False,
+            priority=101,
+        )
+    )
+    registry.register(_ControlledProvider("eligible", capabilities={"embeddings"}))
+
+    selection = registry.select(
+        embedding_provider.EmbeddingSelectionCriteria(
+            model="requested-model",
+            required_capabilities={"embeddings"},
+        )
+    )
+
+    assert selection is not None
+    assert selection.provider.provider_id == "eligible"
+    assert selection.model == "requested-model"
