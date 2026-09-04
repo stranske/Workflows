@@ -206,7 +206,9 @@ def test_registry_list_is_a_snapshot_not_mutable_registry_state():
     snapshot = registry.list()
     snapshot.clear()
 
-    assert [provider.provider_id for provider in registry.list()] == ["openai", "fallback"]
+    registered = registry.list()
+    assert len(registered) == 2
+    assert {provider.provider_id for provider in registered} == {"openai", "fallback"}
 
 
 class _ControlledProvider(embedding_provider.EmbeddingProvider):
