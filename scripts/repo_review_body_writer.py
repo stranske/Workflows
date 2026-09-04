@@ -41,8 +41,10 @@ import json
 import re
 import subprocess
 import sys
+from contextlib import suppress
 from copy import deepcopy
 from pathlib import Path
+from typing import Any
 
 try:
     from scripts.repo_review_evaluator import load_registry
@@ -122,6 +124,11 @@ def converged_path(output_dir: Path, repo: str) -> Path:
 def canonical_body_writer_prompt() -> Path:
     here = Path(__file__).resolve().parent.parent
     return here / "docs" / "ops" / "REPO_REVIEW_BODY_WRITER_PROMPT.md"
+
+
+def repair_feedback_path(output_dir: Path, repo: str) -> Path:
+    """Return the repo-scoped feedback carried from the prior failed write."""
+    return converged_path(output_dir, repo).with_name("body-writer-repair-feedback.txt")
 
 
 # ---------------------------------------------------------------------------
@@ -237,7 +244,12 @@ def acceptance_has_verification_gate(body: str) -> bool:
     return bool(_VERIFICATION_GATE_RE.search(block))
 
 
-def body_quality_errors(body: str, *, repo_path: Path | None = None) -> list[str]:
+def body_quality_errors(
+    body: str,
+    *,
+    repo_path: Path | None = None,
+    expected_repo: str | None = None,
+) -> list[str]:
     """Lightweight quality check for written bodies. Mirrors the
     AGENT_ISSUE_FORMAT.md standard at validation time so low-quality bodies
     can be rejected before upload.
@@ -275,11 +287,13 @@ def body_quality_errors(body: str, *, repo_path: Path | None = None) -> list[str
             "and #908 sit at 3000-5000 chars"
         )
     task_paths = _reference_paths(_section_block(body, ("## tasks", "## task list")))
+    task_paths.discard(expected_repo)
     if len(task_paths) < 4:
         errors.append(
             f"Tasks reference {len(task_paths)} distinct repository paths; at least 4 are required"
         )
     implementation_paths = _reference_paths(_section_block(body, ("## implementation notes",)))
+    implementation_paths.discard(expected_repo)
     if len(implementation_paths) < 6:
         errors.append(
             "Implementation Notes reference "
@@ -365,7 +379,11 @@ def build_prompt(*, repo: str, output_dir: Path, repo_path: Path) -> str:
             if shape_errors:
                 repair_targets.append("- converged.json structure: " + "; ".join(shape_errors))
             for index, candidate in enumerate(candidates, start=1):
-                errors = body_quality_errors(str(candidate.get("body") or ""), repo_path=repo_path)
+                errors = body_quality_errors(
+                    str(candidate.get("body") or ""),
+                    repo_path=repo_path,
+                    expected_repo=repo,
+                )
                 if errors:
                     repair_targets.append(
                         f"- candidate #{index} {candidate.get('title', '?')!r}: "
@@ -374,12 +392,26 @@ def build_prompt(*, repo: str, output_dir: Path, repo_path: Path) -> str:
         except (OSError, json.JSONDecodeError, TypeError):
             pass
 
+    feedback_path = repair_feedback_path(output_dir, repo)
+    repair_feedback = ""
+    if feedback_path.is_file():
+        with suppress(OSError):
+            repair_feedback = feedback_path.read_text(encoding="utf-8")[-12_000:]
+
     repair_directive = ""
     if repair_targets:
         repair_directive = (
             "BODY REPAIR REQUIRED: rewrite every target below even when it already "
             "has a non-empty `body`; the current body failed the deterministic "
             "post-write gate. Preserve all non-body fields.\n" + "\n".join(repair_targets) + "\n\n"
+        )
+    if repair_feedback:
+        repair_directive += (
+            "PRIOR DETERMINISTIC VALIDATOR FEEDBACK (authoritative; correct every "
+            "listed failure before returning; schema-only validation is insufficient):\n"
+            "<validator-feedback>\n"
+            f"{repair_feedback}\n"
+            "</validator-feedback>\n\n"
         )
 
     header = (
@@ -397,12 +429,71 @@ def build_prompt(*, repo: str, output_dir: Path, repo_path: Path) -> str:
         "fabricating. INSUFFICIENT_EVIDENCE is a legitimate outcome.\n\n"
         "After writing, validate:\n\n"
         f"  python scripts/repo_review_round2_schema.py --converged {cj} --expected-repo {repo}\n\n"
+        "Then run the stricter body/path validator. Do not report success unless it "
+        "exits zero:\n\n"
+        f"  python scripts/repo_review_body_writer.py --repo {repo} --output-dir {output_dir} "
+        "--registry config/repo_review_registry.json --validate-only --skip-sync-check\n\n"
         "Return a SHORT (<200 words) report: titles + char counts of new or "
         "repaired bodies, any INSUFFICIENT_EVIDENCE markings, validation result.\n\n"
         + repair_directive
         + "---\n\n"
     )
     return header + template
+
+
+def validate_body_data(
+    data: Any,
+    *,
+    expected_repo: str,
+    repo_path: Path,
+) -> tuple[list[str], list[str], int, int]:
+    """Apply schema and body-quality gates without invoking an agent."""
+    schema_errors = validate_converged_set(data, expected_repo=expected_repo)
+    candidates, shape_errors = candidate_records(data)
+    schema_errors.extend(shape_errors)
+
+    body_failures: list[str] = []
+    insufficient_count = 0
+    written_count = 0
+    for i, candidate in enumerate(candidates, start=1):
+        body = str(candidate.get("body") or "")
+        title = str(candidate.get("title") or "?")[:50]
+        if body.strip().startswith("INSUFFICIENT_EVIDENCE"):
+            insufficient_count += 1
+            continue
+        errors = body_quality_errors(body, repo_path=repo_path, expected_repo=expected_repo)
+        if errors:
+            body_failures.append(f"  candidate #{i} '{title}': {'; '.join(errors[:3])}")
+        else:
+            written_count += 1
+    return schema_errors, body_failures, insufficient_count, written_count
+
+
+def print_validation_result(
+    *,
+    repo: str,
+    schema_errors: list[str],
+    body_failures: list[str],
+    insufficient_count: int,
+    written_count: int,
+    restored_non_body: int = 0,
+) -> bool:
+    """Print the canonical deterministic summary and return its success state."""
+    summary = (
+        f"written={written_count}, insufficient={insufficient_count}, "
+        f"failures={len(body_failures)}, schema_errors={len(schema_errors)}, "
+        f"restored_non_body={restored_non_body}"
+    )
+    print(f"[body-writer] {repo}: {summary}")
+    if schema_errors:
+        print("  schema errors:", file=sys.stderr)
+        for err in schema_errors[:5]:
+            print(f"    - {err}", file=sys.stderr)
+    if body_failures:
+        print("  body-quality failures:", file=sys.stderr)
+        for failure in body_failures:
+            print(f"  {failure}", file=sys.stderr)
+    return not schema_errors and not body_failures
 
 
 def run_body_writer(
@@ -466,6 +557,26 @@ def run(args: argparse.Namespace) -> int:
             "for phase consistency"
         )
 
+    if getattr(args, "validate_only", False):
+        try:
+            data = json.loads(cj.read_text(encoding="utf-8"))
+        except (OSError, json.JSONDecodeError) as exc:
+            print(f"[body-writer] {args.repo}: cannot parse converged.json: {exc}", file=sys.stderr)
+            return 1
+        schema_errors, body_failures, insufficient_count, written_count = validate_body_data(
+            data,
+            expected_repo=args.repo,
+            repo_path=repo_path,
+        )
+        succeeded = print_validation_result(
+            repo=args.repo,
+            schema_errors=schema_errors,
+            body_failures=body_failures,
+            insufficient_count=insufficient_count,
+            written_count=written_count,
+        )
+        return 0 if succeeded else 1
+
     log_dir = output_dir / "logs" / "body-writer"
     log_dir.mkdir(parents=True, exist_ok=True)
 
@@ -525,27 +636,12 @@ def run(args: argparse.Namespace) -> int:
             cj.write_text(json.dumps(data, indent=2) + "\n", encoding="utf-8")
         except OSError as exc:
             preservation_errors.append(f"cannot restore non-body fields: {exc}")
-    schema_errors = [
-        *validate_converged_set(data, expected_repo=args.repo),
-        *preservation_errors,
-    ]
-    candidates, shape_errors = candidate_records(data)
-    schema_errors.extend(shape_errors)
-
-    body_failures: list[str] = []
-    insufficient_count = 0
-    written_count = 0
-    for i, c in enumerate(candidates, start=1):
-        body = str(c.get("body") or "")
-        title = c.get("title", "?")[:50]
-        if body.strip().startswith("INSUFFICIENT_EVIDENCE"):
-            insufficient_count += 1
-            continue
-        errors = body_quality_errors(body, repo_path=repo_path)
-        if errors:
-            body_failures.append(f"  candidate #{i} '{title}': {'; '.join(errors[:3])}")
-        else:
-            written_count += 1
+    schema_errors, body_failures, insufficient_count, written_count = validate_body_data(
+        data,
+        expected_repo=args.repo,
+        repo_path=repo_path,
+    )
+    schema_errors.extend(preservation_errors)
 
     summary = (
         f"written={written_count}, insufficient={insufficient_count}, "
@@ -556,15 +652,14 @@ def run(args: argparse.Namespace) -> int:
     finish_attempt(state, attempt, succeeded=succeeded, notes=summary)
     save_state(output_dir, state)
 
-    print(f"[body-writer] {args.repo}: {summary}")
-    if schema_errors:
-        print("  schema errors:", file=sys.stderr)
-        for err in schema_errors[:5]:
-            print(f"    - {err}", file=sys.stderr)
-    if body_failures:
-        print("  body-quality failures:", file=sys.stderr)
-        for failure in body_failures:
-            print(f"  {failure}", file=sys.stderr)
+    print_validation_result(
+        repo=args.repo,
+        schema_errors=schema_errors,
+        body_failures=body_failures,
+        insufficient_count=insufficient_count,
+        written_count=written_count,
+        restored_non_body=restored_non_body,
+    )
 
     return 0 if succeeded else 1
 
@@ -593,6 +688,11 @@ def main() -> int:
         "--skip-sync-check",
         action="store_true",
         help="skip the local-repo-at-origin-head check (NOT recommended)",
+    )
+    parser.add_argument(
+        "--validate-only",
+        action="store_true",
+        help="validate existing bodies and paths without spawning an agent",
     )
     args = parser.parse_args()
     return run(args)

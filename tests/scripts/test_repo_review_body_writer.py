@@ -273,6 +273,32 @@ def test_body_quality_errors_rejects_unresolvable_paths(tmp_path: Path) -> None:
     assert any("missing/x.py" in error for error in errors)
 
 
+def test_body_quality_errors_does_not_treat_expected_repo_slug_as_path(tmp_path: Path) -> None:
+    for relative in (
+        "src/a.py",
+        "src/b.py",
+        "tests/test_a.py",
+        "docs/a.md",
+        "docs/b.md",
+        "scripts/check.py",
+    ):
+        path = tmp_path / relative
+        path.parent.mkdir(parents=True, exist_ok=True)
+        path.write_text("ok\n", encoding="utf-8")
+    body = CLEAN_BODY.replace(
+        "github.com/.../issues/908",
+        "`stranske/Example` and github.com/.../issues/908",
+    )
+
+    errors = body_writer.body_quality_errors(
+        body,
+        repo_path=tmp_path,
+        expected_repo="stranske/Example",
+    )
+
+    assert not any("stranske/Example" in error for error in errors)
+
+
 def test_reference_paths_normalizes_line_ranges_and_dot_directories() -> None:
     paths = body_writer._reference_paths(
         "Update `.github/workflows/ci.yml:20-35`, `src/app.py#L8-L12`, and "
@@ -336,6 +362,7 @@ def test_build_prompt_injects_repo_variables(tmp_path: Path, monkeypatch) -> Non
     assert "PROMPT_TEMPLATE_BODY" in prompt
     # The agent should be told to validate via the round-2 schema script.
     assert "scripts/repo_review_round2_schema.py" in prompt
+    assert "--validate-only" in prompt
 
 
 def test_build_prompt_requires_rewrite_of_nonempty_invalid_body(
@@ -362,6 +389,35 @@ def test_build_prompt_requires_rewrite_of_nonempty_invalid_body(
     assert "BODY REPAIR REQUIRED" in prompt
     assert "candidate #1 'Repair me'" in prompt
     assert "rewrite every target" in prompt
+
+
+def test_build_prompt_includes_prior_deterministic_failure_feedback(
+    tmp_path: Path, monkeypatch
+) -> None:
+    fake_prompt = tmp_path / "prompt.md"
+    fake_prompt.write_text("PROMPT_TEMPLATE_BODY\n", encoding="utf-8")
+    monkeypatch.setattr(body_writer, "canonical_body_writer_prompt", lambda: fake_prompt)
+    output_dir = tmp_path / "out"
+    path = body_writer.converged_path(output_dir, "stranske/Workflows")
+    path.parent.mkdir(parents=True)
+    path.write_text(
+        '{"repo":"stranske/Workflows","converged_candidates":[],"meta_candidate":null}',
+        encoding="utf-8",
+    )
+    body_writer.repair_feedback_path(output_dir, "stranske/Workflows").write_text(
+        "candidate #2: Tasks reference 1 distinct repository paths; at least 4 are required\n",
+        encoding="utf-8",
+    )
+
+    prompt = body_writer.build_prompt(
+        repo="stranske/Workflows",
+        output_dir=output_dir,
+        repo_path=tmp_path / "repo",
+    )
+
+    assert "PRIOR DETERMINISTIC VALIDATOR FEEDBACK" in prompt
+    assert "candidate #2: Tasks reference 1 distinct repository paths" in prompt
+    assert "schema-only validation is insufficient" in prompt
 
 
 def test_restore_non_body_fields_keeps_only_agent_body_changes() -> None:

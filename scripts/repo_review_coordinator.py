@@ -38,6 +38,7 @@ import shutil
 import subprocess
 import sys
 import tomllib
+from contextlib import suppress
 from dataclasses import dataclass
 from datetime import UTC, datetime
 from pathlib import Path
@@ -402,6 +403,7 @@ def prepare_phase_retry(
     elif phase == "body-writer":
         related_logs.extend((output_dir / "logs" / "body-writer").glob(f"*-{safe}.log*"))
         repo_round2 = output_dir / "round2" / safe
+        repo_round2.mkdir(parents=True, exist_ok=True)
         converged = repo_round2 / "converged.json"
         baseline = repo_round2 / "converged.pre-body-writer.json"
         if converged.exists():
@@ -411,6 +413,16 @@ def prepare_phase_retry(
         if baseline.is_file():
             shutil.copy2(baseline, converged)
             preserved.append(str(baseline))
+        feedback = repo_round2 / "body-writer-repair-feedback.txt"
+        diagnostic = ""
+        if failed_log.is_file():
+            with suppress(OSError):
+                diagnostic = failed_log.read_text(encoding="utf-8")[-12_000:]
+        feedback.write_text(
+            "The previous body-writer attempt failed deterministic validation.\n"
+            "Correct every failure below; schema-only validation is insufficient.\n\n" + diagnostic,
+            encoding="utf-8",
+        )
 
     for path in related_logs:
         if not path.is_file():
@@ -507,6 +519,19 @@ def run_subprocess_with_repairs(
             f"recorded at {repair['repair_dir']}; retrying"
         )
     return result, attempts, repairs
+
+
+def failed_repo_phase(report: dict[str, Any]) -> str | None:
+    """Return the first failed required phase, or ``None`` for a valid repo result."""
+    if not (report.get("round1") or {}).get("succeeded"):
+        return "round-1"
+    if report.get("skip_gate_fired"):
+        return None
+    if not (report.get("round2") or {}).get("succeeded"):
+        return "round-2"
+    if not (report.get("body_writer") or {}).get("succeeded"):
+        return "body-writer"
+    return None
 
 
 # ---------------------------------------------------------------------------
@@ -655,6 +680,8 @@ def coordinate_repo(
     # malformed or quality-gate-failed body would reproduce the same failure.
     converged_path = output_dir / "round2" / safe / "converged.json"
     baseline_path = converged_path.with_name("converged.pre-body-writer.json")
+    repair_feedback = converged_path.with_name("body-writer-repair-feedback.txt")
+    repair_feedback.unlink(missing_ok=True)
     if converged_path.is_file():
         shutil.copy2(converged_path, baseline_path)
 
@@ -715,6 +742,8 @@ def coordinate_repo(
 def run(args: argparse.Namespace) -> int:
     output_dir = Path(args.output_dir).resolve()
     output_dir.mkdir(parents=True, exist_ok=True)
+    failure_marker = output_dir / "repo-review-run-failure.json"
+    failure_marker.unlink(missing_ok=True)
     registry_path = Path(args.registry).resolve()
     workflows_steward_root = registry_path.parent.parent
 
@@ -800,6 +829,28 @@ def run(args: argparse.Namespace) -> int:
             repair_attempts=getattr(args, "repair_attempts", 2),
         )
         reports.append(report)
+        failed_phase = failed_repo_phase(report)
+        if failed_phase:
+            failure_marker.write_text(
+                json.dumps(
+                    {
+                        "schema": "repo-review-run-failure/v1",
+                        "failed_at": datetime.now(UTC).isoformat(),
+                        "repo": repo,
+                        "phase": failed_phase,
+                        "report": report,
+                    },
+                    indent=2,
+                )
+                + "\n",
+                encoding="utf-8",
+            )
+            print(
+                f"[coordinator] {repo}: {failed_phase} exhausted repair budget; "
+                f"aborting before aggregate outputs (failure: {failure_marker})",
+                file=sys.stderr,
+            )
+            return 1
 
     # 2b. Scorecard scan: surface low-scoring OpenSSF checks for human approval.
     #     Same non-fatal pattern as docs-drift -- failures are logged but don't
