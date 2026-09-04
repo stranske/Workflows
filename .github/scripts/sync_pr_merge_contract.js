@@ -774,6 +774,18 @@ function selectMergeEligibleSyncPr(
   const selection = selectActiveSyncPr(prs, syncHash);
   if (!selection.active) return { ...selection, eligibility: null };
   const record = parseDeliveryRecord(selection.active.body || '');
+  // A plan-bound retry owns only that plan. A stable branch may already carry
+  // a successor campaign; a mismatch is not proof that the delivery is stale.
+  const foreignPlan = Boolean(planId && record && record.plan_id !== planId);
+  if (foreignPlan) {
+    return { ...selection, stale: [], deliveryRecord: record, foreignPlan,
+      eligibility: { eligible: false, reason: 'plan_mismatch' } };
+  }
+  if (planId) {
+    selection.stale = selection.stale.filter(
+      (pr) => parseDeliveryRecord(pr.body || '')?.plan_id === planId,
+    );
+  }
   const eligibility = record
     ? mergeEligibility(record, { now, planId, repository, desiredTreeHash })
     : { eligible: false, reason: 'missing_delivery_record' };

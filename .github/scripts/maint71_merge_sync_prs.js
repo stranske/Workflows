@@ -1901,6 +1901,19 @@ async function run({ github, context, core }) {
         continue;
       }
   
+      if (selection.foreignPlan) {
+        console.log(`Leaving PR #${selection.active.number} untouched: it belongs to another plan`);
+        results.push({
+          owner, repo, pr: selection.active.number, branch: selection.active.head.ref,
+          head_sha: selection.active.head.sha,
+          status: 'delivery_contract_blocked', delivery_reason: 'plan_mismatch',
+          delivery_disposition: 'other-plan', blocker_owner: 'maint-71',
+          expected_plan_id: expectedPlanId, observed_plan_id: selection.deliveryRecord.plan_id,
+          next_command: 'resume-owning-plan',
+        });
+        continue;
+      }
+
       const { data: selectedHeadCommit } = await withRetry((client) =>
         client.rest.git.getCommit({
           owner,
