@@ -170,3 +170,8 @@ repos:
     docs:
       - path: README.md
         focus: renderer scope and the environment constraints the outputs must respect
+  stranske/Manager-Mosaic:
+    local_path: Manager-Mosaic
+    docs:
+      - path: README.md
+        focus: the fact, evidence and thesis model and how it joins the document tools

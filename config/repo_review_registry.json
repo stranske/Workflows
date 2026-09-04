@@ -128,6 +128,13 @@
       "status": "paused",
       "cadence": "manual",
       "decision_anchor": "Renderer library scaffolded 2026-09-04 from the work-environment inventory; activate review once the HTML hub and deck builder land."
+    },
+    {
+      "repo": "stranske/Manager-Mosaic",
+      "local_path": "Manager-Mosaic",
+      "status": "paused",
+      "cadence": "manual",
+      "decision_anchor": "Mosaic repo created 2026-09-04 on the owner's decision; activate review once the fact and thesis models land."
     }
   ]
 }

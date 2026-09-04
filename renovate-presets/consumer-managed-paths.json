@@ -12,6 +12,7 @@
         "stranske/Fine-Art-Archive",
         "stranske/Inv-Man-Intake",
         "stranske/Manager-Database",
+        "stranske/Manager-Mosaic",
         "stranske/Orchestrator",
         "stranske/Pension-Data",
         "stranske/Portable-Alpha-Extension-Model",
@@ -242,7 +243,7 @@
       "enabled": false
     },
     {
-      "description": "stranske/Collab-Admin, stranske/Counter_Risk, stranske/Deliverable-Render, stranske/Doc-Lineage, stranske/Inv-Man-Intake, stranske/Manager-Database, stranske/Pension-Data, stranske/Portable-Alpha-Extension-Model, stranske/Ready, stranske/Travel-Plan-Permission, stranske/learning-management-system additionally has 6 manifest-managed path(s) that at least one other consumer owns via skip_repos, create_only, or an overwrite_repos opt-in.",
+      "description": "stranske/Collab-Admin, stranske/Counter_Risk, stranske/Deliverable-Render, stranske/Doc-Lineage, stranske/Inv-Man-Intake, stranske/Manager-Database, stranske/Manager-Mosaic, stranske/Pension-Data, stranske/Portable-Alpha-Extension-Model, stranske/Ready, stranske/Travel-Plan-Permission, stranske/learning-management-system additionally has 6 manifest-managed path(s) that at least one other consumer owns via skip_repos, create_only, or an overwrite_repos opt-in.",
       "matchRepositories": [
         "stranske/Collab-Admin",
         "stranske/Counter_Risk",
@@ -250,6 +251,7 @@
         "stranske/Doc-Lineage",
         "stranske/Inv-Man-Intake",
         "stranske/Manager-Database",
+        "stranske/Manager-Mosaic",
         "stranske/Pension-Data",
         "stranske/Portable-Alpha-Extension-Model",
         "stranske/Ready",

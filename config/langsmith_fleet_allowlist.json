@@ -36,6 +36,12 @@
       "status": "not-applicable",
       "reason": "New consumer created 2026-09-04; deterministic renderers with no LLM-backed runtime.",
       "registry_activation_condition": "Move to the LangSmith registry if a renderer gains an LLM-backed surface."
+    },
+    {
+      "repo": "stranske/Manager-Mosaic",
+      "status": "not-applicable",
+      "reason": "New consumer created 2026-09-04; no LLM-backed runtime yet. Extraction and synthesis surfaces will be reviewed for tracing when they land.",
+      "registry_activation_condition": "Move to the LangSmith registry when the mosaic gains an LLM-backed extraction or synthesis surface."
     }
   ]
 }

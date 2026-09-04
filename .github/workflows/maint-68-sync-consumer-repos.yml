@@ -82,6 +82,7 @@ env:
     stranske/Orchestrator
     stranske/Doc-Lineage
     stranske/Deliverable-Render
+    stranske/Manager-Mosaic
 
 concurrency:
   group: sync-consumer-repos-${{ github.repository }}-${{ github.ref }}

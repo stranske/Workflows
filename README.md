@@ -13,7 +13,7 @@ For a narrative of how the repo evolved through five development phases (bootstr
 
 ### First-party Consumers
 
-16 repos are currently registered as first-party consumers (synced via [`.github/workflows/maint-68-sync-consumer-repos.yml`](.github/workflows/maint-68-sync-consumer-repos.yml)):
+17 repos are currently registered as first-party consumers (synced via [`.github/workflows/maint-68-sync-consumer-repos.yml`](.github/workflows/maint-68-sync-consumer-repos.yml)):
 
 - [Travel-Plan-Permission](https://github.com/stranske/Travel-Plan-Permission)
 - [Template](https://github.com/stranske/Template)
@@ -31,6 +31,7 @@ For a narrative of how the repo evolved through five development phases (bootstr
 - [Orchestrator](https://github.com/stranske/Orchestrator)
 - [Doc-Lineage](https://github.com/stranske/Doc-Lineage)
 - [Deliverable-Render](https://github.com/stranske/Deliverable-Render)
+- [Manager-Mosaic](https://github.com/stranske/Manager-Mosaic)
 
 [`.github/workflows/maint-68-sync-consumer-repos.yml`](.github/workflows/maint-68-sync-consumer-repos.yml) is the authoritative list — `REGISTERED_CONSUMER_REPOS` env var. The [Workflows-Integration-Tests](https://github.com/stranske/Workflows-Integration-Tests) harness validates the consumer surface separately.
 
