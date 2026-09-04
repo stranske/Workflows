@@ -6,6 +6,26 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 Breaking changes are called out with a **BREAKING** marker and scheduled according to the policy in `COMPATIBILITY.md`.
 
+## [1.31.0](https://github.com/stranske/Workflows/compare/v1.30.12...v1.31.0) (2026-09-04)
+
+
+### Features
+
+* route weights fail-open with delegation_source env routing ([#3335](https://github.com/stranske/Workflows/issues/3335)) ([ca5d91d](https://github.com/stranske/Workflows/commit/ca5d91dd675c8cd30066e6a5d5ed20e445855a62))
+
+
+### Bug Fixes
+
+* **coverage-guard:** the recovery comment reports the threshold it recovered to ([#3337](https://github.com/stranske/Workflows/issues/3337)) ([bb0ece0](https://github.com/stranske/Workflows/commit/bb0ece0cf2513eb22504fd9796cdddfb77c3cf10))
+* **coverage:** preserve configured workflow probes ([#3327](https://github.com/stranske/Workflows/issues/3327)) ([a245138](https://github.com/stranske/Workflows/commit/a245138a5a07f02e725440d20bd87d715845e81e))
+* **delegation:** honor task-keyed route-weight reserves on static fallback ([#3332](https://github.com/stranske/Workflows/issues/3332)) ([6470700](https://github.com/stranske/Workflows/commit/647070092a08d52be80da1b809ae239aa0c9e088))
+* **keepalive:** avoid non-actionable runner allocation ([#3341](https://github.com/stranske/Workflows/issues/3341)) ([cfd28de](https://github.com/stranske/Workflows/commit/cfd28de662ab341fbc4d1e4a1db622930451adb1))
+* **llm:** resolve explicit provider model defaults ([#3338](https://github.com/stranske/Workflows/issues/3338)) ([8714fb9](https://github.com/stranske/Workflows/commit/8714fb96e5e6c4aa00e7d4285312ec299602d988))
+* **review:** collect GitHub Copilot reviewer threads ([#3353](https://github.com/stranske/Workflows/issues/3353)) ([0c8bf2d](https://github.com/stranske/Workflows/commit/0c8bf2d4a59c539c0cc6f327d75cadc227eb2280))
+* **sync:** derive review bot identities from policy ([#3325](https://github.com/stranske/Workflows/issues/3325)) ([72d0303](https://github.com/stranske/Workflows/commit/72d0303ae3ca613b8d3d27951412ec43037c1ace))
+* **tools:** require a path boundary in codex log analyzer's _first_matching_file suffix check ([#3319](https://github.com/stranske/Workflows/issues/3319)) ([41fad50](https://github.com/stranske/Workflows/commit/41fad50e659a222c693e49372bcb15f40ec4ecb1))
+* **tools:** require a path boundary in codex log analyzer's exact-file-match suffix check ([#3318](https://github.com/stranske/Workflows/issues/3318)) ([c23b786](https://github.com/stranske/Workflows/commit/c23b7866774f0f65fe215fe6bd7d87da5ac01eff))
+
 ## [1.30.12](https://github.com/stranske/Workflows/compare/v1.30.11...v1.30.12) (2026-09-02)
 
 
