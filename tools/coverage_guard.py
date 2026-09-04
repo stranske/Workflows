@@ -367,6 +367,7 @@ def _format_recovery_body(
 |--------|-------|
 | Current | {current:.2f}% |
 | Baseline | {baseline:.2f}% |
+| Recovery threshold | {recovery_threshold:.2f}% |
 | Delta | {delta:+.2f}% |
 
 Closing the coverage baseline breach issue.{source_line}
