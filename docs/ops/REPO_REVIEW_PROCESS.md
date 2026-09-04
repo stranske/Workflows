@@ -77,8 +77,26 @@ coordinator preserves the failed log and a machine-readable `repair.json`
 under `docs/reports/repo-review/repairs/<owner>__<repo>/`. It keeps validated
 round-1 work, but quarantines existing round-2 turn outputs because a malformed
 partial JSON file would otherwise be reused on every retry. A body-writer
-failure now fails the repo, and a final-evaluator failure makes the whole
-coordinator return nonzero.
+retry receives the exact deterministic validator errors from the prior failed
+attempt and must pass the body/path validator, not only the JSON schema. If a
+required round-1, round-2, or body-writer phase exhausts its repair budget, the
+coordinator aborts immediately before later repos or aggregate producers run.
+It writes `repo-review-run-failure.json` with the failed repo, phase, timestamp,
+per-phase report, and any quarantined aggregate paths. Existing publishable
+outputs (`approved-issue-queue.json`, `approved-issue-queue.md`,
+`human-decision-packet.md`, and `repo-review-summary.json`) move to a timestamped
+`failed-runs/` directory so a stale queue cannot be uploaded as the failed
+cycle's result. A final-evaluator failure also makes the coordinator return
+nonzero.
+
+To recover, inspect `repo-review-run-failure.json`, the referenced phase report,
+and the repo-scoped `repairs/<owner>__<repo>/` evidence; repair the underlying
+tool, repository, or GitNexus state; then rerun the full coordinator command.
+An optional `--repos <owner>/<repo> --skip-preflight --skip-auto-archive
+--disable-skip-gate` run may verify the affected repo, but its outputs are
+diagnostic only: complete recovery still requires a successful all-active-repo
+run. Do not run `upload_repo_review_issues.py --apply` until the failure marker
+is absent and the full run has regenerated all four aggregate outputs.
 
 Round-1 sync reviews the exact fetched `origin/main` commit. When the local
 checkout is not already at that commit it detaches there instead of acquiring
@@ -160,6 +178,10 @@ Round-1 schema and round-2 protocol references:
 
 Outputs are written to `docs/reports/repo-review/`:
 
+- `repo-review-run-failure.json`: present only after a required repo phase
+  exhausts repairs; blocks publication until the underlying problem is fixed
+  and a full rerun succeeds. Any stale publishable outputs named by
+  `quarantined_aggregate_outputs` are preserved under `failed-runs/`.
 - `human-decision-packet.md`: one review queue across active repos.
 - `repo-review-summary.json`: machine-readable summary.
 - `approved-issue-queue.json`: machine-readable queue of approved, prioritized, agent-formatted issue bodies. Written by exactly one producer — the final evaluator pass (`repo_review_evaluator.write_approved_issue_queue`), which applies the priority-tiering and cycle-binding guards (#2272). The coordinator's step-3 queue-builder is a log-only preview and does **not** write this file. Scorecard findings enter this queue only after explicit human approval in `config/repo_review_feedback.json`.

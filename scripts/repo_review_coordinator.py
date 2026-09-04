@@ -534,6 +534,38 @@ def failed_repo_phase(report: dict[str, Any]) -> str | None:
     return None
 
 
+AGGREGATE_OUTPUT_NAMES = (
+    "approved-issue-queue.json",
+    "approved-issue-queue.md",
+    "human-decision-packet.md",
+    "repo-review-summary.json",
+)
+
+
+def quarantine_aggregate_outputs(
+    output_dir: Path,
+    *,
+    repo: str,
+    phase: str,
+) -> list[str]:
+    """Move stale publishable outputs aside when a required phase fails."""
+    existing = [
+        output_dir / name for name in AGGREGATE_OUTPUT_NAMES if (output_dir / name).is_file()
+    ]
+    if not existing:
+        return []
+    timestamp = datetime.now(UTC).strftime("%Y%m%dT%H%M%S.%fZ")
+    safe = repo.replace("/", "__")
+    quarantine_dir = output_dir / "failed-runs" / f"{timestamp}-{safe}-{phase}"
+    quarantine_dir.mkdir(parents=True, exist_ok=False)
+    moved: list[str] = []
+    for source in existing:
+        destination = quarantine_dir / source.name
+        shutil.move(str(source), str(destination))
+        moved.append(str(destination.relative_to(output_dir)))
+    return moved
+
+
 # ---------------------------------------------------------------------------
 # Per-repo coordinator
 # ---------------------------------------------------------------------------
@@ -831,6 +863,11 @@ def run(args: argparse.Namespace) -> int:
         reports.append(report)
         failed_phase = failed_repo_phase(report)
         if failed_phase:
+            quarantined_outputs = quarantine_aggregate_outputs(
+                output_dir,
+                repo=repo,
+                phase=failed_phase,
+            )
             failure_marker.write_text(
                 json.dumps(
                     {
@@ -838,6 +875,7 @@ def run(args: argparse.Namespace) -> int:
                         "failed_at": datetime.now(UTC).isoformat(),
                         "repo": repo,
                         "phase": failed_phase,
+                        "quarantined_aggregate_outputs": quarantined_outputs,
                         "report": report,
                     },
                     indent=2,

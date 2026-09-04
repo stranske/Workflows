@@ -475,6 +475,9 @@ def test_run_returns_nonzero_after_body_writer_repairs_exhausted(
     registry_path.parent.mkdir(parents=True)
     registry_path.write_text("{}", encoding="utf-8")
     output_dir = tmp_path / "out"
+    output_dir.mkdir()
+    for name in coordinator.AGGREGATE_OUTPUT_NAMES:
+        (output_dir / name).write_text("stale\n", encoding="utf-8")
     monkeypatch.setattr(
         coordinator,
         "load_registry",
@@ -525,6 +528,12 @@ def test_run_returns_nonzero_after_body_writer_repairs_exhausted(
     failure = json.loads((output_dir / "repo-review-run-failure.json").read_text())
     assert failure["repo"] == "stranske/Example"
     assert failure["phase"] == "body-writer"
+    assert len(failure["quarantined_aggregate_outputs"]) == 4
+    assert all(not (output_dir / name).exists() for name in coordinator.AGGREGATE_OUTPUT_NAMES)
+    assert all(
+        (output_dir / path).read_text(encoding="utf-8") == "stale\n"
+        for path in failure["quarantined_aggregate_outputs"]
+    )
 
 
 def test_run_stops_before_next_repo_when_repairs_are_exhausted(tmp_path: Path, monkeypatch) -> None:
