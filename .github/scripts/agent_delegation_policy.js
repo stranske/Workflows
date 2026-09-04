@@ -19,6 +19,7 @@ const DEFAULT_ROUTE_WEIGHTS_URL = (
 
 const ROUTE_WEIGHTS_SCHEMA = 'orchestrator.route-weights/v1';
 const ROUTE_WEIGHTS_MAX_AGE_MS = 14 * 24 * 60 * 60 * 1000;
+const ROUTE_WEIGHTS_MAX_CLOCK_SKEW_MS = 60 * 1000;
 const ROUTE_WEIGHTS_FETCH_TIMEOUT_MS = 5000;
 
 /**
@@ -124,7 +125,8 @@ async function loadRouteWeights({ url = DEFAULT_ROUTE_WEIGHTS_URL, fetchImpl, no
     const generatedAt = Date.parse(document.generated_at || '');
     if (
       !Number.isFinite(generatedAt) ||
-      referenceTime - generatedAt > ROUTE_WEIGHTS_MAX_AGE_MS
+      referenceTime - generatedAt > ROUTE_WEIGHTS_MAX_AGE_MS ||
+      generatedAt - referenceTime > ROUTE_WEIGHTS_MAX_CLOCK_SKEW_MS
     ) {
       return null;
     }
@@ -340,6 +342,7 @@ function decideNextAgent({
   if (stall.isStalled) {
     const alternatives = availableAgents.filter((a) => a !== currentAgent);
     const taskType = ROUTE_WEIGHT_TASK_TYPES[roundKind] || ROUTE_WEIGHT_TASK_TYPES.implement;
+    const reservedAgents = new Set(getRouteWeightReserveAgents(routeWeights?.reserve, taskType));
     const weighted = selectAgentFromRouteWeights({
       routeWeights,
       taskType,
@@ -353,10 +356,7 @@ function decideNextAgent({
     // its explicitly reserved seats. The ordinary static fallback remains
     // unchanged when the export is absent or lacks sufficient evidence.
     const eligibleStaticAlternatives = routeWeights?.task_types?.[taskType]?.evidence_ok === true
-      ? alternatives.filter((agent) => !getRouteWeightReserveAgents(
-        routeWeights.reserve,
-        taskType,
-      ).includes(String(agent).toLowerCase()))
+      ? alternatives.filter((agent) => !reservedAgents.has(String(agent).toLowerCase()))
       : alternatives;
     const nextAgent = weighted.agent || eligibleStaticAlternatives[0] || currentAgent;
     const delegationSource = weighted.agent ? weighted.delegationSource : 'static';

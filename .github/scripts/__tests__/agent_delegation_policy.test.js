@@ -232,6 +232,25 @@ test('stale generated_at → static choice', async () => {
   assert.ok(result.reason.includes('delegation_source: static'));
 });
 
+test('future-dated generated_at beyond clock skew → static choice', async () => {
+  const futureDocument = {
+    schema: 'orchestrator.route-weights/v1',
+    generated_at: '2026-09-03T00:01:01Z',
+    task_types: {},
+  };
+
+  const loaded = await loadRouteWeights({
+    url: 'https://example.test/route-weights.json',
+    fetchImpl: async () => ({
+      status: 200,
+      json: async () => futureDocument,
+    }),
+    now,
+  });
+
+  assert.equal(loaded, null);
+});
+
 test('reserve never chosen', async () => {
   // In this scenario the doc would rank `claude` first, but `claude` is reserved,
   // so the next eligible ranked agent should be chosen.
@@ -274,6 +293,32 @@ test('reserve never chosen', async () => {
   assert.equal(result.agent, 'cursor');
   assert.equal(result.delegationSource, 'route_weights');
   assert.ok(result.reason.includes('delegation_source: route_weights'));
+});
+
+test('static fallback never chooses a reserved agent when weighted choices are unavailable', () => {
+  const result = decideNextAgent({
+    state: stalledStateCodex,
+    labels: ['agent:auto'],
+    secrets: mockSecrets,
+    registry: mockRegistry,
+    routeWeights: {
+      schema: 'orchestrator.route-weights/v1',
+      generated_at: now,
+      task_types: {
+        implement: {
+          evidence_ok: true,
+          ranking: [{ agent: 'unavailable-agent', posterior: 0.99 }],
+        },
+      },
+      reserve: {
+        implement: [{ agent: 'claude', posterior: 0.55 }],
+      },
+    },
+  });
+
+  assert.equal(result.agent, 'cursor');
+  assert.equal(result.delegationSource, 'static');
+  assert.ok(result.reason.includes('delegation_source: static'));
 });
 
 test('resolveRoundKind maps the testgen label ahead of the keepalive action state', () => {
