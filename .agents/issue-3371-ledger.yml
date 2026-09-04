@@ -8,10 +8,10 @@ tasks:
       \ const `tracked-variable/v1`, required embedded `evidence` object conforming\
       \ to `evidence-object/v1`, and dual `provenance.document` and `provenance.mirror`\
       \ objects per B3 \xA73.1."
-    status: doing
+    status: done
     started_at: '2026-09-04T20:08:35Z'
-    finished_at: null
-    commit: ''
+    finished_at: '2026-09-04T20:08:48Z'
+    commit: 425953aa758c68e6d60d8432605514830cc1be02
     notes: []
   - id: task-02
     title: 'Create the base `docs/contracts/schemas/tracked-variable-v1.schema.json`
