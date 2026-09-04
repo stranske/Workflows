@@ -69,16 +69,16 @@ concurrency:
 jobs:
   evaluate:
     name: Evaluate keepalive loop
-    # Avoid allocating a runner for unrelated label events or Gate runs that
-    # cannot be associated with a PR.
+    # Avoid allocating a runner for unrelated label events.  A completed Gate
+    # can omit workflow_run.pull_requests; evaluateKeepaliveLoop resolves that
+    # case through the run head SHA before deciding whether any runner work is
+    # necessary.
     if: >-
       vars.USE_CONSOLIDATED_WORKFLOWS != 'true' &&
       (github.event_name != 'pull_request' ||
        github.event.action != 'labeled' ||
        (contains(github.event.pull_request.labels.*.name, 'agents:keepalive') &&
-        contains(join(github.event.pull_request.labels.*.name, ','), 'agent:'))) &&
-      (github.event_name != 'workflow_run' ||
-       github.event.workflow_run.pull_requests[0] != null)
+        contains(join(github.event.pull_request.labels.*.name, ','), 'agent:')))
     runs-on: ubuntu-latest
     environment: agent-standard
     outputs:
@@ -1369,14 +1369,12 @@ jobs:
       - run-claude
       - run-cursor
       - run-gemini
-    # Only actionable executions need a summary checkout and API client.
+    # A review or stop decision is state-changing too: the summary resets the
+    # review counter, applies completion routing, and records recovery leases.
     if: |
       always() &&
       needs.evaluate.outputs.pr_number != '' &&
-      needs.evaluate.outputs.pr_number != '0' &&
-      (needs.evaluate.outputs.action == 'run' ||
-       needs.evaluate.outputs.action == 'fix' ||
-       needs.evaluate.outputs.action == 'conflict')
+      needs.evaluate.outputs.pr_number != '0'
     runs-on: ubuntu-latest
     environment: >-
       ${{
