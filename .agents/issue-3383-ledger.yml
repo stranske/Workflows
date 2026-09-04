@@ -7,10 +7,10 @@ tasks:
     title: Set `schema_version` const to `tracked-variable/v1`; validate embedded
       `evidence` against `evidence-object/v1` and include the required document/mirror
       provenance contract.
-    status: doing
+    status: done
     started_at: '2026-09-04T23:38:31Z'
-    finished_at: null
-    commit: ''
+    finished_at: '2026-09-04T23:38:42Z'
+    commit: 22cbac0cb40eb6b111e53ec1dedb03dfdcb92423
     notes: []
   - id: task-02
     title: 'Document the clause-variable vocabulary alias and its `ontology_family:
