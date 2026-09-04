@@ -418,8 +418,8 @@ function hasBoundGeneratedSyncContext(pull = {}, syncSource = parseConsumerSyncS
     labels.includes('automated') &&
     labels.includes('workflow:source-sync') &&
     branch === syncSource.sync_branch &&
-    (!headRepo || headRepo === syncSource.consumer_repo) &&
-    (!baseRepo || baseRepo === syncSource.consumer_repo)
+    headRepo === syncSource.consumer_repo &&
+    baseRepo === syncSource.consumer_repo
   );
 }
 

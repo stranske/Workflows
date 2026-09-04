@@ -771,6 +771,14 @@ test('bound generated sync provenance overrides incidental issue text', () => {
     },
     {
       ...pull,
+      head: { ref: pull.head.ref },
+    },
+    {
+      ...pull,
+      base: {},
+    },
+    {
+      ...pull,
       body: body.replace(metadata.plan_id, 'sha256:not-an-immutable-plan'),
     },
     {
