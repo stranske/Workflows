@@ -326,6 +326,8 @@ def test_run_one_turn_tracks_turn_output_as_progress(
         log_dir=tmp_path / "logs",
     )
 
+    assert set(results) == set(agents)
+    assert set(captured) == set(agents)
     assert all(result.succeeded for result in results.values())
     for agent_label, progress_files in captured.items():
         assert progress_files == (runner.round2_turn_path(output_dir, repo, 1, agent_label),)

@@ -110,7 +110,8 @@ def run_with_heartbeat(
 
     The first `stall_threshold` seconds are NOT checked for stalls — agents
     legitimately can think silently for several minutes before producing
-    output. Only stalls AFTER the agent has shown initial signs of life count.
+    output. After that grace period, inactivity is measured from the latest
+    tracked change, or from process spawn when no change has occurred.
     """
     log_file.parent.mkdir(parents=True, exist_ok=True)
     sentinel_path = _sentinel_path_for_log(log_file)
@@ -157,6 +158,7 @@ def run_with_heartbeat(
             started_at=started_at,
             last_check=time.time(),
             last_log_mtime=None,
+            last_progress_mtime=last_progress_mtime,
             elapsed=time.time() - started_at,
             stall_for=None,
             note=f"OSError: {exc}",
