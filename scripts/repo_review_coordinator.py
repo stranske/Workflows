@@ -45,6 +45,8 @@ from datetime import UTC, datetime
 from pathlib import Path
 from typing import Any
 
+import yaml
+
 try:
     from scripts.repo_review_evaluator import load_registry
     from scripts.repo_review_state import (
@@ -71,6 +73,9 @@ except ModuleNotFoundError:  # pragma: no cover - direct script execution
 
 
 DEFAULT_PROVIDER_CAPACITY_WAIT_MAX_SECONDS = 6 * 60 * 60
+DEFAULT_DOCS_DRIFT_PER_DOC_TIMEOUT = 600
+DEFAULT_DOCS_DRIFT_MIN_TIMEOUT = 1800
+DEFAULT_DOCS_DRIFT_BUFFER_SECONDS = 900
 
 
 def provider_capacity_wait_max_seconds() -> int:
@@ -100,12 +105,126 @@ def configured_repair_attempts(config_path: Path | None = None) -> int:
     return value
 
 
+def configured_docs_drift_timeout_values(
+    config_path: Path | None = None,
+) -> tuple[int, int, int]:
+    """Return per-doc, minimum, and buffer timeout values from repo config."""
+    path = config_path or (
+        Path(__file__).resolve().parent.parent / "config" / "repo_review_automation.toml"
+    )
+    try:
+        timeouts = tomllib.loads(path.read_text(encoding="utf-8"))["automation"]["timeouts"]
+    except (OSError, KeyError, TypeError, tomllib.TOMLDecodeError):
+        return (
+            DEFAULT_DOCS_DRIFT_PER_DOC_TIMEOUT,
+            DEFAULT_DOCS_DRIFT_MIN_TIMEOUT,
+            DEFAULT_DOCS_DRIFT_BUFFER_SECONDS,
+        )
+    if not isinstance(timeouts, dict):
+        return (
+            DEFAULT_DOCS_DRIFT_PER_DOC_TIMEOUT,
+            DEFAULT_DOCS_DRIFT_MIN_TIMEOUT,
+            DEFAULT_DOCS_DRIFT_BUFFER_SECONDS,
+        )
+
+    def positive_int(name: str, default: int) -> int:
+        value = timeouts.get(name)
+        if isinstance(value, bool) or not isinstance(value, int) or value <= 0:
+            return default
+        return value
+
+    return (
+        positive_int("docs_drift_per_doc_seconds", DEFAULT_DOCS_DRIFT_PER_DOC_TIMEOUT),
+        positive_int("docs_drift_minimum_seconds", DEFAULT_DOCS_DRIFT_MIN_TIMEOUT),
+        positive_int("docs_drift_buffer_seconds", DEFAULT_DOCS_DRIFT_BUFFER_SECONDS),
+    )
+
+
 def nonnegative_int(value: str) -> int:
     """Argparse type for counts that may be zero but never negative."""
     parsed = int(value)
     if parsed < 0:
         raise argparse.ArgumentTypeError("must be greater than or equal to zero")
     return parsed
+
+
+def configured_docs_drift_doc_count(
+    docs_config_path: Path,
+    target_repos: list[str],
+) -> int:
+    """Count configured documents that the current coordinator run will scan."""
+    try:
+        from scripts.repo_review_docs_drift_scan import load_docs_config
+    except ModuleNotFoundError:  # pragma: no cover - direct script execution
+        from repo_review_docs_drift_scan import load_docs_config  # type: ignore[no-redef]
+
+    try:
+        docs_config = load_docs_config(docs_config_path)
+    except (OSError, ValueError, yaml.YAMLError):
+        # The child scanner reports the actionable config error. Keep a bounded
+        # minimum outer timeout so that failure can reach the coordinator.
+        return 0
+
+    selected = set(target_repos)
+    return sum(
+        1
+        for repo, repo_config in docs_config.items()
+        if repo in selected and isinstance(repo_config, dict)
+        for doc in (repo_config.get("docs") or [])
+        if isinstance(doc, dict) and str(doc.get("path") or "").strip()
+    )
+
+
+def docs_drift_subprocess_timeout(
+    docs_config_path: Path,
+    target_repos: list[str],
+    *,
+    per_doc_timeout: int | None = None,
+    minimum: int | None = None,
+    buffer: int | None = None,
+    automation_config_path: Path | None = None,
+) -> int:
+    """Return an honest outer bound for the sequential per-document scan."""
+    configured_per_doc, configured_minimum, configured_buffer = (
+        configured_docs_drift_timeout_values(automation_config_path)
+    )
+    per_doc_timeout = configured_per_doc if per_doc_timeout is None else per_doc_timeout
+    minimum = configured_minimum if minimum is None else minimum
+    buffer = configured_buffer if buffer is None else buffer
+    doc_count = configured_docs_drift_doc_count(docs_config_path, target_repos)
+    return max(minimum, doc_count * per_doc_timeout + buffer)
+
+
+def validate_docs_drift_output(
+    path: Path,
+    *,
+    expected_doc_count: int,
+) -> tuple[bool, str]:
+    """Require a fresh, complete, error-free docs-drift result before publish."""
+    if not path.is_file():
+        return False, f"scanner did not produce {path.name}"
+    try:
+        payload = json.loads(path.read_text(encoding="utf-8"))
+    except (OSError, UnicodeError, json.JSONDecodeError) as exc:
+        return False, f"cannot parse {path.name}: {exc}"
+    if not isinstance(payload, dict):
+        return False, f"{path.name} root must be an object"
+    generated_on = payload.get("generated_on")
+    if not isinstance(generated_on, str) or not generated_on.strip():
+        return False, f"{path.name} missing generated_on"
+    scanned = payload.get("total_docs_scanned")
+    errors = payload.get("total_errors")
+    if isinstance(scanned, bool) or not isinstance(scanned, int):
+        return False, f"{path.name} total_docs_scanned must be an integer"
+    if isinstance(errors, bool) or not isinstance(errors, int):
+        return False, f"{path.name} total_errors must be an integer"
+    if scanned != expected_doc_count:
+        return False, (
+            f"incomplete docs coverage: scanned {scanned}, expected {expected_doc_count}"
+        )
+    if errors:
+        return False, f"docs-drift scan recorded {errors} error(s)"
+    return True, f"scanned {scanned} configured document(s) with zero errors"
 
 
 def candidate_fingerprint(candidates: list[dict[str, Any]]) -> tuple[tuple[str, ...], ...]:
@@ -553,6 +672,7 @@ def failed_repo_phase(report: dict[str, Any]) -> str | None:
 AGGREGATE_OUTPUT_NAMES = (
     "approved-issue-queue.json",
     "approved-issue-queue.md",
+    "docs-drift-scan.json",
     "human-decision-packet.md",
     "repo-review-summary.json",
 )
@@ -563,11 +683,12 @@ def quarantine_aggregate_outputs(
     *,
     repo: str,
     phase: str,
+    extra_paths: tuple[Path, ...] = (),
 ) -> list[str]:
     """Move stale publishable outputs aside when a required phase fails."""
-    existing = [
-        output_dir / name for name in AGGREGATE_OUTPUT_NAMES if (output_dir / name).is_file()
-    ]
+    candidates = [output_dir / name for name in AGGREGATE_OUTPUT_NAMES]
+    candidates.extend(extra_paths)
+    existing = list(dict.fromkeys(path for path in candidates if path.is_file()))
     if not existing:
         return []
     timestamp = datetime.now(UTC).strftime("%Y%m%dT%H%M%S.%fZ")
@@ -802,12 +923,23 @@ def run(args: argparse.Namespace) -> int:
     workspace_root, _excluded, repos, _archive_paths = load_registry(registry_path)
     target_repos: list[str]
     if args.repos:
-        registry_set = {r.repo for r in repos}
-        target_repos = [r for r in args.repos if r in registry_set]
-        skipped = [r for r in args.repos if r not in registry_set]
-        if skipped:
+        active_registry_set = {r.repo for r in repos if r.status == "active"}
+        registered_set = {r.repo for r in repos}
+        target_repos = [repo for repo in args.repos if repo in active_registry_set]
+        unregistered = [repo for repo in args.repos if repo not in registered_set]
+        inactive = [
+            repo
+            for repo in args.repos
+            if repo in registered_set and repo not in active_registry_set
+        ]
+        if unregistered:
             print(
-                f"[coordinator] skipping unregistered: {', '.join(skipped)}",
+                f"[coordinator] skipping unregistered: {', '.join(unregistered)}",
+                file=sys.stderr,
+            )
+        if inactive:
+            print(
+                f"[coordinator] skipping non-active: {', '.join(inactive)}",
                 file=sys.stderr,
             )
     else:
@@ -911,7 +1043,7 @@ def run(args: argparse.Namespace) -> int:
             return 1
 
     # 2b. Scorecard scan: surface low-scoring OpenSSF checks for human approval.
-    #     Same non-fatal pattern as docs-drift -- failures are logged but don't
+    #     Same non-fatal pattern as backlog-scan -- failures are logged but don't
     #     abort the cycle. Output is consumed by queue-builder preview, the final
     #     evaluator, and notify.
     scorecard_path = output_dir / "scorecard-scan.json"
@@ -1003,6 +1135,37 @@ def run(args: argparse.Namespace) -> int:
         name="final-evaluator",
         timeout=600,
     )
+    if not final_result.succeeded:
+        quarantined_outputs = quarantine_aggregate_outputs(
+            output_dir,
+            repo="cycle",
+            phase="final-evaluator",
+        )
+        failure_marker.write_text(
+            json.dumps(
+                {
+                    "schema": "repo-review-run-failure/v1",
+                    "failed_at": datetime.now(UTC).isoformat(),
+                    "repo": "cycle",
+                    "phase": "final-evaluator",
+                    "quarantined_aggregate_outputs": quarantined_outputs,
+                    "report": {
+                        "succeeded": final_result.succeeded,
+                        "duration_seconds": final_result.duration_seconds,
+                        "notes": final_result.notes,
+                    },
+                },
+                indent=2,
+            )
+            + "\n",
+            encoding="utf-8",
+        )
+        print(
+            f"[coordinator] final evaluator FAILED; aborting before post-processing "
+            f"(failure: {failure_marker})",
+            file=sys.stderr,
+        )
+        return 1
 
     # 5. Backlog scan: surface enhancement/feature issues that fell between
     #    the opener (selects by priority:* label) and the design-vs-impl review
@@ -1038,11 +1201,24 @@ def run(args: argparse.Namespace) -> int:
 
     # 5b. Docs-drift scan: classify load-bearing claims in source-of-truth
     #     operational docs (README/AGENTS/CLAUDE/docs/ops/...) for drift vs
-    #     current implementation. Issue #2090. Same non-fatal pattern as
-    #     backlog-scan -- failures are logged but don't abort the cycle.
+    #     current implementation. The scanner is sequential per document, so
+    #     its outer timeout must cover the configured workload. Its output is
+    #     required publication evidence: incomplete/error-bearing results fail
+    #     closed and prevent the notifier from presenting a stale success.
     docs_drift_path = output_dir / "docs-drift-scan.json"
+    docs_drift_attempt_id = datetime.now(UTC).strftime("%Y%m%dT%H%M%S.%fZ")
+    docs_drift_attempt_path = (
+        output_dir / f".docs-drift-scan.{docs_drift_attempt_id}.in-progress.json"
+    )
     docs_drift_config = workflows_steward_root / "config" / "source_of_truth_docs.yml"
     if docs_drift_config.is_file():
+        expected_doc_count = configured_docs_drift_doc_count(
+            docs_drift_config,
+            target_repos,
+        )
+        docs_drift_per_doc, docs_drift_minimum, docs_drift_buffer = (
+            configured_docs_drift_timeout_values()
+        )
         docs_drift_cmd = [
             sys.executable,
             str(workflows_steward_root / "scripts" / "repo_review_docs_drift_scan.py"),
@@ -1051,27 +1227,88 @@ def run(args: argparse.Namespace) -> int:
             "--docs-config",
             str(docs_drift_config),
             "--out",
-            str(docs_drift_path),
+            str(docs_drift_attempt_path),
             "--workspace-root",
             str(workspace_root),
+            "--timeout",
+            str(docs_drift_per_doc),
+            "--repos",
+            *target_repos,
         ]
+        configured_timeout = getattr(args, "docs_drift_timeout", None)
+        docs_drift_timeout = (
+            configured_timeout
+            if configured_timeout is not None
+            else docs_drift_subprocess_timeout(
+                docs_drift_config,
+                target_repos,
+                per_doc_timeout=docs_drift_per_doc,
+                minimum=docs_drift_minimum,
+                buffer=docs_drift_buffer,
+            )
+        )
         docs_drift_result = run_subprocess(
             docs_drift_cmd,
             cwd=workflows_steward_root,
             log_path=log_dir / "docs-drift-scan.log",
             name="docs-drift-scan",
-            timeout=getattr(args, "docs_drift_timeout", 1800),
+            timeout=docs_drift_timeout,
         )
-        if not docs_drift_result.succeeded:
-            print(
-                f"[coordinator] docs-drift-scan FAILED (non-fatal): {docs_drift_result.notes}",
-                file=sys.stderr,
-            )
+        output_valid, output_notes = validate_docs_drift_output(
+            docs_drift_attempt_path,
+            expected_doc_count=expected_doc_count,
+        )
+        docs_drift_failed = not docs_drift_result.succeeded or not output_valid
+        failure_notes = docs_drift_result.notes if not docs_drift_result.succeeded else output_notes
     else:
+        expected_doc_count = 0
+        docs_drift_timeout = 0
+        docs_drift_failed = True
+        failure_notes = f"required config not found at {docs_drift_config}"
+        docs_drift_result = StepResult(
+            name="docs-drift-scan",
+            succeeded=False,
+            duration_seconds=0.0,
+            notes=failure_notes,
+        )
+
+    if docs_drift_failed:
+        quarantined_outputs = quarantine_aggregate_outputs(
+            output_dir,
+            repo="cycle",
+            phase="docs-drift-scan",
+            extra_paths=(docs_drift_attempt_path,),
+        )
+        failure_marker.write_text(
+            json.dumps(
+                {
+                    "schema": "repo-review-run-failure/v1",
+                    "failed_at": datetime.now(UTC).isoformat(),
+                    "repo": "cycle",
+                    "phase": "docs-drift-scan",
+                    "quarantined_aggregate_outputs": quarantined_outputs,
+                    "report": {
+                        "succeeded": docs_drift_result.succeeded,
+                        "duration_seconds": docs_drift_result.duration_seconds,
+                        "notes": failure_notes,
+                        "expected_doc_count": expected_doc_count,
+                        "outer_timeout_seconds": docs_drift_timeout,
+                    },
+                },
+                indent=2,
+            )
+            + "\n",
+            encoding="utf-8",
+        )
         print(
-            f"[coordinator] docs-drift-scan: skipping -- config not found at {docs_drift_config}",
+            f"[coordinator] docs-drift-scan FAILED: {failure_notes}; aborting before "
+            f"notify (failure: {failure_marker})",
             file=sys.stderr,
         )
+        return 1
+
+    docs_drift_attempt_path.replace(docs_drift_path)
+    print(f"[coordinator] docs-drift-scan: ok -- {output_notes}")
 
     # 6. Surface the cycle outcome to the human reviewer (macOS notification +
     #    persistent desktop file). The cron does NOT auto-upload; humans must
@@ -1208,8 +1445,11 @@ def main() -> int:
     parser.add_argument(
         "--docs-drift-timeout",
         type=int,
-        default=1800,
-        help="docs-drift scan timeout in seconds (default: 1800)",
+        default=None,
+        help=(
+            "docs-drift scan outer timeout in seconds (default: selected configured "
+            "document count x the TOML per-doc budget, plus its buffer and minimum)"
+        ),
     )
     parser.add_argument(
         "--disable-skip-gate",

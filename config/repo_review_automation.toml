@@ -28,7 +28,11 @@ repair_attempts_per_phase = 2     # preserve failure evidence, repair, then retr
 # A stated provider session reset is deferred (not charged as a repair) for up
 # to 6 hours by default. Override with REPO_REVIEW_CAPACITY_WAIT_MAX_SECONDS.
 backlog_scan_seconds = 300
-docs_drift_scan_seconds = 1800    # ~5-10 min across 9 repos
+# The coordinator derives the outer bound from the selected docs: each document
+# gets up to 600s, plus a 900s process buffer, with a 1800s minimum.
+docs_drift_per_doc_seconds = 600
+docs_drift_minimum_seconds = 1800
+docs_drift_buffer_seconds = 900
 scorecard_scan_seconds = 300
 notify_seconds = 60
 
@@ -75,7 +79,8 @@ clean forced rebuild at the exact reviewed commit. A Claude session-capacity
 message with a concrete reset time is preserved beside the agent log and
 deferred until that reset without consuming the normal retry budget; parent
 phase timeouts include that bounded wait. The coordinator returns failure if
-round-1, round-2, body-writer, or the final evaluator remains failed.
+round-1, round-2, body-writer, the final evaluator, or required docs-drift
+publication evidence remains failed.
 """
 output = "docs/reports/repo-review/round2/<owner>__<repo>/converged.json"
 if_failed = "The phase is repaired and retried twice. A persistent failure remains visible in state.json and makes the coordinator exit nonzero."
@@ -106,7 +111,7 @@ API (published by Health 53). Findings are human-gated: they surface in the
 notify desktop reminder and only enter approved-issue-queue.json after explicit
 approval in config/repo_review_feedback.json (decisions.<repo>.scorecard).
 
-Same non-fatal pattern as docs-drift — failures are logged but don't abort the
+Same non-fatal pattern as backlog-scan — failures are logged but don't abort the
 cycle.
 """
 output = "docs/reports/repo-review/scorecard-scan.json"
@@ -125,7 +130,7 @@ applying the priority tiering and cycle-binding guards (#2272). Skips the GitNex
 preflight (maps already refreshed by round-1 runner).
 """
 output = "docs/reports/repo-review/human-decision-packet.md, docs/reports/repo-review/approved-issue-queue.json (+ .md)"
-if_failed = "Logged to coordinator/final-evaluator.log. The packet/queue from the prior cycle remain on disk."
+if_failed = "Fatal. Publishable outputs are quarantined, a failure marker is written, and post-processing/notify do not run."
 
 [operational_notes.backlog_scan]
 step = "5. Backlog scan"
@@ -169,6 +174,14 @@ marked stale the scanner instructs claude to skip behavioral call-graph checks
 (logged at INFO: "skipping behavioral check") and rely on rg for existence
 checks only. This is not a failure — it is recorded per-doc.
 
+The scan is sequential and the coordinator sizes its outer timeout from the
+number of configured documents selected by the current repo set. The scanner
+writes to an in-progress path; the coordinator publishes it atomically only
+when the subprocess succeeds, every configured document is represented, and
+total_errors is zero. Timeout, missing config, missing roots/docs, malformed
+output, or per-doc tool errors write repo-review-run-failure.json, quarantine
+all publishable outputs, and stop before notify.
+
 The 2026-05-13 cycle confirmed the need: three drift instances were found
 ad-hoc (README.md model versions stale, docs/ci/WORKFLOWS.md autofix
 self-contradiction, docs/ops/REPO_REVIEW_PROCESS.md pre-Phase-4 entry
@@ -180,8 +193,8 @@ affected repo (NOT one per doc).
 """
 output = "docs/reports/repo-review/docs-drift-scan.json"
 log = "docs/reports/repo-review/logs/coordinator/docs-drift-scan.log"
-expected_runtime = "~5-10 min across 9 repos (LLM calls per doc; ~14 docs for Workflows, fewer for others)"
-if_failed = "Non-fatal. Logged to docs-drift-scan.log. The desktop reminder omits the doc-drift section."
+expected_runtime = "Sequential LLM calls; outer timeout = selected configured docs * 600s + 900s, minimum 1800s"
+if_failed = "Fatal. The failure marker and quarantined outputs block notification/publication until a full successful rerun."
 config = "config/source_of_truth_docs.yml"
 
 [operational_notes.notify]
