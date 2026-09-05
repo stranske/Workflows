@@ -39,6 +39,7 @@ import shutil
 import subprocess
 import sys
 import tomllib
+from collections.abc import Callable
 from contextlib import suppress
 from dataclasses import dataclass
 from datetime import UTC, datetime
@@ -600,6 +601,7 @@ def run_subprocess_with_repairs(
     repo: str,
     output_dir: Path,
     repair_attempts: int,
+    stop_retry_when: Callable[[Path], bool] | None = None,
 ) -> tuple[StepResult, list[dict[str, Any]], list[dict[str, Any]]]:
     """Run a repo phase and perform a recorded, bounded repair before retry."""
     attempts: list[dict[str, Any]] = []
@@ -622,6 +624,8 @@ def run_subprocess_with_repairs(
             }
         )
         if result.succeeded or attempt_number > repair_attempts:
+            break
+        if stop_retry_when is not None and stop_retry_when(log_path):
             break
         try:
             repair = prepare_phase_retry(
@@ -654,6 +658,95 @@ def run_subprocess_with_repairs(
             f"recorded at {repair['repair_dir']}; retrying"
         )
     return result, attempts, repairs
+
+
+HEAD_DRIFT_MARKERS = (
+    "does not match origin/main",
+    "exact-head mismatch",
+    "exact head mismatch",
+    "source commit mismatch",
+    "source_commit mismatch",
+)
+
+
+def log_indicates_head_drift(log_path: Path) -> bool:
+    """Return whether a failed phase used a source head that is now stale."""
+    try:
+        diagnostic = log_path.read_text(encoding="utf-8", errors="replace").lower()
+    except OSError:
+        return False
+    return any(marker in diagnostic for marker in HEAD_DRIFT_MARKERS)
+
+
+def prepare_head_drift_restart(
+    *,
+    repo: str,
+    output_dir: Path,
+    log_dir: Path,
+    restart_number: int,
+    failed_phase: str,
+) -> dict[str, Any]:
+    """Quarantine all repo-scoped analysis before restarting from round 1.
+
+    A later phase cannot repair findings produced from an obsolete commit.  A
+    full repo restart deliberately discards only derived analysis for that repo;
+    the next round-1 sync then establishes a new exact-head provenance chain and
+    rebuilds GitNexus when necessary.
+    """
+    safe = repo.replace("/", "__")
+    timestamp = datetime.now(UTC).strftime("%Y%m%dT%H%M%S.%fZ")
+    repair_dir = output_dir / "repairs" / safe / f"{timestamp}-head-drift-{restart_number}"
+    repair_dir.mkdir(parents=True, exist_ok=False)
+    preserved: list[str] = []
+    quarantined: list[str] = []
+
+    repo_log_dir = log_dir / safe
+    if repo_log_dir.is_dir():
+        log_destination = repair_dir / "coordinator-logs"
+        shutil.copytree(repo_log_dir, log_destination)
+        preserved.append(str(log_destination))
+
+    round1_root = output_dir / "round1"
+    for agent_dir in sorted(round1_root.iterdir()) if round1_root.is_dir() else []:
+        source = agent_dir / safe
+        if not source.exists():
+            continue
+        destination = repair_dir / "round1" / agent_dir.name
+        destination.parent.mkdir(parents=True, exist_ok=True)
+        shutil.move(str(source), str(destination))
+        quarantined.append(str(destination))
+
+    repo_round2 = output_dir / "round2" / safe
+    if repo_round2.exists():
+        destination = repair_dir / "round2"
+        shutil.move(str(repo_round2), str(destination))
+        quarantined.append(str(destination))
+
+    actions = {
+        "phase": "head-drift-restart",
+        "failed_phase": failed_phase,
+        "repo": repo,
+        "restart_number": restart_number,
+        "created_at": datetime.now(UTC).isoformat(),
+        "repair_dir": str(repair_dir),
+        "preserved": preserved,
+        "quarantined": quarantined,
+    }
+    (repair_dir / "repair.json").write_text(
+        json.dumps(actions, indent=2) + "\n",
+        encoding="utf-8",
+    )
+
+    state = load_state(output_dir, repo)
+    attempt = begin_attempt(state, phase="head-drift-restart", agent="coordinator")
+    finish_attempt(
+        state,
+        attempt,
+        succeeded=True,
+        notes=f"restart {restart_number}: stale {failed_phase} analysis moved to {repair_dir}",
+    )
+    save_state(output_dir, state)
+    return actions
 
 
 def failed_repo_phase(report: dict[str, Any]) -> str | None:
@@ -895,6 +988,10 @@ def coordinate_repo(
         repo=repo,
         output_dir=output_dir,
         repair_attempts=repair_attempts,
+        # Restoring the same converged baseline cannot cure source-head drift.
+        # Return control immediately so the outer loop can restart this repo at
+        # round 1 and re-establish exact-head provenance.
+        stop_retry_when=log_indicates_head_drift,
     )
     report["body_writer"] = {
         "succeeded": bw_result.succeeded,
@@ -904,6 +1001,73 @@ def coordinate_repo(
         "repairs": bw_repairs,
     }
 
+    return report
+
+
+def coordinate_repo_with_restarts(
+    *,
+    repo: str,
+    output_dir: Path,
+    workflows_steward_root: Path,
+    registry_path: Path,
+    agents: list[str],
+    log_dir: Path,
+    round1_timeout: int,
+    round2_timeout: int,
+    max_turns: int,
+    skip_gate_enabled: bool,
+    repair_attempts: int = 2,
+) -> dict[str, Any]:
+    """Coordinate a repo, restarting the full provenance chain on head drift."""
+    restarts: list[dict[str, Any]] = []
+    prior_attempts: list[dict[str, Any]] = []
+    report: dict[str, Any] = {}
+
+    for restart_number in range(repair_attempts + 1):
+        report = coordinate_repo(
+            repo=repo,
+            output_dir=output_dir,
+            workflows_steward_root=workflows_steward_root,
+            registry_path=registry_path,
+            agents=agents,
+            log_dir=log_dir,
+            round1_timeout=round1_timeout,
+            round2_timeout=round2_timeout,
+            max_turns=max_turns,
+            skip_gate_enabled=skip_gate_enabled,
+            repair_attempts=repair_attempts,
+        )
+        failed_phase = failed_repo_phase(report)
+        if failed_phase is None:
+            break
+
+        phase_log_name = {
+            "round-1": "round1-runner.log",
+            "round-2": "round2-runner.log",
+            "body-writer": "body-writer.log",
+        }[failed_phase]
+        phase_log = log_dir / repo.replace("/", "__") / phase_log_name
+        if not log_indicates_head_drift(phase_log) or restart_number >= repair_attempts:
+            break
+
+        prior_attempts.append(report)
+        repair = prepare_head_drift_restart(
+            repo=repo,
+            output_dir=output_dir,
+            log_dir=log_dir,
+            restart_number=restart_number + 1,
+            failed_phase=failed_phase,
+        )
+        restarts.append(repair)
+        print(
+            f"[coordinator] {repo}: {failed_phase} detected source-head drift; "
+            f"restart {restart_number + 1} recorded at {repair['repair_dir']}; "
+            "restarting from round 1"
+        )
+
+    if restarts:
+        report["head_drift_restarts"] = restarts
+        report["prior_stale_head_attempts"] = prior_attempts
     return report
 
 
@@ -999,7 +1163,7 @@ def run(args: argparse.Namespace) -> int:
     reports: list[dict[str, Any]] = []
     for repo in target_repos:
         print(f"[coordinator] {repo}: starting per-repo flow")
-        report = coordinate_repo(
+        report = coordinate_repo_with_restarts(
             repo=repo,
             output_dir=output_dir,
             workflows_steward_root=workflows_steward_root,

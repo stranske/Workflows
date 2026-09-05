@@ -79,6 +79,12 @@ round-1 work, but quarantines existing round-2 turn outputs because a malformed
 partial JSON file would otherwise be reused on every retry. A body-writer
 retry receives the exact deterministic validator errors from the prior failed
 attempt and must pass the body/path validator, not only the JSON schema. If a
+later phase discovers that `origin/main` advanced after round 1, the
+coordinator does not retry stale findings. It moves all repo-scoped round-1 and
+round-2 outputs plus coordinator logs into the repair directory and restarts
+the repository at round 1. The fresh run re-syncs the checkout, refreshes or
+rebuilds GitNexus, and establishes a new exact-head provenance chain. Full
+repo restarts are bounded by the same `--repair-attempts` budget. If a
 required round-1, round-2, or body-writer phase exhausts its repair budget, the
 coordinator aborts immediately before later repos or aggregate producers run.
 It writes `repo-review-run-failure.json` with the failed repo, phase, timestamp,
