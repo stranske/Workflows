@@ -372,9 +372,7 @@ def main(argv: list[str] | None = None) -> int:
             schema_dir=args.schema_dir,
         )
         if report.conformant:
-            print(
-                f"tracked-variable/v1: {len(args.tracked_variables)} file(s) conform to schema"
-            )
+            print(f"tracked-variable/v1: {len(args.tracked_variables)} file(s) conform to schema")
         else:
             print(
                 f"tracked-variable/v1: {len(report.violations)} conformance violation(s):",

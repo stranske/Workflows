@@ -108,9 +108,7 @@ def test_tracked_variable_fixture_validates() -> None:
     # assertion to fail (verified during development).
     assert not list(validator.iter_errors(valid))
 
-    invalid = json.loads(
-        (FIXTURES / "invalid_tracked_variable_missing_evidence.json").read_text()
-    )
+    invalid = json.loads((FIXTURES / "invalid_tracked_variable_missing_evidence.json").read_text())
     errors = list(validator.iter_errors(invalid))
     assert errors
     assert any(error.validator == "required" and "evidence" in error.message for error in errors)
