@@ -6,10 +6,10 @@ tasks:
   - id: task-01
     title: Fix `templates/consumer-repo/.github/workflows/maint-76-claude-code-review.yml`
       in Workflows main to address the blocking bot review thread.
-    status: doing
+    status: done
     started_at: '2026-09-05T06:00:20Z'
-    finished_at: null
-    commit: ''
+    finished_at: '2026-09-05T06:00:31Z'
+    commit: 7f42cc18eaa700a94a56bc731ef6e099a579aa08
     notes: []
   - id: task-02
     title: Verify that `templates/consumer-repo/.github/workflows/maint-76-claude-code-review.yml`
