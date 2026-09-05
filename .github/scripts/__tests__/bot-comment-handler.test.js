@@ -28,6 +28,7 @@ test('default bot author allowlist recognizes canonical review bots', () => {
   for (const login of [
     'copilot[bot]',
     'github-actions[bot]',
+    'coderabbitai',
     'coderabbitai[bot]',
     'chatgpt-codex-connector',
     'chatgpt-codex-connector[bot]',

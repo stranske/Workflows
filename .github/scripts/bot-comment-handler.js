@@ -7,6 +7,7 @@ const MAX_COLLECTED_COMMENT_OUTPUT_LENGTH = 450000;
 const DEFAULT_BOT_AUTHORS = Object.freeze([
   'copilot[bot]',
   'github-actions[bot]',
+  'coderabbitai',
   'coderabbitai[bot]',
   'chatgpt-codex-connector',
   'chatgpt-codex-connector[bot]',

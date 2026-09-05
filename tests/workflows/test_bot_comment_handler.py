@@ -19,6 +19,7 @@ def test_reusable_bot_comment_handler_ignores_agents_paths() -> None:
     assert ".agents/" in ignored_paths.split(",")
 
     bot_authors = inputs.get("bot_authors", {}).get("default", "")
+    assert "coderabbitai" in bot_authors.split(",")
     assert "chatgpt-codex-connector[bot]" in bot_authors
 
 
