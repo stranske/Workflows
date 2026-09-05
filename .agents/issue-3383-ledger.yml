@@ -67,12 +67,12 @@ tasks:
   - id: task-08
     title: Add sync-manifest entries for `docs/contracts/schemas/tracked-variable-v1.schema.json`
       and `docs/contracts/tracked-variable-v1.md` in `.github/sync-manifest.yml`.
-    status: todo
-    started_at: null
-    finished_at: null
-    commit: ''
+    status: done
+    started_at: '2026-09-05T00:29:38Z'
+    finished_at: '2026-09-05T00:29:38Z'
+    commit: 1435ede7adddfd75823781e4f77a911e5f4d0a28
     notes:
-      - Automation-owned manifest repair in progress; no external authority boundary
+      - Schema and specification entries added under the established root-source contract pattern
   - id: task-09
     title: 'The schema file contains `"const": "tracked-variable/v1"` in the schema_version
       property definition, includes a `$ref` to `evidence-object/v1` schema for the

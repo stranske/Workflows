@@ -279,6 +279,7 @@ pyyaml==6.0.3
     #   pre-commit
 referencing==0.37.0
     # via
+    #   workflows (pyproject.toml)
     #   jsonschema
     #   jsonschema-specifications
 regex==2026.7.19
