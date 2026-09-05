@@ -6,6 +6,25 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 Breaking changes are called out with a **BREAKING** marker and scheduled according to the policy in `COMPATIBILITY.md`.
 
+## [1.32.0](https://github.com/stranske/Workflows/compare/v1.31.0...v1.32.0) (2026-09-05)
+
+
+### Features
+
+* **contracts:** add tracked-variable schema and offline validation ([#3383](https://github.com/stranske/Workflows/issues/3383)) ([ee5a12c](https://github.com/stranske/Workflows/commit/ee5a12cdd41ce9074b03a09aeb7d5a38328b8096))
+
+
+### Bug Fixes
+
+* **keepalive:** skip push-triggered Gate runs ([#3366](https://github.com/stranske/Workflows/issues/3366)) ([c9d3004](https://github.com/stranske/Workflows/commit/c9d300491542ef29ca6b03616a4de0044ad45db8))
+* pin Astra trial runner to reachable merged source ([#3386](https://github.com/stranske/Workflows/issues/3386)) ([913e262](https://github.com/stranske/Workflows/commit/913e2625bdc471de84addea5b4cc8dfefca1c78a))
+* **repo-review:** fail closed on exhausted repairs ([#3357](https://github.com/stranske/Workflows/issues/3357)) ([5eddcaf](https://github.com/stranske/Workflows/commit/5eddcaf840560b788d56800984b470436f1da1a3))
+* **repo-review:** fail closed on incomplete docs drift ([#3395](https://github.com/stranske/Workflows/issues/3395)) ([608b91e](https://github.com/stranske/Workflows/commit/608b91e5781a0acacf1ecc0312299fa6e99b29dc))
+* **repo-review:** track artifact progress in heartbeats ([#3360](https://github.com/stranske/Workflows/issues/3360)) ([7b81e80](https://github.com/stranske/Workflows/commit/7b81e806816bc397ddff04cfa38c2f1a790a09b8))
+* **sync:** clear stale ready label before delivery review ([#3388](https://github.com/stranske/Workflows/issues/3388)) ([f88d7fc](https://github.com/stranske/Workflows/commit/f88d7fc5f6ce6f78c64d0341eaea7dbe9aa78c19))
+* **sync:** preserve current Claude review action pin ([#3393](https://github.com/stranske/Workflows/issues/3393)) ([9fb8cfb](https://github.com/stranske/Workflows/commit/9fb8cfbb2c25098f8771c844064884b28f64e1d7))
+* **sync:** preserve deliveries owned by another campaign ([#3382](https://github.com/stranske/Workflows/issues/3382)) ([72be6db](https://github.com/stranske/Workflows/commit/72be6db44dd81a7eb8bdaeaf5437a00d1bd5f221))
+
 ## [1.31.0](https://github.com/stranske/Workflows/compare/v1.30.12...v1.31.0) (2026-09-04)
 
 
