@@ -1274,17 +1274,30 @@ async function run({ github, context, core }) {
       sealed_head_sha: '',
       review_evidence: {},
     });
-    await withRetry((client) => client.rest.pulls.update({
-      owner,
-      repo,
-      pull_number: pr.number,
-      body,
-    }));
     await withRetry((client) => client.rest.issues.addLabels({
       owner,
       repo,
       issue_number: pr.number,
       labels: ['sync:delivery-staging'],
+    }));
+    // A previous generation can leave this label behind. Clear it while the
+    // staging hold is active so sealing emits a fresh labeled event with the
+    // sealed body for consumers whose Gate does not listen for body edits.
+    try {
+      await withRetry((client) => client.rest.issues.removeLabel({
+        owner,
+        repo,
+        issue_number: pr.number,
+        name: 'sync:delivery-ready',
+      }));
+    } catch (labelError) {
+      if (labelError?.status !== 404) throw labelError;
+    }
+    await withRetry((client) => client.rest.pulls.update({
+      owner,
+      repo,
+      pull_number: pr.number,
+      body,
     }));
     return { reviewStartedAt, body, dryRun: false };
   }
