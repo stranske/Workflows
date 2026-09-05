@@ -63,6 +63,9 @@ def test_reusable_bot_comment_handler_has_manual_terminal_probe() -> None:
 
     assert dispatch_inputs["pr_number"].get("required") is True
     assert dispatch_inputs["dry_run"].get("default") is True
+    assert dispatch_inputs["bot_authors"].get("default") == call_inputs["bot_authors"].get(
+        "default"
+    )
     assert dispatch_inputs["ignored_paths"].get("default") == call_inputs["ignored_paths"].get(
         "default"
     )
