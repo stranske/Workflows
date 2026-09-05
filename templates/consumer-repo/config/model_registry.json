@@ -74,6 +74,12 @@
       "provider": "openai",
       "checked_at": "2026-09-04",
       "url": "https://developers.openai.com/api/docs/models/gpt-6-astra"
+    },
+    {
+      "source_id": "openai-pricing-2026-09-04",
+      "provider": "openai",
+      "checked_at": "2026-09-04",
+      "url": "https://developers.openai.com/api/docs/pricing"
     }
   ],
   "models": [
@@ -84,7 +90,8 @@
       "lifecycle": "current",
       "positioning": "frontier",
       "source_ids": [
-        "openai-astra-2026-09-04"
+        "openai-astra-2026-09-04",
+        "openai-pricing-2026-09-04"
       ],
       "pricing": {
         "currency": "USD",
@@ -92,7 +99,7 @@
         "output_per_million_tokens": 50.0,
         "as_of": "2026-09-04"
       },
-      "notes": "Owner-directed high-reasoning worker migration. Balanced auxiliary evaluator selection remains independent; no benchmark promotion is claimed."
+      "notes": "Owner-directed high-reasoning worker migration. Balanced auxiliary evaluator selection remains independent; no benchmark promotion is claimed. Requires codex-cli >= 0.153.2: version 0.151.0 rejects the model with a 400 naming the CLI version, which is silent from the API side because /v1/models lists it either way."
     },
     {
       "model_id": "gpt-5.6-sol",
@@ -102,13 +109,14 @@
       "positioning": "frontier",
       "source_ids": [
         "openai-current-models-2026-07-10",
-        "openai-pricing-2026-07-10"
+        "openai-pricing-2026-07-10",
+        "openai-pricing-2026-09-04"
       ],
       "pricing": {
         "currency": "USD",
-        "input_per_million_tokens": 5.0,
-        "output_per_million_tokens": 30.0,
-        "as_of": "2026-07-10"
+        "input_per_million_tokens": 4.0,
+        "output_per_million_tokens": 20.0,
+        "as_of": "2026-09-04"
       }
     },
     {
@@ -119,13 +127,14 @@
       "positioning": "balanced",
       "source_ids": [
         "openai-current-models-2026-07-10",
-        "openai-pricing-2026-07-10"
+        "openai-pricing-2026-07-10",
+        "openai-pricing-2026-09-04"
       ],
       "pricing": {
         "currency": "USD",
-        "input_per_million_tokens": 2.5,
-        "output_per_million_tokens": 15.0,
-        "as_of": "2026-07-10"
+        "input_per_million_tokens": 2.0,
+        "output_per_million_tokens": 12.0,
+        "as_of": "2026-09-04"
       }
     },
     {
@@ -136,13 +145,14 @@
       "positioning": "efficient",
       "source_ids": [
         "openai-current-models-2026-07-10",
-        "openai-pricing-2026-07-10"
+        "openai-pricing-2026-07-10",
+        "openai-pricing-2026-09-04"
       ],
       "pricing": {
         "currency": "USD",
-        "input_per_million_tokens": 1.0,
-        "output_per_million_tokens": 6.0,
-        "as_of": "2026-07-10"
+        "input_per_million_tokens": 0.2,
+        "output_per_million_tokens": 1.2,
+        "as_of": "2026-09-04"
       }
     },
     {
