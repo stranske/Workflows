@@ -10,7 +10,7 @@ tasks:
     status: done
     started_at: '2026-09-04T23:38:31Z'
     finished_at: '2026-09-05T00:20:00Z'
-    commit: 9727c3a6c30d0b12d6ae710f946e58fb8d89e51a
+    commit: 4bb812617079f1589bc4fa9d0882ea6368d3bc25
     notes:
       - Implemented in docs/contracts/schemas/tracked-variable-v1.schema.json
   - id: task-02
@@ -19,7 +19,7 @@ tasks:
     status: done
     started_at: '2026-09-05T00:15:00Z'
     finished_at: '2026-09-05T00:20:00Z'
-    commit: 9727c3a6c30d0b12d6ae710f946e58fb8d89e51a
+    commit: 4bb812617079f1589bc4fa9d0882ea6368d3bc25
     notes:
       - docs/contracts/tracked-variable-v1.md Clause Variable Alias section
   - id: task-03
@@ -28,7 +28,7 @@ tasks:
     status: done
     started_at: '2026-09-05T00:15:00Z'
     finished_at: '2026-09-05T00:20:00Z'
-    commit: 9727c3a6c30d0b12d6ae710f946e58fb8d89e51a
+    commit: 4bb812617079f1589bc4fa9d0882ea6368d3bc25
     notes: []
   - id: task-04
     title: Create the normative specification document at `docs/contracts/tracked-variable-v1.md`
@@ -36,7 +36,7 @@ tasks:
     status: done
     started_at: '2026-09-05T00:15:00Z'
     finished_at: '2026-09-05T00:20:00Z'
-    commit: 9727c3a6c30d0b12d6ae710f946e58fb8d89e51a
+    commit: 4bb812617079f1589bc4fa9d0882ea6368d3bc25
     notes: []
   - id: task-05
     title: 'Add tracked-variable fixture files under `tests/fixtures/backplane/`:
@@ -45,7 +45,7 @@ tasks:
     status: done
     started_at: '2026-09-05T00:15:00Z'
     finished_at: '2026-09-05T00:20:00Z'
-    commit: 9727c3a6c30d0b12d6ae710f946e58fb8d89e51a
+    commit: 4bb812617079f1589bc4fa9d0882ea6368d3bc25
     notes: []
   - id: task-06
     title: Update `tests/contracts/test_backplane_schemas.py` to register `tracked-variable-v1.schema.json`
@@ -54,7 +54,7 @@ tasks:
     status: done
     started_at: '2026-09-05T00:15:00Z'
     finished_at: '2026-09-05T00:20:00Z'
-    commit: 9727c3a6c30d0b12d6ae710f946e58fb8d89e51a
+    commit: 4bb812617079f1589bc4fa9d0882ea6368d3bc25
     notes: []
   - id: task-07
     title: Extend `scripts/validate_run_contract.py` with a `--tracked-variables`
@@ -62,7 +62,7 @@ tasks:
     status: done
     started_at: '2026-09-05T00:15:00Z'
     finished_at: '2026-09-05T00:20:00Z'
-    commit: 9727c3a6c30d0b12d6ae710f946e58fb8d89e51a
+    commit: 4bb812617079f1589bc4fa9d0882ea6368d3bc25
     notes: []
   - id: task-08
     title: Add sync-manifest entries for `docs/contracts/schemas/tracked-variable-v1.schema.json`
@@ -70,7 +70,7 @@ tasks:
     status: done
     started_at: '2026-09-05T00:29:38Z'
     finished_at: '2026-09-05T00:29:38Z'
-    commit: 1435ede7adddfd75823781e4f77a911e5f4d0a28
+    commit: 682706a50ce1710c731dad6f5684c1e911a57f69
     notes:
       - Schema and specification entries added under the established root-source contract pattern
   - id: task-09
@@ -82,7 +82,7 @@ tasks:
     status: done
     started_at: '2026-09-05T00:15:00Z'
     finished_at: '2026-09-05T00:20:00Z'
-    commit: 9727c3a6c30d0b12d6ae710f946e58fb8d89e51a
+    commit: 4bb812617079f1589bc4fa9d0882ea6368d3bc25
     notes: []
   - id: task-10
     title: The test `test_tracked_variable_fixture_validates` must include an assertion
@@ -93,7 +93,7 @@ tasks:
     status: done
     started_at: '2026-09-05T00:15:00Z'
     finished_at: '2026-09-05T00:20:00Z'
-    commit: 9727c3a6c30d0b12d6ae710f946e58fb8d89e51a
+    commit: 4bb812617079f1589bc4fa9d0882ea6368d3bc25
     notes: []
   - id: task-11
     title: The file `docs/contracts/schemas/tracked-variable-v1.schema.json` exists
@@ -102,7 +102,7 @@ tasks:
     status: done
     started_at: '2026-09-05T00:15:00Z'
     finished_at: '2026-09-05T00:20:00Z'
-    commit: 9727c3a6c30d0b12d6ae710f946e58fb8d89e51a
+    commit: 4bb812617079f1589bc4fa9d0882ea6368d3bc25
     notes: []
   - id: task-12
     title: The file `docs/contracts/tracked-variable-v1.md` exists and explicitly
@@ -111,7 +111,7 @@ tasks:
     status: done
     started_at: '2026-09-05T00:15:00Z'
     finished_at: '2026-09-05T00:20:00Z'
-    commit: 9727c3a6c30d0b12d6ae710f946e58fb8d89e51a
+    commit: 4bb812617079f1589bc4fa9d0882ea6368d3bc25
     notes: []
   - id: task-13
     title: The fixture file `tests/fixtures/backplane/valid_tracked_variable.json`
@@ -120,7 +120,7 @@ tasks:
     status: done
     started_at: '2026-09-05T00:15:00Z'
     finished_at: '2026-09-05T00:20:00Z'
-    commit: 9727c3a6c30d0b12d6ae710f946e58fb8d89e51a
+    commit: 4bb812617079f1589bc4fa9d0882ea6368d3bc25
     notes: []
   - id: task-14
     title: The test module `tests/contracts/test_backplane_schemas.py` registers `tracked-variable-v1.schema.json`
@@ -128,7 +128,7 @@ tasks:
     status: done
     started_at: '2026-09-05T00:15:00Z'
     finished_at: '2026-09-05T00:20:00Z'
-    commit: 9727c3a6c30d0b12d6ae710f946e58fb8d89e51a
+    commit: 4bb812617079f1589bc4fa9d0882ea6368d3bc25
     notes: []
   - id: task-15
     title: Running `python -m pytest tests/contracts/test_backplane_schemas.py::test_tracked_variable_fixture_validates
@@ -136,7 +136,7 @@ tasks:
     status: done
     started_at: '2026-09-05T00:15:00Z'
     finished_at: '2026-09-05T00:20:00Z'
-    commit: 9727c3a6c30d0b12d6ae710f946e58fb8d89e51a
+    commit: 4bb812617079f1589bc4fa9d0882ea6368d3bc25
     notes:
       - 'verified: 1 passed'
   - id: task-16
@@ -147,7 +147,7 @@ tasks:
     status: done
     started_at: '2026-09-05T00:15:00Z'
     finished_at: '2026-09-05T00:20:00Z'
-    commit: 9727c3a6c30d0b12d6ae710f946e58fb8d89e51a
+    commit: 4bb812617079f1589bc4fa9d0882ea6368d3bc25
     notes: []
   - id: task-17
     title: Running `python scripts/validate_run_contract.py --help` prints a usage/help
@@ -156,7 +156,7 @@ tasks:
     status: done
     started_at: '2026-09-05T00:15:00Z'
     finished_at: '2026-09-05T00:20:00Z'
-    commit: 9727c3a6c30d0b12d6ae710f946e58fb8d89e51a
+    commit: 4bb812617079f1589bc4fa9d0882ea6368d3bc25
     notes:
       - 'verified: --tracked-variables in --help output'
   - id: task-18
@@ -165,6 +165,6 @@ tasks:
     status: done
     started_at: '2026-09-05T00:15:00Z'
     finished_at: '2026-09-05T00:20:00Z'
-    commit: 9727c3a6c30d0b12d6ae710f946e58fb8d89e51a
+    commit: 4bb812617079f1589bc4fa9d0882ea6368d3bc25
     notes:
       - cursor/composer closer lane recovery from 96f670ff ledger-only head
