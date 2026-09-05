@@ -812,6 +812,17 @@ def test_coordinate_repo_restarts_round1_after_late_head_drift(tmp_path: Path, m
     output_dir = tmp_path / "review"
     log_dir = output_dir / "logs" / "coordinator"
     calls = 0
+    preflight_calls = 0
+
+    def fake_run_subprocess(cmd, *, cwd, log_path, name, timeout):
+        nonlocal preflight_calls
+        assert name == "head-drift-preflight"
+        assert cmd[cmd.index("--status") + 1] == "active"
+        preflight_calls += 1
+        review_inputs = output_dir / "repos" / safe / "review-inputs.md"
+        review_inputs.parent.mkdir(parents=True, exist_ok=True)
+        review_inputs.write_text("fresh head\n", encoding="utf-8")
+        return coordinator.StepResult(name=name, succeeded=True, duration_seconds=0.01)
 
     def fake_coordinate_repo(**_kwargs):
         nonlocal calls
@@ -825,6 +836,9 @@ def test_coordinate_repo_restarts_round1_after_late_head_drift(tmp_path: Path, m
         round2.parent.mkdir(parents=True, exist_ok=True)
         round2.write_text(f'{{"attempt": {calls}}}\n', encoding="utf-8")
         if calls == 1:
+            review_inputs = output_dir / "repos" / safe / "review-inputs.md"
+            review_inputs.parent.mkdir(parents=True, exist_ok=True)
+            review_inputs.write_text("stale head\n", encoding="utf-8")
             phase_log.write_text(
                 "HEAD (old) does not match origin/main\n",
                 encoding="utf-8",
@@ -836,6 +850,7 @@ def test_coordinate_repo_restarts_round1_after_late_head_drift(tmp_path: Path, m
                 "body_writer": {"succeeded": False},
                 "skip_gate_fired": False,
             }
+        assert (output_dir / "repos" / safe / "review-inputs.md").read_text() == "fresh head\n"
         phase_log.write_text("complete\n", encoding="utf-8")
         return {
             "repo": repo,
@@ -846,6 +861,7 @@ def test_coordinate_repo_restarts_round1_after_late_head_drift(tmp_path: Path, m
         }
 
     monkeypatch.setattr(coordinator, "coordinate_repo", fake_coordinate_repo)
+    monkeypatch.setattr(coordinator, "run_subprocess", fake_run_subprocess)
     report = coordinator.coordinate_repo_with_restarts(
         repo=repo,
         output_dir=output_dir,
@@ -861,17 +877,111 @@ def test_coordinate_repo_restarts_round1_after_late_head_drift(tmp_path: Path, m
     )
 
     assert calls == 2
+    assert preflight_calls == 1
     assert report["body_writer"]["succeeded"] is True
     assert len(report["head_drift_restarts"]) == 1
     repair_dir = Path(report["head_drift_restarts"][0]["repair_dir"])
     assert (repair_dir / "round1" / "codex" / "findings.json").is_file()
     assert (repair_dir / "round2" / "converged.json").is_file()
+    assert (repair_dir / "preflight" / "review-inputs.md").read_text() == "stale head\n"
     assert (
         json.loads((output_dir / "round1" / "codex" / safe / "findings.json").read_text())[
             "attempt"
         ]
         == 2
     )
+
+
+def test_head_drift_restart_io_failure_returns_controlled_report(
+    tmp_path: Path, monkeypatch
+) -> None:
+    repo = "stranske/Example"
+    log_dir = tmp_path / "review" / "logs" / "coordinator"
+    phase_log = log_dir / "stranske__Example" / "body-writer.log"
+    phase_log.parent.mkdir(parents=True)
+    phase_log.write_text("HEAD (old) does not match origin/main\n", encoding="utf-8")
+    failed_report = {
+        "repo": repo,
+        "round1": {"succeeded": True},
+        "round2": {"succeeded": True},
+        "body_writer": {"succeeded": False},
+        "skip_gate_fired": False,
+    }
+    monkeypatch.setattr(coordinator, "coordinate_repo", lambda **_kwargs: failed_report.copy())
+    monkeypatch.setattr(
+        coordinator,
+        "prepare_head_drift_restart",
+        lambda **_kwargs: (_ for _ in ()).throw(OSError("repair volume unavailable")),
+    )
+
+    report = coordinator.coordinate_repo_with_restarts(
+        repo=repo,
+        output_dir=tmp_path / "review",
+        workflows_steward_root=tmp_path,
+        registry_path=tmp_path / "config" / "repo_review_registry.json",
+        agents=["codex", "claude"],
+        log_dir=log_dir,
+        round1_timeout=30,
+        round2_timeout=30,
+        max_turns=1,
+        skip_gate_enabled=False,
+        repair_attempts=2,
+    )
+
+    assert report["body_writer"]["succeeded"] is False
+    assert "repair volume unavailable" in report["head_drift_restart_error"]
+
+
+def test_persistent_head_drift_exhausts_bounded_repo_restarts(tmp_path: Path, monkeypatch) -> None:
+    repo = "stranske/Example"
+    safe = "stranske__Example"
+    output_dir = tmp_path / "review"
+    log_dir = output_dir / "logs" / "coordinator"
+    calls = 0
+
+    def always_drift(**_kwargs):
+        nonlocal calls
+        calls += 1
+        phase_log = log_dir / safe / "body-writer.log"
+        phase_log.parent.mkdir(parents=True, exist_ok=True)
+        phase_log.write_text("exact-head mismatch\n", encoding="utf-8")
+        converged = output_dir / "round2" / safe / "converged.json"
+        converged.parent.mkdir(parents=True, exist_ok=True)
+        converged.write_text(f'{{"attempt": {calls}}}\n', encoding="utf-8")
+        return {
+            "repo": repo,
+            "round1": {"succeeded": True},
+            "round2": {"succeeded": True},
+            "body_writer": {"succeeded": False},
+            "skip_gate_fired": False,
+        }
+
+    monkeypatch.setattr(coordinator, "coordinate_repo", always_drift)
+    monkeypatch.setattr(
+        coordinator,
+        "run_subprocess",
+        lambda _cmd, **kwargs: coordinator.StepResult(
+            name=kwargs["name"], succeeded=True, duration_seconds=0.01
+        ),
+    )
+    report = coordinator.coordinate_repo_with_restarts(
+        repo=repo,
+        output_dir=output_dir,
+        workflows_steward_root=tmp_path,
+        registry_path=tmp_path / "config" / "repo_review_registry.json",
+        agents=["codex", "claude"],
+        log_dir=log_dir,
+        round1_timeout=30,
+        round2_timeout=30,
+        max_turns=1,
+        skip_gate_enabled=False,
+        repair_attempts=2,
+    )
+
+    assert calls == 3
+    assert report["body_writer"]["succeeded"] is False
+    assert len(report["head_drift_restarts"]) == 2
+    assert len(report["prior_stale_head_attempts"]) == 2
 
 
 def test_run_returns_nonzero_after_body_writer_repairs_exhausted(

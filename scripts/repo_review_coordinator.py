@@ -722,6 +722,12 @@ def prepare_head_drift_restart(
         shutil.move(str(repo_round2), str(destination))
         quarantined.append(str(destination))
 
+    repo_preflight = output_dir / "repos" / safe
+    if repo_preflight.exists():
+        destination = repair_dir / "preflight"
+        shutil.move(str(repo_preflight), str(destination))
+        quarantined.append(str(destination))
+
     actions = {
         "phase": "head-drift-restart",
         "failed_phase": failed_phase,
@@ -1051,14 +1057,72 @@ def coordinate_repo_with_restarts(
             break
 
         prior_attempts.append(report)
-        repair = prepare_head_drift_restart(
-            repo=repo,
-            output_dir=output_dir,
-            log_dir=log_dir,
-            restart_number=restart_number + 1,
-            failed_phase=failed_phase,
-        )
+        try:
+            repair = prepare_head_drift_restart(
+                repo=repo,
+                output_dir=output_dir,
+                log_dir=log_dir,
+                restart_number=restart_number + 1,
+                failed_phase=failed_phase,
+            )
+        except OSError as exc:
+            report["head_drift_restart_error"] = f"repair preparation failed: {exc}"
+            print(
+                f"[coordinator] {repo}: head-drift restart preparation failed: {exc}",
+                file=sys.stderr,
+            )
+            break
         restarts.append(repair)
+
+        # The review brief is source-derived too. Regenerate active-repo inputs
+        # after quarantine so round 1 cannot consume an inventory or GitNexus
+        # status captured from the obsolete commit. Aggregate files written by
+        # this preflight are provisional and will be replaced by the final pass.
+        restart_preflight_log = (
+            log_dir / repo.replace("/", "__") / f"preflight-restart-{restart_number + 1}.log"
+        )
+        restart_preflight = run_subprocess(
+            [
+                sys.executable,
+                str(workflows_steward_root / "scripts" / "repo_review_evaluator.py"),
+                "--registry",
+                str(registry_path),
+                "--output-dir",
+                str(output_dir),
+                "--status",
+                "active",
+                "--skip-gitnexus-preflight",
+            ],
+            cwd=workflows_steward_root,
+            log_path=restart_preflight_log,
+            name="head-drift-preflight",
+            timeout=1200,
+        )
+        repair["preflight"] = {
+            "succeeded": restart_preflight.succeeded,
+            "duration_seconds": restart_preflight.duration_seconds,
+            "notes": restart_preflight.notes,
+        }
+        try:
+            (Path(repair["repair_dir"]) / "repair.json").write_text(
+                json.dumps(repair, indent=2) + "\n",
+                encoding="utf-8",
+            )
+        except OSError as exc:
+            report["head_drift_restart_error"] = f"repair evidence update failed: {exc}"
+            print(
+                f"[coordinator] {repo}: head-drift repair evidence update failed: {exc}",
+                file=sys.stderr,
+            )
+            break
+        if not restart_preflight.succeeded:
+            report["head_drift_restart_error"] = restart_preflight.notes
+            print(
+                f"[coordinator] {repo}: head-drift preflight refresh failed: "
+                f"{restart_preflight.notes}",
+                file=sys.stderr,
+            )
+            break
         print(
             f"[coordinator] {repo}: {failed_phase} detected source-head drift; "
             f"restart {restart_number + 1} recorded at {repair['repair_dir']}; "

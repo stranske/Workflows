@@ -81,10 +81,15 @@ retry receives the exact deterministic validator errors from the prior failed
 attempt and must pass the body/path validator, not only the JSON schema. If a
 later phase discovers that `origin/main` advanced after round 1, the
 coordinator does not retry stale findings. It moves all repo-scoped round-1 and
-round-2 outputs plus coordinator logs into the repair directory and restarts
-the repository at round 1. The fresh run re-syncs the checkout, refreshes or
+round-2 outputs into the repair directory, copies the repo's coordinator logs
+there as evidence, and restarts the repository at round 1. The stale per-repo
+preflight brief is also quarantined and the active-repo preflight is regenerated
+before round 1. The fresh run re-syncs the checkout, refreshes or
 rebuilds GitNexus, and establishes a new exact-head provenance chain. Full
-repo restarts are bounded by the same `--repair-attempts` budget. If a
+repo restarts are bounded by the same `--repair-attempts` budget. This can
+increase the worst-case per-repo wall time by up to three times at the default
+budget, but keeps the recovery limit aligned with phase repair and avoids a
+second operator-tuned control. If a
 required round-1, round-2, or body-writer phase exhausts its repair budget, the
 coordinator aborts immediately before later repos or aggregate producers run.
 It writes `repo-review-run-failure.json` with the failed repo, phase, timestamp,

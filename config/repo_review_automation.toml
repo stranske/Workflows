@@ -87,7 +87,7 @@ round-1, round-2, body-writer, the final evaluator, or required docs-drift
 publication evidence remains failed.
 """
 output = "docs/reports/repo-review/round2/<owner>__<repo>/converged.json"
-if_failed = "The phase is repaired and retried twice. A persistent failure remains visible in state.json and makes the coordinator exit nonzero."
+if_failed = "The phase is repaired and retried twice. Head drift also refreshes the active-repo preflight and restarts from round 1, using the same budget (up to 3x per-repo wall time). A persistent failure remains visible in state.json and makes the coordinator exit nonzero."
 
 [operational_notes.queue_builder]
 step = "3. Queue-builder preview (does NOT write the artifact)"
