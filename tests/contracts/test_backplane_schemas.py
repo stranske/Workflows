@@ -112,3 +112,18 @@ def test_tracked_variable_fixture_validates() -> None:
     errors = list(validator.iter_errors(invalid))
     assert errors
     assert any(error.validator == "required" and "evidence" in error.message for error in errors)
+
+
+@pytest.mark.parametrize("missing", ["document", "mirror"])
+def test_tracked_variable_requires_both_provenance_anchors(missing: str) -> None:
+    value = json.loads((FIXTURES / "valid_tracked_variable.json").read_text())
+    del value["provenance"][missing]
+    errors = list(_validator("tracked-variable-v1.schema.json").iter_errors(value))
+    assert any(error.validator == "required" and missing in error.message for error in errors)
+
+
+def test_tracked_variable_validates_embedded_evidence() -> None:
+    value = json.loads((FIXTURES / "valid_tracked_variable.json").read_text())
+    del value["evidence"]["method"]
+    errors = list(_validator("tracked-variable-v1.schema.json").iter_errors(value))
+    assert any(error.validator == "required" and "method" in error.message for error in errors)
