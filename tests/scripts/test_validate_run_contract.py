@@ -86,6 +86,29 @@ def _validate(
     )
 
 
+@pytest.mark.parametrize("invalid_evidence", [False, True])
+def test_consumer_tracked_variable_resolves_embedded_evidence_offline(
+    invalid_evidence: bool, monkeypatch
+) -> None:
+    def reject_remote_schema(*args, **kwargs):
+        raise AssertionError("Schema validation must use bundled evidence schema")
+
+    monkeypatch.setattr("urllib.request.urlopen", reject_remote_schema)
+    envelope = json.loads((FIXTURES / "valid_tracked_variable.json").read_text())
+    if invalid_evidence:
+        envelope["evidence"].pop("method")
+    repo = "stranske/Tracked-Consumer"
+    report = _validate(
+        envelope,
+        repo=repo,
+        registry=_registry(_participant(repo, role="consumer", ingests=["tracked-variable/v1"])),
+    )
+    assert report.conformant is not invalid_evidence
+    assert not report.skipped
+    if invalid_evidence:
+        assert any("method" in v.message for v in report.violations)
+
+
 @pytest.mark.parametrize(
     "status",
     [None, "none", "candidate"],

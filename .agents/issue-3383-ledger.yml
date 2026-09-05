@@ -1,0 +1,170 @@
+version: 1
+issue: 3383
+base: main
+branch: codex/issue-3383
+tasks:
+  - id: task-01
+    title: Set `schema_version` const to `tracked-variable/v1`; validate embedded
+      `evidence` against `evidence-object/v1` and include the required document/mirror
+      provenance contract.
+    status: done
+    started_at: '2026-09-04T23:38:31Z'
+    finished_at: '2026-09-05T00:20:00Z'
+    commit: 4bb812617079f1589bc4fa9d0882ea6368d3bc25
+    notes:
+      - Implemented in docs/contracts/schemas/tracked-variable-v1.schema.json
+  - id: task-02
+    title: 'Document the clause-variable vocabulary alias and its `ontology_family:
+      "clause"` mapping.'
+    status: done
+    started_at: '2026-09-05T00:15:00Z'
+    finished_at: '2026-09-05T00:20:00Z'
+    commit: 4bb812617079f1589bc4fa9d0882ea6368d3bc25
+    notes:
+      - docs/contracts/tracked-variable-v1.md Clause Variable Alias section
+  - id: task-03
+    title: Add the tracked-variable schema at `docs/contracts/schemas/tracked-variable-v1.schema.json`,
+      defining the tracked-variable-v1 object and making `evidence` a required field.
+    status: done
+    started_at: '2026-09-05T00:15:00Z'
+    finished_at: '2026-09-05T00:20:00Z'
+    commit: 4bb812617079f1589bc4fa9d0882ea6368d3bc25
+    notes: []
+  - id: task-04
+    title: Create the normative specification document at `docs/contracts/tracked-variable-v1.md`
+      describing the tracked-variable-v1 contract and its required fields.
+    status: done
+    started_at: '2026-09-05T00:15:00Z'
+    finished_at: '2026-09-05T00:20:00Z'
+    commit: 4bb812617079f1589bc4fa9d0882ea6368d3bc25
+    notes: []
+  - id: task-05
+    title: 'Add tracked-variable fixture files under `tests/fixtures/backplane/`:
+      `valid_tracked_variable.json` with the expected `evidence` key and `invalid_tracked_variable_missing_evidence.json`
+      without that key.'
+    status: done
+    started_at: '2026-09-05T00:15:00Z'
+    finished_at: '2026-09-05T00:20:00Z'
+    commit: 4bb812617079f1589bc4fa9d0882ea6368d3bc25
+    notes: []
+  - id: task-06
+    title: Update `tests/contracts/test_backplane_schemas.py` to register `tracked-variable-v1.schema.json`
+      and add `test_tracked_variable_fixture_validates` that validates the new fixture
+      and checks that the missing-`evidence` case fails validation.
+    status: done
+    started_at: '2026-09-05T00:15:00Z'
+    finished_at: '2026-09-05T00:20:00Z'
+    commit: 4bb812617079f1589bc4fa9d0882ea6368d3bc25
+    notes: []
+  - id: task-07
+    title: Extend `scripts/validate_run_contract.py` with a `--tracked-variables`
+      CLI flag wired into the existing schema validation options.
+    status: done
+    started_at: '2026-09-05T00:15:00Z'
+    finished_at: '2026-09-05T00:20:00Z'
+    commit: 4bb812617079f1589bc4fa9d0882ea6368d3bc25
+    notes: []
+  - id: task-08
+    title: Add sync-manifest entries for `docs/contracts/schemas/tracked-variable-v1.schema.json`
+      and `docs/contracts/tracked-variable-v1.md` in `.github/sync-manifest.yml`.
+    status: done
+    started_at: '2026-09-05T00:29:38Z'
+    finished_at: '2026-09-05T00:29:38Z'
+    commit: 682706a50ce1710c731dad6f5684c1e911a57f69
+    notes:
+      - Schema and specification entries added under the established root-source contract pattern
+  - id: task-09
+    title: 'The schema file contains `"const": "tracked-variable/v1"` in the schema_version
+      property definition, includes a `$ref` to `evidence-object/v1` schema for the
+      evidence field, and defines both `provenance.document` and `provenance.mirror`
+      as required object properties. The normative spec includes a section titled
+      "Clause Variable Alias" that documents the ontology_family mapping.'
+    status: done
+    started_at: '2026-09-05T00:15:00Z'
+    finished_at: '2026-09-05T00:20:00Z'
+    commit: 4bb812617079f1589bc4fa9d0882ea6368d3bc25
+    notes: []
+  - id: task-10
+    title: The test `test_tracked_variable_fixture_validates` must include an assertion
+      that validates `valid_tracked_variable.json` passes validation. Create a comment
+      in the test code documenting that removing the `evidence` key from the valid
+      fixture causes this assertion to fail (verified during development). Include
+      both positive and negative test cases in the same test function.
+    status: done
+    started_at: '2026-09-05T00:15:00Z'
+    finished_at: '2026-09-05T00:20:00Z'
+    commit: 4bb812617079f1589bc4fa9d0882ea6368d3bc25
+    notes: []
+  - id: task-11
+    title: The file `docs/contracts/schemas/tracked-variable-v1.schema.json` exists
+      and defines a top-level schema for `tracked-variable-v1` in which `evidence`
+      is listed in the schema's `required` array.
+    status: done
+    started_at: '2026-09-05T00:15:00Z'
+    finished_at: '2026-09-05T00:20:00Z'
+    commit: 4bb812617079f1589bc4fa9d0882ea6368d3bc25
+    notes: []
+  - id: task-12
+    title: The file `docs/contracts/tracked-variable-v1.md` exists and explicitly
+      documents the `tracked-variable/v1` contract, including that `evidence` is a
+      required field.
+    status: done
+    started_at: '2026-09-05T00:15:00Z'
+    finished_at: '2026-09-05T00:20:00Z'
+    commit: 4bb812617079f1589bc4fa9d0882ea6368d3bc25
+    notes: []
+  - id: task-13
+    title: The fixture file `tests/fixtures/backplane/valid_tracked_variable.json`
+      exists and contains an `evidence` key, and the fixture file `tests/fixtures/backplane/invalid_tracked_variable_missing_evidence.json`
+      exists and does not contain an `evidence` key.
+    status: done
+    started_at: '2026-09-05T00:15:00Z'
+    finished_at: '2026-09-05T00:20:00Z'
+    commit: 4bb812617079f1589bc4fa9d0882ea6368d3bc25
+    notes: []
+  - id: task-14
+    title: The test module `tests/contracts/test_backplane_schemas.py` registers `tracked-variable-v1.schema.json`
+      in the schema validation coverage and defines a test named `test_tracked_variable_fixture_validates`.
+    status: done
+    started_at: '2026-09-05T00:15:00Z'
+    finished_at: '2026-09-05T00:20:00Z'
+    commit: 4bb812617079f1589bc4fa9d0882ea6368d3bc25
+    notes: []
+  - id: task-15
+    title: Running `python -m pytest tests/contracts/test_backplane_schemas.py::test_tracked_variable_fixture_validates
+      -q` exits with status code 0.
+    status: done
+    started_at: '2026-09-05T00:15:00Z'
+    finished_at: '2026-09-05T00:20:00Z'
+    commit: 4bb812617079f1589bc4fa9d0882ea6368d3bc25
+    notes:
+      - 'verified: 1 passed'
+  - id: task-16
+    title: The test `tests/contracts/test_backplane_schemas.py::test_tracked_variable_fixture_validates`
+      asserts both that `tests/fixtures/backplane/valid_tracked_variable.json` validates
+      successfully against `tracked-variable-v1.schema.json` and that `tests/fixtures/backplane/invalid_tracked_variable_missing_evidence.json`
+      fails validation because `evidence` is required.
+    status: done
+    started_at: '2026-09-05T00:15:00Z'
+    finished_at: '2026-09-05T00:20:00Z'
+    commit: 4bb812617079f1589bc4fa9d0882ea6368d3bc25
+    notes: []
+  - id: task-17
+    title: Running `python scripts/validate_run_contract.py --help` prints a usage/help
+      message that includes the literal option name `--tracked-variables` and exits
+      with status code 0.
+    status: done
+    started_at: '2026-09-05T00:15:00Z'
+    finished_at: '2026-09-05T00:20:00Z'
+    commit: 4bb812617079f1589bc4fa9d0882ea6368d3bc25
+    notes:
+      - 'verified: --tracked-variables in --help output'
+  - id: task-18
+    title: 'Closer recovery: implement tracked-variable/v1 contract artifacts (schema,
+      spec, fixtures, tests, CLI) replacing ledger-only head.'
+    status: done
+    started_at: '2026-09-05T00:15:00Z'
+    finished_at: '2026-09-05T00:20:00Z'
+    commit: 4bb812617079f1589bc4fa9d0882ea6368d3bc25
+    notes:
+      - cursor/composer closer lane recovery from 96f670ff ledger-only head

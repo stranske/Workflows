@@ -897,6 +897,16 @@ docs:
     target: docs/contracts/schemas/evidence-object-v1.schema.json
     description: "JSON Schema (draft 2020-12) for evidence-object/v1 - attributable evidence objects (the satellite schema consumers like the LMS would ingest)"
 
+  - source: docs/contracts/tracked-variable-v1.md
+    source_tree: root
+    target: docs/contracts/tracked-variable-v1.md
+    description: "Tracked-variable/v1 specification and clause-variable alias for backplane consumers"
+
+  - source: docs/contracts/schemas/tracked-variable-v1.schema.json
+    source_tree: root
+    target: docs/contracts/schemas/tracked-variable-v1.schema.json
+    description: "Tracked-variable/v1 schema with embedded evidence and document/mirror provenance"
+
   - source: docs/SETUP_CHECKLIST.md
     target: docs/SETUP_CHECKLIST.md
     description: "Consumer repo setup checklist. Includes the default_workflow_permissions=write step in section 3.3.1 that prevents a Gate startup_failure on fresh consumers (resolved: #2157). Synced so it no longer drifts across the fleet."

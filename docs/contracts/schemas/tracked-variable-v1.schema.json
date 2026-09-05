@@ -1,0 +1,178 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://github.com/stranske/Workflows/docs/contracts/schemas/tracked-variable-v1.schema.json",
+  "title": "Research Backplane Tracked Variable v1",
+  "description": "A fleet-owned asserted claim (legal clause, consultant section, or thesis claim) with ontology key, typed value, embedded evidence-object/v1, and dual document/mirror provenance per B3 interop architecture §3.1.",
+  "type": "object",
+  "additionalProperties": true,
+  "required": [
+    "schema_version",
+    "evidence",
+    "provenance"
+  ],
+  "properties": {
+    "schema_version": {
+      "const": "tracked-variable/v1"
+    },
+    "variable_id": {
+      "type": "string",
+      "minLength": 1,
+      "description": "Stable identifier for this tracked variable (e.g. var:<content-hash>)."
+    },
+    "ontology_key": {
+      "type": "string",
+      "minLength": 1,
+      "description": "Cross-manager join key (e.g. legal.withdrawal.notice_days, consultant.trust_level.market_overview)."
+    },
+    "ontology_family": {
+      "type": "string",
+      "enum": [
+        "clause",
+        "report_section",
+        "thesis_claim"
+      ],
+      "description": "Selects the vocabulary file; same wire shape for all families."
+    },
+    "document_id": {
+      "type": "string",
+      "minLength": 1,
+      "description": "Content-hash document identity (document:<sha256>)."
+    },
+    "artifact_id": {
+      "type": "string",
+      "minLength": 1,
+      "description": "Ingest-run artifact identity with supersession chain."
+    },
+    "entity_ref": {
+      "type": "string",
+      "pattern": "^[a-z0-9_]+:[a-z0-9][a-z0-9_.:-]*$",
+      "description": "Canonical entity id (per identity-map-conventions.md) the variable is about."
+    },
+    "period": {
+      "type": "string",
+      "minLength": 1
+    },
+    "status": {
+      "type": "string",
+      "minLength": 1
+    },
+    "value_text": {
+      "type": "string"
+    },
+    "value_structured": {
+      "type": "object",
+      "additionalProperties": true
+    },
+    "change_class": {
+      "type": [
+        "string",
+        "null"
+      ]
+    },
+    "confidence": {
+      "type": [
+        "number",
+        "null"
+      ],
+      "minimum": 0,
+      "maximum": 1
+    },
+    "supersedes_variable_id": {
+      "type": [
+        "string",
+        "null"
+      ]
+    },
+    "provenance": {
+      "type": "object",
+      "additionalProperties": true,
+      "required": [
+        "document",
+        "mirror"
+      ],
+      "properties": {
+        "document": {
+          "type": "object",
+          "additionalProperties": true,
+          "description": "Primary anchor for one-click page navigation.",
+          "properties": {
+            "source_id": {
+              "type": "string",
+              "minLength": 1
+            },
+            "locator": {
+              "type": "object",
+              "additionalProperties": true,
+              "properties": {
+                "page": {
+                  "type": "integer",
+                  "minimum": 0
+                },
+                "section": {
+                  "type": "string",
+                  "minLength": 1
+                },
+                "bbox": {
+                  "type": "array",
+                  "items": {
+                    "type": "number"
+                  },
+                  "minItems": 4,
+                  "maxItems": 4
+                }
+              }
+            }
+          }
+        },
+        "mirror": {
+          "type": "object",
+          "additionalProperties": true,
+          "description": "Local blob path for offline mirror navigation.",
+          "properties": {
+            "mirror_root": {
+              "type": "string",
+              "minLength": 1
+            },
+            "blob_path": {
+              "type": "string",
+              "minLength": 1
+            },
+            "page_anchor": {
+              "type": "string",
+              "minLength": 1
+            }
+          }
+        },
+        "source_system": {
+          "type": "object",
+          "additionalProperties": true,
+          "properties": {
+            "system": {
+              "type": "string",
+              "minLength": 1
+            },
+            "url": {
+              "type": "string",
+              "minLength": 1
+            },
+            "exported_at": {
+              "type": "string",
+              "format": "date-time"
+            }
+          }
+        }
+      }
+    },
+    "evidence": {
+      "$ref": "evidence-object-v1.schema.json"
+    },
+    "extracted_at": {
+      "type": "string",
+      "format": "date-time"
+    },
+    "extractor_run_id": {
+      "type": "string",
+      "minLength": 1
+    }
+  }
+}
