@@ -3386,3 +3386,145 @@ test('maint71 real execution never closes a candidate owned by a different plan'
     fs.rmSync(tempDir, { recursive: true, force: true });
   }
 });
+
+
+test('maint71 starts review by clearing stale ready labels while retaining the staging hold', async () => {
+  const originalCwd = process.cwd();
+  const envKeys = [
+    'REGISTERED_REPOS_INPUT', 'CLEANUP_BRANCHES_INPUT', 'DRY_RUN_INPUT',
+    'AUTO_MERGE_INPUT', 'ACTIVE_SYNC_HASH_INPUT', 'EXPECTED_PLAN_ID_INPUT',
+    'EXPECTED_PLAN_SCOPE_INPUT', 'EXPECTED_SCOPE_BASE_SHA_INPUT',
+    'EXPECTED_SOURCE_COMMIT_INPUT', 'OWNER_PR_PAT',
+    'CONSUMER_SYNC_CANARIES_PATH', 'TRUSTED_SYNC_ACTORS',
+    'SYNC_PR_MERGE_REPORT_JSON',
+  ];
+  const originalEnv = Object.fromEntries(envKeys.map((key) => [key, process.env[key]]));
+  const tempDir = fs.mkdtempSync(path.join(os.tmpdir(), 'maint71-delivery-context-'));
+  const reportPath = path.join(tempDir, 'artifacts', 'merge-report.json');
+  const canaryConfigPath = path.join(tempDir, 'consumer-sync-canaries.json');
+  const repository = 'stranske/Travel-Plan-Permission';
+  const planId = `sha256:${'a'.repeat(64)}`;
+  const scopeBaseSha = 'b'.repeat(40);
+  const sourceCommit = 'c'.repeat(40);
+  const headSha = 'd'.repeat(40);
+  fs.writeFileSync(canaryConfigPath, JSON.stringify({ canaries: [{ repo: repository }] }));
+  const metadata = {
+    schema: 'workflows-consumer-sync-pr/v1', consumer_repo: repository,
+    plan_id: planId, plan_scope: 'source-delta', scope_base_sha: scopeBaseSha,
+    source_commit: sourceCommit, source_sha: sourceCommit,
+    // A distinct metadata fallback proves the delivery record wins.
+    template_hash: 'metadata-fallback-generation', sync_phase: 'canary',
+  };
+  const record = {
+    schema: 'sync-pr-delivery-record/v1', delivery_state: 'staging',
+    durable_issue_url: 'https://github.com/stranske/Workflows/issues/1836',
+    plan_id: planId, generation: 'delivery-record-generation', repository,
+    desired_tree_hash: 'tree-abc', source_commit: sourceCommit,
+    head_observed_sha: headSha, head_observed_at: '2020-08-14T00:00:00Z',
+    lease_expires_at: '2099-08-14T00:00:00Z', predecessor_prs: [], successor_prs: [],
+  };
+  const candidate = {
+    number: 1464, title: 'chore: sync workflow templates',
+    body: `<!-- workflows-consumer-sync:v1 ${JSON.stringify(metadata)} -->\n` +
+      `<!-- sync-pr-delivery-record:v1 ${JSON.stringify(record)} -->`,
+    created_at: '2020-08-14T00:00:00Z', updated_at: '2020-08-14T00:00:00Z', state: 'open',
+    base: { ref: 'main' }, head: { ref: 'sync/workflows-candidate', sha: headSha },
+    user: { login: 'stranske' },
+  };
+  const github = {
+    paginate: async (_method, params) => {
+      if (params.state === 'open') return [candidate];
+      if (params.ref === headSha) {
+        return [{ name: 'Gate / gate', status: 'completed', conclusion: 'success' }];
+      }
+      return [];
+    },
+    graphql: async () => ({
+      repository: { pullRequest: { reviewThreads: { pageInfo: { hasNextPage: false }, nodes: [] } } },
+    }),
+    rest: {
+      pulls: { list: async () => ({ data: [candidate] }), get: async () => ({ data: candidate }) },
+      checks: { listForRef: () => {} },
+      git: { getCommit: async () => ({ data: { tree: { sha: 'tree-abc' } } }) },
+      repos: {
+        getBranchProtection: async () => ({
+          data: { required_status_checks: { contexts: ['Gate / gate'], checks: [] } },
+        }),
+        getCombinedStatusForRef: async () => ({ data: { statuses: [] } }),
+        createDispatchEvent: async () => ({}),
+      },
+    },
+  };
+  const failures = [];
+  const mutations = [];
+  const labels = new Set(['sync:delivery-ready']);
+  github.rest.pulls.update = async (args) => { mutations.push(args); return {}; };
+  github.rest.issues = {
+    createComment: async () => ({}),
+    addLabels: async ({ labels: added }) => { for (const label of added) labels.add(label); },
+    removeLabel: async ({ name }) => {
+      assert.equal(labels.has('sync:delivery-staging'), true);
+      assert.equal(name, 'sync:delivery-ready');
+      labels.delete(name);
+    },
+  };
+  github.rest.git.deleteRef = async (args) => { mutations.push(args); return {}; };
+  const core = {
+    notice: () => {}, warning: () => {}, setFailed: (message) => failures.push(message),
+    summary: { addRaw: () => ({ write: async () => {} }) },
+  };
+
+  try {
+    process.chdir(tempDir);
+    process.env.REGISTERED_REPOS_INPUT = repository;
+    process.env.CLEANUP_BRANCHES_INPUT = 'false';
+    process.env.DRY_RUN_INPUT = 'false';
+    process.env.AUTO_MERGE_INPUT = 'true';
+    process.env.ACTIVE_SYNC_HASH_INPUT = 'candidate';
+    process.env.EXPECTED_PLAN_ID_INPUT = planId;
+    process.env.EXPECTED_PLAN_SCOPE_INPUT = 'source-delta';
+    process.env.EXPECTED_SCOPE_BASE_SHA_INPUT = scopeBaseSha;
+    process.env.EXPECTED_SOURCE_COMMIT_INPUT = sourceCommit;
+    process.env.OWNER_PR_PAT = 'test-owner-token';
+    process.env.CONSUMER_SYNC_CANARIES_PATH = canaryConfigPath;
+    process.env.TRUSTED_SYNC_ACTORS = 'stranske';
+    process.env.SYNC_PR_MERGE_REPORT_JSON = reportPath;
+
+    await run({
+      github, core,
+      context: { repo: { owner: 'stranske', repo: 'Workflows' }, payload: {},
+        runId: 72, runNumber: 72, workflow: 'Maint 71', ref: 'refs/heads/main', sha: sourceCommit },
+    });
+
+    const report = JSON.parse(fs.readFileSync(reportPath, 'utf8'));
+    assert.deepEqual(failures, []);
+    assert.equal(report.results[0].status, 'review_window_started');
+    assert.deepEqual([...labels], ['sync:delivery-staging']);
+    assert.equal(mutations.length, 1);
+    assert.match(mutations[0].body, /"delivery_state":"reviewing"/);
+    assert.doesNotMatch(mutations[0].body, /"sealed_head_sha":"[^"\s]+"/);
+    // A missing label is already clean and must not prevent review start.
+    github.rest.issues.removeLabel = async () => { throw Object.assign(new Error('Not Found'), { status: 404 }); };
+    await run({ github, core, context: { repo: { owner: 'stranske', repo: 'Workflows' }, payload: {},
+      runId: 73, runNumber: 73, workflow: 'Maint 71', ref: 'refs/heads/main', sha: sourceCommit } });
+    assert.equal(JSON.parse(fs.readFileSync(reportPath, 'utf8')).results[0].status, 'review_window_started');
+    // Permission failures must not persist reviewing state and bypass cleanup
+    // on the next attempt. The staging hold remains in place.
+    const updatesBeforeFailure = mutations.length;
+    github.rest.issues.removeLabel = async () => { throw Object.assign(new Error('Forbidden'), { status: 403 }); };
+    await run({ github, core, context: { repo: { owner: 'stranske', repo: 'Workflows' }, payload: {},
+      runId: 74, runNumber: 74, workflow: 'Maint 71', ref: 'refs/heads/main', sha: sourceCommit } });
+    assert.equal(JSON.parse(fs.readFileSync(reportPath, 'utf8')).results[0].status, 'error');
+    assert.equal(mutations.length, updatesBeforeFailure);
+    assert.equal(labels.has('sync:delivery-staging'), true);
+    // Sealing will now emit a new labeled event rather than silently keeping
+    // a label whose earlier event carried an unsealed generation's body.
+  } finally {
+    process.chdir(originalCwd);
+    for (const [key, value] of Object.entries(originalEnv)) {
+      if (value === undefined) delete process.env[key];
+      else process.env[key] = value;
+    }
+    fs.rmSync(tempDir, { recursive: true, force: true });
+  }
+});
