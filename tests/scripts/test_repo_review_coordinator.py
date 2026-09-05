@@ -8,6 +8,25 @@ from scripts import repo_review_coordinator as coordinator
 from scripts import repo_review_state
 
 
+def _write_docs_drift_output(cmd: list[str], *, scanned: int = 0, errors: int = 0) -> None:
+    out = Path(cmd[cmd.index("--out") + 1])
+    out.parent.mkdir(parents=True, exist_ok=True)
+    out.write_text(
+        json.dumps(
+            {
+                "generated_on": "2026-09-05T00:00:00Z",
+                "total_docs_scanned": scanned,
+                "total_drift_instances": 0,
+                "total_accurate_instances": 0,
+                "total_errors": errors,
+                "by_repo": [],
+            }
+        )
+        + "\n",
+        encoding="utf-8",
+    )
+
+
 def _candidate(title: str = "Keep approved repo-local work") -> dict[str, object]:
     return {
         "title": title,
@@ -175,7 +194,19 @@ def test_run_orders_docs_drift_between_backlog_and_notify(tmp_path: Path, monkey
     registry_path = tmp_path / "config" / "repo_review_registry.json"
     registry_path.parent.mkdir(parents=True, exist_ok=True)
     registry_path.write_text("{}", encoding="utf-8")
-    (tmp_path / "config" / "source_of_truth_docs.yml").write_text("repos: []\n", encoding="utf-8")
+    (tmp_path / "config" / "source_of_truth_docs.yml").write_text(
+        """
+repos:
+  stranske/Example:
+    local_path: Example
+    docs:
+      - path: README.md
+        focus: overview
+      - path: AGENTS.md
+        focus: guardrails
+""",
+        encoding="utf-8",
+    )
     output_dir = tmp_path / "out"
 
     monkeypatch.setattr(
@@ -205,7 +236,9 @@ def test_run_orders_docs_drift_between_backlog_and_notify(tmp_path: Path, monkey
     def fake_run_subprocess(cmd, *, cwd, log_path, name, timeout):
         calls.append((name, timeout))
         if name == "docs-drift-scan":
-            Path(cmd[cmd.index("--out") + 1]).write_text("[]\n", encoding="utf-8")
+            assert cmd[cmd.index("--timeout") + 1] == "600"
+            assert cmd[cmd.index("--repos") + 1 :] == ["stranske/Example"]
+            _write_docs_drift_output(cmd, scanned=2)
         return coordinator.StepResult(name=name, succeeded=True, duration_seconds=0.01)
 
     monkeypatch.setattr(coordinator, "run_subprocess", fake_run_subprocess)
@@ -235,9 +268,83 @@ def test_run_orders_docs_drift_between_backlog_and_notify(tmp_path: Path, monkey
         "docs-drift-scan",
         "notify",
     ]
-    assert dict(calls)["docs-drift-scan"] == 1800
+    assert dict(calls)["docs-drift-scan"] == 2100
     assert dict(calls)["backlog-scan"] == 300
     assert dict(calls)["scorecard-scan"] == 300
+
+
+def test_run_filters_explicit_repo_subset_to_active_registry_entries(
+    tmp_path: Path, monkeypatch
+) -> None:
+    registry_path = tmp_path / "config" / "repo_review_registry.json"
+    registry_path.parent.mkdir(parents=True, exist_ok=True)
+    registry_path.write_text("{}", encoding="utf-8")
+    (tmp_path / "config" / "source_of_truth_docs.yml").write_text(
+        """
+repos:
+  stranske/Active:
+    local_path: Active
+    docs:
+      - path: README.md
+        focus: overview
+  stranske/Paused:
+    local_path: Paused
+    docs:
+      - path: README.md
+        focus: overview
+""",
+        encoding="utf-8",
+    )
+    output_dir = tmp_path / "out"
+    registry_repos = [
+        SimpleNamespace(repo="stranske/Active", status="active"),
+        SimpleNamespace(repo="stranske/Paused", status="paused"),
+    ]
+    monkeypatch.setattr(
+        coordinator,
+        "load_registry",
+        lambda _path: (tmp_path, [], registry_repos, []),
+    )
+    coordinated: list[str] = []
+
+    def fake_coordinate_repo(**kwargs):
+        coordinated.append(kwargs["repo"])
+        return {
+            "repo": kwargs["repo"],
+            "round1": {"succeeded": True, "duration_seconds": 0.01},
+            "round2": {"succeeded": True, "duration_seconds": 0.01},
+            "body_writer": {"succeeded": True, "duration_seconds": 0.01},
+            "skip_gate_fired": False,
+        }
+
+    docs_scan_repos: list[str] = []
+
+    def fake_run_subprocess(cmd, *, cwd, log_path, name, timeout):
+        if name == "docs-drift-scan":
+            docs_scan_repos.extend(cmd[cmd.index("--repos") + 1 :])
+            _write_docs_drift_output(cmd, scanned=1)
+        return coordinator.StepResult(name=name, succeeded=True, duration_seconds=0.01)
+
+    monkeypatch.setattr(coordinator, "coordinate_repo", fake_coordinate_repo)
+    monkeypatch.setattr(coordinator, "run_subprocess", fake_run_subprocess)
+    args = SimpleNamespace(
+        output_dir=str(output_dir),
+        registry=str(registry_path),
+        repos=["stranske/Active", "stranske/Paused"],
+        agents=["codex", "claude"],
+        skip_preflight=False,
+        skip_gitnexus_preflight=False,
+        round1_timeout=30,
+        round2_timeout=30,
+        max_turns=3,
+        disable_skip_gate=True,
+        skip_auto_archive=True,
+    )
+
+    assert coordinator.run(args) == 0
+    assert coordinated == ["stranske/Active"]
+    assert docs_scan_repos == ["stranske/Active"]
+    assert (output_dir / "docs-drift-scan.json").is_file()
 
 
 def test_run_orders_scorecard_before_final_evaluator(tmp_path: Path, monkeypatch) -> None:
@@ -277,6 +384,8 @@ def test_run_orders_scorecard_before_final_evaluator(tmp_path: Path, monkeypatch
             Path(cmd[cmd.index("--out") + 1]).write_text(
                 '{"schema":"repo-review-scorecard-scan/v1","by_repo":[]}\n', encoding="utf-8"
             )
+        if name == "docs-drift-scan":
+            _write_docs_drift_output(cmd)
         return coordinator.StepResult(name=name, succeeded=True, duration_seconds=0.01)
 
     monkeypatch.setattr(coordinator, "run_subprocess", fake_run_subprocess)
@@ -337,6 +446,8 @@ def test_run_keeps_scorecard_failure_non_fatal(tmp_path: Path, monkeypatch) -> N
             return coordinator.StepResult(
                 name=name, succeeded=False, duration_seconds=0.01, notes="exit 1"
             )
+        if name == "docs-drift-scan":
+            _write_docs_drift_output(cmd)
         return coordinator.StepResult(name=name, succeeded=True, duration_seconds=0.01)
 
     monkeypatch.setattr(coordinator, "run_subprocess", fake_run_subprocess)
@@ -360,12 +471,83 @@ def test_run_keeps_scorecard_failure_non_fatal(tmp_path: Path, monkeypatch) -> N
     assert calls[-1] == "notify"
 
 
-def test_run_keeps_docs_drift_failure_non_fatal(tmp_path: Path, monkeypatch) -> None:
+def test_run_fails_closed_before_postprocessing_when_final_evaluator_fails(
+    tmp_path: Path, monkeypatch
+) -> None:
+    registry_path = tmp_path / "config" / "repo_review_registry.json"
+    registry_path.parent.mkdir(parents=True, exist_ok=True)
+    registry_path.write_text("{}", encoding="utf-8")
+    output_dir = tmp_path / "out"
+    output_dir.mkdir()
+    for name in coordinator.AGGREGATE_OUTPUT_NAMES:
+        (output_dir / name).write_text("stale\n", encoding="utf-8")
+
+    monkeypatch.setattr(
+        coordinator,
+        "load_registry",
+        lambda _path: (
+            tmp_path,
+            [],
+            [SimpleNamespace(repo="stranske/Example", status="active")],
+            [],
+        ),
+    )
+    monkeypatch.setattr(
+        coordinator,
+        "coordinate_repo",
+        lambda **_: {
+            "repo": "stranske/Example",
+            "round1": {"succeeded": True, "duration_seconds": 0.01},
+            "round2": {"succeeded": True, "duration_seconds": 0.01},
+            "body_writer": {"succeeded": True, "duration_seconds": 0.01},
+            "skip_gate_fired": False,
+        },
+    )
+    calls: list[str] = []
+
+    def fake_run_subprocess(cmd, *, cwd, log_path, name, timeout):
+        calls.append(name)
+        return coordinator.StepResult(
+            name=name,
+            succeeded=name != "final-evaluator",
+            duration_seconds=0.01,
+            notes="exit 1" if name == "final-evaluator" else "",
+        )
+
+    monkeypatch.setattr(coordinator, "run_subprocess", fake_run_subprocess)
+    args = SimpleNamespace(
+        output_dir=str(output_dir),
+        registry=str(registry_path),
+        repos=[],
+        agents=["codex", "claude"],
+        skip_preflight=False,
+        skip_gitnexus_preflight=False,
+        round1_timeout=30,
+        round2_timeout=30,
+        max_turns=3,
+        disable_skip_gate=True,
+        skip_auto_archive=True,
+    )
+
+    assert coordinator.run(args) == 1
+    assert calls[-1] == "final-evaluator"
+    assert "backlog-scan" not in calls
+    assert "notify" not in calls
+    failure = json.loads((output_dir / "repo-review-run-failure.json").read_text())
+    assert failure["repo"] == "cycle"
+    assert failure["phase"] == "final-evaluator"
+    assert all(not (output_dir / name).exists() for name in coordinator.AGGREGATE_OUTPUT_NAMES)
+
+
+def test_run_fails_closed_before_notify_when_docs_drift_fails(tmp_path: Path, monkeypatch) -> None:
     registry_path = tmp_path / "config" / "repo_review_registry.json"
     registry_path.parent.mkdir(parents=True, exist_ok=True)
     registry_path.write_text("{}", encoding="utf-8")
     (tmp_path / "config" / "source_of_truth_docs.yml").write_text("repos: []\n", encoding="utf-8")
     output_dir = tmp_path / "out"
+    output_dir.mkdir()
+    for name in coordinator.AGGREGATE_OUTPUT_NAMES:
+        (output_dir / name).write_text("stale\n", encoding="utf-8")
 
     monkeypatch.setattr(
         coordinator,
@@ -416,8 +598,88 @@ def test_run_keeps_docs_drift_failure_non_fatal(tmp_path: Path, monkeypatch) -> 
     )
     rc = coordinator.run(args)
 
-    assert rc == 0
-    assert calls[-1] == "notify"
+    assert rc == 1
+    assert calls[-1] == "docs-drift-scan"
+    assert "notify" not in calls
+    failure = json.loads((output_dir / "repo-review-run-failure.json").read_text())
+    assert failure["repo"] == "cycle"
+    assert failure["phase"] == "docs-drift-scan"
+    assert len(failure["quarantined_aggregate_outputs"]) == len(coordinator.AGGREGATE_OUTPUT_NAMES)
+    assert all(not (output_dir / name).exists() for name in coordinator.AGGREGATE_OUTPUT_NAMES)
+
+
+def test_docs_drift_timeout_scales_with_selected_document_workload(tmp_path: Path) -> None:
+    config = tmp_path / "source_of_truth_docs.yml"
+    config.write_text(
+        """
+repos:
+  stranske/A:
+    docs:
+      - path: README.md
+      - path: AGENTS.md
+  stranske/B:
+    docs:
+      - path: README.md
+""",
+        encoding="utf-8",
+    )
+
+    assert coordinator.configured_docs_drift_doc_count(config, ["stranske/A"]) == 2
+    assert coordinator.docs_drift_subprocess_timeout(config, ["stranske/A"]) == 2100
+    assert coordinator.docs_drift_subprocess_timeout(config, ["stranske/B"]) == 1800
+
+    automation_config = tmp_path / "automation.toml"
+    automation_config.write_text(
+        """
+[automation.timeouts]
+docs_drift_per_doc_seconds = 100
+docs_drift_minimum_seconds = 50
+docs_drift_buffer_seconds = 25
+""",
+        encoding="utf-8",
+    )
+    assert (
+        coordinator.docs_drift_subprocess_timeout(
+            config,
+            ["stranske/A"],
+            automation_config_path=automation_config,
+        )
+        == 225
+    )
+
+
+def test_validate_docs_drift_output_rejects_errors_and_incomplete_coverage(
+    tmp_path: Path,
+) -> None:
+    path = tmp_path / "scan.json"
+    path.write_text(
+        json.dumps(
+            {
+                "generated_on": "2026-09-05T00:00:00Z",
+                "total_docs_scanned": 1,
+                "total_errors": 1,
+            }
+        ),
+        encoding="utf-8",
+    )
+
+    valid, notes = coordinator.validate_docs_drift_output(path, expected_doc_count=2)
+    assert valid is False
+    assert "incomplete docs coverage" in notes
+
+    path.write_text(
+        json.dumps(
+            {
+                "generated_on": "2026-09-05T00:00:00Z",
+                "total_docs_scanned": 2,
+                "total_errors": 1,
+            }
+        ),
+        encoding="utf-8",
+    )
+    valid, notes = coordinator.validate_docs_drift_output(path, expected_doc_count=2)
+    assert valid is False
+    assert "recorded 1 error" in notes
 
 
 def test_round2_subprocess_timeout_covers_multiturn_budget() -> None:
@@ -568,7 +830,7 @@ def test_run_returns_nonzero_after_body_writer_repairs_exhausted(
     failure = json.loads((output_dir / "repo-review-run-failure.json").read_text())
     assert failure["repo"] == "stranske/Example"
     assert failure["phase"] == "body-writer"
-    assert len(failure["quarantined_aggregate_outputs"]) == 4
+    assert len(failure["quarantined_aggregate_outputs"]) == len(coordinator.AGGREGATE_OUTPUT_NAMES)
     assert all(not (output_dir / name).exists() for name in coordinator.AGGREGATE_OUTPUT_NAMES)
     assert all(
         (output_dir / path).read_text(encoding="utf-8") == "stale\n"

@@ -11,6 +11,7 @@ from __future__ import annotations
 
 import json
 from pathlib import Path
+from types import SimpleNamespace
 
 import pytest
 import scripts.repo_review_docs_drift_scan as drift_scan
@@ -531,6 +532,40 @@ repos:
     assert summary["by_repo"][0]["repo"] == "stranske/Workflows"
 
 
+def test_scan_records_each_configured_doc_when_repo_root_is_missing(tmp_path: Path):
+    cfg_path = tmp_path / "cfg.yml"
+    cfg_path.write_text(
+        """
+repos:
+  stranske/Missing:
+    local_path: Missing
+    docs:
+      - path: README.md
+        focus: overview
+      - path: AGENTS.md
+        focus: guardrails
+""",
+        encoding="utf-8",
+    )
+
+    summary = scan(
+        docs_config=load_docs_config(cfg_path),
+        active_repos={"stranske/Missing"},
+        workspace_root=tmp_path,
+        repo_subset=None,
+        log_dir=tmp_path / "logs",
+        timeout=10,
+        invoker=lambda **kw: (True, '{"instances": []}'),
+    )
+
+    assert summary["total_docs_scanned"] == 2
+    assert summary["total_errors"] == 2
+    assert [error["doc_path"] for error in summary["by_repo"][0]["errors"]] == [
+        "README.md",
+        "AGENTS.md",
+    ]
+
+
 def test_scan_records_malformed_doc_entry_without_aborting(tmp_path: Path):
     workspace, registry = _make_fixture_workspace(tmp_path)
     cfg_path = tmp_path / "cfg.yml"
@@ -559,6 +594,48 @@ repos:
     assert summary["total_docs_scanned"] == 2
     assert summary["total_errors"] == 1
     assert bucket["errors"][0]["doc_path"] == "<config.docs[0]>"
+
+
+def test_main_returns_nonzero_when_any_configured_doc_errors(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    workspace = tmp_path / "workspace"
+    repo_root = workspace / "Example"
+    repo_root.mkdir(parents=True)
+    registry = tmp_path / "registry.json"
+    registry.write_text(
+        json.dumps({"repos": [{"repo": "stranske/Example", "status": "active"}]}),
+        encoding="utf-8",
+    )
+    docs_config = tmp_path / "docs.yml"
+    docs_config.write_text(
+        """
+repos:
+  stranske/Example:
+    local_path: Example
+    docs:
+      - path: MISSING.md
+        focus: required contract
+""",
+        encoding="utf-8",
+    )
+    out = tmp_path / "scan.json"
+    monkeypatch.setattr(
+        drift_scan,
+        "parse_args",
+        lambda: SimpleNamespace(
+            registry=registry,
+            docs_config=docs_config,
+            out=out,
+            workspace_root=workspace,
+            repos=[],
+            timeout=10,
+            dry_run=True,
+        ),
+    )
+
+    assert drift_scan.main() == 1
+    assert json.loads(out.read_text(encoding="utf-8"))["total_errors"] == 1
 
 
 def test_scan_doc_records_missing_file(tmp_path: Path):

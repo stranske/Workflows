@@ -84,10 +84,21 @@ coordinator aborts immediately before later repos or aggregate producers run.
 It writes `repo-review-run-failure.json` with the failed repo, phase, timestamp,
 per-phase report, and any quarantined aggregate paths. Existing publishable
 outputs (`approved-issue-queue.json`, `approved-issue-queue.md`,
-`human-decision-packet.md`, and `repo-review-summary.json`) move to a timestamped
+`docs-drift-scan.json`, `human-decision-packet.md`, and
+`repo-review-summary.json`) move to a timestamped
 `failed-runs/` directory so a stale queue cannot be uploaded as the failed
-cycle's result. A final-evaluator failure also makes the coordinator return
-nonzero.
+cycle's result. A final-evaluator failure also fails closed before downstream
+scans and notification.
+
+The semantic docs-drift scan is also required cycle evidence. It runs
+sequentially, so its outer timeout is derived from the selected configured
+document count (up to 600 seconds per document plus a 900-second buffer,
+minimum 1800 seconds) instead of a fixed fleet-wide 30-minute cap. The scanner
+writes to an in-progress path and the coordinator publishes it atomically only
+after proving that every selected configured document is present and
+`total_errors` is zero. Timeout, missing inputs, malformed output, incomplete
+coverage, or any per-document error writes the same failure marker, quarantines
+publishable outputs, and stops before the desktop notification.
 
 To recover, inspect `repo-review-run-failure.json`, the referenced phase report,
 and the repo-scoped `repairs/<owner>__<repo>/` evidence; repair the underlying
@@ -96,7 +107,7 @@ An optional `--repos <owner>/<repo> --skip-preflight --skip-auto-archive
 --disable-skip-gate` run may verify the affected repo, but its outputs are
 diagnostic only: complete recovery still requires a successful all-active-repo
 run. Do not run `upload_repo_review_issues.py --apply` until the failure marker
-is absent and the full run has regenerated all four aggregate outputs.
+is absent and the full run has regenerated every publishable output.
 
 Round-1 sync reviews the exact fetched `origin/main` commit. When the local
 checkout is not already at that commit it detaches there instead of acquiring
@@ -178,9 +189,10 @@ Round-1 schema and round-2 protocol references:
 
 Outputs are written to `docs/reports/repo-review/`:
 
-- `repo-review-run-failure.json`: present only after a required repo phase
-  exhausts repairs; blocks publication until the underlying problem is fixed
-  and a full rerun succeeds. Any stale publishable outputs named by
+- `repo-review-run-failure.json`: present after a required repo phase exhausts
+  repairs or required cycle evidence fails validation; blocks publication until
+  the underlying problem is fixed and a full rerun succeeds. Any stale
+  publishable outputs named by
   `quarantined_aggregate_outputs` are preserved under `failed-runs/`.
 - `human-decision-packet.md`: one review queue across active repos.
 - `repo-review-summary.json`: machine-readable summary.
