@@ -90,6 +90,38 @@ def test_candidate_status_repo_is_skipped() -> None:
     assert report.conformant
 
 
+@pytest.mark.parametrize(
+    "fixture,expected",
+    [("valid_tracked_variable.json", 0), ("invalid_tracked_variable_missing_evidence.json", 1)],
+)
+def test_tracked_variable_cli_needs_no_participant_context(fixture, expected, capsys) -> None:
+    mod = _import_validator()
+    assert (
+        mod.main(["--tracked-variables", str(FIXTURES / fixture), "--schema-dir", str(SCHEMA_DIR)])
+        == expected
+    )
+    output = capsys.readouterr()
+    if expected:
+        assert "evidence" in output.err
+    else:
+        assert "1 file(s) conform" in output.out
+
+
+@pytest.mark.parametrize("mode", [[str(FIXTURES / "valid_run.json")], ["--self-smoke"]])
+@pytest.mark.parametrize("missing", ["--registry", "--repo"])
+def test_run_contract_modes_still_require_participant_context(mode, missing, capsys) -> None:
+    mod = _import_validator()
+    args = [*mode, "--schema-dir", str(SCHEMA_DIR)]
+    if missing != "--registry":
+        args += ["--registry", str(REGISTRY)]
+    if missing != "--repo":
+        args += ["--repo", PRODUCER_REPO]
+    with pytest.raises(SystemExit) as exc:
+        mod.main(args)
+    assert exc.value.code == 2
+    assert missing in capsys.readouterr().err
+
+
 def test_cli_exit_codes(tmp_path, capsys) -> None:
     mod = _import_validator()
     # Valid -> exit 0.

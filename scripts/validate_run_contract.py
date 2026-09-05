@@ -198,8 +198,8 @@ def _validate_consumer(
 
     per_schema_errors: dict[str, list[str]] = {}
     for token in schema_tokens:
-        schema = _load_schema(schema_dir, INGEST_SCHEMA_FILES[token])
-        errs = [e.message for e in Draft202012Validator(schema).iter_errors(document)]
+        validator = _validator_for_schema(schema_dir, INGEST_SCHEMA_FILES[token])
+        errs = [e.message for e in validator.iter_errors(document)]
         if not errs:
             # Matched an ingested schema -> conformant.
             _scan_unsafe(document, report)
@@ -343,9 +343,9 @@ def main(argv: list[str] | None = None) -> int:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("run_json", type=Path, nargs="?", default=None)
     parser.add_argument("--manifest", type=Path, default=None)
-    parser.add_argument("--registry", type=Path, required=True)
+    parser.add_argument("--registry", type=Path)
     parser.add_argument("--schema-dir", type=Path, required=True)
-    parser.add_argument("--repo", required=True)
+    parser.add_argument("--repo")
     parser.add_argument("--warn-only", action="store_true")
     parser.add_argument("--report-json", type=Path, default=None)
     parser.add_argument("--github-output", type=Path, default=None)
@@ -362,6 +362,13 @@ def main(argv: list[str] | None = None) -> int:
         help="Validate one or more tracked-variable/v1 JSON files against the schema.",
     )
     args = parser.parse_args(argv)
+
+    # Standalone schema validation does not consult participant routing. Keep
+    # that context mandatory for the existing envelope and self-smoke modes.
+    if args.self_smoke or not args.tracked_variables:
+        missing = [flag for flag in ("--registry", "--repo") if getattr(args, flag[2:]) is None]
+        if missing:
+            parser.error(f"the following arguments are required: {', '.join(missing)}")
 
     if args.self_smoke:
         return _self_smoke(args.schema_dir, args.registry)
