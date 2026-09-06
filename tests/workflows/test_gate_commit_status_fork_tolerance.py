@@ -233,8 +233,7 @@ def test_successful_status_write_is_silent(outcomes: dict[str, Any]) -> None:
 # would still leave a green fork PR reporting a red Gate.
 # ---------------------------------------------------------------------------
 
-COMMENT_RUNNER_JS = textwrap.dedent(
-    """
+COMMENT_RUNNER_JS = textwrap.dedent("""
     const nodeFs = require('fs');
     const vm = require('vm');
     const src = nodeFs.readFileSync(process.argv[2], 'utf8');
@@ -313,8 +312,7 @@ COMMENT_RUNNER_JS = textwrap.dedent(
       };
       process.stdout.write(JSON.stringify(out));
     })();
-    """
-).strip()
+    """).strip()
 
 
 @pytest.fixture(scope="module", params=sorted(GATE_WORKFLOWS), ids=sorted(GATE_WORKFLOWS))
