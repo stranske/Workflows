@@ -1065,15 +1065,47 @@ jobs:
               return;
             }
             const body = fs.readFileSync(commentPath, 'utf8');
-            await upsertAnchoredComment({
-              github,
-              context,
-              core,
-              prNumber: context.payload.pull_request?.number,
-              body,
-              anchorPattern: /<!--\s*gate-summary:([^>]*)-->/i,
-              fallbackMarker: '<!-- gate-summary:',
-            });
+            // Same read-only-fork case as 'Report Gate commit status' below, and it
+            // runs FIRST: a pull request from a fork gets a read-only token, so the
+            // issue-comment write answers 403 'Resource not accessible by
+            // integration'. Rethrowing here failed the summary job before the status
+            // step could report anything, so tolerating it there alone would not have
+            // turned a green fork PR green. The verdict still has to reach a human, so
+            // the comment body falls back to the job summary.
+            const pullRequest = context.payload.pull_request;
+            const headRepo = pullRequest?.head?.repo?.full_name;
+            const baseRepo = pullRequest?.base?.repo?.full_name;
+            const isForkPullRequest = Boolean(
+              headRepo && baseRepo && headRepo !== baseRepo,
+            );
+            try {
+              await upsertAnchoredComment({
+                github,
+                context,
+                core,
+                prNumber: context.payload.pull_request?.number,
+                body,
+                anchorPattern: /<!--\s*gate-summary:([^>]*)-->/i,
+                fallbackMarker: '<!-- gate-summary:',
+              });
+            } catch (error) {
+              const readOnlyForkToken =
+                error?.status === 403 &&
+                isForkPullRequest &&
+                !/rate limit/i.test(error?.message || '');
+              if (!readOnlyForkToken) {
+                throw error;
+              }
+              core.warning(
+                `Fork pull request from ${headRepo}: the workflow token is ` +
+                  'read-only, so the consolidated Gate summary comment could not ' +
+                  `be written (${error.message}). Falling back to the job summary.`,
+              );
+              await core.summary
+                .addHeading('Gate summary (fork pull request)', 3)
+                .addRaw(body)
+                .write();
+            }
 
       - name: Report Gate commit status
         if: ${{ always() }}
