@@ -1124,11 +1124,40 @@ jobs:
               const hitRateLimit =
                 error?.status === 403 &&
                 /rate limit/i.test(error?.message || '');
+              // A pull request opened from a fork runs with a read-only token, so the
+              // statuses write is refused with 403 'Resource not accessible by
+              // integration'. Rethrowing failed this job AFTER the verdict was already
+              // computed, so a fork PR with green CI reported a red Gate and its real
+              // verdict was printed nowhere. Tolerate it only for a fork head; a 403 on
+              // a same-repo PR is a genuine permission regression and must still fail.
+              const pullRequest = context.payload.pull_request;
+              const headRepo = pullRequest?.head?.repo?.full_name;
+              const baseRepo = pullRequest?.base?.repo?.full_name;
+              const isForkPullRequest = Boolean(
+                headRepo && baseRepo && headRepo !== baseRepo,
+              );
+              const readOnlyForkToken =
+                error?.status === 403 && isForkPullRequest && !hitRateLimit;
               if (hitRateLimit) {
                 core.warning(
                   'Rate limit prevented Gate from updating the commit status; ' +
                     'leaving existing status untouched.',
                 );
+              } else if (readOnlyForkToken) {
+                core.warning(
+                  `Fork pull request from ${headRepo}: the workflow token is ` +
+                    "read-only, so the 'Gate / gate' commit status could not be " +
+                    `written (${error.message}). Gate verdict for ${sha} is ` +
+                    `'${state}': ${description}.`,
+                );
+                await core.summary
+                  .addHeading('Gate verdict (fork pull request)', 3)
+                  .addRaw(
+                    'The `Gate / gate` commit status could not be written for ' +
+                      `\`${sha}\` because a pull request from a fork receives a ` +
+                      `read-only token. Gate verdict: **${state}** \u2014 ${description}`,
+                  )
+                  .write();
               } else {
                 throw error;
               }
