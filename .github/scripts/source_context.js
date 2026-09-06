@@ -52,6 +52,8 @@ const CHECKBOX_SOURCE_PATTERNS = Object.freeze([
 const NO_AUTOMATION_CHECKBOX_PATTERN = /\bdo\s+not\s+automate\b|\bhuman[- ]only\b/i;
 const DEPENDENCY_REPAIR_PROMOTION_PATTERN =
   /<!--\s*dependency-repair-promotion:v1\s+(\{[^\n]*\})\s*-->/;
+const CONSUMER_SYNC_PATTERN =
+  /<!--\s*workflows-consumer-sync:v1\s+(\{[^\n]*\})\s*-->/;
 
 function cleanString(value) {
   return String(value || '').trim();
@@ -364,6 +366,63 @@ function parseDependencyRepairPromotionSource(body) {
   }
 }
 
+function parseConsumerSyncSource(body) {
+  const match = String(body || '').match(CONSUMER_SYNC_PATTERN);
+  if (!match) {
+    return null;
+  }
+
+  try {
+    const metadata = JSON.parse(match[1]);
+    const consumerRepo = cleanString(metadata?.consumer_repo);
+    const sourceRepository = cleanString(metadata?.source_repository);
+    const sourceSha = cleanString(metadata?.source_sha);
+    const planId = cleanString(metadata?.plan_id);
+    const sourceCommit = cleanString(metadata?.source_commit);
+    const syncBranch = cleanString(metadata?.sync_branch);
+    if (
+      metadata?.schema !== 'workflows-consumer-sync-pr/v1' ||
+      !/^[^/\s]+\/[^/\s]+$/.test(consumerRepo) ||
+      sourceRepository !== 'stranske/Workflows' ||
+      !/^sha256:[0-9a-f]{64}$/i.test(planId) ||
+      !/^[0-9a-f]{40}$/i.test(sourceCommit) ||
+      sourceSha !== sourceCommit ||
+      !/^sync\/workflows-(?:candidate|delivery)$/.test(syncBranch)
+    ) {
+      return null;
+    }
+    return {
+      schema: metadata.schema,
+      consumer_repo: consumerRepo,
+      source_repository: sourceRepository,
+      plan_id: planId,
+      source_commit: sourceCommit,
+      sync_branch: syncBranch,
+    };
+  } catch {
+    return null;
+  }
+}
+
+function hasBoundGeneratedSyncContext(pull = {}, syncSource = parseConsumerSyncSource(pull?.body)) {
+  if (!syncSource) {
+    return false;
+  }
+
+  const labels = labelNames(pull).map((label) => label.toLowerCase());
+  const branch = cleanString(pull?.head?.ref);
+  const headRepo = cleanString(pull?.head?.repo?.full_name);
+  const baseRepo = cleanString(pull?.base?.repo?.full_name);
+  return (
+    labels.includes('sync') &&
+    labels.includes('automated') &&
+    labels.includes('workflow:source-sync') &&
+    branch === syncSource.sync_branch &&
+    headRepo === syncSource.consumer_repo &&
+    baseRepo === syncSource.consumer_repo
+  );
+}
+
 function sourceTypeFromCheckedTemplate(body) {
   const sectionLines = workflowSourceSectionLines(body);
   if (!sectionLines.length) {
@@ -448,6 +507,7 @@ function resolvePrSourceContext(pull = {}) {
   const body = String(pull?.body || '');
   const block = parseWorkflowSourceBlock(body);
   const dependencyRepairPromotion = parseDependencyRepairPromotionSource(body);
+  const consumerSyncSource = parseConsumerSyncSource(body);
   const labels = labelNames(pull).map((label) => label.toLowerCase());
   // The marker is supplied in untrusted PR text. Promotion labels are applied
   // by the controlled promotion workflow after it has established provenance.
@@ -457,10 +517,17 @@ function resolvePrSourceContext(pull = {}) {
       (labels.includes('workflow:source-dependabot') ||
         labels.includes('workflow_source_dependabot')),
   );
+  // Generated sync bodies can legitimately mention consumer issue numbers in
+  // their file summary. Only the controlled labels, stable branch, and complete
+  // immutable marker together make sync provenance authoritative over that
+  // incidental text.
+  const boundGeneratedSync = hasBoundGeneratedSyncContext(pull, consumerSyncSource);
   const extractedIssueNumber = extractIssueNumberFromPull(pull);
-  // Promotion provenance is authoritative: a coincidental issue reference must
-  // not route the PR through issue-body synchronization.
-  const issueNumber = trustedDependencyRepairPromotion ? null : extractedIssueNumber;
+  // Controlled promotion/sync provenance is authoritative: a coincidental
+  // issue reference must not route the PR through issue-body synchronization.
+  const issueNumber = trustedDependencyRepairPromotion || boundGeneratedSync
+    ? null
+    : extractedIssueNumber;
   const noAutomation = hasNoAutomationWorkflowContext(pull);
 
   const markerType = normalizeSourceType(parseHtmlMarker(body, 'workflow-source'));
@@ -470,6 +537,8 @@ function resolvePrSourceContext(pull = {}) {
   const inferredType = inferredSourceType(pull);
   const detectedSourceType = trustedDependencyRepairPromotion
     ? SOURCE_TYPES.DEPENDABOT
+    : boundGeneratedSync
+    ? SOURCE_TYPES.SYNC_CAMPAIGN
     : issueNumber
     ? SOURCE_TYPES.GITHUB_ISSUE
     : [markerType, blockType, checkboxType, labelType, inferredType].find((type) => type !== SOURCE_TYPES.UNKNOWN)
@@ -481,6 +550,8 @@ function resolvePrSourceContext(pull = {}) {
   const sourceRef =
     (trustedDependencyRepairPromotion
       ? `dependency-pr:#${dependencyRepairPromotion.source_pr}`
+      : boundGeneratedSync
+      ? `consumer-sync-plan:${consumerSyncSource.plan_id}`
       : '') ||
     cleanString(parseHtmlMarker(body, 'workflow-source-ref')) ||
     cleanString(block.source_ref || block.ref || block.reference) ||
@@ -503,6 +574,7 @@ function resolvePrSourceContext(pull = {}) {
     isExplicit: Boolean(
       issueNumber ||
         trustedDependencyRepairPromotion ||
+        boundGeneratedSync ||
         markerType !== SOURCE_TYPES.UNKNOWN ||
         blockType !== SOURCE_TYPES.UNKNOWN ||
         checkboxType !== SOURCE_TYPES.UNKNOWN ||
