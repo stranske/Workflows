@@ -23,6 +23,7 @@ consumer-repo template are covered: ``pr-00-gate.yml`` is distributed
 from __future__ import annotations
 
 import json
+import os
 import shutil
 import subprocess
 import textwrap
@@ -55,9 +56,10 @@ RUNNER_JS = textwrap.dedent("""
     async function runCase({ headRepo, baseRepo, error, state }) {
       const warnings = [];
       const summaryCalls = [];
+      const summaryRaw = [];
       const summaryStub = {
         addHeading() { return summaryStub; },
-        addRaw() { return summaryStub; },
+        addRaw(text) { summaryRaw.push(String(text)); return summaryStub; },
         async write() { summaryCalls.push('write'); },
       };
       const githubStub = {
@@ -104,7 +106,7 @@ RUNNER_JS = textwrap.dedent("""
       } catch (e) {
         threw = { status: e.status === undefined ? null : e.status, message: String(e.message) };
       }
-      return { warnings, summaryWrites: summaryCalls.length, threw };
+      return { warnings, summaryWrites: summaryCalls.length, summaryRaw, threw };
     }
 
     const FORK = {
@@ -155,7 +157,13 @@ def outcomes(
     request: pytest.FixtureRequest, tmp_path_factory: pytest.TempPathFactory
 ) -> dict[str, Any]:
     node = shutil.which("node")
-    assert node, "node is required to execute the Gate's github-script step"
+    if node is None:  # pragma: no cover - depends on the host
+        message = "node is required to execute the Gate's github-script step"
+        # Skipping everywhere would make this gate vacuous on the one runner that
+        # matters, so CI is not allowed to skip it; a dev host without node is.
+        if os.environ.get("CI"):
+            pytest.fail(message)
+        pytest.skip(message)
 
     workflow = GATE_WORKFLOWS[str(request.param)]
     workdir = tmp_path_factory.mktemp("gate-status")
@@ -185,6 +193,10 @@ def test_fork_read_only_403_reports_the_real_verdict(outcomes: dict[str, Any]) -
     assert "read-only" in joined, joined
     assert "'success'" in joined, joined
     assert case["summaryWrites"] == 1
+    summary = " ".join(case["summaryRaw"])
+    assert "headsha" in summary, summary
+    assert "success" in summary, summary
+    assert "all checks passed" in summary, summary
 
 
 def test_same_repo_403_still_fails_the_gate(outcomes: dict[str, Any]) -> None:
@@ -211,3 +223,4 @@ def test_successful_status_write_is_silent(outcomes: dict[str, Any]) -> None:
     assert case["threw"] is None
     assert case["warnings"] == []
     assert case["summaryWrites"] == 0
+    assert case["summaryRaw"] == []
