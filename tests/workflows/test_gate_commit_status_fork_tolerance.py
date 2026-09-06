@@ -41,8 +41,7 @@ GATE_WORKFLOWS = {
 }
 STEP_NAME = "Report Gate commit status"
 
-RUNNER_JS = textwrap.dedent(
-    """
+RUNNER_JS = textwrap.dedent("""
     const fs = require('fs');
     const vm = require('vm');
     const src = fs.readFileSync(process.argv[2], 'utf8');
@@ -139,8 +138,7 @@ RUNNER_JS = textwrap.dedent(
       };
       process.stdout.write(JSON.stringify(out));
     })();
-    """
-).strip()
+    """).strip()
 
 
 def _extract_step_script(workflow: Path) -> str:
