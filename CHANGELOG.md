@@ -6,6 +6,15 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 Breaking changes are called out with a **BREAKING** marker and scheduled according to the policy in `COMPATIBILITY.md`.
 
+## [1.32.1](https://github.com/stranske/Workflows/compare/v1.32.0...v1.32.1) (2026-09-05)
+
+
+### Bug Fixes
+
+* **repo-review:** refresh inputs during head restart ([a6420f2](https://github.com/stranske/Workflows/commit/a6420f2fd6bd19141cf68a0e824686f8c9ec8ca5))
+* **repo-review:** restart repo analysis on head drift ([fb4f4f9](https://github.com/stranske/Workflows/commit/fb4f4f9073dec7ab50686864cf627332de985d1b))
+* **repo-review:** restart repo analysis on head drift ([4b7ae30](https://github.com/stranske/Workflows/commit/4b7ae30a5ee6bd8ccbc22b4f7c9ff1f9678ed239))
+
 ## [1.32.0](https://github.com/stranske/Workflows/compare/v1.31.0...v1.32.0) (2026-09-05)
 
 
