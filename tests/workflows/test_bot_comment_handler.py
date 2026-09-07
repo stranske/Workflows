@@ -9,6 +9,10 @@ def _load_yaml(path: Path) -> dict:
     return yaml.safe_load(path.read_text(encoding="utf-8")) or {}
 
 
+def _bot_author_tokens(bot_authors: str) -> set[str]:
+    return {item.strip() for item in bot_authors.split(",") if item.strip()}
+
+
 def test_reusable_bot_comment_handler_ignores_agents_paths() -> None:
     workflow = _load_yaml(ROOT / ".github/workflows/reusable-bot-comment-handler.yml")
     triggers = workflow.get("on") or workflow.get(True) or {}
@@ -18,11 +22,28 @@ def test_reusable_bot_comment_handler_ignores_agents_paths() -> None:
     assert ignored_paths is not None
     assert ".agents/" in ignored_paths.split(",")
 
-    bot_authors = inputs.get("bot_authors", {}).get("default", "")
+    bot_authors = _bot_author_tokens(inputs.get("bot_authors", {}).get("default", ""))
     assert "copilot-pull-request-reviewer" in bot_authors
     assert "copilot-pull-request-reviewer[bot]" in bot_authors
-    assert "coderabbitai" in bot_authors.split(",")
+    assert "coderabbitai" in bot_authors
+    assert "coderabbitai[bot]" in bot_authors
     assert "chatgpt-codex-connector[bot]" in bot_authors
+
+
+def test_reusable_bot_comment_handler_default_bot_authors_include_coderabbit_identities() -> None:
+    workflow = _load_yaml(ROOT / ".github/workflows/reusable-bot-comment-handler.yml")
+    triggers = workflow.get("on") or workflow.get(True) or {}
+
+    call_authors = _bot_author_tokens(triggers["workflow_call"]["inputs"]["bot_authors"]["default"])
+    dispatch_authors = _bot_author_tokens(
+        triggers["workflow_dispatch"]["inputs"]["bot_authors"]["default"]
+    )
+
+    for identity in ("coderabbitai", "coderabbitai[bot]"):
+        assert identity in call_authors
+        assert identity in dispatch_authors
+
+    assert call_authors == dispatch_authors
 
 
 def test_canonical_bot_comment_handler_keeps_source_templates_in_scope() -> None:
@@ -425,6 +446,7 @@ def test_template_event_hub_uses_reusable_bot_comment_handler_defaults() -> None
         == "stranske/Workflows/.github/workflows/reusable-bot-comment-handler.yml@main"
     )
     assert "ignored_paths" not in inputs
+    assert "bot_authors" not in inputs
 
 
 def test_reusable_bot_comment_handler_dismisses_ignored_reviews() -> None:
