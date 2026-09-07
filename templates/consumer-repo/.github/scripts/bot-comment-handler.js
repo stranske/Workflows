@@ -9,6 +9,7 @@ const DEFAULT_BOT_AUTHORS = Object.freeze([
   'copilot-pull-request-reviewer',
   'copilot-pull-request-reviewer[bot]',
   'github-actions[bot]',
+  'coderabbitai',
   'coderabbitai[bot]',
   'chatgpt-codex-connector',
   'chatgpt-codex-connector[bot]',

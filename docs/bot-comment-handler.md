@@ -47,7 +47,7 @@ By default, the workflow processes comments from:
 - `copilot-pull-request-reviewer` - GitHub Copilot pull-request review
 - `copilot-pull-request-reviewer[bot]` - GitHub Copilot reviewer bot variant
 - `github-actions[bot]` - GitHub Actions (lint, type check suggestions)
-- `coderabbitai[bot]` - CodeRabbit AI review
+- `coderabbitai` and `coderabbitai[bot]` - CodeRabbit AI review identities
 - `chatgpt-codex-connector` - Codex connector review
 - `chatgpt-codex-connector[bot]` - Codex connector bot identity
 
