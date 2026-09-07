@@ -6,6 +6,13 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 Breaking changes are called out with a **BREAKING** marker and scheduled according to the policy in `COMPATIBILITY.md`.
 
+## [1.32.2](https://github.com/stranske/Workflows/compare/v1.32.1...v1.32.2) (2026-09-06)
+
+
+### Bug Fixes
+
+* **gate:** survive a fork PR's read-only token when writing the Gate status ([#3398](https://github.com/stranske/Workflows/issues/3398)) ([4ac3653](https://github.com/stranske/Workflows/commit/4ac3653868ae5e8c6f843495f2d656343e99c651))
+
 ## [1.32.1](https://github.com/stranske/Workflows/compare/v1.32.0...v1.32.1) (2026-09-05)
 
 
