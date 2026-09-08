@@ -6,6 +6,14 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 Breaking changes are called out with a **BREAKING** marker and scheduled according to the policy in `COMPATIBILITY.md`.
 
+## [1.32.3](https://github.com/stranske/Workflows/compare/v1.32.2...v1.32.3) (2026-09-08)
+
+
+### Bug Fixes
+
+* **agents:** recognize bare coderabbit login (orphan-branch sweep) ([#3404](https://github.com/stranske/Workflows/issues/3404)) ([53b60fb](https://github.com/stranske/Workflows/commit/53b60fbd2d6e18b038c336515b44d8ad45211fba))
+* **sync:** bind generated PR source context ([#3275](https://github.com/stranske/Workflows/issues/3275)) ([8031208](https://github.com/stranske/Workflows/commit/80312081ff6d4822b15dd2d944b9b34c0d791f94))
+
 ## [1.32.2](https://github.com/stranske/Workflows/compare/v1.32.1...v1.32.2) (2026-09-06)
 
 
