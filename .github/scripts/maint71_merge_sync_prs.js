@@ -1896,8 +1896,10 @@ async function run({ github, context, core }) {
         repository: `${owner}/${repo}`,
       });
       if (selection.missingExpected) {
+        const reason = 'no_active_sync_pr';
         console.log(
-          `Expected sync PR branch ${selection.expectedBranch} was not found; leaving ` +
+          `Delivery contract blocks merge: ${reason} ` +
+            `(expected ${selection.expectedBranch}, active hash '${selectedSyncHash}'); leaving ` +
             `${candidatePRs.length} sync PRs untouched`,
         );
         results.push({
@@ -1905,6 +1907,8 @@ async function run({ github, context, core }) {
           repo,
           status: 'target_missing',
           expected_branch: selection.expectedBranch,
+          active_sync_hash: selectedSyncHash,
+          delivery_reason: reason,
           open_sync_prs: candidatePRs.map((item) => ({
             number: item.number,
             branch: item.head.ref,
@@ -2018,7 +2022,7 @@ async function run({ github, context, core }) {
       }
   
       if (!selection.eligibility?.eligible) {
-        const reason = selection.eligibility?.reason || 'missing_delivery_record';
+        const reason = selection.eligibility?.reason || 'no_active_sync_pr';
         console.log(`Delivery contract blocks merge: ${reason}`);
         const deliveryDisposition = reason === 'lease_expired'
           ? 'expired'
