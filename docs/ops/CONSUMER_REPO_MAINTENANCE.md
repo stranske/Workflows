@@ -571,6 +571,14 @@ the selector's expected-branch check instead of producing a false
 `target_missing` system failure; an unscoped Maint 71 pass reconciles the
 dev-tool lane independently.
 
+When open sync PRs exist but none matches the selected branch, Maint 71 reports
+`no_active_sync_pr` in its decision log and the JSON row's `delivery_reason`,
+alongside `expected_branch` and `active_sync_hash`; the status remains
+`target_missing`. `missing_delivery_record` means a selected PR exists but its
+body lacks a delivery record. An empty selector still selects the newest
+candidate; it does not itself imply either error. The final exact-head seal
+check also retains `missing_delivery_record` when an existing PR loses its record.
+
 Use `preview` to produce the plan/evidence artifact without a write matrix.
 There is no direct-repository promotion bypass. Security and production-break
 fixes may use an expedited canary run, but still require exact-plan evidence
