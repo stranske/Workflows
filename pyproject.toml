@@ -53,6 +53,7 @@ dev = [
 
     # Used by scripts/sync_test_dependencies.py to edit pyproject.toml
     "tomlkit>=0.13.0",
+    "referencing",
 ]
 
 # LangChain integration for LLM-enhanced task analysis

@@ -6,6 +6,69 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 Breaking changes are called out with a **BREAKING** marker and scheduled according to the policy in `COMPATIBILITY.md`.
 
+## [1.32.3](https://github.com/stranske/Workflows/compare/v1.32.2...v1.32.3) (2026-09-08)
+
+
+### Bug Fixes
+
+* **agents:** recognize bare coderabbit login (orphan-branch sweep) ([#3404](https://github.com/stranske/Workflows/issues/3404)) ([53b60fb](https://github.com/stranske/Workflows/commit/53b60fbd2d6e18b038c336515b44d8ad45211fba))
+* **sync:** bind generated PR source context ([#3275](https://github.com/stranske/Workflows/issues/3275)) ([8031208](https://github.com/stranske/Workflows/commit/80312081ff6d4822b15dd2d944b9b34c0d791f94))
+
+## [1.32.2](https://github.com/stranske/Workflows/compare/v1.32.1...v1.32.2) (2026-09-06)
+
+
+### Bug Fixes
+
+* **gate:** survive a fork PR's read-only token when writing the Gate status ([#3398](https://github.com/stranske/Workflows/issues/3398)) ([4ac3653](https://github.com/stranske/Workflows/commit/4ac3653868ae5e8c6f843495f2d656343e99c651))
+
+## [1.32.1](https://github.com/stranske/Workflows/compare/v1.32.0...v1.32.1) (2026-09-05)
+
+
+### Bug Fixes
+
+* **repo-review:** refresh inputs during head restart ([a6420f2](https://github.com/stranske/Workflows/commit/a6420f2fd6bd19141cf68a0e824686f8c9ec8ca5))
+* **repo-review:** restart repo analysis on head drift ([fb4f4f9](https://github.com/stranske/Workflows/commit/fb4f4f9073dec7ab50686864cf627332de985d1b))
+* **repo-review:** restart repo analysis on head drift ([4b7ae30](https://github.com/stranske/Workflows/commit/4b7ae30a5ee6bd8ccbc22b4f7c9ff1f9678ed239))
+
+## [1.32.0](https://github.com/stranske/Workflows/compare/v1.31.0...v1.32.0) (2026-09-05)
+
+
+### Features
+
+* **contracts:** add tracked-variable schema and offline validation ([#3383](https://github.com/stranske/Workflows/issues/3383)) ([ee5a12c](https://github.com/stranske/Workflows/commit/ee5a12cdd41ce9074b03a09aeb7d5a38328b8096))
+
+
+### Bug Fixes
+
+* **keepalive:** skip push-triggered Gate runs ([#3366](https://github.com/stranske/Workflows/issues/3366)) ([c9d3004](https://github.com/stranske/Workflows/commit/c9d300491542ef29ca6b03616a4de0044ad45db8))
+* pin Astra trial runner to reachable merged source ([#3386](https://github.com/stranske/Workflows/issues/3386)) ([913e262](https://github.com/stranske/Workflows/commit/913e2625bdc471de84addea5b4cc8dfefca1c78a))
+* **repo-review:** fail closed on exhausted repairs ([#3357](https://github.com/stranske/Workflows/issues/3357)) ([5eddcaf](https://github.com/stranske/Workflows/commit/5eddcaf840560b788d56800984b470436f1da1a3))
+* **repo-review:** fail closed on incomplete docs drift ([#3395](https://github.com/stranske/Workflows/issues/3395)) ([608b91e](https://github.com/stranske/Workflows/commit/608b91e5781a0acacf1ecc0312299fa6e99b29dc))
+* **repo-review:** track artifact progress in heartbeats ([#3360](https://github.com/stranske/Workflows/issues/3360)) ([7b81e80](https://github.com/stranske/Workflows/commit/7b81e806816bc397ddff04cfa38c2f1a790a09b8))
+* **sync:** clear stale ready label before delivery review ([#3388](https://github.com/stranske/Workflows/issues/3388)) ([f88d7fc](https://github.com/stranske/Workflows/commit/f88d7fc5f6ce6f78c64d0341eaea7dbe9aa78c19))
+* **sync:** preserve current Claude review action pin ([#3393](https://github.com/stranske/Workflows/issues/3393)) ([9fb8cfb](https://github.com/stranske/Workflows/commit/9fb8cfbb2c25098f8771c844064884b28f64e1d7))
+* **sync:** preserve deliveries owned by another campaign ([#3382](https://github.com/stranske/Workflows/issues/3382)) ([72be6db](https://github.com/stranske/Workflows/commit/72be6db44dd81a7eb8bdaeaf5437a00d1bd5f221))
+
+## [1.31.0](https://github.com/stranske/Workflows/compare/v1.30.12...v1.31.0) (2026-09-04)
+
+
+### Features
+
+* route weights fail-open with delegation_source env routing ([#3335](https://github.com/stranske/Workflows/issues/3335)) ([ca5d91d](https://github.com/stranske/Workflows/commit/ca5d91dd675c8cd30066e6a5d5ed20e445855a62))
+
+
+### Bug Fixes
+
+* **coverage-guard:** the recovery comment reports the threshold it recovered to ([#3337](https://github.com/stranske/Workflows/issues/3337)) ([bb0ece0](https://github.com/stranske/Workflows/commit/bb0ece0cf2513eb22504fd9796cdddfb77c3cf10))
+* **coverage:** preserve configured workflow probes ([#3327](https://github.com/stranske/Workflows/issues/3327)) ([a245138](https://github.com/stranske/Workflows/commit/a245138a5a07f02e725440d20bd87d715845e81e))
+* **delegation:** honor task-keyed route-weight reserves on static fallback ([#3332](https://github.com/stranske/Workflows/issues/3332)) ([6470700](https://github.com/stranske/Workflows/commit/647070092a08d52be80da1b809ae239aa0c9e088))
+* **keepalive:** avoid non-actionable runner allocation ([#3341](https://github.com/stranske/Workflows/issues/3341)) ([cfd28de](https://github.com/stranske/Workflows/commit/cfd28de662ab341fbc4d1e4a1db622930451adb1))
+* **llm:** resolve explicit provider model defaults ([#3338](https://github.com/stranske/Workflows/issues/3338)) ([8714fb9](https://github.com/stranske/Workflows/commit/8714fb96e5e6c4aa00e7d4285312ec299602d988))
+* **review:** collect GitHub Copilot reviewer threads ([#3353](https://github.com/stranske/Workflows/issues/3353)) ([0c8bf2d](https://github.com/stranske/Workflows/commit/0c8bf2d4a59c539c0cc6f327d75cadc227eb2280))
+* **sync:** derive review bot identities from policy ([#3325](https://github.com/stranske/Workflows/issues/3325)) ([72d0303](https://github.com/stranske/Workflows/commit/72d0303ae3ca613b8d3d27951412ec43037c1ace))
+* **tools:** require a path boundary in codex log analyzer's _first_matching_file suffix check ([#3319](https://github.com/stranske/Workflows/issues/3319)) ([41fad50](https://github.com/stranske/Workflows/commit/41fad50e659a222c693e49372bcb15f40ec4ecb1))
+* **tools:** require a path boundary in codex log analyzer's exact-file-match suffix check ([#3318](https://github.com/stranske/Workflows/issues/3318)) ([c23b786](https://github.com/stranske/Workflows/commit/c23b7866774f0f65fe215fe6bd7d87da5ac01eff))
+
 ## [1.30.12](https://github.com/stranske/Workflows/compare/v1.30.11...v1.30.12) (2026-09-02)
 
 

@@ -71,6 +71,66 @@ python scripts/repo_review_coordinator.py \
     --repos stranske/Manager-Database stranske/trip-planner
 ```
 
+Every repo phase runs through a bounded repair loop (two repair attempts by
+default, configurable with `--repair-attempts`). Before a retry, the
+coordinator preserves the failed log and a machine-readable `repair.json`
+under `docs/reports/repo-review/repairs/<owner>__<repo>/`. It keeps validated
+round-1 work, but quarantines existing round-2 turn outputs because a malformed
+partial JSON file would otherwise be reused on every retry. A body-writer
+retry receives the exact deterministic validator errors from the prior failed
+attempt and must pass the body/path validator, not only the JSON schema. If a
+later phase discovers that `origin/main` advanced after round 1, the
+coordinator does not retry stale findings. It moves all repo-scoped round-1 and
+round-2 outputs into the repair directory, copies the repo's coordinator logs
+there as evidence, and restarts the repository at round 1. The stale per-repo
+preflight brief is also quarantined and the active-repo preflight is regenerated
+before round 1. The fresh run re-syncs the checkout, refreshes or
+rebuilds GitNexus, and establishes a new exact-head provenance chain. Full
+repo restarts are bounded by the same `--repair-attempts` budget. This can
+increase the worst-case per-repo wall time by up to three times at the default
+budget, but keeps the recovery limit aligned with phase repair and avoids a
+second operator-tuned control. If a
+required round-1, round-2, or body-writer phase exhausts its repair budget, the
+coordinator aborts immediately before later repos or aggregate producers run.
+It writes `repo-review-run-failure.json` with the failed repo, phase, timestamp,
+per-phase report, and any quarantined aggregate paths. Existing publishable
+outputs (`approved-issue-queue.json`, `approved-issue-queue.md`,
+`docs-drift-scan.json`, `human-decision-packet.md`, and
+`repo-review-summary.json`) move to a timestamped
+`failed-runs/` directory so a stale queue cannot be uploaded as the failed
+cycle's result. A final-evaluator failure also fails closed before downstream
+scans and notification.
+
+The semantic docs-drift scan is also required cycle evidence. It runs
+sequentially, so its outer timeout is derived from the selected configured
+document count (up to 600 seconds per document plus a 900-second buffer,
+minimum 1800 seconds) instead of a fixed fleet-wide 30-minute cap. The scanner
+writes to an in-progress path and the coordinator publishes it atomically only
+after proving that every selected configured document is present and
+`total_errors` is zero. Timeout, missing inputs, malformed output, incomplete
+coverage, or any per-document error writes the same failure marker, quarantines
+publishable outputs, and stops before the desktop notification.
+
+To recover, inspect `repo-review-run-failure.json`, the referenced phase report,
+and the repo-scoped `repairs/<owner>__<repo>/` evidence; repair the underlying
+tool, repository, or GitNexus state; then rerun the full coordinator command.
+An optional `--repos <owner>/<repo> --skip-preflight --skip-auto-archive
+--disable-skip-gate` run may verify the affected repo, but its outputs are
+diagnostic only: complete recovery still requires a successful all-active-repo
+run. Do not run `upload_repo_review_issues.py --apply` until the failure marker
+is absent and the full run has regenerated every publishable output.
+
+Round-1 sync reviews the exact fetched `origin/main` commit. When the local
+checkout is not already at that commit it detaches there instead of acquiring
+or advancing the local `main` branch. This permits the Workflows steward
+checkout to remain detached and avoids failures from a sibling worktree owning
+`main` or from damaged local pull bookkeeping such as `ORIG_HEAD`. When the
+repo under review is the executing Workflows steward itself, round 1 preserves
+that checkout for the lifetime of the coordinator; replacing live script files
+mid-cycle could otherwise make round 2 load a different implementation. The
+body-writer applies the same exception to its exact-origin check for that one
+checkout; consumer repos must still match `origin/main`.
+
 `python scripts/repo_review_evaluator.py` remains valid as a standalone
 preflight step: it produces the per-repo `review-inputs.md` artifacts without
 running the multi-agent round-1/round-2 negotiation. Use it when you only need
@@ -84,6 +144,15 @@ active maps with `gitnexus analyze <repo> --skip-agents-md` when the CLI is
 available. Use `--no-refresh-stale-gitnexus` to report stale maps without
 refreshing, or `--skip-gitnexus-preflight` only when GitNexus is deliberately
 out of scope for that run.
+
+Round-1 treats GitNexus corruption text as failure even when the analyzer exits
+zero. Dropbox-conflicted WAL artifacts or analyzer corruption signatures cause
+the derived `.gitnexus` directory to be moved into the repo's repair archive,
+followed by a forced rebuild with embeddings. The rebuild is accepted only
+when `meta.json` is valid, its indexed commit equals the reviewed `HEAD`, and
+the embedding count is positive. GitNexus remains optional discovery context;
+repo-review correctness still falls back to direct files, `rg`, Git history,
+and tests.
 
 ### Docs-drift fix-agent
 
@@ -131,6 +200,11 @@ Round-1 schema and round-2 protocol references:
 
 Outputs are written to `docs/reports/repo-review/`:
 
+- `repo-review-run-failure.json`: present after a required repo phase exhausts
+  repairs or required cycle evidence fails validation; blocks publication until
+  the underlying problem is fixed and a full rerun succeeds. Any stale
+  publishable outputs named by
+  `quarantined_aggregate_outputs` are preserved under `failed-runs/`.
 - `human-decision-packet.md`: one review queue across active repos.
 - `repo-review-summary.json`: machine-readable summary.
 - `approved-issue-queue.json`: machine-readable queue of approved, prioritized, agent-formatted issue bodies. Written by exactly one producer — the final evaluator pass (`repo_review_evaluator.write_approved_issue_queue`), which applies the priority-tiering and cycle-binding guards (#2272). The coordinator's step-3 queue-builder is a log-only preview and does **not** write this file. Scorecard findings enter this queue only after explicit human approval in `config/repo_review_feedback.json`.

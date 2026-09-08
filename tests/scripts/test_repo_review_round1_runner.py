@@ -2,8 +2,10 @@
 
 from __future__ import annotations
 
+import json
 import subprocess
 from pathlib import Path
+from types import SimpleNamespace
 from unittest.mock import MagicMock, patch
 
 import pytest
@@ -26,33 +28,298 @@ class TestRound1FindingsPath:
 
         assert result == output_dir / "round1" / agent / "stranske__Example" / "findings.json"
 
-    def test_handles_repo_names_with_multiple_slashes(self, tmp_path: Path) -> None:
-        output_dir = tmp_path / "output"
-        repo = "org/suborg/project"
-        agent = "claude"
 
-        result = runner.round1_findings_path(output_dir, agent, repo)
+def test_invoke_round1_reuses_findings_only_for_exact_source_commit(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    findings = runner.round1_findings_path(tmp_path / "out", "codex", "stranske/Example")
+    findings.parent.mkdir(parents=True)
+    findings.write_text("{}\n", encoding="utf-8")
+    runner.write_findings_provenance(
+        findings,
+        repo="stranske/Example",
+        agent="codex",
+        source_commit="abc123",
+    )
+    monkeypatch.setattr(runner, "_validate_findings_file", lambda *_args, **_kwargs: [])
 
-        assert result == output_dir / "round1" / agent / "org__suborg__project" / "findings.json"
+    def unexpected_invoke(*_args, **_kwargs):
+        raise AssertionError("exact-head findings should be reused")
 
-    def test_handles_empty_agent_name(self, tmp_path: Path) -> None:
-        output_dir = tmp_path / "output"
-        repo = "stranske/Test"
-        agent = ""
+    monkeypatch.setattr(runner, "invoke_agent", unexpected_invoke)
+    result = runner.invoke_round1_agent(
+        agent="codex",
+        repo="stranske/Example",
+        repo_path=tmp_path / "repo",
+        output_dir=tmp_path / "out",
+        workspace_root=tmp_path,
+        template_path=tmp_path / "prompt.md",
+        log_dir=tmp_path / "logs",
+        timeout=30,
+        retries=0,
+        workflows_steward_root=tmp_path,
+        source_commit="abc123",
+    )
 
-        result = runner.round1_findings_path(output_dir, agent, repo)
+    assert result.succeeded is True
+    assert result.spawned is False
 
-        assert result == output_dir / "round1" / "" / "stranske__Test" / "findings.json"
 
-    def test_preserves_existing_path_content(self, tmp_path: Path) -> None:
-        output_dir = tmp_path / "existing" / "output"
-        output_dir.mkdir(parents=True)
-        repo = "stranske/Example"
-        agent = "codex"
+def test_invoke_round1_preserves_and_replaces_stale_commit_findings(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    findings = runner.round1_findings_path(tmp_path / "out", "claude", "stranske/Example")
+    findings.parent.mkdir(parents=True)
+    findings.write_text('{"old": true}\n', encoding="utf-8")
+    runner.write_findings_provenance(
+        findings,
+        repo="stranske/Example",
+        agent="claude",
+        source_commit="old123",
+    )
+    monkeypatch.setattr(runner, "_validate_findings_file", lambda *_args, **_kwargs: [])
 
-        result = runner.round1_findings_path(output_dir, agent, repo)
+    def fake_invoke(*_args, **_kwargs):
+        findings.write_text('{"new": true}\n', encoding="utf-8")
+        return True, "ok"
 
-        assert result == output_dir / "round1" / agent / "stranske__Example" / "findings.json"
+    monkeypatch.setattr(runner, "invoke_agent", fake_invoke)
+    result = runner.invoke_round1_agent(
+        agent="claude",
+        repo="stranske/Example",
+        repo_path=tmp_path / "repo",
+        output_dir=tmp_path / "out",
+        workspace_root=tmp_path,
+        template_path=tmp_path / "prompt.md",
+        log_dir=tmp_path / "logs",
+        timeout=30,
+        retries=0,
+        workflows_steward_root=tmp_path,
+        source_commit="new456",
+    )
+
+    assert result.succeeded is True
+    assert result.spawned is True
+    provenance = json.loads(runner.findings_provenance_path(findings).read_text(encoding="utf-8"))
+    assert provenance["source_commit"] == "new456"
+    assert list(findings.parent.glob("findings.stale-*.json"))
+    assert list(findings.parent.glob("findings.provenance.stale-*.json"))
+
+
+def test_invoke_round1_tracks_findings_as_progress(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    findings = runner.round1_findings_path(tmp_path / "out", "codex", "stranske/Example")
+    captured: dict[str, object] = {}
+    monkeypatch.setattr(runner, "_validate_findings_file", lambda *_args, **_kwargs: [])
+
+    def fake_invoke(*_args, **kwargs):
+        captured.update(kwargs)
+        findings.parent.mkdir(parents=True, exist_ok=True)
+        findings.write_text("{}\n", encoding="utf-8")
+        return True, "ok"
+
+    monkeypatch.setattr(runner, "invoke_agent", fake_invoke)
+    result = runner.invoke_round1_agent(
+        agent="codex",
+        repo="stranske/Example",
+        repo_path=tmp_path / "repo",
+        output_dir=tmp_path / "out",
+        workspace_root=tmp_path,
+        template_path=tmp_path / "prompt.md",
+        log_dir=tmp_path / "logs",
+        timeout=30,
+        retries=0,
+        workflows_steward_root=tmp_path,
+        source_commit="abc123",
+    )
+
+    assert result.succeeded is True
+    assert captured["progress_files"] == (findings,)
+
+
+def test_findings_provenance_requires_current_schema(tmp_path: Path) -> None:
+    findings = tmp_path / "findings.json"
+    provenance = runner.findings_provenance_path(findings)
+    provenance.write_text(
+        json.dumps(
+            {
+                "schema": "repo-review-round1-provenance/v0",
+                "repo": "stranske/Example",
+                "agent": "codex",
+                "source_commit": "abc123",
+            }
+        ),
+        encoding="utf-8",
+    )
+
+    errors = runner.validate_findings_provenance(
+        findings,
+        repo="stranske/Example",
+        agent="codex",
+        source_commit="abc123",
+    )
+
+    assert any("provenance schema" in error for error in errors)
+
+
+def test_invoke_round1_attests_valid_defensive_output_after_agent_failure(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    findings = runner.round1_findings_path(tmp_path / "out", "codex", "stranske/Example")
+    monkeypatch.setattr(runner, "_validate_findings_file", lambda *_args, **_kwargs: [])
+
+    def failed_after_write(*_args, **_kwargs):
+        findings.parent.mkdir(parents=True, exist_ok=True)
+        findings.write_text('{"defensive": true}\n', encoding="utf-8")
+        return False, "timed out"
+
+    monkeypatch.setattr(runner, "invoke_agent", failed_after_write)
+    result = runner.invoke_round1_agent(
+        agent="codex",
+        repo="stranske/Example",
+        repo_path=tmp_path / "repo",
+        output_dir=tmp_path / "out",
+        workspace_root=tmp_path,
+        template_path=tmp_path / "prompt.md",
+        log_dir=tmp_path / "logs",
+        timeout=30,
+        retries=0,
+        workflows_steward_root=tmp_path,
+        source_commit="abc123",
+    )
+
+    assert result.succeeded is True
+    assert result.spawned is True
+    provenance = json.loads(runner.findings_provenance_path(findings).read_text(encoding="utf-8"))
+    assert provenance["source_commit"] == "abc123"
+
+
+def test_invoke_round1_preserves_invalid_agent_output_before_retry(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    findings = runner.round1_findings_path(tmp_path / "out", "codex", "stranske/Example")
+    invocations = 0
+
+    def fake_validate(path: Path, **_kwargs) -> list[str]:
+        return [] if '"valid"' in path.read_text(encoding="utf-8") else ["invalid"]
+
+    def fake_invoke(*_args, **_kwargs):
+        nonlocal invocations
+        invocations += 1
+        findings.parent.mkdir(parents=True, exist_ok=True)
+        findings.write_text(
+            '{"invalid": true}\n' if invocations == 1 else '{"valid": true}\n',
+            encoding="utf-8",
+        )
+        return True, "ok"
+
+    monkeypatch.setattr(runner, "_validate_findings_file", fake_validate)
+    monkeypatch.setattr(runner, "invoke_agent", fake_invoke)
+    result = runner.invoke_round1_agent(
+        agent="codex",
+        repo="stranske/Example",
+        repo_path=tmp_path / "repo",
+        output_dir=tmp_path / "out",
+        workspace_root=tmp_path,
+        template_path=tmp_path / "prompt.md",
+        log_dir=tmp_path / "logs",
+        timeout=30,
+        retries=1,
+        workflows_steward_root=tmp_path,
+        source_commit="abc123",
+    )
+
+    assert result.succeeded is True
+    assert invocations == 2
+    stale = list(findings.parent.glob("findings.stale-*.json"))
+    assert len(stale) == 1
+    assert stale[0].read_text(encoding="utf-8") == '{"invalid": true}\n'
+    assert findings.read_text(encoding="utf-8") == '{"valid": true}\n'
+
+
+def test_findings_path_handles_repo_names_with_multiple_slashes(tmp_path: Path) -> None:
+    output_dir = tmp_path / "output"
+    result = runner.round1_findings_path(output_dir, "claude", "org/suborg/project")
+    assert result == output_dir / "round1" / "claude" / "org__suborg__project" / "findings.json"
+
+
+def test_findings_path_handles_empty_agent_name(tmp_path: Path) -> None:
+    output_dir = tmp_path / "output"
+    result = runner.round1_findings_path(output_dir, "", "stranske/Test")
+    assert result == output_dir / "round1" / "" / "stranske__Test" / "findings.json"
+
+
+def test_findings_path_preserves_existing_path_content(tmp_path: Path) -> None:
+    output_dir = tmp_path / "existing" / "output"
+    output_dir.mkdir(parents=True)
+    result = runner.round1_findings_path(output_dir, "codex", "stranske/Example")
+    assert result == output_dir / "round1" / "codex" / "stranske__Example" / "findings.json"
+
+
+@pytest.mark.parametrize("failure", ["nonzero", "timeout"])
+def test_run_fails_closed_when_source_commit_cannot_be_resolved(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch, failure: str
+) -> None:
+    repo = "stranske/Example"
+    repo_path = tmp_path / "repo"
+    repo_path.mkdir()
+    output_dir = tmp_path / "out"
+    review_inputs = runner.review_inputs_path(output_dir, repo)
+    review_inputs.parent.mkdir(parents=True)
+    review_inputs.write_text("review input\n", encoding="utf-8")
+    registry_path = tmp_path / "Workflows-steward" / "config" / "registry.json"
+    registry_path.parent.mkdir(parents=True)
+    registry_path.write_text("{}", encoding="utf-8")
+    monkeypatch.setattr(
+        runner,
+        "load_registry",
+        lambda _path: (
+            tmp_path,
+            [],
+            [SimpleNamespace(repo=repo, local_path="repo")],
+            [],
+        ),
+    )
+    invoked = False
+
+    def unexpected_agent(**_kwargs):
+        nonlocal invoked
+        invoked = True
+        raise AssertionError("agent must not run without a source commit")
+
+    monkeypatch.setattr(runner, "invoke_round1_agent", unexpected_agent)
+    if failure == "timeout":
+
+        def fake_run(*_args, **_kwargs):
+            raise subprocess.TimeoutExpired(["git", "rev-parse", "HEAD"], 30)
+
+    else:
+
+        def fake_run(*_args, **_kwargs):
+            return subprocess.CompletedProcess(
+                args=["git"], returncode=1, stdout="", stderr="bad revision"
+            )
+
+    monkeypatch.setattr(subprocess, "run", fake_run)
+    args = SimpleNamespace(
+        output_dir=str(output_dir),
+        registry=str(registry_path),
+        repo=repo,
+        skip_local_sync=True,
+        skip_map_refresh=True,
+        agents=["codex", "claude"],
+        turn_timeout=30,
+        retries=1,
+        gitnexus_bin="gitnexus",
+        map_refresh_timeout=30,
+    )
+
+    assert runner.run(args) == 1
+    assert invoked is False
+    state = runner.load_state(output_dir, repo)
+    assert state.status == "round1-failed"
+    assert "cannot resolve review source commit" in state.notes
 
 
 class TestReviewInputsPath:
@@ -248,6 +515,8 @@ class TestSyncRepoToOrigin:
                     return self._make_result(0, "main")
                 elif "--short" in args:
                     return self._make_result(0, "abc1234")
+                elif args[-2:] == ["rev-parse", "HEAD"]:
+                    return self._make_result(0, "abc123")
             elif "pull" in args or "checkout" in args:
                 return self._make_result(0)
 
@@ -357,12 +626,13 @@ class TestSyncRepoToOrigin:
             ok, message = runner.sync_repo_to_origin(repo_path)
 
         assert ok is False
-        assert "checkout main failed" in message
+        assert "checkout --detach origin/main failed" in message
         assert "pathspec error" in message
 
-    def test_failure_on_pull_error(self, tmp_path: Path) -> None:
+    def test_stale_main_detaches_at_origin_without_pull(self, tmp_path: Path) -> None:
         repo_path = tmp_path / "repo"
         repo_path.mkdir()
+        calls: list[list[str]] = []
 
         def fake_run(
             args: list[str],
@@ -372,6 +642,7 @@ class TestSyncRepoToOrigin:
             text: bool = True,
             timeout: int = 120,
         ) -> subprocess.CompletedProcess[str]:
+            calls.append(args)
             if "fetch" in args:
                 return self._make_result(0)
             elif "status" in args:
@@ -380,8 +651,10 @@ class TestSyncRepoToOrigin:
                 return self._make_result(0, "abc123")
             elif "--abbrev-ref" in args and "HEAD" in args:
                 return self._make_result(0, "main")  # already on main
-            elif "pull" in args:
-                return self._make_result(1, stderr="pull failed: non-ff merge required")
+            elif args[-2:] == ["rev-parse", "HEAD"]:
+                return self._make_result(0, "old123")
+            elif "checkout" in args:
+                return self._make_result(0)
             elif "--short" in args:
                 return self._make_result(0, "abc123")
             return self._make_result(0)
@@ -394,9 +667,74 @@ class TestSyncRepoToOrigin:
         ):
             ok, message = runner.sync_repo_to_origin(repo_path)
 
+        assert ok is True
+        assert "detached at origin/main (was main)" in message
+        assert "HEAD now abc123 on origin/main" in message
+        assert not any("pull" in call for call in calls)
+        assert any(call[-3:] == ["checkout", "--detach", "origin/main"] for call in calls)
+
+    def test_preserves_executing_steward_checkout(self, tmp_path: Path) -> None:
+        repo_path = tmp_path / "repo"
+        repo_path.mkdir()
+        calls: list[list[str]] = []
+
+        def fake_run(
+            args: list[str],
+            *,
+            check: bool = False,
+            capture_output: bool = True,
+            text: bool = True,
+            timeout: int = 120,
+        ) -> subprocess.CompletedProcess[str]:
+            calls.append(args)
+            if "fetch" in args:
+                return self._make_result(0, "")
+            if "status" in args:
+                return self._make_result(0, " M scripts/repo_review_coordinator.py\n")
+            if "--verify" in args and "origin/main" in args:
+                return self._make_result(0, "origin123")
+            if "--abbrev-ref" in args:
+                return self._make_result(0, "HEAD")
+            if args[-2:] == ["rev-parse", "HEAD"]:
+                return self._make_result(0, "repair456")
+            return self._make_result(0)
+
+        with patch("subprocess.run", fake_run):
+            ok, message = runner.sync_repo_to_origin(repo_path, preserve_checkout=True)
+
+        assert ok is True
+        assert "preserved executing steward checkout at repair456" in message
+        assert not any("checkout" in call or "pull" in call for call in calls)
+        assert not any("stash" in call for call in calls)
+
+    def test_stash_failure_stops_before_checkout(self, tmp_path: Path) -> None:
+        repo_path = tmp_path / "repo"
+        repo_path.mkdir()
+        calls: list[list[str]] = []
+
+        def fake_run(args: list[str], **_kwargs) -> subprocess.CompletedProcess[str]:
+            calls.append(args)
+            if "fetch" in args:
+                return self._make_result(0)
+            if "--verify" in args:
+                return self._make_result(0, "origin123")
+            if "--abbrev-ref" in args:
+                return self._make_result(0, "feature")
+            if args[-2:] == ["rev-parse", "HEAD"]:
+                return self._make_result(0, "local456")
+            if "status" in args:
+                return self._make_result(0, " M local.txt\n")
+            if "stash" in args:
+                return self._make_result(1, stderr="unable to write index")
+            return self._make_result(0)
+
+        with patch("subprocess.run", fake_run):
+            ok, message = runner.sync_repo_to_origin(repo_path)
+
         assert ok is False
-        assert "pull --ff-only failed" in message
-        assert "non-ff merge required" in message
+        assert "git stash failed" in message
+        assert "unable to write index" in message
+        assert not any("checkout" in call for call in calls)
 
     def test_timeout_handling(self, tmp_path: Path) -> None:
         repo_path = tmp_path / "repo"
@@ -546,5 +884,207 @@ class TestSyncRepoToOrigin:
             ok, message = runner.sync_repo_to_origin(repo_path)
 
         assert ok is True
-        assert "checked out main (was develop)" in message
-        assert "HEAD now def456 on main" in message
+        assert "detached at origin/main (was develop)" in message
+        assert "HEAD now def456 on origin/main" in message
+
+
+def test_refresh_map_quarantines_conflicted_wal_and_verifies_rebuild(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    repo_path = tmp_path / "repo"
+    cache_dir = repo_path / ".gitnexus"
+    cache_dir.mkdir(parents=True)
+    (cache_dir / "lbug (Tim's conflicted copy 2026-09-03).wal").write_text("", encoding="utf-8")
+
+    def fake_analyze(*_args, **_kwargs):
+        cache_dir.mkdir(parents=True, exist_ok=True)
+        (cache_dir / "meta.json").write_text(
+            json.dumps({"lastCommit": "abc123", "stats": {"embeddings": 12}}),
+            encoding="utf-8",
+        )
+        return True, "GitNexus Analyzer complete"
+
+    monkeypatch.setattr(runner, "run_gitnexus_analyze", fake_analyze)
+    monkeypatch.setattr(
+        subprocess,
+        "run",
+        lambda *_args, **_kwargs: subprocess.CompletedProcess(
+            args=["git"], returncode=0, stdout="abc123\n", stderr=""
+        ),
+    )
+
+    ok, message = runner.refresh_map_blocking(
+        repo_path,
+        gitnexus_bin="gitnexus",
+        repair_root=tmp_path / "repairs",
+    )
+
+    assert ok is True
+    assert "quarantined GitNexus cache" in message
+    assert (cache_dir / "meta.json").is_file()
+    quarantined = list((tmp_path / "repairs").glob("repo/*/.gitnexus/*conflicted copy*"))
+    assert len(quarantined) == 1
+
+
+def test_refresh_map_returns_failure_when_quarantine_move_fails(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    repo_path = tmp_path / "repo"
+    cache_dir = repo_path / ".gitnexus"
+    cache_dir.mkdir(parents=True)
+    (cache_dir / "lbug (conflicted copy).wal").write_text("broken", encoding="utf-8")
+
+    def fail_move(*_args, **_kwargs):
+        raise OSError("Dropbox lock")
+
+    monkeypatch.setattr(runner.shutil, "move", fail_move)
+
+    ok, message = runner.refresh_map_blocking(
+        repo_path,
+        gitnexus_bin="gitnexus",
+        repair_root=tmp_path / "repairs",
+    )
+
+    assert ok is False
+    assert "quarantine failed" in message
+    assert "Dropbox lock" in message
+
+
+def test_refresh_map_rebuilds_after_analyzer_reports_corruption(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    repo_path = tmp_path / "repo"
+    cache_dir = repo_path / ".gitnexus"
+    cache_dir.mkdir(parents=True)
+    (cache_dir / "lbug").write_bytes(b"broken")
+    calls = 0
+
+    def fake_analyze(*_args, **_kwargs):
+        nonlocal calls
+        calls += 1
+        if calls == 1:
+            return False, "GitNexus corruption detected (corrupted wal file)"
+        cache_dir.mkdir(parents=True, exist_ok=True)
+        (cache_dir / "meta.json").write_text(
+            json.dumps({"lastCommit": "abc123", "stats": {"embeddings": 8}}),
+            encoding="utf-8",
+        )
+        return True, "rebuilt"
+
+    monkeypatch.setattr(runner, "run_gitnexus_analyze", fake_analyze)
+    monkeypatch.setattr(
+        subprocess,
+        "run",
+        lambda *_args, **_kwargs: subprocess.CompletedProcess(
+            args=["git"], returncode=0, stdout="abc123\n", stderr=""
+        ),
+    )
+
+    ok, message = runner.refresh_map_blocking(
+        repo_path,
+        gitnexus_bin="gitnexus",
+        repair_root=tmp_path / "repairs",
+    )
+
+    assert ok is True
+    assert calls == 2
+    assert "analyzer reported database corruption" in message
+
+
+@pytest.mark.parametrize(
+    "meta", [[], {"lastCommit": "abc123", "stats": []}, {"lastCommit": "abc123", "stats": "bad"}]
+)
+def test_refresh_map_rejects_non_object_metadata(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch, meta: object
+) -> None:
+    repo_path = tmp_path / "repo"
+    cache_dir = repo_path / ".gitnexus"
+    cache_dir.mkdir(parents=True)
+    (cache_dir / "meta.json").write_text(json.dumps(meta), encoding="utf-8")
+    monkeypatch.setattr(runner, "run_gitnexus_analyze", lambda *_args, **_kwargs: (True, "rebuilt"))
+
+    ok, message = runner.refresh_map_blocking(repo_path, gitnexus_bin="gitnexus")
+
+    assert ok is False
+    assert "meta.json is invalid" in message
+
+
+def test_refresh_map_allows_structural_index_without_embeddings(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    repo_path = tmp_path / "repo"
+    cache_dir = repo_path / ".gitnexus"
+    cache_dir.mkdir(parents=True)
+    (cache_dir / "meta.json").write_text(
+        json.dumps({"lastCommit": "abc123", "stats": {"embeddings": 0}}), encoding="utf-8"
+    )
+    monkeypatch.setattr(runner, "run_gitnexus_analyze", lambda *_args, **_kwargs: (True, "rebuilt"))
+    monkeypatch.setattr(
+        subprocess,
+        "run",
+        lambda *_args, **_kwargs: subprocess.CompletedProcess(
+            args=["git"], returncode=0, stdout="abc123\n", stderr=""
+        ),
+    )
+
+    ok, message = runner.refresh_map_blocking(repo_path, gitnexus_bin="gitnexus")
+
+    assert ok is True
+    assert "rebuilt" in message
+
+
+def test_refresh_map_returns_failed_result_when_head_check_times_out(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    repo_path = tmp_path / "repo"
+    cache_dir = repo_path / ".gitnexus"
+    cache_dir.mkdir(parents=True)
+    (cache_dir / "meta.json").write_text(
+        json.dumps({"lastCommit": "abc123", "stats": {"embeddings": 1}}), encoding="utf-8"
+    )
+    monkeypatch.setattr(runner, "run_gitnexus_analyze", lambda *_args, **_kwargs: (True, "rebuilt"))
+    monkeypatch.setattr(
+        subprocess,
+        "run",
+        lambda *_args, **_kwargs: (_ for _ in ()).throw(subprocess.TimeoutExpired(["git"], 1)),
+    )
+
+    ok, message = runner.refresh_map_blocking(repo_path, gitnexus_bin="gitnexus")
+
+    assert ok is False
+    assert "HEAD verification timed out" in message
+
+
+def test_refresh_map_quarantines_conflicted_wal_created_during_rebuild(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    repo_path = tmp_path / "repo"
+    cache_dir = repo_path / ".gitnexus"
+    cache_dir.mkdir(parents=True)
+
+    def fake_analyze(*_args, **_kwargs):
+        (cache_dir / "meta.json").write_text(
+            json.dumps({"lastCommit": "abc123", "stats": {"embeddings": 12}}),
+            encoding="utf-8",
+        )
+        (cache_dir / "lbug (Tim's conflicted copy 2026-09-03).wal").write_text("", encoding="utf-8")
+        return True, "GitNexus Analyzer complete"
+
+    monkeypatch.setattr(runner, "run_gitnexus_analyze", fake_analyze)
+    monkeypatch.setattr(
+        subprocess,
+        "run",
+        lambda *_args, **_kwargs: subprocess.CompletedProcess(
+            args=["git"], returncode=0, stdout="abc123\n", stderr=""
+        ),
+    )
+
+    ok, message = runner.refresh_map_blocking(
+        repo_path, gitnexus_bin="gitnexus", repair_root=tmp_path / "repairs"
+    )
+
+    assert ok is True
+    assert "created during analyzer rebuild" in message
+    assert not list(cache_dir.glob("**/*conflicted copy*"))
+    quarantined = list((tmp_path / "repairs").glob("repo/*/conflicted-artifacts/*conflicted copy*"))
+    assert len(quarantined) == 1

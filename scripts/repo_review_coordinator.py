@@ -34,16 +34,25 @@ from __future__ import annotations
 
 import argparse
 import json
+import os
+import shutil
 import subprocess
 import sys
+import tomllib
+from collections.abc import Callable
+from contextlib import suppress
 from dataclasses import dataclass
 from datetime import UTC, datetime
 from pathlib import Path
 from typing import Any
 
+import yaml
+
 try:
     from scripts.repo_review_evaluator import load_registry
     from scripts.repo_review_state import (
+        begin_attempt,
+        finish_attempt,
         load_state,
         save_state,
         transition,
@@ -51,6 +60,8 @@ try:
 except ModuleNotFoundError:  # pragma: no cover - direct script execution
     from repo_review_evaluator import load_registry  # type: ignore[no-redef]
     from repo_review_state import (  # type: ignore[no-redef]
+        begin_attempt,
+        finish_attempt,
         load_state,
         save_state,
         transition,
@@ -60,6 +71,161 @@ except ModuleNotFoundError:  # pragma: no cover - direct script execution
 # ---------------------------------------------------------------------------
 # Skip-this-cycle gate
 # ---------------------------------------------------------------------------
+
+
+DEFAULT_PROVIDER_CAPACITY_WAIT_MAX_SECONDS = 6 * 60 * 60
+DEFAULT_DOCS_DRIFT_PER_DOC_TIMEOUT = 600
+DEFAULT_DOCS_DRIFT_MIN_TIMEOUT = 1800
+DEFAULT_DOCS_DRIFT_BUFFER_SECONDS = 900
+
+
+def provider_capacity_wait_max_seconds() -> int:
+    """Mirror the child runner's bounded provider-capacity wait budget."""
+    raw = os.environ.get("REPO_REVIEW_CAPACITY_WAIT_MAX_SECONDS", "").strip()
+    if not raw:
+        return DEFAULT_PROVIDER_CAPACITY_WAIT_MAX_SECONDS
+    try:
+        value = int(raw)
+    except ValueError:
+        return DEFAULT_PROVIDER_CAPACITY_WAIT_MAX_SECONDS
+    return max(0, value)
+
+
+def configured_repair_attempts(config_path: Path | None = None) -> int:
+    """Return the repository-configured repair budget, with a safe default."""
+    path = config_path or (
+        Path(__file__).resolve().parent.parent / "config" / "repo_review_automation.toml"
+    )
+    try:
+        with path.open("rb") as handle:
+            value = tomllib.load(handle)["automation"]["timeouts"]["repair_attempts_per_phase"]
+    except (OSError, KeyError, TypeError, tomllib.TOMLDecodeError):
+        return 2
+    if isinstance(value, bool) or not isinstance(value, int) or value < 0:
+        return 2
+    return value
+
+
+def configured_docs_drift_timeout_values(
+    config_path: Path | None = None,
+) -> tuple[int, int, int]:
+    """Return per-doc, minimum, and buffer timeout values from repo config."""
+    path = config_path or (
+        Path(__file__).resolve().parent.parent / "config" / "repo_review_automation.toml"
+    )
+    try:
+        timeouts = tomllib.loads(path.read_text(encoding="utf-8"))["automation"]["timeouts"]
+    except (OSError, KeyError, TypeError, tomllib.TOMLDecodeError):
+        return (
+            DEFAULT_DOCS_DRIFT_PER_DOC_TIMEOUT,
+            DEFAULT_DOCS_DRIFT_MIN_TIMEOUT,
+            DEFAULT_DOCS_DRIFT_BUFFER_SECONDS,
+        )
+    if not isinstance(timeouts, dict):
+        return (
+            DEFAULT_DOCS_DRIFT_PER_DOC_TIMEOUT,
+            DEFAULT_DOCS_DRIFT_MIN_TIMEOUT,
+            DEFAULT_DOCS_DRIFT_BUFFER_SECONDS,
+        )
+
+    def positive_int(name: str, default: int) -> int:
+        value = timeouts.get(name)
+        if isinstance(value, bool) or not isinstance(value, int) or value <= 0:
+            return default
+        return value
+
+    return (
+        positive_int("docs_drift_per_doc_seconds", DEFAULT_DOCS_DRIFT_PER_DOC_TIMEOUT),
+        positive_int("docs_drift_minimum_seconds", DEFAULT_DOCS_DRIFT_MIN_TIMEOUT),
+        positive_int("docs_drift_buffer_seconds", DEFAULT_DOCS_DRIFT_BUFFER_SECONDS),
+    )
+
+
+def nonnegative_int(value: str) -> int:
+    """Argparse type for counts that may be zero but never negative."""
+    parsed = int(value)
+    if parsed < 0:
+        raise argparse.ArgumentTypeError("must be greater than or equal to zero")
+    return parsed
+
+
+def configured_docs_drift_doc_count(
+    docs_config_path: Path,
+    target_repos: list[str],
+) -> int:
+    """Count configured documents that the current coordinator run will scan."""
+    try:
+        from scripts.repo_review_docs_drift_scan import load_docs_config
+    except ModuleNotFoundError:  # pragma: no cover - direct script execution
+        from repo_review_docs_drift_scan import load_docs_config  # type: ignore[no-redef]
+
+    try:
+        docs_config = load_docs_config(docs_config_path)
+    except (OSError, ValueError, yaml.YAMLError):
+        # The child scanner reports the actionable config error. Keep a bounded
+        # minimum outer timeout so that failure can reach the coordinator.
+        return 0
+
+    selected = set(target_repos)
+    return sum(
+        1
+        for repo, repo_config in docs_config.items()
+        if repo in selected and isinstance(repo_config, dict)
+        for doc in (repo_config.get("docs") or [])
+        if isinstance(doc, dict) and str(doc.get("path") or "").strip()
+    )
+
+
+def docs_drift_subprocess_timeout(
+    docs_config_path: Path,
+    target_repos: list[str],
+    *,
+    per_doc_timeout: int | None = None,
+    minimum: int | None = None,
+    buffer: int | None = None,
+    automation_config_path: Path | None = None,
+) -> int:
+    """Return an honest outer bound for the sequential per-document scan."""
+    configured_per_doc, configured_minimum, configured_buffer = (
+        configured_docs_drift_timeout_values(automation_config_path)
+    )
+    per_doc_timeout = configured_per_doc if per_doc_timeout is None else per_doc_timeout
+    minimum = configured_minimum if minimum is None else minimum
+    buffer = configured_buffer if buffer is None else buffer
+    doc_count = configured_docs_drift_doc_count(docs_config_path, target_repos)
+    return max(minimum, doc_count * per_doc_timeout + buffer)
+
+
+def validate_docs_drift_output(
+    path: Path,
+    *,
+    expected_doc_count: int,
+) -> tuple[bool, str]:
+    """Require a fresh, complete, error-free docs-drift result before publish."""
+    if not path.is_file():
+        return False, f"scanner did not produce {path.name}"
+    try:
+        payload = json.loads(path.read_text(encoding="utf-8"))
+    except (OSError, UnicodeError, json.JSONDecodeError) as exc:
+        return False, f"cannot parse {path.name}: {exc}"
+    if not isinstance(payload, dict):
+        return False, f"{path.name} root must be an object"
+    generated_on = payload.get("generated_on")
+    if not isinstance(generated_on, str) or not generated_on.strip():
+        return False, f"{path.name} missing generated_on"
+    scanned = payload.get("total_docs_scanned")
+    errors = payload.get("total_errors")
+    if isinstance(scanned, bool) or not isinstance(scanned, int):
+        return False, f"{path.name} total_docs_scanned must be an integer"
+    if isinstance(errors, bool) or not isinstance(errors, int):
+        return False, f"{path.name} total_errors must be an integer"
+    if scanned != expected_doc_count:
+        return False, (
+            f"incomplete docs coverage: scanned {scanned}, expected {expected_doc_count}"
+        )
+    if errors:
+        return False, f"docs-drift scan recorded {errors} error(s)"
+    return True, f"scanned {scanned} configured document(s) with zero errors"
 
 
 def candidate_fingerprint(candidates: list[dict[str, Any]]) -> tuple[tuple[str, ...], ...]:
@@ -328,6 +494,314 @@ def run_subprocess(
     )
 
 
+def prepare_phase_retry(
+    *,
+    phase: str,
+    repo: str,
+    output_dir: Path,
+    failed_log: Path,
+    repair_number: int,
+) -> dict[str, Any]:
+    """Preserve a failed attempt and remove only poisoned derived outputs.
+
+    The repair is deliberately repo-scoped. Valid round-1 findings remain in
+    place so a successful peer is reused. Round-2 turn outputs are quarantined
+    because the runner treats an existing JSON file as reusable before schema
+    validation; one malformed partial file would otherwise poison every retry.
+    """
+    safe = repo.replace("/", "__")
+    timestamp = datetime.now(UTC).strftime("%Y%m%dT%H%M%S.%fZ")
+    repair_dir = output_dir / "repairs" / safe / f"{timestamp}-{phase}-{repair_number}"
+    repair_dir.mkdir(parents=True, exist_ok=False)
+    preserved: list[str] = []
+    quarantined: list[str] = []
+
+    if failed_log.is_file():
+        destination = repair_dir / failed_log.name
+        shutil.copy2(failed_log, destination)
+        preserved.append(str(destination))
+
+    related_logs: list[Path] = []
+    if phase == "round-1":
+        related_logs.extend((output_dir / "logs" / "round1").glob(f"*-{safe}.log*"))
+    elif phase == "round-2":
+        repo_round2 = output_dir / "round2" / safe
+        for path in sorted(repo_round2.glob("turn-*")):
+            destination = repair_dir / path.name
+            shutil.move(str(path), str(destination))
+            quarantined.append(str(destination))
+        for name in ("converged.json", "logs"):
+            path = repo_round2 / name
+            if path.exists():
+                destination = repair_dir / name
+                shutil.move(str(path), str(destination))
+                quarantined.append(str(destination))
+    elif phase == "body-writer":
+        related_logs.extend((output_dir / "logs" / "body-writer").glob(f"*-{safe}.log*"))
+        repo_round2 = output_dir / "round2" / safe
+        repo_round2.mkdir(parents=True, exist_ok=True)
+        converged = repo_round2 / "converged.json"
+        baseline = repo_round2 / "converged.pre-body-writer.json"
+        if converged.exists():
+            destination = repair_dir / converged.name
+            shutil.move(str(converged), str(destination))
+            quarantined.append(str(destination))
+        if baseline.is_file():
+            shutil.copy2(baseline, converged)
+            preserved.append(str(baseline))
+        feedback = repo_round2 / "body-writer-repair-feedback.txt"
+        diagnostic = ""
+        if failed_log.is_file():
+            with suppress(OSError):
+                diagnostic = failed_log.read_text(encoding="utf-8", errors="replace")[-12_000:]
+        feedback.write_text(
+            "The previous body-writer attempt failed deterministic validation.\n"
+            "Correct every failure below; schema-only validation is insufficient.\n\n" + diagnostic,
+            encoding="utf-8",
+        )
+
+    for path in related_logs:
+        if not path.is_file():
+            continue
+        destination = repair_dir / path.name
+        if destination.exists():
+            continue
+        shutil.copy2(path, destination)
+        preserved.append(str(destination))
+
+    actions = {
+        "phase": phase,
+        "repo": repo,
+        "repair_number": repair_number,
+        "created_at": datetime.now(UTC).isoformat(),
+        "repair_dir": str(repair_dir),
+        "preserved": preserved,
+        "quarantined": quarantined,
+    }
+    (repair_dir / "repair.json").write_text(json.dumps(actions, indent=2) + "\n", encoding="utf-8")
+
+    state = load_state(output_dir, repo)
+    attempt = begin_attempt(state, phase=f"{phase}-repair", agent="coordinator")
+    notes = (
+        f"repair {repair_number}: preserved={len(preserved)} "
+        f"quarantined={len(quarantined)} at {repair_dir}"
+    )
+    finish_attempt(state, attempt, succeeded=True, notes=notes)
+    save_state(output_dir, state)
+    return actions
+
+
+def run_subprocess_with_repairs(
+    cmd: list[str],
+    *,
+    cwd: Path,
+    log_path: Path,
+    name: str,
+    timeout: int,
+    repo: str,
+    output_dir: Path,
+    repair_attempts: int,
+    stop_retry_when: Callable[[Path], bool] | None = None,
+) -> tuple[StepResult, list[dict[str, Any]], list[dict[str, Any]]]:
+    """Run a repo phase and perform a recorded, bounded repair before retry."""
+    attempts: list[dict[str, Any]] = []
+    repairs: list[dict[str, Any]] = []
+    result = StepResult(name=name, succeeded=False, duration_seconds=0.0)
+    for attempt_number in range(1, repair_attempts + 2):
+        result = run_subprocess(
+            cmd,
+            cwd=cwd,
+            log_path=log_path,
+            name=name,
+            timeout=timeout,
+        )
+        attempts.append(
+            {
+                "attempt": attempt_number,
+                "succeeded": result.succeeded,
+                "duration_seconds": result.duration_seconds,
+                "notes": result.notes,
+            }
+        )
+        if result.succeeded or attempt_number > repair_attempts:
+            break
+        if stop_retry_when is not None and stop_retry_when(log_path):
+            break
+        try:
+            repair = prepare_phase_retry(
+                phase=name,
+                repo=repo,
+                output_dir=output_dir,
+                failed_log=log_path,
+                repair_number=attempt_number,
+            )
+        except OSError as exc:
+            result = StepResult(
+                name=name,
+                succeeded=False,
+                duration_seconds=result.duration_seconds,
+                notes=f"repair preparation failed: {exc}",
+            )
+            repairs.append(
+                {
+                    "phase": name,
+                    "repo": repo,
+                    "repair_number": attempt_number,
+                    "succeeded": False,
+                    "diagnostic": str(exc),
+                }
+            )
+            break
+        repairs.append(repair)
+        print(
+            f"[coordinator] {repo}: {name} failed; repair {attempt_number} "
+            f"recorded at {repair['repair_dir']}; retrying"
+        )
+    return result, attempts, repairs
+
+
+HEAD_DRIFT_MARKERS = (
+    "does not match origin/main",
+    "exact-head mismatch",
+    "exact head mismatch",
+    "source commit mismatch",
+    "source_commit mismatch",
+)
+
+
+def log_indicates_head_drift(log_path: Path) -> bool:
+    """Return whether a failed phase used a source head that is now stale."""
+    try:
+        diagnostic = log_path.read_text(encoding="utf-8", errors="replace").lower()
+    except OSError:
+        return False
+    return any(marker in diagnostic for marker in HEAD_DRIFT_MARKERS)
+
+
+def prepare_head_drift_restart(
+    *,
+    repo: str,
+    output_dir: Path,
+    log_dir: Path,
+    restart_number: int,
+    failed_phase: str,
+) -> dict[str, Any]:
+    """Quarantine all repo-scoped analysis before restarting from round 1.
+
+    A later phase cannot repair findings produced from an obsolete commit.  A
+    full repo restart deliberately discards only derived analysis for that repo;
+    the next round-1 sync then establishes a new exact-head provenance chain and
+    rebuilds GitNexus when necessary.
+    """
+    safe = repo.replace("/", "__")
+    timestamp = datetime.now(UTC).strftime("%Y%m%dT%H%M%S.%fZ")
+    repair_dir = output_dir / "repairs" / safe / f"{timestamp}-head-drift-{restart_number}"
+    repair_dir.mkdir(parents=True, exist_ok=False)
+    preserved: list[str] = []
+    quarantined: list[str] = []
+
+    repo_log_dir = log_dir / safe
+    if repo_log_dir.is_dir():
+        log_destination = repair_dir / "coordinator-logs"
+        shutil.copytree(repo_log_dir, log_destination)
+        preserved.append(str(log_destination))
+
+    round1_root = output_dir / "round1"
+    for agent_dir in sorted(round1_root.iterdir()) if round1_root.is_dir() else []:
+        source = agent_dir / safe
+        if not source.exists():
+            continue
+        destination = repair_dir / "round1" / agent_dir.name
+        destination.parent.mkdir(parents=True, exist_ok=True)
+        shutil.move(str(source), str(destination))
+        quarantined.append(str(destination))
+
+    repo_round2 = output_dir / "round2" / safe
+    if repo_round2.exists():
+        destination = repair_dir / "round2"
+        shutil.move(str(repo_round2), str(destination))
+        quarantined.append(str(destination))
+
+    repo_preflight = output_dir / "repos" / safe
+    if repo_preflight.exists():
+        destination = repair_dir / "preflight"
+        shutil.move(str(repo_preflight), str(destination))
+        quarantined.append(str(destination))
+
+    actions = {
+        "phase": "head-drift-restart",
+        "failed_phase": failed_phase,
+        "repo": repo,
+        "restart_number": restart_number,
+        "created_at": datetime.now(UTC).isoformat(),
+        "repair_dir": str(repair_dir),
+        "preserved": preserved,
+        "quarantined": quarantined,
+    }
+    (repair_dir / "repair.json").write_text(
+        json.dumps(actions, indent=2) + "\n",
+        encoding="utf-8",
+    )
+
+    state = load_state(output_dir, repo)
+    attempt = begin_attempt(state, phase="head-drift-restart", agent="coordinator")
+    finish_attempt(
+        state,
+        attempt,
+        succeeded=True,
+        notes=f"restart {restart_number}: stale {failed_phase} analysis moved to {repair_dir}",
+    )
+    save_state(output_dir, state)
+    return actions
+
+
+def failed_repo_phase(report: dict[str, Any]) -> str | None:
+    """Return the first failed required phase, or ``None`` for a valid repo result."""
+    if not (report.get("round1") or {}).get("succeeded"):
+        return "round-1"
+    if report.get("skip_gate_fired"):
+        return None
+    if not (report.get("round2") or {}).get("succeeded"):
+        return "round-2"
+    if not (report.get("body_writer") or {}).get("succeeded"):
+        return "body-writer"
+    return None
+
+
+AGGREGATE_OUTPUT_NAMES = (
+    "approved-issue-queue.json",
+    "approved-issue-queue.md",
+    "docs-drift-scan.json",
+    "human-decision-packet.md",
+    "repo-review-summary.json",
+)
+
+
+def quarantine_aggregate_outputs(
+    output_dir: Path,
+    *,
+    repo: str,
+    phase: str,
+    extra_paths: tuple[Path, ...] = (),
+) -> list[str]:
+    """Move stale publishable outputs aside when a required phase fails."""
+    candidates = [output_dir / name for name in AGGREGATE_OUTPUT_NAMES]
+    candidates.extend(extra_paths)
+    existing = list(dict.fromkeys(path for path in candidates if path.is_file()))
+    if not existing:
+        return []
+    timestamp = datetime.now(UTC).strftime("%Y%m%dT%H%M%S.%fZ")
+    safe = repo.replace("/", "__")
+    quarantine_dir = output_dir / "failed-runs" / f"{timestamp}-{safe}-{phase}"
+    quarantine_dir.mkdir(parents=True, exist_ok=False)
+    moved: list[str] = []
+    for source in existing:
+        destination = quarantine_dir / source.name
+        shutil.move(str(source), str(destination))
+        moved.append(str(destination.relative_to(output_dir)))
+    return moved
+
+
 # ---------------------------------------------------------------------------
 # Per-repo coordinator
 # ---------------------------------------------------------------------------
@@ -343,10 +817,14 @@ def round2_subprocess_timeout(
 
     ``round2_timeout`` is the per-agent-turn budget (passed as ``--turn-timeout``
     to the runner).  The runner's legitimate worst-case runtime is
-    ``max_turns * n_agents * round2_timeout`` plus a fixed buffer for synthesis
-    and overhead.
+    ``max_turns * n_agents * round2_timeout`` plus the bounded provider reset
+    waits and a fixed buffer for synthesis and overhead.
     """
-    return max_turns * n_agents * round2_timeout + buffer
+    return (
+        max_turns * n_agents * round2_timeout
+        + max_turns * provider_capacity_wait_max_seconds()
+        + buffer
+    )
 
 
 def coordinate_repo(
@@ -361,6 +839,7 @@ def coordinate_repo(
     round2_timeout: int,
     max_turns: int,
     skip_gate_enabled: bool,
+    repair_attempts: int = 2,
 ) -> dict[str, Any]:
     """Run the full Phase-4 flow for one repo. Returns a small report dict."""
     safe = repo.replace("/", "__")
@@ -372,6 +851,7 @@ def coordinate_repo(
         "started_at": datetime.now(UTC).isoformat(),
         "round1": None,
         "round2": None,
+        "body_writer": None,
         "skip_gate_fired": False,
         "skip_reason": "",
     }
@@ -391,17 +871,22 @@ def coordinate_repo(
         "--turn-timeout",
         str(round1_timeout),
     ]
-    r1_result = run_subprocess(
+    r1_result, r1_attempts, r1_repairs = run_subprocess_with_repairs(
         r1_cmd,
         cwd=workflows_steward_root,
         log_path=repo_log_dir / "round1-runner.log",
         name="round-1",
-        timeout=round1_timeout + 1500,
+        timeout=(2 * round1_timeout) + provider_capacity_wait_max_seconds() + 1500,
+        repo=repo,
+        output_dir=output_dir,
+        repair_attempts=repair_attempts,
     )
     report["round1"] = {
         "succeeded": r1_result.succeeded,
         "duration_seconds": r1_result.duration_seconds,
         "notes": r1_result.notes,
+        "attempts": r1_attempts,
+        "repairs": r1_repairs,
     }
     if not r1_result.succeeded:
         return report
@@ -442,20 +927,35 @@ def coordinate_repo(
         "--turn-timeout",
         str(round2_timeout),
     ]
-    r2_result = run_subprocess(
+    r2_result, r2_attempts, r2_repairs = run_subprocess_with_repairs(
         r2_cmd,
         cwd=workflows_steward_root,
         log_path=repo_log_dir / "round2-runner.log",
         name="round-2",
         timeout=round2_subprocess_timeout(round2_timeout, max_turns, len(agents)),
+        repo=repo,
+        output_dir=output_dir,
+        repair_attempts=repair_attempts,
     )
     report["round2"] = {
         "succeeded": r2_result.succeeded,
         "duration_seconds": r2_result.duration_seconds,
         "notes": r2_result.notes,
+        "attempts": r2_attempts,
+        "repairs": r2_repairs,
     }
     if not r2_result.succeeded:
         return report
+
+    # A body-writer retry must start from the converged round-2 data. The
+    # writer deliberately leaves nonempty bodies alone, so retrying against a
+    # malformed or quality-gate-failed body would reproduce the same failure.
+    converged_path = output_dir / "round2" / safe / "converged.json"
+    baseline_path = converged_path.with_name("converged.pre-body-writer.json")
+    repair_feedback = converged_path.with_name("body-writer-repair-feedback.txt")
+    repair_feedback.unlink(missing_ok=True)
+    if converged_path.is_file():
+        shutil.copy2(converged_path, baseline_path)
 
     # 4. Body-writer pass (iter-9 lesson): convert structured candidates into
     #    AGENT_ISSUE_FORMAT.md-compliant agent-ready issue bodies. The local
@@ -485,19 +985,153 @@ def coordinate_repo(
         "--timeout",
         str(min(round2_timeout, 60 * 60)),
     ]
-    bw_result = run_subprocess(
+    bw_result, bw_attempts, bw_repairs = run_subprocess_with_repairs(
         bw_cmd,
         cwd=workflows_steward_root,
         log_path=repo_log_dir / "body-writer.log",
         name="body-writer",
-        timeout=min(round2_timeout, 60 * 60) + 600,
+        timeout=(2 * min(round2_timeout, 60 * 60) + provider_capacity_wait_max_seconds() + 600),
+        repo=repo,
+        output_dir=output_dir,
+        repair_attempts=repair_attempts,
+        # Restoring the same converged baseline cannot cure source-head drift.
+        # Return control immediately so the outer loop can restart this repo at
+        # round 1 and re-establish exact-head provenance.
+        stop_retry_when=log_indicates_head_drift,
     )
     report["body_writer"] = {
         "succeeded": bw_result.succeeded,
         "duration_seconds": bw_result.duration_seconds,
         "notes": bw_result.notes,
+        "attempts": bw_attempts,
+        "repairs": bw_repairs,
     }
 
+    return report
+
+
+def coordinate_repo_with_restarts(
+    *,
+    repo: str,
+    output_dir: Path,
+    workflows_steward_root: Path,
+    registry_path: Path,
+    agents: list[str],
+    log_dir: Path,
+    round1_timeout: int,
+    round2_timeout: int,
+    max_turns: int,
+    skip_gate_enabled: bool,
+    repair_attempts: int = 2,
+) -> dict[str, Any]:
+    """Coordinate a repo, restarting the full provenance chain on head drift."""
+    restarts: list[dict[str, Any]] = []
+    prior_attempts: list[dict[str, Any]] = []
+    report: dict[str, Any] = {}
+
+    for restart_number in range(repair_attempts + 1):
+        report = coordinate_repo(
+            repo=repo,
+            output_dir=output_dir,
+            workflows_steward_root=workflows_steward_root,
+            registry_path=registry_path,
+            agents=agents,
+            log_dir=log_dir,
+            round1_timeout=round1_timeout,
+            round2_timeout=round2_timeout,
+            max_turns=max_turns,
+            skip_gate_enabled=skip_gate_enabled,
+            repair_attempts=repair_attempts,
+        )
+        failed_phase = failed_repo_phase(report)
+        if failed_phase is None:
+            break
+
+        phase_log_name = {
+            "round-1": "round1-runner.log",
+            "round-2": "round2-runner.log",
+            "body-writer": "body-writer.log",
+        }[failed_phase]
+        phase_log = log_dir / repo.replace("/", "__") / phase_log_name
+        if not log_indicates_head_drift(phase_log) or restart_number >= repair_attempts:
+            break
+
+        prior_attempts.append(report)
+        try:
+            repair = prepare_head_drift_restart(
+                repo=repo,
+                output_dir=output_dir,
+                log_dir=log_dir,
+                restart_number=restart_number + 1,
+                failed_phase=failed_phase,
+            )
+        except OSError as exc:
+            report["head_drift_restart_error"] = f"repair preparation failed: {exc}"
+            print(
+                f"[coordinator] {repo}: head-drift restart preparation failed: {exc}",
+                file=sys.stderr,
+            )
+            break
+        restarts.append(repair)
+
+        # The review brief is source-derived too. Regenerate active-repo inputs
+        # after quarantine so round 1 cannot consume an inventory or GitNexus
+        # status captured from the obsolete commit. Aggregate files written by
+        # this preflight are provisional and will be replaced by the final pass.
+        restart_preflight_log = (
+            log_dir / repo.replace("/", "__") / f"preflight-restart-{restart_number + 1}.log"
+        )
+        restart_preflight = run_subprocess(
+            [
+                sys.executable,
+                str(workflows_steward_root / "scripts" / "repo_review_evaluator.py"),
+                "--registry",
+                str(registry_path),
+                "--output-dir",
+                str(output_dir),
+                "--status",
+                "active",
+                "--skip-gitnexus-preflight",
+            ],
+            cwd=workflows_steward_root,
+            log_path=restart_preflight_log,
+            name="head-drift-preflight",
+            timeout=1200,
+        )
+        repair["preflight"] = {
+            "succeeded": restart_preflight.succeeded,
+            "duration_seconds": restart_preflight.duration_seconds,
+            "notes": restart_preflight.notes,
+        }
+        try:
+            (Path(repair["repair_dir"]) / "repair.json").write_text(
+                json.dumps(repair, indent=2) + "\n",
+                encoding="utf-8",
+            )
+        except OSError as exc:
+            report["head_drift_restart_error"] = f"repair evidence update failed: {exc}"
+            print(
+                f"[coordinator] {repo}: head-drift repair evidence update failed: {exc}",
+                file=sys.stderr,
+            )
+            break
+        if not restart_preflight.succeeded:
+            report["head_drift_restart_error"] = restart_preflight.notes
+            print(
+                f"[coordinator] {repo}: head-drift preflight refresh failed: "
+                f"{restart_preflight.notes}",
+                file=sys.stderr,
+            )
+            break
+        print(
+            f"[coordinator] {repo}: {failed_phase} detected source-head drift; "
+            f"restart {restart_number + 1} recorded at {repair['repair_dir']}; "
+            "restarting from round 1"
+        )
+
+    if restarts:
+        report["head_drift_restarts"] = restarts
+        report["prior_stale_head_attempts"] = prior_attempts
     return report
 
 
@@ -509,18 +1143,31 @@ def coordinate_repo(
 def run(args: argparse.Namespace) -> int:
     output_dir = Path(args.output_dir).resolve()
     output_dir.mkdir(parents=True, exist_ok=True)
+    failure_marker = output_dir / "repo-review-run-failure.json"
+    failure_marker.unlink(missing_ok=True)
     registry_path = Path(args.registry).resolve()
     workflows_steward_root = registry_path.parent.parent
 
     workspace_root, _excluded, repos, _archive_paths = load_registry(registry_path)
     target_repos: list[str]
     if args.repos:
-        registry_set = {r.repo for r in repos}
-        target_repos = [r for r in args.repos if r in registry_set]
-        skipped = [r for r in args.repos if r not in registry_set]
-        if skipped:
+        active_registry_set = {r.repo for r in repos if r.status == "active"}
+        registered_set = {r.repo for r in repos}
+        target_repos = [repo for repo in args.repos if repo in active_registry_set]
+        unregistered = [repo for repo in args.repos if repo not in registered_set]
+        inactive = [
+            repo
+            for repo in args.repos
+            if repo in registered_set and repo not in active_registry_set
+        ]
+        if unregistered:
             print(
-                f"[coordinator] skipping unregistered: {', '.join(skipped)}",
+                f"[coordinator] skipping unregistered: {', '.join(unregistered)}",
+                file=sys.stderr,
+            )
+        if inactive:
+            print(
+                f"[coordinator] skipping non-active: {', '.join(inactive)}",
                 file=sys.stderr,
             )
     else:
@@ -580,7 +1227,7 @@ def run(args: argparse.Namespace) -> int:
     reports: list[dict[str, Any]] = []
     for repo in target_repos:
         print(f"[coordinator] {repo}: starting per-repo flow")
-        report = coordinate_repo(
+        report = coordinate_repo_with_restarts(
             repo=repo,
             output_dir=output_dir,
             workflows_steward_root=workflows_steward_root,
@@ -591,11 +1238,40 @@ def run(args: argparse.Namespace) -> int:
             round2_timeout=args.round2_timeout,
             max_turns=args.max_turns,
             skip_gate_enabled=not args.disable_skip_gate,
+            repair_attempts=getattr(args, "repair_attempts", 2),
         )
         reports.append(report)
+        failed_phase = failed_repo_phase(report)
+        if failed_phase:
+            quarantined_outputs = quarantine_aggregate_outputs(
+                output_dir,
+                repo=repo,
+                phase=failed_phase,
+            )
+            failure_marker.write_text(
+                json.dumps(
+                    {
+                        "schema": "repo-review-run-failure/v1",
+                        "failed_at": datetime.now(UTC).isoformat(),
+                        "repo": repo,
+                        "phase": failed_phase,
+                        "quarantined_aggregate_outputs": quarantined_outputs,
+                        "report": report,
+                    },
+                    indent=2,
+                )
+                + "\n",
+                encoding="utf-8",
+            )
+            print(
+                f"[coordinator] {repo}: {failed_phase} exhausted repair budget; "
+                f"aborting before aggregate outputs (failure: {failure_marker})",
+                file=sys.stderr,
+            )
+            return 1
 
     # 2b. Scorecard scan: surface low-scoring OpenSSF checks for human approval.
-    #     Same non-fatal pattern as docs-drift -- failures are logged but don't
+    #     Same non-fatal pattern as backlog-scan -- failures are logged but don't
     #     abort the cycle. Output is consumed by queue-builder preview, the final
     #     evaluator, and notify.
     scorecard_path = output_dir / "scorecard-scan.json"
@@ -687,6 +1363,37 @@ def run(args: argparse.Namespace) -> int:
         name="final-evaluator",
         timeout=600,
     )
+    if not final_result.succeeded:
+        quarantined_outputs = quarantine_aggregate_outputs(
+            output_dir,
+            repo="cycle",
+            phase="final-evaluator",
+        )
+        failure_marker.write_text(
+            json.dumps(
+                {
+                    "schema": "repo-review-run-failure/v1",
+                    "failed_at": datetime.now(UTC).isoformat(),
+                    "repo": "cycle",
+                    "phase": "final-evaluator",
+                    "quarantined_aggregate_outputs": quarantined_outputs,
+                    "report": {
+                        "succeeded": final_result.succeeded,
+                        "duration_seconds": final_result.duration_seconds,
+                        "notes": final_result.notes,
+                    },
+                },
+                indent=2,
+            )
+            + "\n",
+            encoding="utf-8",
+        )
+        print(
+            f"[coordinator] final evaluator FAILED; aborting before post-processing "
+            f"(failure: {failure_marker})",
+            file=sys.stderr,
+        )
+        return 1
 
     # 5. Backlog scan: surface enhancement/feature issues that fell between
     #    the opener (selects by priority:* label) and the design-vs-impl review
@@ -722,11 +1429,24 @@ def run(args: argparse.Namespace) -> int:
 
     # 5b. Docs-drift scan: classify load-bearing claims in source-of-truth
     #     operational docs (README/AGENTS/CLAUDE/docs/ops/...) for drift vs
-    #     current implementation. Issue #2090. Same non-fatal pattern as
-    #     backlog-scan -- failures are logged but don't abort the cycle.
+    #     current implementation. The scanner is sequential per document, so
+    #     its outer timeout must cover the configured workload. Its output is
+    #     required publication evidence: incomplete/error-bearing results fail
+    #     closed and prevent the notifier from presenting a stale success.
     docs_drift_path = output_dir / "docs-drift-scan.json"
+    docs_drift_attempt_id = datetime.now(UTC).strftime("%Y%m%dT%H%M%S.%fZ")
+    docs_drift_attempt_path = (
+        output_dir / f".docs-drift-scan.{docs_drift_attempt_id}.in-progress.json"
+    )
     docs_drift_config = workflows_steward_root / "config" / "source_of_truth_docs.yml"
     if docs_drift_config.is_file():
+        expected_doc_count = configured_docs_drift_doc_count(
+            docs_drift_config,
+            target_repos,
+        )
+        docs_drift_per_doc, docs_drift_minimum, docs_drift_buffer = (
+            configured_docs_drift_timeout_values()
+        )
         docs_drift_cmd = [
             sys.executable,
             str(workflows_steward_root / "scripts" / "repo_review_docs_drift_scan.py"),
@@ -735,27 +1455,88 @@ def run(args: argparse.Namespace) -> int:
             "--docs-config",
             str(docs_drift_config),
             "--out",
-            str(docs_drift_path),
+            str(docs_drift_attempt_path),
             "--workspace-root",
             str(workspace_root),
+            "--timeout",
+            str(docs_drift_per_doc),
+            "--repos",
+            *target_repos,
         ]
+        configured_timeout = getattr(args, "docs_drift_timeout", None)
+        docs_drift_timeout = (
+            configured_timeout
+            if configured_timeout is not None
+            else docs_drift_subprocess_timeout(
+                docs_drift_config,
+                target_repos,
+                per_doc_timeout=docs_drift_per_doc,
+                minimum=docs_drift_minimum,
+                buffer=docs_drift_buffer,
+            )
+        )
         docs_drift_result = run_subprocess(
             docs_drift_cmd,
             cwd=workflows_steward_root,
             log_path=log_dir / "docs-drift-scan.log",
             name="docs-drift-scan",
-            timeout=300,  # same timeout pattern as backlog-scan
+            timeout=docs_drift_timeout,
         )
-        if not docs_drift_result.succeeded:
-            print(
-                f"[coordinator] docs-drift-scan FAILED (non-fatal): {docs_drift_result.notes}",
-                file=sys.stderr,
-            )
+        output_valid, output_notes = validate_docs_drift_output(
+            docs_drift_attempt_path,
+            expected_doc_count=expected_doc_count,
+        )
+        docs_drift_failed = not docs_drift_result.succeeded or not output_valid
+        failure_notes = docs_drift_result.notes if not docs_drift_result.succeeded else output_notes
     else:
+        expected_doc_count = 0
+        docs_drift_timeout = 0
+        docs_drift_failed = True
+        failure_notes = f"required config not found at {docs_drift_config}"
+        docs_drift_result = StepResult(
+            name="docs-drift-scan",
+            succeeded=False,
+            duration_seconds=0.0,
+            notes=failure_notes,
+        )
+
+    if docs_drift_failed:
+        quarantined_outputs = quarantine_aggregate_outputs(
+            output_dir,
+            repo="cycle",
+            phase="docs-drift-scan",
+            extra_paths=(docs_drift_attempt_path,),
+        )
+        failure_marker.write_text(
+            json.dumps(
+                {
+                    "schema": "repo-review-run-failure/v1",
+                    "failed_at": datetime.now(UTC).isoformat(),
+                    "repo": "cycle",
+                    "phase": "docs-drift-scan",
+                    "quarantined_aggregate_outputs": quarantined_outputs,
+                    "report": {
+                        "succeeded": docs_drift_result.succeeded,
+                        "duration_seconds": docs_drift_result.duration_seconds,
+                        "notes": failure_notes,
+                        "expected_doc_count": expected_doc_count,
+                        "outer_timeout_seconds": docs_drift_timeout,
+                    },
+                },
+                indent=2,
+            )
+            + "\n",
+            encoding="utf-8",
+        )
         print(
-            f"[coordinator] docs-drift-scan: skipping -- config not found at {docs_drift_config}",
+            f"[coordinator] docs-drift-scan FAILED: {failure_notes}; aborting before "
+            f"notify (failure: {failure_marker})",
             file=sys.stderr,
         )
+        return 1
+
+    docs_drift_attempt_path.replace(docs_drift_path)
+    print(f"[coordinator] docs-drift-scan: ok -- {output_notes}")
 
     # 6. Surface the cycle outcome to the human reviewer (macOS notification +
     #    persistent desktop file). The cron does NOT auto-upload; humans must
@@ -800,10 +1581,15 @@ def run(args: argparse.Namespace) -> int:
             continue
         r1 = report.get("round1") or {}
         r2 = report.get("round2") or {}
+        body_writer = report.get("body_writer") or {}
         r1_label = "ok" if r1.get("succeeded") else "FAIL"
         r2_label = "ok" if r2.get("succeeded") else ("FAIL" if r2 else "n/a")
+        body_writer_label = (
+            "ok" if body_writer.get("succeeded") else ("FAIL" if body_writer else "n/a")
+        )
         print(
             f"  - {repo}: round1={r1_label} round2={r2_label} "
+            f"body-writer={body_writer_label} "
             f"(r1 {int(r1.get('duration_seconds') or 0)}s, "
             f"r2 {int((r2 or {}).get('duration_seconds') or 0)}s)"
         )
@@ -812,9 +1598,16 @@ def run(args: argparse.Namespace) -> int:
         0
         if all(
             (r.get("round1") or {}).get("succeeded")
-            and (r.get("skip_gate_fired") or (r.get("round2") or {}).get("succeeded"))
+            and (
+                r.get("skip_gate_fired")
+                or (
+                    (r.get("round2") or {}).get("succeeded")
+                    and (r.get("body_writer") or {}).get("succeeded")
+                )
+            )
             for r in reports
         )
+        and final_result.succeeded
         else 1
     )
 
@@ -870,6 +1663,21 @@ def main() -> int:
         type=int,
         default=3,
         help="maximum negotiation turns per round-2 run (default: 3)",
+    )
+    parser.add_argument(
+        "--repair-attempts",
+        type=nonnegative_int,
+        default=configured_repair_attempts(),
+        help="repo-scoped repair-and-retry attempts per failed phase (default: config)",
+    )
+    parser.add_argument(
+        "--docs-drift-timeout",
+        type=int,
+        default=None,
+        help=(
+            "docs-drift scan outer timeout in seconds (default: selected configured "
+            "document count x the TOML per-doc budget, plus its buffer and minimum)"
+        ),
     )
     parser.add_argument(
         "--disable-skip-gate",

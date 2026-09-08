@@ -1,0 +1,28 @@
+{
+  "schema_version": "tracked-variable/v1",
+  "variable_id": "var:missing-evidence-fixture",
+  "ontology_key": "legal.withdrawal.notice_days",
+  "ontology_family": "clause",
+  "document_id": "document:abc123abcdefabcdefabcdefabcdefabcdefabcdefabcdefabcdefabcdefabcd",
+  "artifact_id": "artifact:def456def456def456def456def456def456def456def456def456def456def4",
+  "entity_ref": "manager:cik_0001067983",
+  "period": "2025-Q4",
+  "status": "present",
+  "value_text": "90 days written notice",
+  "provenance": {
+    "document": {
+      "source_id": "document:abc123abcdefabcdefabcdefabcdefabcdefabcdefabcdefabcdefabcdefabcd",
+      "locator": {
+        "page": 42,
+        "section": "7.3"
+      }
+    },
+    "mirror": {
+      "mirror_root": "/path/to/mirror",
+      "blob_path": "blobs/sha256/ab/cd/abc123abcdefabcdefabcdefabcdefabcdefabcdefabcdefabcdefabcdefabcd",
+      "page_anchor": "#page=42"
+    }
+  },
+  "extracted_at": "2026-09-04T18:00:00Z",
+  "extractor_run_id": "sha256:bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb"
+}

@@ -1274,17 +1274,30 @@ async function run({ github, context, core }) {
       sealed_head_sha: '',
       review_evidence: {},
     });
-    await withRetry((client) => client.rest.pulls.update({
-      owner,
-      repo,
-      pull_number: pr.number,
-      body,
-    }));
     await withRetry((client) => client.rest.issues.addLabels({
       owner,
       repo,
       issue_number: pr.number,
       labels: ['sync:delivery-staging'],
+    }));
+    // A previous generation can leave this label behind. Clear it while the
+    // staging hold is active so sealing emits a fresh labeled event with the
+    // sealed body for consumers whose Gate does not listen for body edits.
+    try {
+      await withRetry((client) => client.rest.issues.removeLabel({
+        owner,
+        repo,
+        issue_number: pr.number,
+        name: 'sync:delivery-ready',
+      }));
+    } catch (labelError) {
+      if (labelError?.status !== 404) throw labelError;
+    }
+    await withRetry((client) => client.rest.pulls.update({
+      owner,
+      repo,
+      pull_number: pr.number,
+      body,
     }));
     return { reviewStartedAt, body, dryRun: false };
   }
@@ -1901,6 +1914,27 @@ async function run({ github, context, core }) {
         continue;
       }
   
+      if (selection.foreignPlan) {
+        const owningMetadata = syncMetadata(selection.active);
+        console.log(`Leaving PR #${selection.active.number} untouched: it belongs to another plan`);
+        results.push({
+          owner, repo, pr: selection.active.number, branch: selection.active.head.ref,
+          head_sha: selection.active.head.sha,
+          status: 'delivery_plan_handoff', delivery_reason: 'plan_mismatch',
+          delivery_generation: selection.deliveryRecord.generation,
+          plan_id: selection.deliveryRecord.plan_id,
+          plan_scope: owningMetadata?.plan_scope || 'full',
+          scope_base_sha: owningMetadata?.scope_base_sha || '',
+          source_commit: selection.deliveryRecord.source_commit,
+          continuation_lane: selectedSyncHash === 'candidate' ? 'candidate' : requestedSyncHash,
+          check_state: 'checks_pending', review_state: 'not-applicable',
+          delivery_disposition: 'other-plan', blocker_owner: 'maint-71',
+          expected_plan_id: expectedPlanId, observed_plan_id: selection.deliveryRecord.plan_id,
+          next_command: 'resume-owning-plan',
+        });
+        continue;
+      }
+
       const { data: selectedHeadCommit } = await withRetry((client) =>
         client.rest.git.getCommit({
           owner,

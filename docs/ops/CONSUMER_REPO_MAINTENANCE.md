@@ -431,6 +431,14 @@ If a later run computes the same base and desired tree, it preserves the PR's
 current review/seal state; metadata-only refreshes therefore cannot restart
 review forever.
 
+Created and refreshed deliveries also carry the `sync`, `automated`, and
+`workflow:source-sync` labels plus the `workflow-source:sync_campaign` marker.
+Consumer event handlers treat generated sync provenance as authoritative over
+issue-like text in a file summary only when that label set, the stable
+`sync/workflows-candidate` or `sync/workflows-delivery` branch, the canonical
+Workflows producer, and complete immutable consumer-sync marker all agree.
+Removing any binding restores ordinary explicit-issue precedence.
+
 Every real head update is fail-closed on commit identity. Maint 68 mints a
 repository-scoped Workflows GitHub App installation token, uploads the staged
 blobs/tree through GitHub's Git database API, and creates the commit without
@@ -538,6 +546,12 @@ does not add Collab-Admin to the registry, candidate or campaign evidence, or
 scheduled, repository-dispatch, workflow-call, mixed-repository, unscoped, or
 other selector runs. Maint 71 still applies the normal exact-head, review,
 required-check, seal, and signature gates before any merge.
+
+A plan-bound retry leaves a stable PR carrying a different plan untouched. A
+plan ID mismatch establishes lack of ownership, not supersession: Maint 71 reports
+`delivery_plan_handoff` with the expected and observed plan IDs and persists a
+transient Maint 82 continuation bound to the owning plan, source, scope and head. Stale-PR cleanup is likewise restricted to the selected plan.
+This prevents a delayed prior campaign from closing a newer candidate or delivery.
 
 Active non-outdated review threads remain merge blockers. When a shared source
 repair proves a finding obsolete on the current generated head, an authenticated

@@ -1344,6 +1344,21 @@ def run_gitnexus_analyze(
     except (FileNotFoundError, subprocess.TimeoutExpired) as exc:
         return False, str(exc)
     output = "\n".join(part for part in [result.stdout, result.stderr] if part).strip()
+    normalized_output = output.casefold()
+    corruption_markers = (
+        "corrupted wal file",
+        "invalid wal record type",
+        "database disk image is malformed",
+        "database is malformed",
+        "file is not a database",
+        "sqlite_corrupt",
+    )
+    corruption = next(
+        (marker for marker in corruption_markers if marker in normalized_output),
+        "",
+    )
+    if corruption:
+        return False, f"GitNexus corruption detected ({corruption}):\n{output}"
     return result.returncode == 0, output
 
 

@@ -21,7 +21,7 @@ from typing import Any
 ARTIFACT_SCHEMA = "workflows.model-profile-trial-result/v2"
 IDENTITY_AUTHORITY = "workflows-read-only-trial-artifact/v2"
 COLLECTOR_IDENTITY_AUTHORITY = "github-actions-api/workflows-read-only-trial-artifact/v2"
-EXPECTED_CLI_VERSION = "0.144.1"
+EXPECTED_CLI_VERSION = "0.153.2"
 EXPECTED_REPOSITORY = "stranske/Workflows"
 EXPECTED_WORKFLOW_REF = (
     "stranske/Workflows/.github/workflows/agents-model-profile-trial.yml@refs/heads/main"
@@ -30,6 +30,7 @@ MAX_SOURCE_FILES = 20_000
 MAX_SOURCE_BYTES = 200 * 1024 * 1024
 SOURCE_SKIP_DIRS = {".git", ".venv", "venv", "node_modules", "dist", "build", "__pycache__"}
 EXPECTED_PROFILES = {
+    "codex-6-astra-high": "gpt-6-astra",
     "codex-5.6-sol-high": "gpt-5.6-sol",
     "codex-5.6-terra-high": "gpt-5.6-terra",
     "codex-5.6-luna-high": "gpt-5.6-luna",
@@ -236,8 +237,8 @@ def resolve_profile(
     model = matches[0]
     if model.get("provider") != "openai":
         raise ContractError(f"model registry provider mismatch for {expected_model}")
-    if model.get("worker_profile") is not True or model.get("lifecycle") != "trial":
-        raise ContractError(f"model registry trial-worker metadata mismatch for {expected_model}")
+    if model.get("lifecycle") not in {"current", "trial"}:
+        raise ContractError(f"model registry lifecycle mismatch for {expected_model}")
 
     return {
         "profile_id": profile_id,

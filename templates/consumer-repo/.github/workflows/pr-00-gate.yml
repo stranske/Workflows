@@ -1041,15 +1041,47 @@ jobs:
               return;
             }
             const body = fs.readFileSync(commentPath, 'utf8');
-            await upsertAnchoredComment({
-              github,
-              context,
-              core,
-              prNumber: context.payload.pull_request?.number,
-              body,
-              anchorPattern: /<!--\s*gate-summary:([^>]*)-->/i,
-              fallbackMarker: '<!-- gate-summary:',
-            });
+            // Same read-only-fork case as 'Report Gate commit status' below, and it
+            // runs FIRST: a pull request from a fork gets a read-only token, so the
+            // issue-comment write answers 403 'Resource not accessible by
+            // integration'. Rethrowing here failed the summary job before the status
+            // step could report anything, so tolerating it there alone would not have
+            // turned a green fork PR green. The verdict still has to reach a human, so
+            // the comment body falls back to the job summary.
+            const pullRequest = context.payload.pull_request;
+            const headRepo = pullRequest?.head?.repo?.full_name;
+            const baseRepo = pullRequest?.base?.repo?.full_name;
+            const isForkPullRequest = Boolean(
+              headRepo && baseRepo && headRepo !== baseRepo,
+            );
+            try {
+              await upsertAnchoredComment({
+                github,
+                context,
+                core,
+                prNumber: context.payload.pull_request?.number,
+                body,
+                anchorPattern: /<!--\s*gate-summary:([^>]*)-->/i,
+                fallbackMarker: '<!-- gate-summary:',
+              });
+            } catch (error) {
+              const readOnlyForkToken =
+                error?.status === 403 &&
+                isForkPullRequest &&
+                !/rate limit/i.test(error?.message || '');
+              if (!readOnlyForkToken) {
+                throw error;
+              }
+              core.warning(
+                `Fork pull request from ${headRepo}: the workflow token is ` +
+                  'read-only, so the consolidated Gate summary comment could not ' +
+                  `be written (${error.message}). Falling back to the job summary.`,
+              );
+              await core.summary
+                .addHeading('Gate summary (fork pull request)', 3)
+                .addRaw(body)
+                .write();
+            }
 
       - name: Report Gate commit status
         if: ${{ always() }}
@@ -1124,11 +1156,40 @@ jobs:
               const hitRateLimit =
                 error?.status === 403 &&
                 /rate limit/i.test(error?.message || '');
+              // A pull request opened from a fork runs with a read-only token, so the
+              // statuses write is refused with 403 'Resource not accessible by
+              // integration'. Rethrowing failed this job AFTER the verdict was already
+              // computed, so a fork PR with green CI reported a red Gate and its real
+              // verdict was printed nowhere. Tolerate it only for a fork head; a 403 on
+              // a same-repo PR is a genuine permission regression and must still fail.
+              const pullRequest = context.payload.pull_request;
+              const headRepo = pullRequest?.head?.repo?.full_name;
+              const baseRepo = pullRequest?.base?.repo?.full_name;
+              const isForkPullRequest = Boolean(
+                headRepo && baseRepo && headRepo !== baseRepo,
+              );
+              const readOnlyForkToken =
+                error?.status === 403 && isForkPullRequest && !hitRateLimit;
               if (hitRateLimit) {
                 core.warning(
                   'Rate limit prevented Gate from updating the commit status; ' +
                     'leaving existing status untouched.',
                 );
+              } else if (readOnlyForkToken) {
+                core.warning(
+                  `Fork pull request from ${headRepo}: the workflow token is ` +
+                    "read-only, so the 'Gate / gate' commit status could not be " +
+                    `written (${error.message}). Gate verdict for ${sha} is ` +
+                    `'${state}': ${description}.`,
+                );
+                await core.summary
+                  .addHeading('Gate verdict (fork pull request)', 3)
+                  .addRaw(
+                    'The `Gate / gate` commit status could not be written for ' +
+                      `\`${sha}\` because a pull request from a fork receives a ` +
+                      `read-only token. Gate verdict: **${state}** \u2014 ${description}`,
+                  )
+                  .write();
               } else {
                 throw error;
               }

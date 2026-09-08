@@ -51,7 +51,9 @@ Keepalive **must not** dispatch an agent unless *all* conditions hold:
 3. **Tasks present:** The PR body contains unchecked tasks in the Automated Status Summary.
 
 > **Note on auto-pilot:** Issue formatting now runs inside the auto-pilot workflow before a PR exists. Gate guardrails apply to **PR keepalive dispatch**, not the issue‑formatting phase of auto-pilot.
-
+>
+> **Root workflow-run filter:** The root keepalive loop rejects push-triggered Gate runs at the job condition before runner allocation. Pull-request and manually dispatched Gate runs remain eligible even when GitHub omits the `pull_requests` association, because `evaluateKeepaliveLoop` can recover the open PR from the run head SHA.
+>
 > **Multi-Agent Note:** The `agent:*` label determines which agent workflow runs. See [`MULTI_AGENT_ROUTING.md`](MULTI_AGENT_ROUTING.md) for details.
 
 ### Periodic re-evaluation (keepalive sweep)

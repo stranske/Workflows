@@ -55,12 +55,12 @@ on:
       codex_cli_version:
         description: 'Pinned @openai/codex CLI version to install.'
         required: false
-        default: '0.144.1'
+        default: '0.153.2'
         type: string
       codex_model:
         description: 'Codex model ID to pass to codex exec.'
         required: false
-        default: 'gpt-5.6-terra'
+        default: 'gpt-6-astra'
         type: string
       codex_fallback_models:
         description: 'Space-separated fallback Codex model IDs for the selected profile.'
@@ -847,7 +847,7 @@ jobs:
       - name: Resolve Codex run model
         id: codex_model
         env:
-          DEFAULT_CODEX_MODEL: gpt-5.6-terra
+          DEFAULT_CODEX_MODEL: gpt-6-astra
           FALLBACK_CODEX_MODELS: ${{ inputs.codex_fallback_models }}
           REQUESTED_MODEL: ${{ inputs.codex_model }}
         run: |

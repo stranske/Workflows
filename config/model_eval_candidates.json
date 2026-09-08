@@ -44,6 +44,11 @@
       "provider": "openai",
       "model_id": "gpt-5.6-sol",
       "role": "candidate"
+    },
+    {
+      "provider": "openai",
+      "model_id": "gpt-6-astra",
+      "role": "candidate"
     }
   ]
 }

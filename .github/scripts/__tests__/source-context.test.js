@@ -712,6 +712,92 @@ test('resolvePrSourceContext infers local_request for conventional work-branch p
   );
 });
 
+test('bound generated sync provenance overrides incidental issue text', () => {
+  const metadata = {
+    schema: 'workflows-consumer-sync-pr/v1',
+    consumer_repo: 'stranske/Fine-Art-Archive',
+    source_repository: 'stranske/Workflows',
+    source_sha: 'b'.repeat(40),
+    plan_id: `sha256:${'a'.repeat(64)}`,
+    source_commit: 'b'.repeat(40),
+    sync_branch: 'sync/workflows-delivery',
+  };
+  const body = [
+    '## Sync Summary',
+    '',
+    '- AGENTS.md (Incident: resolved: #3275)',
+    '<!-- workflow-source:sync_campaign -->',
+    `<!-- workflows-consumer-sync:v1 ${JSON.stringify(metadata)} -->`,
+  ].join('\n');
+  const pull = {
+    body,
+    head: {
+      ref: 'sync/workflows-delivery',
+      repo: { full_name: 'stranske/Fine-Art-Archive' },
+    },
+    base: { repo: { full_name: 'stranske/Fine-Art-Archive' } },
+    title: 'chore: sync workflow templates',
+    labels: [
+      { name: 'sync' },
+      { name: 'automated' },
+      { name: 'workflow:source-sync' },
+    ],
+  };
+
+  const context = resolvePrSourceContext(pull);
+  assert.equal(context.sourceType, SOURCE_TYPES.SYNC_CAMPAIGN);
+  assert.equal(context.issueNumber, null);
+  assert.equal(context.sourceRef, `consumer-sync-plan:${metadata.plan_id}`);
+  assert.equal(context.isExplicit, true);
+  assert.equal(context.requiresIssue, false);
+  assert.deepEqual(templateResolvePrSourceContext(pull), context);
+
+  const unboundPulls = [
+    {
+      ...pull,
+      labels: [{ name: 'sync' }, { name: 'automated' }],
+    },
+    {
+      ...pull,
+      labels: [{ name: 'sync' }, { name: 'workflow:source-sync' }],
+    },
+    {
+      ...pull,
+      head: { ...pull.head, ref: 'sync/workflows-candidate' },
+    },
+    {
+      ...pull,
+      head: { ...pull.head, repo: { full_name: 'stranske/Other-Repo' } },
+    },
+    {
+      ...pull,
+      head: { ref: pull.head.ref },
+    },
+    {
+      ...pull,
+      base: {},
+    },
+    {
+      ...pull,
+      body: body.replace(metadata.plan_id, 'sha256:not-an-immutable-plan'),
+    },
+    {
+      ...pull,
+      body: body.replace(metadata.source_sha, 'c'.repeat(40)),
+    },
+    {
+      ...pull,
+      body: body.replace(metadata.source_repository, 'example/Other-Workflows'),
+    },
+  ];
+  for (const unboundPull of unboundPulls) {
+    const unboundContext = resolvePrSourceContext(unboundPull);
+    assert.equal(unboundContext.sourceType, SOURCE_TYPES.GITHUB_ISSUE);
+    assert.equal(unboundContext.issueNumber, 3275);
+    assert.equal(unboundContext.requiresIssue, true);
+  }
+});
+
 test('resolvePrSourceContext accepts explicit sync source markers from consumer sync PRs', () => {
   const context = resolvePrSourceContext({
     body: [

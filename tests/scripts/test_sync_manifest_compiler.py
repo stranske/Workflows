@@ -487,7 +487,7 @@ def test_real_manifest_compiles_every_declared_copy_entry() -> None:
 
     assert plan["schema"] == PLAN_SCHEMA
     Draft202012Validator(schema).validate(plan)
-    assert len(plan["entries"]) == 226
+    assert len(plan["entries"]) == 228
     assert len(plan["removals"]) == 17
     assert all(entry["source_tree"] in {"root", "template"} for entry in plan["entries"])
     assert all(entry["resolved_source"] for entry in plan["entries"])

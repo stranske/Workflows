@@ -24,6 +24,24 @@
       "status": "not-applicable",
       "reason": "Local agent-orchestration tool repo; receives consumer sync for agent machinery but has no substantive LangSmith-traced runtime surface (offload-only Brain runs).",
       "registry_activation_condition": "Register when Orchestrator gains an LLM-backed runtime or agent-observability surface that should participate in fleet LangSmith metrics."
+    },
+    {
+      "repo": "stranske/Doc-Lineage",
+      "status": "not-applicable",
+      "reason": "New consumer created 2026-09-04 from the Template; document-lineage engine with no LLM-backed runtime yet.",
+      "registry_activation_condition": "Move to the LangSmith registry when Doc-Lineage gains an LLM-backed extraction or agent-observability surface."
+    },
+    {
+      "repo": "stranske/Deliverable-Render",
+      "status": "not-applicable",
+      "reason": "New consumer created 2026-09-04; deterministic renderers with no LLM-backed runtime.",
+      "registry_activation_condition": "Move to the LangSmith registry if a renderer gains an LLM-backed surface."
+    },
+    {
+      "repo": "stranske/Manager-Mosaic",
+      "status": "not-applicable",
+      "reason": "New consumer created 2026-09-04; no LLM-backed runtime yet. Extraction and synthesis surfaces will be reviewed for tracing when they land.",
+      "registry_activation_condition": "Move to the LangSmith registry when the mosaic gains an LLM-backed extraction or synthesis surface."
     }
   ]
 }

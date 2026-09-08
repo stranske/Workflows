@@ -12,9 +12,11 @@ You are NOT a reviewer. You are NOT discovering new gaps. The gaps have already 
 3. **Source converged.json**: `/Users/teacher/Library/CloudStorage/Dropbox/Learning/Code/Workflows-steward/docs/reports/repo-review-phase2-pilot/round2/<REPO_SAFE>/converged.json`
 4. **The actual repo at `<LOCAL_REPO_PATH>`** — read every file cited in `design_refs`, `implementation_refs`, and `test_refs` at the cited line numbers. Concrete file refs are the difference between a stub and a quality issue.
 
-## Procedure for each candidate WITHOUT a non-empty `body` field
+## Procedure for each candidate without a compliant `body` field
 
-For each entry in `converged_candidates` (and `meta_candidate` if present) where `body` is empty/missing:
+For each entry in `converged_candidates` (and `meta_candidate` if present) where
+`body` is empty/missing or the invocation header identifies the existing body
+as failing the deterministic quality gate:
 
 1. Read every file cited in `design_refs`, `implementation_refs`, `test_refs` at the cited line numbers. If a candidate cites `etl/summariser_flow.py:24-28`, actually read those lines so the body can quote/paraphrase the real code.
 
@@ -34,7 +36,7 @@ For each entry in `converged_candidates` (and `meta_candidate` if present) where
 
 3. The body should be 2500–4500 characters typical, aligned with the reference issues. Less than 1500 chars is suspect; more than 6000 may include filler.
 
-4. Write the body back into the candidate's `body` field in the converged.json file. Preserve all other fields exactly. After updating each candidate, the JSON should still validate against the round-2 schema.
+4. Write or replace the body in the candidate's `body` field in the converged.json file. Preserve all other fields exactly. After updating each candidate, the JSON should still validate against the round-2 schema.
 
 ## Quality gate (apply before writing each body)
 
@@ -52,7 +54,9 @@ If you can't meet this bar for a candidate (e.g. the structured fields are too t
 
 After writing all bodies, the converged.json must:
 - Still validate against `python /Users/teacher/Library/CloudStorage/Dropbox/Learning/Code/Workflows-steward/scripts/repo_review_round2_schema.py --converged <path>`.
-- Have `body` populated on every `converged_candidates[*]` and `meta_candidate` entry that previously lacked one.
+- Have a compliant `body` on every `converged_candidates[*]` and `meta_candidate`
+  entry, including any non-empty body explicitly named for repair in the
+  invocation header.
 
 Do NOT modify any file outside the converged.json. Do NOT touch the round-1 findings.json files. Do NOT commit, push, or create issues.
 

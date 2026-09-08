@@ -2,6 +2,10 @@
 
 from __future__ import annotations
 
+import sys
+import types
+from unittest.mock import Mock, call
+
 import pytest
 from scripts.langchain import task_validator as task_validator_module
 from scripts.langchain.task_validator import (
@@ -21,6 +25,7 @@ from scripts.langchain.task_validator import (
     validate_no_items_lost,
     validate_tasks,
 )
+from scripts.langchain.trace_utils import TraceInfo
 
 
 class TestHeuristicDetection:
@@ -415,3 +420,198 @@ class TestValidationResultSerialization:
         assert len(d["fates"]) == 1
         assert d["audit_summary"] == "2 input -> 2 output"
         assert d["provider_used"] == "github-models"
+
+
+@pytest.fixture
+def refinement_boundary(monkeypatch):
+    """Replace only the optional prompt SDK and provider invocation boundary."""
+
+    class Prompt:
+        def __init__(self, text):
+            self.text = text
+
+        def __or__(self, client):
+            return (self.text, client)
+
+    prompts = types.ModuleType("langchain_core.prompts")
+    prompts.ChatPromptTemplate = types.SimpleNamespace(from_template=Prompt)
+    core = types.ModuleType("langchain_core")
+    core.prompts = prompts
+    monkeypatch.setitem(sys.modules, "langchain_core", core)
+    monkeypatch.setitem(sys.modules, "langchain_core.prompts", prompts)
+    primary, fallback = object(), object()
+    select = Mock(return_value=(primary, "github-models"))
+    invoke = Mock()
+    monkeypatch.setattr(task_validator_module, "_get_llm_client", select)
+    monkeypatch.setattr(task_validator_module, "invoke_with_trace", invoke)
+    return primary, fallback, select, invoke
+
+
+@pytest.mark.parametrize("message_object", [False, True], ids=["text", "message"])
+def test_refinement_round_trip_preserves_order_fates_and_trace(refinement_boundary, message_object):
+    primary, _, select, invoke = refinement_boundary
+    text = "Decisions:\n- IMPROVE: Fix the login bug in auth.py\n- DROP: Section header"
+    response = types.SimpleNamespace(content=text) if message_object else text
+    trace = TraceInfo("trace-123", "https://example.test/traces/trace-123")
+    invoke.return_value = response, trace
+    clean = "Add unit tests for the authentication module"
+
+    result = validate_tasks(["", "Fix", clean, "### Tasks"], context="Repair login")
+
+    assert result.tasks == ["Fix the login bug in auth.py", clean]
+    assert result.to_dict() == {
+        "tasks": ["Fix the login bug in auth.py", clean],
+        "fates": [
+            {
+                "original": "Fix",
+                "outcome": "improved",
+                "result": "Fix the login bug in auth.py",
+                "reason": "LLM improved for actionability",
+                "warnings": ["too_short"],
+                "original_index": 1,
+            },
+            {
+                "original": "### Tasks",
+                "outcome": "dropped",
+                "result": None,
+                "reason": "Section header",
+                "warnings": ["too_short", "is_header"],
+                "original_index": 3,
+            },
+        ],
+        "audit_summary": (
+            "Task validation: 3 input → 2 output. "
+            "Clean: 1, Kept: 0, Improved: 1, Dropped: 1, Fallback: 0"
+        ),
+        "provider_used": "github-models",
+        "langsmith_trace_id": trace.trace_id,
+        "langsmith_trace_url": trace.trace_url,
+    }
+    select.assert_called_once_with()
+    invoke.assert_called_once_with(
+        (task_validator_module.PROMPT_PATH.read_text(encoding="utf-8").strip(), primary),
+        {
+            "flagged_items": (
+                "1. Fix (warnings: too_short)\n" "2. ### Tasks (warnings: too_short, is_header)"
+            ),
+            "context": "Repair login",
+        },
+        operation="task_validator",
+    )
+
+
+def test_refinement_missing_prompt_dependency_keeps_originals(monkeypatch, refinement_boundary):
+    _, _, select, invoke = refinement_boundary
+    monkeypatch.setitem(sys.modules, "langchain_core.prompts", None)
+    flagged = [{"task": "Fix", "warnings": ["too_short"], "index": 4}]
+
+    tasks, fates, provider, trace = refine_flagged_tasks(flagged)
+
+    assert tasks == ["Fix"]
+    assert [fate.to_dict() for fate in fates] == [
+        {
+            "original": "Fix",
+            "outcome": "unprocessed",
+            "result": "Fix",
+            "reason": "LangChain unavailable; keeping original",
+            "warnings": ["too_short"],
+            "original_index": 4,
+        }
+    ]
+    assert provider is None
+    assert trace == TraceInfo()
+    select.assert_called_once_with()
+    invoke.assert_not_called()
+
+
+def test_refinement_auth_fallback_retries_same_prompt_and_returns_fallback_trace(
+    refinement_boundary,
+):
+    primary, fallback, select, invoke = refinement_boundary
+    select.side_effect = [(primary, "github-models"), (fallback, "openai")]
+    trace = TraceInfo("fallback-trace", "https://example.test/fallback")
+    invoke.side_effect = [RuntimeError("GitHub MODELS HTTP 401"), ("KEEP: rewritten", trace)]
+
+    tasks, fates, provider, actual_trace = refine_flagged_tasks([{"task": "Fix", "index": 2}])
+
+    assert tasks == ["Fix"]
+    assert fates == [TaskFate("Fix", TaskOutcome.KEPT, "Fix", "LLM confirmed valid", [], 2)]
+    assert provider == "openai"
+    assert actual_trace == trace
+    assert select.call_args_list == [call(), call(force_openai=True)]
+    prompt = task_validator_module.PROMPT_PATH.read_text(encoding="utf-8").strip()
+    payload = {"flagged_items": "1. Fix", "context": "None"}
+    assert invoke.call_args_list == [
+        call((prompt, primary), payload, operation="task_validator"),
+        call((prompt, fallback), payload, operation="task_validator"),
+    ]
+
+
+@pytest.mark.parametrize(
+    ("provider", "message"),
+    [
+        ("github-models", "models HTTP 503"),
+        ("github-models", "unrelated HTTP 401"),
+        ("openai", "models HTTP 401"),
+    ],
+    ids=["non-auth", "non-models", "non-github"],
+)
+def test_refinement_unrelated_errors_propagate_without_fallback(
+    refinement_boundary, provider, message
+):
+    primary, _, select, invoke = refinement_boundary
+    select.return_value = primary, provider
+    error = RuntimeError(message)
+    invoke.side_effect = error
+
+    with pytest.raises(RuntimeError) as caught:
+        refine_flagged_tasks([{"task": "Fix"}])
+
+    assert caught.value is error
+    select.assert_called_once_with()
+    assert invoke.call_count == 1
+
+
+@pytest.mark.parametrize("fallback_available", [False, True], ids=["unavailable", "fails"])
+def test_refinement_exhausted_fallback_preserves_error(refinement_boundary, fallback_available):
+    primary, fallback, select, invoke = refinement_boundary
+    initial_error = RuntimeError("models HTTP 401")
+    fallback_error = RuntimeError("fallback unavailable")
+    select.side_effect = [
+        (primary, "github-models"),
+        (fallback, "openai") if fallback_available else None,
+    ]
+    invoke.side_effect = [initial_error, fallback_error]
+
+    with pytest.raises(RuntimeError) as caught:
+        refine_flagged_tasks([{"task": "Fix"}])
+
+    assert caught.value is (fallback_error if fallback_available else initial_error)
+    assert select.call_args_list == [call(), call(force_openai=True)]
+    assert invoke.call_count == (2 if fallback_available else 1)
+
+
+@pytest.mark.parametrize("prompt_exists", [False, True], ids=["builtin", "file"])
+def test_refinement_loads_prompt_from_file_or_builtin(
+    tmp_path, monkeypatch, refinement_boundary, prompt_exists
+):
+    primary, _, _, invoke = refinement_boundary
+    prompt = tmp_path / "refine.md"
+    if prompt_exists:
+        prompt.write_text("  Custom {flagged_items} for {context}\n", encoding="utf-8")
+    monkeypatch.setattr(task_validator_module, "PROMPT_PATH", prompt)
+    invoke.return_value = "KEEP: Fix", TraceInfo()
+
+    tasks, _, _, _ = refine_flagged_tasks([{"task": "Fix"}])
+
+    assert tasks == ["Fix"]
+    expected = (
+        "Custom {flagged_items} for {context}"
+        if prompt_exists
+        else task_validator_module.REFINEMENT_PROMPT
+    )
+    invoke.assert_called_once_with(
+        (expected, primary),
+        {"flagged_items": "1. Fix", "context": "None"},
+        operation="task_validator",
+    )

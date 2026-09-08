@@ -2679,7 +2679,7 @@ async function evaluateKeepaliveLoop({ github: rawGithub, context, core, payload
     // agent:auto delegation — resolve actual agent via policy after state is available
     if (agentRoutingMode === 'auto') {
       try {
-        const { decideNextAgent, loadRouteWeights, DEFAULT_ROUTE_WEIGHTS_URL } =
+        const { decideNextAgent, loadRouteWeights, resolveRoundKind, DEFAULT_ROUTE_WEIGHTS_URL } =
           require('./agent_delegation_policy.js');
         const { loadAgentRegistry } = require('./agent_registry.js');
         const registry = loadAgentRegistry();
@@ -2699,7 +2699,7 @@ async function evaluateKeepaliveLoop({ github: rawGithub, context, core, payload
         ));
         const routeWeightsUrl = process.env.ROUTE_WEIGHTS_URL || DEFAULT_ROUTE_WEIGHTS_URL;
         const routeWeights = await loadRouteWeights({ url: routeWeightsUrl });
-        const roundKind = state.last_action || state.pending_action || 'implement';
+        const roundKind = resolveRoundKind({ labels, state });
         const decision = decideNextAgent({
           state,
           labels: labels.map(String),

@@ -20,10 +20,10 @@ output JSON lands at ``<output_dir>/docs-drift-scan.json``; the notify
 helper renders one bundled remediation block per repo with non-empty
 non-accurate drift, with a ready-to-paste ``gh issue create`` snippet.
 
-The scanner is structurally non-fatal: any failure (claude unavailable,
-prompt rejection, JSON parse error, doc missing) is recorded against that
-(repo, doc) pair and the scan continues. The coordinator wraps the whole
-script in the same non-fatal pattern as ``repo_review_backlog_scan.py``.
+The scanner isolates failures per document so later documents are still
+checked, but any recorded error makes the command exit nonzero after writing
+the diagnostic JSON. The coordinator accepts publication only when every
+configured document was scanned with zero errors.
 
 GitNexus integration is graceful: when the repo's ``.gitnexus/meta.json``
 is missing or marked stale, the scanner instructs claude to skip behavioral
@@ -590,9 +590,22 @@ def scan(
         )
         if not repo_root.is_dir():
             print(
-                f"[docs-drift-scan] {repo}: skipping; repo root not found at {repo_root}",
+                f"[docs-drift-scan] {repo}: repo root not found at {repo_root}",
                 flush=True,
             )
+            for index, doc_entry in enumerate(repo_config.get("docs") or []):
+                doc_path = (
+                    str(doc_entry.get("path") or "")
+                    if isinstance(doc_entry, dict)
+                    else f"<config.docs[{index}]>"
+                )
+                doc_results.append(
+                    DocResult(
+                        repo=repo,
+                        doc_path=doc_path or f"<config.docs[{index}]>",
+                        error=f"repo root not found at {repo_root}",
+                    )
+                )
             continue
         for index, doc_entry in enumerate(repo_config.get("docs") or []):
             if not isinstance(doc_entry, dict):
@@ -601,8 +614,7 @@ def scan(
                         repo=repo,
                         doc_path=f"<config.docs[{index}]>",
                         error=(
-                            "docs config entry must be a mapping, "
-                            f"got {type(doc_entry).__name__}"
+                            f"docs config entry must be a mapping, got {type(doc_entry).__name__}"
                         ),
                     )
                 )
@@ -610,6 +622,13 @@ def scan(
             doc_path = str(doc_entry.get("path") or "")
             doc_focus = str(doc_entry.get("focus") or "")
             if not doc_path:
+                doc_results.append(
+                    DocResult(
+                        repo=repo,
+                        doc_path=f"<config.docs[{index}]>",
+                        error="docs config entry missing 'path'",
+                    )
+                )
                 continue
             doc_results.append(
                 scan_doc(
@@ -703,7 +722,7 @@ def main() -> int:
         f"accurate={result['total_accurate_instances']} "
         f"errors={result['total_errors']} -> {args.out}"
     )
-    return 0
+    return 1 if result["total_errors"] else 0
 
 
 if __name__ == "__main__":

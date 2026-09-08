@@ -1,6 +1,8 @@
 import json
+import subprocess
 from pathlib import Path
 
+import pytest
 from scripts import repo_review_evaluator as evaluator
 
 VALID_ISSUE_BODY = """## Why
@@ -47,6 +49,51 @@ VALID_REVIEW_TRACE = {
     "implementation_refs": ["src/travel_plan_permission/orchestration/graph.py"],
     "test_refs": ["tests/python/test_langgraph_ci_gate.py"],
 }
+
+
+@pytest.mark.parametrize(
+    "marker",
+    [
+        "CORRUPTED WAL FILE",
+        "Invalid WAL Record Type",
+        "Database Disk Image Is Malformed",
+        "DATABASE IS MALFORMED",
+        "File Is Not A Database",
+        "SQLITE_CORRUPT",
+    ],
+)
+def test_gitnexus_analyze_rejects_zero_exit_corruption_markers(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch, marker: str
+) -> None:
+    monkeypatch.setattr(
+        subprocess,
+        "run",
+        lambda *_args, **_kwargs: subprocess.CompletedProcess(
+            args=["gitnexus"], returncode=0, stdout=f"analysis complete: {marker}", stderr=""
+        ),
+    )
+
+    ok, message = evaluator.run_gitnexus_analyze(tmp_path, "gitnexus")
+
+    assert ok is False
+    assert "GitNexus corruption detected" in message
+
+
+def test_gitnexus_analyze_accepts_clean_zero_exit_output(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    monkeypatch.setattr(
+        subprocess,
+        "run",
+        lambda *_args, **_kwargs: subprocess.CompletedProcess(
+            args=["gitnexus"], returncode=0, stdout="GitNexus Analyzer complete", stderr=""
+        ),
+    )
+
+    ok, message = evaluator.run_gitnexus_analyze(tmp_path, "gitnexus")
+
+    assert ok is True
+    assert message == "GitNexus Analyzer complete"
 
 
 def _make_round1_candidate(

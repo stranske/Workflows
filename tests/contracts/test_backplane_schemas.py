@@ -1,8 +1,4 @@
-"""P0.1 acceptance: the three backplane schemas load and are self-consistent.
-
-Fails today against an empty tree (the schema files do not exist yet); passes
-once the run-contract/v1 contract set lands.
-"""
+"""P0.1 acceptance: backplane schemas load and are self-consistent."""
 
 from __future__ import annotations
 
@@ -11,18 +7,35 @@ from pathlib import Path
 
 import pytest
 from jsonschema import Draft202012Validator
+from referencing import Registry, Resource
 
 SCHEMA_DIR = Path(__file__).resolve().parent.parent.parent / "docs" / "contracts" / "schemas"
+FIXTURES = Path(__file__).resolve().parent.parent / "fixtures" / "backplane"
 
 SCHEMAS = {
     "run-contract-v1.schema.json": "run-contract/v1",
     "artifact-manifest-v1.schema.json": "artifact-manifest/v1",
     "evidence-object-v1.schema.json": "evidence-object/v1",
+    "tracked-variable-v1.schema.json": "tracked-variable/v1",
 }
 
 
 def _load(name: str) -> dict:
     return json.loads((SCHEMA_DIR / name).read_text())
+
+
+def _validator(name: str) -> Draft202012Validator:
+    schema = _load(name)
+    if name != "tracked-variable-v1.schema.json":
+        return Draft202012Validator(schema)
+    evidence = _load("evidence-object-v1.schema.json")
+    registry = Registry().with_resources(
+        [
+            (schema["$id"], Resource.from_contents(schema)),
+            (evidence["$id"], Resource.from_contents(evidence)),
+        ]
+    )
+    return Draft202012Validator(schema, registry=registry)
 
 
 @pytest.mark.parametrize("name,const", SCHEMAS.items())
@@ -85,3 +98,32 @@ def test_evidence_object_requires_method_and_excerpt_present() -> None:
     assert any(error.validator == "required" for error in validator.iter_errors(evidence))
     evidence["excerpt"] = None
     assert not list(validator.iter_errors(evidence))
+
+
+def test_tracked_variable_fixture_validates() -> None:
+    validator = _validator("tracked-variable-v1.schema.json")
+
+    valid = json.loads((FIXTURES / "valid_tracked_variable.json").read_text())
+    # Removing the "evidence" key from valid_tracked_variable.json causes this
+    # assertion to fail (verified during development).
+    assert not list(validator.iter_errors(valid))
+
+    invalid = json.loads((FIXTURES / "invalid_tracked_variable_missing_evidence.json").read_text())
+    errors = list(validator.iter_errors(invalid))
+    assert errors
+    assert any(error.validator == "required" and "evidence" in error.message for error in errors)
+
+
+@pytest.mark.parametrize("missing", ["document", "mirror"])
+def test_tracked_variable_requires_both_provenance_anchors(missing: str) -> None:
+    value = json.loads((FIXTURES / "valid_tracked_variable.json").read_text())
+    del value["provenance"][missing]
+    errors = list(_validator("tracked-variable-v1.schema.json").iter_errors(value))
+    assert any(error.validator == "required" and missing in error.message for error in errors)
+
+
+def test_tracked_variable_validates_embedded_evidence() -> None:
+    value = json.loads((FIXTURES / "valid_tracked_variable.json").read_text())
+    del value["evidence"]["method"]
+    errors = list(_validator("tracked-variable-v1.schema.json").iter_errors(value))
+    assert any(error.validator == "required" and "method" in error.message for error in errors)

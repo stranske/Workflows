@@ -28,6 +28,7 @@ from pathlib import Path
 from typing import Any
 
 from jsonschema import Draft202012Validator
+from referencing import Registry, Resource
 
 RUN_SCHEMA_VERSION = "run-contract/v1"
 DEFAULT_ARTIFACT_NAME = "run.json"
@@ -46,6 +47,7 @@ INGEST_SCHEMA_FILES = {
     "run-contract/v1": "run-contract-v1.schema.json",
     "artifact-manifest/v1": "artifact-manifest-v1.schema.json",
     "evidence-object/v1": "evidence-object-v1.schema.json",
+    "tracked-variable/v1": "tracked-variable-v1.schema.json",
 }
 # Tokens that are convention-only (no JSON Schema to load); accepted as declared
 # ingest surfaces but not schema-validated here.
@@ -107,6 +109,38 @@ def _load_schema(schema_dir: Path, name: str) -> dict[str, Any]:
     return _load_json(schema_dir / name)
 
 
+def _validator_for_schema(schema_dir: Path, name: str) -> Draft202012Validator:
+    schema = _load_schema(schema_dir, name)
+    if name != "tracked-variable-v1.schema.json":
+        return Draft202012Validator(schema)
+    evidence = _load_schema(schema_dir, "evidence-object-v1.schema.json")
+    registry = Registry().with_resources(
+        [
+            (schema["$id"], Resource.from_contents(schema)),
+            (evidence["$id"], Resource.from_contents(evidence)),
+        ]
+    )
+    return Draft202012Validator(schema, registry=registry)
+
+
+def validate_tracked_variables(*, paths: list[Path], schema_dir: Path) -> Report:
+    """Validate one or more tracked-variable/v1 JSON files against the schema."""
+    report = Report(repo="tracked-variable/v1")
+    validator = _validator_for_schema(schema_dir, "tracked-variable-v1.schema.json")
+    for path in paths:
+        try:
+            document = _load_json(path)
+        except (OSError, json.JSONDecodeError) as exc:
+            report.fail(f"cannot load tracked variable {path}: {exc}", str(path))
+            continue
+        for err in sorted(
+            validator.iter_errors(document),
+            key=lambda e: list(e.absolute_path),
+        ):
+            report.fail(err.message, "/".join(str(p) for p in err.absolute_path))
+    return report
+
+
 def _find_entry(registry: dict[str, Any], repo: str) -> dict[str, Any] | None:
     for entry in registry.get("participants", []):
         if entry.get("repo") == repo:
@@ -164,8 +198,8 @@ def _validate_consumer(
 
     per_schema_errors: dict[str, list[str]] = {}
     for token in schema_tokens:
-        schema = _load_schema(schema_dir, INGEST_SCHEMA_FILES[token])
-        errs = [e.message for e in Draft202012Validator(schema).iter_errors(document)]
+        validator = _validator_for_schema(schema_dir, INGEST_SCHEMA_FILES[token])
+        errs = [e.message for e in validator.iter_errors(document)]
         if not errs:
             # Matched an ingested schema -> conformant.
             _scan_unsafe(document, report)
@@ -307,11 +341,11 @@ def missing_envelope_report(registry: dict[str, Any], repo: str, run_json: Path)
 
 def main(argv: list[str] | None = None) -> int:
     parser = argparse.ArgumentParser(description=__doc__)
-    parser.add_argument("run_json", type=Path)
+    parser.add_argument("run_json", type=Path, nargs="?", default=None)
     parser.add_argument("--manifest", type=Path, default=None)
-    parser.add_argument("--registry", type=Path, required=True)
+    parser.add_argument("--registry", type=Path)
     parser.add_argument("--schema-dir", type=Path, required=True)
-    parser.add_argument("--repo", required=True)
+    parser.add_argument("--repo")
     parser.add_argument("--warn-only", action="store_true")
     parser.add_argument("--report-json", type=Path, default=None)
     parser.add_argument("--github-output", type=Path, default=None)
@@ -320,12 +354,65 @@ def main(argv: list[str] | None = None) -> int:
         action="store_true",
         help="Run an offline self-smoke over bundled fixtures and exit.",
     )
+    parser.add_argument(
+        "--tracked-variables",
+        type=Path,
+        nargs="+",
+        default=None,
+        help="Validate one or more tracked-variable/v1 JSON files against the schema.",
+    )
     args = parser.parse_args(argv)
+
+    # Standalone schema validation does not consult participant routing. Keep
+    # that context mandatory for the existing envelope and self-smoke modes.
+    if args.self_smoke or not args.tracked_variables:
+        missing = [flag for flag in ("--registry", "--repo") if getattr(args, flag[2:]) is None]
+        if missing:
+            parser.error(f"the following arguments are required: {', '.join(missing)}")
 
     if args.self_smoke:
         return _self_smoke(args.schema_dir, args.registry)
 
+    if args.tracked_variables:
+        report = validate_tracked_variables(
+            paths=list(args.tracked_variables),
+            schema_dir=args.schema_dir,
+        )
+        if report.conformant:
+            print(f"tracked-variable/v1: {len(args.tracked_variables)} file(s) conform to schema")
+        else:
+            print(
+                f"tracked-variable/v1: {len(report.violations)} conformance violation(s):",
+                file=sys.stderr,
+            )
+            for v in report.violations:
+                print(f"  - [{v.path}] {v.message}", file=sys.stderr)
+        if args.report_json:
+            args.report_json.write_text(
+                json.dumps(
+                    {
+                        "repo": report.repo,
+                        "role": report.role,
+                        "conformant": report.conformant,
+                        "skipped": report.skipped,
+                        "violations": [
+                            {"path": v.path, "message": v.message} for v in report.violations
+                        ],
+                    },
+                    indent=2,
+                    sort_keys=True,
+                )
+            )
+        if args.github_output:
+            with args.github_output.open("a") as fh:
+                fh.write(f"conformant={'true' if report.conformant else 'false'}\n")
+        return 0 if (report.conformant or args.warn_only) else 1
+
     registry = _load_json(args.registry)
+
+    if args.run_json is None:
+        print("ERROR: run_json path is required unless --tracked-variables is set", file=sys.stderr)
+        return 2
 
     try:
         envelope = _load_json(args.run_json)
