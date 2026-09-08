@@ -6,6 +6,13 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 Breaking changes are called out with a **BREAKING** marker and scheduled according to the policy in `COMPATIBILITY.md`.
 
+## [1.32.4](https://github.com/stranske/Workflows/compare/v1.32.3...v1.32.4) (2026-09-08)
+
+
+### Bug Fixes
+
+* **sync:** distinguish missing active PR from missing delivery record ([#3415](https://github.com/stranske/Workflows/issues/3415)) ([1f269cd](https://github.com/stranske/Workflows/commit/1f269cd20716e0ebb4ddd54c0923be9d44a8d5f1))
+
 ## [1.32.3](https://github.com/stranske/Workflows/compare/v1.32.2...v1.32.3) (2026-09-08)
 
 
