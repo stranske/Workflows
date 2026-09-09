@@ -831,3 +831,30 @@ disposition for `sync/workflows-*` and `deps/sync-dev-versions-*`; operators
 and local watchers must consume its recorded owner/next-command handoff rather
 than reimplementing that policy. See
 [`SYNC_DEPENDENCY_CAMPAIGN.md`](SYNC_DEPENDENCY_CAMPAIGN.md).
+
+## GitHub App identity inputs in synced workflows
+
+The consumer workflows that accept `WORKFLOWS_APP_ID` or `KEEPALIVE_APP_ID`
+retain their numeric GitHub App ID credential contract. Pass those values to
+`actions/create-github-app-token` through `app-id`, including when the value
+comes from an intermediate environment variable. The action's `client-id`
+input is for a GitHub App client ID; renaming the input alone does not migrate
+an existing numeric-ID secret. Workflows already using explicit
+`WORKFLOWS_APP_CLIENT_ID` credentials keep their client-ID path.
+
+The pinned action still supports the deprecated `app-id` input and internally
+coalesces both inputs into the same authentication argument. This mapping
+enforces the documented credential contract; it is not evidence that the old
+input name alone caused a token-minting failure. A future migration
+must introduce and propagate client-ID credentials through callers before
+switching that input. This compatibility repair does not rotate credentials,
+change token permissions, or alter App/PAT/GITHUB_TOKEN fallback ordering.
+See the [upstream action input contract](https://github.com/actions/create-github-app-token/blob/bcd2ba49218906704ab6c1aa796996da409d3eb1/action.yml).
+
+Run `python -m pytest tests/workflows/test_sync_workflow_app_ids.py -q` to
+check numeric-ID token mappings in the twelve affected consumer workflow
+templates and their existing root counterparts. Run
+`python -m pytest tests/workflows/test_workflow_agents_consolidation.py -q`
+and `python scripts/validate_template_completeness.py` before source delivery.
+Record the command results in the source PR. Consumer regeneration and merge
+continue through Maint 68 and Maint 71.
