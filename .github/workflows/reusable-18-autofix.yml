@@ -832,6 +832,20 @@ jobs:
           else
             file_list="${AUTO_FILE_LIST:-}"
           fi
+          # Commit/patch decisions must reflect eligible staged changes, not
+          # dependency-install churn that is excluded from autofix delivery.
+          if [ "$changed" = "true" ]; then
+            git add -A
+            git reset HEAD -- \
+              .github/scripts/node_modules \
+              node_modules \
+              .workflows-lib/.github/scripts/node_modules
+            if git diff --cached --quiet; then
+              echo "[autofix] No eligible changes remain after excluding vendored dependencies."
+              changed="false"
+              file_list=""
+            fi
+          fi
           {
             echo "mode=${mode}"
             echo "changed=${changed}"
@@ -858,13 +872,6 @@ jobs:
         run: |
           git config user.name "github-actions[bot]"
           git config user.email "github-actions[bot]@users.noreply.github.com"
-          git add -A
-          # Unstage vendored node_modules that may have been modified by npm install
-          git reset HEAD -- \
-            .github/scripts/node_modules \
-            node_modules \
-            .workflows-lib/.github/scripts/node_modules \
-            2>/dev/null || true
           git commit -m "${AUTOFIX_COMMIT_PREFIX} formatting/lint"
           echo "AUTOFIX_COMMIT_SHA=$(git rev-parse HEAD)" >> "$GITHUB_ENV"
 
@@ -952,14 +959,7 @@ jobs:
         run: |
           git config user.name "github-actions[bot]"
           git config user.email "github-actions[bot]@users.noreply.github.com"
-          git add -A
-          # Unstage vendored node_modules that may have been modified by npm install
-          git reset HEAD -- \
-            .github/scripts/node_modules \
-            node_modules \
-            .workflows-lib/.github/scripts/node_modules \
-            2>/dev/null || true
-          git commit -m "${AUTOFIX_COMMIT_PREFIX} formatting/lint (patch)" || true
+          git commit -m "${AUTOFIX_COMMIT_PREFIX} formatting/lint (patch)"
           git format-patch -1 --stdout > autofix.patch
 
       - name: Upload patch artifact
