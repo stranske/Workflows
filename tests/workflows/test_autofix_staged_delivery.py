@@ -219,16 +219,21 @@ def test_enriched_report_matches_filtered_index(
         assert report["classification"] == {"total": 2, "new": 1, "allowed": 1}
 
 
+def require_clean_runner() -> None:
+    """Require the Bash and find versions used by the Actions Ubuntu runner."""
+    bash_version = subprocess.check_output(["bash", "-c", "echo ${BASH_VERSINFO[0]}"], text=True)
+    find_version = subprocess.run(["find", "--version"], capture_output=True, text=True)
+    if int(bash_version) < 4 or "GNU findutils" not in find_version.stdout:
+        pytest.skip("The Actions Ubuntu workflow requires Bash 4+ and GNU find")
+
+
 @pytest.mark.parametrize("source_changed", [False, True])
 @pytest.mark.parametrize("root_target", [False, True])
 def test_whole_clean_sweep_filters_before_target_validation(
     repository: Path, source_changed: bool, root_target: bool
 ) -> None:
     """Install-only churn outside Python targets cannot abort the clean sweep."""
-    bash_version = subprocess.check_output(["bash", "-c", "echo ${BASH_VERSINFO[0]}"], text=True)
-    find_version = subprocess.run(["find", "--version"], capture_output=True, text=True)
-    if int(bash_version) < 4 or "GNU findutils" not in find_version.stdout:
-        pytest.skip("The Actions Ubuntu workflow requires Bash 4+ and GNU find")
+    require_clean_runner()
     # Stub formatters only: the complete workflow body, Git, Bash and find are real.
     bin_dir = repository.parent / "bin"
     bin_dir.mkdir()
@@ -355,3 +360,67 @@ def test_standard_summary_still_rejects_out_of_scope_source(repository: Path) ->
     )
     assert result.returncode != 0
     assert "outside allowed globs" in result.stderr
+
+
+@pytest.mark.parametrize("clean", [False, True])
+def test_staged_source_deletion_is_detected(repository: Path, clean: bool) -> None:
+    """Staged deletions remain visible to validation and delivery decisions."""
+    if clean:
+        require_clean_runner()
+    (repository / "src/keep.py").write_text("preserved\n")
+    git(repository, "add", "src/keep.py")
+    git(repository, "commit", "-qm", "preserved source target")
+    git(repository, "rm", "src/example.py")
+    bin_dir = repository.parent / "bin"
+    bin_dir.mkdir()
+    for tool in ["ruff", "black"]:
+        executable = bin_dir / tool
+        executable.write_text("#!/bin/sh\nexit 0\n")
+        executable.chmod(0o755)
+    name = "Clean cosmetic sweep" if clean else "Summarise safe sweep results"
+    result = run_step(
+        repository,
+        name,
+        extra_env={
+            "PATH": str(bin_dir) + os.pathsep + os.environ["PATH"],
+            "ALLOWED_FILE_GLOBS": "src/**",
+        },
+    )
+    assert result.returncode == 0, result.stderr
+    assert outputs(repository)["changed"] == "true"
+    assert outputs(repository)["file_list"] == "src/example.py"
+
+
+@pytest.mark.parametrize("clean", [False, True])
+def test_staged_out_of_scope_edit_cannot_hide_behind_allowed_edit(
+    repository: Path, clean: bool
+) -> None:
+    """An eligible edit cannot smuggle an already-staged excluded source file."""
+    if clean:
+        require_clean_runner()
+    blocked = repository / "docs/blocked.txt"
+    blocked.parent.mkdir()
+    blocked.write_text("original\n")
+    git(repository, "add", "docs/blocked.txt")
+    git(repository, "commit", "-qm", "out-of-scope baseline")
+    blocked.write_text("staged outside scope\n")
+    git(repository, "add", "docs/blocked.txt")
+    (repository / "src/example.py").write_text("allowed unstaged change\n")
+    bin_dir = repository.parent / "bin"
+    bin_dir.mkdir()
+    for tool in ["ruff", "black"]:
+        executable = bin_dir / tool
+        executable.write_text("#!/bin/sh\nexit 0\n")
+        executable.chmod(0o755)
+    name = "Clean cosmetic sweep" if clean else "Summarise safe sweep results"
+    result = run_step(
+        repository,
+        name,
+        extra_env={
+            "PATH": str(bin_dir) + os.pathsep + os.environ["PATH"],
+            "ALLOWED_FILE_GLOBS": "src/**",
+        },
+    )
+    assert result.returncode != 0
+    assert "outside" in result.stderr
+    assert "docs/blocked.txt" in result.stderr

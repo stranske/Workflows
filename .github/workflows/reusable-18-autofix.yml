@@ -593,7 +593,7 @@ jobs:
                 continue ;;
             esac
             changed_paths+=("$path")
-          done < <(git diff --name-only -z --diff-filter=ACMRTUXB)
+          done < <(git diff HEAD --name-only -z --diff-filter=ACDMRTUXB)
           if [ ${#changed_paths[@]} -eq 0 ]; then
             echo "changed=false" >> "$GITHUB_OUTPUT"
           else
@@ -660,7 +660,7 @@ jobs:
                 continue ;;
             esac
             changed_paths+=("$path")
-          done < <(git diff --name-only -z --diff-filter=ACMRTUXB)
+          done < <(git diff HEAD --name-only -z --diff-filter=ACDMRTUXB)
           changed_flag=false
           file_list_payload=""
           if [ ${#changed_paths[@]} -gt 0 ]; then

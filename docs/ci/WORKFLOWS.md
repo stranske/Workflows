@@ -110,7 +110,9 @@ checkout at `workflows-lib` are excluded before target validation and delivery;
 when nothing remains staged, the run reports no changes and skips commits, pushes,
 patch artifacts, and applied-change labels. Eligible source fixes still commit, and
 commit failures remain failures rather than producing a patch for an older commit.
-Published file lists and enriched reports reflect the filtered staged index.
+Change detection compares against HEAD so staged edits and deletions undergo the
+same scope validation as unstaged edits. Published file lists and enriched reports
+reflect the filtered staged index.
 Final outputs advertise a patch only after its artifact upload succeeds, including
 when an earlier commit, patch, or push step failed.
 
