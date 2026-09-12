@@ -586,14 +586,21 @@ jobs:
           ruff check "${targets[@]}" --select I --fix --exit-zero
           ruff check "${targets[@]}" --fix --exit-zero
           black --line-length 100 "${targets[@]}" || true
-          if git diff --quiet; then
+          changed_paths=()
+          while IFS= read -r -d '' path; do
+            case "$path" in
+              workflows-lib|workflows-lib/*|node_modules|node_modules/*|*/node_modules|*/node_modules/*)
+                continue ;;
+            esac
+            changed_paths+=("$path")
+          done < <(git diff --name-only -z --diff-filter=ACMRTUXB)
+          if [ ${#changed_paths[@]} -eq 0 ]; then
             echo "changed=false" >> "$GITHUB_OUTPUT"
           else
             echo "changed=true" >> "$GITHUB_OUTPUT"
           fi
           echo "remaining_issues=0" >> "$GITHUB_OUTPUT"
           echo "new_issues=0" >> "$GITHUB_OUTPUT"
-          mapfile -t changed_paths < <(git diff --name-only --diff-filter=ACMRTUXB)
           allowed_changes=()
           other_changes=()
           # targets already initialized above
@@ -646,7 +653,14 @@ jobs:
             rm -f node_modules/.package-lock.json
           fi
           : "${ALLOWED_FILE_GLOBS:=}"
-          mapfile -t changed_paths < <(git diff --name-only --diff-filter=ACMRTUXB || true)
+          changed_paths=()
+          while IFS= read -r -d '' path; do
+            case "$path" in
+              workflows-lib|workflows-lib/*|node_modules|node_modules/*|*/node_modules|*/node_modules/*)
+                continue ;;
+            esac
+            changed_paths+=("$path")
+          done < <(git diff --name-only -z --diff-filter=ACMRTUXB)
           changed_flag=false
           file_list_payload=""
           if [ ${#changed_paths[@]} -gt 0 ]; then
@@ -836,16 +850,39 @@ jobs:
           # dependency-install churn that is excluded from autofix delivery.
           if [ "$changed" = "true" ]; then
             git add -A
-            git reset HEAD -- \
-              .github/scripts/node_modules \
-              node_modules \
-              .workflows-lib/.github/scripts/node_modules
+            vendor_paths=()
+            while IFS= read -r -d '' path; do
+              case "$path" in
+                workflows-lib|workflows-lib/*|node_modules|node_modules/*|*/node_modules|*/node_modules/*)
+                  vendor_paths+=("$path") ;;
+              esac
+            done < <(git diff --cached --name-only -z)
+            if [ ${#vendor_paths[@]} -gt 0 ]; then
+              git --literal-pathspecs reset HEAD -- "${vendor_paths[@]}"
+            fi
+            file_list=$(git diff --cached --name-only)
             if git diff --cached --quiet; then
               echo "[autofix] No eligible changes remain after excluding vendored dependencies."
               changed="false"
               file_list=""
             fi
           fi
+          # Keep history and the emitted JSON artifact aligned with delivery.
+          AUTOFIX_CHANGED="$changed" AUTOFIX_FILE_LIST="$file_list" python - <<'PYREPORT'
+          import json
+          import os
+          from pathlib import Path
+
+          path = Path("autofix_report_enriched.json")
+          if path.exists():
+              payload = json.loads(path.read_text())
+              files = os.environ["AUTOFIX_FILE_LIST"].splitlines()
+              payload["changed"] = os.environ["AUTOFIX_CHANGED"] == "true"
+              payload["files"] = files
+              if "file_list" in payload:
+                  payload["file_list"] = files
+              path.write_text(json.dumps(payload) + "\n")
+          PYREPORT
           {
             echo "mode=${mode}"
             echo "changed=${changed}"
@@ -963,6 +1000,7 @@ jobs:
           git format-patch -1 --stdout > autofix.patch
 
       - name: Upload patch artifact
+        id: upload_patch
         if: >-
           ${{
             steps.guard.outputs.skip != 'true' &&
@@ -1442,14 +1480,14 @@ jobs:
           RUN_ID: ${{ github.run_id }}
           SERVER_URL: ${{ github.server_url }}
           REPOSITORY: ${{ github.repository }}
-          CHANGED: ${{ steps.fix_results.outputs.changed }}
+          PATCH_UPLOAD_OUTCOME: ${{ steps.upload_patch.outcome }}
         shell: bash
         run: |
           set -euo pipefail
           mode="${AUTH_MODE:-fallback}"
           reason="${AUTH_REASON:-}"
           patch="false"
-          if [ "${CHANGED:-false}" = "true" ] && [ "$mode" != "pat" ]; then
+          if [ "${PATCH_UPLOAD_OUTCOME:-}" = "success" ]; then
             patch="true"
           fi
 
@@ -1916,7 +1954,7 @@ jobs:
           FILE_LIST: ${{ steps.fix_results.outputs.file_list }}
           AUTOFIX_DELIVERY_MODE: ${{ env.AUTOFIX_DELIVERY_MODE }}
           AUTOFIX_DELIVERY_REASON: ${{ env.AUTOFIX_DELIVERY_REASON }}
-          AUTOFIX_PATCH_AVAILABLE: ${{ env.AUTOFIX_PATCH_AVAILABLE }}
+          PATCH_UPLOAD_OUTCOME: ${{ steps.upload_patch.outcome }}
           TRIGGER_CONCLUSION: ${{ inputs.trigger_conclusion }}
           TRIGGER_CLASS: ${{ inputs.trigger_class }}
           TRIGGER_REASON: ${{ inputs.trigger_reason }}
@@ -1935,11 +1973,8 @@ jobs:
           file_list="${FILE_LIST:-}"
           delivery_mode="${AUTOFIX_DELIVERY_MODE:-fallback}"
           delivery_reason="${AUTOFIX_DELIVERY_REASON:-}"
-          patch="${AUTOFIX_PATCH_AVAILABLE:-false}"
-          if [ "$patch" != "true" ] && \
-            [ "$changed" = "true" ] && \
-            [ "$delivery_mode" != "pat" ]
-          then
+          patch="false"
+          if [ "${PATCH_UPLOAD_OUTCOME:-}" = "success" ]; then
             patch="true"
           fi
           skip_reason=""

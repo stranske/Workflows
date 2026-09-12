@@ -105,10 +105,14 @@ The gate uses the shared `.github/scripts/detect-changes.js` helper to decide wh
 ## Autofix & Maintenance
 
 Reusable Autofix stages eligible changes before publishing its consolidated result.
-Dependency-install changes under vendored `node_modules` directories are excluded;
+Dependency-install changes under any `node_modules` directory and the helper
+checkout at `workflows-lib` are excluded before target validation and delivery;
 when nothing remains staged, the run reports no changes and skips commits, pushes,
 patch artifacts, and applied-change labels. Eligible source fixes still commit, and
 commit failures remain failures rather than producing a patch for an older commit.
+Published file lists and enriched reports reflect the filtered staged index.
+Final outputs advertise a patch only after its artifact upload succeeds, including
+when an earlier commit, patch, or push step failed.
 
 * [`reusable-pr-context.yml`](../../.github/workflows/reusable-pr-context.yml) fetches comprehensive PR context via a single GraphQL query (60-80% API reduction vs REST). Returns PR metadata, labels, files, reviews, comments, and CI status as job outputs for downstream consumption.
 * [`reusable-codex-run.yml`](../../.github/workflows/reusable-codex-run.yml) exposes a reusable Codex runner with the `gpt-6-astra` default (`gpt-5.5` fallback), prompt-file input, sandbox/safety defaults, artifact upload, and commit/push handling so keepalive, autofix, and verifier wrappers can share the same execution surface.
