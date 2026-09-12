@@ -6,6 +6,13 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 Breaking changes are called out with a **BREAKING** marker and scheduled according to the policy in `COMPATIBILITY.md`.
 
+## [1.32.5](https://github.com/stranske/Workflows/compare/v1.32.4...v1.32.5) (2026-09-12)
+
+
+### Bug Fixes
+
+* **autofix:** skip delivery when eligible staging is empty ([#3420](https://github.com/stranske/Workflows/issues/3420)) ([55075a2](https://github.com/stranske/Workflows/commit/55075a2be16576012c69e5ef88e8c2c520d6ad60))
+
 ## [1.32.4](https://github.com/stranske/Workflows/compare/v1.32.3...v1.32.4) (2026-09-08)
 
 
