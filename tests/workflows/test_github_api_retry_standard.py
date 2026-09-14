@@ -5,6 +5,7 @@ from collections.abc import Iterable
 from pathlib import Path
 from typing import Any
 
+import pytest
 import yaml
 
 REPO_ROOT = Path(__file__).resolve().parents[2]
@@ -83,15 +84,77 @@ def _iter_checkout_sparse_paths(workflow: dict[str, Any]) -> Iterable[tuple[str,
             yield step.get("name", "<unnamed>"), paths
 
 
+def _is_retry_wrapped_alias(script: str, reference_start: int) -> bool:
+    """Recognize a const method alias used only for probing and retry pagination."""
+    declaration = re.search(r"\bconst\s+(\w+)\s*=\s*$", script[:reference_start])
+    method = re.match(r"github\.rest\.\w+\.\w+\s*;", script[reference_start:])
+    if not declaration or not method:
+        return False
+    alias = re.escape(declaration[1])
+    remainder = script[reference_start + method.end() :]
+    wrapped = False
+    for usage in re.finditer(rf"\b{alias}\b", remainder):
+        prefix = remainder[: usage.start()]
+        if re.search(
+            r"\bpaginateWith(?:Retry|Backoff)\s*\(\s*(?:github\s*,\s*)?$", prefix
+        ) and re.match(r"\s*,", remainder[usage.end() :]):
+            wrapped = True
+        elif not re.search(r"\btypeof\s+$", prefix):
+            return False
+    return wrapped
+
+
 def _rest_calls_missing_retry(script: str, step_name: str, workflow_path: Path) -> list[str]:
     failures: list[str] = []
     for match in re.finditer(r"github\.rest\.", script):
+        if _is_retry_wrapped_alias(script, match.start()):
+            continue
         window_start = max(0, match.start() - 250)
         window = script[window_start : match.start()]
         if not any(helper in window for helper in RETRY_HELPERS):
             line = script[: match.start()].count("\n") + 1
             failures.append(f"{workflow_path.as_posix()}::{step_name} line {line}")
     return failures
+
+
+@pytest.mark.parametrize(
+    "call",
+    [
+        "paginateWithRetry(listAttemptJobs, {})",
+        "paginateWithRetry(github, listAttemptJobs, {})",
+        "paginateWithBackoff(listAttemptJobs, {})",
+        "paginateWithBackoff(github, listAttemptJobs, {})",
+    ],
+)
+def test_rest_method_alias_passed_to_retry_pagination(call: str) -> None:
+    script = (
+        "const listAttemptJobs = github.rest.actions.listJobsForWorkflowRunAttempt;\n"
+        "if (typeof listAttemptJobs === 'function') {\n"
+        f"  await {call};\n"
+        "}"
+    )
+    assert _rest_calls_missing_retry(script, "evaluate", Path("fixture.yml")) == []
+
+
+@pytest.mark.parametrize(
+    "script",
+    [
+        "await github.rest.actions.listJobsForWorkflowRunAttempt({});",
+        "const listAttemptJobs = github.rest.actions.listJobsForWorkflowRunAttempt;",
+        "const listAttemptJobs = github.rest.actions.listJobsForWorkflowRunAttempt;\n"
+        "await listAttemptJobs({});",
+        "const listAttemptJobs = github.rest.actions.listJobsForWorkflowRunAttempt;\n"
+        "await paginateWithRetry(listAttemptJobs, {});\nawait listAttemptJobs({});",
+        "const listAttemptJobs = github.rest.actions.listJobsForWorkflowRunAttempt;\n"
+        "await paginateWithRetry(otherMethod, {});",
+        "const listAttemptJobs = github.rest.actions.listJobsForWorkflowRunAttempt;\n"
+        "await paginateWithRetry(listAttemptJobs({}), {});",
+    ],
+)
+def test_rest_calls_and_aliases_without_retry_are_reported(script: str) -> None:
+    assert _rest_calls_missing_retry(script, "evaluate", Path("fixture.yml")) == [
+        "fixture.yml::evaluate line 1"
+    ]
 
 
 def _paginate_calls(script: str, step_name: str, workflow_path: Path) -> list[str]:

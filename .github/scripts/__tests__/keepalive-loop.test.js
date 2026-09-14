@@ -20,6 +20,7 @@ const {
 } = require('../keepalive_loop.js');
 const { formatStateComment, parseStateComment } = require('../keepalive_state.js');
 const { signAuthorityChallengeClaim } = require('../keepalive_challenge_due.js');
+const { stripPrTemplateContent, upsertBlock } = require('../agents_pr_meta_update_body.js');
 
 const authorityClaimInputs = (prNumber, boundaryFingerprint, overrides = {}) => {
   const claim = {
@@ -409,6 +410,353 @@ test('evaluateKeepaliveLoop stops when tasks are complete and verification is do
   assert.equal(result.action, 'stop');
   assert.equal(result.reason, 'tasks-complete');
 });
+
+for (const [placement, marker] of ['before', 'after', 'unmanaged'].flatMap(
+  (placement) => ['-', '*', '+', '1.', '1)'].map((marker) => [placement, marker]),
+)) {
+  test(`evaluateKeepaliveLoop dispatches unchecked work outside summary (${placement}, ${marker})`, async () => {
+    const summary = [
+      '<!-- auto-status-summary:start -->',
+      '## Tasks', '- [x] Implement the source task',
+      '## Acceptance Criteria', '- [x] Verify the source task',
+      '<!-- auto-status-summary:end -->',
+    ].join('\n');
+    const extra = `## Reviewer follow-up\n${marker} [ ] Exercise the retry path\n    with a failed first request.`;
+    const body = placement === 'before' ? `${extra}\n${summary}`
+      : placement === 'after' ? `${summary}\n${extra}`
+        : `${summary.replace(/<!--[^>]*-->/g, '')}\n${extra}`;
+    const pr = { number: 3441, head: { ref: 'codex/issue-3441', sha: 'visible-head' },
+      labels: [{ name: 'agent:codex' }], body };
+    const github = buildGithubStub({ pr,
+      comments: [{ id: 23, body: formatStateComment({ verification: { status: 'done' } }) }],
+      workflowRuns: [{ head_sha: 'visible-head', conclusion: 'success' }],
+    });
+    const result = await evaluateKeepaliveLoop({ github, context: buildContext(pr.number), core: buildCore() });
+    assert.equal(result.action, 'run');
+    assert.equal(result.reason, 'ready');
+    assert.deepEqual(result.checkboxCounts, { total: 3, checked: 2, unchecked: 1 });
+    assert.match(result.taskAppendix, /Exercise the retry path/);
+    assert.match(result.taskAppendix, /with a failed first request/);
+  });
+}
+
+test('evaluateKeepaliveLoop does not complete an outside task matching completed summary text', async () => {
+  const task = 'Exercise the retry path';
+  const summary = [
+    '<!-- auto-status-summary:start -->',
+    '## Tasks', `- [x] ${task}`,
+    '## Acceptance Criteria', '- [x] Verify the source task',
+    '<!-- auto-status-summary:end -->',
+  ].join('\n');
+  const body = upsertBlock(
+    stripPrTemplateContent(`${summary}\n## Reviewer follow-up\n- [ ] ${task}`),
+    'auto-status-summary', summary,
+  );
+  const pr = {
+    number: 3441,
+    head: { ref: 'codex/issue-3441', sha: 'repeated-task-head' },
+    labels: [{ name: 'agent:codex' }],
+    body,
+  };
+  const github = buildGithubStub({
+    pr,
+    comments: [{ id: 23, body: formatStateComment({ verification: { status: 'done' } }) }],
+    workflowRuns: [{ head_sha: pr.head.sha, conclusion: 'success' }],
+  });
+  const result = await evaluateKeepaliveLoop({
+    github, context: buildContext(pr.number), core: buildCore(),
+  });
+  assert.equal(result.action, 'run');
+  assert.equal(result.reason, 'ready');
+  assert.deepEqual(result.checkboxCounts, { total: 3, checked: 2, unchecked: 1 });
+  assert.ok(result.taskAppendix.includes(`- [ ] ${task}`));
+});
+
+for (const placement of ['before', 'after']) {
+  test(`evaluateKeepaliveLoop counts collapsible reviewer work after refresh (${placement})`, async () => {
+    const summary = [
+      '<!-- auto-status-summary:start -->',
+      '## Tasks', '- [x] Source task',
+      '## Acceptance Criteria', '- [x] Source acceptance',
+      '<!-- auto-status-summary:end -->',
+    ].join('\n');
+    const reviewer = [
+      '<details>', '<summary>Reviewer follow-up</summary>', '',
+      '- [ ] Exercise the packaged retry path',
+      '  and inspect the diagnostic.', '', '</details>',
+    ].join('\n');
+    const original = placement === 'before' ? `${reviewer}\n${summary}` : `${summary}\n${reviewer}`;
+    const refresh = (body) => upsertBlock(stripPrTemplateContent(body), 'auto-status-summary', summary);
+    const body = refresh(original.replace(/\n/g, '\r\n'));
+    assert.ok(body.replace(/\r\n/g, '\n').includes(reviewer),
+      'metadata refresh must preserve collapsible reviewer work');
+    assert.equal(refresh(body), body);
+    const pr = {
+      number: 3441, head: { ref: 'codex/issue-3441', sha: 'details-head' },
+      labels: [{ name: 'agent:codex' }], body,
+    };
+    const github = buildGithubStub({
+      pr, workflowRuns: [{ head_sha: pr.head.sha, conclusion: 'success' }],
+      comments: [{ id: 23, body: formatStateComment({ verification: { status: 'done' } }) }],
+    });
+    const result = await evaluateKeepaliveLoop({ github, context: buildContext(pr.number), core: buildCore() });
+    assert.equal(result.action, 'run');
+    assert.equal(result.reason, 'ready');
+    assert.deepEqual(result.checkboxCounts, { total: 3, checked: 2, unchecked: 1 });
+    assert.match(result.taskAppendix, /Exercise the packaged retry path/);
+    assert.match(result.taskAppendix, /and inspect the diagnostic/);
+  });
+}
+
+test('evaluateKeepaliveLoop counts outside work after a fenced HTML comment opener', async () => {
+  const summary = [
+    '<!-- auto-status-summary:start -->',
+    '## Tasks', '- [x] Source task',
+    '## Acceptance Criteria', '- [x] Source acceptance',
+    '<!-- auto-status-summary:end -->',
+  ].join('\n');
+  const reviewer = '\n```markdown\n<!-- example text\n```\n- [ ] Real reviewer task\n-->\n';
+  const body = upsertBlock(stripPrTemplateContent(reviewer + summary), 'auto-status-summary', summary);
+  assert.ok(body.includes(reviewer.trim()), 'metadata refresh must preserve real reviewer work');
+  const pr = {
+    number: 3441, head: { ref: 'codex/issue-3441', sha: 'fenced-comment-head' },
+    labels: [{ name: 'agent:codex' }], body,
+  };
+  const github = buildGithubStub({
+    pr, workflowRuns: [{ head_sha: pr.head.sha, conclusion: 'success' }],
+    comments: [{ id: 23, body: formatStateComment({ verification: { status: 'done' } }) }],
+  });
+  const result = await evaluateKeepaliveLoop({ github, context: buildContext(pr.number), core: buildCore() });
+  assert.equal(result.action, 'run');
+  assert.equal(result.reason, 'ready');
+  assert.deepEqual(result.checkboxCounts, { total: 3, checked: 2, unchecked: 1 });
+  assert.match(result.taskAppendix, /Real reviewer task/);
+});
+
+test('evaluateKeepaliveLoop retains nested blockquoted outside tasks through metadata refresh', async () => {
+  const summary = [
+    '<!-- auto-status-summary:start -->',
+    '## Tasks', '- [x] Implement the source task',
+    '## Acceptance Criteria', '- [x] Verify the source task',
+    '<!-- auto-status-summary:end -->',
+  ].join('\n');
+  const reviewer = 'Review follow-up:\n> > - [ ] Exercise the nested retry path\n> >   and verify its diagnostic.\n\n';
+  const body = upsertBlock(stripPrTemplateContent(reviewer + summary), 'auto-status-summary', summary);
+  assert.ok(body.startsWith(reviewer), 'metadata refresh must preserve the nested task');
+  const pr = {
+    number: 3441,
+    head: { ref: 'codex/issue-3441', sha: 'nested-quote-head' },
+    labels: [{ name: 'agent:codex' }],
+    body,
+  };
+  const github = buildGithubStub({
+    pr,
+    comments: [{ id: 23, body: formatStateComment({ verification: { status: 'done' } }) }],
+    workflowRuns: [{ head_sha: 'nested-quote-head', conclusion: 'success' }],
+  });
+  const result = await evaluateKeepaliveLoop({
+    github, context: buildContext(pr.number), core: buildCore(),
+  });
+  assert.equal(result.action, 'run');
+  assert.equal(result.reason, 'ready');
+  assert.deepEqual(result.checkboxCounts, { total: 3, checked: 2, unchecked: 1 });
+  assert.match(result.taskAppendix, /Exercise the nested retry path/);
+  assert.match(result.taskAppendix, /and verify its diagnostic/);
+});
+
+test('evaluateKeepaliveLoop requires outside work to be checked after metadata refresh', async () => {
+  const summary = (task) => [
+    '<!-- auto-status-summary:start -->',
+    '## Tasks', `- [x] ${task}`,
+    '## Acceptance Criteria', '- [x] Verify the source task',
+    '<!-- auto-status-summary:end -->',
+  ].join('\n');
+  const refresh = (body) => upsertBlock(
+    upsertBlock(stripPrTemplateContent(body), 'pr-preamble',
+      '<!-- pr-preamble:start -->\nCloses #3441\n<!-- pr-preamble:end -->'),
+    'auto-status-summary', summary('Refreshed source task'),
+  );
+  const original = [
+    '## Reviewer tasks', '- [ ] Exercise the error path',
+    '  and retain its diagnostic.',
+    summary('Original source task'),
+    '## Reviewer acceptance', '> - [ ] Verify the packaged command',
+  ].join('\n');
+  let body = refresh(original);
+  assert.equal(refresh(body), body);
+  assert.doesNotMatch(body, /Original source task/);
+  assert.match(body, /Refreshed source task/);
+
+  for (const remaining of [2, 1, 0]) {
+    const pr = {
+      number: 3441,
+      head: { ref: 'codex/issue-3441', sha: 'refreshed-head' },
+      labels: [{ name: 'agent:codex' }],
+      body,
+    };
+    const github = buildGithubStub({
+      pr,
+      comments: [{ id: 23, body: formatStateComment({ verification: { status: 'done' } }) }],
+      workflowRuns: [{ head_sha: 'refreshed-head', conclusion: 'success' }],
+    });
+    const result = await evaluateKeepaliveLoop({
+      github, context: buildContext(pr.number), core: buildCore(),
+    });
+    assert.equal(result.action, remaining ? 'run' : 'stop');
+    assert.equal(result.reason, remaining ? 'ready' : 'tasks-complete');
+    assert.deepEqual(result.checkboxCounts, {
+      total: 4, checked: 4 - remaining, unchecked: remaining,
+    });
+    if (remaining) {
+      assert.match(result.taskAppendix, /Exercise the error path/);
+      assert.match(result.taskAppendix, /and retain its diagnostic/);
+      assert.match(result.taskAppendix, /Verify the packaged command/);
+    }
+    body = refresh(body.replace('- [ ]', '- [x]'));
+  }
+});
+
+test('evaluateKeepaliveLoop resumes a reopened outside task despite saved completion', async () => {
+  const pr = {
+    number: 3441,
+    head: { ref: 'codex/issue-3441', sha: 'reopened-head' },
+    labels: [{ name: 'agent:codex' }],
+    body: [
+      '<!-- auto-status-summary:start -->',
+      '## Tasks', '- [x] Implement the source task',
+      '## Acceptance Criteria', '- [x] Verify the source task',
+      '<!-- auto-status-summary:end -->',
+      '## Reviewer follow-up', '- [x] Exercise the retry path',
+    ].join('\n'),
+  };
+  const github = buildGithubStub({
+    pr,
+    comments: [{ id: 23, body: formatStateComment({
+      tasks: { total: 3, checked: 3, unchecked: 0 },
+      verification: { status: 'done' },
+    }) }],
+    workflowRuns: [{ head_sha: 'reopened-head', conclusion: 'success' }],
+  });
+  const evaluate = () => evaluateKeepaliveLoop({
+    github, context: buildContext(pr.number), core: buildCore(),
+  });
+  const completed = await evaluate();
+  assert.equal(completed.reason, 'tasks-complete');
+  assert.equal(completed.action, 'stop');
+
+  // A body-only edit must invalidate completion without requiring a new head.
+  pr.body = pr.body.replace('- [x] Exercise the retry path', '- [ ] Exercise the retry path');
+  const reopened = await evaluate();
+  assert.equal(reopened.action, 'run');
+  assert.equal(reopened.reason, 'ready');
+  assert.deepEqual(reopened.checkboxCounts, { total: 3, checked: 2, unchecked: 1 });
+  assert.match(reopened.taskAppendix, /2\/3 tasks complete, 1 remaining/);
+  assert.match(reopened.taskAppendix, /- \[ \] Exercise the retry path/);
+});
+
+test('evaluateKeepaliveLoop ignores outside examples and metrics but counts visible duplicate work', async () => {
+  const summary = '<!-- auto-status-summary:start -->\n## Tasks\n- [x] Retry request\n## Acceptance Criteria\n- [x] Verified\n<!-- auto-status-summary:end -->';
+  const examples = '\n```markdown\n- [ ] Example only\n```\n<!--\n- [ ] Hidden example\n-->\n- [ ] Repos checked: 12/12\n';
+  for (const outside of [examples, `${examples}- [ ] Retry request\n`]) {
+    const pr = { number: 3442, head: { ref: 'codex/issue-3441', sha: 'example-head' },
+      labels: [{ name: 'agent:codex' }], body: summary + outside };
+    const github = buildGithubStub({ pr,
+      comments: [{ id: 23, body: formatStateComment({ verification: { status: 'done' } }) }],
+      workflowRuns: [{ head_sha: 'example-head', conclusion: 'success' }],
+    });
+    const result = await evaluateKeepaliveLoop({ github, context: buildContext(pr.number), core: buildCore() });
+    assert.equal(result.reason, outside === examples ? 'tasks-complete' : 'ready');
+    assert.equal(result.checkboxCounts.unchecked, outside === examples ? 0 : 1);
+  }
+});
+
+for (const templatePath of ['../../../.github/PULL_REQUEST_TEMPLATE.md', '../../../templates/consumer-repo/.github/PULL_REQUEST_TEMPLATE.md']) {
+  for (const managed of [false, true]) {
+    test(`evaluateKeepaliveLoop excludes checked-in PR template controls (${templatePath}, managed=${managed})`, async () => {
+      const template = fs.readFileSync(path.resolve(__dirname, templatePath), 'utf8')
+        .replace('- [ ] GitHub issue: #', '- [x] GitHub issue: #3441');
+      const tasks = '## Tasks\n- [x] Source task\n## Acceptance Criteria\n- [x] Source acceptance';
+      for (const followup of ['', '\n## Reviewer notes\n> - [ ] Verify quoted follow-up']) {
+        const summary = managed ? `<!-- auto-status-summary:start -->\n${tasks}\n<!-- auto-status-summary:end -->` : tasks;
+        const pr = { number: 3441, head: { ref: 'codex/issue-3441', sha: 'template-head' },
+          labels: [{ name: 'agent:codex' }], body: `${template}\n${summary}${followup}` };
+        const github = buildGithubStub({ pr,
+          comments: [{ id: 23, body: formatStateComment({ verification: { status: 'done' } }) }],
+          workflowRuns: [{ head_sha: 'template-head', conclusion: 'success' }],
+        });
+        const result = await evaluateKeepaliveLoop({ github, context: buildContext(pr.number), core: buildCore() });
+        assert.equal(result.reason, followup ? 'ready' : 'tasks-complete');
+        assert.deepEqual(result.checkboxCounts, { total: followup ? 3 : 2, checked: 2, unchecked: followup ? 1 : 0 });
+        if (followup) assert.match(result.taskAppendix, /Verify quoted follow-up/);
+      }
+    });
+  }
+}
+
+test('evaluateKeepaliveLoop ignores quoted fenced examples but counts quoted reviewer work', async () => {
+  const pr = { number: 3441, head: { ref: 'codex/issue-3441', sha: 'quoted-head' },
+    labels: [{ name: 'agent:codex' }], body: [
+      '<!-- auto-status-summary:start -->', '## Tasks', '- [x] Source task',
+      '## Acceptance Criteria', '- [x] Source acceptance', '<!-- auto-status-summary:end -->',
+      '> ```markdown', '> - [ ] Example only', '> ```',
+      '> <!--', '> - [ ] Hidden only', '> -->',
+      '> - [ ] Real quoted follow-up',
+    ].join('\n') };
+  const github = buildGithubStub({ pr, workflowRuns: [{ head_sha: 'quoted-head', conclusion: 'success' }] });
+  const result = await evaluateKeepaliveLoop({ github, context: buildContext(pr.number), core: buildCore() });
+  assert.equal(result.checkboxCounts.unchecked, 1);
+  assert.match(result.taskAppendix, /Real quoted follow-up/);
+  assert.doesNotMatch(result.taskAppendix, /Example only|Hidden only/);
+});
+
+test('updateKeepaliveLoopSummary retains outside work in live task counts', async () => {
+  const pr = { number: 3441, labels: [{ name: 'agent:codex' }], body:
+    '<!-- auto-status-summary:start -->\n## Tasks\n- [x] Source task\n## Acceptance Criteria\n- [x] Source acceptance\n<!-- auto-status-summary:end -->\n## Follow-up\n- [ ] Check the retry path' };
+  const github = buildGithubStub({ pr });
+  await updateKeepaliveLoopSummary({ github, context: buildContext(pr.number), core: buildCore(), inputs: {
+    prNumber: pr.number, action: 'run', reason: 'ready', runResult: 'success', gateConclusion: 'success',
+    tasksTotal: 2, tasksUnchecked: 0, keepaliveEnabled: true, iteration: 0, maxIterations: 5,
+    codex_changes_made: 'true', codex_files_changed: 1, codex_commit_sha: 'new-head',
+  } });
+  const comment = github.actions.find((action) => action.body && parseStateComment(action.body));
+  assert.ok(comment);
+  const state = parseStateComment(comment.body).data;
+  assert.deepEqual(state.tasks, { total: 3, unchecked: 1 });
+});
+
+test('updateKeepaliveLoopSummary refuses stale completion when outside work was added', async () => {
+  const pr = { number: 3441, labels: [{ name: 'agent:codex' }], body:
+    '<!-- auto-status-summary:start -->\n## Tasks\n- [x] Source task\n## Acceptance Criteria\n- [x] Source acceptance\n<!-- auto-status-summary:end -->\n## Follow-up\n- [ ] Check the retry path' };
+  const github = buildGithubStub({ pr });
+  await updateKeepaliveLoopSummary({ github, context: buildContext(pr.number), core: buildCore(), inputs: {
+    prNumber: pr.number, action: 'stop', reason: 'tasks-complete', runResult: 'success', gateConclusion: 'success',
+    tasksTotal: 2, tasksUnchecked: 0, keepaliveEnabled: true, iteration: 0, maxIterations: 5,
+    codex_changes_made: 'true', codex_files_changed: 1, codex_commit_sha: 'new-head',
+  } });
+  const comment = github.actions.find((action) => action.body && parseStateComment(action.body));
+  assert.ok(comment);
+  const state = parseStateComment(comment.body).data;
+  assert.deepEqual(state.tasks, { total: 3, unchecked: 1 });
+  assert.match(comment.body, /tasks-changed/);
+  assert.equal(github.actions.some((action) => action.labels?.includes('automerge')), false);
+});
+
+for (const action of ['stop', 'run']) {
+  test(`updateKeepaliveLoopSummary revokes existing automerge on visible outstanding work (${action})`, async () => {
+    const pr = { number: 3441, labels: [{ name: 'agent:codex' }, { name: 'automerge' }], body: '## Tasks\n- [x] Source task\n## Acceptance Criteria\n- [x] Verified\n## Review\n> - [ ] Finish review task' };
+    const github = buildGithubStub({ pr, labels: ['agent:codex', 'automerge'] });
+    await updateKeepaliveLoopSummary({ github, context: buildContext(pr.number), core: buildCore(), inputs: {
+      prNumber: pr.number, action, reason: action === 'stop' ? 'tasks-complete' : 'ready',
+      runResult: 'success', gateConclusion: 'success', tasksTotal: 2, tasksUnchecked: 0,
+      keepaliveEnabled: true, iteration: 0, maxIterations: 5,
+    } });
+    const removalIndex = github.actions.findIndex((entry) => entry.type === 'remove-label' && entry.name === 'automerge');
+    assert.ok(removalIndex >= 0, 'outstanding live work must revoke the previous merge authorization');
+    const summaryIndex = github.actions.findIndex((entry) => entry.body && parseStateComment(entry.body));
+    assert.ok(summaryIndex > removalIndex, 'revoke authorization before publishing state');
+    assert.equal(github.actions.some((entry) => entry.labels?.includes('automerge')), false);
+  });
+}
 
 test('evaluateKeepaliveLoop stops when round budget is exhausted', async () => {
   const pr = {

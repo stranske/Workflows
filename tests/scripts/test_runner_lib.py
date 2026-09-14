@@ -971,6 +971,24 @@ def test_materialize_reference_packs_does_not_put_token_in_git_command(
     assert Path(clone_env["GIT_ASKPASS"]).exists() is False
 
 
+@pytest.mark.parametrize(
+    ("prior", "expected"),
+    [
+        (None, False),
+        ({}, False),
+        ({"productive": None}, False),
+        ({"productive": True}, False),
+        ({"productive": False}, True),
+        ({"productive": 0}, False),
+        ({"productive": "false"}, False),
+    ],
+)
+def test_completion_productivity_requires_explicit_false(
+    prior: dict[str, Any] | None, expected: bool
+) -> None:
+    assert runner_core._completion_was_unproductive(prior) is expected
+
+
 def _unproductive_result() -> RunnerResult:
     """A run that exits 0 having done nothing — the shape the codex sandbox failure takes."""
     return RunnerResult(

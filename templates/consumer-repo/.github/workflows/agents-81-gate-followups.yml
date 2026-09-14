@@ -1532,8 +1532,10 @@ jobs:
               return stop('missing workflow_run payload');
             }
 
-            if ((run.conclusion || '').toLowerCase() === 'success') {
-              return stop('upstream Gate succeeded');
+            const isFailure = (value) =>
+              ['failure', 'timed_out'].includes(String(value || '').toLowerCase());
+            if (!isFailure(run.conclusion)) {
+              return stop('upstream Gate has no counted failure', 'gate_not_failed');
             }
 
             if ((run.event || '').toLowerCase() !== 'pull_request') {
@@ -1623,43 +1625,6 @@ jobs:
               ? configMatch[1].toLowerCase() === 'true'
               : hasAgentLabel;
 
-            // Auto-escalation: Escalate to agent CLI when Gate fails
-            // Triggers if: (1) basic autofix ran but insufficient, OR (2) no basic autofix applied
-            // Note: We do NOT add agent:* label here because that triggers external agent UI
-            // which would conflict with our internal agent CLI run. Only add autofix:escalated.
-            if (!autofixEnabled && !configMatch) {
-                const hasAutofixLabel =
-                  labels.includes('autofix:applied') || labels.includes('autofix');
-              const hasEscalatedLabel = labels.includes('autofix:escalated');
-              const gateConclusion = (run.conclusion || '').toLowerCase();
-              const gateFailed = gateConclusion === 'failure';
-
-              // Escalate if Gate failed and we haven't already escalated
-              if (gateFailed && !hasEscalatedLabel) {
-                const reason = hasAutofixLabel
-                  ? 'Basic autofix ran but Gate still failing'
-                  : 'No basic autofix (non-Python PR?) and Gate failing';
-                core.info(`🔄 Auto-escalation: ${reason}. Escalating to agent CLI...`);
-                try {
-                  await withRetry((client) => client.rest.issues.addLabels({
-                    owner,
-                    repo,
-                    issue_number: prNumber,
-                    labels: ['autofix:escalated'],
-                  }));
-                    core.info(
-                      '✅ Added autofix:escalated label - agent CLI will run in this workflow'
-                    );
-                  autofixEnabled = true;
-                } catch (error) {
-                  core.warning(`Failed to add escalation labels: ${error.message}`);
-                }
-              }
-            }
-            if (!autofixEnabled) {
-              return stop('autofix disabled for this pull request');
-            }
-
             const jobs = await paginateWithRetry(github.rest.actions.listJobsForWorkflowRun, {
               owner,
               repo,
@@ -1667,7 +1632,8 @@ jobs:
               per_page: 100,
             });
 
-            const workflowFile = 'agents-81-gate-followups.yml';
+            // Count failed Gate executions, not unrelated follow-up workflow runs.
+            const workflowFile = run.workflow_id;
             // Reduce attempts for auto-escalated PRs (they weren't agent-initiated)
             const isEscalated = labels.includes('autofix:escalated');
               const maxAttempts = isEscalated
@@ -1682,7 +1648,77 @@ jobs:
               status: 'completed',
             });
 
-            const attemptCount = previousRuns.length + 1;
+            const listJobsForGateAttempt = async (runId, attemptNumber, latestJobs = null) => {
+              const currentAttempt = Math.max(1, Number(run.run_attempt) || 1);
+              if (runId === run.id && attemptNumber === currentAttempt && latestJobs) {
+                return latestJobs;
+              }
+              if (typeof github['rest']['actions']['listJobsForWorkflowRunAttempt'] === 'function') {
+                return await paginateWithRetry(github.rest.actions.listJobsForWorkflowRunAttempt, {
+                  owner,
+                  repo,
+                  run_id: runId,
+                  attempt_number: attemptNumber,
+                  per_page: 100,
+                });
+              }
+              if (attemptNumber === 1) {
+                return await paginateWithRetry(github.rest.actions.listJobsForWorkflowRun, {
+                  owner,
+                  repo,
+                  run_id: runId,
+                  per_page: 100,
+                });
+              }
+              return [];
+            };
+
+            const countFailingAttemptsForRun = async (gateRun, latestJobs = null) => {
+              const maxAttempt = Math.max(1, Number(gateRun.run_attempt) || 1);
+              let count = 0;
+              for (let attempt = 1; attempt <= maxAttempt; attempt += 1) {
+                const attemptJobs = await listJobsForGateAttempt(
+                  gateRun.id,
+                  attempt,
+                  gateRun.id === run.id ? latestJobs : null
+                );
+                if (attemptJobs.some((job) => isFailure(job.conclusion))) {
+                  count += 1;
+                }
+              }
+              return count;
+            };
+
+            const gateRunsById = new Map();
+            for (const candidate of previousRuns) {
+              if (candidate.head_sha !== run.head_sha || !isFailure(candidate.conclusion)) {
+                continue;
+              }
+              const existing = gateRunsById.get(candidate.id);
+              const candidateAttempt = Number(candidate.run_attempt) || 1;
+              const existingAttempt = existing ? Number(existing.run_attempt) || 1 : 0;
+              if (!existing || candidateAttempt >= existingAttempt) {
+                gateRunsById.set(candidate.id, candidate);
+              }
+            }
+            gateRunsById.set(run.id, {
+              ...run,
+              run_attempt: Math.max(
+                Number(run.run_attempt) || 1,
+                Number(gateRunsById.get(run.id)?.run_attempt) || 0
+              ),
+            });
+
+            let attemptsWithFailingJobs = 0;
+            let gateAttemptsExamined = 0;
+            for (const gateRun of gateRunsById.values()) {
+              gateAttemptsExamined += Math.max(1, Number(gateRun.run_attempt) || 1);
+              attemptsWithFailingJobs += await countFailingAttemptsForRun(
+                gateRun,
+                gateRun.id === run.id ? jobs : null
+              );
+            }
+            const attemptCount = attemptsWithFailingJobs;
             outputs.attempts = String(attemptCount);
             outputs.max_attempts = String(maxAttempts);
 
@@ -1691,7 +1727,7 @@ jobs:
             let triggerStep = null;
             for (const job of jobs) {
               const conclusion = (job.conclusion || job.status || '').toLowerCase();
-              if (!conclusion || ['success', 'skipped'].includes(conclusion)) {
+              if (!isFailure(conclusion)) {
                 continue;
               }
 
@@ -1700,7 +1736,7 @@ jobs:
                   ? job.steps
                       .filter((step) => {
                         const stepConclusion = (step.conclusion || step.status || '').toLowerCase();
-                        return stepConclusion && !['success', 'skipped'].includes(stepConclusion);
+                        return isFailure(stepConclusion);
                       })
                         .map((step) =>
                           `${step.name} (${step.conclusion || step.status || 'unknown'})`
@@ -1718,7 +1754,7 @@ jobs:
                 const failingStep = Array.isArray(job.steps)
                   ? job.steps.find((step) => {
                       const stepConclusion = (step.conclusion || step.status || '').toLowerCase();
-                      return stepConclusion && !['success', 'skipped'].includes(stepConclusion);
+                      return isFailure(stepConclusion);
                     })
                   : null;
                 triggerStep = failingStep || null;
@@ -1754,6 +1790,7 @@ jobs:
               `PR: #${prNumber}`,
               `Head SHA: ${headSha}`,
               `Autofix attempts for this head: ${attemptCount} / ${maxAttempts}`,
+              `Gate runs examined: ${gateRunsById.size}; gate attempts examined: ${gateAttemptsExamined}; attempts with failing jobs: ${attemptsWithFailingJobs}`,
               'Fix scope: src/, tests/, tools/, scripts/, agents/, templates/, .github/',
             ];
 
@@ -1764,6 +1801,44 @@ jobs:
             }
 
             outputs.appendix = appendixLines.join('\n');
+
+            if (failingJobs.length === 0) {
+              return stop('Gate has no failing jobs', 'no_failing_jobs');
+            }
+
+            // Auto-escalation: only after confirming real failed/timed-out Gate jobs.
+            // Note: We do NOT add agent:* label here because that triggers external agent UI
+            // which would conflict with our internal agent CLI run. Only add autofix:escalated.
+            if (!autofixEnabled && !configMatch) {
+                const hasAutofixLabel =
+                  labels.includes('autofix:applied') || labels.includes('autofix');
+              const hasEscalatedLabel = labels.includes('autofix:escalated');
+              const gateFailed = isFailure((run.conclusion || '').toLowerCase());
+
+              if (gateFailed && !hasEscalatedLabel) {
+                const reason = hasAutofixLabel
+                  ? 'Basic autofix ran but Gate still failing'
+                  : 'No basic autofix (non-Python PR?) and Gate failing';
+                core.info(`🔄 Auto-escalation: ${reason}. Escalating to agent CLI...`);
+                try {
+                  await withRetry((client) => client.rest.issues.addLabels({
+                    owner,
+                    repo,
+                    issue_number: prNumber,
+                    labels: ['autofix:escalated'],
+                  }));
+                    core.info(
+                      '✅ Added autofix:escalated label - agent CLI will run in this workflow'
+                    );
+                  autofixEnabled = true;
+                } catch (error) {
+                  core.warning(`Failed to add escalation labels: ${error.message}`);
+                }
+              }
+            }
+            if (!autofixEnabled) {
+              return stop('autofix disabled for this pull request');
+            }
 
             if (attemptCount > maxAttempts) {
                 return stop(

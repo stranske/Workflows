@@ -8,7 +8,63 @@ const {
   parseScopeTasksAcceptanceSections,
   analyzeSectionPresence,
   hasNonPlaceholderScopeTasksAcceptanceContent,
+  visibleChecklistContent,
 } = require('../issue_scope_parser');
+
+for (const parserPath of ['../issue_scope_parser', '../../../templates/consumer-repo/.github/scripts/issue_scope_parser']) {
+  const parser = require(parserPath);
+  for (const fence of ['```', '~~~']) {
+    for (const quote of ['', '> ', '> > ']) {
+      test(`template controls preserve fenced examples (${parserPath}, ${fence}, ${quote})`, () => {
+        const example = [
+          `${fence}markdown`, '## Workflow Source', 'Started from:',
+          '- [ ] GitHub issue: #123', `    ${fence}`,
+          'Automation intent:', '- [ ] Keepalive may manage this PR',
+          `${fence}not-a-closing-fence`, '- [ ] Direct PR / remote GitHub work', fence,
+        ].map((line) => quote + line).join('\n');
+        const actualControls = [
+          '## Workflow Source', 'Started from:', '- [ ] GitHub issue: #456',
+          'Automation intent:', '- [ ] Keepalive may manage this PR',
+          'Notes:', '- [ ] Retain reviewer work',
+        ].join('\n');
+        assert.equal(parser.stripPrTemplateControls(`${example}\n${actualControls}`),
+          `${example}\n## Workflow Source\nNotes:\n- [ ] Retain reviewer work`);
+        assert.doesNotMatch(parser.visibleChecklistContent(example), /\[ \]/);
+      });
+    }
+  }
+}
+
+test('visible checklist scan handles nested quotes without counting their fenced examples', () => {
+  const body = [
+    '> > - [ ] Visible nested task',
+    '> >   with a continuation.',
+    '> > ```markdown',
+    '> > - [ ] Example only',
+    '> > ```',
+    '>> - [x] Completed nested task',
+  ].join('\n');
+  const visible = visibleChecklistContent(body);
+  assert.match(visible, /^- \[ \] Visible nested task\n  with a continuation\./);
+  assert.match(visible, /- \[x\] Completed nested task/);
+  assert.doesNotMatch(visible, /Example only|>/);
+});
+
+for (const fence of ['```', '~~~']) {
+  test(`visible checklist scan keeps fence and comment state separate (${fence})`, () => {
+    const body = [
+      '<!-- hidden comment', fence, '- [ ] Hidden task', '-->',
+      `${fence}markdown`, '<!-- literal comment opener',
+      `    ${fence}`, '- [ ] Indented fence is still an example',
+      `${fence}not-a-closing-fence`, '- [ ] Still an example', fence,
+      '- [ ] Real task <!-- inline comment --> remains visible',
+      '-->',
+    ].join('\n');
+    const visible = visibleChecklistContent(body);
+    assert.match(visible, /- \[ \] Real task  remains visible/);
+    assert.doesNotMatch(visible, /Hidden task|example|literal comment/);
+  });
+}
 
 test('extracts sections inside auto-status markers', () => {
   const issue = [

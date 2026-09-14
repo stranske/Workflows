@@ -86,7 +86,7 @@ jobs:
           custom-predicate: >-
             (event_name == 'pull_request_target' && action == 'labeled' &&
              (label.name == 'autofix' || label.name == 'autofix:clean')) ||
-            (event_name == 'workflow_run' && workflow_run.conclusion == 'failure' &&
+            (event_name == 'workflow_run' && (workflow_run.conclusion == 'failure' || workflow_run.conclusion == 'timed_out') &&
              length(workflow_run.pull_requests) > 0)
 
       - name: Checkout for API helpers
@@ -154,7 +154,7 @@ jobs:
               );
 
               const failedChecks = (data.check_runs || []).filter(
-                (cr) => (cr.conclusion || '').toLowerCase() === 'failure'
+                (cr) => ['failure', 'timed_out'].includes((cr.conclusion || '').toLowerCase())
               );
 
               const relevantFailures = failedChecks.filter((cr) => {
@@ -189,7 +189,7 @@ jobs:
                 { maxRetries: 3 }
               );
               const failedJobs = jobs.filter(
-                (job) => (job.conclusion || '').toLowerCase() === 'failure'
+                (job) => ['failure', 'timed_out'].includes((job.conclusion || '').toLowerCase())
               );
               const relevantFailures = failedJobs.filter((job) => {
                 const name = String(job.name || '').toLowerCase();
@@ -255,7 +255,7 @@ jobs:
               const runId = Number(run?.id || 0);
 
               // Only proceed when the upstream workflow failed
-              if (run.conclusion !== 'failure') {
+              if (!['failure', 'timed_out'].includes(run.conclusion)) {
                 core.info(
                   `${workflowName} concluded '${run.conclusion}' — ` +
                   'no autofix needed'
