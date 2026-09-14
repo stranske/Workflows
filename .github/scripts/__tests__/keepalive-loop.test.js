@@ -20,6 +20,7 @@ const {
 } = require('../keepalive_loop.js');
 const { formatStateComment, parseStateComment } = require('../keepalive_state.js');
 const { signAuthorityChallengeClaim } = require('../keepalive_challenge_due.js');
+const { stripPrTemplateContent, upsertBlock } = require('../agents_pr_meta_update_body.js');
 
 const authorityClaimInputs = (prNumber, boundaryFingerprint, overrides = {}) => {
   const claim = {
@@ -436,6 +437,58 @@ for (const placement of ['before', 'after', 'unmanaged']) {
     assert.match(result.taskAppendix, /with a failed first request/);
   });
 }
+
+test('evaluateKeepaliveLoop requires outside work to be checked after metadata refresh', async () => {
+  const summary = (task) => [
+    '<!-- auto-status-summary:start -->',
+    '## Tasks', `- [x] ${task}`,
+    '## Acceptance Criteria', '- [x] Verify the source task',
+    '<!-- auto-status-summary:end -->',
+  ].join('\n');
+  const refresh = (body) => upsertBlock(
+    upsertBlock(stripPrTemplateContent(body), 'pr-preamble',
+      '<!-- pr-preamble:start -->\nCloses #3441\n<!-- pr-preamble:end -->'),
+    'auto-status-summary', summary('Refreshed source task'),
+  );
+  const original = [
+    '## Reviewer tasks', '- [ ] Exercise the error path',
+    '  and retain its diagnostic.',
+    summary('Original source task'),
+    '## Reviewer acceptance', '> - [ ] Verify the packaged command',
+  ].join('\n');
+  let body = refresh(original);
+  assert.equal(refresh(body), body);
+  assert.doesNotMatch(body, /Original source task/);
+  assert.match(body, /Refreshed source task/);
+
+  for (const remaining of [2, 1, 0]) {
+    const pr = {
+      number: 3441,
+      head: { ref: 'codex/issue-3441', sha: 'refreshed-head' },
+      labels: [{ name: 'agent:codex' }],
+      body,
+    };
+    const github = buildGithubStub({
+      pr,
+      comments: [{ id: 23, body: formatStateComment({ verification: { status: 'done' } }) }],
+      workflowRuns: [{ head_sha: 'refreshed-head', conclusion: 'success' }],
+    });
+    const result = await evaluateKeepaliveLoop({
+      github, context: buildContext(pr.number), core: buildCore(),
+    });
+    assert.equal(result.action, remaining ? 'run' : 'stop');
+    assert.equal(result.reason, remaining ? 'ready' : 'tasks-complete');
+    assert.deepEqual(result.checkboxCounts, {
+      total: 4, checked: 4 - remaining, unchecked: remaining,
+    });
+    if (remaining) {
+      assert.match(result.taskAppendix, /Exercise the error path/);
+      assert.match(result.taskAppendix, /and retain its diagnostic/);
+      assert.match(result.taskAppendix, /Verify the packaged command/);
+    }
+    body = refresh(body.replace('- [ ]', '- [x]'));
+  }
+});
 
 test('evaluateKeepaliveLoop ignores outside examples and metrics but counts visible duplicate work', async () => {
   const summary = '<!-- auto-status-summary:start -->\n## Tasks\n- [x] Retry request\n## Acceptance Criteria\n- [x] Verified\n<!-- auto-status-summary:end -->';
