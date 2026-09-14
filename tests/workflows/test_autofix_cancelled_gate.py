@@ -297,9 +297,7 @@ def test_same_run_reruns_count_each_attempt(workflow, tmp_path):
 
 @pytest.mark.parametrize("workflow", WORKFLOWS)
 @pytest.mark.parametrize("conclusion", ["failure", "timed_out"])
-def test_jobless_gate_without_agent_label_does_not_add_escalated(
-    workflow, tmp_path, conclusion
-):
+def test_jobless_gate_without_agent_label_does_not_add_escalated(workflow, tmp_path, conclusion):
     result = execute(
         workflow,
         tmp_path,
