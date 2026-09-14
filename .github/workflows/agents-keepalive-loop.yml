@@ -1081,12 +1081,32 @@ jobs:
               EXIT_CODE=1
             fi
           fi
+          # Did this run actually move the branch? A runner can exit 0 having produced
+          # nothing — the codex sandbox failing to initialize reports itself as a SUCCESSFUL
+          # run with no commit. Recording that as a terminal completion burned the
+          # (head_sha, provider) debounce key, and only a new head commit clears the key, so
+          # the refusal could only be lifted by the agent it was refusing (#3433). Comparing
+          # the PR's head now against the SHA this dispatch was reserved for is the cheapest
+          # ground truth available here. An unreadable head stays UNMEASURED, which keeps the
+          # pre-#3433 behavior rather than loosening the debounce on a failed lookup.
+          PRODUCED_WORK=""
+          CURRENT_HEAD="$(gh api "repos/${GITHUB_REPOSITORY}/pulls/${PR_NUMBER}" \
+            --jq .head.sha 2>/dev/null || true)"
+          if [ -n "${CURRENT_HEAD:-}" ]; then
+            if [ "$CURRENT_HEAD" = "$HEAD_SHA" ]; then
+              PRODUCED_WORK=false
+            else
+              PRODUCED_WORK=true
+            fi
+          fi
+          echo "Runner productivity: head_at_dispatch=${HEAD_SHA} head_now=${CURRENT_HEAD:-unreadable} produced_work=${PRODUCED_WORK:-unmeasured}"
           python -m scripts.runner_lib record-completion \
             --provider "$PROVIDER" \
             --pr-number "$PR_NUMBER" \
             --head-sha "$HEAD_SHA" \
             --summary "$SUMMARY" \
             --exit-code "$EXIT_CODE" \
+            --produced-work "$PRODUCED_WORK" \
             --storage auto
 
   progress-review:

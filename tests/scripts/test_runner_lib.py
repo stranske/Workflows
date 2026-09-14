@@ -10,7 +10,9 @@ from typing import Any
 import pytest
 import scripts.runner_lib.core as runner_core
 from scripts.runner_lib import (
+    UNPRODUCTIVE_COMPLETION_RETRY_LIMIT,
     CapabilityEffectEvidence,
+    RunnerResult,
     assemble_prompt,
     normalize_capability_effect_evidence,
     parse_runner_output,
@@ -965,3 +967,130 @@ def test_materialize_reference_packs_does_not_put_token_in_git_command(
     assert clone_env is not None
     assert clone_env["GIT_ASKPASS_PASSWORD"] == token
     assert Path(clone_env["GIT_ASKPASS"]).exists() is False
+
+
+def _unproductive_result() -> RunnerResult:
+    """A run that exits 0 having done nothing — the shape the codex sandbox failure takes."""
+    return RunnerResult(
+        provider="codex",
+        success=True,
+        final_message="bwrap: loopback: Failed RTM_NEWADDR: Operation not permitted",
+        summary="Blocked by the execution environment. No files changed, no commits created.",
+    )
+
+
+def test_unproductive_completion_is_retried_on_the_same_head() -> None:
+    """The #3433 deadlock: a zero-output run must not burn the head's dispatch key.
+
+    Clearing a `duplicate-completed` refusal requires a new head commit, and only the agent
+    being refused could push one — so refusing forever on an unproductive completion means the
+    gate can only be opened by the action it forbids.
+    """
+    storage = MemoryRunnerStorage()
+    should_dispatch(42, "aaa", "codex", storage=storage)
+    record_completion(
+        42, "aaa", "codex", _unproductive_result(), storage=storage, produced_work=False
+    )
+
+    decision = should_dispatch(42, "aaa", "codex", storage=storage)
+
+    assert decision.should_dispatch is True
+    assert decision.reason == "retry-unproductive-completion"
+
+
+def test_unproductive_retries_are_bounded_and_name_what_would_drain_them() -> None:
+    storage = MemoryRunnerStorage()
+    reasons = []
+    for _ in range(UNPRODUCTIVE_COMPLETION_RETRY_LIMIT + 1):
+        decision = should_dispatch(42, "aaa", "codex", storage=storage)
+        reasons.append(decision.reason)
+        record_completion(
+            42, "aaa", "codex", _unproductive_result(), storage=storage, produced_work=False
+        )
+
+    exhausted = should_dispatch(42, "aaa", "codex", storage=storage)
+
+    assert reasons[0] == "first-dispatch"
+    assert reasons[1:] == ["retry-unproductive-completion"] * UNPRODUCTIVE_COMPLETION_RETRY_LIMIT
+    assert exhausted.should_dispatch is False
+    assert exhausted.reason == "duplicate-completed"
+    # The refusal must state its drainable quantity, not just that it is closed.
+    assert "a new head commit" in exhausted.drainable
+    assert f"{UNPRODUCTIVE_COMPLETION_RETRY_LIMIT + 1}/{UNPRODUCTIVE_COMPLETION_RETRY_LIMIT}" in (
+        exhausted.drainable
+    )
+
+
+def test_productive_completion_still_burns_the_head_key() -> None:
+    storage = MemoryRunnerStorage()
+    should_dispatch(42, "aaa", "codex", storage=storage)
+    record_completion(
+        42,
+        "aaa",
+        "codex",
+        parse_runner_output("codex", "Done"),
+        storage=storage,
+        produced_work=True,
+    )
+
+    decision = should_dispatch(42, "aaa", "codex", storage=storage)
+
+    assert decision.should_dispatch is False
+    assert decision.reason == "duplicate-completed"
+    assert decision.drainable == "a new head commit"
+
+
+def test_unmeasured_completion_keeps_pre_3433_behavior() -> None:
+    """No productivity verdict means unmeasured, which must stay terminal.
+
+    Callers that have not been taught to measure (autofix) must not silently get a looser
+    debounce as a side effect of this fix.
+    """
+    storage = MemoryRunnerStorage()
+    should_dispatch(42, "aaa", "codex", storage=storage)
+    record_completion(42, "aaa", "codex", _unproductive_result(), storage=storage)
+
+    decision = should_dispatch(42, "aaa", "codex", storage=storage)
+
+    assert decision.should_dispatch is False
+    assert decision.reason == "duplicate-completed"
+
+
+def test_productive_run_resets_the_unproductive_tally() -> None:
+    storage = MemoryRunnerStorage()
+    should_dispatch(42, "aaa", "codex", storage=storage)
+    record_completion(
+        42, "aaa", "codex", _unproductive_result(), storage=storage, produced_work=False
+    )
+    should_dispatch(42, "aaa", "codex", storage=storage)
+    record_completion(
+        42,
+        "bbb",
+        "codex",
+        parse_runner_output("codex", "Done"),
+        storage=storage,
+        produced_work=True,
+    )
+
+    assert storage.records[(42, "codex")]["unproductive_completions"] == 0
+
+
+def test_pending_refusal_names_its_drainable_quantity() -> None:
+    storage = MemoryRunnerStorage()
+    should_dispatch(42, "aaa", "codex", storage=storage)
+
+    decision = should_dispatch(42, "aaa", "codex", storage=storage)
+
+    assert decision.should_dispatch is False
+    assert decision.reason == "duplicate-pending"
+    assert "ageing past" in decision.drainable
+
+
+def test_granted_dispatch_reports_no_drainable_quantity() -> None:
+    """The drained rendering must be reachable: an unblocked decision prints an empty string.
+
+    A field that only ever renders a blocked state is the reporting half of a latched gate.
+    """
+    storage = MemoryRunnerStorage()
+
+    assert should_dispatch(42, "aaa", "codex", storage=storage).drainable == ""
