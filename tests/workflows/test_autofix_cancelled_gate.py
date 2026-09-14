@@ -159,6 +159,7 @@ const fixture = JSON.parse(process.env.FIXTURE);
 const output = {};
 const labels = [];
 const comments = [];
+const attemptCalls = [];
 const core = {
   setOutput: (key, value) => output[key] = value,
   info: () => {}, warning: () => {}, setFailed: (message) => {throw Error(message);}
@@ -176,6 +177,7 @@ const github = {rest: {actions: {
   listJobsForWorkflowRun: async (params) => params.run_id === 100 ? fixture.jobs :
     (fixture.historical_jobs ?? [{name: 'pytest', conclusion: 'failure'}]),
   listJobsForWorkflowRunAttempt: async (params) => {
+    attemptCalls.push({run_id: params.run_id, attempt_number: params.attempt_number});
     const attemptJobs = fixture.attempt_jobs[String(params.attempt_number)];
     if (attemptJobs) return attemptJobs;
     if (params.run_id === 100 && params.attempt_number === fixture.run.run_attempt) {
@@ -213,7 +215,7 @@ if (output.stop_reason === 'max_attempts') {
   await new AsyncFunction('require', 'github', 'context', 'core', escalation)(
     requireStub, github, context, core);
 }
-console.log(JSON.stringify({output, labels, comments}));
+console.log(JSON.stringify({output, labels, comments, attemptCalls}));
 """
     result = subprocess.run(
         [NODE, "--input-type=module", "-e", harness],
@@ -296,6 +298,68 @@ def test_same_run_reruns_count_each_attempt(workflow, tmp_path):
 
 
 @pytest.mark.parametrize("workflow", WORKFLOWS)
+@pytest.mark.parametrize("historical_failures", [0, 1, 3])
+@pytest.mark.parametrize("failure_conclusion", ["failure", "timed_out"])
+def test_same_run_mixed_attempts_spend_only_real_failure_budget(
+    workflow, tmp_path, historical_failures, failure_conclusion
+):
+    """Inspect each rerun, even when several attempts of that run spend no budget."""
+    failed_jobs = [{"name": "pytest", "conclusion": failure_conclusion, "steps": []}]
+    prior_jobs = [
+        [],
+        [{"name": "pytest", "conclusion": "cancelled"}],
+        [{"name": "pytest", "conclusion": "skipped"}],
+    ] + [failed_jobs] * historical_failures
+    result = execute(
+        workflow,
+        tmp_path,
+        failure_conclusion,
+        jobs=failed_jobs,
+        run_attempt=len(prior_jobs) + 1,
+        attempt_jobs={str(i): jobs for i, jobs in enumerate(prior_jobs, start=1)},
+    )
+    output = result["output"]
+    assert result["attemptCalls"] == [
+        {"run_id": 100, "attempt_number": i} for i in range(1, len(prior_jobs) + 1)
+    ]
+    assert output["attempts"] == str(historical_failures + 1)
+    exhausted = historical_failures + 1 > int(output["max_attempts"])
+    assert output["should_run"] == str(not exhausted).lower()
+    if exhausted:
+        assert output["stop_reason"] == "max_attempts"
+        assert result["labels"] == ["needs-human"]
+        assert "attempts with failing jobs: 4" in result["comments"][0]
+    else:
+        assert result["labels"] == []
+        assert result["comments"] == []
+
+
+@pytest.mark.parametrize("workflow", WORKFLOWS)
+@pytest.mark.parametrize("conclusion", ["failure", "timed_out"])
+def test_jobless_failure_does_not_latch_subsequent_rerun(workflow, tmp_path, conclusion):
+    """Carry label writes into the next evaluation to detect a persistent hold."""
+    first = execute(workflow, tmp_path, conclusion, jobs=[], pr_labels=[])
+    assert first["output"]["stop_reason"] == "no_failing_jobs"
+    assert first["output"]["should_run"] == "false"
+    assert first["labels"] == []
+    assert first["comments"] == []
+
+    second = execute(
+        workflow,
+        tmp_path,
+        conclusion,
+        jobs=[{"name": "pytest", "conclusion": conclusion, "steps": []}],
+        run_attempt=2,
+        attempt_jobs={"1": []},
+        pr_labels=[{"name": label} for label in first["labels"]],
+    )
+    assert second["output"]["should_run"] == "true"
+    assert second["output"]["attempts"] == "1"
+    assert second["labels"] == ["autofix:escalated"]
+    assert second["comments"] == []
+
+
+@pytest.mark.parametrize("workflow", WORKFLOWS)
 @pytest.mark.parametrize("conclusion", ["failure", "timed_out"])
 def test_jobless_gate_without_agent_label_does_not_add_escalated(workflow, tmp_path, conclusion):
     result = execute(
@@ -327,6 +391,9 @@ def test_same_run_attempt_counting_mutation_is_detected(workflow, tmp_path, monk
 
     def regression():
         test_same_run_reruns_count_each_attempt(workflow, tmp_path)
+        test_same_run_mixed_attempts_spend_only_real_failure_budget(
+            workflow, tmp_path, 3, "failure"
+        )
 
     regression()
     original_read_text = Path.read_text
