@@ -310,6 +310,7 @@ def test_nonfailure_counting_mutation_is_detected(
 ):
     """Counting cancelled or skipped must break the regression, without editing YAML."""
     regression(workflow, tmp_path, argument)
+
     original_read_text = Path.read_text
     counted = "['failure', 'timed_out'].includes(String(value || '').toLowerCase())"
 
@@ -330,3 +331,86 @@ def test_nonfailure_counting_mutation_is_detected(
             regression(workflow, tmp_path, argument)
 
     regression(workflow, tmp_path, argument)
+
+
+@pytest.mark.parametrize("workflow", WORKFLOWS)
+@pytest.mark.parametrize("historical_failures", [0, 3])
+def test_timed_out_jobs_enable_autofix_and_exhaust_budget(workflow, tmp_path, historical_failures):
+    timed_out_jobs = [
+        {
+            "name": "pytest",
+            "conclusion": "timed_out",
+            "steps": [{"name": "Run tests", "conclusion": "timed_out"}],
+        }
+    ]
+    result = execute(
+        workflow,
+        tmp_path,
+        "failure",
+        history=["failure"] * historical_failures,
+        jobs=timed_out_jobs,
+        historical_jobs=timed_out_jobs,
+    )
+    output = result["output"]
+    assert output["attempts"] == str(historical_failures + 1)
+    assert output["trigger_job"] == "pytest"
+    assert output["trigger_step"] == "Run tests"
+    if historical_failures:
+        assert output["stop_reason"] == "max_attempts"
+        assert output["should_run"] == "false"
+        assert result["labels"] == ["needs-human"]
+        assert "attempts with failing jobs: 4" in result["comments"][0]
+    else:
+        assert output["should_run"] == "true"
+        assert not result["labels"]
+        assert not result["comments"]
+
+
+@pytest.mark.parametrize(
+    "workflow, evidence",
+    [(workflow, "evaluator") for workflow in WORKFLOWS]
+    + [
+        (workflow, evidence)
+        for workflow in (
+            ".github/workflows/autofix.yml",
+            "templates/consumer-repo/.github/workflows/autofix.yml",
+        )
+        for evidence in ("check", "job")
+    ],
+)
+def test_timed_out_eligibility_mutation_is_detected(workflow, evidence, tmp_path, monkeypatch):
+    """Remove timeout eligibility in memory, require failure, then verify restoration."""
+
+    def regression():
+        if evidence == "evaluator":
+            test_timed_out_jobs_enable_autofix_and_exhaust_budget(workflow, tmp_path, 0)
+            test_timed_out_jobs_enable_autofix_and_exhaust_budget(workflow, tmp_path, 3)
+        else:
+            test_autofix_lint_failure_eligibility(
+                workflow, tmp_path, evidence, "lint-ruff", "timed_out"
+            )
+
+    regression()
+    original_read_text = Path.read_text
+    source = original_read_text(ROOT / workflow)
+    predicate = (
+        "['failure', 'timed_out'].includes(String(value || '').toLowerCase())"
+        if evidence == "evaluator"
+        else "['failure', 'timed_out'].includes(("
+        + ("cr" if evidence == "check" else "job")
+        + ".conclusion || '').toLowerCase())"
+    )
+    assert source.count(predicate) == 1, "Update the mutation for the workflow predicate"
+    mutated = source.replace(predicate, predicate.replace("'failure', 'timed_out'", "'failure'"))
+
+    def read_mutated(path, *args, **kwargs):
+        if path == ROOT / workflow:
+            return mutated
+        return original_read_text(path, *args, **kwargs)
+
+    with monkeypatch.context() as mutation:
+        mutation.setattr(Path, "read_text", read_mutated)
+        with pytest.raises(AssertionError):
+            regression()
+
+    regression()
