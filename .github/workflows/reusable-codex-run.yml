@@ -931,6 +931,31 @@ jobs:
             SANDBOX="workspace-write"
           fi
 
+          # --- Codex Linux sandbox repair (openai/codex#14719, #15982, #19235) ---
+          # codex's workspace-write sandbox shells out to bubblewrap, which unshares the
+          # network namespace and then brings up loopback. Bringing up `lo` needs CAP_NET_ADMIN
+          # inside that namespace, and Ubuntu 24.04+ images ship
+          # kernel.apparmor_restrict_unprivileged_userns=1, which withholds it. Every shell
+          # command then dies before it runs with:
+          #     bwrap: loopback: Failed RTM_NEWADDR: Operation not permitted
+          # codex reports that as a SUCCESSFUL turn with no files changed, so from the outside
+          # a totally blocked agent is indistinguishable from one that had nothing to do.
+          # Measured 2026-09-13: every codex keepalive run across the fleet was inert this way.
+          #
+          # First try to restore the capability, which keeps the sandbox exactly as designed.
+          # Runners grant passwordless sudo; if that ever stops being true, this is a no-op and
+          # the network-access fallback below still rescues the run.
+          SANDBOX_USERNS_RELAXED="no"
+          if [ "$(cat /proc/sys/kernel/apparmor_restrict_unprivileged_userns 2>/dev/null || echo 0)" = "1" ]; then
+            if sudo sysctl -w kernel.apparmor_restrict_unprivileged_userns=0 >/dev/null 2>&1; then
+              SANDBOX_USERNS_RELAXED="yes"
+              echo "Relaxed kernel.apparmor_restrict_unprivileged_userns for the codex sandbox."
+            else
+              echo "::warning::Could not relax apparmor_restrict_unprivileged_userns; " \
+                "relying on the sandbox network-access fallback if bwrap fails."
+            fi
+          fi
+
           # Parse EXTRA_ARGS_RAW safely (no eval). Supports:
           #  - JSON array: ["--flag", "value"]
           #  - string: "--flag value --other=123" (shell-like splitting)
@@ -1109,6 +1134,38 @@ jobs:
             "${cmd[@]}" "$prompt_content" > "$attempt_session" 2>&1 || CODEX_EXIT=$?
             cat "$attempt_session" >> "$SESSION_JSONL"
             selected_model="$codex_model"
+
+            # A bwrap startup failure is NOT a model problem and does NOT set a non-zero
+            # exit code — codex exits 0 having run nothing. Detect it explicitly and retry the
+            # same model once with network access enabled in the workspace-write sandbox, which
+            # makes bwrap share the host network namespace instead of unsharing it, so the
+            # loopback setup that fails is never attempted. Filesystem confinement — the part
+            # that actually matters on an ephemeral runner — is unchanged.
+            if grep -q "bwrap:" "$attempt_session" 2>/dev/null &&
+              [ "${SANDBOX_NETWORK_FALLBACK_USED:-no}" = "no" ] &&
+              [ "$SANDBOX" = "workspace-write" ]; then
+              echo "::warning::codex sandbox failed to start (bwrap); retrying with " \
+                "sandbox network access enabled."
+              SANDBOX_NETWORK_FALLBACK_USED="yes"
+              rm -f "$OUTPUT_FILE"
+              cmd+=(--config "sandbox_workspace_write.network_access=true")
+              CODEX_EXIT=0
+              "${cmd[@]}" "$prompt_content" > "$attempt_session" 2>&1 || CODEX_EXIT=$?
+              cat "$attempt_session" >> "$SESSION_JSONL"
+            fi
+
+            # Never report a sandbox that never started as a successful run. Reporting success
+            # here is what let the dispatch debounce record a terminal completion for a run
+            # that produced nothing, latching the keepalive loop shut (#3433).
+            if grep -q "bwrap:" "$attempt_session" 2>/dev/null; then
+              echo "::error::codex sandbox failed to start; the agent executed no commands. " \
+                "See openai/codex#14719."
+              if [ "$CODEX_EXIT" -eq 0 ]; then
+                CODEX_EXIT=1
+              fi
+              selected_model="$codex_model"
+              break
+            fi
 
             if [ "$CODEX_EXIT" -eq 0 ]; then
               if [ "$attempt" -gt 1 ]; then
