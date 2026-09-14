@@ -440,6 +440,42 @@ for (const [placement, marker] of ['before', 'after', 'unmanaged'].flatMap(
   });
 }
 
+for (const placement of ['before', 'after']) {
+  test(`evaluateKeepaliveLoop counts collapsible reviewer work after refresh (${placement})`, async () => {
+    const summary = [
+      '<!-- auto-status-summary:start -->',
+      '## Tasks', '- [x] Source task',
+      '## Acceptance Criteria', '- [x] Source acceptance',
+      '<!-- auto-status-summary:end -->',
+    ].join('\n');
+    const reviewer = [
+      '<details>', '<summary>Reviewer follow-up</summary>', '',
+      '- [ ] Exercise the packaged retry path',
+      '  and inspect the diagnostic.', '', '</details>',
+    ].join('\n');
+    const original = placement === 'before' ? `${reviewer}\n${summary}` : `${summary}\n${reviewer}`;
+    const refresh = (body) => upsertBlock(stripPrTemplateContent(body), 'auto-status-summary', summary);
+    const body = refresh(original.replace(/\n/g, '\r\n'));
+    assert.ok(body.replace(/\r\n/g, '\n').includes(reviewer),
+      'metadata refresh must preserve collapsible reviewer work');
+    assert.equal(refresh(body), body);
+    const pr = {
+      number: 3441, head: { ref: 'codex/issue-3441', sha: 'details-head' },
+      labels: [{ name: 'agent:codex' }], body,
+    };
+    const github = buildGithubStub({
+      pr, workflowRuns: [{ head_sha: pr.head.sha, conclusion: 'success' }],
+      comments: [{ id: 23, body: formatStateComment({ verification: { status: 'done' } }) }],
+    });
+    const result = await evaluateKeepaliveLoop({ github, context: buildContext(pr.number), core: buildCore() });
+    assert.equal(result.action, 'run');
+    assert.equal(result.reason, 'ready');
+    assert.deepEqual(result.checkboxCounts, { total: 3, checked: 2, unchecked: 1 });
+    assert.match(result.taskAppendix, /Exercise the packaged retry path/);
+    assert.match(result.taskAppendix, /and inspect the diagnostic/);
+  });
+}
+
 test('evaluateKeepaliveLoop counts outside work after a fenced HTML comment opener', async () => {
   const summary = [
     '<!-- auto-status-summary:start -->',
