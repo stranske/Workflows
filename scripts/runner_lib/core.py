@@ -1039,7 +1039,7 @@ def _completion_was_unproductive(prior: dict[str, Any] | None) -> bool:
     pre-#3433 behavior (treat the completion as terminal) rather than silently loosening the
     debounce for every caller that has not been taught to report it.
     """
-    return bool(prior) and prior.get("productive") is False
+    return prior is not None and prior.get("productive") is False
 
 
 def _unproductive_completion_count(prior: dict[str, Any] | None) -> int:
