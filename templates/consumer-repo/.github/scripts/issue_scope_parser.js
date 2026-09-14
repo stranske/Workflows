@@ -2,7 +2,7 @@
 
 const normalizeNewlines = (value) => String(value || '').replace(/\r\n/g, '\n');
 const stripBlockquotePrefixes = (value) =>
-  String(value || '').replace(/^[ \t]*>+[ \t]?/gm, '');
+  String(value || '').replace(/^(?:[ \t]*>[ \t]?)+/gm, '');
 
 /**
  * Check if a line is a code fence delimiter (``` or ~~~).
