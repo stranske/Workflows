@@ -10,6 +10,54 @@ const stripBlockquotePrefixes = (value) =>
  */
 const isCodeFenceLine = (line) => /^(`{3,}|~{3,})/.test(line.trim());
 
+
+// Shared by PR metadata preservation and keepalive's visible-work scan.
+function visibleChecklistContent(markdown) {
+  let fence = null;
+  return stripBlockquotePrefixes(normalizeNewlines(markdown))
+    .replace(/<!--[\s\S]*?-->/g, '').split('\n').map((line) => {
+      const delimiter = line.match(/^\s*(`{3,}|~{3,})/);
+      if (delimiter) {
+        const token = delimiter[1];
+        if (!fence) fence = token;
+        else if (token[0] === fence[0] && token.length >= fence.length) fence = null;
+        return '';
+      }
+      return fence ? '' : line;
+    }).join('\n');
+}
+
+// Workflow Source contains mutually exclusive metadata controls, not delivery
+// work. Match only the known controls in their named template groups so real
+// reviewer tasks (including tasks in Notes) survive with their surrounding text.
+function stripPrTemplateControls(markdown) {
+  let sourceDepth = 0;
+  let group = '';
+  const sourceChoices = /^(?:GitHub issue:\s*#.*|Direct PR \/ remote GitHub work|Local Codex\/user request|Automation run|Review follow-up from PR #.*|Sync \/ maintenance campaign|Dependabot or dependency update|Do not automate)$/i;
+  const intentChoices = /^(?:Verifier should review this|Keepalive may manage this PR|Human-only unless checks fail)$/i;
+  return normalizeNewlines(markdown).split('\n').filter((line) => {
+    const visible = stripBlockquotePrefixes(line).trim();
+    const heading = visible.match(/^(#{1,6})\s+(.+?)\s*#*$/);
+    if (heading) {
+      if (sourceDepth && heading[1].length <= sourceDepth) {
+        sourceDepth = 0;
+        group = '';
+      }
+      if (heading[2].toLowerCase() === 'workflow source') sourceDepth = heading[1].length;
+    }
+    if (!sourceDepth) return true;
+    if (/^Started from:$/i.test(visible)) { group = 'source'; return false; }
+    if (/^Automation intent:$/i.test(visible)) { group = 'intent'; return false; }
+    const checkbox = visible.match(/^(?:[-*+]|\d+[.)])\s*\[[ xX]\]\s*(.*)$/);
+    if (checkbox) {
+      return !(group === 'source' && sourceChoices.test(checkbox[1]))
+        && !(group === 'intent' && intentChoices.test(checkbox[1]));
+    }
+    if (visible && !/^<!--/.test(visible)) group = '';
+    return true;
+  }).join('\n');
+}
+
 const LIST_ITEM_REGEX = /^(\s*)([-*+]|\d+[.)])\s+(.*)$/;
 const DETAILS_OPEN_REGEX = /^<details\b[^>]*>\s*$/i;
 const DETAILS_CLOSE_REGEX = /^<\/details>\s*$/i;
@@ -737,6 +785,8 @@ const analyzeSectionPresence = (source) => {
 };
 
 module.exports = {
+  visibleChecklistContent,
+  stripPrTemplateControls,
   extractScopeTasksAcceptanceSections,
   parseScopeTasksAcceptanceSections,
   hasNonPlaceholderScopeTasksAcceptanceContent,

@@ -10,6 +10,7 @@
  * - Building and updating PR body with preamble and status blocks
  */
 
+const { visibleChecklistContent, stripPrTemplateControls } = require('./issue_scope_parser');
 const path = require('path');
 const fs = require('fs');
 const os = require('os');
@@ -731,8 +732,10 @@ function stripPrTemplateContent(body) {
   // A checkbox-bearing prefix may be reviewer-added work, not a template.
   // Preserve it with its context and continuation lines across regeneration.
   if (firstMarkerIndex > 0) {
-    const prefix = body.slice(0, firstMarkerIndex);
-    if (/^\s*(?:[-*+]|\d+[.)])\s*\[[ xX]\]/m.test(prefix)) return body;
+    const prefix = stripPrTemplateControls(body.slice(0, firstMarkerIndex));
+    if (/^\s*(?:[-*+]|\d+[.)])\s*\[[ xX]\]/m.test(visibleChecklistContent(prefix))) {
+      return prefix + body.slice(firstMarkerIndex);
+    }
     return body.slice(firstMarkerIndex);
   }
   

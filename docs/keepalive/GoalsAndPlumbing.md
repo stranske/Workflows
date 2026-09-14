@@ -226,8 +226,10 @@ source tasks in the source issue. Reviewer-added checkboxes outside the block
 remain in the PR body across regeneration, including before the managed preamble.
 Keepalive includes those visible checkboxes in its dispatch decision, task appendix,
 and live progress counts, so a completed summary cannot hide remaining PR work.
-Fenced examples, HTML comments, placeholder tasks and status metrics do not count
-as additional work. Adding an outside checkbox does not mark it complete; it must
+Blockquoted reviewer tasks count as visible work. Fenced examples, HTML comments,
+placeholder tasks, status metrics, and the standard PR template Workflow Source
+choices do not count as additional work. A live recount with outstanding work
+removes any stale `automerge` label before publishing progress. Adding an outside checkbox does not mark it complete; it must
 be explicitly checked after verification. It is not copied back to the source issue.
 
 

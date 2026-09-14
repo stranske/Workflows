@@ -453,6 +453,45 @@ test('evaluateKeepaliveLoop ignores outside examples and metrics but counts visi
   }
 });
 
+for (const templatePath of ['../../../.github/PULL_REQUEST_TEMPLATE.md', '../../../templates/consumer-repo/.github/PULL_REQUEST_TEMPLATE.md']) {
+  for (const managed of [false, true]) {
+    test(`evaluateKeepaliveLoop excludes checked-in PR template controls (${templatePath}, managed=${managed})`, async () => {
+      const template = fs.readFileSync(path.resolve(__dirname, templatePath), 'utf8')
+        .replace('- [ ] GitHub issue: #', '- [x] GitHub issue: #3441');
+      const tasks = '## Tasks\n- [x] Source task\n## Acceptance Criteria\n- [x] Source acceptance';
+      for (const followup of ['', '\n## Reviewer notes\n> - [ ] Verify quoted follow-up']) {
+        const summary = managed ? `<!-- auto-status-summary:start -->\n${tasks}\n<!-- auto-status-summary:end -->` : tasks;
+        const pr = { number: 3441, head: { ref: 'codex/issue-3441', sha: 'template-head' },
+          labels: [{ name: 'agent:codex' }], body: `${template}\n${summary}${followup}` };
+        const github = buildGithubStub({ pr,
+          comments: [{ id: 23, body: formatStateComment({ verification: { status: 'done' } }) }],
+          workflowRuns: [{ head_sha: 'template-head', conclusion: 'success' }],
+        });
+        const result = await evaluateKeepaliveLoop({ github, context: buildContext(pr.number), core: buildCore() });
+        assert.equal(result.reason, followup ? 'ready' : 'tasks-complete');
+        assert.deepEqual(result.checkboxCounts, { total: followup ? 3 : 2, checked: 2, unchecked: followup ? 1 : 0 });
+        if (followup) assert.match(result.taskAppendix, /Verify quoted follow-up/);
+      }
+    });
+  }
+}
+
+test('evaluateKeepaliveLoop ignores quoted fenced examples but counts quoted reviewer work', async () => {
+  const pr = { number: 3441, head: { ref: 'codex/issue-3441', sha: 'quoted-head' },
+    labels: [{ name: 'agent:codex' }], body: [
+      '<!-- auto-status-summary:start -->', '## Tasks', '- [x] Source task',
+      '## Acceptance Criteria', '- [x] Source acceptance', '<!-- auto-status-summary:end -->',
+      '> ```markdown', '> - [ ] Example only', '> ```',
+      '> <!--', '> - [ ] Hidden only', '> -->',
+      '> - [ ] Real quoted follow-up',
+    ].join('\n') };
+  const github = buildGithubStub({ pr, workflowRuns: [{ head_sha: 'quoted-head', conclusion: 'success' }] });
+  const result = await evaluateKeepaliveLoop({ github, context: buildContext(pr.number), core: buildCore() });
+  assert.equal(result.checkboxCounts.unchecked, 1);
+  assert.match(result.taskAppendix, /Real quoted follow-up/);
+  assert.doesNotMatch(result.taskAppendix, /Example only|Hidden only/);
+});
+
 test('updateKeepaliveLoopSummary retains outside work in live task counts', async () => {
   const pr = { number: 3441, labels: [{ name: 'agent:codex' }], body:
     '<!-- auto-status-summary:start -->\n## Tasks\n- [x] Source task\n## Acceptance Criteria\n- [x] Source acceptance\n<!-- auto-status-summary:end -->\n## Follow-up\n- [ ] Check the retry path' };
@@ -484,6 +523,23 @@ test('updateKeepaliveLoopSummary refuses stale completion when outside work was 
   assert.match(comment.body, /tasks-changed/);
   assert.equal(github.actions.some((action) => action.labels?.includes('automerge')), false);
 });
+
+for (const action of ['stop', 'run']) {
+  test(`updateKeepaliveLoopSummary revokes existing automerge on visible outstanding work (${action})`, async () => {
+    const pr = { number: 3441, labels: [{ name: 'agent:codex' }, { name: 'automerge' }], body: '## Tasks\n- [x] Source task\n## Acceptance Criteria\n- [x] Verified\n## Review\n> - [ ] Finish review task' };
+    const github = buildGithubStub({ pr, labels: ['agent:codex', 'automerge'] });
+    await updateKeepaliveLoopSummary({ github, context: buildContext(pr.number), core: buildCore(), inputs: {
+      prNumber: pr.number, action, reason: action === 'stop' ? 'tasks-complete' : 'ready',
+      runResult: 'success', gateConclusion: 'success', tasksTotal: 2, tasksUnchecked: 0,
+      keepaliveEnabled: true, iteration: 0, maxIterations: 5,
+    } });
+    const removalIndex = github.actions.findIndex((entry) => entry.type === 'remove-label' && entry.name === 'automerge');
+    assert.ok(removalIndex >= 0, 'outstanding live work must revoke the previous merge authorization');
+    const summaryIndex = github.actions.findIndex((entry) => entry.body && parseStateComment(entry.body));
+    assert.ok(summaryIndex > removalIndex, 'revoke authorization before publishing state');
+    assert.equal(github.actions.some((entry) => entry.labels?.includes('automerge')), false);
+  });
+}
 
 test('evaluateKeepaliveLoop stops when round budget is exhausted', async () => {
   const pr = {

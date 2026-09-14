@@ -4,7 +4,7 @@ const fs = require('fs');
 const path = require('path');
 const crypto = require('crypto');
 
-const { parseScopeTasksAcceptanceSections } = require('./issue_scope_parser');
+const { parseScopeTasksAcceptanceSections, visibleChecklistContent, stripPrTemplateControls } = require('./issue_scope_parser');
 const { getGithubApiCache } = require('./github-api-cache-client');
 const {
   loadKeepaliveState,
@@ -1471,24 +1471,10 @@ function isActionableChecklistItemText(text) {
   return !isStatusMetricChecklistItem(text) && !isPlaceholderChecklistItem(text);
 }
 
-// Fenced examples and HTML comments are not visible delivery tasks.
-function visibleChecklistContent(markdown) {
-  let fence = null;
-  return String(markdown || '').replace(/<!--[\s\S]*?-->/g, '').split('\n').map((line) => {
-    const delimiter = line.match(/^\s*(`{3,}|~{3,})/);
-    if (delimiter) {
-      const token = delimiter[1];
-      if (!fence) fence = token;
-      else if (token[0] === fence[0] && token.length >= fence.length) fence = null;
-      return '';
-    }
-    return fence ? '' : line;
-  }).join('\n');
-}
-
 // The source-derived summary remains the canonical section parser input, but
 // visible checkboxes outside it must also reach both dispatch and live reporting.
 function parseKeepaliveChecklistSections(body) {
+  body = stripPrTemplateControls(body);
   const sections = normaliseChecklistSections(parseScopeTasksAcceptanceSections(body));
   for (const key of ['tasks', 'acceptance']) {
     sections[key] = visibleChecklistContent(sections[key]);
@@ -3479,6 +3465,22 @@ async function updateKeepaliveLoopSummary({ github: rawGithub, context, core, in
       action = 'wait';
       reason = 'tasks-changed';
       core?.info?.('Visible tasks changed after evaluation; keepalive must re-evaluate.');
+    }
+
+    // The root merger selects by this label, so a previous completion must not
+    // authorize a merge after visible work reopens, regardless of current action.
+    if (prBody && tasksUnchecked > 0 && labels.some((label) => label.toLowerCase() === 'automerge')) {
+      try {
+        await github.rest.issues.removeLabel({
+          owner: context.repo.owner,
+          repo: context.repo.repo,
+          issue_number: prNumber,
+          name: 'automerge',
+        });
+        core?.info?.('Removed stale automerge authorization while visible tasks remain.');
+      } catch (error) {
+        if (error?.status !== 404) throw error;
+      }
     }
 
     // Recalculate rounds_without_task_completion using live checkbox counts.

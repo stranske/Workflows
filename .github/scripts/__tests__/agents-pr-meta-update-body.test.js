@@ -1611,3 +1611,26 @@ test('metadata regeneration preserves outside task lines before and after the su
   assert.ok(result.includes(newSummary));
   assert.equal(refresh(result), result);
 });
+
+for (const templatePath of ['../../../.github/PULL_REQUEST_TEMPLATE.md', '../../../templates/consumer-repo/.github/PULL_REQUEST_TEMPLATE.md']) {
+  test(`metadata refresh removes template controls and retains genuine reviewer tasks (${templatePath})`, () => {
+    const template = require('fs').readFileSync(require('path').resolve(__dirname, templatePath), 'utf8');
+    const summary = '<!-- auto-status-summary:start -->\n## Tasks\n- [x] Source task\n<!-- auto-status-summary:end -->';
+    assert.equal(stripPrTemplateContent(template + summary), summary);
+    const reviewer = '## Review tasks\n> - [ ] Check the error path\n>   and its diagnostic.\n';
+    const cleaned = stripPrTemplateContent(template + reviewer + summary);
+    assert.ok(cleaned.includes(reviewer));
+    assert.doesNotMatch(cleaned, /\[[ xX]\] (?:GitHub issue|Direct PR|Verifier should|Keepalive may)/);
+    assert.equal(stripPrTemplateContent(cleaned), cleaned);
+    // A genuine task in Notes within Workflow Source must also survive.
+    const notes = template.replace('Notes:', 'Notes:\n- [ ] Verify the provenance record');
+    assert.match(stripPrTemplateContent(notes + summary), /- \[ \] Verify the provenance record/);
+  });
+}
+
+for (const hidden of ['<!--\n- [ ] Hidden comment\n-->\n', '```markdown\n- [ ] Fenced example\n```\n', '> ```markdown\n> - [ ] Quoted fenced example\n> ```\n']) {
+  test(`metadata refresh ignores hidden checkbox prefix: ${hidden.split('\n')[0]}`, () => {
+    const summary = '<!-- auto-status-summary:start -->\n## Tasks\n- [x] Source task\n<!-- auto-status-summary:end -->';
+    assert.equal(stripPrTemplateContent('## Stale template\n' + hidden + summary), summary);
+  });
+}
