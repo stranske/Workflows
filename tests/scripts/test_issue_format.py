@@ -2,6 +2,7 @@
 
 import sys
 from importlib.util import module_from_spec, spec_from_file_location
+from io import StringIO
 from pathlib import Path
 
 import pytest
@@ -992,3 +993,51 @@ def test_search_roots_stay_bounded(tmp_path) -> None:
         (base / f"pkg{i:02d}").mkdir()
     roots = validator._search_roots(tmp_path)
     assert len(roots) <= 1 + 1 + 12  # repo root + src + capped children
+
+
+@pytest.mark.parametrize("input_source", ["file", "stdin"])
+@pytest.mark.parametrize("has_local_evidence", [True, False])
+def test_cli_checks_addressability_in_working_directory(
+    tmp_path: Path, monkeypatch, capsys, input_source: str, has_local_evidence: bool
+) -> None:
+    """The CLI must reject well-formed issues whose evidence is in another repo."""
+    validator = _validator()
+    checkout = tmp_path / "checkout"
+    checkout.mkdir()
+    body = _body_citing("src/café.py", "src/b.py", "src/c.py")
+    # Evidence beside the input file is not evidence in the checked-out repo.
+    (tmp_path / "src").mkdir()
+    (tmp_path / "src" / "café.py").touch()
+    if has_local_evidence:
+        (checkout / "src").mkdir()
+        (checkout / "src" / "café.py").touch()
+    monkeypatch.chdir(checkout)
+    if input_source == "file":
+        issue_file = tmp_path / "issue.md"
+        issue_file.write_text(body, encoding="utf-8")
+        monkeypatch.setattr(sys, "argv", ["issue_format.py", str(issue_file)])
+        monkeypatch.setattr(sys, "stdin", StringIO(""))
+        result = validator.main()
+    else:
+        # Explicit argv must override the process arguments.
+        monkeypatch.setattr(sys, "argv", ["issue_format.py", "does-not-exist.md"])
+        monkeypatch.setattr(sys, "stdin", StringIO(body))
+        result = validator.main([])
+
+    captured = capsys.readouterr()
+    assert captured.err == ""
+    assert result == (0 if has_local_evidence else 1)
+    if has_local_evidence:
+        assert captured.out == (
+            "Issue body is agent-processable with advisories.\n\n\n_Advisory:_\n"
+            "- 2 cited path(s) do not exist yet: `src/b.py`, `src/c.py`"
+            " — expected when a task creates them; check for typos otherwise.\n"
+        )
+    else:
+        assert captured.out == (
+            "This issue is **not yet agent-processable**. See `docs/AGENT_ISSUE_FORMAT.md`.\n\n"
+            "- None of the 3 paths this issue cites exist in this repository "
+            "(`src/café.py`, `src/b.py`, `src/c.py`). An agent cloning this repo "
+            "has nothing to act on. File it against the repo that holds the code, "
+            "or cite the evidence here.\n"
+        )
