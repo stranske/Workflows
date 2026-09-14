@@ -1214,10 +1214,12 @@ def record_completion(
     compact_result = _compact_runner_result_payload(result_payload)
     prior = storage.read_record(pr_number, provider) or {}
     if prior.get("workflow_attempt_id") and (
-        prior.get("workflow_attempt_id") != _workflow_attempt_id() or prior.get("key") != key
+        prior.get("workflow_attempt_id") != _workflow_attempt_id()
+        or (prior.get("key") != key and produced_work is not True)
     ):
         # A completion rerun from an earlier attempt must not overwrite a newer reservation,
-        # including when both attempts target the same head. Return an observation only.
+        # including when both attempts target the same head. The owning attempt may report
+        # a new head only when it explicitly measured productive work. Return an observation only.
         return {**prior, "completion_recorded": False, "completion_reason": "stale-attempt"}
     if produced_work is None and prior.get("key") == key and _completion_was_unproductive(prior):
         produced_work = False
