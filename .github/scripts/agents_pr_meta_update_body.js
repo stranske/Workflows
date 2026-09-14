@@ -925,9 +925,17 @@ const SELF_OBSERVING_WORKFLOW_NAMES = new Set([
   'pr 46 dependency repair contract',
 ]);
 
+const SELF_OBSERVING_WORKFLOW_PATHS = new Set([
+  '.github/workflows/agents-pr-meta-v4.yml',
+  '.github/workflows/agents-80-pr-event-hub.yml',
+  '.github/workflows/pr-46-dependency-repair-contract.yml',
+]);
+
 function isSelfObservingWorkflowRun(run) {
   const name = String(run?.name || '').trim().toLowerCase();
-  return Boolean(name && SELF_OBSERVING_WORKFLOW_NAMES.has(name));
+  const workflowPath = String(run?.path || '').trim().split('@')[0].toLowerCase();
+  return SELF_OBSERVING_WORKFLOW_NAMES.has(name)
+    || SELF_OBSERVING_WORKFLOW_PATHS.has(workflowPath);
 }
 
 function filterWorkflowRunsForStatus(workflowRuns) {
@@ -942,6 +950,8 @@ function filterWorkflowRunsForStatus(workflowRuns) {
 }
 
 async function collectStatusWorkflowRuns({github, owner, repo, headSha, core}) {
+  // Without an implementation head, neither endpoint can provide exact-head evidence.
+  if (!normalise(headSha)) return new Map();
   const response = await withRetries(
     () => github.rest.actions.listWorkflowRunsForRepo({
       owner, repo, head_sha: headSha, per_page: 100,
@@ -949,7 +959,7 @@ async function collectStatusWorkflowRuns({github, owner, repo, headSha, core}) {
     {description: 'list workflow runs', core},
   );
   const runs = filterWorkflowRunsForStatus(
-    selectLatestWorkflows(response.data.workflow_runs || []),
+    selectLatestWorkflows((response.data.workflow_runs || []).filter(run => run.head_sha === headSha)),
   );
   if (!runs.has('gate')) {
     // Metadata-only edited events can fill the latest page. Recover the real

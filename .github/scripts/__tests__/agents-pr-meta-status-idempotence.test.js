@@ -108,3 +108,67 @@ test('Gate API rate limits propagate instead of becoming a not-started result', 
     github: client(generation('11'), error),
   }), /rate limit/);
 });
+
+for (const workflowPath of [
+  '.github/workflows/agents-pr-meta-v4.yml',
+  '.github/workflows/agents-80-pr-event-hub.yml',
+  '.github/workflows/pr-46-dependency-repair-contract.yml',
+]) {
+  test(`renamed observer ${workflowPath} cannot change derived status`, () => {
+    const observer = { ...generation('10')[0], name: 'Renamed metadata observer', path: workflowPath };
+    const first = render([gate, observer]);
+    const second = render([gate, {
+      ...observer, path: `${workflowPath}@refs/heads/main`,
+      conclusion: 'failure', html_url: 'https://example.com/metadata/new-run',
+    }], first);
+    assert.equal(first, render([gate]));
+    assert.equal(second, first);
+  });
+}
+
+test('ordinary CI transitions remain visible alongside excluded observers', () => {
+  const ci = { ...gate, name: 'CI', path: '.github/workflows/ci.yml' };
+  const first = render([gate, ci, ...generation('10')]);
+  const second = render([gate, { ...ci, conclusion: 'failure' }, ...generation('11')], first);
+  assert.notEqual(first, second);
+  assert.ok(second.includes('| CI | ❌ failure |'));
+});
+
+test('a wrong-head Gate on the recent page cannot suppress exact-head recovery', async () => {
+  const calls = [];
+  const runs = await collectStatusWorkflowRuns({ ...opts,
+    github: client([{ ...gate, head_sha: 'other-head', conclusion: 'failure' }], [gate], calls),
+  });
+  assert.equal(calls.length, 2);
+  assert.equal(runs.get('gate'), gate);
+  assert.ok(render(runs).includes('gate: ✅ success'));
+});
+
+test('runs without head evidence are rejected on both pages', async () => {
+  const runs = await collectStatusWorkflowRuns({ ...opts,
+    github: client([{ ...gate, head_sha: undefined }], [{ ...gate, head_sha: undefined }]),
+  });
+  assert.equal(runs.size, 0);
+});
+
+for (const missingHead of ['', undefined, '  ']) {
+  test(`missing head ${JSON.stringify(missingHead)} never performs an unconstrained lookup`, async () => {
+    const calls = [];
+    const runs = await collectStatusWorkflowRuns({ ...opts, headSha: missingHead,
+      github: client([gate], [gate], calls),
+    });
+    assert.equal(runs.size, 0);
+    assert.deepEqual(calls, []);
+  });
+}
+
+for (const status of [401, 403, 429, 500]) {
+  test(`Gate recovery error ${status} propagates after one lookup`, async () => {
+    const calls = [];
+    const error = Object.assign(new Error('Gate lookup failed'), { status });
+    await assert.rejects(collectStatusWorkflowRuns({ ...opts,
+      github: client(generation('11'), error, calls),
+    }), /Gate lookup failed/);
+    assert.equal(calls.filter(([kind]) => kind === 'gate').length, 1);
+  });
+}
