@@ -921,6 +921,8 @@ function selectLatestWorkflows(runs) {
 
 const SELF_OBSERVING_WORKFLOW_NAMES = new Set([
   'agents pr meta manager',
+  'agents pr event hub',
+  'pr 46 dependency repair contract',
 ]);
 
 function isSelfObservingWorkflowRun(run) {
@@ -937,6 +939,39 @@ function filterWorkflowRunsForStatus(workflowRuns) {
     filtered.set(key, run);
   }
   return filtered;
+}
+
+async function collectStatusWorkflowRuns({github, owner, repo, headSha, core}) {
+  const response = await withRetries(
+    () => github.rest.actions.listWorkflowRunsForRepo({
+      owner, repo, head_sha: headSha, per_page: 100,
+    }),
+    {description: 'list workflow runs', core},
+  );
+  const runs = filterWorkflowRunsForStatus(
+    selectLatestWorkflows(response.data.workflow_runs || []),
+  );
+  if (!runs.has('gate')) {
+    // Metadata-only edited events can fill the latest page. Recover the real
+    // exact-head Gate directly rather than paging through thousands of observers.
+    try {
+      const gateResponse = await withRetries(
+        () => github.rest.actions.listWorkflowRuns({
+          owner, repo, workflow_id: 'pr-00-gate.yml', head_sha: headSha, per_page: 1,
+        }),
+        {description: 'recover exact-head Gate', core, attempts: 1},
+      );
+      for (const run of gateResponse.data.workflow_runs || []) {
+        if (run.head_sha === headSha && String(run.name || '').toLowerCase() === 'gate') {
+          runs.set('gate', run);
+        }
+      }
+    } catch (error) {
+      if (error?.status !== 404) throw error;
+      core?.warning('Gate workflow unavailable; leaving its status unknown.');
+    }
+  }
+  return runs;
 }
 
 function fallbackChecklist(message) {
@@ -1617,16 +1652,9 @@ async function run({github: rawGithub, context, core, inputs}) {
     sourceIssue: issueResponse.data,
   });
 
-  const workflowRunResponse = await withRetries(
-    () => github.rest.actions.listWorkflowRunsForRepo({
-      owner,
-      repo,
-      head_sha: pr.head.sha,
-      per_page: 100,
-    }),
-    {description: 'list workflow runs', core},
-  );
-  const workflowRuns = selectLatestWorkflows(workflowRunResponse.data.workflow_runs || []);
+  const workflowRuns = await collectStatusWorkflowRuns({
+    github, owner, repo, headSha: pr.head.sha, core,
+  });
 
   const requiredChecksRaw = await fetchRequiredChecks(github, owner, repo, pr.base.ref, core);
   // Avoid mutating the returned array - create a new one with 'gate' appended if needed
@@ -1725,6 +1753,7 @@ module.exports = {
   stripPrTemplateContent,
   upsertBlock,
   filterWorkflowRunsForStatus,
+  collectStatusWorkflowRuns,
   buildContextBlock,
   buildPreamble,
   buildSourceContextRepairCommentBody,
