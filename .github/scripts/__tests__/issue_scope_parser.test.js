@@ -11,6 +11,30 @@ const {
   visibleChecklistContent,
 } = require('../issue_scope_parser');
 
+for (const parserPath of ['../issue_scope_parser', '../../../templates/consumer-repo/.github/scripts/issue_scope_parser']) {
+  const parser = require(parserPath);
+  for (const fence of ['```', '~~~']) {
+    for (const quote of ['', '> ', '> > ']) {
+      test(`template controls preserve fenced examples (${parserPath}, ${fence}, ${quote})`, () => {
+        const example = [
+          `${fence}markdown`, '## Workflow Source', 'Started from:',
+          '- [ ] GitHub issue: #123', `    ${fence}`,
+          'Automation intent:', '- [ ] Keepalive may manage this PR',
+          `${fence}not-a-closing-fence`, '- [ ] Direct PR / remote GitHub work', fence,
+        ].map((line) => quote + line).join('\n');
+        const actualControls = [
+          '## Workflow Source', 'Started from:', '- [ ] GitHub issue: #456',
+          'Automation intent:', '- [ ] Keepalive may manage this PR',
+          'Notes:', '- [ ] Retain reviewer work',
+        ].join('\n');
+        assert.equal(parser.stripPrTemplateControls(`${example}\n${actualControls}`),
+          `${example}\n## Workflow Source\nNotes:\n- [ ] Retain reviewer work`);
+        assert.doesNotMatch(parser.visibleChecklistContent(example), /\[ \]/);
+      });
+    }
+  }
+}
+
 test('visible checklist scan handles nested quotes without counting their fenced examples', () => {
   const body = [
     '> > - [ ] Visible nested task',

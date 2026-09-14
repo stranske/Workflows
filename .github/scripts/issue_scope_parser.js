@@ -56,10 +56,22 @@ function visibleChecklistContent(markdown) {
 function stripPrTemplateControls(markdown) {
   let sourceDepth = 0;
   let group = '';
+  let fence = null;
   const sourceChoices = /^(?:GitHub issue:\s*#.*|Direct PR \/ remote GitHub work|Local Codex\/user request|Automation run|Review follow-up from PR #.*|Sync \/ maintenance campaign|Dependabot or dependency update|Do not automate)$/i;
   const intentChoices = /^(?:Verifier should review this|Keepalive may manage this PR|Human-only unless checks fail)$/i;
   return normalizeNewlines(markdown).split('\n').filter((line) => {
-    const visible = stripBlockquotePrefixes(line).trim();
+    // Fenced examples are literal body content, never template metadata. Keep
+    // indentation after quote markers so an indented fence cannot close one.
+    const unquoted = stripBlockquotePrefixes(line);
+    const delimiter = unquoted.match(/^ {0,3}(`{3,}|~{3,})(.*)$/);
+    if (delimiter) {
+      const token = delimiter[1];
+      if (!fence) fence = token;
+      else if (token[0] === fence[0] && token.length >= fence.length && !delimiter[2].trim()) fence = null;
+      return true;
+    }
+    if (fence) return true;
+    const visible = unquoted.trim();
     const heading = visible.match(/^(#{1,6})\s+(.+?)\s*#*$/);
     if (heading) {
       if (sourceDepth && heading[1].length <= sourceDepth) {
