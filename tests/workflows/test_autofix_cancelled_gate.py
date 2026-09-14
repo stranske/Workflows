@@ -130,6 +130,28 @@ def test_cancelled_gate_never_escalates(workflow, tmp_path, conclusion):
 
 
 @pytest.mark.parametrize("workflow", WORKFLOWS)
+@pytest.mark.parametrize("previous_runs", [0, 3, 8])
+def test_cancelled_only_head_never_exhausts_budget(workflow, tmp_path, previous_runs):
+    """Concurrency cancellations cannot spend the budget or latch keepalive shut."""
+    cancelled_jobs = [{"name": "pytest", "conclusion": "cancelled", "steps": []}]
+    result = execute(
+        workflow,
+        tmp_path,
+        "cancelled",
+        history=["cancelled"] * previous_runs,
+        jobs=cancelled_jobs,
+        historical_jobs=cancelled_jobs,
+    )
+    output = result["output"]
+    assert output["attempts"] == "0"
+    assert int(output["attempts"]) < int(output["max_attempts"])
+    assert output["stop_reason"] == "gate_not_failed"
+    assert output["should_run"] == "false"
+    assert "needs-human" not in result["labels"]
+    assert not result["comments"]
+
+
+@pytest.mark.parametrize("workflow", WORKFLOWS)
 @pytest.mark.parametrize("conclusion", ["failure", "timed_out"])
 def test_cancelled_history_does_not_spend_failure_budget(workflow, tmp_path, conclusion):
     result = execute(
@@ -175,9 +197,18 @@ def test_jobless_historical_failures_do_not_consume_budget(workflow, tmp_path):
 
 
 @pytest.mark.parametrize("workflow", WORKFLOWS)
-def test_cancelled_counting_mutation_is_detected(workflow, tmp_path, monkeypatch):
+@pytest.mark.parametrize(
+    "regression, argument",
+    [
+        (test_cancelled_only_head_never_exhausts_budget, 8),
+        (test_cancelled_history_does_not_spend_failure_budget, "failure"),
+    ],
+)
+def test_cancelled_counting_mutation_is_detected(
+    workflow, tmp_path, monkeypatch, regression, argument
+):
     """Reintroducing cancelled must break the budget regression, without editing YAML."""
-    test_cancelled_history_does_not_spend_failure_budget(workflow, tmp_path, "failure")
+    regression(workflow, tmp_path, argument)
     original_read_text = Path.read_text
     counted = "['failure', 'timed_out'].includes(String(value || '').toLowerCase())"
 
@@ -193,6 +224,6 @@ def test_cancelled_counting_mutation_is_detected(workflow, tmp_path, monkeypatch
     with monkeypatch.context() as mutation:
         mutation.setattr(Path, "read_text", read_mutated)
         with pytest.raises(AssertionError):
-            test_cancelled_history_does_not_spend_failure_budget(workflow, tmp_path, "failure")
+            regression(workflow, tmp_path, argument)
 
-    test_cancelled_history_does_not_spend_failure_budget(workflow, tmp_path, "failure")
+    regression(workflow, tmp_path, argument)
