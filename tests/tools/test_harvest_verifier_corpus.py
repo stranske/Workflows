@@ -115,6 +115,40 @@ def test_grow_corpus_noop_returns_original():
     assert added == [] and grown is corpus
 
 
+def test_harvest_case_identity_includes_owner_and_is_stable_across_runs():
+    records = [dict(_rec(1), repo=f"{owner}/Demo") for owner in ("alice", "bob")]
+    promote, stage = hv.partition(records, now=NOW, stability_days=30)
+    assert stage == []
+    assert {case["case_id"] for case in promote} == {"alice/demo#1", "bob/demo#1"}
+    grown, added = hv.grow_corpus({"cases": []}, promote, max_size=150)
+    assert len(added) == 2
+
+    replay = [dict(record, repo=record["repo"].upper(), pr="1") for record in records]
+    replay_cases, _ = hv.partition(replay, now=NOW.replace(day=26), stability_days=30)
+    assert [case["case_id"] for case in replay_cases] == [case["case_id"] for case in promote]
+    unchanged, added = hv.grow_corpus(grown, replay_cases, max_size=150)
+    assert unchanged is grown
+    assert added == []
+
+
+def test_existing_corpus_identity_is_preserved_when_normalizing_deduplication():
+    legacy = {"case_id": "demo-1", "repo": "stranske/Demo", "pr": 1}
+    corpus = {"corpus_version": "v1", "cases": [legacy]}
+    promote, _ = hv.partition([dict(_rec("1"), repo="STRANSKE/DEMO")], now=NOW, stability_days=30)
+    grown, added = hv.grow_corpus(corpus, promote, max_size=150)
+    assert grown is corpus
+    assert grown["cases"] == [legacy]
+    assert added == []
+
+
+def test_staging_uses_the_same_repository_identity_as_the_corpus():
+    existing = {"repo": "Alice/Demo", "pr": 1, "harvested_at": "2026-07-20"}
+    replay = dict(existing, repo="alice/demo", pr="1", harvested_at="2026-07-25")
+    other_owner = dict(existing, repo="bob/Demo")
+    staged = hv.prune_staging({"cases": [existing]}, [replay, other_owner], now=NOW, expiry_days=60)
+    assert staged["cases"] == [existing, other_owner]
+
+
 def test_staging_auto_expires_old_cases():
     old = {"repo": "stranske/Demo", "pr": 100, "harvested_at": "2026-01-01"}  # >60d ago
     fresh = {"repo": "stranske/Demo", "pr": 101, "harvested_at": NOW.date().isoformat()}

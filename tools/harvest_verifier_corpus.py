@@ -106,9 +106,14 @@ def classify(
     }
 
 
+def _pr_key(record: dict[str, Any]) -> tuple[str, str]:
+    """Use GitHub's case-insensitive full repository name and PR number."""
+    return str(record.get("repo", "")).strip().lower(), str(record.get("pr", ""))
+
+
 def _case_id(record: dict[str, Any]) -> str:
-    repo = str(record.get("repo", "")).split("/")[-1].lower()
-    return f"{repo}-{record.get('pr')}"
+    repo, pr = _pr_key(record)
+    return f"{repo}#{pr}"
 
 
 def to_case(record: dict[str, Any], label: dict[str, Any], *, now: datetime) -> dict[str, Any]:
@@ -141,8 +146,8 @@ def partition(
     return promote, stage
 
 
-def _corpus_keys(cases: Iterable[dict[str, Any]]) -> set[tuple[Any, Any]]:
-    return {(c.get("repo"), c.get("pr")) for c in cases}
+def _corpus_keys(cases: Iterable[dict[str, Any]]) -> set[tuple[str, str]]:
+    return {_pr_key(c) for c in cases}
 
 
 def _bump_version(version: str | None, added: int) -> str:
@@ -179,7 +184,7 @@ def grow_corpus(
         counts[case.get("category", "")] = counts.get(case.get("category", ""), 0) + 1
     added: list[dict[str, Any]] = []
     for case in promote:
-        key = (case.get("repo"), case.get("pr"))
+        key = _pr_key(case)
         category = case.get("category", "")
         if key in existing or len(cases) >= max_size:
             continue
@@ -202,9 +207,9 @@ def prune_staging(
 ) -> dict[str, Any]:
     """Merge new staging cases and drop any older than ``expiry_days`` (auto-expiry)."""
     kept: list[dict[str, Any]] = []
-    seen: set[tuple[Any, Any]] = set()
+    seen: set[tuple[str, str]] = set()
     for case in list(staging.get("cases", [])) + stage_new:
-        key = (case.get("repo"), case.get("pr"))
+        key = _pr_key(case)
         if key in seen:
             continue
         first_seen = _parse_ts(case.get("harvested_at")) or now
