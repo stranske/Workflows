@@ -1257,10 +1257,15 @@ jobs:
           }}
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          PR_NUMBER: ${{ steps.context.outputs.pr_number }}
+          PR_HEAD_SHA: ${{ steps.context.outputs.pr_head_sha }}
+          EVALUATED_SHA: ${{ steps.context.outputs.target_sha }}
         run: |
           set -euo pipefail
-          pr_number="${{ steps.context.outputs.pr_number }}"
+          pr_number="$PR_NUMBER"
           if [ -n "$pr_number" ] && [ -f "comparison-comment.md" ]; then
+            python .workflows-lib/tools/verifier_corpus_evidence.py \
+              --comparison comparison.json --comment comparison-comment.md
             gh pr comment "$pr_number" --body-file comparison-comment.md || \
               echo "Warning: Could not post comment"
           fi

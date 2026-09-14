@@ -145,3 +145,20 @@ Review at least every 30 days and immediately after any of:
 Update the facts and catalog baseline first, run the paired benchmark, attach
 evidence, then update the explicit selection. Maint-68 propagates the registry;
 consumer slot provider preferences remain intact.
+
+### Replayable corpus evidence
+
+`maint-79` harvests only PR outcomes joined to a bot-published
+`verifier-corpus-decision/v1` record. The comparison verifier records the PR head,
+evaluated merge SHA, repository/PR, run ID and attempt beside the durable report.
+A candidate retains that decision and its comment URL. A stable merge without a
+matching decision is excluded; a NON_PASS decision cannot become a clean PASS
+just because the PR merged. Provider errors and unavailable reviews are not
+benchmark verdicts. Historical reports without these fields are not backfilled
+from merge metadata. They can enter future harvests after fresh verification.
+
+Case identity includes repository, PR, head and verifier run/attempt. Replaying
+the same evidence does not duplicate a case. Existing adjudicated corpus entries
+keep their historical identifiers. The staging file is FYI-only; a staging-only
+PR does not grow approval metrics. Only additions to `model_eval_pilot.json` count
+as promotions, and existing category/size caps and model approval policy remain.

@@ -249,3 +249,12 @@ Together these workflows define the CI surface area referenced by Gate and the G
 
 * [`selftest-ci.yml`](../../.github/workflows/selftest-ci.yml) runs the repository's own test suite (JS + Python tests, linting, YAML validation) on push and PR, including the langchain verdict, verifier, and structured-output contract tests.
 * [`health-keepalive-e2e.yml`](../../.github/workflows/health-keepalive-e2e.yml) path-filtered E2E test for the keepalive system. Runs only when keepalive-related files change. Supports two modes: orchestration-only (default) and real Codex ping (via `e2e:codex-ping` label).
+
+### Verifier corpus provenance
+
+The reusable verifier publishes `verifier-corpus-decision/v1` beside comparison
+reports using the exact PR head and evaluated target captured in its context.
+Maint 79 joins this bot-published evidence (run/attempt and report URL included)
+to current merged-PR outcomes; missing identities and clean merges with NON_PASS
+decisions cannot create PASS benchmark cases. Staging-only PRs do not change
+approval metrics. See `docs/MODEL_SELECTION_POLICY.md` for the evidence contract.

@@ -22,3 +22,16 @@ def test_model_eval_pilot_runs_as_importable_module() -> None:
     assert "if [ ! -f pilot-results.json ]" in summary["run"]
     assert upload["if"] == "always()"
     assert upload["with"]["if-no-files-found"] == "warn"
+
+
+def test_corpus_decision_publisher_uses_evaluated_context_identity():
+    root = Path(__file__).resolve().parents[2]
+    workflow = yaml.safe_load((root / ".github/workflows/reusable-agents-verifier.yml").read_text())
+    steps = next(job["steps"] for job in workflow["jobs"].values() if "steps" in job)
+    publish = next(step for step in steps if step.get("name") == "Post comparison report comment")
+    assert publish["env"]["PR_HEAD_SHA"] == "${{ steps.context.outputs.pr_head_sha }}"
+    assert publish["env"]["EVALUATED_SHA"] == "${{ steps.context.outputs.target_sha }}"
+    assert "python .workflows-lib/tools/verifier_corpus_evidence.py" in publish["run"]
+    assert publish["run"].index("tools/verifier_corpus_evidence.py") < publish["run"].index(
+        "gh pr comment"
+    )

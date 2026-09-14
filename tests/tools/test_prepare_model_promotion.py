@@ -278,13 +278,20 @@ def test_rollback_rejects_unrelated_history():
     assert pmp.find_rollbacks(breach, registry) == []
 
 
-def test_apply_rollback_rejects_stale_proposal():
-    import pytest
+@pytest.mark.parametrize(
+    "section,key",
+    [
+        ("selections", "model_id"),
+        ("selection_history", "superseded_by"),
+        ("selection_history", "model_id"),
+    ],
+)
+def test_apply_rollback_rejects_stale_proposal(section, key):
 
     registry = _promoted_registry()
     breach = _report([_result("claude-opus-4-8", "anthropic", status="failed", cost=0.08)])
     rollback = pmp.find_rollbacks(breach, registry)[0]
-    registry["selections"][0]["model_id"] = "claude-opus-4-9"
+    registry[section][0][key] = "claude-opus-4-9"
     before = json.dumps(registry, sort_keys=True)
     with pytest.raises(ValueError, match="no longer matches"):
         pmp.apply_rollback(registry, rollback, today=TODAY)
@@ -366,7 +373,7 @@ def test_bounded_candidate_wins_over_cheaper_cross_family_candidate():
     assert proposals[0]["to_model_id"] == "claude-opus-4-8"
 
 
-@pytest.mark.parametrize("cost", [None, "invalid", float("nan"), float("inf"), -0.01])
+@pytest.mark.parametrize("cost", [None, "invalid", float("nan"), float("inf"), -0.01, 10**400])
 @pytest.mark.parametrize("invalid_baseline", [False, True])
 def test_unusable_cost_cannot_prepare_promotion(cost, invalid_baseline):
     report = _report(
@@ -386,3 +393,15 @@ def test_unusable_cost_cannot_prepare_promotion(cost, invalid_baseline):
         ]
     )
     assert pmp.find_promotions(report, _registry()) == []
+
+
+@pytest.mark.parametrize("latency,expected", [(0, "claude-opus-4-9"), (None, "claude-opus-4-8")])
+def test_equal_cost_candidates_rank_zero_latency_before_positive(latency, expected):
+    report = _report(
+        [
+            _result("claude-opus-4-6", "anthropic", status="passed", cost=0.10),
+            _result("claude-opus-4-8", "anthropic", status="passed", cost=0.08, latency=100),
+            _result("claude-opus-4-9", "anthropic", status="passed", cost=0.08, latency=latency),
+        ]
+    )
+    assert pmp.find_promotions(report, _registry())[0]["to_model_id"] == expected

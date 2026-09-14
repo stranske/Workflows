@@ -1127,3 +1127,12 @@ branch-protection rulebook without re-learning the terminology.
      Gate summary job summary comment (with links back to the Gate run and reusable
      matrix). If the comment is still absent, note the remediation in the
      incident issue and ping `#trend-ci` for follow-up.
+
+### Verifier corpus provenance
+
+The reusable verifier publishes `verifier-corpus-decision/v1` beside comparison
+reports using the exact PR head and evaluated target captured in its context.
+Maint 79 joins this bot-published evidence (run/attempt and report URL included)
+to current merged-PR outcomes; missing identities and clean merges with NON_PASS
+decisions cannot create PASS benchmark cases. Staging-only PRs do not change
+approval metrics. See `docs/MODEL_SELECTION_POLICY.md` for the evidence contract.

@@ -108,7 +108,7 @@ def _cost(result: dict[str, Any]) -> float | None:
     value = (result.get("metrics") or {}).get("cost_per_accepted_review_usd")
     try:
         cost = float(value)
-    except (TypeError, ValueError):
+    except (TypeError, ValueError, OverflowError):
         return None
     return cost if math.isfinite(cost) and cost >= 0 else None
 
@@ -198,7 +198,7 @@ def find_promotions(
         key=lambda p: (
             bool(p["approval_reasons"]),
             p["candidate_cost"],
-            p["p95_latency_ms"] or float("inf"),
+            float("inf") if p["p95_latency_ms"] is None else p["p95_latency_ms"],
             p["to_model_id"],
         ),
     ):

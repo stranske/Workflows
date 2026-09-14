@@ -7,7 +7,9 @@ The evaluation corpus (``config/model_eval_pilot.json``) is frozen, versioned, a
 its expected verdicts must be trustworthy. It was hand-built and never grows, so
 the approval benchmark stays perpetually under its 75-case minimum and no model is
 ever promoted. This harvester grows it from outcomes the world has *already*
-adjudicated by merging or reverting a PR:
+adjudicated by merging or reverting a PR. Every candidate must first join an
+actual verifier decision to the exact PR head and evaluated merge, with its run
+and durable report URL. Missing or mismatched decisions are excluded:
 
   - A PR that merged cleanly and stayed stable for ``stability_days`` with no
     revert and no verifier follow-up → the verifier's PASS was borne out →
@@ -41,6 +43,8 @@ from collections.abc import Iterable
 from datetime import UTC, datetime, timedelta
 from pathlib import Path
 from typing import Any
+
+from tools.verifier_corpus_evidence import decision_from_comments, joined_decision
 
 _REPO_ROOT = Path(__file__).resolve().parent.parent
 DEFAULT_CORPUS_PATH = _REPO_ROOT / "config" / "model_eval_pilot.json"
@@ -76,7 +80,8 @@ def classify(
     Returns ``{expected_verdict, category, confidence}`` or ``None`` when the PR
     carries no usable verifier signal (e.g. never merged).
     """
-    if not record.get("merged"):
+    decision = joined_decision(record)
+    if decision is None or not record.get("merged"):
         return None
     merged_at = _parse_ts(record.get("merged_at"))
     if merged_at is None:
@@ -97,6 +102,9 @@ def classify(
             "confidence": confidence,
         }
 
+    if decision["verdict"] != "PASS":
+        return None  # A clean merge cannot turn an observed NON_PASS into PASS.
+
     age_days = (now - merged_at).total_seconds() / 86400.0
     confidence = "high" if age_days >= stability_days else "low"
     return {
@@ -113,7 +121,10 @@ def _pr_key(record: dict[str, Any]) -> tuple[str, str]:
 
 def _case_id(record: dict[str, Any]) -> str:
     repo, pr = _pr_key(record)
-    return f"{repo}#{pr}"
+    decision = joined_decision(record)
+    if decision is None:
+        raise ValueError("corpus case requires an exact verifier decision")
+    return f"{repo}#{pr}@{record['head_sha']}:{decision['run_id']}:{decision['run_attempt']}"
 
 
 def to_case(record: dict[str, Any], label: dict[str, Any], *, now: datetime) -> dict[str, Any]:
@@ -121,6 +132,9 @@ def to_case(record: dict[str, Any], label: dict[str, Any], *, now: datetime) -> 
         "case_id": _case_id(record),
         "repo": record.get("repo"),
         "pr": record.get("pr"),
+        "head_sha": record["head_sha"],
+        "merge_sha": record.get("merge_sha"),
+        "verifier_decision": dict(record["verifier_decision"]),
         "expected_verdict": label["expected_verdict"],
         "category": label["category"],
         "provenance": "harvested",
@@ -172,21 +186,23 @@ def grow_corpus(
 ) -> tuple[dict[str, Any], list[dict[str, Any]]]:
     """Append new high-confidence cases to the corpus.
 
-    Dedups by repo+pr, respects ``max_size``, and honours per-category caps so an
+    Dedups by repository, PR, head and verifier run/attempt; legacy cases retain
+    their keys. Respects ``max_size`` and per-category caps so an
     easy-to-source category (``clean-pass``) cannot flood the corpus and starve
     the balance the approval stage needs (10 per required category).
     """
     caps = category_caps or {}
     cases = list(corpus.get("cases", []))
-    existing = _corpus_keys(cases)
+    existing = {case.get("case_id") for case in cases}
+    legacy = _corpus_keys(case for case in cases if not case.get("verifier_decision"))
     counts: dict[str, int] = {}
     for case in cases:
         counts[case.get("category", "")] = counts.get(case.get("category", ""), 0) + 1
     added: list[dict[str, Any]] = []
     for case in promote:
-        key = _pr_key(case)
+        key = case["case_id"]
         category = case.get("category", "")
-        if key in existing or len(cases) >= max_size:
+        if key in existing or _pr_key(case) in legacy or len(cases) >= max_size:
             continue
         if category in caps and counts.get(category, 0) >= caps[category]:
             continue
@@ -207,9 +223,9 @@ def prune_staging(
 ) -> dict[str, Any]:
     """Merge new staging cases and drop any older than ``expiry_days`` (auto-expiry)."""
     kept: list[dict[str, Any]] = []
-    seen: set[tuple[str, str]] = set()
+    seen: set[Any] = set()
     for case in list(staging.get("cases", [])) + stage_new:
-        key = _pr_key(case)
+        key = case["case_id"] if case.get("verifier_decision") else _pr_key(case)
         if key in seen:
             continue
         first_seen = _parse_ts(case.get("harvested_at")) or now
@@ -293,7 +309,7 @@ def fetch_records(
                     "--limit",
                     str(per_repo),
                     "--json",
-                    "number,title,mergedAt,body,labels",
+                    "number,title,mergedAt,body,labels,headRefOid,mergeCommit,comments",
                 ]
             )
             or []
@@ -302,21 +318,21 @@ def fetch_records(
         for pr in merged:
             number = pr.get("number")
             labels = {lb.get("name") for lb in pr.get("labels", []) if isinstance(lb, dict)}
-            records.append(
-                {
-                    "repo": repo,
-                    "pr": number,
-                    "merged": True,
-                    "merged_at": pr.get("mergedAt"),
-                    "reverted": number in reverted,
-                    "verifier_followup": bool(
-                        labels & {"verify:create-issue", "verifier-followup"}
-                    ),
-                    # Resolution of a follow-up needs semantic judgment; stay conservative
-                    # (unresolved -> staged, never auto-labeled NON_PASS).
-                    "followup_resolved": False,
-                }
-            )
+            record = {
+                "repo": repo,
+                "head_sha": pr.get("headRefOid"),
+                "merge_sha": (pr.get("mergeCommit") or {}).get("oid"),
+                "pr": number,
+                "merged": True,
+                "merged_at": pr.get("mergedAt"),
+                "reverted": number in reverted,
+                "verifier_followup": bool(labels & {"verify:create-issue", "verifier-followup"}),
+                # Resolution of a follow-up needs semantic judgment; stay conservative
+                # (unresolved -> staged, never auto-labeled NON_PASS).
+                "followup_resolved": False,
+            }
+            record["verifier_decision"] = decision_from_comments(record, pr.get("comments", []))
+            records.append(record)
     return records
 
 
