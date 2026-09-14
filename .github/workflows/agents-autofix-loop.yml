@@ -354,8 +354,10 @@ jobs:
             outputs.gate_conclusion = String(run?.conclusion || run?.status || '');
             outputs.gate_run_id = String(run?.id || manualInputs.runId || '');
 
-            if ((run.conclusion || '').toLowerCase() === 'success') {
-              return stop('upstream Gate succeeded');
+            const isFailure = (value) =>
+              ['failure', 'timed_out'].includes(String(value || '').toLowerCase());
+            if (!isFailure(run.conclusion)) {
+              return stop('upstream Gate has no counted failure', 'gate_not_failed');
             }
 
             if ((run.event || '').toLowerCase() !== 'pull_request') {
@@ -503,7 +505,7 @@ jobs:
                 labels.includes('autofix:applied') || labels.includes('autofix');
               const hasEscalatedLabel = labels.includes('autofix:escalated');
               const gateConclusion = (run.conclusion || '').toLowerCase();
-              const gateFailed = gateConclusion === 'failure';
+              const gateFailed = isFailure(gateConclusion);
 
               // Escalate if Gate failed and we haven't already escalated
               if (gateFailed && !hasEscalatedLabel) {
@@ -553,7 +555,8 @@ jobs:
               }
             );
 
-            const workflowFile = 'agents-autofix-loop.yml';
+            // Count failed Gate executions, not unrelated follow-up workflow runs.
+            const workflowFile = run.workflow_id;
             // Reduce attempts for auto-escalated PRs (they weren't agent-initiated)
             const isEscalated = labels.includes('autofix:escalated');
             const maxAttempts = isEscalated
@@ -572,7 +575,27 @@ jobs:
               }
             );
 
-            const attemptCount = previousRuns.length + 1;
+            const failedGateRuns = previousRuns.filter((previous) =>
+              previous.id !== run.id &&
+              previous.head_sha === run.head_sha &&
+              isFailure(previous.conclusion)
+            );
+            let attemptsWithFailingJobs = 0;
+            for (const previous of failedGateRuns) {
+              const previousJobs = await paginateWithRetry(github, github.rest.actions.listJobsForWorkflowRun, {
+                owner,
+                repo,
+                run_id: previous.id,
+                per_page: 100,
+              });
+              if (previousJobs.some((job) => isFailure(job.conclusion))) {
+                attemptsWithFailingJobs += 1;
+              }
+            }
+            if (jobs.some((job) => isFailure(job.conclusion))) {
+              attemptsWithFailingJobs += 1;
+            }
+            const attemptCount = attemptsWithFailingJobs;
             outputs.attempts = String(attemptCount);
             outputs.max_attempts = String(maxAttempts);
 
@@ -581,7 +604,7 @@ jobs:
             let triggerStep = null;
             for (const job of jobs) {
               const conclusion = (job.conclusion || job.status || '').toLowerCase();
-              if (!conclusion || ['success', 'skipped'].includes(conclusion)) {
+              if (!isFailure(conclusion)) {
                 continue;
               }
 
@@ -590,7 +613,7 @@ jobs:
                   ? job.steps
                       .filter((step) => {
                         const stepConclusion = (step.conclusion || step.status || '').toLowerCase();
-                        return stepConclusion && !['success', 'skipped'].includes(stepConclusion);
+                        return isFailure(stepConclusion);
                       })
                       .map(
                         (step) =>
@@ -609,7 +632,7 @@ jobs:
                 const failingStep = Array.isArray(job.steps)
                   ? job.steps.find((step) => {
                       const stepConclusion = (step.conclusion || step.status || '').toLowerCase();
-                      return stepConclusion && !['success', 'skipped'].includes(stepConclusion);
+                      return isFailure(stepConclusion);
                     })
                   : null;
                 triggerStep = failingStep || null;
@@ -645,6 +668,7 @@ jobs:
               `PR: #${prNumber}`,
               `Head SHA: ${headSha}`,
               `Autofix attempts for this head: ${attemptCount} / ${maxAttempts}`,
+              `Gate failures examined: ${failedGateRuns.length + 1}; attempts with failing jobs: ${attemptsWithFailingJobs}`,
               'Fix scope: src/, tests/, tools/, scripts/, agents/, templates/, .github/',
             ];
 
@@ -655,6 +679,10 @@ jobs:
             }
 
             outputs.appendix = appendixLines.join('\n');
+
+            if (failingJobs.length === 0) {
+              return stop('Gate has no failing jobs', 'no_failing_jobs');
+            }
 
             if (attemptCount > maxAttempts) {
               return stop(
