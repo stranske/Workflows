@@ -105,7 +105,19 @@ async function evaluate() {
         assert result["output"]["head_sha"] == "current-head"
 
 
-def execute(workflow, tmp_path, conclusion="failure", history=(), jobs=None, historical_jobs=None):
+def execute(
+    workflow,
+    tmp_path,
+    conclusion="failure",
+    history=(),
+    jobs=None,
+    historical_jobs=None,
+    *,
+    run_attempt=1,
+    attempt_jobs=None,
+    pr_labels=None,
+    pr_body="",
+):
     document = yaml.safe_load((ROOT / workflow).read_text())
     steps = document["jobs"]["prepare"]["steps"]
     script = next(s["with"]["script"] for s in steps if s.get("id") == "evaluate")
@@ -122,15 +134,23 @@ def execute(workflow, tmp_path, conclusion="failure", history=(), jobs=None, his
         "conclusion": conclusion,
         "event": "pull_request",
         "pull_requests": [{"number": 7}],
+        "run_attempt": run_attempt,
     }
     failed_job = {"name": "pytest", "conclusion": "failure", "steps": []}
     jobs = [failed_job] if jobs is None else jobs
-    previous = [dict(run, id=i + 1, conclusion=value) for i, value in enumerate(history)]
+    previous = [
+        dict(run, id=i + 1, conclusion=value, run_attempt=1) for i, value in enumerate(history)
+    ]
+    if pr_labels is None:
+        pr_labels = [{"name": "agent:codex"}, {"name": "autofix"}]
     fixture = {
         "run": run,
         "history": previous + [run],
         "jobs": jobs,
         "historical_jobs": historical_jobs,
+        "attempt_jobs": attempt_jobs or {},
+        "pr_labels": pr_labels,
+        "pr_body": pr_body,
     }
     # Only the GitHub/retry/registry boundary is replaced. All counting, filtering,
     # output wiring and escalation code comes from the shipped workflow YAML.
@@ -154,10 +174,18 @@ const github = {rest: {actions: {
     return fixture.history;
   },
   listJobsForWorkflowRun: async (params) => params.run_id === 100 ? fixture.jobs :
-    (fixture.historical_jobs ?? [{name: 'pytest', conclusion: 'failure'}])
+    (fixture.historical_jobs ?? [{name: 'pytest', conclusion: 'failure'}]),
+  listJobsForWorkflowRunAttempt: async (params) => {
+    const attemptJobs = fixture.attempt_jobs[String(params.attempt_number)];
+    if (attemptJobs) return attemptJobs;
+    if (params.run_id === 100 && params.attempt_number === fixture.run.run_attempt) {
+      return fixture.jobs;
+    }
+    return fixture.historical_jobs ?? [{name: 'pytest', conclusion: 'failure'}];
+  }
 }, pulls: {get: async () => ({data: {state: 'open', draft: false,
   head: {sha: 'current-head', ref: 'codex/issue-7', repo: {full_name: 'stranske/fixture'}},
-  labels: [{name: 'agent:codex'}, {name: 'autofix'}], body: ''}})},
+  labels: fixture.pr_labels, body: fixture.pr_body}})},
 issues: {addLabels: async (params) => labels.push(...params.labels),
   createComment: async (params) => comments.push(params.body)}}};
 const withRetry = (fn) => fn(github);
@@ -250,12 +278,76 @@ def test_cancelled_history_does_not_spend_failure_budget(workflow, tmp_path, con
 
 
 @pytest.mark.parametrize("workflow", WORKFLOWS)
+def test_same_run_reruns_count_each_attempt(workflow, tmp_path):
+    """Re-run jobs increments run_attempt on the same workflow run id."""
+    failed_jobs = [{"name": "pytest", "conclusion": "failure", "steps": []}]
+    attempt_jobs = {str(i): failed_jobs for i in range(1, 5)}
+    result = execute(
+        workflow,
+        tmp_path,
+        history=[],
+        run_attempt=4,
+        attempt_jobs=attempt_jobs,
+    )
+    assert result["output"]["should_run"] == "false"
+    assert result["output"]["stop_reason"] == "max_attempts"
+    assert result["output"]["attempts"] == "4"
+    assert "gate attempts examined: 4" in result["comments"][0]
+
+
+@pytest.mark.parametrize("workflow", WORKFLOWS)
+@pytest.mark.parametrize("conclusion", ["failure", "timed_out"])
+def test_jobless_gate_without_agent_label_does_not_add_escalated(
+    workflow, tmp_path, conclusion
+):
+    result = execute(
+        workflow,
+        tmp_path,
+        conclusion,
+        jobs=[],
+        pr_labels=[],
+        pr_body="",
+    )
+    assert result["output"]["stop_reason"] == "no_failing_jobs"
+    assert result["output"]["should_run"] == "false"
+    assert "autofix:escalated" not in result["labels"]
+    assert not result["comments"]
+
+
+@pytest.mark.parametrize("workflow", WORKFLOWS)
 def test_real_failures_still_escalate(workflow, tmp_path):
     result = execute(workflow, tmp_path, history=["failure", "timed_out", "failure"])
     assert result["output"]["stop_reason"] == "max_attempts"
     assert result["output"]["attempts"] == "4"
     assert result["labels"] == ["needs-human"]
     assert "attempts with failing jobs: 4" in result["comments"][0]
+
+
+@pytest.mark.parametrize("workflow", WORKFLOWS)
+def test_same_run_attempt_counting_mutation_is_detected(workflow, tmp_path, monkeypatch):
+    """Counting only unique run ids must break same-run rerun budgeting."""
+
+    def regression():
+        test_same_run_reruns_count_each_attempt(workflow, tmp_path)
+
+    regression()
+    original_read_text = Path.read_text
+    source = original_read_text(ROOT / workflow)
+    needle = "Number(gateRun.run_attempt) || 1"
+    assert source.count(needle) >= 1, "Update the mutation for run_attempt counting"
+    mutated = source.replace(needle, "1")
+
+    def read_mutated(path, *args, **kwargs):
+        if path == ROOT / workflow:
+            return mutated
+        return original_read_text(path, *args, **kwargs)
+
+    with monkeypatch.context() as mutation:
+        mutation.setattr(Path, "read_text", read_mutated)
+        with pytest.raises(AssertionError):
+            regression()
+
+    regression()
 
 
 @pytest.mark.parametrize("workflow", WORKFLOWS)
