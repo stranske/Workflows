@@ -1154,3 +1154,42 @@ def test_rerunning_the_completion_job_does_not_spend_another_retry() -> None:
 
     assert storage.records[(42, "codex")]["unproductive_completions"] == 1
     assert should_dispatch(42, "aaa", "codex", storage=storage).should_dispatch is True
+
+
+def test_each_zero_output_run_after_the_cooldown_arms_a_fresh_one() -> None:
+    """Expiry must re-arm, not latch open — and the tally must stay capped while it does.
+
+    Without this, two regressions look identical to the expiry test: a tally that keeps
+    climbing (so the cooldown is measured from an ever-staler completion), and an expired
+    window that never closes again (so a permanently broken runner is re-dispatched forever).
+    """
+    storage = MemoryRunnerStorage()
+    for _ in range(UNPRODUCTIVE_COMPLETION_RETRY_LIMIT + 1):
+        should_dispatch(42, "aaa", "codex", storage=storage)
+        record_completion(
+            42, "aaa", "codex", _unproductive_result(), storage=storage, produced_work=False
+        )
+
+    stale = datetime.datetime.now(datetime.UTC) - datetime.timedelta(
+        seconds=UNPRODUCTIVE_COMPLETION_COOLDOWN_SECONDS + 60
+    )
+    record = storage.records[(42, "codex")]
+    record["status"] = "completed"
+    record["completed_at"] = stale.isoformat().replace("+00:00", "Z")
+
+    assert should_dispatch(42, "aaa", "codex", storage=storage).should_dispatch is True
+
+    # The retry produces nothing either. That must start a NEW cooldown from now.
+    record_completion(
+        42, "aaa", "codex", _unproductive_result(), storage=storage, produced_work=False
+    )
+    rearmed = should_dispatch(42, "aaa", "codex", storage=storage)
+
+    assert rearmed.should_dispatch is False
+    assert rearmed.reason == "unproductive-cooldown"
+    # The tally is capped, so the window is measured from the newest completion rather than
+    # from a completion that keeps receding into the past.
+    assert (
+        storage.records[(42, "codex")]["unproductive_completions"]
+        == UNPRODUCTIVE_COMPLETION_RETRY_LIMIT + 1
+    )
