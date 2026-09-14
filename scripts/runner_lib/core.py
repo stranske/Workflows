@@ -38,6 +38,12 @@ PENDING_STALE_AFTER_SECONDS = 30 * 60
 # granted on the same head after an unproductive completion (#3433). ONE constant, consumed by
 # both the refusal branch and the message it prints, so the two cannot drift apart.
 UNPRODUCTIVE_COMPLETION_RETRY_LIMIT = 2
+# What happens once those retries are spent. Refusing until the head changes would put the
+# ORIGINAL latch back one step further out: a new head commit can only come from the agent
+# being refused. So the allowance expires into a cooldown instead — a wait that time alone
+# clears, which the hourly keepalive sweep then wakes. Nothing the gate forbids is required
+# to open it.
+UNPRODUCTIVE_COMPLETION_COOLDOWN_SECONDS = 30 * 60
 TRUSTED_MARKER_AUTHORS = {
     "chatgpt-codex-connector",
     "chatgpt-codex-connector[bot]",
@@ -1007,6 +1013,25 @@ def _pending_record_is_stale(prior: dict[str, Any], *, now: dt.datetime | None =
     return (current - started_at).total_seconds() > PENDING_STALE_AFTER_SECONDS
 
 
+def _utc_now_dt() -> dt.datetime:
+    return dt.datetime.now(dt.UTC)
+
+
+def _unproductive_retry_available_at(prior: dict[str, Any] | None) -> dt.datetime | None:
+    """When the cooldown after spent retries expires, or None if it cannot be determined.
+
+    An unreadable or absent ``completed_at`` returns None, which the caller treats as "cooldown
+    cannot be measured, so let the dispatch through". Failing toward motion is the whole point:
+    a gate that cannot measure itself must not hold the loop shut on that basis.
+    """
+    if not prior:
+        return None
+    completed_at = _parse_timestamp(prior.get("completed_at"))
+    if completed_at is None:
+        return None
+    return completed_at + dt.timedelta(seconds=UNPRODUCTIVE_COMPLETION_COOLDOWN_SECONDS)
+
+
 def _completion_was_unproductive(prior: dict[str, Any] | None) -> bool:
     """True only when a completion explicitly reported that it produced no work.
 
@@ -1072,9 +1097,12 @@ def should_dispatch(
     leave a successful completion marker, so a later Gate pass may try again.
 
     A completion that produced no work is retried too, up to
-    ``UNPRODUCTIVE_COMPLETION_RETRY_LIMIT`` times on the same head. Without that, a runner
-    that exits 0 having done nothing latches the loop shut: the refusal can only be cleared
-    by a new head commit, and only the refused agent could push one (#3433).
+    ``UNPRODUCTIVE_COMPLETION_RETRY_LIMIT`` times on the same head, and after that on a
+    ``UNPRODUCTIVE_COMPLETION_COOLDOWN_SECONDS`` timer. Without that, a runner that exits 0
+    having done nothing latches the loop shut: the refusal could only be cleared by a new head
+    commit, and only the refused agent could push one (#3433). The cooldown matters for the
+    same reason — an allowance that expired into a permanent refusal would just move that latch
+    two runs later.
     """
     provider = _validate_provider(provider)
     storage = storage or _storage_from_name("auto")
@@ -1095,16 +1123,27 @@ def should_dispatch(
                     prior,
                     reason="retry-unproductive-completion",
                 )
-            return DebounceDecision(
-                False,
-                f"duplicate-{status}",
+            retry_at = _unproductive_retry_available_at(prior)
+            if retry_at is not None and _utc_now_dt() < retry_at:
+                return DebounceDecision(
+                    False,
+                    "unproductive-cooldown",
+                    key,
+                    prior_status=status,
+                    prior_head_sha=head_sha,
+                    drainable=(
+                        f"time: retry at {retry_at.isoformat()} "
+                        f"(after {unproductive_completions} zero-output runs)"
+                    ),
+                )
+            return _reserve_dispatch(
+                storage,
+                pr_number,
+                head_sha,
+                provider,
                 key,
-                prior_status=status,
-                prior_head_sha=head_sha,
-                drainable=(
-                    "a new head commit; unproductive retries exhausted "
-                    f"({unproductive_completions}/{UNPRODUCTIVE_COMPLETION_RETRY_LIMIT})"
-                ),
+                prior,
+                reason="retry-after-unproductive-cooldown",
             )
         if status == "completed" or (status == "pending" and not _pending_record_is_stale(prior)):
             return DebounceDecision(
@@ -1185,7 +1224,13 @@ def record_completion(
             # additional agent run having happened.
             record["unproductive_completions"] = _unproductive_completion_count(prior) or 1
         else:
-            record["unproductive_completions"] = _unproductive_completion_count(prior) + 1
+            previous = _unproductive_completion_count(prior)
+            # Past the allowance the streak stops climbing: the cooldown is re-armed from this
+            # completion's timestamp instead, so each new zero-output run buys one fresh window
+            # rather than an ever-growing count that means nothing.
+            record["unproductive_completions"] = min(
+                previous + 1, UNPRODUCTIVE_COMPLETION_RETRY_LIMIT + 1
+            )
     storage.write_record(pr_number, provider, record)
     return record
 
