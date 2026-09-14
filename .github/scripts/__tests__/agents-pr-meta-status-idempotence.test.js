@@ -89,6 +89,45 @@ test('a Gate in the recent page avoids the recovery request', async () => {
   assert.equal(calls.length, 1);
 });
 
+test('recovered Gate summaries stay stable across flooded pages and expose real transitions', async () => {
+  async function recoverSummary(id, recoveredGate, existingBody = '') {
+    const calls = [];
+    const recent = Array.from({ length: 100 }, (_, i) => generation(id)[i % 3]);
+    const runs = await collectStatusWorkflowRuns({
+      ...opts, github: client(recent, [recoveredGate], calls),
+    });
+    assert.equal(calls.filter(([kind]) => kind === 'gate').length, 1);
+    return render(runs, existingBody);
+  }
+
+  const first = await recoverSummary('10', gate);
+  const second = await recoverSummary('11', gate, first);
+  assert.equal(second, first);
+  assert.ok(second.includes('gate: ✅ success'));
+  assert.ok(!second.includes('/metadata/'));
+
+  const failedGate = { ...gate, conclusion: 'failure', html_url: 'https://example.com/gate/43' };
+  const third = await recoverSummary('12', failedGate, second);
+  assert.notEqual(third, second);
+  assert.ok(third.includes('gate: ❌ failure'));
+  assert.ok(third.includes(failedGate.html_url));
+  assert.ok(!third.includes(gate.html_url));
+  assert.equal(await recoverSummary('13', failedGate, third), third);
+});
+
+test('an empty Gate recovery cannot preserve an earlier successful result', async () => {
+  const calls = [];
+  const runs = await collectStatusWorkflowRuns({
+    ...opts, github: client(generation('11'), [], calls),
+  });
+  const summary = render(runs, render([gate]));
+  assert.equal(runs.size, 0);
+  assert.equal(calls.filter(([kind]) => kind === 'gate').length, 1);
+  assert.ok(summary.includes('gate: ⏸️ not started'));
+  assert.ok(!summary.includes('gate: ✅ success'));
+  assert.ok(!summary.includes(gate.html_url));
+});
+
 test('Gate recovery never uses another implementation head', async () => {
   const runs = await collectStatusWorkflowRuns({ ...opts,
     github: client(generation('11'), [{ ...gate, head_sha: 'other-head' }]),
