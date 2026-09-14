@@ -27,7 +27,9 @@ pytestmark = pytest.mark.skipif(NODE is None, reason="Node is required for workf
 )
 @pytest.mark.parametrize("evidence", ["check", "job"])
 @pytest.mark.parametrize("name", ["lint-format", "lint-ruff", "pytest"])
-@pytest.mark.parametrize("conclusion", ["timed_out", "failure", "cancelled", "skipped"])
+@pytest.mark.parametrize(
+    "conclusion", ["timed_out", "failure", "cancelled", "skipped", "success", "neutral"]
+)
 def test_autofix_lint_failure_eligibility(workflow, tmp_path, evidence, name, conclusion):
     """Run each shipped context evaluator with isolated check or job evidence."""
     document = yaml.safe_load((ROOT / workflow).read_text())
@@ -240,7 +242,7 @@ def test_cancelled_only_head_never_exhausts_budget(workflow, tmp_path, previous_
 @pytest.mark.parametrize("conclusion", ["failure", "timed_out"])
 def test_cancelled_history_does_not_spend_failure_budget(workflow, tmp_path, conclusion):
     result = execute(
-        workflow, tmp_path, conclusion, history=["cancelled", "skipped", "success"] * 4
+        workflow, tmp_path, conclusion, history=["cancelled", "skipped", "success", "neutral"] * 4
     )
     assert result["output"]["should_run"] == "true"
     assert result["output"]["attempts"] == "1"
