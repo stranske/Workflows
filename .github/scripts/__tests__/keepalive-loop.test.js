@@ -440,6 +440,38 @@ for (const [placement, marker] of ['before', 'after', 'unmanaged'].flatMap(
   });
 }
 
+test('evaluateKeepaliveLoop does not complete an outside task matching completed summary text', async () => {
+  const task = 'Exercise the retry path';
+  const summary = [
+    '<!-- auto-status-summary:start -->',
+    '## Tasks', `- [x] ${task}`,
+    '## Acceptance Criteria', '- [x] Verify the source task',
+    '<!-- auto-status-summary:end -->',
+  ].join('\n');
+  const body = upsertBlock(
+    stripPrTemplateContent(`${summary}\n## Reviewer follow-up\n- [ ] ${task}`),
+    'auto-status-summary', summary,
+  );
+  const pr = {
+    number: 3441,
+    head: { ref: 'codex/issue-3441', sha: 'repeated-task-head' },
+    labels: [{ name: 'agent:codex' }],
+    body,
+  };
+  const github = buildGithubStub({
+    pr,
+    comments: [{ id: 23, body: formatStateComment({ verification: { status: 'done' } }) }],
+    workflowRuns: [{ head_sha: pr.head.sha, conclusion: 'success' }],
+  });
+  const result = await evaluateKeepaliveLoop({
+    github, context: buildContext(pr.number), core: buildCore(),
+  });
+  assert.equal(result.action, 'run');
+  assert.equal(result.reason, 'ready');
+  assert.deepEqual(result.checkboxCounts, { total: 3, checked: 2, unchecked: 1 });
+  assert.ok(result.taskAppendix.includes(`- [ ] ${task}`));
+});
+
 for (const placement of ['before', 'after']) {
   test(`evaluateKeepaliveLoop counts collapsible reviewer work after refresh (${placement})`, async () => {
     const summary = [
