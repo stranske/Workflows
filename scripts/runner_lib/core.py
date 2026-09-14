@@ -1188,6 +1188,16 @@ def should_dispatch(
     return _reserve_dispatch(storage, pr_number, head_sha, provider, key, prior, reason=reason)
 
 
+def _unrecorded_completion(prior: dict[str, Any], key: str, reason: str) -> dict[str, Any]:
+    return {
+        "status": "unknown",
+        "key": key,
+        **prior,
+        "completion_recorded": False,
+        "completion_reason": reason,
+    }
+
+
 def record_completion(
     pr_number: int,
     head_sha: str,
@@ -1212,7 +1222,20 @@ def record_completion(
     )
     status = "completed" if result_payload.get("success") else "error"
     compact_result = _compact_runner_result_payload(result_payload)
-    prior = storage.read_record(pr_number, provider) or {}
+    # Dispatch may use a fallback for availability, but completion must validate and
+    # update the authoritative reservation. An empty/stale fallback cannot prove
+    # that a newer attempt does not own the primary, even if caller identity is absent.
+    uses_fallback = isinstance(storage, FallbackRunnerStorage)
+    completion_storage = storage.primary if isinstance(storage, FallbackRunnerStorage) else storage
+    try:
+        prior_record = completion_storage.read_record(pr_number, provider)
+    except Exception:
+        if not uses_fallback:
+            raise
+        return _unrecorded_completion({}, key, "authoritative-storage-unavailable")
+    if uses_fallback and prior_record is None:
+        return _unrecorded_completion({}, key, "authoritative-reservation-missing")
+    prior = prior_record or {}
     if prior.get("workflow_attempt_id") and (
         prior.get("workflow_attempt_id") != _workflow_attempt_id()
         or (prior.get("key") != key and produced_work is not True)
@@ -1220,7 +1243,7 @@ def record_completion(
         # A completion rerun from an earlier attempt must not overwrite a newer reservation,
         # including when both attempts target the same head. The owning attempt may report
         # a new head only when it explicitly measured productive work. Return an observation only.
-        return {**prior, "completion_recorded": False, "completion_reason": "stale-attempt"}
+        return _unrecorded_completion(prior, key, "stale-attempt")
     if produced_work is None and prior.get("key") == key and _completion_was_unproductive(prior):
         produced_work = False
     completed_at = (
@@ -1257,7 +1280,14 @@ def record_completion(
             record["unproductive_completions"] = min(
                 previous + 1, UNPRODUCTIVE_COMPLETION_RETRY_LIMIT + 1
             )
-    storage.write_record(pr_number, provider, record)
+    try:
+        completion_storage.write_record(pr_number, provider, record)
+    except Exception:
+        if not uses_fallback:
+            raise
+        # Never redirect a checked primary reservation into an unchecked fallback.
+        # A failed response may be ambiguous; a retry re-reads primary state first.
+        return _unrecorded_completion(prior, key, "authoritative-storage-unavailable")
     return record
 
 

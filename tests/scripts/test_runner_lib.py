@@ -1021,6 +1021,136 @@ def test_stale_workflow_completion_cannot_replace_new_reservation(
     assert len(storage.writes) == writes
 
 
+@pytest.mark.parametrize("completion_run", ["100", "200"])
+def test_productive_head_change_requires_owning_attempt(
+    monkeypatch: pytest.MonkeyPatch, completion_run: str
+) -> None:
+    storage = MemoryRunnerStorage()
+    monkeypatch.setenv("GITHUB_REPOSITORY", "owner/repo")
+    monkeypatch.setenv("GITHUB_RUN_ID", "100")
+    monkeypatch.setenv("GITHUB_RUN_ATTEMPT", "1")
+    should_dispatch(42, "aaa", "codex", storage=storage)
+    pending = dict(storage.records[(42, "codex")])
+    monkeypatch.setenv("GITHUB_RUN_ID", completion_run)
+
+    result = record_completion(
+        42, "bbb", "codex", _unproductive_result(), storage=storage, produced_work=True
+    )
+
+    if completion_run == "100":
+        assert result["head_sha"] == "bbb"
+        assert result["workflow_attempt_id"] == "owner/repo:100:1"
+        assert result["productive"] is True
+        assert result["unproductive_completions"] == 0
+        assert len(storage.writes) == 2
+    else:
+        assert result["completion_recorded"] is False
+        assert result["completion_reason"] == "stale-attempt"
+        assert storage.records[(42, "codex")] == pending
+        assert len(storage.writes) == 1
+
+
+@pytest.mark.parametrize("primary_state", ["unavailable", "missing"])
+@pytest.mark.parametrize("fallback_state", ["empty", "stale"])
+@pytest.mark.parametrize("has_identity", [True, False])
+def test_auto_completion_requires_authoritative_reservation(
+    monkeypatch: pytest.MonkeyPatch,
+    capsys: pytest.CaptureFixture[str],
+    primary_state: str,
+    fallback_state: str,
+    has_identity: bool,
+) -> None:
+    primary = MemoryRunnerStorage()
+    fallback = MemoryRunnerStorage()
+    monkeypatch.setenv("GITHUB_REPOSITORY", "owner/repo")
+    monkeypatch.setenv("GITHUB_RUN_ID", "100")
+    monkeypatch.setenv("GITHUB_RUN_ATTEMPT", "1")
+    if fallback_state == "stale":
+        should_dispatch(42, "aaa", "codex", storage=fallback)
+    monkeypatch.setenv("GITHUB_RUN_ID", "200")
+    should_dispatch(42, "aaa", "codex", storage=primary)
+    primary_before = dict(primary.records)
+    fallback_before = dict(fallback.records)
+    writes = (len(primary.writes), len(fallback.writes))
+
+    def read_primary(*_: Any) -> dict[str, Any] | None:
+        if primary_state == "unavailable":
+            raise RuntimeError("primary unavailable")
+        return None
+
+    monkeypatch.setattr(primary, "read_record", read_primary)
+    storage = runner_core.FallbackRunnerStorage(primary, fallback)
+    monkeypatch.setattr(runner_core, "_storage_from_name", lambda _: storage)
+    if has_identity:
+        monkeypatch.setenv("GITHUB_RUN_ID", "100")
+    else:
+        monkeypatch.delenv("GITHUB_RUN_ID")
+    assert (
+        runner_core.main(
+            [
+                "record-completion",
+                "--provider",
+                "codex",
+                "--pr-number",
+                "42",
+                "--head-sha",
+                "aaa",
+                "--summary",
+                "Done",
+                "--produced-work",
+                "true",
+            ]
+        )
+        == 0
+    )
+    output = json.loads(capsys.readouterr().out)
+    assert output["recorded"] == "false"
+    assert output["reason"] == (
+        "authoritative-storage-unavailable"
+        if primary_state == "unavailable"
+        else "authoritative-reservation-missing"
+    )
+    assert output["status"] == "unknown"
+    assert primary.records == primary_before
+    assert fallback.records == fallback_before
+    assert (len(primary.writes), len(fallback.writes)) == writes
+
+
+@pytest.mark.parametrize("write_fails", [True, False])
+def test_auto_completion_never_writes_fallback(
+    monkeypatch: pytest.MonkeyPatch, write_fails: bool
+) -> None:
+    primary = MemoryRunnerStorage()
+    fallback = MemoryRunnerStorage()
+    monkeypatch.setenv("GITHUB_REPOSITORY", "owner/repo")
+    monkeypatch.setenv("GITHUB_RUN_ID", "100")
+    monkeypatch.setenv("GITHUB_RUN_ATTEMPT", "1")
+    should_dispatch(42, "aaa", "codex", storage=primary)
+    pending = dict(primary.records[(42, "codex")])
+    storage = runner_core.FallbackRunnerStorage(primary, fallback)
+    # A reused adapter's prior fallback selection must not redirect completion.
+    storage._use_fallback = True
+    if write_fails:
+
+        def fail_write(*_: Any) -> None:
+            raise RuntimeError("primary unavailable")
+
+        monkeypatch.setattr(primary, "write_record", fail_write)
+    result = record_completion(
+        42, "aaa", "codex", _unproductive_result(), storage=storage, produced_work=False
+    )
+    assert not fallback.writes
+    if write_fails:
+        assert result["completion_recorded"] is False
+        assert result["completion_reason"] == "authoritative-storage-unavailable"
+        assert primary.records[(42, "codex")] == pending
+        assert len(primary.writes) == 1
+    else:
+        assert result["status"] == "completed"
+        assert primary.records[(42, "codex")] == result
+        assert len(primary.writes) == 2
+
+
 def test_missing_workflow_identity_cannot_complete_bound_reservation(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
