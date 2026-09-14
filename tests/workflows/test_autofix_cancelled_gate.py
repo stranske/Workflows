@@ -18,6 +18,91 @@ NODE = shutil.which("node")
 pytestmark = pytest.mark.skipif(NODE is None, reason="Node is required for workflow scripts")
 
 
+@pytest.mark.parametrize(
+    "workflow",
+    [
+        ".github/workflows/autofix.yml",
+        "templates/consumer-repo/.github/workflows/autofix.yml",
+    ],
+)
+@pytest.mark.parametrize("evidence", ["check", "job"])
+@pytest.mark.parametrize("name", ["lint-format", "lint-ruff", "pytest"])
+@pytest.mark.parametrize("conclusion", ["timed_out", "failure", "cancelled", "skipped"])
+def test_autofix_lint_failure_eligibility(workflow, tmp_path, evidence, name, conclusion):
+    """Run each shipped context evaluator with isolated check or job evidence."""
+    document = yaml.safe_load((ROOT / workflow).read_text())
+    script = next(
+        step["with"]["script"]
+        for job in document["jobs"].values()
+        for step in job.get("steps", [])
+        if step.get("id") == "context"
+    )
+    fixture = {"evidence": evidence, "name": name, "conclusion": conclusion}
+    # Load the production step as ordinary JavaScript, mocking only API boundaries.
+    harness = r"""
+import assert from 'node:assert/strict';
+const fixture = JSON.parse(process.env.FIXTURE);
+const output = {};
+const calls = [];
+const core = {setOutput: (key, value) => output[key] = value,
+  info: () => {}, warning: () => {}, setFailed: (message) => {throw Error(message);}};
+const context = {eventName: 'workflow_run', actor: 'fixture',
+  repo: {owner: 'stranske', repo: 'fixture'}, payload: {workflow_run: {
+    id: 100, name: 'Gate', conclusion: 'timed_out', head_sha: 'current-head',
+    pull_requests: [{number: 7}]
+  }}};
+const result = {name: fixture.name, conclusion: fixture.conclusion};
+const github = {rest: {
+  actions: {listJobsForWorkflowRun: async (params) => {
+    assert.equal(params.run_id, 100);
+    calls.push('jobs');
+    return fixture.evidence === 'job' ? [result] : [];
+  }},
+  checks: {listForRef: async (params) => {
+    assert.equal(params.ref, 'current-head');
+    calls.push('checks');
+    return {data: {check_runs: fixture.evidence === 'check' ? [result] : []}};
+  }},
+  pulls: {
+    get: async (params) => {
+      assert.equal(params.pull_number, 7);
+      return {data: {number: 7, state: 'open', draft: false, labels: [],
+        head: {sha: 'current-head', ref: 'fix-lint', repo: {full_name: 'stranske/fixture'}},
+        base: {repo: {full_name: 'stranske/fixture'}}}};
+    },
+    listFiles: async () => [{filename: 'src/example.py'}]
+  }
+}};
+const require = (name) => {
+  assert.equal(name, './.github/scripts/github-api-with-retry.js');
+  return {createTokenAwareRetry: async () => ({
+    withRetry: (fn) => fn(github),
+    paginateWithRetry: (method, params) => method(params)
+  })};
+};
+async function evaluate() {
+"""
+    runner = tmp_path / "autofix-context.mjs"
+    runner.write_text(
+        harness + script + "\n}\nawait evaluate();\nconsole.log(JSON.stringify({output, calls}));\n"
+    )
+    completed = subprocess.run(
+        [NODE, str(runner)],
+        cwd=tmp_path,
+        env={**os.environ, "FIXTURE": json.dumps(fixture)},
+        text=True,
+        capture_output=True,
+        check=True,
+    )
+    result = json.loads(completed.stdout)
+    eligible = name in {"lint-format", "lint-ruff"} and conclusion in {"failure", "timed_out"}
+    assert result["output"]["should_run"] == str(eligible).lower()
+    assert result["calls"] == (["jobs"] if evidence == "job" and eligible else ["jobs", "checks"])
+    if eligible:
+        assert result["output"]["pr_number"] == 7
+        assert result["output"]["head_sha"] == "current-head"
+
+
 def execute(workflow, tmp_path, conclusion="failure", history=(), jobs=None, historical_jobs=None):
     document = yaml.safe_load((ROOT / workflow).read_text())
     steps = document["jobs"]["prepare"]["steps"]

@@ -48,7 +48,7 @@ workflows:
       - stranske/Template
 
   - source: .github/workflows/autofix.yml
-    description: "Autofix workflow - repairs failed/timed-out checks; cancellations do not spend attempts"
+    description: "Autofix workflow - repairs failed/timed-out checks; cancellations do not trigger repairs"
 
   - source: .github/workflows/pr-46-dependency-repair-contract.yml
     description: "Dependency repair contract - keeps bot PRs bot-owned and validates agent repair promotion provenance"
