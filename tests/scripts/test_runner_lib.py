@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import datetime
 import json
 import os
 import subprocess
@@ -10,6 +11,7 @@ from typing import Any
 import pytest
 import scripts.runner_lib.core as runner_core
 from scripts.runner_lib import (
+    UNPRODUCTIVE_COMPLETION_COOLDOWN_SECONDS,
     UNPRODUCTIVE_COMPLETION_RETRY_LIMIT,
     CapabilityEffectEvidence,
     RunnerResult,
@@ -998,27 +1000,66 @@ def test_unproductive_completion_is_retried_on_the_same_head() -> None:
     assert decision.reason == "retry-unproductive-completion"
 
 
-def test_unproductive_retries_are_bounded_and_name_what_would_drain_them() -> None:
+def test_unproductive_retries_expire_into_a_cooldown_not_a_latch() -> None:
+    """Spent retries must expire into a WAIT, never into "only a new head commit will do".
+
+    Refusing until the head changes would reinstate the original #3433 deadlock one step
+    further out, because only the agent being refused could push that commit. A cooldown is
+    cleared by time alone, which the hourly keepalive sweep then wakes.
+    """
     storage = MemoryRunnerStorage()
-    reasons = []
     for _ in range(UNPRODUCTIVE_COMPLETION_RETRY_LIMIT + 1):
-        decision = should_dispatch(42, "aaa", "codex", storage=storage)
-        reasons.append(decision.reason)
+        should_dispatch(42, "aaa", "codex", storage=storage)
         record_completion(
             42, "aaa", "codex", _unproductive_result(), storage=storage, produced_work=False
         )
 
-    exhausted = should_dispatch(42, "aaa", "codex", storage=storage)
+    cooling = should_dispatch(42, "aaa", "codex", storage=storage)
 
-    assert reasons[0] == "first-dispatch"
-    assert reasons[1:] == ["retry-unproductive-completion"] * UNPRODUCTIVE_COMPLETION_RETRY_LIMIT
-    assert exhausted.should_dispatch is False
-    assert exhausted.reason == "duplicate-completed"
-    # The refusal must state its drainable quantity, not just that it is closed.
-    assert "a new head commit" in exhausted.drainable
-    assert f"{UNPRODUCTIVE_COMPLETION_RETRY_LIMIT + 1}/{UNPRODUCTIVE_COMPLETION_RETRY_LIMIT}" in (
-        exhausted.drainable
+    assert cooling.should_dispatch is False
+    assert cooling.reason == "unproductive-cooldown"
+    assert "time: retry at" in cooling.drainable
+    # The drainable path must be time, not an action the refused agent alone could take.
+    assert "head commit" not in cooling.drainable
+
+
+def test_dispatch_resumes_once_the_cooldown_has_elapsed() -> None:
+    storage = MemoryRunnerStorage()
+    for _ in range(UNPRODUCTIVE_COMPLETION_RETRY_LIMIT + 1):
+        should_dispatch(42, "aaa", "codex", storage=storage)
+        record_completion(
+            42, "aaa", "codex", _unproductive_result(), storage=storage, produced_work=False
+        )
+    assert should_dispatch(42, "aaa", "codex", storage=storage).should_dispatch is False
+
+    stale = datetime.datetime.now(datetime.UTC) - datetime.timedelta(
+        seconds=UNPRODUCTIVE_COMPLETION_COOLDOWN_SECONDS + 60
     )
+    record = storage.records[(42, "codex")]
+    record["status"] = "completed"
+    record["completed_at"] = stale.isoformat().replace("+00:00", "Z")
+
+    resumed = should_dispatch(42, "aaa", "codex", storage=storage)
+
+    assert resumed.should_dispatch is True
+    assert resumed.reason == "retry-after-unproductive-cooldown"
+
+
+def test_unmeasurable_cooldown_fails_toward_motion() -> None:
+    """A gate that cannot measure itself must not stay shut on that basis."""
+    storage = MemoryRunnerStorage()
+    for _ in range(UNPRODUCTIVE_COMPLETION_RETRY_LIMIT + 1):
+        should_dispatch(42, "aaa", "codex", storage=storage)
+        record_completion(
+            42, "aaa", "codex", _unproductive_result(), storage=storage, produced_work=False
+        )
+    record = storage.records[(42, "codex")]
+    record["status"] = "completed"
+    record["completed_at"] = "not-a-timestamp"
+
+    decision = should_dispatch(42, "aaa", "codex", storage=storage)
+
+    assert decision.should_dispatch is True
 
 
 def test_productive_completion_still_burns_the_head_key() -> None:
@@ -1113,3 +1154,42 @@ def test_rerunning_the_completion_job_does_not_spend_another_retry() -> None:
 
     assert storage.records[(42, "codex")]["unproductive_completions"] == 1
     assert should_dispatch(42, "aaa", "codex", storage=storage).should_dispatch is True
+
+
+def test_each_zero_output_run_after_the_cooldown_arms_a_fresh_one() -> None:
+    """Expiry must re-arm, not latch open — and the tally must stay capped while it does.
+
+    Without this, two regressions look identical to the expiry test: a tally that keeps
+    climbing (so the cooldown is measured from an ever-staler completion), and an expired
+    window that never closes again (so a permanently broken runner is re-dispatched forever).
+    """
+    storage = MemoryRunnerStorage()
+    for _ in range(UNPRODUCTIVE_COMPLETION_RETRY_LIMIT + 1):
+        should_dispatch(42, "aaa", "codex", storage=storage)
+        record_completion(
+            42, "aaa", "codex", _unproductive_result(), storage=storage, produced_work=False
+        )
+
+    stale = datetime.datetime.now(datetime.UTC) - datetime.timedelta(
+        seconds=UNPRODUCTIVE_COMPLETION_COOLDOWN_SECONDS + 60
+    )
+    record = storage.records[(42, "codex")]
+    record["status"] = "completed"
+    record["completed_at"] = stale.isoformat().replace("+00:00", "Z")
+
+    assert should_dispatch(42, "aaa", "codex", storage=storage).should_dispatch is True
+
+    # The retry produces nothing either. That must start a NEW cooldown from now.
+    record_completion(
+        42, "aaa", "codex", _unproductive_result(), storage=storage, produced_work=False
+    )
+    rearmed = should_dispatch(42, "aaa", "codex", storage=storage)
+
+    assert rearmed.should_dispatch is False
+    assert rearmed.reason == "unproductive-cooldown"
+    # The tally is capped, so the window is measured from the newest completion rather than
+    # from a completion that keeps receding into the past.
+    assert (
+        storage.records[(42, "codex")]["unproductive_completions"]
+        == UNPRODUCTIVE_COMPLETION_RETRY_LIMIT + 1
+    )

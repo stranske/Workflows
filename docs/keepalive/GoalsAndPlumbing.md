@@ -275,3 +275,45 @@ The same Gate step applies the `acceptance-criteria` label when a marker is pres
 | Exit | All acceptance criteria satisfied or max iterations reached |
 
 Keep this document in sync with [`MULTI_AGENT_ROUTING.md`](MULTI_AGENT_ROUTING.md) and [`Observability_Contract.md`](Observability_Contract.md) whenever the workflow evolves.
+
+### Runner-dispatch debounce: productive vs. zero-output completions
+
+The debounce that stops a runner being dispatched twice for the same work is keyed on
+`(head_sha, provider)`. It used to record **any** finished dispatch as terminal `completed`,
+including a run that produced nothing — and the only thing that clears that key is a new head
+commit, which only the agent being refused could push. Clearing the gate required the action
+the gate forbade (#3433).
+
+That is not hypothetical. codex exits 0 when its Linux sandbox fails to start
+(`bwrap: loopback: Failed RTM_NEWADDR`, #3438), reporting a successful turn with no commit and
+no tasks done. Two consumer PRs sat frozen at iteration 1/12 for four hours while the hourly
+sweep ran past them, because a debounced PR is indistinguishable from a healthy one.
+
+**What the debounce does now:**
+
+| Prior record for this head | Decision |
+|---|---|
+| `pending`, not yet stale | refuse — wait for the in-flight run |
+| `completed`, productive | refuse — a new head commit is the next step |
+| `completed`, zero-output, within the retry allowance | dispatch (`retry-unproductive-completion`) |
+| `completed`, zero-output, allowance spent, cooldown running | refuse (`unproductive-cooldown`) |
+| `completed`, zero-output, cooldown elapsed | dispatch (`retry-after-unproductive-cooldown`) |
+
+Productivity is the caller's verdict, passed as `--produced-work`. The keepalive workflows
+compute it by comparing the PR head after the run against the SHA the dispatch was reserved
+for. **Unmeasured is not the same as unproductive**: a caller that does not pass the flag (and
+a lookup that fails) keeps the original terminal-completion behaviour, so autofix's use of the
+same library is unaffected.
+
+**Why the allowance expires into a cooldown rather than a refusal.** Refusing until the head
+changes would put the original latch back one step further out. A cooldown is cleared by time
+alone — nothing the gate forbids is needed to open it — and the hourly keepalive sweep wakes it.
+For the same reason, a `completed_at` that cannot be parsed lets the dispatch through: a gate
+that cannot measure itself must fail toward motion, not silence.
+
+Every refusal states its drainable quantity next to its blocking state, so a run log never says
+only that dispatch is closed without saying what would open it. A granted dispatch renders that
+field empty, which keeps "no drainable path stated" from ever reading as "nothing is blocking".
+
+Constants live in `scripts/runner_lib/core.py`:
+`UNPRODUCTIVE_COMPLETION_RETRY_LIMIT` and `UNPRODUCTIVE_COMPLETION_COOLDOWN_SECONDS`.
