@@ -1177,6 +1177,13 @@ def record_completion(
         record["productive"] = bool(produced_work)
         if produced_work:
             record["unproductive_completions"] = 0
+        elif prior.get("key") == key and prior.get("status") in TERMINAL_STATUSES:
+            # This completion is already recorded; re-running the completion job for the same
+            # dispatch key must not spend another retry. record_completion is idempotent for a
+            # key by contract (see completed_at above, which is preserved the same way), and a
+            # counter that advanced on a rerun would quietly exhaust the allowance without any
+            # additional agent run having happened.
+            record["unproductive_completions"] = _unproductive_completion_count(prior) or 1
         else:
             record["unproductive_completions"] = _unproductive_completion_count(prior) + 1
     storage.write_record(pr_number, provider, record)

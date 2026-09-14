@@ -1094,3 +1094,22 @@ def test_granted_dispatch_reports_no_drainable_quantity() -> None:
     storage = MemoryRunnerStorage()
 
     assert should_dispatch(42, "aaa", "codex", storage=storage).drainable == ""
+
+
+def test_rerunning_the_completion_job_does_not_spend_another_retry() -> None:
+    """record_completion is idempotent for a dispatch key, tally included.
+
+    The completion job can re-run for the same key without any additional agent run having
+    happened; a counter that advanced on a rerun would quietly exhaust the retry allowance.
+    """
+    storage = MemoryRunnerStorage()
+    should_dispatch(42, "aaa", "codex", storage=storage)
+    record_completion(
+        42, "aaa", "codex", _unproductive_result(), storage=storage, produced_work=False
+    )
+    record_completion(
+        42, "aaa", "codex", _unproductive_result(), storage=storage, produced_work=False
+    )
+
+    assert storage.records[(42, "codex")]["unproductive_completions"] == 1
+    assert should_dispatch(42, "aaa", "codex", storage=storage).should_dispatch is True
