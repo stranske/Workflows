@@ -6,7 +6,6 @@ import datetime as dt
 import json
 
 import pytest
-
 from tools import prepare_model_promotion as pmp
 
 TODAY = dt.date(2026, 8, 1)
