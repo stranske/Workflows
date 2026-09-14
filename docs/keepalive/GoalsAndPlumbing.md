@@ -275,3 +275,20 @@ The same Gate step applies the `acceptance-criteria` label when a marker is pres
 | Exit | All acceptance criteria satisfied or max iterations reached |
 
 Keep this document in sync with [`MULTI_AGENT_ROUTING.md`](MULTI_AGENT_ROUTING.md) and [`Observability_Contract.md`](Observability_Contract.md) whenever the workflow evolves.
+
+### Productive runner completion debounce
+
+Keepalive records the selected runner's new commit SHA and the summary's observed
+task-completion delta (only when task totals are stable). A successful exit or a
+claim in runner prose is insufficient. Only a completion with a new commit or a
+positive task delta suppresses another dispatch for the same head and provider.
+Legacy completion markers without progress evidence are retried. Other runner
+library callers, including autofix, retain their existing completion semantics.
+
+After three consecutive successful zero-output completions on one head, retries
+have a 30-minute cooldown. Once due, exactly one evaluation reserves a pending
+runner; further evaluations retain pending-run protection. Another zero-output
+completion starts a new cooldown, while a productive completion or changed head
+resets the streak. This finite delay never requires a commit from a blocked agent
+to clear itself; the existing hourly sweep can wake it. Dispatch output includes
+prior commit and task-delta counts and the action/time that clears a refusal.

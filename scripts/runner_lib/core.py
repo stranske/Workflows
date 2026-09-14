@@ -30,6 +30,8 @@ PROVIDERS = {"autofix", "claude", "codex", "cursor", "gemini"}
 PROMPT_PROVIDERS = {"claude", "codex", "cursor", "gemini"}
 TERMINAL_STATUSES = {"completed", "error"}
 PENDING_STALE_AFTER_SECONDS = 30 * 60
+UNPRODUCTIVE_RETRY_LIMIT = 3
+UNPRODUCTIVE_RETRY_COOLDOWN_SECONDS = 30 * 60
 TRUSTED_MARKER_AUTHORS = {
     "chatgpt-codex-connector",
     "chatgpt-codex-connector[bot]",
@@ -87,6 +89,9 @@ class DebounceDecision:
     key: str
     prior_status: str | None = None
     prior_head_sha: str | None = None
+    prior_commits: int = 0
+    prior_task_delta: int = 0
+    next_action: str = ""
 
 
 def _validate_capability_effect_evidence_values(values: dict[str, str]) -> None:
@@ -995,39 +1000,71 @@ def _pending_record_is_stale(prior: dict[str, Any], *, now: dt.datetime | None =
     return (current - started_at).total_seconds() > PENDING_STALE_AFTER_SECONDS
 
 
+def _progress_count(value: Any) -> int:
+    """Only machine-observed nonnegative integer counts establish progress."""
+    return value if type(value) is int and value >= 0 else 0
+
+
 def should_dispatch(
     pr_number: int,
     head_sha: str,
     provider: str,
     storage: RunnerDispatchStorage | None = None,
+    *,
+    require_productivity: bool = False,
 ) -> DebounceDecision:
-    """Reserve dispatch unless the same PR/head SHA completed or is actively pending.
+    """Reserve a dispatch, retaining duplicate protection for productive work.
 
-    Error records are retried deliberately: they mean the prior runner attempt did not
-    leave a successful completion marker, so a later Gate pass may try again.
+    Keepalive opts into productivity checking; other callers retain their existing
+    completion semantics. Missing legacy evidence is not proof of productive work.
+    Three zero-output completions impose a finite cooldown, never a head-change latch.
     """
     provider = _validate_provider(provider)
     storage = storage or _storage_from_name("auto")
     key = _runner_key(pr_number, head_sha, provider)
     prior = storage.read_record(pr_number, provider)
+    same_head = bool(prior and prior.get("head_sha") == head_sha)
+    commits = _progress_count((prior or {}).get("commits"))
+    task_delta = _progress_count((prior or {}).get("tasks_completed_delta"))
+    streak = _progress_count((prior or {}).get("unproductive_completions")) if same_head else 0
 
-    if prior and prior.get("head_sha") == head_sha:
+    def decision(allowed: bool, reason: str, next_action: str = "") -> DebounceDecision:
+        return DebounceDecision(
+            allowed,
+            reason,
+            key,
+            prior_status=str(prior.get("status")) if prior else None,
+            prior_head_sha=str(prior.get("head_sha")) if prior else None,
+            prior_commits=commits,
+            prior_task_delta=task_delta,
+            next_action=next_action,
+        )
+
+    if same_head and prior:
         status = str(prior.get("status") or "")
-        if status == "completed" or (status == "pending" and not _pending_record_is_stale(prior)):
-            return DebounceDecision(
-                False,
-                f"duplicate-{status}",
-                key,
-                prior_status=status,
-                prior_head_sha=head_sha,
-            )
+        if status == "pending" and not _pending_record_is_stale(prior):
+            return decision(False, "duplicate-pending", "Wait for the reserved runner to finish.")
+        if status == "completed":
+            if not require_productivity or commits > 0 or task_delta > 0:
+                return decision(
+                    False, "duplicate-completed", "Re-evaluate after the PR head changes."
+                )
+            completed_at = _parse_timestamp(prior.get("completed_at"))
+            if streak >= UNPRODUCTIVE_RETRY_LIMIT and completed_at is not None:
+                retry_at = completed_at + dt.timedelta(seconds=UNPRODUCTIVE_RETRY_COOLDOWN_SECONDS)
+                if dt.datetime.now(dt.UTC) < retry_at:
+                    return decision(
+                        False, "unproductive-cooldown", f"Retry after {retry_at.isoformat()}."
+                    )
 
     if prior is None:
         reason = "first-dispatch"
-    elif prior.get("head_sha") != head_sha:
+    elif not same_head:
         reason = "head-sha-changed"
     elif str(prior.get("status") or "") == "pending":
         reason = "stale-pending"
+    elif require_productivity and prior.get("status") == "completed":
+        reason = "retry-unproductive"
     else:
         reason = f"retry-{str(prior.get('status') or 'unknown')}"
     record = {
@@ -1037,15 +1074,10 @@ def should_dispatch(
         "key": key,
         "status": "pending",
         "started_at": _utc_now(),
+        "unproductive_completions": streak,
     }
     storage.write_record(pr_number, provider, record)
-    return DebounceDecision(
-        True,
-        reason,
-        key,
-        prior_status=str(prior.get("status")) if prior else None,
-        prior_head_sha=str(prior.get("head_sha")) if prior else None,
-    )
+    return decision(True, reason)
 
 
 def record_completion(
@@ -1054,6 +1086,9 @@ def record_completion(
     provider: str,
     result: RunnerResult | dict[str, Any],
     storage: RunnerDispatchStorage | None = None,
+    *,
+    commits: int = 0,
+    tasks_completed_delta: int = 0,
 ) -> dict[str, Any]:
     """Persist terminal runner state after a dispatch finishes."""
     provider = _validate_provider(provider)
@@ -1065,6 +1100,14 @@ def record_completion(
     status = "completed" if result_payload.get("success") else "error"
     compact_result = _compact_runner_result_payload(result_payload)
     prior = storage.read_record(pr_number, provider) or {}
+    commits = _progress_count(commits)
+    tasks_completed_delta = _progress_count(tasks_completed_delta)
+    same_key = prior.get("key") == key
+    streak = _progress_count(prior.get("unproductive_completions")) if same_key else 0
+    if commits or tasks_completed_delta:
+        streak = 0
+    elif status == "completed" and not (same_key and prior.get("status") == "completed"):
+        streak += 1
     completed_at = (
         prior.get("completed_at")
         if prior.get("key") == key and prior.get("status") in TERMINAL_STATUSES
@@ -1079,6 +1122,9 @@ def record_completion(
         "status": status,
         "completed_at": completed_at,
         "result": compact_result,
+        "commits": commits,
+        "tasks_completed_delta": tasks_completed_delta,
+        "unproductive_completions": streak,
     }
     storage.write_record(pr_number, provider, record)
     return record
@@ -1158,6 +1204,7 @@ def _cmd_should_dispatch(args: argparse.Namespace) -> int:
         args.head_sha,
         args.provider,
         storage=_storage_from_name(args.storage),
+        require_productivity=args.require_productivity,
     )
     outputs = {
         "should_dispatch": "true" if decision.should_dispatch else "false",
@@ -1165,6 +1212,9 @@ def _cmd_should_dispatch(args: argparse.Namespace) -> int:
         "key": decision.key,
         "prior_status": decision.prior_status or "",
         "prior_head_sha": decision.prior_head_sha or "",
+        "prior_commits": str(decision.prior_commits),
+        "prior_task_delta": str(decision.prior_task_delta),
+        "next_action": decision.next_action,
     }
     _write_github_output(outputs)
     print(json.dumps(outputs, sort_keys=True))
@@ -1196,6 +1246,11 @@ def _cmd_record_completion(args: argparse.Namespace) -> int:
         args.provider,
         result,
         storage=_storage_from_name(args.storage),
+        commits=int(
+            bool(re.fullmatch(r"[0-9a-fA-F]{40,64}", args.commit_sha or ""))
+            and args.commit_sha.lower() != args.head_sha.lower()
+        ),
+        tasks_completed_delta=args.tasks_completed_delta,
     )
     outputs = {"recorded": "true", "status": str(record["status"]), "key": str(record["key"])}
     _write_github_output(outputs)
@@ -1250,6 +1305,7 @@ def build_parser() -> argparse.ArgumentParser:
     dispatch.add_argument(
         "--storage", choices=["auto", "pr-comment", "repo-variable"], default="auto"
     )
+    dispatch.add_argument("--require-productivity", action="store_true")
     dispatch.set_defaults(func=_cmd_should_dispatch)
 
     complete = subparsers.add_parser("record-completion", help="persist runner completion")
@@ -1262,6 +1318,8 @@ def build_parser() -> argparse.ArgumentParser:
     complete.add_argument("--raw-output-file", default="")
     complete.add_argument("--summary", default="")
     complete.add_argument("--exit-code", default=None)
+    complete.add_argument("--commit-sha", default="")
+    complete.add_argument("--tasks-completed-delta", type=int, default=0)
     complete.set_defaults(func=_cmd_record_completion)
 
     evidence = subparsers.add_parser(

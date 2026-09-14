@@ -4396,6 +4396,7 @@ async function updateKeepaliveLoopSummary({ github: rawGithub, context, core, in
     }
 
     if (core && typeof core.setOutput === 'function') {
+      core.setOutput('tasks_completed_delta', String(zeroActivityTaskDelta));
       core.setOutput('error_type', errorType || '');
       core.setOutput('error_category', errorCategory || '');
     }

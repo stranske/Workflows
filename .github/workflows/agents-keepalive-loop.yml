@@ -619,6 +619,7 @@ jobs:
             --provider "$PROVIDER" \
             --pr-number "$PR_NUMBER" \
             --head-sha "$HEAD_SHA" \
+            --require-productivity \
             --storage auto
 
       - name: Verify task appendix artifact
@@ -1023,6 +1024,7 @@ jobs:
     name: Record keepalive dispatch completion
     needs:
       - evaluate
+      - summary
       - run-codex
       - run-claude
       - run-cursor
@@ -1051,6 +1053,12 @@ jobs:
           PROVIDER: ${{ needs.evaluate.outputs.agent_type || 'codex' }}
           PR_NUMBER: ${{ needs.evaluate.outputs.pr_number }}
           HEAD_SHA: ${{ needs.evaluate.outputs.head_sha }}
+          COMMIT_SHA: >-
+            ${{ needs.run-codex.outputs.commit-sha ||
+                needs.run-claude.outputs.commit-sha ||
+                needs.run-cursor.outputs.commit-sha ||
+                needs.run-gemini.outputs.commit-sha || '' }}
+          TASKS_COMPLETED_DELTA: ${{ needs.summary.outputs.tasks_completed_delta || '0' }}
           SUMMARY: >-
             ${{ needs.run-codex.outputs.final-message-summary ||
                 needs.run-claude.outputs.final-message-summary ||
@@ -1085,6 +1093,8 @@ jobs:
             --provider "$PROVIDER" \
             --pr-number "$PR_NUMBER" \
             --head-sha "$HEAD_SHA" \
+            --commit-sha "$COMMIT_SHA" \
+            --tasks-completed-delta "$TASKS_COMPLETED_DELTA" \
             --summary "$SUMMARY" \
             --exit-code "$EXIT_CODE" \
             --storage auto
@@ -1363,6 +1373,8 @@ jobs:
 
   summary:
     name: Update keepalive summary
+    outputs:
+      tasks_completed_delta: ${{ steps.update-summary.outputs.tasks_completed_delta }}
     needs:
       - evaluate
       - preflight

@@ -5983,3 +5983,28 @@ test('updateKeepaliveLoopSummary shows regex fallback warning', async () => {
   assert.match(github.actions[0].body, /Regex \(fallback\)/);
   assert.match(github.actions[0].body, /Primary provider.*was unavailable/);
 });
+
+test('summary exports only stable live task progress for runner debounce', async () => {
+  for (const priorTotal of [3, 4]) {
+    const outputs = {};
+    const existingState = formatStateComment({
+      trace: 'dispatch-productivity', iteration: 1, max_iterations: 12,
+      tasks: { total: priorTotal, unchecked: 3 },
+    });
+    const github = buildGithubStub({
+      comments: [{ id: 77, body: existingState, html_url: 'https://example.com/77' }],
+      pr: { body: '## Tasks\n- [x] First\n- [x] Second\n- [ ] Third\n' },
+    });
+    await updateKeepaliveLoopSummary({
+      github, context: buildContext(42),
+      core: { ...buildCore(), setOutput(key, value) { outputs[key] = value; } },
+      inputs: {
+        prNumber: 42, action: 'run', runResult: 'success', gateConclusion: 'success',
+        tasksTotal: priorTotal, tasksUnchecked: 3, iteration: 1, maxIterations: 12,
+        keepaliveEnabled: true, autofixEnabled: false, agent_files_changed: 0,
+        trace: 'dispatch-productivity',
+      },
+    });
+    assert.equal(outputs.tasks_completed_delta, priorTotal === 3 ? '2' : '0');
+  }
+});
