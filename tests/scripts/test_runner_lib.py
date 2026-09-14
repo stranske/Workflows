@@ -989,6 +989,119 @@ def test_completion_productivity_requires_explicit_false(
     assert runner_core._completion_was_unproductive(prior) is expected
 
 
+@pytest.mark.parametrize(
+    "new_run,new_attempt,new_head", [("200", "1", "aaa"), ("100", "2", "aaa"), ("200", "1", "bbb")]
+)
+def test_stale_workflow_completion_cannot_replace_new_reservation(
+    monkeypatch: pytest.MonkeyPatch, new_run: str, new_attempt: str, new_head: str
+) -> None:
+    storage = MemoryRunnerStorage()
+    monkeypatch.setenv("GITHUB_REPOSITORY", "owner/repo")
+    monkeypatch.setenv("GITHUB_RUN_ID", "100")
+    monkeypatch.setenv("GITHUB_RUN_ATTEMPT", "1")
+    should_dispatch(42, "aaa", "codex", storage=storage)
+    record_completion(
+        42, "aaa", "codex", _unproductive_result(), storage=storage, produced_work=False
+    )
+    monkeypatch.setenv("GITHUB_RUN_ID", new_run)
+    monkeypatch.setenv("GITHUB_RUN_ATTEMPT", new_attempt)
+    assert should_dispatch(42, new_head, "codex", storage=storage).should_dispatch
+    pending = dict(storage.records[(42, "codex")])
+    writes = len(storage.writes)
+
+    monkeypatch.setenv("GITHUB_RUN_ID", "100")
+    monkeypatch.setenv("GITHUB_RUN_ATTEMPT", "1")
+    ignored = record_completion(
+        42, "aaa", "codex", _unproductive_result(), storage=storage, produced_work=False
+    )
+
+    assert ignored["completion_recorded"] is False
+    assert ignored["completion_reason"] == "stale-attempt"
+    assert storage.records[(42, "codex")] == pending
+    assert len(storage.writes) == writes
+
+
+def test_missing_workflow_identity_cannot_complete_bound_reservation(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    storage = MemoryRunnerStorage()
+    monkeypatch.setenv("GITHUB_REPOSITORY", "owner/repo")
+    monkeypatch.setenv("GITHUB_RUN_ID", "100")
+    monkeypatch.setenv("GITHUB_RUN_ATTEMPT", "1")
+    should_dispatch(42, "aaa", "codex", storage=storage)
+    writes = len(storage.writes)
+    monkeypatch.delenv("GITHUB_RUN_ID")
+    result = record_completion(42, "aaa", "codex", _unproductive_result(), storage=storage)
+    assert result["completion_recorded"] is False
+    assert len(storage.writes) == writes
+
+
+def test_cli_reports_stale_completion_without_writing(
+    monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str]
+) -> None:
+    storage = MemoryRunnerStorage()
+    monkeypatch.setattr(runner_core, "_storage_from_name", lambda _: storage)
+    monkeypatch.setenv("GITHUB_REPOSITORY", "owner/repo")
+    monkeypatch.setenv("GITHUB_RUN_ID", "200")
+    monkeypatch.setenv("GITHUB_RUN_ATTEMPT", "1")
+    common = ["--provider", "codex", "--pr-number", "42", "--head-sha", "aaa"]
+    assert runner_core.main(["should-dispatch", *common]) == 0
+    capsys.readouterr()
+    writes = len(storage.writes)
+    monkeypatch.setenv("GITHUB_RUN_ID", "100")
+    assert runner_core.main(["record-completion", *common, "--summary", "Done"]) == 0
+    output = json.loads(capsys.readouterr().out)
+    assert output["recorded"] == "false"
+    assert output["reason"] == "stale-attempt"
+    assert len(storage.writes) == writes
+
+
+def test_same_attempt_completion_across_jobs_is_idempotent(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    storage = MemoryRunnerStorage()
+    monkeypatch.setenv("GITHUB_REPOSITORY", "owner/repo")
+    monkeypatch.setenv("GITHUB_RUN_ID", "100")
+    monkeypatch.setenv("GITHUB_RUN_ATTEMPT", "1")
+    monkeypatch.setenv("GITHUB_JOB", "reserve")
+    should_dispatch(42, "aaa", "codex", storage=storage)
+    monkeypatch.setenv("GITHUB_JOB", "complete")
+    first = record_completion(
+        42, "aaa", "codex", _unproductive_result(), storage=storage, produced_work=False
+    )
+    second = record_completion(
+        42, "aaa", "codex", _unproductive_result(), storage=storage, produced_work=False
+    )
+    assert first == second
+    assert second["status"] == "completed"
+    assert second["unproductive_completions"] == 1
+
+
+def test_unmeasured_retry_preserves_bounded_unproductive_streak() -> None:
+    storage = MemoryRunnerStorage()
+    should_dispatch(42, "aaa", "codex", storage=storage)
+    record_completion(
+        42, "aaa", "codex", _unproductive_result(), storage=storage, produced_work=False
+    )
+    for _ in range(UNPRODUCTIVE_COMPLETION_RETRY_LIMIT):
+        assert should_dispatch(42, "aaa", "codex", storage=storage).should_dispatch
+        record_completion(42, "aaa", "codex", _unproductive_result(), storage=storage)
+    assert storage.records[(42, "codex")]["productive"] is False
+    assert should_dispatch(42, "aaa", "codex", storage=storage).reason == "unproductive-cooldown"
+
+
+def test_new_head_does_not_inherit_unproductive_classification() -> None:
+    storage = MemoryRunnerStorage()
+    should_dispatch(42, "aaa", "codex", storage=storage)
+    record_completion(
+        42, "aaa", "codex", _unproductive_result(), storage=storage, produced_work=False
+    )
+    should_dispatch(42, "bbb", "codex", storage=storage)
+    record_completion(42, "bbb", "codex", _unproductive_result(), storage=storage)
+    assert "productive" not in storage.records[(42, "codex")]
+    assert should_dispatch(42, "bbb", "codex", storage=storage).reason == "duplicate-completed"
+
+
 def _unproductive_result() -> RunnerResult:
     """A run that exits 0 having done nothing — the shape the codex sandbox failure takes."""
     return RunnerResult(

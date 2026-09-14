@@ -302,8 +302,17 @@ sweep ran past them, because a debounced PR is indistinguishable from a healthy 
 Productivity is the caller's verdict, passed as `--produced-work`. The keepalive workflows
 compute it by comparing the PR head after the run against the SHA the dispatch was reserved
 for. **Unmeasured is not the same as unproductive**: a caller that does not pass the flag (and
-a lookup that fails) keeps the original terminal-completion behaviour, so autofix's use of the
-same library is unaffected.
+a lookup that fails) keeps the original terminal-completion behaviour unless this is already
+a same-head unproductive retry. That retry carries its false marker and bounded counter across
+an unmeasured completion; an explicit productive result or a new head clears the streak.
+
+GitHub Actions reservations also bind the repository, run ID and run attempt. Completion must
+match that binding and head key before writing state. A late completion from an older run or
+rerun attempt returns `recorded=false`, `reason=stale-attempt` without overwriting the newer
+reservation. Rerun from the reservation step, not a completion-only job; an unmatched pending
+reservation remains recoverable through the existing stale-pending timeout. Existing callers
+without GitHub attempt identity retain legacy behavior. This is a workflow-attempt fence,
+not an atomic compare-and-swap guarantee from the backing storage.
 
 **Why the allowance expires into a cooldown rather than a refusal.** Refusing until the head
 changes would put the original latch back one step further out. A cooldown is cleared by time
