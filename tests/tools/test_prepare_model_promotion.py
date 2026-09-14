@@ -6,9 +6,157 @@ import datetime as dt
 import json
 
 import pytest
+from tools import evaluate_model_benchmark as benchmark
+from tools import harvest_verifier_corpus as harvest
 from tools import prepare_model_promotion as pmp
+from tools import verifier_corpus_evidence as evidence
 
 TODAY = dt.date(2026, 8, 1)
+
+
+def _harvested_benchmark(candidate, cost):
+    """Join 75 simulated outcomes and retain owner-adjudicated failure categories."""
+    policy = json.loads(benchmark.DEFAULT_POLICY_PATH.read_text())
+    growth = policy["profiles"]["verifier-balanced"]["corpus_growth"]
+    records = []
+    for pr in range(1, 76):
+        records.append(
+            {
+                "repo": "example/reviews",
+                "pr": pr,
+                "head_sha": "a" * 40,
+                "merge_sha": "b" * 40,
+                "merged": True,
+                "merged_at": "2026-06-01T00:00:00Z",
+                "reverted": 35 < pr <= 55,
+                "verifier_followup": pr > 55,
+                "followup_resolved": pr > 55,
+                "verifier_decision": {
+                    "schema": evidence.MARKER,
+                    "repo": "example/reviews",
+                    "pr": pr,
+                    "head_sha": "a" * 40,
+                    "evaluated_sha": "b" * 40,
+                    "run_id": str(pr),
+                    "run_attempt": "1",
+                    "verdict": "PASS",
+                    "source_url": f"https://github.com/example/reviews/pull/{pr}#issuecomment-1",
+                },
+            }
+        )
+    promoted, staged = harvest.partition(
+        records,
+        now=dt.datetime(2026, 8, 1, tzinfo=dt.UTC),
+        stability_days=growth["stability_days"],
+    )
+    assert staged == []
+    # These categories cannot be inferred by the harvester. Supply explicitly
+    # simulated owner labels, including enough NON_PASS cases for the Wilson gate.
+    owner_categories = [
+        "missing-acceptance-criterion",
+        "stale-verifier-claim",
+        "review-thread-debt",
+    ]
+    corpus = {
+        "corpus_version": "test-owner-v1",
+        "cases": [
+            {
+                "case_id": f"owner-{index}",
+                "repo": "example/owner-reviews",
+                "pr": index + 1,
+                "category": owner_categories[index % len(owner_categories)],
+                "expected_verdict": "NON_PASS",
+                "provenance": "owner-adjudicated",
+            }
+            for index in range(40)
+        ],
+    }
+    grown, added = harvest.grow_corpus(
+        corpus,
+        promoted,
+        max_size=growth["max_corpus_size"],
+        category_caps=growth["category_caps"],
+    )
+    assert len(added) == 75
+    assert len({case["case_id"] for case in added}) == 75
+    assert all(
+        case["expected_verdict"] == ("PASS" if case["pr"] <= 35 else "NON_PASS") for case in added
+    )
+    payload = {
+        "profile": "verifier-balanced",
+        "benchmark_id": "harvested-approval-test",
+        "baseline_model_id": "claude-opus-4-6",
+        "corpus_version": grown["corpus_version"],
+        "prompt_version": "test-v1",
+        "measured_at": TODAY.isoformat(),
+        "candidates": [
+            {
+                "provider": "anthropic",
+                "model_id": model_id,
+                "cases": [
+                    {
+                        **case,
+                        "actual_verdict": case["expected_verdict"],
+                        "schema_valid": True,
+                        "total_cost_usd": review_cost,
+                        "latency_ms": 100,
+                    }
+                    for case in grown["cases"]
+                ],
+            }
+            for model_id, review_cost in [("claude-opus-4-6", 0.10), (candidate, cost)]
+        ],
+    }
+    return payload, policy
+
+
+@pytest.mark.parametrize(
+    "candidate,cost,reasons",
+    [
+        ("claude-opus-4-8", 0.08, []),
+        ("claude-opus-4-8", 0.10, []),
+        ("claude-sonnet-5", 0.08, ["cross-family"]),
+        ("claude-opus-4-8", 0.20, ["cost-increase"]),
+        ("claude-sonnet-5", 0.20, ["cross-family", "cost-increase"]),
+    ],
+)
+def test_harvested_cases_pass_real_gates_and_prepare_registry(tmp_path, candidate, cost, reasons):
+    payload, policy = _harvested_benchmark(candidate, cost)
+    report = benchmark.evaluate_benchmark(payload, policy)
+    assert all(all(result["gate_results"].values()) for result in report["results"])
+    (proposal,) = pmp.find_promotions(report, _registry())
+    assert proposal["preparation_mode"] == ("approval-required" if reasons else "bounded")
+    assert proposal["approval_reasons"] == reasons
+    assert proposal["human_approval_required"] is True
+    bench, reg, out = (tmp_path / name for name in ("bench.json", "registry.json", "out.json"))
+    bench.write_text(json.dumps(report))
+    reg.write_text(json.dumps(_registry()))
+    assert pmp.main(["--benchmark", str(bench), "--registry", str(reg), "--write", str(out)]) == 10
+    prepared = json.loads(out.read_text())
+    assert prepared["selections"][0]["model_id"] == candidate
+    assert proposal["evidence_id"] in prepared["selections"][0]["evidence_ids"]
+    assert prepared["selection_history"][0]["model_id"] == "claude-opus-4-6"
+    assert json.loads(reg.read_text()) == _registry()
+
+
+@pytest.mark.parametrize("failed_gate", ["minimum_adjudicated_cases", "minimum_cases_per_category"])
+def test_harvested_cases_cannot_bypass_approval_gates(tmp_path, failed_gate):
+    payload, policy = _harvested_benchmark("claude-opus-4-8", 0.08)
+    for candidate in payload["candidates"]:
+        if failed_gate == "minimum_adjudicated_cases":
+            candidate["cases"] = candidate["cases"][:74]
+        else:
+            candidate["cases"] = [
+                case for case in candidate["cases"] if case["provenance"] == "harvested"
+            ]
+    report = benchmark.evaluate_benchmark(payload, policy)
+    assert all(result["gate_results"][failed_gate] is False for result in report["results"])
+    assert pmp.find_promotions(report, _registry()) == []
+    bench, reg, out = (tmp_path / name for name in ("bench.json", "registry.json", "out.json"))
+    bench.write_text(json.dumps(report))
+    reg.write_text(json.dumps(_registry()))
+    assert pmp.main(["--benchmark", str(bench), "--registry", str(reg), "--write", str(out)]) == 0
+    assert not out.exists()
 
 
 def _registry(model_id="claude-opus-4-6"):
