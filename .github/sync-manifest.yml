@@ -545,7 +545,7 @@ scripts:
     description: "PR metadata orchestrator logic"
 
   - source: .github/scripts/agents_pr_meta_update_body.js
-    description: "Updates PR body with agent metadata"
+    description: "Updates PR body with stable completed dependency-provenance results, observer exclusion, and exact-head Gate visibility"
 
   - source: .github/scripts/agents_verifier_context.js
     description: "Context gathering for agent verifier"
