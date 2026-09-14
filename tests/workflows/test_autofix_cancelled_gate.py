@@ -298,23 +298,26 @@ def test_jobless_historical_failures_do_not_consume_budget(
 
 @pytest.mark.parametrize("workflow", WORKFLOWS)
 @pytest.mark.parametrize(
-    "regression, argument",
+    "regression, argument, excluded_conclusion",
     [
-        (test_cancelled_only_head_never_exhausts_budget, 8),
-        (test_cancelled_history_does_not_spend_failure_budget, "failure"),
+        (test_cancelled_only_head_never_exhausts_budget, 8, "cancelled"),
+        (test_cancelled_history_does_not_spend_failure_budget, "failure", "cancelled"),
+        (test_cancelled_history_does_not_spend_failure_budget, "failure", "skipped"),
     ],
 )
-def test_cancelled_counting_mutation_is_detected(
-    workflow, tmp_path, monkeypatch, regression, argument
+def test_nonfailure_counting_mutation_is_detected(
+    workflow, tmp_path, monkeypatch, regression, argument, excluded_conclusion
 ):
-    """Reintroducing cancelled must break the budget regression, without editing YAML."""
+    """Counting cancelled or skipped must break the regression, without editing YAML."""
     regression(workflow, tmp_path, argument)
     original_read_text = Path.read_text
     counted = "['failure', 'timed_out'].includes(String(value || '').toLowerCase())"
 
     source = original_read_text(ROOT / workflow)
     assert source.count(counted) == 1, "Update the mutation for the workflow predicate"
-    mutated = source.replace(counted, counted.replace("'failure'", "'failure', 'cancelled'"))
+    mutated = source.replace(
+        counted, counted.replace("'failure'", f"'failure', '{excluded_conclusion}'")
+    )
 
     def read_mutated(path, *args, **kwargs):
         if path == ROOT / workflow:
