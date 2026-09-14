@@ -10,10 +10,12 @@ it to a workflow that opens a PR a human merges. It never edits a live selection
 itself — `human_approval_required` stays true; merging the PR IS the approval.
 
 Guardrails (a candidate is only prepared when ALL hold):
-  - it is the SAME FAMILY as the incumbent (openai gpt-5.x, anthropic claude-<line>);
-    cross-family swaps always need a human to initiate, never auto-preparation;
   - it PASSED every quality gate on the benchmark (including paired non-inferiority);
-  - its cost per accepted review is <= the incumbent's.
+  - both candidate and incumbent have finite, nonnegative review costs.
+
+Same-family candidates with non-increasing cost receive bounded preparation
+metadata. Cross-family or pricier candidates are prepared for explicit approval.
+Neither route bypasses the policy's human approval requirement.
 
 Rollback is the inverse: if the *active* selection has a failed workload-benchmark
 result (a quality-gate breach), propose reverting to the prior selection recorded in
@@ -30,6 +32,7 @@ import argparse
 import copy
 import datetime as _dt
 import json
+import math
 import sys
 from pathlib import Path
 from typing import Any
@@ -103,7 +106,11 @@ def _selection_for(registry: dict[str, Any], profile: str, provider: str) -> dic
 
 def _cost(result: dict[str, Any]) -> float | None:
     value = (result.get("metrics") or {}).get("cost_per_accepted_review_usd")
-    return None if value is None else float(value)
+    try:
+        cost = float(value)
+    except (TypeError, ValueError):
+        return None
+    return cost if math.isfinite(cost) and cost >= 0 else None
 
 
 def _result_for(report: dict[str, Any], model_id: str) -> dict[str, Any] | None:
@@ -125,10 +132,10 @@ def _evidence_id(report: dict[str, Any], provider: str, model_id: str) -> str | 
 def find_promotions(
     report: dict[str, Any], registry: dict[str, Any], *, profile: str = DEFAULT_PROFILE
 ) -> list[dict[str, Any]]:
-    """Return prepared same-family, passing, cost<= promotions for the profile.
+    """Return passing promotions with explicit preparation and approval metadata.
 
-    At most one promotion per provider (the cheapest, then lowest-latency, of the
-    qualifying same-family candidates).
+    At most one promotion per provider: prefer bounded same-family, cost<=
+    candidates, then rank by cost and latency. Riskier swaps require approval.
     """
     incumbent_id = str(report.get("baseline_model_id", "")).strip()
     if not incumbent_id:
@@ -150,11 +157,14 @@ def find_promotions(
             continue
         if result.get("status") != "passed":
             continue
-        if model_family(provider, model_id) != model_family(provider, incumbent_id):
-            continue
         cand_cost = _cost(result)
-        if cand_cost is None or incumbent_cost is None or cand_cost > incumbent_cost:
+        if cand_cost is None or incumbent_cost is None:
             continue
+        approval_reasons = []
+        if model_family(provider, model_id) != model_family(provider, incumbent_id):
+            approval_reasons.append("cross-family")
+        if cand_cost > incumbent_cost:
+            approval_reasons.append("cost-increase")
         evidence_id = _evidence_id(report, provider, model_id)
         if not evidence_id:
             continue
@@ -168,18 +178,29 @@ def find_promotions(
                 "incumbent_cost": incumbent_cost,
                 "candidate_cost": cand_cost,
                 "p95_latency_ms": (result.get("metrics") or {}).get("p95_latency_ms"),
+                "preparation_mode": "approval-required" if approval_reasons else "bounded",
+                "human_approval_required": True,
+                "approval_reasons": approval_reasons,
                 "reason": (
-                    f"same-family ({model_family(provider, model_id)}) non-inferior pass at "
+                    f"approval-required ({', '.join(approval_reasons)}): non-inferior pass at "
+                    f"cost/accepted {cand_cost} versus incumbent {incumbent_cost}"
+                    if approval_reasons
+                    else f"same-family ({model_family(provider, model_id)}) non-inferior pass at "
                     f"cost/accepted {cand_cost} <= incumbent {incumbent_cost}"
                 ),
             }
         )
 
-    # One winner per provider: cheapest, then lowest latency.
+    # Prefer bounded changes over riskier swaps, then cost and latency.
     best_by_provider: dict[str, dict[str, Any]] = {}
     for proposal in sorted(
         proposals,
-        key=lambda p: (p["candidate_cost"], p["p95_latency_ms"] or float("inf"), p["to_model_id"]),
+        key=lambda p: (
+            bool(p["approval_reasons"]),
+            p["candidate_cost"],
+            p["p95_latency_ms"] or float("inf"),
+            p["to_model_id"],
+        ),
     ):
         best_by_provider.setdefault(proposal["provider"], proposal)
     return list(best_by_provider.values())
@@ -213,8 +234,8 @@ def apply_promotion(
     selection["decided_at"] = today.isoformat()
     selection["review_by"] = (today + _dt.timedelta(days=REVIEW_INTERVAL_DAYS)).isoformat()
     selection["rationale"] = (
-        "Auto-prepared same-family non-inferior + cost<= promotion (#2819 move 3); "
-        "human-approved by merging the promotion PR."
+        f"Prepared promotion (#2819 move 3): {promotion['reason']}; "
+        "requires human approval by merging the promotion PR."
     )
     return new_registry
 
@@ -369,7 +390,7 @@ def main(argv: list[str] | None = None) -> int:
         mutated = apply_rollback(mutated, rollback, today=today)
 
     if not promotions and not rollbacks:
-        print("no same-family non-inferior promotion or gate-breach rollback to prepare.")
+        print("no passing promotion or gate-breach rollback to prepare.")
     elif args.write:
         args.write.write_text(json.dumps(mutated, indent=2) + "\n", encoding="utf-8")
         print(f"wrote proposed registry to {args.write}")

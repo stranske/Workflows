@@ -5,6 +5,8 @@ from __future__ import annotations
 import datetime as dt
 import json
 
+import pytest
+
 from tools import prepare_model_promotion as pmp
 
 TODAY = dt.date(2026, 8, 1)
@@ -89,26 +91,35 @@ def test_same_family_cheaper_pass_is_prepared():
     assert len(props) == 1
     assert props[0]["to_model_id"] == "claude-opus-4-8"
     assert props[0]["from_model_id"] == "claude-opus-4-6"
+    assert props[0]["preparation_mode"] == "bounded"
+    assert props[0]["human_approval_required"] is True
+    assert props[0]["approval_reasons"] == []
 
 
-def test_cross_family_is_not_prepared():
+def test_cross_family_requires_approval():
     report = _report(
         [
             _result("claude-opus-4-6", "anthropic", status="passed", cost=0.10),
             _result("claude-sonnet-5", "anthropic", status="passed", cost=0.02),
         ]
     )
-    assert pmp.find_promotions(report, _registry()) == []  # different family -> human only
+    proposal = pmp.find_promotions(report, _registry())[0]
+    assert proposal["preparation_mode"] == "approval-required"
+    assert proposal["human_approval_required"] is True
+    assert proposal["approval_reasons"] == ["cross-family"]
 
 
-def test_more_expensive_same_family_is_not_prepared():
+def test_more_expensive_same_family_requires_approval():
     report = _report(
         [
             _result("claude-opus-4-6", "anthropic", status="passed", cost=0.10),
             _result("claude-opus-4-8", "anthropic", status="passed", cost=0.20),
         ]
     )
-    assert pmp.find_promotions(report, _registry()) == []
+    proposal = pmp.find_promotions(report, _registry())[0]
+    assert proposal["preparation_mode"] == "approval-required"
+    assert proposal["human_approval_required"] is True
+    assert proposal["approval_reasons"] == ["cost-increase"]
 
 
 def test_failed_candidate_is_not_prepared():
@@ -225,7 +236,7 @@ def test_main_noop_when_nothing_qualifies(tmp_path):
     report = _report(
         [
             _result("claude-opus-4-6", "anthropic", status="passed", cost=0.10),
-            _result("claude-sonnet-5", "anthropic", status="passed", cost=0.01),
+            _result("claude-sonnet-5", "anthropic", status="failed", cost=0.01),
         ]
     )
     bench = tmp_path / "bench.json"
@@ -314,3 +325,65 @@ def test_main_breach_takes_precedence_over_promotion(tmp_path):
     assert reverted["selections"][0]["model_id"] == "claude-opus-4-6"
     assert reverted["selections"][0]["evidence_ids"] == ["catalog-1"]
     assert reverted["selection_history"] == []
+
+
+@pytest.mark.parametrize(
+    "candidate,cost,reasons",
+    [
+        ("claude-opus-4-8", 0.10, []),
+        ("claude-sonnet-5", 0.20, ["cross-family", "cost-increase"]),
+    ],
+)
+def test_cli_prepares_candidate_with_approval_context(tmp_path, candidate, cost, reasons):
+    report = _report(
+        [
+            _result("claude-opus-4-6", "anthropic", status="passed", cost=0.10),
+            _result(candidate, "anthropic", status="passed", cost=cost),
+        ]
+    )
+    proposal = pmp.find_promotions(report, _registry())[0]
+    assert proposal["approval_reasons"] == reasons
+    bench, reg, out = (tmp_path / name for name in ("bench.json", "registry.json", "out.json"))
+    bench.write_text(json.dumps(report))
+    reg.write_text(json.dumps(_registry()))
+    assert pmp.main(["--benchmark", str(bench), "--registry", str(reg), "--write", str(out)]) == 10
+    selection = json.loads(out.read_text())["selections"][0]
+    assert selection["model_id"] == candidate
+    assert "requires human approval" in selection["rationale"]
+    for reason in reasons:
+        assert reason in selection["rationale"]
+
+
+def test_bounded_candidate_wins_over_cheaper_cross_family_candidate():
+    report = _report(
+        [
+            _result("claude-opus-4-6", "anthropic", status="passed", cost=0.10),
+            _result("claude-sonnet-5", "anthropic", status="passed", cost=0.02),
+            _result("claude-opus-4-8", "anthropic", status="passed", cost=0.08),
+        ]
+    )
+    proposals = pmp.find_promotions(report, _registry())
+    assert len(proposals) == 1
+    assert proposals[0]["to_model_id"] == "claude-opus-4-8"
+
+
+@pytest.mark.parametrize("cost", [None, "invalid", float("nan"), float("inf"), -0.01])
+@pytest.mark.parametrize("invalid_baseline", [False, True])
+def test_unusable_cost_cannot_prepare_promotion(cost, invalid_baseline):
+    report = _report(
+        [
+            _result(
+                "claude-opus-4-6",
+                "anthropic",
+                status="passed",
+                cost=cost if invalid_baseline else 0.10,
+            ),
+            _result(
+                "claude-opus-4-8",
+                "anthropic",
+                status="passed",
+                cost=0.08 if invalid_baseline else cost,
+            ),
+        ]
+    )
+    assert pmp.find_promotions(report, _registry()) == []
