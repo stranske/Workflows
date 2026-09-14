@@ -48,7 +48,7 @@ Keepalive **must not** dispatch an agent unless *all* conditions hold:
 
 1. **PR opt-in:** The PR carries both an `agent:*` routing label (for example, `agent:codex` or `agent:claude`) and `agents:keepalive`.
 2. **Gate green:** The Gate workflow for the current head SHA completed successfully.
-3. **Tasks present:** The PR body contains unchecked tasks in the Automated Status Summary.
+3. **Tasks present:** The PR body contains unchecked actionable tasks, including visible checkboxes outside the Automated Status Summary.
 
 > **Note on auto-pilot:** Issue formatting now runs inside the auto-pilot workflow before a PR exists. Gate guardrails apply to **PR keepalive dispatch**, not the issue‑formatting phase of auto-pilot.
 >
@@ -217,6 +217,19 @@ Before the next round begins:
 ---
 
 ## 12. Issue Context & Status Summary
+
+The source issue is the task of record. The `auto-status-summary` block is a
+machine-owned projection refreshed by PR metadata (`pr-meta` in the event hub).
+Source-issue edits reach that block on the next metadata refresh, not immediately;
+manual edits inside the block can be overwritten on regeneration. Keep durable
+source tasks in the source issue. Reviewer-added checkboxes outside the block
+remain in the PR body across regeneration, including before the managed preamble.
+Keepalive includes those visible checkboxes in its dispatch decision, task appendix,
+and live progress counts, so a completed summary cannot hide remaining PR work.
+Fenced examples, HTML comments, placeholder tasks and status metrics do not count
+as additional work. Adding an outside checkbox does not mark it complete; it must
+be explicitly checked after verification. It is not copied back to the source issue.
+
 
 The Keepalive workflow depends on the **Automated Status Summary** block in the PR body to extract Scope, Tasks, and Acceptance Criteria.
 

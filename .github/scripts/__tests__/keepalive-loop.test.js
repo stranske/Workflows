@@ -410,6 +410,81 @@ test('evaluateKeepaliveLoop stops when tasks are complete and verification is do
   assert.equal(result.reason, 'tasks-complete');
 });
 
+for (const placement of ['before', 'after', 'unmanaged']) {
+  test(`evaluateKeepaliveLoop dispatches unchecked work outside summary (${placement})`, async () => {
+    const summary = [
+      '<!-- auto-status-summary:start -->',
+      '## Tasks', '- [x] Implement the source task',
+      '## Acceptance Criteria', '- [x] Verify the source task',
+      '<!-- auto-status-summary:end -->',
+    ].join('\n');
+    const extra = '## Reviewer follow-up\n- [ ] Exercise the retry path\n  with a failed first request.';
+    const body = placement === 'before' ? `${extra}\n${summary}`
+      : placement === 'after' ? `${summary}\n${extra}`
+        : `${summary.replace(/<!--[^>]*-->/g, '')}\n${extra}`;
+    const pr = { number: 3441, head: { ref: 'codex/issue-3441', sha: 'visible-head' },
+      labels: [{ name: 'agent:codex' }], body };
+    const github = buildGithubStub({ pr,
+      comments: [{ id: 23, body: formatStateComment({ verification: { status: 'done' } }) }],
+      workflowRuns: [{ head_sha: 'visible-head', conclusion: 'success' }],
+    });
+    const result = await evaluateKeepaliveLoop({ github, context: buildContext(pr.number), core: buildCore() });
+    assert.equal(result.action, 'run');
+    assert.equal(result.reason, 'ready');
+    assert.equal(result.checkboxCounts.unchecked, 1);
+    assert.match(result.taskAppendix, /Exercise the retry path/);
+    assert.match(result.taskAppendix, /with a failed first request/);
+  });
+}
+
+test('evaluateKeepaliveLoop ignores outside examples and metrics but counts visible duplicate work', async () => {
+  const summary = '<!-- auto-status-summary:start -->\n## Tasks\n- [x] Retry request\n## Acceptance Criteria\n- [x] Verified\n<!-- auto-status-summary:end -->';
+  const examples = '\n```markdown\n- [ ] Example only\n```\n<!--\n- [ ] Hidden example\n-->\n- [ ] Repos checked: 12/12\n';
+  for (const outside of [examples, `${examples}- [ ] Retry request\n`]) {
+    const pr = { number: 3442, head: { ref: 'codex/issue-3441', sha: 'example-head' },
+      labels: [{ name: 'agent:codex' }], body: summary + outside };
+    const github = buildGithubStub({ pr,
+      comments: [{ id: 23, body: formatStateComment({ verification: { status: 'done' } }) }],
+      workflowRuns: [{ head_sha: 'example-head', conclusion: 'success' }],
+    });
+    const result = await evaluateKeepaliveLoop({ github, context: buildContext(pr.number), core: buildCore() });
+    assert.equal(result.reason, outside === examples ? 'tasks-complete' : 'ready');
+    assert.equal(result.checkboxCounts.unchecked, outside === examples ? 0 : 1);
+  }
+});
+
+test('updateKeepaliveLoopSummary retains outside work in live task counts', async () => {
+  const pr = { number: 3441, labels: [{ name: 'agent:codex' }], body:
+    '<!-- auto-status-summary:start -->\n## Tasks\n- [x] Source task\n## Acceptance Criteria\n- [x] Source acceptance\n<!-- auto-status-summary:end -->\n## Follow-up\n- [ ] Check the retry path' };
+  const github = buildGithubStub({ pr });
+  await updateKeepaliveLoopSummary({ github, context: buildContext(pr.number), core: buildCore(), inputs: {
+    prNumber: pr.number, action: 'run', reason: 'ready', runResult: 'success', gateConclusion: 'success',
+    tasksTotal: 2, tasksUnchecked: 0, keepaliveEnabled: true, iteration: 0, maxIterations: 5,
+    codex_changes_made: 'true', codex_files_changed: 1, codex_commit_sha: 'new-head',
+  } });
+  const comment = github.actions.find((action) => action.body && parseStateComment(action.body));
+  assert.ok(comment);
+  const state = parseStateComment(comment.body).data;
+  assert.deepEqual(state.tasks, { total: 3, unchecked: 1 });
+});
+
+test('updateKeepaliveLoopSummary refuses stale completion when outside work was added', async () => {
+  const pr = { number: 3441, labels: [{ name: 'agent:codex' }], body:
+    '<!-- auto-status-summary:start -->\n## Tasks\n- [x] Source task\n## Acceptance Criteria\n- [x] Source acceptance\n<!-- auto-status-summary:end -->\n## Follow-up\n- [ ] Check the retry path' };
+  const github = buildGithubStub({ pr });
+  await updateKeepaliveLoopSummary({ github, context: buildContext(pr.number), core: buildCore(), inputs: {
+    prNumber: pr.number, action: 'stop', reason: 'tasks-complete', runResult: 'success', gateConclusion: 'success',
+    tasksTotal: 2, tasksUnchecked: 0, keepaliveEnabled: true, iteration: 0, maxIterations: 5,
+    codex_changes_made: 'true', codex_files_changed: 1, codex_commit_sha: 'new-head',
+  } });
+  const comment = github.actions.find((action) => action.body && parseStateComment(action.body));
+  assert.ok(comment);
+  const state = parseStateComment(comment.body).data;
+  assert.deepEqual(state.tasks, { total: 3, unchecked: 1 });
+  assert.match(comment.body, /tasks-changed/);
+  assert.equal(github.actions.some((action) => action.labels?.includes('automerge')), false);
+});
+
 test('evaluateKeepaliveLoop stops when round budget is exhausted', async () => {
   const pr = {
     number: 404,

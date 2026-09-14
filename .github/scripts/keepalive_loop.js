@@ -1471,6 +1471,55 @@ function isActionableChecklistItemText(text) {
   return !isStatusMetricChecklistItem(text) && !isPlaceholderChecklistItem(text);
 }
 
+// Fenced examples and HTML comments are not visible delivery tasks.
+function visibleChecklistContent(markdown) {
+  let fence = null;
+  return String(markdown || '').replace(/<!--[\s\S]*?-->/g, '').split('\n').map((line) => {
+    const delimiter = line.match(/^\s*(`{3,}|~{3,})/);
+    if (delimiter) {
+      const token = delimiter[1];
+      if (!fence) fence = token;
+      else if (token[0] === fence[0] && token.length >= fence.length) fence = null;
+      return '';
+    }
+    return fence ? '' : line;
+  }).join('\n');
+}
+
+// The source-derived summary remains the canonical section parser input, but
+// visible checkboxes outside it must also reach both dispatch and live reporting.
+function parseKeepaliveChecklistSections(body) {
+  const sections = normaliseChecklistSections(parseScopeTasksAcceptanceSections(body));
+  for (const key of ['tasks', 'acceptance']) {
+    sections[key] = visibleChecklistContent(sections[key]);
+  }
+  const outside = String(body || '').replace(
+    /<!-- auto-status-summary:start -->[\s\S]*?<!-- auto-status-summary:end -->/g, '',
+  );
+  const itemKey = (item) => `${item.checked}:${normaliseTaskKey(item.text)}`;
+  const represented = outside === String(body || '')
+    ? new Set(extractChecklistItems([sections.tasks, sections.acceptance].join('\n')).map(itemKey))
+    : new Set();
+  const additional = [];
+  let capturing = false;
+  for (const line of visibleChecklistContent(outside).split('\n')) {
+    const item = extractChecklistItems(line)[0];
+    if (item) {
+      capturing = isActionableChecklistItemText(item.text) && !represented.has(itemKey(item));
+      if (capturing) additional.push(line);
+    } else if (capturing && /^\s+\S/.test(line)) {
+      additional.push(line);
+    } else {
+      capturing = false;
+    }
+  }
+  if (additional.length) {
+    sections.tasks = [sections.tasks, '### Additional PR tasks', additional.join('\n')]
+      .filter(Boolean).join('\n\n');
+  }
+  return sections;
+}
+
 function toActionableChecklistCounts(markdown) {
   const actionable = extractChecklistItems(markdown).filter((item) => isActionableChecklistItemText(item.text));
   const checked = actionable.filter((item) => item.checked).length;
@@ -2625,7 +2674,7 @@ async function evaluateKeepaliveLoop({ github: rawGithub, context, core, payload
     const runCapZero = labels.includes('agents:max-runs:0');
 
     const sections = parseScopeTasksAcceptanceSections(pr.body || '');
-    const normalisedSections = normaliseChecklistSections(sections);
+    const normalisedSections = parseKeepaliveChecklistSections(pr.body || '');
     const combinedChecklist = [normalisedSections?.tasks, normalisedSections?.acceptance]
       .filter(Boolean)
       .join('\n');
@@ -3222,8 +3271,8 @@ async function updateKeepaliveLoopSummary({ github: rawGithub, context, core, in
     }
 
     const gateConclusion = normalise(inputs.gateConclusion || inputs.gate_conclusion);
-    const action = normalise(inputs.action);
-    const reason = normalise(inputs.reason);
+    let action = normalise(inputs.action);
+    let reason = normalise(inputs.reason);
     const tasksTotalInput = inputs.tasksTotal ?? inputs.tasks_total;
     const tasksUncheckedInput = inputs.tasksUnchecked ?? inputs.tasks_unchecked;
     const keepaliveEnabledInput = inputs.keepaliveEnabled ?? inputs.keepalive_enabled;
@@ -3397,7 +3446,7 @@ async function updateKeepaliveLoopSummary({ github: rawGithub, context, core, in
 
     const previousFailure = previousState?.failure || {};
     const prBody = await fetchPrBody({ github, context, prNumber, core });
-    const focusSections = prBody ? normaliseChecklistSections(parseScopeTasksAcceptanceSections(prBody)) : {};
+    const focusSections = prBody ? parseKeepaliveChecklistSections(prBody) : {};
     const focusItems = extractChecklistItems(focusSections.tasks || focusSections.acceptance || '');
     const focusUnchecked = focusItems.filter((item) => !item.checked);
     const currentFocus = normaliseTaskText(previousState?.current_focus || '');
@@ -3422,6 +3471,14 @@ async function updateKeepaliveLoopSummary({ github: rawGithub, context, core, in
           `total ${staleTotal}→${tasksTotal}, unchecked ${staleUnchecked}→${tasksUnchecked}`,
         );
       }
+    }
+
+    // A reviewer can add work after evaluation but before this live re-count.
+    // Do not publish a stale success or add automerge while that work is visible.
+    if (action === 'stop' && reason === 'tasks-complete' && tasksUnchecked > 0) {
+      action = 'wait';
+      reason = 'tasks-changed';
+      core?.info?.('Visible tasks changed after evaluation; keepalive must re-evaluate.');
     }
 
     // Recalculate rounds_without_task_completion using live checkbox counts.
@@ -4867,7 +4924,7 @@ async function markAgentRunning({ github: rawGithub, context, core, inputs }) {
     );
   }
   const prBody = await fetchPrBody({ github, context, prNumber, core });
-  const focusSections = prBody ? normaliseChecklistSections(parseScopeTasksAcceptanceSections(prBody)) : {};
+  const focusSections = prBody ? parseKeepaliveChecklistSections(prBody) : {};
   const focusItems = extractChecklistItems(focusSections.tasks || focusSections.acceptance || '');
   const focusUnchecked = focusItems.filter((item) => !item.checked);
   const attemptedTasks = normaliseAttemptedTasks(previousState?.attempted_tasks);

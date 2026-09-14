@@ -728,8 +728,11 @@ function stripPrTemplateContent(body) {
     firstMarkerIndex = statusStart;
   }
   
-  // If we found a marker and there's content before it, strip that content
+  // A checkbox-bearing prefix may be reviewer-added work, not a template.
+  // Preserve it with its context and continuation lines across regeneration.
   if (firstMarkerIndex > 0) {
+    const prefix = body.slice(0, firstMarkerIndex);
+    if (/^\s*(?:[-*+]|\d+[.)])\s*\[[ xX]\]/m.test(prefix)) return body;
     return body.slice(firstMarkerIndex);
   }
   
