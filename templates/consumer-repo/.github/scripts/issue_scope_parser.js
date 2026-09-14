@@ -14,16 +14,39 @@ const isCodeFenceLine = (line) => /^(`{3,}|~{3,})/.test(line.trim());
 // Shared by PR metadata preservation and keepalive's visible-work scan.
 function visibleChecklistContent(markdown) {
   let fence = null;
+  let comment = false;
   return stripBlockquotePrefixes(normalizeNewlines(markdown))
-    .replace(/<!--[\s\S]*?-->/g, '').split('\n').map((line) => {
-      const delimiter = line.match(/^\s*(`{3,}|~{3,})/);
+    .split('\n').map((line) => {
+      // Fenced examples are literal: comment markers inside them must never
+      // consume real checklist lines after the closing fence.
+      const delimiter = !comment && line.match(/^ {0,3}(`{3,}|~{3,})(.*)$/);
       if (delimiter) {
         const token = delimiter[1];
         if (!fence) fence = token;
-        else if (token[0] === fence[0] && token.length >= fence.length) fence = null;
+        else if (token[0] === fence[0] && token.length >= fence.length && !delimiter[2].trim()) fence = null;
         return '';
       }
-      return fence ? '' : line;
+      if (fence) return '';
+      let visible = '';
+      let offset = 0;
+      while (offset < line.length) {
+        if (comment) {
+          const end = line.indexOf('-->', offset);
+          if (end < 0) break;
+          comment = false;
+          offset = end + 3;
+        } else {
+          const start = line.indexOf('<!--', offset);
+          if (start < 0) {
+            visible += line.slice(offset);
+            break;
+          }
+          visible += line.slice(offset, start);
+          comment = true;
+          offset = start + 4;
+        }
+      }
+      return visible;
     }).join('\n');
 }
 

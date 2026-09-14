@@ -26,6 +26,22 @@ test('visible checklist scan handles nested quotes without counting their fenced
   assert.doesNotMatch(visible, /Example only|>/);
 });
 
+for (const fence of ['```', '~~~']) {
+  test(`visible checklist scan keeps fence and comment state separate (${fence})`, () => {
+    const body = [
+      '<!-- hidden comment', fence, '- [ ] Hidden task', '-->',
+      `${fence}markdown`, '<!-- literal comment opener',
+      `    ${fence}`, '- [ ] Indented fence is still an example',
+      `${fence}not-a-closing-fence`, '- [ ] Still an example', fence,
+      '- [ ] Real task <!-- inline comment --> remains visible',
+      '-->',
+    ].join('\n');
+    const visible = visibleChecklistContent(body);
+    assert.match(visible, /- \[ \] Real task  remains visible/);
+    assert.doesNotMatch(visible, /Hidden task|example|literal comment/);
+  });
+}
+
 test('extracts sections inside auto-status markers', () => {
   const issue = [
     'Intro text',
