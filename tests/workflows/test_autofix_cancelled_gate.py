@@ -150,9 +150,17 @@ def test_real_failures_still_escalate(workflow, tmp_path):
 
 
 @pytest.mark.parametrize("workflow", WORKFLOWS)
-@pytest.mark.parametrize("jobs", [[], [{"name": "pytest", "conclusion": "cancelled"}]])
-def test_jobless_gate_cannot_escalate_after_real_failures(workflow, tmp_path, jobs):
-    result = execute(workflow, tmp_path, history=["failure"] * 8, jobs=jobs)
+@pytest.mark.parametrize("conclusion", ["failure", "timed_out"])
+@pytest.mark.parametrize(
+    "jobs",
+    [[]]
+    + [
+        [{"name": "pytest", "conclusion": value}]
+        for value in ("cancelled", "skipped", "success", "neutral")
+    ],
+)
+def test_jobless_gate_cannot_escalate_after_real_failures(workflow, tmp_path, conclusion, jobs):
+    result = execute(workflow, tmp_path, conclusion, history=["failure"] * 8, jobs=jobs)
     assert result["output"]["stop_reason"] == "no_failing_jobs"
     assert "needs-human" not in result["labels"]
     assert not result["comments"]
@@ -164,3 +172,27 @@ def test_jobless_historical_failures_do_not_consume_budget(workflow, tmp_path):
     assert result["output"]["should_run"] == "true"
     assert result["output"]["attempts"] == "1"
     assert "needs-human" not in result["labels"]
+
+
+@pytest.mark.parametrize("workflow", WORKFLOWS)
+def test_cancelled_counting_mutation_is_detected(workflow, tmp_path, monkeypatch):
+    """Reintroducing cancelled must break the budget regression, without editing YAML."""
+    test_cancelled_history_does_not_spend_failure_budget(workflow, tmp_path, "failure")
+    original_read_text = Path.read_text
+    counted = "['failure', 'timed_out'].includes(String(value || '').toLowerCase())"
+
+    source = original_read_text(ROOT / workflow)
+    assert source.count(counted) == 1, "Update the mutation for the workflow predicate"
+    mutated = source.replace(counted, counted.replace("'failure'", "'failure', 'cancelled'"))
+
+    def read_mutated(path, *args, **kwargs):
+        if path == ROOT / workflow:
+            return mutated
+        return original_read_text(path, *args, **kwargs)
+
+    with monkeypatch.context() as mutation:
+        mutation.setattr(Path, "read_text", read_mutated)
+        with pytest.raises(AssertionError):
+            test_cancelled_history_does_not_spend_failure_budget(workflow, tmp_path, "failure")
+
+    test_cancelled_history_does_not_spend_failure_budget(workflow, tmp_path, "failure")
