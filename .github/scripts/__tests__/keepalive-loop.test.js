@@ -490,6 +490,44 @@ test('evaluateKeepaliveLoop requires outside work to be checked after metadata r
   }
 });
 
+test('evaluateKeepaliveLoop resumes a reopened outside task despite saved completion', async () => {
+  const pr = {
+    number: 3441,
+    head: { ref: 'codex/issue-3441', sha: 'reopened-head' },
+    labels: [{ name: 'agent:codex' }],
+    body: [
+      '<!-- auto-status-summary:start -->',
+      '## Tasks', '- [x] Implement the source task',
+      '## Acceptance Criteria', '- [x] Verify the source task',
+      '<!-- auto-status-summary:end -->',
+      '## Reviewer follow-up', '- [x] Exercise the retry path',
+    ].join('\n'),
+  };
+  const github = buildGithubStub({
+    pr,
+    comments: [{ id: 23, body: formatStateComment({
+      tasks: { total: 3, checked: 3, unchecked: 0 },
+      verification: { status: 'done' },
+    }) }],
+    workflowRuns: [{ head_sha: 'reopened-head', conclusion: 'success' }],
+  });
+  const evaluate = () => evaluateKeepaliveLoop({
+    github, context: buildContext(pr.number), core: buildCore(),
+  });
+  const completed = await evaluate();
+  assert.equal(completed.reason, 'tasks-complete');
+  assert.equal(completed.action, 'stop');
+
+  // A body-only edit must invalidate completion without requiring a new head.
+  pr.body = pr.body.replace('- [x] Exercise the retry path', '- [ ] Exercise the retry path');
+  const reopened = await evaluate();
+  assert.equal(reopened.action, 'run');
+  assert.equal(reopened.reason, 'ready');
+  assert.deepEqual(reopened.checkboxCounts, { total: 3, checked: 2, unchecked: 1 });
+  assert.match(reopened.taskAppendix, /2\/3 tasks complete, 1 remaining/);
+  assert.match(reopened.taskAppendix, /- \[ \] Exercise the retry path/);
+});
+
 test('evaluateKeepaliveLoop ignores outside examples and metrics but counts visible duplicate work', async () => {
   const summary = '<!-- auto-status-summary:start -->\n## Tasks\n- [x] Retry request\n## Acceptance Criteria\n- [x] Verified\n<!-- auto-status-summary:end -->';
   const examples = '\n```markdown\n- [ ] Example only\n```\n<!--\n- [ ] Hidden example\n-->\n- [ ] Repos checked: 12/12\n';
