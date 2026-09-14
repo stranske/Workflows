@@ -47,7 +47,10 @@ def _request_json(url: str, headers: dict[str, str]) -> Any:
 
 def _parse_timestamp(value: object) -> dt.datetime | None:
     if isinstance(value, (int, float)):
-        return dt.datetime.fromtimestamp(value, tz=dt.UTC)
+        try:
+            return dt.datetime.fromtimestamp(value, tz=dt.UTC)
+        except (OSError, OverflowError, ValueError):
+            return None
     if isinstance(value, str) and value.strip():
         normalized = value.strip().replace("Z", "+00:00")
         try:

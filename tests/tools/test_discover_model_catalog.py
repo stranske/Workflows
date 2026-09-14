@@ -118,3 +118,31 @@ def test_removed_model_is_catalog_drift():
     )
     assert report["status"] == "drift"
     assert report["removed_from_catalog"] == ["removed"]
+
+
+@pytest.mark.parametrize("timestamp", [1e100, -1e100, float("inf"), float("-inf"), float("nan")])
+def test_github_catalog_invalid_numeric_timestamp_does_not_abort(timestamp):
+    payload = [
+        {"id": "bad-time", "capabilities": ["streaming"], "created_at": timestamp},
+        {"id": "valid", "capabilities": ["streaming"], "created_at": 0},
+    ]
+    assert discovery.parse_catalog("github-models", payload) == [
+        discovery.CatalogModel("bad-time"),
+        discovery.CatalogModel("valid", dt.datetime(1970, 1, 1, tzinfo=dt.UTC)),
+    ]
+
+
+@pytest.mark.parametrize("error", [OSError, OverflowError, ValueError])
+def test_numeric_timestamp_platform_errors_are_ignored(monkeypatch, error):
+    def fail(*args, **kwargs):
+        raise error("unsupported timestamp")
+
+    monkeypatch.setattr(
+        discovery,
+        "dt",
+        SimpleNamespace(
+            datetime=SimpleNamespace(fromtimestamp=fail),
+            UTC=dt.UTC,
+        ),
+    )
+    assert discovery._parse_timestamp(123) is None
