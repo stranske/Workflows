@@ -1262,11 +1262,11 @@ jobs:
           EVALUATED_SHA: ${{ steps.context.outputs.target_sha }}
         run: |
           set -euo pipefail
-          pr_number="$PR_NUMBER"
-          if [ -n "$pr_number" ] && [ -f "comparison-comment.md" ]; then
+          verifier_pr="$PR_NUMBER"
+          if [ -n "$verifier_pr" ] && [ -f "comparison-comment.md" ]; then
             python .workflows-lib/tools/verifier_corpus_evidence.py \
               --comparison comparison.json --comment comparison-comment.md
-            gh pr comment "$pr_number" --body-file comparison-comment.md || \
+            gh pr comment "$verifier_pr" --body-file comparison-comment.md || \
               echo "Warning: Could not post comment"
           fi
 
