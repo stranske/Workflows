@@ -1009,7 +1009,7 @@ jobs:
           echo "Prompt file: $PROMPT_FILE"
           echo "Model candidates: ${CODEX_MODEL_CANDIDATES:-}"
           echo "Model selection reason: ${CODEX_MODEL_SELECTION_REASON:-input}"
-          echo "Sandbox: $SANDBOX"
+          echo "Sandbox: $SANDBOX (userns restriction relaxed: ${SANDBOX_USERNS_RELAXED:-n/a})"
           if [ "${#EXTRA_ARGS[@]}" -gt 0 ]; then
             echo "Extra args: provided (${#EXTRA_ARGS[@]} arg(s))"
           fi
