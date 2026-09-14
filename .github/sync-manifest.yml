@@ -48,7 +48,7 @@ workflows:
       - stranske/Template
 
   - source: .github/workflows/autofix.yml
-    description: "Autofix workflow - automatically fixes lint/format issues"
+    description: "Autofix workflow - repairs failed/timed-out checks; cancellations do not trigger repairs"
 
   - source: .github/workflows/pr-46-dependency-repair-contract.yml
     description: "Dependency repair contract - keeps bot PRs bot-owned and validates agent repair promotion provenance"
@@ -60,7 +60,7 @@ workflows:
     description: "PR event hub - consolidates PR meta, bot comments, and verify-to-issue handlers"
 
   - source: .github/workflows/agents-81-gate-followups.yml
-    description: "Gate followups hub - consolidates keepalive and autofix followups"
+    description: "Gate followups hub - keepalive and autofix; budgets count Gate failures with failed jobs"
 
   - source: .github/workflows/agents-keepalive-sweep.yml
     description: "Keepalive sweep - periodic level-based resync; dispatches the loop for open agent PRs so silent zero-commit stalls resurface"

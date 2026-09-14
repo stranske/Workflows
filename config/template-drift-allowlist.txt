@@ -189,11 +189,11 @@ fingerprint_refreshed = 2026-08-24
 [pair.17]
 main = .github/workflows/autofix.yml
 template = templates/consumer-repo/.github/workflows/autofix.yml
-main_sha256 = 81f2268c29cc8b5da388a44eab46a8613df153d9e4e83449ab3a5070c03558a7
-template_sha256 = 88cf48708d972137ef8e9fb3efc2323ee93c8cab16eaba0fc22c8c11ea6695c4
-divergence = Intentional divergence reviewed 2026-08-23: the Workflows source runs its local reusable autofix workflow and uses the repository's CI concurrency/context contract; the consumer template calls the published reusable workflow with SHA-pinned actions, SERVICE_BOT_PAT, and workflow-run PR context recovery. Do not align wholesale because the consumer is a deployable wrapper rather than the source implementation.
+main_sha256 = 96c8131203431b7da850474e06fa169a2580fa5fa4759674be712ea408f17d16
+template_sha256 = 73536de641ae21b89b5de24848a850e2753f5bc4d608f90498b44007fc2b8cfe
+divergence = Timeout handling 2026-09-14: four identical conclusion-filter edits applied to source and consumer autofix; both still exclude cancellations. Verified the exact same transformation against origin/main on both sides. Fingerprints refreshed; existing divergence and its review date are unchanged. Prior divergence: Intentional divergence reviewed 2026-08-23: the Workflows source runs its local reusable autofix workflow and uses the repository's CI concurrency/context contract; the consumer template calls the published reusable workflow with SHA-pinned actions, SERVICE_BOT_PAT, and workflow-run PR context recovery. Do not align wholesale because the consumer is a deployable wrapper rather than the source implementation.
 divergence_reviewed = 2026-08-23
-fingerprint_refreshed = 2026-08-23
+fingerprint_refreshed = 2026-09-14
 
 [pair.18]
 main = .github/workflows/maint-coverage-guard.yml

@@ -142,6 +142,13 @@ _Inline Gate helper_
 - **`agents-autofix-rebase.yml`** — See Agents section; merges the base branch when Gate flags stale branches, preventing common “needs rebase” failures from blocking progress.
 - **`agents-bot-comment-autolabel.yml`** / **`agents-bot-comment-handler.yml`** — Automatically harvest trusted bot review comments and apply them via the autofix pathways without manual labelling.
 
+Autofix budgets count only same-head Gate runs concluded `failure` or `timed_out`
+with at least one job carrying either conclusion. Cancelled, skipped, successful,
+and jobless runs do not consume the budget or trigger `needs-human`. The heavy
+loop reports the number of Gate failures examined and the attempts with failing
+jobs; a current Gate without a failed job cannot escalate even after earlier
+failures. Consumer Gate Followups uses the same rule.
+
 #### Autofix & Lint Coordination
 1. **Gate emits signals** — `pr-00-gate.yml` attaches artifacts describing the failing job plus `mergeable_state`. When lint/format/typecheck/test jobs fail it dispatches `autofix_gate_failure`; when the PR is dirty/behind it dispatches `autofix_rebase_needed`.
 2. **CI autofix first pass (`autofix.yml`)** — Runs Ruff/formatters/tests where possible and pushes fixes directly to the branch so same-run Gate retries can pass without escalation.
