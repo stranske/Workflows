@@ -274,11 +274,24 @@ def test_jobless_gate_cannot_escalate_after_real_failures(workflow, tmp_path, co
 
 
 @pytest.mark.parametrize("workflow", WORKFLOWS)
-def test_jobless_historical_failures_do_not_consume_budget(workflow, tmp_path):
-    result = execute(workflow, tmp_path, history=["failure"] * 8, historical_jobs=[])
+@pytest.mark.parametrize("conclusion", ["failure", "timed_out"])
+@pytest.mark.parametrize(
+    "historical_jobs",
+    [[]]
+    + [
+        [{"name": "pytest", "conclusion": value}]
+        for value in ("cancelled", "skipped", "success", "neutral")
+    ],
+)
+def test_jobless_historical_failures_do_not_consume_budget(
+    workflow, tmp_path, conclusion, historical_jobs
+):
+    """A failed run conclusion alone is insufficient evidence to spend the budget."""
+    result = execute(workflow, tmp_path, history=[conclusion] * 8, historical_jobs=historical_jobs)
     assert result["output"]["should_run"] == "true"
     assert result["output"]["attempts"] == "1"
     assert "needs-human" not in result["labels"]
+    assert not result["comments"]
 
 
 @pytest.mark.parametrize("workflow", WORKFLOWS)
