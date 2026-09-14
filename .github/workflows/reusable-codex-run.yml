@@ -931,7 +931,7 @@ jobs:
             SANDBOX="workspace-write"
           fi
 
-          # --- Codex Linux sandbox repair (openai/codex#14719, #15982, #19235) ---
+          # --- Codex Linux sandbox repair (openai/codex#15982, #17337, #19235) ---
           # codex's workspace-write sandbox shells out to bubblewrap, which unshares the
           # network namespace and then brings up loopback. Bringing up `lo` needs CAP_NET_ADMIN
           # inside that namespace, and Ubuntu 24.04+ images ship
@@ -945,8 +945,18 @@ jobs:
           # First try to restore the capability, which keeps the sandbox exactly as designed.
           # Runners grant passwordless sudo; if that ever stops being true, this is a no-op and
           # the network-access fallback below still rescues the run.
+          # Scoped to workspace-write: a read-only run never needs the capability, and the
+          # sysctl is a host-wide mitigation that would then stay off for the rest of the
+          # runner's life for no benefit. The keepalive E2E caller runs read-only.
+          # Matches the bubblewrap startup diagnostic on its own stderr line. Anchoring to the
+          # start of a line is what keeps it from firing on the agent's own prose: codex writes
+          # its --json event stream into the same capture file, one JSON object per line, so
+          # every agent_message line begins with '{'. An unanchored "bwrap:" would let a run
+          # that merely DISCUSSES this incident trigger the retry and then be forced to exit 1.
+          SANDBOX_STARTUP_FAILURE_RE='^bwrap: '
           SANDBOX_USERNS_RELAXED="no"
-          if [ "$(cat /proc/sys/kernel/apparmor_restrict_unprivileged_userns 2>/dev/null || echo 0)" = "1" ]; then
+          if [ "$SANDBOX" = "workspace-write" ] &&
+            [ "$(cat /proc/sys/kernel/apparmor_restrict_unprivileged_userns 2>/dev/null || echo 0)" = "1" ]; then
             if sudo sysctl -w kernel.apparmor_restrict_unprivileged_userns=0 >/dev/null 2>&1; then
               SANDBOX_USERNS_RELAXED="yes"
               echo "Relaxed kernel.apparmor_restrict_unprivileged_userns for the codex sandbox."
@@ -1141,7 +1151,7 @@ jobs:
             # makes bwrap share the host network namespace instead of unsharing it, so the
             # loopback setup that fails is never attempted. Filesystem confinement — the part
             # that actually matters on an ephemeral runner — is unchanged.
-            if grep -q "bwrap:" "$attempt_session" 2>/dev/null &&
+            if grep -Eq "$SANDBOX_STARTUP_FAILURE_RE" "$attempt_session" 2>/dev/null &&
               [ "${SANDBOX_NETWORK_FALLBACK_USED:-no}" = "no" ] &&
               [ "$SANDBOX" = "workspace-write" ]; then
               echo "::warning::codex sandbox failed to start (bwrap); retrying with " \
@@ -1157,9 +1167,9 @@ jobs:
             # Never report a sandbox that never started as a successful run. Reporting success
             # here is what let the dispatch debounce record a terminal completion for a run
             # that produced nothing, latching the keepalive loop shut (#3433).
-            if grep -q "bwrap:" "$attempt_session" 2>/dev/null; then
+            if grep -Eq "$SANDBOX_STARTUP_FAILURE_RE" "$attempt_session" 2>/dev/null; then
               echo "::error::codex sandbox failed to start; the agent executed no commands. " \
-                "See openai/codex#14719."
+                "See openai/codex#15982."
               if [ "$CODEX_EXIT" -eq 0 ]; then
                 CODEX_EXIT=1
               fi
