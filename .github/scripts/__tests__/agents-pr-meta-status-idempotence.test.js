@@ -75,7 +75,7 @@ test('an older exact-head Gate survives a full page of metadata churn', async ()
   const calls = [];
   const recent = Array.from({ length: 100 }, (_, i) => generation('11')[i % 3]);
   const runs = await collectStatusWorkflowRuns({ ...opts, github: client(recent, [gate], calls) });
-  assert.deepEqual([...runs.keys()], ['gate']);
+  assert.deepEqual([...runs.keys()], ['pr 46 dependency repair contract', 'gate']);
   assert.ok(render(runs).includes('gate: ✅ success'));
   assert.equal(calls.length, 2);
   assert.deepEqual(calls[1][1], {
@@ -121,7 +121,7 @@ test('an empty Gate recovery cannot preserve an earlier successful result', asyn
     ...opts, github: client(generation('11'), [], calls),
   });
   const summary = render(runs, render([gate]));
-  assert.equal(runs.size, 0);
+  assert.equal(runs.has('gate'), false);
   assert.equal(calls.filter(([kind]) => kind === 'gate').length, 1);
   assert.ok(summary.includes('gate: ⏸️ not started'));
   assert.ok(!summary.includes('gate: ✅ success'));
@@ -152,7 +152,7 @@ test('a missing Gate preserves current CI evidence without retaining stale Gate 
     github: client([...generation('11'), ci], error, calls),
   });
   const summary = render(runs, render([gate]));
-  assert.deepEqual([...runs.keys()], ['ci']);
+  assert.deepEqual([...runs.keys()], ['pr 46 dependency repair contract', 'ci']);
   assert.ok(summary.includes('| CI | ❌ failure |'));
   assert.ok(summary.includes(ci.html_url));
   assert.ok(summary.includes('gate: ⏸️ not started'));
@@ -172,7 +172,6 @@ test('Gate API rate limits propagate instead of becoming a not-started result', 
 for (const workflowPath of [
   '.github/workflows/agents-pr-meta-v4.yml',
   '.github/workflows/agents-80-pr-event-hub.yml',
-  '.github/workflows/pr-46-dependency-repair-contract.yml',
 ]) {
   test(`renamed observer ${workflowPath} cannot change derived status`, () => {
     const observer = { ...generation('10')[0], name: 'Renamed metadata observer', path: workflowPath };

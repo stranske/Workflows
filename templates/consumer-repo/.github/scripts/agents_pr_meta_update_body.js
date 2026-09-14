@@ -931,6 +931,14 @@ const SELF_OBSERVING_WORKFLOW_PATHS = new Set([
   '.github/workflows/pr-46-dependency-repair-contract.yml',
 ]);
 
+const DEPENDENCY_CONTRACT_NAME = 'PR 46 Dependency Repair Contract';
+
+function isDependencyContractRun(run) {
+  return String(run?.name || '').trim().toLowerCase() === DEPENDENCY_CONTRACT_NAME.toLowerCase()
+    || String(run?.path || '').trim().split('@')[0].toLowerCase()
+      === '.github/workflows/pr-46-dependency-repair-contract.yml';
+}
+
 function isSelfObservingWorkflowRun(run) {
   const name = String(run?.name || '').trim().toLowerCase();
   const workflowPath = String(run?.path || '').trim().split('@')[0].toLowerCase();
@@ -941,10 +949,17 @@ function isSelfObservingWorkflowRun(run) {
 function filterWorkflowRunsForStatus(workflowRuns) {
   const filtered = new Map();
   for (const [key, run] of workflowRuns || new Map()) {
-    if (isSelfObservingWorkflowRun(run)) {
-      continue;
+    if (isDependencyContractRun(run)) {
+      // PR 46 validates provenance as well as observing body edits. Keep its
+      // last completed result, but never echo the run URL that caused an edit.
+      if (run.status === 'completed' && run.conclusion) {
+        filtered.set(DEPENDENCY_CONTRACT_NAME.toLowerCase(), {
+          ...run, name: DEPENDENCY_CONTRACT_NAME, html_url: '',
+        });
+      }
+    } else if (!isSelfObservingWorkflowRun(run)) {
+      filtered.set(key, run);
     }
-    filtered.set(key, run);
   }
   return filtered;
 }
@@ -958,9 +973,32 @@ async function collectStatusWorkflowRuns({github, owner, repo, headSha, core}) {
     }),
     {description: 'list workflow runs', core},
   );
-  const runs = filterWorkflowRunsForStatus(
-    selectLatestWorkflows((response.data.workflow_runs || []).filter(run => run.head_sha === headSha)),
-  );
+  const exactRuns = (response.data.workflow_runs || []).filter(run => run.head_sha === headSha);
+  const runs = filterWorkflowRunsForStatus(selectLatestWorkflows(exactRuns.filter(run =>
+    !isDependencyContractRun(run) || (run.status === 'completed' && run.conclusion),
+  ).map(run => isDependencyContractRun(run) ? {...run, name: DEPENDENCY_CONTRACT_NAME} : run)));
+  if (exactRuns.some(isDependencyContractRun) && !runs.has(DEPENDENCY_CONTRACT_NAME.toLowerCase())) {
+    // A new body edit starts PR 46 again. Resolve only the last completed
+    // exact-head result so its pending/completed cycle cannot retrigger itself.
+    try {
+      const contractResponse = await withRetries(
+        () => github.rest.actions.listWorkflowRuns({
+          owner, repo, workflow_id: 'pr-46-dependency-repair-contract.yml',
+          head_sha: headSha, status: 'completed', per_page: 1,
+        }),
+        {description: 'recover completed dependency contract', core, attempts: 1},
+      );
+      const completed = filterWorkflowRunsForStatus(selectLatestWorkflows(
+        (contractResponse.data.workflow_runs || []).filter(run =>
+          run.head_sha === headSha && isDependencyContractRun(run),
+        ),
+      ));
+      for (const [key, run] of completed) runs.set(key, run);
+    } catch (error) {
+      if (error?.status !== 404) throw error;
+      core?.warning('Dependency contract workflow unavailable; consult PR checks.');
+    }
+  }
   if (!runs.has('gate')) {
     // Metadata-only edited events can fill the latest page. Recover the real
     // exact-head Gate directly rather than paging through thousands of observers.
@@ -1244,7 +1282,7 @@ function buildStatusBlock({scope, contextSection, tasks, acceptance, headSha, wo
   if (!isCliAgent) {
     statusLines.push(`**Head SHA:** ${headSha}`);
 
-    const latestRuns = Array.from(statusWorkflowRuns.values()).sort((a, b) => new Date(b.created_at) - new Date(a.created_at));
+    const latestRuns = Array.from(statusWorkflowRuns.values()).filter(run => !isDependencyContractRun(run)).sort((a, b) => new Date(b.created_at) - new Date(a.created_at));
     let latestLine = '—';
     if (latestRuns.length > 0) {
       const gate = latestRuns.find((run) => (run.name || '').toLowerCase() === 'gate');
@@ -1258,10 +1296,12 @@ function buildStatusBlock({scope, contextSection, tasks, acceptance, headSha, wo
     for (const name of requiredChecks) {
       const run = Array.from(statusWorkflowRuns.values()).find((item) => (item.name || '').toLowerCase() === name.toLowerCase());
       if (!run) {
-        requiredParts.push(`${name}: ⏸️ not started`);
+        requiredParts.push(SELF_OBSERVING_WORKFLOW_NAMES.has(name.toLowerCase())
+          ? `${name}: reported separately in PR checks`
+          : `${name}: ⏸️ not started`);
       } else {
         const status = combineStatus(run);
-        requiredParts.push(`${name}: ${status.icon} ${status.label}`);
+        requiredParts.push(`${name}: ${status.icon} ${status.label}${isDependencyContractRun(run) ? ' (last completed; current run in PR checks)' : ''}`);
       }
     }
     statusLines.push(`**Required:** ${requiredParts.length > 0 ? requiredParts.join(', ') : '—'}`);
@@ -1275,7 +1315,9 @@ function buildStatusBlock({scope, contextSection, tasks, acceptance, headSha, wo
     } else {
       for (const run of runs) {
         const status = combineStatus(run);
-        const link = run.html_url ? `[View run](${run.html_url})` : '—';
+        const link = isDependencyContractRun(run)
+          ? 'Last completed result; current run in PR checks'
+          : run.html_url ? `[View run](${run.html_url})` : '—';
         table.push(`| ${run.name || 'Unnamed workflow'} | ${status.icon} ${status.label} | ${link} |`);
       }
     }
