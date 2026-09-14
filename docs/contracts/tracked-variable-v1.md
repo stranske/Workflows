@@ -7,7 +7,7 @@ thesis monitoring claims share one wire shape; vocabulary files differ by
 
 > **Status: P0 landing (under human review).** Schema:
 > [`tracked-variable-v1.schema.json`](./schemas/tracked-variable-v1.schema.json).
-> Program context: [`research-backplane-contract.md`](./research-backplane-contract.md).
+> Program context: [`research-backplane-contract.md`](https://github.com/stranske/Workflows/blob/main/docs/contracts/research-backplane-contract.md) (Workflows-only; deliberately not synced to consumers).
 > Embedded evidence: [`evidence-object-v1.schema.json`](./schemas/evidence-object-v1.schema.json).
 
 ## Design Decision
