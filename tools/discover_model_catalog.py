@@ -65,10 +65,7 @@ def parse_catalog(provider: str, payload: Any) -> list[CatalogModel]:
         return [
             CatalogModel(str(item["id"]), _parse_timestamp(item.get("created_at")))
             for item in payload
-            if isinstance(item, dict)
-            and item.get("id")
-            and item.get("publisher") == "OpenAI"
-            and item.get("capabilities")
+            if isinstance(item, dict) and item.get("id") and item.get("capabilities")
         ]
     if not isinstance(payload, dict) or not isinstance(payload.get("data"), list):
         raise ValueError(f"{provider} catalog must contain a data list")
