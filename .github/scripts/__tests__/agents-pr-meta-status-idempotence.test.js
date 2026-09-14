@@ -141,6 +141,27 @@ test('a missing Gate workflow remains unknown', async () => {
   assert.ok(render(runs).includes('gate: ⏸️ not started'));
 });
 
+test('a missing Gate preserves current CI evidence without retaining stale Gate success', async () => {
+  const calls = [];
+  const warnings = [];
+  const ci = { ...gate, name: 'CI', conclusion: 'failure', html_url: 'https://example.com/ci/43' };
+  const error = Object.assign(new Error('Not Found'), { status: 404 });
+  const runs = await collectStatusWorkflowRuns({
+    ...opts,
+    core: { warning(message) { warnings.push(message); }, error() {} },
+    github: client([...generation('11'), ci], error, calls),
+  });
+  const summary = render(runs, render([gate]));
+  assert.deepEqual([...runs.keys()], ['ci']);
+  assert.ok(summary.includes('| CI | ❌ failure |'));
+  assert.ok(summary.includes(ci.html_url));
+  assert.ok(summary.includes('gate: ⏸️ not started'));
+  assert.ok(!summary.includes(gate.html_url));
+  assert.ok(!summary.includes('gate: ✅ success'));
+  assert.equal(calls.filter(([kind]) => kind === 'gate').length, 1);
+  assert.ok(warnings.some(message => message.includes('leaving its status unknown')));
+});
+
 test('Gate API rate limits propagate instead of becoming a not-started result', async () => {
   const error = Object.assign(new Error('API rate limit exceeded'), { status: 403 });
   await assert.rejects(collectStatusWorkflowRuns({ ...opts,
