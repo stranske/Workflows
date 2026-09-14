@@ -8,7 +8,23 @@ const {
   parseScopeTasksAcceptanceSections,
   analyzeSectionPresence,
   hasNonPlaceholderScopeTasksAcceptanceContent,
+  visibleChecklistContent,
 } = require('../issue_scope_parser');
+
+test('visible checklist scan handles nested quotes without counting their fenced examples', () => {
+  const body = [
+    '> > - [ ] Visible nested task',
+    '> >   with a continuation.',
+    '> > ```markdown',
+    '> > - [ ] Example only',
+    '> > ```',
+    '>> - [x] Completed nested task',
+  ].join('\n');
+  const visible = visibleChecklistContent(body);
+  assert.match(visible, /^- \[ \] Visible nested task\n  with a continuation\./);
+  assert.match(visible, /- \[x\] Completed nested task/);
+  assert.doesNotMatch(visible, /Example only|>/);
+});
 
 test('extracts sections inside auto-status markers', () => {
   const issue = [

@@ -438,6 +438,37 @@ for (const placement of ['before', 'after', 'unmanaged']) {
   });
 }
 
+test('evaluateKeepaliveLoop retains nested blockquoted outside tasks through metadata refresh', async () => {
+  const summary = [
+    '<!-- auto-status-summary:start -->',
+    '## Tasks', '- [x] Implement the source task',
+    '## Acceptance Criteria', '- [x] Verify the source task',
+    '<!-- auto-status-summary:end -->',
+  ].join('\n');
+  const reviewer = 'Review follow-up:\n> > - [ ] Exercise the nested retry path\n> >   and verify its diagnostic.\n\n';
+  const body = upsertBlock(stripPrTemplateContent(reviewer + summary), 'auto-status-summary', summary);
+  assert.ok(body.startsWith(reviewer), 'metadata refresh must preserve the nested task');
+  const pr = {
+    number: 3441,
+    head: { ref: 'codex/issue-3441', sha: 'nested-quote-head' },
+    labels: [{ name: 'agent:codex' }],
+    body,
+  };
+  const github = buildGithubStub({
+    pr,
+    comments: [{ id: 23, body: formatStateComment({ verification: { status: 'done' } }) }],
+    workflowRuns: [{ head_sha: 'nested-quote-head', conclusion: 'success' }],
+  });
+  const result = await evaluateKeepaliveLoop({
+    github, context: buildContext(pr.number), core: buildCore(),
+  });
+  assert.equal(result.action, 'run');
+  assert.equal(result.reason, 'ready');
+  assert.deepEqual(result.checkboxCounts, { total: 3, checked: 2, unchecked: 1 });
+  assert.match(result.taskAppendix, /Exercise the nested retry path/);
+  assert.match(result.taskAppendix, /and verify its diagnostic/);
+});
+
 test('evaluateKeepaliveLoop requires outside work to be checked after metadata refresh', async () => {
   const summary = (task) => [
     '<!-- auto-status-summary:start -->',
