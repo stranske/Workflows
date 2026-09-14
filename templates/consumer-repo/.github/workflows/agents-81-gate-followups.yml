@@ -824,7 +824,58 @@ jobs:
             scripts/runner_lib
             scripts/state_fingerprint.py
             scripts/reference_packs.py
+            .github/scripts/github-api-with-retry.js
+            .github/scripts/token_load_balancer.js
+            .github/scripts/error_classifier.js
           sparse-checkout-cone-mode: false
+
+      - name: Measure runner productivity
+        id: productivity
+        uses: actions/github-script@3a2844b7e9c422d3c10d287c895573f7108da1b3 # v9
+        env:
+          PR_NUMBER: ${{ needs.evaluate.outputs.pr_number }}
+          HEAD_SHA: ${{ needs.evaluate.outputs.head_sha }}
+        with:
+          github-token: ${{ secrets.GITHUB_TOKEN }}
+          script: |
+            // Did this run actually move the branch? A runner can exit 0 having produced
+            // nothing — the codex sandbox failing to initialize reports itself as a
+            // SUCCESSFUL run with no commit. Recording that as a terminal completion burned
+            // the (head_sha, provider) debounce key, and only a new head commit clears the
+            // key, so the refusal could only be lifted by the agent it was refusing (#3433).
+            // Comparing the PR head now against the SHA this dispatch was reserved for is the
+            // cheapest ground truth available here. A failed lookup stays UNMEASURED, which
+            // keeps the pre-#3433 behavior rather than loosening the debounce on an API hiccup.
+            const { createTokenAwareRetry } = require('./.github/scripts/github-api-with-retry.js');
+            const { withRetry } = await createTokenAwareRetry({
+              github,
+              core,
+              env: process.env,
+              task: 'keepalive-productivity',
+            });
+            const prNumber = Number(process.env.PR_NUMBER || '');
+            const dispatchedHead = String(process.env.HEAD_SHA || '');
+            if (!prNumber || !dispatchedHead) {
+              core.info('No PR or head SHA; productivity unmeasured.');
+              core.setOutput('produced_work', '');
+              return;
+            }
+            let currentHead = '';
+            try {
+              const { data: pr } = await withRetry((client) => client.rest.pulls.get({
+                ...context.repo,
+                pull_number: prNumber,
+              }));
+              currentHead = String((pr.head && pr.head.sha) || '');
+            } catch (error) {
+              core.warning(`Could not read PR head: ${error && error.message ? error.message : error}`);
+            }
+            const producedWork = currentHead ? String(currentHead !== dispatchedHead) : '';
+            core.info(
+              `head_at_dispatch=${dispatchedHead} head_now=${currentHead || 'unreadable'} ` +
+              `produced_work=${producedWork || 'unmeasured'}`,
+            );
+            core.setOutput('produced_work', producedWork);
 
       - name: Record completion
         env:
@@ -833,6 +884,7 @@ jobs:
           PROVIDER: ${{ needs.evaluate.outputs.agent_type || 'codex' }}
           PR_NUMBER: ${{ needs.evaluate.outputs.pr_number }}
           HEAD_SHA: ${{ needs.evaluate.outputs.head_sha }}
+          PRODUCED_WORK: ${{ steps.productivity.outputs.produced_work }}
           SUMMARY: >-
             ${{ needs.run-codex.outputs.final-message-summary ||
                 needs.run-claude.outputs.final-message-summary ||
@@ -867,6 +919,7 @@ jobs:
             --head-sha "$HEAD_SHA" \
             --summary "$SUMMARY" \
             --exit-code "$EXIT_CODE" \
+            --produced-work "$PRODUCED_WORK" \
             --storage auto
 
   summary:
