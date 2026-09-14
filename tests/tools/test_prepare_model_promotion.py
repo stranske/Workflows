@@ -235,3 +235,82 @@ def test_main_noop_when_nothing_qualifies(tmp_path):
     assert (
         pmp.main(["--benchmark", str(bench), "--registry", str(reg), "--today", "2026-08-01"]) == 0
     )
+
+
+def _promoted_registry():
+    report = _report(
+        [
+            _result("claude-opus-4-6", "anthropic", status="passed", cost=0.10),
+            _result("claude-opus-4-8", "anthropic", status="passed", cost=0.08),
+        ]
+    )
+    return pmp.apply_promotion(
+        _registry(), pmp.find_promotions(report, _registry())[0], today=TODAY
+    )
+
+
+def test_rollback_requires_matching_provider_and_failed_gate():
+    registry = _promoted_registry()
+    result = _result("claude-opus-4-8", "openai", status="failed", cost=0.08)
+    assert pmp.find_rollbacks(_report([result]), registry) == []
+    result["provider"] = "claude"  # Provider aliases still match.
+    rollback = pmp.find_rollbacks(_report([result]), registry)[0]
+    assert rollback["trigger"] == "quality_gate_breach"
+    assert rollback["breached_gates"] == ["paired_success_noninferiority"]
+    result["gate_results"] = {}
+    assert pmp.find_rollbacks(_report([result]), registry) == []
+
+
+def test_rollback_rejects_unrelated_history():
+    registry = _promoted_registry()
+    registry["selection_history"][0]["superseded_by"] = "claude-opus-4-7"
+    breach = _report([_result("claude-opus-4-8", "anthropic", status="failed", cost=0.08)])
+    assert pmp.find_rollbacks(breach, registry) == []
+
+
+def test_apply_rollback_rejects_stale_proposal():
+    import pytest
+
+    registry = _promoted_registry()
+    breach = _report([_result("claude-opus-4-8", "anthropic", status="failed", cost=0.08)])
+    rollback = pmp.find_rollbacks(breach, registry)[0]
+    registry["selections"][0]["model_id"] = "claude-opus-4-9"
+    before = json.dumps(registry, sort_keys=True)
+    with pytest.raises(ValueError, match="no longer matches"):
+        pmp.apply_rollback(registry, rollback, today=TODAY)
+    assert json.dumps(registry, sort_keys=True) == before
+
+
+def test_main_breach_takes_precedence_over_promotion(tmp_path):
+    registry = _promoted_registry()
+    report = _report(
+        [
+            _result("claude-opus-4-8", "anthropic", status="failed", cost=0.08),
+            _result("claude-opus-4-9", "anthropic", status="passed", cost=0.06),
+        ],
+        baseline="claude-opus-4-8",
+    )
+    bench = tmp_path / "bench.json"
+    reg = tmp_path / "registry.json"
+    out = tmp_path / "out.json"
+    bench.write_text(json.dumps(report))
+    reg.write_text(json.dumps(registry))
+    assert (
+        pmp.main(
+            [
+                "--benchmark",
+                str(bench),
+                "--registry",
+                str(reg),
+                "--write",
+                str(out),
+                "--today",
+                TODAY.isoformat(),
+            ]
+        )
+        == 10
+    )
+    reverted = json.loads(out.read_text())
+    assert reverted["selections"][0]["model_id"] == "claude-opus-4-6"
+    assert reverted["selections"][0]["evidence_ids"] == ["catalog-1"]
+    assert reverted["selection_history"] == []

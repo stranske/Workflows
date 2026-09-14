@@ -228,13 +228,29 @@ def find_rollbacks(
         if str(sel.get("profile", "")).strip() != profile:
             continue
         active_id = str(sel.get("model_id", "")).strip()
-        result = _result_for(report, active_id)
+        result = next(
+            (
+                result
+                for result in report.get("results", [])
+                if str(result.get("model_id", "")).strip() == active_id
+                and _normalize_provider(str(result.get("provider", "")))
+                == _normalize_provider(str(sel.get("provider", "")))
+            ),
+            None,
+        )
         if not result or result.get("status") != "failed":
             continue
         prior = _latest_history(registry, profile, str(sel.get("provider", "")))
-        if prior is None:
+        if (
+            prior is None
+            or prior.get("superseded_by") != active_id
+            or not str(prior.get("model_id", "")).strip()
+            or prior.get("model_id") == active_id
+        ):
             continue
         breached = [k for k, ok in (result.get("gate_results") or {}).items() if ok is False]
+        if not breached:
+            continue
         rollbacks.append(
             {
                 "profile": profile,
@@ -242,6 +258,7 @@ def find_rollbacks(
                 "from_model_id": active_id,
                 "to_model_id": str(prior.get("model_id", "")).strip(),
                 "breached_gates": breached,
+                "trigger": "quality_gate_breach",
                 "reason": f"active model {active_id} failed gates {breached}; reverting to prior selection",
             }
         )
@@ -278,6 +295,13 @@ def apply_rollback(
     )
     if selection is None or prior_index is None:  # pragma: no cover - guarded by find_rollbacks
         raise ValueError("no prior selection to roll back to")
+    prior = history[prior_index]
+    if (
+        selection.get("model_id") != rollback["from_model_id"]
+        or prior.get("superseded_by") != rollback["from_model_id"]
+        or prior.get("model_id") != rollback["to_model_id"]
+    ):
+        raise ValueError("rollback no longer matches the active selection and promotion history")
     prior = history.pop(prior_index)
     selection["model_id"] = str(prior.get("model_id", "")).strip()
     selection["evidence_ids"] = list(prior.get("evidence_ids", []))
@@ -325,6 +349,10 @@ def main(argv: list[str] | None = None) -> int:
         if args.mode in {"rollback", "auto"}
         else []
     )
+    # A breach takes precedence over a new promotion for the same selection.
+    # Otherwise the promotion inserts history before the rollback consumes it.
+    reverting = {(r["profile"], r["provider"]) for r in rollbacks}
+    promotions = [p for p in promotions if (p["profile"], p["provider"]) not in reverting]
 
     mutated = registry
     for promotion in promotions:
