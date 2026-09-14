@@ -1653,9 +1653,8 @@ jobs:
               if (runId === run.id && attemptNumber === currentAttempt && latestJobs) {
                 return latestJobs;
               }
-              const listAttemptJobs = github.rest.actions.listJobsForWorkflowRunAttempt;
-              if (typeof listAttemptJobs === 'function') {
-                return await paginateWithRetry(listAttemptJobs, {
+              if (typeof github['rest']['actions']['listJobsForWorkflowRunAttempt'] === 'function') {
+                return await paginateWithRetry(github.rest.actions.listJobsForWorkflowRunAttempt, {
                   owner,
                   repo,
                   run_id: runId,
