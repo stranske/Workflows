@@ -15,8 +15,8 @@ VALIDATION_TIME = datetime(2026, 9, 14, tzinfo=UTC)
 
 @pytest.fixture(autouse=True)
 def fixed_validation_clock(monkeypatch: pytest.MonkeyPatch) -> None:
-    # Validate the checked-in snapshot before its deferrals expire. Unit tests
-    # must not age out; the live CLI still enforces expiry using the real clock.
+    # Gate run 34913714874 failed when the live deferrals expired on September 15.
+    # Unit tests use a known time; the operational CLI still checks the real clock.
     clock = Mock(wraps=datetime)
     clock.now.return_value = VALIDATION_TIME
     monkeypatch.setattr(vbr, "datetime", clock)
@@ -37,8 +37,8 @@ def test_registry_has_no_tbd_placeholders_and_validates() -> None:
     registry = _registry()
     findings = vbr.validate_registry(registry)
 
-    # The live registry must be STRUCTURALLY valid. Operational freshness (a
-    # reference run aging past the 7-day window) is a non-blocking "stale" finding:
+    # The registry must be structurally valid at the fixed validation time. A
+    # reference run aging past the 7-day window is a non-blocking "stale" finding:
     # it is surfaced by the dedicated backplane lane (health-78) but must not fail
     # this structural check, which runs in the required suite for every unrelated PR.
     assert vbr.blocking_findings(findings) == []
@@ -224,13 +224,25 @@ def test_expired_deferred_issue_is_rejected(expires_at: str, expired: bool) -> N
 
 
 @pytest.mark.parametrize("flags", [[], ["--strict"]])
-def test_cli_expired_deferral_remains_blocking(tmp_path: Path, flags: list[str]) -> None:
+@pytest.mark.parametrize("expires_at", ["2026-09-13T00:00:00Z", "2026-09-14T00:00:00Z"])
+def test_cli_expired_deferral_remains_blocking(
+    tmp_path: Path, capsys: pytest.CaptureFixture[str], expires_at: str, flags: list[str]
+) -> None:
     registry = _registry()
-    registry["participants"][1]["issue_deferred"]["expires_at"] = VALIDATION_TIME.isoformat()
+    registry["participants"][1]["issue_deferred"]["expires_at"] = expires_at
     registry_path = tmp_path / "registry.json"
     registry_path.write_text(json.dumps(registry), encoding="utf-8")
 
-    assert vbr.main([*flags, str(registry_path)]) == 1
+    assert vbr.main([*flags, "--json", str(registry_path)]) == 1
+
+    report = json.loads(capsys.readouterr().out)
+    assert report["blocking_count"] == 1
+    assert report["blocking_ok"] is False
+    assert {
+        "path": "participants[1].issue_deferred.expires_at",
+        "message": "deferred issue expired",
+        "severity": vbr.ERROR_SEVERITY,
+    } in report["findings"]
 
 
 def test_stale_reference_run_is_rejected() -> None:
@@ -421,9 +433,9 @@ def test_conformant_rejects_decreasing_lifecycle_timestamps() -> None:
 def test_conformant_rejects_invalid_lifecycle_evidence() -> None:
     registry = copy.deepcopy(_registry())
     entry = _pension_conformant_entry(registry)
-    entry["lifecycle_history"][1][
-        "evidence"
-    ] = "https://github.com/stranske/Pension-Data/issues/703"
+    entry["lifecycle_history"][1]["evidence"] = (
+        "https://github.com/stranske/Pension-Data/issues/703"
+    )
 
     findings = vbr.validate_registry(registry)
 

@@ -72,12 +72,13 @@ jobs:
           body: |
             Automated corpus growth (stranske/Workflows#2819 move 2).
 
-            High-confidence cases derived from realized PR outcomes — see the run
-            summary for the promoted case list. Ambiguous cases were routed to the
-            auto-expiring staging file, not here.
+            This PR may contain staging-only changes; staging is FYI-only and does
+            not affect approval metrics. Only changes to config/model_eval_pilot.json
+            represent promotions. The run summary lists promoted and staged counts.
 
-            Expected verdicts here come from what the world already adjudicated by
-            merging or reverting each PR. The semantic NON_PASS categories
+            Expected verdicts require an exact-head verifier decision and realized
+            outcome, with the verifier run and durable source URL retained. The semantic
+            NON_PASS categories
             (stale-verifier-claim, review-thread-debt, missing-acceptance-criterion)
             remain owner-sourced and are never machine-added.
       - name: Enforce review window before auto-merge

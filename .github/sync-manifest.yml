@@ -548,7 +548,7 @@ scripts:
     description: "Updates PR body with stable completed dependency-provenance results, observer exclusion, and exact-head Gate visibility"
 
   - source: .github/scripts/agents_verifier_context.js
-    description: "Context gathering for agent verifier"
+    description: "Verifier context with exact PR-head identity for replayable corpus evidence"
 
   - source: .github/scripts/agents_dispatch_summary.js
     description: "Summarizes agent dispatch operations"
