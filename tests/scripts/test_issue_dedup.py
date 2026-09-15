@@ -141,6 +141,9 @@ def test_format_similar_issues_comment_returns_none_for_empty():
 def test_format_similarity_nonfinite(score):
     assert issue_dedup._format_similarity(score) == "0%"
 
+
+@pytest.mark.parametrize("score", [float("nan"), float("inf"), float("-inf")])
+def test_format_similar_issues_comment_nonfinite(score):
     match = issue_dedup.IssueMatch(
         issue=issue_dedup.IssueRecord(number=12, title="Alpha", url="http://a"),
         score=score,
@@ -153,7 +156,25 @@ def test_format_similarity_nonfinite(score):
 
 @pytest.mark.parametrize(
     ("score", "expected"),
-    [(-0.1, "0%"), (0.0, "0%"), (0.926, "93%"), (1.0, "100%"), (1.1, "100%")],
+    [
+        (-0.1, "0%"),
+        (0.0, "0%"),
+        (0.924, "92%"),
+        (0.926, "93%"),
+        (0.125, "12%"),
+        (0.375, "38%"),
+        (1.0, "100%"),
+        (1.1, "100%"),
+    ],
 )
 def test_format_similarity_preserves_finite_clamping_and_rounding(score, expected):
     assert issue_dedup._format_similarity(score) == expected
+
+    match = issue_dedup.IssueMatch(
+        issue=issue_dedup.IssueRecord(number=12, title="Alpha", url="http://a"),
+        score=score,
+        raw_score=score,
+        score_type="relevance",
+    )
+    comment = issue_dedup.format_similar_issues_comment([match])
+    assert f"**#12** - [Alpha](http://a) ({expected} similarity)" in comment
