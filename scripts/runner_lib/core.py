@@ -1051,6 +1051,16 @@ def _unproductive_completion_count(prior: dict[str, Any] | None) -> int:
         return 0
 
 
+def _workflow_attempt_id() -> str:
+    """Identify the reserving workflow attempt across its jobs, not just the PR head."""
+    repository = os.environ.get("GITHUB_REPOSITORY", "")
+    run_id = os.environ.get("GITHUB_RUN_ID", "")
+    attempt = os.environ.get("GITHUB_RUN_ATTEMPT", "")
+    if repository and run_id and attempt:
+        return f"{repository}:{run_id}:{attempt}"
+    return ""
+
+
 def _reserve_dispatch(
     storage: RunnerDispatchStorage,
     pr_number: int,
@@ -1070,11 +1080,16 @@ def _reserve_dispatch(
         "status": "pending",
         "started_at": _utc_now(),
     }
+    attempt_id = _workflow_attempt_id()
+    if attempt_id:
+        record["workflow_attempt_id"] = attempt_id
     # Carry the unproductive tally across the retry so the allowance is bounded: it is the only
     # thing that makes "retry an unproductive completion" terminate instead of cycling forever.
     unproductive = _unproductive_completion_count(prior)
     if unproductive and prior and prior.get("head_sha") == head_sha:
         record["unproductive_completions"] = unproductive
+        if _completion_was_unproductive(prior):
+            record["productive"] = False
     storage.write_record(pr_number, provider, record)
     return DebounceDecision(
         True,
@@ -1173,6 +1188,30 @@ def should_dispatch(
     return _reserve_dispatch(storage, pr_number, head_sha, provider, key, prior, reason=reason)
 
 
+def _log_completion_storage_failure(operation: str, exc: Exception) -> None:
+    # GitHubApi preserves the HTTP/network exception as its cause. Log diagnostic
+    # metadata, not raw exception text, which can contain URLs or response bodies.
+    cause = exc.__cause__ or exc
+    code = getattr(cause, "code", None)
+    status = str(code) if isinstance(code, int) and 100 <= code <= 599 else "unknown"
+    print(
+        f"warning: authoritative completion {operation} failed: "
+        f"error_type={type(exc).__name__} cause_type={type(cause).__name__} "
+        f"http_status={status}",
+        file=sys.stderr,
+    )
+
+
+def _unrecorded_completion(prior: dict[str, Any], key: str, reason: str) -> dict[str, Any]:
+    return {
+        "status": "unknown",
+        "key": key,
+        **prior,
+        "completion_recorded": False,
+        "completion_reason": reason,
+    }
+
+
 def record_completion(
     pr_number: int,
     head_sha: str,
@@ -1184,7 +1223,8 @@ def record_completion(
     """Persist terminal runner state after a dispatch finishes.
 
     ``produced_work`` is the caller's verdict on whether the run actually moved the branch.
-    ``None`` means unmeasured and preserves the pre-#3433 behavior. ``False`` marks the
+    ``None`` means unmeasured and preserves an existing same-head unproductive retry streak;
+    otherwise it preserves the pre-#3433 behavior. ``False`` marks the
     completion unproductive so ``should_dispatch`` will grant a bounded retry on the same head
     instead of refusing forever (#3433).
     """
@@ -1196,7 +1236,31 @@ def record_completion(
     )
     status = "completed" if result_payload.get("success") else "error"
     compact_result = _compact_runner_result_payload(result_payload)
-    prior = storage.read_record(pr_number, provider) or {}
+    # Dispatch may use a fallback for availability, but completion must validate and
+    # update the authoritative reservation. An empty/stale fallback cannot prove
+    # that a newer attempt does not own the primary, even if caller identity is absent.
+    uses_fallback = isinstance(storage, FallbackRunnerStorage)
+    completion_storage = storage.primary if isinstance(storage, FallbackRunnerStorage) else storage
+    try:
+        prior_record = completion_storage.read_record(pr_number, provider)
+    except Exception as exc:
+        if not uses_fallback:
+            raise
+        _log_completion_storage_failure("read", exc)
+        return _unrecorded_completion({}, key, "authoritative-storage-unavailable")
+    if uses_fallback and prior_record is None:
+        return _unrecorded_completion({}, key, "authoritative-reservation-missing")
+    prior = prior_record or {}
+    if prior.get("workflow_attempt_id") and (
+        prior.get("workflow_attempt_id") != _workflow_attempt_id()
+        or (prior.get("key") != key and produced_work is not True)
+    ):
+        # A completion rerun from an earlier attempt must not overwrite a newer reservation,
+        # including when both attempts target the same head. The owning attempt may report
+        # a new head only when it explicitly measured productive work. Return an observation only.
+        return _unrecorded_completion(prior, key, "stale-attempt")
+    if produced_work is None and prior.get("key") == key and _completion_was_unproductive(prior):
+        produced_work = False
     completed_at = (
         prior.get("completed_at")
         if prior.get("key") == key and prior.get("status") in TERMINAL_STATUSES
@@ -1231,7 +1295,15 @@ def record_completion(
             record["unproductive_completions"] = min(
                 previous + 1, UNPRODUCTIVE_COMPLETION_RETRY_LIMIT + 1
             )
-    storage.write_record(pr_number, provider, record)
+    try:
+        completion_storage.write_record(pr_number, provider, record)
+    except Exception as exc:
+        if not uses_fallback:
+            raise
+        _log_completion_storage_failure("write", exc)
+        # Never redirect a checked primary reservation into an unchecked fallback.
+        # A failed response may be ambiguous; a retry re-reads primary state first.
+        return _unrecorded_completion(prior, key, "authoritative-storage-unavailable")
     return record
 
 
@@ -1369,7 +1441,8 @@ def _cmd_record_completion(args: argparse.Namespace) -> int:
         produced_work=_parse_produced_work(args.produced_work),
     )
     outputs = {
-        "recorded": "true",
+        "recorded": "false" if record.get("completion_recorded") is False else "true",
+        "reason": str(record.get("completion_reason", "")),
         "status": str(record["status"]),
         "key": str(record["key"]),
         "productive": "" if "productive" not in record else str(record["productive"]).lower(),
@@ -1443,7 +1516,7 @@ def build_parser() -> argparse.ArgumentParser:
         default="",
         help=(
             "whether the run actually moved the branch (true/false). Anything else, including "
-            "the default, means unmeasured and keeps the completion terminal."
+            "the default, means unmeasured and preserves an existing unproductive retry streak."
         ),
     )
     complete.set_defaults(func=_cmd_record_completion)
