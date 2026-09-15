@@ -2,6 +2,7 @@ import sys
 import types
 from dataclasses import dataclass
 
+import pytest
 from scripts.langchain import issue_dedup, semantic_matcher
 
 
@@ -134,3 +135,25 @@ def test_format_similar_issues_comment_formats_links():
 
 def test_format_similar_issues_comment_returns_none_for_empty():
     assert issue_dedup.format_similar_issues_comment([]) is None
+
+
+@pytest.mark.parametrize("score", [float("nan"), float("inf"), float("-inf")])
+def test_format_similarity_nonfinite(score):
+    assert issue_dedup._format_similarity(score) == "0%"
+
+    match = issue_dedup.IssueMatch(
+        issue=issue_dedup.IssueRecord(number=12, title="Alpha", url="http://a"),
+        score=score,
+        raw_score=score,
+        score_type="relevance",
+    )
+    comment = issue_dedup.format_similar_issues_comment([match])
+    assert "**#12** - [Alpha](http://a) (0% similarity)" in comment
+
+
+@pytest.mark.parametrize(
+    ("score", "expected"),
+    [(-0.1, "0%"), (0.0, "0%"), (0.926, "93%"), (1.0, "100%"), (1.1, "100%")],
+)
+def test_format_similarity_preserves_finite_clamping_and_rounding(score, expected):
+    assert issue_dedup._format_similarity(score) == expected

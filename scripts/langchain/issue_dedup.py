@@ -6,6 +6,7 @@ Build FAISS vector stores for issue deduplication.
 from __future__ import annotations
 
 import logging
+import math
 import os
 from collections.abc import Iterable, Mapping
 from dataclasses import dataclass
@@ -217,6 +218,9 @@ def find_similar_issues(
 
 
 def _format_similarity(score: float) -> str:
+    """Format finite scores as percentages; invalid scores provide no similarity."""
+    if not math.isfinite(score):
+        return "0%"
     clamped = min(max(score, 0.0), 1.0)
     return f"{round(clamped * 100):d}%"
 
