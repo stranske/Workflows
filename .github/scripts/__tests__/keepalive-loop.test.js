@@ -6333,14 +6333,17 @@ test('updateKeepaliveLoopSummary shows regex fallback warning', async () => {
 });
 
 test('evaluateKeepaliveLoop resolves agent:auto via delegation policy with delegationSource', async () => {
-  const previousAuth = {
+  const previousEnv = {
     HAS_CODEX_AUTH: process.env.HAS_CODEX_AUTH,
     HAS_CLAUDE_OAUTH: process.env.HAS_CLAUDE_OAUTH,
     HAS_CURSOR_AUTH: process.env.HAS_CURSOR_AUTH,
+    ROUTE_WEIGHTS_URL: process.env.ROUTE_WEIGHTS_URL,
   };
   process.env.HAS_CODEX_AUTH = 'true';
   process.env.HAS_CLAUDE_OAUTH = 'true';
   process.env.HAS_CURSOR_AUTH = 'true';
+  // Avoid a real fetch / 5s timeout: initial-selection never needs route weights.
+  process.env.ROUTE_WEIGHTS_URL = 'http://127.0.0.1:9/route-weights-unreachable.json';
 
   try {
     const pr = {
@@ -6365,7 +6368,7 @@ test('evaluateKeepaliveLoop resolves agent:auto via delegation policy with deleg
     assert.equal(result.delegationSource, 'static');
     assert.equal(result.delegationReason, 'initial-selection');
   } finally {
-    for (const [key, value] of Object.entries(previousAuth)) {
+    for (const [key, value] of Object.entries(previousEnv)) {
       if (value === undefined) {
         delete process.env[key];
       } else {

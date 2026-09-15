@@ -390,6 +390,17 @@ test('decideNextAgent always returns delegationSource on static return paths', (
   assert.equal(explicit.reason, 'explicit-label');
   assert.equal(explicit.delegationSource, 'static');
 
+  // No agent:auto and no explicit agent label → default branch.
+  const defaultPath = decideNextAgent({
+    state: {},
+    labels: [],
+    secrets: mockSecrets,
+    registry: mockRegistry,
+  });
+  assert.equal(defaultPath.reason, 'default');
+  assert.equal(defaultPath.agent, 'codex');
+  assert.equal(defaultPath.delegationSource, 'static');
+
   const noAgents = decideNextAgent({
     state: {},
     labels: ['agent:auto'],
@@ -458,6 +469,21 @@ test('decideNextAgent always returns delegationSource on static return paths', (
   });
   assert.ok(cooldown.reason.includes('cooldown'));
   assert.equal(cooldown.delegationSource, 'static');
+
+  // Ineffective but not stalled (single failing round) → continue-current.
+  const continueCurrent = decideNextAgent({
+    state: {
+      current_agent: 'codex',
+      iteration: 20,
+      last_switch_iteration: 10,
+      effectiveness_history: [{ iteration: 20, commits: 0, tasks: 0, gate: 'fail' }],
+    },
+    labels: ['agent:auto'],
+    secrets: mockSecrets,
+    registry: mockRegistry,
+  });
+  assert.equal(continueCurrent.reason, 'continue-current');
+  assert.equal(continueCurrent.delegationSource, 'static');
 });
 
 test('stalled-no-alternatives preserves computed delegationSource', () => {
