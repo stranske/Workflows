@@ -102,13 +102,17 @@ quality gate and an explicit approval update.
 ### Prepared promotions and rollbacks
 
 `tools/prepare_model_promotion.py` (run by `maint-86`) can *prepare* a selection
-change from a passing benchmark, but never applies one on its own. It only
-prepares a candidate that is the **same family** as the incumbent (e.g. openai
-`gpt-5.x`, anthropic `claude-<line>`), **passed every quality gate** (including
-paired non-inferiority), and costs **≤** the incumbent per accepted review.
-Cross-family swaps are never auto-prepared. It writes the registry mutation
-(recording the prior selection in `selection_history`) and opens a PR; merging
-that PR is the human approval this policy requires — `human_approval_required`
+change from a passing benchmark, but never applies one on its own. Candidates
+must pass every benchmark quality gate and have known, finite, nonnegative costs.
+Same-family candidates (e.g. openai `gpt-5.x`, anthropic `claude-<line>`) costing
+**≤** the incumbent receive `preparation_mode=bounded`. Cross-family or pricier
+candidates receive `preparation_mode=approval-required` and explicit
+`approval_reasons`. The tool selects at most one candidate per provider, preferring
+bounded changes, then lower cost and latency. Both modes retain
+`human_approval_required=true`; preparation metadata does not authorize auto-merge.
+The tool writes the registry mutation (recording the prior selection in
+`selection_history`) for the workflow to open as a PR; merging that PR is the
+human approval this policy requires — `human_approval_required`
 stays true. The inverse path prepares a rollback to the prior selection when the
 active model shows a failed workload-benchmark (a quality-gate breach).
 
@@ -141,3 +145,23 @@ Review at least every 30 days and immediately after any of:
 Update the facts and catalog baseline first, run the paired benchmark, attach
 evidence, then update the explicit selection. Maint-68 propagates the registry;
 consumer slot provider preferences remain intact.
+
+### Replayable corpus evidence
+
+`maint-79` harvests only PR outcomes joined to a bot-published
+`verifier-corpus-decision/v1` record. The comparison verifier records the PR head,
+evaluated merge SHA, repository/PR, run ID and attempt beside the durable report.
+A candidate retains that decision and its comment URL. A stable merge without a
+matching decision is excluded; a NON_PASS decision cannot become a clean PASS
+just because the PR merged. Provider errors and unavailable reviews are not
+benchmark verdicts. A failed merge CI check floors the structured verdict to
+NON_PASS even when every provider says PASS. Missing or invalid CI-gate context
+suppresses publication rather than creating unverifiable benchmark evidence.
+Historical reports without these fields are not backfilled
+from merge metadata. They can enter future harvests after fresh verification.
+
+Case identity includes repository, PR, head and verifier run/attempt. Replaying
+the same evidence does not duplicate a case. Existing adjudicated corpus entries
+keep their historical identifiers. The staging file is FYI-only; a staging-only
+PR does not grow approval metrics. Only additions to `model_eval_pilot.json` count
+as promotions, and existing category/size caps and model approval policy remain.

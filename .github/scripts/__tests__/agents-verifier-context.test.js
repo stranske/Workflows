@@ -283,6 +283,8 @@ test('buildVerifierContext allows non-default base branches when acceptance crit
   assert.equal(result.shouldRun, true);
   assert.equal(core.outputs.should_run, 'true');
   assert.equal(core.outputs.pr_number, '99');
+  assert.equal(core.outputs.pr_head_sha, 'head-sha-99');
+  assert.equal(core.outputs.target_sha, 'merge-sha-99');
   assert.equal(core.outputs.skip_reason, '');
 });
 
