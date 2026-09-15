@@ -6339,10 +6339,13 @@ test('evaluateKeepaliveLoop resolves agent:auto via delegation policy with deleg
     HAS_CURSOR_AUTH: process.env.HAS_CURSOR_AUTH,
     ROUTE_WEIGHTS_URL: process.env.ROUTE_WEIGHTS_URL,
   };
+  const previousFetch = global.fetch;
+  global.fetch = async () => {
+    throw new Error('route weights fetch must not run in this regression');
+  };
   process.env.HAS_CODEX_AUTH = 'true';
   process.env.HAS_CLAUDE_OAUTH = 'true';
   process.env.HAS_CURSOR_AUTH = 'true';
-  // Avoid a real fetch / 5s timeout: initial-selection never needs route weights.
   process.env.ROUTE_WEIGHTS_URL = 'http://127.0.0.1:9/route-weights-unreachable.json';
 
   try {
@@ -6368,6 +6371,7 @@ test('evaluateKeepaliveLoop resolves agent:auto via delegation policy with deleg
     assert.equal(result.delegationSource, 'static');
     assert.equal(result.delegationReason, 'initial-selection');
   } finally {
+    global.fetch = previousFetch;
     for (const [key, value] of Object.entries(previousEnv)) {
       if (value === undefined) {
         delete process.env[key];
