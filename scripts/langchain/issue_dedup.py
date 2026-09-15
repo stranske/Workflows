@@ -199,16 +199,19 @@ def find_similar_issues(
     min_score = _resolve_threshold(threshold)
     matches: list[IssueMatch] = []
     for doc, raw_score in results:
+        float_score = float(raw_score)
+        if not math.isfinite(float_score):
+            continue
         metadata = getattr(doc, "metadata", {}) or {}
         fallback_title = getattr(doc, "page_content", None)
         issue = _issue_from_metadata(metadata, fallback_title)
-        similarity = _similarity_from_score(float(raw_score), score_type)
+        similarity = _similarity_from_score(float_score, score_type)
         if similarity >= min_score:
             matches.append(
                 IssueMatch(
                     issue=issue,
                     score=similarity,
-                    raw_score=float(raw_score),
+                    raw_score=float_score,
                     score_type=score_type,
                 )
             )

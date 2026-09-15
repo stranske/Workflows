@@ -138,6 +138,29 @@ def test_format_similar_issues_comment_returns_none_for_empty():
 
 
 @pytest.mark.parametrize("score", [float("nan"), float("inf"), float("-inf")])
+def test_find_similar_issues_excludes_nonfinite_relevance_scores(score):
+    store = types.SimpleNamespace(
+        similarity_search_with_relevance_scores=lambda query, k=5: [
+            (DummyDoc("Alpha", {"number": 1, "title": "Alpha", "url": "http://a"}), score),
+            (DummyDoc("Beta", {"number": 2, "title": "Beta", "url": "http://b"}), 0.92),
+        ]
+    )
+    vector_store = issue_dedup.IssueVectorStore(
+        store=store,
+        provider="unit-test",
+        model="unit-test-model",
+        is_fallback=False,
+        issues=[],
+    )
+
+    matches = issue_dedup.find_similar_issues(vector_store, "query", threshold=0.8)
+
+    assert len(matches) == 1
+    assert matches[0].issue.number == 2
+    assert matches[0].score == 0.92
+
+
+@pytest.mark.parametrize("score", [float("nan"), float("inf"), float("-inf")])
 def test_format_similarity_nonfinite(score):
     assert issue_dedup._format_similarity(score) == "0%"
 
