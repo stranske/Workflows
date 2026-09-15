@@ -246,6 +246,7 @@ function decideNextAgent({
       reason: explicitAgent ? 'explicit-label' : 'default',
       shouldSwitch: false,
       alternatives: [],
+      delegationSource: 'static',
     };
   }
 
@@ -282,6 +283,7 @@ function decideNextAgent({
       reason: 'no-agents-available',
       shouldSwitch: false,
       alternatives: [],
+      delegationSource: 'static',
     };
   }
 
@@ -294,6 +296,7 @@ function decideNextAgent({
       reason: 'initial-selection',
       shouldSwitch: false,
       alternatives: availableAgents.filter((a) => a !== initialAgent),
+      delegationSource: 'static',
     };
   }
 
@@ -306,6 +309,7 @@ function decideNextAgent({
       shouldSwitch: true,
       previousAgent: currentAgent,
       alternatives: availableAgents.filter((agent) => agent !== nextAgent),
+      delegationSource: 'static',
     };
   }
 
@@ -325,6 +329,7 @@ function decideNextAgent({
       reason: `effective (${effectiveness.summary})`,
       shouldSwitch: false,
       alternatives: availableAgents.filter((a) => a !== currentAgent),
+      delegationSource: 'static',
     };
   }
 
@@ -335,6 +340,7 @@ function decideNextAgent({
       reason: `cooldown (${5 - roundsSinceSwitch} rounds remaining)`,
       shouldSwitch: false,
       alternatives: availableAgents.filter((a) => a !== currentAgent),
+      delegationSource: 'static',
     };
   }
 
@@ -373,7 +379,7 @@ function decideNextAgent({
         reason: `stalled-no-alternatives (${sourceSuffix})`,
         shouldSwitch: false,
         alternatives: [],
-        delegationSource: 'static',
+        delegationSource,
       };
     }
     core?.info?.(`Switching from ${currentAgent} to ${nextAgent} due to stall (${sourceSuffix})`);

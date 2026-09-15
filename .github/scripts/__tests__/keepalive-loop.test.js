@@ -6331,3 +6331,53 @@ test('updateKeepaliveLoopSummary shows regex fallback warning', async () => {
   assert.match(github.actions[0].body, /Regex \(fallback\)/);
   assert.match(github.actions[0].body, /Primary provider.*was unavailable/);
 });
+
+test('evaluateKeepaliveLoop resolves agent:auto via delegation policy with delegationSource', async () => {
+  const previousEnv = {
+    HAS_CODEX_AUTH: process.env.HAS_CODEX_AUTH,
+    HAS_CLAUDE_OAUTH: process.env.HAS_CLAUDE_OAUTH,
+    HAS_CURSOR_AUTH: process.env.HAS_CURSOR_AUTH,
+    ROUTE_WEIGHTS_URL: process.env.ROUTE_WEIGHTS_URL,
+  };
+  const previousFetch = global.fetch;
+  global.fetch = async () => {
+    throw new Error('route weights fetch must not run in this regression');
+  };
+  process.env.HAS_CODEX_AUTH = 'true';
+  process.env.HAS_CLAUDE_OAUTH = 'true';
+  process.env.HAS_CURSOR_AUTH = 'true';
+  process.env.ROUTE_WEIGHTS_URL = 'http://127.0.0.1:9/route-weights-unreachable.json';
+
+  try {
+    const pr = {
+      number: 3346,
+      head: { ref: 'codex/issue-3346-sync-review', sha: 'sha-3346' },
+      labels: [{ name: 'agent:auto' }, { name: 'agents:keepalive' }],
+      body: prBodyFixture,
+    };
+    const github = buildGithubStub({
+      pr,
+      workflowRuns: [{ head_sha: 'sha-3346', conclusion: 'success' }],
+    });
+
+    const result = await evaluateKeepaliveLoop({
+      github,
+      context: buildContext(pr.number),
+      core: buildCore(),
+    });
+
+    assert.equal(result.agentRoutingMode, 'auto');
+    assert.equal(result.agentType, 'codex');
+    assert.equal(result.delegationSource, 'static');
+    assert.equal(result.delegationReason, 'initial-selection');
+  } finally {
+    global.fetch = previousFetch;
+    for (const [key, value] of Object.entries(previousEnv)) {
+      if (value === undefined) {
+        delete process.env[key];
+      } else {
+        process.env[key] = value;
+      }
+    }
+  }
+});
