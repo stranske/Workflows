@@ -3,6 +3,8 @@
 from __future__ import annotations
 
 import json
+import subprocess
+import sys
 from datetime import UTC, datetime
 
 import pytest
@@ -276,6 +278,12 @@ def test_nonpass_decision_is_never_relabelled_pass_by_clean_merge():
     assert promoted[0]["expected_verdict"] == "NON_PASS"
 
 
+def test_contradictory_ci_failure_pass_decision_is_not_harvestable():
+    record = _rec(1)
+    record["verifier_decision"]["ci_failed"] = True
+    assert hv.partition([record], now=NOW, stability_days=30) == ([], [])
+
+
 def test_case_identity_and_provenance_distinguish_verifier_runs_and_heads():
     first, second, third = _rec(1), _rec(1), _rec(1)
     second["verifier_decision"]["run_id"] = "124"
@@ -288,7 +296,13 @@ def test_case_identity_and_provenance_distinguish_verifier_runs_and_heads():
     assert len(staged["cases"]) == 3
 
 
-def test_actual_report_publisher_roundtrips_through_live_fetch_and_partition(tmp_path, monkeypatch):
+@pytest.mark.parametrize(
+    ("ci_failed", "expected_verdict"),
+    [("false", "PASS"), ("true", "NON_PASS"), (None, None), ("unknown", None)],
+)
+def test_actual_report_publisher_roundtrips_through_live_fetch_and_partition(
+    tmp_path, monkeypatch, ci_failed, expected_verdict
+):
     record = _rec(1)
     comparison, comment = tmp_path / "comparison.json", tmp_path / "comment.md"
     comparison.write_text(
@@ -312,7 +326,21 @@ def test_actual_report_publisher_roundtrips_through_live_fetch_and_partition(tmp
     }
     for key, value in env.items():
         monkeypatch.setenv(key, value)
-    assert evidence.main(["--comparison", str(comparison), "--comment", str(comment)]) == 0
+    if ci_failed is None:
+        monkeypatch.delenv("CI_FAILED", raising=False)
+    else:
+        monkeypatch.setenv("CI_FAILED", ci_failed)
+    subprocess.run(
+        [
+            sys.executable,
+            evidence.__file__,
+            "--comparison",
+            str(comparison),
+            "--comment",
+            str(comment),
+        ],
+        check=True,
+    )
     github_pr = {
         "number": 1,
         "mergedAt": record["merged_at"],
@@ -338,9 +366,21 @@ def test_actual_report_publisher_roundtrips_through_live_fetch_and_partition(tmp
         [record["repo"]], per_repo=10, stability_days=30, harvest_window_days=60
     )
     promoted, staged = hv.partition(fetched, now=NOW, stability_days=30)
+    if expected_verdict is None:
+        assert evidence.MARKER not in comment.read_text()
+        assert (promoted, staged) == ([], [])
+        return
     assert staged == []
-    assert len(promoted) == 1
-    assert promoted[0]["verifier_decision"]["run_id"] == "123"
+    assert fetched[0]["verifier_decision"]["verdict"] == expected_verdict
+    assert fetched[0]["verifier_decision"]["ci_failed"] is (ci_failed == "true")
+    assert fetched[0]["verifier_decision"]["run_id"] == "123"
+    if expected_verdict == "NON_PASS":
+        # A merged PR alone cannot establish a realized NON_PASS category,
+        # and must never promote a CI-failed decision into a clean PASS.
+        assert promoted == []
+    else:
+        assert len(promoted) == 1
+        assert promoted[0]["expected_verdict"] == expected_verdict
     assert "comments" in calls[0][-1]
     github_pr["comments"][0]["author"]["login"] = "untrusted-reviewer"
     assert evidence.decision_from_comments(record, github_pr["comments"]) is None
@@ -356,5 +396,6 @@ def test_actual_report_publisher_roundtrips_through_live_fetch_and_partition(tmp
     "results",
     [[], [{"used_llm": False, "verdict": "PASS"}], [{"used_llm": True, "verdict": "ERROR"}]],
 )
-def test_provider_failure_cannot_publish_a_decision(results):
-    assert evidence.decision_from_results(results, {}) is None
+@pytest.mark.parametrize("ci_failed", ["true", "false", None])
+def test_provider_failure_cannot_publish_a_decision(results, ci_failed):
+    assert evidence.decision_from_results(results, {}, ci_failed=ci_failed) is None

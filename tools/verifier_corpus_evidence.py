@@ -13,18 +13,25 @@ MARKER = "verifier-corpus-decision/v1"
 
 
 def decision_from_results(
-    results: list[dict[str, Any]], identity: dict[str, str]
+    results: list[dict[str, Any]], identity: dict[str, str], *, ci_failed: str | None = None
 ) -> dict[str, Any] | None:
-    """Retain usable provider decisions; infrastructure errors are not ground truth."""
+    """Retain usable decisions with the workflow's trusted merge-CI hard gate."""
     verdicts = [str(result.get("verdict", "")).upper() for result in results]
     if not results or not all(result.get("used_llm") for result in results):
         return None
     if any(verdict not in {"PASS", "CONCERNS", "FAIL", "NON_PASS"} for verdict in verdicts):
         return None
+    # The context step emits exactly true/false. Missing or malformed context
+    # cannot establish an authoritative disposition for corpus harvesting.
+    if ci_failed not in {"true", "false"}:
+        return None
     return {
         "schema": MARKER,
         **identity,
-        "verdict": "PASS" if all(verdict == "PASS" for verdict in verdicts) else "NON_PASS",
+        "verdict": (
+            "PASS" if ci_failed == "false" and all(v == "PASS" for v in verdicts) else "NON_PASS"
+        ),
+        "ci_failed": ci_failed == "true",
         "provider_verdicts": verdicts,
     }
 
@@ -54,6 +61,7 @@ def joined_decision(record: dict[str, Any]) -> dict[str, Any] | None:
         or decision.get("head_sha") != head
         or decision.get("evaluated_sha") != evaluated
         or decision.get("verdict") not in {"PASS", "NON_PASS"}
+        or (decision.get("ci_failed") is True and decision.get("verdict") == "PASS")
         or not str(decision.get("source_url", ""))
         .lower()
         .startswith(f"https://github.com/{repo}/pull/{pr}#issuecomment-")
@@ -105,7 +113,7 @@ def main(argv: list[str] | None = None) -> int:
         }.items()
     }
     results = json.loads(args.comparison.read_text(encoding="utf-8")).get("results", [])
-    decision = decision_from_results(results, identity)
+    decision = decision_from_results(results, identity, ci_failed=os.environ.get("CI_FAILED"))
     if decision:
         with args.comment.open("a", encoding="utf-8") as handle:
             handle.write(f"\n<!-- {MARKER} {json.dumps(decision, sort_keys=True)} -->\n")

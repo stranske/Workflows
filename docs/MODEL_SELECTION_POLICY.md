@@ -154,7 +154,10 @@ evaluated merge SHA, repository/PR, run ID and attempt beside the durable report
 A candidate retains that decision and its comment URL. A stable merge without a
 matching decision is excluded; a NON_PASS decision cannot become a clean PASS
 just because the PR merged. Provider errors and unavailable reviews are not
-benchmark verdicts. Historical reports without these fields are not backfilled
+benchmark verdicts. A failed merge CI check floors the structured verdict to
+NON_PASS even when every provider says PASS. Missing or invalid CI-gate context
+suppresses publication rather than creating unverifiable benchmark evidence.
+Historical reports without these fields are not backfilled
 from merge metadata. They can enter future harvests after fresh verification.
 
 Case identity includes repository, PR, head and verifier run/attempt. Replaying

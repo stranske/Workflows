@@ -1260,6 +1260,7 @@ jobs:
           PR_NUMBER: ${{ steps.context.outputs.pr_number }}
           PR_HEAD_SHA: ${{ steps.context.outputs.pr_head_sha }}
           EVALUATED_SHA: ${{ steps.context.outputs.target_sha }}
+          CI_FAILED: ${{ steps.context.outputs.ci_failed }}
         run: |
           set -euo pipefail
           verifier_pr="$PR_NUMBER"
