@@ -4,6 +4,9 @@ from __future__ import annotations
 
 import datetime as dt
 import json
+import subprocess
+import sys
+from pathlib import Path
 
 import pytest
 from tools import evaluate_model_benchmark as benchmark
@@ -12,6 +15,30 @@ from tools import prepare_model_promotion as pmp
 from tools import verifier_corpus_evidence as evidence
 
 TODAY = dt.date(2026, 8, 1)
+
+
+def _run_preparation_cli(benchmark_path, registry_path, output_path):
+    """Exercise the module entry point and exit signal consumed by Maint 86."""
+    return subprocess.run(
+        [
+            sys.executable,
+            "-m",
+            "tools.prepare_model_promotion",
+            "--benchmark",
+            str(benchmark_path),
+            "--registry",
+            str(registry_path),
+            "--write",
+            str(output_path),
+            "--today",
+            TODAY.isoformat(),
+        ],
+        cwd=Path(__file__).resolve().parents[2],
+        capture_output=True,
+        text=True,
+        check=False,
+        timeout=30,
+    )
 
 
 def _harvested_benchmark(candidate, cost):
@@ -131,9 +158,18 @@ def test_harvested_cases_pass_real_gates_and_prepare_registry(tmp_path, candidat
     bench, reg, out = (tmp_path / name for name in ("bench.json", "registry.json", "out.json"))
     bench.write_text(json.dumps(report))
     reg.write_text(json.dumps(_registry()))
-    assert pmp.main(["--benchmark", str(bench), "--registry", str(reg), "--write", str(out)]) == 10
+    completed = _run_preparation_cli(bench, reg, out)
+    assert completed.returncode == 10, completed.stdout + completed.stderr
+    assert completed.stderr == ""
+    assert f"PROMOTE anthropic: claude-opus-4-6 -> {candidate}" in completed.stdout
+    if reasons:
+        assert f"approval-required ({', '.join(reasons)})" in completed.stdout
+    else:
+        assert "same-family (claude-opus)" in completed.stdout
+        assert "approval-required" not in completed.stdout
     prepared = json.loads(out.read_text())
     assert prepared["selections"][0]["model_id"] == candidate
+    assert prepared["selections"][0]["decided_at"] == TODAY.isoformat()
     assert proposal["evidence_id"] in prepared["selections"][0]["evidence_ids"]
     assert prepared["selection_history"][0]["model_id"] == "claude-opus-4-6"
     assert json.loads(reg.read_text()) == _registry()
@@ -155,8 +191,13 @@ def test_harvested_cases_cannot_bypass_approval_gates(tmp_path, failed_gate):
     bench, reg, out = (tmp_path / name for name in ("bench.json", "registry.json", "out.json"))
     bench.write_text(json.dumps(report))
     reg.write_text(json.dumps(_registry()))
-    assert pmp.main(["--benchmark", str(bench), "--registry", str(reg), "--write", str(out)]) == 0
+    completed = _run_preparation_cli(bench, reg, out)
+    assert completed.returncode == 0, completed.stdout + completed.stderr
+    assert completed.stderr == ""
+    assert "no passing promotion or gate-breach rollback to prepare" in completed.stdout
+    assert "PROMOTE" not in completed.stdout
     assert not out.exists()
+    assert json.loads(reg.read_text()) == _registry()
 
 
 def _registry(model_id="claude-opus-4-6"):
