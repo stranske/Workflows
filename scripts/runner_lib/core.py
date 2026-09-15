@@ -1188,6 +1188,20 @@ def should_dispatch(
     return _reserve_dispatch(storage, pr_number, head_sha, provider, key, prior, reason=reason)
 
 
+def _log_completion_storage_failure(operation: str, exc: Exception) -> None:
+    # GitHubApi preserves the HTTP/network exception as its cause. Log diagnostic
+    # metadata, not raw exception text, which can contain URLs or response bodies.
+    cause = exc.__cause__ or exc
+    code = getattr(cause, "code", None)
+    status = str(code) if isinstance(code, int) and 100 <= code <= 599 else "unknown"
+    print(
+        f"warning: authoritative completion {operation} failed: "
+        f"error_type={type(exc).__name__} cause_type={type(cause).__name__} "
+        f"http_status={status}",
+        file=sys.stderr,
+    )
+
+
 def _unrecorded_completion(prior: dict[str, Any], key: str, reason: str) -> dict[str, Any]:
     return {
         "status": "unknown",
@@ -1229,9 +1243,10 @@ def record_completion(
     completion_storage = storage.primary if isinstance(storage, FallbackRunnerStorage) else storage
     try:
         prior_record = completion_storage.read_record(pr_number, provider)
-    except Exception:
+    except Exception as exc:
         if not uses_fallback:
             raise
+        _log_completion_storage_failure("read", exc)
         return _unrecorded_completion({}, key, "authoritative-storage-unavailable")
     if uses_fallback and prior_record is None:
         return _unrecorded_completion({}, key, "authoritative-reservation-missing")
@@ -1282,9 +1297,10 @@ def record_completion(
             )
     try:
         completion_storage.write_record(pr_number, provider, record)
-    except Exception:
+    except Exception as exc:
         if not uses_fallback:
             raise
+        _log_completion_storage_failure("write", exc)
         # Never redirect a checked primary reservation into an unchecked fallback.
         # A failed response may be ambiguous; a retry re-reads primary state first.
         return _unrecorded_completion(prior, key, "authoritative-storage-unavailable")

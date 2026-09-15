@@ -7,6 +7,7 @@ import subprocess
 import types
 from pathlib import Path
 from typing import Any
+from urllib.error import HTTPError, URLError
 
 import pytest
 import scripts.runner_lib.core as runner_core
@@ -1149,6 +1150,71 @@ def test_auto_completion_never_writes_fallback(
         assert result["status"] == "completed"
         assert primary.records[(42, "codex")] == result
         assert len(primary.writes) == 2
+
+
+@pytest.mark.parametrize("operation", ["read", "write"])
+@pytest.mark.parametrize("failure", ["http", "network", "other"])
+def test_auto_completion_logs_safe_storage_diagnostics(
+    monkeypatch: pytest.MonkeyPatch,
+    capsys: pytest.CaptureFixture[str],
+    operation: str,
+    failure: str,
+) -> None:
+    primary = MemoryRunnerStorage()
+    fallback = MemoryRunnerStorage()
+    should_dispatch(42, "aaa", "codex", storage=primary)
+    pending = dict(primary.records[(42, "codex")])
+    secret = "private-response-and-token"
+    cause: Exception
+    if failure == "http":
+        cause = HTTPError("https://example.invalid/" + secret, 403, secret, {}, None)
+    elif failure == "network":
+        cause = URLError(secret)
+    else:
+        cause = ValueError(secret)
+
+    def fail(*_: Any) -> Any:
+        raise RuntimeError(secret) from cause
+
+    monkeypatch.setattr(primary, f"{operation}_record", fail)
+    result = record_completion(
+        42,
+        "aaa",
+        "codex",
+        _unproductive_result(),
+        storage=runner_core.FallbackRunnerStorage(primary, fallback),
+    )
+    captured = capsys.readouterr()
+    assert captured.out == ""
+    assert f"authoritative completion {operation} failed" in captured.err
+    assert "error_type=RuntimeError" in captured.err
+    assert f"cause_type={type(cause).__name__}" in captured.err
+    assert f"http_status={'403' if failure == 'http' else 'unknown'}" in captured.err
+    assert secret not in captured.err
+    assert "https://" not in captured.err
+    assert result["completion_recorded"] is False
+    assert result["completion_reason"] == "authoritative-storage-unavailable"
+    assert primary.records[(42, "codex")] == pending
+    assert len(primary.writes) == 1
+    assert not fallback.writes
+
+
+@pytest.mark.parametrize("operation", ["read", "write"])
+def test_single_store_completion_errors_still_propagate(
+    monkeypatch: pytest.MonkeyPatch, operation: str
+) -> None:
+    storage = MemoryRunnerStorage()
+    should_dispatch(42, "aaa", "codex", storage=storage)
+    error = RuntimeError("single-store failure")
+
+    def fail(*_: Any) -> Any:
+        raise error
+
+    monkeypatch.setattr(storage, f"{operation}_record", fail)
+    with pytest.raises(RuntimeError) as caught:
+        record_completion(42, "aaa", "codex", _unproductive_result(), storage=storage)
+    assert caught.value is error
+    assert len(storage.writes) == 1
 
 
 def test_missing_workflow_identity_cannot_complete_bound_reservation(

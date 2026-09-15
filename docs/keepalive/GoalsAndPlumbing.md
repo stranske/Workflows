@@ -327,6 +327,10 @@ stale-pending timeout. A failed write response can be ambiguous, so retries re-r
 primary state and preserve same-attempt idempotency. Explicit single-store callers
 retain their existing behavior.
 
+Authoritative storage failures also emit a warning on stderr identifying the read/write
+operation, exception and cause types, and HTTP status when available. Raw exception text,
+URLs and response bodies are omitted so diagnostic logging does not expose credentials.
+
 **Why the allowance expires into a cooldown rather than a refusal.** Refusing until the head
 changes would put the original latch back one step further out. A cooldown is cleared by time
 alone — nothing the gate forbids is needed to open it — and the hourly keepalive sweep wakes it.
