@@ -379,3 +379,73 @@ test('stalled agent never re-chosen', () => {
   assert.equal(result.delegationSource, 'route_weights');
   assert.ok(result.reason.includes('delegation_source: route_weights'));
 });
+
+test('decideNextAgent always returns delegationSource on non-auto paths', () => {
+  const explicit = decideNextAgent({
+    state: {},
+    labels: ['agent:claude'],
+    secrets: mockSecrets,
+    registry: mockRegistry,
+  });
+  assert.equal(explicit.delegationSource, 'static');
+
+  const initial = decideNextAgent({
+    state: { iteration: 1 },
+    labels: ['agent:auto'],
+    secrets: mockSecrets,
+    registry: mockRegistry,
+  });
+  assert.equal(initial.delegationSource, 'static');
+
+  const effective = decideNextAgent({
+    state: {
+      current_agent: 'codex',
+      iteration: 18,
+      last_switch_iteration: 10,
+      effectiveness_history: [
+        { iteration: 16, commits: 1, tasks: 0, gate: 'fail' },
+        { iteration: 17, commits: 0, tasks: 1, gate: 'pending' },
+        { iteration: 18, commits: 1, tasks: 0, gate: 'pending' },
+      ],
+    },
+    labels: ['agent:auto'],
+    secrets: mockSecrets,
+    registry: mockRegistry,
+  });
+  assert.equal(effective.delegationSource, 'static');
+});
+
+test('decideNextAgent always returns delegationSource on non-auto paths', () => {
+  const explicit = decideNextAgent({
+    state: {},
+    labels: ['agent:claude'],
+    secrets: mockSecrets,
+    registry: mockRegistry,
+  });
+  assert.equal(explicit.delegationSource, 'static');
+
+  const initial = decideNextAgent({
+    state: { iteration: 1 },
+    labels: ['agent:auto'],
+    secrets: mockSecrets,
+    registry: mockRegistry,
+  });
+  assert.equal(initial.delegationSource, 'static');
+
+  const effective = decideNextAgent({
+    state: {
+      current_agent: 'codex',
+      iteration: 18,
+      last_switch_iteration: 10,
+      effectiveness_history: [
+        { iteration: 16, commits: 1, tasks: 0, gate: 'fail' },
+        { iteration: 17, commits: 0, tasks: 1, gate: 'pending' },
+        { iteration: 18, commits: 1, tasks: 0, gate: 'pending' },
+      ],
+    },
+    labels: ['agent:auto'],
+    secrets: mockSecrets,
+    registry: mockRegistry,
+  });
+  assert.equal(effective.delegationSource, 'static');
+});
