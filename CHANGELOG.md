@@ -6,6 +6,19 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 Breaking changes are called out with a **BREAKING** marker and scheduled according to the policy in `COMPATIBILITY.md`.
 
+## [1.32.7](https://github.com/stranske/Workflows/compare/v1.32.6...v1.32.7) (2026-09-15)
+
+
+### Bug Fixes
+
+* **autofix:** count per-attempt Gate failures and gate escalation on real failing jobs ([#3434](https://github.com/stranske/Workflows/issues/3434)) ([3e1d15c](https://github.com/stranske/Workflows/commit/3e1d15ca52bf9fde9437a6706f4cf888f52b6341))
+* **corpus:** preserve verified decisions and promotion evidence ([#3442](https://github.com/stranske/Workflows/issues/3442)) ([9a16cbf](https://github.com/stranske/Workflows/commit/9a16cbf4f93a9366cdc2a0ab30fa2d01c977abbc))
+* **dedup:** handle non-finite similarity scores ([#3453](https://github.com/stranske/Workflows/issues/3453)) ([7b9d5e5](https://github.com/stranske/Workflows/commit/7b9d5e54414babbbee1991906fd8c43fa4281367))
+* **delegation:** return delegationSource on every decideNextAgent path ([#3346](https://github.com/stranske/Workflows/issues/3346)) ([a0e4a8a](https://github.com/stranske/Workflows/commit/a0e4a8a03d0794a2fcbb480ab4f38fbb3d0df697))
+* **keepalive:** count visible tasks outside generated summaries ([#3441](https://github.com/stranske/Workflows/issues/3441)) ([4da3c74](https://github.com/stranske/Workflows/commit/4da3c7426ce55a2147eafdee306d3c71e0078de1))
+* **pr-meta:** stop metadata status self-observation ([#3451](https://github.com/stranske/Workflows/issues/3451)) ([c856128](https://github.com/stranske/Workflows/commit/c8561288b546c9ab6beb3d318336b7b30c36d8d0))
+* **runner:** narrow optional completion state for consumer mypy ([3706dc2](https://github.com/stranske/Workflows/commit/3706dc2fd51b77e87902ddfe508f06b81b83e8fc))
+
 ## [1.32.6](https://github.com/stranske/Workflows/compare/v1.32.5...v1.32.6) (2026-09-14)
 
 
