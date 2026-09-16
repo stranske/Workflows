@@ -2238,7 +2238,7 @@ jobs:
                   lastError = error;
                   const status = Number(error?.status);
                   // Best-effort wakeup: an unauthorized cross-repo dispatch must not fail Gate
-                  // Followups. Maint 71 is waked by workflow_dispatch anyway (#3364).
+                  // Followups. Maint 71 is woken by workflow_dispatch anyway (#3364).
                   if ([403, 404].includes(status)) {
                     core.warning(
                       `Generated-delivery wakeup skipped: repository_dispatch to stranske/Workflows ` +

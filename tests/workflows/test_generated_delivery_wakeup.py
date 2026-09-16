@@ -58,3 +58,10 @@ def test_generated_delivery_wakeup_deliberate_break_would_fail_auth_swallow() ->
     assert "Best-effort wakeup" in script
     assert "#3364" in script
     assert "[403, 404].includes(status)" in script
+
+
+def test_generated_delivery_wakeup_ships_from_consumer_template_only() -> None:
+    """Consumer hub workflows live under templates/consumer-repo, not Workflows repo root."""
+    root_copy = Path(".github/workflows/agents-81-gate-followups.yml")
+    assert not root_copy.exists()
+    assert CONSUMER_GATE_FOLLOWUPS.exists()
