@@ -198,30 +198,42 @@ def test_deferred_issue_reason_must_be_non_empty_string() -> None:
     )
 
 
-def test_expired_deferred_issue_is_rejected() -> None:
+@pytest.mark.parametrize(
+    ("expires_at", "expired"),
+    [
+        ("2026-09-13T23:59:59Z", True),
+        ("2026-09-14T00:00:00Z", True),
+        ("2026-09-14T00:00:01Z", False),
+    ],
+)
+def test_expired_deferred_issue_is_rejected(expires_at: str, expired: bool) -> None:
     registry = copy.deepcopy(_registry())
     entry = registry["participants"][1]
-    entry["issue_deferred"]["expires_at"] = "2026-01-01T00:00:00Z"
+    entry["issue_deferred"]["expires_at"] = expires_at
 
     findings = vbr.validate_registry(registry)
 
-    assert any(
-        finding.path.endswith("issue_deferred.expires_at")
-        and finding.message == "deferred issue expired"
-        for finding in findings
+    assert (
+        any(
+            finding.path.endswith("issue_deferred.expires_at")
+            and finding.message == "deferred issue expired"
+            for finding in vbr.blocking_findings(findings)
+        )
+        is expired
     )
 
 
+@pytest.mark.parametrize("flags", [[], ["--strict"]])
 @pytest.mark.parametrize("expires_at", ["2026-09-13T00:00:00Z", "2026-09-14T00:00:00Z"])
 def test_cli_expired_deferral_remains_blocking(
-    tmp_path: Path, capsys: pytest.CaptureFixture[str], expires_at: str
+    tmp_path: Path, capsys: pytest.CaptureFixture[str], expires_at: str, flags: list[str]
 ) -> None:
     registry = _registry()
     registry["participants"][1]["issue_deferred"]["expires_at"] = expires_at
     registry_path = tmp_path / "registry.json"
     registry_path.write_text(json.dumps(registry), encoding="utf-8")
 
-    assert vbr.main(["--json", str(registry_path)]) == 1
+    assert vbr.main([*flags, "--json", str(registry_path)]) == 1
 
     report = json.loads(capsys.readouterr().out)
     assert report["blocking_count"] == 1

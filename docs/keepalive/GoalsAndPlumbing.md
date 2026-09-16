@@ -317,8 +317,34 @@ sweep ran past them, because a debounced PR is indistinguishable from a healthy 
 Productivity is the caller's verdict, passed as `--produced-work`. The keepalive workflows
 compute it by comparing the PR head after the run against the SHA the dispatch was reserved
 for. **Unmeasured is not the same as unproductive**: a caller that does not pass the flag (and
-a lookup that fails) keeps the original terminal-completion behaviour, so autofix's use of the
-same library is unaffected.
+a lookup that fails) keeps the original terminal-completion behaviour unless this is already
+a same-head unproductive retry. That retry carries its false marker and bounded counter across
+an unmeasured completion; an explicit productive result or a new head clears the streak.
+
+GitHub Actions reservations also bind the repository, run ID and run attempt. Completion must
+match that binding and head key before writing state; an explicitly productive result from
+the owning attempt may report its new head. A late completion from an older run or
+rerun attempt returns `recorded=false`, `reason=stale-attempt` without overwriting the newer
+reservation. Rerun from the reservation step, not a completion-only job; an unmatched pending
+reservation remains recoverable through the existing stale-pending timeout. Existing callers
+without GitHub attempt identity retain legacy behavior. This is a workflow-attempt fence,
+not an atomic compare-and-swap guarantee from the backing storage.
+
+With `--storage auto`, completion reads and writes only the primary PR-comment
+reservation, never an empty or stale repository-variable fallback. A missing primary
+reservation returns `recorded=false`, `reason=authoritative-reservation-missing`;
+a primary read/write failure returns `reason=authoritative-storage-unavailable`.
+These checks apply even when the completing job has no workflow identity. Dispatch
+may still use fallback storage during an outage, but its completion cannot be committed
+until a primary reservation is established. Recover by rerunning from the reservation
+step after primary storage is healthy; a pending primary reservation retains its
+stale-pending timeout. A failed write response can be ambiguous, so retries re-read
+primary state and preserve same-attempt idempotency. Explicit single-store callers
+retain their existing behavior.
+
+Authoritative storage failures also emit a warning on stderr identifying the read/write
+operation, exception and cause types, and HTTP status when available. Raw exception text,
+URLs and response bodies are omitted so diagnostic logging does not expose credentials.
 
 **Why the allowance expires into a cooldown rather than a refusal.** Refusing until the head
 changes would put the original latch back one step further out. A cooldown is cleared by time
