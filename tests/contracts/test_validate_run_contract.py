@@ -568,3 +568,39 @@ def test_registry_shape_meta() -> None:
     ):
         assert repo in excluded
         assert excluded[repo]["reason"].strip()
+
+
+def test_self_smoke_loads_every_bundled_schema(capsys) -> None:
+    """Self-smoke must discover schemas, not name a hardcoded subset.
+
+    A hardcoded triple silently skipped tracked-variable-v1 and
+    capability-bundle-v1, so a malformed schema added to the directory would
+    have passed the gate.
+    """
+    mod = _import_validator()
+    rc = mod._self_smoke(SCHEMA_DIR, REGISTRY)
+    assert rc == 0
+    out = capsys.readouterr().out
+    on_disk = sorted(path.name for path in SCHEMA_DIR.glob("*.schema.json"))
+    assert on_disk, "no schemas on disk; fixture assumption broken"
+    for name in on_disk:
+        assert f"PASS schema loads + valid Draft202012: {name}" in out, name
+
+
+def test_self_smoke_fails_on_an_empty_schema_dir(tmp_path, capsys) -> None:
+    """An empty schema dir must fail loudly, not report a vacuous pass."""
+    mod = _import_validator()
+    empty = tmp_path / "schemas"
+    empty.mkdir()
+    rc = mod._self_smoke(empty, REGISTRY)
+    assert rc == 1
+    assert "no *.schema.json files found" in capsys.readouterr().out
+
+
+def test_capability_bundle_is_a_schema_validated_ingest_token() -> None:
+    """capability-bundle/v1 has a schema on disk, so it must be mapped."""
+    mod = _import_validator()
+    assert mod.INGEST_SCHEMA_FILES["capability-bundle/v1"] == "capability-bundle-v1.schema.json"
+    assert (SCHEMA_DIR / "capability-bundle-v1.schema.json").is_file()
+    for token, filename in mod.INGEST_SCHEMA_FILES.items():
+        assert (SCHEMA_DIR / filename).is_file(), token
