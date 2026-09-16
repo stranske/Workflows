@@ -117,6 +117,21 @@ def _explicit_marker(section: str) -> DeliberateBreakSpec | None:
         break_file = values.get("break-file") or values.get("revert-file")
         command_text = values.get("command")
         if not test_id or not test_file or not break_file:
+            # Checklist prose like "Deliberate-break: revert the X branch" matches
+            # MARKER_RE but is not a key=value marker; skip and keep searching.
+            if not any(
+                key in values
+                for key in (
+                    "test",
+                    "test-id",
+                    "test-file",
+                    "file",
+                    "break-file",
+                    "revert-file",
+                    "command",
+                )
+            ):
+                continue
             raise ValueError("deliberate-break marker requires test, test-file, and break-file")
         command = tuple(shlex.split(command_text)) if command_text else _pytest_command(test_id)
         return DeliberateBreakSpec(test_id, test_file, break_file, command)

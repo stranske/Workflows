@@ -105,6 +105,23 @@ def test_no_marker_returns_none() -> None:
     assert parse_deliberate_break_spec("## Acceptance Criteria\n- [ ] normal check") is None
 
 
+def test_prose_deliberate_break_colon_is_not_incomplete_marker() -> None:
+    """Checklist prose with 'Deliberate-break:' must not raise or false-match."""
+    assert (
+        parse_deliberate_break_spec(
+            "## Test plan\n"
+            "- [x] Deliberate-break: revert the `[403, 404]` branch → "
+            "tests/assertions fail → restore\n"
+        )
+        is None
+    )
+
+
+def test_incomplete_key_value_marker_still_raises() -> None:
+    with pytest.raises(ValueError, match="requires test, test-file, and break-file"):
+        parse_deliberate_break_spec("<!-- deliberate-break: test=tests/test_app.py::test_value -->")
+
+
 def test_issue_acceptance_wording_is_supported() -> None:
     spec = parse_deliberate_break_spec(
         "## Acceptance Criteria\n\n"

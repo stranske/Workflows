@@ -2228,6 +2228,7 @@ jobs:
               source_run_id: String(context.payload.workflow_run?.id || ''),
             };
             clientPayload.active_sync_hash = activeSyncHash;
+            const SKIPPED_UNAUTHORIZED = 'skipped-unauthorized';
             const withRetry = async (operation) => {
               let lastError;
               for (let attempt = 0; attempt < 3; attempt += 1) {
@@ -2235,7 +2236,20 @@ jobs:
                   return await operation();
                 } catch (error) {
                   lastError = error;
-                  if (![429, 500, 502, 503, 504].includes(Number(error?.status))) throw error;
+                  const status = Number(error?.status);
+                  // Best-effort wakeup: an unauthorized cross-repo dispatch must not fail Gate
+                  // Followups. Maint 71 is woken by workflow_dispatch anyway (#3364).
+                  if ([403, 404].includes(status)) {
+                    core.warning(
+                      `Generated-delivery wakeup skipped: repository_dispatch to stranske/Workflows ` +
+                        `returned ${status} (token: WRITE_TOKEN fallback chain). ` +
+                        `Error: ${error?.message || error}`,
+                    );
+                    return SKIPPED_UNAUTHORIZED;
+                  }
+                  // Do not broaden the swallow: only 403/404 are treated as best-effort.
+                  // Transient 429/5xx retry; any other status fails immediately.
+                  if (![429, 500, 502, 503, 504].includes(status)) throw error;
                   await new Promise((resolve) => setTimeout(resolve, 1000 * (attempt + 1)));
                 }
               }
@@ -2244,13 +2258,15 @@ jobs:
               );
               throw lastError;
             };
-            await withRetry(() => github.rest.repos.createDispatchEvent({
+            const outcome = await withRetry(() => github.rest.repos.createDispatchEvent({
               owner: 'stranske',
               repo: 'Workflows',
               event_type: 'merge-sync-prs',
               client_payload: clientPayload,
             }));
-            core.notice(`Woke Maint 71 lane ${activeSyncHash} from ${branch}`);
+            if (outcome !== SKIPPED_UNAUTHORIZED) {
+              core.notice(`Woke Maint 71 lane ${activeSyncHash} from ${branch}`);
+            }
 
   guarded-merge:
     name: Merge automerge-labelled agent PRs
