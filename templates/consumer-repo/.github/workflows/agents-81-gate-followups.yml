@@ -2235,7 +2235,18 @@ jobs:
                   return await operation();
                 } catch (error) {
                   lastError = error;
-                  if (![429, 500, 502, 503, 504].includes(Number(error?.status))) throw error;
+                  const status = Number(error?.status);
+                  // Best-effort wakeup: an unauthorized cross-repo dispatch must not fail Gate
+                  // Followups. Maint 71 is waked by workflow_dispatch anyway (#3364).
+                  if ([403, 404].includes(status)) {
+                    core.warning(
+                      `Generated-delivery wakeup skipped: repository_dispatch to stranske/Workflows ` +
+                        `returned ${status} (token: WRITE_TOKEN fallback chain). ` +
+                        `Error: ${error?.message || error}`,
+                    );
+                    return;
+                  }
+                  if (![429, 500, 502, 503, 504].includes(status)) throw error;
                   await new Promise((resolve) => setTimeout(resolve, 1000 * (attempt + 1)));
                 }
               }
