@@ -774,21 +774,29 @@ def _run_with_runtime_deps(
         raise CommandUnavailableError(exc) from exc
 
 
+_MISSING_MODULE_RE = re.compile(r"ModuleNotFoundError: No module named ['\"]([^'\"]+)['\"]")
+# A ModuleNotFoundError only means "the test never ran" when pytest raised it while COLLECTING.
+# The same exception from inside a test body is an ordinary failure of a test that did run, and
+# reporting that as not-importable would hide a real acceptance failure behind an environment
+# excuse. Require pytest's own collection diagnostics as corroboration.
+_COLLECTION_ERROR_RE = re.compile(
+    r"ImportError while importing test module|ERROR collecting|errors during collection",
+    re.IGNORECASE,
+)
+
+
 def _missing_module_from_pytest_output(*streams: str | None) -> str | None:
-    """Return the module name pytest could not import, or None if that is not the failure.
+    """Return the module missing at COLLECTION time, or None if that is not the failure.
 
     Collection-time ImportErrors surface inside pytest's captured output rather than as an
     exception this script can catch, which is why they previously landed in the generic
     head-test-failed branch.
     """
-    pattern = re.compile(r"ModuleNotFoundError: No module named ['\"]([^'\"]+)['\"]")
-    for stream in streams:
-        if not stream:
-            continue
-        match = pattern.search(stream)
-        if match:
-            return match.group(1)
-    return None
+    joined = "\n".join(stream for stream in streams if stream)
+    if not joined or not _COLLECTION_ERROR_RE.search(joined):
+        return None
+    match = _MISSING_MODULE_RE.search(joined)
+    return match.group(1) if match else None
 
 
 def _runtime_dependency_error_result(error: Exception) -> dict[str, object]:
