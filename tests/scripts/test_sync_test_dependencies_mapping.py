@@ -59,8 +59,7 @@ def test_python_docx_import_is_not_reported_as_undeclared(tmp_path, monkeypatch)
     missing = {
         name
         for name in imports
-        if module._normalise_package_name(module.MODULE_TO_PACKAGE.get(name, name))
-        not in declared
+        if module._normalise_package_name(module.MODULE_TO_PACKAGE.get(name, name)) not in declared
     }
     assert missing == set()
 
