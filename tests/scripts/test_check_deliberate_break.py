@@ -1996,3 +1996,122 @@ def test_the_result_is_printed_as_parseable_json(tmp_path, monkeypatch, capsys):
     deliberate_break.main([])
     printed = capsys.readouterr().out.strip().splitlines()[-1]
     assert json.loads(printed)["verdict"] == VERDICT_BROKEN
+
+
+def test_missing_module_is_reported_as_an_environment_defect() -> None:
+    """A test that could not be imported never ran, so it cannot have failed a demonstration.
+
+    Reporting both under `head-test-failed` is one sentinel meaning two things: it sent
+    Deliverable-Render #20 through five autofix attempts against its own correctly declared
+    dependency, because the message pointed at the PR instead of at the gate's environment.
+    """
+    pytest_output = (
+        "ImportError while importing test module 'tests/docx/test_memo.py'.\n"
+        "E   ModuleNotFoundError: No module named 'docx'\n"
+        "=========================== short test summary ============================\n"
+    )
+
+    assert deliberate_break._missing_module_from_pytest_output(pytest_output, None) == "docx"
+
+
+def test_a_genuine_assertion_failure_is_not_reclassified() -> None:
+    """The environment branch must not swallow a real failed demonstration."""
+    pytest_output = "E   assert 1 == 2\n1 failed in 0.02s\n"
+
+    assert deliberate_break._missing_module_from_pytest_output(pytest_output, "") is None
+
+
+def test_missing_module_is_found_on_either_stream() -> None:
+    """Collection evidence and the module name may arrive on different streams."""
+    assert (
+        deliberate_break._missing_module_from_pytest_output(
+            "ERROR collecting tests/test_app.py",
+            "ModuleNotFoundError: No module named 'lxml'",
+        )
+        == "lxml"
+    )
+
+
+def _import_error_run(stdout: str) -> subprocess.CompletedProcess[str]:
+    return subprocess.CompletedProcess(args=["pytest"], returncode=1, stdout=stdout, stderr="")
+
+
+def test_verify_spec_reports_a_collection_import_failure_as_an_environment_defect(
+    tmp_path, monkeypatch
+) -> None:
+    """Drive the real call site, not just the helper.
+
+    Review was right that asserting on `_missing_module_from_pytest_output` alone leaves the
+    wiring untested: a regression in the branch or in the stream ordering would keep the unit
+    tests green while the gate carried on emitting `head-test-failed`.
+    """
+    repo = tmp_path / "repo"
+    repo.mkdir()
+    _init_repo(repo)
+    _write_app(repo, 0)
+    _write_test(repo, 0)
+    base = _commit(repo, "base test")
+    monkeypatch.chdir(repo)
+    spec = parse_deliberate_break_spec(
+        "<!-- deliberate-break: "
+        "test=tests/test_app.py::test_value "
+        "test-file=tests/test_app.py "
+        "break-file=app.py -->"
+    )
+    assert spec is not None
+    monkeypatch.setattr(
+        deliberate_break,
+        "_run_with_runtime_deps",
+        lambda *_a, **_k: _import_error_run(
+            "ImportError while importing test module 'tests/test_app.py'.\n"
+            "E   ModuleNotFoundError: No module named 'docx'\n"
+        ),
+    )
+
+    result = verify_spec(spec, base=base, enforce_tamper=False)
+
+    assert result["verdict"] == VERDICT_BROKEN
+    assert result["reason"] == "head-test-not-importable"
+    assert result["missing_module"] == "docx"
+    assert "never ran" in str(result["detail"])
+
+
+def test_verify_spec_keeps_head_test_failed_for_a_real_failure(tmp_path, monkeypatch) -> None:
+    """A test that ran and failed must not be excused as an environment defect."""
+    repo = tmp_path / "repo"
+    repo.mkdir()
+    _init_repo(repo)
+    _write_app(repo, 0)
+    _write_test(repo, 0)
+    base = _commit(repo, "base test")
+    monkeypatch.chdir(repo)
+    spec = parse_deliberate_break_spec(
+        "<!-- deliberate-break: "
+        "test=tests/test_app.py::test_value "
+        "test-file=tests/test_app.py "
+        "break-file=app.py -->"
+    )
+    assert spec is not None
+    monkeypatch.setattr(
+        deliberate_break,
+        "_run_with_runtime_deps",
+        lambda *_a, **_k: _import_error_run("E   assert 1 == 2\n1 failed in 0.01s\n"),
+    )
+
+    result = verify_spec(spec, base=base, enforce_tamper=False)
+
+    assert result["reason"] == "head-test-failed"
+
+
+def test_a_missing_module_raised_inside_a_test_body_is_a_real_failure() -> None:
+    """Without collection evidence this is an ordinary failure of a test that DID run.
+
+    Excusing it would hide a genuine acceptance failure behind an environment explanation.
+    """
+    in_test_body = (
+        "tests/test_app.py::test_value FAILED\n"
+        "E   ModuleNotFoundError: No module named 'docx'\n"
+        "1 failed in 0.10s\n"
+    )
+
+    assert deliberate_break._missing_module_from_pytest_output(in_test_body, None) is None

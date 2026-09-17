@@ -774,6 +774,31 @@ def _run_with_runtime_deps(
         raise CommandUnavailableError(exc) from exc
 
 
+_MISSING_MODULE_RE = re.compile(r"ModuleNotFoundError: No module named ['\"]([^'\"]+)['\"]")
+# A ModuleNotFoundError only means "the test never ran" when pytest raised it while COLLECTING.
+# The same exception from inside a test body is an ordinary failure of a test that did run, and
+# reporting that as not-importable would hide a real acceptance failure behind an environment
+# excuse. Require pytest's own collection diagnostics as corroboration.
+_COLLECTION_ERROR_RE = re.compile(
+    r"ImportError while importing test module|ERROR collecting|errors during collection",
+    re.IGNORECASE,
+)
+
+
+def _missing_module_from_pytest_output(*streams: str | None) -> str | None:
+    """Return the module missing at COLLECTION time, or None if that is not the failure.
+
+    Collection-time ImportErrors surface inside pytest's captured output rather than as an
+    exception this script can catch, which is why they previously landed in the generic
+    head-test-failed branch.
+    """
+    joined = "\n".join(stream for stream in streams if stream)
+    if not joined or not _COLLECTION_ERROR_RE.search(joined):
+        return None
+    match = _MISSING_MODULE_RE.search(joined)
+    return match.group(1) if match else None
+
+
 def _runtime_dependency_error_result(error: Exception) -> dict[str, object]:
     """Map dependency-repair failures consistently for head and base runs."""
     if isinstance(error, subprocess.TimeoutExpired):
@@ -942,6 +967,27 @@ def verify_spec(
         )
 
     if head_run.returncode != 0:
+        # "The test could not be collected" and "the test ran and failed" are different facts,
+        # and reporting them under one reason made the gate unactionable: Deliverable-Render #20
+        # spent five autofix attempts on a missing runtime dependency while its own declaration
+        # was correct, because `head-test-failed` reads as an acceptance failure. Name the
+        # environment case so the next reader fixes the environment, not the PR.
+        missing = _missing_module_from_pytest_output(head_run.stdout, head_run.stderr)
+        if missing is not None:
+            return _json_result(
+                VERDICT_BROKEN,
+                reason="head-test-not-importable",
+                test_id=spec.test_id,
+                command=list(spec.command),
+                missing_module=missing,
+                detail=(
+                    f"The named test could not be imported: no module named {missing!r}. "
+                    "This is an environment defect, not a failed deliberate break -- the test "
+                    "never ran. Install the project and its dependencies before this check."
+                ),
+                stdout=head_run.stdout,
+                stderr=head_run.stderr,
+            )
         return _json_result(
             VERDICT_BROKEN,
             reason="head-test-failed",
