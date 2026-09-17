@@ -1996,3 +1996,35 @@ def test_the_result_is_printed_as_parseable_json(tmp_path, monkeypatch, capsys):
     deliberate_break.main([])
     printed = capsys.readouterr().out.strip().splitlines()[-1]
     assert json.loads(printed)["verdict"] == VERDICT_BROKEN
+
+
+def test_missing_module_is_reported_as_an_environment_defect() -> None:
+    """A test that could not be imported never ran, so it cannot have failed a demonstration.
+
+    Reporting both under `head-test-failed` is one sentinel meaning two things: it sent
+    Deliverable-Render #20 through five autofix attempts against its own correctly declared
+    dependency, because the message pointed at the PR instead of at the gate's environment.
+    """
+    pytest_output = (
+        "ImportError while importing test module 'tests/docx/test_memo.py'.\n"
+        "E   ModuleNotFoundError: No module named 'docx'\n"
+        "=========================== short test summary ============================\n"
+    )
+
+    assert deliberate_break._missing_module_from_pytest_output(pytest_output, None) == "docx"
+
+
+def test_a_genuine_assertion_failure_is_not_reclassified() -> None:
+    """The environment branch must not swallow a real failed demonstration."""
+    pytest_output = "E   assert 1 == 2\n1 failed in 0.02s\n"
+
+    assert deliberate_break._missing_module_from_pytest_output(pytest_output, "") is None
+
+
+def test_missing_module_is_found_on_either_stream() -> None:
+    assert (
+        deliberate_break._missing_module_from_pytest_output(
+            None, "ModuleNotFoundError: No module named 'lxml'"
+        )
+        == "lxml"
+    )
