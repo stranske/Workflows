@@ -214,6 +214,7 @@ def _load_consumer_deliberate_break_helpers() -> dict[str, object]:
     exec(consumer_source[infer_start:infer_end], namespace, namespace)
     return namespace
 
+
 def test_consumer_template_fallback_test_name_matches_main_parser() -> None:
     consumer_extract = _load_consumer_deliberate_break_helpers()["_extract_fallback_test_name"]
 
