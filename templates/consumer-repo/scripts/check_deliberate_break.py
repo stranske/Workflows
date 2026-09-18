@@ -157,7 +157,7 @@ def _extract_fallback_test_name(named_line: str) -> str | None:
     if unquoted:
         name = unquoted.group(1)
         tail = named_line[unquoted.end() :]
-        if not tail or tail[0] not in "_A-Za-z0-9":
+        if not tail or not (tail[0].isalnum() or tail[0] == "_"):
             return name
     return None
 

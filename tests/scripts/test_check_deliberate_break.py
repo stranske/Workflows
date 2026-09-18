@@ -187,6 +187,18 @@ def test_fallback_test_name_parser_rejects_near_misses_and_accepts_valid_tokens(
     )
 
 
+def test_unquoted_fallback_test_name_treats_hyphen_as_boundary() -> None:
+    """A literal '_A-Za-z0-9' membership check misread '-' as identifier continuation."""
+    assert (
+        _extract_fallback_test_name("Named test: run `tests/test_app.py` with test_widget-extra.")
+        == "test_widget"
+    )
+    assert (
+        _extract_fallback_test_name("Named test: run `tests/test_app.py` with test_widget7.")
+        == "test_widget7"
+    )
+
+
 def test_consumer_template_fallback_test_name_matches_main_parser() -> None:
     consumer_path = (
         Path(__file__).resolve().parents[2]
