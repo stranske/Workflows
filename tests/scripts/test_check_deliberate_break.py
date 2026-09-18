@@ -199,26 +199,57 @@ def test_unquoted_fallback_test_name_treats_hyphen_as_boundary() -> None:
     )
 
 
-def test_consumer_template_fallback_test_name_matches_main_parser() -> None:
+def _load_consumer_deliberate_break_helpers() -> dict[str, object]:
     consumer_path = (
         Path(__file__).resolve().parents[2]
         / "templates/consumer-repo/scripts/check_deliberate_break.py"
     )
     consumer_source = consumer_path.read_text(encoding="utf-8")
-    start = consumer_source.index("def _extract_fallback_test_name")
-    end = consumer_source.index("\ndef _fallback_marker", start)
-    namespace: dict[str, object] = {}
-    exec(consumer_source[start:end], {"re": __import__("re")}, namespace)
-    consumer_extract = namespace["_extract_fallback_test_name"]
+    namespace: dict[str, object] = {"re": __import__("re")}
+    extract_start = consumer_source.index("def _extract_fallback_test_name")
+    extract_end = consumer_source.index("\ndef _fallback_marker", extract_start)
+    exec(consumer_source[extract_start:extract_end], namespace, namespace)
+    infer_start = consumer_source.index("def _infer_break_file")
+    infer_end = consumer_source.index("\ndef parse_deliberate_break_spec", infer_start)
+    exec(consumer_source[infer_start:infer_end], namespace, namespace)
+    return namespace
 
-    samples = (
+def test_consumer_template_fallback_test_name_matches_main_parser() -> None:
+    consumer_extract = _load_consumer_deliberate_break_helpers()["_extract_fallback_test_name"]
+
+    for sample in (
         "Named test: `tests/test_app.py` with test_widget.",
         "Named test: run `tests/test_app.py` with test_widget-extra.",
         "Named test: run `tests/test_app.py` with test_widget7.",
         "Named test: `tests/test_app.py` with `test_widget`.",
-    )
-    for sample in samples:
+    ):
         assert consumer_extract(sample) == _extract_fallback_test_name(sample)
+
+
+def test_consumer_template_infer_break_file_prefers_workflow_path() -> None:
+    consumer_infer = _load_consumer_deliberate_break_helpers()["_infer_break_file"]
+
+    assert (
+        consumer_infer(
+            break_line="- [ ] Deliberate break: temporarily break the named test.",
+            named_line="- [ ] Named test: add `tests/test_widget.py` with `test_widget`.",
+            markdown="## Scope\n- [ ] Update `.github/workflows/ci.yml`.\n",
+        )
+        == ".github/workflows/ci.yml"
+    )
+
+    assert (
+        consumer_infer(
+            break_line="- [ ] Deliberate break: prove the named test fails.",
+            named_line="- [ ] Named test: add `tests/test_widget.py` with `test_widget`.",
+            markdown=(
+                "## Scope\n"
+                "- [ ] Touch `config/app.yaml`.\n"
+                "- [ ] Update `.github/workflows/reusable-ci.yml`.\n"
+            ),
+        )
+        == ".github/workflows/reusable-ci.yml"
+    )
 
 
 def test_explicit_marker_outside_acceptance_section_is_honored() -> None:
