@@ -227,9 +227,14 @@ def _infer_break_file(break_line: str, named_line: str, markdown: str) -> str | 
         ordered_paths.extend(_candidate_paths(text))
 
     workflow_paths = [
-        path for path in ordered_paths if path.endswith((".yml", ".yaml")) and "/workflows/" in path
+        path
+        for path in ordered_paths
+        if ".github/workflows/" in path or path.endswith((".yml", ".yaml"))
     ]
-    return (workflow_paths or ordered_paths or [None])[0]
+    if workflow_paths:
+        return workflow_paths[0]
+
+    return ordered_paths[0] if ordered_paths else None
 
 
 def parse_deliberate_break_spec(markdown: str) -> DeliberateBreakSpec | None:

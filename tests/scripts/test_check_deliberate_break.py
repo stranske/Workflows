@@ -211,8 +211,14 @@ def test_consumer_template_fallback_test_name_matches_main_parser() -> None:
     exec(consumer_source[start:end], {"re": __import__("re")}, namespace)
     consumer_extract = namespace["_extract_fallback_test_name"]
 
-    sample = "Named test: `tests/test_app.py` with test_widget."
-    assert consumer_extract(sample) == _extract_fallback_test_name(sample)
+    samples = (
+        "Named test: `tests/test_app.py` with test_widget.",
+        "Named test: run `tests/test_app.py` with test_widget-extra.",
+        "Named test: run `tests/test_app.py` with test_widget7.",
+        "Named test: `tests/test_app.py` with `test_widget`.",
+    )
+    for sample in samples:
+        assert consumer_extract(sample) == _extract_fallback_test_name(sample)
 
 
 def test_explicit_marker_outside_acceptance_section_is_honored() -> None:
