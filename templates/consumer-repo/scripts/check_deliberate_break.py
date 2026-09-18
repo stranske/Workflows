@@ -157,7 +157,7 @@ def _extract_fallback_test_name(named_line: str) -> str | None:
     if unquoted:
         name = unquoted.group(1)
         tail = named_line[unquoted.end() :]
-        if not tail or tail[0] not in "_A-Za-z0-9":
+        if not tail or not (tail[0].isalnum() or tail[0] == "_"):
             return name
     return None
 
@@ -226,10 +226,15 @@ def _infer_break_file(break_line: str, named_line: str, markdown: str) -> str | 
     for text in (named_line, markdown):
         ordered_paths.extend(_candidate_paths(text))
 
-    workflow_paths = [
-        path for path in ordered_paths if path.endswith((".yml", ".yaml")) and "/workflows/" in path
-    ]
-    return (workflow_paths or ordered_paths or [None])[0]
+    github_workflow_paths = [path for path in ordered_paths if ".github/workflows/" in path]
+    if github_workflow_paths:
+        return github_workflow_paths[0]
+
+    yaml_paths = [path for path in ordered_paths if path.endswith((".yml", ".yaml"))]
+    if yaml_paths:
+        return yaml_paths[0]
+
+    return ordered_paths[0] if ordered_paths else None
 
 
 def parse_deliberate_break_spec(markdown: str) -> DeliberateBreakSpec | None:
