@@ -226,13 +226,13 @@ def _infer_break_file(break_line: str, named_line: str, markdown: str) -> str | 
     for text in (named_line, markdown):
         ordered_paths.extend(_candidate_paths(text))
 
-    workflow_paths = [
-        path
-        for path in ordered_paths
-        if ".github/workflows/" in path or path.endswith((".yml", ".yaml"))
-    ]
-    if workflow_paths:
-        return workflow_paths[0]
+    github_workflow_paths = [path for path in ordered_paths if ".github/workflows/" in path]
+    if github_workflow_paths:
+        return github_workflow_paths[0]
+
+    yaml_paths = [path for path in ordered_paths if path.endswith((".yml", ".yaml"))]
+    if yaml_paths:
+        return yaml_paths[0]
 
     return ordered_paths[0] if ordered_paths else None
 
