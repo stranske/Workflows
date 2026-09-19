@@ -1,0 +1,15 @@
+{
+  "schema_version": "mosaic-core/v1",
+  "record_type": "discrepancy",
+  "discrepancy_id": "discrepancy:synthetic_fee",
+  "fact_key": "legal.management_fee.rate",
+  "entity_ref": "fund:synthetic_alpha",
+  "period": "as_of:2026-09-01",
+  "fact_ids": [
+    "fact:synthetic_fee_100",
+    "fact:synthetic_fee_125"
+  ],
+  "discrepancy_kind": "numeric_delta",
+  "severity": "high",
+  "status": "open"
+}

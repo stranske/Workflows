@@ -379,3 +379,157 @@ test('stalled agent never re-chosen', () => {
   assert.equal(result.delegationSource, 'route_weights');
   assert.ok(result.reason.includes('delegation_source: route_weights'));
 });
+
+test('decideNextAgent always returns delegationSource on static return paths', () => {
+  const explicit = decideNextAgent({
+    state: {},
+    labels: ['agent:claude'],
+    secrets: mockSecrets,
+    registry: mockRegistry,
+  });
+  assert.equal(explicit.reason, 'explicit-label');
+  assert.equal(explicit.delegationSource, 'static');
+
+  // No agent:auto and no explicit agent label → default branch.
+  const defaultPath = decideNextAgent({
+    state: {},
+    labels: [],
+    secrets: mockSecrets,
+    registry: mockRegistry,
+  });
+  assert.equal(defaultPath.reason, 'default');
+  assert.equal(defaultPath.agent, 'codex');
+  assert.equal(defaultPath.delegationSource, 'static');
+
+  const noAgents = decideNextAgent({
+    state: {},
+    labels: ['agent:auto'],
+    secrets: {},
+    registry: mockRegistry,
+  });
+  assert.equal(noAgents.reason, 'no-agents-available');
+  assert.equal(noAgents.delegationSource, 'static');
+
+  const initial = decideNextAgent({
+    state: { iteration: 1 },
+    labels: ['agent:auto'],
+    secrets: mockSecrets,
+    registry: mockRegistry,
+  });
+  assert.equal(initial.reason, 'initial-selection');
+  assert.equal(initial.delegationSource, 'static');
+
+  const unavailable = decideNextAgent({
+    state: {
+      current_agent: 'claude',
+      iteration: 18,
+      last_switch_iteration: 17,
+      effectiveness_history: [{ iteration: 18, commits: 1, tasks: 1, gate: 'pass' }],
+    },
+    labels: ['agent:auto'],
+    secrets: mockSecrets,
+    registry: mockRegistry,
+    runnableAgents: ['codex'],
+  });
+  assert.equal(unavailable.reason, 'claude-unavailable');
+  assert.equal(unavailable.delegationSource, 'static');
+
+  const effective = decideNextAgent({
+    state: {
+      current_agent: 'codex',
+      iteration: 18,
+      last_switch_iteration: 10,
+      effectiveness_history: [
+        { iteration: 16, commits: 1, tasks: 0, gate: 'fail' },
+        { iteration: 17, commits: 0, tasks: 1, gate: 'pending' },
+        { iteration: 18, commits: 1, tasks: 0, gate: 'pending' },
+      ],
+    },
+    labels: ['agent:auto'],
+    secrets: mockSecrets,
+    registry: mockRegistry,
+  });
+  assert.ok(effective.reason.includes('effective'));
+  assert.equal(effective.delegationSource, 'static');
+
+  const cooldown = decideNextAgent({
+    state: {
+      current_agent: 'codex',
+      iteration: 13,
+      last_switch_iteration: 10,
+      effectiveness_history: [
+        { iteration: 11, commits: 0, tasks: 0, gate: 'fail' },
+        { iteration: 12, commits: 0, tasks: 0, gate: 'fail' },
+        { iteration: 13, commits: 0, tasks: 0, gate: 'fail' },
+      ],
+    },
+    labels: ['agent:auto'],
+    secrets: mockSecrets,
+    registry: mockRegistry,
+  });
+  assert.ok(cooldown.reason.includes('cooldown'));
+  assert.equal(cooldown.delegationSource, 'static');
+
+  // Ineffective but not stalled (single failing round) → continue-current.
+  const continueCurrent = decideNextAgent({
+    state: {
+      current_agent: 'codex',
+      iteration: 20,
+      last_switch_iteration: 10,
+      effectiveness_history: [{ iteration: 20, commits: 0, tasks: 0, gate: 'fail' }],
+    },
+    labels: ['agent:auto'],
+    secrets: mockSecrets,
+    registry: mockRegistry,
+  });
+  assert.equal(continueCurrent.reason, 'continue-current');
+  assert.equal(continueCurrent.delegationSource, 'static');
+});
+
+test('stalled-no-alternatives preserves computed delegationSource', () => {
+  const soloRegistry = {
+    default_agent: 'codex',
+    agents: {
+      codex: mockRegistry.agents.codex,
+    },
+  };
+  const soloSecrets = { CODEX_AUTH_JSON: true };
+
+  const staticFallback = decideNextAgent({
+    state: stalledStateCodex,
+    labels: ['agent:auto'],
+    secrets: soloSecrets,
+    registry: soloRegistry,
+    routeWeights: null,
+  });
+  assert.equal(staticFallback.reason, 'stalled-no-alternatives (delegation_source: static (route-weights-unavailable))');
+  assert.equal(staticFallback.delegationSource, 'static');
+  assert.equal(staticFallback.shouldSwitch, false);
+  assert.equal(staticFallback.agent, 'codex');
+
+  // Evidence-bearing export with no eligible alternate still preserves the
+  // computed static source (not a hardcoded literal bypass of the weighted result).
+  const evidenceNoAlternate = decideNextAgent({
+    state: stalledStateCodex,
+    labels: ['agent:auto'],
+    secrets: soloSecrets,
+    registry: soloRegistry,
+    routeWeights: {
+      schema: 'orchestrator.route-weights/v1',
+      generated_at: now,
+      task_types: {
+        implement: {
+          evidence_ok: true,
+          ranking: [{ agent: 'codex', posterior: 0.9, n_obs: 100 }],
+        },
+      },
+    },
+  });
+  assert.equal(
+    evidenceNoAlternate.reason,
+    'stalled-no-alternatives (delegation_source: static (route-weights-no-eligible-agent))'
+  );
+  assert.equal(evidenceNoAlternate.delegationSource, 'static');
+  assert.equal(evidenceNoAlternate.shouldSwitch, false);
+  assert.equal(evidenceNoAlternate.agent, 'codex');
+});

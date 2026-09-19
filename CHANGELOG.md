@@ -6,6 +6,17 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 Breaking changes are called out with a **BREAKING** marker and scheduled according to the policy in `COMPATIBILITY.md`.
 
+## [1.32.6](https://github.com/stranske/Workflows/compare/v1.32.5...v1.32.6) (2026-09-14)
+
+
+### Bug Fixes
+
+* **catalog:** discover GitHub models from every publisher ([#3432](https://github.com/stranske/Workflows/issues/3432)) ([5740e81](https://github.com/stranske/Workflows/commit/5740e81cabc3fe436cd6da476a567ba0b0e88f71))
+* **codex:** repair the Linux sandbox so keepalive runs can execute commands ([#3439](https://github.com/stranske/Workflows/issues/3439)) ([2b2bfd6](https://github.com/stranske/Workflows/commit/2b2bfd6754c608ca2d6b23169f77671990e97e5b))
+* **deps:** align canonical Ruff pins at 0.16.7 ([#3426](https://github.com/stranske/Workflows/issues/3426)) ([569875f](https://github.com/stranske/Workflows/commit/569875fea7d2956d35c45ff83766b65e47bfb23a))
+* **keepalive:** expire the unproductive retry allowance into a cooldown, not a latch ([#3440](https://github.com/stranske/Workflows/issues/3440)) ([a5908e2](https://github.com/stranske/Workflows/commit/a5908e2624eefd374d7582bbd600186a51ab54fe))
+* **keepalive:** stop the dispatch debounce latching on a zero-output run ([#3436](https://github.com/stranske/Workflows/issues/3436)) ([f65449d](https://github.com/stranske/Workflows/commit/f65449d1d1b0074bb169792f30680fd47073762c))
+
 ## [1.32.5](https://github.com/stranske/Workflows/compare/v1.32.4...v1.32.5) (2026-09-12)
 
 

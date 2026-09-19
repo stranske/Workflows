@@ -1,15 +1,18 @@
 from __future__ import annotations
 
+import datetime
 import json
 import os
 import subprocess
 import types
 from pathlib import Path
 from typing import Any
+from urllib.error import HTTPError, URLError
 
 import pytest
 import scripts.runner_lib.core as runner_core
 from scripts.runner_lib import (
+    UNPRODUCTIVE_COMPLETION_COOLDOWN_SECONDS,
     UNPRODUCTIVE_COMPLETION_RETRY_LIMIT,
     CapabilityEffectEvidence,
     RunnerResult,
@@ -969,6 +972,332 @@ def test_materialize_reference_packs_does_not_put_token_in_git_command(
     assert Path(clone_env["GIT_ASKPASS"]).exists() is False
 
 
+@pytest.mark.parametrize(
+    ("prior", "expected"),
+    [
+        (None, False),
+        ({}, False),
+        ({"productive": None}, False),
+        ({"productive": True}, False),
+        ({"productive": False}, True),
+        ({"productive": 0}, False),
+        ({"productive": "false"}, False),
+    ],
+)
+def test_completion_productivity_requires_explicit_false(
+    prior: dict[str, Any] | None, expected: bool
+) -> None:
+    assert runner_core._completion_was_unproductive(prior) is expected
+
+
+@pytest.mark.parametrize(
+    "new_run,new_attempt,new_head", [("200", "1", "aaa"), ("100", "2", "aaa"), ("200", "1", "bbb")]
+)
+def test_stale_workflow_completion_cannot_replace_new_reservation(
+    monkeypatch: pytest.MonkeyPatch, new_run: str, new_attempt: str, new_head: str
+) -> None:
+    storage = MemoryRunnerStorage()
+    monkeypatch.setenv("GITHUB_REPOSITORY", "owner/repo")
+    monkeypatch.setenv("GITHUB_RUN_ID", "100")
+    monkeypatch.setenv("GITHUB_RUN_ATTEMPT", "1")
+    should_dispatch(42, "aaa", "codex", storage=storage)
+    record_completion(
+        42, "aaa", "codex", _unproductive_result(), storage=storage, produced_work=False
+    )
+    monkeypatch.setenv("GITHUB_RUN_ID", new_run)
+    monkeypatch.setenv("GITHUB_RUN_ATTEMPT", new_attempt)
+    assert should_dispatch(42, new_head, "codex", storage=storage).should_dispatch
+    pending = dict(storage.records[(42, "codex")])
+    writes = len(storage.writes)
+
+    monkeypatch.setenv("GITHUB_RUN_ID", "100")
+    monkeypatch.setenv("GITHUB_RUN_ATTEMPT", "1")
+    ignored = record_completion(
+        42, "aaa", "codex", _unproductive_result(), storage=storage, produced_work=False
+    )
+
+    assert ignored["completion_recorded"] is False
+    assert ignored["completion_reason"] == "stale-attempt"
+    assert storage.records[(42, "codex")] == pending
+    assert len(storage.writes) == writes
+
+
+@pytest.mark.parametrize("completion_run", ["100", "200"])
+def test_productive_head_change_requires_owning_attempt(
+    monkeypatch: pytest.MonkeyPatch, completion_run: str
+) -> None:
+    storage = MemoryRunnerStorage()
+    monkeypatch.setenv("GITHUB_REPOSITORY", "owner/repo")
+    monkeypatch.setenv("GITHUB_RUN_ID", "100")
+    monkeypatch.setenv("GITHUB_RUN_ATTEMPT", "1")
+    should_dispatch(42, "aaa", "codex", storage=storage)
+    pending = dict(storage.records[(42, "codex")])
+    monkeypatch.setenv("GITHUB_RUN_ID", completion_run)
+
+    result = record_completion(
+        42, "bbb", "codex", _unproductive_result(), storage=storage, produced_work=True
+    )
+
+    if completion_run == "100":
+        assert result["head_sha"] == "bbb"
+        assert result["workflow_attempt_id"] == "owner/repo:100:1"
+        assert result["productive"] is True
+        assert result["unproductive_completions"] == 0
+        assert len(storage.writes) == 2
+    else:
+        assert result["completion_recorded"] is False
+        assert result["completion_reason"] == "stale-attempt"
+        assert storage.records[(42, "codex")] == pending
+        assert len(storage.writes) == 1
+
+
+@pytest.mark.parametrize("primary_state", ["unavailable", "missing"])
+@pytest.mark.parametrize("fallback_state", ["empty", "stale"])
+@pytest.mark.parametrize("has_identity", [True, False])
+def test_auto_completion_requires_authoritative_reservation(
+    monkeypatch: pytest.MonkeyPatch,
+    capsys: pytest.CaptureFixture[str],
+    primary_state: str,
+    fallback_state: str,
+    has_identity: bool,
+) -> None:
+    primary = MemoryRunnerStorage()
+    fallback = MemoryRunnerStorage()
+    monkeypatch.setenv("GITHUB_REPOSITORY", "owner/repo")
+    monkeypatch.setenv("GITHUB_RUN_ID", "100")
+    monkeypatch.setenv("GITHUB_RUN_ATTEMPT", "1")
+    if fallback_state == "stale":
+        should_dispatch(42, "aaa", "codex", storage=fallback)
+    monkeypatch.setenv("GITHUB_RUN_ID", "200")
+    should_dispatch(42, "aaa", "codex", storage=primary)
+    primary_before = dict(primary.records)
+    fallback_before = dict(fallback.records)
+    writes = (len(primary.writes), len(fallback.writes))
+
+    def read_primary(*_: Any) -> dict[str, Any] | None:
+        if primary_state == "unavailable":
+            raise RuntimeError("primary unavailable")
+        return None
+
+    monkeypatch.setattr(primary, "read_record", read_primary)
+    storage = runner_core.FallbackRunnerStorage(primary, fallback)
+    monkeypatch.setattr(runner_core, "_storage_from_name", lambda _: storage)
+    if has_identity:
+        monkeypatch.setenv("GITHUB_RUN_ID", "100")
+    else:
+        monkeypatch.delenv("GITHUB_RUN_ID")
+    assert (
+        runner_core.main(
+            [
+                "record-completion",
+                "--provider",
+                "codex",
+                "--pr-number",
+                "42",
+                "--head-sha",
+                "aaa",
+                "--summary",
+                "Done",
+                "--produced-work",
+                "true",
+            ]
+        )
+        == 0
+    )
+    output = json.loads(capsys.readouterr().out)
+    assert output["recorded"] == "false"
+    assert output["reason"] == (
+        "authoritative-storage-unavailable"
+        if primary_state == "unavailable"
+        else "authoritative-reservation-missing"
+    )
+    assert output["status"] == "unknown"
+    assert primary.records == primary_before
+    assert fallback.records == fallback_before
+    assert (len(primary.writes), len(fallback.writes)) == writes
+
+
+@pytest.mark.parametrize("write_fails", [True, False])
+def test_auto_completion_never_writes_fallback(
+    monkeypatch: pytest.MonkeyPatch, write_fails: bool
+) -> None:
+    primary = MemoryRunnerStorage()
+    fallback = MemoryRunnerStorage()
+    monkeypatch.setenv("GITHUB_REPOSITORY", "owner/repo")
+    monkeypatch.setenv("GITHUB_RUN_ID", "100")
+    monkeypatch.setenv("GITHUB_RUN_ATTEMPT", "1")
+    should_dispatch(42, "aaa", "codex", storage=primary)
+    pending = dict(primary.records[(42, "codex")])
+    storage = runner_core.FallbackRunnerStorage(primary, fallback)
+    # A reused adapter's prior fallback selection must not redirect completion.
+    storage._use_fallback = True
+    if write_fails:
+
+        def fail_write(*_: Any) -> None:
+            raise RuntimeError("primary unavailable")
+
+        monkeypatch.setattr(primary, "write_record", fail_write)
+    result = record_completion(
+        42, "aaa", "codex", _unproductive_result(), storage=storage, produced_work=False
+    )
+    assert not fallback.writes
+    if write_fails:
+        assert result["completion_recorded"] is False
+        assert result["completion_reason"] == "authoritative-storage-unavailable"
+        assert primary.records[(42, "codex")] == pending
+        assert len(primary.writes) == 1
+    else:
+        assert result["status"] == "completed"
+        assert primary.records[(42, "codex")] == result
+        assert len(primary.writes) == 2
+
+
+@pytest.mark.parametrize("operation", ["read", "write"])
+@pytest.mark.parametrize("failure", ["http", "network", "other"])
+def test_auto_completion_logs_safe_storage_diagnostics(
+    monkeypatch: pytest.MonkeyPatch,
+    capsys: pytest.CaptureFixture[str],
+    operation: str,
+    failure: str,
+) -> None:
+    primary = MemoryRunnerStorage()
+    fallback = MemoryRunnerStorage()
+    should_dispatch(42, "aaa", "codex", storage=primary)
+    pending = dict(primary.records[(42, "codex")])
+    secret = "private-response-and-token"
+    cause: Exception
+    if failure == "http":
+        cause = HTTPError("https://example.invalid/" + secret, 403, secret, {}, None)
+    elif failure == "network":
+        cause = URLError(secret)
+    else:
+        cause = ValueError(secret)
+
+    def fail(*_: Any) -> Any:
+        raise RuntimeError(secret) from cause
+
+    monkeypatch.setattr(primary, f"{operation}_record", fail)
+    result = record_completion(
+        42,
+        "aaa",
+        "codex",
+        _unproductive_result(),
+        storage=runner_core.FallbackRunnerStorage(primary, fallback),
+    )
+    captured = capsys.readouterr()
+    assert captured.out == ""
+    assert f"authoritative completion {operation} failed" in captured.err
+    assert "error_type=RuntimeError" in captured.err
+    assert f"cause_type={type(cause).__name__}" in captured.err
+    assert f"http_status={'403' if failure == 'http' else 'unknown'}" in captured.err
+    assert secret not in captured.err
+    assert "https://" not in captured.err
+    assert result["completion_recorded"] is False
+    assert result["completion_reason"] == "authoritative-storage-unavailable"
+    assert primary.records[(42, "codex")] == pending
+    assert len(primary.writes) == 1
+    assert not fallback.writes
+
+
+@pytest.mark.parametrize("operation", ["read", "write"])
+def test_single_store_completion_errors_still_propagate(
+    monkeypatch: pytest.MonkeyPatch, operation: str
+) -> None:
+    storage = MemoryRunnerStorage()
+    should_dispatch(42, "aaa", "codex", storage=storage)
+    error = RuntimeError("single-store failure")
+
+    def fail(*_: Any) -> Any:
+        raise error
+
+    monkeypatch.setattr(storage, f"{operation}_record", fail)
+    with pytest.raises(RuntimeError) as caught:
+        record_completion(42, "aaa", "codex", _unproductive_result(), storage=storage)
+    assert caught.value is error
+    assert len(storage.writes) == 1
+
+
+def test_missing_workflow_identity_cannot_complete_bound_reservation(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    storage = MemoryRunnerStorage()
+    monkeypatch.setenv("GITHUB_REPOSITORY", "owner/repo")
+    monkeypatch.setenv("GITHUB_RUN_ID", "100")
+    monkeypatch.setenv("GITHUB_RUN_ATTEMPT", "1")
+    should_dispatch(42, "aaa", "codex", storage=storage)
+    writes = len(storage.writes)
+    monkeypatch.delenv("GITHUB_RUN_ID")
+    result = record_completion(42, "aaa", "codex", _unproductive_result(), storage=storage)
+    assert result["completion_recorded"] is False
+    assert len(storage.writes) == writes
+
+
+def test_cli_reports_stale_completion_without_writing(
+    monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str]
+) -> None:
+    storage = MemoryRunnerStorage()
+    monkeypatch.setattr(runner_core, "_storage_from_name", lambda _: storage)
+    monkeypatch.setenv("GITHUB_REPOSITORY", "owner/repo")
+    monkeypatch.setenv("GITHUB_RUN_ID", "200")
+    monkeypatch.setenv("GITHUB_RUN_ATTEMPT", "1")
+    common = ["--provider", "codex", "--pr-number", "42", "--head-sha", "aaa"]
+    assert runner_core.main(["should-dispatch", *common]) == 0
+    capsys.readouterr()
+    writes = len(storage.writes)
+    monkeypatch.setenv("GITHUB_RUN_ID", "100")
+    assert runner_core.main(["record-completion", *common, "--summary", "Done"]) == 0
+    output = json.loads(capsys.readouterr().out)
+    assert output["recorded"] == "false"
+    assert output["reason"] == "stale-attempt"
+    assert len(storage.writes) == writes
+
+
+def test_same_attempt_completion_across_jobs_is_idempotent(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    storage = MemoryRunnerStorage()
+    monkeypatch.setenv("GITHUB_REPOSITORY", "owner/repo")
+    monkeypatch.setenv("GITHUB_RUN_ID", "100")
+    monkeypatch.setenv("GITHUB_RUN_ATTEMPT", "1")
+    monkeypatch.setenv("GITHUB_JOB", "reserve")
+    should_dispatch(42, "aaa", "codex", storage=storage)
+    monkeypatch.setenv("GITHUB_JOB", "complete")
+    first = record_completion(
+        42, "aaa", "codex", _unproductive_result(), storage=storage, produced_work=False
+    )
+    second = record_completion(
+        42, "aaa", "codex", _unproductive_result(), storage=storage, produced_work=False
+    )
+    assert first == second
+    assert second["status"] == "completed"
+    assert second["unproductive_completions"] == 1
+
+
+def test_unmeasured_retry_preserves_bounded_unproductive_streak() -> None:
+    storage = MemoryRunnerStorage()
+    should_dispatch(42, "aaa", "codex", storage=storage)
+    record_completion(
+        42, "aaa", "codex", _unproductive_result(), storage=storage, produced_work=False
+    )
+    for _ in range(UNPRODUCTIVE_COMPLETION_RETRY_LIMIT):
+        assert should_dispatch(42, "aaa", "codex", storage=storage).should_dispatch
+        record_completion(42, "aaa", "codex", _unproductive_result(), storage=storage)
+    assert storage.records[(42, "codex")]["productive"] is False
+    assert should_dispatch(42, "aaa", "codex", storage=storage).reason == "unproductive-cooldown"
+
+
+def test_new_head_does_not_inherit_unproductive_classification() -> None:
+    storage = MemoryRunnerStorage()
+    should_dispatch(42, "aaa", "codex", storage=storage)
+    record_completion(
+        42, "aaa", "codex", _unproductive_result(), storage=storage, produced_work=False
+    )
+    should_dispatch(42, "bbb", "codex", storage=storage)
+    record_completion(42, "bbb", "codex", _unproductive_result(), storage=storage)
+    assert "productive" not in storage.records[(42, "codex")]
+    assert should_dispatch(42, "bbb", "codex", storage=storage).reason == "duplicate-completed"
+
+
 def _unproductive_result() -> RunnerResult:
     """A run that exits 0 having done nothing — the shape the codex sandbox failure takes."""
     return RunnerResult(
@@ -998,27 +1327,66 @@ def test_unproductive_completion_is_retried_on_the_same_head() -> None:
     assert decision.reason == "retry-unproductive-completion"
 
 
-def test_unproductive_retries_are_bounded_and_name_what_would_drain_them() -> None:
+def test_unproductive_retries_expire_into_a_cooldown_not_a_latch() -> None:
+    """Spent retries must expire into a WAIT, never into "only a new head commit will do".
+
+    Refusing until the head changes would reinstate the original #3433 deadlock one step
+    further out, because only the agent being refused could push that commit. A cooldown is
+    cleared by time alone, which the hourly keepalive sweep then wakes.
+    """
     storage = MemoryRunnerStorage()
-    reasons = []
     for _ in range(UNPRODUCTIVE_COMPLETION_RETRY_LIMIT + 1):
-        decision = should_dispatch(42, "aaa", "codex", storage=storage)
-        reasons.append(decision.reason)
+        should_dispatch(42, "aaa", "codex", storage=storage)
         record_completion(
             42, "aaa", "codex", _unproductive_result(), storage=storage, produced_work=False
         )
 
-    exhausted = should_dispatch(42, "aaa", "codex", storage=storage)
+    cooling = should_dispatch(42, "aaa", "codex", storage=storage)
 
-    assert reasons[0] == "first-dispatch"
-    assert reasons[1:] == ["retry-unproductive-completion"] * UNPRODUCTIVE_COMPLETION_RETRY_LIMIT
-    assert exhausted.should_dispatch is False
-    assert exhausted.reason == "duplicate-completed"
-    # The refusal must state its drainable quantity, not just that it is closed.
-    assert "a new head commit" in exhausted.drainable
-    assert f"{UNPRODUCTIVE_COMPLETION_RETRY_LIMIT + 1}/{UNPRODUCTIVE_COMPLETION_RETRY_LIMIT}" in (
-        exhausted.drainable
+    assert cooling.should_dispatch is False
+    assert cooling.reason == "unproductive-cooldown"
+    assert "time: retry at" in cooling.drainable
+    # The drainable path must be time, not an action the refused agent alone could take.
+    assert "head commit" not in cooling.drainable
+
+
+def test_dispatch_resumes_once_the_cooldown_has_elapsed() -> None:
+    storage = MemoryRunnerStorage()
+    for _ in range(UNPRODUCTIVE_COMPLETION_RETRY_LIMIT + 1):
+        should_dispatch(42, "aaa", "codex", storage=storage)
+        record_completion(
+            42, "aaa", "codex", _unproductive_result(), storage=storage, produced_work=False
+        )
+    assert should_dispatch(42, "aaa", "codex", storage=storage).should_dispatch is False
+
+    stale = datetime.datetime.now(datetime.UTC) - datetime.timedelta(
+        seconds=UNPRODUCTIVE_COMPLETION_COOLDOWN_SECONDS + 60
     )
+    record = storage.records[(42, "codex")]
+    record["status"] = "completed"
+    record["completed_at"] = stale.isoformat().replace("+00:00", "Z")
+
+    resumed = should_dispatch(42, "aaa", "codex", storage=storage)
+
+    assert resumed.should_dispatch is True
+    assert resumed.reason == "retry-after-unproductive-cooldown"
+
+
+def test_unmeasurable_cooldown_fails_toward_motion() -> None:
+    """A gate that cannot measure itself must not stay shut on that basis."""
+    storage = MemoryRunnerStorage()
+    for _ in range(UNPRODUCTIVE_COMPLETION_RETRY_LIMIT + 1):
+        should_dispatch(42, "aaa", "codex", storage=storage)
+        record_completion(
+            42, "aaa", "codex", _unproductive_result(), storage=storage, produced_work=False
+        )
+    record = storage.records[(42, "codex")]
+    record["status"] = "completed"
+    record["completed_at"] = "not-a-timestamp"
+
+    decision = should_dispatch(42, "aaa", "codex", storage=storage)
+
+    assert decision.should_dispatch is True
 
 
 def test_productive_completion_still_burns_the_head_key() -> None:
@@ -1113,3 +1481,42 @@ def test_rerunning_the_completion_job_does_not_spend_another_retry() -> None:
 
     assert storage.records[(42, "codex")]["unproductive_completions"] == 1
     assert should_dispatch(42, "aaa", "codex", storage=storage).should_dispatch is True
+
+
+def test_each_zero_output_run_after_the_cooldown_arms_a_fresh_one() -> None:
+    """Expiry must re-arm, not latch open — and the tally must stay capped while it does.
+
+    Without this, two regressions look identical to the expiry test: a tally that keeps
+    climbing (so the cooldown is measured from an ever-staler completion), and an expired
+    window that never closes again (so a permanently broken runner is re-dispatched forever).
+    """
+    storage = MemoryRunnerStorage()
+    for _ in range(UNPRODUCTIVE_COMPLETION_RETRY_LIMIT + 1):
+        should_dispatch(42, "aaa", "codex", storage=storage)
+        record_completion(
+            42, "aaa", "codex", _unproductive_result(), storage=storage, produced_work=False
+        )
+
+    stale = datetime.datetime.now(datetime.UTC) - datetime.timedelta(
+        seconds=UNPRODUCTIVE_COMPLETION_COOLDOWN_SECONDS + 60
+    )
+    record = storage.records[(42, "codex")]
+    record["status"] = "completed"
+    record["completed_at"] = stale.isoformat().replace("+00:00", "Z")
+
+    assert should_dispatch(42, "aaa", "codex", storage=storage).should_dispatch is True
+
+    # The retry produces nothing either. That must start a NEW cooldown from now.
+    record_completion(
+        42, "aaa", "codex", _unproductive_result(), storage=storage, produced_work=False
+    )
+    rearmed = should_dispatch(42, "aaa", "codex", storage=storage)
+
+    assert rearmed.should_dispatch is False
+    assert rearmed.reason == "unproductive-cooldown"
+    # The tally is capped, so the window is measured from the newest completion rather than
+    # from a completion that keeps receding into the past.
+    assert (
+        storage.records[(42, "codex")]["unproductive_completions"]
+        == UNPRODUCTIVE_COMPLETION_RETRY_LIMIT + 1
+    )

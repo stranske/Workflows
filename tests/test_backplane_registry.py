@@ -4,11 +4,22 @@ import copy
 import json
 from datetime import UTC, datetime
 from pathlib import Path
+from unittest.mock import Mock
 
 import pytest
 from scripts import validate_backplane_registry as vbr
 
 ROOT = Path(__file__).resolve().parents[1]
+VALIDATION_TIME = datetime(2026, 9, 14, tzinfo=UTC)
+
+
+@pytest.fixture(autouse=True)
+def fixed_validation_clock(monkeypatch: pytest.MonkeyPatch) -> None:
+    # Gate run 34913714874 failed when the live deferrals expired on September 15.
+    # Unit tests use a known time; the operational CLI still checks the real clock.
+    clock = Mock(wraps=datetime)
+    clock.now.return_value = VALIDATION_TIME
+    monkeypatch.setattr(vbr, "datetime", clock)
 
 
 def _registry() -> dict:
@@ -26,8 +37,8 @@ def test_registry_has_no_tbd_placeholders_and_validates() -> None:
     registry = _registry()
     findings = vbr.validate_registry(registry)
 
-    # The live registry must be STRUCTURALLY valid. Operational freshness (a
-    # reference run aging past the 7-day window) is a non-blocking "stale" finding:
+    # The registry must be structurally valid at the fixed validation time. A
+    # reference run aging past the 7-day window is a non-blocking "stale" finding:
     # it is surfaced by the dedicated backplane lane (health-78) but must not fail
     # this structural check, which runs in the required suite for every unrelated PR.
     assert vbr.blocking_findings(findings) == []
@@ -166,7 +177,7 @@ def test_reference_run_id_must_be_non_empty_string(bad_run_id: object) -> None:
 def test_strict_cli_flag_matches_documented_invocation(tmp_path: Path) -> None:
     registry = copy.deepcopy(_registry())
     entry = _pension_conformant_entry(registry)
-    entry["reference_run_evidence"]["generated_at"] = datetime.now(UTC).isoformat()
+    entry["reference_run_evidence"]["generated_at"] = VALIDATION_TIME.isoformat()
     registry_path = tmp_path / "registry.json"
     registry_path.write_text(json.dumps(registry), encoding="utf-8")
 
@@ -187,18 +198,51 @@ def test_deferred_issue_reason_must_be_non_empty_string() -> None:
     )
 
 
-def test_expired_deferred_issue_is_rejected() -> None:
+@pytest.mark.parametrize(
+    ("expires_at", "expired"),
+    [
+        ("2026-09-13T23:59:59Z", True),
+        ("2026-09-14T00:00:00Z", True),
+        ("2026-09-14T00:00:01Z", False),
+    ],
+)
+def test_expired_deferred_issue_is_rejected(expires_at: str, expired: bool) -> None:
     registry = copy.deepcopy(_registry())
     entry = registry["participants"][1]
-    entry["issue_deferred"]["expires_at"] = "2026-01-01T00:00:00Z"
+    entry["issue_deferred"]["expires_at"] = expires_at
 
     findings = vbr.validate_registry(registry)
 
-    assert any(
-        finding.path.endswith("issue_deferred.expires_at")
-        and finding.message == "deferred issue expired"
-        for finding in findings
+    assert (
+        any(
+            finding.path.endswith("issue_deferred.expires_at")
+            and finding.message == "deferred issue expired"
+            for finding in vbr.blocking_findings(findings)
+        )
+        is expired
     )
+
+
+@pytest.mark.parametrize("flags", [[], ["--strict"]])
+@pytest.mark.parametrize("expires_at", ["2026-09-13T00:00:00Z", "2026-09-14T00:00:00Z"])
+def test_cli_expired_deferral_remains_blocking(
+    tmp_path: Path, capsys: pytest.CaptureFixture[str], expires_at: str, flags: list[str]
+) -> None:
+    registry = _registry()
+    registry["participants"][1]["issue_deferred"]["expires_at"] = expires_at
+    registry_path = tmp_path / "registry.json"
+    registry_path.write_text(json.dumps(registry), encoding="utf-8")
+
+    assert vbr.main([*flags, "--json", str(registry_path)]) == 1
+
+    report = json.loads(capsys.readouterr().out)
+    assert report["blocking_count"] == 1
+    assert report["blocking_ok"] is False
+    assert {
+        "path": "participants[1].issue_deferred.expires_at",
+        "message": "deferred issue expired",
+        "severity": vbr.ERROR_SEVERITY,
+    } in report["findings"]
 
 
 def test_stale_reference_run_is_rejected() -> None:

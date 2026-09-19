@@ -650,6 +650,7 @@ async function buildVerifierContext({ github, context, core, ciWorkflows }) {
     fs.writeFileSync(diffPath, diffText + '\n', 'utf8');
   }
 
+  core?.setOutput?.('pr_head_sha', pull.head?.sha || '');
   core?.setOutput?.('should_run', 'true');
   core?.setOutput?.('skip_reason', '');
   core?.setOutput?.('pr_number', String(pull.number || ''));

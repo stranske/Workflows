@@ -49,6 +49,7 @@ dev = [
     "pydantic>=2.13.4",
     "requests>=2.34.0",
     "jsonschema>=4.26.0",
+    "rfc3339-validator>=0.1.4",
     "PyYAML>=6.0.0",
 
     # Used by scripts/sync_test_dependencies.py to edit pyproject.toml

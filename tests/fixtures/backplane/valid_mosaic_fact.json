@@ -1,0 +1,11 @@
+{
+  "schema_version": "mosaic-core/v1",
+  "record_type": "fact",
+  "fact_id": "fact:synthetic_fee_125",
+  "fact_key": "legal.management_fee.rate",
+  "entity_ref": "fund:synthetic_alpha",
+  "value": 1.25,
+  "period": "as_of:2026-09-01",
+  "status": "asserted",
+  "primary_evidence_id": "evidence:synthetic_lpa_fee"
+}

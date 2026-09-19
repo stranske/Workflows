@@ -27,7 +27,7 @@ from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Any
 
-from jsonschema import Draft202012Validator
+from jsonschema import Draft202012Validator, FormatChecker
 from referencing import Registry, Resource
 
 RUN_SCHEMA_VERSION = "run-contract/v1"
@@ -48,6 +48,8 @@ INGEST_SCHEMA_FILES = {
     "artifact-manifest/v1": "artifact-manifest-v1.schema.json",
     "evidence-object/v1": "evidence-object-v1.schema.json",
     "tracked-variable/v1": "tracked-variable-v1.schema.json",
+    "capability-bundle/v1": "capability-bundle-v1.schema.json",
+    "mosaic-core/v1": "mosaic-core-v1.schema.json",
 }
 # Tokens that are convention-only (no JSON Schema to load); accepted as declared
 # ingest surfaces but not schema-validated here.
@@ -111,6 +113,10 @@ def _load_schema(schema_dir: Path, name: str) -> dict[str, Any]:
 
 def _validator_for_schema(schema_dir: Path, name: str) -> Draft202012Validator:
     schema = _load_schema(schema_dir, name)
+    if name == "mosaic-core-v1.schema.json":
+        # Explicitly request the checker so a missing rfc3339-validator dependency
+        # fails instead of silently accepting malformed checked_at timestamps.
+        return Draft202012Validator(schema, format_checker=FormatChecker(formats=["date-time"]))
     if name != "tracked-variable-v1.schema.json":
         return Draft202012Validator(schema)
     evidence = _load_schema(schema_dir, "evidence-object-v1.schema.json")
@@ -483,12 +489,18 @@ def _self_smoke(schema_dir: Path, registry_path: Path) -> int:
     PASS/FAIL line per case and returns non-zero if any case is unexpected.
     """
     registry = _load_json(registry_path)
-    # Load all three schemas (must be valid Draft 2020-12).
-    for name in (
-        "run-contract-v1.schema.json",
-        "artifact-manifest-v1.schema.json",
-        "evidence-object-v1.schema.json",
-    ):
+    # Load EVERY bundled schema (must be valid Draft 2020-12). Discovering them
+    # rather than naming three means a schema added to the directory is checked
+    # the day it lands; the previous hardcoded triple silently skipped
+    # tracked-variable-v1 and capability-bundle-v1.
+    schema_names = sorted(path.name for path in schema_dir.glob("*.schema.json"))
+    if not schema_names:
+        print(
+            f"FAIL schema dir {schema_dir}: no *.schema.json files found; "
+            "self-smoke cannot validate schemas"
+        )
+        return 1
+    for name in schema_names:
         schema = _load_schema(schema_dir, name)
         Draft202012Validator.check_schema(schema)
         print(f"PASS schema loads + valid Draft202012: {name}")

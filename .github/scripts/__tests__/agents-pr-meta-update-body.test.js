@@ -334,7 +334,7 @@ test('extractBlock returns empty string if markers not found', () => {
 
 // ========== stripPrTemplateContent tests ==========
 
-test('stripPrTemplateContent removes content before pr-preamble marker', () => {
+test('stripPrTemplateContent preserves checkbox-bearing content before pr-preamble marker', () => {
   const body = `# Summary
 
 One sentence.
@@ -356,9 +356,7 @@ Add labels.
 
   const result = stripPrTemplateContent(body);
   
-  assert.ok(result.startsWith('<!-- pr-preamble:start -->'));
-  assert.ok(!result.includes('# Summary'));
-  assert.ok(!result.includes('Checklist'));
+  assert.equal(result, body);
 });
 
 test('stripPrTemplateContent removes content before auto-status-summary if no preamble', () => {
@@ -1598,3 +1596,41 @@ test('upsertBlock preserves triple newlines in single-pair case (no duplicates)'
   assert.ok(result.includes('After'));
   assert.ok(result.includes('\n\n\n'), 'should preserve existing triple newlines when no duplicates removed');
 });
+
+
+test('metadata regeneration preserves outside task lines before and after the summary', () => {
+  const before = '## Reviewer tasks\n- [ ] Exercise the error path\n  and retain its output.\n\n';
+  const after = '\n\n## More acceptance\n- [ ] Verify the packaged command';
+  const oldSummary = '<!-- auto-status-summary:start -->\n## Tasks\n- [x] Source task\n<!-- auto-status-summary:end -->';
+  const newSummary = '<!-- auto-status-summary:start -->\n## Tasks\n- [x] Refreshed source task\n<!-- auto-status-summary:end -->';
+  const preamble = '<!-- pr-preamble:start -->\nCloses #3441\n<!-- pr-preamble:end -->';
+  const refresh = (body) => upsertBlock(upsertBlock(stripPrTemplateContent(body), 'pr-preamble', preamble), 'auto-status-summary', newSummary);
+  const result = refresh(before + oldSummary + after);
+  assert.ok(result.startsWith(before));
+  assert.ok(result.includes(after));
+  assert.ok(result.includes(newSummary));
+  assert.equal(refresh(result), result);
+});
+
+for (const templatePath of ['../../../.github/PULL_REQUEST_TEMPLATE.md', '../../../templates/consumer-repo/.github/PULL_REQUEST_TEMPLATE.md']) {
+  test(`metadata refresh removes template controls and retains genuine reviewer tasks (${templatePath})`, () => {
+    const template = require('fs').readFileSync(require('path').resolve(__dirname, templatePath), 'utf8');
+    const summary = '<!-- auto-status-summary:start -->\n## Tasks\n- [x] Source task\n<!-- auto-status-summary:end -->';
+    assert.equal(stripPrTemplateContent(template + summary), summary);
+    const reviewer = '## Review tasks\n> - [ ] Check the error path\n>   and its diagnostic.\n';
+    const cleaned = stripPrTemplateContent(template + reviewer + summary);
+    assert.ok(cleaned.includes(reviewer));
+    assert.doesNotMatch(cleaned, /\[[ xX]\] (?:GitHub issue|Direct PR|Verifier should|Keepalive may)/);
+    assert.equal(stripPrTemplateContent(cleaned), cleaned);
+    // A genuine task in Notes within Workflow Source must also survive.
+    const notes = template.replace('Notes:', 'Notes:\n- [ ] Verify the provenance record');
+    assert.match(stripPrTemplateContent(notes + summary), /- \[ \] Verify the provenance record/);
+  });
+}
+
+for (const hidden of ['<!--\n- [ ] Hidden comment\n-->\n', '```markdown\n- [ ] Fenced example\n```\n', '> ```markdown\n> - [ ] Quoted fenced example\n> ```\n']) {
+  test(`metadata refresh ignores hidden checkbox prefix: ${hidden.split('\n')[0]}`, () => {
+    const summary = '<!-- auto-status-summary:start -->\n## Tasks\n- [x] Source task\n<!-- auto-status-summary:end -->';
+    assert.equal(stripPrTemplateContent('## Stale template\n' + hidden + summary), summary);
+  });
+}
