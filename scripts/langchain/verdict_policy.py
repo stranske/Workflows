@@ -4,9 +4,10 @@ from __future__ import annotations
 
 import argparse
 import json
+import math
 import sys
 from collections.abc import Iterable
-from dataclasses import dataclass
+from dataclasses import dataclass, replace
 from typing import Any
 
 VERDICT_SEVERITY = {
@@ -75,13 +76,14 @@ def _coerce_confidence(value: str) -> float:
     if not cleaned:
         return 0.0
     try:
-        return float(cleaned)
+        confidence = float(cleaned)
+        return confidence if math.isfinite(confidence) else 0.0
     except ValueError:
         return 0.0
 
 
 def _normalize_confidence(value: float) -> float:
-    if value <= 0:
+    if not math.isfinite(value) or value <= 0:
         return 0.0
     if value <= 1:
         return value
@@ -186,7 +188,12 @@ def evaluate_verdict_policy(
     *,
     policy: str = "worst",
 ) -> VerdictPolicyResult:
-    verdict_list = list(verdicts)
+    # Direct callers may bypass markdown parsing. Preserve the verdict itself,
+    # but do not let invalid confidence affect ranking, holds, or JSON output.
+    verdict_list = [
+        item if math.isfinite(item.confidence) else replace(item, confidence=0.0)
+        for item in verdicts
+    ]
     selected = _select_deterministic(verdict_list, policy=policy)
     split_verdict, concerns_confidence = _split_pass_concerns(verdict_list)
     needs_human = False

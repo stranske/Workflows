@@ -4,6 +4,18 @@ This document outlines the process for maintaining workflow system consistency a
 
 ---
 
+## Verdict confidence normalization
+
+The manifest-managed `scripts/langchain/verdict_policy.py` treats non-finite
+confidence values (NaN and positive/negative infinity, including overflowing
+numeric strings) as zero. This applies to markdown parsing and direct policy
+calls, including provider rows in JSON output. Verdict text and severity are
+preserved: a CONCERNS or FAIL verdict is not converted to PASS. Invalid
+confidence cannot manufacture a high-confidence split-verdict hold. Finite
+fraction/percentage handling and the existing review threshold are unchanged.
+Repair this shared policy in Workflows, then deliver it through Maint 68/71;
+do not patch generated consumer branches.
+
 ## Registered Consumer Repos
 
 Consumer repositories are synced by the workflow
