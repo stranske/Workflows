@@ -644,6 +644,18 @@ def test_concrete_unquoted_and_symbol_task_targets_are_accepted(task: str) -> No
     assert report.ok, report.as_markdown()
 
 
+def test_known_basename_as_task_target_is_concrete() -> None:
+    validator = _validator()
+    assert validator._concrete_span("Makefile")
+    assert not validator._concrete_span("file")
+    report = validator.validate(
+        VALID_CONTEXT
+        + "## Tasks\n- [ ] Update file Makefile\n\n"
+        + "## Acceptance Criteria\n- pytest tests/test_x.py passes\n"
+    )
+    assert report.ok, report.as_markdown()
+
+
 @pytest.mark.parametrize(
     "criterion",
     [
