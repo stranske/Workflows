@@ -907,6 +907,16 @@ docs:
     target: docs/contracts/schemas/tracked-variable-v1.schema.json
     description: "Tracked-variable/v1 schema with embedded evidence and document/mirror provenance"
 
+  - source: docs/contracts/mosaic-core-v1.md
+    source_tree: root
+    target: docs/contracts/mosaic-core-v1.md
+    description: "Mosaic-core/v1 record types and fact-key join semantics"
+
+  - source: docs/contracts/schemas/mosaic-core-v1.schema.json
+    source_tree: root
+    target: docs/contracts/schemas/mosaic-core-v1.schema.json
+    description: "Mosaic-core/v1 schema for facts, discrepancies, thesis claims and checks"
+
   - source: docs/SETUP_CHECKLIST.md
     target: docs/SETUP_CHECKLIST.md
     description: "Consumer repo setup checklist. Includes the default_workflow_permissions=write step in section 3.3.1 that prevents a Gate startup_failure on fresh consumers (resolved: #2157). Synced so it no longer drifts across the fleet."
