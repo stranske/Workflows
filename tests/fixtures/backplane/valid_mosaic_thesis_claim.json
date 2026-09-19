@@ -1,0 +1,13 @@
+{
+  "schema_version": "mosaic-core/v1",
+  "record_type": "thesis_claim",
+  "thesis_id": "thesis:synthetic_alpha",
+  "claim_id": "claim:fee_discipline",
+  "claim_text": "Management fee remains within the agreed limit.",
+  "entity_ref": "fund:synthetic_alpha",
+  "fact_keys": [
+    "legal.management_fee.rate"
+  ],
+  "expected_pattern": "max",
+  "evidence_policy": "require_primary_source"
+}

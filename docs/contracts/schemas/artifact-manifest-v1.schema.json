@@ -61,6 +61,8 @@
               "log",
               "evidence",
               "envelope",
+              "tracked_variables",
+              "mosaic_bundle",
               "other"
             ]
           },
