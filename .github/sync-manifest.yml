@@ -917,6 +917,16 @@ docs:
     target: docs/contracts/schemas/mosaic-core-v1.schema.json
     description: "Mosaic-core/v1 schema for facts, discrepancies, thesis claims and checks"
 
+  - source: docs/contracts/document-mirror-v1.md
+    source_tree: root
+    target: docs/contracts/document-mirror-v1.md
+    description: "Document-mirror/v1 specification for offline blob catalogs and triple-link resolvers"
+
+  - source: docs/contracts/schemas/document-mirror-v1.schema.json
+    source_tree: root
+    target: docs/contracts/schemas/document-mirror-v1.schema.json
+    description: "Document-mirror/v1 schema for mirror_root catalogs with content_sha256 blobs and source_refs"
+
   - source: docs/contracts/output-substrate-v1.md
     source_tree: root
     target: docs/contracts/output-substrate-v1.md

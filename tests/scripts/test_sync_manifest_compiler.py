@@ -487,7 +487,11 @@ def test_real_manifest_compiles_every_declared_copy_entry() -> None:
 
     assert plan["schema"] == PLAN_SCHEMA
     Draft202012Validator(schema).validate(plan)
-    assert len(plan["entries"]) == 232
+    assert len(plan["entries"]) == 234
+    assert {
+        "docs/contracts/document-mirror-v1.md",
+        "docs/contracts/schemas/document-mirror-v1.schema.json",
+    } <= {entry["target"] for entry in plan["entries"]}
     assert len(plan["removals"]) == 17
     assert all(entry["source_tree"] in {"root", "template"} for entry in plan["entries"])
     assert all(entry["resolved_source"] for entry in plan["entries"])

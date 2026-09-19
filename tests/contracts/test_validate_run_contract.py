@@ -109,6 +109,85 @@ def test_tracked_variable_cli_needs_no_participant_context(fixture, expected, ca
         assert "1 file(s) conform" in output.out
 
 
+@pytest.mark.parametrize(
+    "fixture,expected",
+    [
+        ("valid_document_mirror.json", 0),
+        ("valid_empty_document_mirror.json", 0),
+        ("invalid_document_mirror_bad_blob_path.json", 1),
+        ("invalid_document_mirror_bad_urls.json", 1),
+    ],
+)
+@pytest.mark.parametrize("schema_args", [[], ["--schema-dir", str(SCHEMA_DIR)]])
+def test_mirror_manifest_cli_needs_no_participant_context(
+    fixture, expected, capsys, schema_args
+) -> None:
+    mod = _import_validator()
+    assert mod.main(["--mirror-manifest", str(FIXTURES / fixture), *schema_args]) == expected
+    output = capsys.readouterr()
+    if expected:
+        assert output.err
+    else:
+        assert "1 file(s) conform" in output.out
+
+
+def test_mirror_manifest_cli_reports_missing_and_invalid_json(tmp_path, capsys) -> None:
+    mod = _import_validator()
+    missing = tmp_path / "missing-mirror.json"
+    assert mod.main(["--mirror-manifest", str(missing), "--schema-dir", str(SCHEMA_DIR)]) == 1
+    assert f"cannot load mirror manifest {missing}" in capsys.readouterr().err
+
+    bad_json = tmp_path / "bad-mirror.json"
+    bad_json.write_text("{not json", encoding="utf-8")
+    assert mod.main(["--mirror-manifest", str(bad_json), "--schema-dir", str(SCHEMA_DIR)]) == 1
+    assert f"cannot load mirror manifest {bad_json}" in capsys.readouterr().err
+
+
+def test_mirror_manifest_cli_reports_invalid_utf8(tmp_path, capsys) -> None:
+    mod = _import_validator()
+    path = tmp_path / "invalid-utf8.json"
+    path.write_bytes(b"\xff")
+    assert mod.main(["--mirror-manifest", str(path), "--schema-dir", str(SCHEMA_DIR)]) == 1
+    assert f"cannot load mirror manifest {path}" in capsys.readouterr().err
+
+
+def test_tracked_variables_and_mirror_manifest_are_mutually_exclusive(capsys) -> None:
+    mod = _import_validator()
+    with pytest.raises(SystemExit) as exc:
+        mod.main(
+            [
+                "--tracked-variables",
+                str(FIXTURES / "valid_tracked_variable.json"),
+                "--mirror-manifest",
+                str(FIXTURES / "valid_document_mirror.json"),
+                "--schema-dir",
+                str(SCHEMA_DIR),
+            ]
+        )
+    assert exc.value.code == 2
+    assert "mutually exclusive" in capsys.readouterr().err
+
+
+def test_self_smoke_and_mirror_manifest_are_mutually_exclusive(capsys) -> None:
+    mod = _import_validator()
+    with pytest.raises(SystemExit) as exc:
+        mod.main(
+            [
+                "--self-smoke",
+                "--mirror-manifest",
+                str(FIXTURES / "invalid_document_mirror_bad_urls.json"),
+                "--registry",
+                str(REGISTRY),
+                "--repo",
+                PRODUCER_REPO,
+                "--schema-dir",
+                str(SCHEMA_DIR),
+            ]
+        )
+    assert exc.value.code == 2
+    assert "mutually exclusive" in capsys.readouterr().err
+
+
 @pytest.mark.parametrize("mode", [[str(FIXTURES / "valid_run.json")], ["--self-smoke"]])
 @pytest.mark.parametrize("missing", ["--registry", "--repo"])
 def test_run_contract_modes_still_require_participant_context(mode, missing, capsys) -> None:
@@ -786,3 +865,37 @@ def test_output_substrate_consumer_rejects_missing_renderer_profile() -> None:
     report = _validate_output_substrate_consumer(record)
     assert not report.conformant
     assert any("ingested-as-output-substrate/v1" in v.message for v in report.violations)
+
+
+def _validate_mirror_consumer(catalog: dict):
+    return _import_validator().validate_envelope(
+        envelope=catalog,
+        schema_dir=SCHEMA_DIR,
+        registry={
+            "participants": [
+                {
+                    "repo": "stranske/Mirror-Consumer",
+                    "role": "consumer",
+                    "status": "conformant",
+                    "ingests": ["document-mirror/v1"],
+                }
+            ]
+        },
+        repo="stranske/Mirror-Consumer",
+        manifest=None,
+    )
+
+
+def test_document_mirror_consumer_validates_fixture() -> None:
+    catalog = json.loads((FIXTURES / "valid_document_mirror.json").read_text())
+    report = _validate_mirror_consumer(catalog)
+    assert report.conformant, [v.message for v in report.violations]
+    assert report.role == "consumer"
+    assert not report.skipped
+
+
+def test_document_mirror_consumer_rejects_invalid_urls_and_created_at() -> None:
+    catalog = json.loads((FIXTURES / "invalid_document_mirror_bad_urls.json").read_text())
+    report = _validate_mirror_consumer(catalog)
+    assert not report.conformant
+    assert any("ingested-as-document-mirror/v1" in v.message for v in report.violations)

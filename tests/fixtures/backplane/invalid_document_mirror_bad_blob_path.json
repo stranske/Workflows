@@ -1,0 +1,12 @@
+{
+  "schema_version": "document-mirror/v1",
+  "mirror_root": "/data/document-mirror",
+  "blobs": [
+    {
+      "content_sha256": "abc123abcdefabcdefabcdefabcdefabcdefabcdefabcdefabcdefabcdefabcd",
+      "blob_path": "C:/Users/doc.pdf",
+      "doc_type_id": "lpa",
+      "source_refs": []
+    }
+  ]
+}
