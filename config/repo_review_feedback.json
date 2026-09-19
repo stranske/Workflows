@@ -2,9 +2,9 @@
   "generated_on": "2026-05-03",
   "cycle_source": "docs/reports/repo-review-phase2-pilot/round2",
   "defaults": {
-    "omitted_repo_decision": "approve",
+    "omitted_repo_decision": "defer",
     "approved_candidates": "all",
-    "window_note": "2026-09-04..2026-09-14: owner travelling; an omitted repo decision approves the converged candidates (approved_candidates: all) so the weekly pipeline keeps filing implementation work. Revert to 'defer' after the window."
+    "history_note": "2026-09-04..2026-09-14 the default was 'approve' (owner travelling; Workflows #3351). Reverted to 'defer' on 2026-09-13 at the window's end: the fleet has ~100 open implementation issues and the research program's Track D refills supply on demand, so an unreviewed weekly approval is no longer needed."
   },
   "scorecard_defaults": {
     "decision": "defer",

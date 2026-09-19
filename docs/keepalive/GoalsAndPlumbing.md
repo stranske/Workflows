@@ -48,7 +48,7 @@ Keepalive **must not** dispatch an agent unless *all* conditions hold:
 
 1. **PR opt-in:** The PR carries both an `agent:*` routing label (for example, `agent:codex` or `agent:claude`) and `agents:keepalive`.
 2. **Gate green:** The Gate workflow for the current head SHA completed successfully.
-3. **Tasks present:** The PR body contains unchecked tasks in the Automated Status Summary.
+3. **Tasks present:** The PR body contains unchecked actionable tasks, including visible checkboxes outside the Automated Status Summary.
 
 > **Note on auto-pilot:** Issue formatting now runs inside the auto-pilot workflow before a PR exists. Gate guardrails apply to **PR keepalive dispatch**, not the issue‑formatting phase of auto-pilot.
 >
@@ -218,6 +218,21 @@ Before the next round begins:
 
 ## 12. Issue Context & Status Summary
 
+The source issue is the task of record. The `auto-status-summary` block is a
+machine-owned projection refreshed by PR metadata (`pr-meta` in the event hub).
+Source-issue edits reach that block on the next metadata refresh, not immediately;
+manual edits inside the block can be overwritten on regeneration. Keep durable
+source tasks in the source issue. Reviewer-added checkboxes outside the block
+remain in the PR body across regeneration, including before the managed preamble.
+Keepalive includes those visible checkboxes in its dispatch decision, task appendix,
+and live progress counts, so a completed summary cannot hide remaining PR work.
+Blockquoted reviewer tasks count as visible work. Fenced examples, HTML comments,
+placeholder tasks, status metrics, and the standard PR template Workflow Source
+choices do not count as additional work. A live recount with outstanding work
+removes any stale `automerge` label before publishing progress. Adding an outside checkbox does not mark it complete; it must
+be explicitly checked after verification. It is not copied back to the source issue.
+
+
 The Keepalive workflow depends on the **Automated Status Summary** block in the PR body to extract Scope, Tasks, and Acceptance Criteria.
 
 ### Data Flow
@@ -275,3 +290,71 @@ The same Gate step applies the `acceptance-criteria` label when a marker is pres
 | Exit | All acceptance criteria satisfied or max iterations reached |
 
 Keep this document in sync with [`MULTI_AGENT_ROUTING.md`](MULTI_AGENT_ROUTING.md) and [`Observability_Contract.md`](Observability_Contract.md) whenever the workflow evolves.
+
+### Runner-dispatch debounce: productive vs. zero-output completions
+
+The debounce that stops a runner being dispatched twice for the same work is keyed on
+`(head_sha, provider)`. It used to record **any** finished dispatch as terminal `completed`,
+including a run that produced nothing — and the only thing that clears that key is a new head
+commit, which only the agent being refused could push. Clearing the gate required the action
+the gate forbade (#3433).
+
+That is not hypothetical. codex exits 0 when its Linux sandbox fails to start
+(`bwrap: loopback: Failed RTM_NEWADDR`, #3438), reporting a successful turn with no commit and
+no tasks done. Two consumer PRs sat frozen at iteration 1/12 for four hours while the hourly
+sweep ran past them, because a debounced PR is indistinguishable from a healthy one.
+
+**What the debounce does now:**
+
+| Prior record for this head | Decision |
+|---|---|
+| `pending`, not yet stale | refuse — wait for the in-flight run |
+| `completed`, productive | refuse — a new head commit is the next step |
+| `completed`, zero-output, within the retry allowance | dispatch (`retry-unproductive-completion`) |
+| `completed`, zero-output, allowance spent, cooldown running | refuse (`unproductive-cooldown`) |
+| `completed`, zero-output, cooldown elapsed | dispatch (`retry-after-unproductive-cooldown`) |
+
+Productivity is the caller's verdict, passed as `--produced-work`. The keepalive workflows
+compute it by comparing the PR head after the run against the SHA the dispatch was reserved
+for. **Unmeasured is not the same as unproductive**: a caller that does not pass the flag (and
+a lookup that fails) keeps the original terminal-completion behaviour unless this is already
+a same-head unproductive retry. That retry carries its false marker and bounded counter across
+an unmeasured completion; an explicit productive result or a new head clears the streak.
+
+GitHub Actions reservations also bind the repository, run ID and run attempt. Completion must
+match that binding and head key before writing state; an explicitly productive result from
+the owning attempt may report its new head. A late completion from an older run or
+rerun attempt returns `recorded=false`, `reason=stale-attempt` without overwriting the newer
+reservation. Rerun from the reservation step, not a completion-only job; an unmatched pending
+reservation remains recoverable through the existing stale-pending timeout. Existing callers
+without GitHub attempt identity retain legacy behavior. This is a workflow-attempt fence,
+not an atomic compare-and-swap guarantee from the backing storage.
+
+With `--storage auto`, completion reads and writes only the primary PR-comment
+reservation, never an empty or stale repository-variable fallback. A missing primary
+reservation returns `recorded=false`, `reason=authoritative-reservation-missing`;
+a primary read/write failure returns `reason=authoritative-storage-unavailable`.
+These checks apply even when the completing job has no workflow identity. Dispatch
+may still use fallback storage during an outage, but its completion cannot be committed
+until a primary reservation is established. Recover by rerunning from the reservation
+step after primary storage is healthy; a pending primary reservation retains its
+stale-pending timeout. A failed write response can be ambiguous, so retries re-read
+primary state and preserve same-attempt idempotency. Explicit single-store callers
+retain their existing behavior.
+
+Authoritative storage failures also emit a warning on stderr identifying the read/write
+operation, exception and cause types, and HTTP status when available. Raw exception text,
+URLs and response bodies are omitted so diagnostic logging does not expose credentials.
+
+**Why the allowance expires into a cooldown rather than a refusal.** Refusing until the head
+changes would put the original latch back one step further out. A cooldown is cleared by time
+alone — nothing the gate forbids is needed to open it — and the hourly keepalive sweep wakes it.
+For the same reason, a `completed_at` that cannot be parsed lets the dispatch through: a gate
+that cannot measure itself must fail toward motion, not silence.
+
+Every refusal states its drainable quantity next to its blocking state, so a run log never says
+only that dispatch is closed without saying what would open it. A granted dispatch renders that
+field empty, which keeps "no drainable path stated" from ever reading as "nothing is blocking".
+
+Constants live in `scripts/runner_lib/core.py`:
+`UNPRODUCTIVE_COMPLETION_RETRY_LIMIT` and `UNPRODUCTIVE_COMPLETION_COOLDOWN_SECONDS`.

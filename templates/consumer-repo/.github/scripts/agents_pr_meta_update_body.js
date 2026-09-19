@@ -10,6 +10,7 @@
  * - Building and updating PR body with preamble and status blocks
  */
 
+const { visibleChecklistContent, stripPrTemplateControls } = require('./issue_scope_parser');
 const path = require('path');
 const fs = require('fs');
 const os = require('os');
@@ -728,8 +729,13 @@ function stripPrTemplateContent(body) {
     firstMarkerIndex = statusStart;
   }
   
-  // If we found a marker and there's content before it, strip that content
+  // A checkbox-bearing prefix may be reviewer-added work, not a template.
+  // Preserve it with its context and continuation lines across regeneration.
   if (firstMarkerIndex > 0) {
+    const prefix = stripPrTemplateControls(body.slice(0, firstMarkerIndex));
+    if (/^\s*(?:[-*+]|\d+[.)])\s*\[[ xX]\]/m.test(visibleChecklistContent(prefix))) {
+      return prefix + body.slice(firstMarkerIndex);
+    }
     return body.slice(firstMarkerIndex);
   }
   
@@ -921,22 +927,105 @@ function selectLatestWorkflows(runs) {
 
 const SELF_OBSERVING_WORKFLOW_NAMES = new Set([
   'agents pr meta manager',
+  'agents pr event hub',
+  'pr 46 dependency repair contract',
 ]);
+
+const SELF_OBSERVING_WORKFLOW_PATHS = new Set([
+  '.github/workflows/agents-pr-meta-v4.yml',
+  '.github/workflows/agents-80-pr-event-hub.yml',
+  '.github/workflows/pr-46-dependency-repair-contract.yml',
+]);
+
+const DEPENDENCY_CONTRACT_NAME = 'PR 46 Dependency Repair Contract';
+
+function isDependencyContractRun(run) {
+  return String(run?.name || '').trim().toLowerCase() === DEPENDENCY_CONTRACT_NAME.toLowerCase()
+    || String(run?.path || '').trim().split('@')[0].toLowerCase()
+      === '.github/workflows/pr-46-dependency-repair-contract.yml';
+}
 
 function isSelfObservingWorkflowRun(run) {
   const name = String(run?.name || '').trim().toLowerCase();
-  return Boolean(name && SELF_OBSERVING_WORKFLOW_NAMES.has(name));
+  const workflowPath = String(run?.path || '').trim().split('@')[0].toLowerCase();
+  return SELF_OBSERVING_WORKFLOW_NAMES.has(name)
+    || SELF_OBSERVING_WORKFLOW_PATHS.has(workflowPath);
 }
 
 function filterWorkflowRunsForStatus(workflowRuns) {
   const filtered = new Map();
   for (const [key, run] of workflowRuns || new Map()) {
-    if (isSelfObservingWorkflowRun(run)) {
-      continue;
+    if (isDependencyContractRun(run)) {
+      // PR 46 validates provenance as well as observing body edits. Keep its
+      // last completed result, but never echo the run URL that caused an edit.
+      if (run.status === 'completed' && run.conclusion) {
+        filtered.set(DEPENDENCY_CONTRACT_NAME.toLowerCase(), {
+          ...run, name: DEPENDENCY_CONTRACT_NAME, html_url: '',
+        });
+      }
+    } else if (!isSelfObservingWorkflowRun(run)) {
+      filtered.set(key, run);
     }
-    filtered.set(key, run);
   }
   return filtered;
+}
+
+async function collectStatusWorkflowRuns({github, owner, repo, headSha, core}) {
+  // Without an implementation head, neither endpoint can provide exact-head evidence.
+  if (!normalise(headSha)) return new Map();
+  const response = await withRetries(
+    () => github.rest.actions.listWorkflowRunsForRepo({
+      owner, repo, head_sha: headSha, per_page: 100,
+    }),
+    {description: 'list workflow runs', core},
+  );
+  const exactRuns = (response.data.workflow_runs || []).filter(run => run.head_sha === headSha);
+  const runs = filterWorkflowRunsForStatus(selectLatestWorkflows(exactRuns.filter(run =>
+    !isDependencyContractRun(run) || (run.status === 'completed' && run.conclusion),
+  ).map(run => isDependencyContractRun(run) ? {...run, name: DEPENDENCY_CONTRACT_NAME} : run)));
+  if (exactRuns.some(isDependencyContractRun) && !runs.has(DEPENDENCY_CONTRACT_NAME.toLowerCase())) {
+    // A new body edit starts PR 46 again. Resolve only the last completed
+    // exact-head result so its pending/completed cycle cannot retrigger itself.
+    try {
+      const contractResponse = await withRetries(
+        () => github.rest.actions.listWorkflowRuns({
+          owner, repo, workflow_id: 'pr-46-dependency-repair-contract.yml',
+          head_sha: headSha, status: 'completed', per_page: 1,
+        }),
+        {description: 'recover completed dependency contract', core, attempts: 1},
+      );
+      const completed = filterWorkflowRunsForStatus(selectLatestWorkflows(
+        (contractResponse.data.workflow_runs || []).filter(run =>
+          run.head_sha === headSha && isDependencyContractRun(run),
+        ),
+      ));
+      for (const [key, run] of completed) runs.set(key, run);
+    } catch (error) {
+      if (error?.status !== 404) throw error;
+      core?.warning('Dependency contract workflow unavailable; consult PR checks.');
+    }
+  }
+  if (!runs.has('gate')) {
+    // Metadata-only edited events can fill the latest page. Recover the real
+    // exact-head Gate directly rather than paging through thousands of observers.
+    try {
+      const gateResponse = await withRetries(
+        () => github.rest.actions.listWorkflowRuns({
+          owner, repo, workflow_id: 'pr-00-gate.yml', head_sha: headSha, per_page: 1,
+        }),
+        {description: 'recover exact-head Gate', core, attempts: 1},
+      );
+      for (const run of gateResponse.data.workflow_runs || []) {
+        if (run.head_sha === headSha && String(run.name || '').toLowerCase() === 'gate') {
+          runs.set('gate', run);
+        }
+      }
+    } catch (error) {
+      if (error?.status !== 404) throw error;
+      core?.warning('Gate workflow unavailable; leaving its status unknown.');
+    }
+  }
+  return runs;
 }
 
 function fallbackChecklist(message) {
@@ -1199,7 +1288,7 @@ function buildStatusBlock({scope, contextSection, tasks, acceptance, headSha, wo
   if (!isCliAgent) {
     statusLines.push(`**Head SHA:** ${headSha}`);
 
-    const latestRuns = Array.from(statusWorkflowRuns.values()).sort((a, b) => new Date(b.created_at) - new Date(a.created_at));
+    const latestRuns = Array.from(statusWorkflowRuns.values()).filter(run => !isDependencyContractRun(run)).sort((a, b) => new Date(b.created_at) - new Date(a.created_at));
     let latestLine = '—';
     if (latestRuns.length > 0) {
       const gate = latestRuns.find((run) => (run.name || '').toLowerCase() === 'gate');
@@ -1213,10 +1302,12 @@ function buildStatusBlock({scope, contextSection, tasks, acceptance, headSha, wo
     for (const name of requiredChecks) {
       const run = Array.from(statusWorkflowRuns.values()).find((item) => (item.name || '').toLowerCase() === name.toLowerCase());
       if (!run) {
-        requiredParts.push(`${name}: ⏸️ not started`);
+        requiredParts.push(SELF_OBSERVING_WORKFLOW_NAMES.has(name.toLowerCase())
+          ? `${name}: reported separately in PR checks`
+          : `${name}: ⏸️ not started`);
       } else {
         const status = combineStatus(run);
-        requiredParts.push(`${name}: ${status.icon} ${status.label}`);
+        requiredParts.push(`${name}: ${status.icon} ${status.label}${isDependencyContractRun(run) ? ' (last completed; current run in PR checks)' : ''}`);
       }
     }
     statusLines.push(`**Required:** ${requiredParts.length > 0 ? requiredParts.join(', ') : '—'}`);
@@ -1230,7 +1321,9 @@ function buildStatusBlock({scope, contextSection, tasks, acceptance, headSha, wo
     } else {
       for (const run of runs) {
         const status = combineStatus(run);
-        const link = run.html_url ? `[View run](${run.html_url})` : '—';
+        const link = isDependencyContractRun(run)
+          ? 'Last completed result; current run in PR checks'
+          : run.html_url ? `[View run](${run.html_url})` : '—';
         table.push(`| ${run.name || 'Unnamed workflow'} | ${status.icon} ${status.label} | ${link} |`);
       }
     }
@@ -1617,16 +1710,9 @@ async function run({github: rawGithub, context, core, inputs}) {
     sourceIssue: issueResponse.data,
   });
 
-  const workflowRunResponse = await withRetries(
-    () => github.rest.actions.listWorkflowRunsForRepo({
-      owner,
-      repo,
-      head_sha: pr.head.sha,
-      per_page: 100,
-    }),
-    {description: 'list workflow runs', core},
-  );
-  const workflowRuns = selectLatestWorkflows(workflowRunResponse.data.workflow_runs || []);
+  const workflowRuns = await collectStatusWorkflowRuns({
+    github, owner, repo, headSha: pr.head.sha, core,
+  });
 
   const requiredChecksRaw = await fetchRequiredChecks(github, owner, repo, pr.base.ref, core);
   // Avoid mutating the returned array - create a new one with 'gate' appended if needed
@@ -1725,6 +1811,7 @@ module.exports = {
   stripPrTemplateContent,
   upsertBlock,
   filterWorkflowRunsForStatus,
+  collectStatusWorkflowRuns,
   buildContextBlock,
   buildPreamble,
   buildSourceContextRepairCommentBody,

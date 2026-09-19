@@ -105,6 +105,23 @@ def test_no_marker_returns_none() -> None:
     assert parse_deliberate_break_spec("## Acceptance Criteria\n- [ ] normal check") is None
 
 
+def test_prose_deliberate_break_colon_is_not_incomplete_marker() -> None:
+    """Checklist prose with 'Deliberate-break:' must not raise or false-match."""
+    assert (
+        parse_deliberate_break_spec(
+            "## Test plan\n"
+            "- [x] Deliberate-break: revert the `[403, 404]` branch → "
+            "tests/assertions fail → restore\n"
+        )
+        is None
+    )
+
+
+def test_incomplete_key_value_marker_still_raises() -> None:
+    with pytest.raises(ValueError, match="requires test, test-file, and break-file"):
+        parse_deliberate_break_spec("<!-- deliberate-break: test=tests/test_app.py::test_value -->")
+
+
 def test_issue_acceptance_wording_is_supported() -> None:
     spec = parse_deliberate_break_spec(
         "## Acceptance Criteria\n\n"
@@ -170,20 +187,70 @@ def test_fallback_test_name_parser_rejects_near_misses_and_accepts_valid_tokens(
     )
 
 
-def test_consumer_template_fallback_test_name_matches_main_parser() -> None:
+def test_unquoted_fallback_test_name_treats_hyphen_as_boundary() -> None:
+    """A literal '_A-Za-z0-9' membership check misread '-' as identifier continuation."""
+    assert (
+        _extract_fallback_test_name("Named test: run `tests/test_app.py` with test_widget-extra.")
+        == "test_widget"
+    )
+    assert (
+        _extract_fallback_test_name("Named test: run `tests/test_app.py` with test_widget7.")
+        == "test_widget7"
+    )
+
+
+def _load_consumer_deliberate_break_helpers() -> dict[str, object]:
     consumer_path = (
         Path(__file__).resolve().parents[2]
         / "templates/consumer-repo/scripts/check_deliberate_break.py"
     )
     consumer_source = consumer_path.read_text(encoding="utf-8")
-    start = consumer_source.index("def _extract_fallback_test_name")
-    end = consumer_source.index("\ndef _fallback_marker", start)
-    namespace: dict[str, object] = {}
-    exec(consumer_source[start:end], {"re": __import__("re")}, namespace)
-    consumer_extract = namespace["_extract_fallback_test_name"]
+    namespace: dict[str, object] = {"re": __import__("re")}
+    extract_start = consumer_source.index("def _extract_fallback_test_name")
+    extract_end = consumer_source.index("\ndef _fallback_marker", extract_start)
+    exec(consumer_source[extract_start:extract_end], namespace, namespace)
+    infer_start = consumer_source.index("def _infer_break_file")
+    infer_end = consumer_source.index("\ndef parse_deliberate_break_spec", infer_start)
+    exec(consumer_source[infer_start:infer_end], namespace, namespace)
+    return namespace
 
-    sample = "Named test: `tests/test_app.py` with test_widget."
-    assert consumer_extract(sample) == _extract_fallback_test_name(sample)
+
+def test_consumer_template_fallback_test_name_matches_main_parser() -> None:
+    consumer_extract = _load_consumer_deliberate_break_helpers()["_extract_fallback_test_name"]
+
+    for sample in (
+        "Named test: `tests/test_app.py` with test_widget.",
+        "Named test: run `tests/test_app.py` with test_widget-extra.",
+        "Named test: run `tests/test_app.py` with test_widget7.",
+        "Named test: `tests/test_app.py` with `test_widget`.",
+    ):
+        assert consumer_extract(sample) == _extract_fallback_test_name(sample)
+
+
+def test_consumer_template_infer_break_file_prefers_workflow_path() -> None:
+    consumer_infer = _load_consumer_deliberate_break_helpers()["_infer_break_file"]
+
+    assert (
+        consumer_infer(
+            break_line="- [ ] Deliberate break: temporarily break the named test.",
+            named_line="- [ ] Named test: add `tests/test_widget.py` with `test_widget`.",
+            markdown="## Scope\n- [ ] Update `.github/workflows/ci.yml`.\n",
+        )
+        == ".github/workflows/ci.yml"
+    )
+
+    assert (
+        consumer_infer(
+            break_line="- [ ] Deliberate break: prove the named test fails.",
+            named_line="- [ ] Named test: add `tests/test_widget.py` with `test_widget`.",
+            markdown=(
+                "## Scope\n"
+                "- [ ] Touch `config/app.yaml`.\n"
+                "- [ ] Update `.github/workflows/reusable-ci.yml`.\n"
+            ),
+        )
+        == ".github/workflows/reusable-ci.yml"
+    )
 
 
 def test_explicit_marker_outside_acceptance_section_is_honored() -> None:
@@ -1979,3 +2046,122 @@ def test_the_result_is_printed_as_parseable_json(tmp_path, monkeypatch, capsys):
     deliberate_break.main([])
     printed = capsys.readouterr().out.strip().splitlines()[-1]
     assert json.loads(printed)["verdict"] == VERDICT_BROKEN
+
+
+def test_missing_module_is_reported_as_an_environment_defect() -> None:
+    """A test that could not be imported never ran, so it cannot have failed a demonstration.
+
+    Reporting both under `head-test-failed` is one sentinel meaning two things: it sent
+    Deliverable-Render #20 through five autofix attempts against its own correctly declared
+    dependency, because the message pointed at the PR instead of at the gate's environment.
+    """
+    pytest_output = (
+        "ImportError while importing test module 'tests/docx/test_memo.py'.\n"
+        "E   ModuleNotFoundError: No module named 'docx'\n"
+        "=========================== short test summary ============================\n"
+    )
+
+    assert deliberate_break._missing_module_from_pytest_output(pytest_output, None) == "docx"
+
+
+def test_a_genuine_assertion_failure_is_not_reclassified() -> None:
+    """The environment branch must not swallow a real failed demonstration."""
+    pytest_output = "E   assert 1 == 2\n1 failed in 0.02s\n"
+
+    assert deliberate_break._missing_module_from_pytest_output(pytest_output, "") is None
+
+
+def test_missing_module_is_found_on_either_stream() -> None:
+    """Collection evidence and the module name may arrive on different streams."""
+    assert (
+        deliberate_break._missing_module_from_pytest_output(
+            "ERROR collecting tests/test_app.py",
+            "ModuleNotFoundError: No module named 'lxml'",
+        )
+        == "lxml"
+    )
+
+
+def _import_error_run(stdout: str) -> subprocess.CompletedProcess[str]:
+    return subprocess.CompletedProcess(args=["pytest"], returncode=1, stdout=stdout, stderr="")
+
+
+def test_verify_spec_reports_a_collection_import_failure_as_an_environment_defect(
+    tmp_path, monkeypatch
+) -> None:
+    """Drive the real call site, not just the helper.
+
+    Review was right that asserting on `_missing_module_from_pytest_output` alone leaves the
+    wiring untested: a regression in the branch or in the stream ordering would keep the unit
+    tests green while the gate carried on emitting `head-test-failed`.
+    """
+    repo = tmp_path / "repo"
+    repo.mkdir()
+    _init_repo(repo)
+    _write_app(repo, 0)
+    _write_test(repo, 0)
+    base = _commit(repo, "base test")
+    monkeypatch.chdir(repo)
+    spec = parse_deliberate_break_spec(
+        "<!-- deliberate-break: "
+        "test=tests/test_app.py::test_value "
+        "test-file=tests/test_app.py "
+        "break-file=app.py -->"
+    )
+    assert spec is not None
+    monkeypatch.setattr(
+        deliberate_break,
+        "_run_with_runtime_deps",
+        lambda *_a, **_k: _import_error_run(
+            "ImportError while importing test module 'tests/test_app.py'.\n"
+            "E   ModuleNotFoundError: No module named 'docx'\n"
+        ),
+    )
+
+    result = verify_spec(spec, base=base, enforce_tamper=False)
+
+    assert result["verdict"] == VERDICT_BROKEN
+    assert result["reason"] == "head-test-not-importable"
+    assert result["missing_module"] == "docx"
+    assert "never ran" in str(result["detail"])
+
+
+def test_verify_spec_keeps_head_test_failed_for_a_real_failure(tmp_path, monkeypatch) -> None:
+    """A test that ran and failed must not be excused as an environment defect."""
+    repo = tmp_path / "repo"
+    repo.mkdir()
+    _init_repo(repo)
+    _write_app(repo, 0)
+    _write_test(repo, 0)
+    base = _commit(repo, "base test")
+    monkeypatch.chdir(repo)
+    spec = parse_deliberate_break_spec(
+        "<!-- deliberate-break: "
+        "test=tests/test_app.py::test_value "
+        "test-file=tests/test_app.py "
+        "break-file=app.py -->"
+    )
+    assert spec is not None
+    monkeypatch.setattr(
+        deliberate_break,
+        "_run_with_runtime_deps",
+        lambda *_a, **_k: _import_error_run("E   assert 1 == 2\n1 failed in 0.01s\n"),
+    )
+
+    result = verify_spec(spec, base=base, enforce_tamper=False)
+
+    assert result["reason"] == "head-test-failed"
+
+
+def test_a_missing_module_raised_inside_a_test_body_is_a_real_failure() -> None:
+    """Without collection evidence this is an ordinary failure of a test that DID run.
+
+    Excusing it would hide a genuine acceptance failure behind an environment explanation.
+    """
+    in_test_body = (
+        "tests/test_app.py::test_value FAILED\n"
+        "E   ModuleNotFoundError: No module named 'docx'\n"
+        "1 failed in 0.10s\n"
+    )
+
+    assert deliberate_break._missing_module_from_pytest_output(in_test_body, None) is None

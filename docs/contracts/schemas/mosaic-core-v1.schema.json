@@ -1,0 +1,345 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://github.com/stranske/Workflows/docs/contracts/schemas/mosaic-core-v1.schema.json",
+  "title": "Research Backplane Mosaic Core v1",
+  "description": "One attributable fact, discrepancy, thesis claim, or thesis check; record_type selects its wire shape.",
+  "type": "object",
+  "additionalProperties": true,
+  "required": [
+    "schema_version",
+    "record_type"
+  ],
+  "properties": {
+    "schema_version": {
+      "const": "mosaic-core/v1"
+    }
+  },
+  "oneOf": [
+    {
+      "$ref": "#/$defs/Fact"
+    },
+    {
+      "$ref": "#/$defs/Discrepancy"
+    },
+    {
+      "$ref": "#/$defs/ThesisClaim"
+    },
+    {
+      "$ref": "#/$defs/ThesisCheck"
+    }
+  ],
+  "$defs": {
+    "Fact": {
+      "type": "object",
+      "required": [
+        "record_type",
+        "fact_id",
+        "fact_key",
+        "entity_ref",
+        "value",
+        "status",
+        "primary_evidence_id"
+      ],
+      "properties": {
+        "record_type": {
+          "const": "fact"
+        },
+        "fact_id": {
+          "type": "string",
+          "minLength": 1
+        },
+        "fact_key": {
+          "type": "string",
+          "minLength": 1
+        },
+        "entity_ref": {
+          "type": "string",
+          "pattern": "^[a-z0-9_]+:[a-z0-9][a-z0-9_.:-]*$"
+        },
+        "value": {
+          "oneOf": [
+            {
+              "type": [
+                "number",
+                "string",
+                "boolean"
+              ]
+            },
+            {
+              "$ref": "#/$defs/Range"
+            }
+          ]
+        },
+        "period": {
+          "type": "string",
+          "minLength": 1
+        },
+        "status": {
+          "enum": [
+            "asserted",
+            "superseded",
+            "retracted"
+          ]
+        },
+        "primary_evidence_id": {
+          "type": "string",
+          "minLength": 1
+        }
+      }
+    },
+    "Range": {
+      "type": "object",
+      "required": [
+        "min",
+        "max"
+      ],
+      "additionalProperties": false,
+      "properties": {
+        "min": {
+          "type": "number"
+        },
+        "max": {
+          "type": "number"
+        }
+      }
+    },
+    "Discrepancy": {
+      "type": "object",
+      "required": [
+        "record_type",
+        "discrepancy_id",
+        "fact_key",
+        "entity_ref",
+        "fact_ids",
+        "discrepancy_kind",
+        "severity",
+        "status"
+      ],
+      "properties": {
+        "record_type": {
+          "const": "discrepancy"
+        },
+        "discrepancy_id": {
+          "type": "string",
+          "minLength": 1
+        },
+        "fact_key": {
+          "type": "string",
+          "minLength": 1
+        },
+        "entity_ref": {
+          "type": "string",
+          "pattern": "^[a-z0-9_]+:[a-z0-9][a-z0-9_.:-]*$"
+        },
+        "period": {
+          "type": "string",
+          "minLength": 1
+        },
+        "fact_ids": {
+          "type": "array",
+          "items": {
+            "type": "string",
+            "minLength": 1
+          },
+          "minItems": 1,
+          "uniqueItems": true
+        },
+        "discrepancy_kind": {
+          "enum": [
+            "numeric_delta",
+            "sign_conflict",
+            "narrative_conflict",
+            "missing_in_source"
+          ]
+        },
+        "severity": {
+          "enum": [
+            "low",
+            "normal",
+            "high"
+          ]
+        },
+        "status": {
+          "enum": [
+            "open",
+            "accepted_primary",
+            "immaterial",
+            "resolved"
+          ]
+        },
+        "resolution_note": {
+          "type": "string",
+          "minLength": 1
+        }
+      },
+      "allOf": [
+        {
+          "if": {
+            "properties": {
+              "discrepancy_kind": {
+                "enum": [
+                  "numeric_delta",
+                  "sign_conflict",
+                  "narrative_conflict"
+                ]
+              }
+            }
+          },
+          "then": {
+            "properties": {
+              "fact_ids": {
+                "minItems": 2
+              }
+            }
+          }
+        },
+        {
+          "if": {
+            "properties": {
+              "status": {
+                "enum": [
+                  "accepted_primary",
+                  "immaterial",
+                  "resolved"
+                ]
+              }
+            }
+          },
+          "then": {
+            "required": [
+              "resolution_note"
+            ]
+          }
+        }
+      ]
+    },
+    "ThesisClaim": {
+      "type": "object",
+      "required": [
+        "record_type",
+        "thesis_id",
+        "claim_id",
+        "claim_text",
+        "entity_ref",
+        "fact_keys",
+        "evidence_policy"
+      ],
+      "properties": {
+        "record_type": {
+          "const": "thesis_claim"
+        },
+        "thesis_id": {
+          "type": "string",
+          "minLength": 1
+        },
+        "claim_id": {
+          "type": "string",
+          "minLength": 1
+        },
+        "claim_text": {
+          "type": "string",
+          "minLength": 1
+        },
+        "entity_ref": {
+          "type": "string",
+          "pattern": "^[a-z0-9_]+:[a-z0-9][a-z0-9_.:-]*$"
+        },
+        "fact_keys": {
+          "type": "array",
+          "items": {
+            "type": "string",
+            "minLength": 1
+          },
+          "minItems": 1,
+          "uniqueItems": true
+        },
+        "expected_pattern": {
+          "enum": [
+            "min",
+            "max",
+            "trend_up",
+            "absent"
+          ]
+        },
+        "evidence_policy": {
+          "enum": [
+            "require_primary_source",
+            "allow_marketing_only_with_flag"
+          ]
+        }
+      }
+    },
+    "ThesisCheck": {
+      "type": "object",
+      "required": [
+        "record_type",
+        "thesis_id",
+        "claim_id",
+        "verdict",
+        "evidence_ids",
+        "checked_at",
+        "trigger_source_id"
+      ],
+      "properties": {
+        "record_type": {
+          "const": "thesis_check"
+        },
+        "thesis_id": {
+          "type": "string",
+          "minLength": 1
+        },
+        "claim_id": {
+          "type": "string",
+          "minLength": 1
+        },
+        "verdict": {
+          "enum": [
+            "supported",
+            "at_risk",
+            "contradicted",
+            "insufficient_evidence"
+          ]
+        },
+        "evidence_ids": {
+          "type": "array",
+          "items": {
+            "type": "string",
+            "minLength": 1
+          },
+          "minItems": 0,
+          "uniqueItems": true
+        },
+        "checked_at": {
+          "type": "string",
+          "format": "date-time"
+        },
+        "trigger_source_id": {
+          "type": "string",
+          "minLength": 1
+        }
+      },
+      "allOf": [
+        {
+          "if": {
+            "properties": {
+              "verdict": {
+                "enum": [
+                  "supported",
+                  "at_risk",
+                  "contradicted"
+                ]
+              }
+            }
+          },
+          "then": {
+            "properties": {
+              "evidence_ids": {
+                "minItems": 1
+              }
+            }
+          }
+        }
+      ]
+    }
+  }
+}

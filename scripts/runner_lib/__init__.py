@@ -1,6 +1,8 @@
 """Shared helpers for dual-provider agent runner workflows."""
 
 from .core import (
+    UNPRODUCTIVE_COMPLETION_COOLDOWN_SECONDS,
+    UNPRODUCTIVE_COMPLETION_RETRY_LIMIT,
     CapabilityEffectEvidence,
     DebounceDecision,
     RunnerPrompt,
@@ -13,6 +15,8 @@ from .core import (
 )
 
 __all__ = [
+    "UNPRODUCTIVE_COMPLETION_COOLDOWN_SECONDS",
+    "UNPRODUCTIVE_COMPLETION_RETRY_LIMIT",
     "CapabilityEffectEvidence",
     "DebounceDecision",
     "RunnerPrompt",

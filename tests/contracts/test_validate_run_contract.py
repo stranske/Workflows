@@ -13,6 +13,8 @@ import sys
 from pathlib import Path
 
 import pytest
+from jsonschema import Draft202012Validator
+from jsonschema.exceptions import SchemaError
 
 ROOT = Path(__file__).resolve().parent.parent.parent
 SCHEMA_DIR = ROOT / "docs" / "contracts" / "schemas"
@@ -568,3 +570,157 @@ def test_registry_shape_meta() -> None:
     ):
         assert repo in excluded
         assert excluded[repo]["reason"].strip()
+
+
+def test_self_smoke_loads_every_bundled_schema(capsys) -> None:
+    """Self-smoke must discover schemas, not name a hardcoded subset.
+
+    A hardcoded triple silently skipped tracked-variable-v1 and
+    capability-bundle-v1, so a malformed schema added to the directory would
+    have passed the gate.
+    """
+    mod = _import_validator()
+    rc = mod._self_smoke(SCHEMA_DIR, REGISTRY)
+    assert rc == 0
+    out = capsys.readouterr().out
+    on_disk = sorted(path.name for path in SCHEMA_DIR.glob("*.schema.json"))
+    assert on_disk, "no schemas on disk; fixture assumption broken"
+    for name in on_disk:
+        assert f"PASS schema loads + valid Draft202012: {name}" in out, name
+
+
+def test_self_smoke_fails_on_an_empty_schema_dir(tmp_path, capsys) -> None:
+    """An empty schema dir must fail loudly, not report a vacuous pass."""
+    mod = _import_validator()
+    empty = tmp_path / "schemas"
+    empty.mkdir()
+    rc = mod._self_smoke(empty, REGISTRY)
+    assert rc == 1
+    assert "no *.schema.json files found" in capsys.readouterr().out
+
+
+def test_self_smoke_rejects_draft2020_invalid_schema_in_schema_dir(tmp_path) -> None:
+    """JSON-valid but Draft-2020-12-invalid schemas must fail via glob discovery."""
+    mod = _import_validator()
+    schema_dir = tmp_path / "schemas"
+    schema_dir.mkdir()
+    for src in SCHEMA_DIR.glob("*.schema.json"):
+        (schema_dir / src.name).write_text(src.read_text(encoding="utf-8"), encoding="utf-8")
+    bad_name = "zzz-invalid-meta.schema.json"
+    bad_schema = {
+        "$schema": "https://json-schema.org/draft/2020-12/schema",
+        "type": "integer",
+        "exclusiveMinimum": "not-a-number",
+    }
+    (schema_dir / bad_name).write_text(json.dumps(bad_schema), encoding="utf-8")
+    discovered = sorted(path.name for path in schema_dir.glob("*.schema.json"))
+    assert bad_name in discovered
+
+    with pytest.raises(SchemaError):
+        Draft202012Validator.check_schema(bad_schema)
+
+    with pytest.raises(SchemaError):
+        mod._self_smoke(schema_dir, REGISTRY)
+
+
+def _valid_capability_bundle(**overrides):
+    bundle = {
+        "schema_version": "capability-bundle/v1",
+        "capability_id": "keepalive/test-bundle",
+        "version": "1.0.0",
+        "content_hash": "sha256:" + ("a" * 64),
+        "selector": {"repo": "stranske/Workflows", "agent": "codex"},
+        "owner": "stranske/Workflows",
+        "fragments": {
+            "task": "Exercise the declared gate before claiming parity.",
+            "acceptance": "Report the gate ID and the offline assertion.",
+        },
+        "gates": ["frontend_verify@1"],
+        "rollback": "Remove the bundle from the registry and rerun keepalive.",
+        **overrides,
+    }
+    return bundle
+
+
+def test_capability_bundle_is_a_schema_validated_ingest_token() -> None:
+    """capability-bundle/v1 has a schema on disk and is enforced for consumers."""
+    mod = _import_validator()
+    assert mod.INGEST_SCHEMA_FILES["capability-bundle/v1"] == "capability-bundle-v1.schema.json"
+    assert (SCHEMA_DIR / "capability-bundle-v1.schema.json").is_file()
+    for token, filename in mod.INGEST_SCHEMA_FILES.items():
+        assert (SCHEMA_DIR / filename).is_file(), token
+
+    registry = {
+        "participants": [
+            {
+                "repo": "stranske/Capability-Consumer",
+                "role": "consumer",
+                "status": "conformant",
+                "ingests": ["capability-bundle/v1"],
+            }
+        ]
+    }
+    report = mod.validate_envelope(
+        envelope=_valid_capability_bundle(),
+        schema_dir=SCHEMA_DIR,
+        registry=registry,
+        repo="stranske/Capability-Consumer",
+        manifest=None,
+    )
+    assert report.conformant
+    assert report.role == "consumer"
+
+    report_bad = mod.validate_envelope(
+        envelope=_valid_capability_bundle(gates=[]),
+        schema_dir=SCHEMA_DIR,
+        registry=registry,
+        repo="stranske/Capability-Consumer",
+        manifest=None,
+    )
+    assert not report_bad.conformant
+    assert any("capability-bundle/v1" in v.message for v in report_bad.violations)
+
+
+def _validate_mosaic_consumer(record: dict):
+    return _import_validator().validate_envelope(
+        envelope=record,
+        schema_dir=SCHEMA_DIR,
+        registry={
+            "participants": [
+                {
+                    "repo": "stranske/Mosaic-Consumer",
+                    "role": "consumer",
+                    "status": "conformant",
+                    "ingests": ["mosaic-core/v1"],
+                }
+            ]
+        },
+        repo="stranske/Mosaic-Consumer",
+        manifest=None,
+    )
+
+
+@pytest.mark.parametrize("kind", ["fact", "discrepancy", "thesis_claim", "thesis_check"])
+def test_mosaic_consumer_validates_fixture(kind: str) -> None:
+    record = json.loads((FIXTURES / f"valid_mosaic_{kind}.json").read_text())
+    report = _validate_mosaic_consumer(record)
+    assert report.conformant, [v.message for v in report.violations]
+    assert report.role == "consumer"
+    assert not report.skipped
+
+
+def test_mosaic_consumer_rejects_malformed_fact() -> None:
+    record = json.loads((FIXTURES / "valid_mosaic_fact.json").read_text())
+    record["fact_key"] = ""
+    report = _validate_mosaic_consumer(record)
+    assert not report.conformant
+    assert any("ingested-as-mosaic-core/v1" in v.message for v in report.violations)
+
+
+@pytest.mark.parametrize("checked_at", ["yesterday", "2026-02-30T12:00:00Z", "2026-09-19T12:00:00"])
+def test_mosaic_consumer_rejects_invalid_timestamp(checked_at: str) -> None:
+    record = json.loads((FIXTURES / "valid_mosaic_thesis_check.json").read_text())
+    record["checked_at"] = checked_at
+    report = _validate_mosaic_consumer(record)
+    assert not report.conformant
+    assert any("ingested-as-mosaic-core/v1" in v.message for v in report.violations)
