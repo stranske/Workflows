@@ -1,0 +1,32 @@
+{
+  "schema_version": "document-mirror/v1",
+  "mirror_root": "/data/document-mirror",
+  "catalog_id": "mirror-catalog:fedcba9876543210fedcba9876543210fedcba9876543210fedcba9876543210",
+  "created_at": "not a url",
+  "blobs": [
+    {
+      "content_sha256": "abc123abcdefabcdefabcdefabcdefabcdefabcdefabcdefabcdefabcdefabcd",
+      "blob_path": "blobs/sha256/ab/cd/abc123abcdefabcdefabcdefabcdefabcdefabcdefabcdefabcdefabcdefabcd",
+      "doc_type_id": "lpa",
+      "source_refs": [
+        {
+          "system": "backstop",
+          "url": "not a url"
+        }
+      ]
+    },
+    {
+      "content_sha256": "1111222233334444555566667777888899990000aaaabbbbccccddddeeeeffff",
+      "blob_path": "blobs/sha256/11/22/1111222233334444555566667777888899990000aaaabbbbccccddddeeeeffff",
+      "doc_type_id": "consultant_report",
+      "source_refs": [
+        {
+          "system": "sharepoint",
+          "driveId": "b!Xk8pZ2vN5qR1wT3yU7aB9cD0eF",
+          "itemId": "01ABCDEFGHIJKLMNOPQRSTUVWXYZ",
+          "web_url": "not a url"
+        }
+      ]
+    }
+  ]
+}

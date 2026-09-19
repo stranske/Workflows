@@ -118,6 +118,13 @@ def _validator_for_schema(schema_dir: Path, name: str) -> Draft202012Validator:
         # Explicitly request the checker so a missing rfc3339-validator dependency
         # fails instead of silently accepting malformed checked_at timestamps.
         return Draft202012Validator(schema, format_checker=FormatChecker(formats=["date-time"]))
+    if name == "document-mirror-v1.schema.json":
+        # Explicitly request URI/date-time checks so malformed resolver links and
+        # catalog timestamps cannot pass as conformant.
+        return Draft202012Validator(
+            schema,
+            format_checker=FormatChecker(formats=["date-time", "uri"]),
+        )
     if name != "tracked-variable-v1.schema.json":
         return Draft202012Validator(schema)
     evidence = _load_schema(schema_dir, "evidence-object-v1.schema.json")
@@ -401,6 +408,8 @@ def main(argv: list[str] | None = None) -> int:
 
     if args.tracked_variables and args.mirror_manifest:
         parser.error("--tracked-variables and --mirror-manifest are mutually exclusive")
+    if args.self_smoke and args.mirror_manifest:
+        parser.error("--self-smoke and --mirror-manifest are mutually exclusive")
 
     standalone_schema_mode = args.tracked_variables or args.mirror_manifest
 

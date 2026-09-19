@@ -115,6 +115,7 @@ def test_tracked_variable_cli_needs_no_participant_context(fixture, expected, ca
         ("valid_document_mirror.json", 0),
         ("valid_empty_document_mirror.json", 0),
         ("invalid_document_mirror_bad_blob_path.json", 1),
+        ("invalid_document_mirror_bad_urls.json", 1),
     ],
 )
 @pytest.mark.parametrize("schema_args", [[], ["--schema-dir", str(SCHEMA_DIR)]])
@@ -151,6 +152,26 @@ def test_tracked_variables_and_mirror_manifest_are_mutually_exclusive(capsys) ->
                 str(FIXTURES / "valid_tracked_variable.json"),
                 "--mirror-manifest",
                 str(FIXTURES / "valid_document_mirror.json"),
+                "--schema-dir",
+                str(SCHEMA_DIR),
+            ]
+        )
+    assert exc.value.code == 2
+    assert "mutually exclusive" in capsys.readouterr().err
+
+
+def test_self_smoke_and_mirror_manifest_are_mutually_exclusive(capsys) -> None:
+    mod = _import_validator()
+    with pytest.raises(SystemExit) as exc:
+        mod.main(
+            [
+                "--self-smoke",
+                "--mirror-manifest",
+                str(FIXTURES / "invalid_document_mirror_bad_urls.json"),
+                "--registry",
+                str(REGISTRY),
+                "--repo",
+                PRODUCER_REPO,
                 "--schema-dir",
                 str(SCHEMA_DIR),
             ]
@@ -774,3 +795,37 @@ def test_mosaic_consumer_rejects_invalid_timestamp(checked_at: str) -> None:
     report = _validate_mosaic_consumer(record)
     assert not report.conformant
     assert any("ingested-as-mosaic-core/v1" in v.message for v in report.violations)
+
+
+def _validate_mirror_consumer(catalog: dict):
+    return _import_validator().validate_envelope(
+        envelope=catalog,
+        schema_dir=SCHEMA_DIR,
+        registry={
+            "participants": [
+                {
+                    "repo": "stranske/Mirror-Consumer",
+                    "role": "consumer",
+                    "status": "conformant",
+                    "ingests": ["document-mirror/v1"],
+                }
+            ]
+        },
+        repo="stranske/Mirror-Consumer",
+        manifest=None,
+    )
+
+
+def test_document_mirror_consumer_validates_fixture() -> None:
+    catalog = json.loads((FIXTURES / "valid_document_mirror.json").read_text())
+    report = _validate_mirror_consumer(catalog)
+    assert report.conformant, [v.message for v in report.violations]
+    assert report.role == "consumer"
+    assert not report.skipped
+
+
+def test_document_mirror_consumer_rejects_invalid_urls_and_created_at() -> None:
+    catalog = json.loads((FIXTURES / "invalid_document_mirror_bad_urls.json").read_text())
+    report = _validate_mirror_consumer(catalog)
+    assert not report.conformant
+    assert any("ingested-as-document-mirror/v1" in v.message for v in report.violations)
