@@ -1051,6 +1051,175 @@ def test_productive_head_change_requires_owning_attempt(
         assert len(storage.writes) == 1
 
 
+@pytest.mark.parametrize("operation", ["read", "write"])
+@pytest.mark.parametrize("has_identity", [True, False])
+@pytest.mark.parametrize("previous_fallback", [True, False])
+def test_auto_dispatch_requires_primary_storage(
+    monkeypatch: pytest.MonkeyPatch,
+    capsys: pytest.CaptureFixture[str],
+    operation: str,
+    has_identity: bool,
+    previous_fallback: bool,
+) -> None:
+    primary = MemoryRunnerStorage()
+    fallback = MemoryRunnerStorage()
+    storage = runner_core.FallbackRunnerStorage(primary, fallback)
+    # A reused adapter must not retain an earlier fallback-write selection.
+    storage._use_fallback = previous_fallback
+    monkeypatch.setenv("GITHUB_REPOSITORY", "owner/repo")
+    monkeypatch.setenv("GITHUB_RUN_ID", "100")
+    monkeypatch.setenv("GITHUB_RUN_ATTEMPT", "1")
+    if not has_identity:
+        monkeypatch.delenv("GITHUB_RUN_ID")
+    original = getattr(primary, f"{operation}_record")
+    secret = "private-response-and-token"
+
+    def fail(*_: Any) -> Any:
+        raise RuntimeError(secret) from HTTPError(
+            "https://example.invalid/" + secret, 403, secret, {}, None
+        )
+
+    monkeypatch.setattr(primary, f"{operation}_record", fail)
+    decision = should_dispatch(42, "aaa", "codex", storage=storage)
+
+    assert decision.should_dispatch is False
+    assert decision.reason == "authoritative-storage-unavailable"
+    assert "primary" in decision.drainable
+    assert not primary.writes
+    assert not fallback.writes
+    error = capsys.readouterr().err
+    assert f"authoritative reservation {operation} failed" in error
+    assert "http_status=403" in error
+    assert secret not in error
+
+    # Recovery requires only healthy storage, not a new head or manual state cleanup.
+    monkeypatch.setattr(primary, f"{operation}_record", original)
+    assert should_dispatch(42, "aaa", "codex", storage=storage).should_dispatch
+    assert primary.records[(42, "codex")]["status"] == "pending"
+    completed = record_completion(42, "aaa", "codex", _unproductive_result(), storage=storage)
+    assert completed["status"] == "completed"
+    assert primary.records[(42, "codex")] == completed
+    assert not fallback.writes
+
+
+def test_auto_dispatch_cli_refuses_unreadable_legacy_state(
+    monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str], tmp_path: Path
+) -> None:
+    primary = MemoryRunnerStorage()
+    fallback = MemoryRunnerStorage()
+
+    def fail(*_: Any) -> Any:
+        raise RuntimeError("private legacy state")
+
+    monkeypatch.setattr(fallback, "read_record", fail)
+    monkeypatch.setattr(
+        runner_core,
+        "_storage_from_name",
+        lambda _: runner_core.FallbackRunnerStorage(primary, fallback),
+    )
+    outputs = tmp_path / "outputs"
+    monkeypatch.setenv("GITHUB_OUTPUT", str(outputs))
+    assert (
+        runner_core.main(
+            ["should-dispatch", "--provider", "codex", "--pr-number", "42", "--head-sha", "aaa"]
+        )
+        == 0
+    )
+    captured = capsys.readouterr()
+    decision = json.loads(captured.out)
+    assert decision["should_dispatch"] == "false"
+    assert decision["reason"] == "authoritative-storage-unavailable"
+    assert "legacy-state" in decision["drainable"]
+    assert "should_dispatch=false" in outputs.read_text()
+    assert "private legacy state" not in captured.err
+    assert not primary.writes
+    assert not fallback.writes
+
+
+def test_auto_dispatch_ambiguous_primary_write_never_starts_or_writes_fallback(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    primary = MemoryRunnerStorage()
+    fallback = MemoryRunnerStorage()
+    storage = runner_core.FallbackRunnerStorage(primary, fallback)
+    original = primary.write_record
+
+    def ambiguous_write(pr_number: int, provider: str, record: dict[str, Any]) -> None:
+        original(pr_number, provider, record)
+        raise RuntimeError("response lost after server persisted reservation")
+
+    monkeypatch.setattr(primary, "write_record", ambiguous_write)
+    assert should_dispatch(42, "aaa", "codex", storage=storage).should_dispatch is False
+    assert primary.records[(42, "codex")]["status"] == "pending"
+    assert not fallback.writes
+    monkeypatch.setattr(primary, "write_record", original)
+    assert should_dispatch(42, "aaa", "codex", storage=storage).reason == "duplicate-pending"
+    primary.records[(42, "codex")]["started_at"] = "2000-01-01T00:00:00Z"
+    assert should_dispatch(42, "aaa", "codex", storage=storage).should_dispatch is True
+    assert not fallback.writes
+
+
+def test_auto_dispatch_preserves_live_legacy_fallback_then_migrates_stale_reservation() -> None:
+    primary = MemoryRunnerStorage()
+    fallback = MemoryRunnerStorage()
+    should_dispatch(42, "aaa", "codex", storage=fallback)
+    storage = runner_core.FallbackRunnerStorage(primary, fallback)
+
+    decision = should_dispatch(42, "aaa", "codex", storage=storage)
+    assert decision.should_dispatch is False
+    assert decision.reason == "duplicate-pending"
+    assert not primary.writes
+    fallback.records[(42, "codex")]["started_at"] = "2000-01-01T00:00:00Z"
+    prior = dict(fallback.records[(42, "codex")])
+
+    assert should_dispatch(42, "aaa", "codex", storage=storage).reason == "stale-pending"
+    assert primary.records[(42, "codex")]["status"] == "pending"
+    completed = record_completion(42, "aaa", "codex", _unproductive_result(), storage=storage)
+    assert completed["status"] == "completed"
+    assert primary.records[(42, "codex")] == completed
+    assert fallback.records[(42, "codex")] == prior
+    assert len(fallback.writes) == 1
+
+
+def test_auto_dispatch_uses_primary_when_fallback_is_unavailable(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    primary = MemoryRunnerStorage()
+    fallback = MemoryRunnerStorage()
+    should_dispatch(42, "aaa", "codex", storage=primary)
+    record_completion(
+        42, "aaa", "codex", _unproductive_result(), storage=primary, produced_work=False
+    )
+
+    def fail(*_: Any) -> Any:
+        raise AssertionError("fallback must not be read or written")
+
+    monkeypatch.setattr(fallback, "read_record", fail)
+    monkeypatch.setattr(fallback, "write_record", fail)
+    storage = runner_core.FallbackRunnerStorage(primary, fallback)
+    storage._use_fallback = True
+    decision = should_dispatch(42, "aaa", "codex", storage=storage)
+    assert decision.should_dispatch is True
+    assert decision.reason == "retry-unproductive-completion"
+    assert primary.records[(42, "codex")]["status"] == "pending"
+
+
+@pytest.mark.parametrize("operation", ["read", "write"])
+def test_single_store_dispatch_errors_still_propagate(
+    monkeypatch: pytest.MonkeyPatch, operation: str
+) -> None:
+    storage = MemoryRunnerStorage()
+    error = RuntimeError("single-store failure")
+
+    def fail(*_: Any) -> Any:
+        raise error
+
+    monkeypatch.setattr(storage, f"{operation}_record", fail)
+    with pytest.raises(RuntimeError) as caught:
+        should_dispatch(42, "aaa", "codex", storage=storage)
+    assert caught.value is error
+
+
 @pytest.mark.parametrize("primary_state", ["unavailable", "missing"])
 @pytest.mark.parametrize("fallback_state", ["empty", "stale"])
 @pytest.mark.parametrize("has_identity", [True, False])

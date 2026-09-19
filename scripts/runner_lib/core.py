@@ -1061,6 +1061,17 @@ def _workflow_attempt_id() -> str:
     return ""
 
 
+def _unavailable_dispatch(key: str, prior: dict[str, Any] | None = None) -> DebounceDecision:
+    return DebounceDecision(
+        False,
+        "authoritative-storage-unavailable",
+        key,
+        prior_status=str(prior.get("status")) if prior else None,
+        prior_head_sha=str(prior.get("head_sha")) if prior else None,
+        drainable="retry reservation after primary storage and legacy-state reads recover",
+    )
+
+
 def _reserve_dispatch(
     storage: RunnerDispatchStorage,
     pr_number: int,
@@ -1090,7 +1101,16 @@ def _reserve_dispatch(
         record["unproductive_completions"] = unproductive
         if _completion_was_unproductive(prior):
             record["productive"] = False
-    storage.write_record(pr_number, provider, record)
+    # Auto completions only accept the primary reservation. Never start work
+    # whose ownership would exist only in the fallback and could not complete.
+    reservation_storage = storage.primary if isinstance(storage, FallbackRunnerStorage) else storage
+    try:
+        reservation_storage.write_record(pr_number, provider, record)
+    except Exception as exc:
+        if not isinstance(storage, FallbackRunnerStorage):
+            raise
+        _log_storage_failure("write", exc, phase="reservation")
+        return _unavailable_dispatch(key, prior)
     return DebounceDecision(
         True,
         reason,
@@ -1122,7 +1142,20 @@ def should_dispatch(
     provider = _validate_provider(provider)
     storage = storage or _storage_from_name("auto")
     key = _runner_key(pr_number, head_sha, provider)
-    prior = storage.read_record(pr_number, provider)
+    try:
+        if isinstance(storage, FallbackRunnerStorage):
+            prior = storage.primary.read_record(pr_number, provider)
+            if prior is None:
+                # Respect legacy fallback reservations until they finish/age out,
+                # but any newly granted reservation must be written to primary.
+                prior = storage.fallback.read_record(pr_number, provider)
+        else:
+            prior = storage.read_record(pr_number, provider)
+    except Exception as exc:
+        if not isinstance(storage, FallbackRunnerStorage):
+            raise
+        _log_storage_failure("read", exc, phase="reservation")
+        return _unavailable_dispatch(key)
     unproductive_completions = _unproductive_completion_count(prior)
 
     if prior and prior.get("head_sha") == head_sha:
@@ -1188,14 +1221,14 @@ def should_dispatch(
     return _reserve_dispatch(storage, pr_number, head_sha, provider, key, prior, reason=reason)
 
 
-def _log_completion_storage_failure(operation: str, exc: Exception) -> None:
+def _log_storage_failure(operation: str, exc: Exception, *, phase: str = "completion") -> None:
     # GitHubApi preserves the HTTP/network exception as its cause. Log diagnostic
     # metadata, not raw exception text, which can contain URLs or response bodies.
     cause = exc.__cause__ or exc
     code = getattr(cause, "code", None)
     status = str(code) if isinstance(code, int) and 100 <= code <= 599 else "unknown"
     print(
-        f"warning: authoritative completion {operation} failed: "
+        f"warning: authoritative {phase} {operation} failed: "
         f"error_type={type(exc).__name__} cause_type={type(cause).__name__} "
         f"http_status={status}",
         file=sys.stderr,
@@ -1236,9 +1269,9 @@ def record_completion(
     )
     status = "completed" if result_payload.get("success") else "error"
     compact_result = _compact_runner_result_payload(result_payload)
-    # Dispatch may use a fallback for availability, but completion must validate and
-    # update the authoritative reservation. An empty/stale fallback cannot prove
-    # that a newer attempt does not own the primary, even if caller identity is absent.
+    # Dispatch and completion both require the authoritative reservation.
+    # An empty/stale fallback cannot prove that a newer attempt does not own the
+    # primary, even if caller identity is absent.
     uses_fallback = isinstance(storage, FallbackRunnerStorage)
     completion_storage = storage.primary if isinstance(storage, FallbackRunnerStorage) else storage
     try:
@@ -1246,7 +1279,7 @@ def record_completion(
     except Exception as exc:
         if not uses_fallback:
             raise
-        _log_completion_storage_failure("read", exc)
+        _log_storage_failure("read", exc)
         return _unrecorded_completion({}, key, "authoritative-storage-unavailable")
     if uses_fallback and prior_record is None:
         return _unrecorded_completion({}, key, "authoritative-reservation-missing")
@@ -1300,7 +1333,7 @@ def record_completion(
     except Exception as exc:
         if not uses_fallback:
             raise
-        _log_completion_storage_failure("write", exc)
+        _log_storage_failure("write", exc)
         # Never redirect a checked primary reservation into an unchecked fallback.
         # A failed response may be ambiguous; a retry re-reads primary state first.
         return _unrecorded_completion(prior, key, "authoritative-storage-unavailable")
