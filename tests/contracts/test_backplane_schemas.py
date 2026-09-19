@@ -18,6 +18,7 @@ SCHEMAS = {
     "evidence-object-v1.schema.json": "evidence-object/v1",
     "tracked-variable-v1.schema.json": "tracked-variable/v1",
     "mosaic-core-v1.schema.json": "mosaic-core/v1",
+    "output-substrate-v1.schema.json": "output-substrate/v1",
 }
 
 
@@ -258,6 +259,7 @@ def test_mosaic_claim_rejects_invalid_criteria(field: str) -> None:
         "other",
         "tracked_variables",
         "mosaic_bundle",
+        "output_substrate",
     ],
 )
 def test_manifest_accepts_existing_and_mosaic_kinds(kind: str) -> None:
@@ -284,6 +286,44 @@ def test_manifest_accepts_existing_and_mosaic_kinds(kind: str) -> None:
     assert list(validator.iter_errors(manifest))
 
 
+def test_output_substrate_fixture_validates() -> None:
+    validator = _validator("output-substrate-v1.schema.json")
+    valid = json.loads((FIXTURES / "valid_output_substrate.json").read_text())
+    # Removing the "renderer_profile" key from valid_output_substrate.json causes
+    # this assertion to fail (verified during development).
+    assert not list(validator.iter_errors(valid))
+
+
+def test_output_substrate_rejects_missing_renderer_profile() -> None:
+    value = json.loads((FIXTURES / "valid_output_substrate.json").read_text())
+    del value["renderer_profile"]
+    errors = list(_validator("output-substrate-v1.schema.json").iter_errors(value))
+    assert errors
+    assert any(
+        error.validator == "required" and "renderer_profile" in error.message for error in errors
+    )
+
+
+@pytest.mark.parametrize(
+    "field,path",
+    [
+        ("workspace_bundle_ref", r"C:\view\workspace.json"),
+        ("workspace_bundle_ref", "C:/view/workspace.json"),
+        ("workspace_bundle_ref", r"\\server\share\workspace.json"),
+        ("workspace_bundle_ref", "//server/share/workspace.json"),
+        ("workspace_bundle_ref", "bundles/workspace/"),
+        ("manifest_csv_exports", r"C:\exports\facts.csv"),
+    ],
+)
+def test_output_substrate_rejects_non_posix_relative_paths(field: str, path: str) -> None:
+    value = json.loads((FIXTURES / "valid_output_substrate.json").read_text())
+    if field == "workspace_bundle_ref":
+        value["workspace_bundle_ref"]["path"] = path
+    else:
+        value["manifest_csv_exports"][0]["filename"] = path
+    assert list(_validator("output-substrate-v1.schema.json").iter_errors(value)), path
+
+
 def test_mosaic_contract_is_delivered_from_root() -> None:
     import yaml
 
@@ -299,6 +339,8 @@ def test_mosaic_contract_is_delivered_from_root() -> None:
     for path in (
         "docs/contracts/mosaic-core-v1.md",
         "docs/contracts/schemas/mosaic-core-v1.schema.json",
+        "docs/contracts/output-substrate-v1.md",
+        "docs/contracts/schemas/output-substrate-v1.schema.json",
     ):
         matches = [entry for entry in entries if entry.get("target") == path]
         assert len(matches) == 1

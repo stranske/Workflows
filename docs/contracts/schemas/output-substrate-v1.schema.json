@@ -1,0 +1,126 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://github.com/stranske/Workflows/docs/contracts/schemas/output-substrate-v1.schema.json",
+  "title": "Research Backplane Output Substrate v1",
+  "description": "Separates regenerable view/data artifacts from a vendored static renderer. Profiles map to R5 output surfaces: investment_review (Pension-Data workspace bundle), blackline_bundle (Doc-Lineage diff snapshots), mosaic_book (manager-comms mosaic bundles). The run's artifact-manifest/v1 manifest is referenced via manifest_ref; an output_substrate artifact kind may carry this document.",
+  "type": "object",
+  "additionalProperties": true,
+  "required": [
+    "schema_version",
+    "renderer_profile",
+    "workspace_bundle_ref",
+    "manifest_ref",
+    "manifest_csv_exports"
+  ],
+  "properties": {
+    "schema_version": {
+      "const": "output-substrate/v1"
+    },
+    "renderer_profile": {
+      "type": "string",
+      "enum": [
+        "investment_review",
+        "blackline_bundle",
+        "mosaic_book"
+      ],
+      "description": "Selects the view-bundle shape and renderer wiring profile per R5 output-substrate brief."
+    },
+    "manifest_ref": {
+      "type": "string",
+      "minLength": 1,
+      "description": "Reference to the run's artifact-manifest/v1 manifest (artifact:manifest.json or a run-dir-relative path)."
+    },
+    "workspace_bundle_ref": {
+      "type": "object",
+      "additionalProperties": true,
+      "required": [
+        "path"
+      ],
+      "properties": {
+        "path": {
+          "type": "string",
+          "minLength": 1,
+          "description": "Run-dir-relative POSIX path. Absolute paths, '..' traversal, backslashes, drive-letter roots, and UNC paths are rejected by the validator.",
+          "pattern": "^(?!/)(?![A-Za-z]:)(?!.*\\\\)(?!.*(^|/)\\.\\.(/|$))(?!.*\\/$).+"
+        },
+        "sha256": {
+          "type": "string",
+          "pattern": "^[a-f0-9]{64}$"
+        },
+        "artifact_id": {
+          "type": "string",
+          "minLength": 1,
+          "description": "Optional stable ID matching an entry in the referenced artifact manifest."
+        }
+      }
+    },
+    "manifest_csv_exports": {
+      "type": "array",
+      "description": "Manifest-gated CSV exports for Excel refresh workflows. May be empty when no tabular export is published.",
+      "items": {
+        "type": "object",
+        "additionalProperties": true,
+        "required": [
+          "filename",
+          "encoding",
+          "columns"
+        ],
+        "properties": {
+          "filename": {
+            "type": "string",
+            "minLength": 1,
+            "pattern": "^(?!/)(?![A-Za-z]:)(?!.*\\\\)(?!.*(^|/)\\.\\.(/|$)).+[^/]$"
+          },
+          "encoding": {
+            "type": "string",
+            "enum": [
+              "utf-8",
+              "utf-16-le"
+            ]
+          },
+          "columns": {
+            "type": "array",
+            "minItems": 1,
+            "items": {
+              "type": "object",
+              "additionalProperties": true,
+              "required": [
+                "name",
+                "type",
+                "source_path"
+              ],
+              "properties": {
+                "name": {
+                  "type": "string",
+                  "minLength": 1
+                },
+                "type": {
+                  "type": "string",
+                  "enum": [
+                    "string",
+                    "number",
+                    "boolean",
+                    "date"
+                  ]
+                },
+                "source_path": {
+                  "type": "string",
+                  "minLength": 1,
+                  "description": "JSONPath or consumer-defined pointer into the workspace bundle."
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "link_profile": {
+      "type": "string",
+      "enum": [
+        "local-file",
+        "artifact-http"
+      ],
+      "description": "Evidence-link resolution profile per R5: local-file for synced-folder file:// deep links; artifact-http for loopback or intranet artifact bases."
+    }
+  }
+}

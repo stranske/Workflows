@@ -50,6 +50,7 @@ INGEST_SCHEMA_FILES = {
     "tracked-variable/v1": "tracked-variable-v1.schema.json",
     "capability-bundle/v1": "capability-bundle-v1.schema.json",
     "mosaic-core/v1": "mosaic-core-v1.schema.json",
+    "output-substrate/v1": "output-substrate-v1.schema.json",
 }
 # Tokens that are convention-only (no JSON Schema to load); accepted as declared
 # ingest surfaces but not schema-validated here.
