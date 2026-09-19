@@ -341,8 +341,11 @@ with a recovery instruction; it never creates a fallback-only reservation whose
 completion could not be committed. If the primary has no record, existing fallback
 records are still read for debounce: an older pending run must finish or age out
 before the same head can be reserved in the primary. A failed legacy-state read
-also refuses dispatch, rather than assuming no earlier run exists. Once the primary
-contains a record, the fallback is not consulted or written. Recover by retrying
+also refuses dispatch, rather than assuming no earlier run exists. In this migration
+lookup, repository-variable HTTP 401/403 errors propagate as unavailable; only a
+404 means the variable is absent. Explicit single-store reads retain their historical
+best-effort authorization handling. Once the primary contains a record, the fallback
+is not consulted or written. Recover by retrying
 the reservation step after storage is healthy; no head change or manual state
 cleanup is needed. A pending primary reservation retains its
 stale-pending timeout. A failed write response can be ambiguous, so retries re-read

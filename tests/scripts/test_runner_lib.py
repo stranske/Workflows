@@ -1102,6 +1102,55 @@ def test_auto_dispatch_requires_primary_storage(
     assert not fallback.writes
 
 
+@pytest.mark.parametrize("status", [401, 403, 404, 500])
+def test_auto_dispatch_checks_real_legacy_backend_access(
+    status: int, capsys: pytest.CaptureFixture[str]
+) -> None:
+    class DeniedApi:
+        repo = "owner/repo"
+
+        def request(self, method: str, path: str) -> Any:
+            assert method == "GET"
+            assert "/actions/variables/" in path
+            raise RuntimeError(f"GitHub API GET failed: {status} private-response") from HTTPError(
+                "https://example.invalid/private-response", status, "private-response", {}, None
+            )
+
+    primary = MemoryRunnerStorage()
+    fallback = runner_core.RepoVariableRunnerStorage(DeniedApi())  # type: ignore[arg-type]
+    decision = should_dispatch(
+        42, "aaa", "codex", storage=runner_core.FallbackRunnerStorage(primary, fallback)
+    )
+
+    if status == 404:
+        assert decision.should_dispatch is True
+        assert primary.records[(42, "codex")]["status"] == "pending"
+        assert capsys.readouterr().err == ""
+    else:
+        assert decision.should_dispatch is False
+        assert decision.reason == "authoritative-storage-unavailable"
+        assert not primary.writes
+        error = capsys.readouterr().err
+        assert f"http_status={status}" in error
+        assert "private-response" not in error
+
+
+@pytest.mark.parametrize("status", [401, 403, 404, 500])
+def test_explicit_repo_variable_read_retains_compatibility(status: int) -> None:
+    class DeniedApi:
+        repo = "owner/repo"
+
+        def request(self, method: str, path: str) -> Any:
+            raise RuntimeError(f"GitHub API GET failed: {status} denied")
+
+    storage = runner_core.RepoVariableRunnerStorage(DeniedApi())  # type: ignore[arg-type]
+    if status in (401, 403, 404):
+        assert storage.read_record(42, "codex") is None
+    else:
+        with pytest.raises(RuntimeError, match="500"):
+            storage.read_record(42, "codex")
+
+
 def test_auto_dispatch_cli_refuses_unreadable_legacy_state(
     monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str], tmp_path: Path
 ) -> None:

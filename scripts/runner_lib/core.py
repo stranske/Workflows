@@ -906,16 +906,18 @@ class RepoVariableRunnerStorage:
         repo, token = _github_context()
         return cls(GitHubApi(repo, token))
 
-    def read_record(self, pr_number: int, provider: str) -> dict[str, Any] | None:
+    def read_record(
+        self, pr_number: int, provider: str, *, require_access: bool = False
+    ) -> dict[str, Any] | None:
         name = _variable_name(pr_number, provider)
         try:
             payload = self.api.request("GET", f"/repos/{self.api.repo}/actions/variables/{name}")
         except RuntimeError as exc:
             message = str(exc)
-            if (
-                " failed: 404 " in message
-                or " failed: 401 " in message
-                or " failed: 403 " in message
+            # Explicit single-store callers retain their historical best-effort
+            # read. Migration checks must distinguish denied access from absence.
+            if " failed: 404 " in message or (
+                not require_access and (" failed: 401 " in message or " failed: 403 " in message)
             ):
                 return None
             raise
@@ -1148,7 +1150,10 @@ def should_dispatch(
             if prior is None:
                 # Respect legacy fallback reservations until they finish/age out,
                 # but any newly granted reservation must be written to primary.
-                prior = storage.fallback.read_record(pr_number, provider)
+                if isinstance(storage.fallback, RepoVariableRunnerStorage):
+                    prior = storage.fallback.read_record(pr_number, provider, require_access=True)
+                else:
+                    prior = storage.fallback.read_record(pr_number, provider)
         else:
             prior = storage.read_record(pr_number, provider)
     except Exception as exc:
