@@ -1,0 +1,12 @@
+{
+  "schema_version": "mosaic-core/v1",
+  "record_type": "thesis_check",
+  "thesis_id": "thesis:synthetic_alpha",
+  "claim_id": "claim:fee_discipline",
+  "verdict": "at_risk",
+  "evidence_ids": [
+    "evidence:synthetic_lpa_fee"
+  ],
+  "checked_at": "2026-09-19T10:00:00Z",
+  "trigger_source_id": "document:synthetic_lpa"
+}

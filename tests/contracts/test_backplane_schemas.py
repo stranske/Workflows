@@ -17,6 +17,7 @@ SCHEMAS = {
     "artifact-manifest-v1.schema.json": "artifact-manifest/v1",
     "evidence-object-v1.schema.json": "evidence-object/v1",
     "tracked-variable-v1.schema.json": "tracked-variable/v1",
+    "mosaic-core-v1.schema.json": "mosaic-core/v1",
 }
 
 
@@ -127,3 +128,180 @@ def test_tracked_variable_validates_embedded_evidence() -> None:
     del value["evidence"]["method"]
     errors = list(_validator("tracked-variable-v1.schema.json").iter_errors(value))
     assert any(error.validator == "required" and "method" in error.message for error in errors)
+
+
+def _mosaic_fixture(kind: str) -> dict:
+    return json.loads((FIXTURES / f"valid_mosaic_{kind}.json").read_text())
+
+
+def _mosaic_errors(value: dict) -> list:
+    return list(_validator("mosaic-core-v1.schema.json").iter_errors(value))
+
+
+def test_mosaic_core_fixture_validates() -> None:
+    for kind in ("fact", "discrepancy", "thesis_claim", "thesis_check"):
+        assert not _mosaic_errors(_mosaic_fixture(kind)), kind
+
+
+@pytest.mark.parametrize(
+    "field,value",
+    [
+        ("fact_key", ""),
+        ("entity_ref", "Unscoped Fund"),
+        ("schema_version", "mosaic-core/v2"),
+        ("record_type", "unknown"),
+        ("record_type", "thesis_claim"),
+        ("status", "pending"),
+        ("primary_evidence_id", ""),
+        ("value", None),
+        ("value", []),
+        ("value", {"min": 1}),
+        ("value", {"min": 1, "max": "two"}),
+    ],
+)
+def test_mosaic_rejects_invalid_fact(field: str, value: object) -> None:
+    fact = _mosaic_fixture("fact")
+    fact[field] = value
+    assert _mosaic_errors(fact)
+
+
+@pytest.mark.parametrize("value", [1.25, "fixed", False, {"min": 1, "max": 2}])
+def test_mosaic_fact_accepts_typed_values(value: object) -> None:
+    fact = _mosaic_fixture("fact")
+    fact["value"] = value
+    assert not _mosaic_errors(fact)
+
+
+@pytest.mark.parametrize("kind", ["fact", "discrepancy", "thesis_claim", "thesis_check"])
+def test_mosaic_requires_discriminator_and_all_required_fields(kind: str) -> None:
+    record = _mosaic_fixture(kind)
+    # The fixtures express the consumer contract independently of the schema:
+    # every populated field is required except these documented optional fields.
+    optional = {"period", "expected_pattern"}
+    for field in record.keys() - optional:
+        incomplete = {key: value for key, value in record.items() if key != field}
+        assert _mosaic_errors(incomplete), field
+    record["consumer_extension"] = {"note": "additive v1 field"}
+    assert not _mosaic_errors(record)
+
+
+@pytest.mark.parametrize("verdict", ["supported", "at_risk", "contradicted"])
+def test_mosaic_thesis_verdict_requires_evidence(verdict: str) -> None:
+    check = _mosaic_fixture("thesis_check")
+    check["verdict"] = verdict
+    assert not _mosaic_errors(check)
+    check["evidence_ids"] = []
+    assert _mosaic_errors(check)
+    check["verdict"] = "insufficient_evidence"
+    assert not _mosaic_errors(check)
+    check["verdict"] = "unknown"
+    assert _mosaic_errors(check)
+
+
+def test_mosaic_thesis_check_timestamp_and_unique_evidence() -> None:
+    check = _mosaic_fixture("thesis_check")
+    validator = Draft202012Validator(
+        _load("mosaic-core-v1.schema.json"), format_checker=Draft202012Validator.FORMAT_CHECKER
+    )
+    assert not list(validator.iter_errors(check))
+    check["checked_at"] = "yesterday"
+    assert list(validator.iter_errors(check))
+    check = _mosaic_fixture("thesis_check")
+    check["evidence_ids"] *= 2
+    assert _mosaic_errors(check)
+
+
+@pytest.mark.parametrize("status", ["accepted_primary", "immaterial", "resolved"])
+def test_mosaic_discrepancy_resolution_requires_note(status: str) -> None:
+    discrepancy = _mosaic_fixture("discrepancy")
+    discrepancy["status"] = status
+    assert _mosaic_errors(discrepancy)
+    discrepancy["resolution_note"] = ""
+    assert _mosaic_errors(discrepancy)
+    discrepancy["resolution_note"] = "Analyst checked both primary documents."
+    assert not _mosaic_errors(discrepancy)
+
+
+@pytest.mark.parametrize("kind", ["numeric_delta", "sign_conflict", "narrative_conflict"])
+def test_mosaic_conflict_requires_two_distinct_facts(kind: str) -> None:
+    discrepancy = _mosaic_fixture("discrepancy")
+    discrepancy["discrepancy_kind"] = kind
+    assert not _mosaic_errors(discrepancy)
+    discrepancy["fact_ids"] = ["fact:one"]
+    assert _mosaic_errors(discrepancy)
+    discrepancy["fact_ids"] *= 2
+    assert _mosaic_errors(discrepancy)
+    discrepancy["discrepancy_kind"] = "missing_in_source"
+    discrepancy["fact_ids"] = ["fact:one"]
+    assert not _mosaic_errors(discrepancy)
+    discrepancy["fact_ids"] = []
+    assert _mosaic_errors(discrepancy)
+
+
+@pytest.mark.parametrize("field", ["fact_keys", "evidence_policy", "expected_pattern"])
+def test_mosaic_claim_rejects_invalid_criteria(field: str) -> None:
+    claim = _mosaic_fixture("thesis_claim")
+    claim[field] = [] if field == "fact_keys" else "unknown"
+    assert _mosaic_errors(claim)
+
+
+@pytest.mark.parametrize(
+    "kind",
+    [
+        "data",
+        "report",
+        "chart",
+        "workbook",
+        "log",
+        "evidence",
+        "envelope",
+        "other",
+        "tracked_variables",
+        "mosaic_bundle",
+    ],
+)
+def test_manifest_accepts_existing_and_mosaic_kinds(kind: str) -> None:
+    artifact = {
+        "artifact_id": "artifact:one",
+        "name": "bundle",
+        "path": "out/bundle.json",
+        "sha256": "a" * 64,
+        "kind": kind,
+    }
+    manifest = {
+        "schema_version": "artifact-manifest/v1",
+        "run_id": "run:one",
+        "tool": "fixture",
+        "artifacts": [artifact],
+    }
+    validator = _validator("artifact-manifest-v1.schema.json")
+    assert not list(validator.iter_errors(manifest))
+    for path in ("../escape.json", "out/../../escape.json", "/absolute.json"):
+        artifact["path"] = path
+        assert list(validator.iter_errors(manifest)), path
+    artifact["path"] = "out/bundle.json"
+    artifact["kind"] = "unknown"
+    assert list(validator.iter_errors(manifest))
+
+
+def test_mosaic_contract_is_delivered_from_root() -> None:
+    import yaml
+
+    root = SCHEMA_DIR.parents[2]
+    manifest = yaml.safe_load((root / ".github/sync-manifest.yml").read_text())
+    entries = [
+        entry
+        for values in manifest.values()
+        if isinstance(values, list)
+        for entry in values
+        if isinstance(entry, dict)
+    ]
+    for path in (
+        "docs/contracts/mosaic-core-v1.md",
+        "docs/contracts/schemas/mosaic-core-v1.schema.json",
+    ):
+        matches = [entry for entry in entries if entry.get("target") == path]
+        assert len(matches) == 1
+        assert matches[0]["source"] == path
+        assert matches[0]["source_tree"] == "root"
+        assert (root / path).is_file()

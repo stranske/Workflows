@@ -27,7 +27,7 @@ from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Any
 
-from jsonschema import Draft202012Validator
+from jsonschema import Draft202012Validator, FormatChecker
 from referencing import Registry, Resource
 
 RUN_SCHEMA_VERSION = "run-contract/v1"
@@ -49,6 +49,7 @@ INGEST_SCHEMA_FILES = {
     "evidence-object/v1": "evidence-object-v1.schema.json",
     "tracked-variable/v1": "tracked-variable-v1.schema.json",
     "capability-bundle/v1": "capability-bundle-v1.schema.json",
+    "mosaic-core/v1": "mosaic-core-v1.schema.json",
 }
 # Tokens that are convention-only (no JSON Schema to load); accepted as declared
 # ingest surfaces but not schema-validated here.
@@ -112,6 +113,10 @@ def _load_schema(schema_dir: Path, name: str) -> dict[str, Any]:
 
 def _validator_for_schema(schema_dir: Path, name: str) -> Draft202012Validator:
     schema = _load_schema(schema_dir, name)
+    if name == "mosaic-core-v1.schema.json":
+        # Explicitly request the checker so a missing rfc3339-validator dependency
+        # fails instead of silently accepting malformed checked_at timestamps.
+        return Draft202012Validator(schema, format_checker=FormatChecker(formats=["date-time"]))
     if name != "tracked-variable-v1.schema.json":
         return Draft202012Validator(schema)
     evidence = _load_schema(schema_dir, "evidence-object-v1.schema.json")
