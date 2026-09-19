@@ -20,6 +20,7 @@ def test_import_exceptions_map_to_package_names_in_repo_script():
     )
 
     assert module.MODULE_TO_PACKAGE["pptx"] == "python-pptx"
+    assert module.MODULE_TO_PACKAGE["docx"] == "python-docx"
     assert module.MODULE_TO_PACKAGE["jwt"] == "PyJWT"
     assert {"html", "http", "secrets"}.issubset(module.STDLIB_MODULES)
 
@@ -31,7 +32,36 @@ def test_import_exceptions_map_to_package_names_in_consumer_template():
     )
 
     assert module.MODULE_TO_PACKAGE["pptx"] == "python-pptx"
+    assert module.MODULE_TO_PACKAGE["docx"] == "python-docx"
     assert module.MODULE_TO_PACKAGE["jwt"] == "PyJWT"
+
+
+def test_python_docx_import_is_not_reported_as_undeclared(tmp_path, monkeypatch):
+    """A test importing ``docx`` with ``python-docx`` declared must not be flagged.
+
+    The import name and the distribution name differ, which is the whole reason
+    MODULE_TO_PACKAGE exists. Without the entry the checker reports ``docx`` as
+    undeclared, the auto-fix step exits 1, and the consumer's Python CI fails on
+    a dependency that is in fact declared.
+    """
+    module = _load_module(
+        "sync_test_dependencies_repo_docx",
+        Path("scripts/sync_test_dependencies.py"),
+    )
+
+    test_file = tmp_path / "test_uses_docx.py"
+    test_file.write_text("from docx import Document\n", encoding="utf-8")
+
+    imports = module.extract_imports_from_file(test_file)
+    assert "docx" in imports
+
+    declared = {module._normalise_package_name("python-docx")}
+    missing = {
+        name
+        for name in imports
+        if module._normalise_package_name(module.MODULE_TO_PACKAGE.get(name, name)) not in declared
+    }
+    assert missing == set()
 
 
 def test_stdlib_imports_from_sync_pr_logs_are_ignored_in_repo_script():
