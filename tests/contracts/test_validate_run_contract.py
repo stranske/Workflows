@@ -143,6 +143,14 @@ def test_mirror_manifest_cli_reports_missing_and_invalid_json(tmp_path, capsys) 
     assert f"cannot load mirror manifest {bad_json}" in capsys.readouterr().err
 
 
+def test_mirror_manifest_cli_reports_invalid_utf8(tmp_path, capsys) -> None:
+    mod = _import_validator()
+    path = tmp_path / "invalid-utf8.json"
+    path.write_bytes(b"\xff")
+    assert mod.main(["--mirror-manifest", str(path), "--schema-dir", str(SCHEMA_DIR)]) == 1
+    assert f"cannot load mirror manifest {path}" in capsys.readouterr().err
+
+
 def test_tracked_variables_and_mirror_manifest_are_mutually_exclusive(capsys) -> None:
     mod = _import_validator()
     with pytest.raises(SystemExit) as exc:

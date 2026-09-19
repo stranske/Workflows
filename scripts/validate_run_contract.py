@@ -163,7 +163,7 @@ def validate_mirror_manifests(*, paths: list[Path], schema_dir: Path) -> Report:
     for path in paths:
         try:
             document = _load_json(path)
-        except (OSError, json.JSONDecodeError) as exc:
+        except (OSError, UnicodeDecodeError, json.JSONDecodeError) as exc:
             report.fail(f"cannot load mirror manifest {path}: {exc}", str(path))
             continue
         for err in sorted(

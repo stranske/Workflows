@@ -131,6 +131,13 @@ def test_document_mirror_fixture_validates() -> None:
     ]
     assert list(validator.iter_errors(invalid_sharepoint))
 
+    invalid_hash = json.loads((FIXTURES / "valid_document_mirror.json").read_text())
+    invalid_hash["blobs"][0]["content_sha256"] = "a" * 63
+    assert any(
+        list(error.absolute_path) == ["blobs", 0, "content_sha256"] and error.validator == "pattern"
+        for error in validator.iter_errors(invalid_hash)
+    )
+
     for path in (
         "../escape.pdf",
         "/absolute.pdf",
