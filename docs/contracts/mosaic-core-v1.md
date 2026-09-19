@@ -84,13 +84,25 @@ The schema and this specification are distributed from the Workflows root via
 `.github/sync-manifest.yml` (`source_tree: root`), matching the existing backplane
 contract delivery. No template-owned duplicate schema is maintained.
 
+## Consumer validation
+
+Declare `mosaic-core/v1` in an active consumer registry entry's `ingests` list
+and pass one record to `scripts/validate_run_contract.py`. The production
+validator checks all four record types and enforces `checked_at` date-time
+format. Install `jsonschema` and `rfc3339-validator` when running it standalone;
+`pip install -e ".[dev]"` and the reusable backplane conformance workflow include
+both dependencies. The RFC 3339 checker is required, not an optional validation
+step. Existing satellite schema validation behavior is unchanged.
+
 ## Validation evidence
 
 Synthetic fixtures for all four types live under `tests/fixtures/backplane/`.
-Run `python -m pytest tests/contracts/test_backplane_schemas.py -q`; the named
+Run `python -m pytest tests/contracts/test_backplane_schemas.py tests/contracts/test_validate_run_contract.py -q`; the named
 acceptance gate is `test_mosaic_core_fixture_validates`. Negative tests exercise
 discriminators, versions, empty join keys, evidence requirements, resolution
-notes, and the additive manifest kinds with path rejection.
+notes, and the additive manifest kinds with path rejection. Consumer-path tests
+exercise the production validator for each fixture, a malformed Fact, and
+invalid ThesisCheck timestamps.
 
 Deliberate break: set `fact_key` to `""` in `valid_mosaic_fact.json`, run
 `python -m pytest tests/contracts/test_backplane_schemas.py::test_mosaic_core_fixture_validates -q`,

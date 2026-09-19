@@ -679,3 +679,48 @@ def test_capability_bundle_is_a_schema_validated_ingest_token() -> None:
     )
     assert not report_bad.conformant
     assert any("capability-bundle/v1" in v.message for v in report_bad.violations)
+
+
+def _validate_mosaic_consumer(record: dict):
+    return _import_validator().validate_envelope(
+        envelope=record,
+        schema_dir=SCHEMA_DIR,
+        registry={
+            "participants": [
+                {
+                    "repo": "stranske/Mosaic-Consumer",
+                    "role": "consumer",
+                    "status": "conformant",
+                    "ingests": ["mosaic-core/v1"],
+                }
+            ]
+        },
+        repo="stranske/Mosaic-Consumer",
+        manifest=None,
+    )
+
+
+@pytest.mark.parametrize("kind", ["fact", "discrepancy", "thesis_claim", "thesis_check"])
+def test_mosaic_consumer_validates_fixture(kind: str) -> None:
+    record = json.loads((FIXTURES / f"valid_mosaic_{kind}.json").read_text())
+    report = _validate_mosaic_consumer(record)
+    assert report.conformant, [v.message for v in report.violations]
+    assert report.role == "consumer"
+    assert not report.skipped
+
+
+def test_mosaic_consumer_rejects_malformed_fact() -> None:
+    record = json.loads((FIXTURES / "valid_mosaic_fact.json").read_text())
+    record["fact_key"] = ""
+    report = _validate_mosaic_consumer(record)
+    assert not report.conformant
+    assert any("ingested-as-mosaic-core/v1" in v.message for v in report.violations)
+
+
+@pytest.mark.parametrize("checked_at", ["yesterday", "2026-02-30T12:00:00Z", "2026-09-19T12:00:00"])
+def test_mosaic_consumer_rejects_invalid_timestamp(checked_at: str) -> None:
+    record = json.loads((FIXTURES / "valid_mosaic_thesis_check.json").read_text())
+    record["checked_at"] = checked_at
+    report = _validate_mosaic_consumer(record)
+    assert not report.conformant
+    assert any("ingested-as-mosaic-core/v1" in v.message for v in report.violations)
