@@ -334,16 +334,27 @@ With `--storage auto`, completion reads and writes only the primary PR-comment
 reservation, never an empty or stale repository-variable fallback. A missing primary
 reservation returns `recorded=false`, `reason=authoritative-reservation-missing`;
 a primary read/write failure returns `reason=authoritative-storage-unavailable`.
-These checks apply even when the completing job has no workflow identity. Dispatch
-may still use fallback storage during an outage, but its completion cannot be committed
-until a primary reservation is established. Recover by rerunning from the reservation
-step after primary storage is healthy; a pending primary reservation retains its
+These checks apply even when the completing job has no workflow identity. Automatic
+dispatch also requires a successful primary read and reservation write. A storage
+failure returns `should_dispatch=false`, `reason=authoritative-storage-unavailable`,
+with a recovery instruction; it never creates a fallback-only reservation whose
+completion could not be committed. If the primary has no record, existing fallback
+records are still read for debounce: an older pending run must finish or age out
+before the same head can be reserved in the primary. A failed legacy-state read
+also refuses dispatch, rather than assuming no earlier run exists. In this migration
+lookup, repository-variable HTTP 401/403 errors propagate as unavailable; only a
+404 means the variable is absent. Explicit single-store reads retain their historical
+best-effort authorization handling. Once the primary contains a record, the fallback
+is not consulted or written. Recover by retrying
+the reservation step after storage is healthy; no head change or manual state
+cleanup is needed. A pending primary reservation retains its
 stale-pending timeout. A failed write response can be ambiguous, so retries re-read
 primary state and preserve same-attempt idempotency. Explicit single-store callers
 retain their existing behavior.
 
-Authoritative storage failures also emit a warning on stderr identifying the read/write
-operation, exception and cause types, and HTTP status when available. Raw exception text,
+Authoritative storage failures also emit a warning on stderr identifying reservation
+or completion, the read/write operation, exception and cause types, and HTTP status
+when available. Raw exception text,
 URLs and response bodies are omitted so diagnostic logging does not expose credentials.
 
 **Why the allowance expires into a cooldown rather than a refusal.** Refusing until the head
