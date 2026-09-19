@@ -41,7 +41,7 @@
           "type": "string",
           "minLength": 1,
           "description": "Run-dir-relative POSIX path. Absolute paths, '..' traversal, backslashes, drive-letter roots, and UNC paths are rejected by the validator.",
-          "pattern": "^(?!/)(?![A-Za-z]:)(?!.*\\\\)(?!.*(^|/)\\.\\.(/|$)).+"
+          "pattern": "^(?!/)(?![A-Za-z]:)(?!.*\\\\)(?!.*(^|/)\\.\\.(/|$))(?!.*\\/$).+"
         },
         "sha256": {
           "type": "string",

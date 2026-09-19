@@ -311,6 +311,7 @@ def test_output_substrate_rejects_missing_renderer_profile() -> None:
         ("workspace_bundle_ref", "C:/view/workspace.json"),
         ("workspace_bundle_ref", r"\\server\share\workspace.json"),
         ("workspace_bundle_ref", "//server/share/workspace.json"),
+        ("workspace_bundle_ref", "bundles/workspace/"),
         ("manifest_csv_exports", r"C:\exports\facts.csv"),
     ],
 )
