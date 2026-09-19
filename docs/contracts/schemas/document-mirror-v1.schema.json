@@ -1,0 +1,138 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://github.com/stranske/Workflows/docs/contracts/schemas/document-mirror-v1.schema.json",
+  "title": "Research Backplane Document Mirror Catalog v1",
+  "description": "Cross-system mirror manifest for offline document blobs. Each catalog entry maps content-addressed blobs under mirror_root to canonical IDs and/or upstream source objects (Backstop URL, SharePoint driveId+itemId) for triple-link HTML resolvers and doc-mirror tooling per B3 interop architecture §2.3 / R4 document-access substrate.",
+  "type": "object",
+  "additionalProperties": true,
+  "required": [
+    "schema_version",
+    "mirror_root",
+    "blobs"
+  ],
+  "properties": {
+    "schema_version": {
+      "const": "document-mirror/v1"
+    },
+    "mirror_root": {
+      "type": "string",
+      "minLength": 1,
+      "description": "Filesystem root of the mirrored blob store (absolute or repo-local path)."
+    },
+    "created_at": {
+      "type": "string",
+      "format": "date-time"
+    },
+    "catalog_id": {
+      "type": "string",
+      "minLength": 1,
+      "description": "Stable identifier for this catalog snapshot (e.g. mirror-catalog:<sha256>)."
+    },
+    "blobs": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "additionalProperties": true,
+        "required": [
+          "content_sha256",
+          "blob_path",
+          "doc_type_id",
+          "source_refs"
+        ],
+        "properties": {
+          "content_sha256": {
+            "type": "string",
+            "pattern": "^[a-f0-9]{64}$",
+            "description": "Lowercase hex SHA-256 of the mirrored blob bytes."
+          },
+          "blob_path": {
+            "type": "string",
+            "minLength": 1,
+            "description": "Path relative to mirror_root. Absolute POSIX paths, Windows drive/UNC prefixes, backslashes, and '..' traversal are rejected by the validator.",
+            "pattern": "^(?!/)(?!//)(?![A-Za-z]:)(?!.*\\\\)(?!.*(^|/)\\.\\.(/|$)).+$"
+          },
+          "doc_type_id": {
+            "type": "string",
+            "minLength": 1,
+            "description": "Fleet vocabulary token for the mirrored document type (e.g. lpa, consultant_report)."
+          },
+          "source_refs": {
+            "type": "array",
+            "description": "Canonical upstream identities and/or source-system anchors for triple-link resolvers. May be empty for purely local blobs with no upstream URL.",
+            "items": {
+              "oneOf": [
+                {
+                  "type": "string",
+                  "pattern": "^[a-z0-9_]+:[a-z0-9][a-z0-9_.:-]*$",
+                  "description": "Canonical source identity (document:<sha256>, artifact:<sha256>, doc:<logical-key>, etc.)."
+                },
+                {
+                  "type": "object",
+                  "required": [
+                    "system",
+                    "url"
+                  ],
+                  "properties": {
+                    "system": {
+                      "const": "backstop"
+                    },
+                    "url": {
+                      "type": "string",
+                      "minLength": 1,
+                      "format": "uri"
+                    }
+                  },
+                  "additionalProperties": true
+                },
+                {
+                  "type": "object",
+                  "required": [
+                    "system",
+                    "driveId",
+                    "itemId",
+                    "web_url"
+                  ],
+                  "properties": {
+                    "system": {
+                      "const": "sharepoint"
+                    },
+                    "driveId": {
+                      "type": "string",
+                      "minLength": 1
+                    },
+                    "itemId": {
+                      "type": "string",
+                      "minLength": 1
+                    },
+                    "web_url": {
+                      "type": "string",
+                      "minLength": 1,
+                      "format": "uri"
+                    }
+                  },
+                  "additionalProperties": true
+                }
+              ]
+            }
+          },
+          "bytes": {
+            "type": "integer",
+            "minimum": 0
+          },
+          "media_type": {
+            "type": "string",
+            "minLength": 1
+          },
+          "supersedes_content_sha256": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "pattern": "^[a-f0-9]{64}$",
+            "description": "Optional checksum-supersession chain anchor when this blob replaces prior content."
+          }
+        }
+      }
+    }
+  }
+}

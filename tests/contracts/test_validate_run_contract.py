@@ -109,6 +109,56 @@ def test_tracked_variable_cli_needs_no_participant_context(fixture, expected, ca
         assert "1 file(s) conform" in output.out
 
 
+@pytest.mark.parametrize(
+    "fixture,expected",
+    [
+        ("valid_document_mirror.json", 0),
+        ("valid_empty_document_mirror.json", 0),
+        ("invalid_document_mirror_bad_blob_path.json", 1),
+    ],
+)
+@pytest.mark.parametrize("schema_args", [[], ["--schema-dir", str(SCHEMA_DIR)]])
+def test_mirror_manifest_cli_needs_no_participant_context(
+    fixture, expected, capsys, schema_args
+) -> None:
+    mod = _import_validator()
+    assert mod.main(["--mirror-manifest", str(FIXTURES / fixture), *schema_args]) == expected
+    output = capsys.readouterr()
+    if expected:
+        assert output.err
+    else:
+        assert "1 file(s) conform" in output.out
+
+
+def test_mirror_manifest_cli_reports_missing_and_invalid_json(tmp_path, capsys) -> None:
+    mod = _import_validator()
+    missing = tmp_path / "missing-mirror.json"
+    assert mod.main(["--mirror-manifest", str(missing), "--schema-dir", str(SCHEMA_DIR)]) == 1
+    assert f"cannot load mirror manifest {missing}" in capsys.readouterr().err
+
+    bad_json = tmp_path / "bad-mirror.json"
+    bad_json.write_text("{not json", encoding="utf-8")
+    assert mod.main(["--mirror-manifest", str(bad_json), "--schema-dir", str(SCHEMA_DIR)]) == 1
+    assert f"cannot load mirror manifest {bad_json}" in capsys.readouterr().err
+
+
+def test_tracked_variables_and_mirror_manifest_are_mutually_exclusive(capsys) -> None:
+    mod = _import_validator()
+    with pytest.raises(SystemExit) as exc:
+        mod.main(
+            [
+                "--tracked-variables",
+                str(FIXTURES / "valid_tracked_variable.json"),
+                "--mirror-manifest",
+                str(FIXTURES / "valid_document_mirror.json"),
+                "--schema-dir",
+                str(SCHEMA_DIR),
+            ]
+        )
+    assert exc.value.code == 2
+    assert "mutually exclusive" in capsys.readouterr().err
+
+
 @pytest.mark.parametrize("mode", [[str(FIXTURES / "valid_run.json")], ["--self-smoke"]])
 @pytest.mark.parametrize("missing", ["--registry", "--repo"])
 def test_run_contract_modes_still_require_participant_context(mode, missing, capsys) -> None:

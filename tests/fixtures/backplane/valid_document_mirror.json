@@ -1,0 +1,45 @@
+{
+  "schema_version": "document-mirror/v1",
+  "mirror_root": "/data/document-mirror",
+  "catalog_id": "mirror-catalog:fedcba9876543210fedcba9876543210fedcba9876543210fedcba9876543210",
+  "created_at": "2026-09-04T12:00:00Z",
+  "blobs": [
+    {
+      "content_sha256": "abc123abcdefabcdefabcdefabcdefabcdefabcdefabcdefabcdefabcdefabcd",
+      "blob_path": "blobs/sha256/ab/cd/abc123abcdefabcdefabcdefabcdefabcdefabcdefabcdefabcdefabcdefabcd",
+      "doc_type_id": "lpa",
+      "source_refs": [
+        "document:abc123abcdefabcdefabcdefabcdefabcdefabcdefabcdefabcdefabcdefabcd",
+        {
+          "system": "backstop",
+          "url": "https://app.backstopsolutions.com/backstop/fundaccountmanager/documents/Document.action?id=12345"
+        }
+      ],
+      "bytes": 1048576,
+      "media_type": "application/pdf"
+    },
+    {
+      "content_sha256": "1111222233334444555566667777888899990000aaaabbbbccccddddeeeeffff",
+      "blob_path": "blobs/sha256/11/22/1111222233334444555566667777888899990000aaaabbbbccccddddeeeeffff",
+      "doc_type_id": "consultant_report",
+      "source_refs": [
+        "document:1111222233334444555566667777888899990000aaaabbbbccccddddeeeeffff",
+        {
+          "system": "sharepoint",
+          "driveId": "b!Xk8pZ2vN5qR1wT3yU7aB9cD0eF",
+          "itemId": "01ABCDEFGHIJKLMNOPQRSTUVWXYZ",
+          "web_url": "https://contoso.sharepoint.com/sites/Investments/Shared%20Documents/Q4%202025/manager_letter.pdf"
+        }
+      ],
+      "supersedes_content_sha256": "0000000000000000000000000000000000000000000000000000000000000001"
+    },
+    {
+      "content_sha256": "deadbeefdeadbeefdeadbeefdeadbeefdeadbeefdeadbeefdeadbeefdeadbeef",
+      "blob_path": "blobs/sha256/de/ad/deadbeefdeadbeefdeadbeefdeadbeefdeadbeefdeadbeefdeadbeefdeadbeef",
+      "doc_type_id": "consultant_report",
+      "source_refs": [],
+      "bytes": 4096,
+      "media_type": "application/pdf"
+    }
+  ]
+}

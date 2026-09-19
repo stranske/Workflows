@@ -917,6 +917,16 @@ docs:
     target: docs/contracts/schemas/mosaic-core-v1.schema.json
     description: "Mosaic-core/v1 schema for facts, discrepancies, thesis claims and checks"
 
+  - source: docs/contracts/document-mirror-v1.md
+    source_tree: root
+    target: docs/contracts/document-mirror-v1.md
+    description: "Document-mirror/v1 specification for offline blob catalogs and triple-link resolvers"
+
+  - source: docs/contracts/schemas/document-mirror-v1.schema.json
+    source_tree: root
+    target: docs/contracts/schemas/document-mirror-v1.schema.json
+    description: "Document-mirror/v1 schema for mirror_root catalogs with content_sha256 blobs and source_refs"
+
   - source: docs/SETUP_CHECKLIST.md
     target: docs/SETUP_CHECKLIST.md
     description: "Consumer repo setup checklist. Includes the default_workflow_permissions=write step in section 3.3.1 that prevents a Gate startup_failure on fresh consumers (resolved: #2157). Synced so it no longer drifts across the fleet."

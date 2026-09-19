@@ -18,6 +18,7 @@ SCHEMAS = {
     "evidence-object-v1.schema.json": "evidence-object/v1",
     "tracked-variable-v1.schema.json": "tracked-variable/v1",
     "mosaic-core-v1.schema.json": "mosaic-core/v1",
+    "document-mirror-v1.schema.json": "document-mirror/v1",
 }
 
 
@@ -99,6 +100,49 @@ def test_evidence_object_requires_method_and_excerpt_present() -> None:
     assert any(error.validator == "required" for error in validator.iter_errors(evidence))
     evidence["excerpt"] = None
     assert not list(validator.iter_errors(evidence))
+
+
+def test_document_mirror_fixture_validates() -> None:
+    """Deliberate-break gate for issue #3373.
+
+    Remove Backstop/SharePoint source object support, empty ``blobs``/``source_refs``,
+    or Windows-path rejection from the schema and this test must fail.
+    """
+    validator = _validator("document-mirror-v1.schema.json")
+
+    valid = json.loads((FIXTURES / "valid_document_mirror.json").read_text())
+    assert not list(validator.iter_errors(valid))
+
+    empty = json.loads((FIXTURES / "valid_empty_document_mirror.json").read_text())
+    assert not list(validator.iter_errors(empty))
+
+    local_only = json.loads((FIXTURES / "valid_document_mirror.json").read_text())
+    assert local_only["blobs"][2]["source_refs"] == []
+    assert not list(validator.iter_errors(local_only))
+
+    invalid_source = json.loads((FIXTURES / "valid_document_mirror.json").read_text())
+    invalid_source["blobs"][0]["source_refs"] = [{"system": "backstop"}]
+    assert list(validator.iter_errors(invalid_source))
+
+    invalid_sharepoint = json.loads((FIXTURES / "valid_document_mirror.json").read_text())
+    invalid_sharepoint["blobs"][1]["source_refs"] = [
+        {"system": "sharepoint", "driveId": "b!abc", "itemId": "01XYZ"}
+    ]
+    assert list(validator.iter_errors(invalid_sharepoint))
+
+    for path in (
+        "../escape.pdf",
+        "/absolute.pdf",
+        "blobs/../../escape.pdf",
+        "C:\\Users\\doc.pdf",
+        "C:/Users/doc.pdf",
+        "\\\\server\\share\\doc.pdf",
+        "//server/share/doc.pdf",
+        "blobs\\sha256\\abc.pdf",
+    ):
+        broken = json.loads((FIXTURES / "valid_document_mirror.json").read_text())
+        broken["blobs"][0]["blob_path"] = path
+        assert list(validator.iter_errors(broken)), path
 
 
 def test_tracked_variable_fixture_validates() -> None:

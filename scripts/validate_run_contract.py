@@ -50,6 +50,7 @@ INGEST_SCHEMA_FILES = {
     "tracked-variable/v1": "tracked-variable-v1.schema.json",
     "capability-bundle/v1": "capability-bundle-v1.schema.json",
     "mosaic-core/v1": "mosaic-core-v1.schema.json",
+    "document-mirror/v1": "document-mirror-v1.schema.json",
 }
 # Tokens that are convention-only (no JSON Schema to load); accepted as declared
 # ingest surfaces but not schema-validated here.
@@ -138,6 +139,24 @@ def validate_tracked_variables(*, paths: list[Path], schema_dir: Path) -> Report
             document = _load_json(path)
         except (OSError, json.JSONDecodeError) as exc:
             report.fail(f"cannot load tracked variable {path}: {exc}", str(path))
+            continue
+        for err in sorted(
+            validator.iter_errors(document),
+            key=lambda e: list(e.absolute_path),
+        ):
+            report.fail(err.message, "/".join(str(p) for p in err.absolute_path))
+    return report
+
+
+def validate_mirror_manifests(*, paths: list[Path], schema_dir: Path) -> Report:
+    """Validate one or more document-mirror/v1 JSON files against the schema."""
+    report = Report(repo="document-mirror/v1")
+    validator = _validator_for_schema(schema_dir, "document-mirror-v1.schema.json")
+    for path in paths:
+        try:
+            document = _load_json(path)
+        except (OSError, json.JSONDecodeError) as exc:
+            report.fail(f"cannot load mirror manifest {path}: {exc}", str(path))
             continue
         for err in sorted(
             validator.iter_errors(document),
@@ -350,7 +369,11 @@ def main(argv: list[str] | None = None) -> int:
     parser.add_argument("run_json", type=Path, nargs="?", default=None)
     parser.add_argument("--manifest", type=Path, default=None)
     parser.add_argument("--registry", type=Path)
-    parser.add_argument("--schema-dir", type=Path, required=True)
+    parser.add_argument(
+        "--schema-dir",
+        type=Path,
+        default=Path(__file__).resolve().parents[1] / "docs" / "contracts" / "schemas",
+    )
     parser.add_argument("--repo")
     parser.add_argument("--warn-only", action="store_true")
     parser.add_argument("--report-json", type=Path, default=None)
@@ -367,11 +390,23 @@ def main(argv: list[str] | None = None) -> int:
         default=None,
         help="Validate one or more tracked-variable/v1 JSON files against the schema.",
     )
+    parser.add_argument(
+        "--mirror-manifest",
+        type=Path,
+        nargs="+",
+        default=None,
+        help="Validate one or more document-mirror/v1 JSON catalog files against the schema.",
+    )
     args = parser.parse_args(argv)
+
+    if args.tracked_variables and args.mirror_manifest:
+        parser.error("--tracked-variables and --mirror-manifest are mutually exclusive")
+
+    standalone_schema_mode = args.tracked_variables or args.mirror_manifest
 
     # Standalone schema validation does not consult participant routing. Keep
     # that context mandatory for the existing envelope and self-smoke modes.
-    if args.self_smoke or not args.tracked_variables:
+    if args.self_smoke or not standalone_schema_mode:
         missing = [flag for flag in ("--registry", "--repo") if getattr(args, flag[2:]) is None]
         if missing:
             parser.error(f"the following arguments are required: {', '.join(missing)}")
@@ -384,11 +419,23 @@ def main(argv: list[str] | None = None) -> int:
             paths=list(args.tracked_variables),
             schema_dir=args.schema_dir,
         )
+        label = "tracked-variable/v1"
+    elif args.mirror_manifest:
+        report = validate_mirror_manifests(
+            paths=list(args.mirror_manifest),
+            schema_dir=args.schema_dir,
+        )
+        label = "document-mirror/v1"
+    else:
+        report = None
+
+    if report is not None:
+        path_count = len(args.tracked_variables or args.mirror_manifest or [])
         if report.conformant:
-            print(f"tracked-variable/v1: {len(args.tracked_variables)} file(s) conform to schema")
+            print(f"{label}: {path_count} file(s) conform to schema")
         else:
             print(
-                f"tracked-variable/v1: {len(report.violations)} conformance violation(s):",
+                f"{label}: {len(report.violations)} conformance violation(s):",
                 file=sys.stderr,
             )
             for v in report.violations:
@@ -417,7 +464,10 @@ def main(argv: list[str] | None = None) -> int:
     registry = _load_json(args.registry)
 
     if args.run_json is None:
-        print("ERROR: run_json path is required unless --tracked-variables is set", file=sys.stderr)
+        print(
+            "ERROR: run_json path is required unless exactly one of --tracked-variables or --mirror-manifest is set",
+            file=sys.stderr,
+        )
         return 2
 
     try:
