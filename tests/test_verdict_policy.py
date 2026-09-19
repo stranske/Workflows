@@ -2,6 +2,7 @@
 """Tests for verdict_policy helpers."""
 
 import json
+import math
 
 import pytest
 from scripts.langchain.verdict_policy import (
@@ -28,16 +29,21 @@ def test_nonfinite_confidence_number_is_zero(value):
 @pytest.mark.parametrize("value", [float("nan"), float("inf"), float("-inf")])
 @pytest.mark.parametrize("policy", ["worst", "majority"])
 def test_nonfinite_concerns_preserve_verdict_without_false_confidence_hold(value, policy):
-    result = evaluate_verdict_policy(
-        [ProviderVerdict("a", "m1", "pass", 0.9), ProviderVerdict("b", "m2", "concerns", value)],
-        policy=policy,
-    )
+    verdicts = [
+        ProviderVerdict("a", "m1", "pass", 0.9),
+        ProviderVerdict("b", "m2", "concerns", value),
+    ]
+    result = evaluate_verdict_policy(verdicts, policy=policy)
     assert result.verdict_kind == "concerns"
     assert result.split_verdict
     assert result.concerns_confidence == 0.0
     assert result.selected_confidence == 0.0
     assert not result.needs_human
     assert result.providers[1].confidence == 0.0
+    if math.isnan(value):
+        assert math.isnan(verdicts[1].confidence)
+    else:
+        assert verdicts[1].confidence == value
     json.dumps(result.as_dict(), allow_nan=False)
 
 

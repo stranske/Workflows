@@ -20,6 +20,35 @@ from scripts.langchain.followup_issue_generator import (
 )
 
 
+@pytest.mark.parametrize("raw", ["1e999", "1e999%", "-1e999", "NaN", "Infinity"])
+def test_nonfinite_followup_confidence_does_not_create_hold(raw):
+    comment = f"""
+## Provider Comparison Report
+### Provider Summary
+| Provider | Model | Verdict | Confidence | Summary |
+| --- | --- | --- | --- | --- |
+| a | m1 | PASS | 90% | Good |
+| b | m2 | CONCERNS | {raw} | Follow up |
+"""
+    data = extract_verification_data(comment)
+    assert data.provider_verdicts["b"]["confidence"] == 0
+    policy = followup_issue_generator._resolve_verdict_policy(data)
+    assert policy.verdict_kind == "concerns"
+    assert not policy.needs_human
+    assert policy.concerns_confidence == 0.0
+    assert any("Confidence=0%" in row for row in data.non_pass_output)
+
+
+@pytest.mark.parametrize("value", [float("nan"), float("inf"), float("-inf")])
+def test_stored_nonfinite_followup_confidence_is_zero(value):
+    assert followup_issue_generator._coerce_confidence_percent(value) == 0
+
+
+@pytest.mark.parametrize("raw,expected", [("9e-1", 90), ("6.1e1%", 61), ("0.61 (61%)", 61)])
+def test_followup_confidence_preserves_complete_numeric_token(raw, expected):
+    assert followup_issue_generator._parse_confidence_value(raw) == expected
+
+
 def test_select_followup_acceptance_criteria_drops_workflow_sync_items() -> None:
     original_issue = OriginalIssueData(
         title="Database verifier follow-up",

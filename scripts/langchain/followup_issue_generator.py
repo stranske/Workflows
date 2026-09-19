@@ -25,6 +25,7 @@ from __future__ import annotations
 import argparse
 import json
 import logging
+import math
 import os
 import re
 import sys
@@ -195,13 +196,16 @@ def _parse_confidence_value(text: str) -> int:
     """Parse confidence text into an integer percent."""
     if not text:
         return 0
-    percent_match = re.search(r"(\d+(?:\.\d+)?)\s*%", text)
+    # Match a complete signed/scientific token: reading only the leading 1 in
+    # 1e999 would fabricate 100% confidence before policy normalization.
+    number = r"[+-]?(?:(?:\d+(?:\.\d*)?|\.\d+)(?:[eE][+-]?\d+)?|inf(?:inity)?|nan)"
+    percent_match = re.search(rf"(?<![\w.])({number})\s*%", text, re.IGNORECASE)
     if percent_match:
-        return int(round(float(percent_match.group(1))))
-    match = re.search(r"\d+(?:\.\d+)?", text)
+        return int(round(verdict_policy._coerce_confidence(percent_match.group(1))))
+    match = re.search(rf"(?<![\w.])({number})(?![\w.])", text, re.IGNORECASE)
     if not match:
         return 0
-    value = float(match.group(0))
+    value = verdict_policy._coerce_confidence(match.group(1))
     if value <= 1:
         return int(round(value * 100))
     return int(round(value))
@@ -212,6 +216,8 @@ def _coerce_confidence_percent(value: Any) -> int:
     if isinstance(value, int):
         return value
     if isinstance(value, float):
+        if not math.isfinite(value):
+            return 0
         if 0 < value < 1:
             return int(round(value * 100))
         return int(round(value))
