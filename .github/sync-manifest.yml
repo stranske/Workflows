@@ -927,6 +927,16 @@ docs:
     target: docs/contracts/schemas/document-mirror-v1.schema.json
     description: "Document-mirror/v1 schema for mirror_root catalogs with content_sha256 blobs and source_refs"
 
+  - source: docs/contracts/output-substrate-v1.md
+    source_tree: root
+    target: docs/contracts/output-substrate-v1.md
+    description: "Output-substrate/v1 renderer profiles, workspace bundle refs, and manifest CSV exports"
+
+  - source: docs/contracts/schemas/output-substrate-v1.schema.json
+    source_tree: root
+    target: docs/contracts/schemas/output-substrate-v1.schema.json
+    description: "Output-substrate/v1 schema for vendored renderer wiring and view-bundle pointers"
+
   - source: docs/SETUP_CHECKLIST.md
     target: docs/SETUP_CHECKLIST.md
     description: "Consumer repo setup checklist. Includes the default_workflow_permissions=write step in section 3.3.1 that prevents a Gate startup_failure on fresh consumers (resolved: #2157). Synced so it no longer drifts across the fleet."

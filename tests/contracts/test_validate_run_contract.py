@@ -797,6 +797,68 @@ def test_mosaic_consumer_rejects_invalid_timestamp(checked_at: str) -> None:
     assert any("ingested-as-mosaic-core/v1" in v.message for v in report.violations)
 
 
+def test_output_substrate_is_a_schema_validated_ingest_token() -> None:
+    """output-substrate/v1 has a schema on disk and is enforced for consumers."""
+    mod = _import_validator()
+    assert mod.INGEST_SCHEMA_FILES["output-substrate/v1"] == "output-substrate-v1.schema.json"
+    assert (SCHEMA_DIR / "output-substrate-v1.schema.json").is_file()
+
+    registry = {
+        "participants": [
+            {
+                "repo": "stranske/Output-Substrate-Consumer",
+                "role": "consumer",
+                "status": "conformant",
+                "ingests": ["output-substrate/v1"],
+            }
+        ]
+    }
+    report = mod.validate_envelope(
+        envelope=json.loads((FIXTURES / "valid_output_substrate.json").read_text()),
+        schema_dir=SCHEMA_DIR,
+        registry=registry,
+        repo="stranske/Output-Substrate-Consumer",
+        manifest=None,
+    )
+    assert report.conformant
+    assert report.role == "consumer"
+
+
+def _validate_output_substrate_consumer(record: dict):
+    return _import_validator().validate_envelope(
+        envelope=record,
+        schema_dir=SCHEMA_DIR,
+        registry={
+            "participants": [
+                {
+                    "repo": "stranske/Output-Substrate-Consumer",
+                    "role": "consumer",
+                    "status": "conformant",
+                    "ingests": ["output-substrate/v1"],
+                }
+            ]
+        },
+        repo="stranske/Output-Substrate-Consumer",
+        manifest=None,
+    )
+
+
+def test_output_substrate_consumer_validates_fixture() -> None:
+    record = json.loads((FIXTURES / "valid_output_substrate.json").read_text())
+    report = _validate_output_substrate_consumer(record)
+    assert report.conformant, [v.message for v in report.violations]
+    assert report.role == "consumer"
+    assert not report.skipped
+
+
+def test_output_substrate_consumer_rejects_missing_renderer_profile() -> None:
+    record = json.loads((FIXTURES / "valid_output_substrate.json").read_text())
+    del record["renderer_profile"]
+    report = _validate_output_substrate_consumer(record)
+    assert not report.conformant
+    assert any("ingested-as-output-substrate/v1" in v.message for v in report.violations)
+
+
 def _validate_mirror_consumer(catalog: dict):
     return _import_validator().validate_envelope(
         envelope=catalog,

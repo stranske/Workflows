@@ -51,6 +51,7 @@ INGEST_SCHEMA_FILES = {
     "capability-bundle/v1": "capability-bundle-v1.schema.json",
     "mosaic-core/v1": "mosaic-core-v1.schema.json",
     "document-mirror/v1": "document-mirror-v1.schema.json",
+    "output-substrate/v1": "output-substrate-v1.schema.json",
 }
 # Tokens that are convention-only (no JSON Schema to load); accepted as declared
 # ingest surfaces but not schema-validated here.
