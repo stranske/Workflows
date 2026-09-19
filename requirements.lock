@@ -297,6 +297,8 @@ requests-toolbelt==1.0.0
     # via langsmith
 rfc3339-validator==0.1.4
     # via workflows (pyproject.toml)
+rfc3986-validator==0.1.1
+    # via workflows (pyproject.toml)
 rpds-py==2026.6.3
     # via
     #   jsonschema
