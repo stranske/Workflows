@@ -89,6 +89,11 @@ maintenance is grouped into the same weekly maintenance window.
 
 ## Bug Triage Process
 
+Repository-variable runner storage must surface denied writes: HTTP 401/403
+cannot count as a successful reservation or recorded completion. The shared
+runner source propagates these errors to its caller, while a missing variable
+(PATCH 404) still uses POST creation. Explicit best-effort reads are unchanged.
+
 When a bug is identified in workflow templates:
 
 ### Step 1: Classify the Bug
