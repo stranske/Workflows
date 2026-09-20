@@ -381,6 +381,13 @@ def invoke_codex(
     else:
         return False, "codex exec exposes no supported non-interactive approval flag"
 
+    # Both review rounds call this invoker. Pin the substantive reviewer independently
+    # of the coordinator automation's model and the user's interactive default.
+    model = os.environ.get("REPO_REVIEW_CODEX_MODEL", "gpt-6-astra").strip()
+    reasoning_effort = os.environ.get("REPO_REVIEW_CODEX_REASONING_EFFORT", "high").strip()
+    if not model or not reasoning_effort:
+        return False, "repo-review Codex model and reasoning effort must be non-empty"
+
     cmd = [
         codex_bin,
         "exec",
@@ -389,6 +396,10 @@ def invoke_codex(
         "--ephemeral",
         "-C",
         str(cwd),
+        "--model",
+        model,
+        "-c",
+        f'model_reasoning_effort={json.dumps(reasoning_effort)}',
     ]
     result = run_with_heartbeat(
         cmd,
