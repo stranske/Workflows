@@ -275,7 +275,11 @@ def test_github_api_wraps_url_errors(monkeypatch: pytest.MonkeyPatch) -> None:
     [
         ("https://api.github.com", None, "https://api.github.com/graphql"),
         ("https://enterprise.example/api/v3", None, "https://enterprise.example/api/graphql"),
-        ("https://enterprise.example/api/v3", "https://custom.example/query", "https://custom.example/query"),
+        (
+            "https://enterprise.example/api/v3",
+            "https://custom.example/query",
+            "https://custom.example/query",
+        ),
     ],
 )
 def test_github_api_uses_graphql_endpoint(
@@ -290,7 +294,7 @@ def test_github_api_uses_graphql_endpoint(
 
     def fake_urlopen(request: urllib.request.Request, timeout: float | None = None) -> FakeResponse:
         urls.append(request.full_url)
-        return FakeResponse(b'{}')
+        return FakeResponse(b"{}")
 
     monkeypatch.setattr(state_fingerprint.urllib.request, "urlopen", fake_urlopen)
     api = state_fingerprint.GitHubApi("owner/repo", "token")

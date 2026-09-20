@@ -147,9 +147,7 @@ class GitHubApi:
             # Actions exposes a distinct GraphQL endpoint. On GHES, the REST
             # root ends in /api/v3 but GraphQL lives at /api/graphql.
             url = os.environ.get("GITHUB_GRAPHQL_URL") or (
-                f"{self.base_url[:-3]}{path}"
-                if self.base_url.endswith("/api/v3")
-                else url
+                f"{self.base_url[:-3]}{path}" if self.base_url.endswith("/api/v3") else url
             )
         request = urllib.request.Request(
             url,
