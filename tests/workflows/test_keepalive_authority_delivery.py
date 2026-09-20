@@ -4,7 +4,6 @@ from pathlib import Path
 
 import yaml
 
-
 ROOT = Path(__file__).resolve().parents[2]
 TEMPLATE = ROOT / "templates/consumer-repo"
 
@@ -41,7 +40,10 @@ def test_gate_paths_deny_invalid_claims_and_reporters_can_persist_generation() -
         text = path.read_text()
         assert "RAW_AUTHORITY_CHALLENGE_CLAIM" in text
         assert "reason=invalid-signed-authority-challenge" in text
-        assert "dispatch_should_run: ${{ steps.runner_dispatch.outputs.should_dispatch || 'false' }}" in text
+        assert (
+            "dispatch_should_run: ${{ steps.runner_dispatch.outputs.should_dispatch || 'false' }}"
+            in text
+        )
         assert "headSha: process.env.HEAD_SHA" in text
         assert text.count("permission-contents: write") >= 2
     for path in (
