@@ -9,6 +9,9 @@ def test_default_playbooks_are_distributed_with_valid_anchors():
     import yaml
 
     root = Path(__file__).resolve().parents[2]
+    assert (root / "tools/ci_failure_triage.py").read_bytes() == (
+        root / "templates/consumer-repo/tools/ci_failure_triage.py"
+    ).read_bytes()
     manifest = yaml.safe_load((root / ".github/sync-manifest.yml").read_text())
     docs = {entry.get("target", entry["source"]): entry for entry in manifest["docs"]}
     for pattern in ci_failure_triage.DEFAULT_TRIAGE_PATTERNS:

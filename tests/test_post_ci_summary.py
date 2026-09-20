@@ -234,9 +234,7 @@ ImportError: No module named foo</failure>
     assert "error_type: pytest" in triage_text
     assert "error_type: coverage" in triage_text
     assert "error_type: import_error" in triage_text
-    assert "playbook_url: docs/INTEGRATION_GUIDE.md#scenario-2-mypy-errors" in triage_text
-    assert "playbook_url: docs/INTEGRATION_GUIDE.md#scenario-1-tests-failing" in triage_text
-    assert "playbook_url: docs/INTEGRATION_GUIDE.md#consumer-repo-setup-coverage-soft-gate" in (
-        triage_text
-    )
-    assert "playbook_url: docs/llm-task-analysis.md#import-errors" in triage_text
+    assert "playbook_url: docs/CI_FAILURE_PLAYBOOK.md#type-errors" in triage_text
+    assert "playbook_url: docs/CI_FAILURE_PLAYBOOK.md#test-failures" in triage_text
+    assert "playbook_url: docs/CI_FAILURE_PLAYBOOK.md#coverage-failures" in triage_text
+    assert "playbook_url: docs/CI_FAILURE_PLAYBOOK.md#import-errors" in triage_text
