@@ -410,6 +410,12 @@ pending checks, changed heads, review windows, reviewer settlement, sealed Gate
 checks, and stable candidate base refreshes, so an absent event cannot strand
 the lifecycle. It does not retry actionable CI failures, unresolved review
 findings, or a dry-run-only sealed-head mismatch as if they were timer states.
+Scheduled Maint 82 continuations exclude the manual Collab-Admin exception.
+Its `delivery` selector targets only registered `sync/workflows-delivery`
+handoffs with the selected immutable plan, scope, base and source; candidate-only
+repositories are not sent to that lane as false `target_missing` failures.
+The `campaign` selector retains the non-manual fleet scope needed for exact-head
+authorization.
 Promoted delivery commits carry their exact canary evidence in the verified
 commit message so Maint 71 can replay the same promotion if a consumer base
 advances during review; editable PR body fields never authorize that replay.

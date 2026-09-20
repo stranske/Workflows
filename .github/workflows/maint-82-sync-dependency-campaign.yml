@@ -147,10 +147,21 @@ jobs:
               currentSyncHash,
               deliveryHandoffRecords,
             });
-            const continuations = planMaint71Continuations(result.state.delivery_handoffs, {
+            // Collab-Admin is an explicit manual-reconciliation exception. It
+            // cannot wake a scheduled delivery selector for the rest of the fleet.
+            const eligibleHandoffs = (result.state.delivery_handoffs || []).filter(
+              (record) => record.repository !== 'stranske/Collab-Admin',
+            );
+            const continuations = planMaint71Continuations(eligibleHandoffs, {
               now: new Date().toISOString(),
             });
             core.setOutput('maint71_continuations', JSON.stringify(continuations));
+            core.setOutput('maint71_delivery_handoffs', JSON.stringify(
+              eligibleHandoffs.filter((record) =>
+                record.branch === 'sync/workflows-delivery'
+                && record.continuation?.lane === 'delivery'
+              ),
+            ));
 
             const stats = result.state.stats || {};
             fs.writeFileSync(
@@ -192,12 +203,16 @@ jobs:
         uses: actions/github-script@3a2844b7e9c422d3c10d287c895573f7108da1b3 # v9
         env:
           CONTINUATIONS_JSON: ${{ steps.campaign.outputs.maint71_continuations || '[]' }}
+          DELIVERY_HANDOFFS_JSON: ${{ steps.campaign.outputs.maint71_delivery_handoffs || '[]' }}
           REGISTERED_REPOS: ${{ steps.registered.outputs.repos }}
         with:
           github-token: ${{ env.CAMPAIGN_TOKEN }}
           script: |
             const { createTokenAwareRetry } = require(
               './.github/scripts/github-api-with-retry.js'
+            );
+            const { selectMaint71ContinuationRepos } = require(
+              './.github/scripts/sync_dependency_campaign.js'
             );
             const { withRetry } = await createTokenAwareRetry({
               github,
@@ -207,10 +222,11 @@ jobs:
               capabilities: ['actions:write'],
             });
             const continuations = JSON.parse(process.env.CONTINUATIONS_JSON || '[]');
-            const nonAdminRepos = String(process.env.REGISTERED_REPOS || '')
+            const deliveryHandoffs = JSON.parse(process.env.DELIVERY_HANDOFFS_JSON || '[]');
+            const registeredRepos = String(process.env.REGISTERED_REPOS || '')
               .split(',')
               .map((repo) => repo.trim())
-              .filter((repo) => repo && repo !== 'stranske/Collab-Admin');
+              .filter(Boolean);
             const { data: runs } = await withRetry((client) =>
               client.rest.actions.listWorkflowRuns({
                 owner: context.repo.owner,
@@ -261,7 +277,16 @@ jobs:
                 inputs.campaign_no_change_evidence_json =
                   continuation.campaign_no_change_evidence_json;
               }
-              if (selector !== 'candidate') inputs.repos = nonAdminRepos.join(',');
+              if (selector !== 'candidate') {
+                const scopedRepos = selectMaint71ContinuationRepos(
+                  continuation, deliveryHandoffs, registeredRepos,
+                );
+                if (!scopedRepos.length) {
+                  core.warning(`Maint 71 ${selector} continuation has no authorized repositories`);
+                  continue;
+                }
+                inputs.repos = scopedRepos.join(',');
+              }
               await withRetry((client) => client.rest.actions.createWorkflowDispatch({
                 owner: context.repo.owner,
                 repo: context.repo.repo,
