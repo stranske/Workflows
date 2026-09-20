@@ -1164,12 +1164,59 @@ def test_repo_variable_denied_write_cannot_report_success(status, operation, cap
             raise RuntimeError(f"GitHub API PATCH failed: {status} private-response")
 
     storage = runner_core.RepoVariableRunnerStorage(DeniedWriteApi())
-    with pytest.raises(RuntimeError, match=str(status)):
+    with pytest.raises(RuntimeError, match="Repository-variable write failed") as raised:
         if operation == "reserve":
             should_dispatch(42, "aaa", "codex", storage=storage)
         else:
             record_completion(42, "aaa", "codex", {"success": True}, storage=storage)
     assert "private-response" not in capsys.readouterr().err
+    assert str(status) in str(raised.value.__cause__)
+
+
+@pytest.mark.parametrize("status", [401, 403])
+@pytest.mark.parametrize("command", ["should-dispatch", "record-completion"])
+@pytest.mark.parametrize("create", [False, True])
+def test_repo_variable_cli_does_not_log_write_response(
+    status, command, create, monkeypatch, capsys, tmp_path
+):
+    class DeniedApi:
+        repo = "owner/repo"
+
+        def request(self, method, path, payload=None):
+            if method == "GET":
+                return {}
+            if create and method == "PATCH":
+                raise RuntimeError("GitHub API PATCH failed: 404 absent")
+            raise RuntimeError(f"GitHub API write failed: {status} private-response")
+
+    monkeypatch.setattr(
+        runner_core,
+        "_storage_from_name",
+        lambda _: runner_core.RepoVariableRunnerStorage(DeniedApi()),
+    )
+    output = tmp_path / "outputs"
+    monkeypatch.setenv("GITHUB_OUTPUT", str(output))
+    assert (
+        runner_core.main(
+            [
+                command,
+                "--provider",
+                "codex",
+                "--pr-number",
+                "42",
+                "--head-sha",
+                "aaa",
+                "--storage",
+                "repo-variable",
+            ]
+        )
+        == 1
+    )
+    captured = capsys.readouterr()
+    assert "Repository-variable" in captured.err
+    assert "private-response" not in captured.err
+    assert not captured.out
+    assert not output.exists()
 
 
 def test_repo_variable_missing_write_creates_variable():

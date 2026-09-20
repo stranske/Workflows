@@ -936,15 +936,18 @@ class RepoVariableRunnerStorage:
         except RuntimeError as exc:
             message = str(exc)
             if " failed: 404 " in message:
-                self.api.request(
-                    "POST",
-                    f"/repos/{self.api.repo}/actions/variables",
-                    {"name": name, "value": value},
-                )
+                try:
+                    self.api.request(
+                        "POST",
+                        f"/repos/{self.api.repo}/actions/variables",
+                        {"name": name, "value": value},
+                    )
+                except RuntimeError as create_exc:
+                    raise RuntimeError("Repository-variable creation failed.") from create_exc
                 return
             # A denied write is not a persisted reservation or completion.
             # Propagate failure rather than reporting successful progress.
-            raise
+            raise RuntimeError("Repository-variable write failed.") from exc
 
 
 class FallbackRunnerStorage:
