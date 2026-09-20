@@ -101,3 +101,13 @@ def test_campaign_forwards_only_evidence_for_the_selected_maint71_lane():
 
     assert "selector === 'candidate' && continuation.canary_baseline_evidence_json" in workflow
     assert "selector === 'campaign' && continuation.campaign_no_change_evidence_json" in workflow
+
+
+def test_due_delivery_dispatch_is_scoped_and_manual_admin_cannot_wake_it():
+    workflow = WORKFLOW.read_text(encoding="utf-8")
+
+    assert "record.repository !== 'stranske/Collab-Admin'" in workflow
+    assert "planMaint71Continuations(eligibleHandoffs" in workflow
+    assert "maint71_delivery_handoffs" in workflow
+    assert "selectMaint71ContinuationRepos(" in workflow
+    assert "inputs.repos = scopedRepos.join(',')" in workflow

@@ -484,6 +484,36 @@ function planMaint71Continuations(records = [], { now = new Date().toISOString()
   return order.map((lane) => dueByLane.get(lane)).filter(Boolean);
 }
 
+function selectMaint71ContinuationRepos(
+  continuation = {}, records = [], registeredRepos = [],
+  { excludedRepos = ['stranske/Collab-Admin'] } = {},
+) {
+  const excluded = new Set(excludedRepos);
+  const allowed = cleanArray(registeredRepos)
+    .map(cleanString)
+    .filter((repo) => repo && !excluded.has(repo));
+  if (continuation.lane === 'campaign' || continuation.lane === 'dev-tool') {
+    // Campaign authorization deliberately inspects the whole non-manual fleet.
+    return allowed;
+  }
+  if (continuation.lane !== 'delivery') return [];
+  const expected = continuation.immutable_handoff || {};
+  if (!expected.plan_id || !expected.source_commit || !expected.plan_scope) return [];
+  const registered = new Set(allowed);
+  return [...new Set(cleanArray(records)
+    .map((record) => normalizeDeliveryHandoff(record))
+    .filter((record) => record
+      && registered.has(record.repository)
+      && record.branch === 'sync/workflows-delivery'
+      && record.continuation?.lane === 'delivery'
+      && record.continuation?.class === 'transient'
+      && record.plan_id === expected.plan_id
+      && record.plan_scope === expected.plan_scope
+      && record.scope_base_sha === (expected.scope_base_sha || '')
+      && record.source_commit === expected.source_commit)
+    .map((record) => record.repository))];
+}
+
 function formatMaint71ContinuationPlannerRows(records = [], { now = new Date().toISOString() } = {}) {
   const handoffs = cleanArray(records)
     .map((record) => normalizeDeliveryHandoff(record))
@@ -1946,6 +1976,7 @@ module.exports = {
   paginateWithRetry,
   parseCampaignMarker,
   planMaint71Continuations,
+  selectMaint71ContinuationRepos,
   replaceCampaignMarker,
   runCampaign,
   validateCampaignState,
