@@ -51,6 +51,7 @@ validators, HTML resolvers, and the future `doc-mirror` CLI can share one schema
 Offline validation in a consumer checkout, using its own manifest:
 
 ```bash
+python -m pip install jsonschema rfc3339-validator rfc3986-validator
 python scripts/validate_run_contract.py \
   --mirror-manifest path/to/your-manifest.json \
   --schema-dir docs/contracts/schemas
