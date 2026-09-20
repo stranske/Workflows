@@ -129,10 +129,13 @@ async function beginChallenge({ request, repository, prNumber, defaultBranch, fi
     if (expectedGeneration && (!prior || prior.state.generation !== expectedGeneration)) {
       throw new Error('Previously initialized challenge generation is missing or superseded');
     }
-    if (prior && prior.state.boundary_fingerprint === fingerprint &&
-        (['consumed', 'confirmed'].includes(prior.state.status) ||
-          (prior.state.status === 'available' && Date.parse(prior.state.expires_at) > Date.now()))) {
-      return prior.state;
+    if (prior && prior.state.boundary_fingerprint === fingerprint) {
+      if (prior.state.status === 'confirmed') {
+        // A confirmed boundary was human-resolved; recurring failures need a new generation.
+      } else if (prior.state.status === 'consumed' ||
+          (prior.state.status === 'available' && Date.parse(prior.state.expires_at) > Date.now())) {
+        return prior.state;
+      }
     }
     const state = {
       version: 2,
@@ -204,7 +207,7 @@ async function confirmChallenge({ request, repository, prNumber, claim, ownerAtt
   const pr = await request('GET', `/repos/${String(repository).toLowerCase()}/pulls/${Number(prNumber)}`);
   const labels = new Set((pr?.labels || []).map((label) => String(label.name || '').toLowerCase()));
   if (pr?.state !== 'open' || pr?.head?.sha !== headSha ||
-      !labels.has('agent:needs-attention') || labels.has('needs-human')) return false;
+      !labels.has('needs-human')) return false;
   const next = { ...prior.state, status: 'confirmed', revision: prior.state.revision + 1 };
   try {
     await writeAuthorityState(request, repository, prNumber, next, prior.sha);

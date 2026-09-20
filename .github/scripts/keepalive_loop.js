@@ -3709,7 +3709,7 @@ async function updateKeepaliveLoopSummary({ github: rawGithub, context, core, in
     const escalationRequired =
       ((action === 'run' || action === 'fix') && runResult && runResult !== 'success' && errorCategory !== ERROR_CATEGORIES.transient) ||
       (action === 'stop' && !isSuccessStop && !isNeutralStop && errorCategory !== ERROR_CATEGORIES.transient);
-    let authorityChallengeConfirmed =
+    const authorityChallengeProjection =
       authorityChallengeProvenanceMatches &&
       escalationRequired &&
       errorCategory === ERROR_CATEGORIES.auth &&
@@ -3717,35 +3717,22 @@ async function updateKeepaliveLoopSummary({ github: rawGithub, context, core, in
       Boolean(authorityEvidence.fingerprint) &&
       authorityEvidence.actionable &&
       authorityEvidence.fingerprint === authorityChallengeFingerprint;
-    if (authorityChallengeConfirmed) {
-      const repository = `${context.repo.owner}/${context.repo.repo}`;
-      const claim = {
-        generation: authorityChallengeClaim.generation,
-        boundary_fingerprint: authorityChallengeFingerprint,
-        due_at: authorityChallengeClaim.due_at,
-        expires_at: authorityChallengeClaim.expires_at,
-        head_sha: authorityChallengeClaim.head_sha,
-        nonce: authorityChallengeClaim.nonce,
-        sweep_run_id: authorityChallengeClaim.sweep_run_id,
-        sweep_run_attempt: authorityChallengeClaim.sweep_run_attempt,
-      };
-      try {
-        authorityChallengeConfirmed = await confirmChallenge({
-          request: requester(github), repository, prNumber, claim,
-          ownerAttempt: `${repository.toLowerCase()}:${context.runId || process.env.GITHUB_RUN_ID || ''}:${context.runAttempt || process.env.GITHUB_RUN_ATTEMPT || ''}`,
-          provider: agentType,
-          headSha: inputs.head_sha ?? inputs.headSha,
-        });
-      } catch (error) {
-        core?.warning?.(`Authority receipt confirmation unavailable: ${error.message}`);
-        authorityChallengeConfirmed = false;
-      }
-    }
+    const pendingAuthorityClaim = authorityChallengeProjection ? {
+      generation: authorityChallengeClaim.generation,
+      boundary_fingerprint: authorityChallengeFingerprint,
+      due_at: authorityChallengeClaim.due_at,
+      expires_at: authorityChallengeClaim.expires_at,
+      head_sha: authorityChallengeClaim.head_sha,
+      nonce: authorityChallengeClaim.nonce,
+      sweep_run_id: authorityChallengeClaim.sweep_run_id,
+      sweep_run_attempt: authorityChallengeClaim.sweep_run_attempt,
+    } : null;
+    let authorityChallengeConfirmed = false;
     let escalationDisposition = selectEscalationDisposition({
       required: escalationRequired || stop,
       errorCategory,
       summaryReason,
-      authorityChallengeConfirmed,
+      authorityChallengeConfirmed: authorityChallengeProjection,
     });
     const recoveryLeaseReason = stop
       ? normalise(summaryReason).replace(/-repeat$/, '')
@@ -4676,6 +4663,24 @@ async function updateKeepaliveLoopSummary({ github: rawGithub, context, core, in
         }
 
         if (hardHumanLabelApplied) {
+          if (pendingAuthorityClaim) {
+            const repository = `${context.repo.owner}/${context.repo.repo}`;
+            try {
+              authorityChallengeConfirmed = await confirmChallenge({
+                request: requester(github), repository, prNumber, claim: pendingAuthorityClaim,
+                ownerAttempt: `${repository.toLowerCase()}:${context.runId || process.env.GITHUB_RUN_ID || ''}:${context.runAttempt || process.env.GITHUB_RUN_ATTEMPT || ''}`,
+                provider: agentType,
+                headSha: inputs.head_sha ?? inputs.headSha,
+              });
+            } catch (error) {
+              core?.warning?.(`Authority receipt confirmation unavailable: ${error.message}`);
+              authorityChallengeConfirmed = false;
+            }
+            if (!authorityChallengeConfirmed) {
+              escalationDisposition = 'challenge-due';
+              newState.attention = pendingState.attention;
+            }
+          }
           summaryLines.push(
             '',
             '### 🛑 Independent Authority Challenge Confirmed',

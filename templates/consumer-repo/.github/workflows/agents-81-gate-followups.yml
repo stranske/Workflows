@@ -1229,6 +1229,23 @@ jobs:
             }}
           PREFLIGHT_FAILURE_SUMMARY: ${{ needs.preflight.outputs.failure_summary || '' }}
           DELEGATION_SOURCE: ${{ needs.evaluate.outputs.delegation_source }}
+          EVALUATE_PR_NUMBER: ${{ needs.evaluate.outputs.pr_number }}
+          EVALUATE_HEAD_SHA: ${{ needs.evaluate.outputs.head_sha }}
+          EVALUATE_ACTION: ${{ needs.evaluate.outputs.action }}
+          EVALUATE_REASON: ${{ needs.evaluate.outputs.reason }}
+          EVALUATE_GATE_CONCLUSION: ${{ needs.evaluate.outputs.gate_conclusion }}
+          EVALUATE_ITERATION: ${{ needs.evaluate.outputs.iteration }}
+          EVALUATE_MAX_ITERATIONS: ${{ needs.evaluate.outputs.max_iterations }}
+          EVALUATE_FAILURE_THRESHOLD: ${{ needs.evaluate.outputs.failure_threshold }}
+          EVALUATE_TASKS_TOTAL: ${{ needs.evaluate.outputs.tasks_total }}
+          EVALUATE_TASKS_UNCHECKED: ${{ needs.evaluate.outputs.tasks_unchecked }}
+          EVALUATE_KEEPALIVE_ENABLED: ${{ needs.evaluate.outputs.keepalive_enabled }}
+          EVALUATE_AUTOFIX_ENABLED: ${{ needs.evaluate.outputs.autofix_enabled }}
+          EVALUATE_AGENT_TYPE: ${{ needs.evaluate.outputs.agent_type }}
+          EVALUATE_AGENT_ROUTING_MODE: ${{ needs.evaluate.outputs.agent_routing_mode }}
+          EVALUATE_DELEGATION_REASON: ${{ needs.evaluate.outputs.delegation_reason }}
+          EVALUATE_DELEGATION_SHOULD_SWITCH: ${{ needs.evaluate.outputs.delegation_should_switch }}
+          EVALUATE_TRACE: ${{ needs.evaluate.outputs.trace }}
           FORCE_RETRY: ${{ github.event.inputs.force_retry || 'false' }}
           AUTHORITY_CHALLENGE_FINGERPRINT: >-
             ${{ github.event_name == 'workflow_dispatch' &&
@@ -1318,25 +1335,25 @@ jobs:
               '${{ needs.run-gemini.outputs.llm-analysis-run }}' === 'true';
 
             const inputs = {
-              pr_number: Number('${{ needs.evaluate.outputs.pr_number }}') || 0,
-              head_sha: '${{ needs.evaluate.outputs.head_sha }}',
-              action: '${{ needs.evaluate.outputs.action }}',
-              reason: '${{ needs.evaluate.outputs.reason }}',
-              gate_conclusion: '${{ needs.evaluate.outputs.gate_conclusion }}',
-              iteration: Number('${{ needs.evaluate.outputs.iteration }}') || 0,
-              max_iterations: Number('${{ needs.evaluate.outputs.max_iterations }}') || 0,
-              failure_threshold: Number('${{ needs.evaluate.outputs.failure_threshold }}') || 3,
-              tasks_total: Number('${{ needs.evaluate.outputs.tasks_total }}') || 0,
-              tasks_unchecked: Number('${{ needs.evaluate.outputs.tasks_unchecked }}') || 0,
-              keepalive_enabled: '${{ needs.evaluate.outputs.keepalive_enabled }}',
-              autofix_enabled: '${{ needs.evaluate.outputs.autofix_enabled }}',
-              agent_type: '${{ needs.evaluate.outputs.agent_type }}',
-              trace: '${{ needs.evaluate.outputs.trace }}',
+              pr_number: Number(process.env.EVALUATE_PR_NUMBER) || 0,
+              head_sha: process.env.EVALUATE_HEAD_SHA || '',
+              action: process.env.EVALUATE_ACTION || '',
+              reason: process.env.EVALUATE_REASON || '',
+              gate_conclusion: process.env.EVALUATE_GATE_CONCLUSION || '',
+              iteration: Number(process.env.EVALUATE_ITERATION) || 0,
+              max_iterations: Number(process.env.EVALUATE_MAX_ITERATIONS) || 0,
+              failure_threshold: Number(process.env.EVALUATE_FAILURE_THRESHOLD) || 3,
+              tasks_total: Number(process.env.EVALUATE_TASKS_TOTAL) || 0,
+              tasks_unchecked: Number(process.env.EVALUATE_TASKS_UNCHECKED) || 0,
+              keepalive_enabled: process.env.EVALUATE_KEEPALIVE_ENABLED || '',
+              autofix_enabled: process.env.EVALUATE_AUTOFIX_ENABLED || '',
+              agent_type: process.env.EVALUATE_AGENT_TYPE || '',
+              trace: process.env.EVALUATE_TRACE || '',
               // Delegation policy outputs (agent:auto mode)
-              delegation_reason: '${{ needs.evaluate.outputs.delegation_reason }}',
-              delegation_should_switch: '${{ needs.evaluate.outputs.delegation_should_switch }}',
+              delegation_reason: process.env.EVALUATE_DELEGATION_REASON || '',
+              delegation_should_switch: process.env.EVALUATE_DELEGATION_SHOULD_SWITCH || '',
               delegation_source: process.env.DELEGATION_SOURCE || '',
-              agent_routing_mode: '${{ needs.evaluate.outputs.agent_routing_mode }}',
+              agent_routing_mode: process.env.EVALUATE_AGENT_ROUTING_MODE || '',
               // Agent run result - check which agent ran
               run_result: runResult,
               agent_execution_started: agentExecutionStarted,

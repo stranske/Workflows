@@ -32,7 +32,7 @@ function fakeGitHub() {
       return { object: { sha: '1'.repeat(40) } };
     }
     if (path.endsWith('/pulls/42') && method === 'GET') {
-      return { state: 'open', head: { sha: headSha }, labels: [{ name: 'agent:needs-attention' }] };
+      return { state: 'open', head: { sha: headSha }, labels: [{ name: 'needs-human' }] };
     }
     if (path.includes('/git/ref/heads/keepalive-authority-state') && method === 'GET') {
       if (!branch) throw status(404);
@@ -132,8 +132,8 @@ test('one generation grants once across attempts, providers, heads and nonces', 
     request: api.request, repository, prNumber, defaultBranch: 'main',
     fingerprint, ...boundary(),
   });
-  assert.equal(afterConfirmation.generation, state.generation);
-  assert.equal(afterConfirmation.status, 'confirmed');
+  assert.notEqual(afterConfirmation.generation, state.generation);
+  assert.equal(afterConfirmation.status, 'available');
 });
 
 test('two racing consumers produce at most one grant through the conditional SHA', async () => {
