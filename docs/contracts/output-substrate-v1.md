@@ -66,10 +66,13 @@ list and pass one document to `scripts/validate_run_contract.py`. The production
 validator enforces the schema, including POSIX path rules on
 `workspace_bundle_ref.path` and `manifest_csv_exports[].filename`.
 
-## Validation evidence
+## Workflows source validation evidence
 
-Synthetic fixture: `tests/fixtures/backplane/valid_output_substrate.json`.
-Run `python -m pytest tests/contracts/test_backplane_schemas.py::test_output_substrate_fixture_validates -q`.
+The synthetic fixture `tests/fixtures/backplane/valid_output_substrate.json`
+and its test live in the
+[Workflows source repository](https://github.com/stranske/Workflows), not in
+consumer checkouts. From a Workflows checkout, run
+`python -m pytest tests/contracts/test_backplane_schemas.py::test_output_substrate_fixture_validates -q`.
 
 Deliberate break: remove `renderer_profile` from the fixture, rerun the named
 test, observe failure, restore the fixture, and observe success.

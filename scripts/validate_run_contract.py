@@ -170,7 +170,8 @@ def validate_mirror_manifests(*, paths: list[Path], schema_dir: Path) -> Report:
             validator.iter_errors(document),
             key=lambda e: list(e.absolute_path),
         ):
-            report.fail(err.message, "/".join(str(p) for p in err.absolute_path))
+            pointer = "/".join(str(p) for p in err.absolute_path)
+            report.fail(err.message, f"{path}:/{pointer}")
     return report
 
 
