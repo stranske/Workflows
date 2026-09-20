@@ -20,3 +20,12 @@ def test_reusable_backplane_conformance_restores_caller_reference_artifact() -> 
     assert "uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c" in workflow
     assert "name: ${{ inputs.reference_artifact_name }}" in workflow
     assert "path: artifacts/reference" in workflow
+
+
+def test_backplane_workflows_install_required_format_checkers() -> None:
+    for name in (
+        "reusable-backplane-conformance.yml",
+        "health-78-backplane-contract.yml",
+    ):
+        workflow = (ROOT / ".github" / "workflows" / name).read_text(encoding="utf-8")
+        assert "jsonschema rfc3339-validator rfc3986-validator" in workflow

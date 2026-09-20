@@ -11,6 +11,7 @@ from scripts.scope_consumer_sync_plan import (
     changed_paths_for_range,
     select_plan,
 )
+from scripts.sync_manifest_compiler import compile_manifest
 
 
 def entry(
@@ -141,6 +142,63 @@ def test_source_delta_expands_transitive_manifest_dependencies() -> None:
         "scripts/c",
     ]
     assert evidence["dependency_targets"] == ["scripts/b", "scripts/c"]
+
+
+def test_real_validator_delta_includes_all_registered_schema_dependencies() -> None:
+    root = Path(__file__).resolve().parents[2]
+    full_plan = compile_manifest(root / ".github/sync-manifest.yml").to_plan()
+    scoped, evidence = select_plan(
+        full_plan,
+        mode="source-delta",
+        changed_paths=["scripts/validate_run_contract.py"],
+        base_sha="1" * 40,
+        source_commit="2" * 40,
+    )
+    targets = {item["target"] for item in scoped["entries"]}
+    assert "scripts/validate_run_contract.py" in targets
+    assert {
+        f"docs/contracts/schemas/{name}-v1.schema.json"
+        for name in (
+            "run-contract",
+            "artifact-manifest",
+            "evidence-object",
+            "tracked-variable",
+            "capability-bundle",
+            "mosaic-core",
+            "document-mirror",
+            "output-substrate",
+        )
+    } <= targets
+    assert "docs/contracts/schemas/mosaic-core-v1.schema.json" in evidence["dependency_targets"]
+    assert "docs/contracts/identity-map-conventions.md" not in targets
+
+
+@pytest.mark.parametrize(
+    ("document", "schemas"),
+    [
+        (
+            "mosaic-core",
+            {"mosaic-core-v1.schema.json", "artifact-manifest-v1.schema.json"},
+        ),
+        ("document-mirror", {"document-mirror-v1.schema.json"}),
+        (
+            "output-substrate",
+            {"output-substrate-v1.schema.json", "artifact-manifest-v1.schema.json"},
+        ),
+    ],
+)
+def test_real_contract_doc_delta_carries_its_schemas(document: str, schemas: set[str]) -> None:
+    root = Path(__file__).resolve().parents[2]
+    full_plan = compile_manifest(root / ".github/sync-manifest.yml").to_plan()
+    scoped, _ = select_plan(
+        full_plan,
+        mode="source-delta",
+        changed_paths=[f"docs/contracts/{document}-v1.md"],
+        base_sha="1" * 40,
+        source_commit="2" * 40,
+    )
+    targets = {item["target"] for item in scoped["entries"]}
+    assert {f"docs/contracts/schemas/{schema}" for schema in schemas} <= targets
 
 
 def test_source_delta_dependency_cycle_terminates() -> None:

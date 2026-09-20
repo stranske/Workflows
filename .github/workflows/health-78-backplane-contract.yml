@@ -90,7 +90,7 @@ jobs:
           python-version: '3.14'
 
       - name: Install dependencies
-        run: pip install jsonschema rfc3339-validator pytest PyYAML
+        run: pip install jsonschema rfc3339-validator rfc3986-validator pytest PyYAML
 
       - name: Validator self-smoke (schemas load + fixtures behave)
         run: |
