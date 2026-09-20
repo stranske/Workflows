@@ -30,11 +30,13 @@ function fakeGitHub() {
   let afterPut = null;
   let prHead = headSha;
   let prLabels = ['agent:needs-attention'];
+  let prUnavailable = false;
   const request = async (method, path, body) => {
     if (path.includes('/git/ref/heads/main') && method === 'GET') {
       return { object: { sha: '1'.repeat(40) } };
     }
     if (path.endsWith('/pulls/42') && method === 'GET') {
+      if (prUnavailable) throw status(503);
       return { state: 'open', head: { sha: prHead }, labels: prLabels.map((name) => ({ name })) };
     }
     if (path.includes('/git/ref/heads/keepalive-authority-state') && method === 'GET') {
@@ -69,6 +71,7 @@ function fakeGitHub() {
     setAfterPut(fn) { afterPut = fn; },
     setPrHead(sha) { prHead = sha; },
     setPrLabels(labels) { prLabels = labels; },
+    setPrUnavailable(value) { prUnavailable = value; },
     expireChallenge() {
       const state = JSON.parse(Buffer.from(content, 'base64').toString('utf8'));
       state.expires_at = new Date(Date.now() - 1).toISOString();
@@ -203,7 +206,31 @@ test('head changed during confirmation never reports trusted confirmation', asyn
   assert.equal((await reopenUnconfirmedChallenge({
     request: api.request, repository, prNumber, claim: signed,
     ownerAttempt, provider: 'codex', headSha,
-  })).status, 'uncertain');
+  })).status, 'reopened');
+  assert.equal((await readAuthorityState(api.request, repository, prNumber)).state.status, 'available');
+});
+
+test('unavailable PR read after confirmation reopens the automation challenge', async () => {
+  const api = fakeGitHub();
+  const state = await beginChallenge({
+    request: api.request, repository, prNumber, defaultBranch: 'main',
+    fingerprint, ...boundary(),
+  });
+  const signed = claim(state);
+  assert.equal((await consumeChallenge({
+    request: api.request, repository, prNumber, claim: signed,
+    ownerAttempt, provider: 'codex', headSha,
+  })).granted, true);
+  api.setPrLabels(['needs-human']);
+  api.setAfterPut(async () => api.setPrUnavailable(true));
+  assert.equal(await confirmChallenge({
+    request: api.request, repository, prNumber, claim: signed,
+    ownerAttempt, provider: 'codex', headSha,
+  }), false);
+  assert.equal((await reopenUnconfirmedChallenge({
+    request: api.request, repository, prNumber, claim: signed,
+    ownerAttempt, provider: 'codex', headSha,
+  })).status, 'reopened');
 });
 
 test('expired consumed generation can be replaced after confirmation was omitted', async () => {

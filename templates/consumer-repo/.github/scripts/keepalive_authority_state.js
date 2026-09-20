@@ -248,9 +248,13 @@ async function reopenUnconfirmedChallenge({ request, repository, prNumber, claim
     receipt.owner_attempt === ownerAttempt && receipt.provider === provider && receipt.head_sha === headSha;
   if (matches && prior.state.status === 'confirmed') {
     const current = await prMatches(request, repository, prNumber, headSha, 'needs-human');
-    return { status: current ? 'confirmed' : 'uncertain', state: prior.state };
+    if (current) return { status: 'confirmed', state: prior.state };
+    // The caller just applied needs-human. Rotate a stale confirmation so it
+    // can remove its own label and schedule a fresh challenge generation.
   }
-  if (!matches || prior.state.status !== 'consumed') return { status: 'uncertain', state: prior.state };
+  if (!matches || !['consumed', 'confirmed'].includes(prior.state.status)) {
+    return { status: 'uncertain', state: prior.state };
+  }
   const now = Date.now();
   const state = {
     ...prior.state,
