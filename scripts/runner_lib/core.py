@@ -1291,9 +1291,9 @@ def _log_storage_failure(operation: str, exc: Exception, *, phase: str = "comple
 
 def _unrecorded_completion(prior: dict[str, Any], key: str, reason: str) -> dict[str, Any]:
     return {
+        **prior,
         "status": "unknown",
         "key": key,
-        **prior,
         "completion_recorded": False,
         "completion_reason": reason,
     }

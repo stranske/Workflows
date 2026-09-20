@@ -1666,6 +1666,34 @@ def test_cli_reports_stale_completion_without_writing(
     assert len(storage.writes) == writes
 
 
+def test_cli_unrecorded_completion_reports_current_key_and_unknown_status(
+    monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str]
+) -> None:
+    storage = MemoryRunnerStorage()
+    monkeypatch.setattr(runner_core, "_storage_from_name", lambda _: storage)
+    monkeypatch.setenv("GITHUB_REPOSITORY", "owner/repo")
+    monkeypatch.setenv("GITHUB_RUN_ID", "200")
+    monkeypatch.setenv("GITHUB_RUN_ATTEMPT", "1")
+    common = ["--provider", "codex", "--pr-number", "42"]
+    assert runner_core.main(["should-dispatch", *common, "--head-sha", "aaa"]) == 0
+    capsys.readouterr()
+    writes = len(storage.writes)
+
+    assert (
+        runner_core.main(["record-completion", *common, "--head-sha", "bbb", "--summary", "Done"])
+        == 0
+    )
+    output = json.loads(capsys.readouterr().out)
+    assert output == {
+        "key": runner_core._runner_key(42, "bbb", "codex"),
+        "productive": "",
+        "reason": "stale-attempt",
+        "recorded": "false",
+        "status": "unknown",
+    }
+    assert len(storage.writes) == writes
+
+
 def test_same_attempt_completion_across_jobs_is_idempotent(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
