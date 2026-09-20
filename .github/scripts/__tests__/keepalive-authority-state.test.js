@@ -166,6 +166,22 @@ test('head changed during consumption spends receipt but denies grant', async ()
   assert.equal((await readAuthorityState(api.request, repository, prNumber)).state.status, 'consumed');
 });
 
+test('head changed before the ledger PUT still denies the grant', async () => {
+  const api = fakeGitHub();
+  const state = await beginChallenge({
+    request: api.request, repository, prNumber, defaultBranch: 'main',
+    fingerprint, ...boundary(),
+  });
+  api.setBeforePut(async () => api.setPrHead('e'.repeat(40)));
+  const result = await consumeChallenge({
+    request: api.request, repository, prNumber, claim: claim(state),
+    ownerAttempt, provider: 'codex', headSha,
+  });
+  assert.equal(result.granted, false);
+  assert.equal(result.reason, 'challenge-pr-state-changed');
+  assert.equal((await readAuthorityState(api.request, repository, prNumber)).state.status, 'consumed');
+});
+
 test('routing label changed during consumption denies the grant', async () => {
   const api = fakeGitHub();
   const state = await beginChallenge({
