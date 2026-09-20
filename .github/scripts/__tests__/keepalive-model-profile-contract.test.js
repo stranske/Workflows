@@ -35,8 +35,8 @@ test('profile reaches codex runner', () => {
   );
   assert.match(
     keepalive,
-    /codex_reasoning_effort:\s*\$\{\{\s*needs\.evaluate\.outputs\.worker_reasoning_effort\s*\}\}/,
-    'expected selected profile effort in reusable runner inputs',
+    /codex_reasoning_effort:\s*\$\{\{\s*needs\.evaluate\.outputs\.worker_reasoning_effort\s*\|\|\s*'high'\s*\}\}/,
+    'expected selected profile effort, defaulting old registries to high, in reusable runner inputs',
   );
 });
 
@@ -46,7 +46,7 @@ test('consumer keepalive forwards registry model and effort for explicit escalat
   );
   assert.match(consumer, /INPUT_EXECUTION_PROFILE:\s*\$\{\{\s*github\.event\.inputs\.execution_profile/);
   assert.match(consumer, /codex_model:\s*\$\{\{\s*needs\.evaluate\.outputs\.worker_requested_model\s*\}\}/);
-  assert.match(consumer, /codex_reasoning_effort:\s*\$\{\{\s*needs\.evaluate\.outputs\.worker_reasoning_effort\s*\}\}/);
+  assert.match(consumer, /codex_reasoning_effort:\s*\$\{\{\s*needs\.evaluate\.outputs\.worker_reasoning_effort\s*\|\|\s*'high'\s*\}\}/);
 });
 
 test('workflow dispatch profile input is honored when PR body omits a profile', () => {

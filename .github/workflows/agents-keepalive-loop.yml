@@ -919,7 +919,7 @@ jobs:
       execution_profile: ${{ needs.evaluate.outputs.execution_profile }}
       codex_model: ${{ needs.evaluate.outputs.worker_requested_model }}
       codex_fallback_models: ${{ needs.evaluate.outputs.worker_fallback_model }}
-      codex_reasoning_effort: ${{ needs.evaluate.outputs.worker_reasoning_effort }}
+      codex_reasoning_effort: ${{ needs.evaluate.outputs.worker_reasoning_effort || 'high' }}
       environment: >-
         ${{
           needs.evaluate.outputs.has_high_privilege == 'true' &&

@@ -290,6 +290,7 @@ test('validateAgentRegistry rejects unknown execution profile model ids', () => 
               capacity_pool: 'codex-standard',
               safety: 'standard',
               lifecycle: 'active',
+              reasoning_effort: 'high',
             },
           },
         },
@@ -298,6 +299,18 @@ test('validateAgentRegistry rejects unknown execution profile model ids', () => 
     },
     /unknown model: gpt-typo/,
   );
+});
+
+test('active Codex execution profiles require a supported reasoning effort', () => {
+  const registry = loadAgentRegistry({ registryPath: REGISTRY_PATH });
+  for (const effort of [undefined, 'medum']) {
+    const malformed = structuredClone(registry);
+    malformed.execution_profiles['codex-default'].reasoning_effort = effort;
+    assert.throws(
+      () => validateAgentRegistry(malformed),
+      /codex-default reasoning_effort must be one of: low, medium, high, xhigh, max/,
+    );
+  }
 });
 
 test('validateAgentRegistry rejects invalid capacity entries', () => {
