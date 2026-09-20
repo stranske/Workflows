@@ -458,8 +458,9 @@ review forever.
 
 Before a source-delta run rotates an open stable PR, Maint 68 compares the
 previous PR's unmerged file changes with the new plan targets and current
-consumer base. If an omitted file is not already present on that base at the
-same content, it fails closed with `source_delta_drops_unmerged_targets`; rerun
+consumer base. If an omitted file is not already present on that base with the
+same Git tree entry (mode, type, and content), it fails closed with
+`source_delta_drops_unmerged_targets`; rerun
 a full-scope canary instead. A narrow refresh must not silently discard schema
 or other prerequisites staged by an earlier, still-unmerged plan.
 

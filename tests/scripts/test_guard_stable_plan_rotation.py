@@ -114,6 +114,27 @@ def test_narrow_rotation_checks_payload_after_branch_update_merge(tmp_path: Path
     ) == ["docs/contracts/schemas/mosaic-core-v1.schema.json"]
 
 
+def test_narrow_rotation_preserves_pending_executable_mode(tmp_path: Path) -> None:
+    repo, old_base, _ = _repo_with_pending_delivery(tmp_path)
+    _git(repo, "checkout", "-q", "sync/workflows-candidate")
+    (repo / "scripts/validate_run_contract.py").chmod(0o755)
+    _git(repo, "add", "scripts/validate_run_contract.py")
+    _git(repo, "commit", "-qm", "make validator executable")
+    old_head = _git(repo, "rev-parse", "HEAD")
+    _git(repo, "checkout", "-q", "main")
+    _write(repo, "scripts/validate_run_contract.py", "validator\n")
+    _git(repo, "add", ".")
+    _git(repo, "commit", "-qm", "same bytes, ordinary mode")
+    new_base = _git(repo, "rev-parse", "HEAD")
+    assert uncovered_pending_paths(
+        repo,
+        old_base=old_base,
+        old_head=old_head,
+        new_base=new_base,
+        selected_targets=["docs/contracts/schemas"],
+    ) == ["scripts/validate_run_contract.py"]
+
+
 def test_cli_requests_full_scope_for_uncovered_prior_file(tmp_path: Path) -> None:
     repo, old_base, old_head = _repo_with_pending_delivery(tmp_path)
     targets = tmp_path / "sync_targets.txt"

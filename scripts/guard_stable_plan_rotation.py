@@ -13,15 +13,10 @@ def _git(repo: Path, *args: str) -> subprocess.CompletedProcess[bytes]:
     return subprocess.run(["git", *args], cwd=repo, capture_output=True, check=True)
 
 
-def _blob_oid(repo: Path, ref: str, path: str) -> str | None:
-    result = subprocess.run(
-        ["git", "rev-parse", "--verify", f"{ref}:{path}"],
-        cwd=repo,
-        capture_output=True,
-        text=True,
-        check=False,
-    )
-    return result.stdout.strip() if result.returncode == 0 else None
+def _tree_entry(repo: Path, ref: str, path: str) -> bytes | None:
+    """Keep mode and type alongside the object ID (not merely file bytes)."""
+    result = _git(repo, "ls-tree", "-z", ref, "--", path).stdout
+    return result.split(b"\t", 1)[0] if result else None
 
 
 def _selected(path: str, targets: set[str]) -> bool:
@@ -50,7 +45,7 @@ def uncovered_pending_paths(
         path
         for path in paths
         if not _selected(path, targets)
-        and _blob_oid(repo, old_head, path) != _blob_oid(repo, new_base, path)
+        and _tree_entry(repo, old_head, path) != _tree_entry(repo, new_base, path)
     )
 
 
