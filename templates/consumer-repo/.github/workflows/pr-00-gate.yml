@@ -363,6 +363,7 @@ jobs:
         # Best-effort by design: a repo that is not pip-installable still gets the old behaviour
         # rather than a hard failure here.
         run: |
+          set -euo pipefail
           python -m pip install --upgrade pip pytest
           # Install the project's DEPENDENCIES but not the project. The check reruns the named
           # test against an archived BASE revision on PYTHONPATH; a head distribution left in
@@ -378,23 +379,23 @@ jobs:
             fi
           done
           if [ -f pyproject.toml ] || [ -f setup.py ]; then
-            if python -m pip install . ; then
-              dist_name="$(python - <<'PYEOF'
-          import pathlib, sys
-          try:
-              import tomllib
-              data = tomllib.loads(pathlib.Path("pyproject.toml").read_text(encoding="utf-8"))
-              print(data["project"]["name"])
-          except Exception:
-              sys.exit(0)
+            install_report="$(mktemp)"
+            trap 'rm -f "$install_report"' EXIT
+            if python -m pip install --report "$install_report" . ; then
+              dist_name="$(python - "$install_report" <<'PYEOF'
+          import json, pathlib, re, sys
+          report = json.loads(pathlib.Path(sys.argv[1]).read_text(encoding="utf-8"))
+          names = [entry.get("metadata", {}).get("name") for entry in report.get("install", [])
+                   if entry.get("requested") is True]
+          if len(names) != 1 or not isinstance(names[0], str) or not re.fullmatch(
+              r"[A-Za-z0-9][A-Za-z0-9._-]*", names[0]
+          ):
+              raise SystemExit("Cannot identify installed head distribution; refusing base test.")
+          print(names[0])
           PYEOF
           )"
-              if [ -n "$dist_name" ]; then
-                python -m pip uninstall -y "$dist_name" >/dev/null 2>&1 \
-                  || echo "::warning::Could not uninstall $dist_name; base run may see head code."
-              else
-                echo "::warning::Could not read project name; leaving the install in place."
-              fi
+              # Cleanup must succeed before any archived-base proof can run.
+              python -m pip uninstall -y "$dist_name"
             else
               echo "::warning::Project install failed; the named test may not be importable."
             fi
