@@ -27,6 +27,17 @@ def test_maint46_runs_post_ci_summary_as_importable_module():
     assert "python tools/post_ci_summary.py" not in render["run"]
 
 
+def test_maint46_summary_reads_downloaded_gate_artifacts():
+    workflow = yaml.safe_load(
+        Path(".github/workflows/maint-46-post-ci.yml").read_text(encoding="utf-8")
+    )
+    steps = workflow["jobs"]["summary"]["steps"]
+    download = next(step for step in steps if step.get("name") == "Download Gate artifacts")
+    render = next(step for step in steps if step.get("name") == "Build summary body")
+
+    assert render["env"]["GATE_ARTIFACTS_ROOT"] == download["with"]["path"]
+
+
 def test_maint46_gate_artifact_download_fails_open_to_metadata_summary():
     workflow = yaml.safe_load(
         Path(".github/workflows/maint-46-post-ci.yml").read_text(encoding="utf-8")

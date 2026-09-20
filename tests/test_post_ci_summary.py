@@ -227,7 +227,8 @@ ImportError: No module named foo</failure>
 """
     (runtime_dir / "pytest-junit.xml").write_text(junit_payload, encoding="utf-8")
 
-    triage_block = post_ci_summary._collect_triage_block(artifacts_root)
+    head_sha = "a" * 40
+    triage_block = post_ci_summary._collect_triage_block(artifacts_root, head_sha=head_sha)
     triage_text = "\n".join(triage_block)
 
     assert "Failure triage" in triage_text
@@ -238,6 +239,28 @@ ImportError: No module named foo</failure>
     for anchor in ("type-errors", "test-failures", "coverage-failures", "import-errors"):
         path = f"docs/CI_FAILURE_PLAYBOOK.md#{anchor}"
         assert (
-            f"playbook_url: [{path}](https://github.com/stranske/Workflows/blob/main/{path})"
+            f"playbook_url: [{path}](https://github.com/stranske/Workflows/blob/{head_sha}/{path})"
             in triage_text
         )
+
+
+def test_playbook_link_preserves_absolute_url_and_rejects_unsafe_relative_path(monkeypatch) -> None:
+    monkeypatch.setenv("GITHUB_REPOSITORY", "stranske/Workflows")
+    for url in ("https://example.com/guide#section", "http://example.com/guide"):
+        assert post_ci_summary._playbook_link(url, "a" * 40) == f"[playbook]({url})"
+    for url in (
+        "docs/../private.md",
+        "javascript:alert(1)",
+        "//example.com/guide",
+        "https://example.com/guide)evil",
+        "https://user:secret@example.com/guide",
+    ):
+        assert post_ci_summary._playbook_link(url, "a" * 40) == "unavailable playbook URL"
+
+
+def test_playbook_link_falls_back_to_main_without_valid_head(monkeypatch) -> None:
+    monkeypatch.setenv("GITHUB_REPOSITORY", "stranske/Workflows")
+    url = "docs/CI_FAILURE_PLAYBOOK.md#type-errors"
+    assert post_ci_summary._playbook_link(url, "not-a-sha") == (
+        f"[{url}](https://github.com/stranske/Workflows/blob/main/{url})"
+    )

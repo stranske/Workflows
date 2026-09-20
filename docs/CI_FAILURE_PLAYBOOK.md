@@ -4,7 +4,8 @@ This shared playbook is distributed by the Workflows sync manifest. Use the
 exact failed job and PR head when diagnosing a failure; a green controller run
 does not mean its delivery or tests passed.
 The Gate triage summary links to this playbook in the repository producing
-the failure, using that repository's `main` branch.
+the failure, using the diagnosed PR head SHA when available and `main` only
+when no valid head is supplied. External playbook URLs remain unchanged.
 
 ## Type Errors
 
