@@ -1,6 +1,7 @@
 import ast
 import json
 import os
+import runpy
 import subprocess
 import sys
 from pathlib import Path
@@ -20,6 +21,33 @@ from scripts.check_deliberate_break import (
 
 def _run(repo: Path, *args: str) -> None:
     subprocess.run(args, cwd=repo, check=True, text=True, capture_output=True)
+
+
+@pytest.mark.parametrize("prefix", ["", "templates/consumer-repo/"])
+def test_named_pytest_command_ignores_suite_wide_addopts(tmp_path, prefix) -> None:
+    root = Path(__file__).resolve().parents[2]
+    helper = runpy.run_path(str(root / prefix / "scripts/check_deliberate_break.py"))
+    (tmp_path / "pytest.ini").write_text(
+        "[pytest]\naddopts = --suite-only-plugin-option\n", encoding="utf-8"
+    )
+    (tmp_path / "test_named.py").write_text(
+        "def test_named():\n    assert True\n", encoding="utf-8"
+    )
+    command = helper["_pytest_command"]("test_named.py::test_named")
+    result = subprocess.run(command, cwd=tmp_path, capture_output=True, text=True)
+    assert result.returncode == 0, result.stdout + result.stderr
+    assert "1 passed" in result.stdout
+
+
+def test_explicit_deliberate_break_command_preserves_author_options() -> None:
+    spec = parse_deliberate_break_spec(
+        "<!-- deliberate-break: test=tests/test_app.py::test_value "
+        "test-file=tests/test_app.py break-file=app.py "
+        'command="python -m pytest tests/test_app.py::test_value --maxfail=1" -->'
+    )
+    assert spec is not None
+    assert spec.command[-1] == "--maxfail=1"
+    assert "addopts=" not in spec.command
 
 
 def _init_repo(repo: Path) -> None:

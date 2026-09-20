@@ -89,6 +89,11 @@ maintenance is grouped into the same weekly maintenance window.
 
 ## Bug Triage Process
 
+Default deliberate-break pytest commands clear suite-wide `addopts` for the
+named head/base test proof. Other repository pytest configuration remains active,
+and explicit author-provided commands are unchanged. Full-suite CI retains its
+normal coverage and plugin options; this does not weaken that separate gate.
+
 Repository-variable runner storage must surface denied writes: HTTP 401/403
 cannot count as a successful reservation or recorded completion. The shared
 runner source propagates these errors to its caller, while a missing variable
