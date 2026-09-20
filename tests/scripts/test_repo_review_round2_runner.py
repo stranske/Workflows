@@ -5,6 +5,7 @@ from pathlib import Path
 from types import SimpleNamespace
 
 import pytest
+from scripts import repo_review_body_writer as body_writer
 from scripts import repo_review_round2_runner as runner
 
 
@@ -18,9 +19,13 @@ def test_invoke_codex_uses_supported_approval_flag(
     monkeypatch.setattr(
         runner.subprocess,
         "run",
-        lambda *_args, **_kwargs: SimpleNamespace(
+        lambda cmd, **_kwargs: SimpleNamespace(
             returncode=0,
-            stdout="Usage: codex exec [OPTIONS]\n  --approve-for-me",
+            stdout=(
+                "codex-cli 0.153.4"
+                if cmd[-1] == "--version"
+                else "Usage: codex exec [OPTIONS]\n  --approve-for-me"
+            ),
             stderr="",
         ),
     )
@@ -78,6 +83,151 @@ def test_invoke_codex_honors_explicit_repo_review_model_override(
     assert captured["cmd"][captured["cmd"].index("-c") + 1] == ('model_reasoning_effort="medium"')
 
 
+@pytest.mark.parametrize(
+    ("body_model", "body_effort", "expected_model", "expected_effort"),
+    [
+        (None, None, "gpt-5.6-terra", "medium"),
+        ("gpt-5.6-luna", "low", "gpt-5.6-luna", "low"),
+    ],
+)
+def test_invoke_codex_separates_body_writer_model_from_reviewer(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+    body_model: str | None,
+    body_effort: str | None,
+    expected_model: str,
+    expected_effort: str,
+) -> None:
+    captured: dict[str, list[str]] = {}
+    monkeypatch.setenv("REPO_REVIEW_CODEX_MODEL", "gpt-6-astra")
+    monkeypatch.setenv("REPO_REVIEW_CODEX_REASONING_EFFORT", "high")
+    for setting, value in (
+        ("REPO_REVIEW_BODY_WRITER_CODEX_MODEL", body_model),
+        ("REPO_REVIEW_BODY_WRITER_CODEX_REASONING_EFFORT", body_effort),
+    ):
+        if value is None:
+            monkeypatch.delenv(setting, raising=False)
+        else:
+            monkeypatch.setenv(setting, value)
+    monkeypatch.setattr(runner.shutil, "which", lambda _name: "/usr/local/bin/codex")
+    monkeypatch.setattr(
+        runner.subprocess,
+        "run",
+        lambda *_args, **_kwargs: SimpleNamespace(
+            returncode=0, stdout="--approve-for-me", stderr=""
+        ),
+    )
+
+    def fake_heartbeat(cmd, **_kwargs):
+        captured["cmd"] = cmd
+        return SimpleNamespace(
+            succeeded=True, stuck=False, timed_out=False, returncode=0, note="ok"
+        )
+
+    monkeypatch.setattr(runner, "run_with_heartbeat", fake_heartbeat)
+    ok, _message = runner.invoke_codex(
+        "prompt",
+        cwd=tmp_path,
+        log_file=tmp_path / "codex.log",
+        timeout=30,
+        purpose="body-writer",
+    )
+
+    assert ok is True
+    assert captured["cmd"][captured["cmd"].index("--model") + 1] == expected_model
+    assert captured["cmd"][captured["cmd"].index("-c") + 1] == (
+        f'model_reasoning_effort="{expected_effort}"'
+    )
+
+
+def test_body_writer_routes_codex_with_writing_purpose(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    captured: dict[str, object] = {}
+    monkeypatch.setattr(body_writer, "build_prompt", lambda **_kwargs: "prompt")
+
+    def fake_invoke_agent(agent, _prompt, **kwargs):
+        captured["agent"] = agent
+        captured.update(kwargs)
+        return True, "ok"
+
+    monkeypatch.setattr(body_writer, "invoke_agent", fake_invoke_agent)
+    ok, _message = body_writer.run_body_writer(
+        repo="stranske/Example",
+        repo_path=tmp_path / "repo",
+        output_dir=tmp_path / "out",
+        registry_path=tmp_path / "registry.json",
+        workflows_steward_root=tmp_path,
+        log_dir=tmp_path / "logs",
+        timeout=30,
+        agent="codex",
+    )
+
+    assert ok is True
+    assert captured["agent"] == "codex"
+    assert captured["codex_purpose"] == "body-writer"
+
+
+@pytest.mark.parametrize(
+    "setting",
+    ["REPO_REVIEW_CODEX_MODEL", "REPO_REVIEW_CODEX_REASONING_EFFORT"],
+)
+def test_invoke_codex_rejects_empty_reviewer_setting(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch, setting: str
+) -> None:
+    monkeypatch.delenv("REPO_REVIEW_CODEX_MODEL", raising=False)
+    monkeypatch.delenv("REPO_REVIEW_CODEX_REASONING_EFFORT", raising=False)
+    monkeypatch.setenv(setting, " ")
+    monkeypatch.setattr(runner.shutil, "which", lambda _name: "/usr/local/bin/codex")
+    monkeypatch.setattr(
+        runner.subprocess,
+        "run",
+        lambda *_args, **_kwargs: SimpleNamespace(
+            returncode=0, stdout="--approve-for-me", stderr=""
+        ),
+    )
+    monkeypatch.setattr(
+        runner,
+        "run_with_heartbeat",
+        lambda *_args, **_kwargs: pytest.fail("Codex must not start with an empty setting"),
+    )
+
+    ok, message = runner.invoke_codex(
+        "prompt", cwd=tmp_path, log_file=tmp_path / "codex.log", timeout=30
+    )
+
+    assert ok is False
+    assert "must be non-empty" in message
+
+
+def test_invoke_codex_rejects_astra_with_older_cli(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    monkeypatch.delenv("REPO_REVIEW_CODEX_MODEL", raising=False)
+    monkeypatch.setattr(runner.shutil, "which", lambda _name: "/usr/local/bin/codex")
+    monkeypatch.setattr(
+        runner.subprocess,
+        "run",
+        lambda cmd, **_kwargs: SimpleNamespace(
+            returncode=0,
+            stdout="codex-cli 0.151.0" if cmd[-1] == "--version" else "--approve-for-me",
+            stderr="",
+        ),
+    )
+    monkeypatch.setattr(
+        runner,
+        "run_with_heartbeat",
+        lambda *_args, **_kwargs: pytest.fail("incompatible CLI must not start Codex"),
+    )
+
+    ok, message = runner.invoke_codex(
+        "prompt", cwd=tmp_path, log_file=tmp_path / "codex.log", timeout=30
+    )
+
+    assert ok is False
+    assert "requires codex-cli >= 0.153.2" in message
+
+
 def test_invoke_codex_falls_back_to_full_auto(
     tmp_path: Path, monkeypatch: pytest.MonkeyPatch
 ) -> None:
@@ -86,8 +236,14 @@ def test_invoke_codex_falls_back_to_full_auto(
     monkeypatch.setattr(
         runner.subprocess,
         "run",
-        lambda *_args, **_kwargs: SimpleNamespace(
-            returncode=0, stdout="Usage: codex exec [OPTIONS]\n  --full-auto", stderr=""
+        lambda cmd, **_kwargs: SimpleNamespace(
+            returncode=0,
+            stdout=(
+                "codex-cli 0.153.4"
+                if cmd[-1] == "--version"
+                else "Usage: codex exec [OPTIONS]\n  --full-auto"
+            ),
+            stderr="",
         ),
     )
     monkeypatch.setattr(
