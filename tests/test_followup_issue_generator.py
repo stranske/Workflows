@@ -39,6 +39,15 @@ def test_nonfinite_followup_confidence_does_not_create_hold(raw):
     assert any("Confidence=0%" in row for row in data.non_pass_output)
 
 
+@pytest.mark.parametrize("raw", ["1e999", "1e999%", "-1e999", "NaN", "Infinity"])
+def test_single_verdict_nonfinite_confidence_is_zero(raw):
+    data = extract_verification_data(f"Verdict: **CONCERNS** @{raw}")
+    assert data.provider_verdicts["default"]["confidence"] == 0
+    policy = followup_issue_generator._resolve_verdict_policy(data)
+    assert policy.verdict_kind == "concerns"
+    assert not policy.needs_human
+
+
 @pytest.mark.parametrize("value", [float("nan"), float("inf"), float("-inf")])
 def test_stored_nonfinite_followup_confidence_is_zero(value):
     assert followup_issue_generator._coerce_confidence_percent(value) == 0
