@@ -942,12 +942,8 @@ class RepoVariableRunnerStorage:
                     {"name": name, "value": value},
                 )
                 return
-            if " failed: 401 " in message or " failed: 403 " in message:
-                print(
-                    f"warning: runner dispatch write skipped for {name}: {message}",
-                    file=sys.stderr,
-                )
-                return
+            # A denied write is not a persisted reservation or completion.
+            # Propagate failure rather than reporting successful progress.
             raise
 
 

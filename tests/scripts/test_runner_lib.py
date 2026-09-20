@@ -1151,6 +1151,46 @@ def test_explicit_repo_variable_read_retains_compatibility(status: int) -> None:
             storage.read_record(42, "codex")
 
 
+@pytest.mark.parametrize("status", [401, 403])
+@pytest.mark.parametrize("operation", ["reserve", "complete"])
+def test_repo_variable_denied_write_cannot_report_success(status, operation, capsys):
+    class DeniedWriteApi:
+        repo = "owner/repo"
+
+        def request(self, method, path, payload=None):
+            if method == "GET":
+                return {}
+            assert method == "PATCH"
+            raise RuntimeError(f"GitHub API PATCH failed: {status} private-response")
+
+    storage = runner_core.RepoVariableRunnerStorage(DeniedWriteApi())
+    with pytest.raises(RuntimeError, match=str(status)):
+        if operation == "reserve":
+            should_dispatch(42, "aaa", "codex", storage=storage)
+        else:
+            record_completion(42, "aaa", "codex", {"success": True}, storage=storage)
+    assert "private-response" not in capsys.readouterr().err
+
+
+def test_repo_variable_missing_write_creates_variable():
+    calls = []
+
+    class CreateApi:
+        repo = "owner/repo"
+
+        def request(self, method, path, payload=None):
+            calls.append((method, path, payload))
+            if method == "PATCH":
+                raise RuntimeError("GitHub API PATCH failed: 404 missing")
+            return {}
+
+    storage = runner_core.RepoVariableRunnerStorage(CreateApi())
+    record = {"status": "pending"}
+    storage.write_record(42, "codex", record)
+    assert [call[0] for call in calls] == ["PATCH", "POST"]
+    assert json.loads(calls[1][2]["value"]) == record
+
+
 def test_auto_dispatch_cli_refuses_unreadable_legacy_state(
     monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str], tmp_path: Path
 ) -> None:
