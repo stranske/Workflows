@@ -4,6 +4,7 @@ const fs = require('node:fs');
 const path = require('node:path');
 
 const ALLOWED_CAPACITY_WINDOWS = new Set(['5h', 'weekly', 'daily']);
+const ALLOWED_CODEX_REASONING_EFFORTS = new Set(['low', 'medium', 'high', 'xhigh', 'max']);
 
 function stripTrailingComment(rawLine) {
   const line = String(rawLine ?? '');
@@ -236,6 +237,14 @@ function validateExecutionProfile(profileId, profile, registry, options = {}) {
   for (const field of ['model', 'runner', 'capacity_pool', 'safety', 'lifecycle']) {
     if (!String(profile[field] || '').trim()) {
       throw new Error(`Execution profile ${profileId} missing required field: ${field}`);
+    }
+  }
+  if (agent === 'codex' && profile.lifecycle === 'active') {
+    const effort = String(profile.reasoning_effort || '').trim();
+    if (!ALLOWED_CODEX_REASONING_EFFORTS.has(effort)) {
+      throw new Error(
+        `Execution profile ${profileId} reasoning_effort must be one of: ${Array.from(ALLOWED_CODEX_REASONING_EFFORTS).join(', ')}`,
+      );
     }
   }
   if (options.knownModelIds) {

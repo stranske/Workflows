@@ -25,6 +25,7 @@ REFERENCE_PACK_RUNNER_USES = "./.workflows-lib/.github/actions/agent-reference-p
 REFERENCE_PACK_FIXTURES = Path("tests/workflows/fixtures/reference_packs")
 MIN_CODEX_CLI_BY_RUN_MODEL = {
     "gpt-6-astra": (0, 153, 2),
+    "gpt-5.6-sol": (0, 153, 2),
     "gpt-5.6-terra": (0, 144, 1),
     "gpt-5.5": (0, 125, 0),
 }
@@ -407,16 +408,17 @@ def test_codex_auth_health_fails_when_secret_is_unusable() -> None:
     assert "exit 1" in run_script
 
 
-def test_reusable_codex_run_prefers_gpt_56_terra_with_non_codex_fallback() -> None:
+def test_reusable_codex_run_prefers_sol_high_with_non_codex_fallback() -> None:
     workflow = _load_workflow(REUSABLE_CODEX_RUN)
     inputs = _workflow_call_inputs(workflow)
     resolve_step = _find_step_by_name(workflow, "Resolve Codex run model")
     run_step = _find_step_by_name(workflow, "Run Codex")
 
-    assert inputs["codex_model"]["default"] == "gpt-6-astra"
+    assert inputs["codex_model"]["default"] == "gpt-5.6-sol"
+    assert inputs["codex_reasoning_effort"]["default"] == "high"
     assert inputs["codex_cli_version"]["default"] == "0.153.2"
     assert resolve_step.get("id") == "codex_model"
-    assert resolve_step["env"]["DEFAULT_CODEX_MODEL"] == "gpt-6-astra"
+    assert resolve_step["env"]["DEFAULT_CODEX_MODEL"] == "gpt-5.6-sol"
     assert inputs["codex_fallback_models"]["default"] == "gpt-5.5"
     assert resolve_step["env"]["FALLBACK_CODEX_MODELS"] == "${{ inputs.codex_fallback_models }}"
     assert "fallback-unsupported-chatgpt-codex-model" in resolve_step["run"]
@@ -429,7 +431,30 @@ def test_reusable_codex_run_prefers_gpt_56_terra_with_non_codex_fallback() -> No
     assert "CODEX_MODEL_CANDIDATES" in run_step["env"]
     assert 'for codex_model in "${codex_models[@]}"; do' in run_step["run"]
     assert '--model "$codex_model"' in run_step["run"]
+    assert 'REASONING_EFFORT="${REASONING_EFFORT:-high}"' in run_step["run"]
+    assert '-c "model_reasoning_effort=\\"$REASONING_EFFORT\\""' in run_step["run"]
     assert "runtime-fallback-model-unavailable" in run_step["run"]
+
+
+@pytest.mark.parametrize(
+    ("requested_effort", "expected_effort"),
+    [("", "high"), ("xhigh", "xhigh"), ("max", "max")],
+)
+def test_reusable_codex_run_accepts_old_registry_empty_effort_and_manual_escalation(
+    requested_effort: str, expected_effort: str
+) -> None:
+    workflow = _load_workflow(REUSABLE_CODEX_RUN)
+    run_script = _find_step_by_name(workflow, "Run Codex")["run"]
+    start = run_script.index('REASONING_EFFORT="${REASONING_EFFORT:-high}"')
+    end = run_script.index("esac", start) + len("esac")
+    result = subprocess.run(
+        ["bash", "-c", run_script[start:end] + '\nprintf "%s" "$REASONING_EFFORT"'],
+        env={**os.environ, "REASONING_EFFORT": requested_effort},
+        capture_output=True,
+        text=True,
+        check=True,
+    )
+    assert result.stdout == expected_effort
 
 
 def test_reusable_codex_run_model_cli_compatibility_contract() -> None:

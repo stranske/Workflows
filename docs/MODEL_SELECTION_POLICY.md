@@ -33,6 +33,11 @@ prevents an inexpensive model from offsetting an unacceptable false-PASS rate.
 
 `config/llm_slots.json` keeps consumer-specific provider preferences but carries
 only a workload profile. Model versions resolve from the registry decision.
+Older consumer files may still contain `gpt-5.2` or `gpt-5.4` OpenAI pins
+because this file is create-only in the sync manifest. Those two bundled legacy
+pins are advisory; the reviewed `verifier-balanced` registry decision selects
+the runtime model. Other current bundled pins and an explicitly supplied
+`LANGCHAIN_SLOT_CONFIG` file remain overrides.
 
 ## Benchmark Protocol
 
