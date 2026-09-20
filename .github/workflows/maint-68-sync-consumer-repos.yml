@@ -1238,6 +1238,23 @@ jobs:
 
           # Create the current-generation branch from the current consumer base.
           base_sha=$(git rev-parse HEAD)
+          if [ "$PLAN_SCOPE" = "source-delta" ] \
+            && [ -n "$existing_pr" ] \
+            && [ "$existing_refreshable" = "true" ]; then
+            if [ ! -f "../sync_targets.txt" ]; then
+              echo "::error::Source-delta rotation lacks selected targets; use full scope."
+              exit 1
+            fi
+            python3 ../workflows/scripts/guard_stable_plan_rotation.py \
+              --repo . \
+              --old-base "$existing_base" \
+              --old-head "$existing_head" \
+              --new-base "$base_sha" \
+              --selected-targets-file ../sync_targets.txt || {
+                echo "::error::Source-delta rotation would discard an outstanding stable PR payload."
+                exit 1
+              }
+          fi
           git checkout -B "$branch_name"
 
           # Stage ONLY manifest-declared targets, to avoid accidentally committing

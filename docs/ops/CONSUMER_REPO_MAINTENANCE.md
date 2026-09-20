@@ -456,6 +456,13 @@ If a later run computes the same base and desired tree, it preserves the PR's
 current review/seal state; metadata-only refreshes therefore cannot restart
 review forever.
 
+Before a source-delta run rotates an open stable PR, Maint 68 compares the
+previous PR's unmerged file changes with the new plan targets and current
+consumer base. If an omitted file is not already present on that base at the
+same content, it fails closed with `source_delta_drops_unmerged_targets`; rerun
+a full-scope canary instead. A narrow refresh must not silently discard schema
+or other prerequisites staged by an earlier, still-unmerged plan.
+
 Created and refreshed deliveries also carry the `sync`, `automated`, and
 `workflow:source-sync` labels plus the `workflow-source:sync_campaign` marker.
 Consumer event handlers treat generated sync provenance as authoritative over
