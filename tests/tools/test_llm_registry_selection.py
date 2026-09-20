@@ -399,9 +399,7 @@ def test_bundled_modern_openai_pin_is_preserved(
     slots_path = tmp_path / "slots.json"
     _write_registry(registry_path)
     payload = json.loads(registry_path.read_text(encoding="utf-8"))
-    payload["models"].append(
-        {"provider": "openai", "model_id": modern_pin, "lifecycle": "current"}
-    )
+    payload["models"].append({"provider": "openai", "model_id": modern_pin, "lifecycle": "current"})
     registry_path.write_text(json.dumps(payload), encoding="utf-8")
     _write_slots(slots_path, model=modern_pin, profile="")
     monkeypatch.setenv(registry.ENV_MODEL_REGISTRY_CONFIG, str(registry_path))

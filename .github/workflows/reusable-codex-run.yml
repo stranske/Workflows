@@ -209,6 +209,9 @@ on:
       worker-requested-model:
         description: 'Model requested through the registry execution profile'
         value: ${{ jobs.codex.outputs.worker-requested-model }}
+      worker-reasoning-effort:
+        description: 'Reasoning effort supplied by the registry execution profile'
+        value: ${{ jobs.codex.outputs.worker-reasoning-effort }}
       worker-selected-model:
         description: 'Actual Codex model selected after runner fallback'
         value: ${{ jobs.codex.outputs.worker-selected-model }}
@@ -918,6 +921,9 @@ jobs:
         run: |
           set -euo pipefail
 
+          # A consumer with the previous registry can pass an explicit empty
+          # effort while the source runner has already advanced at @main.
+          REASONING_EFFORT="${REASONING_EFFORT:-high}"
           case "$REASONING_EFFORT" in
             low|medium|high|xhigh|max) ;;
             *) echo "::error::Unsupported Codex reasoning effort: $REASONING_EFFORT"; exit 1 ;;

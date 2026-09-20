@@ -431,8 +431,30 @@ def test_reusable_codex_run_prefers_sol_high_with_non_codex_fallback() -> None:
     assert "CODEX_MODEL_CANDIDATES" in run_step["env"]
     assert 'for codex_model in "${codex_models[@]}"; do' in run_step["run"]
     assert '--model "$codex_model"' in run_step["run"]
+    assert 'REASONING_EFFORT="${REASONING_EFFORT:-high}"' in run_step["run"]
     assert '-c "model_reasoning_effort=\\"$REASONING_EFFORT\\""' in run_step["run"]
     assert "runtime-fallback-model-unavailable" in run_step["run"]
+
+
+@pytest.mark.parametrize(
+    ("requested_effort", "expected_effort"),
+    [("", "high"), ("xhigh", "xhigh"), ("max", "max")],
+)
+def test_reusable_codex_run_accepts_old_registry_empty_effort_and_manual_escalation(
+    requested_effort: str, expected_effort: str
+) -> None:
+    workflow = _load_workflow(REUSABLE_CODEX_RUN)
+    run_script = _find_step_by_name(workflow, "Run Codex")["run"]
+    start = run_script.index('REASONING_EFFORT="${REASONING_EFFORT:-high}"')
+    end = run_script.index("esac", start) + len("esac")
+    result = subprocess.run(
+        ["bash", "-c", run_script[start:end] + '\nprintf "%s" "$REASONING_EFFORT"'],
+        env={**os.environ, "REASONING_EFFORT": requested_effort},
+        capture_output=True,
+        text=True,
+        check=True,
+    )
+    assert result.stdout == expected_effort
 
 
 def test_reusable_codex_run_model_cli_compatibility_contract() -> None:
