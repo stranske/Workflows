@@ -119,8 +119,8 @@ def generate_embeddings(
     client_info: EmbeddingClientInfo | None = None,
     model: str | None = None,
 ) -> EmbeddingResult | None:
-    # Keep each input's index aligned with its embedding. Providers handle blank
-    # entries without sending them to an external embedding API.
+    # Keep each input's index aligned with its embedding, including when an
+    # injected client does not preserve blank entries itself.
     items = [text.strip() if text else "" for text in texts]
     if not any(items):
         return EmbeddingResult(
@@ -135,8 +135,13 @@ def generate_embeddings(
     if resolved is None:
         return None
 
-    vectors = resolved.client.embed_documents(items)
-    dimensions = len(vectors[0]) if vectors else None
+    nonblank = [item for item in items if item]
+    embedded = resolved.client.embed_documents(nonblank)
+    if len(embedded) != len(nonblank):
+        raise RuntimeError("Embedding response count does not match nonblank input count.")
+    dimensions = len(embedded[0])
+    nonblank_vectors = iter(embedded)
+    vectors = [next(nonblank_vectors) if item else [0.0] * dimensions for item in items]
     return EmbeddingResult(
         vectors=vectors,
         provider=resolved.provider,
