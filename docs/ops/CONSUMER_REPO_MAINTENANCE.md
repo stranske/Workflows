@@ -89,6 +89,11 @@ maintenance is grouped into the same weekly maintenance window.
 
 ## Bug Triage Process
 
+Signed keepalive recovery challenges must reserve their current workflow attempt
+before starting a runner. Shared `should-dispatch --authority-challenge` verifies
+the existing signed envelope and persists primary state before granting dispatch;
+denied storage is a failed reservation, not an invisible successful recovery run.
+
 When a bug is identified in workflow templates:
 
 ### Step 1: Classify the Bug

@@ -330,6 +330,16 @@ reservation remains recoverable through the existing stale-pending timeout. Exis
 without GitHub attempt identity retain legacy behavior. This is a workflow-attempt fence,
 not an atomic compare-and-swap guarantee from the backing storage.
 
+Signed authority challenges also reserve the current head and workflow attempt
+before dispatch. The root and consumer loops invoke `should-dispatch
+--authority-challenge` instead of emitting an unconditional permission to run.
+That path reuses the existing HMAC envelope verifier and requires a workflow-dispatch
+event, the trusted workflow bot, current run/attempt identity and authoritative
+auto storage. It bypasses ordinary debounce only after that verification and a
+successful primary reservation write. Storage failures refuse dispatch without
+fallback writes; completion then uses the ordinary attempt-bound path. An invalid
+claim cannot authorize a forced reservation.
+
 With `--storage auto`, completion reads and writes only the primary PR-comment
 reservation, never an empty or stale repository-variable fallback. A missing primary
 reservation returns `recorded=false`, `reason=authoritative-reservation-missing`;

@@ -1127,6 +1127,8 @@ def should_dispatch(
     head_sha: str,
     provider: str,
     storage: RunnerDispatchStorage | None = None,
+    *,
+    authority_challenge: bool = False,
 ) -> DebounceDecision:
     """Reserve dispatch unless the same PR/head SHA completed or is actively pending.
 
@@ -1142,7 +1144,11 @@ def should_dispatch(
     two runs later.
     """
     provider = _validate_provider(provider)
+    if authority_challenge and not _verified_authority_challenge(pr_number):
+        raise ValueError("Authority challenge reservation requires a verified signed claim.")
     storage = storage or _storage_from_name("auto")
+    if authority_challenge and not isinstance(storage, FallbackRunnerStorage):
+        raise ValueError("Authority challenge reservation requires authoritative auto storage.")
     key = _runner_key(pr_number, head_sha, provider)
     try:
         if isinstance(storage, FallbackRunnerStorage):
@@ -1162,6 +1168,17 @@ def should_dispatch(
         _log_storage_failure("read", exc, phase="reservation")
         return _unavailable_dispatch(key)
     unproductive_completions = _unproductive_completion_count(prior)
+
+    if authority_challenge:
+        return _reserve_dispatch(
+            storage,
+            pr_number,
+            head_sha,
+            provider,
+            key,
+            prior,
+            reason="due-authority-challenge",
+        )
 
     if prior and prior.get("head_sha") == head_sha:
         status = str(prior.get("status") or "")
@@ -1224,6 +1241,39 @@ def should_dispatch(
     else:
         reason = f"retry-{str(prior.get('status') or 'unknown')}"
     return _reserve_dispatch(storage, pr_number, head_sha, provider, key, prior, reason=reason)
+
+
+def _verified_authority_challenge(pr_number: int) -> bool:
+    """Use the existing HMAC verifier; never accept a caller's boolean assertion."""
+    if (
+        not _workflow_attempt_id()
+        or os.environ.get("GITHUB_EVENT_NAME") != "workflow_dispatch"
+        or os.environ.get("GITHUB_ACTOR") != "github-actions[bot]"
+    ):
+        return False
+    script = """
+const { verifyAuthorityChallengeEnvelope } =
+  require('./.github/scripts/keepalive_challenge_due.js');
+const verified = verifyAuthorityChallengeEnvelope({
+  claimJson: process.env.AUTHORITY_CHALLENGE_CLAIM,
+  signingKey: process.env.AUTHORITY_CHALLENGE_SIGNING_KEY,
+  repository: process.env.GITHUB_REPOSITORY,
+  prNumber: process.argv[1],
+  boundaryFingerprint: process.env.AUTHORITY_CHALLENGE_FINGERPRINT,
+});
+process.exitCode = verified ? 0 : 1;
+"""
+    try:
+        result = subprocess.run(
+            ["node", "-e", script, str(pr_number)],
+            cwd=Path(__file__).resolve().parents[2],
+            capture_output=True,
+            timeout=15,
+            check=False,
+        )
+    except (OSError, subprocess.TimeoutExpired):
+        return False
+    return result.returncode == 0
 
 
 def _log_storage_failure(operation: str, exc: Exception, *, phase: str = "completion") -> None:
@@ -1419,6 +1469,7 @@ def _cmd_should_dispatch(args: argparse.Namespace) -> int:
         args.head_sha,
         args.provider,
         storage=_storage_from_name(args.storage),
+        authority_challenge=args.authority_challenge,
     )
     outputs = {
         "should_dispatch": "true" if decision.should_dispatch else "false",
@@ -1538,6 +1589,11 @@ def build_parser() -> argparse.ArgumentParser:
         "--storage", choices=["auto", "pr-comment", "repo-variable"], default="auto"
     )
     dispatch.set_defaults(func=_cmd_should_dispatch)
+    dispatch.add_argument(
+        "--authority-challenge",
+        action="store_true",
+        help="reserve a signed authority challenge before bypassing ordinary debounce",
+    )
 
     complete = subparsers.add_parser("record-completion", help="persist runner completion")
     complete.add_argument("--provider", choices=sorted(PROVIDERS), required=True)

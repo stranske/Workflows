@@ -1,6 +1,8 @@
 from __future__ import annotations
 
 import datetime
+import hashlib
+import hmac
 import json
 import os
 import subprocess
@@ -37,6 +39,113 @@ class MemoryRunnerStorage:
     def write_record(self, pr_number: int, provider: str, record: dict[str, Any]) -> None:
         self.records[(pr_number, provider)] = dict(record)
         self.writes.append(dict(record))
+
+
+def _signed_challenge_environment(monkeypatch):
+    fingerprint = "a" * 64
+    nonce = "b" * 64
+    payload = "\n".join(
+        [
+            "keepalive-authority-claim:v1",
+            "repository=owner/repo",
+            "pr=42",
+            f"fingerprint={fingerprint}",
+            f"nonce={nonce}",
+            "sweep_run_id=90",
+            "sweep_run_attempt=1",
+        ]
+    )
+    signature = hmac.new(b"test-key", payload.encode(), hashlib.sha256).hexdigest()
+    for key, value in {
+        "GITHUB_REPOSITORY": "owner/repo",
+        "GITHUB_RUN_ID": "100",
+        "GITHUB_RUN_ATTEMPT": "2",
+        "GITHUB_EVENT_NAME": "workflow_dispatch",
+        "GITHUB_ACTOR": "github-actions[bot]",
+        "AUTHORITY_CHALLENGE_FINGERPRINT": fingerprint,
+        "AUTHORITY_CHALLENGE_SIGNING_KEY": "test-key",
+        "AUTHORITY_CHALLENGE_CLAIM": json.dumps(
+            {
+                "nonce": nonce,
+                "sweep_run_id": "90",
+                "sweep_run_attempt": "1",
+                "signature": signature,
+            }
+        ),
+    }.items():
+        monkeypatch.setenv(key, value)
+
+
+@pytest.mark.parametrize("prior_status", [None, "completed", "pending"])
+def test_signed_challenge_reserves_own_attempt_and_records_completion(monkeypatch, prior_status):
+    _signed_challenge_environment(monkeypatch)
+    primary = MemoryRunnerStorage()
+    fallback = MemoryRunnerStorage()
+    storage = runner_core.FallbackRunnerStorage(primary, fallback)
+    if prior_status:
+        primary.records[(42, "codex")] = {
+            "status": prior_status,
+            "head_sha": "aaa",
+            "workflow_attempt_id": "old:1:1",
+        }
+    decision = should_dispatch(42, "aaa", "codex", storage=storage, authority_challenge=True)
+    assert decision.should_dispatch
+    assert decision.reason == "due-authority-challenge"
+    assert primary.records[(42, "codex")]["status"] == "pending"
+    assert primary.records[(42, "codex")]["workflow_attempt_id"] == "owner/repo:100:2"
+    completed = record_completion(42, "aaa", "codex", {"success": True}, storage=storage)
+    assert completed["status"] == "completed"
+    assert completed.get("completion_recorded") is not False
+    assert primary.records[(42, "codex")] == completed
+    assert not fallback.writes
+
+
+@pytest.mark.parametrize(
+    "key,value",
+    [
+        ("AUTHORITY_CHALLENGE_CLAIM", "{}"),
+        ("AUTHORITY_CHALLENGE_SIGNING_KEY", "wrong"),
+        ("AUTHORITY_CHALLENGE_FINGERPRINT", "c" * 64),
+        ("GITHUB_REPOSITORY", "other/repo"),
+        ("GITHUB_ACTOR", "untrusted"),
+        ("GITHUB_EVENT_NAME", "pull_request"),
+        ("GITHUB_RUN_ATTEMPT", ""),
+    ],
+)
+def test_challenge_cannot_reserve_with_invalid_authority(monkeypatch, key, value):
+    _signed_challenge_environment(monkeypatch)
+    monkeypatch.setenv(key, value)
+    primary, fallback = MemoryRunnerStorage(), MemoryRunnerStorage()
+    with pytest.raises(ValueError, match="verified signed claim"):
+        should_dispatch(
+            42,
+            "aaa",
+            "codex",
+            storage=runner_core.FallbackRunnerStorage(primary, fallback),
+            authority_challenge=True,
+        )
+    assert not primary.writes and not fallback.writes
+
+
+@pytest.mark.parametrize("operation", ["read_record", "write_record"])
+def test_signed_challenge_storage_failure_never_dispatches(monkeypatch, operation):
+    _signed_challenge_environment(monkeypatch)
+    primary, fallback = MemoryRunnerStorage(), MemoryRunnerStorage()
+
+    def fail(*args):
+        raise RuntimeError("storage unavailable")
+
+    monkeypatch.setattr(primary, operation, fail)
+    decision = should_dispatch(
+        42,
+        "aaa",
+        "codex",
+        storage=runner_core.FallbackRunnerStorage(primary, fallback),
+        authority_challenge=True,
+    )
+    assert not decision.should_dispatch
+    assert decision.reason == "authoritative-storage-unavailable"
+    assert not primary.writes and not fallback.writes
 
 
 def test_capability_effect_evidence_is_optional_and_empty() -> None:
