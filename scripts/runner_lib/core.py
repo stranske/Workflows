@@ -864,50 +864,72 @@ class PrCommentRunnerStorage:
         return cls(GitHubApi(repo, token))
 
     def _iter_comments(self, pr_number: int, *, direction: str = "asc") -> Iterator[dict[str, Any]]:
-        def fetch(page: int) -> list[dict[str, Any]]:
-            batch = self.api.request(
-                "GET",
-                f"/repos/{self.api.repo}/issues/{pr_number}/comments?per_page=100&page={page}",
+        # Offset pages can shift between calls if an ordinary comment is deleted,
+        # concealing an already-written reservation. Cursor pagination walks a
+        # stable boundary and reads only recent pages on a long-lived PR.
+        owner, repo = self.api.repo.split("/", 1)
+        descending = direction.strip().lower() == "desc"
+        window = "last:100,before:$cursor" if descending else "first:100,after:$cursor"
+        has_more = "hasPreviousPage" if descending else "hasNextPage"
+        next_cursor = "startCursor" if descending else "endCursor"
+        query = (
+            "query($owner:String!,$repo:String!,$pr:Int!,$cursor:String){"
+            "repository(owner:$owner,name:$repo){pullRequest(number:$pr){"
+            f"comments({window}){{nodes{{databaseId body author{{login}} authorAssociation}}"
+            "pageInfo{hasPreviousPage startCursor hasNextPage endCursor}}}}}"
+        )
+        cursor: str | None = None
+        seen: set[str] = set()
+        boundary_id: int | None = None
+        while True:
+            response = self.api.request(
+                "POST",
+                "/graphql",
+                {
+                    "query": query,
+                    "variables": {"owner": owner, "repo": repo, "pr": pr_number, "cursor": cursor},
+                },
             )
-            if not isinstance(batch, list):
-                raise RuntimeError(
-                    f"Expected list response from GitHub API comments page for PR {pr_number}"
+            if not isinstance(response, dict) or response.get("errors"):
+                raise RuntimeError(f"Cannot read runner comments for PR {pr_number}: GraphQL error")
+            try:
+                connection = response["data"]["repository"]["pullRequest"]["comments"]
+                nodes = connection["nodes"]
+                page_info = connection["pageInfo"]
+            except (KeyError, TypeError) as exc:
+                raise RuntimeError(f"Missing runner comments for PR {pr_number}") from exc
+            if not isinstance(nodes, list) or not isinstance(page_info, dict):
+                raise RuntimeError(f"Invalid runner comments for PR {pr_number}")
+            ids = [node.get("databaseId") for node in nodes if isinstance(node, dict)]
+            if (
+                len(ids) != len(nodes)
+                or any(not isinstance(comment_id, int) for comment_id in ids)
+                or ids != sorted(set(ids))
+                or (
+                    boundary_id is not None
+                    and ids
+                    and (ids[-1] >= boundary_id if descending else ids[0] <= boundary_id)
                 )
-            return batch
-
-        first = fetch(1)
-        if direction != "desc":
-            yield from first
-            page = 2
-            while len(first) == 100:
-                first = fetch(page)
-                yield from first
-                page += 1
-            return
-        # GitHub's issue-comment endpoint ignores sort/direction. Seek the last
-        # page by exponential/binary search, then walk backwards to the latest
-        # immutable reservation. A long-lived PR should not reread its entire
-        # comment history on every completion retry.
-        pages = {1: first}
-        if len(first) < 100:
-            last = 1
-        else:
-            low, high = 1, 2
-            while True:
-                pages[high] = fetch(high)
-                if len(pages[high]) < 100:
-                    break
-                low, high = high, high * 2
-            while low + 1 < high:
-                middle = (low + high) // 2
-                pages[middle] = fetch(middle)
-                if len(pages[middle]) == 100:
-                    low = middle
-                else:
-                    high = middle
-            last = high if pages[high] else low
-        for page in range(last, 0, -1):
-            yield from reversed(pages.get(page) if page in pages else fetch(page))
+                or not isinstance(page_info.get(has_more), bool)
+            ):
+                raise RuntimeError(f"Unstable runner comment cursor for PR {pr_number}")
+            if ids:
+                boundary_id = ids[0] if descending else ids[-1]
+            for node in reversed(nodes) if descending else nodes:
+                author = node.get("author")
+                yield {
+                    "id": node["databaseId"],
+                    "body": node.get("body"),
+                    "user": {"login": author.get("login")} if isinstance(author, dict) else None,
+                    "author_association": node.get("authorAssociation"),
+                }
+            if not page_info.get(has_more):
+                return
+            following = page_info.get(next_cursor)
+            if not nodes or not isinstance(following, str) or not following or following in seen:
+                raise RuntimeError(f"Unstable runner comment cursor for PR {pr_number}")
+            seen.add(following)
+            cursor = following
 
     def _find_comment(self, pr_number: int, provider: str) -> dict[str, Any] | None:
         pattern = _marker_re(pr_number, provider)
@@ -946,6 +968,10 @@ class PrCommentRunnerStorage:
             if _marker_re(pr_number, provider).search(body):
                 if comment_id > legacy[0]:
                     legacy = (comment_id, _extract_record(body, pr_number, provider))
+                continue
+            if not _marker_re(pr_number, provider, marker_prefix=COMPLETION_MARKER_PREFIX).search(
+                body
+            ):
                 continue
             receipt = _extract_record(
                 body, pr_number, provider, marker_prefix=COMPLETION_MARKER_PREFIX

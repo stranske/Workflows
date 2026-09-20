@@ -23,10 +23,44 @@ class CommentApi:
         self.receipts = []
         self.replace_before_write = None
         self.writes = []
+        self.reads = []
+
+    def comments(self):
+        return [self.reservation, *self.receipts]
 
     def request(self, method, path, body=None):
-        if method == "GET":
-            return copy.deepcopy([self.reservation, *self.receipts])
+        if method == "POST" and path == "/graphql":
+            cursor = body["variables"]["cursor"]
+            self.reads.append(cursor)
+            comments = sorted(self.comments(), key=lambda item: item["id"])
+            if cursor is not None:
+                comments = [item for item in comments if item["id"] < int(cursor)]
+            page = comments[-100:]
+            return {
+                "data": {
+                    "repository": {
+                        "pullRequest": {
+                            "comments": {
+                                "nodes": [
+                                    {
+                                        "databaseId": item["id"],
+                                        "body": item["body"],
+                                        "author": item.get("user"),
+                                        "authorAssociation": item.get("author_association"),
+                                    }
+                                    for item in copy.deepcopy(page)
+                                ],
+                                "pageInfo": {
+                                    "hasPreviousPage": len(comments) > len(page),
+                                    "startCursor": str(page[0]["id"]) if page else None,
+                                    "hasNextPage": False,
+                                    "endCursor": str(page[-1]["id"]) if page else None,
+                                },
+                            }
+                        }
+                    }
+                }
+            }
         if self.replace_before_write:
             self.receipts.append(
                 {
@@ -103,25 +137,17 @@ def test_matching_receipt_is_read_and_completion_retry_is_idempotent(monkeypatch
     assert api.writes == ["POST"], "Identical retry reuses its existing receipt"
 
 
-def test_receipts_are_found_on_later_ascending_pages(monkeypatch):
+def test_receipts_are_found_on_older_cursor_page(monkeypatch):
     monkeypatch.setattr(core, "_workflow_attempt_id", lambda: "old")
-
-    class PaginatedApi(CommentApi):
-        def request(self, method, path, body=None):
-            if method != "GET":
-                return super().request(method, path, body)
-            if path.endswith("page=1"):
-                return [copy.deepcopy(self.reservation)] + [
-                    {"id": index + 100, "body": "ordinary"} for index in range(99)
-                ]
-            return copy.deepcopy(self.receipts)
-
-    api = PaginatedApi(reservation())
+    api = CommentApi(reservation())
     storage = core.PrCommentRunnerStorage(api)
     core.record_completion(42, "aaa", "codex", {"success": True}, storage=storage)
+    receipt = api.receipts[-1]
+    api.receipts.extend({"id": index, "body": "ordinary"} for index in range(3, 103))
     assert storage.read_record(42, "codex")["status"] == "completed"
-    api.receipts[-1]["user"] = {"login": "untrusted-contributor"}
-    api.receipts[-1]["author_association"] = "NONE"
+    assert len(api.reads) >= 2
+    receipt["user"] = {"login": "untrusted-contributor"}
+    receipt["author_association"] = "NONE"
     assert storage.read_record(42, "codex")["status"] == "pending"
 
 
@@ -141,21 +167,54 @@ def test_long_comment_history_reads_from_tail_and_stops_at_latest_reservation():
     class LongHistoryApi(CommentApi):
         def __init__(self, current):
             super().__init__(current)
-            self.comments = [{"id": index, "body": "ordinary"} for index in range(1, 601)] + [
-                {"id": 601, "body": self.reservation["body"]}
-            ]
-            self.reads = []
-
-        def request(self, method, path, body=None):
-            assert method == "GET"
-            page = int(path.rsplit("page=", 1)[1])
-            self.reads.append(page)
-            return copy.deepcopy(self.comments[(page - 1) * 100 : page * 100])
+            self.reservation["id"] = 601
+            self.receipts = [{"id": index, "body": "ordinary"} for index in range(1, 601)]
 
     api = LongHistoryApi(reservation())
     storage = core.PrCommentRunnerStorage(api)
     assert storage.read_record(42, "codex")["reservation_id"] == "old-reservation"
-    assert len(api.reads) <= 8, "Seeking the tail must not reread 600 old comments"
+    assert len(api.reads) == 1, "Cursor tail read must not reread 600 old comments"
+
+
+def test_deleting_an_older_comment_between_pages_cannot_hide_new_reservation():
+    class DeletingApi(CommentApi):
+        def request(self, method, path, body=None):
+            if method == "POST" and path == "/graphql" and body["variables"]["cursor"]:
+                self.receipts = [item for item in self.receipts if item["id"] != 50]
+            return super().request(method, path, body)
+
+    api = DeletingApi(reservation())
+    api.receipts.extend({"id": index, "body": "ordinary"} for index in range(2, 101))
+    api.receipts.append(
+        {
+            "id": 101,
+            "body": core._build_marker(
+                42, "codex", reservation("new"), marker_prefix=core.RESERVATION_MARKER_PREFIX
+            ),
+        }
+    )
+    api.receipts.extend({"id": index, "body": "ordinary"} for index in range(102, 203))
+    assert core.PrCommentRunnerStorage(api).read_record(42, "codex") == reservation("new")
+    assert len(api.reads) == 2
+
+
+def test_unmarked_json_cannot_complete_a_reservation():
+    api = CommentApi(reservation())
+    completed = {**reservation(), "status": "completed", "completed_at": "2026-09-20T00:01:00Z"}
+    api.receipts.append(
+        {
+            "id": 2,
+            "body": json.dumps(
+                {
+                    "schema": "runner-completion-receipt/v1",
+                    "provider": "codex",
+                    "reservation_id": "old-reservation",
+                    "record": completed,
+                }
+            ),
+        }
+    )
+    assert core.PrCommentRunnerStorage(api).read_record(42, "codex") == reservation()
 
 
 def test_completion_retry_updates_its_own_receipt_without_appending():

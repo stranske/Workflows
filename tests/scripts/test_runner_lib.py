@@ -903,6 +903,39 @@ def test_parse_output_cli_accepts_autofix_provider() -> None:
     assert args.provider == "autofix"
 
 
+def _graphql_comments(comments: list[dict[str, Any]], request: dict[str, Any]) -> dict[str, Any]:
+    cursor = request["variables"]["cursor"]
+    ordered = sorted(comments, key=lambda item: item["id"])
+    if cursor is not None:
+        ordered = [item for item in ordered if item["id"] < int(cursor)]
+    page = ordered[-100:]
+    return {
+        "data": {
+            "repository": {
+                "pullRequest": {
+                    "comments": {
+                        "nodes": [
+                            {
+                                "databaseId": item["id"],
+                                "body": item["body"],
+                                "author": item.get("user"),
+                                "authorAssociation": item.get("author_association"),
+                            }
+                            for item in page
+                        ],
+                        "pageInfo": {
+                            "hasPreviousPage": len(ordered) > len(page),
+                            "startCursor": str(page[0]["id"]) if page else None,
+                            "hasNextPage": False,
+                            "endCursor": str(page[-1]["id"]) if page else None,
+                        },
+                    }
+                }
+            }
+        }
+    }
+
+
 def test_pr_comment_storage_stops_when_marker_found() -> None:
     class FakeApi:
         repo = "owner/repo"
@@ -912,18 +945,20 @@ def test_pr_comment_storage_stops_when_marker_found() -> None:
 
         def request(self, method: str, path: str, body: dict[str, Any] | None = None) -> Any:
             self.paths.append(path)
-            assert method == "GET"
-            assert body is None
-            return [
-                {"body": "ordinary comment", "id": 1},
-                {
-                    "body": (
-                        "Runner dispatch state\n\n<!-- runner-dispatch:codex:42:v1 "
-                        '{"provider":"codex","head_sha":"abc"} -->'
-                    ),
-                    "id": 2,
-                },
-            ]
+            assert method == "POST" and path == "/graphql" and body is not None
+            return _graphql_comments(
+                [
+                    {"body": "ordinary comment", "id": 1},
+                    {
+                        "body": (
+                            "Runner dispatch state\n\n<!-- runner-dispatch:codex:42:v1 "
+                            '{"provider":"codex","head_sha":"abc"} -->'
+                        ),
+                        "id": 2,
+                    },
+                ],
+                body,
+            )
 
     api = FakeApi()
     storage = PrCommentRunnerStorage(api)  # type: ignore[arg-type]
@@ -943,15 +978,14 @@ def test_pr_comment_storage_normalizes_direction_case() -> None:
 
         def request(self, method: str, path: str, body: dict[str, Any] | None = None) -> Any:
             self.paths.append(path)
-            assert method == "GET"
-            assert body is None
-            return []
+            assert method == "POST" and path == "/graphql" and body is not None
+            return _graphql_comments([], body)
 
     api = FakeApi()
     storage = PrCommentRunnerStorage(api)  # type: ignore[arg-type]
 
     assert list(storage._iter_comments(42, direction="DESC")) == []
-    assert "per_page=100&page=1" in api.paths[0]
+    assert api.paths[0] == "/graphql"
 
 
 def test_pr_comment_storage_selects_newest_marker_from_newest_page() -> None:
@@ -962,11 +996,17 @@ def test_pr_comment_storage_selects_newest_marker_from_newest_page() -> None:
             self.paths: list[str] = []
 
         def request(self, method: str, path: str, body: dict[str, Any] | None = None) -> Any:
-            assert method == "GET"
-            assert body is None
+            assert method == "POST" and path == "/graphql" and body is not None
             self.paths.append(path)
-            if path.endswith("page=1"):
-                return [
+            return _graphql_comments(
+                [
+                    {
+                        "body": (
+                            "Runner dispatch state\n\n<!-- runner-dispatch:codex:42:v1 "
+                            '{"provider":"codex","head_sha":"old"} -->'
+                        ),
+                        "id": 1,
+                    },
                     {
                         "body": (
                             "Runner dispatch state\n\n<!-- runner-dispatch:codex:42:v1 "
@@ -974,16 +1014,9 @@ def test_pr_comment_storage_selects_newest_marker_from_newest_page() -> None:
                         ),
                         "id": 101,
                     },
-                ]
-            return [
-                {
-                    "body": (
-                        "Runner dispatch state\n\n<!-- runner-dispatch:codex:42:v1 "
-                        '{"provider":"codex","head_sha":"old"} -->'
-                    ),
-                    "id": 1,
-                }
-            ]
+                ],
+                body,
+            )
 
     api = FakeApi()
     storage = PrCommentRunnerStorage(api)  # type: ignore[arg-type]
@@ -997,28 +1030,30 @@ def test_pr_comment_storage_ignores_untrusted_marker_comments() -> None:
         repo = "owner/repo"
 
         def request(self, method: str, path: str, body: dict[str, Any] | None = None) -> Any:
-            assert method == "GET"
-            assert body is None
-            return [
-                {
-                    "body": (
-                        "Runner dispatch state\n\n<!-- runner-dispatch:codex:42:v1 "
-                        '{"provider":"codex","head_sha":"spoofed"} -->'
-                    ),
-                    "id": 1,
-                    "user": {"login": "drive-by-commenter"},
-                    "author_association": "NONE",
-                },
-                {
-                    "body": (
-                        "Runner dispatch state\n\n<!-- runner-dispatch:codex:42:v1 "
-                        '{"provider":"codex","head_sha":"trusted"} -->'
-                    ),
-                    "id": 2,
-                    "user": {"login": "github-actions[bot]"},
-                    "author_association": "NONE",
-                },
-            ]
+            assert method == "POST" and path == "/graphql" and body is not None
+            return _graphql_comments(
+                [
+                    {
+                        "body": (
+                            "Runner dispatch state\n\n<!-- runner-dispatch:codex:42:v1 "
+                            '{"provider":"codex","head_sha":"spoofed"} -->'
+                        ),
+                        "id": 1,
+                        "user": {"login": "drive-by-commenter"},
+                        "author_association": "NONE",
+                    },
+                    {
+                        "body": (
+                            "Runner dispatch state\n\n<!-- runner-dispatch:codex:42:v1 "
+                            '{"provider":"codex","head_sha":"trusted"} -->'
+                        ),
+                        "id": 2,
+                        "user": {"login": "github-actions[bot]"},
+                        "author_association": "NONE",
+                    },
+                ],
+                body,
+            )
 
     storage = PrCommentRunnerStorage(FakeApi())  # type: ignore[arg-type]
 

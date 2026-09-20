@@ -341,10 +341,11 @@ not an atomic compare-and-swap guarantee from the backing storage.
 The authoritative PR-comment backend uses append-only `runner-reservation` markers
 with a fresh reservation ID and separate `runner-completion` receipts bound to that
 ID. A completion never PATCHes the reservation, so an older completion racing a new
-reservation cannot overwrite its pending owner. Readers seek the newest comment
-page, walk backward, and stop at the latest authoritative reservation, joining
-only a matching trusted receipt. The issue-comment API ignores requested sort
-direction; the reader does not depend on it. Legacy `runner-dispatch` records remain readable
+reservation cannot overwrite its pending owner. Readers use the newest GraphQL
+comment cursor, walk backward, and stop at the latest authoritative reservation,
+joining only a matching trusted marked receipt. Cursor boundaries avoid the
+offset-page shift when ordinary comments are deleted during a read. Legacy
+`runner-dispatch` records remain readable
 until a new reservation exists; later writes by old clients cannot supersede the
 new marker family. A completion retry reuses its own receipt (or returns without
 writing when identical), preventing unbounded growth from retries. Missing or
