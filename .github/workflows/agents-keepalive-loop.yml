@@ -104,6 +104,7 @@ jobs:
       execution_profile: ${{ steps.evaluate.outputs.execution_profile }}
       worker_requested_model: ${{ steps.evaluate.outputs.worker_requested_model }}
       worker_fallback_model: ${{ steps.evaluate.outputs.worker_fallback_model }}
+      worker_reasoning_effort: ${{ steps.evaluate.outputs.worker_reasoning_effort }}
       delegation_reason: ${{ steps.evaluate.outputs.delegation_reason }}
       delegation_should_switch: ${{ steps.evaluate.outputs.delegation_should_switch }}
       delegation_source: ${{ steps.evaluate.outputs.delegation_source }}
@@ -511,6 +512,7 @@ jobs:
               execution_profile: String(result.executionProfile?.id || ''),
               worker_requested_model: String(result.executionProfile?.model || ''),
               worker_fallback_model: String(result.executionProfile?.fallback_model || ''),
+              worker_reasoning_effort: String(result.executionProfile?.reasoning_effort || ''),
               delegation_reason: String(result.delegationReason || ''),
               delegation_should_switch: String(result.delegationShouldSwitch ?? 'false'),
               delegation_source: String(result.delegationSource || ''),
@@ -917,6 +919,7 @@ jobs:
       execution_profile: ${{ needs.evaluate.outputs.execution_profile }}
       codex_model: ${{ needs.evaluate.outputs.worker_requested_model }}
       codex_fallback_models: ${{ needs.evaluate.outputs.worker_fallback_model }}
+      codex_reasoning_effort: ${{ needs.evaluate.outputs.worker_reasoning_effort || 'high' }}
       environment: >-
         ${{
           needs.evaluate.outputs.has_high_privilege == 'true' &&

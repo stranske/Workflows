@@ -222,9 +222,26 @@ test('resolveExecutionProfile returns registry-backed codex model contract', () 
   const profile = resolveExecutionProfile('codex-default', { registryPath: REGISTRY_PATH });
   assert.equal(profile.id, 'codex-default');
   assert.equal(profile.agent, 'codex');
-  assert.equal(profile.model, 'gpt-6-astra');
+  assert.equal(profile.model, 'gpt-5.6-sol');
+  assert.equal(profile.reasoning_effort, 'high');
   assert.equal(profile.fallback_model, 'gpt-5.5');
   assert.equal(profile.runner, 'reusable-codex-run');
+});
+
+test('active role profiles resolve model and effort without changing trial arms', () => {
+  const roles = {
+    'codex-coordinate': ['gpt-5.6-sol', 'medium'],
+    'codex-routine': ['gpt-5.6-terra', 'medium'],
+    'codex-extract': ['gpt-5.6-luna', 'low'],
+    'codex-hard': ['gpt-6-astra', 'medium'],
+    'codex-hardest': ['gpt-6-astra', 'high'],
+  };
+  for (const [id, [model, reasoningEffort]] of Object.entries(roles)) {
+    const profile = resolveExecutionProfile(id, { registryPath: REGISTRY_PATH });
+    assert.equal(profile.model, model);
+    assert.equal(profile.reasoning_effort, reasoningEffort);
+    assert.equal(profile.lifecycle, 'active');
+  }
 });
 
 test('resolveExecutionProfile rejects trial profiles from ordinary agent execution', () => {
@@ -273,6 +290,7 @@ test('validateAgentRegistry rejects unknown execution profile model ids', () => 
               capacity_pool: 'codex-standard',
               safety: 'standard',
               lifecycle: 'active',
+              reasoning_effort: 'high',
             },
           },
         },
@@ -281,6 +299,18 @@ test('validateAgentRegistry rejects unknown execution profile model ids', () => 
     },
     /unknown model: gpt-typo/,
   );
+});
+
+test('active Codex execution profiles require a supported reasoning effort', () => {
+  const registry = loadAgentRegistry({ registryPath: REGISTRY_PATH });
+  for (const effort of [undefined, 'medum']) {
+    const malformed = structuredClone(registry);
+    malformed.execution_profiles['codex-default'].reasoning_effort = effort;
+    assert.throws(
+      () => validateAgentRegistry(malformed),
+      /codex-default reasoning_effort must be one of: low, medium, high, xhigh, max/,
+    );
+  }
 });
 
 test('validateAgentRegistry rejects invalid capacity entries', () => {

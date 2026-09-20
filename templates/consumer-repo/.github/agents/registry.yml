@@ -33,20 +33,76 @@ model_profile_trial_contract:
 execution_profiles:
   codex-default:
     agent: codex
+    model: gpt-5.6-sol
+    fallback_model: gpt-5.5
+    runner: reusable-codex-run
+    capacity_pool: codex-standard
+    safety: standard
+    lifecycle: active
+    reasoning_effort: high
+  codex-fast:
+    agent: codex
+    model: gpt-5.6-terra
+    fallback_model: gpt-5.5
+    runner: reusable-codex-run
+    capacity_pool: codex-standard
+    safety: standard
+    lifecycle: active
+    reasoning_effort: medium
+  codex-implement:
+    agent: codex
+    model: gpt-5.6-sol
+    fallback_model: gpt-5.5
+    runner: reusable-codex-run
+    capacity_pool: codex-standard
+    safety: standard
+    lifecycle: active
+    reasoning_effort: high
+  codex-coordinate:
+    agent: codex
+    model: gpt-5.6-sol
+    fallback_model: gpt-5.5
+    runner: reusable-codex-run
+    capacity_pool: codex-standard
+    safety: standard
+    lifecycle: active
+    reasoning_effort: medium
+  codex-routine:
+    agent: codex
+    model: gpt-5.6-terra
+    fallback_model: gpt-5.5
+    runner: reusable-codex-run
+    capacity_pool: codex-standard
+    safety: standard
+    lifecycle: active
+    reasoning_effort: medium
+  codex-extract:
+    agent: codex
+    model: gpt-5.6-luna
+    fallback_model: gpt-5.5
+    runner: reusable-codex-run
+    capacity_pool: codex-standard
+    safety: standard
+    lifecycle: active
+    reasoning_effort: low
+  codex-hard:
+    agent: codex
     model: gpt-6-astra
     fallback_model: gpt-5.5
     runner: reusable-codex-run
     capacity_pool: codex-standard
     safety: standard
     lifecycle: active
-  codex-fast:
+    reasoning_effort: medium
+  codex-hardest:
     agent: codex
-    model: gpt-5.4
+    model: gpt-6-astra
     fallback_model: gpt-5.5
     runner: reusable-codex-run
     capacity_pool: codex-standard
     safety: standard
     lifecycle: active
+    reasoning_effort: high
   codex-6-astra-high:
     agent: codex
     model: gpt-6-astra

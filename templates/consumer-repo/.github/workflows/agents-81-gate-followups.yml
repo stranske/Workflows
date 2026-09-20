@@ -21,6 +21,11 @@ on:
         required: false
         default: true
         type: boolean
+      execution_profile:
+        description: 'Active registry profile for the Codex worker'
+        required: false
+        default: 'codex-default'
+        type: string
       authority_challenge_fingerprint:
         description: 'Internal sweep provenance for one due authority challenge'
         required: false
@@ -85,6 +90,10 @@ jobs:
       autofix_enabled: ${{ steps.evaluate.outputs.autofix_enabled }}
       has_agent_label: ${{ steps.evaluate.outputs.has_agent_label }}
       agent_type: ${{ steps.evaluate.outputs.agent_type }}
+      execution_profile: ${{ steps.evaluate.outputs.execution_profile }}
+      worker_requested_model: ${{ steps.evaluate.outputs.worker_requested_model }}
+      worker_fallback_model: ${{ steps.evaluate.outputs.worker_fallback_model }}
+      worker_reasoning_effort: ${{ steps.evaluate.outputs.worker_reasoning_effort }}
       task_appendix: ${{ steps.evaluate.outputs.task_appendix }}
       trace: ${{ steps.evaluate.outputs.trace }}
       prompt_mode: ${{ steps.evaluate.outputs.prompt_mode }}
@@ -294,6 +303,7 @@ jobs:
         env:
           INPUT_PR_NUMBER: ${{ github.event.inputs.pr_number || '' }}
           INPUT_FORCE_RETRY: ${{ github.event.inputs.force_retry || 'false' }}
+          INPUT_EXECUTION_PROFILE: ${{ github.event.inputs.execution_profile || '' }}
           ROUTE_WEIGHTS_URL: ${{ vars.ROUTE_WEIGHTS_URL }}
         with:
           github-token: ${{ secrets.GITHUB_TOKEN }}
@@ -326,6 +336,10 @@ jobs:
               autofix_enabled: String(result.config?.autofix_enabled ?? ''),
               has_agent_label: String(result.hasAgentLabel ?? ''),
               agent_type: String(result.agentType || ''),
+              execution_profile: String(result.executionProfile?.id || ''),
+              worker_requested_model: String(result.executionProfile?.model || ''),
+              worker_fallback_model: String(result.executionProfile?.fallback_model || ''),
+              worker_reasoning_effort: String(result.executionProfile?.reasoning_effort || ''),
               trace: String(result.config?.trace || result.state?.trace || ''),
               prompt_mode: String(result.promptMode || 'normal'),
                 prompt_file: String(
@@ -710,6 +724,10 @@ jobs:
             needs.evaluate.outputs.action != 'conflict' }}
       prompt_file: ${{ needs.evaluate.outputs.prompt_file }}
       mode: keepalive
+      execution_profile: ${{ needs.evaluate.outputs.execution_profile }}
+      codex_model: ${{ needs.evaluate.outputs.worker_requested_model }}
+      codex_fallback_models: ${{ needs.evaluate.outputs.worker_fallback_model }}
+      codex_reasoning_effort: ${{ needs.evaluate.outputs.worker_reasoning_effort || 'high' }}
       pr_number: ${{ needs.evaluate.outputs.pr_number }}
       pr_ref: ${{ needs.evaluate.outputs.pr_ref }}
       appendix: ${{ needs.evaluate.outputs.task_appendix }}
@@ -1893,6 +1911,9 @@ jobs:
     with:
       prompt_file: .github/codex/prompts/autofix_from_ci_failure.md
       mode: autofix
+      execution_profile: codex-routine
+      codex_model: gpt-5.6-terra
+      codex_reasoning_effort: medium
       pr_number: ${{ needs.prepare.outputs.pr_number }}
       pr_ref: ${{ needs.prepare.outputs.head_ref }}
       appendix: ${{ needs.prepare.outputs.appendix }}

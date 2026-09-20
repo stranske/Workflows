@@ -60,7 +60,12 @@ on:
       codex_model:
         description: 'Codex model ID to pass to codex exec.'
         required: false
-        default: 'gpt-6-astra'
+        default: 'gpt-5.6-sol'
+        type: string
+      codex_reasoning_effort:
+        description: 'Reasoning effort for the selected Codex execution profile.'
+        required: false
+        default: 'high'
         type: string
       codex_fallback_models:
         description: 'Space-separated fallback Codex model IDs for the selected profile.'
@@ -204,6 +209,9 @@ on:
       worker-requested-model:
         description: 'Model requested through the registry execution profile'
         value: ${{ jobs.codex.outputs.worker-requested-model }}
+      worker-reasoning-effort:
+        description: 'Reasoning effort supplied by the registry execution profile'
+        value: ${{ jobs.codex.outputs.worker-reasoning-effort }}
       worker-selected-model:
         description: 'Actual Codex model selected after runner fallback'
         value: ${{ jobs.codex.outputs.worker-selected-model }}
@@ -292,6 +300,7 @@ jobs:
       terminal-disposition: ${{ steps.capability_evidence.outputs.terminal-disposition }}
       worker-profile-id: ${{ inputs.execution_profile }}
       worker-requested-model: ${{ inputs.codex_model }}
+      worker-reasoning-effort: ${{ inputs.codex_reasoning_effort }}
       worker-selected-model: ${{ steps.run_codex.outputs.model }}
       worker-model-selection-reason: ${{ steps.run_codex.outputs.model-selection-reason }}
       error-category: ${{ steps.classify_failure.outputs.error_category }}
@@ -847,7 +856,7 @@ jobs:
       - name: Resolve Codex run model
         id: codex_model
         env:
-          DEFAULT_CODEX_MODEL: gpt-6-astra
+          DEFAULT_CODEX_MODEL: gpt-5.6-sol
           FALLBACK_CODEX_MODELS: ${{ inputs.codex_fallback_models }}
           REQUESTED_MODEL: ${{ inputs.codex_model }}
         run: |
@@ -906,10 +915,19 @@ jobs:
           PR_NUM: ${{ inputs.pr_number }}
           SANDBOX: ${{ inputs.sandbox }}
           EXTRA_ARGS_RAW: ${{ inputs.codex_args }}
+          REASONING_EFFORT: ${{ inputs.codex_reasoning_effort }}
           MAX_RUNTIME_MIN: ${{ inputs.max_runtime_minutes }}
           TARGET_BRANCH: ${{ inputs.pr_ref || github.ref_name }}
         run: |
           set -euo pipefail
+
+          # A consumer with the previous registry can pass an explicit empty
+          # effort while the source runner has already advanced at @main.
+          REASONING_EFFORT="${REASONING_EFFORT:-high}"
+          case "$REASONING_EFFORT" in
+            low|medium|high|xhigh|max) ;;
+            *) echo "::error::Unsupported Codex reasoning effort: $REASONING_EFFORT"; exit 1 ;;
+          esac
 
           # Copy auth to CODEX_HOME
           mkdir -p "$CODEX_HOME"
@@ -1133,6 +1151,7 @@ jobs:
               --skip-git-repo-check
               --sandbox "$SANDBOX"
               --model "$codex_model"
+              -c "model_reasoning_effort=\"$REASONING_EFFORT\""
               --output-last-message "$OUTPUT_FILE"
             )
             if [ "${#EXTRA_ARGS[@]}" -gt 0 ]; then
@@ -1250,6 +1269,7 @@ jobs:
         env:
           EXECUTION_PROFILE: ${{ inputs.execution_profile }}
           WORKER_REQUESTED_MODEL: ${{ inputs.codex_model }}
+          WORKER_REASONING_EFFORT: ${{ inputs.codex_reasoning_effort }}
           WORKER_FALLBACK_MODELS: ${{ inputs.codex_fallback_models }}
           WORKER_SELECTED_MODEL: ${{ steps.run_codex.outputs.model }}
           WORKER_MODEL_SELECTION_REASON: ${{ steps.run_codex.outputs.model-selection-reason }}
@@ -1272,6 +1292,7 @@ jobs:
               "cli_version": os.environ.get("CODEX_CLI_VERSION", ""),
               "execution_profile": os.environ.get("EXECUTION_PROFILE", ""),
               "requested_model": os.environ.get("WORKER_REQUESTED_MODEL", ""),
+              "reasoning_effort": os.environ.get("WORKER_REASONING_EFFORT", ""),
               "fallback_models": [
                   item for item in os.environ.get("WORKER_FALLBACK_MODELS", "").split()
                   if item

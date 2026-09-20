@@ -365,6 +365,73 @@ def test_bundled_stale_slot_pin_uses_reviewed_registry_selection(
     ]
 
 
+@pytest.mark.parametrize("legacy_pin", ["gpt-5.2", "gpt-5.4"])
+def test_bundled_legacy_openai_pin_uses_reviewed_terra(
+    monkeypatch: pytest.MonkeyPatch, tmp_path: Path, legacy_pin: str
+) -> None:
+    registry_path = tmp_path / "registry.json"
+    slots_path = tmp_path / "slots.json"
+    _write_registry(registry_path, selected="gpt-5.6-terra")
+    payload = json.loads(registry_path.read_text(encoding="utf-8"))
+    payload["models"].extend(
+        {
+            "provider": "openai",
+            "model_id": model,
+            "lifecycle": "current",
+            "legacy_bundled_slot_pin": model == "gpt-5.4",
+        }
+        for model in ("gpt-5.4", "gpt-5.6-terra")
+    )
+    registry_path.write_text(json.dumps(payload), encoding="utf-8")
+    _write_slots(slots_path, model=legacy_pin, profile="")
+    monkeypatch.setenv(registry.ENV_MODEL_REGISTRY_CONFIG, str(registry_path))
+    monkeypatch.delenv(registry.ENV_SLOT_CONFIG, raising=False)
+    monkeypatch.setattr(registry, "DEFAULT_SLOT_CONFIG_PATH", slots_path)
+
+    assert registry.load_slot_config()[0].model == "gpt-5.6-terra"
+
+
+@pytest.mark.parametrize("modern_pin", ["gpt-5.6-sol", "gpt-6-astra"])
+def test_bundled_modern_openai_pin_is_preserved(
+    monkeypatch: pytest.MonkeyPatch, tmp_path: Path, modern_pin: str
+) -> None:
+    registry_path = tmp_path / "registry.json"
+    slots_path = tmp_path / "slots.json"
+    _write_registry(registry_path)
+    payload = json.loads(registry_path.read_text(encoding="utf-8"))
+    payload["models"].append({"provider": "openai", "model_id": modern_pin, "lifecycle": "current"})
+    registry_path.write_text(json.dumps(payload), encoding="utf-8")
+    _write_slots(slots_path, model=modern_pin, profile="")
+    monkeypatch.setenv(registry.ENV_MODEL_REGISTRY_CONFIG, str(registry_path))
+    monkeypatch.delenv(registry.ENV_SLOT_CONFIG, raising=False)
+    monkeypatch.setattr(registry, "DEFAULT_SLOT_CONFIG_PATH", slots_path)
+
+    assert registry.load_slot_config()[0].model == modern_pin
+
+
+def test_explicit_external_legacy_pin_is_preserved(
+    monkeypatch: pytest.MonkeyPatch, tmp_path: Path
+) -> None:
+    registry_path = tmp_path / "registry.json"
+    slots_path = tmp_path / "slots.json"
+    _write_registry(registry_path)
+    payload = json.loads(registry_path.read_text(encoding="utf-8"))
+    payload["models"].append(
+        {
+            "provider": "openai",
+            "model_id": "gpt-5.4",
+            "lifecycle": "current",
+            "legacy_bundled_slot_pin": True,
+        }
+    )
+    registry_path.write_text(json.dumps(payload), encoding="utf-8")
+    _write_slots(slots_path, model="gpt-5.4", profile="")
+    monkeypatch.setenv(registry.ENV_MODEL_REGISTRY_CONFIG, str(registry_path))
+    monkeypatch.setenv(registry.ENV_SLOT_CONFIG, str(slots_path))
+
+    assert registry.load_slot_config()[0].model == "gpt-5.4"
+
+
 def test_bundled_stale_slot_pin_is_debug_only(
     monkeypatch: pytest.MonkeyPatch, tmp_path: Path, caplog: pytest.LogCaptureFixture
 ) -> None:
