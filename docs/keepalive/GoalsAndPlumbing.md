@@ -330,6 +330,22 @@ reservation remains recoverable through the existing stale-pending timeout. Exis
 without GitHub attempt identity retain legacy behavior. This is a workflow-attempt fence,
 not an atomic compare-and-swap guarantee from the backing storage.
 
+The authoritative PR-comment backend uses append-only `runner-reservation` markers
+with a fresh reservation ID and separate `runner-completion` receipts bound to that
+ID. A completion never PATCHes the reservation, so an older completion racing a new
+reservation cannot overwrite its pending owner. Readers join only the latest
+authoritative reservation with a matching trusted receipt, across all comment pages
+and independent of API sort order. Legacy `runner-dispatch` records remain readable
+until a new reservation exists; later writes by old clients cannot supersede the
+new marker family. Duplicate completion receipts preserve the same completion time
+and retry count. Missing or malformed authority fails closed.
+
+This is completion-write isolation, not serialization of simultaneous dispatch
+attempts. Explicit repository-variable storage retains its legacy single-writer
+contract; concurrent automation uses the authoritative PR-comment backend through
+`--storage auto`. Receipt history is durable evidence, not a mutable latest-state
+comment to clean up during a run.
+
 Signed authority challenges also reserve the current head and workflow attempt
 before dispatch. The root and consumer loops invoke `should-dispatch
 --authority-challenge` instead of emitting an unconditional permission to run.
@@ -340,8 +356,8 @@ successful primary reservation write. Storage failures refuse dispatch without
 fallback writes; completion then uses the ordinary attempt-bound path. An invalid
 claim cannot authorize a forced reservation.
 
-With `--storage auto`, completion reads and writes only the primary PR-comment
-reservation, never an empty or stale repository-variable fallback. A missing primary
+With `--storage auto`, completion reads only the primary PR-comment reservation
+and appends its receipt there, never to an empty or stale repository-variable fallback. A missing primary
 reservation returns `recorded=false`, `reason=authoritative-reservation-missing`;
 a primary read/write failure returns `reason=authoritative-storage-unavailable`.
 These checks apply even when the completing job has no workflow identity. Automatic

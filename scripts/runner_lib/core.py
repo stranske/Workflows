@@ -17,6 +17,7 @@ import shutil
 import subprocess
 import sys
 import tempfile
+import uuid
 from collections.abc import Iterator
 from pathlib import Path
 from typing import Any, Protocol
@@ -25,6 +26,8 @@ from scripts.state_fingerprint import GitHubApi, _github_context
 
 MARKER_VERSION = "v1"
 MARKER_PREFIX = "runner-dispatch"
+COMPLETION_MARKER_PREFIX = "runner-completion"
+RESERVATION_MARKER_PREFIX = "runner-reservation"
 PROVIDERS = {"autofix", "claude", "codex", "cursor", "gemini"}
 # cursor and gemini use the same plain-text (non-JSONL) prompt/parse path as claude.
 PROMPT_PROVIDERS = {"claude", "codex", "cursor", "gemini"}
@@ -749,20 +752,24 @@ def parse_runner_output(provider: str, raw_output: str) -> RunnerResult:
     )
 
 
-def _marker_re(pr_number: int, provider: str) -> re.Pattern[str]:
+def _marker_re(
+    pr_number: int, provider: str, *, marker_prefix: str = MARKER_PREFIX
+) -> re.Pattern[str]:
     return re.compile(
-        rf"<!--\s*{MARKER_PREFIX}:{provider}:{pr_number}:{MARKER_VERSION}\s+([\s\S]*?)\s*-->",
+        rf"<!--\s*{marker_prefix}:{provider}:{pr_number}:{MARKER_VERSION}\s+([\s\S]*?)\s*-->",
         re.DOTALL,
     )
 
 
-def _build_marker(pr_number: int, provider: str, record: dict[str, Any]) -> str:
+def _build_marker(
+    pr_number: int, provider: str, record: dict[str, Any], *, marker_prefix: str = MARKER_PREFIX
+) -> str:
     payload = base64.b64encode(
         json.dumps(record, sort_keys=True, separators=(",", ":")).encode("utf-8")
     ).decode("ascii")
     return (
         f"Runner dispatch state for {provider} on PR #{pr_number}. Do not edit.\n\n"
-        f"<!-- {MARKER_PREFIX}:{provider}:{pr_number}:{MARKER_VERSION} base64:{payload} -->"
+        f"<!-- {marker_prefix}:{provider}:{pr_number}:{MARKER_VERSION} base64:{payload} -->"
     )
 
 
@@ -797,11 +804,13 @@ def _compact_runner_result_payload(result_payload: dict[str, Any]) -> dict[str, 
     return compact
 
 
-def _extract_record(value: str | None, pr_number: int, provider: str) -> dict[str, Any] | None:
+def _extract_record(
+    value: str | None, pr_number: int, provider: str, *, marker_prefix: str = MARKER_PREFIX
+) -> dict[str, Any] | None:
     if not value:
         return None
     candidates: list[str] = []
-    match = _marker_re(pr_number, provider).search(value)
+    match = _marker_re(pr_number, provider, marker_prefix=marker_prefix).search(value)
     if match:
         candidates.append(match.group(1))
     stripped = value.strip()
@@ -815,6 +824,15 @@ def _extract_record(value: str | None, pr_number: int, provider: str) -> dict[st
         if isinstance(payload, dict) and payload.get("provider") == provider:
             return payload
     return None
+
+
+def _reservation_identity(record: dict[str, Any]) -> str:
+    identity = record.get("reservation_id")
+    if isinstance(identity, str) and identity:
+        return identity
+    # Legacy reservations remain readable without mutating their marker to migrate.
+    payload = json.dumps(record, sort_keys=True, separators=(",", ":"))
+    return "legacy:" + hashlib.sha256(payload.encode("utf-8")).hexdigest()
 
 
 def _variable_name(pr_number: int, provider: str) -> str:
@@ -874,22 +892,88 @@ class PrCommentRunnerStorage:
         return None
 
     def read_record(self, pr_number: int, provider: str) -> dict[str, Any] | None:
-        comment = self._find_comment(pr_number, provider)
-        if not comment:
+        # Consume every page and compare IDs; issue-comment APIs need not honor
+        # sort/direction, and a receipt may be older or newer than the reservation
+        # comment's latest PATCH. Only the exact reservation identity can join it.
+        latest: tuple[int, dict[str, Any] | None] = (-1, None)
+        legacy: tuple[int, dict[str, Any] | None] = (-1, None)
+        receipts: dict[str, tuple[int, dict[str, Any]]] = {}
+        for comment in self._iter_comments(pr_number, direction="desc"):
+            if not _is_trusted_marker_comment(comment):
+                continue
+            body = comment.get("body")
+            if not isinstance(body, str):
+                continue
+            comment_id = int(comment.get("id") or 0)
+            if _marker_re(pr_number, provider, marker_prefix=RESERVATION_MARKER_PREFIX).search(
+                body
+            ):
+                if comment_id > latest[0]:
+                    latest = (
+                        comment_id,
+                        _extract_record(
+                            body, pr_number, provider, marker_prefix=RESERVATION_MARKER_PREFIX
+                        ),
+                    )
+                continue
+            if _marker_re(pr_number, provider).search(body):
+                if comment_id > legacy[0]:
+                    legacy = (comment_id, _extract_record(body, pr_number, provider))
+                continue
+            receipt = _extract_record(
+                body, pr_number, provider, marker_prefix=COMPLETION_MARKER_PREFIX
+            )
+            if not receipt or receipt.get("schema") != "runner-completion-receipt/v1":
+                continue
+            identity = receipt.get("reservation_id")
+            record = receipt.get("record")
+            if (
+                not isinstance(identity, str)
+                or not isinstance(record, dict)
+                or record.get("provider") != provider
+                or record.get("pr_number") != pr_number
+                or record.get("status") not in TERMINAL_STATUSES
+                or record.get("reservation_id") != identity
+            ):
+                continue
+            if comment_id > receipts.get(identity, (-1, {}))[0]:
+                receipts[identity] = (comment_id, record)
+        # New reservations have their own immutable marker. A late legacy client
+        # can still PATCH/POST runner-dispatch, but cannot replace this authority.
+        reservation = latest[1] if latest[0] >= 0 else legacy[1]
+        if latest[0] >= 0 and (
+            reservation is None
+            or reservation.get("pr_number") != pr_number
+            or not isinstance(reservation.get("reservation_id"), str)
+            or not reservation.get("reservation_id")
+        ):
+            raise RuntimeError("Invalid authoritative runner reservation")
+        if reservation is None:
             return None
-        body = comment.get("body")
-        return _extract_record(body if isinstance(body, str) else None, pr_number, provider)
+        receipt = receipts.get(_reservation_identity(reservation))
+        return receipt[1] if receipt else reservation
+
+    def write_completion(self, pr_number: int, provider: str, record: dict[str, Any]) -> None:
+        # Append-only: a completion racing a newer reservation can leave evidence
+        # for its old attempt, but cannot overwrite that newer pending owner.
+        receipt = {
+            "schema": "runner-completion-receipt/v1",
+            "provider": provider,
+            "reservation_id": record["reservation_id"],
+            "record": record,
+        }
+        self.api.request(
+            "POST",
+            f"/repos/{self.api.repo}/issues/{pr_number}/comments",
+            {
+                "body": _build_marker(
+                    pr_number, provider, receipt, marker_prefix=COMPLETION_MARKER_PREFIX
+                )
+            },
+        )
 
     def write_record(self, pr_number: int, provider: str, record: dict[str, Any]) -> None:
-        body = _build_marker(pr_number, provider, record)
-        existing = self._find_comment(pr_number, provider)
-        if existing and existing.get("id"):
-            self.api.request(
-                "PATCH",
-                f"/repos/{self.api.repo}/issues/comments/{existing['id']}",
-                {"body": body},
-            )
-            return
+        body = _build_marker(pr_number, provider, record, marker_prefix=RESERVATION_MARKER_PREFIX)
         self.api.request(
             "POST",
             f"/repos/{self.api.repo}/issues/{pr_number}/comments",
@@ -1091,6 +1175,7 @@ def _reserve_dispatch(
         "key": key,
         "status": "pending",
         "started_at": _utc_now(),
+        "reservation_id": uuid.uuid4().hex,
     }
     attempt_id = _workflow_attempt_id()
     if attempt_id:
@@ -1335,7 +1420,9 @@ def record_completion(
             raise
         _log_storage_failure("read", exc)
         return _unrecorded_completion({}, key, "authoritative-storage-unavailable")
-    if uses_fallback and prior_record is None:
+    if (
+        uses_fallback or isinstance(completion_storage, PrCommentRunnerStorage)
+    ) and prior_record is None:
         return _unrecorded_completion({}, key, "authoritative-reservation-missing")
     prior = prior_record or {}
     if prior.get("workflow_attempt_id") and (
@@ -1383,7 +1470,11 @@ def record_completion(
                 previous + 1, UNPRODUCTIVE_COMPLETION_RETRY_LIMIT + 1
             )
     try:
-        completion_storage.write_record(pr_number, provider, record)
+        if isinstance(completion_storage, PrCommentRunnerStorage):
+            record["reservation_id"] = _reservation_identity(prior)
+            completion_storage.write_completion(pr_number, provider, record)
+        else:
+            completion_storage.write_record(pr_number, provider, record)
     except Exception as exc:
         if not uses_fallback:
             raise
