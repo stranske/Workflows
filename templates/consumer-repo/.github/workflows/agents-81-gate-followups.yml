@@ -21,6 +21,11 @@ on:
         required: false
         default: true
         type: boolean
+      execution_profile:
+        description: 'Active registry profile for the Codex worker'
+        required: false
+        default: 'codex-default'
+        type: string
       authority_challenge_fingerprint:
         description: 'Internal sweep provenance for one due authority challenge'
         required: false
@@ -85,6 +90,10 @@ jobs:
       autofix_enabled: ${{ steps.evaluate.outputs.autofix_enabled }}
       has_agent_label: ${{ steps.evaluate.outputs.has_agent_label }}
       agent_type: ${{ steps.evaluate.outputs.agent_type }}
+      execution_profile: ${{ steps.evaluate.outputs.execution_profile }}
+      worker_requested_model: ${{ steps.evaluate.outputs.worker_requested_model }}
+      worker_fallback_model: ${{ steps.evaluate.outputs.worker_fallback_model }}
+      worker_reasoning_effort: ${{ steps.evaluate.outputs.worker_reasoning_effort }}
       task_appendix: ${{ steps.evaluate.outputs.task_appendix }}
       trace: ${{ steps.evaluate.outputs.trace }}
       prompt_mode: ${{ steps.evaluate.outputs.prompt_mode }}
@@ -96,7 +105,7 @@ jobs:
       agent_routing_mode: ${{ steps.evaluate.outputs.agent_routing_mode }}
       security_blocked: ${{ steps.security_gate.outputs.blocked }}
       security_reason: ${{ steps.security_gate.outputs.reason }}
-      dispatch_should_run: ${{ steps.runner_dispatch.outputs.should_dispatch || 'true' }}
+      dispatch_should_run: ${{ steps.runner_dispatch.outputs.should_dispatch || 'false' }}
       dispatch_reason: ${{ steps.runner_dispatch.outputs.reason }}
       fingerprint_should_run: ${{ steps.fingerprint.outputs.should_run || 'true' }}
       fingerprint_reason: ${{ steps.fingerprint.outputs.reason }}
@@ -294,6 +303,7 @@ jobs:
         env:
           INPUT_PR_NUMBER: ${{ github.event.inputs.pr_number || '' }}
           INPUT_FORCE_RETRY: ${{ github.event.inputs.force_retry || 'false' }}
+          INPUT_EXECUTION_PROFILE: ${{ github.event.inputs.execution_profile || '' }}
           ROUTE_WEIGHTS_URL: ${{ vars.ROUTE_WEIGHTS_URL }}
         with:
           github-token: ${{ secrets.GITHUB_TOKEN }}
@@ -326,6 +336,10 @@ jobs:
               autofix_enabled: String(result.config?.autofix_enabled ?? ''),
               has_agent_label: String(result.hasAgentLabel ?? ''),
               agent_type: String(result.agentType || ''),
+              execution_profile: String(result.executionProfile?.id || ''),
+              worker_requested_model: String(result.executionProfile?.model || ''),
+              worker_fallback_model: String(result.executionProfile?.fallback_model || ''),
+              worker_reasoning_effort: String(result.executionProfile?.reasoning_effort || ''),
               trace: String(result.config?.trace || result.state?.trace || ''),
               prompt_mode: String(result.promptMode || 'normal'),
                 prompt_file: String(
@@ -365,6 +379,7 @@ jobs:
               github.actor == 'github-actions[bot]' &&
               github.event.inputs.sweep_recheck == 'true' &&
               github.event.inputs.authority_challenge_claim || '' }}
+          RAW_AUTHORITY_CHALLENGE_CLAIM: ${{ github.event.inputs.authority_challenge_claim || '' }}
           AUTHORITY_CHALLENGE_SIGNING_KEY: >-
             ${{ secrets.KEEPALIVE_AUTHORITY_SIGNING_KEY || '' }}
         run: |
@@ -378,6 +393,7 @@ jobs:
             repository: process.env.GITHUB_REPOSITORY,
             prNumber: process.env.PR_NUMBER,
             boundaryFingerprint: process.env.AUTHORITY_CHALLENGE_FINGERPRINT,
+            headSha: process.env.HEAD_SHA,
           });
           process.exitCode = verified ? 0 : 1;
           NODE
@@ -389,6 +405,13 @@ jobs:
               --head-sha "$HEAD_SHA" \
               --storage auto \
               --authority-challenge
+            exit 0
+          fi
+          if [ -n "${RAW_AUTHORITY_CHALLENGE_CLAIM:-}" ]; then
+            {
+              echo "should_dispatch=false"
+              echo "reason=invalid-signed-authority-challenge"
+            } >> "$GITHUB_OUTPUT"
             exit 0
           fi
           if [ -z "${PR_NUMBER:-}" ] || [ -z "${HEAD_SHA:-}" ]; then
@@ -710,6 +733,10 @@ jobs:
             needs.evaluate.outputs.action != 'conflict' }}
       prompt_file: ${{ needs.evaluate.outputs.prompt_file }}
       mode: keepalive
+      execution_profile: ${{ needs.evaluate.outputs.execution_profile }}
+      codex_model: ${{ needs.evaluate.outputs.worker_requested_model }}
+      codex_fallback_models: ${{ needs.evaluate.outputs.worker_fallback_model }}
+      codex_reasoning_effort: ${{ needs.evaluate.outputs.worker_reasoning_effort || 'high' }}
       pr_number: ${{ needs.evaluate.outputs.pr_number }}
       pr_ref: ${{ needs.evaluate.outputs.pr_ref }}
       appendix: ${{ needs.evaluate.outputs.task_appendix }}
@@ -1145,7 +1172,7 @@ jobs:
           owner: ${{ github.repository_owner }}
           repositories: ${{ github.event.repository.name }}
           permission-actions: write
-          permission-contents: read
+          permission-contents: write
           permission-issues: write
           permission-pull-requests: read
 
@@ -1165,7 +1192,7 @@ jobs:
           owner: ${{ github.repository_owner }}
           repositories: ${{ github.event.repository.name }}
           permission-actions: write
-          permission-contents: read
+          permission-contents: write
           permission-issues: write
           permission-pull-requests: read
 
@@ -1202,6 +1229,23 @@ jobs:
             }}
           PREFLIGHT_FAILURE_SUMMARY: ${{ needs.preflight.outputs.failure_summary || '' }}
           DELEGATION_SOURCE: ${{ needs.evaluate.outputs.delegation_source }}
+          EVALUATE_PR_NUMBER: ${{ needs.evaluate.outputs.pr_number }}
+          EVALUATE_HEAD_SHA: ${{ needs.evaluate.outputs.head_sha }}
+          EVALUATE_ACTION: ${{ needs.evaluate.outputs.action }}
+          EVALUATE_REASON: ${{ needs.evaluate.outputs.reason }}
+          EVALUATE_GATE_CONCLUSION: ${{ needs.evaluate.outputs.gate_conclusion }}
+          EVALUATE_ITERATION: ${{ needs.evaluate.outputs.iteration }}
+          EVALUATE_MAX_ITERATIONS: ${{ needs.evaluate.outputs.max_iterations }}
+          EVALUATE_FAILURE_THRESHOLD: ${{ needs.evaluate.outputs.failure_threshold }}
+          EVALUATE_TASKS_TOTAL: ${{ needs.evaluate.outputs.tasks_total }}
+          EVALUATE_TASKS_UNCHECKED: ${{ needs.evaluate.outputs.tasks_unchecked }}
+          EVALUATE_KEEPALIVE_ENABLED: ${{ needs.evaluate.outputs.keepalive_enabled }}
+          EVALUATE_AUTOFIX_ENABLED: ${{ needs.evaluate.outputs.autofix_enabled }}
+          EVALUATE_AGENT_TYPE: ${{ needs.evaluate.outputs.agent_type }}
+          EVALUATE_AGENT_ROUTING_MODE: ${{ needs.evaluate.outputs.agent_routing_mode }}
+          EVALUATE_DELEGATION_REASON: ${{ needs.evaluate.outputs.delegation_reason }}
+          EVALUATE_DELEGATION_SHOULD_SWITCH: ${{ needs.evaluate.outputs.delegation_should_switch }}
+          EVALUATE_TRACE: ${{ needs.evaluate.outputs.trace }}
           FORCE_RETRY: ${{ github.event.inputs.force_retry || 'false' }}
           AUTHORITY_CHALLENGE_FINGERPRINT: >-
             ${{ github.event_name == 'workflow_dispatch' &&
@@ -1291,24 +1335,25 @@ jobs:
               '${{ needs.run-gemini.outputs.llm-analysis-run }}' === 'true';
 
             const inputs = {
-              pr_number: Number('${{ needs.evaluate.outputs.pr_number }}') || 0,
-              action: '${{ needs.evaluate.outputs.action }}',
-              reason: '${{ needs.evaluate.outputs.reason }}',
-              gate_conclusion: '${{ needs.evaluate.outputs.gate_conclusion }}',
-              iteration: Number('${{ needs.evaluate.outputs.iteration }}') || 0,
-              max_iterations: Number('${{ needs.evaluate.outputs.max_iterations }}') || 0,
-              failure_threshold: Number('${{ needs.evaluate.outputs.failure_threshold }}') || 3,
-              tasks_total: Number('${{ needs.evaluate.outputs.tasks_total }}') || 0,
-              tasks_unchecked: Number('${{ needs.evaluate.outputs.tasks_unchecked }}') || 0,
-              keepalive_enabled: '${{ needs.evaluate.outputs.keepalive_enabled }}',
-              autofix_enabled: '${{ needs.evaluate.outputs.autofix_enabled }}',
-              agent_type: '${{ needs.evaluate.outputs.agent_type }}',
-              trace: '${{ needs.evaluate.outputs.trace }}',
+              pr_number: Number(process.env.EVALUATE_PR_NUMBER) || 0,
+              head_sha: process.env.EVALUATE_HEAD_SHA || '',
+              action: process.env.EVALUATE_ACTION || '',
+              reason: process.env.EVALUATE_REASON || '',
+              gate_conclusion: process.env.EVALUATE_GATE_CONCLUSION || '',
+              iteration: Number(process.env.EVALUATE_ITERATION) || 0,
+              max_iterations: Number(process.env.EVALUATE_MAX_ITERATIONS) || 0,
+              failure_threshold: Number(process.env.EVALUATE_FAILURE_THRESHOLD) || 3,
+              tasks_total: Number(process.env.EVALUATE_TASKS_TOTAL) || 0,
+              tasks_unchecked: Number(process.env.EVALUATE_TASKS_UNCHECKED) || 0,
+              keepalive_enabled: process.env.EVALUATE_KEEPALIVE_ENABLED || '',
+              autofix_enabled: process.env.EVALUATE_AUTOFIX_ENABLED || '',
+              agent_type: process.env.EVALUATE_AGENT_TYPE || '',
+              trace: process.env.EVALUATE_TRACE || '',
               // Delegation policy outputs (agent:auto mode)
-              delegation_reason: '${{ needs.evaluate.outputs.delegation_reason }}',
-              delegation_should_switch: '${{ needs.evaluate.outputs.delegation_should_switch }}',
+              delegation_reason: process.env.EVALUATE_DELEGATION_REASON || '',
+              delegation_should_switch: process.env.EVALUATE_DELEGATION_SHOULD_SWITCH || '',
               delegation_source: process.env.DELEGATION_SOURCE || '',
-              agent_routing_mode: '${{ needs.evaluate.outputs.agent_routing_mode }}',
+              agent_routing_mode: process.env.EVALUATE_AGENT_ROUTING_MODE || '',
               // Agent run result - check which agent ran
               run_result: runResult,
               agent_execution_started: agentExecutionStarted,
@@ -1391,7 +1436,7 @@ jobs:
       gate_run_id: ${{ steps.evaluate.outputs.gate_run_id }}
       security_blocked: ${{ steps.security_gate.outputs.blocked }}
       security_reason: ${{ steps.security_gate.outputs.reason }}
-      dispatch_should_run: ${{ steps.runner_dispatch.outputs.should_dispatch || 'true' }}
+      dispatch_should_run: ${{ steps.runner_dispatch.outputs.should_dispatch || 'false' }}
       dispatch_reason: ${{ steps.runner_dispatch.outputs.reason }}
     steps:
       - name: Checkout (for security gate + agent registry)
@@ -1893,6 +1938,9 @@ jobs:
     with:
       prompt_file: .github/codex/prompts/autofix_from_ci_failure.md
       mode: autofix
+      execution_profile: codex-routine
+      codex_model: gpt-5.6-terra
+      codex_reasoning_effort: medium
       pr_number: ${{ needs.prepare.outputs.pr_number }}
       pr_ref: ${{ needs.prepare.outputs.head_ref }}
       appendix: ${{ needs.prepare.outputs.appendix }}

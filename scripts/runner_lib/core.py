@@ -1143,8 +1143,6 @@ def should_dispatch(
     two runs later.
     """
     provider = _validate_provider(provider)
-    if authority_challenge and not _verified_authority_challenge(pr_number):
-        raise ValueError("Authority challenge reservation requires a verified signed claim.")
     storage = storage or _storage_from_name("auto")
     if authority_challenge and not isinstance(storage, FallbackRunnerStorage):
         raise ValueError("Authority challenge reservation requires authoritative auto storage.")
@@ -1169,6 +1167,8 @@ def should_dispatch(
     unproductive_completions = _unproductive_completion_count(prior)
 
     if authority_challenge:
+        if not _consume_authority_challenge(pr_number, head_sha, provider):
+            return DebounceDecision(False, "invalid-or-consumed-authority-challenge", key)
         return _reserve_dispatch(
             storage,
             pr_number,
@@ -1242,37 +1242,45 @@ def should_dispatch(
     return _reserve_dispatch(storage, pr_number, head_sha, provider, key, prior, reason=reason)
 
 
-def _verified_authority_challenge(pr_number: int) -> bool:
-    """Use the existing HMAC verifier; never accept a caller's boolean assertion."""
+def _consume_authority_challenge(pr_number: int, head_sha: str, provider: str) -> bool:
+    """Grant only after the v2 claim is conditionally consumed in PR-wide state."""
     if (
         not _workflow_attempt_id()
         or os.environ.get("GITHUB_EVENT_NAME") != "workflow_dispatch"
         or os.environ.get("GITHUB_ACTOR") != "github-actions[bot]"
     ):
         return False
-    script = """
-const { verifyAuthorityChallengeEnvelope } =
-  require('./.github/scripts/keepalive_challenge_due.js');
-const verified = verifyAuthorityChallengeEnvelope({
-  claimJson: process.env.AUTHORITY_CHALLENGE_CLAIM,
-  signingKey: process.env.AUTHORITY_CHALLENGE_SIGNING_KEY,
-  repository: process.env.GITHUB_REPOSITORY,
-  prNumber: process.argv[1],
-  boundaryFingerprint: process.env.AUTHORITY_CHALLENGE_FINGERPRINT,
-});
-process.exitCode = verified ? 0 : 1;
-"""
+    environment = os.environ.copy()
+    environment.update(
+        {
+            "AUTHORITY_PR_NUMBER": str(pr_number),
+            "AUTHORITY_HEAD_SHA": head_sha,
+            "AUTHORITY_PROVIDER": provider,
+        }
+    )
     try:
         result = subprocess.run(
-            ["node", "-e", script, str(pr_number)],
+            ["node", ".github/scripts/keepalive_authority_state.js", "consume"],
             cwd=Path(__file__).resolve().parents[2],
             capture_output=True,
-            timeout=15,
+            timeout=30,
             check=False,
+            env=environment,
         )
-    except (OSError, subprocess.TimeoutExpired):
+    except (OSError, subprocess.TimeoutExpired) as exc:
+        print(
+            f"warning: authority challenge helper unavailable: {type(exc).__name__}",
+            file=sys.stderr,
+        )
         return False
-    return result.returncode == 0
+    if result.returncode != 0:
+        print(f"warning: authority challenge helper exited {result.returncode}", file=sys.stderr)
+        return False
+    try:
+        return json.loads(result.stdout).get("granted") is True
+    except (ValueError, AttributeError):
+        print("warning: authority challenge helper emitted invalid JSON", file=sys.stderr)
+        return False
 
 
 def _log_storage_failure(operation: str, exc: Exception, *, phase: str = "completion") -> None:
@@ -1291,9 +1299,9 @@ def _log_storage_failure(operation: str, exc: Exception, *, phase: str = "comple
 
 def _unrecorded_completion(prior: dict[str, Any], key: str, reason: str) -> dict[str, Any]:
     return {
+        **prior,
         "status": "unknown",
         "key": key,
-        **prior,
         "completion_recorded": False,
         "completion_reason": reason,
     }

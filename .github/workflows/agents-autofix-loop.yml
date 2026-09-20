@@ -786,6 +786,9 @@ jobs:
     with:
       prompt_file: .github/codex/prompts/autofix_from_ci_failure.md
       mode: autofix
+      execution_profile: codex-routine
+      codex_model: gpt-5.6-terra
+      codex_reasoning_effort: medium
       pr_number: ${{ needs.prepare.outputs.pr_number }}
       pr_ref: ${{ needs.prepare.outputs.head_ref }}
       appendix: ${{ needs.prepare.outputs.appendix }}

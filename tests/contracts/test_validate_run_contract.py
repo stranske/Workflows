@@ -151,6 +151,20 @@ def test_mirror_manifest_cli_reports_invalid_utf8(tmp_path, capsys) -> None:
     assert f"cannot load mirror manifest {path}" in capsys.readouterr().err
 
 
+def test_mirror_manifest_schema_violations_identify_each_input_file() -> None:
+    mod = _import_validator()
+    paths = [
+        FIXTURES / "invalid_document_mirror_bad_blob_path.json",
+        FIXTURES / "invalid_document_mirror_bad_urls.json",
+    ]
+    report = mod.validate_mirror_manifests(paths=paths, schema_dir=SCHEMA_DIR)
+    assert not report.conformant
+    assert all(
+        any(violation.path.startswith(f"{path}:/") for violation in report.violations)
+        for path in paths
+    )
+
+
 def test_tracked_variables_and_mirror_manifest_are_mutually_exclusive(capsys) -> None:
     mod = _import_validator()
     with pytest.raises(SystemExit) as exc:

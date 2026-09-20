@@ -86,6 +86,7 @@
         ".github/scripts/issue_format.py",
         ".github/scripts/issue_pr_locator.js",
         ".github/scripts/issue_scope_parser.js",
+        ".github/scripts/keepalive_authority_state.js",
         ".github/scripts/keepalive_challenge_due.js",
         ".github/scripts/keepalive_contract.js",
         ".github/scripts/keepalive_gate.js",

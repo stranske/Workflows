@@ -94,10 +94,12 @@ format. Install `jsonschema` and `rfc3339-validator` when running it standalone;
 both dependencies. The RFC 3339 checker is required, not an optional validation
 step. Existing satellite schema validation behavior is unchanged.
 
-## Validation evidence
+## Workflows source validation evidence
 
-Synthetic fixtures for all four types live under `tests/fixtures/backplane/`.
-Run `python -m pytest tests/contracts/test_backplane_schemas.py tests/contracts/test_validate_run_contract.py -q`; the named
+The synthetic fixtures and tests below live in the
+[Workflows source repository](https://github.com/stranske/Workflows), not in
+consumer checkouts. From a Workflows checkout, run
+`python -m pytest tests/contracts/test_backplane_schemas.py tests/contracts/test_validate_run_contract.py -q`; the named
 acceptance gate is `test_mosaic_core_fixture_validates`. Negative tests exercise
 discriminators, versions, empty join keys, evidence requirements, resolution
 notes, and the additive manifest kinds with path rejection. Consumer-path tests

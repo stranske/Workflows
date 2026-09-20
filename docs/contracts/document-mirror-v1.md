@@ -48,15 +48,17 @@ validators, HTML resolvers, and the future `doc-mirror` CLI can share one schema
 
 ## Validation
 
-Offline validation:
+Offline validation in a consumer checkout, using its own manifest:
 
 ```bash
 python scripts/validate_run_contract.py \
-  --mirror-manifest tests/fixtures/backplane/valid_document_mirror.json \
+  --mirror-manifest path/to/your-manifest.json \
   --schema-dir docs/contracts/schemas
 ```
 
-Contract tests:
+The canonical fixture and contract tests live in the
+[Workflows source repository](https://github.com/stranske/Workflows), not in
+consumer checkouts. From a Workflows checkout, run:
 
 ```bash
 python -m pytest tests/contracts/test_backplane_schemas.py::test_document_mirror_fixture_validates -q

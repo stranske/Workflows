@@ -247,6 +247,7 @@
       "provider": "openai",
       "api": "chat",
       "lifecycle": "current",
+      "legacy_bundled_slot_pin": true,
       "positioning": "incumbent-verifier",
       "source_ids": [
         "openai-current-models-2026-07-10"

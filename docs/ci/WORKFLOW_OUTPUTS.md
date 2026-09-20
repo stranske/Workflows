@@ -95,6 +95,7 @@ reusable workflow in the no-output section.
 | `reusable-codex-run.yml` | `worker-profile-id` | string | Registry execution profile ID supplied by caller | `needs.codex.outputs.worker-profile-id` |
 | `reusable-codex-run.yml` | `worker-requested-model` | string | Model requested through the registry execution profile | `needs.codex.outputs.worker-requested-model` |
 | `reusable-codex-run.yml` | `worker-selected-model` | string | Actual Codex model selected after runner fallback | `needs.codex.outputs.worker-selected-model` |
+| `reusable-codex-run.yml` | `worker-reasoning-effort` | string | Reasoning effort supplied by the registry execution profile | `needs.codex.outputs.worker-reasoning-effort` |
 | `reusable-codex-run.yml` | `worker-model-selection-reason` | string | Reason for the selected worker model | `needs.codex.outputs.worker-model-selection-reason` |
 | `reusable-codex-run.yml` | `error-category` | string | Error category if failure occurred (transient/auth/resource/logic/unknown) | `needs.codex.outputs.error-category` |
 | `reusable-codex-run.yml` | `error-type` | string | Error type if failure occurred (codex/infrastructure/auth/unknown) | `needs.codex.outputs.error-type` |
