@@ -34,6 +34,11 @@ def test_app_token_is_scoped_and_template_matches_source():
     }
     assert job["env"]["HAS_WORKFLOWS_APP_CREDS"].startswith("${{")
     assert "createWorkflowDispatch" in steps["dispatch-autopilot"]["with"]["script"]
+    setup = next(step for step in job["steps"] if step["name"] == "Setup API client")
+    assert "workflows_app_private_key" not in setup["with"]
+    assert "workflows_app_id" not in setup["with"]
+    generate = steps["generate"]
+    assert generate["env"]["GITHUB_TOKEN"] == "${{ github.token }}"
 
 
 @pytest.mark.parametrize(

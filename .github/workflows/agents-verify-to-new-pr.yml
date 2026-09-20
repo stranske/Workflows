@@ -125,8 +125,6 @@ jobs:
           actions_bot_pat: ${{ secrets.ACTIONS_BOT_PAT }}
           owner_pr_pat: ${{ secrets.OWNER_PR_PAT }}
           agents_automation_pat: ${{ secrets.AGENTS_AUTOMATION_PAT }}
-          workflows_app_id: ${{ secrets.WORKFLOWS_APP_ID }}
-          workflows_app_private_key: ${{ secrets.WORKFLOWS_APP_PRIVATE_KEY }}
           keepalive_app_id: ${{ secrets.KEEPALIVE_APP_ID }}
           keepalive_app_private_key: ${{ secrets.KEEPALIVE_APP_PRIVATE_KEY }}
           gh_app_id: ${{ secrets.GH_APP_ID }}
@@ -614,7 +612,9 @@ jobs:
           PYTHONPATH: ${{ github.workspace }}
           OPENAI_API_KEY: ${{ secrets.OPENAI_API_KEY }}
           CLAUDE_API_STRANSKE: ${{ secrets.CLAUDE_API_STRANSKE }}
-          GITHUB_TOKEN: ${{ steps.select-token.outputs.token }}
+          # GitHub Models needs the workflow token's models: read grant.
+          # The selected App/PAT token is reserved for issue and dispatch APIs.
+          GITHUB_TOKEN: ${{ github.token }}
           ORIGINAL_ISSUE_NUMBER: ${{ steps.collect.outputs.original_issue_number }}
           ORIGINAL_ISSUE_TITLE: ${{ steps.collect.outputs.original_issue_title }}
           PR_NUMBER: ${{ steps.check-merged.outputs.pr_number }}
