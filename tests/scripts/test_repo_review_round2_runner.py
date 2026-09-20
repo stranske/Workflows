@@ -44,9 +44,7 @@ def test_invoke_codex_uses_supported_approval_flag(
     assert "--approve-for-me" in captured["cmd"]
     assert "--full-auto" not in captured["cmd"]
     assert captured["cmd"][captured["cmd"].index("--model") + 1] == "gpt-6-astra"
-    assert captured["cmd"][captured["cmd"].index("-c") + 1] == (
-        'model_reasoning_effort="high"'
-    )
+    assert captured["cmd"][captured["cmd"].index("-c") + 1] == ('model_reasoning_effort="high"')
 
 
 def test_invoke_codex_honors_explicit_repo_review_model_override(
@@ -77,9 +75,7 @@ def test_invoke_codex_honors_explicit_repo_review_model_override(
 
     assert ok is True
     assert captured["cmd"][captured["cmd"].index("--model") + 1] == "gpt-5.6-sol"
-    assert captured["cmd"][captured["cmd"].index("-c") + 1] == (
-        'model_reasoning_effort="medium"'
-    )
+    assert captured["cmd"][captured["cmd"].index("-c") + 1] == ('model_reasoning_effort="medium"')
 
 
 def test_invoke_codex_falls_back_to_full_auto(

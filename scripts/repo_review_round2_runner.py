@@ -399,7 +399,7 @@ def invoke_codex(
         "--model",
         model,
         "-c",
-        f'model_reasoning_effort={json.dumps(reasoning_effort)}',
+        f"model_reasoning_effort={json.dumps(reasoning_effort)}",
     ]
     result = run_with_heartbeat(
         cmd,
