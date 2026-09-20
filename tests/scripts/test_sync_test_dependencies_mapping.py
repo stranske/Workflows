@@ -3,6 +3,8 @@ from __future__ import annotations
 import importlib.util
 from pathlib import Path
 
+import pytest
+
 
 def _load_module(module_name: str, path: Path):
     spec = importlib.util.spec_from_file_location(module_name, path)
@@ -36,7 +38,14 @@ def test_import_exceptions_map_to_package_names_in_consumer_template():
     assert module.MODULE_TO_PACKAGE["jwt"] == "PyJWT"
 
 
-def test_python_docx_import_is_not_reported_as_undeclared(tmp_path, monkeypatch):
+@pytest.mark.parametrize(
+    "script",
+    [
+        "scripts/sync_test_dependencies.py",
+        "templates/consumer-repo/scripts/sync_test_dependencies.py",
+    ],
+)
+def test_python_docx_import_is_not_reported_as_undeclared(tmp_path, monkeypatch, script):
     """A test importing ``docx`` with ``python-docx`` declared must not be flagged.
 
     The import name and the distribution name differ, which is the whole reason
@@ -46,22 +55,21 @@ def test_python_docx_import_is_not_reported_as_undeclared(tmp_path, monkeypatch)
     """
     module = _load_module(
         "sync_test_dependencies_repo_docx",
-        Path("scripts/sync_test_dependencies.py"),
+        Path(script).resolve(),
     )
 
-    test_file = tmp_path / "test_uses_docx.py"
+    (tmp_path / "tests").mkdir()
+    test_file = tmp_path / "tests/test_uses_docx.py"
     test_file.write_text("from docx import Document\n", encoding="utf-8")
 
-    imports = module.extract_imports_from_file(test_file)
-    assert "docx" in imports
-
-    declared = {module._normalise_package_name("python-docx")}
-    missing = {
-        name
-        for name in imports
-        if module._normalise_package_name(module.MODULE_TO_PACKAGE.get(name, name)) not in declared
-    }
-    assert missing == set()
+    pyproject = tmp_path / "pyproject.toml"
+    pyproject.write_text('[project]\nname = "fixture"\ndependencies = ["python-docx"]\n')
+    monkeypatch.chdir(tmp_path)
+    monkeypatch.setattr(module, "PYPROJECT_FILE", pyproject)
+    assert module.find_missing_dependencies() == set()
+    # Prove the real production path needs this mapping in both synchronizers.
+    monkeypatch.delitem(module.MODULE_TO_PACKAGE, "docx")
+    assert module.find_missing_dependencies() == {"docx"}
 
 
 def test_stdlib_imports_from_sync_pr_logs_are_ignored_in_repo_script():
