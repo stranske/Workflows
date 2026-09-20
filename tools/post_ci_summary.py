@@ -490,7 +490,12 @@ def _format_triage_block(log_text: str) -> list[str]:
             files = ", ".join(finding.relevant_files)
             lines.append(f"  relevant_files: {files}")
         if finding.playbook_url:
-            lines.append(f"  playbook_url: {finding.playbook_url}")
+            playbook = finding.playbook_url
+            repository = os.environ.get("GITHUB_REPOSITORY", "")
+            if repository and re.fullmatch(r"[A-Za-z0-9_.-]+/[A-Za-z0-9_.-]+", repository):
+                server = os.environ.get("GITHUB_SERVER_URL", "https://github.com").rstrip("/")
+                playbook = f"[{playbook}]({server}/{repository}/blob/main/{playbook})"
+            lines.append(f"  playbook_url: {playbook}")
     return lines
 
 

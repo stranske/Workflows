@@ -199,7 +199,8 @@ def test_main_runs_by_file_path_when_tools_package_is_shadowed(tmp_path: Path) -
     assert "Automated Status Summary" in output_path.read_text(encoding="utf-8")
 
 
-def test_collect_triage_block_from_artifacts(tmp_path: Path) -> None:
+def test_collect_triage_block_from_artifacts(tmp_path: Path, monkeypatch) -> None:
+    monkeypatch.setenv("GITHUB_REPOSITORY", "stranske/Workflows")
     artifacts_root = tmp_path / "gate_artifacts"
     runtime_dir = artifacts_root / "downloads" / "coverage" / "runtimes" / "3.12"
     runtime_dir.mkdir(parents=True)
@@ -234,7 +235,6 @@ ImportError: No module named foo</failure>
     assert "error_type: pytest" in triage_text
     assert "error_type: coverage" in triage_text
     assert "error_type: import_error" in triage_text
-    assert "playbook_url: docs/CI_FAILURE_PLAYBOOK.md#type-errors" in triage_text
-    assert "playbook_url: docs/CI_FAILURE_PLAYBOOK.md#test-failures" in triage_text
-    assert "playbook_url: docs/CI_FAILURE_PLAYBOOK.md#coverage-failures" in triage_text
-    assert "playbook_url: docs/CI_FAILURE_PLAYBOOK.md#import-errors" in triage_text
+    for anchor in ("type-errors", "test-failures", "coverage-failures", "import-errors"):
+        path = f"docs/CI_FAILURE_PLAYBOOK.md#{anchor}"
+        assert f"playbook_url: [{path}](https://github.com/stranske/Workflows/blob/main/{path})" in triage_text

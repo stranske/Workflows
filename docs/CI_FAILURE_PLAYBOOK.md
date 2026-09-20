@@ -3,6 +3,8 @@
 This shared playbook is distributed by the Workflows sync manifest. Use the
 exact failed job and PR head when diagnosing a failure; a green controller run
 does not mean its delivery or tests passed.
+The Gate triage summary links to this playbook in the repository producing
+the failure, using that repository's `main` branch.
 
 ## Type Errors
 
@@ -39,4 +41,3 @@ Use the reported file and line to reproduce the parser failure with the Python
 version used by CI. Correct syntax or indentation and check supported Python
 versions before running formatting, lint and focused tests. Do not remove
 failing code or tests just to make parsing succeed.
-
