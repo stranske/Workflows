@@ -18,7 +18,7 @@ const { detectConflicts } = require('./conflict_detector');
 const { parseTimeoutConfig } = require('./timeout_config');
 const { ensureRateLimitWrapped } = require('./github-rate-limited-wrapper');
 const { verifyAuthorityChallengeClaim } = require('./keepalive_challenge_due');
-const { beginChallenge, confirmChallenge, requester } = require('./keepalive_authority_state');
+const { beginChallenge, confirmChallenge, reopenUnconfirmedChallenge, requester } = require('./keepalive_authority_state');
 
 // Token load balancer for rate limit management
 let tokenLoadBalancer = null;
@@ -4626,16 +4626,22 @@ async function updateKeepaliveLoopSummary({ github: rawGithub, context, core, in
         // First persist a durable automation-owned transition containing the
         // exact action. If either later API call fails, the PR never falls back
         // to an actionless or falsely human-owned state.
+        const pendingAttention = {
+          key: attentionKey,
+          disposition: 'challenge-due',
+          owner: 'automation',
+          first_seen_at: previousAttention.first_seen_at || new Date().toISOString(),
+          challenge_due_at: pendingAuthorityClaim.due_at,
+          generation: pendingAuthorityClaim.generation,
+          expires_at: pendingAuthorityClaim.expires_at,
+          boundary_fingerprint: authorityEvidence.fingerprint,
+          boundary_detail: authorityEvidence.detail,
+          confirmation_pending_label: true,
+          next_action: authorityEvidence.humanAction,
+        };
         const pendingState = {
           ...newState,
-          attention: {
-            ...newState.attention,
-            disposition: 'challenge-due',
-            owner: 'automation',
-            challenge_due_at: new Date().toISOString(),
-            confirmation_pending_label: true,
-            next_action: authorityEvidence.humanAction,
-          },
+          attention: pendingAttention,
         };
         const pendingLines = [
           ...summaryLines,
@@ -4677,11 +4683,45 @@ async function updateKeepaliveLoopSummary({ github: rawGithub, context, core, in
               authorityChallengeConfirmed = false;
             }
             if (!authorityChallengeConfirmed) {
-              escalationDisposition = 'challenge-due';
-              newState.attention = pendingState.attention;
+              const repository = `${context.repo.owner}/${context.repo.repo}`;
+              let recovery = { status: 'uncertain' };
+              try {
+                recovery = await reopenUnconfirmedChallenge({
+                  request: requester(github), repository, prNumber, claim: pendingAuthorityClaim,
+                  ownerAttempt: `${repository.toLowerCase()}:${context.runId || process.env.GITHUB_RUN_ID || ''}:${context.runAttempt || process.env.GITHUB_RUN_ATTEMPT || ''}`,
+                  provider: agentType,
+                  headSha: inputs.head_sha ?? inputs.headSha,
+                });
+              } catch (error) {
+                core?.warning?.(`Authority confirmation reconciliation unavailable: ${error.message}`);
+              }
+              if (recovery.status === 'confirmed') {
+                authorityChallengeConfirmed = true;
+              } else {
+                escalationDisposition = 'challenge-due';
+                newState.attention = {
+                  ...pendingAttention,
+                  generation: recovery.state?.generation || pendingAttention.generation,
+                  challenge_due_at: recovery.state?.due_at || pendingAttention.challenge_due_at,
+                  expires_at: recovery.state?.expires_at || pendingAttention.expires_at,
+                  confirmation_pending_label: true,
+                  next_action: 'Reconcile the unconfirmed authority challenge and workflow-owned needs-human label.',
+                };
+                if (recovery.status === 'reopened') {
+                  try {
+                    await github.rest.issues.removeLabel({
+                      owner: context.repo.owner, repo: context.repo.repo,
+                      issue_number: prNumber, name: 'needs-human',
+                    });
+                    newState.attention.confirmation_pending_label = false;
+                  } catch (error) {
+                    core?.warning?.(`Failed to remove unconfirmed needs-human label: ${error.message}`);
+                  }
+                }
+              }
             }
           }
-          summaryLines.push(
+          if (authorityChallengeConfirmed) summaryLines.push(
             '',
             '### 🛑 Independent Authority Challenge Confirmed',
             '',

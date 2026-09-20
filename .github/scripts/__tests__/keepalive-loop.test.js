@@ -77,6 +77,7 @@ const buildGithubStub = ({
   failWorkflowDispatch = false,
   authorityReceipt = false,
   authorityLedger = false,
+  failAuthorityConfirmWrite = false,
 } = {}) => {
   const actions = [];
   const currentLabels = new Set(labels);
@@ -145,6 +146,10 @@ const buildGithubStub = ({
           } };
         }
         if (method === 'PUT') {
+          if (failAuthorityConfirmWrite &&
+              JSON.parse(Buffer.from(body.content, 'base64').toString('utf8')).status === 'confirmed') {
+            throw Object.assign(new Error('simulated confirmation conflict'), { status: 409 });
+          }
           const priorSha = authorityContent
             ? crypto.createHash('sha1').update(authorityContent).digest('hex')
             : undefined;
@@ -3162,6 +3167,48 @@ test('a scheduled recheck that reproduces auth failure records a terminal human 
     updateAction.body,
     /"human_action":"Resolve the reproduced runner authority failure: Required credential: ACTIONS_BOT_PAT"/,
   );
+});
+
+test('failed authority confirmation reopens the challenge and removes its hard label', async () => {
+  const authSummary = 'Missing token ACTIONS_BOT_PAT for GitHub API repository dispatch.';
+  const boundary = buildAuthorityChallengeEvidence({ agentSummary: authSummary });
+  const existingState = formatStateComment({
+    trace: 'trace-confirm-conflict',
+    iteration: 2,
+    failure_threshold: 3,
+    failure: { reason: 'agent-run-failed', count: 1 },
+    attention: {
+      owner: 'automation', disposition: 'challenge-due',
+      challenge_due_at: TEST_DUE_AT, generation: 'c'.repeat(64),
+      expires_at: TEST_EXPIRES_AT,
+      boundary_fingerprint: boundary.fingerprint, boundary_detail: boundary.detail,
+    },
+  });
+  const github = buildGithubStub({
+    comments: [{ id: 91, body: existingState, html_url: 'https://example.com/91' }],
+    authorityReceipt: true, failAuthorityConfirmWrite: true,
+    labels: ['agent:codex', 'agent:needs-attention'],
+  });
+  await updateKeepaliveLoopSummary({
+    github, context: buildContext(654), core: buildCore(),
+    inputs: {
+      prNumber: 654, action: 'run', runResult: 'failure', gateConclusion: 'success',
+      tasksTotal: 3, tasksUnchecked: 3, keepaliveEnabled: true,
+      autofixEnabled: false, iteration: 2, maxIterations: 5,
+      failureThreshold: 3, trace: 'trace-confirm-conflict', forceRetry: true,
+      ...authorityClaimInputs(654, boundary.fingerprint),
+      agent_exit_code: '1', agent_summary: authSummary,
+    },
+  });
+  assert.ok(github.actions.some((action) =>
+    action.type === 'remove-label' && action.name === 'needs-human'));
+  const final = github.actions.filter((action) => action.type === 'update').at(-1);
+  assert.doesNotMatch(final.body, /Independent Authority Challenge Confirmed/);
+  const attention = parseStateComment(final.body).data.attention;
+  assert.equal(attention.owner, 'automation');
+  assert.equal(attention.disposition, 'challenge-due');
+  assert.equal(attention.confirmation_pending_label, false);
+  assert.notEqual(attention.generation, 'c'.repeat(64));
 });
 
 test('a two-phase terminal transition reuses a newly created summary comment', async () => {

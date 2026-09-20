@@ -64,6 +64,11 @@ function fakeGitHub() {
     request,
     setBeforePut(fn) { beforePut = fn; },
     setAfterPut(fn) { afterPut = fn; },
+    expireChallenge() {
+      const state = JSON.parse(Buffer.from(content, 'base64').toString('utf8'));
+      state.expires_at = new Date(Date.now() - 1).toISOString();
+      content = Buffer.from(JSON.stringify(state)).toString('base64');
+    },
     get content() { return content; },
   };
 }
@@ -134,6 +139,26 @@ test('one generation grants once across attempts, providers, heads and nonces', 
   });
   assert.notEqual(afterConfirmation.generation, state.generation);
   assert.equal(afterConfirmation.status, 'available');
+});
+
+test('expired consumed generation can be replaced after confirmation was omitted', async () => {
+  const api = fakeGitHub();
+  const first = await beginChallenge({
+    request: api.request, repository, prNumber, defaultBranch: 'main',
+    fingerprint, ...boundary(),
+  });
+  const consumed = await consumeChallenge({
+    request: api.request, repository, prNumber, claim: claim(first),
+    ownerAttempt, provider: 'codex', headSha,
+  });
+  assert.equal(consumed.granted, true);
+  api.expireChallenge();
+  const replacement = await beginChallenge({
+    request: api.request, repository, prNumber, defaultBranch: 'main',
+    fingerprint, expectedGeneration: first.generation, ...boundary(),
+  });
+  assert.equal(replacement.status, 'available');
+  assert.notEqual(replacement.generation, first.generation);
 });
 
 test('two racing consumers produce at most one grant through the conditional SHA', async () => {

@@ -132,8 +132,8 @@ async function beginChallenge({ request, repository, prNumber, defaultBranch, fi
     if (prior && prior.state.boundary_fingerprint === fingerprint) {
       if (prior.state.status === 'confirmed') {
         // A confirmed boundary was human-resolved; recurring failures need a new generation.
-      } else if (prior.state.status === 'consumed' ||
-          (prior.state.status === 'available' && Date.parse(prior.state.expires_at) > Date.now())) {
+      } else if (['consumed', 'available'].includes(prior.state.status) &&
+          Date.parse(prior.state.expires_at) > Date.now()) {
         return prior.state;
       }
     }
@@ -196,7 +196,7 @@ async function consumeChallenge({ request, repository, prNumber, claim, ownerAtt
 async function confirmChallenge({ request, repository, prNumber, claim, ownerAttempt, provider, headSha }) {
   const prior = await readAuthorityState(request, repository, prNumber);
   const receipt = prior.state.receipt;
-  if (prior.state.status !== 'consumed' || !receipt ||
+  if (!receipt ||
       Date.now() >= Date.parse(prior.state.expires_at) ||
       prior.state.generation !== claim.generation ||
       prior.state.boundary_fingerprint !== claim.boundary_fingerprint ||
@@ -204,6 +204,8 @@ async function confirmChallenge({ request, repository, prNumber, claim, ownerAtt
       receipt.claim_digest !== crypto.createHash('sha256').update(JSON.stringify(claim)).digest('hex') ||
       receipt.owner_attempt !== ownerAttempt || receipt.provider !== provider ||
       receipt.head_sha !== headSha) return false;
+  if (prior.state.status === 'confirmed') return true;
+  if (prior.state.status !== 'consumed') return false;
   const pr = await request('GET', `/repos/${String(repository).toLowerCase()}/pulls/${Number(prNumber)}`);
   const labels = new Set((pr?.labels || []).map((label) => String(label.name || '').toLowerCase()));
   if (pr?.state !== 'open' || pr?.head?.sha !== headSha ||
@@ -213,7 +215,41 @@ async function confirmChallenge({ request, repository, prNumber, claim, ownerAtt
     await writeAuthorityState(request, repository, prNumber, next, prior.sha);
     return true;
   } catch (_) {
-    return false;
+    const settled = await readAuthorityState(request, repository, prNumber).catch(() => null);
+    return settled?.state.status === 'confirmed' &&
+      settled.state.generation === claim.generation &&
+      settled.state.receipt?.id === receipt.id;
+  }
+}
+
+async function reopenUnconfirmedChallenge({ request, repository, prNumber, claim, ownerAttempt, provider, headSha }) {
+  const prior = await readAuthorityState(request, repository, prNumber);
+  const receipt = prior.state.receipt;
+  const matches = prior.state.generation === claim.generation &&
+    prior.state.boundary_fingerprint === claim.boundary_fingerprint &&
+    receipt?.claim_digest === crypto.createHash('sha256').update(JSON.stringify(claim)).digest('hex') &&
+    receipt.owner_attempt === ownerAttempt && receipt.provider === provider && receipt.head_sha === headSha;
+  if (matches && prior.state.status === 'confirmed') return { status: 'confirmed', state: prior.state };
+  if (!matches || prior.state.status !== 'consumed') return { status: 'uncertain', state: prior.state };
+  const now = Date.now();
+  const state = {
+    ...prior.state,
+    generation: crypto.randomBytes(32).toString('hex'),
+    due_at: new Date(now).toISOString(),
+    expires_at: new Date(now + 24 * 60 * 60 * 1000).toISOString(),
+    status: 'available', receipt: null, revision: prior.state.revision + 1,
+  };
+  try {
+    await writeAuthorityState(request, repository, prNumber, state, prior.sha);
+    return { status: 'reopened', state };
+  } catch (_) {
+    const settled = await readAuthorityState(request, repository, prNumber).catch(() => null);
+    if (settled?.state.status === 'confirmed' && settled.state.generation === claim.generation &&
+        settled.state.receipt?.id === receipt.id) return { status: 'confirmed', state: settled.state };
+    if (settled?.state.status === 'available' && settled.state.generation === state.generation) {
+      return { status: 'reopened', state: settled.state };
+    }
+    return { status: 'uncertain', state: settled?.state };
   }
 }
 
@@ -224,6 +260,7 @@ module.exports = {
   confirmChallenge,
   consumeChallenge,
   readAuthorityState,
+  reopenUnconfirmedChallenge,
   requester,
   validState,
 };
