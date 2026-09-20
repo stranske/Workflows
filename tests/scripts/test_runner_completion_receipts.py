@@ -1,6 +1,7 @@
 """Adversarial API interleavings for authoritative completion persistence."""
 
 import copy
+import json
 
 import pytest
 from scripts.runner_lib import core
@@ -167,6 +168,20 @@ def test_completion_retry_updates_its_own_receipt_without_appending():
     assert api.writes == ["POST", "PATCH"]
     assert len(api.receipts) == 1
     assert storage.read_record(42, "codex") == revised
+
+
+def test_completion_retry_never_edits_an_unmarked_json_comment():
+    api = CommentApi(reservation())
+    storage = core.PrCommentRunnerStorage(api)
+    completed = {**reservation(), "status": "completed", "completed_at": "2026-09-20T00:01:00Z"}
+    ordinary = {
+        "id": 2,
+        "body": json.dumps({"provider": "codex", "reservation_id": "old-reservation"}),
+    }
+    api.receipts.append(ordinary)
+    storage.write_completion(42, "codex", completed)
+    assert api.writes == ["POST"]
+    assert ordinary["body"].startswith("{")
 
 
 def test_retry_gets_new_reservation_identity_with_same_head_attempt_and_time(monkeypatch):

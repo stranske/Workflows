@@ -981,8 +981,8 @@ class PrCommentRunnerStorage:
         return receipt[1] if receipt else reservation
 
     def write_completion(self, pr_number: int, provider: str, record: dict[str, Any]) -> None:
-        # Append-only: a completion racing a newer reservation can leave evidence
-        # for its old attempt, but cannot overwrite that newer pending owner.
+        # A completion racing a newer reservation can leave evidence for its old
+        # attempt, but cannot overwrite that newer pending owner.
         receipt = {
             "schema": "runner-completion-receipt/v1",
             "provider": provider,
@@ -995,13 +995,28 @@ class PrCommentRunnerStorage:
         for comment in self._iter_comments(pr_number, direction="desc"):
             if not _is_trusted_marker_comment(comment):
                 continue
+            comment_body = comment.get("body")
+            if not isinstance(comment_body, str):
+                continue
+            if _marker_re(pr_number, provider, marker_prefix=RESERVATION_MARKER_PREFIX).search(
+                comment_body
+            ):
+                break
+            if not _marker_re(pr_number, provider, marker_prefix=COMPLETION_MARKER_PREFIX).search(
+                comment_body
+            ):
+                continue
             existing = _extract_record(
-                comment.get("body"),
+                comment_body,
                 pr_number,
                 provider,
                 marker_prefix=COMPLETION_MARKER_PREFIX,
             )
-            if existing and existing.get("reservation_id") == record["reservation_id"]:
+            if (
+                existing
+                and existing.get("schema") == "runner-completion-receipt/v1"
+                and existing.get("reservation_id") == record["reservation_id"]
+            ):
                 if existing == receipt:
                     return
                 self.api.request(
@@ -1010,10 +1025,6 @@ class PrCommentRunnerStorage:
                     {"body": body},
                 )
                 return
-            if isinstance(comment.get("body"), str) and _marker_re(
-                pr_number, provider, marker_prefix=RESERVATION_MARKER_PREFIX
-            ).search(comment["body"]):
-                break
         self.api.request(
             "POST",
             f"/repos/{self.api.repo}/issues/{pr_number}/comments",
