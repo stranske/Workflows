@@ -79,6 +79,7 @@ const buildGithubStub = ({
   authorityLedger = false,
 } = {}) => {
   const actions = [];
+  const currentLabels = new Set(labels);
   let stateCommentWriteCount = 0;
   const attention = comments.map((comment) => parseStateComment(comment.body)?.data?.attention)
     .find((candidate) => candidate?.disposition === 'challenge-due' && candidate.generation);
@@ -122,7 +123,7 @@ const buildGithubStub = ({
       }
       if (method === 'GET' && url.endsWith('/pulls/654')) {
         return { data: { state: 'open', head: { sha: 'd'.repeat(40) },
-          labels: [{ name: 'agent:needs-attention' }] } };
+          labels: [...currentLabels].map((name) => ({ name })) } };
       }
       if (method === 'GET' && url.endsWith('/git/ref/heads/main')) {
         return { data: { object: { sha: '1'.repeat(40) } } };
@@ -199,7 +200,7 @@ const buildGithubStub = ({
           };
         },
         async listLabelsOnIssue() {
-          return { data: labels.map((name) => ({ name })) };
+          return { data: [...currentLabels].map((name) => ({ name })) };
         },
         async updateComment({ body, comment_id: commentId }) {
           stateCommentWriteCount += 1;
@@ -229,6 +230,7 @@ const buildGithubStub = ({
             throw new Error('simulated attention label failure');
           }
           actions.push({ type: 'label', labels });
+          labels.forEach((name) => currentLabels.add(name));
           return { data: {} };
         },
         async removeLabel({ name }) {
@@ -237,6 +239,7 @@ const buildGithubStub = ({
             throw new Error('simulated attention label removal failure');
           }
           actions.push({ type: 'remove-label', name });
+          currentLabels.delete(name);
           return { data: {} };
         },
       },
