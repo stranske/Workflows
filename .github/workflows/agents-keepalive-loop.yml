@@ -602,10 +602,13 @@ jobs:
           process.exitCode = verified ? 0 : 1;
           NODE
           then
-            {
-              echo "should_dispatch=true"
-              echo "reason=due-authority-challenge"
-            } >> "$GITHUB_OUTPUT"
+            # reason=due-authority-challenge requires a persisted reservation.
+            python -m scripts.runner_lib should-dispatch \
+              --provider "$PROVIDER" \
+              --pr-number "$PR_NUMBER" \
+              --head-sha "$HEAD_SHA" \
+              --storage auto \
+              --authority-challenge
             exit 0
           fi
           if [ -z "${PR_NUMBER:-}" ] || [ -z "${HEAD_SHA:-}" ]; then

@@ -94,6 +94,11 @@ named head/base test proof. Other repository pytest configuration remains active
 and explicit author-provided commands are unchanged. Full-suite CI retains its
 normal coverage and plugin options; this does not weaken that separate gate.
 
+Signed keepalive recovery challenges must reserve their current workflow attempt
+before starting a runner. Shared `should-dispatch --authority-challenge` verifies
+the existing signed envelope and persists primary state before granting dispatch;
+denied storage is a failed reservation, not an invisible successful recovery run.
+
 Repository-variable runner storage must surface denied writes: HTTP 401/403
 cannot count as a successful reservation or recorded completion. The shared
 runner source propagates these errors to its caller, while a missing variable
