@@ -266,6 +266,14 @@ Keepalive now has two ways to detect task completion and keep PR checkboxes in s
 
 ### Deliberate-Break Gate
 
+The Gate installs declared project dependencies before the proof, then removes
+the installed head distribution so archived-base tests cannot import head code
+from site-packages. Its successful pip install report identifies the requested
+distribution for both `pyproject.toml` and `setup.py` projects. Missing/ambiguous
+report metadata or a failed uninstall stops the job; a warning alone cannot
+authorize a potentially contaminated base test. This isolation rule is identical
+in the source Gate and the create-only consumer Gate template.
+
 Gate runs an opt-in execution check when the PR body's Acceptance Criteria declares a deliberate-break marker:
 
 ```markdown
