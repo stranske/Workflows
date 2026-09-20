@@ -11,7 +11,7 @@ import yaml
 
 @pytest.mark.parametrize("prefix", ["", "templates/consumer-repo/"])
 @pytest.mark.parametrize("project_file", ["pyproject.toml", "setup.py"])
-@pytest.mark.parametrize("failure", ["", "missing-name", "uninstall"])
+@pytest.mark.parametrize("failure", ["", "missing-name", "ambiguous-name", "uninstall"])
 def test_gate_removes_reported_project_or_fails_closed(tmp_path, prefix, project_file, failure):
     root = Path(__file__).resolve().parents[2]
     workflow = yaml.safe_load((root / prefix / ".github/workflows/pr-00-gate.yml").read_text())
@@ -36,6 +36,11 @@ def test_gate_removes_reported_project_or_fails_closed(tmp_path, prefix, project
                         ),
                     },
                 ]
+                + (
+                    [{"requested": True, "metadata": {"name": "second-project"}}]
+                    if failure == "ambiguous-name"
+                    else []
+                )
             }
         )
     )
