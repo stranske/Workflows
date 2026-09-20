@@ -3,6 +3,7 @@
 // This branch is the authority for challenge generations and receipts. PR comments
 // are presentation only: a comment PATCH cannot provide a conditional write.
 const crypto = require('node:crypto');
+const { withRetry } = require('./github-api-with-retry.js');
 const BRANCH = 'keepalive-authority-state';
 const HEX = /^[0-9a-f]{64}$/;
 const HEAD = /^[0-9a-f]{40}$/;
@@ -41,29 +42,15 @@ function pathFor(repository, prNumber) {
   return `/repos/${String(repository).toLowerCase()}/contents/.github/keepalive-authority/${Number(prNumber)}.json`;
 }
 
-async function fetchRequest(method, path, body, token = process.env.GH_TOKEN || process.env.GITHUB_TOKEN) {
-  if (!token) throw new Error('Authority state token unavailable');
-  const response = await fetch(`https://api.github.com${path}`, {
-    method,
-    headers: {
-      Accept: 'application/vnd.github+json',
-      Authorization: `Bearer ${token}`,
-      'X-GitHub-Api-Version': '2022-11-28',
-      ...(body ? { 'Content-Type': 'application/json' } : {}),
-    },
-    ...(body ? { body: JSON.stringify(body) } : {}),
-  });
-  if (!response.ok) {
-    const error = new Error(`GitHub authority state ${method} failed: ${response.status}`);
-    error.status = response.status;
-    throw error;
-  }
-  return response.json();
-}
-
 async function requestWithOctokit(github, method, path, body) {
   try {
-    const response = await github.request(`${method} ${path}`, body || {});
+    // Writes are conditional and intentionally get no automatic retry. An
+    // uncertain result must deny the grant even if GitHub committed the write.
+    const response = await withRetry(
+      (client) => client.request(`${method} ${path}`, body || {}),
+      { github, maxRetries: method === 'GET' ? 2 : 0,
+        tokenRegistry: null, task: 'keepalive-authority-state' },
+    );
     return response.data;
   } catch (error) {
     error.status = error.status || error.response?.status;
@@ -72,9 +59,13 @@ async function requestWithOctokit(github, method, path, body) {
 }
 
 function requester(github) {
-  return github
-    ? (method, path, body) => requestWithOctokit(github, method, path, body)
-    : fetchRequest;
+  if (!github) {
+    const token = process.env.GH_TOKEN || process.env.GITHUB_TOKEN;
+    if (!token) throw new Error('Authority state token unavailable');
+    const { Octokit } = require('@octokit/rest');
+    github = new Octokit({ auth: token });
+  }
+  return (method, path, body) => requestWithOctokit(github, method, path, body);
 }
 
 async function ensureBranch(request, repository, defaultBranch) {
