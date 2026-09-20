@@ -1121,7 +1121,6 @@ jobs:
             # an intervening consumer edit.
             git fetch origin "$branch_name"
             existing_head=$(git rev-parse FETCH_HEAD)
-            existing_base=$(git rev-parse "${existing_head}^")
             existing_tree=$(git rev-parse "${existing_head}^{tree}")
             existing_verification=$(
               GH_TOKEN="$SIGNED_COMMIT_TOKEN" node \
@@ -1238,6 +1237,12 @@ jobs:
 
           # Create the current-generation branch from the current consumer base.
           base_sha=$(git rev-parse HEAD)
+          if [ -n "$existing_pr" ]; then
+            # A stable PR may contain a branch-update merge or another commit.
+            # Its immediate parent is not necessarily the base of its full
+            # unmerged payload; use the common ancestor with consumer main.
+            existing_base=$(git merge-base "$existing_head" "$base_sha")
+          fi
           if [ "$PLAN_SCOPE" = "source-delta" ] \
             && [ -n "$existing_pr" ] \
             && [ "$existing_refreshable" = "true" ]; then
