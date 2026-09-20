@@ -61,7 +61,6 @@ jobs:
             Workflows
           permission-contents: read
           permission-issues: write
-          permission-pull-requests: write
           permission-actions: write
 
       - name: Select GitHub token

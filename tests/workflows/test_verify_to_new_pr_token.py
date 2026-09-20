@@ -30,7 +30,6 @@ def test_app_token_is_scoped_and_template_matches_source():
     assert {key: value for key, value in mint["with"].items() if key.startswith("permission-")} == {
         "permission-contents": "read",
         "permission-issues": "write",
-        "permission-pull-requests": "write",
         "permission-actions": "write",
     }
     assert job["env"]["HAS_WORKFLOWS_APP_CREDS"].startswith("${{")
