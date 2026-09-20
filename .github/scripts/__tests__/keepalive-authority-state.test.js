@@ -8,6 +8,7 @@ const {
   confirmChallenge,
   consumeChallenge,
   readAuthorityState,
+  reopenUnconfirmedChallenge,
 } = require('../keepalive_authority_state');
 
 const repository = 'owner/repo';
@@ -27,12 +28,14 @@ function fakeGitHub() {
   let content = null;
   let beforePut = null;
   let afterPut = null;
+  let prHead = headSha;
+  let prLabels = ['agent:needs-attention'];
   const request = async (method, path, body) => {
     if (path.includes('/git/ref/heads/main') && method === 'GET') {
       return { object: { sha: '1'.repeat(40) } };
     }
     if (path.endsWith('/pulls/42') && method === 'GET') {
-      return { state: 'open', head: { sha: headSha }, labels: [{ name: 'needs-human' }] };
+      return { state: 'open', head: { sha: prHead }, labels: prLabels.map((name) => ({ name })) };
     }
     if (path.includes('/git/ref/heads/keepalive-authority-state') && method === 'GET') {
       if (!branch) throw status(404);
@@ -64,6 +67,8 @@ function fakeGitHub() {
     request,
     setBeforePut(fn) { beforePut = fn; },
     setAfterPut(fn) { afterPut = fn; },
+    setPrHead(sha) { prHead = sha; },
+    setPrLabels(labels) { prLabels = labels; },
     expireChallenge() {
       const state = JSON.parse(Buffer.from(content, 'base64').toString('utf8'));
       state.expires_at = new Date(Date.now() - 1).toISOString();
@@ -128,6 +133,7 @@ test('one generation grants once across attempts, providers, heads and nonces', 
     ownerAttempt: 'owner/repo:999:1', headSha,
     provider: 'codex',
   }), false);
+  api.setPrLabels(['needs-human']);
   assert.equal(await confirmChallenge({
     request: api.request, repository, prNumber, claim: signed,
     ownerAttempt, provider: 'codex', headSha,
@@ -139,6 +145,65 @@ test('one generation grants once across attempts, providers, heads and nonces', 
   });
   assert.notEqual(afterConfirmation.generation, state.generation);
   assert.equal(afterConfirmation.status, 'available');
+});
+
+test('head changed during consumption spends receipt but denies grant', async () => {
+  const api = fakeGitHub();
+  const state = await beginChallenge({
+    request: api.request, repository, prNumber, defaultBranch: 'main',
+    fingerprint, ...boundary(),
+  });
+  api.setAfterPut(async () => api.setPrHead('e'.repeat(40)));
+  const result = await consumeChallenge({
+    request: api.request, repository, prNumber, claim: claim(state),
+    ownerAttempt, provider: 'codex', headSha,
+  });
+  assert.equal(result.granted, false);
+  assert.equal(result.reason, 'challenge-pr-state-changed');
+  assert.equal((await readAuthorityState(api.request, repository, prNumber)).state.status, 'consumed');
+});
+
+test('routing label changed during consumption denies the grant', async () => {
+  const api = fakeGitHub();
+  const state = await beginChallenge({
+    request: api.request, repository, prNumber, defaultBranch: 'main',
+    fingerprint, ...boundary(),
+  });
+  api.setAfterPut(async () => api.setPrLabels(['needs-human']));
+  const result = await consumeChallenge({
+    request: api.request, repository, prNumber, claim: claim(state),
+    ownerAttempt, provider: 'codex', headSha,
+  });
+  assert.equal(result.granted, false);
+  assert.equal(result.reason, 'challenge-pr-state-changed');
+});
+
+test('head changed during confirmation never reports trusted confirmation', async () => {
+  const api = fakeGitHub();
+  const state = await beginChallenge({
+    request: api.request, repository, prNumber, defaultBranch: 'main',
+    fingerprint, ...boundary(),
+  });
+  const signed = claim(state);
+  assert.equal((await consumeChallenge({
+    request: api.request, repository, prNumber, claim: signed,
+    ownerAttempt, provider: 'codex', headSha,
+  })).granted, true);
+  api.setPrLabels(['needs-human']);
+  api.setAfterPut(async () => api.setPrHead('e'.repeat(40)));
+  assert.equal(await confirmChallenge({
+    request: api.request, repository, prNumber, claim: signed,
+    ownerAttempt, provider: 'codex', headSha,
+  }), false);
+  assert.equal((await readAuthorityState(api.request, repository, prNumber)).state.status, 'confirmed');
+  assert.equal(await confirmChallenge({
+    request: api.request, repository, prNumber, claim: signed,
+    ownerAttempt, provider: 'codex', headSha,
+  }), false);
+  assert.equal((await reopenUnconfirmedChallenge({
+    request: api.request, repository, prNumber, claim: signed,
+    ownerAttempt, provider: 'codex', headSha,
+  })).status, 'uncertain');
 });
 
 test('expired consumed generation can be replaced after confirmation was omitted', async () => {

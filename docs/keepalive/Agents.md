@@ -69,6 +69,8 @@ Auto-pilot pipeline:
 
    Both paths are **fail-safe**: any error or "no untried eligible agent left" routes to automation retry or an independent challenge with a concrete owner and next action. It does not silently become a human request. Capability gating means the set of rotation targets grows automatically as the registry marks more agents `belt`/`pr_keepalive` capable — no workflow edit needed.
 
+Authority receipts remain single-use in the SHA-checked ledger. PR head and labels are separate GitHub state: after consuming or confirming a receipt, keepalive rechecks the current PR before trusting the result. A changed head, changed routing label, or unavailable PR read denies the result while leaving the receipt spent. This is a fail-closed freshness check, not an atomic transaction across GitHub resources.
+
 ## Key Principles
 
 1. **Task Focus**: Agents must work on PR tasks, not unrelated improvements. Tasks are explicitly injected via the task appendix.

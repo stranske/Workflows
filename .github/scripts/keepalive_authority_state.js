@@ -190,7 +190,24 @@ async function consumeChallenge({ request, repository, prNumber, claim, ownerAtt
     // actually landed, its receipt stays consumed for every later attempt.
     return { granted: false, reason: [409, 422].includes(error.status) ? 'challenge-conflict' : 'challenge-write-uncertain' };
   }
+  // The ledger is the single-use authority, but PR metadata is a separate
+  // resource. Deny a grant if the head or routing labels changed during PUT.
+  // The receipt remains spent even when this final read is unavailable.
+  if (!await prMatches(request, repository, prNumber, headSha, 'agent:needs-attention', 'needs-human')) {
+    return { granted: false, reason: 'challenge-pr-state-changed' };
+  }
   return { granted: true, reason: 'due-authority-challenge', receipt };
+}
+
+async function prMatches(request, repository, prNumber, headSha, requiredLabel, excludedLabel = null) {
+  try {
+    const pr = await request('GET', `/repos/${String(repository).toLowerCase()}/pulls/${Number(prNumber)}`);
+    const labels = new Set((pr?.labels || []).map((label) => String(label.name || '').toLowerCase()));
+    return pr?.state === 'open' && pr?.head?.sha === headSha &&
+      labels.has(requiredLabel) && (!excludedLabel || !labels.has(excludedLabel));
+  } catch (_) {
+    return false;
+  }
 }
 
 async function confirmChallenge({ request, repository, prNumber, claim, ownerAttempt, provider, headSha }) {
@@ -204,21 +221,21 @@ async function confirmChallenge({ request, repository, prNumber, claim, ownerAtt
       receipt.claim_digest !== crypto.createHash('sha256').update(JSON.stringify(claim)).digest('hex') ||
       receipt.owner_attempt !== ownerAttempt || receipt.provider !== provider ||
       receipt.head_sha !== headSha) return false;
-  if (prior.state.status === 'confirmed') return true;
+  if (prior.state.status === 'confirmed') {
+    return prMatches(request, repository, prNumber, headSha, 'needs-human');
+  }
   if (prior.state.status !== 'consumed') return false;
-  const pr = await request('GET', `/repos/${String(repository).toLowerCase()}/pulls/${Number(prNumber)}`);
-  const labels = new Set((pr?.labels || []).map((label) => String(label.name || '').toLowerCase()));
-  if (pr?.state !== 'open' || pr?.head?.sha !== headSha ||
-      !labels.has('needs-human')) return false;
+  if (!await prMatches(request, repository, prNumber, headSha, 'needs-human')) return false;
   const next = { ...prior.state, status: 'confirmed', revision: prior.state.revision + 1 };
   try {
     await writeAuthorityState(request, repository, prNumber, next, prior.sha);
-    return true;
+    return prMatches(request, repository, prNumber, headSha, 'needs-human');
   } catch (_) {
     const settled = await readAuthorityState(request, repository, prNumber).catch(() => null);
     return settled?.state.status === 'confirmed' &&
       settled.state.generation === claim.generation &&
-      settled.state.receipt?.id === receipt.id;
+      settled.state.receipt?.id === receipt.id &&
+      await prMatches(request, repository, prNumber, headSha, 'needs-human');
   }
 }
 
@@ -229,7 +246,10 @@ async function reopenUnconfirmedChallenge({ request, repository, prNumber, claim
     prior.state.boundary_fingerprint === claim.boundary_fingerprint &&
     receipt?.claim_digest === crypto.createHash('sha256').update(JSON.stringify(claim)).digest('hex') &&
     receipt.owner_attempt === ownerAttempt && receipt.provider === provider && receipt.head_sha === headSha;
-  if (matches && prior.state.status === 'confirmed') return { status: 'confirmed', state: prior.state };
+  if (matches && prior.state.status === 'confirmed') {
+    const current = await prMatches(request, repository, prNumber, headSha, 'needs-human');
+    return { status: current ? 'confirmed' : 'uncertain', state: prior.state };
+  }
   if (!matches || prior.state.status !== 'consumed') return { status: 'uncertain', state: prior.state };
   const now = Date.now();
   const state = {
@@ -245,7 +265,10 @@ async function reopenUnconfirmedChallenge({ request, repository, prNumber, claim
   } catch (_) {
     const settled = await readAuthorityState(request, repository, prNumber).catch(() => null);
     if (settled?.state.status === 'confirmed' && settled.state.generation === claim.generation &&
-        settled.state.receipt?.id === receipt.id) return { status: 'confirmed', state: settled.state };
+        settled.state.receipt?.id === receipt.id &&
+        await prMatches(request, repository, prNumber, headSha, 'needs-human')) {
+      return { status: 'confirmed', state: settled.state };
+    }
     if (settled?.state.status === 'available' && settled.state.generation === state.generation) {
       return { status: 'reopened', state: settled.state };
     }
