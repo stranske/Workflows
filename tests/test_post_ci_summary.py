@@ -237,4 +237,7 @@ ImportError: No module named foo</failure>
     assert "error_type: import_error" in triage_text
     for anchor in ("type-errors", "test-failures", "coverage-failures", "import-errors"):
         path = f"docs/CI_FAILURE_PLAYBOOK.md#{anchor}"
-        assert f"playbook_url: [{path}](https://github.com/stranske/Workflows/blob/main/{path})" in triage_text
+        assert (
+            f"playbook_url: [{path}](https://github.com/stranske/Workflows/blob/main/{path})"
+            in triage_text
+        )
