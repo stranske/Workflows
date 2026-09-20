@@ -146,7 +146,7 @@ def test_openai_empty_batch_is_a_metadata_only_noop(monkeypatch):
     )
 
     assert response == embedding_provider.EmbeddingResponse(
-        vectors=[],
+        vectors=[[], [], []],
         metadata=embedding_provider.EmbeddingMetadata(
             provider="openai",
             model="requested-model",
@@ -183,7 +183,7 @@ def test_fallback_empty_batch_preserves_local_metadata():
     )
 
     assert response == embedding_provider.EmbeddingResponse(
-        vectors=[],
+        vectors=[[0.0] * embedding_provider.FALLBACK_DIMENSIONS for _ in range(2)],
         metadata=embedding_provider.EmbeddingMetadata(
             provider="fallback",
             model="explicit-local-model",
@@ -198,6 +198,70 @@ def test_fallback_punctuation_only_text_produces_a_finite_zero_vector():
 
     assert response.metadata.dimensions == embedding_provider.FALLBACK_DIMENSIONS
     assert response.vectors == [[0.0] * embedding_provider.FALLBACK_DIMENSIONS]
+
+
+@pytest.mark.parametrize(
+    "provider_type",
+    [
+        embedding_provider.LocalFallbackEmbeddingProvider,
+        embedding_provider.OpenAIEmbeddingProvider,
+    ],
+)
+def test_embedding_preserves_blank_positions_and_generator_order(monkeypatch, provider_type):
+    _install_stub_openai_embeddings(monkeypatch)
+    monkeypatch.setenv("OPENAI_API_KEY", "token")
+    provider = provider_type()
+    nonblank = provider.embed(["alpha", "beta"]).vectors
+    response = provider.embed(text for text in ["", " alpha ", "\t", "beta", " "])
+    zero = [0.0] * response.metadata.dimensions
+    assert response.vectors == [zero, nonblank[0], zero, nonblank[1], zero]
+
+
+@pytest.mark.parametrize(
+    "provider_type",
+    [
+        embedding_provider.LocalFallbackEmbeddingProvider,
+        embedding_provider.OpenAIEmbeddingProvider,
+    ],
+)
+def test_truly_empty_embedding_batch_returns_no_vectors(provider_type):
+    assert provider_type().embed(iter(())).vectors == []
+
+
+def test_openai_never_sends_blank_inputs(monkeypatch):
+    calls = []
+
+    class RejectBlankEmbeddings(StubEmbeddings):
+        def embed_documents(self, texts):
+            assert all(texts)
+            calls.append(texts)
+            return super().embed_documents(texts)
+
+    monkeypatch.setitem(
+        sys.modules,
+        "langchain_openai",
+        types.SimpleNamespace(OpenAIEmbeddings=RejectBlankEmbeddings),
+    )
+    monkeypatch.setenv("OPENAI_API_KEY", "token")
+    response = embedding_provider.OpenAIEmbeddingProvider().embed(["", "alpha", " "])
+    assert calls == [["alpha"]]
+    assert response.vectors == [[0.0], [5.0], [0.0]]
+
+
+@pytest.mark.parametrize("returned", [[], [[1.0], [2.0]]])
+def test_openai_rejects_misaligned_response_count(monkeypatch, returned):
+    class WrongCountEmbeddings(StubEmbeddings):
+        def embed_documents(self, texts):
+            return returned
+
+    monkeypatch.setitem(
+        sys.modules,
+        "langchain_openai",
+        types.SimpleNamespace(OpenAIEmbeddings=WrongCountEmbeddings),
+    )
+    monkeypatch.setenv("OPENAI_API_KEY", "token")
+    with pytest.raises(RuntimeError, match="response count does not match"):
+        embedding_provider.OpenAIEmbeddingProvider().embed(["", "alpha"])
 
 
 def test_registry_list_is_a_snapshot_not_mutable_registry_state():
