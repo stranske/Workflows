@@ -18,6 +18,7 @@ const { detectConflicts } = require('./conflict_detector');
 const { parseTimeoutConfig } = require('./timeout_config');
 const { ensureRateLimitWrapped } = require('./github-rate-limited-wrapper');
 const { verifyAuthorityChallengeClaim } = require('./keepalive_challenge_due');
+const { beginChallenge, confirmChallenge, requester } = require('./keepalive_authority_state');
 
 // Token load balancer for rate limit management
 let tokenLoadBalancer = null;
@@ -3682,6 +3683,10 @@ async function updateKeepaliveLoopSummary({ github: rawGithub, context, core, in
       repository: `${context.repo.owner}/${context.repo.repo}`,
       prNumber,
       boundaryFingerprint: authorityChallengeFingerprint,
+      generation: authorityChallengeClaim.generation,
+      dueAt: authorityChallengeClaim.due_at,
+      expiresAt: authorityChallengeClaim.expires_at,
+      headSha: inputs.head_sha ?? inputs.headSha,
       nonce: authorityChallengeClaim.nonce,
       sweepRunId: authorityChallengeClaim.sweep_run_id,
       sweepRunAttempt: authorityChallengeClaim.sweep_run_attempt,
@@ -3690,7 +3695,11 @@ async function updateKeepaliveLoopSummary({ github: rawGithub, context, core, in
       previousAuthorityChallenge &&
       Boolean(authorityChallengeFingerprint) &&
       authorityChallengeClaimVerified &&
-      authorityChallengeFingerprint === previousAttention.boundary_fingerprint;
+      authorityChallengeFingerprint === previousAttention.boundary_fingerprint &&
+      authorityChallengeClaim.generation === previousAttention.generation &&
+      authorityChallengeClaim.due_at === previousAttention.challenge_due_at &&
+      authorityChallengeClaim.expires_at === previousAttention.expires_at &&
+      authorityChallengeClaim.head_sha === (inputs.head_sha ?? inputs.headSha);
     const authorityEvidence = buildAuthorityChallengeEvidence({
       agentSummary,
       summaryReason,
@@ -3700,13 +3709,38 @@ async function updateKeepaliveLoopSummary({ github: rawGithub, context, core, in
     const escalationRequired =
       ((action === 'run' || action === 'fix') && runResult && runResult !== 'success' && errorCategory !== ERROR_CATEGORIES.transient) ||
       (action === 'stop' && !isSuccessStop && !isNeutralStop && errorCategory !== ERROR_CATEGORIES.transient);
-    const authorityChallengeConfirmed =
+    let authorityChallengeConfirmed =
       authorityChallengeProvenanceMatches &&
       escalationRequired &&
       errorCategory === ERROR_CATEGORIES.auth &&
+      agentExecutionStarted === true &&
       Boolean(authorityEvidence.fingerprint) &&
       authorityEvidence.actionable &&
       authorityEvidence.fingerprint === authorityChallengeFingerprint;
+    if (authorityChallengeConfirmed) {
+      const repository = `${context.repo.owner}/${context.repo.repo}`;
+      const claim = {
+        generation: authorityChallengeClaim.generation,
+        boundary_fingerprint: authorityChallengeFingerprint,
+        due_at: authorityChallengeClaim.due_at,
+        expires_at: authorityChallengeClaim.expires_at,
+        head_sha: authorityChallengeClaim.head_sha,
+        nonce: authorityChallengeClaim.nonce,
+        sweep_run_id: authorityChallengeClaim.sweep_run_id,
+        sweep_run_attempt: authorityChallengeClaim.sweep_run_attempt,
+      };
+      try {
+        authorityChallengeConfirmed = await confirmChallenge({
+          request: requester(github), repository, prNumber, claim,
+          ownerAttempt: `${repository.toLowerCase()}:${context.runId || process.env.GITHUB_RUN_ID || ''}:${context.runAttempt || process.env.GITHUB_RUN_ATTEMPT || ''}`,
+          provider: agentType,
+          headSha: inputs.head_sha ?? inputs.headSha,
+        });
+      } catch (error) {
+        core?.warning?.(`Authority receipt confirmation unavailable: ${error.message}`);
+        authorityChallengeConfirmed = false;
+      }
+    }
     let escalationDisposition = selectEscalationDisposition({
       required: escalationRequired || stop,
       errorCategory,
@@ -4485,9 +4519,34 @@ async function updateKeepaliveLoopSummary({ github: rawGithub, context, core, in
       (previousAttention.owner === 'automation' &&
         ['automation-retry', 'challenge-due'].includes(previousAttention.disposition)) ||
       previousAttentionHasLegacyOwnership;
-    const challengeDueAt = escalationDisposition === 'challenge-due'
-      ? new Date().toISOString()
-      : null;
+    let challengeState = null;
+    if (shouldEscalate && escalationDisposition === 'challenge-due' && authorityEvidence.fingerprint) {
+      try {
+        const repository = `${context.repo.owner}/${context.repo.repo}`;
+        const request = requester(github);
+        const repoInfo = await request('GET', `/repos/${repository}`);
+        const dueAt = new Date().toISOString();
+        const expiresAt = new Date(Date.now() + 24 * 60 * 60 * 1000).toISOString();
+        challengeState = await beginChallenge({
+          request, repository, prNumber,
+          defaultBranch: repoInfo.default_branch,
+          fingerprint: authorityEvidence.fingerprint,
+          dueAt, expiresAt,
+          expectedGeneration: previousAuthorityChallenge ? previousAttention.generation || null : null,
+        });
+        if (challengeState.status !== 'available' || Date.parse(challengeState.expires_at) <= Date.now()) {
+          escalationDisposition = 'automation-retry';
+          challengeState = null;
+        }
+      } catch (error) {
+        core?.warning?.(`Authority generation unavailable: ${error.message}`);
+        escalationDisposition = 'automation-retry';
+      }
+    }
+    if (escalationDisposition === 'challenge-due' && !challengeState) {
+      escalationDisposition = 'automation-retry';
+    }
+    const challengeDueAt = challengeState?.due_at || null;
     if (shouldEscalate) {
       const firstSeenAt = priorAttentionKey === attentionKey
         ? previousAttention.first_seen_at || new Date().toISOString()
@@ -4513,6 +4572,8 @@ async function updateKeepaliveLoopSummary({ github: rawGithub, context, core, in
           owner: 'automation',
           first_seen_at: firstSeenAt,
           challenge_due_at: challengeDueAt,
+          generation: challengeState?.generation || '',
+          expires_at: challengeState?.expires_at || '',
           boundary_fingerprint: escalationDisposition === 'challenge-due'
             ? authorityEvidence.fingerprint
             : '',

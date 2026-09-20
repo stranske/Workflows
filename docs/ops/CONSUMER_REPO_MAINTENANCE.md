@@ -87,6 +87,10 @@ maintenance is grouped into the same weekly maintenance window.
 
 ---
 
+### Keepalive authority state delivery
+
+The authority challenge helper is source-owned by Workflows and declared in `.github/sync-manifest.yml`. Sync the helper, consumer sweep, Gate Followups, and reporter workflow together through Maint 71 before enabling v2 challenge dispatch in a consumer. The sweep needs `contents: read`; Gate Followups and its reporter need `contents: write` to initialize and conditionally update the `keepalive-authority-state` branch. No operator-created branch or secret is needed beyond `KEEPALIVE_AUTHORITY_SIGNING_KEY`; a missing branch is initialized on the first new challenge. A missing file for a generation already projected in the trusted summary is an error and must be repaired from authoritative evidence, never from the comment alone.
+
 ## Bug Triage Process
 
 Signed keepalive recovery challenges must reserve their current workflow attempt

@@ -79,6 +79,7 @@ def _signed_challenge_environment(monkeypatch):
 @pytest.mark.parametrize("prior_status", [None, "completed", "pending"])
 def test_signed_challenge_reserves_own_attempt_and_records_completion(monkeypatch, prior_status):
     _signed_challenge_environment(monkeypatch)
+    monkeypatch.setattr(runner_core, "_consume_authority_challenge", lambda *args: True)
     primary = MemoryRunnerStorage()
     fallback = MemoryRunnerStorage()
     storage = runner_core.FallbackRunnerStorage(primary, fallback)
@@ -100,36 +101,40 @@ def test_signed_challenge_reserves_own_attempt_and_records_completion(monkeypatc
     assert not fallback.writes
 
 
+def test_challenge_cannot_reserve_without_authoritative_consumption(monkeypatch):
+    _signed_challenge_environment(monkeypatch)
+    monkeypatch.setattr(runner_core, "_consume_authority_challenge", lambda *args: False)
+    primary, fallback = MemoryRunnerStorage(), MemoryRunnerStorage()
+    decision = should_dispatch(
+        42,
+        "aaa",
+        "codex",
+        storage=runner_core.FallbackRunnerStorage(primary, fallback),
+        authority_challenge=True,
+    )
+    assert not decision.should_dispatch
+    assert decision.reason == "invalid-or-consumed-authority-challenge"
+    assert not primary.writes and not fallback.writes
+
+
 @pytest.mark.parametrize(
     "key,value",
     [
-        ("AUTHORITY_CHALLENGE_CLAIM", "{}"),
-        ("AUTHORITY_CHALLENGE_SIGNING_KEY", "wrong"),
-        ("AUTHORITY_CHALLENGE_FINGERPRINT", "c" * 64),
-        ("GITHUB_REPOSITORY", "other/repo"),
         ("GITHUB_ACTOR", "untrusted"),
         ("GITHUB_EVENT_NAME", "pull_request"),
         ("GITHUB_RUN_ATTEMPT", ""),
     ],
 )
-def test_challenge_cannot_reserve_with_invalid_authority(monkeypatch, key, value):
+def test_challenge_consumption_rejects_untrusted_workflow_context(monkeypatch, key, value):
     _signed_challenge_environment(monkeypatch)
     monkeypatch.setenv(key, value)
-    primary, fallback = MemoryRunnerStorage(), MemoryRunnerStorage()
-    with pytest.raises(ValueError, match="verified signed claim"):
-        should_dispatch(
-            42,
-            "aaa",
-            "codex",
-            storage=runner_core.FallbackRunnerStorage(primary, fallback),
-            authority_challenge=True,
-        )
-    assert not primary.writes and not fallback.writes
+    assert not runner_core._consume_authority_challenge(42, "a" * 40, "codex")
 
 
 @pytest.mark.parametrize("operation", ["read_record", "write_record"])
 def test_signed_challenge_storage_failure_never_dispatches(monkeypatch, operation):
     _signed_challenge_environment(monkeypatch)
+    monkeypatch.setattr(runner_core, "_consume_authority_challenge", lambda *args: True)
     primary, fallback = MemoryRunnerStorage(), MemoryRunnerStorage()
 
     def fail(*args):

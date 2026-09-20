@@ -5,6 +5,7 @@ const assert = require('node:assert/strict');
 const fs = require('fs');
 const os = require('os');
 const path = require('path');
+const crypto = require('node:crypto');
 
 const {
   countCheckboxes,
@@ -22,20 +23,33 @@ const { formatStateComment, parseStateComment } = require('../keepalive_state.js
 const { signAuthorityChallengeClaim } = require('../keepalive_challenge_due.js');
 const { stripPrTemplateContent, upsertBlock } = require('../agents_pr_meta_update_body.js');
 
+const TEST_DUE_AT = new Date(Date.now() - 60_000).toISOString();
+const TEST_EXPIRES_AT = new Date(Date.now() + 3_600_000).toISOString();
+
 const authorityClaimInputs = (prNumber, boundaryFingerprint, overrides = {}) => {
   const claim = {
     signingKey: 'test-only-authority-signing-key',
     repository: 'octo/workflows',
     prNumber,
     boundaryFingerprint,
+    generation: overrides.generation || 'c'.repeat(64),
+    dueAt: overrides.dueAt || TEST_DUE_AT,
+    expiresAt: overrides.expiresAt || TEST_EXPIRES_AT,
+    headSha: overrides.headSha || 'd'.repeat(40),
     nonce: overrides.nonce || 'a'.repeat(64),
     sweepRunId: overrides.sweepRunId || '987654321',
     sweepRunAttempt: overrides.sweepRunAttempt || '1',
   };
   return {
     authority_challenge_fingerprint: boundaryFingerprint,
+    head_sha: claim.headSha,
+    agent_execution_started: true,
     authority_challenge_claim: JSON.stringify({
       signature: signAuthorityChallengeClaim(claim),
+      generation: claim.generation,
+      due_at: claim.dueAt,
+      expires_at: claim.expiresAt,
+      head_sha: claim.headSha,
       nonce: claim.nonce,
       sweep_run_id: claim.sweepRunId,
       sweep_run_attempt: claim.sweepRunAttempt,
@@ -61,11 +75,85 @@ const buildGithubStub = ({
   failNeedsAttentionRemoval = false,
   failStateCommentWriteAt = 0,
   failWorkflowDispatch = false,
+  authorityReceipt = false,
+  authorityLedger = false,
 } = {}) => {
   const actions = [];
   let stateCommentWriteCount = 0;
-  return {
+  const attention = comments.map((comment) => parseStateComment(comment.body)?.data?.attention)
+    .find((candidate) => candidate?.disposition === 'challenge-due' && candidate.generation);
+  let authorityBranch = Boolean(attention);
+  let authorityContent = null;
+  if (attention) {
+    const claim = {
+      generation: attention.generation,
+      boundary_fingerprint: attention.boundary_fingerprint,
+      due_at: attention.challenge_due_at,
+      expires_at: attention.expires_at,
+      head_sha: 'd'.repeat(40),
+      nonce: 'a'.repeat(64),
+      sweep_run_id: '987654321',
+      sweep_run_attempt: '1',
+    };
+    const receipt = authorityReceipt ? {
+      id: 'e'.repeat(64),
+      claim_digest: crypto.createHash('sha256').update(JSON.stringify(claim)).digest('hex'),
+      owner_attempt: 'octo/workflows:9001:1',
+      provider: 'codex',
+      head_sha: claim.head_sha,
+      consumed_at: new Date().toISOString(),
+    } : null;
+    authorityContent = Buffer.from(JSON.stringify({
+      version: 2, repository: 'octo/workflows', pr_number: 654,
+      generation: attention.generation,
+      boundary_fingerprint: attention.boundary_fingerprint,
+      due_at: attention.challenge_due_at,
+      expires_at: attention.expires_at,
+      status: receipt ? 'consumed' : 'available',
+      receipt, revision: 1,
+    })).toString('base64');
+  }
+  const stub = {
     actions,
+    async request(route, body = {}) {
+      const [method, url] = route.split(' ');
+      if (method === 'GET' && url === '/repos/octo/workflows') {
+        return { data: { default_branch: 'main' } };
+      }
+      if (method === 'GET' && url.endsWith('/pulls/654')) {
+        return { data: { state: 'open', head: { sha: 'd'.repeat(40) },
+          labels: [{ name: 'agent:needs-attention' }] } };
+      }
+      if (method === 'GET' && url.endsWith('/git/ref/heads/main')) {
+        return { data: { object: { sha: '1'.repeat(40) } } };
+      }
+      if (method === 'GET' && url.endsWith('/git/ref/heads/keepalive-authority-state')) {
+        if (!authorityBranch) throw Object.assign(new Error('not found'), { status: 404 });
+        return { data: { object: { sha: '2'.repeat(40) } } };
+      }
+      if (method === 'POST' && url.endsWith('/git/refs')) {
+        authorityBranch = true;
+        return { data: {} };
+      }
+      if (url.includes('/contents/.github/keepalive-authority/')) {
+        if (method === 'GET') {
+          if (!authorityContent) throw Object.assign(new Error('not found'), { status: 404 });
+          return { data: {
+            sha: crypto.createHash('sha1').update(authorityContent).digest('hex'),
+            encoding: 'base64', content: authorityContent,
+          } };
+        }
+        if (method === 'PUT') {
+          const priorSha = authorityContent
+            ? crypto.createHash('sha1').update(authorityContent).digest('hex')
+            : undefined;
+          if (body.sha !== priorSha) throw Object.assign(new Error('conflict'), { status: 409 });
+          authorityContent = body.content;
+          return { data: {} };
+        }
+      }
+      throw new Error(`Unexpected authority request: ${route}`);
+    },
     rest: {
       pulls: {
         async get() {
@@ -158,6 +246,8 @@ const buildGithubStub = ({
       return Array.isArray(response?.data) ? response.data : [];
     },
   };
+  if (!attention && !authorityLedger) delete stub.request;
+  return stub;
 };
 
 const buildContext = (prNumber = 101, runId = 9001, overrides = {}) => ({
@@ -165,6 +255,7 @@ const buildContext = (prNumber = 101, runId = 9001, overrides = {}) => ({
   repo: { owner: 'octo', repo: 'workflows' },
   payload: overrides.payload ?? { pull_request: { number: prNumber } },
   runId,
+  runAttempt: 1,
 });
 
 const buildCore = () => ({
@@ -2942,6 +3033,7 @@ test('updateKeepaliveLoopSummary sends preflight auth failures without a runner 
   });
   const github = buildGithubStub({
     comments: [{ id: 88, body: existingState, html_url: 'https://example.com/88' }],
+    authorityLedger: true,
   });
 
   await updateKeepaliveLoopSummary({
@@ -2993,7 +3085,9 @@ test('a scheduled recheck that reproduces auth failure records a terminal human 
       owner: 'automation',
       disposition: 'challenge-due',
       first_seen_at: '2026-08-12T12:00:00Z',
-      challenge_due_at: '2026-08-12T12:05:00Z',
+      challenge_due_at: TEST_DUE_AT,
+      generation: 'c'.repeat(64),
+      expires_at: TEST_EXPIRES_AT,
       key: 'agent-run-failed|failure|auth|agent|1',
       boundary_fingerprint: boundary.fingerprint,
       boundary_detail: boundary.detail,
@@ -3001,6 +3095,7 @@ test('a scheduled recheck that reproduces auth failure records a terminal human 
   });
   const github = buildGithubStub({
     comments: [{ id: 89, body: existingState, html_url: 'https://example.com/89' }],
+    authorityReceipt: true,
     labels: ['agent:codex', 'agent:needs-attention'],
   });
 
@@ -3078,7 +3173,9 @@ test('a two-phase terminal transition reuses a newly created summary comment', a
       owner: 'automation',
       disposition: 'challenge-due',
       first_seen_at: '2026-08-12T12:00:00Z',
-      challenge_due_at: '2026-08-12T12:05:00Z',
+      challenge_due_at: TEST_DUE_AT,
+      generation: 'c'.repeat(64),
+      expires_at: TEST_EXPIRES_AT,
       key: 'agent-run-failed|failure|auth|agent|1',
       boundary_fingerprint: boundary.fingerprint,
       boundary_detail: boundary.detail,
@@ -3088,6 +3185,7 @@ test('a two-phase terminal transition reuses a newly created summary comment', a
     // GitHub comments always have ids; omitting it exercises the defensive
     // create path while retaining the prior challenge state needed to confirm.
     comments: [{ body: existingState }],
+    authorityReceipt: true,
     labels: ['agent:codex', 'agent:needs-attention'],
   });
 
@@ -3140,7 +3238,9 @@ test('a failed hard label write keeps the authority challenge automation-owned',
       owner: 'automation',
       disposition: 'challenge-due',
       first_seen_at: '2026-08-12T12:00:00Z',
-      challenge_due_at: '2026-08-12T12:05:00Z',
+      challenge_due_at: TEST_DUE_AT,
+      generation: 'c'.repeat(64),
+      expires_at: TEST_EXPIRES_AT,
       key: 'agent-run-failed|failure|auth|agent|1',
       boundary_fingerprint: boundary.fingerprint,
       boundary_detail: boundary.detail,
@@ -3148,6 +3248,7 @@ test('a failed hard label write keeps the authority challenge automation-owned',
   });
   const github = buildGithubStub({
     comments: [{ id: 93, body: existingState, html_url: 'https://example.com/93' }],
+    authorityReceipt: true,
     labels: ['agent:codex', 'agent:needs-attention'],
     failNeedsHumanLabel: true,
   });
@@ -3206,7 +3307,9 @@ test('a failed terminal state write leaves a durable actionable pending transiti
       owner: 'automation',
       disposition: 'challenge-due',
       first_seen_at: '2026-08-12T12:00:00Z',
-      challenge_due_at: '2026-08-12T12:05:00Z',
+      challenge_due_at: TEST_DUE_AT,
+      generation: 'c'.repeat(64),
+      expires_at: TEST_EXPIRES_AT,
       key: 'agent-run-failed|failure|auth|agent|1',
       boundary_fingerprint: boundary.fingerprint,
       boundary_detail: boundary.detail,
@@ -3214,6 +3317,7 @@ test('a failed terminal state write leaves a durable actionable pending transiti
   });
   const github = buildGithubStub({
     comments: [{ id: 95, body: existingState, html_url: 'https://example.com/95' }],
+    authorityReceipt: true,
     labels: ['agent:codex', 'agent:needs-attention'],
     failStateCommentWriteAt: 2,
   });
@@ -3284,7 +3388,9 @@ test('a forged sweep claim cannot confirm an authority challenge', async () => {
       owner: 'automation',
       disposition: 'challenge-due',
       first_seen_at: '2026-08-12T12:00:00Z',
-      challenge_due_at: '2026-08-12T12:05:00Z',
+      challenge_due_at: TEST_DUE_AT,
+      generation: 'c'.repeat(64),
+      expires_at: TEST_EXPIRES_AT,
       key: 'original-auth-boundary',
       boundary_fingerprint: boundary.fingerprint,
       boundary_detail: boundary.detail,
@@ -3357,7 +3463,9 @@ test('a reproduced generic auth failure remains automation-owned', async () => {
       owner: 'automation',
       disposition: 'challenge-due',
       first_seen_at: '2026-08-12T12:00:00Z',
-      challenge_due_at: '2026-08-12T12:05:00Z',
+      challenge_due_at: TEST_DUE_AT,
+      generation: 'c'.repeat(64),
+      expires_at: TEST_EXPIRES_AT,
       key: 'generic-auth-boundary',
       boundary_fingerprint: boundary.fingerprint,
       boundary_detail: boundary.detail,
@@ -3421,7 +3529,9 @@ test('a forced recheck with a different auth boundary stays automation-owned', a
       owner: 'automation',
       disposition: 'challenge-due',
       first_seen_at: '2026-08-12T12:00:00Z',
-      challenge_due_at: '2026-08-12T12:05:00Z',
+      challenge_due_at: TEST_DUE_AT,
+      generation: 'c'.repeat(64),
+      expires_at: TEST_EXPIRES_AT,
       key: 'original-auth-boundary',
       boundary_fingerprint: original.fingerprint,
       boundary_detail: original.detail,
@@ -3488,7 +3598,9 @@ test('renewing an authority challenge never removes its existing soft label', as
       owner: 'automation',
       disposition: 'challenge-due',
       first_seen_at: '2026-08-12T12:00:00Z',
-      challenge_due_at: '2026-08-12T12:05:00Z',
+      challenge_due_at: TEST_DUE_AT,
+      generation: 'c'.repeat(64),
+      expires_at: TEST_EXPIRES_AT,
       key: 'original-auth-boundary',
       boundary_fingerprint: original.fingerprint,
       boundary_detail: original.detail,
@@ -4026,7 +4138,9 @@ test('a successful authority recheck clears the automation challenge with or wit
         owner: 'automation',
         disposition: 'challenge-due',
         first_seen_at: '2026-08-12T12:00:00Z',
-        challenge_due_at: '2026-08-12T12:05:00Z',
+        challenge_due_at: TEST_DUE_AT,
+      generation: 'c'.repeat(64),
+      expires_at: TEST_EXPIRES_AT,
         key: 'agent-run-failed|failure|auth|agent|1',
       },
     });
@@ -4081,7 +4195,9 @@ test('a recovered authority challenge retains automation ownership until its sof
       owner: 'automation',
       disposition: 'challenge-due',
       first_seen_at: '2026-08-12T12:00:00Z',
-      challenge_due_at: '2026-08-12T12:05:00Z',
+      challenge_due_at: TEST_DUE_AT,
+      generation: 'c'.repeat(64),
+      expires_at: TEST_EXPIRES_AT,
       key: 'agent-run-failed|failure|auth|agent|1',
     },
   });

@@ -105,7 +105,7 @@ jobs:
       agent_routing_mode: ${{ steps.evaluate.outputs.agent_routing_mode }}
       security_blocked: ${{ steps.security_gate.outputs.blocked }}
       security_reason: ${{ steps.security_gate.outputs.reason }}
-      dispatch_should_run: ${{ steps.runner_dispatch.outputs.should_dispatch || 'true' }}
+      dispatch_should_run: ${{ steps.runner_dispatch.outputs.should_dispatch || 'false' }}
       dispatch_reason: ${{ steps.runner_dispatch.outputs.reason }}
       fingerprint_should_run: ${{ steps.fingerprint.outputs.should_run || 'true' }}
       fingerprint_reason: ${{ steps.fingerprint.outputs.reason }}
@@ -379,6 +379,7 @@ jobs:
               github.actor == 'github-actions[bot]' &&
               github.event.inputs.sweep_recheck == 'true' &&
               github.event.inputs.authority_challenge_claim || '' }}
+          RAW_AUTHORITY_CHALLENGE_CLAIM: ${{ github.event.inputs.authority_challenge_claim || '' }}
           AUTHORITY_CHALLENGE_SIGNING_KEY: >-
             ${{ secrets.KEEPALIVE_AUTHORITY_SIGNING_KEY || '' }}
         run: |
@@ -392,6 +393,7 @@ jobs:
             repository: process.env.GITHUB_REPOSITORY,
             prNumber: process.env.PR_NUMBER,
             boundaryFingerprint: process.env.AUTHORITY_CHALLENGE_FINGERPRINT,
+            headSha: process.env.HEAD_SHA,
           });
           process.exitCode = verified ? 0 : 1;
           NODE
@@ -403,6 +405,13 @@ jobs:
               --head-sha "$HEAD_SHA" \
               --storage auto \
               --authority-challenge
+            exit 0
+          fi
+          if [ -n "${RAW_AUTHORITY_CHALLENGE_CLAIM:-}" ]; then
+            {
+              echo "should_dispatch=false"
+              echo "reason=invalid-signed-authority-challenge"
+            } >> "$GITHUB_OUTPUT"
             exit 0
           fi
           if [ -z "${PR_NUMBER:-}" ] || [ -z "${HEAD_SHA:-}" ]; then
@@ -1163,7 +1172,7 @@ jobs:
           owner: ${{ github.repository_owner }}
           repositories: ${{ github.event.repository.name }}
           permission-actions: write
-          permission-contents: read
+          permission-contents: write
           permission-issues: write
           permission-pull-requests: read
 
@@ -1183,7 +1192,7 @@ jobs:
           owner: ${{ github.repository_owner }}
           repositories: ${{ github.event.repository.name }}
           permission-actions: write
-          permission-contents: read
+          permission-contents: write
           permission-issues: write
           permission-pull-requests: read
 
@@ -1310,6 +1319,7 @@ jobs:
 
             const inputs = {
               pr_number: Number('${{ needs.evaluate.outputs.pr_number }}') || 0,
+              head_sha: '${{ needs.evaluate.outputs.head_sha }}',
               action: '${{ needs.evaluate.outputs.action }}',
               reason: '${{ needs.evaluate.outputs.reason }}',
               gate_conclusion: '${{ needs.evaluate.outputs.gate_conclusion }}',
@@ -1409,7 +1419,7 @@ jobs:
       gate_run_id: ${{ steps.evaluate.outputs.gate_run_id }}
       security_blocked: ${{ steps.security_gate.outputs.blocked }}
       security_reason: ${{ steps.security_gate.outputs.reason }}
-      dispatch_should_run: ${{ steps.runner_dispatch.outputs.should_dispatch || 'true' }}
+      dispatch_should_run: ${{ steps.runner_dispatch.outputs.should_dispatch || 'false' }}
       dispatch_reason: ${{ steps.runner_dispatch.outputs.reason }}
     steps:
       - name: Checkout (for security gate + agent registry)
