@@ -204,8 +204,10 @@ def test_maint68_checks_rotation_before_rebuilding_stable_branch() -> None:
     assert 'existing_base=$(git merge-base "$existing_head" "$base_sha")' in workflow
     assert 'existing_base=$(git rev-parse "${existing_head}^")' not in workflow
     assert 'git fetch --unshallow origin "$branch_name" "$(git branch --show-current)"' in workflow
-    assert 'git diff --cached --name-only > ../staged_sync_targets.txt' in workflow
-    assert '--selected-targets-file ../staged_sync_targets.txt' in workflow
-    assert workflow.index('git checkout -B "$branch_name"') < workflow.index(
-        "guard_stable_plan_rotation.py"
-    ) < workflow.index("desired_tree_hash=$(git write-tree)")
+    assert "git diff --cached --name-only > ../staged_sync_targets.txt" in workflow
+    assert "--selected-targets-file ../staged_sync_targets.txt" in workflow
+    assert (
+        workflow.index('git checkout -B "$branch_name"')
+        < workflow.index("guard_stable_plan_rotation.py")
+        < workflow.index("desired_tree_hash=$(git write-tree)")
+    )
