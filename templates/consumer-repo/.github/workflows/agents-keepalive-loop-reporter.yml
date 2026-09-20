@@ -6,7 +6,7 @@ on:
     types: [completed]
 
 permissions:
-  contents: read
+  contents: write # conditional authority generation updates
   pull-requests: write
   issues: write
   actions: read
@@ -97,7 +97,7 @@ jobs:
           owner: ${{ github.repository_owner }}
           repositories: ${{ github.event.repository.name }}
           permission-actions: write
-          permission-contents: read
+          permission-contents: write
           permission-issues: write
           permission-pull-requests: read
 
@@ -120,7 +120,7 @@ jobs:
           owner: ${{ github.repository_owner }}
           repositories: ${{ github.event.repository.name }}
           permission-actions: write
-          permission-contents: read
+          permission-contents: write
           permission-issues: write
           permission-pull-requests: read
 

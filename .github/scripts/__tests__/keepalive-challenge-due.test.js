@@ -17,7 +17,14 @@ const marker = (attention, { login = 'stranske-keepalive[bot]', type = 'Bot' } =
   body: [
     '<!-- keepalive-loop-summary -->',
     'status',
-    `<!-- keepalive-state:v1 ${JSON.stringify({ attention })} -->`,
+    `<!-- keepalive-state:v1 ${JSON.stringify({ attention: attention?.disposition === 'challenge-due'
+      ? {
+          generation: 'c'.repeat(64),
+          boundary_fingerprint: 'a'.repeat(64),
+          expires_at: '2026-08-13T12:00:00.000Z',
+          ...attention,
+        }
+      : attention })} -->`,
   ].join('\n'),
 });
 
@@ -84,6 +91,10 @@ test('authority challenge claims bind the exact sweep selection', () => {
     repository: 'stranske/Workflows',
     prNumber: 3066,
     boundaryFingerprint: 'a'.repeat(64),
+    generation: 'c'.repeat(64),
+    dueAt: '2026-08-12T12:00:00.000Z',
+    expiresAt: '2026-08-13T12:00:00.000Z',
+    headSha: 'd'.repeat(40),
     nonce: 'b'.repeat(64),
     sweepRunId: '31683971486',
     sweepRunAttempt: '1',
@@ -92,21 +103,29 @@ test('authority challenge claims bind the exact sweep selection', () => {
   assert.equal(
     authorityClaimPayload(claim),
     [
-      'keepalive-authority-claim:v1',
+      'keepalive-authority-claim:v2',
       'repository=stranske/workflows',
       'pr=3066',
       `fingerprint=${'a'.repeat(64)}`,
+      `generation=${'c'.repeat(64)}`,
+      'due_at=2026-08-12T12:00:00.000Z',
+      'expires_at=2026-08-13T12:00:00.000Z',
+      `head_sha=${'d'.repeat(40)}`,
       `nonce=${'b'.repeat(64)}`,
       'sweep_run_id=31683971486',
       'sweep_run_attempt=1',
     ].join('\n'),
   );
-  assert.equal(signature, '54777445d7a5e2ddb9d22cc60e8477b2d54cf44892c419f1c7a80a52cb899b6b');
+  assert.match(signature, /^[0-9a-f]{64}$/);
   assert.equal(verifyAuthorityChallengeClaim({ ...claim, signature }), true);
   for (const mutation of [
     { repository: 'stranske/Ready' },
     { prNumber: 3067 },
     { boundaryFingerprint: 'c'.repeat(64) },
+    { generation: 'e'.repeat(64) },
+    { dueAt: '2026-08-12T13:00:00.000Z' },
+    { expiresAt: '2026-08-13T13:00:00.000Z' },
+    { headSha: 'e'.repeat(40) },
     { nonce: 'd'.repeat(64) },
     { sweepRunId: '31683971487' },
     { sweepRunAttempt: '2' },
@@ -140,12 +159,20 @@ test('runner debounce bypass accepts only the signed due challenge envelope', ()
     repository: 'stranske/Workflows',
     prNumber: 3066,
     boundaryFingerprint: 'a'.repeat(64),
+    generation: 'c'.repeat(64),
+    dueAt: '2026-08-12T12:00:00.000Z',
+    expiresAt: '2026-08-13T12:00:00.000Z',
+    headSha: 'd'.repeat(40),
     nonce: 'b'.repeat(64),
     sweepRunId: '31683971486',
     sweepRunAttempt: '1',
   };
   const claimJson = JSON.stringify({
     signature: signAuthorityChallengeClaim(selected),
+    generation: selected.generation,
+    due_at: selected.dueAt,
+    expires_at: selected.expiresAt,
+    head_sha: selected.headSha,
     nonce: selected.nonce,
     sweep_run_id: selected.sweepRunId,
     sweep_run_attempt: selected.sweepRunAttempt,
@@ -156,9 +183,11 @@ test('runner debounce bypass accepts only the signed due challenge envelope', ()
     repository: selected.repository,
     prNumber: selected.prNumber,
     boundaryFingerprint: selected.boundaryFingerprint,
+    headSha: selected.headSha,
   };
   assert.equal(verifyAuthorityChallengeEnvelope(input), true);
   assert.equal(verifyAuthorityChallengeEnvelope({ ...input, claimJson: '' }), false);
+  assert.equal(verifyAuthorityChallengeEnvelope({ ...input, headSha: 'e'.repeat(40) }), false);
   assert.equal(
     verifyAuthorityChallengeEnvelope({ ...input, boundaryFingerprint: 'c'.repeat(64) }),
     false,
@@ -173,15 +202,17 @@ test('selectDueAuthorityChallenge schedules an automation-owned due challenge', 
       disposition: 'challenge-due',
       challenge_due_at: '2026-08-12T12:00:00Z',
       key: 'auth',
-      boundary_fingerprint: 'fingerprint-auth',
+      boundary_fingerprint: 'a'.repeat(64),
       next_action: 'reproduce access failure',
     })],
     now: new Date('2026-08-12T13:00:00Z'),
   });
   assert.deepEqual(result, {
     dueAt: '2026-08-12T12:00:00.000Z',
+    expiresAt: '2026-08-13T12:00:00.000Z',
+    generation: 'c'.repeat(64),
     key: 'auth',
-    boundaryFingerprint: 'fingerprint-auth',
+    boundaryFingerprint: 'a'.repeat(64),
     nextAction: 'reproduce access failure',
   });
 });

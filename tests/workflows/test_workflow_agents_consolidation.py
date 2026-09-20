@@ -966,7 +966,7 @@ def test_keepalive_failure_reporter_uses_trusted_app_token():
         assert text.count("repositories: ${{ github.event.repository.name }}") == 2
         for permission in (
             "permission-actions: write",
-            "permission-contents: read",
+            "permission-contents: write",
             "permission-issues: write",
             "permission-pull-requests: read",
         ):
@@ -1037,7 +1037,7 @@ def test_keepalive_recovery_uses_active_lane_and_forces_only_due_challenges():
     assert root_summary.count("repositories: ${{ github.event.repository.name }}") == 2
     for permission in (
         "permission-actions: write",
-        "permission-contents: read",
+        "permission-contents: write",
         "permission-issues: write",
         "permission-pull-requests: read",
     ):
@@ -1058,7 +1058,7 @@ def test_keepalive_recovery_uses_active_lane_and_forces_only_due_challenges():
     assert consumer_summary.count("repositories: ${{ github.event.repository.name }}") == 2
     for permission in (
         "permission-actions: write",
-        "permission-contents: read",
+        "permission-contents: write",
         "permission-issues: write",
         "permission-pull-requests: read",
     ):

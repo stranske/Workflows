@@ -9,6 +9,11 @@ const TRUSTED_KEEPALIVE_STATE_AUTHORS = new Set([
   'stranske-keepalive[bot]',
 ]);
 
+function exactUtcTime(value) {
+  if (typeof value !== 'string' || !/^\d{4}-\d\d-\d\dT\d\d:\d\d:\d\d\.\d{3}Z$/.test(value)) return false;
+  return Number.isFinite(Date.parse(value)) && new Date(value).toISOString() === value;
+}
+
 function isTrustedKeepaliveStateComment(comment = {}) {
   const body = String(comment?.body || '');
   const login = String(comment?.user?.login || '').trim().toLowerCase();
@@ -24,6 +29,10 @@ function authorityClaimPayload({
   repository,
   prNumber,
   boundaryFingerprint,
+  generation,
+  dueAt,
+  expiresAt,
+  headSha,
   nonce,
   sweepRunId,
   sweepRunAttempt,
@@ -32,6 +41,10 @@ function authorityClaimPayload({
     repository: String(repository || '').toLowerCase(),
     prNumber: String(prNumber || ''),
     boundaryFingerprint: String(boundaryFingerprint || '').toLowerCase(),
+    generation: String(generation || '').toLowerCase(),
+    dueAt: String(dueAt || ''),
+    expiresAt: String(expiresAt || ''),
+    headSha: String(headSha || '').toLowerCase(),
     nonce: String(nonce || '').toLowerCase(),
     sweepRunId: String(sweepRunId || ''),
     sweepRunAttempt: String(sweepRunAttempt || ''),
@@ -40,6 +53,10 @@ function authorityClaimPayload({
     !/^[a-z0-9_.-]+\/[a-z0-9_.-]+$/.test(fields.repository) ||
     !/^\d+$/.test(fields.prNumber) ||
     !/^[0-9a-f]{64}$/.test(fields.boundaryFingerprint) ||
+    !/^[0-9a-f]{64}$/.test(fields.generation) ||
+    !exactUtcTime(fields.dueAt) || !exactUtcTime(fields.expiresAt) ||
+    Date.parse(fields.expiresAt) <= Date.parse(fields.dueAt) ||
+    !/^[0-9a-f]{40}$/.test(fields.headSha) ||
     !/^[0-9a-f]{64}$/.test(fields.nonce) ||
     !/^\d+$/.test(fields.sweepRunId) ||
     !/^\d+$/.test(fields.sweepRunAttempt)
@@ -47,10 +64,14 @@ function authorityClaimPayload({
     return '';
   }
   return [
-    'keepalive-authority-claim:v1',
+    'keepalive-authority-claim:v2',
     `repository=${fields.repository}`,
     `pr=${fields.prNumber}`,
     `fingerprint=${fields.boundaryFingerprint}`,
+    `generation=${fields.generation}`,
+    `due_at=${fields.dueAt}`,
+    `expires_at=${fields.expiresAt}`,
+    `head_sha=${fields.headSha}`,
     `nonce=${fields.nonce}`,
     `sweep_run_id=${fields.sweepRunId}`,
     `sweep_run_attempt=${fields.sweepRunAttempt}`,
@@ -77,6 +98,7 @@ function verifyAuthorityChallengeEnvelope({
   repository,
   prNumber,
   boundaryFingerprint,
+  headSha,
 } = {}) {
   let claim;
   try {
@@ -91,6 +113,10 @@ function verifyAuthorityChallengeEnvelope({
     repository,
     prNumber,
     boundaryFingerprint,
+    generation: claim.generation,
+    dueAt: claim.due_at,
+    expiresAt: claim.expires_at,
+    headSha,
     nonce: claim.nonce,
     sweepRunId: claim.sweep_run_id,
     sweepRunAttempt: claim.sweep_run_attempt,
@@ -102,11 +128,13 @@ function parseLatestKeepaliveState(comments = []) {
   for (const comment of comments) {
     if (!isTrustedKeepaliveStateComment(comment)) continue;
     const body = String(comment?.body || '');
+    // A newer trusted but malformed summary invalidates the older projection.
+    latest = null;
     for (const match of body.matchAll(STATE_RE)) {
       try {
         latest = JSON.parse(match[1]);
       } catch (_) {
-        // Ignore malformed or manually edited state markers and keep looking.
+        latest = null;
       }
     }
   }
@@ -122,17 +150,24 @@ function selectDueAuthorityChallenge({ labels = [], comments = [], now = new Dat
   if (
     attention?.owner !== 'automation' ||
     attention?.disposition !== 'challenge-due' ||
-    !attention?.challenge_due_at
+    !attention?.challenge_due_at ||
+    !/^[0-9a-f]{64}$/.test(String(attention?.generation || '')) ||
+    !/^[0-9a-f]{64}$/.test(String(attention?.boundary_fingerprint || '')) ||
+    !attention?.expires_at
   ) {
     return null;
   }
 
   const dueAt = Date.parse(attention.challenge_due_at);
+  const expiresAt = Date.parse(attention.expires_at);
   const nowMs = now instanceof Date ? now.getTime() : Date.parse(String(now));
-  if (!Number.isFinite(dueAt) || !Number.isFinite(nowMs) || dueAt > nowMs) return null;
+  if (!Number.isFinite(dueAt) || !Number.isFinite(expiresAt) ||
+      !Number.isFinite(nowMs) || dueAt > nowMs || nowMs >= expiresAt) return null;
 
   return {
     dueAt: new Date(dueAt).toISOString(),
+    expiresAt: new Date(expiresAt).toISOString(),
+    generation: attention.generation,
     key: String(attention.key || ''),
     boundaryFingerprint: String(attention.boundary_fingerprint || ''),
     nextAction: String(attention.next_action || ''),
