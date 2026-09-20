@@ -1121,6 +1121,11 @@ jobs:
             # an intervening consumer edit.
             git fetch origin "$branch_name"
             existing_head=$(git rev-parse FETCH_HEAD)
+            # The consumer clone starts at depth 1. Fetch both histories before
+            # computing the full PR merge-base for a stale stable branch.
+            if [ "$(git rev-parse --is-shallow-repository)" = "true" ]; then
+              git fetch --unshallow origin "$branch_name" "$(git branch --show-current)"
+            fi
             existing_tree=$(git rev-parse "${existing_head}^{tree}")
             existing_verification=$(
               GH_TOKEN="$SIGNED_COMMIT_TOKEN" node \
@@ -1243,23 +1248,6 @@ jobs:
             # unmerged payload; use the common ancestor with consumer main.
             existing_base=$(git merge-base "$existing_head" "$base_sha")
           fi
-          if [ "$PLAN_SCOPE" = "source-delta" ] \
-            && [ -n "$existing_pr" ] \
-            && [ "$existing_refreshable" = "true" ]; then
-            if [ ! -f "../sync_targets.txt" ]; then
-              echo "::error::Source-delta rotation lacks selected targets; use full scope."
-              exit 1
-            fi
-            python3 ../workflows/scripts/guard_stable_plan_rotation.py \
-              --repo . \
-              --old-base "$existing_base" \
-              --old-head "$existing_head" \
-              --new-base "$base_sha" \
-              --selected-targets-file ../sync_targets.txt || {
-                echo "::error::Source-delta rotation would discard an outstanding stable PR payload."
-                exit 1
-              }
-          fi
           git checkout -B "$branch_name"
 
           # Stage ONLY manifest-declared targets, to avoid accidentally committing
@@ -1279,6 +1267,27 @@ jobs:
           else
             echo "::warning::sync_targets.txt missing; falling back to git add -A"
             git add --force -A
+          fi
+
+          if [ "$PLAN_SCOPE" = "source-delta" ] \
+            && [ -n "$existing_pr" ] \
+            && [ "$existing_refreshable" = "true" ]; then
+            if [ ! -f "../sync_targets.txt" ]; then
+              echo "::error::Source-delta rotation lacks selected targets; use full scope."
+              exit 1
+            fi
+            # The manifest target list includes files skipped for this consumer.
+            # Only staged paths will survive when the stable branch is rebuilt.
+            git diff --cached --name-only > ../staged_sync_targets.txt
+            python3 ../workflows/scripts/guard_stable_plan_rotation.py \
+              --repo . \
+              --old-base "$existing_base" \
+              --old-head "$existing_head" \
+              --new-base "$base_sha" \
+              --selected-targets-file ../staged_sync_targets.txt || {
+                echo "::error::Source-delta rotation would discard an outstanding stable PR payload."
+                exit 1
+              }
           fi
 
           desired_tree_hash=$(git write-tree)

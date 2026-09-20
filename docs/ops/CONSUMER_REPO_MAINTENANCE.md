@@ -456,10 +456,13 @@ If a later run computes the same base and desired tree, it preserves the PR's
 current review/seal state; metadata-only refreshes therefore cannot restart
 review forever.
 
-Before a source-delta run rotates an open stable PR, Maint 68 compares the
-previous PR's unmerged file changes with the new plan targets and current
-consumer base. If an omitted file is not already present on that base with the
-same Git tree entry (mode, type, and content), it fails closed with
+Before a source-delta run rotates an open stable PR, Maint 68 fetches the
+consumer history needed for the full PR merge-base and compares its unmerged
+file changes with the paths actually staged for the new plan and current
+consumer base. Manifest targets skipped for this consumer, including existing
+`create_only` files, do not count as staged. If an omitted file is not already
+present on that base with the same Git tree entry (mode, type, and content),
+it fails closed with
 `source_delta_drops_unmerged_targets`; rerun
 a full-scope canary instead. A narrow refresh must not silently discard schema
 or other prerequisites staged by an earlier, still-unmerged plan.

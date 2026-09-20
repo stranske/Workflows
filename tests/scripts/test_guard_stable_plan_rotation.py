@@ -63,6 +63,22 @@ def test_narrow_rotation_accepts_selected_directory(tmp_path: Path) -> None:
     )
 
 
+def test_narrow_rotation_rejects_selected_but_skipped_target(tmp_path: Path) -> None:
+    repo, old_base, old_head = _repo_with_pending_delivery(tmp_path)
+    # A manifest-selected create_only target may be skipped in this consumer.
+    # The guard must receive staged paths, not the unfiltered manifest list.
+    assert uncovered_pending_paths(
+        repo,
+        old_base=old_base,
+        old_head=old_head,
+        new_base=old_base,
+        selected_targets=[],
+    ) == [
+        "docs/contracts/schemas/mosaic-core-v1.schema.json",
+        "scripts/validate_run_contract.py",
+    ]
+
+
 def test_narrow_rotation_accepts_prior_schema_already_on_base(tmp_path: Path) -> None:
     repo, old_base, old_head = _repo_with_pending_delivery(tmp_path)
     _write(repo, "docs/contracts/schemas/mosaic-core-v1.schema.json", "schema\n")
@@ -112,6 +128,23 @@ def test_narrow_rotation_checks_payload_after_branch_update_merge(tmp_path: Path
         new_base=new_base,
         selected_targets=["scripts/validate_run_contract.py"],
     ) == ["docs/contracts/schemas/mosaic-core-v1.schema.json"]
+
+
+def test_shallow_consumer_fetch_recovers_stable_pr_merge_base(tmp_path: Path) -> None:
+    repo, old_base, _ = _repo_with_pending_delivery(tmp_path)
+    _write(repo, "README.md", "advanced base\n")
+    _git(repo, "add", ".")
+    _git(repo, "commit", "-qm", "advance main")
+    clone = tmp_path / "shallow-consumer"
+    subprocess.run(
+        ["git", "clone", "-q", "--depth=1", "--branch", "main", repo.as_uri(), str(clone)],
+        check=True,
+    )
+    assert _git(clone, "rev-parse", "--is-shallow-repository") == "true"
+    _git(clone, "fetch", "origin", "sync/workflows-candidate")
+    old_head = _git(clone, "rev-parse", "FETCH_HEAD")
+    _git(clone, "fetch", "--unshallow", "origin", "sync/workflows-candidate", "main")
+    assert _git(clone, "merge-base", old_head, "HEAD") == old_base
 
 
 def test_narrow_rotation_preserves_pending_executable_mode(tmp_path: Path) -> None:
@@ -170,6 +203,9 @@ def test_maint68_checks_rotation_before_rebuilding_stable_branch() -> None:
     assert "guard_stable_plan_rotation.py" in workflow
     assert 'existing_base=$(git merge-base "$existing_head" "$base_sha")' in workflow
     assert 'existing_base=$(git rev-parse "${existing_head}^")' not in workflow
-    assert workflow.index("guard_stable_plan_rotation.py") < workflow.index(
-        'git checkout -B "$branch_name"'
-    )
+    assert 'git fetch --unshallow origin "$branch_name" "$(git branch --show-current)"' in workflow
+    assert 'git diff --cached --name-only > ../staged_sync_targets.txt' in workflow
+    assert '--selected-targets-file ../staged_sync_targets.txt' in workflow
+    assert workflow.index('git checkout -B "$branch_name"') < workflow.index(
+        "guard_stable_plan_rotation.py"
+    ) < workflow.index("desired_tree_hash=$(git write-tree)")
