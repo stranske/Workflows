@@ -352,6 +352,7 @@ def invoke_codex(
     log_file: Path,
     timeout: int,
     progress_files: tuple[Path, ...] = (),
+    purpose: str = "review",
 ) -> tuple[bool, str]:
     codex_bin = shutil.which("codex")
     if codex_bin is None:
@@ -381,6 +382,40 @@ def invoke_codex(
     else:
         return False, "codex exec exposes no supported non-interactive approval flag"
 
+    # Review and issue-body writing share this invoker but need different models.
+    if purpose == "review":
+        model_setting = "REPO_REVIEW_CODEX_MODEL"
+        effort_setting = "REPO_REVIEW_CODEX_REASONING_EFFORT"
+        default_model, default_effort = "gpt-6-astra", "high"
+    elif purpose == "body-writer":
+        model_setting = "REPO_REVIEW_BODY_WRITER_CODEX_MODEL"
+        effort_setting = "REPO_REVIEW_BODY_WRITER_CODEX_REASONING_EFFORT"
+        default_model, default_effort = "gpt-5.6-terra", "medium"
+    else:
+        return False, f"unknown repo-review Codex purpose: {purpose}"
+    model = os.environ.get(model_setting, default_model).strip()
+    reasoning_effort = os.environ.get(effort_setting, default_effort).strip()
+    if not model or not reasoning_effort:
+        return False, "repo-review Codex model and reasoning effort must be non-empty"
+    if model == "gpt-6-astra":
+        try:
+            version_result = subprocess.run(
+                [codex_bin, "--version"],
+                check=False,
+                capture_output=True,
+                text=True,
+                timeout=30,
+            )
+        except (OSError, subprocess.TimeoutExpired) as exc:
+            return False, f"could not verify Codex CLI compatibility with {model}: {exc}"
+        version_text = "\n".join([version_result.stdout, version_result.stderr])
+        version_match = re.search(r"\bcodex-cli\s+(\d+)\.(\d+)\.(\d+)\b", version_text)
+        if version_result.returncode != 0 or version_match is None:
+            return False, f"could not verify Codex CLI compatibility with {model}"
+        version = tuple(int(part) for part in version_match.groups())
+        if version < (0, 153, 2):
+            return False, f"{model} requires codex-cli >= 0.153.2; found {version_match.group(0)}"
+
     cmd = [
         codex_bin,
         "exec",
@@ -389,6 +424,10 @@ def invoke_codex(
         "--ephemeral",
         "-C",
         str(cwd),
+        "--model",
+        model,
+        "-c",
+        f"model_reasoning_effort={json.dumps(reasoning_effort)}",
     ]
     result = run_with_heartbeat(
         cmd,
@@ -804,6 +843,7 @@ def invoke_agent(
     log_file: Path,
     timeout: int,
     progress_files: tuple[Path, ...] = (),
+    codex_purpose: str = "review",
 ) -> tuple[bool, str]:
     """Dispatch to the right invoker by agent_label.
 
@@ -820,6 +860,7 @@ def invoke_agent(
             log_file=log_file,
             timeout=timeout,
             progress_files=progress_files,
+            purpose=codex_purpose,
         )
     if base == "claude":
         return invoke_claude(
