@@ -360,7 +360,10 @@ the reservation step after storage is healthy; no head change or manual state
 cleanup is needed. A pending primary reservation retains its
 stale-pending timeout. A failed write response can be ambiguous, so retries re-read
 primary state and preserve same-attempt idempotency. Explicit single-store callers
-retain their existing behavior.
+retain their existing read behavior. Repository-variable writes propagate
+HTTP 401/403 failures instead of treating them as successful no-ops; callers
+must not report a reservation or completion as persisted after a denied write.
+The PATCH-404 to POST creation path remains supported.
 
 Authoritative storage failures also emit a warning on stderr identifying reservation
 or completion, the read/write operation, exception and cause types, and HTTP status
