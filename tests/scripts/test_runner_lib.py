@@ -79,6 +79,7 @@ def _signed_challenge_environment(monkeypatch):
 @pytest.mark.parametrize("prior_status", [None, "completed", "pending"])
 def test_signed_challenge_reserves_own_attempt_and_records_completion(monkeypatch, prior_status):
     _signed_challenge_environment(monkeypatch)
+    monkeypatch.setattr(runner_core, "_consume_authority_challenge", lambda *args: True)
     primary = MemoryRunnerStorage()
     fallback = MemoryRunnerStorage()
     storage = runner_core.FallbackRunnerStorage(primary, fallback)
@@ -100,36 +101,69 @@ def test_signed_challenge_reserves_own_attempt_and_records_completion(monkeypatc
     assert not fallback.writes
 
 
+def test_challenge_cannot_reserve_without_authoritative_consumption(monkeypatch):
+    _signed_challenge_environment(monkeypatch)
+    monkeypatch.setattr(runner_core, "_consume_authority_challenge", lambda *args: False)
+    primary, fallback = MemoryRunnerStorage(), MemoryRunnerStorage()
+    decision = should_dispatch(
+        42,
+        "aaa",
+        "codex",
+        storage=runner_core.FallbackRunnerStorage(primary, fallback),
+        authority_challenge=True,
+    )
+    assert not decision.should_dispatch
+    assert decision.reason == "invalid-or-consumed-authority-challenge"
+    assert not primary.writes and not fallback.writes
+
+
 @pytest.mark.parametrize(
     "key,value",
     [
-        ("AUTHORITY_CHALLENGE_CLAIM", "{}"),
-        ("AUTHORITY_CHALLENGE_SIGNING_KEY", "wrong"),
-        ("AUTHORITY_CHALLENGE_FINGERPRINT", "c" * 64),
-        ("GITHUB_REPOSITORY", "other/repo"),
         ("GITHUB_ACTOR", "untrusted"),
         ("GITHUB_EVENT_NAME", "pull_request"),
         ("GITHUB_RUN_ATTEMPT", ""),
     ],
 )
-def test_challenge_cannot_reserve_with_invalid_authority(monkeypatch, key, value):
+def test_challenge_consumption_rejects_untrusted_workflow_context(monkeypatch, key, value):
     _signed_challenge_environment(monkeypatch)
     monkeypatch.setenv(key, value)
-    primary, fallback = MemoryRunnerStorage(), MemoryRunnerStorage()
-    with pytest.raises(ValueError, match="verified signed claim"):
-        should_dispatch(
-            42,
-            "aaa",
-            "codex",
-            storage=runner_core.FallbackRunnerStorage(primary, fallback),
-            authority_challenge=True,
-        )
-    assert not primary.writes and not fallback.writes
+    assert not runner_core._consume_authority_challenge(42, "a" * 40, "codex")
+
+
+@pytest.mark.parametrize(
+    "returncode,stdout,granted,diagnostic",
+    [
+        (0, b'{"granted":true}', True, ""),
+        (0, b'{"granted":false}', False, ""),
+        (7, b"", False, "exited 7"),
+        (0, b"not-json", False, "invalid JSON"),
+    ],
+)
+def test_authority_bridge_hands_v2_claim_to_node_and_fails_closed(
+    monkeypatch, capsys, returncode, stdout, granted, diagnostic
+):
+    _signed_challenge_environment(monkeypatch)
+    captured = {}
+
+    def fake_run(args, **kwargs):
+        captured.update(args=args, **kwargs)
+        return subprocess.CompletedProcess(args, returncode, stdout, b"sensitive helper detail")
+
+    monkeypatch.setattr(runner_core.subprocess, "run", fake_run)
+    assert runner_core._consume_authority_challenge(42, "a" * 40, "codex") is granted
+    assert captured["args"] == ["node", ".github/scripts/keepalive_authority_state.js", "consume"]
+    assert captured["env"]["AUTHORITY_CHALLENGE_CLAIM"]
+    assert captured["env"]["AUTHORITY_PR_NUMBER"] == "42"
+    assert captured["env"]["AUTHORITY_HEAD_SHA"] == "a" * 40
+    assert captured["env"]["AUTHORITY_PROVIDER"] == "codex"
+    assert diagnostic in capsys.readouterr().err
 
 
 @pytest.mark.parametrize("operation", ["read_record", "write_record"])
 def test_signed_challenge_storage_failure_never_dispatches(monkeypatch, operation):
     _signed_challenge_environment(monkeypatch)
+    monkeypatch.setattr(runner_core, "_consume_authority_challenge", lambda *args: True)
     primary, fallback = MemoryRunnerStorage(), MemoryRunnerStorage()
 
     def fail(*args):
@@ -1715,6 +1749,34 @@ def test_cli_reports_stale_completion_without_writing(
     output = json.loads(capsys.readouterr().out)
     assert output["recorded"] == "false"
     assert output["reason"] == "stale-attempt"
+    assert len(storage.writes) == writes
+
+
+def test_cli_unrecorded_completion_reports_current_key_and_unknown_status(
+    monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str]
+) -> None:
+    storage = MemoryRunnerStorage()
+    monkeypatch.setattr(runner_core, "_storage_from_name", lambda _: storage)
+    monkeypatch.setenv("GITHUB_REPOSITORY", "owner/repo")
+    monkeypatch.setenv("GITHUB_RUN_ID", "200")
+    monkeypatch.setenv("GITHUB_RUN_ATTEMPT", "1")
+    common = ["--provider", "codex", "--pr-number", "42"]
+    assert runner_core.main(["should-dispatch", *common, "--head-sha", "aaa"]) == 0
+    capsys.readouterr()
+    writes = len(storage.writes)
+
+    assert (
+        runner_core.main(["record-completion", *common, "--head-sha", "bbb", "--summary", "Done"])
+        == 0
+    )
+    output = json.loads(capsys.readouterr().out)
+    assert output == {
+        "key": runner_core._runner_key(42, "bbb", "codex"),
+        "productive": "",
+        "reason": "stale-attempt",
+        "recorded": "false",
+        "status": "unknown",
+    }
     assert len(storage.writes) == writes
 
 

@@ -87,6 +87,10 @@ maintenance is grouped into the same weekly maintenance window.
 
 ---
 
+### Keepalive authority state delivery
+
+The authority challenge helper is source-owned by Workflows and declared in `.github/sync-manifest.yml`. Sync the helper, consumer sweep, Gate Followups, and reporter workflow together through Maint 71 before enabling v2 challenge dispatch in a consumer. The sweep needs `contents: read`; Gate Followups and its reporter need `contents: write` to initialize and conditionally update the `keepalive-authority-state` branch. No operator-created branch or secret is needed beyond `KEEPALIVE_AUTHORITY_SIGNING_KEY`; a missing branch is initialized on the first new challenge. A missing file for a generation already projected in the trusted summary is an error and must be repaired from authoritative evidence, never from the comment alone.
+
 ## Bug Triage Process
 
 Signed keepalive recovery challenges must reserve their current workflow attempt
@@ -410,6 +414,12 @@ pending checks, changed heads, review windows, reviewer settlement, sealed Gate
 checks, and stable candidate base refreshes, so an absent event cannot strand
 the lifecycle. It does not retry actionable CI failures, unresolved review
 findings, or a dry-run-only sealed-head mismatch as if they were timer states.
+Scheduled Maint 82 continuations exclude the manual Collab-Admin exception.
+Its `delivery` selector targets only registered `sync/workflows-delivery`
+handoffs with the selected immutable plan, scope, base and source; candidate-only
+repositories are not sent to that lane as false `target_missing` failures.
+The `campaign` selector retains the non-manual fleet scope needed for exact-head
+authorization.
 Promoted delivery commits carry their exact canary evidence in the verified
 commit message so Maint 71 can replay the same promotion if a consumer base
 advances during review; editable PR body fields never authorize that replay.

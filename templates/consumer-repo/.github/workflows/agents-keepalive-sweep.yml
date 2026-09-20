@@ -78,6 +78,7 @@ jobs:
             .github/scripts/error_classifier.js
             .github/scripts/github-api-with-retry.js
             .github/scripts/keepalive_challenge_due.js
+            .github/scripts/keepalive_authority_state.js
             .github/scripts/token_load_balancer.js
           sparse-checkout-cone-mode: false
 
@@ -103,6 +104,8 @@ jobs:
               selectDueAuthorityChallenge,
               signAuthorityChallengeClaim,
             } = require('./.github/scripts/keepalive_challenge_due.js');
+            const { readAuthorityState, requester } =
+              require('./.github/scripts/keepalive_authority_state.js');
             const { withRetry } = await createTokenAwareRetry({
               github,
               core,
@@ -152,6 +155,24 @@ jobs:
                     comments,
                     now: new Date(),
                   });
+                  if (dueChallenge) {
+                    try {
+                      const { state } = await readAuthorityState(
+                        requester(github), repository, pr.number,
+                      );
+                      if (state.status !== 'available' ||
+                          state.generation !== dueChallenge.generation ||
+                          state.boundary_fingerprint !== dueChallenge.boundaryFingerprint ||
+                          state.due_at !== dueChallenge.dueAt ||
+                          state.expires_at !== dueChallenge.expiresAt ||
+                          Date.now() >= Date.parse(state.expires_at)) {
+                        dueChallenge = null;
+                      }
+                    } catch (error) {
+                      core.warning(`PR #${pr.number}: authority ledger unavailable: ${error.message}`);
+                      dueChallenge = null;
+                    }
+                  }
                 }
                 let authorityClaim = {};
                 if (dueChallenge) {
@@ -161,6 +182,10 @@ jobs:
                     repository,
                     prNumber: pr.number,
                     boundaryFingerprint: dueChallenge.boundaryFingerprint,
+                    generation: dueChallenge.generation,
+                    dueAt: dueChallenge.dueAt,
+                    expiresAt: dueChallenge.expiresAt,
+                    headSha: pr.head.sha,
                     nonce,
                     sweepRunId,
                     sweepRunAttempt,
@@ -180,6 +205,10 @@ jobs:
                     authorityClaim = {
                       authority_challenge_claim: JSON.stringify({
                         signature,
+                        generation: dueChallenge.generation,
+                        due_at: dueChallenge.dueAt,
+                        expires_at: dueChallenge.expiresAt,
+                        head_sha: pr.head.sha,
                         nonce,
                         sweep_run_id: sweepRunId,
                         sweep_run_attempt: sweepRunAttempt,
@@ -232,6 +261,7 @@ jobs:
             .github/scripts/error_classifier.js
             .github/scripts/github-api-with-retry.js
             .github/scripts/keepalive_challenge_due.js
+            .github/scripts/keepalive_authority_state.js
             .github/scripts/token_load_balancer.js
           sparse-checkout-cone-mode: false
 
@@ -254,6 +284,8 @@ jobs:
               selectDueAuthorityChallenge,
               signAuthorityChallengeClaim,
             } = require('./.github/scripts/keepalive_challenge_due.js');
+            const { readAuthorityState, requester } =
+              require('./.github/scripts/keepalive_authority_state.js');
             const { withRetry } = await createTokenAwareRetry({
               github,
               core,
@@ -306,6 +338,24 @@ jobs:
                     comments,
                     now: new Date(),
                   });
+                  if (dueChallenge) {
+                    try {
+                      const { state } = await readAuthorityState(
+                        requester(github), repository, pr.number,
+                      );
+                      if (state.status !== 'available' ||
+                          state.generation !== dueChallenge.generation ||
+                          state.boundary_fingerprint !== dueChallenge.boundaryFingerprint ||
+                          state.due_at !== dueChallenge.dueAt ||
+                          state.expires_at !== dueChallenge.expiresAt ||
+                          Date.now() >= Date.parse(state.expires_at)) {
+                        dueChallenge = null;
+                      }
+                    } catch (error) {
+                      core.warning(`PR #${pr.number}: authority ledger unavailable: ${error.message}`);
+                      dueChallenge = null;
+                    }
+                  }
                 }
                 let authorityClaim = {};
                 if (dueChallenge) {
@@ -315,6 +365,10 @@ jobs:
                     repository,
                     prNumber: pr.number,
                     boundaryFingerprint: dueChallenge.boundaryFingerprint,
+                    generation: dueChallenge.generation,
+                    dueAt: dueChallenge.dueAt,
+                    expiresAt: dueChallenge.expiresAt,
+                    headSha: pr.head.sha,
                     nonce,
                     sweepRunId,
                     sweepRunAttempt,
@@ -334,6 +388,10 @@ jobs:
                     authorityClaim = {
                       authority_challenge_claim: JSON.stringify({
                         signature,
+                        generation: dueChallenge.generation,
+                        due_at: dueChallenge.dueAt,
+                        expires_at: dueChallenge.expiresAt,
+                        head_sha: pr.head.sha,
                         nonce,
                         sweep_run_id: sweepRunId,
                         sweep_run_attempt: sweepRunAttempt,

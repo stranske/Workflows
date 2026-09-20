@@ -423,6 +423,9 @@ scripts:
   - source: .github/scripts/keepalive_challenge_due.js
     description: "Selects due automation-owned authority challenges for the hourly keepalive sweep"
 
+  - source: .github/scripts/keepalive_authority_state.js
+    description: "PR-wide conditional authority generation and single-use receipt ledger"
+
   - source: .github/scripts/token_load_balancer.js
     description: "Dynamic token load balancer for API rate limit management"
 

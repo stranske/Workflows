@@ -6,6 +6,50 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 Breaking changes are called out with a **BREAKING** marker and scheduled according to the policy in `COMPATIBILITY.md`.
 
+## [1.33.0](https://github.com/stranske/Workflows/compare/v1.32.6...v1.33.0) (2026-09-20)
+
+
+### Features
+
+* **contracts:** add document mirror catalogs and validation ([#3373](https://github.com/stranske/Workflows/issues/3373)) ([f68bad8](https://github.com/stranske/Workflows/commit/f68bad8067f2bd13bd147ff649f139878fcab9d4))
+* **contracts:** add mosaic-core records and manifest kinds ([#3467](https://github.com/stranske/Workflows/issues/3467)) ([1699ca1](https://github.com/stranske/Workflows/commit/1699ca1b427d2bea401c4b9fa7344be5975c95a8))
+* **contracts:** define output substrate and validate consumer ingest ([#3468](https://github.com/stranske/Workflows/issues/3468)) ([c9994cc](https://github.com/stranske/Workflows/commit/c9994cc9720631f1fa9bb597e9c7f7ad40ef0c1d))
+
+
+### Bug Fixes
+
+* **autofix:** count per-attempt Gate failures and gate escalation on real failing jobs ([#3434](https://github.com/stranske/Workflows/issues/3434)) ([3e1d15c](https://github.com/stranske/Workflows/commit/3e1d15ca52bf9fde9437a6706f4cf888f52b6341))
+* **contracts:** discover every bundled schema in self-smoke and map capability-bundle/v1 ([ac363e4](https://github.com/stranske/Workflows/commit/ac363e4359515563d333942a69d7df07bac281dc))
+* **contracts:** discover every bundled schema in self-smoke and map capability-bundle/v1 ([b4e9756](https://github.com/stranske/Workflows/commit/b4e9756d96508df4fb9ee60f347e6552cf68d941))
+* **contracts:** discover every bundled schema in self-smoke and map capability-bundle/v1 ([#3460](https://github.com/stranske/Workflows/issues/3460)) ([ac363e4](https://github.com/stranske/Workflows/commit/ac363e4359515563d333942a69d7df07bac281dc))
+* **corpus:** preserve verified decisions and promotion evidence ([#3442](https://github.com/stranske/Workflows/issues/3442)) ([9a16cbf](https://github.com/stranske/Workflows/commit/9a16cbf4f93a9366cdc2a0ab30fa2d01c977abbc))
+* **dedup:** handle non-finite similarity scores ([#3453](https://github.com/stranske/Workflows/issues/3453)) ([7b9d5e5](https://github.com/stranske/Workflows/commit/7b9d5e54414babbbee1991906fd8c43fa4281367))
+* **delegation:** return delegationSource on every decideNextAgent path ([#3346](https://github.com/stranske/Workflows/issues/3346)) ([a0e4a8a](https://github.com/stranske/Workflows/commit/a0e4a8a03d0794a2fcbb480ab4f38fbb3d0df697))
+* **deps:** refresh vendored glob security releases ([#3479](https://github.com/stranske/Workflows/issues/3479)) ([f135af0](https://github.com/stranske/Workflows/commit/f135af0f70c30a2a08667eb879f0058a2ae4ef69))
+* **gate-followups:** avoid success notice after unauthorized wakeup skip ([e7e3057](https://github.com/stranske/Workflows/commit/e7e3057f3e9c40299d5861f14611a49a6e37a65e))
+* **gate-followups:** grammar and document template-only wakeup path ([#3364](https://github.com/stranske/Workflows/issues/3364)) ([87941a7](https://github.com/stranske/Workflows/commit/87941a7a32c2696145636fa5e9a51a340766965c))
+* **gate-followups:** swallow unauthorized generated-delivery wakeup ([#3364](https://github.com/stranske/Workflows/issues/3364)) ([62f175f](https://github.com/stranske/Workflows/commit/62f175f73eb6db0803a10fe68f0aeee2234e2fb1))
+* **gate-followups:** swallow unauthorized generated-delivery wakeup (closes [#3364](https://github.com/stranske/Workflows/issues/3364)) ([142338c](https://github.com/stranske/Workflows/commit/142338c1d2e82345c7dced7e491e337afa95ec86))
+* **gate-followups:** swallow unauthorized generated-delivery wakeup (closes [#3364](https://github.com/stranske/Workflows/issues/3364)) ([142338c](https://github.com/stranske/Workflows/commit/142338c1d2e82345c7dced7e491e337afa95ec86))
+* **gate:** identify installed project from pip report ([#3480](https://github.com/stranske/Workflows/issues/3480)) ([3ed8bc0](https://github.com/stranske/Workflows/commit/3ed8bc0a6dbe41d961ba28cf15bf94a54f4679d1))
+* **gate:** install the project before the deliberate-break check ([#3464](https://github.com/stranske/Workflows/issues/3464)) ([5ef1f72](https://github.com/stranske/Workflows/commit/5ef1f72907e90b6a838a10b68ac047455ebd3914))
+* **keepalive:** count visible tasks outside generated summaries ([#3441](https://github.com/stranske/Workflows/issues/3441)) ([4da3c74](https://github.com/stranske/Workflows/commit/4da3c7426ce55a2147eafdee306d3c71e0078de1))
+* **keepalive:** reserve signed challenge attempts before dispatch ([#3477](https://github.com/stranske/Workflows/issues/3477)) ([2a09ba1](https://github.com/stranske/Workflows/commit/2a09ba145b9f0439e96c9e8417ef8c409222776b))
+* **pr-meta:** stop metadata status self-observation ([#3451](https://github.com/stranske/Workflows/issues/3451)) ([c856128](https://github.com/stranske/Workflows/commit/c8561288b546c9ab6beb3d318336b7b30c36d8d0))
+* resolve CI failures ([b08a3b2](https://github.com/stranske/Workflows/commit/b08a3b2ea1864d4ba797f92cd0751c11570204ba))
+* **runner:** fence stale completions and preserve retry state ([b0e1045](https://github.com/stranske/Workflows/commit/b0e1045e8cf13f6bf9223ce773ee45203fc8d026))
+* **runner:** fence stale completions and retain retry state ([71dd819](https://github.com/stranske/Workflows/commit/71dd8196dac92742ca77e2b5fd35218e90318a1e))
+* **runner:** log safe completion storage diagnostics ([98abc71](https://github.com/stranske/Workflows/commit/98abc71a5dc72887fe02352a871c9b8beebcd51e))
+* **runner:** narrow optional completion state for consumer mypy ([3706dc2](https://github.com/stranske/Workflows/commit/3706dc2fd51b77e87902ddfe508f06b81b83e8fc))
+* **runner:** propagate denied repository-variable writes ([#3476](https://github.com/stranske/Workflows/issues/3476)) ([4c49e65](https://github.com/stranske/Workflows/commit/4c49e654e7127310812983aed415e5a1e432638b))
+* **runner:** require authoritative completion storage ([42c2080](https://github.com/stranske/Workflows/commit/42c2080e7ed93911b562b3e08ee1c677cd139e01))
+* **runner:** require authoritative reservations before dispatch ([#3470](https://github.com/stranske/Workflows/issues/3470)) ([190eafe](https://github.com/stranske/Workflows/commit/190eafedb0d2174f427211d8679cd02d399605ac))
+* **runner:** retain productive head-change completion contract ([60fc90c](https://github.com/stranske/Workflows/commit/60fc90ca32dae25fb9be96c67a7ed7813211ae88))
+* **scripts:** correct unquoted test-name boundary in deliberate-break parser ([#3348](https://github.com/stranske/Workflows/issues/3348)) ([a8335dc](https://github.com/stranske/Workflows/commit/a8335dc29ebc7798fe67649f3136b5d07e11a182))
+* **scripts:** map the `docx` import to python-docx in the shared dependency checker ([#3462](https://github.com/stranske/Workflows/issues/3462)) ([6e00279](https://github.com/stranske/Workflows/commit/6e00279d2ab8e7f1a600b32647a7d86d86c5e777))
+* **sync:** address canary review findings in source ([#3486](https://github.com/stranske/Workflows/issues/3486)) ([fb2a8fc](https://github.com/stranske/Workflows/commit/fb2a8fc914fabc3608478d0192332893668f5f93))
+* **verifier:** prefer scoped App token for follow-up issues ([#3490](https://github.com/stranske/Workflows/issues/3490)) ([4996ceb](https://github.com/stranske/Workflows/commit/4996ceb863a70c5a9ab48c783f8907635215f0e4))
+
 ## [1.32.6](https://github.com/stranske/Workflows/compare/v1.32.5...v1.32.6) (2026-09-14)
 
 

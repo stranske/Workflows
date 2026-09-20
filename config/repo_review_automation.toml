@@ -62,6 +62,14 @@ For each active repo, sequentially:
      findings.json with a ranked candidate set. Reuse requires a runner-written
      findings.provenance.json whose source_commit exactly matches the current
      review checkout; stale findings are preserved and regenerated.
+     The nested Codex reviewer runs GPT-6 Astra at high reasoning in both rounds,
+     independently of the coordinator automation's model. Astra requires
+     codex-cli 0.153.2 or newer; older clients fail before review starts. For an intentional
+     trial, set REPO_REVIEW_CODEX_MODEL and REPO_REVIEW_CODEX_REASONING_EFFORT.
+     Standalone Codex body writing keeps its Terra Medium default; its separate
+     overrides are REPO_REVIEW_BODY_WRITER_CODEX_MODEL and
+     REPO_REVIEW_BODY_WRITER_CODEX_REASONING_EFFORT. The weekly coordinator
+     explicitly selects Claude for body writing.
   b. Skip-this-cycle gate: if round-1 fingerprint matches the prior cycle's
      converged set, skip round-2 and write a stub converged.json.
   c. Round-2: negotiation + synthesis → converged.json.

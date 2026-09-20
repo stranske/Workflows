@@ -23,6 +23,7 @@ const {
   paginateWithRetry,
   parseCampaignMarker,
   planMaint71Continuations,
+  selectMaint71ContinuationRepos,
   replaceCampaignMarker,
   verboseDryRunLoggingEnabled,
   validateCampaignState,
@@ -158,6 +159,50 @@ test('plans only due transient Maint 71 lanes and suppresses candidates during d
   assert.deepEqual(planMaint71Continuations([candidate, actionableDelivery], {
     now: '2026-08-15T12:11:00Z',
   }).map((item) => item.lane), ['candidate']);
+});
+
+test('delivery continuation scopes only exact-plan delivery branches, not candidates or manual admin', () => {
+  const binding = {
+    plan_id: 'plan-current', plan_scope: 'source-delta',
+    scope_base_sha: 'base', source_commit: 'source-current',
+  };
+  const handoff = (repository, branch, overrides = {}) => ({
+    schema: 'workflows-generated-delivery-handoff/v1',
+    repository, pr: 12, branch, head_sha: 'head', delivery_generation: 'generation',
+    disposition: 'awaiting-review-settlement', blocker_owner: 'reviewers',
+    next_command: 'rerun-after:2026-09-20T03:00:00Z',
+    check_state: 'ready', review_state: 'clear', observed_at: '2026-09-20T02:00:00Z',
+    ...binding,
+    continuation: {
+      class: 'transient', lane: branch === 'sync/workflows-delivery' ? 'delivery' : 'candidate',
+      reason: 'reviewer_settlement_pending', resume_after: '2026-09-20T03:00:00Z',
+    },
+    ...overrides,
+  });
+  const records = [
+    handoff('stranske/Collab-Admin', 'sync/workflows-delivery'),
+    handoff('stranske/Ready', 'sync/workflows-delivery'),
+    handoff('stranske/Travel', 'sync/workflows-candidate'),
+    handoff('stranske/Other', 'sync/workflows-delivery', { plan_id: 'plan-other' }),
+  ];
+  const registered = ['stranske/Collab-Admin', 'stranske/Ready', 'stranske/Travel', 'stranske/Other'];
+  const continuation = { lane: 'delivery', immutable_handoff: binding };
+  assert.deepEqual(selectMaint71ContinuationRepos(continuation, records, registered), ['stranske/Ready']);
+  assert.deepEqual(selectMaint71ContinuationRepos(
+    { lane: 'campaign', immutable_handoff: binding }, records, registered,
+  ), ['stranske/Ready', 'stranske/Travel', 'stranske/Other']);
+  assert.deepEqual(selectMaint71ContinuationRepos(
+    { lane: 'delivery', immutable_handoff: { ...binding, source_commit: 'stale' } },
+    records, registered,
+  ), []);
+  const nonManual = records.filter((record) => record.repository !== 'stranske/Collab-Admin');
+  assert.deepEqual(planMaint71Continuations(nonManual, {
+    now: '2026-09-20T03:01:00Z',
+  }).map((item) => item.lane), ['delivery']);
+  assert.deepEqual(planMaint71Continuations(
+    [records[0], records[2]].filter((record) => record.repository !== 'stranske/Collab-Admin'),
+    { now: '2026-09-20T03:01:00Z' },
+  ).map((item) => item.lane), ['candidate']);
 });
 
 test('campaign continuations preserve idempotency and immutable plan bindings', () => {

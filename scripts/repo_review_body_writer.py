@@ -532,6 +532,7 @@ def run_body_writer(
         log_file=log_path,
         timeout=timeout,
         progress_files=(converged_path(output_dir, repo),),
+        codex_purpose="body-writer",
     )
 
 
