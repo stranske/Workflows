@@ -30,6 +30,9 @@ no SDK call and needs no credentials: it returns one empty vector per input
 with unknown dimensionality. A truly empty batch returns no vectors. Repair
 this contract in Workflows and distribute it through Maint 68/71, not by editing
 generated consumer PRs.
+The manifest-managed `scripts/langchain/semantic_matcher.py` wrapper also keeps
+blank positions: an all-blank request returns empty vectors without selecting
+a provider, while a mixed request delegates blanks to the selected provider.
 
 ## Registered Consumer Repos
 

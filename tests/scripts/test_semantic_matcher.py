@@ -124,11 +124,35 @@ def test_generate_embeddings_empty_texts():
     assert result.provider == "none"
 
 
-def test_generate_embeddings_strips_whitespace_only_texts():
-    """generate_embeddings filters out whitespace-only texts."""
+def test_generate_embeddings_preserves_whitespace_only_positions():
+    """Blank-only requests preserve indices without selecting a provider."""
     result = semantic_matcher.generate_embeddings(["", "  ", "\n\t"])
     assert result is not None
-    assert result.vectors == []
+    assert result.vectors == [[], [], []]
+    assert result.provider == "none"
+
+
+def test_generate_embeddings_preserves_mixed_blank_positions():
+    client_info = semantic_matcher.EmbeddingClientInfo(
+        client=StubEmbeddings("stub-model"),
+        provider="stub",
+        model="stub-model",
+        is_fallback=False,
+    )
+    result = semantic_matcher.generate_embeddings(
+        [" alpha ", "", "  ", "beta"], client_info=client_info
+    )
+    assert result is not None
+    assert result.vectors == [[5.0], [0.0], [0.0], [4.0]]
+
+
+def test_generate_embeddings_fallback_keeps_blank_vector_positions(monkeypatch):
+    monkeypatch.delenv("OPENAI_API_KEY", raising=False)
+    result = semantic_matcher.generate_embeddings(["alpha", " ", "beta"])
+    assert result is not None
+    assert result.provider == "fallback"
+    assert len(result.vectors) == 3
+    assert result.vectors[1] == [0.0] * FALLBACK_DIMENSIONS
 
 
 def test_generate_embeddings_returns_none_without_client(monkeypatch):

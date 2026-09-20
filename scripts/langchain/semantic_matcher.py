@@ -119,10 +119,12 @@ def generate_embeddings(
     client_info: EmbeddingClientInfo | None = None,
     model: str | None = None,
 ) -> EmbeddingResult | None:
-    items = [text.strip() for text in texts if text and text.strip()]
-    if not items:
+    # Keep each input's index aligned with its embedding. Providers handle blank
+    # entries without sending them to an external embedding API.
+    items = [text.strip() if text else "" for text in texts]
+    if not any(items):
         return EmbeddingResult(
-            vectors=[],
+            vectors=[[] for _ in items],
             provider="none",
             model=model or DEFAULT_EMBEDDING_MODEL,
             is_fallback=False,
