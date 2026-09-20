@@ -841,3 +841,15 @@ disposition for `sync/workflows-*` and `deps/sync-dev-versions-*`; operators
 and local watchers must consume its recorded owner/next-command handoff rather
 than reimplementing that policy. See
 [`SYNC_DEPENDENCY_CAMPAIGN.md`](SYNC_DEPENDENCY_CAMPAIGN.md).
+
+## Vendored JavaScript security updates
+
+The shared script dependency tree remains vendored: minimatch is a
+`file:node_modules/minimatch` dependency, not a registry-install migration.
+Use the upstream stable release version in vendored package and lock metadata;
+adding `-vendored` changes semantic version ordering and can falsely retain a
+patched-release advisory. Strip upstream development/lifecycle scripts, preserve
+runtime exports and licenses, and update the source and consumer template trees
+together before Maint 68/71 delivery. The current patched chain is minimatch
+10.2.6, brace-expansion 5.0.12 and balanced-match 4.0.4. Brace-expansion requires
+Node 20 or >=22; the current Actions runtime supports that floor, not Node 18.
