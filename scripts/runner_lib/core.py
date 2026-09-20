@@ -864,22 +864,50 @@ class PrCommentRunnerStorage:
         return cls(GitHubApi(repo, token))
 
     def _iter_comments(self, pr_number: int, *, direction: str = "asc") -> Iterator[dict[str, Any]]:
-        page = 1
-        direction = "desc" if direction.strip().lower() == "desc" else "asc"
-        while True:
+        def fetch(page: int) -> list[dict[str, Any]]:
             batch = self.api.request(
                 "GET",
-                f"/repos/{self.api.repo}/issues/{pr_number}/comments"
-                f"?per_page=100&sort=created&direction={direction}&page={page}",
+                f"/repos/{self.api.repo}/issues/{pr_number}/comments?per_page=100&page={page}",
             )
             if not isinstance(batch, list):
                 raise RuntimeError(
                     f"Expected list response from GitHub API comments page for PR {pr_number}"
                 )
-            yield from batch
-            if len(batch) < 100:
-                break
-            page += 1
+            return batch
+
+        first = fetch(1)
+        if direction != "desc":
+            yield from first
+            page = 2
+            while len(first) == 100:
+                first = fetch(page)
+                yield from first
+                page += 1
+            return
+        # GitHub's issue-comment endpoint ignores sort/direction. Seek the last
+        # page by exponential/binary search, then walk backwards to the latest
+        # immutable reservation. A long-lived PR should not reread its entire
+        # comment history on every completion retry.
+        pages = {1: first}
+        if len(first) < 100:
+            last = 1
+        else:
+            low, high = 1, 2
+            while True:
+                pages[high] = fetch(high)
+                if len(pages[high]) < 100:
+                    break
+                low, high = high, high * 2
+            while low + 1 < high:
+                middle = (low + high) // 2
+                pages[middle] = fetch(middle)
+                if len(pages[middle]) == 100:
+                    low = middle
+                else:
+                    high = middle
+            last = high if pages[high] else low
+        for page in range(last, 0, -1):
+            yield from reversed(pages.get(page) if page in pages else fetch(page))
 
     def _find_comment(self, pr_number: int, provider: str) -> dict[str, Any] | None:
         pattern = _marker_re(pr_number, provider)
@@ -892,9 +920,8 @@ class PrCommentRunnerStorage:
         return None
 
     def read_record(self, pr_number: int, provider: str) -> dict[str, Any] | None:
-        # Consume every page and compare IDs; issue-comment APIs need not honor
-        # sort/direction, and a receipt may be older or newer than the reservation
-        # comment's latest PATCH. Only the exact reservation identity can join it.
+        # Walk newest to oldest. All receipts for an immutable reservation are
+        # newer than it, so stop at the latest one instead of reading old history.
         latest: tuple[int, dict[str, Any] | None] = (-1, None)
         legacy: tuple[int, dict[str, Any] | None] = (-1, None)
         receipts: dict[str, tuple[int, dict[str, Any]]] = {}
@@ -915,7 +942,7 @@ class PrCommentRunnerStorage:
                             body, pr_number, provider, marker_prefix=RESERVATION_MARKER_PREFIX
                         ),
                     )
-                continue
+                break
             if _marker_re(pr_number, provider).search(body):
                 if comment_id > legacy[0]:
                     legacy = (comment_id, _extract_record(body, pr_number, provider))
@@ -962,14 +989,35 @@ class PrCommentRunnerStorage:
             "reservation_id": record["reservation_id"],
             "record": record,
         }
+        body = _build_marker(pr_number, provider, receipt, marker_prefix=COMPLETION_MARKER_PREFIX)
+        # Retry the same attempt in-place. This bounds receipt growth without
+        # touching a newer reservation or losing the original receipt identity.
+        for comment in self._iter_comments(pr_number, direction="desc"):
+            if not _is_trusted_marker_comment(comment):
+                continue
+            existing = _extract_record(
+                comment.get("body"),
+                pr_number,
+                provider,
+                marker_prefix=COMPLETION_MARKER_PREFIX,
+            )
+            if existing and existing.get("reservation_id") == record["reservation_id"]:
+                if existing == receipt:
+                    return
+                self.api.request(
+                    "PATCH",
+                    f"/repos/{self.api.repo}/issues/comments/{comment['id']}",
+                    {"body": body},
+                )
+                return
+            if isinstance(comment.get("body"), str) and _marker_re(
+                pr_number, provider, marker_prefix=RESERVATION_MARKER_PREFIX
+            ).search(comment["body"]):
+                break
         self.api.request(
             "POST",
             f"/repos/{self.api.repo}/issues/{pr_number}/comments",
-            {
-                "body": _build_marker(
-                    pr_number, provider, receipt, marker_prefix=COMPLETION_MARKER_PREFIX
-                )
-            },
+            {"body": body},
         )
 
     def write_record(self, pr_number: int, provider: str, record: dict[str, Any]) -> None:
@@ -1196,7 +1244,15 @@ def _reserve_dispatch(
         if not isinstance(storage, FallbackRunnerStorage):
             raise
         _log_storage_failure("write", exc, phase="reservation")
-        return _unavailable_dispatch(key, prior)
+        # A POST can commit before the response is lost. Grant only if the
+        # primary now contains this exact reservation, never a different owner.
+        try:
+            persisted = reservation_storage.read_record(pr_number, provider)
+        except Exception as read_exc:
+            _log_storage_failure("read", read_exc, phase="reservation-recheck")
+            return _unavailable_dispatch(key, prior)
+        if persisted != record:
+            return _unavailable_dispatch(key, prior)
     return DebounceDecision(
         True,
         reason,

@@ -951,7 +951,7 @@ def test_pr_comment_storage_normalizes_direction_case() -> None:
     storage = PrCommentRunnerStorage(api)  # type: ignore[arg-type]
 
     assert list(storage._iter_comments(42, direction="DESC")) == []
-    assert "direction=desc" in api.paths[0]
+    assert "per_page=100&page=1" in api.paths[0]
 
 
 def test_pr_comment_storage_selects_newest_marker_from_newest_page() -> None:
@@ -966,7 +966,6 @@ def test_pr_comment_storage_selects_newest_marker_from_newest_page() -> None:
             assert body is None
             self.paths.append(path)
             if path.endswith("page=1"):
-                assert "sort=created&direction=desc" in path
                 return [
                     {
                         "body": (
@@ -1381,7 +1380,7 @@ def test_auto_dispatch_cli_refuses_unreadable_legacy_state(
     assert not fallback.writes
 
 
-def test_auto_dispatch_ambiguous_primary_write_never_starts_or_writes_fallback(
+def test_auto_dispatch_ambiguous_primary_write_recovers_exact_reservation_only(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
     primary = MemoryRunnerStorage()
@@ -1394,13 +1393,31 @@ def test_auto_dispatch_ambiguous_primary_write_never_starts_or_writes_fallback(
         raise RuntimeError("response lost after server persisted reservation")
 
     monkeypatch.setattr(primary, "write_record", ambiguous_write)
-    assert should_dispatch(42, "aaa", "codex", storage=storage).should_dispatch is False
+    assert should_dispatch(42, "aaa", "codex", storage=storage).should_dispatch is True
     assert primary.records[(42, "codex")]["status"] == "pending"
     assert not fallback.writes
     monkeypatch.setattr(primary, "write_record", original)
     assert should_dispatch(42, "aaa", "codex", storage=storage).reason == "duplicate-pending"
     primary.records[(42, "codex")]["started_at"] = "2000-01-01T00:00:00Z"
     assert should_dispatch(42, "aaa", "codex", storage=storage).should_dispatch is True
+    assert not fallback.writes
+
+
+def test_auto_dispatch_failed_primary_write_without_persistence_fails_closed(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    primary = MemoryRunnerStorage()
+    fallback = MemoryRunnerStorage()
+    storage = runner_core.FallbackRunnerStorage(primary, fallback)
+
+    def failed_write(pr_number: int, provider: str, record: dict[str, Any]) -> None:
+        raise RuntimeError("write failed before commit")
+
+    monkeypatch.setattr(primary, "write_record", failed_write)
+    decision = should_dispatch(42, "aaa", "codex", storage=storage)
+    assert decision.should_dispatch is False
+    assert decision.reason == "authoritative-storage-unavailable"
+    assert not primary.records
     assert not fallback.writes
 
 

@@ -10,14 +10,22 @@ class CommentApi:
     repo = "owner/repo"
 
     def __init__(self, reservation):
-        self.reservation = {"id": 1, "body": core._build_marker(42, "codex", reservation)}
+        prefix = (
+            core.MARKER_PREFIX
+            if "reservation_id" not in reservation
+            else core.RESERVATION_MARKER_PREFIX
+        )
+        self.reservation = {
+            "id": 1,
+            "body": core._build_marker(42, "codex", reservation, marker_prefix=prefix),
+        }
         self.receipts = []
         self.replace_before_write = None
         self.writes = []
 
     def request(self, method, path, body=None):
         if method == "GET":
-            return copy.deepcopy(list(reversed(self.receipts)) + [self.reservation])
+            return copy.deepcopy([self.reservation, *self.receipts])
         if self.replace_before_write:
             self.receipts.append(
                 {
@@ -91,7 +99,7 @@ def test_matching_receipt_is_read_and_completion_retry_is_idempotent(monkeypatch
     assert first["completed_at"] == second["completed_at"]
     assert first["unproductive_completions"] == second["unproductive_completions"] == 1
     assert api.reservation == original
-    assert api.writes == ["POST", "POST"]
+    assert api.writes == ["POST"], "Identical retry reuses its existing receipt"
 
 
 def test_receipts_are_found_on_later_ascending_pages(monkeypatch):
@@ -126,6 +134,39 @@ def test_receipt_cannot_invent_a_missing_reservation(monkeypatch):
     assert result["completion_recorded"] is False
     assert result["completion_reason"] == "authoritative-reservation-missing"
     assert api.writes == []
+
+
+def test_long_comment_history_reads_from_tail_and_stops_at_latest_reservation():
+    class LongHistoryApi(CommentApi):
+        def __init__(self, current):
+            super().__init__(current)
+            self.comments = [{"id": index, "body": "ordinary"} for index in range(1, 601)] + [
+                {"id": 601, "body": self.reservation["body"]}
+            ]
+            self.reads = []
+
+        def request(self, method, path, body=None):
+            assert method == "GET"
+            page = int(path.rsplit("page=", 1)[1])
+            self.reads.append(page)
+            return copy.deepcopy(self.comments[(page - 1) * 100 : page * 100])
+
+    api = LongHistoryApi(reservation())
+    storage = core.PrCommentRunnerStorage(api)
+    assert storage.read_record(42, "codex")["reservation_id"] == "old-reservation"
+    assert len(api.reads) <= 8, "Seeking the tail must not reread 600 old comments"
+
+
+def test_completion_retry_updates_its_own_receipt_without_appending():
+    api = CommentApi(reservation())
+    storage = core.PrCommentRunnerStorage(api)
+    completed = {**reservation(), "status": "completed", "completed_at": "2026-09-20T00:01:00Z"}
+    storage.write_completion(42, "codex", completed)
+    revised = {**completed, "productive": False}
+    storage.write_completion(42, "codex", revised)
+    assert api.writes == ["POST", "PATCH"]
+    assert len(api.receipts) == 1
+    assert storage.read_record(42, "codex") == revised
 
 
 def test_retry_gets_new_reservation_identity_with_same_head_attempt_and_time(monkeypatch):

@@ -333,18 +333,20 @@ not an atomic compare-and-swap guarantee from the backing storage.
 The authoritative PR-comment backend uses append-only `runner-reservation` markers
 with a fresh reservation ID and separate `runner-completion` receipts bound to that
 ID. A completion never PATCHes the reservation, so an older completion racing a new
-reservation cannot overwrite its pending owner. Readers join only the latest
-authoritative reservation with a matching trusted receipt, across all comment pages
-and independent of API sort order. Legacy `runner-dispatch` records remain readable
+reservation cannot overwrite its pending owner. Readers seek the newest comment
+page, walk backward, and stop at the latest authoritative reservation, joining
+only a matching trusted receipt. The issue-comment API ignores requested sort
+direction; the reader does not depend on it. Legacy `runner-dispatch` records remain readable
 until a new reservation exists; later writes by old clients cannot supersede the
-new marker family. Duplicate completion receipts preserve the same completion time
-and retry count. Missing or malformed authority fails closed.
+new marker family. A completion retry reuses its own receipt (or returns without
+writing when identical), preventing unbounded growth from retries. Missing or
+malformed authority fails closed.
 
 This is completion-write isolation, not serialization of simultaneous dispatch
 attempts. Explicit repository-variable storage retains its legacy single-writer
 contract; concurrent automation uses the authoritative PR-comment backend through
-`--storage auto`. Receipt history is durable evidence, not a mutable latest-state
-comment to clean up during a run.
+`--storage auto`. Reservation history is durable evidence; only the matching
+completion receipt for an attempt may be updated, never the current reservation.
 
 Signed authority challenges also reserve the current head and workflow attempt
 before dispatch. The root and consumer loops invoke `should-dispatch
@@ -357,7 +359,7 @@ fallback writes; completion then uses the ordinary attempt-bound path. An invali
 claim cannot authorize a forced reservation.
 
 With `--storage auto`, completion reads only the primary PR-comment reservation
-and appends its receipt there, never to an empty or stale repository-variable fallback. A missing primary
+and writes its matching receipt there, never to an empty or stale repository-variable fallback. A missing primary
 reservation returns `recorded=false`, `reason=authoritative-reservation-missing`;
 a primary read/write failure returns `reason=authoritative-storage-unavailable`.
 These checks apply even when the completing job has no workflow identity. Automatic
@@ -374,8 +376,9 @@ best-effort authorization handling. Once the primary contains a record, the fall
 is not consulted or written. Recover by retrying
 the reservation step after storage is healthy; no head change or manual state
 cleanup is needed. A pending primary reservation retains its
-stale-pending timeout. A failed write response can be ambiguous, so retries re-read
-primary state and preserve same-attempt idempotency. Explicit single-store callers
+stale-pending timeout. A failed reservation write response can be ambiguous, so
+the caller immediately re-reads primary state and grants only if the exact pending
+reservation was persisted; otherwise it refuses the dispatch. Explicit single-store callers
 retain their existing read behavior. Repository-variable writes propagate
 HTTP 401/403 failures instead of treating them as successful no-ops; callers
 must not report a reservation or completion as persisted after a denied write.
