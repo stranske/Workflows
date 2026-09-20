@@ -11,9 +11,17 @@ import hashlib
 import sys
 import types
 from collections.abc import Iterable
+from pathlib import Path
 
 import pytest
 from tools import embedding_provider
+
+
+def test_embedding_template_matches_source():
+    root = Path(__file__).resolve().parents[2]
+    assert (root / "tools/embedding_provider.py").read_bytes() == (
+        root / "templates/consumer-repo/tools/embedding_provider.py"
+    ).read_bytes()
 
 
 class StubEmbeddings:

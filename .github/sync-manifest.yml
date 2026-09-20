@@ -724,6 +724,7 @@ scripts:
 
   - source: tools/embedding_provider.py
     description: "Embedding provider registry used by synced semantic matching helpers"
+    template_sync: exact
 
   - source: tools/check_model_registry_freshness.py
     description: "Model-registry freshness gate - validates dated decisions, evidence, lifecycle, and profile-based slots"

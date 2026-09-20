@@ -50,7 +50,7 @@ class EmbeddingMetadata:
 
 @dataclass(frozen=True)
 class EmbeddingResponse:
-    """Embedding vectors with metadata."""
+    """Embedding vectors in input order, including a slot for every blank input."""
 
     vectors: list[list[float]]
     metadata: EmbeddingMetadata
@@ -152,7 +152,8 @@ class OpenAIEmbeddingProvider(EmbeddingProvider):
         return True
 
     def embed(self, texts: Iterable[str], *, model: str | None = None) -> EmbeddingResponse:
-        items = [text.strip() for text in texts if text and text.strip()]
+        items = [text.strip() if text else "" for text in texts]
+        nonblank = [text for text in items if text]
         resolved_model = self.model_name(model)
         metadata = EmbeddingMetadata(
             provider=self.provider_id,
@@ -160,8 +161,9 @@ class OpenAIEmbeddingProvider(EmbeddingProvider):
             dimensions=None,
             is_fallback=self.is_fallback(),
         )
-        if not items:
-            return EmbeddingResponse(vectors=[], metadata=metadata)
+        if not nonblank:
+            # No API call, credentials or guessed model dimensionality for blanks.
+            return EmbeddingResponse(vectors=[[] for _ in items], metadata=metadata)
         if not self.credentials_configured():
             raise RuntimeError("OpenAI embeddings requested without OPENAI_API_KEY configured.")
         try:
@@ -177,11 +179,15 @@ class OpenAIEmbeddingProvider(EmbeddingProvider):
                 # Keep a plain str for runtime compatibility across supported langchain_openai versions.
                 api_key=os.environ["OPENAI_API_KEY"],  # type: ignore[arg-type]
             )
-            vectors = client.embed_documents(items)
+            vectors = client.embed_documents(nonblank)
         except Exception as exc:  # pragma: no cover - depends on external SDK errors
             raise RuntimeError("OpenAI embeddings request failed.") from exc
 
-        dimensions = len(vectors[0]) if vectors else None
+        if len(vectors) != len(nonblank):
+            raise RuntimeError("OpenAI embeddings response count does not match input count.")
+        dimensions = len(vectors[0])
+        nonblank_vectors = iter(vectors)
+        vectors = [next(nonblank_vectors) if text else [0.0] * dimensions for text in items]
         metadata = EmbeddingMetadata(
             provider=self.provider_id,
             model=resolved_model,
@@ -211,7 +217,7 @@ class LocalFallbackEmbeddingProvider(EmbeddingProvider):
         return True
 
     def embed(self, texts: Iterable[str], *, model: str | None = None) -> EmbeddingResponse:
-        items = [text.strip() for text in texts if text and text.strip()]
+        items = [text.strip() if text else "" for text in texts]
         resolved_model = self.model_name(model)
         metadata = EmbeddingMetadata(
             provider=self.provider_id,
