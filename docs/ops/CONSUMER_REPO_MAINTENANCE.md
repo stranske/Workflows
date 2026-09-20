@@ -94,6 +94,11 @@ The shared `tools/ci_failure_triage.py` links to
 playbook paths and anchors valid in both Workflows and consumer checkouts;
 Workflows-only documentation paths are not consumer-local playbook links.
 
+Signed keepalive recovery challenges must reserve their current workflow attempt
+before starting a runner. Shared `should-dispatch --authority-challenge` verifies
+the existing signed envelope and persists primary state before granting dispatch;
+denied storage is a failed reservation, not an invisible successful recovery run.
+
 Repository-variable runner storage must surface denied writes: HTTP 401/403
 cannot count as a successful reservation or recorded completion. The shared
 runner source propagates these errors to its caller, while a missing variable

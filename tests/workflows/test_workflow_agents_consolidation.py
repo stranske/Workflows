@@ -1017,6 +1017,12 @@ def test_keepalive_recovery_uses_active_lane_and_forces_only_due_challenges():
         assert text.count("github.actor == 'github-actions[bot]'") >= 5
         assert text.count('if [ "${SWEEP_RECHECK:-false}" = "true" ]; then') == 1
         assert "verifyAuthorityChallengeEnvelope" in text
+        challenge_run = text.split("process.exitCode = verified ? 0 : 1;", 1)[1].split(
+            'if [ -z "${PR_NUMBER:-}" ]', 1
+        )[0]
+        assert "python -m scripts.runner_lib should-dispatch" in challenge_run
+        assert "--authority-challenge" in challenge_run
+        assert 'echo "should_dispatch=true"' not in challenge_run
         assert "${{ github.event.inputs.authority_challenge_fingerprint || '' }}" not in text
         assert "${{ github.event.inputs.sweep_recheck || 'false' }}" not in text
 
