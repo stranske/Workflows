@@ -1267,13 +1267,19 @@ def _consume_authority_challenge(pr_number: int, head_sha: str, provider: str) -
             check=False,
             env=environment,
         )
-    except (OSError, subprocess.TimeoutExpired):
+    except (OSError, subprocess.TimeoutExpired) as exc:
+        print(
+            f"warning: authority challenge helper unavailable: {type(exc).__name__}",
+            file=sys.stderr,
+        )
         return False
     if result.returncode != 0:
+        print(f"warning: authority challenge helper exited {result.returncode}", file=sys.stderr)
         return False
     try:
         return json.loads(result.stdout).get("granted") is True
     except (ValueError, AttributeError):
+        print("warning: authority challenge helper emitted invalid JSON", file=sys.stderr)
         return False
 
 

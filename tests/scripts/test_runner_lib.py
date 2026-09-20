@@ -131,6 +131,35 @@ def test_challenge_consumption_rejects_untrusted_workflow_context(monkeypatch, k
     assert not runner_core._consume_authority_challenge(42, "a" * 40, "codex")
 
 
+@pytest.mark.parametrize(
+    "returncode,stdout,granted,diagnostic",
+    [
+        (0, b'{"granted":true}', True, ""),
+        (0, b'{"granted":false}', False, ""),
+        (7, b"", False, "exited 7"),
+        (0, b"not-json", False, "invalid JSON"),
+    ],
+)
+def test_authority_bridge_hands_v2_claim_to_node_and_fails_closed(
+    monkeypatch, capsys, returncode, stdout, granted, diagnostic
+):
+    _signed_challenge_environment(monkeypatch)
+    captured = {}
+
+    def fake_run(args, **kwargs):
+        captured.update(args=args, **kwargs)
+        return subprocess.CompletedProcess(args, returncode, stdout, b"sensitive helper detail")
+
+    monkeypatch.setattr(runner_core.subprocess, "run", fake_run)
+    assert runner_core._consume_authority_challenge(42, "a" * 40, "codex") is granted
+    assert captured["args"] == ["node", ".github/scripts/keepalive_authority_state.js", "consume"]
+    assert captured["env"]["AUTHORITY_CHALLENGE_CLAIM"]
+    assert captured["env"]["AUTHORITY_PR_NUMBER"] == "42"
+    assert captured["env"]["AUTHORITY_HEAD_SHA"] == "a" * 40
+    assert captured["env"]["AUTHORITY_PROVIDER"] == "codex"
+    assert diagnostic in capsys.readouterr().err
+
+
 @pytest.mark.parametrize("operation", ["read_record", "write_record"])
 def test_signed_challenge_storage_failure_never_dispatches(monkeypatch, operation):
     _signed_challenge_environment(monkeypatch)
