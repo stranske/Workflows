@@ -89,6 +89,11 @@ maintenance is grouped into the same weekly maintenance window.
 
 ## Bug Triage Process
 
+The shared `tools/ci_failure_triage.py` links to
+`docs/CI_FAILURE_PLAYBOOK.md`, delivered by the same sync manifest. Keep
+playbook paths and anchors valid in both Workflows and consumer checkouts;
+Workflows-only documentation paths are not consumer-local playbook links.
+
 When a bug is identified in workflow templates:
 
 ### Step 1: Classify the Bug

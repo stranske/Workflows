@@ -801,6 +801,11 @@ llm_config:
 
 # Documentation synced to consumer repos
 docs:
+  - source: docs/CI_FAILURE_PLAYBOOK.md
+    source_tree: root
+    target: docs/CI_FAILURE_PLAYBOOK.md
+    description: "Shared CI failure triage playbook with locally resolvable diagnostic links"
+
   - source: docs/MODEL_SELECTION_POLICY.md
     source_tree: root
     target: docs/MODEL_SELECTION_POLICY.md

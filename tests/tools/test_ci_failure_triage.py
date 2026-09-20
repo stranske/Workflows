@@ -1,7 +1,23 @@
 import sys
 import types
+from pathlib import Path
 
 from tools import ci_failure_triage, llm_registry
+
+
+def test_default_playbooks_are_distributed_with_valid_anchors():
+    import yaml
+
+    root = Path(__file__).resolve().parents[2]
+    manifest = yaml.safe_load((root / ".github/sync-manifest.yml").read_text())
+    docs = {entry.get("target", entry["source"]): entry for entry in manifest["docs"]}
+    for pattern in ci_failure_triage.DEFAULT_TRIAGE_PATTERNS:
+        path, anchor = pattern.playbook_url.split("#", 1)
+        assert path in docs, f"Undistributed playbook: {path}"
+        assert (root / path).is_file()
+        content = (root / path).read_text()
+        assert f"## {anchor.replace('-', ' ').title()}" in content
+        assert (root / "templates/consumer-repo" / path).read_text() == content
 
 
 def test_extract_pytest_failures_parses_unique() -> None:
