@@ -230,7 +230,7 @@ jobs:
         env:
           RUNS_JSON: ${{ steps.discover.outputs.runs }}
           HEAD_SHA: ${{ steps.discover.outputs.head_sha }}
-          GATE_ARTIFACTS_ROOT: ${{ env.ARTIFACT_ROOT }}/downloads
+          GATE_ARTIFACTS_ROOT: ${{ env.ARTIFACT_ROOT }}
           COVERAGE_STATS: ${{ steps.coverage_payloads.outputs.stats_json }}
           COVERAGE_DELTA: ${{ steps.coverage_payloads.outputs.delta_json }}
           COVERAGE_SECTION: ${{ steps.coverage_payloads.outputs.coverage_section }}
