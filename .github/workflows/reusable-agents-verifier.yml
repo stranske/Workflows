@@ -613,6 +613,7 @@ jobs:
               --sandbox read-only \
               --skip-git-repo-check \
               --model "$codex_model" \
+              -c 'model_reasoning_effort="medium"' \
               --output-last-message codex-output.md \
               "$(cat "$PROMPT_FILE")" \
               > codex-stdout.log 2> codex-stderr.log

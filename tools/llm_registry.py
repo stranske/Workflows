@@ -34,6 +34,7 @@ class ModelRegistryEntry:
     model: str
     blocked: bool
     lifecycle: str = "unknown"
+    legacy_bundled_slot_pin: bool = False
     # Retained as optional compatibility attributes for callers migrating from v1.
     # They are deliberately not inputs to model selection.
     quality: dict[str, float] | None = None
@@ -151,6 +152,7 @@ def load_model_registry() -> list[ModelRegistryEntry]:
                 model=model,
                 blocked=bool(raw_entry.get("blocked", False)),
                 lifecycle=str(raw_entry.get("lifecycle", "unknown")).strip().lower(),
+                legacy_bundled_slot_pin=bool(raw_entry.get("legacy_bundled_slot_pin", False)),
             )
         )
     return entries
@@ -381,12 +383,19 @@ def load_slot_config(*, github_default_model: str = "") -> list[SlotDefinition]:
             and not configured_profile
             and explicit_entry
             and not (explicit_entry.blocked or explicit_entry.lifecycle != "current")
+            # Only registry-marked bundled OpenAI legacy pins yield to the
+            # reviewed selection. Preserve other current pins and explicit files.
+            and not (
+                provider == PROVIDER_OPENAI
+                and explicit_entry.legacy_bundled_slot_pin
+                and ENV_SLOT_CONFIG not in os.environ
+            )
         ):
             model = explicit_model
         elif provider and explicit_model and explicit_model != model:
             # A caller-supplied slot file is an allowlist and must fail closed.
-            # The repository's bundled legacy file is advisory: retain a
-            # current, unblocked pin; otherwise use the reviewed selection.
+            # The known legacy bundled OpenAI pins are advisory; other current
+            # bundled pins were handled above.
             if ENV_SLOT_CONFIG in os.environ:
                 logger.warning(
                     "Skipping unresolved slot model pin %s/%s; reviewed %s selection is %s",

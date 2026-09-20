@@ -33,6 +33,20 @@ test('profile reaches codex runner', () => {
     /codex_fallback_models:\s*\$\{\{\s*needs\.evaluate\.outputs\.worker_fallback_model\s*\}\}/,
     'expected selected profile fallback chain in reusable runner inputs',
   );
+  assert.match(
+    keepalive,
+    /codex_reasoning_effort:\s*\$\{\{\s*needs\.evaluate\.outputs\.worker_reasoning_effort\s*\}\}/,
+    'expected selected profile effort in reusable runner inputs',
+  );
+});
+
+test('consumer keepalive forwards registry model and effort for explicit escalation', () => {
+  const consumer = readWorkflow(
+    'templates/consumer-repo/.github/workflows/agents-81-gate-followups.yml',
+  );
+  assert.match(consumer, /INPUT_EXECUTION_PROFILE:\s*\$\{\{\s*github\.event\.inputs\.execution_profile/);
+  assert.match(consumer, /codex_model:\s*\$\{\{\s*needs\.evaluate\.outputs\.worker_requested_model\s*\}\}/);
+  assert.match(consumer, /codex_reasoning_effort:\s*\$\{\{\s*needs\.evaluate\.outputs\.worker_reasoning_effort\s*\}\}/);
 });
 
 test('workflow dispatch profile input is honored when PR body omits a profile', () => {
@@ -72,6 +86,7 @@ test('reusable codex runner exposes worker model telemetry outputs', () => {
   for (const outputName of [
     'worker-profile-id',
     'worker-requested-model',
+    'worker-reasoning-effort',
     'worker-selected-model',
     'worker-model-selection-reason',
   ]) {
@@ -82,6 +97,7 @@ test('reusable codex runner exposes worker model telemetry outputs', () => {
     /worker-selected-model:\s*\$\{\{\s*steps\.run_codex\.outputs\.model\s*\}\}/,
     'expected selected model to come from Run Codex step output',
   );
+  assert.match(reusable, /-c "model_reasoning_effort=\\"\$REASONING_EFFORT\\""/);
 });
 
 test('reusable codex runner attempts selected profile fallback models', () => {
