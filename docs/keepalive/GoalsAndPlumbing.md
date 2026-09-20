@@ -274,6 +274,21 @@ Gate runs an opt-in execution check when the PR body's Acceptance Criteria decla
 
 When present, `scripts/check_deliberate_break.py` runs the named test on the PR head, archives the base ref, overlays only the named test file onto that base tree, and reruns the same test. The expected result is green on head and red on base; green on both is reported as `FAIL_HOLLOW`, and red on head is reported as `FAIL_BROKEN`. If no marker is present, the step logs `skipped: no deliberate-break marker` and exits successfully.
 
+The default command is `python -m pytest <test-id> -o addopts= -q`: the named
+head/base proof clears suite-wide pytest `addopts` (for example, full-suite
+coverage or optional plugin switches). Other pytest configuration, including
+`pythonpath`, stays active. This does not change the separate full-suite CI gate.
+If the named test requires a custom option, preserve it with an explicit
+`command=` in the marker; explicit commands are used unchanged on head and base:
+
+```markdown
+<!-- deliberate-break: test=tests/test_feature.py::test_runtime_contract test-file=tests/test_feature.py break-file=src/feature.py command="python -m pytest tests/test_feature.py::test_runtime_contract --run-integration -q" -->
+```
+
+An explicit command also retains repository `addopts` unless it explicitly
+overrides them. Ensure the command actually executes the named test rather than
+skipping it; otherwise the head/base proof can be hollow.
+
 The same Gate step applies the `acceptance-criteria` label when a marker is present. That label arms the runtime acceptance merge guard so non-CI-verifiable merge lanes defer to the local Orchestrator runtime acceptance path instead of merging on prose evidence alone.
 
 ---
