@@ -487,8 +487,9 @@ def test_real_manifest_compiles_every_declared_copy_entry() -> None:
 
     assert plan["schema"] == PLAN_SCHEMA
     Draft202012Validator(schema).validate(plan)
-    assert len(plan["entries"]) == 234
+    assert len(plan["entries"]) == 235
     assert {
+        "docs/CI_FAILURE_PLAYBOOK.md",
         "docs/contracts/document-mirror-v1.md",
         "docs/contracts/schemas/document-mirror-v1.schema.json",
     } <= {entry["target"] for entry in plan["entries"]}

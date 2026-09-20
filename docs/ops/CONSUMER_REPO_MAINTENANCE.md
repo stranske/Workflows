@@ -94,6 +94,11 @@ The shared `tools/ci_failure_triage.py` links to
 playbook paths and anchors valid in both Workflows and consumer checkouts;
 Workflows-only documentation paths are not consumer-local playbook links.
 
+Repository-variable runner storage must surface denied writes: HTTP 401/403
+cannot count as a successful reservation or recorded completion. The shared
+runner source propagates these errors to its caller, while a missing variable
+(PATCH 404) still uses POST creation. Explicit best-effort reads are unchanged.
+
 When a bug is identified in workflow templates:
 
 ### Step 1: Classify the Bug
