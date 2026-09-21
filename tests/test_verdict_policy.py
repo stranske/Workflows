@@ -84,6 +84,19 @@ def test_extract_provider_verdicts_preserves_sub_one_percent_unit():
     assert not result.needs_human
 
 
+@pytest.mark.parametrize("raw,expected", [("125%", 1.0), ("-10%", 0.0)])
+def test_extract_provider_verdicts_clamps_explicit_percent_bounds(raw, expected):
+    summary = f"""
+| Provider | Model | Verdict | Confidence |
+| --- | --- | --- | --- |
+| openai | gpt-5.2 | CONCERNS | {raw} |
+"""
+
+    verdicts = extract_provider_verdicts(summary)
+
+    assert verdicts[0].confidence == expected
+
+
 def test_select_verdict_worst_case_policy():
     verdicts = [
         ProviderVerdict("openai", "gpt-5.2", "PASS", 86),

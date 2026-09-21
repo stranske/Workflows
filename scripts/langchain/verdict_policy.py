@@ -81,7 +81,9 @@ def _coerce_confidence(value: str) -> float:
         confidence = float(cleaned)
         if not math.isfinite(confidence):
             return 0.0
-        return confidence / 100.0 if explicit_percent else confidence
+        if explicit_percent:
+            return min(1.0, max(0.0, confidence / 100.0))
+        return confidence
     except ValueError:
         return 0.0
 
