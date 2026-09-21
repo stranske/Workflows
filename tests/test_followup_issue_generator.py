@@ -53,6 +53,23 @@ def test_stored_nonfinite_followup_confidence_is_zero(value):
     assert followup_issue_generator._coerce_confidence_percent(value) == 0
 
 
+@pytest.mark.parametrize("raw", ["1e999", "1e999%", "NaN", "Infinity"])
+def test_direct_policy_nonfinite_confidence_text_does_not_create_hold(raw):
+    data = VerificationData(
+        provider_verdicts={
+            "a": {"model": "m1", "verdict": "PASS", "confidence": 90},
+            "b": {"model": "m2", "verdict": "CONCERNS", "confidence": raw},
+        }
+    )
+
+    policy = followup_issue_generator._resolve_verdict_policy(data)
+
+    assert policy.verdict_kind == "concerns"
+    assert not policy.needs_human
+    assert policy.concerns_confidence == 0.0
+    assert data.provider_verdicts["b"]["confidence"] == raw
+
+
 @pytest.mark.parametrize("raw,expected", [("9e-1", 90), ("6.1e1%", 61), ("0.61 (61%)", 61)])
 def test_followup_confidence_preserves_complete_numeric_token(raw, expected):
     assert followup_issue_generator._parse_confidence_value(raw) == expected

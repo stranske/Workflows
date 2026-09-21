@@ -224,6 +224,15 @@ def _coerce_confidence_percent(value: Any) -> int:
     return _parse_confidence_value(str(value or "0"))
 
 
+def _coerce_policy_confidence(value: Any) -> float:
+    """Coerce direct verdict-policy confidence inputs without fabricating precision."""
+    if isinstance(value, int):
+        return float(value)
+    if isinstance(value, float):
+        return value if math.isfinite(value) else 0.0
+    return verdict_policy._coerce_confidence(str(value or "0"))
+
+
 ADVISORY_PATTERNS = [
     r"\bnit\b",
     r"\bnitpick\b",
@@ -298,7 +307,7 @@ def _resolve_verdict_policy(
                 provider=provider,
                 model=payload.get("model", "") or "",
                 verdict=payload.get("verdict", "") or "",
-                confidence=float(payload.get("confidence", 0) or 0),
+                confidence=_coerce_policy_confidence(payload.get("confidence", 0)),
             )
         )
     return verdict_policy.evaluate_verdict_policy(verdicts, policy="worst")
