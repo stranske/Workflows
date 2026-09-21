@@ -293,12 +293,12 @@ async function confirmChallenge({ request, repository, prNumber, claim, ownerAtt
 
 async function reopenUnconfirmedChallenge({ request, repository, prNumber, claim, ownerAttempt, provider, headSha }) {
   const prior = await readAuthorityState(request, repository, prNumber);
+  if (prior.state.head_sha !== headSha) return { status: 'uncertain', state: prior.state };
   const receipt = prior.state.receipt;
   const matches = prior.state.generation === claim.generation &&
     prior.state.boundary_fingerprint === claim.boundary_fingerprint &&
     receipt?.claim_digest === crypto.createHash('sha256').update(JSON.stringify(claim)).digest('hex') &&
     receipt.owner_attempt === ownerAttempt && receipt.provider === provider && receipt.head_sha === headSha;
-  if (prior.state.head_sha !== headSha) return { status: 'uncertain', state: prior.state };
   const pr = await readPrState(request, repository, prNumber);
   if (!pr.open || pr.headSha !== headSha) return { status: 'uncertain', state: prior.state };
   if (matches && pr.labels.has('needs-human')) {

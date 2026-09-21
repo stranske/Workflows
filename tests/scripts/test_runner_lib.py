@@ -131,6 +131,37 @@ def test_signed_challenge_prepares_then_reserves_then_consumes(monkeypatch):
     assert events == ["prepare", "reserve", "finalize"]
 
 
+def test_signed_challenge_denies_when_reservation_changes_during_finalize(monkeypatch):
+    _signed_challenge_environment(monkeypatch)
+    events = []
+
+    class OrderedStorage(MemoryRunnerStorage):
+        def write_record(self, pr_number, provider, record):
+            events.append("reserve")
+            super().write_record(pr_number, provider, record)
+
+    primary = OrderedStorage()
+
+    def authority(command, *_):
+        events.append(command)
+        if command == "finalize":
+            primary.records.pop((42, "codex"), None)
+            return {"granted": True}
+        return {"prepared": True}
+
+    monkeypatch.setattr(runner_core, "_authority_challenge_command", authority)
+    decision = should_dispatch(
+        42,
+        "aaa",
+        "codex",
+        storage=runner_core.FallbackRunnerStorage(primary, MemoryRunnerStorage()),
+        authority_challenge=True,
+    )
+    assert not decision.should_dispatch
+    assert decision.reason == "authority-reservation-changed"
+    assert events == ["prepare", "reserve", "finalize"]
+
+
 def test_challenge_cannot_reserve_without_authoritative_consumption(monkeypatch):
     _signed_challenge_environment(monkeypatch)
     monkeypatch.setattr(runner_core, "_authority_challenge_command", lambda *args: None)

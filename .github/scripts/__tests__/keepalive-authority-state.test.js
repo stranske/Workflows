@@ -268,6 +268,27 @@ test('head changed during confirmation never reports trusted confirmation', asyn
   assert.equal((await readAuthorityState(api.request, repository, prNumber)).state.status, 'confirmed');
 });
 
+test('reconciliation rejects a replacement available head before reading its null receipt', async () => {
+  const api = fakeGitHub();
+  const first = await beginChallenge({
+    request: api.request, repository, prNumber, defaultBranch: 'main',
+    fingerprint, headSha, ...boundary(),
+  });
+  const changedHead = 'e'.repeat(40);
+  const replacement = await beginChallenge({
+    request: api.request, repository, prNumber, defaultBranch: 'main',
+    fingerprint, headSha: changedHead, expectedGeneration: first.generation, ...boundary(),
+  });
+  assert.equal(replacement.status, 'available');
+  assert.equal(replacement.receipt, null);
+  const result = await reopenUnconfirmedChallenge({
+    request: api.request, repository, prNumber, claim: claim(first),
+    ownerAttempt, provider: 'codex', headSha,
+  });
+  assert.equal(result.status, 'uncertain');
+  assert.equal(result.state.head_sha, changedHead);
+});
+
 test('unavailable PR read after confirmation preserves the confirmed challenge', async () => {
   const api = fakeGitHub();
   const state = await beginChallenge({
