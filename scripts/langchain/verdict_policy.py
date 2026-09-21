@@ -72,12 +72,16 @@ def _classify_verdict(verdict: str) -> str:
 
 
 def _coerce_confidence(value: str) -> float:
-    cleaned = value.strip().rstrip("%")
+    text = value.strip()
+    explicit_percent = text.endswith("%")
+    cleaned = text.removesuffix("%").strip()
     if not cleaned:
         return 0.0
     try:
         confidence = float(cleaned)
-        return confidence if math.isfinite(confidence) else 0.0
+        if not math.isfinite(confidence):
+            return 0.0
+        return confidence / 100.0 if explicit_percent else confidence
     except ValueError:
         return 0.0
 

@@ -62,10 +62,26 @@ def test_extract_provider_verdicts_from_summary_table():
     assert verdicts[0].provider == "openai"
     assert verdicts[0].model == "gpt-5.2"
     assert verdicts[0].verdict == "PASS"
-    assert verdicts[0].confidence == 86
+    assert verdicts[0].confidence == pytest.approx(0.86)
     assert verdicts[1].provider == "anthropic"
     assert verdicts[1].verdict == "CONCERNS"
-    assert verdicts[1].confidence == 85
+    assert verdicts[1].confidence == pytest.approx(0.85)
+
+
+def test_extract_provider_verdicts_preserves_sub_one_percent_unit():
+    summary = """
+| Provider | Model | Verdict | Confidence |
+| --- | --- | --- | --- |
+| openai | gpt-5.2 | PASS | 90% |
+| anthropic | claude-sonnet-4-5 | CONCERNS | 0.9% |
+"""
+
+    verdicts = extract_provider_verdicts(summary)
+    result = evaluate_verdict_policy(verdicts)
+
+    assert verdicts[1].confidence == pytest.approx(0.009)
+    assert result.concerns_confidence == pytest.approx(0.009)
+    assert not result.needs_human
 
 
 def test_select_verdict_worst_case_policy():

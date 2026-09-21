@@ -801,6 +801,9 @@ Verdict: **CONCERNS** @0.72
         data = extract_verification_data("Verdict: CONCERNS 0.9%")
 
         assert data.provider_verdicts["default"]["confidence"] == 1
+        policy = followup_issue_generator._resolve_verdict_policy(data)
+        assert policy.providers[0].confidence == pytest.approx(0.01)
+        assert not policy.needs_human
 
     def test_extract_concerns(self):
         """Extract concerns list."""

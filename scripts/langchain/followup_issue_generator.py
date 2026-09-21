@@ -230,14 +230,11 @@ def _coerce_confidence_percent(value: Any) -> int:
 def _coerce_policy_confidence(value: Any) -> float:
     """Coerce direct verdict-policy confidence inputs without fabricating precision."""
     if isinstance(value, int):
-        return max(0.0, float(value))
+        return min(1.0, max(0.0, float(value) / 100.0))
     if isinstance(value, float):
         return max(0.0, value) if math.isfinite(value) else 0.0
     text = str(value or "0").strip()
-    confidence = verdict_policy._coerce_confidence(text)
-    if text.endswith("%"):
-        return min(1.0, max(0.0, confidence / 100.0))
-    return max(0.0, confidence)
+    return max(0.0, verdict_policy._coerce_confidence(text))
 
 
 ADVISORY_PATTERNS = [
