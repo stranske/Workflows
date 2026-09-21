@@ -1208,7 +1208,9 @@ def should_dispatch(
             return _unavailable_dispatch(key, prior)
         if _authority_pending_is_live(prior):
             # No reservation write occurred, so this prepared receipt can be released safely.
-            _authority_challenge_command("release", pr_number, head_sha, provider)
+            released = _authority_challenge_command("release", pr_number, head_sha, provider)
+            if not released or released.get("released") is not True:
+                return _unavailable_dispatch(key, prior)
             return DebounceDecision(
                 False,
                 "duplicate-pending",
@@ -1241,7 +1243,9 @@ def should_dispatch(
                 _log_storage_failure("read", exc, phase="authority-reservation-reconcile")
                 return decision
             if reservation is None:
-                _authority_challenge_command("release", pr_number, head_sha, provider)
+                released = _authority_challenge_command("release", pr_number, head_sha, provider)
+                if not released or released.get("released") is not True:
+                    return _unavailable_dispatch(key, prior)
                 return decision
             if (
                 reservation.get("status") != "pending"

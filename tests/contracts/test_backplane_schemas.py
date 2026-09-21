@@ -382,7 +382,9 @@ def test_output_substrate_accepts_nonempty_relative_csv_filenames(path: str) -> 
     assert not list(_validator("output-substrate-v1.schema.json").iter_errors(value)), path
 
 
-@pytest.mark.parametrize("path", ["", ".", "/x.csv", "../x.csv", "nested/../x.csv", "nested/"])
+@pytest.mark.parametrize(
+    "path", ["", ".", "nested/.", "/x.csv", "../x.csv", "nested/../x.csv", "nested/"]
+)
 def test_output_substrate_rejects_unsafe_csv_filenames(path: str) -> None:
     value = json.loads((FIXTURES / "valid_output_substrate.json").read_text())
     value["manifest_csv_exports"][0]["filename"] = path

@@ -180,6 +180,40 @@ def test_signed_challenge_preserves_pending_that_arrives_during_prepare(monkeypa
     assert commands == ["prepare", "release"]
 
 
+@pytest.mark.parametrize("release_result", [None, {}, {"released": False}])
+def test_signed_challenge_fails_closed_when_pending_release_is_uncertain(
+    monkeypatch, release_result
+):
+    _signed_challenge_environment(monkeypatch)
+    commands = []
+    primary, fallback = MemoryRunnerStorage(), MemoryRunnerStorage()
+
+    def authority(command, *_):
+        commands.append(command)
+        if command == "prepare":
+            primary.records[(42, "codex")] = {
+                "status": "pending",
+                "head_sha": "bbb",
+                "started_at": "2999-01-01T00:00:00Z",
+            }
+            return {"prepared": True}
+        return release_result
+
+    monkeypatch.setattr(runner_core, "_authority_challenge_command", authority)
+    decision = should_dispatch(
+        42,
+        "aaa",
+        "codex",
+        storage=runner_core.FallbackRunnerStorage(primary, fallback),
+        authority_challenge=True,
+    )
+
+    assert not decision.should_dispatch
+    assert decision.reason == "authoritative-storage-unavailable"
+    assert not primary.writes and not fallback.writes
+    assert commands == ["prepare", "release"]
+
+
 def test_signed_challenge_fails_closed_when_post_prepare_read_is_unavailable(monkeypatch):
     _signed_challenge_environment(monkeypatch)
     commands = []
@@ -357,6 +391,37 @@ def test_signed_challenge_storage_failure_never_dispatches(monkeypatch, operatio
     assert not primary.writes and not fallback.writes
     if operation == "write_record":
         assert commands == ["prepare", "release"]
+
+
+@pytest.mark.parametrize("release_result", [None, {}, {"released": False}])
+def test_signed_challenge_write_failure_reports_uncertain_release(monkeypatch, release_result):
+    _signed_challenge_environment(monkeypatch)
+    commands = []
+
+    def authority(command, *_):
+        commands.append(command)
+        return {"prepared": True} if command == "prepare" else release_result
+
+    primary, fallback = MemoryRunnerStorage(), MemoryRunnerStorage()
+    monkeypatch.setattr(runner_core, "_authority_challenge_command", authority)
+    monkeypatch.setattr(
+        primary,
+        "write_record",
+        lambda *_: (_ for _ in ()).throw(RuntimeError("write failed before persistence")),
+    )
+
+    decision = should_dispatch(
+        42,
+        "aaa",
+        "codex",
+        storage=runner_core.FallbackRunnerStorage(primary, fallback),
+        authority_challenge=True,
+    )
+
+    assert not decision.should_dispatch
+    assert decision.reason == "authoritative-storage-unavailable"
+    assert commands == ["prepare", "release"]
+    assert not primary.records and not fallback.writes
 
 
 def test_signed_challenge_uncertain_reservation_write_does_not_release(monkeypatch):
