@@ -1167,6 +1167,23 @@ def should_dispatch(
     unproductive_completions = _unproductive_completion_count(prior)
 
     if authority_challenge:
+        if (
+            prior
+            and prior.get("head_sha") == head_sha
+            and str(prior.get("status") or "") == "pending"
+            and not _pending_record_is_stale(prior)
+        ):
+            return DebounceDecision(
+                False,
+                "duplicate-pending",
+                key,
+                prior_status="pending",
+                prior_head_sha=head_sha,
+                drainable=(
+                    "the in-flight run finishing, or this pending record ageing past "
+                    f"{PENDING_STALE_AFTER_SECONDS}s"
+                ),
+            )
         preparation = _authority_challenge_command("prepare", pr_number, head_sha, provider)
         if not preparation or preparation.get("prepared") is not True:
             return DebounceDecision(False, "invalid-or-consumed-authority-challenge", key)

@@ -76,7 +76,7 @@ def _signed_challenge_environment(monkeypatch):
         monkeypatch.setenv(key, value)
 
 
-@pytest.mark.parametrize("prior_status", [None, "completed", "pending"])
+@pytest.mark.parametrize("prior_status", [None, "completed"])
 def test_signed_challenge_reserves_own_attempt_and_records_completion(monkeypatch, prior_status):
     _signed_challenge_environment(monkeypatch)
     monkeypatch.setattr(
@@ -103,6 +103,32 @@ def test_signed_challenge_reserves_own_attempt_and_records_completion(monkeypatc
     assert completed.get("completion_recorded") is not False
     assert primary.records[(42, "codex")] == completed
     assert not fallback.writes
+
+
+def test_signed_challenge_preserves_live_pending_reservation(monkeypatch):
+    _signed_challenge_environment(monkeypatch)
+    monkeypatch.setattr(
+        runner_core,
+        "_authority_challenge_command",
+        lambda *_: pytest.fail("authority command should not run while another pending run owns lock"),
+    )
+    primary = MemoryRunnerStorage()
+    primary.records[(42, "codex")] = {
+        "status": "pending",
+        "head_sha": "aaa",
+        "workflow_attempt_id": "old:1:1",
+        "started_at": "2099-01-01T00:00:00Z",
+    }
+    decision = should_dispatch(
+        42,
+        "aaa",
+        "codex",
+        storage=runner_core.FallbackRunnerStorage(primary, MemoryRunnerStorage()),
+        authority_challenge=True,
+    )
+    assert not decision.should_dispatch
+    assert decision.reason == "duplicate-pending"
+    assert primary.records[(42, "codex")]["workflow_attempt_id"] == "old:1:1"
 
 
 def test_signed_challenge_prepares_then_reserves_then_consumes(monkeypatch):
