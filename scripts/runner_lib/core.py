@@ -1014,6 +1014,18 @@ def _pending_record_is_stale(prior: dict[str, Any], *, now: dt.datetime | None =
     return (current - started_at).total_seconds() > PENDING_STALE_AFTER_SECONDS
 
 
+def _authority_pending_is_live(prior: dict[str, Any] | None) -> bool:
+    """Fail closed for an authority bypass when another dispatch may still own the slot."""
+    if not prior or str(prior.get("status") or "") != "pending":
+        return False
+    # Ordinary debounce historically treats an unparseable timestamp as stale so work can
+    # recover.  An authority challenge is a privileged bypass, however, and must not overwrite
+    # ownership that it cannot prove has expired.
+    if _parse_timestamp(prior.get("started_at")) is None:
+        return True
+    return not _pending_record_is_stale(prior)
+
+
 def _utc_now_dt() -> dt.datetime:
     return dt.datetime.now(dt.UTC)
 
@@ -1167,18 +1179,13 @@ def should_dispatch(
     unproductive_completions = _unproductive_completion_count(prior)
 
     if authority_challenge:
-        if (
-            prior
-            and prior.get("head_sha") == head_sha
-            and str(prior.get("status") or "") == "pending"
-            and not _pending_record_is_stale(prior)
-        ):
+        if _authority_pending_is_live(prior):
             return DebounceDecision(
                 False,
                 "duplicate-pending",
                 key,
                 prior_status="pending",
-                prior_head_sha=head_sha,
+                prior_head_sha=str(prior.get("head_sha")),
                 drainable=(
                     "the in-flight run finishing, or this pending record ageing past "
                     f"{PENDING_STALE_AFTER_SECONDS}s"
@@ -1187,6 +1194,32 @@ def should_dispatch(
         preparation = _authority_challenge_command("prepare", pr_number, head_sha, provider)
         if not preparation or preparation.get("prepared") is not True:
             return DebounceDecision(False, "invalid-or-consumed-authority-challenge", key)
+        # Preparation does not lock the runner reservation. Re-read immediately before the
+        # write so a dispatch that acquired ownership during preparation is not overwritten.
+        try:
+            prior = storage.primary.read_record(pr_number, provider)
+            if prior is None:
+                if isinstance(storage.fallback, RepoVariableRunnerStorage):
+                    prior = storage.fallback.read_record(pr_number, provider, require_access=True)
+                else:
+                    prior = storage.fallback.read_record(pr_number, provider)
+        except Exception as exc:
+            _log_storage_failure("read", exc, phase="authority-reservation-prewrite")
+            return _unavailable_dispatch(key, prior)
+        if _authority_pending_is_live(prior):
+            # No reservation write occurred, so this prepared receipt can be released safely.
+            _authority_challenge_command("release", pr_number, head_sha, provider)
+            return DebounceDecision(
+                False,
+                "duplicate-pending",
+                key,
+                prior_status="pending",
+                prior_head_sha=str(prior.get("head_sha")),
+                drainable=(
+                    "the in-flight run finishing, or this pending record ageing past "
+                    f"{PENDING_STALE_AFTER_SECONDS}s"
+                ),
+            )
         decision = _reserve_dispatch(
             storage,
             pr_number,
