@@ -14,15 +14,16 @@ function exactTime(value) {
   return Number.isFinite(Date.parse(value)) && new Date(value).toISOString() === value;
 }
 
-function validState(state, repository, prNumber) {
+function validState(state, repository, prNumber, { allowLegacyHead = false } = {}) {
   return state && state.version === 2 &&
     state.repository === String(repository).toLowerCase() &&
     state.pr_number === Number(prNumber) &&
     HEX.test(state.generation) && HEX.test(state.boundary_fingerprint) &&
     exactTime(state.due_at) && exactTime(state.expires_at) &&
     Date.parse(state.expires_at) > Date.parse(state.due_at) &&
+    (HEAD.test(state.head_sha) || (allowLegacyHead && state.head_sha === undefined)) &&
     Number.isSafeInteger(state.revision) && state.revision >= 1 &&
-    ['available', 'consumed', 'confirmed'].includes(state.status) &&
+    ['available', 'prepared', 'consumed', 'confirmed'].includes(state.status) &&
     (state.status === 'available' ? state.receipt === null :
       validReceipt(state.receipt));
 }
@@ -105,7 +106,9 @@ async function readAuthorityState(request, repository, prNumber, { allowMissing 
   } catch (error) {
     throw new Error(`Malformed authoritative challenge state: ${error.message}`);
   }
-  if (!validState(state, repository, prNumber)) throw new Error('Invalid authoritative challenge state');
+  if (!validState(state, repository, prNumber, { allowLegacyHead: true })) {
+    throw new Error('Invalid authoritative challenge state');
+  }
   return { state, sha: file.sha };
 }
 
@@ -120,8 +123,9 @@ async function writeAuthorityState(request, repository, prNumber, state, priorSh
   return request('PUT', pathFor(repository, prNumber), body);
 }
 
-async function beginChallenge({ request, repository, prNumber, defaultBranch, fingerprint, dueAt, expiresAt, expectedGeneration = null }) {
-  if (!HEX.test(String(fingerprint)) || !exactTime(dueAt) || !exactTime(expiresAt) ||
+async function beginChallenge({ request, repository, prNumber, defaultBranch, fingerprint, dueAt, expiresAt, headSha, expectedGeneration = null }) {
+  if (!HEX.test(String(fingerprint)) || !HEAD.test(String(headSha)) ||
+      !exactTime(dueAt) || !exactTime(expiresAt) ||
       Date.parse(expiresAt) <= Date.parse(dueAt)) throw new Error('Invalid challenge boundary');
   await ensureBranch(request, repository, defaultBranch);
   for (let attempt = 0; attempt < 3; attempt += 1) {
@@ -129,11 +133,9 @@ async function beginChallenge({ request, repository, prNumber, defaultBranch, fi
     if (expectedGeneration && (!prior || prior.state.generation !== expectedGeneration)) {
       throw new Error('Previously initialized challenge generation is missing or superseded');
     }
-    if (prior && prior.state.boundary_fingerprint === fingerprint) {
-      if (prior.state.status === 'confirmed') {
-        // A confirmed boundary was human-resolved; recurring failures need a new generation.
-      } else if (['consumed', 'available'].includes(prior.state.status) &&
-          Date.parse(prior.state.expires_at) > Date.now()) {
+    if (prior && prior.state.boundary_fingerprint === fingerprint &&
+        prior.state.head_sha === headSha) {
+      if (Date.parse(prior.state.expires_at) > Date.now()) {
         return prior.state;
       }
     }
@@ -143,6 +145,7 @@ async function beginChallenge({ request, repository, prNumber, defaultBranch, fi
       pr_number: Number(prNumber),
       generation: crypto.randomBytes(32).toString('hex'),
       boundary_fingerprint: fingerprint,
+      head_sha: headSha,
       due_at: dueAt,
       expires_at: expiresAt,
       status: 'available',
@@ -164,15 +167,16 @@ function claimMatchesState(claim, state, now = new Date()) {
     claim.generation === state.generation &&
     claim.boundary_fingerprint === state.boundary_fingerprint &&
     claim.due_at === state.due_at && claim.expires_at === state.expires_at &&
+    claim.head_sha === state.head_sha &&
     Number.isFinite(now.getTime()) && Date.parse(state.due_at) <= now.getTime() &&
     now.getTime() < Date.parse(state.expires_at);
 }
 
-async function consumeChallenge({ request, repository, prNumber, claim, ownerAttempt, provider, headSha, now = new Date() }) {
+async function prepareChallenge({ request, repository, prNumber, claim, ownerAttempt, provider, headSha, now = new Date() }) {
   const prior = await readAuthorityState(request, repository, prNumber);
   if (!claimMatchesState(claim, prior.state, now) || !ATTEMPT.test(String(ownerAttempt)) ||
       !HEAD.test(String(headSha)) || claim.head_sha !== headSha) {
-    return { granted: false, reason: 'challenge-not-current' };
+    return { prepared: false, reason: 'challenge-not-current' };
   }
   const receipt = {
     id: crypto.randomBytes(32).toString('hex'),
@@ -182,12 +186,33 @@ async function consumeChallenge({ request, repository, prNumber, claim, ownerAtt
     head_sha: headSha,
     consumed_at: now.toISOString(),
   };
-  const next = { ...prior.state, status: 'consumed', receipt, revision: prior.state.revision + 1 };
+  const next = { ...prior.state, status: 'prepared', receipt, revision: prior.state.revision + 1 };
   try {
     await writeAuthorityState(request, repository, prNumber, next, prior.sha);
   } catch (error) {
-    // A conflict or an ambiguous write never grants an execution. If the write
-    // actually landed, its receipt stays consumed for every later attempt.
+    return { prepared: false, reason: [409, 422].includes(error.status) ? 'challenge-conflict' : 'challenge-write-uncertain' };
+  }
+  return { prepared: true, reason: 'challenge-prepared', receipt };
+}
+
+function receiptMatches(receipt, claim, ownerAttempt, provider, headSha) {
+  return receipt &&
+    receipt.claim_digest === crypto.createHash('sha256').update(JSON.stringify(claim)).digest('hex') &&
+    receipt.owner_attempt === ownerAttempt && receipt.provider === provider &&
+    receipt.head_sha === headSha;
+}
+
+async function finalizeChallenge({ request, repository, prNumber, claim, ownerAttempt, provider, headSha }) {
+  const prior = await readAuthorityState(request, repository, prNumber);
+  if (prior.state.status !== 'prepared' || prior.state.head_sha !== headSha ||
+      prior.state.generation !== claim.generation ||
+      !receiptMatches(prior.state.receipt, claim, ownerAttempt, provider, headSha)) {
+    return { granted: false, reason: 'challenge-preparation-not-current' };
+  }
+  const next = { ...prior.state, status: 'consumed', revision: prior.state.revision + 1 };
+  try {
+    await writeAuthorityState(request, repository, prNumber, next, prior.sha);
+  } catch (error) {
     return { granted: false, reason: [409, 422].includes(error.status) ? 'challenge-conflict' : 'challenge-write-uncertain' };
   }
   // The ledger is the single-use authority, but PR metadata is a separate
@@ -196,18 +221,44 @@ async function consumeChallenge({ request, repository, prNumber, claim, ownerAtt
   if (!await prMatches(request, repository, prNumber, headSha, 'agent:needs-attention', 'needs-human')) {
     return { granted: false, reason: 'challenge-pr-state-changed' };
   }
-  return { granted: true, reason: 'due-authority-challenge', receipt };
+  return { granted: true, reason: 'due-authority-challenge', receipt: prior.state.receipt };
+}
+
+async function releasePreparedChallenge({ request, repository, prNumber, claim, ownerAttempt, provider, headSha }) {
+  const prior = await readAuthorityState(request, repository, prNumber);
+  if (prior.state.status !== 'prepared' || prior.state.head_sha !== headSha ||
+      prior.state.generation !== claim.generation ||
+      !receiptMatches(prior.state.receipt, claim, ownerAttempt, provider, headSha)) {
+    return { released: false, reason: 'challenge-preparation-not-current' };
+  }
+  const next = { ...prior.state, status: 'available', receipt: null, revision: prior.state.revision + 1 };
+  try {
+    await writeAuthorityState(request, repository, prNumber, next, prior.sha);
+    return { released: true, reason: 'challenge-preparation-released' };
+  } catch (error) {
+    return { released: false, reason: [409, 422].includes(error.status) ? 'challenge-conflict' : 'challenge-write-uncertain' };
+  }
+}
+
+async function consumeChallenge(options) {
+  const prepared = await prepareChallenge(options);
+  if (!prepared.prepared) return { granted: false, reason: prepared.reason };
+  return finalizeChallenge(options);
+}
+
+async function readPrState(request, repository, prNumber) {
+  const pr = await request('GET', `/repos/${String(repository).toLowerCase()}/pulls/${Number(prNumber)}`);
+  if (!pr || !Array.isArray(pr.labels) || typeof pr?.head?.sha !== 'string') {
+    throw new Error('PR state response is incomplete');
+  }
+  const labels = new Set(pr.labels.map((label) => String(label.name || '').toLowerCase()));
+  return { open: pr.state === 'open', headSha: pr.head.sha, labels };
 }
 
 async function prMatches(request, repository, prNumber, headSha, requiredLabel, excludedLabel = null) {
-  try {
-    const pr = await request('GET', `/repos/${String(repository).toLowerCase()}/pulls/${Number(prNumber)}`);
-    const labels = new Set((pr?.labels || []).map((label) => String(label.name || '').toLowerCase()));
-    return pr?.state === 'open' && pr?.head?.sha === headSha &&
-      labels.has(requiredLabel) && (!excludedLabel || !labels.has(excludedLabel));
-  } catch (_) {
-    return false;
-  }
+  const pr = await readPrState(request, repository, prNumber);
+  return pr.open && pr.headSha === headSha &&
+    pr.labels.has(requiredLabel) && (!excludedLabel || !pr.labels.has(excludedLabel));
 }
 
 async function confirmChallenge({ request, repository, prNumber, claim, ownerAttempt, provider, headSha }) {
@@ -218,6 +269,7 @@ async function confirmChallenge({ request, repository, prNumber, claim, ownerAtt
       prior.state.generation !== claim.generation ||
       prior.state.boundary_fingerprint !== claim.boundary_fingerprint ||
       prior.state.due_at !== claim.due_at || prior.state.expires_at !== claim.expires_at ||
+      prior.state.head_sha !== headSha || claim.head_sha !== headSha ||
       receipt.claim_digest !== crypto.createHash('sha256').update(JSON.stringify(claim)).digest('hex') ||
       receipt.owner_attempt !== ownerAttempt || receipt.provider !== provider ||
       receipt.head_sha !== headSha) return false;
@@ -246,11 +298,11 @@ async function reopenUnconfirmedChallenge({ request, repository, prNumber, claim
     prior.state.boundary_fingerprint === claim.boundary_fingerprint &&
     receipt?.claim_digest === crypto.createHash('sha256').update(JSON.stringify(claim)).digest('hex') &&
     receipt.owner_attempt === ownerAttempt && receipt.provider === provider && receipt.head_sha === headSha;
-  if (matches && prior.state.status === 'confirmed') {
-    const current = await prMatches(request, repository, prNumber, headSha, 'needs-human');
-    if (current) return { status: 'confirmed', state: prior.state };
-    // The caller just applied needs-human. Rotate a stale confirmation so it
-    // can remove its own label and schedule a fresh challenge generation.
+  if (prior.state.head_sha !== headSha) return { status: 'uncertain', state: prior.state };
+  const pr = await readPrState(request, repository, prNumber);
+  if (!pr.open || pr.headSha !== headSha) return { status: 'uncertain', state: prior.state };
+  if (matches && pr.labels.has('needs-human')) {
+    return { status: prior.state.status === 'confirmed' ? 'confirmed' : 'uncertain', state: prior.state };
   }
   if (!matches || !['consumed', 'confirmed'].includes(prior.state.status)) {
     return { status: 'uncertain', state: prior.state };
@@ -286,7 +338,10 @@ module.exports = {
   claimMatchesState,
   confirmChallenge,
   consumeChallenge,
+  finalizeChallenge,
+  prepareChallenge,
   readAuthorityState,
+  releasePreparedChallenge,
   reopenUnconfirmedChallenge,
   requester,
   validState,
@@ -294,7 +349,10 @@ module.exports = {
 
 if (require.main === module) {
   (async () => {
-    if (process.argv[2] !== 'consume') throw new Error('Unsupported authority state command');
+    const command = process.argv[2];
+    if (!['prepare', 'finalize', 'release'].includes(command)) {
+      throw new Error('Unsupported authority state command');
+    }
     const { verifyAuthorityChallengeEnvelope } = require('./keepalive_challenge_due');
     const repository = String(process.env.GITHUB_REPOSITORY || '').toLowerCase();
     const prNumber = Number(process.env.AUTHORITY_PR_NUMBER || '');
@@ -325,7 +383,7 @@ if (require.main === module) {
       return;
     }
     const claim = JSON.parse(claimJson);
-    const result = await consumeChallenge({
+    const options = {
       request, repository, prNumber, claim: {
         generation: claim.generation,
         boundary_fingerprint: process.env.AUTHORITY_CHALLENGE_FINGERPRINT,
@@ -336,7 +394,12 @@ if (require.main === module) {
         sweep_run_id: claim.sweep_run_id,
         sweep_run_attempt: claim.sweep_run_attempt,
       }, ownerAttempt, provider, headSha,
-    });
+    };
+    const result = command === 'prepare'
+      ? await prepareChallenge(options)
+      : command === 'finalize'
+        ? await finalizeChallenge(options)
+        : await releasePreparedChallenge(options);
     process.stdout.write(JSON.stringify(result));
   })().catch((error) => {
     process.stderr.write(`Authority challenge unavailable: ${error.message}\n`);

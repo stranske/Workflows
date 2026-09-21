@@ -79,7 +79,11 @@ def _signed_challenge_environment(monkeypatch):
 @pytest.mark.parametrize("prior_status", [None, "completed", "pending"])
 def test_signed_challenge_reserves_own_attempt_and_records_completion(monkeypatch, prior_status):
     _signed_challenge_environment(monkeypatch)
-    monkeypatch.setattr(runner_core, "_consume_authority_challenge", lambda *args: True)
+    monkeypatch.setattr(
+        runner_core,
+        "_authority_challenge_command",
+        lambda command, *_: {"prepared": True} if command == "prepare" else {"granted": True},
+    )
     primary = MemoryRunnerStorage()
     fallback = MemoryRunnerStorage()
     storage = runner_core.FallbackRunnerStorage(primary, fallback)
@@ -101,9 +105,35 @@ def test_signed_challenge_reserves_own_attempt_and_records_completion(monkeypatc
     assert not fallback.writes
 
 
+def test_signed_challenge_prepares_then_reserves_then_consumes(monkeypatch):
+    _signed_challenge_environment(monkeypatch)
+    events = []
+
+    class OrderedStorage(MemoryRunnerStorage):
+        def write_record(self, pr_number, provider, record):
+            events.append("reserve")
+            super().write_record(pr_number, provider, record)
+
+    def authority(command, *_):
+        events.append(command)
+        return {"prepared": True} if command == "prepare" else {"granted": True}
+
+    monkeypatch.setattr(runner_core, "_authority_challenge_command", authority)
+    primary = OrderedStorage()
+    decision = should_dispatch(
+        42,
+        "aaa",
+        "codex",
+        storage=runner_core.FallbackRunnerStorage(primary, MemoryRunnerStorage()),
+        authority_challenge=True,
+    )
+    assert decision.should_dispatch
+    assert events == ["prepare", "reserve", "finalize"]
+
+
 def test_challenge_cannot_reserve_without_authoritative_consumption(monkeypatch):
     _signed_challenge_environment(monkeypatch)
-    monkeypatch.setattr(runner_core, "_consume_authority_challenge", lambda *args: False)
+    monkeypatch.setattr(runner_core, "_authority_challenge_command", lambda *args: None)
     primary, fallback = MemoryRunnerStorage(), MemoryRunnerStorage()
     decision = should_dispatch(
         42,
@@ -128,20 +158,20 @@ def test_challenge_cannot_reserve_without_authoritative_consumption(monkeypatch)
 def test_challenge_consumption_rejects_untrusted_workflow_context(monkeypatch, key, value):
     _signed_challenge_environment(monkeypatch)
     monkeypatch.setenv(key, value)
-    assert not runner_core._consume_authority_challenge(42, "a" * 40, "codex")
+    assert not runner_core._authority_challenge_command("prepare", 42, "a" * 40, "codex")
 
 
 @pytest.mark.parametrize(
-    "returncode,stdout,granted,diagnostic",
+    "returncode,stdout,expected,diagnostic",
     [
-        (0, b'{"granted":true}', True, ""),
-        (0, b'{"granted":false}', False, ""),
-        (7, b"", False, "exited 7"),
-        (0, b"not-json", False, "invalid JSON"),
+        (0, b'{"prepared":true}', {"prepared": True}, ""),
+        (0, b'{"prepared":false}', {"prepared": False}, ""),
+        (7, b"", None, "exited 7"),
+        (0, b"not-json", None, "invalid JSON"),
     ],
 )
 def test_authority_bridge_hands_v2_claim_to_node_and_fails_closed(
-    monkeypatch, capsys, returncode, stdout, granted, diagnostic
+    monkeypatch, capsys, returncode, stdout, expected, diagnostic
 ):
     _signed_challenge_environment(monkeypatch)
     captured = {}
@@ -151,8 +181,8 @@ def test_authority_bridge_hands_v2_claim_to_node_and_fails_closed(
         return subprocess.CompletedProcess(args, returncode, stdout, b"sensitive helper detail")
 
     monkeypatch.setattr(runner_core.subprocess, "run", fake_run)
-    assert runner_core._consume_authority_challenge(42, "a" * 40, "codex") is granted
-    assert captured["args"] == ["node", ".github/scripts/keepalive_authority_state.js", "consume"]
+    assert runner_core._authority_challenge_command("prepare", 42, "a" * 40, "codex") == expected
+    assert captured["args"] == ["node", ".github/scripts/keepalive_authority_state.js", "prepare"]
     assert captured["env"]["AUTHORITY_CHALLENGE_CLAIM"]
     assert captured["env"]["AUTHORITY_PR_NUMBER"] == "42"
     assert captured["env"]["AUTHORITY_HEAD_SHA"] == "a" * 40
@@ -163,7 +193,13 @@ def test_authority_bridge_hands_v2_claim_to_node_and_fails_closed(
 @pytest.mark.parametrize("operation", ["read_record", "write_record"])
 def test_signed_challenge_storage_failure_never_dispatches(monkeypatch, operation):
     _signed_challenge_environment(monkeypatch)
-    monkeypatch.setattr(runner_core, "_consume_authority_challenge", lambda *args: True)
+    commands = []
+
+    def authority(command, *_):
+        commands.append(command)
+        return {"prepared": True} if command == "prepare" else {"released": True}
+
+    monkeypatch.setattr(runner_core, "_authority_challenge_command", authority)
     primary, fallback = MemoryRunnerStorage(), MemoryRunnerStorage()
 
     def fail(*args):
@@ -180,6 +216,8 @@ def test_signed_challenge_storage_failure_never_dispatches(monkeypatch, operatio
     assert not decision.should_dispatch
     assert decision.reason == "authoritative-storage-unavailable"
     assert not primary.writes and not fallback.writes
+    if operation == "write_record":
+        assert commands == ["prepare", "release"]
 
 
 def test_capability_effect_evidence_is_optional_and_empty() -> None:

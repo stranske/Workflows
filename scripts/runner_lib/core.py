@@ -1167,9 +1167,10 @@ def should_dispatch(
     unproductive_completions = _unproductive_completion_count(prior)
 
     if authority_challenge:
-        if not _consume_authority_challenge(pr_number, head_sha, provider):
+        preparation = _authority_challenge_command("prepare", pr_number, head_sha, provider)
+        if not preparation or preparation.get("prepared") is not True:
             return DebounceDecision(False, "invalid-or-consumed-authority-challenge", key)
-        return _reserve_dispatch(
+        decision = _reserve_dispatch(
             storage,
             pr_number,
             head_sha,
@@ -1178,6 +1179,25 @@ def should_dispatch(
             prior,
             reason="due-authority-challenge",
         )
+        if not decision.should_dispatch:
+            _authority_challenge_command("release", pr_number, head_sha, provider)
+            return decision
+        finalized = _authority_challenge_command("finalize", pr_number, head_sha, provider)
+        if not finalized or finalized.get("granted") is not True:
+            return DebounceDecision(False, "invalid-or-consumed-authority-challenge", key)
+        try:
+            reservation = storage.primary.read_record(pr_number, provider)
+        except Exception as exc:
+            _log_storage_failure("read", exc, phase="authority-reservation-readback")
+            return _unavailable_dispatch(key, prior)
+        if (
+            not reservation
+            or reservation.get("status") != "pending"
+            or reservation.get("head_sha") != head_sha
+            or reservation.get("workflow_attempt_id") != _workflow_attempt_id()
+        ):
+            return DebounceDecision(False, "authority-reservation-changed", key)
+        return decision
 
     if prior and prior.get("head_sha") == head_sha:
         status = str(prior.get("status") or "")
@@ -1242,14 +1262,18 @@ def should_dispatch(
     return _reserve_dispatch(storage, pr_number, head_sha, provider, key, prior, reason=reason)
 
 
-def _consume_authority_challenge(pr_number: int, head_sha: str, provider: str) -> bool:
-    """Grant only after the v2 claim is conditionally consumed in PR-wide state."""
+def _authority_challenge_command(
+    command: str, pr_number: int, head_sha: str, provider: str
+) -> dict[str, Any] | None:
+    """Run one phase of the conditional PR-wide authority transaction."""
+    if command not in {"prepare", "finalize", "release"}:
+        raise ValueError(f"Unsupported authority challenge command: {command}")
     if (
         not _workflow_attempt_id()
         or os.environ.get("GITHUB_EVENT_NAME") != "workflow_dispatch"
         or os.environ.get("GITHUB_ACTOR") != "github-actions[bot]"
     ):
-        return False
+        return None
     environment = os.environ.copy()
     environment.update(
         {
@@ -1260,7 +1284,7 @@ def _consume_authority_challenge(pr_number: int, head_sha: str, provider: str) -
     )
     try:
         result = subprocess.run(
-            ["node", ".github/scripts/keepalive_authority_state.js", "consume"],
+            ["node", ".github/scripts/keepalive_authority_state.js", command],
             cwd=Path(__file__).resolve().parents[2],
             capture_output=True,
             timeout=30,
@@ -1272,15 +1296,16 @@ def _consume_authority_challenge(pr_number: int, head_sha: str, provider: str) -
             f"warning: authority challenge helper unavailable: {type(exc).__name__}",
             file=sys.stderr,
         )
-        return False
+        return None
     if result.returncode != 0:
         print(f"warning: authority challenge helper exited {result.returncode}", file=sys.stderr)
-        return False
+        return None
     try:
-        return json.loads(result.stdout).get("granted") is True
+        payload = json.loads(result.stdout)
+        return payload if isinstance(payload, dict) else None
     except (ValueError, AttributeError):
         print("warning: authority challenge helper emitted invalid JSON", file=sys.stderr)
-        return False
+        return None
 
 
 def _log_storage_failure(operation: str, exc: Exception, *, phase: str = "completion") -> None:
