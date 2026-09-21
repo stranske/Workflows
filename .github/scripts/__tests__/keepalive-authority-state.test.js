@@ -7,7 +7,10 @@ const {
   beginChallenge,
   confirmChallenge,
   consumeChallenge,
+  finalizeChallenge,
+  prepareChallenge,
   readAuthorityState,
+  releasePreparedChallenge,
   reopenUnconfirmedChallenge,
 } = require('../keepalive_authority_state');
 
@@ -104,7 +107,7 @@ test('one generation grants once across attempts, providers, heads and nonces', 
   const api = fakeGitHub();
   const state = await beginChallenge({
     request: api.request, repository, prNumber, defaultBranch: 'main',
-    fingerprint, ...boundary(),
+    fingerprint, headSha, ...boundary(),
   });
   const signed = claim(state);
   const first = await consumeChallenge({
@@ -127,7 +130,7 @@ test('one generation grants once across attempts, providers, heads and nonces', 
   }
   const repeated = await beginChallenge({
     request: api.request, repository, prNumber, defaultBranch: 'main',
-    fingerprint, ...boundary(),
+    fingerprint, headSha, ...boundary(),
   });
   assert.equal(repeated.generation, state.generation);
   assert.equal(repeated.status, 'consumed');
@@ -144,17 +147,56 @@ test('one generation grants once across attempts, providers, heads and nonces', 
   assert.equal((await readAuthorityState(api.request, repository, prNumber)).state.status, 'confirmed');
   const afterConfirmation = await beginChallenge({
     request: api.request, repository, prNumber, defaultBranch: 'main',
-    fingerprint, ...boundary(),
+    fingerprint, headSha, ...boundary(),
   });
-  assert.notEqual(afterConfirmation.generation, state.generation);
-  assert.equal(afterConfirmation.status, 'available');
+  assert.equal(afterConfirmation.generation, state.generation);
+  assert.equal(afterConfirmation.status, 'confirmed');
+});
+
+test('preparation is non-authorizing and can be conditionally released before reservation', async () => {
+  const api = fakeGitHub();
+  const state = await beginChallenge({
+    request: api.request, repository, prNumber, defaultBranch: 'main',
+    fingerprint, headSha, ...boundary(),
+  });
+  const signed = claim(state);
+  const prepared = await prepareChallenge({
+    request: api.request, repository, prNumber, claim: signed,
+    ownerAttempt, provider: 'codex', headSha,
+  });
+  assert.equal(prepared.prepared, true);
+  assert.equal((await readAuthorityState(api.request, repository, prNumber)).state.status, 'prepared');
+  assert.equal((await finalizeChallenge({
+    request: api.request, repository, prNumber, claim: signed,
+    ownerAttempt: 'owner/repo:101:1', provider: 'codex', headSha,
+  })).granted, false);
+  assert.equal((await releasePreparedChallenge({
+    request: api.request, repository, prNumber, claim: signed,
+    ownerAttempt, provider: 'codex', headSha,
+  })).released, true);
+  assert.equal((await readAuthorityState(api.request, repository, prNumber)).state.status, 'available');
+});
+
+test('a generation is never reused for a different originating head', async () => {
+  const api = fakeGitHub();
+  const first = await beginChallenge({
+    request: api.request, repository, prNumber, defaultBranch: 'main',
+    fingerprint, headSha, ...boundary(),
+  });
+  const changedHead = 'e'.repeat(40);
+  const second = await beginChallenge({
+    request: api.request, repository, prNumber, defaultBranch: 'main',
+    fingerprint, headSha: changedHead, expectedGeneration: first.generation, ...boundary(),
+  });
+  assert.notEqual(second.generation, first.generation);
+  assert.equal(second.head_sha, changedHead);
 });
 
 test('head changed during consumption spends receipt but denies grant', async () => {
   const api = fakeGitHub();
   const state = await beginChallenge({
     request: api.request, repository, prNumber, defaultBranch: 'main',
-    fingerprint, ...boundary(),
+    fingerprint, headSha, ...boundary(),
   });
   api.setAfterPut(async () => api.setPrHead('e'.repeat(40)));
   const result = await consumeChallenge({
@@ -170,7 +212,7 @@ test('head changed before the ledger PUT still denies the grant', async () => {
   const api = fakeGitHub();
   const state = await beginChallenge({
     request: api.request, repository, prNumber, defaultBranch: 'main',
-    fingerprint, ...boundary(),
+    fingerprint, headSha, ...boundary(),
   });
   api.setBeforePut(async () => api.setPrHead('e'.repeat(40)));
   const result = await consumeChallenge({
@@ -186,7 +228,7 @@ test('routing label changed during consumption denies the grant', async () => {
   const api = fakeGitHub();
   const state = await beginChallenge({
     request: api.request, repository, prNumber, defaultBranch: 'main',
-    fingerprint, ...boundary(),
+    fingerprint, headSha, ...boundary(),
   });
   api.setAfterPut(async () => api.setPrLabels(['needs-human']));
   const result = await consumeChallenge({
@@ -201,7 +243,7 @@ test('head changed during confirmation never reports trusted confirmation', asyn
   const api = fakeGitHub();
   const state = await beginChallenge({
     request: api.request, repository, prNumber, defaultBranch: 'main',
-    fingerprint, ...boundary(),
+    fingerprint, headSha, ...boundary(),
   });
   const signed = claim(state);
   assert.equal((await consumeChallenge({
@@ -222,15 +264,36 @@ test('head changed during confirmation never reports trusted confirmation', asyn
   assert.equal((await reopenUnconfirmedChallenge({
     request: api.request, repository, prNumber, claim: signed,
     ownerAttempt, provider: 'codex', headSha,
-  })).status, 'reopened');
-  assert.equal((await readAuthorityState(api.request, repository, prNumber)).state.status, 'available');
+  })).status, 'uncertain');
+  assert.equal((await readAuthorityState(api.request, repository, prNumber)).state.status, 'confirmed');
 });
 
-test('unavailable PR read after confirmation reopens the automation challenge', async () => {
+test('reconciliation rejects a replacement available head before reading its null receipt', async () => {
+  const api = fakeGitHub();
+  const first = await beginChallenge({
+    request: api.request, repository, prNumber, defaultBranch: 'main',
+    fingerprint, headSha, ...boundary(),
+  });
+  const changedHead = 'e'.repeat(40);
+  const replacement = await beginChallenge({
+    request: api.request, repository, prNumber, defaultBranch: 'main',
+    fingerprint, headSha: changedHead, expectedGeneration: first.generation, ...boundary(),
+  });
+  assert.equal(replacement.status, 'available');
+  assert.equal(replacement.receipt, null);
+  const result = await reopenUnconfirmedChallenge({
+    request: api.request, repository, prNumber, claim: claim(first),
+    ownerAttempt, provider: 'codex', headSha,
+  });
+  assert.equal(result.status, 'uncertain');
+  assert.equal(result.state.head_sha, changedHead);
+});
+
+test('unavailable PR read after confirmation preserves the confirmed challenge', async () => {
   const api = fakeGitHub();
   const state = await beginChallenge({
     request: api.request, repository, prNumber, defaultBranch: 'main',
-    fingerprint, ...boundary(),
+    fingerprint, headSha, ...boundary(),
   });
   const signed = claim(state);
   assert.equal((await consumeChallenge({
@@ -239,21 +302,23 @@ test('unavailable PR read after confirmation reopens the automation challenge', 
   })).granted, true);
   api.setPrLabels(['needs-human']);
   api.setAfterPut(async () => api.setPrUnavailable(true));
-  assert.equal(await confirmChallenge({
+  await assert.rejects(confirmChallenge({
     request: api.request, repository, prNumber, claim: signed,
     ownerAttempt, provider: 'codex', headSha,
-  }), false);
-  assert.equal((await reopenUnconfirmedChallenge({
+  }), /HTTP 503/);
+  await assert.rejects(reopenUnconfirmedChallenge({
     request: api.request, repository, prNumber, claim: signed,
     ownerAttempt, provider: 'codex', headSha,
-  })).status, 'reopened');
+  }), /HTTP 503/);
+  api.setPrUnavailable(false);
+  assert.equal((await readAuthorityState(api.request, repository, prNumber)).state.status, 'confirmed');
 });
 
 test('expired consumed generation can be replaced after confirmation was omitted', async () => {
   const api = fakeGitHub();
   const first = await beginChallenge({
     request: api.request, repository, prNumber, defaultBranch: 'main',
-    fingerprint, ...boundary(),
+    fingerprint, headSha, ...boundary(),
   });
   const consumed = await consumeChallenge({
     request: api.request, repository, prNumber, claim: claim(first),
@@ -263,7 +328,7 @@ test('expired consumed generation can be replaced after confirmation was omitted
   api.expireChallenge();
   const replacement = await beginChallenge({
     request: api.request, repository, prNumber, defaultBranch: 'main',
-    fingerprint, expectedGeneration: first.generation, ...boundary(),
+    fingerprint, headSha, expectedGeneration: first.generation, ...boundary(),
   });
   assert.equal(replacement.status, 'available');
   assert.notEqual(replacement.generation, first.generation);
@@ -273,7 +338,7 @@ test('two racing consumers produce at most one grant through the conditional SHA
   const api = fakeGitHub();
   const state = await beginChallenge({
     request: api.request, repository, prNumber, defaultBranch: 'main',
-    fingerprint, ...boundary(),
+    fingerprint, headSha, ...boundary(),
   });
   let waiting = 0;
   let release;
@@ -295,7 +360,7 @@ test('ambiguous write consumes if it landed but never grants a second execution'
   const api = fakeGitHub();
   const state = await beginChallenge({
     request: api.request, repository, prNumber, defaultBranch: 'main',
-    fingerprint, ...boundary(),
+    fingerprint, headSha, ...boundary(),
   });
   let failOnce = true;
   api.setAfterPut(async () => {
@@ -321,11 +386,11 @@ test('missing or corrupt authoritative state never grants', async () => {
   await assert.rejects(readAuthorityState(api.request, repository, prNumber));
   await assert.rejects(beginChallenge({
     request: api.request, repository, prNumber, defaultBranch: 'main',
-    fingerprint, expectedGeneration: 'c'.repeat(64), ...boundary(),
+    fingerprint, headSha, expectedGeneration: 'c'.repeat(64), ...boundary(),
   }), /previously initialized/i);
   const state = await beginChallenge({
     request: api.request, repository, prNumber, defaultBranch: 'main',
-    fingerprint, ...boundary(),
+    fingerprint, headSha, ...boundary(),
   });
   const stale = { ...claim(state), generation: 'f'.repeat(64) };
   assert.equal((await consumeChallenge({

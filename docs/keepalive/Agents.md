@@ -69,7 +69,7 @@ Auto-pilot pipeline:
 
    Both paths are **fail-safe**: any error or "no untried eligible agent left" routes to automation retry or an independent challenge with a concrete owner and next action. It does not silently become a human request. Capability gating means the set of rotation targets grows automatically as the registry marks more agents `belt`/`pr_keepalive` capable — no workflow edit needed.
 
-Authority receipts remain single-use in the SHA-checked ledger. PR head and labels are separate GitHub state: after consuming or confirming a receipt, keepalive rechecks the current PR before trusting the result. A changed head, changed routing label, or unavailable PR read denies the result while leaving the receipt spent. A stale confirmation rotates to a new generation so the workflow can remove its newly applied hard label and retry through the scheduled challenge. This is a fail-closed freshness check, not an atomic transaction across GitHub resources.
+Authority generations and receipts remain bound to one originating PR head in the SHA-checked ledger. The runner first conditionally prepares that generation, writes its attempt-bound primary reservation, and only then consumes the prepared receipt; a failed reservation conditionally releases only that non-authorizing preparation. PR head and labels are separate GitHub state, so changed or unavailable evidence denies the result without refunding a consumed receipt. Confirmation uncertainty preserves the ledger and `needs-human`; automation never infers label ownership from a successful add or deletes a possibly concurrent human blocker. This is a fail-closed, at-most-one-grant protocol, not an atomic transaction across GitHub resources.
 
 ## Key Principles
 

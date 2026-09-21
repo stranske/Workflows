@@ -6,7 +6,7 @@ on:
     types: [completed]
 
 permissions:
-  contents: write # conditional authority generation updates
+  contents: read
   pull-requests: write
   issues: write
   actions: read
@@ -190,6 +190,7 @@ jobs:
 
             const inputs = {
               pr_number: prNumber,
+              head_sha: run.head_sha || '',
               action: 'run',
               reason: '',
               gate_conclusion: state.gate_conclusion || '',

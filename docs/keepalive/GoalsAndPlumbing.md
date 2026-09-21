@@ -117,9 +117,11 @@ Do not edit the state marker manually. Use the supported `agent:retry` or workfl
 
 ### Authority challenge ledger (v2)
 
-The dedicated `keepalive-authority-state` branch stores `.github/keepalive-authority/<PR>.json` for each PR. The first challenge generation is initialized from the repository default branch by a workflow with `contents: write`. Each update supplies the previous file SHA to the Contents API; a conflicting or ambiguous consumption write grants no run. The record contains a generation, boundary fingerprint, canonical due/expiry times, monotonic revision, and at most one receipt naming the downstream workflow attempt, provider, and head. Ordinary runner reservations and completions never write this record. Missing or malformed previously initialized state fails closed; the summary comment and labels are projections and cannot restore authority. The owner attempt must have actually started a worker before receipt-backed confirmation may apply `needs-human`. A crash after a successful consumption can leave zero executions, so the guarantee is at most one grant; the hourly sweep and automation retry handle recovery without treating the consumed claim as reusable.
+The dedicated `keepalive-authority-state` branch stores `.github/keepalive-authority/<PR>.json` for each PR. The first challenge generation is initialized from the repository default branch by a workflow using a dedicated App token with `contents: write`; the workflow token remains read-only. Each generation records its originating PR head as well as the boundary fingerprint, canonical due/expiry times, monotonic revision, and at most one receipt naming the downstream workflow attempt and provider. Sweep signing, preparation, consumption, and confirmation all require that same head. Legacy records without an originating head are readable only for fail-closed migration and cannot be signed or consumed as current authority.
 
-PR head and labels live outside the authority ledger, so their reads and the ledger write cannot form one transaction. After a successful receipt write, the consumer rechecks the PR and denies a grant if the head or routing labels changed; the spent receipt is not reopened for that claim. Confirmation checks the PR both before and after its ledger write, and reconciliation checks it again before trusting an existing confirmed record. If confirmation becomes stale after the write, reconciliation conditionally rotates to a fresh generation so the workflow can remove its newly applied hard label and schedule a new challenge. These checks fail closed on an unavailable PR read and narrow the cross-resource race. They do not claim atomicity against a later PR metadata change; each new consumer must validate the current head and labels.
+Each update supplies the previous file SHA to the Contents API. The runner conditionally changes `available` to non-authorizing `prepared`, writes and rereads its attempt-bound primary reservation, then conditionally changes `prepared` to `consumed`. A definite reservation refusal may conditionally release only the same preparation before any grant exists. A conflicting or ambiguous preparation/consumption write grants no run; a consumed receipt is never refunded. Ordinary runner completions never write this ledger. Missing or malformed state fails closed, and summary comments or labels cannot restore authority. The owner attempt must have actually started a worker before receipt-backed confirmation may apply `needs-human`. A crash after consumption may leave zero executions, so the guarantee is at most one grant rather than exactly-once execution.
+
+PR head and labels live outside the authority ledger, so their reads and ledger writes cannot form one transaction. After consumption, the consumer rechecks the PR and its reservation and denies a grant if the head, routing labels, or attempt binding changed. Confirmation checks the PR before and after its ledger write. An unavailable read or stale head preserves the existing receipt and hard label for reconciliation; it never rotates confirmed state into fresh execution authority or removes `needs-human`. A fresh same-head read may rotate only when the hard label is already absent. These checks narrow the cross-resource race without claiming atomicity against later PR metadata changes.
 
 ## 5. No-Noise Policy
 
@@ -348,11 +350,12 @@ Signed authority challenges also reserve the current head and workflow attempt
 before dispatch. The root and consumer loops invoke `should-dispatch
 --authority-challenge` instead of emitting an unconditional permission to run.
 That path reuses the existing HMAC envelope verifier and requires a workflow-dispatch
-event, the trusted workflow bot, current run/attempt identity and authoritative
-auto storage. It bypasses ordinary debounce only after that verification and a
-successful primary reservation write. Storage failures refuse dispatch without
-fallback writes; completion then uses the ordinary attempt-bound path. An invalid
-claim cannot authorize a forced reservation.
+event, the trusted workflow bot, current run/attempt identity, and authoritative
+auto storage. It conditionally prepares the head-bound ledger generation, writes
+the primary reservation, consumes the exact preparation, and rereads the
+attempt-bound reservation before granting. Preparation alone cannot run a worker
+or accept completion. A definite reservation failure releases only that preparation;
+ambiguous consumption or freshness failures remain spent and refuse dispatch.
 
 With `--storage auto`, completion reads and writes only the primary PR-comment
 reservation, never an empty or stale repository-variable fallback. A missing primary

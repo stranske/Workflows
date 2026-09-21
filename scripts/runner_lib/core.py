@@ -1014,6 +1014,18 @@ def _pending_record_is_stale(prior: dict[str, Any], *, now: dt.datetime | None =
     return (current - started_at).total_seconds() > PENDING_STALE_AFTER_SECONDS
 
 
+def _authority_pending_is_live(prior: dict[str, Any] | None) -> bool:
+    """Fail closed for an authority bypass when another dispatch may still own the slot."""
+    if not prior or str(prior.get("status") or "") != "pending":
+        return False
+    # Ordinary debounce historically treats an unparseable timestamp as stale so work can
+    # recover.  An authority challenge is a privileged bypass, however, and must not overwrite
+    # ownership that it cannot prove has expired.
+    if _parse_timestamp(prior.get("started_at")) is None:
+        return True
+    return not _pending_record_is_stale(prior)
+
+
 def _utc_now_dt() -> dt.datetime:
     return dt.datetime.now(dt.UTC)
 
@@ -1167,9 +1179,50 @@ def should_dispatch(
     unproductive_completions = _unproductive_completion_count(prior)
 
     if authority_challenge:
-        if not _consume_authority_challenge(pr_number, head_sha, provider):
+        if _authority_pending_is_live(prior):
+            return DebounceDecision(
+                False,
+                "duplicate-pending",
+                key,
+                prior_status="pending",
+                prior_head_sha=str(prior.get("head_sha")),
+                drainable=(
+                    "the in-flight run finishing, or this pending record ageing past "
+                    f"{PENDING_STALE_AFTER_SECONDS}s"
+                ),
+            )
+        preparation = _authority_challenge_command("prepare", pr_number, head_sha, provider)
+        if not preparation or preparation.get("prepared") is not True:
             return DebounceDecision(False, "invalid-or-consumed-authority-challenge", key)
-        return _reserve_dispatch(
+        # Preparation does not lock the runner reservation. Re-read immediately before the
+        # write so a dispatch that acquired ownership during preparation is not overwritten.
+        try:
+            prior = storage.primary.read_record(pr_number, provider)
+            if prior is None:
+                if isinstance(storage.fallback, RepoVariableRunnerStorage):
+                    prior = storage.fallback.read_record(pr_number, provider, require_access=True)
+                else:
+                    prior = storage.fallback.read_record(pr_number, provider)
+        except Exception as exc:
+            _log_storage_failure("read", exc, phase="authority-reservation-prewrite")
+            return _unavailable_dispatch(key, prior)
+        if _authority_pending_is_live(prior):
+            # No reservation write occurred, so this prepared receipt can be released safely.
+            released = _authority_challenge_command("release", pr_number, head_sha, provider)
+            if not released or released.get("released") is not True:
+                return _unavailable_dispatch(key, prior)
+            return DebounceDecision(
+                False,
+                "duplicate-pending",
+                key,
+                prior_status="pending",
+                prior_head_sha=str(prior.get("head_sha")),
+                drainable=(
+                    "the in-flight run finishing, or this pending record ageing past "
+                    f"{PENDING_STALE_AFTER_SECONDS}s"
+                ),
+            )
+        decision = _reserve_dispatch(
             storage,
             pr_number,
             head_sha,
@@ -1178,6 +1231,45 @@ def should_dispatch(
             prior,
             reason="due-authority-challenge",
         )
+        if not decision.should_dispatch:
+            # A write can time out after the primary store has persisted it.  Never refund the
+            # prepared ledger entry on that ambiguous result: doing so could leave a live primary
+            # reservation and a reusable authority generation.  Re-read the authoritative store;
+            # only a confirmed absence permits release, while an exact attempt-bound reservation
+            # lets this same workflow continue safely.
+            try:
+                reservation = storage.primary.read_record(pr_number, provider)
+            except Exception as exc:
+                _log_storage_failure("read", exc, phase="authority-reservation-reconcile")
+                return decision
+            if reservation is None:
+                released = _authority_challenge_command("release", pr_number, head_sha, provider)
+                if not released or released.get("released") is not True:
+                    return _unavailable_dispatch(key, prior)
+                return decision
+            if (
+                reservation.get("status") != "pending"
+                or reservation.get("head_sha") != head_sha
+                or reservation.get("workflow_attempt_id") != _workflow_attempt_id()
+            ):
+                return decision
+            decision = DebounceDecision(True, "due-authority-challenge", key)
+        finalized = _authority_challenge_command("finalize", pr_number, head_sha, provider)
+        if not finalized or finalized.get("granted") is not True:
+            return DebounceDecision(False, "invalid-or-consumed-authority-challenge", key)
+        try:
+            reservation = storage.primary.read_record(pr_number, provider)
+        except Exception as exc:
+            _log_storage_failure("read", exc, phase="authority-reservation-readback")
+            return _unavailable_dispatch(key, prior)
+        if (
+            not reservation
+            or reservation.get("status") != "pending"
+            or reservation.get("head_sha") != head_sha
+            or reservation.get("workflow_attempt_id") != _workflow_attempt_id()
+        ):
+            return DebounceDecision(False, "authority-reservation-changed", key)
+        return decision
 
     if prior and prior.get("head_sha") == head_sha:
         status = str(prior.get("status") or "")
@@ -1242,14 +1334,18 @@ def should_dispatch(
     return _reserve_dispatch(storage, pr_number, head_sha, provider, key, prior, reason=reason)
 
 
-def _consume_authority_challenge(pr_number: int, head_sha: str, provider: str) -> bool:
-    """Grant only after the v2 claim is conditionally consumed in PR-wide state."""
+def _authority_challenge_command(
+    command: str, pr_number: int, head_sha: str, provider: str
+) -> dict[str, Any] | None:
+    """Run one phase of the conditional PR-wide authority transaction."""
+    if command not in {"prepare", "finalize", "release"}:
+        raise ValueError(f"Unsupported authority challenge command: {command}")
     if (
         not _workflow_attempt_id()
         or os.environ.get("GITHUB_EVENT_NAME") != "workflow_dispatch"
         or os.environ.get("GITHUB_ACTOR") != "github-actions[bot]"
     ):
-        return False
+        return None
     environment = os.environ.copy()
     environment.update(
         {
@@ -1260,7 +1356,7 @@ def _consume_authority_challenge(pr_number: int, head_sha: str, provider: str) -
     )
     try:
         result = subprocess.run(
-            ["node", ".github/scripts/keepalive_authority_state.js", "consume"],
+            ["node", ".github/scripts/keepalive_authority_state.js", command],
             cwd=Path(__file__).resolve().parents[2],
             capture_output=True,
             timeout=30,
@@ -1272,15 +1368,16 @@ def _consume_authority_challenge(pr_number: int, head_sha: str, provider: str) -
             f"warning: authority challenge helper unavailable: {type(exc).__name__}",
             file=sys.stderr,
         )
-        return False
+        return None
     if result.returncode != 0:
         print(f"warning: authority challenge helper exited {result.returncode}", file=sys.stderr)
-        return False
+        return None
     try:
-        return json.loads(result.stdout).get("granted") is True
+        payload = json.loads(result.stdout)
+        return payload if isinstance(payload, dict) else None
     except (ValueError, AttributeError):
         print("warning: authority challenge helper emitted invalid JSON", file=sys.stderr)
-        return False
+        return None
 
 
 def _log_storage_failure(operation: str, exc: Exception, *, phase: str = "completion") -> None:

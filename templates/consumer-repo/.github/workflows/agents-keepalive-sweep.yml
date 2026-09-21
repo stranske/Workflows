@@ -161,6 +161,7 @@ jobs:
                         requester(github), repository, pr.number,
                       );
                       if (state.status !== 'available' ||
+                          state.head_sha !== pr.head.sha ||
                           state.generation !== dueChallenge.generation ||
                           state.boundary_fingerprint !== dueChallenge.boundaryFingerprint ||
                           state.due_at !== dueChallenge.dueAt ||
@@ -344,6 +345,7 @@ jobs:
                         requester(github), repository, pr.number,
                       );
                       if (state.status !== 'available' ||
+                          state.head_sha !== pr.head.sha ||
                           state.generation !== dueChallenge.generation ||
                           state.boundary_fingerprint !== dueChallenge.boundaryFingerprint ||
                           state.due_at !== dueChallenge.dueAt ||

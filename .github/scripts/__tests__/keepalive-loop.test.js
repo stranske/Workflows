@@ -109,6 +109,7 @@ const buildGithubStub = ({
       version: 2, repository: 'octo/workflows', pr_number: 654,
       generation: attention.generation,
       boundary_fingerprint: attention.boundary_fingerprint,
+      head_sha: claim.head_sha,
       due_at: attention.challenge_due_at,
       expires_at: attention.expires_at,
       status: receipt ? 'consumed' : 'available',
@@ -3061,6 +3062,7 @@ test('updateKeepaliveLoopSummary sends preflight auth failures without a runner 
       maxIterations: 5,
       failureThreshold: 3,
       trace: 'trace-attention-auth',
+      head_sha: 'd'.repeat(40),
       agent_summary: authSummary,
     },
   });
@@ -3169,7 +3171,7 @@ test('a scheduled recheck that reproduces auth failure records a terminal human 
   );
 });
 
-test('failed authority confirmation reopens the challenge and removes its hard label', async () => {
+test('failed authority confirmation preserves the challenge and hard label', async () => {
   const authSummary = 'Missing token ACTIONS_BOT_PAT for GitHub API repository dispatch.';
   const boundary = buildAuthorityChallengeEvidence({ agentSummary: authSummary });
   const existingState = formatStateComment({
@@ -3200,15 +3202,15 @@ test('failed authority confirmation reopens the challenge and removes its hard l
       agent_exit_code: '1', agent_summary: authSummary,
     },
   });
-  assert.ok(github.actions.some((action) =>
-    action.type === 'remove-label' && action.name === 'needs-human'));
+  assert.equal(github.actions.some((action) =>
+    action.type === 'remove-label' && action.name === 'needs-human'), false);
   const final = github.actions.filter((action) => action.type === 'update').at(-1);
   assert.doesNotMatch(final.body, /Independent Authority Challenge Confirmed/);
   const attention = parseStateComment(final.body).data.attention;
   assert.equal(attention.owner, 'automation');
   assert.equal(attention.disposition, 'challenge-due');
-  assert.equal(attention.confirmation_pending_label, false);
-  assert.notEqual(attention.generation, 'c'.repeat(64));
+  assert.equal(attention.confirmation_pending_label, true);
+  assert.equal(attention.generation, 'c'.repeat(64));
 });
 
 test('a two-phase terminal transition reuses a newly created summary comment', async () => {
@@ -3469,6 +3471,7 @@ test('a forged sweep claim cannot confirm an authority challenge', async () => {
       failureThreshold: 3,
       trace: 'trace-attention-auth-unproven',
       forceRetry: true,
+      head_sha: 'd'.repeat(40),
       authority_challenge_fingerprint: boundary.fingerprint,
       authority_challenge_claim: JSON.stringify({
         signature: '0'.repeat(64),
@@ -3544,6 +3547,7 @@ test('a reproduced generic auth failure remains automation-owned', async () => {
       failureThreshold: 3,
       trace: 'trace-attention-auth-generic',
       forceRetry: true,
+      head_sha: 'd'.repeat(40),
       authority_challenge_fingerprint: boundary.fingerprint,
       agent_exit_code: '1',
       agent_summary: authSummary,
@@ -3610,6 +3614,7 @@ test('a forced recheck with a different auth boundary stays automation-owned', a
       failureThreshold: 3,
       trace: 'trace-attention-auth-different',
       forceRetry: true,
+      head_sha: 'd'.repeat(40),
       authority_challenge_fingerprint: original.fingerprint,
       agent_exit_code: '1',
       agent_summary: 'Insufficient permission pull-requests:write for repository update.',
@@ -3680,6 +3685,7 @@ test('renewing an authority challenge never removes its existing soft label', as
       failureThreshold: 3,
       trace: 'trace-attention-auth-renewal-label-failed',
       forceRetry: true,
+      head_sha: 'd'.repeat(40),
       authority_challenge_fingerprint: original.fingerprint,
       agent_exit_code: '1',
       agent_summary: 'Insufficient permission pull-requests:write for repository update.',
