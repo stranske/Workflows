@@ -204,7 +204,9 @@ def _parse_confidence_value(text: str) -> int:
     percent_match = re.search(rf"(?<![\w.])({number})\s*%", text, re.IGNORECASE)
     if percent_match:
         value = verdict_policy._coerce_confidence(percent_match.group(1))
-        return int(round(min(1.0, verdict_policy._normalize_confidence(value)) * 100))
+        # A percent sign makes the token percentage points, even below one:
+        # 0.9% is 0.9%, while an unmarked 0.9 is fractional confidence (90%).
+        return int(round(min(100.0, max(0.0, value))))
     match = re.search(rf"(?<![\w.])({number})(?![\w]|\.\d)", text, re.IGNORECASE)
     if not match:
         return 0

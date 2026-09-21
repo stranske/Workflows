@@ -76,6 +76,7 @@ def test_direct_policy_nonfinite_confidence_text_does_not_create_hold(raw):
         ("9e-1", 90),
         ("6.1e1%", 61),
         ("0.61 (61%)", 61),
+        ("0.9%", 1),
         ("0.61.", 61),
         ("90%.", 90),
         ("-10%", 0),
@@ -780,6 +781,12 @@ Verdict: **CONCERNS** @0.72
             "verdict": "CONCERNS",
             "confidence": 90,
         }
+
+    def test_extract_single_verdict_small_explicit_percent(self):
+        """Treat a percent-bearing decimal as percentage points, not a fraction."""
+        data = extract_verification_data("Verdict: CONCERNS 0.9%")
+
+        assert data.provider_verdicts["default"]["confidence"] == 1
 
     def test_extract_concerns(self):
         """Extract concerns list."""
