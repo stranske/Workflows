@@ -233,7 +233,11 @@ def _coerce_policy_confidence(value: Any) -> float:
         return max(0.0, float(value))
     if isinstance(value, float):
         return max(0.0, value) if math.isfinite(value) else 0.0
-    return max(0.0, verdict_policy._coerce_confidence(str(value or "0")))
+    text = str(value or "0").strip()
+    confidence = verdict_policy._coerce_confidence(text)
+    if text.endswith("%"):
+        return min(1.0, max(0.0, confidence / 100.0))
+    return max(0.0, confidence)
 
 
 ADVISORY_PATTERNS = [

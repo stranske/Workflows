@@ -70,6 +70,20 @@ def test_direct_policy_nonfinite_confidence_text_does_not_create_hold(raw):
     assert data.provider_verdicts["b"]["confidence"] == raw
 
 
+def test_direct_policy_small_explicit_percent_does_not_create_hold():
+    data = VerificationData(
+        provider_verdicts={
+            "a": {"model": "m1", "verdict": "PASS", "confidence": 90},
+            "b": {"model": "m2", "verdict": "CONCERNS", "confidence": "0.9%"},
+        }
+    )
+
+    policy = followup_issue_generator._resolve_verdict_policy(data)
+
+    assert policy.concerns_confidence == pytest.approx(0.009)
+    assert not policy.needs_human
+
+
 @pytest.mark.parametrize(
     "raw,expected",
     [
