@@ -198,17 +198,18 @@ def _parse_confidence_value(text: str) -> int:
         return 0
     # Match a complete signed/scientific token: reading only the leading 1 in
     # 1e999 would fabricate 100% confidence before policy normalization.
-    number = r"[+-]?(?:(?:\d+(?:\.\d*)?|\.\d+)(?:[eE][+-]?\d+)?|inf(?:inity)?|nan)"
+    # Do not absorb a sentence-ending period into the token, and do not accept a
+    # partial decimal such as the leading 1.2 from 1.2.3.
+    number = r"[+-]?(?:(?:\d+\.\d+|\.\d+|\d+)(?:[eE][+-]?\d+)?|inf(?:inity)?|nan)"
     percent_match = re.search(rf"(?<![\w.])({number})\s*%", text, re.IGNORECASE)
     if percent_match:
-        return int(round(verdict_policy._coerce_confidence(percent_match.group(1))))
-    match = re.search(rf"(?<![\w.])({number})(?![\w.])", text, re.IGNORECASE)
+        value = verdict_policy._coerce_confidence(percent_match.group(1))
+        return int(round(min(1.0, verdict_policy._normalize_confidence(value)) * 100))
+    match = re.search(rf"(?<![\w.])({number})(?![\w]|\.\d)", text, re.IGNORECASE)
     if not match:
         return 0
     value = verdict_policy._coerce_confidence(match.group(1))
-    if value <= 1:
-        return int(round(value * 100))
-    return int(round(value))
+    return int(round(min(1.0, verdict_policy._normalize_confidence(value)) * 100))
 
 
 def _coerce_confidence_percent(value: Any) -> int:
@@ -227,10 +228,10 @@ def _coerce_confidence_percent(value: Any) -> int:
 def _coerce_policy_confidence(value: Any) -> float:
     """Coerce direct verdict-policy confidence inputs without fabricating precision."""
     if isinstance(value, int):
-        return float(value)
+        return max(0.0, float(value))
     if isinstance(value, float):
-        return value if math.isfinite(value) else 0.0
-    return verdict_policy._coerce_confidence(str(value or "0"))
+        return max(0.0, value) if math.isfinite(value) else 0.0
+    return max(0.0, verdict_policy._coerce_confidence(str(value or "0")))
 
 
 ADVISORY_PATTERNS = [

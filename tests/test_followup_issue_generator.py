@@ -70,9 +70,38 @@ def test_direct_policy_nonfinite_confidence_text_does_not_create_hold(raw):
     assert data.provider_verdicts["b"]["confidence"] == raw
 
 
-@pytest.mark.parametrize("raw,expected", [("9e-1", 90), ("6.1e1%", 61), ("0.61 (61%)", 61)])
+@pytest.mark.parametrize(
+    "raw,expected",
+    [
+        ("9e-1", 90),
+        ("6.1e1%", 61),
+        ("0.61 (61%)", 61),
+        ("0.61.", 61),
+        ("90%.", 90),
+        ("-10%", 0),
+        ("-0.4", 0),
+        ("125%", 100),
+        ("1.2.3", 0),
+    ],
+)
 def test_followup_confidence_preserves_complete_numeric_token(raw, expected):
     assert followup_issue_generator._parse_confidence_value(raw) == expected
+
+
+@pytest.mark.parametrize("value", [-50, -0.5, "-75", "-0.8"])
+def test_direct_policy_negative_confidence_is_clamped_to_zero(value):
+    data = VerificationData(
+        provider_verdicts={
+            "a": {"model": "m1", "verdict": "PASS", "confidence": 90},
+            "b": {"model": "m2", "verdict": "CONCERNS", "confidence": value},
+        }
+    )
+
+    policy = followup_issue_generator._resolve_verdict_policy(data)
+
+    assert policy.concerns_confidence == 0.0
+    assert policy.providers[1].confidence == 0.0
+    assert not policy.needs_human
 
 
 def test_select_followup_acceptance_criteria_drops_workflow_sync_items() -> None:
