@@ -144,9 +144,9 @@ fingerprint_refreshed = 2026-09-02
 [pair.12]
 main = .github/workflows/agents-keepalive-loop-reporter.yml
 template = templates/consumer-repo/.github/workflows/agents-keepalive-loop-reporter.yml
-main_sha256 = 47126dc5dfd3b80ce5e8c42cd3c674a2883ba1bd450a57d3c4dea387c39bb538
-template_sha256 = 55a7bef43f2092a82b394b5de18ff21d8c77aa88db8055b9892b0da07679f96f
-divergence = Reporter least-privilege refresh 2026-09-21: root and consumer default workflow tokens are read-only while both dedicated App tokens retain contents write for conditional authority-ledger updates; existing reporter topology divergence unchanged and not re-reviewed. Prior divergence: Authority-ledger contents-write rollout 2026-09-20 added the dedicated App write scopes. Prior divergence unchanged: Intentional divergence re-reviewed 2026-08-15: both reporters mint the dedicated KEEPALIVE_APP token with WORKFLOWS_APP fallback, fail closed before trusted summary writes, and record the selected App writer. The root keeps its in-repo setup helpers while the consumer retains state fingerprinting and SHA-pinned actions; do not align wholesale.
+main_sha256 = 676180ce36176f7df0f7b6ced06a57839c7c17f29d11aea8319721c34a3b720b
+template_sha256 = ba7f74afb65299803580876aa68413af8e170de313760c2e9912f203bf71de30
+divergence = Reporter head-binding refresh 2026-09-21: root and consumer failure reporters both pass the workflow-run head SHA into authority challenge generation; existing reporter topology divergence unchanged and not re-reviewed. Prior divergence: Reporter least-privilege refresh 2026-09-21 made default workflow tokens read-only while both dedicated App tokens retain contents write. Prior divergence: Authority-ledger contents-write rollout 2026-09-20 added the dedicated App write scopes. Prior divergence unchanged: Intentional divergence re-reviewed 2026-08-15: both reporters mint the dedicated KEEPALIVE_APP token with WORKFLOWS_APP fallback, fail closed before trusted summary writes, and record the selected App writer. The root keeps its in-repo setup helpers while the consumer retains state fingerprinting and SHA-pinned actions; do not align wholesale.
 divergence_reviewed = 2026-08-15
 fingerprint_refreshed = 2026-09-21
 

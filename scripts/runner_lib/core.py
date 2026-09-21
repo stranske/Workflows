@@ -1180,8 +1180,26 @@ def should_dispatch(
             reason="due-authority-challenge",
         )
         if not decision.should_dispatch:
-            _authority_challenge_command("release", pr_number, head_sha, provider)
-            return decision
+            # A write can time out after the primary store has persisted it.  Never refund the
+            # prepared ledger entry on that ambiguous result: doing so could leave a live primary
+            # reservation and a reusable authority generation.  Re-read the authoritative store;
+            # only a confirmed absence permits release, while an exact attempt-bound reservation
+            # lets this same workflow continue safely.
+            try:
+                reservation = storage.primary.read_record(pr_number, provider)
+            except Exception as exc:
+                _log_storage_failure("read", exc, phase="authority-reservation-reconcile")
+                return decision
+            if reservation is None:
+                _authority_challenge_command("release", pr_number, head_sha, provider)
+                return decision
+            if (
+                reservation.get("status") != "pending"
+                or reservation.get("head_sha") != head_sha
+                or reservation.get("workflow_attempt_id") != _workflow_attempt_id()
+            ):
+                return decision
+            decision = DebounceDecision(True, "due-authority-challenge", key)
         finalized = _authority_challenge_command("finalize", pr_number, head_sha, provider)
         if not finalized or finalized.get("granted") is not True:
             return DebounceDecision(False, "invalid-or-consumed-authority-challenge", key)

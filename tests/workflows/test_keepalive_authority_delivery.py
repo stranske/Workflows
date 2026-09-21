@@ -54,3 +54,4 @@ def test_gate_paths_deny_invalid_claims_and_reporters_can_persist_generation() -
         workflow = yaml.safe_load(path.read_text())
         assert workflow["permissions"]["contents"].startswith("read")
         assert path.read_text().count("permission-contents: write") == 2
+        assert "head_sha: run.head_sha || ''" in path.read_text()

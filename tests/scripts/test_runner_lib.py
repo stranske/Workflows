@@ -220,6 +220,66 @@ def test_signed_challenge_storage_failure_never_dispatches(monkeypatch, operatio
         assert commands == ["prepare", "release"]
 
 
+def test_signed_challenge_uncertain_reservation_write_does_not_release(monkeypatch):
+    _signed_challenge_environment(monkeypatch)
+    commands = []
+
+    def authority(command, *_):
+        commands.append(command)
+        return {"prepared": True}
+
+    class UncertainStorage(MemoryRunnerStorage):
+        reads = 0
+
+        def read_record(self, pr_number, provider):
+            self.reads += 1
+            if self.reads == 1:
+                return None
+            raise RuntimeError("primary readback unavailable")
+
+        def write_record(self, pr_number, provider, record):
+            raise RuntimeError("primary write outcome unknown")
+
+    monkeypatch.setattr(runner_core, "_authority_challenge_command", authority)
+    decision = should_dispatch(
+        42,
+        "aaa",
+        "codex",
+        storage=runner_core.FallbackRunnerStorage(UncertainStorage(), MemoryRunnerStorage()),
+        authority_challenge=True,
+    )
+    assert not decision.should_dispatch
+    assert decision.reason == "authoritative-storage-unavailable"
+    assert commands == ["prepare"]
+
+
+def test_signed_challenge_recovers_persisted_reservation_after_write_error(monkeypatch):
+    _signed_challenge_environment(monkeypatch)
+    commands = []
+
+    def authority(command, *_):
+        commands.append(command)
+        return {"prepared": True} if command == "prepare" else {"granted": True}
+
+    class PersistedThenErroredStorage(MemoryRunnerStorage):
+        def write_record(self, pr_number, provider, record):
+            super().write_record(pr_number, provider, record)
+            raise RuntimeError("response lost after persistence")
+
+    monkeypatch.setattr(runner_core, "_authority_challenge_command", authority)
+    primary = PersistedThenErroredStorage()
+    decision = should_dispatch(
+        42,
+        "aaa",
+        "codex",
+        storage=runner_core.FallbackRunnerStorage(primary, MemoryRunnerStorage()),
+        authority_challenge=True,
+    )
+    assert decision.should_dispatch
+    assert decision.reason == "due-authority-challenge"
+    assert commands == ["prepare", "finalize"]
+
+
 def test_capability_effect_evidence_is_optional_and_empty() -> None:
     evidence = normalize_capability_effect_evidence()
 
