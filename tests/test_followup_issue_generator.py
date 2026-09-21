@@ -771,6 +771,16 @@ Verdict: **CONCERNS** @0.72
         assert "default" in data.provider_verdicts
         assert data.provider_verdicts["default"]["confidence"] == 72
 
+    @pytest.mark.parametrize("raw", ["0.90", "90%", "9e-1"])
+    def test_extract_single_verdict_confidence_without_at_separator(self, raw):
+        """Preserve confidence from the historical no-@ verifier format."""
+        data = extract_verification_data(f"Verdict: CONCERNS {raw}")
+
+        assert data.provider_verdicts["default"] == {
+            "verdict": "CONCERNS",
+            "confidence": 90,
+        }
+
     def test_extract_concerns(self):
         """Extract concerns list."""
         comment = """

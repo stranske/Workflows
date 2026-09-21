@@ -647,17 +647,28 @@ def extract_verification_data(comment_body: str) -> VerificationData:
             entry["confidence"] = confidence
 
     # Also try single-provider format
-    single_verdict = re.search(
-        r"Verdict:\s*(?:\*\*(.+?)\*\*|([^\n@]+?))(?:\s*@|\s*$)",
-        comment_body,
-        re.IGNORECASE,
-    )
+    single_verdict = re.search(r"Verdict:\s*([^\n]+)", comment_body, re.IGNORECASE)
     if single_verdict and not data.provider_verdicts:
-        verdict = (single_verdict.group(1) or single_verdict.group(2) or "").strip()
-        # Capture the complete token after @; a decimal-only capture turns
-        # 1e999 into a fabricated 100% confidence before normalization.
-        confidence_match = re.search(r"Verdict:[^\n]*?@\s*([^\s]+)", comment_body, re.IGNORECASE)
-        confidence = _parse_confidence_value(confidence_match.group(1)) if confidence_match else 0
+        content = single_verdict.group(1).strip()
+        confidence_text = ""
+        bold_match = re.fullmatch(r"\*\*(.+?)\*\*(?:\s*@?\s*(\S+))?", content)
+        if bold_match:
+            verdict = bold_match.group(1).strip()
+            confidence_text = bold_match.group(2) or ""
+        elif "@" in content:
+            verdict, confidence_text = (part.strip() for part in content.rsplit("@", 1))
+        else:
+            # Historical verifier output omitted the @ separator. Split only a
+            # complete trailing numeric/scientific confidence token so verdicts
+            # such as "Not Ready" remain intact.
+            number = r"[+-]?(?:(?:\d+\.\d+|\.\d+|\d+)(?:[eE][+-]?\d+)?|inf(?:inity)?|nan)"
+            no_at_match = re.fullmatch(rf"(.+?)\s+({number}%?)(?:\.)?", content, re.IGNORECASE)
+            if no_at_match:
+                verdict = no_at_match.group(1).strip()
+                confidence_text = no_at_match.group(2)
+            else:
+                verdict = content
+        confidence = _parse_confidence_value(confidence_text)
         data.provider_verdicts["default"] = {
             "verdict": verdict,
             "confidence": confidence,
