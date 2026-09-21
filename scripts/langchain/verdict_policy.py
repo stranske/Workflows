@@ -93,7 +93,7 @@ def _normalize_confidence(value: float) -> float:
         return 0.0
     if value <= 1:
         return value
-    return value / 100.0
+    return min(1.0, value / 100.0)
 
 
 def _iter_markdown_rows(lines: Iterable[str]) -> Iterable[list[str]]:

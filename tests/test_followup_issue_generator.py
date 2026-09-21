@@ -84,6 +84,20 @@ def test_direct_policy_small_explicit_percent_does_not_create_hold():
     assert not policy.needs_human
 
 
+def test_direct_policy_unmarked_value_above_one_hundred_matches_followup_clamp():
+    direct = VerificationData(
+        provider_verdicts={"a": {"model": "m1", "verdict": "CONCERNS", "confidence": "125"}}
+    )
+    parsed = extract_verification_data("Verdict: CONCERNS 125")
+
+    assert followup_issue_generator._resolve_verdict_policy(
+        direct
+    ).selected_confidence == pytest.approx(1.0)
+    assert followup_issue_generator._resolve_verdict_policy(
+        parsed
+    ).selected_confidence == pytest.approx(1.0)
+
+
 @pytest.mark.parametrize(
     "raw,expected",
     [

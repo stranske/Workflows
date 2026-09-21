@@ -26,6 +26,10 @@ def test_nonfinite_confidence_number_is_zero(value):
     assert _normalize_confidence(value) == 0.0
 
 
+def test_unmarked_confidence_above_one_hundred_is_clamped():
+    assert _normalize_confidence(125) == 1.0
+
+
 @pytest.mark.parametrize("value", [float("nan"), float("inf"), float("-inf")])
 @pytest.mark.parametrize("policy", ["worst", "majority"])
 def test_nonfinite_concerns_preserve_verdict_without_false_confidence_hold(value, policy):
