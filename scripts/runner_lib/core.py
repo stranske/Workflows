@@ -19,7 +19,7 @@ import sys
 import tempfile
 from collections.abc import Iterator
 from pathlib import Path
-from typing import Any, Protocol
+from typing import Any, Protocol, TypeGuard
 
 from scripts.state_fingerprint import GitHubApi, _github_context
 
@@ -1014,7 +1014,9 @@ def _pending_record_is_stale(prior: dict[str, Any], *, now: dt.datetime | None =
     return (current - started_at).total_seconds() > PENDING_STALE_AFTER_SECONDS
 
 
-def _authority_pending_is_live(prior: dict[str, Any] | None) -> bool:
+def _authority_pending_is_live(
+    prior: dict[str, Any] | None,
+) -> TypeGuard[dict[str, Any]]:
     """Fail closed for an authority bypass when another dispatch may still own the slot."""
     if not prior or str(prior.get("status") or "") != "pending":
         return False
@@ -1179,6 +1181,11 @@ def should_dispatch(
     unproductive_completions = _unproductive_completion_count(prior)
 
     if authority_challenge:
+        # The validation above guarantees this invariant at runtime. Repeat the
+        # narrowing inside the branch so stricter consumer mypy configurations
+        # also know that the authoritative primary/fallback stores are present.
+        if not isinstance(storage, FallbackRunnerStorage):
+            raise AssertionError("authority challenge storage invariant violated")
         if _authority_pending_is_live(prior):
             return DebounceDecision(
                 False,
