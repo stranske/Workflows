@@ -20,7 +20,7 @@ import tempfile
 import uuid
 from collections.abc import Iterator
 from pathlib import Path
-from typing import Any, Protocol, TypeGuard
+from typing import Any, Protocol, TypeGuard, cast
 
 from scripts.state_fingerprint import GitHubApi, _github_context
 
@@ -900,11 +900,14 @@ class PrCommentRunnerStorage:
                 raise RuntimeError(f"Missing runner comments for PR {pr_number}") from exc
             if not isinstance(nodes, list) or not isinstance(page_info, dict):
                 raise RuntimeError(f"Invalid runner comments for PR {pr_number}")
-            ids = [node.get("databaseId") for node in nodes if isinstance(node, dict)]
+            raw_ids = [node.get("databaseId") for node in nodes if isinstance(node, dict)]
+            if len(raw_ids) != len(nodes) or any(
+                not isinstance(comment_id, int) for comment_id in raw_ids
+            ):
+                raise RuntimeError(f"Unstable runner comment cursor for PR {pr_number}")
+            ids = cast(list[int], raw_ids)
             if (
-                len(ids) != len(nodes)
-                or any(not isinstance(comment_id, int) for comment_id in ids)
-                or ids != sorted(set(ids))
+                ids != sorted(set(ids))
                 or (
                     boundary_id is not None
                     and ids
@@ -1003,8 +1006,8 @@ class PrCommentRunnerStorage:
             raise RuntimeError("Invalid authoritative runner reservation")
         if reservation is None:
             return None
-        receipt = receipts.get(_reservation_identity(reservation))
-        return receipt[1] if receipt else reservation
+        matching_receipt = receipts.get(_reservation_identity(reservation))
+        return matching_receipt[1] if matching_receipt else reservation
 
     def write_completion(self, pr_number: int, provider: str, record: dict[str, Any]) -> None:
         # A completion racing a newer reservation can leave evidence for its old
