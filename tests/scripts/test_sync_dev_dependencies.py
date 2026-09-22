@@ -145,6 +145,54 @@ def test_sync_pyproject_normalizes_minimum_pin_at_target_version(
     assert '"black==2.0.0"' in pyproject.read_text(encoding="utf-8")
 
 
+def test_main_preserves_tool_only_pyproject_and_updates_lockfile(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    env_path = tmp_path / "pins.env"
+    pyproject_path = tmp_path / "pyproject.toml"
+    lockfile = tmp_path / "requirements.lock"
+    _write_env_file(env_path, {"RUFF_VERSION": "1.0.0"})
+    tool_config = "[tool.ruff]\nline-length = 99\n"
+    pyproject_path.write_text(tool_config, encoding="utf-8")
+    lockfile.write_text("ruff==0.9.0\n", encoding="utf-8")
+    monkeypatch.chdir(tmp_path)
+
+    assert (
+        sdd.main(
+            [
+                "--apply",
+                "--create-if-missing",
+                "--pin-file",
+                str(env_path),
+                "--pyproject",
+                str(pyproject_path),
+            ]
+        )
+        == 0
+    )
+    assert pyproject_path.read_text(encoding="utf-8") == tool_config
+    assert lockfile.read_text(encoding="utf-8") == "ruff==1.0.0\n"
+
+
+def test_sync_pyproject_rejects_package_without_project_section(tmp_path: Path) -> None:
+    pyproject = tmp_path / "pyproject.toml"
+    pyproject.write_text(
+        '[build-system]\nrequires = ["setuptools"]\n',
+        encoding="utf-8",
+    )
+
+    changes, errors = sdd.sync_pyproject(
+        pyproject,
+        {"RUFF_VERSION": "1.0.0"},
+        apply=True,
+        create_if_missing=True,
+    )
+
+    assert changes == []
+    assert errors == ["Could not find [project] section to add optional-dependencies"]
+    assert pyproject.read_text(encoding="utf-8") == ('[build-system]\nrequires = ["setuptools"]\n')
+
+
 def test_main_apply_updates_pyproject_and_lockfile(
     tmp_path: Path, monkeypatch: pytest.MonkeyPatch
 ) -> None:
