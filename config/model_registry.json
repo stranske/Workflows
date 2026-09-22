@@ -89,6 +89,12 @@
       "provider": "anthropic",
       "checked_at": "2026-09-22",
       "url": "https://api.anthropic.com/v1/models?limit=1000"
+    },
+    {
+      "source_id": "anthropic-current-models-2026-09-22",
+      "provider": "anthropic",
+      "checked_at": "2026-09-22",
+      "url": "https://platform.claude.com/docs/en/about-claude/models/overview"
     }
   ],
   "models": [
@@ -171,7 +177,8 @@
       "lifecycle": "current",
       "positioning": "frontier",
       "source_ids": [
-        "anthropic-catalog-discovery-2026-09-22"
+        "anthropic-catalog-discovery-2026-09-22",
+        "anthropic-current-models-2026-09-22"
       ],
       "pricing": {
         "currency": "USD",
@@ -187,7 +194,8 @@
       "lifecycle": "current",
       "positioning": "high-capability",
       "source_ids": [
-        "anthropic-catalog-discovery-2026-09-22"
+        "anthropic-catalog-discovery-2026-09-22",
+        "anthropic-current-models-2026-09-22"
       ],
       "pricing": {
         "currency": "USD",
@@ -203,7 +211,8 @@
       "lifecycle": "current",
       "positioning": "high-capability",
       "source_ids": [
-        "anthropic-catalog-discovery-2026-09-22"
+        "anthropic-catalog-discovery-2026-09-22",
+        "anthropic-current-models-2026-09-22"
       ],
       "pricing": {
         "currency": "USD",
@@ -451,7 +460,8 @@
       "measured_at": "2026-09-22",
       "status": "catalog-only",
       "source_ids": [
-        "anthropic-catalog-discovery-2026-09-22"
+        "anthropic-catalog-discovery-2026-09-22",
+        "anthropic-current-models-2026-09-22"
       ],
       "notes": "maint-77 catalog discovery (run 35796771035) observed claude-opus-5-5, claude-opus-5 and claude-fable-5-1 in the Anthropic /v1/models catalog. List pricing from the Anthropic models overview. Availability and pricing only; not workload quality evidence and cannot approve a selection."
     }
