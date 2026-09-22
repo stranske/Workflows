@@ -20,7 +20,10 @@ from scripts.langchain.followup_issue_generator import (
 )
 
 
-@pytest.mark.parametrize("raw", ["1e999", "1e999%", "-1e999", "NaN", "Infinity"])
+@pytest.mark.parametrize(
+    "raw",
+    ["1e999", "1e999%", "1.e999", "1.e999%", "-1e999", "NaN", "Infinity"],
+)
 def test_nonfinite_followup_confidence_does_not_create_hold(raw):
     comment = f"""
 ## Provider Comparison Report
@@ -104,7 +107,8 @@ def test_direct_policy_unmarked_value_above_one_hundred_matches_followup_clamp()
         ("9e-1", 90),
         ("6.1e1%", 61),
         ("0.61 (61%)", 61),
-        ("0.9%", 1),
+        ("0.9%", 0.9),
+        ("1.%", 1),
         ("0.61.", 61),
         ("90%.", 90),
         ("-10%", 0),
@@ -115,6 +119,36 @@ def test_direct_policy_unmarked_value_above_one_hundred_matches_followup_clamp()
 )
 def test_followup_confidence_preserves_complete_numeric_token(raw, expected):
     assert followup_issue_generator._parse_confidence_value(raw) == expected
+
+
+@pytest.mark.parametrize(
+    "raw,expected_confidence,expected_hold",
+    [
+        ("1e999", 0, False),
+        ("1.e999", 0, False),
+        ("1.e999%", 0, False),
+        ("1.%", 1, False),
+        ("84.9%", 84.9, False),
+        ("85%", 85, True),
+    ],
+)
+def test_followup_confidence_matches_shared_policy_thresholds(
+    raw, expected_confidence, expected_hold
+):
+    comment = f"""
+## Provider Comparison Report
+### Provider Summary
+| Provider | Model | Verdict | Confidence | Summary |
+| --- | --- | --- | --- | --- |
+| a | m1 | PASS | 90% | Good |
+| b | m2 | CONCERNS | {raw} | Follow up |
+"""
+
+    data = extract_verification_data(comment)
+    policy = followup_issue_generator._resolve_verdict_policy(data)
+
+    assert data.provider_verdicts["b"]["confidence"] == pytest.approx(expected_confidence)
+    assert policy.needs_human is expected_hold
 
 
 @pytest.mark.parametrize("value", [-50, -0.5, "-75", "-0.8"])
@@ -814,9 +848,9 @@ Verdict: **CONCERNS** @0.72
         """Treat a percent-bearing decimal as percentage points, not a fraction."""
         data = extract_verification_data("Verdict: CONCERNS 0.9%")
 
-        assert data.provider_verdicts["default"]["confidence"] == 1
+        assert data.provider_verdicts["default"]["confidence"] == pytest.approx(0.9)
         policy = followup_issue_generator._resolve_verdict_policy(data)
-        assert policy.providers[0].confidence == pytest.approx(0.01)
+        assert policy.providers[0].confidence == pytest.approx(0.009)
         assert not policy.needs_human
 
     def test_extract_concerns(self):
