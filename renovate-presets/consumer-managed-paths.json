@@ -162,6 +162,7 @@
         "design-system/ds_streamlit.py",
         "design-system/tokens.css",
         "docs/AGENT_ISSUE_FORMAT.md",
+        "docs/CI_FAILURE_PLAYBOOK.md",
         "docs/CI_SYSTEM_GUIDE.md",
         "docs/CODEX_TOKEN_REFRESH.md",
         "docs/LABELS.md",

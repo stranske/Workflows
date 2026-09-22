@@ -489,6 +489,7 @@ def test_real_manifest_compiles_every_declared_copy_entry() -> None:
     Draft202012Validator(schema).validate(plan)
     assert len(plan["entries"]) == 237
     assert {
+        "docs/CI_FAILURE_PLAYBOOK.md",
         "docs/contracts/document-identity-conventions.md",
         "docs/contracts/document-mirror-v1.md",
         "docs/contracts/schemas/document-mirror-v1.schema.json",

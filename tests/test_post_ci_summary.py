@@ -199,7 +199,8 @@ def test_main_runs_by_file_path_when_tools_package_is_shadowed(tmp_path: Path) -
     assert "Automated Status Summary" in output_path.read_text(encoding="utf-8")
 
 
-def test_collect_triage_block_from_artifacts(tmp_path: Path) -> None:
+def test_collect_triage_block_from_artifacts(tmp_path: Path, monkeypatch) -> None:
+    monkeypatch.setenv("GITHUB_REPOSITORY", "stranske/Workflows")
     artifacts_root = tmp_path / "gate_artifacts"
     runtime_dir = artifacts_root / "downloads" / "coverage" / "runtimes" / "3.12"
     runtime_dir.mkdir(parents=True)
@@ -226,7 +227,8 @@ ImportError: No module named foo</failure>
 """
     (runtime_dir / "pytest-junit.xml").write_text(junit_payload, encoding="utf-8")
 
-    triage_block = post_ci_summary._collect_triage_block(artifacts_root)
+    head_sha = "a" * 40
+    triage_block = post_ci_summary._collect_triage_block(artifacts_root, head_sha=head_sha)
     triage_text = "\n".join(triage_block)
 
     assert "Failure triage" in triage_text
@@ -234,9 +236,43 @@ ImportError: No module named foo</failure>
     assert "error_type: pytest" in triage_text
     assert "error_type: coverage" in triage_text
     assert "error_type: import_error" in triage_text
-    assert "playbook_url: docs/INTEGRATION_GUIDE.md#scenario-2-mypy-errors" in triage_text
-    assert "playbook_url: docs/INTEGRATION_GUIDE.md#scenario-1-tests-failing" in triage_text
-    assert "playbook_url: docs/INTEGRATION_GUIDE.md#consumer-repo-setup-coverage-soft-gate" in (
-        triage_text
+    for anchor in ("type-errors", "test-failures", "coverage-failures", "import-errors"):
+        path = f"docs/CI_FAILURE_PLAYBOOK.md#{anchor}"
+        assert (
+            f"playbook_url: [{path}](https://github.com/stranske/Workflows/blob/{head_sha}/{path})"
+            in triage_text
+        )
+
+
+def test_playbook_link_preserves_absolute_url_and_rejects_unsafe_relative_path(monkeypatch) -> None:
+    monkeypatch.setenv("GITHUB_REPOSITORY", "stranske/Workflows")
+    for url in ("https://example.com/guide#section", "http://example.com/guide"):
+        assert post_ci_summary._playbook_link(url, "a" * 40) == f"[playbook]({url})"
+    for url in (
+        "docs/../private.md",
+        "javascript:alert(1)",
+        "//example.com/guide",
+        "https://example.com/guide)evil",
+        "https://user:secret@example.com/guide",
+        "https://example.com:abc/guide",
+        "https://example.com:99999/guide",
+    ):
+        assert post_ci_summary._playbook_link(url, "a" * 40) == "unavailable playbook URL"
+
+
+def test_playbook_link_rejects_malformed_server_ports(monkeypatch) -> None:
+    monkeypatch.setenv("GITHUB_REPOSITORY", "stranske/Workflows")
+    for server in ("https://github.example:abc", "https://github.example:99999"):
+        monkeypatch.setenv("GITHUB_SERVER_URL", server)
+        assert (
+            post_ci_summary._playbook_link("docs/CI_FAILURE_PLAYBOOK.md", "a" * 40)
+            == "unavailable playbook URL"
+        )
+
+
+def test_playbook_link_falls_back_to_main_without_valid_head(monkeypatch) -> None:
+    monkeypatch.setenv("GITHUB_REPOSITORY", "stranske/Workflows")
+    url = "docs/CI_FAILURE_PLAYBOOK.md#type-errors"
+    assert post_ci_summary._playbook_link(url, "not-a-sha") == (
+        f"[{url}](https://github.com/stranske/Workflows/blob/main/{url})"
     )
-    assert "playbook_url: docs/llm-task-analysis.md#import-errors" in triage_text

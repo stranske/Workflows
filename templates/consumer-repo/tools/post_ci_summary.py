@@ -15,6 +15,7 @@ from dataclasses import dataclass
 from html import unescape
 from pathlib import Path
 from typing import Any, TypedDict
+from urllib.parse import urlsplit
 
 try:
     from tools.ci_failure_triage import triage_ci_failure
@@ -476,7 +477,52 @@ def _collect_check_failure_lines(records: Sequence[Mapping[str, object]]) -> lis
     return lines
 
 
-def _format_triage_block(log_text: str) -> list[str]:
+def _playbook_link(playbook_url: str, head_sha: str | None) -> str:
+    """Render only safe absolute URLs or repository-local playbooks as links."""
+    invalid = "unavailable playbook URL"
+    if any(ord(char) < 32 or char.isspace() for char in playbook_url):
+        return invalid
+    if playbook_url.startswith(("https://", "http://")):
+        if not re.fullmatch(r"https?://[^<>()[\]`]+", playbook_url):
+            return invalid
+        try:
+            parsed = urlsplit(playbook_url)
+            _ = parsed.port
+            if not parsed.hostname or parsed.username or parsed.password:
+                return invalid
+        except ValueError:
+            return invalid
+        return f"[playbook]({playbook_url})"
+    path, _, _ = playbook_url.partition("#")
+    if not re.fullmatch(r"docs/[A-Za-z0-9_./-]+(?:#[A-Za-z0-9_-]+)?", playbook_url):
+        return invalid
+    if any(part in {".", ".."} for part in path.split("/")):
+        return invalid
+    repository = os.environ.get("GITHUB_REPOSITORY", "")
+    if not re.fullmatch(r"[A-Za-z0-9_.-]+/[A-Za-z0-9_.-]+", repository):
+        return invalid
+    server = os.environ.get("GITHUB_SERVER_URL", "https://github.com").rstrip("/")
+    try:
+        parsed_server = urlsplit(server)
+        _ = parsed_server.port
+        if (
+            parsed_server.scheme not in {"http", "https"}
+            or not parsed_server.hostname
+            or parsed_server.username
+            or parsed_server.password
+            or parsed_server.path
+            or parsed_server.query
+            or parsed_server.fragment
+            or any(char in server for char in "<>()[ ]`")
+        ):
+            return invalid
+    except ValueError:
+        return invalid
+    ref = head_sha if head_sha and re.fullmatch(r"[0-9a-fA-F]{40}", head_sha) else "main"
+    return f"[{playbook_url}]({server}/{repository}/blob/{ref}/{playbook_url})"
+
+
+def _format_triage_block(log_text: str, *, head_sha: str | None = None) -> list[str]:
     report = triage_ci_failure(log_text)
     if not report.findings:
         return []
@@ -490,11 +536,11 @@ def _format_triage_block(log_text: str) -> list[str]:
             files = ", ".join(finding.relevant_files)
             lines.append(f"  relevant_files: {files}")
         if finding.playbook_url:
-            lines.append(f"  playbook_url: {finding.playbook_url}")
+            lines.append(f"  playbook_url: {_playbook_link(finding.playbook_url, head_sha)}")
     return lines
 
 
-def _collect_triage_block(artifacts_root: Path) -> list[str]:
+def _collect_triage_block(artifacts_root: Path, *, head_sha: str | None = None) -> list[str]:
     if not artifacts_root.exists():
         return []
 
@@ -519,7 +565,7 @@ def _collect_triage_block(artifacts_root: Path) -> list[str]:
             break
 
     log_text = "\n".join(deduped)
-    return _format_triage_block(log_text)
+    return _format_triage_block(log_text, head_sha=head_sha)
 
 
 def _dedupe_runs(runs: Sequence[Mapping[str, object]]) -> list[Mapping[str, object]]:
@@ -904,7 +950,7 @@ def main() -> None:
     coverage_delta = _load_json_from_env(os.environ.get("COVERAGE_DELTA"))
     required_groups_env = os.environ.get("REQUIRED_JOB_GROUPS_JSON")
     artifacts_root = Path(os.environ.get("GATE_ARTIFACTS_ROOT", "gate_artifacts"))
-    triage_block = _collect_triage_block(artifacts_root)
+    triage_block = _collect_triage_block(artifacts_root, head_sha=head_sha)
 
     body = build_summary_comment(
         runs=runs,

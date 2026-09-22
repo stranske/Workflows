@@ -124,6 +124,11 @@ The authority challenge helper is source-owned by Workflows and declared in `.gi
 
 ## Bug Triage Process
 
+The shared `tools/ci_failure_triage.py` links to
+`docs/CI_FAILURE_PLAYBOOK.md`, delivered by the same sync manifest. Keep
+playbook paths and anchors valid in both Workflows and consumer checkouts;
+Workflows-only documentation paths are not consumer-local playbook links.
+
 Default deliberate-break pytest commands clear suite-wide `addopts` for the
 named head/base test proof. Other repository pytest configuration remains active,
 and explicit author-provided commands are unchanged. Full-suite CI retains its
