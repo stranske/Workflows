@@ -6,6 +6,19 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 Breaking changes are called out with a **BREAKING** marker and scheduled according to the policy in `COMPATIBILITY.md`.
 
+## [1.35.0](https://github.com/stranske/Workflows/compare/v1.34.0...v1.35.0) (2026-09-22)
+
+
+### Features
+
+* **contracts:** manifest CSV export slice for output-substrate/v1 ([#3375](https://github.com/stranske/Workflows/issues/3375)) ([#3509](https://github.com/stranske/Workflows/issues/3509)) ([a999566](https://github.com/stranske/Workflows/commit/a9995662759958ac709a18729c9e0733e1f1fa0a))
+
+
+### Bug Fixes
+
+* **verifier:** preserve confidence threshold precision ([8c0f904](https://github.com/stranske/Workflows/commit/8c0f90400d44d706e1061287fdca48fd7946a347))
+* **verifier:** reject nonfinite confidence values ([e528fb6](https://github.com/stranske/Workflows/commit/e528fb621f558d956bdaeda2560bb6e277bef76c))
+
 ## [1.34.0](https://github.com/stranske/Workflows/compare/v1.33.2...v1.34.0) (2026-09-22)
 
 
