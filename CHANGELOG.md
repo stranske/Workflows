@@ -11,6 +11,7 @@ Breaking changes are called out with a **BREAKING** marker and scheduled accordi
 
 ### Features
 
+* **contracts:** add manifest-managed target work environment contract ([#3370](https://github.com/stranske/Workflows/issues/3370)) ([688a983](https://github.com/stranske/Workflows/commit/688a9835467da23dc77b209ea2e183b59f4a8856))
 * **contracts:** manifest CSV export slice for output-substrate/v1 ([#3375](https://github.com/stranske/Workflows/issues/3375)) ([#3509](https://github.com/stranske/Workflows/issues/3509)) ([a999566](https://github.com/stranske/Workflows/commit/a9995662759958ac709a18729c9e0733e1f1fa0a))
 
 
