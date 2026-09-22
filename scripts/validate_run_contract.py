@@ -24,6 +24,7 @@ import argparse
 import json
 import sys
 from dataclasses import dataclass, field
+from datetime import date
 from pathlib import Path
 from typing import Any
 
@@ -150,15 +151,32 @@ def _validator_for_schema(schema_dir: Path, name: str) -> Draft202012Validator:
 
 
 def _check_document_page(document: Any, report: Report, prefix: str = "") -> None:
-    """Keep the new document page and legacy locator page in agreement."""
+    """Check document identity details that JSON Schema cannot compare or parse."""
     if not isinstance(document, dict):
         return
     doc_ref = document.get("document_ref")
     locator = document.get("locator")
-    if not isinstance(doc_ref, dict) or not isinstance(locator, dict):
+    if not isinstance(doc_ref, dict):
         return
-    if "page" in doc_ref and "page" in locator and doc_ref["page"] != locator["page"]:
+    if (
+        isinstance(locator, dict)
+        and "page" in doc_ref
+        and "page" in locator
+        and doc_ref["page"] != locator["page"]
+    ):
         report.fail("document_ref.page conflicts with locator.page", f"{prefix}document_ref/page")
+    doc_key = doc_ref.get("doc_key")
+    if isinstance(doc_key, str):
+        as_of = doc_key.rsplit("/", 1)[-1]
+        if as_of != "unknown":
+            try:
+                if date.fromisoformat(as_of).isoformat() != as_of:
+                    raise ValueError("non-canonical date")
+            except ValueError:
+                report.fail(
+                    "document_ref.doc_key as_of must be an ISO calendar date or unknown",
+                    f"{prefix}document_ref/doc_key",
+                )
 
 
 def validate_evidence_objects(*, paths: list[Path], schema_dir: Path) -> Report:

@@ -56,6 +56,22 @@ def test_doc_key_requires_entity_type_and_as_of() -> None:
     assert _errors(document)
 
 
+def test_doc_key_type_must_match_doc_type() -> None:
+    document = _fixture("valid_native_document_evidence.json")
+    document["document_ref"]["doc_type"] = "consultant_report"
+    assert len(_errors(document)) == 1
+
+
+def test_doc_key_as_of_requires_real_calendar_date(tmp_path: Path) -> None:
+    document = _fixture("valid_native_document_evidence.json")
+    document["document_ref"]["doc_key"] = "manager:example/manager_letter/2026-02-30"
+    path = tmp_path / "invalid-date.json"
+    path.write_text(json.dumps(document))
+    report = validate_evidence_objects(paths=[path], schema_dir=SCHEMAS)
+    assert not report.conformant
+    assert any("ISO calendar date" in violation.message for violation in report.violations)
+
+
 def test_document_text_coverage_requires_explicit_text_basis() -> None:
     document = _fixture("valid_ocr_document_evidence.json")
     del document["document_ref"]["text_basis"]
