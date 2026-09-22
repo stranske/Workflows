@@ -270,6 +270,39 @@ def test_github_api_wraps_url_errors(monkeypatch: pytest.MonkeyPatch) -> None:
         api.request("GET", "/repos/owner/repo")
 
 
+@pytest.mark.parametrize(
+    "rest_url,graphql_url,expected",
+    [
+        ("https://api.github.com", None, "https://api.github.com/graphql"),
+        ("https://enterprise.example/api/v3", None, "https://enterprise.example/api/graphql"),
+        (
+            "https://enterprise.example/api/v3",
+            "https://custom.example/query",
+            "https://custom.example/query",
+        ),
+    ],
+)
+def test_github_api_uses_graphql_endpoint(
+    monkeypatch: pytest.MonkeyPatch, rest_url: str, graphql_url: str | None, expected: str
+) -> None:
+    monkeypatch.setenv("GITHUB_API_URL", rest_url)
+    if graphql_url is None:
+        monkeypatch.delenv("GITHUB_GRAPHQL_URL", raising=False)
+    else:
+        monkeypatch.setenv("GITHUB_GRAPHQL_URL", graphql_url)
+    urls: list[str] = []
+
+    def fake_urlopen(request: urllib.request.Request, timeout: float | None = None) -> FakeResponse:
+        urls.append(request.full_url)
+        return FakeResponse(b"{}")
+
+    monkeypatch.setattr(state_fingerprint.urllib.request, "urlopen", fake_urlopen)
+    api = state_fingerprint.GitHubApi("owner/repo", "token")
+    api.request("POST", "/graphql", {"query": "query { viewer { login } }"})
+    api.request("GET", "/repos/owner/repo")
+    assert urls == [expected, f"{rest_url}/repos/owner/repo"]
+
+
 def test_github_api_wraps_json_decode_errors(monkeypatch: pytest.MonkeyPatch) -> None:
     monkeypatch.setattr(
         state_fingerprint.urllib.request,
