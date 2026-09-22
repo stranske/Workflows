@@ -28,6 +28,7 @@ def test_every_sweep_mode_checks_the_ledger_before_signing() -> None:
     ):
         text = path.read_text()
         assert text.count("readAuthorityState(") == modes
+        assert text.count("state.head_sha !== pr.head.sha") == modes
         assert text.count("generation: dueChallenge.generation") == modes * 2
         assert text.count(".github/scripts/keepalive_authority_state.js") == modes * 2
 
@@ -51,5 +52,6 @@ def test_gate_paths_deny_invalid_claims_and_reporters_can_persist_generation() -
         TEMPLATE / ".github/workflows/agents-keepalive-loop-reporter.yml",
     ):
         workflow = yaml.safe_load(path.read_text())
-        assert workflow["permissions"]["contents"].startswith("write")
+        assert workflow["permissions"]["contents"].startswith("read")
         assert path.read_text().count("permission-contents: write") == 2
+        assert "head_sha: run.head_sha || ''" in path.read_text()

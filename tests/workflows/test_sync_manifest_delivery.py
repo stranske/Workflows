@@ -559,7 +559,7 @@ def test_maint68_reuses_stable_delivery_pr_without_resetting_an_unchanged_head()
     assert credential_idx < fetch_idx
 
     assert 'git fetch origin "$branch_name"' in source
-    assert 'existing_base=$(git rev-parse "${existing_head}^")' in source
+    assert 'existing_base=$(git merge-base "$existing_head" "$base_sha")' in source
     assert 'existing_tree=$(git rev-parse "${existing_head}^{tree}")' in source
     assert "desired_tree_hash=$(git write-tree)" in source
     assert "existing_refreshable=false" in source

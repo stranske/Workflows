@@ -69,16 +69,16 @@
     {
       "repo": "stranske/Collab-Admin",
       "local_path": "Collab-Admin",
-      "status": "paused",
+      "status": "ignored",
       "cadence": "manual",
-      "decision_anchor": "Admin dashboard and review automation; reactivate when a design review is requested."
+      "decision_anchor": "Produces no output. Owner instruction, repeated, last 2026-09-21: never include in fleet, ingest, audit or report sets."
     },
     {
       "repo": "stranske/Workflows-Integration-Tests",
       "local_path": "Workflows-Integration-Tests",
-      "status": "paused",
+      "status": "ignored",
       "cadence": "manual",
-      "decision_anchor": "Integration-test companion repo; usually follows Workflows sync/evaluation rather than independent issue generation."
+      "decision_anchor": "Produces no output. Owner instruction, repeated, last 2026-09-21: never include in fleet, ingest, audit or report sets."
     },
     {
       "repo": "stranske/trip-planner",

@@ -375,6 +375,22 @@ def test_output_substrate_rejects_non_posix_relative_paths(field: str, path: str
     assert list(_validator("output-substrate-v1.schema.json").iter_errors(value)), path
 
 
+@pytest.mark.parametrize("path", ["x", "x.csv", "nested/x.csv"])
+def test_output_substrate_accepts_nonempty_relative_csv_filenames(path: str) -> None:
+    value = json.loads((FIXTURES / "valid_output_substrate.json").read_text())
+    value["manifest_csv_exports"][0]["filename"] = path
+    assert not list(_validator("output-substrate-v1.schema.json").iter_errors(value)), path
+
+
+@pytest.mark.parametrize(
+    "path", ["", ".", "nested/.", "/x.csv", "../x.csv", "nested/../x.csv", "nested/"]
+)
+def test_output_substrate_rejects_unsafe_csv_filenames(path: str) -> None:
+    value = json.loads((FIXTURES / "valid_output_substrate.json").read_text())
+    value["manifest_csv_exports"][0]["filename"] = path
+    assert list(_validator("output-substrate-v1.schema.json").iter_errors(value)), path
+
+
 def test_mosaic_contract_is_delivered_from_root() -> None:
     import yaml
 

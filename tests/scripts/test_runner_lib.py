@@ -79,7 +79,11 @@ def _signed_challenge_environment(monkeypatch):
 @pytest.mark.parametrize("prior_status", [None, "completed", "pending"])
 def test_signed_challenge_reserves_own_attempt_and_records_completion(monkeypatch, prior_status):
     _signed_challenge_environment(monkeypatch)
-    monkeypatch.setattr(runner_core, "_consume_authority_challenge", lambda *args: True)
+    monkeypatch.setattr(
+        runner_core,
+        "_authority_challenge_command",
+        lambda command, *_: {"prepared": True} if command == "prepare" else {"granted": True},
+    )
     primary = MemoryRunnerStorage()
     fallback = MemoryRunnerStorage()
     storage = runner_core.FallbackRunnerStorage(primary, fallback)
@@ -89,6 +93,8 @@ def test_signed_challenge_reserves_own_attempt_and_records_completion(monkeypatc
             "head_sha": "aaa",
             "workflow_attempt_id": "old:1:1",
         }
+        if prior_status == "pending":
+            primary.records[(42, "codex")]["started_at"] = "2000-01-01T00:00:00Z"
     decision = should_dispatch(42, "aaa", "codex", storage=storage, authority_challenge=True)
     assert decision.should_dispatch
     assert decision.reason == "due-authority-challenge"
@@ -101,9 +107,206 @@ def test_signed_challenge_reserves_own_attempt_and_records_completion(monkeypatc
     assert not fallback.writes
 
 
+@pytest.mark.parametrize("location", ["primary", "fallback"])
+@pytest.mark.parametrize("head_sha", ["aaa", "bbb"])
+@pytest.mark.parametrize("started_at", [None, "not-a-timestamp", "2999-01-01T00:00:00Z"])
+def test_signed_challenge_preserves_live_pending_without_preparing(
+    monkeypatch, location, head_sha, started_at
+):
+    _signed_challenge_environment(monkeypatch)
+    commands = []
+    monkeypatch.setattr(
+        runner_core,
+        "_authority_challenge_command",
+        lambda command, *_: commands.append(command),
+    )
+    primary, fallback = MemoryRunnerStorage(), MemoryRunnerStorage()
+    owner = primary if location == "primary" else fallback
+    record = {
+        "status": "pending",
+        "head_sha": head_sha,
+        "workflow_attempt_id": "other:1:1",
+    }
+    if started_at is not None:
+        record["started_at"] = started_at
+    owner.records[(42, "codex")] = dict(record)
+
+    decision = should_dispatch(
+        42,
+        "aaa",
+        "codex",
+        storage=runner_core.FallbackRunnerStorage(primary, fallback),
+        authority_challenge=True,
+    )
+
+    assert not decision.should_dispatch
+    assert decision.reason == "duplicate-pending"
+    assert owner.records[(42, "codex")] == record
+    assert not primary.writes and not fallback.writes
+    assert commands == []
+
+
+def test_signed_challenge_preserves_pending_that_arrives_during_prepare(monkeypatch):
+    _signed_challenge_environment(monkeypatch)
+    commands = []
+    primary, fallback = MemoryRunnerStorage(), MemoryRunnerStorage()
+    arriving = {
+        "status": "pending",
+        "head_sha": "bbb",
+        "started_at": "2999-01-01T00:00:00Z",
+        "workflow_attempt_id": "other:1:1",
+    }
+
+    def authority(command, *_):
+        commands.append(command)
+        if command == "prepare":
+            primary.records[(42, "codex")] = dict(arriving)
+            return {"prepared": True}
+        return {"released": True}
+
+    monkeypatch.setattr(runner_core, "_authority_challenge_command", authority)
+    decision = should_dispatch(
+        42,
+        "aaa",
+        "codex",
+        storage=runner_core.FallbackRunnerStorage(primary, fallback),
+        authority_challenge=True,
+    )
+
+    assert not decision.should_dispatch
+    assert decision.reason == "duplicate-pending"
+    assert primary.records[(42, "codex")] == arriving
+    assert not primary.writes and not fallback.writes
+    assert commands == ["prepare", "release"]
+
+
+@pytest.mark.parametrize("release_result", [None, {}, {"released": False}])
+def test_signed_challenge_fails_closed_when_pending_release_is_uncertain(
+    monkeypatch, release_result
+):
+    _signed_challenge_environment(monkeypatch)
+    commands = []
+    primary, fallback = MemoryRunnerStorage(), MemoryRunnerStorage()
+
+    def authority(command, *_):
+        commands.append(command)
+        if command == "prepare":
+            primary.records[(42, "codex")] = {
+                "status": "pending",
+                "head_sha": "bbb",
+                "started_at": "2999-01-01T00:00:00Z",
+            }
+            return {"prepared": True}
+        return release_result
+
+    monkeypatch.setattr(runner_core, "_authority_challenge_command", authority)
+    decision = should_dispatch(
+        42,
+        "aaa",
+        "codex",
+        storage=runner_core.FallbackRunnerStorage(primary, fallback),
+        authority_challenge=True,
+    )
+
+    assert not decision.should_dispatch
+    assert decision.reason == "authoritative-storage-unavailable"
+    assert not primary.writes and not fallback.writes
+    assert commands == ["prepare", "release"]
+
+
+def test_signed_challenge_fails_closed_when_post_prepare_read_is_unavailable(monkeypatch):
+    _signed_challenge_environment(monkeypatch)
+    commands = []
+
+    class FailsSecondRead(MemoryRunnerStorage):
+        reads = 0
+
+        def read_record(self, pr_number, provider):
+            self.reads += 1
+            if self.reads == 2:
+                raise RuntimeError("primary read unavailable")
+            return super().read_record(pr_number, provider)
+
+    def authority(command, *_):
+        commands.append(command)
+        return {"prepared": True}
+
+    monkeypatch.setattr(runner_core, "_authority_challenge_command", authority)
+    primary, fallback = FailsSecondRead(), MemoryRunnerStorage()
+    decision = should_dispatch(
+        42,
+        "aaa",
+        "codex",
+        storage=runner_core.FallbackRunnerStorage(primary, fallback),
+        authority_challenge=True,
+    )
+
+    assert not decision.should_dispatch
+    assert decision.reason == "authoritative-storage-unavailable"
+    assert not primary.writes and not fallback.writes
+    assert commands == ["prepare"]
+
+
+def test_signed_challenge_prepares_then_reserves_then_consumes(monkeypatch):
+    _signed_challenge_environment(monkeypatch)
+    events = []
+
+    class OrderedStorage(MemoryRunnerStorage):
+        def write_record(self, pr_number, provider, record):
+            events.append("reserve")
+            super().write_record(pr_number, provider, record)
+
+    def authority(command, *_):
+        events.append(command)
+        return {"prepared": True} if command == "prepare" else {"granted": True}
+
+    monkeypatch.setattr(runner_core, "_authority_challenge_command", authority)
+    primary = OrderedStorage()
+    decision = should_dispatch(
+        42,
+        "aaa",
+        "codex",
+        storage=runner_core.FallbackRunnerStorage(primary, MemoryRunnerStorage()),
+        authority_challenge=True,
+    )
+    assert decision.should_dispatch
+    assert events == ["prepare", "reserve", "finalize"]
+
+
+def test_signed_challenge_denies_when_reservation_changes_during_finalize(monkeypatch):
+    _signed_challenge_environment(monkeypatch)
+    events = []
+
+    class OrderedStorage(MemoryRunnerStorage):
+        def write_record(self, pr_number, provider, record):
+            events.append("reserve")
+            super().write_record(pr_number, provider, record)
+
+    primary = OrderedStorage()
+
+    def authority(command, *_):
+        events.append(command)
+        if command == "finalize":
+            primary.records.pop((42, "codex"), None)
+            return {"granted": True}
+        return {"prepared": True}
+
+    monkeypatch.setattr(runner_core, "_authority_challenge_command", authority)
+    decision = should_dispatch(
+        42,
+        "aaa",
+        "codex",
+        storage=runner_core.FallbackRunnerStorage(primary, MemoryRunnerStorage()),
+        authority_challenge=True,
+    )
+    assert not decision.should_dispatch
+    assert decision.reason == "authority-reservation-changed"
+    assert events == ["prepare", "reserve", "finalize"]
+
+
 def test_challenge_cannot_reserve_without_authoritative_consumption(monkeypatch):
     _signed_challenge_environment(monkeypatch)
-    monkeypatch.setattr(runner_core, "_consume_authority_challenge", lambda *args: False)
+    monkeypatch.setattr(runner_core, "_authority_challenge_command", lambda *args: None)
     primary, fallback = MemoryRunnerStorage(), MemoryRunnerStorage()
     decision = should_dispatch(
         42,
@@ -128,20 +331,20 @@ def test_challenge_cannot_reserve_without_authoritative_consumption(monkeypatch)
 def test_challenge_consumption_rejects_untrusted_workflow_context(monkeypatch, key, value):
     _signed_challenge_environment(monkeypatch)
     monkeypatch.setenv(key, value)
-    assert not runner_core._consume_authority_challenge(42, "a" * 40, "codex")
+    assert not runner_core._authority_challenge_command("prepare", 42, "a" * 40, "codex")
 
 
 @pytest.mark.parametrize(
-    "returncode,stdout,granted,diagnostic",
+    "returncode,stdout,expected,diagnostic",
     [
-        (0, b'{"granted":true}', True, ""),
-        (0, b'{"granted":false}', False, ""),
-        (7, b"", False, "exited 7"),
-        (0, b"not-json", False, "invalid JSON"),
+        (0, b'{"prepared":true}', {"prepared": True}, ""),
+        (0, b'{"prepared":false}', {"prepared": False}, ""),
+        (7, b"", None, "exited 7"),
+        (0, b"not-json", None, "invalid JSON"),
     ],
 )
 def test_authority_bridge_hands_v2_claim_to_node_and_fails_closed(
-    monkeypatch, capsys, returncode, stdout, granted, diagnostic
+    monkeypatch, capsys, returncode, stdout, expected, diagnostic
 ):
     _signed_challenge_environment(monkeypatch)
     captured = {}
@@ -151,8 +354,8 @@ def test_authority_bridge_hands_v2_claim_to_node_and_fails_closed(
         return subprocess.CompletedProcess(args, returncode, stdout, b"sensitive helper detail")
 
     monkeypatch.setattr(runner_core.subprocess, "run", fake_run)
-    assert runner_core._consume_authority_challenge(42, "a" * 40, "codex") is granted
-    assert captured["args"] == ["node", ".github/scripts/keepalive_authority_state.js", "consume"]
+    assert runner_core._authority_challenge_command("prepare", 42, "a" * 40, "codex") == expected
+    assert captured["args"] == ["node", ".github/scripts/keepalive_authority_state.js", "prepare"]
     assert captured["env"]["AUTHORITY_CHALLENGE_CLAIM"]
     assert captured["env"]["AUTHORITY_PR_NUMBER"] == "42"
     assert captured["env"]["AUTHORITY_HEAD_SHA"] == "a" * 40
@@ -163,7 +366,13 @@ def test_authority_bridge_hands_v2_claim_to_node_and_fails_closed(
 @pytest.mark.parametrize("operation", ["read_record", "write_record"])
 def test_signed_challenge_storage_failure_never_dispatches(monkeypatch, operation):
     _signed_challenge_environment(monkeypatch)
-    monkeypatch.setattr(runner_core, "_consume_authority_challenge", lambda *args: True)
+    commands = []
+
+    def authority(command, *_):
+        commands.append(command)
+        return {"prepared": True} if command == "prepare" else {"released": True}
+
+    monkeypatch.setattr(runner_core, "_authority_challenge_command", authority)
     primary, fallback = MemoryRunnerStorage(), MemoryRunnerStorage()
 
     def fail(*args):
@@ -180,6 +389,99 @@ def test_signed_challenge_storage_failure_never_dispatches(monkeypatch, operatio
     assert not decision.should_dispatch
     assert decision.reason == "authoritative-storage-unavailable"
     assert not primary.writes and not fallback.writes
+    if operation == "write_record":
+        assert commands == ["prepare", "release"]
+
+
+@pytest.mark.parametrize("release_result", [None, {}, {"released": False}])
+def test_signed_challenge_write_failure_reports_uncertain_release(monkeypatch, release_result):
+    _signed_challenge_environment(monkeypatch)
+    commands = []
+
+    def authority(command, *_):
+        commands.append(command)
+        return {"prepared": True} if command == "prepare" else release_result
+
+    primary, fallback = MemoryRunnerStorage(), MemoryRunnerStorage()
+    monkeypatch.setattr(runner_core, "_authority_challenge_command", authority)
+    monkeypatch.setattr(
+        primary,
+        "write_record",
+        lambda *_: (_ for _ in ()).throw(RuntimeError("write failed before persistence")),
+    )
+
+    decision = should_dispatch(
+        42,
+        "aaa",
+        "codex",
+        storage=runner_core.FallbackRunnerStorage(primary, fallback),
+        authority_challenge=True,
+    )
+
+    assert not decision.should_dispatch
+    assert decision.reason == "authoritative-storage-unavailable"
+    assert commands == ["prepare", "release"]
+    assert not primary.records and not fallback.writes
+
+
+def test_signed_challenge_uncertain_reservation_write_does_not_release(monkeypatch):
+    _signed_challenge_environment(monkeypatch)
+    commands = []
+
+    def authority(command, *_):
+        commands.append(command)
+        return {"prepared": True}
+
+    class UncertainStorage(MemoryRunnerStorage):
+        reads = 0
+
+        def read_record(self, pr_number, provider):
+            self.reads += 1
+            if self.reads == 1:
+                return None
+            raise RuntimeError("primary readback unavailable")
+
+        def write_record(self, pr_number, provider, record):
+            raise RuntimeError("primary write outcome unknown")
+
+    monkeypatch.setattr(runner_core, "_authority_challenge_command", authority)
+    decision = should_dispatch(
+        42,
+        "aaa",
+        "codex",
+        storage=runner_core.FallbackRunnerStorage(UncertainStorage(), MemoryRunnerStorage()),
+        authority_challenge=True,
+    )
+    assert not decision.should_dispatch
+    assert decision.reason == "authoritative-storage-unavailable"
+    assert commands == ["prepare"]
+
+
+def test_signed_challenge_recovers_persisted_reservation_after_write_error(monkeypatch):
+    _signed_challenge_environment(monkeypatch)
+    commands = []
+
+    def authority(command, *_):
+        commands.append(command)
+        return {"prepared": True} if command == "prepare" else {"granted": True}
+
+    class PersistedThenErroredStorage(MemoryRunnerStorage):
+        def write_record(self, pr_number, provider, record):
+            super().write_record(pr_number, provider, record)
+            raise RuntimeError("response lost after persistence")
+
+    monkeypatch.setattr(runner_core, "_authority_challenge_command", authority)
+    primary = PersistedThenErroredStorage()
+    decision = should_dispatch(
+        42,
+        "aaa",
+        "codex",
+        storage=runner_core.FallbackRunnerStorage(primary, MemoryRunnerStorage()),
+        authority_challenge=True,
+    )
+    assert decision.should_dispatch
+    assert decision.reason == "due-authority-challenge"
+    assert commands == ["prepare", "finalize"]
 
 
 def test_capability_effect_evidence_is_optional_and_empty() -> None:

@@ -272,6 +272,7 @@ scripts:
     description: "Computes workflow state fingerprints for unchanged-state skip gates"
 
   - source: scripts/check_deliberate_break.py
+    template_sync: exact
     description: "Opt-in Gate helper that proves named deliberate-break acceptance tests fail against the base implementation"
 
   - source: scripts/reference_packs.py
@@ -737,6 +738,15 @@ scripts:
   # Research-backplane run-contract/v1 validator (run locally + in the conformance gate)
   - source: scripts/validate_run_contract.py
     description: "Validates a repo's emitted run-contract/v1 run envelope (producer/bridge) or ingested satellite object (consumer) against the canonical Workflows schemas + opt-in participant registry. Offline/deterministic; opt-in skip for non-participants. Synced so participants can validate locally and the reusable conformance gate can invoke it."
+    requires:
+      - docs/contracts/schemas/run-contract-v1.schema.json
+      - docs/contracts/schemas/artifact-manifest-v1.schema.json
+      - docs/contracts/schemas/evidence-object-v1.schema.json
+      - docs/contracts/schemas/tracked-variable-v1.schema.json
+      - docs/contracts/schemas/capability-bundle-v1.schema.json
+      - docs/contracts/schemas/mosaic-core-v1.schema.json
+      - docs/contracts/schemas/document-mirror-v1.schema.json
+      - docs/contracts/schemas/output-substrate-v1.schema.json
 
   # GraphQL-based PR context fetcher (medium-effort rate limit optimization)
   - source: .github/scripts/pr-context-graphql.js
@@ -920,6 +930,9 @@ docs:
     source_tree: root
     target: docs/contracts/mosaic-core-v1.md
     description: "Mosaic-core/v1 record types and fact-key join semantics"
+    requires:
+      - docs/contracts/schemas/mosaic-core-v1.schema.json
+      - docs/contracts/schemas/artifact-manifest-v1.schema.json
 
   - source: docs/contracts/schemas/mosaic-core-v1.schema.json
     source_tree: root
@@ -930,6 +943,8 @@ docs:
     source_tree: root
     target: docs/contracts/document-mirror-v1.md
     description: "Document-mirror/v1 specification for offline blob catalogs and triple-link resolvers"
+    requires:
+      - docs/contracts/schemas/document-mirror-v1.schema.json
 
   - source: docs/contracts/schemas/document-mirror-v1.schema.json
     source_tree: root
@@ -940,6 +955,9 @@ docs:
     source_tree: root
     target: docs/contracts/output-substrate-v1.md
     description: "Output-substrate/v1 renderer profiles, workspace bundle refs, and manifest CSV exports"
+    requires:
+      - docs/contracts/schemas/output-substrate-v1.schema.json
+      - docs/contracts/schemas/artifact-manifest-v1.schema.json
 
   - source: docs/contracts/schemas/output-substrate-v1.schema.json
     source_tree: root

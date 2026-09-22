@@ -4518,6 +4518,7 @@ async function updateKeepaliveLoopSummary({ github: rawGithub, context, core, in
           request, repository, prNumber,
           defaultBranch: repoInfo.default_branch,
           fingerprint: authorityEvidence.fingerprint,
+          headSha: inputs.head_sha ?? inputs.headSha,
           dueAt, expiresAt,
           expectedGeneration: previousAuthorityChallenge ? previousAttention.generation || null : null,
         });
@@ -4708,15 +4709,10 @@ async function updateKeepaliveLoopSummary({ github: rawGithub, context, core, in
                   next_action: 'Reconcile the unconfirmed authority challenge and workflow-owned needs-human label.',
                 };
                 if (recovery.status === 'reopened') {
-                  try {
-                    await github.rest.issues.removeLabel({
-                      owner: context.repo.owner, repo: context.repo.repo,
-                      issue_number: prNumber, name: 'needs-human',
-                    });
-                    newState.attention.confirmation_pending_label = false;
-                  } catch (error) {
-                    core?.warning?.(`Failed to remove unconfirmed needs-human label: ${error.message}`);
-                  }
+                  // Reopening is allowed only after a fresh same-head read proves
+                  // that needs-human is already absent. Never infer label ownership
+                  // from addLabels success or delete a concurrent human blocker.
+                  newState.attention.confirmation_pending_label = false;
                 }
               }
             }

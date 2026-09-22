@@ -6,6 +6,17 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 Breaking changes are called out with a **BREAKING** marker and scheduled according to the policy in `COMPATIBILITY.md`.
 
+## [1.33.1](https://github.com/stranske/Workflows/compare/v1.33.0...v1.33.1) (2026-09-22)
+
+
+### Bug Fixes
+
+* **keepalive:** close authority challenge review gaps ([#3497](https://github.com/stranske/Workflows/issues/3497)) ([8b6401c](https://github.com/stranske/Workflows/commit/8b6401c73c373f30bc56aeaeb4af214b9617ef4d))
+* **runner:** preserve authority storage narrowing ([#3500](https://github.com/stranske/Workflows/issues/3500)) ([048c5ff](https://github.com/stranske/Workflows/commit/048c5ffdacc5144af7e042c436161d026a36cb2f))
+* **sync:** carry contract schemas with validator deliveries ([#3487](https://github.com/stranske/Workflows/issues/3487)) ([dad32e3](https://github.com/stranske/Workflows/commit/dad32e3245f6b62c69f8ad840595e612dfa43b01))
+* **sync:** guard stable delta rotations from dropped payloads ([#3488](https://github.com/stranske/Workflows/issues/3488)) ([18b4145](https://github.com/stranske/Workflows/commit/18b41459aee43acf526d7b9ff526e5f7e46c6c22))
+* **sync:** isolate named deliberate-break pytest options ([#3478](https://github.com/stranske/Workflows/issues/3478)) ([c1e00bc](https://github.com/stranske/Workflows/commit/c1e00bcc34b60e2c08626c02be750cb98762f0f2))
+
 ## [1.33.0](https://github.com/stranske/Workflows/compare/v1.32.6...v1.33.0) (2026-09-20)
 
 

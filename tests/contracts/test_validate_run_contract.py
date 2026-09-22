@@ -9,6 +9,7 @@ from __future__ import annotations
 
 import importlib.util
 import json
+import subprocess
 import sys
 from pathlib import Path
 
@@ -200,6 +201,79 @@ def test_self_smoke_and_mirror_manifest_are_mutually_exclusive(capsys) -> None:
         )
     assert exc.value.code == 2
     assert "mutually exclusive" in capsys.readouterr().err
+
+
+def test_self_smoke_and_tracked_variables_are_mutually_exclusive(capsys) -> None:
+    mod = _import_validator()
+    with pytest.raises(SystemExit) as exc:
+        mod.main(
+            [
+                "--self-smoke",
+                "--tracked-variables",
+                str(FIXTURES / "valid_tracked_variable.json"),
+                "--schema-dir",
+                str(SCHEMA_DIR),
+            ]
+        )
+    assert exc.value.code == 2
+    assert "mutually exclusive" in capsys.readouterr().err
+
+
+@pytest.mark.parametrize(
+    ("schema_name", "missing_format"),
+    [
+        ("mosaic-core-v1.schema.json", "date-time"),
+        ("document-mirror-v1.schema.json", "uri"),
+    ],
+)
+def test_required_format_checker_fails_closed_when_provider_is_unavailable(
+    monkeypatch, schema_name: str, missing_format: str
+) -> None:
+    mod = _import_validator()
+    checkers = dict(mod.FormatChecker.checkers)
+    checkers.pop(missing_format)
+    monkeypatch.setattr(mod.FormatChecker, "checkers", checkers)
+    with pytest.raises(
+        RuntimeError, match="install jsonschema rfc3339-validator rfc3986-validator"
+    ):
+        mod._validator_for_schema(SCHEMA_DIR, schema_name)
+
+
+@pytest.mark.parametrize(
+    ("schema_name", "missing_format", "blocked_imports"),
+    [
+        ("mosaic-core-v1.schema.json", "date-time", ("rfc3339_validator",)),
+        (
+            "document-mirror-v1.schema.json",
+            "uri",
+            ("rfc3986_validator", "rfc3987"),
+        ),
+    ],
+)
+def test_required_format_checker_fails_closed_without_optional_provider_import(
+    schema_name: str, missing_format: str, blocked_imports: tuple[str, ...]
+) -> None:
+    """Exercise jsonschema registration in a fresh process without the provider."""
+    code = f"""
+import builtins
+from pathlib import Path
+real_import = builtins.__import__
+blocked = {blocked_imports!r}
+def without_provider(name, *args, **kwargs):
+    if name in blocked:
+        raise ImportError(name)
+    return real_import(name, *args, **kwargs)
+builtins.__import__ = without_provider
+from scripts.validate_run_contract import _validator_for_schema
+try:
+    _validator_for_schema(Path('docs/contracts/schemas'), {schema_name!r})
+except RuntimeError as exc:
+    assert {missing_format!r} in str(exc), str(exc)
+else:
+    raise AssertionError('missing format provider did not fail closed')
+"""
+    result = subprocess.run([sys.executable, "-c", code], cwd=ROOT, capture_output=True, text=True)
+    assert result.returncode == 0, result.stderr
 
 
 @pytest.mark.parametrize("mode", [[str(FIXTURES / "valid_run.json")], ["--self-smoke"]])
@@ -690,6 +764,17 @@ def test_self_smoke_fails_on_an_empty_schema_dir(tmp_path, capsys) -> None:
     rc = mod._self_smoke(empty, REGISTRY)
     assert rc == 1
     assert "no *.schema.json files found" in capsys.readouterr().out
+
+
+def test_self_smoke_fails_when_a_registered_schema_is_missing(tmp_path, capsys) -> None:
+    mod = _import_validator()
+    schema_dir = tmp_path / "schemas"
+    schema_dir.mkdir()
+    (schema_dir / "run-contract-v1.schema.json").write_text(
+        (SCHEMA_DIR / "run-contract-v1.schema.json").read_text()
+    )
+    assert mod._self_smoke(schema_dir, REGISTRY) == 1
+    assert "missing registered schemas" in capsys.readouterr().out
 
 
 def test_self_smoke_rejects_draft2020_invalid_schema_in_schema_dir(tmp_path) -> None:
