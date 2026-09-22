@@ -15,8 +15,11 @@
       ]
     },
     "anthropic": {
-      "checked_at": "2026-07-10T00:00:00Z",
+      "checked_at": "2026-09-22T00:00:00Z",
       "model_ids": [
+        "claude-fable-5-1",
+        "claude-opus-5",
+        "claude-opus-5-5",
         "claude-fable-5",
         "claude-opus-4-8",
         "claude-sonnet-5",
@@ -80,6 +83,18 @@
       "provider": "openai",
       "checked_at": "2026-09-04",
       "url": "https://developers.openai.com/api/docs/pricing"
+    },
+    {
+      "source_id": "anthropic-catalog-discovery-2026-09-22",
+      "provider": "anthropic",
+      "checked_at": "2026-09-22",
+      "url": "https://api.anthropic.com/v1/models?limit=1000"
+    },
+    {
+      "source_id": "anthropic-current-models-2026-09-22",
+      "provider": "anthropic",
+      "checked_at": "2026-09-22",
+      "url": "https://platform.claude.com/docs/en/about-claude/models/overview"
     }
   ],
   "models": [
@@ -153,6 +168,57 @@
         "input_per_million_tokens": 0.2,
         "output_per_million_tokens": 1.2,
         "as_of": "2026-09-04"
+      }
+    },
+    {
+      "model_id": "claude-fable-5-1",
+      "provider": "anthropic",
+      "api": "chat",
+      "lifecycle": "current",
+      "positioning": "frontier",
+      "source_ids": [
+        "anthropic-catalog-discovery-2026-09-22",
+        "anthropic-current-models-2026-09-22"
+      ],
+      "pricing": {
+        "currency": "USD",
+        "input_per_million_tokens": 10.0,
+        "output_per_million_tokens": 50.0,
+        "as_of": "2026-09-22"
+      }
+    },
+    {
+      "model_id": "claude-opus-5-5",
+      "provider": "anthropic",
+      "api": "chat",
+      "lifecycle": "current",
+      "positioning": "high-capability",
+      "source_ids": [
+        "anthropic-catalog-discovery-2026-09-22",
+        "anthropic-current-models-2026-09-22"
+      ],
+      "pricing": {
+        "currency": "USD",
+        "input_per_million_tokens": 4.0,
+        "output_per_million_tokens": 20.0,
+        "as_of": "2026-09-22"
+      }
+    },
+    {
+      "model_id": "claude-opus-5",
+      "provider": "anthropic",
+      "api": "chat",
+      "lifecycle": "current",
+      "positioning": "high-capability",
+      "source_ids": [
+        "anthropic-catalog-discovery-2026-09-22",
+        "anthropic-current-models-2026-09-22"
+      ],
+      "pricing": {
+        "currency": "USD",
+        "input_per_million_tokens": 5.0,
+        "output_per_million_tokens": 25.0,
+        "as_of": "2026-09-22"
       }
     },
     {
@@ -387,6 +453,17 @@
         "github-models-catalog-2026-07-10"
       ],
       "notes": "Confirms availability and list pricing only. It is not repository workload quality evidence and cannot approve a selection."
+    },
+    {
+      "evidence_id": "catalog-discovery-2026-09-22",
+      "kind": "provider-catalog-review",
+      "measured_at": "2026-09-22",
+      "status": "catalog-only",
+      "source_ids": [
+        "anthropic-catalog-discovery-2026-09-22",
+        "anthropic-current-models-2026-09-22"
+      ],
+      "notes": "maint-77 catalog discovery (run 35796771035) observed claude-opus-5-5, claude-opus-5 and claude-fable-5-1 in the Anthropic /v1/models catalog. List pricing from the Anthropic models overview. Availability and pricing only; not workload quality evidence and cannot approve a selection."
     }
   ]
 }
