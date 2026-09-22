@@ -345,6 +345,29 @@ def test_output_substrate_fixture_validates() -> None:
     assert not list(validator.iter_errors(valid))
 
 
+def test_output_substrate_csv_export_validates() -> None:
+    """Deliberate-break gate for issue #3375.
+
+    Set a column ``type`` to an invalid enum value and this test must fail.
+    """
+    validator = _validator("output-substrate-v1.schema.json")
+    valid = json.loads((FIXTURES / "valid_output_substrate_with_csv.json").read_text())
+    assert valid["manifest_csv_exports"][0]["columns"][0]["type"] == "string"
+    assert valid["manifest_csv_exports"][1]["encoding"] == "utf-16-le"
+    assert not list(validator.iter_errors(valid))
+
+    invalid = json.loads((FIXTURES / "valid_output_substrate_with_csv.json").read_text())
+    invalid["manifest_csv_exports"][0]["columns"][0]["type"] = "currency"
+    errors = list(validator.iter_errors(invalid))
+    assert errors
+    assert any(
+        list(error.absolute_path)
+        == ["manifest_csv_exports", 0, "columns", 0, "type"]
+        and error.validator == "enum"
+        for error in errors
+    )
+
+
 def test_output_substrate_rejects_missing_renderer_profile() -> None:
     value = json.loads((FIXTURES / "valid_output_substrate.json").read_text())
     del value["renderer_profile"]
