@@ -49,6 +49,7 @@ def test_integration_guide_quick_setup_uses_current_consumer_defaults() -> None:
         "templates/consumer-repo/docs/TARGET_WORK_ENVIRONMENT.md "
         "-o docs/TARGET_WORK_ENVIRONMENT.md"
     ) in section
+    assert section.count("docs/TARGET_WORK_ENVIRONMENT.md") == 2
 
 
 def test_integration_guide_workflow_summary_matches_agent_docs_defaults() -> None:
@@ -67,6 +68,7 @@ def test_integration_guide_workflow_summary_matches_agent_docs_defaults() -> Non
 
     assert "agents-orchestrator.yml" not in section
     assert "agents-pr-meta.yml" not in section
+    assert section.count("docs/TARGET_WORK_ENVIRONMENT.md") == 1
 
 
 def test_integration_guide_migration_table_marks_legacy_replacements() -> None:

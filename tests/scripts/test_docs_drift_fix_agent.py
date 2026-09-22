@@ -213,6 +213,10 @@ def test_trend_config_uses_historical_agents_filename(tmp_path: Path) -> None:
         "Read `docs/WORKFLOW_GUIDE.md` from stranske/Workflows before editing.\n",
     )
     _write(
+        root / "docs/TARGET_WORK_ENVIRONMENT.md",
+        "Confirmed work-environment delivery constraints.\n",
+    )
+    _write(
         root / fix_agent.DEFAULT_DOCS_CONFIG,
         (ROOT / fix_agent.DEFAULT_DOCS_CONFIG).read_text(encoding="utf-8"),
     )
@@ -220,6 +224,7 @@ def test_trend_config_uses_historical_agents_filename(tmp_path: Path) -> None:
     assert fix_agent.default_docs_from_config(root, repo="stranske/Trend_Model_Project") == [
         "README.md",
         "Agents.md",
+        "docs/TARGET_WORK_ENVIRONMENT.md",
     ]
     assert (
         fix_agent.build_plan(repo_root=root, repo="stranske/Trend_Model_Project")["finding_count"]
