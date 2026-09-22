@@ -104,7 +104,7 @@ jobs:
           python-version: '3.14'
 
       - name: Install dependencies
-        run: pip install jsonschema rfc3339-validator
+        run: pip install jsonschema rfc3339-validator rfc3986-validator
 
       - name: Validate run envelope
         id: validate

@@ -89,10 +89,13 @@ contract delivery. No template-owned duplicate schema is maintained.
 Declare `mosaic-core/v1` in an active consumer registry entry's `ingests` list
 and pass one record to `scripts/validate_run_contract.py`. The production
 validator checks all four record types and enforces `checked_at` date-time
-format. Install `jsonschema` and `rfc3339-validator` when running it standalone;
-`pip install -e ".[dev]"` and the reusable backplane conformance workflow include
-both dependencies. The RFC 3339 checker is required, not an optional validation
-step. Existing satellite schema validation behavior is unchanged.
+format. In a consumer checkout, install the standalone validator dependencies
+explicitly: `python -m pip install jsonschema rfc3339-validator rfc3986-validator`.
+The consumer's `.[dev]` extra does not necessarily include them. The Workflows
+source development environment and reusable backplane conformance workflow
+provide these dependencies separately. The RFC 3339 checker is required, not
+an optional validation step. Existing satellite schema validation behavior is
+unchanged.
 
 ## Workflows source validation evidence
 

@@ -113,18 +113,29 @@ def _load_schema(schema_dir: Path, name: str) -> dict[str, Any]:
     return _load_json(schema_dir / name)
 
 
+def _required_format_checker(*formats: str) -> FormatChecker:
+    """Fail closed when optional JSON Schema format implementations are absent."""
+    missing = [name for name in formats if name not in FormatChecker.checkers]
+    if missing:
+        raise RuntimeError(
+            f"JSON Schema format checker(s) unavailable: {', '.join(missing)}; "
+            "install jsonschema rfc3339-validator rfc3986-validator"
+        )
+    return FormatChecker(formats=formats)
+
+
 def _validator_for_schema(schema_dir: Path, name: str) -> Draft202012Validator:
     schema = _load_schema(schema_dir, name)
     if name == "mosaic-core-v1.schema.json":
         # Explicitly request the checker so a missing rfc3339-validator dependency
         # fails instead of silently accepting malformed checked_at timestamps.
-        return Draft202012Validator(schema, format_checker=FormatChecker(formats=["date-time"]))
+        return Draft202012Validator(schema, format_checker=_required_format_checker("date-time"))
     if name == "document-mirror-v1.schema.json":
         # Explicitly request URI/date-time checks so malformed resolver links and
         # catalog timestamps cannot pass as conformant.
         return Draft202012Validator(
             schema,
-            format_checker=FormatChecker(formats=["date-time", "uri"]),
+            format_checker=_required_format_checker("date-time", "uri"),
         )
     if name != "tracked-variable-v1.schema.json":
         return Draft202012Validator(schema)
@@ -410,6 +421,8 @@ def main(argv: list[str] | None = None) -> int:
 
     if args.tracked_variables and args.mirror_manifest:
         parser.error("--tracked-variables and --mirror-manifest are mutually exclusive")
+    if args.self_smoke and args.tracked_variables:
+        parser.error("--self-smoke and --tracked-variables are mutually exclusive")
     if args.self_smoke and args.mirror_manifest:
         parser.error("--self-smoke and --mirror-manifest are mutually exclusive")
 
@@ -560,6 +573,10 @@ def _self_smoke(schema_dir: Path, registry_path: Path) -> int:
             f"FAIL schema dir {schema_dir}: no *.schema.json files found; "
             "self-smoke cannot validate schemas"
         )
+        return 1
+    missing = sorted(set(INGEST_SCHEMA_FILES.values()) - set(schema_names))
+    if missing:
+        print(f"FAIL schema dir {schema_dir}: missing registered schemas: {', '.join(missing)}")
         return 1
     for name in schema_names:
         schema = _load_schema(schema_dir, name)
