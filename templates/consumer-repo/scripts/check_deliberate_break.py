@@ -883,13 +883,13 @@ def _assertion_diff_lines(
                     or not ASSERTION_DIFF_RE.search(item)
                 ):
                     continue
-                approved = (
-                    approved_replacement is not None
-                    and item[1:].strip() == approved_replacement[0]
-                    and approved_replacement[1] in additions
-                )
-                if approved:
-                    additions.remove(approved_replacement[1])
+                replacement = approved_replacement
+                if (
+                    replacement is not None
+                    and item[1:].strip() == replacement[0]
+                    and replacement[1] in additions
+                ):
+                    additions.remove(replacement[1])
                 else:
                     yield item[:240]
             hunk = []
