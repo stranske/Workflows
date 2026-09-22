@@ -31,6 +31,7 @@ def test_integration_guide_quick_setup_uses_current_consumer_defaults() -> None:
         "pr-00-gate.yml",
         "AGENTS.md",
         "CLAUDE.md",
+        "docs/TARGET_WORK_ENVIRONMENT.md",
     ]
 
     for filename in expected_defaults:
@@ -43,6 +44,12 @@ def test_integration_guide_quick_setup_uses_current_consumer_defaults() -> None:
     for legacy_entry in legacy_defaults:
         assert legacy_entry not in section
 
+    assert "mkdir -p docs" in section
+    assert (
+        "templates/consumer-repo/docs/TARGET_WORK_ENVIRONMENT.md "
+        "-o docs/TARGET_WORK_ENVIRONMENT.md"
+    ) in section
+
 
 def test_integration_guide_workflow_summary_matches_agent_docs_defaults() -> None:
     section = _workflow_summary_section()
@@ -54,6 +61,7 @@ def test_integration_guide_workflow_summary_matches_agent_docs_defaults() -> Non
         "pr-00-gate.yml",
         "AGENTS.md",
         "CLAUDE.md",
+        "docs/TARGET_WORK_ENVIRONMENT.md",
     ]:
         assert filename in section
 
