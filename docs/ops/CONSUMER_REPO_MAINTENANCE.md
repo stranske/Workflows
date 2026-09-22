@@ -720,6 +720,14 @@ workflow-template sync PR cannot update the env file without the matching
 `pyproject.toml`, managed `.pre-commit-config.yaml` hook revisions, `requirements.lock`, and supported `requirements-dev.lock`
 changes.
 
+For a tool-only `pyproject.toml` with no package declaration (as in Orchestrator),
+Maint 52 leaves the file's tool configuration alone instead of adding
+`[project.optional-dependencies]`. It still synchronizes any supported direct
+requirements lockfile and managed pre-commit hooks that exist in that repo.
+Package-shaped projects without `[project]`, including legacy `setup.py` or
+`setup.cfg` consumers, remain an error requiring explicit integration rather
+than a synthetic package declaration.
+
 Managed pre-commit revisions are an explicit Maint 52 propagation surface. The
 workflow passes `sync_dev_dependencies.py --pre-commit`; the script's default
 check intentionally omits that surface so a Maint 68 workflow-template candidate
