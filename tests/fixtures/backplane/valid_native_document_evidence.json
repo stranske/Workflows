@@ -1,0 +1,16 @@
+{
+  "schema_version": "evidence-object/v1",
+  "evidence_id": "ev:native-letter-1",
+  "fact_ref": "manager.strategy",
+  "source_id": "manager-letter-2026",
+  "method": "text",
+  "excerpt": "The strategy seeks diversified returns.",
+  "locator": {"page": 0},
+  "document_ref": {
+    "sha256": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+    "doc_key": "manager:example/manager_letter/2026-09-01",
+    "doc_type": "manager_letter",
+    "page": 0,
+    "text_basis": "native"
+  }
+}
