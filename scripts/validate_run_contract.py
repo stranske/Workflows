@@ -24,6 +24,7 @@ import argparse
 import json
 import sys
 from dataclasses import dataclass, field
+from datetime import date
 from pathlib import Path
 from typing import Any
 
@@ -149,6 +150,52 @@ def _validator_for_schema(schema_dir: Path, name: str) -> Draft202012Validator:
     return Draft202012Validator(schema, registry=registry)
 
 
+def _check_document_page(document: Any, report: Report, prefix: str = "") -> None:
+    """Check document identity details that JSON Schema cannot compare or parse."""
+    if not isinstance(document, dict):
+        return
+    doc_ref = document.get("document_ref")
+    locator = document.get("locator")
+    if not isinstance(doc_ref, dict):
+        return
+    if (
+        isinstance(locator, dict)
+        and "page" in doc_ref
+        and "page" in locator
+        and doc_ref["page"] != locator["page"]
+    ):
+        report.fail("document_ref.page conflicts with locator.page", f"{prefix}document_ref/page")
+    doc_key = doc_ref.get("doc_key")
+    if isinstance(doc_key, str):
+        as_of = doc_key.rsplit("/", 1)[-1]
+        if as_of != "unknown":
+            try:
+                if date.fromisoformat(as_of).isoformat() != as_of:
+                    raise ValueError("non-canonical date")
+            except ValueError:
+                report.fail(
+                    "document_ref.doc_key as_of must be an ISO calendar date or unknown",
+                    f"{prefix}document_ref/doc_key",
+                )
+
+
+def validate_evidence_objects(*, paths: list[Path], schema_dir: Path) -> Report:
+    """Validate evidence-object/v1 fixtures without participant routing."""
+    report = Report(repo="evidence-object/v1")
+    validator = _validator_for_schema(schema_dir, "evidence-object-v1.schema.json")
+    for path in paths:
+        try:
+            document = _load_json(path)
+        except (OSError, UnicodeDecodeError, json.JSONDecodeError) as exc:
+            report.fail(f"cannot load evidence object {path}: {exc}", str(path))
+            continue
+        for err in sorted(validator.iter_errors(document), key=lambda e: list(e.absolute_path)):
+            pointer = "/".join(str(p) for p in err.absolute_path)
+            report.fail(err.message, f"{path}:/{pointer}")
+        _check_document_page(document, report, f"{path}:/")
+    return report
+
+
 def validate_tracked_variables(*, paths: list[Path], schema_dir: Path) -> Report:
     """Validate one or more tracked-variable/v1 JSON files against the schema."""
     report = Report(repo="tracked-variable/v1")
@@ -164,6 +211,8 @@ def validate_tracked_variables(*, paths: list[Path], schema_dir: Path) -> Report
             key=lambda e: list(e.absolute_path),
         ):
             report.fail(err.message, "/".join(str(p) for p in err.absolute_path))
+        if isinstance(document, dict):
+            _check_document_page(document.get("evidence"), report, "evidence/")
     return report
 
 
@@ -248,6 +297,10 @@ def _validate_consumer(
         if not errs:
             # Matched an ingested schema -> conformant.
             _scan_unsafe(document, report)
+            if token == "evidence-object/v1":
+                _check_document_page(document, report)
+            elif token == "tracked-variable/v1" and isinstance(document, dict):
+                _check_document_page(document.get("evidence"), report, "evidence/")
             return report
         per_schema_errors[token] = errs
 
@@ -404,6 +457,13 @@ def main(argv: list[str] | None = None) -> int:
         help="Run an offline self-smoke over bundled fixtures and exit.",
     )
     parser.add_argument(
+        "--evidence-objects",
+        type=Path,
+        nargs="+",
+        default=None,
+        help="Validate one or more evidence-object/v1 JSON files against the schema.",
+    )
+    parser.add_argument(
         "--tracked-variables",
         type=Path,
         nargs="+",
@@ -419,14 +479,13 @@ def main(argv: list[str] | None = None) -> int:
     )
     args = parser.parse_args(argv)
 
-    if args.tracked_variables and args.mirror_manifest:
-        parser.error("--tracked-variables and --mirror-manifest are mutually exclusive")
-    if args.self_smoke and args.tracked_variables:
-        parser.error("--self-smoke and --tracked-variables are mutually exclusive")
-    if args.self_smoke and args.mirror_manifest:
-        parser.error("--self-smoke and --mirror-manifest are mutually exclusive")
+    modes = [args.self_smoke, args.evidence_objects, args.tracked_variables, args.mirror_manifest]
+    if sum(bool(mode) for mode in modes) > 1:
+        parser.error(
+            "--self-smoke, --evidence-objects, --tracked-variables and --mirror-manifest are mutually exclusive"
+        )
 
-    standalone_schema_mode = args.tracked_variables or args.mirror_manifest
+    standalone_schema_mode = args.evidence_objects or args.tracked_variables or args.mirror_manifest
 
     # Standalone schema validation does not consult participant routing. Keep
     # that context mandatory for the existing envelope and self-smoke modes.
@@ -438,7 +497,13 @@ def main(argv: list[str] | None = None) -> int:
     if args.self_smoke:
         return _self_smoke(args.schema_dir, args.registry)
 
-    if args.tracked_variables:
+    if args.evidence_objects:
+        report = validate_evidence_objects(
+            paths=list(args.evidence_objects),
+            schema_dir=args.schema_dir,
+        )
+        label = "evidence-object/v1"
+    elif args.tracked_variables:
         report = validate_tracked_variables(
             paths=list(args.tracked_variables),
             schema_dir=args.schema_dir,
@@ -454,7 +519,9 @@ def main(argv: list[str] | None = None) -> int:
         report = None
 
     if report is not None:
-        path_count = len(args.tracked_variables or args.mirror_manifest or [])
+        path_count = len(
+            args.evidence_objects or args.tracked_variables or args.mirror_manifest or []
+        )
         if report.conformant:
             print(f"{label}: {path_count} file(s) conform to schema")
         else:
@@ -489,7 +556,7 @@ def main(argv: list[str] | None = None) -> int:
 
     if args.run_json is None:
         print(
-            "ERROR: run_json path is required unless exactly one of --tracked-variables or --mirror-manifest is set",
+            "ERROR: run_json path is required unless exactly one of --evidence-objects, --tracked-variables or --mirror-manifest is set",
             file=sys.stderr,
         )
         return 2

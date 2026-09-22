@@ -96,6 +96,61 @@
       "type": "string",
       "pattern": "^[a-z0-9_]+:[a-z0-9][a-z0-9_.:-]*$",
       "description": "Optional canonical entity id (per identity-map-conventions.md) the fact is about."
+    },
+    "evidence_kind": {
+      "type": "string",
+      "enum": ["fact", "document_text_coverage"],
+      "description": "Explicitly marks a coverage or completeness figure derived from document text; its numeric value stays with fact_ref."
+    },
+    "document_ref": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["sha256", "doc_key", "doc_type", "text_basis"],
+      "properties": {
+        "sha256": {"type": "string", "pattern": "^[a-f0-9]{64}$"},
+        "doc_key": {"type": "string", "pattern": "^[a-z0-9_]+:[a-z0-9][a-z0-9_.:-]*/[a-z_]+/(?:[0-9]{4}-(?:0[1-9]|1[0-2])-(?:0[1-9]|[12][0-9]|3[01])|unknown)$"},
+        "doc_type": {
+          "type": "string",
+          "enum": ["call_note", "manager_letter", "data_packet", "legal_document", "consultant_report", "research_article", "marketing_material", "regulatory_filing", "audited_financial_statement", "questionnaire", "internal_diligence_report", "presentation"]
+        },
+        "page": {"type": "integer", "minimum": 0},
+        "text_basis": {"type": "string", "enum": ["native", "ocr", "mixed", "unknown"]},
+        "supersedes": {"type": "string", "pattern": "^[a-f0-9]{64}$"},
+        "supersession_evidence": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["mechanism", "detail"],
+          "properties": {
+            "mechanism": {"type": "string", "enum": ["source_metadata", "content_comparison", "owner_assertion"]},
+            "detail": {"type": "string", "minLength": 1}
+          }
+        }
+      },
+      "dependentRequired": {"supersedes": ["supersession_evidence"], "supersession_evidence": ["supersedes"]},
+      "oneOf": [
+        {"properties": {"doc_type": {"const": "call_note"}, "doc_key": {"pattern": "/call_note/"}}},
+        {"properties": {"doc_type": {"const": "manager_letter"}, "doc_key": {"pattern": "/manager_letter/"}}},
+        {"properties": {"doc_type": {"const": "data_packet"}, "doc_key": {"pattern": "/data_packet/"}}},
+        {"properties": {"doc_type": {"const": "legal_document"}, "doc_key": {"pattern": "/legal_document/"}}},
+        {"properties": {"doc_type": {"const": "consultant_report"}, "doc_key": {"pattern": "/consultant_report/"}}},
+        {"properties": {"doc_type": {"const": "research_article"}, "doc_key": {"pattern": "/research_article/"}}},
+        {"properties": {"doc_type": {"const": "marketing_material"}, "doc_key": {"pattern": "/marketing_material/"}}},
+        {"properties": {"doc_type": {"const": "regulatory_filing"}, "doc_key": {"pattern": "/regulatory_filing/"}}},
+        {"properties": {"doc_type": {"const": "audited_financial_statement"}, "doc_key": {"pattern": "/audited_financial_statement/"}}},
+        {"properties": {"doc_type": {"const": "questionnaire"}, "doc_key": {"pattern": "/questionnaire/"}}},
+        {"properties": {"doc_type": {"const": "internal_diligence_report"}, "doc_key": {"pattern": "/internal_diligence_report/"}}},
+        {"properties": {"doc_type": {"const": "presentation"}, "doc_key": {"pattern": "/presentation/"}}}
+      ]
     }
-  }
+  },
+  "allOf": [
+    {
+      "if": {"required": ["document_ref"], "properties": {"excerpt": {"type": "string", "minLength": 1}}},
+      "then": {"properties": {"document_ref": {"required": ["page"]}}}
+    },
+    {
+      "if": {"required": ["evidence_kind"], "properties": {"evidence_kind": {"const": "document_text_coverage"}}},
+      "then": {"required": ["document_ref"]}
+    }
+  ]
 }

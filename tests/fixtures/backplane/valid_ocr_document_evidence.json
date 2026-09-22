@@ -1,0 +1,20 @@
+{
+  "schema_version": "evidence-object/v1",
+  "evidence_id": "ev:ocr-report-1",
+  "fact_ref": "consultant.document_text_coverage",
+  "source_id": "consultant-report-2026",
+  "method": "computed",
+  "excerpt": null,
+  "evidence_kind": "document_text_coverage",
+  "document_ref": {
+    "sha256": "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+    "doc_key": "consultant:example/consultant_report/2026-08-31",
+    "doc_type": "consultant_report",
+    "text_basis": "ocr",
+    "supersedes": "cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc",
+    "supersession_evidence": {
+      "mechanism": "source_metadata",
+      "detail": "Document version notice dated 2026-08-31 names the prior report."
+    }
+  }
+}

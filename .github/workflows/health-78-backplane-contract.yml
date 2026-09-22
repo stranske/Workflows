@@ -19,6 +19,7 @@ on:
       - 'docs/contracts/run-contract-v1.md'
       - 'docs/contracts/research-backplane-contract.md'
       - 'docs/contracts/identity-map-conventions.md'
+      - 'docs/contracts/document-identity-conventions.md'
       - 'docs/contracts/schemas/**'
       - 'config/backplane_participants.json'
       - 'scripts/validate_run_contract.py'
