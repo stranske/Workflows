@@ -254,8 +254,20 @@ def test_playbook_link_preserves_absolute_url_and_rejects_unsafe_relative_path(m
         "//example.com/guide",
         "https://example.com/guide)evil",
         "https://user:secret@example.com/guide",
+        "https://example.com:abc/guide",
+        "https://example.com:99999/guide",
     ):
         assert post_ci_summary._playbook_link(url, "a" * 40) == "unavailable playbook URL"
+
+
+def test_playbook_link_rejects_malformed_server_ports(monkeypatch) -> None:
+    monkeypatch.setenv("GITHUB_REPOSITORY", "stranske/Workflows")
+    for server in ("https://github.example:abc", "https://github.example:99999"):
+        monkeypatch.setenv("GITHUB_SERVER_URL", server)
+        assert (
+            post_ci_summary._playbook_link("docs/CI_FAILURE_PLAYBOOK.md", "a" * 40)
+            == "unavailable playbook URL"
+        )
 
 
 def test_playbook_link_falls_back_to_main_without_valid_head(monkeypatch) -> None:

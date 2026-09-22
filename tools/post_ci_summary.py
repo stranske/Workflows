@@ -487,6 +487,7 @@ def _playbook_link(playbook_url: str, head_sha: str | None) -> str:
             return invalid
         try:
             parsed = urlsplit(playbook_url)
+            _ = parsed.port
             if not parsed.hostname or parsed.username or parsed.password:
                 return invalid
         except ValueError:
@@ -503,6 +504,7 @@ def _playbook_link(playbook_url: str, head_sha: str | None) -> str:
     server = os.environ.get("GITHUB_SERVER_URL", "https://github.com").rstrip("/")
     try:
         parsed_server = urlsplit(server)
+        _ = parsed_server.port
         if (
             parsed_server.scheme not in {"http", "https"}
             or not parsed_server.hostname
