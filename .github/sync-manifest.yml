@@ -271,6 +271,7 @@ scripts:
     description: "Computes workflow state fingerprints for unchanged-state skip gates"
 
   - source: scripts/check_deliberate_break.py
+    template_sync: exact
     description: "Opt-in Gate helper that proves named deliberate-break acceptance tests fail against the base implementation"
 
   - source: scripts/reference_packs.py

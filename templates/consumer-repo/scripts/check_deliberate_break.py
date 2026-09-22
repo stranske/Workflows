@@ -249,7 +249,9 @@ def parse_deliberate_break_spec(markdown: str) -> DeliberateBreakSpec | None:
 
 
 def _pytest_command(test_id: str) -> tuple[str, ...]:
-    return (sys.executable, "-m", "pytest", test_id, "-q")
+    # This is a named-test proof, not a whole-suite coverage or plugin invocation.
+    # Keep repository configuration (including pythonpath), but clear addopts.
+    return (sys.executable, "-m", "pytest", test_id, "-o", "addopts=", "-q")
 
 
 def _supported_pyyaml_version(installed_version: str | None) -> bool:

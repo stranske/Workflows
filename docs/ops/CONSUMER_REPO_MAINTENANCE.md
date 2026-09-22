@@ -93,6 +93,11 @@ The authority challenge helper is source-owned by Workflows and declared in `.gi
 
 ## Bug Triage Process
 
+Default deliberate-break pytest commands clear suite-wide `addopts` for the
+named head/base test proof. Other repository pytest configuration remains active,
+and explicit author-provided commands are unchanged. Full-suite CI retains its
+normal coverage and plugin options; this does not weaken that separate gate.
+
 Signed keepalive recovery challenges must reserve their current workflow attempt
 before starting a runner. Shared `should-dispatch --authority-challenge` verifies
 the existing signed envelope and persists primary state before granting dispatch;
