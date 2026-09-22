@@ -40,6 +40,9 @@ jobs:
         uses: actions/checkout@v7
         with:
           fetch-depth: 1
+          # This lane commits a file under .github/workflows; the default
+          # Actions token cannot push that branch.
+          token: ${{ secrets.OWNER_PR_PAT || github.token }}
 
       - name: Setup Python
         uses: actions/setup-python@v7
@@ -119,8 +122,12 @@ jobs:
           && steps.policy.outputs.should_propose == 'true'
           && inputs.dry_run != true
         env:
-          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          GH_TOKEN: ${{ secrets.OWNER_PR_PAT }}
         run: |
+          if [ -z "$GH_TOKEN" ]; then
+            echo "OWNER_PR_PAT is required to push the workflow-owned pin file" >&2
+            exit 1
+          fi
           # Configure git
           git config user.name "github-actions[bot]"
           git config user.email "github-actions[bot]@users.noreply.github.com"
@@ -211,7 +218,7 @@ jobs:
           && inputs.dry_run != true
           && steps.create_pr.outputs.source_pr != ''
         env:
-          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          GH_TOKEN: ${{ secrets.OWNER_PR_PAT }}
           SOURCE_PR: ${{ steps.create_pr.outputs.source_pr }}
         run: |
           set -euo pipefail
