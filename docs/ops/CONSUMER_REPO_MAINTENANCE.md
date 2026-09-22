@@ -19,6 +19,22 @@ The existing review threshold is unchanged.
 Repair this shared policy in Workflows, then deliver it through Maint 68/71;
 do not patch generated consumer branches.
 
+## Embedding input alignment
+
+The manifest-managed `tools/embedding_provider.py` preserves one output vector
+per input in the same order, including blank and whitespace-only strings.
+The local fallback uses its normal 256-dimensional zero vector for blank inputs.
+OpenAI requests omit blank strings, then restore their positions with zero
+vectors matching the returned dimensionality. An all-blank OpenAI batch makes
+no SDK call and needs no credentials: it returns one empty vector per input
+with unknown dimensionality. A truly empty batch returns no vectors. Repair
+this contract in Workflows and distribute it through Maint 68/71, not by editing
+generated consumer PRs.
+The manifest-managed `scripts/langchain/semantic_matcher.py` wrapper also keeps
+blank positions, including with an injected client: an all-blank request returns
+empty vectors without selecting a provider, while a mixed request embeds only
+nonblank strings and restores zero vectors in the original positions.
+
 ## Registered Consumer Repos
 
 Consumer repositories are synced by the workflow
