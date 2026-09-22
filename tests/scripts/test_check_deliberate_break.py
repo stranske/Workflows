@@ -390,6 +390,10 @@ def test_reviewed_assertion_replacement_is_exact_and_hunk_local() -> None:
     assert list(deliberate_break._assertion_diff_lines(extra_removal, (old, new))) == [
         "-        assert unrelated_condition"
     ]
+    duplicate_removal = f"@@ -1,2 +1 @@\n-        {old}\n-        {old}\n+        {new}\n"
+    assert list(deliberate_break._assertion_diff_lines(duplicate_removal, (old, new))) == [
+        f"-        {old}"
+    ]
 
 
 def test_reviewed_replacement_requires_matching_repo_and_issue(monkeypatch, tmp_path) -> None:
@@ -405,6 +409,13 @@ def test_reviewed_replacement_requires_matching_repo_and_issue(monkeypatch, tmp_
     monkeypatch.setenv("GITHUB_REPOSITORY", "stranske/Deliverable-Render")
     monkeypatch.setenv("PR_BODY", "<!-- meta:issue:36 -->")
     assert deliberate_break._changed_assertions("base", "HEAD", test_file, tmp_path) == []
+    monkeypatch.setenv("PR_BODY", "<!-- meta:issue:35 -->")
+    assert (
+        deliberate_break._changed_assertions(
+            "base", "HEAD", test_file, tmp_path, "<!-- meta:issue:36 -->"
+        )
+        == []
+    )
 
     monkeypatch.setenv("PR_BODY", "<!-- meta:issue:35 -->")
     assert deliberate_break._changed_assertions("base", "HEAD", test_file, tmp_path) == [
@@ -2109,6 +2120,19 @@ def test_base_and_head_reach_verify_spec(tmp_path, monkeypatch, capsys):
     capsys.readouterr()
     assert seen["base"] == "origin/release"
     assert seen["head"] == "abc123"
+
+
+def test_selected_pr_body_file_reaches_tamper_check(tmp_path, monkeypatch, capsys):
+    _capture_outputs(tmp_path, monkeypatch)
+    monkeypatch.setenv("PR_BODY", "<!-- meta:issue:35 -->")
+    body_file = tmp_path / "pr-body.md"
+    body_file.write_text("<!-- meta:issue:36 -->\n" + MARKER, encoding="utf-8")
+    seen = _stub_verdict(monkeypatch, VERDICT_PASS)
+
+    deliberate_break.main(["--pr-body-file", str(body_file)])
+    capsys.readouterr()
+
+    assert seen["pr_body"] == body_file.read_text(encoding="utf-8")
 
 
 def test_the_result_is_printed_as_parseable_json(tmp_path, monkeypatch, capsys):

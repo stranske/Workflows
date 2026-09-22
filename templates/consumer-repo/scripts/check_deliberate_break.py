@@ -871,11 +871,11 @@ def _assertion_diff_lines(
     hunk: list[str] = []
     for line in [*diff_text.splitlines(), "@@ end"]:
         if line.startswith("@@"):
-            additions = {
+            additions = [
                 item[1:].strip()
                 for item in hunk
                 if item.startswith("+") and not item.startswith("+++")
-            }
+            ]
             for item in hunk:
                 if (
                     not item.startswith("-")
@@ -888,14 +888,18 @@ def _assertion_diff_lines(
                     and item[1:].strip() == approved_replacement[0]
                     and approved_replacement[1] in additions
                 )
-                if not approved:
+                if approved:
+                    additions.remove(approved_replacement[1])
+                else:
                     yield item[:240]
             hunk = []
         else:
             hunk.append(line)
 
 
-def _changed_assertions(base: str, head: str, test_file: str, cwd: Path) -> list[str]:
+def _changed_assertions(
+    base: str, head: str, test_file: str, cwd: Path, pr_body: str | None = None
+) -> list[str]:
     status = _git(["diff", "--name-status", f"{base}...{head}", "--", test_file], cwd)
     if any(line.split("\t", 1)[0] == "A" for line in status.stdout.splitlines()):
         return []
@@ -904,7 +908,10 @@ def _changed_assertions(base: str, head: str, test_file: str, cwd: Path) -> list
         cwd,
     )
     repo = os.environ.get("GITHUB_REPOSITORY", "")
-    issue = re.search(r"<!--\s*meta:issue:(\d+)\s*-->", os.environ.get("PR_BODY", ""))
+    issue = re.search(
+        r"<!--\s*meta:issue:(\d+)\s*-->",
+        pr_body if pr_body is not None else os.environ.get("PR_BODY", ""),
+    )
     approved_replacement = APPROVED_ASSERTION_REPLACEMENTS.get(
         (repo, issue.group(1) if issue else "", test_file)
     )
@@ -947,6 +954,7 @@ def verify_spec(
     head: str = "HEAD",
     cwd: Path | None = None,
     enforce_tamper: bool = True,
+    pr_body: str | None = None,
 ) -> dict[str, object]:
     repo = cwd or Path.cwd()
     test_path = repo / spec.test_file
@@ -959,7 +967,7 @@ def verify_spec(
 
     try:
         if enforce_tamper:
-            tampered = _changed_assertions(base, head, spec.test_file, repo)
+            tampered = _changed_assertions(base, head, spec.test_file, repo, pr_body)
             if tampered:
                 return _json_result(
                     VERDICT_BROKEN,
@@ -1139,6 +1147,7 @@ def main(argv: list[str] | None = None) -> int:
         base=args.base,
         head=args.head,
         enforce_tamper=not args.no_tamper_check,
+        pr_body=body,
     )
     _write_github_output(verdict=str(result["verdict"]))
     print(json.dumps(result, sort_keys=True))
