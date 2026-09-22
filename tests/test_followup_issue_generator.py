@@ -20,6 +20,153 @@ from scripts.langchain.followup_issue_generator import (
 )
 
 
+@pytest.mark.parametrize(
+    "raw",
+    ["1e999", "1e999%", "1.e999", "1.e999%", "-1e999", "NaN", "Infinity"],
+)
+def test_nonfinite_followup_confidence_does_not_create_hold(raw):
+    comment = f"""
+## Provider Comparison Report
+### Provider Summary
+| Provider | Model | Verdict | Confidence | Summary |
+| --- | --- | --- | --- | --- |
+| a | m1 | PASS | 90% | Good |
+| b | m2 | CONCERNS | {raw} | Follow up |
+"""
+    data = extract_verification_data(comment)
+    assert data.provider_verdicts["b"]["confidence"] == 0
+    policy = followup_issue_generator._resolve_verdict_policy(data)
+    assert policy.verdict_kind == "concerns"
+    assert not policy.needs_human
+    assert policy.concerns_confidence == 0.0
+    assert any("Confidence=0%" in row for row in data.non_pass_output)
+
+
+@pytest.mark.parametrize("raw", ["1e999", "1e999%", "-1e999", "NaN", "Infinity"])
+def test_single_verdict_nonfinite_confidence_is_zero(raw):
+    data = extract_verification_data(f"Verdict: **CONCERNS** @{raw}")
+    assert data.provider_verdicts["default"]["confidence"] == 0
+    policy = followup_issue_generator._resolve_verdict_policy(data)
+    assert policy.verdict_kind == "concerns"
+    assert not policy.needs_human
+
+
+@pytest.mark.parametrize("value", [float("nan"), float("inf"), float("-inf")])
+def test_stored_nonfinite_followup_confidence_is_zero(value):
+    assert followup_issue_generator._coerce_confidence_percent(value) == 0
+
+
+@pytest.mark.parametrize("raw", ["1e999", "1e999%", "NaN", "Infinity"])
+def test_direct_policy_nonfinite_confidence_text_does_not_create_hold(raw):
+    data = VerificationData(
+        provider_verdicts={
+            "a": {"model": "m1", "verdict": "PASS", "confidence": 90},
+            "b": {"model": "m2", "verdict": "CONCERNS", "confidence": raw},
+        }
+    )
+
+    policy = followup_issue_generator._resolve_verdict_policy(data)
+
+    assert policy.verdict_kind == "concerns"
+    assert not policy.needs_human
+    assert policy.concerns_confidence == 0.0
+    assert data.provider_verdicts["b"]["confidence"] == raw
+
+
+def test_direct_policy_small_explicit_percent_does_not_create_hold():
+    data = VerificationData(
+        provider_verdicts={
+            "a": {"model": "m1", "verdict": "PASS", "confidence": 90},
+            "b": {"model": "m2", "verdict": "CONCERNS", "confidence": "0.9%"},
+        }
+    )
+
+    policy = followup_issue_generator._resolve_verdict_policy(data)
+
+    assert policy.concerns_confidence == pytest.approx(0.009)
+    assert not policy.needs_human
+
+
+def test_direct_policy_unmarked_value_above_one_hundred_matches_followup_clamp():
+    direct = VerificationData(
+        provider_verdicts={"a": {"model": "m1", "verdict": "CONCERNS", "confidence": "125"}}
+    )
+    parsed = extract_verification_data("Verdict: CONCERNS 125")
+
+    assert followup_issue_generator._resolve_verdict_policy(
+        direct
+    ).selected_confidence == pytest.approx(1.0)
+    assert followup_issue_generator._resolve_verdict_policy(
+        parsed
+    ).selected_confidence == pytest.approx(1.0)
+
+
+@pytest.mark.parametrize(
+    "raw,expected",
+    [
+        ("9e-1", 90),
+        ("6.1e1%", 61),
+        ("0.61 (61%)", 61),
+        ("0.9%", 0.9),
+        ("1.%", 1),
+        ("0.61.", 61),
+        ("90%.", 90),
+        ("-10%", 0),
+        ("-0.4", 0),
+        ("125%", 100),
+        ("1.2.3", 0),
+    ],
+)
+def test_followup_confidence_preserves_complete_numeric_token(raw, expected):
+    assert followup_issue_generator._parse_confidence_value(raw) == expected
+
+
+@pytest.mark.parametrize(
+    "raw,expected_confidence,expected_hold",
+    [
+        ("1e999", 0, False),
+        ("1.e999", 0, False),
+        ("1.e999%", 0, False),
+        ("1.%", 1, False),
+        ("84.9%", 84.9, False),
+        ("85%", 85, True),
+    ],
+)
+def test_followup_confidence_matches_shared_policy_thresholds(
+    raw, expected_confidence, expected_hold
+):
+    comment = f"""
+## Provider Comparison Report
+### Provider Summary
+| Provider | Model | Verdict | Confidence | Summary |
+| --- | --- | --- | --- | --- |
+| a | m1 | PASS | 90% | Good |
+| b | m2 | CONCERNS | {raw} | Follow up |
+"""
+
+    data = extract_verification_data(comment)
+    policy = followup_issue_generator._resolve_verdict_policy(data)
+
+    assert data.provider_verdicts["b"]["confidence"] == pytest.approx(expected_confidence)
+    assert policy.needs_human is expected_hold
+
+
+@pytest.mark.parametrize("value", [-50, -0.5, "-75", "-0.8"])
+def test_direct_policy_negative_confidence_is_clamped_to_zero(value):
+    data = VerificationData(
+        provider_verdicts={
+            "a": {"model": "m1", "verdict": "PASS", "confidence": 90},
+            "b": {"model": "m2", "verdict": "CONCERNS", "confidence": value},
+        }
+    )
+
+    policy = followup_issue_generator._resolve_verdict_policy(data)
+
+    assert policy.concerns_confidence == 0.0
+    assert policy.providers[1].confidence == 0.0
+    assert not policy.needs_human
+
+
 def test_select_followup_acceptance_criteria_drops_workflow_sync_items() -> None:
     original_issue = OriginalIssueData(
         title="Database verifier follow-up",
@@ -686,6 +833,25 @@ Verdict: **CONCERNS** @0.72
 
         assert "default" in data.provider_verdicts
         assert data.provider_verdicts["default"]["confidence"] == 72
+
+    @pytest.mark.parametrize("raw", ["0.90", "90%", "9e-1"])
+    def test_extract_single_verdict_confidence_without_at_separator(self, raw):
+        """Preserve confidence from the historical no-@ verifier format."""
+        data = extract_verification_data(f"Verdict: CONCERNS {raw}")
+
+        assert data.provider_verdicts["default"] == {
+            "verdict": "CONCERNS",
+            "confidence": 90,
+        }
+
+    def test_extract_single_verdict_small_explicit_percent(self):
+        """Treat a percent-bearing decimal as percentage points, not a fraction."""
+        data = extract_verification_data("Verdict: CONCERNS 0.9%")
+
+        assert data.provider_verdicts["default"]["confidence"] == pytest.approx(0.9)
+        policy = followup_issue_generator._resolve_verdict_policy(data)
+        assert policy.providers[0].confidence == pytest.approx(0.009)
+        assert not policy.needs_human
 
     def test_extract_concerns(self):
         """Extract concerns list."""

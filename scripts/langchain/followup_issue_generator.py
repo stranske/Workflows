@@ -25,6 +25,7 @@ from __future__ import annotations
 import argparse
 import json
 import logging
+import math
 import os
 import re
 import sys
@@ -191,31 +192,73 @@ def _normalize_provider_key(provider: str) -> str:
     return cleaned or provider.strip().lower()
 
 
-def _parse_confidence_value(text: str) -> int:
-    """Parse confidence text into an integer percent."""
+_CONFIDENCE_NUMBER_PATTERN = r"[+-]?(?:(?:\d+(?:\.\d*)?|\.\d+)(?:[eE][+-]?\d+)?|inf(?:inity)?|nan)"
+
+
+def _compact_confidence_percent(value: float) -> int | float:
+    """Keep exact sub-percent precision while retaining integer-shaped output."""
+    return int(value) if value.is_integer() else value
+
+
+def _parse_confidence_value(text: str) -> int | float:
+    """Parse confidence text into percentage points without threshold rounding."""
     if not text:
         return 0
-    percent_match = re.search(r"(\d+(?:\.\d+)?)\s*%", text)
+    # Match a complete signed/scientific token: reading only the leading 1 in
+    # 1e999 would fabricate 100% confidence before policy normalization.
+    # Do not absorb a sentence-ending period into the token, and do not accept a
+    # partial decimal such as the leading 1.2 from 1.2.3.
+    number = _CONFIDENCE_NUMBER_PATTERN
+    percent_match = re.search(rf"(?<![\w.])({number})\s*%", text, re.IGNORECASE)
     if percent_match:
-        return int(round(float(percent_match.group(1))))
-    match = re.search(r"\d+(?:\.\d+)?", text)
+        value = verdict_policy._coerce_confidence(percent_match.group(1))
+        # A percent sign makes the token percentage points, even below one:
+        # 0.9% is 0.9%, while an unmarked 0.9 is fractional confidence (90%).
+        return _compact_confidence_percent(min(100.0, max(0.0, value)))
+    match = re.search(rf"(?<![\w.])({number})(?![\w]|\.\d)", text, re.IGNORECASE)
     if not match:
         return 0
-    value = float(match.group(0))
-    if value <= 1:
-        return int(round(value * 100))
-    return int(round(value))
+    value = verdict_policy._coerce_confidence(match.group(1))
+    percentage = min(1.0, verdict_policy._normalize_confidence(value)) * 100
+    return _compact_confidence_percent(percentage)
 
 
-def _coerce_confidence_percent(value: Any) -> int:
+def _coerce_confidence_percent(value: Any) -> int | float:
     """Coerce stored confidence into a percent without rescaling integer percentages."""
     if isinstance(value, int):
         return value
     if isinstance(value, float):
+        if not math.isfinite(value):
+            return 0
         if 0 < value < 1:
-            return int(round(value * 100))
-        return int(round(value))
+            return _compact_confidence_percent(value * 100)
+        return _compact_confidence_percent(value)
     return _parse_confidence_value(str(value or "0"))
+
+
+def _coerce_policy_confidence(value: Any) -> float:
+    """Coerce direct verdict-policy confidence inputs without fabricating precision."""
+    if isinstance(value, int):
+        return min(1.0, max(0.0, float(value) / 100.0))
+    if isinstance(value, float):
+        return max(0.0, value) if math.isfinite(value) else 0.0
+    text = str(value or "0").strip()
+    return max(0.0, verdict_policy._coerce_confidence(text))
+
+
+def _provider_confidence_percent(
+    verification_data: VerificationData, provider: str, value: Any
+) -> int | float:
+    """Render parsed percentage points without reinterpreting fractional values."""
+    if provider in verification_data.confidence_percent_providers:
+        try:
+            percentage = float(value)
+        except (TypeError, ValueError):
+            return 0
+        if not math.isfinite(percentage):
+            return 0
+        return _compact_confidence_percent(min(100.0, max(0.0, percentage)))
+    return _coerce_confidence_percent(value)
 
 
 ADVISORY_PATTERNS = [
@@ -287,12 +330,18 @@ def _resolve_verdict_policy(
 ) -> verdict_policy.VerdictPolicyResult:
     verdicts: list[verdict_policy.ProviderVerdict] = []
     for provider, payload in verification_data.provider_verdicts.items():
+        confidence = payload.get("confidence", 0)
+        if provider in verification_data.confidence_percent_providers:
+            try:
+                confidence = min(1.0, max(0.0, float(confidence) / 100.0))
+            except (TypeError, ValueError):
+                confidence = 0.0
         verdicts.append(
             verdict_policy.ProviderVerdict(
                 provider=provider,
                 model=payload.get("model", "") or "",
                 verdict=payload.get("verdict", "") or "",
-                confidence=float(payload.get("confidence", 0) or 0),
+                confidence=_coerce_policy_confidence(confidence),
             )
         )
     return verdict_policy.evaluate_verdict_policy(verdicts, policy="worst")
@@ -525,6 +574,7 @@ class VerificationData:
     """Data extracted from verification comments."""
 
     provider_verdicts: dict[str, dict[str, Any]] = field(default_factory=dict)
+    confidence_percent_providers: set[str] = field(default_factory=set)
     concerns: list[str] = field(default_factory=list)
     non_pass_output: list[str] = field(default_factory=list)
     non_pass_findings: list[str] = field(default_factory=list)
@@ -603,6 +653,7 @@ def extract_verification_data(comment_body: str) -> VerificationData:
             if verdict.strip().upper() != "PASS":
                 provider_summary_concerns.append(summary_text)
         data.provider_verdicts[provider] = entry
+        data.confidence_percent_providers.add(provider)
 
     # Extract verdicts from provider detail sections as a fallback.
     current_provider = None
@@ -629,21 +680,36 @@ def extract_verification_data(comment_body: str) -> VerificationData:
                 current_provider, {"model": "", "verdict": "", "confidence": 0}
             )
             entry["confidence"] = confidence
+            data.confidence_percent_providers.add(current_provider)
 
     # Also try single-provider format
-    single_verdict = re.search(
-        r"Verdict:\s*(?:\*\*(.+?)\*\*|([^\n@]+?))(?:\s*@|\s*$)",
-        comment_body,
-        re.IGNORECASE,
-    )
+    single_verdict = re.search(r"Verdict:\s*([^\n]+)", comment_body, re.IGNORECASE)
     if single_verdict and not data.provider_verdicts:
-        verdict = (single_verdict.group(1) or single_verdict.group(2) or "").strip()
-        confidence_match = re.search(r"Verdict:.*?@?\s*([0-9.]+%?)", comment_body, re.IGNORECASE)
-        confidence = _parse_confidence_value(confidence_match.group(1)) if confidence_match else 0
+        content = single_verdict.group(1).strip()
+        confidence_text = ""
+        bold_match = re.fullmatch(r"\*\*(.+?)\*\*(?:\s*@?\s*(\S+))?", content)
+        if bold_match:
+            verdict = bold_match.group(1).strip()
+            confidence_text = bold_match.group(2) or ""
+        elif "@" in content:
+            verdict, confidence_text = (part.strip() for part in content.rsplit("@", 1))
+        else:
+            # Historical verifier output omitted the @ separator. Split only a
+            # complete trailing numeric/scientific confidence token so verdicts
+            # such as "Not Ready" remain intact.
+            number = _CONFIDENCE_NUMBER_PATTERN
+            no_at_match = re.fullmatch(rf"(.+?)\s+({number}%?)(?:\.)?", content, re.IGNORECASE)
+            if no_at_match:
+                verdict = no_at_match.group(1).strip()
+                confidence_text = no_at_match.group(2)
+            else:
+                verdict = content
+        confidence = _parse_confidence_value(confidence_text)
         data.provider_verdicts["default"] = {
             "verdict": verdict,
             "confidence": confidence,
         }
+        data.confidence_percent_providers.add("default")
 
     # Extract concerns - handle multiple formats
     # Format 1: ### Concerns heading (old format)
@@ -787,9 +853,9 @@ def _refresh_non_pass_evidence(data: VerificationData) -> None:
         if verdict.upper() == "PASS":
             continue
         model = str(payload.get("model", "") or "").strip()
-        confidence = _coerce_confidence_percent(payload.get("confidence", 0))
+        confidence = _provider_confidence_percent(data, provider, payload.get("confidence", 0))
         data.non_pass_output.append(
-            f"Provider={provider}; Model={model}; Verdict={verdict}; Confidence={confidence}%"
+            f"Provider={provider}; Model={model}; Verdict={verdict}; Confidence={confidence:g}%"
         )
         summary = str(payload.get("summary", "") or "").strip()
         if summary:
@@ -1728,8 +1794,10 @@ def _generate_without_llm(
     if remaining_non_pass_output > 0:
         body_parts.append(f"- ... plus {remaining_non_pass_output} more evidence entries")
     for provider, data in verification_data.provider_verdicts.items():
-        confidence = _coerce_confidence_percent(data.get("confidence", 0))
-        evidence = f"- {provider}: {data.get('verdict', 'Unknown')} @ {confidence}%"
+        confidence = _provider_confidence_percent(
+            verification_data, provider, data.get("confidence", 0)
+        )
+        evidence = f"- {provider}: {data.get('verdict', 'Unknown')} @ {confidence:g}%"
         summary = data.get("summary")
         if summary:
             evidence += f" ({summary})"
@@ -1750,8 +1818,10 @@ def _generate_without_llm(
     )
 
     for provider, data in verification_data.provider_verdicts.items():
-        confidence = _coerce_confidence_percent(data.get("confidence", 0))
-        body_parts.append(f"- **{provider}**: {data.get('verdict', 'Unknown')} @ {confidence}%")
+        confidence = _provider_confidence_percent(
+            verification_data, provider, data.get("confidence", 0)
+        )
+        body_parts.append(f"- **{provider}**: {data.get('verdict', 'Unknown')} @ {confidence:g}%")
 
     if verification_data.structural_issues:
         body_parts.extend(

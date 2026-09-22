@@ -4,9 +4,10 @@ from __future__ import annotations
 
 import argparse
 import json
+import math
 import sys
 from collections.abc import Iterable
-from dataclasses import dataclass
+from dataclasses import dataclass, replace
 from typing import Any
 
 VERDICT_SEVERITY = {
@@ -71,21 +72,28 @@ def _classify_verdict(verdict: str) -> str:
 
 
 def _coerce_confidence(value: str) -> float:
-    cleaned = value.strip().rstrip("%")
+    text = value.strip()
+    explicit_percent = text.endswith("%")
+    cleaned = text.removesuffix("%").strip()
     if not cleaned:
         return 0.0
     try:
-        return float(cleaned)
+        confidence = float(cleaned)
+        if not math.isfinite(confidence):
+            return 0.0
+        if explicit_percent:
+            return min(1.0, max(0.0, confidence / 100.0))
+        return confidence
     except ValueError:
         return 0.0
 
 
 def _normalize_confidence(value: float) -> float:
-    if value <= 0:
+    if not math.isfinite(value) or value <= 0:
         return 0.0
     if value <= 1:
         return value
-    return value / 100.0
+    return min(1.0, value / 100.0)
 
 
 def _iter_markdown_rows(lines: Iterable[str]) -> Iterable[list[str]]:
@@ -186,7 +194,12 @@ def evaluate_verdict_policy(
     *,
     policy: str = "worst",
 ) -> VerdictPolicyResult:
-    verdict_list = list(verdicts)
+    # Direct callers may bypass markdown parsing. Preserve the verdict itself,
+    # but do not let invalid confidence affect ranking, holds, or JSON output.
+    verdict_list = [
+        item if math.isfinite(item.confidence) else replace(item, confidence=0.0)
+        for item in verdicts
+    ]
     selected = _select_deterministic(verdict_list, policy=policy)
     split_verdict, concerns_confidence = _split_pass_concerns(verdict_list)
     needs_human = False
