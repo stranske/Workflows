@@ -1,5 +1,5 @@
 # Source-of-truth docs that the weekly doc-drift scanner classifies for drift
-# against current implementation. Issue #2090.
+# against current implementation.
 #
 # Scope: docs cited from CLAUDE.md / AGENTS.md / README.md as authoritative
 # operational entry points. Design proposals, archives, and historical
