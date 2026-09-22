@@ -734,9 +734,11 @@ Consumer alignment must not wait for unrelated PyPI freshness. The
 exist, but continues syncing the canonical pins from Workflows. The
 `maint-auto-update-pypi-versions.yml` workflow is the sole source-proposal lane:
 it batches routine updates into one Monday UTC PR and accepts a reviewed manual
-security override when needed. Its source proposal requires `OWNER_PR_PAT` with
-permission to update `.github/workflows/autofix-versions.env`; the default
-Actions token cannot push that workflow-owned file. Maint 50 reports freshness but never creates a
+security override when needed. Its source proposal requires a classic
+`OWNER_PR_PAT` with `repo` and `workflow` scopes to update
+`.github/workflows/autofix-versions.env`; the default Actions token cannot push
+that workflow-owned file. The workflow checks the token scope before editing
+pins and fails closed if it is absent. Maint 50 reports freshness but never creates a
 competing issue or proposal. Each consumer wave records the settled Workflows
 source commit so propagation can be traced back to the validated source change.
 

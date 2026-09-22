@@ -24,8 +24,10 @@ def test_auto_updater_uses_workflow_capable_owner_token_for_source_proposal():
     create = text[text.index("- name: Create PR") : text.index("- name: Dry run summary")]
 
     assert "token: ${{ secrets.OWNER_PR_PAT || github.token }}" in checkout
-    assert create.count("GH_TOKEN: ${{ secrets.OWNER_PR_PAT }}") == 2
-    assert 'if [ -z "$GH_TOKEN" ]; then' in create
+    assert text.count("GH_TOKEN: ${{ secrets.OWNER_PR_PAT }}") == 3
+    assert "Require workflow-capable proposal token" in text
+    assert 'if [ -z "$GH_TOKEN" ]; then' in text
+    assert "workflow scope" in text
     assert "GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}" not in create
 
 
