@@ -268,7 +268,10 @@ def sync_pyproject(
                 # A tool-only pyproject does not declare an installable project.
                 # Creating project.optional-dependencies would turn it into a
                 # package contract and can break consumers' editable CI install.
-                if not re.search(
+                legacy_package_file = any(
+                    (pyproject_path.parent / name).exists() for name in ("setup.py", "setup.cfg")
+                )
+                if not legacy_package_file and not re.search(
                     r"^\[(?:build-system|tool\.poetry)(?:\]|\.)",
                     content,
                     re.MULTILINE,

@@ -724,8 +724,9 @@ For a tool-only `pyproject.toml` with no package declaration (as in Orchestrator
 Maint 52 leaves the file's tool configuration alone instead of adding
 `[project.optional-dependencies]`. It still synchronizes any supported direct
 requirements lockfile and managed pre-commit hooks that exist in that repo.
-Package-shaped projects without `[project]` remain an error requiring explicit
-integration rather than a synthetic package declaration.
+Package-shaped projects without `[project]`, including legacy `setup.py` or
+`setup.cfg` consumers, remain an error requiring explicit integration rather
+than a synthetic package declaration.
 
 Managed pre-commit revisions are an explicit Maint 52 propagation surface. The
 workflow passes `sync_dev_dependencies.py --pre-commit`; the script's default

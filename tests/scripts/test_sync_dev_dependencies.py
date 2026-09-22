@@ -193,6 +193,26 @@ def test_sync_pyproject_rejects_package_without_project_section(tmp_path: Path) 
     assert pyproject.read_text(encoding="utf-8") == ('[build-system]\nrequires = ["setuptools"]\n')
 
 
+@pytest.mark.parametrize("legacy_file", ["setup.py", "setup.cfg"])
+def test_sync_pyproject_rejects_legacy_package_without_project_section(
+    tmp_path: Path, legacy_file: str
+) -> None:
+    pyproject = tmp_path / "pyproject.toml"
+    pyproject.write_text("[tool.ruff]\nline-length = 99\n", encoding="utf-8")
+    (tmp_path / legacy_file).write_text("# legacy package\n", encoding="utf-8")
+
+    changes, errors = sdd.sync_pyproject(
+        pyproject,
+        {"RUFF_VERSION": "1.0.0"},
+        apply=True,
+        create_if_missing=True,
+    )
+
+    assert changes == []
+    assert errors == ["Could not find [project] section to add optional-dependencies"]
+    assert pyproject.read_text(encoding="utf-8") == "[tool.ruff]\nline-length = 99\n"
+
+
 def test_main_apply_updates_pyproject_and_lockfile(
     tmp_path: Path, monkeypatch: pytest.MonkeyPatch
 ) -> None:
