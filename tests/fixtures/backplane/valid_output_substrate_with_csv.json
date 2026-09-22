@@ -1,0 +1,55 @@
+{
+  "schema_version": "output-substrate/v1",
+  "renderer_profile": "investment_review",
+  "manifest_ref": "artifact:manifest.json",
+  "workspace_bundle_ref": {
+    "path": "view/workspace.json",
+    "sha256": "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+    "artifact_id": "workspace-bundle"
+  },
+  "link_profile": "local-file",
+  "manifest_csv_exports": [
+    {
+      "filename": "exports/core_facts.csv",
+      "encoding": "utf-8",
+      "columns": [
+        {
+          "name": "entity",
+          "type": "string",
+          "source_path": "$.datasets[?(@.id=='core_facts')].rows[*].entity"
+        },
+        {
+          "name": "plan_period",
+          "type": "string",
+          "source_path": "$.datasets[?(@.id=='core_facts')].rows[*].plan_period"
+        },
+        {
+          "name": "funded_ratio",
+          "type": "number",
+          "source_path": "$.datasets[?(@.id=='core_facts')].rows[*].value"
+        },
+        {
+          "name": "as_of",
+          "type": "date",
+          "source_path": "$.datasets[?(@.id=='core_facts')].rows[*].as_of"
+        }
+      ]
+    },
+    {
+      "filename": "exports/positions.csv",
+      "encoding": "utf-16-le",
+      "columns": [
+        {
+          "name": "active",
+          "type": "boolean",
+          "source_path": "$.datasets[?(@.id=='positions')].rows[*].active"
+        },
+        {
+          "name": "weight",
+          "type": "number",
+          "source_path": "$.datasets[?(@.id=='positions')].rows[*].weight"
+        }
+      ]
+    }
+  ]
+}

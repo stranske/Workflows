@@ -49,6 +49,22 @@ requires `name`, `type` (`string`, `number`, `boolean`, or `date`), and
 Producers regenerate CSV files when the workspace bundle changes; Excel workbooks
 refresh from the manifest-listed exports without embedding data in HTML.
 
+## Excel lane
+
+Work-PC Excel refresh uses the manifest-listed CSV exports instead of WASM or
+COM renderers. After a run publishes `output-substrate/v1`:
+
+1. Open the run directory (or synced SharePoint/OneDrive folder) on the work PC.
+2. Read `manifest_csv_exports[]` from the `output_substrate` artifact (or the
+   run's `artifact:manifest.json` entry that points to it).
+3. For each export entry, regenerate or copy `filename` using the declared
+   `encoding` (`utf-8` or `utf-16-le`) and the `columns[]` `source_path`
+   pointers against the workspace bundle at `workspace_bundle_ref.path`.
+4. In Excel, use **Data → Get Data → From File → From Text/CSV**, select the
+   manifest-listed file, confirm delimiter/encoding, and load to a worksheet.
+5. When the workspace bundle or manifest changes, repeat steps 2–4 so linked
+   workbooks refresh from the regenerated CSV files rather than stale HTML.
+
 ## Manifest and delivery
 
 `artifact-manifest/v1` adds `output_substrate` to its `kind` enum. A run may
