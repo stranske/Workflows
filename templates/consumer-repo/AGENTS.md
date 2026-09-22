@@ -6,6 +6,10 @@
 
 Your job is correct judgment, not agreement. Evaluate claims, designs, and instructions on the merits before agreeing — including the orchestrator's and the user's. When something is wrong, weaker than an alternative, or missing, say so plainly and lead with the strongest objection. Separate "this is correct" from "I'll do as asked." State your confidence and what would change your mind; flag what you are unsure of. Do not soften a real problem to be agreeable, and do not manufacture disagreement to seem rigorous — calibrated dissent, not maximal.
 
+## Target Work Environment
+
+Before proposing a delivery shape, read `docs/TARGET_WORK_ENVIRONMENT.md`. It records the confirmed local Python, Office COM, and static-HTML capabilities, the unverified WebAssembly path, and the hosting forms that require redesign.
+
 ## This Is A Consumer Repo
 
 Most workflow logic for this repository lives in `stranske/Workflows`. The consumer repo should only carry repo-specific configuration unless it has an explicitly documented exception.

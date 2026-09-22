@@ -835,9 +835,11 @@ curl -sL https://raw.githubusercontent.com/stranske/Workflows/main/templates/con
 curl -sL https://raw.githubusercontent.com/stranske/Workflows/main/templates/consumer-repo/.github/workflows/autofix.yml -o .github/workflows/autofix.yml
 curl -sL https://raw.githubusercontent.com/stranske/Workflows/main/templates/consumer-repo/.github/workflows/pr-00-gate.yml -o .github/workflows/pr-00-gate.yml
 
-# Root agent guidance files synced through .github/sync-manifest.yml
+# Root agent guidance and target-environment contract synced through .github/sync-manifest.yml
+mkdir -p docs
 curl -sL https://raw.githubusercontent.com/stranske/Workflows/main/templates/consumer-repo/AGENTS.md -o AGENTS.md
 curl -sL https://raw.githubusercontent.com/stranske/Workflows/main/templates/consumer-repo/CLAUDE.md -o CLAUDE.md
+curl -sL https://raw.githubusercontent.com/stranske/Workflows/main/templates/consumer-repo/docs/TARGET_WORK_ENVIRONMENT.md -o docs/TARGET_WORK_ENVIRONMENT.md
 
 # These examples track the live Workflows source via /main/, which is the
 # supported pin. For a one-off reproducible bootstrap you may replace /main/
@@ -858,7 +860,7 @@ curl -sL https://raw.githubusercontent.com/stranske/Workflows/main/templates/con
 | `pr-00-gate.yml` | Required PR gate and summary status | PR |
 | `cross-repo-smoke.yml` | Optional cross-repo integration smoke (host + pinned dependency checkout) | push, PR, manual (opt-in via `CROSS_REPO_SMOKE_*` vars) |
 | `autofix-versions.env` | Pins tool versions | N/A |
-| `AGENTS.md` / `CLAUDE.md` | Repo-local agent guidance synced from Workflows | N/A |
+| `AGENTS.md` / `CLAUDE.md` / `docs/TARGET_WORK_ENVIRONMENT.md` | Repo-local agent guidance and delivery constraints synced from Workflows | N/A |
 
 ### Consolidated Workflow Migration (Notice Period)
 

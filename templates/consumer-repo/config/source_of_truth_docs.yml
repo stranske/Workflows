@@ -10,3 +10,5 @@ consumer:
     - path: AGENTS.md
       case_insensitive: true
       focus: agent runtime constraints and repo-specific guardrails
+    - path: docs/TARGET_WORK_ENVIRONMENT.md
+      focus: confirmed work-environment delivery constraints for fleet design

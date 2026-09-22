@@ -836,6 +836,10 @@ docs:
     target: docs/CODEX_TOKEN_REFRESH.md
     description: "Codex OAuth token refresh guide"
 
+  - source: docs/TARGET_WORK_ENVIRONMENT.md
+    target: docs/TARGET_WORK_ENVIRONMENT.md
+    description: "Confirmed target work-environment capabilities and blocked delivery shapes"
+
   - source: AGENTS.md
     target: AGENTS.md
     description: "Context file for agents and coding assistants"
