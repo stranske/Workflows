@@ -89,7 +89,7 @@ jobs:
             echo "OWNER_PR_PAT is required for a canonical source proposal" >&2
             exit 1
           fi
-          scopes=$(gh api -i user | tr -d '\r' | sed -n '/^[Xx]-[Oo][Aa][Uu][Tt][Hh]-[Ss][Cc][Oo][Pp][Ee][Ss]:/s/^[^:]*:[[:space:]]*//p')
+          scopes=$(gh auth status --active --hostname github.com --json hosts --jq '.hosts["github.com"][0].scopes')
           if ! grep -Eq '(^|[,[:space:]])workflow([,[:space:]]|$)' <<<"$scopes"; then
             echo "OWNER_PR_PAT must be a classic PAT with workflow scope to update .github/workflows/autofix-versions.env" >&2
             exit 1

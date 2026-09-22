@@ -27,6 +27,7 @@ def test_auto_updater_uses_workflow_capable_owner_token_for_source_proposal():
     assert text.count("GH_TOKEN: ${{ secrets.OWNER_PR_PAT }}") == 3
     assert "Require workflow-capable proposal token" in text
     assert 'if [ -z "$GH_TOKEN" ]; then' in text
+    assert 'gh auth status --active --hostname github.com --json hosts' in text
     assert "workflow scope" in text
     assert "GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}" not in create
 
