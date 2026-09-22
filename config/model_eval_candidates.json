@@ -12,12 +12,27 @@
     },
     {
       "provider": "anthropic",
+      "model_id": "claude-fable-5-1",
+      "role": "candidate"
+    },
+    {
+      "provider": "anthropic",
       "model_id": "claude-opus-4-6",
       "role": "candidate"
     },
     {
       "provider": "anthropic",
       "model_id": "claude-opus-4-8",
+      "role": "candidate"
+    },
+    {
+      "provider": "anthropic",
+      "model_id": "claude-opus-5",
+      "role": "candidate"
+    },
+    {
+      "provider": "anthropic",
+      "model_id": "claude-opus-5-5",
       "role": "candidate"
     },
     {
