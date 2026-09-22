@@ -361,8 +361,7 @@ def test_output_substrate_csv_export_validates() -> None:
     errors = list(validator.iter_errors(invalid))
     assert errors
     assert any(
-        list(error.absolute_path)
-        == ["manifest_csv_exports", 0, "columns", 0, "type"]
+        list(error.absolute_path) == ["manifest_csv_exports", 0, "columns", 0, "type"]
         and error.validator == "enum"
         for error in errors
     )
