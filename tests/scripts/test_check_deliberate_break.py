@@ -372,6 +372,51 @@ def test_fallback_marker_accepts_root_level_line_range_path() -> None:
     assert spec.break_file == "app.py"
 
 
+def test_reviewed_assertion_replacement_is_exact_and_hunk_local() -> None:
+    old = "assert validate_store(without_page).valid  # validator allows document-only citations"
+    new = "assert not validate_store(without_page).valid"
+    diff = f"@@ -1 +1 @@\n-        {old}\n+        {new}\n"
+
+    assert list(deliberate_break._assertion_diff_lines(diff, (old, new))) == []
+    assert list(deliberate_break._assertion_diff_lines(diff)) == [f"-        {old}"]
+    assert list(deliberate_break._assertion_diff_lines(diff, (old, "assert True"))) == [
+        f"-        {old}"
+    ]
+    other_hunk = f"@@ -1 +0 @@\n-        {old}\n@@ -9 +9 @@\n+        {new}\n"
+    assert list(deliberate_break._assertion_diff_lines(other_hunk, (old, new))) == [
+        f"-        {old}"
+    ]
+    extra_removal = diff + "@@ -12 +0 @@\n-        assert unrelated_condition\n"
+    assert list(deliberate_break._assertion_diff_lines(extra_removal, (old, new))) == [
+        "-        assert unrelated_condition"
+    ]
+
+
+def test_reviewed_replacement_requires_matching_repo_and_issue(monkeypatch, tmp_path) -> None:
+    old, new = next(iter(deliberate_break.APPROVED_ASSERTION_REPLACEMENTS.values()))
+    test_file = "tests/store/test_communication_render_profile.py"
+    diff = f"@@ -1 +1 @@\n-        {old}\n+        {new}\n"
+
+    def fake_git(args, _cwd):
+        output = f"M\t{test_file}\n" if "--name-status" in args else diff
+        return subprocess.CompletedProcess(args, 0, output, "")
+
+    monkeypatch.setattr(deliberate_break, "_git", fake_git)
+    monkeypatch.setenv("GITHUB_REPOSITORY", "stranske/Deliverable-Render")
+    monkeypatch.setenv("PR_BODY", "<!-- meta:issue:36 -->")
+    assert deliberate_break._changed_assertions("base", "HEAD", test_file, tmp_path) == []
+
+    monkeypatch.setenv("PR_BODY", "<!-- meta:issue:35 -->")
+    assert deliberate_break._changed_assertions("base", "HEAD", test_file, tmp_path) == [
+        f"-        {old}"
+    ]
+    monkeypatch.setenv("PR_BODY", "<!-- meta:issue:36 -->")
+    monkeypatch.setenv("GITHUB_REPOSITORY", "stranske/Other")
+    assert deliberate_break._changed_assertions("base", "HEAD", test_file, tmp_path) == [
+        f"-        {old}"
+    ]
+
+
 def test_assertion_tamper_is_flagged(tmp_path, monkeypatch) -> None:
     repo = tmp_path / "repo"
     repo.mkdir()

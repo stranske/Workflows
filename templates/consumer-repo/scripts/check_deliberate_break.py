@@ -40,6 +40,19 @@ PYTEST_RUNTIME_DEPENDENCIES = (f"pyyaml=={PYYAML_VERSION}",)
 PYYAML_PROBE_SENTINEL = "__gate_pyyaml_import_ok__"
 PYYAML_PROBE_CODE = f"import yaml; print({PYYAML_PROBE_SENTINEL!r})"
 
+# Reviewed Workflows source exceptions only. PR-authored data cannot add entries.
+# This change strengthens issue #36's old assertion; all other removals still fail.
+APPROVED_ASSERTION_REPLACEMENTS = {
+    (
+        "stranske/Deliverable-Render",
+        "36",
+        "tests/store/test_communication_render_profile.py",
+    ): (
+        "assert validate_store(without_page).valid  # validator allows document-only citations",
+        "assert not validate_store(without_page).valid",
+    ),
+}
+
 
 @dataclass(frozen=True)
 class DeliberateBreakSpec:
@@ -849,13 +862,37 @@ def _git(
     )
 
 
-def _assertion_diff_lines(diff_text: str) -> Iterator[str]:
+def _assertion_diff_lines(
+    diff_text: str, approved_replacement: tuple[str, str] | None = None
+) -> Iterator[str]:
     """Yield removed assertion lines; adding a new assertion is valid test growth."""
-    for line in diff_text.splitlines():
-        if not line.startswith("-") or line.startswith("---"):
-            continue
-        if ASSERTION_DIFF_RE.search(line):
-            yield line[:240]
+    # Require the exact replacement in the same diff hunk. A second removed
+    # assertion in that hunk, or a replacement elsewhere, remains a failure.
+    hunk: list[str] = []
+    for line in [*diff_text.splitlines(), "@@ end"]:
+        if line.startswith("@@"):
+            additions = {
+                item[1:].strip()
+                for item in hunk
+                if item.startswith("+") and not item.startswith("+++")
+            }
+            for item in hunk:
+                if (
+                    not item.startswith("-")
+                    or item.startswith("---")
+                    or not ASSERTION_DIFF_RE.search(item)
+                ):
+                    continue
+                approved = (
+                    approved_replacement is not None
+                    and item[1:].strip() == approved_replacement[0]
+                    and approved_replacement[1] in additions
+                )
+                if not approved:
+                    yield item[:240]
+            hunk = []
+        else:
+            hunk.append(line)
 
 
 def _changed_assertions(base: str, head: str, test_file: str, cwd: Path) -> list[str]:
@@ -866,7 +903,12 @@ def _changed_assertions(base: str, head: str, test_file: str, cwd: Path) -> list
         ["diff", "--no-ext-diff", "--unified=0", f"{base}...{head}", "--", test_file],
         cwd,
     )
-    return list(_assertion_diff_lines(completed.stdout))
+    repo = os.environ.get("GITHUB_REPOSITORY", "")
+    issue = re.search(r"<!--\s*meta:issue:(\d+)\s*-->", os.environ.get("PR_BODY", ""))
+    approved_replacement = APPROVED_ASSERTION_REPLACEMENTS.get(
+        (repo, issue.group(1) if issue else "", test_file)
+    )
+    return list(_assertion_diff_lines(completed.stdout, approved_replacement))
 
 
 def _archive_ref(base: str, target: Path, cwd: Path) -> None:
