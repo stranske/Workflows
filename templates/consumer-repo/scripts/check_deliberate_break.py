@@ -40,6 +40,19 @@ PYTEST_RUNTIME_DEPENDENCIES = (f"pyyaml=={PYYAML_VERSION}",)
 PYYAML_PROBE_SENTINEL = "__gate_pyyaml_import_ok__"
 PYYAML_PROBE_CODE = f"import yaml; print({PYYAML_PROBE_SENTINEL!r})"
 
+# Reviewed Workflows source exceptions only. PR-authored data cannot add entries.
+# This change strengthens issue #36's old assertion; all other removals still fail.
+APPROVED_ASSERTION_REPLACEMENTS = {
+    (
+        "stranske/Deliverable-Render",
+        "36",
+        "tests/store/test_communication_render_profile.py",
+    ): (
+        "assert validate_store(without_page).valid  # validator allows document-only citations",
+        "assert not validate_store(without_page).valid",
+    ),
+}
+
 
 @dataclass(frozen=True)
 class DeliberateBreakSpec:
@@ -849,16 +862,44 @@ def _git(
     )
 
 
-def _assertion_diff_lines(diff_text: str) -> Iterator[str]:
+def _assertion_diff_lines(
+    diff_text: str, approved_replacement: tuple[str, str] | None = None
+) -> Iterator[str]:
     """Yield removed assertion lines; adding a new assertion is valid test growth."""
-    for line in diff_text.splitlines():
-        if not line.startswith("-") or line.startswith("---"):
-            continue
-        if ASSERTION_DIFF_RE.search(line):
-            yield line[:240]
+    # Require the exact replacement in the same diff hunk. A second removed
+    # assertion in that hunk, or a replacement elsewhere, remains a failure.
+    hunk: list[str] = []
+    for line in [*diff_text.splitlines(), "@@ end"]:
+        if line.startswith("@@"):
+            additions = [
+                item[1:].strip()
+                for item in hunk
+                if item.startswith("+") and not item.startswith("+++")
+            ]
+            for item in hunk:
+                if (
+                    not item.startswith("-")
+                    or item.startswith("---")
+                    or not ASSERTION_DIFF_RE.search(item)
+                ):
+                    continue
+                approved = (
+                    approved_replacement is not None
+                    and item[1:].strip() == approved_replacement[0]
+                    and approved_replacement[1] in additions
+                )
+                if approved:
+                    additions.remove(approved_replacement[1])
+                else:
+                    yield item[:240]
+            hunk = []
+        else:
+            hunk.append(line)
 
 
-def _changed_assertions(base: str, head: str, test_file: str, cwd: Path) -> list[str]:
+def _changed_assertions(
+    base: str, head: str, test_file: str, cwd: Path, pr_body: str | None = None
+) -> list[str]:
     status = _git(["diff", "--name-status", f"{base}...{head}", "--", test_file], cwd)
     if any(line.split("\t", 1)[0] == "A" for line in status.stdout.splitlines()):
         return []
@@ -866,7 +907,15 @@ def _changed_assertions(base: str, head: str, test_file: str, cwd: Path) -> list
         ["diff", "--no-ext-diff", "--unified=0", f"{base}...{head}", "--", test_file],
         cwd,
     )
-    return list(_assertion_diff_lines(completed.stdout))
+    repo = os.environ.get("GITHUB_REPOSITORY", "")
+    issue = re.search(
+        r"<!--\s*meta:issue:(\d+)\s*-->",
+        pr_body if pr_body is not None else os.environ.get("PR_BODY", ""),
+    )
+    approved_replacement = APPROVED_ASSERTION_REPLACEMENTS.get(
+        (repo, issue.group(1) if issue else "", test_file)
+    )
+    return list(_assertion_diff_lines(completed.stdout, approved_replacement))
 
 
 def _archive_ref(base: str, target: Path, cwd: Path) -> None:
@@ -905,6 +954,7 @@ def verify_spec(
     head: str = "HEAD",
     cwd: Path | None = None,
     enforce_tamper: bool = True,
+    pr_body: str | None = None,
 ) -> dict[str, object]:
     repo = cwd or Path.cwd()
     test_path = repo / spec.test_file
@@ -917,7 +967,7 @@ def verify_spec(
 
     try:
         if enforce_tamper:
-            tampered = _changed_assertions(base, head, spec.test_file, repo)
+            tampered = _changed_assertions(base, head, spec.test_file, repo, pr_body)
             if tampered:
                 return _json_result(
                     VERDICT_BROKEN,
@@ -1097,6 +1147,7 @@ def main(argv: list[str] | None = None) -> int:
         base=args.base,
         head=args.head,
         enforce_tamper=not args.no_tamper_check,
+        pr_body=body,
     )
     _write_github_output(verdict=str(result["verdict"]))
     print(json.dumps(result, sort_keys=True))

@@ -916,6 +916,11 @@ docs:
     target: docs/contracts/schemas/evidence-object-v1.schema.json
     description: "JSON Schema (draft 2020-12) for evidence-object/v1 - attributable evidence objects (the satellite schema consumers like the LMS would ingest)"
 
+  - source: docs/contracts/document-identity-conventions.md
+    source_tree: root
+    target: docs/contracts/document-identity-conventions.md
+    description: "Fleet contract for content-first document identity, secondary keys, supersession, and text-basis attribution"
+
   - source: docs/contracts/tracked-variable-v1.md
     source_tree: root
     target: docs/contracts/tracked-variable-v1.md

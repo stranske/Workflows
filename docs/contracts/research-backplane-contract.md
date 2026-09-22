@@ -13,6 +13,7 @@ owned by Workflows. It is the ownership/program companion to the wire-format spe
   [`artifact-manifest-v1.schema.json`](./schemas/artifact-manifest-v1.schema.json),
   [`evidence-object-v1.schema.json`](./schemas/evidence-object-v1.schema.json).
 - Identity conventions: [`identity-map-conventions.md`](./identity-map-conventions.md).
+- Document identity: [`document-identity-conventions.md`](./document-identity-conventions.md).
 - Sibling observability contract (telemetry, not replay):
   [`langsmith-fleet/v1`](./langsmith-fleet-v1.md) /
   [`langsmith-observability-contract.md`](./langsmith-observability-contract.md).

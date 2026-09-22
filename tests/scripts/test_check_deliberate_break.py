@@ -372,6 +372,62 @@ def test_fallback_marker_accepts_root_level_line_range_path() -> None:
     assert spec.break_file == "app.py"
 
 
+def test_reviewed_assertion_replacement_is_exact_and_hunk_local() -> None:
+    old = "assert validate_store(without_page).valid  # validator allows document-only citations"
+    new = "assert not validate_store(without_page).valid"
+    diff = f"@@ -1 +1 @@\n-        {old}\n+        {new}\n"
+
+    assert list(deliberate_break._assertion_diff_lines(diff, (old, new))) == []
+    assert list(deliberate_break._assertion_diff_lines(diff)) == [f"-        {old}"]
+    assert list(deliberate_break._assertion_diff_lines(diff, (old, "assert True"))) == [
+        f"-        {old}"
+    ]
+    other_hunk = f"@@ -1 +0 @@\n-        {old}\n@@ -9 +9 @@\n+        {new}\n"
+    assert list(deliberate_break._assertion_diff_lines(other_hunk, (old, new))) == [
+        f"-        {old}"
+    ]
+    extra_removal = diff + "@@ -12 +0 @@\n-        assert unrelated_condition\n"
+    assert list(deliberate_break._assertion_diff_lines(extra_removal, (old, new))) == [
+        "-        assert unrelated_condition"
+    ]
+    duplicate_removal = f"@@ -1,2 +1 @@\n-        {old}\n-        {old}\n+        {new}\n"
+    assert list(deliberate_break._assertion_diff_lines(duplicate_removal, (old, new))) == [
+        f"-        {old}"
+    ]
+
+
+def test_reviewed_replacement_requires_matching_repo_and_issue(monkeypatch, tmp_path) -> None:
+    old, new = next(iter(deliberate_break.APPROVED_ASSERTION_REPLACEMENTS.values()))
+    test_file = "tests/store/test_communication_render_profile.py"
+    diff = f"@@ -1 +1 @@\n-        {old}\n+        {new}\n"
+
+    def fake_git(args, _cwd):
+        output = f"M\t{test_file}\n" if "--name-status" in args else diff
+        return subprocess.CompletedProcess(args, 0, output, "")
+
+    monkeypatch.setattr(deliberate_break, "_git", fake_git)
+    monkeypatch.setenv("GITHUB_REPOSITORY", "stranske/Deliverable-Render")
+    monkeypatch.setenv("PR_BODY", "<!-- meta:issue:36 -->")
+    assert deliberate_break._changed_assertions("base", "HEAD", test_file, tmp_path) == []
+    monkeypatch.setenv("PR_BODY", "<!-- meta:issue:35 -->")
+    assert (
+        deliberate_break._changed_assertions(
+            "base", "HEAD", test_file, tmp_path, "<!-- meta:issue:36 -->"
+        )
+        == []
+    )
+
+    monkeypatch.setenv("PR_BODY", "<!-- meta:issue:35 -->")
+    assert deliberate_break._changed_assertions("base", "HEAD", test_file, tmp_path) == [
+        f"-        {old}"
+    ]
+    monkeypatch.setenv("PR_BODY", "<!-- meta:issue:36 -->")
+    monkeypatch.setenv("GITHUB_REPOSITORY", "stranske/Other")
+    assert deliberate_break._changed_assertions("base", "HEAD", test_file, tmp_path) == [
+        f"-        {old}"
+    ]
+
+
 def test_assertion_tamper_is_flagged(tmp_path, monkeypatch) -> None:
     repo = tmp_path / "repo"
     repo.mkdir()
@@ -2064,6 +2120,19 @@ def test_base_and_head_reach_verify_spec(tmp_path, monkeypatch, capsys):
     capsys.readouterr()
     assert seen["base"] == "origin/release"
     assert seen["head"] == "abc123"
+
+
+def test_selected_pr_body_file_reaches_tamper_check(tmp_path, monkeypatch, capsys):
+    _capture_outputs(tmp_path, monkeypatch)
+    monkeypatch.setenv("PR_BODY", "<!-- meta:issue:35 -->")
+    body_file = tmp_path / "pr-body.md"
+    body_file.write_text("<!-- meta:issue:36 -->\n" + MARKER, encoding="utf-8")
+    seen = _stub_verdict(monkeypatch, VERDICT_PASS)
+
+    deliberate_break.main(["--pr-body-file", str(body_file)])
+    capsys.readouterr()
+
+    assert seen["pr_body"] == body_file.read_text(encoding="utf-8")
 
 
 def test_the_result_is_printed_as_parseable_json(tmp_path, monkeypatch, capsys):
