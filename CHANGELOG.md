@@ -6,6 +6,13 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 Breaking changes are called out with a **BREAKING** marker and scheduled according to the policy in `COMPATIBILITY.md`.
 
+## [1.34.0](https://github.com/stranske/Workflows/compare/v1.33.2...v1.34.0) (2026-09-22)
+
+
+### Features
+
+* **contracts:** define document identity for evidence objects ([#3506](https://github.com/stranske/Workflows/issues/3506)) ([75d7d76](https://github.com/stranske/Workflows/commit/75d7d762971c04ab51011d8d6a9fb21ee39bdf5c))
+
 ## [1.33.2](https://github.com/stranske/Workflows/compare/v1.33.1...v1.33.2) (2026-09-22)
 
 
