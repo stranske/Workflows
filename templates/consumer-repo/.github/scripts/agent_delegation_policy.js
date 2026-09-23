@@ -253,6 +253,18 @@ function decideNextAgent({
   // agent:auto is present - run delegation logic
   core?.info?.('agent:auto detected - running delegation policy');
 
+  const explicitAgents = getExplicitAgentsFromLabels(labels, agents);
+  if (explicitAgents.length > 1) {
+    core?.warning?.(`Multiple concrete agent labels are invalid: ${explicitAgents.join(', ')}`);
+    return {
+      agent: '',
+      reason: 'multiple-agent-labels',
+      shouldSwitch: false,
+      alternatives: [],
+      delegationSource: 'static',
+    };
+  }
+
   const currentAgent = state.current_agent || '';
   const lastSwitchIteration = state.last_switch_iteration || 0;
   const currentIteration = state.iteration || 0;
@@ -607,8 +619,21 @@ function detectStall({ history = [], threshold = 2, core }) {
  * @returns {string|null} - Agent key or null
  */
 function getExplicitAgentFromLabels(labels, agents) {
+  const explicitAgents = getExplicitAgentsFromLabels(labels, agents);
+  return explicitAgents.length === 1 ? explicitAgents[0] : null;
+}
+
+/**
+ * Get all distinct recognized concrete agents from labels.
+ *
+ * @param {Array<string>} labels - PR labels
+ * @param {Object} agents - Registry agents object
+ * @returns {Array<string>} - Distinct concrete agent keys
+ */
+function getExplicitAgentsFromLabels(labels, agents) {
   const agentPrefix = 'agent:';
   const agentKeys = Object.keys(agents || {});
+  const explicitAgents = new Set();
 
   for (const label of labels) {
     const normalized = normalizeLabel(label);
@@ -619,12 +644,12 @@ function getExplicitAgentFromLabels(labels, agents) {
         continue;
       }
       if (agentKeys.includes(agentKey)) {
-        return agentKey;
+        explicitAgents.add(agentKey);
       }
     }
   }
 
-  return null;
+  return [...explicitAgents];
 }
 
 /**

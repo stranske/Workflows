@@ -188,7 +188,7 @@ runner and registry entry ship, applying this label will not dispatch a runner. 
 
 **Effect:**
 1. Delegates routing to the auto-delegation policy in `.github/scripts/agent_delegation_policy.js`
-2. The policy switches between Codex and Claude based on stall/effectiveness signals
+2. The policy selects an eligible registered agent using the initial-selection order below, then uses stall/effectiveness signals to decide whether to switch
 3. Used to recover from capacity-stuck PRs: **add** `agent:auto` to the PR (alongside the existing `agent:<name>` label); keepalive will override the concrete label and route through auto-delegation
 4. Selects a runner through the delegation policy without mutating labels; if no current agent is recorded, the policy first uses a co-present available concrete `agent:<name>` label, otherwise uses evidence-bearing route weights, and otherwise chooses the default available agent or the first available alternative
 
@@ -750,8 +750,8 @@ These labels are used for categorization but do not trigger workflows.
 | (none) | `agent:codex` | Triggers agent assignment (Codex runner)
 | (none) | `agent:claude` | Triggers agent assignment (Claude runner)
 | (none) | `agent:auto` | Delegates routing to `agent_delegation_policy.js`
-| `agent:codex` | `agent:auto` | `agent:auto` wins: keepalive ignores the co-present `agent:codex` and routes through `agent_delegation_policy.js`; keep both labels
-| `agent:claude` | `agent:auto` | `agent:auto` wins: keepalive ignores the co-present `agent:claude` and routes through `agent_delegation_policy.js`; keep both labels
+| `agent:codex` | `agent:auto` | `agent:auto` wins: when no current agent is recorded, the available `agent:codex` label seeds initial selection; subsequent routing uses `agent_delegation_policy.js`; keep both labels
+| `agent:claude` | `agent:auto` | `agent:auto` wins: when no current agent is recorded, the available `agent:claude` label seeds initial selection; subsequent routing uses `agent_delegation_policy.js`; keep both labels
 | `agent:codex` | `agent:claude` | Invalid mixed routing: two concrete labels resolve no route, so keepalive does not dispatch; keep exactly one concrete label
 | `agent:<name>` + `agents:keepalive` | `agent:retry` | Consolidated: records a recovery request; root/non-consolidated: forces the keepalive retry and cleanup handler
 | `agent:retry` | Manual Gate-followups dispatch | Consolidated only: forces the retry and does not imply automatic label cleanup

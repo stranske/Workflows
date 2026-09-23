@@ -2645,7 +2645,7 @@ async function evaluateKeepaliveLoop({ github: rawGithub, context, core, payload
       }
     }
     const hasHighPrivilege = labels.includes('agent-high-privilege');
-    const keepaliveEnabled = config.keepalive_enabled && hasAgentLabel;
+    let keepaliveEnabled = config.keepalive_enabled && hasAgentLabel;
 
     // Operator stop-controls (#2267). The canonical event-driven loop must enforce the
     // documented pause / human-block guardrails itself — previously they lived only on
@@ -2757,6 +2757,14 @@ async function evaluateKeepaliveLoop({ github: rawGithub, context, core, payload
           );
         } else {
           core?.warning?.(`Delegation policy returned no agent: ${decision.reason}`);
+          if (decision.reason === 'multiple-agent-labels') {
+            agentType = '';
+            hasAgentLabel = false;
+            keepaliveEnabled = false;
+            delegationReason = decision.reason;
+            delegationShouldSwitch = false;
+            delegationSource = decision.delegationSource || 'static';
+          }
         }
       } catch (err) {
         core?.warning?.(`Delegation policy failed, keeping ${agentType}: ${err.message}`);

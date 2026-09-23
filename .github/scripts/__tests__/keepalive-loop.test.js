@@ -6553,3 +6553,59 @@ test('evaluateKeepaliveLoop resolves agent:auto via delegation policy with deleg
     }
   }
 });
+
+test('evaluateKeepaliveLoop disables dispatch for multiple concrete agent labels', async () => {
+  const previousEnv = {
+    HAS_CODEX_AUTH: process.env.HAS_CODEX_AUTH,
+    HAS_CLAUDE_OAUTH: process.env.HAS_CLAUDE_OAUTH,
+    ROUTE_WEIGHTS_URL: process.env.ROUTE_WEIGHTS_URL,
+  };
+  const previousFetch = global.fetch;
+  global.fetch = async () => {
+    throw new Error('route weights fetch must not determine invalid mixed routing');
+  };
+  process.env.HAS_CODEX_AUTH = 'true';
+  process.env.HAS_CLAUDE_OAUTH = 'true';
+  process.env.ROUTE_WEIGHTS_URL = 'http://127.0.0.1:9/route-weights-unreachable.json';
+
+  try {
+    const pr = {
+      number: 3517,
+      head: { ref: 'codex/issue-3517-initial-agent-routing', sha: 'sha-3517' },
+      labels: [
+        { name: 'agent:auto' },
+        { name: 'agent:codex' },
+        { name: 'agent:claude' },
+        { name: 'agents:keepalive' },
+      ],
+      body: prBodyFixture,
+    };
+    const github = buildGithubStub({
+      pr,
+      workflowRuns: [{ head_sha: 'sha-3517', conclusion: 'success' }],
+    });
+
+    const result = await evaluateKeepaliveLoop({
+      github,
+      context: buildContext(pr.number),
+      core: buildCore(),
+    });
+
+    assert.equal(result.agentRoutingMode, 'auto');
+    assert.equal(result.agentType, '');
+    assert.equal(result.hasAgentLabel, false);
+    assert.equal(result.keepaliveEnabled, false);
+    assert.equal(result.delegationReason, 'multiple-agent-labels');
+    assert.equal(result.action, 'wait');
+    assert.equal(result.reason, 'missing-agent-label');
+  } finally {
+    global.fetch = previousFetch;
+    for (const [key, value] of Object.entries(previousEnv)) {
+      if (value === undefined) {
+        delete process.env[key];
+      } else {
+        process.env[key] = value;
+      }
+    }
+  }
+});

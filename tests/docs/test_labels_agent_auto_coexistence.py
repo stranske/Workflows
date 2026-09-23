@@ -66,6 +66,7 @@ def test_interaction_matrix_row_matches_the_section(guide: Path, concrete: str) 
     ]
     assert len(rows) == 1, rows
     assert "`agent:auto` wins" in rows[0]
+    assert "seeds initial selection" in rows[0]
     assert "keep both labels" in rows[0]
 
 

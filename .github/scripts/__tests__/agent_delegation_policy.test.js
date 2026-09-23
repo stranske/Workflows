@@ -146,6 +146,52 @@ test('initial selection skips an unavailable concrete label', () => {
   assert.equal(result.shouldSwitch, false);
 });
 
+test('agent:auto rejects multiple distinct concrete labels before selection', () => {
+  for (const labels of [
+    ['agent:auto', 'agent:codex', 'agent:claude'],
+    ['agent:auto', 'agent:claude', 'agent:codex'],
+  ]) {
+    const result = decideNextAgent({
+      state: {},
+      labels,
+      secrets: mockSecrets,
+      registry: mockRegistry,
+      routeWeights: freshRouteWeights,
+    });
+
+    assert.deepEqual(result, {
+      agent: '',
+      reason: 'multiple-agent-labels',
+      shouldSwitch: false,
+      alternatives: [],
+      delegationSource: 'static',
+    });
+  }
+
+  const persisted = decideNextAgent({
+    state: { current_agent: 'codex', iteration: 3 },
+    labels: ['agent:auto', 'agent:codex', 'agent:claude'],
+    secrets: { CODEX_AUTH_JSON: true },
+    registry: mockRegistry,
+    routeWeights: null,
+  });
+  assert.equal(persisted.agent, '');
+  assert.equal(persisted.reason, 'multiple-agent-labels');
+});
+
+test('agent:auto treats duplicate normalized concrete labels as one seed', () => {
+  const result = decideNextAgent({
+    state: {},
+    labels: ['agent:auto', 'agent:claude', { name: ' Agent:Claude ' }],
+    secrets: mockSecrets,
+    registry: mockRegistry,
+    routeWeights: freshRouteWeights,
+  });
+
+  assert.equal(result.agent, 'claude');
+  assert.equal(result.reason, 'initial-selection-label');
+});
+
 test('fixture document → evidence-ranked choice', () => {
   const result = decideNextAgent({
     state: stalledStateCodex,
