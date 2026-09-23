@@ -183,15 +183,14 @@
     {
       "repo": "stranske/Inv-Man-Intake",
       "parent_issue": "stranske/Workflows#2743",
-      "issue": null,
+      "issue": "stranske/Inv-Man-Intake#949",
       "contract_version": "run-contract/v1",
       "tier": 2,
       "role": "producer",
       "tier_role": "evidence-source",
       "entry_point": {
         "tool": "ingest",
-        "invocation": "inv-man-ingest <package> --out <dir> (NOT YET BUILT)",
-        "blocker": "Full pipeline only exists inside run_v1_smoke_pipeline(...), a test helper returning a dataclass of object fields; no headless entry point, no materialized manifest, in-memory-only storage."
+        "invocation": "python -m inv_man_intake.cli.ingest <package> --out <dir>"
       },
       "artifact_name": "run.json",
       "manifest_name": "manifest.json",
@@ -199,12 +198,9 @@
         "evidence_refs",
         "identity_refs"
       ],
-      "status": "planned",
-      "rationale": "Tier-2: included as the EVIDENCE SOURCE (evidence_objects 2/3, enforced source-doc+page provenance). NOT a first-class orchestrated tool yet: needs a real ingest(package) entry point + manifest + durable storage and real firm/fund alias resolution (aliases_json hard-coded None) before it can be CALLED. Tool-ification deferred to P3+.",
-      "issue_deferred": {
-        "expires_at": "2026-10-15T00:00:00Z",
-        "reason": "Deferred until a headless ingest/package entry point and durable manifest work are selected."
-      },
+      "status": "emitting",
+      "emitted_evidence_policy": "manifest-evidence-closure/v1",
+      "rationale": "Tier-2 evidence source: the headless ingest CLI emits run.json, manifest.json, and evidence-object/v1 files. Canonical conformance now enforces emitted evidence closure; conformant status waits for durable reference-run evidence.",
       "reference_state": "missing"
     },
     {

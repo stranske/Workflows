@@ -6,15 +6,15 @@ their domain compute and instrumentation; Workflows owns the common run-record
 shape, the participant registry, validation, and the cross-repo reference-run
 rollup.
 
-> **Status: P0 landing (under human review).** This is the wire-format spec.
+> **Status: opt-in contract with active emitters.** This is the wire-format spec.
 > Schema: [`run-contract-v1.schema.json`](./schemas/run-contract-v1.schema.json).
 > Program/ownership doc: [`research-backplane-contract.md`](https://github.com/stranske/Workflows/blob/main/docs/contracts/research-backplane-contract.md)
 > (Workflows-only; not synced to participants).
 > Sibling observability contract: [`langsmith-fleet-v1.md`](https://github.com/stranske/Workflows/blob/main/docs/contracts/langsmith-fleet-v1.md)
 > (Workflows-only; not synced to participants).
 > The contract is **opt-in**: a repo participates only via an entry in
-> `config/backplane_participants.json`. No participant emits an envelope yet
-> (that is P1+); nothing here is wired into any repo's CI.
+> `config/backplane_participants.json`. Active participants use the reusable
+> conformance workflow; planned and candidate entries retain opt-in semantics.
 
 ## Design Decision
 
@@ -175,7 +175,15 @@ needed for replay/audit; `Counter_Risk` blueprint issue, `manifest.py:97-120`).
   (e.g. an extraction tool requires `evidence` + `identity`; a Monte Carlo
   engine requires neither),
 - `status` (`planned` → `emitting` → `conformant`; or `candidate` for a
-  pre-approval role-architecture placeholder that the gate treats as a no-op).
+  pre-approval role-architecture placeholder that the gate treats as a no-op),
+- optional `emitted_evidence_policy: manifest-evidence-closure/v1` for an emitting
+  producer/bridge. The canonical validator then requires a manifest and the
+  run's artifact directory, checks each `kind: evidence` artifact named
+  `evidence-*.json` against the evidence-object schema and its manifest SHA-256,
+  and requires exact two-way closure with `evidence_refs`. Other evidence-kind
+  artifacts, such as Inv-Man's `explainability.json`, are not evidence objects.
+  Unknown policy values fail validation; disabled participants retain their
+  previous behavior. The reusable gate binds the selected repo to its caller.
 
 ### Participant `role` (producer / consumer / bridge)
 

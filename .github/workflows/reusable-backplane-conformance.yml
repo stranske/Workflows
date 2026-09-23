@@ -108,18 +108,27 @@ jobs:
 
       - name: Validate run envelope
         id: validate
+        env:
+          RUN_JSON_PATH: ${{ inputs.run_json_path }}
+          MANIFEST_PATH: ${{ inputs.manifest_path }}
+          DECLARED_REPO: ${{ inputs.repo }}
+          CALLER_REPO: ${{ github.repository }}
+          STRICT: ${{ inputs.strict }}
         run: |
           set -euo pipefail
-          REPO="${{ inputs.repo }}"
-          if [ -z "${REPO}" ]; then REPO="${{ github.repository }}"; fi
-          ARGS=( "${{ inputs.run_json_path }}"
+          REPO="${DECLARED_REPO:-$CALLER_REPO}"
+          if [ "${REPO}" != "${CALLER_REPO}" ]; then
+            echo "Explicit participant repo must equal the calling repository" >&2
+            exit 2
+          fi
+          ARGS=( "${RUN_JSON_PATH}"
                  --registry .backplane-contract/config/backplane_participants.json
                  --schema-dir .backplane-contract/docs/contracts/schemas
                  --repo "${REPO}" )
-          if [ -n "${{ inputs.manifest_path }}" ]; then
-            ARGS+=( --manifest "${{ inputs.manifest_path }}" )
+          if [ -n "${MANIFEST_PATH}" ]; then
+            ARGS+=( --manifest "${MANIFEST_PATH}" )
           fi
-          if [ "${{ inputs.strict }}" != "true" ]; then
+          if [ "${STRICT}" != "true" ]; then
             ARGS+=( --warn-only )
           fi
           # Validator writes a machine-readable report and sets conformant=...

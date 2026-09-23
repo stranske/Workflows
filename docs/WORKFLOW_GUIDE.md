@@ -11,6 +11,11 @@ If you need the quick roster of which workflows stay active, which ones retired,
 start with the high-level [Workflow System Overview](ci/WORKFLOW_SYSTEM.md). This guide then dives into naming, routing, and
 operational detail for the kept set.
 
+The reusable backplane conformance gate validates against the Workflows-owned
+registry and schemas. Its opt-in `manifest-evidence-closure/v1` policy validates
+Inv-Man-Intake's emitted `evidence-*.json` objects and manifest hashes against
+the run's `evidence_refs`; it does not execute a consumer-local validator.
+
 > _Gate rerun trigger:_ this paragraph was touched on 2025-10-13 to force a fresh Gate workflow execution.
 
 ## WFv1 Naming Scheme
