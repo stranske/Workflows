@@ -2945,6 +2945,9 @@ async function evaluateKeepaliveLoop({ github: rawGithub, context, core, payload
     } else if (runnerUnavailable) {
       action = 'skip';
       reason = `no-runner-for-agent:${agentType}`;
+    } else if (delegationReason === 'multiple-agent-labels') {
+      action = 'wait';
+      reason = delegationReason;
     } else if (!hasAgentLabel) {
       action = 'wait';
       reason = 'missing-agent-label';

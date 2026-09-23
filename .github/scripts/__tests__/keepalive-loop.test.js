@@ -6597,7 +6597,7 @@ test('evaluateKeepaliveLoop disables dispatch for multiple concrete agent labels
     assert.equal(result.keepaliveEnabled, false);
     assert.equal(result.delegationReason, 'multiple-agent-labels');
     assert.equal(result.action, 'wait');
-    assert.equal(result.reason, 'missing-agent-label');
+    assert.equal(result.reason, 'multiple-agent-labels');
   } finally {
     global.fetch = previousFetch;
     for (const [key, value] of Object.entries(previousEnv)) {

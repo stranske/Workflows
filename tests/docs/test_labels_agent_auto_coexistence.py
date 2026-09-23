@@ -35,6 +35,7 @@ def test_agent_auto_section_states_co_presence(guide: Path) -> None:
     section = _section(guide.read_text(encoding="utf-8"), "### `agent:auto`")
     assert "alongside the existing `agent:<name>` label" in section
     assert "`agent:auto` always wins" in section
+    assert "uses the available concrete label as the initial seed" in section
 
 
 @pytest.mark.parametrize("guide", GUIDES, ids=str)
