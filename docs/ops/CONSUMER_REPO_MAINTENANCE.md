@@ -500,7 +500,8 @@ current review/seal state; metadata-only refreshes therefore cannot restart
 review forever.
 
 Before a source-delta run rotates an open stable PR, Maint 68 fetches the
-consumer history needed for the full PR merge-base and compares its unmerged
+stable head, then unshallows the tracked consumer base in a separate fetch
+to avoid Git shallow-file update races. It uses the full PR merge-base to compare unmerged
 file changes with the paths actually staged for the new plan and current
 consumer base. Manifest targets skipped for this consumer, including existing
 `create_only` files, do not count as staged. If an omitted file is not already

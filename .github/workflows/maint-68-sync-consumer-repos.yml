@@ -1121,10 +1121,12 @@ jobs:
             # an intervening consumer edit.
             git fetch origin "$branch_name"
             existing_head=$(git rev-parse FETCH_HEAD)
-            # The consumer clone starts at depth 1. Fetch both histories before
-            # computing the full PR merge-base for a stale stable branch.
+            # The consumer clone starts at depth 1. Unshallow the tracked base
+            # after fetching the stable branch. Passing both refs to one
+            # --unshallow fetch can make Git race its own shallow-file update
+            # (fatal: shallow file has changed since we read it).
             if [ "$(git rev-parse --is-shallow-repository)" = "true" ]; then
-              git fetch --unshallow origin "$branch_name" "$(git branch --show-current)"
+              git fetch --unshallow origin
             fi
             existing_tree=$(git rev-parse "${existing_head}^{tree}")
             existing_verification=$(
