@@ -18,6 +18,20 @@ def test_auto_updater_is_the_single_weekly_source_proposal_lane():
     assert 'gh pr edit "$existing_pr"' in text
 
 
+def test_auto_updater_uses_workflow_capable_owner_token_for_source_proposal():
+    text = AUTO_UPDATE.read_text(encoding="utf-8")
+    checkout = text[text.index("- name: Checkout Workflows") : text.index("- name: Setup Python")]
+    create = text[text.index("- name: Create PR") : text.index("- name: Dry run summary")]
+
+    assert "token: ${{ secrets.OWNER_PR_PAT || github.token }}" in checkout
+    assert text.count("GH_TOKEN: ${{ secrets.OWNER_PR_PAT }}") == 3
+    assert "Require workflow-capable proposal token" in text
+    assert 'if [ -z "$GH_TOKEN" ]; then' in text
+    assert "gh auth status --active --hostname github.com --json hosts" in text
+    assert "workflow scope" in text
+    assert "GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}" not in create
+
+
 def test_source_lane_validates_pins_before_create_pr_even_for_security_override():
     text = AUTO_UPDATE.read_text(encoding="utf-8")
     validate_at = text.index("Validate synchronized pins before proposal")

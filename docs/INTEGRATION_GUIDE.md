@@ -452,7 +452,7 @@ Set these in your repo's Settings → Secrets → Actions:
 |--------|-------------|---------------|
 | `GITHUB_TOKEN` | Always | Automatic |
 | `SERVICE_BOT_PAT` | Agent workflows | Create PAT with `repo` scope |
-| `OWNER_PR_PAT` | Agent PR creation | Create PAT with `repo` scope |
+| `OWNER_PR_PAT` | Agent PR creation and workflow-file source proposals | Create classic PAT with `repo` and `workflow` scopes |
 | `PYPI_TOKEN` | Publishing packages | From pypi.org |
 
 > **This table is a starting point, not the full set.** A first-party consumer
