@@ -13,7 +13,7 @@ This document describes all labels that trigger automated workflows or affect CI
 | `agent:cursor` | Issue or PR labeled | Routes consumer Gate-followup keepalive to the Cursor runner
 | `agent:gemini` | Issue or PR labeled | Routes consumer Gate-followup keepalive to the Gemini runner
 | `agent:aider` | Issue or PR labeled | Reserved and disabled; no runner dispatches until its implementation lands
-| `agent:auto` | Issue or PR labeled | Delegates routing to the auto-delegation policy; may sit alongside one concrete `agent:<name>` label, which it overrides
+| `agent:auto` | Issue or PR labeled | Delegates routing to the auto-delegation policy; may sit alongside one concrete `agent:<name>` label, which keepalive routing overrides
 | `agent:retry` | PR labeled | Consolidated consumers require a manual Gate-followups dispatch; the root/non-consolidated keepalive workflow forces a retry and clears recovery labels
 | `agent:rate-limited` | Auto-applied | Marks a PR as backing off from a rate-limit failure
 | ~~`agent:codex-invite`~~ | *(deprecated)* | No workflow, script, or tool references this label by name; the generic `agent:<name>-invite` mechanism in `reusable-agents-issue-bridge.yml` still works but this specific label is unmaintained — see detail section below
@@ -243,6 +243,7 @@ dispatch a runner. See
 
 **Prerequisites:**
 - When `agent:auto` is present, any co-present concrete `agent:<name>` label is silently ignored; `agent:auto` always wins
+- Only keepalive routing honors the pair today: `resolveAgentRoutingFromLabels` in `.github/scripts/agent_registry.js` still rejects `agent:auto` beside a concrete label, so its other callers (the verifier, verify-to-new-pr, the autofix loop and the bot-comment handler) fall back to a default agent; tracked in #3519
 - Existing delegation state improves switch decisions, but the initial-selection path can choose an agent without a concrete label
 
 **Lifecycle:** Applied at PR creation by the opener lane, alongside the concrete `agent:<name>` label that records which seat opened the PR, or manually or by the closer when a PR is capacity-stuck. The delegation policy reads it on keepalive ticks and either keeps the current runner choice or switches the runner decision for that dispatch.

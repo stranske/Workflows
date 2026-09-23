@@ -38,6 +38,15 @@ def test_agent_auto_section_states_co_presence(guide: Path) -> None:
 
 
 @pytest.mark.parametrize("guide", GUIDES, ids=str)
+def test_lifecycle_and_rate_limit_guidance_keep_the_concrete_label(guide: Path) -> None:
+    text = guide.read_text(encoding="utf-8")
+    auto = _section(text, "### `agent:auto`")
+    assert "Applied at PR creation by the opener lane" in auto
+    rate_limited = _section(text, "### `agent:rate-limited`")
+    assert "add `agent:auto` alongside the concrete label" in rate_limited
+
+
+@pytest.mark.parametrize("guide", GUIDES, ids=str)
 def test_no_line_naming_agent_auto_forbids_co_presence(guide: Path) -> None:
     offending = [
         f"{guide}:{number}: {line.strip()}"
