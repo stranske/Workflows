@@ -136,6 +136,7 @@ def test_full_history_consumer_fetch_recovers_stable_pr_merge_base(
     tmp_path: Path, merge_main: bool
 ) -> None:
     repo, old_base, _ = _repo_with_pending_delivery(tmp_path)
+    _git(repo, "config", "uploadpack.allowFilter", "true")
     _write(repo, "README.md", "advanced base\n")
     _git(repo, "add", ".")
     _git(repo, "commit", "-qm", "advance main")
@@ -149,10 +150,21 @@ def test_full_history_consumer_fetch_recovers_stable_pr_merge_base(
         _git(repo, "checkout", "-q", "main")
     clone = tmp_path / "full-history-consumer"
     subprocess.run(
-        ["git", "clone", "-q", "--single-branch", "--branch", "main", repo.as_uri(), str(clone)],
+        [
+            "git",
+            "clone",
+            "-q",
+            "--filter=blob:none",
+            "--single-branch",
+            "--branch",
+            "main",
+            repo.as_uri(),
+            str(clone),
+        ],
         check=True,
     )
     assert _git(clone, "rev-parse", "--is-shallow-repository") == "false"
+    assert _git(clone, "config", "--get", "remote.origin.promisor") == "true"
     _git(clone, "fetch", "origin", "sync/workflows-candidate")
     old_head = _git(clone, "rev-parse", "FETCH_HEAD")
     assert _git(clone, "merge-base", old_head, "HEAD") == (new_base if merge_main else old_base)
