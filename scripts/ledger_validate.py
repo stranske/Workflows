@@ -22,6 +22,11 @@ from urllib.parse import urlsplit, urlunsplit
 
 import yaml
 
+try:
+    from scripts.belt_ledger_completion import duplicate_artifact_errors
+except ModuleNotFoundError:  # direct ``python scripts/ledger_validate.py`` execution
+    from belt_ledger_completion import duplicate_artifact_errors
+
 REPO_ROOT = Path(__file__).resolve().parents[1]
 SRC_ROOT = REPO_ROOT / "src"
 if SRC_ROOT.exists():  # ensure local package import works before editable install
@@ -35,7 +40,7 @@ except ModuleNotFoundError:  # pragma: no cover - fallback for repo scripts
         return REPO_ROOT
 
 
-VALID_STATUSES = {"todo", "doing", "done", "deferred"}
+VALID_STATUSES = {"todo", "doing", "done", "blocked", "deferred"}
 HEX_RE = re.compile(r"^[0-9a-f]{7,40}$")
 ISO8601_RE = re.compile(r"^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}Z$")
 _SHALLOW_CACHE: bool | None = None
@@ -75,6 +80,11 @@ def _allow_missing_commit() -> bool:
     # may be incomplete or inaccessible to the runner token.
     event_name = os.environ.get("GITHUB_EVENT_NAME", "")
     return event_name in {"pull_request", "pull_request_target"}
+
+
+def _strict_completion_evidence() -> bool:
+    """Whether historical task completion evidence is a hard validation gate."""
+    return os.environ.get("LEDGER_VALIDATE_COMPLETION_EVIDENCE") == "1"
 
 
 def _warn_skip_commit(commit: str, reason: str) -> None:
@@ -497,6 +507,11 @@ def _validate_task(
                             ledger_relative = ledger_path.as_posix()
 
                         if all(name.startswith(".agents/") for name in files):
+                            if _strict_completion_evidence():
+                                errors.append(
+                                    f"{ledger_path}: {context}.commit {commit} must include non-ledger changes"
+                                )
+                                return errors
                             allowed_sidecars = {
                                 ledger_relative,
                                 ".agents/.ledger-summary.md",
@@ -574,6 +589,9 @@ def validate_ledger(path: Path) -> list[str]:
 
     if doing_count > 1:
         problems.append(f"{path}: at most one task may have status=doing (found {doing_count})")
+
+    if _strict_completion_evidence():
+        problems.extend(duplicate_artifact_errors(tasks, repo_root=Path.cwd()))
 
     return problems
 

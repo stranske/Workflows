@@ -17,6 +17,32 @@ ledger without consulting GitHub.
 This guarantees that no automation task depends on historical values that might
 still point at `main` after a repository rename.
 
+## Completion evidence
+
+A successful worker process does not by itself complete a ledger task. Before
+writing `done`, the belt checks the cited commit and requires at least one changed
+path outside `.agents/`. File-like artifact paths named in the task must exist in
+that commit's tree; their presence in a later checkout is not evidence. When a
+successful run lacks either form of evidence, the selected task becomes `blocked`
+with the commit and reason in its notes, and `finished_at` remains empty.
+
+Every worker run reports the same four operator counts, including zeros:
+`todo`, `in_progress` (the stored `doing` state), `done`, and `blocked`. A blocked
+task is intentionally not auto-selected again. Correct the underlying branch or
+task evidence, then return the task to `todo` in a reviewed change before retrying.
+Failed worker execution retains the existing `doing` to `todo` reset behavior.
+
+Use the read-only historical audit to find older false completions. It reports
+findings and exits non-zero without editing ledgers:
+
+```bash
+python scripts/audit_belt_ledger_completion.py --root .
+```
+
+Duplicate tasks may name the same artifact, but a `done` claim is fatal when that
+artifact is absent from its cited commit. This prevents one false completion from
+being hidden by a later `todo` entry for the same file.
+
 ## Migration script
 
 `scripts/ledger_migrate_base.py` keeps ledgers in sync with the default branch.
