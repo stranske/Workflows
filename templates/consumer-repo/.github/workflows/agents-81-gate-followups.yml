@@ -304,6 +304,11 @@ jobs:
           INPUT_PR_NUMBER: ${{ github.event.inputs.pr_number || '' }}
           INPUT_FORCE_RETRY: ${{ github.event.inputs.force_retry || 'false' }}
           INPUT_EXECUTION_PROFILE: ${{ github.event.inputs.execution_profile || '' }}
+          HAS_CODEX_AUTH: ${{ secrets.CODEX_AUTH_JSON != '' }}
+          HAS_CLAUDE_AUTH: ${{ secrets.CLAUDE_AUTH_JSON != '' }}
+          HAS_CLAUDE_OAUTH: ${{ secrets.CLAUDE_CODE_OAUTH_TOKEN != '' }}
+          HAS_CURSOR_AUTH: ${{ secrets.CURSOR_API_KEY != '' }}
+          HAS_GEMINI_AUTH: ${{ secrets.GEMINI_API_KEY != '' }}
           ROUTE_WEIGHTS_URL: ${{ vars.ROUTE_WEIGHTS_URL }}
         with:
           github-token: ${{ secrets.GITHUB_TOKEN }}
