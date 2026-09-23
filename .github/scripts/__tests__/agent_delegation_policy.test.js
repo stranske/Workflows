@@ -75,6 +75,77 @@ const freshRouteWeights = {
   },
 };
 
+test('initial selection seeds from a co-present concrete label', () => {
+  const result = decideNextAgent({
+    state: {},
+    labels: ['agent:auto', 'agent:claude'],
+    secrets: mockSecrets,
+    registry: mockRegistry,
+    routeWeights: freshRouteWeights,
+  });
+
+  assert.equal(result.agent, 'claude');
+  assert.equal(result.reason, 'initial-selection-label');
+  assert.equal(result.delegationSource, 'static');
+  assert.equal(result.shouldSwitch, false);
+});
+
+test('initial selection uses route weights without a concrete label', () => {
+  const result = decideNextAgent({
+    state: {},
+    labels: ['agent:auto'],
+    secrets: mockSecrets,
+    registry: mockRegistry,
+    routeWeights: freshRouteWeights,
+  });
+
+  assert.equal(result.agent, 'cursor');
+  assert.equal(result.reason, 'initial-selection-route-weights');
+  assert.equal(result.delegationSource, 'route_weights');
+  assert.equal(result.shouldSwitch, false);
+});
+
+test('initial selection falls back to the default agent without evidence', () => {
+  const result = decideNextAgent({
+    state: {},
+    labels: ['agent:auto'],
+    secrets: mockSecrets,
+    registry: mockRegistry,
+    routeWeights: {
+      ...freshRouteWeights,
+      task_types: {
+        implement: {
+          evidence_ok: false,
+          ranking: [{ agent: 'cursor', posterior: 0.99 }],
+        },
+      },
+    },
+  });
+
+  assert.equal(result.agent, 'codex');
+  assert.equal(result.reason, 'initial-selection');
+  assert.equal(result.delegationSource, 'static');
+  assert.equal(result.shouldSwitch, false);
+});
+
+test('initial selection skips an unavailable concrete label', () => {
+  const result = decideNextAgent({
+    state: {},
+    labels: ['agent:auto', 'agent:claude'],
+    secrets: {
+      CODEX_AUTH_JSON: true,
+      CURSOR_API_KEY: true,
+    },
+    registry: mockRegistry,
+    routeWeights: freshRouteWeights,
+  });
+
+  assert.equal(result.agent, 'cursor');
+  assert.equal(result.reason, 'initial-selection-route-weights');
+  assert.equal(result.delegationSource, 'route_weights');
+  assert.equal(result.shouldSwitch, false);
+});
+
 test('fixture document → evidence-ranked choice', () => {
   const result = decideNextAgent({
     state: stalledStateCodex,
