@@ -253,6 +253,18 @@ function decideNextAgent({
   // agent:auto is present - run delegation logic
   core?.info?.('agent:auto detected - running delegation policy');
 
+  const explicitAgents = getExplicitAgentsFromLabels(labels, agents);
+  if (explicitAgents.length > 1) {
+    core?.warning?.(`Multiple concrete agent labels are invalid: ${explicitAgents.join(', ')}`);
+    return {
+      agent: '',
+      reason: 'multiple-agent-labels',
+      shouldSwitch: false,
+      alternatives: [],
+      delegationSource: 'static',
+    };
+  }
+
   const currentAgent = state.current_agent || '';
   const lastSwitchIteration = state.last_switch_iteration || 0;
   const currentIteration = state.iteration || 0;
@@ -287,8 +299,44 @@ function decideNextAgent({
     };
   }
 
-  // If no current agent, select default if available
+  const taskType = ROUTE_WEIGHT_TASK_TYPES[roundKind] || ROUTE_WEIGHT_TASK_TYPES.implement;
+
+  // If no current agent, preserve an explicit opener choice first, then use
+  // evidence-bearing route weights, and finally fall back to the registry
+  // default. The explicit label intentionally ignores reserve because it is
+  // the seat that opened the PR; agent:auto governs subsequent delegation.
   if (!currentAgent) {
+    const explicitAgent = getExplicitAgentFromLabels(labels, agents);
+    if (explicitAgent && availableAgents.includes(explicitAgent)) {
+      core?.info?.(`Initial agent selection from concrete label: ${explicitAgent}`);
+      return {
+        agent: explicitAgent,
+        reason: 'initial-selection-label',
+        shouldSwitch: false,
+        alternatives: availableAgents.filter((agent) => agent !== explicitAgent),
+        delegationSource: 'static',
+      };
+    }
+
+    const weighted = selectAgentFromRouteWeights({
+      routeWeights,
+      taskType,
+      currentAgent: '',
+      availableAgents,
+      agents,
+      reserve: routeWeights?.reserve,
+    });
+    if (weighted.agent) {
+      core?.info?.(`Initial agent selection from route weights: ${weighted.agent}`);
+      return {
+        agent: weighted.agent,
+        reason: 'initial-selection-route-weights',
+        shouldSwitch: false,
+        alternatives: availableAgents.filter((agent) => agent !== weighted.agent),
+        delegationSource: 'route_weights',
+      };
+    }
+
     const initialAgent = availableAgents.includes(defaultAgent) ? defaultAgent : availableAgents[0];
     core?.info?.(`Initial agent selection: ${initialAgent}`);
     return {
@@ -347,7 +395,6 @@ function decideNextAgent({
   // Rule: Switch if stalled
   if (stall.isStalled) {
     const alternatives = availableAgents.filter((a) => a !== currentAgent);
-    const taskType = ROUTE_WEIGHT_TASK_TYPES[roundKind] || ROUTE_WEIGHT_TASK_TYPES.implement;
     const reservedAgents = new Set(getRouteWeightReserveAgents(routeWeights?.reserve, taskType));
     const weighted = selectAgentFromRouteWeights({
       routeWeights,
@@ -565,15 +612,28 @@ function detectStall({ history = [], threshold = 2, core }) {
 
 /**
  * Get explicit agent from labels (agent:codex, agent:claude, etc.)
- * Returns null if agent:auto is present (auto mode takes precedence)
+ * Skips agent:auto and non-routing control labels while finding a concrete agent.
  *
  * @param {Array<string>} labels - PR labels
  * @param {Object} agents - Registry agents object
  * @returns {string|null} - Agent key or null
  */
 function getExplicitAgentFromLabels(labels, agents) {
+  const explicitAgents = getExplicitAgentsFromLabels(labels, agents);
+  return explicitAgents.length === 1 ? explicitAgents[0] : null;
+}
+
+/**
+ * Get all distinct recognized concrete agents from labels.
+ *
+ * @param {Array<string>} labels - PR labels
+ * @param {Object} agents - Registry agents object
+ * @returns {Array<string>} - Distinct concrete agent keys
+ */
+function getExplicitAgentsFromLabels(labels, agents) {
   const agentPrefix = 'agent:';
   const agentKeys = Object.keys(agents || {});
+  const explicitAgents = new Set();
 
   for (const label of labels) {
     const normalized = normalizeLabel(label);
@@ -584,12 +644,12 @@ function getExplicitAgentFromLabels(labels, agents) {
         continue;
       }
       if (agentKeys.includes(agentKey)) {
-        return agentKey;
+        explicitAgents.add(agentKey);
       }
     }
   }
 
-  return null;
+  return [...explicitAgents];
 }
 
 /**
