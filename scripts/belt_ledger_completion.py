@@ -55,7 +55,7 @@ def task_artifacts(task: dict[str, Any]) -> list[str]:
         # Schema identifiers such as tracked-variable/v1 are not paths. Require
         # a file-like final component; extensionless paths remain opt-in rather
         # than silently blocking a valid task.
-        if "/" not in token or path.suffix.lower() not in _FILE_SUFFIXES:
+        if path.suffix.lower() not in _FILE_SUFFIXES:
             continue
         if token not in artifacts:
             artifacts.append(token)
@@ -71,6 +71,7 @@ def commit_files(commit: str, *, repo_root: Path | str = ".") -> list[str]:
         "show",
         "--pretty=format:",
         "--name-only",
+        "--diff-merges=first-parent",
         "-z",
         commit,
     ]
@@ -120,6 +121,69 @@ def completion_errors(
             f"task {task_id} commit {commit} is missing named artifact(s): {', '.join(missing)}"
         )
     return errors
+
+
+def _commits_after(start_sha: str, end_sha: str, *, repo_root: Path | str) -> list[str]:
+    """Return commits reachable from end_sha but not start_sha, oldest first."""
+    if not re.fullmatch(r"[0-9a-fA-F]{7,40}", start_sha) or not re.fullmatch(
+        r"[0-9a-fA-F]{7,40}", end_sha
+    ):
+        return []
+    try:
+        output = subprocess.check_output(
+            [
+                "git",
+                "-C",
+                str(repo_root),
+                "rev-list",
+                "--reverse",
+                f"{start_sha}..{end_sha}",
+            ],
+            stderr=subprocess.DEVNULL,
+            text=True,
+        )
+    except subprocess.CalledProcessError:
+        return []
+    return [line.strip() for line in output.splitlines() if line.strip()]
+
+
+def resolve_completion_commit(
+    task: dict[str, Any],
+    start_sha: str | None,
+    end_sha: str,
+    *,
+    repo_root: Path | str = ".",
+) -> tuple[str | None, list[str]]:
+    """Pick the commit that may complete *task*, or defer if the agent has not landed yet."""
+    if not re.fullmatch(r"[0-9a-fA-F]{7,40}", end_sha):
+        return None, [f"task {task.get('id') or '<unknown>'} cites invalid head {end_sha or '<empty>'}"]
+
+    if not start_sha:
+        blockers = completion_errors(task, end_sha, repo_root=repo_root)
+        if blockers and all("changes only ledger paths" in item for item in blockers):
+            return None, []
+        return end_sha, blockers
+
+    candidates = _commits_after(start_sha, end_sha, repo_root=repo_root)
+    substantive = [
+        commit
+        for commit in candidates
+        if any(
+            not path.startswith(".agents/")
+            for path in commit_files(commit, repo_root=repo_root)
+        )
+    ]
+    if not substantive:
+        return None, []
+
+    for commit in reversed(substantive):
+        blockers = completion_errors(task, commit, repo_root=repo_root)
+        if not blockers:
+            return commit, []
+        if not all("changes only ledger paths" in item for item in blockers):
+            return commit, blockers
+
+    return None, []
 
 
 def duplicate_artifact_errors(

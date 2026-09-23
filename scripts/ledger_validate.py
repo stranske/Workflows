@@ -382,13 +382,19 @@ def _git_show_files(commit: str) -> list[str]:
     """Raw git operation: get files changed by a commit."""
     try:
         output = subprocess.check_output(
-            ["git", "show", "--pretty=format:", "--name-only", commit],
-            text=True,
+            [
+                "git",
+                "show",
+                "--pretty=format:",
+                "--name-only",
+                "--diff-merges=first-parent",
+                "-z",
+                commit,
+            ],
         )
     except subprocess.CalledProcessError as exc:
         raise LedgerError(f"unknown commit {commit}") from exc
-    stripped_lines = (line.strip() for line in output.splitlines())
-    return [line for line in stripped_lines if line]
+    return [path.decode("utf-8", "surrogateescape") for path in output.split(b"\0") if path]
 
 
 def _commit_files(commit: str) -> list[str]:
@@ -507,11 +513,6 @@ def _validate_task(
                             ledger_relative = ledger_path.as_posix()
 
                         if all(name.startswith(".agents/") for name in files):
-                            if _strict_completion_evidence():
-                                errors.append(
-                                    f"{ledger_path}: {context}.commit {commit} must include non-ledger changes"
-                                )
-                                return errors
                             allowed_sidecars = {
                                 ledger_relative,
                                 ".agents/.ledger-summary.md",

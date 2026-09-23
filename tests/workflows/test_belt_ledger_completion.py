@@ -12,6 +12,8 @@ from scripts.belt_ledger_completion import (
     completion_errors,
     duplicate_artifact_errors,
     format_status_counts,
+    resolve_completion_commit,
+    task_artifacts,
 )
 
 
@@ -105,6 +107,32 @@ def test_duplicate_done_artifact_absence_is_fatal(tmp_path: Path) -> None:
     assert "done task task-01 lacks it" in errors[0]
 
 
+def test_root_level_artifact_paths_are_detected() -> None:
+    task = {"title": "Update `pyproject.toml` for packaging."}
+    assert task_artifacts(task) == ["pyproject.toml"]
+
+
+def test_resolve_completion_commit_defers_until_agent_lands(tmp_path: Path) -> None:
+    repo = _repo(tmp_path)
+    ledger = repo / ".agents" / "issue-1-ledger.yml"
+    ledger.write_text("version: 1\n", encoding="utf-8")
+    start = _commit(repo, "chore(ledger): start task task-01 for issue #1")
+    task = _task()
+    task["status"] = "doing"
+    task["commit"] = ""
+
+    assert resolve_completion_commit(task, start, start, repo_root=repo) == (None, [])
+
+    artifact = repo / "docs" / "contracts" / "schemas" / "tracked-variable-v1.schema.json"
+    artifact.parent.mkdir(parents=True)
+    artifact.write_text("{}\n", encoding="utf-8")
+    end = _commit(repo, "feat: add tracked variable schema")
+
+    commit, blockers = resolve_completion_commit(task, start, end, repo_root=repo)
+    assert blockers == []
+    assert commit == end
+
+
 def test_counts_always_include_all_four_states() -> None:
     assert format_status_counts([{"status": "done"}]) == (
         "Belt task counts: todo=0 in_progress=0 done=1 blocked=0"
@@ -141,7 +169,7 @@ def test_read_only_audit_reports_issue_3371_task_01(tmp_path: Path) -> None:
 )
 def test_worker_checks_evidence_before_done_and_gates_persistence(workflow_path: Path) -> None:
     workflow = workflow_path.read_text(encoding="utf-8")
-    evidence = workflow.index("blockers = completion_errors")
+    evidence = workflow.index("resolve_completion_commit")
     done_write = workflow.index("target_task['status'] = 'done'", evidence)
     assert evidence < done_write
     assert "target_task['status'] = 'blocked'" in workflow
