@@ -551,7 +551,32 @@ def test_manifest_evidence_closure_rejects_schema_break_even_with_updated_hash(
     )
     assert not report.conformant
     assert not any("SHA-256" in violation.message for violation in report.violations)
-    assert any("corrupt-but-rehashed" in violation.message for violation in report.violations)
+    assert any(
+        "evidence schema validation failed (enum)" in violation.message
+        for violation in report.violations
+    )
+    assert all("corrupt-but-rehashed" not in violation.message for violation in report.violations)
+
+
+def test_manifest_evidence_schema_error_redacts_excerpt(tmp_path: Path) -> None:
+    secret_excerpt = "PRIVATE-SOURCE-TEXT" + "x" * 2000
+    bad_evidence = _evidence()
+    bad_evidence["excerpt"] = secret_excerpt
+    envelope, manifest, run_json = _write_evidence_closure_run(
+        tmp_path, evidence=[("evidence-1", bad_evidence)]
+    )
+    report = _validate(
+        envelope,
+        repo=envelope["repo"],
+        registry=_closure_registry(envelope["repo"]),
+        manifest=manifest,
+        run_json=run_json,
+    )
+    assert not report.conformant
+    assert any(
+        "evidence schema validation failed (maxLength)" in v.message for v in report.violations
+    )
+    assert all("PRIVATE-SOURCE-TEXT" not in v.message for v in report.violations)
 
 
 @pytest.mark.parametrize(

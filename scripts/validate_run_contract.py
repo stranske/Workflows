@@ -419,7 +419,11 @@ def _validate_manifest_evidence_closure(
             continue
         for err in sorted(validator.iter_errors(evidence), key=lambda err: list(err.absolute_path)):
             pointer = "/".join(str(part) for part in err.absolute_path)
-            report.fail(err.message, f"{path}:/{pointer}")
+            # jsonschema error messages may echo the invalid instance, including
+            # confidential excerpts. Reports are published to PR comments.
+            report.fail(
+                f"evidence schema validation failed ({err.validator})", f"{path}:/{pointer}"
+            )
         _check_document_page(evidence, report, f"{path}:/")
         if isinstance(evidence, dict) and isinstance(evidence.get("evidence_id"), str):
             evidence_ids.append(evidence["evidence_id"])

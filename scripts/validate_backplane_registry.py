@@ -299,6 +299,13 @@ def validate_registry(registry: Any) -> list[Finding]:
                 findings.append(
                     Finding(f"{prefix}.emitted_evidence_policy", "requires producer or bridge role")
                 )
+            if status not in {"emitting", "conformant"}:
+                findings.append(
+                    Finding(
+                        f"{prefix}.emitted_evidence_policy",
+                        "requires emitting or conformant status",
+                    )
+                )
 
         reference_state = entry.get("reference_state")
         if reference_state not in REFERENCE_STATES:

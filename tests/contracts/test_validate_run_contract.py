@@ -76,7 +76,7 @@ def test_cli_enforces_opt_in_manifest_evidence_closure(tmp_path: Path, capsys) -
         "method": "computed",
         "excerpt": "Computed from source-1.",
     }
-    evidence_path = tmp_path / "evidence.json"
+    evidence_path = tmp_path / "evidence-cli.json"
     evidence_path.write_text(json.dumps(evidence), encoding="utf-8")
     envelope = json.loads((FIXTURES / "valid_run.json").read_text())
     envelope["repo"] = "stranske/Cli-Evidence"
@@ -90,9 +90,9 @@ def test_cli_enforces_opt_in_manifest_evidence_closure(tmp_path: Path, capsys) -
         "artifacts": [
             {
                 "artifact_id": "evidence-cli",
-                "name": "evidence.json",
+                "name": "evidence-cli.json",
                 "kind": "evidence",
-                "path": "evidence.json",
+                "path": "evidence-cli.json",
                 "sha256": hashlib.sha256(evidence_path.read_bytes()).hexdigest(),
             }
         ],
@@ -132,7 +132,9 @@ def test_cli_enforces_opt_in_manifest_evidence_closure(tmp_path: Path, capsys) -
         )
         == 1
     )
-    assert "ev-dangling' has no emitted evidence artifact" in capsys.readouterr().err
+    err = capsys.readouterr().err
+    assert "ev-dangling' has no emitted evidence artifact" in err
+    assert "ev-cli' has no emitted evidence artifact" not in err
 
 
 @pytest.mark.parametrize(

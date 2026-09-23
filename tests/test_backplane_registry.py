@@ -163,6 +163,18 @@ def test_registry_rejects_consumer_emitted_evidence_policy() -> None:
     assert any("producer or bridge" in finding.message for finding in findings)
 
 
+@pytest.mark.parametrize("status", ["none", "candidate", "planned"])
+def test_registry_rejects_inactive_emitted_evidence_policy(status: str) -> None:
+    registry = copy.deepcopy(_registry())
+    entry = next(
+        item for item in registry["participants"] if item["repo"] == "stranske/Inv-Man-Intake"
+    )
+    entry["status"] = status
+
+    findings = vbr.validate_registry(registry)
+    assert any("requires emitting or conformant status" in finding.message for finding in findings)
+
+
 def test_pension_conformant_entry_has_live_reference_evidence() -> None:
     entry = _pension_conformant_entry(_registry())
 
