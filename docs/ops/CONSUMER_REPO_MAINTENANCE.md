@@ -499,9 +499,11 @@ If a later run computes the same base and desired tree, it preserves the PR's
 current review/seal state; metadata-only refreshes therefore cannot restart
 review forever.
 
-Before a source-delta run rotates an open stable PR, Maint 68 fetches the
-stable head, then unshallows the tracked consumer base in a separate fetch
-to avoid Git shallow-file update races. It uses the full PR merge-base to compare unmerged
+Before a source-delta run rotates an open stable PR, Maint 68 clones the
+consumer with complete commit history but omits historical blobs from the
+initial transfer. A depth-1 clone followed by unshallowing failed on some
+existing stable branches with Git's `shallow file has changed` error. Maint 68
+fetches the stable head and uses the full PR merge-base to compare unmerged
 file changes with the paths actually staged for the new plan and current
 consumer base. Manifest targets skipped for this consumer, including existing
 `create_only` files, do not count as staged. If an omitted file is not already

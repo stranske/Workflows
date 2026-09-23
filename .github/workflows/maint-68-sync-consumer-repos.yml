@@ -497,7 +497,9 @@ jobs:
         env:
           GH_TOKEN: ${{ env.REPO_TOKEN }}
         run: |
-          gh repo clone "$TARGET_REPOSITORY" consumer -- --depth=1
+          # Stable delivery refresh needs a full merge-base. Keep history, but
+          # omit historical blobs to bound transfer across the fleet.
+          gh repo clone "$TARGET_REPOSITORY" consumer -- --filter=blob:none --single-branch
 
       - name: Record exact consumer base
         id: consumer_base
@@ -1121,13 +1123,6 @@ jobs:
             # an intervening consumer edit.
             git fetch origin "$branch_name"
             existing_head=$(git rev-parse FETCH_HEAD)
-            # The consumer clone starts at depth 1. Unshallow the tracked base
-            # after fetching the stable branch. Passing both refs to one
-            # --unshallow fetch can make Git race its own shallow-file update
-            # (fatal: shallow file has changed since we read it).
-            if [ "$(git rev-parse --is-shallow-repository)" = "true" ]; then
-              git fetch --unshallow origin
-            fi
             existing_tree=$(git rev-parse "${existing_head}^{tree}")
             existing_verification=$(
               GH_TOKEN="$SIGNED_COMMIT_TOKEN" node \
