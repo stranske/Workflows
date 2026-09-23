@@ -6,6 +6,22 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 Breaking changes are called out with a **BREAKING** marker and scheduled according to the policy in `COMPATIBILITY.md`.
 
+## [1.35.1](https://github.com/stranske/Workflows/compare/v1.35.0...v1.35.1) (2026-09-23)
+
+
+### Bug Fixes
+
+* avoid shallow fetch race during sync promotion ([3469e72](https://github.com/stranske/Workflows/commit/3469e72bc7c280fd40abc1cb73255712d8701e52))
+* **dev-sync:** fail closed for legacy package metadata ([6914f65](https://github.com/stranske/Workflows/commit/6914f65c533cd6d0ceac70f73098181a92997c71))
+* **dev-sync:** preserve tool-only pyproject consumers ([c57bc13](https://github.com/stranske/Workflows/commit/c57bc13c2ecf0c1b4ae6d0ff54d6aa33794b46c7))
+* **dev-sync:** preserve tool-only pyproject consumers ([fc14beb](https://github.com/stranske/Workflows/commit/fc14bebabdcc37261e42c6dcbed3c69702073ddb))
+* **dev-tools:** authorize canonical PyPI source proposals ([#3514](https://github.com/stranske/Workflows/issues/3514)) ([1204568](https://github.com/stranske/Workflows/commit/1204568ea7e37d1909e9234376987ffafcde7f57))
+* **embeddings:** preserve blank input positions ([ced77b5](https://github.com/stranske/Workflows/commit/ced77b52b224c4feae554e76fb4ffb537f3d4ddf))
+* **runner:** isolate completion writes with reservation receipts ([c9c47cc](https://github.com/stranske/Workflows/commit/c9c47cc51093649f54d921c8a97b9722058cb065))
+* **sync:** restore consumer mypy compatibility ([f0b58fc](https://github.com/stranske/Workflows/commit/f0b58fc914fef3646ae4ad82ac3b28206403208e))
+* **sync:** restore consumer mypy compatibility ([231aa64](https://github.com/stranske/Workflows/commit/231aa6423cc78553725778cf7e1c8a42925710cb))
+* **triage:** distribute resolvable CI playbook links ([#3475](https://github.com/stranske/Workflows/issues/3475)) ([0f939e4](https://github.com/stranske/Workflows/commit/0f939e47dcdbb27043297767aa13f33606b919b3))
+
 ## [1.35.0](https://github.com/stranske/Workflows/compare/v1.34.0...v1.35.0) (2026-09-22)
 
 
