@@ -143,7 +143,8 @@ def test_shallow_consumer_fetch_recovers_stable_pr_merge_base(tmp_path: Path) ->
     assert _git(clone, "rev-parse", "--is-shallow-repository") == "true"
     _git(clone, "fetch", "origin", "sync/workflows-candidate")
     old_head = _git(clone, "rev-parse", "FETCH_HEAD")
-    _git(clone, "fetch", "--unshallow", "origin", "sync/workflows-candidate", "main")
+    _git(clone, "fetch", "--unshallow", "origin")
+    assert _git(clone, "rev-parse", "--is-shallow-repository") == "false"
     assert _git(clone, "merge-base", old_head, "HEAD") == old_base
 
 
@@ -203,7 +204,8 @@ def test_maint68_checks_rotation_before_rebuilding_stable_branch() -> None:
     assert "guard_stable_plan_rotation.py" in workflow
     assert 'existing_base=$(git merge-base "$existing_head" "$base_sha")' in workflow
     assert 'existing_base=$(git rev-parse "${existing_head}^")' not in workflow
-    assert 'git fetch --unshallow origin "$branch_name" "$(git branch --show-current)"' in workflow
+    assert "git fetch --unshallow origin\n" in workflow
+    assert 'git fetch --unshallow origin "$branch_name"' not in workflow
     assert "git diff --cached --name-only > ../staged_sync_targets.txt" in workflow
     assert "--selected-targets-file ../staged_sync_targets.txt" in workflow
     assert (
