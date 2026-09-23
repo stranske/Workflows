@@ -5,6 +5,7 @@ from __future__ import annotations
 import subprocess
 from pathlib import Path
 
+import pytest
 from scripts.guard_stable_plan_rotation import uncovered_pending_paths
 
 
@@ -130,22 +131,43 @@ def test_narrow_rotation_checks_payload_after_branch_update_merge(tmp_path: Path
     ) == ["docs/contracts/schemas/mosaic-core-v1.schema.json"]
 
 
-def test_shallow_consumer_fetch_recovers_stable_pr_merge_base(tmp_path: Path) -> None:
+@pytest.mark.parametrize("merge_main", [False, True])
+def test_full_history_consumer_fetch_recovers_stable_pr_merge_base(
+    tmp_path: Path, merge_main: bool
+) -> None:
     repo, old_base, _ = _repo_with_pending_delivery(tmp_path)
+    _git(repo, "config", "uploadpack.allowFilter", "true")
     _write(repo, "README.md", "advanced base\n")
     _git(repo, "add", ".")
     _git(repo, "commit", "-qm", "advance main")
-    clone = tmp_path / "shallow-consumer"
+    new_base = _git(repo, "rev-parse", "HEAD")
+    if merge_main:
+        _git(repo, "checkout", "-q", "sync/workflows-candidate")
+        _git(repo, "merge", "-q", "--no-edit", "main")
+        _write(repo, "scripts/validate_run_contract.py", "newer validator\n")
+        _git(repo, "add", ".")
+        _git(repo, "commit", "-qm", "later stable change")
+        _git(repo, "checkout", "-q", "main")
+    clone = tmp_path / "full-history-consumer"
     subprocess.run(
-        ["git", "clone", "-q", "--depth=1", "--branch", "main", repo.as_uri(), str(clone)],
+        [
+            "git",
+            "clone",
+            "-q",
+            "--filter=blob:none",
+            "--single-branch",
+            "--branch",
+            "main",
+            repo.as_uri(),
+            str(clone),
+        ],
         check=True,
     )
-    assert _git(clone, "rev-parse", "--is-shallow-repository") == "true"
+    assert _git(clone, "rev-parse", "--is-shallow-repository") == "false"
+    assert _git(clone, "config", "--get", "remote.origin.promisor") == "true"
     _git(clone, "fetch", "origin", "sync/workflows-candidate")
     old_head = _git(clone, "rev-parse", "FETCH_HEAD")
-    _git(clone, "fetch", "--unshallow", "origin")
-    assert _git(clone, "rev-parse", "--is-shallow-repository") == "false"
-    assert _git(clone, "merge-base", old_head, "HEAD") == old_base
+    assert _git(clone, "merge-base", old_head, "HEAD") == (new_base if merge_main else old_base)
 
 
 def test_narrow_rotation_preserves_pending_executable_mode(tmp_path: Path) -> None:
@@ -204,8 +226,11 @@ def test_maint68_checks_rotation_before_rebuilding_stable_branch() -> None:
     assert "guard_stable_plan_rotation.py" in workflow
     assert 'existing_base=$(git merge-base "$existing_head" "$base_sha")' in workflow
     assert 'existing_base=$(git rev-parse "${existing_head}^")' not in workflow
-    assert "git fetch --unshallow origin\n" in workflow
-    assert 'git fetch --unshallow origin "$branch_name"' not in workflow
+    assert (
+        'gh repo clone "$TARGET_REPOSITORY" consumer -- --filter=blob:none --single-branch'
+        in workflow
+    )
+    assert "git fetch --unshallow" not in workflow
     assert "git diff --cached --name-only > ../staged_sync_targets.txt" in workflow
     assert "--selected-targets-file ../staged_sync_targets.txt" in workflow
     assert (
