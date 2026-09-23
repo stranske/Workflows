@@ -156,7 +156,9 @@ def resolve_completion_commit(
 ) -> tuple[str | None, list[str]]:
     """Pick the commit that may complete *task*, or defer if the agent has not landed yet."""
     if not re.fullmatch(r"[0-9a-fA-F]{7,40}", end_sha):
-        return None, [f"task {task.get('id') or '<unknown>'} cites invalid head {end_sha or '<empty>'}"]
+        return None, [
+            f"task {task.get('id') or '<unknown>'} cites invalid head {end_sha or '<empty>'}"
+        ]
 
     if not start_sha:
         blockers = completion_errors(task, end_sha, repo_root=repo_root)
@@ -169,8 +171,7 @@ def resolve_completion_commit(
         commit
         for commit in candidates
         if any(
-            not path.startswith(".agents/")
-            for path in commit_files(commit, repo_root=repo_root)
+            not path.startswith(".agents/") for path in commit_files(commit, repo_root=repo_root)
         )
     ]
     if not substantive:
