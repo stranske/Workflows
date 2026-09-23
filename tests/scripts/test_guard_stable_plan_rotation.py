@@ -6,7 +6,6 @@ import subprocess
 from pathlib import Path
 
 import pytest
-
 from scripts.guard_stable_plan_rotation import uncovered_pending_paths
 
 
