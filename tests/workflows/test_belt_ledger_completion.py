@@ -5,6 +5,7 @@ from __future__ import annotations
 import subprocess
 from pathlib import Path
 
+import pytest
 import yaml
 from scripts.audit_belt_ledger_completion import audit_ledgers
 from scripts.belt_ledger_completion import (
@@ -131,8 +132,15 @@ def test_read_only_audit_reports_issue_3371_task_01(tmp_path: Path) -> None:
     assert ledger.read_bytes() == before
 
 
-def test_worker_checks_evidence_before_done_and_gates_persistence() -> None:
-    workflow = Path(".github/workflows/agents-72-codex-belt-worker.yml").read_text(encoding="utf-8")
+@pytest.mark.parametrize(
+    "workflow_path",
+    [
+        Path(".github/workflows/agents-72-codex-belt-worker.yml"),
+        Path("templates/consumer-repo/.github/workflows/agents-72-codex-belt-worker.yml"),
+    ],
+)
+def test_worker_checks_evidence_before_done_and_gates_persistence(workflow_path: Path) -> None:
+    workflow = workflow_path.read_text(encoding="utf-8")
     evidence = workflow.index("blockers = completion_errors")
     done_write = workflow.index("target_task['status'] = 'done'", evidence)
     assert evidence < done_write

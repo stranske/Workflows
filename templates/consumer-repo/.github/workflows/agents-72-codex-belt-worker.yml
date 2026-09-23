@@ -1335,9 +1335,17 @@ jobs:
           import json
           import os
           import subprocess
+          import sys
           from pathlib import Path
 
           import yaml
+
+          sys.path.insert(0, str(Path('.belt-tools/scripts').resolve()))
+          from belt_ledger_completion import (  # noqa: E402
+              completion_errors,
+              duplicate_artifact_errors,
+              format_status_counts,
+          )
 
           class LedgerDumper(yaml.SafeDumper):
               def increase_indent(self, flow: bool = False, indentless: bool = False):  # type: ignore[override]
@@ -1436,15 +1444,29 @@ jobs:
                       after_statuses = collect_statuses(tasks)
                   else:
                       commit_sha = subprocess.check_output(['git', 'rev-parse', 'HEAD'], text=True).strip()
-                      target_task['status'] = 'done'
-                      target_task['finished_at'] = iso_now()
-                      if not target_task.get('started_at'):
-                          target_task['started_at'] = target_task['finished_at']
                       target_task['commit'] = commit_sha
-                      final_status = 'done'
-                      summary_lines.append(
-                          f"Task {task_id} advanced {previous_status or status_before} → done @ {commit_sha[:7]}."
-                      )
+                      blockers = completion_errors(target_task, commit_sha, repo_root=Path.cwd())
+                      if blockers:
+                          target_task['status'] = 'blocked'
+                          target_task['finished_at'] = None
+                          for blocker in blockers:
+                              note = f"{iso_now()} blocked (run {run_id}): {blocker}"
+                              if note not in notes:
+                                  notes.append(note)
+                          final_status = 'blocked'
+                          summary_lines.append(
+                              f"Task {task_id} blocked instead of done @ {commit_sha[:7]}: "
+                              + '; '.join(blockers)
+                          )
+                      else:
+                          target_task['status'] = 'done'
+                          target_task['finished_at'] = iso_now()
+                          if not target_task.get('started_at'):
+                              target_task['started_at'] = target_task['finished_at']
+                          final_status = 'done'
+                          summary_lines.append(
+                              f"Task {task_id} advanced {previous_status or status_before} → done @ {commit_sha[:7]}."
+                          )
                       after_statuses = collect_statuses(tasks)
               else:
                   if status_before == 'done':
@@ -1503,9 +1525,9 @@ jobs:
                   if status_before == 'doing' and job_status == 'success':
                       if not any(c[0] == task_id for c in status_changes):
                           summary_lines.append(
-                              f"Task {task_id} did not advance from doing after a successful run; ledger invariant violated."
+                              f"Task {task_id} did not leave doing after a successful run; ledger invariant violated."
                           )
-                          violations.append('Successful run failed to advance selected task to done.')
+                          violations.append('Successful run failed to advance selected task to done or blocked.')
                   if status_before == 'doing' and job_status != 'success':
                       if not any(c[0] == task_id for c in status_changes):
                           summary_lines.append(
@@ -1520,8 +1542,14 @@ jobs:
                   )
                   violations.append('Successful run left tasks in doing status; expected none.')
 
+              violations.extend(duplicate_artifact_errors(tasks, repo_root=Path.cwd()))
+
           if not summary_lines:
               summary_lines.append('Ledger unchanged during this run.')
+
+          counts_line = format_status_counts(tasks)
+          summary_lines.append(counts_line)
+          print(counts_line)
 
           summary_path.write_text('\n'.join(summary_lines) + '\n', encoding='utf-8')
 
@@ -1544,12 +1572,15 @@ jobs:
           PY
 
       - name: Validate ledger schema (final)
+        id: ledger_final_validation
         if: ${{ always() && steps.parallel.outputs.allowed == 'true' && (inputs.keepalive != true || steps.keepalive_gate.outputs.action != 'skip') && steps.ledger_finalize.outputs.ledger_path != '' }}
+        env:
+          LEDGER_VALIDATE_COMPLETION_EVIDENCE: '1'
         run: |
           python .belt-tools/scripts/ledger_validate.py "${{ steps.ledger_finalize.outputs.ledger_path }}"
 
       - name: Commit ledger completion state
-        if: ${{ always() && steps.parallel.outputs.allowed == 'true' && (inputs.keepalive != true || steps.keepalive_gate.outputs.action != 'skip') && steps.mode.outputs.dry_run != 'true' && steps.ledger_finalize.outputs.ledger_changed == 'true' }}
+        if: ${{ always() && steps.parallel.outputs.allowed == 'true' && (inputs.keepalive != true || steps.keepalive_gate.outputs.action != 'skip') && steps.mode.outputs.dry_run != 'true' && steps.ledger_finalize.outcome == 'success' && steps.ledger_finalize.outputs.ledger_changed == 'true' && steps.ledger_final_validation.outcome == 'success' }}
         env:
           ISSUE: ${{ steps.ctx.outputs.issue }}
           BRANCH: ${{ steps.ctx.outputs.branch }}
