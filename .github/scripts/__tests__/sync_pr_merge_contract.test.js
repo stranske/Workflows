@@ -3647,7 +3647,9 @@ test('maint71 starts review by clearing stale ready labels while retaining the s
     await run({ github, core, context: { repo: { owner: 'stranske', repo: 'Workflows' }, payload: {},
       runId: 77, runNumber: 77, workflow: 'Maint 71', ref: 'refs/heads/main', sha: sourceCommit } });
     const legacySeal = JSON.parse(fs.readFileSync(reportPath, 'utf8')).results[0];
-    assert.equal(legacySeal.status, 'unrequested_seal_restaged');
+    assert.equal(legacySeal.status, 'delivery_review_not_started');
+    assert.equal(legacySeal.reason, 'unrequested_seal_restaged');
+    assert.equal(classifyDeliveryContinuation(legacySeal).class, 'transient');
     assert.equal(legacySeal.previous_seal.review_evidence.reason, 'review_timeout_degraded');
     assert.ok(mutations.length > updatesBeforeLegacySeal);
     assert.match(mutations.at(-1).body, /"delivery_state":"staging"/);

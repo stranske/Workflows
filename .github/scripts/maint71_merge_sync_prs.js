@@ -2760,7 +2760,8 @@ async function run({ github, context, core }) {
             next_command: dryRun
               ? 'rerun-with-auto-merge-to-restage-unrequested-seal'
               : 'rerun-with-auto-merge-to-start-review',
-            status: dryRun ? 'dry_run_unrequested_seal' : 'unrequested_seal_restaged',
+            status: dryRun ? 'dry_run_unrequested_seal' : 'delivery_review_not_started',
+            reason: 'unrequested_seal_restaged',
             previous_seal: previousSeal,
           });
           continue;
