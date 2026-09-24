@@ -4683,16 +4683,22 @@ async function updateKeepaliveLoopSummary({ github: rawGithub, context, core, in
         if (hardHumanLabelApplied) {
           if (pendingAuthorityClaim) {
             const repository = `${context.repo.owner}/${context.repo.repo}`;
-            try {
-              authorityChallengeConfirmed = await confirmChallenge({
-                request: requester(github), repository, prNumber, claim: pendingAuthorityClaim,
-                ownerAttempt: `${repository.toLowerCase()}:${context.runId || process.env.GITHUB_RUN_ID || ''}:${context.runAttempt || process.env.GITHUB_RUN_ATTEMPT || ''}`,
-                provider: agentType,
-                headSha: inputs.head_sha ?? inputs.headSha,
-              });
-            } catch (error) {
-              core?.warning?.(`Authority receipt confirmation unavailable: ${error.message}`);
-              authorityChallengeConfirmed = false;
+            const confirmation = {
+              request: requester(github), repository, prNumber, claim: pendingAuthorityClaim,
+              ownerAttempt: `${repository.toLowerCase()}:${context.runId || process.env.GITHUB_RUN_ID || ''}:${context.runAttempt || process.env.GITHUB_RUN_ATTEMPT || ''}`,
+              provider: agentType,
+              headSha: inputs.head_sha ?? inputs.headSha,
+            };
+            // Confirmation cannot grant another run: it only settles the same
+            // consumed receipt after needs-human was applied. Retry once for
+            // an ambiguous PR read or conditional ledger write before leaving
+            // the hard label and receipt pending for operator reconciliation.
+            for (let attempt = 0; attempt < 2 && !authorityChallengeConfirmed; attempt++) {
+              try {
+                authorityChallengeConfirmed = await confirmChallenge(confirmation);
+              } catch (error) {
+                core?.warning?.(`Authority receipt confirmation unavailable: ${error.message}`);
+              }
             }
             if (!authorityChallengeConfirmed) {
               const repository = `${context.repo.owner}/${context.repo.repo}`;
