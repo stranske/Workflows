@@ -33,6 +33,7 @@ from __future__ import annotations
 
 import argparse
 import json
+import re
 import shlex
 import subprocess
 from collections import Counter
@@ -68,12 +69,17 @@ SYSTEMIC_API_ERROR_MARKERS = (
     "rate limit",
     "secondary rate limit",
 )
+REPO_COMPONENT_RE = re.compile(r"^[A-Za-z0-9_.-]+$")
 
 
 def _split_repo(repo: str) -> tuple[str, str]:
     """Split ``owner/name`` into its parts, raising on malformed input."""
     parts = repo.strip().split("/")
-    if len(parts) != 2 or not all(parts):
+    if (
+        len(parts) != 2
+        or not all(parts)
+        or not all(REPO_COMPONENT_RE.fullmatch(part) for part in parts)
+    ):
         raise SystemExit(f"Repo must be in 'owner/name' form, got: {repo!r}")
     return parts[0], parts[1]
 
@@ -608,6 +614,9 @@ def main() -> int:
             cmd = op["command"]
             assert isinstance(cmd, list)
             print(f"# {op['description']}")
+            # nosemgrep: python.lang.security.audit.dangerous-subprocess-use-tainted-env-args.dangerous-subprocess-use-tainted-env-args
+            # The command is an argv list (never a shell string), and every repo
+            # component has already passed _split_repo's strict allowlist.
             subprocess.run(cmd, check=True)
         apply_priority_labels(args.repo)
         return 0

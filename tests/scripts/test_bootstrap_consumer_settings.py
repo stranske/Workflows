@@ -18,7 +18,19 @@ def test_split_repo_parses_owner_and_name(repo: str, expected: tuple[str, str]) 
     assert bcs._split_repo(repo) == expected
 
 
-@pytest.mark.parametrize("bad", ["", "foo", "owner/", "/name", "a/b/c"])
+@pytest.mark.parametrize(
+    "bad",
+    [
+        "",
+        "foo",
+        "owner/",
+        "/name",
+        "a/b/c",
+        "owner/repo;touch-pwned",
+        "owner/repo name",
+        "owner/repo\n--help",
+    ],
+)
 def test_split_repo_rejects_malformed(bad: str) -> None:
     with pytest.raises(SystemExit, match="owner/name"):
         bcs._split_repo(bad)

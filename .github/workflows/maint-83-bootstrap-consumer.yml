@@ -4,8 +4,10 @@
 #   - default_workflow_permissions=write + can_approve_pull_request_reviews=true
 #   - repo variables USE_CONSOLIDATED_WORKFLOWS + ALLOWED_KEEPALIVE_LOGINS
 #   - stranske-automation-bot push collaborator invite
+#   - priority:high / priority:normal / priority:low opener-routing labels
 # Skipping any of these silently breaks Gate / keepalive / autofix on the new
-# consumer (see stranske/Fine-Art-Archive #13 bootstrap, 2026-05-29).
+# consumer or makes its backlog unreachable to priority-ordered opener selection
+# (see stranske/Fine-Art-Archive #13 bootstrap, 2026-05-29).
 name: Maint 83 Bootstrap Consumer
 
 on:
