@@ -204,7 +204,7 @@ function reviewReassessmentMarker(request) {
 }
 
 // A separate workflow job calls this function only for an explicit trusted
-// workflow_dispatch. It never enters the ordinary resolution/merge/cleanup run.
+// repository_dispatch. It never enters the ordinary resolution/merge/cleanup run.
 async function runReviewReassessment({
   context, withRetry, rawRequest, registeredRepos = [], policyPath,
 }) {
@@ -213,7 +213,8 @@ async function runReviewReassessment({
     reviewerProfileForLogin } = require('./sync_pr_merge_contract.js');
   const { parseDeliveryRecord } = require('./sync_pr_lease_contract.js');
   const request = parseReviewReassessmentRequest(rawRequest);
-  if (context.eventName !== 'workflow_dispatch'
+  if (context.eventName !== 'repository_dispatch'
+    || context.payload?.action !== 'maint71-review-reassessment'
     || context.ref !== 'refs/heads/main'
     || !['stranske', 'stranske-automation-bot'].includes(context.actor)
     || !registeredRepos.includes(request.repository)

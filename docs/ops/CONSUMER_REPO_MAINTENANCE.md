@@ -764,8 +764,9 @@ eligibility. A source fix without this exact proof, a later candidate plan, or a
 passing Gate never resolves the current PR's review debt.
 
 For a dev-tool delivery whose owner has fixed a review finding but whose
-originating reviewer has not reassessed it, dispatch Maint 71 on `main` with
-only `review_reassessment_json` set. The versioned JSON object must contain
+originating reviewer has not reassessed it, send the Maint 71
+`maint71-review-reassessment` repository-dispatch event with a
+`client_payload.review_reassessment_json` string. The versioned JSON object must contain
 `schema=maint71-review-reassessment/v1`, `repository`, numeric `pr`, exact
 `head_sha`, active `thread_id`, `plan_id`, `generation`, `source_commit`, and
 `originating_reviewer` (the configured reviewer ID, such as `codex`). Maint 71

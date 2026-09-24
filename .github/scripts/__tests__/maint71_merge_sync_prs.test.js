@@ -91,8 +91,9 @@ test('source-owned reviewer reassessment is exact-head, idempotent and never mer
       reviewThreads: { pageInfo: { hasNextPage: false }, nodes: [thread] },
     } } }),
   };
-  const args = { context: { eventName: 'workflow_dispatch', ref: 'refs/heads/main',
-    actor: 'stranske' }, withRetry: (fn) => fn(github), rawRequest: JSON.stringify(request),
+  const args = { context: { eventName: 'repository_dispatch', ref: 'refs/heads/main',
+    payload: { action: 'maint71-review-reassessment' }, actor: 'stranske' },
+    withRetry: (fn) => fn(github), rawRequest: JSON.stringify(request),
     registeredRepos: [request.repository],
     policyPath: path.join(__dirname, '..', '..', '..', 'config', 'consumer_sync_review_policy.json') };
   const first = await runReviewReassessment(args);

@@ -32,7 +32,7 @@ on:
     # auto_merge=true, dry_run=false, cleanup_branches=true, repos=all.
     - cron: '30 5 * * *'
   repository_dispatch:
-    types: [merge-sync-prs]
+    types: [merge-sync-prs, maint71-review-reassessment]
   workflow_dispatch:
     inputs:
       repos:
@@ -63,11 +63,6 @@ on:
         default: true
       review_resolution_json:
         description: "Exact-head source-fix proofs for specific review threads"
-        required: false
-        type: string
-        default: ""
-      review_reassessment_json:
-        description: "One exact-head reviewer-owned dev-tool thread reassessment request"
         required: false
         type: string
         default: ""
@@ -183,7 +178,7 @@ concurrency:
 
 jobs:
   merge_sync_prs:
-    if: ${{ github.event_name != 'workflow_dispatch' || inputs.review_reassessment_json == '' }}
+    if: ${{ github.event.action != 'maint71-review-reassessment' }}
     runs-on: ubuntu-latest
     permissions:
       actions: write
@@ -915,7 +910,7 @@ jobs:
           retention-days: 14
 
   review_reassessment:
-    if: ${{ github.event_name == 'workflow_dispatch' && github.ref == 'refs/heads/main' && inputs.review_reassessment_json != '' }}
+    if: ${{ github.event_name == 'repository_dispatch' && github.event.action == 'maint71-review-reassessment' && github.ref == 'refs/heads/main' }}
     runs-on: ubuntu-latest
     concurrency:
       group: maint71-review-reassessment-${{ github.repository }}
@@ -947,7 +942,7 @@ jobs:
       - name: Request one exact-head reviewer reassessment
         uses: actions/github-script@3a2844b7e9c422d3c10d287c895573f7108da1b3 # v9
         env:
-          REVIEW_REASSESSMENT_JSON: ${{ inputs.review_reassessment_json }}
+          REVIEW_REASSESSMENT_JSON: ${{ github.event.client_payload.review_reassessment_json }}
           REGISTERED_REPOS: ${{ steps.registered.outputs.repos }}
           OWNER_PR_PAT_PRESENT: ${{ secrets.OWNER_PR_PAT != '' }}
         with:

@@ -59,8 +59,9 @@ def test_maint71_reviewer_reassessment_is_trusted_request_only_dispatch():
     policy = Path("config/consumer_sync_review_policy.json").read_text()
     guide = Path("docs/ops/CONSUMER_REPO_MAINTENANCE.md").read_text()
 
-    assert "review_reassessment_json:" in workflow
-    assert "inputs.review_reassessment_json == ''" in workflow
+    assert "types: [merge-sync-prs, maint71-review-reassessment]" in workflow
+    assert "github.event.action != 'maint71-review-reassessment'" in workflow
+    assert "github.event.client_payload.review_reassessment_json" in workflow
     assert "github.ref == 'refs/heads/main'" in workflow
     assert "ref: main" in workflow
     assert "runReviewReassessment" in workflow
