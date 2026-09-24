@@ -146,6 +146,32 @@ jobs:
           python scripts/workflow_startup_failure_diagnostic.py \
             --sweep --repo "${GITHUB_REPOSITORY}"
 
+  belt-claim-reclaim:
+    name: reclaim stale belt claims
+    needs: detect
+    if: github.event_name == 'schedule' || github.event_name == 'workflow_dispatch'
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      issues: write
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v7
+
+      - name: Reclaim stale in-progress issues without PRs
+        uses: actions/github-script@v9
+        with:
+          script: |
+            const { sweepClaims } = require('./.github/scripts/belt_claim_reclaim.js');
+            const { owner, repo } = context.repo;
+            const result = await sweepClaims({ github, owner, repo });
+            core.info(result.summary);
+            core.info(`Belt claims reclaimed: ${result.reclaimedCount}.`);
+            await core.summary
+              .addHeading('Belt claim reclaim')
+              .addRaw(`${result.summary}\nBelt claims reclaimed: ${result.reclaimedCount}.`)
+              .write();
+
   branch-protection-verify:
     name: branch protection sweep
     needs: detect
