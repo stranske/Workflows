@@ -14,6 +14,7 @@ const {
   candidateRefreshDecision,
   candidatePromotionDecision,
   deliveryRefreshDecision,
+  devToolBaseRefreshDecision,
   candidateEvidenceAllowsMutation,
   campaignAuthorizationAllowsMerge,
   hasCampaignCommitAuthorization,
@@ -617,6 +618,37 @@ test('delivery base drift replays only signed exact-plan promotion evidence', ()
     report: { inputs: { sync_hash: 'candidate' }, results: [] },
     expectedCanaries,
   }).eligible, false);
+});
+
+test('dev-tool base drift hands off only leased producer refreshes', () => {
+  const request = {
+    owner: 'stranske', repo: 'Ready', branch: 'deps/sync-dev-versions-1234',
+    delivery_lane: 'dev-tool-sync', status: 'dev_tool_base_refresh_required',
+    blocker_owner: 'maint-52', next_command: 'dispatch-maint-52-scoped',
+  };
+  const report = {
+    inputs: { sync_hash: 'dev-tool', auto_merge: true, dry_run: false },
+    results: [request, { ...request }, {
+      ...request, repo: 'learning-management-system',
+    }],
+  };
+  assert.deepEqual(devToolBaseRefreshDecision({ report }), {
+    eligible: true, errors: [],
+    repositories: ['stranske/Ready', 'stranske/learning-management-system'],
+  });
+  assert.equal(devToolBaseRefreshDecision({
+    report: { ...report, inputs: { ...report.inputs, dry_run: true } },
+  }).eligible, false);
+  assert.equal(devToolBaseRefreshDecision({
+    report: { ...report, inputs: { ...report.inputs, sync_hash: 'delivery' } },
+  }).eligible, false);
+  assert.equal(devToolBaseRefreshDecision({
+    report: { ...report, results: [{ ...request, branch: 'sync/workflows-delivery' }] },
+  }).eligible, false);
+  assert.deepEqual(classifyDeliveryContinuation(request, '2026-09-24T21:00:00Z'), {
+    class: 'transient', lane: 'dev-tool', reason: 'dev_tool_base_refresh_required',
+    resume_after: '2026-09-24T21:10:00.000Z',
+  });
 });
 
 test('review resolution proof is exact-head, source-linked, and actor-bound', () => {
@@ -2457,6 +2489,7 @@ test('buildMergeReport provides machine-readable summary counts', () => {
     delivery_promotion_evidence_missing: 0,
     sealed_head_mismatch: 0,
     stable_base_refresh_required: 0,
+    dev_tool_base_refresh_required: 0,
     head_changed: 0,
     head_commit_unverified: 0,
     review_blocked: 0,

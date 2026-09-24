@@ -6,8 +6,25 @@ const fs = require('node:fs');
 const os = require('node:os');
 const path = require('node:path');
 const {
-  ensureExactHeadReviewRequest, hasCompleteReviewThreadEvidence, run,
+  devToolBaseRefreshResult, ensureExactHeadReviewRequest, hasCompleteReviewThreadEvidence, run,
 } = require('../maint71_merge_sync_prs');
+
+test('behind leased dev-tool delivery routes to producer before branch update', () => {
+  const context = {
+    owner: 'stranske', repo: 'Ready', pr: 591,
+    branch: 'deps/sync-dev-versions-1234', delivery_lane: 'dev-tool-sync',
+    head_sha: 'a'.repeat(40), plan_id: 'plan-1',
+    source_commit: 'b'.repeat(40), delivery_generation: 'generation-1',
+  };
+  assert.deepEqual(devToolBaseRefreshResult(context), {
+    ...context, delivery_disposition: 'awaiting-base-refresh',
+    blocker_owner: 'maint-52', next_command: 'dispatch-maint-52-scoped',
+    status: 'dev_tool_base_refresh_required',
+  });
+  assert.equal(devToolBaseRefreshResult({ ...context, delivery_lane: 'sync' }), null);
+  const source = fs.readFileSync(path.join(__dirname, '..', 'maint71_merge_sync_prs.js'), 'utf8');
+  assert.match(source, /if \(devToolRefresh\) \{\s*results\.push\(devToolRefresh\);\s*continue;\s*\}\s*await withRetry\(\(client\) => client\.rest\.pulls\.updateBranch/s);
+});
 
 test('exact-head reviewer request is durable, trusted, and idempotent', async () => {
   const headSha = 'd'.repeat(40);

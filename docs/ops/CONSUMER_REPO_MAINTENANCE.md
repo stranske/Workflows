@@ -839,6 +839,16 @@ workflow-template sync PR cannot update the env file without the matching
 `pyproject.toml`, managed `.pre-commit-config.yaml` hook revisions, `requirements.lock`, and supported `requirements-dev.lock`
 changes.
 
+If a leased dev-tool PR falls behind its consumer default branch, Maint 71
+reports `dev_tool_base_refresh_required` and dispatches one scoped Maint 52
+producer run (unless another Maint 52 run is active). It must not call GitHub's
+branch-update endpoint on that generated PR: a merge commit changes the whole
+tree without reminting the recorded `desired_tree_hash`. Maint 52 regenerates
+the delivery against the current base and records a fresh lease; then Maint 71
+rechecks the new exact head, required checks, review threads, mergeability, and
+seven-minute review window. An active producer run or missing API evidence is a
+held handoff, not permission to overwrite the lease or merge the stale head.
+
 For a tool-only `pyproject.toml` with no package declaration (as in Orchestrator),
 Maint 52 leaves the file's tool configuration alone instead of adding
 `[project.optional-dependencies]`. It still synchronizes any supported direct

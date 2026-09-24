@@ -441,6 +441,67 @@ jobs:
             const { run } = require("./.github/scripts/maint71_merge_sync_prs.js");
             await run({ github, context, core });
 
+      - name: Refresh behind dev-tool delivery bases through Maint 52
+        if: >-
+          ${{
+            always() &&
+            steps.merge.outcome == 'success' &&
+            steps.candidate_mode.outputs.selector == 'dev-tool'
+          }}
+        uses: actions/github-script@3a2844b7e9c422d3c10d287c895573f7108da1b3 # v9
+        with:
+          github-token: ${{ secrets.OWNER_PR_PAT || secrets.SERVICE_BOT_PAT || github.token }}
+          script: |
+            const fs = require('fs');
+            const { createTokenAwareRetry } = require(
+              './.github/scripts/github-api-with-retry.js'
+            );
+            const { withRetry } = await createTokenAwareRetry({
+              github,
+              core,
+              env: process.env,
+              task: 'maint-71-refresh-dev-tool-bases',
+              capabilities: ['actions:write'],
+            });
+            const { devToolBaseRefreshDecision } = require(
+              './.github/scripts/sync_pr_merge_contract.js'
+            );
+            const report = JSON.parse(
+              fs.readFileSync('artifacts/sync-pr-merge-report.json', 'utf8'),
+            );
+            const decision = devToolBaseRefreshDecision({ report });
+            if (!decision.eligible) {
+              core.notice(`Maint 52 refresh not requested: ${decision.errors.join(', ')}`);
+              return;
+            }
+            const activeStatuses = ['queued', 'in_progress', 'waiting', 'pending'];
+            for (const status of activeStatuses) {
+              const { data: runs } = await withRetry((client) =>
+                client.rest.actions.listWorkflowRuns({
+                  owner: context.repo.owner,
+                  repo: context.repo.repo,
+                  workflow_id: 'maint-52-sync-dev-versions.yml',
+                  status,
+                  per_page: 1,
+                }),
+              );
+              if ((runs.workflow_runs || []).length > 0) {
+                core.notice(`Maint 52 already ${status}; scoped refresh remains queued`);
+                return;
+              }
+            }
+            await withRetry((client) => client.rest.actions.createWorkflowDispatch({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              workflow_id: 'maint-52-sync-dev-versions.yml',
+              ref: context.payload.repository?.default_branch || 'main',
+              inputs: {
+                repos: decision.repositories.join(','),
+                dry_run: 'false',
+              },
+            }));
+            core.notice(`Dispatched Maint 52 producer refresh for ${decision.repositories.join(', ')}`);
+
       - name: Authorize exact-head fleet commit
         id: campaign_authorization
         if: >-
