@@ -155,13 +155,8 @@ function hasRateLimitHeaders(headers) {
   if (!headers || typeof headers !== 'object') {
     return false;
   }
-  const rateLimitKeys = [
-    'x-ratelimit-remaining',
-    'x-ratelimit-limit',
-    'x-ratelimit-used',
-    'x-ratelimit-reset',
-  ];
-  return rateLimitKeys.some((key) => Object.prototype.hasOwnProperty.call(headers, key));
+  const { remaining, limit } = extractRateLimitInfo(headers);
+  return remaining === 0 || (remaining !== null && remaining >= 0 && limit !== null && limit > 0);
 }
 
 function isRateLimitError(error) {
@@ -423,10 +418,10 @@ async function withRetry(fn, options = {}) {
         const info = extractRateLimitInfo(headers);
 
         if (hasRateLimitHeaders(headers) && typeof tokenRegistry.updateFromHeaders === 'function') {
-          tokenRegistry.updateFromHeaders(currentTokenSource, headers);
+          tokenRegistry.updateFromHeaders(currentTokenSource, headers, rateResource);
           logTokenUsage(core, currentTokenSource, info, 'response');
         } else if (typeof tokenRegistry.updateTokenUsage === 'function') {
-          tokenRegistry.updateTokenUsage(currentTokenSource, 1);
+          tokenRegistry.updateTokenUsage(currentTokenSource, 1, rateResource);
           logTokenUsage(core, currentTokenSource, null, 'response');
         }
       }
@@ -450,10 +445,10 @@ async function withRetry(fn, options = {}) {
       if (tokenRegistry && currentTokenSource) {
         const info = extractRateLimitInfo(headers);
         if (hasRateLimitHeaders(headers) && typeof tokenRegistry.updateFromHeaders === 'function') {
-          tokenRegistry.updateFromHeaders(currentTokenSource, headers);
+          tokenRegistry.updateFromHeaders(currentTokenSource, headers, rateResource);
           logTokenUsage(core, currentTokenSource, info, 'error');
         } else if (typeof tokenRegistry.updateTokenUsage === 'function') {
-          tokenRegistry.updateTokenUsage(currentTokenSource, 1);
+          tokenRegistry.updateTokenUsage(currentTokenSource, 1, rateResource);
           logTokenUsage(core, currentTokenSource, null, 'error');
         }
       }

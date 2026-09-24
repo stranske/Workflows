@@ -511,6 +511,11 @@ delivery contract cannot merge around a failed or missing Gate.
 Review-thread and final exact-head GraphQL reads use a separate read-only
 token-aware path, selecting the service-bot quota by its GraphQL (not REST-core)
 budget when it is eligible and rotating away from an exhausted identity.
+Response/error rate headers update the resource they identify, and headerless
+GraphQL calls decrement the GraphQL budget rather than the REST-core budget;
+rotation therefore cannot reselect a token whose GraphQL quota just reached zero.
+A partial response that explicitly reports zero remaining is authoritative even
+without a limit header; other incomplete snapshots use a one-call estimate.
 Reviewer-response and proof-bound thread reads use the same path; incomplete
 reviewer evidence cannot satisfy the settlement window. Cross-repository
 PR mutations remain pinned to `OWNER_PR_PAT`; a missing, partial, denied,

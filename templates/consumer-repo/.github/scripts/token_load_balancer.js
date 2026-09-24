@@ -897,16 +897,20 @@ async function getOptimalToken({ github, core, capabilities = [], preferredType 
  * 
  * @param {string} tokenId - Token identifier
  * @param {number} callsMade - Number of API calls made
+ * @param {'core'|'graphql'} rateResource - Budget consumed by the call
  */
-function updateTokenUsage(tokenId, callsMade = 1) {
+function updateTokenUsage(tokenId, callsMade = 1, rateResource = 'core') {
   const tokenInfo = tokenRegistry.tokens.get(tokenId);
-  if (tokenInfo && tokenInfo.rateLimit) {
-    tokenInfo.rateLimit.remaining = Math.max(0, tokenInfo.rateLimit.remaining - callsMade);
-    tokenInfo.rateLimit.used += callsMade;
-    tokenInfo.rateLimit.percentUsed = tokenInfo.rateLimit.limit > 0
-      ? ((tokenInfo.rateLimit.used / tokenInfo.rateLimit.limit) * 100).toFixed(1)
+  const budget = rateResource === 'graphql' ? tokenInfo?.graphqlRateLimit : tokenInfo?.rateLimit;
+  if (budget) {
+    const priorUsed = Number.isFinite(budget.used)
+      ? budget.used : Math.max(0, (budget.limit || 0) - budget.remaining);
+    budget.remaining = Math.max(0, budget.remaining - callsMade);
+    budget.used = priorUsed + callsMade;
+    budget.percentUsed = budget.limit > 0
+      ? ((budget.used / budget.limit) * 100).toFixed(1)
       : 0;
-    tokenInfo.rateLimit.percentRemaining = 100 - tokenInfo.rateLimit.percentUsed;
+    budget.percentRemaining = 100 - budget.percentUsed;
   }
 }
 
@@ -916,25 +920,40 @@ function updateTokenUsage(tokenId, callsMade = 1) {
  * 
  * @param {string} tokenId - Token identifier
  * @param {Object} headers - Response headers with x-ratelimit-* values
+ * @param {'core'|'graphql'} rateResource - Fallback resource when headers omit it
  */
-function updateFromHeaders(tokenId, headers) {
+function updateFromHeaders(tokenId, headers, rateResource = 'core') {
   const tokenInfo = tokenRegistry.tokens.get(tokenId);
   if (!tokenInfo) return;
+  const headerResource = String(headers['x-ratelimit-resource'] || '').toLowerCase();
+  const resource = ['core', 'graphql'].includes(headerResource) ? headerResource : rateResource;
+  const budgetKey = resource === 'graphql' ? 'graphqlRateLimit' : 'rateLimit';
   
   const remaining = parseInt(headers['x-ratelimit-remaining'], 10);
   const limit = parseInt(headers['x-ratelimit-limit'], 10);
   const used = parseInt(headers['x-ratelimit-used'], 10);
   const reset = parseInt(headers['x-ratelimit-reset'], 10);
   
-  if (!isNaN(remaining) && !isNaN(limit)) {
-    tokenInfo.rateLimit = {
+  if (Number.isFinite(remaining) && remaining >= 0 && Number.isFinite(limit) && limit > 0) {
+    tokenInfo[budgetKey] = {
       limit,
       remaining,
       used: used || (limit - remaining),
-      reset: reset ? reset * 1000 : tokenInfo.rateLimit.reset,
+      reset: reset ? reset * 1000 : tokenInfo[budgetKey]?.reset,
       checked: Date.now(),
       percentUsed: (limit - remaining) / limit * 100,
       percentRemaining: (remaining / limit) * 100,
+    };
+  } else if (remaining === 0) {
+    const budget = tokenInfo[budgetKey] || {};
+    tokenInfo[budgetKey] = {
+      ...budget,
+      remaining: 0,
+      used: budget.limit > 0 ? budget.limit : budget.used,
+      reset: reset ? reset * 1000 : budget.reset,
+      checked: Date.now(),
+      percentUsed: 100,
+      percentRemaining: 0,
     };
   }
 }
