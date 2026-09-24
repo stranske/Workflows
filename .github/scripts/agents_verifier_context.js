@@ -670,6 +670,24 @@ async function buildVerifierContext({
       });
     }
   }
+  if (!diffText) {
+    const skipReason = `Authoritative pull request diff unavailable for PR #${pull.number}; skipping verifier.`;
+    core?.notice?.(skipReason);
+    core?.setOutput?.('should_run', 'false');
+    core?.setOutput?.('skip_reason', skipReason);
+    core?.setOutput?.('pr_number', String(pull.number || ''));
+    core?.setOutput?.('issue_numbers', JSON.stringify(issueNumbers));
+    core?.setOutput?.('pr_html_url', pull.html_url || '');
+    core?.setOutput?.('target_sha', targetSha);
+    core?.setOutput?.('context_path', '');
+    core?.setOutput?.('acceptance_count', String(acceptanceCount));
+    core?.setOutput?.('ci_results', JSON.stringify(ciResults));
+    core?.setOutput?.('ci_failed', ciFailed ? 'true' : 'false');
+    core?.setOutput?.('diff_summary_path', '');
+    core?.setOutput?.('diff_path', '');
+    core?.setOutput?.('chain_depth', String(chainDepth));
+    return { shouldRun: false, reason: skipReason, ciResults, ciFailed };
+  }
   const diffSummary = summarizeDiff(diffText, DIFF_SUMMARY_LIMITS);
   content.push('');
   content.push(diffSummary);

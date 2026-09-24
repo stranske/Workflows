@@ -64,7 +64,15 @@ const buildGithubStub = ({
   graphqlError = null,
   runsByWorkflow = {},
   listWorkflowRunsHook = null,
-  diffText = '',
+  diffText = [
+    'diff --git a/src/example.js b/src/example.js',
+    'index 1111111..2222222 100644',
+    '--- a/src/example.js',
+    '+++ b/src/example.js',
+    '@@ -1 +1 @@',
+    '-old',
+    '+new',
+  ].join('\n'),
   pullGetCalls = null,
 } = {}) => ({
   rest: {
@@ -778,6 +786,51 @@ test('buildVerifierContext file summary lists only files from the merged PR', as
   } finally {
     removeVerifierDiffArtifacts(result);
   }
+});
+
+test('buildVerifierContext skips when the authoritative merged PR diff is unavailable', async () => {
+  const core = buildCore();
+  const prDetails = {
+    merged: true,
+    merged_at: '2026-09-24T00:00:00Z',
+    number: 557,
+    title: 'Fail closed without the PR diff',
+    body: prBodyFixture,
+    html_url: 'https://example.com/pr/557',
+    merge_commit_sha: 'cccccccccccccccccccccccccccccccccccccccc',
+    base: { ref: 'main', sha: 'aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa' },
+    head: { sha: 'bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb' },
+  };
+  const context = {
+    eventName: 'pull_request',
+    repo: { owner: 'octo', repo: 'workflows' },
+    payload: {
+      repository: { default_branch: 'main' },
+      pull_request: {
+        merged: true,
+        number: 557,
+        base: { ref: 'main' },
+        html_url: 'https://example.com/pr/557',
+      },
+    },
+    sha: prDetails.merge_commit_sha,
+  };
+  const result = await buildVerifierContext({
+    github: buildGithubStub({ prDetails, diffText: null }),
+    context,
+    core,
+    fetchLocalDiff() {
+      throw new Error('merged PR verification must not fall back to a contaminated local range');
+    },
+  });
+
+  assert.equal(result.shouldRun, false);
+  assert.equal(core.outputs.should_run, 'false');
+  assert.match(core.outputs.skip_reason, /Authoritative pull request diff unavailable/);
+  assert.equal(core.outputs.pr_number, '557');
+  assert.equal(core.outputs.context_path, '');
+  assert.equal(core.outputs.diff_summary_path, '');
+  assert.equal(core.outputs.diff_path, '');
 });
 
 test('buildVerifierContext queries CI runs for merge and head SHAs', async () => {
