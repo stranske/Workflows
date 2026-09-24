@@ -921,18 +921,21 @@ class TestSyncRepoToOrigin:
             ok, message = runner.sync_repo_to_origin(repo_path)
 
         assert ok is True
-        assert "stashed dirty changes" in message
+        assert "stashed workloop-state.md" in message
         assert any(
-            call[-5:]
+            call[-7:]
             == [
                 "stash",
                 "push",
-                "-m",
-                "round1-runner sync: stash before sync to origin head",
                 "-a",
+                "-m",
+                "round1-runner sync: protect workloop state",
+                "--",
+                "workloop-state.md",
             ]
             for call in calls
         )
+        assert not any(".gitnexus" in call for call in calls)
         assert workloop_file.exists()
 
     def test_force_checkout_when_not_on_target_branch(self, tmp_path: Path) -> None:

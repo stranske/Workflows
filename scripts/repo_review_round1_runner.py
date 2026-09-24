@@ -273,25 +273,42 @@ def sync_repo_to_origin(
                 f"{target} ({origin_head[:12]}); restart from an exact-head checkout"
             )
 
-        # 3. Stash any dirty changes so checkout is safe. `-u` includes normal
-        # untracked files. workloop-state.md is commonly ignored, in which case
-        # `-a` is required to preserve it before a checkout could overwrite it.
+        # 3. Preserve ignored workloop state with a bounded pathspec before a
+        # checkout could overwrite it. Do not use a repository-wide `-a`: that
+        # would also stash large ignored GitNexus maps and generated reports.
+        workloop_state = repo_path / "workloop-state.md"
+        if workloop_state.is_file():
+            workloop_stash = _git(
+                [
+                    "stash",
+                    "push",
+                    "-a",
+                    "-m",
+                    "round1-runner sync: protect workloop state",
+                    "--",
+                    "workloop-state.md",
+                ]
+            )
+            if workloop_stash.returncode != 0:
+                diagnostic = (workloop_stash.stderr or workloop_stash.stdout).strip()[:200]
+                return False, f"git stash failed preserving workloop state: {diagnostic or 'unknown error'}"
+            notes.append("stashed workloop-state.md")
+
+        # Stash remaining tracked and untracked user work so checkout is safe.
+        # `-u` intentionally excludes unrelated ignored caches and reports.
         dirty = _git(["status", "--short", "--untracked-files=all"])
         if dirty.returncode != 0:
             diagnostic = (dirty.stderr or dirty.stdout).strip()[:200]
             return False, f"git status failed while checking dirty tree: {diagnostic or 'unknown error'}"
-        workloop_state = repo_path / "workloop-state.md"
-        stash_all = workloop_state.is_file()
-        if dirty.stdout.strip() or stash_all:
-            stash_args = [
-                "stash",
-                "push",
-                "-m",
-                "round1-runner sync: stash before sync to origin head",
-            ]
-            stash_args.append("-a" if stash_all else "-u")
+        if dirty.stdout.strip():
             stash = _git(
-                stash_args
+                [
+                    "stash",
+                    "push",
+                    "-m",
+                    "round1-runner sync: stash before sync to origin head",
+                    "-u",
+                ]
             )
             if stash.returncode != 0:
                 diagnostic = (stash.stderr or stash.stdout).strip()[:200]
