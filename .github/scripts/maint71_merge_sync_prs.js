@@ -90,7 +90,7 @@ function reviewRequestMarker({ planId, generation, headSha, reviewerId }) {
 // exact-head marker before posting so a successful POST followed by a failed
 // body update does not create a second request on the next pass.
 async function ensureExactHeadReviewRequest({
-  owner, repo, pr, record, reviewerProfiles, withRetry,
+  owner, repo, pr, record, reviewerProfiles, withRetry, dryRunMode = false,
 }) {
   const profile = reviewerProfiles.find((item) =>
     String(item?.request_comment || '').trim());
@@ -140,6 +140,7 @@ async function ensureExactHeadReviewRequest({
     if (comments.length < 100) break;
     if (page === 20) throw new Error('Review-request comment inventory truncated');
   }
+  if (dryRunMode) return null;
   const body = [
     String(profile.request_comment).trim(),
     `Maint 71 requests review of exact generated head ${pr.head.sha} for plan ${record.plan_id}.`,
@@ -2516,23 +2517,11 @@ async function run({ github, context, core }) {
           continue;
         }
         if (deliveryRecord.delivery_state === 'reviewing') {
-          if (dryRun) {
-            results.push({
-              ...deliveryContext,
-              delivery_disposition: 'awaiting-review-settlement',
-              blocker_owner: 'maint-71',
-              next_command: 'rerun-with-auto-merge-to-confirm-review-request',
-              status: 'reviewer_settlement_pending',
-              reason: 'dry_run_review_request_not_confirmed',
-              dry_run: true,
-            });
-            continue;
-          }
           let request;
           try {
             request = await ensureExactHeadReviewRequest({
               owner, repo, pr, record: deliveryRecord, reviewerProfiles,
-              withRetry,
+              withRetry, dryRunMode: dryRun,
             });
           } catch (error) {
             rethrowPrimaryRateLimit(error);
@@ -2544,6 +2533,18 @@ async function run({ github, context, core }) {
               status: 'reviewer_settlement_pending',
               reason: 'review_request_unconfirmed',
               error: String(error?.message || error),
+            });
+            continue;
+          }
+          if (!request) {
+            results.push({
+              ...deliveryContext,
+              delivery_disposition: 'awaiting-review-settlement',
+              blocker_owner: 'maint-71',
+              next_command: 'rerun-with-auto-merge-to-request-review',
+              status: 'reviewer_settlement_pending',
+              reason: 'dry_run_review_request_missing',
+              dry_run: true,
             });
             continue;
           }
@@ -2559,6 +2560,19 @@ async function run({ github, context, core }) {
             continue;
           }
           if (deliveryRecord.review_started_at !== request.requestedAt) {
+            if (dryRun) {
+              results.push({
+                ...deliveryContext,
+                delivery_disposition: 'awaiting-review-settlement',
+                blocker_owner: 'maint-71',
+                next_command: 'rerun-with-auto-merge-to-repair-review-clock',
+                status: 'reviewer_settlement_pending',
+                reason: 'dry_run_review_clock_repair',
+                review_started_at: request.requestedAt,
+                dry_run: true,
+              });
+              continue;
+            }
             const body = replaceDeliveryRecord(request.body || '', {
               review_started_at: request.requestedAt,
               review_evidence: { request_comment_id: request.id },

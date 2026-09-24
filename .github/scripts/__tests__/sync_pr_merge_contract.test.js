@@ -3566,9 +3566,37 @@ test('maint71 starts review by clearing stale ready labels while retaining the s
     await run({ github, core, context: { repo: { owner: 'stranske', repo: 'Workflows' }, payload: {},
       runId: 750, runNumber: 750, workflow: 'Maint 71', ref: 'refs/heads/main', sha: sourceCommit } });
     const preview = JSON.parse(fs.readFileSync(reportPath, 'utf8')).results[0];
-    assert.equal(preview.reason, 'dry_run_review_request_not_confirmed');
+    assert.equal(preview.reason, 'dry_run_review_request_missing');
     assert.equal(reviewRequests.length, 0, 'dry run must not request review');
     assert.equal(mutations.length, updatesBeforeDryRun, 'dry run must not rewrite the PR body');
+    const { reviewRequestMarker } = require('../maint71_merge_sync_prs');
+    reviewRequests.push({ id: 99, created_at: '2026-09-24T02:43:00Z',
+      user: { login: 'stranske' },
+      body: `@codex review\n\n${reviewRequestMarker({
+        planId, generation: record.generation, headSha, reviewerId: 'codex',
+      })}` });
+    await run({ github, core, context: { repo: { owner: 'stranske', repo: 'Workflows' }, payload: {},
+      runId: 751, runNumber: 751, workflow: 'Maint 71', ref: 'refs/heads/main', sha: sourceCommit } });
+    const previewRepair = JSON.parse(fs.readFileSync(reportPath, 'utf8')).results[0];
+    assert.equal(previewRepair.reason, 'dry_run_review_clock_repair');
+    assert.equal(reviewRequests.length, 1);
+    assert.equal(mutations.length, updatesBeforeDryRun);
+    candidate.body = replaceDeliveryRecord(candidate.body, {
+      review_started_at: reviewRequests[0].created_at,
+    });
+    github.graphql = async () => ({ repository: { pullRequest: {
+      comments: { nodes: [], pageInfo: { hasNextPage: false } },
+      reviews: { nodes: [], pageInfo: { hasNextPage: false } },
+      reviewThreads: { nodes: [], pageInfo: { hasNextPage: false } },
+    } } });
+    await run({ github, core, context: { repo: { owner: 'stranske', repo: 'Workflows' }, payload: {},
+      runId: 752, runNumber: 752, workflow: 'Maint 71', ref: 'refs/heads/main', sha: sourceCommit } });
+    assert.equal(JSON.parse(fs.readFileSync(reportPath, 'utf8')).results[0].status, 'dry_run_seal');
+    assert.equal(mutations.length, updatesBeforeDryRun);
+    reviewRequests.length = 0;
+    candidate.body = replaceDeliveryRecord(candidate.body, {
+      review_started_at: '2020-08-14T00:00:00Z',
+    });
     process.env.DRY_RUN_INPUT = 'false';
     await run({ github, core, context: { repo: { owner: 'stranske', repo: 'Workflows' }, payload: {},
       runId: 75, runNumber: 75, workflow: 'Maint 71', ref: 'refs/heads/main', sha: sourceCommit } });
