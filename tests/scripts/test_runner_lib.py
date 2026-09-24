@@ -1282,6 +1282,7 @@ def test_pr_comment_storage_accepts_full_width_graphql_ids() -> None:
         def request(self, method: str, path: str, body: dict[str, Any] | None = None) -> Any:
             assert method == "POST" and path == "/graphql" and body is not None
             assert "fullDatabaseId" in body["query"]
+            assert "databaseId" not in body["query"]
             response = _graphql_comments([{"body": "marker", "id": comment_id}], body)
             node = response["data"]["repository"]["pullRequest"]["comments"]["nodes"][0]
             node["databaseId"] = None
@@ -1320,6 +1321,7 @@ def test_pr_comment_storage_retries_legacy_query_only_for_missing_full_id_field(
     assert len(api.queries) == 2
     assert "fullDatabaseId" in api.queries[0]
     assert "fullDatabaseId" not in api.queries[1]
+    assert "databaseId" in api.queries[1]
 
 
 def test_pr_comment_storage_does_not_retry_unrelated_graphql_error() -> None:
