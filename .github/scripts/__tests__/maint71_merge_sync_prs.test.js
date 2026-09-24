@@ -5,7 +5,65 @@ const assert = require('node:assert/strict');
 const fs = require('node:fs');
 const os = require('node:os');
 const path = require('node:path');
-const { hasCompleteReviewThreadEvidence, run } = require('../maint71_merge_sync_prs');
+const {
+  ensureExactHeadReviewRequest, hasCompleteReviewThreadEvidence, run,
+} = require('../maint71_merge_sync_prs');
+
+test('exact-head reviewer request is durable, trusted, and idempotent', async () => {
+  const headSha = 'd'.repeat(40);
+  const record = {
+    schema: 'sync-pr-delivery-record/v1',
+    durable_issue_url: 'https://github.com/stranske/Workflows/issues/1836',
+    plan_id: `sha256:${'a'.repeat(64)}`, generation: 'gen-1',
+    repository: 'stranske/Ready', desired_tree_hash: 'tree',
+    source_commit: 'c'.repeat(40), head_observed_sha: headSha,
+    head_observed_at: '2026-09-24T00:00:00Z',
+    lease_expires_at: '2099-01-01T00:00:00Z', delivery_state: 'staging',
+  };
+  const pr = { number: 10, head: { sha: headSha } };
+  const comments = [];
+  let posts = 0;
+  const github = { rest: {
+    users: { getAuthenticated: async () => ({ data: { login: 'stranske' } }) },
+    pulls: { get: async () => ({ data: {
+      state: 'open', draft: false, auto_merge: null, head: { sha: headSha },
+      body: `<!-- sync-pr-delivery-record:v1 ${JSON.stringify(record)} -->`,
+    } }) },
+    issues: {
+      listComments: async () => ({ data: comments }),
+      createComment: async ({ body }) => {
+        posts++;
+        const comment = { id: posts, body, created_at: '2026-09-24T01:00:00Z',
+          user: { login: 'stranske' } };
+        comments.push(comment);
+        return { data: comment };
+      },
+    },
+  } };
+  const args = { owner: 'stranske', repo: 'Ready', pr, record,
+    reviewerProfiles: [{ id: 'codex', request_comment: '@codex review' }],
+    trustedActors: ['stranske'], withRetry: (fn) => fn(github) };
+  const first = await ensureExactHeadReviewRequest(args);
+  assert.equal(first.reused, false);
+  assert.equal(first.requestedAt, '2026-09-24T01:00:00Z');
+  assert.match(comments[0].body, /@codex review/);
+  assert.match(comments[0].body, new RegExp(headSha));
+  const retry = await ensureExactHeadReviewRequest(args);
+  assert.equal(retry.reused, true);
+  assert.equal(retry.id, first.id);
+  assert.equal(posts, 1);
+  comments[0].user.login = 'untrusted';
+  await ensureExactHeadReviewRequest(args);
+  assert.equal(posts, 2, 'a forged marker must not authorize review settlement');
+  comments[1].body = comments[1].body.replace('@codex review', 'review not requested');
+  await ensureExactHeadReviewRequest(args);
+  assert.equal(posts, 3, 'a marker without the configured request command must not count');
+  github.rest.issues.listComments = async () => ({ data: null });
+  await assert.rejects(ensureExactHeadReviewRequest(args), /Incomplete review-request comments/);
+  github.rest.issues.listComments = async () => ({ data: comments });
+  pr.head.sha = 'e'.repeat(40);
+  await assert.rejects(ensureExactHeadReviewRequest(args), /changed before exact-head/);
+});
 
 test('review-thread evidence fails closed on missing, partial, or paginated responses', () => {
   const complete = {

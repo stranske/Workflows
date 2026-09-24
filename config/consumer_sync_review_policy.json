@@ -13,7 +13,8 @@
     {
       "id": "codex",
       "logins": ["chatgpt-codex-connector", "chatgpt-codex-connector[bot]"],
-      "check_names": []
+      "check_names": [],
+      "request_comment": "@codex review"
     },
     {
       "id": "coderabbit",

@@ -1771,6 +1771,29 @@ test('legacy reviewer status preserves its timestamp and satisfies reviewer evid
   });
 });
 
+test('reviewer evidence rejects late responses bound to an older head', async () => {
+  const oldHead = 'a'.repeat(40);
+  const currentHead = 'b'.repeat(40);
+  const evidence = await collectReviewerEvidence({
+    owner: 'stranske', repo: 'Ready', number: 99,
+    reviewStartedAt: '2026-08-11T13:07:00Z', headSha: currentHead,
+    reviewerProfiles: [{ id: 'codex', logins: ['codex'], check_names: [] }],
+    withRetry: async (operation) => operation({ graphql: async () => ({
+      repository: { pullRequest: {
+        comments: { nodes: [{ body: `Review complete for ${oldHead}`,
+          createdAt: '2026-08-11T13:08:00Z', author: { login: 'codex' } }],
+        pageInfo: { hasNextPage: false } },
+        reviews: { nodes: [{ body: 'Reviewed', submittedAt: '2026-08-11T13:08:00Z',
+          commit: { oid: oldHead }, author: { login: 'codex' } }],
+        pageInfo: { hasNextPage: false } },
+        reviewThreads: { nodes: [], pageInfo: { hasNextPage: false } },
+      } },
+    }) }),
+    core: { warning: () => {} },
+  });
+  assert.deepEqual(evidence, { responded: [], unavailable: [], truncated: false });
+});
+
 test('reviewer evidence does not count explicit skipped-review status as a response', async () => {
   const check = legacyStatusAsCheck({
     context: 'CodeRabbit',
@@ -3457,10 +3480,18 @@ test('maint71 starts review by clearing stale ready labels while retaining the s
   };
   const failures = [];
   const mutations = [];
+  const reviewRequests = [];
+  github.rest.users = { getAuthenticated: async () => ({ data: { login: 'stranske' } }) };
   const labels = new Set(['sync:delivery-ready']);
   github.rest.pulls.update = async (args) => { mutations.push(args); return {}; };
   github.rest.issues = {
-    createComment: async () => ({}),
+    listComments: async () => ({ data: reviewRequests }),
+    createComment: async ({ body }) => {
+      const comment = { id: reviewRequests.length + 1, body,
+        created_at: '2026-09-24T02:43:00Z', user: { login: 'stranske' } };
+      reviewRequests.push(comment);
+      return { data: comment };
+    },
     addLabels: async ({ labels: added }) => { for (const label of added) labels.add(label); },
     removeLabel: async ({ name }) => {
       assert.equal(labels.has('sync:delivery-staging'), true);
@@ -3490,24 +3521,45 @@ test('maint71 starts review by clearing stale ready labels while retaining the s
     process.env.TRUSTED_SYNC_ACTORS = 'stranske';
     process.env.SYNC_PR_MERGE_REPORT_JSON = reportPath;
 
+    const { replaceDeliveryRecord } = require('../sync_pr_lease_contract');
+    const refreshedLease = '2099-09-01T00:00:00Z';
+    const refreshedStagingBody = replaceDeliveryRecord(candidate.body, {
+      lease_expires_at: refreshedLease,
+    });
+    const latestLease = '2099-10-01T00:00:00Z';
+    const latestStagingBody = replaceDeliveryRecord(refreshedStagingBody, {
+      lease_expires_at: latestLease,
+    });
+    let initialRefreshCalls = 0;
+    github.rest.pulls.get = async () => ({ data: ++initialRefreshCalls >= 4
+      ? { ...candidate, body: latestStagingBody }
+      : initialRefreshCalls === 3
+        ? { ...candidate, body: refreshedStagingBody }
+        : candidate });
     await run({
       github, core,
       context: { repo: { owner: 'stranske', repo: 'Workflows' }, payload: {},
         runId: 72, runNumber: 72, workflow: 'Maint 71', ref: 'refs/heads/main', sha: sourceCommit },
     });
+    github.rest.pulls.get = async () => ({ data: candidate });
 
     const report = JSON.parse(fs.readFileSync(reportPath, 'utf8'));
     assert.deepEqual(failures, []);
     assert.equal(report.results[0].status, 'review_window_started');
     assert.deepEqual([...labels], ['sync:delivery-staging']);
     assert.equal(mutations.length, 1);
+    assert.equal(reviewRequests.length, 1);
+    assert.match(reviewRequests[0].body, /@codex review/);
     assert.match(mutations[0].body, /"delivery_state":"reviewing"/);
+    assert.ok(initialRefreshCalls >= 4, 'review start must re-read after posting');
+    assert.match(mutations[0].body, new RegExp(latestLease));
     assert.doesNotMatch(mutations[0].body, /"sealed_head_sha":"[^"\s]+"/);
     // A missing label is already clean and must not prevent review start.
     github.rest.issues.removeLabel = async () => { throw Object.assign(new Error('Not Found'), { status: 404 }); };
     await run({ github, core, context: { repo: { owner: 'stranske', repo: 'Workflows' }, payload: {},
       runId: 73, runNumber: 73, workflow: 'Maint 71', ref: 'refs/heads/main', sha: sourceCommit } });
     assert.equal(JSON.parse(fs.readFileSync(reportPath, 'utf8')).results[0].status, 'review_window_started');
+    assert.equal(reviewRequests.length, 1, 'retry must reuse the exact-head request');
     // Permission failures must not persist reviewing state and bypass cleanup
     // on the next attempt. The staging hold remains in place.
     const updatesBeforeFailure = mutations.length;
@@ -3519,6 +3571,69 @@ test('maint71 starts review by clearing stale ready labels while retaining the s
     assert.equal(labels.has('sync:delivery-staging'), true);
     // Sealing will now emit a new labeled event rather than silently keeping
     // a label whose earlier event carried an unsealed generation's body.
+    // A legacy reviewing record with no request must repair its clock, not
+    // take the fifteen-minute no-response fallback and seal without review.
+    candidate.body = replaceDeliveryRecord(mutations[0].body, {
+      review_started_at: '2020-08-14T00:00:00Z',
+    });
+    reviewRequests.length = 0;
+    github.rest.issues.removeLabel = async () => ({});
+    const updatesBeforeDryRun = mutations.length;
+    process.env.DRY_RUN_INPUT = 'true';
+    await run({ github, core, context: { repo: { owner: 'stranske', repo: 'Workflows' }, payload: {},
+      runId: 750, runNumber: 750, workflow: 'Maint 71', ref: 'refs/heads/main', sha: sourceCommit } });
+    const preview = JSON.parse(fs.readFileSync(reportPath, 'utf8')).results[0];
+    assert.equal(preview.reason, 'dry_run_review_request_missing');
+    assert.equal(reviewRequests.length, 0, 'dry run must not request review');
+    assert.equal(mutations.length, updatesBeforeDryRun, 'dry run must not rewrite the PR body');
+    const { reviewRequestMarker } = require('../maint71_merge_sync_prs');
+    reviewRequests.push({ id: 99, created_at: '2026-09-24T02:43:00Z',
+      user: { login: 'stranske' },
+      body: `@codex review\n\n${reviewRequestMarker({
+        planId, generation: record.generation, headSha, reviewerId: 'codex',
+      })}` });
+    await run({ github, core, context: { repo: { owner: 'stranske', repo: 'Workflows' }, payload: {},
+      runId: 751, runNumber: 751, workflow: 'Maint 71', ref: 'refs/heads/main', sha: sourceCommit } });
+    const previewRepair = JSON.parse(fs.readFileSync(reportPath, 'utf8')).results[0];
+    assert.equal(previewRepair.reason, 'dry_run_review_clock_repair');
+    assert.equal(reviewRequests.length, 1);
+    assert.equal(mutations.length, updatesBeforeDryRun);
+    const freshlyRepairedBody = replaceDeliveryRecord(candidate.body, {
+      review_started_at: reviewRequests[0].created_at,
+    });
+    let refreshCalls = 0;
+    github.rest.pulls.get = async () => ({ data: ++refreshCalls === 1
+      ? candidate : { ...candidate, body: freshlyRepairedBody } });
+    github.graphql = async () => ({ repository: { pullRequest: {
+      comments: { nodes: [], pageInfo: { hasNextPage: false } },
+      reviews: { nodes: [], pageInfo: { hasNextPage: false } },
+      reviewThreads: { nodes: [], pageInfo: { hasNextPage: false } },
+    } } });
+    await run({ github, core, context: { repo: { owner: 'stranske', repo: 'Workflows' }, payload: {},
+      runId: 752, runNumber: 752, workflow: 'Maint 71', ref: 'refs/heads/main', sha: sourceCommit } });
+    assert.equal(JSON.parse(fs.readFileSync(reportPath, 'utf8')).results[0].status, 'dry_run_seal');
+    assert.equal(mutations.length, updatesBeforeDryRun);
+    github.rest.pulls.get = async () => ({ data: candidate });
+    reviewRequests.length = 0;
+    candidate.body = replaceDeliveryRecord(candidate.body, {
+      review_started_at: '2020-08-14T00:00:00Z',
+    });
+    process.env.DRY_RUN_INPUT = 'false';
+    await run({ github, core, context: { repo: { owner: 'stranske', repo: 'Workflows' }, payload: {},
+      runId: 75, runNumber: 75, workflow: 'Maint 71', ref: 'refs/heads/main', sha: sourceCommit } });
+    const repaired = JSON.parse(fs.readFileSync(reportPath, 'utf8')).results[0];
+    assert.equal(repaired.status, 'reviewer_settlement_pending');
+    assert.equal(repaired.reason, 'review_request_clock_repaired');
+    assert.equal(repaired.review_started_at, reviewRequests[0].created_at);
+    reviewRequests.length = 0;
+    github.rest.issues.createComment = async () => {
+      throw Object.assign(new Error('review request rejected'), { status: 403 });
+    };
+    await run({ github, core, context: { repo: { owner: 'stranske', repo: 'Workflows' }, payload: {},
+      runId: 76, runNumber: 76, workflow: 'Maint 71', ref: 'refs/heads/main', sha: sourceCommit } });
+    const unconfirmed = JSON.parse(fs.readFileSync(reportPath, 'utf8')).results[0];
+    assert.equal(unconfirmed.status, 'reviewer_settlement_pending');
+    assert.equal(unconfirmed.reason, 'review_request_unconfirmed');
   } finally {
     process.chdir(originalCwd);
     for (const [key, value] of Object.entries(originalEnv)) {
