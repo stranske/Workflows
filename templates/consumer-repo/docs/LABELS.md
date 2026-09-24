@@ -678,8 +678,9 @@ Agents 81 is the active local guarded merge route.
 
 **Effect:**
 1. Records that an issue has active belt work in progress.
-2. Is cleared by Agents 73 when that callable-only recovery path merges the linked completed PR.
-3. Is reclaimed by the periodic keepalive sweep after 24 hours when the issue has no linked
+2. In the standard consumer flow, is cleared by Agents 81 after it successfully merges the linked PR.
+3. Is cleared by Agents 73 when that callable-only recovery path merges the linked completed PR.
+4. Is reclaimed by the periodic keepalive sweep after 24 hours when the issue has no linked
    open or merged PR; the sweep writes a timestamp-bearing reclaim-intent comment before
    removing the label.
 

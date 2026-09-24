@@ -35,16 +35,51 @@ def _sweep(payload: dict[str, Any]) -> Any:
 const helper = require({json.dumps(str(HELPER))});
 const payload = JSON.parse(process.argv[1]);
 const calls = [];
+const graphqlCalls = [];
 const github = {{
   paginate: async (method, args) => method(args),
+  graphql: async (_query, args) => {{
+    graphqlCalls.push(args);
+    const graphStatus = payload.graphqlErrorsByIssue?.[args.number];
+    if (graphStatus) {{
+      const error = new Error(`graphql failed: ${{graphStatus}}`);
+      error.status = graphStatus;
+      throw error;
+    }}
+    const linked = payload.linkedPullRequestsByIssue?.[args.number]
+      ?? payload.linkedPullRequests
+      ?? [];
+    return {{
+      repository: {{
+        issue: {{
+          closedByPullRequestsReferences: {{
+            nodes: linked,
+            pageInfo: {{ hasNextPage: false, endCursor: null }},
+          }},
+        }},
+      }},
+    }};
+  }},
   rest: {{
     issues: {{
       listForRepo: async () => payload.issues,
-      listEventsForTimeline: async () => payload.timeline,
-      get: async () => ({{ data: payload.currentIssue }}),
+      listEventsForTimeline: async (args) =>
+        payload.timelines?.[args.issue_number] ?? payload.timeline,
+      get: async (args) => ({{
+        data: payload.currentIssues?.[args.issue_number] ?? payload.currentIssue,
+      }}),
       listComments: async () => payload.comments,
       createComment: async (args) => calls.push(['comment', args.body]),
-      removeLabel: async () => calls.push(['remove']),
+      removeLabel: async (args) => {{
+        const status = payload.removeLabelStatuses?.[args.issue_number]
+          ?? payload.removeLabelStatus;
+        if (status) {{
+          const error = new Error(`removeLabel failed: ${{status}}`);
+          error.status = status;
+          throw error;
+        }}
+        calls.push(['remove', args.issue_number]);
+      }},
     }},
   }},
 }};
@@ -55,7 +90,43 @@ const github = {{
     repo: 'Workflows',
     now: payload.now,
   }});
-  process.stdout.write(JSON.stringify({{ result, calls }}));
+  process.stdout.write(JSON.stringify({{ result, calls, graphqlCalls }}));
+}})();
+"""
+    completed = subprocess.run(
+        ["node", "-e", script, json.dumps(payload)],
+        cwd=ROOT,
+        check=True,
+        capture_output=True,
+        text=True,
+    )
+    return json.loads(completed.stdout)
+
+
+def _linked(payload: dict[str, Any]) -> Any:
+    script = f"""
+const helper = require({json.dumps(str(HELPER))});
+const payload = JSON.parse(process.argv[1]);
+const calls = [];
+const github = {{
+  graphql: async (_query, args) => {{
+    calls.push(args);
+    const key = args.after ?? 'first';
+    return payload.pages[key];
+  }},
+}};
+(async () => {{
+  try {{
+    const result = await helper.readLinkedPullRequests(
+      async (callback) => callback(github),
+      'stranske',
+      'Workflows',
+      3405
+    );
+    process.stdout.write(JSON.stringify({{ result, calls }}));
+  }} catch (error) {{
+    process.stdout.write(JSON.stringify({{ error: error.message, calls }}));
+  }}
 }})();
 """
     completed = subprocess.run(
@@ -163,7 +234,7 @@ def test_consumer_keepalive_sweep_reclaims_stale_claims() -> None:
     assert "belt_claim_reclaim.js" in consumer_sweep
     assert "withRetry: retry.withRetry" in consumer_sweep
     assert "source: .github/scripts/belt_claim_reclaim.js" in manifest
-    assert consumer_helper.read_text() == HELPER.read_text()
+    assert consumer_helper.read_bytes() == HELPER.read_bytes()
 
 
 def test_timeline_only_blocks_open_or_merged_pull_requests() -> None:
@@ -201,22 +272,155 @@ def test_timeline_only_blocks_open_or_merged_pull_requests() -> None:
                 }
             },
         },
-        {
-            "event": "connected",
-            "subject": {
-                "issue": {
-                    "number": 13,
-                    "state": "closed",
-                    "html_url": "https://example.test/pull/13",
-                    "pull_request": {},
-                }
-            },
-        },
     ]
 
     blocking = _node("helper.blockingPullRequestsFromTimeline(payload.events)", {"events": events})
 
-    assert [entry["number"] for entry in blocking] == [11, 12, 13]
+    assert [entry["number"] for entry in blocking] == [11, 12]
+
+
+def test_connected_event_uses_graphql_linked_prs_and_blocks_reclaim() -> None:
+    claim_timestamp = "2026-09-01T00:00:00Z"
+    result = _sweep(
+        {
+            "issues": [{"number": 3405}],
+            "currentIssue": {"labels": [{"name": "status:in-progress"}]},
+            "timeline": [
+                {
+                    "event": "labeled",
+                    "label": {"name": "status:in-progress"},
+                    "created_at": claim_timestamp,
+                },
+                {"event": "connected", "created_at": claim_timestamp},
+            ],
+            "linkedPullRequests": [
+                {
+                    "number": 3550,
+                    "url": "https://example.test/pull/3550",
+                    "state": "OPEN",
+                    "mergedAt": None,
+                }
+            ],
+            "comments": [],
+            "now": "2026-09-03T00:00:00Z",
+        }
+    )
+
+    assert result["result"]["reclaimableCount"] == 0
+    assert result["calls"] == []
+    assert result["graphqlCalls"][0] == {
+        "owner": "stranske",
+        "repo": "Workflows",
+        "number": 3405,
+        "after": None,
+    }
+
+
+def test_remove_label_404_is_reported_as_already_released() -> None:
+    claim_timestamp = "2026-09-01T00:00:00Z"
+    result = _sweep(
+        {
+            "issues": [{"number": 3405}],
+            "currentIssue": {"labels": [{"name": "status:in-progress"}]},
+            "timeline": [
+                {
+                    "event": "labeled",
+                    "label": {"name": "status:in-progress"},
+                    "created_at": claim_timestamp,
+                }
+            ],
+            "linkedPullRequests": [],
+            "comments": [],
+            "removeLabelStatus": 404,
+            "now": "2026-09-03T00:00:00Z",
+        }
+    )
+
+    assert result["result"]["reclaimedCount"] == 0
+    assert result["result"]["alreadyReleasedCount"] == 1
+    assert result["result"]["failures"] == []
+
+
+def test_linked_pr_lookup_paginates_and_blocks_on_page_two() -> None:
+    result = _linked(
+        {
+            "pages": {
+                "first": {
+                    "repository": {
+                        "issue": {
+                            "closedByPullRequestsReferences": {
+                                "nodes": [],
+                                "pageInfo": {"hasNextPage": True, "endCursor": "page-2"},
+                            }
+                        }
+                    }
+                },
+                "page-2": {
+                    "repository": {
+                        "issue": {
+                            "closedByPullRequestsReferences": {
+                                "nodes": [
+                                    {
+                                        "number": 3550,
+                                        "url": "https://example.test/pull/3550",
+                                        "state": "MERGED",
+                                        "mergedAt": "2026-09-24T08:00:00Z",
+                                    }
+                                ],
+                                "pageInfo": {"hasNextPage": False, "endCursor": None},
+                            }
+                        }
+                    }
+                },
+            }
+        }
+    )
+
+    assert result["result"] == [
+        {
+            "number": 3550,
+            "state": "merged",
+            "merged": True,
+            "url": "https://example.test/pull/3550",
+        }
+    ]
+    assert [call["after"] for call in result["calls"]] == [None, "page-2"]
+
+
+def test_one_issue_graphql_failure_does_not_skip_later_issue() -> None:
+    claim_timestamp = "2026-09-01T00:00:00Z"
+    timeline = [
+        {
+            "event": "labeled",
+            "label": {"name": "status:in-progress"},
+            "created_at": claim_timestamp,
+        }
+    ]
+    result = _sweep(
+        {
+            "issues": [{"number": 3405}, {"number": 3406}],
+            "currentIssues": {
+                "3405": {"labels": [{"name": "status:in-progress"}]},
+                "3406": {"labels": [{"name": "status:in-progress"}]},
+            },
+            "timelines": {"3405": timeline, "3406": timeline},
+            "graphqlErrorsByIssue": {"3405": 503},
+            "linkedPullRequestsByIssue": {"3406": []},
+            "comments": [],
+            "now": "2026-09-03T00:00:00Z",
+        }
+    )
+
+    assert result["result"]["reclaimedCount"] == 1
+    assert result["result"]["failures"] == [
+        {
+            "issueNumber": 3405,
+            "phase": "assessment",
+            "status": 503,
+            "message": "graphql failed: 503",
+        }
+    ]
+    assert ["remove", 3406] in result["calls"]
 
 
 def test_sweep_revalidates_and_comments_before_removing_label() -> None:
