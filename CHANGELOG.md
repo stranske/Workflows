@@ -6,6 +6,32 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 Breaking changes are called out with a **BREAKING** marker and scheduled according to the policy in `COMPATIBILITY.md`.
 
+## [1.36.0](https://github.com/stranske/Workflows/compare/v1.35.2...v1.36.0) (2026-09-24)
+
+
+### Features
+
+* **backplane:** enforce Inv-Man emitted evidence closure in canonical gate ([#3526](https://github.com/stranske/Workflows/issues/3526)) ([d6f3cc4](https://github.com/stranske/Workflows/commit/d6f3cc4ee898f895a5c6cbe770d18deb6dc6049b))
+* reclaim stale in-progress belt claims after timeout ([#3405](https://github.com/stranske/Workflows/issues/3405)) ([afdec59](https://github.com/stranske/Workflows/commit/afdec59c06cc9d91897f1666611ddd860f7d35fb))
+
+
+### Bug Fixes
+
+* **belt:** require completion evidence for ledger tasks ([#3391](https://github.com/stranske/Workflows/issues/3391)) ([febf411](https://github.com/stranske/Workflows/commit/febf4119d26a0efad22e115081963bec598e0fa5))
+* **contracts:** keep manifest references inside the run directory ([#3541](https://github.com/stranske/Workflows/issues/3541)) ([d4ce77a](https://github.com/stranske/Workflows/commit/d4ce77aefb746eddce3dec9909c7ff7466c1d763))
+* **contracts:** redact standalone evidence errors and scale duplicate checks ([#3542](https://github.com/stranske/Workflows/issues/3542)) ([b31ea84](https://github.com/stranske/Workflows/commit/b31ea84f84dc5390fba298bce5b4f055876aec32))
+* **contracts:** require HTTPS mirror resolver links ([#3547](https://github.com/stranske/Workflows/issues/3547)) ([f12819c](https://github.com/stranske/Workflows/commit/f12819c1310ebeaffb5bedbe260656d87fad66e8))
+* **gate:** retire obsolete spoofable assertion exception ([#3540](https://github.com/stranske/Workflows/issues/3540)) ([3425649](https://github.com/stranske/Workflows/commit/342564948ad14fd6fce0ff13536ab7a0ed77831d))
+* initiate exact-head review before sync settlement ([#3531](https://github.com/stranske/Workflows/issues/3531)) ([cdd1f5f](https://github.com/stranske/Workflows/commit/cdd1f5f123750dbb1bd0277650a05c9a086ccae6))
+* keep Maint 71 review reads alive when owner GraphQL quota is exhausted ([#3530](https://github.com/stranske/Workflows/issues/3530)) ([fccf1c6](https://github.com/stranske/Workflows/commit/fccf1c6aa3510fa75fbe7efe1a8f4a3a4538b722))
+* **keepalive:** retry same-receipt authority confirmation ([#3537](https://github.com/stranske/Workflows/issues/3537)) ([3faaef9](https://github.com/stranske/Workflows/commit/3faaef923b4107812cc4c8fb113f6365c1f11bb8))
+* **maint71:** require reviewer request for legacy sealed canaries ([#3535](https://github.com/stranske/Workflows/issues/3535)) ([6c36a71](https://github.com/stranske/Workflows/commit/6c36a716b46b1ac1f499ba70f907b438f1c0351c))
+* **runner:** preserve full-width comment IDs in authority cursor ([#3536](https://github.com/stranske/Workflows/issues/3536)) ([c7f0544](https://github.com/stranske/Workflows/commit/c7f0544654613d9fa8f92f6d3f84a16eeff325e1))
+* **runner:** query full-width issue comment IDs alone ([#3551](https://github.com/stranske/Workflows/issues/3551)) ([0165a52](https://github.com/stranske/Workflows/commit/0165a52124a0bc465e078b95de5f22bedc29da5c))
+* **sync:** co-deliver packaged evidence schemas to owning consumers ([#3529](https://github.com/stranske/Workflows/issues/3529)) ([37a83f2](https://github.com/stranske/Workflows/commit/37a83f28367428cabd2820fc3d0331d62cc9d26c))
+* **sync:** restore deliberate-break Ruff lint in consumers ([#3548](https://github.com/stranske/Workflows/issues/3548)) ([e0c4b8d](https://github.com/stranske/Workflows/commit/e0c4b8d7e61c520fd2439bc513b3ad23e139ec42))
+* **tokens:** account GraphQL reads against GraphQL quota ([#3545](https://github.com/stranske/Workflows/issues/3545)) ([1081781](https://github.com/stranske/Workflows/commit/10817810036f8bf3a30c30c8ad4e6a45173b844b))
+
 ## [1.35.2](https://github.com/stranske/Workflows/compare/v1.35.1...v1.35.2) (2026-09-23)
 
 
