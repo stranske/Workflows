@@ -1421,7 +1421,7 @@ async function run({ github, context, core }) {
       review_started_at: reviewStartedAt,
       sealed_at: '',
       sealed_head_sha: '',
-      review_evidence: {},
+      review_evidence: { request_comment_id: request.id },
     });
     await withRetry((client) => client.rest.pulls.update({
       owner,
@@ -1480,6 +1480,7 @@ async function run({ github, context, core }) {
     const sealedAt = new Date().toISOString();
     const reviewEvidence = {
       policy_schema: reviewPolicy.schema,
+      request_comment_id: record.review_evidence?.request_comment_id || null,
       reason: settlement.reason,
       degraded: Boolean(settlement.degraded),
       responded_reviewers: settlement.responded || [],
@@ -2715,6 +2716,52 @@ async function run({ github, context, core }) {
               ? 'restage-changed-delivery-head'
               : 'rerun-with-auto-merge-to-start-review',
             status: dryRun ? 'sealed_head_mismatch' : 'delivery_review_not_started',
+          });
+          continue;
+        }
+        // A legacy seal can predate the actual reviewer request. A timeout
+        // without a request is not reviewer settlement, even on a green head.
+        let sealedRequest;
+        try {
+          sealedRequest = await ensureExactHeadReviewRequest({
+            owner, repo, pr, record: deliveryRecord, reviewerProfiles,
+            withRetry, dryRunMode: true,
+          });
+        } catch (error) {
+          rethrowPrimaryRateLimit(error);
+          results.push({
+            ...deliveryContext,
+            delivery_disposition: 'awaiting-review-settlement',
+            blocker_owner: 'maint-71',
+            next_command: `rerun-after:${new Date(Date.now() + 10 * 60 * 1000).toISOString()}`,
+            status: 'reviewer_settlement_pending',
+            reason: 'sealed_review_request_unconfirmed',
+            error: String(error?.message || error),
+          });
+          continue;
+        }
+        if (
+          !sealedRequest
+          || !Number.isFinite(Date.parse(deliveryRecord.review_started_at || ''))
+          || Date.parse(deliveryRecord.review_started_at) < Date.parse(sealedRequest.requestedAt)
+          || (deliveryRecord.review_evidence?.request_comment_id
+            && deliveryRecord.review_evidence.request_comment_id !== sealedRequest.id)
+        ) {
+          const previousSeal = {
+            sealed_at: deliveryRecord.sealed_at,
+            sealed_head_sha: deliveryRecord.sealed_head_sha,
+            review_evidence: deliveryRecord.review_evidence,
+          };
+          await restageStableDelivery({ owner, repo, pr, dryRunMode: dryRun });
+          results.push({
+            ...deliveryContext,
+            delivery_disposition: 'awaiting-review-start',
+            blocker_owner: 'maint-71',
+            next_command: dryRun
+              ? 'rerun-with-auto-merge-to-restage-unrequested-seal'
+              : 'rerun-with-auto-merge-to-start-review',
+            status: dryRun ? 'dry_run_unrequested_seal' : 'unrequested_seal_restaged',
+            previous_seal: previousSeal,
           });
           continue;
         }

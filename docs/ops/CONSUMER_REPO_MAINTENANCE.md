@@ -576,9 +576,14 @@ delivery body or fails closed on drift. An old `reviewing` record without a
 request is repaired and cannot time out into sealing. Dry-run,
 evidence-only, and resolution-only passes inspect an existing request and
 reviewer evidence, report missing requests or clock repairs, and preview seal
-readiness without posting comments or changing PR bodies. The policy requires
-one response, not
-all configured reviewers, after a seven-minute quiet period. If every reviewer
+readiness without posting comments or changing PR bodies.
+Already-sealed open deliveries also require a durable exact-head request whose
+timestamp is no later than the settlement clock. A legacy timeout seal without
+that request is preserved in the reconciliation report and restaged by Maint 71;
+it cannot authorize canary promotion or merge. Fresh review then starts through
+the normal source-owned request and seal sequence.
+The policy requires one response, not all configured reviewers, after a
+seven-minute quiet period. If every reviewer
 reports capacity unavailability, settlement degrades after the quiet period;
 if nobody responds, it degrades after fifteen minutes. Active non-outdated
 review threads are never waived by either fallback. Reviewer statuses and
