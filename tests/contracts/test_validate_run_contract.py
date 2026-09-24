@@ -1143,8 +1143,8 @@ def test_document_mirror_consumer_rejects_invalid_urls_and_created_at() -> None:
 
 def test_document_mirror_standalone_validator_rejects_non_https_resolvers(tmp_path) -> None:
     catalog = json.loads((FIXTURES / "valid_document_mirror.json").read_text())
-    catalog["blobs"][0]["source_refs"][1]["url"] = "file:///tmp/document"
-    catalog["blobs"][1]["source_refs"][1]["web_url"] = "mailto:user@example.com"
+    catalog["blobs"][0]["source_refs"][1]["url"] = "https:///path"
+    catalog["blobs"][1]["source_refs"][1]["web_url"] = "https://?q=x"
     path = tmp_path / "mirror.json"
     path.write_text(json.dumps(catalog))
 
