@@ -1377,13 +1377,13 @@ async function run({ github, context, core }) {
     if (dryRunMode) {
       return { reviewStartedAt: record.review_started_at || new Date().toISOString(), dryRun: true };
     }
-    const current = await holdReadyStableDelivery({ owner, repo, pr });
+    await holdReadyStableDelivery({ owner, repo, pr });
     const request = await ensureExactHeadReviewRequest({
       owner, repo, pr, record, reviewerProfiles,
       withRetry,
     });
     const reviewStartedAt = request.requestedAt;
-    const body = replaceDeliveryRecord(current.body || '', {
+    const body = replaceDeliveryRecord(request.body || '', {
       delivery_state: 'reviewing',
       review_started_at: reviewStartedAt,
       sealed_at: '',

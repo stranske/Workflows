@@ -3521,11 +3521,20 @@ test('maint71 starts review by clearing stale ready labels while retaining the s
     process.env.TRUSTED_SYNC_ACTORS = 'stranske';
     process.env.SYNC_PR_MERGE_REPORT_JSON = reportPath;
 
+    const { replaceDeliveryRecord } = require('../sync_pr_lease_contract');
+    const refreshedLease = '2099-09-01T00:00:00Z';
+    const refreshedStagingBody = replaceDeliveryRecord(candidate.body, {
+      lease_expires_at: refreshedLease,
+    });
+    let initialRefreshCalls = 0;
+    github.rest.pulls.get = async () => ({ data: ++initialRefreshCalls >= 3
+      ? { ...candidate, body: refreshedStagingBody } : candidate });
     await run({
       github, core,
       context: { repo: { owner: 'stranske', repo: 'Workflows' }, payload: {},
         runId: 72, runNumber: 72, workflow: 'Maint 71', ref: 'refs/heads/main', sha: sourceCommit },
     });
+    github.rest.pulls.get = async () => ({ data: candidate });
 
     const report = JSON.parse(fs.readFileSync(reportPath, 'utf8'));
     assert.deepEqual(failures, []);
@@ -3535,6 +3544,7 @@ test('maint71 starts review by clearing stale ready labels while retaining the s
     assert.equal(reviewRequests.length, 1);
     assert.match(reviewRequests[0].body, /@codex review/);
     assert.match(mutations[0].body, /"delivery_state":"reviewing"/);
+    assert.match(mutations[0].body, new RegExp(refreshedLease));
     assert.doesNotMatch(mutations[0].body, /"sealed_head_sha":"[^"\s]+"/);
     // A missing label is already clean and must not prevent review start.
     github.rest.issues.removeLabel = async () => { throw Object.assign(new Error('Not Found'), { status: 404 }); };
@@ -3555,7 +3565,6 @@ test('maint71 starts review by clearing stale ready labels while retaining the s
     // a label whose earlier event carried an unsealed generation's body.
     // A legacy reviewing record with no request must repair its clock, not
     // take the fifteen-minute no-response fallback and seal without review.
-    const { replaceDeliveryRecord } = require('../sync_pr_lease_contract');
     candidate.body = replaceDeliveryRecord(mutations[0].body, {
       review_started_at: '2020-08-14T00:00:00Z',
     });
