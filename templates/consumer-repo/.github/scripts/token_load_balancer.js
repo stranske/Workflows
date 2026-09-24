@@ -103,7 +103,7 @@ const TOKEN_CAPABILITIES = {
 const TOKEN_SPECIALIZATIONS = {
   // PAT specializations
   SERVICE_BOT_PAT: {
-    primaryTasks: ['bot-comments', 'labels', 'autofix-commits'],
+    primaryTasks: ['bot-comments', 'labels', 'autofix-commits', 'maint71-review-thread-read'],
     exclusive: false,
     description: 'Bot account for automation (separate rate limit pool from owner)',
   },

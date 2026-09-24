@@ -168,6 +168,13 @@ function isRateLimitError(error) {
   if (!error) {
     return false;
   }
+  const graphqlErrors = error.errors || error?.response?.data?.errors;
+  if (Array.isArray(graphqlErrors) && graphqlErrors.some((item) =>
+    item?.type === 'RATE_LIMIT' || item?.code === 'graphql_rate_limit'
+      || item?.extensions?.code === 'graphql_rate_limit'
+  )) {
+    return true;
+  }
   const status = error.status || error?.response?.status;
   if (status === 429) {
     return true;
