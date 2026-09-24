@@ -502,6 +502,8 @@ class TestSyncRepoToOrigin:
             # Simple mock: return success for all operations
             if "fetch" in args:
                 return self._make_result(0)
+            elif "symbolic-ref" in args:
+                return self._make_result(0, "origin/main\n")
             elif "ls-files" in args:
                 return self._make_result(1, "")  # file not tracked
             elif "cat-file" in args:
@@ -575,6 +577,8 @@ class TestSyncRepoToOrigin:
         ) -> subprocess.CompletedProcess[str]:
             if "fetch" in args:
                 return self._make_result(0)
+            elif "symbolic-ref" in args:
+                return self._make_result(0, "origin/main\n")
             elif "status" in args:
                 return self._make_result(0, "")  # clean
             elif "--verify" in args:
@@ -607,6 +611,8 @@ class TestSyncRepoToOrigin:
         ) -> subprocess.CompletedProcess[str]:
             if "fetch" in args:
                 return self._make_result(0)
+            elif "symbolic-ref" in args:
+                return self._make_result(0, "origin/main\n")
             elif "status" in args:
                 return self._make_result(0, "")  # clean
             elif "--verify" in args and "origin/main" in args:
@@ -645,6 +651,8 @@ class TestSyncRepoToOrigin:
             calls.append(args)
             if "fetch" in args:
                 return self._make_result(0)
+            elif "symbolic-ref" in args:
+                return self._make_result(0, "origin/main\n")
             elif "status" in args:
                 return self._make_result(0, "")  # clean
             elif "--verify" in args and "origin/main" in args:
@@ -673,7 +681,86 @@ class TestSyncRepoToOrigin:
         assert not any("pull" in call for call in calls)
         assert any(call[-3:] == ["checkout", "--detach", "origin/main"] for call in calls)
 
-    def test_preserves_executing_steward_checkout(self, tmp_path: Path) -> None:
+    def test_uses_fetched_origin_head_for_non_main_default_branch(self, tmp_path: Path) -> None:
+        repo_path = tmp_path / "repo"
+        repo_path.mkdir()
+        calls: list[list[str]] = []
+        advertised_head = "origin/main"
+
+        def fake_run(args: list[str], **_kwargs) -> subprocess.CompletedProcess[str]:
+            nonlocal advertised_head
+            calls.append(args)
+            if "fetch" in args:
+                return self._make_result(0)
+            if args[-4:] == ["remote", "set-head", "origin", "--auto"]:
+                advertised_head = "origin/trunk"
+                return self._make_result(0)
+            if "symbolic-ref" in args and "refs/remotes/origin/HEAD" in args:
+                return self._make_result(0, f"{advertised_head}\n")
+            if "--verify" in args and "origin/trunk" in args:
+                return self._make_result(0, "trunk123")
+            if "--abbrev-ref" in args and "HEAD" in args:
+                return self._make_result(0, "feature")
+            if args[-2:] == ["rev-parse", "HEAD"]:
+                return self._make_result(0, "old123")
+            if "status" in args:
+                return self._make_result(0, "")
+            if "checkout" in args:
+                return self._make_result(0)
+            if "--short" in args:
+                return self._make_result(0, "trunk123")
+            return self._make_result(0)
+
+        with patch("subprocess.run", fake_run):
+            ok, message = runner.sync_repo_to_origin(repo_path)
+
+        assert ok is True
+        assert "detached at origin/trunk" in message
+        assert any(call[-3:] == ["checkout", "--detach", "origin/trunk"] for call in calls)
+        assert next(i for i, call in enumerate(calls) if "set-head" in call) < next(
+            i for i, call in enumerate(calls) if "symbolic-ref" in call
+        )
+
+    def test_stops_when_default_head_refresh_fails(self, tmp_path: Path) -> None:
+        repo_path = tmp_path / "repo"
+        repo_path.mkdir()
+
+        def fake_run(args: list[str], **_kwargs) -> subprocess.CompletedProcess[str]:
+            if "fetch" in args:
+                return self._make_result(0)
+            if args[-4:] == ["remote", "set-head", "origin", "--auto"]:
+                return self._make_result(1, stderr="remote unavailable")
+            return self._make_result(0)
+
+        with patch("subprocess.run", fake_run):
+            ok, message = runner.sync_repo_to_origin(repo_path)
+
+        assert ok is False
+        assert "git remote set-head origin --auto failed" in message
+        assert "remote unavailable" in message
+
+    def test_stops_when_refreshed_default_head_cannot_be_resolved(self, tmp_path: Path) -> None:
+        repo_path = tmp_path / "repo"
+        repo_path.mkdir()
+        calls: list[list[str]] = []
+
+        def fake_run(args: list[str], **_kwargs) -> subprocess.CompletedProcess[str]:
+            calls.append(args)
+            if "fetch" in args or "set-head" in args:
+                return self._make_result(0)
+            if "symbolic-ref" in args:
+                return self._make_result(1, stderr="not a symbolic ref")
+            return self._make_result(0)
+
+        with patch("subprocess.run", fake_run):
+            ok, message = runner.sync_repo_to_origin(repo_path)
+
+        assert ok is False
+        assert "could not resolve refreshed origin/HEAD" in message
+        assert "not a symbolic ref" in message
+        assert not any("stash" in call or "checkout" in call for call in calls)
+
+    def test_preserves_exact_head_executing_steward_after_stashing(self, tmp_path: Path) -> None:
         repo_path = tmp_path / "repo"
         repo_path.mkdir()
         calls: list[list[str]] = []
@@ -696,16 +783,53 @@ class TestSyncRepoToOrigin:
             if "--abbrev-ref" in args:
                 return self._make_result(0, "HEAD")
             if args[-2:] == ["rev-parse", "HEAD"]:
-                return self._make_result(0, "repair456")
+                return self._make_result(0, "origin123")
+            if "stash" in args:
+                return self._make_result(0)
             return self._make_result(0)
 
         with patch("subprocess.run", fake_run):
             ok, message = runner.sync_repo_to_origin(repo_path, preserve_checkout=True)
 
         assert ok is True
-        assert "preserved executing steward checkout at repair456" in message
+        assert "stashed dirty changes" in message
+        assert "preserved executing steward checkout at origin123" in message
         assert not any("checkout" in call or "pull" in call for call in calls)
-        assert not any("stash" in call for call in calls)
+        assert not any("set-head" in call or "symbolic-ref" in call for call in calls)
+        assert [
+            "git",
+            "-C",
+            str(repo_path),
+            "stash",
+            "push",
+            "-m",
+            "round1-runner sync: stash before sync to origin head",
+            "-u",
+        ] in calls
+
+    def test_rejects_stale_executing_steward_without_mutating_it(self, tmp_path: Path) -> None:
+        repo_path = tmp_path / "repo"
+        repo_path.mkdir()
+        calls: list[list[str]] = []
+
+        def fake_run(args: list[str], **_kwargs) -> subprocess.CompletedProcess[str]:
+            calls.append(args)
+            if "fetch" in args:
+                return self._make_result(0)
+            if "--verify" in args and "origin/main" in args:
+                return self._make_result(0, "origin123")
+            if "--abbrev-ref" in args:
+                return self._make_result(0, "HEAD")
+            if args[-2:] == ["rev-parse", "HEAD"]:
+                return self._make_result(0, "stale456")
+            return self._make_result(0)
+
+        with patch("subprocess.run", fake_run):
+            ok, message = runner.sync_repo_to_origin(repo_path, preserve_checkout=True)
+
+        assert ok is False
+        assert "does not match fetched default branch origin/main" in message
+        assert not any("stash" in call or "checkout" in call for call in calls)
 
     def test_stash_failure_stops_before_checkout(self, tmp_path: Path) -> None:
         repo_path = tmp_path / "repo"
@@ -716,6 +840,8 @@ class TestSyncRepoToOrigin:
             calls.append(args)
             if "fetch" in args:
                 return self._make_result(0)
+            if "symbolic-ref" in args:
+                return self._make_result(0, "origin/main\n")
             if "--verify" in args:
                 return self._make_result(0, "origin123")
             if "--abbrev-ref" in args:
@@ -765,6 +891,7 @@ class TestSyncRepoToOrigin:
     def test_stashes_dirty_changes(self, tmp_path: Path) -> None:
         repo_path = tmp_path / "repo"
         repo_path.mkdir()
+        calls: list[list[str]] = []
 
         def fake_run(
             args: list[str],
@@ -774,8 +901,11 @@ class TestSyncRepoToOrigin:
             text: bool = True,
             timeout: int = 120,
         ) -> subprocess.CompletedProcess[str]:
+            calls.append(args)
             if "fetch" in args:
                 return self._make_result(0)
+            elif "symbolic-ref" in args:
+                return self._make_result(0, "origin/main\n")
             elif "status" in args:
                 return self._make_result(0, " M file1.txt\n?? file2.txt")  # dirty
             elif "stash" in args:
@@ -800,14 +930,25 @@ class TestSyncRepoToOrigin:
 
         assert ok is True
         assert "stashed dirty changes" in message
+        assert [
+            "git",
+            "-C",
+            str(repo_path),
+            "stash",
+            "push",
+            "-m",
+            "round1-runner sync: stash before sync to origin head",
+            "-u",
+        ] in calls
 
-    def test_removes_untracked_workloop_state(self, tmp_path: Path) -> None:
+    def test_stashes_untracked_workloop_state_without_deleting_it(self, tmp_path: Path) -> None:
         repo_path = tmp_path / "repo"
         repo_path.mkdir()
 
         # Create the untracked workloop-state.md file
         workloop_file = repo_path / "workloop-state.md"
         workloop_file.write_text("# Untracked state", encoding="utf-8")
+        calls: list[list[str]] = []
 
         def fake_run(
             args: list[str],
@@ -817,14 +958,15 @@ class TestSyncRepoToOrigin:
             text: bool = True,
             timeout: int = 120,
         ) -> subprocess.CompletedProcess[str]:
+            calls.append(args)
             if "fetch" in args:
                 return self._make_result(0)
+            elif "symbolic-ref" in args:
+                return self._make_result(0, "origin/main\n")
             elif "status" in args:
-                return self._make_result(0, "")  # clean except for untracked
-            elif "ls-files" in args:
-                return self._make_result(1, "")  # file not tracked locally
-            elif "cat-file" in args:
-                return self._make_result(0, "abc123")  # file exists in origin
+                return self._make_result(0, "?? workloop-state.md\n")
+            elif "stash" in args:
+                return self._make_result(0)
             elif "--verify" in args and "origin/main" in args:
                 return self._make_result(0, "abc123")
             elif "--abbrev-ref" in args and "HEAD" in args:
@@ -844,8 +986,22 @@ class TestSyncRepoToOrigin:
             ok, message = runner.sync_repo_to_origin(repo_path)
 
         assert ok is True
-        assert "removed untracked workloop-state.md" in message
-        assert not workloop_file.exists()
+        assert "stashed workloop-state.md" in message
+        assert any(
+            call[-7:]
+            == [
+                "stash",
+                "push",
+                "-a",
+                "-m",
+                "round1-runner sync: protect workloop state",
+                "--",
+                "workloop-state.md",
+            ]
+            for call in calls
+        )
+        assert not any(".gitnexus" in call for call in calls)
+        assert workloop_file.exists()
 
     def test_force_checkout_when_not_on_target_branch(self, tmp_path: Path) -> None:
         repo_path = tmp_path / "repo"
@@ -861,6 +1017,8 @@ class TestSyncRepoToOrigin:
         ) -> subprocess.CompletedProcess[str]:
             if "fetch" in args:
                 return self._make_result(0)
+            elif "symbolic-ref" in args:
+                return self._make_result(0, "origin/main\n")
             elif "status" in args:
                 return self._make_result(0, "")  # clean
             elif "--verify" in args and "origin/main" in args:
