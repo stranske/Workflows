@@ -629,6 +629,20 @@ test('sourceTypeFromLabels accepts workflow source labels', () => {
   assert.equal(sourceTypeFromLabels(pull), SOURCE_TYPES.LOCAL_REQUEST);
 });
 
+test('sourceTypeFromLabels rejects lookalike workflow source labels', () => {
+  for (const label of [
+    'workflow-source-sync',
+    'workflow source sync',
+    'workflow/source/maintenance',
+  ]) {
+    assert.equal(
+      sourceTypeFromLabels({ labels: [{ name: label }] }),
+      SOURCE_TYPES.UNKNOWN,
+      label,
+    );
+  }
+});
+
 test('resolvePrSourceContext prefers source issue when issue metadata exists', () => {
   const context = resolvePrSourceContext({
     body: '<!-- meta:issue:123 -->\n<!-- workflow-source:local_request -->',
@@ -752,6 +766,28 @@ test('bound generated sync provenance overrides incidental issue text', () => {
   assert.equal(context.requiresIssue, false);
   assert.deepEqual(templateResolvePrSourceContext(pull), context);
 
+  for (const controlledSourceLabel of [
+    'workflow_source_sync',
+    'workflow:source-maintenance',
+    'workflow_source_maintenance',
+  ]) {
+    const aliasPull = {
+      ...pull,
+      labels: [
+        { name: 'sync' },
+        { name: 'automated' },
+        { name: controlledSourceLabel },
+      ],
+    };
+    const aliasContext = resolvePrSourceContext(aliasPull);
+    assert.equal(aliasContext.sourceType, SOURCE_TYPES.SYNC_CAMPAIGN);
+    assert.equal(aliasContext.issueNumber, null);
+    assert.equal(aliasContext.sourceRef, `consumer-sync-plan:${metadata.plan_id}`);
+    assert.equal(aliasContext.isExplicit, true);
+    assert.equal(aliasContext.requiresIssue, false);
+    assert.deepEqual(templateResolvePrSourceContext(aliasPull), aliasContext);
+  }
+
   const unboundPulls = [
     {
       ...pull,
@@ -761,6 +797,18 @@ test('bound generated sync provenance overrides incidental issue text', () => {
       ...pull,
       labels: [{ name: 'sync' }, { name: 'workflow:source-sync' }],
     },
+    ...[
+      'workflow-source-sync',
+      'workflow source sync',
+      'workflow/source/maintenance',
+    ].map((lookalikeLabel) => ({
+      ...pull,
+      labels: [
+        { name: 'sync' },
+        { name: 'automated' },
+        { name: lookalikeLabel },
+      ],
+    })),
     {
       ...pull,
       head: { ...pull.head, ref: 'sync/workflows-candidate' },

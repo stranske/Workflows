@@ -412,13 +412,16 @@ function hasBoundGeneratedSyncContext(pull = {}, syncSource = parseConsumerSyncS
   }
 
   const labels = labelNames(pull).map((label) => label.toLowerCase());
+  const hasControlledSyncSourceLabel = labels.some(
+    (label) => SOURCE_LABELS[label] === SOURCE_TYPES.SYNC_CAMPAIGN,
+  );
   const branch = cleanString(pull?.head?.ref);
   const headRepo = cleanString(pull?.head?.repo?.full_name);
   const baseRepo = cleanString(pull?.base?.repo?.full_name);
   return (
     labels.includes('sync') &&
     labels.includes('automated') &&
-    labels.includes('workflow:source-sync') &&
+    hasControlledSyncSourceLabel &&
     branch === syncSource.sync_branch &&
     headRepo === syncSource.consumer_repo &&
     baseRepo === syncSource.consumer_repo
@@ -479,7 +482,7 @@ function hasNoAutomationWorkflowContext(pull = {}) {
 
 function sourceTypeFromLabels(pull = {}) {
   for (const label of labelNames(pull)) {
-    const sourceType = SOURCE_LABELS[label.toLowerCase()] || SOURCE_LABELS[normalizeToken(label)];
+    const sourceType = SOURCE_LABELS[label.toLowerCase()];
     if (sourceType) {
       return sourceType;
     }
