@@ -1383,13 +1383,6 @@ async function run({ github, context, core }) {
       withRetry,
     });
     const reviewStartedAt = request.requestedAt;
-    const body = replaceDeliveryRecord(request.body || '', {
-      delivery_state: 'reviewing',
-      review_started_at: reviewStartedAt,
-      sealed_at: '',
-      sealed_head_sha: '',
-      review_evidence: {},
-    });
     await withRetry((client) => client.rest.issues.addLabels({
       owner,
       repo,
@@ -1409,13 +1402,34 @@ async function run({ github, context, core }) {
     } catch (labelError) {
       if (labelError?.status !== 404) throw labelError;
     }
+    const { data: latest } = await withRetry((client) => client.rest.pulls.get({
+      owner, repo, pull_number: pr.number,
+    }));
+    const latestRecord = parseDeliveryRecord(latest?.body || '');
+    if (
+      latest?.state !== 'open' || latest?.draft || latest?.auto_merge
+      || latest?.head?.sha !== pr.head.sha
+      || latestRecord?.plan_id !== record.plan_id
+      || latestRecord?.generation !== record.generation
+      || latestRecord?.head_observed_sha !== pr.head.sha
+      || latestRecord?.delivery_state !== 'staging'
+    ) {
+      throw new Error('Generated delivery changed after exact-head review request');
+    }
+    const latestBody = replaceDeliveryRecord(latest.body || '', {
+      delivery_state: 'reviewing',
+      review_started_at: reviewStartedAt,
+      sealed_at: '',
+      sealed_head_sha: '',
+      review_evidence: {},
+    });
     await withRetry((client) => client.rest.pulls.update({
       owner,
       repo,
       pull_number: pr.number,
-      body,
+      body: latestBody,
     }));
-    return { reviewStartedAt, body, dryRun: false };
+    return { reviewStartedAt, body: latestBody, dryRun: false };
   }
 
   async function restageStableDelivery({ owner, repo, pr, dryRunMode }) {

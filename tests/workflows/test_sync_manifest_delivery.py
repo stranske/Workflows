@@ -646,7 +646,7 @@ def test_maint71_holds_ready_delivery_before_staging_mutations() -> None:
     restage = source.index("async function restageStableDelivery", begin)
     assert helper < disable < ready < verification < begin < restage
     assert "await holdReadyStableDelivery({ owner, repo, pr });" in source[begin:restage]
-    assert "const body = replaceDeliveryRecord(request.body || '', {" in source[begin:restage]
+    assert "const latestBody = replaceDeliveryRecord(latest.body || '', {" in source[begin:restage]
     assert "const current = await holdReadyStableDelivery({ owner, repo, pr });" in source[restage:]
 
 

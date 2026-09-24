@@ -3526,9 +3526,16 @@ test('maint71 starts review by clearing stale ready labels while retaining the s
     const refreshedStagingBody = replaceDeliveryRecord(candidate.body, {
       lease_expires_at: refreshedLease,
     });
+    const latestLease = '2099-10-01T00:00:00Z';
+    const latestStagingBody = replaceDeliveryRecord(refreshedStagingBody, {
+      lease_expires_at: latestLease,
+    });
     let initialRefreshCalls = 0;
-    github.rest.pulls.get = async () => ({ data: ++initialRefreshCalls >= 3
-      ? { ...candidate, body: refreshedStagingBody } : candidate });
+    github.rest.pulls.get = async () => ({ data: ++initialRefreshCalls >= 4
+      ? { ...candidate, body: latestStagingBody }
+      : initialRefreshCalls === 3
+        ? { ...candidate, body: refreshedStagingBody }
+        : candidate });
     await run({
       github, core,
       context: { repo: { owner: 'stranske', repo: 'Workflows' }, payload: {},
@@ -3544,7 +3551,8 @@ test('maint71 starts review by clearing stale ready labels while retaining the s
     assert.equal(reviewRequests.length, 1);
     assert.match(reviewRequests[0].body, /@codex review/);
     assert.match(mutations[0].body, /"delivery_state":"reviewing"/);
-    assert.match(mutations[0].body, new RegExp(refreshedLease));
+    assert.ok(initialRefreshCalls >= 4, 'review start must re-read after posting');
+    assert.match(mutations[0].body, new RegExp(latestLease));
     assert.doesNotMatch(mutations[0].body, /"sealed_head_sha":"[^"\s]+"/);
     // A missing label is already clean and must not prevent review start.
     github.rest.issues.removeLabel = async () => { throw Object.assign(new Error('Not Found'), { status: 404 }); };
