@@ -945,12 +945,24 @@ jobs:
               const { data: liveIssue } = await withRetry((client) =>
                 client.rest.issues.get({ owner, repo, issue_number })
               );
+              const nonRoutingAgentLabels = new Set([
+                'agent:rate-limited',
+                'agent:needs-attention',
+                'agent:retry',
+              ]);
               const releasableLabels = (liveIssue.labels || [])
                 .map((label) => typeof label === 'string' ? label : label.name)
                 .filter((label) =>
                   label === 'status:in-progress' ||
-                  (/^agent:[^:]+$/.test(label) && label !== 'agent:auto')
+                  (
+                    /^agent:[^:]+$/.test(label) &&
+                    label !== 'agent:auto' &&
+                    !nonRoutingAgentLabels.has(label)
+                  )
                 );
+              await withRetry((client) => client.rest.issues.addLabels({
+                owner, repo, issue_number, labels: ['agent:retry'],
+              }));
               for (const name of releasableLabels) {
                 try {
                   await withRetry((client) => client.rest.issues.removeLabel({
@@ -971,11 +983,14 @@ jobs:
                   'The issue claim was released. Any existing `codex/issue-<n>` branch is preserved for safe reuse rather than deleted without proof that it has no unique work.',
                   '',
                   'Auto-pilot counts: dispatched=0 formatted=0 paused=1 handed-to-human=0.',
+                  '',
+                  'A bounded automation wakeup will clear `agents:auto-pilot-pause` and re-dispatch the format step after a 30-minute backoff unless the issue state changes first.',
                 ].join('\n'),
               }));
             })().catch((error) => { console.error(error); process.exit(1); });
           REFINEMENT_NODE
             echo "stop_autopilot=true" >> "$GITHUB_OUTPUT"
+            echo "format_pause_wakeup=true" >> "$GITHUB_OUTPUT"
             exit 0
           fi
 

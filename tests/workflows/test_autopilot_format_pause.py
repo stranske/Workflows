@@ -35,8 +35,10 @@ def test_exhausted_format_retry_pauses_without_inventing_human_authority() -> No
         assert "labels: ['needs-human'" not in refinement
         assert "Ownership remains with automation" in refinement
         assert "status:in-progress" in refinement
-        assert "/^agent:[^:]+$/" in refinement
+        assert "nonRoutingAgentLabels" in refinement
+        assert "'agent:retry'" in refinement
         assert "label !== 'agent:auto'" in refinement
+        assert "format_pause_wakeup=true" in refinement
         assert "stop_autopilot=true" in refinement
 
 
@@ -69,3 +71,12 @@ def test_root_and_consumer_format_recovery_blocks_stay_aligned() -> None:
         _format_block(workflow.read_text(encoding="utf-8")) for workflow in WORKFLOWS
     )
     assert root_block == consumer_block
+
+
+def test_exhausted_format_pause_schedules_bounded_automation_wakeup_job() -> None:
+    root_workflow = WORKFLOWS[0].read_text(encoding="utf-8")
+    assert "format-pause-wakeup:" in root_workflow
+    assert "sleep 1800" in root_workflow
+    assert "format_pause_wakeup == 'true'" in root_workflow
+    assert "workflow_id: 'agents-auto-pilot.yml'" in root_workflow
+    assert "force_step: 'format'" in root_workflow
