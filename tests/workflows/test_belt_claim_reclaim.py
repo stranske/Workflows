@@ -50,7 +50,7 @@ const github = {{
 }};
 (async () => {{
   const result = await helper.sweepClaims({{
-    github,
+    withRetry: async (callback) => callback(github),
     owner: 'stranske',
     repo: 'Workflows',
     now: payload.now,
@@ -146,6 +146,8 @@ def test_claim_and_reclaim_workflows_consume_the_shared_timeout() -> None:
     assert "belt_claim_reclaim.js" in transition_script
     assert "CLAIM_STALE_MS" in transition_script
     assert "belt_claim_reclaim.js" in sweep
+    assert "createTokenAwareRetry" in sweep
+    assert "withRetry: retry.withRetry" in sweep
     assert "sweepClaims" in sweep
     assert "belt-claim-reclaim" in workflow["jobs"]
 

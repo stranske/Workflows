@@ -89,27 +89,34 @@ function buildSweepSummary({ latchedCount = 0, reclaimableCount = 0 } = {}) {
   return `${counts}\nHealth 40 will reclaim only stale claims without a linked open or merged PR.`;
 }
 
-async function readTimeline(github, owner, repo, issueNumber) {
-  return github.paginate(github.rest.issues.listEventsForTimeline, {
-    owner,
-    repo,
-    issue_number: issueNumber,
-    per_page: 100,
-  });
+async function readTimeline(withRetry, owner, repo, issueNumber) {
+  return withRetry((client) =>
+    client.paginate(client.rest.issues.listEventsForTimeline, {
+      owner,
+      repo,
+      issue_number: issueNumber,
+      per_page: 100,
+    })
+  );
 }
 
-async function sweepClaims({ github, owner, repo, now = Date.now() }) {
-  const candidates = await github.paginate(github.rest.issues.listForRepo, {
-    owner,
-    repo,
-    state: 'open',
-    labels: 'status:in-progress',
-    per_page: 100,
-  });
+async function sweepClaims({ withRetry, owner, repo, now = Date.now() }) {
+  if (typeof withRetry !== 'function') {
+    throw new TypeError('withRetry from createTokenAwareRetry is required');
+  }
+  const candidates = await withRetry((client) =>
+    client.paginate(client.rest.issues.listForRepo, {
+      owner,
+      repo,
+      state: 'open',
+      labels: 'status:in-progress',
+      per_page: 100,
+    })
+  );
   const latched = candidates.filter((issue) => !issue.pull_request);
   const decisions = [];
   for (const issue of latched) {
-    const timeline = await readTimeline(github, owner, repo, issue.number);
+    const timeline = await readTimeline(withRetry, owner, repo, issue.number);
     const claimTimestamp = latestClaimTimestamp(timeline);
     const linkedPullRequests = blockingPullRequestsFromTimeline(timeline);
     const decision = evaluateClaim({ claimTimestamp, linkedPullRequests, now });
@@ -121,11 +128,9 @@ async function sweepClaims({ github, owner, repo, now = Date.now() }) {
   const claimWindowHours = CLAIM_STALE_MS / (60 * 60 * 1000);
   for (const entry of reclaimable) {
     const issueNumber = entry.issue.number;
-    const { data: currentIssue } = await github.rest.issues.get({
-      owner,
-      repo,
-      issue_number: issueNumber,
-    });
+    const { data: currentIssue } = await withRetry((client) =>
+      client.rest.issues.get({ owner, repo, issue_number: issueNumber })
+    );
     const labels = (currentIssue.labels || []).map((label) =>
       typeof label === 'string' ? label : label.name
     );
@@ -133,7 +138,7 @@ async function sweepClaims({ github, owner, repo, now = Date.now() }) {
       continue;
     }
 
-    let currentTimeline = await readTimeline(github, owner, repo, issueNumber);
+    let currentTimeline = await readTimeline(withRetry, owner, repo, issueNumber);
     let currentClaimTimestamp = latestClaimTimestamp(currentTimeline);
     let currentDecision = evaluateClaim({
       claimTimestamp: currentClaimTimestamp,
@@ -145,25 +150,29 @@ async function sweepClaims({ github, owner, repo, now = Date.now() }) {
     }
 
     const marker = `<!-- belt-claim-reclaim:${currentClaimTimestamp} -->`;
-    const comments = await github.paginate(github.rest.issues.listComments, {
-      owner,
-      repo,
-      issue_number: issueNumber,
-      per_page: 100,
-    });
-    if (!comments.some((comment) => String(comment.body || '').includes(marker))) {
-      await github.rest.issues.createComment({
+    const comments = await withRetry((client) =>
+      client.paginate(client.rest.issues.listComments, {
         owner,
         repo,
         issue_number: issueNumber,
-        body:
-          `${marker}\nHealth 40 intends to reclaim the stale \`status:in-progress\` claim ` +
-          `from ${currentClaimTimestamp}: no linked open or merged PR was found after ` +
-          `${claimWindowHours} hours.`,
-      });
+        per_page: 100,
+      })
+    );
+    if (!comments.some((comment) => String(comment.body || '').includes(marker))) {
+      await withRetry((client) =>
+        client.rest.issues.createComment({
+          owner,
+          repo,
+          issue_number: issueNumber,
+          body:
+            `${marker}\nHealth 40 intends to reclaim the stale \`status:in-progress\` claim ` +
+            `from ${currentClaimTimestamp}: no linked open or merged PR was found after ` +
+            `${claimWindowHours} hours.`,
+        })
+      );
     }
 
-    currentTimeline = await readTimeline(github, owner, repo, issueNumber);
+    currentTimeline = await readTimeline(withRetry, owner, repo, issueNumber);
     currentClaimTimestamp = latestClaimTimestamp(currentTimeline);
     currentDecision = evaluateClaim({
       claimTimestamp: currentClaimTimestamp,
@@ -174,12 +183,14 @@ async function sweepClaims({ github, owner, repo, now = Date.now() }) {
       continue;
     }
 
-    await github.rest.issues.removeLabel({
-      owner,
-      repo,
-      issue_number: issueNumber,
-      name: 'status:in-progress',
-    });
+    await withRetry((client) =>
+      client.rest.issues.removeLabel({
+        owner,
+        repo,
+        issue_number: issueNumber,
+        name: 'status:in-progress',
+      })
+    );
     reclaimedCount += 1;
   }
 
