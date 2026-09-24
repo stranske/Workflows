@@ -878,6 +878,7 @@ class PrCommentRunnerStorage:
             f"comments({window}){{nodes{{databaseId fullDatabaseId body author{{login}} authorAssociation}}"
             "pageInfo{hasPreviousPage startCursor hasNextPage endCursor}}}}}"
         )
+        legacy_query = query.replace("fullDatabaseId ", "")
         cursor: str | None = None
         seen: set[str] = set()
         boundary_id: int | None = None
@@ -890,6 +891,24 @@ class PrCommentRunnerStorage:
                     "variables": {"owner": owner, "repo": repo, "pr": pr_number, "cursor": cursor},
                 },
             )
+            if isinstance(response, dict) and response.get("errors") and query != legacy_query:
+                errors = response["errors"]
+                unsupported_full_id = (
+                    isinstance(errors, list)
+                    and bool(errors)
+                    and all(
+                        isinstance(error, dict)
+                        and "fullDatabaseId" in str(error.get("message") or "")
+                        and any(
+                            phrase in str(error.get("message") or "").lower()
+                            for phrase in ("doesn't exist", "cannot query field", "unknown field")
+                        )
+                        for error in errors
+                    )
+                )
+                if unsupported_full_id:
+                    query = legacy_query
+                    continue
             if not isinstance(response, dict) or response.get("errors"):
                 raise RuntimeError(f"Cannot read runner comments for PR {pr_number}: GraphQL error")
             try:
