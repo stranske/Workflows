@@ -70,7 +70,14 @@ jobs:
           labels: "automation,model-selection"
           delete-branch: true
           body: |
-            Automated corpus growth (stranske/Workflows#2819 move 2).
+            <!-- workflow-source:automation_run -->
+            <!-- workflow-source-ref:maint-79-verifier-corpus-harvest -->
+            <!-- workflow-lifecycle:recurring_data_job -->
+            <!-- workflow-automation:corpus_harvest -->
+            Automated corpus growth from the weekly verifier harvest.
+
+            [Design background](https://github.com/stranske/Workflows/issues/2819).
+            Workflow run: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
 
             This PR may contain staging-only changes; staging is FYI-only and does
             not affect approval metrics. Only changes to config/model_eval_pilot.json

@@ -11,6 +11,7 @@ const {
   hasNonPlaceholderScopeTasksAcceptanceContent,
 } = require('./issue_scope_parser.js');
 const { queryVerifierCiResults } = require('./verifier_ci_query.js');
+const { resolvePrSourceContext } = require('./source_context.js');
 
 const DEFAULT_BRANCH = process.env.DEFAULT_BRANCH || 'main';
 const DEFAULT_DIFF_SUMMARY_PATH = 'verifier-diff-summary.md';
@@ -387,6 +388,26 @@ async function buildVerifierContext({ github, context, core, ciWorkflows }) {
 
   if (isForkPullRequest(pull)) {
     const skipReason = 'Pull request is from a fork; skipping verifier.';
+    core?.notice?.(skipReason);
+    core?.setOutput?.('should_run', 'false');
+    core?.setOutput?.('skip_reason', skipReason);
+    core?.setOutput?.('pr_number', String(pull.number || ''));
+    core?.setOutput?.('issue_numbers', '[]');
+    core?.setOutput?.('pr_html_url', pull.html_url || '');
+    core?.setOutput?.('target_sha', pull.merge_commit_sha || pull.head?.sha || context.sha || '');
+    core?.setOutput?.('context_path', '');
+    core?.setOutput?.('acceptance_count', '0');
+    core?.setOutput?.('ci_results', '[]');
+    core?.setOutput?.('ci_failed', 'false');
+    core?.setOutput?.('diff_summary_path', '');
+    core?.setOutput?.('diff_path', '');
+    core?.setOutput?.('chain_depth', '0');
+    return { shouldRun: false, reason: skipReason, ciResults: [], ciFailed: false };
+  }
+
+  const sourceContext = resolvePrSourceContext(pull);
+  if (sourceContext.isRecurringDataJob) {
+    const skipReason = 'Recurring verifier corpus data-job PR; issue acceptance verification does not apply.';
     core?.notice?.(skipReason);
     core?.setOutput?.('should_run', 'false');
     core?.setOutput?.('skip_reason', skipReason);

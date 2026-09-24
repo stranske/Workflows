@@ -862,3 +862,53 @@ test('resolvePrSourceContext leaves unrelated PRs unknown', () => {
   assert.equal(context.sourceType, SOURCE_TYPES.UNKNOWN);
   assert.equal(context.isValid, false);
 });
+
+test('resolvePrSourceContext suppresses stale issue metadata on the bound corpus harvest job', () => {
+  const pull = {
+    body: [
+      '<!-- meta:issue:2819 -->',
+      'Closes #2819',
+      '<!-- workflow-source:automation_run -->',
+      '<!-- workflow-source-ref:maint-79-verifier-corpus-harvest -->',
+    ].join('\n'),
+    head: {
+      ref: 'verifier-corpus-harvest/auto',
+      repo: { full_name: 'stranske/Workflows' },
+    },
+    base: { repo: { full_name: 'stranske/Workflows' } },
+    labels: [{ name: 'automation' }, { name: 'model-selection' }],
+  };
+
+  const context = resolvePrSourceContext(pull);
+  assert.equal(context.sourceType, SOURCE_TYPES.AUTOMATION_RUN);
+  assert.equal(context.issueNumber, null);
+  assert.equal(context.sourceRef, 'workflow:maint-79-verifier-corpus-harvest');
+  assert.equal(context.lifecycle, 'recurring_data_job');
+  assert.equal(context.automation, 'corpus_harvest');
+  assert.equal(context.requiresIssue, false);
+  assert.equal(context.isRecurringDataJob, true);
+  assert.deepEqual(templateResolvePrSourceContext(pull), context);
+});
+
+test('corpus harvest suppression requires the exact controlled repository branch and labels', () => {
+  const basePull = {
+    body: '<!-- meta:issue:2819 -->\nCloses #2819',
+    head: {
+      ref: 'verifier-corpus-harvest/auto',
+      repo: { full_name: 'stranske/Workflows' },
+    },
+    base: { repo: { full_name: 'stranske/Workflows' } },
+    labels: [{ name: 'automation' }, { name: 'model-selection' }],
+  };
+  const unboundPulls = [
+    { ...basePull, labels: [{ name: 'automation' }] },
+    { ...basePull, head: { ...basePull.head, ref: 'verifier-corpus-harvest/manual' } },
+    { ...basePull, head: { ...basePull.head, repo: { full_name: 'stranske/Other' } } },
+  ];
+  for (const pull of unboundPulls) {
+    const context = resolvePrSourceContext(pull);
+    assert.equal(context.sourceType, SOURCE_TYPES.GITHUB_ISSUE);
+    assert.equal(context.issueNumber, 2819);
+    assert.equal(context.isRecurringDataJob, false);
+  }
+});

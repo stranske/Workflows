@@ -376,6 +376,51 @@ This PR adds a new feature.
   assert.equal(core.outputs.acceptance_count, '0');
 });
 
+test('buildVerifierContext skips bound recurring corpus data-job PRs despite stale closing issues', async () => {
+  const core = buildCore();
+  const prDetails = {
+    merged: true,
+    number: 3402,
+    title: 'corpus: harvest realized-outcome verifier cases',
+    body: '<!-- meta:issue:2819 -->\nCloses #2819\n## Tasks\n- [x] Design epic task\n## Acceptance Criteria\n- [x] Design epic criterion',
+    html_url: 'https://example.com/pr/3402',
+    merge_commit_sha: 'merge-sha-3402',
+    base: {
+      ref: 'main',
+      repo: { full_name: 'stranske/Workflows', owner: { login: 'stranske' } },
+    },
+    head: {
+      ref: 'verifier-corpus-harvest/auto',
+      sha: 'head-sha-3402',
+      repo: { full_name: 'stranske/Workflows', owner: { login: 'stranske' }, fork: false },
+    },
+    labels: [{ name: 'automation' }, { name: 'model-selection' }],
+  };
+  const context = {
+    eventName: 'pull_request',
+    repo: { owner: 'stranske', repo: 'Workflows' },
+    payload: {
+      repository: { default_branch: 'main' },
+      pull_request: { merged: true, number: 3402 },
+    },
+    sha: 'merge-sha-3402',
+  };
+
+  const result = await buildVerifierContext({
+    github: buildGithubStub({
+      prDetails,
+      closingIssues: [{ number: 2819, title: 'Design epic', body: issueBodyClosed }],
+    }),
+    context,
+    core,
+  });
+
+  assert.equal(result.shouldRun, false);
+  assert.equal(core.outputs.should_run, 'false');
+  assert.equal(core.outputs.issue_numbers, '[]');
+  assert.match(core.outputs.skip_reason, /recurring verifier corpus data-job/i);
+});
+
 test('buildVerifierContext runs when acceptance criteria exists in linked issue', async () => {
   const core = buildCore();
   // PR body with no acceptance criteria
