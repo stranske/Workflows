@@ -12,13 +12,44 @@ sys.path.insert(0, str(Path(__file__).parent.parent))
 
 from tools.integration_repo import DEFAULT_WORKFLOW_REF, render_integration_repo  # noqa: E402
 
-DEFAULT_DESTINATION = Path(".consumer-tests") / "integration-repo"
+DEFAULT_DISPOSABLE_ROOT = Path(".consumer-tests")
+DEFAULT_DESTINATION = DEFAULT_DISPOSABLE_ROOT / "integration-repo"
 
 
-def ensure_destination(destination: Path, *, force: bool) -> None:
+class UnsafeDestinationError(ValueError):
+    """Raised when --force targets a path outside the disposable test root."""
+
+
+def _unsafe_destination_message(destination: Path, disposable_root: Path) -> str:
+    return (
+        f"Refusing --force for destination {destination}: expected a non-symlink "
+        f"strict descendant of {disposable_root}."
+    )
+
+
+def ensure_destination(
+    destination: Path,
+    *,
+    force: bool,
+    disposable_root: Path = DEFAULT_DISPOSABLE_ROOT,
+) -> None:
+    resolved_destination: Path | None = None
+    if force:
+        if destination.is_symlink():
+            raise UnsafeDestinationError(_unsafe_destination_message(destination, disposable_root))
+        try:
+            resolved_root = disposable_root.resolve()
+            resolved_destination = destination.resolve()
+        except (OSError, RuntimeError) as exc:
+            raise UnsafeDestinationError(
+                _unsafe_destination_message(destination, disposable_root)
+            ) from exc
+        if resolved_root not in resolved_destination.parents:
+            raise UnsafeDestinationError(_unsafe_destination_message(destination, disposable_root))
     if destination.exists():
         if force:
-            shutil.rmtree(destination)
+            assert resolved_destination is not None
+            shutil.rmtree(resolved_destination)
         elif any(destination.iterdir()):
             raise FileExistsError(
                 f"Destination {destination} is not empty. Use --force to overwrite."
@@ -53,7 +84,10 @@ def parse_args(argv: Sequence[str] | None = None) -> argparse.Namespace:
         "--destination",
         type=Path,
         default=DEFAULT_DESTINATION,
-        help="Directory for the rendered integration repo or existing repo path.",
+        help=(
+            "Directory for the rendered integration repo or existing repo path; "
+            "forced replacement is limited to .consumer-tests/."
+        ),
     )
     parser.add_argument(
         "--workflow-ref",
@@ -63,7 +97,10 @@ def parse_args(argv: Sequence[str] | None = None) -> argparse.Namespace:
     parser.add_argument(
         "--force",
         action="store_true",
-        help="Remove existing destination contents before rendering.",
+        help=(
+            "Delete the destination directory tree before rendering, only when it "
+            "is a non-symlink child of .consumer-tests/."
+        ),
     )
     parser.add_argument(
         "--skip-render",
@@ -91,7 +128,7 @@ def main(argv: Sequence[str] | None = None) -> int:
         else:
             ensure_destination(destination, force=args.force)
             render_integration_repo(destination, workflow_ref=args.workflow_ref)
-    except (FileExistsError, FileNotFoundError) as exc:
+    except (FileExistsError, FileNotFoundError, UnsafeDestinationError) as exc:
         print(str(exc), file=sys.stderr)
         return 1
 
