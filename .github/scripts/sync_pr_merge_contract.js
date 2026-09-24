@@ -1306,8 +1306,8 @@ function deliveryRefreshDecision({ report = {}, expectedCanaries = [] } = {}) {
 
 function devToolBaseRefreshDecision({ report = {} } = {}) {
   const errors = [];
-  if (normalizeSyncHash(report?.inputs?.sync_hash) !== DEV_TOOL_SYNC_SELECTOR) {
-    errors.push('merge report is not a dev-tool-selector report');
+  if (![DEV_TOOL_SYNC_SELECTOR, ''].includes(normalizeSyncHash(report?.inputs?.sync_hash))) {
+    errors.push('merge report is not a dev-tool or unscoped report');
   }
   if (report?.inputs?.auto_merge !== true || report?.inputs?.dry_run !== false) {
     errors.push('merge report is not an active merge attempt');

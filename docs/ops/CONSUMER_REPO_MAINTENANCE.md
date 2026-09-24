@@ -840,8 +840,12 @@ workflow-template sync PR cannot update the env file without the matching
 changes.
 
 If a leased dev-tool PR falls behind its consumer default branch, Maint 71
-reports `dev_tool_base_refresh_required` and dispatches one scoped Maint 52
-producer run (unless another Maint 52 run is active). It must not call GitHub's
+reports `dev_tool_base_refresh_required` in either a dev-tool or unscoped pass
+and dispatches one scoped Maint 52 producer run. If another Maint 52 run is
+active, Maint 71 records the exact-head handoff in Maint 82's durable campaign
+queue; its ten-minute scheduled continuation retries the dispatch after the
+producer finishes. Failure to submit that handoff makes this reconciliation
+fail visibly instead of silently losing the request. It must not call GitHub's
 branch-update endpoint on that generated PR: a merge commit changes the whole
 tree without reminting the recorded `desired_tree_hash`. Maint 52 regenerates
 the delivery against the current base and records a fresh lease; then Maint 71

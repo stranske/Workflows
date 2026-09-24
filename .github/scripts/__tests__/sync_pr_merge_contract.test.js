@@ -5,6 +5,10 @@ const assert = require('node:assert/strict');
 const fs = require('node:fs');
 const os = require('node:os');
 const path = require('node:path');
+const {
+  planMaint71Continuations,
+  selectMaint71ContinuationRepos,
+} = require('../sync_dependency_campaign');
 
 const {
   buildMarkdownSummary,
@@ -637,6 +641,9 @@ test('dev-tool base drift hands off only leased producer refreshes', () => {
     repositories: ['stranske/Ready', 'stranske/learning-management-system'],
   });
   assert.equal(devToolBaseRefreshDecision({
+    report: { ...report, inputs: { ...report.inputs, sync_hash: '' } },
+  }).eligible, true, 'unscoped reconciliation can encounter leased dev-tool PRs');
+  assert.equal(devToolBaseRefreshDecision({
     report: { ...report, inputs: { ...report.inputs, dry_run: true } },
   }).eligible, false);
   assert.equal(devToolBaseRefreshDecision({
@@ -649,6 +656,37 @@ test('dev-tool base drift hands off only leased producer refreshes', () => {
     class: 'transient', lane: 'dev-tool', reason: 'dev_tool_base_refresh_required',
     resume_after: '2026-09-24T21:10:00.000Z',
   });
+});
+
+test('busy Maint 52 retains a due exact-head dev-tool handoff for Maint 82', () => {
+  const generatedAt = '2026-09-24T21:00:00Z';
+  const report = buildMergeReport({
+    syncHash: '', generatedAt,
+    results: [{
+      owner: 'stranske', repo: 'Ready', pr: 591,
+      branch: 'deps/sync-dev-versions-1234',
+      head_sha: 'a'.repeat(40), delivery_generation: 'generation-1',
+      status: 'dev_tool_base_refresh_required',
+      delivery_disposition: 'awaiting-base-refresh',
+      blocker_owner: 'maint-52', next_command: 'dispatch-maint-52-scoped',
+      delivery_lane: 'dev-tool-sync',
+    }],
+  });
+  assert.equal(report.handoff_records.length, 1);
+  assert.equal(report.handoff_records[0].continuation.reason,
+    'dev_tool_base_refresh_required');
+  assert.deepEqual(planMaint71Continuations(report.handoff_records, {
+    now: '2026-09-24T21:09:59Z',
+  }), []);
+  const due = planMaint71Continuations(report.handoff_records, {
+    now: '2026-09-24T21:10:00Z',
+  });
+  assert.equal(due.length, 1);
+  assert.equal(due[0].lane, 'dev-tool');
+  assert.equal(due[0].head_sha, 'a'.repeat(40));
+  assert.ok(due[0].continuation_key);
+  assert.deepEqual(selectMaint71ContinuationRepos(due[0], report.handoff_records,
+    ['stranske/Ready', 'stranske/Collab-Admin']), ['stranske/Ready']);
 });
 
 test('review resolution proof is exact-head, source-linked, and actor-bound', () => {

@@ -3390,6 +3390,12 @@ async function run({ github, context, core }) {
         },
       }));
     } catch (dispatchError) {
+      if (report.results.some((result) =>
+        result.status === 'dev_tool_base_refresh_required')) {
+        throw new Error(
+          `Maint 82 durable dev-tool base-refresh handoff failed: ${dispatchError.message}`,
+        );
+      }
       core.notice(
         `Maint 71 handoff dispatch failed (non-blocking): ${dispatchError.message}`,
       );

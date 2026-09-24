@@ -446,7 +446,8 @@ jobs:
           ${{
             always() &&
             steps.merge.outcome == 'success' &&
-            steps.candidate_mode.outputs.selector == 'dev-tool'
+            (steps.candidate_mode.outputs.selector == 'dev-tool' ||
+             steps.candidate_mode.outputs.selector == '')
           }}
         uses: actions/github-script@3a2844b7e9c422d3c10d287c895573f7108da1b3 # v9
         with:
@@ -486,7 +487,10 @@ jobs:
                 }),
               );
               if ((runs.workflow_runs || []).length > 0) {
-                core.notice(`Maint 52 already ${status}; scoped refresh remains queued`);
+                core.notice(
+                  `Maint 52 already ${status}; Maint 82 will retry this exact-head ` +
+                  `handoff from its durable campaign queue after the producer finishes`,
+                );
                 return;
               }
             }
