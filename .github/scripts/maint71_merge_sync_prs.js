@@ -542,6 +542,17 @@ async function collectReviewerEvidence({
   };
 }
 
+function devToolBaseRefreshResult(deliveryContext) {
+  if (deliveryContext?.delivery_lane !== 'dev-tool-sync') return null;
+  return {
+    ...deliveryContext,
+    delivery_disposition: 'awaiting-base-refresh',
+    blocker_owner: 'maint-52',
+    next_command: 'dispatch-maint-52-scoped',
+    status: 'dev_tool_base_refresh_required',
+  };
+}
+
 async function run({ github, context, core }) {
   const defaultOwner = context.repo.owner;
   const fs = require('fs');
@@ -2899,8 +2910,9 @@ async function run({ github, context, core }) {
       const willMerge = mergeIntended && !prepareOnly;
       // Strict required-status-check rules evaluate the merge result. If the
       // head is behind main, every merge strategy creates a new result without
-      // the head's Gate context. Update the generated branch and wait for its
-      // fresh Gate and mandatory review window instead of attempting a merge.
+      // the head's Gate context. A leased generated delivery must be refreshed
+      // by its producer: updateBranch would change the tree without reminting
+      // the immutable desired-tree lease. Ordinary branches may still update.
       if (requiresStrictGateBranchUpdate({
         pr,
         requiredContexts,
@@ -2953,6 +2965,11 @@ async function run({ github, context, core }) {
               promotion_evidence: promotionEvidence,
               status: 'stable_base_refresh_required',
             });
+            continue;
+          }
+          const devToolRefresh = devToolBaseRefreshResult(deliveryContext);
+          if (devToolRefresh) {
+            results.push(devToolRefresh);
             continue;
           }
           await withRetry((client) => client.rest.pulls.updateBranch({
@@ -3373,6 +3390,12 @@ async function run({ github, context, core }) {
         },
       }));
     } catch (dispatchError) {
+      if (report.results.some((result) =>
+        result.status === 'dev_tool_base_refresh_required')) {
+        throw new Error(
+          `Maint 82 durable dev-tool base-refresh handoff failed: ${dispatchError.message}`,
+        );
+      }
       core.notice(
         `Maint 71 handoff dispatch failed (non-blocking): ${dispatchError.message}`,
       );
@@ -3430,6 +3453,7 @@ async function run({ github, context, core }) {
 }
 
 module.exports = {
+  devToolBaseRefreshResult,
   campaignNoChangeRequiresLiveGate,
   collectReviewerEvidence,
   enforceGeneratedDeliveryRequiredContexts,

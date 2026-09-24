@@ -1079,6 +1079,7 @@ function summarizeResults(results) {
     delivery_promotion_evidence_missing: 0,
     sealed_head_mismatch: 0,
     stable_base_refresh_required: 0,
+    dev_tool_base_refresh_required: 0,
     head_changed: 0,
     head_commit_unverified: 0,
     review_blocked: 0,
@@ -1118,6 +1119,7 @@ function deriveHandoffCheckState(result = {}) {
     || status === 'delivery_sealed_checks_pending'
     || status === 'sealed_head_mismatch'
     || status === 'stable_base_refresh_required'
+    || status === 'dev_tool_base_refresh_required'
     || status === 'head_changed'
   ) {
     return 'checks_pending';
@@ -1196,6 +1198,7 @@ function parseResumeAfter(result = {}, observedAt = new Date().toISOString()) {
     review_window_started: 7,
     reviewer_settlement_pending: 7,
     stable_base_refresh_required: 10,
+    dev_tool_base_refresh_required: 10,
   }[String(result.status || '')] || 10;
   return new Date(observed.getTime() + delayMinutes * 60 * 1000).toISOString();
 }
@@ -1216,6 +1219,7 @@ function classifyDeliveryContinuation(result = {}, observedAt = new Date().toISO
     'review_window_started',
     'reviewer_settlement_pending',
     'stable_base_refresh_required',
+    'dev_tool_base_refresh_required',
   ]);
   if (terminal.has(status)) {
     return { class: 'terminal', lane, reason: status, resume_after: '' };
@@ -1297,6 +1301,40 @@ function deliveryRefreshDecision({ report = {}, expectedCanaries = [] } = {}) {
       .map((result) => `${result.owner || ''}/${result.repo || ''}`.replace(/^\//, ''))
       .filter(Boolean)
       .sort(),
+  };
+}
+
+function devToolBaseRefreshDecision({ report = {} } = {}) {
+  const errors = [];
+  if (![DEV_TOOL_SYNC_SELECTOR, ''].includes(normalizeSyncHash(report?.inputs?.sync_hash))) {
+    errors.push('merge report is not a dev-tool or unscoped report');
+  }
+  if (report?.inputs?.auto_merge !== true || report?.inputs?.dry_run !== false) {
+    errors.push('merge report is not an active merge attempt');
+  }
+  const requests = (Array.isArray(report?.results) ? report.results : []).filter(
+    (result) => String(result.status || '') === 'dev_tool_base_refresh_required',
+  );
+  if (requests.length === 0) errors.push('report has no dev-tool base refresh request');
+  const repositories = new Set();
+  for (const request of requests) {
+    const repository = `${request.owner || ''}/${request.repo || ''}`;
+    if (
+      request.delivery_lane !== 'dev-tool-sync'
+      || !branchNameFromRef(request.branch).startsWith(DEV_TOOL_SYNC_BRANCH_PREFIX)
+      || request.blocker_owner !== 'maint-52'
+      || request.next_command !== 'dispatch-maint-52-scoped'
+      || !/^stranske\/[A-Za-z0-9][A-Za-z0-9_.-]*$/.test(repository)
+    ) {
+      errors.push(`${repository}: invalid dev-tool producer handoff`);
+      continue;
+    }
+    repositories.add(repository);
+  }
+  return {
+    eligible: requests.length > 0 && errors.length === 0,
+    errors,
+    repositories: [...repositories].sort(),
   };
 }
 
@@ -1634,6 +1672,7 @@ module.exports = {
   buildDeliveryHandoff,
   candidateRefreshDecision,
   deliveryRefreshDecision,
+  devToolBaseRefreshDecision,
   candidatePromotionDecision,
   classifyDeliveryContinuation,
   continuationLaneForBranch,
