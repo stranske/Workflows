@@ -152,6 +152,20 @@ def test_claim_and_reclaim_workflows_consume_the_shared_timeout() -> None:
     assert "belt-claim-reclaim" in workflow["jobs"]
 
 
+def test_consumer_keepalive_sweep_reclaims_stale_claims() -> None:
+    consumer_sweep = (
+        ROOT / "templates/consumer-repo/.github/workflows/agents-keepalive-sweep.yml"
+    ).read_text()
+    manifest = (ROOT / ".github/sync-manifest.yml").read_text()
+    consumer_helper = ROOT / "templates/consumer-repo/.github/scripts/belt_claim_reclaim.js"
+
+    assert "reclaim_stale_belt_claims" in consumer_sweep
+    assert "belt_claim_reclaim.js" in consumer_sweep
+    assert "withRetry: retry.withRetry" in consumer_sweep
+    assert "source: .github/scripts/belt_claim_reclaim.js" in manifest
+    assert consumer_helper.read_text() == HELPER.read_text()
+
+
 def test_timeline_only_blocks_open_or_merged_pull_requests() -> None:
     events = [
         {
