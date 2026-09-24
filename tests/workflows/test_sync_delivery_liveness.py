@@ -50,7 +50,28 @@ def test_maint71_has_proof_bound_review_resolution_and_exact_evidence_promotion(
     assert "const withReviewReadRetry" in executor
     assert "const withRetry = (fn, options = {}) => retryHelpers.withRetry" in executor
     assert "sha: pr.head.sha" in executor
-    assert workflow.count("github-token: ${{ secrets.OWNER_PR_PAT }}") == 4
+    assert workflow.count("github-token: ${{ secrets.OWNER_PR_PAT }}") == 5
+
+
+def test_maint71_reviewer_reassessment_is_trusted_request_only_dispatch():
+    workflow = Path(".github/workflows/maint-71-merge-sync-prs.yml").read_text()
+    executor = Path(".github/scripts/maint71_merge_sync_prs.js").read_text()
+    policy = Path("config/consumer_sync_review_policy.json").read_text()
+    guide = Path("docs/ops/CONSUMER_REPO_MAINTENANCE.md").read_text()
+
+    assert "types: [merge-sync-prs, maint71-review-reassessment]" in workflow
+    assert "github.event.action != 'maint71-review-reassessment'" in workflow
+    assert "github.event.client_payload.review_reassessment_json" in workflow
+    assert "github.ref == 'refs/heads/main'" in workflow
+    assert "ref: main" in workflow
+    assert "runReviewReassessment" in workflow
+    assert "maint71-review-reassessment-${{ github.repository }}" in workflow
+    assert "Never rotate a cross-repository read/comment onto GITHUB_TOKEN" in workflow
+    assert "maint71-review-reassessment/v1" in executor
+    assert "client.rest.issues.createComment" in executor
+    assert '"reassessment_comment": "@codex review"' in policy
+    assert '"reassessment_comment": "@coderabbitai full review"' in policy
+    assert "A reviewer request is not itself thread acceptance" in guide
 
 
 def test_sync_lifecycle_chains_and_has_event_plus_timer_fallbacks():

@@ -32,7 +32,7 @@ on:
     # auto_merge=true, dry_run=false, cleanup_branches=true, repos=all.
     - cron: '30 5 * * *'
   repository_dispatch:
-    types: [merge-sync-prs]
+    types: [merge-sync-prs, maint71-review-reassessment]
   workflow_dispatch:
     inputs:
       repos:
@@ -178,6 +178,7 @@ concurrency:
 
 jobs:
   merge_sync_prs:
+    if: ${{ github.event.action != 'maint71-review-reassessment' }}
     runs-on: ubuntu-latest
     permissions:
       actions: write
@@ -907,3 +908,83 @@ jobs:
           path: artifacts/rate-limit-incidents.ndjson
           if-no-files-found: ignore
           retention-days: 14
+
+  review_reassessment:
+    if: ${{ github.event_name == 'repository_dispatch' && github.event.action == 'maint71-review-reassessment' && github.ref == 'refs/heads/main' }}
+    runs-on: ubuntu-latest
+    concurrency:
+      group: maint71-review-reassessment-${{ github.repository }}
+      cancel-in-progress: false
+    permissions:
+      contents: read
+      issues: write
+      pull-requests: read
+    steps:
+      - name: Checkout trusted source
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          ref: main
+          persist-credentials: false
+
+      - name: Setup API client
+        uses: ./.github/actions/setup-api-client
+        with:
+          github_token: ${{ github.token }}
+          owner_pr_pat: ${{ secrets.OWNER_PR_PAT }}
+          service_bot_pat: ${{ secrets.SERVICE_BOT_PAT }}
+
+      - name: Registered consumer repositories
+        id: registered
+        run: |
+          repos=$(python scripts/list_registered_consumer_repos.py --separator ',')
+          echo "repos=${repos}" >> "$GITHUB_OUTPUT"
+
+      - name: Request one exact-head reviewer reassessment
+        uses: actions/github-script@3a2844b7e9c422d3c10d287c895573f7108da1b3 # v9
+        env:
+          REVIEW_REASSESSMENT_JSON: ${{ github.event.client_payload.review_reassessment_json }}
+          REGISTERED_REPOS: ${{ steps.registered.outputs.repos }}
+          OWNER_PR_PAT_PRESENT: ${{ secrets.OWNER_PR_PAT != '' }}
+        with:
+          github-token: ${{ secrets.OWNER_PR_PAT }}
+          script: |
+            const fs = require('fs');
+            const retryHelpers = require(
+              './.github/scripts/github-api-with-retry.js'
+            );
+            const { runReviewReassessment } = require(
+              './.github/scripts/maint71_merge_sync_prs.js'
+            );
+            if (process.env.OWNER_PR_PAT_PRESENT !== 'true') {
+              throw new Error('Maint 71 reviewer reassessment requires OWNER_PR_PAT');
+            }
+            // The github-script client is authenticated with OWNER_PR_PAT.
+            // Never rotate a cross-repository read/comment onto GITHUB_TOKEN.
+            const withRetry = (fn, options = {}) => retryHelpers.withRetry(fn, {
+              github, core, ...options,
+            });
+            const evidence = await runReviewReassessment({
+              context, core, withRetry,
+              rawRequest: process.env.REVIEW_REASSESSMENT_JSON,
+              registeredRepos: process.env.REGISTERED_REPOS.split(',').filter(Boolean),
+              policyPath: 'config/consumer_sync_review_policy.json',
+            });
+            fs.mkdirSync('artifacts', { recursive: true });
+            fs.writeFileSync(
+              'artifacts/review-reassessment.json',
+              `${JSON.stringify(evidence, null, 2)}\n`,
+            );
+            core.summary.addRaw(
+              `Maint 71 reviewer reassessment: ${evidence.status} ` +
+              `${evidence.repository}#${evidence.pr} @ ${evidence.head_sha}; ` +
+              `${evidence.request_url}`,
+            ).write();
+
+      - name: Upload exact-head reassessment evidence
+        if: always()
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7
+        with:
+          name: maint71-review-reassessment
+          path: artifacts/review-reassessment.json
+          if-no-files-found: ignore
+          retention-days: 30

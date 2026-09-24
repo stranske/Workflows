@@ -166,6 +166,183 @@ async function ensureExactHeadReviewRequest({
     body: current.body, draft: Boolean(current.draft), autoMerge: Boolean(current.auto_merge) };
 }
 
+const REASSESSMENT_SCHEMA = 'maint71-review-reassessment/v1';
+const REASSESSMENT_FIELDS = [
+  'schema', 'repository', 'pr', 'head_sha', 'thread_id', 'plan_id',
+  'generation', 'source_commit', 'originating_reviewer',
+];
+
+function parseReviewReassessmentRequest(raw = '') {
+  if (typeof raw !== 'string' || !raw.trim() || raw.length > 4096) {
+    throw new Error('One bounded reviewer reassessment JSON object is required');
+  }
+  let request;
+  try { request = JSON.parse(raw); } catch (_) {
+    throw new Error('Reviewer reassessment input is not valid JSON');
+  }
+  if (!request || typeof request !== 'object' || Array.isArray(request)
+    || Object.keys(request).sort().join(',') !== [...REASSESSMENT_FIELDS].sort().join(',')) {
+    throw new Error('Reviewer reassessment input has missing or extra fields');
+  }
+  if (request.schema !== REASSESSMENT_SCHEMA
+    || !/^stranske\/[A-Za-z0-9][A-Za-z0-9_.-]*$/.test(request.repository)
+    || !Number.isSafeInteger(request.pr) || request.pr <= 0
+    || !/^[0-9a-f]{40}$/.test(request.head_sha)
+    || !/^PRRT_[A-Za-z0-9_-]+$/.test(request.thread_id)
+    || typeof request.plan_id !== 'string' || !request.plan_id.trim()
+    || typeof request.generation !== 'string' || !request.generation.trim()
+    || !/^[0-9a-f]{40}$/.test(request.source_commit)
+    || typeof request.originating_reviewer !== 'string'
+    || !/^[a-z][a-z0-9-]*$/.test(request.originating_reviewer)) {
+    throw new Error('Reviewer reassessment input has invalid identity fields');
+  }
+  return request;
+}
+
+function reviewReassessmentMarker(request) {
+  const canonical = Object.fromEntries(
+    REASSESSMENT_FIELDS.map((field) => [field, request[field]]),
+  );
+  return `<!-- maint71-review-reassessment:v1 ${JSON.stringify(canonical)} -->`;
+}
+
+// A separate workflow job calls this function only for an explicit trusted
+// repository_dispatch. It never enters the ordinary resolution/merge/cleanup run.
+async function runReviewReassessment({
+  context, withRetry, rawRequest, registeredRepos = [], policyPath,
+}) {
+  const fs = require('fs');
+  const { generatedDeliveryLane, isTrustedGeneratedDeliveryPr,
+    reviewerProfileForLogin } = require('./sync_pr_merge_contract.js');
+  const { parseDeliveryRecord } = require('./sync_pr_lease_contract.js');
+  const request = parseReviewReassessmentRequest(rawRequest);
+  if (context.eventName !== 'repository_dispatch'
+    || context.payload?.action !== 'maint71-review-reassessment'
+    || context.ref !== 'refs/heads/main'
+    || !['stranske', 'stranske-automation-bot'].includes(context.actor)
+    || !registeredRepos.includes(request.repository)
+    || ['stranske/Collab-Admin', 'stranske/Collab-Deliverables'].includes(request.repository)) {
+    throw new Error('Reviewer reassessment requires a trusted main-branch dispatch and registered repo');
+  }
+  const policy = JSON.parse(fs.readFileSync(policyPath, 'utf8'));
+  const profiles = normalizeReviewPolicy(policy).reviewers;
+  const profile = profiles.find((item) => item.id === request.originating_reviewer);
+  const command = String(profile?.reassessment_comment || '').trim();
+  if (!profile || !/^@[A-Za-z0-9-]+(?:\s+[A-Za-z0-9-]+)*$/.test(command)) {
+    throw new Error('Originating reviewer has no configured reassessment command');
+  }
+  const [owner, repo] = request.repository.split('/');
+  const trustedWriters = new Set(['stranske', 'stranske-automation-bot']);
+  async function readBoundState() {
+    const { data: pr } = await withRetry((client) => client.rest.pulls.get({
+      owner, repo, pull_number: request.pr,
+    }));
+    const record = parseDeliveryRecord(pr?.body || '');
+    if (pr?.state !== 'open' || pr?.draft || pr?.auto_merge
+      || pr?.head?.sha !== request.head_sha
+      || !isTrustedGeneratedDeliveryPr(pr, [...trustedWriters])
+      || generatedDeliveryLane(pr?.head?.ref) !== 'dev-tool-sync'
+      || record?.repository !== request.repository
+      || record?.plan_id !== request.plan_id
+      || record?.generation !== request.generation
+      || record?.source_commit !== request.source_commit
+      || (record?.head_observed_sha && record.head_observed_sha !== request.head_sha)
+      || !Number.isFinite(Date.parse(record?.lease_expires_at || ''))
+      || Date.parse(record.lease_expires_at) <= Date.now()) {
+      throw new Error('Generated dev-tool delivery changed or lease is invalid');
+    }
+    const data = await withRetry((client) => client.graphql(
+      `query($owner: String!, $repo: String!, $number: Int!) {
+        repository(owner: $owner, name: $repo) {
+          pullRequest(number: $number) {
+            reviewThreads(first: 100) {
+              pageInfo { hasNextPage }
+              nodes {
+                id isResolved isOutdated
+                comments(first: 100) {
+                  pageInfo { hasNextPage }
+                  nodes { author { login } body createdAt url }
+                }
+              }
+            }
+          }
+        }
+      }`, { owner, repo, number: request.pr },
+    ));
+    const connection = data?.repository?.pullRequest?.reviewThreads;
+    if (!hasCompleteReviewThreadEvidence(connection)) {
+      throw new Error('Review-thread inventory is incomplete');
+    }
+    const thread = connection.nodes.find((item) => item.id === request.thread_id);
+    if (!thread || thread.isResolved || thread.isOutdated
+      || thread.comments?.pageInfo?.hasNextPage !== false
+      || !Array.isArray(thread.comments?.nodes)
+      || thread.comments.nodes.length === 0) {
+      throw new Error('Requested active review thread is absent or incomplete');
+    }
+    const origin = thread.comments.nodes[0]?.author?.login;
+    if (reviewerProfileForLogin(origin, profiles) !== request.originating_reviewer) {
+      throw new Error('Review thread origin does not match requested reviewer');
+    }
+    return { pr, thread };
+  }
+  await readBoundState();
+  const { data: writer } = await withRetry((client) => client.rest.users.getAuthenticated());
+  if (!trustedWriters.has(String(writer?.login || ''))) {
+    throw new Error('Reassessment writer identity is not trusted');
+  }
+  const marker = reviewReassessmentMarker(request);
+  let found = null;
+  let exhausted = false;
+  for (let page = 1; page <= 20; page++) {
+    const { data: comments } = await withRetry((client) => client.rest.issues.listComments({
+      owner, repo, issue_number: request.pr, per_page: 100, page,
+    }));
+    if (!Array.isArray(comments)) throw new Error('Reassessment comment inventory is incomplete');
+    for (const comment of comments) {
+      if (trustedWriters.has(comment?.user?.login)
+        && String(comment?.body || '').includes(marker)) {
+        if (found) throw new Error('Duplicate bound reviewer reassessment requests exist');
+        found = comment;
+      }
+    }
+    if (comments.length < 100) { exhausted = true; break; }
+  }
+  if (!exhausted) throw new Error('Reassessment comment inventory is truncated');
+  // The second read closes the ordinary scan-to-POST race as far as GitHub's
+  // non-transactional PR/comment APIs allow; an ambiguous POST is never retried.
+  await readBoundState();
+  let comment = found;
+  if (!comment) {
+    const body = [command,
+      `Maint 71 requests ${request.originating_reviewer} to reassess active thread ` +
+        `${request.thread_id} on exact generated head ${request.head_sha}. ` +
+        `The thread remains merge-blocking until reviewer disposition.`,
+      marker].join('\n\n');
+    try {
+      ({ data: comment } = await withRetry((client) => client.rest.issues.createComment({
+        owner, repo, issue_number: request.pr, body,
+      }), { maxRetries: 0 }));
+    } catch (error) {
+      throw new Error(`Reassessment POST uncertain; inspect exact marker before retry: ${error.message}`);
+    }
+  }
+  if (!comment?.id || !Number.isFinite(Date.parse(comment.created_at || ''))
+    || !String(comment.html_url || '').startsWith(
+      `https://github.com/${request.repository}/pull/${request.pr}#issuecomment-`)) {
+    throw new Error('Reassessment request lacks durable URL, ID or timestamp');
+  }
+  await readBoundState();
+  return {
+    ...request,
+    status: found ? 'review_blocked_reassessment_reused' : 'review_blocked_reassessment_requested',
+    request_id: comment.id,
+    request_url: comment.html_url,
+    requested_at: comment.created_at,
+    writer: comment.user?.login || '',
+  };
+}
+
 function parseReviewResolutionProofs(raw = '') {
   if (!String(raw || '').trim()) return [];
   let parsed;
@@ -3463,6 +3640,9 @@ module.exports = {
   listMaint71PullRequests,
   mergeMethodPolicyAllowsFallback,
   normalizeReviewPolicy,
+  parseReviewReassessmentRequest,
+  reviewReassessmentMarker,
+  runReviewReassessment,
   reviewRequestMarker,
   parseNoChangeEvidenceDocument,
   parseReviewResolutionProofs,
