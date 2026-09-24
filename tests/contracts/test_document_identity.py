@@ -38,10 +38,18 @@ def test_legacy_evidence_without_document_ref_remains_valid() -> None:
     assert not _errors(legacy)
 
 
-def test_quote_requires_document_page() -> None:
+def test_attributed_quote_requires_document_page() -> None:
     document = _fixture("valid_native_document_evidence.json")
     del document["document_ref"]["page"]
     assert any("page" in error for error in _errors(document))
+
+
+def test_attributed_null_or_empty_excerpt_does_not_require_page() -> None:
+    document = _fixture("valid_native_document_evidence.json")
+    del document["document_ref"]["page"]
+    for excerpt in (None, ""):
+        document["excerpt"] = excerpt
+        assert not _errors(document)
 
 
 def test_undeclared_doc_type_is_rejected() -> None:

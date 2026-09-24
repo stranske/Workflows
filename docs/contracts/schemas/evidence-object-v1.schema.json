@@ -50,7 +50,7 @@
     "excerpt": {
       "type": ["string", "null"],
       "maxLength": 2000,
-      "description": "The quoted source text supporting the fact (bounded). Required to be PRESENT (string or explicit null) so consumers can see WHAT text supports a fact. The fleet stores positional anchors like 'text:3' instead of quoted excerpts; this field carries the quote. Bounded length keeps it artifact-safe; long source bodies stay in named artifacts."
+      "description": "The quoted source text supporting the fact (bounded). Required to be PRESENT (string or explicit null). In v1, legacy objects without document_ref remain valid; when document_ref is present and excerpt is nonempty, document_ref.page is required. Mandatory attribution for all quotes requires a versioned policy. Bounded length keeps it artifact-safe; long source bodies stay in named artifacts."
     },
     "locator": {
       "type": "object",
@@ -105,6 +105,7 @@
     "document_ref": {
       "type": "object",
       "additionalProperties": false,
+      "description": "Optional v1 document-identity extension. If present with a nonempty excerpt, page is required and must agree with locator.page when both are present. Its absence is accepted for legacy objects but does not prove full attribution.",
       "required": ["sha256", "doc_key", "doc_type", "text_basis"],
       "properties": {
         "sha256": {"type": "string", "pattern": "^[a-f0-9]{64}$"},

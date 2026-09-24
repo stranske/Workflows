@@ -39,9 +39,12 @@ resolve disputes and preserve both byte versions.
 An `evidence-object/v1` may carry `document_ref` with `sha256`, `doc_key`,
 `doc_type`, and `text_basis`. `text_basis` is `native`, `ocr`, `mixed`, or
 `unknown`. Use `unknown` when the extraction method cannot be established;
-never silently assume `native`. A nonempty `excerpt` is a quote and requires
-`document_ref.page`, zero-based to match the existing `locator.page`. If both
-pages are present they must agree.
+never silently assume `native`. For objects that opt in to `document_ref`, a
+nonempty `excerpt` requires `document_ref.page`, zero-based to match the
+existing `locator.page`. If both pages are present they must agree. The v1
+schema still accepts legacy quoted excerpts without `document_ref`; that
+acceptance does not prove complete document attribution. Mandatory attribution
+for every object requires a separately versioned policy or schema migration.
 
 Set `evidence_kind` to `document_text_coverage` for a coverage or completeness
 figure derived from document text. This requires `document_ref` and therefore
@@ -50,5 +53,7 @@ by `fact_ref`; the evidence object identifies the source and extraction basis.
 Describe the denominator and calculation scope in the producing repo's metric
 contract so OCR gaps are not mistaken for complete source coverage.
 
-Evidence objects without `document_ref` remain valid for existing participants.
-Adoption is additive and belongs in each corpus-owning repo.
+Evidence objects without `document_ref` remain valid for existing participants,
+including legacy parser quotes. Adoption is additive and belongs in each
+corpus-owning repo; new computed evidence without a source quotation should use
+`excerpt: null` rather than putting a calculation explanation in the quote field.
