@@ -1013,7 +1013,7 @@ def test_output_substrate_is_a_schema_validated_ingest_token() -> None:
 )
 @pytest.mark.parametrize(
     "manifest_ref",
-    ["artifact:manifest.json", "manifests/run.json", "./manifest.json"],
+    ["artifact:manifest.json", "manifests/run.json", "./manifest.json", "manifests/run:2026.json"],
 )
 def test_manifest_ref_accepts_canonical_safe_forms(
     schema_name: str, fixture_name: str, field: str, manifest_ref: str

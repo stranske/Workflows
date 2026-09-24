@@ -111,7 +111,7 @@
           "type": "string",
           "minLength": 1,
           "description": "artifact:manifest.json or a traversal-safe run-dir-relative POSIX path.",
-          "pattern": "^(?:artifact:manifest\\.json|(?!(?:/|[A-Za-z]:))(?!.*\\\\)(?!.*(?:^|/)\\.\\.(?:/|$))(?!.*//)(?!.*:)(?!.*\\/$).+)$"
+          "pattern": "^(?:artifact:manifest\\.json|(?!(?:/|[A-Za-z]:|[A-Za-z][A-Za-z0-9+.-]*:))(?!.*\\\\)(?!.*(?:^|/)\\.\\.(?:/|$))(?!.*//)(?!.*\\/$).+)$"
         },
         "summary": {
           "type": "object"
