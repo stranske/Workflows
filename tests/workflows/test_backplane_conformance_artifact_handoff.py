@@ -29,3 +29,14 @@ def test_backplane_workflows_install_required_format_checkers() -> None:
     ):
         workflow = (ROOT / ".github" / "workflows" / name).read_text(encoding="utf-8")
         assert "jsonschema rfc3339-validator rfc3986-validator" in workflow
+
+
+def test_reusable_backplane_conformance_binds_registry_repo_to_caller() -> None:
+    workflow = (ROOT / ".github" / "workflows" / "reusable-backplane-conformance.yml").read_text(
+        encoding="utf-8"
+    )
+    assert "CALLER_REPO: ${{ github.repository }}" in workflow
+    assert "DECLARED_REPO: ${{ inputs.repo }}" in workflow
+    assert 'if [ "${REPO}" != "${CALLER_REPO}" ]; then' in workflow
+    assert 'ARGS=( "${RUN_JSON_PATH}"' in workflow
+    assert 'ARGS+=( --manifest "${MANIFEST_PATH}" )' in workflow

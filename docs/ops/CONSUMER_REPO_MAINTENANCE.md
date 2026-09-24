@@ -30,10 +30,25 @@ no SDK call and needs no credentials: it returns one empty vector per input
 with unknown dimensionality. A truly empty batch returns no vectors. Repair
 this contract in Workflows and distribute it through Maint 68/71, not by editing
 generated consumer PRs.
+
 The manifest-managed `scripts/langchain/semantic_matcher.py` wrapper also keeps
 blank positions, including with an injected client: an all-blank request returns
 empty vectors without selecting a provider, while a mixed request embeds only
 nonblank strings and restores zero vectors in the original positions.
+
+## Inv-Man emitted evidence ownership
+
+`scripts/validate_run_contract.py` is manifest-managed and Workflows-owned.
+Inv-Man-Intake keeps its producer-specific local wrapper under
+`src/inv_man_intake/emit/validate_evidence.py`; that wrapper preserves local
+validation and tests but is not the authoritative reusable conformance gate.
+The canonical gate selects `manifest-evidence-closure/v1` from the Workflows
+participant registry and validates the downloaded `evidence-*.json` objects,
+manifest hashes, and `evidence_refs` closure in the shared validator. Repair
+shared behavior here first and distribute the managed validator through the
+normal Maint 68 candidate/promotion and Maint 71 reconciliation flow. Never
+patch the generated Inv-Man sync PR directly. The policy is valid only for an
+`emitting` or `conformant` producer/bridge, so it cannot silently skip closure.
 
 ## Registered Consumer Repos
 

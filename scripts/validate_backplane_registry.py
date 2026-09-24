@@ -21,6 +21,7 @@ ISSUE_COMMENT_URL_RE = re.compile(
     r"^https://github\.com/stranske/[A-Za-z0-9_.-]+/issues/[1-9][0-9]*#issuecomment-[1-9][0-9]*$"
 )
 STATUSES = {"planned", "emitting", "conformant", "candidate", "none"}
+EMITTED_EVIDENCE_POLICIES = {"manifest-evidence-closure/v1"}
 REFERENCE_STATES = {"missing", "invalid", "stale", "valid", "not-applicable"}
 MAX_STALE_AFTER_HOURS = 24 * 365
 
@@ -287,6 +288,24 @@ def validate_registry(registry: Any) -> list[Finding]:
         status = entry.get("status")
         if status not in STATUSES:
             findings.append(Finding(f"{prefix}.status", "unknown lifecycle status"))
+
+        policy = entry.get("emitted_evidence_policy")
+        if policy is not None:
+            if not isinstance(policy, str) or policy not in EMITTED_EVIDENCE_POLICIES:
+                findings.append(
+                    Finding(f"{prefix}.emitted_evidence_policy", "unknown emitted evidence policy")
+                )
+            if entry.get("role") not in {"producer", "bridge"}:
+                findings.append(
+                    Finding(f"{prefix}.emitted_evidence_policy", "requires producer or bridge role")
+                )
+            if status not in {"emitting", "conformant"}:
+                findings.append(
+                    Finding(
+                        f"{prefix}.emitted_evidence_policy",
+                        "requires emitting or conformant status",
+                    )
+                )
 
         reference_state = entry.get("reference_state")
         if reference_state not in REFERENCE_STATES:

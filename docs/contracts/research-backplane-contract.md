@@ -3,10 +3,10 @@
 This document defines the **research-backplane interoperability program contract**
 owned by Workflows. It is the ownership/program companion to the wire-format spec.
 
-> **Status: P0 landing (under human review).** Opt-in and role-based. No
-> participant emits or ingests an envelope yet; nothing here is wired into any
-> repo's CI. This doc + the spec + schemas + registry + validator + reusable
-> conformance workflow are the P0 contract set.
+> **Status: active opt-in, role-based contract.** The registry determines which
+> emitters are active and which remain planned/candidate. The reusable workflow
+> runs the Workflows-owned validator against participating repositories' reference
+> artifacts; a successful skip is not evidence that an active emitter conformed.
 
 - Wire format (the run envelope): [`run-contract/v1`](./run-contract-v1.md).
 - Satellite schemas:
@@ -81,7 +81,11 @@ in (see the registry for tiering and `status`):
   Portable-Alpha-Extension-Model.
 - Tier 2: Manager-Database (identity source), Inv-Man-Intake (evidence source).
 
-All ship as `status: planned` in P0 — none emit yet.
+The registry records each repository's current lifecycle status; Inv-Man-Intake
+now emits reference `run.json`, `manifest.json`, and `evidence-object/v1` files.
+Its `manifest-evidence-closure/v1` policy is enforced by the canonical validator,
+not by executing a consumer-local validator in the reusable job. The emitted
+objects must match their manifest hashes and `evidence_refs` in both directions.
 
 ### Cross-over consumers (architecture captured, not active)
 

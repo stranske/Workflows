@@ -7,6 +7,7 @@ validates only its ingested schema. Fails today against an empty tree.
 
 from __future__ import annotations
 
+import hashlib
 import importlib.util
 import json
 import subprocess
@@ -62,6 +63,78 @@ def test_valid_run_with_manifest_conforms() -> None:
     assert report.conformant, [v.message for v in report.violations]
     assert not report.skipped
     assert report.role == "producer"
+
+
+def test_cli_enforces_opt_in_manifest_evidence_closure(tmp_path: Path, capsys) -> None:
+    """The CLI supplies run_json context required by the evidence-file policy."""
+    mod = _import_validator()
+    evidence = {
+        "schema_version": "evidence-object/v1",
+        "evidence_id": "ev-cli",
+        "fact_ref": "metric.alpha",
+        "source_id": "source-1",
+        "method": "computed",
+        "excerpt": "Computed from source-1.",
+    }
+    evidence_path = tmp_path / "evidence-cli.json"
+    evidence_path.write_text(json.dumps(evidence), encoding="utf-8")
+    envelope = json.loads((FIXTURES / "valid_run.json").read_text())
+    envelope["repo"] = "stranske/Cli-Evidence"
+    envelope["evidence_refs"] = ["ev-cli", "ev-dangling"]
+    run_json = tmp_path / "run.json"
+    run_json.write_text(json.dumps(envelope), encoding="utf-8")
+    manifest = {
+        "schema_version": "artifact-manifest/v1",
+        "run_id": envelope["run_id"],
+        "tool": envelope["tool"],
+        "artifacts": [
+            {
+                "artifact_id": "evidence-cli",
+                "name": "evidence-cli.json",
+                "kind": "evidence",
+                "path": "evidence-cli.json",
+                "sha256": hashlib.sha256(evidence_path.read_bytes()).hexdigest(),
+            }
+        ],
+    }
+    manifest_path = tmp_path / "manifest.json"
+    manifest_path.write_text(json.dumps(manifest), encoding="utf-8")
+    registry_path = tmp_path / "registry.json"
+    registry_path.write_text(
+        json.dumps(
+            {
+                "participants": [
+                    {
+                        "repo": envelope["repo"],
+                        "role": "producer",
+                        "status": "emitting",
+                        "emitted_evidence_policy": "manifest-evidence-closure/v1",
+                    }
+                ]
+            }
+        ),
+        encoding="utf-8",
+    )
+
+    assert (
+        mod.main(
+            [
+                str(run_json),
+                "--manifest",
+                str(manifest_path),
+                "--registry",
+                str(registry_path),
+                "--schema-dir",
+                str(SCHEMA_DIR),
+                "--repo",
+                envelope["repo"],
+            ]
+        )
+        == 1
+    )
+    err = capsys.readouterr().err
+    assert "ev-dangling' has no emitted evidence artifact" in err
+    assert "ev-cli' has no emitted evidence artifact" not in err
 
 
 @pytest.mark.parametrize(

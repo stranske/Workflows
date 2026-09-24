@@ -121,10 +121,58 @@ def test_parent_issue_and_inactive_participants_are_explicit() -> None:
     assert registry["parent_issue"] == "stranske/Workflows#2743"
     for entry in registry["participants"]:
         assert entry["parent_issue"] == registry["parent_issue"]
-        if entry["repo"] != "stranske/Pension-Data":
+        if entry["repo"] not in {"stranske/Pension-Data", "stranske/Inv-Man-Intake"}:
             assert entry["issue"] is None
             assert entry["issue_deferred"]["reason"]
             assert entry["reference_state"] in {"missing", "not-applicable"}
+
+
+def test_inv_man_is_only_emitted_evidence_closure_participant() -> None:
+    entries = [
+        entry
+        for entry in _registry()["participants"]
+        if entry.get("emitted_evidence_policy") is not None
+    ]
+    assert [entry["repo"] for entry in entries] == ["stranske/Inv-Man-Intake"]
+    assert entries[0]["role"] == "producer"
+    assert entries[0]["status"] == "emitting"
+    assert entries[0]["issue"] == "stranske/Inv-Man-Intake#949"
+    assert entries[0]["emitted_evidence_policy"] == "manifest-evidence-closure/v1"
+
+
+@pytest.mark.parametrize("policy", ["unknown/v1", [], {}])
+def test_registry_rejects_unknown_emitted_evidence_policy(policy: object) -> None:
+    registry = copy.deepcopy(_registry())
+    entry = next(
+        item for item in registry["participants"] if item["repo"] == "stranske/Inv-Man-Intake"
+    )
+    entry["emitted_evidence_policy"] = policy
+
+    findings = vbr.validate_registry(registry)
+    assert any(finding.path.endswith("emitted_evidence_policy") for finding in findings)
+
+
+def test_registry_rejects_consumer_emitted_evidence_policy() -> None:
+    registry = copy.deepcopy(_registry())
+    entry = next(
+        item for item in registry["participants"] if item["repo"] == "stranske/Inv-Man-Intake"
+    )
+    entry["role"] = "consumer"
+
+    findings = vbr.validate_registry(registry)
+    assert any("producer or bridge" in finding.message for finding in findings)
+
+
+@pytest.mark.parametrize("status", ["none", "candidate", "planned"])
+def test_registry_rejects_inactive_emitted_evidence_policy(status: str) -> None:
+    registry = copy.deepcopy(_registry())
+    entry = next(
+        item for item in registry["participants"] if item["repo"] == "stranske/Inv-Man-Intake"
+    )
+    entry["status"] = status
+
+    findings = vbr.validate_registry(registry)
+    assert any("requires emitting or conformant status" in finding.message for finding in findings)
 
 
 def test_pension_conformant_entry_has_live_reference_evidence() -> None:

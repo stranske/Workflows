@@ -7,7 +7,9 @@ registries and inline envelopes only — no network or schema edits.
 
 from __future__ import annotations
 
+import hashlib
 import json
+from collections.abc import Callable
 from pathlib import Path
 
 import pytest
@@ -76,6 +78,7 @@ def _validate(
     repo: str,
     registry: dict,
     manifest: dict | None = None,
+    run_json: Path | None = None,
 ):
     return vrc.validate_envelope(
         envelope=envelope,
@@ -83,6 +86,7 @@ def _validate(
         registry=registry,
         repo=repo,
         manifest=manifest,
+        run_json=run_json,
     )
 
 
@@ -426,3 +430,242 @@ def test_fixture_valid_run_passes_with_matching_manifest() -> None:
 
     assert report.conformant
     assert not report.skipped
+
+
+def _write_evidence_closure_run(
+    tmp_path: Path,
+    *,
+    evidence: list[tuple[str, dict]],
+    refs: list[str] | None = None,
+    mutate_manifest: Callable[[dict], None] | None = None,
+) -> tuple[dict, dict, Path]:
+    """Create an on-disk producer run whose evidence paths are manifest-relative."""
+    repo = "stranske/Evidence-Closure"
+    envelope = _minimal_run_envelope(
+        repo=repo,
+        evidence_refs=refs if refs is not None else [item[1]["evidence_id"] for item in evidence],
+    )
+    artifacts = []
+    for artifact_id, document in evidence:
+        filename = f"{artifact_id}.json"
+        path = tmp_path / filename
+        path.write_text(json.dumps(document), encoding="utf-8")
+        artifacts.append(
+            {
+                "artifact_id": artifact_id,
+                "name": filename,
+                "kind": "evidence",
+                "path": filename,
+                "sha256": hashlib.sha256(path.read_bytes()).hexdigest(),
+            }
+        )
+    manifest = {
+        "schema_version": "artifact-manifest/v1",
+        "run_id": envelope["run_id"],
+        "tool": envelope["tool"],
+        "artifacts": artifacts,
+    }
+    if mutate_manifest:
+        mutate_manifest(manifest)
+    run_json = tmp_path / "run.json"
+    run_json.write_text(json.dumps(envelope), encoding="utf-8")
+    return envelope, manifest, run_json
+
+
+def _evidence(evidence_id: str = "ev-closure") -> dict:
+    return {
+        "schema_version": "evidence-object/v1",
+        "evidence_id": evidence_id,
+        "fact_ref": "metric.alpha",
+        "source_id": "source-1",
+        "method": "computed",
+        "excerpt": "Computed from source-1.",
+    }
+
+
+def _closure_registry(repo: str, *, enabled: bool = True, role: str = "producer") -> dict:
+    entry = _participant(repo, status="emitting", role=role)
+    if enabled:
+        entry["emitted_evidence_policy"] = "manifest-evidence-closure/v1"
+    return _registry(entry)
+
+
+@pytest.mark.parametrize("role", ["producer", "bridge"])
+def test_manifest_evidence_closure_accepts_hashed_evidence_files(tmp_path: Path, role: str) -> None:
+    envelope, manifest, run_json = _write_evidence_closure_run(
+        tmp_path, evidence=[("evidence-1", _evidence())]
+    )
+    report = _validate(
+        envelope,
+        repo=envelope["repo"],
+        registry=_closure_registry(envelope["repo"], role=role),
+        manifest=manifest,
+        run_json=run_json,
+    )
+    assert report.conformant, [violation.message for violation in report.violations]
+
+
+def test_manifest_evidence_closure_ignores_non_object_explainability_artifact(
+    tmp_path: Path,
+) -> None:
+    """Inv-Man labels its explainability summary as evidence, not evidence-object/v1."""
+    envelope, manifest, run_json = _write_evidence_closure_run(
+        tmp_path, evidence=[("evidence-1", _evidence())]
+    )
+    explanation = tmp_path / "explainability.json"
+    explanation.write_text(json.dumps({"summary": "not an evidence object"}), encoding="utf-8")
+    manifest["artifacts"].append(
+        {
+            "artifact_id": "explainability.json",
+            "name": explanation.name,
+            "kind": "evidence",
+            "path": explanation.name,
+            "sha256": hashlib.sha256(explanation.read_bytes()).hexdigest(),
+        }
+    )
+
+    report = _validate(
+        envelope,
+        repo=envelope["repo"],
+        registry=_closure_registry(envelope["repo"]),
+        manifest=manifest,
+        run_json=run_json,
+    )
+    assert report.conformant, [violation.message for violation in report.violations]
+
+
+def test_manifest_evidence_closure_rejects_schema_break_even_with_updated_hash(
+    tmp_path: Path,
+) -> None:
+    bad_evidence = _evidence()
+    bad_evidence["method"] = "corrupt-but-rehashed"
+    envelope, manifest, run_json = _write_evidence_closure_run(
+        tmp_path, evidence=[("evidence-1", bad_evidence)]
+    )
+    report = _validate(
+        envelope,
+        repo=envelope["repo"],
+        registry=_closure_registry(envelope["repo"]),
+        manifest=manifest,
+        run_json=run_json,
+    )
+    assert not report.conformant
+    assert not any("SHA-256" in violation.message for violation in report.violations)
+    assert any(
+        "evidence schema validation failed (enum)" in violation.message
+        for violation in report.violations
+    )
+    assert all("corrupt-but-rehashed" not in violation.message for violation in report.violations)
+
+
+def test_manifest_evidence_schema_error_redacts_excerpt(tmp_path: Path) -> None:
+    secret_excerpt = "PRIVATE-SOURCE-TEXT" + "x" * 2000
+    bad_evidence = _evidence()
+    bad_evidence["excerpt"] = secret_excerpt
+    envelope, manifest, run_json = _write_evidence_closure_run(
+        tmp_path, evidence=[("evidence-1", bad_evidence)]
+    )
+    report = _validate(
+        envelope,
+        repo=envelope["repo"],
+        registry=_closure_registry(envelope["repo"]),
+        manifest=manifest,
+        run_json=run_json,
+    )
+    assert not report.conformant
+    assert any(
+        "evidence schema validation failed (maxLength)" in v.message for v in report.violations
+    )
+    assert all("PRIVATE-SOURCE-TEXT" not in v.message for v in report.violations)
+
+
+@pytest.mark.parametrize(
+    "case",
+    [
+        "dangling",
+        "orphan",
+        "duplicate",
+        "hash",
+        "traversal",
+        "missing",
+        "missing_manifest",
+        "missing_file",
+        "malformed",
+        "malformed_entry",
+    ],
+)
+def test_manifest_evidence_closure_rejects_broken_closure(tmp_path: Path, case: str) -> None:
+    evidence = [("evidence-1", _evidence("ev-1"))]
+    refs: list[str] | None = None
+    mutate = None
+    if case == "dangling":
+        refs = ["ev-missing"]
+    elif case == "orphan":
+        refs = []
+    elif case == "duplicate":
+        evidence.append(("evidence-2", _evidence("ev-1")))
+    elif case == "hash":
+
+        def mutate(manifest: dict) -> None:
+            manifest["artifacts"][0].update(sha256="0" * 64)
+
+    elif case == "traversal":
+
+        def mutate(manifest: dict) -> None:
+            manifest["artifacts"][0].update(path="../escape.json")
+
+    elif case == "missing_file":
+
+        def mutate(manifest: dict) -> None:
+            manifest["artifacts"][0].update(path="missing.json")
+
+    elif case == "malformed":
+
+        def mutate(manifest: dict) -> None:
+            manifest["artifacts"][0].update(path=7)
+
+    elif case == "malformed_entry":
+
+        def mutate(manifest: dict) -> None:
+            manifest["artifacts"].append(None)
+
+    envelope, manifest, run_json = _write_evidence_closure_run(
+        tmp_path, evidence=evidence, refs=refs, mutate_manifest=mutate
+    )
+    report = _validate(
+        envelope,
+        repo=envelope["repo"],
+        registry=_closure_registry(envelope["repo"]),
+        manifest=None if case == "missing_manifest" else manifest,
+        run_json=None if case == "missing" else run_json,
+    )
+    assert not report.conformant, case
+    expected = {
+        "dangling": "has no emitted evidence artifact",
+        "orphan": "is absent from evidence_refs",
+        "duplicate": "duplicate evidence_id",
+        "hash": "SHA-256 does not match",
+        "traversal": "must not be absolute or traverse parents",
+        "missing": "requires run_json artifact context",
+        "missing_manifest": "requires an artifact manifest",
+        "missing_file": "cannot resolve evidence artifact",
+        "malformed": "must be a non-empty relative POSIX path",
+        "malformed_entry": "manifest:",
+    }[case]
+    assert any(expected in violation.message for violation in report.violations)
+
+
+def test_manifest_evidence_closure_is_disabled_without_exact_policy(tmp_path: Path) -> None:
+    envelope, manifest, run_json = _write_evidence_closure_run(
+        tmp_path,
+        evidence=[("evidence-1", _evidence())],
+        mutate_manifest=lambda manifest: manifest["artifacts"][0].update(path="missing.json"),
+    )
+    report = _validate(
+        envelope,
+        repo=envelope["repo"],
+        registry=_closure_registry(envelope["repo"], enabled=False),
+        manifest=manifest,
+        run_json=run_json,
+    )
+    assert report.conformant

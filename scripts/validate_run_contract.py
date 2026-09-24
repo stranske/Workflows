@@ -21,11 +21,12 @@ from the fleet validator.
 from __future__ import annotations
 
 import argparse
+import hashlib
 import json
 import sys
 from dataclasses import dataclass, field
 from datetime import date
-from pathlib import Path
+from pathlib import Path, PurePosixPath
 from typing import Any
 
 from jsonschema import Draft202012Validator, FormatChecker
@@ -33,6 +34,7 @@ from referencing import Registry, Resource
 
 RUN_SCHEMA_VERSION = "run-contract/v1"
 DEFAULT_ARTIFACT_NAME = "run.json"
+EMITTED_EVIDENCE_POLICY = "manifest-evidence-closure/v1"
 
 # Statuses that mean "the contract does not (yet) apply" -> opt-in skip.
 SKIP_STATUSES = (None, "none", "candidate")
@@ -311,6 +313,147 @@ def _validate_consumer(
     return report
 
 
+def _sha256_file(path: Path) -> str:
+    """Return the SHA-256 of file bytes without loading an artifact into memory."""
+    digest = hashlib.sha256()
+    with path.open("rb") as handle:
+        for chunk in iter(lambda: handle.read(1024 * 1024), b""):
+            digest.update(chunk)
+    return digest.hexdigest()
+
+
+def _safe_evidence_path(
+    run_dir: Path, artifact: dict[str, Any], report: Report, index: int
+) -> Path | None:
+    """Resolve one manifest evidence path without following a symlink or escaping its run."""
+    path_value = artifact.get("path")
+    path_label = f"manifest.artifacts[{index}].path"
+    if not isinstance(path_value, str) or not path_value or "\\" in path_value:
+        report.fail("evidence artifact path must be a non-empty relative POSIX path", path_label)
+        return None
+    relative = PurePosixPath(path_value)
+    if relative.is_absolute() or ".." in relative.parts:
+        report.fail("evidence artifact path must not be absolute or traverse parents", path_label)
+        return None
+
+    candidate = run_dir.joinpath(*relative.parts)
+    try:
+        # Reject every symlink component, including one that happens to point
+        # back inside the run directory: manifests describe regular artifacts.
+        current = run_dir
+        for part in relative.parts:
+            current = current / part
+            if current.is_symlink():
+                report.fail("evidence artifact path must not traverse a symlink", path_label)
+                return None
+        resolved_run_dir = run_dir.resolve(strict=True)
+        resolved_candidate = candidate.resolve(strict=True)
+    except (OSError, RuntimeError) as exc:
+        report.fail(f"cannot resolve evidence artifact: {exc}", path_label)
+        return None
+    if not resolved_candidate.is_relative_to(resolved_run_dir):
+        report.fail("evidence artifact path escapes the run directory", path_label)
+        return None
+    if not candidate.is_file():
+        report.fail("evidence artifact must be an existing regular file", path_label)
+        return None
+    return candidate
+
+
+def _validate_manifest_evidence_closure(
+    *,
+    envelope: dict[str, Any],
+    manifest: dict[str, Any] | None,
+    run_json: Path | None,
+    schema_dir: Path,
+    report: Report,
+) -> None:
+    """Validate opt-in evidence files and their two-way envelope closure."""
+    if not isinstance(manifest, dict):
+        report.fail("emitted_evidence_policy requires an artifact manifest object", "manifest")
+        return
+    if run_json is None:
+        report.fail("emitted_evidence_policy requires run_json artifact context", "run_json")
+        return
+    run_dir = run_json.parent
+    if not run_dir.is_dir():
+        report.fail("run_json parent is not an existing artifact directory", "run_json")
+        return
+
+    artifacts = manifest.get("artifacts")
+    if not isinstance(artifacts, list):
+        report.fail("manifest artifacts must be a list for evidence closure", "manifest.artifacts")
+        return
+
+    validator = _validator_for_schema(schema_dir, "evidence-object-v1.schema.json")
+    evidence_ids: list[str] = []
+    for index, artifact in enumerate(artifacts):
+        if not isinstance(artifact, dict):
+            continue  # The manifest schema already reports this malformed entry.
+        name = artifact.get("name")
+        if artifact.get("kind") != "evidence" or not (
+            isinstance(name, str) and name.startswith("evidence-") and name.endswith(".json")
+        ):
+            continue
+        path = _safe_evidence_path(run_dir, artifact, report, index)
+        if path is None:
+            continue
+        expected_hash = artifact.get("sha256")
+        if not isinstance(expected_hash, str):
+            report.fail(
+                "evidence artifact sha256 must be a string", f"manifest.artifacts[{index}].sha256"
+            )
+        else:
+            try:
+                actual_hash = _sha256_file(path)
+            except OSError as exc:
+                report.fail(f"cannot hash evidence artifact: {exc}", str(path))
+                continue
+            if actual_hash != expected_hash:
+                report.fail("evidence artifact SHA-256 does not match manifest bytes", str(path))
+
+        try:
+            evidence = _load_json(path)
+        except (OSError, UnicodeDecodeError, json.JSONDecodeError) as exc:
+            report.fail(f"cannot load evidence artifact: {exc}", str(path))
+            continue
+        for err in sorted(validator.iter_errors(evidence), key=lambda err: list(err.absolute_path)):
+            pointer = "/".join(str(part) for part in err.absolute_path)
+            # jsonschema error messages may echo the invalid instance, including
+            # confidential excerpts. Reports are published to PR comments.
+            report.fail(
+                f"evidence schema validation failed ({err.validator})", f"{path}:/{pointer}"
+            )
+        _check_document_page(evidence, report, f"{path}:/")
+        if isinstance(evidence, dict) and isinstance(evidence.get("evidence_id"), str):
+            evidence_ids.append(evidence["evidence_id"])
+
+    duplicates = sorted({item for item in evidence_ids if evidence_ids.count(item) > 1})
+    for evidence_id in duplicates:
+        report.fail(
+            f"duplicate evidence_id '{evidence_id}' in emitted evidence artifacts",
+            "manifest.artifacts",
+        )
+
+    refs = envelope.get("evidence_refs", [])
+    if not isinstance(refs, list) or not all(isinstance(ref, str) for ref in refs):
+        report.fail("evidence_refs must be a list of strings for evidence closure", "evidence_refs")
+        return
+    duplicate_refs = sorted({item for item in refs if refs.count(item) > 1})
+    for evidence_id in duplicate_refs:
+        report.fail(f"duplicate evidence_ref '{evidence_id}'", "evidence_refs")
+    emitted = set(evidence_ids)
+    referenced = set(refs)
+    for evidence_id in sorted(referenced - emitted):
+        report.fail(
+            f"evidence_ref '{evidence_id}' has no emitted evidence artifact", "evidence_refs"
+        )
+    for evidence_id in sorted(emitted - referenced):
+        report.fail(
+            f"emitted evidence_id '{evidence_id}' is absent from evidence_refs", "evidence_refs"
+        )
+
+
 def validate_envelope(
     *,
     envelope: dict[str, Any],
@@ -318,6 +461,7 @@ def validate_envelope(
     registry: dict[str, Any],
     repo: str,
     manifest: dict[str, Any] | None,
+    run_json: Path | None = None,
 ) -> Report:
     report = Report(repo=repo)
 
@@ -377,18 +521,32 @@ def validate_envelope(
         manifest_schema = _load_schema(schema_dir, "artifact-manifest-v1.schema.json")
         for err in Draft202012Validator(manifest_schema).iter_errors(manifest):
             report.fail(f"manifest: {err.message}", "/".join(str(p) for p in err.absolute_path))
-        by_id = {a.get("artifact_id"): a for a in manifest.get("artifacts", [])}
-        for art_id in envelope.get("outputs", {}).get("artifact_ids", []) or []:
+        artifacts = manifest.get("artifacts", []) if isinstance(manifest, dict) else []
+        if not isinstance(artifacts, list):
+            artifacts = []
+        by_id = {a.get("artifact_id"): a for a in artifacts if isinstance(a, dict)}
+        outputs = envelope.get("outputs", {})
+        artifact_ids = outputs.get("artifact_ids", []) if isinstance(outputs, dict) else []
+        for art_id in artifact_ids if isinstance(artifact_ids, list) else []:
             art = by_id.get(art_id)
             if art is None:
                 report.fail(f"artifact_id '{art_id}' not in manifest", "outputs.artifact_ids")
             elif not art.get("sha256"):
                 report.fail(f"manifest artifact '{art_id}' missing sha256", "manifest.artifacts")
 
-    # 7. Evidence presence is handled by the required_sections loop above, where
-    #    'evidence_refs' is empty-OK (a clean run may attribute nothing). When
-    #    evidence objects are provided inline/alongside, validate each against
-    #    evidence-object/v1 (the gate resolves & validates referenced objects).
+    # 7. Only the explicit policy activates filesystem evidence validation. This
+    # keeps legacy/disabled participants independent of local artifact layout.
+    policy = entry.get("emitted_evidence_policy")
+    if policy is not None and policy != EMITTED_EVIDENCE_POLICY:
+        report.fail("unknown emitted_evidence_policy", "emitted_evidence_policy")
+    elif policy == EMITTED_EVIDENCE_POLICY:
+        _validate_manifest_evidence_closure(
+            envelope=envelope,
+            manifest=manifest,
+            run_json=run_json,
+            schema_dir=schema_dir,
+            report=report,
+        )
 
     return report
 
@@ -586,6 +744,7 @@ def main(argv: list[str] | None = None) -> int:
             registry=registry,
             repo=args.repo,
             manifest=manifest,
+            run_json=args.run_json,
         )
 
     if report.skipped:
