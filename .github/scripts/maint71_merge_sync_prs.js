@@ -91,6 +91,7 @@ function reviewRequestMarker({ planId, generation, headSha, reviewerId }) {
 // body update does not create a second request on the next pass.
 async function ensureExactHeadReviewRequest({
   owner, repo, pr, record, reviewerProfiles, withRetry, dryRunMode = false,
+  allowUnready = false,
 }) {
   const profile = reviewerProfiles.find((item) =>
     String(item?.request_comment || '').trim());
@@ -106,7 +107,7 @@ async function ensureExactHeadReviewRequest({
   }));
   const freshRecord = parseDeliveryRecord(fresh?.body || '');
   if (
-    fresh?.state !== 'open' || fresh?.draft || fresh?.auto_merge
+    fresh?.state !== 'open' || (!allowUnready && (fresh?.draft || fresh?.auto_merge))
     || fresh?.head?.sha !== pr.head.sha
     || freshRecord?.plan_id !== record.plan_id
     || freshRecord?.generation !== record.generation
@@ -2760,7 +2761,7 @@ async function run({ github, context, core }) {
         try {
           sealedRequest = await ensureExactHeadReviewRequest({
             owner, repo, pr, record: deliveryRecord, reviewerProfiles,
-            withRetry, dryRunMode: true,
+            withRetry, dryRunMode: true, allowUnready: true,
           });
         } catch (error) {
           rethrowPrimaryRateLimit(error);
@@ -2775,8 +2776,10 @@ async function run({ github, context, core }) {
           });
           continue;
         }
+        const needsReadyRecovery = Boolean(pr.draft || pr.auto_merge);
         if (
           !sealedRequest
+          || needsReadyRecovery
           || !Number.isFinite(Date.parse(deliveryRecord.review_started_at || ''))
           || Date.parse(deliveryRecord.review_started_at) < Date.parse(sealedRequest.requestedAt)
           || (deliveryRecord.review_evidence?.request_comment_id
@@ -2798,7 +2801,7 @@ async function run({ github, context, core }) {
               ? 'rerun-with-auto-merge-to-restage-unrequested-seal'
               : 'rerun-with-auto-merge-to-start-review',
             status: dryRun ? 'dry_run_unrequested_seal' : 'delivery_review_not_started',
-            reason: 'unrequested_seal_restaged',
+            reason: needsReadyRecovery ? 'sealed_hold_restaged' : 'unrequested_seal_restaged',
             previous_seal: previousSeal,
           });
           continue;

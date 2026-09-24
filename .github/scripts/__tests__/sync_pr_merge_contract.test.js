@@ -3694,6 +3694,29 @@ test('maint71 starts review by clearing stale ready labels while retaining the s
     assert.equal(JSON.parse(fs.readFileSync(reportPath, 'utf8')).results[0].status, 'error');
     assert.equal(mutations.length, updatesBeforeRotatedHead,
       'restage must not rewrite a generation rotated during ready hold');
+    candidate.body = replaceDeliveryRecord(candidate.body, {
+      review_started_at: '2026-09-24T02:43:00Z',
+    });
+    candidate.draft = true;
+    candidate.auto_merge = { enabled_at: '2026-09-24T04:00:00Z' };
+    reviewRequests.push({ id: 199, created_at: '2026-09-24T02:43:00Z',
+      user: { login: 'stranske' },
+      body: `@codex review\n\n${reviewRequestMarker({
+        planId, generation: record.generation, headSha, reviewerId: 'codex',
+      })}` });
+    github.rest.pulls.get = async () => ({ data: candidate });
+    github.graphql = async (query, ...args) => {
+      if (String(query).includes('disablePullRequestAutoMerge')) candidate.auto_merge = null;
+      if (String(query).includes('markPullRequestReadyForReview')) candidate.draft = false;
+      return priorGraphql(query, ...args);
+    };
+    await run({ github, core, context: { repo: { owner: 'stranske', repo: 'Workflows' }, payload: {},
+      runId: 80, runNumber: 80, workflow: 'Maint 71', ref: 'refs/heads/main', sha: sourceCommit } });
+    const heldSeal = JSON.parse(fs.readFileSync(reportPath, 'utf8')).results[0];
+    assert.equal(heldSeal.status, 'delivery_review_not_started');
+    assert.equal(heldSeal.reason, 'sealed_hold_restaged');
+    assert.equal(candidate.draft, false);
+    assert.equal(candidate.auto_merge, null);
   } finally {
     process.chdir(originalCwd);
     for (const [key, value] of Object.entries(originalEnv)) {
