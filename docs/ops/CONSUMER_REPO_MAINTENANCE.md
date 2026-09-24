@@ -149,12 +149,12 @@ named head/base test proof. Other repository pytest configuration remains active
 and explicit author-provided commands are unchanged. Full-suite CI retains its
 normal coverage and plugin options; this does not weaken that separate gate.
 
-The deliberate-break assertion-tamper check rejects removed assertions by
-default. A Workflows-source reviewed exception may authorize an exact old/new
-assertion replacement for a named consumer, issue, and test file; the replacement
-must appear in the same diff hunk. PR-authored text cannot add an exception, and
-all other removed assertions still fail. The head/base deliberate-break proof
-must pass separately before Gate accepts the PR.
+The deliberate-break assertion-tamper check rejects removed assertions,
+including an old assertion replaced by a stronger one. The former temporary
+Deliverable-Render issue #36 exception is retired now that the stronger
+assertion is on the base branch. PR-authored issue markers cannot authorize
+assertion removal. The head/base deliberate-break proof must pass separately
+before Gate accepts the PR.
 
 Signed keepalive recovery challenges must reserve their current workflow attempt
 before starting a runner. Shared `should-dispatch --authority-challenge` verifies
