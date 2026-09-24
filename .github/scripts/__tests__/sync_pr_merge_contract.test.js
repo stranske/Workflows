@@ -3561,6 +3561,15 @@ test('maint71 starts review by clearing stale ready labels while retaining the s
     });
     reviewRequests.length = 0;
     github.rest.issues.removeLabel = async () => ({});
+    const updatesBeforeDryRun = mutations.length;
+    process.env.DRY_RUN_INPUT = 'true';
+    await run({ github, core, context: { repo: { owner: 'stranske', repo: 'Workflows' }, payload: {},
+      runId: 750, runNumber: 750, workflow: 'Maint 71', ref: 'refs/heads/main', sha: sourceCommit } });
+    const preview = JSON.parse(fs.readFileSync(reportPath, 'utf8')).results[0];
+    assert.equal(preview.reason, 'dry_run_review_request_not_confirmed');
+    assert.equal(reviewRequests.length, 0, 'dry run must not request review');
+    assert.equal(mutations.length, updatesBeforeDryRun, 'dry run must not rewrite the PR body');
+    process.env.DRY_RUN_INPUT = 'false';
     await run({ github, core, context: { repo: { owner: 'stranske', repo: 'Workflows' }, payload: {},
       runId: 75, runNumber: 75, workflow: 'Maint 71', ref: 'refs/heads/main', sha: sourceCommit } });
     const repaired = JSON.parse(fs.readFileSync(reportPath, 'utf8')).results[0];

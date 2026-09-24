@@ -570,8 +570,11 @@ exact generated head. A plan/generation/head marker makes retries reuse only
 a request bearing the configured command from the authenticated owner-token
 writer; a generic Actions bot comment is not sufficient. Formal reviews and
 inline replies count only when their commit matches the requested head, while
-ordinary PR comments must name that full head. An old `reviewing` record without a request is
-repaired and cannot time out into sealing. The policy requires one response, not
+ordinary PR comments must name that full head. An old `reviewing` record
+without a request is repaired and cannot time out into sealing. Dry-run,
+evidence-only, and resolution-only passes report missing requests or clock
+repairs without posting comments or changing PR bodies. The policy requires
+one response, not
 all configured reviewers, after a seven-minute quiet period. If every reviewer
 reports capacity unavailability, settlement degrades after the quiet period;
 if nobody responds, it degrades after fifteen minutes. Active non-outdated

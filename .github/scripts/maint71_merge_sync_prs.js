@@ -2516,6 +2516,18 @@ async function run({ github, context, core }) {
           continue;
         }
         if (deliveryRecord.delivery_state === 'reviewing') {
+          if (dryRun) {
+            results.push({
+              ...deliveryContext,
+              delivery_disposition: 'awaiting-review-settlement',
+              blocker_owner: 'maint-71',
+              next_command: 'rerun-with-auto-merge-to-confirm-review-request',
+              status: 'reviewer_settlement_pending',
+              reason: 'dry_run_review_request_not_confirmed',
+              dry_run: true,
+            });
+            continue;
+          }
           let request;
           try {
             request = await ensureExactHeadReviewRequest({
