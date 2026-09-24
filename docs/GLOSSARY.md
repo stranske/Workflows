@@ -94,7 +94,8 @@ assignees, and an activation comment.
 squash-merges a successful belt PR, deletes the branch, closes the originating
 issue, posts audit breadcrumbs, and re-dispatches the dispatcher so the queue
 keeps moving. Requires Gate success before merging and blocks bootstrap-only
-placeholders. It is the consumer that removes `status:in-progress`.
+placeholders. It removes `status:in-progress` after a merge; Health 40 also
+reclaims a claim older than 24 hours when no linked open or merged PR exists.
 
 ---
 

@@ -52,11 +52,11 @@ fingerprint_refreshed = 2026-08-23
 [pair.2]
 main = .github/workflows/agents-71-codex-belt-dispatcher.yml
 template = templates/consumer-repo/.github/workflows/agents-71-codex-belt-dispatcher.yml
-main_sha256 = f86d032758e170beb186b9bea6e56e02c8acd73b4363e6147754f43eb1451dac
+main_sha256 = 36deaa68f26f374fff329af0380065cae28f769b4e47ce29ca0973652132be9e
 template_sha256 = 9b24abb5fb42613375c3fc1a0a4a4c0b726f98294a9916cf3cd42790b3a26dbc
-divergence = Credential-pool guard 2026-08-29: both surfaces now install retry dependencies outside later checkout cleanup and probe the exact wrapped client before candidate selection or issue transition, applied identically while preserving consumer action pins and Codex-specific wording. The divergence itself is unchanged and was NOT re-reviewed, so divergence_reviewed keeps its prior date. Prior divergence unchanged: client-id rename 2026-08-24: every create-github-app-token step moved from the deprecated `app-id` input to `client-id`, applied identically to root and consumer, with the secret VALUE unchanged (the action forwards either input to the same appId slot -- main.js:21, lib/main.js:37). Prior divergence unchanged: Named-secrets rollout 2026-08-23 removed the whole-secrets-context handoff from both surfaces. Prior divergence unchanged: Intentional divergence re-baselined 2026-08-16: workflow_dispatch inputs are passed through step-level env and read through process.env, while consumer action pinning and Codex-specific wording remain preserved.
+divergence = Root-only Health 40 claim recovery 2026-09-24: the Workflows-local dispatcher imports the shared stale-claim timeout and advertises the reclaim contract enforced by the Workflows-only health-40-sweep.yml. The consumer template has no Health 40 reclaim workflow and therefore must not promise that local behavior; its existing action pins and consumer-specific wording remain preserved. Underlying dispatcher divergence unchanged and not re-reviewed. Prior divergence: Credential-pool guard 2026-08-29 installed retry dependencies outside later checkout cleanup and probed the exact wrapped client on both surfaces. Prior divergence: client-id rename and named-secrets rollout 2026-08-24 and 2026-08-23. Prior divergence: Intentional divergence re-baselined 2026-08-16: workflow_dispatch inputs are passed through step-level env and read through process.env, while consumer action pinning and Codex-specific wording remain preserved.
 divergence_reviewed = 2026-08-16
-fingerprint_refreshed = 2026-08-29
+fingerprint_refreshed = 2026-09-24
 
 [pair.3]
 main = .github/workflows/agents-72-codex-belt-worker.yml
@@ -154,10 +154,10 @@ fingerprint_refreshed = 2026-09-21
 main = .github/workflows/agents-keepalive-sweep.yml
 template = templates/consumer-repo/.github/workflows/agents-keepalive-sweep.yml
 main_sha256 = 711d0452095b10142be46769e904347f5c6a6591eca6e87e4efc59dec01fd426
-template_sha256 = 46b592df4fa840c8b4bbe297c685efb7cdce683efdd0be18a2b064fbdf24b537
-divergence = Authority-head binding refresh 2026-09-21: root and both consumer sweep modes require the current PR head to match the durable generation before signing; existing one-mode versus two-mode dispatch divergence unchanged and not re-reviewed. Prior divergence: Authority-ledger sweep rollout 2026-09-20 verified the current generation before signing v2 claims. Keepalive routing-label hardening re-reviewed 2026-09-03: root and both consumer mode sweeps normalize labels before eligibility, require a real executable routing label rather than disabled Aider or recovery-only labels, and use the normalized needs-attention signal for authority challenges. Prior divergence unchanged: Non-consolidated fallback re-reviewed 2026-09-01 preserves the consumer two-mode topology while root retains its single sweep.
+template_sha256 = 731b0d12250aa84bcbb11a36a5590d66f3f87131d6e2ea1bf667c6f871bbb3b7
+divergence = Consumer belt-claim reclaim 2026-09-24: the consumer keepalive sweep now runs the synced shared claim-reclaim helper because consumer repositories do not carry the Workflows-local Health 40 sweep. Workflows keeps that reclaim job in health-40-sweep.yml, so adding it to the root keepalive sweep would duplicate the same periodic mutation. Existing one-mode versus two-mode keepalive dispatch divergence is unchanged and not re-reviewed. Prior divergence: Authority-head binding and authority-ledger refreshes 2026-09-21 and 2026-09-20. Keepalive routing-label hardening re-reviewed 2026-09-03. Prior divergence: Non-consolidated fallback 2026-09-01.
 divergence_reviewed = 2026-09-03
-fingerprint_refreshed = 2026-09-21
+fingerprint_refreshed = 2026-09-24
 
 [pair.14]
 main = .github/workflows/agents-verifier.yml

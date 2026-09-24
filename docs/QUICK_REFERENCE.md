@@ -137,7 +137,7 @@ Canonical definitions: [`LABELS.md`](LABELS.md).
 | `automerge` | Mark a completed PR for guarded automerge (does not bypass branch protection) |
 | `verify:evaluate` / `verify:compare` | Run the post-merge verifier |
 | `status:ready` | Issue ready for the belt dispatcher |
-| `status:in-progress` | Issue claimed by the belt (set by dispatcher/worker, cleared by conveyor) |
+| `status:in-progress` | Issue claimed by the belt; cleared after merge or reclaimed after 24 hours without a linked open/merged PR |
 
 > Labels trigger on the `labeled` event — **re-applying an already-present label
 > does not re-trigger.** Remove and re-add to fire again.

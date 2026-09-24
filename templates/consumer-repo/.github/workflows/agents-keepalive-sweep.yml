@@ -427,3 +427,46 @@ jobs:
                 `${challenged} due authority claim(s) challenged (dry_run=${dryRun}).`,
               )
               .write();
+
+  reclaim_stale_belt_claims:
+    name: Reclaim stale belt claims
+    if: github.event_name == 'schedule' || inputs.dry_run != 'true'
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      issues: write
+    steps:
+      - name: Checkout claim-reclaim helpers
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+        with:
+          persist-credentials: false
+          sparse-checkout: |
+            .github/actions/setup-api-client
+            .github/scripts/belt_claim_reclaim.js
+            .github/scripts/error_classifier.js
+            .github/scripts/github-api-with-retry.js
+            .github/scripts/token_load_balancer.js
+          sparse-checkout-cone-mode: false
+
+      - name: Reclaim stale in-progress issues without PRs
+        uses: actions/github-script@3a2844b7e9c422d3c10d287c895573f7108da1b3 # v9
+        with:
+          github-token: ${{ github.token }}
+          script: |
+            const { createTokenAwareRetry } = require(
+              './.github/scripts/github-api-with-retry.js'
+            );
+            const { sweepClaims } = require('./.github/scripts/belt_claim_reclaim.js');
+            const { owner, repo } = context.repo;
+            const retry = await createTokenAwareRetry({
+              github,
+              core,
+              task: 'consumer-belt-claim-reclaim',
+            });
+            const result = await sweepClaims({ withRetry: retry.withRetry, owner, repo });
+            core.info(result.summary);
+            core.info(`Belt claims reclaimed: ${result.reclaimedCount}.`);
+            await core.summary
+              .addHeading('Belt claim reclaim')
+              .addRaw(`${result.summary}\nBelt claims reclaimed: ${result.reclaimedCount}.`)
+              .write();

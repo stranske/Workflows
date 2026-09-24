@@ -605,6 +605,9 @@ Keep this table handy when you are triaging automation: it confirms which workfl
   listens for successful Gate runs on `codex/issue-*` branches, squash merges,
   deletes the branch, closes the source issue (removing `status:in-progress`),
   drops audit breadcrumbs, and re-dispatches the belt dispatcher.
+- **Health 40 belt claim reclaim** – `.github/workflows/health-40-sweep.yml`
+  removes `status:in-progress` after 24 hours only when no linked open or merged
+  PR exists, and records the claim timestamp in an audit comment first.
 - **Agents 74 PR body writer** – `.github/workflows/agents-74-pr-body-writer.yml`
   synchronizes PR body sections from source issues and builds dynamic status
   summaries from workflow runs and acceptance criteria.
