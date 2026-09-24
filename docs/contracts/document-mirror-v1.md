@@ -28,6 +28,9 @@ validators, HTML resolvers, and the future `doc-mirror` CLI can share one schema
   objects for triple-link resolvers:
   - **Backstop:** `{ "system": "backstop", "url": "<https://…>" }`
   - **SharePoint:** `{ "system": "sharepoint", "driveId": "…", "itemId": "…", "web_url": "<https://…>" }`
+  Both resolver URL fields require an absolute `https://` URI with a nonempty
+  host (and no embedded credentials); `http:`, `file:`, `mailto:`, and hostless
+  HTTPS links are not valid upstream web resolvers.
 - `blob_path` is relative to `mirror_root` using POSIX `/` separators. Absolute
   paths, `..` traversal, Windows drive prefixes (`C:`), UNC prefixes (`//` or
   `\\`), and backslashes are rejected.

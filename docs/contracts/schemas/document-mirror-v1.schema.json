@@ -79,7 +79,8 @@
                     "url": {
                       "type": "string",
                       "minLength": 1,
-                      "format": "uri"
+                      "format": "uri",
+                      "pattern": "^https://(?:\\[[0-9A-Fa-f:.]+\\]|[^/?#:@\\s]+)(?::[0-9]+)?(?:[/?#]|$)"
                     }
                   },
                   "additionalProperties": true
@@ -107,7 +108,8 @@
                     "web_url": {
                       "type": "string",
                       "minLength": 1,
-                      "format": "uri"
+                      "format": "uri",
+                      "pattern": "^https://(?:\\[[0-9A-Fa-f:.]+\\]|[^/?#:@\\s]+)(?::[0-9]+)?(?:[/?#]|$)"
                     }
                   },
                   "additionalProperties": true

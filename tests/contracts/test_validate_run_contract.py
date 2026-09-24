@@ -1139,3 +1139,16 @@ def test_document_mirror_consumer_rejects_invalid_urls_and_created_at() -> None:
     report = _validate_mirror_consumer(catalog)
     assert not report.conformant
     assert any("ingested-as-document-mirror/v1" in v.message for v in report.violations)
+
+
+def test_document_mirror_standalone_validator_rejects_non_https_resolvers(tmp_path) -> None:
+    catalog = json.loads((FIXTURES / "valid_document_mirror.json").read_text())
+    catalog["blobs"][0]["source_refs"][1]["url"] = "https:///path"
+    catalog["blobs"][1]["source_refs"][1]["web_url"] = "https://?q=x"
+    path = tmp_path / "mirror.json"
+    path.write_text(json.dumps(catalog))
+
+    mod = _import_validator()
+    report = mod.validate_mirror_manifests(paths=[path], schema_dir=SCHEMA_DIR)
+    assert not report.conformant
+    assert len(report.violations) >= 2
