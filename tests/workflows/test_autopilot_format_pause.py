@@ -74,9 +74,10 @@ def test_root_and_consumer_format_recovery_blocks_stay_aligned() -> None:
 
 
 def test_exhausted_format_pause_schedules_bounded_automation_wakeup_job() -> None:
-    root_workflow = WORKFLOWS[0].read_text(encoding="utf-8")
-    assert "format-pause-wakeup:" in root_workflow
-    assert "sleep 1800" in root_workflow
-    assert "format_pause_wakeup == 'true'" in root_workflow
-    assert "workflow_id: 'agents-auto-pilot.yml'" in root_workflow
-    assert "force_step: 'format'" in root_workflow
+    for workflow in WORKFLOWS:
+        text = workflow.read_text(encoding="utf-8")
+        assert "format-pause-wakeup:" in text
+        assert "sleep 1800" in text
+        assert "format_pause_wakeup == 'true'" in text
+        assert "workflow_id: 'agents-auto-pilot.yml'" in text
+        assert "force_step: 'format'" in text

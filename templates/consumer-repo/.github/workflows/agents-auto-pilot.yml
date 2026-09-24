@@ -99,6 +99,9 @@ jobs:
   auto-pilot:
     needs: [gate]
     if: needs.gate.outputs.proceed == 'true'
+    outputs:
+      format_pause_wakeup: ${{ steps.format_pause_wakeup_flag.outputs.wakeup }}
+      issue_number: ${{ steps.context.outputs.issue_number }}
     runs-on: ubuntu-latest
     timeout-minutes: 240  # 4 hours = MAX_WALL_TIME_HOURS
     concurrency:
@@ -3968,3 +3971,94 @@ jobs:
             }));
 
             core.info('Auto-pilot complete!');
+
+      - name: Expose format pause wakeup flag
+        id: format_pause_wakeup_flag
+        if: always()
+        run: |
+          if [ "${{ steps.format_step.outputs.format_pause_wakeup }}" = "true" ]; then
+            echo "wakeup=true" >> "$GITHUB_OUTPUT"
+          fi
+
+  format-pause-wakeup:
+    needs: [auto-pilot]
+    if: >-
+      needs.auto-pilot.result == 'success' &&
+      needs.auto-pilot.outputs.format_pause_wakeup == 'true'
+    runs-on: ubuntu-latest
+    timeout-minutes: 45
+    permissions:
+      actions: write
+      issues: write
+      contents: read
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+
+      - name: Bounded formatter pause backoff
+        run: |
+          echo "Waiting 30 minutes before automation-owned format retry..."
+          sleep 1800
+
+      - name: Clear pause and redispatch format step
+        uses: actions/github-script@3a2844b7e9c422d3c10d287c895573f7108da1b3 # v9
+        env:
+          ISSUE_NUMBER: ${{ needs.auto-pilot.outputs.issue_number }}
+        with:
+          script: |
+            const issueNumber = parseInt(process.env.ISSUE_NUMBER, 10);
+            if (!issueNumber) {
+              core.setFailed('Missing issue number for format pause wakeup');
+              return;
+            }
+            const { createTokenAwareRetry } = require('./.github/scripts/github-api-with-retry.js');
+            const { withRetry } = await createTokenAwareRetry({
+              github,
+              core,
+              env: process.env,
+              task: 'auto-pilot-format-pause-wakeup',
+              capabilities: ['issues:write', 'actions:write', 'contents:read'],
+            });
+            const { data: liveIssue } = await withRetry((client) => client.rest.issues.get({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              issue_number: issueNumber,
+            }));
+            const labels = (liveIssue.labels || [])
+              .map((label) => (typeof label === 'string' ? label : label.name))
+              .filter(Boolean);
+            if (!labels.includes('agents:auto-pilot-pause')) {
+              core.info('Pause label already cleared; skipping wakeup dispatch.');
+              return;
+            }
+            await withRetry((client) => client.rest.issues.removeLabel({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              issue_number: issueNumber,
+              name: 'agents:auto-pilot-pause',
+            }));
+            const { data: repoInfo } = await withRetry((client) => client.rest.repos.get({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+            }));
+            await withRetry((client) => client.rest.actions.createWorkflowDispatch({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              workflow_id: 'agents-auto-pilot.yml',
+              ref: repoInfo.default_branch || 'main',
+              inputs: {
+                issue_number: String(issueNumber),
+                force_step: 'format',
+              },
+            }));
+            await withRetry((client) => client.rest.issues.createComment({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              issue_number: issueNumber,
+              body: [
+                '🤖 **Auto-pilot format retry scheduled.**',
+                '',
+                'Cleared `agents:auto-pilot-pause` after the bounded backoff and re-dispatched the format step.',
+              ].join('\n'),
+            }));
