@@ -1771,6 +1771,29 @@ test('legacy reviewer status preserves its timestamp and satisfies reviewer evid
   });
 });
 
+test('reviewer evidence rejects late responses bound to an older head', async () => {
+  const oldHead = 'a'.repeat(40);
+  const currentHead = 'b'.repeat(40);
+  const evidence = await collectReviewerEvidence({
+    owner: 'stranske', repo: 'Ready', number: 99,
+    reviewStartedAt: '2026-08-11T13:07:00Z', headSha: currentHead,
+    reviewerProfiles: [{ id: 'codex', logins: ['codex'], check_names: [] }],
+    withRetry: async (operation) => operation({ graphql: async () => ({
+      repository: { pullRequest: {
+        comments: { nodes: [{ body: `Review complete for ${oldHead}`,
+          createdAt: '2026-08-11T13:08:00Z', author: { login: 'codex' } }],
+        pageInfo: { hasNextPage: false } },
+        reviews: { nodes: [{ body: 'Reviewed', submittedAt: '2026-08-11T13:08:00Z',
+          commit: { oid: oldHead }, author: { login: 'codex' } }],
+        pageInfo: { hasNextPage: false } },
+        reviewThreads: { nodes: [], pageInfo: { hasNextPage: false } },
+      } },
+    }) }),
+    core: { warning: () => {} },
+  });
+  assert.deepEqual(evidence, { responded: [], unavailable: [], truncated: false });
+});
+
 test('reviewer evidence does not count explicit skipped-review status as a response', async () => {
   const check = legacyStatusAsCheck({
     context: 'CodeRabbit',
@@ -3458,6 +3481,7 @@ test('maint71 starts review by clearing stale ready labels while retaining the s
   const failures = [];
   const mutations = [];
   const reviewRequests = [];
+  github.rest.users = { getAuthenticated: async () => ({ data: { login: 'stranske' } }) };
   const labels = new Set(['sync:delivery-ready']);
   github.rest.pulls.update = async (args) => { mutations.push(args); return {}; };
   github.rest.issues = {

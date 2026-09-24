@@ -566,8 +566,11 @@ subsequent workflow trust approval hold.
 Maint 71 starts bounded reviewer settlement while the PR remains ready. Before
 starting its clock it posts the review request configured in
 `config/consumer_sync_review_policy.json` (currently `@codex review`) on the
-exact generated head. A plan/generation/head marker makes retries reuse a
-trusted existing request; an old `reviewing` record without a request is
+exact generated head. A plan/generation/head marker makes retries reuse only
+a request bearing the configured command from the authenticated owner-token
+writer; a generic Actions bot comment is not sufficient. Formal reviews and
+inline replies count only when their commit matches the requested head, while
+ordinary PR comments must name that full head. An old `reviewing` record without a request is
 repaired and cannot time out into sealing. The policy requires one response, not
 all configured reviewers, after a seven-minute quiet period. If every reviewer
 reports capacity unavailability, settlement degrades after the quiet period;

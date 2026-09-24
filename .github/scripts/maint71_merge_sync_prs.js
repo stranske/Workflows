@@ -90,12 +90,17 @@ function reviewRequestMarker({ planId, generation, headSha, reviewerId }) {
 // exact-head marker before posting so a successful POST followed by a failed
 // body update does not create a second request on the next pass.
 async function ensureExactHeadReviewRequest({
-  owner, repo, pr, record, reviewerProfiles, trustedActors, withRetry,
+  owner, repo, pr, record, reviewerProfiles, withRetry,
 }) {
   const profile = reviewerProfiles.find((item) =>
     String(item?.request_comment || '').trim());
   if (!profile) throw new Error('No configured generated-delivery review request');
   const { parseDeliveryRecord } = require('./sync_pr_lease_contract.js');
+  const { data: writer } = await withRetry((client) => client.rest.users.getAuthenticated());
+  const writerLogin = String(writer?.login || '').trim();
+  if (!writerLogin || writerLogin === 'github-actions[bot]') {
+    throw new Error('Review-request writer identity is unavailable or shared');
+  }
   const { data: fresh } = await withRetry((client) => client.rest.pulls.get({
     owner, repo, pull_number: pr.number,
   }));
@@ -105,6 +110,7 @@ async function ensureExactHeadReviewRequest({
     || fresh?.head?.sha !== pr.head.sha
     || freshRecord?.plan_id !== record.plan_id
     || freshRecord?.generation !== record.generation
+    || freshRecord?.delivery_state !== record.delivery_state
     || freshRecord?.head_observed_sha !== pr.head.sha
   ) {
     throw new Error('Generated delivery changed before exact-head review request');
@@ -122,13 +128,14 @@ async function ensureExactHeadReviewRequest({
       }));
     if (!Array.isArray(comments)) throw new Error('Incomplete review-request comments');
     const existing = comments.find((comment) =>
-      trustedActors.includes(comment?.user?.login)
-      && String(comment?.body || '').includes(marker));
+      comment?.user?.login === writerLogin
+      && String(comment?.body || '').includes(marker)
+      && String(comment?.body || '').split('\n')[0].trim() === profile.request_comment.trim());
     if (existing) {
       if (!existing.id || !Number.isFinite(Date.parse(existing.created_at || ''))) {
         throw new Error('Existing review request lacks durable identity or time');
       }
-      return { id: existing.id, requestedAt: existing.created_at, reused: true };
+      return { id: existing.id, requestedAt: existing.created_at, reused: true, body: fresh.body };
     }
     if (comments.length < 100) break;
     if (page === 20) throw new Error('Review-request comment inventory truncated');
@@ -146,7 +153,7 @@ async function ensureExactHeadReviewRequest({
   if (!posted?.id || !Number.isFinite(Date.parse(posted.created_at || ''))) {
     throw new Error('Review request posted without durable identity or time');
   }
-  return { id: posted.id, requestedAt: posted.created_at, reused: false };
+  return { id: posted.id, requestedAt: posted.created_at, reused: false, body: fresh.body };
 }
 
 function parseReviewResolutionProofs(raw = '') {
@@ -366,6 +373,7 @@ async function collectReviewerEvidence({
   repo,
   number,
   reviewStartedAt,
+  headSha = '',
   checkRuns = [],
   reviewerProfiles = [],
   reviewerCapacityPatterns = [],
@@ -396,14 +404,14 @@ async function collectReviewerEvidence({
             }
             reviews(first: 100) {
               pageInfo { hasNextPage }
-              nodes { body submittedAt author { login } }
+              nodes { body submittedAt commit { oid } author { login } }
             }
             reviewThreads(first: 100) {
               pageInfo { hasNextPage }
               nodes {
                 comments(first: 100) {
                   pageInfo { hasNextPage }
-                  nodes { body createdAt author { login } }
+                  nodes { body createdAt commit { oid } author { login } }
                 }
               }
             }
@@ -425,14 +433,14 @@ async function collectReviewerEvidence({
   }
   const activities = [];
   for (const comment of pullRequest.comments?.nodes || []) {
-    activities.push({ ...comment, at: comment.createdAt });
+    activities.push({ ...comment, at: comment.createdAt, kind: 'issue-comment' });
   }
   for (const review of pullRequest.reviews?.nodes || []) {
-    activities.push({ ...review, at: review.submittedAt });
+    activities.push({ ...review, at: review.submittedAt, kind: 'review' });
   }
   for (const thread of pullRequest.reviewThreads?.nodes || []) {
     for (const comment of thread.comments?.nodes || []) {
-      activities.push({ ...comment, at: comment.createdAt });
+      activities.push({ ...comment, at: comment.createdAt, kind: 'review-comment' });
     }
   }
   const signals = new Map();
@@ -451,6 +459,11 @@ async function collectReviewerEvidence({
   for (const activity of activities) {
     const activityAt = new Date(activity.at || '').getTime();
     if (!Number.isFinite(activityAt) || activityAt < startedAt) continue;
+    if (headSha && (
+      activity.kind === 'issue-comment'
+        ? !String(activity.body || '').includes(headSha)
+        : activity.commit?.oid !== headSha
+    )) continue;
     const reviewer = reviewerProfileForLogin(activity.author?.login, reviewerProfiles);
     if (!reviewer) continue;
     const unavailable = isReviewerCapacitySignal(activity.body, reviewerCapacityPatterns)
@@ -1366,7 +1379,7 @@ async function run({ github, context, core }) {
     const current = await holdReadyStableDelivery({ owner, repo, pr });
     const request = await ensureExactHeadReviewRequest({
       owner, repo, pr, record, reviewerProfiles,
-      trustedActors: trustedSyncActors, withRetry,
+      withRetry,
     });
     const reviewStartedAt = request.requestedAt;
     const body = replaceDeliveryRecord(current.body || '', {
@@ -2507,7 +2520,7 @@ async function run({ github, context, core }) {
           try {
             request = await ensureExactHeadReviewRequest({
               owner, repo, pr, record: deliveryRecord, reviewerProfiles,
-              trustedActors: trustedSyncActors, withRetry,
+              withRetry,
             });
           } catch (error) {
             rethrowPrimaryRateLimit(error);
@@ -2522,8 +2535,19 @@ async function run({ github, context, core }) {
             });
             continue;
           }
+          if (parseDeliveryRecord(request.body || '')?.delivery_state !== 'reviewing') {
+            results.push({
+              ...deliveryContext,
+              delivery_disposition: 'awaiting-review-settlement',
+              blocker_owner: 'maint-71',
+              next_command: `rerun-after:${new Date(Date.now() + 10 * 60 * 1000).toISOString()}`,
+              status: 'reviewer_settlement_pending',
+              reason: 'review_record_changed',
+            });
+            continue;
+          }
           if (deliveryRecord.review_started_at !== request.requestedAt) {
-            const body = replaceDeliveryRecord(pr.body || '', {
+            const body = replaceDeliveryRecord(request.body || '', {
               review_started_at: request.requestedAt,
               review_evidence: { request_comment_id: request.id },
             });
@@ -2550,6 +2574,7 @@ async function run({ github, context, core }) {
             repo,
             number: pr.number,
             reviewStartedAt: deliveryRecord.review_started_at,
+            headSha: pr.head.sha,
             checkRuns: allChecks,
             reviewerProfiles,
             reviewerCapacityPatterns,

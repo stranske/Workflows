@@ -24,6 +24,7 @@ test('exact-head reviewer request is durable, trusted, and idempotent', async ()
   const comments = [];
   let posts = 0;
   const github = { rest: {
+    users: { getAuthenticated: async () => ({ data: { login: 'stranske' } }) },
     pulls: { get: async () => ({ data: {
       state: 'open', draft: false, auto_merge: null, head: { sha: headSha },
       body: `<!-- sync-pr-delivery-record:v1 ${JSON.stringify(record)} -->`,
@@ -54,6 +55,9 @@ test('exact-head reviewer request is durable, trusted, and idempotent', async ()
   comments[0].user.login = 'untrusted';
   await ensureExactHeadReviewRequest(args);
   assert.equal(posts, 2, 'a forged marker must not authorize review settlement');
+  comments[1].body = comments[1].body.replace('@codex review', 'review not requested');
+  await ensureExactHeadReviewRequest(args);
+  assert.equal(posts, 3, 'a marker without the configured request command must not count');
   github.rest.issues.listComments = async () => ({ data: null });
   await assert.rejects(ensureExactHeadReviewRequest(args), /Incomplete review-request comments/);
   github.rest.issues.listComments = async () => ({ data: comments });
