@@ -136,7 +136,7 @@ workflows:
     description: "Coverage guard - daily baseline monitoring with automatic issue creation. Intentional full-workflow sync exception: ships the complete guard implementation to consumers instead of a thin reusable caller because the workflow embeds repo-specific artifact discovery and download logic tied to tools/coverage_guard.py."
 
   - source: .github/workflows/maint-76-claude-code-review.yml
-    description: "Claude Code review (opt-in) - runs only on labeled PRs or manual dispatch"
+    description: "Claude Code review (opt-in) - Workflows owns the pinned action digest; runs only on labeled PRs or manual dispatch"
 
   - source: .github/workflows/maint-87-docs-drift-fix-agent.yml
     description: "Docs drift fix agent - reports deterministic documentation drift weekly and creates idempotent repair issues only on an explicit apply dispatch"

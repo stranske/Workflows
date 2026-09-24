@@ -833,6 +833,11 @@ is discarded on the next sync — consumer Renovate PRs against
 `.github/workflows/agents-guard.yml` and
 `.github/workflows/maint-76-claude-code-review.yml` (Inv-Man-Intake#838,
 Manager-Database#1347) were both closed unmerged for exactly this reason.
+The `anthropics/claude-code-action` digest in `maint-76-claude-code-review.yml`
+is therefore updated in the Workflows consumer template, then delivered through
+Maint 68 and Maint 71; a Renovate PR against a consumer copy is not the source
+of that update. The pinned `v1` digest was refreshed to the tag's v1.0.233
+commit in September 2026.
 
 `renovate-presets/consumer-managed-paths.json` encodes the boundary. It is
 **generated** from `.github/sync-manifest.yml` and the registered consumer list,
