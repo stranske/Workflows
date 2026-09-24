@@ -347,6 +347,7 @@ async function withRetry(fn, options = {}) {
     preferredSource = null,
     task = null,
     minRemaining = 100,
+    rateResource = 'core',
     onTokenSwitch = null,
     allowNonIdempotentRetries = false,
   } = options;
@@ -371,6 +372,7 @@ async function withRetry(fn, options = {}) {
         excludeSources: currentTokenSource ? [currentTokenSource] : [],
         task,
         minRemaining,
+        rateResource,
       });
     } catch (error) {
       logWithCore(core, 'warning', `Token registry selection failed: ${error.message}`);
@@ -669,6 +671,7 @@ async function createTokenAwareRetry(options = {}) {
     preferredSource = null,
     task = null,
     minRemaining = 100,
+    rateResource = 'core',
     githubToken = null,
   } = options;
 
@@ -721,6 +724,7 @@ async function createTokenAwareRetry(options = {}) {
         preferredSource,
         task,
         minRemaining,
+        rateResource,
       });
       if (selection?.token) {
         currentGithub = octokitFactory(selection.token);
@@ -750,6 +754,7 @@ async function createTokenAwareRetry(options = {}) {
       preferredSource,
       task,
       minRemaining,
+      rateResource,
       tokenSource: currentTokenSource,
       onTokenSwitch,
       ...overrideOptions,

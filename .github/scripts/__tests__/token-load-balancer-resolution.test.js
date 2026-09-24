@@ -21,6 +21,7 @@ test('refreshAllRateLimits accepts an injected Octokit (simulates NODE_PATH acti
           data: {
             resources: {
               core: { limit: 5000, remaining: 4999, used: 1, reset: 2000000000 },
+              graphql: { limit: 5000, remaining: 4200, used: 800, reset: 2000000000 },
             },
           },
         }),
@@ -51,6 +52,7 @@ test('refreshAllRateLimits accepts an injected Octokit (simulates NODE_PATH acti
   const rateLimit = balancer.tokenRegistry.tokens.get('TEST_TOKEN').rateLimit;
   assert.deepEqual(errors, []);
   assert.equal(rateLimit.remaining, 4999);
+  assert.equal(balancer.tokenRegistry.tokens.get('TEST_TOKEN').graphqlRateLimit.remaining, 4200);
   assert.equal(rateLimit.importFailed, undefined);
 });
 

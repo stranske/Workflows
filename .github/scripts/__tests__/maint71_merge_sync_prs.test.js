@@ -25,7 +25,11 @@ test('review GraphQL reads rotate separately while mutations remain owner-pinned
   assert.match(source, /const withRetry = \(fn, options = \{\}\) => retryHelpers\.withRetry/);
   assert.match(source, /task: 'maint71-review-thread-read'/);
   assert.match(source, /preferredSource: 'SERVICE_BOT_PAT'/);
+  assert.match(source, /rateResource: 'graphql'/);
   assert.match(source, /const data = await withReviewReadRetry\(\(client\) => client\.graphql\(/);
+  assert.match(source, /withRetry: withReviewReadRetry,/);
+  assert.match(source, /if \(reviewerEvidence\.truncated\) \{/);
+  assert.match(source, /reason: 'reviewer_evidence_incomplete'/);
   assert.doesNotMatch(source, /await github\.graphql\(/);
   assert.match(source, /reason: 'review_thread_query_incomplete'/);
   assert.match(source, /sha: pr\.head\.sha/);
