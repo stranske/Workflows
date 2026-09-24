@@ -14,12 +14,14 @@
       "id": "codex",
       "logins": ["chatgpt-codex-connector", "chatgpt-codex-connector[bot]"],
       "check_names": [],
-      "request_comment": "@codex review"
+      "request_comment": "@codex review",
+      "reassessment_comment": "@codex review"
     },
     {
       "id": "coderabbit",
       "logins": ["coderabbitai", "coderabbitai[bot]"],
-      "check_names": ["CodeRabbit"]
+      "check_names": ["CodeRabbit"],
+      "reassessment_comment": "@coderabbitai full review"
     }
   ],
   "capacity_patterns": [

@@ -6,7 +6,8 @@ const fs = require('node:fs');
 const os = require('node:os');
 const path = require('node:path');
 const {
-  devToolBaseRefreshResult, ensureExactHeadReviewRequest, hasCompleteReviewThreadEvidence, run,
+  devToolBaseRefreshResult, ensureExactHeadReviewRequest, hasCompleteReviewThreadEvidence,
+  parseReviewReassessmentRequest, runReviewReassessment, run,
 } = require('../maint71_merge_sync_prs');
 
 test('behind leased dev-tool delivery routes to producer before branch update', () => {
@@ -24,6 +25,98 @@ test('behind leased dev-tool delivery routes to producer before branch update', 
   assert.equal(devToolBaseRefreshResult({ ...context, delivery_lane: 'sync' }), null);
   const source = fs.readFileSync(path.join(__dirname, '..', 'maint71_merge_sync_prs.js'), 'utf8');
   assert.match(source, /if \(devToolRefresh\) \{\s*results\.push\(devToolRefresh\);\s*continue;\s*\}\s*await withRetry\(\(client\) => client\.rest\.pulls\.updateBranch/s);
+});
+
+test('review reassessment parser accepts only exact versioned identities', () => {
+  const request = {
+    schema: 'maint71-review-reassessment/v1', repository: 'stranske/Ready', pr: 592,
+    head_sha: 'a'.repeat(40), thread_id: 'PRRT_test', plan_id: 'plan-1',
+    generation: 'gen-1', source_commit: 'b'.repeat(40),
+    originating_reviewer: 'codex',
+  };
+  assert.deepEqual(parseReviewReassessmentRequest(JSON.stringify(request)), request);
+  assert.throws(() => parseReviewReassessmentRequest(JSON.stringify({ ...request, extra: true })),
+    /missing or extra fields/);
+  assert.throws(() => parseReviewReassessmentRequest(JSON.stringify({ ...request, head_sha: 'bad' })),
+    /invalid identity/);
+});
+
+test('source-owned reviewer reassessment is exact-head, idempotent and never merges or resolves', async () => {
+  const request = {
+    schema: 'maint71-review-reassessment/v1', repository: 'stranske/Ready', pr: 592,
+    head_sha: 'a'.repeat(40), thread_id: 'PRRT_test', plan_id: 'plan-1',
+    generation: 'gen-1', source_commit: 'b'.repeat(40),
+    originating_reviewer: 'codex',
+  };
+  const record = {
+    schema: 'sync-pr-delivery-record/v1', repository: request.repository,
+    durable_issue_url: 'https://github.com/stranske/Workflows/issues/1836',
+    plan_id: request.plan_id, generation: request.generation,
+    desired_tree_hash: 'tree-1',
+    source_commit: request.source_commit, head_observed_sha: request.head_sha,
+    head_observed_at: '2026-09-24T22:00:00Z',
+    lease_expires_at: '2099-01-01T00:00:00Z',
+  };
+  const pr = {
+    state: 'open', draft: false, auto_merge: null,
+    user: { login: 'stranske-automation-bot' },
+    head: { ref: 'deps/sync-dev-versions-test', sha: request.head_sha },
+    body: `<!-- sync-pr-delivery-record:v1 ${JSON.stringify(record)} -->`,
+  };
+  const thread = {
+    id: request.thread_id, isResolved: false, isOutdated: false,
+    comments: { pageInfo: { hasNextPage: false }, nodes: [
+      { author: { login: 'chatgpt-codex-connector[bot]' }, body: 'Please fix' },
+    ] },
+  };
+  const comments = [];
+  let posts = 0;
+  const github = {
+    rest: {
+      pulls: { get: async () => ({ data: pr }) },
+      users: { getAuthenticated: async () => ({ data: { login: 'stranske' } }) },
+      issues: {
+        listComments: async () => ({ data: comments }),
+        createComment: async ({ body }) => {
+          posts++;
+          const comment = { id: posts, body, created_at: '2026-09-24T22:00:00Z',
+            html_url: `https://github.com/stranske/Ready/pull/592#issuecomment-${posts}`,
+            user: { login: 'stranske' } };
+          comments.push(comment);
+          return { data: comment };
+        },
+      },
+    },
+    graphql: async () => ({ repository: { pullRequest: {
+      reviewThreads: { pageInfo: { hasNextPage: false }, nodes: [thread] },
+    } } }),
+  };
+  const args = { context: { eventName: 'workflow_dispatch', ref: 'refs/heads/main',
+    actor: 'stranske' }, withRetry: (fn) => fn(github), rawRequest: JSON.stringify(request),
+    registeredRepos: [request.repository],
+    policyPath: path.join(__dirname, '..', '..', '..', 'config', 'consumer_sync_review_policy.json') };
+  const first = await runReviewReassessment(args);
+  assert.equal(first.status, 'review_blocked_reassessment_requested');
+  assert.equal(first.request_url, comments[0].html_url);
+  assert.match(comments[0].body, /@codex review/);
+  assert.match(comments[0].body, /PRRT_test/);
+  const second = await runReviewReassessment(args);
+  assert.equal(second.status, 'review_blocked_reassessment_reused');
+  assert.equal(posts, 1);
+  pr.head.sha = 'c'.repeat(40);
+  await assert.rejects(runReviewReassessment(args), /delivery changed or lease is invalid/);
+  pr.head.sha = request.head_sha;
+  thread.comments.nodes[0].author.login = 'coderabbitai[bot]';
+  await assert.rejects(runReviewReassessment(args), /origin does not match/);
+  thread.comments.nodes[0].author.login = 'chatgpt-codex-connector[bot]';
+  thread.isResolved = true;
+  await assert.rejects(runReviewReassessment(args), /absent or incomplete/);
+  thread.isResolved = false;
+  comments[0].user.login = 'untrusted';
+  await runReviewReassessment(args);
+  assert.equal(posts, 2, 'an untrusted marker is not a prior request');
+  await assert.rejects(runReviewReassessment({ ...args,
+    context: { ...args.context, ref: 'refs/heads/untrusted' } }), /trusted main-branch/);
 });
 
 test('exact-head reviewer request is durable, trusted, and idempotent', async () => {

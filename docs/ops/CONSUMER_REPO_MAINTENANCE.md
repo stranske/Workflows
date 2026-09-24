@@ -763,6 +763,22 @@ waive the zero active non-outdated thread requirement for ordinary merge
 eligibility. A source fix without this exact proof, a later candidate plan, or a
 passing Gate never resolves the current PR's review debt.
 
+For a dev-tool delivery whose owner has fixed a review finding but whose
+originating reviewer has not reassessed it, dispatch Maint 71 on `main` with
+only `review_reassessment_json` set. The versioned JSON object must contain
+`schema=maint71-review-reassessment/v1`, `repository`, numeric `pr`, exact
+`head_sha`, active `thread_id`, `plan_id`, `generation`, `source_commit`, and
+`originating_reviewer` (the configured reviewer ID, such as `codex`). Maint 71
+checks the registered repository, trusted generated branch and author, current
+delivery lease and immutable bindings, complete review-thread inventory and
+originating reviewer, then posts the policy-configured review command once.
+The request comment records a plan/generation/head/thread marker and URL; a
+repeat dispatch reuses that evidence. An ambiguous POST must be inspected by
+marker before retry. This dispatch runs a separate request-only job: it never
+resolves a thread, seals, merges, closes, or otherwise reconciles the PR. The
+ordinary Maint 71 run later rechecks the same head, reviewer disposition,
+checks, and merge gates. A reviewer request is not itself thread acceptance.
+
 A non-empty workflow-sync selector applies only to the `sync/workflows-*` lane.
 An open sibling `deps/sync-dev-versions-*` delivery is therefore ignored for
 the selector's expected-branch check instead of producing a false
