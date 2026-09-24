@@ -448,11 +448,6 @@ jobs:
             .github/scripts/token_load_balancer.js
           sparse-checkout-cone-mode: false
 
-      - name: Setup API client
-        uses: ./.github/actions/setup-api-client
-        with:
-          github_token: ${{ github.token }}
-
       - name: Reclaim stale in-progress issues without PRs
         uses: actions/github-script@3a2844b7e9c422d3c10d287c895573f7108da1b3 # v9
         with:
