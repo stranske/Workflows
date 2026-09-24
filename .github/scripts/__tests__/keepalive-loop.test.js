@@ -82,6 +82,8 @@ const buildGithubStub = ({
   const actions = [];
   const currentLabels = new Set(labels);
   let stateCommentWriteCount = 0;
+  let remainingConfirmationFailures = failAuthorityConfirmWrite === true
+    ? Number.POSITIVE_INFINITY : Number(failAuthorityConfirmWrite) || 0;
   const attention = comments.map((comment) => parseStateComment(comment.body)?.data?.attention)
     .find((candidate) => candidate?.disposition === 'challenge-due' && candidate.generation);
   let authorityBranch = Boolean(attention);
@@ -147,8 +149,9 @@ const buildGithubStub = ({
           } };
         }
         if (method === 'PUT') {
-          if (failAuthorityConfirmWrite &&
+          if (remainingConfirmationFailures > 0 &&
               JSON.parse(Buffer.from(body.content, 'base64').toString('utf8')).status === 'confirmed') {
+            remainingConfirmationFailures--;
             throw Object.assign(new Error('simulated confirmation conflict'), { status: 409 });
           }
           const priorSha = authorityContent
@@ -3211,6 +3214,42 @@ test('failed authority confirmation preserves the challenge and hard label', asy
   assert.equal(attention.disposition, 'challenge-due');
   assert.equal(attention.confirmation_pending_label, true);
   assert.equal(attention.generation, 'c'.repeat(64));
+});
+
+test('transient confirmation conflict retries the same consumed receipt without a new grant', async () => {
+  const authSummary = 'Missing token ACTIONS_BOT_PAT for GitHub API repository dispatch.';
+  const boundary = buildAuthorityChallengeEvidence({ agentSummary: authSummary });
+  const existingState = formatStateComment({
+    trace: 'trace-confirm-retry', iteration: 2, failure_threshold: 3,
+    failure: { reason: 'agent-run-failed', count: 1 },
+    attention: {
+      owner: 'automation', disposition: 'challenge-due',
+      challenge_due_at: TEST_DUE_AT, generation: 'c'.repeat(64),
+      expires_at: TEST_EXPIRES_AT,
+      boundary_fingerprint: boundary.fingerprint, boundary_detail: boundary.detail,
+    },
+  });
+  const github = buildGithubStub({
+    comments: [{ id: 91, body: existingState, html_url: 'https://example.com/91' }],
+    authorityReceipt: true, failAuthorityConfirmWrite: 1,
+    labels: ['agent:codex', 'agent:needs-attention'],
+  });
+  await updateKeepaliveLoopSummary({
+    github, context: buildContext(654), core: buildCore(),
+    inputs: {
+      prNumber: 654, action: 'run', runResult: 'failure', gateConclusion: 'success',
+      tasksTotal: 3, tasksUnchecked: 3, keepaliveEnabled: true,
+      autofixEnabled: false, iteration: 2, maxIterations: 5,
+      failureThreshold: 3, trace: 'trace-confirm-retry', forceRetry: true,
+      ...authorityClaimInputs(654, boundary.fingerprint),
+      agent_exit_code: '1', agent_summary: authSummary,
+    },
+  });
+  const final = github.actions.filter((action) => action.type === 'update').at(-1);
+  assert.match(final.body, /Independent Authority Challenge Confirmed/);
+  assert.equal(github.actions.some((action) =>
+    action.type === 'remove-label' && action.name === 'needs-human'), false);
+  assert.equal(github.actions.some((action) => action.type === 'workflow-dispatch'), false);
 });
 
 test('a two-phase terminal transition reuses a newly created summary comment', async () => {
