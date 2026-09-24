@@ -413,9 +413,7 @@ function hasBoundGeneratedSyncContext(pull = {}, syncSource = parseConsumerSyncS
 
   const labels = labelNames(pull).map((label) => label.toLowerCase());
   const hasControlledSyncSourceLabel = labels.some(
-    (label) =>
-      (SOURCE_LABELS[label] || SOURCE_LABELS[normalizeToken(label)]) ===
-      SOURCE_TYPES.SYNC_CAMPAIGN,
+    (label) => SOURCE_LABELS[label] === SOURCE_TYPES.SYNC_CAMPAIGN,
   );
   const branch = cleanString(pull?.head?.ref);
   const headRepo = cleanString(pull?.head?.repo?.full_name);
@@ -484,7 +482,7 @@ function hasNoAutomationWorkflowContext(pull = {}) {
 
 function sourceTypeFromLabels(pull = {}) {
   for (const label of labelNames(pull)) {
-    const sourceType = SOURCE_LABELS[label.toLowerCase()] || SOURCE_LABELS[normalizeToken(label)];
+    const sourceType = SOURCE_LABELS[label.toLowerCase()];
     if (sourceType) {
       return sourceType;
     }
