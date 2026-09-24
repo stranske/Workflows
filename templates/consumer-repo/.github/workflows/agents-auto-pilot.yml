@@ -735,11 +735,11 @@ jobs:
         run: |
 
           # Post progress comment
-          cat > /tmp/auto_pilot_format_start.md <<'EOF'
-          🤖 **Auto-pilot step $((STEP_COUNT + 1))**: Starting issue formatting...
-
-          Running formatter inline (not via label trigger).
-          EOF
+          STEP_NUMBER=$((STEP_COUNT + 1))
+          printf '%s\n\n%s\n' \
+            "🤖 **Auto-pilot step ${STEP_NUMBER}**: Starting issue formatting..." \
+            'Running formatter inline (not via label trigger).' \
+            > /tmp/auto_pilot_format_start.md
           node - <<'NODE'
           (async () => {
             const fs = require('fs');
@@ -805,6 +805,24 @@ jobs:
             --input-file /tmp/issue_body.md \
             --json > /tmp/format_result.json
 
+          # A canonical contract rejection gets one bounded retry against the
+          # unchanged original input. Execution errors and prompt-guard results
+          # remain distinct and are not misreported as contract retries.
+          if python - <<'PY'
+          import json
+
+          with open('/tmp/format_result.json', encoding='utf-8') as result_file:
+              result = json.load(result_file)
+          raise SystemExit(0 if result.get('needs_refinement') else 1)
+          PY
+          then
+            mv /tmp/format_result.json /tmp/format_result_first.json
+            echo 'Formatter output failed the canonical contract; retrying once with unchanged input.'
+            python scripts/langchain/issue_formatter.py \
+              --input-file /tmp/issue_body.md \
+              --json > /tmp/format_result.json
+          fi
+
           # Check for guard_blocked before proceeding
           python -c "
           import json, os, sys
@@ -823,10 +841,17 @@ jobs:
                   f.write(reason)
               sys.exit(0)
           if result.get('needs_refinement'):
-              reason = 'Formatter output does not satisfy the canonical issue-format contract.'
+              reason = 'Formatter output does not satisfy the canonical issue-format contract after one retry.'
+              first_audit = None
+              if os.path.exists('/tmp/format_result_first.json'):
+                  with open('/tmp/format_result_first.json', encoding='utf-8') as first_file:
+                      first_result = json.load(first_file)
+                  first_audit = first_result.get('validation_audit')
               audit = result.get('validation_audit')
+              if first_audit is not None:
+                  reason += '\nfirst_validation_audit=' + json.dumps(first_audit, sort_keys=True)
               if audit:
-                  reason += '\nvalidation_audit=' + json.dumps(audit, sort_keys=True)
+                  reason += '\nretry_validation_audit=' + json.dumps(audit, sort_keys=True)
               print(f'NEEDS_REFINEMENT: {reason}')
               with open('/tmp/needs_refinement', 'w') as f:
                   f.write(reason)
@@ -902,7 +927,7 @@ jobs:
           # Never publish or mark a body as formatted when the formatter itself
           # reports that its final output fails the canonical contract.
           if [ -f /tmp/needs_refinement ]; then
-            echo "⚠️ Formatter requires human refinement; pausing auto-pilot."
+            echo "⚠️ Formatter could not publish a conforming body; recording an automation-owned pause."
             FORMAT_REFINEMENT_REASON="$(cat /tmp/needs_refinement)" node - <<'REFINEMENT_NODE'
             (async () => {
               const { Octokit } = require('@octokit/rest');
@@ -915,11 +940,38 @@ jobs:
               const [owner, repo] = process.env.GITHUB_REPOSITORY.split('/');
               const issue_number = Number(process.env.ISSUE_NUMBER);
               await withRetry((client) => client.rest.issues.addLabels({
-                owner, repo, issue_number, labels: ['needs-human', 'agents:auto-pilot-pause'],
+                owner, repo, issue_number, labels: ['agents:auto-pilot-pause'],
               }));
+              const { data: liveIssue } = await withRetry((client) =>
+                client.rest.issues.get({ owner, repo, issue_number })
+              );
+              const releasableLabels = (liveIssue.labels || [])
+                .map((label) => typeof label === 'string' ? label : label.name)
+                .filter((label) =>
+                  label === 'status:in-progress' ||
+                  (/^agent:[^:]+$/.test(label) && label !== 'agent:auto')
+                );
+              for (const name of releasableLabels) {
+                try {
+                  await withRetry((client) => client.rest.issues.removeLabel({
+                    owner, repo, issue_number, name,
+                  }));
+                } catch (error) {
+                  if (error?.status !== 404) throw error;
+                }
+              }
               await withRetry((client) => client.rest.issues.createComment({
                 owner, repo, issue_number,
-                body: `⚠️ **Auto-pilot paused during formatting.**\n\n${process.env.FORMAT_REFINEMENT_REASON}`,
+                body: [
+                  '⚠️ **Auto-pilot paused during formatting.**',
+                  '',
+                  process.env.FORMAT_REFINEMENT_REASON,
+                  '',
+                  'Ownership remains with automation; no human authority boundary was inferred.',
+                  'The issue claim was released. Any existing `codex/issue-<n>` branch is preserved for safe reuse rather than deleted without proof that it has no unique work.',
+                  '',
+                  'Auto-pilot counts: dispatched=0 formatted=0 paused=1 handed-to-human=0.',
+                ].join('\n'),
               }));
             })().catch((error) => { console.error(error); process.exit(1); });
           REFINEMENT_NODE
@@ -1049,11 +1101,11 @@ jobs:
         run: |
 
           # Post progress comment
-          cat > /tmp/auto_pilot_optimize_start.md <<'EOF'
-          🤖 **Auto-pilot step $((STEP_COUNT + 1))**: Analyzing issue for improvements...
-
-          Running optimizer inline (not via label trigger).
-          EOF
+          STEP_NUMBER=$((STEP_COUNT + 1))
+          printf '%s\n\n%s\n' \
+            "🤖 **Auto-pilot step ${STEP_NUMBER}**: Analyzing issue for improvements..." \
+            'Running optimizer inline (not via label trigger).' \
+            > /tmp/auto_pilot_optimize_start.md
           node - <<'NODE'
           (async () => {
             const fs = require('fs');
@@ -1433,11 +1485,11 @@ jobs:
         run: |
 
           # Post progress comment
-          cat > /tmp/auto_pilot_apply_start.md <<'EOF'
-          🤖 **Auto-pilot step $((STEP_COUNT + 1))**: Applying optimization suggestions...
-
-          Running apply inline (not via label trigger).
-          EOF
+          STEP_NUMBER=$((STEP_COUNT + 1))
+          printf '%s\n\n%s\n' \
+            "🤖 **Auto-pilot step ${STEP_NUMBER}**: Applying optimization suggestions..." \
+            'Running apply inline (not via label trigger).' \
+            > /tmp/auto_pilot_apply_start.md
           node - <<'NODE'
           (async () => {
             const fs = require('fs');
