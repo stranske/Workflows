@@ -102,20 +102,24 @@ async function ensureExactHeadReviewRequest({
   if (!writerLogin || writerLogin === 'github-actions[bot]') {
     throw new Error('Review-request writer identity is unavailable or shared');
   }
-  const { data: fresh } = await withRetry((client) => client.rest.pulls.get({
-    owner, repo, pull_number: pr.number,
-  }));
-  const freshRecord = parseDeliveryRecord(fresh?.body || '');
-  if (
-    fresh?.state !== 'open' || (!allowUnready && (fresh?.draft || fresh?.auto_merge))
-    || fresh?.head?.sha !== pr.head.sha
-    || freshRecord?.plan_id !== record.plan_id
-    || freshRecord?.generation !== record.generation
-    || freshRecord?.delivery_state !== record.delivery_state
-    || freshRecord?.head_observed_sha !== pr.head.sha
-  ) {
-    throw new Error('Generated delivery changed before exact-head review request');
+  async function readRequestState() {
+    const { data: fresh } = await withRetry((client) => client.rest.pulls.get({
+      owner, repo, pull_number: pr.number,
+    }));
+    const freshRecord = parseDeliveryRecord(fresh?.body || '');
+    if (
+      fresh?.state !== 'open' || (!allowUnready && (fresh?.draft || fresh?.auto_merge))
+      || fresh?.head?.sha !== pr.head.sha
+      || freshRecord?.plan_id !== record.plan_id
+      || freshRecord?.generation !== record.generation
+      || freshRecord?.delivery_state !== record.delivery_state
+      || freshRecord?.head_observed_sha !== pr.head.sha
+    ) {
+      throw new Error('Generated delivery changed before exact-head review request');
+    }
+    return fresh;
   }
+  await readRequestState();
   const marker = reviewRequestMarker({
     planId: record.plan_id,
     generation: record.generation,
@@ -136,8 +140,9 @@ async function ensureExactHeadReviewRequest({
       if (!existing.id || !Number.isFinite(Date.parse(existing.created_at || ''))) {
         throw new Error('Existing review request lacks durable identity or time');
       }
+      const current = await readRequestState();
       return { id: existing.id, requestedAt: existing.created_at, reused: true,
-        body: fresh.body, draft: Boolean(fresh.draft), autoMerge: Boolean(fresh.auto_merge) };
+        body: current.body, draft: Boolean(current.draft), autoMerge: Boolean(current.auto_merge) };
     }
     if (comments.length < 100) break;
     if (page === 20) throw new Error('Review-request comment inventory truncated');
@@ -156,8 +161,9 @@ async function ensureExactHeadReviewRequest({
   if (!posted?.id || !Number.isFinite(Date.parse(posted.created_at || ''))) {
     throw new Error('Review request posted without durable identity or time');
   }
+  const current = await readRequestState();
   return { id: posted.id, requestedAt: posted.created_at, reused: false,
-    body: fresh.body, draft: Boolean(fresh.draft), autoMerge: Boolean(fresh.auto_merge) };
+    body: current.body, draft: Boolean(current.draft), autoMerge: Boolean(current.auto_merge) };
 }
 
 function parseReviewResolutionProofs(raw = '') {

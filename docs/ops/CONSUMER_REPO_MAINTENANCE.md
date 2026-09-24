@@ -588,7 +588,9 @@ either read fails closed instead of
 being restaged using an older seal.
 An already-sealed delivery found draft or with auto-merge enabled is restaged
 through the same guarded owner path, which restores ready state and disables
-auto-merge before another review attempt.
+auto-merge before another review attempt. The request lookup re-reads the PR
+after scanning request comments so readiness changes during pagination are
+included in that decision; an identity change fails closed.
 These reads do not make GitHub's PR-body update atomic against a later Maint 68
 rotation; cross-workflow writer serialization remains source-owned follow-up
 #3534. Exact-head plan, seal, and Gate guards still deny authorization when
