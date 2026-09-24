@@ -581,7 +581,10 @@ Already-sealed open deliveries also require a durable exact-head request whose
 timestamp is no later than the settlement clock. A legacy timeout seal without
 that request is preserved in the reconciliation report and restaged by Maint 71;
 it cannot authorize canary promotion or merge. Fresh review then starts through
-the normal source-owned request and seal sequence.
+the normal source-owned request and seal sequence. Restaging rechecks the
+current head and plan/generation before rewriting a mutable delivery, so a
+concurrent Maint 68 rotation observed at that read fails closed instead of
+being restaged using an older seal.
 The policy requires one response, not all configured reviewers, after a
 seven-minute quiet period. If every reviewer
 reports capacity unavailability, settlement degrades after the quiet period;

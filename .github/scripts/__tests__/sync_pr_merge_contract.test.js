@@ -3654,6 +3654,16 @@ test('maint71 starts review by clearing stale ready labels while retaining the s
     assert.ok(mutations.length > updatesBeforeLegacySeal);
     assert.match(mutations.at(-1).body, /"delivery_state":"staging"/);
     assert.doesNotMatch(mutations.at(-1).body, /"sealed_head_sha":"[^"\s]+"/);
+    let restageReads = 0;
+    const updatesBeforeRotatedHead = mutations.length;
+    github.rest.pulls.get = async () => ({ data: ++restageReads >= 3
+      ? { ...candidate, head: { ...candidate.head, sha: 'rotated-head' } }
+      : candidate });
+    await run({ github, core, context: { repo: { owner: 'stranske', repo: 'Workflows' }, payload: {},
+      runId: 78, runNumber: 78, workflow: 'Maint 71', ref: 'refs/heads/main', sha: sourceCommit } });
+    assert.equal(JSON.parse(fs.readFileSync(reportPath, 'utf8')).results[0].status, 'error');
+    assert.equal(mutations.length, updatesBeforeRotatedHead,
+      'restage must not rewrite a generation rotated after request inventory');
   } finally {
     process.chdir(originalCwd);
     for (const [key, value] of Object.entries(originalEnv)) {

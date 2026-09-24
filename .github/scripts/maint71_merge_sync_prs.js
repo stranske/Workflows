@@ -1432,7 +1432,7 @@ async function run({ github, context, core }) {
     return { reviewStartedAt, body: latestBody, dryRun: false };
   }
 
-  async function restageStableDelivery({ owner, repo, pr, dryRunMode }) {
+  async function restageStableDelivery({ owner, repo, pr, record, dryRunMode }) {
     if (dryRunMode) {
       const body = replaceDeliveryRecord(pr.body || '', {
         delivery_state: 'staging',
@@ -1444,6 +1444,17 @@ async function run({ github, context, core }) {
       return { body, dryRun: true };
     }
     const current = await holdReadyStableDelivery({ owner, repo, pr });
+    const currentRecord = parseDeliveryRecord(current.body || '');
+    if (
+      current.state !== 'open' || current.draft || current.auto_merge
+      || current.head?.sha !== pr.head.sha
+      || currentRecord?.plan_id !== record.plan_id
+      || currentRecord?.generation !== record.generation
+      || currentRecord?.head_observed_sha !== pr.head.sha
+      || currentRecord?.delivery_state !== record.delivery_state
+    ) {
+      throw new Error('Generated delivery changed before exact-head restage');
+    }
     const body = replaceDeliveryRecord(current.body || '', {
       delivery_state: 'staging',
       review_started_at: '',
@@ -2704,6 +2715,7 @@ async function run({ github, context, core }) {
             owner,
             repo,
             pr,
+            record: deliveryRecord,
             dryRunMode: dryRun,
           });
           results.push({
@@ -2752,7 +2764,9 @@ async function run({ github, context, core }) {
             sealed_head_sha: deliveryRecord.sealed_head_sha,
             review_evidence: deliveryRecord.review_evidence,
           };
-          await restageStableDelivery({ owner, repo, pr, dryRunMode: dryRun });
+          await restageStableDelivery({
+            owner, repo, pr, record: deliveryRecord, dryRunMode: dryRun,
+          });
           results.push({
             ...deliveryContext,
             delivery_disposition: 'awaiting-review-start',
@@ -2862,6 +2876,7 @@ async function run({ github, context, core }) {
               owner,
               repo,
               pr,
+              record: deliveryRecord,
               dryRunMode: false,
             });
             let promotionEvidence = null;
