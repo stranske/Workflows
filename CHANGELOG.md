@@ -6,6 +6,18 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 Breaking changes are called out with a **BREAKING** marker and scheduled according to the policy in `COMPATIBILITY.md`.
 
+## [1.36.2](https://github.com/stranske/Workflows/compare/v1.36.1...v1.36.2) (2026-09-24)
+
+
+### Bug Fixes
+
+* bootstrap consumer priority labels ([#3564](https://github.com/stranske/Workflows/issues/3564)) ([8d1cc91](https://github.com/stranske/Workflows/commit/8d1cc9143ca6f4ace0c2da25c783a16cdb7a9a89))
+* contain forced consumer test cleanup ([#3570](https://github.com/stranske/Workflows/issues/3570)) ([fcfab45](https://github.com/stranske/Workflows/commit/fcfab45c20890f2ae5cc02822c9c4bc73830014d))
+* make auto-pilot formatter failure recoverable ([#3563](https://github.com/stranske/Workflows/issues/3563)) ([8553bbe](https://github.com/stranske/Workflows/commit/8553bbe4fcabf459b30039ac10045c06d8295b10))
+* refresh behind dev-tool deliveries through Maint 52 ([#3569](https://github.com/stranske/Workflows/issues/3569)) ([0d9a70c](https://github.com/stranske/Workflows/commit/0d9a70ca1089eaaa35274d609c9355b71e4a2b79))
+* request reviewer reassessment through Maint 71 ([#3567](https://github.com/stranske/Workflows/issues/3567)) ([ceb8a11](https://github.com/stranske/Workflows/commit/ceb8a1179ff6e83c1eae912544cac65d7710bf24))
+* scope verifier diffs to merged PRs ([#3562](https://github.com/stranske/Workflows/issues/3562)) ([05d1d4f](https://github.com/stranske/Workflows/commit/05d1d4fc109359738bb031ea6325703768a2c734))
+
 ## [1.36.1](https://github.com/stranske/Workflows/compare/v1.36.0...v1.36.1) (2026-09-24)
 
 
