@@ -74,6 +74,9 @@ workflows:
   - source: .github/workflows/agents-71-codex-belt-dispatcher.yml
     description: "Codex belt dispatcher - selects issues and creates agent branches for work"
 
+  - source: .github/agents/belt-labels.json
+    description: "Canonical belt queue labels shared by dispatcher, worker, auto-pilot, and cleanup tooling"
+
   - source: .github/workflows/agents-72-codex-belt-worker.yml
     description: "Codex belt worker - executes agent on issues with full prompt and context"
 

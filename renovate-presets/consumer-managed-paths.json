@@ -36,6 +36,7 @@
         ".github/actions/path-classifier/**",
         ".github/actions/resolve-default-branch/**",
         ".github/actions/setup-api-client/**",
+        ".github/agents/belt-labels.json",
         ".github/agents/registry.yml",
         ".github/codex/AGENT_INSTRUCTIONS.md",
         ".github/codex/prompts/autofix_from_ci_failure.md",

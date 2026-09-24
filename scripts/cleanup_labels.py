@@ -29,6 +29,10 @@ if str(ROOT) not in sys.path:
 
 from scripts.list_registered_consumer_repos import extract_repos  # noqa: E402
 
+BELT_LABELS = json.loads((ROOT / ".github/agents/belt-labels.json").read_text())
+READY_LABEL = BELT_LABELS["ready"]
+IN_PROGRESS_LABEL = BELT_LABELS["in_progress"]
+
 # Try to import github, fall back to instructions
 try:
     from github import Github
@@ -90,6 +94,8 @@ FUNCTIONAL_LABELS = {
     # Issue states
     "codex-ready",
     "needs-human",
+    READY_LABEL,
+    IN_PROGRESS_LABEL,
     # Verification
     "verify:checkbox",
     "verify:evaluate",
@@ -156,10 +162,6 @@ INFORMATIONAL_LABELS = {
     "risk:major",
     "risk:minor",
     # Status labels
-    "status: ready",
-    "status: in-progress",
-    "status:ready",
-    "status:in-progress",
     # Health labels
     "health:coverage",
     "health:repo",
@@ -218,6 +220,8 @@ BLOAT_LABELS = {
     # Duplicate/variant labels to consolidate
     "agent:auto-pilot",  # Use agents:auto-pilot (with 's') instead
     "good first task",  # Use "good first issue" (GitHub standard) instead
+    "status: ready",  # Use the canonical READY_LABEL spelling instead
+    "status: in-progress",  # Use the canonical IN_PROGRESS_LABEL spelling instead
 }
 
 
@@ -263,6 +267,8 @@ def get_repo_labels(gh: Github, repo_name: str) -> list[LabelInfo]:
 
 def classify_label(label_name: str) -> str:
     """Classify a label as functional, informational, bloat, or idiosyncratic."""
+    if str(label_name).strip().lower() in {"status: ready", "status: in-progress"}:
+        return "bloat"
     normalized = normalize_label_name(label_name)
     if normalized in NORMALIZED_FUNCTIONAL_LABELS:
         return "functional"
