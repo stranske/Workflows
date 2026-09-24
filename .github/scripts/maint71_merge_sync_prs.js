@@ -91,6 +91,7 @@ function reviewRequestMarker({ planId, generation, headSha, reviewerId }) {
 // body update does not create a second request on the next pass.
 async function ensureExactHeadReviewRequest({
   owner, repo, pr, record, reviewerProfiles, withRetry, dryRunMode = false,
+  allowUnready = false,
 }) {
   const profile = reviewerProfiles.find((item) =>
     String(item?.request_comment || '').trim());
@@ -101,20 +102,24 @@ async function ensureExactHeadReviewRequest({
   if (!writerLogin || writerLogin === 'github-actions[bot]') {
     throw new Error('Review-request writer identity is unavailable or shared');
   }
-  const { data: fresh } = await withRetry((client) => client.rest.pulls.get({
-    owner, repo, pull_number: pr.number,
-  }));
-  const freshRecord = parseDeliveryRecord(fresh?.body || '');
-  if (
-    fresh?.state !== 'open' || fresh?.draft || fresh?.auto_merge
-    || fresh?.head?.sha !== pr.head.sha
-    || freshRecord?.plan_id !== record.plan_id
-    || freshRecord?.generation !== record.generation
-    || freshRecord?.delivery_state !== record.delivery_state
-    || freshRecord?.head_observed_sha !== pr.head.sha
-  ) {
-    throw new Error('Generated delivery changed before exact-head review request');
+  async function readRequestState() {
+    const { data: fresh } = await withRetry((client) => client.rest.pulls.get({
+      owner, repo, pull_number: pr.number,
+    }));
+    const freshRecord = parseDeliveryRecord(fresh?.body || '');
+    if (
+      fresh?.state !== 'open' || (!allowUnready && (fresh?.draft || fresh?.auto_merge))
+      || fresh?.head?.sha !== pr.head.sha
+      || freshRecord?.plan_id !== record.plan_id
+      || freshRecord?.generation !== record.generation
+      || freshRecord?.delivery_state !== record.delivery_state
+      || freshRecord?.head_observed_sha !== pr.head.sha
+    ) {
+      throw new Error('Generated delivery changed before exact-head review request');
+    }
+    return fresh;
   }
+  await readRequestState();
   const marker = reviewRequestMarker({
     planId: record.plan_id,
     generation: record.generation,
@@ -135,7 +140,9 @@ async function ensureExactHeadReviewRequest({
       if (!existing.id || !Number.isFinite(Date.parse(existing.created_at || ''))) {
         throw new Error('Existing review request lacks durable identity or time');
       }
-      return { id: existing.id, requestedAt: existing.created_at, reused: true, body: fresh.body };
+      const current = await readRequestState();
+      return { id: existing.id, requestedAt: existing.created_at, reused: true,
+        body: current.body, draft: Boolean(current.draft), autoMerge: Boolean(current.auto_merge) };
     }
     if (comments.length < 100) break;
     if (page === 20) throw new Error('Review-request comment inventory truncated');
@@ -154,7 +161,9 @@ async function ensureExactHeadReviewRequest({
   if (!posted?.id || !Number.isFinite(Date.parse(posted.created_at || ''))) {
     throw new Error('Review request posted without durable identity or time');
   }
-  return { id: posted.id, requestedAt: posted.created_at, reused: false, body: fresh.body };
+  const current = await readRequestState();
+  return { id: posted.id, requestedAt: posted.created_at, reused: false,
+    body: current.body, draft: Boolean(current.draft), autoMerge: Boolean(current.auto_merge) };
 }
 
 function parseReviewResolutionProofs(raw = '') {
@@ -1333,12 +1342,26 @@ async function run({ github, context, core }) {
     return { resolved, filedIssue, errors };
   }
 
-  async function holdReadyStableDelivery({ owner, repo, pr }) {
+  async function holdReadyStableDelivery({ owner, repo, pr, expectedRecord }) {
+    const assertObservedDelivery = (current) => {
+      if (!expectedRecord) return;
+      const observed = parseDeliveryRecord(current?.body || '');
+      if (
+        current?.state !== 'open' || current?.head?.sha !== pr.head.sha
+        || observed?.plan_id !== expectedRecord.plan_id
+        || observed?.generation !== expectedRecord.generation
+        || observed?.head_observed_sha !== pr.head.sha
+        || observed?.delivery_state !== expectedRecord.delivery_state
+      ) {
+        throw new Error('Generated delivery changed before ready hold');
+      }
+    };
     let { data: current } = await withRetry((client) => client.rest.pulls.get({
       owner,
       repo,
       pull_number: pr.number,
     }));
+    assertObservedDelivery(current);
     if (current.auto_merge) {
       await withRetry((client) => client.graphql(
         `mutation($id: ID!) {
@@ -1364,6 +1387,7 @@ async function run({ github, context, core }) {
       repo,
       pull_number: pr.number,
     })));
+    assertObservedDelivery(current);
     if (current.auto_merge) {
       throw new Error(`Auto-merge remains enabled for staged delivery PR #${pr.number}.`);
     }
@@ -1377,7 +1401,7 @@ async function run({ github, context, core }) {
     if (dryRunMode) {
       return { reviewStartedAt: record.review_started_at || new Date().toISOString(), dryRun: true };
     }
-    await holdReadyStableDelivery({ owner, repo, pr });
+    await holdReadyStableDelivery({ owner, repo, pr, expectedRecord: record });
     const request = await ensureExactHeadReviewRequest({
       owner, repo, pr, record, reviewerProfiles,
       withRetry,
@@ -1421,7 +1445,7 @@ async function run({ github, context, core }) {
       review_started_at: reviewStartedAt,
       sealed_at: '',
       sealed_head_sha: '',
-      review_evidence: {},
+      review_evidence: { request_comment_id: request.id },
     });
     await withRetry((client) => client.rest.pulls.update({
       owner,
@@ -1432,7 +1456,7 @@ async function run({ github, context, core }) {
     return { reviewStartedAt, body: latestBody, dryRun: false };
   }
 
-  async function restageStableDelivery({ owner, repo, pr, dryRunMode }) {
+  async function restageStableDelivery({ owner, repo, pr, record, dryRunMode }) {
     if (dryRunMode) {
       const body = replaceDeliveryRecord(pr.body || '', {
         delivery_state: 'staging',
@@ -1443,7 +1467,26 @@ async function run({ github, context, core }) {
       });
       return { body, dryRun: true };
     }
-    const current = await holdReadyStableDelivery({ owner, repo, pr });
+    const assertRestageIdentity = (current, { requireReady = false } = {}) => {
+      const currentRecord = parseDeliveryRecord(current?.body || '');
+      if (
+        current?.state !== 'open'
+        || (requireReady && (current.draft || current.auto_merge))
+        || current?.head?.sha !== pr.head.sha
+        || currentRecord?.plan_id !== record.plan_id
+        || currentRecord?.generation !== record.generation
+        || currentRecord?.head_observed_sha !== pr.head.sha
+        || currentRecord?.delivery_state !== record.delivery_state
+      ) {
+        throw new Error('Generated delivery changed before exact-head restage');
+      }
+    };
+    const { data: beforeHold } = await withRetry((client) => client.rest.pulls.get({
+      owner, repo, pull_number: pr.number,
+    }));
+    assertRestageIdentity(beforeHold);
+    const current = await holdReadyStableDelivery({ owner, repo, pr, expectedRecord: record });
+    assertRestageIdentity(current, { requireReady: true });
     const body = replaceDeliveryRecord(current.body || '', {
       delivery_state: 'staging',
       review_started_at: '',
@@ -1480,6 +1523,7 @@ async function run({ github, context, core }) {
     const sealedAt = new Date().toISOString();
     const reviewEvidence = {
       policy_schema: reviewPolicy.schema,
+      request_comment_id: record.review_evidence?.request_comment_id || null,
       reason: settlement.reason,
       degraded: Boolean(settlement.degraded),
       responded_reviewers: settlement.responded || [],
@@ -2703,6 +2747,7 @@ async function run({ github, context, core }) {
             owner,
             repo,
             pr,
+            record: deliveryRecord,
             dryRunMode: dryRun,
           });
           results.push({
@@ -2715,6 +2760,59 @@ async function run({ github, context, core }) {
               ? 'restage-changed-delivery-head'
               : 'rerun-with-auto-merge-to-start-review',
             status: dryRun ? 'sealed_head_mismatch' : 'delivery_review_not_started',
+          });
+          continue;
+        }
+        // A legacy seal can predate the actual reviewer request. A timeout
+        // without a request is not reviewer settlement, even on a green head.
+        let sealedRequest;
+        try {
+          sealedRequest = await ensureExactHeadReviewRequest({
+            owner, repo, pr, record: deliveryRecord, reviewerProfiles,
+            withRetry, dryRunMode: true, allowUnready: true,
+          });
+        } catch (error) {
+          rethrowPrimaryRateLimit(error);
+          results.push({
+            ...deliveryContext,
+            delivery_disposition: 'awaiting-review-settlement',
+            blocker_owner: 'maint-71',
+            next_command: `rerun-after:${new Date(Date.now() + 10 * 60 * 1000).toISOString()}`,
+            status: 'reviewer_settlement_pending',
+            reason: 'sealed_review_request_unconfirmed',
+            error: String(error?.message || error),
+          });
+          continue;
+        }
+        // The request lookup reads the PR again; its readiness is newer than
+        // the initial inventory snapshot used to enter this branch.
+        const needsReadyRecovery = Boolean(sealedRequest?.draft || sealedRequest?.autoMerge);
+        if (
+          !sealedRequest
+          || needsReadyRecovery
+          || !Number.isFinite(Date.parse(deliveryRecord.review_started_at || ''))
+          || Date.parse(deliveryRecord.review_started_at) < Date.parse(sealedRequest.requestedAt)
+          || (deliveryRecord.review_evidence?.request_comment_id
+            && deliveryRecord.review_evidence.request_comment_id !== sealedRequest.id)
+        ) {
+          const previousSeal = {
+            sealed_at: deliveryRecord.sealed_at,
+            sealed_head_sha: deliveryRecord.sealed_head_sha,
+            review_evidence: deliveryRecord.review_evidence,
+          };
+          await restageStableDelivery({
+            owner, repo, pr, record: deliveryRecord, dryRunMode: dryRun,
+          });
+          results.push({
+            ...deliveryContext,
+            delivery_disposition: 'awaiting-review-start',
+            blocker_owner: 'maint-71',
+            next_command: dryRun
+              ? 'rerun-with-auto-merge-to-restage-unrequested-seal'
+              : 'rerun-with-auto-merge-to-start-review',
+            status: dryRun ? 'dry_run_unrequested_seal' : 'delivery_review_not_started',
+            reason: needsReadyRecovery ? 'sealed_hold_restaged' : 'unrequested_seal_restaged',
+            previous_seal: previousSeal,
           });
           continue;
         }
@@ -2814,6 +2912,7 @@ async function run({ github, context, core }) {
               owner,
               repo,
               pr,
+              record: deliveryRecord,
               dryRunMode: false,
             });
             let promotionEvidence = null;

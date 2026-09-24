@@ -576,9 +576,28 @@ delivery body or fails closed on drift. An old `reviewing` record without a
 request is repaired and cannot time out into sealing. Dry-run,
 evidence-only, and resolution-only passes inspect an existing request and
 reviewer evidence, report missing requests or clock repairs, and preview seal
-readiness without posting comments or changing PR bodies. The policy requires
-one response, not
-all configured reviewers, after a seven-minute quiet period. If every reviewer
+readiness without posting comments or changing PR bodies.
+Already-sealed open deliveries also require a durable exact-head request whose
+timestamp is no later than the settlement clock. A legacy timeout seal without
+that request is preserved in the reconciliation report and restaged by Maint 71;
+it cannot authorize canary promotion or merge. Fresh review then starts through
+the normal source-owned request and seal sequence. Restaging checks the
+current head and plan/generation before any hold mutation and again before
+rewriting a mutable delivery, so a concurrent Maint 68 rotation observed at
+either read fails closed instead of
+being restaged using an older seal.
+An already-sealed delivery found draft or with auto-merge enabled is restaged
+through the same guarded owner path, which restores ready state and disables
+auto-merge before another review attempt. The request lookup re-reads the PR
+after scanning request comments so readiness changes during pagination are
+included in that decision; an identity change fails closed.
+These reads do not make GitHub's PR-body update atomic against a later Maint 68
+rotation; cross-workflow writer serialization remains source-owned follow-up
+#3534. Exact-head plan, seal, and Gate guards still deny authorization when
+such drift is observed.
+Dry-run reports count an unrequested legacy seal explicitly without mutating it.
+The policy requires one response, not all configured reviewers, after a
+seven-minute quiet period. If every reviewer
 reports capacity unavailability, settlement degrades after the quiet period;
 if nobody responds, it degrades after fifteen minutes. Active non-outdated
 review threads are never waived by either fallback. Reviewer statuses and

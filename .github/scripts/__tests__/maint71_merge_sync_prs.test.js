@@ -46,12 +46,37 @@ test('exact-head reviewer request is durable, trusted, and idempotent', async ()
   const first = await ensureExactHeadReviewRequest(args);
   assert.equal(first.reused, false);
   assert.equal(first.requestedAt, '2026-09-24T01:00:00Z');
+  assert.equal(first.draft, false);
+  assert.equal(first.autoMerge, false);
   assert.match(comments[0].body, /@codex review/);
   assert.match(comments[0].body, new RegExp(headSha));
   const retry = await ensureExactHeadReviewRequest(args);
   assert.equal(retry.reused, true);
   assert.equal(retry.id, first.id);
   assert.equal(posts, 1);
+  let readinessReads = 0;
+  github.rest.pulls.get = async () => ({ data: {
+    state: 'open', draft: ++readinessReads > 1,
+    auto_merge: readinessReads > 1 ? { enabled_at: '2026-09-24T01:00:00Z' } : null,
+    head: { sha: headSha },
+    body: `<!-- sync-pr-delivery-record:v1 ${JSON.stringify(record)} -->`,
+  } });
+  const unready = await ensureExactHeadReviewRequest({ ...args, allowUnready: true });
+  assert.equal(readinessReads, 2, 'readiness must be rechecked after comment pagination');
+  assert.equal(unready.draft, true);
+  assert.equal(unready.autoMerge, true);
+  readinessReads = 0;
+  github.rest.pulls.get = async () => ({ data: {
+    state: 'open', draft: false, auto_merge: null,
+    head: { sha: ++readinessReads > 1 ? 'rotated-head' : headSha },
+    body: `<!-- sync-pr-delivery-record:v1 ${JSON.stringify(record)} -->`,
+  } });
+  await assert.rejects(ensureExactHeadReviewRequest({ ...args, allowUnready: true }),
+    /changed before exact-head/);
+  github.rest.pulls.get = async () => ({ data: {
+    state: 'open', draft: false, auto_merge: null, head: { sha: headSha },
+    body: `<!-- sync-pr-delivery-record:v1 ${JSON.stringify(record)} -->`,
+  } });
   comments[0].user.login = 'untrusted';
   await ensureExactHeadReviewRequest(args);
   assert.equal(posts, 2, 'a forged marker must not authorize review settlement');

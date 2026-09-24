@@ -2463,6 +2463,7 @@ test('buildMergeReport provides machine-readable summary counts', () => {
     ready: 0,
     dry_run_merge: 1,
     dry_run_review_start: 0,
+    dry_run_unrequested_seal: 0,
     dry_run_seal: 0,
     merge_blocked_runtime_ac: 0,
     merged: 0,
@@ -3634,6 +3635,88 @@ test('maint71 starts review by clearing stale ready labels while retaining the s
     const unconfirmed = JSON.parse(fs.readFileSync(reportPath, 'utf8')).results[0];
     assert.equal(unconfirmed.status, 'reviewer_settlement_pending');
     assert.equal(unconfirmed.reason, 'review_request_unconfirmed');
+    // A previously sealed canary must not authorize promotion when its
+    // timeout predates any exact-head reviewer request.
+    candidate.body = replaceDeliveryRecord(candidate.body, {
+      delivery_state: 'sealed',
+      review_started_at: '2020-08-14T00:00:00Z',
+      sealed_at: '2020-08-14T00:16:00Z',
+      sealed_head_sha: headSha,
+      review_evidence: { reason: 'review_timeout_degraded', degraded: true },
+    });
+    const updatesBeforeLegacySeal = mutations.length;
+    await run({ github, core, context: { repo: { owner: 'stranske', repo: 'Workflows' }, payload: {},
+      runId: 77, runNumber: 77, workflow: 'Maint 71', ref: 'refs/heads/main', sha: sourceCommit } });
+    const legacySeal = JSON.parse(fs.readFileSync(reportPath, 'utf8')).results[0];
+    assert.equal(legacySeal.status, 'delivery_review_not_started');
+    assert.equal(legacySeal.reason, 'unrequested_seal_restaged');
+    assert.equal(classifyDeliveryContinuation(legacySeal).class, 'transient');
+    process.env.DRY_RUN_INPUT = 'true';
+    const updatesBeforeSealPreview = mutations.length;
+    await run({ github, core, context: { repo: { owner: 'stranske', repo: 'Workflows' }, payload: {},
+      runId: 775, runNumber: 775, workflow: 'Maint 71', ref: 'refs/heads/main', sha: sourceCommit } });
+    const sealPreview = JSON.parse(fs.readFileSync(reportPath, 'utf8'));
+    assert.equal(sealPreview.results[0].status, 'dry_run_unrequested_seal');
+    assert.equal(sealPreview.summary.dry_run_unrequested_seal, 1);
+    assert.match(require('../sync_pr_merge_contract').buildMarkdownSummary(sealPreview),
+      /\| dry_run_unrequested_seal \| 1 \|/);
+    assert.equal(mutations.length, updatesBeforeSealPreview);
+    process.env.DRY_RUN_INPUT = 'false';
+    assert.equal(legacySeal.previous_seal.review_evidence.reason, 'review_timeout_degraded');
+    assert.ok(mutations.length > updatesBeforeLegacySeal);
+    assert.match(mutations.at(-1).body, /"delivery_state":"staging"/);
+    assert.doesNotMatch(mutations.at(-1).body, /"sealed_head_sha":"[^"\s]+"/);
+    let restageReads = 0;
+    const updatesBeforeRotatedHead = mutations.length;
+    let unintendedGraphqlMutations = 0;
+    const priorGraphql = github.graphql;
+    github.graphql = async (...args) => {
+      if (String(args[0]).trim().startsWith('mutation')) unintendedGraphqlMutations++;
+      return priorGraphql(...args);
+    };
+    github.rest.pulls.get = async () => ({ data: ++restageReads >= 3
+      ? { ...candidate, draft: true, auto_merge: { enabled_at: '2026-09-24T04:00:00Z' },
+        head: { ...candidate.head, sha: 'rotated-head' } }
+      : candidate });
+    await run({ github, core, context: { repo: { owner: 'stranske', repo: 'Workflows' }, payload: {},
+      runId: 78, runNumber: 78, workflow: 'Maint 71', ref: 'refs/heads/main', sha: sourceCommit } });
+    assert.equal(JSON.parse(fs.readFileSync(reportPath, 'utf8')).results[0].status, 'error');
+    assert.equal(mutations.length, updatesBeforeRotatedHead,
+      'restage must not rewrite a generation rotated after request inventory');
+    assert.equal(unintendedGraphqlMutations, 0,
+      'restage must validate identity before changing ready or auto-merge state');
+    restageReads = 0;
+    github.rest.pulls.get = async () => ({ data: ++restageReads >= 4
+      ? { ...candidate, head: { ...candidate.head, sha: 'rotated-after-hold' } }
+      : candidate });
+    await run({ github, core, context: { repo: { owner: 'stranske', repo: 'Workflows' }, payload: {},
+      runId: 79, runNumber: 79, workflow: 'Maint 71', ref: 'refs/heads/main', sha: sourceCommit } });
+    assert.equal(JSON.parse(fs.readFileSync(reportPath, 'utf8')).results[0].status, 'error');
+    assert.equal(mutations.length, updatesBeforeRotatedHead,
+      'restage must not rewrite a generation rotated during ready hold');
+    candidate.body = replaceDeliveryRecord(candidate.body, {
+      review_started_at: '2026-09-24T02:43:00Z',
+    });
+    candidate.draft = true;
+    candidate.auto_merge = { enabled_at: '2026-09-24T04:00:00Z' };
+    reviewRequests.push({ id: 199, created_at: '2026-09-24T02:43:00Z',
+      user: { login: 'stranske' },
+      body: `@codex review\n\n${reviewRequestMarker({
+        planId, generation: record.generation, headSha, reviewerId: 'codex',
+      })}` });
+    github.rest.pulls.get = async () => ({ data: candidate });
+    github.graphql = async (query, ...args) => {
+      if (String(query).includes('disablePullRequestAutoMerge')) candidate.auto_merge = null;
+      if (String(query).includes('markPullRequestReadyForReview')) candidate.draft = false;
+      return priorGraphql(query, ...args);
+    };
+    await run({ github, core, context: { repo: { owner: 'stranske', repo: 'Workflows' }, payload: {},
+      runId: 80, runNumber: 80, workflow: 'Maint 71', ref: 'refs/heads/main', sha: sourceCommit } });
+    const heldSeal = JSON.parse(fs.readFileSync(reportPath, 'utf8')).results[0];
+    assert.equal(heldSeal.status, 'delivery_review_not_started');
+    assert.equal(heldSeal.reason, 'sealed_hold_restaged');
+    assert.equal(candidate.draft, false);
+    assert.equal(candidate.auto_merge, null);
   } finally {
     process.chdir(originalCwd);
     for (const [key, value] of Object.entries(originalEnv)) {
