@@ -24,6 +24,7 @@ test('review GraphQL reads rotate separately while mutations remain owner-pinned
   const source = fs.readFileSync(path.join(__dirname, '..', 'maint71_merge_sync_prs.js'), 'utf8');
   assert.match(source, /const withRetry = \(fn, options = \{\}\) => retryHelpers\.withRetry/);
   assert.match(source, /task: 'maint71-review-thread-read'/);
+  assert.match(source, /preferredSource: 'SERVICE_BOT_PAT'/);
   assert.match(source, /const data = await withReviewReadRetry\(\(client\) => client\.graphql\(/);
   assert.doesNotMatch(source, /await github\.graphql\(/);
   assert.match(source, /reason: 'review_thread_query_incomplete'/);

@@ -596,6 +596,7 @@ async function run({ github, context, core }) {
         env: process.env,
         capabilities: ['cross-repo', 'pulls:read'],
         preferredType: 'PAT',
+        preferredSource: 'SERVICE_BOT_PAT',
         task: 'maint71-review-thread-read',
       })
     : null;

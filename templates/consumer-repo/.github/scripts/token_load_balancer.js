@@ -103,7 +103,7 @@ const TOKEN_CAPABILITIES = {
 const TOKEN_SPECIALIZATIONS = {
   // PAT specializations
   SERVICE_BOT_PAT: {
-    primaryTasks: ['bot-comments', 'labels', 'autofix-commits', 'maint71-review-thread-read'],
+    primaryTasks: ['bot-comments', 'labels', 'autofix-commits'],
     exclusive: false,
     description: 'Bot account for automation (separate rate limit pool from owner)',
   },
@@ -737,7 +737,7 @@ async function mintAppToken({ tokenInfo, core }) {
  * @param {number} options.minRemaining - Minimum remaining calls needed
  * @returns {Object} { token, source, remaining, percentUsed }
  */
-async function getOptimalToken({ github, core, capabilities = [], preferredType = null, task = null, minRemaining = 100 }) {
+async function getOptimalToken({ github, core, capabilities = [], preferredType = null, preferredSource = null, excludeSources = [], task = null, minRemaining = 100 }) {
   // Refresh if stale
   const now = Date.now();
   if (now - tokenRegistry.lastRefresh > tokenRegistry.refreshInterval) {
@@ -747,7 +747,7 @@ async function getOptimalToken({ github, core, capabilities = [], preferredType 
   // If a specific task is requested, first check for exclusive tokens
   if (task) {
     for (const [id, spec] of Object.entries(TOKEN_SPECIALIZATIONS)) {
-      if (spec.exclusive && spec.primaryTasks.includes(task)) {
+      if (spec.exclusive && spec.primaryTasks.includes(task) && !excludeSources.includes(id)) {
         const tokenInfo = tokenRegistry.tokens.get(id);
         if (tokenInfo && (tokenInfo.rateLimit?.remaining ?? 0) >= minRemaining) {
           core?.info?.(`Using exclusive token ${id} for task '${task}'`);
@@ -786,6 +786,7 @@ async function getOptimalToken({ github, core, capabilities = [], preferredType 
   const candidates = [];
   
   for (const [id, tokenInfo] of tokenRegistry.tokens) {
+    if (excludeSources.includes(id)) continue;
     if (tokenInfo.rateLimit?.invalidAuth) {
       core?.debug?.(`Skipping ${id}: credentials marked invalid`);
       continue;
@@ -838,7 +839,9 @@ async function getOptimalToken({ github, core, capabilities = [], preferredType 
   }
   
   // Sort by score (highest first)
-  candidates.sort((a, b) => b.score - a.score);
+  candidates.sort((a, b) =>
+    Number(b.id === preferredSource) - Number(a.id === preferredSource) || b.score - a.score
+  );
 
   while (candidates.length > 0) {
     const best = candidates[0];

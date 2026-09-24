@@ -27,7 +27,7 @@ test('exports rate limit classifiers for workflow fail-open guards', () => {
 
 test('GraphQL quota errors rotate but permission errors do not', () => {
   const graphqlLimit = new Error('Request failed due to following response errors');
-  graphqlLimit.errors = [{ type: 'RATE_LIMIT', code: 'graphql_rate_limit' }];
+  graphqlLimit.errors = [{ type: 'RATE_LIMITED' }];
   const permission = new Error('Resource not accessible by integration');
   permission.errors = [{ type: 'FORBIDDEN', code: 'FORBIDDEN' }];
 
@@ -38,7 +38,9 @@ test('GraphQL quota errors rotate but permission errors do not', () => {
 test('withRetry rotates a statusless GraphQL quota response for a read', async () => {
   const calls = [];
   const tokenRegistry = {
-    async getOptimalToken() {
+    async getOptimalToken(options) {
+      assert.equal(options.preferredSource, 'SERVICE_BOT_PAT');
+      assert.deepEqual(options.excludeSources, ['OWNER_PR_PAT']);
       return { token: 'service-token', source: 'SERVICE_BOT_PAT' };
     },
     updateTokenUsage() {},
@@ -48,7 +50,7 @@ test('withRetry rotates a statusless GraphQL quota response for a read', async (
       calls.push(client.token);
       if (client.token === 'owner-token') {
         const exhausted = new Error('Request failed due to following response errors');
-        exhausted.errors = [{ type: 'RATE_LIMIT', code: 'graphql_rate_limit' }];
+        exhausted.errors = [{ type: 'RATE_LIMITED' }];
         throw exhausted;
       }
       return { repository: { pullRequest: { headRefOid: 'a'.repeat(40) } } };
@@ -58,6 +60,7 @@ test('withRetry rotates a statusless GraphQL quota response for a read', async (
       tokenRegistry,
       getOctokit: (token) => ({ token }),
       tokenSource: 'OWNER_PR_PAT',
+      preferredSource: 'SERVICE_BOT_PAT',
     },
   );
   assert.equal(result.repository.pullRequest.headRefOid, 'a'.repeat(40));

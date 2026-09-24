@@ -170,7 +170,8 @@ function isRateLimitError(error) {
   }
   const graphqlErrors = error.errors || error?.response?.data?.errors;
   if (Array.isArray(graphqlErrors) && graphqlErrors.some((item) =>
-    item?.type === 'RATE_LIMIT' || item?.code === 'graphql_rate_limit'
+    item?.type === 'RATE_LIMIT' || item?.type === 'RATE_LIMITED'
+      || item?.code === 'graphql_rate_limit'
       || item?.extensions?.code === 'graphql_rate_limit'
   )) {
     return true;
@@ -323,6 +324,7 @@ function resolveOctokitFactory({ github, getOctokit, Octokit }) {
  * @param {string[]} options.capabilities - Required token capabilities
  * @param {string} options.preferredType - Prefer APP or PAT
  * @param {string} options.task - Task name for specialization matching
+ * @param {string} options.preferredSource - Exact token source to prefer when eligible
  * @param {number} options.minRemaining - Minimum remaining calls needed
  * @param {Function} options.onTokenSwitch - Callback on token switch
  * @param {boolean} options.allowNonIdempotentRetries - Allow retries for non-idempotent methods
@@ -342,6 +344,7 @@ async function withRetry(fn, options = {}) {
     tokenSource = null,
     capabilities = [],
     preferredType = null,
+    preferredSource = null,
     task = null,
     minRemaining = 100,
     onTokenSwitch = null,
@@ -364,6 +367,8 @@ async function withRetry(fn, options = {}) {
         core,
         capabilities,
         preferredType,
+        preferredSource,
+        excludeSources: currentTokenSource ? [currentTokenSource] : [],
         task,
         minRemaining,
       });
@@ -661,6 +666,7 @@ async function createTokenAwareRetry(options = {}) {
     Octokit = null,
     capabilities = [],
     preferredType = null,
+    preferredSource = null,
     task = null,
     minRemaining = 100,
     githubToken = null,
@@ -712,6 +718,7 @@ async function createTokenAwareRetry(options = {}) {
         core,
         capabilities,
         preferredType,
+        preferredSource,
         task,
         minRemaining,
       });
@@ -740,6 +747,7 @@ async function createTokenAwareRetry(options = {}) {
       getOctokit: octokitFactory,
       capabilities,
       preferredType,
+      preferredSource,
       task,
       minRemaining,
       tokenSource: currentTokenSource,
