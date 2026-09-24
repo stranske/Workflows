@@ -54,6 +54,8 @@ const DEPENDENCY_REPAIR_PROMOTION_PATTERN =
   /<!--\s*dependency-repair-promotion:v1\s+(\{[^\n]*\})\s*-->/;
 const CONSUMER_SYNC_PATTERN =
   /<!--\s*workflows-consumer-sync:v1\s+(\{[^\n]*\})\s*-->/;
+const VERIFIER_CORPUS_HARVEST_BRANCH = 'verifier-corpus-harvest/auto';
+const VERIFIER_CORPUS_HARVEST_REPOSITORY = 'stranske/Workflows';
 
 function cleanString(value) {
   return String(value || '').trim();
@@ -423,6 +425,20 @@ function hasBoundGeneratedSyncContext(pull = {}, syncSource = parseConsumerSyncS
   );
 }
 
+function hasBoundVerifierCorpusHarvestContext(pull = {}) {
+  const labels = labelNames(pull).map((label) => label.toLowerCase());
+  const branch = cleanString(pull?.head?.ref);
+  const headRepo = cleanString(pull?.head?.repo?.full_name);
+  const baseRepo = cleanString(pull?.base?.repo?.full_name);
+  return (
+    branch === VERIFIER_CORPUS_HARVEST_BRANCH &&
+    headRepo === VERIFIER_CORPUS_HARVEST_REPOSITORY &&
+    baseRepo === VERIFIER_CORPUS_HARVEST_REPOSITORY &&
+    labels.includes('automation') &&
+    labels.includes('model-selection')
+  );
+}
+
 function sourceTypeFromCheckedTemplate(body) {
   const sectionLines = workflowSourceSectionLines(body);
   if (!sectionLines.length) {
@@ -522,10 +538,15 @@ function resolvePrSourceContext(pull = {}) {
   // immutable marker together make sync provenance authoritative over that
   // incidental text.
   const boundGeneratedSync = hasBoundGeneratedSyncContext(pull, consumerSyncSource);
+  // The weekly corpus harvest is a recurring data job, not an implementation
+  // of the design issue mentioned as historical background. Bind suppression
+  // to its exact repository, branch, and controlled labels so stale metadata
+  // cannot promote that provenance into a closing issue reference.
+  const boundVerifierCorpusHarvest = hasBoundVerifierCorpusHarvestContext(pull);
   const extractedIssueNumber = extractIssueNumberFromPull(pull);
   // Controlled promotion/sync provenance is authoritative: a coincidental
   // issue reference must not route the PR through issue-body synchronization.
-  const issueNumber = trustedDependencyRepairPromotion || boundGeneratedSync
+  const issueNumber = trustedDependencyRepairPromotion || boundGeneratedSync || boundVerifierCorpusHarvest
     ? null
     : extractedIssueNumber;
   const noAutomation = hasNoAutomationWorkflowContext(pull);
@@ -539,6 +560,8 @@ function resolvePrSourceContext(pull = {}) {
     ? SOURCE_TYPES.DEPENDABOT
     : boundGeneratedSync
     ? SOURCE_TYPES.SYNC_CAMPAIGN
+    : boundVerifierCorpusHarvest
+    ? SOURCE_TYPES.AUTOMATION_RUN
     : issueNumber
     ? SOURCE_TYPES.GITHUB_ISSUE
     : [markerType, blockType, checkboxType, labelType, inferredType].find((type) => type !== SOURCE_TYPES.UNKNOWN)
@@ -552,14 +575,16 @@ function resolvePrSourceContext(pull = {}) {
       ? `dependency-pr:#${dependencyRepairPromotion.source_pr}`
       : boundGeneratedSync
       ? `consumer-sync-plan:${consumerSyncSource.plan_id}`
+      : boundVerifierCorpusHarvest
+      ? 'workflow:maint-79-verifier-corpus-harvest'
       : '') ||
     cleanString(parseHtmlMarker(body, 'workflow-source-ref')) ||
     cleanString(block.source_ref || block.ref || block.reference) ||
     (issueNumber ? `#${issueNumber}` : '');
-  const lifecycle =
+  const lifecycle = (boundVerifierCorpusHarvest ? 'recurring_data_job' : '') ||
     cleanString(parseHtmlMarker(body, 'workflow-lifecycle')) ||
     cleanString(block.lifecycle || block.intended_lifecycle);
-  const automation =
+  const automation = (boundVerifierCorpusHarvest ? 'corpus_harvest' : '') ||
     cleanString(parseHtmlMarker(body, 'workflow-automation')) ||
     cleanString(block.automation || block.automation_intent);
 
@@ -575,6 +600,7 @@ function resolvePrSourceContext(pull = {}) {
       issueNumber ||
         trustedDependencyRepairPromotion ||
         boundGeneratedSync ||
+        boundVerifierCorpusHarvest ||
         markerType !== SOURCE_TYPES.UNKNOWN ||
         blockType !== SOURCE_TYPES.UNKNOWN ||
         checkboxType !== SOURCE_TYPES.UNKNOWN ||
@@ -583,6 +609,7 @@ function resolvePrSourceContext(pull = {}) {
     ),
     requiresIssue: sourceType === SOURCE_TYPES.GITHUB_ISSUE,
     noAutomation,
+    isRecurringDataJob: boundVerifierCorpusHarvest,
   };
 }
 
@@ -618,6 +645,7 @@ module.exports = {
   extractIssueNumberFromPull,
   parseWorkflowSourceBlock,
   parseDependencyRepairPromotionSource,
+  hasBoundVerifierCorpusHarvestContext,
   sourceTypeFromCheckedTemplate,
   sourceTypeFromLabels,
   hasNoAutomationWorkflowContext,
