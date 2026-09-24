@@ -237,10 +237,17 @@ def sync_repo_to_origin(
         if result.returncode != 0:
             return False, f"git fetch failed: {result.stderr.strip()[:200]}"
 
-        # 2. Resolve the remote default branch after fetch. Most managed repos
-        # use main, but origin/HEAD is authoritative when a repository uses a
-        # different default. Keep origin/main as a compatibility fallback for
-        # older clones that have not recorded origin/HEAD.
+        # 2. Refresh and resolve the remote default branch after fetch. Git
+        # fetch does not update the cached origin/HEAD symbolic ref after a
+        # remote default-branch rename, so refresh it before trusting it.
+        set_head = _git(["remote", "set-head", "origin", "--auto"])
+        if set_head.returncode != 0:
+            diagnostic = (set_head.stderr or set_head.stdout).strip()[:200]
+            return False, f"git remote set-head origin --auto failed: {diagnostic or 'unknown error'}"
+
+        # Most managed repos use main, but origin/HEAD is authoritative when a
+        # repository uses a different default. Keep origin/main as a
+        # compatibility fallback for older clones that have no advertised HEAD.
         default_ref = _git(
             ["symbolic-ref", "--quiet", "--short", "refs/remotes/origin/HEAD"]
         )
@@ -266,18 +273,25 @@ def sync_repo_to_origin(
                 f"{target} ({origin_head[:12]}); restart from an exact-head checkout"
             )
 
-        # 3. Stash any dirty changes so checkout is safe. `-u` deliberately
-        # includes untracked workloop-state.md instead of deleting it.
-        dirty = _git(["status", "--short"])
-        if dirty.stdout.strip():
+        # 3. Stash any dirty changes so checkout is safe. `-u` includes normal
+        # untracked files. workloop-state.md is commonly ignored, in which case
+        # `-a` is required to preserve it before a checkout could overwrite it.
+        dirty = _git(["status", "--short", "--untracked-files=all"])
+        if dirty.returncode != 0:
+            diagnostic = (dirty.stderr or dirty.stdout).strip()[:200]
+            return False, f"git status failed while checking dirty tree: {diagnostic or 'unknown error'}"
+        workloop_state = repo_path / "workloop-state.md"
+        stash_all = workloop_state.is_file()
+        if dirty.stdout.strip() or stash_all:
+            stash_args = [
+                "stash",
+                "push",
+                "-m",
+                "round1-runner sync: stash before sync to origin head",
+            ]
+            stash_args.append("-a" if stash_all else "-u")
             stash = _git(
-                [
-                    "stash",
-                    "push",
-                    "-m",
-                    "round1-runner sync: stash before sync to origin head",
-                    "-u",
-                ]
+                stash_args
             )
             if stash.returncode != 0:
                 diagnostic = (stash.stderr or stash.stdout).strip()[:200]

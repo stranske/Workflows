@@ -705,6 +705,24 @@ class TestSyncRepoToOrigin:
         assert "detached at origin/trunk" in message
         assert any(call[-3:] == ["checkout", "--detach", "origin/trunk"] for call in calls)
 
+    def test_stops_when_default_head_refresh_fails(self, tmp_path: Path) -> None:
+        repo_path = tmp_path / "repo"
+        repo_path.mkdir()
+
+        def fake_run(args: list[str], **_kwargs) -> subprocess.CompletedProcess[str]:
+            if "fetch" in args:
+                return self._make_result(0)
+            if args[-4:] == ["remote", "set-head", "origin", "--auto"]:
+                return self._make_result(1, stderr="remote unavailable")
+            return self._make_result(0)
+
+        with patch("subprocess.run", fake_run):
+            ok, message = runner.sync_repo_to_origin(repo_path)
+
+        assert ok is False
+        assert "git remote set-head origin --auto failed" in message
+        assert "remote unavailable" in message
+
     def test_preserves_exact_head_executing_steward_after_stashing(self, tmp_path: Path) -> None:
         repo_path = tmp_path / "repo"
         repo_path.mkdir()
@@ -867,6 +885,7 @@ class TestSyncRepoToOrigin:
         # Create the untracked workloop-state.md file
         workloop_file = repo_path / "workloop-state.md"
         workloop_file.write_text("# Untracked state", encoding="utf-8")
+        calls: list[list[str]] = []
 
         def fake_run(
             args: list[str],
@@ -876,6 +895,7 @@ class TestSyncRepoToOrigin:
             text: bool = True,
             timeout: int = 120,
         ) -> subprocess.CompletedProcess[str]:
+            calls.append(args)
             if "fetch" in args:
                 return self._make_result(0)
             elif "status" in args:
@@ -902,6 +922,17 @@ class TestSyncRepoToOrigin:
 
         assert ok is True
         assert "stashed dirty changes" in message
+        assert any(
+            call[-5:]
+            == [
+                "stash",
+                "push",
+                "-m",
+                "round1-runner sync: stash before sync to origin head",
+                "-a",
+            ]
+            for call in calls
+        )
         assert workloop_file.exists()
 
     def test_force_checkout_when_not_on_target_branch(self, tmp_path: Path) -> None:
