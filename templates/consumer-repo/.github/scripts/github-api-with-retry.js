@@ -155,13 +155,8 @@ function hasRateLimitHeaders(headers) {
   if (!headers || typeof headers !== 'object') {
     return false;
   }
-  const rateLimitKeys = [
-    'x-ratelimit-remaining',
-    'x-ratelimit-limit',
-    'x-ratelimit-used',
-    'x-ratelimit-reset',
-  ];
-  return rateLimitKeys.some((key) => Object.prototype.hasOwnProperty.call(headers, key));
+  const { remaining, limit } = extractRateLimitInfo(headers);
+  return remaining !== null && remaining >= 0 && limit !== null && limit > 0;
 }
 
 function isRateLimitError(error) {
