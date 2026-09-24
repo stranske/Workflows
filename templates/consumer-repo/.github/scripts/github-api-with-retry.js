@@ -156,7 +156,7 @@ function hasRateLimitHeaders(headers) {
     return false;
   }
   const { remaining, limit } = extractRateLimitInfo(headers);
-  return remaining !== null && remaining >= 0 && limit !== null && limit > 0;
+  return remaining === 0 || (remaining !== null && remaining >= 0 && limit !== null && limit > 0);
 }
 
 function isRateLimitError(error) {

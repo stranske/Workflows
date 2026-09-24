@@ -131,6 +131,20 @@ test('rate headers update their own resource and preserve the other budget', () 
   assert.equal(token.rateLimit.remaining, 5000);
 });
 
+test('a partial GraphQL header with zero remaining blocks token reselection', async () => {
+  seedRegistry([{ id: 'SERVICE_BOT_PAT', remaining: 5000 }]);
+  balancer.tokenRegistry.lastRefresh = Date.now();
+  const token = balancer.tokenRegistry.tokens.get('SERVICE_BOT_PAT');
+  token.graphqlRateLimit = { limit: 5000, remaining: 100, used: 4900, percentRemaining: 2 };
+
+  balancer.updateFromHeaders('SERVICE_BOT_PAT', {
+    'x-ratelimit-remaining': '0',
+  }, 'graphql');
+  assert.equal(token.graphqlRateLimit.remaining, 0);
+  assert.equal(token.rateLimit.remaining, 5000);
+  assert.equal(await balancer.getOptimalToken({ rateResource: 'graphql', minRemaining: 1 }), null);
+});
+
 // ---------------------------------------------------------------------------
 // shouldDefer
 // ---------------------------------------------------------------------------

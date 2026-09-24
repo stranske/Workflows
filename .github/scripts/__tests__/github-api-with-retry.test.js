@@ -430,7 +430,7 @@ test('withRetry attributes headerless GraphQL calls to the GraphQL budget', asyn
   assert.deepEqual(usageCalls, [['SERVICE_BOT_PAT', 1, 'graphql']]);
 });
 
-test('withRetry debits GraphQL usage when partial rate headers omit the budget snapshot', async () => {
+test('withRetry debits unknown partial headers but preserves an authoritative zero', async () => {
   const usageCalls = [];
   const headerCalls = [];
   const tokenRegistry = {
@@ -447,11 +447,10 @@ test('withRetry debits GraphQL usage when partial rate headers omit the budget s
   }, {
     github: {}, tokenRegistry, tokenSource: 'SERVICE_BOT_PAT', rateResource: 'graphql', maxRetries: 0,
   }), /failed/);
-  assert.deepEqual(headerCalls, []);
-  assert.deepEqual(usageCalls, [
-    ['SERVICE_BOT_PAT', 1, 'graphql'],
-    ['SERVICE_BOT_PAT', 1, 'graphql'],
-  ]);
+  assert.deepEqual(headerCalls, [[
+    'SERVICE_BOT_PAT', { 'x-ratelimit-remaining': '0' }, 'graphql',
+  ]]);
+  assert.deepEqual(usageCalls, [['SERVICE_BOT_PAT', 1, 'graphql']]);
 });
 
 test('withRetry fails fast on primary rate limit exhaustion and logs incident', async () => {

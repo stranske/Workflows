@@ -934,7 +934,7 @@ function updateFromHeaders(tokenId, headers, rateResource = 'core') {
   const used = parseInt(headers['x-ratelimit-used'], 10);
   const reset = parseInt(headers['x-ratelimit-reset'], 10);
   
-  if (!isNaN(remaining) && !isNaN(limit)) {
+  if (Number.isFinite(remaining) && remaining >= 0 && Number.isFinite(limit) && limit > 0) {
     tokenInfo[budgetKey] = {
       limit,
       remaining,
@@ -943,6 +943,17 @@ function updateFromHeaders(tokenId, headers, rateResource = 'core') {
       checked: Date.now(),
       percentUsed: (limit - remaining) / limit * 100,
       percentRemaining: (remaining / limit) * 100,
+    };
+  } else if (remaining === 0) {
+    const budget = tokenInfo[budgetKey] || {};
+    tokenInfo[budgetKey] = {
+      ...budget,
+      remaining: 0,
+      used: budget.limit > 0 ? budget.limit : budget.used,
+      reset: reset ? reset * 1000 : budget.reset,
+      checked: Date.now(),
+      percentUsed: 100,
+      percentRemaining: 0,
     };
   }
 }
