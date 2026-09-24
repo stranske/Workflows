@@ -36,6 +36,12 @@ def test_parse_helpers_validate_non_negative() -> None:
         ci_metrics._parse_float("-0.5", "MIN_SECONDS", 1.25)
 
 
+@pytest.mark.parametrize("raw", ["nan", "inf", "-inf"])
+def test_parse_float_rejects_non_finite_values(raw: str) -> None:
+    with pytest.raises(SystemExit, match="MIN_SECONDS must be finite and non-negative"):
+        ci_metrics._parse_float(raw, "MIN_SECONDS", 1.25)
+
+
 def test_tag_name_strips_namespace() -> None:
     node = ET.Element("{example}testcase")
     assert ci_metrics._tag_name(node) == "testcase"
@@ -98,6 +104,17 @@ def test_extract_testcases_handles_invalid_time_and_prioritizes_status() -> None
     assert cases[0].details == "boom"
     assert cases[1].outcome == "skipped"
     assert cases[1].details is None
+
+
+@pytest.mark.parametrize("duration", ["nan", "inf", "-inf"])
+def test_extract_testcases_zeroes_non_finite_durations(duration: str) -> None:
+    root = ET.fromstring(
+        f'<testsuite><testcase classname="suite" name="case" time="{duration}" /></testsuite>'
+    )
+
+    cases = ci_metrics._extract_testcases(root)
+
+    assert cases[0].time == 0.0
 
 
 def test_collect_slow_tests_handles_zero_limit_and_ties() -> None:

@@ -45,6 +45,11 @@ fail-on-coverage-drop        Fail job if drop >= threshold (default false)
 coverage-drop-label          Placeholder label name for future automation (default coverage-drop)
 ```
 
+All numeric inputs must be finite: `NaN`, positive infinity, and negative
+infinity are rejected during input validation. Coverage percentages
+(`coverage-min` and `baseline-coverage`) and `coverage-alert-drop` accept values
+from 0 through 100. Slow-test thresholds must be non-negative integers.
+
 ### Helper Scripts
 
 #### `scripts/ci_metrics.py`

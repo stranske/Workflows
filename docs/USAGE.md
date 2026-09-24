@@ -64,6 +64,11 @@ must exist in `.github/workflows/reusable-10-ci-python.yml`.
 | `coverage-min` | No | `"70"` | Minimum coverage percentage required to pass |
 <!-- REUSABLE-10-INPUTS-END -->
 
+Numeric inputs must be finite; the workflow rejects `NaN`, positive infinity,
+and negative infinity before running CI. `coverage-min`, `baseline-coverage`,
+and `coverage-alert-drop` accept values from 0 through 100, while
+`slow-test-top` and `slow-test-min-seconds` accept non-negative integers.
+
 ### reusable-18-autofix.yml
 
 | Input | Required | Default | Description |

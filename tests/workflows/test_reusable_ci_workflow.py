@@ -132,6 +132,39 @@ def test_workflow_inputs_include_python_version_defaults() -> None:
     assert "pytest_args" not in dispatch_inputs
 
 
+def _validate_inputs_script() -> str:
+    workflow = _load_workflow()
+    steps = workflow["jobs"]["validate-inputs"]["steps"]
+    script = next(step for step in steps if step.get("name") == "Validate workflow inputs")["run"]
+    return script.split("python <<'PY'\n", 1)[1].rsplit("\nPY", 1)[0]
+
+
+@pytest.mark.parametrize("value", ["NaN", "inf", "-inf"])
+def test_validate_inputs_rejects_non_finite_numbers(value: str) -> None:
+    result = subprocess.run(
+        [sys.executable, "-c", _validate_inputs_script()],
+        env={"COVERAGE_MIN": value},
+        capture_output=True,
+        text=True,
+        check=False,
+    )
+
+    assert result.returncode == 1
+    assert "coverage-min must be a finite number" in result.stdout
+
+
+def test_validate_inputs_accepts_finite_number() -> None:
+    result = subprocess.run(
+        [sys.executable, "-c", _validate_inputs_script()],
+        env={"COVERAGE_MIN": "75.5"},
+        capture_output=True,
+        text=True,
+        check=False,
+    )
+
+    assert result.returncode == 0, result.stdout + result.stderr
+
+
 def test_ruff_lint_preserves_consumer_rule_selection() -> None:
     workflow = _load_workflow()
     steps = workflow["jobs"]["lint-ruff"]["steps"]

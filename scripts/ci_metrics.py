@@ -19,6 +19,7 @@ from __future__ import annotations
 
 import datetime as _dt
 import json
+import math
 import os
 import sys
 from collections.abc import Iterable, Sequence
@@ -60,6 +61,8 @@ def _parse_float(value: str | None, env_name: str, default: float) -> float:
         parsed = float(value)
     except ValueError as exc:  # pragma: no cover - defensive
         raise SystemExit(f"Invalid float for {env_name}: {value!r}") from exc
+    if not math.isfinite(parsed):
+        raise SystemExit(f"{env_name} must be finite and non-negative (got {parsed})")
     if parsed < 0:
         raise SystemExit(f"{env_name} must be non-negative (got {parsed})")
     return parsed
@@ -92,6 +95,8 @@ def _extract_testcases(root: ET.Element) -> list[_TestCase]:
         try:
             duration = float(testcase.attrib.get("time", "0") or 0.0)
         except ValueError:
+            duration = 0.0
+        if not math.isfinite(duration):
             duration = 0.0
 
         outcome = "passed"

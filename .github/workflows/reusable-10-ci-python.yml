@@ -248,6 +248,7 @@ jobs:
         run: |
           python <<'PY'
           import json
+          import math
           import os
           import sys
           from typing import NoReturn
@@ -286,6 +287,8 @@ jobs:
                 else ""
               )
               fail(f"{name} must be a number{constraint} (received {raw!r}).")
+            if not math.isfinite(value):
+              fail(f"{name} must be a finite number (received {raw!r}).")
             if min_value is not None and value < min_value:
               fail(f"{name} must be a number between {min_value}-{max_value} (received {raw!r}).")
             if max_value is not None and value > max_value:
