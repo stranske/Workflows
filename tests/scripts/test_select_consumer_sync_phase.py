@@ -204,6 +204,6 @@ def test_checked_in_canary_config_covers_distinct_consumer_shapes() -> None:
         "codex-review",
         "legacy-precommit",
     } <= covered
-    assert any("codex-review" in canary["capabilities"] for canary in config["canaries"]), (
-        "At least one canary must exercise the fleet's Codex review profile before promotion"
-    )
+    assert any(
+        "codex-review" in canary["capabilities"] for canary in config["canaries"]
+    ), "At least one canary must exercise the fleet's Codex review profile before promotion"
