@@ -1452,7 +1452,16 @@ def test_pr_comment_storage_ignores_untrusted_marker_comments() -> None:
                             '{"provider":"codex","head_sha":"trusted"} -->'
                         ),
                         "id": 2,
-                        "user": {"login": "github-actions[bot]"},
+                        "user": {"login": "github-actions", "__typename": "Bot"},
+                        "author_association": "NONE",
+                    },
+                    {
+                        "body": (
+                            "Runner dispatch state\n\n<!-- runner-dispatch:codex:42:v1 "
+                            '{"provider":"codex","head_sha":"spoofed-user"} -->'
+                        ),
+                        "id": 3,
+                        "user": {"login": "github-actions", "__typename": "User"},
                         "author_association": "NONE",
                     },
                 ],
