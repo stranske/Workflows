@@ -2070,11 +2070,12 @@ jobs:
             }));
 
             // Add agent label - capability check triggers on this
+            const { ready: readyLabel } = require('./.github/agents/belt-labels.json');
             await withRetry((client) => client.rest.issues.addLabels({
               owner: context.repo.owner,
               repo: context.repo.repo,
               issue_number: issueNumber,
-              labels: [`agent:${agentKey}`]
+              labels: [`agent:${agentKey}`, readyLabel]
             }));
 
             let baseBranch = context.payload?.repository?.default_branch || '';

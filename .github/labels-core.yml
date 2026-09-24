@@ -30,6 +30,14 @@
   color: "ededed"
   description: Let the system choose an agent (policy-driven)
 
+# Belt queue state labels
+- name: status:ready
+  color: "0052cc"
+  description: Ready for agent pickup
+- name: status:in-progress
+  color: "fbca04"
+  description: Agent work in progress
+
 # Agent status labels (for human visibility and retry mechanism)
 - name: agent:rate-limited
   color: "d93f0b"

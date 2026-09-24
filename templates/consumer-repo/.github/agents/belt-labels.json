@@ -1,0 +1,4 @@
+{
+  "ready": "status:ready",
+  "in_progress": "status:in-progress"
+}

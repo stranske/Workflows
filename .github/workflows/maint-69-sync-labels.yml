@@ -9,6 +9,7 @@ on:
     branches: [main]
     paths:
       - ".github/labels-core.yml"
+      - ".github/agents/belt-labels.json"
   workflow_dispatch:
     inputs:
       repos:

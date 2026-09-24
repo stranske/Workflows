@@ -569,6 +569,10 @@ jobs:
             );
 
             const agentKey = String('${{ steps.ctx.outputs.agent_key }}' || 'codex').trim().toLowerCase() || 'codex';
+            const {
+              ready: readyLabel,
+              in_progress: inProgressLabel,
+            } = require('./.github/agents/belt-labels.json');
             const labelNames = Array.isArray(data.labels)
               ? data.labels.map((l) => String(l.name || '').trim().toLowerCase())
               : [];
@@ -578,8 +582,8 @@ jobs:
               core.setFailed(`Issue #${issue} no longer carries the ${requiredAgentLabel} label.`);
               return;
             }
-            const hasReady = labelNames.some((name) => name === 'status:ready');
-            const hasInProgress = labelNames.some((name) => name === 'status:in-progress');
+            const hasReady = labelNames.some((name) => name === readyLabel);
+            const hasInProgress = labelNames.some((name) => name === inProgressLabel);
             core.setOutput('has_ready', hasReady ? 'true' : 'false');
             core.setOutput('has_in_progress', hasInProgress ? 'true' : 'false');
 
@@ -1052,12 +1056,13 @@ jobs:
             });
             const issue = Number('${{ steps.ctx.outputs.issue }}');
             const { owner, repo } = context.repo;
+            const { in_progress: inProgressLabel } = require('./.belt-tools/.github/agents/belt-labels.json');
             try {
               await withRetry((client) =>
-                client.rest.issues.addLabels({ owner, repo, issue_number: issue, labels: ['status:in-progress'] })
+                client.rest.issues.addLabels({ owner, repo, issue_number: issue, labels: [inProgressLabel] })
               );
             } catch (error) {
-              core.warning(`Failed to set status:in-progress: ${error.message}`);
+              core.warning(`Failed to set ${inProgressLabel}: ${error.message}`);
             }
 
       - name: Remove residual status:ready label
@@ -1074,13 +1079,14 @@ jobs:
             });
             const issue = Number('${{ steps.ctx.outputs.issue }}');
             const { owner, repo } = context.repo;
+            const { ready: readyLabel } = require('./.belt-tools/.github/agents/belt-labels.json');
             try {
               await withRetry((client) =>
-                client.rest.issues.removeLabel({ owner, repo, issue_number: issue, name: 'status:ready' })
+                client.rest.issues.removeLabel({ owner, repo, issue_number: issue, name: readyLabel })
               );
             } catch (error) {
               if (error.status !== 404) {
-                core.warning(`Failed to remove status:ready: ${error.message}`);
+                core.warning(`Failed to remove ${readyLabel}: ${error.message}`);
               }
             }
 
