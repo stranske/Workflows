@@ -645,9 +645,15 @@ def test_maint71_holds_ready_delivery_before_staging_mutations() -> None:
     begin = source.index("async function beginStableDeliveryReview", verification)
     restage = source.index("async function restageStableDelivery", begin)
     assert helper < disable < ready < verification < begin < restage
-    assert "await holdReadyStableDelivery({ owner, repo, pr, expectedRecord: record });" in source[begin:restage]
+    assert (
+        "await holdReadyStableDelivery({ owner, repo, pr, expectedRecord: record });"
+        in source[begin:restage]
+    )
     assert "const latestBody = replaceDeliveryRecord(latest.body || '', {" in source[begin:restage]
-    assert "const current = await holdReadyStableDelivery({ owner, repo, pr, expectedRecord: record });" in source[restage:]
+    assert (
+        "const current = await holdReadyStableDelivery({ owner, repo, pr, expectedRecord: record });"
+        in source[restage:]
+    )
 
 
 def test_gate_and_shared_mergers_hold_mutable_stable_deliveries() -> None:
