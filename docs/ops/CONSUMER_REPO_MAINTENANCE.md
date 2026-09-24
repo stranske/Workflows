@@ -551,11 +551,15 @@ or other prerequisites staged by an earlier, still-unmerged plan.
 
 Created and refreshed deliveries also carry the `sync`, `automated`, and
 `workflow:source-sync` labels plus the `workflow-source:sync_campaign` marker.
-Consumer event handlers treat generated sync provenance as authoritative over
-issue-like text in a file summary only when that label set, the stable
+For compatibility, consumer event handlers accept the underscore sync alias
+(`workflow_source_sync`) and the colon or underscore maintenance variants
+(`workflow:source-maintenance` or `workflow_source_maintenance`) as the same
+controlled source label. Generated sync provenance is authoritative over
+issue-like text in a file summary only when one of those controlled source
+labels appears with both `sync` and `automated`, the stable
 `sync/workflows-candidate` or `sync/workflows-delivery` branch, the canonical
-Workflows producer, and complete immutable consumer-sync marker all agree.
-Removing any binding restores ordinary explicit-issue precedence.
+Workflows producer, and a complete immutable consumer-sync marker. Removing
+any binding restores ordinary explicit-issue precedence.
 
 Every real head update is fail-closed on commit identity. Maint 68 mints a
 repository-scoped Workflows GitHub App installation token, uploads the staged

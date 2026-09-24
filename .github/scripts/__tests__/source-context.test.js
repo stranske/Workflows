@@ -752,6 +752,28 @@ test('bound generated sync provenance overrides incidental issue text', () => {
   assert.equal(context.requiresIssue, false);
   assert.deepEqual(templateResolvePrSourceContext(pull), context);
 
+  for (const controlledSourceLabel of [
+    'workflow_source_sync',
+    'workflow:source-maintenance',
+    'workflow_source_maintenance',
+  ]) {
+    const aliasPull = {
+      ...pull,
+      labels: [
+        { name: 'sync' },
+        { name: 'automated' },
+        { name: controlledSourceLabel },
+      ],
+    };
+    const aliasContext = resolvePrSourceContext(aliasPull);
+    assert.equal(aliasContext.sourceType, SOURCE_TYPES.SYNC_CAMPAIGN);
+    assert.equal(aliasContext.issueNumber, null);
+    assert.equal(aliasContext.sourceRef, `consumer-sync-plan:${metadata.plan_id}`);
+    assert.equal(aliasContext.isExplicit, true);
+    assert.equal(aliasContext.requiresIssue, false);
+    assert.deepEqual(templateResolvePrSourceContext(aliasPull), aliasContext);
+  }
+
   const unboundPulls = [
     {
       ...pull,
