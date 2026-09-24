@@ -579,6 +579,20 @@ def test_manifest_evidence_schema_error_redacts_excerpt(tmp_path: Path) -> None:
     assert all("PRIVATE-SOURCE-TEXT" not in v.message for v in report.violations)
 
 
+def test_standalone_evidence_schema_error_redacts_excerpt(tmp_path: Path) -> None:
+    secret_excerpt = "PRIVATE-STANDALONE-TEXT" + "x" * 2000
+    evidence = _evidence()
+    evidence["excerpt"] = secret_excerpt
+    path = tmp_path / "evidence.json"
+    path.write_text(json.dumps(evidence), encoding="utf-8")
+    report = vrc.validate_evidence_objects(paths=[path], schema_dir=SCHEMA_DIR)
+    assert not report.conformant
+    assert any(
+        "evidence schema validation failed (maxLength)" in v.message for v in report.violations
+    )
+    assert all("PRIVATE-STANDALONE-TEXT" not in v.message for v in report.violations)
+
+
 @pytest.mark.parametrize(
     "case",
     [
