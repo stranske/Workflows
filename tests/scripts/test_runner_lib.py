@@ -1253,6 +1253,7 @@ def _graphql_comments(comments: list[dict[str, Any]], request: dict[str, Any]) -
                         "nodes": [
                             {
                                 "databaseId": item["id"],
+                                "fullDatabaseId": str(item["id"]),
                                 "body": item["body"],
                                 "author": item.get("user"),
                                 "authorAssociation": item.get("author_association"),
@@ -1270,6 +1271,73 @@ def _graphql_comments(comments: list[dict[str, Any]], request: dict[str, Any]) -
             }
         }
     }
+
+
+def test_pr_comment_storage_accepts_full_width_graphql_ids() -> None:
+    comment_id = 5_807_299_200
+
+    class FakeApi:
+        repo = "owner/repo"
+
+        def request(self, method: str, path: str, body: dict[str, Any] | None = None) -> Any:
+            assert method == "POST" and path == "/graphql" and body is not None
+            assert "fullDatabaseId" in body["query"]
+            response = _graphql_comments([{"body": "marker", "id": comment_id}], body)
+            node = response["data"]["repository"]["pullRequest"]["comments"]["nodes"][0]
+            node["databaseId"] = None
+            return response
+
+    storage = PrCommentRunnerStorage(FakeApi())  # type: ignore[arg-type]
+    assert [comment["id"] for comment in storage._iter_comments(42)] == [comment_id]
+
+
+def test_pr_comment_storage_retries_legacy_query_only_for_missing_full_id_field() -> None:
+    class FakeApi:
+        repo = "owner/repo"
+
+        def __init__(self) -> None:
+            self.queries: list[str] = []
+
+        def request(self, method: str, path: str, body: dict[str, Any] | None = None) -> Any:
+            assert method == "POST" and path == "/graphql" and body is not None
+            query = body["query"]
+            self.queries.append(query)
+            if "fullDatabaseId" in query:
+                return {
+                    "errors": [
+                        {"message": "Field 'fullDatabaseId' doesn't exist on type 'IssueComment'"}
+                    ]
+                }
+            response = _graphql_comments([{"body": "marker", "id": 41}], body)
+            del response["data"]["repository"]["pullRequest"]["comments"]["nodes"][0][
+                "fullDatabaseId"
+            ]
+            return response
+
+    api = FakeApi()
+    storage = PrCommentRunnerStorage(api)  # type: ignore[arg-type]
+    assert [comment["id"] for comment in storage._iter_comments(42)] == [41]
+    assert len(api.queries) == 2
+    assert "fullDatabaseId" in api.queries[0]
+    assert "fullDatabaseId" not in api.queries[1]
+
+
+def test_pr_comment_storage_does_not_retry_unrelated_graphql_error() -> None:
+    class FakeApi:
+        repo = "owner/repo"
+
+        def __init__(self) -> None:
+            self.calls = 0
+
+        def request(self, method: str, path: str, body: dict[str, Any] | None = None) -> Any:
+            self.calls += 1
+            return {"errors": [{"message": "Resource not accessible by integration"}]}
+
+    api = FakeApi()
+    storage = PrCommentRunnerStorage(api)  # type: ignore[arg-type]
+    with pytest.raises(RuntimeError, match="GraphQL error"):
+        list(storage._iter_comments(42))
+    assert api.calls == 1
 
 
 def test_pr_comment_storage_stops_when_marker_found() -> None:

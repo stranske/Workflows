@@ -20,7 +20,7 @@ import tempfile
 import uuid
 from collections.abc import Iterator
 from pathlib import Path
-from typing import Any, Protocol, TypeGuard, cast
+from typing import Any, Protocol, TypeGuard
 
 from scripts.state_fingerprint import GitHubApi, _github_context
 
@@ -875,9 +875,10 @@ class PrCommentRunnerStorage:
         query = (
             "query($owner:String!,$repo:String!,$pr:Int!,$cursor:String){"
             "repository(owner:$owner,name:$repo){pullRequest(number:$pr){"
-            f"comments({window}){{nodes{{databaseId body author{{login}} authorAssociation}}"
+            f"comments({window}){{nodes{{databaseId fullDatabaseId body author{{login}} authorAssociation}}"
             "pageInfo{hasPreviousPage startCursor hasNextPage endCursor}}}}}"
         )
+        legacy_query = query.replace("fullDatabaseId ", "")
         cursor: str | None = None
         seen: set[str] = set()
         boundary_id: int | None = None
@@ -890,6 +891,24 @@ class PrCommentRunnerStorage:
                     "variables": {"owner": owner, "repo": repo, "pr": pr_number, "cursor": cursor},
                 },
             )
+            if isinstance(response, dict) and response.get("errors") and query != legacy_query:
+                errors = response["errors"]
+                unsupported_full_id = (
+                    isinstance(errors, list)
+                    and bool(errors)
+                    and all(
+                        isinstance(error, dict)
+                        and "fullDatabaseId" in str(error.get("message") or "")
+                        and any(
+                            phrase in str(error.get("message") or "").lower()
+                            for phrase in ("doesn't exist", "cannot query field", "unknown field")
+                        )
+                        for error in errors
+                    )
+                )
+                if unsupported_full_id:
+                    query = legacy_query
+                    continue
             if not isinstance(response, dict) or response.get("errors"):
                 raise RuntimeError(f"Cannot read runner comments for PR {pr_number}: GraphQL error")
             try:
@@ -900,12 +919,23 @@ class PrCommentRunnerStorage:
                 raise RuntimeError(f"Missing runner comments for PR {pr_number}") from exc
             if not isinstance(nodes, list) or not isinstance(page_info, dict):
                 raise RuntimeError(f"Invalid runner comments for PR {pr_number}")
-            raw_ids = [node.get("databaseId") for node in nodes if isinstance(node, dict)]
-            if len(raw_ids) != len(nodes) or any(
-                not isinstance(comment_id, int) for comment_id in raw_ids
-            ):
-                raise RuntimeError(f"Unstable runner comment cursor for PR {pr_number}")
-            ids = cast(list[int], raw_ids)
+            ids: list[int] = []
+            for node in nodes:
+                if not isinstance(node, dict):
+                    raise RuntimeError(f"Unstable runner comment cursor for PR {pr_number}")
+                raw_id = node.get("fullDatabaseId")
+                if raw_id is None:
+                    raw_id = node.get("databaseId")
+                if isinstance(raw_id, bool) or not (
+                    isinstance(raw_id, int)
+                    and raw_id > 0
+                    or isinstance(raw_id, str)
+                    and raw_id.isascii()
+                    and raw_id.isdecimal()
+                    and int(raw_id) > 0
+                ):
+                    raise RuntimeError(f"Unstable runner comment cursor for PR {pr_number}")
+                ids.append(int(raw_id))
             if (
                 ids != sorted(set(ids))
                 or (
@@ -918,10 +948,15 @@ class PrCommentRunnerStorage:
                 raise RuntimeError(f"Unstable runner comment cursor for PR {pr_number}")
             if ids:
                 boundary_id = ids[0] if descending else ids[-1]
-            for node in reversed(nodes) if descending else nodes:
+            ordered_nodes = (
+                zip(reversed(nodes), reversed(ids), strict=True)
+                if descending
+                else zip(nodes, ids, strict=True)
+            )
+            for node, comment_id in ordered_nodes:
                 author = node.get("author")
                 yield {
-                    "id": node["databaseId"],
+                    "id": comment_id,
                     "body": node.get("body"),
                     "user": {"login": author.get("login")} if isinstance(author, dict) else None,
                     "author_association": node.get("authorAssociation"),
