@@ -6,6 +6,16 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 Breaking changes are called out with a **BREAKING** marker and scheduled according to the policy in `COMPATIBILITY.md`.
 
+## [1.36.1](https://github.com/stranske/Workflows/compare/v1.36.0...v1.36.1) (2026-09-24)
+
+
+### Bug Fixes
+
+* isolate recurring corpus harvest provenance ([#3553](https://github.com/stranske/Workflows/issues/3553)) ([78d60aa](https://github.com/stranske/Workflows/commit/78d60aab05d3c08597928c37aca5a3b44d31ffab))
+* **repo-review:** guard self-review sync provenance ([#3554](https://github.com/stranske/Workflows/issues/3554)) ([b4529ca](https://github.com/stranske/Workflows/commit/b4529ca14b2c61603f5edc674827a46bbbe1caed))
+* restore belt ready queue selection ([#3552](https://github.com/stranske/Workflows/issues/3552)) ([f0fcb0c](https://github.com/stranske/Workflows/commit/f0fcb0c8c3eae57fb67e8c05d1a45887f1864f34))
+* **sync:** reject source label lookalikes ([#3559](https://github.com/stranske/Workflows/issues/3559)) ([ecb2dea](https://github.com/stranske/Workflows/commit/ecb2dea7f0ef0a1fed04704696171a2f7db0cb1c))
+
 ## [1.36.0](https://github.com/stranske/Workflows/compare/v1.35.2...v1.36.0) (2026-09-24)
 
 
