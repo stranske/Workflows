@@ -89,6 +89,28 @@ def test_ensure_destination_force_rejects_symlink_destination(tmp_path: Path) ->
     assert survivor.read_text(encoding="utf-8") == "keep"
 
 
+def test_ensure_destination_force_rejects_symlink_disposable_root(
+    tmp_path: Path,
+) -> None:
+    physical_root = tmp_path / "outside-disposable"
+    destination = physical_root / "repo"
+    destination.mkdir(parents=True)
+    survivor = destination / "survivor.txt"
+    survivor.write_text("keep", encoding="utf-8")
+    disposable_root = tmp_path / ".consumer-tests"
+    disposable_root.symlink_to(physical_root, target_is_directory=True)
+
+    with pytest.raises(run_consumer_repo_tests.UnsafeDestinationError):
+        run_consumer_repo_tests.ensure_destination(
+            disposable_root / "repo",
+            force=True,
+            disposable_root=disposable_root,
+        )
+
+    assert disposable_root.is_symlink()
+    assert survivor.read_text(encoding="utf-8") == "keep"
+
+
 def test_build_pytest_command_uses_sys_executable() -> None:
     command = run_consumer_repo_tests.build_pytest_command(["-q"])
 

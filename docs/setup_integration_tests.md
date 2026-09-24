@@ -14,9 +14,10 @@ The integration fixture is based on the template at `templates/integration-repo`
    - `python scripts/run_consumer_repo_tests.py --force`
 
 `--force` deletes the destination directory tree before rendering. For safety, it
-is honored only when the destination is a non-symlink strict descendant of the
-`.consumer-tests/` directory relative to the current working directory. It refuses
-the `.consumer-tests/` root itself and paths outside that disposable root.
+is honored only when both the destination and `.consumer-tests/` root are not
+symlinks and the destination is a strict descendant of that root relative to the
+current working directory. It refuses the `.consumer-tests/` root itself and paths
+outside that disposable root.
 
 ## Running integration tests
 

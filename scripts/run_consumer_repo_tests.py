@@ -35,7 +35,7 @@ def ensure_destination(
 ) -> None:
     resolved_destination: Path | None = None
     if force:
-        if destination.is_symlink():
+        if disposable_root.is_symlink() or destination.is_symlink():
             raise UnsafeDestinationError(_unsafe_destination_message(destination, disposable_root))
         try:
             resolved_root = disposable_root.resolve()
