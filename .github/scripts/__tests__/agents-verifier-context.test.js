@@ -65,6 +65,7 @@ const buildGithubStub = ({
   runsByWorkflow = {},
   listWorkflowRunsHook = null,
   diffText = '',
+  pullGetCalls = null,
 } = {}) => ({
   rest: {
     actions: {
@@ -80,6 +81,7 @@ const buildGithubStub = ({
     },
     pulls: {
       async get(params = {}) {
+        pullGetCalls?.push(params);
         if (params?.mediaType?.format === 'diff') {
           return { data: diffText };
         }
@@ -677,6 +679,105 @@ test('buildVerifierContext writes diff summary for LLM context', async () => {
 
   fs.rmSync(contextPath, { force: true });
   fs.rmSync(diffSummaryPath, { force: true });
+});
+
+const prOnlyDiff = [
+  'diff --git a/src/pr-only.js b/src/pr-only.js',
+  'new file mode 100644',
+  '--- /dev/null',
+  '+++ b/src/pr-only.js',
+  '@@ -0,0 +1 @@',
+  '+module.exports = true;',
+].join('\n');
+
+const siblingDiff = [
+  'diff --git a/src/sibling.js b/src/sibling.js',
+  'new file mode 100644',
+  '--- /dev/null',
+  '+++ b/src/sibling.js',
+  '@@ -0,0 +1 @@',
+  '+module.exports = false;',
+].join('\n');
+
+async function buildAdvancedBaseDiffContext() {
+  const core = buildCore();
+  const pullGetCalls = [];
+  const localCalls = [];
+  const prDetails = {
+    merged: true,
+    merged_at: '2026-09-24T00:00:00Z',
+    number: 556,
+    title: 'Use the PR-only verifier diff',
+    body: prBodyFixture,
+    html_url: 'https://example.com/pr/556',
+    merge_commit_sha: 'cccccccccccccccccccccccccccccccccccccccc',
+    base: { ref: 'main', sha: 'aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa' },
+    head: { sha: 'bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb' },
+  };
+  const context = {
+    eventName: 'pull_request',
+    repo: { owner: 'octo', repo: 'workflows' },
+    payload: {
+      repository: { default_branch: 'main' },
+      pull_request: {
+        merged: true,
+        number: 556,
+        base: { ref: 'main' },
+        html_url: 'https://example.com/pr/556',
+      },
+    },
+    sha: prDetails.merge_commit_sha,
+  };
+  const github = buildGithubStub({
+    prDetails,
+    diffText: prOnlyDiff,
+    pullGetCalls,
+  });
+  const result = await buildVerifierContext({
+    github,
+    context,
+    core,
+    fetchLocalDiff(options) {
+      localCalls.push(options);
+      return `${siblingDiff}\n${prOnlyDiff}`;
+    },
+  });
+  return { core, localCalls, pullGetCalls, result };
+}
+
+function removeVerifierDiffArtifacts(result) {
+  fs.rmSync(result.contextPath, { force: true });
+  fs.rmSync(result.diffSummaryPath, { force: true });
+  fs.rmSync(result.diffPath, { force: true });
+}
+
+test('buildVerifierContext uses the authoritative PR diff after the base advances', async () => {
+  const { localCalls, pullGetCalls, result } = await buildAdvancedBaseDiffContext();
+  try {
+    assert.equal(result.shouldRun, true);
+    assert.equal(localCalls.length, 0, 'merged PRs must not use a base...merge local range');
+    assert.ok(
+      pullGetCalls.some(
+        (params) => params.pull_number === 556 && params.mediaType?.format === 'diff'
+      )
+    );
+    assert.match(result.markdown, /## PR Diff \(full\)[\s\S]*src\/pr-only\.js/);
+    assert.doesNotMatch(result.markdown, /src\/sibling\.js/);
+  } finally {
+    removeVerifierDiffArtifacts(result);
+  }
+});
+
+test('buildVerifierContext file summary lists only files from the merged PR', async () => {
+  const { result } = await buildAdvancedBaseDiffContext();
+  try {
+    assert.match(result.diffSummary, /### File changes[\s\S]*src\/pr-only\.js/);
+    assert.doesNotMatch(result.diffSummary, /src\/sibling\.js/);
+    assert.match(fs.readFileSync(result.diffSummaryPath, 'utf8'), /src\/pr-only\.js/);
+    assert.doesNotMatch(fs.readFileSync(result.diffSummaryPath, 'utf8'), /src\/sibling\.js/);
+  } finally {
+    removeVerifierDiffArtifacts(result);
+  }
 });
 
 test('buildVerifierContext queries CI runs for merge and head SHAs', async () => {

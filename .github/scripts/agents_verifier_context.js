@@ -355,7 +355,13 @@ async function fetchClosingIssues({ github, core, owner, repo, prNumber }) {
   }
 }
 
-async function buildVerifierContext({ github, context, core, ciWorkflows }) {
+async function buildVerifierContext({
+  github,
+  context,
+  core,
+  ciWorkflows,
+  fetchLocalDiff = fetchLocalGitDiff,
+}) {
   const { owner, repo } = context.repo;
   const { pr, reason: resolveReason } = await resolvePullRequest({ github, context, core });
   if (!pr) {
@@ -634,13 +640,12 @@ async function buildVerifierContext({ github, context, core, ciWorkflows }) {
   const diffMaxChars = Number.parseInt(process.env.VERIFIER_DIFF_MAX_CHARS || '', 10);
   const baseSha = pull.base?.sha;
   const headSha = pull.merge_commit_sha || pull.head?.sha || targetSha;
-  let diffText = fetchLocalGitDiff({
-    baseSha,
-    headSha,
-    maxBytes: Number.isFinite(diffMaxBytes) ? diffMaxBytes : DEFAULT_DIFF_MAX_BYTES,
-    core,
-  });
-  if (!diffText) {
+  const isMergedPull = pull.merged === true || Boolean(pull.merged_at);
+  let diffText = '';
+  if (isMergedPull) {
+    // GitHub's PR diff is authoritative for the PR's own scope. A local
+    // base...merge range includes sibling PRs when the base branch advanced,
+    // while a first-parent range can omit commits after a rebase merge.
     diffText = await fetchPullRequestDiff({
       github,
       core,
@@ -648,6 +653,22 @@ async function buildVerifierContext({ github, context, core, ciWorkflows }) {
       repo,
       pullNumber: pull.number,
     });
+  } else {
+    diffText = fetchLocalDiff({
+      baseSha,
+      headSha,
+      maxBytes: Number.isFinite(diffMaxBytes) ? diffMaxBytes : DEFAULT_DIFF_MAX_BYTES,
+      core,
+    });
+    if (!diffText) {
+      diffText = await fetchPullRequestDiff({
+        github,
+        core,
+        owner,
+        repo,
+        pullNumber: pull.number,
+      });
+    }
   }
   const diffSummary = summarizeDiff(diffText, DIFF_SUMMARY_LIMITS);
   content.push('');
@@ -703,9 +724,15 @@ async function buildVerifierContext({ github, context, core, ciWorkflows }) {
 }
 
 module.exports = {
-  buildVerifierContext: async function ({ github: rawGithub, context, core, ciWorkflows }) {
+  buildVerifierContext: async function ({
+    github: rawGithub,
+    context,
+    core,
+    ciWorkflows,
+    fetchLocalDiff,
+  }) {
     const github = await ensureRateLimitWrapped({ github: rawGithub, core, env: process.env });
-    return buildVerifierContext({ github, context, core, ciWorkflows });
+    return buildVerifierContext({ github, context, core, ciWorkflows, fetchLocalDiff });
   },
   formatDiffForContext,
   fetchLocalGitDiff,
