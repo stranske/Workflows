@@ -188,9 +188,12 @@ def resolve_completion_commit(
 
 
 def duplicate_artifact_errors(
-    tasks: Iterable[dict[str, Any]], *, repo_root: Path | str = "."
+    tasks: Iterable[dict[str, Any]],
+    *,
+    repo_root: Path | str = ".",
+    target_task_id: str | None = None,
 ) -> list[str]:
-    """Flag duplicate artifact claims whose completed task lacks the artifact."""
+    """Flag duplicate claims whose relevant completed task lacks the artifact."""
     references: dict[str, list[dict[str, Any]]] = defaultdict(list)
     for task in tasks:
         if not isinstance(task, dict):
@@ -205,6 +208,8 @@ def duplicate_artifact_errors(
         task_ids = ", ".join(str(task.get("id") or "<unknown>") for task in path_tasks)
         for task in path_tasks:
             if task.get("status") != "done":
+                continue
+            if target_task_id is not None and str(task.get("id") or "") != target_task_id:
                 continue
             commit = str(task.get("commit") or "")
             if not commit or not commit_has_path(commit, path, repo_root=repo_root):

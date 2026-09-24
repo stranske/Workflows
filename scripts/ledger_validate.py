@@ -87,6 +87,12 @@ def _strict_completion_evidence() -> bool:
     return os.environ.get("LEDGER_VALIDATE_COMPLETION_EVIDENCE") == "1"
 
 
+def _strict_completion_task_id() -> str | None:
+    """Return the task whose current transition requires strict evidence."""
+    value = (os.environ.get("LEDGER_VALIDATE_COMPLETION_TASK_ID") or "").strip()
+    return value or None
+
+
 def _warn_skip_commit(commit: str, reason: str) -> None:
     print(
         f"Skipping commit validation for {commit}: {reason}",
@@ -394,6 +400,10 @@ def _git_show_files(commit: str) -> list[str]:
         )
     except subprocess.CalledProcessError as exc:
         raise LedgerError(f"unknown commit {commit}") from exc
+    if isinstance(output, str):
+        # Keep compatibility with text-returning callers and test doubles while
+        # the real command uses NUL-delimited bytes for unusual file names.
+        return [line for line in (line.strip() for line in output.splitlines()) if line]
     return [path.decode("utf-8", "surrogateescape") for path in output.split(b"\0") if path]
 
 
@@ -531,8 +541,13 @@ def _validate_task(
                                 )
                                 subject = ""
 
+                            strict_task_id = _strict_completion_task_id()
+                            strict_for_task = _strict_completion_evidence() and (
+                                strict_task_id is None or task_id == strict_task_id
+                            )
                             if (
-                                extra_files
+                                strict_for_task
+                                or extra_files
                                 or ledger_relative not in files
                                 or not subject.lower().startswith("chore(ledger):")
                             ):
@@ -592,7 +607,13 @@ def validate_ledger(path: Path) -> list[str]:
         problems.append(f"{path}: at most one task may have status=doing (found {doing_count})")
 
     if _strict_completion_evidence():
-        problems.extend(duplicate_artifact_errors(tasks, repo_root=Path.cwd()))
+        problems.extend(
+            duplicate_artifact_errors(
+                tasks,
+                repo_root=Path.cwd(),
+                target_task_id=_strict_completion_task_id(),
+            )
+        )
 
     return problems
 

@@ -107,6 +107,23 @@ def test_duplicate_done_artifact_absence_is_fatal(tmp_path: Path) -> None:
     assert "done task task-01 lacks it" in errors[0]
 
 
+def test_duplicate_artifact_scope_ignores_historical_done_task(tmp_path: Path) -> None:
+    repo = _repo(tmp_path)
+    source = repo / "src.py"
+    source.write_text("VALUE = 1\n", encoding="utf-8")
+    commit = _commit(repo, "feat: unrelated implementation")
+    historical = _task(commit)
+    current = _task()
+    current["id"] = "task-02"
+    current["status"] = "blocked"
+
+    errors = duplicate_artifact_errors(
+        [historical, current], repo_root=repo, target_task_id="task-02"
+    )
+
+    assert errors == []
+
+
 def test_root_level_artifact_paths_are_detected() -> None:
     task = {"title": "Update `pyproject.toml` for packaging."}
     assert task_artifacts(task) == ["pyproject.toml"]
@@ -173,6 +190,9 @@ def test_worker_checks_evidence_before_done_and_gates_persistence(workflow_path:
     done_write = workflow.index("target_task['status'] = 'done'", evidence)
     assert evidence < done_write
     assert "target_task['status'] = 'blocked'" in workflow
+    assert (
+        "LEDGER_VALIDATE_COMPLETION_TASK_ID: " "${{ steps.ledger_finalize.outputs.task_id }}"
+    ) in workflow
     assert "steps.ledger_finalize.outcome == 'success'" in workflow
     assert "steps.ledger_final_validation.outcome == 'success'" in workflow
     assert "Belt task counts:" not in workflow  # rendered by the shared helper

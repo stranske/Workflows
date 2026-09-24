@@ -119,6 +119,49 @@ def test_commit_validation_for_done_task(tmp_path: Path, monkeypatch) -> None:
     assert f"{ledger_path}: tasks[0].commit abcdef1 must include non-ledger changes" in errors
 
 
+def test_strict_completion_scope_ignores_historical_ledger_only_task(
+    tmp_path: Path, monkeypatch
+) -> None:
+    ledger_validate = _load_module(monkeypatch, tmp_path)
+    ledger_validate.REPO_ROOT = tmp_path
+    monkeypatch.setenv("LEDGER_VALIDATE_COMPLETION_EVIDENCE", "1")
+    monkeypatch.setenv("LEDGER_VALIDATE_COMPLETION_TASK_ID", "task-current")
+    ledger_dir = tmp_path / ".agents"
+    ledger_dir.mkdir()
+    ledger_path = ledger_dir / "issue-1-ledger.yml"
+    ledger_path.write_text(
+        yaml.safe_dump(
+            {
+                "version": 1,
+                "issue": 1,
+                "base": "main",
+                "branch": "codex/issue-1",
+                "tasks": [
+                    {
+                        "id": "task-historical",
+                        "title": "Historical",
+                        "status": "done",
+                        "commit": "abcdef1",
+                    },
+                    {
+                        "id": "task-current",
+                        "title": "Current",
+                        "status": "blocked",
+                        "commit": "",
+                    },
+                ],
+            }
+        ),
+        encoding="utf-8",
+    )
+    monkeypatch.setattr(
+        ledger_validate, "_commit_files", lambda commit: [".agents/issue-1-ledger.yml"]
+    )
+    monkeypatch.setattr(ledger_validate, "_commit_subject", lambda commit: "chore(ledger): finish")
+
+    assert ledger_validate.validate_ledger(ledger_path) == []
+
+
 def test_chore_ledger_subject_cannot_bypass_strict_completion_gate(
     tmp_path: Path, monkeypatch
 ) -> None:
@@ -150,6 +193,7 @@ def test_chore_ledger_subject_cannot_bypass_strict_completion_gate(
     monkeypatch.setattr(
         ledger_validate, "_commit_files", lambda commit: [".agents/issue-1-ledger.yml"]
     )
+    monkeypatch.setattr(ledger_validate, "_commit_subject", lambda commit: "chore(ledger): finish")
 
     errors = ledger_validate.validate_ledger(ledger_path)
 
