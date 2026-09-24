@@ -136,7 +136,8 @@ async function ensureExactHeadReviewRequest({
       if (!existing.id || !Number.isFinite(Date.parse(existing.created_at || ''))) {
         throw new Error('Existing review request lacks durable identity or time');
       }
-      return { id: existing.id, requestedAt: existing.created_at, reused: true, body: fresh.body };
+      return { id: existing.id, requestedAt: existing.created_at, reused: true,
+        body: fresh.body, draft: Boolean(fresh.draft), autoMerge: Boolean(fresh.auto_merge) };
     }
     if (comments.length < 100) break;
     if (page === 20) throw new Error('Review-request comment inventory truncated');
@@ -155,7 +156,8 @@ async function ensureExactHeadReviewRequest({
   if (!posted?.id || !Number.isFinite(Date.parse(posted.created_at || ''))) {
     throw new Error('Review request posted without durable identity or time');
   }
-  return { id: posted.id, requestedAt: posted.created_at, reused: false, body: fresh.body };
+  return { id: posted.id, requestedAt: posted.created_at, reused: false,
+    body: fresh.body, draft: Boolean(fresh.draft), autoMerge: Boolean(fresh.auto_merge) };
 }
 
 function parseReviewResolutionProofs(raw = '') {
@@ -2776,7 +2778,9 @@ async function run({ github, context, core }) {
           });
           continue;
         }
-        const needsReadyRecovery = Boolean(pr.draft || pr.auto_merge);
+        // The request lookup reads the PR again; its readiness is newer than
+        // the initial inventory snapshot used to enter this branch.
+        const needsReadyRecovery = Boolean(sealedRequest?.draft || sealedRequest?.autoMerge);
         if (
           !sealedRequest
           || needsReadyRecovery

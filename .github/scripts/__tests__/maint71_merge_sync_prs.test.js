@@ -46,12 +46,26 @@ test('exact-head reviewer request is durable, trusted, and idempotent', async ()
   const first = await ensureExactHeadReviewRequest(args);
   assert.equal(first.reused, false);
   assert.equal(first.requestedAt, '2026-09-24T01:00:00Z');
+  assert.equal(first.draft, false);
+  assert.equal(first.autoMerge, false);
   assert.match(comments[0].body, /@codex review/);
   assert.match(comments[0].body, new RegExp(headSha));
   const retry = await ensureExactHeadReviewRequest(args);
   assert.equal(retry.reused, true);
   assert.equal(retry.id, first.id);
   assert.equal(posts, 1);
+  github.rest.pulls.get = async () => ({ data: {
+    state: 'open', draft: true, auto_merge: { enabled_at: '2026-09-24T01:00:00Z' },
+    head: { sha: headSha },
+    body: `<!-- sync-pr-delivery-record:v1 ${JSON.stringify(record)} -->`,
+  } });
+  const unready = await ensureExactHeadReviewRequest({ ...args, allowUnready: true });
+  assert.equal(unready.draft, true);
+  assert.equal(unready.autoMerge, true);
+  github.rest.pulls.get = async () => ({ data: {
+    state: 'open', draft: false, auto_merge: null, head: { sha: headSha },
+    body: `<!-- sync-pr-delivery-record:v1 ${JSON.stringify(record)} -->`,
+  } });
   comments[0].user.login = 'untrusted';
   await ensureExactHeadReviewRequest(args);
   assert.equal(posts, 2, 'a forged marker must not authorize review settlement');
