@@ -413,6 +413,23 @@ test('withRetry records token usage when headers lack rate limit fields', async 
   );
 });
 
+test('withRetry attributes headerless GraphQL calls to the GraphQL budget', async () => {
+  const usageCalls = [];
+  await withRetry(
+    async () => ({ data: { ok: true } }),
+    {
+      github: {},
+      tokenRegistry: {
+        updateTokenUsage: (...args) => usageCalls.push(args),
+      },
+      tokenSource: 'SERVICE_BOT_PAT',
+      rateResource: 'graphql',
+      maxRetries: 0,
+    }
+  );
+  assert.deepEqual(usageCalls, [['SERVICE_BOT_PAT', 1, 'graphql']]);
+});
+
 test('withRetry fails fast on primary rate limit exhaustion and logs incident', async () => {
   const fs = require('node:fs');
   const os = require('node:os');

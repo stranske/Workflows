@@ -97,6 +97,40 @@ test('GraphQL read selection ignores exhausted REST core and rejects exhausted G
   assert.equal(excluded, null);
 });
 
+test('GraphQL usage accounting exhausts only the GraphQL budget', async () => {
+  seedRegistry([{ id: 'SERVICE_BOT_PAT', remaining: 5000 }]);
+  balancer.tokenRegistry.lastRefresh = Date.now();
+  const token = balancer.tokenRegistry.tokens.get('SERVICE_BOT_PAT');
+  token.graphqlRateLimit = { limit: 5000, remaining: 1, used: 4999, percentRemaining: 0.02 };
+
+  balancer.updateTokenUsage('SERVICE_BOT_PAT', 1, 'graphql');
+  assert.equal(token.graphqlRateLimit.remaining, 0);
+  assert.equal(token.rateLimit.remaining, 5000);
+  assert.equal(await balancer.getOptimalToken({ rateResource: 'graphql', minRemaining: 1 }), null);
+});
+
+test('rate headers update their own resource and preserve the other budget', () => {
+  seedRegistry([{ id: 'SERVICE_BOT_PAT', remaining: 5000 }]);
+  const token = balancer.tokenRegistry.tokens.get('SERVICE_BOT_PAT');
+  token.graphqlRateLimit = { limit: 5000, remaining: 2000, used: 3000 };
+
+  balancer.updateFromHeaders('SERVICE_BOT_PAT', {
+    'x-ratelimit-resource': 'graphql',
+    'x-ratelimit-limit': '5000',
+    'x-ratelimit-remaining': '0',
+    'x-ratelimit-used': '5000',
+  });
+  assert.equal(token.graphqlRateLimit.remaining, 0);
+  assert.equal(token.rateLimit.remaining, 5000);
+
+  balancer.updateFromHeaders('SERVICE_BOT_PAT', {
+    'x-ratelimit-limit': '5000',
+    'x-ratelimit-remaining': '4000',
+  }, 'graphql');
+  assert.equal(token.graphqlRateLimit.remaining, 4000);
+  assert.equal(token.rateLimit.remaining, 5000);
+});
+
 // ---------------------------------------------------------------------------
 // shouldDefer
 // ---------------------------------------------------------------------------

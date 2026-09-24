@@ -423,10 +423,10 @@ async function withRetry(fn, options = {}) {
         const info = extractRateLimitInfo(headers);
 
         if (hasRateLimitHeaders(headers) && typeof tokenRegistry.updateFromHeaders === 'function') {
-          tokenRegistry.updateFromHeaders(currentTokenSource, headers);
+          tokenRegistry.updateFromHeaders(currentTokenSource, headers, rateResource);
           logTokenUsage(core, currentTokenSource, info, 'response');
         } else if (typeof tokenRegistry.updateTokenUsage === 'function') {
-          tokenRegistry.updateTokenUsage(currentTokenSource, 1);
+          tokenRegistry.updateTokenUsage(currentTokenSource, 1, rateResource);
           logTokenUsage(core, currentTokenSource, null, 'response');
         }
       }
@@ -450,10 +450,10 @@ async function withRetry(fn, options = {}) {
       if (tokenRegistry && currentTokenSource) {
         const info = extractRateLimitInfo(headers);
         if (hasRateLimitHeaders(headers) && typeof tokenRegistry.updateFromHeaders === 'function') {
-          tokenRegistry.updateFromHeaders(currentTokenSource, headers);
+          tokenRegistry.updateFromHeaders(currentTokenSource, headers, rateResource);
           logTokenUsage(core, currentTokenSource, info, 'error');
         } else if (typeof tokenRegistry.updateTokenUsage === 'function') {
-          tokenRegistry.updateTokenUsage(currentTokenSource, 1);
+          tokenRegistry.updateTokenUsage(currentTokenSource, 1, rateResource);
           logTokenUsage(core, currentTokenSource, null, 'error');
         }
       }
