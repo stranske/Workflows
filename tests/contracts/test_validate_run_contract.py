@@ -312,6 +312,18 @@ def test_required_format_checker_fails_closed_when_provider_is_unavailable(
         mod._validator_for_schema(SCHEMA_DIR, schema_name)
 
 
+@pytest.mark.parametrize("format_name", ["date-time", "uri"])
+def test_required_format_checker_rejects_registered_but_ineffective_provider(
+    monkeypatch, format_name: str
+) -> None:
+    mod = _import_validator()
+    checkers = dict(mod.FormatChecker.checkers)
+    checkers[format_name] = (lambda value: True, ())
+    monkeypatch.setattr(mod.FormatChecker, "checkers", checkers)
+    with pytest.raises(RuntimeError, match=f"format checker.*ineffective: {format_name}"):
+        mod._required_format_checker(format_name)
+
+
 @pytest.mark.parametrize(
     ("schema_name", "missing_format", "blocked_imports"),
     [

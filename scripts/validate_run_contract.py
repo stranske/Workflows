@@ -24,6 +24,7 @@ import argparse
 import hashlib
 import json
 import sys
+from collections import Counter
 from dataclasses import dataclass, field
 from datetime import date
 from pathlib import Path, PurePosixPath
@@ -124,7 +125,19 @@ def _required_format_checker(*formats: str) -> FormatChecker:
             f"JSON Schema format checker(s) unavailable: {', '.join(missing)}; "
             "install jsonschema rfc3339-validator rfc3986-validator"
         )
-    return FormatChecker(formats=formats)
+    checker = FormatChecker(formats=formats)
+    invalid_probes = {"date-time": "not-a-timestamp", "uri": "not a uri"}
+    ineffective = [
+        name
+        for name in formats
+        if name in invalid_probes and checker.conforms(invalid_probes[name], name)
+    ]
+    if ineffective:
+        raise RuntimeError(
+            f"JSON Schema format checker(s) ineffective: {', '.join(ineffective)}; "
+            "install jsonschema rfc3339-validator rfc3986-validator"
+        )
+    return checker
 
 
 def _validator_for_schema(schema_dir: Path, name: str) -> Draft202012Validator:
@@ -193,7 +206,11 @@ def validate_evidence_objects(*, paths: list[Path], schema_dir: Path) -> Report:
             continue
         for err in sorted(validator.iter_errors(document), key=lambda e: list(e.absolute_path)):
             pointer = "/".join(str(p) for p in err.absolute_path)
-            report.fail(err.message, f"{path}:/{pointer}")
+            # The rejected instance may contain a confidential excerpt. Match
+            # the manifest-closure report's validator-only diagnostic.
+            report.fail(
+                f"evidence schema validation failed ({err.validator})", f"{path}:/{pointer}"
+            )
         _check_document_page(document, report, f"{path}:/")
     return report
 
@@ -428,7 +445,7 @@ def _validate_manifest_evidence_closure(
         if isinstance(evidence, dict) and isinstance(evidence.get("evidence_id"), str):
             evidence_ids.append(evidence["evidence_id"])
 
-    duplicates = sorted({item for item in evidence_ids if evidence_ids.count(item) > 1})
+    duplicates = sorted(item for item, count in Counter(evidence_ids).items() if count > 1)
     for evidence_id in duplicates:
         report.fail(
             f"duplicate evidence_id '{evidence_id}' in emitted evidence artifacts",
@@ -439,7 +456,7 @@ def _validate_manifest_evidence_closure(
     if not isinstance(refs, list) or not all(isinstance(ref, str) for ref in refs):
         report.fail("evidence_refs must be a list of strings for evidence closure", "evidence_refs")
         return
-    duplicate_refs = sorted({item for item in refs if refs.count(item) > 1})
+    duplicate_refs = sorted(item for item, count in Counter(refs).items() if count > 1)
     for evidence_id in duplicate_refs:
         report.fail(f"duplicate evidence_ref '{evidence_id}'", "evidence_refs")
     emitted = set(evidence_ids)
