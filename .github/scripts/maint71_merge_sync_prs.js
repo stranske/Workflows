@@ -1333,12 +1333,26 @@ async function run({ github, context, core }) {
     return { resolved, filedIssue, errors };
   }
 
-  async function holdReadyStableDelivery({ owner, repo, pr }) {
+  async function holdReadyStableDelivery({ owner, repo, pr, expectedRecord }) {
+    const assertObservedDelivery = (current) => {
+      if (!expectedRecord) return;
+      const observed = parseDeliveryRecord(current?.body || '');
+      if (
+        current?.state !== 'open' || current?.head?.sha !== pr.head.sha
+        || observed?.plan_id !== expectedRecord.plan_id
+        || observed?.generation !== expectedRecord.generation
+        || observed?.head_observed_sha !== pr.head.sha
+        || observed?.delivery_state !== expectedRecord.delivery_state
+      ) {
+        throw new Error('Generated delivery changed before ready hold');
+      }
+    };
     let { data: current } = await withRetry((client) => client.rest.pulls.get({
       owner,
       repo,
       pull_number: pr.number,
     }));
+    assertObservedDelivery(current);
     if (current.auto_merge) {
       await withRetry((client) => client.graphql(
         `mutation($id: ID!) {
@@ -1364,6 +1378,7 @@ async function run({ github, context, core }) {
       repo,
       pull_number: pr.number,
     })));
+    assertObservedDelivery(current);
     if (current.auto_merge) {
       throw new Error(`Auto-merge remains enabled for staged delivery PR #${pr.number}.`);
     }
@@ -1377,7 +1392,7 @@ async function run({ github, context, core }) {
     if (dryRunMode) {
       return { reviewStartedAt: record.review_started_at || new Date().toISOString(), dryRun: true };
     }
-    await holdReadyStableDelivery({ owner, repo, pr });
+    await holdReadyStableDelivery({ owner, repo, pr, expectedRecord: record });
     const request = await ensureExactHeadReviewRequest({
       owner, repo, pr, record, reviewerProfiles,
       withRetry,
@@ -1443,18 +1458,26 @@ async function run({ github, context, core }) {
       });
       return { body, dryRun: true };
     }
-    const current = await holdReadyStableDelivery({ owner, repo, pr });
-    const currentRecord = parseDeliveryRecord(current.body || '');
-    if (
-      current.state !== 'open' || current.draft || current.auto_merge
-      || current.head?.sha !== pr.head.sha
-      || currentRecord?.plan_id !== record.plan_id
-      || currentRecord?.generation !== record.generation
-      || currentRecord?.head_observed_sha !== pr.head.sha
-      || currentRecord?.delivery_state !== record.delivery_state
-    ) {
-      throw new Error('Generated delivery changed before exact-head restage');
-    }
+    const assertRestageIdentity = (current, { requireReady = false } = {}) => {
+      const currentRecord = parseDeliveryRecord(current?.body || '');
+      if (
+        current?.state !== 'open'
+        || (requireReady && (current.draft || current.auto_merge))
+        || current?.head?.sha !== pr.head.sha
+        || currentRecord?.plan_id !== record.plan_id
+        || currentRecord?.generation !== record.generation
+        || currentRecord?.head_observed_sha !== pr.head.sha
+        || currentRecord?.delivery_state !== record.delivery_state
+      ) {
+        throw new Error('Generated delivery changed before exact-head restage');
+      }
+    };
+    const { data: beforeHold } = await withRetry((client) => client.rest.pulls.get({
+      owner, repo, pull_number: pr.number,
+    }));
+    assertRestageIdentity(beforeHold);
+    const current = await holdReadyStableDelivery({ owner, repo, pr, expectedRecord: record });
+    assertRestageIdentity(current, { requireReady: true });
     const body = replaceDeliveryRecord(current.body || '', {
       delivery_state: 'staging',
       review_started_at: '',

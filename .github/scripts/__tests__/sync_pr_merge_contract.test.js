@@ -3668,14 +3668,32 @@ test('maint71 starts review by clearing stale ready labels while retaining the s
     assert.doesNotMatch(mutations.at(-1).body, /"sealed_head_sha":"[^"\s]+"/);
     let restageReads = 0;
     const updatesBeforeRotatedHead = mutations.length;
+    let unintendedGraphqlMutations = 0;
+    const priorGraphql = github.graphql;
+    github.graphql = async (...args) => {
+      if (String(args[0]).trim().startsWith('mutation')) unintendedGraphqlMutations++;
+      return priorGraphql(...args);
+    };
     github.rest.pulls.get = async () => ({ data: ++restageReads >= 3
-      ? { ...candidate, head: { ...candidate.head, sha: 'rotated-head' } }
+      ? { ...candidate, draft: true, auto_merge: { enabled_at: '2026-09-24T04:00:00Z' },
+        head: { ...candidate.head, sha: 'rotated-head' } }
       : candidate });
     await run({ github, core, context: { repo: { owner: 'stranske', repo: 'Workflows' }, payload: {},
       runId: 78, runNumber: 78, workflow: 'Maint 71', ref: 'refs/heads/main', sha: sourceCommit } });
     assert.equal(JSON.parse(fs.readFileSync(reportPath, 'utf8')).results[0].status, 'error');
     assert.equal(mutations.length, updatesBeforeRotatedHead,
       'restage must not rewrite a generation rotated after request inventory');
+    assert.equal(unintendedGraphqlMutations, 0,
+      'restage must validate identity before changing ready or auto-merge state');
+    restageReads = 0;
+    github.rest.pulls.get = async () => ({ data: ++restageReads >= 4
+      ? { ...candidate, head: { ...candidate.head, sha: 'rotated-after-hold' } }
+      : candidate });
+    await run({ github, core, context: { repo: { owner: 'stranske', repo: 'Workflows' }, payload: {},
+      runId: 79, runNumber: 79, workflow: 'Maint 71', ref: 'refs/heads/main', sha: sourceCommit } });
+    assert.equal(JSON.parse(fs.readFileSync(reportPath, 'utf8')).results[0].status, 'error');
+    assert.equal(mutations.length, updatesBeforeRotatedHead,
+      'restage must not rewrite a generation rotated during ready hold');
   } finally {
     process.chdir(originalCwd);
     for (const [key, value] of Object.entries(originalEnv)) {
