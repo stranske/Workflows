@@ -186,7 +186,10 @@ needed for replay/audit; `Counter_Risk` blueprint issue, `manifest.py:97-120`).
   previous behavior. Both standalone `--evidence-objects` validation and
   manifest closure report the failed schema keyword and path without echoing
   rejected excerpt content; duplicate evidence IDs and references are counted
-  in one pass. The reusable gate binds the selected repo to its caller.
+  in one pass. Required URI and date-time checkers reject known invalid probes
+  before accepting a format-validating schema, even if a checker is registered
+  without its optional provider. The reusable gate binds the selected repo to
+  its caller.
 
 ### Participant `role` (producer / consumer / bridge)
 

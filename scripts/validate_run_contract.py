@@ -125,7 +125,19 @@ def _required_format_checker(*formats: str) -> FormatChecker:
             f"JSON Schema format checker(s) unavailable: {', '.join(missing)}; "
             "install jsonschema rfc3339-validator rfc3986-validator"
         )
-    return FormatChecker(formats=formats)
+    checker = FormatChecker(formats=formats)
+    invalid_probes = {"date-time": "not-a-timestamp", "uri": "not a uri"}
+    ineffective = [
+        name
+        for name in formats
+        if name in invalid_probes and checker.conforms(invalid_probes[name], name)
+    ]
+    if ineffective:
+        raise RuntimeError(
+            f"JSON Schema format checker(s) ineffective: {', '.join(ineffective)}; "
+            "install jsonschema rfc3339-validator rfc3986-validator"
+        )
+    return checker
 
 
 def _validator_for_schema(schema_dir: Path, name: str) -> Draft202012Validator:
