@@ -13,6 +13,12 @@ The integration fixture is based on the template at `templates/integration-repo`
 3. (Alternative) Render and run tests in one step:
    - `python scripts/run_consumer_repo_tests.py --force`
 
+`--force` deletes the destination directory tree before rendering. For safety, it
+is honored only when both the destination and `.consumer-tests/` root are not
+symlinks and the destination is a strict descendant of that root relative to the
+current working directory. It refuses the `.consumer-tests/` root itself and paths
+outside that disposable root.
+
 ## Running integration tests
 
 Run the simulated workflow integration tests in this repository:
