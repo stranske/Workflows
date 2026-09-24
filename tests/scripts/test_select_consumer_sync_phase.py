@@ -4,7 +4,11 @@ import json
 from pathlib import Path
 
 import pytest
-from scripts.select_consumer_sync_phase import PhaseSelectionError, select_phase
+from scripts.select_consumer_sync_phase import (
+    PhaseSelectionError,
+    select_phase,
+    validate_registered_scopes,
+)
 from scripts.sync_manifest_compiler import compile_manifest
 
 ROOT = Path(__file__).parents[2]
@@ -13,6 +17,8 @@ REGISTERED = [
     "stranske/trip-planner",
     "stranske/Manager-Database",
     "stranske/Ready",
+    "stranske/Deliverable-Render",
+    "stranske/Manager-Mosaic",
 ]
 CANARIES = [
     {"repo": "stranske/Travel-Plan-Permission", "capabilities": ["custom-gate"]},
@@ -51,6 +57,60 @@ def test_preview_never_constructs_a_write_matrix() -> None:
 
     assert result["selected_repos"] == []
     assert len(result["prospective_diffs"]) == len(REGISTERED)
+
+
+def test_preview_paths_respect_scoped_packaged_schema_ownership() -> None:
+    repos = REGISTERED
+    result = select_phase(plan(), phase="preview", registered_repos=repos, canaries=CANARIES)
+    paths = {row["repo"]: set(row["affected_paths"]) for row in result["prospective_diffs"]}
+    render_path = "src/deliverable_render/store/evidence-object-v1.schema.json"
+    mosaic_path = "src/manager_mosaic/schemas/evidence-object-v1.schema.json"
+
+    assert render_path in paths["stranske/Deliverable-Render"]
+    assert mosaic_path not in paths["stranske/Deliverable-Render"]
+    assert mosaic_path in paths["stranske/Manager-Mosaic"]
+    assert render_path not in paths["stranske/Manager-Mosaic"]
+    assert all(
+        render_path not in paths[repo] and mosaic_path not in paths[repo]
+        for repo in REGISTERED
+        if repo not in {"stranske/Deliverable-Render", "stranske/Manager-Mosaic"}
+    )
+
+
+def test_preview_rejects_unregistered_include_repo_before_plan_publication() -> None:
+    compiled = plan()
+    scoped = next(entry for entry in compiled["entries"] if entry["include_repos"])
+    scoped["include_repos"] = ["stranske/Manager-Mosia"]
+
+    with pytest.raises(
+        PhaseSelectionError,
+        match="include_repos_contains_unregistered_repository:stranske/Manager-Mosia",
+    ):
+        select_phase(compiled, phase="preview", registered_repos=REGISTERED, canaries=CANARIES)
+
+
+def test_full_plan_scope_validation_precedes_source_delta_filtering() -> None:
+    full_plan = plan()
+    scoped = next(entry for entry in full_plan["entries"] if entry["include_repos"])
+    scoped["include_repos"] = ["stranske/Manager-Mosia"]
+    delta_plan = {
+        **full_plan,
+        "entries": [entry for entry in full_plan["entries"] if entry is not scoped],
+    }
+
+    with pytest.raises(
+        PhaseSelectionError,
+        match="include_repos_contains_unregistered_repository:stranske/Manager-Mosia",
+    ):
+        validate_registered_scopes(full_plan, REGISTERED)
+    validate_registered_scopes(delta_plan, REGISTERED)
+
+    workflow = (ROOT / ".github/workflows/maint-68-sync-consumer-repos.yml").read_text(
+        encoding="utf-8"
+    )
+    assert workflow.index("- name: Validate full plan repository scopes") < workflow.index(
+        "- name: Select full or exact source-delta plan"
+    )
 
 
 def test_promotion_rejects_stale_canary_evidence() -> None:
@@ -116,7 +176,12 @@ def test_promotion_targets_only_non_canary_repos() -> None:
         evidence=green_evidence(compiled["plan_id"]),
     )
 
-    assert result["selected_repos"] == ["stranske/Manager-Database", "stranske/Ready"]
+    assert result["selected_repos"] == [
+        "stranske/Manager-Database",
+        "stranske/Ready",
+        "stranske/Deliverable-Render",
+        "stranske/Manager-Mosaic",
+    ]
 
 
 def test_filtered_manual_canary_run_can_narrow_the_configured_canaries() -> None:

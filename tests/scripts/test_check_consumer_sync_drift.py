@@ -149,6 +149,58 @@ def test_report_counts_create_only_exclusions(tmp_path, monkeypatch) -> None:
     assert report["status"] == "drift"
 
 
+def test_create_only_scope_exclusion_survives_remote_tree_failure(tmp_path, monkeypatch) -> None:
+    source = tmp_path / "example.yml"
+    source.write_text("name: Example\n", encoding="utf-8")
+    manifest = tmp_path / "sync-manifest.yml"
+    manifest.write_text("version: 1\n", encoding="utf-8")
+    report_path = tmp_path / "report.json"
+    entry = _make_entry(
+        source=str(source),
+        target=".github/workflows/example.yml",
+        sync_mode="create_only",
+        include_repos=("owner/a",),
+    )
+    compiled = SimpleNamespace(
+        to_plan=lambda: {"plan_id": "sha256:" + "a" * 64},
+        section=lambda section: (entry,) if section == "workflows" else (),
+        removals=(),
+    )
+    args = SimpleNamespace(
+        repos="owner/a,owner/b",
+        manifest=str(manifest),
+        canaries="unused.json",
+        report_json=str(report_path),
+        summary="",
+    )
+    monkeypatch.setattr(check_consumer_sync_drift, "COPY_SYNCED_SECTIONS", ("workflows",))
+    monkeypatch.setattr(check_consumer_sync_drift, "parse_args", lambda: args)
+    monkeypatch.setattr(check_consumer_sync_drift, "token_candidates", lambda: [{"token": "x"}])
+    monkeypatch.setattr(check_consumer_sync_drift, "compile_manifest", lambda _path: compiled)
+    monkeypatch.setattr(check_consumer_sync_drift, "resolve_candidate_repos", lambda *_args: set())
+    monkeypatch.setattr(
+        check_consumer_sync_drift,
+        "select_read_token",
+        lambda **_kwargs: (object(), {}),
+    )
+    monkeypatch.setattr(
+        check_consumer_sync_drift,
+        "fetch_remote_tree",
+        lambda _session, repo: (
+            ({}, None) if repo == "owner/a" else (None, "owner/b: failed to fetch remote tree")
+        ),
+    )
+    monkeypatch.setattr(check_consumer_sync_drift, "fetch_open_sync_prs", lambda *_args: ([], None))
+
+    assert check_consumer_sync_drift.main() == 1
+    report = json.loads(report_path.read_text(encoding="utf-8"))
+    assert report["unmeasured_create_only"] == ["owner/a: .github/workflows/example.yml"]
+    assert report["skipped"] == [
+        "owner/b: .github/workflows/example.yml (Manifest include_repos excludes repo)"
+    ]
+    assert report["errors"] == ["owner/b: failed to fetch remote tree"]
+
+
 def test_token_candidates_deduplicates_without_exposing_values() -> None:
     candidates = check_consumer_sync_drift.token_candidates(
         {
@@ -169,6 +221,7 @@ def _make_entry(
     source: str = "AGENTS.md",
     target: str | None = None,
     sync_mode: str | None = None,
+    include_repos: tuple = (),
     skip_repos: tuple = (),
     overwrite_repos: tuple = (),
     is_directory: bool = False,
@@ -181,6 +234,7 @@ def _make_entry(
         target=target if target is not None else source,
         description="",
         sync_mode=sync_mode,
+        include_repos=include_repos,
         skip_repos=skip_repos,
         overwrite_repos=overwrite_repos,
         is_directory=is_directory,
@@ -203,6 +257,16 @@ def test_manifest_skip_reason_supports_repo_specific_policy() -> None:
         == "Uses historical Agents.md casing"
     )
     assert check_consumer_sync_drift.manifest_skip_reason(entry, "owner/standard") == ""
+
+
+def test_manifest_skip_reason_honors_include_repos() -> None:
+    entry = _make_entry(source="schema.json", include_repos=("owner/selected",))
+
+    assert check_consumer_sync_drift.manifest_skip_reason(entry, "owner/selected") == ""
+    assert (
+        check_consumer_sync_drift.manifest_skip_reason(entry, "owner/other")
+        == "Manifest include_repos excludes repo"
+    )
 
 
 def test_manifest_skip_reason_uses_default_for_empty_reason() -> None:

@@ -61,6 +61,7 @@ class ManifestEntry:
     target: str
     description: str
     sync_mode: str | None
+    include_repos: tuple[str, ...]
     skip_repos: tuple[SkipRepo, ...]
     overwrite_repos: tuple[str, ...]
     is_directory: bool
@@ -83,6 +84,7 @@ class ManifestEntry:
             "description": self.description,
             "sync_mode": self.sync_mode,
             "is_directory": self.is_directory,
+            "include_repos": list(self.include_repos),
             "skip_repos": [rule.repo for rule in self.skip_repos],
             "skip_reasons": skip_reasons,
             "overwrite_repos": list(self.overwrite_repos),
@@ -336,6 +338,7 @@ def _compile_entry(
         "target",
         "description",
         "sync_mode",
+        "include_repos",
         "skip_repos",
         "overwrite_repos",
         "is_directory",
@@ -395,13 +398,26 @@ def _compile_entry(
         errors.append(f"{context}: is_directory must be a boolean")
         is_directory = False
     skip_repos, skip_errors = _parse_skip_repos(raw.get("skip_repos"), context=context)
+    include_repos, include_errors = _parse_repo_list(
+        raw.get("include_repos"),
+        field="include_repos",
+        context=context,
+    )
     overwrite_repos, overwrite_errors = _parse_repo_list(
         raw.get("overwrite_repos"),
         field="overwrite_repos",
         context=context,
     )
     errors.extend(skip_errors)
+    errors.extend(include_errors)
     errors.extend(overwrite_errors)
+    if "include_repos" in raw and not include_repos:
+        errors.append(f"{context}: include_repos must not be empty when provided")
+    included_and_skipped = set(include_repos) & {rule.repo for rule in skip_repos}
+    if included_and_skipped:
+        errors.append(
+            f"{context}: include_repos and skip_repos conflict for {sorted(included_and_skipped)}"
+        )
     if source_error:
         resolved_source, resolved_path = "", None
     else:
@@ -430,6 +446,7 @@ def _compile_entry(
         "target": target,
         "sync_mode": sync_mode,
         "is_directory": is_directory,
+        "include_repos": list(include_repos),
         "skip_repos": [rule.repo for rule in skip_repos],
         "skip_reasons": {rule.repo: rule.reason for rule in skip_repos},
         "overwrite_repos": list(overwrite_repos),
@@ -445,6 +462,7 @@ def _compile_entry(
             target=target,
             description=description,
             sync_mode=sync_mode,
+            include_repos=include_repos,
             skip_repos=skip_repos,
             overwrite_repos=overwrite_repos,
             is_directory=is_directory,
@@ -529,6 +547,25 @@ def compile_manifest(path: Path, *, repo_root: Path | None = None) -> CompiledMa
             if dependency not in entries_by_target:
                 problems.append(
                     f"target {entry.target!r} requires unknown manifest target {dependency!r}"
+                )
+                continue
+            required = entries_by_target[dependency]
+            if entry.include_repos:
+                eligible = set(entry.include_repos)
+                unavailable = eligible & {rule.repo for rule in required.skip_repos}
+                if required.include_repos:
+                    unavailable |= eligible - set(required.include_repos)
+            elif required.include_repos:
+                # A fleet-wide entry also applies to future registered repositories.
+                unavailable = {"future_or_unlisted_consumer"}
+            else:
+                unavailable = {rule.repo for rule in required.skip_repos} - {
+                    rule.repo for rule in entry.skip_repos
+                }
+            if unavailable:
+                problems.append(
+                    f"target {entry.target!r} requires target {dependency!r} "
+                    f"unavailable in {sorted(unavailable)}"
                 )
     visiting: set[str] = set()
     visited: set[str] = set()

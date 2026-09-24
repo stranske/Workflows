@@ -161,7 +161,6 @@ def test_real_validator_delta_includes_all_registered_schema_dependencies() -> N
         for name in (
             "run-contract",
             "artifact-manifest",
-            "evidence-object",
             "tracked-variable",
             "capability-bundle",
             "mosaic-core",
@@ -169,8 +168,34 @@ def test_real_validator_delta_includes_all_registered_schema_dependencies() -> N
             "output-substrate",
         )
     } <= targets
+    assert "docs/contracts/schemas/evidence-object-v1.schema.json" in targets
     assert "docs/contracts/schemas/mosaic-core-v1.schema.json" in evidence["dependency_targets"]
     assert "docs/contracts/identity-map-conventions.md" not in targets
+
+
+def test_evidence_schema_delta_includes_scoped_packaged_consumer_targets() -> None:
+    root = Path(__file__).resolve().parents[2]
+    full_plan = compile_manifest(root / ".github/sync-manifest.yml").to_plan()
+    scoped, _ = select_plan(
+        full_plan,
+        mode="source-delta",
+        changed_paths=["docs/contracts/schemas/evidence-object-v1.schema.json"],
+        base_sha="1" * 40,
+        source_commit="2" * 40,
+    )
+    package_entries = {
+        (entry["target"], tuple(entry["include_repos"]))
+        for entry in scoped["entries"]
+        if entry["target"].endswith("/evidence-object-v1.schema.json")
+        and entry["target"] != "docs/contracts/schemas/evidence-object-v1.schema.json"
+    }
+    assert package_entries == {
+        (
+            "src/deliverable_render/store/evidence-object-v1.schema.json",
+            ("stranske/Deliverable-Render",),
+        ),
+        ("src/manager_mosaic/schemas/evidence-object-v1.schema.json", ("stranske/Manager-Mosaic",)),
+    }
 
 
 @pytest.mark.parametrize(

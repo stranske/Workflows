@@ -72,6 +72,11 @@
           "oneOf": [{"const": "create_only"}, {"type": "null"}]
         },
         "is_directory": {"type": "boolean"},
+        "include_repos": {
+          "type": "array",
+          "uniqueItems": true,
+          "items": {"$ref": "#/$defs/repository"}
+        },
         "skip_repos": {
           "type": "array",
           "uniqueItems": true,

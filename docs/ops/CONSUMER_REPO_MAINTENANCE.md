@@ -336,6 +336,7 @@ Validated fields for each sync entry:
 | `target` | safe relative path, optional | Defaults to `source`; effective targets must be unique |
 | `description` | str, required | Included in the plan for operator summaries |
 | `sync_mode` | `"create_only"` or absent | `None` = always overwrite |
+| `include_repos` | non-empty list of `owner/repo`, optional | Omitted = fleet-wide; limits delivery to named consumers and cannot overlap `skip_repos` |
 | `skip_repos` | list of str or `{repo, reason}` dicts | Repo-specific exclusions |
 | `overwrite_repos` | list of str | Repos that ignore `create_only` |
 | `is_directory` | bool, optional | Defaults to `False` |
@@ -787,7 +788,20 @@ without a re-sync. Ownership follows the same rules Maint 68 applies:
 | No `sync_mode` (overwrite-managed) | Workflows | disabled in consumers |
 | `sync_mode: create_only` | consumer, after first seed | enabled |
 | `sync_mode: create_only` + repo in `overwrite_repos` | Workflows | disabled in that repo |
+| Repo omitted by non-empty `include_repos` | consumer | enabled in that repo |
 | Repo listed in `skip_repos` | consumer | enabled in that repo |
+
+`include_repos` is a non-empty, validated owner/repo allowlist for one manifest
+entry; omission means fleet-wide delivery. It may not contain duplicates or
+overlap `skip_repos`. Maint 68 excludes ineligible targets from copying,
+`sync_targets.txt` staging, and per-repository preview paths; plan/effect
+fingerprints include the list. The compiler rejects a `requires` edge when its
+required target is not delivered to every repository eligible for the dependent
+entry, including future consumers of a fleet-wide entry. Before a plan can be
+published, Maint 68 validates every `include_repos` value in the full compiled
+plan against the registered consumer fleet, before source-delta filtering; phase
+selection also checks the selected plan. The v1 plan schema retains optional
+`include_repos` for compatibility with already published plans.
 
 The preset matches consumer repositories only. `stranske/Workflows` is the sync
 source, so its canonical files stay fully Renovate-managed and dependency bumps

@@ -82,6 +82,23 @@ def _validate_plan(plan: Any) -> dict[str, Any]:
     return plan
 
 
+def validate_registered_scopes(plan: Any, registered_repos: list[str]) -> None:
+    """Reject stale scoped owners in the full plan before source-delta filtering."""
+    entries = _validate_plan(plan)["entries"]
+    unregistered_scopes = sorted(
+        {
+            repo
+            for entry in entries
+            for repo in entry.get("include_repos", [])
+            if repo not in registered_repos
+        }
+    )
+    if unregistered_scopes:
+        raise PhaseSelectionError(
+            "include_repos_contains_unregistered_repository:" + ",".join(unregistered_scopes)
+        )
+
+
 def _evidence_rows(raw: str) -> list[dict[str, Any]]:
     if not raw.strip():
         return []
@@ -134,19 +151,29 @@ def select_phase(
     if phase not in PHASES:
         raise PhaseSelectionError("unsupported_sync_phase")
     plan = _validate_plan(plan)
+    validate_registered_scopes(plan, registered_repos)
     canary_repos = [item["repo"] for item in canaries]
     if selected_repos is not None and not set(selected_repos) <= set(registered_repos):
         raise PhaseSelectionError("selected_repos_must_be_registered")
     target_repos = selected_repos if selected_repos is not None else registered_repos
-    paths = sorted(
-        {str(entry.get("target")) for entry in plan["entries"] if entry.get("target")}
-        | {str(removal.get("target")) for removal in plan["removals"] if removal.get("target")}
-    )
+    removal_paths = {str(item["target"]) for item in plan["removals"] if item.get("target")}
+
+    def affected_paths(repo: str) -> list[str]:
+        """List only paths that this repository can actually receive."""
+        copy_paths = {
+            str(entry["target"])
+            for entry in plan["entries"]
+            if entry.get("target")
+            and (not entry.get("include_repos") or repo in entry["include_repos"])
+            and repo not in (entry.get("skip_repos") or [])
+        }
+        return sorted(copy_paths | removal_paths)
+
     prospective = [
         {
             "repo": repo,
             "desired_hash": plan["plan_id"],
-            "affected_paths": paths,
+            "affected_paths": affected_paths(repo),
             "canary": repo in canary_repos,
         }
         for repo in target_repos

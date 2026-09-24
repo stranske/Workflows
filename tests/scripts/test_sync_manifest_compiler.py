@@ -185,10 +185,7 @@ def test_unsafe_paths_are_rejected(tmp_path: Path, field: str, value: str) -> No
     source_value = value if field == "source" else source
     manifest = write_manifest(
         tmp_path,
-        "version: 1\nscripts:\n"
-        f"  - source: {source_value}\n"
-        f"{target_line}"
-        "    description: Tool\n",
+        f"version: 1\nscripts:\n  - source: {source_value}\n{target_line}    description: Tool\n",
     )
 
     with pytest.raises(ManifestCompileError, match="safe repository-relative"):
@@ -200,7 +197,7 @@ def test_non_string_paths_are_rejected(tmp_path: Path, yaml_value: str) -> None:
     write_source(tmp_path, "scripts/tool.py", template=False)
     manifest = write_manifest(
         tmp_path,
-        "version: 1\nscripts:\n" f"  - source: {yaml_value}\n" "    description: Tool\n",
+        f"version: 1\nscripts:\n  - source: {yaml_value}\n    description: Tool\n",
     )
 
     with pytest.raises(ManifestCompileError, match="safe repository-relative"):
@@ -414,6 +411,86 @@ removals:
     assert plan["removals"][0]["effect_fingerprint"].startswith("sha256:")
 
 
+def test_include_repos_is_normalized_and_part_of_effect_identity(tmp_path: Path) -> None:
+    write_source(tmp_path, "tools/requirements.txt", template=False)
+    selected = write_manifest(
+        tmp_path,
+        """version: 1
+scripts:
+  - source: tools/requirements.txt
+    description: Requirements
+    include_repos: [owner/selected]
+""",
+    )
+    selected_entry = compile_manifest(selected).to_plan()["entries"][0]
+    fleetwide = write_manifest(
+        tmp_path,
+        """version: 1
+scripts:
+  - source: tools/requirements.txt
+    description: Requirements
+""",
+    )
+
+    fleetwide_entry = compile_manifest(fleetwide).to_plan()["entries"][0]
+    assert selected_entry["include_repos"] == ["owner/selected"]
+    assert fleetwide_entry["include_repos"] == []
+    assert selected_entry["effect_fingerprint"] != fleetwide_entry["effect_fingerprint"]
+
+
+@pytest.mark.parametrize(
+    ("dependent_scope", "required_scope", "valid"),
+    [
+        ("include_repos: [owner/A]", "include_repos: [owner/B]", False),
+        ("include_repos: [owner/A]", "skip_repos: [owner/A]", False),
+        ("", "include_repos: [owner/A]", False),
+        ("", "skip_repos: [owner/A]", False),
+        ("skip_repos: [owner/A]", "skip_repos: [owner/A]", True),
+        ("include_repos: [owner/A]", "include_repos: [owner/A, owner/B]", True),
+        ("include_repos: [owner/A]", "", True),
+    ],
+)
+def test_requires_scope_must_cover_every_eligible_consumer(
+    tmp_path: Path, dependent_scope: str, required_scope: str, valid: bool
+) -> None:
+    write_source(tmp_path, "scripts/a.py", template=False)
+    write_source(tmp_path, "scripts/b.py", template=False)
+    manifest = write_manifest(
+        tmp_path,
+        "version: 1\nscripts:\n"
+        "  - source: scripts/a.py\n    description: A\n    requires: [scripts/b.py]\n"
+        + (f"    {dependent_scope}\n" if dependent_scope else "")
+        + "  - source: scripts/b.py\n    description: B\n"
+        + (f"    {required_scope}\n" if required_scope else ""),
+    )
+    if valid:
+        compile_manifest(manifest)
+    else:
+        with pytest.raises(ManifestCompileError, match="unavailable"):
+            compile_manifest(manifest)
+
+
+@pytest.mark.parametrize(
+    "fragment",
+    [
+        "include_repos: []",
+        "include_repos: owner/repo",
+        "include_repos: [owner/repo, owner/repo]",
+        "include_repos: [not-a-repo]",
+        "include_repos: [owner/repo]\n    skip_repos: [owner/repo]",
+    ],
+)
+def test_invalid_include_repos_fails_closed(tmp_path: Path, fragment: str) -> None:
+    write_source(tmp_path, "scripts/tool.py", template=False)
+    manifest = write_manifest(
+        tmp_path,
+        "version: 1\nscripts:\n  - source: scripts/tool.py\n    description: Tool\n"
+        f"    {fragment}\n",
+    )
+    with pytest.raises(ManifestCompileError):
+        compile_manifest(manifest)
+
+
 @pytest.mark.parametrize(
     "fragment",
     [
@@ -487,13 +564,40 @@ def test_real_manifest_compiles_every_declared_copy_entry() -> None:
 
     assert plan["schema"] == PLAN_SCHEMA
     Draft202012Validator(schema).validate(plan)
-    assert len(plan["entries"]) == 238
+    legacy_plan = {
+        **plan,
+        "entries": [
+            {key: value for key, value in entry.items() if key != "include_repos"}
+            for entry in plan["entries"]
+        ],
+    }
+    Draft202012Validator(schema).validate(legacy_plan)
+    assert len(plan["entries"]) == 240
     assert {
         "docs/CI_FAILURE_PLAYBOOK.md",
         "docs/contracts/document-identity-conventions.md",
         "docs/contracts/document-mirror-v1.md",
         "docs/contracts/schemas/document-mirror-v1.schema.json",
     } <= {entry["target"] for entry in plan["entries"]}
+    evidence_entries = [
+        entry
+        for entry in plan["entries"]
+        if entry["source"] == "docs/contracts/schemas/evidence-object-v1.schema.json"
+    ]
+    assert ("docs/contracts/schemas/evidence-object-v1.schema.json", ()) in {
+        (entry["target"], tuple(entry["include_repos"])) for entry in evidence_entries
+    }
+    assert {
+        (entry["target"], tuple(entry["include_repos"]))
+        for entry in evidence_entries
+        if entry["include_repos"]
+    } == {
+        (
+            "src/deliverable_render/store/evidence-object-v1.schema.json",
+            ("stranske/Deliverable-Render",),
+        ),
+        ("src/manager_mosaic/schemas/evidence-object-v1.schema.json", ("stranske/Manager-Mosaic",)),
+    }
     assert len(plan["removals"]) == 17
     assert all(entry["source_tree"] in {"root", "template"} for entry in plan["entries"])
     assert all(entry["resolved_source"] for entry in plan["entries"])
@@ -510,6 +614,7 @@ def test_maint_sync_consumes_compiled_plan_for_paths_and_hash() -> None:
     assert "steps.manifest.outputs.template_hash" in workflow
     assert "item['resolved_source']" in workflow
     assert "workflows.consumer-sync-plan/v1" in workflow
+    assert "include_repos excludes repo" in workflow
     assert "find templates/consumer-repo -type f" not in workflow
     assert ".github/templates" in workflow
     assert ".github/PULL_REQUEST_TEMPLATE.md" in workflow
