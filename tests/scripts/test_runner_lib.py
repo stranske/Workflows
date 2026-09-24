@@ -1253,6 +1253,7 @@ def _graphql_comments(comments: list[dict[str, Any]], request: dict[str, Any]) -
                         "nodes": [
                             {
                                 "databaseId": item["id"],
+                                "fullDatabaseId": str(item["id"]),
                                 "body": item["body"],
                                 "author": item.get("user"),
                                 "authorAssociation": item.get("author_association"),
@@ -1270,6 +1271,24 @@ def _graphql_comments(comments: list[dict[str, Any]], request: dict[str, Any]) -
             }
         }
     }
+
+
+def test_pr_comment_storage_accepts_full_width_graphql_ids() -> None:
+    comment_id = 5_807_299_200
+
+    class FakeApi:
+        repo = "owner/repo"
+
+        def request(self, method: str, path: str, body: dict[str, Any] | None = None) -> Any:
+            assert method == "POST" and path == "/graphql" and body is not None
+            assert "fullDatabaseId" in body["query"]
+            response = _graphql_comments([{"body": "marker", "id": comment_id}], body)
+            node = response["data"]["repository"]["pullRequest"]["comments"]["nodes"][0]
+            node["databaseId"] = None
+            return response
+
+    storage = PrCommentRunnerStorage(FakeApi())  # type: ignore[arg-type]
+    assert [comment["id"] for comment in storage._iter_comments(42)] == [comment_id]
 
 
 def test_pr_comment_storage_stops_when_marker_found() -> None:

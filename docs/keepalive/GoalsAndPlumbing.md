@@ -368,7 +368,9 @@ reservation cannot overwrite its pending owner. Readers use the newest GraphQL
 comment cursor, walk backward, and stop at the latest authoritative reservation,
 joining only a matching trusted marked receipt. Cursor boundaries avoid the
 offset-page shift when ordinary comments are deleted during a read. GraphQL
-reads use `GITHUB_GRAPHQL_URL` when available; on GHES the fallback derives
+reads use full-width `fullDatabaseId` values for comment ordering and REST
+receipt identities, including IDs beyond the legacy `databaseId` Int width.
+They use `GITHUB_GRAPHQL_URL` when available; on GHES the fallback derives
 `/api/graphql` from the REST `/api/v3` root. Legacy `runner-dispatch` records remain readable
 until a new reservation exists; later writes by old clients cannot supersede the
 new marker family. A completion retry reuses its own receipt (or returns without
