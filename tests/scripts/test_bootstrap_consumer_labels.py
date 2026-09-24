@@ -115,6 +115,47 @@ def test_apply_priority_labels_refuses_metadata_overwrite() -> None:
     run.assert_not_called()
 
 
+def test_apply_priority_labels_tolerates_concurrent_exact_create() -> None:
+    initial = _label_inventory("priority:high", "priority:low")
+    complete = _label_inventory(*EXPECTED_PRIORITY_LABELS)
+    error = subprocess.CalledProcessError(1, ["gh"], stderr="already exists")
+    with (
+        patch(
+            "scripts.bootstrap_consumer_settings._priority_label_inventory",
+            side_effect=[initial, complete, complete],
+        ),
+        patch("subprocess.run", side_effect=error),
+    ):
+        bcs.apply_priority_labels("stranske/Foo")
+
+
+def test_apply_priority_labels_reraises_when_create_fails() -> None:
+    initial = _label_inventory("priority:high", "priority:low")
+    error = subprocess.CalledProcessError(1, ["gh"], stderr="forbidden")
+    with (
+        patch(
+            "scripts.bootstrap_consumer_settings._priority_label_inventory",
+            side_effect=[initial, initial],
+        ),
+        patch("subprocess.run", side_effect=error),
+        pytest.raises(subprocess.CalledProcessError),
+    ):
+        bcs.apply_priority_labels("stranske/Foo")
+
+
+def test_apply_priority_labels_fails_final_verification() -> None:
+    initial = _label_inventory("priority:high", "priority:low")
+    with (
+        patch(
+            "scripts.bootstrap_consumer_settings._priority_label_inventory",
+            side_effect=[initial, initial],
+        ),
+        patch("subprocess.run"),
+        pytest.raises(SystemExit, match="Priority label verification failed"),
+    ):
+        bcs.apply_priority_labels("stranske/Foo")
+
+
 def test_read_paginated_collection_flattens_every_page() -> None:
     result = MagicMock()
     result.stdout = json.dumps([[{"number": 1}], [{"number": 2}], []])

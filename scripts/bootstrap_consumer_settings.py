@@ -234,6 +234,7 @@ def apply_priority_labels(repo: str) -> None:
         raise SystemExit(f"Refusing to overwrite label metadata in {repo}: {', '.join(mismatched)}")
     for name in missing:
         try:
+            # nosemgrep: python.lang.security.audit.dangerous-subprocess-use-tainted-env-args.dangerous-subprocess-use-tainted-env-args
             subprocess.run(
                 _label_create_command(repo, name, PRIORITY_LABELS[name]),
                 check=True,
@@ -614,9 +615,9 @@ def main() -> int:
             cmd = op["command"]
             assert isinstance(cmd, list)
             print(f"# {op['description']}")
-            # nosemgrep: python.lang.security.audit.dangerous-subprocess-use-tainted-env-args.dangerous-subprocess-use-tainted-env-args
             # The command is an argv list (never a shell string), and every repo
             # component has already passed _split_repo's strict allowlist.
+            # nosemgrep: python.lang.security.audit.dangerous-subprocess-use-tainted-env-args.dangerous-subprocess-use-tainted-env-args
             subprocess.run(cmd, check=True)
         apply_priority_labels(args.repo)
         return 0
