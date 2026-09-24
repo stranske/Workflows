@@ -132,6 +132,16 @@ def test_workflow_inputs_include_python_version_defaults() -> None:
     assert "pytest_args" not in dispatch_inputs
 
 
+def test_validate_inputs_rejects_non_finite_numbers() -> None:
+    workflow = _load_workflow()
+    steps = workflow["jobs"]["validate-inputs"]["steps"]
+    script = next(step for step in steps if step.get("name") == "Validate workflow inputs")["run"]
+
+    assert "import math" in script
+    assert "if not math.isfinite(value):" in script
+    assert "must be a finite number" in script
+
+
 def test_ruff_lint_preserves_consumer_rule_selection() -> None:
     workflow = _load_workflow()
     steps = workflow["jobs"]["lint-ruff"]["steps"]

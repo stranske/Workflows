@@ -30,6 +30,29 @@ def test_parse_float_rejects_invalid_values() -> None:
         ci_coverage_delta._parse_float("not-a-number", "BASELINE_COVERAGE", 0.0)
 
 
+@pytest.mark.parametrize("raw", ["nan", "inf", "-inf"])
+def test_parse_float_rejects_non_finite_values(raw: str) -> None:
+    with pytest.raises(SystemExit, match="BASELINE_COVERAGE"):
+        ci_coverage_delta._parse_float(raw, "BASELINE_COVERAGE", 0.0)
+
+
+@pytest.mark.parametrize(
+    ("raw", "minimum", "maximum"),
+    [("-0.1", 0.0, None), ("100.1", 0.0, 100.0)],
+)
+def test_parse_float_rejects_out_of_range_values(
+    raw: str, minimum: float, maximum: float | None
+) -> None:
+    with pytest.raises(SystemExit, match="BASELINE_COVERAGE"):
+        ci_coverage_delta._parse_float(
+            raw,
+            "BASELINE_COVERAGE",
+            0.0,
+            minimum=minimum,
+            maximum=maximum,
+        )
+
+
 @pytest.mark.parametrize("raw", ["1", "true", "TRUE", "yes", "on"])
 def test_truthy_accepts_enabled_values(raw: str) -> None:
     assert ci_coverage_delta._truthy(raw) is True
@@ -61,6 +84,22 @@ def test_extract_line_rate_rejects_malformed_rate(tmp_path: Path) -> None:
     xml_path = _coverage_xml(tmp_path, line_rate="not-a-float")
 
     with pytest.raises(SystemExit, match="Invalid line-rate value"):
+        ci_coverage_delta._extract_line_rate(xml_path)
+
+
+@pytest.mark.parametrize("line_rate", ["nan", "inf", "-inf"])
+def test_extract_line_rate_rejects_non_finite_rate(tmp_path: Path, line_rate: str) -> None:
+    xml_path = _coverage_xml(tmp_path, line_rate=line_rate)
+
+    with pytest.raises(SystemExit, match="finite and between 0 and 1"):
+        ci_coverage_delta._extract_line_rate(xml_path)
+
+
+@pytest.mark.parametrize("line_rate", ["-0.1", "1.1"])
+def test_extract_line_rate_rejects_out_of_range_rate(tmp_path: Path, line_rate: str) -> None:
+    xml_path = _coverage_xml(tmp_path, line_rate=line_rate)
+
+    with pytest.raises(SystemExit, match="between 0 and 1"):
         ci_coverage_delta._extract_line_rate(xml_path)
 
 
@@ -117,3 +156,20 @@ def test_main_writes_rounded_payload_from_env_overrides(
     assert payload["drop"] == pytest.approx(1.0124)
     assert payload["status"] == "ok"
     assert payload["fail_on_drop"] is True
+
+
+def test_main_rejects_nan_baseline_without_writing_ok_payload(
+    monkeypatch: pytest.MonkeyPatch, tmp_path: Path
+) -> None:
+    xml_path = _coverage_xml(tmp_path, line_rate="0.70")
+    output_path = tmp_path / "delta.json"
+
+    monkeypatch.setenv("COVERAGE_XML_PATH", str(xml_path))
+    monkeypatch.setenv("OUTPUT_PATH", str(output_path))
+    monkeypatch.setenv("BASELINE_COVERAGE", "nan")
+    monkeypatch.setenv("FAIL_ON_DROP", "true")
+
+    with pytest.raises(SystemExit, match="BASELINE_COVERAGE"):
+        ci_coverage_delta.main()
+
+    assert not output_path.exists()

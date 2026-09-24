@@ -5,6 +5,7 @@ from __future__ import annotations
 
 import datetime as _dt
 import json
+import math
 import os
 import sys
 from pathlib import Path
@@ -17,13 +18,27 @@ _DEFAULT_BASELINE = 0.0
 _DEFAULT_ALERT_DROP = 1.0
 
 
-def _parse_float(value: str | None, env_name: str, default: float) -> float:
+def _parse_float(
+    value: str | None,
+    env_name: str,
+    default: float,
+    *,
+    minimum: float | None = None,
+    maximum: float | None = None,
+) -> float:
     if value is None or value == "":
         return default
     try:
-        return float(value)
+        parsed = float(value)
     except ValueError as exc:  # pragma: no cover - defensive
         raise SystemExit(f"Invalid float for {env_name}: {value!r}") from exc
+    if not math.isfinite(parsed):
+        raise SystemExit(f"Invalid float for {env_name}: {value!r} (must be finite)")
+    if minimum is not None and parsed < minimum:
+        raise SystemExit(f"Invalid float for {env_name}: {value!r} (minimum {minimum})")
+    if maximum is not None and parsed > maximum:
+        raise SystemExit(f"Invalid float for {env_name}: {value!r} (maximum {maximum})")
+    return parsed
 
 
 def _truthy(value: str | None) -> bool:
@@ -43,9 +58,15 @@ def _extract_line_rate(xml_path: Path) -> float:
     if raw is None:
         raise SystemExit(f"Coverage XML {xml_path} missing line-rate attribute")
     try:
-        return float(raw) * 100.0
+        rate = float(raw)
     except ValueError as exc:  # pragma: no cover - defensive
         raise SystemExit(f"Invalid line-rate value in coverage XML: {raw!r}") from exc
+    if not math.isfinite(rate) or not 0.0 <= rate <= 1.0:
+        raise SystemExit(
+            f"Invalid line-rate value in coverage XML: {raw!r} "
+            "(must be finite and between 0 and 1)"
+        )
+    return rate * 100.0
 
 
 def _build_payload(
@@ -88,9 +109,18 @@ def main() -> int:
     xml_path = Path(os.environ.get("COVERAGE_XML_PATH", _DEFAULT_COVERAGE_XML))
     output_path = Path(os.environ.get("OUTPUT_PATH", _DEFAULT_OUTPUT))
     baseline = _parse_float(
-        os.environ.get("BASELINE_COVERAGE"), "BASELINE_COVERAGE", _DEFAULT_BASELINE
+        os.environ.get("BASELINE_COVERAGE"),
+        "BASELINE_COVERAGE",
+        _DEFAULT_BASELINE,
+        minimum=0.0,
+        maximum=100.0,
     )
-    alert_drop = _parse_float(os.environ.get("ALERT_DROP"), "ALERT_DROP", _DEFAULT_ALERT_DROP)
+    alert_drop = _parse_float(
+        os.environ.get("ALERT_DROP"),
+        "ALERT_DROP",
+        _DEFAULT_ALERT_DROP,
+        minimum=0.0,
+    )
     fail_on_drop = _truthy(os.environ.get("FAIL_ON_DROP"))
 
     try:
