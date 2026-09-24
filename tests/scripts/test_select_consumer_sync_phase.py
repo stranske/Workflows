@@ -53,6 +53,22 @@ def test_preview_never_constructs_a_write_matrix() -> None:
     assert len(result["prospective_diffs"]) == len(REGISTERED)
 
 
+def test_preview_paths_respect_scoped_packaged_schema_ownership() -> None:
+    repos = [*REGISTERED, "stranske/Deliverable-Render", "stranske/Manager-Mosaic"]
+    result = select_phase(plan(), phase="preview", registered_repos=repos, canaries=CANARIES)
+    paths = {row["repo"]: set(row["affected_paths"]) for row in result["prospective_diffs"]}
+    render_path = "src/deliverable_render/store/evidence-object-v1.schema.json"
+    mosaic_path = "src/manager_mosaic/schemas/evidence-object-v1.schema.json"
+
+    assert render_path in paths["stranske/Deliverable-Render"]
+    assert mosaic_path not in paths["stranske/Deliverable-Render"]
+    assert mosaic_path in paths["stranske/Manager-Mosaic"]
+    assert render_path not in paths["stranske/Manager-Mosaic"]
+    assert all(
+        render_path not in paths[repo] and mosaic_path not in paths[repo] for repo in REGISTERED
+    )
+
+
 def test_promotion_rejects_stale_canary_evidence() -> None:
     compiled = plan()
     stale = green_evidence("sha256:" + "0" * 64)

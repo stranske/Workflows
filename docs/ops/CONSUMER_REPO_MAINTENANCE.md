@@ -793,8 +793,9 @@ without a re-sync. Ownership follows the same rules Maint 68 applies:
 
 `include_repos` is a non-empty, validated owner/repo allowlist for one manifest
 entry; omission means fleet-wide delivery. It may not contain duplicates or
-overlap `skip_repos`. Maint 68 excludes ineligible targets from both copying
-and `sync_targets.txt` staging, and plan/effect fingerprints include the list.
+overlap `skip_repos`. Maint 68 excludes ineligible targets from copying,
+`sync_targets.txt` staging, and per-repository preview paths; plan/effect
+fingerprints include the list.
 
 The preset matches consumer repositories only. `stranske/Workflows` is the sync
 source, so its canonical files stay fully Renovate-managed and dependency bumps
