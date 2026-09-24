@@ -3457,10 +3457,17 @@ test('maint71 starts review by clearing stale ready labels while retaining the s
   };
   const failures = [];
   const mutations = [];
+  const reviewRequests = [];
   const labels = new Set(['sync:delivery-ready']);
   github.rest.pulls.update = async (args) => { mutations.push(args); return {}; };
   github.rest.issues = {
-    createComment: async () => ({}),
+    listComments: async () => ({ data: reviewRequests }),
+    createComment: async ({ body }) => {
+      const comment = { id: reviewRequests.length + 1, body,
+        created_at: '2026-09-24T02:43:00Z', user: { login: 'stranske' } };
+      reviewRequests.push(comment);
+      return { data: comment };
+    },
     addLabels: async ({ labels: added }) => { for (const label of added) labels.add(label); },
     removeLabel: async ({ name }) => {
       assert.equal(labels.has('sync:delivery-staging'), true);
@@ -3501,6 +3508,8 @@ test('maint71 starts review by clearing stale ready labels while retaining the s
     assert.equal(report.results[0].status, 'review_window_started');
     assert.deepEqual([...labels], ['sync:delivery-staging']);
     assert.equal(mutations.length, 1);
+    assert.equal(reviewRequests.length, 1);
+    assert.match(reviewRequests[0].body, /@codex review/);
     assert.match(mutations[0].body, /"delivery_state":"reviewing"/);
     assert.doesNotMatch(mutations[0].body, /"sealed_head_sha":"[^"\s]+"/);
     // A missing label is already clean and must not prevent review start.
@@ -3508,6 +3517,7 @@ test('maint71 starts review by clearing stale ready labels while retaining the s
     await run({ github, core, context: { repo: { owner: 'stranske', repo: 'Workflows' }, payload: {},
       runId: 73, runNumber: 73, workflow: 'Maint 71', ref: 'refs/heads/main', sha: sourceCommit } });
     assert.equal(JSON.parse(fs.readFileSync(reportPath, 'utf8')).results[0].status, 'review_window_started');
+    assert.equal(reviewRequests.length, 1, 'retry must reuse the exact-head request');
     // Permission failures must not persist reviewing state and bypass cleanup
     // on the next attempt. The staging hold remains in place.
     const updatesBeforeFailure = mutations.length;
@@ -3519,6 +3529,29 @@ test('maint71 starts review by clearing stale ready labels while retaining the s
     assert.equal(labels.has('sync:delivery-staging'), true);
     // Sealing will now emit a new labeled event rather than silently keeping
     // a label whose earlier event carried an unsealed generation's body.
+    // A legacy reviewing record with no request must repair its clock, not
+    // take the fifteen-minute no-response fallback and seal without review.
+    const { replaceDeliveryRecord } = require('../sync_pr_lease_contract');
+    candidate.body = replaceDeliveryRecord(mutations[0].body, {
+      review_started_at: '2020-08-14T00:00:00Z',
+    });
+    reviewRequests.length = 0;
+    github.rest.issues.removeLabel = async () => ({});
+    await run({ github, core, context: { repo: { owner: 'stranske', repo: 'Workflows' }, payload: {},
+      runId: 75, runNumber: 75, workflow: 'Maint 71', ref: 'refs/heads/main', sha: sourceCommit } });
+    const repaired = JSON.parse(fs.readFileSync(reportPath, 'utf8')).results[0];
+    assert.equal(repaired.status, 'reviewer_settlement_pending');
+    assert.equal(repaired.reason, 'review_request_clock_repaired');
+    assert.equal(repaired.review_started_at, reviewRequests[0].created_at);
+    reviewRequests.length = 0;
+    github.rest.issues.createComment = async () => {
+      throw Object.assign(new Error('review request rejected'), { status: 403 });
+    };
+    await run({ github, core, context: { repo: { owner: 'stranske', repo: 'Workflows' }, payload: {},
+      runId: 76, runNumber: 76, workflow: 'Maint 71', ref: 'refs/heads/main', sha: sourceCommit } });
+    const unconfirmed = JSON.parse(fs.readFileSync(reportPath, 'utf8')).results[0];
+    assert.equal(unconfirmed.status, 'reviewer_settlement_pending');
+    assert.equal(unconfirmed.reason, 'review_request_unconfirmed');
   } finally {
     process.chdir(originalCwd);
     for (const [key, value] of Object.entries(originalEnv)) {

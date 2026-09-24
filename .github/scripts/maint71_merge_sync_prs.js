@@ -80,6 +80,75 @@ function normalizeReviewPolicy(policy = {}) {
   };
 }
 
+function reviewRequestMarker({ planId, generation, headSha, reviewerId }) {
+  return `<!-- maint71-review-request:v1 ${JSON.stringify({
+    plan_id: planId, generation, head_sha: headSha, reviewer: reviewerId,
+  })} -->`;
+}
+
+// Only Maint 71 may request review on a generated delivery. Reconcile the
+// exact-head marker before posting so a successful POST followed by a failed
+// body update does not create a second request on the next pass.
+async function ensureExactHeadReviewRequest({
+  owner, repo, pr, record, reviewerProfiles, trustedActors, withRetry,
+}) {
+  const profile = reviewerProfiles.find((item) =>
+    String(item?.request_comment || '').trim());
+  if (!profile) throw new Error('No configured generated-delivery review request');
+  const { parseDeliveryRecord } = require('./sync_pr_lease_contract.js');
+  const { data: fresh } = await withRetry((client) => client.rest.pulls.get({
+    owner, repo, pull_number: pr.number,
+  }));
+  const freshRecord = parseDeliveryRecord(fresh?.body || '');
+  if (
+    fresh?.state !== 'open' || fresh?.draft || fresh?.auto_merge
+    || fresh?.head?.sha !== pr.head.sha
+    || freshRecord?.plan_id !== record.plan_id
+    || freshRecord?.generation !== record.generation
+    || freshRecord?.head_observed_sha !== pr.head.sha
+  ) {
+    throw new Error('Generated delivery changed before exact-head review request');
+  }
+  const marker = reviewRequestMarker({
+    planId: record.plan_id,
+    generation: record.generation,
+    headSha: pr.head.sha,
+    reviewerId: profile.id,
+  });
+  for (let page = 1; page <= 20; page++) {
+    const { data: comments } = await withRetry((client) =>
+      client.rest.issues.listComments({
+        owner, repo, issue_number: pr.number, per_page: 100, page,
+      }));
+    if (!Array.isArray(comments)) throw new Error('Incomplete review-request comments');
+    const existing = comments.find((comment) =>
+      trustedActors.includes(comment?.user?.login)
+      && String(comment?.body || '').includes(marker));
+    if (existing) {
+      if (!existing.id || !Number.isFinite(Date.parse(existing.created_at || ''))) {
+        throw new Error('Existing review request lacks durable identity or time');
+      }
+      return { id: existing.id, requestedAt: existing.created_at, reused: true };
+    }
+    if (comments.length < 100) break;
+    if (page === 20) throw new Error('Review-request comment inventory truncated');
+  }
+  const body = [
+    String(profile.request_comment).trim(),
+    `Maint 71 requests review of exact generated head ${pr.head.sha} for plan ${record.plan_id}.`,
+    marker,
+  ].join('\n\n');
+  // Do not blindly retry an ambiguous POST. A later run reconciles its marker.
+  const { data: posted } = await withRetry((client) =>
+    client.rest.issues.createComment({
+      owner, repo, issue_number: pr.number, body,
+    }), { maxRetries: 0 });
+  if (!posted?.id || !Number.isFinite(Date.parse(posted.created_at || ''))) {
+    throw new Error('Review request posted without durable identity or time');
+  }
+  return { id: posted.id, requestedAt: posted.created_at, reused: false };
+}
+
 function parseReviewResolutionProofs(raw = '') {
   if (!String(raw || '').trim()) return [];
   let parsed;
@@ -1291,9 +1360,15 @@ async function run({ github, context, core }) {
   }
 
   async function beginStableDeliveryReview({ owner, repo, pr, record, dryRunMode }) {
-    const reviewStartedAt = record.review_started_at || new Date().toISOString();
-    if (dryRunMode) return { reviewStartedAt, dryRun: true };
+    if (dryRunMode) {
+      return { reviewStartedAt: record.review_started_at || new Date().toISOString(), dryRun: true };
+    }
     const current = await holdReadyStableDelivery({ owner, repo, pr });
+    const request = await ensureExactHeadReviewRequest({
+      owner, repo, pr, record, reviewerProfiles,
+      trustedActors: trustedSyncActors, withRetry,
+    });
+    const reviewStartedAt = request.requestedAt;
     const body = replaceDeliveryRecord(current.body || '', {
       delivery_state: 'reviewing',
       review_started_at: reviewStartedAt,
@@ -2428,6 +2503,48 @@ async function run({ github, context, core }) {
           continue;
         }
         if (deliveryRecord.delivery_state === 'reviewing') {
+          let request;
+          try {
+            request = await ensureExactHeadReviewRequest({
+              owner, repo, pr, record: deliveryRecord, reviewerProfiles,
+              trustedActors: trustedSyncActors, withRetry,
+            });
+          } catch (error) {
+            rethrowPrimaryRateLimit(error);
+            results.push({
+              ...deliveryContext,
+              delivery_disposition: 'awaiting-review-settlement',
+              blocker_owner: 'maint-71',
+              next_command: `rerun-after:${new Date(Date.now() + 10 * 60 * 1000).toISOString()}`,
+              status: 'reviewer_settlement_pending',
+              reason: 'review_request_unconfirmed',
+              error: String(error?.message || error),
+            });
+            continue;
+          }
+          if (deliveryRecord.review_started_at !== request.requestedAt) {
+            const body = replaceDeliveryRecord(pr.body || '', {
+              review_started_at: request.requestedAt,
+              review_evidence: { request_comment_id: request.id },
+            });
+            await withRetry((client) => client.rest.pulls.update({
+              owner, repo, pull_number: pr.number, body,
+            }));
+            pr.body = body;
+            deliveryRecord = parseDeliveryRecord(body);
+            results.push({
+              ...deliveryContext,
+              delivery_disposition: 'awaiting-review-settlement',
+              blocker_owner: 'reviewers',
+              next_command: `rerun-after:${new Date(
+                new Date(request.requestedAt).getTime() + reviewerQuietPeriodMs,
+              ).toISOString()}`,
+              status: 'reviewer_settlement_pending',
+              reason: 'review_request_clock_repaired',
+              review_started_at: request.requestedAt,
+            });
+            continue;
+          }
           const reviewerEvidence = await collectReviewerEvidence({
             owner,
             repo,
@@ -3149,11 +3266,13 @@ module.exports = {
   campaignNoChangeRequiresLiveGate,
   collectReviewerEvidence,
   enforceGeneratedDeliveryRequiredContexts,
+  ensureExactHeadReviewRequest,
   hasCompleteReviewThreadEvidence,
   legacyStatusAsCheck,
   listMaint71PullRequests,
   mergeMethodPolicyAllowsFallback,
   normalizeReviewPolicy,
+  reviewRequestMarker,
   parseNoChangeEvidenceDocument,
   parseReviewResolutionProofs,
   run,

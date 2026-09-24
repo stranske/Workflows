@@ -563,8 +563,12 @@ same signed-commit contract. This prevents synced workflow files from reaching
 consumer `main` through an unsigned automation commit and avoids GitHub's
 subsequent workflow trust approval hold.
 
-Maint 71 starts bounded reviewer settlement while the PR remains ready. The
-policy in `config/consumer_sync_review_policy.json` requires one response, not
+Maint 71 starts bounded reviewer settlement while the PR remains ready. Before
+starting its clock it posts the review request configured in
+`config/consumer_sync_review_policy.json` (currently `@codex review`) on the
+exact generated head. A plan/generation/head marker makes retries reuse a
+trusted existing request; an old `reviewing` record without a request is
+repaired and cannot time out into sealing. The policy requires one response, not
 all configured reviewers, after a seven-minute quiet period. If every reviewer
 reports capacity unavailability, settlement degrades after the quiet period;
 if nobody responds, it degrades after fifteen minutes. Active non-outdated
