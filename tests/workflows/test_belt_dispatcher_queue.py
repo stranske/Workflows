@@ -1,7 +1,6 @@
 import json
 from pathlib import Path
 
-
 ROOT = Path(__file__).resolve().parents[2]
 LABELS = json.loads((ROOT / ".github/agents/belt-labels.json").read_text())
 
@@ -17,11 +16,15 @@ def test_ready_label_constant_is_shared() -> None:
     cleanup = _read("scripts/cleanup_labels.py")
 
     assert ready == "status:ready"
-    assert "const { ready: readyLabel } = require('./.github/agents/belt-labels.json')" in dispatcher
+    assert (
+        "const { ready: readyLabel } = require('./.github/agents/belt-labels.json')" in dispatcher
+    )
     assert "labels: `agent:${agentKey},${readyLabel}`" in dispatcher
     assert "name: readyLabel" in dispatcher
     assert "ready: readyLabel" in worker
     assert "name: readyLabel" in worker
+    assert worker.count("require('./.belt-tools/.github/agents/belt-labels.json')") == 2
+    assert worker.count("require('./.github/agents/belt-labels.json')") == 1
     assert 'READY_LABEL = BELT_LABELS["ready"]' in cleanup
     assert "READY_LABEL," in cleanup
 
@@ -29,7 +32,9 @@ def test_ready_label_constant_is_shared() -> None:
 def test_ready_label_is_applied_somewhere() -> None:
     auto_pilot = _read(".github/workflows/agents-auto-pilot.yml")
 
-    assert "const { ready: readyLabel } = require('./.github/agents/belt-labels.json')" in auto_pilot
+    assert (
+        "const { ready: readyLabel } = require('./.github/agents/belt-labels.json')" in auto_pilot
+    )
     assert "labels: [`agent:${agentKey}`, readyLabel]" in auto_pilot
 
 
