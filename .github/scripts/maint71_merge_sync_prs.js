@@ -2548,7 +2548,8 @@ async function run({ github, context, core }) {
             });
             continue;
           }
-          if (parseDeliveryRecord(request.body || '')?.delivery_state !== 'reviewing') {
+          const freshReviewRecord = parseDeliveryRecord(request.body || '');
+          if (freshReviewRecord?.delivery_state !== 'reviewing') {
             results.push({
               ...deliveryContext,
               delivery_disposition: 'awaiting-review-settlement',
@@ -2559,6 +2560,8 @@ async function run({ github, context, core }) {
             });
             continue;
           }
+          deliveryRecord = freshReviewRecord;
+          pr.body = request.body;
           if (deliveryRecord.review_started_at !== request.requestedAt) {
             if (dryRun) {
               results.push({
