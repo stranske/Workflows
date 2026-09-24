@@ -40,6 +40,63 @@ function seedRegistry(tokens) {
   }
 }
 
+test('Maint 71 review reads prefer the service-bot quota over the owner quota', async () => {
+  seedRegistry([
+    { id: 'OWNER_PR_PAT', remaining: 5000 },
+    { id: 'SERVICE_BOT_PAT', remaining: 500 },
+  ]);
+  balancer.tokenRegistry.lastRefresh = Date.now();
+  for (const token of balancer.tokenRegistry.tokens.values()) {
+    token.capabilities.push('cross-repo');
+  }
+
+  const selected = await balancer.getOptimalToken({
+    capabilities: ['cross-repo', 'pulls:read'],
+    preferredType: 'PAT',
+    preferredSource: 'SERVICE_BOT_PAT',
+    task: 'maint71-review-thread-read',
+    minRemaining: 100,
+  });
+  assert.equal(selected?.source, 'SERVICE_BOT_PAT');
+
+  const rotated = await balancer.getOptimalToken({
+    capabilities: ['cross-repo', 'pulls:read'],
+    preferredSource: 'SERVICE_BOT_PAT',
+    excludeSources: ['SERVICE_BOT_PAT'],
+    minRemaining: 100,
+  });
+  assert.equal(rotated?.source, 'OWNER_PR_PAT');
+});
+
+test('GraphQL read selection ignores exhausted REST core and rejects exhausted GraphQL', async () => {
+  seedRegistry([
+    { id: 'OWNER_PR_PAT', remaining: 5000 },
+    { id: 'SERVICE_BOT_PAT', remaining: 0 },
+  ]);
+  balancer.tokenRegistry.lastRefresh = Date.now();
+  for (const token of balancer.tokenRegistry.tokens.values()) {
+    token.capabilities.push('cross-repo');
+  }
+  balancer.tokenRegistry.tokens.get('SERVICE_BOT_PAT').graphqlRateLimit = {
+    remaining: 4000, percentRemaining: 80,
+  };
+  balancer.tokenRegistry.tokens.get('OWNER_PR_PAT').graphqlRateLimit = {
+    remaining: 0, percentRemaining: 0,
+  };
+  const selected = await balancer.getOptimalToken({
+    capabilities: ['cross-repo', 'pulls:read'],
+    preferredSource: 'SERVICE_BOT_PAT',
+    rateResource: 'graphql',
+  });
+  assert.equal(selected?.source, 'SERVICE_BOT_PAT');
+  const excluded = await balancer.getOptimalToken({
+    capabilities: ['cross-repo', 'pulls:read'],
+    rateResource: 'graphql',
+    excludeSources: ['SERVICE_BOT_PAT'],
+  });
+  assert.equal(excluded, null);
+});
+
 // ---------------------------------------------------------------------------
 // shouldDefer
 // ---------------------------------------------------------------------------

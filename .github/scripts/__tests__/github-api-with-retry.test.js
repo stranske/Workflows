@@ -25,6 +25,48 @@ test('exports rate limit classifiers for workflow fail-open guards', () => {
   assert.equal(isSecondaryRateLimitError(secondary), true);
 });
 
+test('GraphQL quota errors rotate but permission errors do not', () => {
+  const graphqlLimit = new Error('Request failed due to following response errors');
+  graphqlLimit.errors = [{ type: 'RATE_LIMITED' }];
+  const permission = new Error('Resource not accessible by integration');
+  permission.errors = [{ type: 'FORBIDDEN', code: 'FORBIDDEN' }];
+
+  assert.equal(isRateLimitError(graphqlLimit), true);
+  assert.equal(isRateLimitError(permission), false);
+});
+
+test('withRetry rotates a statusless GraphQL quota response for a read', async () => {
+  const calls = [];
+  const tokenRegistry = {
+    async getOptimalToken(options) {
+      assert.equal(options.preferredSource, 'SERVICE_BOT_PAT');
+      assert.deepEqual(options.excludeSources, ['OWNER_PR_PAT']);
+      return { token: 'service-token', source: 'SERVICE_BOT_PAT' };
+    },
+    updateTokenUsage() {},
+  };
+  const result = await withRetry(
+    async (client) => {
+      calls.push(client.token);
+      if (client.token === 'owner-token') {
+        const exhausted = new Error('Request failed due to following response errors');
+        exhausted.errors = [{ type: 'RATE_LIMITED' }];
+        throw exhausted;
+      }
+      return { repository: { pullRequest: { headRefOid: 'a'.repeat(40) } } };
+    },
+    {
+      github: { token: 'owner-token' },
+      tokenRegistry,
+      getOctokit: (token) => ({ token }),
+      tokenSource: 'OWNER_PR_PAT',
+      preferredSource: 'SERVICE_BOT_PAT',
+    },
+  );
+  assert.equal(result.repository.pullRequest.headRefOid, 'a'.repeat(40));
+  assert.deepEqual(calls, ['owner-token', 'service-token']);
+});
+
 test('withRetry switches tokens on primary rate limit errors', async () => {
   const calls = [];
   const debugMessages = [];

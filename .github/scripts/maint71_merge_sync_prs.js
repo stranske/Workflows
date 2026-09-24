@@ -19,6 +19,17 @@ function enforceGeneratedDeliveryRequiredContexts(contexts = []) {
   return enforced;
 }
 
+function hasCompleteReviewThreadEvidence(connection) {
+  return Boolean(
+    connection
+    && Array.isArray(connection.nodes)
+    && connection.pageInfo?.hasNextPage === false
+    && connection.nodes.every((thread) =>
+      typeof thread?.isResolved === 'boolean' && typeof thread?.isOutdated === 'boolean'
+    )
+  );
+}
+
 function legacyStatusAsCheck(status = {}) {
   const state = String(status.state || '').toLowerCase();
   return {
@@ -422,13 +433,15 @@ async function collectReviewerEvidence({
   for (const [reviewer, signal] of signals.entries()) {
     (signal.kind === 'responded' ? responded : unavailable).push(reviewer);
   }
-  const truncated = Boolean(
-    pullRequest.comments?.pageInfo?.hasNextPage
-    || pullRequest.reviews?.pageInfo?.hasNextPage
-    || pullRequest.reviewThreads?.pageInfo?.hasNextPage
-    || (pullRequest.reviewThreads?.nodes || []).some(
-      (thread) => thread.comments?.pageInfo?.hasNextPage,
-    )
+  const completeConnection = (connection) =>
+    Array.isArray(connection?.nodes)
+    && connection?.pageInfo?.hasNextPage === false;
+  const truncated = !(
+    completeConnection(pullRequest.comments)
+    && completeConnection(pullRequest.reviews)
+    && completeConnection(pullRequest.reviewThreads)
+    && pullRequest.reviewThreads.nodes.every((thread) =>
+      completeConnection(thread?.comments))
   );
   return {
     responded: responded.filter(Boolean).sort(),
@@ -576,6 +589,22 @@ async function run({ github, context, core }) {
     core,
     ...options,
   });
+  // Review-thread and final exact-head reads can use a separate bot quota.
+  // Keep all cross-repository mutations on the owner-pinned withRetry above.
+  const reviewReadClient = typeof retryHelpers.createTokenAwareRetry === 'function'
+    ? await retryHelpers.createTokenAwareRetry({
+        github,
+        core,
+        env: process.env,
+        capabilities: ['cross-repo', 'pulls:read'],
+        preferredType: 'PAT',
+        preferredSource: 'SERVICE_BOT_PAT',
+        task: 'maint71-review-thread-read',
+        rateResource: 'graphql',
+      })
+    : null;
+  const withReviewReadRetry = reviewReadClient?.withRetry
+    || ((fn) => withRetry(fn));
   const isPrimaryRateLimitExhausted = (error) =>
     typeof retryHelpers.isRateLimitError === 'function'
     && typeof retryHelpers.isSecondaryRateLimitError === 'function'
@@ -801,7 +830,7 @@ async function run({ github, context, core }) {
           errors.push(`${proof.thread_id}:source_fix_not_in_delivery_source`);
           continue;
         }
-        const data = await withRetry((client) => client.graphql(
+        const data = await withReviewReadRetry((client) => client.graphql(
           `query($owner: String!, $repo: String!, $number: Int!) {
             repository(owner: $owner, name: $repo) {
               pullRequest(number: $number) {
@@ -1037,7 +1066,7 @@ async function run({ github, context, core }) {
 
   async function fetchActiveReviewThreads(owner, repo, number) {
     try {
-      const data = await github.graphql(
+      const data = await withReviewReadRetry((client) => client.graphql(
         `query($owner: String!, $repo: String!, $number: Int!) {
           repository(owner: $owner, name: $repo) {
             pullRequest(number: $number) {
@@ -1060,12 +1089,10 @@ async function run({ github, context, core }) {
           }
         }`,
         { owner, repo, number },
-      );
-      const reviewThreads = data.repository.pullRequest.reviewThreads;
-      if (reviewThreads.pageInfo.hasNextPage) {
-        core.warning(
-          `Review-thread pagination exceeded the safe evidence window for ${owner}/${repo}#${number}`,
-        );
+      ));
+      const reviewThreads = data?.repository?.pullRequest?.reviewThreads;
+      if (!hasCompleteReviewThreadEvidence(reviewThreads)) {
+        core.warning(`Incomplete review-thread evidence for ${owner}/${repo}#${number}`);
         return { count: -1, threads: [] };
       }
       const threads = (reviewThreads.nodes || []).filter(
@@ -1391,7 +1418,7 @@ async function run({ github, context, core }) {
     requireVerifiedHead = false,
     requireGeneratedDeliveryGate = false,
   }) {
-    const data = await github.graphql(
+    const data = await withReviewReadRetry((client) => client.graphql(
       `query($owner: String!, $repo: String!, $number: Int!, $head: GitObjectID!) {
         repository(owner: $owner, name: $repo) {
           object(oid: $head) {
@@ -1425,7 +1452,7 @@ async function run({ github, context, core }) {
         }
       }`,
       { owner, repo, number: pr.number, head: pr.head.sha },
-    );
+    ));
     const freshPr = data?.repository?.pullRequest;
     if (freshPr?.headRefOid !== pr.head.sha) {
       return {
@@ -1503,12 +1530,18 @@ async function run({ github, context, core }) {
       };
     }
     const reviewThreads = freshPr?.reviewThreads;
-    const activeThreadNodes = (reviewThreads?.nodes || []).filter(
+    if (!hasCompleteReviewThreadEvidence(reviewThreads)) {
+      return {
+        ok: false,
+        reason: 'review_thread_query_incomplete',
+        activeReviewThreads: -1,
+        freshHeadSha: freshPr.headRefOid,
+      };
+    }
+    const activeThreadNodes = reviewThreads.nodes.filter(
       (thread) => !thread.isResolved && !thread.isOutdated,
     );
-    const activeReviewThreads = reviewThreads?.pageInfo?.hasNextPage
-      ? -1
-      : activeThreadNodes.length;
+    const activeReviewThreads = activeThreadNodes.length;
     if (activeReviewThreads !== 0) {
       return {
         ok: false,
@@ -2404,9 +2437,21 @@ async function run({ github, context, core }) {
             reviewerProfiles,
             reviewerCapacityPatterns,
             reviewerNonResponsePatterns,
-            withRetry,
+            withRetry: withReviewReadRetry,
             core,
           });
+          if (reviewerEvidence.truncated) {
+            results.push({
+              ...deliveryContext,
+              delivery_disposition: 'awaiting-review-settlement',
+              blocker_owner: 'maint-71',
+              next_command: `rerun-after:${new Date(Date.now() + 10 * 60 * 1000).toISOString()}`,
+              status: 'reviewer_settlement_pending',
+              reviewer_evidence_truncated: true,
+              reason: 'reviewer_evidence_incomplete',
+            });
+            continue;
+          }
           const settlement = evaluateReviewerSettlement({
             reviewStartedAt: deliveryRecord.review_started_at,
             now: new Date().toISOString(),
@@ -2870,6 +2915,7 @@ async function run({ github, context, core }) {
                 owner,
                 repo,
                 pull_number: pr.number,
+                sha: pr.head.sha,
                 merge_method,
                 commit_title: pr.title,
                 commit_message:
@@ -3103,6 +3149,7 @@ module.exports = {
   campaignNoChangeRequiresLiveGate,
   collectReviewerEvidence,
   enforceGeneratedDeliveryRequiredContexts,
+  hasCompleteReviewThreadEvidence,
   legacyStatusAsCheck,
   listMaint71PullRequests,
   mergeMethodPolicyAllowsFallback,

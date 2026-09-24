@@ -508,6 +508,14 @@ when the consumer ruleset is empty, and Maint 71 rechecks that context on the
 exact head immediately before every merge attempt. Cancelled informational
 jobs therefore do not become invented required failures, while the shared
 delivery contract cannot merge around a failed or missing Gate.
+Review-thread and final exact-head GraphQL reads use a separate read-only
+token-aware path, selecting the service-bot quota by its GraphQL (not REST-core)
+budget when it is eligible and rotating away from an exhausted identity.
+Reviewer-response and proof-bound thread reads use the same path; incomplete
+reviewer evidence cannot satisfy the settlement window. Cross-repository
+PR mutations remain pinned to `OWNER_PR_PAT`; a missing, partial, denied,
+paginated, or rate-limited review response is unknown and blocks sealing or
+merge. The final merge request also supplies the expected head SHA.
 
 Maint 68 creates stable deliveries ready for review with
 `sync:delivery-staging` and disables auto-merge before every real head update.

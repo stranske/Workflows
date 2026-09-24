@@ -5,7 +5,35 @@ const assert = require('node:assert/strict');
 const fs = require('node:fs');
 const os = require('node:os');
 const path = require('node:path');
-const { run } = require('../maint71_merge_sync_prs');
+const { hasCompleteReviewThreadEvidence, run } = require('../maint71_merge_sync_prs');
+
+test('review-thread evidence fails closed on missing, partial, or paginated responses', () => {
+  const complete = {
+    pageInfo: { hasNextPage: false },
+    nodes: [{ isResolved: true, isOutdated: false }],
+  };
+  assert.equal(hasCompleteReviewThreadEvidence(complete), true);
+  assert.equal(hasCompleteReviewThreadEvidence(null), false);
+  assert.equal(hasCompleteReviewThreadEvidence({ ...complete, nodes: null }), false);
+  assert.equal(hasCompleteReviewThreadEvidence({ ...complete, pageInfo: null }), false);
+  assert.equal(hasCompleteReviewThreadEvidence({ ...complete, pageInfo: { hasNextPage: true } }), false);
+  assert.equal(hasCompleteReviewThreadEvidence({ ...complete, nodes: [{}] }), false);
+});
+
+test('review GraphQL reads rotate separately while mutations remain owner-pinned', () => {
+  const source = fs.readFileSync(path.join(__dirname, '..', 'maint71_merge_sync_prs.js'), 'utf8');
+  assert.match(source, /const withRetry = \(fn, options = \{\}\) => retryHelpers\.withRetry/);
+  assert.match(source, /task: 'maint71-review-thread-read'/);
+  assert.match(source, /preferredSource: 'SERVICE_BOT_PAT'/);
+  assert.match(source, /rateResource: 'graphql'/);
+  assert.match(source, /const data = await withReviewReadRetry\(\(client\) => client\.graphql\(/);
+  assert.match(source, /withRetry: withReviewReadRetry,/);
+  assert.match(source, /if \(reviewerEvidence\.truncated\) \{/);
+  assert.match(source, /reason: 'reviewer_evidence_incomplete'/);
+  assert.doesNotMatch(source, /await github\.graphql\(/);
+  assert.match(source, /reason: 'review_thread_query_incomplete'/);
+  assert.match(source, /sha: pr\.head\.sha/);
+});
 
 async function reportSelection(t, { syncHash, withRecord }) {
   const tempDir = fs.mkdtempSync(path.join(os.tmpdir(), 'maint71-selection-'));
