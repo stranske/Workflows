@@ -210,8 +210,9 @@ def sync_repo_to_origin(
     Procedure: stash any dirty changes (preserved as a stash entry), fetch
     the fetched origin default branch, and detach at that exact commit when the current checkout
     does not already point there. ``preserve_checkout`` is reserved for the
-    executing Workflows steward: replacing the files beneath the live runner
-    would make later phases load a different implementation. Detaching avoids
+    executing Workflows steward, whose documented source remains ``origin/main``:
+    replacing the files beneath the live runner would make later phases load a
+    different implementation. Detaching avoids
     two recurring local-only failures: ``main`` may be owned by a sibling
     worktree, and a damaged ``ORIG_HEAD`` can make ``git pull`` fail even after
     a successful fetch.
@@ -237,23 +238,28 @@ def sync_repo_to_origin(
         if result.returncode != 0:
             return False, f"git fetch failed: {result.stderr.strip()[:200]}"
 
-        # 2. Refresh and resolve the remote default branch after fetch. Git
-        # fetch does not update the cached origin/HEAD symbolic ref after a
-        # remote default-branch rename, so refresh it before trusting it.
-        set_head = _git(["remote", "set-head", "origin", "--auto"])
-        if set_head.returncode != 0:
-            diagnostic = (set_head.stderr or set_head.stdout).strip()[:200]
-            return False, f"git remote set-head origin --auto failed: {diagnostic or 'unknown error'}"
-
-        # Most managed repos use main, but origin/HEAD is authoritative when a
-        # repository uses a different default. Keep origin/main as a
-        # compatibility fallback for older clones that have no advertised HEAD.
-        default_ref = _git(
-            ["symbolic-ref", "--quiet", "--short", "refs/remotes/origin/HEAD"]
-        )
-        target = default_ref.stdout.strip()
-        if default_ref.returncode != 0 or not target.startswith("origin/"):
+        # 2. The executing Workflows steward deliberately remains pinned to
+        # origin/main. Other repositories follow the advertised remote default
+        # branch, refreshing the cached origin/HEAD alias after fetch so a
+        # default-branch rename cannot leave review provenance on an old branch.
+        if preserve_checkout:
             target = "origin/main"
+        else:
+            set_head = _git(["remote", "set-head", "origin", "--auto"])
+            if set_head.returncode != 0:
+                diagnostic = (set_head.stderr or set_head.stdout).strip()[:200]
+                return False, (
+                    "git remote set-head origin --auto failed: " f"{diagnostic or 'unknown error'}"
+                )
+
+            default_ref = _git(["symbolic-ref", "--quiet", "--short", "refs/remotes/origin/HEAD"])
+            target = default_ref.stdout.strip()
+            if default_ref.returncode != 0 or not target.startswith("origin/"):
+                diagnostic = (default_ref.stderr or default_ref.stdout).strip()[:200]
+                return False, (
+                    "could not resolve refreshed origin/HEAD: "
+                    f"{diagnostic or 'invalid symbolic ref'}"
+                )
         default_branch = target.removeprefix("origin/")
         check = _git(["rev-parse", "--verify", target])
         if check.returncode != 0:
@@ -291,7 +297,10 @@ def sync_repo_to_origin(
             )
             if workloop_stash.returncode != 0:
                 diagnostic = (workloop_stash.stderr or workloop_stash.stdout).strip()[:200]
-                return False, f"git stash failed preserving workloop state: {diagnostic or 'unknown error'}"
+                return (
+                    False,
+                    f"git stash failed preserving workloop state: {diagnostic or 'unknown error'}",
+                )
             notes.append("stashed workloop-state.md")
 
         # Stash remaining tracked and untracked user work so checkout is safe.
@@ -299,7 +308,10 @@ def sync_repo_to_origin(
         dirty = _git(["status", "--short", "--untracked-files=all"])
         if dirty.returncode != 0:
             diagnostic = (dirty.stderr or dirty.stdout).strip()[:200]
-            return False, f"git status failed while checking dirty tree: {diagnostic or 'unknown error'}"
+            return (
+                False,
+                f"git status failed while checking dirty tree: {diagnostic or 'unknown error'}",
+            )
         if dirty.stdout.strip():
             stash = _git(
                 [
