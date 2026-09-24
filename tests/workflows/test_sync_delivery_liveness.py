@@ -46,7 +46,10 @@ def test_maint71_has_proof_bound_review_resolution_and_exact_evidence_promotion(
     assert "paginateWithRetry(api.rest.actions.listWorkflowRuns" in workflow
     assert "Maint 71 requires OWNER_PR_PAT" in executor
     assert "retryHelpers.withRetry(fn" in executor
-    assert "createTokenAwareRetry" not in executor
+    assert "createTokenAwareRetry" in executor
+    assert "const withReviewReadRetry" in executor
+    assert "const withRetry = (fn, options = {}) => retryHelpers.withRetry" in executor
+    assert "sha: pr.head.sha" in executor
     assert workflow.count("github-token: ${{ secrets.OWNER_PR_PAT }}") == 4
 
 

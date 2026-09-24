@@ -40,6 +40,25 @@ function seedRegistry(tokens) {
   }
 }
 
+test('Maint 71 review reads prefer the service-bot quota over the owner quota', async () => {
+  seedRegistry([
+    { id: 'OWNER_PR_PAT', remaining: 5000 },
+    { id: 'SERVICE_BOT_PAT', remaining: 5000 },
+  ]);
+  balancer.tokenRegistry.lastRefresh = Date.now();
+  for (const token of balancer.tokenRegistry.tokens.values()) {
+    token.capabilities.push('cross-repo');
+  }
+
+  const selected = await balancer.getOptimalToken({
+    capabilities: ['cross-repo', 'pulls:read'],
+    preferredType: 'PAT',
+    task: 'maint71-review-thread-read',
+    minRemaining: 100,
+  });
+  assert.equal(selected?.source, 'SERVICE_BOT_PAT');
+});
+
 // ---------------------------------------------------------------------------
 // shouldDefer
 // ---------------------------------------------------------------------------

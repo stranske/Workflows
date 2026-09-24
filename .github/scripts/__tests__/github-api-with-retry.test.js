@@ -25,6 +25,16 @@ test('exports rate limit classifiers for workflow fail-open guards', () => {
   assert.equal(isSecondaryRateLimitError(secondary), true);
 });
 
+test('GraphQL quota errors rotate but permission errors do not', () => {
+  const graphqlLimit = new Error('Request failed due to following response errors');
+  graphqlLimit.errors = [{ type: 'RATE_LIMIT', code: 'graphql_rate_limit' }];
+  const permission = new Error('Resource not accessible by integration');
+  permission.errors = [{ type: 'FORBIDDEN', code: 'FORBIDDEN' }];
+
+  assert.equal(isRateLimitError(graphqlLimit), true);
+  assert.equal(isRateLimitError(permission), false);
+});
+
 test('withRetry switches tokens on primary rate limit errors', async () => {
   const calls = [];
   const debugMessages = [];
