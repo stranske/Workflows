@@ -130,7 +130,7 @@ field; `FEASIBILITY-blueprint.md` §4.1).
 
 | Subfield | Req | Meaning |
 | --- | --- | --- |
-| `outputs.manifest_ref` | required | Reference to the run's `artifact-manifest/v1` manifest (`artifact:manifest.json` or a relative path). The named artifacts live there, not inline. |
+| `outputs.manifest_ref` | required | Reference to the run's `artifact-manifest/v1` manifest (`artifact:manifest.json` or a traversal-safe run-dir-relative POSIX path). Absolute paths, traversal, backslashes, drive roots, leading URI-style prefixes, and empty path segments are rejected; colons in later path segments are allowed. The named artifacts live there, not inline. |
 | `outputs.summary` | optional | Bounded safe summary of results (e.g. `{ "final_score": 0.7809 }`, `{ "limit_breach_count": 0 }`). No raw rows / full text. |
 | `outputs.artifact_ids` | optional | The stable `artifact_id`s (from the manifest) this run produced, for quick orchestrator threading. |
 

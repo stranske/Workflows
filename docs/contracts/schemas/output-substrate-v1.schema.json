@@ -28,7 +28,8 @@
     "manifest_ref": {
       "type": "string",
       "minLength": 1,
-      "description": "Reference to the run's artifact-manifest/v1 manifest (artifact:manifest.json or a run-dir-relative path)."
+      "description": "Reference to the run's artifact-manifest/v1 manifest: artifact:manifest.json or a traversal-safe run-dir-relative POSIX path.",
+      "pattern": "^(?:artifact:manifest\\.json|(?!(?:/|[A-Za-z]:|[A-Za-z][A-Za-z0-9+.-]*:))(?!.*\\\\)(?!.*(?:^|/)\\.\\.(?:/|$))(?!.*//)(?!.*\\/$).+)$"
     },
     "workspace_bundle_ref": {
       "type": "object",

@@ -33,7 +33,7 @@ not change the wire shape of this document.
 | `schema_version` | Must be the literal `output-substrate/v1`. |
 | `renderer_profile` | One of `investment_review`, `blackline_bundle`, `mosaic_book`. |
 | `workspace_bundle_ref` | Run-dir-relative POSIX pointer to the view bundle JSON (`path` required; `sha256` and `artifact_id` recommended). Rejects absolute paths, `..` traversal, backslashes, drive-letter roots (`C:`), and UNC paths (`//server/share`). |
-| `manifest_ref` | Reference to the run's [`artifact-manifest/v1`](schemas/artifact-manifest-v1.schema.json) manifest. Named artifacts live there, not inline. |
+| `manifest_ref` | `artifact:manifest.json` or a run-dir-relative POSIX path to the [`artifact-manifest/v1`](schemas/artifact-manifest-v1.schema.json) manifest. Absolute paths, traversal, backslashes, drive roots, leading URI-style prefixes, and empty path segments are rejected. Colons in later path segments are allowed. Named artifacts live there, not inline. |
 | `manifest_csv_exports` | Array (possibly empty) of manifest-gated CSV export specs for Excel refresh. |
 
 Optional `link_profile` selects evidence-link resolution: `local-file` for
