@@ -857,8 +857,9 @@ def _assertion_diff_lines(diff_text: str) -> Iterator[str]:
 
 
 def _changed_assertions(
-    base: str, head: str, test_file: str, cwd: Path, pr_body: str | None = None
+    base: str, head: str, test_file: str, cwd: Path, pr_body: str | None = None  # noqa: ARG001
 ) -> list[str]:
+    """Keep the legacy body argument without letting PR text waive tamper checks."""
     status = _git(["diff", "--name-status", f"{base}...{head}", "--", test_file], cwd)
     if any(line.split("\t", 1)[0] == "A" for line in status.stdout.splitlines()):
         return []

@@ -412,6 +412,9 @@ def test_pr_body_issue_marker_cannot_exempt_removed_assertion(monkeypatch, tmp_p
     assert deliberate_break._changed_assertions(
         "base", "HEAD", test_file, tmp_path, "<!-- meta:issue:36 -->"
     ) == [f"-        {old}"]
+    assert deliberate_break._changed_assertions(
+        "base", "HEAD", test_file, tmp_path, pr_body="<!-- meta:issue:36 -->"
+    ) == [f"-        {old}"]
 
     monkeypatch.setenv("PR_BODY", "<!-- meta:issue:35 -->")
     assert deliberate_break._changed_assertions("base", "HEAD", test_file, tmp_path) == [
