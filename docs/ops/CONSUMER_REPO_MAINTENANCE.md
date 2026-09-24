@@ -585,6 +585,7 @@ the normal source-owned request and seal sequence. Restaging rechecks the
 current head and plan/generation before rewriting a mutable delivery, so a
 concurrent Maint 68 rotation observed at that read fails closed instead of
 being restaged using an older seal.
+Dry-run reports count an unrequested legacy seal explicitly without mutating it.
 The policy requires one response, not all configured reviewers, after a
 seven-minute quiet period. If every reviewer
 reports capacity unavailability, settlement degrades after the quiet period;

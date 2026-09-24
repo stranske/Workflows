@@ -2463,6 +2463,7 @@ test('buildMergeReport provides machine-readable summary counts', () => {
     ready: 0,
     dry_run_merge: 1,
     dry_run_review_start: 0,
+    dry_run_unrequested_seal: 0,
     dry_run_seal: 0,
     merge_blocked_runtime_ac: 0,
     merged: 0,
@@ -3650,6 +3651,17 @@ test('maint71 starts review by clearing stale ready labels while retaining the s
     assert.equal(legacySeal.status, 'delivery_review_not_started');
     assert.equal(legacySeal.reason, 'unrequested_seal_restaged');
     assert.equal(classifyDeliveryContinuation(legacySeal).class, 'transient');
+    process.env.DRY_RUN_INPUT = 'true';
+    const updatesBeforeSealPreview = mutations.length;
+    await run({ github, core, context: { repo: { owner: 'stranske', repo: 'Workflows' }, payload: {},
+      runId: 775, runNumber: 775, workflow: 'Maint 71', ref: 'refs/heads/main', sha: sourceCommit } });
+    const sealPreview = JSON.parse(fs.readFileSync(reportPath, 'utf8'));
+    assert.equal(sealPreview.results[0].status, 'dry_run_unrequested_seal');
+    assert.equal(sealPreview.summary.dry_run_unrequested_seal, 1);
+    assert.match(require('../sync_pr_merge_contract').buildMarkdownSummary(sealPreview),
+      /\| dry_run_unrequested_seal \| 1 \|/);
+    assert.equal(mutations.length, updatesBeforeSealPreview);
+    process.env.DRY_RUN_INPUT = 'false';
     assert.equal(legacySeal.previous_seal.review_evidence.reason, 'review_timeout_degraded');
     assert.ok(mutations.length > updatesBeforeLegacySeal);
     assert.match(mutations.at(-1).body, /"delivery_state":"staging"/);

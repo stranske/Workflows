@@ -1085,6 +1085,7 @@ function summarizeResults(results) {
     ready: 0,
     dry_run_merge: 0,
     dry_run_review_start: 0,
+    dry_run_unrequested_seal: 0,
     dry_run_seal: 0,
     merge_blocked_runtime_ac: 0,
     merged: 0,
@@ -1113,6 +1114,7 @@ function deriveHandoffCheckState(result = {}) {
     || status === 'review_window_started'
     || status === 'reviewer_settlement_pending'
     || status === 'delivery_review_not_started'
+    || status === 'dry_run_unrequested_seal'
     || status === 'delivery_sealed_checks_pending'
     || status === 'sealed_head_mismatch'
     || status === 'stable_base_refresh_required'
