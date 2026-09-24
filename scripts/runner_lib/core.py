@@ -875,10 +875,10 @@ class PrCommentRunnerStorage:
         query = (
             "query($owner:String!,$repo:String!,$pr:Int!,$cursor:String){"
             "repository(owner:$owner,name:$repo){pullRequest(number:$pr){"
-            f"comments({window}){{nodes{{databaseId fullDatabaseId body author{{login __typename}} authorAssociation}}"
+            f"comments({window}){{nodes{{fullDatabaseId body author{{login __typename}} authorAssociation}}"
             "pageInfo{hasPreviousPage startCursor hasNextPage endCursor}}}}}"
         )
-        legacy_query = query.replace("fullDatabaseId ", "")
+        legacy_query = query.replace("fullDatabaseId ", "databaseId ")
         cursor: str | None = None
         seen: set[str] = set()
         boundary_id: int | None = None

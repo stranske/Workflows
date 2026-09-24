@@ -2,6 +2,13 @@
 
 This document outlines the process for maintaining workflow system consistency across consumer repositories and debugging issues that may affect multiple repos.
 
+The manifest-managed runner comment storage queries only GraphQL
+`fullDatabaseId` for issue comments. Selecting the legacy 32-bit `databaseId`
+in the same query can fail the entire response for current comment IDs, even
+when the full-width field is available. It queries `databaseId` only on older
+GitHub endpoints that explicitly reject `fullDatabaseId`; keep this repair in
+Workflows source and distribute it through Maint 68/71.
+
 ---
 
 ## Verdict confidence normalization
