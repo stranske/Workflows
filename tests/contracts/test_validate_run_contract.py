@@ -1044,6 +1044,7 @@ def test_manifest_ref_accepts_canonical_safe_forms(
         "\\\\server\\share\\manifest.json",
         "https://x/manifest.json",
         "foo//manifest.json",
+        "run:2026.json",
         "foo/../manifest.json",
     ],
 )
