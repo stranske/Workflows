@@ -1004,6 +1004,61 @@ def test_output_substrate_is_a_schema_validated_ingest_token() -> None:
     assert report.role == "consumer"
 
 
+@pytest.mark.parametrize(
+    ("schema_name", "fixture_name", "field"),
+    [
+        ("output-substrate-v1.schema.json", "valid_output_substrate.json", "manifest_ref"),
+        ("run-contract-v1.schema.json", "valid_run.json", "outputs"),
+    ],
+)
+@pytest.mark.parametrize(
+    "manifest_ref",
+    ["artifact:manifest.json", "manifests/run.json", "./manifest.json"],
+)
+def test_manifest_ref_accepts_canonical_safe_forms(
+    schema_name: str, fixture_name: str, field: str, manifest_ref: str
+) -> None:
+    schema = json.loads((SCHEMA_DIR / schema_name).read_text())
+    document = json.loads((FIXTURES / fixture_name).read_text())
+    if field == "outputs":
+        document[field]["manifest_ref"] = manifest_ref
+    else:
+        document[field] = manifest_ref
+    assert not list(Draft202012Validator(schema).iter_errors(document))
+
+
+@pytest.mark.parametrize(
+    ("schema_name", "fixture_name", "field"),
+    [
+        ("output-substrate-v1.schema.json", "valid_output_substrate.json", "manifest_ref"),
+        ("run-contract-v1.schema.json", "valid_run.json", "outputs"),
+    ],
+)
+@pytest.mark.parametrize(
+    "manifest_ref",
+    [
+        "../../other-run/manifest.json",
+        "/tmp/manifest.json",
+        "C:/manifest.json",
+        "C:\\manifest.json",
+        "\\\\server\\share\\manifest.json",
+        "https://x/manifest.json",
+        "foo//manifest.json",
+        "foo/../manifest.json",
+    ],
+)
+def test_manifest_ref_rejects_escaping_or_nonlocal_forms(
+    schema_name: str, fixture_name: str, field: str, manifest_ref: str
+) -> None:
+    schema = json.loads((SCHEMA_DIR / schema_name).read_text())
+    document = json.loads((FIXTURES / fixture_name).read_text())
+    if field == "outputs":
+        document[field]["manifest_ref"] = manifest_ref
+    else:
+        document[field] = manifest_ref
+    assert list(Draft202012Validator(schema).iter_errors(document))
+
+
 def _validate_output_substrate_consumer(record: dict):
     return _import_validator().validate_envelope(
         envelope=record,
