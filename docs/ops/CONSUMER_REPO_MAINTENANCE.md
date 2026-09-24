@@ -797,7 +797,10 @@ overlap `skip_repos`. Maint 68 excludes ineligible targets from copying,
 `sync_targets.txt` staging, and per-repository preview paths; plan/effect
 fingerprints include the list. The compiler rejects a `requires` edge when its
 required target is not delivered to every repository eligible for the dependent
-entry, including future consumers of a fleet-wide entry.
+entry, including future consumers of a fleet-wide entry. Before a plan can be
+published, phase selection rejects an `include_repos` value that is absent from
+the registered consumer fleet. The v1 plan schema retains optional
+`include_repos` for compatibility with already published plans.
 
 The preset matches consumer repositories only. `stranske/Workflows` is the sync
 source, so its canonical files stay fully Renovate-managed and dependency bumps

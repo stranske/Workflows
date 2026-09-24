@@ -52,7 +52,6 @@
         "description",
         "sync_mode",
         "is_directory",
-        "include_repos",
         "skip_repos",
         "skip_reasons",
         "overwrite_repos",

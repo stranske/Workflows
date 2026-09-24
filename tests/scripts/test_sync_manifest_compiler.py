@@ -564,6 +564,14 @@ def test_real_manifest_compiles_every_declared_copy_entry() -> None:
 
     assert plan["schema"] == PLAN_SCHEMA
     Draft202012Validator(schema).validate(plan)
+    legacy_plan = {
+        **plan,
+        "entries": [
+            {key: value for key, value in entry.items() if key != "include_repos"}
+            for entry in plan["entries"]
+        ],
+    }
+    Draft202012Validator(schema).validate(legacy_plan)
     assert len(plan["entries"]) == 240
     assert {
         "docs/CI_FAILURE_PLAYBOOK.md",

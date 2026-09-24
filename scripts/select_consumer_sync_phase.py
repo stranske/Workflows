@@ -134,6 +134,18 @@ def select_phase(
     if phase not in PHASES:
         raise PhaseSelectionError("unsupported_sync_phase")
     plan = _validate_plan(plan)
+    unregistered_scopes = sorted(
+        {
+            repo
+            for entry in plan["entries"]
+            for repo in entry.get("include_repos", [])
+            if repo not in registered_repos
+        }
+    )
+    if unregistered_scopes:
+        raise PhaseSelectionError(
+            "include_repos_contains_unregistered_repository:" + ",".join(unregistered_scopes)
+        )
     canary_repos = [item["repo"] for item in canaries]
     if selected_repos is not None and not set(selected_repos) <= set(registered_repos):
         raise PhaseSelectionError("selected_repos_must_be_registered")

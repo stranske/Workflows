@@ -13,6 +13,8 @@ REGISTERED = [
     "stranske/trip-planner",
     "stranske/Manager-Database",
     "stranske/Ready",
+    "stranske/Deliverable-Render",
+    "stranske/Manager-Mosaic",
 ]
 CANARIES = [
     {"repo": "stranske/Travel-Plan-Permission", "capabilities": ["custom-gate"]},
@@ -54,7 +56,7 @@ def test_preview_never_constructs_a_write_matrix() -> None:
 
 
 def test_preview_paths_respect_scoped_packaged_schema_ownership() -> None:
-    repos = [*REGISTERED, "stranske/Deliverable-Render", "stranske/Manager-Mosaic"]
+    repos = REGISTERED
     result = select_phase(plan(), phase="preview", registered_repos=repos, canaries=CANARIES)
     paths = {row["repo"]: set(row["affected_paths"]) for row in result["prospective_diffs"]}
     render_path = "src/deliverable_render/store/evidence-object-v1.schema.json"
@@ -65,8 +67,22 @@ def test_preview_paths_respect_scoped_packaged_schema_ownership() -> None:
     assert mosaic_path in paths["stranske/Manager-Mosaic"]
     assert render_path not in paths["stranske/Manager-Mosaic"]
     assert all(
-        render_path not in paths[repo] and mosaic_path not in paths[repo] for repo in REGISTERED
+        render_path not in paths[repo] and mosaic_path not in paths[repo]
+        for repo in REGISTERED
+        if repo not in {"stranske/Deliverable-Render", "stranske/Manager-Mosaic"}
     )
+
+
+def test_preview_rejects_unregistered_include_repo_before_plan_publication() -> None:
+    compiled = plan()
+    scoped = next(entry for entry in compiled["entries"] if entry["include_repos"])
+    scoped["include_repos"] = ["stranske/Manager-Mosia"]
+
+    with pytest.raises(
+        PhaseSelectionError,
+        match="include_repos_contains_unregistered_repository:stranske/Manager-Mosia",
+    ):
+        select_phase(compiled, phase="preview", registered_repos=REGISTERED, canaries=CANARIES)
 
 
 def test_promotion_rejects_stale_canary_evidence() -> None:
@@ -132,7 +148,12 @@ def test_promotion_targets_only_non_canary_repos() -> None:
         evidence=green_evidence(compiled["plan_id"]),
     )
 
-    assert result["selected_repos"] == ["stranske/Manager-Database", "stranske/Ready"]
+    assert result["selected_repos"] == [
+        "stranske/Manager-Database",
+        "stranske/Ready",
+        "stranske/Deliverable-Render",
+        "stranske/Manager-Mosaic",
+    ]
 
 
 def test_filtered_manual_canary_run_can_narrow_the_configured_canaries() -> None:
@@ -183,6 +204,6 @@ def test_checked_in_canary_config_covers_distinct_consumer_shapes() -> None:
         "codex-review",
         "legacy-precommit",
     } <= covered
-    assert any(
-        "codex-review" in canary["capabilities"] for canary in config["canaries"]
-    ), "At least one canary must exercise the fleet's Codex review profile before promotion"
+    assert any("codex-review" in canary["capabilities"] for canary in config["canaries"]), (
+        "At least one canary must exercise the fleet's Codex review profile before promotion"
+    )
