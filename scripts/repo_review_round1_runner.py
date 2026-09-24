@@ -200,7 +200,7 @@ def sync_repo_to_origin(
     timeout: int = 120,
     preserve_checkout: bool = False,
 ) -> tuple[bool, str]:
-    """Sync the local working tree to the exact origin/main commit.
+    """Sync the local working tree to the exact fetched default-branch commit.
 
     Per the iter-9 lesson: round-1 reviewers MUST run against current main, not
     a stale local checkout. A stale checkout silently produces false negatives
@@ -208,15 +208,16 @@ def sync_repo_to_origin(
     positives (gaps that have already shipped in unpulled PRs get re-raised).
 
     Procedure: stash any dirty changes (preserved as a stash entry), fetch
-    ``origin/main``, and detach at that exact commit when the current checkout
+    the fetched origin default branch, and detach at that exact commit when the current checkout
     does not already point there. ``preserve_checkout`` is reserved for the
     executing Workflows steward: replacing the files beneath the live runner
     would make later phases load a different implementation. Detaching avoids
     two recurring local-only failures: ``main`` may be owned by a sibling
     worktree, and a damaged ``ORIG_HEAD`` can make ``git pull`` fail even after
     a successful fetch.
-    Returns (ok, summary). Untracked workloop-state.md is removed proactively
-    because upstream often adds a tracked version with the same name.
+    Returns (ok, summary). Dirty tracked and untracked files, including local
+    ``workloop-state.md`` lane scratch, are retained in a named stash before a
+    checkout can change the working tree.
     """
     import subprocess
 
@@ -236,36 +237,37 @@ def sync_repo_to_origin(
         if result.returncode != 0:
             return False, f"git fetch failed: {result.stderr.strip()[:200]}"
 
-        # 2. Confirm the fleet's canonical branch exists.
-        target = "main"
-        check = _git(["rev-parse", "--verify", "origin/main"])
+        # 2. Resolve the remote default branch after fetch. Most managed repos
+        # use main, but origin/HEAD is authoritative when a repository uses a
+        # different default. Keep origin/main as a compatibility fallback for
+        # older clones that have not recorded origin/HEAD.
+        default_ref = _git(
+            ["symbolic-ref", "--quiet", "--short", "refs/remotes/origin/HEAD"]
+        )
+        target = default_ref.stdout.strip()
+        if default_ref.returncode != 0 or not target.startswith("origin/"):
+            target = "origin/main"
+        default_branch = target.removeprefix("origin/")
+        check = _git(["rev-parse", "--verify", target])
         if check.returncode != 0:
-            return False, "origin/main does not exist"
+            return False, f"fetched default branch {target} does not exist"
 
-        # Preserve the executing steward before changing its working tree. A
-        # stash here would make subsequent coordinator subprocesses read a
-        # different implementation even though we later return successfully.
         current = _git(["rev-parse", "--abbrev-ref", "HEAD"]).stdout.strip()
         current_head = _git(["rev-parse", "HEAD"]).stdout.strip()
         origin_head = check.stdout.strip()
-        if preserve_checkout:
-            notes.append(
-                "preserved executing steward checkout "
-                f"at {current_head[:12]} (origin/main {origin_head[:12]})"
+        # The live coordinator may keep executing only when it already uses the
+        # exact fetched source. A stale self-review would attest findings to a
+        # different commit, so it must fail for an operator to restart from a
+        # clean detached checkout.
+        if preserve_checkout and current_head != origin_head:
+            return False, (
+                "executing steward HEAD "
+                f"({current_head[:12]}) does not match fetched default branch "
+                f"{target} ({origin_head[:12]}); restart from an exact-head checkout"
             )
-            return True, "; ".join(notes)
 
-        # 3. Remove untracked workloop-state.md if upstream has a tracked version.
-        wls = repo_path / "workloop-state.md"
-        if wls.exists():
-            tracked = _git(["ls-files", "--error-unmatch", "workloop-state.md"])
-            if tracked.returncode != 0:
-                show = _git(["cat-file", "-e", "origin/main:workloop-state.md"])
-                if show.returncode == 0:
-                    wls.unlink()
-                    notes.append("removed untracked workloop-state.md (upstream tracked)")
-
-        # 4. Stash any dirty changes so checkout is safe.
+        # 3. Stash any dirty changes so checkout is safe. `-u` deliberately
+        # includes untracked workloop-state.md instead of deleting it.
         dirty = _git(["status", "--short"])
         if dirty.stdout.strip():
             stash = _git(
@@ -282,19 +284,26 @@ def sync_repo_to_origin(
                 return False, f"git stash failed: {diagnostic or 'unknown error'}"
             notes.append("stashed dirty changes")
 
-        # 5. Review the exact fetched commit without acquiring or advancing a
+        if preserve_checkout:
+            notes.append(
+                "preserved executing steward checkout "
+                f"at {current_head[:12]} ({target} {origin_head[:12]})"
+            )
+            return True, "; ".join(notes)
+
+        # 4. Review the exact fetched commit without acquiring or advancing a
         #    local branch. If the checkout is already on main at that commit,
         #    leave it alone; otherwise detach at origin/main.
-        if current != target or current_head != origin_head:
-            checkout = _git(["checkout", "--detach", "origin/main"])
+        if current != default_branch or current_head != origin_head:
+            checkout = _git(["checkout", "--detach", target])
             if checkout.returncode != 0:
                 return False, (
-                    f"checkout --detach origin/main failed: {checkout.stderr.strip()[:200]}"
+                    f"checkout --detach {target} failed: {checkout.stderr.strip()[:200]}"
                 )
-            notes.append(f"detached at origin/main (was {current or 'unknown'})")
+            notes.append(f"detached at {target} (was {current or 'unknown'})")
 
         head = _git(["rev-parse", "--short", "HEAD"]).stdout.strip()
-        location = "main" if current == target and current_head == origin_head else "origin/main"
+        location = target if current != default_branch or current_head != origin_head else current
         notes.append(f"HEAD now {head} on {location}")
         return True, "; ".join(notes)
     except subprocess.TimeoutExpired:
