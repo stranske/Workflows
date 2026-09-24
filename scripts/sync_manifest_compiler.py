@@ -548,6 +548,25 @@ def compile_manifest(path: Path, *, repo_root: Path | None = None) -> CompiledMa
                 problems.append(
                     f"target {entry.target!r} requires unknown manifest target {dependency!r}"
                 )
+                continue
+            required = entries_by_target[dependency]
+            if entry.include_repos:
+                eligible = set(entry.include_repos)
+                unavailable = eligible & {rule.repo for rule in required.skip_repos}
+                if required.include_repos:
+                    unavailable |= eligible - set(required.include_repos)
+            elif required.include_repos:
+                # A fleet-wide entry also applies to future registered repositories.
+                unavailable = {"future_or_unlisted_consumer"}
+            else:
+                unavailable = {rule.repo for rule in required.skip_repos} - {
+                    rule.repo for rule in entry.skip_repos
+                }
+            if unavailable:
+                problems.append(
+                    f"target {entry.target!r} requires target {dependency!r} "
+                    f"unavailable in {sorted(unavailable)}"
+                )
     visiting: set[str] = set()
     visited: set[str] = set()
 

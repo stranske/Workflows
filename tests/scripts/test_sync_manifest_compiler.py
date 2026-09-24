@@ -439,6 +439,38 @@ scripts:
 
 
 @pytest.mark.parametrize(
+    ("dependent_scope", "required_scope", "valid"),
+    [
+        ("include_repos: [owner/A]", "include_repos: [owner/B]", False),
+        ("include_repos: [owner/A]", "skip_repos: [owner/A]", False),
+        ("", "include_repos: [owner/A]", False),
+        ("", "skip_repos: [owner/A]", False),
+        ("skip_repos: [owner/A]", "skip_repos: [owner/A]", True),
+        ("include_repos: [owner/A]", "include_repos: [owner/A, owner/B]", True),
+        ("include_repos: [owner/A]", "", True),
+    ],
+)
+def test_requires_scope_must_cover_every_eligible_consumer(
+    tmp_path: Path, dependent_scope: str, required_scope: str, valid: bool
+) -> None:
+    write_source(tmp_path, "scripts/a.py", template=False)
+    write_source(tmp_path, "scripts/b.py", template=False)
+    manifest = write_manifest(
+        tmp_path,
+        "version: 1\nscripts:\n"
+        "  - source: scripts/a.py\n    description: A\n    requires: [scripts/b.py]\n"
+        + (f"    {dependent_scope}\n" if dependent_scope else "")
+        + "  - source: scripts/b.py\n    description: B\n"
+        + (f"    {required_scope}\n" if required_scope else ""),
+    )
+    if valid:
+        compile_manifest(manifest)
+    else:
+        with pytest.raises(ManifestCompileError, match="unavailable"):
+            compile_manifest(manifest)
+
+
+@pytest.mark.parametrize(
     "fragment",
     [
         "include_repos: []",

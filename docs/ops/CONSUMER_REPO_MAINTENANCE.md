@@ -795,7 +795,9 @@ without a re-sync. Ownership follows the same rules Maint 68 applies:
 entry; omission means fleet-wide delivery. It may not contain duplicates or
 overlap `skip_repos`. Maint 68 excludes ineligible targets from copying,
 `sync_targets.txt` staging, and per-repository preview paths; plan/effect
-fingerprints include the list.
+fingerprints include the list. The compiler rejects a `requires` edge when its
+required target is not delivered to every repository eligible for the dependent
+entry, including future consumers of a fleet-wide entry.
 
 The preset matches consumer repositories only. `stranske/Workflows` is the sync
 source, so its canonical files stay fully Renovate-managed and dependency bumps
