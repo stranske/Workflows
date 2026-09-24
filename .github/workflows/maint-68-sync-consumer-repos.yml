@@ -274,6 +274,23 @@ jobs:
             --manifest .github/sync-manifest.yml \
             --output-json manifest.full.json
 
+      - name: Validate full plan repository scopes
+        run: |
+          python - <<'PY'
+          import json
+          import os
+
+          from scripts.select_consumer_sync_phase import validate_registered_scopes
+
+          with open("manifest.full.json", encoding="utf-8") as plan_file:
+              full_plan = json.load(plan_file)
+          registered_repos = [
+              repo.strip() for repo in os.environ["REGISTERED_CONSUMER_REPOS"].splitlines()
+              if repo.strip()
+          ]
+          validate_registered_scopes(full_plan, registered_repos)
+          PY
+
       - name: Select full or exact source-delta plan
         id: manifest
         env:

@@ -4,7 +4,11 @@ import json
 from pathlib import Path
 
 import pytest
-from scripts.select_consumer_sync_phase import PhaseSelectionError, select_phase
+from scripts.select_consumer_sync_phase import (
+    PhaseSelectionError,
+    select_phase,
+    validate_registered_scopes,
+)
 from scripts.sync_manifest_compiler import compile_manifest
 
 ROOT = Path(__file__).parents[2]
@@ -83,6 +87,30 @@ def test_preview_rejects_unregistered_include_repo_before_plan_publication() -> 
         match="include_repos_contains_unregistered_repository:stranske/Manager-Mosia",
     ):
         select_phase(compiled, phase="preview", registered_repos=REGISTERED, canaries=CANARIES)
+
+
+def test_full_plan_scope_validation_precedes_source_delta_filtering() -> None:
+    full_plan = plan()
+    scoped = next(entry for entry in full_plan["entries"] if entry["include_repos"])
+    scoped["include_repos"] = ["stranske/Manager-Mosia"]
+    delta_plan = {
+        **full_plan,
+        "entries": [entry for entry in full_plan["entries"] if entry is not scoped],
+    }
+
+    with pytest.raises(
+        PhaseSelectionError,
+        match="include_repos_contains_unregistered_repository:stranske/Manager-Mosia",
+    ):
+        validate_registered_scopes(full_plan, REGISTERED)
+    validate_registered_scopes(delta_plan, REGISTERED)
+
+    workflow = (ROOT / ".github/workflows/maint-68-sync-consumer-repos.yml").read_text(
+        encoding="utf-8"
+    )
+    assert workflow.index("- name: Validate full plan repository scopes") < workflow.index(
+        "- name: Select full or exact source-delta plan"
+    )
 
 
 def test_promotion_rejects_stale_canary_evidence() -> None:
