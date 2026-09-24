@@ -1,5 +1,6 @@
 import json
 import pathlib
+import re
 
 import yaml
 from scripts.list_registered_consumer_repos import extract_repos
@@ -67,6 +68,14 @@ def test_consumer_renovate_cannot_edit_maint68_owned_workflows():
         disabled = _renovate_disabled_paths(repo)
         assert ".github/workflows/agents-guard.yml" in disabled
         assert ".github/workflows/maint-76-claude-code-review.yml" in disabled
+
+
+def test_claude_review_action_digest_is_pinned_in_managed_source():
+    manifest = yaml.safe_load(SYNC_MANIFEST.read_text(encoding="utf-8")) or {}
+    path = ".github/workflows/maint-76-claude-code-review.yml"
+    assert any(entry.get("source") == path for entry in manifest.get("workflows", []))
+    source = _workflow_source(pathlib.Path("templates/consumer-repo") / path)
+    assert re.search(r"uses: anthropics/claude-code-action@[0-9a-f]{40} # v1\b", source)
 
 
 def test_consumer_owned_ci_workflow_stays_renovate_eligible():
