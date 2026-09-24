@@ -11,6 +11,8 @@ exactly the repos where Maint 68 owns them.
 
 Ownership follows the same rules maint-68-sync-consumer-repos.yml applies:
 
+* ``include_repos`` limits delivery to listed consumers; every other consumer
+  owns any local copy and Renovate stays enabled.
 * ``skip_repos`` means the file is never delivered there, so the consumer owns
   any local copy and Renovate stays enabled.
 * ``sync_mode: create_only`` means the file is seeded once and then owned by the
@@ -60,7 +62,7 @@ PRESET_DESCRIPTION = (
     "the consumer repos where that overwrite actually applies. Without this boundary a "
     "consumer's Renovate opens PRs against centrally-copied files (Inv-Man-Intake#838, "
     "Manager-Database#1347) that the next sync silently reverts. Renovate stays enabled for "
-    "create-only/skipped paths the consumer owns, and for every canonical source file in "
+    "create-only, skipped, and include-scoped-out paths the consumer owns, and for every canonical source file in "
     f"{SOURCE_REPO}, which is the sync source rather than a consumer. Regenerate with "
     "`python scripts/generate_consumer_renovate_ownership.py`; `--check` fails on drift and "
     "runs in scripts/dev_check.sh."
@@ -69,6 +71,8 @@ PRESET_DESCRIPTION = (
 
 def is_overwrite_managed(entry: ManifestEntry, repo: str) -> bool:
     """Return whether Maint 68 overwrites ``entry``'s target in ``repo``."""
+    if entry.include_repos and repo not in entry.include_repos:
+        return False
     if repo in {rule.repo for rule in entry.skip_repos}:
         return False
     return not (entry.sync_mode == "create_only" and repo not in entry.overwrite_repos)
@@ -135,7 +139,7 @@ def build_package_rules(entries: list[ManifestEntry], consumers: list[str]) -> l
             {
                 "description": (
                     f"{', '.join(sorted(repos))} additionally has {len(extra)} manifest-managed "
-                    "path(s) that at least one other consumer owns via skip_repos, create_only, "
+                    "path(s) that at least one other consumer owns via include_repos, skip_repos, create_only, "
                     "or an overwrite_repos opt-in."
                 ),
                 "matchRepositories": sorted(repos),

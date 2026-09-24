@@ -295,6 +295,22 @@ def test_skip_repos_excludes_only_the_named_repo(tmp_path, repos):
     assert disabled_paths(preset, "stranske/Beta") == {".github/workflows/managed.yml"}
 
 
+def test_include_repos_manages_only_the_selected_repo(tmp_path, repos):
+    manifest = {
+        "version": 1,
+        "workflows": [
+            {
+                "source": ".github/workflows/managed.yml",
+                "description": "selected only",
+                "include_repos": ["stranske/Beta"],
+            }
+        ],
+    }
+    preset = synthetic_preset(tmp_path, manifest, repos)
+    assert disabled_paths(preset, "stranske/Alpha") == set()
+    assert disabled_paths(preset, "stranske/Beta") == {".github/workflows/managed.yml"}
+
+
 def test_target_override_is_used_instead_of_source(tmp_path, repos):
     manifest = {
         "version": 1,

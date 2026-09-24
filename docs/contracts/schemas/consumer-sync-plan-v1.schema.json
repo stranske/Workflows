@@ -52,6 +52,7 @@
         "description",
         "sync_mode",
         "is_directory",
+        "include_repos",
         "skip_repos",
         "skip_reasons",
         "overwrite_repos",
@@ -72,6 +73,11 @@
           "oneOf": [{"const": "create_only"}, {"type": "null"}]
         },
         "is_directory": {"type": "boolean"},
+        "include_repos": {
+          "type": "array",
+          "uniqueItems": true,
+          "items": {"$ref": "#/$defs/repository"}
+        },
         "skip_repos": {
           "type": "array",
           "uniqueItems": true,

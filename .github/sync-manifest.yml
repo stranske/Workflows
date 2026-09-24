@@ -24,6 +24,8 @@
 #   - description: What this file does (required for documentation)
 #   - skip_repos: Optional list of repo-specific exclusions with a reason.
 #       Use only when a consumer has an intentional incompatible path or policy.
+#   - include_repos: Optional non-empty owner/repo allowlist. Omitted means every
+#       registered consumer; it cannot overlap skip_repos.
 #   - overwrite_repos: Optional list of repos that should ignore create_only and
 #       stay byte-aligned with the canonical template (for example stranske/Template).
 
@@ -920,6 +922,20 @@ docs:
     source_tree: root
     target: docs/contracts/schemas/evidence-object-v1.schema.json
     description: "JSON Schema (draft 2020-12) for evidence-object/v1 - attributable evidence objects (the satellite schema consumers like the LMS would ingest)"
+
+  - source: docs/contracts/schemas/evidence-object-v1.schema.json
+    source_tree: root
+    target: src/deliverable_render/store/evidence-object-v1.schema.json
+    include_repos:
+      - stranske/Deliverable-Render
+    description: "JSON Schema (draft 2020-12) for evidence-object/v1 - Deliverable-Render packaged-evidence schema"
+
+  - source: docs/contracts/schemas/evidence-object-v1.schema.json
+    source_tree: root
+    target: src/manager_mosaic/schemas/evidence-object-v1.schema.json
+    include_repos:
+      - stranske/Manager-Mosaic
+    description: "JSON Schema (draft 2020-12) for evidence-object/v1 - Manager-Mosaic packaged-evidence schema"
 
   - source: docs/contracts/document-identity-conventions.md
     source_tree: root

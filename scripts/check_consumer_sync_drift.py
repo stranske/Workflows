@@ -161,7 +161,9 @@ def sorted_items(values: set[str]) -> list[str]:
 
 
 def manifest_skip_reason(entry: ManifestEntry, repo: str) -> str:
-    """Return the manifest-declared skip reason for a repo, if any."""
+    """Return the manifest-declared ineligibility reason for a repo, if any."""
+    if entry.include_repos and repo not in entry.include_repos:
+        return "Manifest include_repos excludes repo"
     for skip in entry.skip_repos:
         if skip.repo == repo:
             return skip.reason or "Manifest skip for repo"
@@ -1016,17 +1018,21 @@ def main() -> int:
             # retrieval outcomes can remove a repository from ``remote_trees``.
             if entry.sync_mode == "create_only":
                 for repo in repos:
+                    skip_reason = manifest_skip_reason(entry, repo)
+                    if skip_reason:
+                        skipped.add(f"{repo}: {entry.target} ({skip_reason})")
+                        continue
                     if not repo_overwrites_create_only(entry, repo):
                         unmeasured_create_only.add(f"{repo}: {entry.target}")
 
             for repo in remote_trees:
-                if entry.sync_mode == "create_only" and not repo_overwrites_create_only(
-                    entry, repo
-                ):
-                    continue
                 skip_reason = manifest_skip_reason(entry, repo)
                 if skip_reason:
                     skipped.add(f"{repo}: {entry.target} ({skip_reason})")
+                    continue
+                if entry.sync_mode == "create_only" and not repo_overwrites_create_only(
+                    entry, repo
+                ):
                     continue
                 if entry.is_directory or local_path.is_dir():
                     # Recursively compare all files within the directory

@@ -169,6 +169,7 @@ def _make_entry(
     source: str = "AGENTS.md",
     target: str | None = None,
     sync_mode: str | None = None,
+    include_repos: tuple = (),
     skip_repos: tuple = (),
     overwrite_repos: tuple = (),
     is_directory: bool = False,
@@ -181,6 +182,7 @@ def _make_entry(
         target=target if target is not None else source,
         description="",
         sync_mode=sync_mode,
+        include_repos=include_repos,
         skip_repos=skip_repos,
         overwrite_repos=overwrite_repos,
         is_directory=is_directory,
@@ -203,6 +205,16 @@ def test_manifest_skip_reason_supports_repo_specific_policy() -> None:
         == "Uses historical Agents.md casing"
     )
     assert check_consumer_sync_drift.manifest_skip_reason(entry, "owner/standard") == ""
+
+
+def test_manifest_skip_reason_honors_include_repos() -> None:
+    entry = _make_entry(source="schema.json", include_repos=("owner/selected",))
+
+    assert check_consumer_sync_drift.manifest_skip_reason(entry, "owner/selected") == ""
+    assert (
+        check_consumer_sync_drift.manifest_skip_reason(entry, "owner/other")
+        == "Manifest include_repos excludes repo"
+    )
 
 
 def test_manifest_skip_reason_uses_default_for_empty_reason() -> None:
