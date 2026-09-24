@@ -949,7 +949,7 @@ jobs:
           github-token: ${{ secrets.OWNER_PR_PAT }}
           script: |
             const fs = require('fs');
-            const { createTokenAwareRetry } = require(
+            const retryHelpers = require(
               './.github/scripts/github-api-with-retry.js'
             );
             const { runReviewReassessment } = require(
@@ -958,10 +958,10 @@ jobs:
             if (process.env.OWNER_PR_PAT_PRESENT !== 'true') {
               throw new Error('Maint 71 reviewer reassessment requires OWNER_PR_PAT');
             }
-            const { withRetry } = await createTokenAwareRetry({
-              github, core, env: process.env,
-              task: 'maint-71-review-reassessment',
-              capabilities: ['pull_requests:read', 'issues:write'],
+            // The github-script client is authenticated with OWNER_PR_PAT.
+            // Never rotate a cross-repository read/comment onto GITHUB_TOKEN.
+            const withRetry = (fn, options = {}) => retryHelpers.withRetry(fn, {
+              github, core, ...options,
             });
             const evidence = await runReviewReassessment({
               context, core, withRetry,

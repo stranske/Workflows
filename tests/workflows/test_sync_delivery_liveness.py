@@ -66,6 +66,7 @@ def test_maint71_reviewer_reassessment_is_trusted_request_only_dispatch():
     assert "ref: main" in workflow
     assert "runReviewReassessment" in workflow
     assert "maint71-review-reassessment-${{ github.repository }}" in workflow
+    assert "Never rotate a cross-repository read/comment onto GITHUB_TOKEN" in workflow
     assert "maint71-review-reassessment/v1" in executor
     assert "client.rest.issues.createComment" in executor
     assert '"reassessment_comment": "@codex review"' in policy

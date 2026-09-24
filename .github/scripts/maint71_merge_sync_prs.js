@@ -200,7 +200,10 @@ function parseReviewReassessmentRequest(raw = '') {
 }
 
 function reviewReassessmentMarker(request) {
-  return `<!-- maint71-review-reassessment:v1 ${JSON.stringify(request)} -->`;
+  const canonical = Object.fromEntries(
+    REASSESSMENT_FIELDS.map((field) => [field, request[field]]),
+  );
+  return `<!-- maint71-review-reassessment:v1 ${JSON.stringify(canonical)} -->`;
 }
 
 // A separate workflow job calls this function only for an explicit trusted

@@ -104,6 +104,12 @@ test('source-owned reviewer reassessment is exact-head, idempotent and never mer
   const second = await runReviewReassessment(args);
   assert.equal(second.status, 'review_blocked_reassessment_reused');
   assert.equal(posts, 1);
+  const reordered = Object.fromEntries(Object.entries(request).reverse());
+  const reorderedRetry = await runReviewReassessment({
+    ...args, rawRequest: JSON.stringify(reordered),
+  });
+  assert.equal(reorderedRetry.status, 'review_blocked_reassessment_reused');
+  assert.equal(posts, 1, 'field ordering must not bypass idempotency');
   pr.head.sha = 'c'.repeat(40);
   await assert.rejects(runReviewReassessment(args), /delivery changed or lease is invalid/);
   pr.head.sha = request.head_sha;
