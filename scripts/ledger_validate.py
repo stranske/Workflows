@@ -22,6 +22,11 @@ from urllib.parse import urlsplit, urlunsplit
 
 import yaml
 
+try:
+    from scripts.belt_ledger_completion import duplicate_artifact_errors
+except ModuleNotFoundError:  # direct ``python scripts/ledger_validate.py`` execution
+    from belt_ledger_completion import duplicate_artifact_errors
+
 REPO_ROOT = Path(__file__).resolve().parents[1]
 SRC_ROOT = REPO_ROOT / "src"
 if SRC_ROOT.exists():  # ensure local package import works before editable install
@@ -35,7 +40,7 @@ except ModuleNotFoundError:  # pragma: no cover - fallback for repo scripts
         return REPO_ROOT
 
 
-VALID_STATUSES = {"todo", "doing", "done", "deferred"}
+VALID_STATUSES = {"todo", "doing", "done", "blocked", "deferred"}
 HEX_RE = re.compile(r"^[0-9a-f]{7,40}$")
 ISO8601_RE = re.compile(r"^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}Z$")
 _SHALLOW_CACHE: bool | None = None
@@ -75,6 +80,17 @@ def _allow_missing_commit() -> bool:
     # may be incomplete or inaccessible to the runner token.
     event_name = os.environ.get("GITHUB_EVENT_NAME", "")
     return event_name in {"pull_request", "pull_request_target"}
+
+
+def _strict_completion_evidence() -> bool:
+    """Whether historical task completion evidence is a hard validation gate."""
+    return os.environ.get("LEDGER_VALIDATE_COMPLETION_EVIDENCE") == "1"
+
+
+def _strict_completion_task_id() -> str | None:
+    """Return the task whose current transition requires strict evidence."""
+    value = (os.environ.get("LEDGER_VALIDATE_COMPLETION_TASK_ID") or "").strip()
+    return value or None
 
 
 def _warn_skip_commit(commit: str, reason: str) -> None:
@@ -372,13 +388,23 @@ def _git_show_files(commit: str) -> list[str]:
     """Raw git operation: get files changed by a commit."""
     try:
         output = subprocess.check_output(
-            ["git", "show", "--pretty=format:", "--name-only", commit],
-            text=True,
+            [
+                "git",
+                "show",
+                "--pretty=format:",
+                "--name-only",
+                "--diff-merges=first-parent",
+                "-z",
+                commit,
+            ],
         )
     except subprocess.CalledProcessError as exc:
         raise LedgerError(f"unknown commit {commit}") from exc
-    stripped_lines = (line.strip() for line in output.splitlines())
-    return [line for line in stripped_lines if line]
+    if isinstance(output, str):
+        # Keep compatibility with text-returning callers and test doubles while
+        # the real command uses NUL-delimited bytes for unusual file names.
+        return [line for line in (line.strip() for line in output.splitlines()) if line]
+    return [path.decode("utf-8", "surrogateescape") for path in output.split(b"\0") if path]
 
 
 def _commit_files(commit: str) -> list[str]:
@@ -515,8 +541,13 @@ def _validate_task(
                                 )
                                 subject = ""
 
+                            strict_task_id = _strict_completion_task_id()
+                            strict_for_task = _strict_completion_evidence() and (
+                                strict_task_id is None or task_id == strict_task_id
+                            )
                             if (
-                                extra_files
+                                strict_for_task
+                                or extra_files
                                 or ledger_relative not in files
                                 or not subject.lower().startswith("chore(ledger):")
                             ):
@@ -574,6 +605,15 @@ def validate_ledger(path: Path) -> list[str]:
 
     if doing_count > 1:
         problems.append(f"{path}: at most one task may have status=doing (found {doing_count})")
+
+    if _strict_completion_evidence():
+        problems.extend(
+            duplicate_artifact_errors(
+                tasks,
+                repo_root=Path.cwd(),
+                target_task_id=_strict_completion_task_id(),
+            )
+        )
 
     return problems
 
