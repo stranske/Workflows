@@ -908,8 +908,11 @@ class PrCommentRunnerStorage:
                 if raw_id is None:
                     raw_id = node.get("databaseId")
                 if isinstance(raw_id, bool) or not (
-                    isinstance(raw_id, int) and raw_id > 0
-                    or isinstance(raw_id, str) and raw_id.isascii() and raw_id.isdecimal()
+                    isinstance(raw_id, int)
+                    and raw_id > 0
+                    or isinstance(raw_id, str)
+                    and raw_id.isascii()
+                    and raw_id.isdecimal()
                     and int(raw_id) > 0
                 ):
                     raise RuntimeError(f"Unstable runner comment cursor for PR {pr_number}")
@@ -928,7 +931,8 @@ class PrCommentRunnerStorage:
                 boundary_id = ids[0] if descending else ids[-1]
             ordered_nodes = (
                 zip(reversed(nodes), reversed(ids), strict=True)
-                if descending else zip(nodes, ids, strict=True)
+                if descending
+                else zip(nodes, ids, strict=True)
             )
             for node, comment_id in ordered_nodes:
                 author = node.get("author")
