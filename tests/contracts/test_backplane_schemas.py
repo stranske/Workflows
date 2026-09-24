@@ -132,7 +132,11 @@ def test_document_mirror_fixture_validates() -> None:
     assert list(validator.iter_errors(invalid_sharepoint))
 
     for index, field in ((0, "url"), (1, "web_url")):
-        for url in ("http://example.com/document", "file:///tmp/document", "mailto:user@example.com"):
+        for url in (
+            "http://example.com/document",
+            "file:///tmp/document",
+            "mailto:user@example.com",
+        ):
             invalid_resolver = json.loads((FIXTURES / "valid_document_mirror.json").read_text())
             invalid_resolver["blobs"][index]["source_refs"][1][field] = url
             assert list(validator.iter_errors(invalid_resolver)), (field, url)
