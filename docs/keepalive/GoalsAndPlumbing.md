@@ -372,7 +372,10 @@ reads use full-width `fullDatabaseId` values for comment ordering and REST
 receipt identities, including IDs beyond the legacy `databaseId` Int width.
 If an older GHES schema rejects that field, the reader retries only that
 unknown-field error with the legacy `databaseId` query; other GraphQL errors
-still fail closed. They use `GITHUB_GRAPHQL_URL` when available; on GHES the fallback derives
+still fail closed. GraphQL's bare `github-actions` login is normalized to the
+trusted `github-actions[bot]` identity only when `author.__typename` is `Bot`;
+a same-named non-Bot actor gains no marker authority. They use
+`GITHUB_GRAPHQL_URL` when available; on GHES the fallback derives
 `/api/graphql` from the REST `/api/v3` root. Legacy `runner-dispatch` records remain readable
 until a new reservation exists; later writes by old clients cannot supersede the
 new marker family. A completion retry reuses its own receipt (or returns without

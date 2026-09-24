@@ -875,7 +875,7 @@ class PrCommentRunnerStorage:
         query = (
             "query($owner:String!,$repo:String!,$pr:Int!,$cursor:String){"
             "repository(owner:$owner,name:$repo){pullRequest(number:$pr){"
-            f"comments({window}){{nodes{{databaseId fullDatabaseId body author{{login}} authorAssociation}}"
+            f"comments({window}){{nodes{{databaseId fullDatabaseId body author{{login __typename}} authorAssociation}}"
             "pageInfo{hasPreviousPage startCursor hasNextPage endCursor}}}}}"
         )
         legacy_query = query.replace("fullDatabaseId ", "")
@@ -955,10 +955,17 @@ class PrCommentRunnerStorage:
             )
             for node, comment_id in ordered_nodes:
                 author = node.get("author")
+                login = author.get("login") if isinstance(author, dict) else None
+                if (
+                    isinstance(author, dict)
+                    and author.get("__typename") == "Bot"
+                    and login == "github-actions"
+                ):
+                    login = "github-actions[bot]"
                 yield {
                     "id": comment_id,
                     "body": node.get("body"),
-                    "user": {"login": author.get("login")} if isinstance(author, dict) else None,
+                    "user": {"login": login} if isinstance(author, dict) else None,
                     "author_association": node.get("authorAssociation"),
                 }
             if not page_info.get(has_more):
