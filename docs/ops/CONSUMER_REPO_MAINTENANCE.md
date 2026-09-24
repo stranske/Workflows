@@ -81,8 +81,52 @@ actionable failures.
 ### Adding a New Consumer Repo
 
 1. Add the repo to `REGISTERED_CONSUMER_REPOS` in `maint-68-sync-consumer-repos.yml`.
-2. Ensure bot collaborator access (see [Bot Access](#bot-collaborator-access))
-3. Run the sync workflow manually to verify.
+2. Run the bootstrap plan, including the load-bearing priority labels:
+
+   ```bash
+   python scripts/bootstrap_consumer_settings.py --repo stranske/NEW_REPO --execute
+   ```
+
+3. Ensure bot collaborator access (see [Bot Access](#bot-collaborator-access)).
+4. Run the sync workflow manually to verify.
+
+#### Priority labels are an opener reachability contract
+
+Every registered consumer must define `priority:high`, `priority:normal`, and
+`priority:low` with the colors and descriptions emitted by
+`scripts/bootstrap_consumer_settings.py`. The opener uses those labels for
+ordering. It still discovers unlabelled delivery issues, but losing the family
+makes intended priority unavailable and can indefinitely defer a new
+repository behind established labelled queues.
+
+Do not assume a repository created from `stranske/Template` inherits the
+Template repository's live labels: GitHub template creation copies repository
+content, not repository label metadata. Keep the three labels on Template so it
+remains a safe `gh label clone` donor, and run the bootstrap command for every
+new consumer. `--labels-only --execute` repairs just this contract without
+changing workflow permissions, variables, collaborators, or existing issue
+priorities. Existing label metadata is verified and never overwritten
+silently.
+
+Audit the current registered fleet without mutating it:
+
+```bash
+python scripts/bootstrap_consumer_settings.py --health-check
+```
+
+The health report prints one row per registered consumer, including explicit
+zeroes. `implementation` counts open non-PR delivery issues independently of
+priority, while `priority_labelled` counts those carrying at least one exact
+supported priority label and `unprioritized` is the difference. Explicit
+durable trackers and narrowly recognized generated dependency/sync bookkeeping
+are reported as exclusions; bot authorship alone never hides delivery work.
+Missing labels return exit 1. Authentication, rate-limit, malformed-response,
+or incomplete-read failures return exit 2 and render affected values as
+`UNKNOWN` rather than a false healthy zero.
+
+When cloning labels between repositories, use a donor that has the full
+priority family and verify all three definitions afterward. Never infer a
+priority for existing issues merely to make counts look healthy.
 
 ### Repos with Custom Configurations
 

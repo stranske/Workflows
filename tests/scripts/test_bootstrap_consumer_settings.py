@@ -18,7 +18,19 @@ def test_split_repo_parses_owner_and_name(repo: str, expected: tuple[str, str]) 
     assert bcs._split_repo(repo) == expected
 
 
-@pytest.mark.parametrize("bad", ["", "foo", "owner/", "/name", "a/b/c"])
+@pytest.mark.parametrize(
+    "bad",
+    [
+        "",
+        "foo",
+        "owner/",
+        "/name",
+        "a/b/c",
+        "owner/repo;touch-pwned",
+        "owner/repo name",
+        "owner/repo\n--help",
+    ],
+)
 def test_split_repo_rejects_malformed(bad: str) -> None:
     with pytest.raises(SystemExit, match="owner/name"):
         bcs._split_repo(bad)
@@ -67,13 +79,16 @@ def test_collaborator_command_invites_push_collaborator() -> None:
     ]
 
 
-def test_plan_has_all_four_bootstrap_operations_in_order() -> None:
+def test_plan_has_settings_then_priority_labels_in_order() -> None:
     plan = bcs.build_bootstrap_plan("stranske/Foo")
     assert [op["id"] for op in plan] == [
         "workflow_permissions",
         "var_use_consolidated_workflows",
         "var_allowed_keepalive_logins",
         "bot_collaborator",
+        "label_high",
+        "label_normal",
+        "label_low",
     ]
 
 
@@ -176,15 +191,17 @@ def test_main_dry_run_does_not_call_subprocess(capsys: pytest.CaptureFixture[str
         mock_run.assert_not_called()
 
 
-def test_main_execute_runs_all_four_commands() -> None:
-    """--execute calls subprocess.run for each of the four bootstrap operations."""
+def test_main_execute_runs_settings_then_applies_priority_labels() -> None:
+    """--execute preserves the four settings operations before label reconciliation."""
     with (
         patch("sys.argv", ["bcs", "--repo", "stranske/Foo", "--execute"]),
         patch("subprocess.run") as mock_run,
+        patch("scripts.bootstrap_consumer_settings.apply_priority_labels") as mock_labels,
     ):
         rc = bcs.main()
     assert rc == 0
     assert mock_run.call_count == 4
+    mock_labels.assert_called_once_with("stranske/Foo")
 
 
 def test_main_execute_workflow_permissions_command() -> None:
@@ -192,6 +209,7 @@ def test_main_execute_workflow_permissions_command() -> None:
     with (
         patch("sys.argv", ["bcs", "--repo", "stranske/Foo", "--execute"]),
         patch("subprocess.run") as mock_run,
+        patch("scripts.bootstrap_consumer_settings.apply_priority_labels"),
     ):
         bcs.main()
     first_cmd = mock_run.call_args_list[0][0][0]
@@ -205,6 +223,7 @@ def test_main_execute_sets_use_consolidated_workflows() -> None:
     with (
         patch("sys.argv", ["bcs", "--repo", "stranske/Foo", "--execute"]),
         patch("subprocess.run") as mock_run,
+        patch("scripts.bootstrap_consumer_settings.apply_priority_labels"),
     ):
         bcs.main()
     second_cmd = mock_run.call_args_list[1][0][0]
@@ -217,6 +236,7 @@ def test_main_execute_sets_allowed_keepalive_logins() -> None:
     with (
         patch("sys.argv", ["bcs", "--repo", "stranske/Foo", "--execute"]),
         patch("subprocess.run") as mock_run,
+        patch("scripts.bootstrap_consumer_settings.apply_priority_labels"),
     ):
         bcs.main()
     third_cmd = mock_run.call_args_list[2][0][0]
@@ -232,6 +252,7 @@ def test_main_execute_keepalive_logins_override() -> None:
             ["bcs", "--repo", "stranske/Foo", "--execute", "--keepalive-logins", "alice,bob"],
         ),
         patch("subprocess.run") as mock_run,
+        patch("scripts.bootstrap_consumer_settings.apply_priority_labels"),
     ):
         bcs.main()
     third_cmd = mock_run.call_args_list[2][0][0]
@@ -243,6 +264,7 @@ def test_main_execute_sends_bot_collaborator_invite() -> None:
     with (
         patch("sys.argv", ["bcs", "--repo", "stranske/Foo", "--execute"]),
         patch("subprocess.run") as mock_run,
+        patch("scripts.bootstrap_consumer_settings.apply_priority_labels"),
     ):
         bcs.main()
     fourth_cmd = mock_run.call_args_list[3][0][0]
@@ -255,6 +277,7 @@ def test_main_execute_bot_override() -> None:
     with (
         patch("sys.argv", ["bcs", "--repo", "stranske/Foo", "--execute", "--bot", "other-bot"]),
         patch("subprocess.run") as mock_run,
+        patch("scripts.bootstrap_consumer_settings.apply_priority_labels"),
     ):
         bcs.main()
     fourth_cmd = mock_run.call_args_list[3][0][0]
