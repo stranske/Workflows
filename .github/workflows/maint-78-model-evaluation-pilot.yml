@@ -1,7 +1,15 @@
 name: Maint 78 Model Evaluation Pilot
+run-name: MAINT-78 source ${{ inputs.candidates_source_run_id || 'automatic' }}
 
 on:
-  workflow_dispatch: {}
+  workflow_dispatch:
+    inputs:
+      candidates_source_run_id:
+        description: >-
+          MAINT-77 workflow run id whose maint-77-pilot-candidates artifact
+          should be used instead of refreshing from the checked-out registry.
+        required: false
+        type: string
   # Auto-run when the catalog changes so a newly-current model is piloted without
   # anyone editing the candidate list (stranske/Workflows#2819, move 1).
   push:
@@ -17,6 +25,7 @@ permissions:
   contents: read
   pull-requests: read
   models: read
+  actions: read
 
 jobs:
   pilot:
@@ -26,8 +35,21 @@ jobs:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           persist-credentials: false
+      - name: Download MAINT-77 pilot candidates
+        if: >-
+          github.event_name == 'workflow_dispatch' &&
+          inputs.candidates_source_run_id != ''
+        uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c # v8
+        with:
+          name: maint-77-pilot-candidates
+          run-id: ${{ inputs.candidates_source_run_id }}
+          github-token: ${{ github.token }}
+          path: config
       - uses: astral-sh/setup-uv@c771a70e6277c0a99b617c7a806ffedaca235ff9 # v9.0.0
       - name: Refresh candidates from the registry
+        if: >-
+          github.event_name != 'workflow_dispatch' ||
+          inputs.candidates_source_run_id == ''
         # Derive the candidate set from the current catalog so the pilot always
         # tests every now-current model, even if the committed file lagged.
         run: python -m tools.refresh_model_eval_candidates --write

@@ -93,6 +93,110 @@ def test_derive_only_uses_the_target_profile():
     assert incumbents == {"gpt-5.4", "claude-opus-4-6"}
 
 
+def test_merge_catalog_discovery_adds_advisory_rows():
+    derived = rc.derive_candidates(_registry())
+    discovery = {
+        "providers": [
+            {
+                "provider": "openai",
+                "status": "drift",
+                "added_candidates": ["gpt-brand-new"],
+            }
+        ]
+    }
+    merged = rc.merge_catalog_discovery(derived, discovery, _registry())
+    keys = {(c["provider"], c["model_id"], c["role"]) for c in merged["candidates"]}
+    assert ("openai", "gpt-brand-new", "catalog-advisory") in keys
+
+
+def test_merge_catalog_discovery_skips_advisory_without_incumbent():
+    derived = rc.derive_candidates(_registry())
+    discovery = {
+        "providers": [
+            {
+                "provider": "google",
+                "status": "drift",
+                "added_candidates": ["gemini-new"],
+            }
+        ]
+    }
+    merged = rc.merge_catalog_discovery(derived, discovery, _registry())
+    assert not any(c["provider"] == "google" for c in merged["candidates"])
+
+
+def test_merge_catalog_discovery_skips_ineligible_registry_models():
+    derived = rc.derive_candidates(_registry())
+    discovery = {
+        "providers": [
+            {
+                "provider": "openai",
+                "status": "drift",
+                "added_candidates": ["gpt-blocked"],
+            }
+        ]
+    }
+    merged = rc.merge_catalog_discovery(derived, discovery, _registry())
+    assert not any(c["model_id"] == "gpt-blocked" for c in merged["candidates"])
+
+
+def test_main_merges_catalog_discovery_file(tmp_path):
+    reg = tmp_path / "reg.json"
+    disc = tmp_path / "disc.json"
+    out = tmp_path / "out.json"
+    reg.write_text(json.dumps(_registry()))
+    disc.write_text(
+        json.dumps(
+            {
+                "providers": [
+                    {
+                        "provider": "openai",
+                        "status": "drift",
+                        "added_candidates": ["gpt-handoff-test"],
+                    }
+                ]
+            }
+        )
+    )
+    assert (
+        rc.main(
+            [
+                "--registry",
+                str(reg),
+                "--candidates",
+                str(out),
+                "--write",
+                "--catalog-discovery",
+                str(disc),
+            ]
+        )
+        == 0
+    )
+    written = json.loads(out.read_text(encoding="utf-8"))
+    keys = {(c["provider"], c["model_id"], c["role"]) for c in written["candidates"]}
+    assert ("openai", "gpt-handoff-test", "catalog-advisory") in keys
+
+
+def test_main_rejects_invalid_catalog_discovery_shape(tmp_path, capsys):
+    reg = tmp_path / "reg.json"
+    disc = tmp_path / "disc.json"
+    out = tmp_path / "out.json"
+    reg.write_text(json.dumps(_registry()))
+    disc.write_text(json.dumps({"providers": None}))
+    code = rc.main(
+        [
+            "--registry",
+            str(reg),
+            "--candidates",
+            str(out),
+            "--write",
+            "--catalog-discovery",
+            str(disc),
+        ]
+    )
+    assert code == 2
+    assert "invalid catalog discovery" in capsys.readouterr().err
+
+
 def test_derive_is_deterministic_and_sorted():
     a = rc.derive_candidates(_registry())
     b = rc.derive_candidates(_registry())
