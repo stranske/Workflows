@@ -545,6 +545,10 @@ currently open PR's branch and head before planning it, including when the
 previous record was also nonterminal. A newer report timestamp alone is not
 open-PR proof. Verification errors are recorded as warning evidence and
 exclude the affected PR from that run's continuation selector.
+Stale-close handoffs are also checked against the currently closed PR before
+acceptance; an old close report cannot retire a PR reopened on a new head or
+generation. Source observation times are ordered across the whole PR, not
+only within one generation.
 Scheduled Maint 82 continuations exclude the manual Collab-Admin exception.
 Its `delivery` selector targets only registered `sync/workflows-delivery`
 handoffs with the selected immutable plan, scope, base and source; candidate-only

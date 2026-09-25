@@ -153,6 +153,12 @@ test('closed delivery reconciliation terminalizes only matching retained identit
   }], '2026-09-25T00:03:00Z');
   assert.equal(mergeDeliveryHandoffs(reopened, records,
     '2026-09-25T00:04:00Z')[0].continuation.class, 'actionable');
+  const newIdentity = mergeDeliveryHandoffs(merged, [{ ...base,
+    head_sha: 'new-head', delivery_generation: 'generation-2',
+    observed_at: '2026-09-25T00:02:00Z',
+  }], '2026-09-25T00:03:00Z');
+  assert.equal(mergeDeliveryHandoffs(newIdentity, records,
+    '2026-09-25T00:04:00Z')[0].head_sha, 'new-head');
 
   for (const pr of [
     { state: 'open', head: { sha: base.head_sha, ref: base.branch } },
@@ -205,6 +211,12 @@ test('terminal handoff revival requires the current PR to be open on the incomin
     } } }),
   } } });
   const closedClient = clientFor('closed');
+  const oldCloseAfterReopen = await verifyIncomingDeliveryHandoffs([terminal],
+    clientFor('open'), (operation) => operation(clientFor('open')));
+  assert.deepEqual(oldCloseAfterReopen.records, []);
+  const stillClosed = await verifyIncomingDeliveryHandoffs([terminal],
+    closedClient, (operation) => operation(closedClient));
+  assert.equal(stillClosed.records.length, 1);
   const closed = await verifyIncomingDeliveryHandoffs([incoming],
     closedClient, (operation) => operation(closedClient));
   assert.deepEqual(closed.records, []);

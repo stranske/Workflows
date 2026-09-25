@@ -573,7 +573,7 @@ function mergeDeliveryHandoffs(previous = [], incoming = [], observedAt = '', li
     const sameIdentity = retained
       && retained.head_sha === normalized.head_sha
       && retained.delivery_generation === normalized.delivery_generation;
-    if (sameIdentity && Number.isFinite(Date.parse(sourceObservedAt))
+    if (retained && Number.isFinite(Date.parse(sourceObservedAt))
       && Number.isFinite(Date.parse(retained.observed_at))
       && Date.parse(sourceObservedAt) < Date.parse(retained.observed_at)) continue;
     const newerThanTerminal = Number.isFinite(Date.parse(sourceObservedAt))
@@ -648,7 +648,14 @@ async function verifyIncomingDeliveryHandoffs(incoming = [], api, withRetry) {
   for (const record of cleanArray(incoming)) {
     const normalized = normalizeDeliveryHandoff(record);
     const key = `${normalized?.repository}#${normalized?.pr}`;
-    if (!normalized || normalized.continuation.class === 'terminal') {
+    if (!normalized) {
+      records.push(record);
+      continue;
+    }
+    const closedObservation = normalized.continuation.class === 'terminal'
+      && (normalized.disposition === 'closed'
+        || normalized.continuation.reason === 'stale_closed');
+    if (normalized.continuation.class === 'terminal' && !closedObservation) {
       records.push(record);
       continue;
     }
@@ -663,6 +670,10 @@ async function verifyIncomingDeliveryHandoffs(incoming = [], api, withRetry) {
         owner, repo, pull_number: normalized.pr,
       }));
       const pr = response.data;
+      if (closedObservation) {
+        if (pr.state === 'closed') records.push(record);
+        continue;
+      }
       if (pr.state !== 'open') continue;
       if (pr.head?.sha !== normalized.head_sha || pr.head?.ref !== normalized.branch) {
         errors.push(`${key}: open PR identity differs from incoming delivery handoff`);
