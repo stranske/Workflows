@@ -53,8 +53,31 @@ def _format_stage_paths(template_root: Path, mismatches: list[Path]) -> list[str
     return [str(template_root / path) for path in mismatches]
 
 
-def main() -> int:
+def _compiled_template_sync_sources(repo_root: Path) -> list[str]:
+    manifest_path = repo_root / ".github" / "sync-manifest.yml"
+    if not manifest_path.exists():
+        raise FileNotFoundError(f"sync-manifest.yml not found: {manifest_path}")
+    compiled = compile_manifest(manifest_path, repo_root=repo_root)
+    sources = _manifest_template_sync_sources(compiled)
+    for source in sources:
+        if any(character in source for character in ("\0", "\n", "\r")):
+            raise ManifestCompileError(
+                [f"template-sync source contains a line-control character: {source!r}"]
+            )
+    return sources
+
+
+def main(*, print_sources: bool = False) -> int:
     repo_root = Path(__file__).parent.parent
+    if print_sources:
+        try:
+            sources = _compiled_template_sync_sources(repo_root)
+        except (OSError, ManifestCompileError) as exc:
+            print(f"❌ Manifest is invalid:\n{exc}", file=sys.stderr)
+            return 1
+        print("\n".join(sources))
+        return 0
+
     template_root = repo_root / "templates" / "consumer-repo"
     source_dir = repo_root / ".github" / "scripts"
     template_dir = template_root / ".github" / "scripts"
@@ -67,18 +90,11 @@ def main() -> int:
         print(f"❌ Template directory not found: {template_dir}")
         return 1
 
-    manifest_path = repo_root / ".github" / "sync-manifest.yml"
-    if not manifest_path.exists():
-        print(f"❌ sync-manifest.yml not found: {manifest_path}")
-        return 1
-
     try:
-        compiled = compile_manifest(manifest_path)
-    except ManifestCompileError as exc:
+        manifest_sources = _compiled_template_sync_sources(repo_root)
+    except (OSError, ManifestCompileError) as exc:
         print(f"❌ Manifest is invalid:\n{exc}")
         return 1
-
-    manifest_sources = _manifest_template_sync_sources(compiled)
 
     mismatches = []
     for source in manifest_sources:
@@ -123,4 +139,8 @@ def main() -> int:
 
 
 if __name__ == "__main__":
-    sys.exit(main())
+    print_sources = len(sys.argv) == 2 and sys.argv[1] == "--print-sources"
+    if len(sys.argv) > 1 and not print_sources:
+        print("usage: validate_template_sync.py [--print-sources]", file=sys.stderr)
+        sys.exit(2)
+    sys.exit(main(print_sources=print_sources))

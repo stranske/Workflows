@@ -1,5 +1,10 @@
 # Workflow Sync Process
 
+`scripts/sync_templates.sh` compiles the complete sync manifest before making
+filesystem changes and rejects source or destination symlink/containment
+violations. Keep source selection in `scripts/validate_template_sync.py`; the
+synchronizer and validator intentionally consume the same compiled list.
+
 ## Purpose
 Prevent propagating bugs to consumer repos by validating changes in the source (Workflows) repo before syncing.
 
