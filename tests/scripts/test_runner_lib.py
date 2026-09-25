@@ -177,6 +177,40 @@ def test_completion_replay_preserves_first_task_observation() -> None:
     assert replay["tasks_completed_after"] == first["tasks_completed_after"] == 1
 
 
+def test_completion_replay_preserves_unmeasured_task_observation() -> None:
+    storage = MemoryRunnerStorage()
+    should_dispatch(
+        42,
+        "aaa",
+        "codex",
+        storage=storage,
+        task_progress_before=_task_snapshot(0),
+    )
+    first = record_completion(
+        42,
+        "aaa",
+        "codex",
+        {"success": True},
+        storage=storage,
+        observed_head_sha="aaa",
+        task_progress_after="not-json",
+    )
+    replay = record_completion(
+        42,
+        "aaa",
+        "codex",
+        {"success": True},
+        storage=storage,
+        observed_head_sha="aaa",
+        task_progress_after=_task_snapshot(1),
+    )
+
+    assert "productive" not in first
+    assert "productive" not in replay
+    assert replay["task_progress_reason"] == first["task_progress_reason"] == "after-missing"
+    assert "tasks_completed_after" not in replay
+
+
 def test_each_retry_reservation_replaces_task_baseline() -> None:
     storage = MemoryRunnerStorage()
     should_dispatch(

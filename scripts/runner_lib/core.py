@@ -1735,6 +1735,7 @@ def _derive_completion_productivity(
         }
         if "productive" in prior:
             return bool(prior["productive"]), persisted
+        return None, persisted
 
     observed_head = str(observed_head_sha or "").strip()
     after = _normalize_task_progress_snapshot(task_progress_after)
