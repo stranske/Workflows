@@ -248,6 +248,32 @@ test('terminal handoff revival requires the current PR to be open on the incomin
   assert.deepEqual(failed.blockedKeys, ['stranske/Ready#11']);
 });
 
+test('malformed incoming handoff cannot hide a retained closed PR from reconciliation', async () => {
+  const retained = {
+    schema: 'workflows-generated-delivery-handoff/v1', repository: 'stranske/Ready',
+    pr: 11, branch: 'deps/sync-dev-versions-abc', head_sha: 'old-head',
+    delivery_generation: 'generation-1', disposition: 'review-blocked',
+    blocker_owner: 'maint-71', next_command: 'resolve-active-review-threads',
+    check_state: 'ready', review_state: 'blocked',
+    continuation: { class: 'actionable', lane: 'dev-tool', reason: 'review_blocked' },
+  };
+  const malformed = { repository: retained.repository, pr: retained.pr,
+    branch: retained.branch, head_sha: retained.head_sha };
+  const client = { rest: { pulls: { get: async () => ({ data: {
+    state: 'closed', merged_at: null,
+    head: { sha: 'later-head', ref: retained.branch },
+  } }) } } };
+  const retry = (operation) => operation(client);
+  const verified = await verifyIncomingDeliveryHandoffs([malformed], client, retry);
+  assert.deepEqual(verified.records, []);
+  assert.deepEqual(verified.blockedKeys, ['stranske/Ready#11']);
+  assert.match(verified.errors[0], /invalid delivery handoff/);
+  const reconciled = await reconcileClosedDeliveryHandoffs([retained], verified.records,
+    client, retry, '2026-09-25T04:30:00Z');
+  assert.equal(reconciled.records[0].continuation.class, 'terminal');
+  assert.equal(reconciled.records[0].closure_observed_head_sha, 'later-head');
+});
+
 test('plans only due transient Maint 71 lanes and suppresses candidates during delivery', () => {
   const base = {
     schema: 'workflows-generated-delivery-handoff/v1',

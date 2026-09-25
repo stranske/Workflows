@@ -548,6 +548,9 @@ currently open PR's branch and head before planning it, including when the
 previous record was also nonterminal. A newer report timestamp alone is not
 open-PR proof. Verification errors are recorded as warning evidence and
 exclude the affected PR from that run's continuation selector.
+Malformed incoming handoffs are rejected before their PR keys can suppress
+live reconciliation of retained records; identifiable keys are blocked from
+continuation for that run.
 Stale-close handoffs are also checked against the currently closed PR before
 acceptance; an old close report cannot retire a PR reopened on a new head or
 generation. Source observation times are ordered across the whole PR, not

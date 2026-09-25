@@ -658,11 +658,18 @@ async function verifyIncomingDeliveryHandoffs(incoming = [], api, withRetry) {
   const blockedKeys = [];
   for (const record of cleanArray(incoming)) {
     const normalized = normalizeDeliveryHandoff(record);
-    const key = `${normalized?.repository}#${normalized?.pr}`;
     if (!normalized) {
-      records.push(record);
+      // Do not let a malformed dispatch suppress live reconciliation of a
+      // retained handoff for the same PR. Keep its key blocked this run.
+      const repository = cleanString(record?.repository);
+      const pr = Number(record?.pr);
+      const key = repository && Number.isInteger(pr) && pr > 0
+        ? `${repository}#${pr}` : '';
+      errors.push(`${key || 'incoming handoff'}: invalid delivery handoff`);
+      if (key) blockedKeys.push(key);
       continue;
     }
+    const key = `${normalized.repository}#${normalized.pr}`;
     const effectiveContinuation = preparedDeliveryContinuation(normalized);
     const closedObservation = effectiveContinuation.class === 'terminal'
       && (normalized.disposition === 'closed'
