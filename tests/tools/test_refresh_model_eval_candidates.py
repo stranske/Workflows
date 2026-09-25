@@ -93,6 +93,22 @@ def test_derive_only_uses_the_target_profile():
     assert incumbents == {"gpt-5.4", "claude-opus-4-6"}
 
 
+def test_merge_catalog_discovery_adds_advisory_rows():
+    derived = rc.derive_candidates(_registry())
+    discovery = {
+        "providers": [
+            {
+                "provider": "openai",
+                "status": "drift",
+                "added_candidates": ["gpt-brand-new"],
+            }
+        ]
+    }
+    merged = rc.merge_catalog_discovery(derived, discovery)
+    keys = {(c["provider"], c["model_id"], c["role"]) for c in merged["candidates"]}
+    assert ("openai", "gpt-brand-new", "catalog-advisory") in keys
+
+
 def test_derive_is_deterministic_and_sorted():
     a = rc.derive_candidates(_registry())
     b = rc.derive_candidates(_registry())

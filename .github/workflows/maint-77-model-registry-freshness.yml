@@ -208,30 +208,48 @@ jobs:
       github.event_name != 'pull_request' &&
       needs.freshness.outputs.discovery_drift == 'true'
     needs: freshness
+    concurrency:
+      group: maint-77-evaluation-pilot-dispatch
+      cancel-in-progress: true
     runs-on: ubuntu-latest
     permissions:
       contents: read
       actions: write
     steps:
       - name: Checkout
-        uses: actions/checkout@v7
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           persist-credentials: false
 
+      - name: Download catalog discovery
+        uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c # v8
+        with:
+          name: model-catalog-discovery-${{ github.run_id }}
+          path: .
+
       - name: Setup API client
-        uses: ./.github/actions/setup-api-client
+        uses: $/.github/actions/setup-api-client
         with:
           github_token: ${{ github.token }}
           owner_pr_pat: ${{ secrets.OWNER_PR_PAT }}
           service_bot_pat: ${{ secrets.SERVICE_BOT_PAT }}
 
       - name: Setup Python
-        uses: actions/setup-python@v7
+        uses: actions/setup-python@5fda3b95a4ea91299a34e894583c3862153e4b97 # v7
         with:
           python-version: '3.14'
 
       - name: Refresh pilot candidates from registry
-        run: python3 -m tools.refresh_model_eval_candidates --write
+        run: >-
+          python3 -m tools.refresh_model_eval_candidates --write
+          --catalog-discovery catalog-discovery.json
+
+      - name: Upload pilot candidates for MAINT-78
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7
+        with:
+          name: maint-77-pilot-candidates
+          path: config/model_eval_candidates.json
+          if-no-files-found: error
 
       - name: Dispatch evaluation pilot on catalog drift
         uses: actions/github-script@3a2844b7e9c422d3c10d287c895573f7108da1b3 # v9
@@ -246,16 +264,33 @@ jobs:
               task: 'maint-77-dispatch-model-eval-pilot',
               capabilities: ['actions:write'],
             });
-            const { data: runs } = await withRetry((client) =>
-              client.rest.actions.listWorkflowRuns({
-                owner: context.repo.owner,
-                repo: context.repo.repo,
-                workflow_id: 'maint-78-model-evaluation-pilot.yml',
-                per_page: 20,
-              }),
-            );
-            const activePilot = (runs.workflow_runs || []).find((run) =>
-              ['queued', 'in_progress', 'waiting', 'pending'].includes(run.status),
+            const activeStatuses = [
+              'requested',
+              'queued',
+              'in_progress',
+              'waiting',
+              'pending',
+            ];
+            const activeRuns = [];
+            for (const status of activeStatuses) {
+              for (let page = 1; ; page += 1) {
+                const { data } = await withRetry((client) =>
+                  client.rest.actions.listWorkflowRuns({
+                    owner: context.repo.owner,
+                    repo: context.repo.repo,
+                    workflow_id: 'maint-78-model-evaluation-pilot.yml',
+                    status,
+                    per_page: 100,
+                    page,
+                  }),
+                );
+                const pageRuns = data.workflow_runs || [];
+                activeRuns.push(...pageRuns);
+                if (pageRuns.length < 100) break;
+              }
+            }
+            const activePilot = activeRuns.find((run) =>
+              activeStatuses.includes(run.status),
             );
             if (activePilot) {
               core.notice(`Model evaluation pilot already active in run ${activePilot.id}`);
@@ -266,6 +301,8 @@ jobs:
               repo: context.repo.repo,
               workflow_id: 'maint-78-model-evaluation-pilot.yml',
               ref: context.payload.repository?.default_branch || 'main',
-              inputs: {},
+              inputs: {
+                candidates_source_run_id: String(context.runId),
+              },
             }));
             core.notice('Dispatched Maint 78 model evaluation pilot after catalog drift');
