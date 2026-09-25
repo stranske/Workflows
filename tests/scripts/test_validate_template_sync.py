@@ -149,6 +149,54 @@ def test_validator_suggests_sync_command(tmp_path):
     assert "git add templates/consumer-repo/.github/scripts/test.js" in result.stdout
 
 
+def test_print_sources_matches_compiled_manifest(tmp_path: Path) -> None:
+    """Print mode exposes the compiler-backed source list without needing a destination."""
+    source, _template = create_test_structure(tmp_path)
+    shutil.rmtree(tmp_path / "templates")
+    (source / "z.js").write_text("z", encoding="utf-8")
+    (source / "a.js").write_text("a", encoding="utf-8")
+    write_manifest(tmp_path, ["z.js", "a.js"])
+
+    compiled = compile_manifest(tmp_path / ".github" / "sync-manifest.yml", repo_root=tmp_path)
+    expected = vts._manifest_template_sync_sources(compiled)
+    result = subprocess.run(
+        [sys.executable, "scripts/validate_template_sync.py", "--print-sources"],
+        cwd=tmp_path,
+        capture_output=True,
+        text=True,
+        check=False,
+    )
+
+    assert result.returncode == 0, result.stderr
+    assert result.stdout.splitlines() == expected
+    assert not (tmp_path / "templates").exists()
+
+
+def test_print_sources_rejects_unsafe_manifest_path(tmp_path: Path) -> None:
+    """Print mode fails closed before emitting any ambiguous source records."""
+    create_test_structure(tmp_path)
+    write_raw_manifest(
+        tmp_path,
+        """version: 1
+scripts:
+  - source: .github/scripts/../outside.js
+    description: unsafe
+""",
+    )
+
+    result = subprocess.run(
+        [sys.executable, "scripts/validate_template_sync.py", "--print-sources"],
+        cwd=tmp_path,
+        capture_output=True,
+        text=True,
+        check=False,
+    )
+
+    assert result.returncode == 1
+    assert result.stdout == ""
+    assert "Manifest is invalid" in result.stderr
+
+
 def test_validator_handles_multiple_mismatches(tmp_path):
     """Validator should report all mismatched files."""
     source, template = create_test_structure(tmp_path)

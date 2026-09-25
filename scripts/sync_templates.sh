@@ -2,43 +2,98 @@
 # Sync source scripts to template directory
 set -e
 
-TEMPLATE_ROOT="templates/consumer-repo"
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd -P)"
+REPO_ROOT="$(cd "$SCRIPT_DIR/.." && pwd -P)"
+TEMPLATE_ROOT="$REPO_ROOT/templates/consumer-repo"
+
+cd "$REPO_ROOT"
 
 echo "🔄 Syncing scripts to template directory..."
 
-# Get list of files to sync from sync-manifest.yml
-FILES=$(python - <<'PY'
+# Compile the complete manifest before touching the filesystem. Do not use
+# process substitution here: Bash does not propagate the producer's failure.
+if ! FILES=$(python scripts/validate_template_sync.py --print-sources); then
+    echo "❌ Refusing to sync templates from an invalid manifest" >&2
+    exit 1
+fi
+
+validate_sync_path() {
+    python - "$REPO_ROOT" "$TEMPLATE_ROOT" "$1" <<'PY'
 from pathlib import Path
 import sys
 
+repo_root = Path(sys.argv[1]).resolve(strict=True)
+template_root = Path(sys.argv[2])
+relative = Path(sys.argv[3])
+
+
+def fail(message: str) -> None:
+    print(f"❌ Unsafe template-sync path {relative}: {message}", file=sys.stderr)
+    raise SystemExit(1)
+
+
+def reject_symlink_components(path: Path, anchor: Path) -> None:
+    try:
+        relative_parts = path.relative_to(anchor).parts
+    except ValueError:
+        fail(f"{path} is outside {anchor}")
+    current = anchor
+    for part in relative_parts:
+        current /= part
+        if current.is_symlink():
+            fail(f"symlink component is not allowed: {current}")
+
+
+if not template_root.exists() or not template_root.is_dir() or template_root.is_symlink():
+    fail(f"template root is not a real directory: {template_root}")
+reject_symlink_components(template_root, repo_root)
+
+source = repo_root / relative
+destination = template_root / relative
+reject_symlink_components(source, repo_root)
+reject_symlink_components(destination, repo_root)
+
 try:
-    import yaml
-except Exception as exc:  # pragma: no cover - runtime environment only
-    print("❌ PyYAML is required to sync templates. Install with: pip install pyyaml", file=sys.stderr)
-    sys.exit(1)
+    source_resolved = source.resolve(strict=True)
+except OSError as exc:
+    fail(f"source cannot be resolved: {exc}")
+template_resolved = template_root.resolve(strict=True)
+destination_resolved = destination.resolve(strict=False)
 
-manifest_path = Path(".github/sync-manifest.yml")
-if not manifest_path.exists():
-    print("❌ sync-manifest.yml not found", file=sys.stderr)
-    sys.exit(1)
+try:
+    source_resolved.relative_to(repo_root)
+except ValueError:
+    fail("source resolves outside the repository")
+try:
+    destination_relative = destination_resolved.relative_to(template_resolved)
+except ValueError:
+    fail("destination resolves outside the template root")
+if not destination_relative.parts:
+    fail("destination equals the template root")
+if source_resolved == destination_resolved:
+    fail("source and destination are identical")
+if source_resolved in destination_resolved.parents or destination_resolved in source_resolved.parents:
+    fail("source and destination overlap")
 
-manifest = yaml.safe_load(manifest_path.read_text(encoding="utf-8")) or {}
-scripts = []
-for entry in manifest.get("scripts", []) or []:
-    source = entry.get("source", "")
-    if source.startswith(".github/scripts/"):
-        scripts.append(source)
-        continue
-    if entry.get("template_sync") == "exact":
-        scripts.append(source)
-
-print("\n".join(sorted(set(scripts))))
+if source_resolved.is_dir():
+    for child in source_resolved.rglob("*"):
+        if child.is_symlink():
+            fail(f"source directory contains a symlink: {child}")
 PY
-)
+}
+
+# Validate every entry before the first mkdir, copy, or removal. Revalidate each
+# entry immediately before mutation to catch ordinary local path changes.
+while IFS= read -r file; do
+    [ -n "$file" ] || continue
+    validate_sync_path "$file"
+done <<< "$FILES"
 
 synced=0
-for file in $FILES; do
-    source_file="$file"
+while IFS= read -r file; do
+    [ -n "$file" ] || continue
+    validate_sync_path "$file"
+    source_file="$REPO_ROOT/$file"
     template_file="$TEMPLATE_ROOT/$file"
 
     # Create parent directory if it doesn't exist
@@ -65,7 +120,7 @@ for file in $FILES; do
         cp "$source_file" "$template_file"
         synced=$((synced + 1)) || true
     fi
-done
+done <<< "$FILES"
 
 if [ $synced -eq 0 ]; then
     echo "✅ All files already in sync"
