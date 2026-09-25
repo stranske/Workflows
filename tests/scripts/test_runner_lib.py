@@ -50,7 +50,7 @@ def _task_snapshot(completed: int, *, total: int = 2, fingerprint: str = "a" * 6
     }
 
 
-def test_completed_task_delta_marks_unchanged_head_productive() -> None:
+def test_partial_task_delta_keeps_unchanged_head_retryable() -> None:
     storage = MemoryRunnerStorage()
     should_dispatch(
         42,
@@ -73,7 +73,97 @@ def test_completed_task_delta_marks_unchanged_head_productive() -> None:
     assert completed["productive"] is True
     assert completed["tasks_completed_delta"] == 1
     assert completed["task_progress_reason"] == "measured"
+    assert completed["completion_incomplete"] is True
+    assert should_dispatch(
+        42, "aaa", "codex", storage=storage, task_progress_before=_task_snapshot(1)
+    ).reason == ("retry-incomplete-completion")
+
+
+def test_completed_checklist_still_latches_same_head() -> None:
+    storage = MemoryRunnerStorage()
+    should_dispatch(42, "aaa", "codex", storage=storage, task_progress_before=_task_snapshot(1))
+    completed = record_completion(
+        42,
+        "aaa",
+        "codex",
+        {"success": True},
+        storage=storage,
+        observed_head_sha="aaa",
+        task_progress_after=_task_snapshot(2),
+    )
+    assert completed["completion_incomplete"] is False
     assert should_dispatch(42, "aaa", "codex", storage=storage).reason == "duplicate-completed"
+
+
+def test_partial_completion_retries_are_bounded_then_cool_down() -> None:
+    storage = MemoryRunnerStorage()
+    for completed_count in (0, 1, 2):
+        assert should_dispatch(
+            42,
+            "aaa",
+            "codex",
+            storage=storage,
+            task_progress_before=_task_snapshot(completed_count, total=4),
+        ).should_dispatch
+        completed = record_completion(
+            42,
+            "aaa",
+            "codex",
+            {"success": True},
+            storage=storage,
+            observed_head_sha="aaa",
+            task_progress_after=_task_snapshot(completed_count + 1, total=4),
+        )
+    assert completed["continuation_completions"] == UNPRODUCTIVE_COMPLETION_RETRY_LIMIT + 1
+    cooling = should_dispatch(42, "aaa", "codex", storage=storage)
+    assert cooling.reason == "unproductive-cooldown"
+    assert "time: retry at" in cooling.drainable
+    record = storage.records[(42, "codex")]
+    record["completed_at"] = (
+        datetime.datetime.now(datetime.UTC)
+        - datetime.timedelta(seconds=UNPRODUCTIVE_COMPLETION_COOLDOWN_SECONDS + 60)
+    ).isoformat()
+    assert should_dispatch(42, "aaa", "codex", storage=storage).reason == (
+        "retry-after-incomplete-cooldown"
+    )
+
+
+def test_legacy_measured_partial_completion_is_retryable() -> None:
+    storage = MemoryRunnerStorage()
+    should_dispatch(42, "aaa", "codex", storage=storage, task_progress_before=_task_snapshot(0))
+    record_completion(
+        42,
+        "aaa",
+        "codex",
+        {"success": True},
+        storage=storage,
+        observed_head_sha="aaa",
+        task_progress_after=_task_snapshot(1),
+    )
+    old_record = storage.records[(42, "codex")]
+    old_record.pop("completion_incomplete")
+    old_record.pop("continuation_completions")
+    assert should_dispatch(42, "aaa", "codex", storage=storage).reason == (
+        "retry-incomplete-completion"
+    )
+
+
+def test_missing_after_snapshot_does_not_latch_same_head() -> None:
+    storage = MemoryRunnerStorage()
+    should_dispatch(42, "aaa", "codex", storage=storage, task_progress_before=_task_snapshot(0))
+    completed = record_completion(
+        42,
+        "aaa",
+        "codex",
+        {"success": True},
+        storage=storage,
+        observed_head_sha="aaa",
+        task_progress_after="not-json",
+    )
+    assert completed["completion_incomplete"] is True
+    assert should_dispatch(42, "aaa", "codex", storage=storage).reason == (
+        "retry-incomplete-completion"
+    )
 
 
 def test_unchanged_head_without_task_delta_keeps_bounded_retry() -> None:
@@ -125,6 +215,10 @@ def test_unknown_or_changed_task_sets_never_manufacture_progress(before, after, 
 
     assert "productive" not in completed
     assert completed["task_progress_reason"] == reason
+    assert completed["completion_incomplete"] is True
+    assert should_dispatch(42, "aaa", "codex", storage=storage).reason == (
+        "retry-incomplete-completion"
+    )
 
 
 def test_changed_head_is_productive_without_task_measurement() -> None:
@@ -175,6 +269,8 @@ def test_completion_replay_preserves_first_task_observation() -> None:
 
     assert replay["tasks_completed_delta"] == first["tasks_completed_delta"] == 1
     assert replay["tasks_completed_after"] == first["tasks_completed_after"] == 1
+    assert replay["completion_incomplete"] is True
+    assert replay["continuation_completions"] == first["continuation_completions"] == 1
 
 
 def test_completion_replay_preserves_unmeasured_task_observation() -> None:

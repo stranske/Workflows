@@ -1338,6 +1338,36 @@ def _unproductive_completion_count(prior: dict[str, Any] | None) -> int:
         return 0
 
 
+def _completion_needs_continuation(prior: dict[str, Any] | None) -> bool:
+    if not prior:
+        return False
+    if prior.get("completion_incomplete") is True:
+        return True
+    # Recover already-persisted partial observations from before this field existed.
+    total = prior.get("tasks_total_after")
+    completed = prior.get("tasks_completed_after")
+    return bool(
+        prior.get("observed_head_sha") == prior.get("head_sha")
+        and isinstance(total, int)
+        and not isinstance(total, bool)
+        and total > 0
+        and isinstance(completed, int)
+        and not isinstance(completed, bool)
+        and completed < total
+    )
+
+
+def _continuation_completion_count(prior: dict[str, Any] | None) -> int:
+    if not prior:
+        return 0
+    try:
+        return max(
+            0, int(prior.get("continuation_completions", _unproductive_completion_count(prior)))
+        )
+    except (TypeError, ValueError):
+        return _unproductive_completion_count(prior)
+
+
 def _workflow_attempt_id() -> str:
     """Identify the reserving workflow attempt across its jobs, not just the PR head."""
     repository = os.environ.get("GITHUB_REPOSITORY", "")
@@ -1391,6 +1421,9 @@ def _reserve_dispatch(
     # Carry the unproductive tally across the retry so the allowance is bounded: it is the only
     # thing that makes "retry an unproductive completion" terminate instead of cycling forever.
     unproductive = _unproductive_completion_count(prior)
+    continuation_count = _continuation_completion_count(prior)
+    if continuation_count and prior and prior.get("head_sha") == head_sha:
+        record["continuation_completions"] = continuation_count
     if unproductive and prior and prior.get("head_sha") == head_sha:
         record["unproductive_completions"] = unproductive
         if _completion_was_unproductive(prior):
@@ -1466,7 +1499,7 @@ def should_dispatch(
             raise
         _log_storage_failure("read", exc, phase="reservation")
         return _unavailable_dispatch(key)
-    unproductive_completions = _unproductive_completion_count(prior)
+    continuation_completions = _continuation_completion_count(prior)
 
     if authority_challenge:
         # The validation above guarantees this invariant at runtime. Repeat the
@@ -1569,8 +1602,13 @@ def should_dispatch(
 
     if prior and prior.get("head_sha") == head_sha:
         status = str(prior.get("status") or "")
-        if status == "completed" and _completion_was_unproductive(prior):
-            if unproductive_completions <= UNPRODUCTIVE_COMPLETION_RETRY_LIMIT:
+        if status == "completed" and (
+            _completion_was_unproductive(prior) or _completion_needs_continuation(prior)
+        ):
+            incomplete = _completion_needs_continuation(prior) and not _completion_was_unproductive(
+                prior
+            )
+            if continuation_completions <= UNPRODUCTIVE_COMPLETION_RETRY_LIMIT:
                 return _reserve_dispatch(
                     storage,
                     pr_number,
@@ -1578,7 +1616,11 @@ def should_dispatch(
                     provider,
                     key,
                     prior,
-                    reason="retry-unproductive-completion",
+                    reason=(
+                        "retry-incomplete-completion"
+                        if incomplete
+                        else "retry-unproductive-completion"
+                    ),
                     task_progress_before=task_progress_before,
                 )
             retry_at = _unproductive_retry_available_at(prior)
@@ -1591,7 +1633,7 @@ def should_dispatch(
                     prior_head_sha=head_sha,
                     drainable=(
                         f"time: retry at {retry_at.isoformat()} "
-                        f"(after {unproductive_completions} zero-output runs)"
+                        f"(after {continuation_completions} same-head continuations)"
                     ),
                 )
             return _reserve_dispatch(
@@ -1601,7 +1643,11 @@ def should_dispatch(
                 provider,
                 key,
                 prior,
-                reason="retry-after-unproductive-cooldown",
+                reason=(
+                    "retry-after-incomplete-cooldown"
+                    if incomplete
+                    else "retry-after-unproductive-cooldown"
+                ),
                 task_progress_before=task_progress_before,
             )
         if status == "completed" or (status == "pending" and not _pending_record_is_stale(prior)):
@@ -1844,6 +1890,35 @@ def record_completion(
         "result": compact_result,
         **productivity_fields,
     }
+    same_terminal_attempt = prior.get("key") == key and prior.get("status") in TERMINAL_STATUSES
+    if status == "completed" and same_terminal_attempt:
+        # Completion replays cannot change the first attempt's disposition.
+        if "completion_incomplete" in prior:
+            record["completion_incomplete"] = prior["completion_incomplete"]
+        elif _completion_needs_continuation(prior):
+            record["completion_incomplete"] = True
+    elif (
+        status == "completed"
+        and observed_head_sha == head_sha
+        and (task_progress_after is not None or "tasks_total_before" in prior)
+    ):
+        after = _normalize_task_progress_snapshot(task_progress_after)
+        record["completion_incomplete"] = bool(
+            after is None
+            or after["total"] <= 0
+            or after["completed"] < after["total"]
+            or productivity_fields.get("task_progress_reason") == "task-set-changed"
+        )
+    if status == "completed" and record.get("completion_incomplete") is True:
+        record["continuation_completions"] = (
+            _continuation_completion_count(prior)
+            if same_terminal_attempt
+            else min(
+                _continuation_completion_count(prior) + 1, UNPRODUCTIVE_COMPLETION_RETRY_LIMIT + 1
+            )
+        )
+    elif status == "completed" and record.get("completion_incomplete") is False:
+        record["continuation_completions"] = 0
     if status == "completed" and produced_work is not None:
         record["productive"] = bool(produced_work)
         if produced_work:
@@ -1863,6 +1938,8 @@ def record_completion(
             record["unproductive_completions"] = min(
                 previous + 1, UNPRODUCTIVE_COMPLETION_RETRY_LIMIT + 1
             )
+    if status == "completed" and "completion_incomplete" not in record and produced_work is False:
+        record["continuation_completions"] = record.get("unproductive_completions", 0)
     try:
         if isinstance(completion_storage, PrCommentRunnerStorage):
             record["reservation_id"] = _reservation_identity(prior)
