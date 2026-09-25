@@ -292,9 +292,23 @@ jobs:
             const activePilot = activeRuns.find((run) =>
               activeStatuses.includes(run.status),
             );
-            if (activePilot) {
-              core.notice(`Model evaluation pilot already active in run ${activePilot.id}`);
+            const currentSourceRunId = String(context.runId);
+            const pilotUsesCurrentCandidates = (run) => {
+              const inputs = run.inputs || {};
+              return String(inputs.candidates_source_run_id || '') === currentSourceRunId;
+            };
+            if (activePilot && pilotUsesCurrentCandidates(activePilot)) {
+              core.notice(
+                `Model evaluation pilot already active in run ${activePilot.id} ` +
+                  `for candidates_source_run_id=${currentSourceRunId}`,
+              );
               return;
+            }
+            if (activePilot) {
+              core.notice(
+                `Active pilot run ${activePilot.id} lacks candidates from MAINT-77 run ` +
+                  `${currentSourceRunId}; dispatching a new pilot`,
+              );
             }
             await withRetry((client) => client.rest.actions.createWorkflowDispatch({
               owner: context.repo.owner,

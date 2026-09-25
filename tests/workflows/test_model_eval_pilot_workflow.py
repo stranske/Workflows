@@ -39,7 +39,7 @@ def test_auto_dispatch_maint77_chains_to_maint78_on_catalog_drift() -> None:
     assert needs == ["freshness"] or needs == "freshness"
     steps = dispatch_job["steps"]
     api_setup = next(step for step in steps if step.get("name") == "Setup API client")
-    assert api_setup["uses"] == "$/.github/actions/setup-api-client"
+    assert api_setup["uses"] == "./.github/actions/setup-api-client"
     dispatch_idx = next(i for i, step in enumerate(steps) if step.get("name") == "Setup API client")
     refresh_idx = next(
         i
@@ -63,6 +63,20 @@ def test_auto_dispatch_maint77_chains_to_maint78_on_catalog_drift() -> None:
     assert "candidates_source_run_id" in script
     assert "'requested'" in script
     assert dispatch["with"]["github-token"] == "${{ secrets.GITHUB_TOKEN }}"
+
+
+def test_maint78_downloads_maint77_candidate_artifact_on_dispatch() -> None:
+    root = Path(__file__).resolve().parents[2]
+    workflow = yaml.safe_load(
+        (root / ".github/workflows/maint-78-model-evaluation-pilot.yml").read_text(encoding="utf-8")
+    )
+    steps = workflow["jobs"]["pilot"]["steps"]
+    download = next(
+        step for step in steps if step.get("name") == "Download MAINT-77 pilot candidates"
+    )
+    assert "inputs.candidates_source_run_id" in download["if"]
+    assert download["with"]["name"] == "maint-77-pilot-candidates"
+    assert download["with"]["run-id"] == "${{ inputs.candidates_source_run_id }}"
 
 
 def test_corpus_decision_publisher_uses_evaluated_context_identity():
