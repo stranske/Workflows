@@ -24,6 +24,27 @@ def test_model_eval_pilot_runs_as_importable_module() -> None:
     assert upload["with"]["if-no-files-found"] == "warn"
 
 
+def test_auto_dispatch_maint77_chains_to_maint78_on_catalog_drift() -> None:
+    root = Path(__file__).resolve().parents[2]
+    workflow = yaml.safe_load(
+        (root / ".github/workflows/maint-77-model-registry-freshness.yml").read_text(encoding="utf-8")
+    )
+    dispatch_job = workflow["jobs"]["dispatch-evaluation-pilot"]
+    assert "discovery_drift == 'true'" in dispatch_job["if"]
+    needs = dispatch_job["needs"]
+    assert needs == ["freshness"] or needs == "freshness"
+    steps = dispatch_job["steps"]
+    refresh = next(step for step in steps if step.get("name") == "Refresh pilot candidates from registry")
+    assert "tools.refresh_model_eval_candidates --write" in refresh["run"]
+    dispatch = next(
+        step for step in steps if step.get("name") == "Dispatch evaluation pilot on catalog drift"
+    )
+    script = dispatch["with"]["script"]
+    assert "maint-78-model-evaluation-pilot.yml" in script
+    assert "createWorkflowDispatch" in script
+    assert dispatch["with"]["github-token"] == "${{ secrets.GITHUB_TOKEN }}"
+
+
 def test_corpus_decision_publisher_uses_evaluated_context_identity():
     root = Path(__file__).resolve().parents[2]
     workflow = yaml.safe_load((root / ".github/workflows/reusable-agents-verifier.yml").read_text())
