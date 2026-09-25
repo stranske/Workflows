@@ -46,6 +46,8 @@ def _request_json(url: str, headers: dict[str, str]) -> Any:
 
 
 def _parse_timestamp(value: object) -> dt.datetime | None:
+    if isinstance(value, bool):
+        return None
     if isinstance(value, (int, float)):
         try:
             return dt.datetime.fromtimestamp(value, tz=dt.UTC)

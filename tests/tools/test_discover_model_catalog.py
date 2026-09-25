@@ -120,6 +120,20 @@ def test_removed_model_is_catalog_drift():
     assert report["removed_from_catalog"] == ["removed"]
 
 
+def test_parse_timestamp_rejects_bool_created_at():
+    payload = [
+        {
+            "id": "boolean-timestamp",
+            "capabilities": ["streaming"],
+            "created_at": True,
+        }
+    ]
+
+    assert discovery.parse_catalog("github-models", payload) == [
+        discovery.CatalogModel("boolean-timestamp")
+    ]
+
+
 @pytest.mark.parametrize("timestamp", [1e100, -1e100, float("inf"), float("-inf"), float("nan")])
 def test_github_catalog_invalid_numeric_timestamp_does_not_abort(timestamp):
     payload = [
