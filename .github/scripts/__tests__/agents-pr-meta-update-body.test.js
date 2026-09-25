@@ -17,6 +17,7 @@ const {
   buildPreamble,
   buildSourceContextRepairCommentBody,
   buildSourceContextResolvedCommentBody,
+  collectStatusWorkflowRuns,
   isReleasePleasePr,
   resolveExplicitNonIssueWorkflowSourceContext,
   extractExplicitIssueSyncNumbers,
@@ -31,6 +32,142 @@ const {
   upsertBlock,
   run,
 } = require('../agents_pr_meta_update_body.js');
+
+function workflowRun({
+  name,
+  headSha = 'head-123',
+  status = 'completed',
+  conclusion = 'success',
+  createdAt = '2026-09-25T00:00:00Z',
+  path = '',
+  id = 1,
+} = {}) {
+  return {
+    id,
+    name,
+    head_sha: headSha,
+    status,
+    conclusion,
+    created_at: createdAt,
+    path,
+    html_url: `https://github.test/actions/runs/${id}`,
+  };
+}
+
+test('collectStatusWorkflowRuns keeps only exact-head non-observer runs', async () => {
+  const github = {
+    rest: {
+      actions: {
+        listWorkflowRunsForRepo: async () => ({
+          data: {
+            workflow_runs: [
+              workflowRun({ name: 'CI', id: 11 }),
+              workflowRun({
+                name: 'CI',
+                headSha: 'stale-head',
+                createdAt: '2026-09-25T00:01:00Z',
+                id: 12,
+              }),
+              workflowRun({ name: 'Agents PR Meta Manager', id: 13 }),
+              workflowRun({ name: 'Gate', id: 14 }),
+            ],
+          },
+        }),
+        listWorkflowRuns: async () => {
+          throw new Error('fallback should not run when exact-head Gate exists');
+        },
+      },
+    },
+  };
+
+  const runs = await collectStatusWorkflowRuns({
+    github, owner: 'stranske', repo: 'Workflows', headSha: 'head-123', core: null,
+  });
+
+  assert.deepEqual([...runs.keys()].sort(), ['ci', 'gate']);
+  assert.equal(runs.get('ci').id, 11);
+  assert.equal(runs.get('gate').id, 14);
+});
+
+test('collectStatusWorkflowRuns recovers the last completed dependency contract', async () => {
+  const calls = [];
+  const github = {
+    rest: {
+      actions: {
+        listWorkflowRunsForRepo: async () => ({
+          data: {
+            workflow_runs: [
+              workflowRun({
+                name: 'PR 46 Dependency Repair Contract',
+                status: 'in_progress',
+                conclusion: null,
+                id: 21,
+              }),
+              workflowRun({ name: 'Gate', id: 22 }),
+            ],
+          },
+        }),
+        listWorkflowRuns: async (params) => {
+          calls.push(params);
+          assert.equal(params.workflow_id, 'pr-46-dependency-repair-contract.yml');
+          assert.equal(params.head_sha, 'head-123');
+          assert.equal(params.status, 'completed');
+          return {
+            data: {
+              workflow_runs: [workflowRun({
+                name: 'PR 46 Dependency Repair Contract',
+                path: '.github/workflows/pr-46-dependency-repair-contract.yml',
+                createdAt: '2026-09-24T23:59:00Z',
+                id: 20,
+              })],
+            },
+          };
+        },
+      },
+    },
+  };
+
+  const runs = await collectStatusWorkflowRuns({
+    github, owner: 'stranske', repo: 'Workflows', headSha: 'head-123', core: null,
+  });
+
+  assert.equal(calls.length, 1);
+  assert.equal(runs.get('pr 46 dependency repair contract').id, 20);
+  assert.equal(runs.get('pr 46 dependency repair contract').html_url, '');
+});
+
+test('collectStatusWorkflowRuns recovers exact-head Gate directly', async () => {
+  const calls = [];
+  const github = {
+    rest: {
+      actions: {
+        listWorkflowRunsForRepo: async () => ({
+          data: { workflow_runs: [workflowRun({ name: 'CI', id: 31 })] },
+        }),
+        listWorkflowRuns: async (params) => {
+          calls.push(params);
+          assert.equal(params.workflow_id, 'pr-00-gate.yml');
+          assert.equal(params.head_sha, 'head-123');
+          return {
+            data: {
+              workflow_runs: [
+                workflowRun({ name: 'Gate', headSha: 'stale-head', id: 32 }),
+                workflowRun({ name: 'Gate', id: 33 }),
+              ],
+            },
+          };
+        },
+      },
+    },
+  };
+
+  const runs = await collectStatusWorkflowRuns({
+    github, owner: 'stranske', repo: 'Workflows', headSha: 'head-123', core: null,
+  });
+
+  assert.equal(calls.length, 1);
+  assert.equal(runs.get('gate').id, 33);
+});
 
 test('extractContextSectionWithPython returns trimmed stdout from python', () => {
   const childProcess = require('node:child_process');
