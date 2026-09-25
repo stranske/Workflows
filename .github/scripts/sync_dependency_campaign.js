@@ -592,6 +592,7 @@ function mergeDeliveryHandoffs(previous = [], incoming = [], observedAt = '', li
 async function reconcileClosedDeliveryHandoffs(previous = [], incoming = [], api, withRetry, now = '') {
   const records = [];
   const errors = [];
+  const blockedKeys = [];
   const incomingKeys = new Set(cleanArray(incoming).map((row) => `${row.repository}#${row.pr}`));
   for (const retained of cleanArray(previous).map((row) => normalizeDeliveryHandoff(row)).filter(Boolean)) {
     if (retained.continuation.class === 'terminal') continue;
@@ -600,6 +601,7 @@ async function reconcileClosedDeliveryHandoffs(previous = [], incoming = [], api
     const [owner, repo] = retained.repository.split('/');
     if (!owner || !repo) {
       errors.push(`${key}: invalid repository identity`);
+      blockedKeys.push(key);
       continue;
     }
     try {
@@ -610,6 +612,7 @@ async function reconcileClosedDeliveryHandoffs(previous = [], incoming = [], api
       if (pr.state !== 'closed') continue;
       if (pr.head?.ref !== retained.branch || !pr.head?.sha) {
         errors.push(`${key}: closed PR branch differs or head is unavailable`);
+        blockedKeys.push(key);
         continue;
       }
       const sameHead = pr.head.sha === retained.head_sha;
@@ -632,29 +635,27 @@ async function reconcileClosedDeliveryHandoffs(previous = [], incoming = [], api
       });
     } catch (error) {
       errors.push(`${key}: ${error.message}`);
+      blockedKeys.push(key);
     }
   }
-  return { records, errors };
+  return { records, errors, blockedKeys };
 }
 
-async function verifyReopenedDeliveryHandoffs(previous = [], incoming = [], api, withRetry) {
-  const terminalByPr = new Map(cleanArray(previous)
-    .map((row) => normalizeDeliveryHandoff(row))
-    .filter((row) => row?.continuation.class === 'terminal')
-    .map((row) => [`${row.repository}#${row.pr}`, row]));
+async function verifyIncomingDeliveryHandoffs(incoming = [], api, withRetry) {
   const records = [];
   const errors = [];
+  const blockedKeys = [];
   for (const record of cleanArray(incoming)) {
     const normalized = normalizeDeliveryHandoff(record);
     const key = `${normalized?.repository}#${normalized?.pr}`;
-    if (!normalized || !terminalByPr.has(key)
-      || normalized.continuation.class === 'terminal') {
+    if (!normalized || normalized.continuation.class === 'terminal') {
       records.push(record);
       continue;
     }
     const [owner, repo] = normalized.repository.split('/');
     if (!owner || !repo) {
       errors.push(`${key}: invalid repository identity for reopen verification`);
+      blockedKeys.push(key);
       continue;
     }
     try {
@@ -665,14 +666,16 @@ async function verifyReopenedDeliveryHandoffs(previous = [], incoming = [], api,
       if (pr.state !== 'open') continue;
       if (pr.head?.sha !== normalized.head_sha || pr.head?.ref !== normalized.branch) {
         errors.push(`${key}: open PR identity differs from incoming delivery handoff`);
+        blockedKeys.push(key);
         continue;
       }
       records.push(record);
     } catch (error) {
       errors.push(`${key}: reopen verification failed: ${error.message}`);
+      blockedKeys.push(key);
     }
   }
-  return { records, errors };
+  return { records, errors, blockedKeys };
 }
 
 function mergeCampaignState(previousState = {}, discoveredItems = [], nowValue, options = {}) {
@@ -1155,6 +1158,7 @@ function compactStateForMarker(state = {}) {
     },
     validation: state.validation || null,
     handoff_reconciliation_errors: cleanArray(state.handoff_reconciliation_errors).slice(0, 20),
+    handoff_verification_blocked_keys: cleanArray(state.handoff_verification_blocked_keys).slice(0, 80),
     source_review_history: cleanArray(state.source_review_history)
       .map(compactSourceReviewHistoryEntry)
       .filter(Boolean),
@@ -1995,11 +1999,11 @@ async function runCampaign({
     }
   }
 
-  const verifiedReopens = await verifyReopenedDeliveryHandoffs(
-    previousState.delivery_handoffs, deliveryHandoffRecords, api, withRetry,
+  const verifiedIncoming = await verifyIncomingDeliveryHandoffs(
+    deliveryHandoffRecords, api, withRetry,
   );
   const closureReconciliation = await reconcileClosedDeliveryHandoffs(
-    previousState.delivery_handoffs, verifiedReopens.records, api, withRetry, now,
+    previousState.delivery_handoffs, verifiedIncoming.records, api, withRetry, now,
   );
 
   const state = mergeCampaignState(previousState, discoveredItems, now, {
@@ -2011,12 +2015,15 @@ async function runCampaign({
     syncPrsOpen,
     dependabotPrsOpen,
     failedRepos: errors.map((error) => error.repo),
-    deliveryHandoffRecords: [...verifiedReopens.records, ...closureReconciliation.records],
+    deliveryHandoffRecords: [...verifiedIncoming.records, ...closureReconciliation.records],
   });
-  const handoffErrors = [...verifiedReopens.errors, ...closureReconciliation.errors];
+  const handoffErrors = [...verifiedIncoming.errors, ...closureReconciliation.errors];
   if (handoffErrors.length) {
     state.handoff_reconciliation_errors = handoffErrors;
   }
+  state.handoff_verification_blocked_keys = [...new Set([
+    ...verifiedIncoming.blockedKeys, ...closureReconciliation.blockedKeys,
+  ])];
   if (errors.length) {
     state.errors = errors.slice(0, 20);
   }
@@ -2105,7 +2112,7 @@ module.exports = {
   mergeCampaignState,
   mergeDeliveryHandoffs,
   reconcileClosedDeliveryHandoffs,
-  verifyReopenedDeliveryHandoffs,
+  verifyIncomingDeliveryHandoffs,
   normalizeDeliveryHandoff,
   paginateWithRetry,
   parseCampaignMarker,

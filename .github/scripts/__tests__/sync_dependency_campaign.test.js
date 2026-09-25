@@ -20,7 +20,7 @@ const {
   mergeCampaignState,
   mergeDeliveryHandoffs,
   reconcileClosedDeliveryHandoffs,
-  verifyReopenedDeliveryHandoffs,
+  verifyIncomingDeliveryHandoffs,
   normalizeDeliveryHandoff,
   paginateWithRetry,
   parseCampaignMarker,
@@ -205,23 +205,31 @@ test('terminal handoff revival requires the current PR to be open on the incomin
     } } }),
   } } });
   const closedClient = clientFor('closed');
-  const closed = await verifyReopenedDeliveryHandoffs([terminal], [incoming],
+  const closed = await verifyIncomingDeliveryHandoffs([incoming],
     closedClient, (operation) => operation(closedClient));
   assert.deepEqual(closed.records, []);
+  const retainedNonterminal = { ...incoming, observed_at: '2026-09-25T00:00:00Z' };
+  const delayed = await verifyIncomingDeliveryHandoffs([incoming],
+    closedClient, (operation) => operation(closedClient));
+  assert.deepEqual(delayed.records, []);
+  const settled = await reconcileClosedDeliveryHandoffs([retainedNonterminal], delayed.records,
+    closedClient, (operation) => operation(closedClient), '2026-09-25T00:03:00Z');
+  assert.equal(settled.records[0].continuation.class, 'terminal');
   const openClient = clientFor('open');
-  const open = await verifyReopenedDeliveryHandoffs([terminal], [incoming],
+  const open = await verifyIncomingDeliveryHandoffs([incoming],
     openClient, (operation) => operation(openClient));
   assert.equal(open.records.length, 1);
   const changedClient = clientFor('open', 'different-head');
-  const changed = await verifyReopenedDeliveryHandoffs([terminal], [incoming],
+  const changed = await verifyIncomingDeliveryHandoffs([incoming],
     changedClient, (operation) => operation(changedClient));
   assert.deepEqual(changed.records, []);
   assert.match(changed.errors[0], /identity differs/);
   const failedClient = { rest: { pulls: { get: async () => { throw new Error('API down'); } } } };
-  const failed = await verifyReopenedDeliveryHandoffs([terminal], [incoming],
+  const failed = await verifyIncomingDeliveryHandoffs([incoming],
     failedClient, (operation) => operation(failedClient));
   assert.deepEqual(failed.records, []);
   assert.match(failed.errors[0], /API down/);
+  assert.deepEqual(failed.blockedKeys, ['stranske/Ready#11']);
 });
 
 test('plans only due transient Maint 71 lanes and suppresses candidates during delivery', () => {
