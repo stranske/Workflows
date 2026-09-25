@@ -1422,8 +1422,9 @@ def _reserve_dispatch(
     # thing that makes "retry an unproductive completion" terminate instead of cycling forever.
     unproductive = _unproductive_completion_count(prior)
     continuation_count = _continuation_completion_count(prior)
-    if continuation_count and prior and prior.get("head_sha") == head_sha:
-        record["continuation_completions"] = continuation_count
+    if prior and prior.get("head_sha") == head_sha:
+        if continuation_count:
+            record["continuation_completions"] = continuation_count
         if _completion_needs_continuation(prior):
             record["completion_incomplete"] = True
     if unproductive and prior and prior.get("head_sha") == head_sha:
@@ -1610,7 +1611,12 @@ def should_dispatch(
             incomplete = _completion_needs_continuation(prior) and not _completion_was_unproductive(
                 prior
             )
-            if continuation_completions <= UNPRODUCTIVE_COMPLETION_RETRY_LIMIT:
+            retry_count = (
+                continuation_completions
+                if incomplete
+                else max(continuation_completions, _unproductive_completion_count(prior))
+            )
+            if retry_count <= UNPRODUCTIVE_COMPLETION_RETRY_LIMIT:
                 return _reserve_dispatch(
                     storage,
                     pr_number,
@@ -1635,7 +1641,7 @@ def should_dispatch(
                     prior_head_sha=head_sha,
                     drainable=(
                         f"time: retry at {retry_at.isoformat()} "
-                        f"(after {continuation_completions} same-head continuations)"
+                        f"(after {retry_count} same-head continuations)"
                     ),
                 )
             return _reserve_dispatch(

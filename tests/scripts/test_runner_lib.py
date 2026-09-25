@@ -148,6 +148,48 @@ def test_legacy_measured_partial_completion_is_retryable() -> None:
     )
 
 
+def test_legacy_partial_retry_keeps_incomplete_state_when_unmeasured() -> None:
+    storage = MemoryRunnerStorage()
+    should_dispatch(42, "aaa", "codex", storage=storage, task_progress_before=_task_snapshot(0))
+    record_completion(
+        42,
+        "aaa",
+        "codex",
+        {"success": True},
+        storage=storage,
+        observed_head_sha="aaa",
+        task_progress_after=_task_snapshot(1),
+    )
+    old_record = storage.records[(42, "codex")]
+    old_record.pop("completion_incomplete")
+    old_record.pop("continuation_completions")
+    assert should_dispatch(42, "aaa", "codex", storage=storage).should_dispatch
+    completed = record_completion(42, "aaa", "codex", {"success": True}, storage=storage)
+    assert completed["completion_incomplete"] is True
+    assert should_dispatch(42, "aaa", "codex", storage=storage).reason == (
+        "retry-incomplete-completion"
+    )
+
+
+def test_complete_checklist_zero_output_retries_obey_cooldown() -> None:
+    storage = MemoryRunnerStorage()
+    for _ in range(UNPRODUCTIVE_COMPLETION_RETRY_LIMIT + 1):
+        assert should_dispatch(
+            42, "aaa", "codex", storage=storage, task_progress_before=_task_snapshot(2)
+        ).should_dispatch
+        completed = record_completion(
+            42,
+            "aaa",
+            "codex",
+            {"success": True},
+            storage=storage,
+            observed_head_sha="aaa",
+            task_progress_after=_task_snapshot(2),
+        )
+        assert completed["completion_incomplete"] is False
+    assert should_dispatch(42, "aaa", "codex", storage=storage).reason == ("unproductive-cooldown")
+
+
 def test_missing_after_snapshot_does_not_latch_same_head() -> None:
     storage = MemoryRunnerStorage()
     should_dispatch(42, "aaa", "codex", storage=storage, task_progress_before=_task_snapshot(0))
