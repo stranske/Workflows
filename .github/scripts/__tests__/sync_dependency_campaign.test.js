@@ -387,7 +387,7 @@ test('campaign continuations preserve idempotency and immutable plan bindings', 
   });
 });
 
-test('campaign-prepared delivery handoffs resume campaign authorization and are named in the run summary', () => {
+test('campaign-prepared delivery handoffs resume campaign authorization only while open', async () => {
   const preparedDelivery = {
     schema: 'workflows-generated-delivery-handoff/v1',
     repository: 'stranske/Travel-Plan-Permission',
@@ -418,6 +418,20 @@ test('campaign-prepared delivery handoffs resume campaign authorization and are 
   });
   assert.match(summary, /stranske\/Travel-Plan-Permission#1480: lane=campaign; class=transient;/);
   assert.match(summary, /status=campaign_prepared_authorization; planner=planned/);
+
+  const closedClient = { rest: { pulls: { get: async () => ({ data: {
+    state: 'closed', merged_at: null,
+    head: { sha: 'delivery-head', ref: 'sync/workflows-delivery' },
+  } }) } } };
+  const verified = await verifyIncomingDeliveryHandoffs([preparedDelivery],
+    closedClient, (operation) => operation(closedClient));
+  assert.deepEqual(verified.records, []);
+  const reconciled = await reconcileClosedDeliveryHandoffs([preparedDelivery], verified.records,
+    closedClient, (operation) => operation(closedClient), '2026-08-31T10:01:00Z');
+  assert.equal(reconciled.records[0].continuation.reason, 'closed');
+  assert.deepEqual(planMaint71Continuations(mergeDeliveryHandoffs(
+    [preparedDelivery], reconciled.records, '2026-08-31T10:01:00Z'),
+  { now: '2026-08-31T10:01:00Z' }), []);
 
   const terminalCandidate = {
     ...preparedDelivery,

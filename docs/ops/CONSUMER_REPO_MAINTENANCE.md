@@ -551,6 +551,9 @@ generation. Source observation times are ordered across the whole PR, not
 only within one generation.
 A retained nonterminal record whose live open PR moved to a new head is also
 withheld from continuation until its owner publishes a matching handoff.
+`campaign_prepared` delivery records are stored as terminal evidence but
+schedule campaign authorization; Maint 82 therefore verifies their live open
+PR and reconciles closure before scheduling that continuation.
 Scheduled Maint 82 continuations exclude the manual Collab-Admin exception.
 Its `delivery` selector targets only registered `sync/workflows-delivery`
 handoffs with the selected immutable plan, scope, base and source; candidate-only

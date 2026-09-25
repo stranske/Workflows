@@ -595,7 +595,7 @@ async function reconcileClosedDeliveryHandoffs(previous = [], incoming = [], api
   const blockedKeys = [];
   const incomingKeys = new Set(cleanArray(incoming).map((row) => `${row.repository}#${row.pr}`));
   for (const retained of cleanArray(previous).map((row) => normalizeDeliveryHandoff(row)).filter(Boolean)) {
-    if (retained.continuation.class === 'terminal') continue;
+    if (preparedDeliveryContinuation(retained).class === 'terminal') continue;
     const key = `${retained.repository}#${retained.pr}`;
     if (incomingKeys.has(key)) continue;
     const [owner, repo] = retained.repository.split('/');
@@ -663,10 +663,11 @@ async function verifyIncomingDeliveryHandoffs(incoming = [], api, withRetry) {
       records.push(record);
       continue;
     }
-    const closedObservation = normalized.continuation.class === 'terminal'
+    const effectiveContinuation = preparedDeliveryContinuation(normalized);
+    const closedObservation = effectiveContinuation.class === 'terminal'
       && (normalized.disposition === 'closed'
         || normalized.continuation.reason === 'stale_closed');
-    if (normalized.continuation.class === 'terminal' && !closedObservation) {
+    if (effectiveContinuation.class === 'terminal' && !closedObservation) {
       records.push(record);
       continue;
     }
