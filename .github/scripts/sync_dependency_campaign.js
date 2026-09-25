@@ -973,6 +973,9 @@ function validateCampaignState(state = {}) {
   const stats = state.stats || {};
   const derived = deriveItemStats(state.items);
   const blockers = [];
+  if (cleanArray(state.handoff_reconciliation_errors).length > 0) {
+    blockers.push('handoff-reconciliation-error');
+  }
   const fields = [
     'items_needing_local_codex',
     'items_actionable_local_codex',
@@ -1101,6 +1104,7 @@ function compactStateForMarker(state = {}) {
       marker_items_omitted: Math.max(0, stateItems.length - markerItems.length),
     },
     validation: state.validation || null,
+    handoff_reconciliation_errors: cleanArray(state.handoff_reconciliation_errors).slice(0, 20),
     source_review_history: cleanArray(state.source_review_history)
       .map(compactSourceReviewHistoryEntry)
       .filter(Boolean),
@@ -1856,6 +1860,14 @@ function formatCampaignRunSummaryMarkdown(state = {}, issue = null) {
     lines.push('', '### Scan Errors', '');
     for (const error of errors.slice(0, 10)) {
       lines.push(`- ${cleanString(error.repo) || '-'}: ${truncate(error.error, 180)}`);
+    }
+  }
+
+  const handoffErrors = cleanArray(state.handoff_reconciliation_errors);
+  if (handoffErrors.length > 0) {
+    lines.push('', '### Handoff Reconciliation Errors', '');
+    for (const error of handoffErrors.slice(0, 10)) {
+      lines.push(`- ${truncate(error, 180)}`);
     }
   }
 

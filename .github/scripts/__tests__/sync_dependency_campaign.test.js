@@ -161,6 +161,10 @@ test('closed delivery reconciliation terminalizes only matching retained identit
     (operation) => operation(failed), '2026-09-25T00:00:00Z');
   assert.equal(unknown.records.length, 0);
   assert.match(unknown.errors[0], /API unavailable/);
+  const warning = validateCampaignState({ items: [], stats: {},
+    handoff_reconciliation_errors: unknown.errors });
+  assert.equal(warning.status, 'warning');
+  assert.ok(warning.blockers.includes('handoff-reconciliation-error'));
 });
 
 test('plans only due transient Maint 71 lanes and suppresses candidates during delivery', () => {
