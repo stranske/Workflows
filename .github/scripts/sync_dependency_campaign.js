@@ -637,6 +637,44 @@ async function reconcileClosedDeliveryHandoffs(previous = [], incoming = [], api
   return { records, errors };
 }
 
+async function verifyReopenedDeliveryHandoffs(previous = [], incoming = [], api, withRetry) {
+  const terminalByPr = new Map(cleanArray(previous)
+    .map((row) => normalizeDeliveryHandoff(row))
+    .filter((row) => row?.continuation.class === 'terminal')
+    .map((row) => [`${row.repository}#${row.pr}`, row]));
+  const records = [];
+  const errors = [];
+  for (const record of cleanArray(incoming)) {
+    const normalized = normalizeDeliveryHandoff(record);
+    const key = `${normalized?.repository}#${normalized?.pr}`;
+    if (!normalized || !terminalByPr.has(key)
+      || normalized.continuation.class === 'terminal') {
+      records.push(record);
+      continue;
+    }
+    const [owner, repo] = normalized.repository.split('/');
+    if (!owner || !repo) {
+      errors.push(`${key}: invalid repository identity for reopen verification`);
+      continue;
+    }
+    try {
+      const response = await withRetry((client) => client.rest.pulls.get({
+        owner, repo, pull_number: normalized.pr,
+      }));
+      const pr = response.data;
+      if (pr.state !== 'open') continue;
+      if (pr.head?.sha !== normalized.head_sha || pr.head?.ref !== normalized.branch) {
+        errors.push(`${key}: open PR identity differs from incoming delivery handoff`);
+        continue;
+      }
+      records.push(record);
+    } catch (error) {
+      errors.push(`${key}: reopen verification failed: ${error.message}`);
+    }
+  }
+  return { records, errors };
+}
+
 function mergeCampaignState(previousState = {}, discoveredItems = [], nowValue, options = {}) {
   const now = cleanString(nowValue) || new Date().toISOString();
   const nowDate = new Date(now);
@@ -1957,8 +1995,11 @@ async function runCampaign({
     }
   }
 
+  const verifiedReopens = await verifyReopenedDeliveryHandoffs(
+    previousState.delivery_handoffs, deliveryHandoffRecords, api, withRetry,
+  );
   const closureReconciliation = await reconcileClosedDeliveryHandoffs(
-    previousState.delivery_handoffs, deliveryHandoffRecords, api, withRetry, now,
+    previousState.delivery_handoffs, verifiedReopens.records, api, withRetry, now,
   );
 
   const state = mergeCampaignState(previousState, discoveredItems, now, {
@@ -1970,10 +2011,11 @@ async function runCampaign({
     syncPrsOpen,
     dependabotPrsOpen,
     failedRepos: errors.map((error) => error.repo),
-    deliveryHandoffRecords: [...deliveryHandoffRecords, ...closureReconciliation.records],
+    deliveryHandoffRecords: [...verifiedReopens.records, ...closureReconciliation.records],
   });
-  if (closureReconciliation.errors.length) {
-    state.handoff_reconciliation_errors = closureReconciliation.errors;
+  const handoffErrors = [...verifiedReopens.errors, ...closureReconciliation.errors];
+  if (handoffErrors.length) {
+    state.handoff_reconciliation_errors = handoffErrors;
   }
   if (errors.length) {
     state.errors = errors.slice(0, 20);
@@ -2063,6 +2105,7 @@ module.exports = {
   mergeCampaignState,
   mergeDeliveryHandoffs,
   reconcileClosedDeliveryHandoffs,
+  verifyReopenedDeliveryHandoffs,
   normalizeDeliveryHandoff,
   paginateWithRetry,
   parseCampaignMarker,

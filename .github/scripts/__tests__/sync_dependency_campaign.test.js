@@ -20,6 +20,7 @@ const {
   mergeCampaignState,
   mergeDeliveryHandoffs,
   reconcileClosedDeliveryHandoffs,
+  verifyReopenedDeliveryHandoffs,
   normalizeDeliveryHandoff,
   paginateWithRetry,
   parseCampaignMarker,
@@ -183,6 +184,44 @@ test('closed delivery reconciliation terminalizes only matching retained identit
     handoff_reconciliation_errors: unknown.errors });
   assert.equal(warning.status, 'warning');
   assert.ok(warning.blockers.includes('handoff-reconciliation-error'));
+});
+
+test('terminal handoff revival requires the current PR to be open on the incoming head', async () => {
+  const terminal = {
+    schema: 'workflows-generated-delivery-handoff/v1', repository: 'stranske/Ready',
+    pr: 11, branch: 'deps/sync-dev-versions-abc', head_sha: 'exact-head',
+    delivery_generation: 'generation-1', disposition: 'closed', blocker_owner: 'none',
+    next_command: 'none', check_state: 'ready', review_state: 'clear',
+    observed_at: '2026-09-25T00:00:00Z',
+    continuation: { class: 'terminal', lane: 'dev-tool', reason: 'closed' },
+  };
+  const incoming = { ...terminal, disposition: 'review-blocked',
+    blocker_owner: 'maint-71', next_command: 'resolve-active-review-threads',
+    observed_at: '2026-09-25T00:02:00Z',
+    continuation: { class: 'actionable', lane: 'dev-tool', reason: 'review_blocked' } };
+  const clientFor = (state, headSha = 'exact-head') => ({ rest: { pulls: {
+    get: async () => ({ data: { state, head: {
+      sha: headSha, ref: 'deps/sync-dev-versions-abc',
+    } } }),
+  } } });
+  const closedClient = clientFor('closed');
+  const closed = await verifyReopenedDeliveryHandoffs([terminal], [incoming],
+    closedClient, (operation) => operation(closedClient));
+  assert.deepEqual(closed.records, []);
+  const openClient = clientFor('open');
+  const open = await verifyReopenedDeliveryHandoffs([terminal], [incoming],
+    openClient, (operation) => operation(openClient));
+  assert.equal(open.records.length, 1);
+  const changedClient = clientFor('open', 'different-head');
+  const changed = await verifyReopenedDeliveryHandoffs([terminal], [incoming],
+    changedClient, (operation) => operation(changedClient));
+  assert.deepEqual(changed.records, []);
+  assert.match(changed.errors[0], /identity differs/);
+  const failedClient = { rest: { pulls: { get: async () => { throw new Error('API down'); } } } };
+  const failed = await verifyReopenedDeliveryHandoffs([terminal], [incoming],
+    failedClient, (operation) => operation(failedClient));
+  assert.deepEqual(failed.records, []);
+  assert.match(failed.errors[0], /API down/);
 });
 
 test('plans only due transient Maint 71 lanes and suppresses candidates during delivery', () => {

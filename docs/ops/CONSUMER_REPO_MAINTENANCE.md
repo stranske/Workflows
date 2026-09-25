@@ -540,7 +540,8 @@ remain unresolved; no record borrows evidence from a replacement delivery.
 Delayed older handoffs cannot revive a terminal record or retire a later
 reopened record for the same immutable delivery. A later observed Maint 71
 handoff can revive it if the PR is reopened without changing head or
-generation.
+generation, and Maint 82 confirms the PR is currently open on the incoming
+branch and head. A newer report timestamp alone is not reopen proof.
 Scheduled Maint 82 continuations exclude the manual Collab-Admin exception.
 Its `delivery` selector targets only registered `sync/workflows-delivery`
 handoffs with the selected immutable plan, scope, base and source; candidate-only
