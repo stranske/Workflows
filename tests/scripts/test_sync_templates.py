@@ -28,13 +28,8 @@ def _fixture_repo(tmp_path: Path, manifest: str) -> Path:
 
 
 def _run_sync(repo: Path) -> subprocess.CompletedProcess[str]:
-    test_bin = repo / ".test-bin"
-    test_bin.mkdir(exist_ok=True)
-    python = test_bin / "python"
-    if not python.exists():
-        python.symlink_to(sys.executable)
     env = os.environ.copy()
-    env["PATH"] = f"{test_bin}:{env['PATH']}"
+    env["PATH"] = f"{Path(sys.executable).parent}:{env['PATH']}"
     return subprocess.run(
         ["/bin/bash", "scripts/sync_templates.sh"],
         cwd=repo,
