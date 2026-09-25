@@ -531,6 +531,9 @@ the lifecycle. It does not retry actionable CI failures, unresolved review
 findings, or a dry-run-only sealed-head mismatch as if they were timer states.
 Successful Maint 71 stale closures publish terminal handoffs from the closed
 PR's own head, generation, and plan identity; a dry-run closure does not.
+If the close response has a different head or branch from the selected PR,
+Maint 71 records the closure without that selected identity and emits no
+terminal handoff for the superseded head.
 Maint 82 also checks retained nonterminal handoffs against the live PR. A
 confirmed closed PR on the retained branch retires that PR's old queue item.
 If its head changed, the old immutable head stays intact, the observed closed

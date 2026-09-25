@@ -30,6 +30,13 @@ function hasCompleteReviewThreadEvidence(connection) {
   );
 }
 
+function confirmedClosedPrIdentity(closedResponse, selectedPr) {
+  const closed = closedResponse?.data;
+  return closed?.state === 'closed'
+    && closed.head?.sha === selectedPr?.head?.sha
+    && closed.head?.ref === selectedPr?.head?.ref;
+}
+
 function legacyStatusAsCheck(status = {}) {
   const state = String(status.state || '').toLowerCase();
   return {
@@ -2353,9 +2360,7 @@ async function run({ github, context, core }) {
                 pull_number: stalePR.number,
                 state: 'closed'
               }));
-              const closureMatches = closedResponse.data?.state === 'closed'
-                && closedResponse.data?.head?.sha === stalePR.head.sha
-                && closedResponse.data?.head?.ref === stalePR.head.ref;
+              const closureMatches = confirmedClosedPrIdentity(closedResponse, stalePR);
               console.log('✓ Closed');
   
               // Delete branch
@@ -2442,12 +2447,23 @@ async function run({ github, context, core }) {
                 `next_command: ${deliveryContext.next_command}`,
               ].join('\n'),
             }));
-            await withRetry((client) => client.rest.pulls.update({
+            const closedResponse = await withRetry((client) => client.rest.pulls.update({
               owner,
               repo,
               pull_number: selection.active.number,
               state: 'closed',
             }));
+            // A concurrent push can change the head between selection and close.
+            // Never emit a terminal handoff for an identity we did not close.
+            if (!confirmedClosedPrIdentity(closedResponse, selection.active)) {
+              results.push({
+                ...deliveryContext,
+                head_sha: '',
+                delivery_generation: '',
+                status: 'stale_closed',
+              });
+              continue;
+            }
           }
           results.push({ ...deliveryContext, status: 'stale_closed', dry_run: dryRun });
           continue;
@@ -3645,6 +3661,7 @@ async function run({ github, context, core }) {
 }
 
 module.exports = {
+  confirmedClosedPrIdentity,
   devToolBaseRefreshResult,
   campaignNoChangeRequiresLiveGate,
   collectReviewerEvidence,
