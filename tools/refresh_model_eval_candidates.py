@@ -34,9 +34,7 @@ DEFAULT_PROFILE = "verifier-balanced"
 EXCLUDED_POSITIONINGS = frozenset({"efficient", "coding-worker-profile"})
 
 
-def merge_catalog_discovery(
-    derived: dict[str, Any], discovery: dict[str, Any]
-) -> dict[str, Any]:
+def merge_catalog_discovery(derived: dict[str, Any], discovery: dict[str, Any]) -> dict[str, Any]:
     """Attach catalog-only advisory rows so MAINT-78 can pilot newly observed models."""
     existing = {(c["provider"], c["model_id"]) for c in derived.get("candidates", [])}
     for provider_entry in discovery.get("providers", []):

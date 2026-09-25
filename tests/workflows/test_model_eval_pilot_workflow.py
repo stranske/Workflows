@@ -42,13 +42,17 @@ def test_auto_dispatch_maint77_chains_to_maint78_on_catalog_drift() -> None:
     assert api_setup["uses"] == "$/.github/actions/setup-api-client"
     dispatch_idx = next(i for i, step in enumerate(steps) if step.get("name") == "Setup API client")
     refresh_idx = next(
-        i for i, step in enumerate(steps) if step.get("name") == "Refresh pilot candidates from registry"
+        i
+        for i, step in enumerate(steps)
+        if step.get("name") == "Refresh pilot candidates from registry"
     )
     assert dispatch_idx < refresh_idx
     refresh = steps[refresh_idx]
     assert "tools.refresh_model_eval_candidates --write" in refresh["run"]
     assert "--catalog-discovery catalog-discovery.json" in refresh["run"]
-    upload = next(step for step in steps if step.get("name") == "Upload pilot candidates for MAINT-78")
+    upload = next(
+        step for step in steps if step.get("name") == "Upload pilot candidates for MAINT-78"
+    )
     assert upload["with"]["name"] == "maint-77-pilot-candidates"
     dispatch = next(
         step for step in steps if step.get("name") == "Dispatch evaluation pilot on catalog drift"

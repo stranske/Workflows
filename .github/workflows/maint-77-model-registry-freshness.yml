@@ -228,7 +228,7 @@ jobs:
           path: .
 
       - name: Setup API client
-        uses: $/.github/actions/setup-api-client
+        uses: ./.github/actions/setup-api-client
         with:
           github_token: ${{ github.token }}
           owner_pr_pat: ${{ secrets.OWNER_PR_PAT }}
