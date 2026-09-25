@@ -1518,6 +1518,30 @@ function toActionableChecklistCounts(markdown) {
   };
 }
 
+function buildTaskProgressSnapshot(body) {
+  const sections = parseKeepaliveChecklistSections(body);
+  const identities = [];
+  let completed = 0;
+  for (const [section, markdown] of [
+    ['tasks', sections.tasks || ''],
+    ['acceptance', sections.acceptance || ''],
+  ]) {
+    const actionable = extractChecklistItems(markdown)
+      .filter((item) => isActionableChecklistItemText(item.text));
+    for (const item of actionable) {
+      identities.push(`${section}:${normaliseTaskKey(item.text)}`);
+      if (item.checked) completed += 1;
+    }
+  }
+  identities.sort();
+  return {
+    schema: 1,
+    total: identities.length,
+    completed,
+    fingerprint: crypto.createHash('sha256').update(JSON.stringify(identities)).digest('hex'),
+  };
+}
+
 /**
  * Extract file-path glob patterns from the scope section text.
  * Looks for patterns like `runtime/**`, `src/foo.py`, or backtick-quoted paths.
@@ -2666,6 +2690,7 @@ async function evaluateKeepaliveLoop({ github: rawGithub, context, core, payload
       .filter(Boolean)
       .join('\n');
     const checkboxCounts = toActionableChecklistCounts(combinedChecklist);
+    const taskProgressSnapshot = buildTaskProgressSnapshot(pr.body || '');
     const tasksPresent = checkboxCounts.total > 0;
     const tasksRemaining = checkboxCounts.unchecked > 0;
 
@@ -3175,6 +3200,7 @@ async function evaluateKeepaliveLoop({ github: rawGithub, context, core, payload
       maxIterations,
       failureThreshold,
       checkboxCounts,
+      taskProgressSnapshot,
       hasAgentLabel,
       hasHighPrivilege,
       agentType: resolvedAgentType,
@@ -5622,6 +5648,7 @@ module.exports = {
   cascadeParentCheckboxes,
   parseConfig,
   buildTaskAppendix,
+  buildTaskProgressSnapshot,
   extractSourceSection,
   resolvePrNumber,
   evaluateKeepaliveLoop,

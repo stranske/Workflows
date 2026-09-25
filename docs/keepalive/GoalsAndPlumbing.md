@@ -345,12 +345,14 @@ sweep ran past them, because a debounced PR is indistinguishable from a healthy 
 | `completed`, zero-output, allowance spent, cooldown running | refuse (`unproductive-cooldown`) |
 | `completed`, zero-output, cooldown elapsed | dispatch (`retry-after-unproductive-cooldown`) |
 
-Productivity is the caller's verdict, passed as `--produced-work`. The keepalive workflows
-compute it by comparing the PR head after the run against the SHA the dispatch was reserved
-for. **Unmeasured is not the same as unproductive**: a caller that does not pass the flag (and
-a lookup that fails) keeps the original terminal-completion behaviour unless this is already
-a same-head unproductive retry. That retry carries its false marker and bounded counter across
-an unmeasured completion; an explicit productive result or a new head clears the streak.
+Keepalive reservations persist a checklist baseline using the same visible Tasks and Acceptance
+Criteria parser that drives dispatch. After summary reconciliation, completion records the live
+PR head and a second checklist snapshot. Python marks the run productive when the head changed or
+the same checklist gained at least one completed item. A changed checklist identity, missing
+baseline, or failed lookup is **unmeasured**, not zero progress; it cannot manufacture task credit
+or reset the bounded zero-output streak. Other callers retain the legacy `--produced-work`
+verdict. A completion replay reuses its first persisted observation rather than crediting an
+unrelated later body edit.
 
 GitHub Actions reservations also bind the repository, run ID and run attempt. Completion must
 match that binding and head key before writing state; an explicitly productive result from

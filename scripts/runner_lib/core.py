@@ -32,6 +32,8 @@ PROVIDERS = {"autofix", "claude", "codex", "cursor", "gemini"}
 # cursor and gemini use the same plain-text (non-JSONL) prompt/parse path as claude.
 PROMPT_PROVIDERS = {"claude", "codex", "cursor", "gemini"}
 TERMINAL_STATUSES = {"completed", "error"}
+TASK_PROGRESS_SCHEMA = 1
+TASK_PROGRESS_FINGERPRINT_RE = re.compile(r"^[0-9a-f]{64}$")
 PENDING_STALE_AFTER_SECONDS = 30 * 60
 # A runner can exit 0 having produced nothing — the codex sandbox failing to initialize
 # (`bwrap: loopback: Failed RTM_NEWADDR`) reports itself as a SUCCESSFUL run with no commit.
@@ -255,6 +257,62 @@ def _resolve_reference_checkout_path(workspace_path: Path, checkout_path: str | 
 def _runner_key(pr_number: int, head_sha: str, provider: str) -> str:
     payload = f"{provider}:{pr_number}:{head_sha}"
     return hashlib.sha256(payload.encode("utf-8")).hexdigest()
+
+
+def _normalize_task_progress_snapshot(value: object) -> dict[str, Any] | None:
+    """Return a validated checklist snapshot, or None when progress is unmeasurable."""
+    if isinstance(value, str):
+        if not value.strip():
+            return None
+        try:
+            value = json.loads(value)
+        except json.JSONDecodeError:
+            return None
+    if not isinstance(value, dict) or value.get("schema") != TASK_PROGRESS_SCHEMA:
+        return None
+    total = value.get("total")
+    completed = value.get("completed")
+    fingerprint = value.get("fingerprint")
+    if (
+        not isinstance(total, int)
+        or isinstance(total, bool)
+        or not isinstance(completed, int)
+        or isinstance(completed, bool)
+        or total < 0
+        or completed < 0
+        or completed > total
+        or not isinstance(fingerprint, str)
+        or not TASK_PROGRESS_FINGERPRINT_RE.fullmatch(fingerprint)
+    ):
+        return None
+    return {
+        "schema": TASK_PROGRESS_SCHEMA,
+        "total": total,
+        "completed": completed,
+        "fingerprint": fingerprint,
+    }
+
+
+def _task_progress_before_from_record(record: dict[str, Any]) -> dict[str, Any] | None:
+    return _normalize_task_progress_snapshot(
+        {
+            "schema": record.get("task_progress_schema"),
+            "total": record.get("tasks_total_before"),
+            "completed": record.get("tasks_completed_before"),
+            "fingerprint": record.get("task_set_fingerprint_before"),
+        }
+    )
+
+
+def _task_progress_record_fields(snapshot: dict[str, Any] | None, *, suffix: str) -> dict[str, Any]:
+    if snapshot is None:
+        return {}
+    return {
+        "task_progress_schema": TASK_PROGRESS_SCHEMA,
+        f"tasks_total_{suffix}": snapshot["total"],
+        f"tasks_completed_{suffix}": snapshot["completed"],
+        f"task_set_fingerprint_{suffix}": snapshot["fingerprint"],
+    }
 
 
 def _read_text(path: Path) -> str:
@@ -1310,6 +1368,7 @@ def _reserve_dispatch(
     prior: dict[str, Any] | None,
     *,
     reason: str,
+    task_progress_before: object = None,
 ) -> DebounceDecision:
     """Write the pending reservation for a granted dispatch and describe the decision."""
     record = {
@@ -1324,6 +1383,11 @@ def _reserve_dispatch(
     attempt_id = _workflow_attempt_id()
     if attempt_id:
         record["workflow_attempt_id"] = attempt_id
+    record.update(
+        _task_progress_record_fields(
+            _normalize_task_progress_snapshot(task_progress_before), suffix="before"
+        )
+    )
     # Carry the unproductive tally across the retry so the allowance is bounded: it is the only
     # thing that makes "retry an unproductive completion" terminate instead of cycling forever.
     unproductive = _unproductive_completion_count(prior)
@@ -1365,6 +1429,7 @@ def should_dispatch(
     storage: RunnerDispatchStorage | None = None,
     *,
     authority_challenge: bool = False,
+    task_progress_before: object = None,
 ) -> DebounceDecision:
     """Reserve dispatch unless the same PR/head SHA completed or is actively pending.
 
@@ -1460,6 +1525,7 @@ def should_dispatch(
             key,
             prior,
             reason="due-authority-challenge",
+            task_progress_before=task_progress_before,
         )
         if not decision.should_dispatch:
             # A write can time out after the primary store has persisted it.  Never refund the
@@ -1513,6 +1579,7 @@ def should_dispatch(
                     key,
                     prior,
                     reason="retry-unproductive-completion",
+                    task_progress_before=task_progress_before,
                 )
             retry_at = _unproductive_retry_available_at(prior)
             if retry_at is not None and _utc_now_dt() < retry_at:
@@ -1535,6 +1602,7 @@ def should_dispatch(
                 key,
                 prior,
                 reason="retry-after-unproductive-cooldown",
+                task_progress_before=task_progress_before,
             )
         if status == "completed" or (status == "pending" and not _pending_record_is_stale(prior)):
             return DebounceDecision(
@@ -1561,7 +1629,16 @@ def should_dispatch(
         reason = "stale-pending"
     else:
         reason = f"retry-{str(prior.get('status') or 'unknown')}"
-    return _reserve_dispatch(storage, pr_number, head_sha, provider, key, prior, reason=reason)
+    return _reserve_dispatch(
+        storage,
+        pr_number,
+        head_sha,
+        provider,
+        key,
+        prior,
+        reason=reason,
+        task_progress_before=task_progress_before,
+    )
 
 
 def _authority_challenge_command(
@@ -1634,6 +1711,61 @@ def _unrecorded_completion(prior: dict[str, Any], key: str, reason: str) -> dict
     }
 
 
+def _derive_completion_productivity(
+    prior: dict[str, Any],
+    *,
+    reserved_head_sha: str,
+    observed_head_sha: str,
+    task_progress_after: object,
+    fallback: bool | None,
+) -> tuple[bool | None, dict[str, Any]]:
+    """Combine authoritative head and checklist observations without inventing progress."""
+    if prior.get("status") in TERMINAL_STATUSES and prior.get("head_sha") == reserved_head_sha:
+        persisted = {
+            key: prior[key]
+            for key in (
+                "observed_head_sha",
+                "tasks_total_after",
+                "tasks_completed_after",
+                "task_set_fingerprint_after",
+                "tasks_completed_delta",
+                "task_progress_reason",
+            )
+            if key in prior
+        }
+        if "productive" in prior:
+            return bool(prior["productive"]), persisted
+
+    observed_head = str(observed_head_sha or "").strip()
+    after = _normalize_task_progress_snapshot(task_progress_after)
+    fields = _task_progress_record_fields(after, suffix="after")
+    if observed_head:
+        fields["observed_head_sha"] = observed_head
+        if observed_head != reserved_head_sha:
+            fields["task_progress_reason"] = "head-changed"
+            return True, fields
+
+        before = _task_progress_before_from_record(prior)
+        if before is None:
+            fields["task_progress_reason"] = "baseline-missing"
+            return None, fields
+        if after is None:
+            fields["task_progress_reason"] = "after-missing"
+            return None, fields
+        if before["fingerprint"] != after["fingerprint"]:
+            fields["task_progress_reason"] = "task-set-changed"
+            return None, fields
+        delta = after["completed"] - before["completed"]
+        fields["tasks_completed_delta"] = delta
+        fields["task_progress_reason"] = "measured"
+        return delta > 0, fields
+
+    if after is not None:
+        fields["task_progress_reason"] = "head-unmeasured"
+        return None, fields
+    return fallback, fields
+
+
 def record_completion(
     pr_number: int,
     head_sha: str,
@@ -1641,14 +1773,16 @@ def record_completion(
     result: RunnerResult | dict[str, Any],
     storage: RunnerDispatchStorage | None = None,
     produced_work: bool | None = None,
+    *,
+    observed_head_sha: str = "",
+    task_progress_after: object = None,
 ) -> dict[str, Any]:
     """Persist terminal runner state after a dispatch finishes.
 
-    ``produced_work`` is the caller's verdict on whether the run actually moved the branch.
-    ``None`` means unmeasured and preserves an existing same-head unproductive retry streak;
-    otherwise it preserves the pre-#3433 behavior. ``False`` marks the
-    completion unproductive so ``should_dispatch`` will grant a bounded retry on the same head
-    instead of refusing forever (#3433).
+    When ``observed_head_sha`` is supplied, productivity is derived from the authoritative
+    reservation plus that live head and a comparable task snapshot. A changed head or positive
+    completed-task delta is productive. Unknown/mismatched task progress stays unmeasured.
+    Legacy callers may still supply ``produced_work`` directly.
     """
     provider = _validate_provider(provider)
     storage = storage or _storage_from_name("auto")
@@ -1683,6 +1817,13 @@ def record_completion(
         # including when both attempts target the same head. The owning attempt may report
         # a new head only when it explicitly measured productive work. Return an observation only.
         return _unrecorded_completion(prior, key, "stale-attempt")
+    produced_work, productivity_fields = _derive_completion_productivity(
+        prior,
+        reserved_head_sha=head_sha,
+        observed_head_sha=observed_head_sha,
+        task_progress_after=task_progress_after,
+        fallback=produced_work,
+    )
     if produced_work is None and prior.get("key") == key and _completion_was_unproductive(prior):
         produced_work = False
     completed_at = (
@@ -1699,6 +1840,7 @@ def record_completion(
         "status": status,
         "completed_at": completed_at,
         "result": compact_result,
+        **productivity_fields,
     }
     if status == "completed" and produced_work is not None:
         record["productive"] = bool(produced_work)
@@ -1810,6 +1952,7 @@ def _cmd_should_dispatch(args: argparse.Namespace) -> int:
         args.provider,
         storage=_storage_from_name(args.storage),
         authority_challenge=args.authority_challenge,
+        task_progress_before=args.task_progress_before,
     )
     outputs = {
         "should_dispatch": "true" if decision.should_dispatch else "false",
@@ -1868,6 +2011,8 @@ def _cmd_record_completion(args: argparse.Namespace) -> int:
         result,
         storage=_storage_from_name(args.storage),
         produced_work=_parse_produced_work(args.produced_work),
+        observed_head_sha=args.observed_head_sha,
+        task_progress_after=args.task_progress_after,
     )
     outputs = {
         "recorded": "false" if record.get("completion_recorded") is False else "true",
@@ -1934,6 +2079,11 @@ def build_parser() -> argparse.ArgumentParser:
         action="store_true",
         help="reserve a signed authority challenge before bypassing ordinary debounce",
     )
+    dispatch.add_argument(
+        "--task-progress-before",
+        default="",
+        help="validated JSON checklist snapshot captured when reserving the dispatch",
+    )
 
     complete = subparsers.add_parser("record-completion", help="persist runner completion")
     complete.add_argument("--provider", choices=sorted(PROVIDERS), required=True)
@@ -1941,6 +2091,16 @@ def build_parser() -> argparse.ArgumentParser:
     complete.add_argument("--head-sha", required=True)
     complete.add_argument(
         "--storage", choices=["auto", "pr-comment", "repo-variable"], default="auto"
+    )
+    complete.add_argument(
+        "--observed-head-sha",
+        default="",
+        help="live PR head observed after the runner and summary reconciliation",
+    )
+    complete.add_argument(
+        "--task-progress-after",
+        default="",
+        help="validated JSON checklist snapshot observed after the runner",
     )
     complete.add_argument("--raw-output-file", default="")
     complete.add_argument("--summary", default="")

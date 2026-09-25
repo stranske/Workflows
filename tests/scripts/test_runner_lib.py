@@ -41,6 +41,171 @@ class MemoryRunnerStorage:
         self.writes.append(dict(record))
 
 
+def _task_snapshot(completed: int, *, total: int = 2, fingerprint: str = "a" * 64):
+    return {
+        "schema": 1,
+        "total": total,
+        "completed": completed,
+        "fingerprint": fingerprint,
+    }
+
+
+def test_completed_task_delta_marks_unchanged_head_productive() -> None:
+    storage = MemoryRunnerStorage()
+    should_dispatch(
+        42,
+        "aaa",
+        "codex",
+        storage=storage,
+        task_progress_before=_task_snapshot(0),
+    )
+
+    completed = record_completion(
+        42,
+        "aaa",
+        "codex",
+        {"success": True},
+        storage=storage,
+        observed_head_sha="aaa",
+        task_progress_after=_task_snapshot(1),
+    )
+
+    assert completed["productive"] is True
+    assert completed["tasks_completed_delta"] == 1
+    assert completed["task_progress_reason"] == "measured"
+    assert should_dispatch(42, "aaa", "codex", storage=storage).reason == "duplicate-completed"
+
+
+def test_unchanged_head_without_task_delta_keeps_bounded_retry() -> None:
+    storage = MemoryRunnerStorage()
+    should_dispatch(
+        42,
+        "aaa",
+        "codex",
+        storage=storage,
+        task_progress_before=_task_snapshot(1),
+    )
+    completed = record_completion(
+        42,
+        "aaa",
+        "codex",
+        {"success": True},
+        storage=storage,
+        observed_head_sha="aaa",
+        task_progress_after=_task_snapshot(1),
+    )
+
+    assert completed["productive"] is False
+    assert completed["tasks_completed_delta"] == 0
+    assert should_dispatch(42, "aaa", "codex", storage=storage).reason == (
+        "retry-unproductive-completion"
+    )
+
+
+@pytest.mark.parametrize(
+    ("before", "after", "reason"),
+    [
+        (None, _task_snapshot(1), "baseline-missing"),
+        (_task_snapshot(0), "not-json", "after-missing"),
+        (_task_snapshot(0), _task_snapshot(1, fingerprint="b" * 64), "task-set-changed"),
+    ],
+)
+def test_unknown_or_changed_task_sets_never_manufacture_progress(before, after, reason) -> None:
+    storage = MemoryRunnerStorage()
+    should_dispatch(42, "aaa", "codex", storage=storage, task_progress_before=before)
+    completed = record_completion(
+        42,
+        "aaa",
+        "codex",
+        {"success": True},
+        storage=storage,
+        observed_head_sha="aaa",
+        task_progress_after=after,
+    )
+
+    assert "productive" not in completed
+    assert completed["task_progress_reason"] == reason
+
+
+def test_changed_head_is_productive_without_task_measurement() -> None:
+    storage = MemoryRunnerStorage()
+    should_dispatch(42, "aaa", "codex", storage=storage)
+    completed = record_completion(
+        42,
+        "aaa",
+        "codex",
+        {"success": True},
+        storage=storage,
+        observed_head_sha="bbb",
+        task_progress_after="not-json",
+    )
+
+    assert completed["productive"] is True
+    assert completed["observed_head_sha"] == "bbb"
+    assert completed["task_progress_reason"] == "head-changed"
+
+
+def test_completion_replay_preserves_first_task_observation() -> None:
+    storage = MemoryRunnerStorage()
+    should_dispatch(
+        42,
+        "aaa",
+        "codex",
+        storage=storage,
+        task_progress_before=_task_snapshot(0),
+    )
+    first = record_completion(
+        42,
+        "aaa",
+        "codex",
+        {"success": True},
+        storage=storage,
+        observed_head_sha="aaa",
+        task_progress_after=_task_snapshot(1),
+    )
+    replay = record_completion(
+        42,
+        "aaa",
+        "codex",
+        {"success": True},
+        storage=storage,
+        observed_head_sha="aaa",
+        task_progress_after=_task_snapshot(2),
+    )
+
+    assert replay["tasks_completed_delta"] == first["tasks_completed_delta"] == 1
+    assert replay["tasks_completed_after"] == first["tasks_completed_after"] == 1
+
+
+def test_each_retry_reservation_replaces_task_baseline() -> None:
+    storage = MemoryRunnerStorage()
+    should_dispatch(
+        42,
+        "aaa",
+        "codex",
+        storage=storage,
+        task_progress_before=_task_snapshot(0),
+    )
+    record_completion(
+        42,
+        "aaa",
+        "codex",
+        {"success": True},
+        storage=storage,
+        observed_head_sha="aaa",
+        task_progress_after=_task_snapshot(0),
+    )
+    should_dispatch(
+        42,
+        "aaa",
+        "codex",
+        storage=storage,
+        task_progress_before=_task_snapshot(1),
+    )
+
+    assert storage.records[(42, "codex")]["tasks_completed_before"] == 1
+
+
 def _signed_challenge_environment(monkeypatch):
     fingerprint = "a" * 64
     nonce = "b" * 64
