@@ -19,6 +19,7 @@ const {
   isSyncPullRequest,
   mergeCampaignState,
   mergeDeliveryHandoffs,
+  reconcileClosedDeliveryHandoffs,
   normalizeDeliveryHandoff,
   paginateWithRetry,
   parseCampaignMarker,
@@ -99,6 +100,67 @@ test('mergeDeliveryHandoffs retains one current record per generated PR', () => 
     continuation: { class: '', lane: '', reason: '', resume_after: '', key: '' },
     observed_at: '2026-08-02T00:00:00Z',
   }]);
+});
+
+test('closed delivery reconciliation terminalizes only matching retained identities', async () => {
+  const base = {
+    schema: 'workflows-generated-delivery-handoff/v1', repository: 'stranske/Ready',
+    pr: 11, branch: 'deps/sync-dev-versions-abc', head_sha: 'exact-head',
+    delivery_generation: 'generation-1', plan_id: 'immutable-plan',
+    source_commit: 'source-commit', disposition: 'review-blocked',
+    blocker_owner: 'maint-71', next_command: 'resolve-active-review-threads',
+    check_state: 'ready', review_state: 'blocked',
+    continuation: { class: 'actionable', lane: 'dev-tool', reason: 'review_blocked', key: 'old-key' },
+  };
+  let calls = 0;
+  const api = { rest: { pulls: { get: async () => {
+    calls += 1;
+    return { data: { state: 'closed', merged_at: null,
+      head: { sha: 'exact-head', ref: 'deps/sync-dev-versions-abc' } } };
+  } } } };
+  const withRetry = (operation) => operation(api);
+  const { records, errors } = await reconcileClosedDeliveryHandoffs(
+    [base], [], api, withRetry, '2026-09-25T00:00:00Z',
+  );
+  assert.deepEqual(errors, []);
+  assert.equal(calls, 1);
+  assert.equal(records[0].continuation.class, 'terminal');
+  assert.equal(records[0].disposition, 'closed');
+  assert.equal(records[0].plan_id, base.plan_id);
+  assert.equal(records[0].source_commit, base.source_commit);
+  assert.equal(records[0].head_sha, base.head_sha);
+  assert.equal(records[0].check_state, 'ready');
+  assert.equal(records[0].review_state, 'blocked');
+  const merged = mergeDeliveryHandoffs([base], records, '2026-09-25T00:00:00Z');
+  assert.equal(merged[0].continuation.class, 'terminal');
+  assert.equal(mergeDeliveryHandoffs(merged, [base], '2026-09-25T00:01:00Z')[0].continuation.class, 'terminal');
+
+  for (const pr of [
+    { state: 'open', head: { sha: base.head_sha, ref: base.branch } },
+    { state: 'closed', head: { sha: 'changed-head', ref: 'other-branch' } },
+  ]) {
+    const client = { rest: { pulls: { get: async () => ({ data: pr }) } } };
+    const observed = await reconcileClosedDeliveryHandoffs([base], [], client,
+      (operation) => operation(client), '2026-09-25T00:00:00Z');
+    assert.equal(observed.records.length, 0);
+    assert.equal(mergeDeliveryHandoffs([base], observed.records)[0].disposition, 'review-blocked');
+  }
+  const changedClient = { rest: { pulls: { get: async () => ({ data: {
+    state: 'closed', merged_at: null,
+    head: { sha: 'changed-head', ref: base.branch },
+  } }) } } };
+  const changed = await reconcileClosedDeliveryHandoffs([base], [], changedClient,
+    (operation) => operation(changedClient), '2026-09-25T00:00:00Z');
+  assert.equal(changed.records[0].continuation.reason, 'closed-pr-identity-changed');
+  assert.equal(changed.records[0].head_sha, base.head_sha);
+  assert.equal(changed.records[0].closure_observed_head_sha, 'changed-head');
+  assert.equal(changed.records[0].disposition, 'closed');
+  assert.equal(mergeDeliveryHandoffs([base], changed.records)[0].closure_observed_head_sha, 'changed-head');
+  const failed = { rest: { pulls: { get: async () => { throw new Error('API unavailable'); } } } };
+  const unknown = await reconcileClosedDeliveryHandoffs([base], [], failed,
+    (operation) => operation(failed), '2026-09-25T00:00:00Z');
+  assert.equal(unknown.records.length, 0);
+  assert.match(unknown.errors[0], /API unavailable/);
 });
 
 test('plans only due transient Maint 71 lanes and suppresses candidates during delivery', () => {

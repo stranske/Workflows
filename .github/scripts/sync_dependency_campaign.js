@@ -397,6 +397,9 @@ function normalizeDeliveryHandoff(record = {}, observedAt = '') {
     check_state: checkState,
     review_state: reviewState,
     continuation,
+    ...(cleanString(record.closure_observed_head_sha)
+      ? { closure_observed_head_sha: cleanString(record.closure_observed_head_sha) }
+      : {}),
     observed_at: cleanString(observedAt || record.observed_at),
   };
 }
@@ -559,11 +562,67 @@ function mergeDeliveryHandoffs(previous = [], incoming = [], observedAt = '', li
   }
   for (const record of cleanArray(incoming)) {
     const normalized = normalizeDeliveryHandoff(record, observedAt);
-    if (normalized) byKey.set(`${normalized.repository}#${normalized.pr}`, normalized);
+    if (!normalized) continue;
+    const key = `${normalized.repository}#${normalized.pr}`;
+    const retained = byKey.get(key);
+    // A delayed pre-close dispatch cannot revive the same immutable delivery.
+    if (retained?.continuation.class === 'terminal'
+      && normalized.continuation.class !== 'terminal'
+      && retained.head_sha === normalized.head_sha
+      && retained.delivery_generation === normalized.delivery_generation) continue;
+    byKey.set(key, normalized);
   }
   return [...byKey.values()]
     .sort((a, b) => cleanString(b.observed_at).localeCompare(cleanString(a.observed_at)))
     .slice(0, limit);
+}
+
+async function reconcileClosedDeliveryHandoffs(previous = [], incoming = [], api, withRetry, now = '') {
+  const records = [];
+  const errors = [];
+  const incomingKeys = new Set(cleanArray(incoming).map((row) => `${row.repository}#${row.pr}`));
+  for (const retained of cleanArray(previous).map((row) => normalizeDeliveryHandoff(row)).filter(Boolean)) {
+    if (retained.continuation.class === 'terminal') continue;
+    const key = `${retained.repository}#${retained.pr}`;
+    if (incomingKeys.has(key)) continue;
+    const [owner, repo] = retained.repository.split('/');
+    if (!owner || !repo) {
+      errors.push(`${key}: invalid repository identity`);
+      continue;
+    }
+    try {
+      const response = await withRetry((client) => client.rest.pulls.get({
+        owner, repo, pull_number: retained.pr,
+      }));
+      const pr = response.data;
+      if (pr.state !== 'closed') continue;
+      if (pr.head?.ref !== retained.branch || !pr.head?.sha) {
+        errors.push(`${key}: closed PR branch differs or head is unavailable`);
+        continue;
+      }
+      const sameHead = pr.head.sha === retained.head_sha;
+      records.push({
+        ...retained,
+        // A closed PR retires its old queue item even if a later push changed
+        // the head. The old immutable identity is not credited as merged.
+        disposition: sameHead && pr.merged_at ? 'merged' : 'closed',
+        blocker_owner: 'none',
+        next_command: 'none',
+        continuation: {
+          ...retained.continuation,
+          class: 'terminal',
+          reason: !sameHead ? 'closed-pr-identity-changed'
+            : pr.merged_at ? 'merged' : 'closed',
+          resume_after: '',
+        },
+        ...(!sameHead ? { closure_observed_head_sha: pr.head.sha } : {}),
+        observed_at: now,
+      });
+    } catch (error) {
+      errors.push(`${key}: ${error.message}`);
+    }
+  }
+  return { records, errors };
 }
 
 function mergeCampaignState(previousState = {}, discoveredItems = [], nowValue, options = {}) {
@@ -1874,6 +1933,10 @@ async function runCampaign({
     }
   }
 
+  const closureReconciliation = await reconcileClosedDeliveryHandoffs(
+    previousState.delivery_handoffs, deliveryHandoffRecords, api, withRetry, now,
+  );
+
   const state = mergeCampaignState(previousState, discoveredItems, now, {
     runId: context.runId || context.run_id,
     currentSyncHash,
@@ -1883,8 +1946,11 @@ async function runCampaign({
     syncPrsOpen,
     dependabotPrsOpen,
     failedRepos: errors.map((error) => error.repo),
-    deliveryHandoffRecords,
+    deliveryHandoffRecords: [...deliveryHandoffRecords, ...closureReconciliation.records],
   });
+  if (closureReconciliation.errors.length) {
+    state.handoff_reconciliation_errors = closureReconciliation.errors;
+  }
   if (errors.length) {
     state.errors = errors.slice(0, 20);
   }
@@ -1972,6 +2038,7 @@ module.exports = {
   isSyncPullRequest,
   mergeCampaignState,
   mergeDeliveryHandoffs,
+  reconcileClosedDeliveryHandoffs,
   normalizeDeliveryHandoff,
   paginateWithRetry,
   parseCampaignMarker,

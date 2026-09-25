@@ -2332,16 +2332,30 @@ async function run({ github, context, core }) {
         for (const stalePR of selection.stale) {
           console.log(`\nClosing stale PR #${stalePR.number}: ${stalePR.title}`);
           console.log(`Branch: ${stalePR.head.ref}, Created: ${stalePR.created_at}`);
-  
+          const staleRecord = parseDeliveryRecord(stalePR.body || '');
+          const staleIdentity = staleRecord?.generation && stalePR.head?.sha
+            ? {
+              head_sha: stalePR.head.sha,
+              delivery_generation: staleRecord.generation,
+              plan_id: staleRecord.plan_id || '',
+              plan_scope: staleRecord.plan_scope || '',
+              scope_base_sha: staleRecord.scope_base_sha || '',
+              source_commit: staleRecord.source_commit || '',
+            }
+            : {};
+
           if (!dryRun) {
             try {
               // Close PR
-              await withRetry((client) => client.rest.pulls.update({
+              const closedResponse = await withRetry((client) => client.rest.pulls.update({
                 owner,
                 repo,
                 pull_number: stalePR.number,
                 state: 'closed'
               }));
+              const closureMatches = closedResponse.data?.state === 'closed'
+                && closedResponse.data?.head?.sha === stalePR.head.sha
+                && closedResponse.data?.head?.ref === stalePR.head.ref;
               console.log('✓ Closed');
   
               // Delete branch
@@ -2362,6 +2376,7 @@ async function run({ github, context, core }) {
                 pr: stalePR.number,
                 branch: stalePR.head.ref,
                 status: 'stale_closed',
+                ...(closureMatches ? staleIdentity : {}),
               });
             } catch (staleErr) {
               rethrowPrimaryRateLimit(staleErr);

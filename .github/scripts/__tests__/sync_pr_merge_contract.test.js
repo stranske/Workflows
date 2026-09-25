@@ -2570,6 +2570,21 @@ test('buildDeliveryHandoff preserves the restart fields for a generated PR', () 
   });
 });
 
+test('stale close emits a terminal exact-head handoff, but dry-run close does not', () => {
+  const closed = {
+    owner: 'stranske', repo: 'Ready', pr: 11, branch: 'deps/sync-dev-versions-old',
+    head_sha: 'old-head', delivery_generation: 'old-generation',
+    plan_id: 'old-plan', source_commit: 'old-source', status: 'stale_closed',
+  };
+  const handoff = buildDeliveryHandoff(closed, '2026-09-25T00:00:00Z');
+  assert.equal(handoff.disposition, 'closed');
+  assert.equal(handoff.continuation.class, 'terminal');
+  assert.equal(handoff.head_sha, 'old-head');
+  assert.equal(handoff.delivery_generation, 'old-generation');
+  assert.equal(handoff.plan_id, 'old-plan');
+  assert.equal(buildDeliveryHandoff({ ...closed, dry_run: true }), null);
+});
+
 test('buildDeliveryHandoff serializes review-window and delivery context bindings', () => {
   const immutable = {
     plan_id: `sha256:${'a'.repeat(64)}`,
