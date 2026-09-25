@@ -565,11 +565,16 @@ function mergeDeliveryHandoffs(previous = [], incoming = [], observedAt = '', li
     if (!normalized) continue;
     const key = `${normalized.repository}#${normalized.pr}`;
     const retained = byKey.get(key);
-    // A delayed pre-close dispatch cannot revive the same immutable delivery.
+    // A delayed pre-close dispatch cannot revive the same immutable delivery,
+    // but a genuinely new handoff after the PR is reopened must be accepted.
+    const sourceObservedAt = cleanString(record.observed_at);
+    const newerThanTerminal = Number.isFinite(Date.parse(sourceObservedAt))
+      && Date.parse(sourceObservedAt) > Date.parse(retained?.observed_at || '');
     if (retained?.continuation.class === 'terminal'
       && normalized.continuation.class !== 'terminal'
       && retained.head_sha === normalized.head_sha
-      && retained.delivery_generation === normalized.delivery_generation) continue;
+      && retained.delivery_generation === normalized.delivery_generation
+      && !newerThanTerminal) continue;
     byKey.set(key, normalized);
   }
   return [...byKey.values()]

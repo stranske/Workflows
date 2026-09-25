@@ -133,7 +133,12 @@ test('closed delivery reconciliation terminalizes only matching retained identit
   assert.equal(records[0].review_state, 'blocked');
   const merged = mergeDeliveryHandoffs([base], records, '2026-09-25T00:00:00Z');
   assert.equal(merged[0].continuation.class, 'terminal');
-  assert.equal(mergeDeliveryHandoffs(merged, [base], '2026-09-25T00:01:00Z')[0].continuation.class, 'terminal');
+  assert.equal(mergeDeliveryHandoffs(merged, [{ ...base,
+    observed_at: '2026-09-24T23:59:00Z',
+  }], '2026-09-25T00:01:00Z')[0].continuation.class, 'terminal');
+  assert.equal(mergeDeliveryHandoffs(merged, [{ ...base,
+    observed_at: '2026-09-25T00:02:00Z',
+  }], '2026-09-25T00:03:00Z')[0].continuation.class, 'actionable');
 
   for (const pr of [
     { state: 'open', head: { sha: base.head_sha, ref: base.branch } },

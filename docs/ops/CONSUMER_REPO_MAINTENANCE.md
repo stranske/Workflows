@@ -538,7 +538,8 @@ head is recorded separately, and the disposition is only `closed`, never a
 claim that the old head merged. Open PRs, changed branches, and API failures
 remain unresolved; no record borrows evidence from a replacement delivery.
 Delayed older handoffs cannot revive a terminal record for the same immutable
-delivery.
+delivery. A later observed Maint 71 handoff can revive it if the PR is
+reopened without changing head or generation.
 Scheduled Maint 82 continuations exclude the manual Collab-Admin exception.
 Its `delivery` selector targets only registered `sync/workflows-delivery`
 handoffs with the selected immutable plan, scope, base and source; candidate-only
