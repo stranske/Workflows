@@ -9,6 +9,8 @@ WORKFLOWS = (
 
 
 def test_keepalive_workflows_transport_task_progress_through_the_runner_cli() -> None:
+    # Keep this cohort explicit: the root and consumer workflows must evolve together.
+    assert len(WORKFLOWS) == 2
     for path in WORKFLOWS:
         text = path.read_text(encoding="utf-8")
         workflow = yaml.safe_load(text)
