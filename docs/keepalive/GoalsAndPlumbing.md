@@ -360,7 +360,8 @@ so the same-head reservation may continue. An attempted measured run with a miss
 changed after snapshot likewise cannot prove the checklist finished. The persisted
 `completion_incomplete` flag and `continuation_completions` counter carry this disposition across
 reservations and completion replays; older measured-partial records are recognized from their
-stored after snapshot. The existing allowance and time-based cooldown bound continuations.
+stored after snapshot. A later unmeasured completion retains the unfinished disposition rather
+than reinstating the same-head latch. The existing allowance and time-based cooldown bound continuations.
 A measured fully checked list, an observed new head, or a new reservation head clears the
 continuation latch.
 

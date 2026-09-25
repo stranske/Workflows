@@ -166,6 +166,28 @@ def test_missing_after_snapshot_does_not_latch_same_head() -> None:
     )
 
 
+def test_unmeasured_followup_preserves_partial_continuation() -> None:
+    storage = MemoryRunnerStorage()
+    should_dispatch(42, "aaa", "codex", storage=storage, task_progress_before=_task_snapshot(0))
+    record_completion(
+        42,
+        "aaa",
+        "codex",
+        {"success": True},
+        storage=storage,
+        observed_head_sha="aaa",
+        task_progress_after=_task_snapshot(1),
+    )
+    assert should_dispatch(
+        42, "aaa", "codex", storage=storage, task_progress_before=_task_snapshot(1)
+    ).should_dispatch
+    completed = record_completion(42, "aaa", "codex", {"success": True}, storage=storage)
+    assert completed["completion_incomplete"] is True
+    assert should_dispatch(42, "aaa", "codex", storage=storage).reason == (
+        "retry-incomplete-completion"
+    )
+
+
 def test_unchanged_head_without_task_delta_keeps_bounded_retry() -> None:
     storage = MemoryRunnerStorage()
     should_dispatch(

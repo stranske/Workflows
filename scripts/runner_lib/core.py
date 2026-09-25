@@ -1424,6 +1424,8 @@ def _reserve_dispatch(
     continuation_count = _continuation_completion_count(prior)
     if continuation_count and prior and prior.get("head_sha") == head_sha:
         record["continuation_completions"] = continuation_count
+        if _completion_needs_continuation(prior):
+            record["completion_incomplete"] = True
     if unproductive and prior and prior.get("head_sha") == head_sha:
         record["unproductive_completions"] = unproductive
         if _completion_was_unproductive(prior):
@@ -1897,6 +1899,8 @@ def record_completion(
             record["completion_incomplete"] = prior["completion_incomplete"]
         elif _completion_needs_continuation(prior):
             record["completion_incomplete"] = True
+    elif status == "completed" and observed_head_sha and observed_head_sha != head_sha:
+        record["completion_incomplete"] = False
     elif (
         status == "completed"
         and observed_head_sha == head_sha
