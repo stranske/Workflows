@@ -16,9 +16,54 @@ const {
   markAgentRunning,
   analyzeTaskCompletion,
   autoReconcileTasks,
+  buildTaskProgressSnapshot,
   buildAuthorityChallengeEvidence,
   selectEscalationDisposition,
 } = require('../keepalive_loop.js');
+
+test('task progress snapshot preserves actionable checklist identity across check changes', () => {
+  const before = buildTaskProgressSnapshot(`
+<!-- auto-status-summary:start -->
+## Automated Status Summary
+#### Tasks
+- [ ] Implement \`src/a.py\`
+- [ ] Implement \`src/a.py\`
+#### Acceptance criteria
+- [ ] \`pytest -q\` passes
+<!-- auto-status-summary:end -->
+
+- [ ] Repos checked: 12/12
+- [ ] No tasks defined.
+\`\`\`markdown
+- [x] hidden example
+\`\`\`
+`);
+  const after = buildTaskProgressSnapshot(`
+<!-- auto-status-summary:start -->
+## Automated Status Summary
+#### Tasks
+- [x] Implement \`src/a.py\`
+- [ ] Implement \`src/a.py\`
+#### Acceptance criteria
+- [ ] \`pytest -q\` passes
+<!-- auto-status-summary:end -->
+`);
+
+  assert.deepEqual(
+    { total: before.total, completed: before.completed },
+    { total: 3, completed: 0 },
+  );
+  assert.equal(after.total, 3);
+  assert.equal(after.completed, 1);
+  assert.equal(after.fingerprint, before.fingerprint);
+});
+
+test('task progress snapshot changes identity when task membership changes', () => {
+  const before = buildTaskProgressSnapshot('## Tasks\n- [ ] A\n## Acceptance Criteria\n- [ ] B');
+  const after = buildTaskProgressSnapshot('## Tasks\n- [x] A\n- [x] C\n## Acceptance Criteria\n- [ ] B');
+
+  assert.notEqual(after.fingerprint, before.fingerprint);
+});
 const { formatStateComment, parseStateComment } = require('../keepalive_state.js');
 const { signAuthorityChallengeClaim } = require('../keepalive_challenge_due.js');
 const { stripPrTemplateContent, upsertBlock } = require('../agents_pr_meta_update_body.js');

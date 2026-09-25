@@ -95,6 +95,7 @@ jobs:
       failure_threshold: ${{ steps.evaluate.outputs.failure_threshold }}
       tasks_total: ${{ steps.evaluate.outputs.tasks_total }}
       tasks_unchecked: ${{ steps.evaluate.outputs.tasks_unchecked }}
+      task_progress_snapshot: ${{ steps.evaluate.outputs.task_progress_snapshot }}
       keepalive_enabled: ${{ steps.evaluate.outputs.keepalive_enabled }}
       autofix_enabled: ${{ steps.evaluate.outputs.autofix_enabled }}
       has_agent_label: ${{ steps.evaluate.outputs.has_agent_label }}
@@ -505,6 +506,8 @@ jobs:
               failure_threshold: String(result.failureThreshold ?? ''),
               tasks_total: String(result.checkboxCounts?.total ?? ''),
               tasks_unchecked: String(result.checkboxCounts?.unchecked ?? ''),
+              task_progress_snapshot: result.taskProgressSnapshot
+                ? JSON.stringify(result.taskProgressSnapshot) : '',
               keepalive_enabled: String(result.keepaliveEnabled ?? ''),
               autofix_enabled: String(result.config?.autofix_enabled ?? ''),
               has_agent_label: String(result.hasAgentLabel ?? ''),
@@ -579,6 +582,7 @@ jobs:
           PR_NUMBER: ${{ steps.evaluate.outputs.pr_number }}
           HEAD_SHA: ${{ steps.evaluate.outputs.head_sha }}
           PROVIDER: ${{ steps.evaluate.outputs.agent_type || 'codex' }}
+          TASK_PROGRESS_BEFORE: ${{ steps.evaluate.outputs.task_progress_snapshot }}
           AUTHORITY_CHALLENGE_FINGERPRINT: >-
             ${{ github.event_name == 'workflow_dispatch' &&
               github.actor == 'github-actions[bot]' &&
@@ -613,6 +617,7 @@ jobs:
               --provider "$PROVIDER" \
               --pr-number "$PR_NUMBER" \
               --head-sha "$HEAD_SHA" \
+              --task-progress-before "$TASK_PROGRESS_BEFORE" \
               --storage auto \
               --authority-challenge
             exit 0
@@ -635,6 +640,7 @@ jobs:
             --provider "$PROVIDER" \
             --pr-number "$PR_NUMBER" \
             --head-sha "$HEAD_SHA" \
+            --task-progress-before "$TASK_PROGRESS_BEFORE" \
             --storage auto
 
       - name: Verify task appendix artifact
@@ -1044,6 +1050,7 @@ jobs:
       - run-claude
       - run-cursor
       - run-gemini
+      - summary
     if: >-
       always() &&
       needs.evaluate.outputs.dispatch_should_run == 'true' &&
@@ -1059,6 +1066,7 @@ jobs:
             scripts/state_fingerprint.py
             scripts/reference_packs.py
             scripts/orchestrator_skill.py
+            .github/scripts
             .github/scripts/github-api-with-retry.js
             .github/scripts/token_load_balancer.js
             .github/scripts/error_classifier.js
@@ -1096,12 +1104,17 @@ jobs:
               return;
             }
             let currentHead = '';
+            let taskProgressAfter = '';
             try {
               const { data: pr } = await withRetry((client) => client.rest.pulls.get({
                 ...context.repo,
                 pull_number: prNumber,
               }));
               currentHead = String((pr.head && pr.head.sha) || '');
+              const { buildTaskProgressSnapshot } = require(
+                './.github/scripts/keepalive_loop.js'
+              );
+              taskProgressAfter = JSON.stringify(buildTaskProgressSnapshot(pr.body || ''));
             } catch (error) {
               core.warning(`Could not read PR head: ${error && error.message ? error.message : error}`);
             }
@@ -1111,6 +1124,8 @@ jobs:
               `produced_work=${producedWork || 'unmeasured'}`,
             );
             core.setOutput('produced_work', producedWork);
+            core.setOutput('observed_head_sha', currentHead);
+            core.setOutput('task_progress_after', taskProgressAfter);
 
       - name: Record completion
         env:
@@ -1120,6 +1135,8 @@ jobs:
           PR_NUMBER: ${{ needs.evaluate.outputs.pr_number }}
           HEAD_SHA: ${{ needs.evaluate.outputs.head_sha }}
           PRODUCED_WORK: ${{ steps.productivity.outputs.produced_work }}
+          OBSERVED_HEAD_SHA: ${{ steps.productivity.outputs.observed_head_sha }}
+          TASK_PROGRESS_AFTER: ${{ steps.productivity.outputs.task_progress_after }}
           SUMMARY: >-
             ${{ needs.run-codex.outputs.final-message-summary ||
                 needs.run-claude.outputs.final-message-summary ||
@@ -1157,6 +1174,8 @@ jobs:
             --summary "$SUMMARY" \
             --exit-code "$EXIT_CODE" \
             --produced-work "$PRODUCED_WORK" \
+            --observed-head-sha "$OBSERVED_HEAD_SHA" \
+            --task-progress-after "$TASK_PROGRESS_AFTER" \
             --storage auto
 
   progress-review:
