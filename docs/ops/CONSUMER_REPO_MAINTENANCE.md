@@ -549,6 +549,8 @@ Stale-close handoffs are also checked against the currently closed PR before
 acceptance; an old close report cannot retire a PR reopened on a new head or
 generation. Source observation times are ordered across the whole PR, not
 only within one generation.
+A retained nonterminal record whose live open PR moved to a new head is also
+withheld from continuation until its owner publishes a matching handoff.
 Scheduled Maint 82 continuations exclude the manual Collab-Admin exception.
 Its `delivery` selector targets only registered `sync/workflows-delivery`
 handoffs with the selected immutable plan, scope, base and source; candidate-only

@@ -609,7 +609,18 @@ async function reconcileClosedDeliveryHandoffs(previous = [], incoming = [], api
         owner, repo, pull_number: retained.pr,
       }));
       const pr = response.data;
-      if (pr.state !== 'closed') continue;
+      if (pr.state === 'open') {
+        if (pr.head?.sha !== retained.head_sha || pr.head?.ref !== retained.branch) {
+          errors.push(`${key}: open PR identity differs from retained delivery handoff`);
+          blockedKeys.push(key);
+        }
+        continue;
+      }
+      if (pr.state !== 'closed') {
+        errors.push(`${key}: PR state is unavailable for handoff reconciliation`);
+        blockedKeys.push(key);
+        continue;
+      }
       if (pr.head?.ref !== retained.branch || !pr.head?.sha) {
         errors.push(`${key}: closed PR branch differs or head is unavailable`);
         blockedKeys.push(key);

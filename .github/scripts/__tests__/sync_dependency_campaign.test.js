@@ -162,6 +162,7 @@ test('closed delivery reconciliation terminalizes only matching retained identit
 
   for (const pr of [
     { state: 'open', head: { sha: base.head_sha, ref: base.branch } },
+    { state: 'open', head: { sha: 'new-head', ref: base.branch } },
     { state: 'closed', head: { sha: 'changed-head', ref: 'other-branch' } },
   ]) {
     const client = { rest: { pulls: { get: async () => ({ data: pr }) } } };
@@ -169,6 +170,9 @@ test('closed delivery reconciliation terminalizes only matching retained identit
       (operation) => operation(client), '2026-09-25T00:00:00Z');
     assert.equal(observed.records.length, 0);
     assert.equal(mergeDeliveryHandoffs([base], observed.records)[0].disposition, 'review-blocked');
+    if (pr.state === 'open' && pr.head.sha !== base.head_sha) {
+      assert.deepEqual(observed.blockedKeys, ['stranske/Ready#11']);
+    }
   }
   const changedClient = { rest: { pulls: { get: async () => ({ data: {
     state: 'closed', merged_at: null,
