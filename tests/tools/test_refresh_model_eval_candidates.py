@@ -104,7 +104,7 @@ def test_merge_catalog_discovery_adds_advisory_rows():
             }
         ]
     }
-    merged = rc.merge_catalog_discovery(derived, discovery)
+    merged = rc.merge_catalog_discovery(derived, discovery, _registry())
     keys = {(c["provider"], c["model_id"], c["role"]) for c in merged["candidates"]}
     assert ("openai", "gpt-brand-new", "catalog-advisory") in keys
 
@@ -120,8 +120,23 @@ def test_merge_catalog_discovery_skips_advisory_without_incumbent():
             }
         ]
     }
-    merged = rc.merge_catalog_discovery(derived, discovery)
+    merged = rc.merge_catalog_discovery(derived, discovery, _registry())
     assert not any(c["provider"] == "google" for c in merged["candidates"])
+
+
+def test_merge_catalog_discovery_skips_ineligible_registry_models():
+    derived = rc.derive_candidates(_registry())
+    discovery = {
+        "providers": [
+            {
+                "provider": "openai",
+                "status": "drift",
+                "added_candidates": ["gpt-blocked"],
+            }
+        ]
+    }
+    merged = rc.merge_catalog_discovery(derived, discovery, _registry())
+    assert not any(c["model_id"] == "gpt-blocked" for c in merged["candidates"])
 
 
 def test_main_merges_catalog_discovery_file(tmp_path):

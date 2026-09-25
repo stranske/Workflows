@@ -1,4 +1,5 @@
 name: Maint 78 Model Evaluation Pilot
+run-name: MAINT-78 source ${{ inputs.candidates_source_run_id || 'automatic' }}
 
 on:
   workflow_dispatch:

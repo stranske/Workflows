@@ -289,24 +289,22 @@ jobs:
                 if (pageRuns.length < 100) break;
               }
             }
-            const activePilot = activeRuns.find((run) =>
-              activeStatuses.includes(run.status),
-            );
             const currentSourceRunId = String(context.runId);
-            const pilotUsesCurrentCandidates = (run) => {
-              const inputs = run.inputs || {};
-              return String(inputs.candidates_source_run_id || '') === currentSourceRunId;
-            };
-            if (activePilot && pilotUsesCurrentCandidates(activePilot)) {
+            const expectedPilotTitle = `MAINT-78 source ${currentSourceRunId}`;
+            const pilotUsesCurrentCandidates = (run) =>
+              String(run.display_title || '') === expectedPilotTitle;
+            const matchingPilot = activeRuns.find(pilotUsesCurrentCandidates);
+            if (matchingPilot) {
               core.notice(
-                `Model evaluation pilot already active in run ${activePilot.id} ` +
-                  `for candidates_source_run_id=${currentSourceRunId}`,
+                `Model evaluation pilot already active in run ${matchingPilot.id} ` +
+                  `for ${expectedPilotTitle}`,
               );
               return;
             }
-            if (activePilot) {
+            const otherActivePilot = activeRuns[0];
+            if (otherActivePilot) {
               core.notice(
-                `Active pilot run ${activePilot.id} lacks candidates from MAINT-77 run ` +
+                `Active pilot run ${otherActivePilot.id} lacks candidates from MAINT-77 run ` +
                   `${currentSourceRunId}; dispatching a new pilot`,
               );
             }

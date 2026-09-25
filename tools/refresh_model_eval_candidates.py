@@ -34,8 +34,14 @@ DEFAULT_PROFILE = "verifier-balanced"
 EXCLUDED_POSITIONINGS = frozenset({"efficient", "coding-worker-profile"})
 
 
-def merge_catalog_discovery(derived: dict[str, Any], discovery: dict[str, Any]) -> dict[str, Any]:
+def merge_catalog_discovery(
+    derived: dict[str, Any], discovery: dict[str, Any], registry: dict[str, Any]
+) -> dict[str, Any]:
     """Attach catalog-only advisory rows so MAINT-78 can pilot newly observed models."""
+    known_models = {
+        (str(model.get("provider", "")), str(model.get("model_id", ""))): model
+        for model in registry.get("models", [])
+    }
     incumbent_providers = {
         c["provider"] for c in derived.get("candidates", []) if c.get("role") == "incumbent"
     }
@@ -50,6 +56,13 @@ def merge_catalog_discovery(derived: dict[str, Any], discovery: dict[str, Any]) 
             model_id = str(model_id)
             key = (provider, model_id)
             if key in existing:
+                continue
+            model = known_models.get(key)
+            if model is not None and (
+                model.get("lifecycle") != "current"
+                or model.get("blocked", False)
+                or str(model.get("positioning", "")) in EXCLUDED_POSITIONINGS
+            ):
                 continue
             derived["candidates"].append(
                 {"provider": provider, "model_id": model_id, "role": "catalog-advisory"}
@@ -145,7 +158,7 @@ def main(argv: list[str] | None = None) -> int:
         except ValueError as exc:
             print(f"invalid catalog discovery: {exc}", file=sys.stderr)
             return 2
-        derived = merge_catalog_discovery(derived, discovery)
+        derived = merge_catalog_discovery(derived, discovery, registry)
     if not derived["candidates"]:
         print(f"no selections for profile {args.profile!r}; nothing to derive", file=sys.stderr)
         return 2
