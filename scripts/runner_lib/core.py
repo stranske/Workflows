@@ -1721,7 +1721,8 @@ def _derive_completion_productivity(
 ) -> tuple[bool | None, dict[str, Any]]:
     """Combine authoritative head and checklist observations without inventing progress."""
     if prior.get("status") in TERMINAL_STATUSES and prior.get("head_sha") == reserved_head_sha:
-        persisted = {
+        # Widen literal key inference for mypy while preserving the stored fields.
+        persisted: dict[str, Any] = {
             key: prior[key]
             for key in (
                 "observed_head_sha",
