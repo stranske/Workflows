@@ -400,7 +400,9 @@ function normalizeDeliveryHandoff(record = {}, observedAt = '') {
     ...(cleanString(record.closure_observed_head_sha)
       ? { closure_observed_head_sha: cleanString(record.closure_observed_head_sha) }
       : {}),
-    observed_at: cleanString(observedAt || record.observed_at),
+    // Preserve Maint 71's source observation time across the campaign reducer.
+    // Replacing it with this run's time would make a delayed old handoff look new.
+    observed_at: cleanString(record.observed_at || observedAt),
   };
 }
 
