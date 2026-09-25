@@ -341,6 +341,8 @@ sweep ran past them, because a debounced PR is indistinguishable from a healthy 
 |---|---|
 | `pending`, not yet stale | refuse — wait for the in-flight run |
 | `completed`, productive | refuse — a new head commit is the next step |
+| `completed`, unchanged head with unfinished checklist | dispatch a bounded continuation even if a checkbox advanced |
+| `completed`, unchanged head with missing or changed checklist snapshot | dispatch a bounded continuation; unknown progress is not proof of completion |
 | `completed`, zero-output, within the retry allowance | dispatch (`retry-unproductive-completion`) |
 | `completed`, zero-output, allowance spent, cooldown running | refuse (`unproductive-cooldown`) |
 | `completed`, zero-output, cooldown elapsed | dispatch (`retry-after-unproductive-cooldown`) |
@@ -353,6 +355,15 @@ baseline, or failed lookup is **unmeasured**, not zero progress; it cannot manuf
 or reset the bounded zero-output streak. Other callers retain the legacy `--produced-work`
 verdict. A completion replay reuses its first persisted observation rather than crediting an
 unrelated later body edit.
+Productivity and completion are separate: advancing from 0/2 to 1/2 is productive but unfinished,
+so the same-head reservation may continue. An attempted measured run with a missing, empty, or
+changed after snapshot likewise cannot prove the checklist finished. The persisted
+`completion_incomplete` flag and `continuation_completions` counter carry this disposition across
+reservations and completion replays; older measured-partial records are recognized from their
+stored after snapshot. A later unmeasured completion retains the unfinished disposition rather
+than reinstating the same-head latch. The existing allowance and time-based cooldown bound continuations.
+A measured fully checked list, an observed new head, or a new reservation head clears the
+continuation latch.
 
 GitHub Actions reservations also bind the repository, run ID and run attempt. Completion must
 match that binding and head key before writing state; an explicitly productive result from
