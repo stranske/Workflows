@@ -570,12 +570,17 @@ function mergeDeliveryHandoffs(previous = [], incoming = [], observedAt = '', li
     // A delayed pre-close dispatch cannot revive the same immutable delivery,
     // but a genuinely new handoff after the PR is reopened must be accepted.
     const sourceObservedAt = cleanString(record.observed_at);
+    const sameIdentity = retained
+      && retained.head_sha === normalized.head_sha
+      && retained.delivery_generation === normalized.delivery_generation;
+    if (sameIdentity && Number.isFinite(Date.parse(sourceObservedAt))
+      && Number.isFinite(Date.parse(retained.observed_at))
+      && Date.parse(sourceObservedAt) < Date.parse(retained.observed_at)) continue;
     const newerThanTerminal = Number.isFinite(Date.parse(sourceObservedAt))
       && Date.parse(sourceObservedAt) > Date.parse(retained?.observed_at || '');
     if (retained?.continuation.class === 'terminal'
       && normalized.continuation.class !== 'terminal'
-      && retained.head_sha === normalized.head_sha
-      && retained.delivery_generation === normalized.delivery_generation
+      && sameIdentity
       && !newerThanTerminal) continue;
     byKey.set(key, normalized);
   }
