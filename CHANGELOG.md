@@ -6,6 +6,23 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 Breaking changes are called out with a **BREAKING** marker and scheduled according to the policy in `COMPATIBILITY.md`.
 
+## [1.37.0](https://github.com/stranske/Workflows/compare/v1.36.2...v1.37.0) (2026-09-26)
+
+
+### Features
+
+* **maint-77:** auto-dispatch evaluation pilot on catalog drift ([#3457](https://github.com/stranske/Workflows/issues/3457)) ([b4c0862](https://github.com/stranske/Workflows/commit/b4c0862874dea7ca4157c3e353f449f9be8387d6))
+
+
+### Bug Fixes
+
+* count checklist progress in keepalive debounce ([#3449](https://github.com/stranske/Workflows/issues/3449)) ([674a92f](https://github.com/stranske/Workflows/commit/674a92fdcca6643dd978c1fb9b88abb86a92e405))
+* reject boolean catalog timestamps ([#3448](https://github.com/stranske/Workflows/issues/3448)) ([13aa55d](https://github.com/stranske/Workflows/commit/13aa55dae298a9d5ce4d6414d384ca69c03d3ec9))
+* **scripts:** ASCII delimiter guard for unquoted test_* tokens ([#3466](https://github.com/stranske/Workflows/issues/3466)) ([420f6ca](https://github.com/stranske/Workflows/commit/420f6ca0a6af078b7e780cb57a9b5b3699c1e155))
+* **scripts:** honor agent:auto beside concrete routing labels ([#3519](https://github.com/stranske/Workflows/issues/3519)) ([#3590](https://github.com/stranske/Workflows/issues/3590)) ([70eda54](https://github.com/stranske/Workflows/commit/70eda54e5b0b3dcfba8889cf1bdcd79ee26b1318))
+* **sync:** continue partial checklist progress on unchanged heads ([#3582](https://github.com/stranske/Workflows/issues/3582)) ([40c4af4](https://github.com/stranske/Workflows/commit/40c4af4efe8748104d217536d7f91d87df151566))
+* **sync:** keep runner progress returns mypy-compatible ([#3581](https://github.com/stranske/Workflows/issues/3581)) ([b633970](https://github.com/stranske/Workflows/commit/b633970db5a7409387c5a49ede37b3fff257c9ab))
+
 ## [1.36.2](https://github.com/stranske/Workflows/compare/v1.36.1...v1.36.2) (2026-09-24)
 
 
