@@ -6,10 +6,15 @@ const assert = require('node:assert/strict');
 // github_api_retry.js was consolidated into github-api-with-retry.js
 // (issue #2278); this suite asserts the same behavior against it.
 const {
+  createGithubFetchRequester,
   computeRetryDelayMs,
   resolveMaxRetries,
   withGithubApiRetry,
 } = require('../github-api-with-retry');
+
+function response({ ok, status, body }) {
+  return { ok, status, text: async () => body };
+}
 
 test('resolveMaxRetries uses operation-specific overrides', () => {
   const limits = { read: 4, unknown: 1 };
@@ -127,4 +132,64 @@ test('withGithubApiRetry logs retry context', async () => {
   assert.match(warnings[0], /category=transient/);
   assert.match(warnings[0], /attempt=1\/2/);
   assert.match(warnings[0], /delayMs=1234/);
+});
+
+test('fetch requester retries reads but never retries uncertain writes', async () => {
+  let readAttempts = 0;
+  const read = createGithubFetchRequester({
+    token: 'test-token',
+    apiUrl: 'https://example.invalid',
+    fetchImpl: async () => {
+      readAttempts += 1;
+      return readAttempts === 1
+        ? response({ ok: false, status: 503, body: '{"message":"retry"}' })
+        : response({ ok: true, status: 200, body: '{"ok":true}' });
+    },
+  });
+  assert.deepEqual(await read('GET', '/resource'), { ok: true });
+  assert.equal(readAttempts, 2);
+
+  let writeAttempts = 0;
+  const write = createGithubFetchRequester({
+    token: 'test-token',
+    apiUrl: 'https://example.invalid',
+    fetchImpl: async () => {
+      writeAttempts += 1;
+      return response({ ok: false, status: 503, body: '{"message":"uncertain"}' });
+    },
+  });
+  await assert.rejects(() => write('PUT', '/resource', { value: 1 }), /503/);
+  assert.equal(writeAttempts, 1);
+});
+
+test('fetch requester preserves status for non-JSON errors', async () => {
+  const request = createGithubFetchRequester({
+    token: 'test-token',
+    apiUrl: 'https://example.invalid',
+    fetchImpl: async () => response({ ok: false, status: 502, body: '<html>bad gateway</html>' }),
+  });
+  await assert.rejects(
+    () => request('POST', '/resource'),
+    (error) => error.status === 502 && error.response?.status === 502,
+  );
+});
+
+test('fetch requester deadline remains active through response body reads', async () => {
+  const request = createGithubFetchRequester({
+    token: 'test-token',
+    apiUrl: 'https://example.invalid',
+    timeoutMs: 5,
+    fetchImpl: async (_url, options) => ({
+      ok: true,
+      status: 200,
+      text: () => new Promise((_resolve, reject) => {
+        options.signal.addEventListener('abort', () => {
+          const error = new Error('body read aborted');
+          error.name = 'AbortError';
+          reject(error);
+        }, { once: true });
+      }),
+    }),
+  });
+  await assert.rejects(() => request('POST', '/resource'), /body read aborted/);
 });

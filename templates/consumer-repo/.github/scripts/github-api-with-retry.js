@@ -119,6 +119,8 @@ function recordRateLimitIncident(error, options = {}, contextInfo = {}) {
 
 const DEFAULT_BASE_DELAY_MS = 1000;
 const DEFAULT_MAX_DELAY_MS = 30000;
+/** Honor Retry-After / rate-limit reset without the exponential-backoff cap. */
+const RATE_LIMIT_BACKOFF_CAP_MS = 3_600_000;
 const DEFAULT_MAX_RETRIES = 3;
 const RATE_LIMIT_THRESHOLD = 500;
 
@@ -802,27 +804,46 @@ function resolveMaxRetries(operation, maxRetriesByOperation) {
   return maxRetriesByOperation.unknown ?? DEFAULT_RETRY_LIMITS.unknown;
 }
 
-function calculateWaitUntilReset(resetTimestamp, nowMs) {
+function calculateWaitUntilReset(resetTimestamp, nowMs, capMs = RATE_LIMIT_BACKOFF_CAP_MS) {
   if (!Number.isFinite(resetTimestamp)) {
     return DEFAULT_BASE_DELAY_MS;
   }
   const now = Number.isFinite(nowMs) ? nowMs : Date.now();
   const resetTime = resetTimestamp * 1000;
   const waitTime = resetTime - now;
-  return Math.max(1000, Math.min(waitTime + 1000, 60000));
+  return Math.max(1000, Math.min(waitTime + 1000, capMs));
+}
+
+function headersObjectFromFetchResponse(response) {
+  const headers = {};
+  if (response?.headers?.forEach) {
+    response.headers.forEach((value, key) => {
+      headers[key] = value;
+    });
+  }
+  return headers;
+}
+
+function attachFetchResponseToError(error, response) {
+  error.status = response.status;
+  error.response = {
+    status: response.status,
+    headers: headersObjectFromFetchResponse(response),
+  };
+  return error;
 }
 
 function computeRetryDelayMs({ error, attempt, baseDelay, maxDelay, backoffFn, nowMs }) {
   const headers = normaliseHeaders(error?.response?.headers || error?.headers);
   const retryAfter = parseInt(headers['retry-after'], 10);
   if (Number.isFinite(retryAfter) && retryAfter >= 0) {
-    return Math.min(retryAfter * 1000, maxDelay);
+    return Math.min(retryAfter * 1000, RATE_LIMIT_BACKOFF_CAP_MS);
   }
 
   const remaining = parseInt(headers['x-ratelimit-remaining'], 10);
   const reset = parseInt(headers['x-ratelimit-reset'], 10);
   if (Number.isFinite(remaining) && remaining <= 0 && Number.isFinite(reset)) {
-    return Math.min(calculateWaitUntilReset(reset, nowMs), maxDelay);
+    return calculateWaitUntilReset(reset, nowMs, RATE_LIMIT_BACKOFF_CAP_MS);
   }
 
   return Math.min(backoffFn(attempt, baseDelay, maxDelay), maxDelay);
@@ -893,6 +914,67 @@ async function withGithubApiRetry(apiCall, options = {}) {
   }
 
   throw lastError || new Error('GitHub API call failed after retries');
+}
+
+function createGithubFetchRequester({
+  token,
+  fetchImpl = globalThis.fetch,
+  apiUrl = process.env.GITHUB_API_URL || 'https://api.github.com',
+  timeoutMs = 15_000,
+} = {}) {
+  if (typeof token !== 'string' || !token) {
+    throw new Error('GitHub API token unavailable');
+  }
+  if (typeof fetchImpl !== 'function') {
+    throw new Error('fetch is unavailable for GitHub API requests');
+  }
+  if (!Number.isFinite(timeoutMs) || timeoutMs <= 0) {
+    throw new Error('GitHub API request timeout must be positive');
+  }
+
+  return async (method, path, body) => {
+    const operation = method === 'GET' ? 'read' : 'write';
+    return withGithubApiRetry(async () => {
+      const controller = new AbortController();
+      const timeout = setTimeout(() => controller.abort(), timeoutMs);
+      try {
+        const response = await fetchImpl(`${apiUrl}${path}`, {
+          method,
+          headers: {
+            Accept: 'application/vnd.github+json',
+            Authorization: `Bearer ${token}`,
+            'Content-Type': 'application/json',
+            'X-GitHub-Api-Version': '2022-11-28',
+          },
+          body: body === undefined ? undefined : JSON.stringify(body),
+          signal: controller.signal,
+        });
+        const text = await response.text();
+        let data = {};
+        if (text) {
+          try {
+            data = JSON.parse(text);
+          } catch {
+            const error = new Error(
+              `GitHub API ${method} ${path} returned non-JSON content (${response.status})`,
+            );
+            throw attachFetchResponseToError(error, response);
+          }
+        }
+        if (response.ok) return data;
+        const error = new Error(
+          `GitHub API ${method} ${path} failed (${response.status}): ${data.message || 'unknown error'}`,
+        );
+        throw attachFetchResponseToError(error, response);
+      } finally {
+        clearTimeout(timeout);
+      }
+    }, {
+      operation,
+      label: `GitHub API ${method} ${path}`,
+      maxRetriesByOperation: { read: 2, write: 0, dispatch: 0, admin: 0, unknown: 0 },
+    });
+  };
 }
 
 // ===========================================================================
@@ -1146,6 +1228,7 @@ module.exports = {
   calculateWaitUntilReset,
   computeRetryDelayMs,
   withGithubApiRetry,
+  createGithubFetchRequester,
   // Rate-limit-aware pagination/backoff (former api-helpers.js)
   paginateWithBackoff,
   withBackoff,
