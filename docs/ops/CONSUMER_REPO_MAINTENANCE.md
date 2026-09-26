@@ -529,6 +529,37 @@ pending checks, changed heads, review windows, reviewer settlement, sealed Gate
 checks, and stable candidate base refreshes, so an absent event cannot strand
 the lifecycle. It does not retry actionable CI failures, unresolved review
 findings, or a dry-run-only sealed-head mismatch as if they were timer states.
+Successful Maint 71 stale closures publish terminal handoffs from the closed
+PR's own head, generation, and plan identity; a dry-run closure does not.
+If the close response has a different head or branch from the selected PR,
+Maint 71 records the closure without that selected identity and emits no
+terminal handoff for the superseded head.
+Maint 82 also checks retained nonterminal handoffs against the live PR. A
+confirmed closed PR on the retained branch retires that PR's old queue item.
+If its head changed, the old immutable head stays intact, the observed closed
+head is recorded separately, and the disposition is only `closed`, never a
+claim that the old head merged. Open PRs, changed branches, and API failures
+remain unresolved; no record borrows evidence from a replacement delivery.
+Delayed older handoffs cannot revive a terminal record or retire a later
+reopened record for the same immutable delivery. A later observed Maint 71
+handoff can revive it if the PR is reopened without changing head or
+generation. Maint 82 verifies every incoming nonterminal handoff against the
+currently open PR's branch and head before planning it, including when the
+previous record was also nonterminal. A newer report timestamp alone is not
+open-PR proof. Verification errors are recorded as warning evidence and
+exclude the affected PR from that run's continuation selector.
+Malformed incoming handoffs are rejected before their PR keys can suppress
+live reconciliation of retained records; identifiable keys are blocked from
+continuation for that run.
+Stale-close handoffs are also checked against the currently closed PR before
+acceptance; an old close report cannot retire a PR reopened on a new head or
+generation. Source observation times are ordered across the whole PR, not
+only within one generation.
+A retained nonterminal record whose live open PR moved to a new head is also
+withheld from continuation until its owner publishes a matching handoff.
+`campaign_prepared` delivery records are stored as terminal evidence but
+schedule campaign authorization; Maint 82 therefore verifies their live open
+PR and reconciles closure before scheduling that continuation.
 Scheduled Maint 82 continuations exclude the manual Collab-Admin exception.
 Its `delivery` selector targets only registered `sync/workflows-delivery`
 handoffs with the selected immutable plan, scope, base and source; candidate-only

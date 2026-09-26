@@ -1475,6 +1475,7 @@ function campaignAuthorizationAllowsMerge({ authorization = {}, result = {} } = 
 function buildDeliveryHandoff(result = {}, observedAt = new Date().toISOString()) {
   if (!result.pr) return null;
   const status = String(result.status || '');
+  if (result.dry_run && status === 'stale_closed') return null;
   // Branch-delete rows are companions to the merged row; emit one terminal handoff only.
   if (status === 'branch_deleted' || status === 'branch_delete_failed') {
     return null;
