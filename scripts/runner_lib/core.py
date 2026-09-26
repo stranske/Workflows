@@ -1586,21 +1586,8 @@ def should_dispatch(
             ):
                 return decision
             decision = DebounceDecision(True, "due-authority-challenge", key)
-        finalized = _authority_challenge_command("finalize", pr_number, head_sha, provider)
-        if not finalized or finalized.get("granted") is not True:
-            return DebounceDecision(False, "invalid-or-consumed-authority-challenge", key)
-        try:
-            reservation = storage.primary.read_record(pr_number, provider)
-        except Exception as exc:
-            _log_storage_failure("read", exc, phase="authority-reservation-readback")
-            return _unavailable_dispatch(key, prior)
-        if (
-            not reservation
-            or reservation.get("status") != "pending"
-            or reservation.get("head_sha") != head_sha
-            or reservation.get("workflow_attempt_id") != _workflow_attempt_id()
-        ):
-            return DebounceDecision(False, "authority-reservation-changed", key)
+        # Finalize only after preflight succeeds (mark-running job); consuming here
+        # would strand the ledger when agent credentials are missing.
         return decision
 
     if prior and prior.get("head_sha") == head_sha:
@@ -1693,6 +1680,42 @@ def should_dispatch(
         reason=reason,
         task_progress_before=task_progress_before,
     )
+
+
+def finalize_authority_challenge(
+    pr_number: int,
+    head_sha: str,
+    provider: str,
+    storage: RunnerDispatchStorage | None = None,
+) -> DebounceDecision:
+    """Consume a prepared authority challenge after preflight passes."""
+    provider = _validate_provider(provider)
+    storage = storage or _storage_from_name("auto")
+    key = _runner_key(pr_number, head_sha, provider)
+    if not isinstance(storage, FallbackRunnerStorage):
+        return DebounceDecision(False, "authority-storage-invalid", key)
+    finalized = _authority_challenge_command("finalize", pr_number, head_sha, provider)
+    if not finalized or finalized.get("granted") is not True:
+        return DebounceDecision(False, "invalid-or-consumed-authority-challenge", key)
+    try:
+        reservation = storage.primary.read_record(pr_number, provider)
+    except Exception as exc:
+        _log_storage_failure("read", exc, phase="authority-reservation-readback")
+        return _unavailable_dispatch(key)
+    if (
+        not reservation
+        or reservation.get("status") != "pending"
+        or reservation.get("head_sha") != head_sha
+        or reservation.get("workflow_attempt_id") != _workflow_attempt_id()
+    ):
+        return DebounceDecision(False, "authority-reservation-changed", key)
+    return DebounceDecision(True, "due-authority-challenge", key)
+
+
+def release_authority_challenge(pr_number: int, head_sha: str, provider: str) -> bool:
+    """Refund a prepared authority challenge when dispatch cannot run."""
+    released = _authority_challenge_command("release", pr_number, head_sha, provider)
+    return bool(released and released.get("released") is True)
 
 
 def _authority_challenge_command(
@@ -2034,6 +2057,31 @@ def _cmd_parse(args: argparse.Namespace) -> int:
     return 0
 
 
+def _cmd_finalize_authority_challenge(args: argparse.Namespace) -> int:
+    decision = finalize_authority_challenge(
+        int(args.pr_number),
+        args.head_sha,
+        args.provider,
+        storage=_storage_from_name(args.storage),
+    )
+    outputs = {
+        "finalized": "true" if decision.should_dispatch else "false",
+        "reason": decision.reason,
+        "key": decision.key,
+    }
+    _write_github_output(outputs)
+    print(json.dumps(outputs, sort_keys=True))
+    return 0 if decision.should_dispatch else 1
+
+
+def _cmd_release_authority_challenge(args: argparse.Namespace) -> int:
+    released = release_authority_challenge(int(args.pr_number), args.head_sha, args.provider)
+    outputs = {"released": "true" if released else "false"}
+    _write_github_output(outputs)
+    print(json.dumps(outputs, sort_keys=True))
+    return 0 if released else 1
+
+
 def _cmd_should_dispatch(args: argparse.Namespace) -> int:
     decision = should_dispatch(
         int(args.pr_number),
@@ -2173,6 +2221,27 @@ def build_parser() -> argparse.ArgumentParser:
         default="",
         help="validated JSON checklist snapshot captured when reserving the dispatch",
     )
+
+    finalize_authority = subparsers.add_parser(
+        "finalize-authority-challenge",
+        help="consume a prepared authority challenge after preflight succeeds",
+    )
+    finalize_authority.add_argument("--provider", choices=sorted(PROVIDERS), required=True)
+    finalize_authority.add_argument("--pr-number", required=True)
+    finalize_authority.add_argument("--head-sha", required=True)
+    finalize_authority.add_argument(
+        "--storage", choices=["auto", "pr-comment", "repo-variable"], default="auto"
+    )
+    finalize_authority.set_defaults(func=_cmd_finalize_authority_challenge)
+
+    release_authority = subparsers.add_parser(
+        "release-authority-challenge",
+        help="refund a prepared authority challenge when dispatch cannot run",
+    )
+    release_authority.add_argument("--provider", choices=sorted(PROVIDERS), required=True)
+    release_authority.add_argument("--pr-number", required=True)
+    release_authority.add_argument("--head-sha", required=True)
+    release_authority.set_defaults(func=_cmd_release_authority_challenge)
 
     complete = subparsers.add_parser("record-completion", help="persist runner completion")
     complete.add_argument("--provider", choices=sorted(PROVIDERS), required=True)

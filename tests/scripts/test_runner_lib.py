@@ -629,7 +629,7 @@ def test_signed_challenge_prepares_then_reserves_then_consumes(monkeypatch):
         authority_challenge=True,
     )
     assert decision.should_dispatch
-    assert events == ["prepare", "reserve", "finalize"]
+    assert events == ["prepare", "reserve"]
 
 
 def test_signed_challenge_denies_when_reservation_changes_during_finalize(monkeypatch):
@@ -642,6 +642,7 @@ def test_signed_challenge_denies_when_reservation_changes_during_finalize(monkey
             super().write_record(pr_number, provider, record)
 
     primary = OrderedStorage()
+    storage = runner_core.FallbackRunnerStorage(primary, MemoryRunnerStorage())
 
     def authority(command, *_):
         events.append(command)
@@ -651,13 +652,10 @@ def test_signed_challenge_denies_when_reservation_changes_during_finalize(monkey
         return {"prepared": True}
 
     monkeypatch.setattr(runner_core, "_authority_challenge_command", authority)
-    decision = should_dispatch(
-        42,
-        "aaa",
-        "codex",
-        storage=runner_core.FallbackRunnerStorage(primary, MemoryRunnerStorage()),
-        authority_challenge=True,
-    )
+    reserved = should_dispatch(42, "aaa", "codex", storage=storage, authority_challenge=True)
+    assert reserved.should_dispatch
+    assert events == ["prepare", "reserve"]
+    decision = runner_core.finalize_authority_challenge(42, "aaa", "codex", storage=storage)
     assert not decision.should_dispatch
     assert decision.reason == "authority-reservation-changed"
     assert events == ["prepare", "reserve", "finalize"]
@@ -840,6 +838,14 @@ def test_signed_challenge_recovers_persisted_reservation_after_write_error(monke
     )
     assert decision.should_dispatch
     assert decision.reason == "due-authority-challenge"
+    assert commands == ["prepare"]
+    finalized = runner_core.finalize_authority_challenge(
+        42,
+        "aaa",
+        "codex",
+        storage=runner_core.FallbackRunnerStorage(primary, MemoryRunnerStorage()),
+    )
+    assert finalized.should_dispatch
     assert commands == ["prepare", "finalize"]
 
 

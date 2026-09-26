@@ -514,6 +514,42 @@ jobs:
             exit 1
           fi
 
+      - name: Checkout authority release helpers
+        if: >-
+          failure() &&
+          needs.evaluate.outputs.dispatch_reason == 'due-authority-challenge'
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          sparse-checkout: |
+            .github/scripts
+            scripts/runner_lib
+          sparse-checkout-cone-mode: false
+
+      - name: Release prepared authority challenge after preflight failure
+        if: >-
+          failure() &&
+          needs.evaluate.outputs.dispatch_reason == 'due-authority-challenge'
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          AUTHORITY_CHALLENGE_FINGERPRINT: >-
+            ${{ github.event_name == 'workflow_dispatch' &&
+              github.actor == 'github-actions[bot]' &&
+              github.event.inputs.sweep_recheck == 'true' &&
+              github.event.inputs.authority_challenge_fingerprint || '' }}
+          AUTHORITY_CHALLENGE_CLAIM: >-
+            ${{ github.event_name == 'workflow_dispatch' &&
+              github.actor == 'github-actions[bot]' &&
+              github.event.inputs.sweep_recheck == 'true' &&
+              github.event.inputs.authority_challenge_claim || '' }}
+          AUTHORITY_CHALLENGE_SIGNING_KEY: >-
+            ${{ secrets.KEEPALIVE_AUTHORITY_SIGNING_KEY || '' }}
+        run: |
+          python -m scripts.runner_lib release-authority-challenge \
+            --provider "${{ needs.evaluate.outputs.agent_type || 'codex' }}" \
+            --pr-number "${{ needs.evaluate.outputs.pr_number }}" \
+            --head-sha "${{ needs.evaluate.outputs.head_sha }}"
+
   test-job:
     name: Test job creation
     needs: evaluate
@@ -541,6 +577,30 @@ jobs:
     steps:
       - name: Checkout
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+
+      - name: Finalize authority challenge after preflight
+        if: needs.evaluate.outputs.dispatch_reason == 'due-authority-challenge'
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          AUTHORITY_CHALLENGE_FINGERPRINT: >-
+            ${{ github.event_name == 'workflow_dispatch' &&
+              github.actor == 'github-actions[bot]' &&
+              github.event.inputs.sweep_recheck == 'true' &&
+              github.event.inputs.authority_challenge_fingerprint || '' }}
+          AUTHORITY_CHALLENGE_CLAIM: >-
+            ${{ github.event_name == 'workflow_dispatch' &&
+              github.actor == 'github-actions[bot]' &&
+              github.event.inputs.sweep_recheck == 'true' &&
+              github.event.inputs.authority_challenge_claim || '' }}
+          AUTHORITY_CHALLENGE_SIGNING_KEY: >-
+            ${{ secrets.KEEPALIVE_AUTHORITY_SIGNING_KEY || '' }}
+        run: |
+          python -m scripts.runner_lib finalize-authority-challenge \
+            --provider "${{ needs.evaluate.outputs.agent_type || 'codex' }}" \
+            --pr-number "${{ needs.evaluate.outputs.pr_number }}" \
+            --head-sha "${{ needs.evaluate.outputs.head_sha }}" \
+            --storage auto
 
       - name: Setup API client
         uses: ./.github/actions/setup-api-client

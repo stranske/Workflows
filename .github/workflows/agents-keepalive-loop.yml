@@ -773,6 +773,37 @@ jobs:
           fi
           echo "secrets_ok=true" >> "$GITHUB_OUTPUT"
 
+      - name: Checkout authority release helpers
+        if: >-
+          failure() &&
+          needs.evaluate.outputs.dispatch_reason == 'due-authority-challenge'
+        uses: actions/checkout@v7
+
+      - name: Release prepared authority challenge after preflight failure
+        if: >-
+          failure() &&
+          needs.evaluate.outputs.dispatch_reason == 'due-authority-challenge'
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          AUTHORITY_CHALLENGE_FINGERPRINT: >-
+            ${{ github.event_name == 'workflow_dispatch' &&
+              github.actor == 'github-actions[bot]' &&
+              github.event.inputs.sweep_recheck == 'true' &&
+              github.event.inputs.authority_challenge_fingerprint || '' }}
+          AUTHORITY_CHALLENGE_CLAIM: >-
+            ${{ github.event_name == 'workflow_dispatch' &&
+              github.actor == 'github-actions[bot]' &&
+              github.event.inputs.sweep_recheck == 'true' &&
+              github.event.inputs.authority_challenge_claim || '' }}
+          AUTHORITY_CHALLENGE_SIGNING_KEY: >-
+            ${{ secrets.KEEPALIVE_AUTHORITY_SIGNING_KEY || '' }}
+        run: |
+          python -m scripts.runner_lib release-authority-challenge \
+            --provider "${{ needs.evaluate.outputs.agent_type || 'codex' }}" \
+            --pr-number "${{ needs.evaluate.outputs.pr_number }}" \
+            --head-sha "${{ needs.evaluate.outputs.head_sha }}"
+
   # Mark agent as running before starting the actual work
   # This provides real-time visibility that the agent is actively engaged
   mark-running:
@@ -789,6 +820,30 @@ jobs:
     steps:
       - name: Checkout
         uses: actions/checkout@v7
+
+      - name: Finalize authority challenge after preflight
+        if: needs.evaluate.outputs.dispatch_reason == 'due-authority-challenge'
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          AUTHORITY_CHALLENGE_FINGERPRINT: >-
+            ${{ github.event_name == 'workflow_dispatch' &&
+              github.actor == 'github-actions[bot]' &&
+              github.event.inputs.sweep_recheck == 'true' &&
+              github.event.inputs.authority_challenge_fingerprint || '' }}
+          AUTHORITY_CHALLENGE_CLAIM: >-
+            ${{ github.event_name == 'workflow_dispatch' &&
+              github.actor == 'github-actions[bot]' &&
+              github.event.inputs.sweep_recheck == 'true' &&
+              github.event.inputs.authority_challenge_claim || '' }}
+          AUTHORITY_CHALLENGE_SIGNING_KEY: >-
+            ${{ secrets.KEEPALIVE_AUTHORITY_SIGNING_KEY || '' }}
+        run: |
+          python -m scripts.runner_lib finalize-authority-challenge \
+            --provider "${{ needs.evaluate.outputs.agent_type || 'codex' }}" \
+            --pr-number "${{ needs.evaluate.outputs.pr_number }}" \
+            --head-sha "${{ needs.evaluate.outputs.head_sha }}" \
+            --storage auto
 
       - name: Set up Node.js
         uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7
