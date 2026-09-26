@@ -336,7 +336,8 @@ async function reopenUnconfirmedChallenge({ request, repository, prNumber, claim
     return { status: 'reopened', state };
   } catch (_) {
     const settled = await readAuthorityState(request, repository, prNumber).catch(() => null);
-    if (settled?.state.status === 'confirmed' && settled.state.generation === claim.generation &&
+    if (recoveryClaim && settled?.state.status === 'confirmed' &&
+        settled.state.generation === recoveryClaim.generation &&
         settled.state.receipt?.id === receipt.id &&
         await prMatches(request, repository, prNumber, headSha, 'needs-human')) {
       return { status: 'confirmed', state: settled.state };
