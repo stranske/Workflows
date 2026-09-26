@@ -168,6 +168,7 @@ jobs:
               head_sha: run.head_sha || '',
               action: 'run',
               reason: '',
+              agent_execution_started: false,
               gate_conclusion: state.gate_conclusion || '',
               iteration: state.iteration || 0,
               max_iterations: state.max_iterations || 0,

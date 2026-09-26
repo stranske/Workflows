@@ -3080,6 +3080,48 @@ test('updateKeepaliveLoopSummary does not treat skipped runs as agent failures',
   assert.match(updateAction.body, /"failure":\{\}/);
 });
 
+test('updateKeepaliveLoopSummary does not consume authority ledger when agent execution never started', async () => {
+  const authSummary = 'Missing token ACTIONS_BOT_PAT for GitHub API repository dispatch.';
+  const existingState = formatStateComment({
+    trace: 'trace-attention-auth-preflight',
+    iteration: 1,
+    failure_threshold: 3,
+    failure: {},
+  });
+  const github = buildGithubStub({
+    comments: [{ id: 89, body: existingState, html_url: 'https://example.com/89' }],
+    authorityLedger: true,
+  });
+
+  await updateKeepaliveLoopSummary({
+    github,
+    context: buildContext(655),
+    core: buildCore(),
+    inputs: {
+      prNumber: 655,
+      action: 'run',
+      runResult: 'failure',
+      gateConclusion: 'success',
+      tasksTotal: 3,
+      tasksUnchecked: 3,
+      keepaliveEnabled: true,
+      autofixEnabled: false,
+      iteration: 1,
+      maxIterations: 5,
+      failureThreshold: 3,
+      trace: 'trace-attention-auth-preflight',
+      head_sha: 'e'.repeat(40),
+      agent_summary: authSummary,
+      agent_execution_started: false,
+    },
+  });
+
+  const ledgerWrites = github.actions.filter((action) => action.type === 'authority-ledger-write');
+  assert.equal(ledgerWrites.length, 0);
+  const updateAction = github.actions.find((action) => action.type === 'update');
+  assert.match(updateAction.body, /"disposition":"automation-retry"/);
+});
+
 test('updateKeepaliveLoopSummary sends preflight auth failures without a runner exit to independent challenge', async () => {
   const authSummary = 'Missing token ACTIONS_BOT_PAT for GitHub API repository dispatch.';
   const existingState = formatStateComment({
