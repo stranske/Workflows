@@ -832,8 +832,10 @@ test('checkRateLimitStatus works on createRateLimitedGithub wrapped client', asy
   };
 
   const wrapped = await createRateLimitedGithub({ github, env: {} });
-  assert.equal(typeof wrapped.__getTokenSource, 'function');
-  assert.doesNotThrow(() => wrapped.__getTokenSource());
+  const tokenSourceDescriptor = Object.getOwnPropertyDescriptor(wrapped, '__getTokenSource');
+  assert.ok(tokenSourceDescriptor);
+  assert.equal(wrapped.__getTokenSource, tokenSourceDescriptor.value);
+  const originalTokenSource = tokenSourceDescriptor.value();
 
   const status = await checkRateLimitStatus(wrapped, {
     threshold: 0,
@@ -843,4 +845,5 @@ test('checkRateLimitStatus works on createRateLimitedGithub wrapped client', asy
     env: {},
   });
   assert.equal(status.safe, true);
+  assert.equal(status.credentialPoolId, originalTokenSource);
 });
