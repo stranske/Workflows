@@ -157,7 +157,7 @@ def _extract_fallback_test_name(named_line: str) -> str | None:
     if unquoted:
         name = unquoted.group(1)
         tail = named_line[unquoted.end() :]
-        if not tail or not (tail[0].isalnum() or tail[0] == "_"):
+        if not tail or not (tail[0].isascii() and (tail[0].isalnum() or tail[0] == "_")):
             return name
     return None
 
@@ -857,7 +857,11 @@ def _assertion_diff_lines(diff_text: str) -> Iterator[str]:
 
 
 def _changed_assertions(
-    base: str, head: str, test_file: str, cwd: Path, pr_body: str | None = None  # noqa: ARG001
+    base: str,
+    head: str,
+    test_file: str,
+    cwd: Path,
+    pr_body: str | None = None,  # noqa: ARG001
 ) -> list[str]:
     """Keep the legacy body argument without letting PR text waive tamper checks."""
     status = _git(["diff", "--name-status", f"{base}...{head}", "--", test_file], cwd)

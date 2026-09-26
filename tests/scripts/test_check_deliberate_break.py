@@ -225,6 +225,10 @@ def test_unquoted_fallback_test_name_treats_hyphen_as_boundary() -> None:
         _extract_fallback_test_name("Named test: run `tests/test_app.py` with test_widget7.")
         == "test_widget7"
     )
+    assert (
+        _extract_fallback_test_name("Named test: run `tests/test_app.py` with test_widget\u00e9.")
+        == "test_widget"
+    )
 
 
 def _load_consumer_deliberate_break_helpers() -> dict[str, object]:
@@ -1111,7 +1115,7 @@ def test_interactive_probe_traceback_is_dependency_failure_despite_zero_exit(
             command,
             1,
             "",
-            'File "/venv/lib/site-packages/yaml/__init__.py", line 1\n' "SyntaxError: broken wheel",
+            'File "/venv/lib/site-packages/yaml/__init__.py", line 1\nSyntaxError: broken wheel',
         ),
         subprocess.CompletedProcess(
             ["probe"],
