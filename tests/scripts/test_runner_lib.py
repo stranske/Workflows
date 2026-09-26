@@ -643,14 +643,10 @@ def test_preflight_release_terminalizes_reservation_before_refunding_challenge(m
     monkeypatch.setattr(runner_core, "_authority_challenge_command", authority)
     primary = MemoryRunnerStorage()
     storage = runner_core.FallbackRunnerStorage(primary, MemoryRunnerStorage())
-    reserved = should_dispatch(
-        42, "aaa", "codex", storage=storage, authority_challenge=True
-    )
+    reserved = should_dispatch(42, "aaa", "codex", storage=storage, authority_challenge=True)
     assert reserved.should_dispatch
 
-    assert runner_core.release_authority_challenge(
-        42, "aaa", "codex", storage=storage
-    )
+    assert runner_core.release_authority_challenge(42, "aaa", "codex", storage=storage)
     terminal = primary.read_record(42, "codex")
     assert terminal["status"] == "error"
     assert terminal["result"]["error"] == "runner-preflight-failed"
@@ -677,11 +673,11 @@ def test_preflight_release_keeps_challenge_prepared_when_terminal_write_fails(mo
     monkeypatch.setattr(runner_core, "_authority_challenge_command", authority)
     primary = FailsCompletionWrite()
     storage = runner_core.FallbackRunnerStorage(primary, MemoryRunnerStorage())
-    assert should_dispatch(42, "aaa", "codex", storage=storage, authority_challenge=True).should_dispatch
+    assert should_dispatch(
+        42, "aaa", "codex", storage=storage, authority_challenge=True
+    ).should_dispatch
 
-    assert not runner_core.release_authority_challenge(
-        42, "aaa", "codex", storage=storage
-    )
+    assert not runner_core.release_authority_challenge(42, "aaa", "codex", storage=storage)
     assert primary.read_record(42, "codex")["status"] == "pending"
     assert commands == ["prepare"]
 
