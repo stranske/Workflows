@@ -421,7 +421,7 @@ jobs:
             const agentPrefix = 'agent:';
             let routingLabelCandidates = labelObjects;
             let routingAgentKeys = [];
-            const nonRoutingAgentKeys = new Set(['needs-attention', 'rate-limited', 'retry']);
+            const nonRoutingAgentKeys = new Set(['auto', 'needs-attention', 'rate-limited', 'retry']);
             try {
               const { loadAgentRegistry } = require('./.github/scripts/agent_registry.js');
               const registry = loadAgentRegistry();

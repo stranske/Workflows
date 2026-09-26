@@ -107,10 +107,20 @@ test('resolveAgentRoutingFromLabels returns mode=explicit for agent:codex', () =
   assert.equal(routing.agentKey, 'codex');
   assert.equal(routing.requested, 'codex');
 });
-test('resolveAgentRoutingFromLabels rejects mixing agent:auto with explicit agent', () => {
+test('resolveAgentRoutingFromLabels keeps the concrete agent beside agent:auto', () => {
+  const routing = resolveAgentRoutingFromLabels(['agent:auto', 'agent:claude'], {
+    registryPath: REGISTRY_PATH,
+  });
+  assert.equal(routing.mode, 'auto');
+  assert.equal(routing.agentKey, 'claude');
+  assert.equal(routing.requested, 'auto');
+});
+test('resolveAgentRoutingFromLabels still rejects two concrete agents beside agent:auto', () => {
   assert.throws(
     () => {
-      resolveAgentRoutingFromLabels(['agent:auto', 'agent:codex'], { registryPath: REGISTRY_PATH });
+      resolveAgentRoutingFromLabels(['agent:auto', 'agent:codex', 'agent:claude'], {
+        registryPath: REGISTRY_PATH,
+      });
     },
     (error) => {
       assert.ok(error instanceof Error);

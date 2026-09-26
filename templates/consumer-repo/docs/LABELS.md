@@ -194,7 +194,6 @@ runner and registry entry ship, applying this label will not dispatch a runner. 
 
 **Prerequisites:**
 - When `agent:auto` is present, a co-present concrete `agent:<name>` label seeds the first round's agent, and the delegation policy decides after that; `agent:auto` always wins
-- Only keepalive routing honors the pair today: `resolveAgentRoutingFromLabels` in `.github/scripts/agent_registry.js` still rejects `agent:auto` beside a concrete label, so its other callers (the verifier, verify-to-new-pr, the autofix loop and the bot-comment handler) fall back to a default agent; tracked in #3519
 - Existing delegation state improves switch decisions, but the initial-selection path can choose an agent without a concrete label
 
 **Lifecycle:** Applied at PR creation by the opener lane, alongside the concrete `agent:<name>` label that records which seat opened the PR, or manually or by the closer when a PR is capacity-stuck. The delegation policy reads it on keepalive ticks and either keeps the current runner choice or switches the runner decision for that dispatch.

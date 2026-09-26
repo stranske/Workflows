@@ -313,15 +313,15 @@ function resolveAgentRoutingFromLabels(labels, options = {}) {
   if (explicitRequested.length > 1) {
     throw new Error(`Multiple agent labels present: ${explicitRequested.join(', ')}`);
   }
-  if (hasAuto && explicitRequested.length > 0) {
-    throw new Error(`Multiple agent labels present: auto, ${explicitRequested[0]}`);
-  }
-
   let mode = 'default';
   let agentKey = registry.default_agent;
   let requested = null;
 
-  if (explicitRequested.length === 1) {
+  if (hasAuto && explicitRequested.length === 1) {
+    mode = 'auto';
+    agentKey = explicitRequested[0];
+    requested = 'auto';
+  } else if (explicitRequested.length === 1) {
     mode = 'explicit';
     agentKey = explicitRequested[0];
     requested = agentKey;
