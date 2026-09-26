@@ -740,3 +740,36 @@ test('checkRateLimitStatus probes an already wrapped consuming pool without rese
   assert.equal(status.safe, true);
   assert.equal(status.credentialPoolId, 'WORKFLOWS_APP');
 });
+
+test('checkRateLimitStatus works on createRateLimitedGithub wrapped client', async () => {
+  const { createRateLimitedGithub } = require('../github-rate-limited-wrapper.js');
+
+  const github = {
+    rest: {
+      rateLimit: {
+        get: async () => ({
+          data: {
+            resources: {
+              core: { remaining: 4728, limit: 5000, reset: 1_700_000_000 },
+            },
+          },
+        }),
+      },
+    },
+    request: function request() {},
+    hook: {},
+  };
+
+  const wrapped = await createRateLimitedGithub({ github, env: {} });
+  assert.equal(typeof wrapped.__getTokenSource, 'function');
+  assert.doesNotThrow(() => wrapped.__getTokenSource());
+
+  const status = await checkRateLimitStatus(wrapped, {
+    threshold: 0,
+    reserveFraction: 0.15,
+    estimatedCost: 100,
+    failOpen: false,
+    env: {},
+  });
+  assert.equal(status.safe, true);
+});
