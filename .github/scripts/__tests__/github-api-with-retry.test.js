@@ -11,7 +11,10 @@ const {
   paginateWithRetry,
   createTokenAwareRetry,
   checkRateLimitStatus,
+  createGithubFetchRequester,
+  computeRetryDelayMs,
 } = require(path.join(__dirname, '../github-api-with-retry'));
+const { classifyError, ERROR_CATEGORIES } = require(path.join(__dirname, '../error_classifier'));
 
 test('exports rate limit classifiers for workflow fail-open guards', () => {
   const primary = new Error('API rate limit exceeded');
@@ -739,4 +742,72 @@ test('checkRateLimitStatus probes an already wrapped consuming pool without rese
   });
   assert.equal(status.safe, true);
   assert.equal(status.credentialPoolId, 'WORKFLOWS_APP');
+});
+
+test('computeRetryDelayMs honors Retry-After beyond exponential maxDelay', () => {
+  const delayMs = computeRetryDelayMs({
+    error: { response: { headers: { 'retry-after': '120' } } },
+    attempt: 0,
+    baseDelay: 1000,
+    maxDelay: 30_000,
+    backoffFn: () => 1000,
+  });
+  assert.equal(delayMs, 120_000);
+});
+
+test('createGithubFetchRequester preserves rate-limit headers on HTTP errors', async () => {
+  const requester = createGithubFetchRequester({
+    token: 'test-token',
+    fetchImpl: async () => ({
+      ok: false,
+      status: 403,
+      text: async () => JSON.stringify({ message: 'Resource not accessible by integration' }),
+      headers: {
+        forEach(callback) {
+          callback('90', 'retry-after');
+          callback('0', 'x-ratelimit-remaining');
+        },
+      },
+    }),
+  });
+
+  await assert.rejects(
+    () => requester('GET', '/repos/o/r'),
+    (error) => {
+      assert.equal(error.response?.headers?.['retry-after'], '90');
+      assert.equal(error.response?.headers?.['x-ratelimit-remaining'], '0');
+      return true;
+    },
+  );
+});
+
+test('createGithubFetchRequester retries GET network failures', async () => {
+  let attempts = 0;
+  const requester = createGithubFetchRequester({
+    token: 'test-token',
+    fetchImpl: async () => {
+      attempts += 1;
+      if (attempts === 1) {
+        const error = new TypeError('fetch failed');
+        error.cause = { code: 'ECONNRESET' };
+        throw error;
+      }
+      return {
+        ok: true,
+        status: 200,
+        text: async () => JSON.stringify({ ok: true }),
+        headers: new Map(),
+      };
+    },
+  });
+
+  const data = await requester('GET', '/repos/o/r');
+  assert.equal(data.ok, true);
+  assert.equal(attempts, 2);
+});
+
+test('classifyError treats fetch network failures as transient', () => {
+  const error = new TypeError('fetch failed');
+  error.cause = { code: 'ECONNRESET' };
+  assert.equal(classifyError(error).category, ERROR_CATEGORIES.transient);
 });

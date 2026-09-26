@@ -3,7 +3,7 @@
 // This branch is the authority for challenge generations and receipts. PR comments
 // are presentation only: a comment PATCH cannot provide a conditional write.
 const crypto = require('node:crypto');
-const { withRetry } = require('./github-api-with-retry.js');
+const { createGithubFetchRequester, withRetry } = require('./github-api-with-retry.js');
 const BRANCH = 'keepalive-authority-state';
 const HEX = /^[0-9a-f]{64}$/;
 const HEAD = /^[0-9a-f]{40}$/;
@@ -60,13 +60,18 @@ async function requestWithOctokit(github, method, path, body) {
 }
 
 function requester(github) {
-  if (!github) {
-    const token = process.env.GH_TOKEN || process.env.GITHUB_TOKEN;
-    if (!token) throw new Error('Authority state token unavailable');
-    const { Octokit } = require('@octokit/rest');
-    github = new Octokit({ auth: token });
+  if (github) {
+    return (method, path, body) => requestWithOctokit(github, method, path, body);
   }
-  return (method, path, body) => requestWithOctokit(github, method, path, body);
+  const token = process.env.GH_TOKEN || process.env.GITHUB_TOKEN;
+  if (!token) throw new Error('Authority state token unavailable');
+  try {
+    const { Octokit } = require('@octokit/rest');
+    const octokit = new Octokit({ auth: token });
+    return (method, path, body) => requestWithOctokit(octokit, method, path, body);
+  } catch {
+    return createGithubFetchRequester({ token });
+  }
 }
 
 async function ensureBranch(request, repository, defaultBranch) {

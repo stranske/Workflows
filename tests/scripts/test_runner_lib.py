@@ -629,7 +629,57 @@ def test_signed_challenge_prepares_then_reserves_then_consumes(monkeypatch):
         authority_challenge=True,
     )
     assert decision.should_dispatch
-    assert events == ["prepare", "reserve", "finalize"]
+    assert events == ["prepare", "reserve"]
+
+
+def test_preflight_release_terminalizes_reservation_before_refunding_challenge(monkeypatch):
+    _signed_challenge_environment(monkeypatch)
+    commands = []
+
+    def authority(command, *_):
+        commands.append(command)
+        return {"prepared": True} if command == "prepare" else {"released": True}
+
+    monkeypatch.setattr(runner_core, "_authority_challenge_command", authority)
+    primary = MemoryRunnerStorage()
+    storage = runner_core.FallbackRunnerStorage(primary, MemoryRunnerStorage())
+    reserved = should_dispatch(42, "aaa", "codex", storage=storage, authority_challenge=True)
+    assert reserved.should_dispatch
+
+    assert runner_core.release_authority_challenge(42, "aaa", "codex", storage=storage)
+    terminal = primary.read_record(42, "codex")
+    assert terminal["status"] == "error"
+    assert terminal["result"]["error"] == "runner-preflight-failed"
+    assert commands == ["prepare", "release"]
+
+
+def test_preflight_release_keeps_challenge_prepared_when_terminal_write_fails(monkeypatch):
+    _signed_challenge_environment(monkeypatch)
+    commands = []
+
+    def authority(command, *_):
+        commands.append(command)
+        return {"prepared": True} if command == "prepare" else {"released": True}
+
+    class FailsCompletionWrite(MemoryRunnerStorage):
+        writes_seen = 0
+
+        def write_record(self, pr_number, provider, record):
+            self.writes_seen += 1
+            if self.writes_seen > 1:
+                raise RuntimeError("completion unavailable")
+            super().write_record(pr_number, provider, record)
+
+    monkeypatch.setattr(runner_core, "_authority_challenge_command", authority)
+    primary = FailsCompletionWrite()
+    storage = runner_core.FallbackRunnerStorage(primary, MemoryRunnerStorage())
+    assert should_dispatch(
+        42, "aaa", "codex", storage=storage, authority_challenge=True
+    ).should_dispatch
+
+    assert not runner_core.release_authority_challenge(42, "aaa", "codex", storage=storage)
+    assert primary.read_record(42, "codex")["status"] == "pending"
+    assert commands == ["prepare"]
 
 
 def test_signed_challenge_denies_when_reservation_changes_during_finalize(monkeypatch):
@@ -642,6 +692,7 @@ def test_signed_challenge_denies_when_reservation_changes_during_finalize(monkey
             super().write_record(pr_number, provider, record)
 
     primary = OrderedStorage()
+    storage = runner_core.FallbackRunnerStorage(primary, MemoryRunnerStorage())
 
     def authority(command, *_):
         events.append(command)
@@ -651,13 +702,10 @@ def test_signed_challenge_denies_when_reservation_changes_during_finalize(monkey
         return {"prepared": True}
 
     monkeypatch.setattr(runner_core, "_authority_challenge_command", authority)
-    decision = should_dispatch(
-        42,
-        "aaa",
-        "codex",
-        storage=runner_core.FallbackRunnerStorage(primary, MemoryRunnerStorage()),
-        authority_challenge=True,
-    )
+    reserved = should_dispatch(42, "aaa", "codex", storage=storage, authority_challenge=True)
+    assert reserved.should_dispatch
+    assert events == ["prepare", "reserve"]
+    decision = runner_core.finalize_authority_challenge(42, "aaa", "codex", storage=storage)
     assert not decision.should_dispatch
     assert decision.reason == "authority-reservation-changed"
     assert events == ["prepare", "reserve", "finalize"]
@@ -840,6 +888,14 @@ def test_signed_challenge_recovers_persisted_reservation_after_write_error(monke
     )
     assert decision.should_dispatch
     assert decision.reason == "due-authority-challenge"
+    assert commands == ["prepare"]
+    finalized = runner_core.finalize_authority_challenge(
+        42,
+        "aaa",
+        "codex",
+        storage=runner_core.FallbackRunnerStorage(primary, MemoryRunnerStorage()),
+    )
+    assert finalized.should_dispatch
     assert commands == ["prepare", "finalize"]
 
 

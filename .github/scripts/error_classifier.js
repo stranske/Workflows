@@ -48,6 +48,9 @@ const TRANSIENT_PATTERNS = [
   'codex-session',
   'existing changes',
   'how would you like me to proceed',
+  'fetch failed',
+  'network error',
+  'aborterror',
 ];
 
 const AUTH_PATTERNS = [
@@ -249,6 +252,14 @@ function classifyByMessage(message) {
   return null;
 }
 
+const TRANSIENT_NETWORK_CODES = new Set([
+  'ECONNRESET',
+  'ECONNREFUSED',
+  'ETIMEDOUT',
+  'EAI_AGAIN',
+  'ENOTFOUND',
+]);
+
 function classifyError(error) {
   const message = normaliseMessage(error);
   const preview = message ? message.slice(0, 50) : 'unknown';
@@ -260,8 +271,16 @@ function classifyError(error) {
 
   const statusCategory = status ? classifyByStatus(status, message) : null;
   const messageCategory = classifyByMessage(message);
+  const causeCode = String(error?.cause?.code || '').toUpperCase();
+  const ownCode = !status && Object.prototype.hasOwnProperty.call(error || {}, 'code')
+    ? String(error.code).toUpperCase()
+    : '';
+  const networkTransient = TRANSIENT_NETWORK_CODES.has(causeCode) || TRANSIENT_NETWORK_CODES.has(ownCode)
+    || error?.name === 'AbortError';
 
-  const category = statusCategory || messageCategory || ERROR_CATEGORIES.unknown;
+  const category = networkTransient
+    ? ERROR_CATEGORIES.transient
+    : (statusCategory || messageCategory || ERROR_CATEGORIES.unknown);
 
   return {
     category,
