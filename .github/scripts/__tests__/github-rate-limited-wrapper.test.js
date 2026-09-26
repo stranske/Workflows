@@ -271,6 +271,29 @@ test('wrapped paginate.iterator return() delegates to original', async () => {
   assert.equal(returnCalled, true, 'should have called original return()');
 });
 
+test('wrapped client preserves __getTokenSource function identity', async () => {
+  const { createRateLimitedGithub } = require('../github-rate-limited-wrapper.js');
+
+  const github = {
+    rest: {
+      rateLimit: {
+        get: async () => ({
+          data: { resources: { core: { remaining: 5000, limit: 5000, reset: 0 } } },
+        }),
+      },
+    },
+    request: function request() {},
+    hook: {},
+  };
+
+  const wrapped = await createRateLimitedGithub({ github });
+  const descriptor = Object.getOwnPropertyDescriptor(wrapped, '__getTokenSource');
+  assert.ok(descriptor, '__getTokenSource should exist on wrapped client');
+  assert.equal(descriptor.configurable, false);
+  assert.equal(wrapped.__getTokenSource, descriptor.value);
+  assert.equal(typeof wrapped.__getTokenSource, 'function');
+});
+
 test('wrapped paginate.iterator throw() delegates to original', async () => {
   const { createRateLimitedGithub } = require('../github-rate-limited-wrapper.js');
   
