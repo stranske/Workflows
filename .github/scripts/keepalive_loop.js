@@ -3314,6 +3314,9 @@ async function updateKeepaliveLoopSummary({ github: rawGithub, context, core, in
       agentExecutionStartedInput === undefined || agentExecutionStartedInput === ''
         ? null
         : toBool(agentExecutionStartedInput, false);
+    const authorityOwnerAttempt = normalise(
+      inputs.authority_owner_attempt ?? inputs.authorityOwnerAttempt,
+    );
     const stateTrace = normalise(inputs.trace || inputs.keepalive_trace || '');
 
     // Delegation policy inputs (from evaluate step when agent:auto is active)
@@ -4544,7 +4547,10 @@ async function updateKeepaliveLoopSummary({ github: rawGithub, context, core, in
         ['automation-retry', 'challenge-due'].includes(previousAttention.disposition)) ||
       previousAttentionHasLegacyOwnership;
     let challengeState = null;
+    const mayConsumeAuthorityLedger =
+      agentExecutionStarted === null || agentExecutionStarted === true;
     if (shouldEscalate && escalationDisposition === 'challenge-due' && authorityEvidence.fingerprint) {
+      if (mayConsumeAuthorityLedger) {
       try {
         const repository = `${context.repo.owner}/${context.repo.repo}`;
         const request = requester(github);
@@ -4565,6 +4571,55 @@ async function updateKeepaliveLoopSummary({ github: rawGithub, context, core, in
         }
       } catch (error) {
         core?.warning?.(`Authority generation unavailable: ${error.message}`);
+        escalationDisposition = 'automation-retry';
+      }
+      } else if (
+        previousAttention.disposition === 'challenge-due' &&
+        previousAttention.generation &&
+        previousAttention.boundary_fingerprint
+      ) {
+        try {
+          const repository = `${context.repo.owner}/${context.repo.repo}`;
+          const request = requester(github);
+          const claim = previousAttention.nonce && previousAttention.sweep_run_id &&
+            previousAttention.sweep_run_attempt
+            ? {
+                generation: previousAttention.generation,
+                boundary_fingerprint: previousAttention.boundary_fingerprint,
+                due_at: previousAttention.challenge_due_at,
+                expires_at: previousAttention.expires_at,
+                head_sha: inputs.head_sha ?? inputs.headSha,
+                nonce: previousAttention.nonce,
+                sweep_run_id: previousAttention.sweep_run_id,
+                sweep_run_attempt: previousAttention.sweep_run_attempt,
+              }
+            : null;
+          const recovery = await reopenUnconfirmedChallenge({
+            request,
+            repository,
+            prNumber,
+            claim,
+            ownerAttempt: authorityOwnerAttempt ||
+              `${repository.toLowerCase()}:${context.runId || process.env.GITHUB_RUN_ID || ''}:` +
+              `${context.runAttempt || process.env.GITHUB_RUN_ATTEMPT || ''}`,
+            provider: agentType,
+            headSha: inputs.head_sha ?? inputs.headSha,
+          });
+          if (recovery.status === 'reopened' && recovery.state) {
+            challengeState = {
+              status: 'available',
+              generation: recovery.state.generation,
+              due_at: recovery.state.due_at,
+              expires_at: recovery.state.expires_at,
+            };
+          } else {
+            escalationDisposition = 'automation-retry';
+          }
+        } catch (error) {
+          core?.warning?.(`Authority reopen after skipped execution unavailable: ${error.message}`);
+          escalationDisposition = 'automation-retry';
+        }
+      } else {
         escalationDisposition = 'automation-retry';
       }
     }

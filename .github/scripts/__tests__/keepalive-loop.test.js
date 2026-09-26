@@ -161,6 +161,7 @@ const buildGithubStub = ({
       expires_at: attention.expires_at,
       status: receipt ? 'consumed' : 'available',
       receipt, revision: 1,
+      consumed_claim: receipt ? claim : null,
     })).toString('base64');
   }
   const stub = {
@@ -182,6 +183,7 @@ const buildGithubStub = ({
         return { data: { object: { sha: '2'.repeat(40) } } };
       }
       if (method === 'POST' && url.endsWith('/git/refs')) {
+        actions.push({ type: 'authority-ledger-write', url });
         authorityBranch = true;
         return { data: {} };
       }
@@ -194,6 +196,7 @@ const buildGithubStub = ({
           } };
         }
         if (method === 'PUT') {
+          actions.push({ type: 'authority-ledger-write', url });
           if (remainingConfirmationFailures > 0 &&
               JSON.parse(Buffer.from(body.content, 'base64').toString('utf8')).status === 'confirmed') {
             remainingConfirmationFailures--;
@@ -3078,6 +3081,104 @@ test('updateKeepaliveLoopSummary does not treat skipped runs as agent failures',
   assert.match(updateAction.body, /agent-run-skipped/);
   assert.doesNotMatch(updateAction.body, /AGENT FAILED/);
   assert.match(updateAction.body, /"failure":\{\}/);
+});
+
+test('updateKeepaliveLoopSummary does not consume authority ledger when agent execution never started', async () => {
+  const authSummary = 'Missing token ACTIONS_BOT_PAT for GitHub API repository dispatch.';
+  const existingState = formatStateComment({
+    trace: 'trace-attention-auth-preflight',
+    iteration: 1,
+    failure_threshold: 3,
+    failure: {},
+  });
+  const github = buildGithubStub({
+    comments: [{ id: 89, body: existingState, html_url: 'https://example.com/89' }],
+    authorityLedger: true,
+  });
+
+  await updateKeepaliveLoopSummary({
+    github,
+    context: buildContext(655),
+    core: buildCore(),
+    inputs: {
+      prNumber: 655,
+      action: 'run',
+      runResult: 'failure',
+      gateConclusion: 'success',
+      tasksTotal: 3,
+      tasksUnchecked: 3,
+      keepaliveEnabled: true,
+      autofixEnabled: false,
+      iteration: 1,
+      maxIterations: 5,
+      failureThreshold: 3,
+      trace: 'trace-attention-auth-preflight',
+      head_sha: 'e'.repeat(40),
+      agent_summary: authSummary,
+      agent_execution_started: false,
+    },
+  });
+
+  const ledgerWrites = github.actions.filter((action) => action.type === 'authority-ledger-write');
+  assert.equal(ledgerWrites.length, 0);
+  const updateAction = github.actions.find((action) => action.type === 'update');
+  assert.match(updateAction.body, /"disposition":"automation-retry"/);
+});
+
+test('failed workflow reporter reopens the persisted authority claim for its owning run', async () => {
+  const authSummary = 'Missing token ACTIONS_BOT_PAT for GitHub API repository dispatch.';
+  const boundary = buildAuthorityChallengeEvidence({ agentSummary: authSummary });
+  const existingState = formatStateComment({
+    trace: 'trace-attention-auth-reporter',
+    iteration: 2,
+    failure_threshold: 3,
+    failure: { reason: 'agent-run-failed', count: 1 },
+    attention: {
+      owner: 'automation', disposition: 'challenge-due',
+      challenge_due_at: TEST_DUE_AT, generation: 'c'.repeat(64),
+      expires_at: TEST_EXPIRES_AT,
+      boundary_fingerprint: boundary.fingerprint, boundary_detail: boundary.detail,
+    },
+  });
+  const github = buildGithubStub({
+    comments: [{ id: 90, body: existingState, html_url: 'https://example.com/90' }],
+    authorityReceipt: true,
+    labels: ['agent:codex', 'agent:needs-attention'],
+  });
+
+  await updateKeepaliveLoopSummary({
+    github,
+    context: buildContext(654, 7777, { eventName: 'workflow_run' }),
+    core: buildCore(),
+    inputs: {
+      prNumber: 654,
+      action: 'run',
+      runResult: 'failure',
+      gateConclusion: 'success',
+      tasksTotal: 3,
+      tasksUnchecked: 3,
+      keepaliveEnabled: true,
+      autofixEnabled: false,
+      iteration: 2,
+      maxIterations: 5,
+      failureThreshold: 3,
+      trace: 'trace-attention-auth-reporter',
+      head_sha: 'd'.repeat(40),
+      agent_summary: authSummary,
+      agent_execution_started: false,
+      authority_owner_attempt: 'octo/workflows:9001:1',
+    },
+  });
+
+  const updateAction = github.actions.filter((action) => action.type === 'update').at(-1);
+  const attention = parseStateComment(updateAction.body).data.attention;
+  assert.equal(attention.disposition, 'challenge-due');
+  assert.equal(attention.owner, 'automation');
+  assert.notEqual(attention.generation, 'c'.repeat(64));
+  assert.equal(
+    github.actions.filter((action) => action.type === 'authority-ledger-write').length,
+    1,
+  );
 });
 
 test('updateKeepaliveLoopSummary sends preflight auth failures without a runner exit to independent challenge', async () => {

@@ -214,7 +214,15 @@ async function finalizeChallenge({ request, repository, prNumber, claim, ownerAt
       !receiptMatches(prior.state.receipt, claim, ownerAttempt, provider, headSha)) {
     return { granted: false, reason: 'challenge-preparation-not-current' };
   }
-  const next = { ...prior.state, status: 'consumed', revision: prior.state.revision + 1 };
+  // Persist the exact claim beside its receipt. A workflow_run reporter may need to
+  // reopen this reservation after the owning run fails before an agent starts, and
+  // the nonce/sweep identity cannot be reconstructed from presentation state.
+  const next = {
+    ...prior.state,
+    status: 'consumed',
+    consumed_claim: claim,
+    revision: prior.state.revision + 1,
+  };
   try {
     await writeAuthorityState(request, repository, prNumber, next, prior.sha);
   } catch (error) {
@@ -300,9 +308,12 @@ async function reopenUnconfirmedChallenge({ request, repository, prNumber, claim
   const prior = await readAuthorityState(request, repository, prNumber);
   if (prior.state.head_sha !== headSha) return { status: 'uncertain', state: prior.state };
   const receipt = prior.state.receipt;
-  const matches = prior.state.generation === claim.generation &&
-    prior.state.boundary_fingerprint === claim.boundary_fingerprint &&
-    receipt?.claim_digest === crypto.createHash('sha256').update(JSON.stringify(claim)).digest('hex') &&
+  const recoveryClaim = claim && typeof claim === 'object' ? claim : prior.state.consumed_claim;
+  const matches = recoveryClaim &&
+    prior.state.generation === recoveryClaim.generation &&
+    prior.state.boundary_fingerprint === recoveryClaim.boundary_fingerprint &&
+    receipt?.claim_digest ===
+      crypto.createHash('sha256').update(JSON.stringify(recoveryClaim)).digest('hex') &&
     receipt.owner_attempt === ownerAttempt && receipt.provider === provider && receipt.head_sha === headSha;
   const pr = await readPrState(request, repository, prNumber);
   if (!pr.open || pr.headSha !== headSha) return { status: 'uncertain', state: prior.state };
@@ -318,14 +329,15 @@ async function reopenUnconfirmedChallenge({ request, repository, prNumber, claim
     generation: crypto.randomBytes(32).toString('hex'),
     due_at: new Date(now).toISOString(),
     expires_at: new Date(now + 24 * 60 * 60 * 1000).toISOString(),
-    status: 'available', receipt: null, revision: prior.state.revision + 1,
+    status: 'available', receipt: null, consumed_claim: null, revision: prior.state.revision + 1,
   };
   try {
     await writeAuthorityState(request, repository, prNumber, state, prior.sha);
     return { status: 'reopened', state };
   } catch (_) {
     const settled = await readAuthorityState(request, repository, prNumber).catch(() => null);
-    if (settled?.state.status === 'confirmed' && settled.state.generation === claim.generation &&
+    if (recoveryClaim && settled?.state.status === 'confirmed' &&
+        settled.state.generation === recoveryClaim.generation &&
         settled.state.receipt?.id === receipt.id &&
         await prMatches(request, repository, prNumber, headSha, 'needs-human')) {
       return { status: 'confirmed', state: settled.state };

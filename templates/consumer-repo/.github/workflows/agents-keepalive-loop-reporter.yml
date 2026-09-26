@@ -193,6 +193,10 @@ jobs:
               head_sha: run.head_sha || '',
               action: 'run',
               reason: '',
+              // Gate Followups failed before an agent job started; do not consume authority ledger.
+              agent_execution_started: false,
+              authority_owner_attempt:
+                `${context.repo.owner}/${context.repo.repo}:${run.id}:${run.run_attempt || 1}`.toLowerCase(),
               gate_conclusion: state.gate_conclusion || '',
               iteration: state.iteration || 0,
               max_iterations: state.max_iterations || 0,
