@@ -89,6 +89,26 @@ async function createRateLimitedGithub(options = {}) {
     return method;
   }
 
+  /**
+   * Proxy invariant: non-configurable metadata on the target must be returned
+   * as-is (not bound), or `get` violates the invariant for function properties.
+   */
+  function readProxyProperty(target, prop) {
+    const descriptor = Object.getOwnPropertyDescriptor(target, prop);
+    if (
+      descriptor
+      && descriptor.configurable === false
+      && descriptor.writable === false
+    ) {
+      return descriptor.value;
+    }
+    const value = target[prop];
+    if (typeof value === 'function') {
+      return value.bind(target);
+    }
+    return value;
+  }
+
   function createNamespaceProxy(namespace, pathPrefix) {
     return new Proxy(namespace, {
       get(target, prop) {
@@ -188,12 +208,8 @@ async function createRateLimitedGithub(options = {}) {
         return createWrappedPaginate(target.paginate);
       }
       
-      // Pass through other properties
-      const value = target[prop];
-      if (typeof value === 'function') {
-        return value.bind(target);
-      }
-      return value;
+      // Pass through other properties (preserve non-configurable metadata)
+      return readProxyProperty(target, prop);
     },
   });
 
