@@ -895,6 +895,71 @@ async function withGithubApiRetry(apiCall, options = {}) {
   throw lastError || new Error('GitHub API call failed after retries');
 }
 
+function createGithubFetchRequester({
+  token,
+  fetchImpl = globalThis.fetch,
+  apiUrl = process.env.GITHUB_API_URL || 'https://api.github.com',
+  timeoutMs = 15_000,
+} = {}) {
+  if (typeof token !== 'string' || !token) {
+    throw new Error('GitHub API token unavailable');
+  }
+  if (typeof fetchImpl !== 'function') {
+    throw new Error('fetch is unavailable for GitHub API requests');
+  }
+  if (!Number.isFinite(timeoutMs) || timeoutMs <= 0) {
+    throw new Error('GitHub API request timeout must be positive');
+  }
+
+  return async (method, path, body) => {
+    const operation = method === 'GET' ? 'read' : 'write';
+    return withGithubApiRetry(async () => {
+      const controller = new AbortController();
+      const timeout = setTimeout(() => controller.abort(), timeoutMs);
+      try {
+        const response = await fetchImpl(`${apiUrl}${path}`, {
+          method,
+          headers: {
+            Accept: 'application/vnd.github+json',
+            Authorization: `Bearer ${token}`,
+            'Content-Type': 'application/json',
+            'X-GitHub-Api-Version': '2022-11-28',
+          },
+          body: body === undefined ? undefined : JSON.stringify(body),
+          signal: controller.signal,
+        });
+        const text = await response.text();
+        let data = {};
+        if (text) {
+          try {
+            data = JSON.parse(text);
+          } catch {
+            const error = new Error(
+              `GitHub API ${method} ${path} returned non-JSON content (${response.status})`,
+            );
+            error.status = response.status;
+            error.response = { status: response.status };
+            throw error;
+          }
+        }
+        if (response.ok) return data;
+        const error = new Error(
+          `GitHub API ${method} ${path} failed (${response.status}): ${data.message || 'unknown error'}`,
+        );
+        error.status = response.status;
+        error.response = { status: response.status };
+        throw error;
+      } finally {
+        clearTimeout(timeout);
+      }
+    }, {
+      operation,
+      label: `GitHub API ${method} ${path}`,
+      maxRetriesByOperation: { read: 2, write: 0, dispatch: 0, admin: 0, unknown: 0 },
+    });
+  };
+}
+
 // ===========================================================================
 // Rate-limit-aware pagination/backoff helpers (absorbed from former
 // api-helpers.js). paginateWithBackoff/checkRateLimitStatus wrap the client
@@ -1146,6 +1211,7 @@ module.exports = {
   calculateWaitUntilReset,
   computeRetryDelayMs,
   withGithubApiRetry,
+  createGithubFetchRequester,
   // Rate-limit-aware pagination/backoff (former api-helpers.js)
   paginateWithBackoff,
   withBackoff,

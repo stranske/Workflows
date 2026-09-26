@@ -1712,8 +1712,47 @@ def finalize_authority_challenge(
     return DebounceDecision(True, "due-authority-challenge", key)
 
 
-def release_authority_challenge(pr_number: int, head_sha: str, provider: str) -> bool:
-    """Refund a prepared authority challenge when dispatch cannot run."""
+def release_authority_challenge(
+    pr_number: int,
+    head_sha: str,
+    provider: str,
+    storage: RunnerDispatchStorage | None = None,
+) -> bool:
+    """Terminalize this attempt's reservation, then refund its prepared challenge."""
+    provider = _validate_provider(provider)
+    storage = storage or _storage_from_name("auto")
+    if not isinstance(storage, FallbackRunnerStorage):
+        return False
+    try:
+        reservation = storage.primary.read_record(pr_number, provider)
+    except Exception as exc:
+        _log_storage_failure("read", exc, phase="authority-release-reservation")
+        return False
+    if (
+        not reservation
+        or reservation.get("status") != "pending"
+        or reservation.get("head_sha") != head_sha
+        or reservation.get("workflow_attempt_id") != _workflow_attempt_id()
+    ):
+        return False
+    completion = record_completion(
+        pr_number,
+        head_sha,
+        provider,
+        {
+            "provider": provider,
+            "success": False,
+            "summary": "Authority challenge released after runner preflight failure.",
+            "error": "runner-preflight-failed",
+            "truncated": False,
+            "final_message": "",
+        },
+        storage=storage,
+        produced_work=False,
+        observed_head_sha=head_sha,
+    )
+    if completion.get("status") != "error":
+        return False
     released = _authority_challenge_command("release", pr_number, head_sha, provider)
     return bool(released and released.get("released") is True)
 
@@ -2075,7 +2114,12 @@ def _cmd_finalize_authority_challenge(args: argparse.Namespace) -> int:
 
 
 def _cmd_release_authority_challenge(args: argparse.Namespace) -> int:
-    released = release_authority_challenge(int(args.pr_number), args.head_sha, args.provider)
+    released = release_authority_challenge(
+        int(args.pr_number),
+        args.head_sha,
+        args.provider,
+        storage=_storage_from_name(args.storage),
+    )
     outputs = {"released": "true" if released else "false"}
     _write_github_output(outputs)
     print(json.dumps(outputs, sort_keys=True))
@@ -2241,6 +2285,9 @@ def build_parser() -> argparse.ArgumentParser:
     release_authority.add_argument("--provider", choices=sorted(PROVIDERS), required=True)
     release_authority.add_argument("--pr-number", required=True)
     release_authority.add_argument("--head-sha", required=True)
+    release_authority.add_argument(
+        "--storage", choices=["auto", "pr-comment", "repo-variable"], default="auto"
+    )
     release_authority.set_defaults(func=_cmd_release_authority_challenge)
 
     complete = subparsers.add_parser("record-completion", help="persist runner completion")

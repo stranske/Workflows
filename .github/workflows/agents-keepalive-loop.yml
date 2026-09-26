@@ -786,6 +786,9 @@ jobs:
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          PROVIDER: ${{ needs.evaluate.outputs.agent_type || 'codex' }}
+          PR_NUMBER: ${{ needs.evaluate.outputs.pr_number }}
+          HEAD_SHA: ${{ needs.evaluate.outputs.head_sha }}
           AUTHORITY_CHALLENGE_FINGERPRINT: >-
             ${{ github.event_name == 'workflow_dispatch' &&
               github.actor == 'github-actions[bot]' &&
@@ -800,9 +803,10 @@ jobs:
             ${{ secrets.KEEPALIVE_AUTHORITY_SIGNING_KEY || '' }}
         run: |
           python -m scripts.runner_lib release-authority-challenge \
-            --provider "${{ needs.evaluate.outputs.agent_type || 'codex' }}" \
-            --pr-number "${{ needs.evaluate.outputs.pr_number }}" \
-            --head-sha "${{ needs.evaluate.outputs.head_sha }}"
+            --provider "$PROVIDER" \
+            --pr-number "$PR_NUMBER" \
+            --head-sha "$HEAD_SHA" \
+            --storage auto
 
   # Mark agent as running before starting the actual work
   # This provides real-time visibility that the agent is actively engaged
@@ -826,6 +830,9 @@ jobs:
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          PROVIDER: ${{ needs.evaluate.outputs.agent_type || 'codex' }}
+          PR_NUMBER: ${{ needs.evaluate.outputs.pr_number }}
+          HEAD_SHA: ${{ needs.evaluate.outputs.head_sha }}
           AUTHORITY_CHALLENGE_FINGERPRINT: >-
             ${{ github.event_name == 'workflow_dispatch' &&
               github.actor == 'github-actions[bot]' &&
@@ -840,9 +847,9 @@ jobs:
             ${{ secrets.KEEPALIVE_AUTHORITY_SIGNING_KEY || '' }}
         run: |
           python -m scripts.runner_lib finalize-authority-challenge \
-            --provider "${{ needs.evaluate.outputs.agent_type || 'codex' }}" \
-            --pr-number "${{ needs.evaluate.outputs.pr_number }}" \
-            --head-sha "${{ needs.evaluate.outputs.head_sha }}" \
+            --provider "$PROVIDER" \
+            --pr-number "$PR_NUMBER" \
+            --head-sha "$HEAD_SHA" \
             --storage auto
 
       - name: Set up Node.js

@@ -3,7 +3,7 @@
 // This branch is the authority for challenge generations and receipts. PR comments
 // are presentation only: a comment PATCH cannot provide a conditional write.
 const crypto = require('node:crypto');
-const { withRetry, withGithubApiRetry } = require('./github-api-with-retry.js');
+const { createGithubFetchRequester, withRetry } = require('./github-api-with-retry.js');
 const BRANCH = 'keepalive-authority-state';
 const HEX = /^[0-9a-f]{64}$/;
 const HEAD = /^[0-9a-f]{40}$/;
@@ -59,41 +59,6 @@ async function requestWithOctokit(github, method, path, body) {
   }
 }
 
-async function requestWithFetch(token, method, path, body) {
-  const apiUrl = process.env.GITHUB_API_URL || 'https://api.github.com';
-  if (typeof fetch !== 'function') {
-    throw new Error('fetch is unavailable for authority state requests');
-  }
-  return withGithubApiRetry(async () => {
-    const response = await fetch(`${apiUrl}${path}`, {
-      method,
-      headers: {
-        Accept: 'application/vnd.github+json',
-        Authorization: `Bearer ${token}`,
-        'Content-Type': 'application/json',
-        'X-GitHub-Api-Version': '2022-11-28',
-      },
-      body: body === undefined ? undefined : JSON.stringify(body),
-    });
-    const text = await response.text();
-    let data = {};
-    if (text) {
-      try {
-        data = JSON.parse(text);
-      } catch {
-        throw new Error(`GitHub API returned non-JSON content for ${method} ${path}`);
-      }
-    }
-    if (response.ok) return data;
-    const error = new Error(
-      `GitHub API ${method} ${path} failed (${response.status}): ${data.message || 'unknown error'}`,
-    );
-    error.status = response.status;
-    error.response = { status: response.status };
-    throw error;
-  }, { maxRetries: method === 'GET' ? 2 : 0, task: 'keepalive-authority-state' });
-}
-
 function requester(github) {
   if (github) {
     return (method, path, body) => requestWithOctokit(github, method, path, body);
@@ -102,9 +67,10 @@ function requester(github) {
   if (!token) throw new Error('Authority state token unavailable');
   try {
     const { Octokit } = require('@octokit/rest');
-    return (method, path, body) => requestWithOctokit(new Octokit({ auth: token }), method, path, body);
+    const octokit = new Octokit({ auth: token });
+    return (method, path, body) => requestWithOctokit(octokit, method, path, body);
   } catch {
-    return (method, path, body) => requestWithFetch(token, method, path, body);
+    return createGithubFetchRequester({ token });
   }
 }
 
