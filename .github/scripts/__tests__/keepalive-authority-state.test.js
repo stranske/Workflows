@@ -289,6 +289,34 @@ test('reconciliation rejects a replacement available head before reading its nul
   assert.equal(result.state.head_sha, changedHead);
 });
 
+test('workflow reporter reopens with the persisted claim and failed run identity', async () => {
+  const api = fakeGitHub();
+  const state = await beginChallenge({
+    request: api.request, repository, prNumber, defaultBranch: 'main',
+    fingerprint, headSha, ...boundary(),
+  });
+  const signed = claim(state);
+  assert.equal((await consumeChallenge({
+    request: api.request, repository, prNumber, claim: signed,
+    ownerAttempt, provider: 'codex', headSha,
+  })).granted, true);
+  assert.deepEqual(
+    (await readAuthorityState(api.request, repository, prNumber)).state.consumed_claim,
+    signed,
+  );
+
+  assert.equal((await reopenUnconfirmedChallenge({
+    request: api.request, repository, prNumber, claim: null,
+    ownerAttempt: 'owner/repo:101:1', provider: 'codex', headSha,
+  })).status, 'uncertain');
+  const reopened = await reopenUnconfirmedChallenge({
+    request: api.request, repository, prNumber, claim: null,
+    ownerAttempt, provider: 'codex', headSha,
+  });
+  assert.equal(reopened.status, 'reopened');
+  assert.equal(reopened.state.consumed_claim, null);
+});
+
 test('unavailable PR read after confirmation preserves the confirmed challenge', async () => {
   const api = fakeGitHub();
   const state = await beginChallenge({
