@@ -225,6 +225,12 @@ def test_unquoted_fallback_test_name_treats_hyphen_as_boundary() -> None:
         _extract_fallback_test_name("Named test: run `tests/test_app.py` with test_widget7.")
         == "test_widget7"
     )
+    assert (
+        _extract_fallback_test_name(
+            "Named test: run `tests/test_app.py` with test_widget\u00e9."
+        )
+        == "test_widget"
+    )
 
 
 def _load_consumer_deliberate_break_helpers() -> dict[str, object]:
