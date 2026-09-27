@@ -1,6 +1,7 @@
 'use strict';
 
 const { findAuthorityPrForAttempt, requester } = require('./keepalive_authority_state.js');
+const { withRetry } = require('./github-api-with-retry.js');
 
 const DISPATCH_TITLE = 'keepalive-dispatch/v1 ';
 const CONTRACT = /^run-name: \$\{\{ github\.event_name == 'workflow_dispatch' && format\('keepalive-dispatch\/v1 \{0\}', \(inputs\.authority_challenge_claim != '' \|\| inputs\.authority_challenge_fingerprint != ''\) && 'authority-candidate' \|\| 'ordinary'\) \|\| 'Agents (?:Keepalive Loop|Gate Followups)' \}\}$/m;
@@ -19,9 +20,9 @@ async function classifyReporterRun({ github, owner, repo, run, lookupTarget = fi
   });
   if (target) return { status: 'continue', prNumber: target.prNumber };
 
-  const { data: origin } = await github.rest.actions.getWorkflowRun({
+  const { data: origin } = await withRetry((client) => client.rest.actions.getWorkflowRun({
     owner, repo, run_id: run.id,
-  });
+  }), { github, maxRetries: 2, task: 'keepalive-reporter-run' });
   if (Number(origin.id) !== Number(run.id) ||
       Number(origin.run_attempt) !== Number(run.run_attempt || 1) ||
       String(origin.head_sha) !== String(run.head_sha) ||
@@ -33,9 +34,9 @@ async function classifyReporterRun({ github, owner, repo, run, lookupTarget = fi
       title !== `${DISPATCH_TITLE}authority-candidate`) {
     throw new Error('Unassociated dispatch has no versioned classification');
   }
-  const { data: producer } = await github.rest.repos.getContent({
+  const { data: producer } = await withRetry((client) => client.rest.repos.getContent({
     owner, repo, path: origin.path, ref: origin.head_sha,
-  });
+  }), { github, maxRetries: 2, task: 'keepalive-reporter-producer' });
   if (producer.encoding !== 'base64' ||
       !CONTRACT.test(Buffer.from(String(producer.content).replace(/\s/g, ''), 'base64').toString('utf8'))) {
     throw new Error('Originating workflow revision lacks the dispatch classification contract');
