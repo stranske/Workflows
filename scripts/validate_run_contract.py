@@ -173,6 +173,11 @@ def _check_document_page(document: Any, report: Report, prefix: str = "") -> Non
     locator = document.get("locator")
     if not isinstance(doc_ref, dict):
         return
+    if doc_ref.get("supersedes") == doc_ref.get("sha256"):
+        report.fail(
+            "document_ref.supersedes must name an earlier byte version",
+            f"{prefix}document_ref/supersedes",
+        )
     if (
         isinstance(locator, dict)
         and "page" in doc_ref
