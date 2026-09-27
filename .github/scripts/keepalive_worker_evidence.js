@@ -1,7 +1,7 @@
 'use strict';
 
 const { withRetry } = require('./github-api-with-retry.js');
-const { loadAgentRegistry } = require('./agent_registry.js');
+const { loadAgentRegistry, parseRegistryYaml } = require('./agent_registry.js');
 
 // Only an exact originating attempt can prove that its worker did not start.
 // A missing or incomplete jobs response is unknown, never a safe refund.
@@ -39,16 +39,26 @@ function classifyWorkerExecution(jobs, registry = loadAgentRegistry()) {
   return 'not-started';
 }
 
-async function getWorkerExecutionEvidence(github, owner, repo, runId, runAttempt) {
+async function getWorkerExecutionEvidence(github, owner, repo, runId, runAttempt, runHeadSha) {
   if (!Number.isInteger(Number(runId)) || Number(runId) <= 0 ||
-      !Number.isInteger(Number(runAttempt)) || Number(runAttempt) <= 0) return 'unknown';
+      !Number.isInteger(Number(runAttempt)) || Number(runAttempt) <= 0 ||
+      !/^[0-9a-f]{40}$/.test(String(runHeadSha || ''))) return 'unknown';
   try {
+    const registryResponse = await withRetry((client) => client.rest.repos.getContent({
+      owner, repo, path: '.github/agents/registry.yml', ref: runHeadSha,
+    }), { github, maxRetries: 2, task: 'keepalive-origin-registry' });
+    const registryFile = registryResponse?.data;
+    if (registryFile?.type !== 'file' || registryFile?.encoding !== 'base64') return 'unknown';
+    const registry = parseRegistryYaml(Buffer.from(
+      String(registryFile.content || '').replace(/\s/g, ''), 'base64',
+    ).toString('utf8'));
+    if (!registry?.agents || typeof registry.agents !== 'object') return 'unknown';
     const jobs = await withRetry(() => github.paginate(
       github.rest.actions.listJobsForWorkflowRunAttempt, {
       owner, repo,
       run_id: Number(runId), attempt_number: Number(runAttempt), per_page: 100,
       }), { github, maxRetries: 2, task: 'keepalive-worker-evidence' });
-    return classifyWorkerExecution(jobs);
+    return classifyWorkerExecution(jobs, registry);
   } catch (_) {
     return 'unknown';
   }

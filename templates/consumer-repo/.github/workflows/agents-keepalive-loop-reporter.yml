@@ -180,7 +180,8 @@ jobs:
             const { getWorkerExecutionEvidence } = require('./.github/scripts/keepalive_worker_evidence.js');
 
             const workerEvidence = await getWorkerExecutionEvidence(
-              github, context.repo.owner, context.repo.repo, run.id, run.run_attempt || 1
+              github, context.repo.owner, context.repo.repo, run.id, run.run_attempt || 1,
+              run.head_sha || ''
             );
             core.info(`Originating worker execution evidence: ${workerEvidence}`);
             if (workerEvidence === 'unknown') {
