@@ -29,25 +29,30 @@ Command:
 python -m pytest tests/workflows/test_target_work_environment_template.py::test_template_documents_hosting_block -q
 ```
 
-Expected failure while the heading was renamed:
+Raw captured failure while the heading was renamed (unmodified pytest output):
 
 ```text
 F                                                                        [100%]
 =================================== FAILURES ===================================
 ____________________ test_template_documents_hosting_block _____________________
+
+    def test_template_documents_hosting_block() -> None:
+        text = TEMPLATE_DOC.read_text(encoding="utf-8")
+
 >       assert "## Blocked Without Redesign" in text
-E       AssertionError: assert '## Blocked Without Redesign' in ...
+E       AssertionError: assert '## Blocked Without Redesign' in '# Target Work Environment\n\nRead this before proposing a delivery shape for a fleet consumer. These constraints desc...https://github.com/stranske/Ready/blob/main/research-program/artifacts/work-bundle/INFORMATION-REQUEST-RESPONSE.md).\n'
+
 tests/workflows/test_target_work_environment_template.py:15: AssertionError
 =========================== short test summary info ============================
 FAILED tests/workflows/test_target_work_environment_template.py::test_template_documents_hosting_block
-1 failed in 0.30s
+1 failed in 0.28s
 ```
 
 The original heading was then restored with no residual diff. The exact command passed:
 
 ```text
 .                                                                        [100%]
-1 passed in 0.20s
+1 passed in 0.19s
 ```
 
 The full focused file also passed after restoration:
