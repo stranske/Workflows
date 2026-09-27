@@ -30,6 +30,13 @@ function hasCompleteReviewThreadEvidence(connection) {
   );
 }
 
+function confirmedClosedPrIdentity(closedResponse, selectedPr) {
+  const closed = closedResponse?.data;
+  return closed?.state === 'closed'
+    && closed.head?.sha === selectedPr?.head?.sha
+    && closed.head?.ref === selectedPr?.head?.ref;
+}
+
 function legacyStatusAsCheck(status = {}) {
   const state = String(status.state || '').toLowerCase();
   return {
@@ -2332,16 +2339,28 @@ async function run({ github, context, core }) {
         for (const stalePR of selection.stale) {
           console.log(`\nClosing stale PR #${stalePR.number}: ${stalePR.title}`);
           console.log(`Branch: ${stalePR.head.ref}, Created: ${stalePR.created_at}`);
-  
+          const staleRecord = parseDeliveryRecord(stalePR.body || '');
+          const staleIdentity = staleRecord?.generation && stalePR.head?.sha
+            ? {
+              head_sha: stalePR.head.sha,
+              delivery_generation: staleRecord.generation,
+              plan_id: staleRecord.plan_id || '',
+              plan_scope: staleRecord.plan_scope || '',
+              scope_base_sha: staleRecord.scope_base_sha || '',
+              source_commit: staleRecord.source_commit || '',
+            }
+            : {};
+
           if (!dryRun) {
             try {
               // Close PR
-              await withRetry((client) => client.rest.pulls.update({
+              const closedResponse = await withRetry((client) => client.rest.pulls.update({
                 owner,
                 repo,
                 pull_number: stalePR.number,
                 state: 'closed'
               }));
+              const closureMatches = confirmedClosedPrIdentity(closedResponse, stalePR);
               console.log('✓ Closed');
   
               // Delete branch
@@ -2362,6 +2381,7 @@ async function run({ github, context, core }) {
                 pr: stalePR.number,
                 branch: stalePR.head.ref,
                 status: 'stale_closed',
+                ...(closureMatches ? staleIdentity : {}),
               });
             } catch (staleErr) {
               rethrowPrimaryRateLimit(staleErr);
@@ -2427,12 +2447,23 @@ async function run({ github, context, core }) {
                 `next_command: ${deliveryContext.next_command}`,
               ].join('\n'),
             }));
-            await withRetry((client) => client.rest.pulls.update({
+            const closedResponse = await withRetry((client) => client.rest.pulls.update({
               owner,
               repo,
               pull_number: selection.active.number,
               state: 'closed',
             }));
+            // A concurrent push can change the head between selection and close.
+            // Never emit a terminal handoff for an identity we did not close.
+            if (!confirmedClosedPrIdentity(closedResponse, selection.active)) {
+              results.push({
+                ...deliveryContext,
+                head_sha: '',
+                delivery_generation: '',
+                status: 'stale_closed',
+              });
+              continue;
+            }
           }
           results.push({ ...deliveryContext, status: 'stale_closed', dry_run: dryRun });
           continue;
@@ -3630,6 +3661,7 @@ async function run({ github, context, core }) {
 }
 
 module.exports = {
+  confirmedClosedPrIdentity,
   devToolBaseRefreshResult,
   campaignNoChangeRequiresLiveGate,
   collectReviewerEvidence,

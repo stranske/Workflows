@@ -149,8 +149,12 @@ jobs:
             });
             // Collab-Admin is an explicit manual-reconciliation exception. It
             // cannot wake a scheduled delivery selector for the rest of the fleet.
+            const blockedHandoffKeys = new Set(
+              result.state.handoff_verification_blocked_keys || [],
+            );
             const eligibleHandoffs = (result.state.delivery_handoffs || []).filter(
-              (record) => record.repository !== 'stranske/Collab-Admin',
+              (record) => record.repository !== 'stranske/Collab-Admin'
+                && !blockedHandoffKeys.has(`${record.repository}#${record.pr}`),
             );
             const continuations = planMaint71Continuations(eligibleHandoffs, {
               now: new Date().toISOString(),

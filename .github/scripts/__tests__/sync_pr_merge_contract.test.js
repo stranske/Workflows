@@ -68,6 +68,7 @@ const {
 const { assertRuntimeAcMergeAllowed } = require('../runtime_ac_merge_guard');
 const {
   campaignNoChangeRequiresLiveGate,
+  confirmedClosedPrIdentity,
   collectReviewerEvidence,
   enforceGeneratedDeliveryRequiredContexts,
   legacyStatusAsCheck,
@@ -2568,6 +2569,41 @@ test('buildDeliveryHandoff preserves the restart fields for a generated PR', () 
     },
     observed_at: '2026-08-15T12:00:00Z',
   });
+});
+
+test('stale close emits a terminal exact-head handoff, but dry-run close does not', () => {
+  const closed = {
+    owner: 'stranske', repo: 'Ready', pr: 11, branch: 'deps/sync-dev-versions-old',
+    head_sha: 'old-head', delivery_generation: 'old-generation',
+    plan_id: 'old-plan', source_commit: 'old-source', status: 'stale_closed',
+  };
+  const handoff = buildDeliveryHandoff(closed, '2026-09-25T00:00:00Z');
+  assert.equal(handoff.disposition, 'closed');
+  assert.equal(handoff.continuation.class, 'terminal');
+  assert.equal(handoff.head_sha, 'old-head');
+  assert.equal(handoff.delivery_generation, 'old-generation');
+  assert.equal(handoff.plan_id, 'old-plan');
+  assert.equal(buildDeliveryHandoff({ ...closed, dry_run: true }), null);
+});
+
+test('terminal stale-close handoff requires the close response to match the selected head', () => {
+  const selected = { head: { sha: 'selected-head', ref: 'deps/sync-dev-versions-old' } };
+  const matching = { data: { state: 'closed', head: { ...selected.head } } };
+  assert.equal(confirmedClosedPrIdentity(matching, selected), true);
+  for (const response of [
+    { data: { ...matching.data, state: 'open' } },
+    { data: { ...matching.data, head: { ...selected.head, sha: 'pushed-head' } } },
+    { data: { ...matching.data, head: { ...selected.head, ref: 'other-branch' } } },
+    { data: { state: 'closed' } },
+  ]) {
+    assert.equal(confirmedClosedPrIdentity(response, selected), false);
+  }
+  // The producer strips identity on a mismatched close response, so the
+  // contract must not turn its stale_closed status into terminal evidence.
+  assert.equal(buildDeliveryHandoff({
+    owner: 'stranske', repo: 'Ready', pr: 11, branch: selected.head.ref,
+    head_sha: '', delivery_generation: '', status: 'stale_closed',
+  }), null);
 });
 
 test('buildDeliveryHandoff serializes review-window and delivery context bindings', () => {

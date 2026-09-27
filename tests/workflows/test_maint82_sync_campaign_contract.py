@@ -107,6 +107,8 @@ def test_due_delivery_dispatch_is_scoped_and_manual_admin_cannot_wake_it():
     workflow = WORKFLOW.read_text(encoding="utf-8")
 
     assert "record.repository !== 'stranske/Collab-Admin'" in workflow
+    assert "handoff_verification_blocked_keys" in workflow
+    assert "!blockedHandoffKeys.has(`${record.repository}#${record.pr}`)" in workflow
     assert "planMaint71Continuations(eligibleHandoffs" in workflow
     assert "maint71_delivery_handoffs" in workflow
     assert "selectMaint71ContinuationRepos(" in workflow
