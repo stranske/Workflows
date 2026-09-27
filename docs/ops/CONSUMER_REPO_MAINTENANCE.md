@@ -564,6 +564,24 @@ Scheduled Maint 82 continuations exclude the manual Collab-Admin exception.
 Its `delivery` selector targets only registered `sync/workflows-delivery`
 handoffs with the selected immutable plan, scope, base and source; candidate-only
 repositories are not sent to that lane as false `target_missing` failures.
+Maint 68 and Maint 71 share one repository-scoped GitHub Actions concurrency
+group for every stable-PR writer run. The boundary starts before either workflow
+reads consumer PR state and remains held through branch publication, review
+request reconciliation, lifecycle body replacement, merge, and cleanup. The
+group is intentionally not partitioned by workflow, selector, phase, plan,
+generation, head, or ref: candidate and campaign selectors can target the same
+stable PR, and Maint 68 can refresh that PR while Maint 71 advances its review
+lifecycle. The group admits only one running writer, so a writer paused after
+its final identity read cannot race another writer into a whole-body PATCH.
+GitHub retains at most one pending run in a concurrency group and a newer
+arrival can replace that pending run; this is mutual exclusion, not a lossless
+queue. Maint 82 replays persisted transient handoffs from their immutable
+bindings. If a request was displaced before its handoff was persisted, rerun
+the original normal selector with the same immutable inputs. After any failed
+or cancelled writer, the next holder re-reads the durable
+plan/generation/head record and reconciles any partial comment, body, branch,
+or label state.
+
 The `campaign` selector retains the non-manual fleet scope needed for exact-head
 authorization.
 Promoted delivery commits carry their exact canary evidence in the verified
@@ -682,10 +700,10 @@ through the same guarded owner path, which restores ready state and disables
 auto-merge before another review attempt. The request lookup re-reads the PR
 after scanning request comments so readiness changes during pagination are
 included in that decision; an identity change fails closed.
-These reads do not make GitHub's PR-body update atomic against a later Maint 68
-rotation; cross-workflow writer serialization remains source-owned follow-up
-#3534. Exact-head plan, seal, and Gate guards still deny authorization when
-such drift is observed.
+These reads do not make GitHub's PR-body update conditionally atomic, so the
+shared Maint 68/Maint 71 writer group covers the final-read-to-PATCH window.
+Exact-head plan, seal, and Gate guards still deny authorization when drift is
+observed, including work replayed after a pending run was replaced.
 Dry-run reports count an unrequested legacy seal explicitly without mutating it.
 The policy requires one response, not all configured reviewers, after a
 seven-minute quiet period. If every reviewer

@@ -1,4 +1,98 @@
+import re
+import threading
 from pathlib import Path
+
+
+def _top_level_concurrency(source: str) -> tuple[str, str]:
+    match = re.search(
+        r"^concurrency:\n"
+        r"  group: (?P<group>[^\n]+)\n"
+        r"  cancel-in-progress: (?P<cancel>[^\n]+)$",
+        source,
+        flags=re.MULTILINE,
+    )
+    assert match, "workflow must declare the stable-PR writer concurrency contract"
+    assert "queue:" not in source, "workflow must use supported concurrency syntax"
+    return match.group("group"), match.group("cancel")
+
+
+def test_maint68_and_maint71_serialize_stable_pr_writers_across_final_read_patch_window():
+    maint68 = Path(".github/workflows/maint-68-sync-consumer-repos.yml").read_text()
+    maint71 = Path(".github/workflows/maint-71-merge-sync-prs.yml").read_text()
+    maint68_group, maint68_cancel = _top_level_concurrency(maint68)
+    maint71_group, maint71_cancel = _top_level_concurrency(maint71)
+
+    expected_group = "consumer-sync-stable-pr-writers-${{ github.repository }}"
+    assert maint68_group == maint71_group == expected_group
+    assert maint68_cancel == maint71_cancel == "false"
+    for partition in (
+        "github.workflow",
+        "github.ref",
+        "active_sync_hash",
+        "sync_hash",
+        "phase",
+        "plan",
+        "generation",
+        "head",
+    ):
+        assert partition not in maint68_group
+        assert partition not in maint71_group
+
+    # Model GitHub's repository-scoped concurrency semantics with the group
+    # parsed from production YAML. Maint 68 is queued precisely after Maint 71's
+    # final identity read; it must not reach its read/write section until Maint
+    # 71 releases the shared group after PATCH.
+    locks: dict[str, threading.Lock] = {}
+    final_read = threading.Event()
+    release_maint71 = threading.Event()
+    maint68_attempting = threading.Event()
+    maint68_mutated = threading.Event()
+
+    def group_lock(group: str) -> threading.Lock:
+        return locks.setdefault(group, threading.Lock())
+
+    def maint71_writer() -> None:
+        with group_lock(maint71_group):
+            final_read.set()
+            assert release_maint71.wait(timeout=2)
+
+    def maint68_writer() -> None:
+        assert final_read.wait(timeout=2)
+        maint68_attempting.set()
+        with group_lock(maint68_group):
+            maint68_mutated.set()
+
+    lifecycle = threading.Thread(target=maint71_writer)
+    refresh = threading.Thread(target=maint68_writer)
+    lifecycle.start()
+    refresh.start()
+    assert maint68_attempting.wait(timeout=2)
+    assert not maint68_mutated.wait(timeout=0.05)
+    release_maint71.set()
+    lifecycle.join(timeout=2)
+    refresh.join(timeout=2)
+    assert not lifecycle.is_alive()
+    assert not refresh.is_alive()
+    assert maint68_mutated.is_set()
+
+    actionlint_allowlist = Path(".github/actionlint-allowlist.txt").read_text()
+    assert 'unexpected key "queue" for "concurrency" section' not in actionlint_allowlist
+
+
+def test_stable_writer_concurrency_documents_pending_replacement_and_replay():
+    maintenance_guide = Path("docs/ops/CONSUMER_REPO_MAINTENANCE.md").read_text()
+    topology_guide = Path("docs/ci/WORKFLOWS.md").read_text()
+    maint82 = Path(".github/workflows/maint-82-sync-dependency-campaign.yml").read_text()
+
+    assert "at most one pending run" in maintenance_guide
+    assert "mutual exclusion, not a lossless" in maintenance_guide
+    assert "rerun" in maintenance_guide
+    assert "the original normal selector with the same immutable inputs" in maintenance_guide
+    assert "persisted transient handoffs" in maintenance_guide
+    assert "not a lossless cross-workflow queue" in topology_guide
+    assert "consumer-sync-stable-pr-writers-${{ github.repository }}" in topology_guide
+    assert "planMaint71Continuations" in maint82
+    assert "Dispatch due Maint 71 continuations" in maint82
 
 
 def test_maint71_has_proof_bound_review_resolution_and_exact_evidence_promotion():
