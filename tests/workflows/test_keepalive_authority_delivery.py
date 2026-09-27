@@ -50,9 +50,11 @@ def test_gate_paths_deny_invalid_claims_and_reporters_can_persist_generation() -
         assert "headSha: process.env.HEAD_SHA" in text
         assert text.count("permission-contents: write") >= 2
         assert text.count("always() && (failure() || cancelled()) &&") >= 2
-        assert text.index("Update summary with running status") < text.index(
-            "Finalize authority challenge after mark-running"
-        ) < text.index("Release prepared challenge after mark-running failure")
+        assert (
+            text.index("Update summary with running status")
+            < text.index("Finalize authority challenge after mark-running")
+            < text.index("Release prepared challenge after mark-running failure")
+        )
     for path in (
         ROOT / ".github/workflows/agents-keepalive-loop-reporter.yml",
         TEMPLATE / ".github/workflows/agents-keepalive-loop-reporter.yml",

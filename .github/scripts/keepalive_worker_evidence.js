@@ -1,5 +1,7 @@
 'use strict';
 
+const { withRetry } = require('./github-api-with-retry.js');
+
 // Only an exact originating attempt can prove that its worker did not start.
 // A missing or incomplete jobs response is unknown, never a safe refund.
 const WORKER_STEPS = new Set(['Run Codex', 'Run Claude', 'Run Cursor', 'Run Gemini']);
@@ -26,10 +28,11 @@ async function getWorkerExecutionEvidence(github, owner, repo, runId, runAttempt
   if (!Number.isInteger(Number(runId)) || Number(runId) <= 0 ||
       !Number.isInteger(Number(runAttempt)) || Number(runAttempt) <= 0) return 'unknown';
   try {
-    const jobs = await github.paginate(github.rest.actions.listJobsForWorkflowRunAttempt, {
+    const jobs = await withRetry(() => github.paginate(
+      github.rest.actions.listJobsForWorkflowRunAttempt, {
       owner, repo,
       run_id: Number(runId), run_attempt: Number(runAttempt), per_page: 100,
-    });
+      }), { github, maxRetries: 2, task: 'keepalive-worker-evidence' });
     return classifyWorkerExecution(jobs);
   } catch (_) {
     return 'unknown';
