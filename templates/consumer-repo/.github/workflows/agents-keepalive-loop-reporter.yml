@@ -186,19 +186,17 @@ jobs:
               require('./.github/scripts/keepalive_authority_state.js');
             const authorityRequest = requester(github);
             let authorityTarget;
-            try {
-              authorityTarget = await findAuthorityPrForAttempt({
-                request: authorityRequest,
-                repository: `${context.repo.owner}/${context.repo.repo}`,
-                ownerAttempt,
-              });
-            } catch (error) {
-              core.setFailed(`Authority attempt target lookup unavailable: ${error.message}`);
-              return;
-            }
-            if (authorityTarget && prNumber && authorityTarget.prNumber !== prNumber) {
-              core.setFailed('Workflow run PR association conflicts with authoritative attempt target');
-              return;
+            if (!prNumber) {
+              try {
+                authorityTarget = await findAuthorityPrForAttempt({
+                  request: authorityRequest,
+                  repository: `${context.repo.owner}/${context.repo.repo}`,
+                  ownerAttempt,
+                });
+              } catch (error) {
+                core.setFailed(`Authority attempt target lookup unavailable: ${error.message}`);
+                return;
+              }
             }
             prNumber ||= authorityTarget?.prNumber || 0;
             if (!prNumber) {
