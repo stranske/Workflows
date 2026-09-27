@@ -67,6 +67,9 @@ def test_gate_paths_deny_invalid_claims_and_reporters_can_persist_generation() -
         assert "run.id}:${run.run_attempt || 1}" in path.read_text()
         assert "getWorkerExecutionEvidence(" in path.read_text()
         assert "projectRecoveredAuthorityState(" in path.read_text()
+        assert "findAuthorityPrForAttempt(" in path.read_text()
+        assert "No PR association or authoritative attempt target" in path.read_text()
+        assert "Require PR association for failed originating run" not in path.read_text()
         assert "agent_execution_started: false" not in path.read_text()
 
     root_reporter = (ROOT / ".github/workflows/agents-keepalive-loop-reporter.yml").read_text()

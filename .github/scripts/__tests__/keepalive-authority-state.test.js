@@ -8,6 +8,7 @@ const {
   confirmChallenge,
   consumeChallenge,
   finalizeChallenge,
+  findAuthorityPrForAttempt,
   prepareChallenge,
   readAuthorityState,
   reconcileFailedAuthorityAttempt,
@@ -51,6 +52,10 @@ function fakeGitHub() {
       if (branch) throw status(422);
       branch = true;
       return {};
+    }
+    if (path.includes('/contents/.github/keepalive-authority?') && method === 'GET') {
+      if (!branch || !content) throw status(404);
+      return [{ name: '42.json', type: 'file' }];
     }
     if (!path.includes('/contents/.github/keepalive-authority/42.json')) {
       throw new Error(`Unexpected ${method} ${path}`);
@@ -366,6 +371,11 @@ test('failed-run reconciliation is independent of summary state and requires pos
   assert.equal(released.status, 'released');
   assert.equal(released.state.status, 'available');
   assert.equal((await readAuthorityState(api.request, repository, prNumber)).state.status, 'available');
+  const target = await findAuthorityPrForAttempt({
+    request: api.request, repository, ownerAttempt,
+  });
+  assert.equal(target.prNumber, prNumber);
+  assert.equal(target.state.status, 'available');
 });
 
 test('consumed receipt only reopens for its exact attempt with a proven unstarted worker', async () => {

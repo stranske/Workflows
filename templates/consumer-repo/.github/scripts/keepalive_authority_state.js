@@ -403,7 +403,34 @@ async function reconcileFailedAuthorityAttempt({ request, repository, prNumber, 
   return { status: 'receipt-not-recoverable' };
 }
 
+async function findAuthorityPrForAttempt({ request, repository, ownerAttempt }) {
+  if (!ATTEMPT.test(String(ownerAttempt))) throw new Error('Invalid authority owner attempt');
+  const repo = String(repository).toLowerCase();
+  let entries;
+  try {
+    entries = await request('GET', `/repos/${repo}/contents/.github/keepalive-authority?ref=${BRANCH}`);
+  } catch (error) {
+    if (error.status === 404) return null;
+    throw error;
+  }
+  if (!Array.isArray(entries) || entries.length >= 1000) {
+    throw new Error('Authority directory listing unavailable or incomplete');
+  }
+  let matched = null;
+  for (const entry of entries) {
+    if (entry?.type !== 'file' || !/^\d+\.json$/.test(String(entry.name || ''))) continue;
+    const prNumber = Number(entry.name.slice(0, -5));
+    const { state } = await readAuthorityState(request, repository, prNumber);
+    const receipts = [state.receipt, state.released_receipt, state.recovered_receipt];
+    if (!receipts.some((receipt) => receipt?.owner_attempt === ownerAttempt)) continue;
+    if (matched) throw new Error('Authority attempt matched multiple PRs');
+    matched = { prNumber, state };
+  }
+  return matched;
+}
+
 module.exports = {
+  findAuthorityPrForAttempt,
   reconcileFailedAuthorityAttempt,
   BRANCH,
   beginChallenge,

@@ -144,9 +144,9 @@ fingerprint_refreshed = 2026-09-02
 [pair.12]
 main = .github/workflows/agents-keepalive-loop-reporter.yml
 template = templates/consumer-repo/.github/workflows/agents-keepalive-loop-reporter.yml
-main_sha256 = 250e58cbbce495edb0adb826db31fc8f52998afe7f7841611e41e917b3630c97
-template_sha256 = dc2139b3cca72ce39591bfabff498eb415f332ffae054d02aabdc0da6ad20817
-divergence = Authority recovery review 2026-09-27: both reporters classify the exact originating worker attempt, reconcile only positive non-start evidence, and project settled generation state. The Workflows root reporter now also subscribes to Agents Keepalive Loop without the consumer consolidated-mode gate because that root workflow runs when USE_CONSOLIDATED_WORKFLOWS is not true; the consumer reporter remains scoped to Agents Gate Followups and its consolidated-mode gate. Root in-repo setup and consumer state fingerprinting and SHA-pinned actions remain intentional. Do not align wholesale, because it would disable a live root recovery path or remove the consumer deployment contract.
+main_sha256 = 3b554b42ef18df4815ccd917bc72c445e9aec05cbc5d580489b9fba750e78e8f
+template_sha256 = 832c6d7e2b559edd15dccb9300eec802f7f9b48b5b1dec59469eb31b4baaf87c
+divergence = Authority recovery review 2026-09-27: both reporters classify the exact originating worker attempt, recover a missing webhook PR association from the unique authoritative ledger attempt, reconcile only positive non-start evidence, and project settled generation state. The Workflows root reporter also subscribes to Agents Keepalive Loop without the consumer consolidated-mode gate because that root workflow runs when USE_CONSOLIDATED_WORKFLOWS is not true; the consumer reporter remains scoped to Agents Gate Followups and its consolidated-mode gate. Root in-repo setup and consumer state fingerprinting and SHA-pinned actions remain intentional. Do not align wholesale, because it would disable a live root recovery path or remove the consumer deployment contract.
 divergence_reviewed = 2026-09-27
 fingerprint_refreshed = 2026-09-27
 

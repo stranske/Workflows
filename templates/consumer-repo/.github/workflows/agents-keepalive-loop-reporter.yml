@@ -32,14 +32,6 @@ jobs:
           sparse-checkout-cone-mode: false
           fetch-depth: 1
 
-      - name: Require PR association for failed originating run
-        if: >-
-          github.event.workflow_run.conclusion != 'success' &&
-          !github.event.workflow_run.pull_requests[0].number
-        run: |
-          echo "::error::Originating run has no PR association; attempt-bound authority reconciliation needs an identified PR. Retry after recovering the PR association."
-          exit 1
-
       - name: Compute state fingerprint
         id: fingerprint
         env:
@@ -91,7 +83,6 @@ jobs:
         if: >-
           steps.fingerprint.outputs.should_run == 'true' &&
           github.event.workflow_run.conclusion != 'success' &&
-          github.event.workflow_run.pull_requests[0].number &&
           env.KEEPALIVE_APP_ID != '' &&
           env.KEEPALIVE_APP_PRIVATE_KEY != ''
         uses: actions/create-github-app-token@bcd2ba49218906704ab6c1aa796996da409d3eb1 # v3
@@ -114,7 +105,6 @@ jobs:
         if: >-
           steps.fingerprint.outputs.should_run == 'true' &&
           github.event.workflow_run.conclusion != 'success' &&
-          github.event.workflow_run.pull_requests[0].number &&
           steps.reporter_keepalive_app_token.outputs.token == '' &&
           env.WORKFLOWS_APP_ID != '' &&
           env.WORKFLOWS_APP_PRIVATE_KEY != ''
@@ -135,8 +125,7 @@ jobs:
       - name: Require trusted keepalive reporter writer
         if: >-
           steps.fingerprint.outputs.should_run == 'true' &&
-          github.event.workflow_run.conclusion != 'success' &&
-          github.event.workflow_run.pull_requests[0].number
+          github.event.workflow_run.conclusion != 'success'
         env:
           KEEPALIVE_REPORTER_TOKEN: >-
             ${{
@@ -154,8 +143,7 @@ jobs:
         id: update-summary
         if: >-
           steps.fingerprint.outputs.should_run == 'true' &&
-          github.event.workflow_run.conclusion != 'success' &&
-          github.event.workflow_run.pull_requests[0].number
+          github.event.workflow_run.conclusion != 'success'
         uses: actions/github-script@3a2844b7e9c422d3c10d287c895573f7108da1b3 # v9
         env:
           KEEPALIVE_SUMMARY_WRITER: >-
@@ -172,11 +160,7 @@ jobs:
             }}
           script: |
             const run = context.payload?.workflow_run || {};
-            const prNumber = Number(run.pull_requests?.[0]?.number || 0);
-            if (!prNumber) {
-              core.info('No PR context found; skipping keepalive post summary.');
-              return;
-            }
+            let prNumber = Number(run.pull_requests?.[0]?.number || 0);
 
             const conclusion = String(run.conclusion || run.status || '').toLowerCase();
             if (!conclusion || conclusion === 'success') {
@@ -198,11 +182,32 @@ jobs:
             core.info(`Originating worker execution evidence: ${workerEvidence}`);
             const ownerAttempt =
               `${context.repo.owner}/${context.repo.repo}:${run.id}:${run.run_attempt || 1}`.toLowerCase();
-            const { reconcileFailedAuthorityAttempt, requester } =
+            const { findAuthorityPrForAttempt, reconcileFailedAuthorityAttempt, requester } =
               require('./.github/scripts/keepalive_authority_state.js');
+            const authorityRequest = requester(github);
+            let authorityTarget;
+            try {
+              authorityTarget = await findAuthorityPrForAttempt({
+                request: authorityRequest,
+                repository: `${context.repo.owner}/${context.repo.repo}`,
+                ownerAttempt,
+              });
+            } catch (error) {
+              core.setFailed(`Authority attempt target lookup unavailable: ${error.message}`);
+              return;
+            }
+            if (authorityTarget && prNumber && authorityTarget.prNumber !== prNumber) {
+              core.setFailed('Workflow run PR association conflicts with authoritative attempt target');
+              return;
+            }
+            prNumber ||= authorityTarget?.prNumber || 0;
+            if (!prNumber) {
+              core.setFailed('No PR association or authoritative attempt target for failed run');
+              return;
+            }
             try {
               const reconciliation = await reconcileFailedAuthorityAttempt({
-                request: requester(github),
+                request: authorityRequest,
                 repository: `${context.repo.owner}/${context.repo.repo}`,
                 prNumber, ownerAttempt, workerEvidence,
               });
