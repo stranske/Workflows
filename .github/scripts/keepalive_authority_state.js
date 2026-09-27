@@ -191,7 +191,9 @@ async function prepareChallenge({ request, repository, prNumber, claim, ownerAtt
     head_sha: headSha,
     consumed_at: now.toISOString(),
   };
-  const next = { ...prior.state, status: 'prepared', receipt, revision: prior.state.revision + 1 };
+  const next = { ...prior.state, status: 'prepared', receipt,
+    prepared_claim: claim, recovered_receipt: null, recovered_generation: null,
+    released_receipt: null, revision: prior.state.revision + 1 };
   try {
     await writeAuthorityState(request, repository, prNumber, next, prior.sha);
   } catch (error) {
@@ -239,12 +241,21 @@ async function finalizeChallenge({ request, repository, prNumber, claim, ownerAt
 
 async function releasePreparedChallenge({ request, repository, prNumber, claim, ownerAttempt, provider, headSha }) {
   const prior = await readAuthorityState(request, repository, prNumber);
+  if (prior.state.status === 'available' && prior.state.receipt === null &&
+      prior.state.head_sha === headSha && prior.state.generation === claim.generation &&
+      receiptMatches(prior.state.released_receipt, claim, ownerAttempt, provider, headSha)) {
+    // The conditional PUT may have committed even when its response was lost.
+    // An exact retry is settled; a newer preparation is never refunded.
+    return { released: true, reason: 'challenge-preparation-already-released' };
+  }
   if (prior.state.status !== 'prepared' || prior.state.head_sha !== headSha ||
       prior.state.generation !== claim.generation ||
       !receiptMatches(prior.state.receipt, claim, ownerAttempt, provider, headSha)) {
     return { released: false, reason: 'challenge-preparation-not-current' };
   }
-  const next = { ...prior.state, status: 'available', receipt: null, revision: prior.state.revision + 1 };
+  const next = { ...prior.state, status: 'available', receipt: null,
+    prepared_claim: null, released_receipt: prior.state.receipt,
+    revision: prior.state.revision + 1 };
   try {
     await writeAuthorityState(request, repository, prNumber, next, prior.sha);
     return { released: true, reason: 'challenge-preparation-released' };
@@ -304,7 +315,8 @@ async function confirmChallenge({ request, repository, prNumber, claim, ownerAtt
   }
 }
 
-async function reopenUnconfirmedChallenge({ request, repository, prNumber, claim, ownerAttempt, provider, headSha }) {
+async function reopenUnconfirmedChallenge({ request, repository, prNumber, claim, ownerAttempt, provider, headSha,
+  workerEvidence = 'unknown' }) {
   const prior = await readAuthorityState(request, repository, prNumber);
   if (prior.state.head_sha !== headSha) return { status: 'uncertain', state: prior.state };
   const receipt = prior.state.receipt;
@@ -320,7 +332,10 @@ async function reopenUnconfirmedChallenge({ request, repository, prNumber, claim
   if (matches && pr.labels.has('needs-human')) {
     return { status: prior.state.status === 'confirmed' ? 'confirmed' : 'uncertain', state: prior.state };
   }
-  if (!matches || !['consumed', 'confirmed'].includes(prior.state.status)) {
+  // A confirmed receipt has already crossed the hard-human boundary. An
+  // absent label (or a stale PR read) must never rotate it into fresh grant
+  // authority; only an unconfirmed consumed receipt is recoverable here.
+  if (!matches || prior.state.status !== 'consumed' || workerEvidence !== 'not-started') {
     return { status: 'uncertain', state: prior.state };
   }
   const now = Date.now();
@@ -329,7 +344,9 @@ async function reopenUnconfirmedChallenge({ request, repository, prNumber, claim
     generation: crypto.randomBytes(32).toString('hex'),
     due_at: new Date(now).toISOString(),
     expires_at: new Date(now + 24 * 60 * 60 * 1000).toISOString(),
-    status: 'available', receipt: null, consumed_claim: null, revision: prior.state.revision + 1,
+    status: 'available', receipt: null, prepared_claim: null, consumed_claim: null,
+    recovered_receipt: receipt, recovered_generation: prior.state.generation,
+    revision: prior.state.revision + 1,
   };
   try {
     await writeAuthorityState(request, repository, prNumber, state, prior.sha);
@@ -349,7 +366,45 @@ async function reopenUnconfirmedChallenge({ request, repository, prNumber, claim
   }
 }
 
+async function reconcileFailedAuthorityAttempt({ request, repository, prNumber, ownerAttempt, workerEvidence }) {
+  if (workerEvidence !== 'not-started') return { status: 'execution-not-disproved' };
+  const { state } = await readAuthorityState(request, repository, prNumber);
+  if (state.status === 'available' && state.recovered_receipt?.owner_attempt === ownerAttempt) {
+    return { status: 'reopened', state, previousGeneration: state.recovered_generation };
+  }
+  if (state.status === 'available' && state.released_receipt?.owner_attempt === ownerAttempt) {
+    return { status: 'released', state };
+  }
+  const receipt = state.receipt;
+  if (!receipt || receipt.owner_attempt !== ownerAttempt ||
+      receipt.head_sha !== state.head_sha || !receipt.provider) {
+    return { status: 'attempt-not-current' };
+  }
+  const claim = state.status === 'prepared' ? state.prepared_claim : state.consumed_claim;
+  if (!claim || claim.head_sha !== state.head_sha ||
+      !receiptMatches(receipt, claim, ownerAttempt, receipt.provider, state.head_sha)) {
+    return { status: 'claim-not-current' };
+  }
+  const options = { request, repository, prNumber, claim, ownerAttempt,
+    provider: receipt.provider, headSha: state.head_sha, workerEvidence };
+  if (state.status === 'prepared') {
+    const result = await releasePreparedChallenge(options);
+    if (!result.released) return { status: 'uncertain', reason: result.reason };
+    const settled = await readAuthorityState(request, repository, prNumber);
+    if (settled.state.status !== 'available' ||
+        !receiptMatches(settled.state.released_receipt, claim, ownerAttempt,
+          receipt.provider, state.head_sha)) return { status: 'uncertain' };
+    return { status: 'released', reason: result.reason, state: settled.state };
+  }
+  if (state.status === 'consumed') {
+    const result = await reopenUnconfirmedChallenge(options);
+    return { ...result, previousGeneration: state.generation };
+  }
+  return { status: 'receipt-not-recoverable' };
+}
+
 module.exports = {
+  reconcileFailedAuthorityAttempt,
   BRANCH,
   beginChallenge,
   claimMatchesState,

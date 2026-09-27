@@ -10,6 +10,7 @@ const {
   formatTimestamp,
   createKeepaliveStateManager,
   loadKeepaliveState,
+  projectRecoveredAuthorityState,
   calculateElapsedTime,
   isTrustedKeepaliveStateComment,
 } = require('../keepalive_state.js');
@@ -276,6 +277,57 @@ test('loadKeepaliveState returns empty state when comment missing', async () => 
     trace: 'trace-y',
   });
   assert.deepEqual(result, { state: {}, commentId: 0, commentUrl: '' });
+});
+
+test('recovered authority projects generation and clears running state on trusted summary', async () => {
+  const oldGeneration = 'a'.repeat(64);
+  const newGeneration = 'b'.repeat(64);
+  const initial = { running: true, attention: {
+    owner: 'automation', disposition: 'challenge-due', generation: oldGeneration,
+  } };
+  const github = buildGithubStub({ comments: [{
+    id: 91, body: '<!-- keepalive-loop-summary -->\n' + formatStateComment(initial),
+  }] });
+  const context = { repo: { owner: 'owner', repo: 'repo' } };
+  const recovery = { status: 'reopened', previousGeneration: oldGeneration, state: {
+    generation: newGeneration, boundary_fingerprint: 'c'.repeat(64),
+    recovered_receipt: { owner_attempt: 'owner/repo:123:1' },
+    due_at: '2026-09-27T17:00:00.000Z', expires_at: '2026-09-28T17:00:00.000Z',
+  } };
+  const first = await projectRecoveredAuthorityState({
+    github, context, prNumber: 42, recovery, writerLogin: 'agents-workflows-bot[bot]',
+  });
+  assert.equal(first.reason, 'recovered-summary-projected');
+  const loaded = await loadKeepaliveState({ github, context, prNumber: 42, trace: '' });
+  assert.equal(loaded.state.running, false);
+  assert.equal(loaded.state.attention.generation, newGeneration);
+  assert.equal(loaded.state.attention.challenge_due_at, recovery.state.due_at);
+  const second = await projectRecoveredAuthorityState({
+    github, context, prNumber: 42, recovery, writerLogin: 'agents-workflows-bot[bot]',
+  });
+  assert.equal(second.reason, 'already-projected');
+  assert.equal(github.actions.filter((action) => action.type === 'update').length, 1);
+});
+
+test('same-generation prepared release projection is idempotent for the exact owner attempt', async () => {
+  const generation = 'a'.repeat(64);
+  const attempt = 'owner/repo:123:1';
+  const github = buildGithubStub({ comments: [{
+    id: 91, body: '<!-- keepalive-loop-summary -->\n' + formatStateComment({
+      running: true, attention: { generation },
+    }),
+  }] });
+  const context = { repo: { owner: 'owner', repo: 'repo' } };
+  const recovery = { status: 'released', state: {
+    generation, released_receipt: { owner_attempt: attempt },
+    boundary_fingerprint: 'c'.repeat(64),
+    due_at: '2026-09-27T17:00:00.000Z', expires_at: '2026-09-28T17:00:00.000Z',
+  } };
+  const args = { github, context, prNumber: 42, recovery,
+    writerLogin: 'agents-workflows-bot[bot]' };
+  assert.equal((await projectRecoveredAuthorityState(args)).reason, 'recovered-summary-projected');
+  assert.equal((await projectRecoveredAuthorityState(args)).reason, 'already-projected');
+  assert.equal(github.actions.filter((action) => action.type === 'update').length, 1);
 });
 
 test('createKeepaliveStateManager returns inert manager with invalid input', async () => {

@@ -15,6 +15,8 @@ def test_authority_helpers_are_manifested_and_byte_aligned() -> None:
         "keepalive_authority_state.js",
         "keepalive_challenge_due.js",
         "keepalive_loop.js",
+        "keepalive_worker_evidence.js",
+        "keepalive_state.js",
     ):
         source = Path(".github/scripts") / name
         assert source.as_posix() in sources
@@ -47,6 +49,10 @@ def test_gate_paths_deny_invalid_claims_and_reporters_can_persist_generation() -
         )
         assert "headSha: process.env.HEAD_SHA" in text
         assert text.count("permission-contents: write") >= 2
+        assert text.count("always() && (failure() || cancelled()) &&") >= 2
+        assert text.index("Update summary with running status") < text.index(
+            "Finalize authority challenge after mark-running"
+        ) < text.index("Release prepared challenge after mark-running failure")
     for path in (
         ROOT / ".github/workflows/agents-keepalive-loop-reporter.yml",
         TEMPLATE / ".github/workflows/agents-keepalive-loop-reporter.yml",
@@ -57,3 +63,9 @@ def test_gate_paths_deny_invalid_claims_and_reporters_can_persist_generation() -
         assert "head_sha: run.head_sha || ''" in path.read_text()
         assert "authority_owner_attempt:" in path.read_text()
         assert "run.id}:${run.run_attempt || 1}" in path.read_text()
+        assert "getWorkerExecutionEvidence(" in path.read_text()
+        assert "projectRecoveredAuthorityState(" in path.read_text()
+        assert "agent_execution_started: false" not in path.read_text()
+
+    root_reporter = (ROOT / ".github/workflows/agents-keepalive-loop-reporter.yml").read_text()
+    assert '"Agents Keepalive Loop"' in root_reporter

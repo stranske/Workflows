@@ -10,6 +10,7 @@ const {
   finalizeChallenge,
   prepareChallenge,
   readAuthorityState,
+  reconcileFailedAuthorityAttempt,
   releasePreparedChallenge,
   reopenUnconfirmedChallenge,
 } = require('../keepalive_authority_state');
@@ -177,6 +178,25 @@ test('preparation is non-authorizing and can be conditionally released before re
   assert.equal((await readAuthorityState(api.request, repository, prNumber)).state.status, 'available');
 });
 
+test('an exact release retry is idempotent but cannot release a replacement receipt', async () => {
+  const api = fakeGitHub();
+  const state = await beginChallenge({
+    request: api.request, repository, prNumber, defaultBranch: 'main',
+    fingerprint, headSha, ...boundary(),
+  });
+  const signed = claim(state);
+  const options = { request: api.request, repository, prNumber, claim: signed,
+    ownerAttempt, provider: 'codex', headSha };
+  assert.equal((await prepareChallenge(options)).prepared, true);
+  assert.equal((await releasePreparedChallenge(options)).released, true);
+  assert.equal((await releasePreparedChallenge(options)).reason,
+    'challenge-preparation-already-released');
+  assert.equal((await prepareChallenge(options)).prepared, true);
+  assert.equal((await releasePreparedChallenge({ ...options,
+    ownerAttempt: 'owner/repo:999:1' })).released, false);
+  assert.equal((await readAuthorityState(api.request, repository, prNumber)).state.status, 'prepared');
+});
+
 test('a generation is never reused for a different originating head', async () => {
   const api = fakeGitHub();
   const first = await beginChallenge({
@@ -309,12 +329,63 @@ test('workflow reporter reopens with the persisted claim and failed run identity
     request: api.request, repository, prNumber, claim: null,
     ownerAttempt: 'owner/repo:101:1', provider: 'codex', headSha,
   })).status, 'uncertain');
-  const reopened = await reopenUnconfirmedChallenge({
+  assert.equal((await reopenUnconfirmedChallenge({
     request: api.request, repository, prNumber, claim: null,
     ownerAttempt, provider: 'codex', headSha,
+  })).status, 'uncertain');
+  const reopened = await reopenUnconfirmedChallenge({
+    request: api.request, repository, prNumber, claim: null,
+    ownerAttempt, provider: 'codex', headSha, workerEvidence: 'not-started',
   });
   assert.equal(reopened.status, 'reopened');
   assert.equal(reopened.state.consumed_claim, null);
+});
+
+test('failed-run reconciliation is independent of summary state and requires positive non-start', async () => {
+  const api = fakeGitHub();
+  const state = await beginChallenge({
+    request: api.request, repository, prNumber, defaultBranch: 'main',
+    fingerprint, headSha, ...boundary(),
+  });
+  const signed = claim(state);
+  assert.equal((await prepareChallenge({
+    request: api.request, repository, prNumber, claim: signed,
+    ownerAttempt, provider: 'codex', headSha,
+  })).prepared, true);
+  const args = { request: api.request, repository, prNumber, ownerAttempt };
+  assert.equal((await reconcileFailedAuthorityAttempt({
+    ...args, workerEvidence: 'unknown',
+  })).status, 'execution-not-disproved');
+  assert.equal((await readAuthorityState(api.request, repository, prNumber)).state.status, 'prepared');
+  assert.equal((await reconcileFailedAuthorityAttempt({
+    ...args, ownerAttempt: 'owner/repo:101:1', workerEvidence: 'not-started',
+  })).status, 'attempt-not-current');
+  const released = await reconcileFailedAuthorityAttempt({
+    ...args, workerEvidence: 'not-started',
+  });
+  assert.equal(released.status, 'released');
+  assert.equal(released.state.status, 'available');
+  assert.equal((await readAuthorityState(api.request, repository, prNumber)).state.status, 'available');
+});
+
+test('consumed receipt only reopens for its exact attempt with a proven unstarted worker', async () => {
+  const api = fakeGitHub();
+  const state = await beginChallenge({
+    request: api.request, repository, prNumber, defaultBranch: 'main',
+    fingerprint, headSha, ...boundary(),
+  });
+  assert.equal((await consumeChallenge({
+    request: api.request, repository, prNumber, claim: claim(state),
+    ownerAttempt, provider: 'codex', headSha,
+  })).granted, true);
+  const args = { request: api.request, repository, prNumber, ownerAttempt };
+  assert.equal((await reconcileFailedAuthorityAttempt({
+    ...args, workerEvidence: 'started',
+  })).status, 'execution-not-disproved');
+  assert.equal((await readAuthorityState(api.request, repository, prNumber)).state.status, 'consumed');
+  assert.equal((await reconcileFailedAuthorityAttempt({
+    ...args, workerEvidence: 'not-started',
+  })).status, 'reopened');
 });
 
 test('unavailable PR read after confirmation preserves the confirmed challenge', async () => {
@@ -339,6 +410,31 @@ test('unavailable PR read after confirmation preserves the confirmed challenge',
     ownerAttempt, provider: 'codex', headSha,
   }), /HTTP 503/);
   api.setPrUnavailable(false);
+  assert.equal((await readAuthorityState(api.request, repository, prNumber)).state.status, 'confirmed');
+});
+
+test('confirmed receipt never reopens after a same-head hard label removal', async () => {
+  const api = fakeGitHub();
+  const state = await beginChallenge({
+    request: api.request, repository, prNumber, defaultBranch: 'main',
+    fingerprint, headSha, ...boundary(),
+  });
+  const signed = claim(state);
+  assert.equal((await consumeChallenge({
+    request: api.request, repository, prNumber, claim: signed,
+    ownerAttempt, provider: 'codex', headSha,
+  })).granted, true);
+  api.setPrLabels(['needs-human']);
+  assert.equal(await confirmChallenge({
+    request: api.request, repository, prNumber, claim: signed,
+    ownerAttempt, provider: 'codex', headSha,
+  }), true);
+  api.setPrLabels(['agent:needs-attention']);
+  const recovered = await reopenUnconfirmedChallenge({
+    request: api.request, repository, prNumber, claim: signed,
+    ownerAttempt, provider: 'codex', headSha,
+  });
+  assert.equal(recovered.status, 'uncertain');
   assert.equal((await readAuthorityState(api.request, repository, prNumber)).state.status, 'confirmed');
 });
 

@@ -2,7 +2,7 @@ name: Keepalive Loop Reporter
 
 on:
   workflow_run:
-    workflows: ["Agents Gate Followups"]
+    workflows: ["Agents Gate Followups", "Agents Keepalive Loop"]
     types: [completed]
 
 permissions:
@@ -20,7 +20,6 @@ concurrency:
 jobs:
   report:
     name: Report keepalive completion
-    if: vars.USE_CONSOLIDATED_WORKFLOWS == 'true'
     runs-on: ubuntu-latest
     steps:
       - name: Checkout keepalive scripts
@@ -31,6 +30,14 @@ jobs:
             .github/actions
           sparse-checkout-cone-mode: false
           fetch-depth: 1
+
+      - name: Require PR association for failed originating run
+        if: >-
+          github.event.workflow_run.conclusion != 'success' &&
+          !github.event.workflow_run.pull_requests[0].number
+        run: |
+          echo "::error::Originating run has no PR association; attempt-bound authority reconciliation needs an identified PR. Retry after recovering the PR association."
+          exit 1
 
       - name: Set up Node.js
         uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7
@@ -154,8 +161,39 @@ jobs:
               return;
             }
 
-            const { loadKeepaliveState } = require('./.github/scripts/keepalive_state.js');
+            const { loadKeepaliveState, projectRecoveredAuthorityState } =
+              require('./.github/scripts/keepalive_state.js');
             const { updateKeepaliveLoopSummary } = require('./.github/scripts/keepalive_loop.js');
+            const { getWorkerExecutionEvidence } = require('./.github/scripts/keepalive_worker_evidence.js');
+
+            const workerEvidence = await getWorkerExecutionEvidence(
+              github, context.repo.owner, context.repo.repo, run.id, run.run_attempt || 1
+            );
+            core.info(`Originating worker execution evidence: ${workerEvidence}`);
+            const ownerAttempt =
+              `${context.repo.owner}/${context.repo.repo}:${run.id}:${run.run_attempt || 1}`.toLowerCase();
+            const { reconcileFailedAuthorityAttempt, requester } =
+              require('./.github/scripts/keepalive_authority_state.js');
+            try {
+              const reconciliation = await reconcileFailedAuthorityAttempt({
+                request: requester(github),
+                repository: `${context.repo.owner}/${context.repo.repo}`,
+                prNumber, ownerAttempt, workerEvidence,
+              });
+              core.info(`Attempt-bound authority reconciliation: ${reconciliation.status}`);
+              if (['released', 'reopened'].includes(reconciliation.status)) {
+                await projectRecoveredAuthorityState({
+                  github, context, prNumber, recovery: reconciliation,
+                  writerLogin: process.env.KEEPALIVE_SUMMARY_WRITER || '',
+                });
+                return;
+              }
+            } catch (error) {
+              if (error.status !== 404) {
+                core.setFailed(`Authority reconciliation unavailable: ${error.message}`);
+                return;
+              }
+            }
 
             const { state } = await loadKeepaliveState({ github, context, prNumber, trace: '' });
             if (!state || state.running !== true) {
@@ -168,9 +206,10 @@ jobs:
               head_sha: run.head_sha || '',
               action: 'run',
               reason: '',
-              agent_execution_started: false,
+              agent_execution_started: workerEvidence === 'started' ? true :
+                workerEvidence === 'not-started' ? false : '',
               authority_owner_attempt:
-                `${context.repo.owner}/${context.repo.repo}:${run.id}:${run.run_attempt || 1}`.toLowerCase(),
+                ownerAttempt,
               gate_conclusion: state.gate_conclusion || '',
               iteration: state.iteration || 0,
               max_iterations: state.max_iterations || 0,

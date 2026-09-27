@@ -4604,6 +4604,7 @@ async function updateKeepaliveLoopSummary({ github: rawGithub, context, core, in
               `${context.runAttempt || process.env.GITHUB_RUN_ATTEMPT || ''}`,
             provider: agentType,
             headSha: inputs.head_sha ?? inputs.headSha,
+            workerEvidence: agentExecutionStarted === false ? 'not-started' : 'unknown',
           });
           if (recovery.status === 'reopened' && recovery.state) {
             challengeState = {
@@ -4790,6 +4791,7 @@ async function updateKeepaliveLoopSummary({ github: rawGithub, context, core, in
                   ownerAttempt: `${repository.toLowerCase()}:${context.runId || process.env.GITHUB_RUN_ID || ''}:${context.runAttempt || process.env.GITHUB_RUN_ATTEMPT || ''}`,
                   provider: agentType,
                   headSha: inputs.head_sha ?? inputs.headSha,
+                  workerEvidence: 'unknown',
                 });
               } catch (error) {
                 core?.warning?.(`Authority confirmation reconciliation unavailable: ${error.message}`);

@@ -428,13 +428,16 @@ scripts:
     description: "Generates keepalive instructions for Codex"
 
   - source: .github/scripts/keepalive_loop.js
-    description: "Core keepalive loop logic"
+    description: "Core keepalive loop logic with evidence-gated authority reconciliation"
 
   - source: .github/scripts/keepalive_challenge_due.js
     description: "Selects due automation-owned authority challenges for the hourly keepalive sweep"
 
   - source: .github/scripts/keepalive_authority_state.js
-    description: "PR-wide conditional authority generation and single-use receipt ledger"
+    description: "PR-wide conditional authority generation, exact-attempt release retry, and single-use receipt ledger"
+
+  - source: .github/scripts/keepalive_worker_evidence.js
+    description: "Attempt-bound worker job evidence for keepalive authority recovery"
 
   - source: .github/scripts/token_load_balancer.js
     description: "Dynamic token load balancer for API rate limit management"
@@ -443,7 +446,7 @@ scripts:
     description: "Prompt routing logic for keepalive - determines which prompt template to use"
 
   - source: .github/scripts/keepalive_state.js
-    description: "Keepalive state management"
+    description: "Keepalive state management and recovered authority summary projection"
 
   - source: .github/scripts/timeout_config.js
     description: "Timeout configuration parser for keepalive - required by keepalive_loop.js"

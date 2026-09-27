@@ -653,6 +653,47 @@ def test_preflight_release_terminalizes_reservation_before_refunding_challenge(m
     assert commands == ["prepare", "release"]
 
 
+def test_preflight_release_retries_same_terminal_attempt_after_ledger_failure(monkeypatch):
+    _signed_challenge_environment(monkeypatch)
+    commands = []
+
+    def authority(command, *_):
+        commands.append(command)
+        if command == "prepare":
+            return {"prepared": True}
+        if len([name for name in commands if name == "release"]) == 1:
+            return {"released": False}
+        return {"released": True}
+
+    monkeypatch.setattr(runner_core, "_authority_challenge_command", authority)
+    primary = MemoryRunnerStorage()
+    storage = runner_core.FallbackRunnerStorage(primary, MemoryRunnerStorage())
+    assert should_dispatch(42, "aaa", "codex", storage=storage, authority_challenge=True).should_dispatch
+    assert not runner_core.release_authority_challenge(42, "aaa", "codex", storage=storage)
+    terminal = primary.read_record(42, "codex")
+    assert terminal["status"] == "error"
+    assert terminal["result"]["error"] == "runner-preflight-failed"
+    assert runner_core.release_authority_challenge(42, "aaa", "codex", storage=storage)
+    assert primary.read_record(42, "codex") == terminal
+    assert commands == ["prepare", "release", "release"]
+
+
+def test_preflight_release_rejects_other_terminal_error(monkeypatch):
+    _signed_challenge_environment(monkeypatch)
+    commands = []
+    monkeypatch.setattr(
+        runner_core, "_authority_challenge_command",
+        lambda command, *_: commands.append(command) or {"prepared": True},
+    )
+    primary = MemoryRunnerStorage()
+    storage = runner_core.FallbackRunnerStorage(primary, MemoryRunnerStorage())
+    assert should_dispatch(42, "aaa", "codex", storage=storage, authority_challenge=True).should_dispatch
+    reservation = primary.read_record(42, "codex")
+    primary.write_record(42, "codex", {**reservation, "status": "error", "result": {"error": "worker-failed"}})
+    assert not runner_core.release_authority_challenge(42, "aaa", "codex", storage=storage)
+    assert commands == ["prepare"]
+
+
 def test_preflight_release_keeps_challenge_prepared_when_terminal_write_fails(monkeypatch):
     _signed_challenge_environment(monkeypatch)
     commands = []
