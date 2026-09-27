@@ -208,7 +208,7 @@ jobs:
 
             const inputs = {
               pr_number: prNumber,
-              head_sha: run.head_sha || '',
+              head_sha: authorityTarget?.state?.head_sha || run.head_sha || '',
               action: 'run',
               reason: '',
               agent_execution_started: workerEvidence === 'started' ? true :
