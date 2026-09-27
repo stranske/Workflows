@@ -20,7 +20,10 @@ concurrency:
 jobs:
   report:
     name: Report keepalive completion
-    if: vars.USE_CONSOLIDATED_WORKFLOWS == 'true'
+    if: >-
+      vars.USE_CONSOLIDATED_WORKFLOWS == 'true' &&
+      github.event.workflow_run.conclusion != 'success' &&
+      github.event.workflow_run.conclusion != 'skipped'
     runs-on: ubuntu-latest
     steps:
       - name: Checkout keepalive scripts
@@ -166,7 +169,7 @@ jobs:
             let prNumber = Number(run.pull_requests?.[0]?.number || 0);
 
             const conclusion = String(run.conclusion || run.status || '').toLowerCase();
-            if (!conclusion || conclusion === 'success') {
+            if (!conclusion || conclusion === 'success' || conclusion === 'skipped') {
               core.info(
                 `Keepalive run conclusion=${conclusion || 'unknown'}; ` +
                 'no post summary needed.'

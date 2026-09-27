@@ -4604,7 +4604,9 @@ async function updateKeepaliveLoopSummary({ github: rawGithub, context, core, in
               `${context.runAttempt || process.env.GITHUB_RUN_ATTEMPT || ''}`,
             provider: agentType,
             headSha: inputs.head_sha ?? inputs.headSha,
-            workerEvidence: agentExecutionStarted === false ? 'not-started' : 'unknown',
+            // Presentation outputs cannot prove that an exact worker attempt did not start.
+            // Only the attempt-bound workflow reporter may reopen a consumed receipt.
+            workerEvidence: 'unknown',
           });
           if (recovery.status === 'reopened' && recovery.state) {
             challengeState = {

@@ -62,6 +62,7 @@ def test_gate_paths_deny_invalid_claims_and_reporters_can_persist_generation() -
         TEMPLATE / ".github/workflows/agents-keepalive-loop-reporter.yml",
     ):
         workflow = yaml.safe_load(path.read_text())
+        assert "skipped" in workflow["jobs"]["report"]["if"]
         assert workflow["permissions"]["contents"].startswith("read")
         assert path.read_text().count("permission-contents: write") == 2
         assert (

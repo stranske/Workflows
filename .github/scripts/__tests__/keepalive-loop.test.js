@@ -3125,7 +3125,7 @@ test('updateKeepaliveLoopSummary does not consume authority ledger when agent ex
   assert.match(updateAction.body, /"disposition":"automation-retry"/);
 });
 
-test('failed workflow reporter reopens the persisted authority claim for its owning run', async () => {
+test('summary input without exact job evidence cannot reopen a consumed authority receipt', async () => {
   const authSummary = 'Missing token ACTIONS_BOT_PAT for GitHub API repository dispatch.';
   const boundary = buildAuthorityChallengeEvidence({ agentSummary: authSummary });
   const existingState = formatStateComment({
@@ -3172,12 +3172,12 @@ test('failed workflow reporter reopens the persisted authority claim for its own
 
   const updateAction = github.actions.filter((action) => action.type === 'update').at(-1);
   const attention = parseStateComment(updateAction.body).data.attention;
-  assert.equal(attention.disposition, 'challenge-due');
+  assert.equal(attention.disposition, 'automation-retry');
   assert.equal(attention.owner, 'automation');
-  assert.notEqual(attention.generation, 'c'.repeat(64));
+  assert.equal(attention.generation, '');
   assert.equal(
     github.actions.filter((action) => action.type === 'authority-ledger-write').length,
-    1,
+    0,
   );
 });
 
