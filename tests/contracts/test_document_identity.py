@@ -96,6 +96,18 @@ def test_supersession_requires_mechanism_evidence() -> None:
     assert any("supersession_evidence" in error for error in _errors(document))
 
 
+def test_document_cannot_supersede_its_own_bytes(tmp_path: Path) -> None:
+    document = _fixture("valid_ocr_document_evidence.json")
+    document["document_ref"]["supersedes"] = document["document_ref"]["sha256"]
+    path = tmp_path / "self-superseding.json"
+    path.write_text(json.dumps(document))
+
+    report = validate_evidence_objects(paths=[path], schema_dir=SCHEMAS)
+
+    assert not report.conformant
+    assert any("earlier byte version" in violation.message for violation in report.violations)
+
+
 def test_duplicate_page_conflict_rejected_by_validator(tmp_path: Path) -> None:
     document = _fixture("valid_native_document_evidence.json")
     document["locator"]["page"] = 1
