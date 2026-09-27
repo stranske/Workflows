@@ -17,7 +17,8 @@
     "mirror_root": {
       "type": "string",
       "minLength": 1,
-      "description": "Filesystem root of the mirrored blob store (absolute or repo-local path)."
+      "description": "Filesystem root of the mirrored blob store (absolute or repo-local path); URI schemes are not filesystem roots.",
+      "pattern": "^(?:(?:[A-Za-z]:[\\\\/])|(?!(?:[A-Za-z][A-Za-z0-9+.-]*:))).+"
     },
     "created_at": {
       "type": "string",
@@ -48,8 +49,8 @@
           "blob_path": {
             "type": "string",
             "minLength": 1,
-            "description": "Path relative to mirror_root. Absolute POSIX paths, Windows drive/UNC prefixes, backslashes, and '..' traversal are rejected by the validator.",
-            "pattern": "^(?!/)(?!//)(?![A-Za-z]:)(?!.*\\\\)(?!.*(^|/)\\.\\.(/|$)).+$"
+            "description": "Path relative to mirror_root. Absolute paths, URI schemes, Windows drive/UNC prefixes, backslashes, '..' traversal, empty path segments, and trailing separators are rejected by the validator.",
+            "pattern": "^(?!/)(?![A-Za-z]:)(?![A-Za-z][A-Za-z0-9+.-]*:)(?!.*\\\\)(?!.*(^|/)\\.\\.(/|$))(?!.*//)(?!.*\\/$).+$"
           },
           "doc_type_id": {
             "type": "string",
