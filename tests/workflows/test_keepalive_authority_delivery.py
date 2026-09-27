@@ -80,3 +80,8 @@ def test_gate_paths_deny_invalid_claims_and_reporters_can_persist_generation() -
 
     root_reporter = (ROOT / ".github/workflows/agents-keepalive-loop-reporter.yml").read_text()
     assert '"Agents Keepalive Loop"' in root_reporter
+    consumer_reporter = (
+        TEMPLATE / ".github/workflows/agents-keepalive-loop-reporter.yml"
+    ).read_text()
+    assert '"run_id": int(run.get("id") or 0)' in consumer_reporter
+    assert '"run_attempt": int(run.get("run_attempt") or 1)' in consumer_reporter

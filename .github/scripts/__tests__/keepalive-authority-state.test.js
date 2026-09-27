@@ -31,8 +31,10 @@ function status(code) {
 function fakeGitHub() {
   let branch = false;
   let content = null;
+  const attemptFiles = new Map();
   let beforePut = null;
   let afterPut = null;
+  let afterIndexPut = null;
   let prHead = headSha;
   let prLabels = ['agent:needs-attention'];
   let prUnavailable = false;
@@ -53,9 +55,20 @@ function fakeGitHub() {
       branch = true;
       return {};
     }
-    if (path.includes('/contents/.github/keepalive-authority?') && method === 'GET') {
-      if (!branch || !content) throw status(404);
-      return [{ name: '42.json', type: 'file' }];
+    if (path.includes('/contents/.github/keepalive-authority-attempts/')) {
+      const key = path.split('/').pop().split('?')[0];
+      if (method === 'GET') {
+        if (!attemptFiles.has(key)) throw status(404);
+        const encoded = attemptFiles.get(key);
+        return { sha: crypto.createHash('sha1').update(encoded).digest('hex'),
+          encoding: 'base64', content: encoded };
+      }
+      if (method === 'PUT') {
+        if (attemptFiles.has(key)) throw status(422);
+        attemptFiles.set(key, body.content);
+        if (afterIndexPut) await afterIndexPut();
+        return {};
+      }
     }
     if (!path.includes('/contents/.github/keepalive-authority/42.json')) {
       throw new Error(`Unexpected ${method} ${path}`);
@@ -78,9 +91,14 @@ function fakeGitHub() {
     request,
     setBeforePut(fn) { beforePut = fn; },
     setAfterPut(fn) { afterPut = fn; },
+    setAfterIndexPut(fn) { afterIndexPut = fn; },
     setPrHead(sha) { prHead = sha; },
     setPrLabels(labels) { prLabels = labels; },
     setPrUnavailable(value) { prUnavailable = value; },
+    corruptAttemptIndex() {
+      const key = `${crypto.createHash('sha256').update(ownerAttempt).digest('hex')}.json`;
+      attemptFiles.set(key, Buffer.from('{invalid json').toString('base64'));
+    },
     expireChallenge() {
       const state = JSON.parse(Buffer.from(content, 'base64').toString('utf8'));
       state.expires_at = new Date(Date.now() - 1).toISOString();
@@ -196,7 +214,9 @@ test('an exact release retry is idempotent but cannot release a replacement rece
   assert.equal((await releasePreparedChallenge(options)).released, true);
   assert.equal((await releasePreparedChallenge(options)).reason,
     'challenge-preparation-already-released');
-  assert.equal((await prepareChallenge(options)).prepared, true);
+  assert.equal((await prepareChallenge(options)).reason, 'attempt-already-settled');
+  const replacement = { ...options, ownerAttempt: 'owner/repo:101:1' };
+  assert.equal((await prepareChallenge(replacement)).prepared, true);
   assert.equal((await releasePreparedChallenge({ ...options,
     ownerAttempt: 'owner/repo:999:1' })).released, false);
   assert.equal((await readAuthorityState(api.request, repository, prNumber)).state.status, 'prepared');
@@ -348,6 +368,7 @@ test('workflow reporter reopens with the persisted claim and failed run identity
 
 test('failed-run reconciliation is independent of summary state and requires positive non-start', async () => {
   const api = fakeGitHub();
+  assert.equal(await findAuthorityPrForAttempt({ request: api.request, repository, ownerAttempt }), null);
   const state = await beginChallenge({
     request: api.request, repository, prNumber, defaultBranch: 'main',
     fingerprint, headSha, ...boundary(),
@@ -376,6 +397,40 @@ test('failed-run reconciliation is independent of summary state and requires pos
   });
   assert.equal(target.prNumber, prNumber);
   assert.equal(target.state.status, 'available');
+});
+
+test('a corrupted direct attempt index denies finalization and missing-PR recovery', async () => {
+  const api = fakeGitHub();
+  const state = await beginChallenge({
+    request: api.request, repository, prNumber, defaultBranch: 'main',
+    fingerprint, headSha, ...boundary(),
+  });
+  const signed = claim(state);
+  const args = { request: api.request, repository, prNumber,
+    claim: signed, ownerAttempt, provider: 'codex', headSha };
+  assert.equal((await prepareChallenge(args)).prepared, true);
+  api.corruptAttemptIndex();
+  assert.equal((await finalizeChallenge(args)).reason, 'attempt-index-unavailable');
+  await assert.rejects(findAuthorityPrForAttempt({
+    request: api.request, repository, ownerAttempt,
+  }), /Malformed authority attempt index/);
+  assert.equal((await readAuthorityState(api.request, repository, prNumber)).state.status, 'prepared');
+});
+
+test('lost index-create response denies this preparation but permits exact later retry', async () => {
+  const api = fakeGitHub();
+  const state = await beginChallenge({
+    request: api.request, repository, prNumber, defaultBranch: 'main',
+    fingerprint, headSha, ...boundary(),
+  });
+  const args = { request: api.request, repository, prNumber,
+    claim: claim(state), ownerAttempt, provider: 'codex', headSha };
+  api.setAfterIndexPut(() => { throw status(503); });
+  assert.equal((await prepareChallenge(args)).reason, 'attempt-index-uncertain');
+  assert.equal((await readAuthorityState(api.request, repository, prNumber)).state.status, 'available');
+  api.setAfterIndexPut(null);
+  assert.equal((await prepareChallenge(args)).prepared, true);
+  assert.equal((await finalizeChallenge(args)).granted, true);
 });
 
 test('consumed receipt only reopens for its exact attempt with a proven unstarted worker', async () => {

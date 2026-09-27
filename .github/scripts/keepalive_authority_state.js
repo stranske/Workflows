@@ -43,6 +43,61 @@ function pathFor(repository, prNumber) {
   return `/repos/${String(repository).toLowerCase()}/contents/.github/keepalive-authority/${Number(prNumber)}.json`;
 }
 
+function attemptPath(repository, ownerAttempt) {
+  if (!ATTEMPT.test(String(ownerAttempt)) ||
+      !String(ownerAttempt).startsWith(`${String(repository).toLowerCase()}:`)) {
+    throw new Error('Invalid authority attempt repository');
+  }
+  const key = crypto.createHash('sha256').update(ownerAttempt).digest('hex');
+  return `/repos/${String(repository).toLowerCase()}/contents/.github/keepalive-authority-attempts/${key}.json`;
+}
+
+function validAttemptIndex(index, repository, ownerAttempt) {
+  return index?.version === 1 && index.repository === String(repository).toLowerCase() &&
+    index.owner_attempt === ownerAttempt && Number.isSafeInteger(index.pr_number) &&
+    index.pr_number > 0 && HEX.test(index.generation) && validReceipt(index.receipt) &&
+    index.receipt.owner_attempt === ownerAttempt;
+}
+
+async function readAttemptIndex(request, repository, ownerAttempt, { allowMissing = false } = {}) {
+  let file;
+  try {
+    file = await request('GET', `${attemptPath(repository, ownerAttempt)}?ref=${BRANCH}`);
+  } catch (error) {
+    if (allowMissing && error.status === 404) return null;
+    throw error;
+  }
+  if (!/^[0-9a-f]{40}$/.test(String(file?.sha)) || file?.encoding !== 'base64') {
+    throw new Error('Invalid authority attempt index metadata');
+  }
+  let index;
+  try {
+    index = JSON.parse(Buffer.from(String(file.content).replace(/\s/g, ''), 'base64').toString('utf8'));
+  } catch (error) {
+    throw new Error(`Malformed authority attempt index: ${error.message}`);
+  }
+  if (!validAttemptIndex(index, repository, ownerAttempt)) {
+    throw new Error('Invalid authority attempt index');
+  }
+  return index;
+}
+
+async function createAttemptIndex(request, repository, ownerAttempt, index) {
+  const existing = await readAttemptIndex(request, repository, ownerAttempt, { allowMissing: true });
+  if (existing) return existing;
+  try {
+    await request('PUT', attemptPath(repository, ownerAttempt), {
+      branch: BRANCH,
+      message: `keepalive authority attempt ${ownerAttempt}`,
+      content: Buffer.from(`${JSON.stringify(index)}\n`).toString('base64'),
+    });
+    return index;
+  } catch (error) {
+    if (![409, 422].includes(error.status)) throw error;
+    return readAttemptIndex(request, repository, ownerAttempt);
+  }
+}
+
 async function requestWithOctokit(github, method, path, body) {
   try {
     // Writes are conditional and intentionally get no automatic retry. An
@@ -183,6 +238,10 @@ async function prepareChallenge({ request, repository, prNumber, claim, ownerAtt
       !HEAD.test(String(headSha)) || claim.head_sha !== headSha) {
     return { prepared: false, reason: 'challenge-not-current' };
   }
+  if (prior.state.released_receipt?.owner_attempt === ownerAttempt ||
+      prior.state.recovered_receipt?.owner_attempt === ownerAttempt) {
+    return { prepared: false, reason: 'attempt-already-settled' };
+  }
   const receipt = {
     id: crypto.randomBytes(32).toString('hex'),
     claim_digest: crypto.createHash('sha256').update(JSON.stringify(claim)).digest('hex'),
@@ -191,7 +250,21 @@ async function prepareChallenge({ request, repository, prNumber, claim, ownerAtt
     head_sha: headSha,
     consumed_at: now.toISOString(),
   };
-  const next = { ...prior.state, status: 'prepared', receipt,
+  const candidate = { version: 1, repository: String(repository).toLowerCase(),
+    owner_attempt: ownerAttempt, pr_number: Number(prNumber),
+    generation: prior.state.generation, receipt };
+  let index;
+  try {
+    index = await createAttemptIndex(request, repository, ownerAttempt, candidate);
+  } catch (_) {
+    return { prepared: false, reason: 'attempt-index-uncertain' };
+  }
+  if (index.pr_number !== Number(prNumber) || index.generation !== prior.state.generation ||
+      index.receipt.claim_digest !== receipt.claim_digest ||
+      index.receipt.provider !== provider || index.receipt.head_sha !== headSha) {
+    return { prepared: false, reason: 'attempt-index-conflict' };
+  }
+  const next = { ...prior.state, status: 'prepared', receipt: index.receipt,
     prepared_claim: claim, recovered_receipt: null, recovered_generation: null,
     released_receipt: null, revision: prior.state.revision + 1 };
   try {
@@ -199,7 +272,7 @@ async function prepareChallenge({ request, repository, prNumber, claim, ownerAtt
   } catch (error) {
     return { prepared: false, reason: [409, 422].includes(error.status) ? 'challenge-conflict' : 'challenge-write-uncertain' };
   }
-  return { prepared: true, reason: 'challenge-prepared', receipt };
+  return { prepared: true, reason: 'challenge-prepared', receipt: index.receipt };
 }
 
 function receiptMatches(receipt, claim, ownerAttempt, provider, headSha) {
@@ -215,6 +288,18 @@ async function finalizeChallenge({ request, repository, prNumber, claim, ownerAt
       prior.state.generation !== claim.generation ||
       !receiptMatches(prior.state.receipt, claim, ownerAttempt, provider, headSha)) {
     return { granted: false, reason: 'challenge-preparation-not-current' };
+  }
+  let index;
+  try {
+    index = await readAttemptIndex(request, repository, ownerAttempt);
+  } catch (_) {
+    return { granted: false, reason: 'attempt-index-unavailable' };
+  }
+  if (index.pr_number !== Number(prNumber) || index.generation !== prior.state.generation ||
+      index.receipt.id !== prior.state.receipt.id ||
+      index.receipt.claim_digest !== prior.state.receipt.claim_digest ||
+      index.receipt.provider !== provider || index.receipt.head_sha !== headSha) {
+    return { granted: false, reason: 'attempt-index-conflict' };
   }
   // Persist the exact claim beside its receipt. A workflow_run reporter may need to
   // reopen this reservation after the owning run fails before an agent starts, and
@@ -404,29 +489,16 @@ async function reconcileFailedAuthorityAttempt({ request, repository, prNumber, 
 }
 
 async function findAuthorityPrForAttempt({ request, repository, ownerAttempt }) {
-  if (!ATTEMPT.test(String(ownerAttempt))) throw new Error('Invalid authority owner attempt');
-  const repo = String(repository).toLowerCase();
-  let entries;
-  try {
-    entries = await request('GET', `/repos/${repo}/contents/.github/keepalive-authority?ref=${BRANCH}`);
-  } catch (error) {
-    if (error.status === 404) return null;
-    throw error;
+  const index = await readAttemptIndex(request, repository, ownerAttempt, { allowMissing: true });
+  if (!index) return null;
+  const { state } = await readAuthorityState(request, repository, index.pr_number);
+  const receipts = [state.receipt, state.released_receipt, state.recovered_receipt];
+  if (!receipts.some((receipt) => receipt?.id === index.receipt.id &&
+      receipt.owner_attempt === ownerAttempt && receipt.claim_digest === index.receipt.claim_digest &&
+      receipt.head_sha === index.receipt.head_sha && receipt.provider === index.receipt.provider)) {
+    throw new Error('Authority attempt index does not match PR ledger receipt');
   }
-  if (!Array.isArray(entries) || entries.length >= 1000) {
-    throw new Error('Authority directory listing unavailable or incomplete');
-  }
-  let matched = null;
-  for (const entry of entries) {
-    if (entry?.type !== 'file' || !/^\d+\.json$/.test(String(entry.name || ''))) continue;
-    const prNumber = Number(entry.name.slice(0, -5));
-    const { state } = await readAuthorityState(request, repository, prNumber);
-    const receipts = [state.receipt, state.released_receipt, state.recovered_receipt];
-    if (!receipts.some((receipt) => receipt?.owner_attempt === ownerAttempt)) continue;
-    if (matched) throw new Error('Authority attempt matched multiple PRs');
-    matched = { prNumber, state };
-  }
-  return matched;
+  return { prNumber: index.pr_number, state };
 }
 
 module.exports = {

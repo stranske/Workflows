@@ -59,6 +59,8 @@ jobs:
           run = event.get("workflow_run") or {}
           run_state = {
               "pr_number": int(os.environ["PR_NUMBER"]),
+              "run_id": int(run.get("id") or 0),
+              "run_attempt": int(run.get("run_attempt") or 1),
               "head_sha": run.get("head_sha") or "",
               "status": run.get("status") or "",
               "conclusion": run.get("conclusion") or "",
