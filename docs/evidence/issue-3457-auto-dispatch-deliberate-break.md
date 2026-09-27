@@ -18,10 +18,12 @@ history.
 ## Current reproduction
 
 The gate remains reproducible on `main`. On 2026-09-27, at base commit
-`0ff1178a2`, the step name `Dispatch evaluation pilot on catalog drift` was
-temporarily changed to `Deliberately disabled evaluation pilot dispatch` in
-`.github/workflows/maint-77-model-registry-freshness.yml`. No test assertion or
-other product behavior was changed.
+`0ff1178a2`, the entire `Dispatch evaluation pilot on catalog drift` step was
+temporarily removed from
+`.github/workflows/maint-77-model-registry-freshness.yml`. This removes the
+`actions/github-script` invocation and its `createWorkflowDispatch` call rather
+than changing display metadata. No test assertion or other workflow step was
+changed.
 
 Command:
 
@@ -29,7 +31,7 @@ Command:
 python3 -m pytest tests/workflows/test_model_eval_pilot_workflow.py -k auto_dispatch -q
 ```
 
-Raw captured failure while the dispatch step was neutered (unmodified pytest
+Raw captured failure while the dispatch step was removed (unmodified pytest
 output):
 
 ```text
@@ -75,15 +77,15 @@ E       StopIteration
 tests/workflows/test_model_eval_pilot_workflow.py:57: StopIteration
 =========================== short test summary info ============================
 FAILED tests/workflows/test_model_eval_pilot_workflow.py::test_auto_dispatch_maint77_chains_to_maint78_on_catalog_drift
-1 failed, 3 deselected in 0.27s
+1 failed, 3 deselected in 0.28s
 ```
 
-The original step name was then restored with no residual workflow diff. The
-exact command passed:
+The complete dispatch step was then restored byte-for-byte, leaving no residual
+workflow diff. The exact command passed:
 
 ```text
 .                                                                        [100%]
-1 passed, 3 deselected in 0.24s
+1 passed, 3 deselected in 0.25s
 ```
 
 This is a current, reproducible fail-to-pass proof for the same named gate. It
