@@ -170,8 +170,15 @@ def test_document_mirror_fixture_validates() -> None:
         broken["blobs"][0]["blob_path"] = path
         assert list(validator.iter_errors(broken)), path
 
-    for root in ("https://host/mirror", "file:///tmp/mirror", "x:relative",
-                 "../outside", "repo/../../outside", "..", "C:/../outside"):
+    for root in (
+        "https://host/mirror",
+        "file:///tmp/mirror",
+        "x:relative",
+        "../outside",
+        "repo/../../outside",
+        "..",
+        "C:/../outside",
+    ):
         broken = json.loads((FIXTURES / "valid_document_mirror.json").read_text())
         broken["mirror_root"] = root
         assert list(validator.iter_errors(broken)), root
