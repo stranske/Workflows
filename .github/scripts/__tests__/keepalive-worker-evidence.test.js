@@ -31,7 +31,7 @@ test('job API failure is unknown and the query is attempt-bound', async () => {
     paginate: async (_endpoint, args) => { calls.push(args); return [{ name, status: 'completed', conclusion: 'skipped' }]; },
   };
   assert.equal(await getWorkerExecutionEvidence(github, 'stranske', 'Workflows', 123, 2), 'not-started');
-  assert.deepEqual(calls[0], { owner: 'stranske', repo: 'Workflows', run_id: 123, run_attempt: 2, per_page: 100 });
+  assert.deepEqual(calls[0], { owner: 'stranske', repo: 'Workflows', run_id: 123, attempt_number: 2, per_page: 100 });
   github.paginate = async () => { throw new Error('rate-limited'); };
   assert.equal(await getWorkerExecutionEvidence(github, 'stranske', 'Workflows', 123, 2), 'unknown');
 });

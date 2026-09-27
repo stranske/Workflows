@@ -31,7 +31,7 @@ async function getWorkerExecutionEvidence(github, owner, repo, runId, runAttempt
     const jobs = await withRetry(() => github.paginate(
       github.rest.actions.listJobsForWorkflowRunAttempt, {
       owner, repo,
-      run_id: Number(runId), run_attempt: Number(runAttempt), per_page: 100,
+      run_id: Number(runId), attempt_number: Number(runAttempt), per_page: 100,
       }), { github, maxRetries: 2, task: 'keepalive-worker-evidence' });
     return classifyWorkerExecution(jobs);
   } catch (_) {
