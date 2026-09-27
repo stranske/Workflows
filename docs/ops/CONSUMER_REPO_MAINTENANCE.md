@@ -564,6 +564,19 @@ Scheduled Maint 82 continuations exclude the manual Collab-Admin exception.
 Its `delivery` selector targets only registered `sync/workflows-delivery`
 handoffs with the selected immutable plan, scope, base and source; candidate-only
 repositories are not sent to that lane as false `target_missing` failures.
+Maint 68 and Maint 71 share one repository-scoped GitHub Actions concurrency
+group for every stable-PR writer run. The boundary starts before either workflow
+reads consumer PR state and remains held through branch publication, review
+request reconciliation, lifecycle body replacement, merge, and cleanup. The
+group is intentionally not partitioned by workflow, selector, phase, plan,
+generation, head, or ref: candidate and campaign selectors can target the same
+stable PR, and Maint 68 can refresh that PR while Maint 71 advances its review
+lifecycle. Runs queue instead of cancelling one another, so a writer paused
+after its final identity read cannot race another writer into a whole-body
+PATCH. After a failed or cancelled writer, rerun the normal selector; the next
+holder re-reads the durable plan/generation/head record and reconciles any
+partial comment, body, branch, or label state.
+
 The `campaign` selector retains the non-manual fleet scope needed for exact-head
 authorization.
 Promoted delivery commits carry their exact canary evidence in the verified
