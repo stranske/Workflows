@@ -68,6 +68,8 @@ def test_gate_paths_deny_invalid_claims_and_reporters_can_persist_generation() -
         assert "authority_owner_attempt:" in path.read_text()
         assert "run.id}:${run.run_attempt || 1}" in path.read_text()
         assert "getWorkerExecutionEvidence(" in path.read_text()
+        assert "if (workerEvidence === 'unknown')" in path.read_text()
+        assert "retry this reporter" in path.read_text()
         assert "projectRecoveredAuthorityState(" in path.read_text()
         assert "findAuthorityPrForAttempt(" in path.read_text()
         assert (

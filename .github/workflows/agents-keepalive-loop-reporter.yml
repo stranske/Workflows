@@ -154,6 +154,10 @@ jobs:
               github, context.repo.owner, context.repo.repo, run.id, run.run_attempt || 1
             );
             core.info(`Originating worker execution evidence: ${workerEvidence}`);
+            if (workerEvidence === 'unknown') {
+              core.setFailed('Originating worker execution evidence is unknown; retry this reporter');
+              return;
+            }
             const ownerAttempt =
               `${context.repo.owner}/${context.repo.repo}:${run.id}:${run.run_attempt || 1}`.toLowerCase();
             const { findAuthorityPrForAttempt, reconcileFailedAuthorityAttempt, requester } =
