@@ -6,6 +6,13 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 Breaking changes are called out with a **BREAKING** marker and scheduled according to the policy in `COMPATIBILITY.md`.
 
+## [1.37.1](https://github.com/stranske/Workflows/compare/v1.37.0...v1.37.1) (2026-09-27)
+
+
+### Bug Fixes
+
+* terminalize closed generated delivery handoffs ([#3572](https://github.com/stranske/Workflows/issues/3572)) ([3623c87](https://github.com/stranske/Workflows/commit/3623c87db4039adeaacd8d79c9967bbdf30dbd41))
+
 ## [1.37.0](https://github.com/stranske/Workflows/compare/v1.36.2...v1.37.0) (2026-09-27)
 
 
