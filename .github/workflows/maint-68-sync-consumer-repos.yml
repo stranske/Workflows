@@ -87,11 +87,12 @@ env:
 # Maint 68 and Maint 71 are both whole-body/head writers for the same stable
 # consumer PRs.  The shared repository-scoped group is the serialization
 # boundary for the final-read-to-PATCH window; do not partition it by workflow,
-# selector, phase, plan, generation, head, or ref.
+# selector, phase, plan, generation, head, or ref. GitHub retains at most one
+# pending holder and may replace it with a newer arrival; durable reconciliation
+# must replay displaced work from its immutable inputs.
 concurrency:
   group: consumer-sync-stable-pr-writers-${{ github.repository }}
   cancel-in-progress: false
-  queue: max
 
 jobs:
   # ============================================================================

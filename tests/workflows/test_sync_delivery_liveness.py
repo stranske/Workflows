@@ -3,29 +3,28 @@ import threading
 from pathlib import Path
 
 
-def _top_level_concurrency(source: str) -> tuple[str, str, str]:
+def _top_level_concurrency(source: str) -> tuple[str, str]:
     match = re.search(
         r"^concurrency:\n"
         r"  group: (?P<group>[^\n]+)\n"
-        r"  cancel-in-progress: (?P<cancel>[^\n]+)\n"
-        r"  queue: (?P<queue>[^\n]+)$",
+        r"  cancel-in-progress: (?P<cancel>[^\n]+)$",
         source,
         flags=re.MULTILINE,
     )
     assert match, "workflow must declare the stable-PR writer concurrency contract"
-    return match.group("group"), match.group("cancel"), match.group("queue")
+    assert "queue:" not in source, "workflow must use supported concurrency syntax"
+    return match.group("group"), match.group("cancel")
 
 
 def test_maint68_and_maint71_serialize_stable_pr_writers_across_final_read_patch_window():
     maint68 = Path(".github/workflows/maint-68-sync-consumer-repos.yml").read_text()
     maint71 = Path(".github/workflows/maint-71-merge-sync-prs.yml").read_text()
-    maint68_group, maint68_cancel, maint68_queue = _top_level_concurrency(maint68)
-    maint71_group, maint71_cancel, maint71_queue = _top_level_concurrency(maint71)
+    maint68_group, maint68_cancel = _top_level_concurrency(maint68)
+    maint71_group, maint71_cancel = _top_level_concurrency(maint71)
 
     expected_group = "consumer-sync-stable-pr-writers-${{ github.repository }}"
     assert maint68_group == maint71_group == expected_group
     assert maint68_cancel == maint71_cancel == "false"
-    assert maint68_queue == maint71_queue == "max"
     for partition in (
         "github.workflow",
         "github.ref",
@@ -77,7 +76,23 @@ def test_maint68_and_maint71_serialize_stable_pr_writers_across_final_read_patch
     assert maint68_mutated.is_set()
 
     actionlint_allowlist = Path(".github/actionlint-allowlist.txt").read_text()
-    assert 'unexpected key "queue" for "concurrency" section' in actionlint_allowlist
+    assert 'unexpected key "queue" for "concurrency" section' not in actionlint_allowlist
+
+
+def test_stable_writer_concurrency_documents_pending_replacement_and_replay():
+    maintenance_guide = Path("docs/ops/CONSUMER_REPO_MAINTENANCE.md").read_text()
+    topology_guide = Path("docs/ci/WORKFLOWS.md").read_text()
+    maint82 = Path(".github/workflows/maint-82-sync-dependency-campaign.yml").read_text()
+
+    assert "at most one pending run" in maintenance_guide
+    assert "mutual exclusion, not a lossless" in maintenance_guide
+    assert "rerun" in maintenance_guide
+    assert "the original normal selector with the same immutable inputs" in maintenance_guide
+    assert "persisted transient handoffs" in maintenance_guide
+    assert "not a lossless cross-workflow queue" in topology_guide
+    assert "consumer-sync-stable-pr-writers-${{ github.repository }}" in topology_guide
+    assert "planMaint71Continuations" in maint82
+    assert "Dispatch due Maint 71 continuations" in maint82
 
 
 def test_maint71_has_proof_bound_review_resolution_and_exact_evidence_promotion():

@@ -8,10 +8,6 @@ property "(token_rotation_json|service_bot_pat|actions_bot_pat|owner_pr_pat|agen
 # actionlint 1.7.3 doesn't recognize this newer permission scope
 unknown permission scope "models"
 
-# GitHub Actions supports `concurrency.queue: max` for retaining up to 100
-# pending runs. actionlint through 1.7.11 has not added that schema field yet.
-unexpected key "queue" for "concurrency" section
-
 # These are style warnings for consecutive echo redirects. Grouping them would
 # reduce readability in our workflow context.
 SC2129:style:.+: Consider using { cmd1; cmd2; } >> file instead of individual redirects
