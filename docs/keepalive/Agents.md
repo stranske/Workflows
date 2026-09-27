@@ -75,6 +75,8 @@ The failed-run reporter reconciles the receipt even when the presentation summar
 
 For unassociated failed dispatches, the producer run name records a versioned `ordinary` or `authority-candidate` classification without exposing the claim. Both reporters verify the originating workflow path, exact source revision, run attempt, and immutable index before treating an index-free `ordinary` dispatch as inapplicable. A missing index for `authority-candidate`, an unrecognized/legacy title, a corrupt index, or an unavailable lookup fails closed for owner follow-up. This routing metadata never grants authority or substitutes for exact worker evidence. The ordinary skip happens before reporter writer-token setup and worker-job inspection.
 
+An expired prepared receipt may be released only with exact non-start evidence and the same-head automation label intact, without a hard human blocker. Release refreshes the due/expiry window under one conditional ledger write and retains the immutable release receipt and its generation lineage for delayed summary projection. Replays of that exact release can refresh an expired window but cannot grant the original worker attempt again. Expiry alone never rotates a prepared, consumed, or confirmed receipt into available authority.
+
 ## Key Principles
 
 1. **Task Focus**: Agents must work on PR tasks, not unrelated improvements. Tasks are explicitly injected via the task appendix.

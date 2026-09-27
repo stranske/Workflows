@@ -439,9 +439,12 @@ async function projectRecoveredAuthorityState({ github, context, prNumber, recov
   if (!['released', 'reopened'].includes(recovery?.status) || !recovery.state) {
     throw new Error('No settled authority recovery to project');
   }
-  const priorGeneration = recovery.previousGeneration || recovery.state.generation;
-  const recoveredAttempt = (recovery.state.recovered_receipt ||
-    recovery.state.released_receipt)?.owner_attempt || '';
+  const priorGenerations = new Set([
+    recovery.previousGeneration || recovery.state.generation,
+    ...(recovery.previousGenerations || []),
+  ]);
+  const recoveredAttempt = (recovery.status === 'released' ? recovery.state.released_receipt :
+    recovery.state.recovered_receipt)?.owner_attempt || '';
   const loaded = await loadKeepaliveState({ github, context, prNumber, trace: '' });
   let state = loaded.state;
   if (state?.running === false && recoveredAttempt &&
@@ -449,7 +452,7 @@ async function projectRecoveredAuthorityState({ github, context, prNumber, recov
       state.attention.generation === recovery.state.generation) {
     return { projected: true, reason: 'already-projected' };
   }
-  if (!state?.attention || state.attention.generation !== priorGeneration) {
+  if (!state?.attention || !priorGenerations.has(state.attention.generation)) {
     throw new Error('Trusted summary does not match the recovered generation');
   }
   const sameWriter = loaded.commentId &&
@@ -459,7 +462,7 @@ async function projectRecoveredAuthorityState({ github, context, prNumber, recov
       owner: context.repo.owner, repo: context.repo.repo, comment_id: loaded.commentId,
     });
     const latest = parseStateComment(response?.data?.body)?.data;
-    if (!latest?.attention || latest.attention.generation !== priorGeneration) {
+    if (!latest?.attention || !priorGenerations.has(latest.attention.generation)) {
       if (latest?.attention?.generation === recovery.state.generation && latest.running === false &&
           latest.attention.recovery_owner_attempt === recoveredAttempt) {
         return { projected: true, reason: 'already-projected' };

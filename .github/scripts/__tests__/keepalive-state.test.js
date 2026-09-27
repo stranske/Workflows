@@ -2,6 +2,7 @@
 
 const test = require('node:test');
 const assert = require('node:assert/strict');
+const { selectDueAuthorityChallenge } = require('../keepalive_challenge_due.js');
 
 const {
   parseStateComment,
@@ -328,6 +329,33 @@ test('same-generation prepared release projection is idempotent for the exact ow
   assert.equal((await projectRecoveredAuthorityState(args)).reason, 'recovered-summary-projected');
   assert.equal((await projectRecoveredAuthorityState(args)).reason, 'already-projected');
   assert.equal(github.actions.filter((action) => action.type === 'update').length, 1);
+});
+
+test('released receipt projection accepts an exact earlier lineage after multiple refreshes', async () => {
+  const original = 'a'.repeat(64);
+  const intermediate = 'b'.repeat(64);
+  const current = 'c'.repeat(64);
+  const github = buildGithubStub({ comments: [{ id: 91,
+    body: '<!-- keepalive-loop-summary -->\n' + formatStateComment({
+      running: true, attention: { owner: 'automation', generation: original },
+    }) }] });
+  const recovery = { status: 'released', previousGenerations: [original, intermediate], state: {
+    generation: current, released_receipt: { owner_attempt: 'owner/repo:123:1' },
+    boundary_fingerprint: 'd'.repeat(64),
+    due_at: '2026-09-27T18:00:00.000Z', expires_at: '2026-09-28T18:00:00.000Z',
+  } };
+  const context = { repo: { owner: 'owner', repo: 'repo' } };
+  assert.equal((await projectRecoveredAuthorityState({ github, context, prNumber: 42, recovery,
+    writerLogin: 'agents-workflows-bot[bot]' })).reason, 'recovered-summary-projected');
+  const loaded = await loadKeepaliveState({ github, context, prNumber: 42, trace: '' });
+  assert.equal(loaded.state.attention.generation, current);
+  assert.equal(loaded.state.attention.expires_at, recovery.state.expires_at);
+  assert.equal(selectDueAuthorityChallenge({
+    labels: ['agent:needs-attention'],
+    comments: [{ user: { login: 'agents-workflows-bot[bot]', type: 'Bot' },
+      body: '<!-- keepalive-loop-summary -->\n' + formatStateComment(loaded.state) }],
+    now: new Date('2026-09-27T18:01:00.000Z'),
+  })?.generation, current);
 });
 
 test('createKeepaliveStateManager returns inert manager with invalid input', async () => {

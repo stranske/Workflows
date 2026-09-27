@@ -101,6 +101,7 @@ function fakeGitHub() {
     },
     expireChallenge() {
       const state = JSON.parse(Buffer.from(content, 'base64').toString('utf8'));
+      state.due_at = new Date(Date.now() - 60_000).toISOString();
       state.expires_at = new Date(Date.now() - 1).toISOString();
       content = Buffer.from(JSON.stringify(state)).toString('base64');
     },
@@ -220,6 +221,94 @@ test('an exact release retry is idempotent but cannot release a replacement rece
   assert.equal((await releasePreparedChallenge({ ...options,
     ownerAttempt: 'owner/repo:999:1' })).released, false);
   assert.equal((await readAuthorityState(api.request, repository, prNumber)).state.status, 'prepared');
+});
+
+test('expired prepared release creates a fresh due window without refunding its attempt', async () => {
+  const api = fakeGitHub();
+  const first = await beginChallenge({ request: api.request, repository, prNumber,
+    defaultBranch: 'main', fingerprint, headSha, ...boundary() });
+  const signed = claim(first);
+  const options = { request: api.request, repository, prNumber, claim: signed,
+    ownerAttempt, provider: 'codex', headSha };
+  assert.equal((await prepareChallenge(options)).prepared, true);
+  api.expireChallenge();
+  const released = await reconcileFailedAuthorityAttempt({
+    request: api.request, repository, prNumber, ownerAttempt, workerEvidence: 'not-started',
+  });
+  assert.equal(released.status, 'released');
+  assert.notEqual(released.state.generation, first.generation);
+  assert.equal(released.state.released_generation, first.generation);
+  assert.deepEqual(released.previousGenerations, [first.generation]);
+  assert.ok(Date.parse(released.state.expires_at) > Date.now());
+  const replay = await reconcileFailedAuthorityAttempt({
+    request: api.request, repository, prNumber, ownerAttempt, workerEvidence: 'not-started',
+  });
+  assert.equal(replay.state.generation, released.state.generation);
+  assert.equal(replay.state.revision, released.state.revision);
+  assert.equal((await prepareChallenge(options)).prepared, false);
+});
+
+test('expired earlier release refreshes once and retains the original receipt lineage', async () => {
+  const api = fakeGitHub();
+  const first = await beginChallenge({ request: api.request, repository, prNumber,
+    defaultBranch: 'main', fingerprint, headSha, ...boundary() });
+  const signed = claim(first);
+  const options = { request: api.request, repository, prNumber, claim: signed,
+    ownerAttempt, provider: 'codex', headSha };
+  assert.equal((await prepareChallenge(options)).prepared, true);
+  assert.equal((await releasePreparedChallenge(options)).released, true);
+  api.expireChallenge();
+  const refreshed = await reconcileFailedAuthorityAttempt({
+    request: api.request, repository, prNumber, ownerAttempt, workerEvidence: 'not-started',
+  });
+  assert.equal(refreshed.status, 'released');
+  assert.notEqual(refreshed.state.generation, first.generation);
+  assert.equal(refreshed.state.released_generation, first.generation);
+  assert.deepEqual(refreshed.previousGenerations, [first.generation]);
+  api.expireChallenge();
+  const twice = await reconcileFailedAuthorityAttempt({
+    request: api.request, repository, prNumber, ownerAttempt, workerEvidence: 'not-started',
+  });
+  assert.equal(twice.status, 'released');
+  assert.deepEqual(twice.previousGenerations, [first.generation, refreshed.state.generation]);
+  assert.equal((await releasePreparedChallenge(options)).released, true);
+  assert.equal((await readAuthorityState(api.request, repository, prNumber)).state.generation,
+    twice.state.generation);
+});
+
+test('expired preparation cannot rotate while the exact-head PR has a human blocker', async () => {
+  const api = fakeGitHub();
+  const first = await beginChallenge({ request: api.request, repository, prNumber,
+    defaultBranch: 'main', fingerprint, headSha, ...boundary() });
+  const options = { request: api.request, repository, prNumber, claim: claim(first),
+    ownerAttempt, provider: 'codex', headSha };
+  assert.equal((await prepareChallenge(options)).prepared, true);
+  api.expireChallenge();
+  api.setPrLabels(['agent:needs-attention', 'needs-human']);
+  assert.equal((await releasePreparedChallenge(options)).released, false);
+  assert.equal((await readAuthorityState(api.request, repository, prNumber)).state.status, 'prepared');
+});
+
+test('lost response after expired release is accepted only from settled exact ledger state', async () => {
+  const api = fakeGitHub();
+  const first = await beginChallenge({ request: api.request, repository, prNumber,
+    defaultBranch: 'main', fingerprint, headSha, ...boundary() });
+  const options = { request: api.request, repository, prNumber, claim: claim(first),
+    ownerAttempt, provider: 'codex', headSha };
+  assert.equal((await prepareChallenge(options)).prepared, true);
+  api.expireChallenge();
+  let lost = false;
+  api.setAfterPut(async () => {
+    if (!lost) { lost = true; throw status(503); }
+  });
+  const release = await releasePreparedChallenge(options);
+  assert.equal(release.released, true);
+  const settled = await readAuthorityState(api.request, repository, prNumber);
+  assert.equal(settled.state.status, 'available');
+  assert.notEqual(settled.state.generation, first.generation);
+  assert.equal((await releasePreparedChallenge(options)).released, true);
+  assert.equal((await readAuthorityState(api.request, repository, prNumber)).state.revision,
+    settled.state.revision);
 });
 
 test('a generation is never reused for a different originating head', async () => {
@@ -503,7 +592,7 @@ test('confirmed receipt never reopens after a same-head hard label removal', asy
   assert.equal((await readAuthorityState(api.request, repository, prNumber)).state.status, 'confirmed');
 });
 
-test('expired consumed generation can be replaced after confirmation was omitted', async () => {
+test('expired consumed generation cannot be replaced without positive non-start', async () => {
   const api = fakeGitHub();
   const first = await beginChallenge({
     request: api.request, repository, prNumber, defaultBranch: 'main',
@@ -519,8 +608,25 @@ test('expired consumed generation can be replaced after confirmation was omitted
     request: api.request, repository, prNumber, defaultBranch: 'main',
     fingerprint, headSha, expectedGeneration: first.generation, ...boundary(),
   });
-  assert.equal(replacement.status, 'available');
-  assert.notEqual(replacement.generation, first.generation);
+  assert.equal(replacement.status, 'consumed');
+  assert.equal(replacement.generation, first.generation);
+});
+
+test('expired confirmed generation cannot be reopened by initialization', async () => {
+  const api = fakeGitHub();
+  const first = await beginChallenge({ request: api.request, repository, prNumber,
+    defaultBranch: 'main', fingerprint, headSha, ...boundary() });
+  const signed = claim(first);
+  assert.equal((await consumeChallenge({ request: api.request, repository, prNumber,
+    claim: signed, ownerAttempt, provider: 'codex', headSha })).granted, true);
+  api.setPrLabels(['agent:needs-attention', 'needs-human']);
+  assert.equal(await confirmChallenge({ request: api.request, repository, prNumber,
+    claim: signed, ownerAttempt, provider: 'codex', headSha }), true);
+  api.expireChallenge();
+  const after = await beginChallenge({ request: api.request, repository, prNumber,
+    defaultBranch: 'main', fingerprint, headSha, expectedGeneration: first.generation, ...boundary() });
+  assert.equal(after.status, 'confirmed');
+  assert.equal(after.generation, first.generation);
 });
 
 test('two racing consumers produce at most one grant through the conditional SHA', async () => {

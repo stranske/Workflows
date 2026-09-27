@@ -24,6 +24,10 @@ function validState(state, repository, prNumber, { allowLegacyHead = false } = {
     (HEAD.test(state.head_sha) || (allowLegacyHead && state.head_sha === undefined)) &&
     Number.isSafeInteger(state.revision) && state.revision >= 1 &&
     ['available', 'prepared', 'consumed', 'confirmed'].includes(state.status) &&
+    (state.released_generation == null || HEX.test(state.released_generation)) &&
+    (state.released_generation_lineage == null ||
+      (Array.isArray(state.released_generation_lineage) &&
+        state.released_generation_lineage.every((generation) => HEX.test(generation)))) &&
     (state.status === 'available' ? state.receipt === null :
       validReceipt(state.receipt));
 }
@@ -193,6 +197,12 @@ async function beginChallenge({ request, repository, prNumber, defaultBranch, fi
     if (expectedGeneration && (!prior || prior.state.generation !== expectedGeneration)) {
       throw new Error('Previously initialized challenge generation is missing or superseded');
     }
+    // Expiry alone never refunds a prepared, consumed, or confirmed receipt.
+    // A released receipt retains its lineage until exact-attempt reconciliation.
+    if (prior && prior.state.head_sha === headSha &&
+        (prior.state.status !== 'available' || prior.state.released_receipt)) {
+      return prior.state;
+    }
     if (prior && prior.state.boundary_fingerprint === fingerprint &&
         prior.state.head_sha === headSha) {
       if (Date.parse(prior.state.expires_at) > Date.now()) {
@@ -266,7 +276,8 @@ async function prepareChallenge({ request, repository, prNumber, claim, ownerAtt
   }
   const next = { ...prior.state, status: 'prepared', receipt: index.receipt,
     prepared_claim: claim, recovered_receipt: null, recovered_generation: null,
-    released_receipt: null, revision: prior.state.revision + 1 };
+    released_receipt: null, released_generation: null, released_generation_lineage: [],
+    revision: prior.state.revision + 1 };
   try {
     await writeAuthorityState(request, repository, prNumber, next, prior.sha);
   } catch (error) {
@@ -327,10 +338,17 @@ async function finalizeChallenge({ request, repository, prNumber, claim, ownerAt
 async function releasePreparedChallenge({ request, repository, prNumber, claim, ownerAttempt, provider, headSha }) {
   const prior = await readAuthorityState(request, repository, prNumber);
   if (prior.state.status === 'available' && prior.state.receipt === null &&
-      prior.state.head_sha === headSha && prior.state.generation === claim.generation &&
+      prior.state.head_sha === headSha &&
+      (prior.state.released_generation || prior.state.generation) === claim.generation &&
       receiptMatches(prior.state.released_receipt, claim, ownerAttempt, provider, headSha)) {
     // The conditional PUT may have committed even when its response was lost.
     // An exact retry is settled; a newer preparation is never refunded.
+    if (Date.now() >= Date.parse(prior.state.expires_at)) {
+      const refreshed = await refreshReleasedChallenge({
+        request, repository, prNumber, ownerAttempt, prior,
+      });
+      return { released: refreshed.status === 'released', reason: refreshed.reason };
+    }
     return { released: true, reason: 'challenge-preparation-already-released' };
   }
   if (prior.state.status !== 'prepared' || prior.state.head_sha !== headSha ||
@@ -338,14 +356,77 @@ async function releasePreparedChallenge({ request, repository, prNumber, claim, 
       !receiptMatches(prior.state.receipt, claim, ownerAttempt, provider, headSha)) {
     return { released: false, reason: 'challenge-preparation-not-current' };
   }
+  const expired = Date.now() >= Date.parse(prior.state.expires_at);
+  if (expired && !await prMatches(request, repository, prNumber, headSha,
+    'agent:needs-attention', 'needs-human').catch(() => false)) {
+    return { released: false, reason: 'challenge-pr-state-unavailable' };
+  }
+  const now = Date.now();
   const next = { ...prior.state, status: 'available', receipt: null,
     prepared_claim: null, released_receipt: prior.state.receipt,
+    released_generation: claim.generation,
+    released_generation_lineage: [claim.generation],
+    ...(expired ? { generation: crypto.randomBytes(32).toString('hex'),
+      due_at: new Date(now).toISOString(),
+      expires_at: new Date(now + 24 * 60 * 60 * 1000).toISOString() } : {}),
     revision: prior.state.revision + 1 };
   try {
     await writeAuthorityState(request, repository, prNumber, next, prior.sha);
-    return { released: true, reason: 'challenge-preparation-released' };
+    return { released: true, reason: expired ? 'challenge-preparation-released-refreshed' :
+      'challenge-preparation-released' };
   } catch (error) {
-    return { released: false, reason: [409, 422].includes(error.status) ? 'challenge-conflict' : 'challenge-write-uncertain' };
+    const settled = await readAuthorityState(request, repository, prNumber).catch(() => null);
+    if (settled?.state.status === 'available' && settled.state.generation === next.generation &&
+        settled.state.released_generation === claim.generation &&
+        settled.state.released_receipt?.id === prior.state.receipt.id) {
+      return { released: true, reason: 'challenge-preparation-already-released' };
+    }
+    return { released: false, reason: [409, 422].includes(error.status) ?
+      'challenge-conflict' : 'challenge-write-uncertain' };
+  }
+}
+
+async function refreshReleasedChallenge({ request, repository, prNumber, ownerAttempt, prior = null }) {
+  const current = prior || await readAuthorityState(request, repository, prNumber);
+  const state = current.state;
+  if (state.status !== 'available' || state.receipt !== null ||
+      state.released_receipt?.owner_attempt !== ownerAttempt) {
+    return { status: 'uncertain', reason: 'released-attempt-not-current' };
+  }
+  const target = await findAuthorityPrForAttempt({ request, repository, ownerAttempt }).catch(() => null);
+  if (target?.prNumber !== Number(prNumber)) {
+    return { status: 'uncertain', reason: 'released-attempt-index-unavailable' };
+  }
+  if (!await prMatches(request, repository, prNumber, state.head_sha,
+    'agent:needs-attention', 'needs-human').catch(() => false)) {
+    return { status: 'uncertain', reason: 'challenge-pr-state-unavailable' };
+  }
+  if (Date.now() < Date.parse(state.expires_at)) {
+    return { status: 'released', reason: 'already-current', state,
+      previousGenerations: state.released_generation_lineage ||
+        [state.released_generation || state.generation] };
+  }
+  const now = Date.now();
+  const lineage = [...new Set([...(state.released_generation_lineage || []),
+    state.released_generation || state.generation, state.generation])];
+  const next = { ...state, generation: crypto.randomBytes(32).toString('hex'),
+    due_at: new Date(now).toISOString(),
+    expires_at: new Date(now + 24 * 60 * 60 * 1000).toISOString(),
+    released_generation: state.released_generation || state.generation,
+    released_generation_lineage: lineage, revision: state.revision + 1 };
+  try {
+    await writeAuthorityState(request, repository, prNumber, next, current.sha);
+    return { status: 'released', reason: 'released-window-refreshed', state: next,
+      previousGenerations: lineage };
+  } catch (_) {
+    const settled = await readAuthorityState(request, repository, prNumber).catch(() => null);
+    if (settled?.state.status === 'available' && settled.state.receipt === null &&
+        settled.state.released_receipt?.id === state.released_receipt.id &&
+        settled.state.generation === next.generation) {
+      return { status: 'released', reason: 'released-window-refreshed', state: settled.state,
+        previousGenerations: settled.state.released_generation_lineage };
+    }
+    return { status: 'uncertain', reason: 'released-window-write-uncertain' };
   }
 }
 
@@ -458,7 +539,7 @@ async function reconcileFailedAuthorityAttempt({ request, repository, prNumber, 
     return { status: 'reopened', state, previousGeneration: state.recovered_generation };
   }
   if (state.status === 'available' && state.released_receipt?.owner_attempt === ownerAttempt) {
-    return { status: 'released', state };
+    return refreshReleasedChallenge({ request, repository, prNumber, ownerAttempt });
   }
   const receipt = state.receipt;
   if (!receipt || receipt.owner_attempt !== ownerAttempt ||
@@ -479,7 +560,12 @@ async function reconcileFailedAuthorityAttempt({ request, repository, prNumber, 
     if (settled.state.status !== 'available' ||
         !receiptMatches(settled.state.released_receipt, claim, ownerAttempt,
           receipt.provider, state.head_sha)) return { status: 'uncertain' };
-    return { status: 'released', reason: result.reason, state: settled.state };
+    if (!await prMatches(request, repository, prNumber, state.head_sha,
+      'agent:needs-attention', 'needs-human').catch(() => false)) {
+      return { status: 'uncertain', reason: 'challenge-pr-state-unavailable' };
+    }
+    return { status: 'released', reason: result.reason, state: settled.state,
+      previousGenerations: settled.state.released_generation_lineage || [claim.generation] };
   }
   if (state.status === 'consumed') {
     const result = await reopenUnconfirmedChallenge(options);
