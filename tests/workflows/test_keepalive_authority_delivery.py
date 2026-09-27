@@ -63,7 +63,14 @@ def test_gate_paths_deny_invalid_claims_and_reporters_can_persist_generation() -
     ):
         workflow = yaml.safe_load(path.read_text())
         assert "skipped" in workflow["jobs"]["report"]["if"]
+        steps = workflow["jobs"]["report"]["steps"]
+        names = [step["name"] for step in steps]
+        assert names.index("Classify unassociated dispatch") < names.index(
+            "Mint KEEPALIVE_APP reporter token"
+        )
+        assert "keepalive_reporter_applicability.js" in path.read_text()
         assert workflow["permissions"]["contents"].startswith("read")
+
         assert path.read_text().count("permission-contents: write") == 2
         assert (
             "head_sha: authorityTarget?.state?.head_sha || run.head_sha || ''" in path.read_text()
@@ -84,6 +91,15 @@ def test_gate_paths_deny_invalid_claims_and_reporters_can_persist_generation() -
         assert "No PR association or authoritative attempt target" in path.read_text()
         assert "Require PR association for failed originating run" not in path.read_text()
         assert "agent_execution_started: false" not in path.read_text()
+
+    for producer in (
+        ROOT / ".github/workflows/agents-keepalive-loop.yml",
+        TEMPLATE / ".github/workflows/agents-81-gate-followups.yml",
+    ):
+        run_name = yaml.safe_load(producer.read_text())["run-name"]
+        assert "keepalive-dispatch/v1" in run_name
+        assert "authority_challenge_claim" in run_name
+        assert "authority_challenge_fingerprint" in run_name
 
     root_reporter = (ROOT / ".github/workflows/agents-keepalive-loop-reporter.yml").read_text()
     assert '"Agents Keepalive Loop"' in root_reporter

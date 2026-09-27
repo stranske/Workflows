@@ -35,6 +35,24 @@ jobs:
           sparse-checkout-cone-mode: false
           fetch-depth: 1
 
+      - name: Classify unassociated dispatch
+        id: applicability
+        uses: actions/github-script@v9
+        with:
+          github-token: ${{ github.token }}
+          script: |
+            const { classifyReporterRun } =
+              require('./.github/scripts/keepalive_reporter_applicability.js');
+            try {
+              const result = await classifyReporterRun({
+                github, owner: context.repo.owner, repo: context.repo.repo,
+                run: context.payload.workflow_run,
+              });
+              core.setOutput('skip', result.status === 'skip' ? 'true' : 'false');
+            } catch (error) {
+              core.setFailed(`Reporter applicability unavailable: ${error.message}`);
+            }
+
       - name: Set up Node.js
         uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7
         with:
@@ -63,6 +81,7 @@ jobs:
       - name: Mint KEEPALIVE_APP reporter token
         id: reporter_keepalive_app_token
         if: >-
+          steps.applicability.outputs.skip != 'true' &&
           github.event.workflow_run.conclusion != 'success' &&
           env.KEEPALIVE_APP_ID != '' &&
           env.KEEPALIVE_APP_PRIVATE_KEY != ''
@@ -84,6 +103,7 @@ jobs:
       - name: Mint WORKFLOWS_APP reporter token
         id: reporter_workflows_app_token
         if: >-
+          steps.applicability.outputs.skip != 'true' &&
           github.event.workflow_run.conclusion != 'success' &&
           steps.reporter_keepalive_app_token.outputs.token == '' &&
           env.WORKFLOWS_APP_ID != '' &&
@@ -104,6 +124,7 @@ jobs:
 
       - name: Require trusted keepalive reporter writer
         if: >-
+          steps.applicability.outputs.skip != 'true' &&
           github.event.workflow_run.conclusion != 'success'
         env:
           KEEPALIVE_REPORTER_TOKEN: >-
@@ -121,6 +142,7 @@ jobs:
       - name: Update summary for cancelled/failed runs
         id: update-summary
         if: >-
+          steps.applicability.outputs.skip != 'true' &&
           github.event.workflow_run.conclusion != 'success'
         uses: actions/github-script@v9
         env:

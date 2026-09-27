@@ -1,4 +1,5 @@
 name: Agents Keepalive Loop
+run-name: ${{ github.event_name == 'workflow_dispatch' && format('keepalive-dispatch/v1 {0}', (inputs.authority_challenge_claim != '' || inputs.authority_challenge_fingerprint != '') && 'authority-candidate' || 'ordinary') || 'Agents Keepalive Loop' }}
 
 on:
   workflow_run:

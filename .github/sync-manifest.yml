@@ -439,6 +439,9 @@ scripts:
   - source: .github/scripts/keepalive_worker_evidence.js
     description: "Attempt-bound worker job evidence from the originating registry revision for keepalive authority recovery"
 
+  - source: .github/scripts/keepalive_reporter_applicability.js
+    description: "Fail-closed exact-run classification for unassociated keepalive dispatches"
+
   - source: .github/scripts/token_load_balancer.js
     description: "Dynamic token load balancer for API rate limit management"
 
