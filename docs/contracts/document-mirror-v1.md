@@ -33,7 +33,10 @@ validators, HTML resolvers, and the future `doc-mirror` CLI can share one schema
   HTTPS links are not valid upstream web resolvers.
 - `blob_path` is relative to `mirror_root` using POSIX `/` separators. Absolute
   paths, `..` traversal, Windows drive prefixes (`C:`), UNC prefixes (`//` or
-  `\\`), and backslashes are rejected.
+  `\\`), URI-style prefixes, empty path segments, trailing separators, and
+  backslashes are rejected.
+- `mirror_root` names an absolute or repo-local filesystem directory. URI roots
+  such as `https://host/mirror` and `file:///tmp/mirror` are rejected.
 - Optional `supersedes_content_sha256` records checksum supersession without
   requiring consumers to import Pension-Data ingest helpers.
 
@@ -42,10 +45,10 @@ validators, HTML resolvers, and the future `doc-mirror` CLI can share one schema
 | Field | Requirement |
 | --- | --- |
 | `schema_version` | Must be the literal `document-mirror/v1`. |
-| `mirror_root` | Root directory of the mirrored blob store. |
+| `mirror_root` | Absolute or repo-local filesystem root of the mirrored blob store; URI roots are rejected. |
 | `blobs` | Array of blob records (may be `[]` for an initialized empty catalog). |
 | `blobs[].content_sha256` | Lowercase 64-hex SHA-256 of the blob bytes. |
-| `blobs[].blob_path` | Mirror-relative POSIX path (no `..`, absolute paths, drive/UNC prefixes, or backslashes). |
+| `blobs[].blob_path` | Mirror-relative POSIX path (no URI prefix, `..`, absolute path, drive/UNC prefix, backslash, empty segment, or trailing separator). |
 | `blobs[].doc_type_id` | Fleet vocabulary token for the document type. |
 | `blobs[].source_refs` | Array of canonical refs and/or source-system objects; may be `[]` for local-only blobs. |
 

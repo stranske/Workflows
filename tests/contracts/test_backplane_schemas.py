@@ -156,6 +156,10 @@ def test_document_mirror_fixture_validates() -> None:
         "../escape.pdf",
         "/absolute.pdf",
         "blobs/../../escape.pdf",
+        "https://host/document.pdf",
+        "file:///tmp/document.pdf",
+        "blobs//document.pdf",
+        "blobs/",
         "C:\\Users\\doc.pdf",
         "C:/Users/doc.pdf",
         "\\\\server\\share\\doc.pdf",
@@ -165,6 +169,24 @@ def test_document_mirror_fixture_validates() -> None:
         broken = json.loads((FIXTURES / "valid_document_mirror.json").read_text())
         broken["blobs"][0]["blob_path"] = path
         assert list(validator.iter_errors(broken)), path
+
+    for root in (
+        "https://host/mirror",
+        "file:///tmp/mirror",
+        "x:relative",
+        "../outside",
+        "repo/../../outside",
+        "..",
+        "C:/../outside",
+    ):
+        broken = json.loads((FIXTURES / "valid_document_mirror.json").read_text())
+        broken["mirror_root"] = root
+        assert list(validator.iter_errors(broken)), root
+
+    for root in ("repo/mirror", r"C:\mirror", "C:\\", "C:/", "/"):
+        valid_root = json.loads((FIXTURES / "valid_document_mirror.json").read_text())
+        valid_root["mirror_root"] = root
+        assert not list(validator.iter_errors(valid_root)), root
 
 
 def test_tracked_variable_fixture_validates() -> None:
@@ -399,7 +421,13 @@ def test_output_substrate_rejects_missing_renderer_profile() -> None:
         ("workspace_bundle_ref", r"\\server\share\workspace.json"),
         ("workspace_bundle_ref", "//server/share/workspace.json"),
         ("workspace_bundle_ref", "bundles/workspace/"),
+        ("workspace_bundle_ref", "https://host/workspace.json"),
+        ("workspace_bundle_ref", "file:///tmp/workspace.json"),
+        ("workspace_bundle_ref", "bundles//workspace.json"),
         ("manifest_csv_exports", r"C:\exports\facts.csv"),
+        ("manifest_csv_exports", "https://host/facts.csv"),
+        ("manifest_csv_exports", "file:///tmp/facts.csv"),
+        ("manifest_csv_exports", "exports//facts.csv"),
     ],
 )
 def test_output_substrate_rejects_non_posix_relative_paths(field: str, path: str) -> None:

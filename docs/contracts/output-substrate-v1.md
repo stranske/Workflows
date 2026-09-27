@@ -32,7 +32,7 @@ not change the wire shape of this document.
 | --- | --- |
 | `schema_version` | Must be the literal `output-substrate/v1`. |
 | `renderer_profile` | One of `investment_review`, `blackline_bundle`, `mosaic_book`. |
-| `workspace_bundle_ref` | Run-dir-relative POSIX pointer to the view bundle JSON (`path` required; `sha256` and `artifact_id` recommended). Rejects absolute paths, `..` traversal, backslashes, drive-letter roots (`C:`), and UNC paths (`//server/share`). |
+| `workspace_bundle_ref` | Run-dir-relative POSIX pointer to the view bundle JSON (`path` required; `sha256` and `artifact_id` recommended). Rejects absolute paths, URI-style prefixes, `..` traversal, backslashes, drive-letter roots (`C:`), empty path segments, and UNC paths (`//server/share`). |
 | `manifest_ref` | `artifact:manifest.json` or a run-dir-relative POSIX path to the [`artifact-manifest/v1`](schemas/artifact-manifest-v1.schema.json) manifest. Absolute paths, traversal, backslashes, drive roots, leading URI-style prefixes, and empty path segments are rejected. Colons in later path segments are allowed. Named artifacts live there, not inline. |
 | `manifest_csv_exports` | Array (possibly empty) of manifest-gated CSV export specs for Excel refresh. |
 
@@ -42,8 +42,9 @@ Pension-Data-style `artifactBaseUrl` resolution.
 
 ## Manifest CSV exports
 
-Each `manifest_csv_exports[]` entry names a generated CSV file, its encoding
-(`utf-8` or `utf-16-le`), and a nonempty `columns[]` list. Every column
+Each `manifest_csv_exports[]` entry names a run-dir-relative generated CSV file,
+rejecting URI-style prefixes, traversal, and empty path segments. It also declares
+the encoding (`utf-8` or `utf-16-le`) and a nonempty `columns[]` list. Every column
 requires `name`, `type` (`string`, `number`, `boolean`, or `date`), and
 `source_path` (JSONPath or consumer-defined pointer into the workspace bundle).
 Producers regenerate CSV files when the workspace bundle changes; Excel workbooks
