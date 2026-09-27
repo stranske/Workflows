@@ -175,7 +175,7 @@ def test_document_mirror_fixture_validates() -> None:
         broken["mirror_root"] = root
         assert list(validator.iter_errors(broken)), root
 
-    for root in ("repo/mirror", r"C:\mirror"):
+    for root in ("repo/mirror", r"C:\mirror", "C:\\", "C:/", "/"):
         valid_root = json.loads((FIXTURES / "valid_document_mirror.json").read_text())
         valid_root["mirror_root"] = root
         assert not list(validator.iter_errors(valid_root)), root
