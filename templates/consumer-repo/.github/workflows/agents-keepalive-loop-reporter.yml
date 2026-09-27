@@ -28,6 +28,7 @@ jobs:
         with:
           sparse-checkout: |
             .github/scripts
+            .github/agents/registry.yml
             scripts/state_fingerprint.py
           sparse-checkout-cone-mode: false
           fetch-depth: 1

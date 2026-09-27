@@ -793,6 +793,11 @@ jobs:
           PROVIDER: ${{ needs.evaluate.outputs.agent_type || 'codex' }}
           PR_NUMBER: ${{ needs.evaluate.outputs.pr_number }}
           HEAD_SHA: ${{ needs.evaluate.outputs.head_sha }}
+          AUTHORITY_CHALLENGE_FINGERPRINT: >-
+            ${{ github.event_name == 'workflow_dispatch' &&
+              github.actor == 'github-actions[bot]' &&
+              github.event.inputs.sweep_recheck == 'true' &&
+              github.event.inputs.authority_challenge_fingerprint || '' }}
           AUTHORITY_CHALLENGE_CLAIM: >-
             ${{ github.event_name == 'workflow_dispatch' &&
               github.actor == 'github-actions[bot]' &&

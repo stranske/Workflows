@@ -18,6 +18,7 @@ This checklist covers every step required to bring a new automation agent (for e
    - `branch_prefix`, `automation_logins`, `readiness_candidates`, and `preflight` hints.
    - `capabilities`: mark which surfaces the agent supports (`pr_keepalive`, `pr_autofix`, `belt`, `verifier_checkbox`, etc.).
 2. If the agent needs custom metadata (prompt overrides, CLI args), surface it via `agent_registry.js` helpers so workflows can read it without hard-coding names.
+3. A keepalive-capable agent should name its routed job `Keepalive next task (Agent)` and its reusable worker step `Run Agent`, using the capitalized registry key. If either name differs, set `keepalive_worker_job` and `keepalive_worker_step` in that agent's registry entry so failed-run evidence remains attempt-bound without a provider list.
 
 ## 3. Supply the Runner Workflow & CLI Support
 1. Create a reusable workflow in `.github/workflows/` (for example `reusable-newagent-run.yml`) modeled after the Codex/Claude runners:

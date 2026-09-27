@@ -27,6 +27,7 @@ jobs:
         with:
           sparse-checkout: |
             .github/scripts
+            .github/agents/registry.yml
             .github/actions
           sparse-checkout-cone-mode: false
           fetch-depth: 1

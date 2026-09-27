@@ -1,22 +1,37 @@
 'use strict';
 
 const { withRetry } = require('./github-api-with-retry.js');
+const { loadAgentRegistry } = require('./agent_registry.js');
 
 // Only an exact originating attempt can prove that its worker did not start.
 // A missing or incomplete jobs response is unknown, never a safe refund.
-const WORKER_STEPS = new Set(['Run Codex', 'Run Claude', 'Run Cursor', 'Run Gemini']);
-const WORKER_JOBS = /Keepalive next task \((?:Codex|Claude|Cursor|Gemini)\)/;
+function workerNames(registry) {
+  const agents = registry?.agents || {};
+  return Object.entries(agents)
+    .filter(([, config]) => config?.capabilities?.pr_keepalive === true && config?.enabled !== false)
+    .map(([key, config]) => {
+      const title = key.charAt(0).toUpperCase() + key.slice(1);
+      return {
+        job: String(config.keepalive_worker_job || `Keepalive next task (${title})`),
+        step: String(config.keepalive_worker_step || `Run ${title}`),
+      };
+    });
+}
 
-function classifyWorkerExecution(jobs) {
+function classifyWorkerExecution(jobs, registry = loadAgentRegistry()) {
   if (!Array.isArray(jobs)) return 'unknown';
-  const workers = jobs.filter((job) => WORKER_JOBS.test(String(job?.name || '')));
+  const names = workerNames(registry);
+  const workers = jobs.flatMap((job) => names
+    .filter(({ job: expected }) => String(job?.name || '') === expected ||
+      String(job?.name || '').startsWith(`${expected} /`))
+    .map(({ step }) => ({ job, step })));
   if (workers.length === 0) return 'unknown';
-  for (const job of workers) {
+  for (const { job, step } of workers) {
     if (job.status !== 'completed') return 'unknown';
     if (job.conclusion === 'skipped') continue;
     const steps = job.steps;
     if (!Array.isArray(steps)) return 'unknown';
-    const workerStep = steps.find((step) => WORKER_STEPS.has(String(step?.name || '')));
+    const workerStep = steps.find((item) => String(item?.name || '') === step);
     if (!workerStep) return 'unknown';
     if (workerStep.status !== 'completed') return 'unknown';
     if (workerStep.conclusion !== 'skipped') return 'started';

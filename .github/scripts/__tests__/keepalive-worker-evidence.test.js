@@ -24,6 +24,19 @@ test('exact worker attempt distinguishes started, definitely absent, and unknown
   assert.equal(classifyWorkerExecution([{ name, status: 'in_progress' }]), 'unknown');
 });
 
+test('new keepalive-capable registry agent is classified without a provider list', () => {
+  const registry = { agents: {
+    nova: { capabilities: { pr_keepalive: true } },
+  } };
+  const job = { name: 'Keepalive next task (Nova) / Nova (keepalive)',
+    status: 'completed', conclusion: 'failure', steps: [
+      { name: 'Run Nova', status: 'completed', conclusion: 'failure' },
+    ] };
+  assert.equal(classifyWorkerExecution([job], registry), 'started');
+  job.steps[0].conclusion = 'skipped';
+  assert.equal(classifyWorkerExecution([job], registry), 'not-started');
+});
+
 test('job API failure is unknown and the query is attempt-bound', async () => {
   const calls = [];
   const github = {

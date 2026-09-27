@@ -437,7 +437,7 @@ scripts:
     description: "PR-wide conditional authority generation, immutable attempt index, exact-attempt release retry, and single-use receipt ledger"
 
   - source: .github/scripts/keepalive_worker_evidence.js
-    description: "Attempt-bound worker job evidence for keepalive authority recovery"
+    description: "Attempt-bound registry-derived worker job evidence for keepalive authority recovery"
 
   - source: .github/scripts/token_load_balancer.js
     description: "Dynamic token load balancer for API rate limit management"
