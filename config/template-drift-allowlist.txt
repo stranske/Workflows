@@ -144,7 +144,7 @@ fingerprint_refreshed = 2026-09-02
 [pair.12]
 main = .github/workflows/agents-keepalive-loop-reporter.yml
 template = templates/consumer-repo/.github/workflows/agents-keepalive-loop-reporter.yml
-main_sha256 = 4b29a07e40f8c1e40effcf7c18479c98bbc2c9f50753d1ede77162846b338e4a
+main_sha256 = 3040dc8ebb342c988d674cee9d149c218c48cacf3a01b2f7152b7fc521c8b1c4
 template_sha256 = faf1d90575c7da8c599965c34daf56ad46b4999109bea0013b2fa08cbe8f96b3
 divergence = Authority recovery reviewed 2026-09-27: both reporters classify the exact originating worker attempt using the routed agent registry, recover a missing webhook PR association from the direct immutable attempt index and verified ledger receipt, reconcile only positive non-start evidence, and project settled generation state. The Workflows root reporter also subscribes to Agents Keepalive Loop without the consumer consolidated-mode gate because that root workflow runs when USE_CONSOLIDATED_WORKFLOWS is not true; the consumer reporter remains scoped to Agents Gate Followups and its consolidated-mode gate. Root in-repo setup and consumer state fingerprinting with exact run attempt and SHA-pinned actions remain intentional. Do not align wholesale, because it would disable a live root recovery path or remove the consumer deployment contract.
 divergence_reviewed = 2026-09-27

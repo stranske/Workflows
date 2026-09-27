@@ -103,6 +103,10 @@ def test_gate_paths_deny_invalid_claims_and_reporters_can_persist_generation() -
 
     root_reporter = (ROOT / ".github/workflows/agents-keepalive-loop-reporter.yml").read_text()
     assert '"Agents Keepalive Loop"' in root_reporter
+    root_steps = yaml.safe_load(root_reporter)["jobs"]["report"]["steps"]
+    for name in ("Set up Node.js", "Setup API client"):
+        step = next(step for step in root_steps if step["name"] == name)
+        assert "steps.applicability.outputs.skip != 'true'" in step["if"]
     consumer_reporter = (
         TEMPLATE / ".github/workflows/agents-keepalive-loop-reporter.yml"
     ).read_text()
