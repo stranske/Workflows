@@ -41,7 +41,7 @@ test('review reassessment parser accepts only exact versioned identities', () =>
     /invalid identity/);
 });
 
-test('source-owned reviewer reassessment is exact-head, idempotent and never merges or resolves', async () => {
+test('source-owned reviewer reassessment supports stable generated lanes without merge authority', async () => {
   const request = {
     schema: 'maint71-review-reassessment/v1', repository: 'stranske/Ready', pr: 592,
     head_sha: 'a'.repeat(40), thread_id: 'PRRT_test', plan_id: 'plan-1',
@@ -71,9 +71,14 @@ test('source-owned reviewer reassessment is exact-head, idempotent and never mer
   };
   const comments = [];
   let posts = 0;
+  let merges = 0;
+  let resolutions = 0;
   const github = {
     rest: {
-      pulls: { get: async () => ({ data: pr }) },
+      pulls: {
+        get: async () => ({ data: pr }),
+        merge: async () => { merges++; },
+      },
       users: { getAuthenticated: async () => ({ data: { login: 'stranske' } }) },
       issues: {
         listComments: async () => ({ data: comments }),
@@ -87,9 +92,12 @@ test('source-owned reviewer reassessment is exact-head, idempotent and never mer
         },
       },
     },
-    graphql: async () => ({ repository: { pullRequest: {
-      reviewThreads: { pageInfo: { hasNextPage: false }, nodes: [thread] },
-    } } }),
+    graphql: async (query) => {
+      if (/\bmutation\b/.test(query)) resolutions++;
+      return { repository: { pullRequest: {
+        reviewThreads: { pageInfo: { hasNextPage: false }, nodes: [thread] },
+      } } };
+    },
   };
   const args = { context: { eventName: 'repository_dispatch', ref: 'refs/heads/main',
     payload: { action: 'maint71-review-reassessment' }, actor: 'stranske' },
@@ -110,9 +118,37 @@ test('source-owned reviewer reassessment is exact-head, idempotent and never mer
   });
   assert.equal(reorderedRetry.status, 'review_blocked_reassessment_reused');
   assert.equal(posts, 1, 'field ordering must not bypass idempotency');
+  for (const branch of ['sync/workflows-candidate', 'sync/workflows-delivery']) {
+    pr.head.ref = branch;
+    comments.length = 0;
+    const postsBeforeBranch = posts;
+    const workflowSync = await runReviewReassessment(args);
+    assert.equal(workflowSync.status, 'review_blocked_reassessment_requested');
+    assert.equal(posts, postsBeforeBranch + 1);
+    assert.equal(comments.length, 1);
+    assert.match(comments[0].body, /@codex review/);
+    assert.equal(merges, 0);
+    assert.equal(resolutions, 0);
+  }
+  pr.head.ref = 'sync/workflows-untrusted';
+  await assert.rejects(runReviewReassessment(args), /delivery changed or lease is invalid/);
+  pr.head.ref = 'deps/sync-dev-versions-test';
   pr.head.sha = 'c'.repeat(40);
   await assert.rejects(runReviewReassessment(args), /delivery changed or lease is invalid/);
   pr.head.sha = request.head_sha;
+  pr.body = `<!-- sync-pr-delivery-record:v1 ${JSON.stringify({
+    ...record, plan_id: 'other-plan',
+  })} -->`;
+  await assert.rejects(runReviewReassessment(args), /delivery changed or lease is invalid/);
+  pr.body = `<!-- sync-pr-delivery-record:v1 ${JSON.stringify({
+    ...record, lease_expires_at: '2000-01-01T00:00:00Z',
+  })} -->`;
+  await assert.rejects(runReviewReassessment(args), /delivery changed or lease is invalid/);
+  pr.body = `<!-- sync-pr-delivery-record:v1 ${JSON.stringify(record)} -->`;
+  await assert.rejects(runReviewReassessment({
+    ...args,
+    rawRequest: JSON.stringify({ ...request, thread_id: 'PRRT_missing' }),
+  }), /absent or incomplete/);
   thread.comments.nodes[0].author.login = 'coderabbitai[bot]';
   await assert.rejects(runReviewReassessment(args), /origin does not match/);
   thread.comments.nodes[0].author.login = 'chatgpt-codex-connector[bot]';
@@ -121,9 +157,17 @@ test('source-owned reviewer reassessment is exact-head, idempotent and never mer
   thread.isResolved = false;
   comments[0].user.login = 'untrusted';
   await runReviewReassessment(args);
-  assert.equal(posts, 2, 'an untrusted marker is not a prior request');
+  assert.equal(posts, 4, 'an untrusted marker is not a prior request');
+  comments.length = 0;
+  github.rest.issues.createComment = async () => {
+    posts++;
+    throw new Error('connection reset after write');
+  };
+  await assert.rejects(runReviewReassessment(args), /POST uncertain; inspect exact marker/);
   await assert.rejects(runReviewReassessment({ ...args,
     context: { ...args.context, ref: 'refs/heads/untrusted' } }), /trusted main-branch/);
+  assert.equal(merges, 0, 'request-only reassessment must never merge');
+  assert.equal(resolutions, 0, 'request-only reassessment must never resolve a thread');
 });
 
 test('exact-head reviewer request is durable, trusted, and idempotent', async () => {

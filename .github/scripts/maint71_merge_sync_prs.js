@@ -219,7 +219,7 @@ async function runReviewReassessment({
   context, withRetry, rawRequest, registeredRepos = [], policyPath,
 }) {
   const fs = require('fs');
-  const { generatedDeliveryLane, isTrustedGeneratedDeliveryPr,
+  const { generatedDeliveryLane, isStableSyncBranchName, isTrustedGeneratedDeliveryPr,
     reviewerProfileForLogin } = require('./sync_pr_merge_contract.js');
   const { parseDeliveryRecord } = require('./sync_pr_lease_contract.js');
   const request = parseReviewReassessmentRequest(rawRequest);
@@ -248,7 +248,8 @@ async function runReviewReassessment({
     if (pr?.state !== 'open' || pr?.draft || pr?.auto_merge
       || pr?.head?.sha !== request.head_sha
       || !isTrustedGeneratedDeliveryPr(pr, [...trustedWriters])
-      || generatedDeliveryLane(pr?.head?.ref) !== 'dev-tool-sync'
+      || (generatedDeliveryLane(pr?.head?.ref) !== 'dev-tool-sync'
+        && !isStableSyncBranchName(pr?.head?.ref))
       || record?.repository !== request.repository
       || record?.plan_id !== request.plan_id
       || record?.generation !== request.generation
@@ -256,7 +257,7 @@ async function runReviewReassessment({
       || (record?.head_observed_sha && record.head_observed_sha !== request.head_sha)
       || !Number.isFinite(Date.parse(record?.lease_expires_at || ''))
       || Date.parse(record.lease_expires_at) <= Date.now()) {
-      throw new Error('Generated dev-tool delivery changed or lease is invalid');
+      throw new Error('Generated delivery changed or lease is invalid');
     }
     const data = await withRetry((client) => client.graphql(
       `query($owner: String!, $repo: String!, $number: Int!) {

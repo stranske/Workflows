@@ -150,6 +150,7 @@ def test_maint71_has_proof_bound_review_resolution_and_exact_evidence_promotion(
 def test_maint71_reviewer_reassessment_is_trusted_request_only_dispatch():
     workflow = Path(".github/workflows/maint-71-merge-sync-prs.yml").read_text()
     executor = Path(".github/scripts/maint71_merge_sync_prs.js").read_text()
+    executor_tests = Path(".github/scripts/__tests__/maint71_merge_sync_prs.test.js").read_text()
     policy = Path("config/consumer_sync_review_policy.json").read_text()
     guide = Path("docs/ops/CONSUMER_REPO_MAINTENANCE.md").read_text()
 
@@ -163,8 +164,12 @@ def test_maint71_reviewer_reassessment_is_trusted_request_only_dispatch():
     assert "Never rotate a cross-repository read/comment onto GITHUB_TOKEN" in workflow
     assert "maint71-review-reassessment/v1" in executor
     assert "client.rest.issues.createComment" in executor
+    assert "isStableSyncBranchName" in executor
+    assert "sync/workflows-candidate" in executor_tests
+    assert "sync/workflows-delivery" in executor_tests
     assert '"reassessment_comment": "@codex review"' in policy
     assert '"reassessment_comment": "@coderabbitai full review"' in policy
+    assert "workflow-sync candidate and delivery" in guide
     assert "A reviewer request is not itself thread acceptance" in guide
 
 
