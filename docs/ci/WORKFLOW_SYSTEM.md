@@ -1147,3 +1147,12 @@ repositories are `stranske/Workflows`, and the `automation` plus
 before CI polling or issue-acceptance collection, preventing a self-review loop
 and preventing the historical design link in the PR body from becoming a
 closing-issue claim.
+# Fork Gate status publication
+
+`.github/workflows/pr-00-gate-fork-status.yml` is the trusted default-branch
+publisher for the required `Gate / gate` status on fork pull requests. It binds
+the Gate run to the current PR head and latest run attempt, rejects changes to
+the Gate control surface, and treats every non-explicit-success outcome as
+blocking. The full threat model, live context audit, staged consumer rollout,
+and rollback contract are in
+[`docs/keepalive/FORK_GATE_STATUS_PUBLICATION.md`](../keepalive/FORK_GATE_STATUS_PUBLICATION.md).

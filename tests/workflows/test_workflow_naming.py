@@ -317,6 +317,7 @@ EXPECTED_NAMES = {
     "maint-coverage-guard.yml": "Maint Coverage Guard",
     "maint-metrics-retention.yml": "Maint Metrics Retention",
     "pr-00-gate.yml": "Gate",
+    "pr-00-gate-fork-status.yml": "Gate Fork Status Publisher",
     "pr-11-ci-smoke.yml": "PR 11 - Minimal invariant CI",
     "pr-46-dependency-repair-contract.yml": "PR 46 Dependency Repair Contract",
     "reusable-10-ci-python.yml": "Reusable CI",

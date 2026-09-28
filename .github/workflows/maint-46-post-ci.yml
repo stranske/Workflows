@@ -57,6 +57,23 @@ jobs:
               return;
             }
 
+            const headRepoId = run.head_repository?.id;
+            const baseRepoId = run.repository?.id;
+            if (!headRepoId || !baseRepoId) {
+              core.warning(
+                'Gate repository identity is incomplete; refusing Maint 46 recovery to avoid a competing status writer.',
+              );
+              core.setOutput('recover', 'false');
+              return;
+            }
+            if (headRepoId !== baseRepoId) {
+              core.notice(
+                'Fork Gate run is owned by Gate Fork Status Publisher; skipping Maint 46 recovery.',
+              );
+              core.setOutput('recover', 'false');
+              return;
+            }
+
             let summaryJob = null;
             try {
               const jobs = await paginateWithRetry(

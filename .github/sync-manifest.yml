@@ -43,6 +43,15 @@ workflows:
       - repo: stranske/Manager-Database
         reason: "Maintains a fully custom Gate workflow; never overwrite (replaces the hard-coded custom_gate_repos list in maint-68)."
 
+  - source: .github/workflows/pr-00-gate-fork-status.yml
+    description: "Trusted default-branch publisher for exact-head Gate / gate statuses on fork pull requests. Create-only during staged rollout so consumer policy can be audited before replacement."
+    sync_mode: create_only
+    overwrite_repos:
+      - stranske/Template
+    skip_repos:
+      - repo: stranske/Manager-Database
+        reason: "Maintains a fully custom Gate workflow and is excluded with the canonical Gate source."
+
   - source: .github/workflows/ci.yml
     description: "CI workflow - main continuous integration entry point"
     sync_mode: create_only  # Don't overwrite - repos customize coverage-min, python versions
@@ -229,6 +238,9 @@ codex_config:
 # Note: These scripts are synced because they're referenced by reusable workflows
 # that run in the consumer repo context
 scripts:
+  - source: .github/scripts/gate-fork-status-publication.js
+    description: "Validates trusted Gate run identity, fork PR head binding, run attempt freshness, and job conclusions before publishing Gate / gate."
+
   # Tools directory - Python helpers used by reusable-10-ci-python.yml
 
   # Dev dependency sync script

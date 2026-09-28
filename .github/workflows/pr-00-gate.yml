@@ -1307,9 +1307,9 @@ jobs:
               core.warning(`Failed to dispatch autofix event: ${error.message}`);
             }
 
-      - name: Enforce Gate success
-        if: ${{ (steps.summarize.outputs.state || steps.docs_only.outputs.state) == 'failure' }}
+      - name: Enforce explicit Gate success
+        if: ${{ (steps.summarize.outputs.state || steps.docs_only.outputs.state) != 'success' }}
         run: |
-          echo "Gate reported failure: " \
+          echo "Gate did not report explicit success: " \
             "${{ steps.summarize.outputs.description || steps.docs_only.outputs.description }}" >&2
           exit 1

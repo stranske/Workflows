@@ -1,0 +1,48 @@
+name: Gate Fork Status Publisher
+
+'on':
+  # zizmor: ignore[dangerous-triggers] Trusted default-branch code only; no PR
+  # checkout, artifacts, or cache; exact run-attempt/head binding is enforced.
+  workflow_run:
+    workflows:
+      - Gate
+    types:
+      - requested
+      - in_progress
+      - completed
+
+permissions:
+  actions: read
+  contents: read
+  pull-requests: read
+  statuses: write
+
+concurrency:
+  group: gate-fork-status-${{ github.event.workflow_run.head_sha || github.run_id }}
+  cancel-in-progress: false
+
+jobs:
+  publish:
+    name: publish trusted fork Gate status
+    if: ${{ github.event.workflow_run.event == 'pull_request' }}
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout trusted publisher
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          ref: ${{ github.event.repository.default_branch }}
+          persist-credentials: false
+          sparse-checkout: |
+            .github/scripts/error_classifier.js
+            .github/scripts/gate-fork-status-publication.js
+            .github/scripts/github-api-with-retry.js
+            .github/scripts/github-rate-limited-wrapper.js
+            .github/scripts/token_load_balancer.js
+          sparse-checkout-cone-mode: false
+
+      - name: Publish exact-head Gate status
+        uses: actions/github-script@3a2844b7e9c422d3c10d287c895573f7108da1b3 # v9
+        with:
+          script: |
+            const { publishGateForkStatus } = require('./.github/scripts/gate-fork-status-publication.js');
+            await publishGateForkStatus({ github, context, core });
