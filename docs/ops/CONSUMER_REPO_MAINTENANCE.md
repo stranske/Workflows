@@ -812,8 +812,9 @@ waive the zero active non-outdated thread requirement for ordinary merge
 eligibility. A source fix without this exact proof, a later candidate plan, or a
 passing Gate never resolves the current PR's review debt.
 
-For a dev-tool delivery whose owner has fixed a review finding but whose
-originating reviewer has not reassessed it, send the Maint 71
+For a dev-tool delivery or stable workflow-sync candidate and delivery whose
+owner has fixed a review finding but whose originating reviewer has not
+reassessed it, send the Maint 71
 `maint71-review-reassessment` repository-dispatch event with a
 `client_payload.review_reassessment_json` string. The versioned JSON object must contain
 `schema=maint71-review-reassessment/v1`, `repository`, numeric `pr`, exact
@@ -822,6 +823,9 @@ originating reviewer has not reassessed it, send the Maint 71
 checks the registered repository, trusted generated branch and author, current
 delivery lease and immutable bindings, complete review-thread inventory and
 originating reviewer, then posts the policy-configured review command once.
+Workflow-sync reassessment is restricted to the stable
+`sync/workflows-candidate` and `sync/workflows-delivery` branches; another
+`sync/workflows-*` branch fails closed.
 The request comment records a plan/generation/head/thread marker and URL; a
 repeat dispatch reuses that evidence. An ambiguous POST must be inspected by
 marker before retry. This dispatch runs a separate request-only job: it never
