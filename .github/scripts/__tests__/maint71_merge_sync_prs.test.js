@@ -120,8 +120,15 @@ test('source-owned reviewer reassessment supports stable generated lanes without
   assert.equal(posts, 1, 'field ordering must not bypass idempotency');
   for (const branch of ['sync/workflows-candidate', 'sync/workflows-delivery']) {
     pr.head.ref = branch;
+    comments.length = 0;
+    const postsBeforeBranch = posts;
     const workflowSync = await runReviewReassessment(args);
-    assert.equal(workflowSync.status, 'review_blocked_reassessment_reused');
+    assert.equal(workflowSync.status, 'review_blocked_reassessment_requested');
+    assert.equal(posts, postsBeforeBranch + 1);
+    assert.equal(comments.length, 1);
+    assert.match(comments[0].body, /@codex review/);
+    assert.equal(merges, 0);
+    assert.equal(resolutions, 0);
   }
   pr.head.ref = 'sync/workflows-untrusted';
   await assert.rejects(runReviewReassessment(args), /delivery changed or lease is invalid/);
@@ -150,7 +157,7 @@ test('source-owned reviewer reassessment supports stable generated lanes without
   thread.isResolved = false;
   comments[0].user.login = 'untrusted';
   await runReviewReassessment(args);
-  assert.equal(posts, 2, 'an untrusted marker is not a prior request');
+  assert.equal(posts, 4, 'an untrusted marker is not a prior request');
   comments.length = 0;
   github.rest.issues.createComment = async () => {
     posts++;
