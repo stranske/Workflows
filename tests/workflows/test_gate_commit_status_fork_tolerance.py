@@ -134,6 +134,10 @@ RUNNER_JS = textwrap.dedent("""
           ...FORK, state: 'success',
           error: makeError(403, 'API rate limit exceeded'),
         }),
+        fork_rate_limit_429: await runCase({
+          ...FORK, state: 'success',
+          error: makeError(429, 'Too many requests'),
+        }),
         fork_rate_limit_header_string: await runCase({
           ...FORK, state: 'success',
           error: makeError(403, 'Forbidden', {
@@ -245,6 +249,7 @@ def test_same_repo_403_still_fails_the_gate(outcomes: dict[str, Any]) -> None:
 def test_rate_limit_403_keeps_its_own_path(outcomes: dict[str, Any]) -> None:
     for key in (
         "fork_rate_limit",
+        "fork_rate_limit_429",
         "fork_rate_limit_header_string",
         "fork_rate_limit_header_number",
         "fork_secondary_abuse",
@@ -364,6 +369,9 @@ COMMENT_RUNNER_JS = textwrap.dedent("""
         fork_rate_limit: await runCase({
           ...FORK, error: makeError(403, 'API rate limit exceeded'),
         }),
+        fork_rate_limit_429: await runCase({
+          ...FORK, error: makeError(429, 'Too many requests'),
+        }),
         fork_rate_limit_header_string: await runCase({
           ...FORK, error: makeError(403, 'Forbidden', {
             headers: { 'x-ratelimit-remaining': '0' },
@@ -455,6 +463,7 @@ def test_comment_rate_limit_403_never_uses_fork_fallback(
 ) -> None:
     for key in (
         "fork_rate_limit",
+        "fork_rate_limit_429",
         "fork_rate_limit_header_string",
         "fork_rate_limit_header_number",
         "fork_secondary_abuse",
@@ -463,7 +472,8 @@ def test_comment_rate_limit_403_never_uses_fork_fallback(
     ):
         case = comment_outcomes[key]
         assert case["threw"] is not None, key
-        assert case["threw"]["status"] == 403, key
+        expected_status = 429 if key == "fork_rate_limit_429" else 403
+        assert case["threw"]["status"] == expected_status, key
         assert case["warnings"] == [], key
         assert case["summaryRaw"] == [], key
 
