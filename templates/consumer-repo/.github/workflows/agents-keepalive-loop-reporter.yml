@@ -21,7 +21,6 @@ jobs:
   report:
     name: Report keepalive completion
     if: >-
-      vars.USE_CONSOLIDATED_WORKFLOWS == 'true' &&
       github.event.workflow_run.conclusion != 'success' &&
       github.event.workflow_run.conclusion != 'skipped'
     runs-on: ubuntu-latest
