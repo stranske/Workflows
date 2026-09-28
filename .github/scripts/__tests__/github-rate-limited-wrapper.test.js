@@ -14,6 +14,9 @@
 
 const test = require('node:test');
 const assert = require('node:assert/strict');
+const fs = require('node:fs');
+const path = require('node:path');
+const vm = require('node:vm');
 
 // We need to test the module with mocked dependencies
 // Since Node test runner doesn't have built-in mocking like Jest,
@@ -23,6 +26,106 @@ const {
   isRateLimitWrapped,
   isTestMock,
 } = require('../github-rate-limited-wrapper.js');
+
+// Issue #3606's Gate contract must be exercised by this named Node command.
+// Read the actual github-script steps from both create-only workflow copies.
+function gateStep(workflowPath, stepName) {
+  const lines = fs.readFileSync(workflowPath, 'utf8').split('\n');
+  const marker = `- name: ${stepName}`;
+  const start = lines.findIndex((line) => line.trim() === marker);
+  assert.notEqual(start, -1, `${workflowPath}: missing ${stepName}`);
+  const scriptLine = lines.findIndex((line, i) => i > start && line.trim() === 'script: |');
+  assert.notEqual(scriptLine, -1, `${workflowPath}: missing script for ${stepName}`);
+  const script = [];
+  for (const line of lines.slice(scriptLine + 1)) {
+    if (line.trim() && !line.startsWith('            ')) break;
+    script.push(line.startsWith('            ') ? line.slice(12) : '');
+  }
+  assert.ok(script.length, `${workflowPath}: empty ${stepName}`);
+  return script.join('\n');
+}
+
+async function runGateStep(source, stepName, { status, message, response, fork = true }) {
+  const warnings = [];
+  const summary = [];
+  const error = new Error(message);
+  error.status = status;
+  error.response = response;
+  const summaryStub = {
+    addHeading() { return this; },
+    addRaw(value) { summary.push(String(value)); return this; },
+    async write() { summary.push('<written>'); },
+  };
+  const github = {
+    rest: { repos: { async createCommitStatus() { throw error; } } },
+  };
+  const sandbox = {
+    process: { env: { STATE: 'success', DESCRIPTION: 'all checks passed', TARGET_URL: 'https://example.invalid/run' } },
+    console: { log() {} },
+    github,
+    core: { warning(value) { warnings.push(String(value)); }, summary: summaryStub },
+    context: {
+      repo: { owner: 'stranske', repo: 'Workflows' },
+      sha: 'basesha',
+      payload: { pull_request: {
+        number: 3614,
+        head: { sha: 'headsha', repo: { full_name: fork ? 'contributor/Workflows' : 'stranske/Workflows' } },
+        base: { repo: { full_name: 'stranske/Workflows' } },
+      } },
+    },
+    require(moduleName) {
+      if (moduleName === 'path') return { resolve: () => '/tmp/gate-summary.md' };
+      if (moduleName === 'fs') return { existsSync: () => true, readFileSync: () => 'GATE SUMMARY BODY' };
+      if (moduleName.includes('comment-dedupe')) return { async upsertAnchoredComment() { throw error; } };
+      return { async createTokenAwareRetry() { return { async withRetry(fn) { return fn(github); } }; } };
+    },
+  };
+  let thrown = null;
+  try {
+    await vm.runInNewContext(`(async () => {\n${source}\n})()`, sandbox);
+  } catch (caught) {
+    thrown = caught;
+  }
+  return { warnings, summary, thrown, stepName };
+}
+
+for (const workflow of [
+  path.resolve(__dirname, '../../workflows/pr-00-gate.yml'),
+  path.resolve(__dirname, '../../../templates/consumer-repo/.github/workflows/pr-00-gate.yml'),
+]) {
+  for (const stepName of ['Ensure consolidated summary comment', 'Report Gate commit status']) {
+    const source = gateStep(workflow, stepName);
+    const isComment = stepName.startsWith('Ensure');
+    test(`${path.relative(process.cwd(), workflow)} ${stepName}: exhausted quota stays out of fork fallback`, async () => {
+      const result = await runGateStep(source, stepName, {
+        status: 403,
+        message: 'Forbidden',
+        response: { headers: { 'x-ratelimit-remaining': '0' } },
+      });
+      if (isComment) {
+        assert.equal(result.thrown?.status, 403);
+      } else {
+        assert.equal(result.thrown, null);
+        assert.ok(result.warnings.some((warning) => warning.includes('Rate limit')));
+      }
+      assert.equal(result.summary.length, 0, 'rate limits must never claim a read-only fork token');
+    });
+    test(`${path.relative(process.cwd(), workflow)} ${stepName}: positive-quota fork denial and same-repo denial stay distinct`, async () => {
+      const options = {
+        status: 403,
+        message: 'Resource not accessible by integration',
+        response: { headers: { 'x-ratelimit-remaining': '42' } },
+      };
+      const forkResult = await runGateStep(source, stepName, options);
+      assert.equal(forkResult.thrown, null);
+      assert.ok(forkResult.warnings.some((warning) => warning.includes('read-only')));
+      assert.ok(forkResult.summary.includes('<written>'));
+      const sameResult = await runGateStep(source, stepName, { ...options, fork: false });
+      assert.equal(sameResult.thrown?.status, 403);
+      assert.equal(sameResult.summary.length, 0);
+    });
+  }
+}
 
 test('isRateLimitWrapped returns false for plain object', () => {
   const github = { rest: { issues: { get: () => {} } } };
