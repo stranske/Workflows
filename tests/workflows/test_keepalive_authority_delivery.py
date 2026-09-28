@@ -15,6 +15,8 @@ def test_authority_helpers_are_manifested_and_byte_aligned() -> None:
         "keepalive_authority_state.js",
         "keepalive_challenge_due.js",
         "keepalive_loop.js",
+        "keepalive_worker_evidence.js",
+        "keepalive_state.js",
     ):
         source = Path(".github/scripts") / name
         assert source.as_posix() in sources
@@ -47,13 +49,66 @@ def test_gate_paths_deny_invalid_claims_and_reporters_can_persist_generation() -
         )
         assert "headSha: process.env.HEAD_SHA" in text
         assert text.count("permission-contents: write") >= 2
+        assert text.count("always() && (failure() || cancelled()) &&") >= 2
+        assert (
+            text.index("Update summary with running status")
+            < text.index("Finalize authority challenge after mark-running")
+            < text.index("Release prepared challenge after mark-running failure")
+        )
+        cleanup = text.split("- name: Release prepared challenge after mark-running failure", 1)[1]
+        assert "AUTHORITY_CHALLENGE_FINGERPRINT:" in cleanup.split("run: |", 1)[0]
     for path in (
         ROOT / ".github/workflows/agents-keepalive-loop-reporter.yml",
         TEMPLATE / ".github/workflows/agents-keepalive-loop-reporter.yml",
     ):
         workflow = yaml.safe_load(path.read_text())
+        assert "skipped" in workflow["jobs"]["report"]["if"]
+        steps = workflow["jobs"]["report"]["steps"]
+        names = [step["name"] for step in steps]
+        assert names.index("Classify unassociated dispatch") < names.index(
+            "Mint KEEPALIVE_APP reporter token"
+        )
+        assert "keepalive_reporter_applicability.js" in path.read_text()
         assert workflow["permissions"]["contents"].startswith("read")
+
         assert path.read_text().count("permission-contents: write") == 2
-        assert "head_sha: run.head_sha || ''" in path.read_text()
+        assert (
+            "head_sha: authorityTarget?.state?.head_sha || run.head_sha || ''" in path.read_text()
+        )
         assert "authority_owner_attempt:" in path.read_text()
         assert "run.id}:${run.run_attempt || 1}" in path.read_text()
+        assert "getWorkerExecutionEvidence(" in path.read_text()
+        assert "run.head_sha || ''" in path.read_text()
+        assert ".github/agents/registry.yml" in path.read_text()
+        assert "if (workerEvidence === 'unknown')" in path.read_text()
+        assert "retry this reporter" in path.read_text()
+        assert "projectRecoveredAuthorityState(" in path.read_text()
+        assert "findAuthorityPrForAttempt(" in path.read_text()
+        assert (
+            "if (!prNumber) {\n              try {\n                authorityTarget ="
+            in path.read_text()
+        )
+        assert "No PR association or authoritative attempt target" in path.read_text()
+        assert "Require PR association for failed originating run" not in path.read_text()
+        assert "agent_execution_started: false" not in path.read_text()
+
+    for producer in (
+        ROOT / ".github/workflows/agents-keepalive-loop.yml",
+        TEMPLATE / ".github/workflows/agents-81-gate-followups.yml",
+    ):
+        run_name = yaml.safe_load(producer.read_text())["run-name"]
+        assert "keepalive-dispatch/v1" in run_name
+        assert "authority_challenge_claim" in run_name
+        assert "authority_challenge_fingerprint" in run_name
+
+    root_reporter = (ROOT / ".github/workflows/agents-keepalive-loop-reporter.yml").read_text()
+    assert '"Agents Keepalive Loop"' in root_reporter
+    root_steps = yaml.safe_load(root_reporter)["jobs"]["report"]["steps"]
+    for name in ("Set up Node.js", "Setup API client"):
+        step = next(step for step in root_steps if step["name"] == name)
+        assert "steps.applicability.outputs.skip != 'true'" in step["if"]
+    consumer_reporter = (
+        TEMPLATE / ".github/workflows/agents-keepalive-loop-reporter.yml"
+    ).read_text()
+    assert '"run_id": int(run.get("id") or 0)' in consumer_reporter
+    assert '"run_attempt": int(run.get("run_attempt") or 1)' in consumer_reporter

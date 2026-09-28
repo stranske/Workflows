@@ -1113,7 +1113,11 @@ def test_consumer_mark_running_supports_identity_checked_pat():
     assert "'ACTIONS_BOT_PAT:stranske'" in mark_running
     assert "'ACTIONS_BOT_PAT:stranske-automation-bot'" in mark_running
     assert "'SERVICE_BOT_PAT:stranske-automation-bot'" in mark_running
-    update = mark_running[mark_running.index("- name: Update summary with running status") :]
+    update = mark_running[
+        mark_running.index("- name: Update summary with running status") : mark_running.index(
+            "- name: Finalize authority challenge after mark-running"
+        )
+    ]
     assert "steps.running_keepalive_app_token.outputs.token ||" in update
     assert "steps.running_workflows_app_token.outputs.token ||" in update
     assert "secrets.ACTIONS_BOT_PAT ||" in update

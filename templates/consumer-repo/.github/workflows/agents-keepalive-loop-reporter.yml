@@ -20,7 +20,10 @@ concurrency:
 jobs:
   report:
     name: Report keepalive completion
-    if: vars.USE_CONSOLIDATED_WORKFLOWS == 'true'
+    if: >-
+      vars.USE_CONSOLIDATED_WORKFLOWS == 'true' &&
+      github.event.workflow_run.conclusion != 'success' &&
+      github.event.workflow_run.conclusion != 'skipped'
     runs-on: ubuntu-latest
     steps:
       - name: Checkout keepalive scripts
@@ -28,12 +31,32 @@ jobs:
         with:
           sparse-checkout: |
             .github/scripts
+            .github/agents/registry.yml
             scripts/state_fingerprint.py
           sparse-checkout-cone-mode: false
           fetch-depth: 1
 
+      - name: Classify unassociated dispatch
+        id: applicability
+        uses: actions/github-script@3a2844b7e9c422d3c10d287c895573f7108da1b3 # v9
+        with:
+          github-token: ${{ github.token }}
+          script: |
+            const { classifyReporterRun } =
+              require('./.github/scripts/keepalive_reporter_applicability.js');
+            try {
+              const result = await classifyReporterRun({
+                github, owner: context.repo.owner, repo: context.repo.repo,
+                run: context.payload.workflow_run,
+              });
+              core.setOutput('skip', result.status === 'skip' ? 'true' : 'false');
+            } catch (error) {
+              core.setFailed(`Reporter applicability unavailable: ${error.message}`);
+            }
+
       - name: Compute state fingerprint
         id: fingerprint
+        if: steps.applicability.outputs.skip != 'true'
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
@@ -59,6 +82,8 @@ jobs:
           run = event.get("workflow_run") or {}
           run_state = {
               "pr_number": int(os.environ["PR_NUMBER"]),
+              "run_id": int(run.get("id") or 0),
+              "run_attempt": int(run.get("run_attempt") or 1),
               "head_sha": run.get("head_sha") or "",
               "status": run.get("status") or "",
               "conclusion": run.get("conclusion") or "",
@@ -83,7 +108,6 @@ jobs:
         if: >-
           steps.fingerprint.outputs.should_run == 'true' &&
           github.event.workflow_run.conclusion != 'success' &&
-          github.event.workflow_run.pull_requests[0].number &&
           env.KEEPALIVE_APP_ID != '' &&
           env.KEEPALIVE_APP_PRIVATE_KEY != ''
         uses: actions/create-github-app-token@bcd2ba49218906704ab6c1aa796996da409d3eb1 # v3
@@ -106,7 +130,6 @@ jobs:
         if: >-
           steps.fingerprint.outputs.should_run == 'true' &&
           github.event.workflow_run.conclusion != 'success' &&
-          github.event.workflow_run.pull_requests[0].number &&
           steps.reporter_keepalive_app_token.outputs.token == '' &&
           env.WORKFLOWS_APP_ID != '' &&
           env.WORKFLOWS_APP_PRIVATE_KEY != ''
@@ -127,8 +150,7 @@ jobs:
       - name: Require trusted keepalive reporter writer
         if: >-
           steps.fingerprint.outputs.should_run == 'true' &&
-          github.event.workflow_run.conclusion != 'success' &&
-          github.event.workflow_run.pull_requests[0].number
+          github.event.workflow_run.conclusion != 'success'
         env:
           KEEPALIVE_REPORTER_TOKEN: >-
             ${{
@@ -146,8 +168,7 @@ jobs:
         id: update-summary
         if: >-
           steps.fingerprint.outputs.should_run == 'true' &&
-          github.event.workflow_run.conclusion != 'success' &&
-          github.event.workflow_run.pull_requests[0].number
+          github.event.workflow_run.conclusion != 'success'
         uses: actions/github-script@3a2844b7e9c422d3c10d287c895573f7108da1b3 # v9
         env:
           KEEPALIVE_SUMMARY_WRITER: >-
@@ -164,14 +185,10 @@ jobs:
             }}
           script: |
             const run = context.payload?.workflow_run || {};
-            const prNumber = Number(run.pull_requests?.[0]?.number || 0);
-            if (!prNumber) {
-              core.info('No PR context found; skipping keepalive post summary.');
-              return;
-            }
+            let prNumber = Number(run.pull_requests?.[0]?.number || 0);
 
             const conclusion = String(run.conclusion || run.status || '').toLowerCase();
-            if (!conclusion || conclusion === 'success') {
+            if (!conclusion || conclusion === 'success' || conclusion === 'skipped') {
               core.info(
                 `Keepalive run conclusion=${conclusion || 'unknown'}; ` +
                 'no post summary needed.'
@@ -179,8 +196,63 @@ jobs:
               return;
             }
 
-            const { loadKeepaliveState } = require('./.github/scripts/keepalive_state.js');
+            const { loadKeepaliveState, projectRecoveredAuthorityState } =
+              require('./.github/scripts/keepalive_state.js');
             const { updateKeepaliveLoopSummary } = require('./.github/scripts/keepalive_loop.js');
+            const { getWorkerExecutionEvidence } = require('./.github/scripts/keepalive_worker_evidence.js');
+
+            const workerEvidence = await getWorkerExecutionEvidence(
+              github, context.repo.owner, context.repo.repo, run.id, run.run_attempt || 1,
+              run.head_sha || ''
+            );
+            core.info(`Originating worker execution evidence: ${workerEvidence}`);
+            if (workerEvidence === 'unknown') {
+              core.setFailed('Originating worker execution evidence is unknown; retry this reporter');
+              return;
+            }
+            const ownerAttempt =
+              `${context.repo.owner}/${context.repo.repo}:${run.id}:${run.run_attempt || 1}`.toLowerCase();
+            const { findAuthorityPrForAttempt, reconcileFailedAuthorityAttempt, requester } =
+              require('./.github/scripts/keepalive_authority_state.js');
+            const authorityRequest = requester(github);
+            let authorityTarget;
+            if (!prNumber) {
+              try {
+                authorityTarget = await findAuthorityPrForAttempt({
+                  request: authorityRequest,
+                  repository: `${context.repo.owner}/${context.repo.repo}`,
+                  ownerAttempt,
+                });
+              } catch (error) {
+                core.setFailed(`Authority attempt target lookup unavailable: ${error.message}`);
+                return;
+              }
+            }
+            prNumber ||= authorityTarget?.prNumber || 0;
+            if (!prNumber) {
+              core.setFailed('No PR association or authoritative attempt target for failed run');
+              return;
+            }
+            try {
+              const reconciliation = await reconcileFailedAuthorityAttempt({
+                request: authorityRequest,
+                repository: `${context.repo.owner}/${context.repo.repo}`,
+                prNumber, ownerAttempt, workerEvidence,
+              });
+              core.info(`Attempt-bound authority reconciliation: ${reconciliation.status}`);
+              if (['released', 'reopened'].includes(reconciliation.status)) {
+                await projectRecoveredAuthorityState({
+                  github, context, prNumber, recovery: reconciliation,
+                  writerLogin: process.env.KEEPALIVE_SUMMARY_WRITER || '',
+                });
+                return;
+              }
+            } catch (error) {
+              if (error.status !== 404) {
+                core.setFailed(`Authority reconciliation unavailable: ${error.message}`);
+                return;
+              }
+            }
 
             const { state } = await loadKeepaliveState({ github, context, prNumber, trace: '' });
             if (!state || state.running !== true) {
@@ -190,13 +262,13 @@ jobs:
 
             const inputs = {
               pr_number: prNumber,
-              head_sha: run.head_sha || '',
+              head_sha: authorityTarget?.state?.head_sha || run.head_sha || '',
               action: 'run',
               reason: '',
-              // Gate Followups failed before an agent job started; do not consume authority ledger.
-              agent_execution_started: false,
+              agent_execution_started: workerEvidence === 'started' ? true :
+                workerEvidence === 'not-started' ? false : '',
               authority_owner_attempt:
-                `${context.repo.owner}/${context.repo.repo}:${run.id}:${run.run_attempt || 1}`.toLowerCase(),
+                ownerAttempt,
               gate_conclusion: state.gate_conclusion || '',
               iteration: state.iteration || 0,
               max_iterations: state.max_iterations || 0,

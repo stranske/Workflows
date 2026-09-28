@@ -435,6 +435,79 @@ async function loadKeepaliveState({ github: rawGithub, context, prNumber, trace 
   };
 }
 
+async function projectRecoveredAuthorityState({ github, context, prNumber, recovery, writerLogin }) {
+  if (!['released', 'reopened'].includes(recovery?.status) || !recovery.state) {
+    throw new Error('No settled authority recovery to project');
+  }
+  const priorGenerations = new Set([
+    recovery.previousGeneration || recovery.state.generation,
+    ...(recovery.previousGenerations || []),
+  ]);
+  const recoveredAttempt = (recovery.status === 'released' ? recovery.state.released_receipt :
+    recovery.state.recovered_receipt)?.owner_attempt || '';
+  const loaded = await loadKeepaliveState({ github, context, prNumber, trace: '' });
+  let state = loaded.state;
+  if (state?.running === false && recoveredAttempt &&
+      state?.attention?.recovery_owner_attempt === recoveredAttempt &&
+      state.attention.generation === recovery.state.generation) {
+    return { projected: true, reason: 'already-projected' };
+  }
+  if (!state?.attention || !priorGenerations.has(state.attention.generation)) {
+    throw new Error('Trusted summary does not match the recovered generation');
+  }
+  const sameWriter = loaded.commentId &&
+    String(loaded.commentAuthorLogin || '').toLowerCase() === String(writerLogin || '').toLowerCase();
+  if (sameWriter) {
+    const response = await github.rest.issues.getComment({
+      owner: context.repo.owner, repo: context.repo.repo, comment_id: loaded.commentId,
+    });
+    const latest = parseStateComment(response?.data?.body)?.data;
+    if (!latest?.attention || !priorGenerations.has(latest.attention.generation)) {
+      if (latest?.attention?.generation === recovery.state.generation && latest.running === false &&
+          latest.attention.recovery_owner_attempt === recoveredAttempt) {
+        return { projected: true, reason: 'already-projected' };
+      }
+      throw new Error('Trusted summary changed during authority projection');
+    }
+    state = latest;
+  }
+  const projected = {
+    ...state,
+    running: false,
+    running_since: null,
+    attention: {
+      ...state.attention,
+      owner: 'automation', disposition: 'challenge-due',
+      generation: recovery.state.generation,
+      recovery_owner_attempt: recoveredAttempt,
+      boundary_fingerprint: recovery.state.boundary_fingerprint,
+      challenge_due_at: recovery.state.due_at,
+      expires_at: recovery.state.expires_at,
+      next_action: 'Retry the exact-head authority challenge through the owning sweep.',
+    },
+  };
+  const body = [
+    '<!-- keepalive-loop-summary -->',
+    '## Keepalive Loop Status',
+    '',
+    'The failed originating run did not start a worker; its authority receipt was reconciled.',
+    '',
+    formatStateComment(projected),
+  ].join('\n');
+  if (sameWriter) {
+    await github.rest.issues.updateComment({
+      owner: context.repo.owner, repo: context.repo.repo,
+      comment_id: loaded.commentId, body,
+    });
+  } else {
+    await github.rest.issues.createComment({
+      owner: context.repo.owner, repo: context.repo.repo,
+      issue_number: prNumber, body,
+    });
+  }
+  return { projected: true, reason: 'recovered-summary-projected' };
+}
+
 async function resetState({ github: rawGithub, context, prNumber, trace, round }) {
   // Wrap github client with rate-limit-aware retry
   let github;
@@ -527,6 +600,7 @@ async function resetState({ github: rawGithub, context, prNumber, trace, round }
 }
 
 module.exports = {
+  projectRecoveredAuthorityState,
   createKeepaliveStateManager,
   saveKeepaliveState,
   loadKeepaliveState,

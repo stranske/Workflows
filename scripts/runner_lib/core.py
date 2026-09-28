@@ -1730,28 +1730,37 @@ def release_authority_challenge(
         return False
     if (
         not reservation
-        or reservation.get("status") != "pending"
         or reservation.get("head_sha") != head_sha
         or reservation.get("workflow_attempt_id") != _workflow_attempt_id()
+        or reservation.get("key") != _runner_key(pr_number, head_sha, provider)
     ):
         return False
-    completion = record_completion(
-        pr_number,
-        head_sha,
-        provider,
-        {
-            "provider": provider,
-            "success": False,
-            "summary": "Authority challenge released after runner preflight failure.",
-            "error": "runner-preflight-failed",
-            "truncated": False,
-            "final_message": "",
-        },
-        storage=storage,
-        produced_work=False,
-        observed_head_sha=head_sha,
-    )
-    if completion.get("status") != "error":
+    if reservation.get("status") == "pending":
+        completion = record_completion(
+            pr_number,
+            head_sha,
+            provider,
+            {
+                "provider": provider,
+                "success": False,
+                "summary": "Authority challenge released after runner preflight failure.",
+                "error": "runner-preflight-failed",
+                "truncated": False,
+                "final_message": "",
+            },
+            storage=storage,
+            produced_work=False,
+            observed_head_sha=head_sha,
+        )
+        if completion.get("status") != "error":
+            return False
+    elif not (
+        reservation.get("status") == "error"
+        and isinstance(reservation.get("result"), dict)
+        and reservation["result"].get("error") == "runner-preflight-failed"
+    ):
+        # Only this exact attempt's cleanup completion may resume a failed
+        # release. An arbitrary terminal error must not refund authority.
         return False
     released = _authority_challenge_command("release", pr_number, head_sha, provider)
     return bool(released and released.get("released") is True)
