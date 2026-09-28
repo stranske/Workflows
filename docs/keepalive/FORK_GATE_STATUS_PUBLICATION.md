@@ -13,26 +13,38 @@ fails closed unless all of these bindings hold:
 - the run belongs to this repository, is named `Gate`, uses
   `.github/workflows/pr-00-gate.yml`, and was triggered by `pull_request`;
 - the open pull request targets this repository, originates in a different
+  repository, the run's head-repository identity matches the PR head
   repository, and its current head SHA equals the run head SHA;
 - no newer run number or run attempt exists for that SHA;
-- the pull request does not change `.github/workflows/`, `.github/actions/`,
-  `.github/scripts/`, `.github/path-classification.yml`, or
+- the run ID, workflow ID, head SHA, attempt, status, and conclusion remain
+  byte-for-byte equivalent to the snapshot whose jobs were evaluated;
+- attempt-specific job evidence is available; the publisher never falls back
+  to an unbound all-attempt job list;
+- the complete changed-file set is smaller than GitHub's 3,000-file API cap,
+  matches `changed_files`, has no malformed/duplicate records, and neither the
+  current nor previous path of a rename changes `.github/workflows/`,
+  `.github/actions/`, `.github/scripts/`, `.github/path-classification.yml`, or
   `tools/post_ci_summary.py`;
 - completed runs contain exactly one completed `summary` job. Only an explicit
   successful run and successful summary can publish `success`; missing,
   ambiguous, neutral, skipped, or incomplete evidence publishes a blocking
   `error`.
 
-The run and PR are fetched again immediately before the status write, preventing
-a force-pushed head from inheriting a stale success. The publisher is serialized
-per head SHA and suppresses an identical replay for the same run URL. GitHub does
-not offer an atomic compare-and-set status API, so a final API recheck plus
-latest-attempt comparison is the enforcement boundary.
+The run and PR are fetched again immediately before the status write. Any head,
+base, changed-file count, run-attempt, status, or conclusion change aborts the
+write instead of reusing the earlier result. The publisher is serialized per
+head SHA and suppresses an identical replay for the same run URL. API reads use
+bounded retry/backoff with the workflow token only; the final status POST is not
+automatically replayed after its last binding check. GitHub does not offer an
+atomic compare-and-set status API, so these checks narrow but cannot eliminate
+the final read/write race. An abort also leaves an older status untouched.
 
 The workflow has only `actions: read`, `contents: read`, `pull-requests: read`,
-and `statuses: write`. It uses no secrets, artifacts, caches, or pull-request
-checkout. `Maint 46 Post CI` explicitly skips fork PR recovery so there is one
-writer for fork `Gate / gate` statuses.
+and `statuses: write`. It uses no secrets, artifacts, caches, pull-request
+checkout, PAT rotation, or App credentials. `Maint 46 Post CI` classifies forks
+from `workflow_run.head_repository.id`; missing repository identity fails closed,
+and fork recovery is skipped before checkout or status propagation so there is
+one writer for fork `Gate / gate` statuses.
 
 ## Live protection audit (2026-09-28)
 

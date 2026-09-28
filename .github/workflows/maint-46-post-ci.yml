@@ -57,23 +57,21 @@ jobs:
               return;
             }
 
-            const payloadPr = Array.isArray(run.pull_requests)
-              ? run.pull_requests.find(item => item && Number(item.number))
-              : null;
-            if (payloadPr) {
-              const response = await github.rest.pulls.get({
-                owner,
-                repo,
-                pull_number: Number(payloadPr.number),
-              });
-              const pr = response.data;
-              if (pr.head?.repo?.id && pr.base?.repo?.id && pr.head.repo.id !== pr.base.repo.id) {
-                core.notice(
-                  `Fork PR #${pr.number} is owned by Gate Fork Status Publisher; skipping Maint 46 recovery.`,
-                );
-                core.setOutput('recover', 'false');
-                return;
-              }
+            const headRepoId = run.head_repository?.id;
+            const baseRepoId = run.repository?.id;
+            if (!headRepoId || !baseRepoId) {
+              core.warning(
+                'Gate repository identity is incomplete; refusing Maint 46 recovery to avoid a competing status writer.',
+              );
+              core.setOutput('recover', 'false');
+              return;
+            }
+            if (headRepoId !== baseRepoId) {
+              core.notice(
+                'Fork Gate run is owned by Gate Fork Status Publisher; skipping Maint 46 recovery.',
+              );
+              core.setOutput('recover', 'false');
+              return;
             }
 
             let summaryJob = null;

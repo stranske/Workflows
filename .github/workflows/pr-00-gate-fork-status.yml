@@ -1,6 +1,8 @@
 name: Gate Fork Status Publisher
 
 'on':
+  # zizmor: ignore[dangerous-triggers] Trusted default-branch code only; no PR
+  # checkout, artifacts, or cache; exact run-attempt/head binding is enforced.
   workflow_run:
     workflows:
       - Gate
@@ -30,7 +32,12 @@ jobs:
         with:
           ref: ${{ github.event.repository.default_branch }}
           persist-credentials: false
-          sparse-checkout: .github/scripts/gate-fork-status-publication.js
+          sparse-checkout: |
+            .github/scripts/error_classifier.js
+            .github/scripts/gate-fork-status-publication.js
+            .github/scripts/github-api-with-retry.js
+            .github/scripts/github-rate-limited-wrapper.js
+            .github/scripts/token_load_balancer.js
           sparse-checkout-cone-mode: false
 
       - name: Publish exact-head Gate status

@@ -99,3 +99,13 @@ def test_maint46_gate_artifact_download_fails_open_to_metadata_summary():
     assert download["continue-on-error"] is True
     assert note["if"] == "${{ steps.download_gate_artifacts.outcome == 'failure' }}"
     assert "artifact-only coverage detail" in note["run"]
+
+
+def test_maint46_refuses_fork_or_unknown_repository_identity_without_pr_association():
+    source = Path(".github/workflows/maint-46-post-ci.yml").read_text(encoding="utf-8")
+
+    assert "run.head_repository?.id" in source
+    assert "run.repository?.id" in source
+    assert "Gate repository identity is incomplete" in source
+    assert "Fork Gate run is owned by Gate Fork Status Publisher" in source
+    assert "run.pull_requests" not in source
