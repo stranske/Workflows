@@ -1134,10 +1134,18 @@ jobs:
                 fallbackMarker: '<!-- gate-summary:',
               });
             } catch (error) {
+              const responseHeaders = error?.response?.headers || error?.headers || {};
+              const responseMessage = error?.response?.data?.message || '';
+              const hitRateLimit =
+                error?.status === 403 &&
+                (/rate limit|abuse/i.test(error?.message || '') ||
+                  /rate limit|abuse/i.test(responseMessage) ||
+                  String(responseHeaders['x-ratelimit-remaining']) === '0' ||
+                  responseHeaders['retry-after'] != null);
               const readOnlyForkToken =
                 error?.status === 403 &&
                 isForkPullRequest &&
-                !/rate limit/i.test(error?.message || '');
+                !hitRateLimit;
               if (!readOnlyForkToken) {
                 throw error;
               }
@@ -1232,9 +1240,14 @@ jobs:
                 await github.rest.repos.createCommitStatus(statusPayload);
               }
             } catch (error) {
+              const responseHeaders = error?.response?.headers || error?.headers || {};
+              const responseMessage = error?.response?.data?.message || '';
               const hitRateLimit =
                 error?.status === 403 &&
-                /rate limit/i.test(error?.message || '');
+                (/rate limit|abuse/i.test(error?.message || '') ||
+                  /rate limit|abuse/i.test(responseMessage) ||
+                  String(responseHeaders['x-ratelimit-remaining']) === '0' ||
+                  responseHeaders['retry-after'] != null);
               // A pull request opened from a fork runs with a read-only token, so the
               // statuses write is refused with 403 'Resource not accessible by
               // integration'. Rethrowing failed this job AFTER the verdict was already
