@@ -145,10 +145,10 @@ fingerprint_refreshed = 2026-09-02
 main = .github/workflows/agents-keepalive-loop-reporter.yml
 template = templates/consumer-repo/.github/workflows/agents-keepalive-loop-reporter.yml
 main_sha256 = 3040dc8ebb342c988d674cee9d149c218c48cacf3a01b2f7152b7fc521c8b1c4
-template_sha256 = faf1d90575c7da8c599965c34daf56ad46b4999109bea0013b2fa08cbe8f96b3
-divergence = Authority recovery reviewed 2026-09-27: both reporters classify the exact originating worker attempt using the routed agent registry, recover a missing webhook PR association from the direct immutable attempt index and verified ledger receipt, reconcile only positive non-start evidence, and project settled generation state. The Workflows root reporter also subscribes to Agents Keepalive Loop without the consumer consolidated-mode gate because that root workflow runs when USE_CONSOLIDATED_WORKFLOWS is not true; the consumer reporter remains scoped to Agents Gate Followups and its consolidated-mode gate. Root in-repo setup and consumer state fingerprinting with exact run attempt and SHA-pinned actions remain intentional. Do not align wholesale, because it would disable a live root recovery path or remove the consumer deployment contract.
-divergence_reviewed = 2026-09-27
-fingerprint_refreshed = 2026-09-27
+template_sha256 = ff5a929fc27f139f35718a7c40c2d1f16b9421b03b5805d62e8e499ceb904649
+divergence = Non-consolidated authority recovery re-reviewed 2026-09-28: both reporters now remain active for failed or cancelled originating workflows regardless of sweep mode. The Workflows root reporter subscribes to both Agents Gate Followups and Agents Keepalive Loop, while the consumer reporter subscribes only to Agents Gate Followups because both consolidated and non-consolidated consumer sweeps can dispatch that workflow. Root in-repo setup and consumer state fingerprinting with exact run attempt and SHA-pinned actions remain intentional. Do not align wholesale, because it would remove either the root workflow coverage or the consumer deployment contract.
+divergence_reviewed = 2026-09-28
+fingerprint_refreshed = 2026-09-28
 
 [pair.13]
 main = .github/workflows/agents-keepalive-sweep.yml
