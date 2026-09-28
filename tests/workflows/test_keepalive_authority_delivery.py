@@ -62,7 +62,9 @@ def test_gate_paths_deny_invalid_claims_and_reporters_can_persist_generation() -
         TEMPLATE / ".github/workflows/agents-keepalive-loop-reporter.yml",
     ):
         workflow = yaml.safe_load(path.read_text())
-        assert "skipped" in workflow["jobs"]["report"]["if"]
+        report_condition = workflow["jobs"]["report"]["if"]
+        assert "github.event.workflow_run.conclusion != 'success'" in report_condition
+        assert "github.event.workflow_run.conclusion != 'skipped'" in report_condition
         steps = workflow["jobs"]["report"]["steps"]
         names = [step["name"] for step in steps]
         assert names.index("Classify unassociated dispatch") < names.index(
