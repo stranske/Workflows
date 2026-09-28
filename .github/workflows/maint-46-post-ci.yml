@@ -57,6 +57,25 @@ jobs:
               return;
             }
 
+            const payloadPr = Array.isArray(run.pull_requests)
+              ? run.pull_requests.find(item => item && Number(item.number))
+              : null;
+            if (payloadPr) {
+              const response = await github.rest.pulls.get({
+                owner,
+                repo,
+                pull_number: Number(payloadPr.number),
+              });
+              const pr = response.data;
+              if (pr.head?.repo?.id && pr.base?.repo?.id && pr.head.repo.id !== pr.base.repo.id) {
+                core.notice(
+                  `Fork PR #${pr.number} is owned by Gate Fork Status Publisher; skipping Maint 46 recovery.`,
+                );
+                core.setOutput('recover', 'false');
+                return;
+              }
+            }
+
             let summaryJob = null;
             try {
               const jobs = await paginateWithRetry(

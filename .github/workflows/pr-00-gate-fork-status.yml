@@ -1,0 +1,41 @@
+name: Gate Fork Status Publisher
+
+'on':
+  workflow_run:
+    workflows:
+      - Gate
+    types:
+      - requested
+      - in_progress
+      - completed
+
+permissions:
+  actions: read
+  contents: read
+  pull-requests: read
+  statuses: write
+
+concurrency:
+  group: gate-fork-status-${{ github.event.workflow_run.head_sha || github.run_id }}
+  cancel-in-progress: false
+
+jobs:
+  publish:
+    name: publish trusted fork Gate status
+    if: ${{ github.event.workflow_run.event == 'pull_request' }}
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout trusted publisher
+        uses: actions/checkout@v7
+        with:
+          ref: ${{ github.event.repository.default_branch }}
+          persist-credentials: false
+          sparse-checkout: .github/scripts/gate-fork-status-publication.js
+          sparse-checkout-cone-mode: false
+
+      - name: Publish exact-head Gate status
+        uses: actions/github-script@v9
+        with:
+          script: |
+            const { publishGateForkStatus } = require('./.github/scripts/gate-fork-status-publication.js');
+            await publishGateForkStatus({ github, context, core });
