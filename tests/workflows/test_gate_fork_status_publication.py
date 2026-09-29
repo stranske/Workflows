@@ -7,7 +7,9 @@ import yaml
 
 ROOT = pathlib.Path(__file__).parents[2]
 HELPER = ROOT / ".github/scripts/gate-fork-status-publication.js"
+TEMPLATE_HELPER = ROOT / "templates/consumer-repo/.github/scripts/gate-fork-status-publication.js"
 WORKFLOW = ROOT / ".github/workflows/pr-00-gate-fork-status.yml"
+SUPPORTED_SUMMARY_NAMES = ("summary", "gate-summary")
 
 
 def _decide(run, jobs, changed_files):
@@ -34,7 +36,7 @@ try {{
     return json.loads(completed.stdout)
 
 
-def _publish_scenario(*, final_run=None, same_repo=False, replay=False):
+def _publish_scenario(*, final_run=None, same_repo=False, replay=False, summary_name="summary"):
     initial_run = {
         "id": 9,
         "workflow_id": 7,
@@ -85,7 +87,7 @@ const github = {{
     actions: {{
       getWorkflowRun: async () => ({{data: runReads++ === 0 ? scenario.initialRun : scenario.finalRun}}),
       getWorkflow: endpoint({{id: 7, path: '.github/workflows/pr-00-gate.yml'}}),
-      listJobsForWorkflowRunAttempt: endpoint([{{name: 'summary', status: 'completed', conclusion: 'success'}}]),
+      listJobsForWorkflowRunAttempt: endpoint([{{name: {json.dumps(summary_name)}, status: 'completed', conclusion: 'success'}}]),
       listWorkflowRuns: endpoint([scenario.initialRun]),
     }},
     pulls: {{
@@ -147,8 +149,9 @@ def test_fork_gate_status_publisher_has_trusted_minimal_permissions():
     assert "maxRetries: 0" in helper
 
 
-def test_fork_gate_status_requires_explicit_success_and_complete_summary():
-    jobs = [{"name": "summary", "status": "completed", "conclusion": "success"}]
+@pytest.mark.parametrize("summary_name", SUPPORTED_SUMMARY_NAMES)
+def test_fork_gate_status_requires_explicit_success_and_complete_summary(summary_name):
+    jobs = [{"name": summary_name, "status": "completed", "conclusion": "success"}]
     assert (
         _decide({"status": "completed", "conclusion": "success"}, jobs, ["src/app.py"])["state"]
         == "success"
@@ -164,19 +167,52 @@ def test_fork_gate_status_requires_explicit_success_and_complete_summary():
     assert (
         _decide(
             {"status": "completed", "conclusion": "failure"},
-            [{"name": "summary", "status": "completed", "conclusion": "failure"}],
+            [{"name": summary_name, "status": "completed", "conclusion": "failure"}],
             ["src/app.py"],
         )["state"]
         == "failure"
     )
 
 
-def test_fork_gate_status_publishes_success_once_for_bound_evidence():
-    outcome = _publish_scenario()
+@pytest.mark.parametrize("summary_name", SUPPORTED_SUMMARY_NAMES)
+def test_fork_gate_status_publishes_success_once_for_bound_evidence(summary_name):
+    outcome = _publish_scenario(summary_name=summary_name)
     assert outcome["result"]["state"] == "success"
     assert len(outcome["writes"]) == 1
     assert outcome["writes"][0]["sha"] == "abc"
     assert outcome["writes"][0]["context"] == "Gate / gate"
+
+
+@pytest.mark.parametrize(
+    "jobs",
+    [
+        [],
+        [
+            {"name": "summary", "status": "completed", "conclusion": "success"},
+            {"name": "summary", "status": "completed", "conclusion": "success"},
+        ],
+        [
+            {"name": "gate-summary", "status": "completed", "conclusion": "success"},
+            {"name": "gate-summary", "status": "completed", "conclusion": "success"},
+        ],
+        [
+            {"name": "summary", "status": "completed", "conclusion": "success"},
+            {"name": "gate-summary", "status": "completed", "conclusion": "success"},
+        ],
+        [{"name": "Summary", "status": "completed", "conclusion": "success"}],
+        [{"name": "Gate-Summary", "status": "completed", "conclusion": "success"}],
+        [{"name": " gate-summary ", "status": "completed", "conclusion": "success"}],
+        [{"name": "gate-summary (3.12)", "status": "completed", "conclusion": "success"}],
+        [{"name": "Gate / gate-summary", "status": "completed", "conclusion": "success"}],
+    ],
+)
+def test_fork_gate_status_rejects_missing_ambiguous_or_lookalike_summary(jobs):
+    result = _decide({"status": "completed", "conclusion": "success"}, jobs, ["src/app.py"])
+    assert result == {"state": "error", "description": "Gate job set is missing or incomplete"}
+
+
+def test_fork_gate_status_source_and_template_helpers_match():
+    assert HELPER.read_bytes() == TEMPLATE_HELPER.read_bytes()
 
 
 def test_fork_gate_status_does_not_write_after_attempt_drift():

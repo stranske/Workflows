@@ -2,6 +2,7 @@
 
 const GATE_CONTEXT = 'Gate / gate';
 const GATE_PATH = '.github/workflows/pr-00-gate.yml';
+const SUMMARY_JOB_NAMES = new Set(['summary', 'gate-summary']);
 const BLOCKED_PREFIXES = [
   '.github/actions/',
   '.github/scripts/',
@@ -74,7 +75,7 @@ function publicationState({ run, jobs, changedFiles }) {
   if (run.status !== 'completed') {
     return { state: 'pending', description: 'Trusted Gate run is in progress' };
   }
-  const summaries = jobs.filter(job => String(job.name || '').toLowerCase() === 'summary');
+  const summaries = jobs.filter(job => SUMMARY_JOB_NAMES.has(job.name));
   if (summaries.length !== 1 || jobs.some(job => job.status !== 'completed')) {
     return { state: 'error', description: 'Gate job set is missing or incomplete' };
   }
