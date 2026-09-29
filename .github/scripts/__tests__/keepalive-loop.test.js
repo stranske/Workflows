@@ -3175,6 +3175,8 @@ test('summary input without exact job evidence cannot reopen a consumed authorit
   assert.equal(attention.disposition, 'automation-retry');
   assert.equal(attention.owner, 'automation');
   assert.equal(attention.generation, '');
+  assert.equal(attention.recovery_generation, 'c'.repeat(64));
+  assert.equal(attention.recovery_owner_attempt, 'octo/workflows:9001:1');
   assert.equal(
     github.actions.filter((action) => action.type === 'authority-ledger-write').length,
     0,

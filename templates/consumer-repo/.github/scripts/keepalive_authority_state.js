@@ -198,9 +198,7 @@ async function beginChallenge({ request, repository, prNumber, defaultBranch, fi
       throw new Error('Previously initialized challenge generation is missing or superseded');
     }
     // Expiry alone never refunds a prepared, consumed, or confirmed receipt.
-    // A released receipt retains its lineage until exact-attempt reconciliation.
-    if (prior && prior.state.head_sha === headSha &&
-        (prior.state.status !== 'available' || prior.state.released_receipt)) {
+    if (prior && prior.state.head_sha === headSha && prior.state.status !== 'available') {
       return prior.state;
     }
     if (prior && prior.state.boundary_fingerprint === fingerprint &&
@@ -209,6 +207,18 @@ async function beginChallenge({ request, repository, prNumber, defaultBranch, fi
         return prior.state;
       }
     }
+    const releasedState = prior?.state.head_sha === headSha &&
+      prior.state.status === 'available' && prior.state.released_receipt
+      ? {
+          released_receipt: prior.state.released_receipt,
+          released_generation: prior.state.released_generation || prior.state.generation,
+          released_generation_lineage: [...new Set([
+            ...(prior.state.released_generation_lineage || []),
+            prior.state.released_generation || prior.state.generation,
+            prior.state.generation,
+          ])],
+        }
+      : {};
     const state = {
       version: 2,
       repository: String(repository).toLowerCase(),
@@ -221,6 +231,7 @@ async function beginChallenge({ request, repository, prNumber, defaultBranch, fi
       status: 'available',
       receipt: null,
       revision: (prior?.state.revision || 0) + 1,
+      ...releasedState,
     };
     try {
       await writeAuthorityState(request, repository, prNumber, state, prior?.sha);

@@ -4649,6 +4649,15 @@ async function updateKeepaliveLoopSummary({ github: rawGithub, context, core, in
           next_action: authorityEvidence.humanAction,
         };
       } else {
+        const recoveryOwnerAttempt = String(authorityOwnerAttempt ||
+          `${context.repo.owner}/${context.repo.repo}:` +
+          `${context.runId || process.env.GITHUB_RUN_ID || ''}:` +
+          `${context.runAttempt || process.env.GITHUB_RUN_ATTEMPT || ''}`).toLowerCase();
+        const attemptBoundRecovery = escalationDisposition === 'automation-retry' &&
+          agentExecutionStarted === false &&
+          previousAttention.disposition === 'challenge-due' &&
+          previousAttention.generation &&
+          /^[a-z0-9_.-]+\/[a-z0-9_.-]+:\d+:\d+$/.test(recoveryOwnerAttempt);
         newState.attention = {
           key: attentionKey,
           disposition: escalationDisposition,
@@ -4663,6 +4672,10 @@ async function updateKeepaliveLoopSummary({ github: rawGithub, context, core, in
           boundary_detail: escalationDisposition === 'challenge-due'
             ? authorityEvidence.detail
             : '',
+          ...(attemptBoundRecovery ? {
+            recovery_generation: previousAttention.generation,
+            recovery_owner_attempt: recoveryOwnerAttempt,
+          } : {}),
           next_action: escalationDisposition === 'challenge-due'
             ? 'Independently rerun the current operation and confirm the same redacted authority-boundary fingerprint.'
             : 'Route to automation retry/backoff, CI repair, alternate agent, or review fallback.',
