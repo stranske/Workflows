@@ -2,6 +2,19 @@
 
 This document outlines the process for maintaining workflow system consistency across consumer repositories and debugging issues that may affect multiple repos.
 
+## Keepalive authority recovery
+
+Manifest-managed keepalive authority scripts preserve exact-attempt safety across
+pre-worker failures. If the summary rewrites `challenge-due` to
+`automation-retry` before the failed-run reporter settles the receipt, it keeps
+the originating owner attempt and prior generation as non-authorizing recovery
+markers. The reporter projects recovery only when those markers match the
+authoritative receipt lineage. An available released state rotates when its
+boundary fingerprint changes or its due window expires, but retains the settled
+receipt and generation lineage so delayed reporters remain safe and idempotent.
+Repair this contract in Workflows and distribute it through Maint 68/71; never
+patch a generated consumer PR directly.
+
 The manifest-managed runner comment storage queries only GraphQL
 `fullDatabaseId` for issue comments. Selecting the legacy 32-bit `databaseId`
 in the same query can fail the entire response for current comment IDs, even

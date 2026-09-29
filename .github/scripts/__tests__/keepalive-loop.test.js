@@ -3175,10 +3175,50 @@ test('summary input without exact job evidence cannot reopen a consumed authorit
   assert.equal(attention.disposition, 'automation-retry');
   assert.equal(attention.owner, 'automation');
   assert.equal(attention.generation, '');
+  assert.equal(attention.recovery_generation, 'c'.repeat(64));
+  assert.equal(attention.recovery_owner_attempt, 'octo/workflows:9001:1');
   assert.equal(
     github.actions.filter((action) => action.type === 'authority-ledger-write').length,
     0,
   );
+});
+
+test('later failed retries retain an earlier attempt recovery pair for its delayed reporter', async () => {
+  const generation = 'c'.repeat(64);
+  const ownerAttempt = 'octo/workflows:9001:1';
+  let state = formatStateComment({
+    trace: 'trace-pending-recovery', iteration: 2, failure_threshold: 3,
+    failure: { reason: 'agent-run-failed', count: 1 }, running: false,
+    attention: {
+      owner: 'automation', disposition: 'automation-retry', generation: '',
+      recovery_generation: generation, recovery_owner_attempt: ownerAttempt,
+    },
+  });
+  for (const executionStarted of [false, true, undefined]) {
+    const github = buildGithubStub({
+      comments: [{ id: 90, body: state, html_url: 'https://example.com/90' }],
+    });
+    await updateKeepaliveLoopSummary({
+      github,
+      context: buildContext(654, 7777, { eventName: 'workflow_run' }),
+      core: buildCore(),
+      inputs: {
+        prNumber: 654, action: 'run', runResult: 'failure',
+        gateConclusion: 'success', tasksTotal: 3, tasksUnchecked: 3,
+        keepaliveEnabled: true, autofixEnabled: false, iteration: 3,
+        maxIterations: 5, failureThreshold: 3, trace: 'trace-pending-recovery',
+        head_sha: 'd'.repeat(40), agent_summary: 'Agent failed during retry.',
+        authority_owner_attempt: 'octo/workflows:9002:1',
+        ...(executionStarted === undefined ? {} : { agent_execution_started: executionStarted }),
+      },
+    });
+    state = github.actions.filter((action) => action.type === 'update').at(-1).body;
+    const attention = parseStateComment(state).data.attention;
+    assert.equal(attention.disposition, 'automation-retry');
+    assert.equal(attention.recovery_generation, generation);
+    assert.equal(attention.recovery_owner_attempt, ownerAttempt);
+    assert.equal(github.actions.filter((action) => action.type === 'authority-ledger-write').length, 0);
+  }
 });
 
 test('updateKeepaliveLoopSummary sends preflight auth failures without a runner exit to independent challenge', async () => {

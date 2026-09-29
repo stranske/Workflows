@@ -223,6 +223,61 @@ test('an exact release retry is idempotent but cannot release a replacement rece
   assert.equal((await readAuthorityState(api.request, repository, prNumber)).state.status, 'prepared');
 });
 
+test('released availability rotates for a changed boundary while retaining receipt lineage', async () => {
+  const api = fakeGitHub();
+  const first = await beginChallenge({
+    request: api.request, repository, prNumber, defaultBranch: 'main',
+    fingerprint, headSha, ...boundary(),
+  });
+  const options = { request: api.request, repository, prNumber, claim: claim(first),
+    ownerAttempt, provider: 'codex', headSha };
+  assert.equal((await prepareChallenge(options)).prepared, true);
+  assert.equal((await releasePreparedChallenge(options)).released, true);
+
+  const changedFingerprint = 'f'.repeat(64);
+  const rotated = await beginChallenge({
+    request: api.request, repository, prNumber, defaultBranch: 'main',
+    fingerprint: changedFingerprint, headSha, ...boundary(),
+  });
+  assert.notEqual(rotated.generation, first.generation);
+  assert.equal(rotated.boundary_fingerprint, changedFingerprint);
+  assert.equal(rotated.released_generation, first.generation);
+  assert.deepEqual(rotated.released_generation_lineage, [first.generation]);
+  assert.equal(rotated.released_receipt.owner_attempt, ownerAttempt);
+  assert.equal((await prepareChallenge(options)).reason, 'challenge-not-current');
+  const currentClaim = {
+    ...claim(rotated),
+    boundary_fingerprint: changedFingerprint,
+    due_at: rotated.due_at,
+    expires_at: rotated.expires_at,
+  };
+  assert.equal((await prepareChallenge({ ...options, claim: currentClaim })).reason,
+    'attempt-already-settled');
+});
+
+test('released availability rotates an expired window while retaining receipt lineage', async () => {
+  const api = fakeGitHub();
+  const first = await beginChallenge({
+    request: api.request, repository, prNumber, defaultBranch: 'main',
+    fingerprint, headSha, ...boundary(),
+  });
+  const options = { request: api.request, repository, prNumber, claim: claim(first),
+    ownerAttempt, provider: 'codex', headSha };
+  assert.equal((await prepareChallenge(options)).prepared, true);
+  assert.equal((await releasePreparedChallenge(options)).released, true);
+  api.expireChallenge();
+
+  const rotated = await beginChallenge({
+    request: api.request, repository, prNumber, defaultBranch: 'main',
+    fingerprint, headSha, ...boundary(),
+  });
+  assert.notEqual(rotated.generation, first.generation);
+  assert.equal(rotated.released_generation, first.generation);
+  assert.deepEqual(rotated.released_generation_lineage, [first.generation]);
+  assert.equal(rotated.released_receipt.owner_attempt, ownerAttempt);
+  assert.ok(Date.parse(rotated.expires_at) > Date.now());
+});
+
 test('expired prepared release creates a fresh due window without refunding its attempt', async () => {
   const api = fakeGitHub();
   const first = await beginChallenge({ request: api.request, repository, prNumber,

@@ -435,6 +435,21 @@ async function loadKeepaliveState({ github: rawGithub, context, prNumber, trace 
   };
 }
 
+function summaryMatchesRecoveredAuthority(state, priorGenerations, recoveredAttempt) {
+  if (state?.attention && priorGenerations.has(state.attention.generation)) return true;
+  const attention = state?.attention || {};
+  return state?.running === false &&
+    attention.owner === 'automation' &&
+    attention.disposition === 'automation-retry' &&
+    !attention.generation &&
+    !attention.boundary_fingerprint &&
+    !attention.challenge_due_at &&
+    !attention.expires_at &&
+    recoveredAttempt &&
+    attention.recovery_owner_attempt === recoveredAttempt &&
+    priorGenerations.has(attention.recovery_generation);
+}
+
 async function projectRecoveredAuthorityState({ github, context, prNumber, recovery, writerLogin }) {
   if (!['released', 'reopened'].includes(recovery?.status) || !recovery.state) {
     throw new Error('No settled authority recovery to project');
@@ -452,7 +467,7 @@ async function projectRecoveredAuthorityState({ github, context, prNumber, recov
       state.attention.generation === recovery.state.generation) {
     return { projected: true, reason: 'already-projected' };
   }
-  if (!state?.attention || !priorGenerations.has(state.attention.generation)) {
+  if (!summaryMatchesRecoveredAuthority(state, priorGenerations, recoveredAttempt)) {
     throw new Error('Trusted summary does not match the recovered generation');
   }
   const sameWriter = loaded.commentId &&
@@ -462,7 +477,7 @@ async function projectRecoveredAuthorityState({ github, context, prNumber, recov
       owner: context.repo.owner, repo: context.repo.repo, comment_id: loaded.commentId,
     });
     const latest = parseStateComment(response?.data?.body)?.data;
-    if (!latest?.attention || !priorGenerations.has(latest.attention.generation)) {
+    if (!summaryMatchesRecoveredAuthority(latest, priorGenerations, recoveredAttempt)) {
       if (latest?.attention?.generation === recovery.state.generation && latest.running === false &&
           latest.attention.recovery_owner_attempt === recoveredAttempt) {
         return { projected: true, reason: 'already-projected' };
@@ -471,12 +486,13 @@ async function projectRecoveredAuthorityState({ github, context, prNumber, recov
     }
     state = latest;
   }
+  const { recovery_generation: _recoveryGeneration, ...priorAttention } = state.attention;
   const projected = {
     ...state,
     running: false,
     running_since: null,
     attention: {
-      ...state.attention,
+      ...priorAttention,
       owner: 'automation', disposition: 'challenge-due',
       generation: recovery.state.generation,
       recovery_owner_attempt: recoveredAttempt,

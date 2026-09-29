@@ -310,6 +310,34 @@ test('recovered authority projects generation and clears running state on truste
   assert.equal(github.actions.filter((action) => action.type === 'update').length, 1);
 });
 
+test('attempt-bound recovery projects after summary rewrites attention to automation retry', async () => {
+  const oldGeneration = 'a'.repeat(64);
+  const newGeneration = 'b'.repeat(64);
+  const attempt = 'owner/repo:123:1';
+  const initial = { running: false, attention: {
+    owner: 'automation', disposition: 'automation-retry', generation: '',
+    boundary_fingerprint: '', challenge_due_at: null, expires_at: '',
+    recovery_generation: oldGeneration, recovery_owner_attempt: attempt,
+  } };
+  const github = buildGithubStub({ comments: [{
+    id: 91, body: '<!-- keepalive-loop-summary -->\n' + formatStateComment(initial),
+  }] });
+  const context = { repo: { owner: 'owner', repo: 'repo' } };
+  const recovery = { status: 'released', previousGeneration: oldGeneration, state: {
+    generation: newGeneration, boundary_fingerprint: 'c'.repeat(64),
+    released_receipt: { owner_attempt: attempt },
+    due_at: '2026-09-27T17:00:00.000Z', expires_at: '2026-09-28T17:00:00.000Z',
+  } };
+  const result = await projectRecoveredAuthorityState({
+    github, context, prNumber: 42, recovery, writerLogin: 'agents-workflows-bot[bot]',
+  });
+  assert.equal(result.reason, 'recovered-summary-projected');
+  const loaded = await loadKeepaliveState({ github, context, prNumber: 42, trace: '' });
+  assert.equal(loaded.state.attention.disposition, 'challenge-due');
+  assert.equal(loaded.state.attention.generation, newGeneration);
+  assert.equal(loaded.state.attention.recovery_owner_attempt, attempt);
+});
+
 test('same-generation prepared release projection is idempotent for the exact owner attempt', async () => {
   const generation = 'a'.repeat(64);
   const attempt = 'owner/repo:123:1';
