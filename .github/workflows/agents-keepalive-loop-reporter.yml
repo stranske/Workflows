@@ -200,6 +200,7 @@ jobs:
             }
             prNumber = authorityRecovery.prNumber;
             const authorityTarget = authorityRecovery.authorityTarget;
+            const ownerAttempt = authorityRecovery.ownerAttempt;
             core.info(
               `Attempt-bound authority reconciliation: ` +
               `${authorityRecovery.reconciliation?.status || authorityRecovery.status}`

@@ -189,6 +189,30 @@ for (const status of ['released', 'reopened']) {
   });
 }
 
+test('404 reconciliation preserves the owner-attempt binding for normal reporting', async () => {
+  const missing = new Error('not found');
+  missing.status = 404;
+  const result = await recoverReporterAuthority({
+    github: {}, context: { repo: { owner: 'stranske', repo: 'repo' } }, run,
+    workerEvidence: 'started', writerLogin: 'agents-workflows-bot[bot]', prNumber: 42,
+    makeRequest: () => 'request',
+    reconcileAttempt: async () => { throw missing; },
+  });
+  assert.equal(result.status, 'continue');
+  assert.equal(result.ownerAttempt, 'stranske/repo:12345:2');
+});
+
+test('non-released reconciliation preserves the owner-attempt binding for normal reporting', async () => {
+  const result = await recoverReporterAuthority({
+    github: {}, context: { repo: { owner: 'stranske', repo: 'repo' } }, run,
+    workerEvidence: 'started', writerLogin: 'agents-workflows-bot[bot]', prNumber: 42,
+    makeRequest: () => 'request',
+    reconcileAttempt: async () => ({ status: 'owned' }),
+  });
+  assert.equal(result.status, 'continue');
+  assert.equal(result.ownerAttempt, 'stranske/repo:12345:2');
+});
+
 test('recovery rejects unknown worker evidence before authority mutation', async () => {
   await assert.rejects(recoverReporterAuthority({
     github: {}, context: { repo: { owner: 'stranske', repo: 'repo' } }, run,
