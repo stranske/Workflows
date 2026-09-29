@@ -25,10 +25,11 @@ fails closed unless all of these bindings hold:
   current nor previous path of a rename changes `.github/workflows/`,
   `.github/actions/`, `.github/scripts/`, `.github/path-classification.yml`, or
   `tools/post_ci_summary.py`;
-- completed runs contain exactly one completed `summary` job. Only an explicit
-  successful run and successful summary can publish `success`; missing,
-  ambiguous, neutral, skipped, or incomplete evidence publishes a blocking
-  `error`.
+- completed runs contain exactly one completed trusted summary job whose name is
+  either `summary` or `gate-summary` (case-sensitive allowlist; duplicate or
+  mixed names fail closed). Only an explicit successful run and successful
+  summary job can publish `success`; missing, ambiguous, neutral, skipped, or
+  incomplete evidence publishes a blocking `error`.
 
 The run and PR are fetched again immediately before the status write. Any head,
 base, changed-file count, run-attempt, status, or conclusion change aborts the
@@ -52,7 +53,9 @@ The opener queried active rulesets and legacy branch protection before this
 change. Repositories visibly requiring the status were
 `Travel-Plan-Permission`, `Pension-Data`, `Inv-Man-Intake`, `Ready`,
 `trip-planner`, `Portable-Alpha-Extension-Model` (legacy `gate-summary`), and
-`learning-management-system`. Workflows currently requires `summary` instead;
+`learning-management-system`. Workflows branch protection lists `summary`; the
+publisher also accepts a lone `gate-summary` job when that is the Gate rollup
+name (for example legacy consumer aliases);
 Trend Model Project and Collab Admin expose disabled rulesets. The remaining
 registered consumers returned no visible required status contexts. This is a
 point-in-time API audit, not an assertion that hidden or future protection rules
