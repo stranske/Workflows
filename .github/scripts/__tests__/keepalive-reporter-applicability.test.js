@@ -4,7 +4,11 @@ const assert = require('node:assert/strict');
 const fs = require('node:fs');
 const path = require('node:path');
 const test = require('node:test');
-const { classifyReporterRun } = require('../keepalive_reporter_applicability.js');
+const {
+  classifyReporterRun,
+  recoverReporterAuthority,
+} = require('../keepalive_reporter_applicability.js');
+const { formatStateComment, loadKeepaliveState } = require('../keepalive_state.js');
 
 const root = path.resolve(__dirname, '../../..');
 const head = 'a'.repeat(40);
@@ -32,6 +36,37 @@ function setup(source, title, overrides = {}) {
     },
   };
   return { github, reads: () => reads };
+}
+
+function recoveryGithub(state) {
+  const comments = [{
+    id: 91,
+    body: '<!-- keepalive-loop-summary -->\n' + formatStateComment(state),
+    html_url: 'https://example.com/91',
+    user: { login: 'agents-workflows-bot[bot]', type: 'Bot' },
+  }];
+  const actions = [];
+  return {
+    actions,
+    rest: {
+      issues: {
+        listComments: async () => ({ data: comments }),
+        getComment: async ({ comment_id: commentId }) => ({
+          data: comments.find((comment) => comment.id === commentId),
+        }),
+        updateComment: async ({ comment_id: commentId, body }) => {
+          comments.find((comment) => comment.id === commentId).body = body;
+          actions.push({ type: 'update', commentId, body });
+          return { data: { id: commentId } };
+        },
+        createComment: async ({ body }) => {
+          actions.push({ type: 'create', body });
+          return { data: { id: 92, html_url: 'https://example.com/92' } };
+        },
+      },
+    },
+    paginate: async (fn, params) => (await fn(params)).data,
+  };
 }
 
 for (const source of sources) {
@@ -97,4 +132,95 @@ test('associated runs avoid the unassociated locator altogether', async () => {
     run: { ...run, pull_requests: [{ number: 42 }] },
     lookupTarget: async () => { throw new Error('unexpected lookup'); } });
   assert.deepEqual(result, { status: 'continue' });
+});
+
+for (const status of ['released', 'reopened']) {
+  test(`delayed ${status} recovery is located, reconciled, and projected after summary retry`, async () => {
+    const previousGeneration = 'b'.repeat(64);
+    const nextGeneration = 'c'.repeat(64);
+    const ownerAttempt = 'stranske/repo:12345:2';
+    const github = recoveryGithub({
+      running: false,
+      attention: {
+        owner: 'automation', disposition: 'automation-retry', generation: '',
+        boundary_fingerprint: '', challenge_due_at: null, expires_at: '',
+        recovery_generation: previousGeneration, recovery_owner_attempt: ownerAttempt,
+      },
+    });
+    const receiptName = status === 'released' ? 'released_receipt' : 'recovered_receipt';
+    const recovery = {
+      status,
+      previousGeneration,
+      state: {
+        generation: nextGeneration,
+        boundary_fingerprint: 'd'.repeat(64),
+        [receiptName]: { owner_attempt: ownerAttempt },
+        due_at: '2026-09-30T01:00:00Z',
+        expires_at: '2026-09-30T13:00:00Z',
+      },
+    };
+    const context = { repo: { owner: 'stranske', repo: 'repo' } };
+    const args = {
+      github, context, run, workerEvidence: 'not-started',
+      writerLogin: 'agents-workflows-bot[bot]',
+      makeRequest: () => 'request',
+      lookupTarget: async ({ repository, ownerAttempt: attempt }) => {
+        assert.equal(repository, 'stranske/repo');
+        assert.equal(attempt, ownerAttempt);
+        return { prNumber: 42 };
+      },
+      reconcileAttempt: async (input) => {
+        assert.equal(input.request, 'request');
+        assert.equal(input.ownerAttempt, ownerAttempt);
+        assert.equal(input.prNumber, 42);
+        return recovery;
+      },
+    };
+    const first = await recoverReporterAuthority(args);
+    assert.equal(first.status, 'projected');
+    assert.equal(first.projection.reason, 'recovered-summary-projected');
+    const second = await recoverReporterAuthority(args);
+    assert.equal(second.projection.reason, 'already-projected');
+    assert.equal(github.actions.filter((action) => action.type === 'update').length, 1);
+    const loaded = await loadKeepaliveState({ github, context, prNumber: 42, trace: '' });
+    assert.equal(loaded.state.attention.disposition, 'challenge-due');
+    assert.equal(loaded.state.attention.generation, nextGeneration);
+    assert.equal(loaded.state.attention.recovery_owner_attempt, ownerAttempt);
+  });
+}
+
+test('recovery rejects unknown worker evidence before authority mutation', async () => {
+  await assert.rejects(recoverReporterAuthority({
+    github: {}, context: { repo: { owner: 'stranske', repo: 'repo' } }, run,
+    workerEvidence: 'unknown', writerLogin: 'agents-workflows-bot[bot]',
+    makeRequest: () => { throw new Error('must not request'); },
+  }), /execution evidence is unknown/);
+});
+
+test('recovery rejects a delayed summary marker for a different attempt or generation', async () => {
+  const github = recoveryGithub({
+    running: false,
+    attention: {
+      owner: 'automation', disposition: 'automation-retry', generation: '',
+      recovery_generation: 'e'.repeat(64),
+      recovery_owner_attempt: 'stranske/repo:999:1',
+    },
+  });
+  await assert.rejects(recoverReporterAuthority({
+    github,
+    context: { repo: { owner: 'stranske', repo: 'repo' } },
+    run,
+    workerEvidence: 'not-started',
+    writerLogin: 'agents-workflows-bot[bot]',
+    makeRequest: () => 'request',
+    lookupTarget: async () => ({ prNumber: 42 }),
+    reconcileAttempt: async () => ({
+      status: 'released', previousGeneration: 'b'.repeat(64), state: {
+        generation: 'c'.repeat(64), boundary_fingerprint: 'd'.repeat(64),
+        released_receipt: { owner_attempt: 'stranske/repo:12345:2' },
+        due_at: '2026-09-30T01:00:00Z', expires_at: '2026-09-30T13:00:00Z',
+      },
+    }),
+  }), /does not match the recovered generation/);
+  assert.equal(github.actions.length, 0);
 });

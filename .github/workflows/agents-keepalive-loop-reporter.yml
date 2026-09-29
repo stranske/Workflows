@@ -173,10 +173,11 @@ jobs:
               return;
             }
 
-            const { loadKeepaliveState, projectRecoveredAuthorityState } =
-              require('./.github/scripts/keepalive_state.js');
+            const { loadKeepaliveState } = require('./.github/scripts/keepalive_state.js');
             const { updateKeepaliveLoopSummary } = require('./.github/scripts/keepalive_loop.js');
             const { getWorkerExecutionEvidence } = require('./.github/scripts/keepalive_worker_evidence.js');
+            const { recoverReporterAuthority } =
+              require('./.github/scripts/keepalive_reporter_applicability.js');
 
             const workerEvidence = await getWorkerExecutionEvidence(
               github, context.repo.owner, context.repo.repo, run.id, run.run_attempt || 1,
@@ -187,48 +188,24 @@ jobs:
               core.setFailed('Originating worker execution evidence is unknown; retry this reporter');
               return;
             }
-            const ownerAttempt =
-              `${context.repo.owner}/${context.repo.repo}:${run.id}:${run.run_attempt || 1}`.toLowerCase();
-            const { findAuthorityPrForAttempt, reconcileFailedAuthorityAttempt, requester } =
-              require('./.github/scripts/keepalive_authority_state.js');
-            const authorityRequest = requester(github);
-            let authorityTarget;
-            if (!prNumber) {
-              try {
-                authorityTarget = await findAuthorityPrForAttempt({
-                  request: authorityRequest,
-                  repository: `${context.repo.owner}/${context.repo.repo}`,
-                  ownerAttempt,
-                });
-              } catch (error) {
-                core.setFailed(`Authority attempt target lookup unavailable: ${error.message}`);
-                return;
-              }
-            }
-            prNumber ||= authorityTarget?.prNumber || 0;
-            if (!prNumber) {
-              core.setFailed('No PR association or authoritative attempt target for failed run');
+            let authorityRecovery;
+            try {
+              authorityRecovery = await recoverReporterAuthority({
+                github, context, run, workerEvidence,
+                writerLogin: process.env.KEEPALIVE_SUMMARY_WRITER || '', prNumber,
+              });
+            } catch (error) {
+              core.setFailed(`Authority reconciliation unavailable: ${error.message}`);
               return;
             }
-            try {
-              const reconciliation = await reconcileFailedAuthorityAttempt({
-                request: authorityRequest,
-                repository: `${context.repo.owner}/${context.repo.repo}`,
-                prNumber, ownerAttempt, workerEvidence,
-              });
-              core.info(`Attempt-bound authority reconciliation: ${reconciliation.status}`);
-              if (['released', 'reopened'].includes(reconciliation.status)) {
-                await projectRecoveredAuthorityState({
-                  github, context, prNumber, recovery: reconciliation,
-                  writerLogin: process.env.KEEPALIVE_SUMMARY_WRITER || '',
-                });
-                return;
-              }
-            } catch (error) {
-              if (error.status !== 404) {
-                core.setFailed(`Authority reconciliation unavailable: ${error.message}`);
-                return;
-              }
+            prNumber = authorityRecovery.prNumber;
+            const authorityTarget = authorityRecovery.authorityTarget;
+            core.info(
+              `Attempt-bound authority reconciliation: ` +
+              `${authorityRecovery.reconciliation?.status || authorityRecovery.status}`
+            );
+            if (authorityRecovery.status === 'projected') {
+              return;
             }
 
             const { state } = await loadKeepaliveState({ github, context, prNumber, trace: '' });
