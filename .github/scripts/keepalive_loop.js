@@ -4658,6 +4658,14 @@ async function updateKeepaliveLoopSummary({ github: rawGithub, context, core, in
           previousAttention.disposition === 'challenge-due' &&
           previousAttention.generation &&
           /^[a-z0-9_.-]+\/[a-z0-9_.-]+:\d+:\d+$/.test(recoveryOwnerAttempt);
+        // A later retry may write this summary before the original attempt's
+        // reporter projects its settled receipt. Keep that attempt's markers.
+        const pendingRecovery = escalationDisposition === 'automation-retry' &&
+          previousAttention.owner === 'automation' &&
+          previousAttention.disposition === 'automation-retry' &&
+          /^[a-f0-9]{64}$/.test(previousAttention.recovery_generation || '') &&
+          /^[a-z0-9_.-]+\/[a-z0-9_.-]+:\d+:\d+$/.test(
+            previousAttention.recovery_owner_attempt || '');
         newState.attention = {
           key: attentionKey,
           disposition: escalationDisposition,
@@ -4675,6 +4683,9 @@ async function updateKeepaliveLoopSummary({ github: rawGithub, context, core, in
           ...(attemptBoundRecovery ? {
             recovery_generation: previousAttention.generation,
             recovery_owner_attempt: recoveryOwnerAttempt,
+          } : pendingRecovery ? {
+            recovery_generation: previousAttention.recovery_generation,
+            recovery_owner_attempt: previousAttention.recovery_owner_attempt,
           } : {}),
           next_action: escalationDisposition === 'challenge-due'
             ? 'Independently rerun the current operation and confirm the same redacted authority-boundary fingerprint.'
