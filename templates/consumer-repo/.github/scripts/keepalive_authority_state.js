@@ -737,6 +737,23 @@ async function reopenUnconfirmedChallenge({ request, repository, prNumber, claim
   }
 }
 
+async function authorityAttemptOwnsRecoveryReceipt({
+  request,
+  repository,
+  prNumber,
+  ownerAttempt,
+}) {
+  const normalized = String(ownerAttempt || '').toLowerCase();
+  if (!normalized || !/^[a-z0-9_.-]+\/[a-z0-9_.-]+:\d+:\d+$/.test(normalized)) {
+    return false;
+  }
+  const { state } = await readAuthorityState(request, repository, prNumber);
+  const receipts = [state.receipt, state.released_receipt, state.recovered_receipt].filter(Boolean);
+  return receipts.some((receipt) => receipt.owner_attempt === normalized &&
+    receipt.head_sha === state.head_sha &&
+    Boolean(receipt.provider));
+}
+
 async function reconcileFailedAuthorityAttempt({ request, repository, prNumber, ownerAttempt, workerEvidence }) {
   if (workerEvidence !== 'not-started') return { status: 'execution-not-disproved' };
   const { state } = await readAuthorityState(request, repository, prNumber);
@@ -793,6 +810,7 @@ async function findAuthorityPrForAttempt({ request, repository, ownerAttempt }) 
 }
 
 module.exports = {
+  authorityAttemptOwnsRecoveryReceipt,
   findAuthorityPrForAttempt,
   reconcileFailedAuthorityAttempt,
   BRANCH,
