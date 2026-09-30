@@ -1,6 +1,11 @@
 'use strict';
 
-const { findAuthorityPrForAttempt, requester } = require('./keepalive_authority_state.js');
+const {
+  findAuthorityPrForAttempt,
+  reconcileFailedAuthorityAttempt,
+  requester,
+} = require('./keepalive_authority_state.js');
+const { projectRecoveredAuthorityState } = require('./keepalive_state.js');
 const { withRetry } = require('./github-api-with-retry.js');
 
 const DISPATCH_TITLE = 'keepalive-dispatch/v1 ';
@@ -47,4 +52,54 @@ async function classifyReporterRun({ github, owner, repo, run, lookupTarget = fi
   return { status: 'skip' };
 }
 
-module.exports = { classifyReporterRun };
+async function recoverReporterAuthority({
+  github,
+  context,
+  run,
+  workerEvidence,
+  writerLogin,
+  prNumber = Number(run.pull_requests?.[0]?.number || 0),
+  lookupTarget = findAuthorityPrForAttempt,
+  reconcileAttempt = reconcileFailedAuthorityAttempt,
+  projectRecovery = projectRecoveredAuthorityState,
+  makeRequest = requester,
+}) {
+  if (!['started', 'not-started'].includes(workerEvidence)) {
+    throw new Error('Originating worker execution evidence is unknown');
+  }
+  const owner = context.repo.owner;
+  const repo = context.repo.repo;
+  const repository = `${owner}/${repo}`;
+  const ownerAttempt = `${repository}:${run.id}:${run.run_attempt || 1}`.toLowerCase();
+  const request = makeRequest(github);
+  let authorityTarget;
+  if (!prNumber) {
+    authorityTarget = await lookupTarget({ request, repository, ownerAttempt });
+    prNumber = Number(authorityTarget?.prNumber || 0);
+  }
+  if (!prNumber) {
+    throw new Error('No PR association or authoritative attempt target for failed run');
+  }
+  let reconciliation;
+  try {
+    reconciliation = await reconcileAttempt({
+      request, repository, prNumber, ownerAttempt, workerEvidence,
+    });
+  } catch (error) {
+    if (error.status === 404) {
+      return { status: 'continue', prNumber, ownerAttempt, authorityTarget };
+    }
+    throw error;
+  }
+  if (['released', 'reopened'].includes(reconciliation.status)) {
+    const projection = await projectRecovery({
+      github, context, prNumber, recovery: reconciliation, writerLogin,
+    });
+    return {
+      status: 'projected', prNumber, ownerAttempt, authorityTarget, reconciliation, projection,
+    };
+  }
+  return { status: 'continue', prNumber, ownerAttempt, authorityTarget, reconciliation };
+}
+
+module.exports = { classifyReporterRun, recoverReporterAuthority };

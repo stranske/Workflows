@@ -144,11 +144,11 @@ fingerprint_refreshed = 2026-09-02
 [pair.12]
 main = .github/workflows/agents-keepalive-loop-reporter.yml
 template = templates/consumer-repo/.github/workflows/agents-keepalive-loop-reporter.yml
-main_sha256 = 3040dc8ebb342c988d674cee9d149c218c48cacf3a01b2f7152b7fc521c8b1c4
-template_sha256 = ff5a929fc27f139f35718a7c40c2d1f16b9421b03b5805d62e8e499ceb904649
-divergence = Non-consolidated authority recovery re-reviewed 2026-09-28: both reporters now remain active for failed or cancelled originating workflows regardless of sweep mode. The Workflows root reporter subscribes to both Agents Gate Followups and Agents Keepalive Loop, while the consumer reporter subscribes only to Agents Gate Followups because both consolidated and non-consolidated consumer sweeps can dispatch that workflow. Root in-repo setup and consumer state fingerprinting with exact run attempt and SHA-pinned actions remain intentional. Do not align wholesale, because it would remove either the root workflow coverage or the consumer deployment contract.
+main_sha256 = a09cee047220471859049924c2c9c9a0b6d5f66f879619fd5d04c1ef10bcbebd
+template_sha256 = 7c86a45829aa4cf7524df75acdc04ced58b1507ea6dccc27e6d278e82cdb5cef
+divergence = Delayed authority recovery boundary 2026-09-29: both reporters now call the shared, directly tested applicability helper for exact-attempt reconciliation and recovered-summary projection. Applied identically while preserving the existing root subscription/setup and consumer state-fingerprint/action-pin deployment differences; the underlying divergence was not re-reviewed. Prior divergence: Non-consolidated authority recovery re-reviewed 2026-09-28: both reporters remain active for failed or cancelled originating workflows regardless of sweep mode. The Workflows root reporter subscribes to both Agents Gate Followups and Agents Keepalive Loop, while the consumer reporter subscribes only to Agents Gate Followups because both consolidated and non-consolidated consumer sweeps can dispatch that workflow. Root in-repo setup and consumer state fingerprinting with exact run attempt and SHA-pinned actions remain intentional. Do not align wholesale, because it would remove either the root workflow coverage or the consumer deployment contract.
 divergence_reviewed = 2026-09-28
-fingerprint_refreshed = 2026-09-28
+fingerprint_refreshed = 2026-09-29
 
 [pair.13]
 main = .github/workflows/agents-keepalive-sweep.yml

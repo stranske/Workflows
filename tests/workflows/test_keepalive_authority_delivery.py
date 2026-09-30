@@ -78,21 +78,21 @@ def test_gate_paths_deny_invalid_claims_and_reporters_can_persist_generation() -
             "head_sha: authorityTarget?.state?.head_sha || run.head_sha || ''" in path.read_text()
         )
         assert "authority_owner_attempt:" in path.read_text()
-        assert "run.id}:${run.run_attempt || 1}" in path.read_text()
+        assert "const ownerAttempt = authorityRecovery.ownerAttempt;" in path.read_text()
         assert "getWorkerExecutionEvidence(" in path.read_text()
         assert "run.head_sha || ''" in path.read_text()
         assert ".github/agents/registry.yml" in path.read_text()
         assert "if (workerEvidence === 'unknown')" in path.read_text()
         assert "retry this reporter" in path.read_text()
-        assert "projectRecoveredAuthorityState(" in path.read_text()
-        assert "findAuthorityPrForAttempt(" in path.read_text()
-        assert (
-            "if (!prNumber) {\n              try {\n                authorityTarget ="
-            in path.read_text()
-        )
-        assert "No PR association or authoritative attempt target" in path.read_text()
         assert "Require PR association for failed originating run" not in path.read_text()
         assert "agent_execution_started: false" not in path.read_text()
+
+    applicability = (ROOT / ".github/scripts/keepalive_reporter_applicability.js").read_text()
+    assert "run.id}:${run.run_attempt || 1}" in applicability
+    assert "projectRecovery = projectRecoveredAuthorityState" in applicability
+    assert "const projection = await projectRecovery(" in applicability
+    assert "lookupTarget = findAuthorityPrForAttempt" in applicability
+    assert "No PR association or authoritative attempt target" in applicability
 
     for producer in (
         ROOT / ".github/workflows/agents-keepalive-loop.yml",
