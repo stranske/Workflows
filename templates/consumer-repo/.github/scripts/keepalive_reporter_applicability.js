@@ -8,8 +8,8 @@ const {
 const { loadKeepaliveState, projectRecoveredAuthorityState } = require('./keepalive_state.js');
 const { withRetry } = require('./github-api-with-retry.js');
 
-const DISPATCH_TITLE = 'keepalive-dispatch/v1 ';
-const CONTRACT = /^run-name: \$\{\{ github\.event_name == 'workflow_dispatch' && format\('keepalive-dispatch\/v1 \{0\}', \(inputs\.authority_challenge_claim != '' \|\| inputs\.authority_challenge_fingerprint != ''\) && 'authority-candidate' \|\| 'ordinary'\) \|\| 'Agents (?:Keepalive Loop|Gate Followups)' \}\}$/m;
+const CONTRACT = /^run-name: \$\{\{ github\.event_name == 'workflow_dispatch' && format\('keepalive-dispatch\/v2 \{0\} pr=\{1\}', \(inputs\.authority_challenge_claim != '' \|\| inputs\.authority_challenge_fingerprint != ''\) && 'authority-candidate' \|\| 'ordinary', inputs\.pr_number\) \|\| 'Agents (?:Keepalive Loop|Gate Followups)' \}\}$/;
+const TITLE_CONTRACT = /^keepalive-dispatch\/v2 (ordinary|authority-candidate) pr=([1-9][0-9]*)$/;
 const PRODUCERS = new Set([
   '.github/workflows/agents-keepalive-loop.yml',
   '.github/workflows/agents-81-gate-followups.yml',
@@ -34,22 +34,32 @@ async function classifyReporterRun({ github, owner, repo, run, lookupTarget = fi
       origin.event !== 'workflow_dispatch' || !PRODUCERS.has(origin.path)) {
     throw new Error('Unassociated run has no verified dispatch classification');
   }
-  const title = String(origin.display_title || '');
-  if (title !== `${DISPATCH_TITLE}ordinary` &&
-      title !== `${DISPATCH_TITLE}authority-candidate`) {
-    throw new Error('Unassociated dispatch has no versioned classification');
-  }
   const { data: producer } = await withRetry((client) => client.rest.repos.getContent({
     owner, repo, path: origin.path, ref: origin.head_sha,
   }), { github, maxRetries: 2, task: 'keepalive-reporter-producer' });
-  if (producer.encoding !== 'base64' ||
-      !CONTRACT.test(Buffer.from(String(producer.content).replace(/\s/g, ''), 'base64').toString('utf8'))) {
+  const producerText = producer.encoding === 'base64'
+    ? Buffer.from(String(producer.content).replace(/\s/g, ''), 'base64').toString('utf8')
+    : '';
+  const producerLines = producerText.split(/\r?\n/);
+  if (!producerText || !CONTRACT.test(producerLines[1] || '') ||
+      producerLines.filter((line) => CONTRACT.test(line)).length !== 1) {
     throw new Error('Originating workflow revision lacks the dispatch classification contract');
   }
-  if (title === `${DISPATCH_TITLE}authority-candidate`) {
+  const title = String(origin.display_title || '');
+  const titleMatch = TITLE_CONTRACT.exec(title);
+  if (!titleMatch) {
+    throw new Error('Unassociated dispatch has no canonical versioned PR binding');
+  }
+  const classification = titleMatch[1];
+  const prText = titleMatch[2];
+  const prNumber = Number(prText);
+  if (!Number.isSafeInteger(prNumber) || prNumber <= 0 || String(prNumber) !== prText) {
+    throw new Error('Unassociated dispatch has a non-canonical PR binding');
+  }
+  if (classification === 'authority-candidate') {
     throw new Error('Authority-candidate dispatch has no immutable attempt index');
   }
-  return { status: 'skip' };
+  return { status: 'continue', prNumber, targetSource: 'ordinary-run-name' };
 }
 
 async function recoverReporterAuthority({
