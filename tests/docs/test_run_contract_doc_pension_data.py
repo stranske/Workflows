@@ -11,12 +11,12 @@ SYNC_MANIFEST = ROOT / ".github" / "sync-manifest.yml"
 
 def test_run_contract_doc_mentions_pension_data_emitter() -> None:
     text = RUN_CONTRACT_DOC.read_text(encoding="utf-8")
-    assert "stranske/Pension-Data" in text
-    assert "build_backplane_reference_run" in text
-    assert "backplane_emitter.py" in text
-    assert "config/backplane_participants.json" in text
+    assert text.count("stranske/Pension-Data") >= 1
+    assert text.count("build_backplane_reference_run") >= 1
+    assert text.count("backplane_emitter.py") >= 1
+    assert text.count("config/backplane_participants.json") >= 1
 
 
 def test_run_contract_doc_is_declared_in_sync_manifest() -> None:
     manifest = SYNC_MANIFEST.read_text(encoding="utf-8")
-    assert "docs/contracts/run-contract-v1.md" in manifest
+    assert manifest.count("docs/contracts/run-contract-v1.md") >= 1
