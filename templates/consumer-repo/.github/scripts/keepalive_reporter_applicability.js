@@ -5,7 +5,7 @@ const {
   reconcileFailedAuthorityAttempt,
   requester,
 } = require('./keepalive_authority_state.js');
-const { projectRecoveredAuthorityState } = require('./keepalive_state.js');
+const { loadKeepaliveState, projectRecoveredAuthorityState } = require('./keepalive_state.js');
 const { withRetry } = require('./github-api-with-retry.js');
 
 const DISPATCH_TITLE = 'keepalive-dispatch/v1 ';
@@ -87,6 +87,12 @@ async function recoverReporterAuthority({
     });
   } catch (error) {
     if (error.status === 404) {
+      const loaded = await loadKeepaliveState({ github, context, prNumber, trace: '' });
+      if (loaded.state.running === true && loaded.state.running_owner_attempt &&
+          loaded.state.running_owner_attempt !== ownerAttempt) {
+        return { status: 'superseded', prNumber, ownerAttempt, authorityTarget,
+          projection: { projected: false, reason: 'running-attempt-superseded' } };
+      }
       return { status: 'continue', prNumber, ownerAttempt, authorityTarget };
     }
     throw error;
@@ -103,6 +109,12 @@ async function recoverReporterAuthority({
     return {
       status: 'projected', prNumber, ownerAttempt, authorityTarget, reconciliation, projection,
     };
+  }
+  const loaded = await loadKeepaliveState({ github, context, prNumber, trace: '' });
+  if (loaded.state.running === true && loaded.state.running_owner_attempt &&
+      loaded.state.running_owner_attempt !== ownerAttempt) {
+    return { status: 'superseded', prNumber, ownerAttempt, authorityTarget, reconciliation,
+      projection: { projected: false, reason: 'running-attempt-superseded' } };
   }
   return { status: 'continue', prNumber, ownerAttempt, authorityTarget, reconciliation };
 }

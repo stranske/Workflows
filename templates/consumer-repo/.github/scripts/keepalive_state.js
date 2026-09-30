@@ -532,6 +532,7 @@ async function projectRecoveredAuthorityState({
     ...state,
     running: false,
     running_since: null,
+    running_owner_attempt: null,
     attention: {
       ...priorAttention,
       owner: 'automation', disposition: 'challenge-due',

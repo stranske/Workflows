@@ -242,6 +242,23 @@ test('non-released reconciliation preserves the owner-attempt binding for normal
   assert.equal(result.ownerAttempt, 'stranske/repo:12345:2');
 });
 
+test('non-released delayed reporter stops when a newer attempt owns the running summary', async () => {
+  const github = recoveryGithub({
+    running: true,
+    running_owner_attempt: 'stranske/repo:67890:1',
+    attention: { generation: 'a'.repeat(64) },
+  });
+  const result = await recoverReporterAuthority({
+    github, context: { repo: { owner: 'stranske', repo: 'repo' } }, run,
+    workerEvidence: 'started', writerLogin: 'agents-workflows-bot[bot]', prNumber: 42,
+    makeRequest: () => 'request',
+    reconcileAttempt: async () => ({ status: 'owned' }),
+  });
+  assert.equal(result.status, 'superseded');
+  assert.equal(result.projection.reason, 'running-attempt-superseded');
+  assert.equal(github.actions.length, 0);
+});
+
 test('recovery rejects unknown worker evidence before authority mutation', async () => {
   await assert.rejects(recoverReporterAuthority({
     github: {}, context: { repo: { owner: 'stranske', repo: 'repo' } }, run,

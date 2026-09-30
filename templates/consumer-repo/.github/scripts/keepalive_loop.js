@@ -5202,11 +5202,15 @@ async function markAgentRunning({ github: rawGithub, context, core, inputs }) {
   const preservedState = previousState || {};
   preservedState.running = true;
   preservedState.running_since = new Date().toISOString();
-  preservedState.running_owner_attempt =
-    `${context.repo.owner}/${context.repo.repo}:` +
-    `${context.runId || process.env.GITHUB_RUN_ID || ''}:` +
-    `${context.runAttempt || process.env.GITHUB_RUN_ATTEMPT || '1'}`;
-  preservedState.running_owner_attempt = preservedState.running_owner_attempt.toLowerCase();
+  const runningRunId = context.runId || process.env.GITHUB_RUN_ID || '';
+  if (runningRunId) {
+    preservedState.running_owner_attempt = (
+      `${context.repo.owner}/${context.repo.repo}:${runningRunId}:` +
+      `${context.runAttempt || process.env.GITHUB_RUN_ATTEMPT || '1'}`
+    ).toLowerCase();
+  } else {
+    delete preservedState.running_owner_attempt;
+  }
   if (suggestedFocus?.text) {
     preservedState.current_focus = suggestedFocus.text;
     preservedState.current_focus_set_at = new Date().toISOString();

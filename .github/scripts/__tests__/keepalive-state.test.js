@@ -330,6 +330,7 @@ test('recovered authority projects generation and clears running state on truste
   assert.equal(first.reason, 'recovered-summary-projected');
   const loaded = await loadKeepaliveState({ github, context, prNumber: 42, trace: '' });
   assert.equal(loaded.state.running, false);
+  assert.equal(loaded.state.running_owner_attempt, null);
   assert.equal(loaded.state.attention.generation, newGeneration);
   assert.equal(loaded.state.attention.challenge_due_at, recovery.state.due_at);
   const second = await projectRecoveredAuthorityState({

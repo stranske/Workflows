@@ -5829,6 +5829,29 @@ test('markAgentRunning creates comment when none exists', async () => {
   assert.ok(body.includes('Task progress | 0/5'), 'Should show task progress');
 });
 
+test('markAgentRunning omits owner attempt when no run ID is available', async () => {
+  const priorRunId = process.env.GITHUB_RUN_ID;
+  const priorRunAttempt = process.env.GITHUB_RUN_ATTEMPT;
+  delete process.env.GITHUB_RUN_ID;
+  delete process.env.GITHUB_RUN_ATTEMPT;
+  try {
+    const github = buildGithubStub({ comments: [] });
+    await markAgentRunning({
+      github,
+      context: { repo: { owner: 'test', repo: 'repo' } },
+      core: buildCore(),
+      inputs: { pr_number: 99, agent_type: 'codex', iteration: 0, max_iterations: 3 },
+    });
+    const state = parseStateComment(github.actions[0].body).data;
+    assert.equal(Object.hasOwn(state, 'running_owner_attempt'), false);
+  } finally {
+    if (priorRunId === undefined) delete process.env.GITHUB_RUN_ID;
+    else process.env.GITHUB_RUN_ID = priorRunId;
+    if (priorRunAttempt === undefined) delete process.env.GITHUB_RUN_ATTEMPT;
+    else process.env.GITHUB_RUN_ATTEMPT = priorRunAttempt;
+  }
+});
+
 test('markAgentRunning records suggested focus task in state', async () => {
   const existingStateBody = formatStateComment({
     trace: 'trace-focus',
