@@ -525,6 +525,7 @@ jobs:
           sparse-checkout: |
             .github/scripts
             scripts/runner_lib
+            scripts/state_fingerprint.py
           sparse-checkout-cone-mode: false
 
       - name: Release prepared authority challenge after preflight failure
