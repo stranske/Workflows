@@ -4246,28 +4246,6 @@ async function updateKeepaliveLoopSummary({ github: rawGithub, context, core, in
         '',
         '_To resume immediately: Wait for rate limit reset, or add additional API tokens._',
       );
-    } else if (stop) {
-      const challengeDue = escalationDisposition === 'challenge-due';
-      summaryLines.push(
-        '',
-        challengeDue
-          ? '### 🔎 Paused – Independent Authority Challenge Required'
-          : '### 🔁 Paused – Automation Recovery Required',
-        '',
-        challengeDue
-          ? 'The keepalive loop found a possible access boundary. Automation must verify it before asking a human.'
-          : 'The keepalive loop paused this execution strategy after repeated failures; ownership remains with automation.',
-        '',
-        '**To resume:**',
-        challengeDue
-          ? '1. Reproduce the access failure from current state and verify the exact unavailable permission or secret'
-          : '1. Route the failure to CI repair, retry/backoff, alternate-agent, review fallback, or issue decomposition',
-        '2. Record a concrete next action and responsible automation worker',
-        '3. Use `needs-human` only after an independent review proves a real authority boundary',
-        '4. Re-run Gate or apply the automation retry path',
-        '',
-        '_Or manually edit this comment to reset `failure: {}` in the state below._',
-      );
     }
 
     const focusTask = currentFocus || fallbackFocus;
@@ -4903,6 +4881,34 @@ async function updateKeepaliveLoopSummary({ github: rawGithub, context, core, in
             `**Exact human action:** ${authorityEvidence.humanAction}`,
           );
         }
+      }
+
+      // Render terminal guidance only after receipt ownership and authority
+      // reconciliation have selected the final disposition. Rendering from the
+      // earlier escalation candidate can falsely advertise an ordinary retry
+      // while a consumed authority receipt is being preserved as challenge-due.
+      if (!isRateLimitExhausted && stop) {
+        const challengeDue = effectiveDisposition === 'challenge-due';
+        summaryLines.push(
+          '',
+          challengeDue
+            ? '### 🔎 Paused – Independent Authority Challenge Required'
+            : '### 🔁 Paused – Automation Recovery Required',
+          '',
+          challengeDue
+            ? 'The keepalive loop found a possible access boundary. Automation must verify it before asking a human.'
+            : 'The keepalive loop paused this execution strategy after repeated failures; ownership remains with automation.',
+          '',
+          '**To resume:**',
+          challengeDue
+            ? '1. Reproduce the access failure from current state and verify the exact unavailable permission or secret'
+            : '1. Route the failure to CI repair, retry/backoff, alternate-agent, review fallback, or issue decomposition',
+          '2. Record a concrete next action and responsible automation worker',
+          '3. Use `needs-human` only after an independent review proves a real authority boundary',
+          '4. Re-run Gate or apply the automation retry path',
+          '',
+          '_Or manually edit this comment to reset `failure: {}` in the state below._',
+        );
       }
 
       summaryLines.push('', formatStateComment(newState));

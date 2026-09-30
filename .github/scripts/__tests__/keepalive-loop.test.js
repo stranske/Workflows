@@ -3132,7 +3132,7 @@ test('summary input without exact job evidence cannot reopen or ordinarily retry
     trace: 'trace-attention-auth-reporter',
     iteration: 2,
     failure_threshold: 3,
-    failure: { reason: 'agent-run-failed', count: 1 },
+    failure: { reason: 'agent-run-failed', count: 2 },
     attention: {
       owner: 'automation', disposition: 'challenge-due',
       challenge_due_at: TEST_DUE_AT, generation: 'c'.repeat(64),
@@ -3172,6 +3172,8 @@ test('summary input without exact job evidence cannot reopen or ordinarily retry
 
   const updateAction = github.actions.filter((action) => action.type === 'update').at(-1);
   const attention = parseStateComment(updateAction.body).data.attention;
+  assert.match(updateAction.body, /Independent Authority Challenge Required/);
+  assert.doesNotMatch(updateAction.body, /Automation Recovery Required/);
   assert.equal(attention.disposition, 'challenge-due');
   assert.equal(attention.owner, 'automation');
   assert.equal(attention.generation, 'c'.repeat(64));
