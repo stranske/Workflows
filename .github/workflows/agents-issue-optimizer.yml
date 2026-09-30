@@ -332,7 +332,7 @@ jobs:
           OPENAI_API_KEY: ${{ secrets.OPENAI_API_KEY }}
           CLAUDE_API_STRANSKE: ${{ secrets.CLAUDE_API_STRANSKE }}
           LANGCHAIN_PROVIDER: anthropic
-          LANGCHAIN_MODEL: claude-sonnet-4-5-20250929
+          LANGCHAIN_MODEL: claude-sonnet-5-5
           PYTHONPATH: ${{ github.workspace }}
           ISSUE_PR_CONTEXT_WORKFLOW: agents-issue-optimizer
         run: |
@@ -536,7 +536,7 @@ jobs:
           OPENAI_API_KEY: ${{ secrets.OPENAI_API_KEY }}
           CLAUDE_API_STRANSKE: ${{ secrets.CLAUDE_API_STRANSKE }}
           LANGCHAIN_PROVIDER: anthropic
-          LANGCHAIN_MODEL: claude-sonnet-4-5-20250929
+          LANGCHAIN_MODEL: claude-sonnet-5-5
           PYTHONPATH: ${{ github.workspace }}
           ISSUE_PR_CONTEXT_WORKFLOW: agents-issue-optimizer
         run: |

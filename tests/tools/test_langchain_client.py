@@ -1069,6 +1069,8 @@ def test_anthropic_rejects_temperature_matches_newer_generation():
     assert langchain_client._anthropic_rejects_temperature("claude-sonnet-5")
     assert langchain_client._anthropic_rejects_temperature("claude-fable-5")
     assert langchain_client._anthropic_rejects_temperature("claude-opus-5")
+    assert langchain_client._anthropic_rejects_temperature("claude-sonnet-5-5")
+    assert langchain_client._anthropic_rejects_temperature("claude-opus-5-5")
 
 
 def test_anthropic_incumbent_and_minor5_still_accept_temperature():
@@ -1084,6 +1086,31 @@ def test_build_anthropic_omits_temperature_for_newer_models():
         client = _build_anthropic(model)
         assert "temperature" not in client.kwargs, model
         assert client.kwargs["model"] == model
+
+
+def test_build_anthropic_pins_max_tokens_for_claude5_family():
+    # langchain-anthropic falls back to max_tokens=4096 for models its bundled profiles do not
+    # know; the always-thinking Claude 5 family would truncate there, so the ceiling is explicit.
+    for model in ("claude-sonnet-5-5", "claude-opus-5-5", "claude-sonnet-5"):
+        client = _build_anthropic(model)
+        assert client.kwargs["max_tokens"] == langchain_client._ANTHROPIC_THINKING_MAX_TOKENS, model
+    for model in ("claude-opus-4-6", "claude-opus-4-8", "claude-haiku-4-5-20251001"):
+        assert "max_tokens" not in _build_anthropic(model).kwargs, model
+
+
+@pytest.mark.parametrize(
+    "relative", ["tools/langchain_client.py", "templates/consumer-repo/tools/langchain_client.py"]
+)
+def test_template_anthropic_builder_matches_root(relative):
+    import runpy
+    from pathlib import Path
+
+    module = runpy.run_path(str(Path(__file__).resolve().parents[2] / relative))
+    client = module["_build_anthropic_client"](
+        _CaptureChatAnthropic, model="claude-sonnet-5-5", token="t", timeout=30, max_retries=2
+    )
+    assert "temperature" not in client.kwargs
+    assert client.kwargs["max_tokens"] == module["_ANTHROPIC_THINKING_MAX_TOKENS"]
 
 
 def test_build_anthropic_keeps_temperature_for_incumbent():

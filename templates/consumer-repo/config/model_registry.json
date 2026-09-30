@@ -15,8 +15,9 @@
       ]
     },
     "anthropic": {
-      "checked_at": "2026-09-22T00:00:00Z",
+      "checked_at": "2026-09-30T00:00:00Z",
       "model_ids": [
+        "claude-sonnet-5-5",
         "claude-fable-5-1",
         "claude-opus-5",
         "claude-opus-5-5",
@@ -95,6 +96,18 @@
       "provider": "anthropic",
       "checked_at": "2026-09-22",
       "url": "https://platform.claude.com/docs/en/about-claude/models/overview"
+    },
+    {
+      "source_id": "anthropic-catalog-discovery-2026-09-30",
+      "provider": "anthropic",
+      "checked_at": "2026-09-30",
+      "url": "https://api.anthropic.com/v1/models?limit=1000"
+    },
+    {
+      "source_id": "anthropic-pricing-2026-09-30",
+      "provider": "anthropic",
+      "checked_at": "2026-09-30",
+      "url": "https://platform.claude.com/docs/en/about-claude/pricing"
     }
   ],
   "models": [
@@ -254,20 +267,38 @@
       }
     },
     {
+      "model_id": "claude-sonnet-5-5",
+      "provider": "anthropic",
+      "api": "chat",
+      "lifecycle": "current",
+      "positioning": "balanced",
+      "source_ids": [
+        "anthropic-catalog-discovery-2026-09-30",
+        "anthropic-pricing-2026-09-30"
+      ],
+      "pricing": {
+        "currency": "USD",
+        "input_per_million_tokens": 2.0,
+        "output_per_million_tokens": 10.0,
+        "as_of": "2026-09-30"
+      }
+    },
+    {
       "model_id": "claude-sonnet-5",
       "provider": "anthropic",
       "api": "chat",
       "lifecycle": "current",
       "positioning": "balanced",
       "source_ids": [
-        "anthropic-current-models-2026-07-10"
+        "anthropic-current-models-2026-07-10",
+        "anthropic-pricing-2026-09-30"
       ],
       "pricing": {
         "currency": "USD",
-        "input_per_million_tokens": 3.0,
-        "output_per_million_tokens": 15.0,
-        "as_of": "2026-07-10",
-        "notes": "Standard price; temporary introductory pricing is not used for durable decisions."
+        "input_per_million_tokens": 2.0,
+        "output_per_million_tokens": 10.0,
+        "as_of": "2026-09-30",
+        "notes": "The $2/$10 launch price became the standard price; the scheduled 2026-09-01 increase to $3/$15 did not occur."
       }
     },
     {
@@ -371,14 +402,14 @@
     {
       "profile": "verifier-balanced",
       "provider": "anthropic",
-      "model_id": "claude-sonnet-5",
+      "model_id": "claude-sonnet-5-5",
       "status": "provisional",
-      "decided_at": "2026-07-31",
-      "review_by": "2026-08-30",
+      "decided_at": "2026-09-30",
+      "review_by": "2026-10-30",
       "evidence_ids": [
-        "catalog-review-2026-07-10"
+        "catalog-discovery-2026-09-30"
       ],
-      "rationale": "Provisional selection advanced to the current catalog generation; positioning 'balanced' matches the verifier-balanced profile. Cross-family relative to the superseded claude-opus incumbent, so it was human-initiated rather than auto-prepared. This is NOT a benchmark-proven promotion: no passing workload-benchmark evidence exists for this model or the incumbent, so status stays provisional until the paired pilot runs. Human-approved by merging this PR."
+      "rationale": "Provisional selection advanced to the current catalog generation: claude-sonnet-5-5 is the same-tier successor to claude-sonnet-5 (positioning 'balanced', same $2/$10 price). This is NOT a benchmark-proven promotion; status stays provisional until the paired pilot runs. claude-sonnet-5 remains catalogued as a pilot candidate."
     },
     {
       "profile": "verifier-balanced",
@@ -438,6 +469,21 @@
       "superseded_at": "2026-07-31",
       "superseded_by": "openai/gpt-5",
       "supersede_reason": "Manual provisional refresh to the current catalog generation; not a benchmark-proven promotion."
+    },
+    {
+      "profile": "verifier-balanced",
+      "provider": "anthropic",
+      "model_id": "claude-sonnet-5",
+      "status": "provisional",
+      "decided_at": "2026-07-31",
+      "review_by": "2026-08-30",
+      "evidence_ids": [
+        "catalog-review-2026-07-10"
+      ],
+      "rationale": "Provisional selection advanced to the current catalog generation; positioning 'balanced' matches the verifier-balanced profile. Cross-family relative to the superseded claude-opus incumbent, so it was human-initiated rather than auto-prepared. This is NOT a benchmark-proven promotion: no passing workload-benchmark evidence exists for this model or the incumbent, so status stays provisional until the paired pilot runs. Human-approved by merging this PR.",
+      "superseded_at": "2026-09-30",
+      "superseded_by": "claude-sonnet-5-5",
+      "supersede_reason": "Manual provisional refresh to the current catalog generation (Sonnet 5.5 supersedes Sonnet 5 in the same balanced tier at the same price); not a benchmark-proven promotion."
     }
   ],
   "evidence": [
@@ -464,6 +510,17 @@
         "anthropic-current-models-2026-09-22"
       ],
       "notes": "maint-77 catalog discovery (run 35796771035) observed claude-opus-5-5, claude-opus-5 and claude-fable-5-1 in the Anthropic /v1/models catalog. List pricing from the Anthropic models overview. Availability and pricing only; not workload quality evidence and cannot approve a selection."
+    },
+    {
+      "evidence_id": "catalog-discovery-2026-09-30",
+      "kind": "provider-catalog-review",
+      "measured_at": "2026-09-30",
+      "status": "catalog-only",
+      "source_ids": [
+        "anthropic-catalog-discovery-2026-09-30",
+        "anthropic-pricing-2026-09-30"
+      ],
+      "notes": "maint-77 catalog discovery (run 36712960738) observed claude-sonnet-5-5 in the Anthropic /v1/models catalog; list pricing from the Anthropic pricing page. Availability and pricing only; not workload quality evidence."
     }
   ]
 }
