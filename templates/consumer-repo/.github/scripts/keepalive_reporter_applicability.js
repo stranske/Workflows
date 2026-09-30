@@ -95,6 +95,11 @@ async function recoverReporterAuthority({
     const projection = await projectRecovery({
       github, context, prNumber, recovery: reconciliation, writerLogin,
     });
+    if (projection.projected === false) {
+      return {
+        status: 'superseded', prNumber, ownerAttempt, authorityTarget, reconciliation, projection,
+      };
+    }
     return {
       status: 'projected', prNumber, ownerAttempt, authorityTarget, reconciliation, projection,
     };

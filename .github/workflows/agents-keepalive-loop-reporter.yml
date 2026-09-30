@@ -205,7 +205,7 @@ jobs:
               `Attempt-bound authority reconciliation: ` +
               `${authorityRecovery.reconciliation?.status || authorityRecovery.status}`
             );
-            if (authorityRecovery.status === 'projected') {
+            if (['projected', 'superseded'].includes(authorityRecovery.status)) {
               return;
             }
 
