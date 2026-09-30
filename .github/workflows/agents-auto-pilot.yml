@@ -1113,7 +1113,7 @@ jobs:
           LANGCHAIN_TRACING_V2: ${{ secrets.LANGSMITH_API_KEY != '' && 'true' || 'false' }}
           LANGCHAIN_PROJECT: workflows-agents
           LANGCHAIN_PROVIDER: anthropic
-          LANGCHAIN_MODEL: claude-sonnet-4-5-20250929
+          LANGCHAIN_MODEL: claude-sonnet-5-5
           PYTHONPATH: ${{ github.workspace }}
           ISSUE_PR_CONTEXT_WORKFLOW: agents-auto-pilot
         run: |
@@ -1497,7 +1497,7 @@ jobs:
           LANGCHAIN_TRACING_V2: ${{ secrets.LANGSMITH_API_KEY != '' && 'true' || 'false' }}
           LANGCHAIN_PROJECT: workflows-agents
           LANGCHAIN_PROVIDER: anthropic
-          LANGCHAIN_MODEL: claude-sonnet-4-5-20250929
+          LANGCHAIN_MODEL: claude-sonnet-5-5
           PYTHONPATH: ${{ github.workspace }}
           ISSUE_PR_CONTEXT_WORKFLOW: agents-auto-pilot
         run: |

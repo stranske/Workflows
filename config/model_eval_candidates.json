@@ -2,7 +2,7 @@
   "candidates": [
     {
       "provider": "anthropic",
-      "model_id": "claude-sonnet-5",
+      "model_id": "claude-sonnet-5-5",
       "role": "incumbent"
     },
     {
@@ -33,6 +33,11 @@
     {
       "provider": "anthropic",
       "model_id": "claude-opus-5-5",
+      "role": "candidate"
+    },
+    {
+      "provider": "anthropic",
+      "model_id": "claude-sonnet-5",
       "role": "candidate"
     },
     {
