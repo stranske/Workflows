@@ -290,6 +290,9 @@ jobs:
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          PR_NUMBER: >-
+            ${{ github.event.workflow_run.pull_requests[0].number ||
+                steps.applicability.outputs.pr_number || '' }}
         run: |
           python scripts/state_fingerprint.py store \
             --workflow "${GITHUB_WORKFLOW}" \
