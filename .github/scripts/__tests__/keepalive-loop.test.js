@@ -3125,7 +3125,7 @@ test('updateKeepaliveLoopSummary does not consume authority ledger when agent ex
   assert.match(updateAction.body, /"disposition":"automation-retry"/);
 });
 
-test('summary input without exact job evidence cannot reopen a consumed authority receipt', async () => {
+test('summary input without exact job evidence cannot reopen or ordinarily retry a consumed authority receipt', async () => {
   const authSummary = 'Missing token ACTIONS_BOT_PAT for GitHub API repository dispatch.';
   const boundary = buildAuthorityChallengeEvidence({ agentSummary: authSummary });
   const existingState = formatStateComment({
@@ -3172,11 +3172,23 @@ test('summary input without exact job evidence cannot reopen a consumed authorit
 
   const updateAction = github.actions.filter((action) => action.type === 'update').at(-1);
   const attention = parseStateComment(updateAction.body).data.attention;
-  assert.equal(attention.disposition, 'automation-retry');
+  assert.equal(attention.disposition, 'challenge-due');
   assert.equal(attention.owner, 'automation');
-  assert.equal(attention.generation, '');
+  assert.equal(attention.generation, 'c'.repeat(64));
+  assert.equal(attention.challenge_due_at, TEST_DUE_AT);
   assert.equal(attention.recovery_generation, 'c'.repeat(64));
   assert.equal(attention.recovery_owner_attempt, 'octo/workflows:9001:1');
+  assert.ok(github.actions.some((action) =>
+    action.type === 'label' && action.labels.includes('agent:needs-attention')
+  ));
+  assert.equal(github.actions.some((action) =>
+    action.type === 'remove-label' && action.name === 'agent:needs-attention'
+  ), false);
+  assert.equal(
+    github.actions.filter((action) => action.type === 'workflow-dispatch').length,
+    0,
+  );
+  assert.equal(parseStateComment(updateAction.body).data.recovery_lease, undefined);
   assert.equal(
     github.actions.filter((action) => action.type === 'authority-ledger-write').length,
     0,
