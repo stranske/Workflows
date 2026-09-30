@@ -6,6 +6,16 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 Breaking changes are called out with a **BREAKING** marker and scheduled according to the policy in `COMPATIBILITY.md`.
 
+## [1.37.4](https://github.com/stranske/Workflows/compare/v1.37.3...v1.37.4) (2026-09-30)
+
+
+### Bug Fixes
+
+* **keepalive:** fence stale recovery reporters ([#3635](https://github.com/stranske/Workflows/issues/3635)) ([ff1fc18](https://github.com/stranske/Workflows/commit/ff1fc18cc503d2a5a6c098d7d22e8b30953898a0))
+* **keepalive:** recover orphaned prepared authority ([#3628](https://github.com/stranske/Workflows/issues/3628)) ([89bc39d](https://github.com/stranske/Workflows/commit/89bc39dc215ca328db17cd2e3ef47a1848a140e5))
+* **keepalive:** revalidate reopened authority retries ([#3638](https://github.com/stranske/Workflows/issues/3638)) ([1d2fd28](https://github.com/stranske/Workflows/commit/1d2fd28bc781f1fc8247672fd81e60195e82b414))
+* **template:** include state_fingerprint in authority release sparse checkout ([#3636](https://github.com/stranske/Workflows/issues/3636)) ([029058f](https://github.com/stranske/Workflows/commit/029058f097c77320a2ee5af4a57bf6a4bce91e4d))
+
 ## [1.37.3](https://github.com/stranske/Workflows/compare/v1.37.2...v1.37.3) (2026-09-28)
 
 
