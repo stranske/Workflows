@@ -3234,6 +3234,12 @@ test('non-authority failed summary does not record recovery owner when attempt i
   assert.equal(attention.challenge_due_at, TEST_DUE_AT);
   assert.equal(attention.recovery_generation, undefined);
   assert.equal(attention.recovery_owner_attempt, undefined);
+  assert.ok(github.actions.some((action) =>
+    action.type === 'label' && action.labels.includes('agent:needs-attention')
+  ));
+  assert.equal(github.actions.some((action) =>
+    action.type === 'remove-label' && action.name === 'agent:needs-attention'
+  ), false);
 });
 
 test('later failed retries retain an earlier attempt recovery pair for its delayed reporter', async () => {

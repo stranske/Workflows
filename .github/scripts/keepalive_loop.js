@@ -4636,6 +4636,7 @@ async function updateKeepaliveLoopSummary({ github: rawGithub, context, core, in
       escalationDisposition = 'automation-retry';
     }
     const challengeDueAt = challengeState?.due_at || null;
+    let effectiveDisposition = escalationDisposition;
     if (shouldEscalate) {
       const firstSeenAt = priorAttentionKey === attentionKey
         ? previousAttention.first_seen_at || new Date().toISOString()
@@ -4699,7 +4700,7 @@ async function updateKeepaliveLoopSummary({ github: rawGithub, context, core, in
           !Object.keys(attemptBoundRecoveryMarkers).length &&
           previousAttention.disposition === 'challenge-due' &&
           /^[a-f0-9]{64}$/.test(previousAttention.generation || '');
-        const effectiveDisposition = preservePendingChallenge
+        effectiveDisposition = preservePendingChallenge
           ? 'challenge-due'
           : escalationDisposition;
         newState.attention = {
@@ -4827,6 +4828,7 @@ async function updateKeepaliveLoopSummary({ github: rawGithub, context, core, in
           hardHumanLabelApplied = true;
         } catch (error) {
           escalationDisposition = 'challenge-due';
+          effectiveDisposition = escalationDisposition;
           newState.attention = pendingState.attention;
           core?.warning?.(`Failed to apply needs-human; retaining durable authority challenge: ${error.message}`);
         }
@@ -4869,6 +4871,7 @@ async function updateKeepaliveLoopSummary({ github: rawGithub, context, core, in
                 authorityChallengeConfirmed = true;
               } else {
                 escalationDisposition = 'challenge-due';
+                effectiveDisposition = escalationDisposition;
                 newState.attention = {
                   ...pendingAttention,
                   generation: recovery.state?.generation || pendingAttention.generation,
@@ -4947,9 +4950,9 @@ async function updateKeepaliveLoopSummary({ github: rawGithub, context, core, in
       }
 
       if (shouldEscalate) {
-        const routingLabel = escalationDisposition === 'needs-human'
+        const routingLabel = effectiveDisposition === 'needs-human'
           ? 'needs-human'
-          : escalationDisposition === 'challenge-due'
+          : effectiveDisposition === 'challenge-due'
             ? 'agent:needs-attention'
             : 'agent:retry';
         const addRoutingLabel = () => github.rest.issues.addLabels({
@@ -4967,11 +4970,11 @@ async function updateKeepaliveLoopSummary({ github: rawGithub, context, core, in
             core,
             automationOwned: previousAttentionAutomationOwned,
           });
-          if (escalationDisposition === 'needs-human') {
+          if (effectiveDisposition === 'needs-human') {
             // The hard blocker was applied before the human-owned state was
             // persisted. Only now may the recoverable label be removed.
             await clearAutomationAttention();
-          } else if (escalationDisposition === 'challenge-due') {
+          } else if (effectiveDisposition === 'challenge-due') {
             // Adding an already-present label is idempotent. Never remove the
             // only sweep-routing signal while renewing or replacing a challenge.
             await addRoutingLabel();
