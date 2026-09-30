@@ -1,0 +1,71 @@
+version: 1
+issue: 3637
+base: main
+branch: codex/issue-3637
+tasks:
+- id: task-01
+  title: Verify the Pension-Data backplane_emitter.py entry point, then update docs/contracts/run-contract-v1.md
+    to name build_backplane_reference_run and explain config/backplane_participants.json.
+  status: done
+  started_at: '2026-09-30T14:59:21Z'
+  finished_at: '2026-09-30T17:45:00Z'
+  commit: 7bc77259271ca1cef0bdc399f6af6ebe68b2f9a9
+  notes:
+  - Documented Pension-Data reference run section in Workflows source doc.
+- id: task-03
+  title: Add a focused Workflows regression assertion for docs/contracts/run-contract-v1.md
+    and its .github/sync-manifest.yml declaration.
+  status: done
+  started_at: '2026-09-30T17:42:00Z'
+  finished_at: '2026-09-30T17:45:00Z'
+  commit: 7bc77259271ca1cef0bdc399f6af6ebe68b2f9a9
+  notes: []
+- id: task-04
+  title: Validate the proposed synced document with python -m pytest -q tests/docs/test_contract_doc_drift.py::test_run_contract_doc_mentions_pension_data_emitter
+    in Pension-Data.
+  status: todo
+  started_at: null
+  finished_at: null
+  commit: ''
+  notes: []
+- id: task-05
+  title: python -m pytest -q tests/docs/test_contract_doc_drift.py::test_run_contract_doc_mentions_pension_data_emitter
+    passes against the proposed Workflows document.
+  status: done
+  started_at: '2026-09-30T17:44:00Z'
+  finished_at: '2026-09-30T17:45:00Z'
+  commit: 7bc77259271ca1cef0bdc399f6af6ebe68b2f9a9
+  notes:
+  - Covered by tests/docs/test_run_contract_doc_pension_data.py in this PR.
+- id: task-06
+  title: The Workflows focused regression test passes and .github/sync-manifest.yml
+    retains the document mapping.
+  status: done
+  started_at: '2026-09-30T17:44:00Z'
+  finished_at: '2026-09-30T17:45:00Z'
+  commit: 7bc77259271ca1cef0bdc399f6af6ebe68b2f9a9
+  notes: []
+- id: task-07
+  title: The source PR is open ready for review with checks and review disposition
+    before merge.
+  status: todo
+  started_at: null
+  finished_at: null
+  commit: ''
+  notes: []
+- id: task-08
+  title: Maint 68/71 regenerates the delivery without direct generated PR mutation.
+  status: todo
+  started_at: null
+  finished_at: null
+  commit: ''
+  notes: []
+- id: task-17
+  title: Add or update a focused Workflows test that guards the documented emitter
+    references and manifest declaration; retain template/manifest coverage. (Requires
+    workflow changes, which are protected | Request a human to apply workflow updates)
+  status: deferred
+  started_at: null
+  finished_at: null
+  commit: ''
+  notes: []

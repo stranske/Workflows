@@ -89,6 +89,21 @@ and full model outputs must be represented by hashes, excerpts of bounded
 length, or artifact references** — never inlined. Output *data* lives in named
 artifacts referenced by the manifest, not in the envelope body.
 
+## Pension-Data reference run
+
+`stranske/Pension-Data` is the fleet's first conforming **producer** for this
+contract. The registry entry in `config/backplane_participants.json` names
+`one-pdf-pilot` as the headless entry point and `run.json` / `manifest.json` as
+the emitted artifacts.
+
+Implementation lives in `src/pension_data/ops/backplane_emitter.py`
+(`build_backplane_reference_run`, roughly lines 112–235): given a completed
+one-PDF pilot manifest, it writes `run-contract/v1` `run.json` and the companion
+`manifest.json` under the pilot output directory. The `one-pdf-pilot` CLI
+(`src/pension_data/ops/one_pdf_pilot_cli.py`) invokes that helper on every
+successful pilot run so backplane outputs are produced alongside the existing
+pilot artifacts. Conformance is covered by `tests/ops/test_backplane_emitter.py`.
+
 ## Shared Fields
 
 Required fields:
