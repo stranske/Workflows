@@ -5704,7 +5704,7 @@ test('markAgentRunning updates summary comment with running status', async () =>
 
   await markAgentRunning({
     github,
-    context: { repo: { owner: 'test', repo: 'repo' } },
+    context: { repo: { owner: 'test', repo: 'repo' }, runId: 12345, runAttempt: 2 },
     core: buildCore(),
     inputs,
   });
@@ -5723,7 +5723,7 @@ test('markAgentRunning updates summary comment with running status', async () =>
   assert.ok(body.includes('Task progress'), 'Should show task progress');
   assert.ok(body.includes('view logs'), 'Should include run URL');
   assert.ok(body.includes('will be updated when the agent completes'), 'Should include completion message');
-  assert.equal(parseStateComment(body).data.running_owner_attempt, 'test/repo::1');
+  assert.equal(parseStateComment(body).data.running_owner_attempt, 'test/repo:12345:2');
 });
 
 test('markAgentRunning migrates legacy state to the selected App writer', async () => {
