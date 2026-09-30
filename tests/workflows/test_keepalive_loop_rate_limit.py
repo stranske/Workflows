@@ -51,3 +51,22 @@ def test_keepalive_loop_defers_on_success_when_rate_limit_exhausted() -> None:
     result = _run_scenario("success_rate_limit_exhausted")
     assert result["action"] == "defer"
     assert result["reason"] == "rate-limit-exhausted"
+
+
+def test_keepalive_loop_rejects_foreign_recovery_owner_markers() -> None:
+    """Attempt-not-current runs must not poison recovery_owner_attempt markers."""
+    _require_node()
+    repo_root = Path(__file__).resolve().parents[2]
+    test_file = repo_root / ".github/scripts/__tests__/keepalive-loop.test.js"
+    command = [
+        "node",
+        "--test",
+        "--test-name-pattern=non-authority failed summary does not record recovery owner",
+        str(test_file),
+    ]
+    result = subprocess.run(command, capture_output=True, text=True, cwd=repo_root)
+    if result.returncode != 0:
+        pytest.fail(
+            f"Node regression failed with code {result.returncode}:\n"
+            f"STDOUT:\n{result.stdout}\nSTDERR:\n{result.stderr}"
+        )

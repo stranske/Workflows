@@ -3183,6 +3183,57 @@ test('summary input without exact job evidence cannot reopen a consumed authorit
   );
 });
 
+test('non-authority failed summary does not record recovery owner when attempt is not current', async () => {
+  const authSummary = 'Missing token ACTIONS_BOT_PAT for GitHub API repository dispatch.';
+  const boundary = buildAuthorityChallengeEvidence({ agentSummary: authSummary });
+  const existingState = formatStateComment({
+    trace: 'trace-foreign-recovery-owner',
+    iteration: 2,
+    failure_threshold: 3,
+    failure: { reason: 'agent-run-failed', count: 1 },
+    attention: {
+      owner: 'automation', disposition: 'challenge-due',
+      challenge_due_at: TEST_DUE_AT, generation: 'c'.repeat(64),
+      expires_at: TEST_EXPIRES_AT,
+      boundary_fingerprint: boundary.fingerprint, boundary_detail: boundary.detail,
+    },
+  });
+  const github = buildGithubStub({
+    comments: [{ id: 91, body: existingState, html_url: 'https://example.com/91' }],
+    authorityReceipt: true,
+    labels: ['agent:codex', 'agent:needs-attention'],
+  });
+
+  await updateKeepaliveLoopSummary({
+    github,
+    context: buildContext(654, 7777, { eventName: 'workflow_run' }),
+    core: buildCore(),
+    inputs: {
+      prNumber: 654,
+      action: 'run',
+      runResult: 'failure',
+      gateConclusion: 'success',
+      tasksTotal: 3,
+      tasksUnchecked: 3,
+      keepaliveEnabled: true,
+      autofixEnabled: false,
+      iteration: 2,
+      maxIterations: 5,
+      failureThreshold: 3,
+      trace: 'trace-foreign-recovery-owner',
+      head_sha: 'd'.repeat(40),
+      agent_summary: authSummary,
+      agent_execution_started: false,
+    },
+  });
+
+  const updateAction = github.actions.filter((action) => action.type === 'update').at(-1);
+  const attention = parseStateComment(updateAction.body).data.attention;
+  assert.equal(attention.disposition, 'automation-retry');
+  assert.equal(attention.recovery_generation, undefined);
+  assert.equal(attention.recovery_owner_attempt, undefined);
+});
+
 test('later failed retries retain an earlier attempt recovery pair for its delayed reporter', async () => {
   const generation = 'c'.repeat(64);
   const ownerAttempt = 'octo/workflows:9001:1';

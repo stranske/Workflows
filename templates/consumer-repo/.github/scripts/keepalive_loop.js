@@ -18,7 +18,13 @@ const { detectConflicts } = require('./conflict_detector');
 const { parseTimeoutConfig } = require('./timeout_config');
 const { ensureRateLimitWrapped } = require('./github-rate-limited-wrapper');
 const { verifyAuthorityChallengeClaim } = require('./keepalive_challenge_due');
-const { beginChallenge, confirmChallenge, reopenUnconfirmedChallenge, requester } = require('./keepalive_authority_state');
+const {
+  beginChallenge,
+  confirmChallenge,
+  reopenUnconfirmedChallenge,
+  authorityAttemptOwnsRecoveryReceipt,
+  requester,
+} = require('./keepalive_authority_state');
 
 // Token load balancer for rate limit management
 let tokenLoadBalancer = null;
@@ -4653,11 +4659,34 @@ async function updateKeepaliveLoopSummary({ github: rawGithub, context, core, in
           `${context.repo.owner}/${context.repo.repo}:` +
           `${context.runId || process.env.GITHUB_RUN_ID || ''}:` +
           `${context.runAttempt || process.env.GITHUB_RUN_ATTEMPT || ''}`).toLowerCase();
-        const attemptBoundRecovery = escalationDisposition === 'automation-retry' &&
+        const attemptBoundRecoveryCandidate = escalationDisposition === 'automation-retry' &&
           agentExecutionStarted === false &&
           previousAttention.disposition === 'challenge-due' &&
           previousAttention.generation &&
           /^[a-z0-9_.-]+\/[a-z0-9_.-]+:\d+:\d+$/.test(recoveryOwnerAttempt);
+        let attemptBoundRecoveryMarkers = {};
+        if (attemptBoundRecoveryCandidate) {
+          try {
+            const repository = `${context.repo.owner}/${context.repo.repo}`.toLowerCase();
+            const request = requester(github);
+            const ownsRecoveryReceipt = await authorityAttemptOwnsRecoveryReceipt({
+              request,
+              repository,
+              prNumber,
+              ownerAttempt: recoveryOwnerAttempt,
+            });
+            if (ownsRecoveryReceipt) {
+              attemptBoundRecoveryMarkers = {
+                recovery_generation: previousAttention.generation,
+                recovery_owner_attempt: recoveryOwnerAttempt,
+              };
+            }
+          } catch (error) {
+            core?.warning?.(
+              `Authority recovery marker ownership check failed: ${error.message}`,
+            );
+          }
+        }
         // A later retry may write this summary before the original attempt's
         // reporter projects its settled receipt. Keep that attempt's markers.
         const pendingRecovery = escalationDisposition === 'automation-retry' &&
@@ -4680,10 +4709,7 @@ async function updateKeepaliveLoopSummary({ github: rawGithub, context, core, in
           boundary_detail: escalationDisposition === 'challenge-due'
             ? authorityEvidence.detail
             : '',
-          ...(attemptBoundRecovery ? {
-            recovery_generation: previousAttention.generation,
-            recovery_owner_attempt: recoveryOwnerAttempt,
-          } : pendingRecovery ? {
+          ...(Object.keys(attemptBoundRecoveryMarkers).length ? attemptBoundRecoveryMarkers : pendingRecovery ? {
             recovery_generation: previousAttention.recovery_generation,
             recovery_owner_attempt: previousAttention.recovery_owner_attempt,
           } : {}),
