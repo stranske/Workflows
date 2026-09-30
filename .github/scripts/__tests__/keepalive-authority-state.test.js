@@ -37,6 +37,7 @@ function fakeGitHub() {
   let afterIndexPut = null;
   let prHead = headSha;
   let prLabels = ['agent:needs-attention'];
+  let prState = 'open';
   let prUnavailable = false;
   const request = async (method, path, body) => {
     if (path.includes('/git/ref/heads/main') && method === 'GET') {
@@ -44,7 +45,7 @@ function fakeGitHub() {
     }
     if (path.endsWith('/pulls/42') && method === 'GET') {
       if (prUnavailable) throw status(503);
-      return { state: 'open', head: { sha: prHead }, labels: prLabels.map((name) => ({ name })) };
+      return { state: prState, head: { sha: prHead }, labels: prLabels.map((name) => ({ name })) };
     }
     if (path.includes('/git/ref/heads/keepalive-authority-state') && method === 'GET') {
       if (!branch) throw status(404);
@@ -94,10 +95,20 @@ function fakeGitHub() {
     setAfterIndexPut(fn) { afterIndexPut = fn; },
     setPrHead(sha) { prHead = sha; },
     setPrLabels(labels) { prLabels = labels; },
+    setPrState(value) { prState = value; },
     setPrUnavailable(value) { prUnavailable = value; },
     corruptAttemptIndex() {
       const key = `${crypto.createHash('sha256').update(ownerAttempt).digest('hex')}.json`;
       attemptFiles.set(key, Buffer.from('{invalid json').toString('base64'));
+    },
+    deleteAttemptIndex(attempt = ownerAttempt) {
+      const key = `${crypto.createHash('sha256').update(attempt).digest('hex')}.json`;
+      attemptFiles.delete(key);
+    },
+    mutateAuthorityState(fn) {
+      const state = JSON.parse(Buffer.from(content, 'base64').toString('utf8'));
+      fn(state);
+      content = Buffer.from(JSON.stringify(state)).toString('base64');
     },
     expireChallenge() {
       const state = JSON.parse(Buffer.from(content, 'base64').toString('utf8'));
@@ -113,6 +124,13 @@ function boundary() {
   const dueAt = new Date(Date.now() - 60_000).toISOString();
   const expiresAt = new Date(Date.now() + 3_600_000).toISOString();
   return { dueAt, expiresAt };
+}
+
+function boundaryAt(now, durationMs = 1_000) {
+  return {
+    dueAt: new Date(now.getTime() - 1_000).toISOString(),
+    expiresAt: new Date(now.getTime() + durationMs).toISOString(),
+  };
 }
 
 function claim(state, nonce = 'b'.repeat(64)) {
@@ -276,6 +294,133 @@ test('released availability rotates an expired window while retaining receipt li
   assert.deepEqual(rotated.released_generation_lineage, [first.generation]);
   assert.equal(rotated.released_receipt.owner_attempt, ownerAttempt);
   assert.ok(Date.parse(rotated.expires_at) > Date.now());
+});
+
+test('beginChallenge reaps an expired orphaned preparation with exact index and PR evidence', async () => {
+  const api = fakeGitHub();
+  const started = new Date('2030-01-01T00:00:00.000Z');
+  const first = await beginChallenge({
+    request: api.request, repository, prNumber, defaultBranch: 'main',
+    fingerprint, headSha, ...boundaryAt(started), now: started,
+  });
+  const signed = claim(first);
+  const options = { request: api.request, repository, prNumber, claim: signed,
+    ownerAttempt, provider: 'codex', headSha, now: started };
+  assert.equal((await prepareChallenge(options)).prepared, true);
+
+  const afterExpiry = new Date(started.getTime() + 2_000);
+  const recovered = await beginChallenge({
+    request: api.request, repository, prNumber, defaultBranch: 'main',
+    fingerprint, headSha, expectedGeneration: first.generation,
+    ...boundaryAt(afterExpiry), now: afterExpiry,
+  });
+  assert.equal(recovered.status, 'available');
+  assert.notEqual(recovered.generation, first.generation);
+  assert.equal(recovered.released_generation, first.generation);
+  assert.deepEqual(recovered.released_generation_lineage, [first.generation]);
+  assert.equal(recovered.released_receipt.owner_attempt, ownerAttempt);
+
+  const retry = await beginChallenge({
+    request: api.request, repository, prNumber, defaultBranch: 'main',
+    fingerprint, headSha, expectedGeneration: first.generation,
+    ...boundaryAt(afterExpiry), now: afterExpiry,
+  });
+  assert.equal(retry.generation, recovered.generation);
+  assert.equal(retry.revision, recovered.revision);
+
+  assert.equal((await finalizeChallenge(options)).granted, false);
+  const freshAttempt = 'owner/repo:101:1';
+  const freshClaim = claim(recovered);
+  assert.equal((await consumeChallenge({ request: api.request, repository, prNumber,
+    claim: freshClaim, ownerAttempt: freshAttempt, provider: 'codex', headSha,
+    now: new Date(afterExpiry.getTime() + 1) })).granted, true);
+});
+
+test('lost preparation response remains recoverable after expiry', async () => {
+  const api = fakeGitHub();
+  const started = new Date('2030-01-01T00:00:00.000Z');
+  const first = await beginChallenge({ request: api.request, repository, prNumber,
+    defaultBranch: 'main', fingerprint, headSha, ...boundaryAt(started), now: started });
+  let lost = true;
+  api.setAfterPut(() => {
+    if (lost) { lost = false; throw status(503); }
+  });
+  const uncertain = await prepareChallenge({ request: api.request, repository, prNumber,
+    claim: claim(first), ownerAttempt, provider: 'codex', headSha, now: started });
+  assert.equal(uncertain.reason, 'challenge-write-uncertain');
+  assert.equal((await readAuthorityState(api.request, repository, prNumber)).state.status,
+    'prepared');
+  api.setAfterPut(null);
+
+  const afterExpiry = new Date(started.getTime() + 2_000);
+  const recovered = await beginChallenge({ request: api.request, repository, prNumber,
+    defaultBranch: 'main', fingerprint, headSha, expectedGeneration: first.generation,
+    ...boundaryAt(afterExpiry), now: afterExpiry });
+  assert.equal(recovered.status, 'available');
+  assert.equal(recovered.released_receipt.owner_attempt, ownerAttempt);
+});
+
+test('expired preparation stays fail-closed without exact index or eligible PR evidence', async () => {
+  const started = new Date('2030-01-01T00:00:00.000Z');
+  const afterExpiry = new Date(started.getTime() + 2_000);
+  for (const block of [
+    (api) => api.deleteAttemptIndex(),
+    (api) => api.corruptAttemptIndex(),
+    (api) => api.setPrHead('e'.repeat(40)),
+    (api) => api.setPrLabels(['agent:needs-attention', 'needs-human']),
+    (api) => api.setPrState('closed'),
+    (api) => api.setPrUnavailable(true),
+  ]) {
+    const api = fakeGitHub();
+    const first = await beginChallenge({ request: api.request, repository, prNumber,
+      defaultBranch: 'main', fingerprint, headSha, ...boundaryAt(started), now: started });
+    assert.equal((await prepareChallenge({ request: api.request, repository, prNumber,
+      claim: claim(first), ownerAttempt, provider: 'codex', headSha, now: started })).prepared,
+    true);
+    block(api);
+    const preserved = await beginChallenge({ request: api.request, repository, prNumber,
+      defaultBranch: 'main', fingerprint, headSha, expectedGeneration: first.generation,
+      ...boundaryAt(afterExpiry), now: afterExpiry });
+    assert.equal(preserved.status, 'prepared');
+    assert.equal(preserved.generation, first.generation);
+  }
+});
+
+test('expired preparation stays fail-closed when its persisted claim is inconsistent', async () => {
+  const api = fakeGitHub();
+  const started = new Date('2030-01-01T00:00:00.000Z');
+  const first = await beginChallenge({ request: api.request, repository, prNumber,
+    defaultBranch: 'main', fingerprint, headSha, ...boundaryAt(started), now: started });
+  assert.equal((await prepareChallenge({ request: api.request, repository, prNumber,
+    claim: claim(first), ownerAttempt, provider: 'codex', headSha, now: started })).prepared,
+  true);
+  api.mutateAuthorityState((state) => { state.prepared_claim.due_at = first.expires_at; });
+  const afterExpiry = new Date(started.getTime() + 2_000);
+  const preserved = await beginChallenge({ request: api.request, repository, prNumber,
+    defaultBranch: 'main', fingerprint, headSha, expectedGeneration: first.generation,
+    ...boundaryAt(afterExpiry), now: afterExpiry });
+  assert.equal(preserved.status, 'prepared');
+  assert.equal(preserved.generation, first.generation);
+});
+
+test('finalization winning the expired-preparation race preserves the consumed receipt', async () => {
+  const api = fakeGitHub();
+  const started = new Date('2030-01-01T00:00:00.000Z');
+  const first = await beginChallenge({ request: api.request, repository, prNumber,
+    defaultBranch: 'main', fingerprint, headSha, ...boundaryAt(started), now: started });
+  const options = { request: api.request, repository, prNumber, claim: claim(first),
+    ownerAttempt, provider: 'codex', headSha, now: started };
+  assert.equal((await prepareChallenge(options)).prepared, true);
+  api.setBeforePut(async () => {
+    api.setBeforePut(null);
+    assert.equal((await finalizeChallenge(options)).granted, true);
+  });
+  const afterExpiry = new Date(started.getTime() + 2_000);
+  const settled = await beginChallenge({ request: api.request, repository, prNumber,
+    defaultBranch: 'main', fingerprint, headSha, expectedGeneration: first.generation,
+    ...boundaryAt(afterExpiry), now: afterExpiry });
+  assert.equal(settled.status, 'consumed');
+  assert.equal(settled.generation, first.generation);
 });
 
 test('expired prepared release creates a fresh due window without refunding its attempt', async () => {
