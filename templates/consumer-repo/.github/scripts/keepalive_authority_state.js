@@ -187,23 +187,99 @@ async function writeAuthorityState(request, repository, prNumber, state, priorSh
   return request('PUT', pathFor(repository, prNumber), body);
 }
 
-async function beginChallenge({ request, repository, prNumber, defaultBranch, fingerprint, dueAt, expiresAt, headSha, expectedGeneration = null }) {
+function expectedGenerationMatches(state, expectedGeneration, headSha) {
+  if (!expectedGeneration) return true;
+  if (state?.generation === expectedGeneration) return true;
+  return state?.status === 'available' && state.receipt === null &&
+    state.head_sha === headSha && state.released_receipt &&
+    (state.released_generation === expectedGeneration ||
+      state.released_generation_lineage?.includes(expectedGeneration));
+}
+
+function preparedAttemptMatchesIndex(state, index, repository, prNumber) {
+  const receipt = state?.receipt;
+  const claim = state?.prepared_claim;
+  return state?.status === 'prepared' && claim && receipt &&
+    claim.generation === state.generation &&
+    claim.boundary_fingerprint === state.boundary_fingerprint &&
+    claim.due_at === state.due_at && claim.expires_at === state.expires_at &&
+    claim.head_sha === state.head_sha &&
+    receiptMatches(receipt, claim, receipt.owner_attempt, receipt.provider, state.head_sha) &&
+    index.repository === String(repository).toLowerCase() &&
+    index.pr_number === Number(prNumber) && index.owner_attempt === receipt.owner_attempt &&
+    index.generation === state.generation && index.receipt.id === receipt.id &&
+    index.receipt.claim_digest === receipt.claim_digest &&
+    index.receipt.provider === receipt.provider && index.receipt.head_sha === state.head_sha;
+}
+
+async function recoverExpiredPreparation({ request, repository, prNumber, prior, now }) {
+  const state = prior.state;
+  if (state.status !== 'prepared' || now.getTime() < Date.parse(state.expires_at)) {
+    return { outcome: 'preserve' };
+  }
+  let index;
+  try {
+    index = await readAttemptIndex(request, repository, state.receipt?.owner_attempt);
+  } catch (_) {
+    return { outcome: 'preserve' };
+  }
+  if (!preparedAttemptMatchesIndex(state, index, repository, prNumber) ||
+      !await prMatches(request, repository, prNumber, state.head_sha,
+        'agent:needs-attention', 'needs-human').catch(() => false)) {
+    return { outcome: 'preserve' };
+  }
+  const released = await releasePreparedChallenge({
+    request, repository, prNumber, claim: state.prepared_claim,
+    ownerAttempt: state.receipt.owner_attempt, provider: state.receipt.provider,
+    headSha: state.head_sha, now,
+  });
+  if (!released.released) {
+    return { outcome: ['challenge-conflict', 'challenge-preparation-not-current']
+      .includes(released.reason) ? 'retry' : 'preserve' };
+  }
+  const settled = await readAuthorityState(request, repository, prNumber).catch(() => null);
+  const exactRelease = settled?.state.status === 'available' && settled.state.receipt === null &&
+    settled.state.head_sha === state.head_sha &&
+    settled.state.released_generation === state.generation &&
+    settled.state.released_receipt?.id === state.receipt.id &&
+    settled.state.released_receipt?.owner_attempt === state.receipt.owner_attempt;
+  if (!exactRelease || !await prMatches(request, repository, prNumber, state.head_sha,
+    'agent:needs-attention', 'needs-human').catch(() => false)) {
+    return { outcome: 'preserve' };
+  }
+  return { outcome: 'recovered' };
+}
+
+async function beginChallenge({ request, repository, prNumber, defaultBranch, fingerprint, dueAt, expiresAt, headSha, expectedGeneration = null, now = new Date() }) {
   if (!HEX.test(String(fingerprint)) || !HEAD.test(String(headSha)) ||
       !exactTime(dueAt) || !exactTime(expiresAt) ||
-      Date.parse(expiresAt) <= Date.parse(dueAt)) throw new Error('Invalid challenge boundary');
+      Date.parse(expiresAt) <= Date.parse(dueAt) ||
+      !(now instanceof Date) || !Number.isFinite(now.getTime())) {
+    throw new Error('Invalid challenge boundary');
+  }
   await ensureBranch(request, repository, defaultBranch);
   for (let attempt = 0; attempt < 3; attempt += 1) {
     const prior = await readAuthorityState(request, repository, prNumber, { allowMissing: true });
-    if (expectedGeneration && (!prior || prior.state.generation !== expectedGeneration)) {
+    if (expectedGeneration && (!prior ||
+        !expectedGenerationMatches(prior.state, expectedGeneration, headSha))) {
       throw new Error('Previously initialized challenge generation is missing or superseded');
     }
-    // Expiry alone never refunds a prepared, consumed, or confirmed receipt.
+    // Consumed and confirmed receipts remain spent on expiry. A prepared receipt
+    // is non-authorizing and can be reaped only after its exact immutable attempt
+    // index and current PR routing state have both been verified.
     if (prior && prior.state.head_sha === headSha && prior.state.status !== 'available') {
+      if (prior.state.status === 'prepared' &&
+          now.getTime() >= Date.parse(prior.state.expires_at)) {
+        const recovery = await recoverExpiredPreparation({
+          request, repository, prNumber, prior, now,
+        });
+        if (['recovered', 'retry'].includes(recovery.outcome)) continue;
+      }
       return prior.state;
     }
     if (prior && prior.state.boundary_fingerprint === fingerprint &&
         prior.state.head_sha === headSha) {
-      if (Date.parse(prior.state.expires_at) > Date.now()) {
+      if (Date.parse(prior.state.expires_at) > now.getTime()) {
         return prior.state;
       }
     }
@@ -346,7 +422,11 @@ async function finalizeChallenge({ request, repository, prNumber, claim, ownerAt
   return { granted: true, reason: 'due-authority-challenge', receipt: prior.state.receipt };
 }
 
-async function releasePreparedChallenge({ request, repository, prNumber, claim, ownerAttempt, provider, headSha }) {
+async function releasePreparedChallenge({ request, repository, prNumber, claim, ownerAttempt, provider, headSha,
+  now = new Date() }) {
+  if (!(now instanceof Date) || !Number.isFinite(now.getTime())) {
+    return { released: false, reason: 'challenge-time-invalid' };
+  }
   const prior = await readAuthorityState(request, repository, prNumber);
   if (prior.state.status === 'available' && prior.state.receipt === null &&
       prior.state.head_sha === headSha &&
@@ -354,9 +434,9 @@ async function releasePreparedChallenge({ request, repository, prNumber, claim, 
       receiptMatches(prior.state.released_receipt, claim, ownerAttempt, provider, headSha)) {
     // The conditional PUT may have committed even when its response was lost.
     // An exact retry is settled; a newer preparation is never refunded.
-    if (Date.now() >= Date.parse(prior.state.expires_at)) {
+    if (now.getTime() >= Date.parse(prior.state.expires_at)) {
       const refreshed = await refreshReleasedChallenge({
-        request, repository, prNumber, ownerAttempt, prior,
+        request, repository, prNumber, ownerAttempt, prior, now,
       });
       return { released: refreshed.status === 'released', reason: refreshed.reason };
     }
@@ -367,19 +447,19 @@ async function releasePreparedChallenge({ request, repository, prNumber, claim, 
       !receiptMatches(prior.state.receipt, claim, ownerAttempt, provider, headSha)) {
     return { released: false, reason: 'challenge-preparation-not-current' };
   }
-  const expired = Date.now() >= Date.parse(prior.state.expires_at);
+  const expired = now.getTime() >= Date.parse(prior.state.expires_at);
   if (expired && !await prMatches(request, repository, prNumber, headSha,
     'agent:needs-attention', 'needs-human').catch(() => false)) {
     return { released: false, reason: 'challenge-pr-state-unavailable' };
   }
-  const now = Date.now();
+  const nowMs = now.getTime();
   const next = { ...prior.state, status: 'available', receipt: null,
     prepared_claim: null, released_receipt: prior.state.receipt,
     released_generation: claim.generation,
     released_generation_lineage: [claim.generation],
     ...(expired ? { generation: crypto.randomBytes(32).toString('hex'),
-      due_at: new Date(now).toISOString(),
-      expires_at: new Date(now + 24 * 60 * 60 * 1000).toISOString() } : {}),
+      due_at: new Date(nowMs).toISOString(),
+      expires_at: new Date(nowMs + 24 * 60 * 60 * 1000).toISOString() } : {}),
     revision: prior.state.revision + 1 };
   try {
     await writeAuthorityState(request, repository, prNumber, next, prior.sha);
@@ -397,7 +477,11 @@ async function releasePreparedChallenge({ request, repository, prNumber, claim, 
   }
 }
 
-async function refreshReleasedChallenge({ request, repository, prNumber, ownerAttempt, prior = null }) {
+async function refreshReleasedChallenge({ request, repository, prNumber, ownerAttempt, prior = null,
+  now = new Date() }) {
+  if (!(now instanceof Date) || !Number.isFinite(now.getTime())) {
+    return { status: 'uncertain', reason: 'challenge-time-invalid' };
+  }
   const current = prior || await readAuthorityState(request, repository, prNumber);
   const state = current.state;
   if (state.status !== 'available' || state.receipt !== null ||
@@ -412,17 +496,17 @@ async function refreshReleasedChallenge({ request, repository, prNumber, ownerAt
     'agent:needs-attention', 'needs-human').catch(() => false)) {
     return { status: 'uncertain', reason: 'challenge-pr-state-unavailable' };
   }
-  if (Date.now() < Date.parse(state.expires_at)) {
+  if (now.getTime() < Date.parse(state.expires_at)) {
     return { status: 'released', reason: 'already-current', state,
       previousGenerations: state.released_generation_lineage ||
         [state.released_generation || state.generation] };
   }
-  const now = Date.now();
+  const nowMs = now.getTime();
   const lineage = [...new Set([...(state.released_generation_lineage || []),
     state.released_generation || state.generation, state.generation])];
   const next = { ...state, generation: crypto.randomBytes(32).toString('hex'),
-    due_at: new Date(now).toISOString(),
-    expires_at: new Date(now + 24 * 60 * 60 * 1000).toISOString(),
+    due_at: new Date(nowMs).toISOString(),
+    expires_at: new Date(nowMs + 24 * 60 * 60 * 1000).toISOString(),
     released_generation: state.released_generation || state.generation,
     released_generation_lineage: lineage, revision: state.revision + 1 };
   try {
