@@ -49,6 +49,10 @@ jobs:
                 run: context.payload.workflow_run,
               });
               core.setOutput('skip', result.status === 'skip' ? 'true' : 'false');
+              core.setOutput('pr_number', result.targetSource === 'ordinary-run-name' ?
+                String(result.prNumber) : '');
+              core.setOutput('ordinary_target',
+                result.targetSource === 'ordinary-run-name' ? 'true' : 'false');
             } catch (error) {
               core.setFailed(`Reporter applicability unavailable: ${error.message}`);
             }
@@ -148,6 +152,8 @@ jobs:
           github.event.workflow_run.conclusion != 'success'
         uses: actions/github-script@v9
         env:
+          CLASSIFIED_PR_NUMBER: ${{ steps.applicability.outputs.pr_number || '' }}
+          CLASSIFIED_ORDINARY_TARGET: ${{ steps.applicability.outputs.ordinary_target || 'false' }}
           KEEPALIVE_SUMMARY_WRITER: >-
             ${{
               steps.reporter_keepalive_app_token.outputs.token != '' &&
@@ -162,7 +168,9 @@ jobs:
             }}
           script: |
             const run = context.payload?.workflow_run || {};
-            let prNumber = Number(run.pull_requests?.[0]?.number || 0);
+            let prNumber = Number(
+              run.pull_requests?.[0]?.number || process.env.CLASSIFIED_PR_NUMBER || 0
+            );
 
             const conclusion = String(run.conclusion || run.status || '').toLowerCase();
             if (!conclusion || conclusion === 'success' || conclusion === 'skipped') {
@@ -210,6 +218,14 @@ jobs:
             }
 
             const { state } = await loadKeepaliveState({ github, context, prNumber, trace: '' });
+            if (process.env.CLASSIFIED_ORDINARY_TARGET === 'true' &&
+                state?.running_owner_attempt !== ownerAttempt) {
+              core.info(
+                'Ordinary dispatch target no longer belongs to the originating run attempt; ' +
+                'skipping stale cleanup.'
+              );
+              return;
+            }
             if (!state || state.running !== true) {
               core.info('Keepalive state not marked as running; skipping post summary.');
               return;

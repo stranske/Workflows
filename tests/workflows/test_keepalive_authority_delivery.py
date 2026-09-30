@@ -71,6 +71,11 @@ def test_gate_paths_deny_invalid_claims_and_reporters_can_persist_generation() -
             "Mint KEEPALIVE_APP reporter token"
         )
         assert "keepalive_reporter_applicability.js" in path.read_text()
+        assert "core.setOutput('pr_number'" in path.read_text()
+        assert "core.setOutput('ordinary_target'" in path.read_text()
+        assert "CLASSIFIED_PR_NUMBER:" in path.read_text()
+        assert "CLASSIFIED_ORDINARY_TARGET:" in path.read_text()
+        assert "state?.running_owner_attempt !== ownerAttempt" in path.read_text()
         assert workflow["permissions"]["contents"].startswith("read")
 
         assert path.read_text().count("permission-contents: write") == 2
@@ -99,7 +104,9 @@ def test_gate_paths_deny_invalid_claims_and_reporters_can_persist_generation() -
         TEMPLATE / ".github/workflows/agents-81-gate-followups.yml",
     ):
         run_name = yaml.safe_load(producer.read_text())["run-name"]
-        assert "keepalive-dispatch/v1" in run_name
+        assert "keepalive-dispatch/v2" in run_name
+        assert "pr={1}" in run_name
+        assert "inputs.pr_number" in run_name
         assert "authority_challenge_claim" in run_name
         assert "authority_challenge_fingerprint" in run_name
 

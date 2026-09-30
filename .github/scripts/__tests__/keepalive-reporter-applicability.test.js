@@ -98,33 +98,48 @@ function projectCurrentRecovery(recovery) {
 }
 
 for (const source of sources) {
-  test(`${source}: ordinary unassociated dispatch skips only after absent index`, async () => {
-    const { github, reads } = setup(source, 'keepalive-dispatch/v1 ordinary');
+  test(`${source}: ordinary unassociated dispatch recovers its canonical PR target`, async () => {
+    const { github, reads } = setup(source, 'keepalive-dispatch/v2 ordinary pr=1738');
     let lookups = 0;
     const result = await classifyReporterRun({ github, owner: 'stranske', repo: 'repo', run,
       lookupTarget: async () => { lookups += 1; return null; } });
-    assert.deepEqual(result, { status: 'skip' });
+    assert.deepEqual(result, {
+      status: 'continue', prNumber: 1738, targetSource: 'ordinary-run-name',
+    });
     assert.equal(lookups, 1);
     assert.equal(reads(), 2);
   });
 
   test(`${source}: authority candidate without index fails closed`, async () => {
-    const { github } = setup(source, 'keepalive-dispatch/v1 authority-candidate');
+    const { github } = setup(source, 'keepalive-dispatch/v2 authority-candidate pr=1738');
     await assert.rejects(classifyReporterRun({ github, owner: 'stranske', repo: 'repo', run,
       lookupTarget: async () => null }), /no immutable attempt index/);
   });
 
-  test(`${source}: missing or misleading title cannot become ordinary`, async () => {
-    for (const title of ['', 'ordinary', 'keepalive-dispatch/v2 ordinary']) {
+  test(`${source}: malformed or legacy binding cannot become ordinary`, async () => {
+    for (const title of [
+      '',
+      'ordinary',
+      'keepalive-dispatch/v1 ordinary',
+      'keepalive-dispatch/v2 ordinary',
+      'keepalive-dispatch/v2 ordinary pr=0',
+      'keepalive-dispatch/v2 ordinary pr=01',
+      'keepalive-dispatch/v2 ordinary pr=-1',
+      'keepalive-dispatch/v2 ordinary pr=1.5',
+      'keepalive-dispatch/v2 ordinary pr=1e3',
+      'keepalive-dispatch/v2 ordinary pr= 1738',
+      'keepalive-dispatch/v2 ordinary pr=1738 extra',
+      'keepalive-dispatch/v2 ordinary pr=9007199254740992',
+    ]) {
       const { github } = setup(source, title);
       await assert.rejects(classifyReporterRun({ github, owner: 'stranske', repo: 'repo', run,
-        lookupTarget: async () => null }), /no versioned classification/);
+        lookupTarget: async () => null }), /canonical versioned PR binding|non-canonical PR binding/);
     }
   });
 }
 
 test('verified index wins over an ordinary title and needs no title lookup', async () => {
-  const { github, reads } = setup(sources[0], 'keepalive-dispatch/v1 ordinary');
+  const { github, reads } = setup(sources[0], 'keepalive-dispatch/v2 ordinary pr=1738');
   const result = await classifyReporterRun({ github, owner: 'stranske', repo: 'repo', run,
     lookupTarget: async () => ({ prNumber: 42 }) });
   assert.deepEqual(result, { status: 'continue', prNumber: 42 });
@@ -132,7 +147,7 @@ test('verified index wins over an ordinary title and needs no title lookup', asy
 });
 
 test('unavailable or corrupt index lookup never becomes an ordinary skip', async () => {
-  const { github } = setup(sources[0], 'keepalive-dispatch/v1 ordinary');
+  const { github } = setup(sources[0], 'keepalive-dispatch/v2 ordinary pr=1738');
   await assert.rejects(classifyReporterRun({ github, owner: 'stranske', repo: 'repo', run,
     lookupTarget: async () => { throw new Error('index 503'); } }), /index 503/);
 });
@@ -140,16 +155,30 @@ test('unavailable or corrupt index lookup never becomes an ordinary skip', async
 test('wrong originating workflow or event cannot claim ordinary routing', async () => {
   for (const override of [{ path: '.github/workflows/other.yml' }, { event: 'push' },
     { run_attempt: 3 }, { head_sha: 'b'.repeat(40) }]) {
-    const { github } = setup(sources[0], 'keepalive-dispatch/v1 ordinary', override);
+    const { github } = setup(sources[0], 'keepalive-dispatch/v2 ordinary pr=1738', override);
     await assert.rejects(classifyReporterRun({ github, owner: 'stranske', repo: 'repo', run,
       lookupTarget: async () => null }), /no verified dispatch classification/);
   }
 });
 
 test('originating revision without the classification contract fails closed', async () => {
-  const { github } = setup(sources[0], 'keepalive-dispatch/v1 ordinary');
+  const { github } = setup(sources[0], 'keepalive-dispatch/v2 ordinary pr=1738');
   github.rest.repos.getContent = async () => ({ data: {
     encoding: 'base64', content: Buffer.from('name: Agents Keepalive Loop\n').toString('base64'),
+  } });
+  await assert.rejects(classifyReporterRun({ github, owner: 'stranske', repo: 'repo', run,
+    lookupTarget: async () => null }), /lacks the dispatch classification contract/);
+});
+
+test('contract-shaped text outside the top-level run-name cannot authorize a target', async () => {
+  const { github } = setup(sources[0], 'keepalive-dispatch/v2 ordinary pr=1738');
+  const producer = [
+    'name: Agents Keepalive Loop',
+    'description: |',
+    "run-name: ${{ github.event_name == 'workflow_dispatch' && format('keepalive-dispatch/v2 {0} pr={1}', (inputs.authority_challenge_claim != '' || inputs.authority_challenge_fingerprint != '') && 'authority-candidate' || 'ordinary', inputs.pr_number) || 'Agents Keepalive Loop' }}",
+  ].join('\n');
+  github.rest.repos.getContent = async () => ({ data: {
+    encoding: 'base64', content: Buffer.from(producer).toString('base64'),
   } });
   await assert.rejects(classifyReporterRun({ github, owner: 'stranske', repo: 'repo', run,
     lookupTarget: async () => null }), /lacks the dispatch classification contract/);
