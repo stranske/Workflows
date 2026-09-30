@@ -1,6 +1,7 @@
 'use strict';
 
 const { ensureRateLimitWrapped } = require('./github-rate-limited-wrapper.js');
+const { readAuthorityState, requester } = require('./keepalive_authority_state.js');
 
 const STATE_MARKER = 'keepalive-state';
 const STATE_VERSION = 'v1';
@@ -436,7 +437,12 @@ async function loadKeepaliveState({ github: rawGithub, context, prNumber, trace 
 }
 
 function summaryMatchesRecoveredAuthority(state, priorGenerations, recoveredAttempt) {
-  if (state?.attention && priorGenerations.has(state.attention.generation)) return true;
+  if (state?.attention && priorGenerations.has(state.attention.generation)) {
+    if (state.running === true) {
+      return Boolean(recoveredAttempt) && state.running_owner_attempt === recoveredAttempt;
+    }
+    return !state.running_owner_attempt || state.running_owner_attempt === recoveredAttempt;
+  }
   const attention = state?.attention || {};
   return state?.running === false &&
     attention.owner === 'automation' &&
@@ -450,13 +456,43 @@ function summaryMatchesRecoveredAuthority(state, priorGenerations, recoveredAtte
     priorGenerations.has(attention.recovery_generation);
 }
 
-async function projectRecoveredAuthorityState({ github, context, prNumber, recovery, writerLogin }) {
+const RECOVERY_RECEIPT_FIELDS = ['id', 'owner_attempt', 'claim_digest', 'head_sha', 'provider'];
+
+function sameRecoveryReceipt(left, right) {
+  return Boolean(left && right) &&
+    RECOVERY_RECEIPT_FIELDS.every((field) => left[field] === right[field]);
+}
+
+function currentSettledRecovery(recovery, current) {
+  const receiptField = recovery.status === 'released' ? 'released_receipt' : 'recovered_receipt';
+  if (current?.status !== 'available' ||
+      current.head_sha !== recovery.state.head_sha ||
+      current.boundary_fingerprint !== recovery.state.boundary_fingerprint ||
+      !sameRecoveryReceipt(current[receiptField], recovery.state[receiptField])) {
+    return null;
+  }
+  return current;
+}
+
+async function projectRecoveredAuthorityState({
+  github, context, prNumber, recovery, writerLogin,
+  readAuthority = readAuthorityState, makeRequest = requester,
+}) {
   if (!['released', 'reopened'].includes(recovery?.status) || !recovery.state) {
     throw new Error('No settled authority recovery to project');
+  }
+  const repository = `${context.repo.owner}/${context.repo.repo}`;
+  const firstAuthorityRead = await readAuthority(makeRequest(github), repository, prNumber);
+  let currentRecovery = currentSettledRecovery(recovery, firstAuthorityRead?.state);
+  if (!currentRecovery) {
+    return { projected: false, reason: 'recovery-superseded' };
   }
   const priorGenerations = new Set([
     recovery.previousGeneration || recovery.state.generation,
     ...(recovery.previousGenerations || []),
+    recovery.state.generation,
+    currentRecovery.generation,
+    ...(currentRecovery.released_generation_lineage || []),
   ]);
   const recoveredAttempt = (recovery.status === 'released' ? recovery.state.released_receipt :
     recovery.state.recovered_receipt)?.owner_attempt || '';
@@ -464,7 +500,7 @@ async function projectRecoveredAuthorityState({ github, context, prNumber, recov
   let state = loaded.state;
   if (state?.running === false && recoveredAttempt &&
       state?.attention?.recovery_owner_attempt === recoveredAttempt &&
-      state.attention.generation === recovery.state.generation) {
+      state.attention.generation === currentRecovery.generation) {
     return { projected: true, reason: 'already-projected' };
   }
   if (!summaryMatchesRecoveredAuthority(state, priorGenerations, recoveredAttempt)) {
@@ -478,7 +514,7 @@ async function projectRecoveredAuthorityState({ github, context, prNumber, recov
     });
     const latest = parseStateComment(response?.data?.body)?.data;
     if (!summaryMatchesRecoveredAuthority(latest, priorGenerations, recoveredAttempt)) {
-      if (latest?.attention?.generation === recovery.state.generation && latest.running === false &&
+      if (latest?.attention?.generation === currentRecovery.generation && latest.running === false &&
           latest.attention.recovery_owner_attempt === recoveredAttempt) {
         return { projected: true, reason: 'already-projected' };
       }
@@ -486,19 +522,25 @@ async function projectRecoveredAuthorityState({ github, context, prNumber, recov
     }
     state = latest;
   }
+  const finalAuthorityRead = await readAuthority(makeRequest(github), repository, prNumber);
+  currentRecovery = currentSettledRecovery(recovery, finalAuthorityRead?.state);
+  if (!currentRecovery || (firstAuthorityRead?.sha && finalAuthorityRead?.sha !== firstAuthorityRead.sha)) {
+    return { projected: false, reason: 'recovery-superseded' };
+  }
   const { recovery_generation: _recoveryGeneration, ...priorAttention } = state.attention;
   const projected = {
     ...state,
     running: false,
     running_since: null,
+    running_owner_attempt: null,
     attention: {
       ...priorAttention,
       owner: 'automation', disposition: 'challenge-due',
-      generation: recovery.state.generation,
+      generation: currentRecovery.generation,
       recovery_owner_attempt: recoveredAttempt,
-      boundary_fingerprint: recovery.state.boundary_fingerprint,
-      challenge_due_at: recovery.state.due_at,
-      expires_at: recovery.state.expires_at,
+      boundary_fingerprint: currentRecovery.boundary_fingerprint,
+      challenge_due_at: currentRecovery.due_at,
+      expires_at: currentRecovery.expires_at,
       next_action: 'Retry the exact-head authority challenge through the owning sweep.',
     },
   };

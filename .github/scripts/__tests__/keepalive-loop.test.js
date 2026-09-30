@@ -5704,7 +5704,7 @@ test('markAgentRunning updates summary comment with running status', async () =>
 
   await markAgentRunning({
     github,
-    context: { repo: { owner: 'test', repo: 'repo' } },
+    context: { repo: { owner: 'test', repo: 'repo' }, runId: 12345, runAttempt: 2 },
     core: buildCore(),
     inputs,
   });
@@ -5723,6 +5723,7 @@ test('markAgentRunning updates summary comment with running status', async () =>
   assert.ok(body.includes('Task progress'), 'Should show task progress');
   assert.ok(body.includes('view logs'), 'Should include run URL');
   assert.ok(body.includes('will be updated when the agent completes'), 'Should include completion message');
+  assert.equal(parseStateComment(body).data.running_owner_attempt, 'test/repo:12345:2');
 });
 
 test('markAgentRunning migrates legacy state to the selected App writer', async () => {
@@ -5826,6 +5827,29 @@ test('markAgentRunning creates comment when none exists', async () => {
   assert.ok(body.includes('Claude is actively working'), 'Should capitalize agent name');
   assert.ok(body.includes('Iteration | 1 of 3'), 'Should show iteration 1 (0+1)');
   assert.ok(body.includes('Task progress | 0/5'), 'Should show task progress');
+});
+
+test('markAgentRunning omits owner attempt when no run ID is available', async () => {
+  const priorRunId = process.env.GITHUB_RUN_ID;
+  const priorRunAttempt = process.env.GITHUB_RUN_ATTEMPT;
+  delete process.env.GITHUB_RUN_ID;
+  delete process.env.GITHUB_RUN_ATTEMPT;
+  try {
+    const github = buildGithubStub({ comments: [] });
+    await markAgentRunning({
+      github,
+      context: { repo: { owner: 'test', repo: 'repo' } },
+      core: buildCore(),
+      inputs: { pr_number: 99, agent_type: 'codex', iteration: 0, max_iterations: 3 },
+    });
+    const state = parseStateComment(github.actions[0].body).data;
+    assert.equal(Object.hasOwn(state, 'running_owner_attempt'), false);
+  } finally {
+    if (priorRunId === undefined) delete process.env.GITHUB_RUN_ID;
+    else process.env.GITHUB_RUN_ID = priorRunId;
+    if (priorRunAttempt === undefined) delete process.env.GITHUB_RUN_ATTEMPT;
+    else process.env.GITHUB_RUN_ATTEMPT = priorRunAttempt;
+  }
 });
 
 test('markAgentRunning records suggested focus task in state', async () => {

@@ -8,7 +8,11 @@ const {
   classifyReporterRun,
   recoverReporterAuthority,
 } = require('../keepalive_reporter_applicability.js');
-const { formatStateComment, loadKeepaliveState } = require('../keepalive_state.js');
+const {
+  formatStateComment,
+  loadKeepaliveState,
+  projectRecoveredAuthorityState,
+} = require('../keepalive_state.js');
 
 const root = path.resolve(__dirname, '../../..');
 const head = 'a'.repeat(40);
@@ -67,6 +71,30 @@ function recoveryGithub(state) {
     },
     paginate: async (fn, params) => (await fn(params)).data,
   };
+}
+
+function settleRecovery(recovery) {
+  const receiptName = recovery.status === 'released' ? 'released_receipt' : 'recovered_receipt';
+  const ownerAttempt = recovery.state[receiptName].owner_attempt;
+  const headSha = '1'.repeat(40);
+  recovery.state = {
+    ...recovery.state,
+    status: 'available',
+    head_sha: headSha,
+    [receiptName]: {
+      id: 'receipt-1', owner_attempt: ownerAttempt, claim_digest: '2'.repeat(64),
+      head_sha: headSha, provider: 'codex',
+    },
+  };
+  return recovery;
+}
+
+function projectCurrentRecovery(recovery) {
+  return (input) => projectRecoveredAuthorityState({
+    ...input,
+    readAuthority: async () => ({ sha: '3'.repeat(40), state: recovery.state }),
+    makeRequest: () => 'request',
+  });
 }
 
 for (const source of sources) {
@@ -148,7 +176,7 @@ for (const status of ['released', 'reopened']) {
       },
     });
     const receiptName = status === 'released' ? 'released_receipt' : 'recovered_receipt';
-    const recovery = {
+    const recovery = settleRecovery({
       status,
       previousGeneration,
       state: {
@@ -158,7 +186,7 @@ for (const status of ['released', 'reopened']) {
         due_at: '2026-09-30T01:00:00Z',
         expires_at: '2026-09-30T13:00:00Z',
       },
-    };
+    });
     const context = { repo: { owner: 'stranske', repo: 'repo' } };
     const args = {
       github, context, run, workerEvidence: 'not-started',
@@ -175,6 +203,7 @@ for (const status of ['released', 'reopened']) {
         assert.equal(input.prNumber, 42);
         return recovery;
       },
+      projectRecovery: projectCurrentRecovery(recovery),
     };
     const first = await recoverReporterAuthority(args);
     assert.equal(first.status, 'projected');
@@ -213,6 +242,23 @@ test('non-released reconciliation preserves the owner-attempt binding for normal
   assert.equal(result.ownerAttempt, 'stranske/repo:12345:2');
 });
 
+test('non-released delayed reporter stops when a newer attempt owns the running summary', async () => {
+  const github = recoveryGithub({
+    running: true,
+    running_owner_attempt: 'stranske/repo:67890:1',
+    attention: { generation: 'a'.repeat(64) },
+  });
+  const result = await recoverReporterAuthority({
+    github, context: { repo: { owner: 'stranske', repo: 'repo' } }, run,
+    workerEvidence: 'started', writerLogin: 'agents-workflows-bot[bot]', prNumber: 42,
+    makeRequest: () => 'request',
+    reconcileAttempt: async () => ({ status: 'owned' }),
+  });
+  assert.equal(result.status, 'superseded');
+  assert.equal(result.projection.reason, 'running-attempt-superseded');
+  assert.equal(github.actions.length, 0);
+});
+
 test('recovery rejects unknown worker evidence before authority mutation', async () => {
   await assert.rejects(recoverReporterAuthority({
     github: {}, context: { repo: { owner: 'stranske', repo: 'repo' } }, run,
@@ -230,6 +276,13 @@ test('recovery rejects a delayed summary marker for a different attempt or gener
       recovery_owner_attempt: 'stranske/repo:999:1',
     },
   });
+  const recovery = settleRecovery({
+    status: 'released', previousGeneration: 'b'.repeat(64), state: {
+      generation: 'c'.repeat(64), boundary_fingerprint: 'd'.repeat(64),
+      released_receipt: { owner_attempt: 'stranske/repo:12345:2' },
+      due_at: '2026-09-30T01:00:00Z', expires_at: '2026-09-30T13:00:00Z',
+    },
+  });
   await assert.rejects(recoverReporterAuthority({
     github,
     context: { repo: { owner: 'stranske', repo: 'repo' } },
@@ -238,13 +291,22 @@ test('recovery rejects a delayed summary marker for a different attempt or gener
     writerLogin: 'agents-workflows-bot[bot]',
     makeRequest: () => 'request',
     lookupTarget: async () => ({ prNumber: 42 }),
-    reconcileAttempt: async () => ({
-      status: 'released', previousGeneration: 'b'.repeat(64), state: {
-        generation: 'c'.repeat(64), boundary_fingerprint: 'd'.repeat(64),
-        released_receipt: { owner_attempt: 'stranske/repo:12345:2' },
-        due_at: '2026-09-30T01:00:00Z', expires_at: '2026-09-30T13:00:00Z',
-      },
-    }),
+    reconcileAttempt: async () => recovery,
+    projectRecovery: projectCurrentRecovery(recovery),
   }), /does not match the recovered generation/);
+  assert.equal(github.actions.length, 0);
+});
+
+test('superseded recovery stops reporter processing without comment mutation', async () => {
+  const github = recoveryGithub({ running: false, attention: {} });
+  const result = await recoverReporterAuthority({
+    github, context: { repo: { owner: 'stranske', repo: 'repo' } }, run,
+    workerEvidence: 'not-started', writerLogin: 'agents-workflows-bot[bot]', prNumber: 42,
+    makeRequest: () => 'request',
+    reconcileAttempt: async () => ({ status: 'released', state: {} }),
+    projectRecovery: async () => ({ projected: false, reason: 'recovery-superseded' }),
+  });
+  assert.equal(result.status, 'superseded');
+  assert.equal(result.projection.reason, 'recovery-superseded');
   assert.equal(github.actions.length, 0);
 });

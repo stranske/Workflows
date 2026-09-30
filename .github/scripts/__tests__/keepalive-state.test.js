@@ -64,6 +64,34 @@ const buildGithubStub = ({ comments = [] } = {}) => {
   return github;
 };
 
+function settleRecovery(recovery) {
+  const receiptField = recovery.status === 'released' ? 'released_receipt' : 'recovered_receipt';
+  const ownerAttempt = recovery.state[receiptField].owner_attempt;
+  const headSha = '1'.repeat(40);
+  recovery.state = {
+    ...recovery.state,
+    status: 'available',
+    head_sha: headSha,
+    [receiptField]: {
+      id: 'receipt-1',
+      owner_attempt: ownerAttempt,
+      claim_digest: '2'.repeat(64),
+      head_sha: headSha,
+      provider: 'codex',
+    },
+  };
+  return recovery;
+}
+
+function authorityReader(states) {
+  const sequence = Array.isArray(states) ? states : [states, states];
+  let index = 0;
+  return async () => ({
+    sha: '3'.repeat(40),
+    state: sequence[Math.min(index++, sequence.length - 1)],
+  });
+}
+
 test('parseStateComment extracts JSON payload', () => {
   const body = formatStateComment({ trace: 'abc', head_sha: '123', version: 'v1' });
   const parsed = parseStateComment(body);
@@ -283,28 +311,31 @@ test('loadKeepaliveState returns empty state when comment missing', async () => 
 test('recovered authority projects generation and clears running state on trusted summary', async () => {
   const oldGeneration = 'a'.repeat(64);
   const newGeneration = 'b'.repeat(64);
-  const initial = { running: true, attention: {
+  const initial = { running: true, running_owner_attempt: 'owner/repo:123:1', attention: {
     owner: 'automation', disposition: 'challenge-due', generation: oldGeneration,
   } };
   const github = buildGithubStub({ comments: [{
     id: 91, body: '<!-- keepalive-loop-summary -->\n' + formatStateComment(initial),
   }] });
   const context = { repo: { owner: 'owner', repo: 'repo' } };
-  const recovery = { status: 'reopened', previousGeneration: oldGeneration, state: {
+  const recovery = settleRecovery({ status: 'reopened', previousGeneration: oldGeneration, state: {
     generation: newGeneration, boundary_fingerprint: 'c'.repeat(64),
     recovered_receipt: { owner_attempt: 'owner/repo:123:1' },
     due_at: '2026-09-27T17:00:00.000Z', expires_at: '2026-09-28T17:00:00.000Z',
-  } };
+  } });
   const first = await projectRecoveredAuthorityState({
     github, context, prNumber: 42, recovery, writerLogin: 'agents-workflows-bot[bot]',
+    readAuthority: authorityReader(recovery.state), makeRequest: () => 'request',
   });
   assert.equal(first.reason, 'recovered-summary-projected');
   const loaded = await loadKeepaliveState({ github, context, prNumber: 42, trace: '' });
   assert.equal(loaded.state.running, false);
+  assert.equal(loaded.state.running_owner_attempt, null);
   assert.equal(loaded.state.attention.generation, newGeneration);
   assert.equal(loaded.state.attention.challenge_due_at, recovery.state.due_at);
   const second = await projectRecoveredAuthorityState({
     github, context, prNumber: 42, recovery, writerLogin: 'agents-workflows-bot[bot]',
+    readAuthority: authorityReader(recovery.state), makeRequest: () => 'request',
   });
   assert.equal(second.reason, 'already-projected');
   assert.equal(github.actions.filter((action) => action.type === 'update').length, 1);
@@ -323,13 +354,14 @@ test('attempt-bound recovery projects after summary rewrites attention to automa
     id: 91, body: '<!-- keepalive-loop-summary -->\n' + formatStateComment(initial),
   }] });
   const context = { repo: { owner: 'owner', repo: 'repo' } };
-  const recovery = { status: 'released', previousGeneration: oldGeneration, state: {
+  const recovery = settleRecovery({ status: 'released', previousGeneration: oldGeneration, state: {
     generation: newGeneration, boundary_fingerprint: 'c'.repeat(64),
     released_receipt: { owner_attempt: attempt },
     due_at: '2026-09-27T17:00:00.000Z', expires_at: '2026-09-28T17:00:00.000Z',
-  } };
+  } });
   const result = await projectRecoveredAuthorityState({
     github, context, prNumber: 42, recovery, writerLogin: 'agents-workflows-bot[bot]',
+    readAuthority: authorityReader(recovery.state), makeRequest: () => 'request',
   });
   assert.equal(result.reason, 'recovered-summary-projected');
   const loaded = await loadKeepaliveState({ github, context, prNumber: 42, trace: '' });
@@ -343,17 +375,18 @@ test('same-generation prepared release projection is idempotent for the exact ow
   const attempt = 'owner/repo:123:1';
   const github = buildGithubStub({ comments: [{
     id: 91, body: '<!-- keepalive-loop-summary -->\n' + formatStateComment({
-      running: true, attention: { generation },
+      running: true, running_owner_attempt: attempt, attention: { generation },
     }),
   }] });
   const context = { repo: { owner: 'owner', repo: 'repo' } };
-  const recovery = { status: 'released', state: {
+  const recovery = settleRecovery({ status: 'released', state: {
     generation, released_receipt: { owner_attempt: attempt },
     boundary_fingerprint: 'c'.repeat(64),
     due_at: '2026-09-27T17:00:00.000Z', expires_at: '2026-09-28T17:00:00.000Z',
-  } };
+  } });
   const args = { github, context, prNumber: 42, recovery,
-    writerLogin: 'agents-workflows-bot[bot]' };
+    writerLogin: 'agents-workflows-bot[bot]', readAuthority: authorityReader(recovery.state),
+    makeRequest: () => 'request' };
   assert.equal((await projectRecoveredAuthorityState(args)).reason, 'recovered-summary-projected');
   assert.equal((await projectRecoveredAuthorityState(args)).reason, 'already-projected');
   assert.equal(github.actions.filter((action) => action.type === 'update').length, 1);
@@ -365,16 +398,18 @@ test('released receipt projection accepts an exact earlier lineage after multipl
   const current = 'c'.repeat(64);
   const github = buildGithubStub({ comments: [{ id: 91,
     body: '<!-- keepalive-loop-summary -->\n' + formatStateComment({
-      running: true, attention: { owner: 'automation', generation: original },
+      running: true, running_owner_attempt: 'owner/repo:123:1',
+      attention: { owner: 'automation', generation: original },
     }) }] });
-  const recovery = { status: 'released', previousGenerations: [original, intermediate], state: {
+  const recovery = settleRecovery({ status: 'released', previousGenerations: [original, intermediate], state: {
     generation: current, released_receipt: { owner_attempt: 'owner/repo:123:1' },
     boundary_fingerprint: 'd'.repeat(64),
     due_at: '2026-09-27T18:00:00.000Z', expires_at: '2026-09-28T18:00:00.000Z',
-  } };
+  } });
   const context = { repo: { owner: 'owner', repo: 'repo' } };
   assert.equal((await projectRecoveredAuthorityState({ github, context, prNumber: 42, recovery,
-    writerLogin: 'agents-workflows-bot[bot]' })).reason, 'recovered-summary-projected');
+    writerLogin: 'agents-workflows-bot[bot]', readAuthority: authorityReader(recovery.state),
+    makeRequest: () => 'request' })).reason, 'recovered-summary-projected');
   const loaded = await loadKeepaliveState({ github, context, prNumber: 42, trace: '' });
   assert.equal(loaded.state.attention.generation, current);
   assert.equal(loaded.state.attention.expires_at, recovery.state.expires_at);
@@ -384,6 +419,49 @@ test('released receipt projection accepts an exact earlier lineage after multipl
       body: '<!-- keepalive-loop-summary -->\n' + formatStateComment(loaded.state) }],
     now: new Date('2026-09-27T18:01:00.000Z'),
   })?.generation, current);
+});
+
+test('same-generation recovery cannot overwrite a newer running owner attempt', async () => {
+  const generation = 'a'.repeat(64);
+  const recovery = settleRecovery({ status: 'released', state: {
+    generation, boundary_fingerprint: 'c'.repeat(64),
+    released_receipt: { owner_attempt: 'owner/repo:123:1' },
+    due_at: '2026-09-27T17:00:00.000Z', expires_at: '2026-09-28T17:00:00.000Z',
+  } });
+  const github = buildGithubStub({ comments: [{ id: 91,
+    body: '<!-- keepalive-loop-summary -->\n' + formatStateComment({
+      running: true, running_owner_attempt: 'owner/repo:456:1', attention: { generation },
+    }) }] });
+
+  await assert.rejects(projectRecoveredAuthorityState({
+    github, context: { repo: { owner: 'owner', repo: 'repo' } }, prNumber: 42, recovery,
+    writerLogin: 'agents-workflows-bot[bot]', readAuthority: authorityReader(recovery.state),
+    makeRequest: () => 'request',
+  }), /does not match the recovered generation/);
+  assert.equal(github.actions.length, 0);
+});
+
+test('recovery projection stops when the live ledger advances before comment mutation', async () => {
+  const generation = 'a'.repeat(64);
+  const attempt = 'owner/repo:123:1';
+  const recovery = settleRecovery({ status: 'released', state: {
+    generation, boundary_fingerprint: 'c'.repeat(64),
+    released_receipt: { owner_attempt: attempt },
+    due_at: '2026-09-27T17:00:00.000Z', expires_at: '2026-09-28T17:00:00.000Z',
+  } });
+  const github = buildGithubStub({ comments: [{ id: 91,
+    body: '<!-- keepalive-loop-summary -->\n' + formatStateComment({
+      running: true, running_owner_attempt: attempt, attention: { generation },
+    }) }] });
+  const superseding = { ...recovery.state, status: 'prepared', generation: 'b'.repeat(64) };
+  const result = await projectRecoveredAuthorityState({
+    github, context: { repo: { owner: 'owner', repo: 'repo' } }, prNumber: 42, recovery,
+    writerLogin: 'agents-workflows-bot[bot]',
+    readAuthority: authorityReader([recovery.state, superseding]), makeRequest: () => 'request',
+  });
+
+  assert.deepEqual(result, { projected: false, reason: 'recovery-superseded' });
+  assert.equal(github.actions.length, 0);
 });
 
 test('createKeepaliveStateManager returns inert manager with invalid input', async () => {
