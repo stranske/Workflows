@@ -36,7 +36,9 @@ try {{
     return json.loads(completed.stdout)
 
 
-def _publish_scenario(*, final_run=None, same_repo=False, replay=False, summary_name="summary"):
+def _publish_scenario(
+    *, final_run=None, same_repo=False, replay=False, summary_name="summary", base_ref="main"
+):
     initial_run = {
         "id": 9,
         "workflow_id": 7,
@@ -56,7 +58,7 @@ def _publish_scenario(*, final_run=None, same_repo=False, replay=False, summary_
         "number": 4,
         "state": "open",
         "changed_files": 1,
-        "base": {"repo": {"id": 1}, "ref": "main"},
+        "base": {"repo": {"id": 1}, "ref": base_ref},
         "head": {"repo": {"id": 1 if same_repo else 2}, "sha": "abc"},
     }
     scenario = {
@@ -109,7 +111,7 @@ const core = {{info: () => {{}}, notice: () => {{}}}};
       core,
       context: {{
         repo: {{owner: 'stranske', repo: 'Workflows'}},
-        payload: {{workflow_run: {{id: 9}}, repository: {{id: 1}}}},
+        payload: {{workflow_run: {{id: 9}}, repository: {{id: 1, default_branch: 'main'}}}},
       }},
     }});
     process.stdout.write(JSON.stringify({{result, writes}}));
@@ -215,7 +217,7 @@ def test_fork_gate_status_source_and_template_helpers_match():
     assert HELPER.read_bytes() == TEMPLATE_HELPER.read_bytes()
 
 
-def test_fork_gate_status_does_not_write_after_attempt_drift():
+def test_fork_gate_status_revalidates_replayed_status_before_returning():
     final_run = {
         "id": 9,
         "workflow_id": 7,
@@ -231,7 +233,7 @@ def test_fork_gate_status_does_not_write_after_attempt_drift():
         "html_url": "https://example.test/runs/9",
         "pull_requests": [{"number": 4}],
     }
-    outcome = _publish_scenario(final_run=final_run)
+    outcome = _publish_scenario(final_run=final_run, replay=True)
     assert outcome["error"] == "Gate run attempt changed before publication"
     assert outcome["writes"] == []
 
@@ -247,6 +249,12 @@ def test_fork_gate_status_skips_same_repo_and_reuses_identical_status():
     replay = _publish_scenario(replay=True)
     assert replay["result"]["state"] == "success"
     assert replay["writes"] == []
+
+
+def test_fork_gate_status_rejects_non_default_base_branch():
+    outcome = _publish_scenario(base_ref="release")
+    assert outcome["error"] == "PR base is not the trusted default branch"
+    assert outcome["writes"] == []
 
 
 def test_fork_gate_status_blocks_changed_control_surface():
@@ -301,9 +309,11 @@ def test_fork_gate_status_rejects_incomplete_or_malformed_file_evidence(pr, file
     assert message in _collect_changed_paths(pr, files)["error"]
 
 
-def test_fork_gate_status_rejects_github_file_cap():
+def test_fork_gate_status_accepts_complete_3000_file_listing():
     files = [{"filename": f"src/{index}.py"} for index in range(3000)]
-    assert "incomplete" in _collect_changed_paths({"changed_files": 3000}, files)["error"]
+    assert _collect_changed_paths({"changed_files": 3000}, files)["result"] == [
+        file["filename"] for file in files
+    ]
 
 
 def test_fork_gate_status_binding_rejects_stale_head_sha():
@@ -313,8 +323,8 @@ try {{
   helper.validateBinding({{
     run: {{event: 'pull_request', name: 'Gate', workflow_id: 7, repository: {{id: 1}}, head_repository: {{id: 2}}, head_sha: 'old'}},
     workflow: {{id: 7, path: '.github/workflows/pr-00-gate.yml'}},
-    pr: {{state: 'open', base: {{repo: {{id: 1}}}}, head: {{repo: {{id: 2}}, sha: 'new'}}}},
-    repository: {{id: 1}},
+    pr: {{state: 'open', base: {{repo: {{id: 1}}, ref: 'main'}}, head: {{repo: {{id: 2}}, sha: 'new'}}}},
+    repository: {{id: 1, default_branch: 'main'}},
   }});
   process.exit(2);
 }} catch (error) {{
