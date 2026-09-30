@@ -204,9 +204,14 @@ async function publishGateForkStatus({ github, context, core }) {
     : [];
   const result = publicationState({ run, jobs, changedFiles: changedPaths });
 
-  // Re-read both resources immediately before the write. A force-push or rerun
-  // between the earlier inspection and this point must never bless a stale SHA,
-  // including when the desired status appears to have already been published.
+  // Pagination can outlive a rerun, so read statuses before the final binding
+  // checks for both replay suppression and a new write.
+  const statuses = await paginate(retry, github.rest.repos.listCommitStatusesForRef, {
+    owner, repo, ref: pr.head.sha,
+  });
+
+  // Re-read both resources after pagination. A force-push or rerun between the
+  // earlier inspection and this point must never bless a stale SHA.
   run = await getFreshRun({ retry, owner, repo, runId: payloadRun.id });
   pr = (await retry.withRetry(client =>
     client.rest.pulls.get({ owner, repo, pull_number: pr.number })
@@ -223,9 +228,6 @@ async function publishGateForkStatus({ github, context, core }) {
   }
   await assertLatestAttempt({ github, retry, owner, repo, run });
 
-  const statuses = await paginate(retry, github.rest.repos.listCommitStatusesForRef, {
-    owner, repo, ref: pr.head.sha,
-  });
   const current = statuses.find(status => status.context === GATE_CONTEXT);
   if (current?.state === result.state && current?.target_url === run.html_url) {
     core.info(`Gate status already ${result.state} for ${pr.head.sha}; no write needed.`);

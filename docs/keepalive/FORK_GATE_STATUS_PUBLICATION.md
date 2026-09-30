@@ -20,9 +20,10 @@ fails closed unless all of these bindings hold:
   byte-for-byte equivalent to the snapshot whose jobs were evaluated;
 - attempt-specific job evidence is available; the publisher never falls back
   to an unbound all-attempt job list;
-- the complete changed-file set is smaller than GitHub's 3,000-file API cap,
-  matches `changed_files`, has no malformed/duplicate records, and neither the
-  current nor previous path of a rename changes `.github/workflows/`,
+- the returned changed-file records exactly match the PR's `changed_files`
+  count and have no malformed/duplicate records; exactly 3,000 records are
+  accepted when the count matches, while a truncated listing fails closed;
+  neither the current nor previous path of a rename changes `.github/workflows/`,
   `.github/actions/`, `.github/scripts/`, `.github/path-classification.yml`, or
   `tools/post_ci_summary.py`;
 - completed runs contain exactly one completed trusted summary job whose name is
@@ -31,10 +32,11 @@ fails closed unless all of these bindings hold:
   summary job can publish `success`; missing, ambiguous, neutral, skipped, or
   incomplete evidence publishes a blocking `error`.
 
-The run and PR are fetched again immediately before the status write. Any head,
-base, changed-file count, run-attempt, status, or conclusion change aborts the
-write instead of reusing the earlier result. The publisher is serialized per
-head SHA and suppresses an identical replay for the same run URL. API reads use
+The existing statuses are read before the final run and PR fetch and
+latest-attempt check. Any head, base, changed-file count, run-attempt, status,
+or conclusion change during that read aborts publication and replay suppression.
+The publisher is serialized per head SHA and suppresses an identical replay for
+the same run URL. API reads use
 bounded retry/backoff with the workflow token only; the final status POST is not
 automatically replayed after its last binding check. GitHub does not offer an
 atomic compare-and-set status API, so these checks narrow but cannot eliminate

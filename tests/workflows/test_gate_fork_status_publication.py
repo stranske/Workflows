@@ -37,7 +37,13 @@ try {{
 
 
 def _publish_scenario(
-    *, final_run=None, same_repo=False, replay=False, summary_name="summary", base_ref="main"
+    *,
+    final_run=None,
+    same_repo=False,
+    replay=False,
+    summary_name="summary",
+    base_ref="main",
+    status_read_drift=None,
 ):
     initial_run = {
         "id": 9,
@@ -76,29 +82,44 @@ def _publish_scenario(
             if replay
             else []
         ),
+        "statusReadDrift": status_read_drift,
     }
     source = f"""
 const helper = require({json.dumps(str(HELPER))});
 const scenario = {json.dumps(scenario)};
 let runReads = 0;
+let statusRead = false;
+let currentRun = scenario.finalRun;
+let currentPr = scenario.pr;
 const writes = [];
 const endpoint = value => async () => ({{data: value}});
 const github = {{
   paginate: async (method, params) => (await method(params)).data,
   rest: {{
     actions: {{
-      getWorkflowRun: async () => ({{data: runReads++ === 0 ? scenario.initialRun : scenario.finalRun}}),
+      getWorkflowRun: async () => ({{data: runReads++ === 0 ? scenario.initialRun : currentRun}}),
       getWorkflow: endpoint({{id: 7, path: '.github/workflows/pr-00-gate.yml'}}),
       listJobsForWorkflowRunAttempt: endpoint([{{name: {json.dumps(summary_name)}, status: 'completed', conclusion: 'success'}}]),
-      listWorkflowRuns: endpoint([scenario.initialRun]),
+      listWorkflowRuns: async () => ({{data: statusRead && scenario.statusReadDrift === 'newer-run'
+        ? [scenario.initialRun, {{...scenario.initialRun, id: 10, run_number: 6}}]
+        : [scenario.initialRun]}}),
     }},
     pulls: {{
-      get: endpoint(scenario.pr),
+      get: async () => ({{data: currentPr}}),
       list: endpoint([scenario.pr]),
       listFiles: endpoint([{{filename: 'src/app.js', status: 'modified'}}]),
     }},
     repos: {{
-      listCommitStatusesForRef: endpoint(scenario.statuses),
+      listCommitStatusesForRef: async () => {{
+        statusRead = true;
+        if (scenario.statusReadDrift === 'same-run-attempt') {{
+          currentRun = {{...currentRun, run_attempt: 2, status: 'in_progress', conclusion: null}};
+        }}
+        if (scenario.statusReadDrift === 'pr-head') {{
+          currentPr = {{...currentPr, head: {{...currentPr.head, sha: 'new'}}}};
+        }}
+        return {{data: scenario.statuses}};
+      }},
       createCommitStatus: async params => {{ writes.push(params); return {{data: params}}; }},
     }},
   }},
@@ -235,6 +256,21 @@ def test_fork_gate_status_revalidates_replayed_status_before_returning():
     }
     outcome = _publish_scenario(final_run=final_run, replay=True)
     assert outcome["error"] == "Gate run attempt changed before publication"
+    assert outcome["writes"] == []
+
+
+@pytest.mark.parametrize("replay", [False, True])
+@pytest.mark.parametrize(
+    ("drift", "message"),
+    [
+        ("same-run-attempt", "Gate run attempt changed before publication"),
+        ("newer-run", "Gate run 9 was superseded by 10"),
+        ("pr-head", "PR head no longer matches Gate head"),
+    ],
+)
+def test_fork_gate_status_revalidates_after_status_pagination(replay, drift, message):
+    outcome = _publish_scenario(replay=replay, status_read_drift=drift)
+    assert outcome["error"] == message
     assert outcome["writes"] == []
 
 
