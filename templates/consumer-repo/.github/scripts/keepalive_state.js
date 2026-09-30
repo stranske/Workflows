@@ -487,12 +487,15 @@ async function projectRecoveredAuthorityState({
   if (!currentRecovery) {
     return { projected: false, reason: 'recovery-superseded' };
   }
+  const currentGenerationLineage = recovery.status === 'released'
+    ? (currentRecovery.released_generation_lineage || [])
+    : (currentRecovery.recovered_generation_lineage || []);
   const priorGenerations = new Set([
     recovery.previousGeneration || recovery.state.generation,
     ...(recovery.previousGenerations || []),
     recovery.state.generation,
     currentRecovery.generation,
-    ...(currentRecovery.released_generation_lineage || []),
+    ...currentGenerationLineage,
   ]);
   const recoveredAttempt = (recovery.status === 'released' ? recovery.state.released_receipt :
     recovery.state.recovered_receipt)?.owner_attempt || '';

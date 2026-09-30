@@ -8,6 +8,7 @@ const BRANCH = 'keepalive-authority-state';
 const HEX = /^[0-9a-f]{64}$/;
 const HEAD = /^[0-9a-f]{40}$/;
 const ATTEMPT = /^[a-z0-9_.-]+\/[a-z0-9_.-]+:\d+:\d+$/;
+const RECOVERED_LINEAGE_LIMIT = 16;
 
 function exactTime(value) {
   if (typeof value !== 'string' || !/^\d{4}-\d\d-\d\dT\d\d:\d\d:\d\d\.\d{3}Z$/.test(value)) return false;
@@ -28,6 +29,13 @@ function validState(state, repository, prNumber, { allowLegacyHead = false } = {
     (state.released_generation_lineage == null ||
       (Array.isArray(state.released_generation_lineage) &&
         state.released_generation_lineage.every((generation) => HEX.test(generation)))) &&
+    (state.recovered_generation == null || HEX.test(state.recovered_generation)) &&
+    (state.recovered_generation_lineage == null ||
+      (Array.isArray(state.recovered_generation_lineage) &&
+        state.recovered_generation_lineage.length <= RECOVERED_LINEAGE_LIMIT &&
+        state.recovered_generation_lineage.every((generation) => HEX.test(generation)))) &&
+    (state.recovered_receipt == null ||
+      (validReceipt(state.recovered_receipt) && HEX.test(state.recovered_generation))) &&
     (state.status === 'available' ? state.receipt === null :
       validReceipt(state.receipt));
 }
@@ -191,9 +199,14 @@ function expectedGenerationMatches(state, expectedGeneration, headSha) {
   if (!expectedGeneration) return true;
   if (state?.generation === expectedGeneration) return true;
   return state?.status === 'available' && state.receipt === null &&
-    state.head_sha === headSha && state.released_receipt &&
-    (state.released_generation === expectedGeneration ||
-      state.released_generation_lineage?.includes(expectedGeneration));
+    state.head_sha === headSha && (
+      (state.released_receipt &&
+        (state.released_generation === expectedGeneration ||
+          state.released_generation_lineage?.includes(expectedGeneration))) ||
+      (state.recovered_receipt &&
+        (state.recovered_generation === expectedGeneration ||
+          state.recovered_generation_lineage?.includes(expectedGeneration)))
+    );
 }
 
 function preparedAttemptMatchesIndex(state, index, repository, prNumber) {
@@ -210,6 +223,35 @@ function preparedAttemptMatchesIndex(state, index, repository, prNumber) {
     index.generation === state.generation && index.receipt.id === receipt.id &&
     index.receipt.claim_digest === receipt.claim_digest &&
     index.receipt.provider === receipt.provider && index.receipt.head_sha === state.head_sha;
+}
+
+function sameReceipt(left, right) {
+  return Boolean(left && right) &&
+    ['id', 'claim_digest', 'owner_attempt', 'provider', 'head_sha', 'consumed_at']
+      .every((field) => left[field] === right[field]);
+}
+
+function recoveredAttemptMatchesIndex(state, index, repository, prNumber, ownerAttempt) {
+  return state?.status === 'available' && state.receipt === null &&
+    validReceipt(state.recovered_receipt) && HEX.test(state.recovered_generation) &&
+    index.repository === String(repository).toLowerCase() &&
+    index.pr_number === Number(prNumber) && index.owner_attempt === ownerAttempt &&
+    index.generation === state.recovered_generation &&
+    sameReceipt(index.receipt, state.recovered_receipt) &&
+    state.recovered_receipt.owner_attempt === ownerAttempt &&
+    state.recovered_receipt.head_sha === state.head_sha;
+}
+
+function nextRecoveredLineage(state) {
+  const original = state.recovered_generation || state.generation;
+  const unique = [...new Set([
+    ...(state.recovered_generation_lineage || []),
+    original,
+    state.generation,
+  ])];
+  const recent = unique.filter((generation) => generation !== original)
+    .slice(-(RECOVERED_LINEAGE_LIMIT - 1));
+  return [original, ...recent];
 }
 
 async function recoverExpiredPreparation({ request, repository, prNumber, prior, now }) {
@@ -363,6 +405,7 @@ async function prepareChallenge({ request, repository, prNumber, claim, ownerAtt
   }
   const next = { ...prior.state, status: 'prepared', receipt: index.receipt,
     prepared_claim: claim, recovered_receipt: null, recovered_generation: null,
+    recovered_generation_lineage: [],
     released_receipt: null, released_generation: null, released_generation_lineage: [],
     revision: prior.state.revision + 1 };
   try {
@@ -525,6 +568,72 @@ async function refreshReleasedChallenge({ request, repository, prNumber, ownerAt
   }
 }
 
+async function refreshRecoveredChallenge({ request, repository, prNumber, ownerAttempt, prior = null,
+  now = new Date() }) {
+  if (!(now instanceof Date) || !Number.isFinite(now.getTime())) {
+    return { status: 'uncertain', reason: 'challenge-time-invalid' };
+  }
+  const current = prior || await readAuthorityState(request, repository, prNumber);
+  const state = current.state;
+  if (state.status !== 'available' || state.receipt !== null ||
+      state.recovered_receipt?.owner_attempt !== ownerAttempt ||
+      !HEX.test(state.recovered_generation)) {
+    return { status: 'uncertain', reason: 'recovered-attempt-not-current' };
+  }
+  let index;
+  try {
+    index = await readAttemptIndex(request, repository, ownerAttempt);
+  } catch (_) {
+    return { status: 'uncertain', reason: 'recovered-attempt-index-unavailable' };
+  }
+  if (!recoveredAttemptMatchesIndex(state, index, repository, prNumber, ownerAttempt)) {
+    return { status: 'uncertain', reason: 'recovered-attempt-index-unavailable' };
+  }
+  const eligible = () => prMatches(request, repository, prNumber, state.head_sha,
+    'agent:needs-attention', 'needs-human').catch(() => false);
+  if (!await eligible()) {
+    return { status: 'uncertain', reason: 'challenge-pr-state-unavailable' };
+  }
+  const previousGenerations = state.recovered_generation_lineage ||
+    [state.recovered_generation];
+  if (now.getTime() < Date.parse(state.expires_at)) {
+    return { status: 'reopened', reason: 'already-current', state,
+      previousGeneration: state.recovered_generation, previousGenerations };
+  }
+  const nowMs = now.getTime();
+  const lineage = nextRecoveredLineage(state);
+  const next = { ...state, generation: crypto.randomBytes(32).toString('hex'),
+    due_at: new Date(nowMs).toISOString(),
+    expires_at: new Date(nowMs + 24 * 60 * 60 * 1000).toISOString(),
+    recovered_generation: state.recovered_generation,
+    recovered_generation_lineage: lineage,
+    revision: state.revision + 1 };
+  let settledState = next;
+  try {
+    await writeAuthorityState(request, repository, prNumber, next, current.sha);
+  } catch (_) {
+    const settled = await readAuthorityState(request, repository, prNumber).catch(() => null);
+    const exactRefresh = settled?.state.status === 'available' && settled.state.receipt === null &&
+      settled.state.generation === next.generation &&
+      settled.state.head_sha === state.head_sha &&
+      settled.state.boundary_fingerprint === state.boundary_fingerprint &&
+      settled.state.due_at === next.due_at && settled.state.expires_at === next.expires_at &&
+      settled.state.revision === next.revision &&
+      settled.state.recovered_generation === state.recovered_generation &&
+      sameReceipt(settled.state.recovered_receipt, state.recovered_receipt) &&
+      JSON.stringify(settled.state.recovered_generation_lineage) === JSON.stringify(lineage);
+    if (!exactRefresh) {
+      return { status: 'uncertain', reason: 'recovered-window-write-uncertain' };
+    }
+    settledState = settled.state;
+  }
+  if (!await eligible()) {
+    return { status: 'uncertain', reason: 'challenge-pr-state-unavailable' };
+  }
+  return { status: 'reopened', reason: 'recovered-window-refreshed', state: settledState,
+    previousGeneration: state.recovered_generation, previousGenerations: lineage };
+}
+
 async function consumeChallenge(options) {
   const prepared = await prepareChallenge(options);
   if (!prepared.prepared) return { granted: false, reason: prepared.reason };
@@ -607,6 +716,7 @@ async function reopenUnconfirmedChallenge({ request, repository, prNumber, claim
     expires_at: new Date(now + 24 * 60 * 60 * 1000).toISOString(),
     status: 'available', receipt: null, prepared_claim: null, consumed_claim: null,
     recovered_receipt: receipt, recovered_generation: prior.state.generation,
+    recovered_generation_lineage: [prior.state.generation],
     revision: prior.state.revision + 1,
   };
   try {
@@ -631,7 +741,7 @@ async function reconcileFailedAuthorityAttempt({ request, repository, prNumber, 
   if (workerEvidence !== 'not-started') return { status: 'execution-not-disproved' };
   const { state } = await readAuthorityState(request, repository, prNumber);
   if (state.status === 'available' && state.recovered_receipt?.owner_attempt === ownerAttempt) {
-    return { status: 'reopened', state, previousGeneration: state.recovered_generation };
+    return refreshRecoveredChallenge({ request, repository, prNumber, ownerAttempt });
   }
   if (state.status === 'available' && state.released_receipt?.owner_attempt === ownerAttempt) {
     return refreshReleasedChallenge({ request, repository, prNumber, ownerAttempt });

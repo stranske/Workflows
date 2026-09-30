@@ -101,6 +101,12 @@ function fakeGitHub() {
       const key = `${crypto.createHash('sha256').update(ownerAttempt).digest('hex')}.json`;
       attemptFiles.set(key, Buffer.from('{invalid json').toString('base64'));
     },
+    mutateAttemptIndex(fn, attempt = ownerAttempt) {
+      const key = `${crypto.createHash('sha256').update(attempt).digest('hex')}.json`;
+      const index = JSON.parse(Buffer.from(attemptFiles.get(key), 'base64').toString('utf8'));
+      fn(index);
+      attemptFiles.set(key, Buffer.from(JSON.stringify(index)).toString('base64'));
+    },
     deleteAttemptIndex(attempt = ownerAttempt) {
       const key = `${crypto.createHash('sha256').update(attempt).digest('hex')}.json`;
       attemptFiles.delete(key);
@@ -740,6 +746,104 @@ test('consumed receipt only reopens for its exact attempt with a proven unstarte
   assert.equal((await reconcileFailedAuthorityAttempt({
     ...args, workerEvidence: 'not-started',
   })).status, 'reopened');
+});
+
+test('recovered retry revalidates PR state and refreshes an expired window', async () => {
+  async function recoveredApi() {
+    const api = fakeGitHub();
+    const first = await beginChallenge({
+      request: api.request, repository, prNumber, defaultBranch: 'main',
+      fingerprint, headSha, ...boundary(),
+    });
+    assert.equal((await consumeChallenge({
+      request: api.request, repository, prNumber, claim: claim(first),
+      ownerAttempt, provider: 'codex', headSha,
+    })).granted, true);
+    const recovered = await reconcileFailedAuthorityAttempt({
+      request: api.request, repository, prNumber, ownerAttempt,
+      workerEvidence: 'not-started',
+    });
+    assert.equal(recovered.status, 'reopened');
+    return { api, first, recovered };
+  }
+
+  const { api, first, recovered } = await recoveredApi();
+  const stable = await reconcileFailedAuthorityAttempt({
+    request: api.request, repository, prNumber, ownerAttempt,
+    workerEvidence: 'not-started',
+  });
+  assert.equal(stable.status, 'reopened');
+  assert.equal(stable.reason, 'already-current');
+  assert.equal(stable.state.generation, recovered.state.generation);
+  assert.equal(stable.state.revision, recovered.state.revision);
+
+  api.expireChallenge();
+  const refreshed = await reconcileFailedAuthorityAttempt({
+    request: api.request, repository, prNumber, ownerAttempt,
+    workerEvidence: 'not-started',
+  });
+  assert.equal(refreshed.status, 'reopened');
+  assert.equal(refreshed.reason, 'recovered-window-refreshed');
+  assert.notEqual(refreshed.state.generation, recovered.state.generation);
+  assert.equal(refreshed.state.recovered_generation, first.generation);
+  assert.deepEqual(refreshed.state.recovered_generation_lineage,
+    [first.generation, recovered.state.generation]);
+  assert.equal(refreshed.state.revision, recovered.state.revision + 1);
+  assert.equal(refreshed.state.recovered_receipt.id, recovered.state.recovered_receipt.id);
+  assert.ok(Date.parse(refreshed.state.expires_at) > Date.now());
+
+  for (const block of [
+    (candidate) => candidate.setPrHead('e'.repeat(40)),
+    (candidate) => candidate.setPrLabels([]),
+    (candidate) => candidate.setPrLabels(['agent:needs-attention', 'needs-human']),
+    (candidate) => candidate.setPrState('closed'),
+    (candidate) => candidate.setPrUnavailable(true),
+    (candidate) => candidate.deleteAttemptIndex(),
+    (candidate) => candidate.corruptAttemptIndex(),
+    (candidate) => candidate.mutateAttemptIndex((index) => {
+      index.generation = 'f'.repeat(64);
+    }),
+  ]) {
+    const candidate = await recoveredApi();
+    const before = candidate.api.content;
+    block(candidate.api);
+    const denied = await reconcileFailedAuthorityAttempt({
+      request: candidate.api.request, repository, prNumber, ownerAttempt,
+      workerEvidence: 'not-started',
+    });
+    assert.equal(denied.status, 'uncertain');
+    assert.equal(candidate.api.content, before);
+  }
+});
+
+test('recovered window refresh settles an exact committed write after response loss', async () => {
+  const api = fakeGitHub();
+  const first = await beginChallenge({
+    request: api.request, repository, prNumber, defaultBranch: 'main',
+    fingerprint, headSha, ...boundary(),
+  });
+  assert.equal((await consumeChallenge({
+    request: api.request, repository, prNumber, claim: claim(first),
+    ownerAttempt, provider: 'codex', headSha,
+  })).granted, true);
+  const args = { request: api.request, repository, prNumber, ownerAttempt,
+    workerEvidence: 'not-started' };
+  assert.equal((await reconcileFailedAuthorityAttempt(args)).status, 'reopened');
+  api.expireChallenge();
+  let lost = true;
+  api.setAfterPut(() => {
+    if (lost) { lost = false; throw status(503); }
+  });
+  const settled = await reconcileFailedAuthorityAttempt(args);
+  assert.equal(settled.status, 'reopened');
+  assert.equal(settled.reason, 'recovered-window-refreshed');
+  api.setAfterPut(null);
+
+  api.expireChallenge();
+  api.setBeforePut(() => { throw status(503); });
+  const uncertain = await reconcileFailedAuthorityAttempt(args);
+  assert.equal(uncertain.status, 'uncertain');
+  assert.equal(uncertain.reason, 'recovered-window-write-uncertain');
 });
 
 test('unavailable PR read after confirmation preserves the confirmed challenge', async () => {
