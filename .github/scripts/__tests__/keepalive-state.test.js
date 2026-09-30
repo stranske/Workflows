@@ -421,6 +421,36 @@ test('released receipt projection accepts an exact earlier lineage after multipl
   })?.generation, current);
 });
 
+test('reopened receipt projection accepts an exact recovered lineage after expiry refreshes', async () => {
+  const original = 'a'.repeat(64);
+  const intermediate = 'b'.repeat(64);
+  const current = 'c'.repeat(64);
+  const attempt = 'owner/repo:123:1';
+  const github = buildGithubStub({ comments: [{ id: 91,
+    body: '<!-- keepalive-loop-summary -->\n' + formatStateComment({
+      running: true, running_owner_attempt: attempt,
+      attention: { owner: 'automation', generation: intermediate },
+    }) }] });
+  const recovery = settleRecovery({ status: 'reopened', previousGeneration: original,
+    previousGenerations: [original, intermediate], state: {
+      generation: current, recovered_generation: original,
+      recovered_generation_lineage: [original, intermediate],
+      recovered_receipt: { owner_attempt: attempt },
+      boundary_fingerprint: 'd'.repeat(64),
+      head_sha: 'e'.repeat(40),
+      due_at: '2026-09-27T18:00:00.000Z', expires_at: '2026-09-28T18:00:00.000Z',
+    } });
+  const context = { repo: { owner: 'owner', repo: 'repo' } };
+  assert.equal((await projectRecoveredAuthorityState({
+    github, context, prNumber: 42, recovery,
+    writerLogin: 'agents-workflows-bot[bot]', readAuthority: authorityReader(recovery.state),
+    makeRequest: () => 'request',
+  })).reason, 'recovered-summary-projected');
+  const loaded = await loadKeepaliveState({ github, context, prNumber: 42, trace: '' });
+  assert.equal(loaded.state.attention.generation, current);
+  assert.equal(loaded.state.attention.recovery_owner_attempt, attempt);
+});
+
 test('same-generation recovery cannot overwrite a newer running owner attempt', async () => {
   const generation = 'a'.repeat(64);
   const recovery = settleRecovery({ status: 'released', state: {
