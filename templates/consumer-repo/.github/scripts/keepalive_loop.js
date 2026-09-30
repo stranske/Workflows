@@ -4695,25 +4695,42 @@ async function updateKeepaliveLoopSummary({ github: rawGithub, context, core, in
           /^[a-f0-9]{64}$/.test(previousAttention.recovery_generation || '') &&
           /^[a-z0-9_.-]+\/[a-z0-9_.-]+:\d+:\d+$/.test(
             previousAttention.recovery_owner_attempt || '');
+        const preservePendingChallenge = attemptBoundRecoveryCandidate &&
+          !Object.keys(attemptBoundRecoveryMarkers).length &&
+          previousAttention.disposition === 'challenge-due' &&
+          /^[a-f0-9]{64}$/.test(previousAttention.generation || '');
+        const effectiveDisposition = preservePendingChallenge
+          ? 'challenge-due'
+          : escalationDisposition;
         newState.attention = {
           key: attentionKey,
-          disposition: escalationDisposition,
+          disposition: effectiveDisposition,
           owner: 'automation',
           first_seen_at: firstSeenAt,
-          challenge_due_at: challengeDueAt,
-          generation: challengeState?.generation || '',
-          expires_at: challengeState?.expires_at || '',
-          boundary_fingerprint: escalationDisposition === 'challenge-due'
-            ? authorityEvidence.fingerprint
+          challenge_due_at: preservePendingChallenge
+            ? previousAttention.challenge_due_at
+            : challengeDueAt,
+          generation: preservePendingChallenge
+            ? previousAttention.generation
+            : (challengeState?.generation || ''),
+          expires_at: preservePendingChallenge
+            ? previousAttention.expires_at
+            : (challengeState?.expires_at || ''),
+          boundary_fingerprint: effectiveDisposition === 'challenge-due'
+            ? (preservePendingChallenge
+              ? previousAttention.boundary_fingerprint
+              : authorityEvidence.fingerprint)
             : '',
-          boundary_detail: escalationDisposition === 'challenge-due'
-            ? authorityEvidence.detail
+          boundary_detail: effectiveDisposition === 'challenge-due'
+            ? (preservePendingChallenge
+              ? previousAttention.boundary_detail
+              : authorityEvidence.detail)
             : '',
           ...(Object.keys(attemptBoundRecoveryMarkers).length ? attemptBoundRecoveryMarkers : pendingRecovery ? {
             recovery_generation: previousAttention.recovery_generation,
             recovery_owner_attempt: previousAttention.recovery_owner_attempt,
           } : {}),
-          next_action: escalationDisposition === 'challenge-due'
+          next_action: effectiveDisposition === 'challenge-due'
             ? 'Independently rerun the current operation and confirm the same redacted authority-boundary fingerprint.'
             : 'Route to automation retry/backoff, CI repair, alternate agent, or review fallback.',
         };

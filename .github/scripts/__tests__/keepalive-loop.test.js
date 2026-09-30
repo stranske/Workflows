@@ -3229,7 +3229,9 @@ test('non-authority failed summary does not record recovery owner when attempt i
 
   const updateAction = github.actions.filter((action) => action.type === 'update').at(-1);
   const attention = parseStateComment(updateAction.body).data.attention;
-  assert.equal(attention.disposition, 'automation-retry');
+  assert.equal(attention.disposition, 'challenge-due');
+  assert.equal(attention.generation, 'c'.repeat(64));
+  assert.equal(attention.challenge_due_at, TEST_DUE_AT);
   assert.equal(attention.recovery_generation, undefined);
   assert.equal(attention.recovery_owner_attempt, undefined);
 });
