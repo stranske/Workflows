@@ -4697,7 +4697,6 @@ async function updateKeepaliveLoopSummary({ github: rawGithub, context, core, in
           /^[a-z0-9_.-]+\/[a-z0-9_.-]+:\d+:\d+$/.test(
             previousAttention.recovery_owner_attempt || '');
         const preservePendingChallenge = attemptBoundRecoveryCandidate &&
-          !Object.keys(attemptBoundRecoveryMarkers).length &&
           previousAttention.disposition === 'challenge-due' &&
           /^[a-f0-9]{64}$/.test(previousAttention.generation || '');
         effectiveDisposition = preservePendingChallenge
@@ -4735,6 +4734,13 @@ async function updateKeepaliveLoopSummary({ github: rawGithub, context, core, in
             ? 'Independently rerun the current operation and confirm the same redacted authority-boundary fingerprint.'
             : 'Route to automation retry/backoff, CI repair, alternate agent, or review fallback.',
         };
+        if (preservePendingChallenge && shouldIssueTerminalRecoveryLease) {
+          if (Object.keys(previousRecoveryLease).length) {
+            newState.recovery_lease = previousRecoveryLease;
+          } else {
+            delete newState.recovery_lease;
+          }
+        }
       }
     }
 
@@ -4986,13 +4992,13 @@ async function updateKeepaliveLoopSummary({ github: rawGithub, context, core, in
             await clearAutomationAttention();
           }
         } catch (error) {
-          if (core) core.warning(`Failed to add ${escalationDisposition} routing label: ${error.message}`);
+          if (core) core.warning(`Failed to add ${effectiveDisposition} routing label: ${error.message}`);
         }
         // Every automation-owned terminal gets one immediate recovery lease.
         // Persist the issued/consumed lease across events so later ordinary
         // sweeps cannot mint another lease for the same terminal boundary.
         if (
-          escalationDisposition === 'automation-retry' &&
+          effectiveDisposition === 'automation-retry' &&
           !isForceRetry &&
           (!stop || shouldIssueTerminalRecoveryLease)
         ) {
