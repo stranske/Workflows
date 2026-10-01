@@ -393,6 +393,32 @@ test('a later replay wake recovers a dropped middle reporter from the current re
   assert.equal(result.results[0].status, 'released');
 });
 
+test('replay is a no-op when an ordinary PR has no authority ledger', async () => {
+  const result = await replayReporterAuthority({
+    github: { request: async () => { throw new Error('no run lookup expected'); } },
+    context: { repo: { owner: 'stranske', repo: 'repo' } },
+    prNumber: 42,
+    readAuthority: async (_request, repository, number, options) => {
+      assert.equal(repository, 'stranske/repo');
+      assert.equal(number, 42);
+      assert.deepEqual(options, { allowMissing: true });
+      return null;
+    },
+    makeRequest: () => 'request',
+  });
+  assert.deepEqual(result, { prNumber: 42, results: [] });
+});
+
+test('replay still fails closed when an authority ledger read fails', async () => {
+  await assert.rejects(replayReporterAuthority({
+    github: {},
+    context: { repo: { owner: 'stranske', repo: 'repo' } },
+    prNumber: 42,
+    readAuthority: async () => { throw new Error('ledger unavailable'); },
+    makeRequest: () => 'request',
+  }), /ledger unavailable/);
+});
+
 test('replay fails closed when exact-attempt worker evidence is unknown', async () => {
   const ownerAttempt = 'stranske/repo:222:3';
   await assert.rejects(replayReporterAuthority({

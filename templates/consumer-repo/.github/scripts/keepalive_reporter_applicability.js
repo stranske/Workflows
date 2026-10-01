@@ -168,7 +168,11 @@ async function replayReporterAuthority({
   const results = [];
   const seen = new Set();
   for (let pass = 0; pass < maxPasses; pass += 1) {
-    const { state } = await readAuthority(request, repository, number);
+    const authority = await readAuthority(request, repository, number, { allowMissing: true });
+    // Most keepalive PRs never enter the challenge path and have no ledger.
+    // Only a confirmed 404 is an empty replay; all other read failures remain fatal.
+    if (authority === null) break;
+    const { state } = authority;
     const attempts = [state.receipt, state.released_receipt, state.recovered_receipt]
       .map((receipt) => parseOwnerAttempt(repository, receipt?.owner_attempt))
       .filter(Boolean)
