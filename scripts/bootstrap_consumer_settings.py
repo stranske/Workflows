@@ -32,6 +32,7 @@ Usage::
 from __future__ import annotations
 
 import argparse
+import ast
 import json
 import re
 import shlex
@@ -49,20 +50,14 @@ DEFAULT_BOT = "stranske-automation-bot"
 USE_CONSOLIDATED_WORKFLOWS_VALUE = "true"
 REPO_ROOT = Path(__file__).resolve().parents[1]
 DEFAULT_REGISTRY_MANIFEST = REPO_ROOT / ".github/workflows/maint-68-sync-consumer-repos.yml"
-PRIORITY_LABELS = {
-    "priority:high": {
-        "color": "b60205",
-        "description": "High-priority weekly repo-review work",
-    },
-    "priority:normal": {
-        "color": "fbca04",
-        "description": "Normal-priority weekly repo-review work",
-    },
-    "priority:low": {
-        "color": "0e8a16",
-        "description": "Low-priority weekly repo-review work",
-    },
+LABELS_CORE_PATH = REPO_ROOT / ".github/labels-core.yml"
+REQUIRED_PRIORITY_LABEL_NAMES = {
+    "priority:high",
+    "priority:normal",
+    "priority:low",
 }
+_LABEL_NAME_RE = re.compile(r"^- name:\s*(.+?)\s*$")
+_LABEL_FIELD_RE = re.compile(r"^\s{2}(color|description):\s*(.*?)\s*$")
 SYSTEMIC_API_ERROR_MARKERS = (
     "bad credentials",
     "requires authentication",
@@ -70,6 +65,79 @@ SYSTEMIC_API_ERROR_MARKERS = (
     "secondary rate limit",
 )
 REPO_COMPONENT_RE = re.compile(r"^[A-Za-z0-9_.-]+$")
+
+
+def _decode_simple_yaml_scalar(raw: str, *, path: Path, line_number: int) -> str:
+    """Decode the scalar subset used by ``labels-core.yml`` without PyYAML."""
+    value = raw.strip()
+    if not value:
+        raise ValueError(f"{path}:{line_number}: label value is empty")
+    if value[:1] in {"'", '"'}:
+        try:
+            decoded = ast.literal_eval(value)
+        except (SyntaxError, ValueError) as exc:
+            raise ValueError(f"{path}:{line_number}: invalid quoted label value") from exc
+        if not isinstance(decoded, str):
+            raise ValueError(f"{path}:{line_number}: label value must be text")
+        return decoded
+    return value
+
+
+def _load_core_label_entries(path: Path = LABELS_CORE_PATH) -> list[dict[str, str]]:
+    """Load the deliberately simple list-of-mappings label source."""
+    entries: list[dict[str, str]] = []
+    current: dict[str, str] | None = None
+    for line_number, line in enumerate(path.read_text(encoding="utf-8").splitlines(), start=1):
+        if not line.strip() or line.lstrip().startswith("#"):
+            continue
+        name_match = _LABEL_NAME_RE.fullmatch(line)
+        if name_match:
+            if current is not None:
+                entries.append(current)
+            current = {
+                "name": _decode_simple_yaml_scalar(
+                    name_match.group(1), path=path, line_number=line_number
+                )
+            }
+            continue
+        field_match = _LABEL_FIELD_RE.fullmatch(line)
+        if field_match and current is not None:
+            field, raw_value = field_match.groups()
+            current[field] = _decode_simple_yaml_scalar(
+                raw_value, path=path, line_number=line_number
+            )
+            continue
+        raise ValueError(f"{path}:{line_number}: unsupported label YAML syntax")
+    if current is not None:
+        entries.append(current)
+    return entries
+
+
+def _load_priority_labels(path: Path = LABELS_CORE_PATH) -> dict[str, dict[str, str]]:
+    """Return every ``priority:*`` definition from the synced label source."""
+    priority_labels: dict[str, dict[str, str]] = {}
+    for entry in _load_core_label_entries(path):
+        name = entry.get("name", "")
+        if not name.startswith("priority:"):
+            continue
+        if name in priority_labels:
+            raise ValueError(f"{path}: duplicate priority label {name!r}")
+        missing_fields = {"color", "description"} - entry.keys()
+        if missing_fields:
+            missing = ", ".join(sorted(missing_fields))
+            raise ValueError(f"{path}: priority label {name!r} is missing {missing}")
+        priority_labels[name] = {
+            "color": entry["color"],
+            "description": entry["description"],
+        }
+    missing_names = REQUIRED_PRIORITY_LABEL_NAMES - priority_labels.keys()
+    if missing_names:
+        missing = ", ".join(sorted(missing_names))
+        raise ValueError(f"{path}: missing required priority labels: {missing}")
+    return priority_labels
+
+
+PRIORITY_LABELS = _load_priority_labels()
 
 
 def _split_repo(repo: str) -> tuple[str, str]:
@@ -261,7 +329,9 @@ def _issue_labels(issue: dict[str, Any]) -> set[str]:
         name = (
             label
             if isinstance(label, str)
-            else label.get("name") if isinstance(label, dict) else None
+            else label.get("name")
+            if isinstance(label, dict)
+            else None
         )
         if not isinstance(name, str):
             raise ValueError("Issue label entry is malformed")

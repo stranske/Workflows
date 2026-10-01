@@ -38,6 +38,17 @@
   color: "fbca04"
   description: Agent work in progress
 
+# Opener priority labels (required before a consumer becomes fleet-ready)
+- name: priority:high
+  color: "b60205"
+  description: High-priority weekly repo-review work
+- name: priority:normal
+  color: "fbca04"
+  description: Normal-priority weekly repo-review work
+- name: priority:low
+  color: "0e8a16"
+  description: Low-priority weekly repo-review work
+
 # Agent status labels (for human visibility and retry mechanism)
 - name: agent:rate-limited
   color: "d93f0b"

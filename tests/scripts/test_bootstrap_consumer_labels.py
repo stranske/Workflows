@@ -2,9 +2,11 @@ from __future__ import annotations
 
 import json
 import subprocess
+from pathlib import Path
 from unittest.mock import MagicMock, patch
 
 import pytest
+import yaml
 from scripts import bootstrap_consumer_settings as bcs
 from scripts.upload_repo_review_issues import LABELS as REVIEW_LABELS
 
@@ -47,11 +49,38 @@ def _issue(
     return issue
 
 
-def test_priority_labels_are_literal_and_match_review_uploader() -> None:
-    assert bcs.PRIORITY_LABELS == EXPECTED_PRIORITY_LABELS
+def test_priority_labels_match_synced_source_and_review_uploader() -> None:
+    entries = yaml.safe_load(Path(".github/labels-core.yml").read_text(encoding="utf-8"))
+    synced_priority_labels = {
+        entry["name"]: {
+            "color": entry["color"],
+            "description": entry["description"],
+        }
+        for entry in entries
+        if entry["name"].startswith("priority:")
+    }
+    assert synced_priority_labels == EXPECTED_PRIORITY_LABELS
+    assert synced_priority_labels == bcs.PRIORITY_LABELS
     assert {name: REVIEW_LABELS[name] for name in EXPECTED_PRIORITY_LABELS} == (
         EXPECTED_PRIORITY_LABELS
     )
+
+
+def test_priority_label_source_rejects_missing_required_name(tmp_path: Path) -> None:
+    labels_path = tmp_path / "labels-core.yml"
+    labels_path.write_text(
+        """\
+- name: priority:high
+  color: "b60205"
+  description: High-priority weekly repo-review work
+- name: priority:normal
+  color: "fbca04"
+  description: Normal-priority weekly repo-review work
+""",
+        encoding="utf-8",
+    )
+    with pytest.raises(ValueError, match="missing required priority labels: priority:low"):
+        bcs._load_priority_labels(labels_path)
 
 
 def test_label_plan_contains_all_three_required_labels() -> None:
@@ -98,6 +127,19 @@ def test_apply_priority_labels_creates_only_missing_and_rechecks() -> None:
         ),
         check=True,
     )
+
+
+def test_apply_priority_labels_accepts_complete_template_inventory() -> None:
+    complete = _label_inventory(*EXPECTED_PRIORITY_LABELS)
+    with (
+        patch(
+            "scripts.bootstrap_consumer_settings._priority_label_inventory",
+            side_effect=[complete, complete],
+        ),
+        patch("subprocess.run") as run,
+    ):
+        bcs.apply_priority_labels("stranske/Template")
+    run.assert_not_called()
 
 
 def test_apply_priority_labels_refuses_metadata_overwrite() -> None:
