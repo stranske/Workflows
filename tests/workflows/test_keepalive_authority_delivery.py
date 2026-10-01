@@ -86,6 +86,7 @@ def test_gate_paths_deny_invalid_claims_and_reporters_can_persist_generation() -
         assert "result.prNumber || associated" in resolver_text
         assert "result.targetSource === 'ordinary-run-name'" in resolver_text
         assert "github.run_id" not in resolver_text
+        assert resolver["steps"][0]["with"]["persist-credentials"] is False
         report_condition = workflow["jobs"]["report"]["if"]
         assert "needs.resolve-target.result == 'success'" in report_condition
         assert "needs.resolve-target.outputs.skip != 'true'" in report_condition
@@ -100,6 +101,7 @@ def test_gate_paths_deny_invalid_claims_and_reporters_can_persist_generation() -
         steps = workflow["jobs"]["report"]["steps"]
         names = [step["name"] for step in steps]
         assert "Classify unassociated dispatch" not in names
+        assert steps[0]["with"]["persist-credentials"] is False
         assert names.index("Checkout keepalive scripts") < names.index(
             "Mint KEEPALIVE_APP reporter token"
         )

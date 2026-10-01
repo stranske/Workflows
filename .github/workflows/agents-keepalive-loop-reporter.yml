@@ -32,6 +32,7 @@ jobs:
       - name: Checkout reporter classifier
         uses: actions/checkout@v7
         with:
+          persist-credentials: false
           sparse-checkout: |
             .github/scripts
           sparse-checkout-cone-mode: false
@@ -83,6 +84,7 @@ jobs:
       - name: Checkout keepalive scripts
         uses: actions/checkout@v7
         with:
+          persist-credentials: false
           sparse-checkout: |
             .github/scripts
             .github/agents/registry.yml
