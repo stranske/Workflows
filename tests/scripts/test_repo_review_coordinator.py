@@ -187,6 +187,23 @@ def test_write_skip_converged_keeps_schema_valid_round1_sources(tmp_path: Path) 
     assert coordinator.validate_converged_set(payload, expected_repo=repo) == []
 
 
+def test_skip_converged_marker_does_not_bypass_schema_validation(tmp_path: Path) -> None:
+    repo = "stranske/Example"
+    output_dir = tmp_path / "repo-review"
+    for agent in ("codex", "claude"):
+        _write_round1_findings(output_dir, repo, agent, [])
+
+    path = coordinator.write_skip_converged(output_dir, repo, "fingerprint unchanged")
+    payload = json.loads(path.read_text(encoding="utf-8"))
+    payload["repo"] = "stranske/Other"
+    payload["round1_sources"] = []
+
+    errors = coordinator.validate_converged_set(payload, expected_repo=repo)
+
+    assert "repo: expected 'stranske/Example' got 'stranske/Other'" in errors
+    assert "round1_sources: must be a non-empty list" in errors
+
+
 def test_coordinate_repo_allows_mocked_round1_to_round2_state_progression(
     tmp_path: Path, monkeypatch
 ) -> None:
@@ -1670,6 +1687,82 @@ def test_run_quarantines_packet_when_source_drifts_during_final_evaluator(
     assert failure["repo"] == "stranske/Example"
     assert failure["phase"] == "fleet-provenance-post-evaluator"
     assert all(not (output_dir / name).exists() for name in coordinator.AGGREGATE_OUTPUT_NAMES)
+
+
+def test_run_quarantines_packet_when_source_drifts_before_notify(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """The final checkpoint catches drift introduced by long post-processing."""
+    registry_path = tmp_path / "config" / "repo_review_registry.json"
+    registry_path.parent.mkdir(parents=True)
+    registry_path.write_text("{}\n", encoding="utf-8")
+    (tmp_path / "config" / "source_of_truth_docs.yml").write_text("repos: []\n", encoding="utf-8")
+    output_dir = tmp_path / "out"
+    output_dir.mkdir()
+    for name in coordinator.AGGREGATE_OUTPUT_NAMES:
+        (output_dir / name).write_text("packet\n", encoding="utf-8")
+    desktop_notice = tmp_path / "Desktop" / "REPO-REVIEW-ACTION-NEEDED.md"
+    desktop_notice.parent.mkdir()
+    desktop_notice.write_text("prior notice\n", encoding="utf-8")
+    monkeypatch.setattr(coordinator, "desktop_action_needed_path", lambda: desktop_notice)
+    repo_config = SimpleNamespace(repo="stranske/Example", status="active", local_path="Example")
+    monkeypatch.setattr(
+        coordinator, "load_registry", lambda _path: (tmp_path, [], [repo_config], [])
+    )
+    monkeypatch.setattr(
+        coordinator,
+        "coordinate_repo_with_restarts",
+        lambda **_kwargs: {
+            "repo": "stranske/Example",
+            "round1": {"succeeded": True},
+            "round2": {"succeeded": True},
+            "body_writer": {"succeeded": True},
+            "skip_gate_fired": False,
+        },
+    )
+    audits = iter(
+        [
+            {"ok": True, "checked_at": "before", "repos": []},
+            {"ok": True, "checked_at": "after-evaluator", "repos": []},
+            {
+                "ok": False,
+                "checked_at": "before-notify",
+                "repos": [{"repo": "stranske/Example", "errors": ["source_commit changed"]}],
+            },
+        ]
+    )
+    monkeypatch.setattr(coordinator, "validate_fleet_provenance", lambda **_kwargs: next(audits))
+    calls: list[str] = []
+
+    def fake_run_subprocess(cmd, *, cwd, log_path, name, timeout):
+        calls.append(name)
+        if name == "docs-drift-scan":
+            _write_docs_drift_output(cmd)
+        return coordinator.StepResult(name=name, succeeded=True, duration_seconds=0.01)
+
+    monkeypatch.setattr(coordinator, "run_subprocess", fake_run_subprocess)
+    args = SimpleNamespace(
+        output_dir=str(output_dir),
+        registry=str(registry_path),
+        repos=[],
+        agents=["codex", "claude"],
+        skip_preflight=False,
+        skip_gitnexus_preflight=False,
+        round1_timeout=30,
+        round2_timeout=30,
+        max_turns=3,
+        disable_skip_gate=True,
+        skip_auto_archive=True,
+    )
+
+    assert coordinator.run(args) == 1
+    assert "docs-drift-scan" in calls
+    assert "notify" not in calls
+    failure = json.loads((output_dir / "repo-review-run-failure.json").read_text())
+    assert failure["repo"] == "stranske/Example"
+    assert failure["phase"] == "fleet-provenance-pre-notify"
+    assert all(not (output_dir / name).exists() for name in coordinator.AGGREGATE_OUTPUT_NAMES)
+    assert not desktop_notice.exists()
 
 
 def test_fleet_provenance_failure_quarantines_desktop_notice(
