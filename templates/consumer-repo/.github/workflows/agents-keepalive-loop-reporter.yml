@@ -242,6 +242,7 @@ jobs:
         uses: actions/github-script@3a2844b7e9c422d3c10d287c895573f7108da1b3 # v9
         env:
           CLASSIFIED_PR_NUMBER: ${{ needs.resolve-target.outputs.pr_number || '' }}
+          LOCK_PR_NUMBER: ${{ needs.resolve-target.outputs.lock_pr_number || '' }}
           CLASSIFIED_ORDINARY_TARGET: ${{ needs.resolve-target.outputs.ordinary_target || 'false' }}
           KEEPALIVE_SUMMARY_WRITER: >-
             ${{
@@ -260,13 +261,26 @@ jobs:
             const { replayReporterAuthority } =
               require('./.github/scripts/keepalive_reporter_applicability.js');
             const replayPrNumber = Number(
-              process.env.CLASSIFIED_PR_NUMBER || run.pull_requests?.[0]?.number || 0
+              process.env.LOCK_PR_NUMBER ||
+              process.env.CLASSIFIED_PR_NUMBER ||
+              run.pull_requests?.[0]?.number ||
+              0
             );
-            const replay = await replayReporterAuthority({
-              github, context, prNumber: replayPrNumber,
-              writerLogin: process.env.KEEPALIVE_SUMMARY_WRITER || '',
-            });
-            core.info(`Authority replay outcomes: ${JSON.stringify(replay.results)}`);
+            let replay = { results: [] };
+            try {
+              replay = await replayReporterAuthority({
+                github, context, prNumber: replayPrNumber,
+                writerLogin: process.env.KEEPALIVE_SUMMARY_WRITER || '',
+              });
+              core.info(`Authority replay outcomes: ${JSON.stringify(replay.results)}`);
+            } catch (error) {
+              if (context.eventName === 'workflow_dispatch') {
+                throw error;
+              }
+              core.warning(
+                `Authority replay failed: ${error.message}; continuing to reconciliation.`,
+              );
+            }
             if (context.eventName === 'workflow_dispatch') {
               return;
             }

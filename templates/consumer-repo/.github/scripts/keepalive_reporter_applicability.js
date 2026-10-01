@@ -188,7 +188,8 @@ async function replayReporterAuthority({
         { owner, repo, run_id: attempt.runId, attempt_number: attempt.runAttempt },
       );
       const run = runResponse?.data || {};
-      if (Number(run.id) !== attempt.runId ||
+      if (run.status !== 'completed' ||
+          Number(run.id) !== attempt.runId ||
           Number(run.run_attempt || 0) !== attempt.runAttempt ||
           !/^[0-9a-f]{40}$/.test(String(run.head_sha || ''))) {
         throw new Error(`Replay run identity is unavailable for ${attempt.ownerAttempt}`);
@@ -215,7 +216,7 @@ async function replayReporterAuthority({
             `${projection.reason || 'unknown'}`,
           );
         }
-        changed = projection?.projected !== false;
+        changed = changed || projection?.projected !== false;
       }
       results.push({
         ownerAttempt: attempt.ownerAttempt, workerEvidence,

@@ -362,7 +362,7 @@ test('a later replay wake recovers a dropped middle reporter from the current re
         'GET /repos/{owner}/{repo}/actions/runs/{run_id}/attempts/{attempt_number}');
       assert.equal(params.run_id, 222);
       assert.equal(params.attempt_number, 3);
-      return { data: { id: 222, run_attempt: 3, head_sha: head } };
+      return { data: { id: 222, run_attempt: 3, head_sha: head, status: 'completed' } };
     },
   };
   const result = await replayReporterAuthority({
@@ -397,7 +397,7 @@ test('replay fails closed when exact-attempt worker evidence is unknown', async 
   const ownerAttempt = 'stranske/repo:222:3';
   await assert.rejects(replayReporterAuthority({
     github: { request: async () => ({
-      data: { id: 222, run_attempt: 3, head_sha: head },
+      data: { id: 222, run_attempt: 3, head_sha: head, status: 'completed' },
     }) },
     context: { repo: { owner: 'stranske', repo: 'repo' } },
     prNumber: 42,
