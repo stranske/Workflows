@@ -11,6 +11,7 @@ const {
   findAuthorityPrForAttempt,
   prepareChallenge,
   readAuthorityState,
+  readAuthorityStateForReplay,
   reconcileFailedAuthorityAttempt,
   releasePreparedChallenge,
   reopenUnconfirmedChallenge,
@@ -21,6 +22,100 @@ const prNumber = 42;
 const fingerprint = 'a'.repeat(64);
 const headSha = 'd'.repeat(40);
 const ownerAttempt = 'owner/repo:100:1';
+
+function replayTreeRequest({ missingRef = false, truncated = false,
+  ledgerPresent = false, blobUnavailable = false, malformedBase64 = false } = {}) {
+  const commitSha = '2'.repeat(40);
+  const rootTree = '3'.repeat(40);
+  const githubTree = '4'.repeat(40);
+  const authorityTree = '5'.repeat(40);
+  const ledgerBlob = '6'.repeat(40);
+  return async (method, path) => {
+    assert.equal(method, 'GET');
+    if (path.endsWith('/git/ref/heads/keepalive-authority-state')) {
+      if (missingRef) throw status(404);
+      return { object: { type: 'commit', sha: commitSha } };
+    }
+    if (path.endsWith(`/git/commits/${commitSha}`)) return { tree: { sha: rootTree } };
+    if (path.endsWith(`/git/trees/${rootTree}`)) {
+      return { truncated, tree: [{ path: '.github', type: 'tree', sha: githubTree }] };
+    }
+    if (path.endsWith(`/git/trees/${githubTree}`)) {
+      return { truncated: false,
+        tree: [{ path: 'keepalive-authority', type: 'tree', sha: authorityTree }] };
+    }
+    if (path.endsWith(`/git/trees/${authorityTree}`)) {
+      return { truncated: false, tree: ledgerPresent
+        ? [{ path: `${prNumber}.json`, type: 'blob', sha: ledgerBlob }]
+        : [] };
+    }
+    if (path.endsWith(`/git/blobs/${ledgerBlob}`)) {
+      if (blobUnavailable) throw status(404);
+      const state = {
+        version: 2,
+        repository,
+        pr_number: prNumber,
+        generation: 'a'.repeat(64),
+        boundary_fingerprint: 'b'.repeat(64),
+        due_at: '2026-10-01T00:00:00.000Z',
+        expires_at: '2026-10-02T00:00:00.000Z',
+        head_sha: headSha,
+        revision: 1,
+        status: 'available',
+        receipt: null,
+      };
+      const content = Buffer.from(`${JSON.stringify(state)}\n`).toString('base64');
+      return { sha: ledgerBlob, encoding: 'base64',
+        content: malformedBase64 ? `${content}!` : content };
+    }
+    throw new Error(`unexpected replay tree request: ${path}`);
+  };
+}
+
+test('replay proves an absent PR ledger from a complete pinned authority tree', async () => {
+  const result = await readAuthorityStateForReplay(replayTreeRequest(), repository, prNumber);
+  assert.equal(result, null);
+});
+
+test('replay does not reinterpret an unavailable authority branch as no ledger', async () => {
+  await assert.rejects(
+    readAuthorityStateForReplay(replayTreeRequest({ missingRef: true }), repository, prNumber),
+    /HTTP 404/,
+  );
+});
+
+test('replay rejects a truncated authority tree instead of proving absence', async () => {
+  await assert.rejects(
+    readAuthorityStateForReplay(replayTreeRequest({ truncated: true }), repository, prNumber),
+    /incomplete or malformed/,
+  );
+});
+
+test('replay reads a present ledger from the pinned blob', async () => {
+  const result = await readAuthorityStateForReplay(
+    replayTreeRequest({ ledgerPresent: true }), repository, prNumber,
+  );
+  assert.equal(result.sha, '6'.repeat(40));
+  assert.equal(result.state.pr_number, prNumber);
+});
+
+test('replay does not reinterpret an unreadable pinned ledger as absent', async () => {
+  await assert.rejects(
+    readAuthorityStateForReplay(
+      replayTreeRequest({ ledgerPresent: true, blobUnavailable: true }), repository, prNumber,
+    ),
+    /HTTP 404/,
+  );
+});
+
+test('replay rejects non-canonical base64 in a present pinned ledger', async () => {
+  await assert.rejects(
+    readAuthorityStateForReplay(
+      replayTreeRequest({ ledgerPresent: true, malformedBase64: true }), repository, prNumber,
+    ),
+    /non-canonical base64/,
+  );
+});
 
 function status(code) {
   const error = new Error(`HTTP ${code}`);

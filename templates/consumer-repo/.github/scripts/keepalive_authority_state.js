@@ -184,6 +184,70 @@ async function readAuthorityState(request, repository, prNumber, { allowMissing 
   return { state, sha: file.sha };
 }
 
+function decodeAuthorityBlob(file, repository, prNumber) {
+  if (!/^[0-9a-f]{40}$/.test(String(file?.sha)) || file?.encoding !== 'base64') {
+    throw new Error('Invalid authority blob metadata');
+  }
+  const encoded = String(file.content || '').replace(/\s/g, '');
+  const canonicalBase64 = /^(?:[A-Za-z0-9+/]{4})*(?:[A-Za-z0-9+/]{2}==|[A-Za-z0-9+/]{3}=)?$/;
+  if (!encoded || !canonicalBase64.test(encoded) ||
+      Buffer.from(encoded, 'base64').toString('base64') !== encoded) {
+    throw new Error('Malformed authoritative challenge state: non-canonical base64');
+  }
+  let state;
+  try {
+    state = JSON.parse(Buffer.from(encoded, 'base64').toString('utf8'));
+  } catch (error) {
+    throw new Error(`Malformed authoritative challenge state: ${error.message}`);
+  }
+  if (!validState(state, repository, prNumber, { allowLegacyHead: true })) {
+    throw new Error('Invalid authoritative challenge state');
+  }
+  return { state, sha: file.sha };
+}
+
+async function readAuthorityStateForReplay(request, repository, prNumber) {
+  const repo = String(repository).toLowerCase();
+  const number = Number(prNumber);
+  pathFor(repo, number);
+
+  const ref = await request('GET', `/repos/${repo}/git/ref/heads/${BRANCH}`);
+  const commitSha = ref?.object?.sha;
+  if (ref?.object?.type !== 'commit' || !/^[0-9a-f]{40}$/.test(String(commitSha))) {
+    throw new Error(`Authority branch ${BRANCH} did not resolve to a commit`);
+  }
+  const commit = await request('GET', `/repos/${repo}/git/commits/${commitSha}`);
+  let treeSha = commit?.tree?.sha;
+  if (!/^[0-9a-f]{40}$/.test(String(treeSha))) {
+    throw new Error(`Authority commit ${commitSha} has no valid root tree`);
+  }
+
+  const segments = ['.github', 'keepalive-authority', `${number}.json`];
+  for (let index = 0; index < segments.length; index += 1) {
+    const tree = await request('GET', `/repos/${repo}/git/trees/${treeSha}`);
+    if (tree?.truncated !== false || !Array.isArray(tree?.tree)) {
+      throw new Error(`Authority tree ${treeSha} is incomplete or malformed`);
+    }
+    const entry = tree.tree.find((item) => item?.path === segments[index]);
+    // An exact, complete tree snapshot is the only safe proof that no ledger exists.
+    if (!entry) return null;
+    const finalSegment = index === segments.length - 1;
+    const expectedType = finalSegment ? 'blob' : 'tree';
+    if (entry.type !== expectedType || !/^[0-9a-f]{40}$/.test(String(entry.sha))) {
+      throw new Error(
+        `Authority path ${segments.slice(0, index + 1).join('/')} is not a valid ${expectedType}`,
+      );
+    }
+    treeSha = entry.sha;
+  }
+
+  const blob = await request('GET', `/repos/${repo}/git/blobs/${treeSha}`);
+  if (blob?.sha !== treeSha) {
+    throw new Error(`Authority blob ${treeSha} did not match the pinned tree entry`);
+  }
+  return decodeAuthorityBlob(blob, repo, number);
+}
+
 async function writeAuthorityState(request, repository, prNumber, state, priorSha) {
   if (!validState(state, repository, prNumber)) throw new Error('Refusing invalid authoritative challenge state');
   const body = {
@@ -914,6 +978,7 @@ module.exports = {
   finalizeChallenge,
   prepareChallenge,
   readAuthorityState,
+  readAuthorityStateForReplay,
   releasePreparedChallenge,
   reopenUnconfirmedChallenge,
   requester,
