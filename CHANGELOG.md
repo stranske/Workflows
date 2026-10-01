@@ -6,6 +6,14 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 Breaking changes are called out with a **BREAKING** marker and scheduled according to the policy in `COMPATIBILITY.md`.
 
+## [1.37.6](https://github.com/stranske/Workflows/compare/v1.37.5...v1.37.6) (2026-10-01)
+
+
+### Bug Fixes
+
+* provision priority labels from synced core source ([#3624](https://github.com/stranske/Workflows/issues/3624)) ([b7a1147](https://github.com/stranske/Workflows/commit/b7a1147aa9c1c092a9269f74a84862e73fbce9de))
+* **workflows:** durable reporter replay and queue reconciliation ([#3650](https://github.com/stranske/Workflows/issues/3650)) ([88decc7](https://github.com/stranske/Workflows/commit/88decc7417b33f947e586afd13b76ff21cd76db4))
+
 ## [1.37.5](https://github.com/stranske/Workflows/compare/v1.37.4...v1.37.5) (2026-10-01)
 
 
