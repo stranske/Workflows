@@ -2,10 +2,13 @@ from __future__ import annotations
 
 import json
 import subprocess
+from pathlib import Path
 from unittest.mock import MagicMock, patch
 
 import pytest
+import yaml
 from scripts import bootstrap_consumer_settings as bcs
+from scripts import capture_bootstrap_label_tests as capture
 from scripts.upload_repo_review_issues import LABELS as REVIEW_LABELS
 
 EXPECTED_PRIORITY_LABELS = {
@@ -28,6 +31,23 @@ def _label_inventory(*names: str) -> dict[str, dict[str, str]]:
     return {name: {"name": name, **EXPECTED_PRIORITY_LABELS[name]} for name in names}
 
 
+def _priority_source(*, high: str = "", normal: str = "", low: str = "") -> str:
+    return "\n".join(
+        [
+            high or """- name: priority:high
+  color: "b60205"
+  description: High-priority weekly repo-review work""",
+            normal or """- name: priority:normal
+  color: "fbca04"
+  description: Normal-priority weekly repo-review work""",
+            low or """- name: priority:low
+  color: "0e8a16"
+  description: Low-priority weekly repo-review work""",
+            "",
+        ]
+    )
+
+
 def _issue(
     number: int,
     title: str,
@@ -47,11 +67,101 @@ def _issue(
     return issue
 
 
-def test_priority_labels_are_literal_and_match_review_uploader() -> None:
-    assert bcs.PRIORITY_LABELS == EXPECTED_PRIORITY_LABELS
+def test_priority_labels_match_synced_source_and_review_uploader() -> None:
+    entries = yaml.safe_load(Path(".github/labels-core.yml").read_text(encoding="utf-8"))
+    synced_priority_labels = {
+        entry["name"]: {
+            "color": entry["color"],
+            "description": entry["description"],
+        }
+        for entry in entries
+        if entry["name"].startswith("priority:")
+    }
+    assert synced_priority_labels == EXPECTED_PRIORITY_LABELS
+    assert synced_priority_labels == bcs.PRIORITY_LABELS
     assert {name: REVIEW_LABELS[name] for name in EXPECTED_PRIORITY_LABELS} == (
         EXPECTED_PRIORITY_LABELS
     )
+
+
+def test_priority_label_source_rejects_missing_required_name(tmp_path: Path) -> None:
+    labels_path = tmp_path / "labels-core.yml"
+    labels_path.write_text(
+        """\
+- name: priority:high
+  color: "b60205"
+  description: High-priority weekly repo-review work
+- name: priority:normal
+  color: "fbca04"
+  description: Normal-priority weekly repo-review work
+""",
+        encoding="utf-8",
+    )
+    with pytest.raises(ValueError, match="missing required priority labels: priority:low"):
+        bcs._load_priority_labels(labels_path)
+
+
+def test_priority_label_source_matches_yaml_string_semantics(tmp_path: Path) -> None:
+    labels_path = tmp_path / "labels-core.yml"
+    labels_path.write_text(
+        _priority_source(high="""- name: priority:high
+  color: "b60205"
+  description: 'Owner''s urgent \\work'"""),
+        encoding="utf-8",
+    )
+    loaded = bcs._load_core_label_entries(labels_path)
+    assert loaded == yaml.safe_load(labels_path.read_text(encoding="utf-8"))
+    assert loaded[0]["description"] == "Owner's urgent \\work"
+
+
+@pytest.mark.parametrize(
+    ("source", "diagnostic"),
+    [
+        (
+            _priority_source(normal="""- name: priority:high
+  color: "fbca04"
+  description: duplicate"""),
+            "duplicate priority label",
+        ),
+        (
+            _priority_source(normal="""- name: priority:normal
+  description: missing color"""),
+            "is missing color",
+        ),
+        (
+            _priority_source(
+                normal='''- name: priority:normal
+  color: "fbca04"''',
+            ),
+            "is missing description",
+        ),
+        (
+            _priority_source(normal="""- name: priority:normal
+  color: "fbca04"
+  description: 'unpaired ' quote'"""),
+            "invalid quoted label value",
+        ),
+        (
+            _priority_source(normal="""- name: priority:normal
+  color: "fbca04"
+  description:"""),
+            "label value is empty",
+        ),
+        (
+            _priority_source(normal="""- name: priority:normal
+  color: "fbca04"
+  description: valid # YAML comment"""),
+            "unsupported label YAML scalar",
+        ),
+    ],
+)
+def test_priority_label_source_rejects_invalid_forms(
+    tmp_path: Path, source: str, diagnostic: str
+) -> None:
+    labels_path = tmp_path / "labels-core.yml"
+    labels_path.write_text(source, encoding="utf-8")
+    with pytest.raises(ValueError, match=diagnostic):
+        bcs._load_priority_labels(labels_path)
 
 
 def test_label_plan_contains_all_three_required_labels() -> None:
@@ -97,6 +207,80 @@ def test_apply_priority_labels_creates_only_missing_and_rechecks() -> None:
             EXPECTED_PRIORITY_LABELS["priority:normal"],
         ),
         check=True,
+    )
+
+
+def test_apply_priority_labels_accepts_complete_template_inventory() -> None:
+    complete = _label_inventory(*EXPECTED_PRIORITY_LABELS)
+    with (
+        patch(
+            "scripts.bootstrap_consumer_settings._priority_label_inventory",
+            side_effect=[complete, complete],
+        ),
+        patch("subprocess.run") as run,
+    ):
+        bcs.apply_priority_labels("stranske/Template")
+    run.assert_not_called()
+
+
+def test_main_execute_reconciles_template_derived_consumer_fixture() -> None:
+    fixture = json.loads(
+        (
+            Path(__file__).parent / "fixtures/template_derived_consumer_priority_labels.json"
+        ).read_text(encoding="utf-8")
+    )
+    response = MagicMock(stdout=json.dumps([fixture]))
+    with (
+        patch(
+            "sys.argv",
+            [
+                "bootstrap_consumer_settings.py",
+                "--repo",
+                "fixture/template-consumer",
+                "--labels-only",
+                "--execute",
+            ],
+        ),
+        patch("subprocess.run", side_effect=[response, response]) as run,
+    ):
+        assert bcs.main() == 0
+
+    commands = [call.args[0] for call in run.call_args_list]
+    label_reads = [
+        command
+        for command in commands
+        if "--paginate" in command
+        and "/repos/fixture/template-consumer/labels?per_page=100" in command
+    ]
+    assert len(label_reads) == 2
+    assert not any(command[1:3] == ["label", "create"] for command in commands)
+
+
+@pytest.mark.parametrize("returncode", [0, 7])
+def test_capture_script_writes_output_and_returns_pytest_status(
+    tmp_path: Path, returncode: int
+) -> None:
+    output = tmp_path / "nested" / "bootstrap-label-tests.txt"
+    completed = MagicMock(returncode=returncode, stdout="focused proof\n")
+    with (
+        patch("sys.argv", ["capture_bootstrap_label_tests.py", "--out", str(output)]),
+        patch("subprocess.run", return_value=completed) as run,
+    ):
+        assert capture.main() == returncode
+
+    assert output.read_text(encoding="utf-8") == "focused proof\n"
+    run.assert_called_once_with(
+        [
+            capture.sys.executable,
+            "-m",
+            "pytest",
+            "tests/scripts/test_bootstrap_consumer_labels.py",
+            "-q",
+        ],
+        check=False,
+        stdout=subprocess.PIPE,
+        stderr=subprocess.STDOUT,
+        text=True,
     )
 
 

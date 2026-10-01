@@ -1,0 +1,17 @@
+[
+  {
+    "name": "priority:high",
+    "color": "b60205",
+    "description": "High-priority weekly repo-review work"
+  },
+  {
+    "name": "priority:normal",
+    "color": "fbca04",
+    "description": "Normal-priority weekly repo-review work"
+  },
+  {
+    "name": "priority:low",
+    "color": "0e8a16",
+    "description": "Low-priority weekly repo-review work"
+  }
+]

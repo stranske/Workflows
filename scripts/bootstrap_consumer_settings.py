@@ -49,20 +49,14 @@ DEFAULT_BOT = "stranske-automation-bot"
 USE_CONSOLIDATED_WORKFLOWS_VALUE = "true"
 REPO_ROOT = Path(__file__).resolve().parents[1]
 DEFAULT_REGISTRY_MANIFEST = REPO_ROOT / ".github/workflows/maint-68-sync-consumer-repos.yml"
-PRIORITY_LABELS = {
-    "priority:high": {
-        "color": "b60205",
-        "description": "High-priority weekly repo-review work",
-    },
-    "priority:normal": {
-        "color": "fbca04",
-        "description": "Normal-priority weekly repo-review work",
-    },
-    "priority:low": {
-        "color": "0e8a16",
-        "description": "Low-priority weekly repo-review work",
-    },
+LABELS_CORE_PATH = REPO_ROOT / ".github/labels-core.yml"
+REQUIRED_PRIORITY_LABEL_NAMES = {
+    "priority:high",
+    "priority:normal",
+    "priority:low",
 }
+_LABEL_NAME_RE = re.compile(r"^- name:\s*(.+?)\s*$")
+_LABEL_FIELD_RE = re.compile(r"^\s{2}(color|description):\s*(.*?)\s*$")
 SYSTEMIC_API_ERROR_MARKERS = (
     "bad credentials",
     "requires authentication",
@@ -70,6 +64,109 @@ SYSTEMIC_API_ERROR_MARKERS = (
     "secondary rate limit",
 )
 REPO_COMPONENT_RE = re.compile(r"^[A-Za-z0-9_.-]+$")
+
+
+def _decode_simple_yaml_scalar(raw: str, *, path: Path, line_number: int) -> str:
+    """Decode a strict YAML string subset without adding a runtime dependency."""
+    value = raw.strip()
+    if not value:
+        raise ValueError(f"{path}:{line_number}: label value is empty")
+
+    if value.startswith("'"):
+        if not value.endswith("'") or len(value) < 2:
+            raise ValueError(f"{path}:{line_number}: invalid quoted label value")
+        inner = value[1:-1]
+        decoded_parts: list[str] = []
+        index = 0
+        while index < len(inner):
+            if inner[index] != "'":
+                decoded_parts.append(inner[index])
+                index += 1
+                continue
+            if index + 1 >= len(inner) or inner[index + 1] != "'":
+                raise ValueError(f"{path}:{line_number}: invalid quoted label value")
+            decoded_parts.append("'")
+            index += 2
+        decoded = "".join(decoded_parts)
+    elif value.startswith('"'):
+        # JSON strings are a strict subset of YAML double-quoted scalars. Using
+        # json.loads accepts only escapes whose meaning is identical in both
+        # formats and rejects YAML-only syntax we cannot faithfully reproduce.
+        try:
+            decoded = json.loads(value)
+        except (json.JSONDecodeError, TypeError) as exc:
+            raise ValueError(f"{path}:{line_number}: invalid quoted label value") from exc
+        if not isinstance(decoded, str):
+            raise ValueError(f"{path}:{line_number}: label value must be text")
+    else:
+        # Inline comments and collection/block indicators have YAML semantics
+        # that this deliberately dependency-free reader does not implement.
+        if "#" in value or ": " in value or value[0] in "-?:,[]{}&*!|>'%@`":
+            raise ValueError(f"{path}:{line_number}: unsupported label YAML scalar")
+        if value.lower() in {"null", "~", "true", "false", "yes", "no", "on", "off"}:
+            raise ValueError(f"{path}:{line_number}: label value must be text")
+        decoded = value
+
+    if not decoded:
+        raise ValueError(f"{path}:{line_number}: label value is empty")
+    return decoded
+
+
+def _load_core_label_entries(path: Path = LABELS_CORE_PATH) -> list[dict[str, str]]:
+    """Load the deliberately simple list-of-mappings label source."""
+    entries: list[dict[str, str]] = []
+    current: dict[str, str] | None = None
+    for line_number, line in enumerate(path.read_text(encoding="utf-8").splitlines(), start=1):
+        if not line.strip() or line.lstrip().startswith("#"):
+            continue
+        name_match = _LABEL_NAME_RE.fullmatch(line)
+        if name_match:
+            if current is not None:
+                entries.append(current)
+            current = {
+                "name": _decode_simple_yaml_scalar(
+                    name_match.group(1), path=path, line_number=line_number
+                )
+            }
+            continue
+        field_match = _LABEL_FIELD_RE.fullmatch(line)
+        if field_match and current is not None:
+            field, raw_value = field_match.groups()
+            current[field] = _decode_simple_yaml_scalar(
+                raw_value, path=path, line_number=line_number
+            )
+            continue
+        raise ValueError(f"{path}:{line_number}: unsupported label YAML syntax")
+    if current is not None:
+        entries.append(current)
+    return entries
+
+
+def _load_priority_labels(path: Path = LABELS_CORE_PATH) -> dict[str, dict[str, str]]:
+    """Return every ``priority:*`` definition from the synced label source."""
+    priority_labels: dict[str, dict[str, str]] = {}
+    for entry in _load_core_label_entries(path):
+        name = entry.get("name", "")
+        if not name.startswith("priority:"):
+            continue
+        if name in priority_labels:
+            raise ValueError(f"{path}: duplicate priority label {name!r}")
+        missing_fields = {"color", "description"} - entry.keys()
+        if missing_fields:
+            missing = ", ".join(sorted(missing_fields))
+            raise ValueError(f"{path}: priority label {name!r} is missing {missing}")
+        priority_labels[name] = {
+            "color": entry["color"],
+            "description": entry["description"],
+        }
+    missing_names = REQUIRED_PRIORITY_LABEL_NAMES - priority_labels.keys()
+    if missing_names:
+        missing = ", ".join(sorted(missing_names))
+        raise ValueError(f"{path}: missing required priority labels: {missing}")
+    return priority_labels
+
+
+PRIORITY_LABELS = _load_priority_labels()
 
 
 def _split_repo(repo: str) -> tuple[str, str]:
