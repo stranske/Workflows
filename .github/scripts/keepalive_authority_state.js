@@ -336,7 +336,9 @@ async function recoverExpiredLegacyPreparation({ request, repository, prNumber, 
       settled.state.released_generation === state.generation &&
       sameReceipt(settled.state.released_receipt, state.receipt) &&
       settled.state.revision === next.revision;
-    if (!exactRelease) return { outcome: 'preserve' };
+    if (!exactRelease) {
+      return { outcome: settled?.sha !== current.sha ? 'retry' : 'preserve' };
+    }
   }
   if (!await eligible()) return { outcome: 'preserve' };
   return { outcome: 'recovered' };

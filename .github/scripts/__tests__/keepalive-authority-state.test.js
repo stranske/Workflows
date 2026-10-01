@@ -405,6 +405,44 @@ test('legacy preparation migration accepts an exact index retry but rejects conf
   }
 });
 
+test('legacy preparation migration converges on a concurrent valid release', async () => {
+  const api = fakeGitHub();
+  const started = new Date('2030-01-01T00:00:00.000Z');
+  const first = await beginChallenge({ request: api.request, repository, prNumber,
+    defaultBranch: 'main', fingerprint, headSha, ...boundaryAt(started), now: started });
+  assert.equal((await prepareChallenge({ request: api.request, repository, prNumber,
+    claim: claim(first), ownerAttempt, provider: 'codex', headSha, now: started })).prepared,
+  true);
+  api.mutateAuthorityState((state) => { delete state.prepared_claim; });
+
+  const winnerGeneration = 'c'.repeat(64);
+  const afterExpiry = new Date(started.getTime() + 2_000);
+  let raced = false;
+  api.setBeforePut(() => {
+    if (raced) return;
+    raced = true;
+    api.mutateAuthorityState((state) => {
+      const releasedReceipt = state.receipt;
+      state.generation = winnerGeneration;
+      state.due_at = afterExpiry.toISOString();
+      state.expires_at = new Date(afterExpiry.getTime() + 24 * 60 * 60 * 1000).toISOString();
+      state.status = 'available';
+      state.receipt = null;
+      state.prepared_claim = null;
+      state.released_receipt = releasedReceipt;
+      state.released_generation = first.generation;
+      state.released_generation_lineage = [first.generation];
+      state.revision += 1;
+    });
+  });
+
+  const recovered = await beginChallenge({ request: api.request, repository, prNumber,
+    defaultBranch: 'main', fingerprint, headSha, expectedGeneration: first.generation,
+    ...boundaryAt(afterExpiry), now: afterExpiry });
+  assert.equal(recovered.status, 'available');
+  assert.equal(recovered.generation, winnerGeneration);
+});
+
 test('lost preparation response remains recoverable after expiry', async () => {
   const api = fakeGitHub();
   const started = new Date('2030-01-01T00:00:00.000Z');
