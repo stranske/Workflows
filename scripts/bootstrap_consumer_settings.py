@@ -32,7 +32,6 @@ Usage::
 from __future__ import annotations
 
 import argparse
-import ast
 import json
 import re
 import shlex
@@ -68,19 +67,49 @@ REPO_COMPONENT_RE = re.compile(r"^[A-Za-z0-9_.-]+$")
 
 
 def _decode_simple_yaml_scalar(raw: str, *, path: Path, line_number: int) -> str:
-    """Decode the scalar subset used by ``labels-core.yml`` without PyYAML."""
+    """Decode a strict YAML string subset without adding a runtime dependency."""
     value = raw.strip()
     if not value:
         raise ValueError(f"{path}:{line_number}: label value is empty")
-    if value[:1] in {"'", '"'}:
+
+    if value.startswith("'"):
+        if not value.endswith("'") or len(value) < 2:
+            raise ValueError(f"{path}:{line_number}: invalid quoted label value")
+        inner = value[1:-1]
+        decoded_parts: list[str] = []
+        index = 0
+        while index < len(inner):
+            if inner[index] != "'":
+                decoded_parts.append(inner[index])
+                index += 1
+                continue
+            if index + 1 >= len(inner) or inner[index + 1] != "'":
+                raise ValueError(f"{path}:{line_number}: invalid quoted label value")
+            decoded_parts.append("'")
+            index += 2
+        decoded = "".join(decoded_parts)
+    elif value.startswith('"'):
+        # JSON strings are a strict subset of YAML double-quoted scalars. Using
+        # json.loads accepts only escapes whose meaning is identical in both
+        # formats and rejects YAML-only syntax we cannot faithfully reproduce.
         try:
-            decoded = ast.literal_eval(value)
-        except (SyntaxError, ValueError) as exc:
+            decoded = json.loads(value)
+        except (json.JSONDecodeError, TypeError) as exc:
             raise ValueError(f"{path}:{line_number}: invalid quoted label value") from exc
         if not isinstance(decoded, str):
             raise ValueError(f"{path}:{line_number}: label value must be text")
-        return decoded
-    return value
+    else:
+        # Inline comments and collection/block indicators have YAML semantics
+        # that this deliberately dependency-free reader does not implement.
+        if "#" in value or ": " in value or value[0] in "-?:,[]{}&*!|>'%@`":
+            raise ValueError(f"{path}:{line_number}: unsupported label YAML scalar")
+        if value.lower() in {"null", "~", "true", "false", "yes", "no", "on", "off"}:
+            raise ValueError(f"{path}:{line_number}: label value must be text")
+        decoded = value
+
+    if not decoded:
+        raise ValueError(f"{path}:{line_number}: label value is empty")
+    return decoded
 
 
 def _load_core_label_entries(path: Path = LABELS_CORE_PATH) -> list[dict[str, str]]:
