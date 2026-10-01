@@ -6,10 +6,12 @@ Regression command:
 node --test --test-name-pattern='same-generation recovery cannot overwrite' .github/scripts/__tests__/keepalive-state.test.js
 ```
 
+The regression command **must** include the explicit test file. Running the same pattern from `__tests__/` without that path loads the whole tree (~33 tests, ~32 skipped) and is not the acceptance command.
+
 ## Passing run (exact-attempt equality guard intact)
 
 ```
-✔ same-generation recovery cannot overwrite a newer running owner attempt (224.099041ms)
+✔ same-generation recovery cannot overwrite a newer running owner attempt (127.77175ms)
 ℹ tests 1
 ℹ suites 0
 ℹ pass 1
@@ -17,7 +19,7 @@ node --test --test-name-pattern='same-generation recovery cannot overwrite' .git
 ℹ cancelled 0
 ℹ skipped 0
 ℹ todo 0
-ℹ duration_ms 1100.776125
+ℹ duration_ms 4591.876375
 ```
 
 ## Failing run (guard removed: `state.running_owner_attempt === recoveredAttempt` disabled)
