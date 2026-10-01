@@ -783,9 +783,7 @@ AGGREGATE_OUTPUT_NAMES = (
 )
 
 
-TERMINAL_SEMANTIC_REVIEW_STATUSES = frozenset(
-    {"round2-converged", "round2-deadlocked"}
-)
+TERMINAL_SEMANTIC_REVIEW_STATUSES = frozenset({"round2-converged", "round2-deadlocked"})
 ROUND1_PROVENANCE_SCHEMA = "repo-review-round1-provenance/v1"
 
 
@@ -871,7 +869,9 @@ def validate_fleet_provenance(
 
         for agent in agents:
             findings_path = output_dir / "round1" / agent / safe / "findings.json"
-            findings, findings_error = _load_json_object(findings_path, label=f"{agent} findings.json")
+            findings, findings_error = _load_json_object(
+                findings_path, label=f"{agent} findings.json"
+            )
             if findings_error:
                 errors.append(findings_error)
             elif findings is not None:
@@ -912,9 +912,7 @@ def desktop_action_needed_path() -> Path:
     return Path.home() / "Desktop" / "REPO-REVIEW-ACTION-NEEDED.md"
 
 
-def fail_for_fleet_provenance(
-    *, output_dir: Path, phase: str, audit: dict[str, Any]
-) -> None:
+def fail_for_fleet_provenance(*, output_dir: Path, phase: str, audit: dict[str, Any]) -> None:
     """Quarantine publishable artifacts and leave concrete drift evidence."""
     failed = next((item for item in audit["repos"] if item["errors"]), None)
     repo = str((failed or {}).get("repo") or "fleet")

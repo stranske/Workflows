@@ -70,9 +70,7 @@ def _write_round1_findings(
     )
 
 
-def _write_round1_provenance(
-    output_dir: Path, repo: str, agent: str, source_commit: str
-) -> None:
+def _write_round1_provenance(output_dir: Path, repo: str, agent: str, source_commit: str) -> None:
     safe = repo.replace("/", "__")
     path = output_dir / "round1" / agent / safe / "findings.provenance.json"
     path.parent.mkdir(parents=True, exist_ok=True)
@@ -1523,9 +1521,16 @@ def test_run_audits_every_active_repo_rendered_by_final_evaluator(
 
     monkeypatch.setattr(coordinator, "validate_fleet_provenance", fail_audit)
     args = SimpleNamespace(
-        output_dir=str(output_dir), registry=str(registry_path), repos=["stranske/Selected"],
-        agents=["codex", "claude"], skip_preflight=True, skip_gitnexus_preflight=True,
-        round1_timeout=30, round2_timeout=30, max_turns=3, disable_skip_gate=True,
+        output_dir=str(output_dir),
+        registry=str(registry_path),
+        repos=["stranske/Selected"],
+        agents=["codex", "claude"],
+        skip_preflight=True,
+        skip_gitnexus_preflight=True,
+        round1_timeout=30,
+        round2_timeout=30,
+        max_turns=3,
+        disable_skip_gate=True,
         skip_auto_archive=True,
     )
 
@@ -1580,9 +1585,17 @@ def test_run_quarantines_packet_when_source_drifts_during_final_evaluator(
         ),
     )
     args = SimpleNamespace(
-        output_dir=str(output_dir), registry=str(registry_path), repos=[], agents=["codex", "claude"],
-        skip_preflight=False, skip_gitnexus_preflight=False, round1_timeout=30, round2_timeout=30,
-        max_turns=3, disable_skip_gate=True, skip_auto_archive=True,
+        output_dir=str(output_dir),
+        registry=str(registry_path),
+        repos=[],
+        agents=["codex", "claude"],
+        skip_preflight=False,
+        skip_gitnexus_preflight=False,
+        round1_timeout=30,
+        round2_timeout=30,
+        max_turns=3,
+        disable_skip_gate=True,
+        skip_auto_archive=True,
     )
 
     assert coordinator.run(args) == 1
