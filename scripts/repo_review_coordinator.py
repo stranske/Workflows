@@ -422,11 +422,18 @@ def write_skip_converged(output_dir: Path, repo: str, reason: str) -> Path:
     safe = repo.replace("/", "__")
     converged_path = output_dir / "round2" / safe / "converged.json"
     converged_path.parent.mkdir(parents=True, exist_ok=True)
+    round1_sources = [
+        {"agent": agent_dir.name, "path": str(findings.resolve())}
+        for agent_dir in sorted((output_dir / "round1").glob("*"))
+        if agent_dir.is_dir()
+        for findings in [agent_dir / safe / "findings.json"]
+        if findings.is_file()
+    ]
     payload = {
         "schema_version": "v1",
         "repo": repo,
         "turns_completed": 0,
-        "round1_sources": [],
+        "round1_sources": round1_sources,
         "converged_candidates": [],
         "deadlocked_candidates": [],
         "dropped_candidates": [],
@@ -1351,15 +1358,21 @@ def run(args: argparse.Namespace) -> int:
     # 0. Auto-archive the prior cycle so the skip-this-cycle gate has a prior
     #    fingerprint and the new cycle starts clean. No-op if `<output_dir>/round2/`
     #    is absent or empty. Skip with --skip-auto-archive.
-    if not args.skip_auto_archive:
+    # Focused runs are diagnostic only. They must retain the other active
+    # repositories' evidence because the evaluator still renders fleet-wide
+    # output and the fleet guard therefore audits that same scope.
+    if not args.skip_auto_archive and not args.repos:
         archive_summary = archive_prior_cycle(output_dir)
         if archive_summary["archived"]:
             print(
                 f"[coordinator] auto-archive: {archive_summary['notes']} → "
                 f"archive/{archive_summary['archive_date']}/"
             )
+    else:
+        if args.repos and not args.skip_auto_archive:
+            print("[coordinator] auto-archive: skipped — focused diagnostic run")
         else:
-            print(f"[coordinator] auto-archive: skipped — {archive_summary['notes']}")
+            print("[coordinator] auto-archive: skipped by --skip-auto-archive")
 
     # 1. Evaluator preflight (produces review-inputs.md, remote-progress.md, etc.).
     if not args.skip_preflight:

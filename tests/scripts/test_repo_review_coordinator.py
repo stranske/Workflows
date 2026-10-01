@@ -174,6 +174,19 @@ def test_coordinate_repo_writes_skip_converged_and_round2_state(
     assert converged["synthesized_via_skip_gate"] is True
 
 
+def test_write_skip_converged_keeps_schema_valid_round1_sources(tmp_path: Path) -> None:
+    repo = "stranske/Example"
+    output_dir = tmp_path / "repo-review"
+    for agent in ("codex", "claude"):
+        _write_round1_findings(output_dir, repo, agent, [])
+
+    path = coordinator.write_skip_converged(output_dir, repo, "fingerprint unchanged")
+    payload = json.loads(path.read_text(encoding="utf-8"))
+
+    assert [source["agent"] for source in payload["round1_sources"]] == ["claude", "codex"]
+    assert coordinator.validate_converged_set(payload, expected_repo=repo) == []
+
+
 def test_coordinate_repo_allows_mocked_round1_to_round2_state_progression(
     tmp_path: Path, monkeypatch
 ) -> None:
@@ -1536,6 +1549,58 @@ def test_run_audits_every_active_repo_rendered_by_final_evaluator(
 
     assert coordinator.run(args) == 1
     assert seen == [["stranske/Selected", "stranske/Rendered"]]
+
+
+def test_focused_run_does_not_auto_archive_fleet_evidence(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    registry_path = tmp_path / "config" / "repo_review_registry.json"
+    registry_path.parent.mkdir(parents=True)
+    registry_path.write_text("{}\n", encoding="utf-8")
+    repo_config = SimpleNamespace(repo="stranske/Selected", status="active", local_path="Selected")
+    monkeypatch.setattr(
+        coordinator, "load_registry", lambda _path: (tmp_path, [], [repo_config], [])
+    )
+    monkeypatch.setattr(
+        coordinator,
+        "coordinate_repo_with_restarts",
+        lambda **_kwargs: {
+            "repo": "stranske/Selected",
+            "round1": {"succeeded": True},
+            "round2": {"succeeded": True},
+            "body_writer": {"succeeded": True},
+            "skip_gate_fired": False,
+        },
+    )
+    monkeypatch.setattr(
+        coordinator,
+        "validate_fleet_provenance",
+        lambda **_kwargs: {
+            "ok": False,
+            "checked_at": "before",
+            "repos": [{"repo": "stranske/Selected", "errors": ["test stop"]}],
+        },
+    )
+    monkeypatch.setattr(
+        coordinator,
+        "archive_prior_cycle",
+        lambda _output_dir: pytest.fail("focused runs must not archive fleet evidence"),
+    )
+    args = SimpleNamespace(
+        output_dir=str(tmp_path / "out"),
+        registry=str(registry_path),
+        repos=["stranske/Selected"],
+        agents=["codex", "claude"],
+        skip_preflight=True,
+        skip_gitnexus_preflight=True,
+        round1_timeout=30,
+        round2_timeout=30,
+        max_turns=3,
+        disable_skip_gate=True,
+        skip_auto_archive=False,
+    )
+
+    assert coordinator.run(args) == 1
 
 
 def test_run_quarantines_packet_when_source_drifts_during_final_evaluator(
