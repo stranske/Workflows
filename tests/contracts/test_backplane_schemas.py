@@ -172,6 +172,7 @@ def test_document_mirror_fixture_validates() -> None:
 
     for root in (
         "https://host/mirror",
+        "c://host/mirror",
         "file:///tmp/mirror",
         "x:relative",
         "../outside",
