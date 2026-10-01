@@ -100,7 +100,7 @@ After PR merge, applying a `verify:*` label (typically `verify:evaluate` via aut
 ### Reusable Workflows (.github/workflows)
 
 - CI: `reusable-10-ci-python.yml`, `reusable-11-ci-node.yml`, `reusable-12-ci-docker.yml`, `reusable-13-cross-repo-smoke.yml`
-- Agent automation: `reusable-16-agents.yml`, `reusable-18-autofix.yml`, `reusable-20-pr-meta.yml`, `reusable-codex-run.yml`, `reusable-model-profile-trial.yml`, `reusable-claude-run.yml`, `reusable-cursor-run.yml`, `reusable-gemini-run.yml`
+- Agent automation: `reusable-16-agents.yml`, `reusable-18-autofix.yml`, `reusable-19-dependency-repair-contract.yml`, `reusable-20-pr-meta.yml`, `reusable-codex-run.yml`, `reusable-model-profile-trial.yml`, `reusable-claude-run.yml`, `reusable-cursor-run.yml`, `reusable-gemini-run.yml`
 - Agent helpers: `reusable-agents-issue-bridge.yml`, `reusable-agents-pr-health.yml`, `reusable-agents-verifier.yml`, `reusable-bot-comment-handler.yml`, `reusable-pr-context.yml`
 - Conformance: `reusable-backplane-conformance.yml`
 - Orchestration: `reusable-70-orchestrator-init.yml`, `reusable-70-orchestrator-main.yml`
