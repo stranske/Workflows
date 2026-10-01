@@ -50,7 +50,10 @@ import yaml
 
 try:
     from scripts.repo_review_evaluator import load_registry
+    from scripts.repo_review_round1_schema import validate_findings
+    from scripts.repo_review_round2_schema import validate_converged_set
     from scripts.repo_review_state import (
+        STATE_SCHEMA_VERSION,
         begin_attempt,
         finish_attempt,
         load_state,
@@ -59,7 +62,10 @@ try:
     )
 except ModuleNotFoundError:  # pragma: no cover - direct script execution
     from repo_review_evaluator import load_registry  # type: ignore[no-redef]
+    from repo_review_round1_schema import validate_findings  # type: ignore[no-redef]
+    from repo_review_round2_schema import validate_converged_set  # type: ignore[no-redef]
     from repo_review_state import (  # type: ignore[no-redef]
+        STATE_SCHEMA_VERSION,
         begin_attempt,
         finish_attempt,
         load_state,
@@ -416,11 +422,18 @@ def write_skip_converged(output_dir: Path, repo: str, reason: str) -> Path:
     safe = repo.replace("/", "__")
     converged_path = output_dir / "round2" / safe / "converged.json"
     converged_path.parent.mkdir(parents=True, exist_ok=True)
+    round1_sources = [
+        {"agent": agent_dir.name, "path": str(findings.resolve())}
+        for agent_dir in sorted((output_dir / "round1").glob("*"))
+        if agent_dir.is_dir()
+        for findings in [agent_dir / safe / "findings.json"]
+        if findings.is_file()
+    ]
     payload = {
         "schema_version": "v1",
         "repo": repo,
         "turns_completed": 0,
-        "round1_sources": [],
+        "round1_sources": round1_sources,
         "converged_candidates": [],
         "deadlocked_candidates": [],
         "dropped_candidates": [],
@@ -775,6 +788,163 @@ AGGREGATE_OUTPUT_NAMES = (
     "human-decision-packet.md",
     "repo-review-summary.json",
 )
+
+
+TERMINAL_SEMANTIC_REVIEW_STATUSES = frozenset({"round2-converged", "round2-deadlocked"})
+ROUND1_PROVENANCE_SCHEMA = "repo-review-round1-provenance/v1"
+
+
+def _load_json_object(path: Path, *, label: str) -> tuple[dict[str, Any] | None, str | None]:
+    """Load a JSON object or return one concise, artifact-specific error."""
+    try:
+        data = json.loads(path.read_text(encoding="utf-8"))
+    except (OSError, UnicodeError, json.JSONDecodeError) as exc:
+        return None, f"cannot read {label}: {exc}"
+    if not isinstance(data, dict):
+        return None, f"{label} must be a JSON object"
+    return data, None
+
+
+def current_repo_head(repo_path: Path) -> tuple[str | None, str | None]:
+    """Return the exact checked-out commit for final provenance comparison."""
+    try:
+        result = subprocess.run(
+            ["git", "-C", str(repo_path), "rev-parse", "HEAD"],
+            check=False,
+            capture_output=True,
+            text=True,
+            timeout=30,
+        )
+    except (OSError, subprocess.TimeoutExpired) as exc:
+        return None, f"cannot resolve current HEAD: {exc}"
+    head = result.stdout.strip()
+    if result.returncode != 0 or not head:
+        diagnostic = (result.stderr or result.stdout).strip()[:300]
+        return None, f"cannot resolve current HEAD: {diagnostic or 'git rev-parse failed'}"
+    return head, None
+
+
+def validate_fleet_provenance(
+    *,
+    output_dir: Path,
+    repo_configs: list[Any],
+    agents: list[str],
+    workspace_root: Path,
+) -> dict[str, Any]:
+    """Fail closed when semantic review artifacts no longer describe current heads.
+
+    This guard deliberately runs immediately before and after final evaluation.
+    The evaluator renders stored findings but does not attest their sidecars, so
+    a source advance after a repo's round-1 pass must never publish a packet.
+    """
+    checked_at = datetime.now(UTC).isoformat()
+    repo_reports: list[dict[str, Any]] = []
+    for repo_config in repo_configs:
+        repo = str(repo_config.repo)
+        safe = repo.replace("/", "__")
+        errors: list[str] = []
+        repo_path = workspace_root / str(repo_config.local_path)
+        head, head_error = current_repo_head(repo_path)
+        if head_error:
+            errors.append(head_error)
+
+        state_path = output_dir / "round2" / safe / "state.json"
+        try:
+            state = load_state(output_dir, repo)
+        except (OSError, UnicodeError, json.JSONDecodeError, TypeError, ValueError) as exc:
+            errors.append(f"cannot load terminal review state at {state_path}: {exc}")
+        else:
+            if state.schema_version != STATE_SCHEMA_VERSION:
+                errors.append(
+                    f"state schema_version={state.schema_version!r}, "
+                    f"expected {STATE_SCHEMA_VERSION!r}"
+                )
+            if state.repo != repo:
+                errors.append(f"state repo={state.repo!r}, expected {repo!r}")
+            if state.status not in TERMINAL_SEMANTIC_REVIEW_STATUSES:
+                errors.append(
+                    f"semantic review state is {state.status!r}, expected one of "
+                    f"{sorted(TERMINAL_SEMANTIC_REVIEW_STATUSES)}"
+                )
+
+        converged_path = output_dir / "round2" / safe / "converged.json"
+        converged, converged_error = _load_json_object(converged_path, label="converged.json")
+        if converged_error:
+            errors.append(converged_error)
+        elif converged is not None:
+            errors.extend(validate_converged_set(converged, expected_repo=repo))
+
+        for agent in agents:
+            findings_path = output_dir / "round1" / agent / safe / "findings.json"
+            findings, findings_error = _load_json_object(
+                findings_path, label=f"{agent} findings.json"
+            )
+            if findings_error:
+                errors.append(findings_error)
+            elif findings is not None:
+                errors.extend(
+                    f"{agent} findings schema: {error}"
+                    for error in validate_findings(findings, expected_repo=repo)
+                )
+
+            provenance_path = findings_path.with_name("findings.provenance.json")
+            provenance, provenance_error = _load_json_object(
+                provenance_path, label=f"{agent} findings provenance"
+            )
+            if provenance_error:
+                errors.append(provenance_error)
+            elif provenance is not None:
+                expected = {
+                    "schema": ROUND1_PROVENANCE_SCHEMA,
+                    "repo": repo,
+                    "agent": agent,
+                    "source_commit": head,
+                }
+                for key, value in expected.items():
+                    if provenance.get(key) != value:
+                        errors.append(
+                            f"{agent} provenance {key}={provenance.get(key)!r}, expected {value!r}"
+                        )
+
+        repo_reports.append({"repo": repo, "head": head, "errors": errors})
+    return {
+        "ok": not any(report["errors"] for report in repo_reports),
+        "checked_at": checked_at,
+        "repos": repo_reports,
+    }
+
+
+def desktop_action_needed_path() -> Path:
+    """Return the persistent notification surface that must not outlive a failure."""
+    return Path.home() / "Desktop" / "REPO-REVIEW-ACTION-NEEDED.md"
+
+
+def fail_for_fleet_provenance(*, output_dir: Path, phase: str, audit: dict[str, Any]) -> None:
+    """Quarantine publishable artifacts and leave concrete drift evidence."""
+    failed = next((item for item in audit["repos"] if item["errors"]), None)
+    repo = str((failed or {}).get("repo") or "fleet")
+    desktop_notice = desktop_action_needed_path()
+    quarantined_outputs = quarantine_aggregate_outputs(
+        output_dir,
+        repo=repo,
+        phase=phase,
+        extra_paths=(desktop_notice,),
+    )
+    (output_dir / "repo-review-run-failure.json").write_text(
+        json.dumps(
+            {
+                "schema": "repo-review-run-failure/v1",
+                "failed_at": datetime.now(UTC).isoformat(),
+                "repo": repo,
+                "phase": phase,
+                "quarantined_aggregate_outputs": quarantined_outputs,
+                "provenance_audit": audit,
+            },
+            indent=2,
+        )
+        + "\n",
+        encoding="utf-8",
+    )
 
 
 def quarantine_aggregate_outputs(
@@ -1188,15 +1358,21 @@ def run(args: argparse.Namespace) -> int:
     # 0. Auto-archive the prior cycle so the skip-this-cycle gate has a prior
     #    fingerprint and the new cycle starts clean. No-op if `<output_dir>/round2/`
     #    is absent or empty. Skip with --skip-auto-archive.
-    if not args.skip_auto_archive:
+    # Focused runs are diagnostic only. They must retain the other active
+    # repositories' evidence because the evaluator still renders fleet-wide
+    # output and the fleet guard therefore audits that same scope.
+    if not args.skip_auto_archive and not args.repos:
         archive_summary = archive_prior_cycle(output_dir)
         if archive_summary["archived"]:
             print(
                 f"[coordinator] auto-archive: {archive_summary['notes']} → "
                 f"archive/{archive_summary['archive_date']}/"
             )
+    else:
+        if args.repos and not args.skip_auto_archive:
+            print("[coordinator] auto-archive: skipped — focused diagnostic run")
         else:
-            print(f"[coordinator] auto-archive: skipped — {archive_summary['notes']}")
+            print("[coordinator] auto-archive: skipped by --skip-auto-archive")
 
     # 1. Evaluator preflight (produces review-inputs.md, remote-progress.md, etc.).
     if not args.skip_preflight:
@@ -1269,6 +1445,35 @@ def run(args: argparse.Namespace) -> int:
                 file=sys.stderr,
             )
             return 1
+
+    # The evaluator renders every active registry entry even when a focused
+    # coordinator invocation selected a subset. Audit that same publication
+    # scope; a focused run may be diagnostic, but it must never publish a
+    # packet that silently contains stale evidence for another active repo.
+    aggregate_repo_configs = [repo for repo in repos if repo.status == "active"]
+
+    # The per-repo runners attest findings to their current source commit, but
+    # another sync can advance a repository after its turn and before the
+    # fleet packet is rendered. Validate every selected repository now, before
+    # any aggregate preview or evaluator output can be treated as current.
+    pre_evaluator_provenance = validate_fleet_provenance(
+        output_dir=output_dir,
+        repo_configs=aggregate_repo_configs,
+        agents=list(args.agents),
+        workspace_root=workspace_root,
+    )
+    if not pre_evaluator_provenance["ok"]:
+        fail_for_fleet_provenance(
+            output_dir=output_dir,
+            phase="fleet-provenance-pre-evaluator",
+            audit=pre_evaluator_provenance,
+        )
+        print(
+            "[coordinator] fleet provenance FAILED before aggregate evaluation; "
+            "publishable outputs quarantined",
+            file=sys.stderr,
+        )
+        return 1
 
     # 2b. Scorecard scan: surface low-scoring OpenSSF checks for human approval.
     #     Same non-fatal pattern as backlog-scan -- failures are logged but don't
@@ -1391,6 +1596,28 @@ def run(args: argparse.Namespace) -> int:
         print(
             f"[coordinator] final evaluator FAILED; aborting before post-processing "
             f"(failure: {failure_marker})",
+            file=sys.stderr,
+        )
+        return 1
+
+    # Close the publication interval: final evaluation performs substantial
+    # filesystem and remote inspection, so re-attest every selected source
+    # immediately afterwards before any post-processing or notification.
+    post_evaluator_provenance = validate_fleet_provenance(
+        output_dir=output_dir,
+        repo_configs=aggregate_repo_configs,
+        agents=list(args.agents),
+        workspace_root=workspace_root,
+    )
+    if not post_evaluator_provenance["ok"]:
+        fail_for_fleet_provenance(
+            output_dir=output_dir,
+            phase="fleet-provenance-post-evaluator",
+            audit=post_evaluator_provenance,
+        )
+        print(
+            "[coordinator] fleet provenance FAILED after final evaluation; "
+            "publishable outputs quarantined",
             file=sys.stderr,
         )
         return 1
@@ -1537,6 +1764,28 @@ def run(args: argparse.Namespace) -> int:
 
     docs_drift_attempt_path.replace(docs_drift_path)
     print(f"[coordinator] docs-drift-scan: ok -- {output_notes}")
+
+    # Backlog and docs-drift work can take several minutes after final
+    # evaluation. Recheck the entire eventual publication scope immediately
+    # before the notifier writes the persistent Desktop action surface.
+    pre_notify_provenance = validate_fleet_provenance(
+        output_dir=output_dir,
+        repo_configs=aggregate_repo_configs,
+        agents=list(args.agents),
+        workspace_root=workspace_root,
+    )
+    if not pre_notify_provenance["ok"]:
+        fail_for_fleet_provenance(
+            output_dir=output_dir,
+            phase="fleet-provenance-pre-notify",
+            audit=pre_notify_provenance,
+        )
+        print(
+            "[coordinator] fleet provenance FAILED before notify; "
+            "publishable outputs quarantined",
+            file=sys.stderr,
+        )
+        return 1
 
     # 6. Surface the cycle outcome to the human reviewer (macOS notification +
     #    persistent desktop file). The cron does NOT auto-upload; humans must

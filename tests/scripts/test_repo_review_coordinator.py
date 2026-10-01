@@ -7,6 +7,18 @@ import pytest
 from scripts import repo_review_coordinator as coordinator
 from scripts import repo_review_state
 
+REAL_VALIDATE_FLEET_PROVENANCE = coordinator.validate_fleet_provenance
+
+
+@pytest.fixture(autouse=True)
+def _bypass_fleet_provenance_for_existing_orchestration_tests(monkeypatch: pytest.MonkeyPatch):
+    """Keep legacy orchestration fixtures focused on their named phase."""
+    monkeypatch.setattr(
+        coordinator,
+        "validate_fleet_provenance",
+        lambda **_kwargs: {"ok": True, "checked_at": "test", "repos": []},
+    )
+
 
 def _write_docs_drift_output(cmd: list[str], *, scanned: int = 0, errors: int = 0) -> None:
     out = Path(cmd[cmd.index("--out") + 1])
@@ -51,6 +63,25 @@ def _write_round1_findings(
                 "repo": repo,
                 "candidates": candidates,
                 "no_new_work_justification": "",
+            }
+        )
+        + "\n",
+        encoding="utf-8",
+    )
+
+
+def _write_round1_provenance(output_dir: Path, repo: str, agent: str, source_commit: str) -> None:
+    safe = repo.replace("/", "__")
+    path = output_dir / "round1" / agent / safe / "findings.provenance.json"
+    path.parent.mkdir(parents=True, exist_ok=True)
+    path.write_text(
+        json.dumps(
+            {
+                "schema": "repo-review-round1-provenance/v1",
+                "repo": repo,
+                "agent": agent,
+                "source_commit": source_commit,
+                "recorded_at": "2026-10-01T00:00:00Z",
             }
         )
         + "\n",
@@ -141,6 +172,36 @@ def test_coordinate_repo_writes_skip_converged_and_round2_state(
     assert report["skip_gate_fired"] is True
     assert state.status == "round2-converged"
     assert converged["synthesized_via_skip_gate"] is True
+
+
+def test_write_skip_converged_keeps_schema_valid_round1_sources(tmp_path: Path) -> None:
+    repo = "stranske/Example"
+    output_dir = tmp_path / "repo-review"
+    for agent in ("codex", "claude"):
+        _write_round1_findings(output_dir, repo, agent, [])
+
+    path = coordinator.write_skip_converged(output_dir, repo, "fingerprint unchanged")
+    payload = json.loads(path.read_text(encoding="utf-8"))
+
+    assert [source["agent"] for source in payload["round1_sources"]] == ["claude", "codex"]
+    assert coordinator.validate_converged_set(payload, expected_repo=repo) == []
+
+
+def test_skip_converged_marker_does_not_bypass_schema_validation(tmp_path: Path) -> None:
+    repo = "stranske/Example"
+    output_dir = tmp_path / "repo-review"
+    for agent in ("codex", "claude"):
+        _write_round1_findings(output_dir, repo, agent, [])
+
+    path = coordinator.write_skip_converged(output_dir, repo, "fingerprint unchanged")
+    payload = json.loads(path.read_text(encoding="utf-8"))
+    payload["repo"] = "stranske/Other"
+    payload["round1_sources"] = []
+
+    errors = coordinator.validate_converged_set(payload, expected_repo=repo)
+
+    assert "repo: expected 'stranske/Example' got 'stranske/Other'" in errors
+    assert "round1_sources: must be a non-empty list" in errors
 
 
 def test_coordinate_repo_allows_mocked_round1_to_round2_state_progression(
@@ -1342,3 +1403,390 @@ def test_prepare_body_retry_replaces_invalid_utf8_diagnostics(tmp_path: Path) ->
 
     feedback = (repo_dir / "body-writer-repair-feedback.txt").read_text(encoding="utf-8")
     assert "validator failure: \ufffd\ufffd" in feedback
+
+
+def test_fleet_provenance_accepts_unchanged_source_and_complete_attestations(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """A no-op source retains a complete, current two-agent semantic review."""
+    repo = "stranske/Example"
+    output_dir = tmp_path / "out"
+    repo_path = tmp_path / "Example"
+    repo_path.mkdir()
+    state = repo_review_state.load_state(output_dir, repo)
+    repo_review_state.transition(state, status="round2-converged")
+    repo_review_state.save_state(output_dir, state)
+    converged = output_dir / "round2" / "stranske__Example" / "converged.json"
+    converged.write_text("{}\n", encoding="utf-8")
+    for agent in ("codex", "claude"):
+        _write_round1_findings(output_dir, repo, agent, [])
+        _write_round1_provenance(output_dir, repo, agent, "a" * 40)
+
+    monkeypatch.setattr(coordinator, "current_repo_head", lambda _path: ("a" * 40, None))
+    monkeypatch.setattr(coordinator, "validate_findings", lambda *_args, **_kwargs: [])
+    monkeypatch.setattr(coordinator, "validate_converged_set", lambda *_args, **_kwargs: [])
+
+    audit = REAL_VALIDATE_FLEET_PROVENANCE(
+        output_dir=output_dir,
+        repo_configs=[SimpleNamespace(repo=repo, local_path="Example")],
+        agents=["codex", "claude"],
+        workspace_root=tmp_path,
+    )
+
+    assert audit["ok"] is True
+    assert audit["repos"] == [{"repo": repo, "head": "a" * 40, "errors": []}]
+
+
+def test_fleet_provenance_rejects_source_drift_after_round1(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """Stored sidecars cannot be published after the checked-out source advances."""
+    repo = "stranske/Example"
+    output_dir = tmp_path / "out"
+    (tmp_path / "Example").mkdir()
+    state = repo_review_state.load_state(output_dir, repo)
+    repo_review_state.transition(state, status="round2-converged")
+    repo_review_state.save_state(output_dir, state)
+    (output_dir / "round2" / "stranske__Example" / "converged.json").write_text(
+        "{}\n", encoding="utf-8"
+    )
+    for agent in ("codex", "claude"):
+        _write_round1_findings(output_dir, repo, agent, [])
+        _write_round1_provenance(output_dir, repo, agent, "a" * 40)
+
+    monkeypatch.setattr(coordinator, "current_repo_head", lambda _path: ("b" * 40, None))
+    monkeypatch.setattr(coordinator, "validate_findings", lambda *_args, **_kwargs: [])
+    monkeypatch.setattr(coordinator, "validate_converged_set", lambda *_args, **_kwargs: [])
+
+    audit = REAL_VALIDATE_FLEET_PROVENANCE(
+        output_dir=output_dir,
+        repo_configs=[SimpleNamespace(repo=repo, local_path="Example")],
+        agents=["codex", "claude"],
+        workspace_root=tmp_path,
+    )
+
+    assert audit["ok"] is False
+    assert all("source_commit" in error for error in audit["repos"][0]["errors"])
+
+
+def test_fleet_provenance_rejects_copied_terminal_state(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """A terminal status is insufficient when its state identity is malformed."""
+    repo = "stranske/Example"
+    output_dir = tmp_path / "out"
+    (tmp_path / "Example").mkdir()
+    state_path = output_dir / "round2" / "stranske__Example" / "state.json"
+    state_path.parent.mkdir(parents=True)
+    state_path.write_text(
+        json.dumps(
+            {
+                "schema_version": "v0",
+                "repo": "stranske/Other",
+                "status": "round2-converged",
+                "cycle_started_at": "2026-10-01T00:00:00+00:00",
+                "cycle_updated_at": "2026-10-01T00:00:00+00:00",
+            }
+        )
+        + "\n",
+        encoding="utf-8",
+    )
+    (output_dir / "round2" / "stranske__Example" / "converged.json").write_text(
+        "{}\n", encoding="utf-8"
+    )
+    for agent in ("codex", "claude"):
+        _write_round1_findings(output_dir, repo, agent, [])
+        _write_round1_provenance(output_dir, repo, agent, "a" * 40)
+
+    monkeypatch.setattr(coordinator, "current_repo_head", lambda _path: ("a" * 40, None))
+    monkeypatch.setattr(coordinator, "validate_findings", lambda *_args, **_kwargs: [])
+    monkeypatch.setattr(coordinator, "validate_converged_set", lambda *_args, **_kwargs: [])
+
+    audit = REAL_VALIDATE_FLEET_PROVENANCE(
+        output_dir=output_dir,
+        repo_configs=[SimpleNamespace(repo=repo, local_path="Example")],
+        agents=["codex", "claude"],
+        workspace_root=tmp_path,
+    )
+
+    errors = audit["repos"][0]["errors"]
+    assert audit["ok"] is False
+    assert any("schema_version" in error for error in errors)
+    assert any("state repo" in error for error in errors)
+
+
+def test_run_audits_every_active_repo_rendered_by_final_evaluator(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """A focused run cannot publish stale state from another active repo."""
+    registry_path = tmp_path / "config" / "repo_review_registry.json"
+    registry_path.parent.mkdir(parents=True)
+    registry_path.write_text("{}\n", encoding="utf-8")
+    output_dir = tmp_path / "out"
+    active = [
+        SimpleNamespace(repo="stranske/Selected", status="active", local_path="Selected"),
+        SimpleNamespace(repo="stranske/Rendered", status="active", local_path="Rendered"),
+    ]
+    monkeypatch.setattr(coordinator, "load_registry", lambda _path: (tmp_path, [], active, []))
+    monkeypatch.setattr(
+        coordinator,
+        "coordinate_repo_with_restarts",
+        lambda **_kwargs: {
+            "repo": "stranske/Selected",
+            "round1": {"succeeded": True},
+            "round2": {"succeeded": True},
+            "body_writer": {"succeeded": True},
+            "skip_gate_fired": False,
+        },
+    )
+    seen: list[list[str]] = []
+
+    def fail_audit(**kwargs):
+        seen.append([repo.repo for repo in kwargs["repo_configs"]])
+        return {
+            "ok": False,
+            "checked_at": "before",
+            "repos": [{"repo": "stranske/Rendered", "errors": ["source_commit changed"]}],
+        }
+
+    monkeypatch.setattr(coordinator, "validate_fleet_provenance", fail_audit)
+    args = SimpleNamespace(
+        output_dir=str(output_dir),
+        registry=str(registry_path),
+        repos=["stranske/Selected"],
+        agents=["codex", "claude"],
+        skip_preflight=True,
+        skip_gitnexus_preflight=True,
+        round1_timeout=30,
+        round2_timeout=30,
+        max_turns=3,
+        disable_skip_gate=True,
+        skip_auto_archive=True,
+    )
+
+    assert coordinator.run(args) == 1
+    assert seen == [["stranske/Selected", "stranske/Rendered"]]
+
+
+def test_focused_run_does_not_auto_archive_fleet_evidence(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    registry_path = tmp_path / "config" / "repo_review_registry.json"
+    registry_path.parent.mkdir(parents=True)
+    registry_path.write_text("{}\n", encoding="utf-8")
+    repo_config = SimpleNamespace(repo="stranske/Selected", status="active", local_path="Selected")
+    monkeypatch.setattr(
+        coordinator, "load_registry", lambda _path: (tmp_path, [], [repo_config], [])
+    )
+    monkeypatch.setattr(
+        coordinator,
+        "coordinate_repo_with_restarts",
+        lambda **_kwargs: {
+            "repo": "stranske/Selected",
+            "round1": {"succeeded": True},
+            "round2": {"succeeded": True},
+            "body_writer": {"succeeded": True},
+            "skip_gate_fired": False,
+        },
+    )
+    monkeypatch.setattr(
+        coordinator,
+        "validate_fleet_provenance",
+        lambda **_kwargs: {
+            "ok": False,
+            "checked_at": "before",
+            "repos": [{"repo": "stranske/Selected", "errors": ["test stop"]}],
+        },
+    )
+    monkeypatch.setattr(
+        coordinator,
+        "archive_prior_cycle",
+        lambda _output_dir: pytest.fail("focused runs must not archive fleet evidence"),
+    )
+    args = SimpleNamespace(
+        output_dir=str(tmp_path / "out"),
+        registry=str(registry_path),
+        repos=["stranske/Selected"],
+        agents=["codex", "claude"],
+        skip_preflight=True,
+        skip_gitnexus_preflight=True,
+        round1_timeout=30,
+        round2_timeout=30,
+        max_turns=3,
+        disable_skip_gate=True,
+        skip_auto_archive=False,
+    )
+
+    assert coordinator.run(args) == 1
+
+
+def test_run_quarantines_packet_when_source_drifts_during_final_evaluator(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """The post-evaluator guard closes the final-publication race window."""
+    registry_path = tmp_path / "config" / "repo_review_registry.json"
+    registry_path.parent.mkdir(parents=True)
+    registry_path.write_text("{}\n", encoding="utf-8")
+    output_dir = tmp_path / "out"
+    output_dir.mkdir()
+    for name in coordinator.AGGREGATE_OUTPUT_NAMES:
+        (output_dir / name).write_text("packet\n", encoding="utf-8")
+    repo_config = SimpleNamespace(repo="stranske/Example", status="active", local_path="Example")
+    monkeypatch.setattr(
+        coordinator, "load_registry", lambda _path: (tmp_path, [], [repo_config], [])
+    )
+    monkeypatch.setattr(
+        coordinator,
+        "coordinate_repo_with_restarts",
+        lambda **_kwargs: {
+            "repo": "stranske/Example",
+            "round1": {"succeeded": True},
+            "round2": {"succeeded": True},
+            "body_writer": {"succeeded": True},
+            "skip_gate_fired": False,
+        },
+    )
+    audits = iter(
+        [
+            {"ok": True, "checked_at": "before", "repos": []},
+            {
+                "ok": False,
+                "checked_at": "after",
+                "repos": [{"repo": "stranske/Example", "errors": ["source_commit changed"]}],
+            },
+        ]
+    )
+    monkeypatch.setattr(coordinator, "validate_fleet_provenance", lambda **_kwargs: next(audits))
+    calls: list[str] = []
+    monkeypatch.setattr(
+        coordinator,
+        "run_subprocess",
+        lambda _cmd, **kwargs: (
+            calls.append(kwargs["name"])
+            or coordinator.StepResult(name=kwargs["name"], succeeded=True, duration_seconds=0.01)
+        ),
+    )
+    args = SimpleNamespace(
+        output_dir=str(output_dir),
+        registry=str(registry_path),
+        repos=[],
+        agents=["codex", "claude"],
+        skip_preflight=False,
+        skip_gitnexus_preflight=False,
+        round1_timeout=30,
+        round2_timeout=30,
+        max_turns=3,
+        disable_skip_gate=True,
+        skip_auto_archive=True,
+    )
+
+    assert coordinator.run(args) == 1
+    assert "final-evaluator" in calls
+    assert "backlog-scan" not in calls
+    failure = json.loads((output_dir / "repo-review-run-failure.json").read_text())
+    assert failure["repo"] == "stranske/Example"
+    assert failure["phase"] == "fleet-provenance-post-evaluator"
+    assert all(not (output_dir / name).exists() for name in coordinator.AGGREGATE_OUTPUT_NAMES)
+
+
+def test_run_quarantines_packet_when_source_drifts_before_notify(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """The final checkpoint catches drift introduced by long post-processing."""
+    registry_path = tmp_path / "config" / "repo_review_registry.json"
+    registry_path.parent.mkdir(parents=True)
+    registry_path.write_text("{}\n", encoding="utf-8")
+    (tmp_path / "config" / "source_of_truth_docs.yml").write_text("repos: []\n", encoding="utf-8")
+    output_dir = tmp_path / "out"
+    output_dir.mkdir()
+    for name in coordinator.AGGREGATE_OUTPUT_NAMES:
+        (output_dir / name).write_text("packet\n", encoding="utf-8")
+    desktop_notice = tmp_path / "Desktop" / "REPO-REVIEW-ACTION-NEEDED.md"
+    desktop_notice.parent.mkdir()
+    desktop_notice.write_text("prior notice\n", encoding="utf-8")
+    monkeypatch.setattr(coordinator, "desktop_action_needed_path", lambda: desktop_notice)
+    repo_config = SimpleNamespace(repo="stranske/Example", status="active", local_path="Example")
+    monkeypatch.setattr(
+        coordinator, "load_registry", lambda _path: (tmp_path, [], [repo_config], [])
+    )
+    monkeypatch.setattr(
+        coordinator,
+        "coordinate_repo_with_restarts",
+        lambda **_kwargs: {
+            "repo": "stranske/Example",
+            "round1": {"succeeded": True},
+            "round2": {"succeeded": True},
+            "body_writer": {"succeeded": True},
+            "skip_gate_fired": False,
+        },
+    )
+    audits = iter(
+        [
+            {"ok": True, "checked_at": "before", "repos": []},
+            {"ok": True, "checked_at": "after-evaluator", "repos": []},
+            {
+                "ok": False,
+                "checked_at": "before-notify",
+                "repos": [{"repo": "stranske/Example", "errors": ["source_commit changed"]}],
+            },
+        ]
+    )
+    monkeypatch.setattr(coordinator, "validate_fleet_provenance", lambda **_kwargs: next(audits))
+    calls: list[str] = []
+
+    def fake_run_subprocess(cmd, *, cwd, log_path, name, timeout):
+        calls.append(name)
+        if name == "docs-drift-scan":
+            _write_docs_drift_output(cmd)
+        return coordinator.StepResult(name=name, succeeded=True, duration_seconds=0.01)
+
+    monkeypatch.setattr(coordinator, "run_subprocess", fake_run_subprocess)
+    args = SimpleNamespace(
+        output_dir=str(output_dir),
+        registry=str(registry_path),
+        repos=[],
+        agents=["codex", "claude"],
+        skip_preflight=False,
+        skip_gitnexus_preflight=False,
+        round1_timeout=30,
+        round2_timeout=30,
+        max_turns=3,
+        disable_skip_gate=True,
+        skip_auto_archive=True,
+    )
+
+    assert coordinator.run(args) == 1
+    assert "docs-drift-scan" in calls
+    assert "notify" not in calls
+    failure = json.loads((output_dir / "repo-review-run-failure.json").read_text())
+    assert failure["repo"] == "stranske/Example"
+    assert failure["phase"] == "fleet-provenance-pre-notify"
+    assert all(not (output_dir / name).exists() for name in coordinator.AGGREGATE_OUTPUT_NAMES)
+    assert not desktop_notice.exists()
+
+
+def test_fleet_provenance_failure_quarantines_desktop_notice(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """A post-evaluator failure cannot leave a fresh-looking Desktop notice."""
+    output_dir = tmp_path / "out"
+    output_dir.mkdir()
+    desktop_notice = tmp_path / "Desktop" / "REPO-REVIEW-ACTION-NEEDED.md"
+    desktop_notice.parent.mkdir()
+    desktop_notice.write_text("stale success\n", encoding="utf-8")
+    monkeypatch.setattr(coordinator, "desktop_action_needed_path", lambda: desktop_notice)
+
+    coordinator.fail_for_fleet_provenance(
+        output_dir=output_dir,
+        phase="fleet-provenance-post-evaluator",
+        audit={
+            "ok": False,
+            "checked_at": "after",
+            "repos": [{"repo": "stranske/Example", "errors": ["source_commit changed"]}],
+        },
+    )
+
+    assert not desktop_notice.exists()
+    moved = list((output_dir / "failed-runs").rglob("REPO-REVIEW-ACTION-NEEDED.md"))
+    assert len(moved) == 1
+    assert moved[0].read_text(encoding="utf-8") == "stale success\n"
