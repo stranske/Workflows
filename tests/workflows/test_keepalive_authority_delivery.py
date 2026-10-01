@@ -88,7 +88,9 @@ def test_gate_paths_deny_invalid_claims_and_reporters_can_persist_generation() -
         assert "result.targetSource === 'ordinary-run-name'" in resolver_text
         assert "github.run_id" not in resolver_text
         assert resolver["steps"][0]["with"]["persist-credentials"] is False
-        report_condition = workflow["jobs"]["report"]["if"]
+        report = workflow["jobs"]["report"]
+        assert report["needs"] == "resolve-target"
+        report_condition = report["if"]
         assert "needs.resolve-target.result == 'success'" in report_condition
         assert "needs.resolve-target.outputs.skip != 'true'" in report_condition
         assert "needs.resolve-target.outputs.lock_pr_number != ''" in report_condition
@@ -175,3 +177,23 @@ def test_gate_paths_deny_invalid_claims_and_reporters_can_persist_generation() -
     assert "USE_CONSOLIDATED_WORKFLOWS" not in consumer_reporter_workflow["jobs"]["report"]["if"]
     assert '"run_id": int(run.get("id") or 0)' in consumer_reporter
     assert '"run_attempt": int(run.get("run_attempt") or 1)' in consumer_reporter
+    consumer_steps = {
+        step["name"]: step for step in consumer_reporter_workflow["jobs"]["report"]["steps"]
+    }
+    assert consumer_steps["Compute state fingerprint"]["if"] == (
+        "needs.resolve-target.outputs.skip != 'true'"
+    )
+    assert consumer_steps["Report unchanged state skip"]["if"] == (
+        "steps.fingerprint.outputs.should_run == 'false'"
+    )
+    for name in (
+        "Mint KEEPALIVE_APP reporter token",
+        "Mint WORKFLOWS_APP reporter token",
+        "Require trusted keepalive reporter writer",
+        "Update summary for cancelled/failed runs",
+    ):
+        assert "steps.fingerprint.outputs.should_run == 'true'" in consumer_steps[name]["if"]
+    persist_condition = consumer_steps["Persist state fingerprint"]["if"]
+    assert "steps.fingerprint.outputs.should_run == 'true'" in persist_condition
+    assert "steps.fingerprint.outputs.current_hash != ''" in persist_condition
+    assert "steps.update-summary.outcome == 'success'" in persist_condition
