@@ -349,6 +349,9 @@ test('owner attempt parsing is repository-bound and canonical', () => {
   assert.equal(parseOwnerAttempt('stranske/repo', 'stranske/other:12345:2'), null);
   assert.equal(parseOwnerAttempt('stranske/repo', 'stranske/repo:0:2'), null);
   assert.equal(parseOwnerAttempt('stranske/repo', 'stranske/repo:12345:0'), null);
+  assert.equal(parseOwnerAttempt('stranske/repo', 'stranske/repo:extra:12345:2'), null);
+  assert.equal(parseOwnerAttempt('stranske/repo', 'stranske/repo:01:2'), null);
+  assert.equal(parseOwnerAttempt('stranske/repo', 'stranske/repo:9007199254740992:2'), null);
 });
 
 test('a later replay wake recovers a dropped middle reporter from the current receipt', async () => {
@@ -416,6 +419,39 @@ test('replay still fails closed when an authority ledger read fails', async () =
     readAuthority: async () => { throw new Error('ledger unavailable'); },
     makeRequest: () => 'request',
   }), /ledger unavailable/);
+});
+
+test('replay rejects a present receipt with an invalid owner attempt', async () => {
+  await assert.rejects(replayReporterAuthority({
+    github: {},
+    context: { repo: { owner: 'stranske', repo: 'repo' } },
+    prNumber: 42,
+    readAuthority: async () => ({ state: {
+      released_receipt: { owner_attempt: 'stranske/other:222:3' },
+    } }),
+    makeRequest: () => 'request',
+  }), /invalid owner attempt/);
+});
+
+test('replay fails closed when reconciliation remains uncertain', async () => {
+  const ownerAttempt = 'stranske/repo:222:3';
+  const receipt = { owner_attempt: ownerAttempt, head_sha: head };
+  let projections = 0;
+  await assert.rejects(replayReporterAuthority({
+    github: { request: async () => ({
+      data: { id: 222, run_attempt: 3, head_sha: head, status: 'completed' },
+    }) },
+    context: { repo: { owner: 'stranske', repo: 'repo' } },
+    prNumber: 42,
+    writerLogin: 'agents-workflows-bot[bot]',
+    readAuthority: async () => ({ state: { receipt } }),
+    lookupTarget: async () => ({ prNumber: 42, state: { receipt } }),
+    workerEvidenceForAttempt: async () => 'not-started',
+    reconcileAttempt: async () => ({ status: 'uncertain', reason: 'write-uncertain' }),
+    projectRecovery: async () => { projections += 1; },
+    makeRequest: () => 'request',
+  }), /reconciliation is uncertain.*write-uncertain/);
+  assert.equal(projections, 0);
 });
 
 test('replay fails closed when exact-attempt worker evidence is unknown', async () => {

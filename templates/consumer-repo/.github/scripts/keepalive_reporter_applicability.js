@@ -136,7 +136,7 @@ function parseOwnerAttempt(repository, ownerAttempt) {
   const normalized = String(ownerAttempt || '').toLowerCase();
   const prefix = `${String(repository || '').toLowerCase()}:`;
   if (!normalized.startsWith(prefix)) return null;
-  const match = /:(\d+):(\d+)$/.exec(normalized);
+  const match = /^([1-9]\d*):([1-9]\d*)$/.exec(normalized.slice(prefix.length));
   if (!match) return null;
   const runId = Number(match[1]);
   const runAttempt = Number(match[2]);
@@ -174,10 +174,13 @@ async function replayReporterAuthority({
     // absence proved from a complete, pinned authority tree is an empty replay.
     if (authority === null) break;
     const { state } = authority;
-    const attempts = [state.receipt, state.released_receipt, state.recovered_receipt]
-      .map((receipt) => parseOwnerAttempt(repository, receipt?.owner_attempt))
-      .filter(Boolean)
-      .filter((attempt) => !seen.has(attempt.ownerAttempt));
+    const attempts = [];
+    for (const receipt of [state.receipt, state.released_receipt, state.recovered_receipt]) {
+      if (receipt == null) continue;
+      const attempt = parseOwnerAttempt(repository, receipt.owner_attempt);
+      if (!attempt) throw new Error('Replay authority contains an invalid owner attempt');
+      if (!seen.has(attempt.ownerAttempt)) attempts.push(attempt);
+    }
     if (attempts.length === 0) break;
     let changed = false;
     for (const attempt of attempts) {
@@ -226,6 +229,12 @@ async function replayReporterAuthority({
         request, repository, prNumber: number,
         ownerAttempt: attempt.ownerAttempt, workerEvidence,
       });
+      if (reconciliation.status === 'uncertain') {
+        throw new Error(
+          `Replay reconciliation is uncertain for ${attempt.ownerAttempt}: ` +
+          `${reconciliation.reason || 'unknown'}`,
+        );
+      }
       let projection = null;
       if (['released', 'reopened'].includes(reconciliation.status)) {
         projection = await projectRecovery({

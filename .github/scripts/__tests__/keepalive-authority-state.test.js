@@ -24,7 +24,8 @@ const headSha = 'd'.repeat(40);
 const ownerAttempt = 'owner/repo:100:1';
 
 function replayTreeRequest({ missingRef = false, truncated = false,
-  ledgerPresent = false, blobUnavailable = false, malformedBase64 = false } = {}) {
+  ledgerPresent = false, blobUnavailable = false, malformedBase64 = false,
+  rootEntries = null, authorityEntries = null, stateMutator = null } = {}) {
   const commitSha = '2'.repeat(40);
   const rootTree = '3'.repeat(40);
   const githubTree = '4'.repeat(40);
@@ -38,16 +39,17 @@ function replayTreeRequest({ missingRef = false, truncated = false,
     }
     if (path.endsWith(`/git/commits/${commitSha}`)) return { tree: { sha: rootTree } };
     if (path.endsWith(`/git/trees/${rootTree}`)) {
-      return { truncated, tree: [{ path: '.github', type: 'tree', sha: githubTree }] };
+      return { truncated, tree: rootEntries ||
+        [{ path: '.github', type: 'tree', sha: githubTree }] };
     }
     if (path.endsWith(`/git/trees/${githubTree}`)) {
       return { truncated: false,
         tree: [{ path: 'keepalive-authority', type: 'tree', sha: authorityTree }] };
     }
     if (path.endsWith(`/git/trees/${authorityTree}`)) {
-      return { truncated: false, tree: ledgerPresent
+      return { truncated: false, tree: authorityEntries || (ledgerPresent
         ? [{ path: `${prNumber}.json`, type: 'blob', sha: ledgerBlob }]
-        : [] };
+        : []) };
     }
     if (path.endsWith(`/git/blobs/${ledgerBlob}`)) {
       if (blobUnavailable) throw status(404);
@@ -64,6 +66,7 @@ function replayTreeRequest({ missingRef = false, truncated = false,
         status: 'available',
         receipt: null,
       };
+      if (stateMutator) stateMutator(state);
       const content = Buffer.from(`${JSON.stringify(state)}\n`).toString('base64');
       return { sha: ledgerBlob, encoding: 'base64',
         content: malformedBase64 ? `${content}!` : content };
@@ -91,6 +94,27 @@ test('replay rejects a truncated authority tree instead of proving absence', asy
   );
 });
 
+test('replay rejects malformed entries instead of treating them as proof of absence', async () => {
+  for (const rootEntries of [
+    [null],
+    [{ path: '.github', type: 'tree', sha: 'not-a-sha' }],
+    [{ path: 'nested/path', type: 'tree', sha: '4'.repeat(40) }],
+  ]) {
+    await assert.rejects(
+      readAuthorityStateForReplay(replayTreeRequest({ rootEntries }), repository, prNumber),
+      /invalid entry/,
+    );
+  }
+});
+
+test('replay accepts valid unrelated entries beside the authority path', async () => {
+  const result = await readAuthorityStateForReplay(replayTreeRequest({ rootEntries: [
+    { path: 'README.md', type: 'blob', sha: '7'.repeat(40) },
+    { path: '.github', type: 'tree', sha: '4'.repeat(40) },
+  ] }), repository, prNumber);
+  assert.equal(result, null);
+});
+
 test('replay reads a present ledger from the pinned blob', async () => {
   const result = await readAuthorityStateForReplay(
     replayTreeRequest({ ledgerPresent: true }), repository, prNumber,
@@ -115,6 +139,39 @@ test('replay rejects non-canonical base64 in a present pinned ledger', async () 
     ),
     /non-canonical base64/,
   );
+});
+
+test('replay rejects invalid receipts in every ledger slot', async () => {
+  const receipt = {
+    id: 'c'.repeat(64),
+    claim_digest: 'e'.repeat(64),
+    owner_attempt: 'other/repo:100:1',
+    head_sha: headSha,
+    provider: 'codex',
+    consumed_at: '2026-10-01T00:00:00.000Z',
+  };
+  for (const stateMutator of [
+    (state) => { state.status = 'consumed'; state.receipt = receipt; },
+    (state) => {
+      state.released_generation = state.generation;
+      state.released_receipt = { ...receipt };
+    },
+    (state) => {
+      state.recovered_generation = state.generation;
+      state.recovered_receipt = { ...receipt };
+    },
+    (state) => {
+      state.released_generation = state.generation;
+      state.released_receipt = {};
+    },
+  ]) {
+    await assert.rejects(
+      readAuthorityStateForReplay(
+        replayTreeRequest({ ledgerPresent: true, stateMutator }), repository, prNumber,
+      ),
+      /Invalid authoritative challenge state/,
+    );
+  }
 });
 
 function status(code) {
