@@ -42,7 +42,7 @@ function collectChangedPaths(pr, files) {
   if (!Number.isInteger(expected) || expected < 0) {
     throw new Error('Pull request changed-file count is missing or invalid');
   }
-  if (!Array.isArray(files) || files.length !== expected || files.length >= 3000) {
+  if (!Array.isArray(files) || files.length !== expected) {
     throw new Error(`Pull request changed-file evidence is incomplete (${files?.length ?? 'missing'}/${expected})`);
   }
 
@@ -127,6 +127,9 @@ function validateBinding({ run, workflow, pr, repository }) {
   }
   if (pr.state !== 'open') throw new Error('Pull request is no longer open');
   if (pr.base?.repo?.id !== repository.id) throw new Error('PR base repository does not match publisher repository');
+  if (!repository.default_branch || pr.base?.ref !== repository.default_branch) {
+    throw new Error('PR base is not the trusted default branch');
+  }
   if (pr.head?.sha !== run.head_sha) throw new Error('PR head no longer matches Gate head');
   if (!pr.head?.repo?.id || pr.head.repo.id === repository.id) throw new Error('Publisher only handles fork pull requests');
   if (Number(run.head_repository?.id) !== Number(pr.head.repo.id)) {
@@ -201,17 +204,14 @@ async function publishGateForkStatus({ github, context, core }) {
     : [];
   const result = publicationState({ run, jobs, changedFiles: changedPaths });
 
+  // Pagination can outlive a rerun, so read statuses before the final binding
+  // checks for both replay suppression and a new write.
   const statuses = await paginate(retry, github.rest.repos.listCommitStatusesForRef, {
     owner, repo, ref: pr.head.sha,
   });
-  const current = statuses.find(status => status.context === GATE_CONTEXT);
-  if (current?.state === result.state && current?.target_url === run.html_url) {
-    core.info(`Gate status already ${result.state} for ${pr.head.sha}; no write needed.`);
-    return result;
-  }
 
-  // Re-read both resources immediately before the write. A force-push or rerun
-  // between the earlier inspection and this point must never bless a stale SHA.
+  // Re-read both resources after pagination. A force-push or rerun between the
+  // earlier inspection and this point must never bless a stale SHA.
   run = await getFreshRun({ retry, owner, repo, runId: payloadRun.id });
   pr = (await retry.withRetry(client =>
     client.rest.pulls.get({ owner, repo, pull_number: pr.number })
@@ -227,6 +227,12 @@ async function publishGateForkStatus({ github, context, core }) {
     throw new Error('Pull request binding changed before publication');
   }
   await assertLatestAttempt({ github, retry, owner, repo, run });
+
+  const current = statuses.find(status => status.context === GATE_CONTEXT);
+  if (current?.state === result.state && current?.target_url === run.html_url) {
+    core.info(`Gate status already ${result.state} for ${pr.head.sha}; no write needed.`);
+    return result;
+  }
 
   await retry.withRetry(client => client.rest.repos.createCommitStatus({
       owner,
