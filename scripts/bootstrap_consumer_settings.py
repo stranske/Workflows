@@ -329,9 +329,7 @@ def _issue_labels(issue: dict[str, Any]) -> set[str]:
         name = (
             label
             if isinstance(label, str)
-            else label.get("name")
-            if isinstance(label, dict)
-            else None
+            else label.get("name") if isinstance(label, dict) else None
         )
         if not isinstance(name, str):
             raise ValueError("Issue label entry is malformed")
