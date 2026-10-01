@@ -342,6 +342,69 @@ test('beginChallenge reaps an expired orphaned preparation with exact index and 
     now: new Date(afterExpiry.getTime() + 1) })).granted, true);
 });
 
+test('beginChallenge migrates an expired legacy preparation after exact index backfill', async () => {
+  const api = fakeGitHub();
+  const started = new Date('2030-01-01T00:00:00.000Z');
+  const first = await beginChallenge({ request: api.request, repository, prNumber,
+    defaultBranch: 'main', fingerprint, headSha, ...boundaryAt(started), now: started });
+  assert.equal((await prepareChallenge({ request: api.request, repository, prNumber,
+    claim: claim(first), ownerAttempt, provider: 'codex', headSha, now: started })).prepared,
+  true);
+  api.mutateAuthorityState((state) => { delete state.prepared_claim; });
+  api.deleteAttemptIndex();
+  const afterExpiry = new Date(started.getTime() + 2_000);
+
+  const recovered = await beginChallenge({ request: api.request, repository, prNumber,
+    defaultBranch: 'main', fingerprint, headSha, expectedGeneration: first.generation,
+    ...boundaryAt(afterExpiry), now: afterExpiry });
+  assert.equal(recovered.status, 'available');
+  assert.notEqual(recovered.generation, first.generation);
+  assert.equal(recovered.released_generation, first.generation);
+  assert.deepEqual(recovered.released_generation_lineage, [first.generation]);
+  assert.equal(recovered.released_receipt.owner_attempt, ownerAttempt);
+
+  const target = await findAuthorityPrForAttempt({
+    request: api.request, repository, ownerAttempt,
+  });
+  assert.equal(target.prNumber, prNumber);
+  assert.equal(target.state.generation, recovered.generation);
+});
+
+test('legacy preparation migration accepts an exact index retry but rejects conflicts', async () => {
+  const started = new Date('2030-01-01T00:00:00.000Z');
+  const afterExpiry = new Date(started.getTime() + 2_000);
+  for (const [block, recovers] of [
+    [() => {}, true],
+    [(api) => api.mutateAttemptIndex((index) => { index.generation = 'f'.repeat(64); }), false],
+    [(api) => api.mutateAttemptIndex((index) => {
+      index.owner_attempt = 'other/repo:100:1';
+    }), false],
+    [(api) => api.setPrHead('e'.repeat(40)), false],
+    [(api) => api.setPrLabels([]), false],
+    [(api) => api.setPrLabels(['agent:needs-attention', 'needs-human']), false],
+  ]) {
+    const api = fakeGitHub();
+    const first = await beginChallenge({ request: api.request, repository, prNumber,
+      defaultBranch: 'main', fingerprint, headSha, ...boundaryAt(started), now: started });
+    assert.equal((await prepareChallenge({ request: api.request, repository, prNumber,
+      claim: claim(first), ownerAttempt, provider: 'codex', headSha, now: started })).prepared,
+    true);
+    api.mutateAuthorityState((state) => { delete state.prepared_claim; });
+    block(api);
+
+    const result = await beginChallenge({ request: api.request, repository, prNumber,
+      defaultBranch: 'main', fingerprint, headSha, expectedGeneration: first.generation,
+      ...boundaryAt(afterExpiry), now: afterExpiry });
+    if (recovers) {
+      assert.equal(result.status, 'available');
+      assert.notEqual(result.generation, first.generation);
+    } else {
+      assert.equal(result.status, 'prepared');
+      assert.equal(result.generation, first.generation);
+    }
+  }
+});
+
 test('lost preparation response remains recoverable after expiry', async () => {
   const api = fakeGitHub();
   const started = new Date('2030-01-01T00:00:00.000Z');

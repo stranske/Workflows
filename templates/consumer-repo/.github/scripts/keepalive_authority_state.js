@@ -225,6 +225,17 @@ function preparedAttemptMatchesIndex(state, index, repository, prNumber) {
     index.receipt.provider === receipt.provider && index.receipt.head_sha === state.head_sha;
 }
 
+function legacyPreparedAttemptMatchesIndex(state, index, repository, prNumber) {
+  const receipt = state?.receipt;
+  const ownerAttempt = receipt?.owner_attempt;
+  return state?.status === 'prepared' && state.prepared_claim === undefined &&
+    validReceipt(receipt) && receipt.head_sha === state.head_sha &&
+    ownerAttempt.startsWith(`${String(repository).toLowerCase()}:`) &&
+    index.repository === String(repository).toLowerCase() &&
+    index.pr_number === Number(prNumber) && index.owner_attempt === ownerAttempt &&
+    index.generation === state.generation && sameReceipt(index.receipt, receipt);
+}
+
 function sameReceipt(left, right) {
   return Boolean(left && right) &&
     ['id', 'claim_digest', 'owner_attempt', 'provider', 'head_sha', 'consumed_at']
@@ -254,10 +265,90 @@ function nextRecoveredLineage(state) {
   return [original, ...recent];
 }
 
+async function recoverExpiredLegacyPreparation({ request, repository, prNumber, prior, now }) {
+  const state = prior.state;
+  if (state.status !== 'prepared' || state.prepared_claim !== undefined ||
+      now.getTime() < Date.parse(state.expires_at) ||
+      state.receipt?.head_sha !== state.head_sha ||
+      !state.receipt?.owner_attempt?.startsWith(`${String(repository).toLowerCase()}:`)) {
+    return { outcome: 'preserve' };
+  }
+  const eligible = () => prMatches(request, repository, prNumber, state.head_sha,
+    'agent:needs-attention', 'needs-human').catch(() => false);
+  if (!await eligible()) return { outcome: 'preserve' };
+
+  const expectedIndex = {
+    version: 1,
+    repository: String(repository).toLowerCase(),
+    owner_attempt: state.receipt.owner_attempt,
+    pr_number: Number(prNumber),
+    generation: state.generation,
+    receipt: state.receipt,
+  };
+  let index;
+  try {
+    index = await readAttemptIndex(request, repository, state.receipt.owner_attempt,
+      { allowMissing: true });
+    if (!index) {
+      try {
+        index = await createAttemptIndex(request, repository, state.receipt.owner_attempt,
+          expectedIndex);
+      } catch (_) {
+        index = await readAttemptIndex(request, repository, state.receipt.owner_attempt,
+          { allowMissing: true });
+      }
+    }
+  } catch (_) {
+    return { outcome: 'preserve' };
+  }
+  if (!index || !legacyPreparedAttemptMatchesIndex(state, index, repository, prNumber)) {
+    return { outcome: 'preserve' };
+  }
+
+  const current = await readAuthorityState(request, repository, prNumber).catch(() => null);
+  if (!current || !legacyPreparedAttemptMatchesIndex(
+    current.state, index, repository, prNumber,
+  ) || current.state.generation !== state.generation ||
+      !sameReceipt(current.state.receipt, state.receipt) || !await eligible()) {
+    return { outcome: 'preserve' };
+  }
+  const nowMs = now.getTime();
+  const next = {
+    ...current.state,
+    generation: crypto.randomBytes(32).toString('hex'),
+    due_at: new Date(nowMs).toISOString(),
+    expires_at: new Date(nowMs + 24 * 60 * 60 * 1000).toISOString(),
+    status: 'available',
+    receipt: null,
+    prepared_claim: null,
+    released_receipt: current.state.receipt,
+    released_generation: current.state.generation,
+    released_generation_lineage: [current.state.generation],
+    revision: current.state.revision + 1,
+  };
+  try {
+    await writeAuthorityState(request, repository, prNumber, next, current.sha);
+  } catch (_) {
+    const settled = await readAuthorityState(request, repository, prNumber).catch(() => null);
+    const exactRelease = settled?.state.status === 'available' &&
+      settled.state.receipt === null && settled.state.generation === next.generation &&
+      settled.state.head_sha === state.head_sha &&
+      settled.state.released_generation === state.generation &&
+      sameReceipt(settled.state.released_receipt, state.receipt) &&
+      settled.state.revision === next.revision;
+    if (!exactRelease) return { outcome: 'preserve' };
+  }
+  if (!await eligible()) return { outcome: 'preserve' };
+  return { outcome: 'recovered' };
+}
+
 async function recoverExpiredPreparation({ request, repository, prNumber, prior, now }) {
   const state = prior.state;
   if (state.status !== 'prepared' || now.getTime() < Date.parse(state.expires_at)) {
     return { outcome: 'preserve' };
+  }
+  if (state.prepared_claim === undefined) {
+    return recoverExpiredLegacyPreparation({ request, repository, prNumber, prior, now });
   }
   let index;
   try {
