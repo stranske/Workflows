@@ -108,6 +108,7 @@ jobs:
             });
             core.info(`Open PRs: ${prs.length}; non-draft keepalive agent PRs: ${eligible.length}`);
             let dispatched = 0;
+            let replayDispatched = 0;
             let challenged = 0;
             for (const pr of eligible) {
               if (dryRun) {
@@ -115,6 +116,18 @@ jobs:
                 continue;
               }
               try {
+                try {
+                  await withRetry((client) => client.rest.actions.createWorkflowDispatch({
+                    owner,
+                    repo,
+                    workflow_id: 'agents-keepalive-loop-reporter.yml',
+                    ref: context.payload.repository.default_branch,
+                    inputs: { pr_number: String(pr.number) },
+                  }));
+                  replayDispatched += 1;
+                } catch (error) {
+                  core.warning(`PR #${pr.number}: authority replay dispatch failed: ${error.message}`);
+                }
                 let dueChallenge = null;
                 if ((pr.labels || []).some(
                   (label) => (label.name || '').toLowerCase() === 'agent:needs-attention',
@@ -216,6 +229,7 @@ jobs:
             await core.summary
               .addRaw(
                 `Keepalive sweep: ${eligible.length} agent PR(s) eligible, ` +
+                `${replayDispatched} authority replay(s) requested, ` +
                 `${dispatched} re-evaluated, ${challenged} due authority claim(s) challenged ` +
                 `(dry_run=${dryRun}).`,
               )

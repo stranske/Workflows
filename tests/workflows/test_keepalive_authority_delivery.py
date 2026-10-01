@@ -62,17 +62,55 @@ def test_gate_paths_deny_invalid_claims_and_reporters_can_persist_generation() -
         TEMPLATE / ".github/workflows/agents-keepalive-loop-reporter.yml",
     ):
         workflow = yaml.safe_load(path.read_text())
+        assert "concurrency" not in workflow
+        assert workflow[True]["workflow_dispatch"]["inputs"]["pr_number"]["required"] is True
+        resolver = workflow["jobs"]["resolve-target"]
+        assert resolver["permissions"] == {
+            "actions": "read",
+            "contents": "read",
+            "issues": "read",
+            "pull-requests": "read",
+        }
+        assert set(resolver["outputs"]) == {
+            "skip",
+            "lock_pr_number",
+            "pr_number",
+            "ordinary_target",
+        }
+        resolver_names = [step["name"] for step in resolver["steps"]]
+        assert resolver_names == [
+            "Checkout reporter classifier",
+            "Classify unassociated dispatch",
+        ]
+        resolver_text = path.read_text().split("  report:", 1)[0]
+        assert "core.setOutput('lock_pr_number'" in resolver_text
+        assert "result.prNumber || associated" in resolver_text
+        assert "result.targetSource === 'ordinary-run-name'" in resolver_text
+        assert "github.run_id" not in resolver_text
+        assert resolver["steps"][0]["with"]["persist-credentials"] is False
         report_condition = workflow["jobs"]["report"]["if"]
+        assert "needs.resolve-target.result == 'success'" in report_condition
+        assert "needs.resolve-target.outputs.skip != 'true'" in report_condition
+        assert "needs.resolve-target.outputs.lock_pr_number != ''" in report_condition
         assert "github.event.workflow_run.conclusion != 'success'" in report_condition
         assert "github.event.workflow_run.conclusion != 'skipped'" in report_condition
+        report_concurrency = workflow["jobs"]["report"]["concurrency"]
+        assert report_concurrency == {
+            "group": "keepalive-loop-reporter-${{ needs.resolve-target.outputs.lock_pr_number }}",
+            "cancel-in-progress": False,
+        }
         steps = workflow["jobs"]["report"]["steps"]
         names = [step["name"] for step in steps]
-        assert names.index("Classify unassociated dispatch") < names.index(
+        assert "Classify unassociated dispatch" not in names
+        assert steps[0]["with"]["persist-credentials"] is False
+        assert names.index("Checkout keepalive scripts") < names.index(
             "Mint KEEPALIVE_APP reporter token"
         )
         assert "keepalive_reporter_applicability.js" in path.read_text()
         assert "core.setOutput('pr_number'" in path.read_text()
         assert "core.setOutput('ordinary_target'" in path.read_text()
+        assert "needs.resolve-target.outputs.pr_number" in path.read_text()
+        assert "needs.resolve-target.outputs.ordinary_target" in path.read_text()
         assert "CLASSIFIED_PR_NUMBER:" in path.read_text()
         assert "CLASSIFIED_ORDINARY_TARGET:" in path.read_text()
         assert "state?.running_owner_attempt !== ownerAttempt" in path.read_text()
@@ -91,6 +129,9 @@ def test_gate_paths_deny_invalid_claims_and_reporters_can_persist_generation() -
         assert "retry this reporter" in path.read_text()
         assert "Require PR association for failed originating run" not in path.read_text()
         assert "agent_execution_started: false" not in path.read_text()
+        assert "replayReporterAuthority" in path.read_text()
+        assert "Authority replay outcomes" in path.read_text()
+        assert "context.eventName === 'workflow_dispatch'" in path.read_text()
 
     applicability = (ROOT / ".github/scripts/keepalive_reporter_applicability.js").read_text()
     assert "run.id}:${run.run_attempt || 1}" in applicability
@@ -98,6 +139,17 @@ def test_gate_paths_deny_invalid_claims_and_reporters_can_persist_generation() -
     assert "const projection = await projectRecovery(" in applicability
     assert "lookupTarget = findAuthorityPrForAttempt" in applicability
     assert "No PR association or authoritative attempt target" in applicability
+    assert "async function replayReporterAuthority" in applicability
+    assert "actions/runs/{run_id}/attempts/{attempt_number}" in applicability
+    assert "worker evidence is unknown" in applicability
+
+    for sweep in (
+        ROOT / ".github/workflows/agents-keepalive-sweep.yml",
+        TEMPLATE / ".github/workflows/agents-keepalive-sweep.yml",
+    ):
+        text = sweep.read_text()
+        assert "workflow_id: 'agents-keepalive-loop-reporter.yml'" in text
+        assert "authority replay dispatch failed" in text
 
     for producer in (
         ROOT / ".github/workflows/agents-keepalive-loop.yml",
@@ -115,7 +167,7 @@ def test_gate_paths_deny_invalid_claims_and_reporters_can_persist_generation() -
     root_steps = yaml.safe_load(root_reporter)["jobs"]["report"]["steps"]
     for name in ("Set up Node.js", "Setup API client"):
         step = next(step for step in root_steps if step["name"] == name)
-        assert "steps.applicability.outputs.skip != 'true'" in step["if"]
+        assert "needs.resolve-target.outputs.skip != 'true'" in step["if"]
     consumer_reporter = (
         TEMPLATE / ".github/workflows/agents-keepalive-loop-reporter.yml"
     ).read_text()
