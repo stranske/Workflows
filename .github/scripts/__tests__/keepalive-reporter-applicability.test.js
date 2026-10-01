@@ -6,7 +6,9 @@ const path = require('node:path');
 const test = require('node:test');
 const {
   classifyReporterRun,
+  parseOwnerAttempt,
   recoverReporterAuthority,
+  replayReporterAuthority,
 } = require('../keepalive_reporter_applicability.js');
 const {
   formatStateComment,
@@ -338,4 +340,72 @@ test('superseded recovery stops reporter processing without comment mutation', a
   assert.equal(result.status, 'superseded');
   assert.equal(result.projection.reason, 'recovery-superseded');
   assert.equal(github.actions.length, 0);
+});
+
+test('owner attempt parsing is repository-bound and canonical', () => {
+  assert.deepEqual(parseOwnerAttempt('stranske/repo', 'STRANSKE/REPO:12345:2'), {
+    ownerAttempt: 'stranske/repo:12345:2', runId: 12345, runAttempt: 2,
+  });
+  assert.equal(parseOwnerAttempt('stranske/repo', 'stranske/other:12345:2'), null);
+  assert.equal(parseOwnerAttempt('stranske/repo', 'stranske/repo:0:2'), null);
+  assert.equal(parseOwnerAttempt('stranske/repo', 'stranske/repo:12345:0'), null);
+});
+
+test('a later replay wake recovers a dropped middle reporter from the current receipt', async () => {
+  const ownerAttempt = 'stranske/repo:222:3';
+  const receipt = { owner_attempt: ownerAttempt };
+  const reconciliations = [];
+  const projections = [];
+  const github = {
+    request: async (route, params) => {
+      assert.equal(route,
+        'GET /repos/{owner}/{repo}/actions/runs/{run_id}/attempts/{attempt_number}');
+      assert.equal(params.run_id, 222);
+      assert.equal(params.attempt_number, 3);
+      return { data: { id: 222, run_attempt: 3, head_sha: head } };
+    },
+  };
+  const result = await replayReporterAuthority({
+    github,
+    context: { repo: { owner: 'stranske', repo: 'repo' } },
+    prNumber: 42,
+    writerLogin: 'agents-workflows-bot[bot]',
+    readAuthority: async () => ({ state: { receipt } }),
+    lookupTarget: async ({ ownerAttempt: actual }) => {
+      assert.equal(actual, ownerAttempt);
+      return { prNumber: 42 };
+    },
+    workerEvidenceForAttempt: async () => 'not-started',
+    reconcileAttempt: async (input) => {
+      reconciliations.push(input);
+      return { status: 'released', state: { released_receipt: receipt } };
+    },
+    projectRecovery: async (input) => {
+      projections.push(input);
+      return { projected: true };
+    },
+    makeRequest: () => 'request',
+  });
+  assert.equal(reconciliations.length, 1);
+  assert.equal(reconciliations[0].ownerAttempt, ownerAttempt);
+  assert.equal(reconciliations[0].workerEvidence, 'not-started');
+  assert.equal(projections.length, 1);
+  assert.equal(result.results[0].status, 'released');
+});
+
+test('replay fails closed when exact-attempt worker evidence is unknown', async () => {
+  const ownerAttempt = 'stranske/repo:222:3';
+  await assert.rejects(replayReporterAuthority({
+    github: { request: async () => ({
+      data: { id: 222, run_attempt: 3, head_sha: head },
+    }) },
+    context: { repo: { owner: 'stranske', repo: 'repo' } },
+    prNumber: 42,
+    writerLogin: 'agents-workflows-bot[bot]',
+    readAuthority: async () => ({ state: { receipt: { owner_attempt: ownerAttempt } } }),
+    lookupTarget: async () => ({ prNumber: 42 }),
+    workerEvidenceForAttempt: async () => 'unknown',
+    reconcileAttempt: async () => { throw new Error('must not reconcile'); },
+    makeRequest: () => 'request',
+  }), /worker evidence is unknown/);
 });

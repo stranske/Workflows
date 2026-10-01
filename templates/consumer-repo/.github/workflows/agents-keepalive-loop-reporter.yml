@@ -4,6 +4,12 @@ on:
   workflow_run:
     workflows: ["Agents Gate Followups"]
     types: [completed]
+  workflow_dispatch:
+    inputs:
+      pr_number:
+        description: 'Open PR whose current authority obligations should be replayed'
+        required: true
+        type: string
 
 permissions:
   contents: read
@@ -15,8 +21,9 @@ jobs:
   resolve-target:
     name: Resolve reporter target
     if: >-
-      github.event.workflow_run.conclusion != 'success' &&
-      github.event.workflow_run.conclusion != 'skipped'
+      github.event_name == 'workflow_dispatch' ||
+      (github.event.workflow_run.conclusion != 'success' &&
+      github.event.workflow_run.conclusion != 'skipped')
     runs-on: ubuntu-latest
     permissions:
       actions: read
@@ -47,6 +54,18 @@ jobs:
             const { classifyReporterRun } =
               require('./.github/scripts/keepalive_reporter_applicability.js');
             try {
+              if (context.eventName === 'workflow_dispatch') {
+                const resolved = Number(context.payload.inputs?.pr_number || 0);
+                if (!Number.isSafeInteger(resolved) || resolved <= 0 ||
+                    String(resolved) !== String(context.payload.inputs?.pr_number || '')) {
+                  throw new Error('Authority replay requires a canonical positive PR number');
+                }
+                core.setOutput('skip', 'false');
+                core.setOutput('lock_pr_number', String(resolved));
+                core.setOutput('pr_number', String(resolved));
+                core.setOutput('ordinary_target', 'false');
+                return;
+              }
               const result = await classifyReporterRun({
                 github, owner: context.repo.owner, repo: context.repo.repo,
                 run: context.payload.workflow_run,
@@ -74,8 +93,9 @@ jobs:
       needs.resolve-target.result == 'success' &&
       needs.resolve-target.outputs.skip != 'true' &&
       needs.resolve-target.outputs.lock_pr_number != '' &&
-      github.event.workflow_run.conclusion != 'success' &&
-      github.event.workflow_run.conclusion != 'skipped'
+      (github.event_name == 'workflow_dispatch' ||
+      (github.event.workflow_run.conclusion != 'success' &&
+      github.event.workflow_run.conclusion != 'skipped'))
     concurrency:
       group: keepalive-loop-reporter-${{ needs.resolve-target.outputs.lock_pr_number }}
       cancel-in-progress: false
@@ -102,6 +122,16 @@ jobs:
             ${{ github.event.workflow_run.pull_requests[0].number ||
                 needs.resolve-target.outputs.pr_number || '' }}
         run: |
+          if [ "${GITHUB_EVENT_NAME}" = "workflow_dispatch" ]; then
+            {
+              echo "should_run=true"
+              echo "reason=authority-replay"
+              echo "current_hash="
+              echo "prior_hash="
+            } >> "$GITHUB_OUTPUT"
+            exit 0
+          fi
+
           if [ -z "${PR_NUMBER:-}" ]; then
             {
               echo "should_run=true"
@@ -227,6 +257,19 @@ jobs:
             }}
           script: |
             const run = context.payload?.workflow_run || {};
+            const { replayReporterAuthority } =
+              require('./.github/scripts/keepalive_reporter_applicability.js');
+            const replayPrNumber = Number(
+              process.env.CLASSIFIED_PR_NUMBER || run.pull_requests?.[0]?.number || 0
+            );
+            const replay = await replayReporterAuthority({
+              github, context, prNumber: replayPrNumber,
+              writerLogin: process.env.KEEPALIVE_SUMMARY_WRITER || '',
+            });
+            core.info(`Authority replay outcomes: ${JSON.stringify(replay.results)}`);
+            if (context.eventName === 'workflow_dispatch') {
+              return;
+            }
             let prNumber = Number(
               run.pull_requests?.[0]?.number || process.env.CLASSIFIED_PR_NUMBER || 0
             );
