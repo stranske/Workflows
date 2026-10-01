@@ -142,8 +142,14 @@ def test_gate_paths_deny_invalid_claims_and_reporters_can_persist_generation() -
     assert "lookupTarget = findAuthorityPrForAttempt" in applicability
     assert "No PR association or authoritative attempt target" in applicability
     assert "async function replayReporterAuthority" in applicability
+    assert "readAuthorityStateForReplay" in applicability
+    assert "deferred-active-attempt" in applicability
     assert "actions/runs/{run_id}/attempts/{attempt_number}" in applicability
     assert "worker evidence is unknown" in applicability
+
+    authority = (ROOT / ".github/scripts/keepalive_authority_state.js").read_text()
+    assert "async function readAuthorityStateForReplay" in authority
+    assert "tree?.truncated !== false" in authority
 
     for sweep in (
         ROOT / ".github/workflows/agents-keepalive-sweep.yml",

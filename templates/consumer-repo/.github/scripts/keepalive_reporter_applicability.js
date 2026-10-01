@@ -2,7 +2,7 @@
 
 const {
   findAuthorityPrForAttempt,
-  readAuthorityState,
+  readAuthorityStateForReplay,
   reconcileFailedAuthorityAttempt,
   requester,
 } = require('./keepalive_authority_state.js');
@@ -16,6 +16,7 @@ const PRODUCERS = new Set([
   '.github/workflows/agents-keepalive-loop.yml',
   '.github/workflows/agents-81-gate-followups.yml',
 ]);
+const ACTIVE_RUN_STATUSES = new Set(['queued', 'in_progress', 'waiting', 'requested', 'pending']);
 
 async function classifyReporterRun({ github, owner, repo, run, lookupTarget = findAuthorityPrForAttempt }) {
   if (Number(run.pull_requests?.[0]?.number || 0) > 0) return { status: 'continue' };
@@ -150,7 +151,7 @@ async function replayReporterAuthority({
   prNumber,
   writerLogin,
   maxPasses = 3,
-  readAuthority = readAuthorityState,
+  readAuthority = readAuthorityStateForReplay,
   lookupTarget = findAuthorityPrForAttempt,
   reconcileAttempt = reconcileFailedAuthorityAttempt,
   projectRecovery = projectRecoveredAuthorityState,
@@ -168,7 +169,11 @@ async function replayReporterAuthority({
   const results = [];
   const seen = new Set();
   for (let pass = 0; pass < maxPasses; pass += 1) {
-    const { state } = await readAuthority(request, repository, number);
+    const authority = await readAuthority(request, repository, number);
+    // Most keepalive PRs never enter the challenge path and have no ledger. Only
+    // absence proved from a complete, pinned authority tree is an empty replay.
+    if (authority === null) break;
+    const { state } = authority;
     const attempts = [state.receipt, state.released_receipt, state.recovered_receipt]
       .map((receipt) => parseOwnerAttempt(repository, receipt?.owner_attempt))
       .filter(Boolean)
@@ -188,11 +193,28 @@ async function replayReporterAuthority({
         { owner, repo, run_id: attempt.runId, attempt_number: attempt.runAttempt },
       );
       const run = runResponse?.data || {};
-      if (run.status !== 'completed' ||
-          Number(run.id) !== attempt.runId ||
+      if (Number(run.id) !== attempt.runId ||
           Number(run.run_attempt || 0) !== attempt.runAttempt ||
           !/^[0-9a-f]{40}$/.test(String(run.head_sha || ''))) {
         throw new Error(`Replay run identity is unavailable for ${attempt.ownerAttempt}`);
+      }
+      const indexedReceipt = [indexed.state?.receipt, indexed.state?.released_receipt,
+        indexed.state?.recovered_receipt]
+        .find((receipt) => receipt?.owner_attempt === attempt.ownerAttempt);
+      if (!indexedReceipt || indexedReceipt.head_sha !== run.head_sha) {
+        throw new Error(`Replay run identity does not match authority for ${attempt.ownerAttempt}`);
+      }
+      if (ACTIVE_RUN_STATUSES.has(run.status)) {
+        results.push({
+          ownerAttempt: attempt.ownerAttempt,
+          workerEvidence: null,
+          status: 'deferred-active-attempt',
+          projection: null,
+        });
+        continue;
+      }
+      if (run.status !== 'completed') {
+        throw new Error(`Replay run status is unsupported for ${attempt.ownerAttempt}: ${run.status}`);
       }
       const workerEvidence = await workerEvidenceForAttempt(
         github, owner, repo, attempt.runId, attempt.runAttempt, run.head_sha,

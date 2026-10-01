@@ -353,7 +353,7 @@ test('owner attempt parsing is repository-bound and canonical', () => {
 
 test('a later replay wake recovers a dropped middle reporter from the current receipt', async () => {
   const ownerAttempt = 'stranske/repo:222:3';
-  const receipt = { owner_attempt: ownerAttempt };
+  const receipt = { owner_attempt: ownerAttempt, head_sha: head };
   const reconciliations = [];
   const projections = [];
   const github = {
@@ -373,7 +373,7 @@ test('a later replay wake recovers a dropped middle reporter from the current re
     readAuthority: async () => ({ state: { receipt } }),
     lookupTarget: async ({ ownerAttempt: actual }) => {
       assert.equal(actual, ownerAttempt);
-      return { prNumber: 42 };
+      return { prNumber: 42, state: { receipt } };
     },
     workerEvidenceForAttempt: async () => 'not-started',
     reconcileAttempt: async (input) => {
@@ -393,8 +393,34 @@ test('a later replay wake recovers a dropped middle reporter from the current re
   assert.equal(result.results[0].status, 'released');
 });
 
+test('replay is a no-op when an ordinary PR has no authority ledger', async () => {
+  const result = await replayReporterAuthority({
+    github: { request: async () => { throw new Error('no run lookup expected'); } },
+    context: { repo: { owner: 'stranske', repo: 'repo' } },
+    prNumber: 42,
+    readAuthority: async (_request, repository, number) => {
+      assert.equal(repository, 'stranske/repo');
+      assert.equal(number, 42);
+      return null;
+    },
+    makeRequest: () => 'request',
+  });
+  assert.deepEqual(result, { prNumber: 42, results: [] });
+});
+
+test('replay still fails closed when an authority ledger read fails', async () => {
+  await assert.rejects(replayReporterAuthority({
+    github: {},
+    context: { repo: { owner: 'stranske', repo: 'repo' } },
+    prNumber: 42,
+    readAuthority: async () => { throw new Error('ledger unavailable'); },
+    makeRequest: () => 'request',
+  }), /ledger unavailable/);
+});
+
 test('replay fails closed when exact-attempt worker evidence is unknown', async () => {
   const ownerAttempt = 'stranske/repo:222:3';
+  const receipt = { owner_attempt: ownerAttempt, head_sha: head };
   await assert.rejects(replayReporterAuthority({
     github: { request: async () => ({
       data: { id: 222, run_attempt: 3, head_sha: head, status: 'completed' },
@@ -402,10 +428,41 @@ test('replay fails closed when exact-attempt worker evidence is unknown', async 
     context: { repo: { owner: 'stranske', repo: 'repo' } },
     prNumber: 42,
     writerLogin: 'agents-workflows-bot[bot]',
-    readAuthority: async () => ({ state: { receipt: { owner_attempt: ownerAttempt } } }),
-    lookupTarget: async () => ({ prNumber: 42 }),
+    readAuthority: async () => ({ state: { receipt } }),
+    lookupTarget: async () => ({ prNumber: 42, state: { receipt } }),
     workerEvidenceForAttempt: async () => 'unknown',
     reconcileAttempt: async () => { throw new Error('must not reconcile'); },
     makeRequest: () => 'request',
   }), /worker evidence is unknown/);
+});
+
+test('replay defers an exact active attempt without worker reads or state writes', async () => {
+  const ownerAttempt = 'stranske/repo:222:3';
+  const receipt = { owner_attempt: ownerAttempt, head_sha: head };
+  let workerReads = 0;
+  let reconciliations = 0;
+  let projections = 0;
+  const result = await replayReporterAuthority({
+    github: { request: async () => ({
+      data: { id: 222, run_attempt: 3, head_sha: head, status: 'in_progress' },
+    }) },
+    context: { repo: { owner: 'stranske', repo: 'repo' } },
+    prNumber: 42,
+    writerLogin: 'agents-workflows-bot[bot]',
+    readAuthority: async () => ({ state: { receipt } }),
+    lookupTarget: async () => ({ prNumber: 42, state: { receipt } }),
+    workerEvidenceForAttempt: async () => { workerReads += 1; },
+    reconcileAttempt: async () => { reconciliations += 1; },
+    projectRecovery: async () => { projections += 1; },
+    makeRequest: () => 'request',
+  });
+  assert.deepEqual(result, { prNumber: 42, results: [{
+    ownerAttempt,
+    workerEvidence: null,
+    status: 'deferred-active-attempt',
+    projection: null,
+  }] });
+  assert.equal(workerReads, 0);
+  assert.equal(reconciliations, 0);
+  assert.equal(projections, 0);
 });
