@@ -6,6 +6,13 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 Breaking changes are called out with a **BREAKING** marker and scheduled according to the policy in `COMPATIBILITY.md`.
 
+## [1.37.5](https://github.com/stranske/Workflows/compare/v1.37.4...v1.37.5) (2026-10-01)
+
+
+### Bug Fixes
+
+* **keepalive:** bind recovery markers to authority receipt owners ([#3639](https://github.com/stranske/Workflows/issues/3639)) ([e2923c8](https://github.com/stranske/Workflows/commit/e2923c81aa97c8daa8a8ccea384b6226b81fc096))
+
 ## [1.37.4](https://github.com/stranske/Workflows/compare/v1.37.3...v1.37.4) (2026-09-30)
 
 
