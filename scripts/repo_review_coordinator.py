@@ -53,6 +53,7 @@ try:
     from scripts.repo_review_round1_schema import validate_findings
     from scripts.repo_review_round2_schema import validate_converged_set
     from scripts.repo_review_state import (
+        STATE_SCHEMA_VERSION,
         begin_attempt,
         finish_attempt,
         load_state,
@@ -64,6 +65,7 @@ except ModuleNotFoundError:  # pragma: no cover - direct script execution
     from repo_review_round1_schema import validate_findings  # type: ignore[no-redef]
     from repo_review_round2_schema import validate_converged_set  # type: ignore[no-redef]
     from repo_review_state import (  # type: ignore[no-redef]
+        STATE_SCHEMA_VERSION,
         begin_attempt,
         finish_attempt,
         load_state,
@@ -847,6 +849,13 @@ def validate_fleet_provenance(
         except (OSError, UnicodeError, json.JSONDecodeError, TypeError, ValueError) as exc:
             errors.append(f"cannot load terminal review state at {state_path}: {exc}")
         else:
+            if state.schema_version != STATE_SCHEMA_VERSION:
+                errors.append(
+                    f"state schema_version={state.schema_version!r}, "
+                    f"expected {STATE_SCHEMA_VERSION!r}"
+                )
+            if state.repo != repo:
+                errors.append(f"state repo={state.repo!r}, expected {repo!r}")
             if state.status not in TERMINAL_SEMANTIC_REVIEW_STATUSES:
                 errors.append(
                     f"semantic review state is {state.status!r}, expected one of "
@@ -1426,7 +1435,11 @@ def run(args: argparse.Namespace) -> int:
             )
             return 1
 
-    target_repo_configs = [repo for repo in repos if repo.repo in set(target_repos)]
+    # The evaluator renders every active registry entry even when a focused
+    # coordinator invocation selected a subset. Audit that same publication
+    # scope; a focused run may be diagnostic, but it must never publish a
+    # packet that silently contains stale evidence for another active repo.
+    aggregate_repo_configs = [repo for repo in repos if repo.status == "active"]
 
     # The per-repo runners attest findings to their current source commit, but
     # another sync can advance a repository after its turn and before the
@@ -1434,7 +1447,7 @@ def run(args: argparse.Namespace) -> int:
     # any aggregate preview or evaluator output can be treated as current.
     pre_evaluator_provenance = validate_fleet_provenance(
         output_dir=output_dir,
-        repo_configs=target_repo_configs,
+        repo_configs=aggregate_repo_configs,
         agents=list(args.agents),
         workspace_root=workspace_root,
     )
@@ -1581,7 +1594,7 @@ def run(args: argparse.Namespace) -> int:
     # immediately afterwards before any post-processing or notification.
     post_evaluator_provenance = validate_fleet_provenance(
         output_dir=output_dir,
-        repo_configs=target_repo_configs,
+        repo_configs=aggregate_repo_configs,
         agents=list(args.agents),
         workspace_root=workspace_root,
     )
@@ -1740,6 +1753,28 @@ def run(args: argparse.Namespace) -> int:
 
     docs_drift_attempt_path.replace(docs_drift_path)
     print(f"[coordinator] docs-drift-scan: ok -- {output_notes}")
+
+    # Backlog and docs-drift work can take several minutes after final
+    # evaluation. Recheck the entire eventual publication scope immediately
+    # before the notifier writes the persistent Desktop action surface.
+    pre_notify_provenance = validate_fleet_provenance(
+        output_dir=output_dir,
+        repo_configs=aggregate_repo_configs,
+        agents=list(args.agents),
+        workspace_root=workspace_root,
+    )
+    if not pre_notify_provenance["ok"]:
+        fail_for_fleet_provenance(
+            output_dir=output_dir,
+            phase="fleet-provenance-pre-notify",
+            audit=pre_notify_provenance,
+        )
+        print(
+            "[coordinator] fleet provenance FAILED before notify; "
+            "publishable outputs quarantined",
+            file=sys.stderr,
+        )
+        return 1
 
     # 6. Surface the cycle outcome to the human reviewer (macOS notification +
     #    persistent desktop file). The cron does NOT auto-upload; humans must
