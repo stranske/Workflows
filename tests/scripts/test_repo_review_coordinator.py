@@ -1500,3 +1500,30 @@ def test_run_quarantines_packet_when_source_drifts_during_final_evaluator(
     assert failure["repo"] == "stranske/Example"
     assert failure["phase"] == "fleet-provenance-post-evaluator"
     assert all(not (output_dir / name).exists() for name in coordinator.AGGREGATE_OUTPUT_NAMES)
+
+
+def test_fleet_provenance_failure_quarantines_desktop_notice(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """A post-evaluator failure cannot leave a fresh-looking Desktop notice."""
+    output_dir = tmp_path / "out"
+    output_dir.mkdir()
+    desktop_notice = tmp_path / "Desktop" / "REPO-REVIEW-ACTION-NEEDED.md"
+    desktop_notice.parent.mkdir()
+    desktop_notice.write_text("stale success\n", encoding="utf-8")
+    monkeypatch.setattr(coordinator, "desktop_action_needed_path", lambda: desktop_notice)
+
+    coordinator.fail_for_fleet_provenance(
+        output_dir=output_dir,
+        phase="fleet-provenance-post-evaluator",
+        audit={
+            "ok": False,
+            "checked_at": "after",
+            "repos": [{"repo": "stranske/Example", "errors": ["source_commit changed"]}],
+        },
+    )
+
+    assert not desktop_notice.exists()
+    moved = list((output_dir / "failed-runs").rglob("REPO-REVIEW-ACTION-NEEDED.md"))
+    assert len(moved) == 1
+    assert moved[0].read_text(encoding="utf-8") == "stale success\n"

@@ -898,13 +898,24 @@ def validate_fleet_provenance(
     }
 
 
+def desktop_action_needed_path() -> Path:
+    """Return the persistent notification surface that must not outlive a failure."""
+    return Path.home() / "Desktop" / "REPO-REVIEW-ACTION-NEEDED.md"
+
+
 def fail_for_fleet_provenance(
     *, output_dir: Path, phase: str, audit: dict[str, Any]
 ) -> None:
     """Quarantine publishable artifacts and leave concrete drift evidence."""
     failed = next((item for item in audit["repos"] if item["errors"]), None)
     repo = str((failed or {}).get("repo") or "fleet")
-    quarantined_outputs = quarantine_aggregate_outputs(output_dir, repo=repo, phase=phase)
+    desktop_notice = desktop_action_needed_path()
+    quarantined_outputs = quarantine_aggregate_outputs(
+        output_dir,
+        repo=repo,
+        phase=phase,
+        extra_paths=(desktop_notice,),
+    )
     (output_dir / "repo-review-run-failure.json").write_text(
         json.dumps(
             {
