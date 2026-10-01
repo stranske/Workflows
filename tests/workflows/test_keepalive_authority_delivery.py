@@ -186,14 +186,27 @@ def test_gate_paths_deny_invalid_claims_and_reporters_can_persist_generation() -
     assert consumer_steps["Report unchanged state skip"]["if"] == (
         "steps.fingerprint.outputs.should_run == 'false'"
     )
-    for name in (
-        "Mint KEEPALIVE_APP reporter token",
-        "Mint WORKFLOWS_APP reporter token",
-        "Require trusted keepalive reporter writer",
-        "Update summary for cancelled/failed runs",
-    ):
-        assert "steps.fingerprint.outputs.should_run == 'true'" in consumer_steps[name]["if"]
-    persist_condition = consumer_steps["Persist state fingerprint"]["if"]
-    assert "steps.fingerprint.outputs.should_run == 'true'" in persist_condition
-    assert "steps.fingerprint.outputs.current_hash != ''" in persist_condition
-    assert "steps.update-summary.outcome == 'success'" in persist_condition
+    assert consumer_steps["Mint KEEPALIVE_APP reporter token"]["if"] == (
+        "steps.fingerprint.outputs.should_run == 'true' && "
+        "github.event.workflow_run.conclusion != 'success' && "
+        "env.KEEPALIVE_APP_ID != '' && env.KEEPALIVE_APP_PRIVATE_KEY != ''"
+    )
+    assert consumer_steps["Mint WORKFLOWS_APP reporter token"]["if"] == (
+        "steps.fingerprint.outputs.should_run == 'true' && "
+        "github.event.workflow_run.conclusion != 'success' && "
+        "steps.reporter_keepalive_app_token.outputs.token == '' && "
+        "env.WORKFLOWS_APP_ID != '' && env.WORKFLOWS_APP_PRIVATE_KEY != ''"
+    )
+    assert consumer_steps["Require trusted keepalive reporter writer"]["if"] == (
+        "steps.fingerprint.outputs.should_run == 'true' && "
+        "github.event.workflow_run.conclusion != 'success'"
+    )
+    assert consumer_steps["Update summary for cancelled/failed runs"]["if"] == (
+        "steps.fingerprint.outputs.should_run == 'true' && "
+        "github.event.workflow_run.conclusion != 'success'"
+    )
+    assert consumer_steps["Persist state fingerprint"]["if"] == (
+        "steps.fingerprint.outputs.should_run == 'true' && "
+        "steps.fingerprint.outputs.current_hash != '' && "
+        "steps.update-summary.outcome == 'success'"
+    )
