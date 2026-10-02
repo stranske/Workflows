@@ -898,8 +898,9 @@ docs:
         reason: >-
           Orchestrator owns a terminal merge invariant in AGENTS.md that requires its local
           src/merge_guard.py for every repository-local terminal merge. Overwrite-sync removes
-          that safety rule and fails tests/test_merge_entrypoint_contract.py on workflow-sync PR
-          #399. Keep this tool-owned guidance local, as with its CLAUDE.md exception.
+          that safety rule and fails tests/test_merge_entrypoint_contract.py on generated
+          workflow-sync delivery. Keep this tool-owned guidance local, as with its CLAUDE.md
+          exception.
 
   - source: CLAUDE.md
     target: CLAUDE.md
