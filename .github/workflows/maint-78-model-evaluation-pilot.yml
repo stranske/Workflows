@@ -9,10 +9,14 @@ on:
         required: false
         type: string
       mode:
-        description: Plan is free; screen uses Codex subscription; confirm is a capped manual API comparison.
+        description: Plan and capture are free; screen uses Codex subscription; confirm is a capped API comparison.
         type: choice
-        options: [plan, screen, confirm]
+        options: [plan, capture, screen, confirm]
         default: plan
+      capture_targets:
+        description: Capture mode only; 1-8 comma-separated owner/repo#PR entries, no model calls.
+        required: false
+        type: string
       screen_source_run_id:
         description: Required for confirm; completed MAINT-78 screen run id with paired case IDs.
         required: false
@@ -82,6 +86,18 @@ jobs:
         run: >-
           python -m tools.plan_model_eval --output model-eval-plan.json
           --cli-catalog cli-catalog.json --summary "$GITHUB_STEP_SUMMARY"
+      - name: Capture production verifier inputs without model calls
+        if: github.event_name == 'workflow_dispatch' && inputs.mode == 'capture'
+        uses: actions/github-script@3a2844b7e9c422d3c10d287c895573f7108da1b3 # v9
+        env:
+          CAPTURE_TARGETS: ${{ inputs.capture_targets }}
+        with:
+          github-token: ${{ github.token }}
+          script: |
+            const { captureModelEvalInputs } = require('./tools/capture_model_eval_inputs.js');
+            await captureModelEvalInputs({
+              github, context, core, targets: process.env.CAPTURE_TARGETS,
+            });
       - name: Download completed CLI screen for API confirmation
         if: github.event_name == 'workflow_dispatch' && inputs.mode == 'confirm'
         uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c # v8
@@ -120,7 +136,6 @@ jobs:
       - name: Run bounded Codex CLI screen
         if: github.event_name == 'workflow_dispatch' && inputs.mode == 'screen'
         env:
-          GH_TOKEN: ${{ secrets.OWNER_PR_PAT }}
           CODEX_HOME: ${{ runner.temp }}/maint78-codex-home
           SCREEN_MODELS: ${{ inputs.models }}
         run: |
@@ -132,7 +147,6 @@ jobs:
       - name: Run capped paired API confirmation
         if: github.event_name == 'workflow_dispatch' && inputs.mode == 'confirm'
         env:
-          GH_TOKEN: ${{ secrets.OWNER_PR_PAT }}
           OPENAI_API_KEY: ${{ secrets.OPENAI_API_KEY }}
           API_ONLY_CANDIDATE: ${{ inputs.api_only_candidate }}
           SCREEN_SOURCE_RUN_ID: ${{ inputs.screen_source_run_id }}
@@ -157,4 +171,7 @@ jobs:
             model-eval-plan.json
             cli-screen-results.json
             api-confirmation-results.json
+            captured-inputs/**/verifier-context.md
+            captured-inputs/**/verifier-diff-summary.md
+            captured-inputs/**/verifier-input-manifest.json
           if-no-files-found: warn

@@ -8,7 +8,8 @@ from pathlib import Path
 from types import SimpleNamespace
 
 import pytest
-from scripts.langchain import pr_verifier
+from tools.create_model_eval_snapshot import create_case
+from tools.model_eval_snapshots import snapshot_digest, verifier_prompt
 from tools.plan_model_eval import ROOT, build_plan
 from tools.run_model_eval_api_confirm import MAX_OUTPUT_TOKENS, _invoke_api, _price, confirm
 from tools.run_model_eval_cli_screen import (
@@ -35,15 +36,50 @@ def _inputs():
     )
 
 
+def _screen_inputs():
+    corpus, registry, policy = _inputs()
+    corpus["screen_input_status"] = "production_context_adjudicated"
+    cases = select_cases(corpus["cases"])
+    corpus["screen_cases"] = json.loads(json.dumps(cases))
+    cases = corpus["screen_cases"]
+    for case in cases:
+        if case["category"] in {"review-thread-debt", "stale-verifier-claim"}:
+            case["category"] = "clean-pass"
+    corpus["screen_case_ids"] = [case["case_id"] for case in cases]
+    for case in cases:
+        snapshot = {
+            "context": f"context for {case['case_id']}",
+            "diff_summary": f"diff summary for {case['case_id']}",
+            "repository": case["repo"],
+            "pr": case["pr"],
+            "chain_depth": 0,
+            "merge_sha": "a" * 40,
+            "source_run_id": "123",
+            "adjudication_evidence": "https://example.com/independent-review",
+            "adjudicated_by": "test-reviewer",
+            "adjudication_rationale": "Compared the merge evidence with acceptance criteria.",
+            "input_kind": "production_capture",
+        }
+        snapshot["sha256"] = snapshot_digest(snapshot)
+        case["production_snapshot"] = snapshot
+    return corpus, registry, policy
+
+
 def _prompt_hashes(cases):
-    digest = hashlib.sha256(pr_verifier._prepare_prompt("context", "diff").encode()).hexdigest()
-    return {case["case_id"]: digest for case in cases}
+    return {
+        case["case_id"]: hashlib.sha256(
+            verifier_prompt(case["production_snapshot"]).encode()
+        ).hexdigest()
+        for case in cases
+    }
 
 
 def test_current_plan_flags_approval_gap_without_model_calls():
     plan = build_plan(*_inputs())
     assert not plan["approval_ready"]
-    assert plan["screen_ready"]
+    assert not plan["screen_ready"]
+    assert not plan["input_alignment_ready"]
+    assert any("historical labels" in blocker for blocker in plan["screen_blockers"])
     assert plan["automatic_api_calls"] == 0
     assert plan["corpus_cases"] == 51
     assert plan["approval_minimum_cases"] == 75
@@ -56,14 +92,34 @@ def test_current_plan_flags_approval_gap_without_model_calls():
 
 
 def test_candidate_screen_uses_policy_case_and_failure_counts():
-    corpus, registry, policy = _inputs()
+    corpus, registry, policy = _screen_inputs()
     changed = json.loads(json.dumps(policy))
-    changed["profiles"]["verifier-balanced"]["provisional_stage"]["screen_cases"] = 6
     plan = build_plan(corpus, registry, changed)
     assert plan["screen_ready"]
-    assert plan["screen_limit"]["cases"] == 6
+    assert plan["screen_limit"]["cases"] == 8
     changed["profiles"]["verifier-balanced"]["provisional_stage"]["minimum_non_pass_cases"] = 5
     assert not build_plan(corpus, registry, changed)["screen_ready"]
+    changed["profiles"]["verifier-balanced"]["provisional_stage"]["screen_cases"] = 6
+    assert not build_plan(corpus, registry, changed)["screen_ready"]
+
+
+def test_controlled_defect_screen_case_does_not_enter_statistical_denominator():
+    corpus, registry, policy = _screen_inputs()
+    negative = next(
+        case for case in corpus["screen_cases"] if case["expected_verdict"] == "NON_PASS"
+    )
+    negative["production_snapshot"]["input_kind"] = "controlled_defect"
+    negative["production_snapshot"]["mutation_note"] = "Controlled missing acceptance item."
+    plan = build_plan(corpus, registry, policy)
+    assert plan["screen_ready"]
+    assert plan["corpus_cases"] == 51
+    assert plan["expected_non_pass_cases"] == 4
+    assert plan["screen_case_kinds"][negative["case_id"]] == "controlled_defect"
+    assert {case["category"] for case in corpus["screen_cases"]} == {
+        "clean-pass",
+        "missing-acceptance-criterion",
+        "follow-up-required",
+    }
 
 
 def test_new_catalog_candidate_without_price_blocks_claim_of_best_available():
@@ -90,7 +146,7 @@ def test_plan_surfaces_models_missing_from_pinned_cli_catalog():
 
 
 def test_cli_screen_is_bounded_and_reports_comparative_cost():
-    corpus, registry, policy = _inputs()
+    corpus, registry, policy = _screen_inputs()
     cases = select_cases(corpus["cases"])
     assert len(cases) == 8
     assert {case["category"] for case in cases} == {case["category"] for case in corpus["cases"]}
@@ -122,7 +178,7 @@ def test_cli_screen_is_bounded_and_reports_comparative_cost():
 
 
 def test_cli_screen_advances_only_a_safer_cheaper_paired_candidate():
-    corpus, registry, policy = _inputs()
+    corpus, registry, policy = _screen_inputs()
     cases = select_cases(corpus["cases"])
     rows = []
     for model, cost in (("gpt-5.6-terra", 0.008), ("gpt-6-luna", 0.001)):
@@ -165,9 +221,9 @@ def test_cli_screen_advances_only_a_safer_cheaper_paired_candidate():
 
 
 def test_api_confirmation_is_paired_bounded_and_still_provisional(monkeypatch):
-    corpus, registry, policy = _inputs()
+    corpus, registry, policy = _screen_inputs()
     plan = build_plan(corpus, registry, policy)
-    cases = select_cases(corpus["cases"])
+    cases = corpus["screen_cases"]
     screen = {
         "schema": "workflows-verifier-cli-screen/v1",
         "screen_decision": "advance_to_api_confirmation",
@@ -179,9 +235,6 @@ def test_api_confirmation_is_paired_bounded_and_still_provisional(monkeypatch):
         "stopped_early": False,
     }
     calls = []
-    monkeypatch.setattr(
-        "tools.run_model_eval_api_confirm.fetch_pr", lambda *args: ("context", "diff")
-    )
 
     def fake_api(client, model, prompt):
         index = len(calls) // 2
@@ -287,8 +340,8 @@ def test_api_cost_reservation_rejects_invalid_registry_rates():
 
 
 def test_api_only_exception_requires_explicit_cli_absence_and_same_cases(monkeypatch):
-    corpus, registry, policy = _inputs()
-    cases = select_cases(corpus["cases"])
+    corpus, registry, policy = _screen_inputs()
+    cases = corpus["screen_cases"]
     screen = {
         "schema": "workflows-verifier-cli-screen/v1",
         "screen_decision": "retain_incumbent_on_screen",
@@ -307,9 +360,6 @@ def test_api_only_exception_requires_explicit_cli_absence_and_same_cases(monkeyp
             {"slug": "gpt-6-sol", "visibility": "list", "supported_in_api": True},
         ]
     }
-    monkeypatch.setattr(
-        "tools.run_model_eval_api_confirm.fetch_pr", lambda *args: ("context", "diff")
-    )
     calls = []
 
     def fake_api(client, model, prompt):
@@ -354,7 +404,7 @@ def test_missing_cli_usage_fails_closed():
 
 
 def test_cli_screen_rejects_unpaired_or_unpriced_selection_before_fetch(monkeypatch):
-    corpus, registry, policy = _inputs()
+    corpus, registry, policy = _screen_inputs()
     monkeypatch.setattr(
         "tools.run_model_eval_cli_screen.cli_model_ids", lambda _: {"gpt-5.6-terra", "gpt-6-astra"}
     )
@@ -402,7 +452,7 @@ def test_invalid_json_preserves_cli_usage_and_does_not_stop_screen(monkeypatch):
     assert outcome.error == "Invalid verifier JSON"
     assert not outcome.stop_screen
 
-    corpus, registry, policy = _inputs()
+    corpus, registry, policy = _screen_inputs()
     calls = []
 
     def fake_screen_invocation(*args):
@@ -415,7 +465,6 @@ def test_invalid_json_preserves_cli_usage_and_does_not_stop_screen(monkeypatch):
         "tools.run_model_eval_cli_screen.cli_model_ids",
         lambda _: {"gpt-5.6-terra", "gpt-6-sol"},
     )
-    monkeypatch.setattr("tools.run_model_eval_cli_screen.fetch_pr", lambda *args: ("context", ""))
     monkeypatch.setattr("tools.run_model_eval_cli_screen.invoke_cli", fake_screen_invocation)
     result = run_screen(
         corpus,
@@ -428,3 +477,144 @@ def test_invalid_json_preserves_cli_usage_and_does_not_stop_screen(monkeypatch):
     assert not result["stopped_early"]
     assert result["rows"][0]["schema_valid"] is False
     assert result["rows"][0]["modeled_api_cost_usd"] > 0
+
+
+def test_all_non_pass_candidate_cannot_advance_from_balanced_screen():
+    corpus, registry, policy = _screen_inputs()
+    cases = select_cases(corpus["cases"])
+    rows = []
+    for model in ("gpt-5.6-terra", "gpt-6-luna"):
+        for case in cases:
+            expected = case["expected_verdict"]
+            actual = expected
+            if model == "gpt-6-luna" and expected == "PASS":
+                actual = "NON_PASS"
+            if model == "gpt-5.6-terra" and expected == "NON_PASS":
+                actual = "PASS" if len(rows) == 4 else "NON_PASS"
+            rows.append(
+                {
+                    "case_id": case["case_id"],
+                    "category": case["category"],
+                    "expected_verdict": expected,
+                    "actual_verdict": actual,
+                    "schema_valid": True,
+                    "model_id": model,
+                    "modeled_api_cost_usd": 0.01 if model == "gpt-5.6-terra" else 0.001,
+                }
+            )
+    result = report(
+        build_plan(corpus, registry, policy),
+        cases,
+        ["gpt-5.6-terra", "gpt-6-luna"],
+        rows,
+        stopped_early=False,
+    )
+    assert result["provisional_shortlist_model_id"] is None
+    luna = next(row for row in result["models"] if row["model_id"] == "gpt-6-luna")
+    assert luna["pass_correct"] == 0
+
+
+def test_unaligned_confirmation_is_rejected_before_any_api_call():
+    corpus, registry, policy = _inputs()
+    with pytest.raises(ValueError, match="adjudicated production-context inputs"):
+        confirm(corpus, registry, policy, {}, github_token="x", client=object())
+
+
+def test_changed_production_snapshot_blocks_screen_before_model_calls(monkeypatch):
+    corpus, registry, policy = _screen_inputs()
+    first = next(
+        case for case in corpus["screen_cases"] if case["case_id"] == corpus["screen_case_ids"][0]
+    )
+    first["production_snapshot"]["context"] += "\nchanged after adjudication"
+    assert not build_plan(corpus, registry, policy)["screen_ready"]
+
+    def unexpected_catalog(_):
+        raise AssertionError("model catalog must not be read when the snapshot is invalid")
+
+    monkeypatch.setattr("tools.run_model_eval_cli_screen.cli_model_ids", unexpected_catalog)
+    with pytest.raises(ValueError, match="candidate screen is not ready"):
+        run_screen(
+            corpus,
+            registry,
+            policy,
+            models=["gpt-5.6-terra", "gpt-6-luna"],
+            token="",
+        )
+
+
+def test_snapshot_identity_depth_and_defect_label_fail_closed():
+    corpus, registry, policy = _screen_inputs()
+    first = corpus["screen_cases"][0]
+    snapshot = first["production_snapshot"]
+    snapshot["repository"] = "stranske/Different-Repo"
+    snapshot["sha256"] = snapshot_digest(snapshot)
+    assert not build_plan(corpus, registry, policy)["screen_ready"]
+
+    corpus, registry, policy = _screen_inputs()
+    first = corpus["screen_cases"][0]
+    snapshot = first["production_snapshot"]
+    snapshot["chain_depth"] = True
+    snapshot["sha256"] = snapshot_digest(snapshot)
+    assert not build_plan(corpus, registry, policy)["screen_ready"]
+
+    corpus, registry, policy = _screen_inputs()
+    first = next(case for case in corpus["screen_cases"] if case["expected_verdict"] == "PASS")
+    first["production_snapshot"]["input_kind"] = "controlled_defect"
+    first["production_snapshot"]["mutation_note"] = "Deliberate defect."
+    assert not build_plan(corpus, registry, policy)["screen_ready"]
+
+
+def test_duplicate_prompt_snapshot_cannot_be_counted_twice():
+    corpus, registry, policy = _screen_inputs()
+    first, second = corpus["screen_cases"][:2]
+    second["production_snapshot"] = json.loads(json.dumps(first["production_snapshot"]))
+    second["repo"] = first["repo"]
+    second["pr"] = first["pr"]
+    assert not build_plan(corpus, registry, policy)["screen_ready"]
+
+
+def test_snapshot_import_checks_capture_hash_and_marks_controlled_defects(tmp_path):
+    context = "# Verifier context\nacceptance at merge\n"
+    diff_summary = "## PR Diff Summary\n- one missing task\n"
+    (tmp_path / "verifier-context.md").write_text(context)
+    (tmp_path / "verifier-diff-summary.md").write_text(diff_summary)
+    manifest = {
+        "schema": "workflows-verifier-input-snapshot/v1",
+        "repository": "stranske/Workflows",
+        "pr": 10,
+        "merge_sha": "a" * 40,
+        "source_run_id": "123",
+        "chain_depth": 1,
+        "context_sha256": hashlib.sha256(context.encode()).hexdigest(),
+        "diff_summary_sha256": hashlib.sha256(diff_summary.encode()).hexdigest(),
+    }
+    (tmp_path / "verifier-input-manifest.json").write_text(json.dumps(manifest))
+    kwargs = {
+        "case_id": "workflows-10-seeded",
+        "expected_verdict": "NON_PASS",
+        "category": "missing-acceptance-criterion",
+        "adjudication_evidence": "https://example.com/review",
+        "adjudicated_by": "reviewer",
+        "adjudication_rationale": "One acceptance item is absent from the supplied summary.",
+    }
+    override = tmp_path / "missing-task.md"
+    override.write_text("## PR Diff Summary\n- task deliberately omitted\n")
+    context_override = tmp_path / "missing-context.md"
+    context_override.write_text("# Verifier context\nacceptance at merge; task omitted from code\n")
+    case = create_case(
+        tmp_path,
+        **kwargs,
+        context_override=context_override,
+        diff_summary_override=override,
+        mutation_note="Removed the implemented task from the diff summary.",
+    )
+    assert case["production_snapshot"]["input_kind"] == "controlled_defect"
+    assert case["production_snapshot"]["source_context_sha256"] == manifest["context_sha256"]
+    (tmp_path / "verifier-context.md").write_text(context + "tampered")
+    with pytest.raises(ValueError, match="captured manifest"):
+        create_case(tmp_path, **kwargs)
+    (tmp_path / "verifier-context.md").write_text(context)
+    manifest["capture_kind"] = "retrospective"
+    (tmp_path / "verifier-input-manifest.json").write_text(json.dumps(manifest))
+    retrospective = create_case(tmp_path, **kwargs)
+    assert retrospective["production_snapshot"]["input_kind"] == "retrospective_capture"

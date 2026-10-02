@@ -12,6 +12,7 @@ from statistics import NormalDist
 from typing import Any
 
 from tools.evaluate_model_benchmark import wilson_interval
+from tools.model_eval_snapshots import screen_cases
 
 ROOT = Path(__file__).resolve().parent.parent
 SCREEN_HARNESS_FILES = (
@@ -25,6 +26,8 @@ SCREEN_HARNESS_FILES = (
     "scripts/langchain/injection_guard.py",
     "tools/run_model_eval_pilot.py",
     "tools/run_model_eval_cli_screen.py",
+    "tools/run_model_eval_api_confirm.py",
+    "tools/model_eval_snapshots.py",
 )
 
 
@@ -81,19 +84,25 @@ def build_plan(
     overrides = approval.get("minimum_cases_per_category_overrides", {})
     category_shortfalls = {
         category: max(0, int(overrides.get(category, default_category_minimum)) - counts[category])
-        for category in profile["candidate_stage"]["required_case_categories"]
+        for category in candidate_stage["required_case_categories"]
     }
     category_shortfalls = {key: value for key, value in category_shortfalls.items() if value}
-    screen_category_shortfalls = sorted(
-        set(candidate_stage["required_case_categories"]) - set(counts)
-    )
     provisional = profile["provisional_stage"]
+    selected_cases, snapshot_blockers = screen_cases(corpus, provisional)
+    screen_category_shortfalls = sorted(
+        set(provisional["required_screen_categories"])
+        - {case["category"] for case in selected_cases}
+    )
+    if screen_category_shortfalls:
+        snapshot_blockers.append(
+            f"Selected screen cases omit required categories: {screen_category_shortfalls}."
+        )
     screen_corpus_ready = (
-        len(cases)
-        >= max(int(candidate_stage["minimum_adjudicated_cases"]), int(provisional["screen_cases"]))
-        and negative_cases >= int(provisional["minimum_non_pass_cases"])
-        and int(provisional["minimum_non_pass_cases"]) <= int(provisional["screen_cases"])
-        and not screen_category_shortfalls
+        len(selected_cases) == int(provisional["screen_cases"]) and not snapshot_blockers
+    )
+    input_alignment_ready = (
+        corpus.get("screen_input_status") == "production_context_adjudicated"
+        and not snapshot_blockers
     )
     current_models = [
         model
@@ -145,16 +154,26 @@ def build_plan(
         if cli_catalog is None or model["model_id"] in listed_cli_models
     }
     screen_ready = (
-        screen_corpus_ready and incumbent in screen_model_ids and len(screen_model_ids) >= 2
+        screen_corpus_ready
+        and input_alignment_ready
+        and incumbent in screen_model_ids
+        and len(screen_model_ids) >= 2
     )
     screen_blockers = []
     if not screen_corpus_ready:
         screen_blockers.append(
-            f"Candidate screen needs at least "
-            f"{max(int(candidate_stage['minimum_adjudicated_cases']), int(provisional['screen_cases']))} cases, "
-            f"{provisional['minimum_non_pass_cases']} NON_PASS cases, and every required category; "
-            f"missing categories: {screen_category_shortfalls}."
+            f"Candidate screen needs {provisional['screen_cases']} separately adjudicated paired "
+            f"cases, at least {provisional['minimum_non_pass_cases']} NON_PASS cases, "
+            f"and every required category; missing categories: {screen_category_shortfalls}."
         )
+    if not input_alignment_ready:
+        screen_blockers.append(
+            "The historical labels describe later issue disposition, while the CLI screen "
+            "did not receive the production verifier's exact context and diff summary. "
+            "Capture production verifier inputs and independently adjudicate a small paired "
+            "PASS/NON_PASS set before another model screen."
+        )
+        screen_blockers.extend(snapshot_blockers)
     if incumbent not in screen_model_ids or len(screen_model_ids) < 2:
         screen_blockers.append(
             "Candidate screen needs the priced incumbent and at least one priced alternative "
@@ -224,10 +243,16 @@ def build_plan(
                 "maximum_false_passes",
                 "maximum_schema_errors",
                 "minimum_accuracy_delta_vs_incumbent",
+                "minimum_pass_recall",
             )
         },
         "approval_ready": False,
         "screen_ready": screen_ready,
+        "input_alignment_ready": input_alignment_ready,
+        "screen_case_kinds": {
+            case["case_id"]: case.get("production_snapshot", {}).get("input_kind")
+            for case in selected_cases
+        },
         "screen_blockers": screen_blockers,
         "benchmark_inputs_ready": benchmark_inputs_ready,
         "approval_blockers": reasons,

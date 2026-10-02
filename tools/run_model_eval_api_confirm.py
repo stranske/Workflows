@@ -19,8 +19,8 @@ from pathlib import Path
 from typing import Any
 
 from scripts.langchain import pr_verifier
+from tools.model_eval_snapshots import screen_cases, verifier_prompt
 from tools.plan_model_eval import ROOT, build_plan
-from tools.run_model_eval_pilot import fetch_pr_for_screen as fetch_pr
 
 MAX_OUTPUT_TOKENS = 4096
 
@@ -71,9 +71,11 @@ def confirm(
     api_only_candidate: str | None = None,
     cli_catalog: dict[str, Any] | None = None,
 ) -> dict[str, Any]:
-    if not github_token:
-        raise ValueError("GH_TOKEN is required to fetch paired PR cases")
     plan = build_plan(corpus, registry, policy)
+    if not plan["input_alignment_ready"]:
+        raise ValueError(
+            "provisional API confirmation requires adjudicated production-context inputs"
+        )
     stage = policy["profiles"]["verifier-balanced"]["provisional_stage"]
     if (
         screen.get("schema") != "workflows-verifier-cli-screen/v1"
@@ -114,7 +116,10 @@ def confirm(
     }
     if incumbent not in catalog or candidate not in catalog:
         raise ValueError("both models need current registry prices")
-    case_map = {case["case_id"]: case for case in corpus["cases"]}
+    selected, snapshot_blockers = screen_cases(corpus, stage)
+    if snapshot_blockers:
+        raise ValueError(f"production-context inputs are invalid: {snapshot_blockers}")
+    case_map = {case["case_id"]: case for case in selected}
     case_ids = screen["case_ids"]
     if (
         not case_ids
@@ -129,13 +134,11 @@ def confirm(
     prompt_hashes = screen.get("prompt_sha256_by_case")
     if not isinstance(prompt_hashes, dict) or set(prompt_hashes) != set(case_ids):
         raise ValueError("screen is missing case-level verifier prompt hashes")
-    # Fetch and validate every prompt before making the first billable model call.
-    # PR bodies and linked-issue comments can change after a CLI screen.
+    # Validate immutable captured inputs before making the first billable model call.
     prompts: dict[str, str] = {}
     for case_id in case_ids:
         case = case_map[case_id]
-        context, diff = fetch_pr(case["repo"], case["pr"], github_token)
-        prompt = pr_verifier._prepare_prompt(context, diff)
+        prompt = verifier_prompt(case["production_snapshot"])
         if hashlib.sha256(prompt.encode("utf-8")).hexdigest() != prompt_hashes[case_id]:
             raise ValueError(f"verifier prompt changed after screen for {case_id}")
         prompts[case_id] = prompt
@@ -231,8 +234,24 @@ def _report(
             for row in subset
         )
         cost = sum(float(row.get("modeled_api_cost_usd", 0)) for row in subset)
+        expected_pass = sum(row.get("expected_verdict") == "PASS" for row in subset)
+        expected_non_pass = sum(row.get("expected_verdict") == "NON_PASS" for row in subset)
         scores[model] = {
             "correct": correct,
+            "pass_correct": sum(
+                row.get("schema_valid") is True
+                and row.get("expected_verdict") == "PASS"
+                and row.get("actual_verdict") == "PASS"
+                for row in subset
+            ),
+            "expected_pass": expected_pass,
+            "non_pass_correct": sum(
+                row.get("schema_valid") is True
+                and row.get("expected_verdict") == "NON_PASS"
+                and row.get("actual_verdict") == "NON_PASS"
+                for row in subset
+            ),
+            "expected_non_pass": expected_non_pass,
             "false_pass": sum(
                 row.get("expected_verdict") == "NON_PASS" and row.get("actual_verdict") == "PASS"
                 for row in subset
@@ -246,6 +265,7 @@ def _report(
     max_false_passes = int(thresholds["maximum_false_passes"])
     max_schema_errors = int(thresholds["maximum_schema_errors"])
     min_accuracy_delta = int(thresholds["minimum_accuracy_delta_vs_incumbent"])
+    minimum_pass_recall = float(thresholds["minimum_pass_recall"])
     ready = (
         not incomplete
         and alternative is not None
@@ -253,6 +273,10 @@ def _report(
         and alternative["false_pass"] <= max_false_passes
         and alternative["schema_errors"] <= max_schema_errors
         and alternative["correct"] - baseline["correct"] >= min_accuracy_delta
+        and alternative["expected_pass"] > 0
+        and alternative["pass_correct"] / alternative["expected_pass"] >= minimum_pass_recall
+        and alternative["pass_correct"] >= baseline["pass_correct"]
+        and alternative["non_pass_correct"] >= baseline["non_pass_correct"]
         and alternative["modeled_cost_per_accepted_review_usd"] is not None
         and (
             baseline["false_pass"] > alternative["false_pass"]
@@ -267,6 +291,7 @@ def _report(
         "screen_harness_fingerprint": plan["screen_harness_fingerprint"],
         "comparison_path": comparison_path,
         "case_ids": case_ids,
+        "case_input_kinds": plan["screen_case_kinds"],
         "rows": rows,
         "models": scores,
         "api_call_cap": 2 * len(case_ids),

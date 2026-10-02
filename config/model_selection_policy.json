@@ -17,7 +17,9 @@
       },
       "provisional_stage": {
         "screen_cases": 8,
+        "required_screen_categories": ["clean-pass", "missing-acceptance-criterion", "follow-up-required"],
         "minimum_non_pass_cases": 4,
+        "minimum_pass_recall": 0.5,
         "maximum_false_passes": 0,
         "maximum_schema_errors": 0,
         "minimum_accuracy_delta_vs_incumbent": 0,
