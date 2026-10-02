@@ -233,18 +233,24 @@ def test_runner_reservation_uses_service_bot_token_without_weakening_storage(
     tmp_path: Path,
 ) -> None:
     expected_token = "${{ secrets.SERVICE_BOT_PAT || secrets.GITHUB_TOKEN }}"
-    for path in (
+    workflow_paths = (
         ROOT / ".github/workflows/agents-keepalive-loop.yml",
         TEMPLATE / ".github/workflows/agents-81-gate-followups.yml",
-    ):
+    )
+    token_environments: list[dict[str, str]] = []
+    for path in workflow_paths:
         workflow = yaml.safe_load(path.read_text())
         step = next(
             step
             for step in workflow["jobs"]["evaluate"]["steps"]
             if step.get("name") == "Check runner dispatch debounce"
         )
-        assert step["env"]["GH_TOKEN"] == expected_token
-        assert step["env"]["GITHUB_TOKEN"] == expected_token
+        token_environment = {alias: step["env"][alias] for alias in ("GH_TOKEN", "GITHUB_TOKEN")}
+        assert token_environment == {
+            "GH_TOKEN": expected_token,
+            "GITHUB_TOKEN": expected_token,
+        }
+        token_environments.append(token_environment)
         assert "continue-on-error" not in step
 
         commands = _multiline_shell_commands(
@@ -265,6 +271,8 @@ def test_runner_reservation_uses_service_bot_token_without_weakening_storage(
             workflow["jobs"]["evaluate"]["outputs"]["dispatch_should_run"]
             == "${{ steps.runner_dispatch.outputs.should_dispatch || 'false' }}"
         )
+
+    assert token_environments[0] == token_environments[1]
 
     class EmptyPrimaryStorage:
         def __init__(self) -> None:
