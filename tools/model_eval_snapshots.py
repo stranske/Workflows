@@ -11,7 +11,15 @@ from typing import Any
 def snapshot_digest(snapshot: dict[str, Any]) -> str:
     payload = {
         key: snapshot[key]
-        for key in ("context", "diff_summary", "chain_depth", "merge_sha", "source_run_id")
+        for key in (
+            "repository",
+            "pr",
+            "context",
+            "diff_summary",
+            "chain_depth",
+            "merge_sha",
+            "source_run_id",
+        )
     }
     return hashlib.sha256(
         json.dumps(payload, sort_keys=True, separators=(",", ":")).encode("utf-8")
@@ -53,6 +61,7 @@ def screen_cases(
     non_pass = sum(case["expected_verdict"] == "NON_PASS" for case in cases)
     pass_count = sum(case["expected_verdict"] == "PASS" for case in cases)
     blockers = []
+    seen_digests = set()
     if non_pass < int(stage["minimum_non_pass_cases"]) or pass_count < required // 2:
         blockers.append(
             "The paired screen needs at least half PASS and the required NON_PASS cases."
@@ -65,6 +74,8 @@ def screen_cases(
         required_fields = (
             "context",
             "diff_summary",
+            "repository",
+            "pr",
             "chain_depth",
             "merge_sha",
             "source_run_id",
@@ -80,17 +91,28 @@ def screen_cases(
         if (
             not snapshot["context"]
             or not snapshot["diff_summary"]
+            or snapshot["repository"] != case.get("repo")
+            or type(snapshot["pr"]) is not int
+            or snapshot["pr"] != case.get("pr")
             or not snapshot["adjudication_evidence"]
             or not snapshot["adjudicated_by"]
             or not snapshot["adjudication_rationale"]
             or snapshot["input_kind"]
             not in {"production_capture", "retrospective_capture", "controlled_defect"}
             or (snapshot["input_kind"] == "controlled_defect" and not snapshot.get("mutation_note"))
-            or not isinstance(snapshot["chain_depth"], int)
+            or (
+                snapshot["input_kind"] == "controlled_defect"
+                and case["expected_verdict"] != "NON_PASS"
+            )
+            or type(snapshot["chain_depth"]) is not int
             or snapshot["chain_depth"] < 0
             or len(str(snapshot["merge_sha"])) != 40
             or not str(snapshot["source_run_id"]).isdigit()
             or snapshot_digest(snapshot) != snapshot["sha256"]
         ):
             blockers.append(f"{case['case_id']}: invalid production snapshot or digest")
+            continue
+        if snapshot["sha256"] in seen_digests:
+            blockers.append(f"{case['case_id']}: duplicate verifier prompt snapshot")
+        seen_digests.add(snapshot["sha256"])
     return cases, blockers

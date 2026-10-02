@@ -105,8 +105,8 @@ false PASS). These are small-sample safeguards, not confidence claims.
 
 A separate manual `confirm` dispatch supplies that screen's run ID. The workflow
 refuses a stale or incomplete screen by checking input and verifier-harness
-fingerprints, plus the hash of each freshly fetched verifier prompt **before**
-any API call. It also rejects unaligned inputs. It applies the configured provisional-stage thresholds at both
+fingerprints, plus the hash of each prompt rebuilt from its pinned snapshot
+**before** any API call. It also rejects unaligned inputs. It applies the configured provisional-stage thresholds at both
 stages. It compares only the incumbent and finalist
 on the same eight cases through the OpenAI API, disables SDK retries, and reserves
 at most $5 in worst-case standard-rate cost before each pair. The estimate uses

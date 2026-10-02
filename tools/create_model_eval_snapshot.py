@@ -47,6 +47,8 @@ def create_case(
         )
     if is_mutation and not mutation_note:
         raise ValueError("controlled defect requires a mutation note")
+    if is_mutation and expected_verdict != "NON_PASS":
+        raise ValueError("controlled defect must have a NON_PASS expected verdict")
     if not is_mutation and mutation_note:
         raise ValueError("mutation note requires a controlled defect override")
     if context_override:
@@ -56,6 +58,8 @@ def create_case(
     snapshot = {
         "context": context,
         "diff_summary": diff_summary,
+        "repository": manifest["repository"],
+        "pr": int(manifest["pr"]),
         "chain_depth": int(manifest["chain_depth"]),
         "merge_sha": manifest["merge_sha"],
         "source_run_id": str(manifest["source_run_id"]),

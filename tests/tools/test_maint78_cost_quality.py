@@ -45,8 +45,10 @@ def _screen_inputs():
     corpus["screen_case_ids"] = [case["case_id"] for case in cases]
     for case in cases:
         snapshot = {
-            "context": "context",
-            "diff_summary": "diff",
+            "context": f"context for {case['case_id']}",
+            "diff_summary": f"diff summary for {case['case_id']}",
+            "repository": case["repo"],
+            "pr": case["pr"],
             "chain_depth": 0,
             "merge_sha": "a" * 40,
             "source_run_id": "123",
@@ -530,6 +532,37 @@ def test_changed_production_snapshot_blocks_screen_before_model_calls(monkeypatc
             models=["gpt-5.6-terra", "gpt-6-luna"],
             token="",
         )
+
+
+def test_snapshot_identity_depth_and_defect_label_fail_closed():
+    corpus, registry, policy = _screen_inputs()
+    first = corpus["screen_cases"][0]
+    snapshot = first["production_snapshot"]
+    snapshot["repository"] = "stranske/Different-Repo"
+    snapshot["sha256"] = snapshot_digest(snapshot)
+    assert not build_plan(corpus, registry, policy)["screen_ready"]
+
+    corpus, registry, policy = _screen_inputs()
+    first = corpus["screen_cases"][0]
+    snapshot = first["production_snapshot"]
+    snapshot["chain_depth"] = True
+    snapshot["sha256"] = snapshot_digest(snapshot)
+    assert not build_plan(corpus, registry, policy)["screen_ready"]
+
+    corpus, registry, policy = _screen_inputs()
+    first = next(case for case in corpus["screen_cases"] if case["expected_verdict"] == "PASS")
+    first["production_snapshot"]["input_kind"] = "controlled_defect"
+    first["production_snapshot"]["mutation_note"] = "Deliberate defect."
+    assert not build_plan(corpus, registry, policy)["screen_ready"]
+
+
+def test_duplicate_prompt_snapshot_cannot_be_counted_twice():
+    corpus, registry, policy = _screen_inputs()
+    first, second = corpus["screen_cases"][:2]
+    second["production_snapshot"] = json.loads(json.dumps(first["production_snapshot"]))
+    second["repo"] = first["repo"]
+    second["pr"] = first["pr"]
+    assert not build_plan(corpus, registry, policy)["screen_ready"]
 
 
 def test_snapshot_import_checks_capture_hash_and_marks_controlled_defects(tmp_path):
