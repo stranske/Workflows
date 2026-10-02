@@ -813,7 +813,8 @@ def _required_evidence_channels(acceptance: str) -> set[str]:
         r"do\s+not|does\s+not|no)\s+"
         r"(?:\w+\s+){0,3}(?:proceed|merge|ship|release|complete|pass)\b"
         r".{0,160}\b(?:without|unless|until)\b.{0,160}"
-        r"\b(?:attach\w*|upload\w*|evidence|artifacts?|transcripts?)\b",
+        r"\b(?:attach\w*|upload\w*|evidence|artifacts?|transcripts?|"
+        r"command outputs?|workflow runs?|pr comments?|pull request comments?)\b",
         re.I,
     )
     criteria: list[str] = []

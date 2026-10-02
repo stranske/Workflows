@@ -424,6 +424,8 @@ def test_release_cannot_proceed_without_artifact_requires_evidence() -> None:
         "Do not merge until the validation artifact is uploaded",
         "No PASS without attaching validation evidence",
         "Without a transcript, the PR must not merge; attach evidence",
+        "The release cannot proceed without the command output",
+        "The release must not merge until the validation artifact is uploaded",
     ],
 )
 def test_equivalent_negative_artifact_gates_require_evidence(criterion: str) -> None:
