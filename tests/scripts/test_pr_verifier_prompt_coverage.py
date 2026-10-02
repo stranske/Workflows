@@ -502,9 +502,7 @@ def test_checklist_noun_only_deliverable_requires_evidence_channel() -> None:
     assert pr_verifier._required_evidence_channels(
         "- [ ] Failing and passing validation artifact"
     ) == {"artifacts"}
-    assert pr_verifier._required_evidence_channels("- [ ] Exact-head command output") == {
-        "overall"
-    }
+    assert pr_verifier._required_evidence_channels("- [ ] Exact-head command output") == {"overall"}
 
 
 def test_checklist_noun_only_deliverable_floors_pass_when_unavailable() -> None:
