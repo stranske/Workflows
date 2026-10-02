@@ -9,7 +9,12 @@ from types import SimpleNamespace
 
 import pytest
 from tools.create_model_eval_snapshot import create_case
-from tools.model_eval_snapshots import snapshot_digest, verifier_prompt
+from tools.model_eval_snapshots import (
+    coverage_blockers,
+    is_complex_coverage,
+    snapshot_digest,
+    verifier_prompt,
+)
 from tools.plan_model_eval import ROOT, build_plan, markdown
 from tools.run_model_eval_api_confirm import MAX_OUTPUT_TOKENS, _invoke_api, _price, confirm
 from tools.run_model_eval_cli_screen import (
@@ -124,6 +129,56 @@ def test_current_plan_surfaces_missing_complex_coverage_before_paid_confirmation
     assert any("complex PASS" in reason for reason in plan["confirmation_blockers"])
     assert set(plan["screen_input_coverage"]) == set(plan["screen_case_kinds"])
     assert "**Paid API confirmation ready:** no" in markdown(plan)
+
+
+@pytest.mark.parametrize(
+    ("files_total", "code_total_chars", "expected"),
+    [(5, 8_000, True), (4, 8_000, False), (4, 8_001, True)],
+)
+def test_complex_coverage_threshold_boundaries(files_total, code_total_chars, expected):
+    assert (
+        is_complex_coverage(
+            {"files_total": files_total, "code_total_chars": code_total_chars},
+            min_files=5,
+            min_code_chars=8_000,
+        )
+        is expected
+    )
+
+
+def test_coverage_blockers_skip_empty_context() -> None:
+    coverage, counts, blockers = coverage_blockers(
+        [
+            {
+                "case_id": "empty",
+                "expected_verdict": "PASS",
+                "production_snapshot": {"context": ""},
+            }
+        ],
+        {
+            "complex_case_min_files": 5,
+            "complex_case_min_code_chars": 8_000,
+            "minimum_complex_pass_cases": 1,
+            "minimum_complex_non_pass_cases": 1,
+        },
+    )
+
+    assert coverage == {}
+    assert counts == {"PASS": 0, "NON_PASS": 0}
+    assert len(blockers) == 2
+
+
+def test_api_confirmation_rejects_coverage_blockers_before_calls(monkeypatch):
+    monkeypatch.setattr(
+        "tools.run_model_eval_api_confirm.build_plan",
+        lambda *args: {
+            "input_alignment_ready": True,
+            "confirmation_blockers": ["complex PASS coverage missing"],
+        },
+    )
+
+    with pytest.raises(ValueError, match="complex PASS coverage missing"):
+        confirm({}, {}, {}, {}, github_token="x", client=object())
 
 
 def test_screen_case_whose_prompt_drops_most_code_blocks_paid_confirmation():

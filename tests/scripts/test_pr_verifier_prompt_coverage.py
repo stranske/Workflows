@@ -232,7 +232,7 @@ def test_summary_parser_covers_all_context_builder_file_forms() -> None:
     ]
 
 
-def test_summary_with_spaces_and_rename_detects_missing_destination() -> None:
+def test_summary_with_unquoted_spaces_and_rename_detects_missing_destination() -> None:
     context = """# Verifier context
 
 ## Plan sources (scope, tasks, acceptance)
@@ -249,9 +249,9 @@ def test_summary_with_spaces_and_rename_detects_missing_destination() -> None:
 ## PR Diff (full)
 
 ```diff
-diff --git "a/docs/modified file.md" "b/docs/modified file.md"
---- "a/docs/modified file.md"
-+++ "b/docs/modified file.md"
+diff --git a/docs/modified file.md b/docs/modified file.md
+--- a/docs/modified file.md
++++ b/docs/modified file.md
 @@ -1 +1 @@
 -old
 +new
@@ -263,6 +263,49 @@ diff --git "a/docs/modified file.md" "b/docs/modified file.md"
     assert not coverage.sufficient
     assert coverage.files[0].path == "docs/modified file.md"
     assert any("new/name.py" in reason for reason in coverage.reasons)
+
+
+def test_unquoted_apostrophe_path_is_preserved() -> None:
+    context = """# Verifier context
+
+## Plan sources (scope, tasks, acceptance)
+
+#### Acceptance criteria
+- exact observable smoke test
+
+## PR Diff Summary
+
+### File changes
+- docs/owner's note.md (+1/-1)
+
+## PR Diff (full)
+
+```diff
+diff --git a/docs/owner's note.md b/docs/owner's note.md
+--- a/docs/owner's note.md
++++ b/docs/owner's note.md
+@@ -1 +1 @@
+-old
++new
+```
+"""
+
+    coverage = pr_verifier.prompt_coverage(context, None)
+
+    assert coverage.sufficient
+    assert coverage.files[0].path == "docs/owner's note.md"
+
+
+def test_complete_standalone_diff_ignores_truncated_embedded_copy() -> None:
+    context, paths = _context(2, 2_000, 1_000)
+    context = context.replace("```diff\n", "```diff\n...diff truncated after 1000 characters.\n", 1)
+    standalone = "".join(_file_diff(path, 500) for path in paths)
+
+    coverage = pr_verifier.prompt_coverage(context, standalone)
+
+    assert coverage.sufficient
+    assert coverage.code == "complete"
+    assert not any("context builder truncated" in reason for reason in coverage.reasons)
 
 
 def test_no_client_fallback_still_reports_input_coverage(

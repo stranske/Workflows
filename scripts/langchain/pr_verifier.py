@@ -566,6 +566,33 @@ def _strip_diff_fence(section: str) -> str:
 
 
 def _split_diff_files(diff: str) -> list[tuple[str, str]]:
+    def normalized_path(raw: str) -> str:
+        value = raw.rstrip("\n")
+        if value == "/dev/null":
+            return ""
+        if value.startswith('"'):
+            try:
+                parsed = shlex.split(value)
+            except ValueError:
+                parsed = []
+            if len(parsed) == 1:
+                value = parsed[0]
+        return value.removeprefix("a/").removeprefix("b/")
+
+    def destination_from_git_header(line: str) -> str:
+        payload = line.removeprefix("diff --git ").rstrip("\n")
+        if payload.startswith('"'):
+            try:
+                parsed = shlex.split(payload)
+            except ValueError:
+                parsed = []
+            if len(parsed) >= 2:
+                return normalized_path(parsed[-1])
+        marker = " b/"
+        if marker in payload:
+            return normalized_path("b/" + payload.rsplit(marker, 1)[1])
+        return normalized_path(payload)
+
     files: list[tuple[str, str]] = []
     current: list[str] = []
     path = ""
@@ -574,13 +601,17 @@ def _split_diff_files(diff: str) -> list[tuple[str, str]]:
             if current:
                 files.append((path, "".join(current)))
             current = [line]
-            try:
-                parts = shlex.split(line)
-            except ValueError:
-                parts = line.split()
-            path = parts[3].removeprefix("b/") if len(parts) >= 4 else line.strip()
+            path = destination_from_git_header(line)
         elif current:
             current.append(line)
+            if line.startswith("--- "):
+                source = normalized_path(line[4:])
+                if source:
+                    path = source
+            elif line.startswith("+++ "):
+                destination = normalized_path(line[4:])
+                if destination:
+                    path = destination
     if current:
         files.append((path, "".join(current)))
     return files
@@ -726,8 +757,8 @@ def build_prompt_inputs(context: str, diff: str | None) -> PromptInputs:
         full = next((body for name, body in sections if name == "full_diff"), "")
         if full:
             context_diff = _strip_diff_fence(full)
-            upstream_truncated = bool(UPSTREAM_DIFF_TRUNCATION.search(context_diff))
             if not code_source:
+                upstream_truncated = bool(UPSTREAM_DIFF_TRUNCATION.search(context_diff))
                 code_source = UPSTREAM_DIFF_TRUNCATION.sub("", context_diff).strip()
         sections = [(name, body) for name, body in sections if name != "full_diff"]
     if not code_source:
