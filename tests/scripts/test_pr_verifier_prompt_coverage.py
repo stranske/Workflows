@@ -500,6 +500,26 @@ def test_gate_workflow_run_success_is_not_artifact_evidence() -> None:
     assert pr_verifier._required_evidence_channels("- The Gate workflow run must pass") == set()
 
 
+def test_workflow_run_preserves_mixed_required_comment_channel() -> None:
+    criterion = "Post the validation output in a PR comment, and the workflow run must pass"
+    assert pr_verifier._required_evidence_channels(f"- {criterion}") == {"comments"}
+
+    context, _ = _context(1, 1_000, 1_000)
+    context = context.replace("- " + ACCEPTANCE_SENTINEL, "- " + criterion).replace(
+        "## PR Diff Summary",
+        "## Acceptance evidence\n\n"
+        "- Overall retrieval status: **unavailable**\n"
+        "- PR comments: **unavailable**\n"
+        "- Referenced workflow artifacts: **present**\n"
+        "## PR Diff Summary",
+    )
+    coverage = pr_verifier.prompt_coverage(context, None)
+    assert not coverage.sufficient
+    assert any(
+        "Required acceptance evidence is unavailable" in reason for reason in coverage.reasons
+    )
+
+
 def test_declarative_pr_acceptance_evidence_is_required() -> None:
     context, _ = _context(1, 1_000, 1_000)
     context = context.replace(

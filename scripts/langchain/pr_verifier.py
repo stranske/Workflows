@@ -878,9 +878,6 @@ def _required_evidence_channels(acceptance: str) -> set[str]:
             ):
                 continue
             lower = requirement_text.lower()
-            if re.search(r"\bworkflow runs?\b", lower) and not re.search(r"\bartifacts?\b", lower):
-                # CI/workflow success belongs in the CI section, not artifact retrieval.
-                continue
             line_channels: set[str] = set()
             if re.search(r"\bworkflow artifacts?\b", lower) or (
                 re.search(r"\bartifacts?\b", lower) and not re.search(r"\bworkflow runs?\b", lower)
@@ -889,6 +886,9 @@ def _required_evidence_channels(acceptance: str) -> set[str]:
             if re.search(r"\b(?:pr comments?|pull request comments?)\b", lower):
                 line_channels.add("comments")
             if not line_channels:
+                if re.search(r"\bworkflow runs?\b", lower):
+                    # CI/workflow success belongs in the CI section, not artifact retrieval.
+                    continue
                 line_channels.add("overall")
             channels.update(line_channels)
     return channels
