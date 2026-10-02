@@ -1092,6 +1092,33 @@ test('buildVerifierContext reports a malformed artifact listing as unavailable',
   removeVerifierDiffArtifacts(result);
 });
 
+test('buildVerifierContext reports a partial artifact page as unavailable without a link header', async () => {
+  const { core, result } = await buildEvidenceContext({
+    comments: [{ body: 'Evidence run: https://github.com/octo/workflows/actions/runs/123' }],
+    artifactListResponse: {
+      data: {
+        total_count: 2,
+        artifacts: [{
+          id: 9,
+          name: 'partial-proof',
+          size_in_bytes: 80,
+          expired: false,
+        }],
+      },
+      headers: {},
+    },
+    artifactDownloads: { 9: Buffer.from('zip bytes') },
+  }, {
+    extractArtifactText() {
+      return { text: 'only the first artifact', entryCount: 1, truncated: false };
+    },
+  });
+  assert.equal(core.outputs.evidence_status, 'unavailable');
+  assert.match(result.markdown, /artifact discovery for run 123 exceeded the bounded result limit/);
+  assert.match(result.markdown, /only the first artifact/);
+  removeVerifierDiffArtifacts(result);
+});
+
 test('buildVerifierContext reports a truncated comment listing as unavailable', async () => {
   const { core, result } = await buildEvidenceContext({
     comments: [{ user: { login: 'evidence-bot' }, body: 'partial evidence' }],

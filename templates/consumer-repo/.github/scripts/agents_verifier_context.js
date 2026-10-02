@@ -481,7 +481,13 @@ async function fetchVerifierEvidence({
       if (!Array.isArray(listedArtifacts)) {
         throw new Error('workflow artifact API returned an invalid artifact list');
       }
-      if (response?.headers?.link?.includes('rel="next"')) artifactIncomplete = true;
+      if (
+        response?.headers?.link?.includes('rel="next"')
+        || (Number.isFinite(response?.data?.total_count) && response.data.total_count > listedArtifacts.length)
+      ) {
+        artifactIncomplete = true;
+        artifacts.reason = `artifact discovery for run ${runId} exceeded the bounded result limit`;
+      }
       for (const artifact of listedArtifacts) {
         if (inspectedArtifacts >= artifactLimit) {
           artifactIncomplete = true;
