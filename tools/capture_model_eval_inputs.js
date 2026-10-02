@@ -20,12 +20,15 @@ async function captureModelEvalInputs({
   }
   const root = process.cwd();
   const priorPr = process.env.VERIFIER_PR_NUMBER;
-  const ciWorkflows = '["pr-00-gate.yml", "pr-11-ci-smoke.yml", "selftest-ci.yml"]';
   try {
     for (const entry of entries) {
       const [fullName, pr] = entry.split('#');
       const [owner, repo] = fullName.split('/');
       const number = Number(pr);
+      const ciWorkflows =
+        owner === 'stranske' && repo === 'Workflows'
+          ? '["pr-00-gate.yml", "pr-11-ci-smoke.yml", "selftest-ci.yml"]'
+          : '["ci.yml", "pr-00-gate.yml"]';
       const target = path.resolve(root, outputRoot, `${owner}-${repo}-pr-${number}`);
       fs.mkdirSync(target, { recursive: true });
       process.env.VERIFIER_PR_NUMBER = String(number);
@@ -45,6 +48,7 @@ async function captureModelEvalInputs({
         merge_sha: result.targetSha,
         source_run_id: String(context.runId || process.env.GITHUB_RUN_ID),
         chain_depth: result.chainDepth,
+        ci_workflows: JSON.parse(ciWorkflows),
         context_sha256: crypto.createHash('sha256').update(contextBytes).digest('hex'),
         diff_summary_sha256: crypto.createHash('sha256').update(summaryBytes).digest('hex'),
       };

@@ -29,6 +29,10 @@ test('read-only context capture records retrospective provenance and restores pr
     });
     assert.deepEqual(called.map((row) => row.pr), ['10', '11']);
     assert.deepEqual(called.map((row) => row.repo), ['Workflows', 'Pension-Data']);
+    assert.deepEqual(called.map((row) => JSON.parse(row.ciWorkflows)), [
+      ['pr-00-gate.yml', 'pr-11-ci-smoke.yml', 'selftest-ci.yml'],
+      ['ci.yml', 'pr-00-gate.yml'],
+    ]);
     assert.equal(process.env.VERIFIER_PR_NUMBER, '99');
     const manifest = JSON.parse(fs.readFileSync(path.join(root, 'captured-inputs/stranske-Workflows-pr-10/verifier-input-manifest.json')));
     assert.equal(manifest.capture_kind, 'retrospective');

@@ -372,6 +372,7 @@ jobs:
           VERIFIER_TARGET_SHA: ${{ steps.context.outputs.target_sha }}
           VERIFIER_CHAIN_DEPTH: ${{ steps.context.outputs.chain_depth }}
           VERIFIER_PR_NUMBER: ${{ steps.context.outputs.pr_number }}
+          VERIFIER_CI_WORKFLOWS: ${{ inputs.ci_workflows }}
         run: |
           python3 - <<'PY'
           import hashlib
@@ -381,6 +382,13 @@ jobs:
 
           context = Path('verifier-context.md').read_bytes()
           diff_summary = Path('verifier-diff-summary.md').read_bytes()
+          raw_workflows = os.environ.get('VERIFIER_CI_WORKFLOWS', '')
+          try:
+              ci_workflows = json.loads(raw_workflows)
+          except json.JSONDecodeError:
+              ci_workflows = [raw_workflows] if raw_workflows else []
+          if not isinstance(ci_workflows, list):
+              ci_workflows = [str(ci_workflows)]
           manifest = {
               'schema': 'workflows-verifier-input-snapshot/v1',
               'capture_kind': 'production',
@@ -389,6 +397,7 @@ jobs:
               'merge_sha': os.environ['VERIFIER_TARGET_SHA'],
               'source_run_id': os.environ['GITHUB_RUN_ID'],
               'chain_depth': int(os.environ['VERIFIER_CHAIN_DEPTH'] or 0),
+              'ci_workflows': ci_workflows,
               'context_sha256': hashlib.sha256(context).hexdigest(),
               'diff_summary_sha256': hashlib.sha256(diff_summary).hexdigest(),
           }
