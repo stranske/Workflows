@@ -74,6 +74,7 @@ def confirm(
         screen.get("schema") != "workflows-verifier-cli-screen/v1"
         or screen.get("stopped_early")
         or screen.get("input_fingerprint") != plan["input_fingerprint"]
+        or screen.get("screen_harness_fingerprint") != plan["screen_harness_fingerprint"]
     ):
         raise ValueError("a complete, current CLI screen is required")
     candidate = api_only_candidate or screen.get("provisional_shortlist_model_id")
@@ -160,6 +161,7 @@ def confirm(
                     spent_upper,
                     incomplete=True,
                     comparison_path="api_only" if api_only_candidate else "cli_shortlist",
+                    thresholds=plan["provisional_thresholds"],
                 )
             rows.append(
                 {
@@ -186,6 +188,7 @@ def confirm(
         spent_upper,
         incomplete=len(rows) != 2 * len(case_ids),
         comparison_path="api_only" if api_only_candidate else "cli_shortlist",
+        thresholds=plan["provisional_thresholds"],
     )
 
 
@@ -198,6 +201,7 @@ def _report(
     *,
     incomplete: bool,
     comparison_path: str,
+    thresholds: dict[str, Any],
 ) -> dict[str, Any]:
     incumbent = plan["incumbent"]
     models = sorted({row["model_id"] for row in rows})
@@ -222,16 +226,19 @@ def _report(
     challenger = next((model for model in models if model != incumbent), None)
     baseline = scores.get(incumbent)
     alternative = scores.get(challenger) if challenger else None
+    max_false_passes = int(thresholds["maximum_false_passes"])
+    max_schema_errors = int(thresholds["maximum_schema_errors"])
+    min_accuracy_delta = int(thresholds["minimum_accuracy_delta_vs_incumbent"])
     ready = (
         not incomplete
         and alternative is not None
         and baseline is not None
-        and alternative["false_pass"] == 0
-        and alternative["schema_errors"] == 0
-        and alternative["correct"] >= baseline["correct"]
+        and alternative["false_pass"] <= max_false_passes
+        and alternative["schema_errors"] <= max_schema_errors
+        and alternative["correct"] - baseline["correct"] >= min_accuracy_delta
         and alternative["modeled_cost_per_accepted_review_usd"] is not None
         and (
-            baseline["false_pass"] > 0
+            baseline["false_pass"] > alternative["false_pass"]
             or baseline["modeled_cost_per_accepted_review_usd"] is None
             or alternative["modeled_cost_per_accepted_review_usd"]
             < baseline["modeled_cost_per_accepted_review_usd"]
@@ -240,6 +247,7 @@ def _report(
     return {
         "schema": "workflows-verifier-api-confirmation/v1",
         "input_fingerprint": plan["input_fingerprint"],
+        "screen_harness_fingerprint": plan["screen_harness_fingerprint"],
         "comparison_path": comparison_path,
         "case_ids": case_ids,
         "rows": rows,

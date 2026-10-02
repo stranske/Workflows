@@ -61,7 +61,9 @@ cost per accepted review (or replaces an incumbent with an observed false PASS),
 the screen names one finalist.
 
 A separate manual `confirm` dispatch supplies that screen's run ID. The workflow
-refuses a stale or incomplete screen, compares only the incumbent and finalist
+refuses a stale or incomplete screen by checking both input and verifier-harness
+fingerprints, and applies the configured provisional-stage thresholds at both
+stages. It compares only the incumbent and finalist
 on the same eight cases through the OpenAI API, disables SDK retries, and reserves
 at most $5 in worst-case standard-rate cost before each pair. The estimate uses
 measured API token counts but is not the provider invoice. If the paired result

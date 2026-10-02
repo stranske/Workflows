@@ -14,6 +14,30 @@ from typing import Any
 from tools.evaluate_model_benchmark import wilson_interval
 
 ROOT = Path(__file__).resolve().parent.parent
+SCREEN_HARNESS_FILES = (
+    ".github/workflows/maint-78-model-evaluation-pilot.yml",
+    ".github/actions/maint78-codex-cli/package-lock.json",
+    "scripts/langchain/pr_verifier.py",
+    "scripts/langchain/prompts/pr_evaluation.md",
+    "scripts/langchain/verifier_config.py",
+    "scripts/langchain/issue_pr_context.py",
+    "scripts/langchain/structured_output.py",
+    "scripts/langchain/injection_guard.py",
+    "tools/run_model_eval_pilot.py",
+    "tools/run_model_eval_cli_screen.py",
+)
+
+
+def screen_harness_fingerprint() -> str:
+    """Bind a screen artifact to its actual prompt, parser, case fetcher and CLI harness."""
+    digest = hashlib.sha256()
+    for name in SCREEN_HARNESS_FILES:
+        path = ROOT / name
+        digest.update(name.encode())
+        digest.update(b"\0")
+        digest.update(path.read_bytes())
+        digest.update(b"\0")
+    return digest.hexdigest()
 
 
 def _zero_error_denominator(maximum_rate: float, confidence_level: float) -> int:
@@ -189,6 +213,15 @@ def build_plan(
         "schema": "workflows-verifier-model-eval-plan/v1",
         "objective": "Find a cost-efficient verifier model quickly, then review a reversible provisional choice with explicit quality limits.",
         "input_fingerprint": fingerprint,
+        "screen_harness_fingerprint": screen_harness_fingerprint(),
+        "provisional_thresholds": {
+            key: profile["provisional_stage"][key]
+            for key in (
+                "maximum_false_passes",
+                "maximum_schema_errors",
+                "minimum_accuracy_delta_vs_incumbent",
+            )
+        },
         "approval_ready": False,
         "screen_ready": screen_ready,
         "screen_blockers": screen_blockers,
@@ -213,8 +246,9 @@ def build_plan(
         "screen_limit": {"cases": 8, "models": 4, "maximum_cli_calls": 32, "api_calls": 0},
         "next_action": (
             "Run one bounded, paired Codex CLI screen of the incumbent and up to three "
-            "priced candidates. Advance any candidate with no observed false PASS or schema "
-            "error, at least incumbent accuracy, and lower modeled cost to a small capped "
+            "priced candidates. Advance any candidate that meets the provisional-stage "
+            "false-PASS, schema-error, and accuracy limits, then compare modeled cost "
+            "per accepted review in a small capped "
             "API confirmation; review a provisional selection without waiting for the "
             "long-term statistical approval sample."
             if screen_ready
@@ -234,6 +268,7 @@ def markdown(plan: dict[str, Any]) -> str:
         f"**Statistical benchmark inputs ready:** {'yes' if plan['benchmark_inputs_ready'] else 'no'}",
         f"**Automatic API calls:** {plan['automatic_api_calls']}",
         f"**Input fingerprint:** `{plan['input_fingerprint']}`",
+        f"**Screen harness fingerprint:** `{plan['screen_harness_fingerprint']}`",
         f"**Corpus:** {plan['corpus_cases']} / {plan['approval_minimum_cases']} cases",
         f"**Best-case statistical floor:** {plan['best_case_minimum_corpus_cases']} total "
         f"including {plan['zero_error_false_pass_denominator']} NON_PASS cases",

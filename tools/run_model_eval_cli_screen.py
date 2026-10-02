@@ -351,17 +351,21 @@ def report(
         )
     incumbent = next((row for row in by_model if row["model_id"] == plan["incumbent"]), None)
     complete = not stopped_early and all(row["rows"] == len(cases) for row in by_model)
+    thresholds = plan["provisional_thresholds"]
+    max_false_passes = int(thresholds["maximum_false_passes"])
+    max_schema_errors = int(thresholds["maximum_schema_errors"])
+    min_accuracy_delta = int(thresholds["minimum_accuracy_delta_vs_incumbent"])
     eligible = (
         [
             row
             for row in by_model
             if row["model_id"] != plan["incumbent"]
-            and row["false_pass"] == 0
-            and row["schema_errors"] == 0
-            and row["accepted"] >= incumbent["accepted"]
+            and row["false_pass"] <= max_false_passes
+            and row["schema_errors"] <= max_schema_errors
+            and row["accepted"] - incumbent["accepted"] >= min_accuracy_delta
             and row["modeled_cost_per_accepted_review_usd"] is not None
             and (
-                incumbent["false_pass"] > 0
+                incumbent["false_pass"] > row["false_pass"]
                 or incumbent["modeled_cost_per_accepted_review_usd"] is None
                 or row["modeled_cost_per_accepted_review_usd"]
                 < incumbent["modeled_cost_per_accepted_review_usd"]
@@ -378,6 +382,7 @@ def report(
     return {
         "schema": "workflows-verifier-cli-screen/v1",
         "input_fingerprint": plan["input_fingerprint"],
+        "screen_harness_fingerprint": plan["screen_harness_fingerprint"],
         "scope": "exploratory Codex CLI screen; not production API evidence",
         "api_key_calls": 0,
         "approval_ready": False,
@@ -387,9 +392,12 @@ def report(
             else "inconclusive" if not complete else "retain_incumbent_on_screen"
         ),
         "provisional_shortlist_model_id": shortlisted["model_id"] if shortlisted else None,
-        "decision_rule": "On the same eight cases: zero observed false PASS and schema errors, "
-        "at least incumbent accuracy, then lower modeled cost per accepted review "
-        "(or replacement of an incumbent with an observed false PASS).",
+        "decision_rule": (
+            f"On the same eight cases: at most {max_false_passes} observed false PASS, "
+            f"at most {max_schema_errors} schema errors, and an accuracy delta of at least "
+            f"{min_accuracy_delta} cases vs the incumbent. Among qualifying candidates, "
+            "advance a lower modeled cost per accepted review or fewer false PASS errors."
+        ),
         "stopped_early": stopped_early,
         "case_ids": [case["case_id"] for case in cases],
         "models": by_model,

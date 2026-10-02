@@ -124,6 +124,19 @@ def test_cli_screen_advances_only_a_safer_cheaper_paired_candidate():
     result = report(plan, cases, ["gpt-5.6-terra", "gpt-6-luna"], rows, stopped_early=False)
     assert result["screen_decision"] == "advance_to_api_confirmation"
     assert result["provisional_shortlist_model_id"] == "gpt-6-luna"
+    stricter_plan = {
+        **plan,
+        "provisional_thresholds": {
+            **plan["provisional_thresholds"],
+            "minimum_accuracy_delta_vs_incumbent": 1,
+        },
+    }
+    assert (
+        report(stricter_plan, cases, ["gpt-5.6-terra", "gpt-6-luna"], rows, stopped_early=False)[
+            "provisional_shortlist_model_id"
+        ]
+        is None
+    )
     next(
         row
         for row in rows
@@ -141,6 +154,7 @@ def test_api_confirmation_is_paired_bounded_and_still_provisional(monkeypatch):
         "schema": "workflows-verifier-cli-screen/v1",
         "screen_decision": "advance_to_api_confirmation",
         "input_fingerprint": plan["input_fingerprint"],
+        "screen_harness_fingerprint": plan["screen_harness_fingerprint"],
         "provisional_shortlist_model_id": "gpt-6-luna",
         "case_ids": [case["case_id"] for case in cases],
         "stopped_early": False,
@@ -175,6 +189,12 @@ def test_api_confirmation_is_paired_bounded_and_still_provisional(monkeypatch):
         confirm(corpus, registry, policy, screen, github_token="x", client=object())
     assert len(calls) == 16
 
+    screen["input_fingerprint"] = plan["input_fingerprint"]
+    screen["screen_harness_fingerprint"] = "stale"
+    with pytest.raises(ValueError, match="current CLI screen"):
+        confirm(corpus, registry, policy, screen, github_token="x", client=object())
+    screen["screen_harness_fingerprint"] = plan["screen_harness_fingerprint"]
+
     # A tiny ceiling must stop before a paid call or a partial pair.
     strict_policy = json.loads(json.dumps(policy))
     strict_policy["profiles"]["verifier-balanced"]["provisional_stage"][
@@ -185,6 +205,16 @@ def test_api_confirmation_is_paired_bounded_and_still_provisional(monkeypatch):
     assert capped["api_calls_made"] == 0
     assert not capped["complete"]
     assert len(calls) == 16
+
+    calls.clear()
+    strict_policy = json.loads(json.dumps(policy))
+    strict_policy["profiles"]["verifier-balanced"]["provisional_stage"][
+        "minimum_accuracy_delta_vs_incumbent"
+    ] = 1
+    screen["input_fingerprint"] = build_plan(corpus, registry, strict_policy)["input_fingerprint"]
+    tied = confirm(corpus, registry, strict_policy, screen, github_token="x", client=object())
+    assert tied["complete"]
+    assert tied["provisional_model_id"] is None
 
 
 def test_api_confirmation_uses_each_models_production_route_without_retries():
@@ -230,6 +260,9 @@ def test_api_only_exception_requires_explicit_cli_absence_and_same_cases(monkeyp
         "schema": "workflows-verifier-cli-screen/v1",
         "screen_decision": "retain_incumbent_on_screen",
         "input_fingerprint": build_plan(corpus, registry, policy)["input_fingerprint"],
+        "screen_harness_fingerprint": build_plan(corpus, registry, policy)[
+            "screen_harness_fingerprint"
+        ],
         "provisional_shortlist_model_id": None,
         "case_ids": [case["case_id"] for case in cases],
         "stopped_early": False,
