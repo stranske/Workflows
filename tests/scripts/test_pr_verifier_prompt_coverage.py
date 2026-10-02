@@ -415,6 +415,29 @@ def test_release_cannot_proceed_without_artifact_requires_evidence() -> None:
     )
 
 
+@pytest.mark.parametrize(
+    "criterion",
+    [
+        "The release cannot proceed without attaching the validation artifact",
+        "The release may not proceed unless the validation artifact is attached",
+        "The release must not proceed\n  without attaching the validation artifact",
+    ],
+)
+def test_equivalent_negative_artifact_gates_require_evidence(criterion: str) -> None:
+    context, _ = _context(1, 1_000, 1_000)
+    context = context.replace("- " + ACCEPTANCE_SENTINEL, "- " + criterion).replace(
+        "## PR Diff Summary",
+        "## Acceptance evidence\n\n"
+        "- Overall retrieval status: **unavailable**\n"
+        "- PR comments: **present**\n"
+        "- Referenced workflow artifacts: **unavailable**\n"
+        "## PR Diff Summary",
+    )
+    coverage = pr_verifier.prompt_coverage(context, None)
+    assert not coverage.sufficient
+    assert any("Required acceptance evidence is unavailable" in reason for reason in coverage.reasons)
+
+
 def test_declarative_pr_acceptance_evidence_is_required() -> None:
     context, _ = _context(1, 1_000, 1_000)
     context = context.replace(

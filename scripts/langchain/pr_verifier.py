@@ -805,18 +805,28 @@ def _required_evidence_channels(acceptance: str) -> set[str]:
         re.I,
     )
     negative_gate = re.compile(
-        r"\b(?:must|shall|may|can)\s+not\s+\w*(?:proceed|merge|ship|release|complete|pass)\b"
-        r".{0,120}\bwithout\b.{0,120}\b(?:attach|upload|evidence|artifacts?|transcripts?)\b",
+        r"\b(?:must\s+not|shall\s+not|may\s+not|can\s+not|cannot|can't)\s+"
+        r"(?:\w+\s+){0,3}(?:proceed|merge|ship|release|complete|pass)\b"
+        r".{0,160}\b(?:without|unless)\b.{0,160}"
+        r"\b(?:attach\w*|upload\w*|evidence|artifacts?|transcripts?)\b",
         re.I,
     )
-    for line in acceptance.splitlines():
-        if not evidence_term.search(line) or (
-            negation.search(line) and not negative_gate.search(line)
-        ):
+    criteria: list[str] = []
+    for raw_line in acceptance.splitlines():
+        line = raw_line.strip()
+        if not line:
+            continue
+        if criteria and not re.match(r"^[-*]\s+", line):
+            criteria[-1] += " " + line
+        else:
+            criteria.append(line)
+    for line in criteria:
+        gate = bool(negative_gate.search(line))
+        if not evidence_term.search(line) or (negation.search(line) and not gate):
             continue
         checklist = re.match(r"^\s*[-*]\s*\[[ xX]\]", line)
         bullet = re.match(r"^\s*[-*]\s+", line)
-        if not (checklist or (bullet and requirement.search(line)) or requirement.search(line)):
+        if not (gate or checklist or (bullet and requirement.search(line)) or requirement.search(line)):
             continue
         lower = line.lower()
         line_channels: set[str] = set()
