@@ -426,6 +426,7 @@ def test_release_cannot_proceed_without_artifact_requires_evidence() -> None:
         "Without a transcript, the PR must not merge; attach evidence",
         "The release cannot proceed without the command output",
         "The release must not merge until the validation artifact is uploaded",
+        "Never merge until the command output is available",
     ],
 )
 def test_equivalent_negative_artifact_gates_require_evidence(criterion: str) -> None:
@@ -443,6 +444,21 @@ def test_equivalent_negative_artifact_gates_require_evidence(criterion: str) -> 
     assert any(
         "Required acceptance evidence is unavailable" in reason for reason in coverage.reasons
     )
+
+
+def test_mixed_prohibition_preserves_required_comment_channel() -> None:
+    assert pr_verifier._required_evidence_channels(
+        "- No artifact is required, but a PR comment must be posted"
+    ) == {"comments"}
+
+
+def test_command_output_uses_its_named_source_channel() -> None:
+    assert pr_verifier._required_evidence_channels(
+        "- Post the command output in an exact-head PR comment"
+    ) == {"comments"}
+    assert pr_verifier._required_evidence_channels(
+        "- Upload the command output as a workflow artifact"
+    ) == {"artifacts"}
 
 
 def test_declarative_pr_acceptance_evidence_is_required() -> None:
