@@ -294,18 +294,16 @@ def build_plan(
 
 def markdown(plan: dict[str, Any]) -> str:
     lines = [
-        "## MAINT-78 verifier model decision readiness",
+        "## MAINT-78 current verifier model decision",
         "",
         f"**Objective:** {plan['objective']}",
-        f"**Statistical approval ready:** {'yes' if plan['approval_ready'] else 'no'}",
-        f"**Candidate screen ready:** {'yes' if plan['screen_ready'] else 'no'}",
-        f"**Statistical benchmark inputs ready:** {'yes' if plan['benchmark_inputs_ready'] else 'no'}",
+        f"**Eight-case subscription screen ready:** {'yes' if plan['screen_ready'] else 'no'}",
+        f"**Next action:** {plan['next_action']}",
         f"**Automatic API calls:** {plan['automatic_api_calls']}",
+        "**Decision horizon:** Produce a retain-or-advance result from the bounded screen; "
+        "do not wait for the statistical approval sample.",
         f"**Input fingerprint:** `{plan['input_fingerprint']}`",
         f"**Screen harness fingerprint:** `{plan['screen_harness_fingerprint']}`",
-        f"**Corpus:** {plan['corpus_cases']} / {plan['approval_minimum_cases']} cases",
-        f"**Best-case statistical floor:** {plan['best_case_minimum_corpus_cases']} total "
-        f"including {plan['zero_error_false_pass_denominator']} NON_PASS cases",
         f"**Priced OpenAI models:** {', '.join(plan['priced_openai_models']) or 'none'}",
     ]
     if plan["unpriced_openai_models"]:
@@ -319,13 +317,21 @@ def markdown(plan: dict[str, Any]) -> str:
             "**Absent from pinned CLI catalog:** "
             + ", ".join(plan["pinned_cli_unavailable_models"])
         )
-    if plan["approval_blockers"]:
-        lines += ["", "### Long-term statistical approval gaps", ""]
-        lines += [f"- {reason}" for reason in plan["approval_blockers"]]
     if plan["screen_blockers"]:
         lines += ["", "### Candidate screen blockers", ""]
         lines += [f"- {reason}" for reason in plan["screen_blockers"]]
-    lines += ["", f"**Next action:** {plan['next_action']}", ""]
+    lines += [
+        "",
+        "### Separate long-term statistical approval",
+        "",
+        f"**Ready:** {'yes' if plan['approval_ready'] else 'no'}",
+        f"**Benchmark inputs ready:** {'yes' if plan['benchmark_inputs_ready'] else 'no'}",
+        f"**Historical corpus:** {plan['corpus_cases']} / {plan['approval_minimum_cases']} cases",
+        f"**Best-case statistical floor:** {plan['best_case_minimum_corpus_cases']} total "
+        f"including {plan['zero_error_false_pass_denominator']} NON_PASS cases",
+    ]
+    lines += [f"- {reason}" for reason in plan["approval_blockers"]]
+    lines.append("")
     return "\n".join(lines)
 
 

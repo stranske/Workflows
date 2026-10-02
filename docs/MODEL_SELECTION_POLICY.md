@@ -52,17 +52,19 @@ The `verifier-balanced` policy is defined in
 ### Fast provisional decision
 
 MAINT-78's automatic run is a no-spend plan. The existing 51 historical cases
-meet the candidate-stage count and category minima, but **they are not yet
-valid screen inputs**. Their labels reflect later issue disposition, while the
-pilot supplied raw PR text rather than the production verifier's context and
-diff summary. The October 2 CLI diagnostic exposed this mismatch: GPT-6 Luna
-matched Terra's total score by rejecting every PASS example. That result does
-not justify a model change or a paid confirmation. The plan now reports an
-input-alignment blocker before any model calls.
+meet the candidate-stage count and category minima, but their labels reflect
+later issue disposition and the pilot supplied raw PR text rather than the
+production verifier's context and diff summary. The October 2 CLI diagnostic
+exposed this mismatch: GPT-6 Luna matched Terra's total score by rejecting
+every PASS example. That result does not justify a model change or a paid
+confirmation. A separate balanced eight-case set is now adjudicated against
+captured verifier inputs, so the plan can enable the fast screen. Its cases
+include retrospective captures and two marked controlled defects; neither
+kind grows the long-term statistical corpus.
 
 The next small screen requires independently adjudicated PASS and NON_PASS
-cases tied to captured production verifier inputs at merge. The comparison
-artifact now includes the exact context, diff summary, and identity manifest.
+cases tied to captured production verifier inputs. The comparison artifact
+now includes the exact context, diff summary, and identity manifest.
 Capture them before any model verdict or later disposition comment can enter
 them; record their hashes and merge heads, and review each expected outcome
 against the acceptance criteria at that point. A controlled defect variant of
@@ -106,6 +108,22 @@ zero observed false PASS and schema errors, at least 50% PASS recall, no
 regression in either verdict class relative to the incumbent, and lower
 modeled cost per accepted review (or replace an incumbent with an observed
 false PASS). These are small-sample safeguards, not confidence claims.
+The CLI disables shell and web search, and any remaining tool event invalidates
+the screen. An invalid or inconclusive screen leaves the incumbent in place and
+never dispatches an API confirmation.
+
+### Decision horizon
+
+MAINT-78 should produce a useful **retain-or-advance** result within the model
+cycle. After a catalog, price, verifier prompt, or workload change, run the
+no-spend readiness plan promptly and screen the incumbent against relevant
+available candidates on the same eight reviewed inputs. If no candidate clears
+the screen, record `retain_incumbent_on_screen` with the observed failures and
+stop. If one does, run only the capped paired API confirmation and prepare a
+reversible provisional selection for human review. Do not wait for the
+30-day historical-case stability window, the 75-case approval floor, or the
+120-case best-case Wilson denominator before producing this decision. Those
+numbers govern separate statistical approval, not the current model choice.
 
 A separate manual `confirm` dispatch supplies that screen's run ID. The workflow
 refuses a stale or incomplete screen by checking input and verifier-harness

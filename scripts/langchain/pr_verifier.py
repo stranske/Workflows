@@ -68,11 +68,17 @@ Evaluate the **code changes** against the acceptance criteria:
 - testing (are tests present and adequate for the acceptance criteria)
 - risks (security, performance, compatibility concerns in the code)
 
+An artifact explicitly required by acceptance criteria (such as a failing and
+restored passing test transcript) is a completeness deliverable. If absent
+from the supplied PR evidence, flag it even if implementation and ordinary
+tests are otherwise correct. Do not confuse this with optional test coverage.
+
 Ignore CI workflow status - focus on code quality and acceptance criteria fulfillment.
 
 **Verdict guidelines:**
 - **PASS**: correctness and completeness are satisfied.  Testing gaps alone
-  should NOT prevent a PASS if the implementation is functionally correct.
+  should NOT prevent a PASS if the implementation is functionally correct,
+  unless a test or evidence artifact is explicitly required for acceptance.
 - **CONCERNS**: significant correctness or completeness issues exist, OR the
   implementation introduces meaningful risks.
 - **FAIL**: the changes do not address the acceptance criteria or introduce
@@ -120,6 +126,8 @@ Because these are infrastructure/platform changes rather than application code:
   tests for workflow YAML, documentation, shell scripts, or config file changes.
 - **correctness**: Does the implementation do what the issue asked for?
 - **completeness**: Are all acceptance criteria addressed?
+- **required evidence**: An artifact explicitly named in acceptance criteria
+  is a deliverable; its absence is a completeness gap, not an optional test gap.
 - **quality**: Is the code/config readable and maintainable?
 - **risks**: Could this break CI, consumer repos, or existing automation?
 
@@ -154,6 +162,8 @@ docs, templates, or config).  Apply the following adjustments:
 - **testing**: Do NOT penalise missing tests for workflow YAML, documentation,
   shell scripts, or config file changes.  Only flag missing tests when the PR
   introduces testable application logic (e.g. a new Python module).
+- **required evidence**: If acceptance explicitly requires a transcript or
+  other artifact in the PR evidence, treat its absence as a completeness gap.
 - **risks**: Pay extra attention to CI breakage and consumer-repo impact.
 - Be LENIENT on test coverage for infrastructure work.
 """.strip()
@@ -172,6 +182,9 @@ Apply the following adjustments:
   unless the PR introduces new testable logic that is completely untested.
   Test coverage gaps alone should NOT prevent a PASS verdict when the
   functional implementation is correct.
+- **required evidence**: If this follow-up explicitly requires a transcript
+  or other artifact in the PR evidence, its absence is a completeness gap;
+  it is not merely a test coverage concern.
 - **correctness**: This is the primary criterion — does the fix address the
   original concerns?  Weight correctness heavily.
 - **completeness**: Evaluate whether the specific concerns from the prior

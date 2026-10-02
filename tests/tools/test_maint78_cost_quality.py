@@ -10,7 +10,7 @@ from types import SimpleNamespace
 import pytest
 from tools.create_model_eval_snapshot import create_case
 from tools.model_eval_snapshots import snapshot_digest, verifier_prompt
-from tools.plan_model_eval import ROOT, build_plan
+from tools.plan_model_eval import ROOT, build_plan, markdown
 from tools.run_model_eval_api_confirm import MAX_OUTPUT_TOKENS, _invoke_api, _price, confirm
 from tools.run_model_eval_cli_screen import (
     CliResult,
@@ -74,12 +74,13 @@ def _prompt_hashes(cases):
     }
 
 
-def test_current_plan_flags_approval_gap_without_model_calls():
+def test_current_plan_allows_fast_screen_without_statistical_approval():
     plan = build_plan(*_inputs())
     assert not plan["approval_ready"]
-    assert not plan["screen_ready"]
-    assert not plan["input_alignment_ready"]
-    assert any("historical labels" in blocker for blocker in plan["screen_blockers"])
+    assert plan["screen_ready"]
+    assert plan["input_alignment_ready"]
+    assert plan["screen_blockers"] == []
+    assert len(plan["screen_case_kinds"]) == 8
     assert plan["automatic_api_calls"] == 0
     assert plan["corpus_cases"] == 51
     assert plan["approval_minimum_cases"] == 75
@@ -89,6 +90,14 @@ def test_current_plan_flags_approval_gap_without_model_calls():
     assert plan["best_case_minimum_corpus_cases"] == 120
     assert plan["category_shortfalls"]["follow-up-required"] > 0
     assert plan["unpriced_openai_models"] == []
+
+
+def test_readiness_summary_leads_with_the_current_decision():
+    summary = markdown(build_plan(*_inputs()))
+    assert summary.index("**Eight-case subscription screen ready:** yes") < summary.index(
+        "### Separate long-term statistical approval"
+    )
+    assert summary.index("**Next action:**") < summary.index("**Best-case statistical floor:**")
 
 
 def test_candidate_screen_uses_policy_case_and_failure_counts():
@@ -431,6 +440,10 @@ def test_cli_catalog_is_pinned_and_tool_events_are_rejected(monkeypatch):
     assert not has_tool_events('{"type":"item.completed","item":{"type":"agent_message"}}')
     assert has_tool_events('{"type":"item.completed","item":{"type":"command_execution"}}')
     assert has_tool_events('{"type":"item.completed","item":{"type":"web_search"}}')
+    assert not has_tool_events(
+        '{"type":"item.completed","item":{"type":"error","message":'
+        '"Code Mode is unavailable because code-mode host is disabled. Code mode will fail closed; enable features.code_mode_host."}}'
+    )
 
 
 def test_invalid_json_preserves_cli_usage_and_does_not_stop_screen(monkeypatch):
@@ -440,6 +453,16 @@ def test_invalid_json_preserves_cli_usage_and_does_not_stop_screen(monkeypatch):
     def fake_invocation(command, **kwargs):
         assert "GH_TOKEN" not in kwargs["env"]
         assert command[command.index("--disable") + 1] == "shell_tool"
+        assert [command[i + 1] for i, part in enumerate(command) if part == "--disable"] == [
+            "shell_tool",
+            "code_mode_host",
+            "browser_use",
+            "in_app_browser",
+            "apps",
+            "computer_use",
+            "skill_search",
+        ]
+        assert command[command.index("--config") + 1] == 'web_search="disabled"'
         final = Path(command[command.index("--output-last-message") + 1])
         final.write_text("not JSON")
         return SimpleNamespace(stdout=stream, returncode=0)
@@ -516,6 +539,7 @@ def test_all_non_pass_candidate_cannot_advance_from_balanced_screen():
 
 def test_unaligned_confirmation_is_rejected_before_any_api_call():
     corpus, registry, policy = _inputs()
+    corpus["screen_input_status"] = "unverified_posthoc_labels"
     with pytest.raises(ValueError, match="adjudicated production-context inputs"):
         confirm(corpus, registry, policy, {}, github_token="x", client=object())
 
