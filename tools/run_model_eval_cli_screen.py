@@ -21,8 +21,8 @@ from pathlib import Path
 from typing import Any
 
 from scripts.langchain import pr_verifier
+from tools.model_eval_snapshots import screen_cases, verifier_prompt
 from tools.plan_model_eval import ROOT, build_plan
-from tools.run_model_eval_pilot import fetch_pr_for_screen as fetch_pr
 
 DEFAULT_CASES = 8
 MAX_MODELS = 4
@@ -239,8 +239,6 @@ def run_screen(
     token: str,
     codex: str = "codex",
 ) -> dict[str, Any]:
-    if not token:
-        raise ValueError("GH_TOKEN is required to load the paired PR cases")
     if len(models) < 2 or len(models) > MAX_MODELS or len(set(models)) != len(models):
         raise ValueError(f"select 2 to {MAX_MODELS} distinct models")
     plan = build_plan(corpus, registry, policy)
@@ -268,19 +266,11 @@ def run_screen(
     if unavailable:
         raise ValueError(f"models unavailable to Codex CLI: {unavailable}")
     stage = policy["profiles"]["verifier-balanced"]["provisional_stage"]
-    cases = select_cases(
-        corpus["cases"],
-        limit=int(stage["screen_cases"]),
-        minimum_non_pass=int(stage["minimum_non_pass_cases"]),
-    )
-    if sum(case["expected_verdict"] == "NON_PASS" for case in cases) < int(
-        stage["minimum_non_pass_cases"]
-    ):
-        raise ValueError("case selection cannot cover the required NON_PASS examples")
-    prepared = {case["case_id"]: fetch_pr(case["repo"], case["pr"], token) for case in cases}
+    cases, snapshot_blockers = screen_cases(corpus, stage)
+    if snapshot_blockers:
+        raise ValueError(f"production-context inputs are invalid: {snapshot_blockers}")
     verifier_prompts = {
-        case_id: pr_verifier._prepare_prompt(context, diff)
-        for case_id, (context, diff) in prepared.items()
+        case["case_id"]: verifier_prompt(case["production_snapshot"]) for case in cases
     }
     prompt_hashes = {
         case_id: hashlib.sha256(prompt.encode("utf-8")).hexdigest()
@@ -289,11 +279,7 @@ def run_screen(
     rows: list[dict[str, Any]] = []
     for model in models:
         for case in cases:
-            prompt = (
-                "Evaluate this PR using the following verifier instructions. Do not use tools. "
-                "Return only one JSON object with verdict, scores, confidence, concerns, and summary.\n\n"
-                + verifier_prompts[case["case_id"]]
-            )
+            prompt = verifier_prompts[case["case_id"]]
             try:
                 outcome = invoke_cli(codex, model, prompt)
                 verdict = (
@@ -348,6 +334,8 @@ def report(
     prompt_hashes: dict[str, str] | None = None,
 ) -> dict[str, Any]:
     by_model = []
+    expected_pass_count = sum(case["expected_verdict"] == "PASS" for case in cases)
+    expected_non_pass_count = len(cases) - expected_pass_count
     for model in models:
         subset = [row for row in rows if row["model_id"] == model]
         accepted = sum(
@@ -355,11 +343,27 @@ def report(
             for row in subset
         )
         cost = sum(float(row.get("modeled_api_cost_usd", 0)) for row in subset)
+        pass_correct = sum(
+            row["schema_valid"]
+            and row["expected_verdict"] == "PASS"
+            and row["actual_verdict"] == "PASS"
+            for row in subset
+        )
+        non_pass_correct = sum(
+            row["schema_valid"]
+            and row["expected_verdict"] == "NON_PASS"
+            and row["actual_verdict"] == "NON_PASS"
+            for row in subset
+        )
         by_model.append(
             {
                 "model_id": model,
                 "rows": len(subset),
                 "accepted": accepted,
+                "pass_correct": pass_correct,
+                "expected_pass": expected_pass_count,
+                "non_pass_correct": non_pass_correct,
+                "expected_non_pass": expected_non_pass_count,
                 "false_pass": sum(
                     row["expected_verdict"] == "NON_PASS" and row["actual_verdict"] == "PASS"
                     for row in subset
@@ -377,6 +381,7 @@ def report(
     max_false_passes = int(thresholds["maximum_false_passes"])
     max_schema_errors = int(thresholds["maximum_schema_errors"])
     min_accuracy_delta = int(thresholds["minimum_accuracy_delta_vs_incumbent"])
+    minimum_pass_recall = float(thresholds["minimum_pass_recall"])
     eligible = (
         [
             row
@@ -385,6 +390,10 @@ def report(
             and row["false_pass"] <= max_false_passes
             and row["schema_errors"] <= max_schema_errors
             and row["accepted"] - incumbent["accepted"] >= min_accuracy_delta
+            and expected_pass_count > 0
+            and row["pass_correct"] / expected_pass_count >= minimum_pass_recall
+            and row["pass_correct"] >= incumbent["pass_correct"]
+            and row["non_pass_correct"] >= incumbent["non_pass_correct"]
             and row["modeled_cost_per_accepted_review_usd"] is not None
             and (
                 incumbent["false_pass"] > row["false_pass"]
@@ -417,11 +426,14 @@ def report(
         "decision_rule": (
             f"On the same {len(cases)} cases: at most {max_false_passes} observed false PASS, "
             f"at most {max_schema_errors} schema errors, and an accuracy delta of at least "
-            f"{min_accuracy_delta} cases vs the incumbent. Among qualifying candidates, "
+            f"{min_accuracy_delta} cases vs the incumbent, with at least "
+            f"{minimum_pass_recall:.0%} PASS recall and no regression in either verdict class. "
+            "Among qualifying candidates, "
             "advance a lower modeled cost per accepted review or fewer false PASS errors."
         ),
         "stopped_early": stopped_early,
         "case_ids": [case["case_id"] for case in cases],
+        "case_input_kinds": plan["screen_case_kinds"],
         "prompt_sha256_by_case": prompt_hashes or {},
         "models": by_model,
         "rows": rows,
@@ -459,15 +471,18 @@ def main(argv: list[str] | None = None) -> int:
         "",
         "Exploratory only. This used Codex subscription auth and made **zero API-key model calls**.",
         f"Cases: {len(payload['case_ids'])}; stopped early: {payload['stopped_early']}.",
+        f"Controlled defect cases: {sum(kind == 'controlled_defect' for kind in payload['case_input_kinds'].values())}.",
         "Modeled API costs assume standard uncached rates; they are not observed API charges.",
         "",
-        "| Model | Correct / rows | False PASS | Modeled API cost / accepted review |",
-        "|---|---:|---:|---:|",
+        "| Model | Correct / rows | PASS correct | NON_PASS correct | False PASS | Modeled API cost / accepted review |",
+        "|---|---:|---:|---:|---:|---:|",
     ]
     for model in payload["models"]:
         value = model["modeled_cost_per_accepted_review_usd"]
         summary.append(
             f"| {model['model_id']} | {model['accepted']} / {model['rows']} | "
+            f"{model['pass_correct']} / {model['expected_pass']} | "
+            f"{model['non_pass_correct']} / {model['expected_non_pass']} | "
             f"{model['false_pass']} | {'unknown' if value is None else f'${value:.4f}'} |"
         )
     summary += ["", payload["next_action"], ""]

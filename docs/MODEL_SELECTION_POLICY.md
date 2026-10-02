@@ -51,21 +51,38 @@ The `verifier-balanced` policy is defined in
 
 ### Fast provisional decision
 
-MAINT-78's automatic run is a no-spend plan. With the current 51 adjudicated
-cases, the candidate-stage minimum of 30 and required-category representation
-are already met. A manual `screen` compares the incumbent and up to three priced
-models on eight paired cases, deliberately including all four available
-NON_PASS examples. The screen and API confirmation use PR diffs and source-issue
-acceptance text without later verifier/disposition comments, which can reveal
-the expected outcome. The screen makes no API-key calls. If a candidate has zero observed
-false PASS and schema errors, at least incumbent accuracy, and lower modeled
-cost per accepted review (or replaces an incumbent with an observed false PASS),
-the screen names one finalist.
+MAINT-78's automatic run is a no-spend plan. The existing 51 historical cases
+meet the candidate-stage count and category minima, but **they are not yet
+valid screen inputs**. Their labels reflect later issue disposition, while the
+pilot supplied raw PR text rather than the production verifier's context and
+diff summary. The October 2 CLI diagnostic exposed this mismatch: GPT-6 Luna
+matched Terra's total score by rejecting every PASS example. That result does
+not justify a model change or a paid confirmation. The plan now reports an
+input-alignment blocker before any model calls.
+
+The next small screen requires independently adjudicated PASS and NON_PASS
+cases tied to captured production verifier inputs at merge. The comparison
+artifact now includes the exact context, diff summary, and identity manifest.
+Capture them before any model verdict or later disposition comment can enter
+them; record their hashes and merge heads, and review each expected outcome
+against the acceptance criteria at that point. A controlled defect variant of
+a captured input may supply a NON_PASS case when natural failures are scarce;
+mark it `controlled_defect`, describe the mutation, and keep the original
+capture provenance. The screen report must identify such cases as synthetic
+evidence, and the final change needs monitoring on real verifier work. Use a
+balanced eight-case paired set once available; there is no need to wait for
+the statistical approval sample.
+The manual `screen` compares the incumbent and up to three priced models
+through Codex subscription auth with no API-key calls. A finalist must have
+zero observed false PASS and schema errors, at least 50% PASS recall, no
+regression in either verdict class relative to the incumbent, and lower
+modeled cost per accepted review (or replace an incumbent with an observed
+false PASS). These are small-sample safeguards, not confidence claims.
 
 A separate manual `confirm` dispatch supplies that screen's run ID. The workflow
 refuses a stale or incomplete screen by checking input and verifier-harness
 fingerprints, plus the hash of each freshly fetched verifier prompt **before**
-any API call. It applies the configured provisional-stage thresholds at both
+any API call. It also rejects unaligned inputs. It applies the configured provisional-stage thresholds at both
 stages. It compares only the incumbent and finalist
 on the same eight cases through the OpenAI API, disables SDK retries, and reserves
 at most $5 in worst-case standard-rate cost before each pair. The estimate uses

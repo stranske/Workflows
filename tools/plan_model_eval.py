@@ -12,6 +12,7 @@ from statistics import NormalDist
 from typing import Any
 
 from tools.evaluate_model_benchmark import wilson_interval
+from tools.model_eval_snapshots import screen_cases
 
 ROOT = Path(__file__).resolve().parent.parent
 SCREEN_HARNESS_FILES = (
@@ -25,6 +26,8 @@ SCREEN_HARNESS_FILES = (
     "scripts/langchain/injection_guard.py",
     "tools/run_model_eval_pilot.py",
     "tools/run_model_eval_cli_screen.py",
+    "tools/run_model_eval_api_confirm.py",
+    "tools/model_eval_snapshots.py",
 )
 
 
@@ -95,6 +98,19 @@ def build_plan(
         and int(provisional["minimum_non_pass_cases"]) <= int(provisional["screen_cases"])
         and not screen_category_shortfalls
     )
+    selected_cases, snapshot_blockers = screen_cases(corpus, provisional)
+    missing_screen_categories = sorted(
+        set(candidate_stage["required_case_categories"])
+        - {case["category"] for case in selected_cases}
+    )
+    if missing_screen_categories:
+        snapshot_blockers.append(
+            f"Selected screen cases omit required categories: {missing_screen_categories}."
+        )
+    input_alignment_ready = (
+        corpus.get("screen_input_status") == "production_context_adjudicated"
+        and not snapshot_blockers
+    )
     current_models = [
         model
         for model in registry["models"]
@@ -145,7 +161,10 @@ def build_plan(
         if cli_catalog is None or model["model_id"] in listed_cli_models
     }
     screen_ready = (
-        screen_corpus_ready and incumbent in screen_model_ids and len(screen_model_ids) >= 2
+        screen_corpus_ready
+        and input_alignment_ready
+        and incumbent in screen_model_ids
+        and len(screen_model_ids) >= 2
     )
     screen_blockers = []
     if not screen_corpus_ready:
@@ -155,6 +174,14 @@ def build_plan(
             f"{provisional['minimum_non_pass_cases']} NON_PASS cases, and every required category; "
             f"missing categories: {screen_category_shortfalls}."
         )
+    if not input_alignment_ready:
+        screen_blockers.append(
+            "The historical labels describe later issue disposition, while the CLI screen "
+            "did not receive the production verifier's exact context and diff summary. "
+            "Capture production verifier inputs and independently adjudicate a small paired "
+            "PASS/NON_PASS set before another model screen."
+        )
+        screen_blockers.extend(snapshot_blockers)
     if incumbent not in screen_model_ids or len(screen_model_ids) < 2:
         screen_blockers.append(
             "Candidate screen needs the priced incumbent and at least one priced alternative "
@@ -224,10 +251,16 @@ def build_plan(
                 "maximum_false_passes",
                 "maximum_schema_errors",
                 "minimum_accuracy_delta_vs_incumbent",
+                "minimum_pass_recall",
             )
         },
         "approval_ready": False,
         "screen_ready": screen_ready,
+        "input_alignment_ready": input_alignment_ready,
+        "screen_case_kinds": {
+            case["case_id"]: case.get("production_snapshot", {}).get("input_kind")
+            for case in selected_cases
+        },
         "screen_blockers": screen_blockers,
         "benchmark_inputs_ready": benchmark_inputs_ready,
         "approval_blockers": reasons,

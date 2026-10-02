@@ -120,7 +120,6 @@ jobs:
       - name: Run bounded Codex CLI screen
         if: github.event_name == 'workflow_dispatch' && inputs.mode == 'screen'
         env:
-          GH_TOKEN: ${{ secrets.OWNER_PR_PAT }}
           CODEX_HOME: ${{ runner.temp }}/maint78-codex-home
           SCREEN_MODELS: ${{ inputs.models }}
         run: |
@@ -132,7 +131,6 @@ jobs:
       - name: Run capped paired API confirmation
         if: github.event_name == 'workflow_dispatch' && inputs.mode == 'confirm'
         env:
-          GH_TOKEN: ${{ secrets.OWNER_PR_PAT }}
           OPENAI_API_KEY: ${{ secrets.OPENAI_API_KEY }}
           API_ONLY_CANDIDATE: ${{ inputs.api_only_candidate }}
           SCREEN_SOURCE_RUN_ID: ${{ inputs.screen_source_run_id }}

@@ -366,6 +366,34 @@ jobs:
               }
             }
 
+      - name: Record verifier input identity for model evaluation
+        if: steps.context.outputs.should_run == 'true' && inputs.mode == 'compare'
+        env:
+          VERIFIER_TARGET_SHA: ${{ steps.context.outputs.target_sha }}
+          VERIFIER_CHAIN_DEPTH: ${{ steps.context.outputs.chain_depth }}
+          VERIFIER_PR_NUMBER: ${{ steps.context.outputs.pr_number }}
+        run: |
+          python3 - <<'PY'
+          import hashlib
+          import json
+          import os
+          from pathlib import Path
+
+          context = Path('verifier-context.md').read_bytes()
+          diff_summary = Path('verifier-diff-summary.md').read_bytes()
+          manifest = {
+              'schema': 'workflows-verifier-input-snapshot/v1',
+              'repository': os.environ['GITHUB_REPOSITORY'],
+              'pr': int(os.environ['VERIFIER_PR_NUMBER']),
+              'merge_sha': os.environ['VERIFIER_TARGET_SHA'],
+              'source_run_id': os.environ['GITHUB_RUN_ID'],
+              'chain_depth': int(os.environ['VERIFIER_CHAIN_DEPTH'] or 0),
+              'context_sha256': hashlib.sha256(context).hexdigest(),
+              'diff_summary_sha256': hashlib.sha256(diff_summary).hexdigest(),
+          }
+          Path('verifier-input-manifest.json').write_text(json.dumps(manifest, indent=2) + '\n')
+          PY
+
       - name: Resolve agent key from PR labels
         id: agent
         if: steps.context.outputs.should_run == 'true'
@@ -1286,6 +1314,9 @@ jobs:
             comparison.json
             comparison-stderr.log
             comparison-comment.md
+            verifier-context.md
+            verifier-diff-summary.md
+            verifier-input-manifest.json
           if-no-files-found: ignore
           retention-days: 7
 
