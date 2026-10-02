@@ -441,6 +441,7 @@ def test_invalid_json_preserves_cli_usage_and_does_not_stop_screen(monkeypatch):
     def fake_invocation(command, **kwargs):
         assert "GH_TOKEN" not in kwargs["env"]
         assert command[command.index("--disable") + 1] == "shell_tool"
+        assert command[command.index("--config") + 1] == 'web_search="disabled"'
         final = Path(command[command.index("--output-last-message") + 1])
         final.write_text("not JSON")
         return SimpleNamespace(stdout=stream, returncode=0)

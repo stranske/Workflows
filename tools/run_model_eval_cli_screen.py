@@ -152,6 +152,8 @@ def invoke_cli(codex: str, model: str, prompt: str) -> CliResult:
             "--strict-config",
             "--disable",
             "shell_tool",
+            "--config",
+            'web_search="disabled"',
             "--skip-git-repo-check",
             "--sandbox",
             "read-only",
