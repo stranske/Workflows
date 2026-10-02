@@ -1,0 +1,82 @@
+version: 1
+issue: 3695
+base: main
+branch: codex/issue-3695
+tasks:
+  - id: task-01
+    title: Update tools/langchain_client.py and templates/consumer-repo/tools/langchain_client.py
+      so _is_reasoning_model recognizes optional openai/ prefixes for GPT-5.6 and
+      o-series models without changing the outbound model ID.
+    status: doing
+    started_at: '2026-10-02T11:40:47Z'
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-02
+    title: Update docs/MODEL_SELECTION_POLICY.md so capture, screen, and confirm commands
+      explicitly run from a matching stranske/Workflows checkout and workflow, not
+      the consumer checkout.
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-03
+    title: Correct the docs/MODEL_SELECTION_POLICY.md header and date explanation
+      so overdue global, OpenAI, and GitHub registry decisions remain visible and
+      no unsupported new deadline is claimed.
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-04
+    title: Add tests/tools/test_langchain_client.py cases for bare and publisher-prefixed
+      reasoning IDs, an ordinary model, temperature behavior, and preserved outbound
+      IDs.
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-05
+    title: Add an assertion for the consumer documentation boundary in an existing
+      model-policy or sync test, verify .github/sync-manifest.yml source coverage,
+      and document consumer-facing behavior in docs/INTEGRATION_GUIDE.md.
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-06
+    title: python3 -m pytest tests/tools/test_langchain_client.py tests/test_check_model_registry_freshness.py
+      tests/scripts/test_sync_manifest_compiler.py -q exits 0 with non-zero collection.
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-07
+    title: openai/gpt-5.6-terra and openai/o3-mini omit temperature while retaining
+      their outbound IDs; an ordinary model retains temperature.
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-08
+    title: The policy names Workflows as the execution location for MAINT-78 commands
+      and does not advertise missing consumer-local tools.
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-09
+    title: The policy header does not assert a registry decision deadline later than
+      config/model_registry.json without decision evidence.
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
