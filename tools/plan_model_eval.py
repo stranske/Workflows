@@ -87,9 +87,12 @@ def build_plan(
     screen_category_shortfalls = sorted(
         set(candidate_stage["required_case_categories"]) - set(counts)
     )
+    provisional = profile["provisional_stage"]
     screen_corpus_ready = (
-        len(cases) >= int(candidate_stage["minimum_adjudicated_cases"])
-        and negative_cases >= 4
+        len(cases)
+        >= max(int(candidate_stage["minimum_adjudicated_cases"]), int(provisional["screen_cases"]))
+        and negative_cases >= int(provisional["minimum_non_pass_cases"])
+        and int(provisional["minimum_non_pass_cases"]) <= int(provisional["screen_cases"])
         and not screen_category_shortfalls
     )
     current_models = [
@@ -147,8 +150,9 @@ def build_plan(
     screen_blockers = []
     if not screen_corpus_ready:
         screen_blockers.append(
-            f"Candidate screen needs {candidate_stage['minimum_adjudicated_cases']} cases, "
-            "four NON_PASS cases, and every required category; "
+            f"Candidate screen needs at least "
+            f"{max(int(candidate_stage['minimum_adjudicated_cases']), int(provisional['screen_cases']))} cases, "
+            f"{provisional['minimum_non_pass_cases']} NON_PASS cases, and every required category; "
             f"missing categories: {screen_category_shortfalls}."
         )
     if incumbent not in screen_model_ids or len(screen_model_ids) < 2:
@@ -243,7 +247,12 @@ def build_plan(
         "catalog_advisory_models": catalog_advisory,
         "pinned_cli_unavailable_models": cli_unavailable,
         "automatic_api_calls": 0,
-        "screen_limit": {"cases": 8, "models": 4, "maximum_cli_calls": 32, "api_calls": 0},
+        "screen_limit": {
+            "cases": int(provisional["screen_cases"]),
+            "models": 4,
+            "maximum_cli_calls": 4 * int(provisional["screen_cases"]),
+            "api_calls": 0,
+        },
         "next_action": (
             "Run one bounded, paired Codex CLI screen of the incumbent and up to three "
             "priced candidates. Advance any candidate that meets the provisional-stage "

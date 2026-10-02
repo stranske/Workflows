@@ -2,11 +2,13 @@
 
 from __future__ import annotations
 
+import hashlib
 import json
 from pathlib import Path
 from types import SimpleNamespace
 
 import pytest
+from scripts.langchain import pr_verifier
 from tools.plan_model_eval import ROOT, build_plan
 from tools.run_model_eval_api_confirm import MAX_OUTPUT_TOKENS, _invoke_api, confirm
 from tools.run_model_eval_cli_screen import (
@@ -33,6 +35,11 @@ def _inputs():
     )
 
 
+def _prompt_hashes(cases):
+    digest = hashlib.sha256(pr_verifier._prepare_prompt("context", "diff").encode()).hexdigest()
+    return {case["case_id"]: digest for case in cases}
+
+
 def test_current_plan_flags_approval_gap_without_model_calls():
     plan = build_plan(*_inputs())
     assert not plan["approval_ready"]
@@ -46,6 +53,17 @@ def test_current_plan_flags_approval_gap_without_model_calls():
     assert plan["best_case_minimum_corpus_cases"] == 120
     assert plan["category_shortfalls"]["follow-up-required"] > 0
     assert plan["unpriced_openai_models"] == []
+
+
+def test_candidate_screen_uses_policy_case_and_failure_counts():
+    corpus, registry, policy = _inputs()
+    changed = json.loads(json.dumps(policy))
+    changed["profiles"]["verifier-balanced"]["provisional_stage"]["screen_cases"] = 6
+    plan = build_plan(corpus, registry, changed)
+    assert plan["screen_ready"]
+    assert plan["screen_limit"]["cases"] == 6
+    changed["profiles"]["verifier-balanced"]["provisional_stage"]["minimum_non_pass_cases"] = 5
+    assert not build_plan(corpus, registry, changed)["screen_ready"]
 
 
 def test_new_catalog_candidate_without_price_blocks_claim_of_best_available():
@@ -157,6 +175,7 @@ def test_api_confirmation_is_paired_bounded_and_still_provisional(monkeypatch):
         "screen_harness_fingerprint": plan["screen_harness_fingerprint"],
         "provisional_shortlist_model_id": "gpt-6-luna",
         "case_ids": [case["case_id"] for case in cases],
+        "prompt_sha256_by_case": _prompt_hashes(cases),
         "stopped_early": False,
     }
     calls = []
@@ -194,6 +213,14 @@ def test_api_confirmation_is_paired_bounded_and_still_provisional(monkeypatch):
     with pytest.raises(ValueError, match="current CLI screen"):
         confirm(corpus, registry, policy, screen, github_token="x", client=object())
     screen["screen_harness_fingerprint"] = plan["screen_harness_fingerprint"]
+
+    first_id = screen["case_ids"][0]
+    original_hash = screen["prompt_sha256_by_case"][first_id]
+    screen["prompt_sha256_by_case"][first_id] = "stale"
+    with pytest.raises(ValueError, match="prompt changed after screen"):
+        confirm(corpus, registry, policy, screen, github_token="x", client=object())
+    screen["prompt_sha256_by_case"][first_id] = original_hash
+    assert len(calls) == 16
 
     # A tiny ceiling must stop before a paid call or a partial pair.
     strict_policy = json.loads(json.dumps(policy))
@@ -265,6 +292,7 @@ def test_api_only_exception_requires_explicit_cli_absence_and_same_cases(monkeyp
         ],
         "provisional_shortlist_model_id": None,
         "case_ids": [case["case_id"] for case in cases],
+        "prompt_sha256_by_case": _prompt_hashes(cases),
         "stopped_early": False,
     }
     catalog = {

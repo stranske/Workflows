@@ -9,6 +9,7 @@ used for an approval-stage promotion.
 from __future__ import annotations
 
 import argparse
+import hashlib
 import json
 import os
 import subprocess
@@ -23,7 +24,7 @@ from scripts.langchain import pr_verifier
 from tools.plan_model_eval import ROOT, build_plan
 from tools.run_model_eval_pilot import fetch_pr
 
-MAX_CASES = 8
+DEFAULT_CASES = 8
 MAX_MODELS = 4
 DEFAULT_MODELS = "gpt-5.6-terra,gpt-6-luna,gpt-6-sol"
 
@@ -38,7 +39,9 @@ class CliResult:
     stop_screen: bool = False
 
 
-def select_cases(cases: list[dict[str, Any]], limit: int = MAX_CASES) -> list[dict[str, Any]]:
+def select_cases(
+    cases: list[dict[str, Any]], limit: int = DEFAULT_CASES, minimum_non_pass: int = 0
+) -> list[dict[str, Any]]:
     """Cover every category, then balance PASS and NON_PASS examples."""
     groups: dict[str, list[dict[str, Any]]] = defaultdict(list)
     for case in cases:
@@ -50,7 +53,7 @@ def select_cases(cases: list[dict[str, Any]], limit: int = MAX_CASES) -> list[di
         selected.append(groups[category].pop(0))
     while len(selected) < limit and any(groups.values()):
         non_pass = sum(case["expected_verdict"] == "NON_PASS" for case in selected)
-        preferred = "NON_PASS" if non_pass < limit // 2 else "PASS"
+        preferred = "NON_PASS" if non_pass < max(limit // 2, minimum_non_pass) else "PASS"
         eligible = [
             category
             for category in sorted(groups)
@@ -264,16 +267,32 @@ def run_screen(
     unavailable = sorted(set(models) - available)
     if unavailable:
         raise ValueError(f"models unavailable to Codex CLI: {unavailable}")
-    cases = select_cases(corpus["cases"])
+    stage = policy["profiles"]["verifier-balanced"]["provisional_stage"]
+    cases = select_cases(
+        corpus["cases"],
+        limit=int(stage["screen_cases"]),
+        minimum_non_pass=int(stage["minimum_non_pass_cases"]),
+    )
+    if sum(case["expected_verdict"] == "NON_PASS" for case in cases) < int(
+        stage["minimum_non_pass_cases"]
+    ):
+        raise ValueError("case selection cannot cover the required NON_PASS examples")
     prepared = {case["case_id"]: fetch_pr(case["repo"], case["pr"], token) for case in cases}
+    verifier_prompts = {
+        case_id: pr_verifier._prepare_prompt(context, diff)
+        for case_id, (context, diff) in prepared.items()
+    }
+    prompt_hashes = {
+        case_id: hashlib.sha256(prompt.encode("utf-8")).hexdigest()
+        for case_id, prompt in verifier_prompts.items()
+    }
     rows: list[dict[str, Any]] = []
     for model in models:
         for case in cases:
-            context, diff = prepared[case["case_id"]]
             prompt = (
                 "Evaluate this PR using the following verifier instructions. Do not use tools. "
                 "Return only one JSON object with verdict, scores, confidence, concerns, and summary.\n\n"
-                + pr_verifier._prepare_prompt(context, diff)
+                + verifier_prompts[case["case_id"]]
             )
             try:
                 outcome = invoke_cli(codex, model, prompt)
@@ -313,8 +332,10 @@ def run_screen(
             # A schema error is quality evidence and preserves its token cost.
             # Missing usage or tool activity invalidates the screen itself.
             if outcome is None or outcome.stop_screen:
-                return report(plan, cases, models, rows, stopped_early=True)
-    return report(plan, cases, models, rows, stopped_early=False)
+                return report(
+                    plan, cases, models, rows, stopped_early=True, prompt_hashes=prompt_hashes
+                )
+    return report(plan, cases, models, rows, stopped_early=False, prompt_hashes=prompt_hashes)
 
 
 def report(
@@ -324,6 +345,7 @@ def report(
     rows: list[dict[str, Any]],
     *,
     stopped_early: bool,
+    prompt_hashes: dict[str, str] | None = None,
 ) -> dict[str, Any]:
     by_model = []
     for model in models:
@@ -393,13 +415,14 @@ def report(
         ),
         "provisional_shortlist_model_id": shortlisted["model_id"] if shortlisted else None,
         "decision_rule": (
-            f"On the same eight cases: at most {max_false_passes} observed false PASS, "
+            f"On the same {len(cases)} cases: at most {max_false_passes} observed false PASS, "
             f"at most {max_schema_errors} schema errors, and an accuracy delta of at least "
             f"{min_accuracy_delta} cases vs the incumbent. Among qualifying candidates, "
             "advance a lower modeled cost per accepted review or fewer false PASS errors."
         ),
         "stopped_early": stopped_early,
         "case_ids": [case["case_id"] for case in cases],
+        "prompt_sha256_by_case": prompt_hashes or {},
         "models": by_model,
         "rows": rows,
         "next_action": (

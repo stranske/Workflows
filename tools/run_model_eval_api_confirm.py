@@ -10,6 +10,7 @@ API tokens, not invoice charges or statistical approval evidence.
 from __future__ import annotations
 
 import argparse
+import hashlib
 import json
 import os
 import time
@@ -121,14 +122,26 @@ def confirm(
         stage["minimum_non_pass_cases"]
     ):
         raise ValueError("screen does not cover the required NON_PASS cases")
+    prompt_hashes = screen.get("prompt_sha256_by_case")
+    if not isinstance(prompt_hashes, dict) or set(prompt_hashes) != set(case_ids):
+        raise ValueError("screen is missing case-level verifier prompt hashes")
+    # Fetch and validate every prompt before making the first billable model call.
+    # PR bodies and linked-issue comments can change after a CLI screen.
+    prompts: dict[str, str] = {}
+    for case_id in case_ids:
+        case = case_map[case_id]
+        context, diff = fetch_pr(case["repo"], case["pr"], github_token)
+        prompt = pr_verifier._prepare_prompt(context, diff)
+        if hashlib.sha256(prompt.encode("utf-8")).hexdigest() != prompt_hashes[case_id]:
+            raise ValueError(f"verifier prompt changed after screen for {case_id}")
+        prompts[case_id] = prompt
 
     limit = float(stage["maximum_api_confirmation_cost_usd"])
     spent_upper = 0.0
     rows: list[dict[str, Any]] = []
     for case_id in case_ids:
         case = case_map[case_id]
-        context, diff = fetch_pr(case["repo"], case["pr"], github_token)
-        prompt = pr_verifier._prepare_prompt(context, diff)
+        prompt = prompts[case_id]
         # Byte length is a conservative upper bound for text BPE tokens. Reserve
         # the full output cap for both models before starting a pair.
         input_bound = len(prompt.encode("utf-8")) + 256  # chat framing and tokenizer margin
