@@ -25,7 +25,7 @@ from tools.run_model_eval_pilot import fetch_pr
 
 MAX_CASES = 8
 MAX_MODELS = 4
-DEFAULT_MODELS = "gpt-5.6-terra,gpt-6-luna,gpt-6-sol,gpt-6-astra"
+DEFAULT_MODELS = "gpt-5.6-terra,gpt-6-luna,gpt-6-sol"
 
 
 @dataclass(frozen=True)
@@ -241,6 +241,8 @@ def run_screen(
     if len(models) < 2 or len(models) > MAX_MODELS or len(set(models)) != len(models):
         raise ValueError(f"select 2 to {MAX_MODELS} distinct models")
     plan = build_plan(corpus, registry, policy)
+    if not plan["screen_ready"]:
+        raise ValueError(f"candidate screen is not ready: {plan['screen_blockers']}")
     if plan["incumbent"] not in models:
         raise ValueError(f"include the incumbent {plan['incumbent']} for a paired comparison")
     prices = {
@@ -347,20 +349,57 @@ def report(
                 ),
             }
         )
+    incumbent = next((row for row in by_model if row["model_id"] == plan["incumbent"]), None)
+    complete = not stopped_early and all(row["rows"] == len(cases) for row in by_model)
+    eligible = (
+        [
+            row
+            for row in by_model
+            if row["model_id"] != plan["incumbent"]
+            and row["false_pass"] == 0
+            and row["schema_errors"] == 0
+            and row["accepted"] >= incumbent["accepted"]
+            and row["modeled_cost_per_accepted_review_usd"] is not None
+            and (
+                incumbent["false_pass"] > 0
+                or incumbent["modeled_cost_per_accepted_review_usd"] is None
+                or row["modeled_cost_per_accepted_review_usd"]
+                < incumbent["modeled_cost_per_accepted_review_usd"]
+            )
+        ]
+        if complete and incumbent is not None
+        else []
+    )
+    shortlisted = min(
+        eligible,
+        key=lambda row: (row["modeled_cost_per_accepted_review_usd"], -row["accepted"]),
+        default=None,
+    )
     return {
         "schema": "workflows-verifier-cli-screen/v1",
         "input_fingerprint": plan["input_fingerprint"],
         "scope": "exploratory Codex CLI screen; not production API evidence",
         "api_key_calls": 0,
         "approval_ready": False,
+        "screen_decision": (
+            "advance_to_api_confirmation"
+            if shortlisted
+            else "inconclusive" if not complete else "retain_incumbent_on_screen"
+        ),
+        "provisional_shortlist_model_id": shortlisted["model_id"] if shortlisted else None,
+        "decision_rule": "On the same eight cases: zero observed false PASS and schema errors, "
+        "at least incumbent accuracy, then lower modeled cost per accepted review "
+        "(or replacement of an incumbent with an observed false PASS).",
         "stopped_early": stopped_early,
         "case_ids": [case["case_id"] for case in cases],
         "models": by_model,
         "rows": rows,
         "next_action": (
-            f"Grow to at least {plan['best_case_minimum_corpus_cases']} adjudicated cases, "
-            f"including {plan['zero_error_false_pass_denominator']} NON_PASS cases under "
-            "the current gates; then confirm finalists in the production API with measured costs."
+            "Run a capped paired production API confirmation against the incumbent. "
+            "If it agrees, review a reversible provisional model change and monitor live outcomes."
+            if shortlisted
+            else "Keep the incumbent; inspect case-level errors and screen another priced candidate "
+            "when the catalog or verifier workload changes."
         ),
     }
 
@@ -401,6 +440,11 @@ def main(argv: list[str] | None = None) -> int:
             f"{model['false_pass']} | {'unknown' if value is None else f'${value:.4f}'} |"
         )
     summary += ["", payload["next_action"], ""]
+    summary.insert(
+        2,
+        f"**Screen decision:** {payload['screen_decision']}; "
+        f"shortlist: {payload['provisional_shortlist_model_id'] or 'none'}.",
+    )
     if args.summary:
         with args.summary.open("a") as stream:
             stream.write("\n".join(summary))

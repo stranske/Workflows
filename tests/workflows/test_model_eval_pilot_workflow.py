@@ -21,10 +21,12 @@ def test_maint78_automatic_paths_cannot_start_paid_model_calls() -> None:
     assert "python -m tools.run_model_eval_cli_screen" in screen["run"]
     assert 'auth.get("auth_mode") != "chatgpt"' in auth["run"]
     assert 'auth.get("OPENAI_API_KEY")' in auth["run"]
-    assert (
-        "secrets.OPENAI_API_KEY"
-        not in (root / ".github/workflows/maint-78-model-evaluation-pilot.yml").read_text()
+    confirm = next(
+        step for step in steps if step.get("name") == "Run capped paired API confirmation"
     )
+    assert "workflow_dispatch" in confirm["if"] and "inputs.mode == 'confirm'" in confirm["if"]
+    assert confirm["env"]["OPENAI_API_KEY"] == "${{ secrets.OPENAI_API_KEY }}"
+    assert all("secrets.OPENAI_API_KEY" not in str(step) for step in steps if step is not confirm)
     assert (
         "run_model_eval_pilot"
         not in (root / ".github/workflows/maint-78-model-evaluation-pilot.yml").read_text()
