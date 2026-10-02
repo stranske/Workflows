@@ -8,9 +8,22 @@ import hashlib
 import json
 from collections import Counter
 from pathlib import Path
+from statistics import NormalDist
 from typing import Any
 
+from tools.evaluate_model_benchmark import wilson_interval
+
 ROOT = Path(__file__).resolve().parent.parent
+
+
+def _zero_error_denominator(maximum_rate: float, confidence_level: float) -> int:
+    """Smallest sample whose Wilson upper bound passes with zero errors."""
+    if not 0 < maximum_rate < 1 or not 0 < confidence_level < 1:
+        raise ValueError("quality gate rates and confidence must be between 0 and 1")
+    z = NormalDist().inv_cdf((1 + confidence_level) / 2)
+    return next(
+        count for count in range(1, 100_001) if wilson_interval(0, count, z=z)[1] <= maximum_rate
+    )
 
 
 def build_plan(
@@ -25,6 +38,20 @@ def build_plan(
     cases = corpus["cases"]
     counts = Counter(str(case["category"]) for case in cases)
     minimum = int(approval["minimum_adjudicated_cases"])
+    positive_cases = sum(case.get("expected_verdict") == "PASS" for case in cases)
+    negative_cases = sum(case.get("expected_verdict") == "NON_PASS" for case in cases)
+    false_pass_floor = _zero_error_denominator(
+        float(approval["quality_gates"]["false_pass_rate_wilson_upper_bound"]),
+        float(approval["confidence_level"]),
+    )
+    false_fail_floor = _zero_error_denominator(
+        float(approval["quality_gates"]["false_fail_rate_wilson_upper_bound"]),
+        float(approval["confidence_level"]),
+    )
+    additional_non_pass = max(0, false_pass_floor - negative_cases)
+    additional_pass = max(0, false_fail_floor - positive_cases)
+    best_case_total = len(cases) + additional_non_pass + additional_pass
+    confidence_label = f"{float(approval['confidence_level']):.0%}"
     default_category_minimum = int(approval["minimum_cases_per_category"])
     overrides = approval.get("minimum_cases_per_category_overrides", {})
     category_shortfalls = {
@@ -79,6 +106,22 @@ def build_plan(
     reasons = []
     if len(cases) < minimum:
         reasons.append(f"Corpus has {len(cases)} adjudicated cases; approval requires {minimum}.")
+    if additional_non_pass:
+        reasons.append(
+            f"Even with zero false passes, the {confidence_label} Wilson gate needs {false_pass_floor} "
+            f"NON_PASS cases; only {negative_cases} exist ({additional_non_pass} more needed)."
+        )
+    if additional_pass:
+        reasons.append(
+            f"Even with zero false fails, the {confidence_label} Wilson gate needs {false_fail_floor} "
+            f"PASS cases; only {positive_cases} exist ({additional_pass} more needed)."
+        )
+    maximum_corpus = int(profile["corpus_growth"]["max_corpus_size"])
+    if max(minimum, best_case_total) > maximum_corpus:
+        reasons.append(
+            f"Best-case sample needs at least {max(minimum, best_case_total)} cases, above the "
+            f"configured corpus cap of {maximum_corpus}."
+        )
     if category_shortfalls:
         reasons.append(f"Category minimums are unmet: {category_shortfalls}.")
     if incumbent not in {model["model_id"] for model in priced}:
@@ -121,6 +164,12 @@ def build_plan(
         "benchmark_inputs_ready": benchmark_inputs_ready,
         "approval_blockers": reasons,
         "corpus_cases": len(cases),
+        "expected_pass_cases": positive_cases,
+        "expected_non_pass_cases": negative_cases,
+        "zero_error_false_pass_denominator": false_pass_floor,
+        "zero_error_false_fail_denominator": false_fail_floor,
+        "additional_non_pass_cases_for_best_case_gate": additional_non_pass,
+        "best_case_minimum_corpus_cases": max(minimum, best_case_total),
         "approval_minimum_cases": minimum,
         "category_counts": dict(sorted(counts.items())),
         "category_shortfalls": category_shortfalls,
@@ -147,6 +196,8 @@ def markdown(plan: dict[str, Any]) -> str:
         f"**Automatic API calls:** {plan['automatic_api_calls']}",
         f"**Input fingerprint:** `{plan['input_fingerprint']}`",
         f"**Corpus:** {plan['corpus_cases']} / {plan['approval_minimum_cases']} cases",
+        f"**Best-case statistical floor:** {plan['best_case_minimum_corpus_cases']} total "
+        f"including {plan['zero_error_false_pass_denominator']} NON_PASS cases",
         f"**Priced OpenAI models:** {', '.join(plan['priced_openai_models']) or 'none'}",
     ]
     if plan["unpriced_openai_models"]:

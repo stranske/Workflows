@@ -32,6 +32,10 @@ def test_current_plan_flags_approval_gap_without_model_calls():
     assert plan["automatic_api_calls"] == 0
     assert plan["corpus_cases"] == 51
     assert plan["approval_minimum_cases"] == 75
+    assert plan["expected_non_pass_cases"] == 4
+    assert plan["zero_error_false_pass_denominator"] == 73
+    assert plan["additional_non_pass_cases_for_best_case_gate"] == 69
+    assert plan["best_case_minimum_corpus_cases"] == 120
     assert plan["category_shortfalls"]["follow-up-required"] > 0
     assert plan["unpriced_openai_models"] == []
 

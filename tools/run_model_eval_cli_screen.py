@@ -265,7 +265,11 @@ def report(
         "case_ids": [case["case_id"] for case in cases],
         "models": by_model,
         "rows": rows,
-        "next_action": "Grow to 75 adjudicated cases; confirm finalists in the production API with observed costs.",
+        "next_action": (
+            f"Grow to at least {plan['best_case_minimum_corpus_cases']} adjudicated cases, "
+            f"including {plan['zero_error_false_pass_denominator']} NON_PASS cases under "
+            "the current gates; then confirm finalists in the production API with measured costs."
+        ),
     }
 
 
