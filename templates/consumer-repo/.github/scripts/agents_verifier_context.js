@@ -371,6 +371,7 @@ async function fetchVerifierEvidence({
   let artifactIncomplete = allRunIds.length > referencedRunIds.length;
 
   const commitShas = Array.from(new Set((associatedCommitShas || []).filter(Boolean)));
+  let associatedRunDiscoveryComplete = commitShas.length > 0;
   const exactCommitShas = new Set(
     commitShas.filter(isValidSha).map((commitSha) => commitSha.toLowerCase())
   );
@@ -408,6 +409,7 @@ async function fetchVerifierEvidence({
 
   for (const commitSha of commitShas) {
     if (!isValidSha(commitSha)) {
+      associatedRunDiscoveryComplete = false;
       artifactIncomplete = true;
       artifacts.reason = `associated workflow-run commit is invalid: ${commitSha}`;
       continue;
@@ -430,17 +432,20 @@ async function fetchVerifierEvidence({
         response?.headers?.link?.includes('rel="next"')
         || (Number.isFinite(response?.data?.total_count) && response.data.total_count > workflowRuns.length)
       ) {
+        associatedRunDiscoveryComplete = false;
         artifactIncomplete = true;
         artifacts.reason = `workflow run discovery for commit ${commitSha} exceeded the bounded result limit`;
       }
       for (const workflowRun of workflowRuns) {
         if (String(workflowRun?.head_sha || '').toLowerCase() !== commitSha.toLowerCase()) {
+          associatedRunDiscoveryComplete = false;
           artifactIncomplete = true;
           artifacts.reason ||= `workflow run discovery returned a run for a different commit than ${commitSha}`;
           continue;
         }
         const runId = Number(workflowRun?.id);
         if (!Number.isFinite(runId) || runId <= 0) {
+          associatedRunDiscoveryComplete = false;
           artifactIncomplete = true;
           artifacts.reason = `workflow run discovery returned invalid evidence for commit ${commitSha}`;
           continue;
@@ -456,10 +461,15 @@ async function fetchVerifierEvidence({
         }
       }
     } catch (error) {
+      associatedRunDiscoveryComplete = false;
       artifactIncomplete = true;
       artifacts.reason = `workflow run discovery failed for commit ${commitSha}: ${error.message}`;
       core?.warning?.(`Verifier workflow-run discovery unavailable: ${error.message}`);
     }
+  }
+  if (comments.status === 'unavailable' && !associatedRunDiscoveryComplete) {
+    artifactIncomplete = true;
+    artifacts.reason ||= 'comment evidence was unavailable and exact-head workflow-run discovery was incomplete';
   }
   let inspectedArtifacts = 0;
   for (const runId of runIds) {
@@ -529,10 +539,6 @@ async function fetchVerifierEvidence({
       artifacts.reason = `artifact retrieval failed for run ${runId}: ${error.message}`;
       core?.warning?.(`Verifier workflow-artifact evidence unavailable: ${error.message}`);
     }
-  }
-  if (comments.status === 'unavailable' && (!commitShas.length || !artifacts.records.length)) {
-    artifactIncomplete = true;
-    artifacts.reason ||= 'comment evidence was unavailable, so referenced run discovery is incomplete';
   }
   if (artifactIncomplete) {
     artifacts.status = 'unavailable';

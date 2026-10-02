@@ -447,8 +447,27 @@ def test_equivalent_negative_artifact_gates_require_evidence(criterion: str) -> 
 
 
 def test_mixed_prohibition_preserves_required_comment_channel() -> None:
+    for conjunction in (", but", "and", "while"):
+        assert pr_verifier._required_evidence_channels(
+            f"- No artifact is required {conjunction} a PR comment must be posted"
+        ) == {"comments"}
+
+
+@pytest.mark.parametrize(
+    "criterion",
+    [
+        "The artifact must not be uploaded",
+        "The artifact shall not be attached",
+        "The PR comment must not be posted",
+    ],
+)
+def test_passive_evidence_prohibition_does_not_require_a_channel(criterion: str) -> None:
+    assert pr_verifier._required_evidence_channels(f"- {criterion}") == set()
+
+
+def test_passive_prohibition_preserves_separate_required_comment() -> None:
     assert pr_verifier._required_evidence_channels(
-        "- No artifact is required, but a PR comment must be posted"
+        "- The artifact must not be uploaded and a PR comment must be posted"
     ) == {"comments"}
     assert pr_verifier._required_evidence_channels(
         "- No artifact is required and a PR comment must be posted"

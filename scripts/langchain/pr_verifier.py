@@ -802,13 +802,18 @@ def _required_evidence_channels(acceptance: str) -> set[str]:
     evidence_prohibition = re.compile(
         r"\bno\s+(?:\w+\s+){0,3}(?:evidence|artifacts?|transcripts?|command outputs?)"
         r"\s+(?:is|are)\s+required\b"
-        r"|\b(?:evidence|artifacts?|transcripts?|command outputs?)"
+        r"|\b(?:evidence|artifacts?|transcripts?|command outputs?|"
+        r"pr comments?|pull request comments?)"
         r"\s+(?:is|are)\s+not\s+(?:required|needed)\b"
         r"|\b(?:must|shall|may|should|do|does)\s+not\s+"
         r"(?:upload|attach|provide|publish|post|record|capture|include|document)\b"
-        r"|\b(?:evidence|artifacts?|transcripts?|command outputs?)\s+"
+        r"(?:\s+(?:the\s+|an?\s+|any\s+)?(?:evidence|artifacts?|transcripts?|"
+        r"command outputs?|pr comments?|pull request comments?))?"
+        r"|\b(?:evidence|artifacts?|transcripts?|command outputs?|"
+        r"pr comments?|pull request comments?)\s+"
         r"(?:must|shall|may|should)\s+not\s+be\s+"
-        r"(?:uploaded|attached|provided|published|posted|recorded|captured|included|documented)\b",
+        r"(?:uploaded|attached|provided|published|posted|recorded|captured|"
+        r"included|documented)\b",
         re.I,
     )
     negative_gate = re.compile(
@@ -829,32 +834,30 @@ def _required_evidence_channels(acceptance: str) -> set[str]:
             criteria[-1] += " " + line
         else:
             criteria.append(line)
-    clauses: list[str] = []
     for criterion in criteria:
-        for clause in re.split(r"\s*;\s*|,?\s+but\s+", criterion, flags=re.I):
-            if evidence_prohibition.search(clause):
-                clauses.extend(re.split(r"\s+(?:and|while|whereas)\s+", clause, flags=re.I))
-            else:
-                clauses.append(clause)
-    for line in clauses:
-        gate = bool(negative_gate.search(line))
-        if not evidence_term.search(line) or (evidence_prohibition.search(line) and not gate):
-            continue
-        checklist = re.match(r"^\s*[-*]\s*\[[ xX]\]", line)
-        bullet = re.match(r"^\s*[-*]\s+", line)
-        if not (
-            gate or checklist or (bullet and requirement.search(line)) or requirement.search(line)
-        ):
-            continue
-        lower = line.lower()
-        line_channels: set[str] = set()
-        if re.search(r"\b(?:workflow artifacts?|artifacts?|workflow runs?)\b", lower):
-            line_channels.add("artifacts")
-        if re.search(r"\b(?:pr comments?|pull request comments?)\b", lower):
-            line_channels.add("comments")
-        if not line_channels:
-            line_channels.add("overall")
-        channels.update(line_channels)
+        for line in re.split(r"\s*;\s*|,?\s+but\s+", criterion, flags=re.I):
+            gate = bool(negative_gate.search(line))
+            requirement_text = line if gate else evidence_prohibition.sub(" ", line)
+            if not evidence_term.search(requirement_text):
+                continue
+            checklist = re.match(r"^\s*[-*]\s*\[[ xX]\]", requirement_text)
+            bullet = re.match(r"^\s*[-*]\s+", requirement_text)
+            if not (
+                gate
+                or checklist
+                or (bullet and requirement.search(requirement_text))
+                or requirement.search(requirement_text)
+            ):
+                continue
+            lower = requirement_text.lower()
+            line_channels: set[str] = set()
+            if re.search(r"\b(?:workflow artifacts?|artifacts?|workflow runs?)\b", lower):
+                line_channels.add("artifacts")
+            if re.search(r"\b(?:pr comments?|pull request comments?)\b", lower):
+                line_channels.add("comments")
+            if not line_channels:
+                line_channels.add("overall")
+            channels.update(line_channels)
     return channels
 
 

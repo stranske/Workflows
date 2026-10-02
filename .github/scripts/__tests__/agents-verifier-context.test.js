@@ -949,6 +949,7 @@ test('buildVerifierContext preserves exact-head artifacts when PR comment retrie
   assert.equal(core.outputs.evidence_status, 'unavailable');
   assert.match(result.markdown, /PR comments: \*\*unavailable\*\*/);
   assert.match(result.markdown, /Referenced workflow artifacts: \*\*present\*\*/);
+  assert.match(result.markdown, /proof from the exact PR head/);
   removeVerifierDiffArtifacts(result);
 });
 
@@ -1094,7 +1095,7 @@ test('buildVerifierContext reports retrieval failure as unavailable, never absen
   assert.equal(result.shouldRun, true);
   assert.equal(core.outputs.evidence_status, 'unavailable');
   assert.match(result.markdown, /PR comments: \*\*unavailable\*\*/);
-  assert.match(result.markdown, /Referenced workflow artifacts: \*\*unavailable\*\*/);
+  assert.match(result.markdown, /Referenced workflow artifacts: \*\*absent\*\*/);
   assert.doesNotMatch(result.markdown, /PR comments: \*\*absent\*\*/);
   removeVerifierDiffArtifacts(result);
 });
