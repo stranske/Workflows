@@ -6,6 +6,13 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 Breaking changes are called out with a **BREAKING** marker and scheduled according to the policy in `COMPATIBILITY.md`.
 
+## [1.37.8](https://github.com/stranske/Workflows/compare/v1.37.7...v1.37.8) (2026-10-02)
+
+
+### Bug Fixes
+
+* align integration template Ruff pin with canonical version ([#3684](https://github.com/stranske/Workflows/issues/3684)) ([de0c7bf](https://github.com/stranske/Workflows/commit/de0c7bfc3e0eda12016e86d70fc949cd21197ce5))
+
 ## [1.37.7](https://github.com/stranske/Workflows/compare/v1.37.6...v1.37.7) (2026-10-02)
 
 
