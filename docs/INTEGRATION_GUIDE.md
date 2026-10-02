@@ -531,6 +531,19 @@ generates these working files. The workflow uses PR-specific filenames (e.g.,
 - Workflow artifacts (full outputs)
 - Commit messages (change descriptions)
 
+Post-merge verification loads a bounded evidence record from the selected PR.
+It inspects only that PR's comments and workflow runs explicitly referenced by
+the PR body, linked issue bodies, or those bounded comments. Comment count and
+rendered characters, referenced runs, artifact count and archive size, text
+entries, and rendered artifact characters all have finite limits. The context
+reports each source as `present`, `absent`, or `unavailable`: a complete empty
+lookup is `absent`, while API failure, unreadable content, or any limit that
+prevents complete inspection is `unavailable`. An unavailable source can never
+be used to claim that a required transcript is absent or to justify PASS for an
+otherwise unverifiable required deliverable. Artifact archives are read without
+extracting paths into the checkout, and only allowlisted text entry types are
+included as untrusted evidence rather than instructions.
+
 ### Consumer Repo Setup: Coverage Soft Gate
 
 Enable coverage tracking with automatic issue creation when coverage drops:

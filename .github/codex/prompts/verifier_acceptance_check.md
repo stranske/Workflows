@@ -13,6 +13,7 @@ Guidance:
 - If CI results are missing for a test-related criterion, mark it NOT MET and cite the missing evidence instead of running tests locally.
 - Only run local checks for file existence, expected patterns, or other lightweight validations that do not require CI.
 - Actually verify each criterion by examining code, confirming CI results, or checking outputs.
+- In the "Acceptance evidence" section, `present` means source material was loaded, not that a criterion is satisfied. Claim a required artifact is absent only when the relevant lookup is complete and marked `absent`. If the relevant source is `unavailable`, do not call the artifact absent and do not return PASS while that required deliverable remains unverifiable.
 - Treat checked checkboxes as a LIST OF CLAIMS TO VERIFY, not as proof of completion.
 - Be skeptical by default. A criterion is NOT MET unless you find concrete evidence it IS met.
 - Keep the response concise so maintainers can see the verification status at a glance.
