@@ -2,6 +2,8 @@
 
 import scripts.langchain.pr_verifier as pr_verifier
 
+SAMPLE_DIFF = "diff --git a/example.py b/example.py\n--- a/example.py\n+++ b/example.py\n@@ -1 +1 @@\n-old\n+new\n"
+
 
 class FakeResponse:
     def __init__(self, content: str) -> None:
@@ -63,7 +65,7 @@ def test_evaluate_pr_falls_back_on_auth_error(monkeypatch) -> None:
     monkeypatch.setattr(pr_verifier, "_get_llm_client", mock_get_client)
     monkeypatch.setattr(pr_verifier, "_prepare_prompt", lambda ctx, diff: "test prompt")
 
-    result = pr_verifier.evaluate_pr("test context")
+    result = pr_verifier.evaluate_pr("test context", diff=SAMPLE_DIFF)
 
     assert primary_client.invoked is True
     assert fallback_client.invoked is True

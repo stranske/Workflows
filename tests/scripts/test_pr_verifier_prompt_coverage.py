@@ -110,12 +110,9 @@ def test_captured_shapes_state_coverage_and_reach_every_file(
         assert "Coverage verdict: sufficient" in prompt
     else:
         assert coverage.code == "truncated"
-        assert (
-            coverage.code_ratio < pr_verifier.MIN_CODE_COVERAGE_RATIO
-            or any(
-                reason.startswith("Changed code was truncated to fit the prompt budget")
-                for reason in coverage.reasons
-            )
+        assert coverage.code_ratio < pr_verifier.MIN_CODE_COVERAGE_RATIO or any(
+            reason.startswith("Changed code was truncated to fit the prompt budget")
+            for reason in coverage.reasons
         )
         assert "INCOMPLETE — do not return PASS" in prompt
 
@@ -257,7 +254,9 @@ def test_required_unavailable_acceptance_evidence_withholds_model_pass(
     assert coverage.acceptance == "complete"
     assert coverage.acceptance_evidence == "complete"
     assert not coverage.sufficient
-    assert any("Required acceptance evidence is unavailable" in reason for reason in coverage.reasons)
+    assert any(
+        "Required acceptance evidence is unavailable" in reason for reason in coverage.reasons
+    )
 
     client = _pass_client()
     monkeypatch.setattr(
@@ -286,7 +285,9 @@ def test_late_required_evidence_omission_is_not_hidden_by_plan_budget() -> None:
     assert coverage.acceptance == "complete"
     assert coverage.acceptance_evidence == "complete"
     assert not coverage.sufficient
-    assert any("Required acceptance evidence is unavailable" in reason for reason in coverage.reasons)
+    assert any(
+        "Required acceptance evidence is unavailable" in reason for reason in coverage.reasons
+    )
 
 
 def test_summary_parser_covers_all_context_builder_file_forms() -> None:

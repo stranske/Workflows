@@ -544,7 +544,10 @@ def _split_verifier_context(context: str) -> list[tuple[str, str]] | None:
     summary = text.rfind("\n" + DIFF_SUMMARY_SECTION + "\n", anchor, summary_end)
     evidence_end = summary if summary >= 0 else summary_end
     evidence = text.rfind("\n" + ACCEPTANCE_EVIDENCE_SECTION + "\n", max(plan, 0), evidence_end)
-    if not context.startswith(VERIFIER_CONTEXT_TITLE) and max(ci, plan, evidence, summary, full) < 0:
+    if (
+        not context.startswith(VERIFIER_CONTEXT_TITLE)
+        and max(ci, plan, evidence, summary, full) < 0
+    ):
         return None
     marks = [("preamble", 0)]
     if ci >= 0:
@@ -779,9 +782,12 @@ def build_prompt_inputs(context: str, diff: str | None) -> PromptInputs:
         _budget_from_env("VERIFIER_CONTEXT_BUDGET_TOKENS", VERIFIER_CONTEXT_BUDGET_TOKENS)
         * TOKEN_CHARS
     )
-    evidence_budget = _budget_from_env(
-        "VERIFIER_ACCEPTANCE_EVIDENCE_BUDGET_TOKENS", VERIFIER_CONTEXT_BUDGET_TOKENS
-    ) * TOKEN_CHARS
+    evidence_budget = (
+        _budget_from_env(
+            "VERIFIER_ACCEPTANCE_EVIDENCE_BUDGET_TOKENS", VERIFIER_CONTEXT_BUDGET_TOKENS
+        )
+        * TOKEN_CHARS
+    )
     diff_budget = (
         _budget_from_env("VERIFIER_DIFF_BUDGET_TOKENS", VERIFIER_DIFF_BUDGET_TOKENS) * TOKEN_CHARS
     )
@@ -827,12 +833,8 @@ def build_prompt_inputs(context: str, diff: str | None) -> PromptInputs:
         acceptance = section_status.get("acceptance", "unavailable")  # type: ignore[assignment]
         if evidence_source:
             evidence_block = _cap_prompt_text(evidence_source, evidence_budget // TOKEN_CHARS)
-            acceptance_evidence = (
-                "complete" if evidence_block == evidence_source else "truncated"
-            )
-            context_block = "\n\n".join(
-                part for part in (context_block, evidence_block) if part
-            )
+            acceptance_evidence = "complete" if evidence_block == evidence_source else "truncated"
+            context_block = "\n\n".join(part for part in (context_block, evidence_block) if part)
         else:
             acceptance_evidence = "not_declared"
     if acceptance == "truncated":
@@ -843,7 +845,9 @@ def build_prompt_inputs(context: str, diff: str | None) -> PromptInputs:
         if acceptance_evidence in {"not_declared", "unavailable"} or _evidence_reports_unavailable(
             evidence_source
         ):
-            reasons.append("Required acceptance evidence is unavailable; completeness cannot be judged.")
+            reasons.append(
+                "Required acceptance evidence is unavailable; completeness cannot be judged."
+            )
         elif acceptance_evidence == "truncated":
             reasons.append("Required acceptance evidence was truncated to fit the prompt budget.")
 
@@ -872,7 +876,9 @@ def build_prompt_inputs(context: str, diff: str | None) -> PromptInputs:
     elif omitted:
         reasons.append(f"{len(omitted)} changed file(s) are omitted from the prompt entirely.")
     elif code == "truncated":
-        reasons.append("Changed code was truncated to fit the prompt budget; a PASS is not allowed.")
+        reasons.append(
+            "Changed code was truncated to fit the prompt budget; a PASS is not allowed."
+        )
     if total and included / total < MIN_CODE_COVERAGE_RATIO:
         reasons.append(
             f"Only {included}/{total} changed-code characters fit the prompt "
