@@ -139,13 +139,15 @@ def _resolve_slots() -> list[SlotDefinition]:
 
 
 def _is_reasoning_model(model: str) -> bool:
-    """Return True if the model is an OpenAI reasoning model that rejects temperature.
+    """Return True if the model rejects a nondefault temperature.
 
-    Supported naming pattern: `o` + digits, with optional suffixes. Examples: `o1`,
-    `o1-preview`, `o1-preview-2024-09-12`, `o3`, `o3-mini`, `o3-pro`, `o4-mini`,
-    `o4-mini-deep-research`. Non-matching examples: `o`, `o-1`, `openai-o1`, `oasis-1`.
+    The MAINT-78 API confirmation observed HTTP 400 for gpt-5.6-terra with
+    temperature=0.1. The GPT-5.6 family therefore uses the provider default.
+    O-series reasoning models also reject this sampling control.
     """
     name = model.lower().strip()
+    if name.startswith("gpt-5.6-"):
+        return True
     # o-series reasoning models use an `o` prefix followed by digits with optional
     # hyphen-separated suffixes: o1, o1-preview, o1-preview-2024-09-12, o3, o3-mini,
     # o3-pro, o4-mini, o4-mini-deep-research.

@@ -339,7 +339,7 @@ def test_api_confirmation_uses_each_models_production_route_without_retries():
     )
     assert received[0][1]["max_output_tokens"] == MAX_OUTPUT_TOKENS
     assert received[1][1]["max_completion_tokens"] == MAX_OUTPUT_TOKENS
-    assert received[1][1]["temperature"] == 0.1
+    assert "temperature" not in received[1][1]
 
 
 def test_api_cost_reservation_rejects_invalid_registry_rates():

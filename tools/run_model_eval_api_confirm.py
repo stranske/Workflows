@@ -52,7 +52,6 @@ def _invoke_api(client: Any, model: dict[str, Any], prompt: str) -> tuple[str, i
             model=model_id,
             messages=[{"role": "user", "content": prompt}],
             max_completion_tokens=MAX_OUTPUT_TOKENS,
-            temperature=0.1,
         )
         content = response.choices[0].message.content or ""
         usage = response.usage
