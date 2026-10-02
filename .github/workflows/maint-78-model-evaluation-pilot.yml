@@ -13,8 +13,8 @@ on:
         type: choice
         options: [plan, capture, screen, confirm]
         default: plan
-      capture_prs:
-        description: Capture mode only; 1-8 comma-separated merged Workflows PR numbers, no model calls.
+      capture_targets:
+        description: Capture mode only; 1-8 comma-separated owner/repo#PR entries, no model calls.
         required: false
         type: string
       screen_source_run_id:
@@ -90,13 +90,13 @@ jobs:
         if: github.event_name == 'workflow_dispatch' && inputs.mode == 'capture'
         uses: actions/github-script@v9
         env:
-          CAPTURE_PRS: ${{ inputs.capture_prs }}
+          CAPTURE_TARGETS: ${{ inputs.capture_targets }}
         with:
           github-token: ${{ github.token }}
           script: |
             const { captureModelEvalInputs } = require('./tools/capture_model_eval_inputs.js');
             await captureModelEvalInputs({
-              github, context, core, prNumbers: process.env.CAPTURE_PRS,
+              github, context, core, targets: process.env.CAPTURE_TARGETS,
             });
       - name: Download completed CLI screen for API confirmation
         if: github.event_name == 'workflow_dispatch' && inputs.mode == 'confirm'

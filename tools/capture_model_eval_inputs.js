@@ -8,26 +8,30 @@ const crypto = require('crypto');
 const { buildVerifierContext } = require('../.github/scripts/agents_verifier_context.js');
 
 async function captureModelEvalInputs({
-  github, context, core, prNumbers, outputRoot = 'captured-inputs', buildContext = buildVerifierContext,
+  github, context, core, targets, outputRoot = 'captured-inputs', buildContext = buildVerifierContext,
 }) {
-  const raw = String(prNumbers || '').trim();
-  if (!raw || !/^\d+(,\d+)*$/.test(raw)) {
-    throw new Error('capture_prs must be comma-separated merged PR numbers');
-  }
-  const numbers = raw.split(',').map(Number);
-  if (numbers.length > 8 || new Set(numbers).size !== numbers.length || numbers.some((n) => n <= 0)) {
-    throw new Error('capture_prs must contain 1-8 unique positive PR numbers');
+  const entries = String(targets || '').trim().split(',');
+  if (
+    entries.length > 8 ||
+    new Set(entries).size !== entries.length ||
+    entries.some((entry) => !/^[A-Za-z0-9_.-]+\/[A-Za-z0-9_.-]+#[1-9]\d*$/.test(entry))
+  ) {
+    throw new Error('capture_targets must contain 1-8 unique owner/repo#PR entries');
   }
   const root = process.cwd();
   const priorPr = process.env.VERIFIER_PR_NUMBER;
   const ciWorkflows = '["pr-00-gate.yml", "pr-11-ci-smoke.yml", "selftest-ci.yml"]';
   try {
-    for (const number of numbers) {
-      const target = path.resolve(root, outputRoot, `pr-${number}`);
+    for (const entry of entries) {
+      const [fullName, pr] = entry.split('#');
+      const [owner, repo] = fullName.split('/');
+      const number = Number(pr);
+      const target = path.resolve(root, outputRoot, `${owner}-${repo}-pr-${number}`);
       fs.mkdirSync(target, { recursive: true });
       process.env.VERIFIER_PR_NUMBER = String(number);
       process.chdir(target);
-      const result = await buildContext({ github, context, core, ciWorkflows });
+      const repoContext = { ...context, repo: { owner, repo } };
+      const result = await buildContext({ github, context: repoContext, core, ciWorkflows });
       if (!result.shouldRun) {
         throw new Error(`PR #${number} has no usable verifier context: ${result.reason}`);
       }
@@ -36,7 +40,7 @@ async function captureModelEvalInputs({
       const manifest = {
         schema: 'workflows-verifier-input-snapshot/v1',
         capture_kind: 'retrospective',
-        repository: `${context.repo.owner}/${context.repo.repo}`,
+        repository: fullName,
         pr: number,
         merge_sha: result.targetSha,
         source_run_id: String(context.runId || process.env.GITHUB_RUN_ID),

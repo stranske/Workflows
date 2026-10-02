@@ -19,23 +19,24 @@ test('read-only context capture records retrospective provenance and restores pr
       github: {},
       context: { repo: { owner: 'stranske', repo: 'Workflows' }, runId: 123 },
       core: {},
-      prNumbers: '10,11',
-      buildContext: async ({ ciWorkflows }) => {
-        called.push({ pr: process.env.VERIFIER_PR_NUMBER, ciWorkflows });
+      targets: 'stranske/Workflows#10,stranske/Pension-Data#11',
+      buildContext: async ({ context, ciWorkflows }) => {
+        called.push({ pr: process.env.VERIFIER_PR_NUMBER, repo: context.repo.repo, ciWorkflows });
         fs.writeFileSync('verifier-context.md', `context ${process.env.VERIFIER_PR_NUMBER}`);
         fs.writeFileSync('verifier-diff-summary.md', 'summary');
         return { shouldRun: true, targetSha: 'a'.repeat(40), chainDepth: 0 };
       },
     });
     assert.deepEqual(called.map((row) => row.pr), ['10', '11']);
+    assert.deepEqual(called.map((row) => row.repo), ['Workflows', 'Pension-Data']);
     assert.equal(process.env.VERIFIER_PR_NUMBER, '99');
-    const manifest = JSON.parse(fs.readFileSync(path.join(root, 'captured-inputs/pr-10/verifier-input-manifest.json')));
+    const manifest = JSON.parse(fs.readFileSync(path.join(root, 'captured-inputs/stranske-Workflows-pr-10/verifier-input-manifest.json')));
     assert.equal(manifest.capture_kind, 'retrospective');
     assert.equal(manifest.source_run_id, '123');
     await assert.rejects(
       captureModelEvalInputs({
         github: {}, context: { repo: { owner: 'stranske', repo: 'Workflows' } }, core: {},
-        prNumbers: '10,10', buildContext: async () => { throw new Error('unexpected call'); },
+        targets: 'stranske/Workflows#10,stranske/Workflows#10', buildContext: async () => { throw new Error('unexpected call'); },
       }),
       /unique/,
     );

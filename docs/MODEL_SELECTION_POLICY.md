@@ -74,7 +74,7 @@ balanced eight-case paired set once available; there is no need to wait for
 the statistical approval sample.
 
 To start immediately, manual MAINT-78 `capture` mode accepts up to eight
-merged Workflows PR numbers and rebuilds context with the production context
+merged `owner/repo#PR` targets and rebuilds context with the production context
 builder without calling a model. These artifacts are marked
 `retrospective`: issue bodies and CI history can differ from the original
 merge-time view. Review the captured text for leaked outcomes and adjudicate
