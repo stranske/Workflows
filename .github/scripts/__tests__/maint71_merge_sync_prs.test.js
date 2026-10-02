@@ -321,6 +321,8 @@ async function reportSelection(t, { syncHash, withRecord }) {
   const failures = [];
   const warnings = [];
   t.mock.method(console, 'log', (...args) => logs.push(args.join(' ')));
+  const retryHelpers = require('../github-api-with-retry.js');
+  t.mock.method(retryHelpers, 'createTokenAwareRetry', async () => null);
   const core = {
     notice: () => {}, warning: (message) => warnings.push(message),
     setFailed: (message) => failures.push(message),
