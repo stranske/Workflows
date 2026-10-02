@@ -74,12 +74,13 @@ def _prompt_hashes(cases):
     }
 
 
-def test_current_plan_flags_approval_gap_without_model_calls():
+def test_current_plan_allows_fast_screen_without_statistical_approval():
     plan = build_plan(*_inputs())
     assert not plan["approval_ready"]
-    assert not plan["screen_ready"]
-    assert not plan["input_alignment_ready"]
-    assert any("historical labels" in blocker for blocker in plan["screen_blockers"])
+    assert plan["screen_ready"]
+    assert plan["input_alignment_ready"]
+    assert plan["screen_blockers"] == []
+    assert len(plan["screen_case_kinds"]) == 8
     assert plan["automatic_api_calls"] == 0
     assert plan["corpus_cases"] == 51
     assert plan["approval_minimum_cases"] == 75
@@ -516,6 +517,7 @@ def test_all_non_pass_candidate_cannot_advance_from_balanced_screen():
 
 def test_unaligned_confirmation_is_rejected_before_any_api_call():
     corpus, registry, policy = _inputs()
+    corpus["screen_input_status"] = "unverified_posthoc_labels"
     with pytest.raises(ValueError, match="adjudicated production-context inputs"):
         confirm(corpus, registry, policy, {}, github_token="x", client=object())
 
