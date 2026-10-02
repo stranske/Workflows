@@ -785,39 +785,63 @@ def _fit_context_sections(
     return [fitted[i] for i in range(len(sections)) if i in fitted], status
 
 
-def _acceptance_requires_evidence(acceptance: str) -> bool:
-    """Return whether the declared acceptance plan names an evidence deliverable.
-
-    Evidence retrieval being unavailable is only a hard PASS floor when the
-    plan actually makes it a deliverable.  This deliberately uses a narrow
-    wording match rather than treating every PR comment as mandatory evidence.
-    """
-    checklist = re.compile(
-        r"^\s*[-*]\s*\[[ xX]\].*\b(?:evidence|artifact|transcript|command output)\b", re.IGNORECASE
+def _required_evidence_channels(acceptance: str) -> set[str]:
+    """Identify explicit evidence deliverables without treating negations as requirements."""
+    channels: set[str] = set()
+    evidence_term = re.compile(
+        r"\b(?:evidence|artifact|transcript|command output|pr comment)\b", re.I
     )
-    if any(checklist.search(line) for line in acceptance.splitlines()):
-        return True
-    normalized = " ".join(acceptance.lower().split())
-    evidence_terms = r"(?:evidence|artifact|transcript|workflow (?:run|artifact)|pr comment)"
-    required_first = rf"\b(?:required|must|shall|needs? to)\b[^.\n]{{0,120}}\b{evidence_terms}\b"
-    evidence_first = rf"\b{evidence_terms}\b[^.\n]{{0,120}}\b(?:required|must|shall)\b"
-    return bool(re.search(required_first, normalized) or re.search(evidence_first, normalized))
+    requirement = re.compile(
+        r"\b(?:required|must|shall|needs? to|record(?:s|ed)?|captur(?:e|es|ed)|attach(?:es|ed)?|upload(?:s|ed)?)\b",
+        re.I,
+    )
+    negation = re.compile(
+        r"\b(?:no|not|never|without)\b.{0,70}\b(?:required|must|upload|attach|evidence|artifact|transcript)\b"
+        r"|\b(?:must|shall|need)\s+not\b|\b(?:not|never)\s+(?:required|needed)\b",
+        re.I,
+    )
+    for line in acceptance.splitlines():
+        if not evidence_term.search(line) or negation.search(line):
+            continue
+        checklist = re.match(r"^\s*[-*]\s*\[[ xX]\]", line)
+        bullet = re.match(r"^\s*[-*]\s+", line)
+        if not (checklist or (bullet and requirement.search(line)) or requirement.search(line)):
+            continue
+        lower = line.lower()
+        line_channels: set[str] = set()
+        if re.search(r"\b(?:workflow artifact|artifact|workflow run)\b", lower):
+            line_channels.add("artifacts")
+        if re.search(r"\b(?:pr comment|pull request comment)\b", lower):
+            line_channels.add("comments")
+        if not line_channels or re.search(
+            r"\b(?:transcript|command output|validation evidence)\b", lower
+        ):
+            line_channels.add("overall")
+        channels.update(line_channels)
+    return channels
 
 
-def _evidence_reports_unavailable(evidence: str) -> bool:
-    """Read the generated evidence status without treating its payload as instructions."""
+def _required_evidence_is_missing(evidence: str, channels: set[str]) -> bool:
+    """Read only builder-owned statuses for the required retrieval channels."""
     # Comment and artifact bodies are untrusted. Their status-looking lines
     # cannot overwrite the builder's own preamble.
     preamble = re.split(
         r"\n### Bounded (?:PR comments|referenced workflow artifacts)\n", evidence, maxsplit=1
     )[0]
-    return bool(
-        re.search(
-            r"(?:overall retrieval status|pr comments|referenced workflow artifacts):\s*\*\*unavailable\*\*",
+    labels = {
+        "overall": "Overall retrieval status",
+        "comments": "PR comments",
+        "artifacts": "Referenced workflow artifacts",
+    }
+    for channel in channels:
+        match = re.search(
+            rf"^- {labels[channel]}:\s*\*\*(present|absent|unavailable)\*\*",
             preamble,
-            flags=re.IGNORECASE,
+            flags=re.IGNORECASE | re.MULTILINE,
         )
-    )
+        if not match or match.group(1).lower() != "present":
+            return True
+    return False
 
 
 def build_prompt_inputs(context: str, diff: str | None) -> PromptInputs:
@@ -885,9 +909,10 @@ def build_prompt_inputs(context: str, diff: str | None) -> PromptInputs:
         reasons.append("Acceptance/plan sources were truncated to fit the prompt budget.")
     elif acceptance == "unavailable":
         reasons.append("Acceptance/plan sources do not fit or are unavailable.")
-    if _acceptance_requires_evidence(acceptance_source):
-        if acceptance_evidence in {"not_declared", "unavailable"} or _evidence_reports_unavailable(
-            evidence_source
+    required_evidence_channels = _required_evidence_channels(acceptance_source)
+    if required_evidence_channels:
+        if acceptance_evidence in {"not_declared", "unavailable"} or _required_evidence_is_missing(
+            evidence_source, required_evidence_channels
         ):
             reasons.append(
                 "Required acceptance evidence is unavailable; completeness cannot be judged."

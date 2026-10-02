@@ -324,6 +324,69 @@ def test_acceptance_checklist_evidence_deliverable_is_required() -> None:
     )
 
 
+def test_required_artifact_is_not_blocked_by_unrelated_comment_failure() -> None:
+    context, _ = _context(1, 1_000, 1_000)
+    context = context.replace(
+        "- " + ACCEPTANCE_SENTINEL, "- [ ] Upload the workflow artifact"
+    ).replace(
+        "## PR Diff Summary",
+        "## Acceptance evidence\n\n"
+        "- Overall retrieval status: **unavailable**\n"
+        "- PR comments: **unavailable**\n"
+        "- Referenced workflow artifacts: **present**\n"
+        "## PR Diff Summary",
+    )
+    assert pr_verifier.prompt_coverage(context, None).sufficient
+
+
+def test_required_comment_is_not_blocked_by_unrelated_artifact_failure() -> None:
+    context, _ = _context(1, 1_000, 1_000)
+    context = context.replace(
+        "- " + ACCEPTANCE_SENTINEL, "- [ ] Post the exact-head PR comment"
+    ).replace(
+        "## PR Diff Summary",
+        "## Acceptance evidence\n\n"
+        "- Overall retrieval status: **unavailable**\n"
+        "- PR comments: **present**\n"
+        "- Referenced workflow artifacts: **unavailable**\n"
+        "## PR Diff Summary",
+    )
+    assert pr_verifier.prompt_coverage(context, None).sufficient
+
+
+def test_negated_evidence_requirement_does_not_floor_pass() -> None:
+    context, _ = _context(1, 1_000, 1_000)
+    context = context.replace(
+        "- " + ACCEPTANCE_SENTINEL,
+        "- No transcript is required\n- The change must not upload an artifact",
+    ).replace(
+        "## PR Diff Summary",
+        "## Acceptance evidence\n\n- Overall retrieval status: **unavailable**\n"
+        "## PR Diff Summary",
+    )
+    assert pr_verifier.prompt_coverage(context, None).sufficient
+
+
+def test_declarative_pr_acceptance_evidence_is_required() -> None:
+    context, _ = _context(1, 1_000, 1_000)
+    context = context.replace(
+        "- " + ACCEPTANCE_SENTINEL,
+        "- The validation records its output in an exact-head PR comment",
+    ).replace(
+        "## PR Diff Summary",
+        "## Acceptance evidence\n\n"
+        "- Overall retrieval status: **unavailable**\n"
+        "- PR comments: **unavailable**\n"
+        "- Referenced workflow artifacts: **present**\n"
+        "## PR Diff Summary",
+    )
+    coverage = pr_verifier.prompt_coverage(context, None)
+    assert not coverage.sufficient
+    assert any(
+        "Required acceptance evidence is unavailable" in reason for reason in coverage.reasons
+    )
+
+
 def test_late_required_evidence_omission_is_not_hidden_by_plan_budget() -> None:
     context, _ = _context(1, 1_000, 1_000, ci_chars=20_000)
     context = context.replace(
