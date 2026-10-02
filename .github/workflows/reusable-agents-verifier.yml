@@ -383,6 +383,7 @@ jobs:
           diff_summary = Path('verifier-diff-summary.md').read_bytes()
           manifest = {
               'schema': 'workflows-verifier-input-snapshot/v1',
+              'capture_kind': 'production',
               'repository': os.environ['GITHUB_REPOSITORY'],
               'pr': int(os.environ['VERIFIER_PR_NUMBER']),
               'merge_sha': os.environ['VERIFIER_TARGET_SHA'],

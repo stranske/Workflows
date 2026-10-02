@@ -27,6 +27,9 @@ def create_case(
     manifest = json.loads((artifact / "verifier-input-manifest.json").read_text())
     if manifest.get("schema") != "workflows-verifier-input-snapshot/v1":
         raise ValueError("production input manifest is absent or has the wrong schema")
+    capture_kind = manifest.get("capture_kind", "production")
+    if capture_kind not in {"production", "retrospective"}:
+        raise ValueError("unknown verifier capture kind")
     context = (artifact / "verifier-context.md").read_text()
     diff_summary = (artifact / "verifier-diff-summary.md").read_text()
     if hashlib.sha256(context.encode()).hexdigest() != manifest["context_sha256"]:
@@ -59,7 +62,14 @@ def create_case(
         "adjudication_evidence": adjudication_evidence,
         "adjudicated_by": adjudicated_by,
         "adjudication_rationale": adjudication_rationale,
-        "input_kind": "controlled_defect" if is_mutation else "production_capture",
+        "input_kind": (
+            "controlled_defect"
+            if is_mutation
+            else (
+                "retrospective_capture" if capture_kind == "retrospective" else "production_capture"
+            )
+        ),
+        "source_capture_kind": capture_kind,
     }
     if is_mutation:
         snapshot["mutation_note"] = mutation_note

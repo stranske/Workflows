@@ -572,3 +572,8 @@ def test_snapshot_import_checks_capture_hash_and_marks_controlled_defects(tmp_pa
     (tmp_path / "verifier-context.md").write_text(context + "tampered")
     with pytest.raises(ValueError, match="captured manifest"):
         create_case(tmp_path, **kwargs)
+    (tmp_path / "verifier-context.md").write_text(context)
+    manifest["capture_kind"] = "retrospective"
+    (tmp_path / "verifier-input-manifest.json").write_text(json.dumps(manifest))
+    retrospective = create_case(tmp_path, **kwargs)
+    assert retrospective["production_snapshot"]["input_kind"] == "retrospective_capture"

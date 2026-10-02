@@ -83,7 +83,8 @@ def screen_cases(
             or not snapshot["adjudication_evidence"]
             or not snapshot["adjudicated_by"]
             or not snapshot["adjudication_rationale"]
-            or snapshot["input_kind"] not in {"production_capture", "controlled_defect"}
+            or snapshot["input_kind"]
+            not in {"production_capture", "retrospective_capture", "controlled_defect"}
             or (snapshot["input_kind"] == "controlled_defect" and not snapshot.get("mutation_note"))
             or not isinstance(snapshot["chain_depth"], int)
             or snapshot["chain_depth"] < 0

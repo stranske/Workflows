@@ -73,6 +73,16 @@ evidence, and the final change needs monitoring on real verifier work. Use a
 balanced eight-case paired set once available; there is no need to wait for
 the statistical approval sample.
 
+To start immediately, manual MAINT-78 `capture` mode accepts up to eight
+merged Workflows PR numbers and rebuilds context with the production context
+builder without calling a model. These artifacts are marked
+`retrospective`: issue bodies and CI history can differ from the original
+merge-time view. Review the captured text for leaked outcomes and adjudicate
+the *captured input* explicitly before using it. Prefer fresh comparison
+artifacts marked `production` as they become available; retain the capture
+kind in screen and confirmation reports. A provisional change based mainly
+on retrospective or controlled cases needs closer live monitoring.
+
 Download a completed comparison artifact and use
 `python -m tools.create_model_eval_snapshot ARTIFACT_DIR --case-id ID
 --expected-verdict PASS --category clean-pass --adjudication-evidence URL
