@@ -872,14 +872,22 @@ def _required_evidence_channels(acceptance: str) -> set[str]:
             bullet = re.match(r"^\s*[-*]\s+", requirement_text)
             if not (
                 gate
-                or checklist
+                or (checklist and requirement.search(requirement_text))
                 or (bullet and requirement.search(requirement_text))
                 or requirement.search(requirement_text)
             ):
                 continue
             lower = requirement_text.lower()
+            if re.search(r"\bworkflow runs?\b", lower) and not re.search(
+                r"\bartifacts?\b", lower
+            ):
+                # CI/workflow success belongs in the CI section, not artifact retrieval.
+                continue
             line_channels: set[str] = set()
-            if re.search(r"\b(?:workflow artifacts?|artifacts?|workflow runs?)\b", lower):
+            if re.search(r"\bworkflow artifacts?\b", lower) or (
+                re.search(r"\bartifacts?\b", lower)
+                and not re.search(r"\bworkflow runs?\b", lower)
+            ):
                 line_channels.add("artifacts")
             if re.search(r"\b(?:pr comments?|pull request comments?)\b", lower):
                 line_channels.add("comments")

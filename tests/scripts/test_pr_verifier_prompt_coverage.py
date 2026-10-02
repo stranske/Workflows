@@ -492,6 +492,19 @@ def test_command_output_uses_its_named_source_channel() -> None:
     ) == {"artifacts"}
 
 
+def test_checklist_prohibition_does_not_require_artifacts() -> None:
+    assert (
+        pr_verifier._required_evidence_channels("- [ ] No artifact is generated") == set()
+    )
+
+
+def test_gate_workflow_run_success_is_not_artifact_evidence() -> None:
+    assert (
+        pr_verifier._required_evidence_channels("- The Gate workflow run must pass")
+        == set()
+    )
+
+
 def test_declarative_pr_acceptance_evidence_is_required() -> None:
     context, _ = _context(1, 1_000, 1_000)
     context = context.replace(
