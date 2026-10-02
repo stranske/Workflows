@@ -462,6 +462,8 @@ def test_mixed_prohibition_preserves_required_comment_channel() -> None:
         "A PR comment is not required",
         "A workflow run is not required",
         "No PR comment is required",
+        "No artifact must be uploaded",
+        "A PR comment need not be posted",
     ],
 )
 def test_evidence_prohibition_does_not_require_a_channel(criterion: str) -> None:
@@ -494,6 +496,31 @@ def test_command_output_uses_its_named_source_channel() -> None:
 
 def test_checklist_prohibition_does_not_require_artifacts() -> None:
     assert pr_verifier._required_evidence_channels("- [ ] No artifact is generated") == set()
+
+
+def test_checklist_noun_only_deliverable_requires_evidence_channel() -> None:
+    assert pr_verifier._required_evidence_channels(
+        "- [ ] Failing and passing validation artifact"
+    ) == {"artifacts"}
+    assert pr_verifier._required_evidence_channels("- [ ] Exact-head command output") == {
+        "overall"
+    }
+
+
+def test_checklist_noun_only_deliverable_floors_pass_when_unavailable() -> None:
+    context, _ = _context(1, 1_000, 1_000)
+    context = context.replace(
+        "- " + ACCEPTANCE_SENTINEL,
+        "- [ ] Failing and passing validation artifact",
+    ).replace(
+        "## PR Diff Summary",
+        "## Acceptance evidence\n\n"
+        "- Overall retrieval status: **unavailable**\n"
+        "- Referenced workflow artifacts: **unavailable**\n"
+        "## PR Diff Summary",
+    )
+    coverage = pr_verifier.prompt_coverage(context, None)
+    assert not coverage.sufficient
 
 
 def test_gate_workflow_run_success_is_not_artifact_evidence() -> None:

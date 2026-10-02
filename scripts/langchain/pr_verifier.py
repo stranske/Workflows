@@ -841,7 +841,17 @@ def _required_evidence_channels(acceptance: str) -> set[str]:
         r"pr comments?|pull request comments?)\s+"
         r"(?:must|shall|may|should)\s+not\s+be\s+"
         r"(?:uploaded|attached|provided|published|posted|recorded|captured|"
-        r"included|documented)\b",
+        r"included|documented)\b"
+        r"|\bno\s+(?:\w+\s+){0,4}(?:evidence|artifacts?|transcripts?|command outputs?|"
+        r"workflow runs?|pr comments?|pull request comments?)\s+must\s+(?:not\s+)?(?:be\s+)?"
+        r"(?:uploaded|attached|provided|published|posted|recorded|captured|"
+        r"included|documented)\b"
+        r"|\b(?:evidence|artifacts?|transcripts?|command outputs?|workflow runs?|"
+        r"pr comments?|pull request comments?)\s+need\s+not\s+(?:be\s+)?"
+        r"(?:uploaded|attached|provided|published|posted|recorded|captured|"
+        r"included|documented)\b"
+        r"|\bno\s+(?:\w+\s+){0,4}(?:evidence|artifacts?|transcripts?|command outputs?|"
+        r"workflow runs?|pr comments?|pull request comments?)\s+is\s+generated\b",
         re.I,
     )
     negative_gate = re.compile(
@@ -870,8 +880,14 @@ def _required_evidence_channels(acceptance: str) -> set[str]:
                 continue
             checklist = re.match(r"^\s*[-*]\s*\[[ xX]\]", requirement_text)
             bullet = re.match(r"^\s*[-*]\s+", requirement_text)
+            checklist_deliverable = bool(
+                checklist
+                and evidence_term.search(requirement_text)
+                and not re.match(r"^\s*[-*]\s*\[[ xX]\]\s*no\s", requirement_text, re.I)
+            )
             if not (
                 gate
+                or checklist_deliverable
                 or (checklist and requirement.search(requirement_text))
                 or (bullet and requirement.search(requirement_text))
                 or requirement.search(requirement_text)
