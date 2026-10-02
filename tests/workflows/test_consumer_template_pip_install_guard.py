@@ -21,6 +21,7 @@ live in the template, and this test keeps it there.
 import os
 import re
 import subprocess
+import sys
 from pathlib import Path
 
 import pytest
@@ -62,7 +63,7 @@ LANGCHAIN_WORKFLOWS = (
     "templates/consumer-repo/.github/workflows/agents-dedup.yml",
 )
 
-PROJECT_METADATA_GUARD = re.compile(r"grep\s+-Eq\s+['\"]\^\\\[\(project\|build-system\)\\\]")
+PROJECT_METADATA_GUARD = re.compile(r"tomllib\.loads")
 
 
 def _run_scripts(workflow_text):
@@ -98,12 +99,17 @@ def _run_with_fake_python(script: str, tmp_path: Path, *, name: str, pyproject: 
     (case / "pyproject.toml").write_text(pyproject, encoding="utf-8")
     (tools / "requirements-llm.txt").write_text("langchain==0\n", encoding="utf-8")
     fake_python = fake_bin / "python"
-    fake_python.write_text('#!/bin/sh\nprintf "%s\\n" "$*" >> "$INSTALL_LOG"\n', encoding="utf-8")
+    fake_python.write_text(
+        '#!/bin/sh\nif [ "${1:-}" = "-c" ]; then exec "$REAL_PYTHON" "$@"; fi\n'
+        'printf "%s\\n" "$*" >> "$INSTALL_LOG"\n',
+        encoding="utf-8",
+    )
     fake_python.chmod(0o755)
     log = case / "install.log"
     env = {
         **os.environ,
         "INSTALL_LOG": str(log),
+        "REAL_PYTHON": sys.executable,
         "PATH": f"{fake_bin}:{os.environ['PATH']}",
     }
     subprocess.run(["bash", "-eu", "-c", script], cwd=case, env=env, check=True)
@@ -179,8 +185,18 @@ def test_backplane_conformance_stub_keeps_its_opt_in_promise():
 @pytest.mark.parametrize("workflow", LANGCHAIN_WORKFLOWS)
 @pytest.mark.parametrize(
     ("pyproject", "expects_editable"),
-    (("[tool.ruff]\nline-length = 100\n", False), ("[project]\nname = 'consumer'\n", True)),
-    ids=("tool-only-pyproject", "project-without-langchain-extra"),
+    (
+        ("[tool.ruff]\nline-length = 100\n", False),
+        ("[project]\nname = 'consumer'\n", True),
+        ("   [ project ]\nname = 'consumer'\n", True),
+        ('["build-system"]\nrequires = []\n', True),
+    ),
+    ids=(
+        "tool-only-pyproject",
+        "project-without-langchain-extra",
+        "indented-spaced-project",
+        "quoted-build-system",
+    ),
 )
 def test_langchain_install_uses_canonical_requirements_for_both_repo_shapes(
     workflow: str, pyproject: str, expects_editable: bool, tmp_path: Path
@@ -202,8 +218,18 @@ def test_langchain_install_uses_canonical_requirements_for_both_repo_shapes(
 
 @pytest.mark.parametrize(
     ("pyproject", "expects_editable"),
-    (("[tool.ruff]\nline-length = 100\n", False), ("[build-system]\nrequires = []\n", True)),
-    ids=("tool-only-pyproject", "build-system-project"),
+    (
+        ("[tool.ruff]\nline-length = 100\n", False),
+        ("[build-system]\nrequires = []\n", True),
+        ("  [ project ]\nname = 'consumer'\n", True),
+        ('["build-system"]\nrequires = []\n', True),
+    ),
+    ids=(
+        "tool-only-pyproject",
+        "build-system-project",
+        "indented-spaced-project",
+        "quoted-build-system",
+    ),
 )
 def test_backplane_editable_install_requires_real_project_metadata(
     pyproject: str, expects_editable: bool, tmp_path: Path
@@ -219,3 +245,12 @@ def test_backplane_editable_install_requires_real_project_metadata(
     )
 
     assert any(call == "-m pip install -e ." for call in calls) is expects_editable
+
+
+def test_canonical_llm_requirements_include_faiss_runtime() -> None:
+    for path in (
+        REPO_ROOT / "tools" / "requirements-llm.txt",
+        REPO_ROOT / "templates" / "consumer-repo" / "tools" / "requirements-llm.txt",
+    ):
+        requirements = path.read_text(encoding="utf-8").splitlines()
+        assert "faiss-cpu==1.14.2" in requirements

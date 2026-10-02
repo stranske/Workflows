@@ -1905,5 +1905,6 @@ def test_langchain_workflows_do_not_depend_on_optional_extra_declarations():
             text = (root / name).read_text(encoding="utf-8")
             assert 'pip install -e ".[langchain]"' not in text
             assert "python -m pip install -r tools/requirements-llm.txt --quiet" in text
-            assert "grep -Eq '^\\[(project|build-system)\\]" in text
+            assert "tomllib.loads" in text
+            assert '"project" in data or "build-system" in data' in text
             assert "Missing canonical tools/requirements-llm.txt" in text

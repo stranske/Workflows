@@ -36,7 +36,8 @@ def test_consumer_backplane_stub_skips_tool_only_pyproject_editable_install() ->
         ROOT / "templates" / "consumer-repo" / ".github" / "workflows" / "backplane-conformance.yml"
     ).read_text(encoding="utf-8")
 
-    assert "grep -Eq '^\\[(project|build-system)\\]" in workflow
+    assert "tomllib.loads" in workflow
+    assert '"project" in data or "build-system" in data' in workflow
     assert "No project/build metadata; skipping editable install" in workflow
     assert "python -m pip install -e ." in workflow
 

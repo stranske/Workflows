@@ -104,7 +104,18 @@ jobs:
           # A consumer may have a tool-only pyproject.toml or omit the
           # `langchain` extra. Install local code only for package-shaped repos,
           # then load the exact-synced canonical LLM pins in every case.
-          if { [ -f pyproject.toml ] && grep -Eq '^\[(project|build-system)\][[:space:]]*(#.*)?$' pyproject.toml; } || [ -f setup.py ] || [ -f setup.cfg ]; then
+          pyproject_declares_distribution() {
+            [ -f pyproject.toml ] || return 1
+            python -c '
+          import pathlib
+          import sys
+          import tomllib
+
+          data = tomllib.loads(pathlib.Path("pyproject.toml").read_text(encoding="utf-8"))
+          sys.exit(0 if "project" in data or "build-system" in data else 1)
+          '
+          }
+          if pyproject_declares_distribution || [ -f setup.py ] || [ -f setup.cfg ]; then
             python -m pip install -e . --quiet
           else
             echo "No project/build metadata; skipping editable install."
