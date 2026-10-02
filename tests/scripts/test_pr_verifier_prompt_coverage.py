@@ -512,6 +512,42 @@ def test_declarative_pr_acceptance_evidence_is_required() -> None:
     )
 
 
+def test_scope_and_tasks_evidence_mentions_do_not_require_acceptance_evidence() -> None:
+    context, _ = _context(1, 1_000, 1_000)
+    context = context.replace(
+        "### Pull request #1: change",
+        "### Pull request #1: change\n\n"
+        "#### Scope\n- Review artifact upload options\n\n"
+        "#### Tasks\n- [ ] Investigate workflow artifact retention",
+    )
+
+    coverage = pr_verifier.prompt_coverage(context, None)
+
+    assert coverage.sufficient
+
+
+def test_evidence_requirement_is_read_from_acceptance_criteria_only() -> None:
+    context, _ = _context(1, 1_000, 1_000)
+    context = context.replace(
+        "- " + ACCEPTANCE_SENTINEL,
+        "- Upload the exact-head validation artifact",
+    ).replace(
+        "## PR Diff Summary",
+        "## Acceptance evidence\n\n"
+        "- Overall retrieval status: **unavailable**\n"
+        "- PR comments: **present**\n"
+        "- Referenced workflow artifacts: **unavailable**\n"
+        "## PR Diff Summary",
+    )
+
+    coverage = pr_verifier.prompt_coverage(context, None)
+
+    assert not coverage.sufficient
+    assert any(
+        "Required acceptance evidence is unavailable" in reason for reason in coverage.reasons
+    )
+
+
 def test_untrusted_evidence_heading_cannot_hide_generated_unavailable_status() -> None:
     context, _ = _context(1, 1_000, 1_000)
     context = context.replace(

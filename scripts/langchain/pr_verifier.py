@@ -785,6 +785,33 @@ def _fit_context_sections(
     return [fitted[i] for i in range(len(sections)) if i in fitted], status
 
 
+def _acceptance_criteria_sections(plan_sources: str) -> str:
+    """Return only acceptance-criteria subsections from structured plan sources."""
+    lines = plan_sources.splitlines()
+    captured: list[str] = []
+    index = 0
+    while index < len(lines):
+        heading = re.match(
+            r"^(#{1,6})\s+acceptance[\s_-]*criteria\s*:?[\s]*$",
+            lines[index].strip(),
+            flags=re.I,
+        )
+        if not heading:
+            index += 1
+            continue
+        level = len(heading.group(1))
+        section: list[str] = []
+        index += 1
+        while index < len(lines):
+            next_heading = re.match(r"^(#{1,6})\s+", lines[index].strip())
+            if next_heading and len(next_heading.group(1)) <= level:
+                break
+            section.append(lines[index])
+            index += 1
+        captured.append("\n".join(section).strip())
+    return "\n\n".join(part for part in captured if part)
+
+
 def _required_evidence_channels(acceptance: str) -> set[str]:
     """Identify explicit evidence deliverables without treating negations as requirements."""
     channels: set[str] = set()
@@ -950,7 +977,9 @@ def build_prompt_inputs(context: str, diff: str | None) -> PromptInputs:
         reasons.append("Acceptance/plan sources were truncated to fit the prompt budget.")
     elif acceptance == "unavailable":
         reasons.append("Acceptance/plan sources do not fit or are unavailable.")
-    required_evidence_channels = _required_evidence_channels(acceptance_source)
+    required_evidence_channels = _required_evidence_channels(
+        _acceptance_criteria_sections(acceptance_source)
+    )
     if required_evidence_channels:
         if acceptance_evidence in {"not_declared", "unavailable"} or _required_evidence_is_missing(
             evidence_source, required_evidence_channels
