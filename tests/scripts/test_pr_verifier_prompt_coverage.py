@@ -440,7 +440,9 @@ def test_equivalent_negative_artifact_gates_require_evidence(criterion: str) -> 
     )
     coverage = pr_verifier.prompt_coverage(context, None)
     assert not coverage.sufficient
-    assert any("Required acceptance evidence is unavailable" in reason for reason in coverage.reasons)
+    assert any(
+        "Required acceptance evidence is unavailable" in reason for reason in coverage.reasons
+    )
 
 
 def test_declarative_pr_acceptance_evidence_is_required() -> None:

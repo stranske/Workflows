@@ -832,7 +832,9 @@ def _required_evidence_channels(acceptance: str) -> set[str]:
             continue
         checklist = re.match(r"^\s*[-*]\s*\[[ xX]\]", line)
         bullet = re.match(r"^\s*[-*]\s+", line)
-        if not (gate or checklist or (bullet and requirement.search(line)) or requirement.search(line)):
+        if not (
+            gate or checklist or (bullet and requirement.search(line)) or requirement.search(line)
+        ):
             continue
         lower = line.lower()
         line_channels: set[str] = set()
