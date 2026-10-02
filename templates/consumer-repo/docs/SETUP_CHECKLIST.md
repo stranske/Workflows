@@ -275,7 +275,7 @@ Navigate to: **Settings** → **Secrets and variables** → **Actions** → **Se
 
 | Secret Name | Description | Source |
 |-------------|-------------|--------|
-| `SERVICE_BOT_PAT` | PAT for service bot account | Contact admin for token |
+| `SERVICE_BOT_PAT` | PAT for service bot account; keepalive reservation also requires repository Actions-variable read plus PR-comment read/write access | Contact admin for token |
 | `ACTIONS_BOT_PAT` | PAT for workflow dispatch | Same as SERVICE_BOT_PAT or dedicated |
 | `AGENTS_AUTOMATION_PAT` | PAT used by autofix/retry flows when available | Contact admin for token |
 | `OWNER_PR_PAT` | PAT for PR creation | Repository owner's PAT |
@@ -1051,6 +1051,7 @@ Autofix can repair a labeled PR before Gate is evaluated again.
 | Gate completes but no follow-up | `USE_CONSOLIDATED_WORKFLOWS` is not `true`, so Agents 81 skipped the automatic Gate run | Set the repository variable to `true`, then inspect its `workflow_run` trigger and summary; `workflow_dispatch` bypasses the variable for manual recovery |
 | Follow-up reports `head changed` | The PR moved after Gate ran | Restart review and Gate on the new exact head |
 | Follow-up reports `gate-not-concluded` | Gate is still running | Wait for the exact-head Gate conclusion |
+| Follow-up reports `authoritative-storage-unavailable` with HTTP 401/403 | `SERVICE_BOT_PAT` is missing, not installed for this repository, or cannot read the legacy Actions variable | Verify the PAT identity and repository/Variables access, then rerun the exact-head Gate followup; never delete or assume absent reservation state |
 
 ### Debug Logging
 

@@ -1,11 +1,69 @@
 """Guard the source/template delivery boundary for single-use authority claims."""
 
+import os
+import subprocess
 from pathlib import Path
 
 import yaml
+from scripts.runner_lib import core as runner_core
 
 ROOT = Path(__file__).resolve().parents[2]
 TEMPLATE = ROOT / "templates/consumer-repo"
+
+
+def _multiline_shell_commands(script: str, prefix: str) -> list[str]:
+    """Return backslash-continued shell commands beginning with ``prefix``."""
+    lines = script.splitlines()
+    commands: list[str] = []
+    for index, line in enumerate(lines):
+        if line.strip() != f"{prefix} \\":
+            continue
+        command = [line.strip()]
+        while command[-1].endswith("\\"):
+            index += 1
+            command.append(lines[index].strip())
+        commands.append("\n".join(command))
+    return commands
+
+
+def _run_debounce_with_failed_reservation(
+    script: str, tmp_path: Path, *, signed_authority: bool
+) -> subprocess.CompletedProcess[str]:
+    """Run a parsed debounce script with verification controlled and reservation denied."""
+    bin_dir = tmp_path / ("signed-bin" if signed_authority else "ordinary-bin")
+    bin_dir.mkdir(parents=True)
+    node = bin_dir / "node"
+    node.write_text(f"#!/bin/sh\nexit {0 if signed_authority else 1}\n")
+    node.chmod(0o755)
+    python = bin_dir / "python"
+    python.write_text("#!/bin/sh\nexit 23\n")
+    python.chmod(0o755)
+    output = tmp_path / ("signed-output" if signed_authority else "ordinary-output")
+
+    env = {
+        **os.environ,
+        "PATH": f"{bin_dir}:{os.environ['PATH']}",
+        "GITHUB_OUTPUT": str(output),
+        "GITHUB_REPOSITORY": "owner/repo",
+        "PR_NUMBER": "42",
+        "HEAD_SHA": "exact-head",
+        "PROVIDER": "codex",
+        "TASK_PROGRESS_BEFORE": "1/2",
+        "AUTHORITY_CHALLENGE_FINGERPRINT": "boundary",
+        "AUTHORITY_CHALLENGE_CLAIM": "signed" if signed_authority else "",
+        "RAW_AUTHORITY_CHALLENGE_CLAIM": "",
+        "AUTHORITY_CHALLENGE_SIGNING_KEY": "redacted-test-key",
+    }
+    result = subprocess.run(
+        ["bash", "-c", script],
+        cwd=ROOT,
+        env=env,
+        text=True,
+        capture_output=True,
+        check=False,
+    )
+    assert not output.exists() or output.read_text() == ""
+    return result
 
 
 def test_authority_helpers_are_manifested_and_byte_aligned() -> None:
@@ -169,6 +227,86 @@ def test_gate_paths_deny_invalid_claims_and_reporters_can_persist_generation() -
         assert "inputs.pr_number" in run_name
         assert "authority_challenge_claim" in run_name
         assert "authority_challenge_fingerprint" in run_name
+
+
+def test_runner_reservation_uses_service_bot_token_without_weakening_storage(
+    tmp_path: Path,
+) -> None:
+    expected_token = "${{ secrets.SERVICE_BOT_PAT || secrets.GITHUB_TOKEN }}"
+    workflow_paths = (
+        ROOT / ".github/workflows/agents-keepalive-loop.yml",
+        TEMPLATE / ".github/workflows/agents-81-gate-followups.yml",
+    )
+    token_environments: list[dict[str, str]] = []
+    for path in workflow_paths:
+        workflow = yaml.safe_load(path.read_text())
+        step = next(
+            step
+            for step in workflow["jobs"]["evaluate"]["steps"]
+            if step.get("name") == "Check runner dispatch debounce"
+        )
+        token_environment = {alias: step["env"][alias] for alias in ("GH_TOKEN", "GITHUB_TOKEN")}
+        assert token_environment == {
+            "GH_TOKEN": expected_token,
+            "GITHUB_TOKEN": expected_token,
+        }
+        token_environments.append(token_environment)
+        assert "continue-on-error" not in step
+
+        commands = _multiline_shell_commands(
+            step["run"], "python -m scripts.runner_lib should-dispatch"
+        )
+        assert len(commands) == 2
+        signed_authority, ordinary = commands
+        assert signed_authority.count("--storage auto") == 1
+        assert "--authority-challenge" in signed_authority
+        assert ordinary.count("--storage auto") == 1
+        assert "--authority-challenge" not in ordinary
+        for signed_authority in (True, False):
+            result = _run_debounce_with_failed_reservation(
+                step["run"], tmp_path / path.name, signed_authority=signed_authority
+            )
+            assert result.returncode == 23
+        assert (
+            workflow["jobs"]["evaluate"]["outputs"]["dispatch_should_run"]
+            == "${{ steps.runner_dispatch.outputs.should_dispatch || 'false' }}"
+        )
+
+    assert token_environments[0] == token_environments[1]
+
+    class EmptyPrimaryStorage:
+        def __init__(self) -> None:
+            self.writes: list[dict[str, object]] = []
+
+        def read_record(self, pr_number: int, provider: str) -> None:
+            return None
+
+        def write_record(self, pr_number: int, provider: str, record: dict[str, object]) -> None:
+            self.writes.append(record)
+
+    class DeniedLegacyApi:
+        repo = "owner/repo"
+
+        def __init__(self, status: int) -> None:
+            self.status = status
+
+        def request(self, method: str, path: str) -> object:
+            assert method == "GET"
+            assert "/actions/variables/" in path
+            raise RuntimeError(f"GitHub API GET failed: {self.status} denied")
+
+    for status in (401, 403):
+        primary = EmptyPrimaryStorage()
+        fallback = runner_core.RepoVariableRunnerStorage(DeniedLegacyApi(status))  # type: ignore[arg-type]
+        decision = runner_core.should_dispatch(
+            42,
+            "exact-head",
+            "codex",
+            storage=runner_core.FallbackRunnerStorage(primary, fallback),  # type: ignore[arg-type]
+        )
+        assert decision.should_dispatch is False
+        assert decision.reason == "authoritative-storage-unavailable"
+        assert primary.writes == []
 
     root_reporter = (ROOT / ".github/workflows/agents-keepalive-loop-reporter.yml").read_text()
     assert '"Agents Keepalive Loop"' in root_reporter

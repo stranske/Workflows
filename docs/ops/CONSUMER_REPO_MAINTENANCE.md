@@ -1140,6 +1140,19 @@ After fixing a template bug:
 - [ ] Bot review comments addressed in PRs
 - [ ] CI passing in all affected repos
 
+### Keepalive reservation credential recovery
+
+The managed Agents 81 debounce step uses `SERVICE_BOT_PAT` before the default
+workflow token because an empty authoritative PR-comment store requires one
+fail-closed read of the legacy repository Actions variable. Verify the PAT's
+identity and repository access without printing the token. It must be able to
+read Actions variables and read/write PR comments as a trusted marker author.
+If a run reports `authoritative-storage-unavailable` with HTTP 401/403, repair
+that credential boundary and rerun the exact-head Gate followup. Do not treat
+the denied legacy lookup as an empty record, delete state, or force-dispatch a
+worker. A healthy retry either reserves the primary comment store or returns a
+non-storage debounce reason.
+
 ---
 
 ## Version History
