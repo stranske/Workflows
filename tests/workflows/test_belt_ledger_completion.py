@@ -7,8 +7,17 @@ from pathlib import Path
 
 import pytest
 import yaml
-from scripts.audit_belt_ledger_completion import audit_ledgers
+from scripts.audit_belt_ledger_completion import (
+    audit_ledger_evidence,
+    audit_ledgers,
+)
+from scripts.audit_belt_ledger_completion import (
+    main as audit_main,
+)
 from scripts.belt_ledger_completion import (
+    CompletionEvidenceError,
+    commit_files,
+    commit_has_path,
     completion_errors,
     duplicate_artifact_errors,
     format_status_counts,
@@ -70,6 +79,155 @@ def test_real_artifact_commit_can_complete(tmp_path: Path) -> None:
     commit = _commit(repo, "feat: add tracked variable schema")
 
     assert completion_errors(_task(), commit, repo_root=repo) == []
+
+
+def test_commit_files_reports_unverifiable_distinctly(tmp_path: Path) -> None:
+    repo = _repo(tmp_path)
+    ledger = repo / ".agents" / "issue-1-ledger.yml"
+    unreachable = "a" * 40
+    payload = {
+        "version": 1,
+        "issue": 1,
+        "base": "main",
+        "branch": "codex/issue-1",
+        "tasks": [_task(unreachable)],
+    }
+    ledger.write_text(yaml.safe_dump(payload, sort_keys=False), encoding="utf-8")
+
+    errors = completion_errors(_task(), unreachable, repo_root=repo)
+    findings, unverifiable = audit_ledger_evidence(repo)
+
+    assert len(errors) == 1
+    assert "UNVERIFIABLE" in errors[0]
+    assert "not evidence of a false completion" in errors[0]
+    assert findings == []
+    assert len(unverifiable) == 1
+
+
+def test_commit_files_fails_loud_when_reachable_commit_cannot_be_read(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    repo = _repo(tmp_path)
+    source = repo / "source.py"
+    source.write_text("VALUE = 1\n", encoding="utf-8")
+    commit = _commit(repo, "feat: add source")
+
+    def fail_git_show(*args: object, **kwargs: object) -> bytes:
+        raise subprocess.CalledProcessError(128, args[0])
+
+    monkeypatch.setattr(subprocess, "check_output", fail_git_show)
+
+    with pytest.raises(CompletionEvidenceError, match="could not be inspected") as exc_info:
+        commit_files(commit, repo_root=repo)
+    assert type(exc_info.value) is CompletionEvidenceError
+
+
+def test_audit_cli_fails_for_non_repository_root(tmp_path: Path) -> None:
+    (tmp_path / ".agents").mkdir()
+    ledger = tmp_path / ".agents" / "issue-1-ledger.yml"
+    ledger.write_text(
+        yaml.safe_dump({"tasks": [_task("a" * 40)]}, sort_keys=False),
+        encoding="utf-8",
+    )
+
+    with pytest.raises(CompletionEvidenceError, match="not a Git repository"):
+        audit_main(["--root", str(tmp_path)])
+
+
+def test_commit_has_path_fails_loud_when_recursive_tree_cannot_be_read(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    repo = _repo(tmp_path)
+    source = repo / "source.py"
+    source.write_text("VALUE = 1\n", encoding="utf-8")
+    commit = _commit(repo, "feat: add source")
+
+    def fail_ls_tree(*args: object, **kwargs: object) -> bytes:
+        raise subprocess.CalledProcessError(128, args[0])
+
+    monkeypatch.setattr(subprocess, "check_output", fail_ls_tree)
+
+    with pytest.raises(CompletionEvidenceError, match="while searching for missing.py"):
+        commit_has_path(commit, "missing.py", repo_root=repo)
+
+
+def test_task_artifacts_bare_filename_matches_nested_path(tmp_path: Path) -> None:
+    repo = _repo(tmp_path)
+    nested = repo / "sub" / "dir" / "foo.js"
+    nested.parent.mkdir(parents=True)
+    nested.write_text("export const value = 1;\n", encoding="utf-8")
+    commit = _commit(repo, "feat: add nested JavaScript artifact")
+    task = _task(commit)
+    task["title"] = "Create `foo.js`."
+
+    assert task_artifacts(task) == ["foo.js"]
+    assert completion_errors(task, commit, repo_root=repo) == []
+
+
+def test_task_artifacts_bare_non_ascii_filename_matches_nested_path(
+    tmp_path: Path,
+) -> None:
+    repo = _repo(tmp_path)
+    nested = repo / "src" / "caf\u00e9.js"
+    nested.parent.mkdir()
+    nested.write_text("export const value = 1;\n", encoding="utf-8")
+    commit = _commit(repo, "feat: add non-ASCII JavaScript artifact")
+    task = _task(commit)
+    task["title"] = "Create `caf\u00e9.js`."
+
+    assert completion_errors(task, commit, repo_root=repo) == []
+
+
+def test_explicit_root_artifact_does_not_match_nested_basename(tmp_path: Path) -> None:
+    repo = _repo(tmp_path)
+    nested = repo / "examples" / "pyproject.toml"
+    nested.parent.mkdir()
+    nested.write_text("[build-system]\n", encoding="utf-8")
+    commit = _commit(repo, "feat: add example project")
+    task = _task(commit)
+    task["title"] = "Create `./pyproject.toml`."
+
+    assert task_artifacts(task) == ["./pyproject.toml"]
+    assert completion_errors(task, commit, repo_root=repo) == [
+        f"task task-01 commit {commit} is missing named artifact(s): ./pyproject.toml"
+    ]
+
+
+def test_audit_cli_reports_all_unverifiable_as_skipped_success(
+    tmp_path: Path, capsys: pytest.CaptureFixture[str]
+) -> None:
+    repo = _repo(tmp_path)
+    ledger = repo / ".agents" / "issue-1-ledger.yml"
+    payload = {
+        "version": 1,
+        "issue": 1,
+        "tasks": [_task("a" * 40)],
+    }
+    ledger.write_text(yaml.safe_dump(payload, sort_keys=False), encoding="utf-8")
+
+    assert audit_main(["--root", str(repo)]) == 0
+    output = capsys.readouterr().out
+    assert "No invalid belt completion evidence found." in output
+    assert "1 completion commit(s) unverifiable (skipped, not findings)." in output
+
+
+def test_audit_cli_keeps_actionable_findings_nonzero(
+    tmp_path: Path, capsys: pytest.CaptureFixture[str]
+) -> None:
+    repo = _repo(tmp_path)
+    ledger = repo / ".agents" / "issue-1-ledger.yml"
+    ledger.write_text("version: 1\n", encoding="utf-8")
+    commit = _commit(repo, "chore: ledger only")
+    ledger.write_text(
+        yaml.safe_dump(
+            {"version": 1, "issue": 1, "tasks": [_task(commit)]},
+            sort_keys=False,
+        ),
+        encoding="utf-8",
+    )
+
+    assert audit_main(["--root", str(repo)]) == 1
+    assert "changes only ledger paths" in capsys.readouterr().out
 
 
 def test_artifact_present_now_but_absent_at_commit_is_blocked(tmp_path: Path) -> None:
@@ -191,7 +349,7 @@ def test_worker_checks_evidence_before_done_and_gates_persistence(workflow_path:
     assert evidence < done_write
     assert "target_task['status'] = 'blocked'" in workflow
     assert (
-        "LEDGER_VALIDATE_COMPLETION_TASK_ID: " "${{ steps.ledger_finalize.outputs.task_id }}"
+        "LEDGER_VALIDATE_COMPLETION_TASK_ID: ${{ steps.ledger_finalize.outputs.task_id }}"
     ) in workflow
     assert "steps.ledger_finalize.outcome == 'success'" in workflow
     assert "steps.ledger_final_validation.outcome == 'success'" in workflow
