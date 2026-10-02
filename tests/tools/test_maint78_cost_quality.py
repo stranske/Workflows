@@ -8,6 +8,7 @@ from pathlib import Path
 from types import SimpleNamespace
 
 import pytest
+from tools.create_model_eval_snapshot import create_case
 from tools.model_eval_snapshots import snapshot_digest, verifier_prompt
 from tools.plan_model_eval import ROOT, build_plan
 from tools.run_model_eval_api_confirm import MAX_OUTPUT_TOKENS, _invoke_api, _price, confirm
@@ -513,3 +514,45 @@ def test_changed_production_snapshot_blocks_screen_before_model_calls(monkeypatc
             models=["gpt-5.6-terra", "gpt-6-luna"],
             token="",
         )
+
+
+def test_snapshot_import_checks_capture_hash_and_marks_controlled_defects(tmp_path):
+    context = "# Verifier context\nacceptance at merge\n"
+    diff_summary = "## PR Diff Summary\n- one missing task\n"
+    (tmp_path / "verifier-context.md").write_text(context)
+    (tmp_path / "verifier-diff-summary.md").write_text(diff_summary)
+    manifest = {
+        "schema": "workflows-verifier-input-snapshot/v1",
+        "repository": "stranske/Workflows",
+        "pr": 10,
+        "merge_sha": "a" * 40,
+        "source_run_id": "123",
+        "chain_depth": 1,
+        "context_sha256": hashlib.sha256(context.encode()).hexdigest(),
+        "diff_summary_sha256": hashlib.sha256(diff_summary.encode()).hexdigest(),
+    }
+    (tmp_path / "verifier-input-manifest.json").write_text(json.dumps(manifest))
+    kwargs = {
+        "case_id": "workflows-10-seeded",
+        "expected_verdict": "NON_PASS",
+        "category": "missing-acceptance-criterion",
+        "adjudication_evidence": "https://example.com/review",
+        "adjudicated_by": "reviewer",
+        "adjudication_rationale": "One acceptance item is absent from the supplied summary.",
+    }
+    override = tmp_path / "missing-task.md"
+    override.write_text("## PR Diff Summary\n- task deliberately omitted\n")
+    context_override = tmp_path / "missing-context.md"
+    context_override.write_text("# Verifier context\nacceptance at merge; task omitted from code\n")
+    case = create_case(
+        tmp_path,
+        **kwargs,
+        context_override=context_override,
+        diff_summary_override=override,
+        mutation_note="Removed the implemented task from the diff summary.",
+    )
+    assert case["production_snapshot"]["input_kind"] == "controlled_defect"
+    assert case["production_snapshot"]["source_context_sha256"] == manifest["context_sha256"]
+    (tmp_path / "verifier-context.md").write_text(context + "tampered")
+    with pytest.raises(ValueError, match="captured manifest"):
+        create_case(tmp_path, **kwargs)

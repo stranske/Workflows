@@ -72,6 +72,17 @@ capture provenance. The screen report must identify such cases as synthetic
 evidence, and the final change needs monitoring on real verifier work. Use a
 balanced eight-case paired set once available; there is no need to wait for
 the statistical approval sample.
+
+Download a completed comparison artifact and use
+`python -m tools.create_model_eval_snapshot ARTIFACT_DIR --case-id ID
+--expected-verdict PASS --category clean-pass --adjudication-evidence URL
+--adjudicated-by REVIEWER --adjudication-rationale TEXT --output case.json`
+to verify the captured hashes and prepare a case for review. For a controlled
+defect, supply both `--context-override` and `--diff-summary-override` plus
+`--mutation-note`; the tool preserves hashes of the original capture. Add
+reviewed cases to the corpus, choose eight IDs in `screen_case_ids`, and set
+`screen_input_status` to `production_context_adjudicated`. The zero-spend plan
+then validates the selected set before enabling a manual screen.
 The manual `screen` compares the incumbent and up to three priced models
 through Codex subscription auth with no API-key calls. A finalist must have
 zero observed false PASS and schema errors, at least 50% PASS recall, no
