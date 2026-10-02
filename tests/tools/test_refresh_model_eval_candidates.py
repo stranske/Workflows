@@ -36,7 +36,7 @@ def _registry():
                 "model_id": "gpt-5.6-luna",
                 "lifecycle": "current",
                 "positioning": "efficient",
-            },  # excluded
+            },  # efficient candidate
             {
                 "provider": "openai",
                 "model_id": "gpt-5.5",
@@ -75,9 +75,9 @@ def test_derive_picks_incumbent_and_verifier_candidates():
     assert ("anthropic", "claude-opus-4-8", "candidate") in keys
 
 
-def test_derive_excludes_efficient_noncurrent_and_blocked():
+def test_derive_includes_efficient_but_excludes_noncurrent_and_blocked():
     models = {c["model_id"] for c in rc.derive_candidates(_registry())["candidates"]}
-    assert "gpt-5.6-luna" not in models  # efficient
+    assert "gpt-5.6-luna" in models  # cost-efficiency candidate
     assert "gpt-5.5" not in models  # not current
     assert "gpt-blocked" not in models  # blocked
 

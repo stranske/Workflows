@@ -1,36 +1,45 @@
-name: Maint 78 Model Evaluation Pilot
-run-name: MAINT-78 source ${{ inputs.candidates_source_run_id || 'automatic' }}
+name: Maint 78 Verifier Model Cost and Quality
+run-name: MAINT-78 ${{ inputs.mode || 'plan' }} source ${{ inputs.candidates_source_run_id || 'repository' }}
 
 on:
   workflow_dispatch:
     inputs:
       candidates_source_run_id:
-        description: >-
-          MAINT-77 workflow run id whose maint-77-pilot-candidates artifact
-          should be used instead of refreshing from the checked-out registry.
+        description: MAINT-77 run id containing newly discovered candidates.
         required: false
         type: string
-  # Auto-run when the catalog changes so a newly-current model is piloted without
-  # anyone editing the candidate list (stranske/Workflows#2819, move 1).
+      mode:
+        description: Plan is free; screen uses bounded Codex subscription capacity and zero API-key calls.
+        type: choice
+        options: [plan, screen]
+        default: plan
+      models:
+        description: Comma-separated priced OpenAI models for the 8-case CLI screen (maximum four).
+        type: string
+        default: gpt-5.6-terra,gpt-6-luna,gpt-6-sol,gpt-6-astra
   push:
     branches: [main]
     paths:
       - config/model_registry.json
       - config/model_eval_candidates.json
-  # Weekly safety net in case a catalog change landed via a path the push filter missed.
-  schedule:
-    - cron: "17 6 * * 1"
+      - config/model_eval_pilot.json
+      - config/model_selection_policy.json
+      - tools/plan_model_eval.py
+      - tools/run_model_eval_cli_screen.py
 
 permissions:
   contents: read
   pull-requests: read
-  models: read
   actions: read
 
+concurrency:
+  group: maint-78-${{ github.ref }}
+  cancel-in-progress: false
+
 jobs:
-  pilot:
+  assess:
     runs-on: ubuntu-latest
-    timeout-minutes: 120
+    timeout-minutes: 100
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
@@ -45,48 +54,58 @@ jobs:
           run-id: ${{ inputs.candidates_source_run_id }}
           github-token: ${{ github.token }}
           path: config
-      - uses: astral-sh/setup-uv@c771a70e6277c0a99b617c7a806ffedaca235ff9 # v9.0.0
       - name: Refresh candidates from the registry
         if: >-
           github.event_name != 'workflow_dispatch' ||
           inputs.candidates_source_run_id == ''
-        # Derive the candidate set from the current catalog so the pilot always
-        # tests every now-current model, even if the committed file lagged.
         run: python -m tools.refresh_model_eval_candidates --write
-      - name: Run paired 30-case pilot
+      - name: Set up Node for pinned CLI catalog
+        uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7
+        with:
+          node-version: '24'
+      - name: Install pinned Codex CLI
+        run: |
+          set -euo pipefail
+          npm ci --prefix .github/actions/maint78-codex-cli --ignore-scripts
+          echo "$(pwd)/.github/actions/maint78-codex-cli/node_modules/.bin" >> "$GITHUB_PATH"
+      - name: Read pinned CLI catalog without model calls
+        run: codex debug models --bundled > cli-catalog.json
+      - name: Publish no-spend readiness report
+        run: >-
+          python -m tools.plan_model_eval --output model-eval-plan.json
+          --cli-catalog cli-catalog.json --summary "$GITHUB_STEP_SUMMARY"
+      - name: Configure isolated Codex subscription auth
+        if: github.event_name == 'workflow_dispatch' && inputs.mode == 'screen'
         env:
-          # Cross-repo read token; github.token is scoped to Workflows only.
+          CODEX_AUTH_JSON: ${{ secrets.CODEX_AUTH_JSON }}
+        run: |
+          set -euo pipefail
+          if [ -z "$CODEX_AUTH_JSON" ]; then
+            echo '::error::CODEX_AUTH_JSON is required for the subscription screen.'
+            exit 1
+          fi
+          install -d -m 700 "$RUNNER_TEMP/maint78-codex-home"
+          printf '%s' "$CODEX_AUTH_JSON" > "$RUNNER_TEMP/maint78-codex-home/auth.json"
+          chmod 600 "$RUNNER_TEMP/maint78-codex-home/auth.json"
+      - uses: astral-sh/setup-uv@c771a70e6277c0a99b617c7a806ffedaca235ff9 # v9.0.0
+        if: github.event_name == 'workflow_dispatch' && inputs.mode == 'screen'
+      - name: Run bounded Codex CLI screen
+        if: github.event_name == 'workflow_dispatch' && inputs.mode == 'screen'
+        env:
           GH_TOKEN: ${{ secrets.OWNER_PR_PAT }}
-          GITHUB_TOKEN: ${{ github.token }}
-          OPENAI_API_KEY: ${{ secrets.OPENAI_API_KEY }}
-          CLAUDE_API_STRANSKE: ${{ secrets.CLAUDE_API_STRANSKE }}
+          CODEX_HOME: ${{ runner.temp }}/maint78-codex-home
+          SCREEN_MODELS: ${{ inputs.models }}
         run: |
           uv run --extra dev --extra langchain \
-            python -m tools.run_model_eval_pilot --output pilot-results.json
-      - name: Summarize pilot
-        if: always()
-        run: |
-          if [ ! -f pilot-results.json ]; then
-            echo '## Verifier model pilot' >> "$GITHUB_STEP_SUMMARY"
-            echo 'The pilot failed before producing a results artifact; inspect the run step.' \
-              >> "$GITHUB_STEP_SUMMARY"
-            exit 0
-          fi
-          {
-            echo '## Verifier model pilot'
-            echo 'The pilot narrows candidates only; approval still requires the 75-case corpus.'
-            echo '```json'
-            jq '{schema, corpus_version, rows:(.results|length),
-              errors:([.results[]|select(.schema_valid == false)]|length),
-              category_report:.summary.candidates}' \
-              pilot-results.json
-            echo '```'
-          } >> "$GITHUB_STEP_SUMMARY"
+            python -m tools.run_model_eval_cli_screen \
+            --models "$SCREEN_MODELS" \
+            --output cli-screen-results.json \
+            --summary "$GITHUB_STEP_SUMMARY"
       - uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7
         if: always()
         with:
-          name: verifier-model-pilot-${{ github.run_id }}
+          name: maint-78-decision-readiness-${{ github.run_id }}
           path: |
-            pilot-results.json
-            pilot-preflight.json
+            model-eval-plan.json
+            cli-screen-results.json
           if-no-files-found: warn

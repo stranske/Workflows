@@ -10,8 +10,7 @@ automatically produces the right pilot candidates.
 For each provider selected for the target profile:
   - incumbent  = that profile's reviewed selection for the provider
   - candidates = every OTHER current, non-blocked, same-provider catalogued model
-                 whose positioning is not clearly non-verifier (``efficient``,
-                 ``coding-worker-profile``).
+                 whose positioning is not a coding-worker-only profile.
 
 ``--write`` regenerates ``config/model_eval_candidates.json``; ``--check`` exits 1
 if the committed file differs from the derived set (a drift gate).
@@ -30,8 +29,9 @@ DEFAULT_REGISTRY_PATH = _REPO_ROOT / "config" / "model_registry.json"
 DEFAULT_CANDIDATES_PATH = _REPO_ROOT / "config" / "model_eval_candidates.json"
 DEFAULT_PROFILE = "verifier-balanced"
 
-# Positionings that are not verifier candidates (cost/speed tiers, worker profiles).
-EXCLUDED_POSITIONINGS = frozenset({"efficient", "coding-worker-profile"})
+# Low-price tiers must be considered for a cost-efficiency comparison. Only
+# coding-worker-only profiles are excluded from auxiliary verifier evaluation.
+EXCLUDED_POSITIONINGS = frozenset({"coding-worker-profile"})
 
 
 def merge_catalog_discovery(

@@ -1140,3 +1140,25 @@ def test_astra_client_uses_high_reasoning_responses_without_sampling_controls(re
     assert received["reasoning"] == {"effort": "high"}
     assert "temperature" not in received
     assert "top_p" not in received
+
+
+@pytest.mark.parametrize(
+    "relative", ["tools/langchain_client.py", "templates/consumer-repo/tools/langchain_client.py"]
+)
+@pytest.mark.parametrize("model", ["gpt-6.1-sol", "gpt-6-luna"])
+def test_new_gpt6_clients_omit_unsupported_temperature(relative, model):
+    import runpy
+    from pathlib import Path
+
+    build = runpy.run_path(str(Path(__file__).resolve().parents[2] / relative))[
+        "_build_openai_client"
+    ]
+    received = {}
+
+    def client(**kwargs):
+        received.update(kwargs)
+        return kwargs
+
+    build(client, model=model, token="test", timeout=30, max_retries=0)
+    assert received["use_responses_api"] is True
+    assert "temperature" not in received
