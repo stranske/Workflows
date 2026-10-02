@@ -84,13 +84,13 @@ def build_plan(
     overrides = approval.get("minimum_cases_per_category_overrides", {})
     category_shortfalls = {
         category: max(0, int(overrides.get(category, default_category_minimum)) - counts[category])
-        for category in profile["candidate_stage"]["required_case_categories"]
+        for category in candidate_stage["required_case_categories"]
     }
     category_shortfalls = {key: value for key, value in category_shortfalls.items() if value}
     provisional = profile["provisional_stage"]
     selected_cases, snapshot_blockers = screen_cases(corpus, provisional)
     screen_category_shortfalls = sorted(
-        set(candidate_stage["required_case_categories"])
+        set(provisional["required_screen_categories"])
         - {case["category"] for case in selected_cases}
     )
     if screen_category_shortfalls:

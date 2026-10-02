@@ -96,6 +96,10 @@ reviewed cases to the separate `screen_cases` list, choose eight IDs in
 then validates the selected set before enabling a manual screen.
 Screen cases, including controlled defects, never enter the statistical
 `cases` list or its Wilson denominator.
+The fast screen covers clean PASS, missing-acceptance, and follow-up-required
+examples that the supplied verifier context can show. The broader statistical
+corpus retains stale-verifier-claim and review-thread-debt categories, which
+depend on evidence outside a standalone verifier prompt.
 The manual `screen` compares the incumbent and up to three priced models
 through Codex subscription auth with no API-key calls. A finalist must have
 zero observed false PASS and schema errors, at least 50% PASS recall, no

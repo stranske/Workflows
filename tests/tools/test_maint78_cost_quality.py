@@ -42,6 +42,9 @@ def _screen_inputs():
     cases = select_cases(corpus["cases"])
     corpus["screen_cases"] = json.loads(json.dumps(cases))
     cases = corpus["screen_cases"]
+    for case in cases:
+        if case["category"] in {"review-thread-debt", "stale-verifier-claim"}:
+            case["category"] = "clean-pass"
     corpus["screen_case_ids"] = [case["case_id"] for case in cases]
     for case in cases:
         snapshot = {
@@ -112,6 +115,11 @@ def test_controlled_defect_screen_case_does_not_enter_statistical_denominator():
     assert plan["corpus_cases"] == 51
     assert plan["expected_non_pass_cases"] == 4
     assert plan["screen_case_kinds"][negative["case_id"]] == "controlled_defect"
+    assert {case["category"] for case in corpus["screen_cases"]} == {
+        "clean-pass",
+        "missing-acceptance-criterion",
+        "follow-up-required",
+    }
 
 
 def test_new_catalog_candidate_without_price_blocks_claim_of_best_available():
