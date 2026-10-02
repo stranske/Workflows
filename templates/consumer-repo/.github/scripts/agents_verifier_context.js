@@ -365,15 +365,51 @@ async function fetchVerifierEvidence({
 
   const artifacts = { status: 'absent', complete: true, records: [], reason: '' };
   const allRunIds = extractReferencedRunIds([...(evidenceTexts || []), ...commentBodies]);
-  const runIds = allRunIds.slice(0, runLimit);
-  const seenRunIds = new Set(runIds);
-  let artifactIncomplete = allRunIds.length > runIds.length;
+  const referencedRunIds = allRunIds.slice(0, runLimit);
+  const runIds = [];
+  const seenRunIds = new Set();
+  let artifactIncomplete = allRunIds.length > referencedRunIds.length;
   if (comments.status === 'unavailable') {
     artifactIncomplete = true;
     artifacts.reason = 'comment evidence was unavailable, so referenced run discovery is incomplete';
   }
 
   const commitShas = Array.from(new Set((associatedCommitShas || []).filter(Boolean)));
+  const exactCommitShas = new Set(
+    commitShas.filter(isValidSha).map((commitSha) => commitSha.toLowerCase())
+  );
+  for (const runId of referencedRunIds) {
+    try {
+      if (!github?.rest?.actions?.getWorkflowRun) {
+        throw new Error('workflow run provenance API is unavailable');
+      }
+      const response = await github.rest.actions.getWorkflowRun({
+        owner,
+        repo,
+        run_id: runId,
+      });
+      const workflowRun = response?.data;
+      const returnedRunId = Number(workflowRun?.id);
+      const runHeadSha = String(workflowRun?.head_sha || '').toLowerCase();
+      if (returnedRunId !== runId || !isValidSha(runHeadSha)) {
+        artifactIncomplete = true;
+        artifacts.reason = `referenced workflow run ${runId} returned invalid provenance`;
+        continue;
+      }
+      if (!exactCommitShas.has(runHeadSha)) {
+        artifactIncomplete = true;
+        artifacts.reason = `referenced workflow run ${runId} does not match the exact PR head or merge commit`;
+        continue;
+      }
+      seenRunIds.add(runId);
+      runIds.push(runId);
+    } catch (error) {
+      artifactIncomplete = true;
+      artifacts.reason = `workflow run provenance failed for referenced run ${runId}: ${error.message}`;
+      core?.warning?.(`Verifier referenced workflow-run provenance unavailable: ${error.message}`);
+    }
+  }
+
   for (const commitSha of commitShas) {
     if (!isValidSha(commitSha)) {
       artifactIncomplete = true;

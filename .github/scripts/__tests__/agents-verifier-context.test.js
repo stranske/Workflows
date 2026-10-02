@@ -69,6 +69,8 @@ const buildGithubStub = ({
   runsForRepo = {},
   listWorkflowRunsForRepoError = null,
   listWorkflowRunsForRepoResponse = null,
+  workflowRunsById = {},
+  getWorkflowRunError = null,
   diffText = [
     'diff --git a/src/example.js b/src/example.js',
     'index 1111111..2222222 100644',
@@ -89,6 +91,13 @@ const buildGithubStub = ({
 } = {}) => ({
   rest: {
     actions: {
+      async getWorkflowRun({ run_id: runId }) {
+        if (getWorkflowRunError) throw getWorkflowRunError;
+        if (Object.prototype.hasOwnProperty.call(workflowRunsById, runId)) {
+          return { data: workflowRunsById[runId] };
+        }
+        return { data: { id: runId, head_sha: prDetails?.head?.sha || '' } };
+      },
       async listWorkflowRunsForRepo({ head_sha: headSha }) {
         if (listWorkflowRunsForRepoError) throw listWorkflowRunsForRepoError;
         if (listWorkflowRunsForRepoResponse) return listWorkflowRunsForRepoResponse;
@@ -857,6 +866,46 @@ test('buildVerifierContext includes bounded text from a referenced workflow arti
   assert.equal(core.outputs.evidence_status, 'present');
   assert.match(result.markdown, /Referenced workflow artifacts: \*\*present\*\*/);
   assert.match(result.markdown, /RED 1 failed/);
+  removeVerifierDiffArtifacts(result);
+});
+
+test('buildVerifierContext rejects a comment-referenced artifact from a different commit', async () => {
+  const { core, result } = await buildEvidenceContext({
+    comments: [{
+      user: { login: 'evidence-bot' },
+      body: 'Evidence run: https://github.com/octo/workflows/actions/runs/123',
+    }],
+    workflowRunsById: {
+      123: { id: 123, head_sha: 'dddddddddddddddddddddddddddddddddddddddd' },
+    },
+    artifactsByRun: { 123: [{
+      id: 7,
+      name: 'unrelated-proof',
+      size_in_bytes: 120,
+      expired: false,
+    }] },
+    artifactDownloads: { 7: Buffer.from('zip bytes') },
+  }, {
+    extractArtifactText() {
+      return { text: 'proof from an unrelated commit', entryCount: 1, truncated: false };
+    },
+  });
+  assert.equal(core.outputs.evidence_status, 'unavailable');
+  assert.match(result.markdown, /does not match the exact PR head or merge commit/);
+  assert.doesNotMatch(result.markdown, /proof from an unrelated commit/);
+  removeVerifierDiffArtifacts(result);
+});
+
+test('buildVerifierContext fails closed when referenced run provenance is unavailable', async () => {
+  const { core, result } = await buildEvidenceContext({
+    comments: [{ body: 'Evidence run: https://github.com/octo/workflows/actions/runs/456' }],
+    getWorkflowRunError: new Error('run lookup forbidden'),
+    artifactsByRun: { 456: [{ id: 8, size_in_bytes: 20, expired: false }] },
+    artifactDownloads: { 8: Buffer.from('zip bytes') },
+  });
+  assert.equal(core.outputs.evidence_status, 'unavailable');
+  assert.match(result.markdown, /workflow run provenance failed for referenced run 456/);
+  assert.doesNotMatch(result.markdown, /Run 456/);
   removeVerifierDiffArtifacts(result);
 });
 
