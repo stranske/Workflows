@@ -12,8 +12,8 @@ The active role table and dispatch contract are in [CODEX_ROLE_ROUTING.md](CODEX
 
 Astra is also available as a read-only profile-trial arm. The runner remains
 pinned to an immutable commit; Sol, Terra, and Luna trial identities are retained.
-The auxiliary `verifier-balanced` selection has a separate provisional Luna
-proposal based on MAINT-78 paired verifier evidence. It does not change the
+The auxiliary `verifier-balanced` selection is provisional Luna based on
+MAINT-78 paired verifier evidence. It does not change the
 coding-worker profiles or claim a paired Astra benchmark.
 
 The registry and catalog are distributed through Maint 68 and the immutable
