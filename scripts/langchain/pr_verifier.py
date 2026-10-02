@@ -33,6 +33,9 @@ from scripts.langchain.structured_output import (
 from scripts.langchain.verifier_config import (
     EVAL_PAIR_BUDGET_TOKENS,
     EVAL_SCHEMA_REPAIR_BUDGET_TOKENS,
+    MIN_CODE_COVERAGE_RATIO,
+    VERIFIER_CONTEXT_BUDGET_TOKENS,
+    VERIFIER_DIFF_BUDGET_TOKENS,
     SchemaRepairPolicy,
 )
 
@@ -262,6 +265,7 @@ class EvaluationResult(BaseModel):
     change_type: Literal["infrastructure", "application", "mixed"] | None = None
     langsmith_trace_id: str | None = None
     langsmith_trace_url: str | None = None
+    input_coverage: dict[str, object] | None = None
 
 
 class EvaluationPayload(BaseModel):
@@ -303,6 +307,7 @@ class ComparisonRunner:
     diff: str | None
     prompt: str
     clients: list[tuple[object, str, str]]  # (client, provider, model)
+    coverage: PromptCoverage | None = None
 
     @classmethod
     def from_environment(
@@ -313,6 +318,7 @@ class ComparisonRunner:
             diff=diff,
             prompt=_prepare_prompt(context, diff),
             clients=_get_llm_clients(model1, model2),
+            coverage=prompt_coverage(context, diff),
         )
 
     def run_single(self, client: object, provider: str, model: str) -> EvaluationResult:
@@ -333,7 +339,7 @@ class ComparisonRunner:
         result.model = model
         result.langsmith_trace_id = trace_id
         result.langsmith_trace_url = trace_url
-        return result
+        return _apply_coverage_floor(result, self.coverage)
 
 
 def _classify_change_type(
@@ -399,12 +405,389 @@ def _get_chain_depth() -> int:
         return 0
 
 
+VERIFIER_CONTEXT_TITLE = "# Verifier context"
+CI_SECTION = "## CI Information"
+ACCEPTANCE_SECTION = "## Plan sources (scope, tasks, acceptance)"
+DIFF_SUMMARY_SECTION = "## PR Diff Summary"
+FULL_DIFF_SECTION = "## PR Diff (full)"
+UPSTREAM_DIFF_TRUNCATION = re.compile(r"\.\.\.diff truncated after \d+ characters\.")
+TRUNCATION_MARKER = "[truncated: verifier prompt budget exceeded]"
+SUMMARY_FILE_LINE = re.compile(r"^- (\S+) \(\+\d+/-\d+\)\s*$", re.MULTILINE)
+CoverageStatus = Literal["complete", "truncated", "unavailable", "not_declared"]
+
+
+@dataclass(frozen=True)
+class FileCoverage:
+    path: str
+    status: Literal["complete", "truncated", "omitted"]
+    included_chars: int
+    total_chars: int
+
+
+@dataclass(frozen=True)
+class PromptCoverage:
+    """What the model actually receives, computed before any model call."""
+
+    acceptance: CoverageStatus
+    code: CoverageStatus
+    files: tuple[FileCoverage, ...]
+    code_included_chars: int
+    code_total_chars: int
+    context_truncated: bool
+    reasons: tuple[str, ...]
+
+    @property
+    def sufficient(self) -> bool:
+        return not self.reasons
+
+    @property
+    def code_ratio(self) -> float:
+        if self.code_total_chars <= 0:
+            return 1.0 if self.code == "complete" else 0.0
+        return self.code_included_chars / self.code_total_chars
+
+    def to_dict(self) -> dict[str, object]:
+        status_counts = {
+            status: sum(1 for item in self.files if item.status == status)
+            for status in ("complete", "truncated", "omitted")
+        }
+        return {
+            "sufficient": self.sufficient,
+            "acceptance": self.acceptance,
+            "code": self.code,
+            "files_total": len(self.files),
+            "files_complete": status_counts["complete"],
+            "files_truncated": status_counts["truncated"],
+            "files_omitted": status_counts["omitted"],
+            "omitted_files": [item.path for item in self.files if item.status == "omitted"],
+            "code_included_chars": self.code_included_chars,
+            "code_total_chars": self.code_total_chars,
+            "code_ratio": round(self.code_ratio, 4),
+            "context_truncated": self.context_truncated,
+            "reasons": list(self.reasons),
+        }
+
+    def render(self) -> str:
+        lines = [
+            "## Verifier input coverage",
+            "",
+            "This block is computed deterministically before the model call and states "
+            "which evidence below is complete. Text that is not shown was not reviewed.",
+            "",
+            f"- Acceptance / plan sources: {self.acceptance}",
+            (
+                f"- Changed code: {self.code} — {len(self.files)} file(s); "
+                f"{sum(1 for f in self.files if f.status == 'complete')} complete, "
+                f"{sum(1 for f in self.files if f.status == 'truncated')} truncated, "
+                f"{sum(1 for f in self.files if f.status == 'omitted')} omitted; "
+                f"{self.code_included_chars}/{self.code_total_chars} characters shown"
+            ),
+        ]
+        partial = [f for f in self.files if f.status != "complete"]
+        for item in partial[:40]:
+            lines.append(
+                f"  - {item.path}: {item.status} ({item.included_chars}/{item.total_chars} chars)"
+            )
+        if len(partial) > 40:
+            lines.append(f"  - ... {len(partial) - 40} more partial file(s)")
+        if self.sufficient:
+            lines.append("- Coverage verdict: sufficient for a PASS decision.")
+        else:
+            lines.append("- Coverage verdict: INCOMPLETE — do not return PASS. Reasons:")
+            lines.extend(f"  - {reason}" for reason in self.reasons)
+        return "\n".join(lines)
+
+
+@dataclass(frozen=True)
+class PromptInputs:
+    context_block: str
+    diff_block: str
+    coverage: PromptCoverage
+
+
+def _budget_from_env(name: str, default: int) -> int:
+    raw = os.environ.get(name, "")
+    try:
+        value = int(raw)
+    except (TypeError, ValueError):
+        return default
+    return value if value > 0 else default
+
+
+def _split_verifier_context(context: str) -> list[tuple[str, str]] | None:
+    """Split a structured verifier context into its builder sections.
+
+    Returns ``None`` for free-form context. Plan sources embed PR/issue bodies
+    that may contain arbitrary ``##`` headings, so only the builder's own
+    headings are used, located in the order the builder writes them: the
+    full diff is always last, and the summary is the last one before it.
+    """
+    text = "\n" + context
+    ci = text.find("\n" + CI_SECTION + "\n")
+    plan = text.find("\n" + ACCEPTANCE_SECTION + "\n", max(ci, 0))
+    anchor = max(ci, plan, 0)
+    full = text.rfind("\n" + FULL_DIFF_SECTION + "\n")
+    if full < anchor:
+        full = -1
+    summary_end = full if full >= 0 else len(text)
+    summary = text.rfind("\n" + DIFF_SUMMARY_SECTION + "\n", anchor, summary_end)
+    if not context.startswith(VERIFIER_CONTEXT_TITLE) and max(ci, plan, summary, full) < 0:
+        return None
+    marks = [("preamble", 0)]
+    if ci >= 0:
+        marks.append(("ci", ci))
+    if plan >= 0:
+        marks.append(("acceptance", plan))
+    if summary >= 0:
+        marks.append(("diff_summary", summary))
+    if full >= 0:
+        marks.append(("full_diff", full))
+    sections = []
+    for index, (name, start) in enumerate(marks):
+        end = marks[index + 1][1] if index + 1 < len(marks) else len(text)
+        body = text[start:end].strip("\n")
+        if body or name != "preamble":
+            sections.append((name, body))
+    return sections
+
+
+def _strip_diff_fence(section: str) -> str:
+    body = section.split("\n", 1)[1] if "\n" in section else ""
+    body = body.strip()
+    if body.startswith("```"):
+        body = body.split("\n", 1)[1] if "\n" in body else ""
+    if body.rstrip().endswith("```"):
+        body = body.rstrip()[:-3]
+    return body.strip("\n")
+
+
+def _split_diff_files(diff: str) -> list[tuple[str, str]]:
+    files: list[tuple[str, str]] = []
+    current: list[str] = []
+    path = ""
+    for line in diff.splitlines(keepends=True):
+        if line.startswith("diff --git "):
+            if current:
+                files.append((path, "".join(current)))
+            current = [line]
+            parts = line.split()
+            path = parts[3].removeprefix("b/") if len(parts) >= 4 else line.strip()
+        elif current:
+            current.append(line)
+    if current:
+        files.append((path, "".join(current)))
+    return files
+
+
+def _fair_shares(sizes: list[int], budget: int) -> list[int]:
+    """Water-fill ``budget`` across items so small files are shown whole."""
+    shares = [0] * len(sizes)
+    remaining = set(range(len(sizes)))
+    left = budget
+    while remaining and left > 0:
+        share = left // len(remaining)
+        if share <= 0:
+            break
+        satisfied = {i for i in remaining if sizes[i] - shares[i] <= share}
+        if not satisfied:
+            for i in remaining:
+                shares[i] += share
+            left -= share * len(remaining)
+            break
+        for i in satisfied:
+            left -= sizes[i] - shares[i]
+            shares[i] = sizes[i]
+        remaining -= satisfied
+    return shares
+
+
+def _excerpt_file(path: str, text: str, share: int) -> tuple[str, FileCoverage]:
+    total = len(text)
+    if share >= total:
+        return text, FileCoverage(path, "complete", total, total)
+    omitted_note = "[... remaining lines of {path} omitted: verifier prompt budget ...]\n"
+    reserve = len(omitted_note.format(path=path))
+    header_end = text.find("\n@@")
+    header_len = header_end + 1 if header_end >= 0 else min(total, 200)
+    if share - reserve <= header_len:
+        return "", FileCoverage(path, "omitted", 0, total)
+    shown = text[: share - reserve]
+    cut = shown.rfind("\n")
+    if cut > header_len:
+        shown = shown[: cut + 1]
+    elif not shown.endswith("\n"):
+        shown += "\n"
+    return shown + omitted_note.format(path=path), FileCoverage(
+        path, "truncated", len(shown), total
+    )
+
+
+def _build_code_block(
+    diff: str, budget_chars: int
+) -> tuple[str, CoverageStatus, tuple[FileCoverage, ...], int, int]:
+    files = _split_diff_files(diff)
+    if not files:
+        block = _cap_prompt_text(diff, max(1, budget_chars // TOKEN_CHARS))
+        status: CoverageStatus = "complete" if block == diff else "truncated"
+        return block, status, (), min(len(diff), len(block)), len(diff)
+    shares = _fair_shares([len(text) for _, text in files], budget_chars)
+    parts: list[str] = []
+    coverage: list[FileCoverage] = []
+    omitted: list[str] = []
+    for (path, text), share in zip(files, shares, strict=True):
+        excerpt, item = _excerpt_file(path, text, share)
+        coverage.append(item)
+        if excerpt:
+            parts.append(excerpt)
+        else:
+            omitted.append(path)
+    if omitted:
+        parts.append("[omitted entirely — not shown to the reviewer: " + ", ".join(omitted) + "]\n")
+    included = sum(item.included_chars for item in coverage)
+    total = sum(item.total_chars for item in coverage)
+    status = "complete" if all(item.status == "complete" for item in coverage) else "truncated"
+    return "".join(parts).rstrip("\n"), status, tuple(coverage), included, total
+
+
+def _fit_context_sections(
+    sections: list[tuple[str, str]], budget_chars: int
+) -> tuple[list[str], dict[str, str]]:
+    """Fill sections in priority order (acceptance first), emit in source order."""
+    priority = {"acceptance": 0, "ci": 1, "diff_summary": 2, "preamble": 3}
+    order = sorted(range(len(sections)), key=lambda i: priority.get(sections[i][0], 9))
+    left = budget_chars
+    fitted: dict[int, str] = {}
+    status: dict[str, str] = {}
+    for index in order:
+        name, body = sections[index]
+        if len(body) <= left:
+            fitted[index] = body
+            status[name] = "complete"
+            left -= len(body) + 2
+        elif left > len(TRUNCATION_MARKER) + 80:
+            fitted[index] = _cap_prompt_text(body, max(1, left // TOKEN_CHARS))
+            status[name] = "truncated"
+            left = 0
+        else:
+            status[name] = "unavailable"
+        left = max(0, left)
+    return [fitted[i] for i in range(len(sections)) if i in fitted], status
+
+
+def build_prompt_inputs(context: str, diff: str | None) -> PromptInputs:
+    """Bound the context and diff blocks and report what reaches the model."""
+    context_budget = (
+        _budget_from_env("VERIFIER_CONTEXT_BUDGET_TOKENS", VERIFIER_CONTEXT_BUDGET_TOKENS)
+        * TOKEN_CHARS
+    )
+    diff_budget = (
+        _budget_from_env("VERIFIER_DIFF_BUDGET_TOKENS", VERIFIER_DIFF_BUDGET_TOKENS) * TOKEN_CHARS
+    )
+    context_text = context.strip() if context and context.strip() else ""
+    diff_text = diff.strip() if diff and diff.strip() else ""
+    sections = _split_verifier_context(context_text) if context_text else None
+    reasons: list[str] = []
+
+    code_source = diff_text if "diff --git " in diff_text else ""
+    upstream_truncated = False
+    if sections is not None:
+        full = next((body for name, body in sections if name == "full_diff"), "")
+        if full:
+            context_diff = _strip_diff_fence(full)
+            upstream_truncated = bool(UPSTREAM_DIFF_TRUNCATION.search(context_diff))
+            if not code_source:
+                code_source = UPSTREAM_DIFF_TRUNCATION.sub("", context_diff).strip()
+        sections = [(name, body) for name, body in sections if name != "full_diff"]
+    if not code_source:
+        code_source = diff_text
+
+    if sections is None:
+        context_block = _cap_prompt_text(
+            context_text or "(context unavailable)", context_budget // TOKEN_CHARS
+        )
+        context_truncated = bool(context_text) and context_block != context_text
+        acceptance: CoverageStatus = "truncated" if context_truncated else "not_declared"
+    else:
+        fitted, section_status = _fit_context_sections(sections, context_budget)
+        context_block = "\n\n".join(fitted)
+        context_truncated = any(value != "complete" for value in section_status.values())
+        acceptance = section_status.get("acceptance", "unavailable")  # type: ignore[assignment]
+    if acceptance == "truncated":
+        reasons.append("Acceptance/plan sources were truncated to fit the prompt budget.")
+    elif acceptance == "unavailable":
+        reasons.append("Acceptance/plan sources do not fit or are unavailable.")
+
+    if code_source:
+        diff_block, code, files, included, total = _build_code_block(code_source, diff_budget)
+    else:
+        diff_block, code, files, included, total = "(diff unavailable)", "unavailable", (), 0, 0
+        if sections is None:
+            code = "not_declared"
+    if upstream_truncated:
+        code = "truncated"
+        reasons.append("The context builder truncated the PR diff before the verifier received it.")
+    omitted = [item.path for item in files if item.status == "omitted"]
+    summary_body = next((body for name, body in sections or [] if name == "diff_summary"), "")
+    if files and summary_body:
+        diff_paths = {item.path for item in files}
+        missing = [
+            path for path in SUMMARY_FILE_LINE.findall(summary_body) if path not in diff_paths
+        ]
+        if missing:
+            code = "truncated"
+            reasons.append(
+                f"{len(missing)} file(s) listed in the diff summary are absent from the diff: "
+                + ", ".join(missing[:10])
+            )
+    if code == "unavailable":
+        reasons.append("Changed code is unavailable; completeness cannot be judged.")
+    elif omitted:
+        reasons.append(f"{len(omitted)} changed file(s) are omitted from the prompt entirely.")
+    if total and included / total < MIN_CODE_COVERAGE_RATIO:
+        reasons.append(
+            f"Only {included}/{total} changed-code characters fit the prompt "
+            f"(minimum {MIN_CODE_COVERAGE_RATIO:.0%})."
+        )
+    elif not files and code == "truncated" and not upstream_truncated:
+        reasons.append("The supplied diff was truncated to fit the prompt budget.")
+
+    coverage = PromptCoverage(
+        acceptance=acceptance,
+        code=code,
+        files=files,
+        code_included_chars=included,
+        code_total_chars=total,
+        context_truncated=context_truncated,
+        reasons=tuple(reasons),
+    )
+    context_block = coverage.render() + "\n\n" + (context_block or "(context unavailable)")
+    return PromptInputs(context_block=context_block, diff_block=diff_block, coverage=coverage)
+
+
+def prompt_coverage(context: str, diff: str | None) -> PromptCoverage:
+    return build_prompt_inputs(context, diff).coverage
+
+
+def _apply_coverage_floor(
+    result: EvaluationResult, coverage: PromptCoverage | None
+) -> EvaluationResult:
+    """Never let a PASS stand on evidence the model did not receive."""
+    if coverage is None:
+        return result
+    result.input_coverage = coverage.to_dict()
+    if coverage.sufficient or result.verdict != "PASS" or not result.used_llm:
+        return result
+    note = "Verifier input coverage incomplete; PASS withheld: " + "; ".join(coverage.reasons)
+    result.verdict = "CONCERNS"
+    result.concerns = [note, *result.concerns]
+    result.summary = f"{note}\n\n{result.summary}" if result.summary else note
+    return result
+
+
 def _prepare_prompt(context: str, diff: str | None) -> str:
-    diff_block = diff.strip() if diff and diff.strip() else "(diff unavailable)"
-    context_block = context.strip() if context and context.strip() else "(context unavailable)"
-    block_budget = max(1, EVAL_PAIR_BUDGET_TOKENS // 2)
-    diff_block = _cap_prompt_text(diff_block, block_budget)
-    context_block = _cap_prompt_text(context_block, block_budget)
+    inputs = build_prompt_inputs(context, diff)
+    diff_block = inputs.diff_block
+    context_block = inputs.context_block
 
     change_type = _classify_change_type(_bounded_diff_for_classification(diff))
 
@@ -854,6 +1237,7 @@ def evaluate_pr(
 
     client, provider_name = resolved
     prompt = _prepare_prompt(context, diff)
+    coverage = prompt_coverage(context, diff)
     change_type = _classify_change_type(_bounded_diff_for_classification(diff))
     pr_number, _ = _extract_pr_metadata(context)
     trace_id, trace_url = None, None
@@ -904,7 +1288,7 @@ def evaluate_pr(
                         result.change_type = change_type
                         result.langsmith_trace_id = trace_id
                         result.langsmith_trace_url = trace_url
-                    return result
+                    return _apply_coverage_floor(result, coverage)
                 except Exception as fallback_exc:
                     result = _fallback_evaluation(
                         f"Primary ({provider_name}): {exc}; "
@@ -921,7 +1305,7 @@ def evaluate_pr(
     result.change_type = change_type
     result.langsmith_trace_id = trace_id
     result.langsmith_trace_url = trace_url
-    return result
+    return _apply_coverage_floor(result, coverage)
 
 
 def evaluate_pr_multiple(

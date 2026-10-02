@@ -14,6 +14,16 @@ EVAL_PAIR_BUDGET_TOKENS = DEFAULT_TOKEN_BUDGET
 EVAL_SCHEMA_REPAIR_BUDGET_TOKENS = DEFAULT_TOKEN_BUDGET
 EVAL_FOLLOW_UP_BUDGET_TOKENS = DEFAULT_TOKEN_BUDGET
 
+# Prompt-coverage budgets (#3701). The context block carries CI, plan sources and
+# the diff summary; the diff block carries changed code shared fairly across files.
+# A prefix cap of EVAL_PAIR_BUDGET_TOKENS // 2 per block silently dropped all or
+# most code on complex PRs, so code gets its own bounded budget. Override with the
+# VERIFIER_CONTEXT_BUDGET_TOKENS / VERIFIER_DIFF_BUDGET_TOKENS environment variables.
+VERIFIER_CONTEXT_BUDGET_TOKENS = 4000
+VERIFIER_DIFF_BUDGET_TOKENS = 16000
+# A PASS needs at least this share of changed-code characters in the prompt.
+MIN_CODE_COVERAGE_RATIO = 0.5
+
 RepairDecision = Literal["retry", "terminal", "escalate"]
 
 _TERMINAL_VERDICTS = {"pass", "concerns", "fail", "error"}

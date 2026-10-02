@@ -41,6 +41,60 @@ def verifier_prompt(snapshot: dict[str, Any]) -> str:
             os.environ["CHAIN_DEPTH"] = previous
 
 
+def verifier_prompt_coverage(snapshot: dict[str, Any]) -> dict[str, Any]:
+    """Report which acceptance and changed-code sources the production prompt keeps."""
+    from scripts.langchain import pr_verifier
+
+    return pr_verifier.prompt_coverage(snapshot["context"], snapshot["diff_summary"]).to_dict()
+
+
+def is_complex_coverage(coverage: dict[str, Any], *, min_files: int, min_code_chars: int) -> bool:
+    """A case is complex when its changed code alone overflowed the historical prefix cap."""
+    return (
+        int(coverage.get("files_total", 0)) >= min_files
+        or int(coverage.get("code_total_chars", 0)) > min_code_chars
+    )
+
+
+def coverage_blockers(
+    cases: list[dict[str, Any]], stage: dict[str, Any]
+) -> tuple[dict[str, dict[str, Any]], dict[str, int], list[str]]:
+    """No-spend preflight: paid confirmation needs complete, complex PASS and NON_PASS inputs."""
+    min_files = int(stage.get("complex_case_min_files", 5))
+    min_code_chars = int(stage.get("complex_case_min_code_chars", 8000))
+    required = {
+        "PASS": int(stage.get("minimum_complex_pass_cases", 1)),
+        "NON_PASS": int(stage.get("minimum_complex_non_pass_cases", 1)),
+    }
+    coverage: dict[str, dict[str, Any]] = {}
+    counts = {"PASS": 0, "NON_PASS": 0}
+    blockers: list[str] = []
+    for case in cases:
+        snapshot = case.get("production_snapshot")
+        if not isinstance(snapshot, dict) or not snapshot.get("context"):
+            continue
+        report = verifier_prompt_coverage(snapshot)
+        report["complex"] = is_complex_coverage(
+            report, min_files=min_files, min_code_chars=min_code_chars
+        )
+        coverage[case["case_id"]] = report
+        if not report["sufficient"]:
+            blockers.append(
+                f"{case['case_id']}: production verifier prompt coverage is incomplete "
+                f"({'; '.join(report['reasons'])})"
+            )
+        elif report["complex"] and case.get("expected_verdict") in counts:
+            counts[case["expected_verdict"]] += 1
+    for verdict, minimum in required.items():
+        if counts[verdict] < minimum:
+            blockers.append(
+                f"Screen has {counts[verdict]} complex {verdict} case(s) with complete prompt "
+                f"coverage; paid confirmation requires {minimum} (complex = at least "
+                f"{min_files} changed files or more than {min_code_chars} changed-code characters)."
+            )
+    return coverage, counts, blockers
+
+
 def screen_cases(
     corpus: dict[str, Any], stage: dict[str, Any]
 ) -> tuple[list[dict[str, Any]], list[str]]:
