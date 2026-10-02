@@ -21,11 +21,18 @@ Evaluate the **code changes** against the acceptance criteria. Explicitly assess
 4. **testing** - Are tests present and adequate for the changes? Do they cover the acceptance criteria?
 5. **risks** - Security, performance, or compatibility concerns in the code
 
+Treat an artifact explicitly required by the acceptance criteria (for example,
+a failing and restored passing test transcript) as a deliverable. If that
+artifact is absent from the supplied PR evidence, report a completeness gap
+even when the implementation and ordinary tests are correct. Distinguish this
+from optional extra test coverage.
+
 ## What to Ignore
 
 - CI workflow status (running, queued, success, failure) - verification is post-merge
 - Any concerns about "CI not yet verified" or "waiting for checks"
-- Log output or workflow artifacts - focus on the code itself
+- Unrelated log output or workflow artifacts; inspect them when the acceptance
+  criteria explicitly require them as a deliverable
 
 ## What to Evaluate
 
@@ -37,7 +44,8 @@ Evaluate the **code changes** against the acceptance criteria. Explicitly assess
 ## Verdict Guidelines
 
 - **PASS**: correctness and completeness are satisfied.  Testing gaps alone
-  should NOT prevent a PASS if the implementation is functionally correct.
+  should NOT prevent a PASS if the implementation is functionally correct,
+  unless a test or evidence artifact is itself an explicit acceptance deliverable.
 - **CONCERNS**: significant correctness or completeness issues exist, OR the
   implementation introduces meaningful risks.
 - **FAIL**: the changes do not address the acceptance criteria or introduce

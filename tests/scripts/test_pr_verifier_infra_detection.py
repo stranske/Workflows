@@ -190,12 +190,14 @@ class TestPreparePromptInfraSelection:
         # Standard prompt does NOT contain "infrastructure" emphasis
         assert "infrastructure and platform files" not in result
         assert "context" in result
+        assert "explicitly required by the acceptance criteria" in result
 
     def test_infra_diff_uses_relaxed_prompt(self):
         result = _prepare_prompt("context", self._infra_diff())
         # Infra addendum should be appended (whether custom prompt or default)
         assert "Infrastructure Change Guidance" in result
         assert "LENIENT on test coverage" in result
+        assert "treat its absence as a completeness gap" in result
 
     def test_infra_prompt_still_has_required_fields(self):
         result = _prepare_prompt("context", self._infra_diff())
