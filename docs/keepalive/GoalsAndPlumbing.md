@@ -463,6 +463,16 @@ HTTP 401/403 failures instead of treating them as successful no-ops; callers
 must not report a reservation or completion as persisted after a denied write.
 The PATCH-404 to POST creation path remains supported.
 
+The initial root and consumer reservation steps select `SERVICE_BOT_PAT` for both
+`GH_TOKEN` and `GITHUB_TOKEN`, falling back to the workflow token only when the
+service credential is absent. The service credential must authenticate as a
+trusted marker author and have repository access sufficient to read Actions
+variables and read/write pull-request comments. An absent or under-scoped token
+does not weaken the migration rule: the legacy read still returns
+`authoritative-storage-unavailable` on HTTP 401/403 and no worker is dispatched.
+Recovery is to correct the secret's repository/Variables access and rerun the
+same exact-head reservation step; never clear or invent a legacy reservation.
+
 Authoritative storage failures also emit a warning on stderr identifying reservation
 or completion, the read/write operation, exception and cause types, and HTTP status
 when available. Raw exception text,

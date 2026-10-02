@@ -170,6 +170,28 @@ def test_gate_paths_deny_invalid_claims_and_reporters_can_persist_generation() -
         assert "authority_challenge_claim" in run_name
         assert "authority_challenge_fingerprint" in run_name
 
+
+def test_runner_reservation_uses_service_bot_token_without_weakening_storage() -> None:
+    expected_token = "${{ secrets.SERVICE_BOT_PAT || secrets.GITHUB_TOKEN }}"
+    for path in (
+        ROOT / ".github/workflows/agents-keepalive-loop.yml",
+        TEMPLATE / ".github/workflows/agents-81-gate-followups.yml",
+    ):
+        workflow = yaml.safe_load(path.read_text())
+        step = next(
+            step
+            for step in workflow["jobs"]["evaluate"]["steps"]
+            if step.get("name") == "Check runner dispatch debounce"
+        )
+        assert step["env"]["GH_TOKEN"] == expected_token
+        assert step["env"]["GITHUB_TOKEN"] == expected_token
+        assert step["run"].count("--storage auto") == 2
+        assert "--authority-challenge" in step["run"]
+        assert (
+            workflow["jobs"]["evaluate"]["outputs"]["dispatch_should_run"]
+            == "${{ steps.runner_dispatch.outputs.should_dispatch || 'false' }}"
+        )
+
     root_reporter = (ROOT / ".github/workflows/agents-keepalive-loop-reporter.yml").read_text()
     assert '"Agents Keepalive Loop"' in root_reporter
     root_steps = yaml.safe_load(root_reporter)["jobs"]["report"]["steps"]
