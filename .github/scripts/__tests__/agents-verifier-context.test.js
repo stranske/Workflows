@@ -74,6 +74,12 @@ const buildGithubStub = ({
     '+new',
   ].join('\n'),
   pullGetCalls = null,
+  comments = [],
+  commentError = null,
+  commentLink = '',
+  artifactsByRun = {},
+  artifactListError = null,
+  artifactDownloads = {},
 } = {}) => ({
   rest: {
     actions: {
@@ -85,6 +91,20 @@ const buildGithubStub = ({
           }
         }
         return { data: { workflow_runs: runsByWorkflow[workflowId] || [] } };
+      },
+      async listWorkflowRunArtifacts({ run_id: runId }) {
+        if (artifactListError) throw artifactListError;
+        return { data: { artifacts: artifactsByRun[runId] || [] }, headers: {} };
+      },
+      async downloadArtifact({ artifact_id: artifactId }) {
+        if (!(artifactId in artifactDownloads)) throw new Error(`missing artifact download ${artifactId}`);
+        return { data: artifactDownloads[artifactId] };
+      },
+    },
+    issues: {
+      async listComments() {
+        if (commentError) throw commentError;
+        return { data: comments, headers: { link: commentLink } };
       },
     },
     pulls: {
@@ -758,6 +778,124 @@ function removeVerifierDiffArtifacts(result) {
   fs.rmSync(result.diffSummaryPath, { force: true });
   fs.rmSync(result.diffPath, { force: true });
 }
+
+async function buildEvidenceContext(githubOptions = {}, buildOptions = {}) {
+  const core = buildCore();
+  const prDetails = {
+    merged: true,
+    merged_at: '2026-10-02T00:00:00Z',
+    number: 700,
+    title: 'Bound verifier evidence',
+    body: prBodyFixture,
+    html_url: 'https://example.com/pr/700',
+    merge_commit_sha: 'cccccccccccccccccccccccccccccccccccccccc',
+    base: { ref: 'main', sha: 'aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa' },
+    head: { sha: 'bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb' },
+  };
+  const context = {
+    eventName: 'pull_request',
+    repo: { owner: 'octo', repo: 'workflows' },
+    payload: {
+      repository: { default_branch: 'main' },
+      pull_request: { merged: true, number: 700, base: { ref: 'main' }, html_url: 'https://example.com/pr/700' },
+    },
+    sha: prDetails.merge_commit_sha,
+  };
+  const github = buildGithubStub({ prDetails, ...githubOptions });
+  const result = await buildVerifierContext({ github, context, core, ...buildOptions });
+  return { core, result };
+}
+
+test('buildVerifierContext includes bounded comment-only acceptance evidence', async () => {
+  const { core, result } = await buildEvidenceContext({
+    comments: [{
+      user: { login: 'evidence-bot' },
+      html_url: 'https://example.com/pr/700#comment-1',
+      body: 'RED: named test failed; GREEN: named test passed after restore.',
+    }],
+  });
+  assert.equal(result.shouldRun, true);
+  assert.equal(core.outputs.evidence_status, 'present');
+  assert.match(result.markdown, /PR comments: \*\*present\*\*/);
+  assert.match(result.markdown, /RED: named test failed/);
+  removeVerifierDiffArtifacts(result);
+});
+
+test('buildVerifierContext includes bounded text from a referenced workflow artifact', async () => {
+  const { core, result } = await buildEvidenceContext({
+    comments: [{
+      user: { login: 'evidence-bot' },
+      html_url: 'https://example.com/pr/700#comment-2',
+      body: 'Evidence run: https://github.com/octo/workflows/actions/runs/123',
+    }],
+    artifactsByRun: { 123: [{
+      id: 7,
+      name: 'deliberate-break-proof',
+      size_in_bytes: 120,
+      expired: false,
+      archive_download_url: 'https://api.example.com/artifacts/7/zip',
+    }] },
+    artifactDownloads: { 7: Buffer.from('zip bytes') },
+  }, {
+    extractArtifactText() {
+      return { text: 'RED 1 failed\nGREEN 1 passed', entryCount: 1, truncated: false };
+    },
+  });
+  assert.equal(result.shouldRun, true);
+  assert.equal(core.outputs.evidence_status, 'present');
+  assert.match(result.markdown, /Referenced workflow artifacts: \*\*present\*\*/);
+  assert.match(result.markdown, /RED 1 failed/);
+  removeVerifierDiffArtifacts(result);
+});
+
+test('buildVerifierContext reports genuinely empty complete evidence sources as absent', async () => {
+  const { core, result } = await buildEvidenceContext();
+  assert.equal(result.shouldRun, true);
+  assert.equal(core.outputs.evidence_status, 'absent');
+  assert.match(result.markdown, /PR comments: \*\*absent\*\*/);
+  assert.match(result.markdown, /Referenced workflow artifacts: \*\*absent\*\*/);
+  removeVerifierDiffArtifacts(result);
+});
+
+test('buildVerifierContext reports retrieval failure as unavailable, never absent', async () => {
+  const { core, result } = await buildEvidenceContext({ commentError: new Error('secondary rate limit') });
+  assert.equal(result.shouldRun, true);
+  assert.equal(core.outputs.evidence_status, 'unavailable');
+  assert.match(result.markdown, /PR comments: \*\*unavailable\*\*/);
+  assert.match(result.markdown, /Referenced workflow artifacts: \*\*unavailable\*\*/);
+  assert.doesNotMatch(result.markdown, /PR comments: \*\*absent\*\*/);
+  removeVerifierDiffArtifacts(result);
+});
+
+test('buildVerifierContext reports a truncated comment listing as unavailable', async () => {
+  const { core, result } = await buildEvidenceContext({
+    comments: [{ user: { login: 'evidence-bot' }, body: 'partial evidence' }],
+    commentLink: '<https://api.example.com/comments?page=2>; rel="next"',
+  });
+  assert.equal(core.outputs.evidence_status, 'unavailable');
+  assert.match(result.markdown, /comment count or character limit prevented complete inspection/);
+  removeVerifierDiffArtifacts(result);
+});
+
+test('buildVerifierContext reports unreadable referenced artifact content as unavailable', async () => {
+  const { core, result } = await buildEvidenceContext({
+    comments: [{ body: 'Evidence run: https://github.com/octo/workflows/actions/runs/456' }],
+    artifactsByRun: { 456: [{
+      id: 8,
+      name: 'binary-only-proof',
+      size_in_bytes: 80,
+      expired: false,
+    }] },
+    artifactDownloads: { 8: Buffer.from('zip bytes') },
+  }, {
+    extractArtifactText() {
+      return { text: '', entryCount: 1, truncated: true };
+    },
+  });
+  assert.equal(core.outputs.evidence_status, 'unavailable');
+  assert.match(result.markdown, /Referenced workflow artifacts: \*\*unavailable\*\*/);
+  removeVerifierDiffArtifacts(result);
+});
 
 test('buildVerifierContext uses the authoritative PR diff after the base advances', async () => {
   const { localCalls, pullGetCalls, result } = await buildAdvancedBaseDiffContext();

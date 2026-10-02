@@ -23,9 +23,16 @@ Evaluate the **code changes** against the acceptance criteria. Explicitly assess
 
 Treat an artifact explicitly required by the acceptance criteria (for example,
 a failing and restored passing test transcript) as a deliverable. If that
-artifact is absent from the supplied PR evidence, report a completeness gap
-even when the implementation and ordinary tests are correct. Distinguish this
-from optional extra test coverage.
+artifact is absent from a **completely inspected** supplied PR evidence record,
+report a completeness gap even when the implementation and ordinary tests are
+correct. The verifier context labels PR-comment and referenced-workflow-artifact
+retrieval as `present`, `absent`, or `unavailable`. `present` means source
+material was loaded, not that it satisfies the criterion. `absent` may support
+an absence finding only for a complete lookup. `unavailable` means retrieval or
+a safety bound prevented complete inspection: do not call the required artifact
+absent, and do not return PASS while that required deliverable remains
+unverifiable. Distinguish explicit deliverables from optional extra test
+coverage.
 
 ## What to Ignore
 
