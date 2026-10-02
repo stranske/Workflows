@@ -1,7 +1,7 @@
 {
   "schema_version": "2.0.0",
-  "as_of": "2026-07-10",
-  "review_by": "2026-08-30",
+  "as_of": "2026-10-02",
+  "review_by": "2026-10-09",
   "purpose": "Auditable model facts and auxiliary judge/evaluator selections. Coding-worker execution profiles remain in .github/agents/registry.yml::execution_profiles.",
   "selection_policy": "config/model_selection_policy.json",
   "catalog_baselines": {
@@ -465,14 +465,14 @@
     {
       "profile": "verifier-balanced",
       "provider": "openai",
-      "model_id": "gpt-5.6-terra",
+      "model_id": "gpt-6-luna",
       "status": "provisional",
-      "decided_at": "2026-07-31",
-      "review_by": "2026-08-30",
+      "decided_at": "2026-10-02",
+      "review_by": "2026-10-09",
       "evidence_ids": [
-        "catalog-review-2026-07-10"
+        "maint-78-paired-verifier-screen-2026-10-02"
       ],
-      "rationale": "Provisional selection advanced to the current catalog generation; positioning 'balanced' matches the verifier-balanced profile. This is NOT a benchmark-proven promotion: no passing workload-benchmark evidence exists for this model or for the superseded incumbent, so status stays provisional until the paired pilot runs. Human-approved by merging this PR."
+      "rationale": "The MAINT-78 eight-case paired subscription screen and capped 16-call API confirmation found 8/8 correct for both Luna and Terra, no false PASS or schema errors, and modeled API cost per accepted review of $0.000561 for Luna versus $0.011036 for Terra. This is a reversible provisional choice based on retrospective inputs and two controlled defects, not statistical approval. Review the first ten live verifier outcomes or by 2026-10-09 and revert on false PASS or material regression. Merging the selection PR is the required human approval."
     },
     {
       "profile": "verifier-balanced",
@@ -500,6 +500,21 @@
     }
   ],
   "selection_history": [
+    {
+      "profile": "verifier-balanced",
+      "provider": "openai",
+      "model_id": "gpt-5.6-terra",
+      "status": "provisional",
+      "decided_at": "2026-07-31",
+      "review_by": "2026-08-30",
+      "evidence_ids": [
+        "catalog-review-2026-07-10"
+      ],
+      "rationale": "Provisional selection advanced to the current catalog generation; positioning 'balanced' matches the verifier-balanced profile. This is NOT a benchmark-proven promotion: no passing workload-benchmark evidence exists for this model or for the superseded incumbent, so status stays provisional until the paired pilot runs. Human-approved by merging this PR.",
+      "superseded_at": "2026-10-02",
+      "superseded_by": "gpt-6-luna",
+      "supersede_reason": "MAINT-78 paired provisional screen and API confirmation found equal observed quality at substantially lower modeled API cost; human approval required."
+    },
     {
       "profile": "verifier-balanced",
       "provider": "openai",
@@ -596,6 +611,21 @@
         "anthropic-pricing-2026-09-30"
       ],
       "notes": "maint-77 catalog discovery (run 36712960738) observed claude-sonnet-5-5 in the Anthropic /v1/models catalog; list pricing from the Anthropic pricing page. Availability and pricing only; not workload quality evidence."
+    },
+    {
+      "evidence_id": "maint-78-paired-verifier-screen-2026-10-02",
+      "kind": "provisional-workload-comparison",
+      "measured_at": "2026-10-02",
+      "status": "provisional",
+      "profile": "verifier-balanced",
+      "model_id": "gpt-6-luna",
+      "screen_run_url": "https://github.com/stranske/Workflows/actions/runs/36976424099",
+      "api_confirmation_run_url": "https://github.com/stranske/Workflows/actions/runs/36976797455",
+      "source_ids": [
+        "openai-catalog-discovery-2026-09-30",
+        "openai-pricing-2026-10-01"
+      ],
+      "notes": "Eight fixed paired cases: four PASS, two natural NON_PASS, and two controlled-defect NON_PASS. Captures are retrospective. Both models were 8/8 correct in the no-API-key CLI screen and the 16-call API confirmation, with zero false PASS and schema errors. The API confirmation estimated cost per accepted review from measured tokens: Luna $0.000561, Terra $0.011036; the total worst-case reserved standard-rate cost was $0.582329 under a $5 cap. Small sample, not a population error-rate estimate or statistical approval."
     }
   ]
 }

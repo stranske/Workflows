@@ -38,6 +38,10 @@ def _inputs():
 
 def _screen_inputs():
     corpus, registry, policy = _inputs()
+    # Exercise the original Terra-to-candidate comparison even after promotion.
+    openai_selection = next(item for item in registry["selections"] if item["provider"] == "openai")
+    openai_selection["model_id"] = "gpt-5.6-terra"
+    openai_selection["evidence_ids"] = ["catalog-review-2026-07-10"]
     corpus["screen_input_status"] = "production_context_adjudicated"
     cases = select_cases(corpus["cases"])
     corpus["screen_cases"] = json.loads(json.dumps(cases))
@@ -94,6 +98,9 @@ def test_current_plan_allows_fast_screen_without_statistical_approval():
 
 def test_readiness_summary_leads_with_the_current_decision():
     summary = markdown(build_plan(*_inputs()))
+    assert "**Current OpenAI selection:** gpt-6-luna" in summary
+    assert "Monitor the first ten live verifier outcomes" in summary
+    assert "the completed eight-case provisional comparison" in summary
     assert summary.index("**Eight-case subscription screen ready:** yes") < summary.index(
         "### Separate long-term statistical approval"
     )

@@ -142,14 +142,35 @@ def build_plan(
         if cli_catalog is not None
         else []
     )
-    incumbent = next(
+    incumbent_selection = next(
         (
-            selection["model_id"]
+            selection
             for selection in registry["selections"]
             if selection.get("profile") == "verifier-balanced"
             and selection.get("provider") == "openai"
         ),
         None,
+    )
+    incumbent = incumbent_selection["model_id"] if incumbent_selection else None
+    evidence_by_id = {
+        item["evidence_id"]: item
+        for item in registry.get("evidence", [])
+        if isinstance(item, dict) and isinstance(item.get("evidence_id"), str)
+    }
+    provisional_evidence = (
+        next(
+            (
+                evidence_by_id[evidence_id]
+                for evidence_id in incumbent_selection.get("evidence_ids", [])
+                if evidence_id in evidence_by_id
+                and evidence_by_id[evidence_id].get("kind") == "provisional-workload-comparison"
+                and evidence_by_id[evidence_id].get("status") == "provisional"
+                and evidence_by_id[evidence_id].get("model_id") == incumbent
+            ),
+            None,
+        )
+        if incumbent_selection
+        else None
     )
     screen_model_ids = {
         model["model_id"]
@@ -221,7 +242,11 @@ def build_plan(
         reasons.append("No adjudicated cases are available.")
     benchmark_inputs_ready = not reasons
     reasons.append(
-        "MAINT-78 has no paired production API benchmark with measured tokens and cost; "
+        "Statistical approval still lacks an approval-stage paired API benchmark on "
+        "the frozen adjudicated corpus; the completed eight-case provisional comparison "
+        "does not establish the population error-rate bounds."
+        if provisional_evidence
+        else "MAINT-78 has no paired production API benchmark with measured tokens and cost; "
         "a model selection cannot be approved from the existing pilot artifacts."
     )
     fingerprint_input = {
@@ -237,7 +262,13 @@ def build_plan(
     ).hexdigest()
     return {
         "schema": "workflows-verifier-model-eval-plan/v1",
-        "objective": "Find a cost-efficient verifier model quickly, then review a reversible provisional choice with explicit quality limits.",
+        "objective": (
+            "Keep the provisional verifier model cost-efficient and safe on live work; "
+            "reconsider it promptly when model or workload facts change."
+            if provisional_evidence
+            else "Find a cost-efficient verifier model quickly, then review a reversible "
+            "provisional choice with explicit quality limits."
+        ),
         "input_fingerprint": fingerprint,
         "screen_harness_fingerprint": screen_harness_fingerprint(),
         "provisional_thresholds": {
@@ -270,6 +301,12 @@ def build_plan(
         "category_counts": dict(sorted(counts.items())),
         "category_shortfalls": category_shortfalls,
         "incumbent": incumbent,
+        "provisional_evidence_id": (
+            provisional_evidence["evidence_id"] if provisional_evidence else None
+        ),
+        "provisional_review_by": (
+            incumbent_selection.get("review_by") if provisional_evidence else None
+        ),
         "priced_openai_models": [model["model_id"] for model in priced],
         "unpriced_openai_models": unpriced,
         "catalog_advisory_models": catalog_advisory,
@@ -282,15 +319,22 @@ def build_plan(
             "api_calls": 0,
         },
         "next_action": (
-            "Run one bounded, paired Codex CLI screen of the incumbent and up to three "
-            "priced candidates. Advance any candidate that meets the provisional-stage "
-            "false-PASS, schema-error, and accuracy limits, then compare modeled cost "
-            "per accepted review in a small capped "
-            "API confirmation; review a provisional selection without waiting for the "
-            "long-term statistical approval sample."
-            if screen_ready
-            else "Resolve the candidate screen blockers, then compare the incumbent with "
-            "priced alternatives."
+            "Monitor the first ten live verifier outcomes or review by "
+            f"{incumbent_selection['review_by']}, whichever comes first; revert on false "
+            "PASS or material regression. Rerun the bounded screen when the catalog, "
+            "price, prompt, or workload changes."
+            if provisional_evidence
+            else (
+                "Run one bounded, paired Codex CLI screen of the incumbent and up to three "
+                "priced candidates. Advance any candidate that meets the provisional-stage "
+                "false-PASS, schema-error, and accuracy limits, then compare modeled cost "
+                "per accepted review in a small capped "
+                "API confirmation; review a provisional selection without waiting for the "
+                "long-term statistical approval sample."
+                if screen_ready
+                else "Resolve the candidate screen blockers, then compare the incumbent with "
+                "priced alternatives."
+            )
         ),
     }
 
@@ -300,11 +344,18 @@ def markdown(plan: dict[str, Any]) -> str:
         "## MAINT-78 current verifier model decision",
         "",
         f"**Objective:** {plan['objective']}",
+        f"**Current OpenAI selection:** {plan['incumbent']}",
+        f"**Provisional paired evidence:** {plan['provisional_evidence_id'] or 'none'}",
         f"**Eight-case subscription screen ready:** {'yes' if plan['screen_ready'] else 'no'}",
         f"**Next action:** {plan['next_action']}",
         f"**Automatic API calls:** {plan['automatic_api_calls']}",
-        "**Decision horizon:** Produce a retain-or-advance result from the bounded screen; "
-        "do not wait for the statistical approval sample.",
+        (
+            "**Decision horizon:** Review the provisional choice on live outcomes and new "
+            "model or workload information; statistical approval is separate."
+            if plan["provisional_evidence_id"]
+            else "**Decision horizon:** Produce a retain-or-advance result from the bounded "
+            "screen; do not wait for the statistical approval sample."
+        ),
         f"**Input fingerprint:** `{plan['input_fingerprint']}`",
         f"**Screen harness fingerprint:** `{plan['screen_harness_fingerprint']}`",
         f"**Priced OpenAI models:** {', '.join(plan['priced_openai_models']) or 'none'}",
