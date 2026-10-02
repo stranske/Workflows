@@ -467,3 +467,26 @@ def test_latest_reapplied_claim_supersedes_the_old_timestamp() -> None:
     )
 
     assert result == "2026-09-02T12:00:00.000Z"
+
+
+def test_belt_claim_reclaim_jobs_have_pull_requests_read_permission() -> None:
+    # Verify that both belt-claim-reclaim jobs have the required pull-requests: read permission
+    consumer_sweep = (
+        ROOT / "templates/consumer-repo/.github/workflows/agents-keepalive-sweep.yml"
+    ).read_text()
+    health_sweep = (ROOT / ".github/workflows/health-40-sweep.yml").read_text()
+
+    consumer_workflow = yaml.safe_load(consumer_sweep)
+    health_workflow = yaml.safe_load(health_sweep)
+
+    # Check consumer template reclaim_stale_belt_claims job
+    consumer_reclaim_job = consumer_workflow["jobs"]["reclaim_stale_belt_claims"]
+    consumer_permissions = consumer_reclaim_job.get("permissions", {})
+    assert "pull-requests" in consumer_permissions
+    assert consumer_permissions["pull-requests"] == "read"
+
+    # Check health-40-sweep belt-claim-reclaim job
+    health_reclaim_job = health_workflow["jobs"]["belt-claim-reclaim"]
+    health_permissions = health_reclaim_job.get("permissions", {})
+    assert "pull-requests" in health_permissions
+    assert health_permissions["pull-requests"] == "read"
