@@ -6,7 +6,7 @@
   "selection_policy": "config/model_selection_policy.json",
   "catalog_baselines": {
     "openai": {
-      "checked_at": "2026-09-04T22:30:00Z",
+      "checked_at": "2026-09-30T12:09:00Z",
       "model_ids": [
         "gpt-6-astra",
         "gpt-6.1-sol",
@@ -89,6 +89,12 @@
       "url": "https://developers.openai.com/api/docs/pricing"
     },
     {
+      "source_id": "openai-catalog-discovery-2026-09-30",
+      "provider": "openai",
+      "checked_at": "2026-09-30",
+      "url": "https://api.openai.com/v1/models"
+    },
+    {
       "source_id": "openai-pricing-2026-10-01",
       "provider": "openai",
       "checked_at": "2026-10-01",
@@ -138,7 +144,7 @@
       "api": "responses",
       "lifecycle": "current",
       "positioning": "balanced",
-      "source_ids": ["openai-pricing-2026-10-01"],
+      "source_ids": ["openai-catalog-discovery-2026-09-30", "openai-pricing-2026-10-01"],
       "pricing": {
         "currency": "USD",
         "input_per_million_tokens": 2.0,
@@ -153,7 +159,7 @@
       "api": "responses",
       "lifecycle": "current",
       "positioning": "balanced",
-      "source_ids": ["openai-gpt-6-sol-2026-10-01"],
+      "source_ids": ["openai-catalog-discovery-2026-09-30", "openai-gpt-6-sol-2026-10-01"],
       "pricing": {
         "currency": "USD",
         "input_per_million_tokens": 2.0,
@@ -168,7 +174,7 @@
       "api": "responses",
       "lifecycle": "current",
       "positioning": "efficient",
-      "source_ids": ["openai-pricing-2026-10-01"],
+      "source_ids": ["openai-catalog-discovery-2026-09-30", "openai-pricing-2026-10-01"],
       "pricing": {
         "currency": "USD",
         "input_per_million_tokens": 0.1,
