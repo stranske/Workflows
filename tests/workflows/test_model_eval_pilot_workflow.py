@@ -11,7 +11,9 @@ def test_maint78_automatic_paths_cannot_start_paid_model_calls() -> None:
     steps = workflow["jobs"]["assess"]["steps"]
     report = next(step for step in steps if step.get("name") == "Publish no-spend readiness report")
     screen = next(step for step in steps if step.get("name") == "Run bounded Codex CLI screen")
-    auth = next(step for step in steps if step.get("name") == "Configure isolated Codex subscription auth")
+    auth = next(
+        step for step in steps if step.get("name") == "Configure isolated Codex subscription auth"
+    )
     upload = next(step for step in steps if "actions/upload-artifact@" in step.get("uses", ""))
 
     assert "python -m tools.plan_model_eval" in report["run"]
@@ -19,8 +21,14 @@ def test_maint78_automatic_paths_cannot_start_paid_model_calls() -> None:
     assert "python -m tools.run_model_eval_cli_screen" in screen["run"]
     assert 'auth.get("auth_mode") != "chatgpt"' in auth["run"]
     assert 'auth.get("OPENAI_API_KEY")' in auth["run"]
-    assert "secrets.OPENAI_API_KEY" not in (root / ".github/workflows/maint-78-model-evaluation-pilot.yml").read_text()
-    assert "run_model_eval_pilot" not in (root / ".github/workflows/maint-78-model-evaluation-pilot.yml").read_text()
+    assert (
+        "secrets.OPENAI_API_KEY"
+        not in (root / ".github/workflows/maint-78-model-evaluation-pilot.yml").read_text()
+    )
+    assert (
+        "run_model_eval_pilot"
+        not in (root / ".github/workflows/maint-78-model-evaluation-pilot.yml").read_text()
+    )
     assert "schedule" not in workflow.get(True, {})
     assert upload["if"] == "always()"
     assert upload["with"]["if-no-files-found"] == "warn"

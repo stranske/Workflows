@@ -250,9 +250,9 @@ def report(
                 ),
                 "schema_errors": sum(not row["schema_valid"] for row in subset),
                 "modeled_api_cost_usd": round(cost, 6),
-                "modeled_cost_per_accepted_review_usd": round(cost / accepted, 6)
-                if accepted and len(subset) == len(cases)
-                else None,
+                "modeled_cost_per_accepted_review_usd": (
+                    round(cost / accepted, 6) if accepted and len(subset) == len(cases) else None
+                ),
             }
         )
     return {
