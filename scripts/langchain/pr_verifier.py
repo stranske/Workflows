@@ -799,9 +799,13 @@ def _required_evidence_channels(acceptance: str) -> set[str]:
         r"includ(?:e|es|ed)|post(?:s|ed)?|document(?:s|ed)?|prov(?:e|es|ed)|show(?:s|ed)?)\b",
         re.I,
     )
-    negation = re.compile(
-        r"\b(?:no|not|never|without)\b.{0,70}\b(?:required|must|upload|attach|evidence|artifact|transcript)\b"
-        r"|\b(?:must|shall|need)\s+not\b|\b(?:not|never)\s+(?:required|needed)\b",
+    evidence_prohibition = re.compile(
+        r"\bno\s+(?:\w+\s+){0,3}(?:evidence|artifacts?|transcripts?|command outputs?)"
+        r"\s+(?:is|are)\s+required\b"
+        r"|\b(?:evidence|artifacts?|transcripts?|command outputs?)"
+        r"\s+(?:is|are)\s+not\s+(?:required|needed)\b"
+        r"|\b(?:must|shall|may|should|do|does)\s+not\s+"
+        r"(?:upload|attach|provide|publish|post|record|capture|include|document)\b",
         re.I,
     )
     negative_gate = re.compile(
@@ -823,7 +827,7 @@ def _required_evidence_channels(acceptance: str) -> set[str]:
             criteria.append(line)
     for line in criteria:
         gate = bool(negative_gate.search(line))
-        if not evidence_term.search(line) or (negation.search(line) and not gate):
+        if not evidence_term.search(line) or (evidence_prohibition.search(line) and not gate):
             continue
         checklist = re.match(r"^\s*[-*]\s*\[[ xX]\]", line)
         bullet = re.match(r"^\s*[-*]\s+", line)
