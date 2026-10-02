@@ -118,23 +118,37 @@
     {
       "repo": "stranske/Doc-Lineage",
       "local_path": "Doc-Lineage",
-      "status": "paused",
-      "cadence": "manual",
-      "decision_anchor": "Document lineage/blackline engine scaffolded 2026-09-04; activate the design review once the research-program briefs R1/R2 land its design docs and first issues."
+      "status": "active",
+      "cadence": "weekly",
+      "decision_anchor": "Active document lineage and blackline engine: review provenance, citation fidelity, rendered diffs, packaging, and acceptance evidence."
     },
     {
       "repo": "stranske/Deliverable-Render",
       "local_path": "Deliverable-Render",
-      "status": "paused",
-      "cadence": "manual",
-      "decision_anchor": "Renderer library scaffolded 2026-09-04 from the work-environment inventory; activate review once the HTML hub and deck builder land."
+      "status": "active",
+      "cadence": "weekly",
+      "decision_anchor": "Active deliverable renderer: review HTML and deck rendering contracts, output fidelity, portability, and regression coverage."
     },
     {
       "repo": "stranske/Manager-Mosaic",
       "local_path": "Manager-Mosaic",
-      "status": "paused",
-      "cadence": "manual",
-      "decision_anchor": "Mosaic repo created 2026-09-04 on the owner's decision; activate review once the fact and thesis models land."
+      "status": "active",
+      "cadence": "weekly",
+      "decision_anchor": "Active manager fact and thesis models: review evidence schema, validation, chronology, claim evaluation, and auditability."
+    },
+    {
+      "repo": "stranske/Orchestrator",
+      "local_path": "Orchestrator",
+      "status": "active",
+      "cadence": "weekly",
+      "decision_anchor": "Active agent orchestration runtime: review execution safety, routing, capability lifecycle, provenance, and failure recovery."
+    },
+    {
+      "repo": "stranske/Ready",
+      "local_path": "Ready",
+      "status": "active",
+      "cadence": "weekly",
+      "decision_anchor": "Active research publication and capability intake: review evidence provenance, safety gates, contract mapping, and user-facing correctness."
     }
   ]
 }
