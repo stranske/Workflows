@@ -17,6 +17,7 @@ from scripts.audit_belt_ledger_completion import (
 from scripts.belt_ledger_completion import (
     CompletionEvidenceError,
     commit_files,
+    commit_has_path,
     completion_errors,
     duplicate_artifact_errors,
     format_status_counts,
@@ -119,6 +120,35 @@ def test_commit_files_fails_loud_when_reachable_commit_cannot_be_read(
     with pytest.raises(CompletionEvidenceError, match="could not be inspected") as exc_info:
         commit_files(commit, repo_root=repo)
     assert type(exc_info.value) is CompletionEvidenceError
+
+
+def test_audit_cli_fails_for_non_repository_root(tmp_path: Path) -> None:
+    (tmp_path / ".agents").mkdir()
+    ledger = tmp_path / ".agents" / "issue-1-ledger.yml"
+    ledger.write_text(
+        yaml.safe_dump({"tasks": [_task("a" * 40)]}, sort_keys=False),
+        encoding="utf-8",
+    )
+
+    with pytest.raises(CompletionEvidenceError, match="not a Git repository"):
+        audit_main(["--root", str(tmp_path)])
+
+
+def test_commit_has_path_fails_loud_when_recursive_tree_cannot_be_read(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    repo = _repo(tmp_path)
+    source = repo / "source.py"
+    source.write_text("VALUE = 1\n", encoding="utf-8")
+    commit = _commit(repo, "feat: add source")
+
+    def fail_ls_tree(*args: object, **kwargs: object) -> bytes:
+        raise subprocess.CalledProcessError(128, args[0])
+
+    monkeypatch.setattr(subprocess, "check_output", fail_ls_tree)
+
+    with pytest.raises(CompletionEvidenceError, match="while searching for missing.py"):
+        commit_has_path(commit, "missing.py", repo_root=repo)
 
 
 def test_task_artifacts_bare_filename_matches_nested_path(tmp_path: Path) -> None:

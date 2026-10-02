@@ -80,6 +80,14 @@ def task_artifacts(task: dict[str, Any]) -> list[str]:
 
 def commit_files(commit: str, *, repo_root: Path | str = ".") -> list[str]:
     """Return paths changed by *commit*, including root commits."""
+    repository_probe = subprocess.run(
+        ["git", "-C", str(repo_root), "rev-parse", "--git-dir"],
+        stdout=subprocess.DEVNULL,
+        stderr=subprocess.DEVNULL,
+        check=False,
+    )
+    if repository_probe.returncode != 0:
+        raise CompletionEvidenceError(f"{repo_root} is not a Git repository")
     object_probe = subprocess.run(
         ["git", "-C", str(repo_root), "cat-file", "-e", f"{commit}^{{commit}}"],
         stdout=subprocess.DEVNULL,
@@ -136,8 +144,10 @@ def commit_has_path(commit: str, path: str, *, repo_root: Path | str = ".") -> b
             ],
             stderr=subprocess.DEVNULL,
         )
-    except subprocess.CalledProcessError:
-        return False
+    except subprocess.CalledProcessError as exc:
+        raise CompletionEvidenceError(
+            f"unable to inspect commit {commit} while searching for {tree_path}"
+        ) from exc
     candidates = (item.decode("utf-8", "surrogateescape") for item in output.split(b"\0") if item)
     return any(PurePosixPath(candidate).name == tree_path for candidate in candidates)
 
