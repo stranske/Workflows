@@ -395,6 +395,26 @@ def test_negated_evidence_requirement_does_not_floor_pass() -> None:
     assert pr_verifier.prompt_coverage(context, None).sufficient
 
 
+def test_release_cannot_proceed_without_artifact_requires_evidence() -> None:
+    context, _ = _context(1, 1_000, 1_000)
+    context = context.replace(
+        "- " + ACCEPTANCE_SENTINEL,
+        "- The release must not proceed without attaching the validation artifact",
+    ).replace(
+        "## PR Diff Summary",
+        "## Acceptance evidence\n\n"
+        "- Overall retrieval status: **unavailable**\n"
+        "- PR comments: **present**\n"
+        "- Referenced workflow artifacts: **unavailable**\n"
+        "## PR Diff Summary",
+    )
+    coverage = pr_verifier.prompt_coverage(context, None)
+    assert not coverage.sufficient
+    assert any(
+        "Required acceptance evidence is unavailable" in reason for reason in coverage.reasons
+    )
+
+
 def test_declarative_pr_acceptance_evidence_is_required() -> None:
     context, _ = _context(1, 1_000, 1_000)
     context = context.replace(

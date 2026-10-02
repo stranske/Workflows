@@ -804,8 +804,15 @@ def _required_evidence_channels(acceptance: str) -> set[str]:
         r"|\b(?:must|shall|need)\s+not\b|\b(?:not|never)\s+(?:required|needed)\b",
         re.I,
     )
+    negative_gate = re.compile(
+        r"\b(?:must|shall|may|can)\s+not\s+\w*(?:proceed|merge|ship|release|complete|pass)\b"
+        r".{0,120}\bwithout\b.{0,120}\b(?:attach|upload|evidence|artifacts?|transcripts?)\b",
+        re.I,
+    )
     for line in acceptance.splitlines():
-        if not evidence_term.search(line) or negation.search(line):
+        if not evidence_term.search(line) or (
+            negation.search(line) and not negative_gate.search(line)
+        ):
             continue
         checklist = re.match(r"^\s*[-*]\s*\[[ xX]\]", line)
         bullet = re.match(r"^\s*[-*]\s+", line)
