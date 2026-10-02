@@ -7,7 +7,7 @@ from pathlib import Path
 
 import pytest
 import yaml
-from scripts.audit_belt_ledger_completion import audit_ledgers
+from scripts.audit_belt_ledger_completion import audit_ledger_evidence, audit_ledgers
 from scripts.belt_ledger_completion import (
     completion_errors,
     duplicate_artifact_errors,
@@ -70,6 +70,42 @@ def test_real_artifact_commit_can_complete(tmp_path: Path) -> None:
     commit = _commit(repo, "feat: add tracked variable schema")
 
     assert completion_errors(_task(), commit, repo_root=repo) == []
+
+
+def test_commit_files_reports_unverifiable_distinctly(tmp_path: Path) -> None:
+    repo = _repo(tmp_path)
+    ledger = repo / ".agents" / "issue-1-ledger.yml"
+    unreachable = "a" * 40
+    payload = {
+        "version": 1,
+        "issue": 1,
+        "base": "main",
+        "branch": "codex/issue-1",
+        "tasks": [_task(unreachable)],
+    }
+    ledger.write_text(yaml.safe_dump(payload, sort_keys=False), encoding="utf-8")
+
+    errors = completion_errors(_task(), unreachable, repo_root=repo)
+    findings, unverifiable = audit_ledger_evidence(repo)
+
+    assert len(errors) == 1
+    assert "UNVERIFIABLE" in errors[0]
+    assert "not evidence of a false completion" in errors[0]
+    assert findings == []
+    assert len(unverifiable) == 1
+
+
+def test_task_artifacts_bare_filename_matches_nested_path(tmp_path: Path) -> None:
+    repo = _repo(tmp_path)
+    nested = repo / "sub" / "dir" / "foo.js"
+    nested.parent.mkdir(parents=True)
+    nested.write_text("export const value = 1;\n", encoding="utf-8")
+    commit = _commit(repo, "feat: add nested JavaScript artifact")
+    task = _task(commit)
+    task["title"] = "Create `foo.js`."
+
+    assert task_artifacts(task) == ["foo.js"]
+    assert completion_errors(task, commit, repo_root=repo) == []
 
 
 def test_artifact_present_now_but_absent_at_commit_is_blocked(tmp_path: Path) -> None:
