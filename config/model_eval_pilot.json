@@ -5,6 +5,7 @@
   "adjudication_rule": "PASS requires durable completion disposition; NON_PASS requires a verifier-driven follow-up or unresolved completion gap.",
   "screen_input_status": "unverified_posthoc_labels",
   "screen_case_ids": [],
+  "screen_cases": [],
   "cases": [
     {
       "case_id": "workflows-2744",

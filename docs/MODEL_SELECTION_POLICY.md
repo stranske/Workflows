@@ -80,9 +80,12 @@ Download a completed comparison artifact and use
 to verify the captured hashes and prepare a case for review. For a controlled
 defect, supply both `--context-override` and `--diff-summary-override` plus
 `--mutation-note`; the tool preserves hashes of the original capture. Add
-reviewed cases to the corpus, choose eight IDs in `screen_case_ids`, and set
+reviewed cases to the separate `screen_cases` list, choose eight IDs in
+`screen_case_ids`, and set
 `screen_input_status` to `production_context_adjudicated`. The zero-spend plan
 then validates the selected set before enabling a manual screen.
+Screen cases, including controlled defects, never enter the statistical
+`cases` list or its Wilson denominator.
 The manual `screen` compares the incumbent and up to three priced models
 through Codex subscription auth with no API-key calls. A finalist must have
 zero observed false PASS and schema errors, at least 50% PASS recall, no

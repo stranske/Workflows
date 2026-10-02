@@ -87,26 +87,19 @@ def build_plan(
         for category in profile["candidate_stage"]["required_case_categories"]
     }
     category_shortfalls = {key: value for key, value in category_shortfalls.items() if value}
-    screen_category_shortfalls = sorted(
-        set(candidate_stage["required_case_categories"]) - set(counts)
-    )
     provisional = profile["provisional_stage"]
-    screen_corpus_ready = (
-        len(cases)
-        >= max(int(candidate_stage["minimum_adjudicated_cases"]), int(provisional["screen_cases"]))
-        and negative_cases >= int(provisional["minimum_non_pass_cases"])
-        and int(provisional["minimum_non_pass_cases"]) <= int(provisional["screen_cases"])
-        and not screen_category_shortfalls
-    )
     selected_cases, snapshot_blockers = screen_cases(corpus, provisional)
-    missing_screen_categories = sorted(
+    screen_category_shortfalls = sorted(
         set(candidate_stage["required_case_categories"])
         - {case["category"] for case in selected_cases}
     )
-    if missing_screen_categories:
+    if screen_category_shortfalls:
         snapshot_blockers.append(
-            f"Selected screen cases omit required categories: {missing_screen_categories}."
+            f"Selected screen cases omit required categories: {screen_category_shortfalls}."
         )
+    screen_corpus_ready = (
+        len(selected_cases) == int(provisional["screen_cases"]) and not snapshot_blockers
+    )
     input_alignment_ready = (
         corpus.get("screen_input_status") == "production_context_adjudicated"
         and not snapshot_blockers
@@ -169,10 +162,9 @@ def build_plan(
     screen_blockers = []
     if not screen_corpus_ready:
         screen_blockers.append(
-            f"Candidate screen needs at least "
-            f"{max(int(candidate_stage['minimum_adjudicated_cases']), int(provisional['screen_cases']))} cases, "
-            f"{provisional['minimum_non_pass_cases']} NON_PASS cases, and every required category; "
-            f"missing categories: {screen_category_shortfalls}."
+            f"Candidate screen needs {provisional['screen_cases']} separately adjudicated paired "
+            f"cases, at least {provisional['minimum_non_pass_cases']} NON_PASS cases, "
+            f"and every required category; missing categories: {screen_category_shortfalls}."
         )
     if not input_alignment_ready:
         screen_blockers.append(

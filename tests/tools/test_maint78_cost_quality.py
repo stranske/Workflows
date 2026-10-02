@@ -40,6 +40,8 @@ def _screen_inputs():
     corpus, registry, policy = _inputs()
     corpus["screen_input_status"] = "production_context_adjudicated"
     cases = select_cases(corpus["cases"])
+    corpus["screen_cases"] = json.loads(json.dumps(cases))
+    cases = corpus["screen_cases"]
     corpus["screen_case_ids"] = [case["case_id"] for case in cases]
     for case in cases:
         snapshot = {
@@ -94,6 +96,20 @@ def test_candidate_screen_uses_policy_case_and_failure_counts():
     assert not build_plan(corpus, registry, changed)["screen_ready"]
     changed["profiles"]["verifier-balanced"]["provisional_stage"]["screen_cases"] = 6
     assert not build_plan(corpus, registry, changed)["screen_ready"]
+
+
+def test_controlled_defect_screen_case_does_not_enter_statistical_denominator():
+    corpus, registry, policy = _screen_inputs()
+    negative = next(
+        case for case in corpus["screen_cases"] if case["expected_verdict"] == "NON_PASS"
+    )
+    negative["production_snapshot"]["input_kind"] = "controlled_defect"
+    negative["production_snapshot"]["mutation_note"] = "Controlled missing acceptance item."
+    plan = build_plan(corpus, registry, policy)
+    assert plan["screen_ready"]
+    assert plan["corpus_cases"] == 51
+    assert plan["expected_non_pass_cases"] == 4
+    assert plan["screen_case_kinds"][negative["case_id"]] == "controlled_defect"
 
 
 def test_new_catalog_candidate_without_price_blocks_claim_of_best_available():
@@ -197,7 +213,7 @@ def test_cli_screen_advances_only_a_safer_cheaper_paired_candidate():
 def test_api_confirmation_is_paired_bounded_and_still_provisional(monkeypatch):
     corpus, registry, policy = _screen_inputs()
     plan = build_plan(corpus, registry, policy)
-    cases = select_cases(corpus["cases"])
+    cases = corpus["screen_cases"]
     screen = {
         "schema": "workflows-verifier-cli-screen/v1",
         "screen_decision": "advance_to_api_confirmation",
@@ -315,7 +331,7 @@ def test_api_cost_reservation_rejects_invalid_registry_rates():
 
 def test_api_only_exception_requires_explicit_cli_absence_and_same_cases(monkeypatch):
     corpus, registry, policy = _screen_inputs()
-    cases = select_cases(corpus["cases"])
+    cases = corpus["screen_cases"]
     screen = {
         "schema": "workflows-verifier-cli-screen/v1",
         "screen_decision": "retain_incumbent_on_screen",
@@ -497,7 +513,7 @@ def test_unaligned_confirmation_is_rejected_before_any_api_call():
 def test_changed_production_snapshot_blocks_screen_before_model_calls(monkeypatch):
     corpus, registry, policy = _screen_inputs()
     first = next(
-        case for case in corpus["cases"] if case["case_id"] == corpus["screen_case_ids"][0]
+        case for case in corpus["screen_cases"] if case["case_id"] == corpus["screen_case_ids"][0]
     )
     first["production_snapshot"]["context"] += "\nchanged after adjudication"
     assert not build_plan(corpus, registry, policy)["screen_ready"]

@@ -46,9 +46,9 @@ def screen_cases(
         or len(set(ids)) != len(ids)
     ):
         return [], [f"Select exactly {required} unique production-context screen case IDs."]
-    lookup = {case["case_id"]: case for case in corpus["cases"]}
+    lookup = {case["case_id"]: case for case in corpus.get("screen_cases", [])}
     if any(case_id not in lookup for case_id in ids):
-        return [], ["A screen case ID is absent from the adjudicated corpus."]
+        return [], ["A screen case ID is absent from the separately adjudicated screen cases."]
     cases = [lookup[case_id] for case_id in ids]
     non_pass = sum(case["expected_verdict"] == "NON_PASS" for case in cases)
     pass_count = sum(case["expected_verdict"] == "PASS" for case in cases)
