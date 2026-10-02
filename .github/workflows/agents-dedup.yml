@@ -72,7 +72,18 @@ jobs:
 
       - name: Install dependencies
         run: |
-          pip install -e ".[langchain]" --quiet
+          # Install local code only for package-shaped repositories; a
+          # tool-only pyproject.toml is not editable-install metadata.
+          if { [ -f pyproject.toml ] && grep -Eq '^\[(project|build-system)\][[:space:]]*(#.*)?$' pyproject.toml; } || [ -f setup.py ] || [ -f setup.cfg ]; then
+            python -m pip install -e . --quiet
+          else
+            echo "No project/build metadata; skipping editable install."
+          fi
+          if [ ! -f tools/requirements-llm.txt ]; then
+            echo "::error::Missing canonical tools/requirements-llm.txt"
+            exit 1
+          fi
+          python -m pip install -r tools/requirements-llm.txt --quiet
 
       - name: Get open issues
         id: get-issues

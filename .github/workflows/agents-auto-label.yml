@@ -115,7 +115,19 @@ jobs:
       - name: Install dependencies
         if: steps.eligibility.outputs.should-run == 'true'
         run: |
-          pip install -e ".[langchain]" --quiet
+          # Consumer-shaped checkouts can have a tool-only pyproject.toml or no
+          # `langchain` extra. Install the repository only when it has packaging
+          # metadata, then apply the fleet's canonical LLM pins unconditionally.
+          if { [ -f pyproject.toml ] && grep -Eq '^\[(project|build-system)\][[:space:]]*(#.*)?$' pyproject.toml; } || [ -f setup.py ] || [ -f setup.cfg ]; then
+            python -m pip install -e . --quiet
+          else
+            echo "No project/build metadata; skipping editable install."
+          fi
+          if [ ! -f tools/requirements-llm.txt ]; then
+            echo "::error::Missing canonical tools/requirements-llm.txt"
+            exit 1
+          fi
+          python -m pip install -r tools/requirements-llm.txt --quiet
 
       - name: Get repo labels
         if: steps.eligibility.outputs.should-run == 'true'

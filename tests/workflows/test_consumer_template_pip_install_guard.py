@@ -18,9 +18,12 @@ fix applied in a consumer would be reverted on the next sync. The guard has to
 live in the template, and this test keeps it there.
 """
 
+import os
 import re
+import subprocess
 from pathlib import Path
 
+import pytest
 import yaml
 
 REPO_ROOT = Path(__file__).resolve().parents[2]
@@ -48,6 +51,19 @@ EXPECTED_INSTALL_SITES = {
     "backplane-conformance.yml",
 }
 
+LANGCHAIN_WORKFLOWS = (
+    ".github/workflows/agents-auto-label.yml",
+    ".github/workflows/agents-capability-check.yml",
+    ".github/workflows/agents-decompose.yml",
+    ".github/workflows/agents-dedup.yml",
+    "templates/consumer-repo/.github/workflows/agents-auto-label.yml",
+    "templates/consumer-repo/.github/workflows/agents-capability-check.yml",
+    "templates/consumer-repo/.github/workflows/agents-decompose.yml",
+    "templates/consumer-repo/.github/workflows/agents-dedup.yml",
+)
+
+PROJECT_METADATA_GUARD = re.compile(r"grep\s+-Eq\s+['\"]\^\\\[\(project\|build-system\)\\\]")
+
 
 def _run_scripts(workflow_text):
     """Yield every ``run:`` script in a workflow, with its job and step index."""
@@ -64,6 +80,34 @@ def _run_scripts(workflow_text):
 
 def _template_workflows():
     return sorted(TEMPLATE_WORKFLOWS.glob("*.yml")) + sorted(TEMPLATE_WORKFLOWS.glob("*.yaml"))
+
+
+def _install_script(path: Path, marker: str) -> str:
+    scripts = [script for _, _, script in _run_scripts(path.read_text(encoding="utf-8"))]
+    matches = [script for script in scripts if marker in script]
+    assert len(matches) == 1, f"expected one install script containing {marker!r} in {path}"
+    return matches[0]
+
+
+def _run_with_fake_python(script: str, tmp_path: Path, *, name: str, pyproject: str) -> list[str]:
+    case = tmp_path / name
+    tools = case / "tools"
+    fake_bin = case / "bin"
+    tools.mkdir(parents=True)
+    fake_bin.mkdir()
+    (case / "pyproject.toml").write_text(pyproject, encoding="utf-8")
+    (tools / "requirements-llm.txt").write_text("langchain==0\n", encoding="utf-8")
+    fake_python = fake_bin / "python"
+    fake_python.write_text('#!/bin/sh\nprintf "%s\\n" "$*" >> "$INSTALL_LOG"\n', encoding="utf-8")
+    fake_python.chmod(0o755)
+    log = case / "install.log"
+    env = {
+        **os.environ,
+        "INSTALL_LOG": str(log),
+        "PATH": f"{fake_bin}:{os.environ['PATH']}",
+    }
+    subprocess.run(["bash", "-eu", "-c", script], cwd=case, env=env, check=True)
+    return log.read_text(encoding="utf-8").splitlines() if log.exists() else []
 
 
 def test_template_workflow_directory_is_present():
@@ -125,5 +169,53 @@ def test_backplane_conformance_stub_keeps_its_opt_in_promise():
 
     script = install_scripts[0]
     assert PACKAGING_GUARD.search(script), "the editable install is not guarded"
+    assert PROJECT_METADATA_GUARD.search(script), (
+        "a tool-only pyproject.toml must not trigger an editable install"
+    )
     for filename in ("pyproject.toml", "setup.py", "setup.cfg"):
         assert filename in script, f"guard does not consider {filename}"
+
+
+@pytest.mark.parametrize("workflow", LANGCHAIN_WORKFLOWS)
+@pytest.mark.parametrize(
+    ("pyproject", "expects_editable"),
+    (("[tool.ruff]\nline-length = 100\n", False), ("[project]\nname = 'consumer'\n", True)),
+    ids=("tool-only-pyproject", "project-without-langchain-extra"),
+)
+def test_langchain_install_uses_canonical_requirements_for_both_repo_shapes(
+    workflow: str, pyproject: str, expects_editable: bool, tmp_path: Path
+) -> None:
+    path = REPO_ROOT / workflow
+    script = _install_script(path, "tools/requirements-llm.txt")
+
+    calls = _run_with_fake_python(
+        script,
+        tmp_path,
+        name=workflow.replace("/", "-") + ("-project" if expects_editable else "-tool"),
+        pyproject=pyproject,
+    )
+
+    assert "-m pip install -r tools/requirements-llm.txt --quiet" in calls
+    assert any(call == "-m pip install -e . --quiet" for call in calls) is expects_editable
+    assert all("[langchain]" not in call for call in calls)
+
+
+@pytest.mark.parametrize(
+    ("pyproject", "expects_editable"),
+    (("[tool.ruff]\nline-length = 100\n", False), ("[build-system]\nrequires = []\n", True)),
+    ids=("tool-only-pyproject", "build-system-project"),
+)
+def test_backplane_editable_install_requires_real_project_metadata(
+    pyproject: str, expects_editable: bool, tmp_path: Path
+) -> None:
+    workflow = TEMPLATE_WORKFLOWS / "backplane-conformance.yml"
+    script = _install_script(workflow, "pip install -e .")
+
+    calls = _run_with_fake_python(
+        script,
+        tmp_path,
+        name="backplane-project" if expects_editable else "backplane-tool",
+        pyproject=pyproject,
+    )
+
+    assert any(call == "-m pip install -e ." for call in calls) is expects_editable

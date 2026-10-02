@@ -37,10 +37,10 @@ jobs:
       # and fails this job, which fails `conformance` via `needs` - turning the
       # documented opt-in skip above into a hard gate failure.
       - run: |
-          if [ -f pyproject.toml ] || [ -f setup.py ] || [ -f setup.cfg ]; then
-            pip install -e .
+          if { [ -f pyproject.toml ] && grep -Eq '^\[(project|build-system)\][[:space:]]*(#.*)?$' pyproject.toml; } || [ -f setup.py ] || [ -f setup.cfg ]; then
+            python -m pip install -e .
           else
-            echo "No packaging metadata; skipping editable install (opt-in stub not yet tuned)."
+            echo "No project/build metadata; skipping editable install (opt-in stub not yet tuned)."
           fi
       # Repo-specific: invoke the tool's reference run to emit run.json + manifest.
       # Replace the placeholder below with the repo's emitter once it exists, e.g.:

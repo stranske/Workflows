@@ -31,6 +31,16 @@ def test_backplane_workflows_install_required_format_checkers() -> None:
         assert "jsonschema rfc3339-validator rfc3986-validator" in workflow
 
 
+def test_consumer_backplane_stub_skips_tool_only_pyproject_editable_install() -> None:
+    workflow = (
+        ROOT / "templates" / "consumer-repo" / ".github" / "workflows" / "backplane-conformance.yml"
+    ).read_text(encoding="utf-8")
+
+    assert "grep -Eq '^\\[(project|build-system)\\]" in workflow
+    assert "No project/build metadata; skipping editable install" in workflow
+    assert "python -m pip install -e ." in workflow
+
+
 def test_reusable_backplane_conformance_binds_registry_repo_to_caller() -> None:
     workflow = (ROOT / ".github" / "workflows" / "reusable-backplane-conformance.yml").read_text(
         encoding="utf-8"

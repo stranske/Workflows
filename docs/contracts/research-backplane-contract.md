@@ -162,7 +162,11 @@ identity conventions, the validator (`scripts/validate_run_contract.py`), and th
 templated caller stub
 (`templates/consumer-repo/.github/workflows/backplane-conformance.yml`). The
 reusable workflow body is referenced via `workflow_call@main`, so only the caller
-stub is templated.
+stub is templated. The stub's optional editable install runs only when the caller
+has a PEP 621 `[project]` table, a PEP 517 `[build-system]` table, or legacy
+`setup.py` / `setup.cfg` metadata. A tool-only `pyproject.toml` therefore keeps
+the documented non-participant no-op path instead of turning it into an install
+failure.
 
 **Workflows-only** (referenced, not synced): the registry
 (`config/backplane_participants.json`), this program doc, the internal

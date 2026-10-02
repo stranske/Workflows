@@ -115,16 +115,24 @@ workflows:
     description: "Verify to new PR - creates follow-up issue and immediately dispatches auto-pilot to prepare a replacement PR (bridge inlined)"
 
   - source: .github/workflows/agents-auto-label.yml
-    description: "Auto-label - suggests/applies labels based on semantic matching (Phase 5A)"
+    description: "Auto-label - suggests/applies labels based on semantic matching (Phase 5A); installs exact-synced canonical LLM requirements independently of consumer optional extras"
+    requires:
+      - tools/requirements-llm.txt
 
   - source: .github/workflows/agents-capability-check.yml
-    description: "Capability check - pre-flight agent feasibility gate (Phase 3A)"
+    description: "Capability check - pre-flight agent feasibility gate (Phase 3A); installs exact-synced canonical LLM requirements independently of consumer optional extras"
+    requires:
+      - tools/requirements-llm.txt
 
   - source: .github/workflows/agents-decompose.yml
-    description: "Task decomposition - breaks large issues into sub-tasks (Phase 3B)"
+    description: "Task decomposition - breaks large issues into sub-tasks (Phase 3B); installs exact-synced canonical LLM requirements independently of consumer optional extras"
+    requires:
+      - tools/requirements-llm.txt
 
   - source: .github/workflows/agents-dedup.yml
-    description: "Duplicate detection - flags similar open issues (Phase 3C)"
+    description: "Duplicate detection - flags similar open issues (Phase 3C); installs exact-synced canonical LLM requirements independently of consumer optional extras"
+    requires:
+      - tools/requirements-llm.txt
 
   - source: .github/workflows/agents-guard.yml
     description: "Agents guard - enforces agents workflow protections (Health 45)"
@@ -169,7 +177,7 @@ workflows:
 
   # Research-backplane run-contract/v1 conformance caller (opt-in, role-based)
   - source: .github/workflows/backplane-conformance.yml
-    description: "Backplane conformance caller stub - calls reusable-backplane-conformance.yml@main to validate a repo's emitted run-contract/v1 envelope (producer) or ingested object (consumer). No-op for non-participants (opt-in). Template lives under templates/consumer-repo/.github/workflows/."
+    description: "Backplane conformance caller stub - calls reusable-backplane-conformance.yml@main to validate a repo's emitted run-contract/v1 envelope (producer) or ingested object (consumer). No-op for non-participants (opt-in); editable install runs only for real project/build metadata, not tool-only pyproject.toml. Template lives under templates/consumer-repo/.github/workflows/."
 
 # Files to remove from consumer repos (obsolete / harmful when present)
 removals:

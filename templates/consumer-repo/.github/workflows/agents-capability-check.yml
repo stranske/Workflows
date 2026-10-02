@@ -54,19 +54,19 @@ jobs:
 
       - name: Install dependencies
         run: |
-          # Guarded: a consumer need not be an installable package (the template
-          # ships no pyproject.toml), and one that is need not declare a
-          # `langchain` extra. Fall back to the fleet's canonical LLM pins, which
-          # the sync manifest delivers to every consumer, so the langchain imports
-          # below still resolve instead of failing at import time.
-          if [ -f pyproject.toml ] || [ -f setup.py ] || [ -f setup.cfg ]; then
-            pip install -e ".[langchain]" --quiet
-          elif [ -f tools/requirements-llm.txt ]; then
-            echo "No packaging metadata; installing LLM pins from tools/requirements-llm.txt."
-            python -m pip install -r tools/requirements-llm.txt --quiet
+          # A consumer may have a tool-only pyproject.toml or omit the
+          # `langchain` extra. Install local code only for package-shaped repos,
+          # then load the exact-synced canonical LLM pins in every case.
+          if { [ -f pyproject.toml ] && grep -Eq '^\[(project|build-system)\][[:space:]]*(#.*)?$' pyproject.toml; } || [ -f setup.py ] || [ -f setup.cfg ]; then
+            python -m pip install -e . --quiet
           else
-            echo "No packaging metadata and no tools/requirements-llm.txt; skipping install."
+            echo "No project/build metadata; skipping editable install."
           fi
+          if [ ! -f tools/requirements-llm.txt ]; then
+            echo "::error::Missing canonical tools/requirements-llm.txt"
+            exit 1
+          fi
+          python -m pip install -r tools/requirements-llm.txt --quiet
 
       - name: Extract issue content
         id: extract
