@@ -863,6 +863,37 @@ test('artifact extractor charges headings and separators to the rendered charact
   assert.ok(calls[1].options.maxBuffer >= Buffer.byteLength('éééé', 'utf8'));
 });
 
+test('artifact extractor skips disallowed zip entry names', () => {
+  const execFile = (_command, args) => {
+    if (args[0] === '-Z1') {
+      return 'proof.txt\nbinary.exe\nnotes.md\n';
+    }
+    return 'body';
+  };
+  const result = extractArtifactArchiveText({
+    archiveBuffer: Buffer.from('zip'),
+    maxEntries: 10,
+    maxChars: 500,
+    execFile,
+  });
+  assert.equal(result.entryCount, 2);
+  assert.match(result.text, /proof\.txt/);
+  assert.match(result.text, /notes\.md/);
+  assert.doesNotMatch(result.text, /binary/);
+});
+
+test('artifact extractor truncates when zip entry count exceeds maxEntries', () => {
+  const execFile = (_command, args) => (args[0] === '-Z1' ? 'a.txt\nb.txt\nc.txt\n' : 'x');
+  const result = extractArtifactArchiveText({
+    archiveBuffer: Buffer.from('zip'),
+    maxEntries: 2,
+    maxChars: 500,
+    execFile,
+  });
+  assert.equal(result.entryCount, 3);
+  assert.equal(result.truncated, true);
+});
+
 test('verifier evidence fences untrusted headings and embedded backticks', () => {
   const markdown = formatVerifierEvidence({
     status: 'present',
