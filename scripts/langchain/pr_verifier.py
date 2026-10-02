@@ -789,10 +789,14 @@ def _required_evidence_channels(acceptance: str) -> set[str]:
     """Identify explicit evidence deliverables without treating negations as requirements."""
     channels: set[str] = set()
     evidence_term = re.compile(
-        r"\b(?:evidence|artifact|transcript|command output|pr comment)\b", re.I
+        r"\b(?:evidence|artifacts?|transcripts?|command outputs?|workflow runs?|"
+        r"pr comments?|pull request comments?)\b",
+        re.I,
     )
     requirement = re.compile(
-        r"\b(?:required|must|shall|needs? to|record(?:s|ed)?|captur(?:e|es|ed)|attach(?:es|ed)?|upload(?:s|ed)?)\b",
+        r"\b(?:required|must|shall|needs? to|publish(?:es|ed)?|upload(?:s|ed)?|"
+        r"attach(?:es|ed)?|captur(?:e|es|ed)|record(?:s|ed)?|provid(?:e|es|ed)|"
+        r"includ(?:e|es|ed)|post(?:s|ed)?|document(?:s|ed)?|prov(?:e|es|ed)|show(?:s|ed)?)\b",
         re.I,
     )
     negation = re.compile(
@@ -809,12 +813,12 @@ def _required_evidence_channels(acceptance: str) -> set[str]:
             continue
         lower = line.lower()
         line_channels: set[str] = set()
-        if re.search(r"\b(?:workflow artifact|artifact|workflow run)\b", lower):
+        if re.search(r"\b(?:workflow artifacts?|artifacts?|workflow runs?)\b", lower):
             line_channels.add("artifacts")
-        if re.search(r"\b(?:pr comment|pull request comment)\b", lower):
+        if re.search(r"\b(?:pr comments?|pull request comments?)\b", lower):
             line_channels.add("comments")
         if not line_channels or re.search(
-            r"\b(?:transcript|command output|validation evidence)\b", lower
+            r"\b(?:transcripts?|command outputs?|validation evidence)\b", lower
         ):
             line_channels.add("overall")
         channels.update(line_channels)
