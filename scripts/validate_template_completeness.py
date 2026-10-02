@@ -166,11 +166,19 @@ def write_summary(issues: list[str], source: str) -> None:
     if not summary_path:
         return
 
-    with open(summary_path, "a", encoding="utf-8") as handle:
-        handle.write(f"## Template Completeness Check ({source})\n\n")
-        handle.write(f"**Issues Found:** {len(issues)}\n\n")
-        for issue in issues:
-            handle.write(f"- {issue}\n")
+    try:
+        with open(summary_path, "a", encoding="utf-8") as handle:
+            handle.write(f"## Template Completeness Check ({source})\n\n")
+            handle.write(f"**Issues Found:** {len(issues)}\n\n")
+            for issue in issues:
+                handle.write(f"- {issue}\n")
+    except OSError as exc:
+        # The summary is supplemental output. A stale or read-only runner path
+        # must not turn a successful template/manifest validation into a failure.
+        print(
+            f"::warning::Unable to write template completeness summary ({type(exc).__name__})",
+            file=sys.stderr,
+        )
 
 
 def main() -> int:
