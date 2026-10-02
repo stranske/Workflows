@@ -421,6 +421,8 @@ def test_release_cannot_proceed_without_artifact_requires_evidence() -> None:
         "The release cannot proceed without attaching the validation artifact",
         "The release may not proceed unless the validation artifact is attached",
         "The release must not proceed\n  without attaching the validation artifact",
+        "Do not merge until the validation artifact is uploaded",
+        "No PASS without attaching validation evidence",
     ],
 )
 def test_equivalent_negative_artifact_gates_require_evidence(criterion: str) -> None:

@@ -934,7 +934,7 @@ test('buildVerifierContext discovers artifacts from an associated PR head withou
   removeVerifierDiffArtifacts(result);
 });
 
-test('buildVerifierContext excludes workflow runs for a different head SHA', async () => {
+test('buildVerifierContext fails closed when workflow discovery returns a different head SHA', async () => {
   const headSha = 'bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb';
   const { core, result } = await buildEvidenceContext({
     runsForRepo: {
@@ -943,8 +943,8 @@ test('buildVerifierContext excludes workflow runs for a different head SHA', asy
     artifactsByRun: { 654: [{ id: 18, size_in_bytes: 20, expired: false }] },
     artifactDownloads: { 18: Buffer.from('zip bytes') },
   });
-  assert.equal(core.outputs.evidence_status, 'absent');
-  assert.match(result.markdown, /Referenced workflow artifacts: \*\*absent\*\*/);
+  assert.equal(core.outputs.evidence_status, 'unavailable');
+  assert.match(result.markdown, /Referenced workflow artifacts: \*\*unavailable\*\*/);
   assert.doesNotMatch(result.markdown, /Run 654/);
   removeVerifierDiffArtifacts(result);
 });

@@ -438,7 +438,11 @@ async function fetchVerifierEvidence({
         artifacts.reason = `workflow run discovery for commit ${commitSha} exceeded the bounded result limit`;
       }
       for (const workflowRun of workflowRuns) {
-        if (String(workflowRun?.head_sha || '').toLowerCase() !== commitSha.toLowerCase()) continue;
+        if (String(workflowRun?.head_sha || '').toLowerCase() !== commitSha.toLowerCase()) {
+          artifactIncomplete = true;
+          artifacts.reason ||= `workflow run discovery returned a run for a different commit than ${commitSha}`;
+          continue;
+        }
         const runId = Number(workflowRun?.id);
         if (!Number.isFinite(runId) || runId <= 0) {
           artifactIncomplete = true;

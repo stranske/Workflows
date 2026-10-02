@@ -805,9 +805,10 @@ def _required_evidence_channels(acceptance: str) -> set[str]:
         re.I,
     )
     negative_gate = re.compile(
-        r"\b(?:must\s+not|shall\s+not|may\s+not|can\s+not|cannot|can't)\s+"
+        r"\b(?:must\s+not|shall\s+not|may\s+not|can\s+not|cannot|can't|"
+        r"do\s+not|does\s+not|no)\s+"
         r"(?:\w+\s+){0,3}(?:proceed|merge|ship|release|complete|pass)\b"
-        r".{0,160}\b(?:without|unless)\b.{0,160}"
+        r".{0,160}\b(?:without|unless|until)\b.{0,160}"
         r"\b(?:attach\w*|upload\w*|evidence|artifacts?|transcripts?)\b",
         re.I,
     )
