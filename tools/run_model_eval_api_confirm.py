@@ -48,10 +48,14 @@ def _invoke_api(client: Any, model: dict[str, Any], prompt: str) -> tuple[str, i
         usage = response.usage
         return content, int(usage.input_tokens), int(usage.output_tokens)
     if model["api"] == "chat":
+        kwargs = {}
+        if not model_id.startswith("gpt-5.6-"):
+            kwargs["temperature"] = 0.1
         response = client.chat.completions.create(
             model=model_id,
             messages=[{"role": "user", "content": prompt}],
             max_completion_tokens=MAX_OUTPUT_TOKENS,
+            **kwargs,
         )
         content = response.choices[0].message.content or ""
         usage = response.usage
