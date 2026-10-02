@@ -71,6 +71,7 @@ const {
   confirmedClosedPrIdentity,
   collectReviewerEvidence,
   enforceGeneratedDeliveryRequiredContexts,
+  hasExplicitSameHeadReviewerAcceptance,
   legacyStatusAsCheck,
   listMaint71PullRequests,
   mergeMethodPolicyAllowsFallback,
@@ -699,6 +700,8 @@ test('review resolution proof is exact-head, source-linked, and actor-bound', ()
     head_sha: 'head-abc',
     source_fix_sha: 'a'.repeat(40),
     evidence_url: 'https://github.com/stranske/Workflows/pull/3091',
+    originating_reviewer: 'codex',
+    reviewer_acceptance_url: 'https://github.com/stranske/Portable/pull/22#discussion_r12345',
     reason: 'The current generated contract contains the merged source guard.',
   };
   assert.deepEqual(parseReviewResolutionProofs(JSON.stringify({ proofs: [proof] })), [proof]);
@@ -735,6 +738,14 @@ test('review resolution proof is exact-head, source-linked, and actor-bound', ()
   });
   assert.equal(changedHead.ok, false);
   assert.ok(changedHead.errors.includes('head_mismatch'));
+  const noAcceptance = validateReviewResolutionProof({
+    ...proof,
+    reviewer_acceptance_url: '',
+  }, {
+    owner: 'stranske', repo: 'Portable', prNumber: 22, headSha: 'head-abc',
+    actor: 'stranske-automation-bot', trustedActors: ['stranske-automation-bot'],
+  });
+  assert.ok(noAcceptance.errors.includes('invalid_reviewer_acceptance_url'));
 });
 
 test('proof-bound resolution permits an unresolved outdated thread', () => {
@@ -744,6 +755,33 @@ test('proof-bound resolution permits an unresolved outdated thread', () => {
   assert.equal(isResolvableProofThread({ isOutdated: true }), false);
   assert.equal(isResolvableProofThread({ isResolved: null, isOutdated: true }), false);
   assert.equal(isResolvableProofThread(null), false);
+});
+
+test('proof-bound resolution requires explicit same-head originating reviewer acceptance', () => {
+  const headSha = 'a'.repeat(40);
+  const url = 'https://github.com/stranske/Portable/pull/22#discussion_r12345';
+  const proof = { originating_reviewer: 'codex', reviewer_acceptance_url: url };
+  const profiles = [{ id: 'codex', logins: ['chatgpt-codex-connector'] }];
+  const comment = {
+    url,
+    author: { login: 'chatgpt-codex-connector' },
+    commit: { oid: headSha },
+    body: `Accepted. <!-- sync-review-accepted:${headSha} -->`,
+  };
+  const thread = { comments: { pageInfo: { hasNextPage: false }, nodes: [comment] } };
+  assert.equal(hasExplicitSameHeadReviewerAcceptance(thread, proof, headSha, profiles), true);
+  assert.equal(hasExplicitSameHeadReviewerAcceptance({
+    comments: { pageInfo: { hasNextPage: true }, nodes: [comment] },
+  }, proof, headSha, profiles), false);
+  assert.equal(hasExplicitSameHeadReviewerAcceptance({
+    comments: { pageInfo: { hasNextPage: false }, nodes: [{ ...comment, commit: { oid: 'b'.repeat(40) } }] },
+  }, proof, headSha, profiles), false);
+  assert.equal(hasExplicitSameHeadReviewerAcceptance({
+    comments: { pageInfo: { hasNextPage: false }, nodes: [{ ...comment, author: { login: 'stranske' } }] },
+  }, proof, headSha, profiles), false);
+  assert.equal(hasExplicitSameHeadReviewerAcceptance({
+    comments: { pageInfo: { hasNextPage: false }, nodes: [{ ...comment, body: 'not yet fixed' }] },
+  }, proof, headSha, profiles), false);
 });
 
 test('maint71 run writes reports and records a no-PR result with fake action clients', async () => {

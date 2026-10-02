@@ -534,16 +534,50 @@ def _split_verifier_context(context: str) -> list[tuple[str, str]] | None:
     the acceptance-plan budget.
     """
     text = "\n" + context
-    ci = text.find("\n" + CI_SECTION + "\n")
-    plan = text.find("\n" + ACCEPTANCE_SECTION + "\n", max(ci, 0))
+    # Evidence payloads are fenced with a fence longer than any backtick run
+    # in the payload. Only builder headings outside those fences are structural.
+    headings: dict[str, list[int]] = {
+        heading: []
+        for heading in (
+            CI_SECTION,
+            ACCEPTANCE_SECTION,
+            ACCEPTANCE_EVIDENCE_SECTION,
+            DIFF_SUMMARY_SECTION,
+            FULL_DIFF_SECTION,
+        )
+    }
+    offset = 0
+    fence_char = ""
+    fence_length = 0
+    for line in text.splitlines(keepends=True):
+        stripped = line.strip()
+        fence = re.match(r"^(`{3,}|~{3,})(?:[^`~].*)?$", stripped)
+        if fence:
+            marker = fence.group(1)
+            if not fence_char:
+                fence_char, fence_length = marker[0], len(marker)
+            elif marker[0] == fence_char and len(marker) >= fence_length:
+                fence_char, fence_length = "", 0
+        elif not fence_char and stripped in headings:
+            headings[stripped].append(offset)
+        offset += len(line)
+    ci = next(iter(headings[CI_SECTION]), -1)
+    plan = next((pos for pos in headings[ACCEPTANCE_SECTION] if pos > ci), -1)
     anchor = max(ci, plan, 0)
-    full = text.rfind("\n" + FULL_DIFF_SECTION + "\n")
-    if full < anchor:
-        full = -1
+    full = next((pos for pos in reversed(headings[FULL_DIFF_SECTION]) if pos > anchor), -1)
     summary_end = full if full >= 0 else len(text)
-    summary = text.rfind("\n" + DIFF_SUMMARY_SECTION + "\n", anchor, summary_end)
+    summary = next(
+        (pos for pos in reversed(headings[DIFF_SUMMARY_SECTION]) if anchor < pos < summary_end), -1
+    )
     evidence_end = summary if summary >= 0 else summary_end
-    evidence = text.rfind("\n" + ACCEPTANCE_EVIDENCE_SECTION + "\n", max(plan, 0), evidence_end)
+    evidence = next(
+        (
+            pos
+            for pos in reversed(headings[ACCEPTANCE_EVIDENCE_SECTION])
+            if max(plan, 0) < pos < evidence_end
+        ),
+        -1,
+    )
     if (
         not context.startswith(VERIFIER_CONTEXT_TITLE)
         and max(ci, plan, evidence, summary, full) < 0
@@ -758,6 +792,11 @@ def _acceptance_requires_evidence(acceptance: str) -> bool:
     plan actually makes it a deliverable.  This deliberately uses a narrow
     wording match rather than treating every PR comment as mandatory evidence.
     """
+    checklist = re.compile(
+        r"^\s*[-*]\s*\[[ xX]\].*\b(?:evidence|artifact|transcript|command output)\b", re.IGNORECASE
+    )
+    if any(checklist.search(line) for line in acceptance.splitlines()):
+        return True
     normalized = " ".join(acceptance.lower().split())
     evidence_terms = r"(?:evidence|artifact|transcript|workflow (?:run|artifact)|pr comment)"
     required_first = rf"\b(?:required|must|shall|needs? to)\b[^.\n]{{0,120}}\b{evidence_terms}\b"
@@ -767,10 +806,15 @@ def _acceptance_requires_evidence(acceptance: str) -> bool:
 
 def _evidence_reports_unavailable(evidence: str) -> bool:
     """Read the generated evidence status without treating its payload as instructions."""
+    # Comment and artifact bodies are untrusted. Their status-looking lines
+    # cannot overwrite the builder's own preamble.
+    preamble = re.split(
+        r"\n### Bounded (?:PR comments|referenced workflow artifacts)\n", evidence, maxsplit=1
+    )[0]
     return bool(
         re.search(
             r"(?:overall retrieval status|pr comments|referenced workflow artifacts):\s*\*\*unavailable\*\*",
-            evidence,
+            preamble,
             flags=re.IGNORECASE,
         )
     )

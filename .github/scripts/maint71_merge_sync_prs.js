@@ -493,9 +493,32 @@ function validateReviewResolutionProof(proof = {}, {
   if (!/^https:\/\/github\.com\/stranske\/Workflows\/(?:pull\/[1-9]\d*|commit\/[0-9a-f]{40,64})$/i.test(
     String(proof.evidence_url || ''),
   )) errors.push('invalid_evidence_url');
+  if (!String(proof.originating_reviewer || '').trim()) errors.push('missing_originating_reviewer');
+  if (!new RegExp(
+    `^https://github\\.com/${owner}/${repo}/pull/${prNumber}#discussion_r[1-9]\\d*$`,
+  ).test(String(proof.reviewer_acceptance_url || ''))) {
+    errors.push('invalid_reviewer_acceptance_url');
+  }
   if (!String(proof.reason || '').trim()) errors.push('missing_reason');
   if (!new Set(trustedActors).has(String(actor || ''))) errors.push('untrusted_dispatch_actor');
   return { ok: errors.length === 0, errors };
+}
+
+function hasExplicitSameHeadReviewerAcceptance(thread, proof, headSha, reviewerProfiles = []) {
+  if (thread?.comments?.pageInfo?.hasNextPage) return false;
+  const reviewer = reviewerProfiles.find(
+    (profile) => profile.id === proof.originating_reviewer,
+  );
+  const allowedLogins = new Set(
+    (reviewer?.logins || []).map((login) => String(login).toLowerCase()),
+  );
+  const marker = `<!-- sync-review-accepted:${headSha} -->`;
+  return (thread?.comments?.nodes || []).some((comment) =>
+    comment.url === proof.reviewer_acceptance_url
+    && allowedLogins.has(String(comment.author?.login || '').toLowerCase())
+    && comment.commit?.oid === headSha
+    && String(comment.body || '').includes(marker)
+  );
 }
 
 function selectReconciliationTargets({
@@ -1120,7 +1143,13 @@ async function run({ github, context, core }) {
                 headRefOid
                 reviewThreads(first: 100) {
                   pageInfo { hasNextPage }
-                  nodes { id isResolved isOutdated }
+                  nodes {
+                    id isResolved isOutdated
+                    comments(first: 100) {
+                      pageInfo { hasNextPage }
+                      nodes { url body author { login } commit { oid } }
+                    }
+                  }
                 }
               }
             }
@@ -1140,6 +1169,10 @@ async function run({ github, context, core }) {
         const thread = (threads?.nodes || []).find((item) => item.id === proof.thread_id);
         if (!isResolvableProofThread(thread)) {
           errors.push(`${proof.thread_id}:thread_not_resolvable`);
+          continue;
+        }
+        if (!hasExplicitSameHeadReviewerAcceptance(thread, proof, pr.head.sha, reviewerProfiles)) {
+          errors.push(`${proof.thread_id}:same_head_reviewer_acceptance_missing`);
           continue;
         }
         if (dryRun && !resolutionOnly) {
@@ -3481,6 +3514,7 @@ module.exports = {
   enforceGeneratedDeliveryRequiredContexts,
   ensureExactHeadReviewRequest,
   hasCompleteReviewThreadEvidence,
+  hasExplicitSameHeadReviewerAcceptance,
   legacyStatusAsCheck,
   listMaint71PullRequests,
   mergeMethodPolicyAllowsFallback,

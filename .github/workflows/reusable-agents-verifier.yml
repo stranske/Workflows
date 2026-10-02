@@ -867,10 +867,12 @@ jobs:
           LANGSMITH_API_KEY: ${{ secrets.LANGSMITH_API_KEY }}
           PYTHONPATH: .workflows-lib
           CHAIN_DEPTH: ${{ steps.context.outputs.chain_depth || '0' }}
+          VERIFIER_CONTEXT_PATH: ${{ steps.context.outputs.context_path }}
+          VERIFIER_DIFF_PATH: ${{ steps.context.outputs.diff_path }}
         run: |
           set -euo pipefail
-          context_file="${{ steps.context.outputs.context_path }}"
-          diff_file="${{ steps.context.outputs.diff_path }}"
+          context_file="$VERIFIER_CONTEXT_PATH"
+          diff_file="$VERIFIER_DIFF_PATH"
           model="${{ inputs.model }}"
           provider="${{ inputs.provider }}"
           if [ "$provider" = "auto" ]; then
@@ -1124,12 +1126,14 @@ jobs:
           LANGSMITH_API_KEY: ${{ secrets.LANGSMITH_API_KEY }}
           PYTHONPATH: .workflows-lib
           CHAIN_DEPTH: ${{ steps.context.outputs.chain_depth || '0' }}
+          VERIFIER_CONTEXT_PATH: ${{ steps.context.outputs.context_path }}
+          VERIFIER_DIFF_PATH: ${{ steps.context.outputs.diff_path }}
         run: |
           set -euo pipefail
-          context_file="${{ steps.context.outputs.context_path }}"
+          context_file="$VERIFIER_CONTEXT_PATH"
           # The summary is navigation, not proof of the changed code. Missing
           # full-diff input must remain unavailable to the coverage floor.
-          diff_file="${{ steps.context.outputs.diff_path }}"
+          diff_file="$VERIFIER_DIFF_PATH"
 
           # Build args array
           args=(--context-file "$context_file" --compare --json)
