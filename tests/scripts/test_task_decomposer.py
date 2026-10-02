@@ -531,7 +531,7 @@ def test_get_llm_client_with_openai_token(monkeypatch) -> None:
     assert provider == "openai"
     assert isinstance(client, FakeChatOpenAI)
     assert client.kwargs["api_key"] == "openai-token"
-    assert client.kwargs["temperature"] == 0.1
+    assert "temperature" not in client.kwargs
 
 
 def test_get_llm_client_prefers_openai_token(monkeypatch) -> None:

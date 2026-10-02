@@ -966,6 +966,8 @@ def test_explicit_anthropic_provider_builds_both_requested_models(
         ("o1-2025-01-01", True),
         ("O3-MINI", True),
         ("o3-mini-deep-research-v2", True),
+        ("gpt-5.6-terra", True),
+        ("gpt-5.6-sol", True),
         ("gpt-5.2", False),
         ("gpt-4o", False),
         ("gpt-4.1", False),
@@ -1140,6 +1142,27 @@ def test_astra_client_uses_high_reasoning_responses_without_sampling_controls(re
     assert received["reasoning"] == {"effort": "high"}
     assert "temperature" not in received
     assert "top_p" not in received
+
+
+@pytest.mark.parametrize(
+    "relative", ["tools/langchain_client.py", "templates/consumer-repo/tools/langchain_client.py"]
+)
+@pytest.mark.parametrize("model", ["gpt-5.6-terra", "gpt-5.6-sol"])
+def test_gpt56_clients_omit_unsupported_temperature(relative, model):
+    import runpy
+    from pathlib import Path
+
+    build = runpy.run_path(str(Path(__file__).resolve().parents[2] / relative))[
+        "_build_openai_client"
+    ]
+    received = {}
+
+    def client(**kwargs):
+        received.update(kwargs)
+        return kwargs
+
+    build(client, model=model, token="test", timeout=30, max_retries=0)
+    assert "temperature" not in received
 
 
 @pytest.mark.parametrize(

@@ -26,13 +26,16 @@ SCREEN_HARNESS_FILES = (
     "scripts/langchain/injection_guard.py",
     "tools/run_model_eval_pilot.py",
     "tools/run_model_eval_cli_screen.py",
-    "tools/run_model_eval_api_confirm.py",
     "tools/model_eval_snapshots.py",
 )
 
 
 def screen_harness_fingerprint() -> str:
-    """Bind a screen artifact to its actual prompt, parser, case fetcher and CLI harness."""
+    """Bind a screen to its prompt, parser, case fetcher and CLI harness.
+
+    The API confirmer is intentionally excluded: fixing its request adapter
+    must not force another subscription screen of unchanged model inputs.
+    """
     digest = hashlib.sha256()
     for name in SCREEN_HARNESS_FILES:
         path = ROOT / name
