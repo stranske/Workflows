@@ -123,11 +123,36 @@ def test_fetch_pr_includes_linked_source_issue_context(monkeypatch) -> None:
         lambda *_: [{"body": "Verifier disposition: PASS after comparison."}],
     )
 
-    context, diff = pilot.fetch_pr("owner/repo", 13, "token")
+    context, diff = pilot.fetch_pr("owner/repo", 13, "token", include_disposition_comments=True)
 
     assert "Source issue: #12 — Source" in context
     assert "acceptance context" in context
     assert "Verifier disposition: PASS after comparison." in context
+    assert diff == "diff"
+
+
+def test_screen_fetch_excludes_later_verifier_disposition(monkeypatch) -> None:
+    monkeypatch.setattr(
+        pilot.api_client,
+        "fetch_pull_request",
+        lambda *_: {"title": "PR", "body": "Closes #12"},
+    )
+    monkeypatch.setattr(pilot.api_client, "fetch_pull_request_diff", lambda *_: "diff")
+    monkeypatch.setattr(
+        pilot.api_client,
+        "fetch_issue",
+        lambda *_: {"title": "Source", "body": "Acceptance: implement the contract"},
+    )
+    monkeypatch.setattr(
+        pilot.api_client,
+        "fetch_issue_comments",
+        lambda *_: (_ for _ in ()).throw(
+            AssertionError("disposition comments must not be fetched")
+        ),
+    )
+    context, diff = pilot.fetch_pr_for_screen("owner/repo", 13, "token")
+    assert "Acceptance: implement the contract" in context
+    assert "Durable verifier/disposition context" not in context
     assert diff == "diff"
 
 

@@ -3,20 +3,25 @@
 > **Status:** Authoritative for `config/model_registry.json` and
 > `config/llm_slots.json`
 > **Policy version:** `auxiliary-verifier-model-selection-v1`
-> **Reviewed:** 2026-07-10
-> **Next decision review:** 2026-08-30
+> **Reviewed:** 2026-10-01
+> **Next decision review:** 2026-10-31
 
 ## Decision Principle
 
 Provider positioning and list price are model facts, not workload-quality
-evidence. A model is eligible for approval only after it runs the same frozen,
-adjudicated verifier corpus as the current baseline.
+evidence. A model can be selected **provisionally** from a small paired comparison
+and human review. Statistical **approval** still requires the frozen,
+adjudicated verifier corpus and all approval-stage gates.
 
 Selection is constrained optimization, not a weighted score:
 
-1. Pass every quality and safety gate.
-2. Among passing models, minimize observed cost per accepted review.
-3. Use observed p95 latency as the final tie-breaker.
+1. For a provisional decision, reject observed false PASS, schema errors, and
+   candidates less accurate than the incumbent on the paired screen and API check.
+2. Among those candidates, compare cost per accepted review from measured tokens,
+   then review a reversible selection. A false PASS by the incumbent can justify
+   advancing a safer candidate even if it costs more.
+3. For statistical approval, pass every configured Wilson and paired quality gate;
+   among passing models, minimize observed cost per accepted review and then latency.
 
 This avoids arbitrary normalized quality, cost, and speed numbers. It also
 prevents an inexpensive model from offsetting an unacceptable false-PASS rate.
@@ -43,6 +48,43 @@ the runtime model. Other current bundled pins and an explicitly supplied
 
 The `verifier-balanced` policy is defined in
 `config/model_selection_policy.json`.
+
+### Fast provisional decision
+
+MAINT-78's automatic run is a no-spend plan. With the current 51 adjudicated
+cases, the candidate-stage minimum of 30 and required-category representation
+are already met. A manual `screen` compares the incumbent and up to three priced
+models on eight paired cases, deliberately including all four available
+NON_PASS examples. The screen and API confirmation use PR diffs and source-issue
+acceptance text without later verifier/disposition comments, which can reveal
+the expected outcome. The screen makes no API-key calls. If a candidate has zero observed
+false PASS and schema errors, at least incumbent accuracy, and lower modeled
+cost per accepted review (or replaces an incumbent with an observed false PASS),
+the screen names one finalist.
+
+A separate manual `confirm` dispatch supplies that screen's run ID. The workflow
+refuses a stale or incomplete screen by checking input and verifier-harness
+fingerprints, plus the hash of each freshly fetched verifier prompt **before**
+any API call. It applies the configured provisional-stage thresholds at both
+stages. It compares only the incumbent and finalist
+on the same eight cases through the OpenAI API, disables SDK retries, and reserves
+at most $5 in worst-case standard-rate cost before each pair. The estimate uses
+measured API token counts but is not the provider invoice. If the paired result
+meets the same observed-case safeguards, it produces a provisional proposal for
+human review; it does not change `model_registry.json` itself. The owner may
+approve a reversible provisional registry PR and monitor live verifier outcomes,
+reverting on a false PASS or material quality regression. The small comparison
+does not establish a population false-PASS rate. An API-only model absent from
+the pinned CLI catalog (currently GPT-6.1 Sol) may be named explicitly in a
+manual `confirm` dispatch. It reuses the completed screen's eight paired cases,
+checks that the model is priced and actually absent from the catalog, and obeys
+the same $5/16-call cap. Its report labels the CLI-stage exception.
+
+This gives a usable decision during a model update cycle. The larger sample
+requirements below remain the bar for a statistical `approved` status, not a
+blocker to provisional selection.
+
+### Statistical approval
 
 Evaluate a case-level paired run with:
 

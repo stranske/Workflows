@@ -9,14 +9,22 @@ on:
         required: false
         type: string
       mode:
-        description: Plan is free; screen uses bounded Codex subscription capacity and zero API-key calls.
+        description: Plan is free; screen uses Codex subscription; confirm is a capped manual API comparison.
         type: choice
-        options: [plan, screen]
+        options: [plan, screen, confirm]
         default: plan
+      screen_source_run_id:
+        description: Required for confirm; completed MAINT-78 screen run id with paired case IDs.
+        required: false
+        type: string
+      api_only_candidate:
+        description: Optional explicit API-only model absent from pinned CLI (e.g. gpt-6.1-sol); confirm mode only.
+        required: false
+        type: string
       models:
         description: Comma-separated priced OpenAI models for the 8-case CLI screen (maximum four).
         type: string
-        default: gpt-5.6-terra,gpt-6-luna,gpt-6-sol,gpt-6-astra
+        default: gpt-5.6-terra,gpt-6-luna,gpt-6-sol
   push:
     branches: [main]
     paths:
@@ -74,6 +82,14 @@ jobs:
         run: >-
           python -m tools.plan_model_eval --output model-eval-plan.json
           --cli-catalog cli-catalog.json --summary "$GITHUB_STEP_SUMMARY"
+      - name: Download completed CLI screen for API confirmation
+        if: github.event_name == 'workflow_dispatch' && inputs.mode == 'confirm'
+        uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c # v8
+        with:
+          name: maint-78-decision-readiness-${{ inputs.screen_source_run_id }}
+          run-id: ${{ inputs.screen_source_run_id }}
+          github-token: ${{ github.token }}
+          path: prior-screen
       - name: Configure isolated Codex subscription auth
         if: github.event_name == 'workflow_dispatch' && inputs.mode == 'screen'
         env:
@@ -100,7 +116,7 @@ jobs:
               )
           PY
       - uses: astral-sh/setup-uv@c771a70e6277c0a99b617c7a806ffedaca235ff9 # v9.0.0
-        if: github.event_name == 'workflow_dispatch' && inputs.mode == 'screen'
+        if: github.event_name == 'workflow_dispatch' && (inputs.mode == 'screen' || inputs.mode == 'confirm')
       - name: Run bounded Codex CLI screen
         if: github.event_name == 'workflow_dispatch' && inputs.mode == 'screen'
         env:
@@ -113,6 +129,26 @@ jobs:
             --models "$SCREEN_MODELS" \
             --output cli-screen-results.json \
             --summary "$GITHUB_STEP_SUMMARY"
+      - name: Run capped paired API confirmation
+        if: github.event_name == 'workflow_dispatch' && inputs.mode == 'confirm'
+        env:
+          GH_TOKEN: ${{ secrets.OWNER_PR_PAT }}
+          OPENAI_API_KEY: ${{ secrets.OPENAI_API_KEY }}
+          API_ONLY_CANDIDATE: ${{ inputs.api_only_candidate }}
+          SCREEN_SOURCE_RUN_ID: ${{ inputs.screen_source_run_id }}
+        run: |
+          set -euo pipefail
+          if [ -z "$SCREEN_SOURCE_RUN_ID" ]; then
+            echo '::error::screen_source_run_id is required for confirm mode.'
+            exit 1
+          fi
+          uv run --extra dev --extra langchain \
+            python -m tools.run_model_eval_api_confirm \
+            --screen prior-screen/cli-screen-results.json \
+            --cli-catalog cli-catalog.json \
+            --api-only-candidate "$API_ONLY_CANDIDATE" \
+            --output api-confirmation-results.json \
+            --summary "$GITHUB_STEP_SUMMARY"
       - uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7
         if: always()
         with:
@@ -120,4 +156,5 @@ jobs:
           path: |
             model-eval-plan.json
             cli-screen-results.json
+            api-confirmation-results.json
           if-no-files-found: warn

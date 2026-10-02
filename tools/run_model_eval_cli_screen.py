@@ -9,6 +9,7 @@ used for an approval-stage promotion.
 from __future__ import annotations
 
 import argparse
+import hashlib
 import json
 import os
 import subprocess
@@ -21,11 +22,11 @@ from typing import Any
 
 from scripts.langchain import pr_verifier
 from tools.plan_model_eval import ROOT, build_plan
-from tools.run_model_eval_pilot import fetch_pr
+from tools.run_model_eval_pilot import fetch_pr_for_screen as fetch_pr
 
-MAX_CASES = 8
+DEFAULT_CASES = 8
 MAX_MODELS = 4
-DEFAULT_MODELS = "gpt-5.6-terra,gpt-6-luna,gpt-6-sol,gpt-6-astra"
+DEFAULT_MODELS = "gpt-5.6-terra,gpt-6-luna,gpt-6-sol"
 
 
 @dataclass(frozen=True)
@@ -38,7 +39,9 @@ class CliResult:
     stop_screen: bool = False
 
 
-def select_cases(cases: list[dict[str, Any]], limit: int = MAX_CASES) -> list[dict[str, Any]]:
+def select_cases(
+    cases: list[dict[str, Any]], limit: int = DEFAULT_CASES, minimum_non_pass: int = 0
+) -> list[dict[str, Any]]:
     """Cover every category, then balance PASS and NON_PASS examples."""
     groups: dict[str, list[dict[str, Any]]] = defaultdict(list)
     for case in cases:
@@ -50,7 +53,7 @@ def select_cases(cases: list[dict[str, Any]], limit: int = MAX_CASES) -> list[di
         selected.append(groups[category].pop(0))
     while len(selected) < limit and any(groups.values()):
         non_pass = sum(case["expected_verdict"] == "NON_PASS" for case in selected)
-        preferred = "NON_PASS" if non_pass < limit // 2 else "PASS"
+        preferred = "NON_PASS" if non_pass < max(limit // 2, minimum_non_pass) else "PASS"
         eligible = [
             category
             for category in sorted(groups)
@@ -241,6 +244,8 @@ def run_screen(
     if len(models) < 2 or len(models) > MAX_MODELS or len(set(models)) != len(models):
         raise ValueError(f"select 2 to {MAX_MODELS} distinct models")
     plan = build_plan(corpus, registry, policy)
+    if not plan["screen_ready"]:
+        raise ValueError(f"candidate screen is not ready: {plan['screen_blockers']}")
     if plan["incumbent"] not in models:
         raise ValueError(f"include the incumbent {plan['incumbent']} for a paired comparison")
     prices = {
@@ -262,16 +267,32 @@ def run_screen(
     unavailable = sorted(set(models) - available)
     if unavailable:
         raise ValueError(f"models unavailable to Codex CLI: {unavailable}")
-    cases = select_cases(corpus["cases"])
+    stage = policy["profiles"]["verifier-balanced"]["provisional_stage"]
+    cases = select_cases(
+        corpus["cases"],
+        limit=int(stage["screen_cases"]),
+        minimum_non_pass=int(stage["minimum_non_pass_cases"]),
+    )
+    if sum(case["expected_verdict"] == "NON_PASS" for case in cases) < int(
+        stage["minimum_non_pass_cases"]
+    ):
+        raise ValueError("case selection cannot cover the required NON_PASS examples")
     prepared = {case["case_id"]: fetch_pr(case["repo"], case["pr"], token) for case in cases}
+    verifier_prompts = {
+        case_id: pr_verifier._prepare_prompt(context, diff)
+        for case_id, (context, diff) in prepared.items()
+    }
+    prompt_hashes = {
+        case_id: hashlib.sha256(prompt.encode("utf-8")).hexdigest()
+        for case_id, prompt in verifier_prompts.items()
+    }
     rows: list[dict[str, Any]] = []
     for model in models:
         for case in cases:
-            context, diff = prepared[case["case_id"]]
             prompt = (
                 "Evaluate this PR using the following verifier instructions. Do not use tools. "
                 "Return only one JSON object with verdict, scores, confidence, concerns, and summary.\n\n"
-                + pr_verifier._prepare_prompt(context, diff)
+                + verifier_prompts[case["case_id"]]
             )
             try:
                 outcome = invoke_cli(codex, model, prompt)
@@ -311,8 +332,10 @@ def run_screen(
             # A schema error is quality evidence and preserves its token cost.
             # Missing usage or tool activity invalidates the screen itself.
             if outcome is None or outcome.stop_screen:
-                return report(plan, cases, models, rows, stopped_early=True)
-    return report(plan, cases, models, rows, stopped_early=False)
+                return report(
+                    plan, cases, models, rows, stopped_early=True, prompt_hashes=prompt_hashes
+                )
+    return report(plan, cases, models, rows, stopped_early=False, prompt_hashes=prompt_hashes)
 
 
 def report(
@@ -322,6 +345,7 @@ def report(
     rows: list[dict[str, Any]],
     *,
     stopped_early: bool,
+    prompt_hashes: dict[str, str] | None = None,
 ) -> dict[str, Any]:
     by_model = []
     for model in models:
@@ -347,20 +371,66 @@ def report(
                 ),
             }
         )
+    incumbent = next((row for row in by_model if row["model_id"] == plan["incumbent"]), None)
+    complete = not stopped_early and all(row["rows"] == len(cases) for row in by_model)
+    thresholds = plan["provisional_thresholds"]
+    max_false_passes = int(thresholds["maximum_false_passes"])
+    max_schema_errors = int(thresholds["maximum_schema_errors"])
+    min_accuracy_delta = int(thresholds["minimum_accuracy_delta_vs_incumbent"])
+    eligible = (
+        [
+            row
+            for row in by_model
+            if row["model_id"] != plan["incumbent"]
+            and row["false_pass"] <= max_false_passes
+            and row["schema_errors"] <= max_schema_errors
+            and row["accepted"] - incumbent["accepted"] >= min_accuracy_delta
+            and row["modeled_cost_per_accepted_review_usd"] is not None
+            and (
+                incumbent["false_pass"] > row["false_pass"]
+                or incumbent["modeled_cost_per_accepted_review_usd"] is None
+                or row["modeled_cost_per_accepted_review_usd"]
+                < incumbent["modeled_cost_per_accepted_review_usd"]
+            )
+        ]
+        if complete and incumbent is not None
+        else []
+    )
+    shortlisted = min(
+        eligible,
+        key=lambda row: (row["modeled_cost_per_accepted_review_usd"], -row["accepted"]),
+        default=None,
+    )
     return {
         "schema": "workflows-verifier-cli-screen/v1",
         "input_fingerprint": plan["input_fingerprint"],
+        "screen_harness_fingerprint": plan["screen_harness_fingerprint"],
         "scope": "exploratory Codex CLI screen; not production API evidence",
         "api_key_calls": 0,
         "approval_ready": False,
+        "screen_decision": (
+            "advance_to_api_confirmation"
+            if shortlisted
+            else "inconclusive" if not complete else "retain_incumbent_on_screen"
+        ),
+        "provisional_shortlist_model_id": shortlisted["model_id"] if shortlisted else None,
+        "decision_rule": (
+            f"On the same {len(cases)} cases: at most {max_false_passes} observed false PASS, "
+            f"at most {max_schema_errors} schema errors, and an accuracy delta of at least "
+            f"{min_accuracy_delta} cases vs the incumbent. Among qualifying candidates, "
+            "advance a lower modeled cost per accepted review or fewer false PASS errors."
+        ),
         "stopped_early": stopped_early,
         "case_ids": [case["case_id"] for case in cases],
+        "prompt_sha256_by_case": prompt_hashes or {},
         "models": by_model,
         "rows": rows,
         "next_action": (
-            f"Grow to at least {plan['best_case_minimum_corpus_cases']} adjudicated cases, "
-            f"including {plan['zero_error_false_pass_denominator']} NON_PASS cases under "
-            "the current gates; then confirm finalists in the production API with measured costs."
+            "Run a capped paired production API confirmation against the incumbent. "
+            "If it agrees, review a reversible provisional model change and monitor live outcomes."
+            if shortlisted
+            else "Keep the incumbent; inspect case-level errors and screen another priced candidate "
+            "when the catalog or verifier workload changes."
         ),
     }
 
@@ -401,6 +471,11 @@ def main(argv: list[str] | None = None) -> int:
             f"{model['false_pass']} | {'unknown' if value is None else f'${value:.4f}'} |"
         )
     summary += ["", payload["next_action"], ""]
+    summary.insert(
+        2,
+        f"**Screen decision:** {payload['screen_decision']}; "
+        f"shortlist: {payload['provisional_shortlist_model_id'] or 'none'}.",
+    )
     if args.summary:
         with args.summary.open("a") as stream:
             stream.write("\n".join(summary))

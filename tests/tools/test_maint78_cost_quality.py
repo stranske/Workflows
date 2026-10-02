@@ -2,12 +2,15 @@
 
 from __future__ import annotations
 
+import hashlib
 import json
 from pathlib import Path
 from types import SimpleNamespace
 
 import pytest
+from scripts.langchain import pr_verifier
 from tools.plan_model_eval import ROOT, build_plan
+from tools.run_model_eval_api_confirm import MAX_OUTPUT_TOKENS, _invoke_api, _price, confirm
 from tools.run_model_eval_cli_screen import (
     CliResult,
     api_list_price_estimate,
@@ -32,9 +35,15 @@ def _inputs():
     )
 
 
+def _prompt_hashes(cases):
+    digest = hashlib.sha256(pr_verifier._prepare_prompt("context", "diff").encode()).hexdigest()
+    return {case["case_id"]: digest for case in cases}
+
+
 def test_current_plan_flags_approval_gap_without_model_calls():
     plan = build_plan(*_inputs())
     assert not plan["approval_ready"]
+    assert plan["screen_ready"]
     assert plan["automatic_api_calls"] == 0
     assert plan["corpus_cases"] == 51
     assert plan["approval_minimum_cases"] == 75
@@ -44,6 +53,17 @@ def test_current_plan_flags_approval_gap_without_model_calls():
     assert plan["best_case_minimum_corpus_cases"] == 120
     assert plan["category_shortfalls"]["follow-up-required"] > 0
     assert plan["unpriced_openai_models"] == []
+
+
+def test_candidate_screen_uses_policy_case_and_failure_counts():
+    corpus, registry, policy = _inputs()
+    changed = json.loads(json.dumps(policy))
+    changed["profiles"]["verifier-balanced"]["provisional_stage"]["screen_cases"] = 6
+    plan = build_plan(corpus, registry, changed)
+    assert plan["screen_ready"]
+    assert plan["screen_limit"]["cases"] == 6
+    changed["profiles"]["verifier-balanced"]["provisional_stage"]["minimum_non_pass_cases"] = 5
+    assert not build_plan(corpus, registry, changed)["screen_ready"]
 
 
 def test_new_catalog_candidate_without_price_blocks_claim_of_best_available():
@@ -99,6 +119,230 @@ def test_cli_screen_is_bounded_and_reports_comparative_cost():
     assert result["api_key_calls"] == 0
     assert result["approval_ready"] is False
     assert result["models"][0]["modeled_cost_per_accepted_review_usd"] == 0.008
+
+
+def test_cli_screen_advances_only_a_safer_cheaper_paired_candidate():
+    corpus, registry, policy = _inputs()
+    cases = select_cases(corpus["cases"])
+    rows = []
+    for model, cost in (("gpt-5.6-terra", 0.008), ("gpt-6-luna", 0.001)):
+        for case in cases:
+            rows.append(
+                {
+                    "case_id": case["case_id"],
+                    "category": case["category"],
+                    "expected_verdict": case["expected_verdict"],
+                    "actual_verdict": case["expected_verdict"],
+                    "schema_valid": True,
+                    "model_id": model,
+                    "modeled_api_cost_usd": cost,
+                }
+            )
+    plan = build_plan(corpus, registry, policy)
+    result = report(plan, cases, ["gpt-5.6-terra", "gpt-6-luna"], rows, stopped_early=False)
+    assert result["screen_decision"] == "advance_to_api_confirmation"
+    assert result["provisional_shortlist_model_id"] == "gpt-6-luna"
+    stricter_plan = {
+        **plan,
+        "provisional_thresholds": {
+            **plan["provisional_thresholds"],
+            "minimum_accuracy_delta_vs_incumbent": 1,
+        },
+    }
+    assert (
+        report(stricter_plan, cases, ["gpt-5.6-terra", "gpt-6-luna"], rows, stopped_early=False)[
+            "provisional_shortlist_model_id"
+        ]
+        is None
+    )
+    next(
+        row
+        for row in rows
+        if row["model_id"] == "gpt-6-luna" and row["expected_verdict"] == "NON_PASS"
+    )["actual_verdict"] = "PASS"
+    result = report(plan, cases, ["gpt-5.6-terra", "gpt-6-luna"], rows, stopped_early=False)
+    assert result["provisional_shortlist_model_id"] is None
+
+
+def test_api_confirmation_is_paired_bounded_and_still_provisional(monkeypatch):
+    corpus, registry, policy = _inputs()
+    plan = build_plan(corpus, registry, policy)
+    cases = select_cases(corpus["cases"])
+    screen = {
+        "schema": "workflows-verifier-cli-screen/v1",
+        "screen_decision": "advance_to_api_confirmation",
+        "input_fingerprint": plan["input_fingerprint"],
+        "screen_harness_fingerprint": plan["screen_harness_fingerprint"],
+        "provisional_shortlist_model_id": "gpt-6-luna",
+        "case_ids": [case["case_id"] for case in cases],
+        "prompt_sha256_by_case": _prompt_hashes(cases),
+        "stopped_early": False,
+    }
+    calls = []
+    monkeypatch.setattr(
+        "tools.run_model_eval_api_confirm.fetch_pr", lambda *args: ("context", "diff")
+    )
+
+    def fake_api(client, model, prompt):
+        index = len(calls) // 2
+        calls.append(model["model_id"])
+        return (
+            json.dumps(
+                {"verdict": cases[index]["expected_verdict"].replace("NON_PASS", "CONCERNS")}
+            ),
+            1000,
+            100,
+        )
+
+    monkeypatch.setattr("tools.run_model_eval_api_confirm._invoke_api", fake_api)
+    result = confirm(corpus, registry, policy, screen, github_token="x", client=object())
+    assert result["complete"]
+    assert result["api_calls_made"] == 16
+    assert result["reserved_standard_rate_upper_bound_usd"] <= 5
+    assert result["decision"] == "provisional_change_for_human_review"
+    assert result["provisional_model_id"] == "gpt-6-luna"
+    assert not result["statistical_approval"]
+
+    screen["input_fingerprint"] = "stale"
+    with pytest.raises(ValueError, match="current CLI screen"):
+        confirm(corpus, registry, policy, screen, github_token="x", client=object())
+    assert len(calls) == 16
+
+    screen["input_fingerprint"] = plan["input_fingerprint"]
+    screen["screen_harness_fingerprint"] = "stale"
+    with pytest.raises(ValueError, match="current CLI screen"):
+        confirm(corpus, registry, policy, screen, github_token="x", client=object())
+    screen["screen_harness_fingerprint"] = plan["screen_harness_fingerprint"]
+
+    first_id = screen["case_ids"][0]
+    original_hash = screen["prompt_sha256_by_case"][first_id]
+    screen["prompt_sha256_by_case"][first_id] = "stale"
+    with pytest.raises(ValueError, match="prompt changed after screen"):
+        confirm(corpus, registry, policy, screen, github_token="x", client=object())
+    screen["prompt_sha256_by_case"][first_id] = original_hash
+    assert len(calls) == 16
+
+    # A tiny ceiling must stop before a paid call or a partial pair.
+    strict_policy = json.loads(json.dumps(policy))
+    strict_policy["profiles"]["verifier-balanced"]["provisional_stage"][
+        "maximum_api_confirmation_cost_usd"
+    ] = 0.0001
+    screen["input_fingerprint"] = build_plan(corpus, registry, strict_policy)["input_fingerprint"]
+    capped = confirm(corpus, registry, strict_policy, screen, github_token="x", client=object())
+    assert capped["api_calls_made"] == 0
+    assert not capped["complete"]
+    assert len(calls) == 16
+
+    calls.clear()
+    strict_policy = json.loads(json.dumps(policy))
+    strict_policy["profiles"]["verifier-balanced"]["provisional_stage"][
+        "minimum_accuracy_delta_vs_incumbent"
+    ] = 1
+    screen["input_fingerprint"] = build_plan(corpus, registry, strict_policy)["input_fingerprint"]
+    tied = confirm(corpus, registry, strict_policy, screen, github_token="x", client=object())
+    assert tied["complete"]
+    assert tied["provisional_model_id"] is None
+
+
+def test_api_confirmation_uses_each_models_production_route_without_retries():
+    received = []
+
+    def responses_create(**kwargs):
+        received.append(("responses", kwargs))
+        return SimpleNamespace(
+            output_text='{"verdict":"PASS"}',
+            usage=SimpleNamespace(input_tokens=101, output_tokens=102),
+        )
+
+    def chat_create(**kwargs):
+        received.append(("chat", kwargs))
+        return SimpleNamespace(
+            choices=[SimpleNamespace(message=SimpleNamespace(content='{"verdict":"CONCERNS"}'))],
+            usage=SimpleNamespace(prompt_tokens=201, completion_tokens=202),
+        )
+
+    client = SimpleNamespace(
+        responses=SimpleNamespace(create=responses_create),
+        chat=SimpleNamespace(completions=SimpleNamespace(create=chat_create)),
+    )
+    assert _invoke_api(client, {"model_id": "gpt-6-sol", "api": "responses"}, "prompt") == (
+        '{"verdict":"PASS"}',
+        101,
+        102,
+    )
+    assert _invoke_api(client, {"model_id": "gpt-5.6-terra", "api": "chat"}, "prompt") == (
+        '{"verdict":"CONCERNS"}',
+        201,
+        202,
+    )
+    assert received[0][1]["max_output_tokens"] == MAX_OUTPUT_TOKENS
+    assert received[1][1]["max_completion_tokens"] == MAX_OUTPUT_TOKENS
+    assert received[1][1]["temperature"] == 0.1
+
+
+def test_api_cost_reservation_rejects_invalid_registry_rates():
+    for bad in (-1, float("inf"), float("nan")):
+        with pytest.raises(ValueError, match="finite, nonnegative"):
+            _price(1000, 4096, {"input_per_million_tokens": bad, "output_per_million_tokens": 10})
+
+
+def test_api_only_exception_requires_explicit_cli_absence_and_same_cases(monkeypatch):
+    corpus, registry, policy = _inputs()
+    cases = select_cases(corpus["cases"])
+    screen = {
+        "schema": "workflows-verifier-cli-screen/v1",
+        "screen_decision": "retain_incumbent_on_screen",
+        "input_fingerprint": build_plan(corpus, registry, policy)["input_fingerprint"],
+        "screen_harness_fingerprint": build_plan(corpus, registry, policy)[
+            "screen_harness_fingerprint"
+        ],
+        "provisional_shortlist_model_id": None,
+        "case_ids": [case["case_id"] for case in cases],
+        "prompt_sha256_by_case": _prompt_hashes(cases),
+        "stopped_early": False,
+    }
+    catalog = {
+        "models": [
+            {"slug": "gpt-5.6-terra", "visibility": "list", "supported_in_api": True},
+            {"slug": "gpt-6-sol", "visibility": "list", "supported_in_api": True},
+        ]
+    }
+    monkeypatch.setattr(
+        "tools.run_model_eval_api_confirm.fetch_pr", lambda *args: ("context", "diff")
+    )
+    calls = []
+
+    def fake_api(client, model, prompt):
+        expected = cases[len(calls) // 2]["expected_verdict"]
+        calls.append(model["model_id"])
+        return json.dumps({"verdict": expected.replace("NON_PASS", "CONCERNS")}), 1000, 100
+
+    monkeypatch.setattr("tools.run_model_eval_api_confirm._invoke_api", fake_api)
+    result = confirm(
+        corpus,
+        registry,
+        policy,
+        screen,
+        github_token="x",
+        client=object(),
+        api_only_candidate="gpt-6.1-sol",
+        cli_catalog=catalog,
+    )
+    assert result["complete"] and result["api_calls_made"] == 16
+    assert result["comparison_path"] == "api_only"
+    assert result["provisional_model_id"] == "gpt-6.1-sol"
+    with pytest.raises(ValueError, match="absent from the pinned CLI"):
+        confirm(
+            corpus,
+            registry,
+            policy,
+            screen,
+            github_token="x",
+            client=object(),
+            api_only_candidate="gpt-6-sol",
+            cli_catalog=catalog,
+        )
+    assert len(calls) == 16
 
 
 def test_missing_cli_usage_fails_closed():
@@ -159,7 +403,6 @@ def test_invalid_json_preserves_cli_usage_and_does_not_stop_screen(monkeypatch):
     assert not outcome.stop_screen
 
     corpus, registry, policy = _inputs()
-    corpus = {**corpus, "cases": corpus["cases"][:2]}
     calls = []
 
     def fake_screen_invocation(*args):
@@ -181,7 +424,7 @@ def test_invalid_json_preserves_cli_usage_and_does_not_stop_screen(monkeypatch):
         models=["gpt-5.6-terra", "gpt-6-sol"],
         token="x",
     )
-    assert len(result["rows"]) == 4
+    assert len(result["rows"]) == 16
     assert not result["stopped_early"]
     assert result["rows"][0]["schema_valid"] is False
     assert result["rows"][0]["modeled_api_cost_usd"] > 0

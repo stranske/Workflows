@@ -14,6 +14,30 @@ from typing import Any
 from tools.evaluate_model_benchmark import wilson_interval
 
 ROOT = Path(__file__).resolve().parent.parent
+SCREEN_HARNESS_FILES = (
+    ".github/workflows/maint-78-model-evaluation-pilot.yml",
+    ".github/actions/maint78-codex-cli/package-lock.json",
+    "scripts/langchain/pr_verifier.py",
+    "scripts/langchain/prompts/pr_evaluation.md",
+    "scripts/langchain/verifier_config.py",
+    "scripts/langchain/issue_pr_context.py",
+    "scripts/langchain/structured_output.py",
+    "scripts/langchain/injection_guard.py",
+    "tools/run_model_eval_pilot.py",
+    "tools/run_model_eval_cli_screen.py",
+)
+
+
+def screen_harness_fingerprint() -> str:
+    """Bind a screen artifact to its actual prompt, parser, case fetcher and CLI harness."""
+    digest = hashlib.sha256()
+    for name in SCREEN_HARNESS_FILES:
+        path = ROOT / name
+        digest.update(name.encode())
+        digest.update(b"\0")
+        digest.update(path.read_bytes())
+        digest.update(b"\0")
+    return digest.hexdigest()
 
 
 def _zero_error_denominator(maximum_rate: float, confidence_level: float) -> int:
@@ -34,6 +58,7 @@ def build_plan(
     cli_catalog: dict[str, Any] | None = None,
 ) -> dict[str, Any]:
     profile = policy["profiles"]["verifier-balanced"]
+    candidate_stage = profile["candidate_stage"]
     approval = profile["approval_stage"]
     cases = corpus["cases"]
     counts = Counter(str(case["category"]) for case in cases)
@@ -59,6 +84,17 @@ def build_plan(
         for category in profile["candidate_stage"]["required_case_categories"]
     }
     category_shortfalls = {key: value for key, value in category_shortfalls.items() if value}
+    screen_category_shortfalls = sorted(
+        set(candidate_stage["required_case_categories"]) - set(counts)
+    )
+    provisional = profile["provisional_stage"]
+    screen_corpus_ready = (
+        len(cases)
+        >= max(int(candidate_stage["minimum_adjudicated_cases"]), int(provisional["screen_cases"]))
+        and negative_cases >= int(provisional["minimum_non_pass_cases"])
+        and int(provisional["minimum_non_pass_cases"]) <= int(provisional["screen_cases"])
+        and not screen_category_shortfalls
+    )
     current_models = [
         model
         for model in registry["models"]
@@ -103,6 +139,27 @@ def build_plan(
         ),
         None,
     )
+    screen_model_ids = {
+        model["model_id"]
+        for model in priced
+        if cli_catalog is None or model["model_id"] in listed_cli_models
+    }
+    screen_ready = (
+        screen_corpus_ready and incumbent in screen_model_ids and len(screen_model_ids) >= 2
+    )
+    screen_blockers = []
+    if not screen_corpus_ready:
+        screen_blockers.append(
+            f"Candidate screen needs at least "
+            f"{max(int(candidate_stage['minimum_adjudicated_cases']), int(provisional['screen_cases']))} cases, "
+            f"{provisional['minimum_non_pass_cases']} NON_PASS cases, and every required category; "
+            f"missing categories: {screen_category_shortfalls}."
+        )
+    if incumbent not in screen_model_ids or len(screen_model_ids) < 2:
+        screen_blockers.append(
+            "Candidate screen needs the priced incumbent and at least one priced alternative "
+            "in the pinned Codex CLI catalog."
+        )
     reasons = []
     if len(cases) < minimum:
         reasons.append(f"Corpus has {len(cases)} adjudicated cases; approval requires {minimum}.")
@@ -158,9 +215,20 @@ def build_plan(
     ).hexdigest()
     return {
         "schema": "workflows-verifier-model-eval-plan/v1",
-        "objective": "Choose the lowest cost per accepted verifier review among models that pass quality gates.",
+        "objective": "Find a cost-efficient verifier model quickly, then review a reversible provisional choice with explicit quality limits.",
         "input_fingerprint": fingerprint,
+        "screen_harness_fingerprint": screen_harness_fingerprint(),
+        "provisional_thresholds": {
+            key: profile["provisional_stage"][key]
+            for key in (
+                "maximum_false_passes",
+                "maximum_schema_errors",
+                "minimum_accuracy_delta_vs_incumbent",
+            )
+        },
         "approval_ready": False,
+        "screen_ready": screen_ready,
+        "screen_blockers": screen_blockers,
         "benchmark_inputs_ready": benchmark_inputs_ready,
         "approval_blockers": reasons,
         "corpus_cases": len(cases),
@@ -179,10 +247,23 @@ def build_plan(
         "catalog_advisory_models": catalog_advisory,
         "pinned_cli_unavailable_models": cli_unavailable,
         "automatic_api_calls": 0,
-        "screen_limit": {"cases": 8, "models": 4, "maximum_cli_calls": 32, "api_calls": 0},
-        "next_action": "Use existing results to narrow candidates; grow the corpus to policy minimums, "
-        "then run a capped paired production API confirmation with measured tokens "
-        "and cost before promotion.",
+        "screen_limit": {
+            "cases": int(provisional["screen_cases"]),
+            "models": 4,
+            "maximum_cli_calls": 4 * int(provisional["screen_cases"]),
+            "api_calls": 0,
+        },
+        "next_action": (
+            "Run one bounded, paired Codex CLI screen of the incumbent and up to three "
+            "priced candidates. Advance any candidate that meets the provisional-stage "
+            "false-PASS, schema-error, and accuracy limits, then compare modeled cost "
+            "per accepted review in a small capped "
+            "API confirmation; review a provisional selection without waiting for the "
+            "long-term statistical approval sample."
+            if screen_ready
+            else "Resolve the candidate screen blockers, then compare the incumbent with "
+            "priced alternatives."
+        ),
     }
 
 
@@ -191,10 +272,12 @@ def markdown(plan: dict[str, Any]) -> str:
         "## MAINT-78 verifier model decision readiness",
         "",
         f"**Objective:** {plan['objective']}",
-        f"**Approval ready:** {'yes' if plan['approval_ready'] else 'no'}",
-        f"**Benchmark inputs ready:** {'yes' if plan['benchmark_inputs_ready'] else 'no'}",
+        f"**Statistical approval ready:** {'yes' if plan['approval_ready'] else 'no'}",
+        f"**Candidate screen ready:** {'yes' if plan['screen_ready'] else 'no'}",
+        f"**Statistical benchmark inputs ready:** {'yes' if plan['benchmark_inputs_ready'] else 'no'}",
         f"**Automatic API calls:** {plan['automatic_api_calls']}",
         f"**Input fingerprint:** `{plan['input_fingerprint']}`",
+        f"**Screen harness fingerprint:** `{plan['screen_harness_fingerprint']}`",
         f"**Corpus:** {plan['corpus_cases']} / {plan['approval_minimum_cases']} cases",
         f"**Best-case statistical floor:** {plan['best_case_minimum_corpus_cases']} total "
         f"including {plan['zero_error_false_pass_denominator']} NON_PASS cases",
@@ -212,8 +295,11 @@ def markdown(plan: dict[str, Any]) -> str:
             + ", ".join(plan["pinned_cli_unavailable_models"])
         )
     if plan["approval_blockers"]:
-        lines += ["", "### Why a selection cannot be approved", ""]
+        lines += ["", "### Long-term statistical approval gaps", ""]
         lines += [f"- {reason}" for reason in plan["approval_blockers"]]
+    if plan["screen_blockers"]:
+        lines += ["", "### Candidate screen blockers", ""]
+        lines += [f"- {reason}" for reason in plan["screen_blockers"]]
     lines += ["", f"**Next action:** {plan['next_action']}", ""]
     return "\n".join(lines)
 
