@@ -18,8 +18,8 @@ def test_recent_product_code_repos_are_in_weekly_review():
     by_repo = {r["repo"]: r for r in data["repos"]}
     for repo in sorted(ACTIVE_CODE_REPOS):
         assert repo in by_repo, f"{repo} is missing from the review registry"
-        assert by_repo[repo]["status"] == "active", (
-            f"{repo} is producing substantive code and must be included in the weekly review"
-        )
+        assert (
+            by_repo[repo]["status"] == "active"
+        ), f"{repo} is producing substantive code and must be included in the weekly review"
         assert by_repo[repo]["cadence"] == "weekly"
         assert by_repo[repo]["decision_anchor"].strip()
