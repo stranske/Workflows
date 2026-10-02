@@ -81,6 +81,7 @@ const buildGithubStub = ({
   commentLink = '',
   artifactsByRun = {},
   artifactListError = null,
+  artifactListResponse = null,
   artifactDownloads = {},
 } = {}) => ({
   rest: {
@@ -96,6 +97,7 @@ const buildGithubStub = ({
       },
       async listWorkflowRunArtifacts({ run_id: runId }) {
         if (artifactListError) throw artifactListError;
+        if (artifactListResponse) return artifactListResponse;
         return { data: { artifacts: artifactsByRun[runId] || [] }, headers: {} };
       },
       async downloadArtifact({ artifact_id: artifactId }) {
@@ -864,10 +866,12 @@ test('artifact extractor charges headings and separators to the rendered charact
 });
 
 test('artifact extractor skips disallowed zip entry names', () => {
+  const extractedEntries = [];
   const execFile = (_command, args) => {
     if (args[0] === '-Z1') {
-      return 'proof.txt\nbinary.exe\nnotes.md\n';
+      return 'proof.txt\nbinary.exe\nnotes.md\n-proof.txt\nproof[1].txt\n';
     }
+    if (args[0] === '-p') extractedEntries.push(args[2]);
     return 'body';
   };
   const result = extractArtifactArchiveText({
@@ -880,6 +884,7 @@ test('artifact extractor skips disallowed zip entry names', () => {
   assert.match(result.text, /proof\.txt/);
   assert.match(result.text, /notes\.md/);
   assert.doesNotMatch(result.text, /binary/);
+  assert.deepEqual(extractedEntries, ['proof.txt', 'notes.md']);
 });
 
 test('artifact extractor truncates when zip entry count exceeds maxEntries', () => {
@@ -935,6 +940,17 @@ test('buildVerifierContext reports retrieval failure as unavailable, never absen
   assert.match(result.markdown, /PR comments: \*\*unavailable\*\*/);
   assert.match(result.markdown, /Referenced workflow artifacts: \*\*unavailable\*\*/);
   assert.doesNotMatch(result.markdown, /PR comments: \*\*absent\*\*/);
+  removeVerifierDiffArtifacts(result);
+});
+
+test('buildVerifierContext reports a malformed artifact listing as unavailable', async () => {
+  const { core, result } = await buildEvidenceContext({
+    comments: [{ body: 'Evidence run: https://github.com/octo/workflows/actions/runs/123' }],
+    artifactListResponse: { data: { artifacts: null }, headers: {} },
+  });
+  assert.equal(core.outputs.evidence_status, 'unavailable');
+  assert.match(result.markdown, /Referenced workflow artifacts: \*\*unavailable\*\*/);
+  assert.doesNotMatch(result.markdown, /Referenced workflow artifacts: \*\*absent\*\*/);
   removeVerifierDiffArtifacts(result);
 });
 
