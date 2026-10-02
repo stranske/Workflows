@@ -12,6 +12,7 @@ from __future__ import annotations
 import argparse
 import hashlib
 import json
+import math
 import os
 import time
 from pathlib import Path
@@ -25,10 +26,13 @@ MAX_OUTPUT_TOKENS = 4096
 
 
 def _price(tokens_in: int, tokens_out: int, price: dict[str, Any]) -> float:
-    return (
-        tokens_in * float(price["input_per_million_tokens"])
-        + tokens_out * float(price["output_per_million_tokens"])
-    ) / 1_000_000
+    rates = [
+        float(price["input_per_million_tokens"]),
+        float(price["output_per_million_tokens"]),
+    ]
+    if any(not math.isfinite(rate) or rate < 0 for rate in rates):
+        raise ValueError("API confirmation requires finite, nonnegative registry prices")
+    return (tokens_in * rates[0] + tokens_out * rates[1]) / 1_000_000
 
 
 def _invoke_api(client: Any, model: dict[str, Any], prompt: str) -> tuple[str, int, int]:

@@ -10,7 +10,7 @@ from types import SimpleNamespace
 import pytest
 from scripts.langchain import pr_verifier
 from tools.plan_model_eval import ROOT, build_plan
-from tools.run_model_eval_api_confirm import MAX_OUTPUT_TOKENS, _invoke_api, confirm
+from tools.run_model_eval_api_confirm import MAX_OUTPUT_TOKENS, _invoke_api, _price, confirm
 from tools.run_model_eval_cli_screen import (
     CliResult,
     api_list_price_estimate,
@@ -278,6 +278,12 @@ def test_api_confirmation_uses_each_models_production_route_without_retries():
     assert received[0][1]["max_output_tokens"] == MAX_OUTPUT_TOKENS
     assert received[1][1]["max_completion_tokens"] == MAX_OUTPUT_TOKENS
     assert received[1][1]["temperature"] == 0.1
+
+
+def test_api_cost_reservation_rejects_invalid_registry_rates():
+    for bad in (-1, float("inf"), float("nan")):
+        with pytest.raises(ValueError, match="finite, nonnegative"):
+            _price(1000, 4096, {"input_per_million_tokens": bad, "output_per_million_tokens": 10})
 
 
 def test_api_only_exception_requires_explicit_cli_absence_and_same_cases(monkeypatch):
