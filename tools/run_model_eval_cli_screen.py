@@ -145,7 +145,10 @@ def invoke_cli(codex: str, model: str, prompt: str) -> CliResult:
             "exec",
             "--json",
             "--ignore-user-config",
+            "--ignore-rules",
             "--strict-config",
+            "--disable",
+            "shell_tool",
             "--skip-git-repo-check",
             "--sandbox",
             "read-only",
@@ -156,6 +159,12 @@ def invoke_cli(codex: str, model: str, prompt: str) -> CliResult:
             str(final),
             "-",
         ]
+        child_env = {
+            key: value
+            for key, value in os.environ.items()
+            if key not in {"GH_TOKEN", "GITHUB_TOKEN", "CODEX_AUTH_JSON", "OPENAI_API_KEY"}
+            and not key.endswith(("_TOKEN", "_KEY"))
+        }
         try:
             response = subprocess.run(
                 command,
@@ -165,6 +174,7 @@ def invoke_cli(codex: str, model: str, prompt: str) -> CliResult:
                 cwd=scratch,
                 timeout=240,
                 check=False,
+                env=child_env,
             )
         except subprocess.TimeoutExpired as exc:
             stream = exc.stdout or b""

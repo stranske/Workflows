@@ -141,8 +141,11 @@ def test_cli_catalog_is_pinned_and_tool_events_are_rejected(monkeypatch):
 
 def test_invalid_json_preserves_cli_usage_and_does_not_stop_screen(monkeypatch):
     stream = '{"type":"turn.completed","usage":{"input_tokens":1000,"output_tokens":500}}'
+    monkeypatch.setenv("GH_TOKEN", "do-not-pass-to-model-tools")
 
     def fake_invocation(command, **kwargs):
+        assert "GH_TOKEN" not in kwargs["env"]
+        assert command[command.index("--disable") + 1] == "shell_tool"
         final = Path(command[command.index("--output-last-message") + 1])
         final.write_text("not JSON")
         return SimpleNamespace(stdout=stream, returncode=0)
