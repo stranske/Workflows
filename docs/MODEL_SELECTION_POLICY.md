@@ -52,13 +52,15 @@ The `verifier-balanced` policy is defined in
 ### Fast provisional decision
 
 MAINT-78's automatic run is a no-spend plan. The existing 51 historical cases
-meet the candidate-stage count and category minima, but **they are not yet
-valid screen inputs**. Their labels reflect later issue disposition, while the
-pilot supplied raw PR text rather than the production verifier's context and
-diff summary. The October 2 CLI diagnostic exposed this mismatch: GPT-6 Luna
-matched Terra's total score by rejecting every PASS example. That result does
-not justify a model change or a paid confirmation. The plan now reports an
-input-alignment blocker before any model calls.
+meet the candidate-stage count and category minima, but their labels reflect
+later issue disposition and the pilot supplied raw PR text rather than the
+production verifier's context and diff summary. The October 2 CLI diagnostic
+exposed this mismatch: GPT-6 Luna matched Terra's total score by rejecting
+every PASS example. That result does not justify a model change or a paid
+confirmation. A separate balanced eight-case set is now adjudicated against
+captured verifier inputs, so the plan can enable the fast screen. Its cases
+include retrospective captures and two marked controlled defects; neither
+kind grows the long-term statistical corpus.
 
 The next small screen requires independently adjudicated PASS and NON_PASS
 cases tied to captured production verifier inputs. The comparison artifact
