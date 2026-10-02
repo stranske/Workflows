@@ -263,21 +263,25 @@ function extractArtifactArchiveText({ archiveBuffer, maxEntries, maxChars, execF
     const parts = [];
     let truncated = entries.length > selected.length;
     for (const entry of selected) {
-      if (remaining <= 0) {
+      const prefix = `### ${entry}\n\n`;
+      const separator = parts.length ? '\n\n' : '';
+      const contentBudget = remaining - prefix.length - separator.length;
+      if (contentBudget <= 0) {
         truncated = true;
         break;
       }
       try {
         const value = execFile('unzip', ['-p', archivePath, entry], {
           encoding: 'utf8',
-          maxBuffer: remaining + 1,
+          maxBuffer: contentBudget * 3 + 1,
         });
-        if (value.length > remaining) {
+        const fragment = `${prefix}${value.trim()}`;
+        if (fragment.length + separator.length > remaining) {
           truncated = true;
           break;
         }
-        parts.push(`### ${entry}\n\n${value.trim()}`);
-        remaining -= value.length;
+        parts.push(fragment);
+        remaining -= fragment.length + separator.length;
       } catch {
         truncated = true;
       }
@@ -382,14 +386,18 @@ async function fetchVerifierEvidence({
         run_id: runId,
         per_page: Math.min(artifactLimit, 100),
       });
-      const available = (response?.data?.artifacts || []).filter((artifact) => !artifact.expired);
+      const listedArtifacts = response?.data?.artifacts || [];
       if (response?.headers?.link?.includes('rel="next"')) artifactIncomplete = true;
-      for (const artifact of available) {
+      for (const artifact of listedArtifacts) {
         if (inspectedArtifacts >= artifactLimit) {
           artifactIncomplete = true;
           break;
         }
         inspectedArtifacts += 1;
+        if (artifact.expired) {
+          artifactIncomplete = true;
+          continue;
+        }
         if (!Number.isFinite(artifact.size_in_bytes) || artifact.size_in_bytes > archiveBytes) {
           artifactIncomplete = true;
           continue;
@@ -439,6 +447,13 @@ async function fetchVerifierEvidence({
   return { status, comments, artifacts, referencedRunIds: runIds };
 }
 
+function fenceUntrustedEvidence(value) {
+  const body = String(value || '');
+  const longestBacktickRun = Math.max(2, ...Array.from(body.matchAll(/`+/g), (match) => match[0].length));
+  const fence = '`'.repeat(longestBacktickRun + 1);
+  return `${fence}text\n${body}\n${fence}`;
+}
+
 function formatVerifierEvidence(evidence) {
   const lines = [
     '## Acceptance evidence',
@@ -453,13 +468,13 @@ function formatVerifierEvidence(evidence) {
   if (evidence.comments.records.length) {
     lines.push('### Bounded PR comments', '');
     for (const comment of evidence.comments.records) {
-      lines.push(`#### ${comment.author}${comment.url ? ` — ${comment.url}` : ''}`, '', comment.body, '');
+      lines.push(`#### ${comment.author}${comment.url ? ` — ${comment.url}` : ''}`, '', 'Untrusted PR comment:', fenceUntrustedEvidence(comment.body), '');
     }
   }
   if (evidence.artifacts.records.length) {
     lines.push('### Bounded referenced workflow artifacts', '');
     for (const artifact of evidence.artifacts.records) {
-      lines.push(`#### Run ${artifact.runId}: ${artifact.name}${artifact.url ? ` — ${artifact.url}` : ''}`, '', artifact.text, '');
+      lines.push(`#### Run ${artifact.runId}: ${artifact.name}${artifact.url ? ` — ${artifact.url}` : ''}`, '', 'Untrusted workflow artifact:', fenceUntrustedEvidence(artifact.text), '');
     }
   }
   return lines.join('\n').trimEnd();
@@ -1032,6 +1047,7 @@ module.exports = {
     return buildVerifierContext({ github, context, core, ciWorkflows, fetchLocalDiff, extractArtifactText });
   },
   fetchVerifierEvidence,
+  extractArtifactArchiveText,
   formatVerifierEvidence,
   formatDiffForContext,
   fetchLocalGitDiff,
