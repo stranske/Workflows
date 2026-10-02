@@ -45,7 +45,9 @@ def _bounded_linked_issue_text(value: object, *, limit: int) -> str:
     return text[:limit].rstrip() + "\n[truncated linked issue context]"
 
 
-def fetch_pr(repo: str, number: int, token: str) -> tuple[str, str]:
+def fetch_pr(
+    repo: str, number: int, token: str, include_disposition_comments: bool = False
+) -> tuple[str, str]:
     payload = api_client.fetch_pull_request(repo, number, token)
     diff = api_client.fetch_pull_request_diff(repo, number, token)
     pr_body = str(payload.get("body") or "")
@@ -56,32 +58,33 @@ def fetch_pr(repo: str, number: int, token: str) -> tuple[str, str]:
             break
         try:
             issue = api_client.fetch_issue(repo, issue_number, token)
-            disposition_comments = [
-                _bounded_linked_issue_text(
-                    comment.get("body"), limit=MAX_LINKED_ISSUE_COMMENT_CHARS
-                )
-                for comment in api_client.fetch_issue_comments(repo, issue_number, token)
-                if any(
-                    marker in str(comment.get("body") or "").casefold()
-                    for marker in ("verifier", "verify:compare", "disposition", "terminal")
-                )
-            ][-3:]
-            source_issue = "\n".join(
-                (
-                    "Source issue: "
-                    f"#{issue_number} — "
-                    + _bounded_linked_issue_text(issue.get("title"), limit=300),
+            source_parts = [
+                "Source issue: "
+                f"#{issue_number} — " + _bounded_linked_issue_text(issue.get("title"), limit=300),
+                _bounded_linked_issue_text(issue.get("body"), limit=MAX_LINKED_ISSUE_BODY_CHARS),
+            ]
+            if include_disposition_comments:
+                disposition_comments = [
                     _bounded_linked_issue_text(
-                        issue.get("body"), limit=MAX_LINKED_ISSUE_BODY_CHARS
-                    ),
-                    "## Durable verifier/disposition context",
+                        comment.get("body"), limit=MAX_LINKED_ISSUE_COMMENT_CHARS
+                    )
+                    for comment in api_client.fetch_issue_comments(repo, issue_number, token)
+                    if any(
+                        marker in str(comment.get("body") or "").casefold()
+                        for marker in ("verifier", "verify:compare", "disposition", "terminal")
+                    )
+                ][-3:]
+                source_parts.extend(
                     (
-                        "\n\n---\n\n".join(disposition_comments)
-                        if disposition_comments
-                        else "No matching source-issue verifier or disposition comments were found."
-                    ),
+                        "## Durable verifier/disposition context",
+                        (
+                            "\n\n---\n\n".join(disposition_comments)
+                            if disposition_comments
+                            else "No matching source-issue verifier or disposition comments were found."
+                        ),
+                    )
                 )
-            )
+            source_issue = "\n".join(source_parts)
         except Exception as exc:
             print(f"pilot: skipping linked issue #{issue_number}: {exc}", file=sys.stderr)
             continue
@@ -100,6 +103,11 @@ def fetch_pr(repo: str, number: int, token: str) -> tuple[str, str]:
         if part
     )
     return context, diff
+
+
+def fetch_pr_for_screen(repo: str, number: int, token: str) -> tuple[str, str]:
+    """Fetch acceptance context without later verifier/disposition comments."""
+    return fetch_pr(repo, number, token, include_disposition_comments=False)
 
 
 def run_pilot(

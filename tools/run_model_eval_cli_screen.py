@@ -22,7 +22,7 @@ from typing import Any
 
 from scripts.langchain import pr_verifier
 from tools.plan_model_eval import ROOT, build_plan
-from tools.run_model_eval_pilot import fetch_pr
+from tools.run_model_eval_pilot import fetch_pr_for_screen as fetch_pr
 
 DEFAULT_CASES = 8
 MAX_MODELS = 4

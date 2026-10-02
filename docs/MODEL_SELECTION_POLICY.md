@@ -55,7 +55,9 @@ MAINT-78's automatic run is a no-spend plan. With the current 51 adjudicated
 cases, the candidate-stage minimum of 30 and required-category representation
 are already met. A manual `screen` compares the incumbent and up to three priced
 models on eight paired cases, deliberately including all four available
-NON_PASS examples. It makes no API-key calls. If a candidate has zero observed
+NON_PASS examples. The screen and API confirmation use PR diffs and source-issue
+acceptance text without later verifier/disposition comments, which can reveal
+the expected outcome. The screen makes no API-key calls. If a candidate has zero observed
 false PASS and schema errors, at least incumbent accuracy, and lower modeled
 cost per accepted review (or replaces an incumbent with an observed false PASS),
 the screen names one finalist.
