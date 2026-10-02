@@ -87,6 +87,18 @@ jobs:
           install -d -m 700 "$RUNNER_TEMP/maint78-codex-home"
           printf '%s' "$CODEX_AUTH_JSON" > "$RUNNER_TEMP/maint78-codex-home/auth.json"
           chmod 600 "$RUNNER_TEMP/maint78-codex-home/auth.json"
+          python - <<'PY'
+          import json
+          import os
+          from pathlib import Path
+
+          path = Path(os.environ["RUNNER_TEMP"]) / "maint78-codex-home/auth.json"
+          auth = json.loads(path.read_text())
+          if auth.get("auth_mode") != "chatgpt" or auth.get("OPENAI_API_KEY"):
+              raise SystemExit(
+                  "MAINT-78 screen requires ChatGPT subscription auth, not API-key billing"
+              )
+          PY
       - uses: astral-sh/setup-uv@c771a70e6277c0a99b617c7a806ffedaca235ff9 # v9.0.0
         if: github.event_name == 'workflow_dispatch' && inputs.mode == 'screen'
       - name: Run bounded Codex CLI screen
