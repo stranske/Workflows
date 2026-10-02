@@ -290,13 +290,13 @@ jobs:
               }
             }
             const currentSourceRunId = String(context.runId);
-            const expectedPilotTitle = `MAINT-78 source ${currentSourceRunId}`;
+            const expectedPilotTitle = `MAINT-78 plan source ${currentSourceRunId}`;
             const pilotUsesCurrentCandidates = (run) =>
               String(run.display_title || '') === expectedPilotTitle;
             const matchingPilot = activeRuns.find(pilotUsesCurrentCandidates);
             if (matchingPilot) {
               core.notice(
-                `Model evaluation pilot already active in run ${matchingPilot.id} ` +
+                `Model evaluation readiness run already active in run ${matchingPilot.id} ` +
                   `for ${expectedPilotTitle}`,
               );
               return;
@@ -304,8 +304,8 @@ jobs:
             const otherActivePilot = activeRuns[0];
             if (otherActivePilot) {
               core.notice(
-                `Active pilot run ${otherActivePilot.id} lacks candidates from MAINT-77 run ` +
-                  `${currentSourceRunId}; dispatching a new pilot`,
+                `Active MAINT-78 run ${otherActivePilot.id} lacks candidates from MAINT-77 run ` +
+                  `${currentSourceRunId}; dispatching a new readiness report`,
               );
             }
             await withRetry((client) => client.rest.actions.createWorkflowDispatch({
@@ -315,6 +315,7 @@ jobs:
               ref: context.payload.repository?.default_branch || 'main',
               inputs: {
                 candidates_source_run_id: String(context.runId),
+                mode: 'plan',
               },
             }));
-            core.notice('Dispatched Maint 78 model evaluation pilot after catalog drift');
+            core.notice('Dispatched no-spend Maint 78 readiness report after catalog drift');

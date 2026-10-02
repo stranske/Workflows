@@ -166,6 +166,9 @@ def _build_openai_client(
     if model.lower().startswith("gpt-6-astra"):
         kwargs["use_responses_api"] = True
         kwargs["reasoning"] = {"effort": "high"}
+    elif model.lower().startswith("gpt-6"):
+        # GPT-6 reasoning models reject sampling controls such as temperature.
+        kwargs["use_responses_api"] = True
     elif not _is_reasoning_model(model):
         kwargs["temperature"] = 0.1
     return chat_openai(**kwargs)
