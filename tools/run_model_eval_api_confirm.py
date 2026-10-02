@@ -63,6 +63,8 @@ def confirm(
     *,
     github_token: str,
     client: Any,
+    api_only_candidate: str | None = None,
+    cli_catalog: dict[str, Any] | None = None,
 ) -> dict[str, Any]:
     if not github_token:
         raise ValueError("GH_TOKEN is required to fetch paired PR cases")
@@ -71,15 +73,28 @@ def confirm(
     if (
         screen.get("schema") != "workflows-verifier-cli-screen/v1"
         or screen.get("stopped_early")
-        or screen.get("screen_decision") != "advance_to_api_confirmation"
         or screen.get("input_fingerprint") != plan["input_fingerprint"]
     ):
-        raise ValueError("a complete, current CLI screen shortlist is required")
-    candidate = screen.get("provisional_shortlist_model_id")
+        raise ValueError("a complete, current CLI screen is required")
+    candidate = api_only_candidate or screen.get("provisional_shortlist_model_id")
     incumbent = plan["incumbent"]
     if not isinstance(candidate, str) or candidate == incumbent:
-        raise ValueError("CLI screen did not shortlist a distinct candidate")
-    if len(screen.get("case_ids", [])) > int(stage["maximum_api_confirmation_cases"]):
+        raise ValueError("a distinct candidate is required")
+    if api_only_candidate:
+        if cli_catalog is None:
+            raise ValueError("API-only comparison requires the pinned CLI catalog")
+        cli_models = {
+            model.get("slug")
+            for model in cli_catalog.get("models", [])
+            if model.get("visibility") == "list" and model.get("supported_in_api") is True
+        }
+        if candidate in cli_models:
+            raise ValueError("API-only exception is limited to models absent from the pinned CLI")
+    elif screen.get("screen_decision") != "advance_to_api_confirmation":
+        raise ValueError("a complete, current CLI screen shortlist is required")
+    if len(screen.get("case_ids", [])) != int(stage["screen_cases"]):
+        raise ValueError("screen must contain exactly the configured paired cases")
+    if len(screen["case_ids"]) > int(stage["maximum_api_confirmation_cases"]):
         raise ValueError("screen exceeds the API confirmation case cap")
     if len({incumbent, candidate}) != int(stage["maximum_api_confirmation_models"]):
         raise ValueError("API confirmation must compare exactly two models")
@@ -101,6 +116,10 @@ def confirm(
         or any(case_id not in case_map for case_id in case_ids)
     ):
         raise ValueError("screen case IDs do not identify unique corpus cases")
+    if sum(case_map[case_id]["expected_verdict"] == "NON_PASS" for case_id in case_ids) < int(
+        stage["minimum_non_pass_cases"]
+    ):
+        raise ValueError("screen does not cover the required NON_PASS cases")
 
     limit = float(stage["maximum_api_confirmation_cost_usd"])
     spent_upper = 0.0
@@ -133,7 +152,15 @@ def confirm(
                 # Stop after a request error: its provider-side billable usage is
                 # unknown, so no further call can be justified by this cap.
                 rows.append({"case_id": case_id, "model_id": model_id, "error": str(exc)})
-                return _report(plan, case_ids, rows, limit, spent_upper, incomplete=True)
+                return _report(
+                    plan,
+                    case_ids,
+                    rows,
+                    limit,
+                    spent_upper,
+                    incomplete=True,
+                    comparison_path="api_only" if api_only_candidate else "cli_shortlist",
+                )
             rows.append(
                 {
                     "case_id": case_id,
@@ -152,7 +179,13 @@ def confirm(
                 }
             )
     return _report(
-        plan, case_ids, rows, limit, spent_upper, incomplete=len(rows) != 2 * len(case_ids)
+        plan,
+        case_ids,
+        rows,
+        limit,
+        spent_upper,
+        incomplete=len(rows) != 2 * len(case_ids),
+        comparison_path="api_only" if api_only_candidate else "cli_shortlist",
     )
 
 
@@ -164,6 +197,7 @@ def _report(
     reserved_cost: float,
     *,
     incomplete: bool,
+    comparison_path: str,
 ) -> dict[str, Any]:
     incumbent = plan["incumbent"]
     models = sorted({row["model_id"] for row in rows})
@@ -206,6 +240,7 @@ def _report(
     return {
         "schema": "workflows-verifier-api-confirmation/v1",
         "input_fingerprint": plan["input_fingerprint"],
+        "comparison_path": comparison_path,
         "case_ids": case_ids,
         "rows": rows,
         "models": scores,
@@ -232,6 +267,8 @@ def main(argv: list[str] | None = None) -> int:
     parser.add_argument("--registry", type=Path, default=ROOT / "config/model_registry.json")
     parser.add_argument("--policy", type=Path, default=ROOT / "config/model_selection_policy.json")
     parser.add_argument("--screen", type=Path, required=True)
+    parser.add_argument("--cli-catalog", type=Path)
+    parser.add_argument("--api-only-candidate", default="")
     parser.add_argument("--output", type=Path, required=True)
     parser.add_argument("--summary", type=Path)
     args = parser.parse_args(argv)
@@ -246,6 +283,8 @@ def main(argv: list[str] | None = None) -> int:
         json.loads(args.screen.read_text()),
         github_token=os.environ.get("GH_TOKEN", ""),
         client=OpenAI(max_retries=0, timeout=120),
+        api_only_candidate=args.api_only_candidate or None,
+        cli_catalog=json.loads(args.cli_catalog.read_text()) if args.cli_catalog else None,
     )
     args.output.write_text(json.dumps(payload, indent=2) + "\n")
     summary = (

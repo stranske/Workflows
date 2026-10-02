@@ -69,8 +69,11 @@ meets the same observed-case safeguards, it produces a provisional proposal for
 human review; it does not change `model_registry.json` itself. The owner may
 approve a reversible provisional registry PR and monitor live verifier outcomes,
 reverting on a false PASS or material quality regression. The small comparison
-does not establish a population false-PASS rate. API-only models absent from the
-pinned CLI catalog need a separate explicitly scoped comparison.
+does not establish a population false-PASS rate. An API-only model absent from
+the pinned CLI catalog (currently GPT-6.1 Sol) may be named explicitly in a
+manual `confirm` dispatch. It reuses the completed screen's eight paired cases,
+checks that the model is priced and actually absent from the catalog, and obeys
+the same $5/16-call cap. Its report labels the CLI-stage exception.
 
 This gives a usable decision during a model update cycle. The larger sample
 requirements below remain the bar for a statistical `approved` status, not a

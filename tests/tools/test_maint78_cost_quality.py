@@ -223,6 +223,61 @@ def test_api_confirmation_uses_each_models_production_route_without_retries():
     assert received[1][1]["temperature"] == 0.1
 
 
+def test_api_only_exception_requires_explicit_cli_absence_and_same_cases(monkeypatch):
+    corpus, registry, policy = _inputs()
+    cases = select_cases(corpus["cases"])
+    screen = {
+        "schema": "workflows-verifier-cli-screen/v1",
+        "screen_decision": "retain_incumbent_on_screen",
+        "input_fingerprint": build_plan(corpus, registry, policy)["input_fingerprint"],
+        "provisional_shortlist_model_id": None,
+        "case_ids": [case["case_id"] for case in cases],
+        "stopped_early": False,
+    }
+    catalog = {
+        "models": [
+            {"slug": "gpt-5.6-terra", "visibility": "list", "supported_in_api": True},
+            {"slug": "gpt-6-sol", "visibility": "list", "supported_in_api": True},
+        ]
+    }
+    monkeypatch.setattr(
+        "tools.run_model_eval_api_confirm.fetch_pr", lambda *args: ("context", "diff")
+    )
+    calls = []
+
+    def fake_api(client, model, prompt):
+        expected = cases[len(calls) // 2]["expected_verdict"]
+        calls.append(model["model_id"])
+        return json.dumps({"verdict": expected.replace("NON_PASS", "CONCERNS")}), 1000, 100
+
+    monkeypatch.setattr("tools.run_model_eval_api_confirm._invoke_api", fake_api)
+    result = confirm(
+        corpus,
+        registry,
+        policy,
+        screen,
+        github_token="x",
+        client=object(),
+        api_only_candidate="gpt-6.1-sol",
+        cli_catalog=catalog,
+    )
+    assert result["complete"] and result["api_calls_made"] == 16
+    assert result["comparison_path"] == "api_only"
+    assert result["provisional_model_id"] == "gpt-6.1-sol"
+    with pytest.raises(ValueError, match="absent from the pinned CLI"):
+        confirm(
+            corpus,
+            registry,
+            policy,
+            screen,
+            github_token="x",
+            client=object(),
+            api_only_candidate="gpt-6-sol",
+            cli_catalog=catalog,
+        )
+    assert len(calls) == 16
+
+
 def test_missing_cli_usage_fails_closed():
     assert token_usage(
         '{"type":"turn.completed","usage":{"input_tokens":2,"output_tokens":3}}'

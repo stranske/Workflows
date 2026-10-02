@@ -14,7 +14,11 @@ on:
         options: [plan, screen, confirm]
         default: plan
       screen_source_run_id:
-        description: Required for confirm; completed MAINT-78 screen run id with a shortlisted candidate.
+        description: Required for confirm; completed MAINT-78 screen run id with paired case IDs.
+        required: false
+        type: string
+      api_only_candidate:
+        description: Optional explicit API-only model absent from pinned CLI (e.g. gpt-6.1-sol); confirm mode only.
         required: false
         type: string
       models:
@@ -130,15 +134,19 @@ jobs:
         env:
           GH_TOKEN: ${{ secrets.OWNER_PR_PAT }}
           OPENAI_API_KEY: ${{ secrets.OPENAI_API_KEY }}
+          API_ONLY_CANDIDATE: ${{ inputs.api_only_candidate }}
+          SCREEN_SOURCE_RUN_ID: ${{ inputs.screen_source_run_id }}
         run: |
           set -euo pipefail
-          if [ -z "${{ inputs.screen_source_run_id }}" ]; then
+          if [ -z "$SCREEN_SOURCE_RUN_ID" ]; then
             echo '::error::screen_source_run_id is required for confirm mode.'
             exit 1
           fi
           uv run --extra dev --extra langchain \
             python -m tools.run_model_eval_api_confirm \
             --screen prior-screen/cli-screen-results.json \
+            --cli-catalog cli-catalog.json \
+            --api-only-candidate "$API_ONLY_CANDIDATE" \
             --output api-confirmation-results.json \
             --summary "$GITHUB_STEP_SUMMARY"
       - uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7
