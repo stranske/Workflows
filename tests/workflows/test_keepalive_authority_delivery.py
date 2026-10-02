@@ -4,6 +4,8 @@ from pathlib import Path
 
 import yaml
 
+from scripts.runner_lib import core as runner_core
+
 ROOT = Path(__file__).resolve().parents[2]
 TEMPLATE = ROOT / "templates/consumer-repo"
 
@@ -191,6 +193,40 @@ def test_runner_reservation_uses_service_bot_token_without_weakening_storage() -
             workflow["jobs"]["evaluate"]["outputs"]["dispatch_should_run"]
             == "${{ steps.runner_dispatch.outputs.should_dispatch || 'false' }}"
         )
+
+    class EmptyPrimaryStorage:
+        def __init__(self) -> None:
+            self.writes: list[dict[str, object]] = []
+
+        def read_record(self, pr_number: int, provider: str) -> None:
+            return None
+
+        def write_record(self, pr_number: int, provider: str, record: dict[str, object]) -> None:
+            self.writes.append(record)
+
+    class DeniedLegacyApi:
+        repo = "owner/repo"
+
+        def __init__(self, status: int) -> None:
+            self.status = status
+
+        def request(self, method: str, path: str) -> object:
+            assert method == "GET"
+            assert "/actions/variables/" in path
+            raise RuntimeError(f"GitHub API GET failed: {self.status} denied")
+
+    for status in (401, 403):
+        primary = EmptyPrimaryStorage()
+        fallback = runner_core.RepoVariableRunnerStorage(DeniedLegacyApi(status))  # type: ignore[arg-type]
+        decision = runner_core.should_dispatch(
+            42,
+            "exact-head",
+            "codex",
+            storage=runner_core.FallbackRunnerStorage(primary, fallback),  # type: ignore[arg-type]
+        )
+        assert decision.should_dispatch is False
+        assert decision.reason == "authoritative-storage-unavailable"
+        assert primary.writes == []
 
     root_reporter = (ROOT / ".github/workflows/agents-keepalive-loop-reporter.yml").read_text()
     assert '"Agents Keepalive Loop"' in root_reporter
