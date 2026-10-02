@@ -512,6 +512,8 @@ function hasExplicitSameHeadReviewerAcceptance(thread, proof, headSha, reviewerP
   const allowedLogins = new Set(
     (reviewer?.logins || []).map((login) => String(login).toLowerCase()),
   );
+  const originatingLogin = String(thread?.comments?.nodes?.[0]?.author?.login || '').toLowerCase();
+  if (!allowedLogins.has(originatingLogin)) return false;
   const marker = `<!-- sync-review-accepted:${headSha} -->`;
   return (thread?.comments?.nodes || []).some((comment) =>
     comment.url === proof.reviewer_acceptance_url

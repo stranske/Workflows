@@ -782,6 +782,15 @@ test('proof-bound resolution requires explicit same-head originating reviewer ac
   assert.equal(hasExplicitSameHeadReviewerAcceptance({
     comments: { pageInfo: { hasNextPage: false }, nodes: [{ ...comment, body: 'not yet fixed' }] },
   }, proof, headSha, profiles), false);
+  assert.equal(hasExplicitSameHeadReviewerAcceptance({
+    comments: {
+      pageInfo: { hasNextPage: false },
+      nodes: [
+        { ...comment, author: { login: 'coderabbitai' }, body: 'original finding' },
+        comment,
+      ],
+    },
+  }, proof, headSha, profiles), false);
 });
 
 test('maint71 run writes reports and records a no-PR result with fake action clients', async () => {
