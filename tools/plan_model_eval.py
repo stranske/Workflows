@@ -242,7 +242,11 @@ def build_plan(
         reasons.append("No adjudicated cases are available.")
     benchmark_inputs_ready = not reasons
     reasons.append(
-        "MAINT-78 has no paired production API benchmark with measured tokens and cost; "
+        "Statistical approval still lacks an approval-stage paired API benchmark on "
+        "the frozen adjudicated corpus; the completed eight-case provisional comparison "
+        "does not establish the population error-rate bounds."
+        if provisional_evidence
+        else "MAINT-78 has no paired production API benchmark with measured tokens and cost; "
         "a model selection cannot be approved from the existing pilot artifacts."
     )
     fingerprint_input = {

@@ -100,6 +100,7 @@ def test_readiness_summary_leads_with_the_current_decision():
     summary = markdown(build_plan(*_inputs()))
     assert "**Current OpenAI selection:** gpt-6-luna" in summary
     assert "Monitor the first ten live verifier outcomes" in summary
+    assert "the completed eight-case provisional comparison" in summary
     assert summary.index("**Eight-case subscription screen ready:** yes") < summary.index(
         "### Separate long-term statistical approval"
     )
