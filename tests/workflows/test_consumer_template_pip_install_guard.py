@@ -63,6 +63,12 @@ LANGCHAIN_WORKFLOWS = (
     "templates/consumer-repo/.github/workflows/agents-dedup.yml",
 )
 
+ROOT_SPARSE_LANGCHAIN_WORKFLOWS = (
+    ".github/workflows/agents-capability-check.yml",
+    ".github/workflows/agents-decompose.yml",
+    ".github/workflows/agents-dedup.yml",
+)
+
 PROJECT_METADATA_GUARD = re.compile(r"tomllib\.loads")
 
 
@@ -254,3 +260,15 @@ def test_canonical_llm_requirements_include_faiss_runtime() -> None:
     ):
         requirements = path.read_text(encoding="utf-8").splitlines()
         assert "faiss-cpu==1.14.2" in requirements
+
+
+@pytest.mark.parametrize("workflow", ROOT_SPARSE_LANGCHAIN_WORKFLOWS)
+def test_root_sparse_checkouts_include_langchain_runtime_inputs(workflow: str) -> None:
+    document = yaml.safe_load((REPO_ROOT / workflow).read_text(encoding="utf-8"))
+    steps = next(iter(document["jobs"].values()))["steps"]
+    checkout = next(step for step in steps if step.get("name") == "Checkout repository")
+    sparse_paths = set(checkout["with"]["sparse-checkout"].splitlines())
+
+    assert "tools/requirements-llm.txt" in sparse_paths
+    assert "scripts/__init__.py" in sparse_paths
+    assert "scripts/langchain" in sparse_paths

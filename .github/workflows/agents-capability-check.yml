@@ -33,6 +33,9 @@ jobs:
             .github/scripts/error_classifier.js
             .github/scripts/github-api-with-retry.js
             .github/scripts/token_load_balancer.js
+            scripts/__init__.py
+            scripts/langchain
+            tools/requirements-llm.txt
           sparse-checkout-cone-mode: false
 
       - name: Setup API client

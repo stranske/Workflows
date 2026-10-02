@@ -41,6 +41,7 @@ jobs:
             README.md
             scripts/__init__.py
             scripts/langchain
+            tools/requirements-llm.txt
           sparse-checkout-cone-mode: false
 
       - name: Setup API client
