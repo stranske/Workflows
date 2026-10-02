@@ -968,6 +968,9 @@ def test_explicit_anthropic_provider_builds_both_requested_models(
         ("o3-mini-deep-research-v2", True),
         ("gpt-5.6-terra", True),
         ("gpt-5.6-sol", True),
+        ("openai/gpt-5.6-terra", True),
+        ("openai/o3-mini", True),
+        ("openai/gpt-4.1", False),
         ("gpt-5.2", False),
         ("gpt-4o", False),
         ("gpt-4.1", False),
@@ -1147,7 +1150,9 @@ def test_astra_client_uses_high_reasoning_responses_without_sampling_controls(re
 @pytest.mark.parametrize(
     "relative", ["tools/langchain_client.py", "templates/consumer-repo/tools/langchain_client.py"]
 )
-@pytest.mark.parametrize("model", ["gpt-5.6-terra", "gpt-5.6-sol"])
+@pytest.mark.parametrize(
+    "model", ["gpt-5.6-terra", "gpt-5.6-sol", "openai/gpt-5.6-terra", "openai/o3-mini"]
+)
 def test_gpt56_clients_omit_unsupported_temperature(relative, model):
     import runpy
     from pathlib import Path
@@ -1163,6 +1168,28 @@ def test_gpt56_clients_omit_unsupported_temperature(relative, model):
 
     build(client, model=model, token="test", timeout=30, max_retries=0)
     assert "temperature" not in received
+    assert received["model"] == model
+
+
+@pytest.mark.parametrize(
+    "relative", ["tools/langchain_client.py", "templates/consumer-repo/tools/langchain_client.py"]
+)
+def test_prefixed_ordinary_openai_model_keeps_temperature(relative):
+    import runpy
+    from pathlib import Path
+
+    build = runpy.run_path(str(Path(__file__).resolve().parents[2] / relative))[
+        "_build_openai_client"
+    ]
+    received = {}
+
+    def client(**kwargs):
+        received.update(kwargs)
+        return kwargs
+
+    build(client, model="openai/gpt-4.1", token="test", timeout=30, max_retries=0)
+    assert received["model"] == "openai/gpt-4.1"
+    assert received["temperature"] == 0.1
 
 
 @pytest.mark.parametrize(

@@ -3,8 +3,10 @@
 > **Status:** Authoritative for `config/model_registry.json` and
 > `config/llm_slots.json`
 > **Policy version:** `auxiliary-verifier-model-selection-v1`
-> **Reviewed:** 2026-10-01
-> **Next decision review:** 2026-10-31
+> **Policy text reviewed:** 2026-10-02. This does not refresh registry decisions.
+> **Registry deadlines:** use `config/model_registry.json` `review_by` fields;
+> the global, OpenAI, and GitHub Models dates are overdue. No replacement
+> deadline has been approved for those decisions.
 
 ## Decision Principle
 
@@ -45,6 +47,12 @@ the runtime model. Other current bundled pins and an explicitly supplied
 `LANGCHAIN_SLOT_CONFIG` file remain overrides.
 
 ## Benchmark Protocol
+
+Run MAINT-78 `capture`, `screen`, and `confirm` from the matching
+`stranske/Workflows` checkout and its `maint-78-model-evaluation-pilot.yml`
+workflow. This policy is copied to consumers for guidance, but its
+`tools.create_model_eval_snapshot` helper, candidate inputs, and dispatch
+workflow are Workflows-owned and are not installed in consumer checkouts.
 
 The `verifier-balanced` policy is defined in
 `config/model_selection_policy.json`.

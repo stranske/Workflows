@@ -148,6 +148,8 @@ def _is_reasoning_model(model: str) -> bool:
     O-series reasoning models also reject this sampling control.
     """
     name = model.lower().strip()
+    if name.startswith("openai/"):
+        name = name.removeprefix("openai/")
     if name.startswith("gpt-5.6-"):
         return True
     # o-series reasoning models use an `o` prefix followed by digits with optional

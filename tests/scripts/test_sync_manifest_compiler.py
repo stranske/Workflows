@@ -166,6 +166,17 @@ workflows:
         )
 
 
+def test_model_policy_sync_documents_workflows_only_commands() -> None:
+    root = Path(__file__).parents[2]
+    compiled = compile_manifest(root / ".github" / "sync-manifest.yml", repo_root=root)
+    docs = {entry.target: entry for entry in compiled.section("docs")}
+    policy_entry = docs["docs/MODEL_SELECTION_POLICY.md"]
+    assert policy_entry.resolved_source == "docs/MODEL_SELECTION_POLICY.md"
+    policy = (root / policy_entry.resolved_source).read_text(encoding="utf-8")
+    assert "Run MAINT-78 `capture`, `screen`, and `confirm` from the matching" in policy
+    assert "are not installed in consumer checkouts" in policy
+
+
 def test_langchain_workflows_and_canonical_requirements_share_delivery_plan() -> None:
     root = Path(__file__).parents[2]
     compiled = compile_manifest(root / ".github" / "sync-manifest.yml", repo_root=root)

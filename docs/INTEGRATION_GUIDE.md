@@ -815,6 +815,14 @@ jobs:
 
 ## Consumer Repo Setup (Full Automation)
 
+The synced model-selection policy is documentation for consumer operators,
+not a local MAINT-78 tool install. Run its `capture`, `screen`, `confirm`, and
+snapshot commands from a matching `stranske/Workflows` checkout; the
+`maint-78-model-evaluation-pilot.yml` workflow and snapshot helper remain
+Workflows-owned. The synced `tools/langchain_client.py` preserves an outbound
+`openai/` model ID while omitting unsupported temperature for prefixed GPT-5.6
+and o-series reasoning models.
+
 For repositories that want full CI + agent automation (Codex keepalive, autofix, etc.):
 
 ### Quick Setup
