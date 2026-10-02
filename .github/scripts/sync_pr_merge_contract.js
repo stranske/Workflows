@@ -228,7 +228,11 @@ function classifyReviewBlockedDisposition({
     return {
       disposition: 'review-blocked',
       blocker_owner: 'maint-71',
-      next_command: AUTO_RESOLVE_SYNC_BOT_THREADS_COMMAND,
+      // A bot finding on generated, manifest-synced content is a source
+      // repair/re-review gate, not permission to resolve the thread. The
+      // exact generated head must remain blocked until regeneration or the
+      // originating reviewer explicitly accepts the fix.
+      next_command: 'repair-upstream-and-request-reviewer-disposition',
     };
   }
 

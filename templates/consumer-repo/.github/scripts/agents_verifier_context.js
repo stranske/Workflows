@@ -312,6 +312,7 @@ async function fetchVerifierEvidence({
   repo,
   pullNumber,
   evidenceTexts,
+  associatedCommitShas = [],
   extractArtifactText = extractArtifactArchiveText,
 }) {
   const commentLimit = positiveLimit('VERIFIER_EVIDENCE_COMMENT_LIMIT', DEFAULT_EVIDENCE_COMMENT_LIMIT);
@@ -365,10 +366,64 @@ async function fetchVerifierEvidence({
   const artifacts = { status: 'absent', complete: true, records: [], reason: '' };
   const allRunIds = extractReferencedRunIds([...(evidenceTexts || []), ...commentBodies]);
   const runIds = allRunIds.slice(0, runLimit);
+  const seenRunIds = new Set(runIds);
   let artifactIncomplete = allRunIds.length > runIds.length;
   if (comments.status === 'unavailable') {
     artifactIncomplete = true;
     artifacts.reason = 'comment evidence was unavailable, so referenced run discovery is incomplete';
+  }
+
+  const commitShas = Array.from(new Set((associatedCommitShas || []).filter(Boolean)));
+  for (const commitSha of commitShas) {
+    if (!isValidSha(commitSha)) {
+      artifactIncomplete = true;
+      artifacts.reason = `associated workflow-run commit is invalid: ${commitSha}`;
+      continue;
+    }
+    try {
+      if (!github?.rest?.actions?.listWorkflowRunsForRepo) {
+        throw new Error('workflow run discovery API is unavailable');
+      }
+      const response = await github.rest.actions.listWorkflowRunsForRepo({
+        owner,
+        repo,
+        head_sha: commitSha,
+        per_page: Math.min(runLimit, 100),
+      });
+      const workflowRuns = response?.data?.workflow_runs;
+      if (!Array.isArray(workflowRuns)) {
+        throw new Error('workflow run discovery API returned an invalid run list');
+      }
+      if (
+        response?.headers?.link?.includes('rel="next"')
+        || (Number.isFinite(response?.data?.total_count) && response.data.total_count > workflowRuns.length)
+      ) {
+        artifactIncomplete = true;
+        artifacts.reason = `workflow run discovery for commit ${commitSha} exceeded the bounded result limit`;
+      }
+      for (const workflowRun of workflowRuns) {
+        if (String(workflowRun?.head_sha || '').toLowerCase() !== commitSha.toLowerCase()) continue;
+        const runId = Number(workflowRun?.id);
+        if (!Number.isFinite(runId) || runId <= 0) {
+          artifactIncomplete = true;
+          artifacts.reason = `workflow run discovery returned invalid evidence for commit ${commitSha}`;
+          continue;
+        }
+        if (!seenRunIds.has(runId)) {
+          if (runIds.length >= runLimit) {
+            artifactIncomplete = true;
+            artifacts.reason = 'workflow run count limit prevented complete artifact inspection';
+            break;
+          }
+          seenRunIds.add(runId);
+          runIds.push(runId);
+        }
+      }
+    } catch (error) {
+      artifactIncomplete = true;
+      artifacts.reason = `workflow run discovery failed for commit ${commitSha}: ${error.message}`;
+      core?.warning?.(`Verifier workflow-run discovery unavailable: ${error.message}`);
+    }
   }
   let inspectedArtifacts = 0;
   for (const runId of runIds) {
@@ -439,7 +494,7 @@ async function fetchVerifierEvidence({
     if (!artifacts.reason) artifacts.reason = 'run, artifact, archive, entry, or character limit prevented complete inspection';
   } else {
     artifacts.status = artifacts.records.length ? 'present' : 'absent';
-    if (!runIds.length) artifacts.reason = 'no referenced workflow run URL found';
+    if (!runIds.length) artifacts.reason = 'no referenced or associated workflow run found';
   }
 
   const status = comments.status === 'unavailable' || artifacts.status === 'unavailable'
@@ -780,6 +835,7 @@ async function buildVerifierContext({
     repo,
     pullNumber: pull.number,
     evidenceTexts: [pull.body || '', ...closingIssues.map((issue) => issue.body || '')],
+    associatedCommitShas: [pull.head?.sha, pull.merge_commit_sha],
     extractArtifactText,
   });
 

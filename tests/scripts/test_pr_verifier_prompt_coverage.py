@@ -78,7 +78,9 @@ def _context(
 # 37018335161: Workflows #3601, Manager-Database #1703 and Pension-Data #912.
 CAPTURED_SHAPES = [
     pytest.param(30, 159_700, 9_000, False, id="workflows-3601-shape"),
-    pytest.param(11, 75_300, 3_200, True, id="manager-database-1703-shape"),
+    # Every file is represented, but the 16k-token code budget still cuts
+    # some lines. A representative excerpt cannot support PASS (#3701).
+    pytest.param(11, 75_300, 3_200, False, id="manager-database-1703-shape"),
     pytest.param(9, 27_600, 1_500, True, id="pension-data-912-shape"),
 ]
 
@@ -108,7 +110,13 @@ def test_captured_shapes_state_coverage_and_reach_every_file(
         assert "Coverage verdict: sufficient" in prompt
     else:
         assert coverage.code == "truncated"
-        assert coverage.code_ratio < pr_verifier.MIN_CODE_COVERAGE_RATIO
+        assert (
+            coverage.code_ratio < pr_verifier.MIN_CODE_COVERAGE_RATIO
+            or any(
+                reason.startswith("Changed code was truncated to fit the prompt budget")
+                for reason in coverage.reasons
+            )
+        )
         assert "INCOMPLETE — do not return PASS" in prompt
 
 
@@ -204,11 +212,81 @@ def test_truncated_acceptance_is_reported_not_presented_as_complete(
     assert not coverage.sufficient
 
 
-def test_free_form_context_without_declared_sections_is_unchanged() -> None:
+def test_free_form_context_without_diff_withholds_pass() -> None:
     coverage = pr_verifier.prompt_coverage("short ad-hoc context", None)
-    assert coverage.sufficient
+    assert not coverage.sufficient
     assert coverage.acceptance == "not_declared"
-    assert coverage.code == "not_declared"
+    assert coverage.code == "unavailable"
+    assert any("Changed code is unavailable" in reason for reason in coverage.reasons)
+
+
+def test_acceptance_evidence_has_its_own_budget_and_preserves_plan() -> None:
+    context, _ = _context(1, 1_000, 1_000)
+    context = context.replace(
+        "## PR Diff Summary",
+        "## Acceptance evidence\n\n"
+        "- Overall retrieval status: **present**\n\n"
+        "### Bounded PR comments\n\n"
+        + ("untrusted artifact detail\n" * 20_000)
+        + "\n## PR Diff Summary",
+    )
+
+    coverage = pr_verifier.prompt_coverage(context, None)
+    prompt = pr_verifier._prepare_prompt(context, None)
+
+    assert coverage.acceptance == "complete"
+    assert coverage.acceptance_evidence == "truncated"
+    assert ACCEPTANCE_SENTINEL in prompt
+
+
+def test_required_unavailable_acceptance_evidence_withholds_model_pass(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    context, _ = _context(1, 1_000, 1_000)
+    context = context.replace(
+        ACCEPTANCE_SENTINEL,
+        "required evidence artifact: a failing and restored passing transcript",
+    ).replace(
+        "## PR Diff Summary",
+        "## Acceptance evidence\n\n"
+        "- Overall retrieval status: **unavailable**\n"
+        "- PR comments: **unavailable** — API failure\n\n"
+        "## PR Diff Summary",
+    )
+    coverage = pr_verifier.prompt_coverage(context, None)
+    assert coverage.acceptance == "complete"
+    assert coverage.acceptance_evidence == "complete"
+    assert not coverage.sufficient
+    assert any("Required acceptance evidence is unavailable" in reason for reason in coverage.reasons)
+
+    client = _pass_client()
+    monkeypatch.setattr(
+        pr_verifier, "_get_llm_client", lambda model=None, provider=None: (client, "openai")
+    )
+    result = pr_verifier.evaluate_pr(context)
+    assert result.verdict == "CONCERNS"
+    assert "Required acceptance evidence is unavailable" in result.concerns[0]
+
+
+def test_late_required_evidence_omission_is_not_hidden_by_plan_budget() -> None:
+    context, _ = _context(1, 1_000, 1_000, ci_chars=20_000)
+    context = context.replace(
+        ACCEPTANCE_SENTINEL,
+        "required evidence artifact: exact test transcript",
+    ).replace(
+        "## PR Diff Summary",
+        "## Acceptance evidence\n\n"
+        "- Overall retrieval status: **unavailable**\n\n"
+        "## PR Diff Summary",
+    )
+    assert context.index("## Acceptance evidence") > 8_000
+
+    coverage = pr_verifier.prompt_coverage(context, None)
+
+    assert coverage.acceptance == "complete"
+    assert coverage.acceptance_evidence == "complete"
+    assert not coverage.sufficient
+    assert any("Required acceptance evidence is unavailable" in reason for reason in coverage.reasons)
 
 
 def test_summary_parser_covers_all_context_builder_file_forms() -> None:

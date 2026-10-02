@@ -66,6 +66,9 @@ const buildGithubStub = ({
   graphqlError = null,
   runsByWorkflow = {},
   listWorkflowRunsHook = null,
+  runsForRepo = {},
+  listWorkflowRunsForRepoError = null,
+  listWorkflowRunsForRepoResponse = null,
   diffText = [
     'diff --git a/src/example.js b/src/example.js',
     'index 1111111..2222222 100644',
@@ -86,6 +89,11 @@ const buildGithubStub = ({
 } = {}) => ({
   rest: {
     actions: {
+      async listWorkflowRunsForRepo({ head_sha: headSha }) {
+        if (listWorkflowRunsForRepoError) throw listWorkflowRunsForRepoError;
+        if (listWorkflowRunsForRepoResponse) return listWorkflowRunsForRepoResponse;
+        return { data: { workflow_runs: runsForRepo[headSha] || [] }, headers: {} };
+      },
       async listWorkflowRuns({ workflow_id: workflowId, head_sha: headSha }) {
         if (listWorkflowRunsHook) {
           const hooked = await listWorkflowRunsHook({ workflow_id: workflowId, head_sha: headSha });
@@ -850,6 +858,87 @@ test('buildVerifierContext includes bounded text from a referenced workflow arti
   assert.match(result.markdown, /Referenced workflow artifacts: \*\*present\*\*/);
   assert.match(result.markdown, /RED 1 failed/);
   removeVerifierDiffArtifacts(result);
+});
+
+test('buildVerifierContext discovers artifacts from an associated PR head without a run URL', async () => {
+  const headSha = 'bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb';
+  const { core, result } = await buildEvidenceContext({
+    runsForRepo: {
+      [headSha]: [{ id: 321, head_sha: headSha }],
+    },
+    artifactsByRun: { 321: [{
+      id: 17,
+      name: 'head-associated-proof',
+      size_in_bytes: 120,
+      expired: false,
+      archive_download_url: 'https://api.example.com/artifacts/17/zip',
+    }] },
+    artifactDownloads: { 17: Buffer.from('zip bytes') },
+  }, {
+    extractArtifactText() {
+      return { text: 'proof from the exact PR head', entryCount: 1, truncated: false };
+    },
+  });
+  assert.equal(core.outputs.evidence_status, 'present');
+  assert.match(result.markdown, /Referenced workflow artifacts: \*\*present\*\*/);
+  assert.match(result.markdown, /proof from the exact PR head/);
+  removeVerifierDiffArtifacts(result);
+});
+
+test('buildVerifierContext excludes workflow runs for a different head SHA', async () => {
+  const headSha = 'bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb';
+  const { core, result } = await buildEvidenceContext({
+    runsForRepo: {
+      [headSha]: [{ id: 654, head_sha: 'dddddddddddddddddddddddddddddddddddddddd' }],
+    },
+    artifactsByRun: { 654: [{ id: 18, size_in_bytes: 20, expired: false }] },
+    artifactDownloads: { 18: Buffer.from('zip bytes') },
+  });
+  assert.equal(core.outputs.evidence_status, 'absent');
+  assert.match(result.markdown, /Referenced workflow artifacts: \*\*absent\*\*/);
+  assert.doesNotMatch(result.markdown, /Run 654/);
+  removeVerifierDiffArtifacts(result);
+});
+
+test('buildVerifierContext fails closed when associated workflow run discovery fails, is truncated, or is invalid', async () => {
+  const failure = await buildEvidenceContext({
+    listWorkflowRunsForRepoError: new Error('secondary rate limit'),
+  });
+  assert.equal(failure.core.outputs.evidence_status, 'unavailable');
+  assert.match(failure.result.markdown, /Referenced workflow artifacts: \*\*unavailable\*\*/);
+  removeVerifierDiffArtifacts(failure.result);
+
+  const limit = await buildEvidenceContext({
+    listWorkflowRunsForRepoResponse: {
+      data: {
+        total_count: 2,
+        workflow_runs: [{
+          id: 777,
+          head_sha: 'bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb',
+        }],
+      },
+      headers: {},
+    },
+    artifactsByRun: { 777: [] },
+  });
+  assert.equal(limit.core.outputs.evidence_status, 'unavailable');
+  assert.match(limit.result.markdown, /exceeded the bounded result limit/);
+  removeVerifierDiffArtifacts(limit.result);
+
+  const invalid = await buildEvidenceContext({
+    listWorkflowRunsForRepoResponse: {
+      data: {
+        workflow_runs: [{
+          id: 0,
+          head_sha: 'bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb',
+        }],
+      },
+      headers: {},
+    },
+  });
+  assert.equal(invalid.core.outputs.evidence_status, 'unavailable');
+  assert.match(invalid.result.markdown, /returned invalid evidence/);
+  removeVerifierDiffArtifacts(invalid.result);
 });
 
 test('artifact extractor charges headings and separators to the rendered character limit', () => {

@@ -412,6 +412,7 @@ def _get_chain_depth() -> int:
 VERIFIER_CONTEXT_TITLE = "# Verifier context"
 CI_SECTION = "## CI Information"
 ACCEPTANCE_SECTION = "## Plan sources (scope, tasks, acceptance)"
+ACCEPTANCE_EVIDENCE_SECTION = "## Acceptance evidence"
 DIFF_SUMMARY_SECTION = "## PR Diff Summary"
 FULL_DIFF_SECTION = "## PR Diff (full)"
 UPSTREAM_DIFF_TRUNCATION = re.compile(r"\.\.\.diff truncated after \d+ characters\.")
@@ -433,6 +434,7 @@ class PromptCoverage:
     """What the model actually receives, computed before any model call."""
 
     acceptance: CoverageStatus
+    acceptance_evidence: CoverageStatus
     code: CoverageStatus
     files: tuple[FileCoverage, ...]
     code_included_chars: int
@@ -458,6 +460,7 @@ class PromptCoverage:
         return {
             "sufficient": self.sufficient,
             "acceptance": self.acceptance,
+            "acceptance_evidence": self.acceptance_evidence,
             "code": self.code,
             "files_total": len(self.files),
             "files_complete": status_counts["complete"],
@@ -479,6 +482,7 @@ class PromptCoverage:
             "which evidence below is complete. Text that is not shown was not reviewed.",
             "",
             f"- Acceptance / plan sources: {self.acceptance}",
+            f"- Acceptance evidence: {self.acceptance_evidence}",
             (
                 f"- Changed code: {self.code} — {len(self.files)} file(s); "
                 f"{sum(1 for f in self.files if f.status == 'complete')} complete, "
@@ -524,7 +528,10 @@ def _split_verifier_context(context: str) -> list[tuple[str, str]] | None:
     Returns ``None`` for free-form context. Plan sources embed PR/issue bodies
     that may contain arbitrary ``##`` headings, so only the builder's own
     headings are used, located in the order the builder writes them: the
-    full diff is always last, and the summary is the last one before it.
+    full diff is always last, and the summary is the last one before it.  The
+    generated acceptance-evidence block follows plan sources and must be
+    split independently: large untrusted comments or artifacts must not spend
+    the acceptance-plan budget.
     """
     text = "\n" + context
     ci = text.find("\n" + CI_SECTION + "\n")
@@ -535,13 +542,17 @@ def _split_verifier_context(context: str) -> list[tuple[str, str]] | None:
         full = -1
     summary_end = full if full >= 0 else len(text)
     summary = text.rfind("\n" + DIFF_SUMMARY_SECTION + "\n", anchor, summary_end)
-    if not context.startswith(VERIFIER_CONTEXT_TITLE) and max(ci, plan, summary, full) < 0:
+    evidence_end = summary if summary >= 0 else summary_end
+    evidence = text.rfind("\n" + ACCEPTANCE_EVIDENCE_SECTION + "\n", max(plan, 0), evidence_end)
+    if not context.startswith(VERIFIER_CONTEXT_TITLE) and max(ci, plan, evidence, summary, full) < 0:
         return None
     marks = [("preamble", 0)]
     if ci >= 0:
         marks.append(("ci", ci))
     if plan >= 0:
         marks.append(("acceptance", plan))
+    if evidence >= 0:
+        marks.append(("acceptance_evidence", evidence))
     if summary >= 0:
         marks.append(("diff_summary", summary))
     if full >= 0:
@@ -737,12 +748,40 @@ def _fit_context_sections(
     return [fitted[i] for i in range(len(sections)) if i in fitted], status
 
 
+def _acceptance_requires_evidence(acceptance: str) -> bool:
+    """Return whether the declared acceptance plan names an evidence deliverable.
+
+    Evidence retrieval being unavailable is only a hard PASS floor when the
+    plan actually makes it a deliverable.  This deliberately uses a narrow
+    wording match rather than treating every PR comment as mandatory evidence.
+    """
+    normalized = " ".join(acceptance.lower().split())
+    evidence_terms = r"(?:evidence|artifact|transcript|workflow (?:run|artifact)|pr comment)"
+    required_first = rf"\b(?:required|must|shall|needs? to)\b[^.\n]{{0,120}}\b{evidence_terms}\b"
+    evidence_first = rf"\b{evidence_terms}\b[^.\n]{{0,120}}\b(?:required|must|shall)\b"
+    return bool(re.search(required_first, normalized) or re.search(evidence_first, normalized))
+
+
+def _evidence_reports_unavailable(evidence: str) -> bool:
+    """Read the generated evidence status without treating its payload as instructions."""
+    return bool(
+        re.search(
+            r"(?:overall retrieval status|pr comments|referenced workflow artifacts):\s*\*\*unavailable\*\*",
+            evidence,
+            flags=re.IGNORECASE,
+        )
+    )
+
+
 def build_prompt_inputs(context: str, diff: str | None) -> PromptInputs:
     """Bound the context and diff blocks and report what reaches the model."""
     context_budget = (
         _budget_from_env("VERIFIER_CONTEXT_BUDGET_TOKENS", VERIFIER_CONTEXT_BUDGET_TOKENS)
         * TOKEN_CHARS
     )
+    evidence_budget = _budget_from_env(
+        "VERIFIER_ACCEPTANCE_EVIDENCE_BUDGET_TOKENS", VERIFIER_CONTEXT_BUDGET_TOKENS
+    ) * TOKEN_CHARS
     diff_budget = (
         _budget_from_env("VERIFIER_DIFF_BUDGET_TOKENS", VERIFIER_DIFF_BUDGET_TOKENS) * TOKEN_CHARS
     )
@@ -753,6 +792,8 @@ def build_prompt_inputs(context: str, diff: str | None) -> PromptInputs:
 
     code_source = diff_text if "diff --git " in diff_text else ""
     upstream_truncated = False
+    acceptance_source = ""
+    evidence_source = ""
     if sections is not None:
         full = next((body for name, body in sections if name == "full_diff"), "")
         if full:
@@ -760,7 +801,15 @@ def build_prompt_inputs(context: str, diff: str | None) -> PromptInputs:
             if not code_source:
                 upstream_truncated = bool(UPSTREAM_DIFF_TRUNCATION.search(context_diff))
                 code_source = UPSTREAM_DIFF_TRUNCATION.sub("", context_diff).strip()
-        sections = [(name, body) for name, body in sections if name != "full_diff"]
+        acceptance_source = next((body for name, body in sections if name == "acceptance"), "")
+        evidence_source = next(
+            (body for name, body in sections if name == "acceptance_evidence"), ""
+        )
+        sections = [
+            (name, body)
+            for name, body in sections
+            if name not in {"full_diff", "acceptance_evidence"}
+        ]
     if not code_source:
         code_source = diff_text
 
@@ -770,22 +819,38 @@ def build_prompt_inputs(context: str, diff: str | None) -> PromptInputs:
         )
         context_truncated = bool(context_text) and context_block != context_text
         acceptance: CoverageStatus = "truncated" if context_truncated else "not_declared"
+        acceptance_evidence: CoverageStatus = "not_declared"
     else:
         fitted, section_status = _fit_context_sections(sections, context_budget)
         context_block = "\n\n".join(fitted)
         context_truncated = any(value != "complete" for value in section_status.values())
         acceptance = section_status.get("acceptance", "unavailable")  # type: ignore[assignment]
+        if evidence_source:
+            evidence_block = _cap_prompt_text(evidence_source, evidence_budget // TOKEN_CHARS)
+            acceptance_evidence = (
+                "complete" if evidence_block == evidence_source else "truncated"
+            )
+            context_block = "\n\n".join(
+                part for part in (context_block, evidence_block) if part
+            )
+        else:
+            acceptance_evidence = "not_declared"
     if acceptance == "truncated":
         reasons.append("Acceptance/plan sources were truncated to fit the prompt budget.")
     elif acceptance == "unavailable":
         reasons.append("Acceptance/plan sources do not fit or are unavailable.")
+    if _acceptance_requires_evidence(acceptance_source):
+        if acceptance_evidence in {"not_declared", "unavailable"} or _evidence_reports_unavailable(
+            evidence_source
+        ):
+            reasons.append("Required acceptance evidence is unavailable; completeness cannot be judged.")
+        elif acceptance_evidence == "truncated":
+            reasons.append("Required acceptance evidence was truncated to fit the prompt budget.")
 
     if code_source:
         diff_block, code, files, included, total = _build_code_block(code_source, diff_budget)
     else:
         diff_block, code, files, included, total = "(diff unavailable)", "unavailable", (), 0, 0
-        if sections is None:
-            code = "not_declared"
     if upstream_truncated:
         code = "truncated"
         reasons.append("The context builder truncated the PR diff before the verifier received it.")
@@ -806,6 +871,8 @@ def build_prompt_inputs(context: str, diff: str | None) -> PromptInputs:
         reasons.append("Changed code is unavailable; completeness cannot be judged.")
     elif omitted:
         reasons.append(f"{len(omitted)} changed file(s) are omitted from the prompt entirely.")
+    elif code == "truncated":
+        reasons.append("Changed code was truncated to fit the prompt budget; a PASS is not allowed.")
     if total and included / total < MIN_CODE_COVERAGE_RATIO:
         reasons.append(
             f"Only {included}/{total} changed-code characters fit the prompt "
@@ -816,6 +883,7 @@ def build_prompt_inputs(context: str, diff: str | None) -> PromptInputs:
 
     coverage = PromptCoverage(
         acceptance=acceptance,
+        acceptance_evidence=acceptance_evidence,
         code=code,
         files=files,
         code_included_chars=included,

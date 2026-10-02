@@ -2237,7 +2237,7 @@ test('generated delivery classification gives sync and dev-tool lanes identical 
   );
 });
 
-test('review-blocked sync bot threads on manifest-synced paths route to maint-71 auto-resolve', () => {
+test('review-blocked sync bot threads on manifest-synced paths require upstream repair and reviewer disposition', () => {
   const record = '<!-- sync-pr-delivery-record:v1 {"schema":"sync-pr-delivery-record/v1","durable_issue_url":"https://github.com/stranske/Workflows/issues/1836","plan_id":"plan-abc","generation":"generation-1","repository":"stranske/Travel-Plan-Permission","desired_tree_hash":"tree-abc","source_commit":"source-abc","lease_expires_at":"2026-08-02T00:00:00Z","predecessor_prs":[],"successor_prs":[]} -->';
   const sync = {
     ...pr(1, 'sync/workflows-current', '2026-04-25T01:00:00Z'),
@@ -2274,7 +2274,7 @@ test('review-blocked sync bot threads on manifest-synced paths route to maint-71
   });
   assert.equal(routed.disposition, 'review-blocked');
   assert.equal(routed.blocker_owner, 'maint-71');
-  assert.equal(routed.next_command, AUTO_RESOLVE_SYNC_BOT_THREADS_COMMAND);
+  assert.equal(routed.next_command, 'repair-upstream-and-request-reviewer-disposition');
 
   const humanThread = [{
     ...botThreads[0],
@@ -2343,7 +2343,7 @@ test('review-blocked sync thread routing derives every bot login from review pol
     reviewerProfiles,
   });
   assert.equal(routed.blocker_owner, 'maint-71');
-  assert.equal(routed.next_command, AUTO_RESOLVE_SYNC_BOT_THREADS_COMMAND);
+  assert.equal(routed.next_command, 'repair-upstream-and-request-reviewer-disposition');
 
   const unconfigured = [{
     ...reviewThreads[0],

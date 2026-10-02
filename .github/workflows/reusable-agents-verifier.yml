@@ -871,9 +871,6 @@ jobs:
           set -euo pipefail
           context_file="${{ steps.context.outputs.context_path }}"
           diff_file="${{ steps.context.outputs.diff_path }}"
-          if [ -z "$diff_file" ] || [ ! -f "$diff_file" ]; then
-            diff_file="${{ steps.context.outputs.diff_summary_path }}"
-          fi
           model="${{ inputs.model }}"
           provider="${{ inputs.provider }}"
           if [ "$provider" = "auto" ]; then
@@ -1130,7 +1127,9 @@ jobs:
         run: |
           set -euo pipefail
           context_file="${{ steps.context.outputs.context_path }}"
-          diff_file="${{ steps.context.outputs.diff_summary_path }}"
+          # The summary is navigation, not proof of the changed code. Missing
+          # full-diff input must remain unavailable to the coverage floor.
+          diff_file="${{ steps.context.outputs.diff_path }}"
 
           # Build args array
           args=(--context-file "$context_file" --compare --json)
