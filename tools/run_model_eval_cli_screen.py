@@ -15,6 +15,7 @@ import subprocess
 import tempfile
 import time
 from collections import defaultdict
+from dataclasses import dataclass
 from pathlib import Path
 from typing import Any
 
@@ -25,6 +26,16 @@ from tools.run_model_eval_pilot import fetch_pr
 MAX_CASES = 8
 MAX_MODELS = 4
 DEFAULT_MODELS = "gpt-5.6-terra,gpt-6-luna,gpt-6-sol,gpt-6-astra"
+
+
+@dataclass(frozen=True)
+class CliResult:
+    payload: dict[str, Any] | None
+    input_tokens: int
+    output_tokens: int
+    latency_ms: float
+    error: str | None = None
+    stop_screen: bool = False
 
 
 def select_cases(cases: list[dict[str, Any]], limit: int = MAX_CASES) -> list[dict[str, Any]]:
@@ -78,6 +89,23 @@ def token_usage(stream: str) -> tuple[int, int]:
     return input_tokens, output_tokens
 
 
+def has_tool_events(stream: str) -> bool:
+    """Reject any CLI tool activity in an untrusted PR evaluation."""
+    for line in stream.splitlines():
+        try:
+            event = json.loads(line)
+        except ValueError:
+            continue
+        event_type = str(event.get("type", ""))
+        if "tool" in event_type or "command" in event_type:
+            return True
+        if event_type.startswith("item."):
+            item = event.get("item")
+            if not isinstance(item, dict) or item.get("type") not in {"agent_message", "reasoning"}:
+                return True
+    return False
+
+
 def api_list_price_estimate(
     input_tokens: int, output_tokens: int, pricing: dict[str, Any]
 ) -> float:
@@ -94,7 +122,11 @@ def api_list_price_estimate(
 
 def cli_model_ids(codex: str) -> set[str]:
     response = subprocess.run(
-        [codex, "debug", "models"], capture_output=True, text=True, timeout=30, check=True
+        [codex, "debug", "models", "--bundled"],
+        capture_output=True,
+        text=True,
+        timeout=30,
+        check=True,
     )
     payload = json.loads(response.stdout)
     return {
@@ -104,42 +136,85 @@ def cli_model_ids(codex: str) -> set[str]:
     }
 
 
-def invoke_cli(codex: str, model: str, prompt: str) -> tuple[dict[str, Any], int, int, float]:
+def invoke_cli(codex: str, model: str, prompt: str) -> CliResult:
     with tempfile.TemporaryDirectory(prefix="maint78-cli-") as scratch:
         final = Path(scratch) / "final.json"
         started = time.perf_counter()
-        response = subprocess.run(
-            [
-                codex,
-                "exec",
-                "--json",
-                "--ignore-user-config",
-                "--strict-config",
-                "--skip-git-repo-check",
-                "--sandbox",
-                "read-only",
-                "--ephemeral",
-                "--model",
-                model,
-                "--output-last-message",
-                str(final),
-                "-",
-            ],
-            input=prompt,
-            capture_output=True,
-            text=True,
-            cwd=scratch,
-            timeout=240,
-            check=False,
-        )
+        command = [
+            codex,
+            "exec",
+            "--json",
+            "--ignore-user-config",
+            "--strict-config",
+            "--skip-git-repo-check",
+            "--sandbox",
+            "read-only",
+            "--ephemeral",
+            "--model",
+            model,
+            "--output-last-message",
+            str(final),
+            "-",
+        ]
+        try:
+            response = subprocess.run(
+                command,
+                input=prompt,
+                capture_output=True,
+                text=True,
+                cwd=scratch,
+                timeout=240,
+                check=False,
+            )
+        except subprocess.TimeoutExpired as exc:
+            stream = exc.stdout or b""
+            if isinstance(stream, bytes):
+                stream = stream.decode("utf-8", errors="replace")
+            input_tokens, output_tokens = token_usage(stream)
+            return CliResult(
+                None,
+                input_tokens,
+                output_tokens,
+                round((time.perf_counter() - started) * 1000, 3),
+                "Codex CLI timed out",
+                True,
+            )
         latency_ms = round((time.perf_counter() - started) * 1000, 3)
-        if response.returncode:
-            raise ValueError(f"Codex CLI exited {response.returncode}: {response.stderr[-500:]}")
         input_tokens, output_tokens = token_usage(response.stdout)
+        if has_tool_events(response.stdout):
+            return CliResult(
+                None,
+                input_tokens,
+                output_tokens,
+                latency_ms,
+                "Codex CLI emitted a tool event; result excluded",
+                True,
+            )
+        if response.returncode:
+            return CliResult(
+                None,
+                input_tokens,
+                output_tokens,
+                latency_ms,
+                f"Codex CLI exited {response.returncode}",
+                True,
+            )
         if not final.is_file():
-            raise ValueError("Codex CLI produced no final message")
-        result = pr_verifier.EvaluationPayload.model_validate_json(final.read_text())
-        return result.model_dump(), input_tokens, output_tokens, latency_ms
+            return CliResult(
+                None,
+                input_tokens,
+                output_tokens,
+                latency_ms,
+                "Codex CLI produced no final message",
+                True,
+            )
+        try:
+            result = pr_verifier.EvaluationPayload.model_validate_json(final.read_text())
+        except ValueError:
+            return CliResult(
+                None, input_tokens, output_tokens, latency_ms, "Invalid verifier JSON", False
+            )
+        return CliResult(result.model_dump(), input_tokens, output_tokens, latency_ms)
 
 
 def run_screen(
@@ -189,22 +264,28 @@ def run_screen(
                 + pr_verifier._prepare_prompt(context, diff)
             )
             try:
-                result, input_tokens, output_tokens, latency_ms = invoke_cli(codex, model, prompt)
-                verdict = "PASS" if result["verdict"] == "PASS" else "NON_PASS"
+                outcome = invoke_cli(codex, model, prompt)
+                verdict = (
+                    "PASS"
+                    if outcome.payload and outcome.payload["verdict"] == "PASS"
+                    else "NON_PASS"
+                )
                 row = {
                     "case_id": case["case_id"],
                     "category": case["category"],
                     "expected_verdict": case["expected_verdict"],
                     "actual_verdict": verdict,
-                    "schema_valid": True,
+                    "schema_valid": outcome.payload is not None,
                     "model_id": model,
-                    "input_tokens": input_tokens,
-                    "output_tokens": output_tokens,
-                    "latency_ms": latency_ms,
+                    "input_tokens": outcome.input_tokens,
+                    "output_tokens": outcome.output_tokens,
+                    "latency_ms": outcome.latency_ms,
                     "modeled_api_cost_usd": api_list_price_estimate(
-                        input_tokens, output_tokens, prices[model]
+                        outcome.input_tokens, outcome.output_tokens, prices[model]
                     ),
                 }
+                if outcome.error:
+                    row["error"] = outcome.error
             except Exception as exc:
                 row = {
                     "case_id": case["case_id"],
@@ -215,10 +296,11 @@ def run_screen(
                     "model_id": model,
                     "error": str(exc),
                 }
+                outcome = None
             rows.append(row)
-            # A missing usage record destroys the cost comparison. Stop after one
-            # failed invocation instead of spending more subscription capacity.
-            if not row["schema_valid"]:
+            # A schema error is quality evidence and preserves its token cost.
+            # Missing usage or tool activity invalidates the screen itself.
+            if outcome is None or outcome.stop_screen:
                 return report(plan, cases, models, rows, stopped_early=True)
     return report(plan, cases, models, rows, stopped_early=False)
 

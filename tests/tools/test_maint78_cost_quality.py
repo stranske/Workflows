@@ -3,11 +3,17 @@
 from __future__ import annotations
 
 import json
+from pathlib import Path
+from types import SimpleNamespace
 
 import pytest
 from tools.plan_model_eval import ROOT, build_plan
 from tools.run_model_eval_cli_screen import (
+    CliResult,
     api_list_price_estimate,
+    cli_model_ids,
+    has_tool_events,
+    invoke_cli,
     report,
     run_screen,
     select_cases,
@@ -112,3 +118,67 @@ def test_cli_screen_rejects_unpaired_or_unpriced_selection_before_fetch(monkeypa
         run_screen(corpus, registry, policy, models=["gpt-6-astra", "gpt-5.6-sol"], token="x")
     with pytest.raises(ValueError, match="verified registry prices"):
         run_screen(corpus, registry, policy, models=["gpt-5.6-terra", "gpt-unpriced"], token="x")
+
+
+def test_cli_catalog_is_pinned_and_tool_events_are_rejected(monkeypatch):
+    received = {}
+
+    def fake_catalog(command, **kwargs):
+        received["command"] = command
+        return SimpleNamespace(
+            stdout=json.dumps(
+                {"models": [{"slug": "gpt-6-sol", "visibility": "list", "supported_in_api": True}]}
+            )
+        )
+
+    monkeypatch.setattr("tools.run_model_eval_cli_screen.subprocess.run", fake_catalog)
+    assert cli_model_ids("codex") == {"gpt-6-sol"}
+    assert received["command"][-1] == "--bundled"
+    assert not has_tool_events('{"type":"item.completed","item":{"type":"agent_message"}}')
+    assert has_tool_events('{"type":"item.completed","item":{"type":"command_execution"}}')
+    assert has_tool_events('{"type":"item.completed","item":{"type":"web_search"}}')
+
+
+def test_invalid_json_preserves_cli_usage_and_does_not_stop_screen(monkeypatch):
+    stream = '{"type":"turn.completed","usage":{"input_tokens":1000,"output_tokens":500}}'
+
+    def fake_invocation(command, **kwargs):
+        final = Path(command[command.index("--output-last-message") + 1])
+        final.write_text("not JSON")
+        return SimpleNamespace(stdout=stream, returncode=0)
+
+    monkeypatch.setattr("tools.run_model_eval_cli_screen.subprocess.run", fake_invocation)
+    outcome = invoke_cli("codex", "gpt-5.6-terra", "test")
+    assert outcome.payload is None
+    assert outcome.input_tokens == 1000 and outcome.output_tokens == 500
+    assert outcome.latency_ms >= 0
+    assert outcome.error == "Invalid verifier JSON"
+    assert not outcome.stop_screen
+
+    corpus, registry, policy = _inputs()
+    corpus = {**corpus, "cases": corpus["cases"][:2]}
+    calls = []
+
+    def fake_screen_invocation(*args):
+        calls.append(args)
+        if len(calls) == 1:
+            return outcome
+        return CliResult({"verdict": "PASS"}, 1000, 500, 1.0)
+
+    monkeypatch.setattr(
+        "tools.run_model_eval_cli_screen.cli_model_ids",
+        lambda _: {"gpt-5.6-terra", "gpt-6-sol"},
+    )
+    monkeypatch.setattr("tools.run_model_eval_cli_screen.fetch_pr", lambda *args: ("context", ""))
+    monkeypatch.setattr("tools.run_model_eval_cli_screen.invoke_cli", fake_screen_invocation)
+    result = run_screen(
+        corpus,
+        registry,
+        policy,
+        models=["gpt-5.6-terra", "gpt-6-sol"],
+        token="x",
+    )
+    assert len(result["rows"]) == 4
+    assert not result["stopped_early"]
+    assert result["rows"][0]["schema_valid"] is False
+    assert result["rows"][0]["modeled_api_cost_usd"] > 0
