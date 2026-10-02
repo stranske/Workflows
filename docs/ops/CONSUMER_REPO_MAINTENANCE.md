@@ -157,6 +157,11 @@ Some repos cannot use the template `pr-00-gate.yml` because:
   `AGENTS.md` and `CLAUDE.md`: the manifest excludes both files from
   overwrite-sync because they contain archive-specific reverse-image-search
   guidance.
+- **Orchestrator**: Owns its root `AGENTS.md` and `CLAUDE.md`. In particular,
+  `AGENTS.md` requires `src/merge_guard.py` for terminal merges; overwriting it
+  with the consumer template removed that repo-local safety rule and failed
+  `tests/test_merge_entrypoint_contract.py` on workflow-sync PR #399. The
+  manifest excludes both root guidance files while other managed files sync.
 
 For these repos:
 - The Gate workflow (`pr-00-gate.yml`) is maintained locally and excluded from sync.
@@ -171,15 +176,16 @@ For these repos:
   fails closed until Maint 71 seals that head.
 - `Trend_Model_Project` skips the synced `AGENTS.md` file and keeps its local
   `Agents.md`.
+- `Orchestrator` skips the synced `AGENTS.md` and `CLAUDE.md` files and keeps
+  its local terminal-merge and orchestration safety rules.
 - `trip-planner` skips the synced `.github/scripts/package.json` and vendored
   `.github/scripts/node_modules/` entries so its lockfile-based dependency
   policy remains intact.
 - `Fine-Art-Archive` still receives the managed `.github/renovate.json`; its
   dependency exception is centralized in `renovate-presets/fleet.json` with a
   repository-scoped package rule, not patched directly in the consumer repo.
-- Other files listed in the sync manifest continue to sync normally; the
-  Fine-Art-Archive root-guidance exception is limited to `AGENTS.md` and
-  `CLAUDE.md`.
+- Other files listed in the sync manifest continue to sync normally; these
+  root-guidance exceptions are limited to the named repositories and files.
 
 Maint 68 implements these exceptions through each entry's typed manifest
 `skip_repos` rules. There is no separate hard-coded custom-Gate list in the
