@@ -8,7 +8,7 @@ const crypto = require('crypto');
 const { buildVerifierContext } = require('../.github/scripts/agents_verifier_context.js');
 
 async function captureModelEvalInputs({
-  github, context, core, targets, outputRoot = 'captured-inputs', buildContext = buildVerifierContext,
+  github, context, core, targets, buildContext = buildVerifierContext,
 }) {
   const entries = String(targets || '').trim().split(',');
   if (
@@ -19,9 +19,10 @@ async function captureModelEvalInputs({
     throw new Error('capture_targets must contain 1-8 unique owner/repo#PR entries');
   }
   const root = process.cwd();
+  const captureRoot = path.join(root, 'captured-inputs');
   const priorPr = process.env.VERIFIER_PR_NUMBER;
   try {
-    for (const entry of entries) {
+    for (const [index, entry] of entries.entries()) {
       const [fullName, pr] = entry.split('#');
       const [owner, repo] = fullName.split('/');
       const number = Number(pr);
@@ -29,7 +30,7 @@ async function captureModelEvalInputs({
         owner === 'stranske' && repo === 'Workflows'
           ? '["pr-00-gate.yml", "pr-11-ci-smoke.yml", "selftest-ci.yml"]'
           : '["ci.yml", "pr-00-gate.yml"]';
-      const target = path.resolve(root, outputRoot, `${owner}-${repo}-pr-${number}`);
+      const target = path.join(captureRoot, `case-${index + 1}`);
       fs.mkdirSync(target, { recursive: true });
       process.env.VERIFIER_PR_NUMBER = String(number);
       process.chdir(target);

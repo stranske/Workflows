@@ -34,7 +34,7 @@ test('read-only context capture records retrospective provenance and restores pr
       ['ci.yml', 'pr-00-gate.yml'],
     ]);
     assert.equal(process.env.VERIFIER_PR_NUMBER, '99');
-    const manifest = JSON.parse(fs.readFileSync(path.join(root, 'captured-inputs/stranske-Workflows-pr-10/verifier-input-manifest.json')));
+    const manifest = JSON.parse(fs.readFileSync(path.join(root, 'captured-inputs/case-1/verifier-input-manifest.json')));
     assert.equal(manifest.capture_kind, 'retrospective');
     assert.equal(manifest.source_run_id, '123');
     await assert.rejects(
