@@ -4,7 +4,7 @@
 > `config/llm_slots.json`
 > **Policy version:** `auxiliary-verifier-model-selection-v1`
 > **Reviewed:** 2026-10-01
-> **Next decision review:** 2026-10-31
+> **Next decision review:** 2026-10-09 for the provisional OpenAI selection
 
 ## Decision Principle
 
@@ -201,13 +201,31 @@ classes, and by default only one of them fails the gate:
 Pass `--strict` to fail on *any* finding (used where a PR itself edits model
 configuration and should be proven fresh before merging).
 
-## Incumbents and Candidates
+## Current provisional decision
 
-The existing OpenAI, Anthropic, and GitHub Models verifier choices are recorded
-as provisional incumbents. They remain the runtime baseline while the pilot is
-assembled and run; catalog discovery can add candidates but cannot change a
-selection. A replacement requires paired workload evidence that passes every
-quality gate and an explicit approval update.
+MAINT-78's [eight-case subscription screen](https://github.com/stranske/Workflows/actions/runs/36976424099)
+and [16-call capped API confirmation](https://github.com/stranske/Workflows/actions/runs/36976797455)
+support a provisional switch from GPT-5.6 Terra to GPT-6 Luna for the OpenAI
+`verifier-balanced` selection. Both models correctly classified the same four
+PASS and four NON_PASS inputs, with zero false PASS and schema errors. The API
+confirmation's cost estimate from measured tokens was $0.000561 per accepted
+review for Luna and $0.011036 for Terra. The worst-case standard-rate cost
+reserved across all calls was $0.582329 under the $5 cap; that is not an invoice
+amount.
+
+All six natural inputs were captured retrospectively, and two NON_PASS inputs
+were marked controlled defects. This is enough for a reversible operational
+choice after human approval, not a population error-rate claim or statistical
+approval. Merging the registry selection PR is the approval. Review the first
+ten live verifier outcomes or by 2026-10-09, whichever comes first. Roll back
+to Terra on an observed false PASS or material quality regression. Recheck
+prompted by a new catalog model, price, verifier prompt, or workload change
+without waiting for the statistical corpus to mature.
+
+The Anthropic and GitHub Models selections remain provisional. The OpenAI
+registry selection flows to consumers through the normal Maint 68/71 sync
+delivery; verify the consumer registry actually changes before claiming the
+runtime switch has landed.
 
 ### Prepared promotions and rollbacks
 
