@@ -6,6 +6,13 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 Breaking changes are called out with a **BREAKING** marker and scheduled according to the policy in `COMPATIBILITY.md`.
 
+## [1.37.9](https://github.com/stranske/Workflows/compare/v1.37.8...v1.37.9) (2026-10-02)
+
+
+### Bug Fixes
+
+* preserve prefixed reasoning model policy in sync source ([#3704](https://github.com/stranske/Workflows/issues/3704)) ([6247494](https://github.com/stranske/Workflows/commit/62474944c35ae8a7759eba8fa54134d96279685d))
+
 ## [1.37.8](https://github.com/stranske/Workflows/compare/v1.37.7...v1.37.8) (2026-10-02)
 
 
