@@ -450,6 +450,12 @@ def test_mixed_prohibition_preserves_required_comment_channel() -> None:
     assert pr_verifier._required_evidence_channels(
         "- No artifact is required, but a PR comment must be posted"
     ) == {"comments"}
+    assert pr_verifier._required_evidence_channels(
+        "- No artifact is required and a PR comment must be posted"
+    ) == {"comments"}
+    assert pr_verifier._required_evidence_channels(
+        "- The artifact must not be uploaded, but a PR comment must be posted"
+    ) == {"comments"}
 
 
 def test_command_output_uses_its_named_source_channel() -> None:

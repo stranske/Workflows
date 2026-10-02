@@ -934,6 +934,24 @@ test('buildVerifierContext discovers artifacts from an associated PR head withou
   removeVerifierDiffArtifacts(result);
 });
 
+test('buildVerifierContext preserves exact-head artifacts when PR comment retrieval fails', async () => {
+  const headSha = 'bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb';
+  const { core, result } = await buildEvidenceContext({
+    commentError: new Error('secondary rate limit'),
+    runsForRepo: { [headSha]: [{ id: 321, head_sha: headSha }] },
+    artifactsByRun: { 321: [{ id: 17, name: 'head-proof', size_in_bytes: 120, expired: false }] },
+    artifactDownloads: { 17: Buffer.from('zip bytes') },
+  }, {
+    extractArtifactText() {
+      return { text: 'proof from the exact PR head', entryCount: 1, truncated: false };
+    },
+  });
+  assert.equal(core.outputs.evidence_status, 'unavailable');
+  assert.match(result.markdown, /PR comments: \*\*unavailable\*\*/);
+  assert.match(result.markdown, /Referenced workflow artifacts: \*\*present\*\*/);
+  removeVerifierDiffArtifacts(result);
+});
+
 test('buildVerifierContext fails closed when workflow discovery returns a different head SHA', async () => {
   const headSha = 'bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb';
   const { core, result } = await buildEvidenceContext({

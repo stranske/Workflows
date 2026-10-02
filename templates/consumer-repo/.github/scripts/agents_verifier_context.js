@@ -369,10 +369,6 @@ async function fetchVerifierEvidence({
   const runIds = [];
   const seenRunIds = new Set();
   let artifactIncomplete = allRunIds.length > referencedRunIds.length;
-  if (comments.status === 'unavailable') {
-    artifactIncomplete = true;
-    artifacts.reason = 'comment evidence was unavailable, so referenced run discovery is incomplete';
-  }
 
   const commitShas = Array.from(new Set((associatedCommitShas || []).filter(Boolean)));
   const exactCommitShas = new Set(
@@ -533,6 +529,10 @@ async function fetchVerifierEvidence({
       artifacts.reason = `artifact retrieval failed for run ${runId}: ${error.message}`;
       core?.warning?.(`Verifier workflow-artifact evidence unavailable: ${error.message}`);
     }
+  }
+  if (comments.status === 'unavailable' && (!commitShas.length || !artifacts.records.length)) {
+    artifactIncomplete = true;
+    artifacts.reason ||= 'comment evidence was unavailable, so referenced run discovery is incomplete';
   }
   if (artifactIncomplete) {
     artifacts.status = 'unavailable';
