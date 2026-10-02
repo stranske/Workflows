@@ -3,7 +3,6 @@
 from pathlib import Path
 
 import yaml
-
 from scripts.runner_lib import core as runner_core
 
 ROOT = Path(__file__).resolve().parents[2]
