@@ -1,8 +1,9 @@
 {
   "schema": "workflows-verifier-pilot-corpus/v1",
   "corpus_version": "verifier-balanced-pilot-2026-07-12+harvest21",
-  "purpose": "Adjudicated verifier corpus for fast paired provisional comparisons and longer-term statistical approval. The 30-case candidate stage already supports a bounded comparison; statistical approval separately requires the policy's sample, category, and confidence gates.",
+  "purpose": "Historical verifier outcomes for long-term statistical approval. Separately adjudicated screen_cases support the fast paired provisional comparison without entering statistical counts.",
   "adjudication_rule": "PASS requires durable completion disposition; NON_PASS requires a verifier-driven follow-up or unresolved completion gap.",
+  "screen_adjudication_rule": "Judge the captured verifier input against acceptance at the point represented by that input; record independent evidence and controlled mutations. Later issue closure alone does not set the screen verdict.",
   "screen_input_status": "unverified_posthoc_labels",
   "screen_case_ids": [],
   "screen_cases": [],
