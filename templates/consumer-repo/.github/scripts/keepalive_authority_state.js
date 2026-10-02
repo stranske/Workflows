@@ -34,15 +34,27 @@ function validState(state, repository, prNumber, { allowLegacyHead = false } = {
       (Array.isArray(state.recovered_generation_lineage) &&
         state.recovered_generation_lineage.length <= RECOVERED_LINEAGE_LIMIT &&
         state.recovered_generation_lineage.every((generation) => HEX.test(generation)))) &&
+    (state.released_receipt == null ||
+      (validReceipt(state.released_receipt, repository) && HEX.test(state.released_generation))) &&
     (state.recovered_receipt == null ||
-      (validReceipt(state.recovered_receipt) && HEX.test(state.recovered_generation))) &&
+      (validReceipt(state.recovered_receipt, repository) && HEX.test(state.recovered_generation))) &&
     (state.status === 'available' ? state.receipt === null :
-      validReceipt(state.receipt));
+      validReceipt(state.receipt, repository));
 }
 
-function validReceipt(receipt) {
-  return receipt && HEX.test(receipt.id) && HEX.test(receipt.claim_digest) &&
-    ATTEMPT.test(receipt.owner_attempt) && HEAD.test(receipt.head_sha) &&
+function validOwnerAttempt(repository, ownerAttempt) {
+  const repo = String(repository).toLowerCase();
+  if (typeof ownerAttempt !== 'string' || ownerAttempt !== ownerAttempt.toLowerCase() ||
+      !ATTEMPT.test(ownerAttempt) || !ownerAttempt.startsWith(`${repo}:`)) return false;
+  const identity = ownerAttempt.slice(repo.length + 1).match(/^([1-9]\d*):([1-9]\d*)$/);
+  if (!identity) return false;
+  return identity.slice(1).every((value) => Number.isSafeInteger(Number(value)));
+}
+
+function validReceipt(receipt, repository) {
+  return receipt && typeof receipt === 'object' && !Array.isArray(receipt) &&
+    HEX.test(receipt.id) && HEX.test(receipt.claim_digest) &&
+    validOwnerAttempt(repository, receipt.owner_attempt) && HEAD.test(receipt.head_sha) &&
     typeof receipt.provider === 'string' && /^[a-z][a-z0-9_-]*$/.test(receipt.provider) &&
     exactTime(receipt.consumed_at);
 }
@@ -67,7 +79,8 @@ function attemptPath(repository, ownerAttempt) {
 function validAttemptIndex(index, repository, ownerAttempt) {
   return index?.version === 1 && index.repository === String(repository).toLowerCase() &&
     index.owner_attempt === ownerAttempt && Number.isSafeInteger(index.pr_number) &&
-    index.pr_number > 0 && HEX.test(index.generation) && validReceipt(index.receipt) &&
+    index.pr_number > 0 && HEX.test(index.generation) &&
+    validReceipt(index.receipt, repository) &&
     index.receipt.owner_attempt === ownerAttempt;
 }
 
@@ -228,6 +241,12 @@ async function readAuthorityStateForReplay(request, repository, prNumber) {
     if (tree?.truncated !== false || !Array.isArray(tree?.tree)) {
       throw new Error(`Authority tree ${treeSha} is incomplete or malformed`);
     }
+    if (!tree.tree.every((item) => item && typeof item === 'object' &&
+      typeof item.path === 'string' && item.path.length > 0 && !item.path.includes('/') &&
+      ['blob', 'tree', 'commit'].includes(item.type) &&
+      /^[0-9a-f]{40}$/.test(String(item.sha)))) {
+      throw new Error(`Authority tree ${treeSha} contains an invalid entry`);
+    }
     const entry = tree.tree.find((item) => item?.path === segments[index]);
     // An exact, complete tree snapshot is the only safe proof that no ledger exists.
     if (!entry) return null;
@@ -293,7 +312,7 @@ function legacyPreparedAttemptMatchesIndex(state, index, repository, prNumber) {
   const receipt = state?.receipt;
   const ownerAttempt = receipt?.owner_attempt;
   return state?.status === 'prepared' && state.prepared_claim === undefined &&
-    validReceipt(receipt) && receipt.head_sha === state.head_sha &&
+    validReceipt(receipt, repository) && receipt.head_sha === state.head_sha &&
     ownerAttempt.startsWith(`${String(repository).toLowerCase()}:`) &&
     index.repository === String(repository).toLowerCase() &&
     index.pr_number === Number(prNumber) && index.owner_attempt === ownerAttempt &&
@@ -308,7 +327,7 @@ function sameReceipt(left, right) {
 
 function recoveredAttemptMatchesIndex(state, index, repository, prNumber, ownerAttempt) {
   return state?.status === 'available' && state.receipt === null &&
-    validReceipt(state.recovered_receipt) && HEX.test(state.recovered_generation) &&
+    validReceipt(state.recovered_receipt, repository) && HEX.test(state.recovered_generation) &&
     index.repository === String(repository).toLowerCase() &&
     index.pr_number === Number(prNumber) && index.owner_attempt === ownerAttempt &&
     index.generation === state.recovered_generation &&
