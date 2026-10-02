@@ -31,6 +31,16 @@ Statuses:
 
 The registry excludes repos named `stranske` and `collab-deliverables`.
 
+Before each weekly cycle, compare the roster with recent pull requests across the owner's
+repositories. A repository with substantive product or tooling code being merged or actively
+developed belongs in `active`, even if its original scaffold or research milestone is still
+described as pending. Generated workflow sync, dependency bumps, dashboards, and model-pin
+updates alone do not establish active design work. Keep explicit owner exclusions such as
+`Collab-Admin` and `Workflows-Integration-Tests` intact unless the owner changes that scope.
+Every newly active repository needs an existing writable checkout at its `local_path`, a
+decision anchor, and a review profile before the coordinator runs. A missing checkout is a
+preflight defect to repair, not a reason to silently leave active code outside the review.
+
 Repo-specific review interpretation lives in `config/repo_review_profiles.json`. The evaluator uses these profiles for human-usable progress summaries, readiness summaries, review focus, and known concerns. Generic code-existence statements are not acceptable as the final human packet summary when a profile exists.
 
 Human feedback from the weekly packet lives in `config/repo_review_feedback.json`. This file records per-repo decisions, priority, selected candidate indexes, dropped candidate indexes, and routing rules. It is the source for the approved issue queue consumed by coding-agent opener lanes.

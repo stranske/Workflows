@@ -130,5 +130,70 @@
       "Research-registry stays as YAML in docs/research/registry/ for v1; do not introduce runtime /research/* APIs or SQLAlchemy tables until a product feature reads them.",
       "Local-only SourceReference bodies (e.g., Math Academy paraphrase content, personal Kindle highlights) must never appear in default exports or LangSmith traces."
     ]
+  },
+  "stranske/Doc-Lineage": {
+    "progress_summary": "Doc-Lineage now has working PDF extraction, ingest, and DOCX tracked-changes export paths. Review the documented comparison-ID, OCR, and provenance contracts against the actual local commands and fixtures rather than treating the original scaffold status as current.",
+    "readiness_summary": "Require an end-to-end document comparison and export probe with page and source identity preserved; separate implemented file-pair blacklines from the planned persisted comparison-ID interface.",
+    "review_focus": [
+      "Trace PDF text and OCR fallback through page-attributed evidence and error reporting.",
+      "Verify file-pair DOCX tracked-change output and document identity against real synthetic fixtures.",
+      "Check whether persisted comparison-ID lookup and section pairing claims are actually wired, tested, and exposed."
+    ],
+    "concerns": [
+      "README scaffold-status prose may lag the implementation.",
+      "A parseable document or successful export does not prove page-level provenance or comparison-ID semantics."
+    ]
+  },
+  "stranske/Deliverable-Render": {
+    "progress_summary": "Deliverable-Render has local HTML, PowerPoint, and Word rendering commands over a structured store. Review generated files and manifest/template gates as outputs people can actually open, not only renderer unit tests.",
+    "readiness_summary": "Require synthetic-store end-to-end render probes for all three output shapes, with evidence links, explicit deck manifest, and safe overwrite behavior verified.",
+    "review_focus": [
+      "Render a static HTML hub and verify local-file evidence links and offline behavior.",
+      "Render a deck with a synthetic template and explicit manifest; inspect mapping and omitted-record diagnostics.",
+      "Render a Word memo and verify file output, source mapping, and force/overwrite behavior."
+    ],
+    "concerns": [
+      "Successful commands can still produce incomplete or poorly mapped human deliverables.",
+      "Do not infer hosted-service behavior; the current contract is local files."
+    ]
+  },
+  "stranske/Manager-Mosaic": {
+    "progress_summary": "Manager-Mosaic now implements fact/evidence and thesis-monitoring models with validation and contradiction handling. Review the product contract against real synthetic records and observable discrepancy output.",
+    "readiness_summary": "Require source-linked facts, independent same-period contradictions, gap reporting, and multi-error validation to pass with synthetic/public inputs; do not count mere schema presence as a usable synthesis view.",
+    "review_focus": [
+      "Verify evidence identity, document links, and observed-versus-inferred fact labels.",
+      "Exercise missing fields, malformed units, and identifier errors in one validation pass.",
+      "Check period chronology and thesis status when same-period evidence conflicts or is missing."
+    ],
+    "concerns": [
+      "Silence in a source is a gap, not proof of exit.",
+      "Do not mix document extraction or deliverable rendering into this model repo; those contracts belong to Doc-Lineage and Deliverable-Render."
+    ]
+  },
+  "stranske/Orchestrator": {
+    "progress_summary": "Orchestrator runs a multi-agent controller with routing, quota windows, feedback state, and capability lifecycle. Review actual active-tick evidence and local Brain outcomes, because built code has historically remained dormant.",
+    "readiness_summary": "Require a real or synthetic active-tick trace proving matcher, invocation, artifact consumer, outcome sink, expiry, kill switch, and rollback for claimed active capabilities.",
+    "review_focus": [
+      "Compare registered capabilities with active invocations, durable outputs, and expiry transitions.",
+      "Verify quota and model-catalog failures shed only unavailable seats without hiding other work.",
+      "Check routing decisions and outcome feedback against the Brain and active PR delivery paths."
+    ],
+    "concerns": [
+      "Built-but-forgotten features are a documented recurring failure mode.",
+      "A registered capability or passing unit test is not evidence that a production tick consumes its output."
+    ]
+  },
+  "stranske/Ready": {
+    "progress_summary": "Ready now houses the research programme, publication workflow, evidence artifacts, and capability intake. Review the published state and user-facing outputs rather than treating it as a standby template consumer.",
+    "readiness_summary": "Require publication safety and redaction gates to pass on synthetic fixtures, with status/checkpoint consistency and explicit provenance from research units to published artifacts.",
+    "review_focus": [
+      "Trace programme queue, checkpoint, status, and published artifact consistency.",
+      "Verify local redaction and publication guards on exports without exposing private source text.",
+      "Check capability-bundle ingest contracts and synthetic key evidence through the required Gate."
+    ],
+    "concerns": [
+      "Generated programme status can drift from actual artifact existence.",
+      "Publication preparation is not a substitute for confidentiality review or source authorization."
+    ]
   }
 }
