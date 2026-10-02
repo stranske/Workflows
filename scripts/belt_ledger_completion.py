@@ -55,7 +55,9 @@ def task_artifacts(task: dict[str, Any]) -> list[str]:
     title = str(task.get("title") or "")
     artifacts: list[str] = []
     for match in _BACKTICK_RE.finditer(title):
-        token = _LINE_SUFFIX_RE.sub("", match.group(1).strip()).removeprefix("./")
+        raw_token = _LINE_SUFFIX_RE.sub("", match.group(1).strip())
+        explicitly_rooted = raw_token.startswith("./")
+        token = raw_token.removeprefix("./")
         if not token or any(char.isspace() for char in token):
             continue
         if token.startswith(("--", "http://", "https://", "stranske/")):
@@ -70,13 +72,22 @@ def task_artifacts(task: dict[str, Any]) -> list[str]:
         # than silently blocking a valid task.
         if path.suffix.lower() not in _FILE_SUFFIXES:
             continue
-        if token not in artifacts:
-            artifacts.append(token)
+        artifact = f"./{token}" if explicitly_rooted else token
+        if artifact not in artifacts:
+            artifacts.append(artifact)
     return artifacts
 
 
 def commit_files(commit: str, *, repo_root: Path | str = ".") -> list[str]:
     """Return paths changed by *commit*, including root commits."""
+    object_probe = subprocess.run(
+        ["git", "-C", str(repo_root), "cat-file", "-e", f"{commit}^{{commit}}"],
+        stdout=subprocess.DEVNULL,
+        stderr=subprocess.DEVNULL,
+        check=False,
+    )
+    if object_probe.returncode != 0:
+        raise UnverifiableCommitError(f"commit {commit} is not reachable from this checkout")
     command = [
         "git",
         "-C",
@@ -91,33 +102,44 @@ def commit_files(commit: str, *, repo_root: Path | str = ".") -> list[str]:
     try:
         output = subprocess.check_output(command, stderr=subprocess.DEVNULL)
     except subprocess.CalledProcessError as exc:
-        raise UnverifiableCommitError(
-            f"commit {commit} is not reachable from this checkout"
+        raise CompletionEvidenceError(
+            f"commit {commit} exists but its changed paths could not be inspected"
         ) from exc
     return [item.decode("utf-8", "surrogateescape") for item in output.split(b"\0") if item]
 
 
 def commit_has_path(commit: str, path: str, *, repo_root: Path | str = ".") -> bool:
     """Return whether *path* exists in the tree recorded by *commit*."""
+    explicitly_rooted = path.startswith("./")
+    tree_path = path.removeprefix("./")
     result = subprocess.run(
-        ["git", "-C", str(repo_root), "cat-file", "-e", f"{commit}:{path}"],
+        ["git", "-C", str(repo_root), "cat-file", "-e", f"{commit}:{tree_path}"],
         stdout=subprocess.DEVNULL,
         stderr=subprocess.DEVNULL,
         check=False,
     )
     if result.returncode == 0:
         return True
-    if "/" in path:
+    if explicitly_rooted or "/" in tree_path:
         return False
     try:
         output = subprocess.check_output(
-            ["git", "-C", str(repo_root), "ls-tree", "-r", "--name-only", commit],
+            [
+                "git",
+                "-C",
+                str(repo_root),
+                "ls-tree",
+                "-r",
+                "--name-only",
+                "-z",
+                commit,
+            ],
             stderr=subprocess.DEVNULL,
-            text=True,
         )
     except subprocess.CalledProcessError:
         return False
-    return any(PurePosixPath(candidate).name == path for candidate in output.splitlines())
+    candidates = (item.decode("utf-8", "surrogateescape") for item in output.split(b"\0") if item)
+    return any(PurePosixPath(candidate).name == tree_path for candidate in candidates)
 
 
 def completion_issues(
@@ -130,9 +152,7 @@ def completion_issues(
     task_id = str(task.get("id") or "<unknown>")
     if not re.fullmatch(r"[0-9a-fA-F]{7,40}", commit):
         return [
-            CompletionIssue(
-                "finding", f"task {task_id} cites invalid commit {commit or '<empty>'}"
-            )
+            CompletionIssue("finding", f"task {task_id} cites invalid commit {commit or '<empty>'}")
         ]
     try:
         files = commit_files(commit, repo_root=repo_root)
@@ -148,9 +168,7 @@ def completion_issues(
     issues: list[CompletionIssue] = []
     if not substantive:
         issues.append(
-            CompletionIssue(
-                "finding", f"task {task_id} commit {commit} changes only ledger paths"
-            )
+            CompletionIssue("finding", f"task {task_id} commit {commit} changes only ledger paths")
         )
     missing = [
         path
@@ -175,10 +193,7 @@ def completion_errors(
     repo_root: Path | str = ".",
 ) -> list[str]:
     """Return reasons why *task* cannot transition to ``done`` at *commit*."""
-    return [
-        issue.message
-        for issue in completion_issues(task, commit, repo_root=repo_root)
-    ]
+    return [issue.message for issue in completion_issues(task, commit, repo_root=repo_root)]
 
 
 def _commits_after(start_sha: str, end_sha: str, *, repo_root: Path | str) -> list[str]:

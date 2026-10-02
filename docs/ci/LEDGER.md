@@ -39,6 +39,14 @@ findings and exits non-zero without editing ledgers:
 python scripts/audit_belt_ledger_completion.py --root .
 ```
 
+Historical ledgers can cite commits that are not present in the local object
+store, for example after a squash merge or history rewrite. The audit reports
+those entries separately as `unverifiable` and prints their skipped count. An
+all-unverifiable audit exits zero because it found no false-completion finding;
+that exit status means the available evidence is clean, not that every cited
+commit was inspected. A reachable commit that Git cannot inspect remains a hard
+audit error rather than being downgraded to `unverifiable`.
+
 Duplicate tasks may name the same artifact, but a `done` claim is fatal when that
 artifact is absent from its cited commit. This prevents one false completion from
 being hidden by a later `todo` entry for the same file.

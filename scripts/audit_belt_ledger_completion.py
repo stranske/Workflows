@@ -45,20 +45,17 @@ def audit_ledgers(root: Path) -> list[str]:
     return findings
 
 
-def main() -> int:
+def main(argv: list[str] | None = None) -> int:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--root", type=Path, default=Path.cwd())
-    args = parser.parse_args()
+    args = parser.parse_args(argv)
     findings, unverifiable = audit_ledger_evidence(args.root.resolve())
     for finding in findings:
         print(finding)
     if not findings:
         print("No invalid belt completion evidence found.")
     if unverifiable:
-        print(
-            f"{len(unverifiable)} completion commit(s) unverifiable "
-            "(skipped, not findings)."
-        )
+        print(f"{len(unverifiable)} completion commit(s) unverifiable (skipped, not findings).")
     return 1 if findings else 0
 
 
