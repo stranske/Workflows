@@ -18,9 +18,13 @@ fix applied in a consumer would be reverted on the next sync. The guard has to
 live in the template, and this test keeps it there.
 """
 
+import os
 import re
+import subprocess
+import sys
 from pathlib import Path
 
+import pytest
 import yaml
 
 REPO_ROOT = Path(__file__).resolve().parents[2]
@@ -48,6 +52,25 @@ EXPECTED_INSTALL_SITES = {
     "backplane-conformance.yml",
 }
 
+LANGCHAIN_WORKFLOWS = (
+    ".github/workflows/agents-auto-label.yml",
+    ".github/workflows/agents-capability-check.yml",
+    ".github/workflows/agents-decompose.yml",
+    ".github/workflows/agents-dedup.yml",
+    "templates/consumer-repo/.github/workflows/agents-auto-label.yml",
+    "templates/consumer-repo/.github/workflows/agents-capability-check.yml",
+    "templates/consumer-repo/.github/workflows/agents-decompose.yml",
+    "templates/consumer-repo/.github/workflows/agents-dedup.yml",
+)
+
+ROOT_SPARSE_LANGCHAIN_WORKFLOWS = (
+    ".github/workflows/agents-capability-check.yml",
+    ".github/workflows/agents-decompose.yml",
+    ".github/workflows/agents-dedup.yml",
+)
+
+PROJECT_METADATA_GUARD = re.compile(r"tomllib\.loads")
+
 
 def _run_scripts(workflow_text):
     """Yield every ``run:`` script in a workflow, with its job and step index."""
@@ -64,6 +87,39 @@ def _run_scripts(workflow_text):
 
 def _template_workflows():
     return sorted(TEMPLATE_WORKFLOWS.glob("*.yml")) + sorted(TEMPLATE_WORKFLOWS.glob("*.yaml"))
+
+
+def _install_script(path: Path, marker: str) -> str:
+    scripts = [script for _, _, script in _run_scripts(path.read_text(encoding="utf-8"))]
+    matches = [script for script in scripts if marker in script]
+    assert len(matches) == 1, f"expected one install script containing {marker!r} in {path}"
+    return matches[0]
+
+
+def _run_with_fake_python(script: str, tmp_path: Path, *, name: str, pyproject: str) -> list[str]:
+    case = tmp_path / name
+    tools = case / "tools"
+    fake_bin = case / "bin"
+    tools.mkdir(parents=True)
+    fake_bin.mkdir()
+    (case / "pyproject.toml").write_text(pyproject, encoding="utf-8")
+    (tools / "requirements-llm.txt").write_text("langchain==0\n", encoding="utf-8")
+    fake_python = fake_bin / "python"
+    fake_python.write_text(
+        '#!/bin/sh\nif [ "${1:-}" = "-c" ]; then exec "$REAL_PYTHON" "$@"; fi\n'
+        'printf "%s\\n" "$*" >> "$INSTALL_LOG"\n',
+        encoding="utf-8",
+    )
+    fake_python.chmod(0o755)
+    log = case / "install.log"
+    env = {
+        **os.environ,
+        "INSTALL_LOG": str(log),
+        "REAL_PYTHON": sys.executable,
+        "PATH": f"{fake_bin}:{os.environ['PATH']}",
+    }
+    subprocess.run(["bash", "-eu", "-c", script], cwd=case, env=env, check=True)
+    return log.read_text(encoding="utf-8").splitlines() if log.exists() else []
 
 
 def test_template_workflow_directory_is_present():
@@ -125,5 +181,94 @@ def test_backplane_conformance_stub_keeps_its_opt_in_promise():
 
     script = install_scripts[0]
     assert PACKAGING_GUARD.search(script), "the editable install is not guarded"
+    assert PROJECT_METADATA_GUARD.search(
+        script
+    ), "a tool-only pyproject.toml must not trigger an editable install"
     for filename in ("pyproject.toml", "setup.py", "setup.cfg"):
         assert filename in script, f"guard does not consider {filename}"
+
+
+@pytest.mark.parametrize("workflow", LANGCHAIN_WORKFLOWS)
+@pytest.mark.parametrize(
+    ("pyproject", "expects_editable"),
+    (
+        ("[tool.ruff]\nline-length = 100\n", False),
+        ("[project]\nname = 'consumer'\n", True),
+        ("   [ project ]\nname = 'consumer'\n", True),
+        ('["build-system"]\nrequires = []\n', True),
+    ),
+    ids=(
+        "tool-only-pyproject",
+        "project-without-langchain-extra",
+        "indented-spaced-project",
+        "quoted-build-system",
+    ),
+)
+def test_langchain_install_uses_canonical_requirements_for_both_repo_shapes(
+    workflow: str, pyproject: str, expects_editable: bool, tmp_path: Path
+) -> None:
+    path = REPO_ROOT / workflow
+    script = _install_script(path, "tools/requirements-llm.txt")
+
+    calls = _run_with_fake_python(
+        script,
+        tmp_path,
+        name=workflow.replace("/", "-") + ("-project" if expects_editable else "-tool"),
+        pyproject=pyproject,
+    )
+
+    assert "-m pip install -r tools/requirements-llm.txt --quiet" in calls
+    assert any(call == "-m pip install -e . --quiet" for call in calls) is expects_editable
+    assert all("[langchain]" not in call for call in calls)
+
+
+@pytest.mark.parametrize(
+    ("pyproject", "expects_editable"),
+    (
+        ("[tool.ruff]\nline-length = 100\n", False),
+        ("[build-system]\nrequires = []\n", True),
+        ("  [ project ]\nname = 'consumer'\n", True),
+        ('["build-system"]\nrequires = []\n', True),
+    ),
+    ids=(
+        "tool-only-pyproject",
+        "build-system-project",
+        "indented-spaced-project",
+        "quoted-build-system",
+    ),
+)
+def test_backplane_editable_install_requires_real_project_metadata(
+    pyproject: str, expects_editable: bool, tmp_path: Path
+) -> None:
+    workflow = TEMPLATE_WORKFLOWS / "backplane-conformance.yml"
+    script = _install_script(workflow, "pip install -e .")
+
+    calls = _run_with_fake_python(
+        script,
+        tmp_path,
+        name="backplane-project" if expects_editable else "backplane-tool",
+        pyproject=pyproject,
+    )
+
+    assert any(call == "-m pip install -e ." for call in calls) is expects_editable
+
+
+def test_canonical_llm_requirements_include_faiss_runtime() -> None:
+    for path in (
+        REPO_ROOT / "tools" / "requirements-llm.txt",
+        REPO_ROOT / "templates" / "consumer-repo" / "tools" / "requirements-llm.txt",
+    ):
+        requirements = path.read_text(encoding="utf-8").splitlines()
+        assert "faiss-cpu==1.14.2" in requirements
+
+
+@pytest.mark.parametrize("workflow", ROOT_SPARSE_LANGCHAIN_WORKFLOWS)
+def test_root_sparse_checkouts_include_langchain_runtime_inputs(workflow: str) -> None:
+    document = yaml.safe_load((REPO_ROOT / workflow).read_text(encoding="utf-8"))
+    steps = next(iter(document["jobs"].values()))["steps"]
+    checkout = next(step for step in steps if step.get("name") == "Checkout repository")
+    sparse_paths = set(checkout["with"]["sparse-checkout"].splitlines())
+
+    assert "tools/requirements-llm.txt" in sparse_paths
+    assert "scripts/__init__.py" in sparse_paths
+    assert "scripts/langchain" in sparse_paths

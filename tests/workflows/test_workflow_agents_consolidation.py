@@ -1889,3 +1889,22 @@ def test_reusable_agent_runners_export_actual_execution_start():
             f"${{{{ steps.run_{agent}.outputs.agent-execution-started }}}}" in text
         )
         assert 'echo "agent-execution-started=true" >> "$GITHUB_OUTPUT"' in run_region
+
+
+def test_langchain_workflows_do_not_depend_on_optional_extra_declarations():
+    workflows = (
+        "agents-auto-label.yml",
+        "agents-capability-check.yml",
+        "agents-decompose.yml",
+        "agents-dedup.yml",
+    )
+    roots = (WORKFLOWS_DIR, Path("templates/consumer-repo/.github/workflows"))
+
+    for root in roots:
+        for name in workflows:
+            text = (root / name).read_text(encoding="utf-8")
+            assert 'pip install -e ".[langchain]"' not in text
+            assert "python -m pip install -r tools/requirements-llm.txt --quiet" in text
+            assert "tomllib.loads" in text
+            assert '"project" in data or "build-system" in data' in text
+            assert "Missing canonical tools/requirements-llm.txt" in text

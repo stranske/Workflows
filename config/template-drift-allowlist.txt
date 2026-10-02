@@ -79,11 +79,11 @@ fingerprint_refreshed = 2026-08-24
 [pair.5]
 main = .github/workflows/agents-auto-label.yml
 template = templates/consumer-repo/.github/workflows/agents-auto-label.yml
-main_sha256 = fe2a6db1b56246337df20c9415e5d247475e8e442115f058d63209f397026511
-template_sha256 = 5fce65bfde5481b32cdadfa51c4ac596e4c213515704c84f35a0bb22a955f3b7
+main_sha256 = 6cfcfec322642a8a68e460c88060ab0328227f235e1b6314cd7f147726889bac
+template_sha256 = f747501ebf28bec4589f1c873fbef4faaae9e86a26a4fd80b78b6656c2d46ace
 divergence = Bounded suggestions display 2026-08-31: both surfaces now derive suggestions from bounded_diverse_matches excluding auto-apply winners instead of re-scanning the full match list, applied identically to root and consumer. Fingerprints refreshed for that change; the divergence itself is unchanged and was NOT re-reviewed, which is why divergence_reviewed keeps its prior date. Prior divergence unchanged: Label-matcher margin-check fix 2026-08-31: both surfaces now pass diverse=False into find_similar_labels for the auto-apply margin gate and apply bounded_diverse_matches only to the suggestions display, applied identically to root and consumer. Prior divergence unchanged: Intentional divergence re-reviewed 2026-08-31: root and consumer workflows both use the bounded shared matcher and issue-safe auto-apply gate while retaining root sparse-checkout plus App-token setup and consumer SHA-pinned actions plus token-aware retry plumbing. Do not align wholesale: that would strip the consumer security contract.
 divergence_reviewed = 2026-08-31
-fingerprint_refreshed = 2026-08-31
+fingerprint_refreshed = 2026-10-02
 
 [pair.6]
 main = .github/workflows/agents-autofix-dispatcher.yml
@@ -97,29 +97,29 @@ fingerprint_refreshed = 2026-08-24
 [pair.7]
 main = .github/workflows/agents-capability-check.yml
 template = templates/consumer-repo/.github/workflows/agents-capability-check.yml
-main_sha256 = fd15a87ee9e5dfa7f93c48aa372d87b4c7172a2148f90aba6f25a1f6c9b5ccbe
-template_sha256 = d64c56f967166f803f054b9d81e2390dadd8dc5984bb280271f09bf4fffd9702
+main_sha256 = d98c5ea59961e8776b4da0584f7f4e6ec864c6c348a84d6451ee4a8decbbe72e
+template_sha256 = 647591e3d88f42d4347ac4e1a5c672b7d1209a89d69077e7f4afccc575824f4b
 divergence = Named-secrets rollout 2026-08-23: both surfaces now pass named setup-api-client secret inputs instead of the whole-secrets-context blob, applied identically to root and consumer, and scoped to each workflow's DECLARED workflow_call secrets where that context is a closed set. Removing that handoff is the demonstrated remedy for GitHub's suspicious-workflow hold (agents-dedup then ran at run_attempt 1 with nothing approved after 22 days held). Prior divergence unchanged: Intentional divergence re-baselined 2026-08-22 after both surfaces migrated from the retired check_capability alias to classify_capabilities. The consumer template retains SHA-pinned actions and LangSmith tracing while the root workflow retains in-repo concurrency and sparse-checkout plumbing; do not align wholesale because that would strip the consumer security contract.
 divergence_reviewed = 2026-08-22
-fingerprint_refreshed = 2026-08-23
+fingerprint_refreshed = 2026-10-02
 
 [pair.8]
 main = .github/workflows/agents-decompose.yml
 template = templates/consumer-repo/.github/workflows/agents-decompose.yml
-main_sha256 = 66b4596b399d478f5070cedd81cd92b8952f2f82dc17bdf129c200614e09da13
-template_sha256 = 48cb4ecee47f756d64c3c76a8f47cac01468c9df5ceae50a86508eadb7d8b589
+main_sha256 = 1105cd9791715120b2bd9179643f9172507cd029e799720d4880239aa2850499
+template_sha256 = 14245c7a9644314f9bf4beeb0e4d735f6e43daaad086b1798579be26d5483ffe
 divergence = Named-secrets rollout 2026-08-23: both surfaces now pass named setup-api-client secret inputs instead of the whole-secrets-context blob, applied identically to root and consumer, and scoped to each workflow's DECLARED workflow_call secrets where that context is a closed set. Removing that handoff is the demonstrated remedy for GitHub's suspicious-workflow hold (agents-dedup then ran at run_attempt 1 with nothing approved after 22 days held). Prior divergence unchanged: Intentional divergence re-baselined 2026-08-09: root-only warning-only REST triage marker added; do not align wholesale because consumer pins and retry plumbing are contractually distinct.
 divergence_reviewed = 2026-08-09
-fingerprint_refreshed = 2026-08-23
+fingerprint_refreshed = 2026-10-02
 
 [pair.9]
 main = .github/workflows/agents-dedup.yml
 template = templates/consumer-repo/.github/workflows/agents-dedup.yml
-main_sha256 = ed04c329fe0d0bed4136a11c23e11cee740af22e7ec46bdaad831d9ef4df1f99
-template_sha256 = aa6c161b640eb303df8d47bc4d85535210f9cc7a49e4f165059432d6f0106bd2
+main_sha256 = 4a62e0a14579368b45f09e40b92d5426bafa9ec3221f09214da4d516f2995d6c
+template_sha256 = 9fc79a43443aadb0ff03bed4cbf592047f452c90bcf2a5647552e64d008fc57c
 divergence = Root sparse-checkout now also fetches pyproject.toml, README.md, scripts/__init__.py and scripts/langchain; without them `pip install -e ".[langchain]"` failed and `from scripts.langchain.issue_dedup import ...` could not resolve, so the job could never complete - hidden for 22 days by GitHub's suspicious-workflow hold. Root only: the consumer template does a full checkout and already guards the install for consumers that are not installable packages. Prior divergence unchanged: Intentional divergence (re-baselined 2026-08-23): both surfaces now pass the eight named setup-api-client secret inputs instead of `secrets: ${{ toJSON(secrets) }}`, applied identically to root and consumer so the whole-secrets-context handoff is gone from both. Fingerprints refreshed for that change. The remaining divergence is unchanged and still intentional: consumer template SHA-pins third-party actions per the fleet action-pin contract (docs/HISTORY.md, PR #1925) and sets LangSmith tracing env; root uses floating major tags with repo-internal concurrency + sparse-checkout (docs/fixes/sparse-checkout-audit-2026-02-03.csv). Do not align: would strip consumer action pins.
 divergence_reviewed = 2026-08-23
-fingerprint_refreshed = 2026-08-23
+fingerprint_refreshed = 2026-10-02
 
 [pair.10]
 main = .github/workflows/agents-guard.yml

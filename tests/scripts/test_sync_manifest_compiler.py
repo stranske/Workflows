@@ -166,6 +166,35 @@ workflows:
         )
 
 
+def test_langchain_workflows_and_canonical_requirements_share_delivery_plan() -> None:
+    root = Path(__file__).parents[2]
+    compiled = compile_manifest(root / ".github" / "sync-manifest.yml", repo_root=root)
+    workflows = {entry.target: entry for entry in compiled.section("workflows")}
+
+    for name in (
+        "agents-auto-label.yml",
+        "agents-capability-check.yml",
+        "agents-decompose.yml",
+        "agents-dedup.yml",
+        "backplane-conformance.yml",
+    ):
+        target = f".github/workflows/{name}"
+        entry = workflows[target]
+        assert entry.source_tree == "template"
+        assert entry.resolved_source == f"templates/consumer-repo/{target}"
+        if name != "backplane-conformance.yml":
+            assert entry.requires == ("tools/requirements-llm.txt",)
+
+    requirements = next(
+        entry
+        for entry in compiled.section("scripts")
+        if entry.target == "tools/requirements-llm.txt"
+    )
+    assert requirements.source_tree == "root"
+    assert requirements.template_sync == "exact"
+    assert requirements.delivery == "copy"
+
+
 @pytest.mark.parametrize(
     "field,value",
     [
