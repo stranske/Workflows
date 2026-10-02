@@ -209,3 +209,107 @@ def test_free_form_context_without_declared_sections_is_unchanged() -> None:
     assert coverage.sufficient
     assert coverage.acceptance == "not_declared"
     assert coverage.code == "not_declared"
+
+
+def test_summary_parser_covers_all_context_builder_file_forms() -> None:
+    summary = """## PR Diff Summary
+
+### File changes
+- docs/modified file.md (+1/-2)
+- src/added.py (added) (+10/-0)
+- src/deleted.py (deleted) (+0/-8)
+- old/name.py -> new/name.py (+2/-1)
+- assets/logo.png (binary)
+- ...and 3 more files
+"""
+
+    assert pr_verifier._summary_destination_paths(summary) == [
+        "docs/modified file.md",
+        "src/added.py",
+        "src/deleted.py",
+        "new/name.py",
+        "assets/logo.png",
+    ]
+
+
+def test_summary_with_spaces_and_rename_detects_missing_destination() -> None:
+    context = """# Verifier context
+
+## Plan sources (scope, tasks, acceptance)
+
+#### Acceptance criteria
+- exact observable smoke test
+
+## PR Diff Summary
+
+### File changes
+- docs/modified file.md (+1/-0)
+- old/name.py -> new/name.py (+2/-1)
+
+## PR Diff (full)
+
+```diff
+diff --git "a/docs/modified file.md" "b/docs/modified file.md"
+--- "a/docs/modified file.md"
++++ "b/docs/modified file.md"
+@@ -1 +1 @@
+-old
++new
+```
+"""
+
+    coverage = pr_verifier.prompt_coverage(context, None)
+
+    assert not coverage.sufficient
+    assert coverage.files[0].path == "docs/modified file.md"
+    assert any("new/name.py" in reason for reason in coverage.reasons)
+
+
+def test_no_client_fallback_still_reports_input_coverage(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    context, _ = _context(2, 2_000, 1_000)
+    monkeypatch.setattr(pr_verifier, "_get_llm_client", lambda model=None, provider=None: None)
+
+    result = pr_verifier.evaluate_pr(context)
+
+    assert result.used_llm is False
+    assert result.input_coverage == pr_verifier.prompt_coverage(context, None).to_dict()
+
+
+def test_invocation_fallback_still_reports_input_coverage(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    context, _ = _context(2, 2_000, 1_000)
+    client = mock.MagicMock()
+    monkeypatch.setattr(
+        pr_verifier, "_get_llm_client", lambda model=None, provider=None: (client, "openai")
+    )
+    monkeypatch.setattr(
+        pr_verifier,
+        "_invoke_llm",
+        lambda *args, **kwargs: (_ for _ in ()).throw(RuntimeError("offline")),
+    )
+
+    result = pr_verifier.evaluate_pr(context, provider="openai")
+
+    assert result.used_llm is False
+    assert result.input_coverage == pr_verifier.prompt_coverage(context, None).to_dict()
+
+
+def test_comparison_invocation_fallback_still_reports_input_coverage() -> None:
+    context, _ = _context(2, 2_000, 1_000)
+    coverage = pr_verifier.prompt_coverage(context, None)
+    runner = pr_verifier.ComparisonRunner(
+        context=context,
+        diff=None,
+        prompt="prompt",
+        clients=[],
+        coverage=coverage,
+    )
+
+    with mock.patch.object(pr_verifier, "_invoke_llm", side_effect=RuntimeError("offline")):
+        result = runner.run_single(mock.MagicMock(), "openai", "model")
+
+    assert result.used_llm is False
+    assert result.input_coverage == coverage.to_dict()

@@ -16,6 +16,7 @@ import json
 import logging
 import os
 import re
+import shlex
 import sys
 from collections.abc import Callable, Mapping
 from dataclasses import dataclass
@@ -330,8 +331,11 @@ class ComparisonRunner:
                 context=self.context,
             )
         except Exception as exc:  # pragma: no cover - exercised in integration
-            return _fallback_evaluation(
-                f"LLM invocation failed: {exc}", provider=provider, model=model
+            return _apply_coverage_floor(
+                _fallback_evaluation(
+                    f"LLM invocation failed: {exc}", provider=provider, model=model
+                ),
+                self.coverage,
             )
 
         content = getattr(response, "content", None) or str(response)
@@ -412,7 +416,7 @@ DIFF_SUMMARY_SECTION = "## PR Diff Summary"
 FULL_DIFF_SECTION = "## PR Diff (full)"
 UPSTREAM_DIFF_TRUNCATION = re.compile(r"\.\.\.diff truncated after \d+ characters\.")
 TRUNCATION_MARKER = "[truncated: verifier prompt budget exceeded]"
-SUMMARY_FILE_LINE = re.compile(r"^- (\S+) \(\+\d+/-\d+\)\s*$", re.MULTILINE)
+SUMMARY_DELTA_SUFFIX = re.compile(r"\s+\((?:\+\d+/-\d+|binary)\)\s*$")
 CoverageStatus = Literal["complete", "truncated", "unavailable", "not_declared"]
 
 
@@ -570,13 +574,41 @@ def _split_diff_files(diff: str) -> list[tuple[str, str]]:
             if current:
                 files.append((path, "".join(current)))
             current = [line]
-            parts = line.split()
+            try:
+                parts = shlex.split(line)
+            except ValueError:
+                parts = line.split()
             path = parts[3].removeprefix("b/") if len(parts) >= 4 else line.strip()
         elif current:
             current.append(line)
     if current:
         files.append((path, "".join(current)))
     return files
+
+
+def _summary_destination_paths(summary: str) -> list[str]:
+    """Extract destination paths from the context builder's file summary."""
+    paths: list[str] = []
+    in_file_changes = False
+    for raw_line in summary.splitlines():
+        line = raw_line.strip()
+        if line == "### File changes":
+            in_file_changes = True
+            continue
+        if in_file_changes and line.startswith("### "):
+            break
+        if not in_file_changes or not line.startswith("- "):
+            continue
+        label = SUMMARY_DELTA_SUFFIX.sub("", line[2:].strip())
+        for marker in (" (added)", " (deleted)"):
+            if label.endswith(marker):
+                label = label[: -len(marker)]
+                break
+        if " -> " in label:
+            label = label.rsplit(" -> ", 1)[1]
+        if label and not (label.startswith("...and ") and label.endswith(" more files")):
+            paths.append(label)
+    return paths
 
 
 def _fair_shares(sizes: list[int], budget: int) -> list[int]:
@@ -731,7 +763,7 @@ def build_prompt_inputs(context: str, diff: str | None) -> PromptInputs:
     if files and summary_body:
         diff_paths = {item.path for item in files}
         missing = [
-            path for path in SUMMARY_FILE_LINE.findall(summary_body) if path not in diff_paths
+            path for path in _summary_destination_paths(summary_body) if path not in diff_paths
         ]
         if missing:
             code = "truncated"
@@ -1232,12 +1264,15 @@ def evaluate_pr(
         EvaluationResult with verdict, scores, and concerns.
     """
     resolved = _get_llm_client(model=model, provider=provider)
+    coverage = prompt_coverage(context, diff)
     if resolved is None:
-        return _fallback_evaluation("LLM client unavailable (missing credentials or dependency).")
+        return _apply_coverage_floor(
+            _fallback_evaluation("LLM client unavailable (missing credentials or dependency)."),
+            coverage,
+        )
 
     client, provider_name = resolved
     prompt = _prepare_prompt(context, diff)
-    coverage = prompt_coverage(context, diff)
     change_type = _classify_change_type(_bounded_diff_for_classification(diff))
     pr_number, _ = _extract_pr_metadata(context)
     trace_id, trace_url = None, None
@@ -1295,10 +1330,10 @@ def evaluate_pr(
                         f"Fallback ({fallback_provider_name}): {fallback_exc}"
                     )
                     result.change_type = change_type
-                    return result
+                    return _apply_coverage_floor(result, coverage)
         result = _fallback_evaluation(f"LLM invocation failed: {exc}")
         result.change_type = change_type
-        return result
+        return _apply_coverage_floor(result, coverage)
 
     content = getattr(response, "content", None) or str(response)
     result = _parse_llm_response(content, provider_name, client=client)
@@ -1317,7 +1352,7 @@ def evaluate_pr_multiple(
     if not is_valid:
         result = _fallback_evaluation(error_message)
         result.change_type = change_type
-        return [result]
+        return [_apply_coverage_floor(result, runner.coverage)]
     results: list[EvaluationResult] = []
     for client, provider, model in runner.clients:
         result = runner.run_single(client, provider, model)
