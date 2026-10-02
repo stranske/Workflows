@@ -143,49 +143,37 @@ priority for existing issues merely to make counts look healthy.
 
 ### Repos with Custom Configurations
 
-Some repos cannot use the template `pr-00-gate.yml` because:
-- **Manager-Database**: Uses `docker compose`, `pre-commit`, custom test setup
-- **Trend_Model_Project**: Keeps the historical `Agents.md` filename, so syncing
-  `AGENTS.md` would create a case-only path collision on case-insensitive
-  filesystems
-- **trip-planner**: Installs `.github/scripts` dependencies from
-  `.github/scripts/package-lock.json` with `npm ci` and has an explicit hygiene
-  check that forbids tracked `node_modules/` anywhere in the repo.
-- **Fine-Art-Archive**: Keeps a fleet-preset Renovate exception for
-  `jsonschema<4.23.0` because newer non-major releases currently violate the
-  repo's supported dependency range and fail Gate. It also owns its root
-  `AGENTS.md` and `CLAUDE.md`: the manifest excludes both files from
-  overwrite-sync because they contain archive-specific reverse-image-search
-  guidance.
-- **Orchestrator**: Owns its root `AGENTS.md` and `CLAUDE.md`. In particular,
-  `AGENTS.md` requires `src/merge_guard.py` for terminal merges; overwriting it
-  with the consumer template removed that repo-local safety rule and failed
-  `tests/test_merge_entrypoint_contract.py` on workflow-sync PR #399. The
-  manifest excludes both root guidance files while other managed files sync.
+`Manager-Database` maintains a custom Gate with `docker compose`,
+`pre-commit`, and a custom test setup. It is the manifest's `pr-00-gate.yml`
+skip exception. Any custom Gate must include an independent
+`generated-delivery-seal` job that invokes the commit-pinned
+`stranske/Workflows/.github/actions/generated-delivery-seal` action, and its
+aggregate `Gate / gate` must require that job. Invoking the exact-synced
+`.github/actions/path-classifier` is not sufficient because a sync PR can
+modify that local action. The Workflows-owned action evaluates the event's
+exact head and delivery marker outside the mutable consumer checkout and
+fails closed until Maint 71 seals that head.
 
-For these repos:
-- The Gate workflow (`pr-00-gate.yml`) is maintained locally and excluded from sync.
-- A custom Gate must include an independent `generated-delivery-seal` job that
-  invokes
-  the commit-pinned
-  `stranske/Workflows/.github/actions/generated-delivery-seal` action, and its
-  aggregate `Gate / gate` must require that job. Invoking the exact-synced
-  `.github/actions/path-classifier` is not sufficient because a sync PR can
-  modify that local action. The Workflows-owned action evaluates the event's
-  exact head and delivery marker outside the mutable consumer checkout and
-  fails closed until Maint 71 seals that head.
+Other scoped consumer exceptions do not imply a custom Gate:
+
 - `Trend_Model_Project` skips the synced `AGENTS.md` file and keeps its local
-  `Agents.md`.
+  `Agents.md` to avoid a case-only path collision on case-insensitive
+  filesystems.
 - `Orchestrator` skips the synced `AGENTS.md` and `CLAUDE.md` files and keeps
-  its local terminal-merge and orchestration safety rules.
+  its local terminal-merge and orchestration safety rules. In particular,
+  `AGENTS.md` requires `src/merge_guard.py`; overwriting it failed
+  `tests/test_merge_entrypoint_contract.py` on workflow-sync PR #399.
 - `trip-planner` skips the synced `.github/scripts/package.json` and vendored
   `.github/scripts/node_modules/` entries so its lockfile-based dependency
   policy remains intact.
-- `Fine-Art-Archive` still receives the managed `.github/renovate.json`; its
-  dependency exception is centralized in `renovate-presets/fleet.json` with a
-  repository-scoped package rule, not patched directly in the consumer repo.
-- Other files listed in the sync manifest continue to sync normally; these
-  root-guidance exceptions are limited to the named repositories and files.
+- `Fine-Art-Archive` keeps archive-specific reverse-image-search guidance in
+  its local `AGENTS.md` and `CLAUDE.md`; both are excluded from overwrite-sync.
+  It still receives the managed `.github/renovate.json`; its
+  `jsonschema<4.23.0` exception is centralized in `renovate-presets/fleet.json`
+  with a repository-scoped package rule.
+
+Other files listed in the sync manifest continue to sync normally; these
+root-guidance exceptions are limited to the named repositories and files.
 
 Maint 68 implements these exceptions through each entry's typed manifest
 `skip_repos` rules. There is no separate hard-coded custom-Gate list in the
