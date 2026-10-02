@@ -1,0 +1,80 @@
+version: 1
+issue: 3694
+base: main
+branch: codex/issue-3694
+tasks:
+  - id: task-01
+    title: Add bounded PR-comment and referenced workflow-artifact evidence loading
+      to .github/scripts/agents_verifier_context.js, with explicit count and size
+      limits and present, absent, unavailable states.
+    status: doing
+    started_at: '2026-10-02T11:40:01Z'
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-02
+    title: Mirror the context behavior in templates/consumer-repo/.github/scripts/agents_verifier_context.js
+      and preserve .github/sync-manifest.yml coverage.
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-03
+    title: Update scripts/langchain/prompts/pr_evaluation.md and templates/consumer-repo/scripts/langchain/prompts/pr_evaluation.md
+      to distinguish absence from the complete inspected PR record from evidence unavailable
+      to the verifier.
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-04
+    title: Add tests to .github/scripts/__tests__/agents-verifier-context.test.js
+      for a transcript in a PR comment, in an artifact, genuinely absent, and retrieval
+      failure. Keep the required-CI failure floor covered.
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-05
+    title: Document the changed verifier evidence boundary in docs/INTEGRATION_GUIDE.md
+      and run scripts/sync_templates.sh.
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-06
+    title: node --test .github/scripts/__tests__/agents-verifier-context.test.js exits
+      0 with non-zero test collection for present, absent, and unavailable evidence.
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-07
+    title: A required transcript existing only in a PR comment or workflow artifact
+      is not reported absent; a failed retrieval cannot produce PASS.
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-08
+    title: scripts/sync_templates.sh exits 0 and consumer template files match source;
+      .github/sync-manifest.yml lists the changed consumer files.
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-09
+    title: Existing required-CI failure tests remain passing; a failing required check
+      cannot be overridden by evidence availability.
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
