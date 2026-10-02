@@ -6,6 +6,16 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 Breaking changes are called out with a **BREAKING** marker and scheduled according to the policy in `COMPATIBILITY.md`.
 
+## [1.37.7](https://github.com/stranske/Workflows/compare/v1.37.6...v1.37.7) (2026-10-02)
+
+
+### Bug Fixes
+
+* allow belt claim reclaim jobs to read pull requests ([#3679](https://github.com/stranske/Workflows/issues/3679)) ([fbce0f9](https://github.com/stranske/Workflows/commit/fbce0f94c41944281b0b0fd200b9690c001cef52))
+* **contracts:** reject authority URIs in document-mirror mirror_root ([#3670](https://github.com/stranske/Workflows/issues/3670)) ([3c74d27](https://github.com/stranske/Workflows/commit/3c74d278815af35ccaacb540626f38e3aa9c217c))
+* **keepalive:** fail closed on replay uncertainty ([#3678](https://github.com/stranske/Workflows/issues/3678)) ([127b368](https://github.com/stranske/Workflows/commit/127b368323bd841fb6eafd75fb1e90d3ec65c712))
+* **keepalive:** make reporter replay fail closed ([#3654](https://github.com/stranske/Workflows/issues/3654)) ([446b932](https://github.com/stranske/Workflows/commit/446b932ff6973ac9d55e3da5bb16599134bb730b))
+
 ## [1.37.6](https://github.com/stranske/Workflows/compare/v1.37.5...v1.37.6) (2026-10-01)
 
 
