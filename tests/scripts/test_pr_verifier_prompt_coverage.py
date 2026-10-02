@@ -459,9 +459,12 @@ def test_mixed_prohibition_preserves_required_comment_channel() -> None:
         "The artifact must not be uploaded",
         "The artifact shall not be attached",
         "The PR comment must not be posted",
+        "A PR comment is not required",
+        "A workflow run is not required",
+        "No PR comment is required",
     ],
 )
-def test_passive_evidence_prohibition_does_not_require_a_channel(criterion: str) -> None:
+def test_evidence_prohibition_does_not_require_a_channel(criterion: str) -> None:
     assert pr_verifier._required_evidence_channels(f"- {criterion}") == set()
 
 
@@ -474,6 +477,9 @@ def test_passive_prohibition_preserves_separate_required_comment() -> None:
     ) == {"comments"}
     assert pr_verifier._required_evidence_channels(
         "- The artifact must not be uploaded, but a PR comment must be posted"
+    ) == {"comments"}
+    assert pr_verifier._required_evidence_channels(
+        "- A workflow run is not required while a PR comment must be posted"
     ) == {"comments"}
 
 
