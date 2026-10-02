@@ -79,6 +79,11 @@ def confirm(
         raise ValueError(
             "provisional API confirmation requires adjudicated production-context inputs"
         )
+    if plan["confirmation_blockers"]:
+        raise ValueError(
+            "paid confirmation needs complete prompt coverage of complex PASS and NON_PASS "
+            f"cases: {plan['confirmation_blockers']}"
+        )
     stage = policy["profiles"]["verifier-balanced"]["provisional_stage"]
     if (
         screen.get("schema") != "workflows-verifier-cli-screen/v1"

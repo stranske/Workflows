@@ -12,7 +12,7 @@ from statistics import NormalDist
 from typing import Any
 
 from tools.evaluate_model_benchmark import wilson_interval
-from tools.model_eval_snapshots import screen_cases
+from tools.model_eval_snapshots import coverage_blockers, screen_cases
 
 ROOT = Path(__file__).resolve().parent.parent
 SCREEN_HARNESS_FILES = (
@@ -162,6 +162,9 @@ def build_plan(
         and incumbent in screen_model_ids
         and len(screen_model_ids) >= 2
     )
+    screen_coverage, complex_counts, confirmation_blockers = coverage_blockers(
+        selected_cases, provisional
+    )
     screen_blockers = []
     if not screen_corpus_ready:
         screen_blockers.append(
@@ -257,6 +260,10 @@ def build_plan(
             for case in selected_cases
         },
         "screen_blockers": screen_blockers,
+        "screen_input_coverage": screen_coverage,
+        "complex_case_counts": complex_counts,
+        "confirmation_ready": screen_ready and not confirmation_blockers,
+        "confirmation_blockers": confirmation_blockers,
         "benchmark_inputs_ready": benchmark_inputs_ready,
         "approval_blockers": reasons,
         "corpus_cases": len(cases),
@@ -323,6 +330,15 @@ def markdown(plan: dict[str, Any]) -> str:
     if plan["screen_blockers"]:
         lines += ["", "### Candidate screen blockers", ""]
         lines += [f"- {reason}" for reason in plan["screen_blockers"]]
+    lines.append(
+        "**Paid API confirmation ready:** "
+        + ("yes" if plan["confirmation_ready"] else "no")
+        + f" (complex PASS {plan['complex_case_counts']['PASS']}, "
+        f"complex NON_PASS {plan['complex_case_counts']['NON_PASS']})"
+    )
+    if plan["confirmation_blockers"]:
+        lines += ["", "### Paid confirmation blockers (prompt coverage)", ""]
+        lines += [f"- {reason}" for reason in plan["confirmation_blockers"]]
     lines += [
         "",
         "### Separate long-term statistical approval",

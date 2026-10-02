@@ -9,7 +9,12 @@ from types import SimpleNamespace
 
 import pytest
 from tools.create_model_eval_snapshot import create_case
-from tools.model_eval_snapshots import snapshot_digest, verifier_prompt
+from tools.model_eval_snapshots import (
+    coverage_blockers,
+    is_complex_coverage,
+    snapshot_digest,
+    verifier_prompt,
+)
 from tools.plan_model_eval import ROOT, build_plan, markdown
 from tools.run_model_eval_api_confirm import MAX_OUTPUT_TOKENS, _invoke_api, _price, confirm
 from tools.run_model_eval_cli_screen import (
@@ -36,6 +41,22 @@ def _inputs():
     )
 
 
+def _complex_context(case_id: str, files: int = 6) -> str:
+    """A production-shaped verifier context whose diff overflows the old prefix cap."""
+    diff = "".join(
+        f"diff --git a/src/module_{index}.py b/src/module_{index}.py\n"
+        f"--- a/src/module_{index}.py\n+++ b/src/module_{index}.py\n"
+        "@@ -1,1 +1,40 @@\n" + "".join(f"+value_{index}_{line} = {line}\n" for line in range(40))
+        for index in range(files)
+    )
+    return (
+        "# Verifier context\n\n## CI Information\n\n| Workflow | Conclusion |\n\n"
+        "## Plan sources (scope, tasks, acceptance)\n\n"
+        f"### Pull request for {case_id}\n\n#### Acceptance criteria\n- [ ] module values\n\n"
+        f"## PR Diff Summary\n\n- {files} files\n\n## PR Diff (full)\n\n```diff\n{diff}```\n"
+    )
+
+
 def _screen_inputs():
     corpus, registry, policy = _inputs()
     corpus["screen_input_status"] = "production_context_adjudicated"
@@ -46,9 +67,17 @@ def _screen_inputs():
         if case["category"] in {"review-thread-debt", "stale-verifier-claim"}:
             case["category"] = "clean-pass"
     corpus["screen_case_ids"] = [case["case_id"] for case in cases]
+    complex_ids = {
+        next(case["case_id"] for case in cases if case["expected_verdict"] == verdict)
+        for verdict in ("PASS", "NON_PASS")
+    }
     for case in cases:
         snapshot = {
-            "context": f"context for {case['case_id']}",
+            "context": (
+                _complex_context(case["case_id"])
+                if case["case_id"] in complex_ids
+                else f"context for {case['case_id']}"
+            ),
             "diff_summary": f"diff summary for {case['case_id']}",
             "repository": case["repo"],
             "pr": case["pr"],
@@ -90,6 +119,82 @@ def test_current_plan_allows_fast_screen_without_statistical_approval():
     assert plan["best_case_minimum_corpus_cases"] == 120
     assert plan["category_shortfalls"]["follow-up-required"] > 0
     assert plan["unpriced_openai_models"] == []
+
+
+def test_current_plan_surfaces_missing_complex_coverage_before_paid_confirmation():
+    plan = build_plan(*_inputs())
+    assert plan["automatic_api_calls"] == 0
+    assert not plan["confirmation_ready"]
+    assert plan["complex_case_counts"]["PASS"] == 0
+    assert any("complex PASS" in reason for reason in plan["confirmation_blockers"])
+    assert set(plan["screen_input_coverage"]) == set(plan["screen_case_kinds"])
+    assert "**Paid API confirmation ready:** no" in markdown(plan)
+
+
+@pytest.mark.parametrize(
+    ("files_total", "code_total_chars", "expected"),
+    [(5, 8_000, True), (4, 8_000, False), (4, 8_001, True)],
+)
+def test_complex_coverage_threshold_boundaries(files_total, code_total_chars, expected):
+    assert (
+        is_complex_coverage(
+            {"files_total": files_total, "code_total_chars": code_total_chars},
+            min_files=5,
+            min_code_chars=8_000,
+        )
+        is expected
+    )
+
+
+def test_coverage_blockers_skip_empty_context() -> None:
+    coverage, counts, blockers = coverage_blockers(
+        [
+            {
+                "case_id": "empty",
+                "expected_verdict": "PASS",
+                "production_snapshot": {"context": ""},
+            }
+        ],
+        {
+            "complex_case_min_files": 5,
+            "complex_case_min_code_chars": 8_000,
+            "minimum_complex_pass_cases": 1,
+            "minimum_complex_non_pass_cases": 1,
+        },
+    )
+
+    assert coverage == {}
+    assert counts == {"PASS": 0, "NON_PASS": 0}
+    assert len(blockers) == 2
+
+
+def test_api_confirmation_rejects_coverage_blockers_before_calls(monkeypatch):
+    monkeypatch.setattr(
+        "tools.run_model_eval_api_confirm.build_plan",
+        lambda *args: {
+            "input_alignment_ready": True,
+            "confirmation_blockers": ["complex PASS coverage missing"],
+        },
+    )
+
+    with pytest.raises(ValueError, match="complex PASS coverage missing"):
+        confirm({}, {}, {}, {}, github_token="x", client=object())
+
+
+def test_screen_case_whose_prompt_drops_most_code_blocks_paid_confirmation():
+    corpus, registry, policy = _screen_inputs()
+    assert build_plan(corpus, registry, policy)["confirmation_ready"]
+    case = next(case for case in corpus["screen_cases"] if case["expected_verdict"] == "PASS")
+    snapshot = case["production_snapshot"]
+    snapshot["context"] = _complex_context(case["case_id"], files=60)
+    snapshot["context"] = snapshot["context"].replace("+value_", "+" + "x" * 2000 + "value_")
+    snapshot["sha256"] = snapshot_digest(snapshot)
+    plan = build_plan(corpus, registry, policy)
+    assert plan["screen_ready"]  # the subscription screen still runs first
+    assert not plan["confirmation_ready"]
+    coverage = plan["screen_input_coverage"][case["case_id"]]
+    assert not coverage["sufficient"]
+    assert any(case["case_id"] in reason for reason in plan["confirmation_blockers"])
 
 
 def test_readiness_summary_leads_with_the_current_decision():
