@@ -169,9 +169,9 @@ def test_backplane_conformance_stub_keeps_its_opt_in_promise():
 
     script = install_scripts[0]
     assert PACKAGING_GUARD.search(script), "the editable install is not guarded"
-    assert PROJECT_METADATA_GUARD.search(script), (
-        "a tool-only pyproject.toml must not trigger an editable install"
-    )
+    assert PROJECT_METADATA_GUARD.search(
+        script
+    ), "a tool-only pyproject.toml must not trigger an editable install"
     for filename in ("pyproject.toml", "setup.py", "setup.cfg"):
         assert filename in script, f"guard does not consider {filename}"
 
