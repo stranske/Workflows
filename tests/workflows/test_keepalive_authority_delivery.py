@@ -9,6 +9,21 @@ ROOT = Path(__file__).resolve().parents[2]
 TEMPLATE = ROOT / "templates/consumer-repo"
 
 
+def _multiline_shell_commands(script: str, prefix: str) -> list[str]:
+    """Return backslash-continued shell commands beginning with ``prefix``."""
+    lines = script.splitlines()
+    commands: list[str] = []
+    for index, line in enumerate(lines):
+        if line.strip() != f"{prefix} \\":
+            continue
+        command = [line.strip()]
+        while command[-1].endswith("\\"):
+            index += 1
+            command.append(lines[index].strip())
+        commands.append("\n".join(command))
+    return commands
+
+
 def test_authority_helpers_are_manifested_and_byte_aligned() -> None:
     manifest = yaml.safe_load((ROOT / ".github/sync-manifest.yml").read_text())
     sources = {entry["source"] for entry in manifest["scripts"]}
@@ -186,8 +201,17 @@ def test_runner_reservation_uses_service_bot_token_without_weakening_storage() -
         )
         assert step["env"]["GH_TOKEN"] == expected_token
         assert step["env"]["GITHUB_TOKEN"] == expected_token
-        assert step["run"].count("--storage auto") == 2
-        assert "--authority-challenge" in step["run"]
+        assert "continue-on-error" not in step
+
+        commands = _multiline_shell_commands(
+            step["run"], "python -m scripts.runner_lib should-dispatch"
+        )
+        assert len(commands) == 2
+        signed_authority, ordinary = commands
+        assert signed_authority.count("--storage auto") == 1
+        assert "--authority-challenge" in signed_authority
+        assert ordinary.count("--storage auto") == 1
+        assert "--authority-challenge" not in ordinary
         assert (
             workflow["jobs"]["evaluate"]["outputs"]["dispatch_should_run"]
             == "${{ steps.runner_dispatch.outputs.should_dispatch || 'false' }}"
