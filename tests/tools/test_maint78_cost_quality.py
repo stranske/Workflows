@@ -10,7 +10,7 @@ from types import SimpleNamespace
 import pytest
 from tools.create_model_eval_snapshot import create_case
 from tools.model_eval_snapshots import snapshot_digest, verifier_prompt
-from tools.plan_model_eval import ROOT, build_plan
+from tools.plan_model_eval import ROOT, build_plan, markdown
 from tools.run_model_eval_api_confirm import MAX_OUTPUT_TOKENS, _invoke_api, _price, confirm
 from tools.run_model_eval_cli_screen import (
     CliResult,
@@ -90,6 +90,14 @@ def test_current_plan_allows_fast_screen_without_statistical_approval():
     assert plan["best_case_minimum_corpus_cases"] == 120
     assert plan["category_shortfalls"]["follow-up-required"] > 0
     assert plan["unpriced_openai_models"] == []
+
+
+def test_readiness_summary_leads_with_the_current_decision():
+    summary = markdown(build_plan(*_inputs()))
+    assert summary.index("**Eight-case subscription screen ready:** yes") < summary.index(
+        "### Separate long-term statistical approval"
+    )
+    assert summary.index("**Next action:**") < summary.index("**Best-case statistical floor:**")
 
 
 def test_candidate_screen_uses_policy_case_and_failure_counts():
