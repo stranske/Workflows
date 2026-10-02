@@ -64,6 +64,7 @@ def test_cli_screen_is_bounded_and_reports_comparative_cost():
     cases = select_cases(corpus["cases"])
     assert len(cases) == 8
     assert {case["category"] for case in cases} == {case["category"] for case in corpus["cases"]}
+    assert sum(case["expected_verdict"] == "NON_PASS" for case in cases) == 4
     assert (
         api_list_price_estimate(
             1000, 500, {"input_per_million_tokens": 2, "output_per_million_tokens": 12}

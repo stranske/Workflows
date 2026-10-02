@@ -28,17 +28,31 @@ DEFAULT_MODELS = "gpt-5.6-terra,gpt-6-luna,gpt-6-sol,gpt-6-astra"
 
 
 def select_cases(cases: list[dict[str, Any]], limit: int = MAX_CASES) -> list[dict[str, Any]]:
-    """Cover every present category first, then round robin across categories."""
+    """Cover every category, then balance PASS and NON_PASS examples."""
     groups: dict[str, list[dict[str, Any]]] = defaultdict(list)
     for case in cases:
         groups[str(case["category"])].append(case)
     if len(groups) > limit:
         raise ValueError("more categories than the bounded screen can cover")
     selected: list[dict[str, Any]] = []
+    for category in sorted(groups):
+        selected.append(groups[category].pop(0))
     while len(selected) < limit and any(groups.values()):
-        for category in sorted(groups):
-            if groups[category] and len(selected) < limit:
-                selected.append(groups[category].pop(0))
+        non_pass = sum(case["expected_verdict"] == "NON_PASS" for case in selected)
+        preferred = "NON_PASS" if non_pass < limit // 2 else "PASS"
+        eligible = [
+            category
+            for category in sorted(groups)
+            if any(case["expected_verdict"] == preferred for case in groups[category])
+        ]
+        if not eligible:
+            eligible = [category for category in sorted(groups) if groups[category]]
+        category = min(eligible, key=lambda key: sum(c["category"] == key for c in selected))
+        index = next(
+            (i for i, case in enumerate(groups[category]) if case["expected_verdict"] == preferred),
+            0,
+        )
+        selected.append(groups[category].pop(index))
     return selected
 
 
@@ -148,6 +162,8 @@ def run_screen(
         model["model_id"]: model["pricing"]
         for model in registry["models"]
         if model.get("provider") == "openai"
+        and model.get("lifecycle") == "current"
+        and not model.get("blocked", False)
         and isinstance(model.get("pricing"), dict)
         and all(
             key in model["pricing"]
