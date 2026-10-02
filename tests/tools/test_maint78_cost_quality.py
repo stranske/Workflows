@@ -432,6 +432,10 @@ def test_cli_catalog_is_pinned_and_tool_events_are_rejected(monkeypatch):
     assert not has_tool_events('{"type":"item.completed","item":{"type":"agent_message"}}')
     assert has_tool_events('{"type":"item.completed","item":{"type":"command_execution"}}')
     assert has_tool_events('{"type":"item.completed","item":{"type":"web_search"}}')
+    assert not has_tool_events(
+        '{"type":"item.completed","item":{"type":"error","message":'
+        '"Code Mode is unavailable because code-mode host is disabled. Code mode will fail closed; enable features.code_mode_host."}}'
+    )
 
 
 def test_invalid_json_preserves_cli_usage_and_does_not_stop_screen(monkeypatch):
@@ -441,6 +445,15 @@ def test_invalid_json_preserves_cli_usage_and_does_not_stop_screen(monkeypatch):
     def fake_invocation(command, **kwargs):
         assert "GH_TOKEN" not in kwargs["env"]
         assert command[command.index("--disable") + 1] == "shell_tool"
+        assert [command[i + 1] for i, part in enumerate(command) if part == "--disable"] == [
+            "shell_tool",
+            "code_mode_host",
+            "browser_use",
+            "in_app_browser",
+            "apps",
+            "computer_use",
+            "skill_search",
+        ]
         assert command[command.index("--config") + 1] == 'web_search="disabled"'
         final = Path(command[command.index("--output-last-message") + 1])
         final.write_text("not JSON")

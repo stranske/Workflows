@@ -104,6 +104,14 @@ def has_tool_events(stream: str) -> bool:
             return True
         if event_type.startswith("item."):
             item = event.get("item")
+            if (
+                isinstance(item, dict)
+                and item.get("type") == "error"
+                and str(item.get("message", "")).startswith(
+                    "Code Mode is unavailable because code-mode host is disabled."
+                )
+            ):
+                continue
             if not isinstance(item, dict) or item.get("type") not in {"agent_message", "reasoning"}:
                 return True
     return False
@@ -152,6 +160,18 @@ def invoke_cli(codex: str, model: str, prompt: str) -> CliResult:
             "--strict-config",
             "--disable",
             "shell_tool",
+            "--disable",
+            "code_mode_host",
+            "--disable",
+            "browser_use",
+            "--disable",
+            "in_app_browser",
+            "--disable",
+            "apps",
+            "--disable",
+            "computer_use",
+            "--disable",
+            "skill_search",
             "--config",
             'web_search="disabled"',
             "--skip-git-repo-check",
