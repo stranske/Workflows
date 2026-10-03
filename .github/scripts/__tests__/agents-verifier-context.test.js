@@ -1324,6 +1324,7 @@ test('fetchLocalGitDiff fetches a missing pull request head before reconstructin
     baseSha: 'aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa',
     headSha: 'bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb',
     prNumber: 557,
+    remoteUrl: 'https://github.com/octo/workflows.git',
     maxBytes: 1024 * 1024,
     execFile(command, args) {
       calls.push([command, ...args]);
@@ -1346,7 +1347,7 @@ test('fetchLocalGitDiff fetches a missing pull request head before reconstructin
     'git',
     'fetch',
     '--no-tags',
-    'origin',
+    'https://github.com/octo/workflows.git',
     'refs/pull/557/head',
   ]);
   assert.deepEqual(calls[2], [

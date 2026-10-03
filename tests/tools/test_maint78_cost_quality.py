@@ -769,3 +769,34 @@ def test_snapshot_import_checks_capture_hash_and_marks_controlled_defects(tmp_pa
     (tmp_path / "verifier-input-manifest.json").write_text(json.dumps(manifest))
     retrospective = create_case(tmp_path, **kwargs)
     assert retrospective["production_snapshot"]["input_kind"] == "retrospective_capture"
+
+
+def test_snapshot_import_hashes_crlf_diff_bytes_before_decoding(tmp_path):
+    context = b"# Verifier context\nacceptance\n"
+    summary = b"## PR Diff Summary\n- one file\n"
+    diff = b"diff --git a/task.py b/task.py\r\n+implemented\r\n"
+    (tmp_path / "verifier-context.md").write_bytes(context)
+    (tmp_path / "verifier-diff-summary.md").write_bytes(summary)
+    (tmp_path / "verifier-pr-diff.patch").write_bytes(diff)
+    manifest = {
+        "schema": "workflows-verifier-input-snapshot/v1",
+        "repository": "stranske/Workflows",
+        "pr": 10,
+        "merge_sha": "a" * 40,
+        "source_run_id": "123",
+        "chain_depth": 0,
+        "context_sha256": hashlib.sha256(context).hexdigest(),
+        "diff_summary_sha256": hashlib.sha256(summary).hexdigest(),
+        "diff_sha256": hashlib.sha256(diff).hexdigest(),
+    }
+    (tmp_path / "verifier-input-manifest.json").write_text(json.dumps(manifest))
+    case = create_case(
+        tmp_path,
+        case_id="crlf-diff",
+        expected_verdict="PASS",
+        category="portability",
+        adjudication_evidence="https://example.com/review",
+        adjudicated_by="reviewer",
+        adjudication_rationale="The captured bytes are valid and complete.",
+    )
+    assert case["production_snapshot"]["diff"] == diff.decode("utf-8")

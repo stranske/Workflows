@@ -30,16 +30,20 @@ def create_case(
     capture_kind = manifest.get("capture_kind", "production")
     if capture_kind not in {"production", "retrospective"}:
         raise ValueError("unknown verifier capture kind")
-    context = (artifact / "verifier-context.md").read_text()
-    diff_summary = (artifact / "verifier-diff-summary.md").read_text()
+    context_bytes = (artifact / "verifier-context.md").read_bytes()
+    diff_summary_bytes = (artifact / "verifier-diff-summary.md").read_bytes()
+    context = context_bytes.decode("utf-8")
+    diff_summary = diff_summary_bytes.decode("utf-8")
     diff = None
+    diff_bytes = None
     if "diff_sha256" in manifest:
-        diff = (artifact / "verifier-pr-diff.patch").read_text()
-    if hashlib.sha256(context.encode()).hexdigest() != manifest["context_sha256"]:
+        diff_bytes = (artifact / "verifier-pr-diff.patch").read_bytes()
+        diff = diff_bytes.decode("utf-8")
+    if hashlib.sha256(context_bytes).hexdigest() != manifest["context_sha256"]:
         raise ValueError("production context does not match the captured manifest")
-    if hashlib.sha256(diff_summary.encode()).hexdigest() != manifest["diff_summary_sha256"]:
+    if hashlib.sha256(diff_summary_bytes).hexdigest() != manifest["diff_summary_sha256"]:
         raise ValueError("production diff summary does not match the captured manifest")
-    if diff is not None and hashlib.sha256(diff.encode()).hexdigest() != manifest["diff_sha256"]:
+    if diff_bytes is not None and hashlib.sha256(diff_bytes).hexdigest() != manifest["diff_sha256"]:
         raise ValueError("production full diff does not match the captured manifest")
     if expected_verdict not in {"PASS", "NON_PASS"}:
         raise ValueError("expected verdict must be PASS or NON_PASS")

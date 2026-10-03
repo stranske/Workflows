@@ -601,6 +601,12 @@ def test_product_artifact_nouns_do_not_require_workflow_artifacts() -> None:
 
 
 def test_explicit_artifact_delivery_still_requires_workflow_evidence() -> None:
+    assert pr_verifier._required_evidence_channels("- [ ] Upload artifacts to the PR") == {
+        "artifacts"
+    }
+    assert pr_verifier._required_evidence_channels(
+        "- [ ] Attach an artifact to the pull request"
+    ) == {"artifacts"}
     assert pr_verifier._required_evidence_channels("- [ ] Upload the workflow artifact") == {
         "artifacts"
     }

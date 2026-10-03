@@ -622,7 +622,15 @@ function formatDiffForContext(diffText, maxChars) {
   return `${diff.slice(0, limit)}\n\n...diff truncated after ${limit} characters.`;
 }
 
-function fetchLocalGitDiff({ baseSha, headSha, prNumber, maxBytes, core, execFile = execFileSync }) {
+function fetchLocalGitDiff({
+  baseSha,
+  headSha,
+  prNumber,
+  remoteUrl = 'origin',
+  maxBytes,
+  core,
+  execFile = execFileSync,
+}) {
   if (!baseSha || !headSha) {
     return '';
   }
@@ -641,7 +649,7 @@ function fetchLocalGitDiff({ baseSha, headSha, prNumber, maxBytes, core, execFil
         core?.warning?.('Cannot fetch missing pull request head without a valid PR number.');
         return '';
       }
-      execFile('git', ['fetch', '--no-tags', 'origin', `refs/pull/${Number(prNumber)}/head`], {
+      execFile('git', ['fetch', '--no-tags', remoteUrl, `refs/pull/${Number(prNumber)}/head`], {
         encoding: 'utf8',
         maxBuffer: 1024 * 1024,
       });
@@ -1067,6 +1075,7 @@ async function buildVerifierContext({
     baseSha,
     headSha,
     prNumber: pull.number,
+    remoteUrl: `https://github.com/${owner}/${repo}.git`,
     maxBytes: Number.isFinite(diffMaxBytes) ? diffMaxBytes : DEFAULT_DIFF_MAX_BYTES,
     core,
   });
