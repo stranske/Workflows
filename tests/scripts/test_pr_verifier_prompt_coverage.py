@@ -599,10 +599,44 @@ def test_contextual_output_delivery_keeps_object_and_modality(
 
 
 @pytest.mark.parametrize(
+    ("delivery", "expected"),
+    [
+        ("it must be attached to the PR", {"artifacts"}),
+        ("it shall be uploaded to the PR", {"artifacts"}),
+        ("this needs to be provided in the PR", {"artifacts"}),
+        ("it must not be attached to the PR", set()),
+        ("it may optionally be attached to the PR", set()),
+        ("it must be attached to the PR if available", set()),
+    ],
+)
+def test_passive_pronoun_delivery_keeps_artifact_modality(
+    delivery: str, expected: set[str]
+) -> None:
+    assert (
+        pr_verifier._required_evidence_channels(
+            "- [ ] The response must include an artifact; " + delivery
+        )
+        == expected
+    )
+
+
+def test_passive_output_and_plural_delivery_keep_channels() -> None:
+    assert pr_verifier._required_evidence_channels(
+        "- [ ] The response must include command output; it must be attached to the PR"
+    ) == {"overall"}
+    assert pr_verifier._required_evidence_channels(
+        "- [ ] The response must include an artifact and command output; "
+        "they must be attached to the PR"
+    ) == {"artifacts", "overall"}
+
+
+@pytest.mark.parametrize(
     ("criterion", "expected"),
     [
         ("The handler must emit command output", "PASS"),
         ("The response must include an artifact and attach it to the PR", "CONCERNS"),
+        ("The response must include an artifact; it must be attached to the PR", "CONCERNS"),
+        ("The response must include command output; it must be attached to the PR", "CONCERNS"),
         (
             "The response must include an artifact and command output and attach them to the PR",
             "CONCERNS",

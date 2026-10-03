@@ -560,6 +560,7 @@ Declarative return/display/render/emit/expose behavior is identified without a
 product-actor name list; explicit reviewer/author obligations and imperative
 evidence requests remain requirements. Artifact/output/transcript pronouns can
 refer to objects in the same acceptance item, including plural object groups,
+in either active or passive delivery wording,
 but never inherit objects from another checklist item. Optional or prohibited
 delivery remains local to its clause, and artifact plus output delivery retains
 both retrieval channels rather than downgrading the artifact to generic evidence.

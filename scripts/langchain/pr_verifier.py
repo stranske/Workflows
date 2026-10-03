@@ -993,7 +993,10 @@ def _required_evidence_channels(acceptance: str) -> set[str]:
         clause_evidence_antecedent: str | None = None
         pronoun_pr_delivery = re.compile(
             r"\b(?:attach|upload|publish|post|record|capture|provide|include|document)\w*\b"
-            r".{0,40}\b(?:it|them|this)\b.{0,40}\b(?:pr|pull request)\b",
+            r".{0,40}\b(?:it|them|this|they)\b.{0,40}\b(?:pr|pull request)\b"
+            r"|\b(?:it|them|this|they)\b.{0,40}"
+            r"\b(?:attached|uploaded|published|posted|recorded|captured|provided|"
+            r"included|documented)\b.{0,40}\b(?:pr|pull request)\b",
             re.I,
         )
         fragments = []
@@ -1033,7 +1036,11 @@ def _required_evidence_channels(acceptance: str) -> set[str]:
                 and pronoun_pr_delivery.search(line)
             ):
                 working_line = re.sub(
-                    r"\b(?:it|them|this)\b", clause_evidence_antecedent, line, count=1, flags=re.I
+                    r"\b(?:it|them|this|they)\b",
+                    clause_evidence_antecedent,
+                    line,
+                    count=1,
+                    flags=re.I,
                 )
                 resolved_antecedent = clause_evidence_antecedent
             gate = bool(negative_gate.search(working_line))
