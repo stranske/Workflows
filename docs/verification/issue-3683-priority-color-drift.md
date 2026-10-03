@@ -4,10 +4,10 @@ This verifies the deliberate color-drift break required by [original issue #3624
 for [merged PR #3663](https://github.com/stranske/Workflows/pull/3663),
 merged commit [`b7a1147aa9c1c092a9269f74a84862e73fbce9de`](https://github.com/stranske/Workflows/commit/b7a1147aa9c1c092a9269f74a84862e73fbce9de).
 
-Tested Workflows tip: `7e97c0af11f5886bed762b72d1a2057d456c4ed5`.
-Captured at: `2026-10-03T22:15:58.989374+00:00` (UTC).
+Tested Workflows tip: `532a16759542af652cc30b05bd5abdc64e661d31`.
+Captured at: `2026-10-03T22:58:09.337937+00:00` (UTC).
 
-The isolated proof temporarily changed only `.github/labels-core.yml` entry `priority:low`
+The proof temporarily changed only `.github/labels-core.yml` entry `priority:low`
 from `0e8a16` to `ffffff`. The existing gate,
 `tests/scripts/test_bootstrap_consumer_labels.py::test_priority_labels_match_synced_source_and_review_uploader`,
 failed on that color difference. The original source bytes were restored in a `finally` block
@@ -438,14 +438,14 @@ FAILED tests/scripts/test_bootstrap_consumer_labels.py::test_health_check_report
   +     'status': 'FAIL',
   ?                ^^^^
     }
-9 failed, 17 passed in 1.10s
+9 failed, 17 passed in 1.05s
 ```
 
 ## Restored GREEN (exit 0)
 
 ```text
 ..........................                                               [100%]
-26 passed in 0.87s
+26 passed in 0.88s
 ```
 
 ## Restoration
@@ -457,43 +457,34 @@ The exact original bytes were restored, including `priority:low` color `0e8a16`.
 - `git diff -- .github/labels-core.yml` produced no output after restoration.
 - `tests/scripts/test_bootstrap_consumer_labels.py` remains unchanged as the gate.
 
-Only this evidence artifact is included in the commit.
+Only this evidence artifact was changed permanently, as required by issue #3683.
 
-## Task reconciliation at the current tip
+## Verified task and acceptance completion
 
-Reviewed all three evidence commits, `7e97c0af11f5886bed762b72d1a2057d456c4ed5`,
-`21c8c6f957934ae3939d3da2b6460ebb76a88d8e`, and
-`232568a07d5630ef8da7d4dd589030c358e1fd50`. Each changes only this artifact.
-The retained RED/GREEN run above verifies the deliberate break; no additional
-mutation is needed to reconcile the stale unchecked tasks in PR #3724.
+The transcript above replaces the earlier run with the proof at the current tip.
 
-At tip `232568a07d5630ef8da7d4dd589030c358e1fd50`, reran the restored gate:
-
-```sh
-PYTEST_ADDOPTS='-m "not slow"' pytest tests/scripts/test_bootstrap_consumer_labels.py -q
-```
-
-```text
-..........................                                               [100%]
-26 passed in 1.03s
-```
-
-Exit status: `0`. The source SHA-256 is still
-`92c3670964eb0f079d96e733dfcf837a64fc9b514341db54ac2ee32a0184a66d`.
-Compared with PR base `e2dea1809ae05d9f72d1a7ae5be1fb4e95b115ec`, both
-`.github/labels-core.yml` and `tests/scripts/test_bootstrap_consumer_labels.py`
-have empty diffs; only this artifact differs. `git diff --check` passes.
-
-Verified task completion from the retained transcript and current-tip checks:
-
-- [x] Temporarily changed `priority:low` in `.github/labels-core.yml`.
+- [x] At the current Workflows tip, temporarily changed `priority:low` in `.github/labels-core.yml`.
 - [x] Captured the requested pytest command failing the priority-label drift assertion.
-- [x] Restored the exact bytes, reran the same command, and committed only evidence.
+- [x] Restored the exact bytes and reran the same command successfully.
+- [ ] Commit the refreshed current-tip evidence artifact.
 - [x] Evidence names the path and both failing and passing commands and outputs.
 - [x] Restored color remains `0e8a16`, and the existing test file remains the gate.
 - [x] Evidence links original issue #3624 and merged commit
   `b7a1147aa9c1c092a9269f74a84862e73fbce9de`.
 
-These checkboxes record verified completion locally. Updating the corresponding
-PR-body checkboxes was blocked because the connector requires approval while
-this run's approval policy is `never`; the remote checkboxes were not updated.
+## Publication blocker
+
+The local commit attempt failed because `.git` is read-only:
+
+```text
+fatal: Unable to create '/home/runner/work/Workflows/Workflows/.git/index.lock': Read-only file system
+```
+
+The GitHub connector commit attempt was also blocked:
+
+```text
+MCP tool call requires approval, but approval policy is never
+```
+
+The refreshed evidence remains a local change. Remote issue and PR checkboxes
+were not updated. PR #3724 was confirmed open with `draft=false` before handoff.
