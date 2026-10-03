@@ -826,6 +826,13 @@ def _required_evidence_channels(acceptance: str) -> set[str]:
         r"includ(?:e|es|ed)|post(?:s|ed)?|document(?:s|ed)?|prov(?:e|es|ed)|show(?:s|ed)?)\b",
         re.I,
     )
+    delivery_verb = re.compile(
+        r"\b(?:publish(?:es|ed)?|upload(?:s|ed)?|attach(?:es|ed)?|"
+        r"captur(?:e|es|ed)|record(?:s|ed)?|provid(?:e|es|ed)|"
+        r"includ(?:e|es|ed)|post(?:s|ed)?|document(?:s|ed)?|"
+        r"prov(?:e|es|ed)|show(?:s|ed)?)\b",
+        re.I,
+    )
     evidence_prohibition = re.compile(
         r"\bno\s+(?:\w+\s+){0,3}(?:evidence|artifacts?|transcripts?|command outputs?|"
         r"workflow runs?|pr comments?|pull request comments?)"
@@ -873,25 +880,49 @@ def _required_evidence_channels(acceptance: str) -> set[str]:
         else:
             criteria.append(line)
     for criterion in criteria:
-        for line in re.split(r"\s*;\s*|,?\s+but\s+", criterion, flags=re.I):
+        criterion_checklist = bool(re.match(r"^\s*[-*]\s*\[[ xX]\]", criterion))
+        criterion_bullet = bool(re.match(r"^\s*[-*]\s+", criterion))
+        clause_boundary = (
+            r"\s*;\s*|,?\s+but\s+|,?\s+and\s+(?="
+            r"(?:optionally\s+)?(?:"
+            r"(?:an?\s+|the\s+)?(?:evidence|artifacts?|transcripts?|command outputs?|"
+            r"workflow runs?|pr comments?|pull request comments?)|"
+            r"(?:publish|upload|attach|capture|record|provide|include|post|document|prove|show)\b"
+            r"))"
+        )
+        for line in re.split(clause_boundary, criterion, flags=re.I):
             gate = bool(negative_gate.search(line))
             requirement_text = line if gate else evidence_prohibition.sub(" ", line)
             if not evidence_term.search(requirement_text):
                 continue
-            checklist = re.match(r"^\s*[-*]\s*\[[ xX]\]", requirement_text)
-            bullet = re.match(r"^\s*[-*]\s+", requirement_text)
-            optional_checklist = bool(
-                checklist
-                and re.search(
-                    r"\boptional\b|"
+            checklist = criterion_checklist
+            bullet = criterion_bullet
+            optional_evidence = bool(
+                re.search(
+                    r"\boptional(?:ly)?\b|"
                     r"\b(?:if|when)\s+(?:produced|available|present|uploaded|generated)\b",
                     requirement_text,
                     re.I,
                 )
             )
-            # Optional/conditional checklist items never create a hard evidence
-            # floor, even when they contain requirement verbs such as "must".
-            if optional_checklist:
+            # Optional/conditional evidence clauses never create a hard floor,
+            # whether or not the source used checklist syntax. Clause splitting
+            # preserves a separate required comment/transcript on the same item.
+            if optional_evidence:
+                continue
+            meta_behavior = bool(
+                re.search(
+                    r"\b(?:parser|verifier|code|script|implementation)\b.{0,80}"
+                    r"\b(?:recogniz|pars|detect|classif|match|identif|support|handl|validat)\w*\b"
+                    r".{0,80}\b(?:evidence|artifacts?|transcripts?|command outputs?|"
+                    r"workflow runs?|pr comments?|pull request comments?)\b",
+                    requirement_text,
+                    re.I,
+                )
+            )
+            # Requirements about understanding evidence syntax are software
+            # behavior, not evidence-delivery requirements.
+            if meta_behavior and not delivery_verb.search(requirement_text):
                 continue
             checklist_deliverable = bool(
                 checklist
@@ -916,8 +947,12 @@ def _required_evidence_channels(acceptance: str) -> set[str]:
                 line_channels.add("comments")
             if not line_channels:
                 if re.search(r"\bworkflow runs?\b", lower):
-                    # CI/workflow success belongs in the CI section, not artifact retrieval.
-                    continue
+                    without_workflow_run = re.sub(r"\bworkflow runs?\b", " ", lower)
+                    if not evidence_term.search(without_workflow_run):
+                        # CI/workflow success belongs in the CI section, not
+                        # artifact retrieval. Preserve a transcript/output named
+                        # in the same clause rather than discarding the clause.
+                        continue
                 line_channels.add("overall")
             channels.update(line_channels)
     return channels

@@ -538,6 +538,25 @@ def test_optional_checklist_evidence_is_not_required() -> None:
         )
         == set()
     )
+    assert (
+        pr_verifier._required_evidence_channels(
+            "- Validation artifact must be uploaded when available"
+        )
+        == set()
+    )
+
+
+def test_optional_evidence_clause_preserves_required_comment() -> None:
+    assert pr_verifier._required_evidence_channels(
+        "- [ ] Post a required PR comment and optionally attach an optional artifact"
+    ) == {"comments"}
+
+
+def test_descriptive_artifact_parser_requirement_is_not_a_deliverable() -> None:
+    assert (
+        pr_verifier._required_evidence_channels("- [ ] The parser must recognize artifact URLs")
+        == set()
+    )
 
 
 def test_checklist_noun_only_deliverable_floors_pass_when_unavailable(
@@ -587,6 +606,11 @@ def test_artifact_from_workflow_run_requires_artifacts_channel() -> None:
 def test_workflow_run_preserves_mixed_required_comment_channel() -> None:
     criterion = "Post the validation output in a PR comment, and the workflow run must pass"
     assert pr_verifier._required_evidence_channels(f"- {criterion}") == {"comments"}
+
+
+def test_workflow_run_preserves_mixed_required_transcript_channel() -> None:
+    criterion = "Publish the validation transcript, and the workflow run must pass"
+    assert pr_verifier._required_evidence_channels(f"- {criterion}") == {"overall"}
 
     context, _ = _context(1, 1_000, 1_000)
     context = context.replace("- " + ACCEPTANCE_SENTINEL, "- " + criterion).replace(
