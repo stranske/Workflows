@@ -508,6 +508,11 @@ def test_command_output_uses_its_named_source_channel() -> None:
     ) == {"artifacts"}
 
 
+def test_cli_command_behavior_does_not_require_evidence_delivery() -> None:
+    # Codex P2 (thread PRRT_kwDOQprj9M6olqqf): `outputs` describes CLI behavior.
+    assert pr_verifier._required_evidence_channels("- [ ] The CLI command outputs JSON") == set()
+
+
 def test_checklist_prohibition_does_not_require_artifacts() -> None:
     assert pr_verifier._required_evidence_channels("- [ ] No artifact is generated") == set()
 
@@ -572,6 +577,13 @@ def test_product_comment_nouns_do_not_require_pr_comment_evidence() -> None:
 def test_embedded_prohibition_preserves_required_comment_delivery() -> None:
     assert pr_verifier._required_evidence_channels(
         "- [ ] Post a PR comment explaining that no artifact is required"
+    ) == {"comments"}
+
+
+def test_api_change_context_preserves_explicit_comment_delivery() -> None:
+    # Codex P2 (thread PRRT_kwDOQprj9M6olqql): the API is context, not the poster.
+    assert pr_verifier._required_evidence_channels(
+        "- [ ] For the API change, post a PR comment with evidence"
     ) == {"comments"}
 
 

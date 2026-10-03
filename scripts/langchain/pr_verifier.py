@@ -1022,7 +1022,13 @@ def _required_evidence_channels(acceptance: str) -> set[str]:
                 product_comment_behavior = bool(
                     re.search(
                         r"\b(?:ui|api|application|interface)\b.{0,60}"
-                        r"\b(?:allow|enable|support|display|store|post|publish)\w*\b",
+                        r"\b(?:allow|enable|support|display|store)\w*\b",
+                        requirement_text,
+                        re.I,
+                    )
+                    or re.search(
+                        r"\b(?:ui|api|application|interface)\b\s+"
+                        r"(?:must\s+|shall\s+|will\s+)?(?:post|publish)\w*\b",
                         requirement_text,
                         re.I,
                     )
@@ -1052,6 +1058,17 @@ def _required_evidence_channels(acceptance: str) -> set[str]:
                 elif not line_channels:
                     continue
             if not line_channels:
+                command_behavior = bool(
+                    re.search(
+                        r"\b(?:cli\s+)?command\b\s+(?:must\s+|shall\s+|will\s+)?" r"outputs\b",
+                        requirement_text,
+                        re.I,
+                    )
+                )
+                if command_behavior:
+                    # A command that outputs JSON describes product behavior;
+                    # it is not a request to capture or deliver command output.
+                    continue
                 if re.search(r"\bworkflow runs?\b", lower):
                     without_workflow_run = re.sub(r"\bworkflow runs?\b", " ", lower)
                     if not evidence_term.search(without_workflow_run):
