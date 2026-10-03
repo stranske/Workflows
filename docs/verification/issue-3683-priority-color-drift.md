@@ -461,30 +461,39 @@ Only this evidence artifact was changed permanently, as required by issue #3683.
 
 ## Verified task and acceptance completion
 
-The transcript above replaces the earlier run with the proof at the current tip.
+The transcript above was captured at `532a16759542af652cc30b05bd5abdc64e661d31`
+and committed in `632fed89caba7e6453b92b33815d168903131791`. The intervening
+commit changed only this evidence artifact; the label source and test gate did
+not change. Revalidation at `632fed89` with the same command and marker filter
+exited 0 (`26 passed in 0.87s`), with the same source SHA-256 recorded above.
 
 - [x] At the current Workflows tip, temporarily changed `priority:low` in `.github/labels-core.yml`.
 - [x] Captured the requested pytest command failing the priority-label drift assertion.
 - [x] Restored the exact bytes and reran the same command successfully.
-- [ ] Commit the refreshed current-tip evidence artifact.
+- [x] Commit the refreshed current-tip evidence artifact.
 - [x] Evidence names the path and both failing and passing commands and outputs.
 - [x] Restored color remains `0e8a16`, and the existing test file remains the gate.
 - [x] Evidence links original issue #3624 and merged commit
   `b7a1147aa9c1c092a9269f74a84862e73fbce9de`.
 
-## Publication blocker
+## PR checkbox reconciliation blocker
 
-The local commit attempt failed because `.git` is read-only:
-
-```text
-fatal: Unable to create '/home/runner/work/Workflows/Workflows/.git/index.lock': Read-only file system
-```
-
-The GitHub connector commit attempt was also blocked:
+All six unchecked items in PR #3724's automated task summary are satisfied by
+the committed evidence above. The evidence-only commit is already present in
+the PR; the earlier claim that the transcript remains uncommitted is obsolete.
+An attempt to check those six verified items in the PR body was rejected:
 
 ```text
 MCP tool call requires approval, but approval policy is never
 ```
 
-The refreshed evidence remains a local change. Remote issue and PR checkboxes
-were not updated. PR #3724 was confirmed open with `draft=false` before handoff.
+Remote PR checkboxes were not updated because this run cannot grant the
+required connector approval. PR #3724 was confirmed open with `draft=false`.
+Reconcile these existing PR summary items without repeating the demonstration:
+
+- [x] At the current Workflows tip, temporarily change the `priority:low` color in `.github/labels-core.yml`.
+- [x] Run `pytest tests/scripts/test_bootstrap_consumer_labels.py -q` and capture the failure of the priority-label drift assertion.
+- [x] Restore the exact color, rerun the same command, and commit only the red/green transcript or an evidence artifact.
+- [x] The evidence names the changed repo-relative path `.github/labels-core.yml`, the failing command/output, and the restored passing command/output.
+- [x] Restored source preserves the required `priority:low` color `0e8a16`; `tests/scripts/test_bootstrap_consumer_labels.py` remains the gate.
+- [x] The evidence explicitly links original issue #3624 and merged commit `b7a1147aa9c1c092a9269f74a84862e73fbce9de`.
