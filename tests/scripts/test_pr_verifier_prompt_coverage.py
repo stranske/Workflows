@@ -569,6 +569,66 @@ def test_clause_split_preserves_command_output_pr_delivery_antecedent() -> None:
 
 
 @pytest.mark.parametrize(
+    ("criterion", "expected"),
+    [
+        ("The handler must emit command output", set()),
+        ("The controller shall render a transcript", set()),
+        ("The exporter must expose command output", set()),
+        ("The reviewer must return command output", {"overall"}),
+        ("The PR author must display a transcript", {"overall"}),
+        ("Show command output", {"overall"}),
+        ("The response must include an artifact and attach it to the PR", {"artifacts"}),
+        (
+            "The response must include an artifact and command output and attach them to the PR",
+            {"artifacts", "overall"},
+        ),
+        (
+            "The renderer must display a transcript and post it in a PR comment",
+            {"comments"},
+        ),
+        ("The response must include command output; attach it to the PR", {"overall"}),
+        ("The response must include an artifact and attach it to the PR if available", set()),
+        ("The response must include an artifact and do not attach it to the PR", set()),
+        ("The response must include an artifact\n- [ ] Attach it to the PR", set()),
+    ],
+)
+def test_contextual_output_delivery_keeps_object_and_modality(
+    criterion: str, expected: set[str]
+) -> None:
+    assert pr_verifier._required_evidence_channels("- [ ] " + criterion) == expected
+
+
+@pytest.mark.parametrize(
+    ("criterion", "expected"),
+    [
+        ("The handler must emit command output", "PASS"),
+        ("The response must include an artifact and attach it to the PR", "CONCERNS"),
+        (
+            "The response must include an artifact and command output and attach them to the PR",
+            "CONCERNS",
+        ),
+    ],
+)
+def test_contextual_delivery_controls_the_missing_artifact_floor(
+    criterion: str, expected: str, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    context, _ = _context(1, 1_000, 1_000)
+    context = context.replace("- " + ACCEPTANCE_SENTINEL, "- [ ] " + criterion).replace(
+        "## PR Diff Summary",
+        "## Acceptance evidence\n\n"
+        "- Overall retrieval status: **unavailable**\n"
+        "- PR comments: **present**\n"
+        "- Referenced workflow artifacts: **unavailable**\n"
+        "## PR Diff Summary",
+    )
+    client = _pass_client()
+    monkeypatch.setattr(
+        pr_verifier, "_get_llm_client", lambda model=None, provider=None: (client, "openai")
+    )
+    assert pr_verifier.evaluate_pr(context).verdict == expected
+
+
+@pytest.mark.parametrize(
     "criterion",
     [
         "For the UI change, attach a validation artifact to show the transcript",

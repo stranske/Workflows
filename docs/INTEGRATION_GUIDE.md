@@ -556,6 +556,13 @@ Artifacts included in a product response or payload are not workflow evidence,
 regardless of the actor's name; explicit PR delivery remains required.
 The same rule applies to transcript/command-output fields in response contracts;
 an additional required PR-comment delivery in the clause is preserved.
+Declarative return/display/render/emit/expose behavior is identified without a
+product-actor name list; explicit reviewer/author obligations and imperative
+evidence requests remain requirements. Artifact/output/transcript pronouns can
+refer to objects in the same acceptance item, including plural object groups,
+but never inherit objects from another checklist item. Optional or prohibited
+delivery remains local to its clause, and artifact plus output delivery retains
+both retrieval channels rather than downgrading the artifact to generic evidence.
 Cross-repository full-diff recovery fetches and verifies both the recorded base
 and PR head from the target repository before reconstructing the range.
 Git's tab delimiter in `---`/`+++` metadata is not part of the changed pathname.

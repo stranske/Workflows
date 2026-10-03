@@ -996,17 +996,46 @@ def _required_evidence_channels(acceptance: str) -> set[str]:
             r".{0,40}\b(?:it|them|this)\b.{0,40}\b(?:pr|pull request)\b",
             re.I,
         )
-        for line in re.split(clause_boundary, criterion, flags=re.I):
-            antecedent_match = re.search(r"\b(?:command outputs?|transcripts?)\b", line, re.I)
-            if antecedent_match:
-                clause_evidence_antecedent = antecedent_match.group(0)
+        fragments = []
+        for fragment in re.split(clause_boundary, criterion, flags=re.I):
+            noun_only = re.fullmatch(
+                r"\s*(?:(?:an?|the|validation|workflow|exact-head|evidence)\s+)*"
+                r"(?:artifacts?|command outputs?|transcripts?)\s*",
+                fragment,
+                re.I,
+            )
+            prior_product = fragments and re.search(
+                r"\b(?:responses?|payloads?|return values?)\s+"
+                r"(?:(?:must|shall|will|should|can|may|needs? to)\s+)?"
+                r"(?:include|contain|have|return|display|show|store|emit|render|expose)\w*\b"
+                r"|\b(?:[\w-]+\s+){1,6}(?:must|shall|will|should|can|may|needs? to)\s+"
+                r"(?:return|display|emit|render|expose)\w*\b",
+                fragments[-1],
+                re.I,
+            )
+            if noun_only and prior_product:
+                fragments[-1] += " and " + fragment
+            else:
+                fragments.append(fragment)
+        for line in fragments:
+            objects = [
+                m.group(0)
+                for m in evidence_term.finditer(line)
+                if not re.search(r"(?:pr|pull request) comments?", m.group(0), re.I)
+            ]
+            if objects:
+                clause_evidence_antecedent = " and ".join(objects)
+            resolved_antecedent = None
             working_line = line
             if (
                 clause_evidence_antecedent
                 and not evidence_term.search(line)
                 and pronoun_pr_delivery.search(line)
             ):
-                working_line = f"{clause_evidence_antecedent} {line}"
+                working_line = re.sub(
+                    r"\b(?:it|them|this)\b", clause_evidence_antecedent, line, count=1, flags=re.I
+                )
+                resolved_antecedent = clause_evidence_antecedent
             gate = bool(negative_gate.search(working_line))
             requirement_text = working_line if gate else evidence_prohibition.sub(" ", working_line)
             # An optional evidence noun can be the object of a mandatory
@@ -1297,6 +1326,11 @@ def _required_evidence_channels(acceptance: str) -> set[str]:
                 )
             )
             product_output_prefix = re.compile(
+                r"^\s*(?:[-*]\s*(?:\[[ xX]\]\s*)?)?"
+                r"(?!(?:[\w-]+\s+){0,5}(?:reviewers?|authors?|maintainers?|operators?|"
+                r"validation|evidence)\b)"
+                r"(?:[\w-]+\s+){1,6}(?:must|shall|will|should|can|may|needs? to)\s+"
+                r"(?:return|display|emit|render|expose)\w*\b|"
                 r"\b(?:ui|api|application|interface|service|cli|endpoint|renderer)\b\s+"
                 r"(?:(?:must|shall|will|should|can|may|needs?\s+to)\s+)?"
                 r"(?:return|display|show|store|emit|render|expose)\w*\b",
@@ -1358,6 +1392,13 @@ def _required_evidence_channels(acceptance: str) -> set[str]:
                         # artifact retrieval. Preserve a transcript/output named
                         # in the same clause rather than discarding the clause.
                         continue
+                line_channels.add("overall")
+            if (
+                resolved_antecedent
+                and "artifacts" in line_channels
+                and re.search(r"\b(?:command outputs?|transcripts?)\b", resolved_antecedent, re.I)
+                and not re.search(r"\b(?:pr comments?|pull request comments?)\b", lower)
+            ):
                 line_channels.add("overall")
             channels.update(line_channels)
     return channels
