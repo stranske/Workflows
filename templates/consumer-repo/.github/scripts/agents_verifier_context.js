@@ -113,9 +113,27 @@ function summarizeDiff(diffText, { maxFiles, maxLines } = {}) {
 
   const pushCurrent = () => {
     if (current) {
-      fileSummaries.push(current);
+      const { fromMetadata, toMetadata } = current;
+      if (fromMetadata !== undefined || toMetadata !== undefined) {
+        if (fromMetadata === undefined || toMetadata === undefined) pathParsingFailed = true;
+        else {
+          const fromPath = fromMetadata === '/dev/null' ? toMetadata : fromMetadata;
+          const toPath = toMetadata === '/dev/null' ? fromMetadata : toMetadata;
+          if (!current.candidates.some((paths) => paths.fromPath === fromPath && paths.toPath === toPath)) {
+            pathParsingFailed = true;
+          }
+          current.fromPath = fromPath;
+          current.toPath = toPath;
+        }
+      }
+      if (!current.fromPath || !current.toPath) pathParsingFailed = true;
+      else fileSummaries.push(current);
       current = null;
     }
+  };
+  const recordPathMetadata = (key, path) => {
+    if (current[key] !== undefined && current[key] !== path) pathParsingFailed = true;
+    current[key] = path;
   };
 
   for (let index = 0; index < lines.length; index += 1) {
@@ -126,6 +144,7 @@ function summarizeDiff(diffText, { maxFiles, maxLines } = {}) {
     const line = lines[index];
     if (line.startsWith('diff --git ')) {
       pushCurrent();
+      if (pathParsingFailed) break;
       const paths = parseGitDiffHeader(line);
       if (!paths) {
         pathParsingFailed = true;
@@ -134,14 +153,30 @@ function summarizeDiff(diffText, { maxFiles, maxLines } = {}) {
       current = {
         fromPath: paths.fromPath,
         toPath: paths.toPath,
+        candidates: paths.candidates,
         status: 'modified',
         added: 0,
         removed: 0,
         binary: false,
+        inHunk: false,
       };
       continue;
     }
     if (!current) {
+      continue;
+    }
+    if (line.startsWith('@@')) {
+      current.inHunk = true;
+      continue;
+    }
+    if (!current.inHunk && (line.startsWith('--- ') || line.startsWith('+++ '))) {
+      const path = parseGitPath(line.slice(4).split('\t', 1)[0]);
+      if (path === null) { pathParsingFailed = true; break; }
+      const from = line.startsWith('--- ');
+      if (path !== '/dev/null' && !path.startsWith(from ? 'a/' : 'b/')) {
+        pathParsingFailed = true; break;
+      }
+      recordPathMetadata(from ? 'fromMetadata' : 'toMetadata', path === '/dev/null' ? path : stripGitPrefix(path));
       continue;
     }
     if (line.startsWith('new file mode')) {
@@ -152,31 +187,28 @@ function summarizeDiff(diffText, { maxFiles, maxLines } = {}) {
       current.status = 'deleted';
       continue;
     }
-    if (line.startsWith('rename from ')) {
-      current.status = 'renamed';
-      const renamed = parseGitPath(line.slice('rename from '.length).trim());
+    if (!current.inHunk && /^(rename|copy) from /.test(line)) {
+      current.status = line.startsWith('rename ') ? 'renamed' : 'copied';
+      const renamed = parseGitPath(line.replace(/^(rename|copy) from /, ''));
       if (renamed === null) {
         pathParsingFailed = true;
         break;
       }
-      current.fromPath = renamed;
+      recordPathMetadata('fromMetadata', renamed);
       continue;
     }
-    if (line.startsWith('rename to ')) {
-      current.status = 'renamed';
-      const renamed = parseGitPath(line.slice('rename to '.length).trim());
+    if (!current.inHunk && /^(rename|copy) to /.test(line)) {
+      current.status = line.startsWith('rename ') ? 'renamed' : 'copied';
+      const renamed = parseGitPath(line.replace(/^(rename|copy) to /, ''));
       if (renamed === null) {
         pathParsingFailed = true;
         break;
       }
-      current.toPath = renamed;
+      recordPathMetadata('toMetadata', renamed);
       continue;
     }
     if (line.startsWith('Binary files ') || line.startsWith('GIT binary patch')) {
       current.binary = true;
-      continue;
-    }
-    if (line.startsWith('+++') || line.startsWith('---')) {
       continue;
     }
     if (line.startsWith('+')) {
@@ -185,11 +217,11 @@ function summarizeDiff(diffText, { maxFiles, maxLines } = {}) {
       current.removed += 1;
     }
   }
+  pushCurrent();
   if (pathParsingFailed) {
-    summaryLines.push('_Diff path parsing unavailable; quoted Git path syntax was malformed._');
+    summaryLines.push('_Diff path parsing unavailable; Git paths were malformed or ambiguous._');
     return summaryLines.join('\n');
   }
-  pushCurrent();
 
   if (!fileSummaries.length) {
     summaryLines.push('_No file changes detected in diff._');
@@ -210,7 +242,7 @@ function summarizeDiff(diffText, { maxFiles, maxLines } = {}) {
   const visible = fileSummaries.slice(0, fileLimit);
   for (const file of visible) {
     let label = file.toPath || file.fromPath || '(unknown file)';
-    if (file.status === 'renamed' && file.fromPath) {
+    if (['renamed', 'copied'].includes(file.status) && file.fromPath) {
       label = `${file.fromPath} -> ${file.toPath || '(unknown)'}`;
     } else if (file.status === 'added') {
       label = `${label} (added)`;
@@ -274,14 +306,29 @@ function stripGitPrefix(value) { return value.replace(/^[ab]\//, ''); }
 
 function parseGitDiffHeader(line) {
   const payload = line.slice('diff --git '.length);
-  const split = Math.max(payload.lastIndexOf(' b/'), payload.lastIndexOf(' "b/'));
-  const from = payload.startsWith('"')
-    ? decodeGitQuotedPath(payload)
-    : split > 0 ? { value: payload.slice(0, split), rest: payload.slice(split) } : null;
-  if (!from || !from.rest.startsWith(' ')) return null;
-  const destination = parseGitPath(from.rest.trimStart());
-  if (destination === null || !from.value.startsWith('a/') || !destination.startsWith('b/')) return null;
-  return { fromPath: stripGitPrefix(from.value), toPath: stripGitPrefix(destination) };
+  const pair = (source, destination) => source?.startsWith('a/') && destination?.startsWith('b/')
+    ? { fromPath: stripGitPrefix(source), toPath: stripGitPrefix(destination) } : null;
+  if (payload.startsWith('"')) {
+    const from = decodeGitQuotedPath(payload);
+    const paths = from?.rest.startsWith(' ')
+      ? pair(from.value, parseGitPath(from.rest.trimStart())) : null;
+    return paths ? { ...paths, candidates: [paths] } : null;
+  }
+  const candidates = [];
+  for (const match of payload.matchAll(/ (?=b\/|"b\/)/g)) {
+    const source = payload.slice(0, match.index);
+    if (source.includes('"')) continue;
+    const destination = payload.slice(match.index + 1);
+    if (!destination.startsWith('"') && destination.includes('"')) continue;
+    const paths = pair(source, parseGitPath(destination));
+    if (paths) candidates.push(paths);
+  }
+  const identical = candidates.filter((paths) => paths.fromPath === paths.toPath);
+  if (identical.length === 1) return { ...identical[0], candidates };
+  if (candidates.length === 1) return { ...candidates[0], candidates };
+  // Unquoted rename/copy headers are intrinsically ambiguous. Do not invent a
+  // path: the authoritative patch or rename/copy metadata must resolve both.
+  return candidates.length > 1 ? { fromPath: null, toPath: null, candidates } : null;
 }
 
 function isValidSha(value) {

@@ -1155,14 +1155,79 @@ test('summarizeDiff supports independently quoted rename header paths', () => {
   }
 });
 
+test('summarizeDiff preserves delimiter-like components in unquoted Git paths', () => {
+  for (const path of ['docs/foo b/bar', 'docs/foo b/bar b/baz']) {
+    const summary = summarizeDiff([
+      `diff --git a/${path} b/${path}`,
+      `--- a/${path}\t`,
+      `+++ b/${path}\t`,
+      '@@ -1 +1 @@', '-before', '+after',
+    ].join('\n'));
+    assert.ok(summary.includes(`- ${path} (+1/-1)`), summary);
+    const binary = summarizeDiff(`diff --git a/${path} b/${path}\nGIT binary patch`);
+    assert.ok(binary.includes(`- ${path} (binary)`), binary);
+  }
+});
+
+test('summarizeDiff fails closed on unresolved ambiguous rename headers', () => {
+  const header = 'diff --git a/docs/foo b/bar b/docs/new b/name';
+  assert.match(summarizeDiff(header), /Diff path parsing unavailable/);
+  const summary = summarizeDiff([
+    header, 'similarity index 100%',
+    'rename from docs/foo b/bar', 'rename to docs/new b/name',
+  ].join('\n'));
+  assert.ok(summary.includes('docs/foo b/bar -> docs/new b/name'), summary);
+});
+
 test('summarizeDiff fails closed on malformed mixed quoted paths', () => {
   for (const header of [
     'diff --git "a/caf\\400.txt" b/plain.txt',
     'diff --git a/plain.txt "b/caf\\303.txt"',
     'diff --git "a/caf\\303\\251.txt" c/plain file.txt',
+    'diff --git a/plain "b/caf\\303 b/inner.txt"',
   ]) {
     const summary = summarizeDiff(header);
     assert.match(summary, /Diff path parsing unavailable/);
+  }
+});
+
+test('summarizeDiff resolves ambiguous patch and copy paths before counting hunks', () => {
+  const header = 'diff --git a/docs/foo b/bar b/docs/new b/name';
+  const metadata = ['--- a/docs/foo b/bar\t', '+++ b/docs/new b/name\t'];
+  const summary = summarizeDiff([
+    header, ...metadata, '@@ -1 +1 @@',
+    '--- a/literal-content', '+++ b/literal-content',
+  ].join('\n'));
+  assert.ok(summary.includes('- docs/new b/name (+1/-1)'), summary);
+  const copied = summarizeDiff([
+    header, 'similarity index 100%',
+    'copy from docs/foo b/bar', 'copy to docs/new b/name',
+  ].join('\n'));
+  assert.ok(copied.includes('docs/foo b/bar -> docs/new b/name'), copied);
+  assert.match(summarizeDiff([header, ...metadata].join('\n'), { maxLines: 1 }), /Diff path parsing unavailable/);
+  assert.match(summarizeDiff(`${header}\ndiff --git a/plain b/plain`), /Diff path parsing unavailable/);
+});
+
+test('summarizeDiff overrides equal header candidates only with complete consistent metadata', () => {
+  const header = 'diff --git a/x b/x b/x b/x';
+  const renamed = summarizeDiff([
+    header, 'similarity index 100%', 'rename from x', 'rename to x b/x b/x',
+  ].join('\n'));
+  assert.ok(renamed.includes('- x -> x b/x b/x (+0/-0)'), renamed);
+  for (const metadata of [
+    ['rename from x'],
+    ['rename from x', 'rename to impossible'],
+    ['rename from x', 'rename to x b/x b/x', '--- a/other', '+++ b/other'],
+  ]) {
+    assert.match(summarizeDiff([header, ...metadata].join('\n')), /Diff path parsing unavailable/);
+  }
+});
+
+test('summarizeDiff preserves delimiter-bearing binary additions and deletions', () => {
+  const path = 'docs/foo b/bar';
+  for (const mode of ['new file mode 100644', 'deleted file mode 100644']) {
+    const summary = summarizeDiff(`diff --git a/${path} b/${path}\n${mode}\nGIT binary patch`);
+    assert.ok(summary.includes(`- ${path} (${mode.startsWith('new') ? 'added' : 'deleted'}) (binary)`), summary);
   }
 });
 
