@@ -965,6 +965,14 @@ def _required_evidence_channels(acceptance: str) -> set[str]:
                     requirement_text,
                     re.I,
                 )
+                or re.search(
+                    r"\b(?:parser|verifier|code|script|implementation)\b.{0,40}"
+                    r"\b(?:evidence|artifacts?|transcripts?|command outputs?|workflow runs?|"
+                    r"pr comments?|pull request comments?)\b.{0,80}"
+                    r"\b(?:recogniz|pars|detect|classif|match|identif|support|handl|validat)\w*\b",
+                    requirement_text,
+                    re.I,
+                )
             )
             # Requirements about understanding evidence syntax are software
             # behavior, not evidence-delivery requirements. Nominal upload
@@ -1024,6 +1032,11 @@ def _required_evidence_channels(acceptance: str) -> set[str]:
                     or re.search(r"\bvalidation artifacts?\b", lower)
                     or re.search(r"\brequired\s+evidence\s+artifacts?\b", lower)
                     or re.search(r"\bevidence\s+artifacts?\s*:", lower)
+                    or re.search(
+                        r"\bevidence\s+artifacts?\s+(?:is|are)\s+"
+                        r"(?:required|mandatory|needed)\b",
+                        lower,
+                    )
                     or re.search(
                         r"\b(?:evidence\s+)?artifacts?\s+"
                         r"(?:upload|attachment|publication|posting|capture|recording|generation)"

@@ -565,6 +565,16 @@ def test_evidence_first_parser_behavior_does_not_require_delivery() -> None:
         assert pr_verifier._required_evidence_channels(criterion) == set()
 
 
+def test_parser_with_intervening_evidence_noun_does_not_require_delivery() -> None:
+    # Codex P2 (thread PRRT_kwDOQprj9M6omKXS): verifier -> artifact -> behavior.
+    assert (
+        pr_verifier._required_evidence_channels(
+            "- [ ] The verifier for workflow artifacts must support JSON"
+        )
+        == set()
+    )
+
+
 def test_product_artifact_nouns_do_not_require_workflow_artifacts() -> None:
     # Codex P2 (thread PRRT_kwDOQprj9M6olGWX): domain "artifact" is not evidence delivery.
     assert (
@@ -595,6 +605,10 @@ def test_explicit_artifact_delivery_still_requires_workflow_evidence() -> None:
     assert pr_verifier._required_evidence_channels(
         "- [ ] Upload of an evidence artifact is required"
     ) == {"artifacts"}
+    # Codex P1 (thread PRRT_kwDOQprj9M6omKXR): required evidence subject form.
+    assert pr_verifier._required_evidence_channels("- [ ] An evidence artifact is required") == {
+        "artifacts"
+    }
 
 
 def test_product_comment_nouns_do_not_require_pr_comment_evidence() -> None:
