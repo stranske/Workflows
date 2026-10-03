@@ -11,6 +11,14 @@ from scripts import validate_template_sync as vts
 from scripts.sync_manifest_compiler import compile_manifest
 
 
+def test_orchestrator_root_agent_guidance_is_not_overwrite_synced() -> None:
+    root = Path(__file__).resolve().parents[2]
+    compiled = compile_manifest(root / ".github" / "sync-manifest.yml", repo_root=root)
+    for target in ("AGENTS.md", "CLAUDE.md"):
+        entry = next(item for item in compiled.all_entries() if item.target == target)
+        assert "stranske/Orchestrator" in {rule.repo for rule in entry.skip_repos}
+
+
 def create_test_structure(tmp_path: Path) -> tuple[Path, Path]:
     """Create temporary source and template directories."""
     source = tmp_path / ".github" / "scripts"

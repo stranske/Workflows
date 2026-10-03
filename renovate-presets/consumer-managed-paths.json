@@ -300,9 +300,10 @@
       "enabled": false
     },
     {
-      "description": "stranske/Fine-Art-Archive additionally has 4 manifest-managed path(s) that at least one other consumer owns via include_repos, skip_repos, create_only, or an overwrite_repos opt-in.",
+      "description": "stranske/Fine-Art-Archive, stranske/Orchestrator additionally has 4 manifest-managed path(s) that at least one other consumer owns via include_repos, skip_repos, create_only, or an overwrite_repos opt-in.",
       "matchRepositories": [
-        "stranske/Fine-Art-Archive"
+        "stranske/Fine-Art-Archive",
+        "stranske/Orchestrator"
       ],
       "matchFileNames": [
         ".github/scripts/node_modules/balanced-match/**",
@@ -325,20 +326,6 @@
         "AGENTS.md",
         "CLAUDE.md",
         "src/manager_mosaic/schemas/evidence-object-v1.schema.json"
-      ],
-      "enabled": false
-    },
-    {
-      "description": "stranske/Orchestrator additionally has 5 manifest-managed path(s) that at least one other consumer owns via include_repos, skip_repos, create_only, or an overwrite_repos opt-in.",
-      "matchRepositories": [
-        "stranske/Orchestrator"
-      ],
-      "matchFileNames": [
-        ".github/scripts/node_modules/balanced-match/**",
-        ".github/scripts/node_modules/brace-expansion/**",
-        ".github/scripts/node_modules/minimatch/**",
-        ".github/scripts/package.json",
-        "AGENTS.md"
       ],
       "enabled": false
     },
