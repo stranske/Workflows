@@ -540,6 +540,16 @@ def test_product_output_behavior_does_not_require_evidence_delivery() -> None:
         assert pr_verifier._required_evidence_channels(criterion) == set()
 
 
+def test_product_output_behavior_preserves_explicit_evidence_delivery() -> None:
+    # Codex P1 (thread PRRT_kwDOQprj9M6ooCH-): strip behavior, not delivery.
+    assert pr_verifier._required_evidence_channels(
+        "- [ ] The API must return command output that must be attached to the PR"
+    ) == {"overall"}
+    assert pr_verifier._required_evidence_channels(
+        "- [ ] The UI must display a transcript that must be posted in a PR comment"
+    ) == {"comments"}
+
+
 def test_cli_command_behavior_preserves_explicit_evidence_delivery() -> None:
     # Codex P1 (thread PRRT_kwDOQprj9M6omBRf): behavior can feed a deliverable.
     assert pr_verifier._required_evidence_channels(
