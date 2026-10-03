@@ -1539,6 +1539,13 @@ def _apply_coverage_floor(
     return result
 
 
+def _evaluation_output_text(result: EvaluationResult) -> str:
+    """CLI/file text aligned with the structured verdict after post-processing."""
+    if result.verdict != "PASS" and result.summary:
+        return result.summary
+    return result.raw_content or result.summary or ""
+
+
 def _prepare_prompt(context: str, diff: str | None) -> str:
     inputs = build_prompt_inputs(context, diff)
     diff_block = inputs.diff_block
@@ -2419,7 +2426,7 @@ def main() -> None:
         except Exception as exc:
             print(f"Failed to create follow-up issue: {exc}", file=sys.stderr)
 
-    output_text = result.raw_content or result.summary or ""
+    output_text = _evaluation_output_text(result)
 
     if args.output_file:
         Path(args.output_file).write_text(output_text, encoding="utf-8")

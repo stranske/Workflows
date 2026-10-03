@@ -262,7 +262,7 @@ def test_a_failed_follow_up_issue_does_not_lose_the_evaluation(
     pr_verifier.main()
     captured = capsys.readouterr()
     assert "Failed to create follow-up issue: rate limited" in captured.err
-    assert "the raw content" in captured.out, "the evaluation must still be reported"
+    assert "a summary" in captured.out, "the evaluation must still be reported"
 
 
 def test_a_created_issue_is_announced_on_stderr_not_stdout(
@@ -373,10 +373,34 @@ def test_output_falls_back_from_raw_content_to_summary(
     assert "only a summary" in capsys.readouterr().out
 
 
+def test_non_pass_output_prefers_summary_over_stale_pass_raw_content(
+    tmp_path, monkeypatch, capsys, clean_run_env
+):
+    """Coverage floor can downgrade verdict while raw_content still says PASS."""
+    stale_pass = '{"verdict": "PASS", "summary": "Looks complete."}'
+    summary = (
+        "Verifier input coverage incomplete; PASS withheld: missing code\n\n"
+        "Looks complete."
+    )
+    _stub_evaluation(
+        monkeypatch,
+        verdict="CONCERNS",
+        summary=summary,
+        raw_content=stale_pass,
+    )
+    out = tmp_path / "evaluation.md"
+    _argv(monkeypatch, tmp_path, "--output-file", str(out))
+    pr_verifier.main()
+    printed = capsys.readouterr().out
+    assert out.read_text(encoding="utf-8") == summary
+    assert "PASS withheld" in printed
+    assert '"verdict": "PASS"' not in printed
+
+
 def test_the_output_file_receives_the_same_text_as_stdout(
     tmp_path, monkeypatch, capsys, clean_run_env
 ):
-    _stub_evaluation(monkeypatch)
+    _stub_evaluation(monkeypatch, verdict="PASS")
     out = tmp_path / "evaluation.md"
     _argv(monkeypatch, tmp_path, "--output-file", str(out))
     pr_verifier.main()
