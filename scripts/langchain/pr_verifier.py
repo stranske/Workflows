@@ -860,7 +860,8 @@ def _required_evidence_channels(acceptance: str) -> set[str]:
         r"included|documented)\b"
         r"|\bno\s+(?:\w+\s+){0,4}(?:evidence|artifacts?|transcripts?|command outputs?|"
         r"workflow runs?|pr comments?|pull request comments?)\s+is\s+generated\b"
-        r"|\b(?:does|do)\s+not\s+need\s+(?:to\s+be\s+)?"
+        r"|\b(?:evidence|artifacts?|transcripts?|command outputs?|workflow runs?|"
+        r"pr comments?|pull request comments?)\s+(?:does|do)\s+not\s+need\s+(?:to\s+be\s+)?"
         r"(?:uploaded|attached|provided|published|posted|recorded|captured|"
         r"included|documented|generated)\b"
         r"|\bno\s+(?:\w+\s+){0,4}(?:evidence|artifacts?|transcripts?|command outputs?|"
@@ -902,8 +903,6 @@ def _required_evidence_channels(acceptance: str) -> set[str]:
         )
         for line in re.split(clause_boundary, criterion, flags=re.I):
             gate = bool(negative_gate.search(line))
-            if not gate and evidence_prohibition.search(line):
-                continue
             requirement_text = line if gate else evidence_prohibition.sub(" ", line)
             # An optional evidence noun can be the object of a mandatory
             # explanation (for example, "a PR comment must explain why
@@ -1008,12 +1007,26 @@ def _required_evidence_channels(acceptance: str) -> set[str]:
                         r"\s+(?:is|are)\s+(?:required|mandatory|needed)\b",
                         lower,
                     )
+                    or re.search(
+                        r"\b(?:upload|attachment|publication|posting|capture|recording|generation)"
+                        r"\s+of\s+(?:(?:an?|the|any|evidence|validation|workflow)\s+){0,4}"
+                        r"artifacts?\s+(?:is|are)\s+(?:required|mandatory|needed)\b",
+                        lower,
+                    )
                 )
                 if explicit_artifact_delivery or evidence_named_artifact:
                     line_channels.add("artifacts")
                 elif not re.search(r"\b(?:pr comments?|pull request comments?)\b", lower):
                     continue
             if re.search(r"\b(?:pr comments?|pull request comments?)\b", lower):
+                product_comment_behavior = bool(
+                    re.search(
+                        r"\b(?:ui|api|application|interface)\b.{0,60}"
+                        r"\b(?:allow|enable|support|display|store|post|publish)\w*\b",
+                        requirement_text,
+                        re.I,
+                    )
+                )
                 explicit_comment_delivery = bool(
                     re.search(
                         r"\b(?:post|publish|record|capture|provide|document)\w*\b"
@@ -1034,7 +1047,7 @@ def _required_evidence_channels(acceptance: str) -> set[str]:
                         re.I,
                     )
                 )
-                if explicit_comment_delivery:
+                if explicit_comment_delivery and not product_comment_behavior:
                     line_channels.add("comments")
                 elif not line_channels:
                     continue
