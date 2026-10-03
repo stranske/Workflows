@@ -16,7 +16,6 @@ import json
 import logging
 import os
 import re
-import shlex
 import sys
 from collections.abc import Callable, Mapping
 from dataclasses import dataclass
@@ -412,6 +411,7 @@ def _get_chain_depth() -> int:
 VERIFIER_CONTEXT_TITLE = "# Verifier context"
 CI_SECTION = "## CI Information"
 ACCEPTANCE_SECTION = "## Plan sources (scope, tasks, acceptance)"
+ACCEPTANCE_EVIDENCE_SECTION = "## Acceptance evidence"
 DIFF_SUMMARY_SECTION = "## PR Diff Summary"
 FULL_DIFF_SECTION = "## PR Diff (full)"
 UPSTREAM_DIFF_TRUNCATION = re.compile(r"\.\.\.diff truncated after \d+ characters\.")
@@ -433,6 +433,7 @@ class PromptCoverage:
     """What the model actually receives, computed before any model call."""
 
     acceptance: CoverageStatus
+    acceptance_evidence: CoverageStatus
     code: CoverageStatus
     files: tuple[FileCoverage, ...]
     code_included_chars: int
@@ -458,6 +459,7 @@ class PromptCoverage:
         return {
             "sufficient": self.sufficient,
             "acceptance": self.acceptance,
+            "acceptance_evidence": self.acceptance_evidence,
             "code": self.code,
             "files_total": len(self.files),
             "files_complete": status_counts["complete"],
@@ -479,6 +481,7 @@ class PromptCoverage:
             "which evidence below is complete. Text that is not shown was not reviewed.",
             "",
             f"- Acceptance / plan sources: {self.acceptance}",
+            f"- Acceptance evidence: {self.acceptance_evidence}",
             (
                 f"- Changed code: {self.code} — {len(self.files)} file(s); "
                 f"{sum(1 for f in self.files if f.status == 'complete')} complete, "
@@ -518,30 +521,97 @@ def _budget_from_env(name: str, default: int) -> int:
     return value if value > 0 else default
 
 
+def _code_fence_marker(line: str) -> tuple[str, bool, int] | None:
+    """Inspect a fence without treating an info string as a closing marker.
+
+    Retain indentation for nested/indented source snippets; their literal
+    headings must remain inert too. A root fence cannot close at four spaces.
+    """
+    match = re.match(r"^([ \t]*)(`{3,}|~{3,})(.*)$", line.rstrip("\r\n"))
+    if not match:
+        return None
+    indent, marker, suffix = match.groups()
+    if marker[0] == "`" and "`" in suffix:
+        return None
+    return marker, not suffix.strip(" \t"), len(indent.expandtabs(4))
+
+
 def _split_verifier_context(context: str) -> list[tuple[str, str]] | None:
     """Split a structured verifier context into its builder sections.
 
     Returns ``None`` for free-form context. Plan sources embed PR/issue bodies
     that may contain arbitrary ``##`` headings, so only the builder's own
     headings are used, located in the order the builder writes them: the
-    full diff is always last, and the summary is the last one before it.
+    full diff is always last, and the summary is the last one before it.  The
+    generated acceptance-evidence block follows plan sources and must be
+    split independently: large untrusted comments or artifacts must not spend
+    the acceptance-plan budget.
     """
     text = "\n" + context
-    ci = text.find("\n" + CI_SECTION + "\n")
-    plan = text.find("\n" + ACCEPTANCE_SECTION + "\n", max(ci, 0))
+    # Evidence payloads are fenced with a fence longer than any backtick run
+    # in the payload. Only builder headings outside those fences are structural.
+    headings: dict[str, list[int]] = {
+        heading: []
+        for heading in (
+            CI_SECTION,
+            ACCEPTANCE_SECTION,
+            ACCEPTANCE_EVIDENCE_SECTION,
+            DIFF_SUMMARY_SECTION,
+            FULL_DIFF_SECTION,
+        )
+    }
+    offset = 0
+    fence_char = ""
+    fence_length = 0
+    fence_indent = 0
+    for line in text.splitlines(keepends=True):
+        stripped = line.strip()
+        fence = _code_fence_marker(line)
+        if fence:
+            marker, closing, indent = fence
+            if not fence_char:
+                fence_char, fence_length = marker[0], len(marker)
+                fence_indent = indent
+            elif (
+                marker[0] == fence_char
+                and len(marker) >= fence_length
+                and closing
+                and indent <= max(3, fence_indent)
+            ):
+                fence_char, fence_length = "", 0
+                fence_indent = 0
+        elif not fence_char and stripped in headings:
+            headings[stripped].append(offset)
+        offset += len(line)
+    ci = next(iter(headings[CI_SECTION]), -1)
+    plan = next((pos for pos in headings[ACCEPTANCE_SECTION] if pos > ci), -1)
     anchor = max(ci, plan, 0)
-    full = text.rfind("\n" + FULL_DIFF_SECTION + "\n")
-    if full < anchor:
-        full = -1
+    full = next((pos for pos in reversed(headings[FULL_DIFF_SECTION]) if pos > anchor), -1)
     summary_end = full if full >= 0 else len(text)
-    summary = text.rfind("\n" + DIFF_SUMMARY_SECTION + "\n", anchor, summary_end)
-    if not context.startswith(VERIFIER_CONTEXT_TITLE) and max(ci, plan, summary, full) < 0:
+    summary = next(
+        (pos for pos in reversed(headings[DIFF_SUMMARY_SECTION]) if anchor < pos < summary_end), -1
+    )
+    evidence_end = summary if summary >= 0 else summary_end
+    evidence = next(
+        (
+            pos
+            for pos in reversed(headings[ACCEPTANCE_EVIDENCE_SECTION])
+            if max(plan, 0) < pos < evidence_end
+        ),
+        -1,
+    )
+    if (
+        not context.startswith(VERIFIER_CONTEXT_TITLE)
+        and max(ci, plan, evidence, summary, full) < 0
+    ):
         return None
     marks = [("preamble", 0)]
     if ci >= 0:
         marks.append(("ci", ci))
     if plan >= 0:
         marks.append(("acceptance", plan))
+    if evidence >= 0:
+        marks.append(("acceptance_evidence", evidence))
     if summary >= 0:
         marks.append(("diff_summary", summary))
     if full >= 0:
@@ -566,32 +636,83 @@ def _strip_diff_fence(section: str) -> str:
 
 
 def _split_diff_files(diff: str) -> list[tuple[str, str]]:
-    def normalized_path(raw: str) -> str:
-        value = raw.rstrip("\n")
+    def decode_quoted_path(raw: str) -> tuple[str, str] | None:
+        if not raw.startswith('"'):
+            return None
+        chunks: list[bytes] = []
+        index = 1
+        escapes = {
+            "a": "\a",
+            "b": "\b",
+            "f": "\f",
+            "n": "\n",
+            "r": "\r",
+            "t": "\t",
+            "v": "\v",
+            "\\": "\\",
+            '"': '"',
+        }
+        while index < len(raw):
+            char = raw[index]
+            if char == '"':
+                try:
+                    return b"".join(chunks).decode("utf-8"), raw[index + 1 :]
+                except UnicodeDecodeError:
+                    return None
+            if char != "\\":
+                chunks.append(char.encode("utf-8"))
+                index += 1
+                continue
+            if index + 1 >= len(raw):
+                return None
+            escaped = raw[index + 1]
+            if escaped in "01234567":
+                octal = raw[index + 1 : index + 4]
+                if len(octal) != 3 or not all(char in "01234567" for char in octal):
+                    return None
+                byte = int(octal, 8)
+                if byte > 0xFF:
+                    return None
+                chunks.append(bytes([byte]))
+                index += 4
+                continue
+            if escaped not in escapes:
+                return None
+            chunks.append(escapes[escaped].encode("utf-8"))
+            index += 2
+        return None
+
+    def normalized_path(raw: str) -> str | None:
+        value = raw.rstrip("\n").split("\t", 1)[0]
         if value == "/dev/null":
             return ""
         if value.startswith('"'):
-            try:
-                parsed = shlex.split(value)
-            except ValueError:
-                parsed = []
-            if len(parsed) == 1:
-                value = parsed[0]
-        return value.removeprefix("a/").removeprefix("b/")
+            parsed = decode_quoted_path(value)
+            if parsed is None or parsed[1].strip():
+                return None
+            value = parsed[0]
+        return value[2:] if value.startswith(("a/", "b/")) else value
 
-    def destination_from_git_header(line: str) -> str:
+    def destination_from_git_header(line: str) -> str | None:
         payload = line.removeprefix("diff --git ").rstrip("\n")
-        if payload.startswith('"'):
-            try:
-                parsed = shlex.split(payload)
-            except ValueError:
-                parsed = []
-            if len(parsed) >= 2:
-                return normalized_path(parsed[-1])
-        marker = " b/"
-        if marker in payload:
-            return normalized_path("b/" + payload.rsplit(marker, 1)[1])
-        return normalized_path(payload)
+
+        separator = max(payload.rfind(" b/"), payload.rfind(' "b/'))
+        source = (
+            decode_quoted_path(payload)
+            if payload.startswith('"')
+            else (payload[:separator], payload[separator:]) if separator > 0 else None
+        )
+        if source is None or not source[1].startswith(" "):
+            return None
+        destination = source[1].lstrip()
+        decoded = (
+            decode_quoted_path(destination) if destination.startswith('"') else (destination, "")
+        )
+        if decoded is None or decoded[1].strip():
+            return None
+        if not source[0].startswith("a/") or not decoded[0].startswith("b/"):
+            return None
+        return decoded[0][2:]
 
     files: list[tuple[str, str]] = []
     current: list[str] = []
@@ -601,16 +722,22 @@ def _split_diff_files(diff: str) -> list[tuple[str, str]]:
             if current:
                 files.append((path, "".join(current)))
             current = [line]
-            path = destination_from_git_header(line)
+            path = destination_from_git_header(line) or "__invalid_git_path__"
         elif current:
             current.append(line)
+            if path == "__invalid_git_path__":
+                continue
             if line.startswith("--- "):
                 source = normalized_path(line[4:])
-                if source:
+                if source is None:
+                    path = "__invalid_git_path__"
+                elif source:
                     path = source
             elif line.startswith("+++ "):
                 destination = normalized_path(line[4:])
-                if destination:
+                if destination is None:
+                    path = "__invalid_git_path__"
+                elif destination:
                     path = destination
     if current:
         files.append((path, "".join(current)))
@@ -664,8 +791,22 @@ def _fair_shares(sizes: list[int], budget: int) -> list[int]:
     return shares
 
 
+def _diff_file_is_binary_descriptor(text: str) -> bool:
+    """True when Git reports a binary change without inspectable text hunks."""
+    has_hunk = False
+    has_binary_marker = False
+    for line in text.splitlines():
+        if line.startswith("@@"):
+            has_hunk = True
+        elif line.startswith("Binary files ") or line.startswith("GIT binary patch"):
+            has_binary_marker = True
+    return has_binary_marker and not has_hunk
+
+
 def _excerpt_file(path: str, text: str, share: int) -> tuple[str, FileCoverage]:
     total = len(text)
+    if _diff_file_is_binary_descriptor(text):
+        return "", FileCoverage(path, "omitted", 0, total)
     if share >= total:
         return text, FileCoverage(path, "complete", total, total)
     omitted_note = "[... remaining lines of {path} omitted: verifier prompt budget ...]\n"
@@ -690,9 +831,13 @@ def _build_code_block(
 ) -> tuple[str, CoverageStatus, tuple[FileCoverage, ...], int, int]:
     files = _split_diff_files(diff)
     if not files:
+        if diff.strip():
+            return "(diff unavailable)", "unavailable", (), 0, 0
         block = _cap_prompt_text(diff, max(1, budget_chars // TOKEN_CHARS))
         status: CoverageStatus = "complete" if block == diff else "truncated"
         return block, status, (), min(len(diff), len(block)), len(diff)
+    if any(path == "__invalid_git_path__" for path, _ in files):
+        return "(diff unavailable)", "unavailable", (), 0, 0
     shares = _fair_shares([len(text) for _, text in files], budget_chars)
     parts: list[str] = []
     coverage: list[FileCoverage] = []
@@ -737,10 +882,659 @@ def _fit_context_sections(
     return [fitted[i] for i in range(len(sections)) if i in fitted], status
 
 
+def _acceptance_criteria_sections(plan_sources: str) -> str:
+    """Return only acceptance-criteria subsections from structured plan sources."""
+    lines: list[str] = []
+    fence_char: str | None = None
+    fence_len = 0
+    fence_indent = 0
+    for raw_line in plan_sources.splitlines():
+        fence = _code_fence_marker(raw_line)
+        if fence:
+            marker, closing, indent = fence
+            if fence_char is None:
+                fence_char = marker[0]
+                fence_len = len(marker)
+                fence_indent = indent
+            elif (
+                marker[0] == fence_char
+                and len(marker) >= fence_len
+                and closing
+                and indent <= max(3, fence_indent)
+            ):
+                fence_char = None
+                fence_len = 0
+                fence_indent = 0
+            lines.append("")
+            continue
+        lines.append("" if fence_char is not None else raw_line)
+    captured: list[str] = []
+    index = 0
+    while index < len(lines):
+        heading = re.match(
+            r"^(#{1,6})\s+acceptance[\s_-]*criteria\s*:?[\s]*$",
+            lines[index].strip(),
+            flags=re.I,
+        )
+        if not heading:
+            index += 1
+            continue
+        level = len(heading.group(1))
+        section: list[str] = []
+        index += 1
+        while index < len(lines):
+            next_heading = re.match(r"^(#{1,6})\s+", lines[index].strip())
+            if next_heading and len(next_heading.group(1)) <= level:
+                break
+            section.append(lines[index])
+            index += 1
+        captured.append("\n".join(section).strip())
+    return "\n\n".join(part for part in captured if part)
+
+
+def _required_evidence_channels(acceptance: str) -> set[str]:
+    """Identify explicit evidence deliverables without treating negations as requirements."""
+    channels: set[str] = set()
+    # Use the same product-response operation vocabulary when coalescing object
+    # groups and when excluding response fields from review deliverables.
+    response_operation = (
+        r"(?:include|contain|have|return|display|show|store|emit|render|expose|provide)\w*\b"
+    )
+    product_auxiliary = (
+        r"(?:(?:must|shall|will|should|can|may|needs?\s+to)|"
+        r"(?:(?:is|are)\s+)?(?:required|needed|mandated|expected|supposed|obliged)\s+to|"
+        r"(?:has|have)\s+to)\s+"
+    )
+    evidence_term = re.compile(
+        r"\b(?:evidence|artifacts?|transcripts?|command outputs?|workflow runs?|"
+        r"pr comments?|pull request comments?)\b",
+        re.I,
+    )
+    requirement = re.compile(
+        r"\b(?:required|mandatory|(?:is|are)\s+needed|must|shall|needs? to|"
+        r"publish(?:es|ed)?|upload(?:s|ed)?|"
+        r"attach(?:es|ed)?|captur(?:e|es|ed)|record(?:s|ed)?|provid(?:e|es|ed)|"
+        r"includ(?:e|es|ed)|link(?:s|ed)?|post(?:s|ed)?|document(?:s|ed)?|prov(?:e|es|ed)|show(?:s|ed)?)\b",
+        re.I,
+    )
+    evidence_prohibition = re.compile(
+        r"\bno\s+(?:\w+\s+){0,3}(?:evidence|artifacts?|transcripts?|command outputs?|"
+        r"workflow runs?|pr comments?|pull request comments?)"
+        r"\s+(?:is|are)\s+(?:required|needed|mandatory)\b"
+        r"|\b(?:evidence|artifacts?|transcripts?|command outputs?|workflow runs?|"
+        r"pr comments?|pull request comments?)"
+        r"\s+(?:is|are)\s+not\s+(?:required|needed|mandatory)\b"
+        r"|\b(?:must|shall|may|should|do|does)\s+not\s+"
+        r"(?:upload|attach|provide|publish|post|record|capture|include|document|generate|link)\b"
+        r"(?:\s+(?:the\s+|an?\s+|any\s+)?(?:[\w-]+\s+){0,4}"
+        r"(?:evidence|artifacts?|transcripts?|"
+        r"command outputs?|workflow runs?|pr comments?|pull request comments?))?"
+        r"|\b(?:evidence|artifacts?|transcripts?|command outputs?|workflow runs?|"
+        r"pr comments?|pull request comments?)\s+"
+        r"(?:must|shall|may|should)\s+not\s+be\s+"
+        r"(?:uploaded|attached|provided|published|posted|recorded|captured|"
+        r"included|documented|generated|linked)\b"
+        r"|\bneither\s+(?:\w+\s+){0,4}(?:evidence|artifacts?|transcripts?|command outputs?|"
+        r"workflow runs?|pr comments?|pull request comments?)\s+nor\s+"
+        r"(?:\w+\s+){0,4}(?:evidence|artifacts?|transcripts?|command outputs?|"
+        r"workflow runs?|pr comments?|pull request comments?)\s+"
+        r"(?:is|are)\s+(?:required|needed|mandatory)\b"
+        r"|\bno\s+(?:\w+\s+){0,4}(?:evidence|artifacts?|transcripts?|command outputs?|"
+        r"workflow runs?|pr comments?|pull request comments?)\s+"
+        r"(?:must|shall|may|should)\s+(?:not\s+)?(?:be\s+)?"
+        r"(?:uploaded|attached|provided|published|posted|recorded|captured|"
+        r"included|documented)\b"
+        r"|\b(?:evidence|artifacts?|transcripts?|command outputs?|workflow runs?|"
+        r"pr comments?|pull request comments?)\s+need\s+not\s+(?:be\s+)?"
+        r"(?:uploaded|attached|provided|published|posted|recorded|captured|"
+        r"included|documented)\b"
+        r"|\bno\s+(?:\w+\s+){0,4}(?:evidence|artifacts?|transcripts?|command outputs?|"
+        r"workflow runs?|pr comments?|pull request comments?)\s+is\s+generated\b"
+        r"|\b(?:evidence|artifacts?|transcripts?|command outputs?|workflow runs?|"
+        r"pr comments?|pull request comments?)\s+(?:does|do)\s+not\s+need\s+(?:to\s+be\s+)?"
+        r"(?:uploaded|attached|provided|published|posted|recorded|captured|"
+        r"included|documented|generated)\b"
+        r"|\bno\s+(?:\w+\s+){0,4}(?:evidence|artifacts?|transcripts?|command outputs?|"
+        r"workflow runs?|pr comments?|pull request comments?)\s+needs?\s+to\s+be\s+"
+        r"(?:uploaded|attached|provided|published|posted|recorded|captured|"
+        r"included|documented|generated)\b",
+        re.I,
+    )
+    negative_gate = re.compile(
+        r"(?:\b(?:must\s+not|shall\s+not|may\s+not|can\s+not|cannot|can't|"
+        r"do\s+not|does\s+not|no|never)\s+"
+        r"(?:\w+\s+){0,3}(?:proceed\w*|merge\w*|ship\w*|release\w*|complete\w*|pass\w*)\b"
+        r"|\bnever\s+(?:\w+\s+){0,5}proceed\w*\b)"
+        r".{0,160}\b(?:without|unless|until)\b.{0,160}"
+        r"\b(?:attach\w*|upload\w*|evidence|artifacts?|transcripts?|"
+        r"command outputs?|workflow runs?|pr comments?|pull request comments?)\b",
+        re.I,
+    )
+    criteria: list[str] = []
+    for raw_line in acceptance.splitlines():
+        line = raw_line.strip()
+        if not line:
+            continue
+        if criteria and not re.match(r"^[-*]\s+", line):
+            criteria[-1] += " " + line
+        else:
+            criteria.append(line)
+    for criterion in criteria:
+        criterion_checklist = bool(re.match(r"^\s*[-*]\s*\[[ xX]\]", criterion))
+        criterion_bullet = bool(re.match(r"^\s*[-*]\s+", criterion))
+        # Quoted parser inputs are examples, including their verbs and clause
+        # delimiters. Remove only the literal following the parser operation;
+        # an actual delivery instruction after the example still applies.
+        criterion = re.sub(
+            r"\b(?:parser|verifier|code|script|implementation)\b.{0,80}?"
+            r"\b(?:recogniz|pars|detect|classif|match|identif|support|handl|validat)\w*\b\s*"
+            r"(?:(?:the|a|an|phrase|syntax|example|literal|string|text|quoted|following)\b\s*){0,4}"
+            r"(?::\s*)?"
+            r"(?P<example>`+[^`]*`+|\"[^\"]*\"|'[^']*'|“[^”]*”|‘[^’]*’)",
+            lambda match: match.group(0)[: match.start("example") - match.start()] + " ",
+            criterion,
+            flags=re.I,
+        )
+        # Split independent mandatory clauses after optional evidence, including
+        # named actors and modified subjects. Extra noun modifiers need a modal
+        # so adjective lists such as "failing and restored passing transcript"
+        # stay attached to their delivery verb.
+        clause_boundary = (
+            r"\s*;\s*|,?\s+(?:but|whereas)\s+|"
+            r"(?:,?\s+(?:and|while)\s+|[,\.]\s+)(?="
+            r"(?:optionally\s+)?(?:"
+            r"(?:an?\s+|the\s+)?(?:validation\s+|exact-head\s+)?"
+            r"(?:evidence|artifacts?|transcripts?|command outputs?|"
+            r"workflow runs?|pr comments?|pull request comments?)|"
+            r"(?:an?\s+|the\s+)?(?:[\w-]+\s+){1,4}?"
+            r"(?:evidence|artifacts?|transcripts?|command outputs?|"
+            r"workflow runs?|pr comments?|pull request comments?)\s+"
+            r"(?:must|shall|needs?\s+to|(?:is|are)\s+(?:required|mandatory|needed))\b|"
+            r"(?:[\w-]+\s+){1,6}(?:must|shall|needs?\s+to|"
+            r"(?:(?:is|are)\s+)?(?:required|needed|mandated|expected|supposed|obliged)\s+to|"
+            r"(?:has|have)\s+to)\s+"
+            r"(?:publish|upload|attach|capture|record|provide|include|post|document|prove|show|link)\b|"
+            r"(?:publish|upload|attach|capture|record|provide|include|post|document|prove|show|link)\b"
+            r"))"
+        )
+        clause_evidence_antecedent: str | None = None
+        pronoun_pr_delivery = re.compile(
+            r"\b(?:attach|upload|publish|post|record|capture|provide|include|document|link)\w*\b"
+            r".{0,40}\b(?:it|them|this|they)\b.{0,40}\b(?:pr|pull request)\b"
+            r"|\b(?:it|them|this|they)\b.{0,40}"
+            r"\b(?:attached|uploaded|published|posted|recorded|captured|provided|"
+            r"included|documented|linked)\b.{0,40}\b(?:pr|pull request)\b",
+            re.I,
+        )
+        fragments = []
+        for fragment in re.split(clause_boundary, criterion, flags=re.I):
+            noun_only = re.fullmatch(
+                r"\s*(?:(?:an?|the|validation|workflow|exact-head|evidence)\s+)*"
+                r"(?:artifacts?|command outputs?|transcripts?)\s*",
+                fragment,
+                re.I,
+            )
+            prior_product = fragments and re.search(
+                r"\b(?:responses?|payloads?|return values?)\s+"
+                + "(?:"
+                + product_auxiliary
+                + ")?"
+                + response_operation
+                + r"|\b(?:[\w-]+\s+){1,6}"
+                + product_auxiliary
+                + r"(?:return|display|emit|render|expose)\w*\b",
+                fragments[-1],
+                re.I,
+            )
+            if noun_only and prior_product:
+                fragments[-1] += " and " + fragment
+            else:
+                fragments.append(fragment)
+        for line in fragments:
+            objects = [
+                m.group(0)
+                for m in evidence_term.finditer(line)
+                if not re.search(r"(?:pr|pull request) comments?", m.group(0), re.I)
+            ]
+            if objects:
+                clause_evidence_antecedent = " and ".join(objects)
+            resolved_antecedent = None
+            working_line = line
+            if (
+                clause_evidence_antecedent
+                and not evidence_term.search(line)
+                and pronoun_pr_delivery.search(line)
+            ):
+                working_line = re.sub(
+                    r"\b(?:it|them|this|they)\b",
+                    clause_evidence_antecedent,
+                    line,
+                    count=1,
+                    flags=re.I,
+                )
+                resolved_antecedent = clause_evidence_antecedent
+            gate = bool(negative_gate.search(working_line))
+            requirement_text = working_line if gate else evidence_prohibition.sub(" ", working_line)
+            # An optional evidence noun can be the object of a mandatory
+            # explanation (for example, "a PR comment must explain why
+            # artifacts are optional"). Remove only that optional subject;
+            # do not discard a separate required channel in the same clause.
+            requirement_text = re.sub(
+                r"\b(?:evidence|artifacts?|transcripts?|command outputs?|workflow runs?|"
+                r"pr comments?|pull request comments?)(?:\s+(?:upload|attachment|publication|"
+                r"posting|capture|recording|generation))?\s+(?:is|are)\s+optional\b",
+                " ",
+                requirement_text,
+                flags=re.I,
+            )
+            if not evidence_term.search(requirement_text):
+                continue
+            checklist = criterion_checklist
+            bullet = criterion_bullet
+            optional_evidence = bool(
+                re.search(
+                    r"\boptional(?:ly)?\b|"
+                    r"\b(?:if|when)\s+(?:produced|available|present|uploaded|generated)\b",
+                    requirement_text,
+                    re.I,
+                )
+            )
+            explanatory_comment = bool(
+                re.search(
+                    r"\b(?:pr comments?|pull request comments?)\b.{0,80}"
+                    r"\b(?:explain|document)\w*\b.{0,80}\boptional\b",
+                    requirement_text,
+                    re.I,
+                )
+            )
+            # Optional/conditional evidence clauses never create a hard floor,
+            # whether or not the source used checklist syntax. Clause splitting
+            # preserves a separate required comment/transcript on the same item.
+            if optional_evidence and not explanatory_comment:
+                continue
+            meta_behavior = bool(
+                re.search(
+                    r"\b(?:parser|verifier|code|script|implementation)\b.{0,80}"
+                    r"\b(?:recogniz|pars|detect|classif|match|identif|support|handl|validat)\w*\b"
+                    r".{0,80}\b(?:evidence|artifacts?|transcripts?|command outputs?|"
+                    r"workflow runs?|pr comments?|pull request comments?)\b",
+                    requirement_text,
+                    re.I,
+                )
+                or re.search(
+                    r"\b(?:evidence|artifacts?|transcripts?|command outputs?|workflow runs?|"
+                    r"pr comments?|pull request comments?)\b.{0,40}"
+                    r"\b(?:parser|verifier|code|script|implementation)\b.{0,80}"
+                    r"\b(?:recogniz|pars|detect|classif|match|identif|support|handl|validat)\w*\b",
+                    requirement_text,
+                    re.I,
+                )
+                or re.search(
+                    r"\b(?:parser|verifier|code|script|implementation)\b.{0,40}"
+                    r"\b(?:evidence|artifacts?|transcripts?|command outputs?|workflow runs?|"
+                    r"pr comments?|pull request comments?)\b.{0,80}"
+                    r"\b(?:recogniz|pars|detect|classif|match|identif|support|handl|validat)\w*\b",
+                    requirement_text,
+                    re.I,
+                )
+            )
+            # Requirements about understanding evidence syntax are software
+            # behavior, not evidence-delivery requirements. Nominal upload
+            # nouns (for example, "supports artifact uploads") are not delivery
+            # verbs unless the criterion explicitly mandates upload/attach/etc.
+            if meta_behavior:
+                explicit_delivery = bool(
+                    re.search(
+                        r"\b(?:must|shall|required|needs? to)\s+(?:\w+\s+){0,4}"
+                        r"(?:upload|attach|publish|post|record|capture|provide|include|document)\b",
+                        requirement_text,
+                        re.I,
+                    )
+                )
+                if not explicit_delivery:
+                    continue
+            checklist_deliverable = bool(
+                checklist
+                and evidence_term.search(requirement_text)
+                and not re.match(r"^\s*[-*]\s*\[[ xX]\]\s*no\s", requirement_text, re.I)
+            )
+            if not (
+                gate
+                or checklist_deliverable
+                or (checklist and requirement.search(requirement_text))
+                or (bullet and requirement.search(requirement_text))
+                or requirement.search(requirement_text)
+            ):
+                continue
+            lower = requirement_text.lower()
+            response_prefix = re.compile(
+                r"\b(?:"
+                r"responses?|payloads?|return\s+values?"
+                r"|(?:command[- ]?outputs?|transcripts?)\s+api"
+                r"|api\s+(?:command[- ]?outputs?|transcripts?)(?:\s+\w+){0,3}"
+                r")\b\s+" + "(?:" + product_auxiliary + ")?" + response_operation,
+                re.I,
+            )
+            if response_prefix.search(requirement_text):
+                delivery_text = response_prefix.sub(" ", requirement_text, count=1)
+                if not (evidence_term.search(delivery_text) and requirement.search(delivery_text)):
+                    continue
+                requirement_text = delivery_text
+                lower = requirement_text.lower()
+            response_destination = re.search(
+                r"\b(?:transcripts?|command outputs?)\b.{0,40}"
+                r"\b(?:in|into|to)\b.{0,30}"
+                r"\b(?:responses?|payloads?|return\s+values?)\b",
+                requirement_text,
+                re.I,
+            )
+            review_delivery = re.search(
+                r"\b(?:attach|upload|publish|post|record|capture|provide|include|document)\w*"
+                r"\b.{0,80}\b(?:in|into|to)\s+(?:the\s+)?(?:pr|pull request)\b",
+                requirement_text,
+                re.I,
+            )
+            if response_destination and not review_delivery:
+                continue
+            line_channels: set[str] = set()
+            # Artifact domain nouns in product acceptance (UI, storage, icons)
+            # are not workflow evidence deliverables. An explicit delivery into
+            # PR content wins even when an API is the actor; otherwise a product
+            # actor or product destination is application behavior, not evidence.
+            if re.search(r"\b(?:workflow\s+)?artifacts?\b", lower):
+                explicit_artifact_delivery = bool(
+                    re.search(
+                        r"\b(?:upload|attach|publish|post|record|capture|provide|include|document)"
+                        r"(?:s)?\s+(?:(?:an?|the|any|workflow|validation|exact-head|evidence)\s+){0,4}"
+                        r"artifacts?\b",
+                        requirement_text,
+                        re.I,
+                    )
+                    or re.search(
+                        r"\bartifacts?\b.{0,60}\b(?:must|shall|is|required|needs? to)"
+                        r"(?:\s+\w+){0,3}\s+be\s+"
+                        r"(?:uploaded|attached|published|posted|recorded|captured|provided|"
+                        r"included|documented)\b",
+                        requirement_text,
+                        re.I,
+                    )
+                )
+                product_artifact_destination = bool(
+                    re.search(r"\bproduct\s+upload\b", lower)
+                    or re.search(
+                        r"\b(?:upload|attach|publish|post|record|capture|provide|include|document)"
+                        r"\w*\b.{0,40}\bartifacts?\b"
+                        r".{0,30}\b(?:through|to|into|in|via)\b.{0,30}"
+                        r"\b(?:storage|database|data\s+store|object\s+store|bucket|"
+                        r"filesystem|file\s+system|ui|interface|application|users?|"
+                        r"responses?|payloads?|return\s+values?)\b",
+                        requirement_text,
+                        re.I,
+                    )
+                )
+                artifact_delivery_into_pr = bool(
+                    re.search(
+                        r"\b(?:upload|attach|publish|post|record|capture|provide|include|document)"
+                        r"\w*\b.{0,60}\bartifacts?\b.{0,40}"
+                        r"\b(?:to|into|in)\s+(?:the\s+)?(?:pr|pull request)\b",
+                        requirement_text,
+                        re.I,
+                    )
+                    or re.search(
+                        r"\b(?:pr|pull request)\b.{0,40}"
+                        r"\b(?:must\s+)?(?:include|contain|have)\b.{0,40}\bartifacts?\b",
+                        requirement_text,
+                        re.I,
+                    )
+                    or re.search(
+                        r"\bartifacts?\b.{0,40}\b(?:must|shall|is|are)\s+(?:be\s+)?"
+                        r"(?:included|attached|uploaded|provided|documented)\b.{0,30}"
+                        r"\b(?:in|to|into)\s+(?:the\s+)?(?:pr|pull request)\b",
+                        requirement_text,
+                        re.I,
+                    )
+                    or (
+                        gate
+                        and bool(re.search(r"\bartifacts?\b", lower))
+                        and bool(re.search(r"\b(?:pr|pull request)\b", lower))
+                    )
+                )
+                product_artifact_actor = bool(
+                    re.search(
+                        r"\b(?:ui|api|application|interface|service|worker|cli|database|"
+                        r"users?|endpoint|renderer)\b\s+"
+                        + "(?:"
+                        + product_auxiliary
+                        + ")?"
+                        + r"(?:upload|attach|publish|post|record|capture|"
+                        r"provide|include|document)\w*\b.{0,60}\bartifacts?\b",
+                        requirement_text,
+                        re.I,
+                    )
+                )
+                evidence_named_artifact = bool(
+                    re.search(
+                        r"\b(?:failing and passing |validation |exact-head |workflow )artifacts?\b",
+                        lower,
+                    )
+                    or re.search(r"\bvalidation artifacts?\b", lower)
+                    or re.search(r"\brequired\s+evidence\s+artifacts?\b", lower)
+                    or re.search(r"\bevidence\s+artifacts?\s*:", lower)
+                    or re.search(
+                        r"\bevidence\s+artifacts?\s+(?:is|are)\s+"
+                        r"(?:required|mandatory|needed)\b",
+                        lower,
+                    )
+                    or re.search(
+                        r"\b(?:evidence\s+)?artifacts?\s+"
+                        r"(?:upload|attachment|publication|posting|capture|recording|generation)"
+                        r"\s+(?:is|are)\s+(?:required|mandatory|needed)\b",
+                        lower,
+                    )
+                    or re.search(
+                        r"\b(?:upload|attachment|publication|posting|capture|recording|generation)"
+                        r"\s+of\s+(?:(?:an?|the|any|evidence|validation|workflow)\s+){0,4}"
+                        r"artifacts?\s+(?:is|are)\s+(?:required|mandatory|needed)\b",
+                        lower,
+                    )
+                )
+                if (
+                    artifact_delivery_into_pr
+                    or evidence_named_artifact
+                    or (
+                        explicit_artifact_delivery
+                        and not (product_artifact_actor or product_artifact_destination)
+                    )
+                ):
+                    artifact_description = bool(
+                        re.search(
+                            r"\bartifacts?\s+(?:metadata|preview|icon|schema|parser)\b", lower
+                        )
+                    )
+                    if not artifact_description and (
+                        artifact_delivery_into_pr
+                        or not (product_artifact_actor or product_artifact_destination)
+                    ):
+                        line_channels.add("artifacts")
+                    elif not re.search(r"\b(?:pr comments?|pull request comments?)\b", lower):
+                        continue
+                elif not re.search(r"\b(?:pr comments?|pull request comments?)\b", lower):
+                    continue
+            product_comment_behavior = bool(
+                re.search(
+                    r"\b(?:ui|api|application|interface)\b.{0,60}"
+                    r"\b(?:allow|enable|support)\w*\b.{0,40}"
+                    r"\b(?:pr comments?|pull request comments?)\b",
+                    requirement_text,
+                    re.I,
+                )
+                or re.search(
+                    r"\b(?:ui|api|application|interface)\b.{0,60}"
+                    r"\b(?:display|store)\w*\s+(?:(?:\w+\s+){0,2})?"
+                    r"(?:pr comments?|pull request comments?)\b",
+                    requirement_text,
+                    re.I,
+                )
+                or re.search(
+                    r"\b(?:ui|api|application|interface)\b\s+"
+                    r"(?:must\s+|shall\s+|will\s+)?(?:post|publish)\w*\b",
+                    requirement_text,
+                    re.I,
+                )
+            )
+            explicit_comment_delivery = bool(
+                re.search(
+                    r"\b(?:post|publish|record|capture|provide|document)\w*\b"
+                    r"(?:\s+\w+){0,10}\s+\b(?:pr comments?|pull request comments?)\b",
+                    requirement_text,
+                    re.I,
+                )
+                or re.search(
+                    r"\b(?:pr comments?|pull request comments?)\b.{0,40}"
+                    r"\b(?:(?:is|are)\s+(?:required|mandatory|needed)|"
+                    r"(?:must|shall|needs? to)\b|"
+                    r"(?:is|are|must|shall|needs? to)\s+(?:be\s+)?(?:posted|published)\b)",
+                    requirement_text,
+                    re.I,
+                )
+                or re.search(
+                    r"\bexact-head\s+(?:pr comments?|pull request comments?)\b",
+                    requirement_text,
+                    re.I,
+                )
+                or (gate and bool(re.search(r"\b(?:pr comments?|pull request comments?)\b", lower)))
+            )
+            product_output_prefix = re.compile(
+                r"^\s*(?:[-*]\s*(?:\[[ xX]\]\s*)?)?"
+                r"(?!(?:[\w-]+\s+){0,5}(?:reviewers?|authors?|maintainers?|operators?|"
+                r"validation|evidence)\b)"
+                r"(?:[\w-]+\s+){1,6}"
+                + product_auxiliary
+                + r"(?:return|display|emit|render|expose)\w*\b|"
+                r"\b(?:ui|api|application|interface|service|cli|endpoint|renderer)\b\s+"
+                + "(?:"
+                + product_auxiliary
+                + ")?"
+                + r"(?:return|display|show|store|emit|render|expose)\w*\b",
+                re.I,
+            )
+            product_output_match = product_output_prefix.search(requirement_text)
+            reverse_product_output = bool(
+                re.search(
+                    r"\b(?:command outputs?|transcripts?)\b.{0,60}"
+                    r"\b(?:return|display|show|store|emit|render|expose)\w*\b.{0,60}"
+                    r"\b(?:ui|api|application|interface|service|cli|endpoint|renderer)\b",
+                    requirement_text,
+                    re.I,
+                )
+            )
+            preserve_explicit_comment_delivery = bool(
+                explicit_comment_delivery and not product_comment_behavior
+            )
+            if product_output_match and not preserve_explicit_comment_delivery:
+                delivery_text = product_output_prefix.sub(" ", requirement_text, count=1)
+                if not (evidence_term.search(delivery_text) and requirement.search(delivery_text)):
+                    continue
+                requirement_text = delivery_text
+                lower = requirement_text.lower()
+            elif reverse_product_output and not line_channels:
+                continue
+            if re.search(r"\b(?:pr comments?|pull request comments?)\b", lower):
+                if explicit_comment_delivery and not product_comment_behavior:
+                    line_channels.add("comments")
+                elif not line_channels:
+                    continue
+            if not line_channels:
+                command_behavior = bool(
+                    re.search(
+                        r"\b(?:cli\s+)?command\b\s+(?:must\s+|shall\s+|will\s+)?" r"outputs\b",
+                        requirement_text,
+                        re.I,
+                    )
+                )
+                if command_behavior:
+                    # A command that outputs JSON describes product behavior;
+                    # it is not itself a request to deliver command output.
+                    # Preserve a separate downstream evidence requirement.
+                    delivery_text = re.sub(
+                        r"\b(?:cli\s+)?command\b\s+" r"(?:must\s+|shall\s+|will\s+)?outputs\b",
+                        " ",
+                        requirement_text,
+                        count=1,
+                        flags=re.I,
+                    )
+                    if not (
+                        evidence_term.search(delivery_text) and requirement.search(delivery_text)
+                    ):
+                        continue
+                if re.search(r"\bworkflow runs?\b", lower):
+                    without_workflow_run = re.sub(r"\bworkflow runs?\b", " ", lower)
+                    workflow_status_only = bool(
+                        re.fullmatch(
+                            r"\s*(?:[-*]\s*(?:\[[ x]\]\s*)?)?"
+                            r"(?:[\w-]+\s+){0,5}workflow runs?\s+"
+                            r"(?:(?:must|shall|should|will)\s+(?:pass|succeed|finish|complete|"
+                            r"be\s+(?:green|successful|passing|complete))|"
+                            r"(?:is|are)\s+(?:required|needed|successful|passing|complete))"
+                            r"(?:\s+[\w-]+)*\s*[.!]?\s*",
+                            lower,
+                        )
+                        and not re.search(
+                            r"\b(?:link\w*|urls?|provide\w*|include\w*|attach\w*|"
+                            r"upload\w*|publish\w*|post\w*|record\w*|capture\w*)\b",
+                            lower,
+                        )
+                    )
+                    if workflow_status_only and not evidence_term.search(without_workflow_run):
+                        # CI/workflow success belongs in the CI section, not
+                        # artifact retrieval. Preserve a transcript/output named
+                        # in the same clause rather than discarding the clause.
+                        continue
+                line_channels.add("overall")
+            if (
+                resolved_antecedent
+                and "artifacts" in line_channels
+                and re.search(r"\b(?:command outputs?|transcripts?)\b", resolved_antecedent, re.I)
+                and not re.search(r"\b(?:pr comments?|pull request comments?)\b", lower)
+            ):
+                line_channels.add("overall")
+            channels.update(line_channels)
+    return channels
+
+
+def _required_evidence_is_missing(evidence: str, channels: set[str]) -> bool:
+    """Read only builder-owned statuses for the required retrieval channels."""
+    # Comment and artifact bodies are untrusted. Their status-looking lines
+    # cannot overwrite the builder's own preamble.
+    preamble = re.split(
+        r"\n### Bounded (?:PR comments|referenced workflow artifacts)\n", evidence, maxsplit=1
+    )[0]
+    labels = {
+        "overall": "Overall retrieval status",
+        "comments": "PR comments",
+        "artifacts": "Referenced workflow artifacts",
+    }
+    for channel in channels:
+        match = re.search(
+            rf"^- {labels[channel]}:\s*\*\*(present|absent|unavailable)\*\*",
+            preamble,
+            flags=re.IGNORECASE | re.MULTILINE,
+        )
+        if not match or match.group(1).lower() != "present":
+            return True
+    return False
+
+
 def build_prompt_inputs(context: str, diff: str | None) -> PromptInputs:
     """Bound the context and diff blocks and report what reaches the model."""
     context_budget = (
         _budget_from_env("VERIFIER_CONTEXT_BUDGET_TOKENS", VERIFIER_CONTEXT_BUDGET_TOKENS)
+        * TOKEN_CHARS
+    )
+    evidence_budget = (
+        _budget_from_env(
+            "VERIFIER_ACCEPTANCE_EVIDENCE_BUDGET_TOKENS", VERIFIER_CONTEXT_BUDGET_TOKENS
+        )
         * TOKEN_CHARS
     )
     diff_budget = (
@@ -752,7 +1546,10 @@ def build_prompt_inputs(context: str, diff: str | None) -> PromptInputs:
     reasons: list[str] = []
 
     code_source = diff_text if "diff --git " in diff_text else ""
+    non_diff_file_input = bool(diff_text) and not code_source
     upstream_truncated = False
+    acceptance_source = ""
+    evidence_source = ""
     if sections is not None:
         full = next((body for name, body in sections if name == "full_diff"), "")
         if full:
@@ -760,7 +1557,15 @@ def build_prompt_inputs(context: str, diff: str | None) -> PromptInputs:
             if not code_source:
                 upstream_truncated = bool(UPSTREAM_DIFF_TRUNCATION.search(context_diff))
                 code_source = UPSTREAM_DIFF_TRUNCATION.sub("", context_diff).strip()
-        sections = [(name, body) for name, body in sections if name != "full_diff"]
+        acceptance_source = next((body for name, body in sections if name == "acceptance"), "")
+        evidence_source = next(
+            (body for name, body in sections if name == "acceptance_evidence"), ""
+        )
+        sections = [
+            (name, body)
+            for name, body in sections
+            if name not in {"full_diff", "acceptance_evidence"}
+        ]
     if not code_source:
         code_source = diff_text
 
@@ -770,22 +1575,39 @@ def build_prompt_inputs(context: str, diff: str | None) -> PromptInputs:
         )
         context_truncated = bool(context_text) and context_block != context_text
         acceptance: CoverageStatus = "truncated" if context_truncated else "not_declared"
+        acceptance_evidence: CoverageStatus = "not_declared"
     else:
         fitted, section_status = _fit_context_sections(sections, context_budget)
         context_block = "\n\n".join(fitted)
         context_truncated = any(value != "complete" for value in section_status.values())
         acceptance = section_status.get("acceptance", "unavailable")  # type: ignore[assignment]
+        if evidence_source:
+            evidence_block = _cap_prompt_text(evidence_source, evidence_budget // TOKEN_CHARS)
+            acceptance_evidence = "complete" if evidence_block == evidence_source else "truncated"
+            context_block = "\n\n".join(part for part in (context_block, evidence_block) if part)
+        else:
+            acceptance_evidence = "not_declared"
     if acceptance == "truncated":
         reasons.append("Acceptance/plan sources were truncated to fit the prompt budget.")
     elif acceptance == "unavailable":
         reasons.append("Acceptance/plan sources do not fit or are unavailable.")
+    required_evidence_channels = _required_evidence_channels(
+        _acceptance_criteria_sections(acceptance_source)
+    )
+    if required_evidence_channels:
+        if acceptance_evidence in {"not_declared", "unavailable"} or _required_evidence_is_missing(
+            evidence_source, required_evidence_channels
+        ):
+            reasons.append(
+                "Required acceptance evidence is unavailable; completeness cannot be judged."
+            )
+        elif acceptance_evidence == "truncated":
+            reasons.append("Required acceptance evidence was truncated to fit the prompt budget.")
 
     if code_source:
         diff_block, code, files, included, total = _build_code_block(code_source, diff_budget)
     else:
         diff_block, code, files, included, total = "(diff unavailable)", "unavailable", (), 0, 0
-        if sections is None:
-            code = "not_declared"
     if upstream_truncated:
         code = "truncated"
         reasons.append("The context builder truncated the PR diff before the verifier received it.")
@@ -803,9 +1625,17 @@ def build_prompt_inputs(context: str, diff: str | None) -> PromptInputs:
                 + ", ".join(missing[:10])
             )
     if code == "unavailable":
+        if non_diff_file_input:
+            reasons.append(
+                "Supplied --diff-file is not a complete Git diff; changed code is unavailable."
+            )
         reasons.append("Changed code is unavailable; completeness cannot be judged.")
     elif omitted:
         reasons.append(f"{len(omitted)} changed file(s) are omitted from the prompt entirely.")
+    elif code == "truncated":
+        reasons.append(
+            "Changed code was truncated to fit the prompt budget; a PASS is not allowed."
+        )
     if total and included / total < MIN_CODE_COVERAGE_RATIO:
         reasons.append(
             f"Only {included}/{total} changed-code characters fit the prompt "
@@ -816,6 +1646,7 @@ def build_prompt_inputs(context: str, diff: str | None) -> PromptInputs:
 
     coverage = PromptCoverage(
         acceptance=acceptance,
+        acceptance_evidence=acceptance_evidence,
         code=code,
         files=files,
         code_included_chars=included,
@@ -845,6 +1676,13 @@ def _apply_coverage_floor(
     result.concerns = [note, *result.concerns]
     result.summary = f"{note}\n\n{result.summary}" if result.summary else note
     return result
+
+
+def _evaluation_output_text(result: EvaluationResult) -> str:
+    """CLI/file text aligned with the structured verdict after post-processing."""
+    if result.verdict != "PASS" and result.summary:
+        return result.summary
+    return result.raw_content or result.summary or ""
 
 
 def _prepare_prompt(context: str, diff: str | None) -> str:
@@ -1727,7 +2565,7 @@ def main() -> None:
         except Exception as exc:
             print(f"Failed to create follow-up issue: {exc}", file=sys.stderr)
 
-    output_text = result.raw_content or result.summary or ""
+    output_text = _evaluation_output_text(result)
 
     if args.output_file:
         Path(args.output_file).write_text(output_text, encoding="utf-8")

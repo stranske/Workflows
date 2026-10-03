@@ -109,6 +109,8 @@ test('source-owned reviewer reassessment supports stable generated lanes without
   assert.equal(first.request_url, comments[0].html_url);
   assert.match(comments[0].body, /@codex review/);
   assert.match(comments[0].body, /PRRT_test/);
+  assert.match(comments[0].body,
+    new RegExp(`<!-- sync-review-accepted:${request.head_sha} -->`));
   const second = await runReviewReassessment(args);
   assert.equal(second.status, 'review_blocked_reassessment_reused');
   assert.equal(posts, 1);
@@ -321,6 +323,8 @@ async function reportSelection(t, { syncHash, withRecord }) {
   const failures = [];
   const warnings = [];
   t.mock.method(console, 'log', (...args) => logs.push(args.join(' ')));
+  const retryHelpers = require('../github-api-with-retry.js');
+  t.mock.method(retryHelpers, 'createTokenAwareRetry', async () => null);
   const core = {
     notice: () => {}, warning: (message) => warnings.push(message),
     setFailed: (message) => failures.push(message),

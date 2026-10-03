@@ -6,18 +6,25 @@ const fs = require('fs');
 const path = require('path');
 
 const {
-  buildVerifierContext,
+  buildVerifierContext: buildVerifierContextImpl,
   formatDiffForContext,
   fetchLocalGitDiff,
   isValidSha,
   extractArtifactArchiveText,
   formatVerifierEvidence,
+  summarizeDiff,
 } = require('../agents_verifier_context.js');
 
 const fixturesDir = path.join(__dirname, 'fixtures');
 const prBodyFixture = fs.readFileSync(path.join(fixturesDir, 'pr-body.md'), 'utf8');
 const issueBodyOpen = fs.readFileSync(path.join(fixturesDir, 'issue-body-open.md'), 'utf8');
 const issueBodyClosed = fs.readFileSync(path.join(fixturesDir, 'issue-body-closed.md'), 'utf8');
+
+const buildVerifierContext = (options) => buildVerifierContextImpl({
+  ...options,
+  fetchLocalDiff:
+    options.fetchLocalDiff || (() => options.github?.__testDiffText || ''),
+});
 
 const withEnv = async (key, value, callback) => {
   const hadKey = Object.prototype.hasOwnProperty.call(process.env, key);
@@ -66,6 +73,11 @@ const buildGithubStub = ({
   graphqlError = null,
   runsByWorkflow = {},
   listWorkflowRunsHook = null,
+  runsForRepo = {},
+  listWorkflowRunsForRepoError = null,
+  listWorkflowRunsForRepoResponse = null,
+  workflowRunsById = {},
+  getWorkflowRunError = null,
   diffText = [
     'diff --git a/src/example.js b/src/example.js',
     'index 1111111..2222222 100644',
@@ -79,13 +91,32 @@ const buildGithubStub = ({
   comments = [],
   commentError = null,
   commentLink = '',
+  reviewComments = [],
+  reviewCommentError = null,
+  reviewCommentLink = '',
+  reviews = [],
+  reviewError = null,
+  reviewLink = '',
   artifactsByRun = {},
   artifactListError = null,
   artifactListResponse = null,
   artifactDownloads = {},
 } = {}) => ({
+  __testDiffText: diffText,
   rest: {
     actions: {
+      async getWorkflowRun({ run_id: runId }) {
+        if (getWorkflowRunError) throw getWorkflowRunError;
+        if (Object.prototype.hasOwnProperty.call(workflowRunsById, runId)) {
+          return { data: workflowRunsById[runId] };
+        }
+        return { data: { id: runId, head_sha: prDetails?.head?.sha || '' } };
+      },
+      async listWorkflowRunsForRepo({ head_sha: headSha }) {
+        if (listWorkflowRunsForRepoError) throw listWorkflowRunsForRepoError;
+        if (listWorkflowRunsForRepoResponse) return listWorkflowRunsForRepoResponse;
+        return { data: { workflow_runs: runsForRepo[headSha] || [] }, headers: {} };
+      },
       async listWorkflowRuns({ workflow_id: workflowId, head_sha: headSha }) {
         if (listWorkflowRunsHook) {
           const hooked = await listWorkflowRunsHook({ workflow_id: workflowId, head_sha: headSha });
@@ -112,12 +143,25 @@ const buildGithubStub = ({
       },
     },
     pulls: {
+      async listReviewComments() {
+        if (reviewCommentError) throw reviewCommentError;
+        return { data: reviewComments, headers: { link: reviewCommentLink } };
+      },
+      async listReviews() {
+        if (reviewError) throw reviewError;
+        return { data: reviews, headers: { link: reviewLink } };
+      },
       async get(params = {}) {
         pullGetCalls?.push(params);
         if (params?.mediaType?.format === 'diff') {
           return { data: diffText };
         }
-        return { data: prDetails };
+        const changedFiles = (String(diffText || '').match(/^diff --git /gm) || []).length;
+        return {
+          data: prDetails && prDetails.changed_files === undefined
+            ? { ...prDetails, changed_files: changedFiles }
+            : prDetails,
+        };
       },
     },
     repos: {
@@ -771,7 +815,7 @@ async function buildAdvancedBaseDiffContext() {
     core,
     fetchLocalDiff(options) {
       localCalls.push(options);
-      return `${siblingDiff}\n${prOnlyDiff}`;
+      return prOnlyDiff;
     },
   });
   return { core, localCalls, pullGetCalls, result };
@@ -825,6 +869,54 @@ test('buildVerifierContext includes bounded comment-only acceptance evidence', a
   removeVerifierDiffArtifacts(result);
 });
 
+test('buildVerifierContext discovers artifact links from inline comments and review bodies', async () => {
+  const headSha = 'bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb';
+  const { core, result } = await buildEvidenceContext({
+    reviewComments: [{
+      user: { login: 'inline-reviewer' },
+      html_url: 'https://example.com/pr/700#discussion-1',
+      body: 'Inline proof: https://github.com/octo/workflows/actions/runs/124',
+    }],
+    reviews: [{
+      user: { login: 'reviewer' },
+      html_url: 'https://example.com/pr/700#review-1',
+      body: 'Submitted proof: https://github.com/octo/workflows/actions/runs/125',
+    }],
+    workflowRunsById: {
+      124: { id: 124, head_sha: headSha },
+      125: { id: 125, head_sha: headSha },
+    },
+    artifactsByRun: {
+      124: [{ id: 24, name: 'inline-proof', size_in_bytes: 20, expired: false }],
+      125: [{ id: 25, name: 'review-proof', size_in_bytes: 20, expired: false }],
+    },
+    artifactDownloads: { 24: Buffer.from('zip'), 25: Buffer.from('zip') },
+  }, {
+    extractArtifactText({ archiveBuffer }) {
+      return { text: `proof-${archiveBuffer.length}`, entryCount: 1, truncated: false };
+    },
+  });
+  assert.equal(core.outputs.evidence_status, 'present');
+  assert.match(result.markdown, /Inline proof/);
+  assert.match(result.markdown, /Submitted proof/);
+  assert.match(result.markdown, /Run 124: inline-proof/);
+  assert.match(result.markdown, /Run 125: review-proof/);
+  removeVerifierDiffArtifacts(result);
+});
+
+test('buildVerifierContext fails closed when any review evidence source is incomplete', async () => {
+  for (const options of [
+    { reviewCommentError: new Error('inline forbidden') },
+    { reviewError: new Error('review forbidden') },
+    { reviewCommentLink: '<https://api.example.com/page=2>; rel="next"' },
+  ]) {
+    const { core, result } = await buildEvidenceContext(options);
+    assert.equal(core.outputs.evidence_status, 'unavailable');
+    assert.match(result.markdown, /PR comments: \*\*unavailable\*\*/);
+    removeVerifierDiffArtifacts(result);
+  }
+});
+
 test('buildVerifierContext includes bounded text from a referenced workflow artifact', async () => {
   const { core, result } = await buildEvidenceContext({
     comments: [{
@@ -850,6 +942,146 @@ test('buildVerifierContext includes bounded text from a referenced workflow arti
   assert.match(result.markdown, /Referenced workflow artifacts: \*\*present\*\*/);
   assert.match(result.markdown, /RED 1 failed/);
   removeVerifierDiffArtifacts(result);
+});
+
+test('buildVerifierContext rejects a comment-referenced artifact from a different commit', async () => {
+  const { core, result } = await buildEvidenceContext({
+    comments: [{
+      user: { login: 'evidence-bot' },
+      body: 'Evidence run: https://github.com/octo/workflows/actions/runs/123',
+    }],
+    workflowRunsById: {
+      123: { id: 123, head_sha: 'dddddddddddddddddddddddddddddddddddddddd' },
+    },
+    artifactsByRun: { 123: [{
+      id: 7,
+      name: 'unrelated-proof',
+      size_in_bytes: 120,
+      expired: false,
+    }] },
+    artifactDownloads: { 7: Buffer.from('zip bytes') },
+  }, {
+    extractArtifactText() {
+      return { text: 'proof from an unrelated commit', entryCount: 1, truncated: false };
+    },
+  });
+  assert.equal(core.outputs.evidence_status, 'unavailable');
+  assert.match(result.markdown, /does not match the exact PR head or merge commit/);
+  assert.doesNotMatch(result.markdown, /proof from an unrelated commit/);
+  removeVerifierDiffArtifacts(result);
+});
+
+test('buildVerifierContext fails closed when referenced run provenance is unavailable', async () => {
+  const { core, result } = await buildEvidenceContext({
+    comments: [{ body: 'Evidence run: https://github.com/octo/workflows/actions/runs/456' }],
+    getWorkflowRunError: new Error('run lookup forbidden'),
+    artifactsByRun: { 456: [{ id: 8, size_in_bytes: 20, expired: false }] },
+    artifactDownloads: { 8: Buffer.from('zip bytes') },
+  });
+  assert.equal(core.outputs.evidence_status, 'unavailable');
+  assert.match(result.markdown, /workflow run provenance failed for referenced run 456/);
+  assert.doesNotMatch(result.markdown, /Run 456/);
+  removeVerifierDiffArtifacts(result);
+});
+
+test('buildVerifierContext discovers artifacts from an associated PR head without a run URL', async () => {
+  const headSha = 'bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb';
+  const { core, result } = await buildEvidenceContext({
+    runsForRepo: {
+      [headSha]: [{ id: 321, head_sha: headSha }],
+    },
+    artifactsByRun: { 321: [{
+      id: 17,
+      name: 'head-associated-proof',
+      size_in_bytes: 120,
+      expired: false,
+      archive_download_url: 'https://api.example.com/artifacts/17/zip',
+    }] },
+    artifactDownloads: { 17: Buffer.from('zip bytes') },
+  }, {
+    extractArtifactText() {
+      return { text: 'proof from the exact PR head', entryCount: 1, truncated: false };
+    },
+  });
+  assert.equal(core.outputs.evidence_status, 'present');
+  assert.match(result.markdown, /Referenced workflow artifacts: \*\*present\*\*/);
+  assert.match(result.markdown, /proof from the exact PR head/);
+  removeVerifierDiffArtifacts(result);
+});
+
+test('buildVerifierContext preserves exact-head artifacts when PR comment retrieval fails', async () => {
+  const headSha = 'bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb';
+  const { core, result } = await buildEvidenceContext({
+    commentError: new Error('secondary rate limit'),
+    runsForRepo: { [headSha]: [{ id: 321, head_sha: headSha }] },
+    artifactsByRun: { 321: [{ id: 17, name: 'head-proof', size_in_bytes: 120, expired: false }] },
+    artifactDownloads: { 17: Buffer.from('zip bytes') },
+  }, {
+    extractArtifactText() {
+      return { text: 'proof from the exact PR head', entryCount: 1, truncated: false };
+    },
+  });
+  assert.equal(core.outputs.evidence_status, 'unavailable');
+  assert.match(result.markdown, /PR comments: \*\*unavailable\*\*/);
+  assert.match(result.markdown, /Referenced workflow artifacts: \*\*present\*\*/);
+  assert.match(result.markdown, /proof from the exact PR head/);
+  removeVerifierDiffArtifacts(result);
+});
+
+test('buildVerifierContext fails closed when workflow discovery returns a different head SHA', async () => {
+  const headSha = 'bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb';
+  const { core, result } = await buildEvidenceContext({
+    runsForRepo: {
+      [headSha]: [{ id: 654, head_sha: 'dddddddddddddddddddddddddddddddddddddddd' }],
+    },
+    artifactsByRun: { 654: [{ id: 18, size_in_bytes: 20, expired: false }] },
+    artifactDownloads: { 18: Buffer.from('zip bytes') },
+  });
+  assert.equal(core.outputs.evidence_status, 'unavailable');
+  assert.match(result.markdown, /Referenced workflow artifacts: \*\*unavailable\*\*/);
+  assert.doesNotMatch(result.markdown, /Run 654/);
+  removeVerifierDiffArtifacts(result);
+});
+
+test('buildVerifierContext fails closed when associated workflow run discovery fails, is truncated, or is invalid', async () => {
+  const failure = await buildEvidenceContext({
+    listWorkflowRunsForRepoError: new Error('secondary rate limit'),
+  });
+  assert.equal(failure.core.outputs.evidence_status, 'unavailable');
+  assert.match(failure.result.markdown, /Referenced workflow artifacts: \*\*unavailable\*\*/);
+  removeVerifierDiffArtifacts(failure.result);
+
+  const limit = await buildEvidenceContext({
+    listWorkflowRunsForRepoResponse: {
+      data: {
+        total_count: 2,
+        workflow_runs: [{
+          id: 777,
+          head_sha: 'bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb',
+        }],
+      },
+      headers: {},
+    },
+    artifactsByRun: { 777: [] },
+  });
+  assert.equal(limit.core.outputs.evidence_status, 'unavailable');
+  assert.match(limit.result.markdown, /exceeded the bounded result limit/);
+  removeVerifierDiffArtifacts(limit.result);
+
+  const invalid = await buildEvidenceContext({
+    listWorkflowRunsForRepoResponse: {
+      data: {
+        workflow_runs: [{
+          id: 0,
+          head_sha: 'bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb',
+        }],
+      },
+      headers: {},
+    },
+  });
+  assert.equal(invalid.core.outputs.evidence_status, 'unavailable');
+  assert.match(invalid.result.markdown, /returned invalid evidence/);
+  removeVerifierDiffArtifacts(invalid.result);
 });
 
 test('artifact extractor charges headings and separators to the rendered character limit', () => {
@@ -885,6 +1117,124 @@ test('artifact extractor skips disallowed zip entry names', () => {
   assert.match(result.text, /notes\.md/);
   assert.doesNotMatch(result.text, /binary/);
   assert.deepEqual(extractedEntries, ['proof.txt', 'notes.md']);
+});
+
+test('artifact extractor marks mixed supported and unsupported payload entries incomplete', () => {
+  const execFile = (_command, args) => {
+    if (args[0] === '-Z1') return 'logs/\ngood.txt\nrequired.out\nconfig.yaml\n';
+    return 'proof';
+  };
+  const result = extractArtifactArchiveText({
+    archiveBuffer: Buffer.from('zip'), maxEntries: 10, maxChars: 500, execFile,
+  });
+  assert.equal(result.text, '### good.txt\n\nproof');
+  assert.equal(result.entryCount, 1);
+  assert.equal(result.truncated, true);
+});
+
+test('summarizeDiff decodes quoted Git paths and uses the rename destination', () => {
+  const summary = summarizeDiff([
+    'diff --git "a/docs/\\303\\251 old.md" "b/docs/\\303\\251 new.md"',
+    'similarity index 100%',
+    'rename from docs/é old.md',
+    'rename to docs/é new.md',
+  ].join('\n'));
+  assert.match(summary, /docs\/é old\.md -> docs\/é new\.md/);
+  assert.match(summary, /Files changed: 1/);
+});
+
+test('summarizeDiff supports independently quoted rename header paths', () => {
+  const cases = [
+    ['diff --git "a/caf\\303\\251.txt" b/plain.txt', 'café.txt', 'plain.txt', 'café.txt -> plain.txt'],
+    ['diff --git a/plain.txt "b/caf\\303\\251.txt"', 'plain.txt', 'café.txt', 'plain.txt -> café.txt'],
+  ];
+  for (const [header, from, to, expected] of cases) {
+    const summary = summarizeDiff([header, 'similarity index 100%', `rename from ${from}`, `rename to ${to}`].join('\n'));
+    assert.doesNotMatch(summary, /Diff path parsing unavailable/);
+    assert.match(summary, new RegExp(expected));
+  }
+});
+
+test('summarizeDiff preserves delimiter-like components in unquoted Git paths', () => {
+  for (const path of ['docs/foo b/bar', 'docs/foo b/bar b/baz']) {
+    const summary = summarizeDiff([
+      `diff --git a/${path} b/${path}`,
+      `--- a/${path}\t`,
+      `+++ b/${path}\t`,
+      '@@ -1 +1 @@', '-before', '+after',
+    ].join('\n'));
+    assert.ok(summary.includes(`- ${path} (+1/-1)`), summary);
+    const binary = summarizeDiff(`diff --git a/${path} b/${path}\nGIT binary patch`);
+    assert.ok(binary.includes(`- ${path} (binary)`), binary);
+  }
+});
+
+test('summarizeDiff fails closed on unresolved ambiguous rename headers', () => {
+  const header = 'diff --git a/docs/foo b/bar b/docs/new b/name';
+  assert.match(summarizeDiff(header), /Diff path parsing unavailable/);
+  const summary = summarizeDiff([
+    header, 'similarity index 100%',
+    'rename from docs/foo b/bar', 'rename to docs/new b/name',
+  ].join('\n'));
+  assert.ok(summary.includes('docs/foo b/bar -> docs/new b/name'), summary);
+});
+
+test('summarizeDiff fails closed on malformed mixed quoted paths', () => {
+  for (const header of [
+    'diff --git "a/caf\\400.txt" b/plain.txt',
+    'diff --git a/plain.txt "b/caf\\303.txt"',
+    'diff --git "a/caf\\303\\251.txt" c/plain file.txt',
+    'diff --git a/plain "b/caf\\303 b/inner.txt"',
+  ]) {
+    const summary = summarizeDiff(header);
+    assert.match(summary, /Diff path parsing unavailable/);
+  }
+});
+
+test('summarizeDiff resolves ambiguous patch and copy paths before counting hunks', () => {
+  const header = 'diff --git a/docs/foo b/bar b/docs/new b/name';
+  const metadata = ['--- a/docs/foo b/bar\t', '+++ b/docs/new b/name\t'];
+  const summary = summarizeDiff([
+    header, ...metadata, '@@ -1 +1 @@',
+    '--- a/literal-content', '+++ b/literal-content',
+  ].join('\n'));
+  assert.ok(summary.includes('- docs/new b/name (+1/-1)'), summary);
+  const copied = summarizeDiff([
+    header, 'similarity index 100%',
+    'copy from docs/foo b/bar', 'copy to docs/new b/name',
+  ].join('\n'));
+  assert.ok(copied.includes('docs/foo b/bar -> docs/new b/name'), copied);
+  assert.match(summarizeDiff([header, ...metadata].join('\n'), { maxLines: 1 }), /Diff path parsing unavailable/);
+  assert.match(summarizeDiff(`${header}\ndiff --git a/plain b/plain`), /Diff path parsing unavailable/);
+});
+
+test('summarizeDiff overrides equal header candidates only with complete consistent metadata', () => {
+  const header = 'diff --git a/x b/x b/x b/x';
+  const renamed = summarizeDiff([
+    header, 'similarity index 100%', 'rename from x', 'rename to x b/x b/x',
+  ].join('\n'));
+  assert.ok(renamed.includes('- x -> x b/x b/x (+0/-0)'), renamed);
+  for (const metadata of [
+    ['rename from x'],
+    ['rename from x', 'rename to impossible'],
+    ['rename from x', 'rename to x b/x b/x', '--- a/other', '+++ b/other'],
+  ]) {
+    assert.match(summarizeDiff([header, ...metadata].join('\n')), /Diff path parsing unavailable/);
+  }
+});
+
+test('summarizeDiff preserves delimiter-bearing binary additions and deletions', () => {
+  const path = 'docs/foo b/bar';
+  for (const mode of ['new file mode 100644', 'deleted file mode 100644']) {
+    const summary = summarizeDiff(`diff --git a/${path} b/${path}\n${mode}\nGIT binary patch`);
+    assert.ok(summary.includes(`- ${path} (${mode.startsWith('new') ? 'added' : 'deleted'}) (binary)`), summary);
+  }
+});
+
+test('summarizeDiff fails closed on malformed quoted Git paths', () => {
+  const summary = summarizeDiff('diff --git "a/docs/\\303\\251.md b/docs/\\303\\251.md');
+  assert.match(summary, /Diff path parsing unavailable/);
+  assert.doesNotMatch(summary, /Files changed: 1/);
 });
 
 test('artifact extractor truncates when zip entry count exceeds maxEntries', () => {
@@ -938,7 +1288,7 @@ test('buildVerifierContext reports retrieval failure as unavailable, never absen
   assert.equal(result.shouldRun, true);
   assert.equal(core.outputs.evidence_status, 'unavailable');
   assert.match(result.markdown, /PR comments: \*\*unavailable\*\*/);
-  assert.match(result.markdown, /Referenced workflow artifacts: \*\*unavailable\*\*/);
+  assert.match(result.markdown, /Referenced workflow artifacts: \*\*absent\*\*/);
   assert.doesNotMatch(result.markdown, /PR comments: \*\*absent\*\*/);
   removeVerifierDiffArtifacts(result);
 });
@@ -951,6 +1301,33 @@ test('buildVerifierContext reports a malformed artifact listing as unavailable',
   assert.equal(core.outputs.evidence_status, 'unavailable');
   assert.match(result.markdown, /Referenced workflow artifacts: \*\*unavailable\*\*/);
   assert.doesNotMatch(result.markdown, /Referenced workflow artifacts: \*\*absent\*\*/);
+  removeVerifierDiffArtifacts(result);
+});
+
+test('buildVerifierContext reports a partial artifact page as unavailable without a link header', async () => {
+  const { core, result } = await buildEvidenceContext({
+    comments: [{ body: 'Evidence run: https://github.com/octo/workflows/actions/runs/123' }],
+    artifactListResponse: {
+      data: {
+        total_count: 2,
+        artifacts: [{
+          id: 9,
+          name: 'partial-proof',
+          size_in_bytes: 80,
+          expired: false,
+        }],
+      },
+      headers: {},
+    },
+    artifactDownloads: { 9: Buffer.from('zip bytes') },
+  }, {
+    extractArtifactText() {
+      return { text: 'only the first artifact', entryCount: 1, truncated: false };
+    },
+  });
+  assert.equal(core.outputs.evidence_status, 'unavailable');
+  assert.match(result.markdown, /artifact discovery for run 123 exceeded the bounded result limit/);
+  assert.match(result.markdown, /only the first artifact/);
   removeVerifierDiffArtifacts(result);
 });
 
@@ -988,11 +1365,13 @@ test('buildVerifierContext uses the authoritative PR diff after the base advance
   const { localCalls, pullGetCalls, result } = await buildAdvancedBaseDiffContext();
   try {
     assert.equal(result.shouldRun, true);
-    assert.equal(localCalls.length, 0, 'merged PRs must not use a base...merge local range');
-    assert.ok(
-      pullGetCalls.some(
-        (params) => params.pull_number === 556 && params.mediaType?.format === 'diff'
-      )
+    assert.equal(localCalls.length, 1);
+    assert.equal(localCalls[0].baseSha, 'aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa');
+    assert.equal(localCalls[0].headSha, 'bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb');
+    assert.equal(localCalls[0].remoteUrl, 'origin');
+    assert.equal(
+      pullGetCalls.filter((params) => params.mediaType?.format === 'diff').length,
+      0
     );
     assert.match(result.markdown, /## PR Diff \(full\)[\s\S]*src\/pr-only\.js/);
     assert.doesNotMatch(result.markdown, /src\/sibling\.js/);
@@ -1045,7 +1424,7 @@ test('buildVerifierContext skips when the authoritative merged PR diff is unavai
     context,
     core,
     fetchLocalDiff() {
-      throw new Error('merged PR verification must not fall back to a contaminated local range');
+      return '';
     },
   });
 
@@ -1056,6 +1435,127 @@ test('buildVerifierContext skips when the authoritative merged PR diff is unavai
   assert.equal(core.outputs.context_path, '');
   assert.equal(core.outputs.diff_summary_path, '');
   assert.equal(core.outputs.diff_path, '');
+});
+
+test('fetchLocalGitDiff fetches a missing pull request head before reconstructing the range', () => {
+  const calls = [];
+  let headPresent = false;
+  const diff = fetchLocalGitDiff({
+    baseSha: 'aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa',
+    headSha: 'bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb',
+    prNumber: 557,
+    remoteUrl: 'origin',
+    maxBytes: 1024 * 1024,
+    execFile(command, args) {
+      calls.push([command, ...args]);
+      if (args[0] === 'cat-file' && !headPresent) {
+        throw new Error('missing object');
+      }
+      if (args[0] === 'fetch') {
+        headPresent = true;
+        return '';
+      }
+      if (args[0] === 'diff') {
+        return Buffer.from('diff --git a/a b/a\n+fixed\n');
+      }
+      return '';
+    },
+  });
+
+  assert.equal(diff, 'diff --git a/a b/a\n+fixed\n');
+  assert.deepEqual(calls[1], [
+    'git',
+    'fetch',
+    '--no-tags',
+    'origin',
+    'refs/pull/557/head',
+  ]);
+  assert.deepEqual(calls[2], [
+    'git',
+    'cat-file',
+    '-e',
+    'bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb^{commit}',
+  ]);
+});
+
+test('fetchLocalGitDiff fetches the exact head SHA when the pull ref does not yield it', () => {
+  const calls = [];
+  let headPresent = false;
+  const diff = fetchLocalGitDiff({
+    baseSha: 'aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa',
+    headSha: 'bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb',
+    prNumber: 557,
+    remoteUrl: 'origin',
+    execFile(command, args) {
+      calls.push([command, ...args]);
+      if (args[0] === 'cat-file' && args[2].startsWith('bbbb') && !headPresent) {
+        throw new Error('missing object');
+      }
+      if (args[0] === 'fetch' && args[3] === 'refs/pull/557/head') {
+        throw new Error('pull ref missing after squash');
+      }
+      if (args[0] === 'fetch' && args[3] === 'bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb') {
+        headPresent = true;
+        return '';
+      }
+      if (args[0] === 'diff') {
+        return Buffer.from('diff --git a/a b/a\n+fixed\n');
+      }
+      return '';
+    },
+  });
+
+  assert.equal(diff, 'diff --git a/a b/a\n+fixed\n');
+  assert.ok(calls.some((call) => call.join(' ') ===
+    'git fetch --no-tags origin refs/pull/557/head'));
+  assert.ok(calls.some((call) => call.join(' ') ===
+    'git fetch --no-tags origin bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb'));
+});
+
+test('fetchLocalGitDiff fetches and verifies an absent cross-repo base with a present head', () => {
+  const baseSha = 'aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa';
+  const headSha = 'bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb';
+  const remoteUrl = 'origin';
+  const calls = [];
+  let basePresent = false;
+  const result = fetchLocalGitDiff({
+    baseSha, headSha, prNumber: 557, remoteUrl,
+    execFile(command, args) {
+      calls.push([command, ...args]);
+      if (args[0] === 'cat-file' && args[2] === `${baseSha}^{commit}` && !basePresent) {
+        throw new Error('missing base');
+      }
+      if (args[0] === 'fetch') {
+        assert.equal(args[2], remoteUrl);
+        assert.equal(args[3], baseSha);
+        basePresent = true;
+      }
+      if (args[0] === 'diff') {
+        assert.equal(basePresent, true);
+        return Buffer.from('diff --git a/a b/a\n+fixed\n');
+      }
+      return '';
+    },
+  });
+  assert.match(result, /fixed/);
+  assert.ok(calls.some(call => call.join(' ') === `git fetch --no-tags ${remoteUrl} ${baseSha}`));
+  assert.equal(calls.filter(call => call[1] === 'cat-file' && call[3] === `${baseSha}^{commit}`).length, 2);
+});
+
+test('fetchLocalGitDiff refuses reconstruction when fetched base is still absent', () => {
+  let diffCalled = false;
+  const result = fetchLocalGitDiff({
+    baseSha: 'aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa',
+    headSha: 'bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb',
+    prNumber: 557,
+    execFile(command, args) {
+      if (args[0] === 'cat-file' && args[2].startsWith('aaaa')) throw new Error('missing base');
+      if (args[0] === 'diff') diffCalled = true;
+      return '';
+    },
+  });
+  assert.equal(result, '');
+  assert.equal(diffCalled, false);
 });
 
 test('buildVerifierContext queries CI runs for merge and head SHAs', async () => {
@@ -1780,4 +2280,55 @@ test('buildVerifierContext flags ciFailed when a CI workflow concluded failure o
       }
     }
   }
+});
+
+test('buildVerifierContext rejects bounded API fallback when the local PR range is unavailable', async () => {
+  const core = buildCore();
+  const prDetails = {
+    merged: true,
+    merged_at: '2026-09-24T00:00:00Z',
+    number: 558,
+    title: 'Incomplete API diff',
+    body: prBodyFixture,
+    html_url: 'https://example.com/pr/558',
+    base: { ref: 'main', sha: 'base_sha' },
+    head: { sha: 'head_sha' },
+    changed_files: 2,
+  };
+  const diffText = 'diff --git a/file1 b/file1\n+hello'; // Only 1 file
+  const context = {
+    eventName: 'pull_request',
+    repo: { owner: 'octo', repo: 'workflows' },
+    payload: { pull_request: prDetails },
+    sha: 'head_sha',
+  };
+  const pullGetCalls = [];
+  const github = buildGithubStub({ prDetails, diffText, pullGetCalls });
+  const result = await buildVerifierContext({
+    github,
+    context,
+    core,
+    fetchLocalDiff() {
+      return '';
+    }
+  });
+
+  assert.equal(core.outputs.should_run, 'false');
+  assert.equal(
+    pullGetCalls.filter((params) => params.mediaType?.format === 'diff').length,
+    0
+  );
+  assert.match(core.outputs.skip_reason, /Authoritative pull request diff unavailable/);
+});
+
+test('summarizeDiff preserves unquoted spaces and repository a/b directory prefixes', () => {
+  for (const name of ['plain file.txt', 'b/nested.txt']) {
+    const diff = `diff --git a/${name} b/${name}\n--- a/${name}\n+++ b/${name}\n@@ -1 +1 @@\n-old\n+new\n`;
+    assert.ok(summarizeDiff(diff).includes(`- ${name} (+1/-1)`));
+  }
+});
+
+test('summarizeDiff preserves literal supplementary Unicode in quoted paths', () => {
+  const diff = 'diff --git "a/🧭.txt" "b/🧭.txt"\n@@ -1 +1 @@\n-old\n+new\n';
+  assert.ok(summarizeDiff(diff).includes('- 🧭.txt (+1/-1)'));
 });

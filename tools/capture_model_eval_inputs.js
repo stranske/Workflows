@@ -41,6 +41,7 @@ async function captureModelEvalInputs({
       }
       const contextBytes = fs.readFileSync('verifier-context.md');
       const summaryBytes = fs.readFileSync('verifier-diff-summary.md');
+      const diffBytes = fs.readFileSync('verifier-pr-diff.patch');
       const manifest = {
         schema: 'workflows-verifier-input-snapshot/v1',
         capture_kind: 'retrospective',
@@ -52,6 +53,7 @@ async function captureModelEvalInputs({
         ci_workflows: JSON.parse(ciWorkflows),
         context_sha256: crypto.createHash('sha256').update(contextBytes).digest('hex'),
         diff_summary_sha256: crypto.createHash('sha256').update(summaryBytes).digest('hex'),
+        diff_sha256: crypto.createHash('sha256').update(diffBytes).digest('hex'),
       };
       fs.writeFileSync('verifier-input-manifest.json', `${JSON.stringify(manifest, null, 2)}\n`);
       process.chdir(root);

@@ -99,7 +99,9 @@ Download a completed comparison artifact and use
 --adjudicated-by REVIEWER --adjudication-rationale TEXT --output case.json`
 to verify the captured hashes and prepare a case for review. For a controlled
 defect, supply both `--context-override` and `--diff-summary-override` plus
-`--mutation-note`; the tool preserves hashes of the original capture. Add
+`--mutation-note`. If the capture has a full diff, also supply
+`--diff-override` containing a complete code patch; a diff summary or patch
+header alone is rejected. The tool preserves hashes of the original capture. Add
 reviewed cases to the separate `screen_cases` list, choose eight IDs in
 `screen_case_ids`, and set
 `screen_input_status` to `production_context_adjudicated`. The zero-spend plan

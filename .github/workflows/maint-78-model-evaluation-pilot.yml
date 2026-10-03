@@ -173,5 +173,6 @@ jobs:
             api-confirmation-results.json
             captured-inputs/**/verifier-context.md
             captured-inputs/**/verifier-diff-summary.md
+            captured-inputs/**/verifier-pr-diff.patch
             captured-inputs/**/verifier-input-manifest.json
           if-no-files-found: warn

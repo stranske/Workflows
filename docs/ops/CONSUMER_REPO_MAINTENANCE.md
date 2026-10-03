@@ -809,11 +809,19 @@ This prevents a delayed prior campaign from closing a newer candidate or deliver
 
 Active non-outdated review threads remain merge blockers. When a shared source
 repair proves a finding obsolete on the current generated head, an authenticated
-operator may pass `review_resolution_json` to Maint 71. Each
-`workflows-sync-review-resolution/v1` proof names one thread, PR, exact head,
-Workflows source-fix SHA, evidence URL, and reason. Maint 71 verifies that the
-fix is contained in the delivery's recorded source commit and re-reads the
-thread before resolving it. Proof-bound resolution may also clear an outdated
+operator may pass `review_resolution_json` to Maint 71.
+Bot authorship and a manifest-synced path alone never authorize Maint 71 to
+auto-resolve a finding. A bot finding on generated content stays blocked for
+Workflows-source repair, regeneration and originating-reviewer disposition;
+sealing or a passing Gate is not evidence of reviewer satisfaction.
+
+Each `workflows-sync-review-resolution/v1` proof names one thread, PR, exact head,
+Workflows source-fix SHA, evidence URL, originating reviewer ID, exact in-thread
+reviewer acceptance URL, and reason. The originating reviewer's comment must
+be on that thread and exact commit and contain
+`<!-- sync-review-accepted:<full-head-sha> -->`; Maint 71 verifies the reviewer
+identity, comment, and contained source fix before resolving. Proof-bound
+resolution may also clear an outdated
 thread that branch protection still treats as unresolved; that path does not
 waive the zero active non-outdated thread requirement for ordinary merge
 eligibility. A source fix without this exact proof, a later candidate plan, or a

@@ -107,14 +107,33 @@ function summarizeDiff(diffText, { maxFiles, maxLines } = {}) {
   const fileSummaries = [];
   let current = null;
   let truncated = false;
+  let pathParsingFailed = false;
   const lines = diff.split('\n');
   const lineLimit = Number.isFinite(maxLines) ? maxLines : DIFF_SUMMARY_LIMITS.maxLines;
 
   const pushCurrent = () => {
     if (current) {
-      fileSummaries.push(current);
+      const { fromMetadata, toMetadata } = current;
+      if (fromMetadata !== undefined || toMetadata !== undefined) {
+        if (fromMetadata === undefined || toMetadata === undefined) pathParsingFailed = true;
+        else {
+          const fromPath = fromMetadata === '/dev/null' ? toMetadata : fromMetadata;
+          const toPath = toMetadata === '/dev/null' ? fromMetadata : toMetadata;
+          if (!current.candidates.some((paths) => paths.fromPath === fromPath && paths.toPath === toPath)) {
+            pathParsingFailed = true;
+          }
+          current.fromPath = fromPath;
+          current.toPath = toPath;
+        }
+      }
+      if (!current.fromPath || !current.toPath) pathParsingFailed = true;
+      else fileSummaries.push(current);
       current = null;
     }
+  };
+  const recordPathMetadata = (key, path) => {
+    if (current[key] !== undefined && current[key] !== path) pathParsingFailed = true;
+    current[key] = path;
   };
 
   for (let index = 0; index < lines.length; index += 1) {
@@ -125,20 +144,39 @@ function summarizeDiff(diffText, { maxFiles, maxLines } = {}) {
     const line = lines[index];
     if (line.startsWith('diff --git ')) {
       pushCurrent();
-      const match = line.match(/^diff --git a\/(.+?) b\/(.+)$/);
-      const fromPath = match ? match[1] : '';
-      const toPath = match ? match[2] : '';
+      if (pathParsingFailed) break;
+      const paths = parseGitDiffHeader(line);
+      if (!paths) {
+        pathParsingFailed = true;
+        break;
+      }
       current = {
-        fromPath,
-        toPath,
+        fromPath: paths.fromPath,
+        toPath: paths.toPath,
+        candidates: paths.candidates,
         status: 'modified',
         added: 0,
         removed: 0,
         binary: false,
+        inHunk: false,
       };
       continue;
     }
     if (!current) {
+      continue;
+    }
+    if (line.startsWith('@@')) {
+      current.inHunk = true;
+      continue;
+    }
+    if (!current.inHunk && (line.startsWith('--- ') || line.startsWith('+++ '))) {
+      const path = parseGitPath(line.slice(4).split('\t', 1)[0]);
+      if (path === null) { pathParsingFailed = true; break; }
+      const from = line.startsWith('--- ');
+      if (path !== '/dev/null' && !path.startsWith(from ? 'a/' : 'b/')) {
+        pathParsingFailed = true; break;
+      }
+      recordPathMetadata(from ? 'fromMetadata' : 'toMetadata', path === '/dev/null' ? path : stripGitPrefix(path));
       continue;
     }
     if (line.startsWith('new file mode')) {
@@ -149,21 +187,28 @@ function summarizeDiff(diffText, { maxFiles, maxLines } = {}) {
       current.status = 'deleted';
       continue;
     }
-    if (line.startsWith('rename from ')) {
-      current.status = 'renamed';
-      current.fromPath = line.replace('rename from ', '').trim();
+    if (!current.inHunk && /^(rename|copy) from /.test(line)) {
+      current.status = line.startsWith('rename ') ? 'renamed' : 'copied';
+      const renamed = parseGitPath(line.replace(/^(rename|copy) from /, ''));
+      if (renamed === null) {
+        pathParsingFailed = true;
+        break;
+      }
+      recordPathMetadata('fromMetadata', renamed);
       continue;
     }
-    if (line.startsWith('rename to ')) {
-      current.status = 'renamed';
-      current.toPath = line.replace('rename to ', '').trim();
+    if (!current.inHunk && /^(rename|copy) to /.test(line)) {
+      current.status = line.startsWith('rename ') ? 'renamed' : 'copied';
+      const renamed = parseGitPath(line.replace(/^(rename|copy) to /, ''));
+      if (renamed === null) {
+        pathParsingFailed = true;
+        break;
+      }
+      recordPathMetadata('toMetadata', renamed);
       continue;
     }
     if (line.startsWith('Binary files ') || line.startsWith('GIT binary patch')) {
       current.binary = true;
-      continue;
-    }
-    if (line.startsWith('+++') || line.startsWith('---')) {
       continue;
     }
     if (line.startsWith('+')) {
@@ -173,6 +218,10 @@ function summarizeDiff(diffText, { maxFiles, maxLines } = {}) {
     }
   }
   pushCurrent();
+  if (pathParsingFailed) {
+    summaryLines.push('_Diff path parsing unavailable; Git paths were malformed or ambiguous._');
+    return summaryLines.join('\n');
+  }
 
   if (!fileSummaries.length) {
     summaryLines.push('_No file changes detected in diff._');
@@ -193,7 +242,7 @@ function summarizeDiff(diffText, { maxFiles, maxLines } = {}) {
   const visible = fileSummaries.slice(0, fileLimit);
   for (const file of visible) {
     let label = file.toPath || file.fromPath || '(unknown file)';
-    if (file.status === 'renamed' && file.fromPath) {
+    if (['renamed', 'copied'].includes(file.status) && file.fromPath) {
       label = `${file.fromPath} -> ${file.toPath || '(unknown)'}`;
     } else if (file.status === 'added') {
       label = `${label} (added)`;
@@ -208,6 +257,78 @@ function summarizeDiff(diffText, { maxFiles, maxLines } = {}) {
   }
 
   return summaryLines.join('\n');
+}
+
+function decodeGitQuotedPath(input) {
+  if (!input.startsWith('"')) return null;
+  const chunks = [];
+  let index = 1;
+  while (index < input.length) {
+    const char = input[index];
+    if (char === '"') {
+      try {
+        return {
+          value: new TextDecoder('utf-8', { fatal: true }).decode(Buffer.concat(chunks)),
+          rest: input.slice(index + 1),
+        };
+      } catch {
+        return null;
+      }
+    }
+    if (char !== '\\') {
+      const point = String.fromCodePoint(input.codePointAt(index));
+      chunks.push(Buffer.from(point, 'utf8')); index += point.length; continue;
+    }
+    const escaped = input[index + 1];
+    if (!escaped) return null;
+    if (/^[0-7]$/.test(escaped)) {
+      const octal = input.slice(index + 1, index + 4);
+      if (!/^[0-7]{3}$/.test(octal)) return null;
+      const byte = Number.parseInt(octal, 8);
+      if (byte > 0xff) return null;
+      chunks.push(Buffer.from([byte])); index += 4; continue;
+    }
+    const escapes = { a: '\x07', b: '\b', f: '\f', n: '\n', r: '\r', t: '\t', v: '\v', '\\': '\\', '"': '"' };
+    if (!Object.prototype.hasOwnProperty.call(escapes, escaped)) return null;
+    chunks.push(Buffer.from(escapes[escaped], 'utf8')); index += 2;
+  }
+  return null;
+}
+
+function parseGitPath(value) {
+  if (!value) return '';
+  if (!value.startsWith('"')) return value;
+  const parsed = decodeGitQuotedPath(value);
+  return parsed && !parsed.rest.trim() ? parsed.value : null;
+}
+
+function stripGitPrefix(value) { return value.replace(/^[ab]\//, ''); }
+
+function parseGitDiffHeader(line) {
+  const payload = line.slice('diff --git '.length);
+  const pair = (source, destination) => source?.startsWith('a/') && destination?.startsWith('b/')
+    ? { fromPath: stripGitPrefix(source), toPath: stripGitPrefix(destination) } : null;
+  if (payload.startsWith('"')) {
+    const from = decodeGitQuotedPath(payload);
+    const paths = from?.rest.startsWith(' ')
+      ? pair(from.value, parseGitPath(from.rest.trimStart())) : null;
+    return paths ? { ...paths, candidates: [paths] } : null;
+  }
+  const candidates = [];
+  for (const match of payload.matchAll(/ (?=b\/|"b\/)/g)) {
+    const source = payload.slice(0, match.index);
+    if (source.includes('"')) continue;
+    const destination = payload.slice(match.index + 1);
+    if (!destination.startsWith('"') && destination.includes('"')) continue;
+    const paths = pair(source, parseGitPath(destination));
+    if (paths) candidates.push(paths);
+  }
+  const identical = candidates.filter((paths) => paths.fromPath === paths.toPath);
+  if (identical.length === 1) return { ...identical[0], candidates };
+  if (candidates.length === 1) return { ...candidates[0], candidates };
+  // Unquoted rename/copy headers are intrinsically ambiguous. Do not invent a
+  // path: the authoritative patch or rename/copy metadata must resolve both.
+  return candidates.length > 1 ? { fromPath: null, toPath: null, candidates } : null;
 }
 
 function isValidSha(value) {
@@ -238,14 +359,16 @@ function extractReferencedRunIds(texts) {
 }
 
 function safeArtifactEntries(listing) {
-  return String(listing || '')
-    .split('\n')
-    .map((entry) => entry.trim())
-    .filter(Boolean)
-    .filter((entry) => !entry.startsWith('-'))
-    .filter((entry) => !/[\u0000-\u001f\u007f]/.test(entry))
-    .filter((entry) => !/[*?\[\]\\]/.test(entry))
-    .filter((entry) => TEXT_ARTIFACT_ENTRY_RE.test(entry));
+  const entries = [];
+  const filteredPayloadEntries = [];
+  for (const rawEntry of String(listing || '').split('\n')) {
+    const entry = rawEntry.trim();
+    if (!entry || entry.endsWith('/')) continue;
+    const safe = !entry.startsWith('-') && !/[\u0000-\u001f\u007f]/.test(entry)
+      && !/[*?\[\]\\]/.test(entry) && TEXT_ARTIFACT_ENTRY_RE.test(entry);
+    if (safe) entries.push(entry); else filteredPayloadEntries.push(entry);
+  }
+  return { entries, filteredPayloadEntries };
 }
 
 function extractArtifactArchiveText({ archiveBuffer, maxEntries, maxChars, execFile = execFileSync }) {
@@ -257,11 +380,11 @@ function extractArtifactArchiveText({ archiveBuffer, maxEntries, maxChars, execF
       encoding: 'utf8',
       maxBuffer: 1024 * 1024,
     });
-    const entries = safeArtifactEntries(listing);
+    const { entries, filteredPayloadEntries } = safeArtifactEntries(listing);
     const selected = entries.slice(0, maxEntries);
     let remaining = maxChars;
     const parts = [];
-    let truncated = entries.length > selected.length;
+    let truncated = entries.length > selected.length || filteredPayloadEntries.length > 0;
     for (const entry of selected) {
       const prefix = `### ${entry}\n\n`;
       const separator = parts.length ? '\n\n' : '';
@@ -312,6 +435,7 @@ async function fetchVerifierEvidence({
   repo,
   pullNumber,
   evidenceTexts,
+  associatedCommitShas = [],
   extractArtifactText = extractArtifactArchiveText,
 }) {
   const commentLimit = positiveLimit('VERIFIER_EVIDENCE_COMMENT_LIMIT', DEFAULT_EVIDENCE_COMMENT_LIMIT);
@@ -323,52 +447,172 @@ async function fetchVerifierEvidence({
   const artifactChars = positiveLimit('VERIFIER_EVIDENCE_ARTIFACT_CHARS', DEFAULT_EVIDENCE_ARTIFACT_CHARS);
 
   const comments = { status: 'absent', complete: true, records: [], reason: '' };
-  let commentBodies = [];
-  try {
-    if (!github?.rest?.issues?.listComments) throw new Error('PR comment API is unavailable');
-    const response = await github.rest.issues.listComments({
-      owner,
-      repo,
-      issue_number: pullNumber,
-      per_page: Math.min(commentLimit, 100),
-      sort: 'created',
-      direction: 'desc',
-    });
-    const source = Array.isArray(response?.data) ? response.data : [];
-    let usedChars = 0;
-    let truncated = Boolean(response?.headers?.link?.includes('rel="next"'));
-    for (const comment of source.slice(0, commentLimit)) {
-      const result = appendBoundedText(comments.records, {
-        author: comment?.user?.login || comment?.author?.login || 'unknown',
-        url: comment?.html_url || comment?.url || '',
-        body: comment?.body || '',
-      }, commentChars, usedChars);
-      usedChars = result.usedChars;
-      truncated = truncated || result.truncated;
-      if (result.truncated) break;
+  let usedCommentChars = 0;
+  const commentFailures = [];
+  const commentSources = [
+    {
+      name: 'conversation comments',
+      method: github?.rest?.issues?.listComments,
+      params: { owner, repo, issue_number: pullNumber, sort: 'created', direction: 'desc' },
+    },
+    {
+      name: 'inline review comments',
+      method: github?.rest?.pulls?.listReviewComments,
+      params: { owner, repo, pull_number: pullNumber, sort: 'created', direction: 'desc' },
+    },
+    {
+      name: 'submitted reviews',
+      method: github?.rest?.pulls?.listReviews,
+      params: { owner, repo, pull_number: pullNumber },
+    },
+  ];
+  for (const source of commentSources) {
+    try {
+      if (!source.method) throw new Error(`${source.name} API is unavailable`);
+      const response = await source.method({ ...source.params, per_page: Math.min(commentLimit, 100) });
+      const records = Array.isArray(response?.data) ? response.data : [];
+      let truncated = Boolean(response?.headers?.link?.includes('rel="next"'));
+      for (const comment of records) {
+        if (comments.records.length >= commentLimit) {
+          truncated = true;
+          break;
+        }
+        const result = appendBoundedText(comments.records, {
+          author: comment?.user?.login || comment?.author?.login || 'unknown',
+          url: comment?.html_url || comment?.url || '',
+          body: comment?.body || '',
+          source: source.name,
+        }, commentChars, usedCommentChars);
+        usedCommentChars = result.usedChars;
+        truncated = truncated || result.truncated;
+        if (result.truncated) break;
+      }
+      if (truncated) {
+        commentFailures.push(
+          `${source.name}: comment count or character limit prevented complete inspection (including pagination)`
+        );
+      }
+    } catch (error) {
+      commentFailures.push(`${source.name} retrieval failed: ${error.message}`);
+      core?.warning?.(`Verifier ${source.name} evidence unavailable: ${error.message}`);
     }
-    commentBodies = comments.records.map((comment) => comment.body);
-    if (truncated || source.length > commentLimit) {
-      comments.status = 'unavailable';
-      comments.complete = false;
-      comments.reason = 'comment count or character limit prevented complete inspection';
-    } else {
-      comments.status = comments.records.length ? 'present' : 'absent';
-    }
-  } catch (error) {
+  }
+  const commentBodies = comments.records.map((comment) => comment.body);
+  if (commentFailures.length) {
     comments.status = 'unavailable';
     comments.complete = false;
-    comments.reason = `comment retrieval failed: ${error.message}`;
-    core?.warning?.(`Verifier PR-comment evidence unavailable: ${error.message}`);
+    comments.reason = commentFailures.join('; ');
+  } else {
+    comments.status = comments.records.length ? 'present' : 'absent';
   }
 
   const artifacts = { status: 'absent', complete: true, records: [], reason: '' };
   const allRunIds = extractReferencedRunIds([...(evidenceTexts || []), ...commentBodies]);
-  const runIds = allRunIds.slice(0, runLimit);
-  let artifactIncomplete = allRunIds.length > runIds.length;
-  if (comments.status === 'unavailable') {
+  const referencedRunIds = allRunIds.slice(0, runLimit);
+  const runIds = [];
+  const seenRunIds = new Set();
+  let artifactIncomplete = allRunIds.length > referencedRunIds.length;
+
+  const commitShas = Array.from(new Set((associatedCommitShas || []).filter(Boolean)));
+  let associatedRunDiscoveryComplete = commitShas.length > 0;
+  const exactCommitShas = new Set(
+    commitShas.filter(isValidSha).map((commitSha) => commitSha.toLowerCase())
+  );
+  for (const runId of referencedRunIds) {
+    try {
+      if (!github?.rest?.actions?.getWorkflowRun) {
+        throw new Error('workflow run provenance API is unavailable');
+      }
+      const response = await github.rest.actions.getWorkflowRun({
+        owner,
+        repo,
+        run_id: runId,
+      });
+      const workflowRun = response?.data;
+      const returnedRunId = Number(workflowRun?.id);
+      const runHeadSha = String(workflowRun?.head_sha || '').toLowerCase();
+      if (returnedRunId !== runId || !isValidSha(runHeadSha)) {
+        artifactIncomplete = true;
+        artifacts.reason = `referenced workflow run ${runId} returned invalid provenance`;
+        continue;
+      }
+      if (!exactCommitShas.has(runHeadSha)) {
+        artifactIncomplete = true;
+        artifacts.reason = `referenced workflow run ${runId} does not match the exact PR head or merge commit`;
+        continue;
+      }
+      seenRunIds.add(runId);
+      runIds.push(runId);
+    } catch (error) {
+      artifactIncomplete = true;
+      artifacts.reason = `workflow run provenance failed for referenced run ${runId}: ${error.message}`;
+      core?.warning?.(`Verifier referenced workflow-run provenance unavailable: ${error.message}`);
+    }
+  }
+
+  for (const commitSha of commitShas) {
+    if (!isValidSha(commitSha)) {
+      associatedRunDiscoveryComplete = false;
+      artifactIncomplete = true;
+      artifacts.reason = `associated workflow-run commit is invalid: ${commitSha}`;
+      continue;
+    }
+    try {
+      if (!github?.rest?.actions?.listWorkflowRunsForRepo) {
+        throw new Error('workflow run discovery API is unavailable');
+      }
+      const response = await github.rest.actions.listWorkflowRunsForRepo({
+        owner,
+        repo,
+        head_sha: commitSha,
+        per_page: Math.min(runLimit, 100),
+      });
+      const workflowRuns = response?.data?.workflow_runs;
+      if (!Array.isArray(workflowRuns)) {
+        throw new Error('workflow run discovery API returned an invalid run list');
+      }
+      if (
+        response?.headers?.link?.includes('rel="next"')
+        || (Number.isFinite(response?.data?.total_count) && response.data.total_count > workflowRuns.length)
+      ) {
+        associatedRunDiscoveryComplete = false;
+        artifactIncomplete = true;
+        artifacts.reason = `workflow run discovery for commit ${commitSha} exceeded the bounded result limit`;
+      }
+      for (const workflowRun of workflowRuns) {
+        if (String(workflowRun?.head_sha || '').toLowerCase() !== commitSha.toLowerCase()) {
+          associatedRunDiscoveryComplete = false;
+          artifactIncomplete = true;
+          artifacts.reason ||= `workflow run discovery returned a run for a different commit than ${commitSha}`;
+          continue;
+        }
+        const runId = Number(workflowRun?.id);
+        if (!Number.isFinite(runId) || runId <= 0) {
+          associatedRunDiscoveryComplete = false;
+          artifactIncomplete = true;
+          artifacts.reason = `workflow run discovery returned invalid evidence for commit ${commitSha}`;
+          continue;
+        }
+        if (!seenRunIds.has(runId)) {
+          if (runIds.length >= runLimit) {
+            artifactIncomplete = true;
+            artifacts.reason = 'workflow run count limit prevented complete artifact inspection';
+            break;
+          }
+          seenRunIds.add(runId);
+          runIds.push(runId);
+        }
+      }
+    } catch (error) {
+      associatedRunDiscoveryComplete = false;
+      artifactIncomplete = true;
+      artifacts.reason = `workflow run discovery failed for commit ${commitSha}: ${error.message}`;
+      core?.warning?.(`Verifier workflow-run discovery unavailable: ${error.message}`);
+    }
+  }
+  if (comments.status === 'unavailable' && !associatedRunDiscoveryComplete) {
     artifactIncomplete = true;
-    artifacts.reason = 'comment evidence was unavailable, so referenced run discovery is incomplete';
+    artifacts.reason ||= 'comment evidence was unavailable and exact-head workflow-run discovery was incomplete';
   }
   let inspectedArtifacts = 0;
   for (const runId of runIds) {
@@ -390,7 +634,13 @@ async function fetchVerifierEvidence({
       if (!Array.isArray(listedArtifacts)) {
         throw new Error('workflow artifact API returned an invalid artifact list');
       }
-      if (response?.headers?.link?.includes('rel="next"')) artifactIncomplete = true;
+      if (
+        response?.headers?.link?.includes('rel="next"')
+        || (Number.isFinite(response?.data?.total_count) && response.data.total_count > listedArtifacts.length)
+      ) {
+        artifactIncomplete = true;
+        artifacts.reason = `artifact discovery for run ${runId} exceeded the bounded result limit`;
+      }
       for (const artifact of listedArtifacts) {
         if (inspectedArtifacts >= artifactLimit) {
           artifactIncomplete = true;
@@ -439,7 +689,7 @@ async function fetchVerifierEvidence({
     if (!artifacts.reason) artifacts.reason = 'run, artifact, archive, entry, or character limit prevented complete inspection';
   } else {
     artifacts.status = artifacts.records.length ? 'present' : 'absent';
-    if (!runIds.length) artifacts.reason = 'no referenced workflow run URL found';
+    if (!runIds.length) artifacts.reason = 'no referenced or associated workflow run found';
   }
 
   const status = comments.status === 'unavailable' || artifacts.status === 'unavailable'
@@ -495,7 +745,15 @@ function formatDiffForContext(diffText, maxChars) {
   return `${diff.slice(0, limit)}\n\n...diff truncated after ${limit} characters.`;
 }
 
-function fetchLocalGitDiff({ baseSha, headSha, maxBytes, core, execFile = execFileSync }) {
+function fetchLocalGitDiff({
+  baseSha,
+  headSha,
+  prNumber,
+  remoteUrl = 'origin',
+  maxBytes,
+  core,
+  execFile = execFileSync,
+}) {
   if (!baseSha || !headSha) {
     return '';
   }
@@ -503,34 +761,57 @@ function fetchLocalGitDiff({ baseSha, headSha, maxBytes, core, execFile = execFi
     core?.warning?.('Refusing to generate git diff: invalid SHA value.');
     return '';
   }
+  const gitOk = { encoding: 'utf8', maxBuffer: 1024 * 1024 };
+  const ensureCommit = (sha) => {
+    execFile('git', ['cat-file', '-e', `${sha}^{commit}`], gitOk);
+  };
+  const fetchRef = (ref) => {
+    // Use the caller checkout remote (typically `origin`). A constructed
+    // github.com HTTPS URL has no checkout token and fails closed on private repos.
+    execFile('git', ['fetch', '--no-tags', remoteUrl, ref], gitOk);
+  };
   try {
+    try {
+      ensureCommit(headSha);
+    } catch {
+      const pullRef =
+        Number.isInteger(Number(prNumber)) && Number(prNumber) > 0
+          ? `refs/pull/${Number(prNumber)}/head`
+          : null;
+      let present = false;
+      if (pullRef) {
+        try {
+          fetchRef(pullRef);
+          ensureCommit(headSha);
+          present = true;
+        } catch {
+          present = false;
+        }
+      }
+      if (!present) {
+        try {
+          fetchRef(headSha);
+          ensureCommit(headSha);
+        } catch (error) {
+          core?.warning?.(`Cannot fetch missing pull request head ${headSha}: ${error.message}`);
+          return '';
+        }
+      }
+    }
+    try {
+      ensureCommit(baseSha);
+    } catch {
+      // A consumer's recorded base need not be an ancestor of its PR head.
+      // Fetch from the caller checkout remote, never a tokenless github.com URL.
+      fetchRef(baseSha);
+      ensureCommit(baseSha);
+    }
     const buffer = execFile('git', ['diff', '--no-color', `${baseSha}...${headSha}`], {
       maxBuffer: Number.isFinite(maxBytes) ? maxBytes : DEFAULT_DIFF_MAX_BYTES,
     });
     return buffer.toString('utf8');
   } catch (error) {
     core?.warning?.(`Failed to generate git diff locally: ${error.message}`);
-    return '';
-  }
-}
-
-async function fetchPullRequestDiff({ github, core, owner, repo, pullNumber }) {
-  if (!github?.rest?.pulls?.get) {
-    return '';
-  }
-  try {
-    const response = await github.rest.pulls.get({
-      owner,
-      repo,
-      pull_number: pullNumber,
-      mediaType: { format: 'diff' },
-    });
-    if (typeof response?.data === 'string') {
-      return response.data;
-    }
-    return '';
-  } catch (error) {
-    core?.warning?.(`Failed to fetch PR diff: ${error.message}`);
     return '';
   }
 }
@@ -780,6 +1061,7 @@ async function buildVerifierContext({
     repo,
     pullNumber: pull.number,
     evidenceTexts: [pull.body || '', ...closingIssues.map((issue) => issue.body || '')],
+    associatedCommitShas: [pull.head?.sha, pull.merge_commit_sha],
     extractArtifactText,
   });
 
@@ -932,37 +1214,19 @@ async function buildVerifierContext({
   const diffMaxBytes = Number.parseInt(process.env.VERIFIER_DIFF_MAX_BYTES || '', 10);
   const diffMaxChars = Number.parseInt(process.env.VERIFIER_DIFF_MAX_CHARS || '', 10);
   const baseSha = pull.base?.sha;
-  const headSha = pull.merge_commit_sha || pull.head?.sha || targetSha;
-  const isMergedPull = pull.merged === true || Boolean(pull.merged_at);
-  let diffText = '';
-  if (isMergedPull) {
-    // GitHub's PR diff is authoritative for the PR's own scope. A local
-    // base...merge range includes sibling PRs when the base branch advanced,
-    // while a first-parent range can omit commits after a rebase merge.
-    diffText = await fetchPullRequestDiff({
-      github,
-      core,
-      owner,
-      repo,
-      pullNumber: pull.number,
-    });
-  } else {
-    diffText = fetchLocalDiff({
-      baseSha,
-      headSha,
-      maxBytes: Number.isFinite(diffMaxBytes) ? diffMaxBytes : DEFAULT_DIFF_MAX_BYTES,
-      core,
-    });
-    if (!diffText) {
-      diffText = await fetchPullRequestDiff({
-        github,
-        core,
-        owner,
-        repo,
-        pullNumber: pull.number,
-      });
-    }
-  }
+  const headSha = pull.head?.sha;
+  // The caller checkout has full history. The original PR base...head range is
+  // independent of squash, merge-commit, or rebase merge strategy and avoids
+  // every rendered/API diff truncation limit. If either commit is unavailable,
+  // fail closed instead of substituting a bounded GitHub diff.
+  const diffText = fetchLocalDiff({
+    baseSha,
+    headSha,
+    prNumber: pull.number,
+    remoteUrl: 'origin',
+    maxBytes: Number.isFinite(diffMaxBytes) ? diffMaxBytes : DEFAULT_DIFF_MAX_BYTES,
+    core,
+  });
   if (!diffText) {
     const skipReason = `Authoritative pull request diff unavailable for PR #${pull.number}; skipping verifier.`;
     core?.notice?.(skipReason);
@@ -1047,11 +1311,19 @@ module.exports = {
     extractArtifactText,
   }) {
     const github = await ensureRateLimitWrapped({ github: rawGithub, core, env: process.env });
-    return buildVerifierContext({ github, context, core, ciWorkflows, fetchLocalDiff, extractArtifactText });
+    return buildVerifierContext({
+      github,
+      context,
+      core,
+      ciWorkflows,
+      fetchLocalDiff,
+      extractArtifactText,
+    });
   },
   fetchVerifierEvidence,
   extractArtifactArchiveText,
   formatVerifierEvidence,
+  summarizeDiff,
   formatDiffForContext,
   fetchLocalGitDiff,
   isValidSha,

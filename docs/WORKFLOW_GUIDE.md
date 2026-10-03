@@ -185,7 +185,7 @@ failures. Consumer Gate Followups uses the same rule.
   quarantine-only; the collector verifies it with a separate API authority.
 - **`reusable-claude-run.yml`** — Claude CLI wrapper for keepalive/autofix scenarios. It mints the Workflows GitHub App token when available so branch pushes can mirror Codex parity, reuses the shared setup-api-client checkout, hardens the Workflows scripts checkout (detecting blobless-clone ghost dirs and reinstalling @octokit deps), and exposes inputs for prompt files, sandbox/safety flags, runtime caps, and appendices. Use it anywhere Claude needs to run the same branch-update loop as Codex.
 - **`reusable-agents-issue-bridge.yml`** — Shared issue→PR bridge used by `agents-63-issue-intake.yml`; reads `.github/agents/registry.yml` to honor each agent’s branch prefix + assignee list, applies invite/create modes, and now relies solely on the shared token chain (service bot / owner PAT / default token) without minting extra App tokens.
-- **`reusable-agents-verifier.yml`** — Post-merge verifier reusable that waits for CI (tracking every configured workflow until each has both started and completed), builds PR context, runs checkbox/evaluate/compare modes via the agent verifier stack, and opens follow-up issues when acceptance criteria fail. Checkbox mode defaults to `gpt-6-astra` with `gpt-5.5` fallback. It mints the Workflows GitHub App token up front so both the caller repo and the Workflows scripts checkout succeed for private/same-repo callers, then falls back to `GITHUB_TOKEN` automatically when App secrets are absent.
+- **`reusable-agents-verifier.yml`** — Post-merge verifier reusable that waits for CI (tracking every configured workflow until each has both started and completed), builds PR context, runs checkbox/evaluate/compare modes via the agent verifier stack, and opens follow-up issues when acceptance criteria fail. Checkbox mode defaults to `gpt-6-astra` with `gpt-5.5` fallback. It mints the Workflows GitHub App token up front so both the caller repo and the Workflows scripts checkout succeed for private/same-repo callers, then falls back to `GITHUB_TOKEN` automatically when App secrets are absent. Evaluate and compare require the full PR diff; a summary, malformed patch, or invalid quoted path is never substituted for code. The builder discovers bounded workflow artifacts associated with the exact merged PR head or merge commit, and the verifier budgets plan text and acceptance evidence separately. Non-directory archive entries excluded from the safe text allowlist, and missing or truncated required evidence/code, floor PASS.
 
 ### Self-tests
 - **`selftest-reusable-ci.yml`** — Manual entry point that houses the verification matrix and comment/summary/dual-runtime publication logic.
@@ -216,6 +216,11 @@ The following workflows were decommissioned during the CI consolidation effort. 
 
 ## Verifier Workflow
 The verifier validates merged PRs against tasks and acceptance criteria using label-triggered modes.
+
+Optional evidence qualifiers apply only to their own clause. A separate mandatory PR comment
+remains required, including wording such as "the reviewer is required/expected/supposed to post a PR comment".
+Quoted parser examples, including `the following: "Must upload an artifact"`, are illustrative;
+real delivery instructions after the closing quote remain required.
 
 ### How to trigger verification
 1. Ensure the PR body includes Tasks and Acceptance Criteria sections with checkboxes.

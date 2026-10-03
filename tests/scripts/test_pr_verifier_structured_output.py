@@ -9,6 +9,8 @@ from unittest import mock
 import pytest
 from scripts.langchain import pr_verifier
 
+SAMPLE_DIFF = "diff --git a/example.py b/example.py\n--- a/example.py\n+++ b/example.py\n@@ -1 +1 @@\n-old\n+new\n"
+
 
 def _response_with(content: str) -> mock.MagicMock:
     response = mock.MagicMock()
@@ -59,7 +61,7 @@ def test_evaluate_pr_repairs_malformed_output(monkeypatch: pytest.MonkeyPatch, b
         lambda model=None, provider=None: (mock_client, "github-models"),
     )
 
-    result = pr_verifier.evaluate_pr("context")
+    result = pr_verifier.evaluate_pr("context", diff=SAMPLE_DIFF)
     assert result.verdict == "PASS"
     assert result.used_llm is True
     assert mock_client.invoke.call_count == 2
@@ -366,7 +368,7 @@ def test_evaluate_pr_valid_output_no_repair(monkeypatch: pytest.MonkeyPatch) -> 
         lambda model=None, provider=None: (mock_client, "github-models"),
     )
 
-    result = pr_verifier.evaluate_pr("context")
+    result = pr_verifier.evaluate_pr("context", diff=SAMPLE_DIFF)
     assert result.verdict == "PASS"
     assert result.used_llm is True
     assert mock_client.invoke.call_count == 1
@@ -387,7 +389,7 @@ def test_evaluate_pr_repair_prompt_includes_schema(monkeypatch: pytest.MonkeyPat
         lambda model=None, provider=None: (mock_client, "github-models"),
     )
 
-    result = pr_verifier.evaluate_pr("context")
+    result = pr_verifier.evaluate_pr("context", diff=SAMPLE_DIFF)
     assert result.verdict == "PASS"
     assert result.used_llm is True
     assert mock_client.invoke.call_count == 2
@@ -606,7 +608,7 @@ def test_evaluate_pr_passes_config_metadata(
         pr_verifier, "_get_llm_client", lambda model=None, provider=None: (client, "openai")
     )
 
-    result = pr_verifier.evaluate_pr(context)
+    result = pr_verifier.evaluate_pr(context, diff=SAMPLE_DIFF)
 
     expected_config = llm_config_sentinel(operation="evaluate_pr", pr_number=456)
 

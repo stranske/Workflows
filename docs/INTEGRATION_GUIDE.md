@@ -542,7 +542,50 @@ prevents complete inspection is `unavailable`. An unavailable source can never
 be used to claim that a required transcript is absent or to justify PASS for an
 otherwise unverifiable required deliverable. Artifact archives are read without
 extracting paths into the checkout, and only allowlisted text entry types are
-included as untrusted evidence rather than instructions.
+included as untrusted evidence rather than instructions. Directory records are
+harmless archive structure, but any non-directory payload entry excluded by the
+allowlist makes the artifact evidence unavailable even if other text was read.
+Evaluate/compare accept only a complete Git patch as code: a diff summary,
+garbled `--diff-file`, malformed quoted path, or budget-truncated patch floors
+the verdict at CONCERNS rather than treating zero parsed files as no change.
+Binary-only descriptors (`Binary files ... differ` or `GIT binary patch`) are
+omitted code coverage, not inspectable contents. Evidence-delivery requirements
+such as "Include an artifact" remain required; mentioning an API/UI change
+before a delivery instruction does not turn that instruction into product behavior.
+Artifacts included in a product response or payload are not workflow evidence,
+regardless of the actor's name; explicit PR delivery remains required.
+The same rule applies to transcript/command-output fields in response contracts;
+an additional required PR-comment delivery in the clause is preserved.
+Declarative return/display/render/emit/expose behavior is identified without a
+product-actor name list; explicit reviewer/author obligations and imperative
+evidence requests remain requirements. Artifact/output/transcript pronouns can
+refer to objects in the same acceptance item, including plural object groups,
+in either active or passive delivery wording,
+but never inherit objects from another checklist item. Optional or prohibited
+delivery remains local to its clause, and artifact plus output delivery retains
+both retrieval channels rather than downgrading the artifact to generic evidence.
+Response-field operations include `provide`; an API response providing output
+does not imply a review deliverable, while a separate PR-delivery clause and
+explicit author obligation remain evidence requirements.
+Product auxiliary wording is shared across response grouping and filtering,
+artifact behavior and output predicates: `must`, `is required to`, `is needed
+to`, and equivalent deontic forms do not change a product field into evidence.
+An explicitly required workflow-run link is an evidence deliverable; only a
+standalone workflow status/success criterion is exempt from evidence retrieval.
+An unavailable required link prevents a coverage PASS.
+Workflow-run antecedents also survive separate active/passive PR-link clauses;
+qualified status forms such as passing on Linux or finishing successfully stay
+exempt when they do not separately require link delivery.
+Cross-repository full-diff recovery fetches and verifies both the recorded base
+and PR head from the target repository before reconstructing the range.
+Git's tab delimiter in `---`/`+++` metadata is not part of the changed pathname.
+Diff summaries preserve literal ` b/` path components instead of choosing the
+last header delimiter. Ambiguous rename/copy headers require authoritative
+pre-hunk path metadata; unresolved or malformed paths fail closed.
+Acceptance and evidence section scanners share fence-closing validation: a
+marker with trailing non-space/tab content cannot expose literal headings.
+Root fences cannot close at four spaces, while indented source snippets retain
+their opening indentation so literal examples remain inert.
 
 ### Consumer Repo Setup: Coverage Soft Gate
 

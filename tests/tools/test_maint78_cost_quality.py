@@ -41,14 +41,18 @@ def _inputs():
     )
 
 
-def _complex_context(case_id: str, files: int = 6) -> str:
-    """A production-shaped verifier context whose diff overflows the old prefix cap."""
-    diff = "".join(
+def _complex_diff(files: int = 6) -> str:
+    return "".join(
         f"diff --git a/src/module_{index}.py b/src/module_{index}.py\n"
         f"--- a/src/module_{index}.py\n+++ b/src/module_{index}.py\n"
         "@@ -1,1 +1,40 @@\n" + "".join(f"+value_{index}_{line} = {line}\n" for line in range(40))
         for index in range(files)
     )
+
+
+def _complex_context(case_id: str, files: int = 6) -> str:
+    """A production-shaped verifier context whose diff overflows the old prefix cap."""
+    diff = _complex_diff(files)
     return (
         "# Verifier context\n\n## CI Information\n\n| Workflow | Conclusion |\n\n"
         "## Plan sources (scope, tasks, acceptance)\n\n"
@@ -79,6 +83,15 @@ def _screen_inputs():
                 else f"context for {case['case_id']}"
             ),
             "diff_summary": f"diff summary for {case['case_id']}",
+            "diff": (
+                _complex_diff()
+                if case["case_id"] in complex_ids
+                else (
+                    "diff --git a/src/case.py b/src/case.py\n"
+                    "--- a/src/case.py\n+++ b/src/case.py\n"
+                    "@@ -1 +1 @@\n-old_value = 0\n+new_value = 1\n"
+                )
+            ),
             "repository": case["repo"],
             "pr": case["pr"],
             "chain_depth": 0,
@@ -101,6 +114,18 @@ def _prompt_hashes(cases):
         ).hexdigest()
         for case in cases
     }
+
+
+def test_snapshot_replay_prefers_the_captured_full_diff():
+    snapshot = {
+        "context": "# Verifier context\n",
+        "diff_summary": "SUMMARY_ONLY_MARKER",
+        "diff": "diff --git a/task.py b/task.py\n+FULL_DIFF_MARKER\n",
+        "chain_depth": 0,
+    }
+    prompt = verifier_prompt(snapshot)
+    assert "FULL_DIFF_MARKER" in prompt
+    assert "SUMMARY_ONLY_MARKER" not in prompt
 
 
 def test_current_plan_allows_fast_screen_without_statistical_approval():
@@ -188,6 +213,7 @@ def test_screen_case_whose_prompt_drops_most_code_blocks_paid_confirmation():
     snapshot = case["production_snapshot"]
     snapshot["context"] = _complex_context(case["case_id"], files=60)
     snapshot["context"] = snapshot["context"].replace("+value_", "+" + "x" * 2000 + "value_")
+    snapshot["diff"] = _complex_diff(files=60).replace("+value_", "+" + "x" * 2000 + "value_")
     snapshot["sha256"] = snapshot_digest(snapshot)
     plan = build_plan(corpus, registry, policy)
     assert plan["screen_ready"]  # the subscription screen still runs first
@@ -707,8 +733,10 @@ def test_duplicate_prompt_snapshot_cannot_be_counted_twice():
 def test_snapshot_import_checks_capture_hash_and_marks_controlled_defects(tmp_path):
     context = "# Verifier context\nacceptance at merge\n"
     diff_summary = "## PR Diff Summary\n- one missing task\n"
+    diff = "diff --git a/task.py b/task.py\n+implemented task\n"
     (tmp_path / "verifier-context.md").write_text(context)
     (tmp_path / "verifier-diff-summary.md").write_text(diff_summary)
+    (tmp_path / "verifier-pr-diff.patch").write_text(diff)
     manifest = {
         "schema": "workflows-verifier-input-snapshot/v1",
         "repository": "stranske/Workflows",
@@ -718,6 +746,7 @@ def test_snapshot_import_checks_capture_hash_and_marks_controlled_defects(tmp_pa
         "chain_depth": 1,
         "context_sha256": hashlib.sha256(context.encode()).hexdigest(),
         "diff_summary_sha256": hashlib.sha256(diff_summary.encode()).hexdigest(),
+        "diff_sha256": hashlib.sha256(diff.encode()).hexdigest(),
     }
     (tmp_path / "verifier-input-manifest.json").write_text(json.dumps(manifest))
     kwargs = {
@@ -730,6 +759,8 @@ def test_snapshot_import_checks_capture_hash_and_marks_controlled_defects(tmp_pa
     }
     override = tmp_path / "missing-task.md"
     override.write_text("## PR Diff Summary\n- task deliberately omitted\n")
+    diff_override = tmp_path / "missing-task.patch"
+    diff_override.write_text("diff --git a/task.py b/task.py\n@@ -1 +1 @@\n-task\n+omitted\n")
     context_override = tmp_path / "missing-context.md"
     context_override.write_text("# Verifier context\nacceptance at merge; task omitted from code\n")
     case = create_case(
@@ -737,10 +768,16 @@ def test_snapshot_import_checks_capture_hash_and_marks_controlled_defects(tmp_pa
         **kwargs,
         context_override=context_override,
         diff_summary_override=override,
+        diff_override=diff_override,
         mutation_note="Removed the implemented task from the diff summary.",
     )
     assert case["production_snapshot"]["input_kind"] == "controlled_defect"
+    assert case["production_snapshot"]["diff"] == diff_override.read_text()
     assert case["production_snapshot"]["source_context_sha256"] == manifest["context_sha256"]
+    (tmp_path / "verifier-pr-diff.patch").write_text(diff + "tampered")
+    with pytest.raises(ValueError, match="production full diff"):
+        create_case(tmp_path, **kwargs)
+    (tmp_path / "verifier-pr-diff.patch").write_text(diff)
     (tmp_path / "verifier-context.md").write_text(context + "tampered")
     with pytest.raises(ValueError, match="captured manifest"):
         create_case(tmp_path, **kwargs)
@@ -749,3 +786,128 @@ def test_snapshot_import_checks_capture_hash_and_marks_controlled_defects(tmp_pa
     (tmp_path / "verifier-input-manifest.json").write_text(json.dumps(manifest))
     retrospective = create_case(tmp_path, **kwargs)
     assert retrospective["production_snapshot"]["input_kind"] == "retrospective_capture"
+
+
+def test_snapshot_controlled_defect_requires_complete_full_diff_override(tmp_path):
+    context = b"context"
+    summary = b"summary"
+    diff = b"diff --git a/task.py b/task.py\n@@ -1 +1 @@\n-old\n+new\n"
+    for name, content in (
+        ("verifier-context.md", context),
+        ("verifier-diff-summary.md", summary),
+        ("verifier-pr-diff.patch", diff),
+    ):
+        (tmp_path / name).write_bytes(content)
+    manifest = {
+        "schema": "workflows-verifier-input-snapshot/v1",
+        "repository": "r",
+        "pr": 1,
+        "merge_sha": "a" * 40,
+        "source_run_id": "1",
+        "chain_depth": 0,
+        "context_sha256": hashlib.sha256(context).hexdigest(),
+        "diff_summary_sha256": hashlib.sha256(summary).hexdigest(),
+        "diff_sha256": hashlib.sha256(diff).hexdigest(),
+    }
+    (tmp_path / "verifier-input-manifest.json").write_text(json.dumps(manifest))
+    context_override = tmp_path / "context.override"
+    context_override.write_text("changed context")
+    summary_override = tmp_path / "summary.override"
+    summary_override.write_text("changed summary")
+    kwargs = {
+        "case_id": "defect",
+        "expected_verdict": "NON_PASS",
+        "category": "x",
+        "adjudication_evidence": "x",
+        "adjudicated_by": "x",
+        "adjudication_rationale": "x",
+        "context_override": context_override,
+        "diff_summary_override": summary_override,
+        "mutation_note": "x",
+    }
+    with pytest.raises(ValueError, match="full diff requires"):
+        create_case(tmp_path, **kwargs)
+    patch_override = tmp_path / "patch.override"
+    patch_override.write_text("diff --git a/task.py b/task.py\n")
+    with pytest.raises(ValueError, match="complete code patch"):
+        create_case(tmp_path, **kwargs, diff_override=patch_override)
+    patch_override.write_text("diff --git a/task.py b/task.py\n@@ -1 +1 @@\n-old\n+changed\n")
+    case = create_case(tmp_path, **kwargs, diff_override=patch_override)
+    assert case["production_snapshot"]["diff"] == patch_override.read_text()
+    assert case["production_snapshot"]["sha256"] != snapshot_digest(
+        {
+            **case["production_snapshot"],
+            "diff": diff.decode(),
+            "sha256": case["production_snapshot"]["sha256"],
+        }
+    )
+
+
+def test_snapshot_legacy_summary_only_controlled_defect_remains_supported(tmp_path):
+    context = b"context"
+    summary = b"summary"
+    for name, content in (("verifier-context.md", context), ("verifier-diff-summary.md", summary)):
+        (tmp_path / name).write_bytes(content)
+    (tmp_path / "verifier-input-manifest.json").write_text(
+        json.dumps(
+            {
+                "schema": "workflows-verifier-input-snapshot/v1",
+                "repository": "r",
+                "pr": 1,
+                "merge_sha": "a" * 40,
+                "source_run_id": "1",
+                "chain_depth": 0,
+                "context_sha256": hashlib.sha256(context).hexdigest(),
+                "diff_summary_sha256": hashlib.sha256(summary).hexdigest(),
+            }
+        )
+    )
+    context_override = tmp_path / "context.override"
+    context_override.write_text("changed context")
+    summary_override = tmp_path / "summary.override"
+    summary_override.write_text("changed summary")
+    case = create_case(
+        tmp_path,
+        case_id="legacy",
+        expected_verdict="NON_PASS",
+        category="x",
+        adjudication_evidence="x",
+        adjudicated_by="x",
+        adjudication_rationale="x",
+        context_override=context_override,
+        diff_summary_override=summary_override,
+        mutation_note="x",
+    )
+    assert "diff" not in case["production_snapshot"]
+    assert case["production_snapshot"]["sha256"] == snapshot_digest(case["production_snapshot"])
+
+
+def test_snapshot_import_hashes_crlf_diff_bytes_before_decoding(tmp_path):
+    context = b"# Verifier context\nacceptance\n"
+    summary = b"## PR Diff Summary\n- one file\n"
+    diff = b"diff --git a/task.py b/task.py\r\n+implemented\r\n"
+    (tmp_path / "verifier-context.md").write_bytes(context)
+    (tmp_path / "verifier-diff-summary.md").write_bytes(summary)
+    (tmp_path / "verifier-pr-diff.patch").write_bytes(diff)
+    manifest = {
+        "schema": "workflows-verifier-input-snapshot/v1",
+        "repository": "stranske/Workflows",
+        "pr": 10,
+        "merge_sha": "a" * 40,
+        "source_run_id": "123",
+        "chain_depth": 0,
+        "context_sha256": hashlib.sha256(context).hexdigest(),
+        "diff_summary_sha256": hashlib.sha256(summary).hexdigest(),
+        "diff_sha256": hashlib.sha256(diff).hexdigest(),
+    }
+    (tmp_path / "verifier-input-manifest.json").write_text(json.dumps(manifest))
+    case = create_case(
+        tmp_path,
+        case_id="crlf-diff",
+        expected_verdict="PASS",
+        category="portability",
+        adjudication_evidence="https://example.com/review",
+        adjudicated_by="reviewer",
+        adjudication_rationale="The captured bytes are valid and complete.",
+    )
+    assert case["production_snapshot"]["diff"] == diff.decode("utf-8")

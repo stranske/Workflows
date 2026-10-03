@@ -101,18 +101,18 @@ contributes to candidate or campaign evidence. Scheduled, repository-dispatch,
 workflow-call, mixed-repository, unscoped, candidate, campaign, and dev-tool
 requests continue to exclude it.
 
-An active review thread remains a hard merge block. A bot-only thread on a
-manifest-managed consumer path may be resolved by Maint 71 only after its complete
-comment history proves every author is a recognized sync-review bot and Maint 71
-has created or reused an upstream Workflows issue naming the authoritative manifest
-source path. Failure to create or reuse that issue leaves the consumer thread open;
-this exception still requires the normal exact-head and required-check gate before
-merge. The bounded exception for every other active thread is an explicit
+An active review thread remains a hard merge block. Bot authorship on a
+manifest-managed consumer path does not authorize automatic resolution. Repair
+the Workflows source, regenerate through Maint 68, and obtain originating-reviewer
+disposition on the exact head. The only Maint 71 resolution path is an explicit
 `workflows-sync-review-resolution/v1` proof supplied to Maint 71. It
 must name one active thread, PR, exact head, substantive reason, Workflows PR or
-commit evidence URL, and merged Workflows source-fix SHA. Maint 71 verifies the
-authenticated dispatcher, unchanged head, active thread, and that the fix is an
-ancestor of the delivery's recorded source commit before resolving that thread.
+commit evidence URL, merged Workflows source-fix SHA, originating reviewer, and
+in-thread acceptance comment URL. That comment must come from the thread's original
+reviewer on the exact head and contain `<!-- sync-review-accepted:<full-head-sha> -->`.
+Maint 71 verifies the authenticated dispatcher, unchanged head, acceptance,
+active thread, and that the fix is an ancestor of the delivery's recorded source
+commit before resolving that thread.
 General source ancestry, a newer wave, or passing CI alone never clears review
 debt.
 
