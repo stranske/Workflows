@@ -761,42 +761,50 @@ function fetchLocalGitDiff({
     core?.warning?.('Refusing to generate git diff: invalid SHA value.');
     return '';
   }
+  const gitOk = { encoding: 'utf8', maxBuffer: 1024 * 1024 };
+  const ensureCommit = (sha) => {
+    execFile('git', ['cat-file', '-e', `${sha}^{commit}`], gitOk);
+  };
+  const fetchRef = (ref) => {
+    // Use the caller checkout remote (typically `origin`). A constructed
+    // github.com HTTPS URL has no checkout token and fails closed on private repos.
+    execFile('git', ['fetch', '--no-tags', remoteUrl, ref], gitOk);
+  };
   try {
     try {
-      execFile('git', ['cat-file', '-e', `${headSha}^{commit}`], {
-        encoding: 'utf8',
-        maxBuffer: 1024 * 1024,
-      });
+      ensureCommit(headSha);
     } catch {
-      if (!Number.isInteger(Number(prNumber)) || Number(prNumber) <= 0) {
-        core?.warning?.('Cannot fetch missing pull request head without a valid PR number.');
-        return '';
+      const pullRef =
+        Number.isInteger(Number(prNumber)) && Number(prNumber) > 0
+          ? `refs/pull/${Number(prNumber)}/head`
+          : null;
+      let present = false;
+      if (pullRef) {
+        try {
+          fetchRef(pullRef);
+          ensureCommit(headSha);
+          present = true;
+        } catch {
+          present = false;
+        }
       }
-      execFile('git', ['fetch', '--no-tags', remoteUrl, `refs/pull/${Number(prNumber)}/head`], {
-        encoding: 'utf8',
-        maxBuffer: 1024 * 1024,
-      });
-      execFile('git', ['cat-file', '-e', `${headSha}^{commit}`], {
-        encoding: 'utf8',
-        maxBuffer: 1024 * 1024,
-      });
+      if (!present) {
+        try {
+          fetchRef(headSha);
+          ensureCommit(headSha);
+        } catch (error) {
+          core?.warning?.(`Cannot fetch missing pull request head ${headSha}: ${error.message}`);
+          return '';
+        }
+      }
     }
     try {
-      execFile('git', ['cat-file', '-e', `${baseSha}^{commit}`], {
-        encoding: 'utf8',
-        maxBuffer: 1024 * 1024,
-      });
+      ensureCommit(baseSha);
     } catch {
       // A consumer's recorded base need not be an ancestor of its PR head.
-      // Fetch from the same target repository, never the Workflows origin.
-      execFile('git', ['fetch', '--no-tags', remoteUrl, baseSha], {
-        encoding: 'utf8',
-        maxBuffer: 1024 * 1024,
-      });
-      execFile('git', ['cat-file', '-e', `${baseSha}^{commit}`], {
-        encoding: 'utf8',
-        maxBuffer: 1024 * 1024,
-      });
+      // Fetch from the caller checkout remote, never a tokenless github.com URL.
+      fetchRef(baseSha);
+      ensureCommit(baseSha);
     }
     const buffer = execFile('git', ['diff', '--no-color', `${baseSha}...${headSha}`], {
       maxBuffer: Number.isFinite(maxBytes) ? maxBytes : DEFAULT_DIFF_MAX_BYTES,
@@ -1215,7 +1223,7 @@ async function buildVerifierContext({
     baseSha,
     headSha,
     prNumber: pull.number,
-    remoteUrl: `https://github.com/${owner}/${repo}.git`,
+    remoteUrl: 'origin',
     maxBytes: Number.isFinite(diffMaxBytes) ? diffMaxBytes : DEFAULT_DIFF_MAX_BYTES,
     core,
   });

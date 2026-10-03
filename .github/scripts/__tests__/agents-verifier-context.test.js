@@ -1368,6 +1368,7 @@ test('buildVerifierContext uses the authoritative PR diff after the base advance
     assert.equal(localCalls.length, 1);
     assert.equal(localCalls[0].baseSha, 'aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa');
     assert.equal(localCalls[0].headSha, 'bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb');
+    assert.equal(localCalls[0].remoteUrl, 'origin');
     assert.equal(
       pullGetCalls.filter((params) => params.mediaType?.format === 'diff').length,
       0
@@ -1443,7 +1444,7 @@ test('fetchLocalGitDiff fetches a missing pull request head before reconstructin
     baseSha: 'aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa',
     headSha: 'bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb',
     prNumber: 557,
-    remoteUrl: 'https://github.com/octo/workflows.git',
+    remoteUrl: 'origin',
     maxBytes: 1024 * 1024,
     execFile(command, args) {
       calls.push([command, ...args]);
@@ -1466,7 +1467,7 @@ test('fetchLocalGitDiff fetches a missing pull request head before reconstructin
     'git',
     'fetch',
     '--no-tags',
-    'https://github.com/octo/workflows.git',
+    'origin',
     'refs/pull/557/head',
   ]);
   assert.deepEqual(calls[2], [
@@ -1477,10 +1478,44 @@ test('fetchLocalGitDiff fetches a missing pull request head before reconstructin
   ]);
 });
 
+test('fetchLocalGitDiff fetches the exact head SHA when the pull ref does not yield it', () => {
+  const calls = [];
+  let headPresent = false;
+  const diff = fetchLocalGitDiff({
+    baseSha: 'aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa',
+    headSha: 'bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb',
+    prNumber: 557,
+    remoteUrl: 'origin',
+    execFile(command, args) {
+      calls.push([command, ...args]);
+      if (args[0] === 'cat-file' && args[2].startsWith('bbbb') && !headPresent) {
+        throw new Error('missing object');
+      }
+      if (args[0] === 'fetch' && args[3] === 'refs/pull/557/head') {
+        throw new Error('pull ref missing after squash');
+      }
+      if (args[0] === 'fetch' && args[3] === 'bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb') {
+        headPresent = true;
+        return '';
+      }
+      if (args[0] === 'diff') {
+        return Buffer.from('diff --git a/a b/a\n+fixed\n');
+      }
+      return '';
+    },
+  });
+
+  assert.equal(diff, 'diff --git a/a b/a\n+fixed\n');
+  assert.ok(calls.some((call) => call.join(' ') ===
+    'git fetch --no-tags origin refs/pull/557/head'));
+  assert.ok(calls.some((call) => call.join(' ') ===
+    'git fetch --no-tags origin bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb'));
+});
+
 test('fetchLocalGitDiff fetches and verifies an absent cross-repo base with a present head', () => {
   const baseSha = 'aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa';
   const headSha = 'bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb';
-  const remoteUrl = 'https://github.com/octo/consumer.git';
+  const remoteUrl = 'origin';
   const calls = [];
   let basePresent = false;
   const result = fetchLocalGitDiff({
