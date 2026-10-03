@@ -554,6 +554,9 @@ def test_mixed_prohibition_preserves_required_comment_channel() -> None:
         assert pr_verifier._required_evidence_channels(
             f"- No artifact is required {conjunction} a PR comment must be posted"
         ) == {"comments"}
+    assert pr_verifier._required_evidence_channels(
+        "- Although no artifact is required, a PR comment must be posted"
+    ) == {"comments"}
 
 
 @pytest.mark.parametrize(
@@ -1102,6 +1105,61 @@ def test_optional_evidence_clause_preserves_required_comment() -> None:
     assert pr_verifier._required_evidence_channels(
         "- [ ] Upload the validation artifact when available, whereas a PR comment must be posted"
     ) == {"comments"}
+
+
+@pytest.mark.parametrize(
+    "continuation",
+    [
+        "and the author must post a PR comment",
+        "and the reviewer must publish a PR comment",
+        ", a PR comment must be posted",
+        ". A PR comment must be posted.",
+    ],
+)
+def test_optional_artifact_preserves_mandatory_comment_sentences(
+    continuation: str, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    criterion = "Upload the validation artifact when available " + continuation
+    assert pr_verifier._required_evidence_channels("- [ ] " + criterion) == {"comments"}
+    context, _ = _context(1, 1_000, 1_000)
+    context = context.replace(ACCEPTANCE_SENTINEL, criterion).replace(
+        "## PR Diff Summary",
+        "## Acceptance evidence\n\n"
+        "- Overall retrieval status: **unavailable**\n"
+        "- PR comments: **unavailable**\n"
+        "- Referenced workflow artifacts: **absent**\n"
+        "## PR Diff Summary",
+    )
+    client = _pass_client()
+    monkeypatch.setattr(
+        pr_verifier, "_get_llm_client", lambda model=None, provider=None: (client, "openai")
+    )
+    assert pr_verifier.evaluate_pr(context).verdict == "CONCERNS"
+    context = context.replace("- PR comments: **unavailable**", "- PR comments: **present**")
+    assert pr_verifier.evaluate_pr(context).verdict == "PASS"
+
+
+@pytest.mark.parametrize("quotes", [('"', '"'), ("'", "'"), ("`", "`"), ("“", "”"), ("‘", "’")])
+@pytest.mark.parametrize(
+    "example", ["Must upload an artifact", "Must upload an artifact; post a PR comment"]
+)
+def test_quoted_parser_delivery_examples_are_inert(
+    quotes: tuple[str, str], example: str, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    criterion = f"The parser must recognize {quotes[0]}{example}{quotes[1]}"
+    assert pr_verifier._required_evidence_channels("- [ ] " + criterion) == set()
+    assert pr_verifier._required_evidence_channels(
+        "- [ ] " + criterion + "; post a PR comment"
+    ) == {"comments"}
+    context, _ = _context(1, 1_000, 1_000)
+    context = context.replace(ACCEPTANCE_SENTINEL, criterion)
+    client = _pass_client()
+    monkeypatch.setattr(
+        pr_verifier, "_get_llm_client", lambda model=None, provider=None: (client, "openai")
+    )
+    assert pr_verifier.evaluate_pr(context).verdict == "PASS"
+    context = context.replace(criterion, criterion + "; post a PR comment")
+    assert pr_verifier.evaluate_pr(context).verdict == "CONCERNS"
 
 
 def test_optional_subject_does_not_hide_required_explanation_comment() -> None:

@@ -1022,12 +1022,27 @@ def _required_evidence_channels(acceptance: str) -> set[str]:
     for criterion in criteria:
         criterion_checklist = bool(re.match(r"^\s*[-*]\s*\[[ xX]\]", criterion))
         criterion_bullet = bool(re.match(r"^\s*[-*]\s+", criterion))
+        # Quoted parser inputs are examples, including their verbs and clause
+        # delimiters. Remove only the literal following the parser operation;
+        # an actual delivery instruction after the example still applies.
+        criterion = re.sub(
+            r"\b(?:parser|verifier|code|script|implementation)\b.{0,80}?"
+            r"\b(?:recogniz|pars|detect|classif|match|identif|support|handl|validat)\w*\b\s+"
+            r"(?:(?:the|a|an|phrase|syntax|example|literal|string|text|quoted)\s+){0,4}"
+            r"(?P<example>`+[^`]*`+|\"[^\"]*\"|'[^']*'|“[^”]*”|‘[^’]*’)",
+            lambda match: match.group(0)[: match.start("example") - match.start()] + " ",
+            criterion,
+            flags=re.I,
+        )
         clause_boundary = (
-            r"\s*;\s*|,?\s+(?:but|whereas)\s+|,?\s+(?:and|while)\s+(?="
+            r"\s*;\s*|,?\s+(?:but|whereas)\s+|"
+            r"(?:,?\s+(?:and|while)\s+|[,\.]\s+)(?="
             r"(?:optionally\s+)?(?:"
             r"(?:an?\s+|the\s+)?(?:validation\s+|exact-head\s+)?"
             r"(?:evidence|artifacts?|transcripts?|command outputs?|"
             r"workflow runs?|pr comments?|pull request comments?)|"
+            r"(?:[\w-]+\s+){1,6}(?:must|shall|needs?\s+to)\s+"
+            r"(?:publish|upload|attach|capture|record|provide|include|post|document|prove|show|link)\b|"
             r"(?:publish|upload|attach|capture|record|provide|include|post|document|prove|show|link)\b"
             r"))"
         )
