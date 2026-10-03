@@ -232,7 +232,7 @@ test('resolveExecutionProfile returns registry-backed codex model contract', () 
   const profile = resolveExecutionProfile('codex-default', { registryPath: REGISTRY_PATH });
   assert.equal(profile.id, 'codex-default');
   assert.equal(profile.agent, 'codex');
-  assert.equal(profile.model, 'gpt-5.6-sol');
+  assert.equal(profile.model, 'gpt-6.1-sol');
   assert.equal(profile.reasoning_effort, 'high');
   assert.equal(profile.fallback_model, 'gpt-5.5');
   assert.equal(profile.runner, 'reusable-codex-run');
@@ -240,9 +240,9 @@ test('resolveExecutionProfile returns registry-backed codex model contract', () 
 
 test('active role profiles resolve model and effort without changing trial arms', () => {
   const roles = {
-    'codex-coordinate': ['gpt-5.6-sol', 'medium'],
+    'codex-coordinate': ['gpt-6.1-sol', 'medium'],
     'codex-routine': ['gpt-5.6-terra', 'medium'],
-    'codex-extract': ['gpt-5.6-luna', 'low'],
+    'codex-extract': ['gpt-6-luna', 'low'],
     'codex-hard': ['gpt-6-astra', 'medium'],
     'codex-hardest': ['gpt-6-astra', 'high'],
   };

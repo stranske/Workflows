@@ -55,12 +55,12 @@ on:
       codex_cli_version:
         description: 'Pinned @openai/codex CLI version to install.'
         required: false
-        default: '0.153.2'
+        default: '0.160.0'
         type: string
       codex_model:
         description: 'Codex model ID to pass to codex exec.'
         required: false
-        default: 'gpt-5.6-sol'
+        default: 'gpt-6.1-sol'
         type: string
       codex_reasoning_effort:
         description: 'Reasoning effort for the selected Codex execution profile.'
@@ -856,7 +856,7 @@ jobs:
       - name: Resolve Codex run model
         id: codex_model
         env:
-          DEFAULT_CODEX_MODEL: gpt-5.6-sol
+          DEFAULT_CODEX_MODEL: gpt-6.1-sol
           FALLBACK_CODEX_MODELS: ${{ inputs.codex_fallback_models }}
           REQUESTED_MODEL: ${{ inputs.codex_model }}
         run: |
