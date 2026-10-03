@@ -34,6 +34,7 @@ def test_maint78_automatic_paths_cannot_start_paid_model_calls() -> None:
     assert "schedule" not in workflow.get(True, {})
     assert upload["if"] == "always()"
     assert upload["with"]["if-no-files-found"] == "warn"
+    assert "captured-inputs/**/verifier-pr-diff.patch" in upload["with"]["path"]
 
 
 def test_auto_dispatch_maint77_chains_to_maint78_on_catalog_drift() -> None:
