@@ -888,10 +888,13 @@ def _required_evidence_channels(acceptance: str) -> set[str]:
                     re.I,
                 )
             )
+            # Optional/conditional checklist items never create a hard evidence
+            # floor, even when they contain requirement verbs such as "must".
+            if optional_checklist:
+                continue
             checklist_deliverable = bool(
                 checklist
                 and evidence_term.search(requirement_text)
-                and not optional_checklist
                 and not re.match(r"^\s*[-*]\s*\[[ xX]\]\s*no\s", requirement_text, re.I)
             )
             if not (
