@@ -1255,6 +1255,46 @@ test('buildVerifierContext skips when the authoritative merged PR diff is unavai
   assert.equal(core.outputs.diff_path, '');
 });
 
+test('fetchLocalGitDiff fetches a missing pull request head before reconstructing the range', () => {
+  const calls = [];
+  let headPresent = false;
+  const diff = fetchLocalGitDiff({
+    baseSha: 'aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa',
+    headSha: 'bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb',
+    prNumber: 557,
+    maxBytes: 1024 * 1024,
+    execFile(command, args) {
+      calls.push([command, ...args]);
+      if (args[0] === 'cat-file' && !headPresent) {
+        throw new Error('missing object');
+      }
+      if (args[0] === 'fetch') {
+        headPresent = true;
+        return '';
+      }
+      if (args[0] === 'diff') {
+        return Buffer.from('diff --git a/a b/a\n+fixed\n');
+      }
+      return '';
+    },
+  });
+
+  assert.equal(diff, 'diff --git a/a b/a\n+fixed\n');
+  assert.deepEqual(calls[1], [
+    'git',
+    'fetch',
+    '--no-tags',
+    'origin',
+    'refs/pull/557/head',
+  ]);
+  assert.deepEqual(calls[2], [
+    'git',
+    'cat-file',
+    '-e',
+    'bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb^{commit}',
+  ]);
+});
+
 test('buildVerifierContext queries CI runs for merge and head SHAs', async () => {
   const core = buildCore();
   const prDetails = {

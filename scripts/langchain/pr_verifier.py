@@ -1027,8 +1027,9 @@ def _required_evidence_channels(acceptance: str) -> set[str]:
                 product_artifact_destination = bool(
                     re.search(r"\bproduct\s+upload\b", lower)
                     or re.search(
-                        r"\b(?:upload|attach|publish|post)\w*\b.{0,40}\bartifacts?\b"
-                        r".{0,30}\b(?:through|to|into|via)\b",
+                        r"\b(?:upload|attach|publish|post|record|capture|provide|document)"
+                        r"\w*\b.{0,40}\bartifacts?\b"
+                        r".{0,30}\b(?:through|to|into|in|via)\b",
                         requirement_text,
                         re.I,
                     )

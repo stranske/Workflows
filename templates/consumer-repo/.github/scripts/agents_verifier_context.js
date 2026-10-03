@@ -602,7 +602,7 @@ function formatDiffForContext(diffText, maxChars) {
   return `${diff.slice(0, limit)}\n\n...diff truncated after ${limit} characters.`;
 }
 
-function fetchLocalGitDiff({ baseSha, headSha, maxBytes, core, execFile = execFileSync }) {
+function fetchLocalGitDiff({ baseSha, headSha, prNumber, maxBytes, core, execFile = execFileSync }) {
   if (!baseSha || !headSha) {
     return '';
   }
@@ -611,6 +611,25 @@ function fetchLocalGitDiff({ baseSha, headSha, maxBytes, core, execFile = execFi
     return '';
   }
   try {
+    try {
+      execFile('git', ['cat-file', '-e', `${headSha}^{commit}`], {
+        encoding: 'utf8',
+        maxBuffer: 1024 * 1024,
+      });
+    } catch {
+      if (!Number.isInteger(Number(prNumber)) || Number(prNumber) <= 0) {
+        core?.warning?.('Cannot fetch missing pull request head without a valid PR number.');
+        return '';
+      }
+      execFile('git', ['fetch', '--no-tags', 'origin', `refs/pull/${Number(prNumber)}/head`], {
+        encoding: 'utf8',
+        maxBuffer: 1024 * 1024,
+      });
+      execFile('git', ['cat-file', '-e', `${headSha}^{commit}`], {
+        encoding: 'utf8',
+        maxBuffer: 1024 * 1024,
+      });
+    }
     const buffer = execFile('git', ['diff', '--no-color', `${baseSha}...${headSha}`], {
       maxBuffer: Number.isFinite(maxBytes) ? maxBytes : DEFAULT_DIFF_MAX_BYTES,
     });
@@ -1027,6 +1046,7 @@ async function buildVerifierContext({
   const diffText = fetchLocalDiff({
     baseSha,
     headSha,
+    prNumber: pull.number,
     maxBytes: Number.isFinite(diffMaxBytes) ? diffMaxBytes : DEFAULT_DIFF_MAX_BYTES,
     core,
   });

@@ -592,6 +592,10 @@ def test_product_artifact_nouns_do_not_require_workflow_artifacts() -> None:
         "- [ ] The API must upload artifacts to storage",
         "- [ ] The service must upload artifacts to storage",
         "- [ ] The CLI must upload artifacts to storage",
+        "- [ ] The service must record artifacts in the database",
+        "- [ ] The worker must capture artifacts in object storage",
+        "- [ ] The API must provide artifacts to users",
+        "- [ ] The CLI must document artifacts in its local database",
     ):
         assert pr_verifier._required_evidence_channels(criterion) == set()
 
