@@ -551,6 +551,17 @@ def test_explicit_artifact_delivery_still_requires_workflow_evidence() -> None:
     assert pr_verifier._required_evidence_channels(
         "- [ ] The workflow artifact must be uploaded"
     ) == {"artifacts"}
+    assert pr_verifier._required_evidence_channels(
+        "- [ ] Evidence artifact upload is required"
+    ) == {"artifacts"}
+
+
+def test_product_comment_nouns_do_not_require_pr_comment_evidence() -> None:
+    for criterion in (
+        "- [ ] The UI must display PR comments",
+        "- [ ] Store pull request comments in the database",
+    ):
+        assert pr_verifier._required_evidence_channels(criterion) == set()
 
 
 def test_optional_checklist_evidence_is_not_required() -> None:

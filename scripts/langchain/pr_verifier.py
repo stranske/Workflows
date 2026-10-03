@@ -1002,13 +1002,42 @@ def _required_evidence_channels(acceptance: str) -> set[str]:
                     or re.search(r"\bvalidation artifacts?\b", lower)
                     or re.search(r"\brequired\s+evidence\s+artifacts?\b", lower)
                     or re.search(r"\bevidence\s+artifacts?\s*:", lower)
+                    or re.search(
+                        r"\b(?:evidence\s+)?artifacts?\s+"
+                        r"(?:upload|attachment|publication|posting|capture|recording|generation)"
+                        r"\s+(?:is|are)\s+(?:required|mandatory|needed)\b",
+                        lower,
+                    )
                 )
                 if explicit_artifact_delivery or evidence_named_artifact:
                     line_channels.add("artifacts")
                 elif not re.search(r"\b(?:pr comments?|pull request comments?)\b", lower):
                     continue
             if re.search(r"\b(?:pr comments?|pull request comments?)\b", lower):
-                line_channels.add("comments")
+                explicit_comment_delivery = bool(
+                    re.search(
+                        r"\b(?:post|publish|record|capture|provide|document)\w*\b"
+                        r"(?:\s+\w+){0,10}\s+\b(?:pr comments?|pull request comments?)\b",
+                        requirement_text,
+                        re.I,
+                    )
+                    or re.search(
+                        r"\b(?:pr comments?|pull request comments?)\b.{0,40}"
+                        r"\b(?:(?:is|are)\s+(?:required|mandatory|needed)|"
+                        r"(?:must|shall|needs? to)\b)",
+                        requirement_text,
+                        re.I,
+                    )
+                    or re.search(
+                        r"\bexact-head\s+(?:pr comments?|pull request comments?)\b",
+                        requirement_text,
+                        re.I,
+                    )
+                )
+                if explicit_comment_delivery:
+                    line_channels.add("comments")
+                elif not line_channels:
+                    continue
             if not line_channels:
                 if re.search(r"\bworkflow runs?\b", lower):
                     without_workflow_run = re.sub(r"\bworkflow runs?\b", " ", lower)
