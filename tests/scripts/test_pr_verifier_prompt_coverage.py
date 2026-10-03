@@ -550,6 +550,10 @@ def test_optional_evidence_clause_preserves_required_comment() -> None:
     assert pr_verifier._required_evidence_channels(
         "- [ ] Post a required PR comment and optionally attach an optional artifact"
     ) == {"comments"}
+    # CodeRabbit P1 (thread PRRT_kwDOQprj9M6oiCEJ): optional artifact must not suppress comment.
+    assert pr_verifier._required_evidence_channels(
+        "- [ ] Upload the validation artifact when available and post the exact-head PR comment"
+    ) == {"comments"}
 
 
 def test_descriptive_artifact_parser_requirement_is_not_a_deliverable() -> None:
