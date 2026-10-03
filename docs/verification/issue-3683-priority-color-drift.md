@@ -457,3 +457,41 @@ The exact original bytes were restored, including `priority:low` color `0e8a16`.
 - `tests/scripts/test_bootstrap_consumer_labels.py` remains unchanged as the gate.
 
 Only this evidence artifact is included in the commit.
+
+## Task reconciliation at the current tip
+
+Reviewed both evidence commits, `7e97c0af11f5886bed762b72d1a2057d456c4ed5`
+and `21c8c6f957934ae3939d3da2b6460ebb76a88d8e`. Both change only this artifact.
+The retained RED/GREEN run above verifies the deliberate break; no additional
+mutation is needed to reconcile the stale unchecked tasks in PR #3724.
+
+At tip `21c8c6f957934ae3939d3da2b6460ebb76a88d8e`, reran the restored gate:
+
+```sh
+PYTEST_ADDOPTS='-m "not slow"' pytest tests/scripts/test_bootstrap_consumer_labels.py -q
+```
+
+```text
+..........................                                               [100%]
+26 passed in 0.94s
+```
+
+Exit status: `0`. The source SHA-256 is still
+`92c3670964eb0f079d96e733dfcf837a64fc9b514341db54ac2ee32a0184a66d`.
+Compared with PR base `e2dea1809ae05d9f72d1a7ae5be1fb4e95b115ec`, both
+`.github/labels-core.yml` and `tests/scripts/test_bootstrap_consumer_labels.py`
+have empty diffs; only this artifact differs. `git diff --check` passes.
+
+Verified task completion from the retained transcript and current-tip checks:
+
+- [x] Temporarily changed `priority:low` in `.github/labels-core.yml`.
+- [x] Captured the requested pytest command failing the priority-label drift assertion.
+- [x] Restored the exact bytes, reran the same command, and committed only evidence.
+- [x] Evidence names the path and both failing and passing commands and outputs.
+- [x] Restored color remains `0e8a16`, and the existing test file remains the gate.
+- [x] Evidence links original issue #3624 and merged commit
+  `b7a1147aa9c1c092a9269f74a84862e73fbce9de`.
+
+These checkboxes record verified completion locally. Updating the corresponding
+PR-body checkboxes was blocked because the connector requires approval while
+this run's approval policy is `never`; the remote checkboxes were not updated.
