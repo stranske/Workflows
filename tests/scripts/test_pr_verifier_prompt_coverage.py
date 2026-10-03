@@ -530,6 +530,16 @@ def test_cli_command_behavior_does_not_require_evidence_delivery() -> None:
     assert pr_verifier._required_evidence_channels("- [ ] The CLI command outputs JSON") == set()
 
 
+def test_product_output_behavior_does_not_require_evidence_delivery() -> None:
+    # Codex P2 (thread PRRT_kwDOQprj9M6on-Ix): product output is not a deliverable.
+    for criterion in (
+        "- [ ] The API must return command output",
+        "- [ ] The UI must display a transcript",
+        "- [ ] Command output must be displayed in the UI",
+    ):
+        assert pr_verifier._required_evidence_channels(criterion) == set()
+
+
 def test_cli_command_behavior_preserves_explicit_evidence_delivery() -> None:
     # Codex P1 (thread PRRT_kwDOQprj9M6omBRf): behavior can feed a deliverable.
     assert pr_verifier._required_evidence_channels(
@@ -612,6 +622,10 @@ def test_explicit_artifact_delivery_still_requires_workflow_evidence() -> None:
     }
     assert pr_verifier._required_evidence_channels(
         "- [ ] The workflow artifact must be uploaded"
+    ) == {"artifacts"}
+    # Codex P1 (thread PRRT_kwDOQprj9M6on-Iv): passive inclusion is delivery.
+    assert pr_verifier._required_evidence_channels(
+        "- [ ] An artifact must be included in the PR"
     ) == {"artifacts"}
     assert pr_verifier._required_evidence_channels(
         "- [ ] Evidence artifact upload is required"

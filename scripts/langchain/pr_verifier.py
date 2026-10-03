@@ -1088,7 +1088,8 @@ def _required_evidence_channels(acceptance: str) -> set[str]:
                     or re.search(
                         r"\bartifacts?\b.{0,60}\b(?:must|shall|is|required|needs? to)"
                         r"(?:\s+\w+){0,3}\s+be\s+"
-                        r"(?:uploaded|attached|published|posted|recorded|captured|provided|documented)\b",
+                        r"(?:uploaded|attached|published|posted|recorded|captured|provided|"
+                        r"included|documented)\b",
                         requirement_text,
                         re.I,
                     )
@@ -1116,6 +1117,13 @@ def _required_evidence_channels(acceptance: str) -> set[str]:
                     or re.search(
                         r"\b(?:pr|pull request)\b.{0,40}"
                         r"\b(?:must\s+)?(?:include|contain|have)\b.{0,40}\bartifacts?\b",
+                        requirement_text,
+                        re.I,
+                    )
+                    or re.search(
+                        r"\bartifacts?\b.{0,40}\b(?:must|shall|is|are)\s+(?:be\s+)?"
+                        r"(?:included|attached|uploaded|provided|documented)\b.{0,30}"
+                        r"\b(?:in|to|into)\s+(?:the\s+)?(?:pr|pull request)\b",
                         requirement_text,
                         re.I,
                     )
@@ -1222,6 +1230,24 @@ def _required_evidence_channels(acceptance: str) -> set[str]:
                 elif not line_channels:
                     continue
             if not line_channels:
+                product_output_behavior = bool(
+                    re.search(
+                        r"\b(?:ui|api|application|interface|service|cli)\b.{0,60}"
+                        r"\b(?:return|display|show|store|emit|render|expose)\w*\b.{0,60}"
+                        r"\b(?:command outputs?|transcripts?)\b",
+                        requirement_text,
+                        re.I,
+                    )
+                    or re.search(
+                        r"\b(?:command outputs?|transcripts?)\b.{0,60}"
+                        r"\b(?:return|display|show|store|emit|render|expose)\w*\b.{0,60}"
+                        r"\b(?:ui|api|application|interface|service|cli)\b",
+                        requirement_text,
+                        re.I,
+                    )
+                )
+                if product_output_behavior:
+                    continue
                 command_behavior = bool(
                     re.search(
                         r"\b(?:cli\s+)?command\b\s+(?:must\s+|shall\s+|will\s+)?" r"outputs\b",
