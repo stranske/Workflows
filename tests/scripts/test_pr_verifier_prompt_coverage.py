@@ -522,6 +522,33 @@ def test_equivalent_negative_artifact_gates_require_evidence(criterion: str) -> 
     )
 
 
+@pytest.mark.parametrize(
+    "criterion",
+    [
+        "The PR cannot merge until a PR comment is posted",
+        "The PR may not merge unless a PR comment is posted",
+        "Never merge until a pull request comment is posted",
+        "Do not merge until a PR comment is published",
+    ],
+)
+def test_negative_merge_gates_require_posted_pr_comment(criterion: str) -> None:
+    assert pr_verifier._required_evidence_channels(f"- [ ] {criterion}") == {"comments"}
+    context, _ = _context(1, 1_000, 1_000)
+    context = context.replace("- " + ACCEPTANCE_SENTINEL, "- " + criterion).replace(
+        "## PR Diff Summary",
+        "## Acceptance evidence\n\n"
+        "- Overall retrieval status: **present**\n"
+        "- PR comments: **unavailable**\n"
+        "- Referenced workflow artifacts: **present**\n"
+        "## PR Diff Summary",
+    )
+    coverage = pr_verifier.prompt_coverage(context, None)
+    assert not coverage.sufficient
+    assert any(
+        "Required acceptance evidence is unavailable" in reason for reason in coverage.reasons
+    )
+
+
 def test_mixed_prohibition_preserves_required_comment_channel() -> None:
     for conjunction in (", but", "and", "while"):
         assert pr_verifier._required_evidence_channels(

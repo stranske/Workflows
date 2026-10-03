@@ -1366,7 +1366,8 @@ def _required_evidence_channels(acceptance: str) -> set[str]:
                 or re.search(
                     r"\b(?:pr comments?|pull request comments?)\b.{0,40}"
                     r"\b(?:(?:is|are)\s+(?:required|mandatory|needed)|"
-                    r"(?:must|shall|needs? to)\b)",
+                    r"(?:must|shall|needs? to)\b|"
+                    r"(?:is|are|must|shall|needs? to)\s+(?:be\s+)?(?:posted|published)\b)",
                     requirement_text,
                     re.I,
                 )
@@ -1375,6 +1376,7 @@ def _required_evidence_channels(acceptance: str) -> set[str]:
                     requirement_text,
                     re.I,
                 )
+                or (gate and bool(re.search(r"\b(?:pr comments?|pull request comments?)\b", lower)))
             )
             product_output_prefix = re.compile(
                 r"^\s*(?:[-*]\s*(?:\[[ xX]\]\s*)?)?"
