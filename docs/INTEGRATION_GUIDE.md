@@ -542,7 +542,12 @@ prevents complete inspection is `unavailable`. An unavailable source can never
 be used to claim that a required transcript is absent or to justify PASS for an
 otherwise unverifiable required deliverable. Artifact archives are read without
 extracting paths into the checkout, and only allowlisted text entry types are
-included as untrusted evidence rather than instructions.
+included as untrusted evidence rather than instructions. Directory records are
+harmless archive structure, but any non-directory payload entry excluded by the
+allowlist makes the artifact evidence unavailable even if other text was read.
+Evaluate/compare accept only a complete Git patch as code: a diff summary,
+garbled `--diff-file`, malformed quoted path, or budget-truncated patch floors
+the verdict at CONCERNS rather than treating zero parsed files as no change.
 
 ### Consumer Repo Setup: Coverage Soft Gate
 

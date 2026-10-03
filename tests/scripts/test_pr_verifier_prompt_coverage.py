@@ -625,6 +625,46 @@ def test_explicit_artifact_delivery_still_requires_workflow_evidence() -> None:
     }
 
 
+def test_artifact_delivery_into_pr_beats_api_actor_but_product_behavior_does_not() -> None:
+    for criterion in (
+        "- [ ] PR must include an artifact",
+        "- [ ] Include an artifact in the pull request",
+        "- [ ] API attach artifact to PR",
+        "- [ ] An evidence artifact is required",
+        "- [ ] Upload validation artifact",
+        "- [ ] No merge without artifact in PR",
+    ):
+        assert pr_verifier._required_evidence_channels(criterion) == {"artifacts"}
+    for criterion in (
+        "- [ ] The database must record artifacts for retention",
+        "- [ ] UI must document artifact metadata",
+        "- [ ] UI include artifact preview",
+        "- [ ] The parser recognizes quoted Include artifact in PR",
+        "- [ ] if available, do not include artifact",
+        "- [ ] no artifact required",
+    ):
+        assert pr_verifier._required_evidence_channels(criterion) == set()
+    assert pr_verifier._required_evidence_channels(
+        "- [ ] post PR comment explaining artifacts optional"
+    ) == {"comments"}
+
+
+def test_pr_artifact_requirement_floors_pass_when_artifacts_are_unavailable() -> None:
+    context, _ = _context(1, 1_000, 1_000)
+    context = context.replace("- " + ACCEPTANCE_SENTINEL, "- PR must include an artifact").replace(
+        "## PR Diff Summary",
+        "## Acceptance evidence\n\n"
+        "- Overall retrieval status: **present**\n"
+        "- Referenced workflow artifacts: **unavailable**\n"
+        "## PR Diff Summary",
+    )
+    coverage = pr_verifier.prompt_coverage(context, None)
+    assert not coverage.sufficient
+    assert any(
+        "Required acceptance evidence is unavailable" in reason for reason in coverage.reasons
+    )
+
+
 def test_product_comment_nouns_do_not_require_pr_comment_evidence() -> None:
     for criterion in (
         "- [ ] The UI must display PR comments",
@@ -1093,6 +1133,91 @@ def test_complete_standalone_diff_ignores_truncated_embedded_copy() -> None:
     assert not any("context builder truncated" in reason for reason in coverage.reasons)
 
 
+def test_non_diff_file_input_is_unavailable_and_withholds_pass() -> None:
+    context, _ = _context(1, 1_000, 1_000, drop_diff=True)
+
+    coverage = pr_verifier.prompt_coverage(
+        context,
+        "## PR Diff Summary\n\n- Files changed: 1\n\n### File changes\n- src/example.py (+1/-0)\n",
+    )
+
+    assert coverage.code == "unavailable"
+    assert not coverage.sufficient
+    assert any("not a complete Git diff" in reason for reason in coverage.reasons)
+
+
+def test_empty_diff_remains_a_complete_no_change_code_block() -> None:
+    block, status, files, included, total = pr_verifier._build_code_block("", 1_000)
+
+    assert (block, status, files, included, total) == ("", "complete", (), 0, 0)
+
+
+def test_quoted_utf8_octal_diff_path_matches_summary_destination() -> None:
+    context = """# Verifier context
+
+## Plan sources (scope, tasks, acceptance)
+
+#### Acceptance criteria
+- exact observable smoke test
+
+## PR Diff Summary
+
+### File changes
+- docs/é new.md (+1/-1)
+
+## PR Diff (full)
+
+```diff
+diff --git "a/docs/\\303\\251 old.md" "b/docs/\\303\\251 new.md"
+similarity index 100%
+rename from docs/é old.md
+rename to docs/é new.md
+```
+"""
+
+    coverage = pr_verifier.prompt_coverage(context, None)
+
+    assert coverage.sufficient
+    assert coverage.files[0].path == "docs/é new.md"
+
+
+@pytest.mark.parametrize(
+    ("header", "destination"),
+    (
+        ('diff --git "a/caf\\303\\251.txt" b/plain.txt', "plain.txt"),
+        ('diff --git a/plain.txt "b/caf\\303\\251.txt"', "café.txt"),
+    ),
+)
+def test_mixed_quoted_git_header_paths_are_complete(header: str, destination: str) -> None:
+    diff = f"{header}\n@@ -1 +1 @@\n-old\n+new\n"
+    _, status, files, _, _ = pr_verifier._build_code_block(diff, 1_000)
+
+    assert status == "complete"
+    assert files[0].path == destination
+
+
+@pytest.mark.parametrize(
+    "header",
+    (
+        'diff --git "a/caf\\400.txt" b/plain.txt',
+        'diff --git a/plain.txt "b/caf\\303.txt"',
+        'diff --git "a/\\303\\040.txt" b/plain.txt',
+    ),
+)
+def test_malformed_mixed_git_header_paths_fail_closed(header: str) -> None:
+    _, status, files, _, _ = pr_verifier._build_code_block(header + "\n@@ -1 +1 @@\n", 1_000)
+
+    assert status == "unavailable"
+    assert files == ()
+
+
+def test_invalid_git_header_cannot_be_repaired_by_later_file_headers() -> None:
+    diff = 'diff --git "a/caf\\400.txt" b/plain.txt\n--- a/plain.txt\n+++ b/plain.txt\n@@ -1 +1 @@\n-old\n+new\n'
+    _, status, files, _, _ = pr_verifier._build_code_block(diff, 1_000)
+    assert status == "unavailable"
+    assert files == ()
+
+
 def test_no_client_fallback_still_reports_input_coverage(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
@@ -1153,5 +1278,27 @@ def test_product_upload_operations_do_not_require_workflow_artifacts() -> None:
         pr_verifier._required_evidence_channels(
             "- [ ] The product upload artifacts must be documented"
         )
+        == set()
+    )
+
+
+@pytest.mark.parametrize("name", ["plain file.txt", "b/nested.txt"])
+def test_complete_diff_preserves_spaces_and_repository_prefixes(name: str) -> None:
+    diff = _file_diff(name, 300)
+    block, status, files, _, _ = pr_verifier._build_code_block(diff, 10_000)
+    assert status == "complete"
+    assert files[0].path == name
+    assert "diff --git" in block
+
+
+def test_product_evidence_metadata_is_not_a_required_artifact() -> None:
+    assert (
+        pr_verifier._required_evidence_channels(
+            "- [ ] The UI must document validation artifact metadata"
+        )
+        == set()
+    )
+    assert (
+        pr_verifier._required_evidence_channels("- [ ] Include an artifact preview in the PR")
         == set()
     )

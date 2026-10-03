@@ -107,6 +107,7 @@ function summarizeDiff(diffText, { maxFiles, maxLines } = {}) {
   const fileSummaries = [];
   let current = null;
   let truncated = false;
+  let pathParsingFailed = false;
   const lines = diff.split('\n');
   const lineLimit = Number.isFinite(maxLines) ? maxLines : DIFF_SUMMARY_LIMITS.maxLines;
 
@@ -125,12 +126,14 @@ function summarizeDiff(diffText, { maxFiles, maxLines } = {}) {
     const line = lines[index];
     if (line.startsWith('diff --git ')) {
       pushCurrent();
-      const match = line.match(/^diff --git a\/(.+?) b\/(.+)$/);
-      const fromPath = match ? match[1] : '';
-      const toPath = match ? match[2] : '';
+      const paths = parseGitDiffHeader(line);
+      if (!paths) {
+        pathParsingFailed = true;
+        break;
+      }
       current = {
-        fromPath,
-        toPath,
+        fromPath: paths.fromPath,
+        toPath: paths.toPath,
         status: 'modified',
         added: 0,
         removed: 0,
@@ -151,12 +154,22 @@ function summarizeDiff(diffText, { maxFiles, maxLines } = {}) {
     }
     if (line.startsWith('rename from ')) {
       current.status = 'renamed';
-      current.fromPath = line.replace('rename from ', '').trim();
+      const renamed = parseGitPath(line.slice('rename from '.length).trim());
+      if (renamed === null) {
+        pathParsingFailed = true;
+        break;
+      }
+      current.fromPath = renamed;
       continue;
     }
     if (line.startsWith('rename to ')) {
       current.status = 'renamed';
-      current.toPath = line.replace('rename to ', '').trim();
+      const renamed = parseGitPath(line.slice('rename to '.length).trim());
+      if (renamed === null) {
+        pathParsingFailed = true;
+        break;
+      }
+      current.toPath = renamed;
       continue;
     }
     if (line.startsWith('Binary files ') || line.startsWith('GIT binary patch')) {
@@ -171,6 +184,10 @@ function summarizeDiff(diffText, { maxFiles, maxLines } = {}) {
     } else if (line.startsWith('-')) {
       current.removed += 1;
     }
+  }
+  if (pathParsingFailed) {
+    summaryLines.push('_Diff path parsing unavailable; quoted Git path syntax was malformed._');
+    return summaryLines.join('\n');
   }
   pushCurrent();
 
@@ -210,6 +227,63 @@ function summarizeDiff(diffText, { maxFiles, maxLines } = {}) {
   return summaryLines.join('\n');
 }
 
+function decodeGitQuotedPath(input) {
+  if (!input.startsWith('"')) return null;
+  const chunks = [];
+  let index = 1;
+  while (index < input.length) {
+    const char = input[index];
+    if (char === '"') {
+      try {
+        return {
+          value: new TextDecoder('utf-8', { fatal: true }).decode(Buffer.concat(chunks)),
+          rest: input.slice(index + 1),
+        };
+      } catch {
+        return null;
+      }
+    }
+    if (char !== '\\') {
+      const point = String.fromCodePoint(input.codePointAt(index));
+      chunks.push(Buffer.from(point, 'utf8')); index += point.length; continue;
+    }
+    const escaped = input[index + 1];
+    if (!escaped) return null;
+    if (/^[0-7]$/.test(escaped)) {
+      const octal = input.slice(index + 1, index + 4);
+      if (!/^[0-7]{3}$/.test(octal)) return null;
+      const byte = Number.parseInt(octal, 8);
+      if (byte > 0xff) return null;
+      chunks.push(Buffer.from([byte])); index += 4; continue;
+    }
+    const escapes = { a: '\x07', b: '\b', f: '\f', n: '\n', r: '\r', t: '\t', v: '\v', '\\': '\\', '"': '"' };
+    if (!Object.prototype.hasOwnProperty.call(escapes, escaped)) return null;
+    chunks.push(Buffer.from(escapes[escaped], 'utf8')); index += 2;
+  }
+  return null;
+}
+
+function parseGitPath(value) {
+  if (!value) return '';
+  if (!value.startsWith('"')) return value;
+  const parsed = decodeGitQuotedPath(value);
+  return parsed && !parsed.rest.trim() ? parsed.value : null;
+}
+
+function stripGitPrefix(value) { return value.replace(/^[ab]\//, ''); }
+
+function parseGitDiffHeader(line) {
+  const payload = line.slice('diff --git '.length);
+  const split = Math.max(payload.lastIndexOf(' b/'), payload.lastIndexOf(' "b/'));
+  const from = payload.startsWith('"')
+    ? decodeGitQuotedPath(payload)
+    : split > 0 ? { value: payload.slice(0, split), rest: payload.slice(split) } : null;
+  if (!from || !from.rest.startsWith(' ')) return null;
+  const destination = parseGitPath(from.rest.trimStart());
+  if (destination === null || !from.value.startsWith('a/') || !destination.startsWith('b/')) return null;
+  return { fromPath: stripGitPrefix(from.value), toPath: stripGitPrefix(destination) };
+}
+
 function isValidSha(value) {
   return SHA_PATTERN.test(String(value || ''));
 }
@@ -238,14 +312,16 @@ function extractReferencedRunIds(texts) {
 }
 
 function safeArtifactEntries(listing) {
-  return String(listing || '')
-    .split('\n')
-    .map((entry) => entry.trim())
-    .filter(Boolean)
-    .filter((entry) => !entry.startsWith('-'))
-    .filter((entry) => !/[\u0000-\u001f\u007f]/.test(entry))
-    .filter((entry) => !/[*?\[\]\\]/.test(entry))
-    .filter((entry) => TEXT_ARTIFACT_ENTRY_RE.test(entry));
+  const entries = [];
+  const filteredPayloadEntries = [];
+  for (const rawEntry of String(listing || '').split('\n')) {
+    const entry = rawEntry.trim();
+    if (!entry || entry.endsWith('/')) continue;
+    const safe = !entry.startsWith('-') && !/[\u0000-\u001f\u007f]/.test(entry)
+      && !/[*?\[\]\\]/.test(entry) && TEXT_ARTIFACT_ENTRY_RE.test(entry);
+    if (safe) entries.push(entry); else filteredPayloadEntries.push(entry);
+  }
+  return { entries, filteredPayloadEntries };
 }
 
 function extractArtifactArchiveText({ archiveBuffer, maxEntries, maxChars, execFile = execFileSync }) {
@@ -257,11 +333,11 @@ function extractArtifactArchiveText({ archiveBuffer, maxEntries, maxChars, execF
       encoding: 'utf8',
       maxBuffer: 1024 * 1024,
     });
-    const entries = safeArtifactEntries(listing);
+    const { entries, filteredPayloadEntries } = safeArtifactEntries(listing);
     const selected = entries.slice(0, maxEntries);
     let remaining = maxChars;
     const parts = [];
-    let truncated = entries.length > selected.length;
+    let truncated = entries.length > selected.length || filteredPayloadEntries.length > 0;
     for (const entry of selected) {
       const prefix = `### ${entry}\n\n`;
       const separator = parts.length ? '\n\n' : '';
@@ -1175,6 +1251,7 @@ module.exports = {
   fetchVerifierEvidence,
   extractArtifactArchiveText,
   formatVerifierEvidence,
+  summarizeDiff,
   formatDiffForContext,
   fetchLocalGitDiff,
   isValidSha,

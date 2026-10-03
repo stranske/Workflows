@@ -12,6 +12,7 @@ const {
   isValidSha,
   extractArtifactArchiveText,
   formatVerifierEvidence,
+  summarizeDiff,
 } = require('../agents_verifier_context.js');
 
 const fixturesDir = path.join(__dirname, 'fixtures');
@@ -1118,6 +1119,59 @@ test('artifact extractor skips disallowed zip entry names', () => {
   assert.deepEqual(extractedEntries, ['proof.txt', 'notes.md']);
 });
 
+test('artifact extractor marks mixed supported and unsupported payload entries incomplete', () => {
+  const execFile = (_command, args) => {
+    if (args[0] === '-Z1') return 'logs/\ngood.txt\nrequired.out\nconfig.yaml\n';
+    return 'proof';
+  };
+  const result = extractArtifactArchiveText({
+    archiveBuffer: Buffer.from('zip'), maxEntries: 10, maxChars: 500, execFile,
+  });
+  assert.equal(result.text, '### good.txt\n\nproof');
+  assert.equal(result.entryCount, 1);
+  assert.equal(result.truncated, true);
+});
+
+test('summarizeDiff decodes quoted Git paths and uses the rename destination', () => {
+  const summary = summarizeDiff([
+    'diff --git "a/docs/\\303\\251 old.md" "b/docs/\\303\\251 new.md"',
+    'similarity index 100%',
+    'rename from docs/é old.md',
+    'rename to docs/é new.md',
+  ].join('\n'));
+  assert.match(summary, /docs\/é old\.md -> docs\/é new\.md/);
+  assert.match(summary, /Files changed: 1/);
+});
+
+test('summarizeDiff supports independently quoted rename header paths', () => {
+  const cases = [
+    ['diff --git "a/caf\\303\\251.txt" b/plain.txt', 'café.txt', 'plain.txt', 'café.txt -> plain.txt'],
+    ['diff --git a/plain.txt "b/caf\\303\\251.txt"', 'plain.txt', 'café.txt', 'plain.txt -> café.txt'],
+  ];
+  for (const [header, from, to, expected] of cases) {
+    const summary = summarizeDiff([header, 'similarity index 100%', `rename from ${from}`, `rename to ${to}`].join('\n'));
+    assert.doesNotMatch(summary, /Diff path parsing unavailable/);
+    assert.match(summary, new RegExp(expected));
+  }
+});
+
+test('summarizeDiff fails closed on malformed mixed quoted paths', () => {
+  for (const header of [
+    'diff --git "a/caf\\400.txt" b/plain.txt',
+    'diff --git a/plain.txt "b/caf\\303.txt"',
+    'diff --git "a/caf\\303\\251.txt" c/plain file.txt',
+  ]) {
+    const summary = summarizeDiff(header);
+    assert.match(summary, /Diff path parsing unavailable/);
+  }
+});
+
+test('summarizeDiff fails closed on malformed quoted Git paths', () => {
+  const summary = summarizeDiff('diff --git "a/docs/\\303\\251.md b/docs/\\303\\251.md');
+  assert.match(summary, /Diff path parsing unavailable/);
+  assert.doesNotMatch(summary, /Files changed: 1/);
+});
+
 test('artifact extractor truncates when zip entry count exceeds maxEntries', () => {
   const execFile = (_command, args) => (args[0] === '-Z1' ? 'a.txt\nb.txt\nc.txt\n' : 'x');
   const result = extractArtifactArchiveText({
@@ -2119,4 +2173,16 @@ test('buildVerifierContext rejects bounded API fallback when the local PR range 
     0
   );
   assert.match(core.outputs.skip_reason, /Authoritative pull request diff unavailable/);
+});
+
+test('summarizeDiff preserves unquoted spaces and repository a/b directory prefixes', () => {
+  for (const name of ['plain file.txt', 'b/nested.txt']) {
+    const diff = `diff --git a/${name} b/${name}\n--- a/${name}\n+++ b/${name}\n@@ -1 +1 @@\n-old\n+new\n`;
+    assert.ok(summarizeDiff(diff).includes(`- ${name} (+1/-1)`));
+  }
+});
+
+test('summarizeDiff preserves literal supplementary Unicode in quoted paths', () => {
+  const diff = 'diff --git "a/🧭.txt" "b/🧭.txt"\n@@ -1 +1 @@\n-old\n+new\n';
+  assert.ok(summarizeDiff(diff).includes('- 🧭.txt (+1/-1)'));
 });

@@ -16,7 +16,6 @@ import json
 import logging
 import os
 import re
-import shlex
 import sys
 from collections.abc import Callable, Mapping
 from dataclasses import dataclass
@@ -614,32 +613,83 @@ def _strip_diff_fence(section: str) -> str:
 
 
 def _split_diff_files(diff: str) -> list[tuple[str, str]]:
-    def normalized_path(raw: str) -> str:
+    def decode_quoted_path(raw: str) -> tuple[str, str] | None:
+        if not raw.startswith('"'):
+            return None
+        chunks: list[bytes] = []
+        index = 1
+        escapes = {
+            "a": "\a",
+            "b": "\b",
+            "f": "\f",
+            "n": "\n",
+            "r": "\r",
+            "t": "\t",
+            "v": "\v",
+            "\\": "\\",
+            '"': '"',
+        }
+        while index < len(raw):
+            char = raw[index]
+            if char == '"':
+                try:
+                    return b"".join(chunks).decode("utf-8"), raw[index + 1 :]
+                except UnicodeDecodeError:
+                    return None
+            if char != "\\":
+                chunks.append(char.encode("utf-8"))
+                index += 1
+                continue
+            if index + 1 >= len(raw):
+                return None
+            escaped = raw[index + 1]
+            if escaped in "01234567":
+                octal = raw[index + 1 : index + 4]
+                if len(octal) != 3 or not all(char in "01234567" for char in octal):
+                    return None
+                byte = int(octal, 8)
+                if byte > 0xFF:
+                    return None
+                chunks.append(bytes([byte]))
+                index += 4
+                continue
+            if escaped not in escapes:
+                return None
+            chunks.append(escapes[escaped].encode("utf-8"))
+            index += 2
+        return None
+
+    def normalized_path(raw: str) -> str | None:
         value = raw.rstrip("\n")
         if value == "/dev/null":
             return ""
         if value.startswith('"'):
-            try:
-                parsed = shlex.split(value)
-            except ValueError:
-                parsed = []
-            if len(parsed) == 1:
-                value = parsed[0]
-        return value.removeprefix("a/").removeprefix("b/")
+            parsed = decode_quoted_path(value)
+            if parsed is None or parsed[1].strip():
+                return None
+            value = parsed[0]
+        return value[2:] if value.startswith(("a/", "b/")) else value
 
-    def destination_from_git_header(line: str) -> str:
+    def destination_from_git_header(line: str) -> str | None:
         payload = line.removeprefix("diff --git ").rstrip("\n")
-        if payload.startswith('"'):
-            try:
-                parsed = shlex.split(payload)
-            except ValueError:
-                parsed = []
-            if len(parsed) >= 2:
-                return normalized_path(parsed[-1])
-        marker = " b/"
-        if marker in payload:
-            return normalized_path("b/" + payload.rsplit(marker, 1)[1])
-        return normalized_path(payload)
+
+        separator = max(payload.rfind(" b/"), payload.rfind(' "b/'))
+        source = (
+            decode_quoted_path(payload)
+            if payload.startswith('"')
+            else (payload[:separator], payload[separator:]) if separator > 0 else None
+        )
+        if source is None or not source[1].startswith(" "):
+            return None
+        destination = source[1].lstrip()
+        decoded = (
+            decode_quoted_path(destination) if destination.startswith('"') else (destination, "")
+        )
+        if decoded is None or decoded[1].strip():
+            return None
+        if not source[0].startswith("a/") or not decoded[0].startswith("b/"):
+            return None
+        return decoded[0][2:]
 
     files: list[tuple[str, str]] = []
     current: list[str] = []
@@ -649,16 +699,22 @@ def _split_diff_files(diff: str) -> list[tuple[str, str]]:
             if current:
                 files.append((path, "".join(current)))
             current = [line]
-            path = destination_from_git_header(line)
+            path = destination_from_git_header(line) or "__invalid_git_path__"
         elif current:
             current.append(line)
+            if path == "__invalid_git_path__":
+                continue
             if line.startswith("--- "):
                 source = normalized_path(line[4:])
-                if source:
+                if source is None:
+                    path = "__invalid_git_path__"
+                elif source:
                     path = source
             elif line.startswith("+++ "):
                 destination = normalized_path(line[4:])
-                if destination:
+                if destination is None:
+                    path = "__invalid_git_path__"
+                elif destination:
                     path = destination
     if current:
         files.append((path, "".join(current)))
@@ -738,9 +794,13 @@ def _build_code_block(
 ) -> tuple[str, CoverageStatus, tuple[FileCoverage, ...], int, int]:
     files = _split_diff_files(diff)
     if not files:
+        if diff.strip():
+            return "(diff unavailable)", "unavailable", (), 0, 0
         block = _cap_prompt_text(diff, max(1, budget_chars // TOKEN_CHARS))
         status: CoverageStatus = "complete" if block == diff else "truncated"
         return block, status, (), min(len(diff), len(block)), len(diff)
+    if any(path == "__invalid_git_path__" for path, _ in files):
+        return "(diff unavailable)", "unavailable", (), 0, 0
     shares = _fair_shares([len(text) for _, text in files], budget_chars)
     parts: list[str] = []
     coverage: list[FileCoverage] = []
@@ -943,10 +1003,18 @@ def _required_evidence_channels(acceptance: str) -> set[str]:
                     re.I,
                 )
             )
+            explanatory_comment = bool(
+                re.search(
+                    r"\b(?:pr comments?|pull request comments?)\b.{0,80}"
+                    r"\b(?:explain|document)\w*\b.{0,80}\boptional\b",
+                    requirement_text,
+                    re.I,
+                )
+            )
             # Optional/conditional evidence clauses never create a hard floor,
             # whether or not the source used checklist syntax. Clause splitting
             # preserves a separate required comment/transcript on the same item.
-            if optional_evidence:
+            if optional_evidence and not explanatory_comment:
                 continue
             meta_behavior = bool(
                 re.search(
@@ -1005,8 +1073,9 @@ def _required_evidence_channels(acceptance: str) -> set[str]:
             lower = requirement_text.lower()
             line_channels: set[str] = set()
             # Artifact domain nouns in product acceptance (UI, storage, icons)
-            # are not workflow evidence deliverables. Require delivery semantics
-            # or an evidence-named deliverable (validation artifact, etc.).
+            # are not workflow evidence deliverables. An explicit delivery into
+            # PR content wins even when an API is the actor; otherwise a product
+            # actor or product destination is application behavior, not evidence.
             if re.search(r"\b(?:workflow\s+)?artifacts?\b", lower):
                 explicit_artifact_delivery = bool(
                     re.search(
@@ -1032,6 +1101,35 @@ def _required_evidence_channels(acceptance: str) -> set[str]:
                         r".{0,30}\b(?:through|to|into|in|via)\b.{0,30}"
                         r"\b(?:storage|database|data\s+store|object\s+store|bucket|"
                         r"filesystem|file\s+system|ui|interface|application|users?)\b",
+                        requirement_text,
+                        re.I,
+                    )
+                )
+                artifact_delivery_into_pr = bool(
+                    re.search(
+                        r"\b(?:upload|attach|publish|post|record|capture|provide|include|document)"
+                        r"\w*\b.{0,60}\bartifacts?\b.{0,40}"
+                        r"\b(?:to|into|in)\s+(?:the\s+)?(?:pr|pull request)\b",
+                        requirement_text,
+                        re.I,
+                    )
+                    or re.search(
+                        r"\b(?:pr|pull request)\b.{0,40}"
+                        r"\b(?:must\s+)?(?:include|contain|have)\b.{0,40}\bartifacts?\b",
+                        requirement_text,
+                        re.I,
+                    )
+                    or (
+                        gate
+                        and bool(re.search(r"\bartifacts?\b", lower))
+                        and bool(re.search(r"\b(?:pr|pull request)\b", lower))
+                    )
+                )
+                product_artifact_actor = bool(
+                    re.search(
+                        r"\b(?:ui|api|application|interface|service|worker|cli|database|"
+                        r"users?)\b.{0,80}\b(?:upload|attach|publish|post|record|capture|"
+                        r"provide|include|document)\w*\b.{0,60}\bartifacts?\b",
                         requirement_text,
                         re.I,
                     )
@@ -1062,10 +1160,26 @@ def _required_evidence_channels(acceptance: str) -> set[str]:
                         lower,
                     )
                 )
-                if evidence_named_artifact or (
-                    explicit_artifact_delivery and not product_artifact_destination
+                if (
+                    artifact_delivery_into_pr
+                    or evidence_named_artifact
+                    or (
+                        explicit_artifact_delivery
+                        and not (product_artifact_actor or product_artifact_destination)
+                    )
                 ):
-                    line_channels.add("artifacts")
+                    artifact_description = bool(
+                        re.search(
+                            r"\bartifacts?\s+(?:metadata|preview|icon|schema|parser)\b", lower
+                        )
+                    )
+                    if not artifact_description and (
+                        artifact_delivery_into_pr
+                        or not (product_artifact_actor or product_artifact_destination)
+                    ):
+                        line_channels.add("artifacts")
+                    elif not re.search(r"\b(?:pr comments?|pull request comments?)\b", lower):
+                        continue
                 elif not re.search(r"\b(?:pr comments?|pull request comments?)\b", lower):
                     continue
             if re.search(r"\b(?:pr comments?|pull request comments?)\b", lower):
@@ -1186,6 +1300,7 @@ def build_prompt_inputs(context: str, diff: str | None) -> PromptInputs:
     reasons: list[str] = []
 
     code_source = diff_text if "diff --git " in diff_text else ""
+    non_diff_file_input = bool(diff_text) and not code_source
     upstream_truncated = False
     acceptance_source = ""
     evidence_source = ""
@@ -1264,6 +1379,10 @@ def build_prompt_inputs(context: str, diff: str | None) -> PromptInputs:
                 + ", ".join(missing[:10])
             )
     if code == "unavailable":
+        if non_diff_file_input:
+            reasons.append(
+                "Supplied --diff-file is not a complete Git diff; changed code is unavailable."
+            )
         reasons.append("Changed code is unavailable; completeness cannot be judged.")
     elif omitted:
         reasons.append(f"{len(omitted)} changed file(s) are omitted from the prompt entirely.")

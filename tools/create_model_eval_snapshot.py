@@ -22,6 +22,7 @@ def create_case(
     adjudication_rationale: str,
     context_override: Path | None = None,
     diff_summary_override: Path | None = None,
+    diff_override: Path | None = None,
     mutation_note: str = "",
 ) -> dict:
     manifest = json.loads((artifact / "verifier-input-manifest.json").read_text())
@@ -49,11 +50,18 @@ def create_case(
         raise ValueError("expected verdict must be PASS or NON_PASS")
     if not all((case_id, category, adjudication_evidence, adjudicated_by, adjudication_rationale)):
         raise ValueError("case identity and independent adjudication fields are required")
-    is_mutation = context_override is not None or diff_summary_override is not None
-    if is_mutation and (context_override is None or diff_summary_override is None):
+    is_mutation = any((context_override, diff_summary_override, diff_override))
+    required_overrides = (context_override, diff_summary_override)
+    if is_mutation and not all(required_overrides):
         raise ValueError(
             "controlled defect must replace both context and diff summary consistently"
         )
+    if is_mutation and diff is not None and diff_override is None:
+        raise ValueError(
+            "controlled defect with a captured full diff requires a full patch override"
+        )
+    if diff_override is not None and diff is None:
+        raise ValueError("full patch override requires a captured full diff")
     if is_mutation and not mutation_note:
         raise ValueError("controlled defect requires a mutation note")
     if is_mutation and expected_verdict != "NON_PASS":
@@ -64,6 +72,17 @@ def create_case(
         context = context_override.read_text()
     if diff_summary_override:
         diff_summary = diff_summary_override.read_text()
+    if diff_override:
+        try:
+            overridden_diff = diff_override.read_bytes()
+        except OSError as error:
+            raise ValueError("controlled defect full patch override is unreadable") from error
+        if not overridden_diff.startswith(b"diff --git ") or b"\n@@ " not in overridden_diff:
+            raise ValueError("controlled defect full patch override is not a complete code patch")
+        try:
+            diff = overridden_diff.decode("utf-8")
+        except UnicodeDecodeError as error:
+            raise ValueError("controlled defect full patch override is not UTF-8") from error
     snapshot = {
         "context": context,
         "diff_summary": diff_summary,
@@ -87,7 +106,7 @@ def create_case(
     if diff is not None:
         # A controlled defect replaces the changed-code input consistently;
         # an unmodified capture replays the exact full diff from production.
-        snapshot["diff"] = diff_summary if is_mutation else diff
+        snapshot["diff"] = diff
     if is_mutation:
         snapshot["mutation_note"] = mutation_note
         snapshot["source_context_sha256"] = manifest["context_sha256"]
@@ -116,6 +135,7 @@ def main() -> None:
     parser.add_argument("--adjudication-rationale", required=True)
     parser.add_argument("--context-override", type=Path)
     parser.add_argument("--diff-summary-override", type=Path)
+    parser.add_argument("--diff-override", type=Path)
     parser.add_argument("--mutation-note", default="")
     parser.add_argument("--output", type=Path, required=True)
     args = parser.parse_args()
@@ -129,6 +149,7 @@ def main() -> None:
         adjudication_rationale=args.adjudication_rationale,
         context_override=args.context_override,
         diff_summary_override=args.diff_summary_override,
+        diff_override=args.diff_override,
         mutation_note=args.mutation_note,
     )
     args.output.write_text(json.dumps(case, indent=2) + "\n")
