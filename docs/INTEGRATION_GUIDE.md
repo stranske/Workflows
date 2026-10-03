@@ -552,6 +552,10 @@ Binary-only descriptors (`Binary files ... differ` or `GIT binary patch`) are
 omitted code coverage, not inspectable contents. Evidence-delivery requirements
 such as "Include an artifact" remain required; mentioning an API/UI change
 before a delivery instruction does not turn that instruction into product behavior.
+Artifacts included in a product response or payload are not workflow evidence,
+regardless of the actor's name; explicit PR delivery remains required.
+Cross-repository full-diff recovery fetches and verifies both the recorded base
+and PR head from the target repository before reconstructing the range.
 
 ### Consumer Repo Setup: Coverage Soft Gate
 

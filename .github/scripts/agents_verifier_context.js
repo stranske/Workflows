@@ -734,6 +734,23 @@ function fetchLocalGitDiff({
         maxBuffer: 1024 * 1024,
       });
     }
+    try {
+      execFile('git', ['cat-file', '-e', `${baseSha}^{commit}`], {
+        encoding: 'utf8',
+        maxBuffer: 1024 * 1024,
+      });
+    } catch {
+      // A consumer's recorded base need not be an ancestor of its PR head.
+      // Fetch from the same target repository, never the Workflows origin.
+      execFile('git', ['fetch', '--no-tags', remoteUrl, baseSha], {
+        encoding: 'utf8',
+        maxBuffer: 1024 * 1024,
+      });
+      execFile('git', ['cat-file', '-e', `${baseSha}^{commit}`], {
+        encoding: 'utf8',
+        maxBuffer: 1024 * 1024,
+      });
+    }
     const buffer = execFile('git', ['diff', '--no-color', `${baseSha}...${headSha}`], {
       maxBuffer: Number.isFinite(maxBytes) ? maxBytes : DEFAULT_DIFF_MAX_BYTES,
     });

@@ -1115,7 +1115,8 @@ def _required_evidence_channels(acceptance: str) -> set[str]:
                         r"\w*\b.{0,40}\bartifacts?\b"
                         r".{0,30}\b(?:through|to|into|in|via)\b.{0,30}"
                         r"\b(?:storage|database|data\s+store|object\s+store|bucket|"
-                        r"filesystem|file\s+system|ui|interface|application|users?)\b",
+                        r"filesystem|file\s+system|ui|interface|application|users?|"
+                        r"responses?|payloads?|return\s+values?)\b",
                         requirement_text,
                         re.I,
                     )

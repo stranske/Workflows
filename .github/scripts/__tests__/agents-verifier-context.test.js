@@ -1412,6 +1412,52 @@ test('fetchLocalGitDiff fetches a missing pull request head before reconstructin
   ]);
 });
 
+test('fetchLocalGitDiff fetches and verifies an absent cross-repo base with a present head', () => {
+  const baseSha = 'aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa';
+  const headSha = 'bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb';
+  const remoteUrl = 'https://github.com/octo/consumer.git';
+  const calls = [];
+  let basePresent = false;
+  const result = fetchLocalGitDiff({
+    baseSha, headSha, prNumber: 557, remoteUrl,
+    execFile(command, args) {
+      calls.push([command, ...args]);
+      if (args[0] === 'cat-file' && args[2] === `${baseSha}^{commit}` && !basePresent) {
+        throw new Error('missing base');
+      }
+      if (args[0] === 'fetch') {
+        assert.equal(args[2], remoteUrl);
+        assert.equal(args[3], baseSha);
+        basePresent = true;
+      }
+      if (args[0] === 'diff') {
+        assert.equal(basePresent, true);
+        return Buffer.from('diff --git a/a b/a\n+fixed\n');
+      }
+      return '';
+    },
+  });
+  assert.match(result, /fixed/);
+  assert.ok(calls.some(call => call.join(' ') === `git fetch --no-tags ${remoteUrl} ${baseSha}`));
+  assert.equal(calls.filter(call => call[1] === 'cat-file' && call[3] === `${baseSha}^{commit}`).length, 2);
+});
+
+test('fetchLocalGitDiff refuses reconstruction when fetched base is still absent', () => {
+  let diffCalled = false;
+  const result = fetchLocalGitDiff({
+    baseSha: 'aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa',
+    headSha: 'bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb',
+    prNumber: 557,
+    execFile(command, args) {
+      if (args[0] === 'cat-file' && args[2].startsWith('aaaa')) throw new Error('missing base');
+      if (args[0] === 'diff') diffCalled = true;
+      return '';
+    },
+  });
+  assert.equal(result, '');
+  assert.equal(diffCalled, false);
+});
+
 test('buildVerifierContext queries CI runs for merge and head SHAs', async () => {
   const core = buildCore();
   const prDetails = {

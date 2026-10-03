@@ -585,6 +585,10 @@ def test_explicit_artifact_delivery_survives_product_context(
     ("criterion", "expected"),
     [
         ("Include an artifact in the database", set()),
+        ("The endpoint must include artifacts in the response", set()),
+        ("The renderer must include artifacts in the response payload", set()),
+        ("Include artifacts in the API response", set()),
+        ("The endpoint must include an artifact in the PR", {"artifacts"}),
         ("Include an artifact in the PR", {"artifacts"}),
         ("The UI must include an artifact", set()),
         ("The UI must show a validation artifact", set()),
