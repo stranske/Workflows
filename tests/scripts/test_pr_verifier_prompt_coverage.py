@@ -524,13 +524,10 @@ def test_parser_nominal_upload_criterion_does_not_require_artifacts() -> None:
 def test_product_artifact_nouns_do_not_require_workflow_artifacts() -> None:
     # Codex P2 (thread PRRT_kwDOQprj9M6olGWX): domain "artifact" is not evidence delivery.
     assert (
-        pr_verifier._required_evidence_channels("- [ ] The UI must show an artifact icon")
-        == set()
+        pr_verifier._required_evidence_channels("- [ ] The UI must show an artifact icon") == set()
     )
     assert (
-        pr_verifier._required_evidence_channels(
-            "- [ ] Store artifact metadata in the database"
-        )
+        pr_verifier._required_evidence_channels("- [ ] Store artifact metadata in the database")
         == set()
     )
 
