@@ -1181,7 +1181,9 @@ def test_gpt6_clients_use_responses_without_sampling_controls(relative, model):
     import runpy
     from pathlib import Path
 
-    build = runpy.run_path(str(Path(__file__).resolve().parents[2] / relative))["_build_openai_client"]
+    build = runpy.run_path(str(Path(__file__).resolve().parents[2] / relative))[
+        "_build_openai_client"
+    ]
     received = {}
 
     def client(**kwargs):
