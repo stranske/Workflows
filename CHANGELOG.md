@@ -6,6 +6,14 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 Breaking changes are called out with a **BREAKING** marker and scheduled according to the policy in `COMPATIBILITY.md`.
 
+## [1.37.11](https://github.com/stranske/Workflows/compare/v1.37.10...v1.37.11) (2026-10-03)
+
+
+### Bug Fixes
+
+* **sync:** preserve Orchestrator terminal merge guidance ([#3714](https://github.com/stranske/Workflows/issues/3714)) ([8e53edf](https://github.com/stranske/Workflows/commit/8e53edf1b0e61bc66c8f905fbdf99496c9875662))
+* **verifier:** state prompt coverage and withhold PASS on omitted code ([#3701](https://github.com/stranske/Workflows/issues/3701)) ([#3703](https://github.com/stranske/Workflows/issues/3703)) ([0118af7](https://github.com/stranske/Workflows/commit/0118af7410b29371058f883d6fee75a4f849fbd8))
+
 ## [1.37.10](https://github.com/stranske/Workflows/compare/v1.37.9...v1.37.10) (2026-10-02)
 
 
