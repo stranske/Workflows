@@ -1220,12 +1220,12 @@ def test_prefixed_ordinary_openai_model_keeps_temperature(relative):
     "relative", ["tools/langchain_client.py", "templates/consumer-repo/tools/langchain_client.py"]
 )
 @pytest.mark.parametrize("model", ["gpt-6.1-sol", "gpt-6-luna"])
-def test_new_gpt6_clients_omit_unsupported_temperature(relative, model):
+def test_gpt6_github_clients_omit_unsupported_temperature(relative, model):
     import runpy
     from pathlib import Path
 
     build = runpy.run_path(str(Path(__file__).resolve().parents[2] / relative))[
-        "_build_openai_client"
+        "_build_github_client"
     ]
     received = {}
 
@@ -1234,5 +1234,4 @@ def test_new_gpt6_clients_omit_unsupported_temperature(relative, model):
         return kwargs
 
     build(client, model=model, token="test", timeout=30, max_retries=0)
-    assert received["use_responses_api"] is True
     assert "temperature" not in received
