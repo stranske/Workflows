@@ -217,6 +217,9 @@ The following workflows were decommissioned during the CI consolidation effort. 
 ## Verifier Workflow
 The verifier validates merged PRs against tasks and acceptance criteria using label-triggered modes.
 
+Optional evidence qualifiers apply only to their own clause. A separate mandatory PR comment
+remains required, including wording such as "the reviewer is required to post a PR comment".
+
 ### How to trigger verification
 1. Ensure the PR body includes Tasks and Acceptance Criteria sections with checkboxes.
 2. Apply one of the `verify:*` labels to the PR before merging.

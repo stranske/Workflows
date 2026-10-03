@@ -1034,6 +1034,10 @@ def _required_evidence_channels(acceptance: str) -> set[str]:
             criterion,
             flags=re.I,
         )
+        # Split independent mandatory clauses after optional evidence, including
+        # named actors and modified subjects. Extra noun modifiers need a modal
+        # so adjective lists such as "failing and restored passing transcript"
+        # stay attached to their delivery verb.
         clause_boundary = (
             r"\s*;\s*|,?\s+(?:but|whereas)\s+|"
             r"(?:,?\s+(?:and|while)\s+|[,\.]\s+)(?="
@@ -1041,7 +1045,13 @@ def _required_evidence_channels(acceptance: str) -> set[str]:
             r"(?:an?\s+|the\s+)?(?:validation\s+|exact-head\s+)?"
             r"(?:evidence|artifacts?|transcripts?|command outputs?|"
             r"workflow runs?|pr comments?|pull request comments?)|"
-            r"(?:[\w-]+\s+){1,6}(?:must|shall|needs?\s+to)\s+"
+            r"(?:an?\s+|the\s+)?(?:[\w-]+\s+){1,4}?"
+            r"(?:evidence|artifacts?|transcripts?|command outputs?|"
+            r"workflow runs?|pr comments?|pull request comments?)\s+"
+            r"(?:must|shall|needs?\s+to|(?:is|are)\s+(?:required|mandatory|needed))\b|"
+            r"(?:[\w-]+\s+){1,6}(?:must|shall|needs?\s+to|"
+            r"(?:(?:is|are)\s+)?(?:required|needed|mandated|obliged)\s+to|"
+            r"(?:has|have)\s+to)\s+"
             r"(?:publish|upload|attach|capture|record|provide|include|post|document|prove|show|link)\b|"
             r"(?:publish|upload|attach|capture|record|provide|include|post|document|prove|show|link)\b"
             r"))"

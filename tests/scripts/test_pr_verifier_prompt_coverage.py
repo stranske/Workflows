@@ -1139,6 +1139,39 @@ def test_optional_artifact_preserves_mandatory_comment_sentences(
     assert pr_verifier.evaluate_pr(context).verdict == "PASS"
 
 
+@pytest.mark.parametrize(
+    "continuation",
+    [
+        "and the reviewer is required to post a PR comment",
+        "while the reviewer has to publish a PR comment",
+        ". Reviewers are required to publish a PR comment.",
+        "and the exact current PR comment must be posted",
+        "and the author is obliged to post a PR comment",
+    ],
+)
+def test_optional_artifact_preserves_equivalent_mandatory_comment_clauses(
+    continuation: str, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    criterion = "Upload the validation artifact when available " + continuation
+    assert pr_verifier._required_evidence_channels("- [ ] " + criterion) == {"comments"}
+    context, _ = _context(1, 1_000, 1_000)
+    context = context.replace(ACCEPTANCE_SENTINEL, criterion).replace(
+        "## PR Diff Summary",
+        "## Acceptance evidence\n\n"
+        "- Overall retrieval status: **unavailable**\n"
+        "- PR comments: **unavailable**\n"
+        "- Referenced workflow artifacts: **absent**\n"
+        "## PR Diff Summary",
+    )
+    client = _pass_client()
+    monkeypatch.setattr(
+        pr_verifier, "_get_llm_client", lambda model=None, provider=None: (client, "openai")
+    )
+    assert pr_verifier.evaluate_pr(context).verdict == "CONCERNS"
+    context = context.replace("- PR comments: **unavailable**", "- PR comments: **present**")
+    assert pr_verifier.evaluate_pr(context).verdict == "PASS"
+
+
 @pytest.mark.parametrize("quotes", [('"', '"'), ("'", "'"), ("`", "`"), ("“", "”"), ("‘", "’")])
 @pytest.mark.parametrize(
     "example", ["Must upload an artifact", "Must upload an artifact; post a PR comment"]
