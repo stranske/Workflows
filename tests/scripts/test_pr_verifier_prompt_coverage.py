@@ -427,6 +427,7 @@ def test_release_cannot_proceed_without_artifact_requires_evidence() -> None:
         "The release cannot proceed without the command output",
         "The release must not merge until the validation artifact is uploaded",
         "Never merge until the command output is available",
+        "The release never proceeds without attaching the validation artifact",
     ],
 )
 def test_equivalent_negative_artifact_gates_require_evidence(criterion: str) -> None:
