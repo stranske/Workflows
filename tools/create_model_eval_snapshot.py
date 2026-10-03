@@ -88,6 +88,8 @@ def create_case(
         snapshot["mutation_note"] = mutation_note
         snapshot["source_context_sha256"] = manifest["context_sha256"]
         snapshot["source_diff_summary_sha256"] = manifest["diff_summary_sha256"]
+        if "diff_sha256" in manifest:
+            snapshot["source_diff_sha256"] = manifest["diff_sha256"]
     snapshot["sha256"] = snapshot_digest(snapshot)
     return {
         "case_id": case_id,

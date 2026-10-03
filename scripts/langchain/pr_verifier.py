@@ -974,10 +974,35 @@ def _required_evidence_channels(acceptance: str) -> set[str]:
                 continue
             lower = requirement_text.lower()
             line_channels: set[str] = set()
-            # Explicit artifact nouns keep the artifacts channel even when the
-            # same criterion also mentions a workflow run as provenance.
+            # Artifact domain nouns in product acceptance (UI, storage, icons)
+            # are not workflow evidence deliverables. Require delivery semantics
+            # or an evidence-named deliverable (validation artifact, etc.).
             if re.search(r"\b(?:workflow\s+)?artifacts?\b", lower):
-                line_channels.add("artifacts")
+                explicit_artifact_delivery = bool(
+                    re.search(
+                        r"\b(?:must|shall|required|needs? to)\s+(?:\w+\s+){0,4}"
+                        r"(?:upload|attach|publish|post|record|capture|provide|include|document|generate)\b",
+                        requirement_text,
+                        re.I,
+                    )
+                    or re.search(
+                        r"\b(?:upload|attach|publish|post|record|capture|provide|include|document|generate)\w*\b",
+                        lower,
+                    )
+                )
+                evidence_named_artifact = bool(
+                    re.search(
+                        r"\b(?:failing and passing |validation |exact-head )artifacts?\b",
+                        lower,
+                    )
+                    or re.search(r"\bvalidation artifacts?\b", lower)
+                    or re.search(r"\brequired\s+evidence\s+artifacts?\b", lower)
+                    or re.search(r"\bevidence\s+artifacts?\s*:", lower)
+                )
+                if explicit_artifact_delivery or evidence_named_artifact:
+                    line_channels.add("artifacts")
+                elif not re.search(r"\b(?:pr comments?|pull request comments?)\b", lower):
+                    continue
             if re.search(r"\b(?:pr comments?|pull request comments?)\b", lower):
                 line_channels.add("comments")
             if not line_channels:
