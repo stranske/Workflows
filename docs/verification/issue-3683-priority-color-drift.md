@@ -1,14 +1,47 @@
 # Priority-label color drift proof for #3683
 
-Tested base: `e2dea1809ae05d9f72d1a7ae5be1fb4e95b115ec`.
+This verifies the deliberate color-drift break required by [original issue #3624](https://github.com/stranske/Workflows/issues/3624)
+for [merged PR #3663](https://github.com/stranske/Workflows/pull/3663),
+merged commit [`b7a1147aa9c1c092a9269f74a84862e73fbce9de`](https://github.com/stranske/Workflows/commit/b7a1147aa9c1c092a9269f74a84862e73fbce9de).
 
-The isolated proof changed only `.github/labels-core.yml` entry `priority:low` from `0e8a16` to `ffffff`, ran the named suite, then restored the original bytes in a `finally` block. The source-drift assertion failed as required. The restored suite passed.
+Tested Workflows tip: `7e97c0af11f5886bed762b72d1a2057d456c4ed5`.
+Captured at: `2026-10-03T22:15:58.989374+00:00` (UTC).
 
-Command for both runs:
+The isolated proof temporarily changed only `.github/labels-core.yml` entry `priority:low`
+from `0e8a16` to `ffffff`. The existing gate,
+`tests/scripts/test_bootstrap_consumer_labels.py::test_priority_labels_match_synced_source_and_review_uploader`,
+failed on that color difference. The original source bytes were restored in a `finally` block
+before rerunning the same command, which passed all 26 tests.
+
+## Temporary mutation
+
+```diff
+diff --git a/.github/labels-core.yml b/.github/labels-core.yml
+index 72275268..2b28e789 100644
+--- a/.github/labels-core.yml
++++ b/.github/labels-core.yml
+@@ -46,7 +46,7 @@
+   color: "fbca04"
+   description: Normal-priority weekly repo-review work
+ - name: priority:low
+-  color: "0e8a16"
++  color: "ffffff"
+   description: Low-priority weekly repo-review work
+
+ # Agent status labels (for human visibility and retry mechanism)
+```
+
+## Command for both runs
+
+The environment skips slow tests as required by the agent instructions. The command itself
+is the exact issue-requested invocation; no coverage or pytest configuration override was used.
 
 ```sh
-python3 -m pytest tests/scripts/test_bootstrap_consumer_labels.py -q --no-cov
+export PYTEST_ADDOPTS='-m "not slow"'
+pytest tests/scripts/test_bootstrap_consumer_labels.py -q
 ```
+
+Captured output below preserves all lines; trailing whitespace is stripped for repository hygiene.
 
 ## RED (exit 1)
 
@@ -29,11 +62,29 @@ _________ test_priority_labels_match_synced_source_and_review_uploader _________
         }
 >       assert synced_priority_labels == EXPECTED_PRIORITY_LABELS
 E       AssertionError: assert {'priority:hi...review work'}} == {'priority:hi...review work'}}
-E         
+E
 E         Omitting 2 identical items, use -vv to show
 E         Differing items:
 E         {'priority:low': {'color': 'ffffff', 'description': 'Low-priority weekly repo-review work'}} != {'priority:low': {'color': '0e8a16', 'description': 'Low-priority weekly repo-review work'}}
-E         Use -v to get more diff
+E
+E         Full diff:
+E           {
+E               'priority:high': {
+E                   'color': 'b60205',
+E                   'description': 'High-priority weekly repo-review work',
+E               },
+E               'priority:normal': {
+E                   'color': 'fbca04',
+E                   'description': 'Normal-priority weekly repo-review work',
+E               },
+E               'priority:low': {
+E         -         'color': '0e8a16',
+E         ?                   ^^^^^^
+E         +         'color': 'ffffff',
+E         ?                   ^^^^^^
+E                   'description': 'Low-priority weekly repo-review work',
+E               },
+E           }
 
 tests/scripts/test_bootstrap_consumer_labels.py:80: AssertionError
 ______________ test_label_plan_contains_all_three_required_labels ______________
@@ -61,9 +112,23 @@ ______________ test_label_plan_contains_all_three_required_labels ______________
                 definition["description"],
             ]
 E           AssertionError: assert ['gh', 'label...ske/Foo', ...] == ['gh', 'label...ske/Foo', ...]
-E             
+E
 E             At index 7 diff: 'ffffff' != '0e8a16'
-E             Use -v to get more diff
+E
+E             Full diff:
+E               [
+E                   'gh',
+E                   'label',
+E                   'create',
+E                   'priority:low',
+E                   '--repo',
+E                   'stranske/Foo',
+E                   '--color',
+E             -     '0e8a16',
+E             +     'ffffff',
+E                   '--description',
+E                   'Low-priority weekly repo-review work',
+E               ]
 
 tests/scripts/test_bootstrap_consumer_labels.py:177: AssertionError
 _________ test_apply_priority_labels_creates_only_missing_and_rechecks _________
@@ -80,8 +145,8 @@ _________ test_apply_priority_labels_creates_only_missing_and_rechecks _________
         ):
 >           bcs.apply_priority_labels("stranske/Foo")
 
-tests/scripts/test_bootstrap_consumer_labels.py:202: 
-_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
+tests/scripts/test_bootstrap_consumer_labels.py:202:
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _
 
 repo = 'stranske/Foo'
 
@@ -107,8 +172,8 @@ ________ test_apply_priority_labels_accepts_complete_template_inventory ________
         ):
 >           bcs.apply_priority_labels("stranske/Template")
 
-tests/scripts/test_bootstrap_consumer_labels.py:222: 
-_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
+tests/scripts/test_bootstrap_consumer_labels.py:222:
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _
 
 repo = 'stranske/Template'
 
@@ -146,11 +211,11 @@ ________ test_main_execute_reconciles_template_derived_consumer_fixture ________
 >           assert bcs.main() == 0
                    ^^^^^^^^^^
 
-tests/scripts/test_bootstrap_consumer_labels.py:246: 
-_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
+tests/scripts/test_bootstrap_consumer_labels.py:246:
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _
 scripts/bootstrap_consumer_settings.py:719: in main
     apply_priority_labels(args.repo)
-_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _
 
 repo = 'fixture/template-consumer'
 
@@ -178,8 +243,8 @@ _________ test_apply_priority_labels_tolerates_concurrent_exact_create _________
         ):
 >           bcs.apply_priority_labels("stranske/Foo")
 
-tests/scripts/test_bootstrap_consumer_labels.py:313: 
-_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
+tests/scripts/test_bootstrap_consumer_labels.py:313:
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _
 
 repo = 'stranske/Foo'
 
@@ -207,8 +272,8 @@ ____________ test_apply_priority_labels_reraises_when_create_fails _____________
         ):
 >           bcs.apply_priority_labels("stranske/Foo")
 
-tests/scripts/test_bootstrap_consumer_labels.py:327: 
-_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
+tests/scripts/test_bootstrap_consumer_labels.py:327:
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _
 
 repo = 'stranske/Foo'
 
@@ -225,19 +290,20 @@ _____________ test_apply_priority_labels_fails_final_verification ______________
 
     def test_apply_priority_labels_fails_final_verification() -> None:
         initial = _label_inventory("priority:high", "priority:low")
->       with (
+        with (
             patch(
                 "scripts.bootstrap_consumer_settings._priority_label_inventory",
                 side_effect=[initial, initial],
             ),
             patch("subprocess.run"),
-            pytest.raises(SystemExit, match="Priority label verification failed"),
+>           pytest.raises(SystemExit, match="Priority label verification failed"),
+            ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
         ):
 E       AssertionError: Regex pattern did not match.
 E         Expected regex: 'Priority label verification failed'
 E         Actual message: 'Refusing to overwrite label metadata in stranske/Foo: priority:low'
 
-tests/scripts/test_bootstrap_consumer_labels.py:332: AssertionError
+tests/scripts/test_bootstrap_consumer_labels.py:338: AssertionError
 ___________ test_health_check_reports_zero_counts_and_missing_labels ___________
 
     def test_health_check_reports_zero_counts_and_missing_labels() -> None:
@@ -267,36 +333,127 @@ ___________ test_health_check_reports_zero_counts_and_missing_labels ___________
             "status": "OK",
         }
 E       AssertionError: assert {'repository'...ount': 0, ...} == {'repository'...ount': 0, ...}
-E         
+E
 E         Omitting 7 identical items, use -vv to show
 E         Differing items:
-E         {'metadata_mismatch': ['priority:low']} != {'metadata_mismatch': []}
 E         {'status': 'FAIL'} != {'status': 'OK'}
-E         Use -v to get more diff
+E         {'metadata_mismatch': ['priority:low']} != {'metadata_mismatch': []}
+E
+E         Full diff:
+E           {
+E               'repository': 'stranske/Empty',
+E               'implementation_count': 0,
+E               'priority_labelled_count': 0,
+E               'unprioritized_count': 0,
+E               'missing': [],
+E         -     'metadata_mismatch': [],
+E         ?                           --
+E         +     'metadata_mismatch': [
+E         +         'priority:low',
+E         +     ],
+E               'excluded': {},
+E               'error': None,
+E         -     'status': 'OK',
+E         ?                ^^
+E         +     'status': 'FAIL',
+E         ?                ^^^^
+E           }
 
 tests/scripts/test_bootstrap_consumer_labels.py:398: AssertionError
 =========================== short test summary info ============================
-FAILED tests/scripts/test_bootstrap_consumer_labels.py::test_priority_labels_match_synced_source_and_review_uploader
-FAILED tests/scripts/test_bootstrap_consumer_labels.py::test_label_plan_contains_all_three_required_labels
-FAILED tests/scripts/test_bootstrap_consumer_labels.py::test_apply_priority_labels_creates_only_missing_and_rechecks
-FAILED tests/scripts/test_bootstrap_consumer_labels.py::test_apply_priority_labels_accepts_complete_template_inventory
-FAILED tests/scripts/test_bootstrap_consumer_labels.py::test_main_execute_reconciles_template_derived_consumer_fixture
-FAILED tests/scripts/test_bootstrap_consumer_labels.py::test_apply_priority_labels_tolerates_concurrent_exact_create
-FAILED tests/scripts/test_bootstrap_consumer_labels.py::test_apply_priority_labels_reraises_when_create_fails
-FAILED tests/scripts/test_bootstrap_consumer_labels.py::test_apply_priority_labels_fails_final_verification
-FAILED tests/scripts/test_bootstrap_consumer_labels.py::test_health_check_reports_zero_counts_and_missing_labels
-9 failed, 17 passed in 0.60s
+FAILED tests/scripts/test_bootstrap_consumer_labels.py::test_priority_labels_match_synced_source_and_review_uploader - AssertionError: assert {'priority:hi...review work'}} == {'priority:hi...review work'}}
+
+  Omitting 2 identical items, use -vv to show
+  Differing items:
+  {'priority:low': {'color': 'ffffff', 'description': 'Low-priority weekly repo-review work'}} != {'priority:low': {'color': '0e8a16', 'description': 'Low-priority weekly repo-review work'}}
+
+  Full diff:
+    {
+        'priority:high': {
+            'color': 'b60205',
+            'description': 'High-priority weekly repo-review work',
+        },
+        'priority:normal': {
+            'color': 'fbca04',
+            'description': 'Normal-priority weekly repo-review work',
+        },
+        'priority:low': {
+  -         'color': '0e8a16',
+  ?                   ^^^^^^
+  +         'color': 'ffffff',
+  ?                   ^^^^^^
+            'description': 'Low-priority weekly repo-review work',
+        },
+    }
+FAILED tests/scripts/test_bootstrap_consumer_labels.py::test_label_plan_contains_all_three_required_labels - AssertionError: assert ['gh', 'label...ske/Foo', ...] == ['gh', 'label...ske/Foo', ...]
+
+  At index 7 diff: 'ffffff' != '0e8a16'
+
+  Full diff:
+    [
+        'gh',
+        'label',
+        'create',
+        'priority:low',
+        '--repo',
+        'stranske/Foo',
+        '--color',
+  -     '0e8a16',
+  +     'ffffff',
+        '--description',
+        'Low-priority weekly repo-review work',
+    ]
+FAILED tests/scripts/test_bootstrap_consumer_labels.py::test_apply_priority_labels_creates_only_missing_and_rechecks - SystemExit: Refusing to overwrite label metadata in stranske/Foo: priority:low
+FAILED tests/scripts/test_bootstrap_consumer_labels.py::test_apply_priority_labels_accepts_complete_template_inventory - SystemExit: Refusing to overwrite label metadata in stranske/Template: priority:low
+FAILED tests/scripts/test_bootstrap_consumer_labels.py::test_main_execute_reconciles_template_derived_consumer_fixture - SystemExit: Refusing to overwrite label metadata in fixture/template-consumer: priority:low
+FAILED tests/scripts/test_bootstrap_consumer_labels.py::test_apply_priority_labels_tolerates_concurrent_exact_create - SystemExit: Refusing to overwrite label metadata in stranske/Foo: priority:low
+FAILED tests/scripts/test_bootstrap_consumer_labels.py::test_apply_priority_labels_reraises_when_create_fails - SystemExit: Refusing to overwrite label metadata in stranske/Foo: priority:low
+FAILED tests/scripts/test_bootstrap_consumer_labels.py::test_apply_priority_labels_fails_final_verification - AssertionError: Regex pattern did not match.
+  Expected regex: 'Priority label verification failed'
+  Actual message: 'Refusing to overwrite label metadata in stranske/Foo: priority:low'
+FAILED tests/scripts/test_bootstrap_consumer_labels.py::test_health_check_reports_zero_counts_and_missing_labels - AssertionError: assert {'repository'...ount': 0, ...} == {'repository'...ount': 0, ...}
+
+  Omitting 7 identical items, use -vv to show
+  Differing items:
+  {'status': 'FAIL'} != {'status': 'OK'}
+  {'metadata_mismatch': ['priority:low']} != {'metadata_mismatch': []}
+
+  Full diff:
+    {
+        'repository': 'stranske/Empty',
+        'implementation_count': 0,
+        'priority_labelled_count': 0,
+        'unprioritized_count': 0,
+        'missing': [],
+  -     'metadata_mismatch': [],
+  ?                           --
+  +     'metadata_mismatch': [
+  +         'priority:low',
+  +     ],
+        'excluded': {},
+        'error': None,
+  -     'status': 'OK',
+  ?                ^^
+  +     'status': 'FAIL',
+  ?                ^^^^
+    }
+9 failed, 17 passed in 1.10s
 ```
 
 ## Restored GREEN (exit 0)
 
 ```text
 ..........................                                               [100%]
-26 passed in 0.22s
+26 passed in 0.87s
 ```
 
 ## Restoration
 
-Original and restored bytes were identical; SHA-256: `92c3670964eb0f079d96e733dfcf837a64fc9b514341db54ac2ee32a0184a66d`.
-`git diff -- .github/labels-core.yml` produced no output after restoration.
-This PR commits only the captured transcript; no altered label source, generated runtime state, or simulated historical output.
+The exact original bytes were restored, including `priority:low` color `0e8a16`.
+
+- Original SHA-256: `92c3670964eb0f079d96e733dfcf837a64fc9b514341db54ac2ee32a0184a66d`.
+- Restored SHA-256: `92c3670964eb0f079d96e733dfcf837a64fc9b514341db54ac2ee32a0184a66d`.
+- `git diff -- .github/labels-core.yml` produced no output after restoration.
+- `tests/scripts/test_bootstrap_consumer_labels.py` remains unchanged as the gate.
+
+Only this evidence artifact is included in the commit.
