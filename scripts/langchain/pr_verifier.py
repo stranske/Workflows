@@ -821,7 +821,8 @@ def _required_evidence_channels(acceptance: str) -> set[str]:
         re.I,
     )
     requirement = re.compile(
-        r"\b(?:required|mandatory|must|shall|needs? to|publish(?:es|ed)?|upload(?:s|ed)?|"
+        r"\b(?:required|mandatory|(?:is|are)\s+needed|must|shall|needs? to|"
+        r"publish(?:es|ed)?|upload(?:s|ed)?|"
         r"attach(?:es|ed)?|captur(?:e|es|ed)|record(?:s|ed)?|provid(?:e|es|ed)|"
         r"includ(?:e|es|ed)|post(?:s|ed)?|document(?:s|ed)?|prov(?:e|es|ed)|show(?:s|ed)?)\b",
         re.I,
@@ -836,7 +837,7 @@ def _required_evidence_channels(acceptance: str) -> set[str]:
     evidence_prohibition = re.compile(
         r"\bno\s+(?:\w+\s+){0,3}(?:evidence|artifacts?|transcripts?|command outputs?|"
         r"workflow runs?|pr comments?|pull request comments?)"
-        r"\s+(?:is|are)\s+(?:required|mandatory)\b"
+        r"\s+(?:is|are)\s+(?:required|needed|mandatory)\b"
         r"|\b(?:evidence|artifacts?|transcripts?|command outputs?|workflow runs?|"
         r"pr comments?|pull request comments?)"
         r"\s+(?:is|are)\s+not\s+(?:required|needed|mandatory)\b"
@@ -849,6 +850,11 @@ def _required_evidence_channels(acceptance: str) -> set[str]:
         r"(?:must|shall|may|should)\s+not\s+be\s+"
         r"(?:uploaded|attached|provided|published|posted|recorded|captured|"
         r"included|documented)\b"
+        r"|\bneither\s+(?:\w+\s+){0,4}(?:evidence|artifacts?|transcripts?|command outputs?|"
+        r"workflow runs?|pr comments?|pull request comments?)\s+nor\s+"
+        r"(?:\w+\s+){0,4}(?:evidence|artifacts?|transcripts?|command outputs?|"
+        r"workflow runs?|pr comments?|pull request comments?)\s+"
+        r"(?:is|are)\s+(?:required|needed|mandatory)\b"
         r"|\bno\s+(?:\w+\s+){0,4}(?:evidence|artifacts?|transcripts?|command outputs?|"
         r"workflow runs?|pr comments?|pull request comments?)\s+"
         r"(?:must|shall|may|should)\s+(?:not\s+)?(?:be\s+)?"
@@ -887,7 +893,8 @@ def _required_evidence_channels(acceptance: str) -> set[str]:
         clause_boundary = (
             r"\s*;\s*|,?\s+(?:but|whereas)\s+|,?\s+(?:and|while)\s+(?="
             r"(?:optionally\s+)?(?:"
-            r"(?:an?\s+|the\s+)?(?:evidence|artifacts?|transcripts?|command outputs?|"
+            r"(?:an?\s+|the\s+)?(?:validation\s+|exact-head\s+)?"
+            r"(?:evidence|artifacts?|transcripts?|command outputs?|"
             r"workflow runs?|pr comments?|pull request comments?)|"
             r"(?:publish|upload|attach|capture|record|provide|include|post|document|prove|show)\b"
             r"))"
@@ -922,9 +929,10 @@ def _required_evidence_channels(acceptance: str) -> set[str]:
                     re.I,
                 )
             )
+            meta_delivery_text = re.sub(r'(["\']).*?\1', " ", requirement_text)
             # Requirements about understanding evidence syntax are software
             # behavior, not evidence-delivery requirements.
-            if meta_behavior and not delivery_verb.search(requirement_text):
+            if meta_behavior and not delivery_verb.search(meta_delivery_text):
                 continue
             checklist_deliverable = bool(
                 checklist

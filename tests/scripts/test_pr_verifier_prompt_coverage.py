@@ -587,6 +587,50 @@ def test_plain_mandatory_artifact_is_required_evidence() -> None:
     assert pr_verifier._required_evidence_channels("- No validation artifact is mandatory") == set()
 
 
+def test_passive_needed_evidence_requirements_and_prohibitions() -> None:
+    positive = {
+        "A validation artifact is needed": {"artifacts"},
+        "A PR comment is needed": {"comments"},
+        "Validation artifacts are needed": {"artifacts"},
+        "Pull request comments are needed": {"comments"},
+        "A validation transcript is needed": {"overall"},
+        "Command output is needed": {"overall"},
+        "Validation evidence is needed": {"overall"},
+    }
+    negative = (
+        "A validation artifact is not needed",
+        "A PR comment is not needed",
+        "No validation artifact is needed",
+        "No PR comments are needed",
+        "A PR comment need not be posted",
+        "An optional validation artifact is needed",
+        "A validation artifact is needed if available",
+        "A validation artifact is needed when produced",
+        "The Gate workflow run is needed",
+        "Neither a validation artifact nor a PR comment is needed",
+    )
+    for prefix in ("", "- ", "- [ ] "):
+        for text, expected in positive.items():
+            assert pr_verifier._required_evidence_channels(prefix + text) == expected
+        for text in negative:
+            assert pr_verifier._required_evidence_channels(prefix + text) == set()
+
+
+def test_optional_passive_clause_preserves_required_validation_artifact() -> None:
+    assert pr_verifier._required_evidence_channels(
+        "- An optional PR comment is needed and a validation artifact is needed"
+    ) == {"artifacts"}
+
+
+def test_quoted_passive_requirement_in_parser_description_is_not_evidence() -> None:
+    assert (
+        pr_verifier._required_evidence_channels(
+            '- The parser must recognize the phrase "A PR comment is needed"'
+        )
+        == set()
+    )
+
+
 def test_descriptive_artifact_parser_requirement_is_not_a_deliverable() -> None:
     assert (
         pr_verifier._required_evidence_channels("- [ ] The parser must recognize artifact URLs")
