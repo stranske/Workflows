@@ -836,10 +836,10 @@ def _required_evidence_channels(acceptance: str) -> set[str]:
     evidence_prohibition = re.compile(
         r"\bno\s+(?:\w+\s+){0,3}(?:evidence|artifacts?|transcripts?|command outputs?|"
         r"workflow runs?|pr comments?|pull request comments?)"
-        r"\s+(?:is|are)\s+required\b"
+        r"\s+(?:is|are)\s+(?:required|mandatory)\b"
         r"|\b(?:evidence|artifacts?|transcripts?|command outputs?|workflow runs?|"
         r"pr comments?|pull request comments?)"
-        r"\s+(?:is|are)\s+not\s+(?:required|needed)\b"
+        r"\s+(?:is|are)\s+not\s+(?:required|needed|mandatory)\b"
         r"|\b(?:must|shall|may|should|do|does)\s+not\s+"
         r"(?:upload|attach|provide|publish|post|record|capture|include|document)\b"
         r"(?:\s+(?:the\s+|an?\s+|any\s+)?(?:evidence|artifacts?|transcripts?|"

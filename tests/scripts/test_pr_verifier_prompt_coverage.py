@@ -580,6 +580,11 @@ def test_plain_mandatory_artifact_is_required_evidence() -> None:
     assert pr_verifier._required_evidence_channels("- A validation artifact is mandatory") == {
         "artifacts"
     }
+    # Codex P2 (thread PRRT_kwDOQprj9M6ojR4e): explicit negation remains optional.
+    assert (
+        pr_verifier._required_evidence_channels("- A validation artifact is not mandatory") == set()
+    )
+    assert pr_verifier._required_evidence_channels("- No validation artifact is mandatory") == set()
 
 
 def test_descriptive_artifact_parser_requirement_is_not_a_deliverable() -> None:
