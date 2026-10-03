@@ -990,9 +990,25 @@ def _required_evidence_channels(acceptance: str) -> set[str]:
             r"(?:publish|upload|attach|capture|record|provide|include|post|document|prove|show)\b"
             r"))"
         )
+        clause_evidence_antecedent: str | None = None
+        pronoun_pr_delivery = re.compile(
+            r"\b(?:attach|upload|publish|post|record|capture|provide|include|document)\w*\b"
+            r".{0,40}\b(?:it|them|this)\b.{0,40}\b(?:pr|pull request)\b",
+            re.I,
+        )
         for line in re.split(clause_boundary, criterion, flags=re.I):
-            gate = bool(negative_gate.search(line))
-            requirement_text = line if gate else evidence_prohibition.sub(" ", line)
+            antecedent_match = re.search(r"\b(?:command outputs?|transcripts?)\b", line, re.I)
+            if antecedent_match:
+                clause_evidence_antecedent = antecedent_match.group(0)
+            working_line = line
+            if (
+                clause_evidence_antecedent
+                and not evidence_term.search(line)
+                and pronoun_pr_delivery.search(line)
+            ):
+                working_line = f"{clause_evidence_antecedent} {line}"
+            gate = bool(negative_gate.search(working_line))
+            requirement_text = working_line if gate else evidence_prohibition.sub(" ", working_line)
             # An optional evidence noun can be the object of a mandatory
             # explanation (for example, "a PR comment must explain why
             # artifacts are optional"). Remove only that optional subject;
@@ -1182,7 +1198,8 @@ def _required_evidence_channels(acceptance: str) -> set[str]:
                 product_artifact_actor = bool(
                     re.search(
                         r"\b(?:ui|api|application|interface|service|worker|cli|database|"
-                        r"users?)\b\s+(?:(?:must|shall|will|should|can|may|needs?\s+to)\s+)?"
+                        r"users?|endpoint|renderer)\b\s+"
+                        r"(?:(?:must|shall|will|should|can|may|needs?\s+to)\s+)?"
                         r"(?:upload|attach|publish|post|record|capture|"
                         r"provide|include|document)\w*\b.{0,60}\bartifacts?\b",
                         requirement_text,
@@ -1280,7 +1297,7 @@ def _required_evidence_channels(acceptance: str) -> set[str]:
                 )
             )
             product_output_prefix = re.compile(
-                r"\b(?:ui|api|application|interface|service|cli)\b\s+"
+                r"\b(?:ui|api|application|interface|service|cli|endpoint|renderer)\b\s+"
                 r"(?:(?:must|shall|will|should|can|may|needs?\s+to)\s+)?"
                 r"(?:return|display|show|store|emit|render|expose)\w*\b",
                 re.I,
@@ -1290,7 +1307,7 @@ def _required_evidence_channels(acceptance: str) -> set[str]:
                 re.search(
                     r"\b(?:command outputs?|transcripts?)\b.{0,60}"
                     r"\b(?:return|display|show|store|emit|render|expose)\w*\b.{0,60}"
-                    r"\b(?:ui|api|application|interface|service|cli)\b",
+                    r"\b(?:ui|api|application|interface|service|cli|endpoint|renderer)\b",
                     requirement_text,
                     re.I,
                 )

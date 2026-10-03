@@ -536,6 +536,8 @@ def test_product_output_behavior_does_not_require_evidence_delivery() -> None:
         "- [ ] The API must return command output",
         "- [ ] The UI must display a transcript",
         "- [ ] Command output must be displayed in the UI",
+        "- [ ] The endpoint must return command output",
+        "- [ ] The renderer must display command output",
     ):
         assert pr_verifier._required_evidence_channels(criterion) == set()
 
@@ -557,6 +559,13 @@ def test_product_output_behavior_preserves_explicit_evidence_delivery() -> None:
     assert pr_verifier._required_evidence_channels(
         "- [ ] The UI must display a transcript that must be posted in a PR comment"
     ) == {"comments"}
+
+
+def test_clause_split_preserves_command_output_pr_delivery_antecedent() -> None:
+    # Codex P1 (thread PRRT_kwDOQprj9M6oolFw): clause split must not drop pronoun antecedent.
+    assert pr_verifier._required_evidence_channels(
+        "- [ ] The response must include command output and attach it to the PR"
+    ) == {"overall"}
 
 
 @pytest.mark.parametrize(
