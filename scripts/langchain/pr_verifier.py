@@ -850,7 +850,7 @@ def _required_evidence_channels(acceptance: str) -> set[str]:
         r"pr comments?|pull request comments?)\s+"
         r"(?:must|shall|may|should)\s+not\s+be\s+"
         r"(?:uploaded|attached|provided|published|posted|recorded|captured|"
-        r"included|documented)\b"
+        r"included|documented|generated)\b"
         r"|\bneither\s+(?:\w+\s+){0,4}(?:evidence|artifacts?|transcripts?|command outputs?|"
         r"workflow runs?|pr comments?|pull request comments?)\s+nor\s+"
         r"(?:\w+\s+){0,4}(?:evidence|artifacts?|transcripts?|command outputs?|"
@@ -903,6 +903,17 @@ def _required_evidence_channels(acceptance: str) -> set[str]:
         for line in re.split(clause_boundary, criterion, flags=re.I):
             gate = bool(negative_gate.search(line))
             requirement_text = line if gate else evidence_prohibition.sub(" ", line)
+            # An optional evidence noun can be the object of a mandatory
+            # explanation (for example, "a PR comment must explain why
+            # artifacts are optional"). Remove only that optional subject;
+            # do not discard a separate required channel in the same clause.
+            requirement_text = re.sub(
+                r"\b(?:evidence|artifacts?|transcripts?|command outputs?|workflow runs?|"
+                r"pr comments?|pull request comments?)\s+(?:is|are)\s+optional\b",
+                " ",
+                requirement_text,
+                flags=re.I,
+            )
             if not evidence_term.search(requirement_text):
                 continue
             checklist = criterion_checklist

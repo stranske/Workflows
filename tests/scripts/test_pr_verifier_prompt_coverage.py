@@ -486,6 +486,13 @@ def test_passive_prohibition_preserves_separate_required_comment() -> None:
     ) == {"comments"}
 
 
+def test_passive_generation_prohibition_does_not_require_artifacts() -> None:
+    assert (
+        pr_verifier._required_evidence_channels("- A validation artifact must not be generated")
+        == set()
+    )
+
+
 def test_command_output_uses_its_named_source_channel() -> None:
     assert pr_verifier._required_evidence_channels(
         "- Post the command output in an exact-head PR comment"
@@ -562,6 +569,12 @@ def test_optional_evidence_clause_preserves_required_comment() -> None:
     # Codex P1 (thread PRRT_kwDOQprj9M6ojMIp): concessive connectors also split clauses.
     assert pr_verifier._required_evidence_channels(
         "- [ ] Upload the validation artifact when available, whereas a PR comment must be posted"
+    ) == {"comments"}
+
+
+def test_optional_subject_does_not_hide_required_explanation_comment() -> None:
+    assert pr_verifier._required_evidence_channels(
+        "- A PR comment must explain why artifacts are optional"
     ) == {"comments"}
 
 
