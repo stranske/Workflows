@@ -660,7 +660,7 @@ def _split_diff_files(diff: str) -> list[tuple[str, str]]:
         return None
 
     def normalized_path(raw: str) -> str | None:
-        value = raw.rstrip("\n")
+        value = raw.rstrip("\n").split("\t", 1)[0]
         if value == "/dev/null":
             return ""
         if value.startswith('"'):
@@ -1085,6 +1085,33 @@ def _required_evidence_channels(acceptance: str) -> set[str]:
             ):
                 continue
             lower = requirement_text.lower()
+            response_prefix = re.compile(
+                r"\b(?:responses?|payloads?|return\s+values?)\b\s+"
+                r"(?:(?:must|shall|will|should|can|may|needs?\s+to)\s+)?"
+                r"(?:include|contain|have|return|display|show|store|emit|render|expose)\w*\b",
+                re.I,
+            )
+            if response_prefix.search(requirement_text):
+                delivery_text = response_prefix.sub(" ", requirement_text, count=1)
+                if not (evidence_term.search(delivery_text) and requirement.search(delivery_text)):
+                    continue
+                requirement_text = delivery_text
+                lower = requirement_text.lower()
+            response_destination = re.search(
+                r"\b(?:transcripts?|command outputs?)\b.{0,40}"
+                r"\b(?:in|into|to)\b.{0,30}"
+                r"\b(?:responses?|payloads?|return\s+values?)\b",
+                requirement_text,
+                re.I,
+            )
+            review_delivery = re.search(
+                r"\b(?:attach|upload|publish|post|record|capture|provide|include|document)\w*"
+                r"\b.{0,80}\b(?:in|into|to)\s+(?:the\s+)?(?:pr|pull request)\b",
+                requirement_text,
+                re.I,
+            )
+            if response_destination and not review_delivery:
+                continue
             line_channels: set[str] = set()
             # Artifact domain nouns in product acceptance (UI, storage, icons)
             # are not workflow evidence deliverables. An explicit delivery into

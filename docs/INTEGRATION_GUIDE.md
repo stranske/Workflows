@@ -554,8 +554,11 @@ such as "Include an artifact" remain required; mentioning an API/UI change
 before a delivery instruction does not turn that instruction into product behavior.
 Artifacts included in a product response or payload are not workflow evidence,
 regardless of the actor's name; explicit PR delivery remains required.
+The same rule applies to transcript/command-output fields in response contracts;
+an additional required PR-comment delivery in the clause is preserved.
 Cross-repository full-diff recovery fetches and verifies both the recorded base
 and PR head from the target repository before reconstructing the range.
+Git's tab delimiter in `---`/`+++` metadata is not part of the changed pathname.
 
 ### Consumer Repo Setup: Coverage Soft Gate
 

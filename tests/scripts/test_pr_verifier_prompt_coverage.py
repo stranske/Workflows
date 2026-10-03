@@ -588,6 +588,15 @@ def test_explicit_artifact_delivery_survives_product_context(
         ("The endpoint must include artifacts in the response", set()),
         ("The renderer must include artifacts in the response payload", set()),
         ("Include artifacts in the API response", set()),
+        ("The API response must include command output", set()),
+        ("The renderer response must contain a transcript", set()),
+        ("Include a transcript in the API payload", set()),
+        ("Include command output in the response payload", set()),
+        ("The response must include an artifact", set()),
+        (
+            "The API response must include a transcript that must be posted in a PR comment",
+            {"comments"},
+        ),
         ("The endpoint must include an artifact in the PR", {"artifacts"}),
         ("Include an artifact in the PR", {"artifacts"}),
         ("The UI must include an artifact", set()),
@@ -1371,6 +1380,19 @@ def test_mixed_quoted_git_header_paths_are_complete(header: str, destination: st
 
     assert status == "complete"
     assert files[0].path == destination
+
+
+def test_git_tab_delimiter_does_not_become_part_of_a_spaced_path() -> None:
+    patch = (
+        "diff --git a/docs/My File.md b/docs/My File.md\n"
+        "--- a/docs/My File.md\t\n+++ b/docs/My File.md\t\n"
+        "@@ -1 +1 @@\n-old\n+new\n"
+    )
+    context, _ = _context(1, 1_000, 1_000)
+    context = context.replace("src/pkg_0/module_0.py", "docs/My File.md")
+    inputs = pr_verifier.build_prompt_inputs(context, patch)
+    assert inputs.coverage.sufficient
+    assert inputs.coverage.files[0].path == "docs/My File.md"
 
 
 @pytest.mark.parametrize(
