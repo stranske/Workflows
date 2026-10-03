@@ -379,8 +379,7 @@ def test_non_pass_output_prefers_summary_over_stale_pass_raw_content(
     """Coverage floor can downgrade verdict while raw_content still says PASS."""
     stale_pass = '{"verdict": "PASS", "summary": "Looks complete."}'
     summary = (
-        "Verifier input coverage incomplete; PASS withheld: missing code\n\n"
-        "Looks complete."
+        "Verifier input coverage incomplete; PASS withheld: missing code\n\n" "Looks complete."
     )
     _stub_evaluation(
         monkeypatch,
