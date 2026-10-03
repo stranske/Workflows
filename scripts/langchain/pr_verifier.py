@@ -827,13 +827,6 @@ def _required_evidence_channels(acceptance: str) -> set[str]:
         r"includ(?:e|es|ed)|post(?:s|ed)?|document(?:s|ed)?|prov(?:e|es|ed)|show(?:s|ed)?)\b",
         re.I,
     )
-    delivery_verb = re.compile(
-        r"\b(?:publish(?:es|ed)?|upload(?:s|ed)?|attach(?:es|ed)?|"
-        r"captur(?:e|es|ed)|record(?:s|ed)?|provid(?:e|es|ed)|"
-        r"includ(?:e|es|ed)|post(?:s|ed)?|document(?:s|ed)?|"
-        r"prov(?:e|es|ed)|show(?:s|ed)?)\b",
-        re.I,
-    )
     evidence_prohibition = re.compile(
         r"\bno\s+(?:\w+\s+){0,3}(?:evidence|artifacts?|transcripts?|command outputs?|"
         r"workflow runs?|pr comments?|pull request comments?)"
@@ -950,9 +943,6 @@ def _required_evidence_channels(acceptance: str) -> set[str]:
                     requirement_text,
                     re.I,
                 )
-            )
-            meta_delivery_text = re.sub(
-                r"`[^`]*`|“[^”]*”|‘[^’]*’|([\"']).*?\1", " ", requirement_text
             )
             # Requirements about understanding evidence syntax are software
             # behavior, not evidence-delivery requirements. Nominal upload
