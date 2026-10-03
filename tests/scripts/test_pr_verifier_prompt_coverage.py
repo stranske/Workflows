@@ -335,6 +335,23 @@ def test_fenced_comment_cannot_spoof_unavailable_status() -> None:
     assert coverage.sufficient
 
 
+def test_fenced_acceptance_heading_is_not_extracted_as_real_criteria() -> None:
+    # Codex P2 (thread PRRT_kwDOQprj9M6omBRi): literal parser examples are inert.
+    source = """Parser example:
+```markdown
+## Acceptance Criteria
+- Upload a validation artifact
+```
+
+## Acceptance Criteria
+- Post the exact-head PR comment
+
+## Next steps
+- Continue
+"""
+    assert pr_verifier._acceptance_criteria_sections(source) == "- Post the exact-head PR comment"
+
+
 def test_acceptance_checklist_evidence_deliverable_is_required() -> None:
     context, _ = _context(1, 1_000, 1_000)
     context = context.replace(
@@ -511,6 +528,13 @@ def test_command_output_uses_its_named_source_channel() -> None:
 def test_cli_command_behavior_does_not_require_evidence_delivery() -> None:
     # Codex P2 (thread PRRT_kwDOQprj9M6olqqf): `outputs` describes CLI behavior.
     assert pr_verifier._required_evidence_channels("- [ ] The CLI command outputs JSON") == set()
+
+
+def test_cli_command_behavior_preserves_explicit_evidence_delivery() -> None:
+    # Codex P1 (thread PRRT_kwDOQprj9M6omBRf): behavior can feed a deliverable.
+    assert pr_verifier._required_evidence_channels(
+        "- [ ] The CLI command outputs a transcript that must be attached to the PR"
+    ) == {"overall"}
 
 
 def test_checklist_prohibition_does_not_require_artifacts() -> None:

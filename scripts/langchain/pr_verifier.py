@@ -787,7 +787,22 @@ def _fit_context_sections(
 
 def _acceptance_criteria_sections(plan_sources: str) -> str:
     """Return only acceptance-criteria subsections from structured plan sources."""
-    lines = plan_sources.splitlines()
+    lines: list[str] = []
+    fence_char: str | None = None
+    fence_len = 0
+    for raw_line in plan_sources.splitlines():
+        fence = re.match(r"^\s*(`{3,}|~{3,})", raw_line)
+        if fence:
+            marker = fence.group(1)
+            if fence_char is None:
+                fence_char = marker[0]
+                fence_len = len(marker)
+            elif marker[0] == fence_char and len(marker) >= fence_len:
+                fence_char = None
+                fence_len = 0
+            lines.append("")
+            continue
+        lines.append("" if fence_char is not None else raw_line)
     captured: list[str] = []
     index = 0
     while index < len(lines):
@@ -1067,8 +1082,19 @@ def _required_evidence_channels(acceptance: str) -> set[str]:
                 )
                 if command_behavior:
                     # A command that outputs JSON describes product behavior;
-                    # it is not a request to capture or deliver command output.
-                    continue
+                    # it is not itself a request to deliver command output.
+                    # Preserve a separate downstream evidence requirement.
+                    delivery_text = re.sub(
+                        r"\b(?:cli\s+)?command\b\s+" r"(?:must\s+|shall\s+|will\s+)?outputs\b",
+                        " ",
+                        requirement_text,
+                        count=1,
+                        flags=re.I,
+                    )
+                    if not (
+                        evidence_term.search(delivery_text) and requirement.search(delivery_text)
+                    ):
+                        continue
                 if re.search(r"\bworkflow runs?\b", lower):
                     without_workflow_run = re.sub(r"\bworkflow runs?\b", " ", lower)
                     if not evidence_term.search(without_workflow_run):
