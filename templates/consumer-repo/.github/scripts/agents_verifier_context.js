@@ -324,43 +324,63 @@ async function fetchVerifierEvidence({
   const artifactChars = positiveLimit('VERIFIER_EVIDENCE_ARTIFACT_CHARS', DEFAULT_EVIDENCE_ARTIFACT_CHARS);
 
   const comments = { status: 'absent', complete: true, records: [], reason: '' };
-  let commentBodies = [];
-  try {
-    if (!github?.rest?.issues?.listComments) throw new Error('PR comment API is unavailable');
-    const response = await github.rest.issues.listComments({
-      owner,
-      repo,
-      issue_number: pullNumber,
-      per_page: Math.min(commentLimit, 100),
-      sort: 'created',
-      direction: 'desc',
-    });
-    const source = Array.isArray(response?.data) ? response.data : [];
-    let usedChars = 0;
-    let truncated = Boolean(response?.headers?.link?.includes('rel="next"'));
-    for (const comment of source.slice(0, commentLimit)) {
-      const result = appendBoundedText(comments.records, {
-        author: comment?.user?.login || comment?.author?.login || 'unknown',
-        url: comment?.html_url || comment?.url || '',
-        body: comment?.body || '',
-      }, commentChars, usedChars);
-      usedChars = result.usedChars;
-      truncated = truncated || result.truncated;
-      if (result.truncated) break;
+  let usedCommentChars = 0;
+  const commentFailures = [];
+  const commentSources = [
+    {
+      name: 'conversation comments',
+      method: github?.rest?.issues?.listComments,
+      params: { owner, repo, issue_number: pullNumber, sort: 'created', direction: 'desc' },
+    },
+    {
+      name: 'inline review comments',
+      method: github?.rest?.pulls?.listReviewComments,
+      params: { owner, repo, pull_number: pullNumber, sort: 'created', direction: 'desc' },
+    },
+    {
+      name: 'submitted reviews',
+      method: github?.rest?.pulls?.listReviews,
+      params: { owner, repo, pull_number: pullNumber },
+    },
+  ];
+  for (const source of commentSources) {
+    try {
+      if (!source.method) throw new Error(`${source.name} API is unavailable`);
+      const response = await source.method({ ...source.params, per_page: Math.min(commentLimit, 100) });
+      const records = Array.isArray(response?.data) ? response.data : [];
+      let truncated = Boolean(response?.headers?.link?.includes('rel="next"'));
+      for (const comment of records) {
+        if (comments.records.length >= commentLimit) {
+          truncated = true;
+          break;
+        }
+        const result = appendBoundedText(comments.records, {
+          author: comment?.user?.login || comment?.author?.login || 'unknown',
+          url: comment?.html_url || comment?.url || '',
+          body: comment?.body || '',
+          source: source.name,
+        }, commentChars, usedCommentChars);
+        usedCommentChars = result.usedChars;
+        truncated = truncated || result.truncated;
+        if (result.truncated) break;
+      }
+      if (truncated) {
+        commentFailures.push(
+          `${source.name}: comment count or character limit prevented complete inspection (including pagination)`
+        );
+      }
+    } catch (error) {
+      commentFailures.push(`${source.name} retrieval failed: ${error.message}`);
+      core?.warning?.(`Verifier ${source.name} evidence unavailable: ${error.message}`);
     }
-    commentBodies = comments.records.map((comment) => comment.body);
-    if (truncated || source.length > commentLimit) {
-      comments.status = 'unavailable';
-      comments.complete = false;
-      comments.reason = 'comment count or character limit prevented complete inspection';
-    } else {
-      comments.status = comments.records.length ? 'present' : 'absent';
-    }
-  } catch (error) {
+  }
+  const commentBodies = comments.records.map((comment) => comment.body);
+  if (commentFailures.length) {
     comments.status = 'unavailable';
     comments.complete = false;
-    comments.reason = `comment retrieval failed: ${error.message}`;
-    core?.warning?.(`Verifier PR-comment evidence unavailable: ${error.message}`);
+    comments.reason = commentFailures.join('; ');
+  } else {
+    comments.status = comments.records.length ? 'present' : 'absent';
   }
 
   const artifacts = { status: 'absent', complete: true, records: [], reason: '' };

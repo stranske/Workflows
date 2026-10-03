@@ -90,6 +90,12 @@ const buildGithubStub = ({
   comments = [],
   commentError = null,
   commentLink = '',
+  reviewComments = [],
+  reviewCommentError = null,
+  reviewCommentLink = '',
+  reviews = [],
+  reviewError = null,
+  reviewLink = '',
   artifactsByRun = {},
   artifactListError = null,
   artifactListResponse = null,
@@ -136,6 +142,14 @@ const buildGithubStub = ({
       },
     },
     pulls: {
+      async listReviewComments() {
+        if (reviewCommentError) throw reviewCommentError;
+        return { data: reviewComments, headers: { link: reviewCommentLink } };
+      },
+      async listReviews() {
+        if (reviewError) throw reviewError;
+        return { data: reviews, headers: { link: reviewLink } };
+      },
       async get(params = {}) {
         pullGetCalls?.push(params);
         if (params?.mediaType?.format === 'diff') {
@@ -852,6 +866,54 @@ test('buildVerifierContext includes bounded comment-only acceptance evidence', a
   assert.match(result.markdown, /PR comments: \*\*present\*\*/);
   assert.match(result.markdown, /RED: named test failed/);
   removeVerifierDiffArtifacts(result);
+});
+
+test('buildVerifierContext discovers artifact links from inline comments and review bodies', async () => {
+  const headSha = 'bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb';
+  const { core, result } = await buildEvidenceContext({
+    reviewComments: [{
+      user: { login: 'inline-reviewer' },
+      html_url: 'https://example.com/pr/700#discussion-1',
+      body: 'Inline proof: https://github.com/octo/workflows/actions/runs/124',
+    }],
+    reviews: [{
+      user: { login: 'reviewer' },
+      html_url: 'https://example.com/pr/700#review-1',
+      body: 'Submitted proof: https://github.com/octo/workflows/actions/runs/125',
+    }],
+    workflowRunsById: {
+      124: { id: 124, head_sha: headSha },
+      125: { id: 125, head_sha: headSha },
+    },
+    artifactsByRun: {
+      124: [{ id: 24, name: 'inline-proof', size_in_bytes: 20, expired: false }],
+      125: [{ id: 25, name: 'review-proof', size_in_bytes: 20, expired: false }],
+    },
+    artifactDownloads: { 24: Buffer.from('zip'), 25: Buffer.from('zip') },
+  }, {
+    extractArtifactText({ archiveBuffer }) {
+      return { text: `proof-${archiveBuffer.length}`, entryCount: 1, truncated: false };
+    },
+  });
+  assert.equal(core.outputs.evidence_status, 'present');
+  assert.match(result.markdown, /Inline proof/);
+  assert.match(result.markdown, /Submitted proof/);
+  assert.match(result.markdown, /Run 124: inline-proof/);
+  assert.match(result.markdown, /Run 125: review-proof/);
+  removeVerifierDiffArtifacts(result);
+});
+
+test('buildVerifierContext fails closed when any review evidence source is incomplete', async () => {
+  for (const options of [
+    { reviewCommentError: new Error('inline forbidden') },
+    { reviewError: new Error('review forbidden') },
+    { reviewCommentLink: '<https://api.example.com/page=2>; rel="next"' },
+  ]) {
+    const { core, result } = await buildEvidenceContext(options);
+    assert.equal(core.outputs.evidence_status, 'unavailable');
+    assert.match(result.markdown, /PR comments: \*\*unavailable\*\*/);
+    removeVerifierDiffArtifacts(result);
+  }
 });
 
 test('buildVerifierContext includes bounded text from a referenced workflow artifact', async () => {
