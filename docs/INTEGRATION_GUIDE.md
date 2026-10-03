@@ -548,6 +548,10 @@ allowlist makes the artifact evidence unavailable even if other text was read.
 Evaluate/compare accept only a complete Git patch as code: a diff summary,
 garbled `--diff-file`, malformed quoted path, or budget-truncated patch floors
 the verdict at CONCERNS rather than treating zero parsed files as no change.
+Binary-only descriptors (`Binary files ... differ` or `GIT binary patch`) are
+omitted code coverage, not inspectable contents. Evidence-delivery requirements
+such as "Include an artifact" remain required; mentioning an API/UI change
+before a delivery instruction does not turn that instruction into product behavior.
 
 ### Consumer Repo Setup: Coverage Soft Gate
 

@@ -550,6 +550,61 @@ def test_product_output_behavior_preserves_explicit_evidence_delivery() -> None:
     ) == {"comments"}
 
 
+@pytest.mark.parametrize(
+    "criterion",
+    [
+        "For the UI change, attach a validation artifact to show the transcript",
+        "For the UI change, attach an artifact to show the transcript",
+        "For the API change, upload an artifact to show the command output",
+        "For the service change, provide an artifact to display the transcript",
+        "Include an artifact",
+        "Include a workflow artifact",
+    ],
+)
+def test_explicit_artifact_delivery_survives_product_context(
+    criterion: str, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    assert pr_verifier._required_evidence_channels("- [ ] " + criterion) == {"artifacts"}
+    context, _ = _context(1, 1_000, 1_000)
+    context = context.replace("- " + ACCEPTANCE_SENTINEL, "- [ ] " + criterion).replace(
+        "## PR Diff Summary",
+        "## Acceptance evidence\n\n"
+        "- Overall retrieval status: **unavailable**\n"
+        "- PR comments: **present**\n"
+        "- Referenced workflow artifacts: **unavailable**\n"
+        "## PR Diff Summary",
+    )
+    client = _pass_client()
+    monkeypatch.setattr(
+        pr_verifier, "_get_llm_client", lambda model=None, provider=None: (client, "openai")
+    )
+    assert pr_verifier.evaluate_pr(context).verdict == "CONCERNS"
+
+
+@pytest.mark.parametrize(
+    ("criterion", "expected"),
+    [
+        ("Include an artifact in the database", set()),
+        ("Include an artifact in the PR", {"artifacts"}),
+        ("The UI must include an artifact", set()),
+        ("The UI must show a validation artifact", set()),
+        ("The API must render a workflow artifact", set()),
+        ("Include an artifact if available", set()),
+        ("Do not include an artifact", set()),
+        ("Include an artifact and optionally post a PR comment", {"artifacts"}),
+        ("Do not include an artifact and post a PR comment", {"comments"}),
+        (
+            "The UI must display a validation artifact that must be attached to the PR",
+            {"artifacts"},
+        ),
+    ],
+)
+def test_artifact_inclusion_preserves_product_and_optional_exemptions(
+    criterion: str, expected: set[str]
+) -> None:
+    assert pr_verifier._required_evidence_channels("- [ ] " + criterion) == expected
+
+
 def test_cli_command_behavior_preserves_explicit_evidence_delivery() -> None:
     # Codex P1 (thread PRRT_kwDOQprj9M6omBRf): behavior can feed a deliverable.
     assert pr_verifier._required_evidence_channels(

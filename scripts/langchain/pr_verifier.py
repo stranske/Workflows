@@ -1093,7 +1093,7 @@ def _required_evidence_channels(acceptance: str) -> set[str]:
             if re.search(r"\b(?:workflow\s+)?artifacts?\b", lower):
                 explicit_artifact_delivery = bool(
                     re.search(
-                        r"\b(?:upload|attach|publish|post|record|capture|provide|document)"
+                        r"\b(?:upload|attach|publish|post|record|capture|provide|include|document)"
                         r"(?:s)?\s+(?:(?:an?|the|any|workflow|validation|exact-head|evidence)\s+){0,4}"
                         r"artifacts?\b",
                         requirement_text,
@@ -1111,7 +1111,7 @@ def _required_evidence_channels(acceptance: str) -> set[str]:
                 product_artifact_destination = bool(
                     re.search(r"\bproduct\s+upload\b", lower)
                     or re.search(
-                        r"\b(?:upload|attach|publish|post|record|capture|provide|document)"
+                        r"\b(?:upload|attach|publish|post|record|capture|provide|include|document)"
                         r"\w*\b.{0,40}\bartifacts?\b"
                         r".{0,30}\b(?:through|to|into|in|via)\b.{0,30}"
                         r"\b(?:storage|database|data\s+store|object\s+store|bucket|"
@@ -1150,7 +1150,8 @@ def _required_evidence_channels(acceptance: str) -> set[str]:
                 product_artifact_actor = bool(
                     re.search(
                         r"\b(?:ui|api|application|interface|service|worker|cli|database|"
-                        r"users?)\b.{0,80}\b(?:upload|attach|publish|post|record|capture|"
+                        r"users?)\b\s+(?:(?:must|shall|will|should|can|may|needs?\s+to)\s+)?"
+                        r"(?:upload|attach|publish|post|record|capture|"
                         r"provide|include|document)\w*\b.{0,60}\bartifacts?\b",
                         requirement_text,
                         re.I,
@@ -1247,8 +1248,9 @@ def _required_evidence_channels(acceptance: str) -> set[str]:
                 )
             )
             product_output_prefix = re.compile(
-                r"\b(?:ui|api|application|interface|service|cli)\b.{0,60}"
-                r"\b(?:return|display|show|store|emit|render|expose)\w*\b",
+                r"\b(?:ui|api|application|interface|service|cli)\b\s+"
+                r"(?:(?:must|shall|will|should|can|may|needs?\s+to)\s+)?"
+                r"(?:return|display|show|store|emit|render|expose)\w*\b",
                 re.I,
             )
             product_output_match = product_output_prefix.search(requirement_text)
