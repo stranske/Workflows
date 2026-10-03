@@ -521,6 +521,21 @@ def _budget_from_env(name: str, default: int) -> int:
     return value if value > 0 else default
 
 
+def _code_fence_marker(line: str) -> tuple[str, bool, int] | None:
+    """Inspect a fence without treating an info string as a closing marker.
+
+    Retain indentation for nested/indented source snippets; their literal
+    headings must remain inert too. A root fence cannot close at four spaces.
+    """
+    match = re.match(r"^([ \t]*)(`{3,}|~{3,})(.*)$", line.rstrip("\r\n"))
+    if not match:
+        return None
+    indent, marker, suffix = match.groups()
+    if marker[0] == "`" and "`" in suffix:
+        return None
+    return marker, not suffix.strip(" \t"), len(indent.expandtabs(4))
+
+
 def _split_verifier_context(context: str) -> list[tuple[str, str]] | None:
     """Split a structured verifier context into its builder sections.
 
@@ -548,15 +563,23 @@ def _split_verifier_context(context: str) -> list[tuple[str, str]] | None:
     offset = 0
     fence_char = ""
     fence_length = 0
+    fence_indent = 0
     for line in text.splitlines(keepends=True):
         stripped = line.strip()
-        fence = re.match(r"^(`{3,}|~{3,})(?:[^`~].*)?$", stripped)
+        fence = _code_fence_marker(line)
         if fence:
-            marker = fence.group(1)
+            marker, closing, indent = fence
             if not fence_char:
                 fence_char, fence_length = marker[0], len(marker)
-            elif marker[0] == fence_char and len(marker) >= fence_length:
+                fence_indent = indent
+            elif (
+                marker[0] == fence_char
+                and len(marker) >= fence_length
+                and closing
+                and indent <= max(3, fence_indent)
+            ):
                 fence_char, fence_length = "", 0
+                fence_indent = 0
         elif not fence_char and stripped in headings:
             headings[stripped].append(offset)
         offset += len(line)
@@ -864,16 +887,24 @@ def _acceptance_criteria_sections(plan_sources: str) -> str:
     lines: list[str] = []
     fence_char: str | None = None
     fence_len = 0
+    fence_indent = 0
     for raw_line in plan_sources.splitlines():
-        fence = re.match(r"^\s*(`{3,}|~{3,})", raw_line)
+        fence = _code_fence_marker(raw_line)
         if fence:
-            marker = fence.group(1)
+            marker, closing, indent = fence
             if fence_char is None:
                 fence_char = marker[0]
                 fence_len = len(marker)
-            elif marker[0] == fence_char and len(marker) >= fence_len:
+                fence_indent = indent
+            elif (
+                marker[0] == fence_char
+                and len(marker) >= fence_len
+                and closing
+                and indent <= max(3, fence_indent)
+            ):
                 fence_char = None
                 fence_len = 0
+                fence_indent = 0
             lines.append("")
             continue
         lines.append("" if fence_char is not None else raw_line)

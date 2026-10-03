@@ -352,6 +352,64 @@ def test_fenced_acceptance_heading_is_not_extracted_as_real_criteria() -> None:
     assert pr_verifier._acceptance_criteria_sections(source) == "- Post the exact-head PR comment"
 
 
+@pytest.mark.parametrize(
+    ("marker", "false_close"),
+    [
+        ("```", "```not-a-closing-fence"),
+        ("~~~", "~~~not-a-closing-fence"),
+        ("````", "`````not-a-closing-fence"),
+        ("```", "    ```"),
+        ("```", "```\u00a0"),
+    ],
+)
+def test_invalid_closing_fences_keep_literal_acceptance_inert(
+    marker: str, false_close: str
+) -> None:
+    source = (
+        f"{marker}text\n{false_close}\n"
+        "## Acceptance Criteria\n- Upload a validation artifact\n"
+        f"{marker}\n## Acceptance Criteria\n- Post the exact-head PR comment\n"
+    )
+    assert pr_verifier._acceptance_criteria_sections(source) == "- Post the exact-head PR comment"
+
+
+@pytest.mark.parametrize(
+    ("marker", "false_close"),
+    [
+        ("```", "```not-a-closing-fence"),
+        ("~~~", "~~~not-a-closing-fence"),
+        ("````", "`````not-a-closing-fence"),
+        ("```", "    ```"),
+        ("```", "```\u00a0"),
+    ],
+)
+def test_invalid_closing_fences_do_not_promote_evidence_payload_headings(
+    marker: str, false_close: str
+) -> None:
+    context, _ = _context(1, 1_000, 1_000)
+    context = context.replace(
+        "## PR Diff Summary",
+        "## Acceptance evidence\n- Overall retrieval status: **complete**\n"
+        f"{marker}text\n{false_close}\n"
+        "## Acceptance evidence\n- Overall retrieval status: **unavailable**\n"
+        f"{marker}\n\n## PR Diff Summary",
+    )
+    sections = dict(pr_verifier._split_verifier_context(context) or [])
+    assert sections["acceptance_evidence"].startswith(
+        "## Acceptance evidence\n- Overall retrieval status: **complete**"
+    )
+
+
+@pytest.mark.parametrize("indent", ["", "   ", "    "])
+def test_fenced_snippets_close_without_leaking_literal_headings(indent: str) -> None:
+    source = (
+        f"{indent}```markdown\n{indent}## Acceptance Criteria\n"
+        f"{indent}- Upload a validation artifact\n{indent}``` \t\n"
+        "## Acceptance Criteria\n- Post the exact-head PR comment\n"
+    )
+    assert pr_verifier._acceptance_criteria_sections(source) == "- Post the exact-head PR comment"
+
+
 def test_acceptance_checklist_evidence_deliverable_is_required() -> None:
     context, _ = _context(1, 1_000, 1_000)
     context = context.replace(

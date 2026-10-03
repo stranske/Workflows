@@ -567,6 +567,10 @@ both retrieval channels rather than downgrading the artifact to generic evidence
 Cross-repository full-diff recovery fetches and verifies both the recorded base
 and PR head from the target repository before reconstructing the range.
 Git's tab delimiter in `---`/`+++` metadata is not part of the changed pathname.
+Acceptance and evidence section scanners share fence-closing validation: a
+marker with trailing non-space/tab content cannot expose literal headings.
+Root fences cannot close at four spaces, while indented source snippets retain
+their opening indentation so literal examples remain inert.
 
 ### Consumer Repo Setup: Coverage Soft Gate
 
