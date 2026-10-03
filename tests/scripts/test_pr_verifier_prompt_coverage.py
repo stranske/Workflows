@@ -505,7 +505,19 @@ def test_checklist_noun_only_deliverable_requires_evidence_channel() -> None:
     assert pr_verifier._required_evidence_channels("- [ ] Exact-head command output") == {"overall"}
 
 
-def test_checklist_noun_only_deliverable_floors_pass_when_unavailable() -> None:
+def test_optional_checklist_evidence_is_not_required() -> None:
+    assert (
+        pr_verifier._required_evidence_channels("- [ ] Optional validation artifact (if produced)")
+        == set()
+    )
+    assert (
+        pr_verifier._required_evidence_channels("- [ ] Validation artifact if available") == set()
+    )
+
+
+def test_checklist_noun_only_deliverable_floors_pass_when_unavailable(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
     context, _ = _context(1, 1_000, 1_000)
     context = context.replace(
         "- " + ACCEPTANCE_SENTINEL,
@@ -519,10 +531,32 @@ def test_checklist_noun_only_deliverable_floors_pass_when_unavailable() -> None:
     )
     coverage = pr_verifier.prompt_coverage(context, None)
     assert not coverage.sufficient
+    assert any(
+        "Required acceptance evidence is unavailable" in reason for reason in coverage.reasons
+    )
+
+    client = _pass_client()
+    monkeypatch.setattr(
+        pr_verifier, "_get_llm_client", lambda model=None, provider=None: (client, "openai")
+    )
+    monkeypatch.setattr(pr_verifier, "_get_llm_clients", lambda m1=None, m2=None: [])
+    result = pr_verifier.evaluate_pr(context)
+    compare = pr_verifier.ComparisonRunner.from_environment(context, None).run_single(
+        client, "openai", "model"
+    )
+    for verdict in (result, compare):
+        assert verdict.verdict == "CONCERNS"
+        assert "Required acceptance evidence is unavailable" in verdict.concerns[0]
 
 
 def test_gate_workflow_run_success_is_not_artifact_evidence() -> None:
     assert pr_verifier._required_evidence_channels("- The Gate workflow run must pass") == set()
+
+
+def test_artifact_from_workflow_run_requires_artifacts_channel() -> None:
+    assert pr_verifier._required_evidence_channels(
+        "- [ ] Upload the validation artifact from the workflow run"
+    ) == {"artifacts"}
 
 
 def test_workflow_run_preserves_mixed_required_comment_channel() -> None:

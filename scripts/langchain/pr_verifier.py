@@ -880,9 +880,18 @@ def _required_evidence_channels(acceptance: str) -> set[str]:
                 continue
             checklist = re.match(r"^\s*[-*]\s*\[[ xX]\]", requirement_text)
             bullet = re.match(r"^\s*[-*]\s+", requirement_text)
+            optional_checklist = bool(
+                checklist
+                and re.search(
+                    r"\boptional\b|\bif\s+(?:produced|available|present|uploaded|generated)\b",
+                    requirement_text,
+                    re.I,
+                )
+            )
             checklist_deliverable = bool(
                 checklist
                 and evidence_term.search(requirement_text)
+                and not optional_checklist
                 and not re.match(r"^\s*[-*]\s*\[[ xX]\]\s*no\s", requirement_text, re.I)
             )
             if not (
@@ -895,9 +904,9 @@ def _required_evidence_channels(acceptance: str) -> set[str]:
                 continue
             lower = requirement_text.lower()
             line_channels: set[str] = set()
-            if re.search(r"\bworkflow artifacts?\b", lower) or (
-                re.search(r"\bartifacts?\b", lower) and not re.search(r"\bworkflow runs?\b", lower)
-            ):
+            # Explicit artifact nouns keep the artifacts channel even when the
+            # same criterion also mentions a workflow run as provenance.
+            if re.search(r"\b(?:workflow\s+)?artifacts?\b", lower):
                 line_channels.add("artifacts")
             if re.search(r"\b(?:pr comments?|pull request comments?)\b", lower):
                 line_channels.add("comments")
