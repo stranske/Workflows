@@ -1441,7 +1441,17 @@ def _required_evidence_channels(acceptance: str) -> set[str]:
                         continue
                 if re.search(r"\bworkflow runs?\b", lower):
                     without_workflow_run = re.sub(r"\bworkflow runs?\b", " ", lower)
-                    if not evidence_term.search(without_workflow_run):
+                    workflow_status_only = bool(
+                        re.fullmatch(
+                            r"\s*(?:[-*]\s*(?:\[[ x]\]\s*)?)?"
+                            r"(?:[\w-]+\s+){0,5}workflow runs?\s+"
+                            r"(?:(?:must|shall|should|will)\s+(?:pass|succeed|complete"
+                            r"(?:\s+successfully)?)|(?:is|are)\s+(?:required|needed|"
+                            r"successful|passing|complete))\s*[.!]?\s*",
+                            lower,
+                        )
+                    )
+                    if workflow_status_only and not evidence_term.search(without_workflow_run):
                         # CI/workflow success belongs in the CI section, not
                         # artifact retrieval. Preserve a transcript/output named
                         # in the same clause rather than discarding the clause.

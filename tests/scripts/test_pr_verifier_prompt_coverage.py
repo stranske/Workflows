@@ -1230,6 +1230,33 @@ def test_gate_workflow_run_success_is_not_artifact_evidence() -> None:
     assert pr_verifier._required_evidence_channels("- The Gate workflow run must pass") == set()
 
 
+@pytest.mark.parametrize(
+    "criterion",
+    [
+        "The PR must include a link to a workflow run",
+        "Provide a workflow run URL in the pull request",
+        "A workflow run link is required",
+        "The workflow run must be linked from the PR",
+    ],
+)
+def test_explicit_workflow_run_delivery_requires_evidence(criterion: str) -> None:
+    assert pr_verifier._required_evidence_channels(f"- [ ] {criterion}") == {"overall"}
+    context, _ = _context(1, 1_000, 1_000)
+    context = context.replace("- " + ACCEPTANCE_SENTINEL, "- " + criterion).replace(
+        "## PR Diff Summary",
+        "## Acceptance evidence\n\n"
+        "- Overall retrieval status: **unavailable**\n"
+        "- PR comments: **unavailable**\n"
+        "- Referenced workflow artifacts: **unavailable**\n"
+        "## PR Diff Summary",
+    )
+    coverage = pr_verifier.prompt_coverage(context, None)
+    assert not coverage.sufficient
+    assert any(
+        "Required acceptance evidence is unavailable" in reason for reason in coverage.reasons
+    )
+
+
 def test_artifact_from_workflow_run_requires_artifacts_channel() -> None:
     assert pr_verifier._required_evidence_channels(
         "- [ ] Upload the validation artifact from the workflow run"

@@ -570,6 +570,9 @@ explicit author obligation remain evidence requirements.
 Product auxiliary wording is shared across response grouping and filtering,
 artifact behavior and output predicates: `must`, `is required to`, `is needed
 to`, and equivalent deontic forms do not change a product field into evidence.
+An explicitly required workflow-run link is an evidence deliverable; only a
+standalone workflow status/success criterion is exempt from evidence retrieval.
+An unavailable required link prevents a coverage PASS.
 Cross-repository full-diff recovery fetches and verifies both the recorded base
 and PR head from the target repository before reconstructing the range.
 Git's tab delimiter in `---`/`+++` metadata is not part of the changed pathname.
