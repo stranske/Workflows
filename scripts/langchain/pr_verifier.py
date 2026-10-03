@@ -935,6 +935,11 @@ def _acceptance_criteria_sections(plan_sources: str) -> str:
 def _required_evidence_channels(acceptance: str) -> set[str]:
     """Identify explicit evidence deliverables without treating negations as requirements."""
     channels: set[str] = set()
+    # Use the same product-response operation vocabulary when coalescing object
+    # groups and when excluding response fields from review deliverables.
+    response_operation = (
+        r"(?:include|contain|have|return|display|show|store|emit|render|expose|provide)\w*\b"
+    )
     evidence_term = re.compile(
         r"\b(?:evidence|artifacts?|transcripts?|command outputs?|workflow runs?|"
         r"pr comments?|pull request comments?)\b",
@@ -1041,8 +1046,8 @@ def _required_evidence_channels(acceptance: str) -> set[str]:
             prior_product = fragments and re.search(
                 r"\b(?:responses?|payloads?|return values?)\s+"
                 r"(?:(?:must|shall|will|should|can|may|needs? to)\s+)?"
-                r"(?:include|contain|have|return|display|show|store|emit|render|expose)\w*\b"
-                r"|\b(?:[\w-]+\s+){1,6}(?:must|shall|will|should|can|may|needs? to)\s+"
+                + response_operation
+                + r"|\b(?:[\w-]+\s+){1,6}(?:must|shall|will|should|can|may|needs? to)\s+"
                 r"(?:return|display|emit|render|expose)\w*\b",
                 fragments[-1],
                 re.I,
@@ -1174,8 +1179,7 @@ def _required_evidence_channels(acceptance: str) -> set[str]:
                 r"|(?:command[- ]?outputs?|transcripts?)\s+api"
                 r"|api\s+(?:command[- ]?outputs?|transcripts?)(?:\s+\w+){0,3}"
                 r")\b\s+"
-                r"(?:(?:must|shall|will|should|can|may|needs?\s+to)\s+)?"
-                r"(?:include|contain|have|return|display|show|store|emit|render|expose)\w*\b",
+                r"(?:(?:must|shall|will|should|can|may|needs?\s+to)\s+)?" + response_operation,
                 re.I,
             )
             if response_prefix.search(requirement_text):

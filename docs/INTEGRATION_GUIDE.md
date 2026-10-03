@@ -564,6 +564,9 @@ in either active or passive delivery wording,
 but never inherit objects from another checklist item. Optional or prohibited
 delivery remains local to its clause, and artifact plus output delivery retains
 both retrieval channels rather than downgrading the artifact to generic evidence.
+Response-field operations include `provide`; an API response providing output
+does not imply a review deliverable, while a separate PR-delivery clause and
+explicit author obligation remain evidence requirements.
 Cross-repository full-diff recovery fetches and verifies both the recorded base
 and PR head from the target repository before reconstructing the range.
 Git's tab delimiter in `---`/`+++` metadata is not part of the changed pathname.
