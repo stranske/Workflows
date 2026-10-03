@@ -559,11 +559,27 @@ def test_optional_evidence_clause_preserves_required_comment() -> None:
     assert pr_verifier._required_evidence_channels(
         "- [ ] Upload the validation artifact when available while a PR comment must be posted"
     ) == {"comments"}
+    # Codex P1 (thread PRRT_kwDOQprj9M6ojMIp): concessive connectors also split clauses.
+    assert pr_verifier._required_evidence_channels(
+        "- [ ] Upload the validation artifact when available, whereas a PR comment must be posted"
+    ) == {"comments"}
 
 
 def test_negative_release_prohibition_is_not_a_required_evidence_gate() -> None:
     # Codex P2 (thread PRRT_kwDOQprj9M6ojFgY): a gate needs without/unless/until.
     assert pr_verifier._required_evidence_channels("- [ ] No release artifact is required") == set()
+    # Codex P2 (thread PRRT_kwDOQprj9M6ojMIs): should-based prohibition stays non-required.
+    assert (
+        pr_verifier._required_evidence_channels("- [ ] No validation artifact should be uploaded")
+        == set()
+    )
+
+
+def test_plain_mandatory_artifact_is_required_evidence() -> None:
+    # Codex P1 (thread PRRT_kwDOQprj9M6ojMIo): ordinary bullets are valid acceptance content.
+    assert pr_verifier._required_evidence_channels("- A validation artifact is mandatory") == {
+        "artifacts"
+    }
 
 
 def test_descriptive_artifact_parser_requirement_is_not_a_deliverable() -> None:

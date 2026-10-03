@@ -821,7 +821,7 @@ def _required_evidence_channels(acceptance: str) -> set[str]:
         re.I,
     )
     requirement = re.compile(
-        r"\b(?:required|must|shall|needs? to|publish(?:es|ed)?|upload(?:s|ed)?|"
+        r"\b(?:required|mandatory|must|shall|needs? to|publish(?:es|ed)?|upload(?:s|ed)?|"
         r"attach(?:es|ed)?|captur(?:e|es|ed)|record(?:s|ed)?|provid(?:e|es|ed)|"
         r"includ(?:e|es|ed)|post(?:s|ed)?|document(?:s|ed)?|prov(?:e|es|ed)|show(?:s|ed)?)\b",
         re.I,
@@ -850,7 +850,8 @@ def _required_evidence_channels(acceptance: str) -> set[str]:
         r"(?:uploaded|attached|provided|published|posted|recorded|captured|"
         r"included|documented)\b"
         r"|\bno\s+(?:\w+\s+){0,4}(?:evidence|artifacts?|transcripts?|command outputs?|"
-        r"workflow runs?|pr comments?|pull request comments?)\s+must\s+(?:not\s+)?(?:be\s+)?"
+        r"workflow runs?|pr comments?|pull request comments?)\s+"
+        r"(?:must|shall|may|should)\s+(?:not\s+)?(?:be\s+)?"
         r"(?:uploaded|attached|provided|published|posted|recorded|captured|"
         r"included|documented)\b"
         r"|\b(?:evidence|artifacts?|transcripts?|command outputs?|workflow runs?|"
@@ -884,7 +885,7 @@ def _required_evidence_channels(acceptance: str) -> set[str]:
         criterion_checklist = bool(re.match(r"^\s*[-*]\s*\[[ xX]\]", criterion))
         criterion_bullet = bool(re.match(r"^\s*[-*]\s+", criterion))
         clause_boundary = (
-            r"\s*;\s*|,?\s+but\s+|,?\s+(?:and|while)\s+(?="
+            r"\s*;\s*|,?\s+(?:but|whereas)\s+|,?\s+(?:and|while)\s+(?="
             r"(?:optionally\s+)?(?:"
             r"(?:an?\s+|the\s+)?(?:evidence|artifacts?|transcripts?|command outputs?|"
             r"workflow runs?|pr comments?|pull request comments?)|"
