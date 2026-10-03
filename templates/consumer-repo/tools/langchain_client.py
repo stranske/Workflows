@@ -148,7 +148,7 @@ def _is_reasoning_model(model: str) -> bool:
     name = model.lower().strip()
     if name.startswith("openai/"):
         name = name.removeprefix("openai/")
-    if name.startswith("gpt-5.6-"):
+    if name.startswith(("gpt-5.6-", "gpt-6")):
         return True
     # o-series reasoning models use an `o` prefix followed by digits with optional
     # hyphen-separated suffixes: o1, o1-preview, o1-preview-2024-09-12, o3, o3-mini,

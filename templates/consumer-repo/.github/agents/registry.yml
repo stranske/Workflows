@@ -33,7 +33,7 @@ model_profile_trial_contract:
 execution_profiles:
   codex-default:
     agent: codex
-    model: gpt-5.6-sol
+    model: gpt-6.1-sol
     fallback_model: gpt-5.5
     runner: reusable-codex-run
     capacity_pool: codex-standard
@@ -51,7 +51,7 @@ execution_profiles:
     reasoning_effort: medium
   codex-implement:
     agent: codex
-    model: gpt-5.6-sol
+    model: gpt-6.1-sol
     fallback_model: gpt-5.5
     runner: reusable-codex-run
     capacity_pool: codex-standard
@@ -60,7 +60,7 @@ execution_profiles:
     reasoning_effort: high
   codex-coordinate:
     agent: codex
-    model: gpt-5.6-sol
+    model: gpt-6.1-sol
     fallback_model: gpt-5.5
     runner: reusable-codex-run
     capacity_pool: codex-standard
@@ -78,7 +78,7 @@ execution_profiles:
     reasoning_effort: medium
   codex-extract:
     agent: codex
-    model: gpt-5.6-luna
+    model: gpt-6-luna
     fallback_model: gpt-5.5
     runner: reusable-codex-run
     capacity_pool: codex-standard

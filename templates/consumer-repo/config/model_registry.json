@@ -6,9 +6,12 @@
   "selection_policy": "config/model_selection_policy.json",
   "catalog_baselines": {
     "openai": {
-      "checked_at": "2026-09-04T22:30:00Z",
+      "checked_at": "2026-09-30T12:09:00Z",
       "model_ids": [
         "gpt-6-astra",
+        "gpt-6.1-sol",
+        "gpt-6-sol",
+        "gpt-6-luna",
         "gpt-5.6-sol",
         "gpt-5.6-terra",
         "gpt-5.6-luna"
@@ -86,6 +89,30 @@
       "url": "https://developers.openai.com/api/docs/pricing"
     },
     {
+      "source_id": "openai-catalog-discovery-2026-09-30",
+      "provider": "openai",
+      "checked_at": "2026-09-30",
+      "url": "https://api.openai.com/v1/models"
+    },
+    {
+      "source_id": "openai-pricing-2026-10-01",
+      "provider": "openai",
+      "checked_at": "2026-10-01",
+      "url": "https://developers.openai.com/api/docs/pricing"
+    },
+    {
+      "source_id": "openai-gpt-6-sol-2026-10-01",
+      "provider": "openai",
+      "checked_at": "2026-10-01",
+      "url": "https://developers.openai.com/api/docs/models/gpt-6-sol"
+    },
+    {
+      "source_id": "openai-gpt-5-4-2026-10-01",
+      "provider": "openai",
+      "checked_at": "2026-10-01",
+      "url": "https://developers.openai.com/api/docs/models/gpt-5.4"
+    },
+    {
       "source_id": "anthropic-catalog-discovery-2026-09-22",
       "provider": "anthropic",
       "checked_at": "2026-09-22",
@@ -111,6 +138,51 @@
     }
   ],
   "models": [
+    {
+      "model_id": "gpt-6.1-sol",
+      "provider": "openai",
+      "api": "responses",
+      "lifecycle": "current",
+      "positioning": "balanced",
+      "source_ids": ["openai-catalog-discovery-2026-09-30", "openai-pricing-2026-10-01"],
+      "pricing": {
+        "currency": "USD",
+        "input_per_million_tokens": 2.0,
+        "output_per_million_tokens": 10.0,
+        "as_of": "2026-10-01"
+      },
+      "notes": "API price and availability only. Codex CLI 0.160.0 catalogs this model; no verifier quality evidence yet."
+    },
+    {
+      "model_id": "gpt-6-sol",
+      "provider": "openai",
+      "api": "responses",
+      "lifecycle": "current",
+      "positioning": "balanced",
+      "source_ids": ["openai-catalog-discovery-2026-09-30", "openai-gpt-6-sol-2026-10-01"],
+      "pricing": {
+        "currency": "USD",
+        "input_per_million_tokens": 2.0,
+        "output_per_million_tokens": 10.0,
+        "as_of": "2026-10-01"
+      },
+      "notes": "Available through API and pinned Codex CLI; no verifier quality evidence yet."
+    },
+    {
+      "model_id": "gpt-6-luna",
+      "provider": "openai",
+      "api": "responses",
+      "lifecycle": "current",
+      "positioning": "efficient",
+      "source_ids": ["openai-catalog-discovery-2026-09-30", "openai-pricing-2026-10-01"],
+      "pricing": {
+        "currency": "USD",
+        "input_per_million_tokens": 0.1,
+        "output_per_million_tokens": 0.5,
+        "as_of": "2026-10-01"
+      },
+      "notes": "API price and availability only; cost efficiency and quality require verifier workload evidence."
+    },
     {
       "model_id": "gpt-6-astra",
       "provider": "openai",
@@ -347,13 +419,16 @@
       "legacy_bundled_slot_pin": true,
       "positioning": "incumbent-verifier",
       "source_ids": [
-        "openai-current-models-2026-07-10"
+        "openai-current-models-2026-07-10",
+        "openai-gpt-5-4-2026-10-01"
       ],
       "pricing": {
-        "basis": "Observed billed cost is captured by the paired pilot",
-        "as_of": "2026-07-12"
+        "currency": "USD",
+        "input_per_million_tokens": 2.5,
+        "output_per_million_tokens": 15.0,
+        "as_of": "2026-10-01"
       },
-      "notes": "Incumbent OpenAI verifier baseline. Remains selected until paired benchmark evidence approves a replacement."
+      "notes": "Published standard API price. This former verifier incumbent is not listed by the pinned Codex CLI; prior API pilot evidence is not an approval-stage benchmark."
     },
     {
       "model_id": "claude-opus-4-6",

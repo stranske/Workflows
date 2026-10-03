@@ -1,13 +1,14 @@
 # Astra high-reasoning execution
 
 The owner requested GPT-6 Astra for high-reasoning work on 2026-09-04.
-As of 2026-09-19, ordinary PR implementation uses `codex-default` and
-`gpt-5.6-sol` at high effort. The reusable Codex worker uses the same default;
+As of 2026-10-03, ordinary PR implementation uses `codex-default` and
+`gpt-6.1-sol` at high effort. The reusable Codex worker uses the same default;
 autofix callers explicitly use `gpt-5.6-terra` at medium effort. Explicit
 `codex-hard` and `codex-hardest` profiles retain Astra at medium and high effort
 for difficult judgment or design work. The Codex checkbox verifier remains on
 Astra at medium effort because a false PASS is consequential. Codex CLI is
-pinned to 0.153.2.
+pinned to 0.160.0 for active worker profiles. The isolated trial runner remains
+pinned to 0.153.2 so its historical arms remain comparable.
 The active role table and dispatch contract are in [CODEX_ROLE_ROUTING.md](CODEX_ROLE_ROUTING.md).
 
 Astra is also available as a read-only profile-trial arm. The runner remains

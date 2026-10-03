@@ -7,10 +7,10 @@ effort to Codex CLI. An omitted profile selects `codex-default`.
 
 | Work | Active profile | Model | Effort |
 | --- | --- | --- | --- |
-| Ordinary PR implementation and follow-up | `codex-default` or `codex-implement` | `gpt-5.6-sol` | high |
-| Coordination and bounded assessment | `codex-coordinate` | `gpt-5.6-sol` | medium |
+| Ordinary PR implementation and follow-up | `codex-default` or `codex-implement` | `gpt-6.1-sol` | high |
+| Coordination and bounded assessment | `codex-coordinate` | `gpt-6.1-sol` | medium |
 | Routine autofix and bounded execution | `codex-routine` or `codex-fast` | `gpt-5.6-terra` | medium |
-| Extraction and status summaries | `codex-extract` | `gpt-5.6-luna` | low |
+| Extraction and status summaries | `codex-extract` | `gpt-6-luna` | low |
 | Difficult judgment and design | `codex-hard` | `gpt-6-astra` | medium |
 | Hardest tasks after explicit escalation | `codex-hardest` | `gpt-6-astra` | high |
 
