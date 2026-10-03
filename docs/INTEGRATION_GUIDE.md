@@ -573,6 +573,9 @@ to`, and equivalent deontic forms do not change a product field into evidence.
 An explicitly required workflow-run link is an evidence deliverable; only a
 standalone workflow status/success criterion is exempt from evidence retrieval.
 An unavailable required link prevents a coverage PASS.
+Workflow-run antecedents also survive separate active/passive PR-link clauses;
+qualified status forms such as passing on Linux or finishing successfully stay
+exempt when they do not separately require link delivery.
 Cross-repository full-diff recovery fetches and verifies both the recorded base
 and PR head from the target repository before reconstructing the range.
 Git's tab delimiter in `---`/`+++` metadata is not part of the changed pathname.

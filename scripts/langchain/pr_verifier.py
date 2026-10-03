@@ -954,7 +954,7 @@ def _required_evidence_channels(acceptance: str) -> set[str]:
         r"\b(?:required|mandatory|(?:is|are)\s+needed|must|shall|needs? to|"
         r"publish(?:es|ed)?|upload(?:s|ed)?|"
         r"attach(?:es|ed)?|captur(?:e|es|ed)|record(?:s|ed)?|provid(?:e|es|ed)|"
-        r"includ(?:e|es|ed)|post(?:s|ed)?|document(?:s|ed)?|prov(?:e|es|ed)|show(?:s|ed)?)\b",
+        r"includ(?:e|es|ed)|link(?:s|ed)?|post(?:s|ed)?|document(?:s|ed)?|prov(?:e|es|ed)|show(?:s|ed)?)\b",
         re.I,
     )
     evidence_prohibition = re.compile(
@@ -965,7 +965,7 @@ def _required_evidence_channels(acceptance: str) -> set[str]:
         r"pr comments?|pull request comments?)"
         r"\s+(?:is|are)\s+not\s+(?:required|needed|mandatory)\b"
         r"|\b(?:must|shall|may|should|do|does)\s+not\s+"
-        r"(?:upload|attach|provide|publish|post|record|capture|include|document|generate)\b"
+        r"(?:upload|attach|provide|publish|post|record|capture|include|document|generate|link)\b"
         r"(?:\s+(?:the\s+|an?\s+|any\s+)?(?:[\w-]+\s+){0,4}"
         r"(?:evidence|artifacts?|transcripts?|"
         r"command outputs?|workflow runs?|pr comments?|pull request comments?))?"
@@ -973,7 +973,7 @@ def _required_evidence_channels(acceptance: str) -> set[str]:
         r"pr comments?|pull request comments?)\s+"
         r"(?:must|shall|may|should)\s+not\s+be\s+"
         r"(?:uploaded|attached|provided|published|posted|recorded|captured|"
-        r"included|documented|generated)\b"
+        r"included|documented|generated|linked)\b"
         r"|\bneither\s+(?:\w+\s+){0,4}(?:evidence|artifacts?|transcripts?|command outputs?|"
         r"workflow runs?|pr comments?|pull request comments?)\s+nor\s+"
         r"(?:\w+\s+){0,4}(?:evidence|artifacts?|transcripts?|command outputs?|"
@@ -1028,16 +1028,16 @@ def _required_evidence_channels(acceptance: str) -> set[str]:
             r"(?:an?\s+|the\s+)?(?:validation\s+|exact-head\s+)?"
             r"(?:evidence|artifacts?|transcripts?|command outputs?|"
             r"workflow runs?|pr comments?|pull request comments?)|"
-            r"(?:publish|upload|attach|capture|record|provide|include|post|document|prove|show)\b"
+            r"(?:publish|upload|attach|capture|record|provide|include|post|document|prove|show|link)\b"
             r"))"
         )
         clause_evidence_antecedent: str | None = None
         pronoun_pr_delivery = re.compile(
-            r"\b(?:attach|upload|publish|post|record|capture|provide|include|document)\w*\b"
+            r"\b(?:attach|upload|publish|post|record|capture|provide|include|document|link)\w*\b"
             r".{0,40}\b(?:it|them|this|they)\b.{0,40}\b(?:pr|pull request)\b"
             r"|\b(?:it|them|this|they)\b.{0,40}"
             r"\b(?:attached|uploaded|published|posted|recorded|captured|provided|"
-            r"included|documented)\b.{0,40}\b(?:pr|pull request)\b",
+            r"included|documented|linked)\b.{0,40}\b(?:pr|pull request)\b",
             re.I,
         )
         fragments = []
@@ -1445,9 +1445,15 @@ def _required_evidence_channels(acceptance: str) -> set[str]:
                         re.fullmatch(
                             r"\s*(?:[-*]\s*(?:\[[ x]\]\s*)?)?"
                             r"(?:[\w-]+\s+){0,5}workflow runs?\s+"
-                            r"(?:(?:must|shall|should|will)\s+(?:pass|succeed|complete"
-                            r"(?:\s+successfully)?)|(?:is|are)\s+(?:required|needed|"
-                            r"successful|passing|complete))\s*[.!]?\s*",
+                            r"(?:(?:must|shall|should|will)\s+(?:pass|succeed|finish|complete|"
+                            r"be\s+(?:green|successful|passing|complete))|"
+                            r"(?:is|are)\s+(?:required|needed|successful|passing|complete))"
+                            r"(?:\s+[\w-]+)*\s*[.!]?\s*",
+                            lower,
+                        )
+                        and not re.search(
+                            r"\b(?:link\w*|urls?|provide\w*|include\w*|attach\w*|"
+                            r"upload\w*|publish\w*|post\w*|record\w*|capture\w*)\b",
                             lower,
                         )
                     )

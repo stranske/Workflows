@@ -1231,12 +1231,34 @@ def test_gate_workflow_run_success_is_not_artifact_evidence() -> None:
 
 
 @pytest.mark.parametrize(
+    "status", ["pass on Linux", "finish successfully", "be green", "succeed on Windows"]
+)
+def test_qualified_workflow_status_is_not_delivery(status: str) -> None:
+    assert pr_verifier._required_evidence_channels(f"- The workflow run must {status}") == set()
+
+
+@pytest.mark.parametrize(
+    "criterion",
+    [
+        "A workflow run is required; do not link it from the PR",
+        "A workflow run is required; it must not be linked from the PR",
+        "A workflow run is required; link it from the PR if available",
+    ],
+)
+def test_workflow_link_antecedent_preserves_nonmandatory_delivery(criterion: str) -> None:
+    assert pr_verifier._required_evidence_channels(f"- [ ] {criterion}") == set()
+
+
+@pytest.mark.parametrize(
     "criterion",
     [
         "The PR must include a link to a workflow run",
         "Provide a workflow run URL in the pull request",
         "A workflow run link is required",
         "The workflow run must be linked from the PR",
+        "A workflow run is required; link it from the PR",
+        "A workflow run is required; it must be linked from the PR",
+        "The workflow run must pass on Linux; link it from the PR",
     ],
 )
 def test_explicit_workflow_run_delivery_requires_evidence(criterion: str) -> None:
