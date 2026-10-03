@@ -491,6 +491,12 @@ def test_passive_generation_prohibition_does_not_require_artifacts() -> None:
         pr_verifier._required_evidence_channels("- A validation artifact must not be generated")
         == set()
     )
+    assert (
+        pr_verifier._required_evidence_channels(
+            "- [ ] A validation artifact does not need to be generated"
+        )
+        == set()
+    )
 
 
 def test_command_output_uses_its_named_source_channel() -> None:
@@ -530,6 +536,21 @@ def test_product_artifact_nouns_do_not_require_workflow_artifacts() -> None:
         pr_verifier._required_evidence_channels("- [ ] Store artifact metadata in the database")
         == set()
     )
+    for criterion in (
+        "- [ ] The UI must display uploaded artifacts",
+        "- [ ] Store generated artifact metadata in the database",
+        "- [ ] The UI must include an artifact preview",
+    ):
+        assert pr_verifier._required_evidence_channels(criterion) == set()
+
+
+def test_explicit_artifact_delivery_still_requires_workflow_evidence() -> None:
+    assert pr_verifier._required_evidence_channels("- [ ] Upload the workflow artifact") == {
+        "artifacts"
+    }
+    assert pr_verifier._required_evidence_channels(
+        "- [ ] The workflow artifact must be uploaded"
+    ) == {"artifacts"}
 
 
 def test_optional_checklist_evidence_is_not_required() -> None:

@@ -862,11 +862,11 @@ def _required_evidence_channels(acceptance: str) -> set[str]:
         r"workflow runs?|pr comments?|pull request comments?)\s+is\s+generated\b"
         r"|\b(?:does|do)\s+not\s+need\s+(?:to\s+be\s+)?"
         r"(?:uploaded|attached|provided|published|posted|recorded|captured|"
-        r"included|documented)\b"
+        r"included|documented|generated)\b"
         r"|\bno\s+(?:\w+\s+){0,4}(?:evidence|artifacts?|transcripts?|command outputs?|"
         r"workflow runs?|pr comments?|pull request comments?)\s+needs?\s+to\s+be\s+"
         r"(?:uploaded|attached|provided|published|posted|recorded|captured|"
-        r"included|documented)\b",
+        r"included|documented|generated)\b",
         re.I,
     )
     negative_gate = re.compile(
@@ -980,19 +980,23 @@ def _required_evidence_channels(acceptance: str) -> set[str]:
             if re.search(r"\b(?:workflow\s+)?artifacts?\b", lower):
                 explicit_artifact_delivery = bool(
                     re.search(
-                        r"\b(?:must|shall|required|needs? to)\s+(?:\w+\s+){0,4}"
-                        r"(?:upload|attach|publish|post|record|capture|provide|include|document|generate)\b",
+                        r"\b(?:upload|attach|publish|post|record|capture|provide|document)"
+                        r"(?:s)?\s+(?:(?:an?|the|any|workflow|validation|exact-head|evidence)\s+){0,4}"
+                        r"artifacts?\b",
                         requirement_text,
                         re.I,
                     )
                     or re.search(
-                        r"\b(?:upload|attach|publish|post|record|capture|provide|include|document|generate)\w*\b",
-                        lower,
+                        r"\bartifacts?\b.{0,60}\b(?:must|shall|is|required|needs? to)"
+                        r"(?:\s+\w+){0,3}\s+be\s+"
+                        r"(?:uploaded|attached|published|posted|recorded|captured|provided|documented)\b",
+                        requirement_text,
+                        re.I,
                     )
                 )
                 evidence_named_artifact = bool(
                     re.search(
-                        r"\b(?:failing and passing |validation |exact-head )artifacts?\b",
+                        r"\b(?:failing and passing |validation |exact-head |workflow )artifacts?\b",
                         lower,
                     )
                     or re.search(r"\bvalidation artifacts?\b", lower)
