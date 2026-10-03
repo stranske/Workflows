@@ -567,6 +567,9 @@ both retrieval channels rather than downgrading the artifact to generic evidence
 Response-field operations include `provide`; an API response providing output
 does not imply a review deliverable, while a separate PR-delivery clause and
 explicit author obligation remain evidence requirements.
+Product auxiliary wording is shared across response grouping and filtering,
+artifact behavior and output predicates: `must`, `is required to`, `is needed
+to`, and equivalent deontic forms do not change a product field into evidence.
 Cross-repository full-diff recovery fetches and verifies both the recorded base
 and PR head from the target repository before reconstructing the range.
 Git's tab delimiter in `---`/`+++` metadata is not part of the changed pathname.

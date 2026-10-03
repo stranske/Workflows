@@ -808,6 +808,38 @@ def test_artifact_inclusion_preserves_product_and_optional_exemptions(
     assert pr_verifier._required_evidence_channels("- [ ] " + criterion) == expected
 
 
+@pytest.mark.parametrize(
+    "auxiliary",
+    ["must", "is required to", "is needed to", "is mandated to", "has to", "is expected to"],
+)
+def test_product_auxiliary_forms_keep_response_and_delivery_semantics(auxiliary: str) -> None:
+    for operation in ["provide", "include", "return", "emit"]:
+        assert (
+            pr_verifier._required_evidence_channels(
+                f"- [ ] The API response {auxiliary} {operation} command output"
+            )
+            == set()
+        )
+    assert (
+        pr_verifier._required_evidence_channels(
+            f"- [ ] The API response {auxiliary} provide an artifact and command output"
+        )
+        == set()
+    )
+    assert pr_verifier._required_evidence_channels(
+        f"- [ ] The API response {auxiliary} provide an artifact and command output; they must be attached to the PR"
+    ) == {"artifacts", "overall"}
+    assert pr_verifier._required_evidence_channels(
+        f"- [ ] The author {auxiliary} provide command output"
+    ) == {"overall"}
+    assert (
+        pr_verifier._required_evidence_channels(
+            f"- [ ] The endpoint {auxiliary} return command output"
+        )
+        == set()
+    )
+
+
 def test_cli_command_behavior_preserves_explicit_evidence_delivery() -> None:
     # Codex P1 (thread PRRT_kwDOQprj9M6omBRf): behavior can feed a deliverable.
     assert pr_verifier._required_evidence_channels(

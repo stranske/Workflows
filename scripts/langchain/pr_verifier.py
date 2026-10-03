@@ -940,6 +940,11 @@ def _required_evidence_channels(acceptance: str) -> set[str]:
     response_operation = (
         r"(?:include|contain|have|return|display|show|store|emit|render|expose|provide)\w*\b"
     )
+    product_auxiliary = (
+        r"(?:(?:must|shall|will|should|can|may|needs?\s+to)|"
+        r"(?:(?:is|are)\s+)?(?:required|needed|mandated|expected|supposed|obliged)\s+to|"
+        r"(?:has|have)\s+to)\s+"
+    )
     evidence_term = re.compile(
         r"\b(?:evidence|artifacts?|transcripts?|command outputs?|workflow runs?|"
         r"pr comments?|pull request comments?)\b",
@@ -1045,10 +1050,13 @@ def _required_evidence_channels(acceptance: str) -> set[str]:
             )
             prior_product = fragments and re.search(
                 r"\b(?:responses?|payloads?|return values?)\s+"
-                r"(?:(?:must|shall|will|should|can|may|needs? to)\s+)?"
+                + "(?:"
+                + product_auxiliary
+                + ")?"
                 + response_operation
-                + r"|\b(?:[\w-]+\s+){1,6}(?:must|shall|will|should|can|may|needs? to)\s+"
-                r"(?:return|display|emit|render|expose)\w*\b",
+                + r"|\b(?:[\w-]+\s+){1,6}"
+                + product_auxiliary
+                + r"(?:return|display|emit|render|expose)\w*\b",
                 fragments[-1],
                 re.I,
             )
@@ -1178,8 +1186,7 @@ def _required_evidence_channels(acceptance: str) -> set[str]:
                 r"responses?|payloads?|return\s+values?"
                 r"|(?:command[- ]?outputs?|transcripts?)\s+api"
                 r"|api\s+(?:command[- ]?outputs?|transcripts?)(?:\s+\w+){0,3}"
-                r")\b\s+"
-                r"(?:(?:must|shall|will|should|can|may|needs?\s+to)\s+)?" + response_operation,
+                r")\b\s+" + "(?:" + product_auxiliary + ")?" + response_operation,
                 re.I,
             )
             if response_prefix.search(requirement_text):
@@ -1270,8 +1277,10 @@ def _required_evidence_channels(acceptance: str) -> set[str]:
                     re.search(
                         r"\b(?:ui|api|application|interface|service|worker|cli|database|"
                         r"users?|endpoint|renderer)\b\s+"
-                        r"(?:(?:must|shall|will|should|can|may|needs?\s+to)\s+)?"
-                        r"(?:upload|attach|publish|post|record|capture|"
+                        + "(?:"
+                        + product_auxiliary
+                        + ")?"
+                        + r"(?:upload|attach|publish|post|record|capture|"
                         r"provide|include|document)\w*\b.{0,60}\bartifacts?\b",
                         requirement_text,
                         re.I,
@@ -1371,11 +1380,14 @@ def _required_evidence_channels(acceptance: str) -> set[str]:
                 r"^\s*(?:[-*]\s*(?:\[[ xX]\]\s*)?)?"
                 r"(?!(?:[\w-]+\s+){0,5}(?:reviewers?|authors?|maintainers?|operators?|"
                 r"validation|evidence)\b)"
-                r"(?:[\w-]+\s+){1,6}(?:must|shall|will|should|can|may|needs? to)\s+"
-                r"(?:return|display|emit|render|expose)\w*\b|"
+                r"(?:[\w-]+\s+){1,6}"
+                + product_auxiliary
+                + r"(?:return|display|emit|render|expose)\w*\b|"
                 r"\b(?:ui|api|application|interface|service|cli|endpoint|renderer)\b\s+"
-                r"(?:(?:must|shall|will|should|can|may|needs?\s+to)\s+)?"
-                r"(?:return|display|show|store|emit|render|expose)\w*\b",
+                + "(?:"
+                + product_auxiliary
+                + ")?"
+                + r"(?:return|display|show|store|emit|render|expose)\w*\b",
                 re.I,
             )
             product_output_match = product_output_prefix.search(requirement_text)
