@@ -4,6 +4,6 @@
   "version": "1.0.0",
   "description": "Locked Codex CLI runtime for bounded MAINT-78 verifier screening.",
   "dependencies": {
-    "@openai/codex": "0.158.0"
+    "@openai/codex": "0.160.0"
   }
 }

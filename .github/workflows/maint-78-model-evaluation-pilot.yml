@@ -22,13 +22,13 @@ on:
         required: false
         type: string
       api_only_candidate:
-        description: Optional explicit API-only model absent from pinned CLI (e.g. gpt-6.1-sol); confirm mode only.
+        description: Optional explicit API-only model absent from the pinned CLI; confirm mode only.
         required: false
         type: string
       models:
         description: Comma-separated priced OpenAI models for the 8-case CLI screen (maximum four).
         type: string
-        default: gpt-5.6-terra,gpt-6-luna,gpt-6-sol
+        default: gpt-5.6-terra,gpt-6-luna,gpt-6.1-sol
   push:
     branches: [main]
     paths:
