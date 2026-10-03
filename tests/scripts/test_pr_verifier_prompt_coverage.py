@@ -712,6 +712,22 @@ def test_api_change_context_preserves_explicit_comment_delivery() -> None:
     ) == {"comments"}
 
 
+def test_ui_change_context_preserves_explicit_comment_delivery_past_product_show_verb() -> None:
+    # Codex P1 (comment #5401051582): product-output `show` must not erase `post a PR comment`.
+    assert pr_verifier._required_evidence_channels(
+        "- [ ] For the UI change, post a PR comment to show the transcript"
+    ) == {"comments"}
+
+
+def test_ui_change_context_preserves_explicit_comment_delivery_variants() -> None:
+    for criterion in (
+        "- [ ] For the UI change, post a pull request comment to display the transcript",
+        "- [ ] For the interface change, publish a PR comment that shows the transcript",
+        "- [ ] For the application change, post a PR comment to render the transcript",
+    ):
+        assert pr_verifier._required_evidence_channels(criterion) == {"comments"}
+
+
 def test_optional_checklist_evidence_is_not_required() -> None:
     assert (
         pr_verifier._required_evidence_channels("- [ ] Optional validation artifact (if produced)")

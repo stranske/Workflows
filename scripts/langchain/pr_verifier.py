@@ -1190,6 +1190,48 @@ def _required_evidence_channels(acceptance: str) -> set[str]:
                         continue
                 elif not re.search(r"\b(?:pr comments?|pull request comments?)\b", lower):
                     continue
+            product_comment_behavior = bool(
+                re.search(
+                    r"\b(?:ui|api|application|interface)\b.{0,60}"
+                    r"\b(?:allow|enable|support)\w*\b.{0,40}"
+                    r"\b(?:pr comments?|pull request comments?)\b",
+                    requirement_text,
+                    re.I,
+                )
+                or re.search(
+                    r"\b(?:ui|api|application|interface)\b.{0,60}"
+                    r"\b(?:display|store)\w*\s+(?:(?:\w+\s+){0,2})?"
+                    r"(?:pr comments?|pull request comments?)\b",
+                    requirement_text,
+                    re.I,
+                )
+                or re.search(
+                    r"\b(?:ui|api|application|interface)\b\s+"
+                    r"(?:must\s+|shall\s+|will\s+)?(?:post|publish)\w*\b",
+                    requirement_text,
+                    re.I,
+                )
+            )
+            explicit_comment_delivery = bool(
+                re.search(
+                    r"\b(?:post|publish|record|capture|provide|document)\w*\b"
+                    r"(?:\s+\w+){0,10}\s+\b(?:pr comments?|pull request comments?)\b",
+                    requirement_text,
+                    re.I,
+                )
+                or re.search(
+                    r"\b(?:pr comments?|pull request comments?)\b.{0,40}"
+                    r"\b(?:(?:is|are)\s+(?:required|mandatory|needed)|"
+                    r"(?:must|shall|needs? to)\b)",
+                    requirement_text,
+                    re.I,
+                )
+                or re.search(
+                    r"\bexact-head\s+(?:pr comments?|pull request comments?)\b",
+                    requirement_text,
+                    re.I,
+                )
+            )
             product_output_prefix = re.compile(
                 r"\b(?:ui|api|application|interface|service|cli)\b.{0,60}"
                 r"\b(?:return|display|show|store|emit|render|expose)\w*\b",
@@ -1205,7 +1247,10 @@ def _required_evidence_channels(acceptance: str) -> set[str]:
                     re.I,
                 )
             )
-            if product_output_match:
+            preserve_explicit_comment_delivery = bool(
+                explicit_comment_delivery and not product_comment_behavior
+            )
+            if product_output_match and not preserve_explicit_comment_delivery:
                 delivery_text = product_output_prefix.sub(" ", requirement_text, count=1)
                 if not (evidence_term.search(delivery_text) and requirement.search(delivery_text)):
                     continue
@@ -1214,40 +1259,6 @@ def _required_evidence_channels(acceptance: str) -> set[str]:
             elif reverse_product_output and not line_channels:
                 continue
             if re.search(r"\b(?:pr comments?|pull request comments?)\b", lower):
-                product_comment_behavior = bool(
-                    re.search(
-                        r"\b(?:ui|api|application|interface)\b.{0,60}"
-                        r"\b(?:allow|enable|support|display|store)\w*\b",
-                        requirement_text,
-                        re.I,
-                    )
-                    or re.search(
-                        r"\b(?:ui|api|application|interface)\b\s+"
-                        r"(?:must\s+|shall\s+|will\s+)?(?:post|publish)\w*\b",
-                        requirement_text,
-                        re.I,
-                    )
-                )
-                explicit_comment_delivery = bool(
-                    re.search(
-                        r"\b(?:post|publish|record|capture|provide|document)\w*\b"
-                        r"(?:\s+\w+){0,10}\s+\b(?:pr comments?|pull request comments?)\b",
-                        requirement_text,
-                        re.I,
-                    )
-                    or re.search(
-                        r"\b(?:pr comments?|pull request comments?)\b.{0,40}"
-                        r"\b(?:(?:is|are)\s+(?:required|mandatory|needed)|"
-                        r"(?:must|shall|needs? to)\b)",
-                        requirement_text,
-                        re.I,
-                    )
-                    or re.search(
-                        r"\bexact-head\s+(?:pr comments?|pull request comments?)\b",
-                        requirement_text,
-                        re.I,
-                    )
-                )
                 if explicit_comment_delivery and not product_comment_behavior:
                     line_channels.add("comments")
                 elif not line_channels:
