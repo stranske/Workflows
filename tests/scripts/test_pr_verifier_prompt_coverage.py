@@ -590,6 +590,8 @@ def test_product_artifact_nouns_do_not_require_workflow_artifacts() -> None:
         "- [ ] The UI must include an artifact preview",
         "- [ ] Users must upload artifacts through the UI",
         "- [ ] The API must upload artifacts to storage",
+        "- [ ] The service must upload artifacts to storage",
+        "- [ ] The CLI must upload artifacts to storage",
     ):
         assert pr_verifier._required_evidence_channels(criterion) == set()
 

@@ -1008,23 +1008,6 @@ def _required_evidence_channels(acceptance: str) -> set[str]:
             # are not workflow evidence deliverables. Require delivery semantics
             # or an evidence-named deliverable (validation artifact, etc.).
             if re.search(r"\b(?:workflow\s+)?artifacts?\b", lower):
-                product_artifact_upload = bool(
-                    re.search(r"\bproduct\s+upload\b", lower)
-                    or re.search(
-                        r"\busers?\b.{0,40}\b(?:upload|attach|publish|post)\w*\b"
-                        r".{0,40}\bartifacts?\b.{0,40}\b(?:ui|api|application|interface|"
-                        r"storage|database)\b",
-                        requirement_text,
-                        re.I,
-                    )
-                    or re.search(
-                        r"\b(?:ui|api|application|interface)\b.{0,60}"
-                        r"\b(?:upload|attach|publish|post)\w*\b.{0,40}\bartifacts?\b"
-                        r"(?:.{0,40}\b(?:storage|database)\b)?",
-                        requirement_text,
-                        re.I,
-                    )
-                )
                 explicit_artifact_delivery = bool(
                     re.search(
                         r"\b(?:upload|attach|publish|post|record|capture|provide|document)"
@@ -1037,6 +1020,15 @@ def _required_evidence_channels(acceptance: str) -> set[str]:
                         r"\bartifacts?\b.{0,60}\b(?:must|shall|is|required|needs? to)"
                         r"(?:\s+\w+){0,3}\s+be\s+"
                         r"(?:uploaded|attached|published|posted|recorded|captured|provided|documented)\b",
+                        requirement_text,
+                        re.I,
+                    )
+                )
+                product_artifact_destination = bool(
+                    re.search(r"\bproduct\s+upload\b", lower)
+                    or re.search(
+                        r"\b(?:upload|attach|publish|post)\w*\b.{0,40}\bartifacts?\b"
+                        r".{0,30}\b(?:through|to|into|via)\b",
                         requirement_text,
                         re.I,
                     )
@@ -1068,7 +1060,7 @@ def _required_evidence_channels(acceptance: str) -> set[str]:
                     )
                 )
                 if evidence_named_artifact or (
-                    explicit_artifact_delivery and not product_artifact_upload
+                    explicit_artifact_delivery and not product_artifact_destination
                 ):
                     line_channels.add("artifacts")
                 elif not re.search(r"\b(?:pr comments?|pull request comments?)\b", lower):
