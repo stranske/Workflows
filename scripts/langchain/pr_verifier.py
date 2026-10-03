@@ -1086,7 +1086,11 @@ def _required_evidence_channels(acceptance: str) -> set[str]:
                 continue
             lower = requirement_text.lower()
             response_prefix = re.compile(
-                r"\b(?:responses?|payloads?|return\s+values?)\b\s+"
+                r"\b(?:"
+                r"responses?|payloads?|return\s+values?"
+                r"|(?:command[- ]?outputs?|transcripts?)\s+api"
+                r"|api\s+(?:command[- ]?outputs?|transcripts?)(?:\s+\w+){0,3}"
+                r")\b\s+"
                 r"(?:(?:must|shall|will|should|can|may|needs?\s+to)\s+)?"
                 r"(?:include|contain|have|return|display|show|store|emit|render|expose)\w*\b",
                 re.I,

@@ -540,6 +540,15 @@ def test_product_output_behavior_does_not_require_evidence_delivery() -> None:
         assert pr_verifier._required_evidence_channels(criterion) == set()
 
 
+def test_command_output_transcript_api_contracts_are_not_evidence_delivery() -> None:
+    # Codex P2 (thread PRRT_kwDOQprj9M6ooclp): transcript/command-output API wording.
+    for criterion in (
+        "- [ ] The transcript API must include command output",
+        "- [ ] The API command output endpoint must return JSON",
+    ):
+        assert pr_verifier._required_evidence_channels(criterion) == set()
+
+
 def test_product_output_behavior_preserves_explicit_evidence_delivery() -> None:
     # Codex P1 (thread PRRT_kwDOQprj9M6ooCH-): strip behavior, not delivery.
     assert pr_verifier._required_evidence_channels(
