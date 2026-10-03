@@ -623,10 +623,23 @@ def test_optional_passive_clause_preserves_required_validation_artifact() -> Non
 
 
 def test_quoted_passive_requirement_in_parser_description_is_not_evidence() -> None:
+    examples = (
+        '- The parser must recognize the phrase "A PR comment is needed"',
+        "- The parser must recognize `Upload a PR comment`",
+        "- The parser must recognize “Upload a PR comment”",
+        "- The parser must recognize ‘Upload a PR comment’",
+    )
+    for example in examples:
+        assert pr_verifier._required_evidence_channels(example) == set()
+
+
+def test_modified_active_evidence_prohibitions_are_not_requirements() -> None:
     assert (
-        pr_verifier._required_evidence_channels(
-            '- The parser must recognize the phrase "A PR comment is needed"'
-        )
+        pr_verifier._required_evidence_channels("- [ ] Must not upload a validation artifact")
+        == set()
+    )
+    assert (
+        pr_verifier._required_evidence_channels("- [ ] Do not post an exact-head PR comment")
         == set()
     )
 
