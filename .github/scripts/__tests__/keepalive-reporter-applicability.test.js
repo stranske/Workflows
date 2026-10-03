@@ -406,6 +406,11 @@ test('replay is a no-op when an ordinary PR has no authority ledger', async () =
       assert.equal(number, 42);
       return null;
     },
+    hasAttemptIndexes: async (_request, repository, number) => {
+      assert.equal(repository, 'stranske/repo');
+      assert.equal(number, 42);
+      return false;
+    },
     makeRequest: () => 'request',
   });
   assert.deepEqual(result, { prNumber: 42, results: [] });
@@ -419,6 +424,25 @@ test('replay still fails closed when an authority ledger read fails', async () =
     readAuthority: async () => { throw new Error('ledger unavailable'); },
     makeRequest: () => 'request',
   }), /ledger unavailable/);
+});
+
+test('replay fails closed when an authority candidate PR has a missing ledger but has attempt indexes', async () => {
+  await assert.rejects(replayReporterAuthority({
+    github: { request: async () => { throw new Error('no run lookup expected'); } },
+    context: { repo: { owner: 'stranske', repo: 'repo' } },
+    prNumber: 42,
+    readAuthority: async (_request, repository, number) => {
+      assert.equal(repository, 'stranske/repo');
+      assert.equal(number, 42);
+      return null;
+    },
+    hasAttemptIndexes: async (_request, repository, number) => {
+      assert.equal(repository, 'stranske/repo');
+      assert.equal(number, 42);
+      return true;  // PR has attempt indexes, so it's an authority candidate
+    },
+    makeRequest: () => 'request',
+  }), /Authority ledger is missing for a PR with attempt indexes/);
 });
 
 test('replay rejects a present receipt with an invalid owner attempt', async () => {
