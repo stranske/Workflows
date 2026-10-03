@@ -634,14 +634,14 @@ def test_quoted_passive_requirement_in_parser_description_is_not_evidence() -> N
 
 
 def test_modified_active_evidence_prohibitions_are_not_requirements() -> None:
-    assert (
-        pr_verifier._required_evidence_channels("- [ ] Must not upload a validation artifact")
-        == set()
+    examples = (
+        "- [ ] Must not upload a validation artifact",
+        "- [ ] Must not upload a test artifact",
+        "- [ ] Do not post an exact-head PR comment",
+        "- [ ] Do not post a generated exact-head PR comment",
     )
-    assert (
-        pr_verifier._required_evidence_channels("- [ ] Do not post an exact-head PR comment")
-        == set()
-    )
+    for example in examples:
+        assert pr_verifier._required_evidence_channels(example) == set()
 
 
 def test_descriptive_artifact_parser_requirement_is_not_a_deliverable() -> None:

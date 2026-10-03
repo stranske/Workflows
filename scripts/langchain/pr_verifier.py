@@ -843,7 +843,7 @@ def _required_evidence_channels(acceptance: str) -> set[str]:
         r"\s+(?:is|are)\s+not\s+(?:required|needed|mandatory)\b"
         r"|\b(?:must|shall|may|should|do|does)\s+not\s+"
         r"(?:upload|attach|provide|publish|post|record|capture|include|document)\b"
-        r"(?:\s+(?:the\s+|an?\s+|any\s+)?(?:validation\s+|exact-head\s+)?"
+        r"(?:\s+(?:the\s+|an?\s+|any\s+)?(?:[\w-]+\s+){0,4}"
         r"(?:evidence|artifacts?|transcripts?|"
         r"command outputs?|workflow runs?|pr comments?|pull request comments?))?"
         r"|\b(?:evidence|artifacts?|transcripts?|command outputs?|workflow runs?|"
