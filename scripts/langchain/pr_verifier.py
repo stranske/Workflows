@@ -1050,7 +1050,10 @@ def _required_evidence_channels(acceptance: str) -> set[str]:
                         lower,
                     )
                 )
-                if explicit_artifact_delivery or evidence_named_artifact:
+                product_upload_operation = bool(
+                    re.search(r"\bproduct\s+upload\b", lower)
+                )
+                if (explicit_artifact_delivery or evidence_named_artifact) and not product_upload_operation:
                     line_channels.add("artifacts")
                 elif not re.search(r"\b(?:pr comments?|pull request comments?)\b", lower):
                     continue

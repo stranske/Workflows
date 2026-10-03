@@ -1965,3 +1965,41 @@ test('buildVerifierContext flags ciFailed when a CI workflow concluded failure o
     }
   }
 });
+
+test('buildVerifierContext skips API PR diff if file count is incomplete', async () => {
+  const core = buildCore();
+  const prDetails = {
+    merged: true,
+    merged_at: '2026-09-24T00:00:00Z',
+    number: 558,
+    title: 'Incomplete API diff',
+    body: prBodyFixture,
+    html_url: 'https://example.com/pr/558',
+    base: { ref: 'main', sha: 'base_sha' },
+    head: { sha: 'head_sha' },
+    changed_files: 2,
+  };
+  const diffText = 'diff --git a/file1 b/file1\n+hello'; // Only 1 file
+  const context = {
+    eventName: 'pull_request',
+    repo: { owner: 'octo', repo: 'workflows' },
+    payload: { pull_request: prDetails },
+    sha: 'head_sha',
+  };
+  let fetchLocalDiffCalled = false;
+  const github = buildGithubStub({ prDetails, diffText });
+  const result = await buildVerifierContext({
+    github,
+    context,
+    core,
+    fetchLocalDiff() {
+      fetchLocalDiffCalled = true;
+      return 'local diff';
+    }
+  });
+
+  assert.equal(core.outputs.should_run, 'false');
+  assert.equal(core.warnings.length, 1);
+  assert.match(core.warnings[0], /API PR diff is incomplete/);
+  assert.match(core.outputs.skip_reason, /Authoritative pull request diff unavailable/);
+});

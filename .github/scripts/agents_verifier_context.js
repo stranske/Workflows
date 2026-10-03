@@ -621,7 +621,7 @@ function fetchLocalGitDiff({ baseSha, headSha, maxBytes, core, execFile = execFi
   }
 }
 
-async function fetchPullRequestDiff({ github, core, owner, repo, pullNumber }) {
+async function fetchPullRequestDiff({ github, core, owner, repo, pullNumber, expectedFiles = null }) {
   if (!github?.rest?.pulls?.get) {
     return '';
   }
@@ -633,7 +633,15 @@ async function fetchPullRequestDiff({ github, core, owner, repo, pullNumber }) {
       mediaType: { format: 'diff' },
     });
     if (typeof response?.data === 'string') {
-      return response.data;
+      const diffText = response.data;
+      if (typeof expectedFiles === 'number' && expectedFiles > 0) {
+        const fileCount = (diffText.match(/^diff --git /gm) || []).length;
+        if (fileCount < expectedFiles) {
+          core?.warning?.(`API PR diff is incomplete (contains ${fileCount} of ${expectedFiles} expected files). Skipping API diff.`);
+          return '';
+        }
+      }
+      return diffText;
     }
     return '';
   } catch (error) {
@@ -1053,6 +1061,7 @@ async function buildVerifierContext({
       owner,
       repo,
       pullNumber: pull.number,
+      expectedFiles: pull.changed_files,
     });
   } else {
     diffText = fetchLocalDiff({
@@ -1068,6 +1077,7 @@ async function buildVerifierContext({
         owner,
         repo,
         pullNumber: pull.number,
+        expectedFiles: pull.changed_files,
       });
     }
   }

@@ -1127,3 +1127,18 @@ def test_comparison_invocation_fallback_still_reports_input_coverage() -> None:
 
     assert result.used_llm is False
     assert result.input_coverage == coverage.to_dict()
+
+def test_product_upload_operations_do_not_require_workflow_artifacts() -> None:
+    # Codex P2: exclude product upload operations from verifier artifact evidence classification.
+    assert (
+        pr_verifier._required_evidence_channels(
+            "- [ ] Product upload operations must be verified"
+        )
+        == set()
+    )
+    assert (
+        pr_verifier._required_evidence_channels(
+            "- [ ] The product upload artifacts must be documented"
+        )
+        == set()
+    )
