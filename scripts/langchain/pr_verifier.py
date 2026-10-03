@@ -955,9 +955,20 @@ def _required_evidence_channels(acceptance: str) -> set[str]:
                 r"`[^`]*`|“[^”]*”|‘[^’]*’|([\"']).*?\1", " ", requirement_text
             )
             # Requirements about understanding evidence syntax are software
-            # behavior, not evidence-delivery requirements.
-            if meta_behavior and not delivery_verb.search(meta_delivery_text):
-                continue
+            # behavior, not evidence-delivery requirements. Nominal upload
+            # nouns (for example, "supports artifact uploads") are not delivery
+            # verbs unless the criterion explicitly mandates upload/attach/etc.
+            if meta_behavior:
+                explicit_delivery = bool(
+                    re.search(
+                        r"\b(?:must|shall|required|needs? to)\s+(?:\w+\s+){0,4}"
+                        r"(?:upload|attach|publish|post|record|capture|provide|include|document)\b",
+                        requirement_text,
+                        re.I,
+                    )
+                )
+                if not explicit_delivery:
+                    continue
             checklist_deliverable = bool(
                 checklist
                 and evidence_term.search(requirement_text)

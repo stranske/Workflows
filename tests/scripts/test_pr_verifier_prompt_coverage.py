@@ -513,6 +513,14 @@ def test_checklist_noun_only_deliverable_requires_evidence_channel() -> None:
     assert pr_verifier._required_evidence_channels("- [ ] Exact-head command output") == {"overall"}
 
 
+def test_parser_nominal_upload_criterion_does_not_require_artifacts() -> None:
+    # Codex P2 (thread PRRT_kwDOQprj9M6okupT): nominal "uploads" is parser behavior.
+    assert (
+        pr_verifier._required_evidence_channels("- [ ] The parser supports artifact uploads")
+        == set()
+    )
+
+
 def test_optional_checklist_evidence_is_not_required() -> None:
     assert (
         pr_verifier._required_evidence_channels("- [ ] Optional validation artifact (if produced)")
