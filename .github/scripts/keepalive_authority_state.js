@@ -985,9 +985,54 @@ async function findAuthorityPrForAttempt({ request, repository, ownerAttempt }) 
   return { prNumber: index.pr_number, state };
 }
 
+function attemptsDirPath(repository) {
+  if (!/^[a-z0-9_.-]+\/[a-z0-9_.-]+$/i.test(String(repository))) {
+    throw new Error('Invalid challenge repository for attempts directory');
+  }
+  return `/repos/${String(repository).toLowerCase()}/contents/.github/keepalive-authority-attempts`;
+}
+
+async function hasAttemptIndexesForPr(request, repository, prNumber) {
+  let directory;
+  try {
+    directory = await request('GET', `${attemptsDirPath(repository)}?ref=${BRANCH}`);
+  } catch (error) {
+    if (error.status === 404) return false;
+    throw error;
+  }
+  
+  if (!Array.isArray(directory)) return false;
+  
+  for (const entry of directory) {
+    if (entry.type !== 'file' || !entry.name?.endsWith('.json')) continue;
+    
+    let file;
+    try {
+      file = await request('GET', `${attemptsDirPath(repository)}/${entry.name}?ref=${BRANCH}`);
+    } catch (error) {
+      if (error.status === 404) continue;
+      throw error;
+    }
+    
+    if (!/^[0-9a-f]{40}$/.test(String(file?.sha)) || file?.encoding !== 'base64') continue;
+    
+    let index;
+    try {
+      index = JSON.parse(Buffer.from(String(file.content).replace(/\s/g, ''), 'base64').toString('utf8'));
+    } catch (error) {
+      continue;
+    }
+    
+    if (index?.pr_number === Number(prNumber)) return true;
+  }
+  
+  return false;
+}
+
 module.exports = {
   authorityAttemptOwnsRecoveryReceipt,
   findAuthorityPrForAttempt,
+  hasAttemptIndexesForPr,
   reconcileFailedAuthorityAttempt,
   BRANCH,
   beginChallenge,

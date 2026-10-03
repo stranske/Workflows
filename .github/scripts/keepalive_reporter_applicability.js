@@ -2,6 +2,7 @@
 
 const {
   findAuthorityPrForAttempt,
+  hasAttemptIndexesForPr,
   readAuthorityStateForReplay,
   reconcileFailedAuthorityAttempt,
   requester,
@@ -152,6 +153,7 @@ async function replayReporterAuthority({
   writerLogin,
   maxPasses = 3,
   readAuthority = readAuthorityStateForReplay,
+  hasAttemptIndexes = hasAttemptIndexesForPr,
   lookupTarget = findAuthorityPrForAttempt,
   reconcileAttempt = reconcileFailedAuthorityAttempt,
   projectRecovery = projectRecoveredAuthorityState,
@@ -170,9 +172,18 @@ async function replayReporterAuthority({
   const seen = new Set();
   for (let pass = 0; pass < maxPasses; pass += 1) {
     const authority = await readAuthority(request, repository, number);
-    // Most keepalive PRs never enter the challenge path and have no ledger. Only
-    // absence proved from a complete, pinned authority tree is an empty replay.
-    if (authority === null) break;
+    // Most keepalive PRs never enter the challenge path and have no ledger.
+    // A confirmed 404 (null from readAuthorityStateForReplay) is only accepted after
+    // verifying the PR is ordinary (no attempt indexes). Authority candidates fail closed:
+    // a missing ledger for a PR with attempt indexes indicates a reconciliation problem
+    // that must not be silently abandoned.
+    if (authority === null) {
+      const hasIndexes = await hasAttemptIndexes(request, repository, number);
+      if (hasIndexes) {
+        throw new Error('Authority ledger is missing for a PR with attempt indexes; cannot abandon reconciliation');
+      }
+      break;
+    }
     const { state } = authority;
     const attempts = [];
     for (const receipt of [state.receipt, state.released_receipt, state.recovered_receipt]) {
