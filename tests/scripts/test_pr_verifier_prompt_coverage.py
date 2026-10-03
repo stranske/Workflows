@@ -588,6 +588,8 @@ def test_product_artifact_nouns_do_not_require_workflow_artifacts() -> None:
         "- [ ] The UI must display uploaded artifacts",
         "- [ ] Store generated artifact metadata in the database",
         "- [ ] The UI must include an artifact preview",
+        "- [ ] Users must upload artifacts through the UI",
+        "- [ ] The API must upload artifacts to storage",
     ):
         assert pr_verifier._required_evidence_channels(criterion) == set()
 
@@ -1128,12 +1130,11 @@ def test_comparison_invocation_fallback_still_reports_input_coverage() -> None:
     assert result.used_llm is False
     assert result.input_coverage == coverage.to_dict()
 
+
 def test_product_upload_operations_do_not_require_workflow_artifacts() -> None:
     # Codex P2: exclude product upload operations from verifier artifact evidence classification.
     assert (
-        pr_verifier._required_evidence_channels(
-            "- [ ] Product upload operations must be verified"
-        )
+        pr_verifier._required_evidence_channels("- [ ] Product upload operations must be verified")
         == set()
     )
     assert (

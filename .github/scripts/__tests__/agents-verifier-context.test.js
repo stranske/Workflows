@@ -9,6 +9,9 @@ const {
   buildVerifierContext,
   formatDiffForContext,
   fetchLocalGitDiff,
+  fetchMergedCommitDiff,
+  pullRequestDiffCompleteness,
+  pullRequestApiDiffCompleteness,
   isValidSha,
   extractArtifactArchiveText,
   formatVerifierEvidence,
@@ -134,7 +137,12 @@ const buildGithubStub = ({
         if (params?.mediaType?.format === 'diff') {
           return { data: diffText };
         }
-        return { data: prDetails };
+        const changedFiles = (String(diffText || '').match(/^diff --git /gm) || []).length;
+        return {
+          data: prDetails && prDetails.changed_files === undefined
+            ? { ...prDetails, changed_files: changedFiles }
+            : prDetails,
+        };
       },
     },
     repos: {
@@ -752,6 +760,7 @@ async function buildAdvancedBaseDiffContext() {
   const core = buildCore();
   const pullGetCalls = [];
   const localCalls = [];
+  const mergedCalls = [];
   const prDetails = {
     merged: true,
     merged_at: '2026-09-24T00:00:00Z',
@@ -790,8 +799,12 @@ async function buildAdvancedBaseDiffContext() {
       localCalls.push(options);
       return `${siblingDiff}\n${prOnlyDiff}`;
     },
+    fetchMergedDiff(options) {
+      mergedCalls.push(options);
+      return prOnlyDiff;
+    },
   });
-  return { core, localCalls, pullGetCalls, result };
+  return { core, localCalls, mergedCalls, pullGetCalls, result };
 }
 
 function removeVerifierDiffArtifacts(result) {
@@ -1169,14 +1182,15 @@ test('buildVerifierContext reports unreadable referenced artifact content as una
 });
 
 test('buildVerifierContext uses the authoritative PR diff after the base advances', async () => {
-  const { localCalls, pullGetCalls, result } = await buildAdvancedBaseDiffContext();
+  const { localCalls, mergedCalls, pullGetCalls, result } = await buildAdvancedBaseDiffContext();
   try {
     assert.equal(result.shouldRun, true);
     assert.equal(localCalls.length, 0, 'merged PRs must not use a base...merge local range');
-    assert.ok(
-      pullGetCalls.some(
-        (params) => params.pull_number === 556 && params.mediaType?.format === 'diff'
-      )
+    assert.equal(mergedCalls.length, 1);
+    assert.equal(mergedCalls[0].mergeSha, 'cccccccccccccccccccccccccccccccccccccccc');
+    assert.equal(
+      pullGetCalls.filter((params) => params.mediaType?.format === 'diff').length,
+      0
     );
     assert.match(result.markdown, /## PR Diff \(full\)[\s\S]*src\/pr-only\.js/);
     assert.doesNotMatch(result.markdown, /src\/sibling\.js/);
@@ -1228,6 +1242,9 @@ test('buildVerifierContext skips when the authoritative merged PR diff is unavai
     github: buildGithubStub({ prDetails, diffText: null }),
     context,
     core,
+    fetchMergedDiff() {
+      return '';
+    },
     fetchLocalDiff() {
       throw new Error('merged PR verification must not fall back to a contaminated local range');
     },
@@ -1712,6 +1729,28 @@ test('formatDiffForContext returns placeholder for empty diff', () => {
   assert.equal(formatDiffForContext('', 100), '_Diff unavailable or empty._');
 });
 
+test('pullRequestDiffCompleteness rejects a bounded API diff with omitted files', () => {
+  const diff = [
+    'diff --git a/one.txt b/one.txt',
+    '--- a/one.txt',
+    '+++ b/one.txt',
+  ].join('\n');
+  assert.deepEqual(pullRequestDiffCompleteness(diff, 2), {
+    complete: false,
+    expectedFiles: 2,
+    observedFiles: 1,
+  });
+  assert.equal(pullRequestDiffCompleteness(diff, 1).complete, true);
+  assert.equal(pullRequestDiffCompleteness(diff, undefined).complete, false);
+});
+
+test('pullRequestApiDiffCompleteness rejects responses at GitHub rendering limits', () => {
+  const oneFile = 'diff --git a/one.txt b/one.txt\n' + 'x'.repeat(1024 * 1024);
+  assert.equal(pullRequestApiDiffCompleteness(oneFile, 1).complete, false);
+  const tooManyLines = 'diff --git a/one.txt b/one.txt\n' + '\n'.repeat(20000);
+  assert.equal(pullRequestApiDiffCompleteness(tooManyLines, 1).complete, false);
+});
+
 test('isValidSha validates hex shas', () => {
   assert.ok(isValidSha('a1b2c3d'));
   assert.ok(isValidSha('A1B2C3D4E5F6A7B8C9D0E1F2A3B4C5D6E7F8A9B0'));
@@ -1742,6 +1781,19 @@ test('fetchLocalGitDiff returns diff output when exec succeeds', () => {
   });
   assert.ok(result.includes('diff --git'));
   assert.ok(result.includes('+hello'));
+});
+
+test('fetchMergedCommitDiff reconstructs the landed change from its first parent', () => {
+  const calls = [];
+  const result = fetchMergedCommitDiff({
+    mergeSha: 'deadbeef',
+    execFile(command, args) {
+      calls.push([command, args]);
+      return Buffer.from('diff --git a/x b/x\n+hello\n');
+    },
+  });
+  assert.deepEqual(calls, [['git', ['diff', '--no-color', 'deadbeef^1', 'deadbeef']]]);
+  assert.match(result, /diff --git/);
 });
 
 // === Chain depth extraction tests ===
@@ -1992,6 +2044,9 @@ test('buildVerifierContext skips API PR diff if file count is incomplete', async
     github,
     context,
     core,
+    fetchMergedDiff() {
+      return '';
+    },
     fetchLocalDiff() {
       fetchLocalDiffCalled = true;
       return 'local diff';
@@ -2000,6 +2055,6 @@ test('buildVerifierContext skips API PR diff if file count is incomplete', async
 
   assert.equal(core.outputs.should_run, 'false');
   assert.equal(core.warnings.length, 1);
-  assert.match(core.warnings[0], /API PR diff is incomplete/);
+  assert.match(core.warnings[0], /incomplete PR diff/);
   assert.match(core.outputs.skip_reason, /Authoritative pull request diff unavailable/);
 });

@@ -19,6 +19,9 @@ const DEFAULT_DIFF_SUMMARY_PATH = 'verifier-diff-summary.md';
 const DEFAULT_DIFF_PATH = 'verifier-pr-diff.patch';
 const DEFAULT_DIFF_MAX_BYTES = 8 * 1024 * 1024;
 const DEFAULT_DIFF_MAX_CHARS = 300000;
+const GITHUB_DIFF_MAX_BYTES = 1024 * 1024;
+const GITHUB_DIFF_MAX_LINES = 20000;
+const GITHUB_DIFF_MAX_FILES = 300;
 const DEFAULT_EVIDENCE_COMMENT_LIMIT = 50;
 const DEFAULT_EVIDENCE_COMMENT_CHARS = 40000;
 const DEFAULT_EVIDENCE_RUN_LIMIT = 5;
@@ -621,7 +624,23 @@ function fetchLocalGitDiff({ baseSha, headSha, maxBytes, core, execFile = execFi
   }
 }
 
-async function fetchPullRequestDiff({ github, core, owner, repo, pullNumber, expectedFiles = null }) {
+function fetchMergedCommitDiff({ mergeSha, maxBytes, core, execFile = execFileSync }) {
+  if (!isValidSha(mergeSha)) {
+    core?.warning?.('Refusing to generate merged PR diff: invalid merge SHA value.');
+    return '';
+  }
+  try {
+    const buffer = execFile('git', ['diff', '--no-color', `${mergeSha}^1`, mergeSha], {
+      maxBuffer: Number.isFinite(maxBytes) ? maxBytes : DEFAULT_DIFF_MAX_BYTES,
+    });
+    return buffer.toString('utf8');
+  } catch (error) {
+    core?.warning?.(`Failed to generate merged PR diff locally: ${error.message}`);
+    return '';
+  }
+}
+
+async function fetchPullRequestDiff({ github, core, owner, repo, pullNumber }) {
   if (!github?.rest?.pulls?.get) {
     return '';
   }
@@ -648,6 +667,28 @@ async function fetchPullRequestDiff({ github, core, owner, repo, pullNumber, exp
     core?.warning?.(`Failed to fetch PR diff: ${error.message}`);
     return '';
   }
+}
+
+function pullRequestDiffCompleteness(diffText, changedFiles) {
+  const expectedFiles = Number(changedFiles);
+  const observedFiles = (String(diffText || '').match(/^diff --git /gm) || []).length;
+  const complete =
+    Number.isInteger(expectedFiles) &&
+    expectedFiles >= 0 &&
+    observedFiles === expectedFiles;
+  return { complete, expectedFiles, observedFiles };
+}
+
+function pullRequestApiDiffCompleteness(diffText, changedFiles) {
+  const inventory = pullRequestDiffCompleteness(diffText, changedFiles);
+  const text = String(diffText || '');
+  const bytes = Buffer.byteLength(text, 'utf8');
+  const lines = text ? text.split('\n').length : 0;
+  const withinApiBounds =
+    inventory.expectedFiles < GITHUB_DIFF_MAX_FILES &&
+    bytes < GITHUB_DIFF_MAX_BYTES &&
+    lines < GITHUB_DIFF_MAX_LINES;
+  return { ...inventory, bytes, lines, complete: inventory.complete && withinApiBounds };
 }
 
 async function resolvePullRequest({ github, context, core }) {
@@ -755,6 +796,7 @@ async function buildVerifierContext({
   core,
   ciWorkflows,
   fetchLocalDiff = fetchLocalGitDiff,
+  fetchMergedDiff = fetchMergedCommitDiff,
   extractArtifactText = extractArtifactArchiveText,
 }) {
   const { owner, repo } = context.repo;
@@ -1052,17 +1094,32 @@ async function buildVerifierContext({
   const isMergedPull = pull.merged === true || Boolean(pull.merged_at);
   let diffText = '';
   if (isMergedPull) {
-    // GitHub's PR diff is authoritative for the PR's own scope. A local
-    // base...merge range includes sibling PRs when the base branch advanced,
-    // while a first-parent range can omit commits after a rebase merge.
-    diffText = await fetchPullRequestDiff({
-      github,
+    // The caller checkout has full history. Diffing the landed commit against
+    // its first parent reconstructs the exact net change without GitHub's
+    // rendered-diff limits and without later sibling PRs.
+    diffText = fetchMergedDiff({
+      mergeSha: pull.merge_commit_sha,
+      maxBytes: Number.isFinite(diffMaxBytes) ? diffMaxBytes : DEFAULT_DIFF_MAX_BYTES,
       core,
-      owner,
-      repo,
-      pullNumber: pull.number,
-      expectedFiles: pull.changed_files,
     });
+    let completeness = pullRequestDiffCompleteness(diffText, pull.changed_files);
+    if (!diffText) {
+      diffText = await fetchPullRequestDiff({
+        github,
+        core,
+        owner,
+        repo,
+        pullNumber: pull.number,
+      });
+      completeness = pullRequestApiDiffCompleteness(diffText, pull.changed_files);
+    }
+    if (diffText && !completeness.complete) {
+      core?.warning?.(
+        `GitHub returned an incomplete PR diff for #${pull.number}: ` +
+          `${completeness.observedFiles} diff entries for ${completeness.expectedFiles} changed files.`
+      );
+      diffText = '';
+    }
   } else {
     diffText = fetchLocalDiff({
       baseSha,
@@ -1079,6 +1136,14 @@ async function buildVerifierContext({
         pullNumber: pull.number,
         expectedFiles: pull.changed_files,
       });
+      const completeness = pullRequestApiDiffCompleteness(diffText, pull.changed_files);
+      if (diffText && !completeness.complete) {
+        core?.warning?.(
+          `GitHub returned an incomplete PR diff for #${pull.number}: ` +
+            `${completeness.observedFiles} diff entries for ${completeness.expectedFiles} changed files.`
+        );
+        diffText = '';
+      }
     }
   }
   if (!diffText) {
@@ -1162,15 +1227,27 @@ module.exports = {
     core,
     ciWorkflows,
     fetchLocalDiff,
+    fetchMergedDiff,
     extractArtifactText,
   }) {
     const github = await ensureRateLimitWrapped({ github: rawGithub, core, env: process.env });
-    return buildVerifierContext({ github, context, core, ciWorkflows, fetchLocalDiff, extractArtifactText });
+    return buildVerifierContext({
+      github,
+      context,
+      core,
+      ciWorkflows,
+      fetchLocalDiff,
+      fetchMergedDiff,
+      extractArtifactText,
+    });
   },
   fetchVerifierEvidence,
   extractArtifactArchiveText,
   formatVerifierEvidence,
   formatDiffForContext,
   fetchLocalGitDiff,
+  fetchMergedCommitDiff,
+  pullRequestDiffCompleteness,
+  pullRequestApiDiffCompleteness,
   isValidSha,
 };
