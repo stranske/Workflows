@@ -883,7 +883,8 @@ def _required_evidence_channels(acceptance: str) -> set[str]:
             optional_checklist = bool(
                 checklist
                 and re.search(
-                    r"\boptional\b|\bif\s+(?:produced|available|present|uploaded|generated)\b",
+                    r"\boptional\b|"
+                    r"\b(?:if|when)\s+(?:produced|available|present|uploaded|generated)\b",
                     requirement_text,
                     re.I,
                 )

@@ -526,6 +526,18 @@ def test_optional_checklist_evidence_is_not_required() -> None:
         )
         == set()
     )
+    assert (
+        pr_verifier._required_evidence_channels(
+            "- [ ] Validation artifact must be uploaded when available"
+        )
+        == set()
+    )
+    assert (
+        pr_verifier._required_evidence_channels(
+            "- [ ] Validation artifact must be uploaded when produced"
+        )
+        == set()
+    )
 
 
 def test_checklist_noun_only_deliverable_floors_pass_when_unavailable(
