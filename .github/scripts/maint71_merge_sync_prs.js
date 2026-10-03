@@ -326,6 +326,8 @@ async function runReviewReassessment({
       `Maint 71 requests ${request.originating_reviewer} to reassess active thread ` +
         `${request.thread_id} on exact generated head ${request.head_sha}. ` +
         `The thread remains merge-blocking until reviewer disposition.`,
+      `If the finding is satisfied, reply in that active thread on this exact head with ` +
+        `<!-- sync-review-accepted:${request.head_sha} -->; otherwise leave actionable feedback.`,
       marker].join('\n\n');
     try {
       ({ data: comment } = await withRetry((client) => client.rest.issues.createComment({

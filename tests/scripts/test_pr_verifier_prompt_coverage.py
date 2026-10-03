@@ -576,6 +576,9 @@ def test_optional_subject_does_not_hide_required_explanation_comment() -> None:
     assert pr_verifier._required_evidence_channels(
         "- A PR comment must explain why artifacts are optional"
     ) == {"comments"}
+    assert pr_verifier._required_evidence_channels(
+        "- A PR comment must explain why artifact upload is optional"
+    ) == {"comments"}
 
 
 def test_negative_release_prohibition_is_not_a_required_evidence_gate() -> None:
@@ -652,6 +655,7 @@ def test_modified_active_evidence_prohibitions_are_not_requirements() -> None:
         "- [ ] Must not upload a test artifact",
         "- [ ] Do not post an exact-head PR comment",
         "- [ ] Do not post a generated exact-head PR comment",
+        "- [ ] Do not generate a validation artifact",
     )
     for example in examples:
         assert pr_verifier._required_evidence_channels(example) == set()

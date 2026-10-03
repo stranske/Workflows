@@ -842,7 +842,7 @@ def _required_evidence_channels(acceptance: str) -> set[str]:
         r"pr comments?|pull request comments?)"
         r"\s+(?:is|are)\s+not\s+(?:required|needed|mandatory)\b"
         r"|\b(?:must|shall|may|should|do|does)\s+not\s+"
-        r"(?:upload|attach|provide|publish|post|record|capture|include|document)\b"
+        r"(?:upload|attach|provide|publish|post|record|capture|include|document|generate)\b"
         r"(?:\s+(?:the\s+|an?\s+|any\s+)?(?:[\w-]+\s+){0,4}"
         r"(?:evidence|artifacts?|transcripts?|"
         r"command outputs?|workflow runs?|pr comments?|pull request comments?))?"
@@ -909,7 +909,8 @@ def _required_evidence_channels(acceptance: str) -> set[str]:
             # do not discard a separate required channel in the same clause.
             requirement_text = re.sub(
                 r"\b(?:evidence|artifacts?|transcripts?|command outputs?|workflow runs?|"
-                r"pr comments?|pull request comments?)\s+(?:is|are)\s+optional\b",
+                r"pr comments?|pull request comments?)(?:\s+(?:upload|attachment|publication|"
+                r"posting|capture|recording|generation))?\s+(?:is|are)\s+optional\b",
                 " ",
                 requirement_text,
                 flags=re.I,

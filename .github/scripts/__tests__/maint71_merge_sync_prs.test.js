@@ -109,6 +109,8 @@ test('source-owned reviewer reassessment supports stable generated lanes without
   assert.equal(first.request_url, comments[0].html_url);
   assert.match(comments[0].body, /@codex review/);
   assert.match(comments[0].body, /PRRT_test/);
+  assert.match(comments[0].body,
+    new RegExp(`<!-- sync-review-accepted:${request.head_sha} -->`));
   const second = await runReviewReassessment(args);
   assert.equal(second.status, 'review_blocked_reassessment_reused');
   assert.equal(posts, 1);
