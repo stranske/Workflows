@@ -628,6 +628,12 @@ def test_github_models_401_retries_once_with_openai(monkeypatch: pytest.MonkeyPa
     }.__getitem__
     monkeypatch.setattr(issue_formatter, "_get_llm_client", get_client)
     monkeypatch.setattr(issue_formatter, "invoke_with_trace", invoke)
+    monkeypatch.setattr(
+        issue_formatter,
+        "_validate_and_refine_tasks",
+        lambda formatted, *, use_llm: (formatted, None),
+    )
+
     result = issue_formatter.format_issue_body("Raw issue text", use_llm=True)
 
     assert client_requests == [False, True]
