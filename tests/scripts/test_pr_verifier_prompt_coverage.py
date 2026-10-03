@@ -556,6 +556,15 @@ def test_parser_nominal_upload_criterion_does_not_require_artifacts() -> None:
     )
 
 
+def test_evidence_first_parser_behavior_does_not_require_delivery() -> None:
+    # Codex P2 (thread PRRT_kwDOQprj9M6omGrq): the evidence noun can precede parser.
+    for criterion in (
+        "- [ ] The transcript parser must handle UTF-8",
+        "- [ ] The command output parser must recognize JSON",
+    ):
+        assert pr_verifier._required_evidence_channels(criterion) == set()
+
+
 def test_product_artifact_nouns_do_not_require_workflow_artifacts() -> None:
     # Codex P2 (thread PRRT_kwDOQprj9M6olGWX): domain "artifact" is not evidence delivery.
     assert (
