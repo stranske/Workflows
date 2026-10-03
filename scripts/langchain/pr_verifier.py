@@ -862,10 +862,10 @@ def _required_evidence_channels(acceptance: str) -> set[str]:
         re.I,
     )
     negative_gate = re.compile(
-        r"\b(?:must\s+not|shall\s+not|may\s+not|can\s+not|cannot|can't|"
+        r"(?:\b(?:must\s+not|shall\s+not|may\s+not|can\s+not|cannot|can't|"
         r"do\s+not|does\s+not|no|never)\s+"
         r"(?:\w+\s+){0,3}(?:proceed\w*|merge\w*|ship\w*|release\w*|complete\w*|pass\w*)\b"
-        r"|\bnever\s+(?:\w+\s+){0,5}proceed\w*\b"
+        r"|\bnever\s+(?:\w+\s+){0,5}proceed\w*\b)"
         r".{0,160}\b(?:without|unless|until)\b.{0,160}"
         r"\b(?:attach\w*|upload\w*|evidence|artifacts?|transcripts?|"
         r"command outputs?|workflow runs?|pr comments?|pull request comments?)\b",
@@ -884,7 +884,7 @@ def _required_evidence_channels(acceptance: str) -> set[str]:
         criterion_checklist = bool(re.match(r"^\s*[-*]\s*\[[ xX]\]", criterion))
         criterion_bullet = bool(re.match(r"^\s*[-*]\s+", criterion))
         clause_boundary = (
-            r"\s*;\s*|,?\s+but\s+|,?\s+and\s+(?="
+            r"\s*;\s*|,?\s+but\s+|,?\s+(?:and|while)\s+(?="
             r"(?:optionally\s+)?(?:"
             r"(?:an?\s+|the\s+)?(?:evidence|artifacts?|transcripts?|command outputs?|"
             r"workflow runs?|pr comments?|pull request comments?)|"

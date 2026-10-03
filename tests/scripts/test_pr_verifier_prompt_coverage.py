@@ -555,6 +555,17 @@ def test_optional_evidence_clause_preserves_required_comment() -> None:
     assert pr_verifier._required_evidence_channels(
         "- [ ] Upload the validation artifact when available and post the exact-head PR comment"
     ) == {"comments"}
+    # Codex P1 (thread PRRT_kwDOQprj9M6ojFgV): `while` is an equivalent clause boundary.
+    assert pr_verifier._required_evidence_channels(
+        "- [ ] Upload the validation artifact when available while a PR comment must be posted"
+    ) == {"comments"}
+
+
+def test_negative_release_prohibition_is_not_a_required_evidence_gate() -> None:
+    # Codex P2 (thread PRRT_kwDOQprj9M6ojFgY): a gate needs without/unless/until.
+    assert (
+        pr_verifier._required_evidence_channels("- [ ] No release artifact is required") == set()
+    )
 
 
 def test_descriptive_artifact_parser_requirement_is_not_a_deliverable() -> None:
