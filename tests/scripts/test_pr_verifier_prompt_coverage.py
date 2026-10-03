@@ -584,7 +584,9 @@ def test_optional_subject_does_not_hide_required_explanation_comment() -> None:
 def test_does_not_need_to_be_uploaded_prohibitions() -> None:
     # Codex P2 (exact head fae253996): passive "does not need to be" and "needs to be posted".
     assert (
-        pr_verifier._required_evidence_channels("A validation artifact does not need to be uploaded")
+        pr_verifier._required_evidence_channels(
+            "A validation artifact does not need to be uploaded"
+        )
         == set()
     )
     assert pr_verifier._required_evidence_channels("No PR comment needs to be posted") == set()
