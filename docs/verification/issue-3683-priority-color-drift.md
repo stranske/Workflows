@@ -33,8 +33,9 @@ index 72275268..2b28e789 100644
 
 ## Command for both runs
 
-The environment skips slow tests as required by the agent instructions. The command itself
-is the exact issue-requested invocation; no coverage or pytest configuration override was used.
+The command is the exact issue-requested invocation. `PYTEST_ADDOPTS` adds the
+`-m "not slow"` marker filter required by the agent instructions; no coverage
+options or other pytest configuration overrides were used.
 
 ```sh
 export PYTEST_ADDOPTS='-m "not slow"'
@@ -460,12 +461,13 @@ Only this evidence artifact is included in the commit.
 
 ## Task reconciliation at the current tip
 
-Reviewed both evidence commits, `7e97c0af11f5886bed762b72d1a2057d456c4ed5`
-and `21c8c6f957934ae3939d3da2b6460ebb76a88d8e`. Both change only this artifact.
+Reviewed all three evidence commits, `7e97c0af11f5886bed762b72d1a2057d456c4ed5`,
+`21c8c6f957934ae3939d3da2b6460ebb76a88d8e`, and
+`232568a07d5630ef8da7d4dd589030c358e1fd50`. Each changes only this artifact.
 The retained RED/GREEN run above verifies the deliberate break; no additional
 mutation is needed to reconcile the stale unchecked tasks in PR #3724.
 
-At tip `21c8c6f957934ae3939d3da2b6460ebb76a88d8e`, reran the restored gate:
+At tip `232568a07d5630ef8da7d4dd589030c358e1fd50`, reran the restored gate:
 
 ```sh
 PYTEST_ADDOPTS='-m "not slow"' pytest tests/scripts/test_bootstrap_consumer_labels.py -q
@@ -473,7 +475,7 @@ PYTEST_ADDOPTS='-m "not slow"' pytest tests/scripts/test_bootstrap_consumer_labe
 
 ```text
 ..........................                                               [100%]
-26 passed in 0.94s
+26 passed in 1.03s
 ```
 
 Exit status: `0`. The source SHA-256 is still
