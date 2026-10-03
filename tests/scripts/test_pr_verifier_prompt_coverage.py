@@ -1147,6 +1147,8 @@ def test_optional_artifact_preserves_mandatory_comment_sentences(
         ". Reviewers are required to publish a PR comment.",
         "and the exact current PR comment must be posted",
         "and the author is obliged to post a PR comment",
+        ", and the reviewer is expected to post a PR comment",
+        "and the reviewer is supposed to publish a PR comment",
     ],
 )
 def test_optional_artifact_preserves_equivalent_mandatory_comment_clauses(
@@ -1890,3 +1892,20 @@ def test_product_evidence_metadata_is_not_a_required_artifact() -> None:
         pr_verifier._required_evidence_channels("- [ ] Include an artifact preview in the PR")
         == set()
     )
+
+
+@pytest.mark.parametrize(
+    "prefix",
+    ["the following:", "the example:", "the following example:", ":"],
+)
+def test_colon_introduced_parser_examples_preserve_real_delivery(prefix: str) -> None:
+    criterion = (
+        f'- [ ] The parser must recognize {prefix} "Must upload an artifact and post a PR comment"'
+    )
+    assert pr_verifier._required_evidence_channels(criterion) == set()
+    assert pr_verifier._required_evidence_channels(criterion + "; post a PR comment") == {
+        "comments"
+    }
+    assert pr_verifier._required_evidence_channels(
+        criterion + "; upload a validation artifact"
+    ) == {"artifacts"}
