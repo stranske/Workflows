@@ -581,6 +581,21 @@ def test_optional_subject_does_not_hide_required_explanation_comment() -> None:
     ) == {"comments"}
 
 
+def test_does_not_need_to_be_uploaded_prohibitions() -> None:
+    # Codex P2 (exact head fae253996): passive "does not need to be" and "needs to be posted".
+    assert (
+        pr_verifier._required_evidence_channels("A validation artifact does not need to be uploaded")
+        == set()
+    )
+    assert pr_verifier._required_evidence_channels("No PR comment needs to be posted") == set()
+    assert (
+        pr_verifier._required_evidence_channels(
+            "- [ ] A validation artifact does not need to be uploaded"
+        )
+        == set()
+    )
+
+
 def test_negative_release_prohibition_is_not_a_required_evidence_gate() -> None:
     # Codex P2 (thread PRRT_kwDOQprj9M6ojFgY): a gate needs without/unless/until.
     assert pr_verifier._required_evidence_channels("- [ ] No release artifact is required") == set()
@@ -615,7 +630,9 @@ def test_passive_needed_evidence_requirements_and_prohibitions() -> None:
     }
     negative = (
         "A validation artifact is not needed",
+        "A validation artifact does not need to be uploaded",
         "A PR comment is not needed",
+        "No PR comment needs to be posted",
         "No validation artifact is needed",
         "No PR comments are needed",
         "A PR comment need not be posted",

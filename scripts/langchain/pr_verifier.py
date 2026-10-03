@@ -866,7 +866,14 @@ def _required_evidence_channels(acceptance: str) -> set[str]:
         r"(?:uploaded|attached|provided|published|posted|recorded|captured|"
         r"included|documented)\b"
         r"|\bno\s+(?:\w+\s+){0,4}(?:evidence|artifacts?|transcripts?|command outputs?|"
-        r"workflow runs?|pr comments?|pull request comments?)\s+is\s+generated\b",
+        r"workflow runs?|pr comments?|pull request comments?)\s+is\s+generated\b"
+        r"|\b(?:does|do)\s+not\s+need\s+(?:to\s+be\s+)?"
+        r"(?:uploaded|attached|provided|published|posted|recorded|captured|"
+        r"included|documented)\b"
+        r"|\bno\s+(?:\w+\s+){0,4}(?:evidence|artifacts?|transcripts?|command outputs?|"
+        r"workflow runs?|pr comments?|pull request comments?)\s+needs?\s+to\s+be\s+"
+        r"(?:uploaded|attached|provided|published|posted|recorded|captured|"
+        r"included|documented)\b",
         re.I,
     )
     negative_gate = re.compile(
@@ -902,6 +909,8 @@ def _required_evidence_channels(acceptance: str) -> set[str]:
         )
         for line in re.split(clause_boundary, criterion, flags=re.I):
             gate = bool(negative_gate.search(line))
+            if not gate and evidence_prohibition.search(line):
+                continue
             requirement_text = line if gate else evidence_prohibition.sub(" ", line)
             # An optional evidence noun can be the object of a mandatory
             # explanation (for example, "a PR comment must explain why
