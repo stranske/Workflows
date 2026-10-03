@@ -1192,6 +1192,84 @@ def test_empty_diff_remains_a_complete_no_change_code_block() -> None:
     assert (block, status, files, included, total) == ("", "complete", (), 0, 0)
 
 
+def test_binary_files_differ_descriptor_is_omitted_not_complete() -> None:
+    text = (
+        "diff --git a/assets/logo.png b/assets/logo.png\n"
+        "index 1234567..89abcde 100644\n"
+        "Binary files a/assets/logo.png and b/assets/logo.png differ\n"
+    )
+    excerpt, coverage = pr_verifier._excerpt_file("assets/logo.png", text, 10_000)
+
+    assert excerpt == ""
+    assert coverage == pr_verifier.FileCoverage("assets/logo.png", "omitted", 0, len(text))
+
+
+def test_git_binary_patch_descriptor_is_omitted_not_complete() -> None:
+    text = (
+        "diff --git a/assets/logo.png b/assets/logo.png\n"
+        "index 1234567..89abcde 100644\n"
+        "GIT binary patch\n"
+        "literal 4\n"
+        "test\n"
+    )
+    excerpt, coverage = pr_verifier._excerpt_file("assets/logo.png", text, 10_000)
+
+    assert excerpt == ""
+    assert coverage.status == "omitted"
+    assert coverage.included_chars == 0
+
+
+def test_binary_descriptor_diff_blocks_complete_code_coverage() -> None:
+    diff = (
+        "diff --git a/assets/logo.png b/assets/logo.png\n"
+        "index 1234567..89abcde 100644\n"
+        "Binary files a/assets/logo.png and b/assets/logo.png differ\n"
+    )
+    _, status, files, included, _ = pr_verifier._build_code_block(diff, 10_000)
+
+    assert status == "truncated"
+    assert files[0].status == "omitted"
+    assert included == 0
+
+
+def test_text_diff_stays_complete_when_budget_covers_whole_file() -> None:
+    diff = _file_diff("src/example.py", 80)
+    _, status, files, included, total = pr_verifier._build_code_block(diff, 10_000)
+
+    assert status == "complete"
+    assert files[0].status == "complete"
+    assert included == total
+
+
+def test_binary_only_pr_diff_withholds_pass() -> None:
+    context = """# Verifier context
+
+## Plan sources (scope, tasks, acceptance)
+
+#### Acceptance criteria
+- exact observable smoke test
+
+## PR Diff Summary
+
+### File changes
+- assets/logo.png (binary)
+
+## PR Diff (full)
+
+```diff
+diff --git a/assets/logo.png b/assets/logo.png
+index 1234567..89abcde 100644
+Binary files a/assets/logo.png and b/assets/logo.png differ
+```
+"""
+
+    coverage = pr_verifier.prompt_coverage(context, None)
+
+    assert coverage.code == "truncated"
+    assert not coverage.sufficient
+    assert any("omitted from the prompt entirely" in reason for reason in coverage.reasons)
+
+
 def test_quoted_utf8_octal_diff_path_matches_summary_destination() -> None:
     context = """# Verifier context
 

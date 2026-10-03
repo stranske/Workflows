@@ -768,8 +768,22 @@ def _fair_shares(sizes: list[int], budget: int) -> list[int]:
     return shares
 
 
+def _diff_file_is_binary_descriptor(text: str) -> bool:
+    """True when Git reports a binary change without inspectable text hunks."""
+    has_hunk = False
+    has_binary_marker = False
+    for line in text.splitlines():
+        if line.startswith("@@"):
+            has_hunk = True
+        elif line.startswith("Binary files ") or line.startswith("GIT binary patch"):
+            has_binary_marker = True
+    return has_binary_marker and not has_hunk
+
+
 def _excerpt_file(path: str, text: str, share: int) -> tuple[str, FileCoverage]:
     total = len(text)
+    if _diff_file_is_binary_descriptor(text):
+        return "", FileCoverage(path, "omitted", 0, total)
     if share >= total:
         return text, FileCoverage(path, "complete", total, total)
     omitted_note = "[... remaining lines of {path} omitted: verifier prompt budget ...]\n"
