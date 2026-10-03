@@ -21,6 +21,10 @@ def snapshot_digest(snapshot: dict[str, Any]) -> str:
             "source_run_id",
         )
     }
+    # Preserve the digest of legacy snapshots while binding every new capture
+    # to the full diff that production compare mode actually consumed.
+    if "diff" in snapshot:
+        payload["diff"] = snapshot["diff"]
     return hashlib.sha256(
         json.dumps(payload, sort_keys=True, separators=(",", ":")).encode("utf-8")
     ).hexdigest()
@@ -33,7 +37,9 @@ def verifier_prompt(snapshot: dict[str, Any]) -> str:
     previous = os.environ.get("CHAIN_DEPTH")
     os.environ["CHAIN_DEPTH"] = str(snapshot["chain_depth"])
     try:
-        return pr_verifier._prepare_prompt(snapshot["context"], snapshot["diff_summary"])
+        return pr_verifier._prepare_prompt(
+            snapshot["context"], snapshot.get("diff", snapshot["diff_summary"])
+        )
     finally:
         if previous is None:
             os.environ.pop("CHAIN_DEPTH", None)
@@ -45,7 +51,9 @@ def verifier_prompt_coverage(snapshot: dict[str, Any]) -> dict[str, Any]:
     """Report which acceptance and changed-code sources the production prompt keeps."""
     from scripts.langchain import pr_verifier
 
-    return pr_verifier.prompt_coverage(snapshot["context"], snapshot["diff_summary"]).to_dict()
+    return pr_verifier.prompt_coverage(
+        snapshot["context"], snapshot.get("diff", snapshot["diff_summary"])
+    ).to_dict()
 
 
 def is_complex_coverage(coverage: dict[str, Any], *, min_files: int, min_code_chars: int) -> bool:

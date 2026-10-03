@@ -32,10 +32,15 @@ def create_case(
         raise ValueError("unknown verifier capture kind")
     context = (artifact / "verifier-context.md").read_text()
     diff_summary = (artifact / "verifier-diff-summary.md").read_text()
+    diff = None
+    if "diff_sha256" in manifest:
+        diff = (artifact / "verifier-pr-diff.patch").read_text()
     if hashlib.sha256(context.encode()).hexdigest() != manifest["context_sha256"]:
         raise ValueError("production context does not match the captured manifest")
     if hashlib.sha256(diff_summary.encode()).hexdigest() != manifest["diff_summary_sha256"]:
         raise ValueError("production diff summary does not match the captured manifest")
+    if diff is not None and hashlib.sha256(diff.encode()).hexdigest() != manifest["diff_sha256"]:
+        raise ValueError("production full diff does not match the captured manifest")
     if expected_verdict not in {"PASS", "NON_PASS"}:
         raise ValueError("expected verdict must be PASS or NON_PASS")
     if not all((case_id, category, adjudication_evidence, adjudicated_by, adjudication_rationale)):
@@ -75,6 +80,10 @@ def create_case(
         ),
         "source_capture_kind": capture_kind,
     }
+    if diff is not None:
+        # A controlled defect replaces the changed-code input consistently;
+        # an unmodified capture replays the exact full diff from production.
+        snapshot["diff"] = diff_summary if is_mutation else diff
     if is_mutation:
         snapshot["mutation_note"] = mutation_note
         snapshot["source_context_sha256"] = manifest["context_sha256"]

@@ -382,6 +382,7 @@ jobs:
 
           context = Path('verifier-context.md').read_bytes()
           diff_summary = Path('verifier-diff-summary.md').read_bytes()
+          diff = Path('verifier-pr-diff.patch').read_bytes()
           raw_workflows = os.environ.get('VERIFIER_CI_WORKFLOWS', '')
           try:
               ci_workflows = json.loads(raw_workflows)
@@ -400,6 +401,7 @@ jobs:
               'ci_workflows': ci_workflows,
               'context_sha256': hashlib.sha256(context).hexdigest(),
               'diff_summary_sha256': hashlib.sha256(diff_summary).hexdigest(),
+              'diff_sha256': hashlib.sha256(diff).hexdigest(),
           }
           Path('verifier-input-manifest.json').write_text(json.dumps(manifest, indent=2) + '\n')
           PY
@@ -1329,6 +1331,7 @@ jobs:
             comparison-comment.md
             verifier-context.md
             verifier-diff-summary.md
+            verifier-pr-diff.patch
             verifier-input-manifest.json
           if-no-files-found: ignore
           retention-days: 7

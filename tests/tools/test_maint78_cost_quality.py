@@ -103,6 +103,18 @@ def _prompt_hashes(cases):
     }
 
 
+def test_snapshot_replay_prefers_the_captured_full_diff():
+    snapshot = {
+        "context": "# Verifier context\n",
+        "diff_summary": "SUMMARY_ONLY_MARKER",
+        "diff": "diff --git a/task.py b/task.py\n+FULL_DIFF_MARKER\n",
+        "chain_depth": 0,
+    }
+    prompt = verifier_prompt(snapshot)
+    assert "FULL_DIFF_MARKER" in prompt
+    assert "SUMMARY_ONLY_MARKER" not in prompt
+
+
 def test_current_plan_allows_fast_screen_without_statistical_approval():
     plan = build_plan(*_inputs())
     assert not plan["approval_ready"]
@@ -707,8 +719,10 @@ def test_duplicate_prompt_snapshot_cannot_be_counted_twice():
 def test_snapshot_import_checks_capture_hash_and_marks_controlled_defects(tmp_path):
     context = "# Verifier context\nacceptance at merge\n"
     diff_summary = "## PR Diff Summary\n- one missing task\n"
+    diff = "diff --git a/task.py b/task.py\n+implemented task\n"
     (tmp_path / "verifier-context.md").write_text(context)
     (tmp_path / "verifier-diff-summary.md").write_text(diff_summary)
+    (tmp_path / "verifier-pr-diff.patch").write_text(diff)
     manifest = {
         "schema": "workflows-verifier-input-snapshot/v1",
         "repository": "stranske/Workflows",
@@ -718,6 +732,7 @@ def test_snapshot_import_checks_capture_hash_and_marks_controlled_defects(tmp_pa
         "chain_depth": 1,
         "context_sha256": hashlib.sha256(context.encode()).hexdigest(),
         "diff_summary_sha256": hashlib.sha256(diff_summary.encode()).hexdigest(),
+        "diff_sha256": hashlib.sha256(diff.encode()).hexdigest(),
     }
     (tmp_path / "verifier-input-manifest.json").write_text(json.dumps(manifest))
     kwargs = {
@@ -740,7 +755,12 @@ def test_snapshot_import_checks_capture_hash_and_marks_controlled_defects(tmp_pa
         mutation_note="Removed the implemented task from the diff summary.",
     )
     assert case["production_snapshot"]["input_kind"] == "controlled_defect"
+    assert case["production_snapshot"]["diff"] == override.read_text()
     assert case["production_snapshot"]["source_context_sha256"] == manifest["context_sha256"]
+    (tmp_path / "verifier-pr-diff.patch").write_text(diff + "tampered")
+    with pytest.raises(ValueError, match="production full diff"):
+        create_case(tmp_path, **kwargs)
+    (tmp_path / "verifier-pr-diff.patch").write_text(diff)
     (tmp_path / "verifier-context.md").write_text(context + "tampered")
     with pytest.raises(ValueError, match="captured manifest"):
         create_case(tmp_path, **kwargs)
