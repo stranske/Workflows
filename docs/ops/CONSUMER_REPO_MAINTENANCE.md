@@ -912,6 +912,30 @@ the existing thread. It cannot run while the first review is pending, on a
 changed head, or as a duplicate stage. This grants no resolution or merge
 authority and imposes no mandatory human reply.
 
+An inline mention is not proof that a disposition cloud task executed. When
+the originating provider returns another stock summary, its configured
+`disposition_task_transport=pr-conversation` bridges the existing authenticated
+in-thread request to one top-level task mention. The bridge binds the same
+repository, PR, head, thread, plan, generation, source and reviewer plus the
+verified inline request ID and URL.
+The canonical binding is SHA-256 hashed in a `maint71-disposition-task:v1`
+marker. The policy task command is `@codex answer this specific finding` and
+points to the existing inline acceptance instructions rather than repeating
+review-command/schema text in the cloud entry. A live top-level diagnostic
+question executed as a cloud task while an address-that-feedback request
+returned a stock summary; the connector routing internals remain unknown.
+Actual originating in-thread output is still required, regardless of command.
+A repeated disposition dispatch recovers that request without reposting it
+and reuses one trusted bridge after fully
+paginating PR comments. Changed bindings, duplicate trusted bridges, incomplete
+inventories and uncertain POST outcomes fail closed. The task must answer in
+the original thread; top-level answers, generic summaries and task completion
+alone cannot satisfy acceptance or authorize resolution. The supported
+top-level task entry is documented, but successful in-thread output remains
+unqualified until actual originating-reviewer evidence demonstrates it.
+This source-owned request-only transport grants no generated mutation authority
+beyond posting the bound request and never introduces a mandatory human reply.
+
 A non-empty workflow-sync selector applies only to the `sync/workflows-*` lane.
 An open sibling `deps/sync-dev-versions-*` delivery is therefore ignored for
 the selector's expected-branch check instead of producing a false
