@@ -1877,6 +1877,43 @@ test('a relation-sourced PR stays non-closing across two body syncs', async (t) 
   }
 });
 
+test('documented missing-source recovery preserves intent in source and consumer body syncs', async (t) => {
+  const document = fs.readFileSync(
+    path.resolve(__dirname, '../../../docs/keepalive/GoalsAndPlumbing.md'), 'utf8',
+  );
+  const recovery = document.match(/^- \*\*Missing Workflow Source:\*\*.*$/m);
+  assert.ok(recovery, 'the operator guide must document missing-source recovery');
+
+  for (const { instruction, marker, link, closing } of [
+    {
+      instruction: 'For a non-closing reference',
+      marker: '<!-- meta:related-issue:<issue_number> -->',
+      link: 'Related to #<issue_number>',
+      closing: false,
+    },
+    {
+      instruction: 'For explicit closing intent',
+      marker: '<!-- meta:issue:<issue_number> -->',
+      link: 'Closes #<issue_number>',
+      closing: true,
+    },
+  ]) {
+    const example = recovery[0].match(new RegExp(
+      instruction + ', add a hidden `([^`]+)` marker plus a visible `([^`]+)` line\\.',
+    ));
+    assert.ok(example, `missing documented instructions: ${instruction}`);
+    assert.equal(example[1], marker, `${instruction}: marker must express the intended linkage`);
+    assert.equal(example[2], link, `${instruction}: visible link must agree with the marker`);
+    const body = `${example[1]}\n${example[2]}`.replaceAll('<issue_number>', '123');
+
+    for (const [name, sync] of [['Workflows source', run], ['consumer template', templateRun]]) {
+      await t.test(`${name}: ${instruction}`, () => {
+        return assertIssueSyncPreservesIntent(sync, { body }, closing);
+      });
+    }
+  }
+});
+
 test('missing-source recovery preserves related and closing intent across two body syncs', async (t) => {
   for (const [name, sync] of [['Workflows source', run], ['consumer template', templateRun]]) {
     await t.test(name, async (t) => {
