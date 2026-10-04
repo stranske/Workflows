@@ -1042,6 +1042,18 @@ def _required_evidence_channels(acceptance: str) -> set[str]:
                 # A later delivery has its own subject; do not inherit an
                 # earlier UI/API actor across "transcript that must be posted".
                 subject = re.split(r"\b(?:and|or|that|which|who)\b", between, flags=re.I)[-1]
+        nested_subject = re.search(
+            r"\b(?:that|whether)\s+(?P<subject>(?:(?:the|an?)\s+)?"
+            r"(?:[\w-]+\s+)*?(?:ui|api|application|interface|service|cli|endpoint|renderer|"
+            r"reviewers?|maintainers?|authors?|operators?))\s+(?:" + product_auxiliary + r")?\s*$",
+            subject,
+            re.I,
+        )
+        if nested_subject:
+            # A direct nested clause's actor governs this operation, not a
+            # reviewer merely asked to verify that product behavior. An outer
+            # relative clause with another verb cannot match this boundary.
+            subject = nested_subject["subject"]
         subject = re.split(product_auxiliary, subject, maxsplit=1, flags=re.I)[0]
         plain_subject = re.sub(r"^\s*(?:[-*]\s*(?:\[[ xX]\]\s*)?)?", "", subject)
         if re.match(
@@ -1099,7 +1111,7 @@ def _required_evidence_channels(acceptance: str) -> set[str]:
         words = re.findall(r"[\w-]+", subject.lower())
         product_destination = bool(
             re.search(
-                r"\b(?:in|into|to|as)\s+(?:(?:its|the|an?)\s+)?"
+                r"^\s*(?:in|into|to|as)\s+(?:(?:its|the|an?)\s+)?"
                 r"(?:(?:json|api|audit|output)\s+)*"
                 r"(?:responses?|payloads?|outputs?|fields?|records?|storage|data)\b"
                 r"|^\s*(?:fields?|metadata)\b",
@@ -1110,7 +1122,7 @@ def _required_evidence_channels(acceptance: str) -> set[str]:
         field_operation = bool(re.fullmatch(r"(?:include|display|store)\w*", operation[0], re.I))
         review_destination = bool(
             re.search(
-                r"\b(?:with|containing|including)\s+(?:test\s+|validation\s+)?"
+                r"\b(?:with|containing|including)\s+(?:[\w-]+\s+)*?"
                 r"(?:results?|evidence|transcripts?|command outputs?)\b"
                 r"|\b(?:on|in|to)\s+(?:(?:the|this|reviewing)\s+)?(?:pr|pull request)\b",
                 destination,

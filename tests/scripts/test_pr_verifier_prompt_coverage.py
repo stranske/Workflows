@@ -2491,3 +2491,36 @@ def test_include_operation_retains_explicit_review_destination() -> None:
     assert pr_verifier._required_evidence_channels(
         "- [ ] The service must include a PR comment with test results"
     ) == {"comments"}
+
+
+@pytest.mark.parametrize("actor", ["API", "endpoint", "service"])
+@pytest.mark.parametrize("check", ["verify", "check", "assert"])
+def test_reviewers_product_check_uses_nested_governing_subject(actor: str, check: str) -> None:
+    criterion = f"The reviewer must {check} that the {actor} includes PR comments in its response"
+    assert pr_verifier._required_evidence_channels(f"- [ ] {criterion}") == set()
+    assert pr_verifier._required_evidence_channels(
+        f"- [ ] {criterion}; the reviewer must post a PR comment with results"
+    ) == {"comments"}
+
+
+def test_relative_clause_does_not_replace_outer_reviewer_subject() -> None:
+    assert pr_verifier._required_evidence_channels(
+        "- [ ] The reviewer that the API manages must post a PR comment with results"
+    ) == {"comments"}
+
+
+@pytest.mark.parametrize(
+    "criterion,expected",
+    [
+        (
+            "The service must post a PR comment with test results generated in its response",
+            {"comments"},
+        ),
+        ("The API must include a PR comment in its response with test results", set()),
+        ("The service must include a PR comment with failing test results", {"comments"}),
+    ],
+)
+def test_comment_destination_is_its_direct_object_not_later_result_metadata(
+    criterion: str, expected: set[str]
+) -> None:
+    assert pr_verifier._required_evidence_channels(f"- [ ] {criterion}") == expected
