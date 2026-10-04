@@ -748,3 +748,27 @@ def test_product_recipient_does_not_absorb_independent_review_predicate(predicat
     assert verifier._required_evidence_channels(
         "- [ ] " + criterion + "; include evidence in a PR comment"
     ) == {"comments"}
+
+
+@pytest.mark.parametrize("operation", ["presents", "sends", "delivers"])
+@pytest.mark.parametrize("modifier", ["written", "pasted"])
+def test_product_participial_modifiers_do_not_depend_on_governing_verb_allowlist(
+    operation, modifier
+):
+    criterion = f"The UI {operation} {modifier} evidence to users"
+    assert verifier._required_evidence_channels(criterion) == set()
+    assert verifier._required_evidence_channels(
+        criterion + "; include evidence in a PR comment"
+    ) == {"comments"}
+
+
+@pytest.mark.parametrize("artifact_source", ["workflow", "CI", "GitHub Actions"])
+def test_named_review_artifact_delivery_object_is_preserved(artifact_source):
+    criterion = f"The service must provide {artifact_source} artifacts"
+    assert verifier._required_evidence_channels(criterion) == {"artifacts"}
+    assert (
+        verifier._required_evidence_channels(
+            "The service must not provide " + artifact_source + " artifacts"
+        )
+        == set()
+    )

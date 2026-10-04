@@ -1044,20 +1044,10 @@ def _required_evidence_channels(acceptance: str) -> set[str]:
             prefix = re.split(
                 r"[;\n]|\b(?:and|or|that|which|who)\b", acceptance[: match.start()], flags=re.I
             )[-1]
-            operations = list(
-                re.finditer(
-                    r"\b(?!renderer\b)(?:"
-                    + response_operation
-                    + r"|record\w*|write\w*|paste\w*)\b",
-                    prefix,
-                    re.I,
-                )
-            )
-            if operations and not re.search(
-                r"(?:\b"
-                + mandatory_auxiliary
-                + r"|\b(?:is|are|was|were|be|been|being))\s+(?:(?:not|never)\s+)?$",
-                prefix[operations[-1].end() :],
+            if not re.search(
+                r"\b(?:" + mandatory_auxiliary + r"|is|are|was|were|be|been|being|has|have|had)\s+"
+                r"(?:(?:not|never|no\s+longer|\w+ly)\s+)*$",
+                prefix,
                 re.I,
             ):
                 return match[0]
@@ -1867,6 +1857,8 @@ def _required_evidence_channels(acceptance: str) -> set[str]:
             # not a later prohibited pronoun clause such as 'do not attach it'.
             explicit_review_destination = bool(
                 re.search(
+                    r"\b(?:provide|upload|attach|publish|post|record|capture|document)\w*\b\s+"
+                    r"(?:(?:the|an?|any)\s+)?" + artifact_destination_object + "|"
                     r"\b" + delivery_operation + r"\s+"
                     r"(?:(?:the|an?|any|before/after|failing|passing|supporting|validation|workflow|exact-head|execution|test|review|collected|recorded)\s+){0,4}"
                     + delivery_object
@@ -2038,7 +2030,8 @@ def _required_evidence_channels(acceptance: str) -> set[str]:
                     )
                 )
                 evidence_named_artifact = bool(
-                    re.search(
+                    re.search(artifact_destination_object, lower)
+                    or re.search(
                         r"\b(?:failing and passing |validation |exact-head |workflow |ci |build )artifacts?\b",
                         lower,
                     )

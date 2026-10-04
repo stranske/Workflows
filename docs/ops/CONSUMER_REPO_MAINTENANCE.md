@@ -1066,6 +1066,10 @@ not become an independent record operation. The outer requirement gate shares
 passive obligation auxiliaries with destination recognition; negated `does not
 have to be` clauses remain non-obligations. CI, GitHub Actions and workflow
 artifact destinations use the same recognition and channel vocabulary.
+Named workflow/CI/GitHub Actions artifacts directly provided as delivery objects
+remain review artifacts even when the actor is a product service. Past-participle
+aliases canonicalize only after a governing obligation or passive auxiliary, not
+by enumerating all possible verbs before adjectival `written`/`pasted` evidence.
 The four fresh canary findings are tested through the actual coverage floor with
 present, absent and unavailable evidence plus independent reviewer-delivery controls.
 
