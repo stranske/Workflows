@@ -728,15 +728,19 @@ def _split_diff_files(diff: str) -> list[tuple[str | None, str]]:
     files: list[tuple[str | None, str]] = []
     current: list[str] = []
     path: str | None = None
+    in_hunk = False
     for line in diff.splitlines(keepends=True):
         if line.startswith("diff --git "):
             if current:
                 files.append((path, "".join(current)))
             current = [line]
             path = destination_from_git_header(line) or None
+            in_hunk = False
         elif current:
             current.append(line)
-            if path is None:
+            if line.startswith("@@"):
+                in_hunk = True
+            if path is None or in_hunk:
                 continue
             if line.startswith("--- "):
                 source = normalized_path(line[4:])
@@ -1020,6 +1024,12 @@ def _required_evidence_channels(acceptance: str) -> set[str]:
         if not operations:
             return False
         capability = bool(re.fullmatch(r"(?:allow|enable|support)\w*", operations[0][0], re.I))
+        if capability and len(operations) > 1:
+            between = prefix[operations[-2].end() : operations[-1].start()]
+            if re.search(r"\b(?:and|or)\s+(?:the\s+|an?\s+)?[\w-]+", between, re.I):
+                # A coordinated clause with its own actor governs this object,
+                # even without a modal: "and the reviewer leaves a comment".
+                capability = False
         operation = operations[0] if capability else operations[-1]
         subject = prefix[: operation.start()]
         if not capability and len(operations) > 1:

@@ -2290,3 +2290,23 @@ def test_copy_metadata_preserves_embedded_git_prefix(destination: str) -> None:
     _, status, files, _, _ = pr_verifier._build_code_block(diff, 10_000)
     assert status == "complete"
     assert files[0].path == destination
+
+
+@pytest.mark.parametrize("content", ["-- removed sql comment", '-- "quoted'])
+def test_hunk_content_cannot_replace_diff_path(content: str) -> None:
+    diff = (
+        "diff --git a/query.sql b/query.sql\n--- a/query.sql\n+++ b/query.sql\n"
+        f"@@ -1 +1 @@\n-{content}\n+select 1;\n"
+    )
+    _, status, files, _, _ = pr_verifier._build_code_block(diff, 10_000)
+    assert status == "complete"
+    assert files[0].path == "query.sql"
+
+
+@pytest.mark.parametrize("verb", ["leaves", "posts", "records", "provides"])
+def test_product_capability_does_not_hide_distinct_reviewer_delivery(verb: str) -> None:
+    criterion = (
+        "The endpoint allows users to add PR comments and "
+        f"the reviewer {verb} a PR comment with test results"
+    )
+    assert pr_verifier._required_evidence_channels(f"- [ ] {criterion}") == {"comments"}
