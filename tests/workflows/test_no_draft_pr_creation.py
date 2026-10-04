@@ -23,6 +23,13 @@ def _automation_sources() -> list[Path]:
 
 
 DRAFT_ASSIGNMENT = re.compile(r"\bdraft[ \t]*:[ \t]*([^\r\n]*)")
+PR_CREATION = re.compile(r"\bpulls\.create\b|\bgh pr create\b")
+
+
+def test_pr_creation_matcher_excludes_review_reply_methods() -> None:
+    assert PR_CREATION.search("github.rest.pulls.create({ draft: true })")
+    assert PR_CREATION.search("gh pr create --draft")
+    assert not PR_CREATION.search("github.rest.pulls.createReplyForReviewComment({ body })")
 
 
 def _has_non_false_draft_value(text: str) -> bool:
@@ -52,7 +59,7 @@ def test_automation_never_creates_or_restages_draft_pull_requests() -> None:
             violations.append(f"{relative}: uses gh pr create --draft")
         if "convertPullRequestToDraft" in text:
             violations.append(f"{relative}: converts a ready PR back to draft")
-        if ("pulls.create" in text or "gh pr create" in text) and _has_non_false_draft_value(text):
+        if PR_CREATION.search(text) and _has_non_false_draft_value(text):
             violations.append(f"{relative}: supplies a non-false draft value")
 
     assert not violations, "\n".join(violations)
