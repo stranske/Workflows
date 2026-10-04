@@ -1944,6 +1944,22 @@ test('missing-source recovery preserves related and closing intent across two bo
   }
 });
 
+test('closing-keyword and branch sources retain closing intent across two body syncs', async (t) => {
+  for (const [name, sync] of [['Workflows source', run], ['consumer template', templateRun]]) {
+    await t.test(name, async (t) => {
+      for (const body of ['Closes #123', 'Fixes issue #123', 'Resolves #123']) {
+        await t.test(body, () => assertIssueSyncPreservesIntent(sync, { body }, true));
+      }
+      await t.test('issue branch without a body or title reference', () => {
+        return assertIssueSyncPreservesIntent(sync, {
+          body: 'A local fix without an issue link',
+          head: { sha: 'abc123', ref: 'codex/issue-123' },
+        }, true);
+      });
+    });
+  }
+});
+
 async function assertIssueSyncPreservesIntent(sync, overrides = {}, closing = false) {
   const pull = {
     number: 55, state: 'open', title: 'Repair a local request',
