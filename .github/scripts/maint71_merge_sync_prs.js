@@ -269,7 +269,7 @@ async function runReviewReassessment({
                 id isResolved isOutdated
                 comments(first: 100) {
                   pageInfo { hasNextPage }
-                  nodes { author { login } body createdAt url }
+                  nodes { fullDatabaseId author { login } body createdAt url }
                 }
               }
             }
@@ -300,38 +300,39 @@ async function runReviewReassessment({
     throw new Error('Reassessment writer identity is not trusted');
   }
   const marker = reviewReassessmentMarker(request);
+  // Revalidate bindings and scan the same fresh snapshot before deciding to
+  // POST; a trusted request may have appeared since the initial read.
+  // GitHub's APIs are non-transactional, so an ambiguous POST is never retried.
+  const current = await readBoundState();
   let found = null;
-  let exhausted = false;
-  for (let page = 1; page <= 20; page++) {
-    const { data: comments } = await withRetry((client) => client.rest.issues.listComments({
-      owner, repo, issue_number: request.pr, per_page: 100, page,
-    }));
-    if (!Array.isArray(comments)) throw new Error('Reassessment comment inventory is incomplete');
-    for (const comment of comments) {
-      if (trustedWriters.has(comment?.user?.login)
-        && String(comment?.body || '').includes(marker)) {
-        if (found) throw new Error('Duplicate bound reviewer reassessment requests exist');
-        found = comment;
-      }
+  for (const comment of current.thread.comments.nodes) {
+    if (trustedWriters.has(comment?.author?.login)
+      && String(comment?.body || '').includes(marker)) {
+      if (found) throw new Error('Duplicate bound reviewer reassessment requests exist');
+      found = { id: comment.fullDatabaseId, created_at: comment.createdAt,
+        html_url: comment.url, user: comment.author };
     }
-    if (comments.length < 100) { exhausted = true; break; }
   }
-  if (!exhausted) throw new Error('Reassessment comment inventory is truncated');
-  // The second read closes the ordinary scan-to-POST race as far as GitHub's
-  // non-transactional PR/comment APIs allow; an ambiguous POST is never retried.
-  await readBoundState();
   let comment = found;
   if (!comment) {
-    const body = [command,
+    const body = [`${command} on exact head ${request.head_sha}`,
       `Maint 71 requests ${request.originating_reviewer} to reassess active thread ` +
         `${request.thread_id} on exact generated head ${request.head_sha}. ` +
         `The thread remains merge-blocking until reviewer disposition.`,
       `If the finding is satisfied, reply in that active thread on this exact head with ` +
         `<!-- sync-review-accepted:${request.head_sha} -->; otherwise leave actionable feedback.`,
+      `Original finding (untrusted review text): ${String(current.thread.comments.nodes[0].body || '').slice(0, 6000)}`,
+      `Source validation is bound to Workflows commit ${request.source_commit}; inspect that fix and the exact generated head. Explicitly accept or reject in this thread. No unrelated edits, resolution or merge actions.`,
       marker].join('\n\n');
+    const rawOriginId = current.thread.comments.nodes[0].fullDatabaseId;
+    const originId = typeof rawOriginId === 'string' ? rawOriginId
+      : Number.isSafeInteger(rawOriginId) ? String(rawOriginId) : '';
+    if (!/^[1-9][0-9]*$/.test(originId) || BigInt(originId) > 18446744073709551615n) {
+      throw new Error('Review thread lacks a verified original comment ID');
+    }
     try {
-      ({ data: comment } = await withRetry((client) => client.rest.issues.createComment({
-        owner, repo, issue_number: request.pr, body,
+      ({ data: comment } = await withRetry((client) => client.rest.pulls.createReplyForReviewComment({
+        owner, repo, pull_number: request.pr, comment_id: originId, body,
       }), { maxRetries: 0 }));
     } catch (error) {
       throw new Error(`Reassessment POST uncertain; inspect exact marker before retry: ${error.message}`);
@@ -339,7 +340,7 @@ async function runReviewReassessment({
   }
   if (!comment?.id || !Number.isFinite(Date.parse(comment.created_at || ''))
     || !String(comment.html_url || '').startsWith(
-      `https://github.com/${request.repository}/pull/${request.pr}#issuecomment-`)) {
+      `https://github.com/${request.repository}/pull/${request.pr}#discussion_r`)) {
     throw new Error('Reassessment request lacks durable URL, ID or timestamp');
   }
   await readBoundState();

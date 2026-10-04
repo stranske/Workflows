@@ -15,7 +15,7 @@
       "logins": ["chatgpt-codex-connector", "chatgpt-codex-connector[bot]"],
       "check_names": [],
       "request_comment": "@codex review",
-      "reassessment_comment": "@codex review"
+      "reassessment_comment": "@codex please reassess this specific finding"
     },
     {
       "id": "coderabbit",
