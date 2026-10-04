@@ -996,6 +996,9 @@ classification. Product-editor output is exempt only for a recognized product
 actor and the immediate body-editor destination. Actual delivery into the PR body,
 human actors, negative merge prerequisites and independent comment/artifact
 obligations retain their evidence floors. Unrecognized wording is not exempted.
+The product-editor exemption applies only to that destination, not coordinated
+actual PR comments or workflow artifacts; both destination orders are retained.
+An optional artifact suffix does not erase a recognized mandatory body obligation.
 A fully retrieved bounded body is fenced as untrusted material, an empty body is absent,
 and missing/invalid/oversized bodies are unavailable. Body presence cannot satisfy
 a required PR comment or artifact. Generic comment/artifact retrieval status does

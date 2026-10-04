@@ -209,6 +209,14 @@ for actor in ("UI", "application", "service"):
             )
 BODY_CLAUSE_CASES.extend(
     [
+        (
+            "The UI must include evidence in both workflow artifacts and the PR body editor",
+            {"artifacts"},
+        ),
+        ("The UI must include evidence in both a PR comment and the PR body editor", {"comments"}),
+        ("The UI must contain evidence in the PR body editor", set()),
+        ("Include evidence in both the PR body and a PR comment", {"body", "comments"}),
+        ("Evidence must be included in the PR body with optional artifacts", {"body"}),
         ("The reviewer of the UI must include evidence in the PR body", {"body"}),
         ("The UI must include evidence in the PR body", {"body"}),
         ("The engineer must include evidence in the PR body", {"body"}),
@@ -241,7 +249,8 @@ def test_body_clause_matrix_preserves_independent_destinations(
 
 @pytest.mark.parametrize("criterion,expected", BODY_CLAUSE_CASES)
 @pytest.mark.parametrize("status", ["present", "absent", "unavailable"])
-def test_body_clause_matrix_controls_real_coverage_floor(criterion, expected, status):
+@pytest.mark.parametrize("channel", ["body", "comments", "artifacts"])
+def test_body_clause_matrix_controls_real_coverage_floor(criterion, expected, status, channel):
     spec = importlib.util.spec_from_file_location(
         "clause_coverage_fixtures", Path(__file__).with_name("test_pr_verifier_prompt_coverage.py")
     )
@@ -249,14 +258,17 @@ def test_body_clause_matrix_controls_real_coverage_floor(criterion, expected, st
     spec.loader.exec_module(fixture)
     context, _ = fixture._context(1, 1000, 1000)
     context = context.replace(fixture.ACCEPTANCE_SENTINEL, criterion)
+    statuses = {
+        name: status if name == channel else "present" for name in ("body", "comments", "artifacts")
+    }
     context = context.replace(
         "## PR Diff Summary",
         "## Acceptance evidence\n\n- Overall retrieval status: **present**\n"
-        f"- PR body: **{status}**\n- PR comments: **present**\n"
-        "- Referenced workflow artifacts: **present**\n\n## PR Diff Summary",
+        f"- PR body: **{statuses['body']}**\n- PR comments: **{statuses['comments']}**\n"
+        f"- Referenced workflow artifacts: **{statuses['artifacts']}**\n\n## PR Diff Summary",
     )
     coverage = verifier.prompt_coverage(context, None)
     result = verifier._apply_coverage_floor(
         verifier.EvaluationResult(verdict="PASS", used_llm=True), coverage
     )
-    assert result.verdict == ("CONCERNS" if "body" in expected and status != "present" else "PASS")
+    assert result.verdict == ("CONCERNS" if channel in expected and status != "present" else "PASS")

@@ -1033,6 +1033,8 @@ def _required_evidence_channels(acceptance: str) -> set[str]:
             r"(?:in|into|to|within)\s+(?:both\s+)?(?:(?:the|an?)\s+)?"
             r"(?:(?:pr comments?|pull request comments?|workflow artifacts?)\s+(?:and|or)\s+"
             r"(?:(?:the|an?)\s+)?)?" + body + r"(?:\s+editor\b)?"
+            r"(?:\s+(?:and|or)\s+(?:(?:the|an?)\s+)?"
+            r"(?:pr comments?|pull request comments?|workflow artifacts?)\b)?"
         )
         families = [
             r"\b" + mandatory_auxiliary + r"\s+" + polarity + operation + r"\s+" + destination,
@@ -1106,6 +1108,12 @@ def _required_evidence_channels(acceptance: str) -> set[str]:
                 destinations.add("comments")
             if re.search(r"\bworkflow artifacts?\b", clause, re.I):
                 destinations.add("artifacts")
+            if disposition == "product":
+                # The editor is a product surface, but coordinated actual
+                # review destinations retain their own delivery obligation.
+                destinations.discard("body")
+                if destinations:
+                    disposition = "required"
             records.append(
                 {
                     "span": (match.start(), match.end()),
@@ -1145,7 +1153,7 @@ def _required_evidence_channels(acceptance: str) -> set[str]:
         """Classify the governing operation's subject, not domain words anywhere."""
         operations = list(
             re.finditer(
-                r"\b(?:allow|enable|support|display|show|store|include|attach|upload|add|leave|left|post|publish|provide|document|record|capture|link)\w*\b",
+                r"\b(?:allow|enable|support|display|show|store|include|contain|attach|upload|add|leave|left|post|publish|provide|document|record|capture|link)\w*\b",
                 prefix,
                 re.I,
             )
@@ -1312,7 +1320,7 @@ def _required_evidence_channels(acceptance: str) -> set[str]:
             )
         )
         field_operation = bool(
-            re.fullmatch(r"(?:include|display|show|store)\w*", operation[0], re.I)
+            re.fullmatch(r"(?:include|contain|display|show|store)\w*", operation[0], re.I)
         )
         review_destination = bool(
             re.search(
@@ -1475,6 +1483,18 @@ def _required_evidence_channels(acceptance: str) -> set[str]:
             if (
                 fragments
                 and re.fullmatch(r"\s*,?\s*(?:and|or)\s+", boundary, re.I)
+                and re.fullmatch(
+                    r"\s*(?:(?:the|an?)\s+)?(?:pr comments?|pull request comments?|workflow artifacts?)\s*",
+                    fragment,
+                    re.I,
+                )
+                and body_occurrences(fragments[-1] + boundary + fragment, False)[0]
+            ):
+                fragments[-1] += boundary + fragment
+                continue
+            if (
+                fragments
+                and re.fullmatch(r"\s*,?\s*(?:and|or)\s+", boundary, re.I)
                 and re.search(r"\b(?:allow|enable|support)\w*\b", fragments[-1], re.I)
             ):
                 combined = fragments[-1] + boundary + fragment
@@ -1576,7 +1596,11 @@ def _required_evidence_channels(acceptance: str) -> set[str]:
             # Optional/conditional evidence clauses never create a hard floor,
             # whether or not the source used checklist syntax. Clause splitting
             # preserves a separate required comment/transcript on the same item.
-            if optional_evidence and not explanatory_comment:
+            if (
+                optional_evidence
+                and not explanatory_comment
+                and not any(record["disposition"] == "required" for record in body_records)
+            ):
                 continue
             meta_behavior = bool(
                 re.search(
@@ -1639,6 +1663,8 @@ def _required_evidence_channels(acceptance: str) -> set[str]:
                 requirement_text = (
                     body_residual if gate else evidence_prohibition.sub(" ", body_residual)
                 )
+                if optional_evidence and not explanatory_comment:
+                    continue
                 if not evidence_term.search(requirement_text):
                     continue
             lower = requirement_text.lower()
