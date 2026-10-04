@@ -911,6 +911,49 @@ becomes ready; the recurring two-hour schedule is recovery, not the normal
 continuation mechanism. A failed assessment causes a concrete repair or explicit
 UNKNOWN checkpoint, never a fabricated acceptance or another generic review loop.
 
+Verifier acceptance classification distinguishes product output and product fields from
+review deliverables: a command that must output a transcript, response evidence links or
+records, and endpoint/service/CLI/renderer PR-comment fields do not require reviewing-PR
+evidence. A separate required delivery clause remains authoritative. Comment operations
+are classified by their subject head: an API reviewer or reviewer of an endpoint remains
+a review actor, while an endpoint used by reviewers remains a product actor. Actor
+classification alone cannot exempt real comment delivery: posting, adding or leaving
+comments by a service, endpoint, CLI or renderer retains the evidence floor unless
+the object is a product field/destination or nested user capability. Each comment
+uses its own destination; a later response field cannot exempt an earlier delivery.
+Coordinated or temporal clauses with their own review actor and delivery predicate
+cannot inherit an earlier product capability exemption.
+After a complete comment object, only recognized shared infinitive coordination
+retains that exemption; unknown attachments fail closed rather than relying on a
+connector whitelist. Negative `can't`/`cannot` forms do not require a delivery.
+Capability exemption validates every link: the initial supported actor-to-base-verb
+infinitive and subsequent optional-comma `and`/`or` base verbs, `to` base verbs, or
+supported actor-to-base-verb infinitives. Supported actors are users, clients,
+reviewers, maintainers, authors and operators, optionally determined and API/UI
+qualified. Arbitrary modifiers or finite predicates are not accepted as actors.
+An unknown link declines exemption immediately and no later recognized link can
+restore it. Clause splitting preserves bare shared verbs only after positive chain
+recognition; semicolon-separated deliveries stay independent. Negated outer
+allow/enable/support capability is operation-local and cannot erase another delivery.
+Qualified
+product subjects have no arbitrary word-count ceiling. An embedded product description
+cannot veto an independently mandatory comment; unresolved subject attachment retains
+the evidence floor. Initial human subject heads remain authoritative across unlisted
+modifiers, and negative contractions are normalized before obligation classification.
+Fronted adjunct extraction is a partial recognizer: the entire discarded span must
+match a supported complete construction before choosing the governing subject.
+Unsupported or ambiguous introductions retain the evidence floor and cannot fall
+through to a last-product-noun exemption, including unlisted human subject roles.
+Reviewer modal verify/check/assert predicates use their nested operation's subject
+with or without an explicit `that`/`whether`; infinitive check qualifiers cannot
+replace the reviewer actor, and a nested human delivery still requires comments.
+Negated delivery never removes a separate mandatory clause. Diff hunk contents cannot
+replace path metadata. Instructions to add
+or leave a PR comment, including passive command-output requirements in that comment,
+require comment evidence and cannot pass when it is absent or unavailable. Git diff
+parse failures use a non-filename state; every valid filename, including
+`__invalid_git_path__`, remains eligible for complete coverage.
+
 When verifier runs collect acceptance evidence, empty or whitespace-only review bodies
 must not count as PR-comment evidence. Single-provider non-PASS text/file output
 must carry the post-processed `Verdict: CONCERNS` or `Verdict: FAIL` line so the

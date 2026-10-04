@@ -635,7 +635,7 @@ def _strip_diff_fence(section: str) -> str:
     return body.strip("\n")
 
 
-def _split_diff_files(diff: str) -> list[tuple[str, str]]:
+def _split_diff_files(diff: str) -> list[tuple[str | None, str]]:
     def decode_quoted_path(raw: str) -> tuple[str, str] | None:
         if not raw.startswith('"'):
             return None
@@ -725,36 +725,40 @@ def _split_diff_files(diff: str) -> list[tuple[str, str]]:
             return None
         return decoded[0][2:]
 
-    files: list[tuple[str, str]] = []
+    files: list[tuple[str | None, str]] = []
     current: list[str] = []
-    path = ""
+    path: str | None = None
+    in_hunk = False
     for line in diff.splitlines(keepends=True):
         if line.startswith("diff --git "):
             if current:
                 files.append((path, "".join(current)))
             current = [line]
-            path = destination_from_git_header(line) or "__invalid_git_path__"
+            path = destination_from_git_header(line) or None
+            in_hunk = False
         elif current:
             current.append(line)
-            if path == "__invalid_git_path__":
+            if line.startswith("@@"):
+                in_hunk = True
+            if path is None or in_hunk:
                 continue
             if line.startswith("--- "):
                 source = normalized_path(line[4:])
                 if source is None:
-                    path = "__invalid_git_path__"
+                    path = None
                 elif source:
                     path = source
             elif line.startswith("+++ "):
                 destination = normalized_path(line[4:])
                 if destination is None:
-                    path = "__invalid_git_path__"
+                    path = None
                 elif destination:
                     path = destination
             elif line.startswith(("rename to ", "copy to ")):
                 # Git's metadata is repo-relative and unambiguous even when an
                 # unquoted header contains an embedded " b/" separator.
                 destination = normalized_path(line.split(" to ", 1)[1], strip_prefix=False)
-                path = destination if destination else "__invalid_git_path__"
+                path = destination or None
     if current:
         files.append((path, "".join(current)))
     return files
@@ -853,7 +857,7 @@ def _build_code_block(
         block = _cap_prompt_text(diff, max(1, budget_chars // TOKEN_CHARS))
         status: CoverageStatus = "complete" if block == diff else "truncated"
         return block, status, (), min(len(diff), len(block)), len(diff)
-    if any(path == "__invalid_git_path__" for path, _ in files):
+    if any(path is None for path, _ in files):
         return "(diff unavailable)", "unavailable", (), 0, 0
     # Doc-Lineage#81 review finding (discussion_r4169521235): appending
     # omitted paths after fair-share allocation exceeded the diff budget.
@@ -866,6 +870,7 @@ def _build_code_block(
     coverage: list[FileCoverage] = []
     omitted = 0
     for (path, text), share in zip(files, shares, strict=True):
+        assert path is not None  # Parse failures were rejected above.
         excerpt, item = _excerpt_file(path, text, share)
         coverage.append(item)
         if excerpt:
@@ -978,18 +983,244 @@ def _required_evidence_channels(acceptance: str) -> set[str]:
         r"\b(?:required|mandatory|(?:is|are)\s+needed|must|shall|needs? to|"
         r"publish(?:es|ed)?|upload(?:s|ed)?|"
         r"attach(?:es|ed)?|captur(?:e|es|ed)|record(?:s|ed)?|provid(?:e|es|ed)|"
-        r"includ(?:e|es|ed)|link(?:s|ed)?|post(?:s|ed)?|document(?:s|ed)?|prov(?:e|es|ed)|show(?:s|ed)?)\b",
+        r"includ(?:e|es|ed)|link(?:s|ed)?|post(?:s|ed)?|"
+        r"(?:add(?:s|ed)?|leav(?:e|es)|left)\s+(?:(?:an?|the)\s+)?"
+        r"(?:pr|pull request)\s+comments?|"
+        r"document(?:s|ed)?|prov(?:e|es|ed)|show(?:s|ed)?)\b",
         re.I,
     )
+
+    def remaining_delivery(text: str) -> bool:
+        # Product object-field nouns are not requests to deliver evidence.
+        actions = re.sub(
+            r"\bevidence\s+(?:links?|records?)(?:\s+(?:and|or)\s+(?:links?|records?))*\b",
+            "evidence",
+            text,
+            flags=re.I,
+        )
+        # Adjectives on product subjects/fields are not independent delivery
+        # predicates. Preserve a post-object passive requirement instead.
+        passive_requirement = re.search(
+            r"\b(?:evidence|artifacts?|transcripts?|command outputs?|workflow runs?|"
+            r"pr comments?|pull request comments?)\b(?:\s+(?:links?|records?))?\s+"
+            r"(?:(?:is|are)\s+)?(?:required|mandatory|needed)\b",
+            text,
+            re.I,
+        )
+        actions = re.sub(r"\b(?:required|mandatory)\b", " ", actions, flags=re.I)
+        return bool(
+            evidence_term.search(text) and (requirement.search(actions) or passive_requirement)
+        )
+
+    def product_comment_object(prefix: str, destination: str) -> bool:
+        """Classify the governing operation's subject, not domain words anywhere."""
+        operations = list(
+            re.finditer(
+                r"\b(?:allow|enable|support|display|store|include|attach|upload|add|leave|left|post|publish|provide|document|record|capture)\w*\b",
+                prefix,
+                re.I,
+            )
+        )
+        if not operations:
+            return False
+        capability = bool(re.fullmatch(r"(?:allow|enable|support)\w*", operations[0][0], re.I))
+        if capability:
+            actor = (
+                r"(?:(?:the|an?)\s+)?(?:(?:api|ui)\s+)?"
+                r"(?:users?|clients?|reviewers?|maintainers?|authors?|operators?)"
+            )
+            base_operations = {
+                "display",
+                "store",
+                "include",
+                "attach",
+                "upload",
+                "add",
+                "leave",
+                "post",
+                "publish",
+                "provide",
+                "document",
+                "record",
+                "capture",
+            }
+            for index, current in enumerate(operations[1:], start=1):
+                if current[0].lower() not in base_operations:
+                    return False
+                between = prefix[operations[index - 1].end() : current.start()]
+                if index == 1:
+                    recognized = re.fullmatch(r"\s*" + actor + r"\s+to\s*", between, re.I)
+                else:
+                    # Consume only an entire recognized preceding object.
+                    # An unknown intervening clause may never be skipped or
+                    # have capability inheritance restored by a later link.
+                    between = re.sub(
+                        r"^\s*(?:(?:the|an?|their|its)\s+)?(?:pr|pull request)\s+comments?\b",
+                        "",
+                        between,
+                        count=1,
+                        flags=re.I,
+                    )
+                    recognized = re.fullmatch(
+                        r"\s*,?\s*(?:and|or)(?:\s+(?:" + actor + r"\s+)?to)?\s*",
+                        between,
+                        re.I,
+                    )
+                if not recognized:
+                    # Decline before subject heuristics can rescue an
+                    # unrecognized affirmative delivery as product behavior.
+                    return False
+        operation = operations[0] if capability else operations[-1]
+        subject = prefix[: operation.start()]
+        if capability:
+            subject = re.sub(r"\b(?:does|do|did)\s+not\s*$", "", subject, flags=re.I)
+        if not capability and len(operations) > 1:
+            between = prefix[operations[-2].end() : operation.start()]
+            prior_comments = list(
+                re.finditer(r"\b(?:pr|pull request)\s+comments?\b", between, re.I)
+            )
+            if prior_comments:
+                between = between[prior_comments[-1].end() :]
+            if not re.fullmatch(r"\s*(?:and|or)\s*", between, re.I):
+                # A later delivery has its own subject; do not inherit an
+                # earlier UI/API actor across "transcript that must be posted".
+                subject = re.split(
+                    r"\b(?:and|or|that|which|who|while|after|once|before|when|until|unless|if|since|because|whereas)\b",
+                    between,
+                    flags=re.I,
+                )[-1]
+        nested_subject = re.search(
+            r"\b(?:(?P<explicit>that|whether)|(?P<implicit>"
+            + product_auxiliary
+            + r"(?:verify|check|assert))(?!\s+(?:that|whether)\b))"
+            r"\s+(?P<subject>(?:(?:the|an?)\s+)?"
+            r"(?:[\w-]+\s+)*?(?:ui|api|application|interface|service|cli|endpoint|renderer|"
+            r"reviewers?|maintainers?|authors?|operators?))\s+(?P<nested_aux>"
+            + product_auxiliary
+            + r")?\s*$",
+            subject,
+            re.I,
+        )
+        if (
+            nested_subject
+            and nested_subject["implicit"]
+            and (
+                nested_subject["nested_aux"]
+                or re.search(r"\b(?:who|which|that)\b", subject[: nested_subject.start()], re.I)
+            )
+        ):
+            # A check predicate inside a relative qualifier cannot supply
+            # the outer delivery's actor. Decline ambiguous attachment.
+            nested_subject = None
+        if nested_subject:
+            # A direct nested clause's actor governs this operation, not a
+            # reviewer merely asked to verify that product behavior. An outer
+            # relative clause with another verb cannot match this boundary.
+            subject = nested_subject["subject"]
+        subject = re.split(product_auxiliary, subject, maxsplit=1, flags=re.I)[0]
+        plain_subject = re.sub(r"^\s*(?:[-*]\s*(?:\[[ xX]\]\s*)?)?", "", subject)
+        if re.match(
+            r"(?:for|when|while|during|after|before|if|once|under|with|without|upon)\b",
+            plain_subject,
+            re.I,
+        ):
+            fronted = re.match(
+                r"(?P<adjunct>.*?)\s+(?P<subject>(?:the|an?)\s+.+)$", plain_subject, re.I
+            )
+            supported_adjunct = (
+                r"for reviewers? access|for backward compatibility|under reviewers? supervision|"
+                r"when reviewers? requests? access|"
+                r"(?:when|while) (?:using|testing|accessing|operating) [\w-]+"
+            )
+            if not fronted or not re.fullmatch(supported_adjunct, fronted["adjunct"], re.I):
+                # A partial grammar must decline unknown attachments. In
+                # particular, never consume "maintainers of" or an unknown
+                # human role to reach a product noun in its modifier.
+                return False
+            subject = fronted["subject"]
+        actor_head = re.search(
+            r"\b(?:(?:api|ui)\s+)?(?:reviewers?|maintainers?|authors?|operators?)\b"
+            r"|\b(?:ui|api|application|interface|service|cli|endpoint|renderer)\b",
+            subject,
+            re.I,
+        )
+        if actor_head and re.search(
+            r"\b(?:reviewers?|maintainers?|authors?|operators?)\b", actor_head[0], re.I
+        ):
+            # Preserve the initial human head regardless of later modifiers;
+            # a product noun inside that modifier cannot change the actor.
+            return False
+        # A participial modifier can qualify an already named actor, but an
+        # introductory "When using OAuth" precedes the actual actor. Never
+        # discard a later subject merely because the introduction uses a verb.
+        for qualifier in re.finditer(r"\b(?:using|testing|accessing|operating)\b", subject, re.I):
+            if re.search(
+                r"\b(?:reviewers?|maintainers?|authors?|operators?|ui|api|application|"
+                r"interface|service|cli|endpoint|renderer)\b",
+                subject[: qualifier.start()],
+                re.I,
+            ):
+                subject = subject[: qualifier.start()]
+                break
+        # Relative/prepositional modifiers do not change the subject head:
+        # "reviewer of the endpoint" is human; "endpoint used by reviewers"
+        # is a product. Introductory words need no arbitrary length ceiling.
+        subject = re.split(
+            r"\b(?:of|that|which|who|" r"(?:used|operated|provided|managed)\s+by)\b",
+            subject,
+            maxsplit=1,
+            flags=re.I,
+        )[0]
+        words = re.findall(r"[\w-]+", subject.lower())
+        product_destination = bool(
+            re.search(
+                r"^\s*(?:in|into|to|as)\s+(?:(?:its|the|an?)\s+)?"
+                r"(?:(?:json|api|audit|output)\s+)*"
+                r"(?:responses?|payloads?|outputs?|fields?|records?|storage|data)\b"
+                r"|^\s*(?:fields?|metadata)\b",
+                destination,
+                re.I,
+            )
+        )
+        field_operation = bool(re.fullmatch(r"(?:include|display|store)\w*", operation[0], re.I))
+        review_destination = bool(
+            re.search(
+                r"\b(?:with|containing|including)\s+(?:[\w-]+\s+)*?"
+                r"(?:results?|evidence|transcripts?|command outputs?)\b"
+                r"|\b(?:on|in|to)\s+(?:(?:the|this|reviewing)\s+)?(?:pr|pull request)\b",
+                destination,
+                re.I,
+            )
+        )
+        return bool(
+            words
+            and words[-1]
+            in {
+                "ui",
+                "api",
+                "application",
+                "interface",
+                "service",
+                "cli",
+                "endpoint",
+                "renderer",
+            }
+            and (capability or product_destination or (field_operation and not review_destination))
+        )
+
     evidence_prohibition = re.compile(
+        r"\b(?:(?:is|are)\s+not\s+(?:required|needed|mandated|expected|supposed|obliged|allowed|permitted)\s+to|"
+        r"(?:does|do|did)\s+not\s+(?:need|have)\s+to|needs?\s+not)\s+"
+        r"(?:upload|attach|provide|publish|post|record|capture|include|document|generate|link|add|leave)\b"
+        r"|"
         r"\bno\s+(?:\w+\s+){0,3}(?:evidence|artifacts?|transcripts?|command outputs?|"
         r"workflow runs?|pr comments?|pull request comments?)"
         r"\s+(?:is|are)\s+(?:required|needed|mandatory)\b"
         r"|\b(?:evidence|artifacts?|transcripts?|command outputs?|workflow runs?|"
         r"pr comments?|pull request comments?)"
         r"\s+(?:is|are)\s+not\s+(?:required|needed|mandatory)\b"
-        r"|\b(?:must|shall|may|should|do|does)\s+not\s+"
-        r"(?:upload|attach|provide|publish|post|record|capture|include|document|generate|link)\b"
+        r"|\b(?:must|shall|may|should|can|do|does|did)\s+not\s+"
+        r"(?:upload|attach|provide|publish|post|record|capture|include|document|generate|link|add|leave)\b"
         r"(?:\s+(?:the\s+|an?\s+|any\s+)?(?:[\w-]+\s+){0,4}"
         r"(?:evidence|artifacts?|transcripts?|"
         r"command outputs?|workflow runs?|pr comments?|pull request comments?))?"
@@ -1003,6 +1234,10 @@ def _required_evidence_channels(acceptance: str) -> set[str]:
         r"(?:\w+\s+){0,4}(?:evidence|artifacts?|transcripts?|command outputs?|"
         r"workflow runs?|pr comments?|pull request comments?)\s+"
         r"(?:is|are)\s+(?:required|needed|mandatory)\b"
+        r"|\bno\s+(?:\w+\s+){0,4}(?:evidence|artifacts?|transcripts?|command outputs?|"
+        r"workflow runs?|pr comments?|pull request comments?)\s+"
+        r"(?:(?:must|shall|may|should)\s+(?:not\s+)?be|was|were|is|are)\s+"
+        r"(?:left|added)\b"
         r"|\bno\s+(?:\w+\s+){0,4}(?:evidence|artifacts?|transcripts?|command outputs?|"
         r"workflow runs?|pr comments?|pull request comments?)\s+"
         r"(?:must|shall|may|should)\s+(?:not\s+)?(?:be\s+)?"
@@ -1044,6 +1279,13 @@ def _required_evidence_channels(acceptance: str) -> set[str]:
         else:
             criteria.append(line)
     for criterion in criteria:
+        criterion = re.sub(
+            r"\b(is|are|does|do|did|must|should|need|has|have|was|were|ca)n['’]t\b",
+            lambda match: ("can" if match[1].lower() == "ca" else match[1]) + " not",
+            criterion,
+            flags=re.I,
+        )
+        criterion = re.sub(r"\bcannot\b", "can not", criterion, flags=re.I)
         criterion_checklist = bool(re.match(r"^\s*[-*]\s*\[[ xX]\]", criterion))
         criterion_bullet = bool(re.match(r"^\s*[-*]\s+", criterion))
         # Quoted parser inputs are examples, including their verbs and clause
@@ -1077,8 +1319,8 @@ def _required_evidence_channels(acceptance: str) -> set[str]:
             r"(?:[\w-]+\s+){1,6}(?:must|shall|needs?\s+to|"
             r"(?:(?:is|are)\s+)?(?:required|needed|mandated|expected|supposed|obliged)\s+to|"
             r"(?:has|have)\s+to)\s+"
-            r"(?:publish|upload|attach|capture|record|provide|include|post|document|prove|show|link)\b|"
-            r"(?:publish|upload|attach|capture|record|provide|include|post|document|prove|show|link)\b"
+            r"(?:publish|upload|attach|capture|record|provide|include|post|document|prove|show|link|add|leave)\b|"
+            r"(?:publish|upload|attach|capture|record|provide|include|post|document|prove|show|link|add|leave)\b"
             r"))"
         )
         clause_evidence_antecedent: str | None = None
@@ -1091,7 +1333,29 @@ def _required_evidence_channels(acceptance: str) -> set[str]:
             re.I,
         )
         fragments = []
-        for fragment in re.split(clause_boundary, criterion, flags=re.I):
+        split_parts = re.split("(" + clause_boundary + ")", criterion, flags=re.I)
+        for part_index in range(0, len(split_parts), 2):
+            fragment = split_parts[part_index]
+            boundary = split_parts[part_index - 1] if part_index else ""
+            if (
+                fragments
+                and re.fullmatch(r"\s*,?\s*(?:and|or)\s+", boundary, re.I)
+                and re.search(r"\b(?:allow|enable|support)\w*\b", fragments[-1], re.I)
+            ):
+                combined = fragments[-1] + boundary + fragment
+                comment_objects = list(
+                    re.finditer(r"\b(?:pr|pull request)\s+comments?\b", combined, re.I)
+                )
+                if comment_objects:
+                    last_object = comment_objects[-1]
+                    if product_comment_object(
+                        combined[: last_object.start()], combined[last_object.end() :]
+                    ):
+                        # Only positive whole-chain recognition can preserve
+                        # bare shared verbs across a coordination boundary.
+                        # Semicolons and unknown/finite clauses stay separate.
+                        fragments[-1] = combined
+                        continue
             noun_only = re.fullmatch(
                 r"\s*(?:(?:an?|the|validation|workflow|exact-head|evidence)\s+)*"
                 r"(?:artifacts?|command outputs?|transcripts?)\s*",
@@ -1241,7 +1505,7 @@ def _required_evidence_channels(acceptance: str) -> set[str]:
             )
             if response_prefix.search(requirement_text):
                 delivery_text = response_prefix.sub(" ", requirement_text, count=1)
-                if not (evidence_term.search(delivery_text) and requirement.search(delivery_text)):
+                if not remaining_delivery(delivery_text):
                     continue
                 requirement_text = delivery_text
                 lower = requirement_text.lower()
@@ -1396,32 +1660,31 @@ def _required_evidence_channels(acceptance: str) -> set[str]:
                         continue
                 elif not re.search(r"\b(?:pr comments?|pull request comments?)\b", lower):
                     continue
-            product_comment_behavior = bool(
-                re.search(
-                    r"\b(?:ui|api|application|interface)\b.{0,60}"
-                    r"\b(?:allow|enable|support)\w*\b.{0,40}"
+            comment_objects = list(
+                re.finditer(
                     r"\b(?:pr comments?|pull request comments?)\b",
                     requirement_text,
                     re.I,
                 )
-                or re.search(
-                    r"\b(?:ui|api|application|interface)\b.{0,60}"
-                    r"\b(?:display|store|include|attach|upload)\w*\s+"
-                    r"(?:(?:the|stored|retrieved)\s+){0,2}"
-                    r"(?:pr comments?|pull request comments?)\b",
-                    requirement_text,
-                    re.I,
+            )
+            # Union delivery occurrences: a product object cannot erase an
+            # earlier mandatory comment, and unresolved subjects keep the floor.
+            product_comment_behavior = bool(comment_objects) and all(
+                product_comment_object(
+                    requirement_text[: item.start()],
+                    requirement_text[
+                        item.end() : (
+                            comment_objects[index + 1].start()
+                            if index + 1 < len(comment_objects)
+                            else len(requirement_text)
+                        )
+                    ],
                 )
-                or re.search(
-                    r"\b(?:ui|api|application|interface)\b\s+"
-                    r"(?:must\s+|shall\s+|will\s+)?(?:post|publish)\w*\b",
-                    requirement_text,
-                    re.I,
-                )
+                for index, item in enumerate(comment_objects)
             )
             explicit_comment_delivery = bool(
                 re.search(
-                    r"\b(?:attach|upload|include|post|publish|record|capture|provide|document)\w*\b"
+                    r"\b(?:attach|upload|include|post|publish|record|capture|provide|document|add|leave|left)\w*\b"
                     r"(?:\s+\w+){0,10}\s+\b(?:pr comments?|pull request comments?)\b",
                     requirement_text,
                     re.I,
@@ -1431,6 +1694,14 @@ def _required_evidence_channels(acceptance: str) -> set[str]:
                     r"\b(?:(?:is|are)\s+(?:required|mandatory|needed)|"
                     r"(?:must|shall|needs? to)\b|"
                     r"(?:is|are|must|shall|needs? to)\s+(?:be\s+)?(?:posted|published)\b)",
+                    requirement_text,
+                    re.I,
+                )
+                or re.search(
+                    r"\b(?:evidence|command outputs?|transcripts?)\b.{0,40}"
+                    r"\b(?:(?:is|are)\s+(?:required|mandatory|needed)|"
+                    r"(?:must|shall)\s+be\s+(?:provided|posted|published|recorded|captured))"
+                    r"\s+in\s+(?:an?\s+|the\s+)?(?:pr comments?|pull request comments?)\b",
                     requirement_text,
                     re.I,
                 )
@@ -1470,7 +1741,7 @@ def _required_evidence_channels(acceptance: str) -> set[str]:
             )
             if product_output_match and not preserve_explicit_comment_delivery:
                 delivery_text = product_output_prefix.sub(" ", requirement_text, count=1)
-                if not (evidence_term.search(delivery_text) and requirement.search(delivery_text)):
+                if not remaining_delivery(delivery_text):
                     continue
                 requirement_text = delivery_text
                 lower = requirement_text.lower()
@@ -1484,7 +1755,7 @@ def _required_evidence_channels(acceptance: str) -> set[str]:
             if not line_channels:
                 command_behavior = bool(
                     re.search(
-                        r"\b(?:cli\s+)?command\b\s+(?:must\s+|shall\s+|will\s+)?" r"outputs\b",
+                        r"\b(?:cli\s+)?command\b\s+(?:(?:must|shall|will)\s+output|outputs)\b",
                         requirement_text,
                         re.I,
                     )
@@ -1494,15 +1765,13 @@ def _required_evidence_channels(acceptance: str) -> set[str]:
                     # it is not itself a request to deliver command output.
                     # Preserve a separate downstream evidence requirement.
                     delivery_text = re.sub(
-                        r"\b(?:cli\s+)?command\b\s+" r"(?:must\s+|shall\s+|will\s+)?outputs\b",
+                        r"\b(?:cli\s+)?command\b\s+(?:(?:must|shall|will)\s+output|outputs)\b",
                         " ",
                         requirement_text,
                         count=1,
                         flags=re.I,
                     )
-                    if not (
-                        evidence_term.search(delivery_text) and requirement.search(delivery_text)
-                    ):
+                    if not remaining_delivery(delivery_text):
                         continue
                 if re.search(r"\bworkflow runs?\b", lower):
                     without_workflow_run = re.sub(r"\bworkflow runs?\b", " ", lower)

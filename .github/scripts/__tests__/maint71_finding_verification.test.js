@@ -46,6 +46,21 @@ function fixture() {
   } };
 }
 
+test('checked-in production policy accepts its configured publisher, reviewer and Sol profile', () => {
+  const f = fixture();
+  const policy = JSON.parse(fs.readFileSync(path.join(__dirname, '../../../config/consumer_sync_review_policy.json'), 'utf8'));
+  f.args.policy = policy;
+  f.args.reviewerProfiles = policy.reviewers;
+  const codex = policy.reviewers.find((profile) => profile.id === 'codex');
+  f.args.thread.comments.nodes[0].author.login = codex.logins[0];
+  f.args.thread.comments.nodes[2].author.login = codex.logins[0];
+  f.args.thread.comments.nodes[2].body = codex.disposition_completion_prefixes[0];
+  f.result.verifier_profile = 'codex-6.1-sol-medium';
+  assert.equal(validate(f.finish()).ok, true);
+  f.result.verifier_profile = 'unconfigured-profile';
+  assert.equal(validate(f.finish()).ok, false);
+});
+
 test('independent finding disposition is opt-in, authenticated, exact-binding, and terminal', () => {
   const f = fixture(); assert.equal(validate(f.finish()).ok, true);
   assert.equal(validateReviewResolutionProof(f.args.proof, { owner: 'stranske', repo: 'Ready',
