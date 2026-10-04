@@ -153,3 +153,16 @@ def test_complete_text_diff_uses_entire_budget() -> None:
     assert status == "complete"
     assert files[0].status == "complete"
     assert included == total == len(diff)
+
+
+def test_short_path_binary_note_does_not_displace_fitting_text() -> None:
+    text = _text_diff("x", "b")
+    binary = "diff --git a/y b/y\nBinary files a/y and b/y differ\n"
+    diff = text + binary
+    block, status, files, included, total = pr_verifier._build_code_block(diff, len(diff))
+    assert text.strip() in block
+    assert len(block) <= len(diff)
+    assert [item.status for item in files] == ["complete", "omitted"]
+    assert status == "truncated"
+    assert included == len(text)
+    assert total == len(diff)

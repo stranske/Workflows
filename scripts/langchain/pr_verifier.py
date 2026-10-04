@@ -846,15 +846,11 @@ def _build_code_block(
         return "(diff unavailable)", "unavailable", (), 0, 0
     # Doc-Lineage#81 review finding (discussion_r4169521235): appending
     # omitted paths after fair-share allocation exceeded the diff budget.
-    # Reserve a count-only diagnostic; paths remain in FileCoverage metadata.
+    # Fit text first, then use spare budget for a count-only diagnostic.
+    # Omitted paths remain in FileCoverage metadata and still prevent PASS.
     sizes = [0 if _diff_file_is_binary_descriptor(text) else len(text) for _, text in files]
     omission_note = "[{count} changed file(s) omitted entirely — not shown to the reviewer]\n"
-    note_budget = (
-        min(max(0, budget_chars), len(omission_note.format(count=len(files))))
-        if sum(sizes) > budget_chars or any(size == 0 for size in sizes)
-        else 0
-    )
-    shares = _fair_shares(sizes, max(0, budget_chars - note_budget))
+    shares = _fair_shares(sizes, max(0, budget_chars))
     parts: list[str] = []
     coverage: list[FileCoverage] = []
     omitted = 0
@@ -866,6 +862,7 @@ def _build_code_block(
         else:
             omitted += 1
     if omitted:
+        note_budget = max(0, budget_chars - sum(len(part) for part in parts))
         parts.append(omission_note.format(count=omitted)[:note_budget])
     included = sum(item.included_chars for item in coverage)
     total = sum(item.total_chars for item in coverage)
@@ -1276,7 +1273,7 @@ def _required_evidence_channels(acceptance: str) -> set[str]:
                     )
                 )
                 product_artifact_destination = bool(
-                    re.search(r"\bproduct\s+upload\b", lower)
+                    re.search(r"\bproduct\s+(?:upload|artifacts?)\b", lower)
                     or re.search(
                         r"\b(?:upload|attach|publish|post|record|capture|provide|include|document)"
                         r"\w*\b.{0,40}\bartifacts?\b"
@@ -1293,7 +1290,7 @@ def _required_evidence_channels(acceptance: str) -> set[str]:
                         r"\b(?:by|through|to|into|in|via)\b.{0,30}"
                         r"\b(?:storage|database|data\s+store|object\s+store|bucket|"
                         r"filesystem|file\s+system|ui|interface|application|users?|"
-                        r"service|worker|api|responses?|payloads?|return\s+values?)\b",
+                        r"responses?|payloads?|return\s+values?)\b",
                         requirement_text,
                         re.I,
                     )
@@ -1340,7 +1337,7 @@ def _required_evidence_channels(acceptance: str) -> set[str]:
                 )
                 evidence_named_artifact = bool(
                     re.search(
-                        r"\b(?:failing and passing |validation |exact-head |workflow )artifacts?\b",
+                        r"\b(?:failing and passing |validation |exact-head |workflow |ci |build )artifacts?\b",
                         lower,
                     )
                     or re.search(r"\bvalidation artifacts?\b", lower)
@@ -1379,6 +1376,7 @@ def _required_evidence_channels(acceptance: str) -> set[str]:
                     )
                     if not artifact_description and (
                         artifact_delivery_into_pr
+                        or evidence_named_artifact
                         or not (product_artifact_actor or product_artifact_destination)
                     ):
                         line_channels.add("artifacts")
@@ -1396,7 +1394,8 @@ def _required_evidence_channels(acceptance: str) -> set[str]:
                 )
                 or re.search(
                     r"\b(?:ui|api|application|interface)\b.{0,60}"
-                    r"\b(?:display|store)\w*\s+(?:(?:\w+\s+){0,2})?"
+                    r"\b(?:display|store|include|attach|upload)\w*\s+"
+                    r"(?:(?:the|stored|retrieved)\s+){0,2}"
                     r"(?:pr comments?|pull request comments?)\b",
                     requirement_text,
                     re.I,

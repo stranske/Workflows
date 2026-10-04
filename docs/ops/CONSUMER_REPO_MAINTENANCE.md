@@ -9,8 +9,8 @@ then regenerate through Maint 68/71. An unsealed staging canary cannot be
 promoted merely because a reconciliation run completed successfully.
 
 Doc-Lineage#81 also reported that omitted-file diagnostics could exceed the
-verifier's diff budget. The source reserves space for a count-only diagnostic
-before allocating excerpts, including the separator after a partial line.
+verifier's diff budget. The source fits text excerpts first, then uses the remaining budget for a
+count-only diagnostic, including the separator after a partial line.
 Complete omitted paths remain in coverage metadata. Binary descriptors and
 diff summaries cannot provide sufficient changed-code coverage. This file is
 copy-delivered from `scripts/langchain/pr_verifier.py` to the same consumer path
