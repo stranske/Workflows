@@ -1112,7 +1112,7 @@ def _required_evidence_channels(acceptance: str) -> set[str]:
             is_gate = gate and bool(re.match(r"(?:without|unless|until)\b", clause, re.I))
             prohibited = not is_gate and bool(
                 re.search(
-                    r"\b(?:not|never|no\s+longer|no\s+(?:evidence|artifacts?|transcripts?|command outputs?))\b",
+                    r"\b(?:not|never|no\s+longer|no\s+(?:before/after\s+)?(?:evidence|artifacts?|transcripts?|command outputs?))\b",
                     clause,
                     re.I,
                 )

@@ -259,6 +259,10 @@ for actor in ("UI", "application", "service"):
             )
 BODY_CLAUSE_CASES.extend(
     [
+        ("The PR body must contain no before/after evidence", set()),
+        ("There must be no before/after evidence in the PR body", set()),
+        ("Record no before/after evidence in the pull request body", set()),
+        ("The PR body must not exclude the before/after evidence", {"body"}),
         ("Evidence must be included in a PR comment and in the PR body", {"body", "comments"}),
         ("Evidence must be included in the PR body and in a PR comment", {"body", "comments"}),
         ("The PR body must exclude evidence", set()),

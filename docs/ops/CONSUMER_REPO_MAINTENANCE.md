@@ -1019,6 +1019,8 @@ wording: `record the before/after evidence in the pull request body` is a body
 delivery obligation. Determiners and the before/after modifier are independent;
 integration tests call that producer and verify present/absent/unavailable body
 floors with other evidence channels absent, instead of testing a simplified phrase.
+The same modifier grammar preserves `no before/after evidence` prohibitions;
+separate reviewer-comment deliveries remain required.
 
 Non-PASS CLI and file text includes the final verdict, summary, structured concerns and
 distinct raw model detail, so concise summaries do not discard actionable gaps.
