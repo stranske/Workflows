@@ -991,7 +991,10 @@ def _required_evidence_channels(acceptance: str) -> set[str]:
         "wrote": "recorded",
     }
     acceptance = re.sub(
-        r"\b(?:paste|pastes|pasted|pasting|write|writes|written|writing|wrote)\b",
+        r"\b(?:paste|pastes|pasted|pasting|write|writes|written|writing|wrote)\b"
+        r"(?=\s+(?:(?:the|an?|any|before/after|failing|passing|supporting|validation|workflow|exact-head|execution|test|review|collected|recorded)\s+){0,4}"
+        r"(?:evidence|artifacts?|transcripts?|command outputs?|pr comments?|pull request comments?)\b"
+        r"|\s+(?:in|into|to|within|for)\s+)",
         lambda match: record_aliases[match[0].lower()],
         acceptance,
         flags=re.I,
@@ -1759,6 +1762,10 @@ def _required_evidence_channels(acceptance: str) -> set[str]:
                     continue
             lower = requirement_text.lower()
             pr_destination = r"(?:in|into|to|within)\s+(?:(?:the|an?)\s+)?(?:pr|pull request)\b"
+            review_destination = (
+                pr_destination + r"|(?:in|into|to|as|through|via)\s+(?:(?:the|an?)\s+)?"
+                r"(?:workflow|ci|github actions)\s+artifacts?\b"
+            )
             delivery_operation = r"(?:provide|return|display|show|emit|render|expose|store|upload|attach|publish|post|record|capture|include|document)\w*\b"
             delivery_object = r"(?:command outputs?|transcripts?|artifacts?|evidence)\b"
             # Bind the destination to the immediate positive delivery object,
@@ -1769,7 +1776,9 @@ def _required_evidence_channels(acceptance: str) -> set[str]:
                     r"(?:(?:the|an?|any|before/after|failing|passing|supporting|validation|workflow|exact-head|execution|test|review|collected|recorded)\s+){0,4}"
                     + delivery_object
                     + r"\s+"
-                    + pr_destination
+                    + "(?:"
+                    + review_destination
+                    + ")"
                     + "|"
                     + delivery_object
                     + r"\s+(?:"
@@ -1779,7 +1788,9 @@ def _required_evidence_channels(acceptance: str) -> set[str]:
                     + r")?"
                     + delivery_operation
                     + r"\s+"
-                    + pr_destination,
+                    + "(?:"
+                    + review_destination
+                    + ")",
                     requirement_text,
                     re.I,
                 )

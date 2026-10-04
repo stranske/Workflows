@@ -117,6 +117,22 @@ def test_canonical_record_output_to_product_recipients(operation, destination):
     ) == {"body"}
 
 
+@pytest.mark.parametrize("name", ["write", "paste"])
+@pytest.mark.parametrize("quote", ["", "`", '"'])
+def test_delivery_aliases_do_not_rewrite_command_names(name, quote):
+    criterion = f"The {quote}{name}{quote} command must output evidence"
+    assert verifier._required_evidence_channels(criterion) == set()
+    assert verifier._required_evidence_channels(
+        criterion + "; paste command output in a PR comment"
+    ) == {"comments"}
+
+
+@pytest.mark.parametrize("operation", ["provide", "return", "display", "emit", "render", "expose"])
+def test_product_shortcut_preserves_workflow_artifact_delivery(operation):
+    criterion = f"The service must {operation} command output in workflow artifacts"
+    assert verifier._required_evidence_channels(criterion) == {"artifacts"}
+
+
 @pytest.mark.parametrize("product", ["service", "API", "application", "endpoint"])
 @pytest.mark.parametrize("verb", ["provided", "returned", "displayed"])
 def test_reverse_product_output_retains_explicit_comment_delivery(product, verb):

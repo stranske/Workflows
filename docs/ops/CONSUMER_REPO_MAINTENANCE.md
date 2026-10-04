@@ -1048,6 +1048,10 @@ independent reviewer-comment obligation remains required.
 Passive PR deliveries share the mandatory auxiliary and passive-prefix grammar,
 including `needs to be`, `has to be`, and `is required to be`; a later product
 actor cannot erase those review obligations.
+Alias normalization is limited to evidence-object or destination-bearing delivery
+uses, preserving command names such as `write` and `paste`. Immediate workflow-
+artifact delivery shares explicit review-destination binding with PR delivery;
+product-only rendering of an artifact is not itself a delivery requirement.
 The four fresh canary findings are tested through the actual coverage floor with
 present, absent and unavailable evidence plus independent reviewer-delivery controls.
 
