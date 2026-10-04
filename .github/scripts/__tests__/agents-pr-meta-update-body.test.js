@@ -802,6 +802,32 @@ test('resolveNonIssueWorkflowSourceContextForBodySync preserves non-issue marker
   assert.equal(context.sourceRef, 'codex-thread-2026-04-26');
 });
 
+test('resolveNonIssueWorkflowSourceContextForBodySync separates related and closing issue targets', () => {
+  const sourceBody = [
+    '<!-- workflow-source:local_request -->',
+    '<!-- workflow-source-ref:codex-thread-2026-04-26 -->',
+    'left to issue #123',
+  ].join('\n');
+  const expectedContext = resolveExplicitNonIssueWorkflowSourceContext({ body: sourceBody });
+
+  for (const intent of ['Closes #456', '<!-- meta:issue:456 -->']) {
+    for (const pull of [
+      { body: `${sourceBody}\n${intent}` },
+      { body: sourceBody, title: intent },
+    ]) {
+      assert.deepEqual(
+        [...extractExplicitIssueSyncNumbers(pull)].sort((a, b) => a - b),
+        [123, 456],
+        'the explicit-reference helper must still include both issues',
+      );
+      assert.equal(hasExplicitIssueSyncReference(pull), true);
+      assert.deepEqual(resolveNonIssueWorkflowSourceContextForBodySync(pull, 123), expectedContext);
+      assert.equal(resolveNonIssueWorkflowSourceContextForBodySync(pull, 456), null);
+      assert.equal(resolveNonIssueWorkflowSourceContextForBodySync(pull), null);
+    }
+  }
+});
+
 test('resolveSourceContextRepairComment updates an existing warning once', async () => {
   const calls = { update: 0, body: '' };
   const github = {
