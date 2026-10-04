@@ -2571,6 +2571,19 @@ def test_coordinated_capability_infinitive_remains_product_behavior(actor: str) 
     assert pr_verifier._required_evidence_channels(f"- [ ] {criterion}") == set()
 
 
+@pytest.mark.parametrize("passive", ["be", "have been", "be being", "have been being"])
+@pytest.mark.parametrize("verb", ["uploaded", "attached", "published"])
+@pytest.mark.parametrize("auxiliary", ["must", "are required to", "need to"])
+def test_passive_aspect_retains_artifact_channel(passive: str, verb: str, auxiliary: str) -> None:
+    criterion = f"The validation logs {auxiliary} {passive} {verb} as an artifact"
+    assert pr_verifier._required_evidence_channels(f"- [ ] {criterion}") == {"artifacts"}
+    negative = f"The validation logs are not required to {passive} {verb} as an artifact"
+    assert pr_verifier._required_evidence_channels(f"- [ ] {negative}") == set()
+    assert pr_verifier._required_evidence_channels(
+        f"- [ ] {negative}; the reviewer must post a PR comment with results"
+    ) == {"comments"}
+
+
 @pytest.mark.parametrize(
     "auxiliary",
     ["are not required to", "are not needed to", "do not have to", "does not need to", "need not"],

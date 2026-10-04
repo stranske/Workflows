@@ -997,6 +997,8 @@ def _required_evidence_channels(acceptance: str) -> set[str]:
         r"(?:has|have)\s+to)"
     )
     product_auxiliary = r"(?:" + mandatory_auxiliary + r"|will|should|can|may)\s+"
+    # Positive and negated obligations must recognize the same passive aspects.
+    passive_delivery_prefix = r"(?:be|have\s+been)(?:\s+being)?\s+"
     evidence_term = re.compile(
         r"\b(?:evidence|artifacts?|transcripts?|command outputs?|workflow runs?|"
         r"pr comments?|pull request comments?)\b",
@@ -1237,7 +1239,10 @@ def _required_evidence_channels(acceptance: str) -> set[str]:
         r"\b(?:(?:is|are|was|were)\s+(?:not|never|no\s+longer)\s+"
         r"(?:required|needed|mandated|expected|supposed|obliged|allowed|permitted)\s+to|"
         r"(?:does|do|did)\s+not\s+(?:need|have)\s+to|needs?\s+not)\s+"
-        r"(?:be\s+)?(?:upload|attach|provide|publish|post|record|capture|include|document|generate|link|add|leave)\w*\b"
+        + r"(?:"
+        + passive_delivery_prefix
+        + r")?"
+        + r"(?:upload|attach|provide|publish|post|record|capture|include|document|generate|link|add|leave)\w*\b"
         r"|"
         r"\bno\s+(?:\w+\s+){0,3}(?:evidence|artifacts?|transcripts?|command outputs?|"
         r"workflow runs?|pr comments?|pull request comments?)"
@@ -1590,8 +1595,11 @@ def _required_evidence_channels(acceptance: str) -> set[str]:
                         re.I,
                     )
                     or re.search(
-                        r"\b" + mandatory_auxiliary + r"\s+be\s+"
-                        r"(?:uploaded|attached|published|posted|recorded|captured|provided|"
+                        r"\b"
+                        + mandatory_auxiliary
+                        + r"\s+"
+                        + passive_delivery_prefix
+                        + r"(?:uploaded|attached|published|posted|recorded|captured|provided|"
                         r"included|documented)\s+as\s+(?:(?:an?|the)\s+)?"
                         r"(?:(?:workflow|validation|exact-head|evidence)\s+)?artifacts?\b",
                         requirement_text,
