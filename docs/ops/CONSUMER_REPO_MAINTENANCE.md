@@ -875,6 +875,11 @@ originating reviewer, then posts the policy-configured review command once.
 Workflow-sync reassessment is restricted to the stable
 `sync/workflows-candidate` and `sync/workflows-delivery` branches; another
 `sync/workflows-*` branch fails closed.
+After the general exact-head review, reassessment posts the configured targeted
+command as a reply in the original review thread, including the finding, source
+commit, exact generated head, acceptance marker, and prohibition on unrelated
+edits or merge actions. A general top-level review request is not an in-thread
+disposition task and cannot suppress this targeted request.
 The request comment records a plan/generation/head/thread marker and URL; a
 repeat dispatch reuses that evidence. An ambiguous POST must be inspected by
 marker before retry. This dispatch runs a separate request-only job: it never

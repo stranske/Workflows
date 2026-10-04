@@ -66,7 +66,7 @@ test('source-owned reviewer reassessment supports stable generated lanes without
   const thread = {
     id: request.thread_id, isResolved: false, isOutdated: false,
     comments: { pageInfo: { hasNextPage: false }, nodes: [
-      { author: { login: 'chatgpt-codex-connector[bot]' }, body: 'Please fix' },
+      { databaseId: 1234, author: { login: 'chatgpt-codex-connector[bot]' }, body: 'Please fix' },
     ] },
   };
   const comments = [];
@@ -78,24 +78,34 @@ test('source-owned reviewer reassessment supports stable generated lanes without
       pulls: {
         get: async () => ({ data: pr }),
         merge: async () => { merges++; },
-      },
-      users: { getAuthenticated: async () => ({ data: { login: 'stranske' } }) },
-      issues: {
-        listComments: async () => ({ data: comments }),
-        createComment: async ({ body }) => {
+        createReplyForReviewComment: async ({ body, comment_id }) => {
+          assert.equal(comment_id, 1234);
           posts++;
           const comment = { id: posts, body, created_at: '2026-09-24T22:00:00Z',
-            html_url: `https://github.com/stranske/Ready/pull/592#issuecomment-${posts}`,
+            html_url: `https://github.com/stranske/Ready/pull/592#discussion_r${posts}`,
             user: { login: 'stranske' } };
           comments.push(comment);
           return { data: comment };
         },
       },
+      users: { getAuthenticated: async () => ({ data: { login: 'stranske' } }) },
+      issues: {
+        listComments: async () => { throw new Error('must inspect the original thread'); },
+        createComment: async () => { throw new Error('must dispatch an in-thread task'); },
+      },
     },
     graphql: async (query) => {
       if (/\bmutation\b/.test(query)) resolutions++;
       return { repository: { pullRequest: {
-        reviewThreads: { pageInfo: { hasNextPage: false }, nodes: [thread] },
+        reviewThreads: { pageInfo: { hasNextPage: false }, nodes: [{
+          ...thread, comments: { ...thread.comments, nodes: [
+            ...thread.comments.nodes,
+            ...comments.map((comment) => ({
+              databaseId: comment.id, body: comment.body, author: comment.user,
+              createdAt: comment.created_at, url: comment.html_url,
+            })),
+          ] },
+        }] },
       } } };
     },
   };
@@ -107,12 +117,13 @@ test('source-owned reviewer reassessment supports stable generated lanes without
   const first = await runReviewReassessment(args);
   assert.equal(first.status, 'review_blocked_reassessment_requested');
   assert.equal(first.request_url, comments[0].html_url);
-  assert.match(comments[0].body, /@codex review/);
+  assert.match(comments[0].body, /@codex please reassess this specific finding/);
   assert.match(comments[0].body, /PRRT_test/);
   assert.match(comments[0].body,
     new RegExp(`<!-- sync-review-accepted:${request.head_sha} -->`));
   const second = await runReviewReassessment(args);
   assert.equal(second.status, 'review_blocked_reassessment_reused');
+  assert.equal(second.writer, 'stranske');
   assert.equal(posts, 1);
   const reordered = Object.fromEntries(Object.entries(request).reverse());
   const reorderedRetry = await runReviewReassessment({
@@ -128,7 +139,7 @@ test('source-owned reviewer reassessment supports stable generated lanes without
     assert.equal(workflowSync.status, 'review_blocked_reassessment_requested');
     assert.equal(posts, postsBeforeBranch + 1);
     assert.equal(comments.length, 1);
-    assert.match(comments[0].body, /@codex review/);
+    assert.match(comments[0].body, /@codex please reassess this specific finding/);
     assert.equal(merges, 0);
     assert.equal(resolutions, 0);
   }
@@ -157,11 +168,17 @@ test('source-owned reviewer reassessment supports stable generated lanes without
   thread.isResolved = true;
   await assert.rejects(runReviewReassessment(args), /absent or incomplete/);
   thread.isResolved = false;
+  const originalId = thread.comments.nodes[0].databaseId;
+  delete thread.comments.nodes[0].databaseId;
+  comments.length = 0;
+  await assert.rejects(runReviewReassessment(args), /verified original comment ID/);
+  thread.comments.nodes[0].databaseId = originalId;
+  await runReviewReassessment(args);
   comments[0].user.login = 'untrusted';
   await runReviewReassessment(args);
-  assert.equal(posts, 4, 'an untrusted marker is not a prior request');
+  assert.equal(posts, 5, 'an untrusted marker is not a prior request');
   comments.length = 0;
-  github.rest.issues.createComment = async () => {
+  github.rest.pulls.createReplyForReviewComment = async () => {
     posts++;
     throw new Error('connection reset after write');
   };
