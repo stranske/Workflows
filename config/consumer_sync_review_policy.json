@@ -4,6 +4,11 @@
   "minimum_responses": 1,
   "quiet_period_minutes": 7,
   "maximum_wait_minutes": 15,
+  "finding_verification_fallback": {
+    "enabled": true,
+    "trusted_publishers": ["stranske", "stranske-automation-bot"],
+    "verifier_profiles": ["codex-6.1-sol-medium"]
+  },
   "reviewers": [
     {
       "id": "copilot",

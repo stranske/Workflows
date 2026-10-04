@@ -1,5 +1,7 @@
 'use strict';
 
+const { validateIndependentFindingVerification } = require('./maint71_finding_verification');
+
 const DEFAULT_REVIEW_POLICY = Object.freeze({
   minimum_responses: 1,
   quiet_period_minutes: 7,
@@ -603,7 +605,11 @@ function validateReviewResolutionProof(proof = {}, {
     String(proof.evidence_url || ''),
   )) errors.push('invalid_evidence_url');
   if (!String(proof.originating_reviewer || '').trim()) errors.push('missing_originating_reviewer');
-  if (!new RegExp(
+  const independent = proof.acceptance_mode === 'independent-verification';
+  if (proof.acceptance_mode && !independent) errors.push('unsupported_acceptance_mode');
+  if (independent ? !/^https:\/\/github\.com\/stranske\/Workflows\/issues\/[1-9]\d*#issuecomment-[1-9]\d*$/.test(
+    String(proof.reviewer_acceptance_url || ''),
+  ) : !new RegExp(
     `^https://github\\.com/${owner}/${repo}/pull/${prNumber}#discussion_r[1-9]\\d*$`,
   ).test(String(proof.reviewer_acceptance_url || ''))) {
     errors.push('invalid_reviewer_acceptance_url');
@@ -1258,7 +1264,7 @@ async function run({ github, context, core }) {
                     id isResolved isOutdated
                     comments(first: 100) {
                       pageInfo { hasNextPage }
-                      nodes { url body author { login } commit { oid } }
+                      nodes { url body createdAt author { login } commit { oid } }
                     }
                   }
                 }
@@ -1282,7 +1288,67 @@ async function run({ github, context, core }) {
           errors.push(`${proof.thread_id}:thread_not_resolvable`);
           continue;
         }
-        if (!hasExplicitSameHeadReviewerAcceptance(thread, proof, pr.head.sha, reviewerProfiles)) {
+        let accepted = hasExplicitSameHeadReviewerAcceptance(thread, proof, pr.head.sha, reviewerProfiles);
+        if (proof.acceptance_mode === 'independent-verification') {
+          const commentId = proof.reviewer_acceptance_url.split('#issuecomment-')[1];
+          const { data: comment } = await withRetry((client) => client.rest.issues.getComment({
+            owner: context.repo.owner, repo: context.repo.repo, comment_id: commentId,
+          }));
+          const verification = validateIndependentFindingVerification({
+            proof, record: deliveryRecord, thread, threads, comment,
+            policy: reviewPolicy, reviewerProfiles,
+          });
+          accepted = verification.ok;
+          if (!accepted) {
+            errors.push(`${proof.thread_id}:${verification.reason}`);
+            continue;
+          }
+          // Re-read immediately after external evidence; never resolve a changed head.
+          const { data: currentPr } = await withRetry((client) => client.rest.pulls.get({
+            owner, repo, pull_number: pr.number,
+          }));
+          const currentRecord = parseDeliveryRecord(currentPr.body || '');
+          if (currentPr.state !== 'open' || currentPr.head?.sha !== pr.head.sha
+            || !currentRecord || ['plan_id', 'generation', 'source_commit',
+              'head_observed_sha', 'lease_expires_at'].some((key) =>
+              currentRecord[key] !== deliveryRecord[key])
+            || !(Date.parse(currentRecord.lease_expires_at) > Date.now())) {
+            errors.push(`${proof.thread_id}:head_changed`);
+            continue;
+          }
+          const latestData = await withReviewReadRetry((client) => client.graphql(
+            `query($owner: String!, $repo: String!, $number: Int!) {
+              repository(owner: $owner, name: $repo) {
+                pullRequest(number: $number) {
+                  headRefOid body
+                  reviewThreads(first: 100) {
+                    pageInfo { hasNextPage }
+                    nodes { id isResolved isOutdated
+                      comments(first: 100) {
+                        pageInfo { hasNextPage }
+                        nodes { url body createdAt author { login } commit { oid } }
+                      }
+                    }
+                  }
+                }
+              }
+            }`, { owner, repo, number: pr.number },
+          ));
+          const latest = latestData?.repository?.pullRequest;
+          const latestRecord = parseDeliveryRecord(latest?.body || '');
+          const latestThread = latest?.reviewThreads?.nodes?.find((item) => item.id === proof.thread_id);
+          const finalVerification = validateIndependentFindingVerification({
+            proof, record: latestRecord, thread: latestThread, threads: latest?.reviewThreads,
+            comment, policy: reviewPolicy, reviewerProfiles,
+          });
+          if (latest?.headRefOid !== pr.head.sha || !finalVerification.ok
+            || latestRecord?.head_observed_sha !== pr.head.sha
+            || latestRecord?.lease_expires_at !== currentRecord.lease_expires_at) {
+            errors.push(`${proof.thread_id}:verification_changed_before_resolution`);
+            continue;
+          }
+        }
+        if (!accepted) {
           errors.push(`${proof.thread_id}:same_head_reviewer_acceptance_missing`);
           continue;
         }
