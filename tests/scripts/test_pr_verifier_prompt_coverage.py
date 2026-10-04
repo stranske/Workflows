@@ -2552,3 +2552,25 @@ def test_comment_destination_is_its_direct_object_not_later_result_metadata(
     criterion: str, expected: set[str]
 ) -> None:
     assert pr_verifier._required_evidence_channels(f"- [ ] {criterion}") == expected
+
+
+@pytest.mark.parametrize(
+    "attachment",
+    ["while the reviewer posts", "after the reviewer has to post", "once the reviewer must post"],
+)
+@pytest.mark.parametrize("status", ["absent", "unavailable"])
+def test_capability_cannot_hide_temporally_attached_reviewer_delivery(
+    attachment: str, status: str
+) -> None:
+    criterion = (
+        "The endpoint must allow users to add PR comments "
+        f"{attachment} a PR comment on the reviewing PR with test results"
+    )
+    assert pr_verifier._required_evidence_channels(f"- [ ] {criterion}") == {"comments"}
+    context, _ = _context(1, 1_000, 1_000)
+    context = context.replace(ACCEPTANCE_SENTINEL, criterion).replace(
+        "## PR Diff Summary",
+        "## Acceptance evidence\n\n- Overall retrieval status: **present**\n"
+        f"- PR comments: **{status}**\n\n## PR Diff Summary",
+    )
+    assert not pr_verifier.prompt_coverage(context, None).sufficient

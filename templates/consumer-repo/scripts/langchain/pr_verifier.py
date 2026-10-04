@@ -1027,8 +1027,14 @@ def _required_evidence_channels(acceptance: str) -> set[str]:
         if capability and len(operations) > 1:
             between = prefix[operations[-2].end() : operations[-1].start()]
             if re.search(
-                r"\b(?:and|or)\s+(?:the\s+|an?\s+)?[\w-]+", between, re.I
-            ) and not re.search(r"\bto\s*$", between, re.I):
+                r"\b(?:and|or|while|after|once|before|when|until|unless|if|since|because|whereas)"
+                r"\s+(?:the\s+|an?\s+)?[\w-]+",
+                between,
+                re.I,
+            ) and (
+                not re.search(r"\bto\s*$", between, re.I)
+                or re.search(product_auxiliary + r"$", between, re.I)
+            ):
                 # A coordinated clause with its own actor governs this object,
                 # even without a modal: "and the reviewer leaves a comment".
                 # "and reviewers to post" remains a shared capability
@@ -1041,7 +1047,11 @@ def _required_evidence_channels(acceptance: str) -> set[str]:
             if not re.fullmatch(r"\s*(?:and|or)\s*", between, re.I):
                 # A later delivery has its own subject; do not inherit an
                 # earlier UI/API actor across "transcript that must be posted".
-                subject = re.split(r"\b(?:and|or|that|which|who)\b", between, flags=re.I)[-1]
+                subject = re.split(
+                    r"\b(?:and|or|that|which|who|while|after|once|before|when|until|unless|if|since|because|whereas)\b",
+                    between,
+                    flags=re.I,
+                )[-1]
         nested_subject = re.search(
             r"\b(?:(?P<explicit>that|whether)|(?P<implicit>"
             + product_auxiliary

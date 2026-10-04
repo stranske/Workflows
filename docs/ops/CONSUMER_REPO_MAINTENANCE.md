@@ -921,6 +921,8 @@ classification alone cannot exempt real comment delivery: posting, adding or lea
 comments by a service, endpoint, CLI or renderer retains the evidence floor unless
 the object is a product field/destination or nested user capability. Each comment
 uses its own destination; a later response field cannot exempt an earlier delivery.
+Coordinated or temporal clauses with their own review actor and delivery predicate
+cannot inherit an earlier product capability exemption.
 Qualified
 product subjects have no arbitrary word-count ceiling. An embedded product description
 cannot veto an independently mandatory comment; unresolved subject attachment retains
