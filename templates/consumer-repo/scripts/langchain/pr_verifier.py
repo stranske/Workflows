@@ -991,11 +991,12 @@ def _required_evidence_channels(acceptance: str) -> set[str]:
         r"(?:include|contain|have|return|display|show|store|emit|render|expose|provide)\w*\b"
     )
     response_subject = r"(?:responses?|payloads?|return\s+values?|reports?|exports?)"
-    product_auxiliary = (
-        r"(?:(?:must|shall|will|should|can|may|needs?\s+to)|"
+    mandatory_auxiliary = (
+        r"(?:(?:must|shall|needs?\s+to)|"
         r"(?:(?:is|are)\s+)?(?:required|needed|mandated|expected|supposed|obliged)\s+to|"
-        r"(?:has|have)\s+to)\s+"
+        r"(?:has|have)\s+to)"
     )
+    product_auxiliary = r"(?:" + mandatory_auxiliary + r"|will|should|can|may)\s+"
     evidence_term = re.compile(
         r"\b(?:evidence|artifacts?|transcripts?|command outputs?|workflow runs?|"
         r"pr comments?|pull request comments?)\b",
@@ -1588,7 +1589,7 @@ def _required_evidence_channels(acceptance: str) -> set[str]:
                         re.I,
                     )
                     or re.search(
-                        r"\b(?:must|shall)\s+be\s+"
+                        r"\b" + mandatory_auxiliary + r"\s+be\s+"
                         r"(?:uploaded|attached|published|posted|recorded|captured|provided|"
                         r"included|documented)\s+as\s+(?:(?:an?|the)\s+)?"
                         r"(?:(?:workflow|validation|exact-head|evidence)\s+)?artifacts?\b",

@@ -926,7 +926,9 @@ records, and endpoint/service/CLI/renderer PR-comment fields do not require revi
 evidence. Reports and exports use the same product-operation vocabulary. A separate
 required delivery clause remains authoritative.
 Explicit `comment on/in the PR` destinations normalize to the PR-comment channel;
-evidence required `as an artifact` keeps the artifact channel. Present evidence in
+evidence required `as an artifact` keeps the artifact channel, using the shared
+mandatory auxiliary vocabulary (`must`, `shall`, `need to`, `required to`, `have to`)
+for passive upload destinations. Present evidence in
 another channel cannot satisfy either requirement, and optional/negated forms
 retain their existing exemption.
 Product fields also preserve reversed noun order (`links to evidence`, `records of

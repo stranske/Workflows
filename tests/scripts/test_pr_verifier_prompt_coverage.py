@@ -2532,6 +2532,39 @@ def test_mixed_product_field_lists_are_not_review_delivery(subject: str, objects
     ) == {"comments"}
 
 
+@pytest.mark.parametrize(
+    "auxiliary",
+    [
+        "must",
+        "shall",
+        "need to",
+        "needs to",
+        "are required to",
+        "is required to",
+        "are needed to",
+        "have to",
+        "has to",
+    ],
+)
+@pytest.mark.parametrize("status", ["absent", "unavailable"])
+def test_mandatory_passive_artifact_destination_keeps_channel(auxiliary: str, status: str) -> None:
+    criterion = f"The validation logs {auxiliary} be uploaded as an artifact"
+    assert pr_verifier._required_evidence_channels(f"- [ ] {criterion}") == {"artifacts"}
+    context, _ = _context(1, 1000, 1000)
+    context = context.replace(ACCEPTANCE_SENTINEL, criterion).replace(
+        "## PR Diff Summary",
+        f"## Acceptance evidence\n\n- Overall retrieval status: **present**\n- PR comments: **present**\n- Workflow artifacts: **{status}**\n\n## PR Diff Summary",
+    )
+    coverage = pr_verifier.prompt_coverage(context, None)
+    assert not coverage.sufficient
+    assert (
+        pr_verifier._apply_coverage_floor(
+            pr_verifier.EvaluationResult(verdict="PASS", used_llm=True), coverage
+        ).verdict
+        == "CONCERNS"
+    )
+
+
 @pytest.mark.parametrize("actor", ["reviewers", "the reviewer", "API reviewers"])
 def test_coordinated_capability_infinitive_remains_product_behavior(actor: str) -> None:
     criterion = f"The API allows users to add PR comments and {actor} to post PR comments"
