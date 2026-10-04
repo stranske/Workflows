@@ -694,7 +694,7 @@ scripts:
 
   # PR verification and follow-up
   - source: scripts/langchain/pr_verifier.py
-    description: "PR verifier - validates producer-emitted and destination-specific evidence and product storage, preserves non-PASS concerns and collision-free rename-safe diff coverage"
+    description: "PR verifier - validates producer-emitted and destination-specific evidence with shared lexical aliases, complete body predicates and product-output boundaries, preserves non-PASS concerns and rename-safe diff coverage"
     delivery: copy
 
   # NOTE (resolved: issue #2347): scripts/langchain/followup_issue_generator.py was MOVED

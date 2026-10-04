@@ -1021,6 +1021,75 @@ integration tests call that producer and verify present/absent/unavailable body
 floors with other evidence channels absent, instead of testing a simplified phrase.
 The same modifier grammar preserves `no before/after evidence` prohibitions;
 separate reviewer-comment deliveries remain required.
+Paste/write delivery verbs are canonicalized once before obligation, negation,
+destination and product-boundary classification, so those grammar surfaces cannot
+silently recognize different aliases. Product-provided command output and bounded
+supporting/execution/validation evidence-link modifiers remain product behavior.
+Preposed destinations such as `Evidence in the PR body is required` consume the
+whole predicate; they do not leave a second generic comment/artifact requirement.
+Negated optionality (`not`, `never`, or `no longer optional`) is mandatory, not
+prohibited. Canonical record/write/paste output to explicit product recipients
+(clients, users or consumers) remains product behavior; PR destinations and
+independent reviewer deliveries do not inherit that exemption.
+An explicit mandatory PR-comment destination also takes precedence in reverse
+word order (`Command output must be provided in a PR comment by the service`);
+the later product actor cannot erase that required evidence channel.
+Product-operation shortcuts cannot erase an immediate positive artifact or
+generic-evidence delivery into PR content. Destination binding excludes later
+prohibited pronoun clauses; product-only UI artifact display remains exempt.
+Non-modal prohibitions (`Evidence is not written`, `Never write evidence`) retain
+their polarity after alias normalization. Reverse product-output matching binds
+record/write/paste to the recipient after the verb, not a second object noun.
+Body delivery uses the same response-operation vocabulary as product delivery:
+return/display/emit/render/expose evidence in the PR body is a body obligation.
+Forward and reverse product delivery share recipient grammar, including determined
+recipients such as `the clients`, `its users`, and `all its consumers`; an
+independent reviewer-comment obligation remains required.
+Passive PR deliveries share the mandatory auxiliary and passive-prefix grammar,
+including `needs to be`, `has to be`, and `is required to be`; a later product
+actor cannot erase those review obligations.
+Alias normalization is limited to evidence-object or destination-bearing delivery
+uses, preserving command names such as `write` and `paste`. Immediate workflow-
+artifact delivery shares explicit review-destination binding with PR delivery;
+product-only rendering of an artifact is not itself a delivery requirement.
+Quoted literals and qualified command-name spans are preserved before alias
+normalization. Product recipients and explicit review destinations share a bounded
+destination-list grammar across body recognition and product exemptions. A
+recipient does not erase coordinated PR/body/comment/workflow-artifact delivery;
+independent or negated predicates are not absorbed into that list. Product body
+editors remain product surfaces while coordinated artifact/comment deliveries
+retain their own channels.
+Shared destination spans survive clause splitting unless a destination starts a
+new independent predicate (for example, `the PR body must describe the change`).
+Participial modifiers such as `written evidence` under a product display verb do
+not become an independent record operation. The outer requirement gate shares
+passive obligation auxiliaries with destination recognition; negated `does not
+have to be` clauses remain non-obligations. CI, GitHub Actions and workflow
+artifact destinations use the same recognition and channel vocabulary.
+Named workflow/CI/GitHub Actions artifacts directly provided as delivery objects
+remain review artifacts even when the actor is a product service. Past-participle
+aliases canonicalize only after a governing obligation or passive auxiliary, not
+by enumerating all possible verbs before adjectival `written`/`pasted` evidence.
+Explicit evidence-object-to-comment bindings commit the comment channel for the
+shared response operations; bare product-comment storage remains exempt. Modal
+`must not be optional` uses the same mandatory-auxiliary grammar as preposed body
+requirements. Destination-bound object modifiers are bounded tokens that exclude
+new predicates and conjunctions, not an independently growing adjective list.
+Perfect/modal passive prohibitions retain polarity after alias normalization,
+including intervening adverbs admitted by the alias grammar.
+An `and`-coordinated bare evidence object with a bounded review destination
+inherits the previous delivery predicate (including negation); independent
+finite predicates and semicolon-separated clauses do not inherit it.
+Alias destination normalization accepts the same `both` prefix as coordinated
+destination recognition. Optional delivery modals (`may`, `can`, `could`,
+`should`) do not become hard evidence obligations after alias normalization;
+independent required clauses retain their own channels.
+Negated obligations use the same delivery-operation grammar as positive
+delivery. An explicitly excluded PR-comment destination (`outside`, `rather
+than`, `instead of`) is not a required comment channel; generic evidence and
+independent positive deliveries still retain their coverage floors.
+The four fresh canary findings are tested through the actual coverage floor with
+present, absent and unavailable evidence plus independent reviewer-delivery controls.
 
 Non-PASS CLI and file text includes the final verdict, summary, structured concerns and
 distinct raw model detail, so concise summaries do not discard actionable gaps.
