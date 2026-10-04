@@ -74,13 +74,15 @@ function validateIndependentFindingVerification({
     item.url === result.originating_completion_url && profile.logins.includes(item.author?.login)
     && item.commit?.oid === proof.head_sha
     && profile.disposition_completion_prefixes?.some((prefix) => item.body?.startsWith(prefix)));
+  if (!completion) return deny('originating_completion_missing');
   const times = [request?.createdAt, completion?.createdAt, result.completed_at,
     comment?.created_at].map((value) => Date.parse(value || ''));
   if (times.some((value) => !Number.isFinite(value)) || times[1] < times[0]
     || times[2] < times[1] || times[3] < times[2] || times[3] > now
     || now - times[2] > 24 * 60 * 60 * 1000) return deny('failed_transport_or_freshness_unproven');
-  if (!completion) return deny('originating_completion_missing');
-  if (thread.comments.nodes.some((item) => profile.logins.includes(item.author?.login)
+  const reviewerComments = [...threads.nodes.flatMap((item) => item.comments.nodes),
+    ...(topLevelComments?.nodes || [])];
+  if (reviewerComments.some((item) => profile.logins.includes(item.author?.login)
     && Date.parse(item.createdAt || '') > times[2])) return deny('reviewer_changed_after_verification');
   return { ok: true, assessment_id: result.assessment_id, binding };
 }
@@ -153,16 +155,25 @@ async function collectOriginatingCompletions({ owner, repo, number, head, profil
   const nodes = [];
   for (const comment of comments) {
     const profile = profiles.find((item) => item.logins.includes(comment.user?.login));
-    if (!profile?.disposition_completion_prefixes?.some((prefix) => comment.body?.startsWith(prefix))) continue;
+    if (!profile) continue;
+    const node = { url: comment.html_url, body: comment.body, createdAt: comment.created_at,
+      author: comment.user };
+    nodes.push(node);
+    if (!profile.disposition_completion_prefixes?.some((prefix) => comment.body?.startsWith(prefix))) continue;
     const prefix = profile.disposition_reviewed_commit_prefix;
     if (!prefix) continue;
     const line = String(comment.body || '').split('\n').find((value) => value.startsWith(prefix));
     const ref = line?.slice(prefix.length).match(/`([0-9a-f]{10,40})`/)?.[1];
     if (!ref || !head.startsWith(ref)) continue;
-    const { data: commit } = await read((client) => client.rest.repos.getCommit({ owner, repo, ref }));
+    let commit;
+    try {
+      ({ data: commit } = await read((client) => client.rest.repos.getCommit({ owner, repo, ref })));
+    } catch (error) {
+      if ([404, 422].includes(error.status)) continue;
+      throw error;
+    }
     if (commit.sha !== head) continue;
-    nodes.push({ url: comment.html_url, body: comment.body, createdAt: comment.created_at,
-      author: comment.user, commit: { oid: commit.sha } });
+    node.commit = { oid: commit.sha };
   }
   return { complete: true, nodes };
 }

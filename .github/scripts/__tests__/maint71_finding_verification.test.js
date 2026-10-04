@@ -198,3 +198,47 @@ test('collect all outer thread and inner comment pages, rejecting interrupted or
     assert.equal(calls.length, 3);
   }
 });
+
+test('missing completion reports its specific diagnostic', () => {
+  const f = fixture();
+  f.args.thread.comments.nodes.pop();
+  assert.equal(validate(f.finish()).reason, 'originating_completion_missing');
+});
+
+test('new originating feedback in sibling threads or top-level comments invalidates verification', () => {
+  for (const surface of ['sibling', 'top-level']) {
+    const f = fixture();
+    const feedback = { author: { login: 'origin' }, body: 'New concern',
+      createdAt: '2026-10-04T01:03:00Z' };
+    if (surface === 'sibling') f.args.threads.nodes.push({ comments: {
+      pageInfo: { hasNextPage: false }, nodes: [feedback] } });
+    else f.args.topLevelComments = { complete: true, nodes: [feedback] };
+    assert.equal(validate(f.finish()).reason, 'reviewer_changed_after_verification');
+  }
+});
+
+test('retain all originating top-level feedback and skip only unresolvable commit references', async () => {
+  const { collectOriginatingCompletions } = require('../maint71_finding_verification');
+  const f = fixture();
+  const completion = f.args.thread.comments.nodes.pop();
+  f.args.reviewerProfiles[0].disposition_reviewed_commit_prefix = '**Reviewed commit:** ';
+  const item = { body: `Clean review.\n**Reviewed commit:** \`${f.args.proof.head_sha.slice(0, 10)}\``,
+    user: completion.author, html_url: completion.url, created_at: completion.createdAt };
+  for (const status of [404, 422, 403, 500]) {
+    let calls = 0;
+    const github = { paginate: async () => [{ ...item, html_url: 'stale' }, item,
+      { ...item, body: 'New concern', html_url: 'feedback', created_at: '2026-10-04T01:03:00Z' }],
+    rest: { issues: { listComments() {} }, repos: { getCommit: async () => {
+      if (++calls === 1) throw Object.assign(new Error('ref lookup failed'), { status });
+      return { data: { sha: f.args.proof.head_sha } };
+    } } } };
+    const run = () => collectOriginatingCompletions({ owner: 'stranske', repo: 'Ready',
+      number: 1, head: f.args.proof.head_sha, profiles: f.args.reviewerProfiles, read: (fn) => fn(github) });
+    if ([403, 500].includes(status)) { await assert.rejects(run); continue; }
+    f.args.topLevelComments = await run();
+    assert.equal(f.args.topLevelComments.nodes.length, 3);
+    assert.equal(f.args.topLevelComments.nodes[1].commit.oid, f.args.proof.head_sha);
+    assert.equal(f.args.topLevelComments.nodes[2].body, 'New concern');
+    assert.equal(validate(f.finish()).reason, 'reviewer_changed_after_verification');
+  }
+});
