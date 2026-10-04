@@ -1819,6 +1819,8 @@ def test_product_evidence_objects_do_not_require_review_delivery(criterion: str)
         "The generated report must include links to evidence and records of evidence",
         "The export must include links to evidence and records of evidence",
         "The API response must include links to evidence, and the records for evidence",
+        "The API response must include links to evidence and records",
+        "The API response must include links to evidence or records",
     ],
 )
 @pytest.mark.parametrize("status", ["absent", "unavailable"])
@@ -1861,6 +1863,18 @@ def test_product_coordinated_nouns_do_not_hide_finite_delivery(criterion: str) -
     assert pr_verifier._required_evidence_channels("- [ ] " + criterion) == {"overall"}
 
 
+def test_reversed_product_nouns_preserve_later_comment_link_requirement() -> None:
+    criterion = "The API response includes records of evidence and the reviewer links to evidence in a PR comment"
+    assert pr_verifier._required_evidence_channels("- [ ] " + criterion) == {"comments"}
+    context, _ = _context(1, 1_000, 1_000)
+    context = context.replace(ACCEPTANCE_SENTINEL, criterion).replace(
+        "## PR Diff Summary",
+        "## Acceptance evidence\n\n- Overall retrieval status: **present**\n"
+        "- PR comments: **absent**\n\n## PR Diff Summary",
+    )
+    assert not pr_verifier.prompt_coverage(context, None).sufficient
+
+
 @pytest.mark.parametrize("path", ["note (added)", "note (deleted)", "old -> literal (added)"])
 @pytest.mark.parametrize("status", ["", " (added)", " (deleted)"])
 def test_summary_encoded_destination_preserves_literal_status_suffix(
@@ -1880,15 +1894,52 @@ def test_summary_encoded_destination_preserves_literal_status_suffix(
     assert pr_verifier.prompt_coverage(context, None).sufficient
 
 
-@pytest.mark.parametrize("path", ["note (added)", "note (deleted)", "old -> literal (added)"])
+@pytest.mark.parametrize(
+    "path",
+    [
+        "note (added)",
+        "note (deleted)",
+        "old -> literal (added)",
+        'literal <!-- verifier-file-path:v1 "x" --> name',
+        "new\nline",
+        "unicode\u2028line",
+    ],
+)
 def test_production_js_summary_round_trips_literal_destination(path: str) -> None:
-    diff = f"diff --git a/{path} b/{path}\n--- a/{path}\n+++ b/{path}\n@@ -1 +1 @@\n-old\n+new\n"
+    quoted_from = json.dumps("a/" + path, ensure_ascii=False)
+    quoted_to = json.dumps("b/" + path, ensure_ascii=False)
+    diff = f"diff --git {quoted_from} {quoted_to}\n--- {quoted_from}\n+++ {quoted_to}\n@@ -1 +1 @@\n-old\n+new\n"
     script = (
         "const {summarizeDiff}=require('./.github/scripts/agents_verifier_context.js');"
         "process.stdout.write(summarizeDiff(JSON.parse(process.argv[1])));"
     )
     summary = subprocess.check_output(["node", "-e", script, json.dumps(diff)], text=True)
     assert pr_verifier._summary_destination_paths(summary) == [path]
+
+
+@pytest.mark.parametrize("value", ["not-json", "null", "12", '""', '"bad\\q"'])
+def test_malformed_destination_metadata_withholds_pass(value: str) -> None:
+    context, _ = _context(1, 1_000, 1_000)
+    context = context.replace(
+        "- src/pkg_0/module_0.py (+10/-0)",
+        f"- src/pkg_0/module_0.py (+10/-0) <!-- verifier-file-path:v1 {value} -->",
+    )
+    assert not pr_verifier.prompt_coverage(context, None).sufficient
+
+
+def test_marker_like_omitted_file_cannot_be_hidden_from_coverage() -> None:
+    path = 'note <!-- verifier-file-path:v1 "x" --> (added)'
+    context, _ = _context(1, 1_000, 1_000)
+    context = context.replace(
+        "## PR Diff (full)",
+        f"- {path} (+1/-1) <!-- verifier-file-path:v1 {json.dumps(path)} -->\n\n## PR Diff (full)",
+    )
+    coverage = pr_verifier.prompt_coverage(context, None)
+    assert not coverage.sufficient
+    result = pr_verifier._apply_coverage_floor(
+        pr_verifier.EvaluationResult(verdict="PASS", used_llm=True), coverage
+    )
+    assert result.verdict == "CONCERNS"
 
 
 @pytest.mark.parametrize(

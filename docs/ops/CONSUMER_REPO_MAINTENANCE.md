@@ -914,7 +914,10 @@ UNKNOWN checkpoint, never a fabricated acceptance or another generic review loop
 Verifier file summaries retain human-readable add/delete labels and an exact JSON
 destination in a `verifier-file-path:v1` marker. Coverage consumes that destination,
 so literal filenames ending in ` (added)` or ` (deleted)` and containing ` -> `
-cannot be mistaken for generated status or rename metadata. Legacy summaries retain
+cannot be mistaken for generated status or rename metadata. Display labels escape
+line breaks, marker metadata escapes HTML delimiters and Unicode line separators,
+and the final JSON-string marker is authoritative. Malformed marker metadata makes
+coverage UNKNOWN and withholds PASS, never silently removing a file. Legacy summaries retain
 their existing parser for compatibility; generated contexts always emit the marker.
 
 Verifier acceptance classification distinguishes product output and product fields from

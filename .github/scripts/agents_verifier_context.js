@@ -253,7 +253,11 @@ function summarizeDiff(diffText, { maxFiles, maxLines } = {}) {
     // Display status is not part of the literal filename. Preserve an exact
     // machine-readable destination for Python coverage reconciliation.
     const destination = file.toPath || file.fromPath;
-    summaryLines.push(`- ${label} (${delta}) <!-- verifier-file-path:v1 ${JSON.stringify(destination)} -->`);
+    const singleLineJson = (text, escapeHtml = true) => JSON.stringify(text).replace(
+      escapeHtml ? /[<>\u0085\u2028\u2029]/g : /[\u0085\u2028\u2029]/g,
+      (char) => `\\u${char.charCodeAt(0).toString(16).padStart(4, '0')}`);
+    const displayLabel = singleLineJson(label, false).slice(1, -1);
+    summaryLines.push(`- ${displayLabel} (${delta}) <!-- verifier-file-path:v1 ${singleLineJson(destination)} -->`);
   }
   if (fileSummaries.length > visible.length) {
     summaryLines.push(`- ...and ${fileSummaries.length - visible.length} more files`);

@@ -1162,6 +1162,19 @@ test('summarizeDiff preserves machine-readable literal status suffixes', () => {
   }
 });
 
+test('summary destination metadata survives marker text and display line breaks', () => {
+  for (const path of ['new\nline', 'new\rline', 'unicode\u2028line', 'unicode\u2029line', 'literal <!-- verifier-file-path:v1 "x" -->']) {
+    const from = JSON.stringify(`a/${path}`);
+    const to = JSON.stringify(`b/${path}`);
+    const summary = summarizeDiff(`diff --git ${from} ${to}\n--- ${from}\n+++ ${to}\n@@ -1 +1 @@\n-old\n+new`);
+    const rows = summary.split(/\r?\n/).filter(line => line.startsWith('- ') && line.includes('<!-- verifier-file-path:v1 '));
+    assert.equal(rows.length, 1);
+    const match = rows[0].match(/ <!-- verifier-file-path:v1 ("(?:[^"\\]|\\.)*") -->$/);
+    assert.ok(match);
+    assert.equal(JSON.parse(match[1]), path);
+  }
+});
+
 test('summarizeDiff decodes quoted Git paths and uses the rename destination', () => {
   const summary = summarizeDiff([
     'diff --git "a/docs/\\303\\251 old.md" "b/docs/\\303\\251 new.md"',

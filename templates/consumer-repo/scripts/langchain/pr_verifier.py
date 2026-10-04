@@ -777,15 +777,19 @@ def _summary_destination_paths(summary: str) -> list[str]:
             break
         if not in_file_changes or not line.startswith("- "):
             continue
-        encoded_path = re.search(r" <!-- verifier-file-path:v1 (.+) -->$", line)
+        encoded_path = re.search(r' <!-- verifier-file-path:v1 ("(?:[^"\\]|\\.)*") -->$', line)
         if encoded_path:
             try:
                 destination = json.loads(encoded_path.group(1))
-            except (ValueError, TypeError):
-                continue
+            except (ValueError, TypeError) as error:
+                raise ValueError("Malformed encoded summary destination") from error
             if isinstance(destination, str) and destination:
                 paths.append(destination)
+            else:
+                raise ValueError("Empty or non-string encoded summary destination")
             continue
+        if " <!-- verifier-file-path:v1 " in line:
+            raise ValueError("Malformed encoded summary destination")
         label = SUMMARY_DELTA_SUFFIX.sub("", line[2:].strip())
         for marker in (" (added)", " (deleted)"):
             if label.endswith(marker):
@@ -1025,7 +1029,7 @@ def _required_evidence_channels(acceptance: str) -> set[str]:
         """Classify the governing operation's subject, not domain words anywhere."""
         operations = list(
             re.finditer(
-                r"\b(?:allow|enable|support|display|store|include|attach|upload|add|leave|left|post|publish|provide|document|record|capture)\w*\b",
+                r"\b(?:allow|enable|support|display|store|include|attach|upload|add|leave|left|post|publish|provide|document|record|capture|link)\w*\b",
                 prefix,
                 re.I,
             )
@@ -1523,7 +1527,9 @@ def _required_evidence_channels(acceptance: str) -> set[str]:
                     r"\s+(?:to|of|for)\s+evidence\b"
                     r"(?:\s*,?\s+(?:and|or)\s+(?:(?:the|a|an)\s+)?"
                     r"(?:links?|records?)(?:\s+(?:and|or)\s+(?:links?|records?))*"
-                    r"\s+(?:to|of|for)\s+evidence\b)*",
+                    r"\s+(?:to|of|for)\s+evidence\b)*"
+                    r"(?:\s*,?\s+(?:and|or)\s+(?:(?:the|a|an)\s+)?"
+                    r"(?:links?|records?)\b(?=\s*(?:$|[;,.!?]|(?:and|or)\b)))*",
                     " evidence",
                     response_object,
                     count=1,
@@ -1709,7 +1715,7 @@ def _required_evidence_channels(acceptance: str) -> set[str]:
             )
             explicit_comment_delivery = bool(
                 re.search(
-                    r"\b(?:attach|upload|include|post|publish|record|capture|provide|document|add|leave|left)\w*\b"
+                    r"\b(?:attach|upload|include|post|publish|record|capture|provide|document|add|leave|left|link)\w*\b"
                     r"(?:\s+\w+){0,10}\s+\b(?:pr comments?|pull request comments?)\b",
                     requirement_text,
                     re.I,
@@ -1946,9 +1952,16 @@ def build_prompt_inputs(context: str, diff: str | None) -> PromptInputs:
     summary_body = next((body for name, body in sections or [] if name == "diff_summary"), "")
     if files and summary_body:
         diff_paths = {item.path for item in files}
-        missing = [
-            path for path in _summary_destination_paths(summary_body) if path not in diff_paths
-        ]
+        try:
+            missing = [
+                path for path in _summary_destination_paths(summary_body) if path not in diff_paths
+            ]
+        except ValueError:
+            missing = []
+            code = "truncated"
+            reasons.append(
+                "Encoded summary destination metadata is malformed; coverage is unknown."
+            )
         if missing:
             code = "truncated"
             reasons.append(
