@@ -911,11 +911,21 @@ becomes ready; the recurring two-hour schedule is recovery, not the normal
 continuation mechanism. A failed assessment causes a concrete repair or explicit
 UNKNOWN checkpoint, never a fabricated acceptance or another generic review loop.
 
+Verifier file summaries retain human-readable add/delete labels and an exact JSON
+destination in a `verifier-file-path:v1` marker. Coverage consumes that destination,
+so literal filenames ending in ` (added)` or ` (deleted)` and containing ` -> `
+cannot be mistaken for generated status or rename metadata. Legacy summaries retain
+their existing parser for compatibility; generated contexts always emit the marker.
+
 Verifier acceptance classification distinguishes product output and product fields from
 review deliverables: a command that must output a transcript, response evidence links or
 records, and endpoint/service/CLI/renderer PR-comment fields do not require reviewing-PR
-evidence. A separate required delivery clause remains authoritative. Comment operations
-are classified by their subject head: an API reviewer or reviewer of an endpoint remains
+evidence. Reports and exports use the same product-operation vocabulary. A separate
+required delivery clause remains authoritative. Product fields
+also preserve reversed noun order (`links to evidence`, `records of
+evidence`): the exemption applies only to the immediate object of the response
+operation, never a later reviewer linking/recording predicate.
+Comment operations are classified by their subject head: an API reviewer or reviewer of an endpoint remains
 a review actor, while an endpoint used by reviewers remains a product actor. Actor
 classification alone cannot exempt real comment delivery: posting, adding or leaving
 comments by a service, endpoint, CLI or renderer retains the evidence floor unless

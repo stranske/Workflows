@@ -777,6 +777,15 @@ def _summary_destination_paths(summary: str) -> list[str]:
             break
         if not in_file_changes or not line.startswith("- "):
             continue
+        encoded_path = re.search(r" <!-- verifier-file-path:v1 (.+) -->$", line)
+        if encoded_path:
+            try:
+                destination = json.loads(encoded_path.group(1))
+            except (ValueError, TypeError):
+                continue
+            if isinstance(destination, str) and destination:
+                paths.append(destination)
+            continue
         label = SUMMARY_DELTA_SUFFIX.sub("", line[2:].strip())
         for marker in (" (added)", " (deleted)"):
             if label.endswith(marker):
@@ -1497,14 +1506,27 @@ def _required_evidence_channels(acceptance: str) -> set[str]:
             lower = requirement_text.lower()
             response_prefix = re.compile(
                 r"\b(?:"
-                r"responses?|payloads?|return\s+values?"
+                r"responses?|payloads?|return\s+values?|reports?|exports?"
                 r"|(?:command[- ]?outputs?|transcripts?)\s+api"
                 r"|api\s+(?:command[- ]?outputs?|transcripts?)(?:\s+\w+){0,3}"
                 r")\b\s+" + "(?:" + product_auxiliary + ")?" + response_operation,
                 re.I,
             )
-            if response_prefix.search(requirement_text):
-                delivery_text = response_prefix.sub(" ", requirement_text, count=1)
+            response_match = response_prefix.search(requirement_text)
+            if response_match:
+                # Only the immediate object of this product operation is a
+                # field noun. A later reviewer predicate must remain gating.
+                response_object = requirement_text[response_match.end() :]
+                response_object = re.sub(
+                    r"^\s+(?:(?:the|a|an)\s+)?(?:links?|records?)"
+                    r"(?:\s+(?:and|or)\s+(?:links?|records?))*"
+                    r"\s+(?:to|of|for)\s+evidence\b",
+                    " evidence",
+                    response_object,
+                    count=1,
+                    flags=re.I,
+                )
+                delivery_text = requirement_text[: response_match.start()] + response_object
                 if not remaining_delivery(delivery_text):
                     continue
                 requirement_text = delivery_text

@@ -250,7 +250,10 @@ function summarizeDiff(diffText, { maxFiles, maxLines } = {}) {
       label = `${label} (deleted)`;
     }
     const delta = file.binary ? 'binary' : `+${file.added}/-${file.removed}`;
-    summaryLines.push(`- ${label} (${delta})`);
+    // Display status is not part of the literal filename. Preserve an exact
+    // machine-readable destination for Python coverage reconciliation.
+    const destination = file.toPath || file.fromPath;
+    summaryLines.push(`- ${label} (${delta}) <!-- verifier-file-path:v1 ${JSON.stringify(destination)} -->`);
   }
   if (fileSummaries.length > visible.length) {
     summaryLines.push(`- ...and ${fileSummaries.length - visible.length} more files`);

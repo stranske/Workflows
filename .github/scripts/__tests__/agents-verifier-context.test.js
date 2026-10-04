@@ -1152,6 +1152,16 @@ test('artifact extractor marks mixed supported and unsupported payload entries i
   assert.equal(result.truncated, true);
 });
 
+test('summarizeDiff preserves machine-readable literal status suffixes', () => {
+  for (const suffix of [' (added)', ' (deleted)']) {
+    for (const mode of ['', 'new file mode 100644', 'deleted file mode 100644']) {
+      const path = `note${suffix}`;
+      const summary = summarizeDiff(`diff --git a/${path} b/${path}\n${mode}\n@@ -1 +1 @@\n-old\n+new`);
+      assert.ok(summary.includes(`<!-- verifier-file-path:v1 ${JSON.stringify(path)} -->`));
+    }
+  }
+});
+
 test('summarizeDiff decodes quoted Git paths and uses the rename destination', () => {
   const summary = summarizeDiff([
     'diff --git "a/docs/\\303\\251 old.md" "b/docs/\\303\\251 new.md"',
