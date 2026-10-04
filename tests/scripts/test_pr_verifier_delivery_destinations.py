@@ -125,6 +125,41 @@ def test_reverse_product_output_retains_explicit_comment_delivery(product, verb)
     assert verifier._required_evidence_channels(criterion) == {"comments"}
 
 
+@pytest.mark.parametrize("actor", ["service", "API", "API response"])
+@pytest.mark.parametrize(
+    "object_,channel", [("artifacts", "artifacts"), ("command output", "overall")]
+)
+def test_product_provide_cannot_erase_explicit_pr_delivery(actor, object_, channel):
+    criterion = f"The {actor} must provide {object_} in the PR"
+    assert verifier._required_evidence_channels(criterion) == {channel}
+
+
+@pytest.mark.parametrize(
+    "criterion",
+    [
+        "Evidence is not written in a PR comment",
+        "Evidence is not being pasted in a PR comment",
+        "Never write evidence in a PR comment",
+        "Never paste evidence in a PR comment",
+    ],
+)
+def test_record_aliases_preserve_non_modal_prohibitions(criterion):
+    assert verifier._required_evidence_channels(criterion) == set()
+    assert verifier._required_evidence_channels(criterion + "; record evidence in the PR body") == {
+        "body"
+    }
+
+
+@pytest.mark.parametrize("participle", ["written", "pasted", "recorded"])
+@pytest.mark.parametrize("recipient", ["clients", "users", "consumers"])
+def test_reverse_record_output_binds_its_own_recipient(participle, recipient):
+    criterion = f"Command output is {participle} to {recipient} by the service"
+    assert verifier._required_evidence_channels(criterion) == set()
+    assert verifier._required_evidence_channels(criterion + "; write evidence in a PR comment") == {
+        "comments"
+    }
+
+
 @pytest.mark.parametrize(
     "criterion,channel",
     [
@@ -135,6 +170,10 @@ def test_reverse_product_output_retains_explicit_comment_delivery(product, verb)
         ("The API response must include links to supporting evidence", None),
         ("The service must provide command output to clients", None),
         ("The service must write command output to clients", None),
+        ("The service must provide artifacts in the PR", "artifacts"),
+        ("The service must provide command output in the PR", "overall"),
+        ("Evidence is not written in a PR comment", None),
+        ("Command output is written to clients by the service", None),
     ],
 )
 @pytest.mark.parametrize("status", ["present", "absent", "unavailable"])
@@ -148,10 +187,10 @@ def test_fresh_canary_findings_control_actual_coverage_floor(criterion, channel,
     context, _ = fixture._context(1, 1000, 1000)
     context = context.replace(fixture.ACCEPTANCE_SENTINEL, criterion).replace(
         "## PR Diff Summary",
-        "## Acceptance evidence\n\n- Overall retrieval status: **absent**\n"
+        f"## Acceptance evidence\n\n- Overall retrieval status: **{status if channel == 'overall' else 'absent'}**\n"
         f"- PR body: **{status if channel == 'body' else 'absent'}**\n"
         f"- PR comments: **{status if channel == 'comments' else 'absent'}**\n"
-        "- Referenced workflow artifacts: **absent**\n\n## PR Diff Summary",
+        f"- Referenced workflow artifacts: **{status if channel == 'artifacts' else 'absent'}**\n\n## PR Diff Summary",
     )
     result = verifier._apply_coverage_floor(
         verifier.EvaluationResult(verdict="PASS", used_llm=True),

@@ -1411,6 +1411,11 @@ def _required_evidence_channels(acceptance: str) -> set[str]:
         )
 
     evidence_prohibition = re.compile(
+        r"\bnever\s+(?:upload|attach|provide|publish|post|record|capture|include|document|generate|link|add|leave)\w*\b|"
+        r"\b(?:evidence|artifacts?|transcripts?|command outputs?|workflow runs?|"
+        r"pr comments?|pull request comments?)\s+(?:is|are|was|were)\s+"
+        r"(?:not|never|no\s+longer)\s+(?:being\s+)?"
+        r"(?:uploaded|attached|provided|published|posted|recorded|captured|included|documented|generated|linked)\b|"
         r"\b(?:(?:is|are|was|were)\s+(?:not|never|no\s+longer)\s+"
         r"(?:required|needed|mandated|expected|supposed|obliged|allowed|permitted)\s+to|"
         r"(?:does|do|did)\s+not\s+(?:need|have)\s+to|needs?\s+not)\s+"
@@ -1751,6 +1756,28 @@ def _required_evidence_channels(acceptance: str) -> set[str]:
                 if not evidence_term.search(requirement_text):
                     continue
             lower = requirement_text.lower()
+            pr_destination = r"(?:in|into|to|within)\s+(?:(?:the|an?)\s+)?(?:pr|pull request)\b"
+            delivery_operation = r"(?:provide|return|display|show|emit|render|expose|store|upload|attach|publish|post|record|capture|include|document)\w*\b"
+            delivery_object = r"(?:command outputs?|transcripts?|artifacts?|evidence)\b"
+            # Bind the destination to the immediate positive delivery object,
+            # not a later prohibited pronoun clause such as 'do not attach it'.
+            explicit_review_destination = bool(
+                re.search(
+                    r"\b" + delivery_operation + r"\s+"
+                    r"(?:(?:the|an?|any|before/after|failing|passing|supporting|validation|workflow|exact-head|execution|test|review|collected|recorded)\s+){0,4}"
+                    + delivery_object
+                    + r"\s+"
+                    + pr_destination
+                    + "|"
+                    + delivery_object
+                    + r"\s+(?:(?:must|shall)\s+be\s+)?"
+                    + delivery_operation
+                    + r"\s+"
+                    + pr_destination,
+                    requirement_text,
+                    re.I,
+                )
+            )
             response_prefix = re.compile(
                 r"\b(?:" + response_subject + r"|(?:command[- ]?outputs?|transcripts?)\s+api"
                 r"|api\s+(?:command[- ]?outputs?|transcripts?)(?:\s+\w+){0,3}"
@@ -1758,7 +1785,7 @@ def _required_evidence_channels(acceptance: str) -> set[str]:
                 re.I,
             )
             response_match = response_prefix.search(requirement_text)
-            if response_match:
+            if response_match and not explicit_review_destination:
                 # Only the immediate object of this product operation is a
                 # field noun. A later reviewer predicate must remain gating.
                 response_object = requirement_text[response_match.end() :]
@@ -2057,6 +2084,7 @@ def _required_evidence_channels(acceptance: str) -> set[str]:
                     r"\b(?:command outputs?|transcripts?)\b.{0,60}"
                     + "(?:"
                     + product_output_operation
+                    + r"|record\w*\b(?=\s+(?:to|for)\s+(?:clients?|users?|consumers?)\b)"
                     + ")"
                     + r".{0,60}"
                     r"\b(?:ui|api|application|interface|service|cli|endpoint|renderer)\b",
@@ -2067,7 +2095,11 @@ def _required_evidence_channels(acceptance: str) -> set[str]:
             preserve_explicit_comment_delivery = bool(
                 explicit_comment_delivery and not product_comment_behavior
             )
-            if product_output_match and not preserve_explicit_comment_delivery:
+            if (
+                product_output_match
+                and not preserve_explicit_comment_delivery
+                and not explicit_review_destination
+            ):
                 delivery_text = product_output_prefix.sub(" ", requirement_text, count=1)
                 if not remaining_delivery(delivery_text):
                     continue
@@ -2077,6 +2109,7 @@ def _required_evidence_channels(acceptance: str) -> set[str]:
                 reverse_product_output
                 and not line_channels
                 and not preserve_explicit_comment_delivery
+                and not explicit_review_destination
             ):
                 continue
             if re.search(r"\b(?:pr comments?|pull request comments?)\b", lower):

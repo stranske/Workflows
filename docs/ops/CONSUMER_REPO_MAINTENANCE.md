@@ -1034,6 +1034,12 @@ independent reviewer deliveries do not inherit that exemption.
 An explicit mandatory PR-comment destination also takes precedence in reverse
 word order (`Command output must be provided in a PR comment by the service`);
 the later product actor cannot erase that required evidence channel.
+Product-operation shortcuts cannot erase an immediate positive artifact or
+generic-evidence delivery into PR content. Destination binding excludes later
+prohibited pronoun clauses; product-only UI artifact display remains exempt.
+Non-modal prohibitions (`Evidence is not written`, `Never write evidence`) retain
+their polarity after alias normalization. Reverse product-output matching binds
+record/write/paste to the recipient after the verb, not a second object noun.
 The four fresh canary findings are tested through the actual coverage floor with
 present, absent and unavailable evidence plus independent reviewer-delivery controls.
 
