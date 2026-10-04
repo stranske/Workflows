@@ -682,7 +682,7 @@ def _split_diff_files(diff: str) -> list[tuple[str, str]]:
             index += 2
         return None
 
-    def normalized_path(raw: str) -> str | None:
+    def normalized_path(raw: str, *, strip_prefix: bool = True) -> str | None:
         value = raw.rstrip("\n").split("\t", 1)[0]
         if value == "/dev/null":
             return ""
@@ -691,7 +691,7 @@ def _split_diff_files(diff: str) -> list[tuple[str, str]]:
             if parsed is None or parsed[1].strip():
                 return None
             value = parsed[0]
-        return value[2:] if value.startswith(("a/", "b/")) else value
+        return value[2:] if strip_prefix and value.startswith(("a/", "b/")) else value
 
     def destination_from_git_header(line: str) -> str | None:
         payload = line.removeprefix("diff --git ").rstrip("\n")
@@ -739,6 +739,11 @@ def _split_diff_files(diff: str) -> list[tuple[str, str]]:
                     path = "__invalid_git_path__"
                 elif destination:
                     path = destination
+            elif line.startswith(("rename to ", "copy to ")):
+                # Git's metadata is repo-relative and unambiguous even when an
+                # unquoted header contains an embedded " b/" separator.
+                destination = normalized_path(line.split(" to ", 1)[1], strip_prefix=False)
+                path = destination if destination else "__invalid_git_path__"
     if current:
         files.append((path, "".join(current)))
     return files
@@ -810,7 +815,8 @@ def _excerpt_file(path: str, text: str, share: int) -> tuple[str, FileCoverage]:
     if share >= total:
         return text, FileCoverage(path, "complete", total, total)
     omitted_note = "[... remaining lines of {path} omitted: verifier prompt budget ...]\n"
-    reserve = len(omitted_note.format(path=path))
+    # Reserve the separator too if the excerpt ends in the middle of a line.
+    reserve = len(omitted_note.format(path=path)) + 1
     header_end = text.find("\n@@")
     header_len = header_end + 1 if header_end >= 0 else min(total, 200)
     if share - reserve <= header_len:
@@ -838,19 +844,26 @@ def _build_code_block(
         return block, status, (), min(len(diff), len(block)), len(diff)
     if any(path == "__invalid_git_path__" for path, _ in files):
         return "(diff unavailable)", "unavailable", (), 0, 0
-    shares = _fair_shares([len(text) for _, text in files], budget_chars)
+    # Doc-Lineage#81 review finding (discussion_r4169521235): appending
+    # omitted paths after fair-share allocation exceeded the diff budget.
+    # Fit text first, then use spare budget for a count-only diagnostic.
+    # Omitted paths remain in FileCoverage metadata and still prevent PASS.
+    sizes = [0 if _diff_file_is_binary_descriptor(text) else len(text) for _, text in files]
+    omission_note = "[{count} changed file(s) omitted entirely — not shown to the reviewer]\n"
+    shares = _fair_shares(sizes, max(0, budget_chars))
     parts: list[str] = []
     coverage: list[FileCoverage] = []
-    omitted: list[str] = []
+    omitted = 0
     for (path, text), share in zip(files, shares, strict=True):
         excerpt, item = _excerpt_file(path, text, share)
         coverage.append(item)
         if excerpt:
             parts.append(excerpt)
         else:
-            omitted.append(path)
+            omitted += 1
     if omitted:
-        parts.append("[omitted entirely — not shown to the reviewer: " + ", ".join(omitted) + "]\n")
+        note_budget = max(0, budget_chars - sum(len(part) for part in parts))
+        parts.append(omission_note.format(count=omitted)[:note_budget])
     included = sum(item.included_chars for item in coverage)
     total = sum(item.total_chars for item in coverage)
     status = "complete" if all(item.status == "complete" for item in coverage) else "truncated"
@@ -1260,11 +1273,21 @@ def _required_evidence_channels(acceptance: str) -> set[str]:
                     )
                 )
                 product_artifact_destination = bool(
-                    re.search(r"\bproduct\s+upload\b", lower)
+                    re.search(r"\bproduct\s+(?:upload|artifacts?)\b", lower)
                     or re.search(
                         r"\b(?:upload|attach|publish|post|record|capture|provide|include|document)"
                         r"\w*\b.{0,40}\bartifacts?\b"
                         r".{0,30}\b(?:through|to|into|in|via)\b.{0,30}"
+                        r"\b(?:storage|database|data\s+store|object\s+store|bucket|"
+                        r"filesystem|file\s+system|ui|interface|application|users?|"
+                        r"responses?|payloads?|return\s+values?)\b",
+                        requirement_text,
+                        re.I,
+                    )
+                    or re.search(
+                        r"\bartifacts?\b.{0,60}\b(?:uploaded|attached|published|posted|"
+                        r"recorded|captured|provided|included|documented)\b.{0,40}"
+                        r"\b(?:by|through|to|into|in|via)\b.{0,30}"
                         r"\b(?:storage|database|data\s+store|object\s+store|bucket|"
                         r"filesystem|file\s+system|ui|interface|application|users?|"
                         r"responses?|payloads?|return\s+values?)\b",
@@ -1314,7 +1337,7 @@ def _required_evidence_channels(acceptance: str) -> set[str]:
                 )
                 evidence_named_artifact = bool(
                     re.search(
-                        r"\b(?:failing and passing |validation |exact-head |workflow )artifacts?\b",
+                        r"\b(?:failing and passing |validation |exact-head |workflow |ci |build )artifacts?\b",
                         lower,
                     )
                     or re.search(r"\bvalidation artifacts?\b", lower)
@@ -1353,6 +1376,7 @@ def _required_evidence_channels(acceptance: str) -> set[str]:
                     )
                     if not artifact_description and (
                         artifact_delivery_into_pr
+                        or evidence_named_artifact
                         or not (product_artifact_actor or product_artifact_destination)
                     ):
                         line_channels.add("artifacts")
@@ -1370,7 +1394,8 @@ def _required_evidence_channels(acceptance: str) -> set[str]:
                 )
                 or re.search(
                     r"\b(?:ui|api|application|interface)\b.{0,60}"
-                    r"\b(?:display|store)\w*\s+(?:(?:\w+\s+){0,2})?"
+                    r"\b(?:display|store|include|attach|upload)\w*\s+"
+                    r"(?:(?:the|stored|retrieved)\s+){0,2}"
                     r"(?:pr comments?|pull request comments?)\b",
                     requirement_text,
                     re.I,
@@ -1384,7 +1409,7 @@ def _required_evidence_channels(acceptance: str) -> set[str]:
             )
             explicit_comment_delivery = bool(
                 re.search(
-                    r"\b(?:post|publish|record|capture|provide|document)\w*\b"
+                    r"\b(?:attach|upload|include|post|publish|record|capture|provide|document)\w*\b"
                     r"(?:\s+\w+){0,10}\s+\b(?:pr comments?|pull request comments?)\b",
                     requirement_text,
                     re.I,

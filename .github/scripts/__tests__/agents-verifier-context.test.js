@@ -4,6 +4,8 @@ const test = require('node:test');
 const assert = require('node:assert/strict');
 const fs = require('fs');
 const path = require('path');
+const os = require('os');
+const { execFileSync } = require('child_process');
 
 const {
   buildVerifierContext: buildVerifierContextImpl,
@@ -88,6 +90,8 @@ const buildGithubStub = ({
     '+new',
   ].join('\n'),
   pullGetCalls = null,
+  prCommits = null,
+  prCommitError = null,
   comments = [],
   commentError = null,
   commentLink = '',
@@ -143,6 +147,10 @@ const buildGithubStub = ({
       },
     },
     pulls: {
+      async listCommits() {
+        if (prCommitError) throw prCommitError;
+        return { data: prCommits || [{ parents: [{ sha: isValidSha(prDetails?.base?.sha) ? prDetails.base.sha : "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa" }] }] };
+      },
       async listReviewComments() {
         if (reviewCommentError) throw reviewCommentError;
         return { data: reviewComments, headers: { link: reviewCommentLink } };
@@ -2331,4 +2339,88 @@ test('summarizeDiff preserves unquoted spaces and repository a/b directory prefi
 test('summarizeDiff preserves literal supplementary Unicode in quoted paths', () => {
   const diff = 'diff --git "a/🧭.txt" "b/🧭.txt"\n@@ -1 +1 @@\n-old\n+new\n';
   assert.ok(summarizeDiff(diff).includes('- 🧭.txt (+1/-1)'));
+});
+
+for (const strategy of ['merge', 'squash', 'rebase', 'rebase-unchanged', 'merge-updated-base', 'squash-updated-base']) {
+  test(`merged ${strategy} PR uses its first commit parent after base advances`, async () => {
+    const repoPath = fs.mkdtempSync(path.join(os.tmpdir(), 'verifier-merged-range-'));
+    const git = (...args) => execFileSync('git', args, { cwd: repoPath, encoding: 'utf8', stdio: ['ignore', 'pipe', 'pipe'] }).trim();
+    let result;
+    try {
+      git('init', '-b', 'main');
+      git('config', 'user.name', 'Verifier Test');
+      git('config', 'user.email', 'verifier@example.invalid');
+      fs.writeFileSync(path.join(repoPath, 'base.txt'), 'base\n');
+      git('add', '.'); git('commit', '-m', 'base');
+      const preMergeBase = git('rev-parse', 'HEAD');
+      git('checkout', '-b', 'feature');
+      let firstCommitSha;
+      for (const name of ['first.txt', 'second.txt']) {
+        fs.writeFileSync(path.join(repoPath, name), name + '\n');
+        git('add', '.'); git('commit', '-m', name);
+        if (!firstCommitSha) firstCommitSha = git('rev-parse', 'HEAD');
+      }
+      const originalHead = git('rev-parse', 'HEAD');
+      git('checkout', 'main');
+      if (strategy !== 'rebase-unchanged') {
+        fs.writeFileSync(path.join(repoPath, 'sibling.txt'), 'not part of PR\n');
+        git('add', '.'); git('commit', '-m', 'sibling');
+      }
+      let headSha = originalHead;
+      let commitCount = 2;
+      if (strategy.endsWith('-updated-base')) {
+        git('checkout', 'feature'); git('merge', '--no-ff', 'main', '-m', 'update branch base');
+        headSha = git('rev-parse', 'HEAD'); commitCount = 3;
+        git('checkout', 'main');
+      }
+      if (strategy.startsWith('merge')) git('merge', '--no-ff', 'feature', '-m', 'merge');
+      if (strategy.startsWith('squash')) {
+        git('merge', '--squash', 'feature'); git('commit', '-m', 'squash');
+      }
+      if (strategy.startsWith('rebase')) {
+        git('checkout', 'feature'); git('rebase', 'main');
+        git('checkout', 'main'); git('merge', '--ff-only', 'feature');
+      }
+      const mergeSha = git('rev-parse', 'HEAD');
+      fs.writeFileSync(path.join(repoPath, 'later.txt'), 'later base advance\n');
+      git('add', '.'); git('commit', '-m', 'later');
+      const advancedBase = git('rev-parse', 'HEAD');
+      const core = buildCore();
+      const prDetails = {
+        merged: true, number: 556, title: 'Merged range', body: prBodyFixture,
+        html_url: 'https://example.com/pr/556', merge_commit_sha: mergeSha,
+        base: { ref: 'main', sha: advancedBase }, head: { sha: headSha }, commits: commitCount,
+      };
+      const github = buildGithubStub({
+        prDetails, prCommits: [{ sha: firstCommitSha, parents: [{ sha: preMergeBase }] }],
+        diffText: prOnlyDiff,
+      });
+      result = await buildVerifierContext({
+        github, core,
+        context: { eventName: 'pull_request', repo: { owner: 'octo', repo: 'workflows' },
+          payload: { pull_request: { merged: true, number: 556 } }, sha: mergeSha },
+        fetchLocalDiff(options) {
+          return fetchLocalGitDiff({ ...options,
+            execFile(command, args, config) {
+              return execFileSync(command, args, { ...config, cwd: repoPath });
+            },
+          });
+        },
+      });
+      assert.equal(result.shouldRun, true);
+      assert.match(result.markdown, /first\.txt/);
+      assert.match(result.markdown, /second\.txt/);
+      assert.doesNotMatch(result.markdown, /sibling\.txt|later\.txt/);
+    } finally {
+      if (result?.contextPath) removeVerifierDiffArtifacts(result);
+      fs.rmSync(repoPath, { recursive: true, force: true });
+    }
+  });
+}
+
+test('merged PR fails closed when its first commit cannot be retrieved', async () => {
+  const { core, result } = await buildEvidenceContext({ prCommitError: new Error('403 forbidden') });
+  assert.equal(result.shouldRun, false);
+  assert.match(core.outputs.skip_reason, /Authoritative pull request diff unavailable/);
+  assert.ok(core.warnings.some(message => message.includes('403 forbidden')));
 });

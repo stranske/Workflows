@@ -748,6 +748,9 @@ function formatDiffForContext(diffText, maxChars) {
 function fetchLocalGitDiff({
   baseSha,
   headSha,
+  mergeSha,
+  firstCommitSha,
+  commitCount,
   prNumber,
   remoteUrl = 'origin',
   maxBytes,
@@ -805,6 +808,35 @@ function fetchLocalGitDiff({
       // Fetch from the caller checkout remote, never a tokenless github.com URL.
       fetchRef(baseSha);
       ensureCommit(baseSha);
+    }
+    if (mergeSha || firstCommitSha) {
+      if (!isValidSha(mergeSha) || !isValidSha(firstCommitSha)) {
+        throw new Error('Invalid merged PR ancestry metadata.');
+      }
+      try {
+        ensureCommit(mergeSha);
+      } catch {
+        fetchRef(mergeSha);
+        ensureCommit(mergeSha);
+      }
+      const parents = execFile('git', ['rev-list', '--parents', '-n', '1', mergeSha], gitOk)
+        .trim().split(/\s+/).slice(1);
+      if (!parents.length) throw new Error('Merged PR has no parent commit.');
+      // A normal merge's first parent is the true pre-merge base. For a
+      // squash or rewritten rebase, its merge base with the original head
+      // also excludes unrelated base commits that the branch merged in.
+      baseSha = parents[0];
+      if (parents.length === 1) {
+        const common = execFile('git', ['merge-base', firstCommitSha, mergeSha], gitOk).trim();
+        if (common === firstCommitSha) {
+          const headCommon = execFile('git', ['merge-base', headSha, mergeSha], gitOk).trim();
+          if (headCommon !== headSha || !Number.isInteger(commitCount) || commitCount < 1) {
+            throw new Error('Cannot reconstruct the complete rebased PR range.');
+          }
+          baseSha = execFile('git', ['rev-parse', `${mergeSha}~${commitCount}`], gitOk).trim();
+          ensureCommit(baseSha);
+        }
+      }
     }
     const buffer = execFile('git', ['diff', '--no-color', `${baseSha}...${headSha}`], {
       maxBuffer: Number.isFinite(maxBytes) ? maxBytes : DEFAULT_DIFF_MAX_BYTES,
@@ -1213,20 +1245,43 @@ async function buildVerifierContext({
 
   const diffMaxBytes = Number.parseInt(process.env.VERIFIER_DIFF_MAX_BYTES || '', 10);
   const diffMaxChars = Number.parseInt(process.env.VERIFIER_DIFF_MAX_CHARS || '', 10);
-  const baseSha = pull.base?.sha;
+  let baseSha = pull.base?.sha;
   const headSha = pull.head?.sha;
-  // The caller checkout has full history. The original PR base...head range is
-  // independent of squash, merge-commit, or rebase merge strategy and avoids
-  // every rendered/API diff truncation limit. If either commit is unavailable,
-  // fail closed instead of substituting a bounded GitHub diff.
-  const diffText = fetchLocalDiff({
+  let firstCommitSha;
+  let mergeSha;
+  let originalRangeAvailable = true;
+  if (pull.merged || pull.merged_at || pr.merged || context.payload?.pull_request?.merged) {
+    // A fresh PR payload's base can already contain the head. Anchor the range
+    // using original commit metadata and historical merge ancestry, not the moving base tip.
+    // Only commit metadata comes from the API; the full patch remains local.
+    baseSha = undefined;
+    try {
+      const { data: commits } = await github.rest.pulls.listCommits({
+        owner, repo, pull_number: pull.number, per_page: 1, page: 1,
+      });
+      baseSha = commits?.[0]?.parents?.[0]?.sha;
+      firstCommitSha = commits?.[0]?.sha;
+      mergeSha = pull.merge_commit_sha;
+      if (!isValidSha(baseSha)) baseSha = undefined;
+      if (!baseSha) core?.warning?.('Merged PR first-commit parent is unavailable.');
+    } catch (error) {
+      core?.warning?.(`Cannot retrieve merged PR first-commit parent: ${error.message}`);
+    }
+    originalRangeAvailable = Boolean(baseSha);
+  }
+  // The caller checkout has full history. Fail closed when the original range
+  // is unavailable instead of substituting a bounded rendered/API patch.
+  const diffText = originalRangeAvailable ? fetchLocalDiff({
     baseSha,
     headSha,
+    mergeSha,
+    firstCommitSha,
+    commitCount: pull.commits,
     prNumber: pull.number,
     remoteUrl: 'origin',
     maxBytes: Number.isFinite(diffMaxBytes) ? diffMaxBytes : DEFAULT_DIFF_MAX_BYTES,
     core,
-  });
+  }) : '';
   if (!diffText) {
     const skipReason = `Authoritative pull request diff unavailable for PR #${pull.number}; skipping verifier.`;
     core?.notice?.(skipReason);

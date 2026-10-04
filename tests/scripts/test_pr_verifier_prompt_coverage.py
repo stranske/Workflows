@@ -1872,6 +1872,70 @@ def test_product_upload_operations_do_not_require_workflow_artifacts() -> None:
     )
 
 
+@pytest.mark.parametrize("verb", ["Attach", "Upload", "Include"])
+def test_comment_delivery_verbs_require_comment_evidence(verb: str) -> None:
+    assert pr_verifier._required_evidence_channels(
+        f"- [ ] {verb} the command output to a PR comment"
+    ) == {"comments"}
+
+
+@pytest.mark.parametrize("verb", ["Attach", "Upload", "Include"])
+@pytest.mark.parametrize("status", ["absent", "unavailable"])
+def test_comment_delivery_withholds_pass_without_comments(verb: str, status: str) -> None:
+    context, _ = _context(1, 1_000, 1_000)
+    context = context.replace(
+        ACCEPTANCE_SENTINEL, f"{verb} the command output to a PR comment"
+    ).replace(
+        "## PR Diff Summary",
+        "## Acceptance evidence\n\n- Overall retrieval status: **present**\n"
+        f"- PR comments: **{status}**\n\n## PR Diff Summary",
+    )
+    assert not pr_verifier.prompt_coverage(context, None).sufficient
+
+
+@pytest.mark.parametrize(
+    "criterion",
+    [
+        "Artifacts must be uploaded by users through the UI",
+        "Artifacts must be uploaded through the UI",
+        "Artifacts shall be stored in the database",
+        "Product artifacts must be uploaded by the service",
+    ],
+)
+def test_passive_product_artifact_delivery_is_not_workflow_evidence(criterion: str) -> None:
+    assert pr_verifier._required_evidence_channels(f"- [ ] {criterion}") == set()
+
+
+def test_passive_product_upload_keeps_separate_review_requirement() -> None:
+    assert pr_verifier._required_evidence_channels(
+        "- [ ] Artifacts must be uploaded by users through the UI; "
+        "attach the command output to a PR comment"
+    ) == {"comments"}
+
+
+def test_passive_product_upload_does_not_withhold_pass_for_absent_artifacts() -> None:
+    context, _ = _context(1, 1_000, 1_000)
+    context = context.replace(
+        ACCEPTANCE_SENTINEL, "Artifacts must be uploaded by users through the UI"
+    ).replace(
+        "## PR Diff Summary",
+        "## Acceptance evidence\n\n- Overall retrieval status: **absent**\n"
+        "- Referenced workflow artifacts: **absent**\n\n## PR Diff Summary",
+    )
+    assert pr_verifier.prompt_coverage(context, None).sufficient
+
+
+@pytest.mark.parametrize("destination", ["foo b/bar", "new b/bar b/baz", "a/prefix b/name"])
+def test_rename_metadata_preserves_embedded_git_prefix(destination: str) -> None:
+    diff = (
+        f"diff --git a/old b/name b/{destination}\n"
+        f"similarity index 100%\nrename from old b/name\nrename to {destination}\n"
+    )
+    _, status, files, _, _ = pr_verifier._build_code_block(diff, 10_000)
+    assert status == "complete"
+    assert files[0].path == destination
+
+
 @pytest.mark.parametrize("name", ["plain file.txt", "b/nested.txt"])
 def test_complete_diff_preserves_spaces_and_repository_prefixes(name: str) -> None:
     diff = _file_diff(name, 300)
@@ -1909,3 +1973,46 @@ def test_colon_introduced_parser_examples_preserve_real_delivery(prefix: str) ->
     assert pr_verifier._required_evidence_channels(
         criterion + "; upload a validation artifact"
     ) == {"artifacts"}
+
+
+@pytest.mark.parametrize("actor", ["API", "service", "worker"])
+def test_ci_artifact_upload_actor_keeps_evidence_required(actor: str) -> None:
+    criterion = f"CI artifacts must be uploaded by the {actor}"
+    assert pr_verifier._required_evidence_channels(f"- [ ] {criterion}") == {"artifacts"}
+    context, _ = _context(1, 1_000, 1_000)
+    context = context.replace(ACCEPTANCE_SENTINEL, criterion).replace(
+        "## PR Diff Summary",
+        "## Acceptance evidence\n\n- Overall retrieval status: **absent**\n"
+        "- Referenced workflow artifacts: **absent**\n\n## PR Diff Summary",
+    )
+    assert not pr_verifier.prompt_coverage(context, None).sufficient
+
+
+@pytest.mark.parametrize(
+    "criterion",
+    [
+        "The API must include PR comments in its response",
+        "The UI must include PR comments",
+        "The UI must attach PR comments to records",
+        "The API must upload PR comments into storage",
+    ],
+)
+def test_product_comment_inclusion_is_not_review_delivery(criterion: str) -> None:
+    assert pr_verifier._required_evidence_channels(f"- [ ] {criterion}") == set()
+
+
+def test_product_comment_inclusion_preserves_separate_delivery() -> None:
+    assert pr_verifier._required_evidence_channels(
+        "- [ ] The UI must include PR comments; attach output to a PR comment"
+    ) == {"comments"}
+
+
+@pytest.mark.parametrize("destination", ["foo b/bar", "new b/bar b/baz", "a/prefix b/name"])
+def test_copy_metadata_preserves_embedded_git_prefix(destination: str) -> None:
+    diff = (
+        f"diff --git a/old b/name b/{destination}\n"
+        f"similarity index 100%\ncopy from old b/name\ncopy to {destination}\n"
+    )
+    _, status, files, _, _ = pr_verifier._build_code_block(diff, 10_000)
+    assert status == "complete"
+    assert files[0].path == destination
