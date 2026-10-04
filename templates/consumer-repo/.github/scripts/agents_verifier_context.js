@@ -96,23 +96,21 @@ function formatSections({ heading, url, body }) {
   return lines.join('\n');
 }
 
-function summarizeDiff(diffText, { maxFiles, maxLines } = {}) {
-  const summaryLines = ['## PR Diff Summary', ''];
+// Share path validation between the human summary and the coverage inventory.
+// Offsets refer to the trimmed patch used by formatDiffForContext.
+function parseDiffFiles(diffText, maxLines = DIFF_SUMMARY_LIMITS.maxLines) {
   const diff = String(diffText || '').trim();
-  if (!diff) {
-    summaryLines.push('_Diff unavailable or empty._');
-    return summaryLines.join('\n');
-  }
-
   const fileSummaries = [];
   let current = null;
   let truncated = false;
   let pathParsingFailed = false;
   const lines = diff.split('\n');
   const lineLimit = Number.isFinite(maxLines) ? maxLines : DIFF_SUMMARY_LIMITS.maxLines;
+  let offset = 0;
 
-  const pushCurrent = () => {
+  const pushCurrent = (end) => {
     if (current) {
+      current.end = end;
       const { fromMetadata, toMetadata } = current;
       if (fromMetadata !== undefined || toMetadata !== undefined) {
         if (fromMetadata === undefined || toMetadata === undefined) pathParsingFailed = true;
@@ -142,8 +140,10 @@ function summarizeDiff(diffText, { maxFiles, maxLines } = {}) {
       break;
     }
     const line = lines[index];
+    const start = offset;
+    offset += line.length + 1;
     if (line.startsWith('diff --git ')) {
-      pushCurrent();
+      pushCurrent(start);
       if (pathParsingFailed) break;
       const paths = parseGitDiffHeader(line);
       if (!paths) {
@@ -151,6 +151,7 @@ function summarizeDiff(diffText, { maxFiles, maxLines } = {}) {
         break;
       }
       current = {
+        start,
         fromPath: paths.fromPath,
         toPath: paths.toPath,
         candidates: paths.candidates,
@@ -217,7 +218,18 @@ function summarizeDiff(diffText, { maxFiles, maxLines } = {}) {
       current.removed += 1;
     }
   }
-  pushCurrent();
+  pushCurrent(Math.min(offset, diff.length));
+  return { fileSummaries, truncated, pathParsingFailed };
+}
+
+function summarizeDiff(diffText, { maxFiles, maxLines } = {}) {
+  const summaryLines = ['## PR Diff Summary', ''];
+  if (!String(diffText || '').trim()) {
+    summaryLines.push('_Diff unavailable or empty._');
+    return summaryLines.join('\n');
+  }
+  const lineLimit = Number.isFinite(maxLines) ? maxLines : DIFF_SUMMARY_LIMITS.maxLines;
+  const { fileSummaries, truncated, pathParsingFailed } = parseDiffFiles(diffText, lineLimit);
   if (pathParsingFailed) {
     summaryLines.push('_Diff path parsing unavailable; Git paths were malformed or ambiguous._');
     return summaryLines.join('\n');
@@ -690,6 +702,7 @@ async function fetchVerifierEvidence({
             name: artifact.name || `artifact-${artifact.id}`,
             url: artifact.archive_download_url || '',
             text: extracted.text,
+            truncated: Boolean(extracted.truncated),
           });
         }
       }
@@ -758,11 +771,85 @@ function formatDiffForContext(diffText, maxChars) {
   if (!diff) {
     return '_Diff unavailable or empty._';
   }
-  const limit = Number.isFinite(maxChars) ? maxChars : DEFAULT_DIFF_MAX_CHARS;
+  const limit = Number.isFinite(maxChars) ? Math.max(0, maxChars) : DEFAULT_DIFF_MAX_CHARS;
   if (diff.length <= limit) {
     return diff;
   }
   return `${diff.slice(0, limit)}\n\n...diff truncated after ${limit} characters.`;
+}
+
+function buildContextSourceCoverage({ planSources, diffText, diffMaxChars, evidence }) {
+  const diff = String(diffText || '').trim();
+  const limit = Number.isFinite(diffMaxChars) ? Math.max(0, diffMaxChars) : DEFAULT_DIFF_MAX_CHARS;
+  // The coverage inventory must not inherit the summary's 50-file/20k-line limits.
+  const { fileSummaries, pathParsingFailed } = parseDiffFiles(diff, Number.MAX_SAFE_INTEGER);
+  const changedCodeSources = fileSummaries.map((file) => {
+    const total = file.end - file.start;
+    const included = Math.max(0, Math.min(file.end, limit) - file.start);
+    return {
+      source: file.toPath,
+      from_path: file.fromPath,
+      status: file.binary ? 'unavailable' : included === total ? 'included' : included ? 'truncated' : 'omitted',
+      included_chars: included,
+      total_chars: total,
+      ...(file.binary ? { reason: 'Binary changed code cannot be inspected as text.' } : {}),
+    };
+  });
+  if (!diff || pathParsingFailed || !fileSummaries.length) {
+    changedCodeSources.push({
+      source: DEFAULT_DIFF_PATH,
+      status: 'unavailable',
+      included_chars: 0,
+      total_chars: diff.length,
+      reason: pathParsingFailed ? 'Git paths are malformed or ambiguous; inventory is incomplete.' : 'No changed-code sources could be inventoried.',
+    });
+  }
+  const acceptanceSources = planSources.map(({ source, url, body }) => ({
+    source,
+    url,
+    status: body ? 'included' : 'omitted',
+    included_chars: body.length,
+    total_chars: body.length,
+    ...(!body ? { reason: 'No scope/tasks/acceptance sections declared in this source.' } : {}),
+  }));
+  const acceptanceEvidenceSources = [];
+  for (const [channel, retrieval] of Object.entries({ comments: evidence.comments, artifacts: evidence.artifacts })) {
+    for (const record of retrieval.records) {
+      const body = String(record.body ?? record.text ?? '');
+      acceptanceEvidenceSources.push({
+        source: channel === 'comments' ? `${record.source}: ${record.url || record.author}` : `Run ${record.runId}: ${record.name}`,
+        url: record.url || '',
+        status: record.truncated ? 'truncated' : 'included',
+        included_chars: body.length,
+        total_chars: record.truncated ? null : body.length,
+      });
+    }
+    // Retained records never make a partial retrieval complete. Name the channel
+    // when the identities of omitted/unavailable records could not be retrieved.
+    if (!retrieval.complete) {
+      acceptanceEvidenceSources.push({ source: channel, status: 'unavailable', reason: retrieval.reason });
+    }
+  }
+  return {
+    schema: 'verifier-context-source-coverage/v1',
+    stage: 'generated-context',
+    acceptance_sources: acceptanceSources,
+    acceptance_evidence_sources: acceptanceEvidenceSources,
+    changed_code_sources: changedCodeSources,
+    full_diff_artifact: { source: DEFAULT_DIFF_PATH, chars: diff.length, status: diff ? 'included' : 'unavailable' },
+  };
+}
+
+function formatContextSourceCoverage(coverage) {
+  return [
+    '## Context source coverage',
+    '',
+    'Computed before model invocation. Status and character counts describe sources retained in this generated context. The separate full patch is preserved without the context diff limit. Downstream prompt budgeting must report any further omissions/truncation and withhold PASS for incomplete required evidence.',
+    '',
+    '```json',
+    JSON.stringify(coverage, null, 2),
+    '```',
+  ].join('\n');
 }
 
 function fetchLocalGitDiff({
@@ -931,6 +1018,8 @@ async function fetchClosingIssues({ github, core, owner, repo, prNumber }) {
       repository(owner: $owner, name: $repo) {
         pullRequest(number: $prNumber) {
           closingIssuesReferences(first: 20) {
+            totalCount
+            pageInfo { hasNextPage }
             nodes {
               number
               title
@@ -951,9 +1040,10 @@ async function fetchClosingIssues({ github, core, owner, repo, prNumber }) {
 
   try {
     const data = await github.graphql(query, { owner, repo, prNumber });
-    const nodes =
-      data?.repository?.pullRequest?.closingIssuesReferences?.nodes?.filter(Boolean) || [];
-    return nodes.map((issue) => ({
+    const connection = data?.repository?.pullRequest?.closingIssuesReferences;
+    if (!Array.isArray(connection?.nodes)) throw new Error('Linked issue response is unavailable.');
+    const nodes = connection.nodes.filter(Boolean);
+    const issues = nodes.map((issue) => ({
       number: issue.number,
       title: issue.title || '',
       body: issue.body || '',
@@ -961,9 +1051,11 @@ async function fetchClosingIssues({ github, core, owner, repo, prNumber }) {
       url: issue.url || '',
       labels: issue.labels?.nodes || [],
     }));
+    const truncated = connection.pageInfo?.hasNextPage === true || connection.totalCount > nodes.length;
+    return { issues, status: truncated ? 'truncated' : 'included', reason: truncated ? 'Linked issue limit prevented complete acceptance-source discovery.' : '' };
   } catch (error) {
     core?.warning?.(`Failed to fetch closing issues: ${error.message}`);
-    return [];
+    return { issues: [], status: 'unavailable', reason: 'Linked issue retrieval failed; acceptance-source discovery is incomplete.' };
   }
 }
 
@@ -1044,16 +1136,18 @@ async function buildVerifierContext({
     return { shouldRun: false, reason: skipReason, ciResults: [], ciFailed: false };
   }
 
-  const closingIssues = await fetchClosingIssues({
+  const closingIssueDiscovery = await fetchClosingIssues({
     github,
     core,
     owner,
     repo,
     prNumber: pull.number,
   });
+  const closingIssues = closingIssueDiscovery.issues;
   const issueNumbers = uniqueNumbers(closingIssues.map((issue) => issue.number));
 
   const sections = [];
+  const planSources = [];
   let acceptanceCount = 0;
   // Use hasNonPlaceholderScopeTasksAcceptanceContent to detect real content vs placeholders
   let hasAcceptanceContent = false;
@@ -1074,6 +1168,7 @@ async function buildVerifierContext({
   const prSections = extractScopeTasksAcceptanceSections(pull.body || '', {
     includePlaceholders: true,
   });
+  planSources.push({ source: `Pull request #${pull.number}`, url: pull.html_url || '', body: prSections });
   sections.push(
     formatSections({
       heading: `Pull request #${pull.number}${pull.title ? `: ${pull.title}` : ''}`,
@@ -1097,6 +1192,7 @@ async function buildVerifierContext({
     const issueSections = extractScopeTasksAcceptanceSections(issue.body || '', {
       includePlaceholders: true,
     });
+    planSources.push({ source: `Issue #${issue.number}`, url: issue.url || '', body: issueSections });
     sections.push(
       formatSections({
         heading: `Issue #${issue.number}${issue.title ? `: ${issue.title}` : ''} (${issue.state})`,
@@ -1334,6 +1430,29 @@ async function buildVerifierContext({
     content.push('```');
   }
 
+  const sourceCoverage = buildContextSourceCoverage({
+    planSources,
+    diffText,
+    diffMaxChars: Number.isFinite(diffMaxChars) ? diffMaxChars : DEFAULT_DIFF_MAX_CHARS,
+    evidence: verifierEvidence,
+  });
+  const missingIssueSource =
+    sourceContext.sourceType === 'github_issue' &&
+    closingIssues.length === 0 &&
+    closingIssueDiscovery.status === 'included';
+  sourceCoverage.acceptance_source_discovery = {
+    source: 'Linked issues',
+    status: missingIssueSource ? 'unavailable' : closingIssueDiscovery.status,
+    reason: missingIssueSource
+      ? 'Issue-backed PR has no retrieved linked issue; acceptance-source discovery is incomplete.'
+      : closingIssueDiscovery.reason,
+    // An issue source (including one whose retrieval failed) cannot be
+    // judged from the PR's retained subset of the acceptance contract.
+    required: sourceContext.sourceType === 'github_issue' || closingIssues.length > 0 || closingIssueDiscovery.status === 'truncated',
+  };
+  // Put the inventory before large CI/plan/evidence blocks, so a late omitted
+  // source is named even when its payload is beyond the former 8k prefix.
+  content.splice(content.indexOf('## CI Information'), 0, formatContextSourceCoverage(sourceCoverage), '');
   const markdown = content.join('\n').trimEnd() + '\n';
   const contextPath = path.join(process.cwd(), 'verifier-context.md');
   fs.writeFileSync(contextPath, markdown, 'utf8');
@@ -1359,6 +1478,7 @@ async function buildVerifierContext({
   core?.setOutput?.('diff_path', diffText ? diffPath : '');
   core?.setOutput?.('chain_depth', String(chainDepth));
   core?.setOutput?.('evidence_status', verifierEvidence.status);
+  core?.setOutput?.('source_coverage', JSON.stringify(sourceCoverage));
 
   return {
     shouldRun: true,
@@ -1374,6 +1494,7 @@ async function buildVerifierContext({
     ciFailed,
     chainDepth,
     verifierEvidence,
+    sourceCoverage,
   };
 }
 
@@ -1399,6 +1520,7 @@ module.exports = {
   fetchVerifierEvidence,
   extractArtifactArchiveText,
   formatVerifierEvidence,
+  buildContextSourceCoverage,
   summarizeDiff,
   formatDiffForContext,
   fetchLocalGitDiff,

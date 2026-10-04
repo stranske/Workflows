@@ -440,6 +440,7 @@ class PromptCoverage:
     code_total_chars: int
     context_truncated: bool
     reasons: tuple[str, ...]
+    acceptance_source_discovery: CoverageStatus = "not_declared"
 
     @property
     def sufficient(self) -> bool:
@@ -460,6 +461,7 @@ class PromptCoverage:
             "sufficient": self.sufficient,
             "acceptance": self.acceptance,
             "acceptance_evidence": self.acceptance_evidence,
+            "acceptance_source_discovery": self.acceptance_source_discovery,
             "code": self.code,
             "files_total": len(self.files),
             "files_complete": status_counts["complete"],
@@ -481,6 +483,7 @@ class PromptCoverage:
             "which evidence below is complete. Text that is not shown was not reviewed.",
             "",
             f"- Acceptance / plan sources: {self.acceptance}",
+            f"- Linked-issue acceptance discovery: {self.acceptance_source_discovery}",
             f"- Acceptance evidence: {self.acceptance_evidence}",
             (
                 f"- Changed code: {self.code} — {len(self.files)} file(s); "
@@ -2364,6 +2367,38 @@ def _required_evidence_is_missing(evidence: str, channels: set[str]) -> bool:
     return False
 
 
+def _acceptance_discovery_coverage(
+    sections: list[tuple[str, str]] | None,
+) -> CoverageStatus:
+    # Only the builder-owned inventory before CI is authoritative. An issue
+    # body or retained comment cannot replace it with its own status block.
+    preamble = next((body for name, body in sections or [] if name == "preamble"), "")
+    marker = "## Context source coverage"
+    if marker not in preamble:
+        return "not_declared"
+    match = re.search(
+        r"^## Context source coverage\n.*?^```json\n(.*?)\n```", preamble, re.M | re.S
+    )
+    if not match:
+        return "unavailable"
+    try:
+        inventory = json.loads(match.group(1))
+        discovery = inventory.get("acceptance_source_discovery")
+        if discovery is None:
+            return "not_declared"
+        if not isinstance(discovery, dict) or not isinstance(discovery.get("required", True), bool):
+            return "unavailable"
+        if discovery.get("required") is False:
+            return "not_declared"
+        if discovery.get("status") == "included":
+            return "complete"
+        if discovery.get("status") == "truncated":
+            return "truncated"
+        return "unavailable"
+    except (ValueError, AttributeError, TypeError):
+        return "unavailable"
+
+
 def build_prompt_inputs(context: str, diff: str | None) -> PromptInputs:
     """Bound the context and diff blocks and report what reaches the model."""
     context_budget = (
@@ -2383,6 +2418,12 @@ def build_prompt_inputs(context: str, diff: str | None) -> PromptInputs:
     diff_text = diff.strip() if diff and diff.strip() else ""
     sections = _split_verifier_context(context_text) if context_text else None
     reasons: list[str] = []
+    acceptance_source_discovery = _acceptance_discovery_coverage(sections)
+    if acceptance_source_discovery in {"truncated", "unavailable"}:
+        reasons.append(
+            "Required linked-issue acceptance discovery is "
+            f"{acceptance_source_discovery}; completeness cannot be judged."
+        )
 
     code_source = diff_text if "diff --git " in diff_text else ""
     non_diff_file_input = bool(diff_text) and not code_source
@@ -2499,6 +2540,7 @@ def build_prompt_inputs(context: str, diff: str | None) -> PromptInputs:
         code_total_chars=total,
         context_truncated=context_truncated,
         reasons=tuple(reasons),
+        acceptance_source_discovery=acceptance_source_discovery,
     )
     context_block = coverage.render() + "\n\n" + (context_block or "(context unavailable)")
     return PromptInputs(context_block=context_block, diff_block=diff_block, coverage=coverage)
