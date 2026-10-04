@@ -1869,15 +1869,33 @@ test('consumer PR body sync scripts match their Workflows sources byte-for-byte'
 test('a relation-sourced PR stays non-closing across two body syncs', async (t) => {
   for (const [name, sync] of [['Workflows source', run], ['consumer template', templateRun]]) {
     await t.test(name, async (t) => {
-      await t.test('body mention', () => assertRelationSyncStaysNonClosing(sync));
-      await t.test('title reference', () => assertRelationSyncStaysNonClosing(sync, {
+      await t.test('body mention', () => assertIssueSyncPreservesIntent(sync));
+      await t.test('title reference', () => assertIssueSyncPreservesIntent(sync, {
         title: 'Issue #123: repair a local request', body: 'A local fix without an issue link',
       }));
     });
   }
 });
 
-async function assertRelationSyncStaysNonClosing(sync, overrides = {}) {
+test('missing-source recovery preserves related and closing intent across two body syncs', async (t) => {
+  for (const [name, sync] of [['Workflows source', run], ['consumer template', templateRun]]) {
+    await t.test(name, async (t) => {
+      await t.test('non-closing recovery', () => assertIssueSyncPreservesIntent(sync, {
+        body: '<!-- meta:related-issue:123 -->\nRelated to #123',
+      }));
+      await t.test('explicit closing recovery', () => assertIssueSyncPreservesIntent(sync, {
+        body: '<!-- meta:issue:123 -->\nCloses #123',
+      }, true));
+      await t.test('a closing marker overrides visible relation wording', () => {
+        return assertIssueSyncPreservesIntent(sync, {
+          body: '<!-- meta:issue:123 -->\nRelated to #123',
+        }, true);
+      });
+    });
+  }
+});
+
+async function assertIssueSyncPreservesIntent(sync, overrides = {}, closing = false) {
   const pull = {
     number: 55, state: 'open', title: 'Repair a local request',
     body: 'left to issue #123', head: { sha: 'abc123', ref: 'feature/relation' },
@@ -1890,6 +1908,9 @@ async function assertRelationSyncStaysNonClosing(sync, overrides = {}) {
   const failures = [];
   const github = {
     paginate: async () => [],
+    graphql: async () => ({
+      repository: { ref: { branchProtectionRule: null } },
+    }),
     rest: {
       pulls: {
         get: async () => ({ data: { ...pull } }),
@@ -1906,9 +1927,6 @@ async function assertRelationSyncStaysNonClosing(sync, overrides = {}) {
         listWorkflowRunsForRepo: async () => ({ data: { workflow_runs: [] } }),
         listWorkflowRuns: async () => ({ data: { workflow_runs: [] } }),
       },
-      repos: {
-        getBranchProtection: async () => ({ data: { required_status_checks: { contexts: [] } } }),
-      },
     },
   };
   const core = { info() {}, debug() {}, warning() {}, error() {}, setFailed(message) { failures.push(message); } };
@@ -1918,17 +1936,24 @@ async function assertRelationSyncStaysNonClosing(sync, overrides = {}) {
   issueBody = issueBody.replace('A local fix', 'Updated issue scope for the second sync');
   await sync(args);
   assert.deepEqual(failures, []);
-  assert.deepEqual(fetchedIssues, [123, 123], 'both runs must fetch the same related issue');
+  assert.deepEqual(fetchedIssues, [123, 123], 'both runs must fetch the same source issue');
   assert.equal(bodies.length, 2, 'both runs must write synchronized issue content');
   assert.notEqual(firstBody, pull.body);
   assert.match(pull.body, /Updated issue scope for the second sync/);
   for (const body of [firstBody, pull.body]) {
-    assert.match(body, /<!-- meta:related-issue:123 -->/);
-    assert.match(body, /Related to #123/);
-    assert.doesNotMatch(body, /Closes #123|<!-- meta:issue:123 -->/);
-    assert.deepEqual([...extractClosingIssueNumbersFromText(body)], []);
+    if (closing) {
+      assert.match(body, /<!-- meta:issue:123 -->/);
+      assert.match(body, /Closes #123/);
+      assert.doesNotMatch(body, /<!-- meta:related-issue:123 -->/);
+      assert.doesNotMatch(extractBlock(body, 'pr-preamble'), /Related to #123/);
+    } else {
+      assert.match(body, /<!-- meta:related-issue:123 -->/);
+      assert.match(body, /Related to #123/);
+      assert.doesNotMatch(body, /Closes #123|<!-- meta:issue:123 -->/);
+    }
+    assert.deepEqual([...extractClosingIssueNumbersFromText(body)], closing ? [123] : []);
     assert.deepEqual(extractIssueSourceFromPull({ ...pull, body }), {
-      issueNumber: 123, via: 'mention',
+      issueNumber: 123, via: closing ? 'meta' : 'mention',
     });
   }
 }
