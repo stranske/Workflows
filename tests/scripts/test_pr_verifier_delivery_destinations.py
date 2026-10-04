@@ -1,6 +1,7 @@
 """Exact canary findings: destination completeness and actionable text output."""
 
 import importlib.util
+from itertools import permutations
 from pathlib import Path
 
 import pytest
@@ -244,6 +245,29 @@ BODY_CLAUSE_CASES.extend(
         ),
     ]
 )
+for destinations in permutations(("the PR body", "a PR comment", "a workflow artifact")):
+    for separator in (" and ", ", "):
+        BODY_CLAUSE_CASES.append(
+            (
+                "Evidence must be included in " + separator.join(destinations),
+                {"body", "comments", "artifacts"},
+            )
+        )
+
+
+@pytest.mark.parametrize(
+    "criterion",
+    [
+        "The PR body must include a summary",
+        "The parser must recognize headings in the PR body",
+        "The PR body must be formatted as Markdown",
+    ],
+)
+def test_ordinary_body_behavior_is_not_an_evidence_delivery(criterion):
+    assert verifier._required_evidence_channels("- [ ] " + criterion) == set()
+    assert verifier._required_evidence_channels(
+        "- [ ] " + criterion + "; include evidence in the PR body"
+    ) == {"body"}
 
 
 @pytest.mark.parametrize("criterion,expected", BODY_CLAUSE_CASES)

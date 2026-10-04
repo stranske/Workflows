@@ -998,6 +998,9 @@ human actors, negative merge prerequisites and independent comment/artifact
 obligations retain their evidence floors. Unrecognized wording is not exempted.
 The product-editor exemption applies only to that destination, not coordinated
 actual PR comments or workflow artifacts; both destination orders are retained.
+Recognized comma/and/or lists keep the shared delivery predicate across all
+listed destinations before clause splitting. Bare body mentions such as summary
+or formatting requirements do not become review-evidence obligations.
 An optional artifact suffix does not erase a recognized mandatory body obligation.
 A fully retrieved bounded body is fenced as untrusted material, an empty body is absent,
 and missing/invalid/oversized bodies are unavailable. Body presence cannot satisfy

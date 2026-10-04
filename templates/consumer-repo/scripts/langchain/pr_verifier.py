@@ -1001,7 +1001,7 @@ def _required_evidence_channels(acceptance: str) -> set[str]:
     passive_delivery_prefix = r"(?:be|have\s+been)(?:\s+being)?\s+"
     evidence_term = re.compile(
         r"\b(?:evidence|artifacts?|transcripts?|command outputs?|workflow runs?|"
-        r"pr comments?|pull request comments?|pr body|pull request body)\b",
+        r"pr comments?|pull request comments?)\b",
         re.I,
     )
     requirement = re.compile(
@@ -1029,12 +1029,25 @@ def _required_evidence_channels(acceptance: str) -> set[str]:
         )
         polarity = r"(?:(?:not|never|no\s+longer)\s+)?"
         aspect = r"(?:(?:be|have\s+been)(?:\s+being)?\s+)?"
+        body_destination = r"(?:(?:the|an?)\s+)?" + body + r"(?:\s+editor\b)?"
+        destination_item = (
+            r"(?:(?:the|an?)\s+)?(?:" + body + r"(?:\s+editor\b)?|"
+            r"pr comments?|pull request comments?|workflow artifacts?)\b"
+        )
+        destination_separator = r"(?:\s*,\s*(?:(?:and|or)\s+)?|\s+(?:and|or)\s+)"
         destination = (
-            r"(?:in|into|to|within)\s+(?:both\s+)?(?:(?:the|an?)\s+)?"
-            r"(?:(?:pr comments?|pull request comments?|workflow artifacts?)\s+(?:and|or)\s+"
-            r"(?:(?:the|an?)\s+)?)?" + body + r"(?:\s+editor\b)?"
-            r"(?:\s+(?:and|or)\s+(?:(?:the|an?)\s+)?"
-            r"(?:pr comments?|pull request comments?|workflow artifacts?)\b)?"
+            r"(?:in|into|to|within)\s+(?:both\s+)?"
+            r"(?=(?:"
+            + destination_item
+            + destination_separator
+            + r")*"
+            + body_destination
+            + r")"
+            + destination_item
+            + r"(?:"
+            + destination_separator
+            + destination_item
+            + r")*"
         )
         families = [
             r"\b" + mandatory_auxiliary + r"\s+" + polarity + operation + r"\s+" + destination,
@@ -1480,15 +1493,34 @@ def _required_evidence_channels(acceptance: str) -> set[str]:
             re.I,
         )
         fragments = []
-        split_parts = re.split("(" + clause_boundary + ")", criterion, flags=re.I)
+        # Shared-predicate destination lists are not independent clauses.
+        # Preserve their original text and delimiters using recognized spans,
+        # rather than making later noun-only fragments infer a missing verb.
+        criterion_body_records, _ = body_occurrences(
+            criterion, bool(negative_gate.search(criterion))
+        )
+        split_parts = []
+        split_start = 0
+        for boundary_match in re.finditer(clause_boundary, criterion, re.I):
+            if any(
+                record["span"][0] <= boundary_match.start()
+                and boundary_match.end() <= record["span"][1]
+                for record in criterion_body_records
+            ):
+                continue
+            split_parts.extend((criterion[split_start : boundary_match.start()], boundary_match[0]))
+            split_start = boundary_match.end()
+        split_parts.append(criterion[split_start:])
         for part_index in range(0, len(split_parts), 2):
             fragment = split_parts[part_index]
             boundary = split_parts[part_index - 1] if part_index else ""
             if (
                 fragments
-                and re.fullmatch(r"\s*,?\s*(?:and|or)\s+", boundary, re.I)
+                and re.fullmatch(r"\s*(?:,\s*(?:(?:and|or)\s*)?|(?:and|or)\s*)", boundary, re.I)
                 and re.fullmatch(
-                    r"\s*(?:(?:the|an?)\s+)?(?:pr comments?|pull request comments?|workflow artifacts?)\s*",
+                    r"\s*(?:(?:the|an?)\s+)?(?:pr comments?|pull request comments?|workflow artifacts?)"
+                    r"(?:\s*,\s*(?:(?:and|or)\s+)?(?:(?:the|an?)\s+)?"
+                    r"(?:pr comments?|pull request comments?|workflow artifacts?))*\s*",
                     fragment,
                     re.I,
                 )
@@ -1577,7 +1609,7 @@ def _required_evidence_channels(acceptance: str) -> set[str]:
                 requirement_text,
                 flags=re.I,
             )
-            if not evidence_term.search(requirement_text):
+            if not evidence_term.search(requirement_text) and not body_records:
                 continue
             checklist = criterion_checklist
             bullet = criterion_bullet
