@@ -1926,6 +1926,23 @@ def test_passive_product_upload_does_not_withhold_pass_for_absent_artifacts() ->
 
 
 @pytest.mark.parametrize("destination", ["foo b/bar", "new b/bar b/baz", "a/prefix b/name"])
+def test_mode_only_metadata_preserves_embedded_git_prefix(destination: str) -> None:
+    diff = f"diff --git a/{destination} b/{destination}\nold mode 100644\nnew mode 100755\n"
+    _, status, files, _, _ = pr_verifier._build_code_block(diff, 10_000)
+    assert status == "complete"
+    assert files[0].path == destination
+
+
+@pytest.mark.parametrize("verb", ["allow", "enable", "support"])
+def test_ui_enabled_product_upload_is_not_review_evidence(verb: str) -> None:
+    criterion = f"- [ ] The UI must {verb} users to upload artifacts"
+    assert pr_verifier._required_evidence_channels(criterion) == set()
+    assert pr_verifier._required_evidence_channels(
+        criterion + "; attach command output to a PR comment"
+    ) == {"comments"}
+
+
+@pytest.mark.parametrize("destination", ["foo b/bar", "new b/bar b/baz", "a/prefix b/name"])
 def test_rename_metadata_preserves_embedded_git_prefix(destination: str) -> None:
     diff = (
         f"diff --git a/old b/name b/{destination}\n"

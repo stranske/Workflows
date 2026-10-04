@@ -473,6 +473,7 @@ async function fetchVerifierEvidence({
       const records = Array.isArray(response?.data) ? response.data : [];
       let truncated = Boolean(response?.headers?.link?.includes('rel="next"'));
       for (const comment of records) {
+        if (typeof comment?.body !== 'string' || !comment.body.trim()) continue;
         if (comments.records.length >= commentLimit) {
           truncated = true;
           break;

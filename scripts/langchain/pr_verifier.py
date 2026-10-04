@@ -696,6 +696,17 @@ def _split_diff_files(diff: str) -> list[tuple[str, str]]:
     def destination_from_git_header(line: str) -> str | None:
         payload = line.removeprefix("diff --git ").rstrip("\n")
 
+        # Mode-only changes have no +++ or rename metadata. Prefer the
+        # unambiguous identical-path split rather than an embedded " b/".
+        if payload.startswith("a/"):
+            identical = [
+                payload[match.start() + 3 :]
+                for match in re.finditer(r" b/", payload)
+                if payload[2 : match.start()] == payload[match.start() + 3 :]
+            ]
+            if len(identical) == 1:
+                return identical[0]
+
         separator = max(payload.rfind(" b/"), payload.rfind(' "b/'))
         source = (
             decode_quoted_path(payload)
@@ -1329,6 +1340,7 @@ def _required_evidence_channels(acceptance: str) -> set[str]:
                         + "(?:"
                         + product_auxiliary
                         + ")?"
+                        + r"(?:(?:allow|enable|support)\w*\s+(?:users?\s+to\s+)?)?"
                         + r"(?:upload|attach|publish|post|record|capture|"
                         r"provide|include|document)\w*\b.{0,60}\bartifacts?\b",
                         requirement_text,
@@ -1705,8 +1717,9 @@ def _apply_coverage_floor(
 
 def _evaluation_output_text(result: EvaluationResult) -> str:
     """CLI/file text aligned with the structured verdict after post-processing."""
-    if result.verdict != "PASS" and result.summary:
-        return result.summary
+    if result.verdict != "PASS":
+        body = result.summary or result.raw_content or ""
+        return f"Verdict: {result.verdict}\n\n{body}"
     return result.raw_content or result.summary or ""
 
 

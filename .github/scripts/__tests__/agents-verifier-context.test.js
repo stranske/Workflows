@@ -877,6 +877,18 @@ test('buildVerifierContext includes bounded comment-only acceptance evidence', a
   removeVerifierDiffArtifacts(result);
 });
 
+test('buildVerifierContext excludes bodyless reviews from comment evidence', async () => {
+  const { result } = await buildEvidenceContext({
+    reviews: [
+      { body: null, state: 'APPROVED' },
+      { body: '', state: 'COMMENTED' },
+      { body: '   \n\t', state: 'APPROVED' },
+    ],
+  });
+  assert.match(result.markdown, /PR comments: \*\*absent\*\*/);
+  removeVerifierDiffArtifacts(result);
+});
+
 test('buildVerifierContext discovers artifact links from inline comments and review bodies', async () => {
   const headSha = 'bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb';
   const { core, result } = await buildEvidenceContext({

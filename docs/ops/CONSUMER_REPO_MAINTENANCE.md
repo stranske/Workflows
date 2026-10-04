@@ -861,6 +861,16 @@ waive the zero active non-outdated thread requirement for ordinary merge
 eligibility. A source fix without this exact proof, a later candidate plan, or a
 passing Gate never resolves the current PR's review debt.
 
+When verifier runs collect acceptance evidence, empty or whitespace-only review bodies
+must not count as PR-comment evidence. Single-provider non-PASS text/file output
+must carry the post-processed `Verdict: CONCERNS` or `Verdict: FAIL` line so the
+downstream artifact parser retains a terminal outcome rather than a partial run.
+These rules are source-owned and regression-tested before consumer regeneration.
+Product UI criteria that allow/enable/support users to upload artifacts likewise
+do not require workflow artifacts; separate PR-comment evidence remains required.
+Mode-only diffs must preserve identical filenames containing embedded ` b/`
+tokens even when Git supplies no rename or `+++` destination metadata.
+
 For a dev-tool delivery or stable workflow-sync candidate and delivery whose
 owner has fixed a review finding but whose originating reviewer has not
 reassessed it, send the Maint 71
