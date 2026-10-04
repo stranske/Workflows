@@ -1838,6 +1838,22 @@ def test_git_parser_error_marker_is_a_valid_filename() -> None:
     assert files[0].path == "__invalid_git_path__"
 
 
+@pytest.mark.parametrize(
+    "criterion",
+    [
+        "The API response must include evidence links added by the user",
+        "The API response must include evidence records left by the user",
+        "No evidence should be left in a PR comment",
+        "No evidence was left in a PR comment",
+        "The reviewer did not leave evidence in a PR comment",
+    ],
+)
+def test_comment_delivery_modifiers_and_passive_negations_are_not_requirements(
+    criterion: str,
+) -> None:
+    assert pr_verifier._required_evidence_channels("- [ ] " + criterion) == set()
+
+
 @pytest.mark.parametrize("verb", ["add", "leave"])
 def test_new_comment_delivery_verbs_preserve_negation_and_independent_clauses(verb: str) -> None:
     assert (

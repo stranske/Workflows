@@ -979,7 +979,9 @@ def _required_evidence_channels(acceptance: str) -> set[str]:
         r"\b(?:required|mandatory|(?:is|are)\s+needed|must|shall|needs? to|"
         r"publish(?:es|ed)?|upload(?:s|ed)?|"
         r"attach(?:es|ed)?|captur(?:e|es|ed)|record(?:s|ed)?|provid(?:e|es|ed)|"
-        r"includ(?:e|es|ed)|link(?:s|ed)?|post(?:s|ed)?|add(?:s|ed)?|leav(?:e|es)|left|"
+        r"includ(?:e|es|ed)|link(?:s|ed)?|post(?:s|ed)?|"
+        r"(?:add(?:s|ed)?|leav(?:e|es)|left)\s+(?:(?:an?|the)\s+)?"
+        r"(?:pr|pull request)\s+comments?|"
         r"document(?:s|ed)?|prov(?:e|es|ed)|show(?:s|ed)?)\b",
         re.I,
     )
@@ -996,7 +998,7 @@ def _required_evidence_channels(acceptance: str) -> set[str]:
         r"|\b(?:evidence|artifacts?|transcripts?|command outputs?|workflow runs?|"
         r"pr comments?|pull request comments?)"
         r"\s+(?:is|are)\s+not\s+(?:required|needed|mandatory)\b"
-        r"|\b(?:must|shall|may|should|do|does)\s+not\s+"
+        r"|\b(?:must|shall|may|should|do|does|did)\s+not\s+"
         r"(?:upload|attach|provide|publish|post|record|capture|include|document|generate|link|add|leave)\b"
         r"(?:\s+(?:the\s+|an?\s+|any\s+)?(?:[\w-]+\s+){0,4}"
         r"(?:evidence|artifacts?|transcripts?|"
@@ -1011,6 +1013,10 @@ def _required_evidence_channels(acceptance: str) -> set[str]:
         r"(?:\w+\s+){0,4}(?:evidence|artifacts?|transcripts?|command outputs?|"
         r"workflow runs?|pr comments?|pull request comments?)\s+"
         r"(?:is|are)\s+(?:required|needed|mandatory)\b"
+        r"|\bno\s+(?:\w+\s+){0,4}(?:evidence|artifacts?|transcripts?|command outputs?|"
+        r"workflow runs?|pr comments?|pull request comments?)\s+"
+        r"(?:(?:must|shall|may|should)\s+(?:not\s+)?be|was|were|is|are)\s+"
+        r"(?:left|added)\b"
         r"|\bno\s+(?:\w+\s+){0,4}(?:evidence|artifacts?|transcripts?|command outputs?|"
         r"workflow runs?|pr comments?|pull request comments?)\s+"
         r"(?:must|shall|may|should)\s+(?:not\s+)?(?:be\s+)?"
