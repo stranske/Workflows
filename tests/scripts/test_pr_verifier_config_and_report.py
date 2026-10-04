@@ -391,7 +391,7 @@ def test_non_pass_output_prefers_summary_over_stale_pass_raw_content(
     _argv(monkeypatch, tmp_path, "--output-file", str(out))
     pr_verifier.main()
     printed = capsys.readouterr().out
-    assert out.read_text(encoding="utf-8") == summary
+    assert out.read_text(encoding="utf-8") == f"Verdict: CONCERNS\n\n{summary}"
     assert "PASS withheld" in printed
     assert '"verdict": "PASS"' not in printed
 
@@ -406,6 +406,17 @@ def test_the_output_file_receives_the_same_text_as_stdout(
     printed = capsys.readouterr().out
     assert out.read_text(encoding="utf-8") == "the raw content"
     assert "the raw content" in printed
+
+
+@pytest.mark.parametrize("verdict", ["CONCERNS", "FAIL"])
+def test_non_pass_output_preserves_parseable_terminal_verdict(verdict):
+    from scripts.langchain.verifier_config import artifact_from_verification_text
+
+    result = EvaluationResult(verdict=verdict, summary="Named regression failed.")
+    output = pr_verifier._evaluation_output_text(result)
+    assert f"Verdict: {verdict}" in output
+    artifact = artifact_from_verification_text(output)
+    assert artifact["verdict"] == verdict
 
 
 def test_json_mode_emits_a_parseable_payload(tmp_path, monkeypatch, capsys, clean_run_env):
