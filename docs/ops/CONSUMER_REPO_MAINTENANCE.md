@@ -1013,8 +1013,16 @@ bounds this channel without broadening the other evidence caps. Existential
 requirements such as `There must be a PR comment` retain the comment floor.
 Application recording/capture/attachment/generation into database or audit-log
 storage is product behavior; separate reviewer deliveries remain mandatory.
-Product `links to the evidence` noun fields stay product fields. Non-PASS CLI
-and file text includes the final verdict, summary, structured concerns and
+Product `links to the evidence` noun fields stay product fields.
+Body requirements emitted by `docs_drift_fix_agent.py` retain their producer
+wording: `record the before/after evidence in the pull request body` is a body
+delivery obligation. Determiners and the before/after modifier are independent;
+integration tests call that producer and verify present/absent/unavailable body
+floors with other evidence channels absent, instead of testing a simplified phrase.
+The same modifier grammar preserves `no before/after evidence` prohibitions;
+separate reviewer-comment deliveries remain required.
+
+Non-PASS CLI and file text includes the final verdict, summary, structured concerns and
 distinct raw model detail, so concise summaries do not discard actionable gaps.
 Embedded structured PASS objects, including prose/code-fence wrappers after a
 failed schema repair, are removed from non-PASS diagnostic detail by exact object

@@ -5,7 +5,42 @@ from itertools import permutations
 from pathlib import Path
 
 import pytest
+from scripts import docs_drift_fix_agent as fix_agent
 from scripts.langchain import pr_verifier as verifier
+
+
+@pytest.mark.parametrize("prefix", ["", "- [ ] "])
+@pytest.mark.parametrize(
+    "status,expected", [("present", "PASS"), ("absent", "CONCERNS"), ("unavailable", "CONCERNS")]
+)
+def test_generated_docs_drift_body_requirement_controls_floor(prefix, status, expected):
+    finding = fix_agent.Finding(
+        source="semantic-scan",
+        kind="semantic",
+        doc_path="README.md",
+        target="old claim",
+        detail="stale",
+        authoritative_source="scripts/example.py",
+    )
+    criterion = fix_agent.semantic_verification_requirements([finding])[0]
+    assert "record the before/after evidence in the pull request body" in criterion
+    assert verifier._required_evidence_channels(prefix + criterion) == {"body"}
+    spec = importlib.util.spec_from_file_location(
+        "producer_coverage_fixtures",
+        Path(__file__).with_name("test_pr_verifier_prompt_coverage.py"),
+    )
+    fixture = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(fixture)
+    context, _ = fixture._context(1, 1000, 1000)
+    context = context.replace(fixture.ACCEPTANCE_SENTINEL, prefix + criterion).replace(
+        "## PR Diff Summary",
+        f"## Acceptance evidence\n\n- Overall retrieval status: **absent**\n- PR body: **{status}**\n- PR comments: **absent**\n- Referenced workflow artifacts: **absent**\n\n## PR Diff Summary",
+    )
+    result = verifier._apply_coverage_floor(
+        verifier.EvaluationResult(verdict="PASS", used_llm=True),
+        verifier.prompt_coverage(context, None),
+    )
+    assert result.verdict == expected
 
 
 @pytest.mark.parametrize("modal", ["must", "shall", "needs to"])
@@ -224,6 +259,10 @@ for actor in ("UI", "application", "service"):
             )
 BODY_CLAUSE_CASES.extend(
     [
+        ("The PR body must contain no before/after evidence", set()),
+        ("There must be no before/after evidence in the PR body", set()),
+        ("Record no before/after evidence in the pull request body", set()),
+        ("The PR body must not exclude the before/after evidence", {"body"}),
         ("Evidence must be included in a PR comment and in the PR body", {"body", "comments"}),
         ("Evidence must be included in the PR body and in a PR comment", {"body", "comments"}),
         ("The PR body must exclude evidence", set()),
