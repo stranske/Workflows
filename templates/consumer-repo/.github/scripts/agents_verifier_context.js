@@ -1416,10 +1416,16 @@ async function buildVerifierContext({
     diffMaxChars: Number.isFinite(diffMaxChars) ? diffMaxChars : DEFAULT_DIFF_MAX_CHARS,
     evidence: verifierEvidence,
   });
+  const missingIssueSource =
+    sourceContext.sourceType === 'github_issue' &&
+    closingIssues.length === 0 &&
+    closingIssueDiscovery.status === 'included';
   sourceCoverage.acceptance_source_discovery = {
     source: 'Linked issues',
-    status: closingIssueDiscovery.status,
-    reason: closingIssueDiscovery.reason,
+    status: missingIssueSource ? 'unavailable' : closingIssueDiscovery.status,
+    reason: missingIssueSource
+      ? 'Issue-backed PR has no retrieved linked issue; acceptance-source discovery is incomplete.'
+      : closingIssueDiscovery.reason,
     // An issue source (including one whose retrieval failed) cannot be
     // judged from the PR's retained subset of the acceptance contract.
     required: sourceContext.sourceType === 'github_issue' || closingIssues.length > 0 || closingIssueDiscovery.status === 'truncated',

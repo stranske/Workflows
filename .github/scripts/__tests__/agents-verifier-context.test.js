@@ -840,7 +840,7 @@ function removeVerifierDiffArtifacts(result) {
   fs.rmSync(result.diffPath, { force: true });
 }
 
-async function buildEvidenceContext(githubOptions = {}, buildOptions = {}) {
+async function buildEvidenceContext(githubOptions = {}, buildOptions = {}, builder = buildVerifierContext) {
   const core = buildCore();
   const prDetails = {
     merged: true,
@@ -863,7 +863,7 @@ async function buildEvidenceContext(githubOptions = {}, buildOptions = {}) {
     sha: prDetails.merge_commit_sha,
   };
   const github = buildGithubStub({ prDetails, ...githubOptions });
-  const result = await buildVerifierContext({ github, context, core, ...buildOptions });
+  const result = await builder({ github, context, core, ...buildOptions });
   return { core, result };
 }
 
@@ -971,7 +971,7 @@ test('linked-issue discovery is required only for an issue-backed acceptance pla
     });
     try {
       const discovery = result.sourceCoverage.acceptance_source_discovery;
-      assert.equal(discovery.status, status);
+      assert.equal(discovery.status, issueBacked && status === 'included' ? 'unavailable' : status);
       assert.equal(discovery.required, issueBacked || status === 'truncated');
       const serialized = JSON.parse(result.markdown.match(/## Context source coverage[\s\S]*?```json\n([\s\S]*?)\n```/)[1]);
       assert.deepEqual(serialized.acceptance_source_discovery, discovery);
@@ -2576,4 +2576,26 @@ test('merged PR fails closed when its first commit cannot be retrieved', async (
   assert.equal(result.shouldRun, false);
   assert.match(core.outputs.skip_reason, /Authoritative pull request diff unavailable/);
   assert.ok(core.warnings.some(message => message.includes('403 forbidden')));
+});
+
+
+test('empty issue acceptance discovery stays incomplete in source and template builders', async () => {
+  const templateImpl = require('../../../templates/consumer-repo/.github/scripts/agents_verifier_context.js').buildVerifierContext;
+  const templateBuilder = options => templateImpl({ ...options, fetchLocalDiff: () => options.github.__testDiffText });
+  for (const builder of [buildVerifierContext, templateBuilder]) {
+    for (const issueBacked of [true, false]) {
+      const { result } = await buildEvidenceContext({
+        prBody: prBodyFixture + (issueBacked ? '\nCloses #123\n' : '\n<!-- workflow-source:local_request -->\n'),
+        closingIssues: [],
+      }, {}, builder);
+      try {
+        const discovery = result.sourceCoverage.acceptance_source_discovery;
+        assert.equal(discovery.status, issueBacked ? 'unavailable' : 'included');
+        assert.equal(discovery.required, issueBacked);
+        if (issueBacked) assert.match(discovery.reason, /no retrieved linked issue/i);
+      } finally {
+        removeVerifierDiffArtifacts(result);
+      }
+    }
+  }
 });
