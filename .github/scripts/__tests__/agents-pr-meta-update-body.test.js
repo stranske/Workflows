@@ -2,6 +2,12 @@
 
 const test = require('node:test');
 const assert = require('node:assert/strict');
+const fs = require('node:fs');
+const path = require('node:path');
+
+const {
+  run: templateRun,
+} = require('../../../templates/consumer-repo/.github/scripts/agents_pr_meta_update_body.js');
 
 const {
   parseCheckboxStates,
@@ -1816,7 +1822,22 @@ test('buildPreamble writes a non-closing link for a relation-derived source issu
   }
 });
 
-test('a relation-sourced PR stays non-closing across two body syncs', async () => {
+test('consumer PR body sync scripts match their Workflows sources byte-for-byte', () => {
+  for (const script of ['agents_pr_meta_update_body.js', 'source_context.js']) {
+    const source = path.resolve(__dirname, '..', script);
+    const template = path.resolve(
+      __dirname, '../../../templates/consumer-repo/.github/scripts', script,
+    );
+    assert.deepEqual(fs.readFileSync(template), fs.readFileSync(source), script);
+  }
+});
+
+test('a relation-sourced PR stays non-closing across two body syncs', async (t) => {
+  await t.test('Workflows source', () => assertRelationSyncStaysNonClosing(run));
+  await t.test('consumer template', () => assertRelationSyncStaysNonClosing(templateRun));
+});
+
+async function assertRelationSyncStaysNonClosing(sync) {
   const pull = {
     number: 55, state: 'open', title: 'Repair a local request',
     body: 'left to issue #123', head: { sha: 'abc123', ref: 'feature/relation' },
@@ -1851,10 +1872,10 @@ test('a relation-sourced PR stays non-closing across two body syncs', async () =
   };
   const core = { info() {}, debug() {}, warning() {}, error() {}, setFailed(message) { failures.push(message); } };
   const args = { github, core, inputs: {}, context: { repo: { owner: 'octo', repo: 'demo' }, eventName: 'pull_request', payload: { pull_request: { number: 55, head: { sha: 'abc123' } } } } };
-  await run(args);
+  await sync(args);
   const firstBody = pull.body;
   issueBody = issueBody.replace('A local fix', 'Updated issue scope for the second sync');
-  await run(args);
+  await sync(args);
   assert.deepEqual(failures, []);
   assert.deepEqual(fetchedIssues, [123, 123], 'both runs must fetch the same related issue');
   assert.equal(bodies.length, 2, 'both runs must write synchronized issue content');
@@ -1865,4 +1886,4 @@ test('a relation-sourced PR stays non-closing across two body syncs', async () =
     assert.match(body, /Related to #123/);
     assert.doesNotMatch(body, /Closes #123|<!-- meta:issue:123 -->/);
   }
-});
+}
