@@ -1045,6 +1045,9 @@ return/display/emit/render/expose evidence in the PR body is a body obligation.
 Forward and reverse product delivery share recipient grammar, including determined
 recipients such as `the clients`, `its users`, and `all its consumers`; an
 independent reviewer-comment obligation remains required.
+Passive PR deliveries share the mandatory auxiliary and passive-prefix grammar,
+including `needs to be`, `has to be`, and `is required to be`; a later product
+actor cannot erase those review obligations.
 The four fresh canary findings are tested through the actual coverage floor with
 present, absent and unavailable evidence plus independent reviewer-delivery controls.
 

@@ -1772,7 +1772,11 @@ def _required_evidence_channels(acceptance: str) -> set[str]:
                     + pr_destination
                     + "|"
                     + delivery_object
-                    + r"\s+(?:(?:must|shall)\s+be\s+)?"
+                    + r"\s+(?:"
+                    + mandatory_auxiliary
+                    + r"\s+"
+                    + passive_delivery_prefix
+                    + r")?"
                     + delivery_operation
                     + r"\s+"
                     + pr_destination,
@@ -2020,7 +2024,10 @@ def _required_evidence_channels(acceptance: str) -> set[str]:
                 or re.search(
                     r"\b(?:evidence|command outputs?|transcripts?)\b.{0,40}"
                     r"\b(?:(?:is|are)\s+(?:required|mandatory|needed)|"
-                    r"(?:must|shall)\s+be\s+(?:provided|posted|published|recorded|captured|returned|displayed))"
+                    + mandatory_auxiliary
+                    + r"\s+"
+                    + passive_delivery_prefix
+                    + r"(?:provided|posted|published|recorded|captured|returned|displayed))"
                     r"\s+in\s+(?:an?\s+|the\s+)?(?:pr comments?|pull request comments?)\b",
                     requirement_text,
                     re.I,

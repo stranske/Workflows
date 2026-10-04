@@ -249,6 +249,12 @@ def test_product_persistence_does_not_require_review_evidence(operation, actor):
     assert verifier._required_evidence_channels(
         "- [ ] " + criterion + "; leave a PR comment with command output"
     ) == {"comments"}
+    assert (
+        verifier._required_evidence_channels(
+            f"- [ ] The {actor} must {operation} transcripts in the PR"
+        )
+        != set()
+    )
 
 
 @pytest.mark.parametrize("operation", ["return", "display", "emit", "render", "expose"])
@@ -277,12 +283,28 @@ def test_forward_and_reverse_record_share_determined_recipients(determiner, reci
         assert verifier._required_evidence_channels(
             criterion + "; record command output in a PR comment"
         ) == {"comments"}
-    assert (
-        verifier._required_evidence_channels(
-            f"- [ ] The {actor} must {operation} transcripts in the PR"
-        )
-        != set()
-    )
+
+
+@pytest.mark.parametrize(
+    "auxiliary",
+    [
+        "needs to",
+        "need to",
+        "has to",
+        "have to",
+        "is required to",
+        "is expected to",
+        "is supposed to",
+        "is obliged to",
+        "is mandated to",
+    ],
+)
+@pytest.mark.parametrize(
+    "destination,channel", [("the PR", "overall"), ("a PR comment", "comments")]
+)
+def test_reverse_review_delivery_shares_mandatory_auxiliaries(auxiliary, destination, channel):
+    criterion = f"Command output {auxiliary} be provided in {destination} by the service"
+    assert verifier._required_evidence_channels(criterion) == {channel}
 
 
 @pytest.mark.parametrize("determiner", ["the", "a", "an"])
