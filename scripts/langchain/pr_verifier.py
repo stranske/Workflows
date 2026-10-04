@@ -1043,18 +1043,26 @@ def _required_evidence_channels(acceptance: str) -> set[str]:
                 # earlier UI/API actor across "transcript that must be posted".
                 subject = re.split(r"\b(?:and|or|that|which|who)\b", between, flags=re.I)[-1]
         subject = re.split(product_auxiliary, subject, maxsplit=1, flags=re.I)[0]
-        # An article-free fronted adjunct ends at a determiner-led subject:
-        # "For reviewer access the API ...". Do not guess across an adjunct
-        # containing its own determiner-led actor; uncertain attachment keeps
-        # the evidence floor rather than selecting an arbitrary last noun.
-        subject = re.sub(
-            r"^\s*(?:[-*]\s*(?:\[[ xX]\]\s*)?)?"
-            r"(?:for|when|while|during|after|before|if|once|under|with|without|upon)\s+"
-            r"(?:(?!(?:the|an?)\b)[\w-]+\s+)+(?=(?:the|an?)\s+)",
-            "",
-            subject,
-            flags=re.I,
-        )
+        plain_subject = re.sub(r"^\s*(?:[-*]\s*(?:\[[ xX]\]\s*)?)?", "", subject)
+        if re.match(
+            r"(?:for|when|while|during|after|before|if|once|under|with|without|upon)\b",
+            plain_subject,
+            re.I,
+        ):
+            fronted = re.match(
+                r"(?P<adjunct>.*?)\s+(?P<subject>(?:the|an?)\s+.+)$", plain_subject, re.I
+            )
+            supported_adjunct = (
+                r"for reviewers? access|for backward compatibility|under reviewers? supervision|"
+                r"when reviewers? requests? access|"
+                r"(?:when|while) (?:using|testing|accessing|operating) [\w-]+"
+            )
+            if not fronted or not re.fullmatch(supported_adjunct, fronted["adjunct"], re.I):
+                # A partial grammar must decline unknown attachments. In
+                # particular, never consume "maintainers of" or an unknown
+                # human role to reach a product noun in its modifier.
+                return False
+            subject = fronted["subject"]
         actor_head = re.search(
             r"\b(?:(?:api|ui)\s+)?(?:reviewers?|maintainers?|authors?|operators?)\b"
             r"|\b(?:ui|api|application|interface|service|cli|endpoint|renderer)\b",

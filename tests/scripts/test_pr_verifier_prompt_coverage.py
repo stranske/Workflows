@@ -2395,16 +2395,28 @@ def test_introductory_human_noun_does_not_replace_governing_product_actor(intro:
 
 
 @pytest.mark.parametrize("status", ["absent", "unavailable"])
-@pytest.mark.parametrize("independent_delivery", [False, True])
 @pytest.mark.parametrize(
-    "intro", ["For reviewer access", "When reviewers request access", "Under reviewer supervision"]
+    "independent_delivery",
+    [
+        "",
+        "; the maintainer must post a PR comment with test results",
+        "; PR comments must be posted",
+    ],
+)
+@pytest.mark.parametrize(
+    "intro",
+    [
+        "For reviewer access",
+        "When reviewers request access",
+        "Under reviewer supervision",
+        "For backward compatibility",
+    ],
 )
 def test_fronted_adjunct_prompt_coverage_preserves_independent_delivery(
-    status: str, independent_delivery: bool, intro: str
+    status: str, independent_delivery: str, intro: str
 ) -> None:
     criterion = f"{intro} the API must post a PR comment in its response"
-    if independent_delivery:
-        criterion += "; the maintainer must post a PR comment with test results"
+    criterion += independent_delivery
     context, _ = _context(1, 1_000, 1_000)
     context = context.replace(ACCEPTANCE_SENTINEL, criterion).replace(
         "## PR Diff Summary",
@@ -2412,3 +2424,37 @@ def test_fronted_adjunct_prompt_coverage_preserves_independent_delivery(
         f"- PR comments: **{status}**\n\n## PR Diff Summary",
     )
     assert pr_verifier.prompt_coverage(context, None).sufficient == (not independent_delivery)
+
+
+@pytest.mark.parametrize("actor", ["maintainers", "reviewers", "authors", "operators"])
+def test_fronted_adjunct_cannot_consume_governing_human_actor(actor: str) -> None:
+    criterion = f"For reviewer access {actor} of the API must post a PR comment with results"
+    assert pr_verifier._required_evidence_channels(f"- [ ] {criterion}") == {"comments"}
+
+
+@pytest.mark.parametrize("status", ["absent", "unavailable"])
+@pytest.mark.parametrize(
+    "subject",
+    [
+        "maintainers of the API",
+        "reviewers of the API",
+        "authors of the API",
+        "operators of the API",
+        "engineers responsible for the API",
+    ],
+)
+def test_fronted_human_subject_retains_prompt_evidence_floor(status: str, subject: str) -> None:
+    criterion = f"For reviewer access {subject} must post a PR comment with results"
+    context, _ = _context(1, 1_000, 1_000)
+    context = context.replace(ACCEPTANCE_SENTINEL, criterion).replace(
+        "## PR Diff Summary",
+        "## Acceptance evidence\n\n- Overall retrieval status: **present**\n"
+        f"- PR comments: **{status}**\n\n## PR Diff Summary",
+    )
+    assert not pr_verifier.prompt_coverage(context, None).sufficient
+
+
+def test_unrecognized_fronted_attachment_cannot_establish_product_exemption() -> None:
+    assert pr_verifier._required_evidence_channels(
+        "- [ ] With reviewer access to the API must post a PR comment"
+    ) == {"comments"}

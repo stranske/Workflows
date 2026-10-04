@@ -921,8 +921,10 @@ product subjects have no arbitrary word-count ceiling. An embedded product descr
 cannot veto an independently mandatory comment; unresolved subject attachment retains
 the evidence floor. Initial human subject heads remain authoritative across unlisted
 modifiers, and negative contractions are normalized before obligation classification.
-Clearly bounded fronted adjuncts are removed before choosing the governing subject;
-ambiguous introductions with competing determiner-led actors retain the evidence floor.
+Fronted adjunct extraction is a partial recognizer: the entire discarded span must
+match a supported complete construction before choosing the governing subject.
+Unsupported or ambiguous introductions retain the evidence floor and cannot fall
+through to a last-product-noun exemption, including unlisted human subject roles.
 Negated delivery never removes a separate mandatory clause. Diff hunk contents cannot
 replace path metadata. Instructions to add
 or leave a PR comment, including passive command-output requirements in that comment,
