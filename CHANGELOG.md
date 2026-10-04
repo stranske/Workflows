@@ -6,6 +6,14 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 Breaking changes are called out with a **BREAKING** marker and scheduled according to the policy in `COMPATIBILITY.md`.
 
+## [1.37.16](https://github.com/stranske/Workflows/compare/v1.37.15...v1.37.16) (2026-10-04)
+
+
+### Bug Fixes
+
+* **verifier:** complete evidence destinations and preserve diagnostics ([#3740](https://github.com/stranske/Workflows/issues/3740)) ([2f0631e](https://github.com/stranske/Workflows/commit/2f0631e006750100b7655780641783e994bd2ef6))
+* **verifier:** test and recognize actual generated body evidence ([#3746](https://github.com/stranske/Workflows/issues/3746)) ([c3285c9](https://github.com/stranske/Workflows/commit/c3285c9cb82e45c53be563133169163b03053b20))
+
 ## [1.37.15](https://github.com/stranske/Workflows/compare/v1.37.14...v1.37.15) (2026-10-04)
 
 
