@@ -2583,6 +2583,19 @@ def test_negated_passive_destination_cannot_restore_mandatory_auxiliary(auxiliar
     ) == {"comments"}
 
 
+@pytest.mark.parametrize("copula", ["is", "are", "was", "were"])
+@pytest.mark.parametrize("negation", ["not", "never", "no longer"])
+@pytest.mark.parametrize("obligation", ["required", "needed", "expected", "obliged"])
+def test_passive_prohibition_tense_and_negation_matrix(
+    copula: str, negation: str, obligation: str
+) -> None:
+    criterion = f"The logs {copula} {negation} {obligation} to be uploaded as an artifact"
+    assert pr_verifier._required_evidence_channels(f"- [ ] {criterion}") == set()
+    assert pr_verifier._required_evidence_channels(
+        f"- [ ] {criterion}; the reviewer must post a PR comment with results"
+    ) == {"comments"}
+
+
 @pytest.mark.parametrize("actor", ["reviewer using the endpoint", "maintainer testing the CLI"])
 def test_qualified_human_actor_retains_required_comment(actor: str) -> None:
     assert pr_verifier._required_evidence_channels(
