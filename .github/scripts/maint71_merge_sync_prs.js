@@ -397,7 +397,12 @@ async function runReviewReassessment({
       ...Object.fromEntries(REASSESSMENT_FIELDS.map((field) => [field, request[field]])),
       request_id: String(comment.id), request_url: comment.html_url,
     };
-    const taskMarker = `<!-- maint71-review-task:v1 ${JSON.stringify(taskBinding)} -->`;
+    // Keep the bot task command free of review-command text, including schema
+    // strings and the inline acceptance token. Hash the complete canonical
+    // binding; the existing inline request remains the readable authority.
+    const taskDigest = require('crypto').createHash('sha256')
+      .update(JSON.stringify(taskBinding)).digest('hex');
+    const taskMarker = `<!-- maint71-disposition-task:v1 ${taskDigest} -->`;
     const findTask = async () => {
       const items = await withRetry((client) => client.paginate(client.rest.issues.listComments,
         { owner, repo, issue_number: request.pr, per_page: 100 }));
@@ -422,7 +427,7 @@ async function runReviewReassessment({
         'This is a bounded disposition-only cloud task. Do not inspect unrelated changes or start another general pass.',
         `Answer only the original finding in existing thread ${request.thread_id}: ${comment.html_url}`,
         `The authenticated in-thread request above is the authority and contains the exact finding. Inspect its source fix at Workflows commit ${request.source_commit} and generated head ${request.head_sha}.`,
-        `Reply in that existing thread with explicit ACCEPT and <!-- sync-review-accepted:${request.head_sha} --> if satisfied, or REJECT with concrete evidence if not. A top-level answer cannot authorize disposition.`,
+        'Reply in that existing thread with explicit ACCEPT and the exact acceptance token requested there if satisfied, or REJECT with concrete evidence if not. A top-level answer cannot authorize disposition.',
         'No file edits, branch pushes, new finding threads, thread resolution, seal, close or merge actions. If replying there is unsupported, report that limitation explicitly; do not substitute a generic no-issues summary.',
         taskMarker].join('\n\n');
       try {

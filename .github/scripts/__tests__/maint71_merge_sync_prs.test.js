@@ -240,8 +240,9 @@ test('source-owned reviewer reassessment supports stable generated lanes without
   assert.match(comments.at(-1).body, /maint71-review-disposition:v1/);
   assert.equal(disposition.task_status, 'disposition_task_requested');
   assert.equal(taskPosts, 1);
-  assert.match(tasks[0].body, /^@codex address that feedback on exact head/);
-  assert.match(tasks[0].body, /maint71-review-task:v1/);
+  assert.match(tasks[0].body, /^@codex answer this specific finding on exact head/);
+  assert.match(tasks[0].body, /maint71-disposition-task:v1 [a-f0-9]{64}/);
+  assert.doesNotMatch(tasks[0].body, /review/i, 'cloud task entry must not repeat review-command text');
   assert.match(tasks[0].body, /A top-level answer cannot authorize disposition/);
   assert.ok(tasks[0].body.includes(comments.at(-1).html_url));
   const postsAfterDisposition = posts;

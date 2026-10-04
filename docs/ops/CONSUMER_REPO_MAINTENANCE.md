@@ -917,8 +917,16 @@ the originating provider returns another stock summary, its configured
 `disposition_task_transport=pr-conversation` bridges the existing authenticated
 in-thread request to one top-level task mention. The bridge binds the same
 repository, PR, head, thread, plan, generation, source and reviewer plus the
-verified inline request ID and URL. A repeated disposition dispatch recovers
-that request without reposting it and reuses one trusted bridge after fully
+verified inline request ID and URL.
+The canonical binding is SHA-256 hashed in a `maint71-disposition-task:v1`
+marker. The policy task command is `@codex answer this specific finding` and
+points to the existing inline acceptance instructions rather than repeating
+review-command/schema text in the cloud entry. A live top-level diagnostic
+question executed as a cloud task while an address-that-feedback request
+returned a stock summary; the connector routing internals remain unknown.
+Actual originating in-thread output is still required, regardless of command.
+A repeated disposition dispatch recovers that request without reposting it
+and reuses one trusted bridge after fully
 paginating PR comments. Changed bindings, duplicate trusted bridges, incomplete
 inventories and uncertain POST outcomes fail closed. The task must answer in
 the original thread; top-level answers, generic summaries and task completion
