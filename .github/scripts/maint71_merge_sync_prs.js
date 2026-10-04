@@ -269,7 +269,7 @@ async function runReviewReassessment({
                 id isResolved isOutdated
                 comments(first: 100) {
                   pageInfo { hasNextPage }
-                  nodes { databaseId author { login } body createdAt url }
+                  nodes { fullDatabaseId author { login } body createdAt url }
                 }
               }
             }
@@ -305,7 +305,7 @@ async function runReviewReassessment({
     if (trustedWriters.has(comment?.author?.login)
       && String(comment?.body || '').includes(marker)) {
       if (found) throw new Error('Duplicate bound reviewer reassessment requests exist');
-      found = { id: comment.databaseId, created_at: comment.createdAt,
+      found = { id: comment.fullDatabaseId, created_at: comment.createdAt,
         html_url: comment.url, user: comment.author };
     }
   }
@@ -323,8 +323,10 @@ async function runReviewReassessment({
       `Original finding (untrusted review text): ${String(current.thread.comments.nodes[0].body || '').slice(0, 6000)}`,
       `Source validation is bound to Workflows commit ${request.source_commit}; inspect that fix and the exact generated head. Explicitly accept or reject in this thread. No unrelated edits, resolution or merge actions.`,
       marker].join('\n\n');
-    const originId = current.thread.comments.nodes[0].databaseId;
-    if (!Number.isSafeInteger(originId) || originId <= 0) {
+    const rawOriginId = current.thread.comments.nodes[0].fullDatabaseId;
+    const originId = typeof rawOriginId === 'string' ? rawOriginId
+      : Number.isSafeInteger(rawOriginId) ? String(rawOriginId) : '';
+    if (!/^[1-9][0-9]*$/.test(originId) || BigInt(originId) > 18446744073709551615n) {
       throw new Error('Review thread lacks a verified original comment ID');
     }
     try {

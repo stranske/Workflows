@@ -66,7 +66,7 @@ test('source-owned reviewer reassessment supports stable generated lanes without
   const thread = {
     id: request.thread_id, isResolved: false, isOutdated: false,
     comments: { pageInfo: { hasNextPage: false }, nodes: [
-      { databaseId: 1234, author: { login: 'chatgpt-codex-connector[bot]' }, body: 'Please fix' },
+      { fullDatabaseId: '4294967297', author: { login: 'chatgpt-codex-connector[bot]' }, body: 'Please fix' },
     ] },
   };
   const comments = [];
@@ -79,7 +79,7 @@ test('source-owned reviewer reassessment supports stable generated lanes without
         get: async () => ({ data: pr }),
         merge: async () => { merges++; },
         createReplyForReviewComment: async ({ body, comment_id }) => {
-          assert.equal(comment_id, 1234);
+          assert.equal(comment_id, thread.comments.nodes[0].fullDatabaseId);
           posts++;
           const comment = { id: posts, body, created_at: '2026-09-24T22:00:00Z',
             html_url: `https://github.com/stranske/Ready/pull/592#discussion_r${posts}`,
@@ -101,7 +101,7 @@ test('source-owned reviewer reassessment supports stable generated lanes without
           ...thread, comments: { ...thread.comments, nodes: [
             ...thread.comments.nodes,
             ...comments.map((comment) => ({
-              databaseId: comment.id, body: comment.body, author: comment.user,
+              fullDatabaseId: String(comment.id), body: comment.body, author: comment.user,
               createdAt: comment.created_at, url: comment.html_url,
             })),
           ] },
@@ -168,12 +168,14 @@ test('source-owned reviewer reassessment supports stable generated lanes without
   thread.isResolved = true;
   await assert.rejects(runReviewReassessment(args), /absent or incomplete/);
   thread.isResolved = false;
-  const originalId = thread.comments.nodes[0].databaseId;
-  delete thread.comments.nodes[0].databaseId;
+  const originalId = thread.comments.nodes[0].fullDatabaseId;
+  delete thread.comments.nodes[0].fullDatabaseId;
   comments.length = 0;
   await assert.rejects(runReviewReassessment(args), /verified original comment ID/);
-  thread.comments.nodes[0].databaseId = originalId;
+  thread.comments.nodes[0].fullDatabaseId = '9007199254740993';
   await runReviewReassessment(args);
+  assert.match(comments[0].body, /No unrelated edits/);
+  thread.comments.nodes[0].fullDatabaseId = originalId;
   comments[0].user.login = 'untrusted';
   await runReviewReassessment(args);
   assert.equal(posts, 5, 'an untrusted marker is not a prior request');
