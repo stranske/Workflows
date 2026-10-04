@@ -682,7 +682,7 @@ def _split_diff_files(diff: str) -> list[tuple[str, str]]:
             index += 2
         return None
 
-    def normalized_path(raw: str) -> str | None:
+    def normalized_path(raw: str, *, strip_prefix: bool = True) -> str | None:
         value = raw.rstrip("\n").split("\t", 1)[0]
         if value == "/dev/null":
             return ""
@@ -691,7 +691,7 @@ def _split_diff_files(diff: str) -> list[tuple[str, str]]:
             if parsed is None or parsed[1].strip():
                 return None
             value = parsed[0]
-        return value[2:] if value.startswith(("a/", "b/")) else value
+        return value[2:] if strip_prefix and value.startswith(("a/", "b/")) else value
 
     def destination_from_git_header(line: str) -> str | None:
         payload = line.removeprefix("diff --git ").rstrip("\n")
@@ -739,6 +739,11 @@ def _split_diff_files(diff: str) -> list[tuple[str, str]]:
                     path = "__invalid_git_path__"
                 elif destination:
                     path = destination
+            elif line.startswith(("rename to ", "copy to ")):
+                # Git's metadata is repo-relative and unambiguous even when an
+                # unquoted header contains an embedded " b/" separator.
+                destination = normalized_path(line.split(" to ", 1)[1], strip_prefix=False)
+                path = destination if destination else "__invalid_git_path__"
     if current:
         files.append((path, "".join(current)))
     return files
@@ -1271,6 +1276,16 @@ def _required_evidence_channels(acceptance: str) -> set[str]:
                         requirement_text,
                         re.I,
                     )
+                    or re.search(
+                        r"\bartifacts?\b.{0,60}\b(?:uploaded|attached|published|posted|"
+                        r"recorded|captured|provided|included|documented)\b.{0,40}"
+                        r"\b(?:by|through|to|into|in|via)\b.{0,30}"
+                        r"\b(?:storage|database|data\s+store|object\s+store|bucket|"
+                        r"filesystem|file\s+system|ui|interface|application|users?|"
+                        r"service|worker|api|responses?|payloads?|return\s+values?)\b",
+                        requirement_text,
+                        re.I,
+                    )
                 )
                 artifact_delivery_into_pr = bool(
                     re.search(
@@ -1384,7 +1399,7 @@ def _required_evidence_channels(acceptance: str) -> set[str]:
             )
             explicit_comment_delivery = bool(
                 re.search(
-                    r"\b(?:post|publish|record|capture|provide|document)\w*\b"
+                    r"\b(?:attach|upload|include|post|publish|record|capture|provide|document)\w*\b"
                     r"(?:\s+\w+){0,10}\s+\b(?:pr comments?|pull request comments?)\b",
                     requirement_text,
                     re.I,

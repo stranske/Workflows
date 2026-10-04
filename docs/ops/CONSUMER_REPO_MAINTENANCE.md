@@ -2,6 +2,32 @@
 
 This document outlines the process for maintaining workflow system consistency across consumer repositories and debugging issues that may affect multiple repos.
 
+## Verifier canary review recovery
+
+Correct verifier findings in the Workflows source and copy-managed templates,
+then regenerate through Maint 68/71. An unsealed staging canary cannot be
+promoted merely because a reconciliation run completed successfully.
+
+For merged PRs, the context builder retrieves original first-commit metadata
+and uses the historical merge parent to anchor the local full diff. An unchanged
+rebase uses the original commit count to recover the full range; ambiguous
+partial rebases fail closed. The current API `base.sha` may already
+contain the head after merging or a later base advance. Missing commit metadata
+fails closed instead of replacing the range with an empty or bounded API patch.
+
+Coverage uses Git's `rename to`/`copy to` metadata for destination filenames with
+embedded ` b/` tokens. Explicit attach, upload, and include instructions naming
+a PR comment require comment evidence. Passive product uploads through a UI or
+by an application actor do not require GitHub workflow artifacts; a separate
+review-evidence instruction still applies.
+
+Regression gates: `python3 -m pytest tests/scripts/test_pr_verifier_prompt_coverage.py
+tests/scripts/test_pr_verifier_sync_manifest.py -q --no-cov` and
+`node --test .github/scripts/__tests__/agents-verifier-context.test.js`.
+The latter exercises real merge, squash, and rebase histories with a later base
+advance. Keep exact-head canary reviews and seals pending until the source fix
+has been merged and delivered; do not manually resolve consumer threads.
+
 ## Keepalive authority recovery
 
 Manifest-managed keepalive authority scripts preserve exact-attempt safety across
