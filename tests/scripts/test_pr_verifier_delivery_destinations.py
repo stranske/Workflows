@@ -130,8 +130,11 @@ def test_reverse_product_output_retains_explicit_comment_delivery(product, verb)
     [
         ("The reviewer must paste command output into a PR comment", "comments"),
         ("Evidence in the PR body is required", "body"),
+        ("Evidence in the PR body is not optional", "body"),
+        ("Command output must be provided in a PR comment by the service", "comments"),
         ("The API response must include links to supporting evidence", None),
         ("The service must provide command output to clients", None),
+        ("The service must write command output to clients", None),
     ],
 )
 @pytest.mark.parametrize("status", ["present", "absent", "unavailable"])
