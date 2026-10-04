@@ -2207,11 +2207,17 @@ def _evaluation_output_text(result: EvaluationResult) -> str:
             parts.append("Concerns:\n" + "\n".join(f"- {item}" for item in result.concerns))
         stale_pass = False
         if result.raw_content:
-            try:
-                raw_result = json.loads(result.raw_content)
-                stale_pass = isinstance(raw_result, dict) and raw_result.get("verdict") == "PASS"
-            except (ValueError, TypeError):
-                pass
+            decoder = json.JSONDecoder()
+            for index, char in enumerate(result.raw_content):
+                if char != "{":
+                    continue
+                try:
+                    raw_result, _ = decoder.raw_decode(result.raw_content, index)
+                except json.JSONDecodeError:
+                    continue
+                if isinstance(raw_result, dict) and raw_result.get("verdict") == "PASS":
+                    stale_pass = True
+                    break
         if result.raw_content and result.raw_content != result.summary and not stale_pass:
             parts.append(
                 "Raw model detail (prior to verdict post-processing):\n" + result.raw_content

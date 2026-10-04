@@ -1007,6 +1007,8 @@ storage is product behavior; separate reviewer deliveries remain mandatory.
 Product `links to the evidence` noun fields stay product fields. Non-PASS CLI
 and file text includes the final verdict, summary, structured concerns and
 distinct raw model detail, so concise summaries do not discard actionable gaps.
+Embedded structured PASS objects, including prose/code-fence wrappers after a
+failed schema repair, are not rendered as non-PASS diagnostic detail.
 These rules are source-owned and regression-tested before consumer regeneration.
 Product UI criteria that allow/enable/support users to upload artifacts likewise
 do not require workflow artifacts; separate PR-comment evidence remains required.

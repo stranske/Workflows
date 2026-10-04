@@ -99,6 +99,27 @@ def test_nonpass_text_retains_actionable_concerns_and_raw_detail(verdict):
     assert "Detailed model explanation" in text
 
 
+@pytest.mark.parametrize("wrapper", ["Here is the result:\n{}", "```json\n{}\n```"])
+def test_failed_repair_does_not_render_wrapped_stale_pass(monkeypatch, wrapper):
+    raw = wrapper.format('{"verdict": "PASS", "summary": "Unvalidated result"}')
+    monkeypatch.setattr(
+        verifier, "_build_verifier_repair_callback", lambda _client: lambda *_args: None
+    )
+    result = verifier._parse_llm_response(raw, "test-provider", client=object())
+    assert result.verdict == "CONCERNS"
+    assert result.error
+    text = verifier._evaluation_output_text(result)
+    assert text.startswith("Verdict: CONCERNS")
+    assert '"verdict": "PASS"' not in text
+
+
+@pytest.mark.parametrize("wrapper", ["Explanation:\n{}", "```json\n{}\n```"])
+def test_wrapped_nonpass_detail_is_preserved(wrapper):
+    raw = wrapper.format('{"verdict": "CONCERNS", "detail": "Missing exact-head witness"}')
+    result = verifier.EvaluationResult(verdict="CONCERNS", raw_content=raw)
+    assert "Missing exact-head witness" in verifier._evaluation_output_text(result)
+
+
 @pytest.mark.parametrize(
     "criterion",
     [
