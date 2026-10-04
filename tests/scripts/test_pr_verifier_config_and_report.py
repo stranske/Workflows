@@ -409,10 +409,12 @@ def test_the_output_file_receives_the_same_text_as_stdout(
 
 
 @pytest.mark.parametrize("verdict", ["CONCERNS", "FAIL"])
-def test_non_pass_output_preserves_parseable_terminal_verdict(verdict):
+@pytest.mark.parametrize("summary", ["Named regression failed.", None, ""])
+@pytest.mark.parametrize("raw_content", [None, "Malformed model output"])
+def test_non_pass_output_preserves_parseable_terminal_verdict(verdict, summary, raw_content):
     from scripts.langchain.verifier_config import artifact_from_verification_text
 
-    result = EvaluationResult(verdict=verdict, summary="Named regression failed.")
+    result = EvaluationResult(verdict=verdict, summary=summary, raw_content=raw_content)
     output = pr_verifier._evaluation_output_text(result)
     assert f"Verdict: {verdict}" in output
     artifact = artifact_from_verification_text(output)

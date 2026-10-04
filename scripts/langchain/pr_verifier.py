@@ -1705,8 +1705,9 @@ def _apply_coverage_floor(
 
 def _evaluation_output_text(result: EvaluationResult) -> str:
     """CLI/file text aligned with the structured verdict after post-processing."""
-    if result.verdict != "PASS" and result.summary:
-        return f"Verdict: {result.verdict}\n\n{result.summary}"
+    if result.verdict != "PASS":
+        body = result.summary or result.raw_content or ""
+        return f"Verdict: {result.verdict}\n\n{body}"
     return result.raw_content or result.summary or ""
 
 
