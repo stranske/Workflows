@@ -2310,3 +2310,9 @@ def test_product_capability_does_not_hide_distinct_reviewer_delivery(verb: str) 
         f"the reviewer {verb} a PR comment with test results"
     )
     assert pr_verifier._required_evidence_channels(f"- [ ] {criterion}") == {"comments"}
+
+
+@pytest.mark.parametrize("actor", ["reviewers", "the reviewer", "API reviewers"])
+def test_coordinated_capability_infinitive_remains_product_behavior(actor: str) -> None:
+    criterion = f"The API allows users to add PR comments and {actor} to post PR comments"
+    assert pr_verifier._required_evidence_channels(f"- [ ] {criterion}") == set()

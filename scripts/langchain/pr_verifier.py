@@ -1026,9 +1026,13 @@ def _required_evidence_channels(acceptance: str) -> set[str]:
         capability = bool(re.fullmatch(r"(?:allow|enable|support)\w*", operations[0][0], re.I))
         if capability and len(operations) > 1:
             between = prefix[operations[-2].end() : operations[-1].start()]
-            if re.search(r"\b(?:and|or)\s+(?:the\s+|an?\s+)?[\w-]+", between, re.I):
+            if re.search(
+                r"\b(?:and|or)\s+(?:the\s+|an?\s+)?[\w-]+", between, re.I
+            ) and not re.search(r"\bto\s*$", between, re.I):
                 # A coordinated clause with its own actor governs this object,
                 # even without a modal: "and the reviewer leaves a comment".
+                # "and reviewers to post" remains a shared capability
+                # complement of "allows", rather than a finite delivery.
                 capability = False
         operation = operations[0] if capability else operations[-1]
         subject = prefix[: operation.start()]
