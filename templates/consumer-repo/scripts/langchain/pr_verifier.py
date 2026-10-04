@@ -1043,12 +1043,23 @@ def _required_evidence_channels(acceptance: str) -> set[str]:
                 # earlier UI/API actor across "transcript that must be posted".
                 subject = re.split(r"\b(?:and|or|that|which|who)\b", between, flags=re.I)[-1]
         subject = re.split(product_auxiliary, subject, maxsplit=1, flags=re.I)[0]
+        # A participial modifier can qualify an already named actor, but an
+        # introductory "When using OAuth" precedes the actual actor. Never
+        # discard a later subject merely because the introduction uses a verb.
+        for qualifier in re.finditer(r"\b(?:using|testing|accessing|operating)\b", subject, re.I):
+            if re.search(
+                r"\b(?:reviewers?|maintainers?|authors?|operators?|ui|api|application|"
+                r"interface|service|cli|endpoint|renderer)\b",
+                subject[: qualifier.start()],
+                re.I,
+            ):
+                subject = subject[: qualifier.start()]
+                break
         # Relative/prepositional modifiers do not change the subject head:
         # "reviewer of the endpoint" is human; "endpoint used by reviewers"
         # is a product. Introductory words need no arbitrary length ceiling.
         subject = re.split(
-            r"\b(?:of|that|which|who|using|testing|accessing|operating|"
-            r"(?:used|operated|provided|managed)\s+by)\b",
+            r"\b(?:of|that|which|who|" r"(?:used|operated|provided|managed)\s+by)\b",
             subject,
             maxsplit=1,
             flags=re.I,

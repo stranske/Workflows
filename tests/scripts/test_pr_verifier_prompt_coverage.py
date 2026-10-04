@@ -2333,3 +2333,13 @@ def test_actor_scoped_negated_delivery_is_not_required(negation: str, verb: str)
     assert pr_verifier._required_evidence_channels(
         f"- [ ] {criterion}; the maintainer must post a PR comment"
     ) == {"comments"}
+
+
+@pytest.mark.parametrize(
+    "qualifier", ["using OAuth", "testing OAuth", "accessing storage", "operating offline"]
+)
+@pytest.mark.parametrize("actor", ["API", "endpoint", "reviewer", "maintainer"])
+def test_introductory_qualifier_preserves_actual_subject(qualifier: str, actor: str) -> None:
+    criterion = f"When {qualifier} the {actor} must post a PR comment in its response"
+    expected = set() if actor in {"API", "endpoint"} else {"comments"}
+    assert pr_verifier._required_evidence_channels(f"- [ ] {criterion}") == expected
