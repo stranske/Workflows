@@ -1773,21 +1773,41 @@ for (const hidden of ['<!--\n- [ ] Hidden comment\n-->\n', '```markdown\n- [ ] F
 }
 
 test('resolveNonIssueWorkflowSourceContextForBodySync keeps a declared workflow-source over relation wording', () => {
-  for (const relation of ['left to issue #123', 'Related to #123', 'Refs #123', 'References issue #123', 'source issue #123', 'Issue #123', '> **Source:** Issue #123']) {
+  for (const relation of [
+    'left to issue #123',
+    'keepalive on issue #123',
+    'Related to #123',
+    'Refs #123',
+    'References issue #123',
+    'source issue #123',
+    'Issue #123',
+    '> **Source:** Issue #123',
+    '<!-- meta:related-issue:123 -->',
+  ]) {
     const body = `<!-- workflow-source:local_request -->\n${relation}`;
     assert.equal(resolveNonIssueWorkflowSourceContextForBodySync({ body }, 123).sourceType, 'local_request');
-    for (const intent of ['Closes #123', '<!-- meta:issue:123 -->']) {
+    assert.equal(resolveNonIssueWorkflowSourceContextForBodySync({
+      body: '<!-- workflow-source:local_request -->', title: relation,
+    }, 123).sourceType, 'local_request');
+    for (const intent of ['Closes #123', 'Fixes issue #123', 'Resolves #123', '<!-- meta:issue:123 -->']) {
       assert.equal(resolveNonIssueWorkflowSourceContextForBodySync({ body: `${body}\n${intent}` }, 123), null);
+      assert.equal(resolveNonIssueWorkflowSourceContextForBodySync({ body, title: intent }, 123), null);
+      assert.equal(resolveNonIssueWorkflowSourceContextForBodySync({
+        body: `${body}\n${intent}`,
+      }, 456).sourceType, 'local_request');
     }
   }
 });
 
 test('buildPreamble writes a non-closing link for a relation-derived source issue', () => {
-  for (const via of ['mention', 'title']) {
-    const body = buildPreamble({ issueNumber: 123, via });
-    assert.match(body, /Related to #123/);
-    assert.match(body, /<!-- meta:related-issue:123 -->/);
-    assert.doesNotMatch(body, /Closes #123|<!-- meta:issue:123 -->/);
+  for (const sourceIssue of [undefined, { labels: [{ name: 'campaign:active' }] }]) {
+    for (const via of ['mention', 'title']) {
+      const body = buildPreamble({ issueNumber: 123, via, sourceIssue });
+      assert.match(body, /Related to #123/);
+      assert.match(body, /<!-- meta:related-issue:123 -->/);
+      assert.match(body, /> \*\*Source:\*\* Issue #123/);
+      assert.doesNotMatch(body, /Closes #123|<!-- meta:issue:123 -->/);
+    }
   }
   for (const via of ['meta', 'closing', 'branch']) {
     const body = buildPreamble({ issueNumber: 123, via });
@@ -1803,6 +1823,8 @@ test('a relation-sourced PR stays non-closing across two body syncs', async () =
     base: { ref: 'main' }, labels: [],
   };
   const bodies = [];
+  const fetchedIssues = [];
+  let issueBody = '## Scope\nA local fix\n\n## Tasks\n- [ ] Fix the named behavior\n\n## Acceptance Criteria\n- [ ] Named regression passes';
   const failures = [];
   const github = {
     paginate: async () => [],
@@ -1812,7 +1834,10 @@ test('a relation-sourced PR stays non-closing across two body syncs', async () =
         update: async ({ body }) => { pull.body = body; bodies.push(body); },
       },
       issues: {
-        get: async () => ({ data: { body: '## Scope\nA local fix\n\n## Tasks\n- [ ] Fix the named behavior\n\n## Acceptance Criteria\n- [ ] Named regression passes', labels: [] } }),
+        get: async ({ issue_number }) => {
+          fetchedIssues.push(issue_number);
+          return { data: { body: issueBody, labels: [] } };
+        },
         listComments: async () => ({ data: [] }),
       },
       actions: {
@@ -1828,9 +1853,13 @@ test('a relation-sourced PR stays non-closing across two body syncs', async () =
   const args = { github, core, inputs: {}, context: { repo: { owner: 'octo', repo: 'demo' }, eventName: 'pull_request', payload: { pull_request: { number: 55, head: { sha: 'abc123' } } } } };
   await run(args);
   const firstBody = pull.body;
+  issueBody = issueBody.replace('A local fix', 'Updated issue scope for the second sync');
   await run(args);
   assert.deepEqual(failures, []);
-  assert.ok(bodies.length >= 1, 'the real run must update the body');
+  assert.deepEqual(fetchedIssues, [123, 123], 'both runs must fetch the same related issue');
+  assert.equal(bodies.length, 2, 'both runs must write synchronized issue content');
+  assert.notEqual(firstBody, pull.body);
+  assert.match(pull.body, /Updated issue scope for the second sync/);
   for (const body of [firstBody, pull.body]) {
     assert.match(body, /<!-- meta:related-issue:123 -->/);
     assert.match(body, /Related to #123/);

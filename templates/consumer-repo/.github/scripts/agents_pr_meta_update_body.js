@@ -1156,21 +1156,21 @@ function resolveNonIssueWorkflowSourceContextForBodySync(pr = {}, issueNumber = 
   if (!explicitNonIssueSourceContext) {
     return null;
   }
-  const explicitIssueSyncNumbers = new Set();
+  const closingIntentNumbers = new Set();
   for (const text of [pr.title, pr.body]) {
     for (const number of extractClosingIssueNumbersFromText(text)) {
-      explicitIssueSyncNumbers.add(number);
+      closingIntentNumbers.add(number);
     }
     for (const match of String(text || '').matchAll(/<!--\s*meta:issue:([0-9]+)\s*-->/gi)) {
-      explicitIssueSyncNumbers.add(Number.parseInt(match[1], 10));
+      closingIntentNumbers.add(Number.parseInt(match[1], 10));
     }
   }
   const targetIssueNumber = Number.parseInt(issueNumber, 10);
   if (
-    explicitIssueSyncNumbers.size > 0 &&
+    closingIntentNumbers.size > 0 &&
     (!Number.isFinite(targetIssueNumber) ||
       targetIssueNumber <= 0 ||
-      explicitIssueSyncNumbers.has(targetIssueNumber))
+      closingIntentNumbers.has(targetIssueNumber))
   ) {
     return null;
   }
@@ -1217,14 +1217,13 @@ function buildPreamble(sections) {
   if (sections.issueNumber) {
     // Omitted provenance keeps the legacy helper API's closing behavior.
     const relationOnly = ['mention', 'title'].includes(sections.via);
-    const marker = relationOnly && !isCampaignIssue(sections.sourceIssue)
-      ? 'meta:related-issue' : 'meta:issue';
+    const marker = relationOnly ? 'meta:related-issue' : 'meta:issue';
     lines.push(`<!-- ${marker}:${sections.issueNumber} -->`);
     lines.push(`> **Source:** Issue #${sections.issueNumber}`, '');
-    if (isCampaignIssue(sections.sourceIssue)) {
-      lines.push(`Related to campaign issue #${sections.issueNumber}`, '');
-    } else if (relationOnly) {
+    if (relationOnly) {
       lines.push(`Related to #${sections.issueNumber}`, '');
+    } else if (isCampaignIssue(sections.sourceIssue)) {
+      lines.push(`Related to campaign issue #${sections.issueNumber}`, '');
     } else {
       lines.push(`Closes #${sections.issueNumber}`, '');
     }
