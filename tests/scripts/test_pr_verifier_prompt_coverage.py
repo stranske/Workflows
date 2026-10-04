@@ -1847,7 +1847,9 @@ def test_product_noun_exclusion_does_not_erase_later_link_predicate() -> None:
 
 @pytest.mark.parametrize("path", ["note (added)", "note (deleted)", "old -> literal (added)"])
 @pytest.mark.parametrize("status", ["", " (added)", " (deleted)"])
-def test_summary_encoded_destination_preserves_literal_status_suffix(path: str, status: str) -> None:
+def test_summary_encoded_destination_preserves_literal_status_suffix(
+    path: str, status: str
+) -> None:
     summary = (
         "## PR Diff Summary\n\n### File changes\n"
         f"- {path}{status} (+1/-1) <!-- verifier-file-path:v1 {json.dumps(path)} -->\n"
