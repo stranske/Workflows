@@ -1015,6 +1015,22 @@ def _required_evidence_channels(acceptance: str) -> set[str]:
         re.I,
     )
 
+    def body_delivery(text: str) -> bool:
+        """Require an affirmative body destination, not a residual negated noun."""
+        return bool(
+            re.search(
+                r"\b(?:include|attach|provide|publish|post|record|capture|document|add|show)\w*\b\s+"
+                r"(?:(?!\bnot\b)[\w/,-]+\s+){0,16}"
+                r"(?:in|into|to|within)\s+(?:[\w/,-]+\s+){0,8}(?:pr|pull request)\s+body\b"
+                r"|\b(?:pr|pull request)\s+body\s+(?:" + mandatory_auxiliary + r")\s+"
+                r"(?:include|contain|show|provide|have)\w*\b"
+                r"|\b(?:pr|pull request)\s+body\s+(?:(?:is|are)\s+)?"
+                r"(?:required|needed|mandatory)\b",
+                text,
+                re.I,
+            )
+        )
+
     def remaining_delivery(text: str) -> bool:
         # Product object-field nouns are not requests to deliver evidence.
         actions = re.sub(
@@ -1435,6 +1451,17 @@ def _required_evidence_channels(acceptance: str) -> set[str]:
                 )
                 resolved_antecedent = clause_evidence_antecedent
             gate = bool(negative_gate.search(working_line))
+            if not gate:
+                working_line = re.sub(
+                    r"\b(?:pr|pull request)\s+body\s+"
+                    r"(?:(?:must|shall|may|should|can)\s+not|"
+                    r"(?:does|do|did)\s+not\s+(?:need|have)\s+to)\s+"
+                    r"(?:include|contain|show|provide|have)\w*\s+"
+                    r"(?:(?:the|an?|any)\s+)?(?:evidence|artifacts?|transcripts?|command outputs?)\b",
+                    " ",
+                    working_line,
+                    flags=re.I,
+                )
             requirement_text = working_line if gate else evidence_prohibition.sub(" ", working_line)
             # An optional evidence noun can be the object of a mandatory
             # explanation (for example, "a PR comment must explain why
@@ -1449,6 +1476,15 @@ def _required_evidence_channels(acceptance: str) -> set[str]:
                 flags=re.I,
             )
             if not evidence_term.search(requirement_text):
+                continue
+            non_body_terms = re.sub(
+                r"\b(?:pr|pull request)\s+body\b", " ", requirement_text, flags=re.I
+            )
+            if (
+                not gate
+                and not evidence_term.search(non_body_terms)
+                and not body_delivery(requirement_text)
+            ):
                 continue
             checklist = criterion_checklist
             bullet = criterion_bullet
@@ -1786,7 +1822,9 @@ def _required_evidence_channels(acceptance: str) -> set[str]:
                     re.I,
                 )
             )
-            explicit_body_delivery = bool(re.search(r"\b(?:pr|pull request)\s+body\b", lower))
+            explicit_body_delivery = body_delivery(requirement_text) or (
+                gate and bool(re.search(r"\b(?:pr|pull request)\s+body\b", lower))
+            )
             # Consume one product persistence operation and its immediate
             # storage destination, not later reviewer delivery predicates.
             storage_operation = re.compile(

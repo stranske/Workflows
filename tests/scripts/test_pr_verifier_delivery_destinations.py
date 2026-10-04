@@ -97,3 +97,21 @@ def test_nonpass_text_retains_actionable_concerns_and_raw_detail(verdict):
     assert "Short summary" in text
     assert "Missing exact-head witness" in text
     assert "Detailed model explanation" in text
+
+
+@pytest.mark.parametrize(
+    "criterion",
+    [
+        "The PR body must not include evidence",
+        "The pull request body shall not include evidence",
+        "Evidence must not be included in the PR body",
+        "The PR body is not required",
+        "The PR body does not need to include evidence",
+    ],
+)
+def test_negated_body_delivery_does_not_require_evidence(criterion):
+    assert verifier._required_evidence_channels("- [ ] " + criterion) == set()
+    channels = verifier._required_evidence_channels(
+        "- [ ] " + criterion + "; include evidence in a PR comment"
+    )
+    assert channels == {"comments"}
