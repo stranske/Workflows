@@ -1044,6 +1044,8 @@ def _required_evidence_channels(acceptance: str) -> set[str]:
         operation = (
             r"(?:"
             + exclusion_operation
+            + "|"
+            + response_operation
             + r"|include\w*|contain\w*|attach\w*|provide\w*|publish\w*|post\w*|record\w*|capture\w*|document\w*|add\w*|show\w*|store\w*|have|left|leave\w*)\b"
         )
         auxiliary = (
@@ -2056,11 +2058,14 @@ def _required_evidence_channels(acceptance: str) -> set[str]:
                 lower = requirement_text.lower()
             # Record aliases are product output only with an immediate bounded
             # product recipient, never merely because the actor is a service.
+            product_recipient = (
+                r"(?:to|for)\s+(?:(?:all|any|some|each|every)\s+)?"
+                r"(?:(?:the|its|our|their|your|an?)\s+)?(?:clients?|users?|consumers?)\b"
+            )
             product_output_operation = (
                 r"(?:return|display|show|store|emit|render|expose|provide)\w*\b|"
                 r"record\w*\b(?=\s+(?:(?:the|an?)\s+)?"
-                r"(?:command outputs?|transcripts?|evidence)\s+(?:to|for)\s+"
-                r"(?:clients?|users?|consumers?)\b)"
+                r"(?:command outputs?|transcripts?|evidence)\s+" + product_recipient + ")"
             )
             product_output_prefix = re.compile(
                 r"^\s*(?:[-*]\s*(?:\[[ xX]\]\s*)?)?"
@@ -2084,7 +2089,9 @@ def _required_evidence_channels(acceptance: str) -> set[str]:
                     r"\b(?:command outputs?|transcripts?)\b.{0,60}"
                     + "(?:"
                     + product_output_operation
-                    + r"|record\w*\b(?=\s+(?:to|for)\s+(?:clients?|users?|consumers?)\b)"
+                    + r"|record\w*\b(?=\s+"
+                    + product_recipient
+                    + ")"
                     + ")"
                     + r".{0,60}"
                     r"\b(?:ui|api|application|interface|service|cli|endpoint|renderer)\b",

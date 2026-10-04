@@ -249,6 +249,34 @@ def test_product_persistence_does_not_require_review_evidence(operation, actor):
     assert verifier._required_evidence_channels(
         "- [ ] " + criterion + "; leave a PR comment with command output"
     ) == {"comments"}
+
+
+@pytest.mark.parametrize("operation", ["return", "display", "emit", "render", "expose"])
+def test_product_delivery_operations_share_the_body_channel(operation):
+    criterion = f"The service must {operation} evidence in the PR body"
+    assert verifier._required_evidence_channels(criterion) == {"body"}
+    assert (
+        verifier._required_evidence_channels(
+            f"The service must not {operation} evidence in the PR body"
+        )
+        == set()
+    )
+    assert verifier._required_evidence_channels(
+        criterion + "; record command output in a PR comment"
+    ) == {"body", "comments"}
+
+
+@pytest.mark.parametrize("determiner", ["the", "its", "our", "all the", "all its"])
+@pytest.mark.parametrize("recipient", ["clients", "users", "consumers"])
+def test_forward_and_reverse_record_share_determined_recipients(determiner, recipient):
+    for criterion in [
+        f"The service must write command output to {determiner} {recipient}",
+        f"Command output is written to {determiner} {recipient} by the service",
+    ]:
+        assert verifier._required_evidence_channels(criterion) == set()
+        assert verifier._required_evidence_channels(
+            criterion + "; record command output in a PR comment"
+        ) == {"comments"}
     assert (
         verifier._required_evidence_channels(
             f"- [ ] The {actor} must {operation} transcripts in the PR"

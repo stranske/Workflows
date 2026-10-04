@@ -1040,6 +1040,11 @@ prohibited pronoun clauses; product-only UI artifact display remains exempt.
 Non-modal prohibitions (`Evidence is not written`, `Never write evidence`) retain
 their polarity after alias normalization. Reverse product-output matching binds
 record/write/paste to the recipient after the verb, not a second object noun.
+Body delivery uses the same response-operation vocabulary as product delivery:
+return/display/emit/render/expose evidence in the PR body is a body obligation.
+Forward and reverse product delivery share recipient grammar, including determined
+recipients such as `the clients`, `its users`, and `all its consumers`; an
+independent reviewer-comment obligation remains required.
 The four fresh canary findings are tested through the actual coverage floor with
 present, absent and unavailable evidence plus independent reviewer-delivery controls.
 
