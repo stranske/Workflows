@@ -1062,7 +1062,7 @@ def _required_evidence_channels(acceptance: str) -> set[str]:
         r"(?P<alias>\b(?:paste|pastes|pasted|pasting|write|writes|written|writing|wrote)\b)"
         r"(?=\s+(?:(?:the|an?|any|before/after|failing|passing|supporting|validation|workflow|exact-head|execution|test|review|collected|recorded)\s+){0,4}"
         r"(?:evidence|artifacts?|transcripts?|command outputs?|pr comments?|pull request comments?)\b"
-        r"|\s+" + destination_preposition + delivery_destination_item + r")",
+        r"|\s+" + destination_preposition + r"(?:both\s+)?" + delivery_destination_item + r")",
         normalize_record_alias,
         acceptance,
         flags=re.I,
@@ -1494,7 +1494,7 @@ def _required_evidence_channels(acceptance: str) -> set[str]:
     evidence_prohibition = re.compile(
         r"\b(?:evidence|artifacts?|transcripts?|command outputs?)\s+"
         r"(?:has|have|had|can|could|would|will|should|may|must|shall)\s+(?:not|never)\s+"
-        r"(?:been|be)\s+(?:being\s+)?" + delivery_operation + r"|"
+        r"(?:been|be)\s+(?:(?:being|\w+ly)\s+)*" + delivery_operation + r"|"
         r"\b(?:"
         + mandatory_auxiliary
         + r"|may|should|can|do|does|did)\s+(?:not|never)\s+(?:be\s+)?"
@@ -1805,6 +1805,9 @@ def _required_evidence_channels(acceptance: str) -> set[str]:
             optional_evidence = bool(
                 re.search(
                     r"\boptional(?:ly)?\b|"
+                    r"\b(?:may|can|could|should)\s+(?:(?:be|have\s+been|\w+ly)\s+){0,3}"
+                    + delivery_operation
+                    + r"|"
                     r"\b(?:if|when)\s+(?:produced|available|present|uploaded|generated)\b",
                     requirement_text,
                     re.I,

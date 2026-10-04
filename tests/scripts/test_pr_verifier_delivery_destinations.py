@@ -807,7 +807,15 @@ def test_positive_modified_artifact_delivery_survives_product_shortcut(modifier)
 
 
 @pytest.mark.parametrize(
-    "passive", ["has not been written", "had never been pasted", "can not be written"]
+    "passive",
+    [
+        "has not been written",
+        "had never been pasted",
+        "can not be written",
+        "has not been freshly written",
+        "had never been previously pasted",
+        "can not be manually written",
+    ],
 )
 def test_perfect_and_modal_passive_aliases_preserve_prohibition(passive):
     criterion = f"Evidence {passive} in a PR comment"
@@ -831,3 +839,27 @@ def test_coordinated_evidence_object_inherits_governing_delivery(destination, ch
         )
         == set()
     )
+
+
+@pytest.mark.parametrize("participle", ["written", "pasted"])
+def test_alias_and_shared_destination_grammar_preserve_both_prefix(participle):
+    assert verifier._required_evidence_channels(
+        f"Evidence must be {participle} in both the PR body and a PR comment"
+    ) == {"body", "comments"}
+    assert (
+        verifier._required_evidence_channels(
+            f"Evidence must not be {participle} in both the PR body and a PR comment"
+        )
+        == set()
+    )
+
+
+@pytest.mark.parametrize("modal", ["may", "can", "should"])
+@pytest.mark.parametrize("operation", ["write", "paste"])
+@pytest.mark.parametrize("destination", ["a PR comment", "workflow artifacts", "the PR body"])
+def test_optional_delivery_modal_does_not_become_a_mandatory_alias(modal, operation, destination):
+    criterion = f"The reviewer {modal} {operation} evidence in {destination}"
+    assert verifier._required_evidence_channels(criterion) == set()
+    assert verifier._required_evidence_channels(
+        criterion + "; include evidence in a PR comment"
+    ) == {"comments"}

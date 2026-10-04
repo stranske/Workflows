@@ -1075,10 +1075,15 @@ shared response operations; bare product-comment storage remains exempt. Modal
 `must not be optional` uses the same mandatory-auxiliary grammar as preposed body
 requirements. Destination-bound object modifiers are bounded tokens that exclude
 new predicates and conjunctions, not an independently growing adjective list.
-Perfect/modal passive prohibitions retain polarity after alias normalization.
+Perfect/modal passive prohibitions retain polarity after alias normalization,
+including intervening adverbs admitted by the alias grammar.
 An `and`-coordinated bare evidence object with a bounded review destination
 inherits the previous delivery predicate (including negation); independent
 finite predicates and semicolon-separated clauses do not inherit it.
+Alias destination normalization accepts the same `both` prefix as coordinated
+destination recognition. Optional delivery modals (`may`, `can`, `could`,
+`should`) do not become hard evidence obligations after alias normalization;
+independent required clauses retain their own channels.
 The four fresh canary findings are tested through the actual coverage floor with
 present, absent and unavailable evidence plus independent reviewer-delivery controls.
 
