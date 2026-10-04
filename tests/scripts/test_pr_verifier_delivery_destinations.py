@@ -804,3 +804,30 @@ def test_positive_modified_artifact_delivery_survives_product_shortcut(modifier)
         )
         == set()
     )
+
+
+@pytest.mark.parametrize(
+    "passive", ["has not been written", "had never been pasted", "can not be written"]
+)
+def test_perfect_and_modal_passive_aliases_preserve_prohibition(passive):
+    criterion = f"Evidence {passive} in a PR comment"
+    assert verifier._required_evidence_channels(criterion) == set()
+    assert verifier._required_evidence_channels(
+        criterion + "; include evidence in the PR body"
+    ) == {"body"}
+
+
+@pytest.mark.parametrize(
+    "destination,channel",
+    [("workflow artifacts", "artifacts"), ("a PR comment", "comments"), ("the PR body", "body")],
+)
+def test_coordinated_evidence_object_inherits_governing_delivery(destination, channel):
+    assert verifier._required_evidence_channels(
+        f"The service must provide command output to clients and evidence in {destination}"
+    ) == {channel}
+    assert (
+        verifier._required_evidence_channels(
+            f"The service must not provide command output to clients and evidence in {destination}"
+        )
+        == set()
+    )

@@ -980,6 +980,7 @@ def _required_evidence_channels(acceptance: str) -> set[str]:
     response_operation = (
         r"(?:include|contain|have|return|display|show|store|emit|render|expose|provide)\w*\b"
     )
+    delivery_operation = r"(?:provide|return|display|show|emit|render|expose|store|upload|attach|publish|post|record|capture|include|document)\w*\b"
     mandatory_auxiliary = (
         r"(?:(?:must|shall|needs?\s+to)|"
         r"(?:(?:is|are)\s+)?(?:required|needed|mandated|expected|supposed|obliged)\s+to|"
@@ -1491,6 +1492,9 @@ def _required_evidence_channels(acceptance: str) -> set[str]:
         )
 
     evidence_prohibition = re.compile(
+        r"\b(?:evidence|artifacts?|transcripts?|command outputs?)\s+"
+        r"(?:has|have|had|can|could|would|will|should|may|must|shall)\s+(?:not|never)\s+"
+        r"(?:been|be)\s+(?:being\s+)?" + delivery_operation + r"|"
         r"\b(?:"
         + mandatory_auxiliary
         + r"|may|should|can|do|does|did)\s+(?:not|never)\s+(?:be\s+)?"
@@ -1674,6 +1678,31 @@ def _required_evidence_channels(acceptance: str) -> set[str]:
         for part_index in range(0, len(split_parts), 2):
             fragment = split_parts[part_index]
             boundary = split_parts[part_index - 1] if part_index else ""
+            if (
+                fragments
+                and re.fullmatch(r"\s*,?\s*and\s+", boundary, re.I)
+                and re.fullmatch(
+                    r"\s*(?:(?!(?:and|or|but|must|shall|is|are|not|never)\b)[\w/-]+\s+){0,4}"
+                    r"(?:evidence|artifacts?|transcripts?|command outputs?)\s+"
+                    + bound_review_destinations
+                    + r"\s*[.!]?\s*",
+                    fragment,
+                    re.I,
+                )
+            ):
+                predicates = list(
+                    re.finditer(
+                        r"\b(?P<predicate>(?:"
+                        + mandatory_auxiliary
+                        + r"\s+)?(?:(?:not|never)\s+)?"
+                        + delivery_operation
+                        + r")\s+",
+                        fragments[-1],
+                        re.I,
+                    )
+                )
+                if predicates:
+                    fragment = predicates[-1]["predicate"] + " " + fragment.lstrip()
             if (
                 fragments
                 and re.fullmatch(r"\s*(?:,\s*(?:(?:and|or)\s*)?|(?:and|or)\s*)", boundary, re.I)
@@ -1865,7 +1894,6 @@ def _required_evidence_channels(acceptance: str) -> set[str]:
                 if not evidence_term.search(requirement_text):
                     continue
             lower = requirement_text.lower()
-            delivery_operation = r"(?:provide|return|display|show|emit|render|expose|store|upload|attach|publish|post|record|capture|include|document)\w*\b"
             delivery_object = r"(?:command outputs?|transcripts?|artifacts?|evidence)\b"
             # Bind the destination to the immediate positive delivery object,
             # not a later prohibited pronoun clause such as 'do not attach it'.
