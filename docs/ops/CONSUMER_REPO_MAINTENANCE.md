@@ -846,7 +846,8 @@ repair proves a finding obsolete on the current generated head, an authenticated
 operator may pass `review_resolution_json` to Maint 71.
 Bot authorship and a manifest-synced path alone never authorize Maint 71 to
 auto-resolve a finding. A bot finding on generated content stays blocked for
-Workflows-source repair, regeneration and originating-reviewer disposition;
+Workflows-source repair, regeneration and originating-reviewer disposition
+or the explicitly enabled independent finding-verification fallback below;
 sealing or a passing Gate is not evidence of reviewer satisfaction.
 
 Each `workflows-sync-review-resolution/v1` proof names one thread, PR, exact head,
@@ -860,6 +861,55 @@ thread that branch protection still treats as unresolved; that path does not
 waive the zero active non-outdated thread requirement for ordinary merge
 eligibility. A source fix without this exact proof, a later candidate plan, or a
 passing Gate never resolves the current PR's review debt.
+
+### Independent automated finding-verification fallback
+
+After one targeted reassessment completes without explicit finding disposition,
+do not turn repeated generic reviews into a two-hour wait loop. An authorized
+source owner may obtain a separate, read-only finding assessment through the
+shared model-allocation ledger and publish its completed result on the delivery
+record's durable Workflows issue. This is an owner attestation of an independent
+assessment, not an originating-bot response; its authority comes from the explicit
+fallback policy. A human reply in a consumer review thread is not required.
+
+The owner must read the actual assessor result, confirm complete current-head
+evidence and finding-specific PASS, retain the receipt/result and their SHA-256,
+and preserve regression command results plus deliberate pre-fix failure proof.
+UNKNOWN, interrupted, partial, generic clean reviews, source-wide CI alone,
+or an assessment of a different head may never be published as acceptance.
+Publish one result per finding with a single hidden
+`maint71-finding-verification:v1` JSON marker whose schema is
+`workflows-sync-finding-verification/v1`. It binds repository, numeric PR,
+head, thread, original finding-body SHA-256, plan, generation, delivery source,
+contained source fix, merged source evidence URL and originating reviewer.
+It records `verdict=PASS`, `status=completed`, `coverage=complete`,
+`verifier_profile`, `assessment_id`, `result_sha256`, `completed_at`,
+a substantive rationale, the existing targeted request URL and originating
+completion URL, and nonempty `validation` entries containing command,
+`exit_code=0` and `negative_control=failed-before-fix`.
+
+Pass the normal resolution proof with
+`acceptance_mode=independent-verification` and
+`reviewer_acceptance_url=<durable-issue>#issuecomment-<id>`. Maint 71 fetches
+that actual comment; it checks the configured trusted publisher and verifier
+profile, exact complete binding, request and same-head originating completion,
+chronological order and a 24-hour freshness limit. Both review-thread connections
+and each thread's comments are cursor-paginated to completion. Stock top-level
+completion comments are collected through the paginated issue-comment API; their
+short reviewed-commit references must resolve through GitHub to the exact full
+head, rather than merely matching its prefix. Missing, duplicate, forged,
+stale, incomplete or non-PASS results fail closed. New originating feedback after
+the assessment invalidates it. Immediately before resolution Maint 71 re-reads
+the PR head, lease, source/plan and complete thread inventory, fetches the current
+attestation again (including publisher withdrawal or deletion), and validates again.
+Only Maint 71 resolves generated threads. Successful resolution still cannot
+waive exact-head checks, the seven-minute review floor, canary staging, sealing,
+promotion or full-fleet/Health 83 evidence.
+
+The operator continues through those owning stages in the same run when evidence
+becomes ready; the recurring two-hour schedule is recovery, not the normal
+continuation mechanism. A failed assessment causes a concrete repair or explicit
+UNKNOWN checkpoint, never a fabricated acceptance or another generic review loop.
 
 When verifier runs collect acceptance evidence, empty or whitespace-only review bodies
 must not count as PR-comment evidence. Single-provider non-PASS text/file output
