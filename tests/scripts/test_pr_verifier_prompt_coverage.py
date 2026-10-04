@@ -2495,8 +2495,14 @@ def test_include_operation_retains_explicit_review_destination() -> None:
 
 @pytest.mark.parametrize("actor", ["API", "endpoint", "service"])
 @pytest.mark.parametrize("check", ["verify", "check", "assert"])
-def test_reviewers_product_check_uses_nested_governing_subject(actor: str, check: str) -> None:
-    criterion = f"The reviewer must {check} that the {actor} includes PR comments in its response"
+@pytest.mark.parametrize("complementizer", ["that ", "whether ", ""])
+def test_reviewers_product_check_uses_nested_governing_subject(
+    actor: str, check: str, complementizer: str
+) -> None:
+    criterion = (
+        f"The reviewer must {check} {complementizer}the {actor} "
+        "includes PR comments in its response"
+    )
     assert pr_verifier._required_evidence_channels(f"- [ ] {criterion}") == set()
     assert pr_verifier._required_evidence_channels(
         f"- [ ] {criterion}; the reviewer must post a PR comment with results"
@@ -2506,6 +2512,15 @@ def test_reviewers_product_check_uses_nested_governing_subject(actor: str, check
 def test_relative_clause_does_not_replace_outer_reviewer_subject() -> None:
     assert pr_verifier._required_evidence_channels(
         "- [ ] The reviewer that the API manages must post a PR comment with results"
+    ) == {"comments"}
+
+
+@pytest.mark.parametrize("check", ["verify", "check", "assert"])
+@pytest.mark.parametrize("complementizer", ["that ", "whether ", ""])
+def test_nested_human_delivery_retains_comments(check: str, complementizer: str) -> None:
+    assert pr_verifier._required_evidence_channels(
+        f"- [ ] The reviewer must {check} {complementizer}the maintainer "
+        "posts a PR comment with results"
     ) == {"comments"}
 
 

@@ -930,6 +930,8 @@ Fronted adjunct extraction is a partial recognizer: the entire discarded span mu
 match a supported complete construction before choosing the governing subject.
 Unsupported or ambiguous introductions retain the evidence floor and cannot fall
 through to a last-product-noun exemption, including unlisted human subject roles.
+Reviewer verify/check/assert clauses use their nested operation's subject with or
+without an explicit `that`/`whether`; a nested human delivery still requires comments.
 Negated delivery never removes a separate mandatory clause. Diff hunk contents cannot
 replace path metadata. Instructions to add
 or leave a PR comment, including passive command-output requirements in that comment,

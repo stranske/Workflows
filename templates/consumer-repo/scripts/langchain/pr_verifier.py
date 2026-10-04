@@ -1043,7 +1043,8 @@ def _required_evidence_channels(acceptance: str) -> set[str]:
                 # earlier UI/API actor across "transcript that must be posted".
                 subject = re.split(r"\b(?:and|or|that|which|who)\b", between, flags=re.I)[-1]
         nested_subject = re.search(
-            r"\b(?:that|whether)\s+(?P<subject>(?:(?:the|an?)\s+)?"
+            r"\b(?:that|whether|(?:verify|check|assert)(?:\s+(?:that|whether))?)"
+            r"\s+(?P<subject>(?:(?:the|an?)\s+)?"
             r"(?:[\w-]+\s+)*?(?:ui|api|application|interface|service|cli|endpoint|renderer|"
             r"reviewers?|maintainers?|authors?|operators?))\s+(?:" + product_auxiliary + r")?\s*$",
             subject,
