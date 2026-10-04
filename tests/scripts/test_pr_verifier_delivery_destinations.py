@@ -9,9 +9,10 @@ from scripts.langchain import pr_verifier as verifier
 
 @pytest.mark.parametrize("modal", ["must", "shall", "needs to"])
 def test_existential_comment_requirement(modal):
-    assert verifier._required_evidence_channels(
+    channels = verifier._required_evidence_channels(
         f"- [ ] There {modal} be a PR comment with command output"
-    ) == {"comments"}
+    )
+    assert channels == {"comments"}
 
 
 @pytest.mark.parametrize("operation", ["record", "capture", "attach", "generate"])
