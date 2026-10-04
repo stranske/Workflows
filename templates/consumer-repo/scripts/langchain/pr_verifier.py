@@ -1520,7 +1520,10 @@ def _required_evidence_channels(acceptance: str) -> set[str]:
                 response_object = re.sub(
                     r"^\s+(?:(?:the|a|an)\s+)?(?:links?|records?)"
                     r"(?:\s+(?:and|or)\s+(?:links?|records?))*"
-                    r"\s+(?:to|of|for)\s+evidence\b",
+                    r"\s+(?:to|of|for)\s+evidence\b"
+                    r"(?:\s*,?\s+(?:and|or)\s+(?:(?:the|a|an)\s+)?"
+                    r"(?:links?|records?)(?:\s+(?:and|or)\s+(?:links?|records?))*"
+                    r"\s+(?:to|of|for)\s+evidence\b)*",
                     " evidence",
                     response_object,
                     count=1,

@@ -1815,6 +1815,10 @@ def test_product_evidence_objects_do_not_require_review_delivery(criterion: str)
         "The generated report must include evidence links",
         "The export must include records of evidence",
         "The generated report shall contain links to evidence",
+        "The API response must include links to evidence and records of evidence",
+        "The generated report must include links to evidence and records of evidence",
+        "The export must include links to evidence and records of evidence",
+        "The API response must include links to evidence, and the records for evidence",
     ],
 )
 @pytest.mark.parametrize("status", ["absent", "unavailable"])
@@ -1842,6 +1846,18 @@ def test_product_evidence_object_reversed_nouns(criterion: str, status: str) -> 
 
 def test_product_noun_exclusion_does_not_erase_later_link_predicate() -> None:
     criterion = "The API response must include data and the reviewer links to evidence"
+    assert pr_verifier._required_evidence_channels("- [ ] " + criterion) == {"overall"}
+
+
+@pytest.mark.parametrize(
+    "criterion",
+    [
+        "The API response must include links to evidence and the reviewer records evidence",
+        "The API response must include links to evidence and records evidence",
+        "The generated report must include links to evidence; the reviewer links to evidence",
+    ],
+)
+def test_product_coordinated_nouns_do_not_hide_finite_delivery(criterion: str) -> None:
     assert pr_verifier._required_evidence_channels("- [ ] " + criterion) == {"overall"}
 
 
