@@ -15,6 +15,7 @@ const {
   extractArtifactArchiveText,
   formatVerifierEvidence,
   summarizeDiff,
+  buildContextSourceCoverage,
 } = require('../agents_verifier_context.js');
 
 const fixturesDir = path.join(__dirname, 'fixtures');
@@ -71,6 +72,8 @@ const buildGithubStub = ({
   prDetails,
   prsForSha = [],
   closingIssues = [],
+  closingIssuePageInfo = { hasNextPage: false },
+  closingIssueTotalCount = closingIssues.length,
   listError = null,
   graphqlError = null,
   runsByWorkflow = {},
@@ -190,6 +193,8 @@ const buildGithubStub = ({
         pullRequest: {
           closingIssuesReferences: {
             nodes: closingIssues,
+            pageInfo: closingIssuePageInfo,
+            totalCount: closingIssueTotalCount,
           },
         },
       },
@@ -861,6 +866,123 @@ async function buildEvidenceContext(githubOptions = {}, buildOptions = {}) {
   const result = await buildVerifierContext({ github, context, core, ...buildOptions });
   return { core, result };
 }
+
+function coveragePatch(name, lines = 1) {
+  return `diff --git a/${name} b/${name}\n--- a/${name}\n+++ b/${name}\n@@ -1 +1 @@\n-old\n${'+new\n'.repeat(lines)}`;
+}
+
+for (const [name, files, codeChars, acceptanceChars] of [
+  ['workflows-3601', 30, 159700, 9000],
+  ['manager-database-1703', 11, 75300, 3200],
+  ['pension-data-912', 9, 27600, 1500],
+]) {
+  test(`generated ${name} context inventories every source before model invocation`, async () => {
+    // Recorded MAINT-78 dimensions, with deterministic payloads rather than
+    // claiming these synthetic controls are historical production transcripts.
+    const paths = Array.from({ length: files }, (_, index) => `src/module_${index}.py`);
+    const patches = paths.map(file => coveragePatch(file, Math.ceil(codeChars / files / 5)));
+    const diffText = patches.join('');
+    await withEnv('VERIFIER_DIFF_MAX_CHARS', undefined, async () => {
+      const { core, result } = await buildEvidenceContext({
+        diffText,
+        closingIssues: [{ number: 78, body: `## Tasks\n- [ ] Implement modules\n## Acceptance Criteria\n- [ ] ${'required detail '.repeat(Math.ceil(acceptanceChars / 16))}`, state: 'OPEN' }],
+      });
+      try {
+        assert.equal(result.shouldRun, true);
+        assert.ok(result.markdown.indexOf(`diff --git a/${paths.at(-1)}`) > 8000);
+        const record = JSON.parse(result.markdown.match(/## Context source coverage[\s\S]*?```json\n([\s\S]*?)\n```/)[1]);
+        assert.deepEqual(record, result.sourceCoverage);
+        assert.deepEqual(JSON.parse(core.outputs.source_coverage), record);
+        assert.deepEqual(record.changed_code_sources.map(source => source.source), paths);
+        assert.ok(record.changed_code_sources.every(source => source.status === 'included'));
+        assert.equal(record.acceptance_sources.length, 2);
+        assert.ok(record.acceptance_sources.every(source => source.status === 'included'));
+        assert.equal(record.acceptance_sources[1].source, 'Issue #78');
+        assert.ok(result.markdown.indexOf('## Context source coverage') < result.markdown.indexOf('## CI Information'));
+      } finally {
+        removeVerifierDiffArtifacts(result);
+      }
+    });
+  });
+}
+
+test('generated coverage names included, truncated, and late omitted code while preserving the full patch', async () => {
+  const patches = ['first.py', 'partial.py', 'late.py'].map(name => coveragePatch(name, 2000));
+  const limit = patches[0].length + 100;
+  await withEnv('VERIFIER_DIFF_MAX_CHARS', String(limit), async () => {
+    const { result } = await buildEvidenceContext({ diffText: patches.join('') });
+    try {
+      assert.ok(patches[0].length > 8000);
+      const sources = result.sourceCoverage.changed_code_sources;
+      assert.deepEqual(sources.map(source => source.status), ['included', 'truncated', 'omitted']);
+      assert.equal(sources[1].included_chars, 100);
+      assert.equal(sources[2].source, 'late.py');
+      assert.equal(sources[2].included_chars, 0);
+      assert.ok(result.markdown.includes('diff truncated after'));
+      assert.ok(!result.markdown.includes('diff --git a/late.py'));
+      assert.ok(fs.readFileSync(result.diffPath, 'utf8').includes('diff --git a/late.py'));
+      assert.equal(result.sourceCoverage.full_diff_artifact.status, 'included');
+    } finally {
+      removeVerifierDiffArtifacts(result);
+    }
+  });
+});
+
+test('coverage inventory is independent of summary limits and validates Git path metadata', () => {
+  const diff = coveragePatch('first.py', 21000) + Array.from({ length: 55 }, (_, index) => coveragePatch(`src/file ${index}.py`)).join('');
+  const options = { planSources: [{ source: 'PR without plan', url: '', body: '' }], diffText: diff, diffMaxChars: diff.length, evidence: { comments: { records: [], complete: true }, artifacts: { records: [], complete: true } } };
+  const coverage = buildContextSourceCoverage(options);
+  assert.equal(coverage.changed_code_sources.length, 56);
+  assert.equal(coverage.changed_code_sources.at(-1).source, 'src/file 54.py');
+  assert.ok(coverage.changed_code_sources.every(source => source.status === 'included'));
+  assert.equal(coverage.acceptance_sources[0].status, 'omitted');
+  const quoted = buildContextSourceCoverage({ ...options, diffText: 'diff --git "a/old name.py" "b/new name.py"\nrename from old name.py\nrename to new name.py\n' });
+  assert.equal(quoted.changed_code_sources[0].source, 'new name.py');
+  assert.equal(quoted.changed_code_sources[0].from_path, 'old name.py');
+  const invalid = buildContextSourceCoverage({ ...options, diffText: 'diff --git "a/bad\\q.py" b/file.py\n' });
+  assert.equal(invalid.changed_code_sources.at(-1).status, 'unavailable');
+  const binary = buildContextSourceCoverage({ ...options, diffText: 'diff --git a/image.png b/image.png\nBinary files a/image.png and b/image.png differ\n' });
+  assert.equal(binary.changed_code_sources[0].status, 'unavailable');
+});
+
+test('coverage records retained acceptance evidence without hiding failed source retrieval', async () => {
+  const { result } = await buildEvidenceContext({
+    comments: [{ body: 'Required evidence', user: { login: 'reviewer' }, html_url: 'https://example.com/pr/700#comment-1' }],
+    reviewCommentError: new Error('review retrieval unavailable'),
+    graphqlError: new Error('linked issue retrieval unavailable'),
+  });
+  try {
+    const evidence = result.sourceCoverage.acceptance_evidence_sources;
+    assert.equal(evidence[0].status, 'included');
+    assert.equal(evidence[0].url, 'https://example.com/pr/700#comment-1');
+    assert.ok(evidence.some(source => source.source === 'comments' && source.status === 'unavailable'));
+    assert.equal(result.sourceCoverage.acceptance_source_discovery.status, 'unavailable');
+  } finally {
+    removeVerifierDiffArtifacts(result);
+  }
+});
+
+test('coverage records truncated linked-issue discovery and artifact text by source', async () => {
+  const headSha = 'bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb';
+  const { result } = await buildEvidenceContext({
+    closingIssuePageInfo: { hasNextPage: true },
+    closingIssueTotalCount: 21,
+    runsForRepo: { [headSha]: [{ id: 321, head_sha: headSha }] },
+    artifactsByRun: { 321: [{ id: 17, name: 'partial-proof', size_in_bytes: 120, expired: false }] },
+    artifactDownloads: { 17: Buffer.from('zip bytes') },
+  }, {
+    extractArtifactText: () => ({ text: 'partial acceptance evidence', truncated: true }),
+  });
+  try {
+    assert.equal(result.sourceCoverage.acceptance_source_discovery.status, 'truncated');
+    const artifact = result.sourceCoverage.acceptance_evidence_sources.find(source => source.source === 'Run 321: partial-proof');
+    assert.equal(artifact.status, 'truncated');
+    assert.equal(artifact.total_chars, null); // Full size cannot be inferred from a bounded archive.
+    assert.ok(result.sourceCoverage.acceptance_evidence_sources.some(source => source.source === 'artifacts' && source.status === 'unavailable'));
+  } finally {
+    removeVerifierDiffArtifacts(result);
+  }
+});
 
 test('buildVerifierContext includes bounded comment-only acceptance evidence', async () => {
   const { core, result } = await buildEvidenceContext({

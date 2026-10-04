@@ -217,6 +217,18 @@ The following workflows were decommissioned during the CI consolidation effort. 
 ## Verifier Workflow
 The verifier validates merged PRs against tasks and acceptance criteria using label-triggered modes.
 
+Before any model call, `agents_verifier_context.js` writes a
+`verifier-context-source-coverage/v1` JSON record near the start of
+`verifier-context.md` and exports it as `source_coverage`. It names PR and linked-issue
+plan sources, retained comment/artifact evidence, incomplete source discovery, and
+every changed file. Changed-file statuses describe inclusion, omission, truncation,
+or unavailable text in the embedded diff; the inventory uses the full patch rather
+than the bounded diff summary. A truncated artifact's original text length is unknown
+(`total_chars: null`). The separate `verifier-pr-diff.patch` remains unbounded by the
+context character limit. This record describes generated-context availability;
+evaluate/compare prompt coverage separately records later model-budget reductions
+and withholds PASS when required evidence is incomplete.
+
 Optional evidence qualifiers apply only to their own clause. A separate mandatory PR comment
 remains required, including wording such as "the reviewer is required/expected/supposed to post a PR comment".
 Quoted parser examples, including `the following: "Must upload an artifact"`, are illustrative;
