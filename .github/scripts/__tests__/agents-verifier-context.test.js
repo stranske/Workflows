@@ -847,7 +847,7 @@ async function buildEvidenceContext(githubOptions = {}, buildOptions = {}) {
     merged_at: '2026-10-02T00:00:00Z',
     number: 700,
     title: 'Bound verifier evidence',
-    body: prBodyFixture,
+    body: githubOptions.prBody ?? prBodyFixture,
     html_url: 'https://example.com/pr/700',
     merge_commit_sha: 'cccccccccccccccccccccccccccccccccccccccc',
     base: { ref: 'main', sha: 'aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa' },
@@ -959,6 +959,25 @@ test('coverage records retained acceptance evidence without hiding failed source
     assert.equal(result.sourceCoverage.acceptance_source_discovery.status, 'unavailable');
   } finally {
     removeVerifierDiffArtifacts(result);
+  }
+});
+
+test('linked-issue discovery is required only for an issue-backed acceptance plan', async () => {
+  for (const [issueBacked, status] of [[true, 'unavailable'], [false, 'unavailable'], [true, 'included'], [false, 'truncated']]) {
+    const { result } = await buildEvidenceContext({
+      prBody: prBodyFixture + (issueBacked ? '\nCloses #123\n' : '\n<!-- workflow-source:local_request -->\n'),
+      graphqlError: status === 'unavailable' ? new Error('linked issue retrieval failed') : null,
+      closingIssuePageInfo: { hasNextPage: status === 'truncated' },
+    });
+    try {
+      const discovery = result.sourceCoverage.acceptance_source_discovery;
+      assert.equal(discovery.status, status);
+      assert.equal(discovery.required, issueBacked || status === 'truncated');
+      const serialized = JSON.parse(result.markdown.match(/## Context source coverage[\s\S]*?```json\n([\s\S]*?)\n```/)[1]);
+      assert.deepEqual(serialized.acceptance_source_discovery, discovery);
+    } finally {
+      removeVerifierDiffArtifacts(result);
+    }
   }
 });
 

@@ -229,6 +229,12 @@ context character limit. This record describes generated-context availability;
 evaluate/compare prompt coverage separately records later model-budget reductions
 and withholds PASS when required evidence is incomplete.
 
+Linked-issue discovery carries an explicit `required` flag for issue-backed plans.
+Evaluate and compare consume its builder-owned pre-CI record: unavailable or
+truncated required discovery prevents PASS even when the retained PR plan is complete.
+A local-request plan with no linked-issue dependency keeps its existing behavior;
+status-looking records inside issue or comment text cannot override the builder.
+
 Optional evidence qualifiers apply only to their own clause. A separate mandatory PR comment
 remains required, including wording such as "the reviewer is required/expected/supposed to post a PR comment".
 Quoted parser examples, including `the following: "Must upload an artifact"`, are illustrative;
