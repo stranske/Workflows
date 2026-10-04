@@ -107,6 +107,8 @@ def test_nonpass_text_retains_actionable_concerns_and_raw_detail(verdict):
         "Evidence must not be included in the PR body",
         "The PR body is not required",
         "The PR body does not need to include evidence",
+        "The PR body is not required to include evidence",
+        "The PR body must never include evidence",
     ],
 )
 def test_negated_body_delivery_does_not_require_evidence(criterion):
@@ -115,3 +117,38 @@ def test_negated_body_delivery_does_not_require_evidence(criterion):
         "- [ ] " + criterion + "; include evidence in a PR comment"
     )
     assert channels == {"comments"}
+
+
+@pytest.mark.parametrize(
+    "criterion",
+    [
+        "Evidence is required in the PR body",
+        "There must be evidence in the PR body",
+    ],
+)
+def test_equivalent_body_obligations_keep_destination_specific_floor(criterion):
+    channels = verifier._required_evidence_channels("- [ ] " + criterion)
+    assert channels == {"body"}
+    mixed = verifier._required_evidence_channels(
+        "- [ ] " + criterion + "; the reviewer must post a PR comment with command output"
+    )
+    assert mixed == {"comments", "body"}
+    assert verifier._required_evidence_is_missing(
+        "- Overall retrieval status: **present**\n- PR body: **absent**\n"
+        "- PR comments: **present**\n- Referenced workflow artifacts: **present**",
+        mixed,
+    )
+
+
+@pytest.mark.parametrize("actor", ["UI", "application", "service"])
+def test_body_editor_product_output_is_not_a_reviewer_deliverable(actor):
+    criterion = f"The {actor} should show evidence in the pull request body editor"
+    assert verifier._required_evidence_channels("- [ ] " + criterion) == set()
+    channels = verifier._required_evidence_channels(
+        "- [ ] " + criterion + "; include evidence in the PR body"
+    )
+    assert channels == {"body"}
+    human = verifier._required_evidence_channels(
+        "- [ ] The reviewer of the UI must show evidence in the PR body"
+    )
+    assert human == {"body"}

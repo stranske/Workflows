@@ -1024,6 +1024,11 @@ def _required_evidence_channels(acceptance: str) -> set[str]:
                 r"(?:in|into|to|within)\s+(?:[\w/,-]+\s+){0,8}(?:pr|pull request)\s+body\b"
                 r"|\b(?:pr|pull request)\s+body\s+(?:" + mandatory_auxiliary + r")\s+"
                 r"(?:include|contain|show|provide|have)\w*\b"
+                r"|\b(?:required|needed|mandatory)\s+(?:in|into|within)\s+"
+                r"(?:(?:the|an?)\s+)?(?:pr|pull request)\s+body\b"
+                r"|\bthere\s+" + mandatory_auxiliary + r"\s+be\s+"
+                r"(?:(?:the|an?)\s+)?(?:evidence|artifacts?|transcripts?|command outputs?)\s+"
+                r"(?:in|into|within)\s+(?:(?:the|an?)\s+)?(?:pr|pull request)\s+body\b"
                 r"|\b(?:pr|pull request)\s+body\s+(?:(?:is|are)\s+)?"
                 r"(?:required|needed|mandatory)\b",
                 text,
@@ -1059,7 +1064,7 @@ def _required_evidence_channels(acceptance: str) -> set[str]:
         """Classify the governing operation's subject, not domain words anywhere."""
         operations = list(
             re.finditer(
-                r"\b(?:allow|enable|support|display|store|include|attach|upload|add|leave|left|post|publish|provide|document|record|capture|link)\w*\b",
+                r"\b(?:allow|enable|support|display|show|store|include|attach|upload|add|leave|left|post|publish|provide|document|record|capture|link)\w*\b",
                 prefix,
                 re.I,
             )
@@ -1225,7 +1230,9 @@ def _required_evidence_channels(acceptance: str) -> set[str]:
                 re.I,
             )
         )
-        field_operation = bool(re.fullmatch(r"(?:include|display|store)\w*", operation[0], re.I))
+        field_operation = bool(
+            re.fullmatch(r"(?:include|display|show|store)\w*", operation[0], re.I)
+        )
         review_destination = bool(
             re.search(
                 r"\b(?:with|containing|including)\s+(?:[\w-]+\s+)*?"
@@ -1454,8 +1461,10 @@ def _required_evidence_channels(acceptance: str) -> set[str]:
             if not gate:
                 working_line = re.sub(
                     r"\b(?:pr|pull request)\s+body\s+"
-                    r"(?:(?:must|shall|may|should|can)\s+not|"
-                    r"(?:does|do|did)\s+not\s+(?:need|have)\s+to)\s+"
+                    r"(?:(?:must|shall|may|should|can)\s+(?:not|never)|"
+                    r"(?:does|do|did)\s+not\s+(?:need|have)\s+to|"
+                    r"(?:is|are|was|were)\s+(?:not|never|no\s+longer)\s+"
+                    r"(?:required|needed|mandated|expected|supposed|obliged)\s+to)\s+"
                     r"(?:include|contain|show|provide|have)\w*\s+"
                     r"(?:(?:the|an?|any)\s+)?(?:evidence|artifacts?|transcripts?|command outputs?)\b",
                     " ",
@@ -1825,6 +1834,23 @@ def _required_evidence_channels(acceptance: str) -> set[str]:
             explicit_body_delivery = body_delivery(requirement_text) or (
                 gate and bool(re.search(r"\b(?:pr|pull request)\s+body\b", lower))
             )
+            body_objects = list(
+                re.finditer(r"\b(?:pr|pull request)\s+body\b", requirement_text, re.I)
+            )
+            product_body_behavior = bool(body_objects) and all(
+                product_comment_object(
+                    requirement_text[: item.start()],
+                    requirement_text[
+                        item.end() : (
+                            body_objects[index + 1].start()
+                            if index + 1 < len(body_objects)
+                            else len(requirement_text)
+                        )
+                    ],
+                )
+                for index, item in enumerate(body_objects)
+            )
+            explicit_body_delivery = explicit_body_delivery and not product_body_behavior
             # Consume one product persistence operation and its immediate
             # storage destination, not later reviewer delivery predicates.
             storage_operation = re.compile(
