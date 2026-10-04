@@ -980,7 +980,7 @@ def _required_evidence_channels(acceptance: str) -> set[str]:
     response_operation = (
         r"(?:include|contain|have|return|display|show|store|emit|render|expose|provide)\w*\b"
     )
-    delivery_operation = r"(?:provide|return|display|show|emit|render|expose|store|upload|attach|publish|post|record|capture|include|document)\w*\b"
+    delivery_operation = r"(?:provide|return|display|show|emit|render|expose|store|upload|attach|publish|post|record|capture|include|document|generate|link|add|leave)\w*\b"
     mandatory_auxiliary = (
         r"(?:(?:must|shall|needs?\s+to)|"
         r"(?:(?:is|are)\s+)?(?:required|needed|mandated|expected|supposed|obliged)\s+to|"
@@ -1516,8 +1516,8 @@ def _required_evidence_channels(acceptance: str) -> set[str]:
         + r"(?:"
         + passive_delivery_prefix
         + r")?"
-        + r"(?:upload|attach|provide|publish|post|record|capture|include|document|generate|link|add|leave)\w*\b"
-        r"|"
+        + delivery_operation
+        + r"|"
         r"\bno\s+(?:\w+\s+){0,3}(?:evidence|artifacts?|transcripts?|command outputs?|"
         r"workflow runs?|pr comments?|pull request comments?)"
         r"\s+(?:is|are)\s+(?:required|needed|mandatory)\b"
@@ -1783,6 +1783,15 @@ def _required_evidence_channels(acceptance: str) -> set[str]:
                     flags=re.I,
                 )
                 resolved_antecedent = clause_evidence_antecedent
+            # Excluded destinations are not delivery targets. Keep the
+            # generic evidence object and other independent deliveries.
+            working_line = re.sub(
+                r"\b(?:outside|rather\s+than|instead\s+of)\s+"
+                r"(?:(?:the|an?)\s+)?(?:pr|pull request)\s+comments?\b",
+                "excluded destination",
+                working_line,
+                flags=re.I,
+            )
             gate = bool(negative_gate.search(working_line))
             body_records, body_residual = body_occurrences(working_line, gate)
             requirement_text = working_line if gate else evidence_prohibition.sub(" ", working_line)

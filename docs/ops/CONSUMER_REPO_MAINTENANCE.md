@@ -1084,6 +1084,10 @@ Alias destination normalization accepts the same `both` prefix as coordinated
 destination recognition. Optional delivery modals (`may`, `can`, `could`,
 `should`) do not become hard evidence obligations after alias normalization;
 independent required clauses retain their own channels.
+Negated obligations use the same delivery-operation grammar as positive
+delivery. An explicitly excluded PR-comment destination (`outside`, `rather
+than`, `instead of`) is not a required comment channel; generic evidence and
+independent positive deliveries still retain their coverage floors.
 The four fresh canary findings are tested through the actual coverage floor with
 present, absent and unavailable evidence plus independent reviewer-delivery controls.
 

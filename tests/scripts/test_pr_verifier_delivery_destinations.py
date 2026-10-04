@@ -825,6 +825,28 @@ def test_perfect_and_modal_passive_aliases_preserve_prohibition(passive):
     ) == {"body"}
 
 
+@pytest.mark.parametrize("negation", ["never", "no longer"])
+@pytest.mark.parametrize("operation", ["return", "display", "emit", "render", "expose"])
+def test_negated_obligations_preserve_response_operation_polarity(negation, operation):
+    criterion = f"The reviewer is {negation} required to {operation} evidence in a PR comment"
+    assert verifier._required_evidence_channels(criterion) == set()
+    assert verifier._required_evidence_channels(
+        criterion + "; include evidence in the PR body"
+    ) == {"body"}
+
+
+@pytest.mark.parametrize("operation", ["write", "paste"])
+@pytest.mark.parametrize(
+    "destination", ["outside a PR comment", "in the issue rather than a PR comment"]
+)
+def test_excluded_comment_destination_retains_generic_evidence_not_comment(operation, destination):
+    criterion = f"The reviewer must {operation} evidence {destination}"
+    assert verifier._required_evidence_channels(criterion) == {"overall"}
+    assert verifier._required_evidence_channels(
+        criterion + "; include evidence in a PR comment"
+    ) == {"overall", "comments"}
+
+
 @pytest.mark.parametrize(
     "destination,channel",
     [("workflow artifacts", "artifacts"), ("a PR comment", "comments"), ("the PR body", "body")],
