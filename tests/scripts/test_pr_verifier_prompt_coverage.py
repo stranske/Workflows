@@ -2524,6 +2524,16 @@ def test_nested_human_delivery_retains_comments(check: str, complementizer: str)
     ) == {"comments"}
 
 
+@pytest.mark.parametrize("check", ["verify", "check", "assert"])
+@pytest.mark.parametrize("qualifier", ["assigned to", "asked to", "expected to"])
+def test_infinitive_check_qualifier_cannot_replace_reviewer_actor(
+    check: str, qualifier: str
+) -> None:
+    assert pr_verifier._required_evidence_channels(
+        f"- [ ] The reviewer {qualifier} {check} the API must post a PR comment in its response"
+    ) == {"comments"}
+
+
 @pytest.mark.parametrize(
     "criterion,expected",
     [
