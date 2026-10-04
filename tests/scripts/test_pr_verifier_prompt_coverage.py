@@ -2367,6 +2367,8 @@ def test_initial_human_head_survives_unlisted_modifiers(actor: str, qualifier: s
         "isn't required to",
         "isn’t required to",
         "is not expected to",
+        "is not allowed to",
+        "isn't permitted to",
         "is not supposed to",
         "is not mandated to",
         "does not have to",
