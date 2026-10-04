@@ -2525,7 +2525,9 @@ def test_nested_human_delivery_retains_comments(check: str, complementizer: str)
 
 
 @pytest.mark.parametrize("check", ["verify", "check", "assert"])
-@pytest.mark.parametrize("qualifier", ["assigned to", "asked to", "expected to"])
+@pytest.mark.parametrize(
+    "qualifier", ["assigned to", "asked to", "expected to", "who must", "that must"]
+)
 def test_infinitive_check_qualifier_cannot_replace_reviewer_actor(
     check: str, qualifier: str
 ) -> None:
