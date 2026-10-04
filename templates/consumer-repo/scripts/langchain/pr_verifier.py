@@ -994,13 +994,25 @@ def _required_evidence_channels(acceptance: str) -> set[str]:
             text,
             flags=re.I,
         )
-        return bool(evidence_term.search(text) and requirement.search(actions))
+        # Adjectives on product subjects/fields are not independent delivery
+        # predicates. Preserve a post-object passive requirement instead.
+        passive_requirement = re.search(
+            r"\b(?:evidence|artifacts?|transcripts?|command outputs?|workflow runs?|"
+            r"pr comments?|pull request comments?)\b(?:\s+(?:links?|records?))?\s+"
+            r"(?:(?:is|are)\s+)?(?:required|mandatory|needed)\b",
+            text,
+            re.I,
+        )
+        actions = re.sub(r"\b(?:required|mandatory)\b", " ", actions, flags=re.I)
+        return bool(
+            evidence_term.search(text) and (requirement.search(actions) or passive_requirement)
+        )
 
     def product_comment_object(prefix: str) -> bool:
         """Classify the governing operation's subject, not domain words anywhere."""
         operations = list(
             re.finditer(
-                r"\b(?:allow|enable|support|display|store|include|attach|upload|add|leave|left|post|publish)\w*\b",
+                r"\b(?:allow|enable|support|display|store|include|attach|upload|add|leave|left|post|publish|provide|document|record|capture)\w*\b",
                 prefix,
                 re.I,
             )

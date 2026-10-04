@@ -1904,6 +1904,33 @@ def test_governing_operations_preserve_product_coordination_and_passive_delivery
     ) == {"comments"}
 
 
+@pytest.mark.parametrize(
+    "criterion",
+    [
+        "The API response must include required evidence links",
+        "The required API response must include evidence links",
+        "The API response must include mandatory evidence records",
+        "The endpoint must provide PR comments in its JSON response",
+        "The API must document PR comments in its output",
+        "The service must record PR comments as audit data",
+        "The service must capture PR comments as audit data",
+    ],
+)
+def test_required_product_modifiers_and_delivery_synonyms_remain_product_fields(
+    criterion: str,
+) -> None:
+    assert pr_verifier._required_evidence_channels("- [ ] " + criterion) == set()
+    assert pr_verifier._required_evidence_channels(
+        "- [ ] " + criterion + "; the reviewer must add a PR comment with test results"
+    ) == {"comments"}
+
+
+def test_product_field_modifier_repair_retains_passive_required_delivery() -> None:
+    assert pr_verifier._required_evidence_channels(
+        "- [ ] The API response must include evidence links; a PR comment is required"
+    ) == {"comments"}
+
+
 def test_product_capability_keeps_nested_user_comments_in_product_domain() -> None:
     assert (
         pr_verifier._required_evidence_channels(
