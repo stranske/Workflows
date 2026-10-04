@@ -86,6 +86,9 @@ function validateIndependentFindingVerification({
 }
 
 async function collectFindingReviewState({ owner, repo, number, read }) {
+  // The controller supplies read from createTokenAwareRetry; helpers never
+  // create an unwrapped client or bypass the caller's capability/token policy.
+  if (typeof read !== 'function') throw new TypeError('Wrapped review read is required');
   const fields = 'url body createdAt author { login } commit { oid }';
   let after = null;
   let snapshot;
@@ -142,6 +145,8 @@ async function collectFindingReviewState({ owner, repo, number, read }) {
 }
 
 async function collectOriginatingCompletions({ owner, repo, number, head, profiles, read }) {
+  // read is the owner's withRetry from createTokenAwareRetry.
+  if (typeof read !== 'function') throw new TypeError('Wrapped completion read is required');
   const comments = await read((client) => client.paginate(client.rest.issues.listComments,
     { owner, repo, issue_number: number, per_page: 100 }));
   if (!Array.isArray(comments)) throw new Error('Incomplete top-level comment inventory');
