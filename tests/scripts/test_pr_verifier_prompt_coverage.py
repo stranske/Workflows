@@ -2384,3 +2384,31 @@ def test_equivalent_negated_obligations_preserve_distinct_delivery(
     assert pr_verifier._required_evidence_channels(
         f"- [ ] {criterion}; the maintainer must post a PR comment"
     ) == {"comments"}
+
+
+@pytest.mark.parametrize(
+    "intro", ["For reviewer access,", "For reviewer access", "When reviewers request access,"]
+)
+def test_introductory_human_noun_does_not_replace_governing_product_actor(intro: str) -> None:
+    criterion = f"{intro} the API must post a PR comment in its response"
+    assert pr_verifier._required_evidence_channels(f"- [ ] {criterion}") == set()
+
+
+@pytest.mark.parametrize("status", ["absent", "unavailable"])
+@pytest.mark.parametrize("independent_delivery", [False, True])
+@pytest.mark.parametrize(
+    "intro", ["For reviewer access", "When reviewers request access", "Under reviewer supervision"]
+)
+def test_fronted_adjunct_prompt_coverage_preserves_independent_delivery(
+    status: str, independent_delivery: bool, intro: str
+) -> None:
+    criterion = f"{intro} the API must post a PR comment in its response"
+    if independent_delivery:
+        criterion += "; the maintainer must post a PR comment with test results"
+    context, _ = _context(1, 1_000, 1_000)
+    context = context.replace(ACCEPTANCE_SENTINEL, criterion).replace(
+        "## PR Diff Summary",
+        "## Acceptance evidence\n\n- Overall retrieval status: **present**\n"
+        f"- PR comments: **{status}**\n\n## PR Diff Summary",
+    )
+    assert pr_verifier.prompt_coverage(context, None).sufficient == (not independent_delivery)

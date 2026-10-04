@@ -1043,6 +1043,18 @@ def _required_evidence_channels(acceptance: str) -> set[str]:
                 # earlier UI/API actor across "transcript that must be posted".
                 subject = re.split(r"\b(?:and|or|that|which|who)\b", between, flags=re.I)[-1]
         subject = re.split(product_auxiliary, subject, maxsplit=1, flags=re.I)[0]
+        # An article-free fronted adjunct ends at a determiner-led subject:
+        # "For reviewer access the API ...". Do not guess across an adjunct
+        # containing its own determiner-led actor; uncertain attachment keeps
+        # the evidence floor rather than selecting an arbitrary last noun.
+        subject = re.sub(
+            r"^\s*(?:[-*]\s*(?:\[[ xX]\]\s*)?)?"
+            r"(?:for|when|while|during|after|before|if|once|under|with|without|upon)\s+"
+            r"(?:(?!(?:the|an?)\b)[\w-]+\s+)+(?=(?:the|an?)\s+)",
+            "",
+            subject,
+            flags=re.I,
+        )
         actor_head = re.search(
             r"\b(?:(?:api|ui)\s+)?(?:reviewers?|maintainers?|authors?|operators?)\b"
             r"|\b(?:ui|api|application|interface|service|cli|endpoint|renderer)\b",
