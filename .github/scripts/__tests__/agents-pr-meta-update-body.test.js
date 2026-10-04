@@ -1870,6 +1870,18 @@ test('a relation-sourced PR stays non-closing across two body syncs', async (t) 
   for (const [name, sync] of [['Workflows source', run], ['consumer template', templateRun]]) {
     await t.test(name, async (t) => {
       await t.test('body mention', () => assertIssueSyncPreservesIntent(sync));
+      await t.test('body mention takes precedence over an issue branch', () => {
+        return assertIssueSyncPreservesIntent(sync, {
+          head: { sha: 'abc123', ref: 'codex/issue-123' },
+        });
+      });
+      await t.test('related marker takes precedence over conflicting branch and title issues', () => {
+        return assertIssueSyncPreservesIntent(sync, {
+          body: '<!-- meta:related-issue:123 -->',
+          head: { sha: 'abc123', ref: 'codex/issue-456' },
+          title: 'Issue #789: repair a local request',
+        });
+      });
       await t.test('title reference', () => assertIssueSyncPreservesIntent(sync, {
         title: 'Issue #123: repair a local request', body: 'A local fix without an issue link',
       }));
