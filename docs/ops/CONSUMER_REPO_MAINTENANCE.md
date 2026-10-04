@@ -1070,6 +1070,11 @@ Named workflow/CI/GitHub Actions artifacts directly provided as delivery objects
 remain review artifacts even when the actor is a product service. Past-participle
 aliases canonicalize only after a governing obligation or passive auxiliary, not
 by enumerating all possible verbs before adjectival `written`/`pasted` evidence.
+Explicit evidence-object-to-comment bindings commit the comment channel for the
+shared response operations; bare product-comment storage remains exempt. Modal
+`must not be optional` uses the same mandatory-auxiliary grammar as preposed body
+requirements. Destination-bound object modifiers are bounded tokens that exclude
+new predicates and conjunctions, not an independently growing adjective list.
 The four fresh canary findings are tested through the actual coverage floor with
 present, absent and unavailable evidence plus independent reviewer-delivery controls.
 

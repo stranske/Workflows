@@ -1142,8 +1142,11 @@ def _required_evidence_channels(acceptance: str) -> set[str]:
             + noun
             + r"\s+"
             + destination
-            + r"\s+(?:is|are)\s+"
+            + r"\s+(?:(?:is|are)|"
+            + mandatory_auxiliary
+            + r")\s+"
             + polarity
+            + r"(?:be\s+)?"
             + r"(?:required|needed|mandatory|optional)\b",
             r"\b" + mandatory_auxiliary + r"\s+" + polarity + operation + r"\s+" + destination,
             r"\b" + body + r"\s+" + auxiliary + r"\s+" + polarity + operation + r"\s+" + noun,
@@ -1206,7 +1209,13 @@ def _required_evidence_channels(acceptance: str) -> set[str]:
             if not is_gate and re.search(exclusion_operation, clause, re.I):
                 prohibited = not prohibited
             mandatory_optionality = bool(
-                re.search(r"\b(?:is|are)\s+(?:not|never|no\s+longer)\s+optional\b", clause, re.I)
+                re.search(
+                    r"\b(?:(?:is|are)|"
+                    + mandatory_auxiliary
+                    + r")\s+(?:not|never|no\s+longer)\s+(?:be\s+)?optional\b",
+                    clause,
+                    re.I,
+                )
             )
             if mandatory_optionality:
                 prohibited = False
@@ -1482,6 +1491,11 @@ def _required_evidence_channels(acceptance: str) -> set[str]:
         )
 
     evidence_prohibition = re.compile(
+        r"\b(?:"
+        + mandatory_auxiliary
+        + r"|may|should|can|do|does|did)\s+(?:not|never)\s+(?:be\s+)?"
+        + response_operation
+        + r"(?:\s+(?:[\w/-]+\s+){0,4}(?:evidence|artifacts?|transcripts?|command outputs?|pr comments?|pull request comments?)\b)?|"
         r"\b(?:evidence|artifacts?|transcripts?|command outputs?)\s+"
         r"(?:does|do|did)\s+(?:not|never)\s+(?:need|have)\s+to\s+"
         + passive_delivery_prefix
@@ -1860,7 +1874,7 @@ def _required_evidence_channels(acceptance: str) -> set[str]:
                     r"\b(?:provide|upload|attach|publish|post|record|capture|document)\w*\b\s+"
                     r"(?:(?:the|an?|any)\s+)?" + artifact_destination_object + "|"
                     r"\b" + delivery_operation + r"\s+"
-                    r"(?:(?:the|an?|any|before/after|failing|passing|supporting|validation|workflow|exact-head|execution|test|review|collected|recorded)\s+){0,4}"
+                    r"(?:(?!(?:and|or|but|must|shall|is|are|not|never)\b)[\w/-]+\s+){0,4}"
                     + delivery_object
                     + r"\s+"
                     + bound_review_destinations
@@ -2102,7 +2116,13 @@ def _required_evidence_channels(acceptance: str) -> set[str]:
                 for index, item in enumerate(comment_objects)
             )
             explicit_comment_delivery = bool(
-                re.search(
+                (
+                    explicit_review_destination
+                    and re.search(
+                        r"\b(?:pr comments?|pull request comments?)\b", requirement_text, re.I
+                    )
+                )
+                or re.search(
                     r"\b(?:attach|upload|include|post|publish|record|capture|provide|document|add|leave|left|link)\w*\b"
                     r"(?:\s+\w+){0,10}\s+\b(?:pr comments?|pull request comments?)\b",
                     requirement_text,

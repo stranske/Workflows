@@ -772,3 +772,35 @@ def test_named_review_artifact_delivery_object_is_preserved(artifact_source):
         )
         == set()
     )
+
+
+@pytest.mark.parametrize("operation", ["return", "display", "emit", "render", "expose"])
+def test_shared_response_operations_retain_explicit_comment_delivery(operation):
+    assert verifier._required_evidence_channels(
+        f"The reviewer must {operation} evidence in a PR comment"
+    ) == {"comments"}
+    assert (
+        verifier._required_evidence_channels(
+            f"The reviewer must not {operation} evidence in a PR comment"
+        )
+        == set()
+    )
+
+
+@pytest.mark.parametrize("auxiliary", ["must", "shall", "has to"])
+def test_modal_negated_body_optionality_remains_mandatory(auxiliary):
+    assert verifier._required_evidence_channels(
+        f"Evidence in the PR body {auxiliary} not be optional"
+    ) == {"body"}
+
+
+@pytest.mark.parametrize("modifier", ["required", "generated", "audit", "release"])
+def test_positive_modified_artifact_delivery_survives_product_shortcut(modifier):
+    criterion = f"The service must provide {modifier} evidence in workflow artifacts"
+    assert verifier._required_evidence_channels(criterion) == {"artifacts"}
+    assert (
+        verifier._required_evidence_channels(
+            "The service must not provide " + modifier + " evidence in workflow artifacts"
+        )
+        == set()
+    )
