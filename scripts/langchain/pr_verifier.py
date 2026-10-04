@@ -1145,8 +1145,15 @@ def _required_evidence_channels(acceptance: str) -> set[str]:
             )
             if not is_gate and re.search(exclusion_operation, clause, re.I):
                 prohibited = not prohibited
-            optional = not is_gate and bool(
-                re.search(r"\b(?:optional|should|may|can)\b", clause, re.I)
+            mandatory_optionality = bool(
+                re.search(r"\b(?:is|are)\s+(?:not|never|no\s+longer)\s+optional\b", clause, re.I)
+            )
+            if mandatory_optionality:
+                prohibited = False
+            optional = (
+                not is_gate
+                and bool(re.search(r"\b(?:optional|should|may|can)\b", clause, re.I))
+                and not mandatory_optionality
             )
             editor = re.match(r"\s+editor\b", clause[body_match.end() :], re.I)
             product = bool(editor) and product_comment_object(
@@ -1725,6 +1732,7 @@ def _required_evidence_channels(acceptance: str) -> set[str]:
             )
             if not (
                 gate
+                or any(record["disposition"] == "required" for record in body_records)
                 or checklist_deliverable
                 or (checklist and requirement.search(requirement_text))
                 or (bullet and requirement.search(requirement_text))
@@ -2019,6 +2027,14 @@ def _required_evidence_channels(acceptance: str) -> set[str]:
                     continue
                 requirement_text = delivery_text
                 lower = requirement_text.lower()
+            # Record aliases are product output only with an immediate bounded
+            # product recipient, never merely because the actor is a service.
+            product_output_operation = (
+                r"(?:return|display|show|store|emit|render|expose|provide)\w*\b|"
+                r"record\w*\b(?=\s+(?:(?:the|an?)\s+)?"
+                r"(?:command outputs?|transcripts?|evidence)\s+(?:to|for)\s+"
+                r"(?:clients?|users?|consumers?)\b)"
+            )
             product_output_prefix = re.compile(
                 r"^\s*(?:[-*]\s*(?:\[[ xX]\]\s*)?)?"
                 r"(?!(?:[\w-]+\s+){0,5}(?:reviewers?|authors?|maintainers?|operators?|"
@@ -2030,14 +2046,19 @@ def _required_evidence_channels(acceptance: str) -> set[str]:
                 + "(?:"
                 + product_auxiliary
                 + ")?"
-                + r"(?:return|display|show|store|emit|render|expose|provide)\w*\b",
+                + "(?:"
+                + product_output_operation
+                + ")",
                 re.I,
             )
             product_output_match = product_output_prefix.search(requirement_text)
             reverse_product_output = bool(
                 re.search(
                     r"\b(?:command outputs?|transcripts?)\b.{0,60}"
-                    r"\b(?:return|display|show|store|emit|render|expose|provide)\w*\b.{0,60}"
+                    + "(?:"
+                    + product_output_operation
+                    + ")"
+                    + r".{0,60}"
                     r"\b(?:ui|api|application|interface|service|cli|endpoint|renderer)\b",
                     requirement_text,
                     re.I,

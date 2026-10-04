@@ -96,6 +96,27 @@ def test_passive_delivery_alias_preserves_negation(participle):
     ) == {"body"}
 
 
+@pytest.mark.parametrize("status", ["not optional", "never optional", "no longer optional"])
+@pytest.mark.parametrize(
+    "criterion", ["Evidence in the PR body is {status}", "The PR body is {status}"]
+)
+def test_negated_optionality_is_mandatory_body_delivery(status, criterion):
+    assert verifier._required_evidence_channels(criterion.format(status=status)) == {"body"}
+
+
+@pytest.mark.parametrize("operation", ["write", "record", "paste"])
+@pytest.mark.parametrize("destination", ["clients", "users", "consumers"])
+def test_canonical_record_output_to_product_recipients(operation, destination):
+    criterion = f"The service must {operation} command output to {destination}"
+    assert verifier._required_evidence_channels(criterion) == set()
+    assert verifier._required_evidence_channels(
+        criterion + "; write command output in a PR comment"
+    ) == {"comments"}
+    assert verifier._required_evidence_channels(
+        "The service must write command output in the PR body"
+    ) == {"body"}
+
+
 @pytest.mark.parametrize(
     "criterion,channel",
     [

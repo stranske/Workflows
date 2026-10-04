@@ -1027,6 +1027,10 @@ silently recognize different aliases. Product-provided command output and bounde
 supporting/execution/validation evidence-link modifiers remain product behavior.
 Preposed destinations such as `Evidence in the PR body is required` consume the
 whole predicate; they do not leave a second generic comment/artifact requirement.
+Negated optionality (`not`, `never`, or `no longer optional`) is mandatory, not
+prohibited. Canonical record/write/paste output to explicit product recipients
+(clients, users or consumers) remains product behavior; PR destinations and
+independent reviewer deliveries do not inherit that exemption.
 The four fresh canary findings are tested through the actual coverage floor with
 present, absent and unavailable evidence plus independent reviewer-delivery controls.
 
