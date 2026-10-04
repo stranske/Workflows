@@ -988,6 +988,14 @@ affirmative body-delivery obligation is required, not merely a mention of the
 body. Negative obligations and product UI body-editor output do not create a
 review-evidence requirement; equivalent passive/existential obligations do,
 and a later independent reviewer delivery retains its own destination floor.
+Body obligations are classified as bounded occurrences, sharing polarity and
+aspect handling across active, passive, existential, body-subject and adjectival
+forms. Each recognized occurrence contributes its own required destinations and
+consumes only its matched span; residual clauses still undergo ordinary evidence
+classification. Product-editor output is exempt only for a recognized product
+actor and the immediate body-editor destination. Actual delivery into the PR body,
+human actors, negative merge prerequisites and independent comment/artifact
+obligations retain their evidence floors. Unrecognized wording is not exempted.
 A fully retrieved bounded body is fenced as untrusted material, an empty body is absent,
 and missing/invalid/oversized bodies are unavailable. Body presence cannot satisfy
 a required PR comment or artifact. Generic comment/artifact retrieval status does

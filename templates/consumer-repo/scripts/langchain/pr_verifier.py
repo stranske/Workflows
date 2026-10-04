@@ -21,7 +21,7 @@ from collections.abc import Callable, Mapping
 from dataclasses import dataclass
 from functools import partial
 from pathlib import Path
-from typing import Literal
+from typing import Any, Literal
 
 from pydantic import BaseModel, Field
 from scripts import api_client
@@ -1015,26 +1015,107 @@ def _required_evidence_channels(acceptance: str) -> set[str]:
         re.I,
     )
 
-    def body_delivery(text: str) -> bool:
-        """Require an affirmative body destination, not a residual negated noun."""
-        return bool(
-            re.search(
-                r"\b(?:include|attach|provide|publish|post|record|capture|document|add|show)\w*\b\s+"
-                r"(?:(?!\bnot\b)[\w/,-]+\s+){0,16}"
-                r"(?:in|into|to|within)\s+(?:[\w/,-]+\s+){0,8}(?:pr|pull request)\s+body\b"
-                r"|\b(?:pr|pull request)\s+body\s+(?:" + mandatory_auxiliary + r")\s+"
-                r"(?:include|contain|show|provide|have)\w*\b"
-                r"|\b(?:required|needed|mandatory)\s+(?:in|into|within)\s+"
-                r"(?:(?:the|an?)\s+)?(?:pr|pull request)\s+body\b"
-                r"|\bthere\s+" + mandatory_auxiliary + r"\s+be\s+"
-                r"(?:(?:the|an?)\s+)?(?:evidence|artifacts?|transcripts?|command outputs?)\s+"
-                r"(?:in|into|within)\s+(?:(?:the|an?)\s+)?(?:pr|pull request)\s+body\b"
-                r"|\b(?:pr|pull request)\s+body\s+(?:(?:is|are)\s+)?"
-                r"(?:required|needed|mandatory)\b",
-                text,
-                re.I,
-            )
+    def body_occurrences(text: str, gate: bool) -> tuple[list[dict[str, Any]], str]:
+        """Classify complete, bounded body predicates before residual evidence gating."""
+        body = r"(?:pr|pull request)\s+body\b"
+        noun = r"(?:(?:the|an?|any|before/after)\s+)?(?:evidence|artifacts?|transcripts?|command outputs?)\b"
+        operation = r"(?:include\w*|contain\w*|attach\w*|provide\w*|publish\w*|post\w*|record\w*|capture\w*|document\w*|add\w*|show\w*|store\w*|have|left|leave\w*)\b"
+        auxiliary = (
+            r"(?:(?:is|are|was|were)\s+(?:not|never|no\s+longer)\s+"
+            r"(?:required|needed|mandated|expected|supposed|obliged)\s+to|"
+            r"(?:does|do|did)\s+(?:not|never)\s+(?:need|have)\s+to|"
+            + mandatory_auxiliary
+            + r"|is|are|was|were|will|should|may|can)"
         )
+        polarity = r"(?:(?:not|never|no\s+longer)\s+)?"
+        aspect = r"(?:(?:be|have\s+been)(?:\s+being)?\s+)?"
+        destination = (
+            r"(?:in|into|to|within)\s+(?:both\s+)?(?:(?:the|an?)\s+)?"
+            r"(?:(?:pr comments?|pull request comments?|workflow artifacts?)\s+(?:and|or)\s+"
+            r"(?:(?:the|an?)\s+)?)?" + body + r"(?:\s+editor\b)?"
+        )
+        families = [
+            r"\b" + mandatory_auxiliary + r"\s+" + polarity + operation + r"\s+" + destination,
+            r"\b" + body + r"\s+" + auxiliary + r"\s+" + polarity + operation + r"\s+" + noun,
+            r"\bthere\s+" + auxiliary + r"\s+" + polarity + r"be\s+" + noun + r"\s+" + destination,
+            r"\b"
+            + noun
+            + r"\s+(?:is|are)\s+"
+            + polarity
+            + r"(?:required|needed|mandatory|optional)\s+"
+            + destination,
+            r"\b"
+            + noun
+            + r"\s+"
+            + auxiliary
+            + r"\s+"
+            + polarity
+            + aspect
+            + operation
+            + r"\s+"
+            + destination,
+            r"\b(?:"
+            + auxiliary
+            + r"\s+)?"
+            + polarity
+            + aspect
+            + operation
+            + r"\s+"
+            + noun
+            + r"\s+"
+            + destination,
+            r"\b"
+            + body
+            + r"\s+(?:is|are)\s+"
+            + polarity
+            + r"(?:required|needed|mandatory|optional)\b",
+        ]
+        if gate:
+            families.insert(0, r"\b(?:without|unless|until)\s+" + noun + r"\s+" + destination)
+        candidates = sorted(
+            (match for family in families for match in re.finditer(family, text, re.I)),
+            key=lambda match: (match.start(), -len(match[0])),
+        )
+        records: list[dict[str, Any]] = []
+        consumed_end = -1
+        residual = list(text)
+        for match in candidates:
+            if match.start() < consumed_end:
+                continue
+            clause = match[0]
+            body_match = re.search(body, clause, re.I)
+            assert body_match is not None
+            is_gate = gate and bool(re.match(r"(?:without|unless|until)\b", clause, re.I))
+            prohibited = not is_gate and bool(
+                re.search(r"\b(?:not|never|no\s+longer)\b", clause, re.I)
+            )
+            optional = not is_gate and bool(
+                re.search(r"\b(?:optional|should|may|can)\b", clause, re.I)
+            )
+            editor = re.match(r"\s+editor\b", clause[body_match.end() :], re.I)
+            product = bool(editor) and product_comment_object(
+                text[: match.start() + body_match.start()], clause[body_match.end() :]
+            )
+            disposition = (
+                "prohibited"
+                if prohibited
+                else "product" if product else "optional" if optional else "required"
+            )
+            destinations = {"body"}
+            if re.search(r"\b(?:pr comments?|pull request comments?)\b", clause, re.I):
+                destinations.add("comments")
+            if re.search(r"\bworkflow artifacts?\b", clause, re.I):
+                destinations.add("artifacts")
+            records.append(
+                {
+                    "span": (match.start(), match.end()),
+                    "disposition": disposition,
+                    "destinations": destinations,
+                }
+            )
+            residual[match.start() : match.end()] = " " * len(clause)
+            consumed_end = match.end()
+        return records, "".join(residual)
 
     def remaining_delivery(text: str) -> bool:
         # Product object-field nouns are not requests to deliver evidence.
@@ -1458,19 +1539,7 @@ def _required_evidence_channels(acceptance: str) -> set[str]:
                 )
                 resolved_antecedent = clause_evidence_antecedent
             gate = bool(negative_gate.search(working_line))
-            if not gate:
-                working_line = re.sub(
-                    r"\b(?:pr|pull request)\s+body\s+"
-                    r"(?:(?:must|shall|may|should|can)\s+(?:not|never)|"
-                    r"(?:does|do|did)\s+not\s+(?:need|have)\s+to|"
-                    r"(?:is|are|was|were)\s+(?:not|never|no\s+longer)\s+"
-                    r"(?:required|needed|mandated|expected|supposed|obliged)\s+to)\s+"
-                    r"(?:include|contain|show|provide|have)\w*\s+"
-                    r"(?:(?:the|an?|any)\s+)?(?:evidence|artifacts?|transcripts?|command outputs?)\b",
-                    " ",
-                    working_line,
-                    flags=re.I,
-                )
+            body_records, body_residual = body_occurrences(working_line, gate)
             requirement_text = working_line if gate else evidence_prohibition.sub(" ", working_line)
             # An optional evidence noun can be the object of a mandatory
             # explanation (for example, "a PR comment must explain why
@@ -1485,15 +1554,6 @@ def _required_evidence_channels(acceptance: str) -> set[str]:
                 flags=re.I,
             )
             if not evidence_term.search(requirement_text):
-                continue
-            non_body_terms = re.sub(
-                r"\b(?:pr|pull request)\s+body\b", " ", requirement_text, flags=re.I
-            )
-            if (
-                not gate
-                and not evidence_term.search(non_body_terms)
-                and not body_delivery(requirement_text)
-            ):
                 continue
             checklist = criterion_checklist
             bullet = criterion_bullet
@@ -1572,6 +1632,15 @@ def _required_evidence_channels(acceptance: str) -> set[str]:
                 or requirement.search(requirement_text)
             ):
                 continue
+            if body_records:
+                for record in body_records:
+                    if record["disposition"] == "required":
+                        channels.update(record["destinations"])
+                requirement_text = (
+                    body_residual if gate else evidence_prohibition.sub(" ", body_residual)
+                )
+                if not evidence_term.search(requirement_text):
+                    continue
             lower = requirement_text.lower()
             response_prefix = re.compile(
                 r"\b(?:" + response_subject + r"|(?:command[- ]?outputs?|transcripts?)\s+api"
@@ -1831,26 +1900,6 @@ def _required_evidence_channels(acceptance: str) -> set[str]:
                     re.I,
                 )
             )
-            explicit_body_delivery = body_delivery(requirement_text) or (
-                gate and bool(re.search(r"\b(?:pr|pull request)\s+body\b", lower))
-            )
-            body_objects = list(
-                re.finditer(r"\b(?:pr|pull request)\s+body\b", requirement_text, re.I)
-            )
-            product_body_behavior = bool(body_objects) and all(
-                product_comment_object(
-                    requirement_text[: item.start()],
-                    requirement_text[
-                        item.end() : (
-                            body_objects[index + 1].start()
-                            if index + 1 < len(body_objects)
-                            else len(requirement_text)
-                        )
-                    ],
-                )
-                for index, item in enumerate(body_objects)
-            )
-            explicit_body_delivery = explicit_body_delivery and not product_body_behavior
             # Consume one product persistence operation and its immediate
             # storage destination, not later reviewer delivery predicates.
             storage_operation = re.compile(
@@ -1893,8 +1942,7 @@ def _required_evidence_channels(acceptance: str) -> set[str]:
                 )
             )
             preserve_explicit_comment_delivery = bool(
-                (explicit_comment_delivery and not product_comment_behavior)
-                or explicit_body_delivery
+                explicit_comment_delivery and not product_comment_behavior
             )
             if product_output_match and not preserve_explicit_comment_delivery:
                 delivery_text = product_output_prefix.sub(" ", requirement_text, count=1)
@@ -1909,8 +1957,6 @@ def _required_evidence_channels(acceptance: str) -> set[str]:
                     line_channels.add("comments")
                 elif not line_channels:
                     continue
-            if explicit_body_delivery:
-                line_channels.add("body")
             if not line_channels:
                 command_behavior = bool(
                     re.search(

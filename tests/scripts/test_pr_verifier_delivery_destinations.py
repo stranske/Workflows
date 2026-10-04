@@ -109,6 +109,11 @@ def test_nonpass_text_retains_actionable_concerns_and_raw_detail(verdict):
         "The PR body does not need to include evidence",
         "The PR body is not required to include evidence",
         "The PR body must never include evidence",
+        "Evidence must never be included in the PR body",
+        "Evidence shall never be included in the PR body",
+        "There must not be evidence in the PR body",
+        "Evidence must not be shown in the PR body",
+        "Evidence must not be added in the PR body",
     ],
 )
 def test_negated_body_delivery_does_not_require_evidence(criterion):
@@ -141,8 +146,9 @@ def test_equivalent_body_obligations_keep_destination_specific_floor(criterion):
 
 
 @pytest.mark.parametrize("actor", ["UI", "application", "service"])
-def test_body_editor_product_output_is_not_a_reviewer_deliverable(actor):
-    criterion = f"The {actor} should show evidence in the pull request body editor"
+@pytest.mark.parametrize("operation", ["should show", "must include"])
+def test_body_editor_product_output_is_not_a_reviewer_deliverable(actor, operation):
+    criterion = f"The {actor} {operation} evidence in the pull request body editor"
     assert verifier._required_evidence_channels("- [ ] " + criterion) == set()
     channels = verifier._required_evidence_channels(
         "- [ ] " + criterion + "; include evidence in the PR body"
@@ -152,3 +158,84 @@ def test_body_editor_product_output_is_not_a_reviewer_deliverable(actor):
         "- [ ] The reviewer of the UI must show evidence in the PR body"
     )
     assert human == {"body"}
+
+
+BODY_CLAUSE_CASES = []
+for modal in ("must", "shall"):
+    for polarity in ("", "not ", "never "):
+        expected = {"body"} if not polarity else set()
+        for aspect in ("be", "have been", "have been being"):
+            BODY_CLAUSE_CASES.append(
+                (f"Evidence {modal} {polarity}{aspect} included in the PR body", expected)
+            )
+        for operation in ("include", "contain", "show"):
+            BODY_CLAUSE_CASES.append(
+                (f"The PR body {modal} {polarity}{operation} evidence", expected)
+            )
+for modal in ("must", "shall", "needs to"):
+    for polarity in ("", "not ", "never "):
+        BODY_CLAUSE_CASES.append(
+            (
+                f"There {modal} {polarity}be evidence in the PR body",
+                {"body"} if not polarity else set(),
+            )
+        )
+for actor in ("UI", "application", "service"):
+    for operation in ("include", "show", "store"):
+        for modal in ("must", "should"):
+            BODY_CLAUSE_CASES.append(
+                (f"The {actor} {modal} {operation} evidence in the pull request body editor", set())
+            )
+BODY_CLAUSE_CASES.extend(
+    [
+        ("The reviewer of the UI must include evidence in the PR body", {"body"}),
+        ("The UI must include evidence in the PR body", {"body"}),
+        ("The engineer must include evidence in the PR body", {"body"}),
+        ("Do not merge without evidence in the PR body", {"body"}),
+        (
+            "The UI must show evidence in the pull request body editor that the reviewer must include in the PR body",
+            {"body"},
+        ),
+    ]
+)
+
+
+@pytest.mark.parametrize("criterion,expected", BODY_CLAUSE_CASES)
+@pytest.mark.parametrize("prefix", ["- ", "- [ ] "])
+@pytest.mark.parametrize("comment_position", ["none", "before", "after", "and"])
+def test_body_clause_matrix_preserves_independent_destinations(
+    criterion, expected, prefix, comment_position
+):
+    comment = "the reviewer must post a PR comment with command output"
+    if comment_position == "before":
+        criterion = comment + "; " + criterion
+    elif comment_position == "after":
+        criterion += "; " + comment
+    elif comment_position == "and":
+        criterion += " and " + comment
+    expected = expected | ({"comments"} if comment_position != "none" else set())
+    actual = verifier._required_evidence_channels(prefix + criterion)
+    assert actual == expected
+
+
+@pytest.mark.parametrize("criterion,expected", BODY_CLAUSE_CASES)
+@pytest.mark.parametrize("status", ["present", "absent", "unavailable"])
+def test_body_clause_matrix_controls_real_coverage_floor(criterion, expected, status):
+    spec = importlib.util.spec_from_file_location(
+        "clause_coverage_fixtures", Path(__file__).with_name("test_pr_verifier_prompt_coverage.py")
+    )
+    fixture = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(fixture)
+    context, _ = fixture._context(1, 1000, 1000)
+    context = context.replace(fixture.ACCEPTANCE_SENTINEL, criterion)
+    context = context.replace(
+        "## PR Diff Summary",
+        "## Acceptance evidence\n\n- Overall retrieval status: **present**\n"
+        f"- PR body: **{status}**\n- PR comments: **present**\n"
+        "- Referenced workflow artifacts: **present**\n\n## PR Diff Summary",
+    )
+    coverage = verifier.prompt_coverage(context, None)
+    result = verifier._apply_coverage_floor(
+        verifier.EvaluationResult(verdict="PASS", used_llm=True), coverage
+    )
+    assert result.verdict == ("CONCERNS" if "body" in expected and status != "present" else "PASS")
