@@ -1,5 +1,8 @@
 import json
+import runpy
+from pathlib import Path
 
+import pytest
 import scripts.langchain.pr_verifier as pr_verifier
 
 
@@ -373,3 +376,48 @@ def test_validate_comparison_clients_valid_multiple_same_family_with_third() -> 
     is_valid, error = pr_verifier._validate_comparison_clients(clients)
     assert is_valid is True
     assert error == ""
+
+
+@pytest.mark.parametrize("omission", ["drop_acceptance", "drop_diff", "drop_file"])
+def test_comparison_withholds_pass_for_late_required_omission(monkeypatch, omission) -> None:
+    """The #3701 acceptance command must exercise the post-8k comparison floor.
+
+    Reuse the production-shaped context generator from the extended coverage suite;
+    these are deterministic controls, not historical production capture transcripts.
+    """
+    fixtures = runpy.run_path(str(Path(__file__).with_name("test_pr_verifier_prompt_coverage.py")))
+    make_context = fixtures["_context"]
+    complete, _ = make_context(4, 6000, 1200, ci_chars=9000)
+    assert complete.index(fixtures["ACCEPTANCE_SENTINEL"]) > 8000
+    assert pr_verifier.prompt_coverage(complete, None).sufficient
+    options = {omission: 3 if omission == "drop_file" else True}
+    incomplete, _ = make_context(4, 6000, 1200, ci_chars=9000, **options)
+    calls = []
+    clients = [
+        (FakeClient("first", calls), "openai", "first-model"),
+        (FakeClient("second", calls), "anthropic", "second-model"),
+    ]
+    monkeypatch.setattr(pr_verifier, "_get_llm_clients", lambda m1=None, m2=None: clients)
+    results = pr_verifier.evaluate_pr_multiple(incomplete)
+    assert len(results) == 2
+    assert all(result.verdict == "CONCERNS" for result in results)
+    assert all(not result.input_coverage["sufficient"] for result in results)
+
+
+@pytest.mark.parametrize(
+    "files,code_chars,acceptance_chars,sufficient",
+    [(30, 159700, 9000, False), (11, 75300, 3200, False), (9, 27600, 1500, True)],
+    ids=["workflows-3601-shape", "manager-database-1703-shape", "pension-data-912-shape"],
+)
+def test_named_comparison_command_covers_three_maint78_shapes(
+    monkeypatch, files, code_chars, acceptance_chars, sufficient
+) -> None:
+    """Exercise the production comparison factory with recorded capture dimensions."""
+    fixtures = runpy.run_path(str(Path(__file__).with_name("test_pr_verifier_prompt_coverage.py")))
+    context, paths = fixtures["_context"](files, code_chars, acceptance_chars)
+    monkeypatch.setattr(pr_verifier, "_get_llm_clients", lambda m1=None, m2=None: [])
+    runner = pr_verifier.ComparisonRunner.from_environment(context, None)
+    assert runner.coverage.sufficient is sufficient
+    assert runner.coverage.to_dict()["files_omitted"] == 0
+    assert fixtures["ACCEPTANCE_SENTINEL"] in runner.prompt
+    assert all(f"diff --git a/{path} b/{path}" in runner.prompt for path in paths)
