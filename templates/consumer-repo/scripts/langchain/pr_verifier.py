@@ -977,6 +977,14 @@ def _acceptance_criteria_sections(plan_sources: str) -> str:
 def _required_evidence_channels(acceptance: str) -> set[str]:
     """Identify explicit evidence deliverables without treating negations as requirements."""
     channels: set[str] = set()
+    # Canonicalize the same explicit PR destination before clause/negation
+    # processing, so an unrelated artifact cannot satisfy required comments.
+    acceptance = re.sub(
+        r"\bcomments?\s+(?:on|in)\s+(?:(?:the|an?)\s+)?(?:pr|pull request)\b",
+        "PR comment",
+        acceptance,
+        flags=re.I,
+    )
     # Use the same product-response operation vocabulary when coalescing object
     # groups and when excluding response fields from review deliverables.
     response_operation = (
@@ -1566,6 +1574,14 @@ def _required_evidence_channels(acceptance: str) -> set[str]:
                         r"\b(?:upload|attach|publish|post|record|capture|provide|include|document)"
                         r"(?:s)?\s+(?:(?:an?|the|any|workflow|validation|exact-head|evidence)\s+){0,4}"
                         r"artifacts?\b",
+                        requirement_text,
+                        re.I,
+                    )
+                    or re.search(
+                        r"\b(?:must|shall)\s+be\s+"
+                        r"(?:uploaded|attached|published|posted|recorded|captured|provided|"
+                        r"included|documented)\s+as\s+(?:(?:an?|the)\s+)?"
+                        r"(?:(?:workflow|validation|exact-head|evidence)\s+)?artifacts?\b",
                         requirement_text,
                         re.I,
                     )

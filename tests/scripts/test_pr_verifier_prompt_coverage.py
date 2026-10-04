@@ -1875,6 +1875,48 @@ def test_reversed_product_nouns_preserve_later_comment_link_requirement() -> Non
     assert not pr_verifier.prompt_coverage(context, None).sufficient
 
 
+@pytest.mark.parametrize(
+    ("criterion", "channel"),
+    [
+        ("Leave a comment on the PR with the command output", "comments"),
+        ("Leave a comment in the pull request with test results", "comments"),
+        ("The validation logs must be uploaded as an artifact", "artifacts"),
+        ("The transcript shall be provided as a workflow artifact", "artifacts"),
+    ],
+)
+@pytest.mark.parametrize("status", ["absent", "unavailable"])
+def test_delivery_destination_word_order_has_its_own_required_channel(
+    criterion: str, channel: str, status: str
+) -> None:
+    assert pr_verifier._required_evidence_channels("- [ ] " + criterion) == {channel}
+    context, _ = _context(1, 1_000, 1_000)
+    context = context.replace(ACCEPTANCE_SENTINEL, criterion).replace(
+        "## PR Diff Summary",
+        "## Acceptance evidence\n\n- Overall retrieval status: **present**\n"
+        f"- PR comments: **{status if channel == 'comments' else 'present'}**\n"
+        f"- Referenced artifacts: **{status if channel == 'artifacts' else 'present'}**\n\n"
+        "## PR Diff Summary",
+    )
+    coverage = pr_verifier.prompt_coverage(context, None)
+    assert not coverage.sufficient
+    result = pr_verifier._apply_coverage_floor(
+        pr_verifier.EvaluationResult(verdict="PASS", used_llm=True), coverage
+    )
+    assert result.verdict == "CONCERNS"
+
+
+@pytest.mark.parametrize(
+    "criterion",
+    [
+        "Do not leave a comment on the PR with the command output",
+        "The validation logs must not be uploaded as an artifact",
+        "The validation logs can be uploaded as an artifact",
+    ],
+)
+def test_destination_aliases_preserve_optional_and_negated_delivery(criterion: str) -> None:
+    assert pr_verifier._required_evidence_channels("- [ ] " + criterion) == set()
+
+
 @pytest.mark.parametrize("path", ["note (added)", "note (deleted)", "old -> literal (added)"])
 @pytest.mark.parametrize("status", ["", " (added)", " (deleted)"])
 def test_summary_encoded_destination_preserves_literal_status_suffix(

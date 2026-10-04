@@ -924,8 +924,12 @@ Verifier acceptance classification distinguishes product output and product fiel
 review deliverables: a command that must output a transcript, response evidence links or
 records, and endpoint/service/CLI/renderer PR-comment fields do not require reviewing-PR
 evidence. Reports and exports use the same product-operation vocabulary. A separate
-required delivery clause remains authoritative. Product fields
-also preserve reversed noun order (`links to evidence`, `records of
+required delivery clause remains authoritative.
+Explicit `comment on/in the PR` destinations normalize to the PR-comment channel;
+evidence required `as an artifact` keeps the artifact channel. Present evidence in
+another channel cannot satisfy either requirement, and optional/negated forms
+retain their existing exemption.
+Product fields also preserve reversed noun order (`links to evidence`, `records of
 evidence`): the exemption applies only to the immediate object of the response
 operation, never a later reviewer linking/recording predicate.
 Comment operations are classified by their subject head: an API reviewer or reviewer of an endpoint remains
