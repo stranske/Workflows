@@ -1012,7 +1012,7 @@ def _required_evidence_channels(acceptance: str) -> set[str]:
             evidence_term.search(text) and (requirement.search(actions) or passive_requirement)
         )
 
-    def product_comment_object(prefix: str) -> bool:
+    def product_comment_object(prefix: str, destination: str) -> bool:
         """Classify the governing operation's subject, not domain words anywhere."""
         operations = list(
             re.finditer(
@@ -1097,6 +1097,26 @@ def _required_evidence_channels(acceptance: str) -> set[str]:
             flags=re.I,
         )[0]
         words = re.findall(r"[\w-]+", subject.lower())
+        product_destination = bool(
+            re.search(
+                r"\b(?:in|into|to|as)\s+(?:(?:its|the|an?)\s+)?"
+                r"(?:(?:json|api|audit|output)\s+)*"
+                r"(?:responses?|payloads?|outputs?|fields?|records?|storage|data)\b"
+                r"|^\s*(?:fields?|metadata)\b",
+                destination,
+                re.I,
+            )
+        )
+        field_operation = bool(re.fullmatch(r"(?:include|display|store)\w*", operation[0], re.I))
+        review_destination = bool(
+            re.search(
+                r"\b(?:with|containing|including)\s+(?:test\s+|validation\s+)?"
+                r"(?:results?|evidence|transcripts?|command outputs?)\b"
+                r"|\b(?:on|in|to)\s+(?:(?:the|this|reviewing)\s+)?(?:pr|pull request)\b",
+                destination,
+                re.I,
+            )
+        )
         return bool(
             words
             and words[-1]
@@ -1110,6 +1130,7 @@ def _required_evidence_channels(acceptance: str) -> set[str]:
                 "endpoint",
                 "renderer",
             }
+            and (capability or product_destination or (field_operation and not review_destination))
         )
 
     evidence_prohibition = re.compile(
@@ -1551,7 +1572,17 @@ def _required_evidence_channels(acceptance: str) -> set[str]:
             # Union delivery occurrences: a product object cannot erase an
             # earlier mandatory comment, and unresolved subjects keep the floor.
             product_comment_behavior = bool(comment_objects) and all(
-                product_comment_object(requirement_text[: item.start()]) for item in comment_objects
+                product_comment_object(
+                    requirement_text[: item.start()],
+                    requirement_text[
+                        item.end() : (
+                            comment_objects[index + 1].start()
+                            if index + 1 < len(comment_objects)
+                            else len(requirement_text)
+                        )
+                    ],
+                )
+                for index, item in enumerate(comment_objects)
             )
             explicit_comment_delivery = bool(
                 re.search(

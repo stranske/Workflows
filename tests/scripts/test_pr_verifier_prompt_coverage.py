@@ -2458,3 +2458,36 @@ def test_unrecognized_fronted_attachment_cannot_establish_product_exemption() ->
     assert pr_verifier._required_evidence_channels(
         "- [ ] With reviewer access to the API must post a PR comment"
     ) == {"comments"}
+
+
+@pytest.mark.parametrize("actor", ["service", "endpoint", "CLI", "renderer", "API"])
+@pytest.mark.parametrize("verb", ["post", "add", "leave"])
+@pytest.mark.parametrize(
+    "destination,expected", [("with test results", {"comments"}), ("in its response", set())]
+)
+@pytest.mark.parametrize("status", ["absent", "unavailable"])
+def test_product_named_actor_review_delivery_is_not_a_product_field(
+    actor: str, verb: str, destination: str, expected: set[str], status: str
+) -> None:
+    criterion = f"The {actor} must {verb} a PR comment {destination}"
+    assert pr_verifier._required_evidence_channels(f"- [ ] {criterion}") == expected
+    context, _ = _context(1, 1_000, 1_000)
+    context = context.replace(ACCEPTANCE_SENTINEL, criterion).replace(
+        "## PR Diff Summary",
+        "## Acceptance evidence\n\n- Overall retrieval status: **present**\n"
+        f"- PR comments: **{status}**\n\n## PR Diff Summary",
+    )
+    assert pr_verifier.prompt_coverage(context, None).sufficient == (not expected)
+
+
+def test_later_product_field_cannot_supply_destination_for_earlier_review_delivery() -> None:
+    assert pr_verifier._required_evidence_channels(
+        "- [ ] The service must post a PR comment with test results and "
+        "the API includes a PR comment in its response"
+    ) == {"comments"}
+
+
+def test_include_operation_retains_explicit_review_destination() -> None:
+    assert pr_verifier._required_evidence_channels(
+        "- [ ] The service must include a PR comment with test results"
+    ) == {"comments"}

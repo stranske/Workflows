@@ -916,7 +916,12 @@ review deliverables: a command that must output a transcript, response evidence 
 records, and endpoint/service/CLI/renderer PR-comment fields do not require reviewing-PR
 evidence. A separate required delivery clause remains authoritative. Comment operations
 are classified by their subject head: an API reviewer or reviewer of an endpoint remains
-a review actor, while an endpoint used by reviewers remains a product actor. Qualified
+a review actor, while an endpoint used by reviewers remains a product actor. Actor
+classification alone cannot exempt real comment delivery: posting, adding or leaving
+comments by a service, endpoint, CLI or renderer retains the evidence floor unless
+the object is a product field/destination or nested user capability. Each comment
+uses its own destination; a later response field cannot exempt an earlier delivery.
+Qualified
 product subjects have no arbitrary word-count ceiling. An embedded product description
 cannot veto an independently mandatory comment; unresolved subject attachment retains
 the evidence floor. Initial human subject heads remain authoritative across unlisted
