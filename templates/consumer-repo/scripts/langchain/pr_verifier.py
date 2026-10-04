@@ -1047,7 +1047,8 @@ def _required_evidence_channels(acceptance: str) -> set[str]:
         # "reviewer of the endpoint" is human; "endpoint used by reviewers"
         # is a product. Introductory words need no arbitrary length ceiling.
         subject = re.split(
-            r"\b(?:of|that|which|who|(?:used|operated|provided|managed)\s+by)\b",
+            r"\b(?:of|that|which|who|using|testing|accessing|operating|"
+            r"(?:used|operated|provided|managed)\s+by)\b",
             subject,
             maxsplit=1,
             flags=re.I,
@@ -1069,6 +1070,10 @@ def _required_evidence_channels(acceptance: str) -> set[str]:
         )
 
     evidence_prohibition = re.compile(
+        r"\b(?:(?:is|are)\s+not\s+(?:required|needed|obliged)\s+to|"
+        r"(?:does|do)\s+not\s+need\s+to|needs?\s+not)\s+"
+        r"(?:upload|attach|provide|publish|post|record|capture|include|document|generate|link|add|leave)\b"
+        r"|"
         r"\bno\s+(?:\w+\s+){0,3}(?:evidence|artifacts?|transcripts?|command outputs?|"
         r"workflow runs?|pr comments?|pull request comments?)"
         r"\s+(?:is|are)\s+(?:required|needed|mandatory)\b"

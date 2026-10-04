@@ -2316,3 +2316,20 @@ def test_product_capability_does_not_hide_distinct_reviewer_delivery(verb: str) 
 def test_coordinated_capability_infinitive_remains_product_behavior(actor: str) -> None:
     criterion = f"The API allows users to add PR comments and {actor} to post PR comments"
     assert pr_verifier._required_evidence_channels(f"- [ ] {criterion}") == set()
+
+
+@pytest.mark.parametrize("actor", ["reviewer using the endpoint", "maintainer testing the CLI"])
+def test_qualified_human_actor_retains_required_comment(actor: str) -> None:
+    assert pr_verifier._required_evidence_channels(
+        f"- [ ] The {actor} must post a PR comment with results"
+    ) == {"comments"}
+
+
+@pytest.mark.parametrize("negation", ["is not required to", "does not need to", "need not"])
+@pytest.mark.parametrize("verb", ["add", "leave", "post", "provide", "record"])
+def test_actor_scoped_negated_delivery_is_not_required(negation: str, verb: str) -> None:
+    criterion = f"The reviewer {negation} {verb} a PR comment"
+    assert pr_verifier._required_evidence_channels(f"- [ ] {criterion}") == set()
+    assert pr_verifier._required_evidence_channels(
+        f"- [ ] {criterion}; the maintainer must post a PR comment"
+    ) == {"comments"}
