@@ -8,6 +8,14 @@ Correct verifier findings in the Workflows source and copy-managed templates,
 then regenerate through Maint 68/71. An unsealed staging canary cannot be
 promoted merely because a reconciliation run completed successfully.
 
+Doc-Lineage#81 also reported that omitted-file diagnostics could exceed the
+verifier's diff budget. The source reserves space for a count-only diagnostic
+before allocating excerpts, including the separator after a partial line.
+Complete omitted paths remain in coverage metadata. Binary descriptors and
+diff summaries cannot provide sufficient changed-code coverage. This file is
+copy-delivered from `scripts/langchain/pr_verifier.py` to the same consumer path
+by the `scripts` entry in `.github/sync-manifest.yml`, which includes Doc-Lineage.
+
 For merged PRs, the context builder retrieves original first-commit metadata
 and uses the historical merge parent to anchor the local full diff. An unchanged
 rebase uses the original commit count to recover the full range; ambiguous

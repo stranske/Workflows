@@ -815,7 +815,8 @@ def _excerpt_file(path: str, text: str, share: int) -> tuple[str, FileCoverage]:
     if share >= total:
         return text, FileCoverage(path, "complete", total, total)
     omitted_note = "[... remaining lines of {path} omitted: verifier prompt budget ...]\n"
-    reserve = len(omitted_note.format(path=path))
+    # Reserve the separator too if the excerpt ends in the middle of a line.
+    reserve = len(omitted_note.format(path=path)) + 1
     header_end = text.find("\n@@")
     header_len = header_end + 1 if header_end >= 0 else min(total, 200)
     if share - reserve <= header_len:
@@ -843,19 +844,29 @@ def _build_code_block(
         return block, status, (), min(len(diff), len(block)), len(diff)
     if any(path == "__invalid_git_path__" for path, _ in files):
         return "(diff unavailable)", "unavailable", (), 0, 0
-    shares = _fair_shares([len(text) for _, text in files], budget_chars)
+    # Doc-Lineage#81 review finding (discussion_r4169521235): appending
+    # omitted paths after fair-share allocation exceeded the diff budget.
+    # Reserve a count-only diagnostic; paths remain in FileCoverage metadata.
+    sizes = [0 if _diff_file_is_binary_descriptor(text) else len(text) for _, text in files]
+    omission_note = "[{count} changed file(s) omitted entirely — not shown to the reviewer]\n"
+    note_budget = (
+        min(max(0, budget_chars), len(omission_note.format(count=len(files))))
+        if sum(sizes) > budget_chars or any(size == 0 for size in sizes)
+        else 0
+    )
+    shares = _fair_shares(sizes, max(0, budget_chars - note_budget))
     parts: list[str] = []
     coverage: list[FileCoverage] = []
-    omitted: list[str] = []
+    omitted = 0
     for (path, text), share in zip(files, shares, strict=True):
         excerpt, item = _excerpt_file(path, text, share)
         coverage.append(item)
         if excerpt:
             parts.append(excerpt)
         else:
-            omitted.append(path)
+            omitted += 1
     if omitted:
-        parts.append("[omitted entirely — not shown to the reviewer: " + ", ".join(omitted) + "]\n")
+        parts.append(omission_note.format(count=omitted)[:note_budget])
     included = sum(item.included_chars for item in coverage)
     total = sum(item.total_chars for item in coverage)
     status = "complete" if all(item.status == "complete" for item in coverage) else "truncated"
