@@ -1026,24 +1026,32 @@ def _required_evidence_channels(acceptance: str) -> set[str]:
         capability = bool(re.fullmatch(r"(?:allow|enable|support)\w*", operations[0][0], re.I))
         if capability and len(operations) > 1:
             between = prefix[operations[-2].end() : operations[-1].start()]
-            if re.search(
-                r"\b(?:and|or|while|after|once|before|when|until|unless|if|since|because|whereas)"
-                r"\s+(?:the\s+|an?\s+)?[\w-]+",
-                between,
-                re.I,
-            ) and (
-                not re.search(r"\bto\s*$", between, re.I)
-                or re.search(product_auxiliary + r"$", between, re.I)
-            ):
-                # A coordinated clause with its own actor governs this object,
-                # even without a modal: "and the reviewer leaves a comment".
-                # "and reviewers to post" remains a shared capability
-                # complement of "allows", rather than a finite delivery.
-                capability = False
+            prior_comments = list(
+                re.finditer(r"\b(?:pr|pull request)\s+comments?\b", between, re.I)
+            )
+            if prior_comments:
+                attachment = between[prior_comments[-1].end() :]
+                # After a complete comment object, preserve only recognized
+                # shared infinitive coordination. Unknown clause attachments
+                # cannot inherit the earlier capability exemption.
+                capability = bool(
+                    re.fullmatch(r"\s*(?:and|or)(?:\s+(?:[\w-]+\s+)*to)?\s*", attachment, re.I)
+                    and not re.search(product_auxiliary + r"$", attachment, re.I)
+                )
+            elif not re.fullmatch(r"\s*(?:and|or)\s*", between, re.I):
+                capability = bool(
+                    re.search(r"\bto\s*$", between, re.I)
+                    and not re.search(product_auxiliary + r"$", between, re.I)
+                )
         operation = operations[0] if capability else operations[-1]
         subject = prefix[: operation.start()]
         if not capability and len(operations) > 1:
             between = prefix[operations[-2].end() : operation.start()]
+            prior_comments = list(
+                re.finditer(r"\b(?:pr|pull request)\s+comments?\b", between, re.I)
+            )
+            if prior_comments:
+                between = between[prior_comments[-1].end() :]
             if not re.fullmatch(r"\s*(?:and|or)\s*", between, re.I):
                 # A later delivery has its own subject; do not inherit an
                 # earlier UI/API actor across "transcript that must be posted".
@@ -1182,7 +1190,7 @@ def _required_evidence_channels(acceptance: str) -> set[str]:
         r"|\b(?:evidence|artifacts?|transcripts?|command outputs?|workflow runs?|"
         r"pr comments?|pull request comments?)"
         r"\s+(?:is|are)\s+not\s+(?:required|needed|mandatory)\b"
-        r"|\b(?:must|shall|may|should|do|does|did)\s+not\s+"
+        r"|\b(?:must|shall|may|should|can|do|does|did)\s+not\s+"
         r"(?:upload|attach|provide|publish|post|record|capture|include|document|generate|link|add|leave)\b"
         r"(?:\s+(?:the\s+|an?\s+|any\s+)?(?:[\w-]+\s+){0,4}"
         r"(?:evidence|artifacts?|transcripts?|"
@@ -1243,11 +1251,12 @@ def _required_evidence_channels(acceptance: str) -> set[str]:
             criteria.append(line)
     for criterion in criteria:
         criterion = re.sub(
-            r"\b(is|are|does|do|did|must|should|need|has|have|was|were)n['’]t\b",
-            lambda match: match[1] + " not",
+            r"\b(is|are|does|do|did|must|should|need|has|have|was|were|ca)n['’]t\b",
+            lambda match: ("can" if match[1].lower() == "ca" else match[1]) + " not",
             criterion,
             flags=re.I,
         )
+        criterion = re.sub(r"\bcannot\b", "can not", criterion, flags=re.I)
         criterion_checklist = bool(re.match(r"^\s*[-*]\s*\[[ xX]\]", criterion))
         criterion_bullet = bool(re.match(r"^\s*[-*]\s+", criterion))
         # Quoted parser inputs are examples, including their verbs and clause

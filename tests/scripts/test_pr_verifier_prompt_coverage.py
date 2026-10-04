@@ -2373,6 +2373,10 @@ def test_initial_human_head_survives_unlisted_modifiers(actor: str, qualifier: s
         "doesn't have to",
         "doesn’t need to",
         "needn't",
+        "can't",
+        "can’t",
+        "cannot",
+        "can not",
     ],
 )
 @pytest.mark.parametrize("verb", ["add", "leave", "post", "provide", "record"])
@@ -2556,7 +2560,13 @@ def test_comment_destination_is_its_direct_object_not_later_result_metadata(
 
 @pytest.mark.parametrize(
     "attachment",
-    ["while the reviewer posts", "after the reviewer has to post", "once the reviewer must post"],
+    [
+        "while the reviewer posts",
+        "after the reviewer has to post",
+        "once the reviewer must post",
+        "although the reviewer must post",
+        "as soon as the reviewer must post",
+    ],
 )
 @pytest.mark.parametrize("status", ["absent", "unavailable"])
 def test_capability_cannot_hide_temporally_attached_reviewer_delivery(

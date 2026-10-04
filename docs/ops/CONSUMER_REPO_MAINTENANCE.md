@@ -923,6 +923,9 @@ the object is a product field/destination or nested user capability. Each commen
 uses its own destination; a later response field cannot exempt an earlier delivery.
 Coordinated or temporal clauses with their own review actor and delivery predicate
 cannot inherit an earlier product capability exemption.
+After a complete comment object, only recognized shared infinitive coordination
+retains that exemption; unknown attachments fail closed rather than relying on a
+connector whitelist. Negative `can't`/`cannot` forms do not require a delivery.
 Qualified
 product subjects have no arbitrary word-count ceiling. An embedded product description
 cannot veto an independently mandatory comment; unresolved subject attachment retains
