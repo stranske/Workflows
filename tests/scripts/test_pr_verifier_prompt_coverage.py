@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import json
+import subprocess
 from unittest import mock
 
 import pytest
@@ -1807,6 +1808,207 @@ def test_product_evidence_objects_do_not_require_review_delivery(criterion: str)
 @pytest.mark.parametrize(
     "criterion",
     [
+        "The API response must include links to evidence",
+        "The API response must include records of evidence",
+        "The payload shall contain links and records for evidence",
+        "The return value includes the links to evidence",
+        "The generated report must include evidence links",
+        "The export must include records of evidence",
+        "The generated report shall contain links to evidence",
+        "The API response must include links to evidence and records of evidence",
+        "The generated report must include links to evidence and records of evidence",
+        "The export must include links to evidence and records of evidence",
+        "The API response must include links to evidence, and the records for evidence",
+        "The API response must include links to evidence and records",
+        "The API response must include links to evidence or records",
+    ],
+)
+@pytest.mark.parametrize("status", ["absent", "unavailable"])
+def test_product_evidence_object_reversed_nouns(criterion: str, status: str) -> None:
+    assert pr_verifier._required_evidence_channels("- [ ] " + criterion) == set()
+    context, _ = _context(1, 1_000, 1_000)
+    context = context.replace(ACCEPTANCE_SENTINEL, criterion).replace(
+        "## PR Diff Summary",
+        f"## Acceptance evidence\n\n- Overall retrieval status: **{status}**\n"
+        f"- PR comments: **{status}**\n\n## PR Diff Summary",
+    )
+    coverage = pr_verifier.prompt_coverage(context, None)
+    assert coverage.sufficient
+    result = pr_verifier._apply_coverage_floor(
+        pr_verifier.EvaluationResult(verdict="PASS", used_llm=True), coverage
+    )
+    assert result.verdict == "PASS"
+    assert pr_verifier._required_evidence_channels(
+        "- [ ] " + criterion + "; post a PR comment with test results"
+    ) == {"comments"}
+    assert pr_verifier._required_evidence_channels(
+        "- [ ] " + criterion + "; upload a validation artifact"
+    ) == {"artifacts"}
+
+
+def test_product_noun_exclusion_does_not_erase_later_link_predicate() -> None:
+    criterion = "The API response must include data and the reviewer links to evidence"
+    assert pr_verifier._required_evidence_channels("- [ ] " + criterion) == {"overall"}
+
+
+@pytest.mark.parametrize(
+    "criterion",
+    [
+        "The API response must include links to evidence and the reviewer records evidence",
+        "The API response must include links to evidence and records evidence",
+        "The generated report must include links to evidence; the reviewer links to evidence",
+    ],
+)
+def test_product_coordinated_nouns_do_not_hide_finite_delivery(criterion: str) -> None:
+    assert pr_verifier._required_evidence_channels("- [ ] " + criterion) == {"overall"}
+
+
+def test_reversed_product_nouns_preserve_later_comment_link_requirement() -> None:
+    criterion = "The API response includes records of evidence and the reviewer links to evidence in a PR comment"
+    assert pr_verifier._required_evidence_channels("- [ ] " + criterion) == {"comments"}
+    context, _ = _context(1, 1_000, 1_000)
+    context = context.replace(ACCEPTANCE_SENTINEL, criterion).replace(
+        "## PR Diff Summary",
+        "## Acceptance evidence\n\n- Overall retrieval status: **present**\n"
+        "- PR comments: **absent**\n\n## PR Diff Summary",
+    )
+    assert not pr_verifier.prompt_coverage(context, None).sufficient
+
+
+@pytest.mark.parametrize("subject", ["API response", "generated report", "export"])
+def test_forward_order_product_nouns_preserve_finite_recording(subject: str) -> None:
+    criterion = f"The {subject} must include evidence links and records evidence in a PR comment"
+    assert pr_verifier._required_evidence_channels("- [ ] " + criterion) == {"comments"}
+    context, _ = _context(1, 1_000, 1_000)
+    context = context.replace(ACCEPTANCE_SENTINEL, criterion).replace(
+        "## PR Diff Summary",
+        "## Acceptance evidence\n\n- Overall retrieval status: **present**\n"
+        "- PR comments: **absent**\n\n## PR Diff Summary",
+    )
+    assert not pr_verifier.prompt_coverage(context, None).sufficient
+
+
+@pytest.mark.parametrize("subject", ["API response", "generated report", "export"])
+def test_product_subject_vocabulary_is_shared_by_object_coalescing(subject: str) -> None:
+    criterion = f"The {subject} must include records of evidence and transcripts"
+    assert pr_verifier._required_evidence_channels("- [ ] " + criterion) == set()
+    assert pr_verifier._required_evidence_channels(
+        "- [ ] " + criterion + "; the reviewer must post a PR comment"
+    ) == {"comments"}
+
+
+@pytest.mark.parametrize(
+    ("criterion", "channel"),
+    [
+        ("Leave a comment on the PR with the command output", "comments"),
+        ("Leave a comment in the pull request with test results", "comments"),
+        ("The validation logs must be uploaded as an artifact", "artifacts"),
+        ("The transcript shall be provided as a workflow artifact", "artifacts"),
+    ],
+)
+@pytest.mark.parametrize("status", ["absent", "unavailable"])
+def test_delivery_destination_word_order_has_its_own_required_channel(
+    criterion: str, channel: str, status: str
+) -> None:
+    assert pr_verifier._required_evidence_channels("- [ ] " + criterion) == {channel}
+    context, _ = _context(1, 1_000, 1_000)
+    context = context.replace(ACCEPTANCE_SENTINEL, criterion).replace(
+        "## PR Diff Summary",
+        "## Acceptance evidence\n\n- Overall retrieval status: **present**\n"
+        f"- PR comments: **{status if channel == 'comments' else 'present'}**\n"
+        f"- Referenced artifacts: **{status if channel == 'artifacts' else 'present'}**\n\n"
+        "## PR Diff Summary",
+    )
+    coverage = pr_verifier.prompt_coverage(context, None)
+    assert not coverage.sufficient
+    result = pr_verifier._apply_coverage_floor(
+        pr_verifier.EvaluationResult(verdict="PASS", used_llm=True), coverage
+    )
+    assert result.verdict == "CONCERNS"
+
+
+@pytest.mark.parametrize(
+    "criterion",
+    [
+        "Do not leave a comment on the PR with the command output",
+        "The validation logs must not be uploaded as an artifact",
+        "The validation logs can be uploaded as an artifact",
+    ],
+)
+def test_destination_aliases_preserve_optional_and_negated_delivery(criterion: str) -> None:
+    assert pr_verifier._required_evidence_channels("- [ ] " + criterion) == set()
+
+
+@pytest.mark.parametrize("path", ["note (added)", "note (deleted)", "old -> literal (added)"])
+@pytest.mark.parametrize("status", ["", " (added)", " (deleted)"])
+def test_summary_encoded_destination_preserves_literal_status_suffix(
+    path: str, status: str
+) -> None:
+    summary = (
+        "## PR Diff Summary\n\n### File changes\n"
+        f"- {path}{status} (+1/-1) <!-- verifier-file-path:v1 {json.dumps(path)} -->\n"
+    )
+    assert pr_verifier._summary_destination_paths(summary) == [path]
+    context, _ = _context(1, 1_000, 1_000)
+    context = context.replace("src/pkg_0/module_0.py", path)
+    context = context.replace(
+        f"- {path} (+10/-0)",
+        f"- {path}{status} (+10/-0) <!-- verifier-file-path:v1 {json.dumps(path)} -->",
+    )
+    assert pr_verifier.prompt_coverage(context, None).sufficient
+
+
+@pytest.mark.parametrize(
+    "path",
+    [
+        "note (added)",
+        "note (deleted)",
+        "old -> literal (added)",
+        'literal <!-- verifier-file-path:v1 "x" --> name',
+        "new\nline",
+        "unicode\u2028line",
+    ],
+)
+def test_production_js_summary_round_trips_literal_destination(path: str) -> None:
+    quoted_from = json.dumps("a/" + path, ensure_ascii=False)
+    quoted_to = json.dumps("b/" + path, ensure_ascii=False)
+    diff = f"diff --git {quoted_from} {quoted_to}\n--- {quoted_from}\n+++ {quoted_to}\n@@ -1 +1 @@\n-old\n+new\n"
+    script = (
+        "const {summarizeDiff}=require('./.github/scripts/agents_verifier_context.js');"
+        "process.stdout.write(summarizeDiff(JSON.parse(process.argv[1])));"
+    )
+    summary = subprocess.check_output(["node", "-e", script, json.dumps(diff)], text=True)
+    assert pr_verifier._summary_destination_paths(summary) == [path]
+
+
+@pytest.mark.parametrize("value", ["not-json", "null", "12", '""', '"bad\\q"'])
+def test_malformed_destination_metadata_withholds_pass(value: str) -> None:
+    context, _ = _context(1, 1_000, 1_000)
+    context = context.replace(
+        "- src/pkg_0/module_0.py (+10/-0)",
+        f"- src/pkg_0/module_0.py (+10/-0) <!-- verifier-file-path:v1 {value} -->",
+    )
+    assert not pr_verifier.prompt_coverage(context, None).sufficient
+
+
+def test_marker_like_omitted_file_cannot_be_hidden_from_coverage() -> None:
+    path = 'note <!-- verifier-file-path:v1 "x" --> (added)'
+    context, _ = _context(1, 1_000, 1_000)
+    context = context.replace(
+        "## PR Diff (full)",
+        f"- {path} (+1/-1) <!-- verifier-file-path:v1 {json.dumps(path)} -->\n\n## PR Diff (full)",
+    )
+    coverage = pr_verifier.prompt_coverage(context, None)
+    assert not coverage.sufficient
+    result = pr_verifier._apply_coverage_floor(
+        pr_verifier.EvaluationResult(verdict="PASS", used_llm=True), coverage
+    )
+    assert result.verdict == "CONCERNS"
+
+
+@pytest.mark.parametrize(
+    "criterion",
+    [
         "The reviewer must add a PR comment with the test results",
         "The reviewer must leave a PR comment with the test results",
         "Command output is required in a PR comment",
@@ -2312,10 +2514,99 @@ def test_product_capability_does_not_hide_distinct_reviewer_delivery(verb: str) 
     assert pr_verifier._required_evidence_channels(f"- [ ] {criterion}") == {"comments"}
 
 
+@pytest.mark.parametrize("subject", ["API response", "generated report", "export"])
+@pytest.mark.parametrize(
+    "objects",
+    [
+        "links to evidence and evidence records",
+        "links to evidence and records as fields",
+        "links to evidence, records of evidence",
+        "records of evidence, links to evidence",
+    ],
+)
+def test_mixed_product_field_lists_are_not_review_delivery(subject: str, objects: str) -> None:
+    criterion = f"The {subject} must include {objects}"
+    assert pr_verifier._required_evidence_channels(f"- [ ] {criterion}") == set()
+    assert pr_verifier._required_evidence_channels(
+        f"- [ ] {criterion}; the reviewer must post a PR comment with results"
+    ) == {"comments"}
+
+
+@pytest.mark.parametrize(
+    "auxiliary",
+    [
+        "must",
+        "shall",
+        "need to",
+        "needs to",
+        "are required to",
+        "is required to",
+        "are needed to",
+        "have to",
+        "has to",
+    ],
+)
+@pytest.mark.parametrize("status", ["absent", "unavailable"])
+def test_mandatory_passive_artifact_destination_keeps_channel(auxiliary: str, status: str) -> None:
+    criterion = f"The validation logs {auxiliary} be uploaded as an artifact"
+    assert pr_verifier._required_evidence_channels(f"- [ ] {criterion}") == {"artifacts"}
+    context, _ = _context(1, 1000, 1000)
+    context = context.replace(ACCEPTANCE_SENTINEL, criterion).replace(
+        "## PR Diff Summary",
+        f"## Acceptance evidence\n\n- Overall retrieval status: **present**\n- PR comments: **present**\n- Workflow artifacts: **{status}**\n\n## PR Diff Summary",
+    )
+    coverage = pr_verifier.prompt_coverage(context, None)
+    assert not coverage.sufficient
+    assert (
+        pr_verifier._apply_coverage_floor(
+            pr_verifier.EvaluationResult(verdict="PASS", used_llm=True), coverage
+        ).verdict
+        == "CONCERNS"
+    )
+
+
 @pytest.mark.parametrize("actor", ["reviewers", "the reviewer", "API reviewers"])
 def test_coordinated_capability_infinitive_remains_product_behavior(actor: str) -> None:
     criterion = f"The API allows users to add PR comments and {actor} to post PR comments"
     assert pr_verifier._required_evidence_channels(f"- [ ] {criterion}") == set()
+
+
+@pytest.mark.parametrize("passive", ["be", "have been", "be being", "have been being"])
+@pytest.mark.parametrize("verb", ["uploaded", "attached", "published"])
+@pytest.mark.parametrize("auxiliary", ["must", "are required to", "need to"])
+def test_passive_aspect_retains_artifact_channel(passive: str, verb: str, auxiliary: str) -> None:
+    criterion = f"The validation logs {auxiliary} {passive} {verb} as an artifact"
+    assert pr_verifier._required_evidence_channels(f"- [ ] {criterion}") == {"artifacts"}
+    negative = f"The validation logs are not required to {passive} {verb} as an artifact"
+    assert pr_verifier._required_evidence_channels(f"- [ ] {negative}") == set()
+    assert pr_verifier._required_evidence_channels(
+        f"- [ ] {negative}; the reviewer must post a PR comment with results"
+    ) == {"comments"}
+
+
+@pytest.mark.parametrize(
+    "auxiliary",
+    ["are not required to", "are not needed to", "do not have to", "does not need to", "need not"],
+)
+def test_negated_passive_destination_cannot_restore_mandatory_auxiliary(auxiliary: str) -> None:
+    criterion = f"The logs {auxiliary} be uploaded as an artifact"
+    assert pr_verifier._required_evidence_channels(f"- [ ] {criterion}") == set()
+    assert pr_verifier._required_evidence_channels(
+        f"- [ ] {criterion}; the reviewer must post a PR comment with results"
+    ) == {"comments"}
+
+
+@pytest.mark.parametrize("copula", ["is", "are", "was", "were"])
+@pytest.mark.parametrize("negation", ["not", "never", "no longer"])
+@pytest.mark.parametrize("obligation", ["required", "needed", "expected", "obliged"])
+def test_passive_prohibition_tense_and_negation_matrix(
+    copula: str, negation: str, obligation: str
+) -> None:
+    criterion = f"The logs {copula} {negation} {obligation} to be uploaded as an artifact"
+    assert pr_verifier._required_evidence_channels(f"- [ ] {criterion}") == set()
+    assert pr_verifier._required_evidence_channels(
+        f"- [ ] {criterion}; the reviewer must post a PR comment with results"
+    ) == {"comments"}
 
 
 @pytest.mark.parametrize("actor", ["reviewer using the endpoint", "maintainer testing the CLI"])

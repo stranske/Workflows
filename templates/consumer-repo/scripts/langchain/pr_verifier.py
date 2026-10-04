@@ -777,6 +777,19 @@ def _summary_destination_paths(summary: str) -> list[str]:
             break
         if not in_file_changes or not line.startswith("- "):
             continue
+        encoded_path = re.search(r' <!-- verifier-file-path:v1 ("(?:[^"\\]|\\.)*") -->$', line)
+        if encoded_path:
+            try:
+                destination = json.loads(encoded_path.group(1))
+            except (ValueError, TypeError) as error:
+                raise ValueError("Malformed encoded summary destination") from error
+            if isinstance(destination, str) and destination:
+                paths.append(destination)
+            else:
+                raise ValueError("Empty or non-string encoded summary destination")
+            continue
+        if " <!-- verifier-file-path:v1 " in line:
+            raise ValueError("Malformed encoded summary destination")
         label = SUMMARY_DELTA_SUFFIX.sub("", line[2:].strip())
         for marker in (" (added)", " (deleted)"):
             if label.endswith(marker):
@@ -964,16 +977,28 @@ def _acceptance_criteria_sections(plan_sources: str) -> str:
 def _required_evidence_channels(acceptance: str) -> set[str]:
     """Identify explicit evidence deliverables without treating negations as requirements."""
     channels: set[str] = set()
+    # Canonicalize the same explicit PR destination before clause/negation
+    # processing, so an unrelated artifact cannot satisfy required comments.
+    acceptance = re.sub(
+        r"\bcomments?\s+(?:on|in)\s+(?:(?:the|an?)\s+)?(?:pr|pull request)\b",
+        "PR comment",
+        acceptance,
+        flags=re.I,
+    )
     # Use the same product-response operation vocabulary when coalescing object
     # groups and when excluding response fields from review deliverables.
     response_operation = (
         r"(?:include|contain|have|return|display|show|store|emit|render|expose|provide)\w*\b"
     )
-    product_auxiliary = (
-        r"(?:(?:must|shall|will|should|can|may|needs?\s+to)|"
+    response_subject = r"(?:responses?|payloads?|return\s+values?|reports?|exports?)"
+    mandatory_auxiliary = (
+        r"(?:(?:must|shall|needs?\s+to)|"
         r"(?:(?:is|are)\s+)?(?:required|needed|mandated|expected|supposed|obliged)\s+to|"
-        r"(?:has|have)\s+to)\s+"
+        r"(?:has|have)\s+to)"
     )
+    product_auxiliary = r"(?:" + mandatory_auxiliary + r"|will|should|can|may)\s+"
+    # Positive and negated obligations must recognize the same passive aspects.
+    passive_delivery_prefix = r"(?:be|have\s+been)(?:\s+being)?\s+"
     evidence_term = re.compile(
         r"\b(?:evidence|artifacts?|transcripts?|command outputs?|workflow runs?|"
         r"pr comments?|pull request comments?)\b",
@@ -993,7 +1018,9 @@ def _required_evidence_channels(acceptance: str) -> set[str]:
     def remaining_delivery(text: str) -> bool:
         # Product object-field nouns are not requests to deliver evidence.
         actions = re.sub(
-            r"\bevidence\s+(?:links?|records?)(?:\s+(?:and|or)\s+(?:links?|records?))*\b",
+            r"\bevidence\s+(?:links?|records?)\b"
+            r"(?:\s+(?:and|or)\s+(?:links?|records?)\b"
+            r"(?=\s*(?:$|[;,.!?]|(?:and|or)\b|(?:to|of|for)\s+evidence\b)))*",
             "evidence",
             text,
             flags=re.I,
@@ -1016,7 +1043,7 @@ def _required_evidence_channels(acceptance: str) -> set[str]:
         """Classify the governing operation's subject, not domain words anywhere."""
         operations = list(
             re.finditer(
-                r"\b(?:allow|enable|support|display|store|include|attach|upload|add|leave|left|post|publish|provide|document|record|capture)\w*\b",
+                r"\b(?:allow|enable|support|display|store|include|attach|upload|add|leave|left|post|publish|provide|document|record|capture|link)\w*\b",
                 prefix,
                 re.I,
             )
@@ -1209,9 +1236,13 @@ def _required_evidence_channels(acceptance: str) -> set[str]:
         )
 
     evidence_prohibition = re.compile(
-        r"\b(?:(?:is|are)\s+not\s+(?:required|needed|mandated|expected|supposed|obliged|allowed|permitted)\s+to|"
+        r"\b(?:(?:is|are|was|were)\s+(?:not|never|no\s+longer)\s+"
+        r"(?:required|needed|mandated|expected|supposed|obliged|allowed|permitted)\s+to|"
         r"(?:does|do|did)\s+not\s+(?:need|have)\s+to|needs?\s+not)\s+"
-        r"(?:upload|attach|provide|publish|post|record|capture|include|document|generate|link|add|leave)\b"
+        + r"(?:"
+        + passive_delivery_prefix
+        + r")?"
+        + r"(?:upload|attach|provide|publish|post|record|capture|include|document|generate|link|add|leave)\w*\b"
         r"|"
         r"\bno\s+(?:\w+\s+){0,3}(?:evidence|artifacts?|transcripts?|command outputs?|"
         r"workflow runs?|pr comments?|pull request comments?)"
@@ -1358,12 +1389,14 @@ def _required_evidence_channels(acceptance: str) -> set[str]:
                         continue
             noun_only = re.fullmatch(
                 r"\s*(?:(?:an?|the|validation|workflow|exact-head|evidence)\s+)*"
-                r"(?:artifacts?|command outputs?|transcripts?)\s*",
+                r"(?:artifacts?|command outputs?|transcripts?|evidence\s+(?:links?|records?))\s*",
                 fragment,
                 re.I,
             )
             prior_product = fragments and re.search(
-                r"\b(?:responses?|payloads?|return values?)\s+"
+                r"\b"
+                + response_subject
+                + r"\s+"
                 + "(?:"
                 + product_auxiliary
                 + ")?"
@@ -1496,15 +1529,38 @@ def _required_evidence_channels(acceptance: str) -> set[str]:
                 continue
             lower = requirement_text.lower()
             response_prefix = re.compile(
-                r"\b(?:"
-                r"responses?|payloads?|return\s+values?"
-                r"|(?:command[- ]?outputs?|transcripts?)\s+api"
+                r"\b(?:" + response_subject + r"|(?:command[- ]?outputs?|transcripts?)\s+api"
                 r"|api\s+(?:command[- ]?outputs?|transcripts?)(?:\s+\w+){0,3}"
                 r")\b\s+" + "(?:" + product_auxiliary + ")?" + response_operation,
                 re.I,
             )
-            if response_prefix.search(requirement_text):
-                delivery_text = response_prefix.sub(" ", requirement_text, count=1)
+            response_match = response_prefix.search(requirement_text)
+            if response_match:
+                # Only the immediate object of this product operation is a
+                # field noun. A later reviewer predicate must remain gating.
+                response_object = requirement_text[response_match.end() :]
+                # Normalize only bounded object nouns, never a later finite
+                # predicate such as "records evidence in a PR comment".
+                field_noun = (
+                    r"(?:(?:links?|records?)(?:\s+(?:and|or)\s+(?:links?|records?))*"
+                    r"\s+(?:to|of|for)\s+evidence\b"
+                    r"|(?:links?|records?)\s+as\s+fields?\b"
+                    r"|evidence\s+(?:links?|records?)\b"
+                    r"|(?:links?|records?)\b(?=\s*(?:$|[;,.!?]|(?:and|or)\b)))"
+                )
+                response_object = re.sub(
+                    r"^\s+(?:(?:the|a|an)\s+)?"
+                    + field_noun
+                    + r"(?:\s*(?:,\s*(?:(?:and|or)\s+)?|(?:and|or)\s+)"
+                    + r"(?:(?:the|a|an)\s+)?"
+                    + field_noun
+                    + r")*",
+                    " evidence",
+                    response_object,
+                    count=1,
+                    flags=re.I,
+                )
+                delivery_text = requirement_text[: response_match.start()] + response_object
                 if not remaining_delivery(delivery_text):
                     continue
                 requirement_text = delivery_text
@@ -1535,6 +1591,17 @@ def _required_evidence_channels(acceptance: str) -> set[str]:
                         r"\b(?:upload|attach|publish|post|record|capture|provide|include|document)"
                         r"(?:s)?\s+(?:(?:an?|the|any|workflow|validation|exact-head|evidence)\s+){0,4}"
                         r"artifacts?\b",
+                        requirement_text,
+                        re.I,
+                    )
+                    or re.search(
+                        r"\b"
+                        + mandatory_auxiliary
+                        + r"\s+"
+                        + passive_delivery_prefix
+                        + r"(?:uploaded|attached|published|posted|recorded|captured|provided|"
+                        r"included|documented)\s+as\s+(?:(?:an?|the)\s+)?"
+                        r"(?:(?:workflow|validation|exact-head|evidence)\s+)?artifacts?\b",
                         requirement_text,
                         re.I,
                     )
@@ -1684,7 +1751,7 @@ def _required_evidence_channels(acceptance: str) -> set[str]:
             )
             explicit_comment_delivery = bool(
                 re.search(
-                    r"\b(?:attach|upload|include|post|publish|record|capture|provide|document|add|leave|left)\w*\b"
+                    r"\b(?:attach|upload|include|post|publish|record|capture|provide|document|add|leave|left|link)\w*\b"
                     r"(?:\s+\w+){0,10}\s+\b(?:pr comments?|pull request comments?)\b",
                     requirement_text,
                     re.I,
@@ -1921,9 +1988,16 @@ def build_prompt_inputs(context: str, diff: str | None) -> PromptInputs:
     summary_body = next((body for name, body in sections or [] if name == "diff_summary"), "")
     if files and summary_body:
         diff_paths = {item.path for item in files}
-        missing = [
-            path for path in _summary_destination_paths(summary_body) if path not in diff_paths
-        ]
+        try:
+            missing = [
+                path for path in _summary_destination_paths(summary_body) if path not in diff_paths
+            ]
+        except ValueError:
+            missing = []
+            code = "truncated"
+            reasons.append(
+                "Encoded summary destination metadata is malformed; coverage is unknown."
+            )
         if missing:
             code = "truncated"
             reasons.append(
