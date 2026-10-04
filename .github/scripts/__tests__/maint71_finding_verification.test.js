@@ -3,6 +3,9 @@ const test = require('node:test');
 const assert = require('node:assert/strict');
 const { sha256, validateIndependentFindingVerification: validate } = require('../maint71_finding_verification');
 const { validateReviewResolutionProof } = require('../maint71_merge_sync_prs');
+const fs = require('node:fs');
+const path = require('node:path');
+const vm = require('node:vm');
 
 function fixture() {
   const head = 'a'.repeat(40);
@@ -82,3 +85,59 @@ test('generic review, forged publisher, stale receipt, missing regression, and p
   f.finish(); f.args.comment.body += f.args.comment.body;
   assert.equal(validate(f.args).ok, false);
 });
+
+// Exercise the actual controller closure with API doubles, including both race
+// checkpoints. Extracting the closure avoids a test-only production export.
+for (const race of ['none', 'rest-head', 'graphql-head', 'graphql-plan']) {
+  test(`controller resolves only unchanged live verification: ${race}`, async () => {
+    const f = fixture();
+    const { args } = f;
+    Object.assign(args.record, { schema: 'sync-pr-delivery-record/v1',
+      repository: args.proof.repository, head_observed_sha: args.proof.head_sha,
+      head_observed_at: '2026-10-04T00:00:00Z', desired_tree_hash: 'tree',
+      lease_expires_at: '2099-01-01T00:00:00Z' });
+    args.thread.isOutdated = false;
+    f.finish();
+    let reads = 0;
+    let resolutions = 0;
+    const body = (record) => `<!-- sync-pr-delivery-record:v1 ${JSON.stringify(record)} -->`;
+    const github = { paginate: async () => [],
+      rest: { repos: { compareCommitsWithBasehead: async () => ({ data: { status: 'ahead' } }) },
+        issues: { getComment: async () => ({ data: args.comment }) },
+        pulls: { get: async ({ repo }) => ({ data: repo === 'Workflows'
+          ? { merged_at: '2026-10-04T00:00:00Z', merge_commit_sha: args.proof.source_fix_sha }
+          : { state: 'open', head: { sha: race === 'rest-head' ? 'changed' : args.proof.head_sha },
+            body: body(args.record) } }) } },
+      graphql: async (query) => {
+        if (query.includes('resolveReviewThread')) { resolutions++; return {}; }
+        reads++;
+        const record = { ...args.record };
+        if (reads === 2 && race === 'graphql-plan') record.plan_id = 'changed-plan';
+        return { repository: { pullRequest: {
+          headRefOid: reads === 2 && race === 'graphql-head' ? 'changed' : args.proof.head_sha,
+          body: body(record), reviewThreads: args.threads,
+        } } };
+      },
+    };
+    const controller = require('../maint71_merge_sync_prs');
+    const source = fs.readFileSync(path.join(__dirname, '..', 'maint71_merge_sync_prs.js'), 'utf8');
+    const start = source.indexOf('  async function resolveProvenReviewDebt(');
+    const end = source.indexOf('  // Parse repos from previous step', start);
+    assert.ok(start > 0 && end > start);
+    const sandbox = {
+      ...controller, validateIndependentFindingVerification: validate,
+      parseDeliveryRecord: require('../sync_pr_lease_contract').parseDeliveryRecord,
+      reviewResolutionProofs: [args.proof], reviewResolutionProofParseError: '',
+      trustedResolutionActors: ['stranske'], reviewerProfiles: args.reviewerProfiles,
+      reviewPolicy: args.policy, dryRun: false, resolutionOnly: true,
+      context: { actor: 'stranske', repo: { owner: 'stranske', repo: 'Workflows' } },
+      withRetry: (fn) => fn(github), withReviewReadRetry: (fn) => fn(github),
+      console: { log() {} },
+    };
+    const resolve = vm.runInNewContext(`(function() { ${source.slice(start, end)} return resolveProvenReviewDebt; })()`, sandbox);
+    const result = await resolve({ owner: 'stranske', repo: 'Ready',
+      pr: { number: 1, head: { sha: args.proof.head_sha } }, deliveryRecord: args.record });
+    assert.equal(resolutions, race === 'none' ? 1 : 0, JSON.stringify(result));
+    assert.equal(result.errors.length, race === 'none' ? 0 : 1);
+  });
+}
