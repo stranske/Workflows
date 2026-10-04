@@ -897,6 +897,16 @@ resolves a thread, seals, merges, closes, or otherwise reconciles the PR. The
 ordinary Maint 71 run later rechecks the same head, reviewer disposition,
 checks, and merge gates. A reviewer request is not itself thread acceptance.
 
+If that exact request completes with a same-head Codex stock no-major-issues
+reply but leaves the finding active, send the same binding with optional
+`request_stage=disposition`. Maint 71 requires the trusted original request and
+the subsequent originating-reviewer completion in that same thread. It then
+posts one separately idempotent `@codex address that feedback` disposition-only
+task, requesting an explicit accept/reject and exact-head acceptance marker in
+the existing thread. It cannot run while the first review is pending, on a
+changed head, or as a duplicate stage. This grants no resolution or merge
+authority and imposes no mandatory human reply.
+
 A non-empty workflow-sync selector applies only to the `sync/workflows-*` lane.
 An open sibling `deps/sync-dev-versions-*` delivery is therefore ignored for
 the selector's expected-branch check instead of producing a false

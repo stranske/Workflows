@@ -15,7 +15,9 @@
       "logins": ["chatgpt-codex-connector", "chatgpt-codex-connector[bot]"],
       "check_names": [],
       "request_comment": "@codex review",
-      "reassessment_comment": "@codex please reassess this specific finding"
+      "reassessment_comment": "@codex please reassess this specific finding",
+      "disposition_comment": "@codex address that feedback",
+      "disposition_completion_patterns": ["^Codex Review: Didn't find any major issues\\."]
     },
     {
       "id": "coderabbit",
