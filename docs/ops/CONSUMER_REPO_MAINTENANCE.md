@@ -1052,6 +1052,13 @@ Alias normalization is limited to evidence-object or destination-bearing deliver
 uses, preserving command names such as `write` and `paste`. Immediate workflow-
 artifact delivery shares explicit review-destination binding with PR delivery;
 product-only rendering of an artifact is not itself a delivery requirement.
+Quoted literals and qualified command-name spans are preserved before alias
+normalization. Product recipients and explicit review destinations share a bounded
+destination-list grammar across body recognition and product exemptions. A
+recipient does not erase coordinated PR/body/comment/workflow-artifact delivery;
+independent or negated predicates are not absorbed into that list. Product body
+editors remain product surfaces while coordinated artifact/comment deliveries
+retain their own channels.
 The four fresh canary findings are tested through the actual coverage floor with
 present, absent and unavailable evidence plus independent reviewer-delivery controls.
 

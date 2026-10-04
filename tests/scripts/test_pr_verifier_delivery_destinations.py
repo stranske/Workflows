@@ -127,10 +127,74 @@ def test_delivery_aliases_do_not_rewrite_command_names(name, quote):
     ) == {"comments"}
 
 
+@pytest.mark.parametrize("name", ["write evidence", "paste evidence"])
+@pytest.mark.parametrize("quotes", [("`", "`"), ('"', '"'), ("'", "'"), ("“", "”")])
+def test_alias_normalization_preserves_quoted_multitoken_names(name, quotes):
+    criterion = f"The {quotes[0]}{name}{quotes[1]} command must output evidence"
+    assert verifier._required_evidence_channels(criterion) == set()
+    assert verifier._required_evidence_channels(
+        criterion + "; paste command output in a PR comment"
+    ) == {"comments"}
+
+
+@pytest.mark.parametrize("name", ["write to disk", "paste into form", "write to the PR"])
+@pytest.mark.parametrize("quote", ["", "`", '"'])
+def test_alias_normalization_preserves_qualified_command_names(name, quote):
+    criterion = f"The {quote}{name}{quote} command must output evidence"
+    assert verifier._required_evidence_channels(criterion) == set()
+    assert verifier._required_evidence_channels(
+        criterion + "; paste command output in a PR comment"
+    ) == {"comments"}
+
+
+@pytest.mark.parametrize("operation", ["provide", "write", "return", "display", "emit", "render"])
+@pytest.mark.parametrize(
+    "destination,channel",
+    [("workflow artifacts", "artifacts"), ("the PR", "overall"), ("the PR body", "body")],
+)
+def test_product_recipient_preserves_coordinated_review_delivery(operation, destination, channel):
+    criterion = f"The service must {operation} command output to clients and in {destination}"
+    assert verifier._required_evidence_channels(criterion) == {channel}
+    assert verifier._required_evidence_channels(
+        criterion + "; paste command output in a PR comment"
+    ) == {channel, "comments"}
+    assert (
+        verifier._required_evidence_channels(
+            f"The service must {operation} command output to clients; must not attach it in {destination}"
+        )
+        == set()
+    )
+
+
 @pytest.mark.parametrize("operation", ["provide", "return", "display", "emit", "render", "expose"])
 def test_product_shortcut_preserves_workflow_artifact_delivery(operation):
     criterion = f"The service must {operation} command output in workflow artifacts"
     assert verifier._required_evidence_channels(criterion) == {"artifacts"}
+
+
+@pytest.mark.parametrize(
+    "criterion,expected",
+    [
+        (
+            "The service must provide command output to clients and in the PR body, a PR comment and workflow artifacts",
+            {"body", "comments", "artifacts"},
+        ),
+        ("The UI must render command output to clients and in the PR body editor", set()),
+        (
+            "The UI must render command output to clients and in the PR body editor and workflow artifacts",
+            {"artifacts"},
+        ),
+        (
+            "The service must not provide command output to clients and in the PR body, a PR comment and workflow artifacts",
+            set(),
+        ),
+    ],
+)
+def test_shared_destination_lists_preserve_review_and_editor_channels(criterion, expected):
+    assert verifier._required_evidence_channels(criterion) == expected
+    assert verifier._required_evidence_channels(
+        criterion + "; record evidence in a PR comment"
+    ) == expected | {"comments"}
 
 
 @pytest.mark.parametrize("product", ["service", "API", "application", "endpoint"])
@@ -190,6 +254,14 @@ def test_reverse_record_output_binds_its_own_recipient(participle, recipient):
         ("The service must provide command output in the PR", "overall"),
         ("Evidence is not written in a PR comment", None),
         ("Command output is written to clients by the service", None),
+        (
+            "The service must provide command output to clients and in workflow artifacts",
+            "artifacts",
+        ),
+        ("The service must provide command output to clients and in the PR", "overall"),
+        ("The service must provide command output to clients and in the PR body", "body"),
+        ("The service must provide command output to clients and in a PR comment", "comments"),
+        ("The write to the PR command must output evidence", None),
     ],
 )
 @pytest.mark.parametrize("status", ["present", "absent", "unavailable"])

@@ -977,6 +977,36 @@ def _acceptance_criteria_sections(plan_sources: str) -> str:
 def _required_evidence_channels(acceptance: str) -> set[str]:
     """Identify explicit evidence deliverables without treating negations as requirements."""
     channels: set[str] = set()
+    recipient_noun = (
+        r"(?:(?:all|any|some|each|every)\s+)?"
+        r"(?:(?:the|its|our|their|your|an?)\s+)?(?:clients?|users?|consumers?)\b"
+    )
+    product_recipient = r"(?:to|for)\s+" + recipient_noun
+    review_destination_noun = (
+        r"(?:(?:the|an?)\s+)?(?:"
+        r"(?:pr|pull request)\s+body\b(?:\s+editor\b)?|"
+        r"(?:pr|pull request)\s+comments?\b|"
+        r"(?:workflow|ci|github actions)\s+artifacts?\b|(?:pr|pull request)\b)"
+    )
+    destination_preposition = r"(?:in|into|to|within|for|as|through|via)\s+"
+    delivery_destination_item = r"(?:" + review_destination_noun + "|" + recipient_noun + ")"
+    delivery_destination_separator = (
+        r"(?:\s*,\s*(?:(?:and|or)\s+)?|\s+(?:and|or)\s+)" r"(?:" + destination_preposition + r")?"
+    )
+    bound_review_destinations = (
+        destination_preposition + r"(?:both\s+)?"
+        r"(?=(?:"
+        + delivery_destination_item
+        + delivery_destination_separator
+        + r")*"
+        + review_destination_noun
+        + r")"
+        + delivery_destination_item
+        + r"(?:"
+        + delivery_destination_separator
+        + delivery_destination_item
+        + r")*"
+    )
     # Lexical aliases share every obligation, negation, destination and product
     # boundary rule. Adding a synonym to only one regex silently diverges them.
     record_aliases = {
@@ -991,11 +1021,15 @@ def _required_evidence_channels(acceptance: str) -> set[str]:
         "wrote": "recorded",
     }
     acceptance = re.sub(
-        r"\b(?:paste|pastes|pasted|pasting|write|writes|written|writing|wrote)\b"
+        r"(?P<literal>`+[^`]*`+|\"[^\"]*\"|'[^']*'|“[^”]*”|‘[^’]*’|"
+        r"\b(?:the|an?)\s+(?:write|paste)\b"
+        r"(?:\s+(?!(?:and|or|must|shall|will)\b)[\w-]+){0,6}\s+command\b"
+        r"(?=\s+(?:(?:must|shall|will)\s+output|outputs)\b))|"
+        r"(?P<alias>\b(?:paste|pastes|pasted|pasting|write|writes|written|writing|wrote)\b)"
         r"(?=\s+(?:(?:the|an?|any|before/after|failing|passing|supporting|validation|workflow|exact-head|execution|test|review|collected|recorded)\s+){0,4}"
         r"(?:evidence|artifacts?|transcripts?|command outputs?|pr comments?|pull request comments?)\b"
-        r"|\s+(?:in|into|to|within|for)\s+)",
-        lambda match: record_aliases[match[0].lower()],
+        r"|\s+" + destination_preposition + delivery_destination_item + r")",
+        lambda match: (record_aliases[match["alias"].lower()] if match["alias"] else match[0]),
         acceptance,
         flags=re.I,
     )
@@ -1061,15 +1095,10 @@ def _required_evidence_channels(acceptance: str) -> set[str]:
         polarity = r"(?:(?:not|never|no\s+longer)\s+)?"
         aspect = r"(?:(?:be|have\s+been)(?:\s+being)?\s+)?"
         body_destination = r"(?:(?:the|an?)\s+)?" + body + r"(?:\s+editor\b)?"
-        destination_item = (
-            r"(?:(?:the|an?)\s+)?(?:" + body + r"(?:\s+editor\b)?|"
-            r"pr comments?|pull request comments?|workflow artifacts?)\b"
-        )
-        destination_separator = (
-            r"(?:\s*,\s*(?:(?:and|or)\s+)?|\s+(?:and|or)\s+)(?:(?:in|into|to|within)\s+)?"
-        )
+        destination_item = delivery_destination_item
+        destination_separator = delivery_destination_separator
         destination = (
-            r"(?:in|into|to|within)\s+(?:both\s+)?"
+            destination_preposition + r"(?:both\s+)?"
             r"(?=(?:"
             + destination_item
             + destination_separator
@@ -1219,7 +1248,9 @@ def _required_evidence_channels(acceptance: str) -> set[str]:
         """Classify the governing operation's subject, not domain words anywhere."""
         operations = list(
             re.finditer(
-                r"\b(?:allow|enable|support|display|show|store|include|contain|attach|upload|add|leave|left|post|publish|provide|document|record|capture|link)\w*\b",
+                r"\b(?!renderer\b)(?:"
+                + response_operation
+                + r"|allow|enable|support|display|show|store|include|contain|attach|upload|add|leave|left|post|publish|provide|document|record|capture|link)\w*\b",
                 prefix,
                 re.I,
             )
@@ -1248,6 +1279,11 @@ def _required_evidence_channels(acceptance: str) -> set[str]:
                 "document",
                 "record",
                 "capture",
+                "return",
+                "emit",
+                "render",
+                "expose",
+                "have",
             }
             for index, current in enumerate(operations[1:], start=1):
                 if current[0].lower() not in base_operations:
@@ -1388,7 +1424,11 @@ def _required_evidence_channels(acceptance: str) -> set[str]:
             )
         )
         field_operation = bool(
-            re.fullmatch(r"(?:include|contain|display|show|store)\w*", operation[0], re.I)
+            re.fullmatch(
+                r"(?:include|contain|display|show|store|return|emit|render|expose)\w*",
+                operation[0],
+                re.I,
+            )
         )
         review_destination = bool(
             re.search(
@@ -1761,11 +1801,6 @@ def _required_evidence_channels(acceptance: str) -> set[str]:
                 if not evidence_term.search(requirement_text):
                     continue
             lower = requirement_text.lower()
-            pr_destination = r"(?:in|into|to|within)\s+(?:(?:the|an?)\s+)?(?:pr|pull request)\b"
-            review_destination = (
-                pr_destination + r"|(?:in|into|to|as|through|via)\s+(?:(?:the|an?)\s+)?"
-                r"(?:workflow|ci|github actions)\s+artifacts?\b"
-            )
             delivery_operation = r"(?:provide|return|display|show|emit|render|expose|store|upload|attach|publish|post|record|capture|include|document)\w*\b"
             delivery_object = r"(?:command outputs?|transcripts?|artifacts?|evidence)\b"
             # Bind the destination to the immediate positive delivery object,
@@ -1776,9 +1811,7 @@ def _required_evidence_channels(acceptance: str) -> set[str]:
                     r"(?:(?:the|an?|any|before/after|failing|passing|supporting|validation|workflow|exact-head|execution|test|review|collected|recorded)\s+){0,4}"
                     + delivery_object
                     + r"\s+"
-                    + "(?:"
-                    + review_destination
-                    + ")"
+                    + bound_review_destinations
                     + "|"
                     + delivery_object
                     + r"\s+(?:"
@@ -1788,9 +1821,7 @@ def _required_evidence_channels(acceptance: str) -> set[str]:
                     + r")?"
                     + delivery_operation
                     + r"\s+"
-                    + "(?:"
-                    + review_destination
-                    + ")",
+                    + bound_review_destinations,
                     requirement_text,
                     re.I,
                 )
@@ -2076,10 +2107,6 @@ def _required_evidence_channels(acceptance: str) -> set[str]:
                 lower = requirement_text.lower()
             # Record aliases are product output only with an immediate bounded
             # product recipient, never merely because the actor is a service.
-            product_recipient = (
-                r"(?:to|for)\s+(?:(?:all|any|some|each|every)\s+)?"
-                r"(?:(?:the|its|our|their|your|an?)\s+)?(?:clients?|users?|consumers?)\b"
-            )
             product_output_operation = (
                 r"(?:return|display|show|store|emit|render|expose|provide)\w*\b|"
                 r"record\w*\b(?=\s+(?:(?:the|an?)\s+)?"
