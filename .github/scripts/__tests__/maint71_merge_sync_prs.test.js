@@ -131,6 +131,20 @@ test('source-owned reviewer reassessment supports stable generated lanes without
   });
   assert.equal(reorderedRetry.status, 'review_blocked_reassessment_reused');
   assert.equal(posts, 1, 'field ordering must not bypass idempotency');
+  const originalGraphql = github.graphql;
+  let raceReads = 0;
+  github.graphql = async (query) => {
+    const result = await originalGraphql(query);
+    if (++raceReads === 1) {
+      result.repository.pullRequest.reviewThreads.nodes[0].comments.nodes =
+        [...thread.comments.nodes];
+    }
+    return result;
+  };
+  const racedRetry = await runReviewReassessment(args);
+  assert.equal(racedRetry.status, 'review_blocked_reassessment_reused');
+  assert.equal(posts, 1, 'a request appearing on the second read must suppress POST');
+  github.graphql = originalGraphql;
   for (const branch of ['sync/workflows-candidate', 'sync/workflows-delivery']) {
     pr.head.ref = branch;
     comments.length = 0;

@@ -294,14 +294,18 @@ async function runReviewReassessment({
     }
     return { pr, thread };
   }
-  const initial = await readBoundState();
+  await readBoundState();
   const { data: writer } = await withRetry((client) => client.rest.users.getAuthenticated());
   if (!trustedWriters.has(String(writer?.login || ''))) {
     throw new Error('Reassessment writer identity is not trusted');
   }
   const marker = reviewReassessmentMarker(request);
+  // Revalidate bindings and scan the same fresh snapshot before deciding to
+  // POST; a trusted request may have appeared since the initial read.
+  // GitHub's APIs are non-transactional, so an ambiguous POST is never retried.
+  const current = await readBoundState();
   let found = null;
-  for (const comment of initial.thread.comments.nodes) {
+  for (const comment of current.thread.comments.nodes) {
     if (trustedWriters.has(comment?.author?.login)
       && String(comment?.body || '').includes(marker)) {
       if (found) throw new Error('Duplicate bound reviewer reassessment requests exist');
@@ -309,9 +313,6 @@ async function runReviewReassessment({
         html_url: comment.url, user: comment.author };
     }
   }
-  // The second read closes the ordinary scan-to-POST race as far as GitHub's
-  // non-transactional PR/comment APIs allow; an ambiguous POST is never retried.
-  const current = await readBoundState();
   let comment = found;
   if (!comment) {
     const body = [`${command} on exact head ${request.head_sha}`,
