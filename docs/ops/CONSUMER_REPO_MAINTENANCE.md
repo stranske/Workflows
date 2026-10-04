@@ -983,6 +983,18 @@ When verifier runs collect acceptance evidence, empty or whitespace-only review 
 must not count as PR-comment evidence. Single-provider non-PASS text/file output
 must carry the post-processed `Verdict: CONCERNS` or `Verdict: FAIL` line so the
 downstream artifact parser retains a terminal outcome rather than a partial run.
+PR-body evidence has its own builder-owned `PR body` retrieval channel: a fully
+retrieved bounded body is fenced as untrusted material, an empty body is absent,
+and missing/invalid/oversized bodies are unavailable. Body presence cannot satisfy
+a required PR comment or artifact. Generic comment/artifact retrieval status does
+not veto a complete specifically required body; `VERIFIER_EVIDENCE_BODY_CHARS`
+bounds this channel without broadening the other evidence caps. Existential
+requirements such as `There must be a PR comment` retain the comment floor.
+Application recording/capture/attachment/generation into database or audit-log
+storage is product behavior; separate reviewer deliveries remain mandatory.
+Product `links to the evidence` noun fields stay product fields. Non-PASS CLI
+and file text includes the final verdict, summary, structured concerns and
+distinct raw model detail, so concise summaries do not discard actionable gaps.
 These rules are source-owned and regression-tested before consumer regeneration.
 Product UI criteria that allow/enable/support users to upload artifacts likewise
 do not require workflow artifacts; separate PR-comment evidence remains required.

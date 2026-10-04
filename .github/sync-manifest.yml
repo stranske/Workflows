@@ -587,7 +587,7 @@ scripts:
     description: "Updates PR body with stable completed dependency-provenance results, observer exclusion, and exact-head Gate visibility"
 
   - source: .github/scripts/agents_verifier_context.js
-    description: "Verifier context with substantive comment evidence, exact PR-head identity, literal destination metadata and complete post-merge diffs"
+    description: "Verifier context with independently bounded PR-body/comment evidence, exact PR-head identity, literal destination metadata and complete post-merge diffs"
 
   - source: .github/scripts/agents_dispatch_summary.js
     description: "Summarizes agent dispatch operations"
@@ -694,7 +694,7 @@ scripts:
 
   # PR verification and follow-up
   - source: scripts/langchain/pr_verifier.py
-    description: "PR verifier - validates acceptance criteria with operation-local product-field evidence gating and collision-free rename-safe diff coverage"
+    description: "PR verifier - validates destination-specific evidence and product storage, preserves non-PASS concerns and collision-free rename-safe diff coverage"
     delivery: copy
 
   # NOTE (resolved: issue #2347): scripts/langchain/followup_issue_generator.py was MOVED

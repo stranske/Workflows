@@ -1001,7 +1001,7 @@ def _required_evidence_channels(acceptance: str) -> set[str]:
     passive_delivery_prefix = r"(?:be|have\s+been)(?:\s+being)?\s+"
     evidence_term = re.compile(
         r"\b(?:evidence|artifacts?|transcripts?|command outputs?|workflow runs?|"
-        r"pr comments?|pull request comments?)\b",
+        r"pr comments?|pull request comments?|pr body|pull request body)\b",
         re.I,
     )
     requirement = re.compile(
@@ -1543,7 +1543,7 @@ def _required_evidence_channels(acceptance: str) -> set[str]:
                 # predicate such as "records evidence in a PR comment".
                 field_noun = (
                     r"(?:(?:links?|records?)(?:\s+(?:and|or)\s+(?:links?|records?))*"
-                    r"\s+(?:to|of|for)\s+evidence\b"
+                    r"\s+(?:to|of|for)\s+(?:(?:the|an?)\s+)?evidence\b"
                     r"|(?:links?|records?)\s+as\s+fields?\b"
                     r"|evidence\s+(?:links?|records?)\b"
                     r"|(?:links?|records?)\b(?=\s*(?:$|[;,.!?]|(?:and|or)\b)))"
@@ -1778,7 +1778,32 @@ def _required_evidence_channels(acceptance: str) -> set[str]:
                     re.I,
                 )
                 or (gate and bool(re.search(r"\b(?:pr comments?|pull request comments?)\b", lower)))
+                or re.search(
+                    r"\bthere\s+"
+                    + mandatory_auxiliary
+                    + r"\s+be\s+(?:(?:an?|the)\s+)?(?:pr comments?|pull request comments?)\b",
+                    requirement_text,
+                    re.I,
+                )
             )
+            explicit_body_delivery = bool(re.search(r"\b(?:pr|pull request)\s+body\b", lower))
+            # Consume one product persistence operation and its immediate
+            # storage destination, not later reviewer delivery predicates.
+            storage_operation = re.compile(
+                r"\b(?:(?:the|an?)\s+)?(?:application|app|service|api|endpoint)\s+"
+                + product_auxiliary
+                + r"(?:record|capture|attach|generate)\w*\s+"
+                r"(?:(?:the|an?)\s+)?(?:transcripts?|command outputs?|evidence|artifacts?)\s+"
+                r"(?:in|into|to|as)\s+(?:(?:its|the|an?)\s+)?"
+                r"(?:database|audit log|storage|application log)\b",
+                re.I,
+            )
+            if storage_operation.search(requirement_text):
+                delivery_text = storage_operation.sub(" ", requirement_text, count=1)
+                if not remaining_delivery(delivery_text):
+                    continue
+                requirement_text = delivery_text
+                lower = requirement_text.lower()
             product_output_prefix = re.compile(
                 r"^\s*(?:[-*]\s*(?:\[[ xX]\]\s*)?)?"
                 r"(?!(?:[\w-]+\s+){0,5}(?:reviewers?|authors?|maintainers?|operators?|"
@@ -1804,7 +1829,8 @@ def _required_evidence_channels(acceptance: str) -> set[str]:
                 )
             )
             preserve_explicit_comment_delivery = bool(
-                explicit_comment_delivery and not product_comment_behavior
+                (explicit_comment_delivery and not product_comment_behavior)
+                or explicit_body_delivery
             )
             if product_output_match and not preserve_explicit_comment_delivery:
                 delivery_text = product_output_prefix.sub(" ", requirement_text, count=1)
@@ -1819,6 +1845,8 @@ def _required_evidence_channels(acceptance: str) -> set[str]:
                     line_channels.add("comments")
                 elif not line_channels:
                     continue
+            if explicit_body_delivery:
+                line_channels.add("body")
             if not line_channels:
                 command_behavior = bool(
                     re.search(
@@ -1880,11 +1908,14 @@ def _required_evidence_is_missing(evidence: str, channels: set[str]) -> bool:
     # Comment and artifact bodies are untrusted. Their status-looking lines
     # cannot overwrite the builder's own preamble.
     preamble = re.split(
-        r"\n### Bounded (?:PR comments|referenced workflow artifacts)\n", evidence, maxsplit=1
+        r"\n### Bounded (?:PR body|PR comments|referenced workflow artifacts)\n",
+        evidence,
+        maxsplit=1,
     )[0]
     labels = {
         "overall": "Overall retrieval status",
         "comments": "PR comments",
+        "body": "PR body",
         "artifacts": "Referenced workflow artifacts",
     }
     for channel in channels:
@@ -2061,7 +2092,21 @@ def _apply_coverage_floor(
 def _evaluation_output_text(result: EvaluationResult) -> str:
     """CLI/file text aligned with the structured verdict after post-processing."""
     if result.verdict != "PASS":
-        body = result.summary or result.raw_content or ""
+        parts = [result.summary] if result.summary else []
+        if result.concerns:
+            parts.append("Concerns:\n" + "\n".join(f"- {item}" for item in result.concerns))
+        stale_pass = False
+        if result.raw_content:
+            try:
+                raw_result = json.loads(result.raw_content)
+                stale_pass = isinstance(raw_result, dict) and raw_result.get("verdict") == "PASS"
+            except (ValueError, TypeError):
+                pass
+        if result.raw_content and result.raw_content != result.summary and not stale_pass:
+            parts.append(
+                "Raw model detail (prior to verdict post-processing):\n" + result.raw_content
+            )
+        body = "\n\n".join(parts)
         return f"Verdict: {result.verdict}\n\n{body}"
     return result.raw_content or result.summary or ""
 
