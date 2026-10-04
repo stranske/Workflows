@@ -926,6 +926,15 @@ cannot inherit an earlier product capability exemption.
 After a complete comment object, only recognized shared infinitive coordination
 retains that exemption; unknown attachments fail closed rather than relying on a
 connector whitelist. Negative `can't`/`cannot` forms do not require a delivery.
+Capability exemption validates every link: the initial supported actor-to-base-verb
+infinitive and subsequent optional-comma `and`/`or` base verbs, `to` base verbs, or
+supported actor-to-base-verb infinitives. Supported actors are users, clients,
+reviewers, maintainers, authors and operators, optionally determined and API/UI
+qualified. Arbitrary modifiers or finite predicates are not accepted as actors.
+An unknown link declines exemption immediately and no later recognized link can
+restore it. Clause splitting preserves bare shared verbs only after positive chain
+recognition; semicolon-separated deliveries stay independent. Negated outer
+allow/enable/support capability is operation-local and cannot erase another delivery.
 Qualified
 product subjects have no arbitrary word-count ceiling. An embedded product description
 cannot veto an independently mandatory comment; unresolved subject attachment retains

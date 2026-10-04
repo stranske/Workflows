@@ -1024,27 +1024,56 @@ def _required_evidence_channels(acceptance: str) -> set[str]:
         if not operations:
             return False
         capability = bool(re.fullmatch(r"(?:allow|enable|support)\w*", operations[0][0], re.I))
-        if capability and len(operations) > 1:
-            between = prefix[operations[-2].end() : operations[-1].start()]
-            prior_comments = list(
-                re.finditer(r"\b(?:pr|pull request)\s+comments?\b", between, re.I)
+        if capability:
+            actor = (
+                r"(?:(?:the|an?)\s+)?(?:(?:api|ui)\s+)?"
+                r"(?:users?|clients?|reviewers?|maintainers?|authors?|operators?)"
             )
-            if prior_comments:
-                attachment = between[prior_comments[-1].end() :]
-                # After a complete comment object, preserve only recognized
-                # shared infinitive coordination. Unknown clause attachments
-                # cannot inherit the earlier capability exemption.
-                capability = bool(
-                    re.fullmatch(r"\s*(?:and|or)(?:\s+(?:[\w-]+\s+)*to)?\s*", attachment, re.I)
-                    and not re.search(product_auxiliary + r"$", attachment, re.I)
-                )
-            elif not re.fullmatch(r"\s*(?:and|or)\s*", between, re.I):
-                capability = bool(
-                    re.search(r"\bto\s*$", between, re.I)
-                    and not re.search(product_auxiliary + r"$", between, re.I)
-                )
+            base_operations = {
+                "display",
+                "store",
+                "include",
+                "attach",
+                "upload",
+                "add",
+                "leave",
+                "post",
+                "publish",
+                "provide",
+                "document",
+                "record",
+                "capture",
+            }
+            for index, current in enumerate(operations[1:], start=1):
+                if current[0].lower() not in base_operations:
+                    return False
+                between = prefix[operations[index - 1].end() : current.start()]
+                if index == 1:
+                    recognized = re.fullmatch(r"\s*" + actor + r"\s+to\s*", between, re.I)
+                else:
+                    # Consume only an entire recognized preceding object.
+                    # An unknown intervening clause may never be skipped or
+                    # have capability inheritance restored by a later link.
+                    between = re.sub(
+                        r"^\s*(?:(?:the|an?|their|its)\s+)?(?:pr|pull request)\s+comments?\b",
+                        "",
+                        between,
+                        count=1,
+                        flags=re.I,
+                    )
+                    recognized = re.fullmatch(
+                        r"\s*,?\s*(?:and|or)(?:\s+(?:" + actor + r"\s+)?to)?\s*",
+                        between,
+                        re.I,
+                    )
+                if not recognized:
+                    # Decline before subject heuristics can rescue an
+                    # unrecognized affirmative delivery as product behavior.
+                    return False
         operation = operations[0] if capability else operations[-1]
         subject = prefix[: operation.start()]
+        if capability:
+            subject = re.sub(r"\b(?:does|do|did)\s+not\s*$", "", subject, flags=re.I)
         if not capability and len(operations) > 1:
             between = prefix[operations[-2].end() : operation.start()]
             prior_comments = list(
@@ -1304,7 +1333,29 @@ def _required_evidence_channels(acceptance: str) -> set[str]:
             re.I,
         )
         fragments = []
-        for fragment in re.split(clause_boundary, criterion, flags=re.I):
+        split_parts = re.split("(" + clause_boundary + ")", criterion, flags=re.I)
+        for part_index in range(0, len(split_parts), 2):
+            fragment = split_parts[part_index]
+            boundary = split_parts[part_index - 1] if part_index else ""
+            if (
+                fragments
+                and re.fullmatch(r"\s*,?\s*(?:and|or)\s+", boundary, re.I)
+                and re.search(r"\b(?:allow|enable|support)\w*\b", fragments[-1], re.I)
+            ):
+                combined = fragments[-1] + boundary + fragment
+                comment_objects = list(
+                    re.finditer(r"\b(?:pr|pull request)\s+comments?\b", combined, re.I)
+                )
+                if comment_objects:
+                    last_object = comment_objects[-1]
+                    if product_comment_object(
+                        combined[: last_object.start()], combined[last_object.end() :]
+                    ):
+                        # Only positive whole-chain recognition can preserve
+                        # bare shared verbs across a coordination boundary.
+                        # Semicolons and unknown/finite clauses stay separate.
+                        fragments[-1] = combined
+                        continue
             noun_only = re.fullmatch(
                 r"\s*(?:(?:an?|the|validation|workflow|exact-head|evidence)\s+)*"
                 r"(?:artifacts?|command outputs?|transcripts?)\s*",
