@@ -1771,3 +1771,69 @@ for (const hidden of ['<!--\n- [ ] Hidden comment\n-->\n', '```markdown\n- [ ] F
     assert.equal(stripPrTemplateContent('## Stale template\n' + hidden + summary), summary);
   });
 }
+
+test('resolveNonIssueWorkflowSourceContextForBodySync keeps a declared workflow-source over relation wording', () => {
+  for (const relation of ['left to issue #123', 'Related to #123', 'Refs #123', 'References issue #123', 'source issue #123', 'Issue #123', '> **Source:** Issue #123']) {
+    const body = `<!-- workflow-source:local_request -->\n${relation}`;
+    assert.equal(resolveNonIssueWorkflowSourceContextForBodySync({ body }, 123).sourceType, 'local_request');
+    for (const intent of ['Closes #123', '<!-- meta:issue:123 -->']) {
+      assert.equal(resolveNonIssueWorkflowSourceContextForBodySync({ body: `${body}\n${intent}` }, 123), null);
+    }
+  }
+});
+
+test('buildPreamble writes a non-closing link for a relation-derived source issue', () => {
+  for (const via of ['mention', 'title']) {
+    const body = buildPreamble({ issueNumber: 123, via });
+    assert.match(body, /Related to #123/);
+    assert.match(body, /<!-- meta:related-issue:123 -->/);
+    assert.doesNotMatch(body, /Closes #123|<!-- meta:issue:123 -->/);
+  }
+  for (const via of ['meta', 'closing', 'branch']) {
+    const body = buildPreamble({ issueNumber: 123, via });
+    assert.match(body, /Closes #123/);
+    assert.match(body, /<!-- meta:issue:123 -->/);
+  }
+});
+
+test('a relation-sourced PR stays non-closing across two body syncs', async () => {
+  const pull = {
+    number: 55, state: 'open', title: 'Repair a local request',
+    body: 'left to issue #123', head: { sha: 'abc123', ref: 'feature/relation' },
+    base: { ref: 'main' }, labels: [],
+  };
+  const bodies = [];
+  const failures = [];
+  const github = {
+    paginate: async () => [],
+    rest: {
+      pulls: {
+        get: async () => ({ data: { ...pull } }),
+        update: async ({ body }) => { pull.body = body; bodies.push(body); },
+      },
+      issues: {
+        get: async () => ({ data: { body: '## Scope\nA local fix\n\n## Tasks\n- [ ] Fix the named behavior\n\n## Acceptance Criteria\n- [ ] Named regression passes', labels: [] } }),
+        listComments: async () => ({ data: [] }),
+      },
+      actions: {
+        listWorkflowRunsForRepo: async () => ({ data: { workflow_runs: [] } }),
+        listWorkflowRuns: async () => ({ data: { workflow_runs: [] } }),
+      },
+      repos: {
+        getBranchProtection: async () => ({ data: { required_status_checks: { contexts: [] } } }),
+      },
+    },
+  };
+  const core = { info() {}, debug() {}, warning() {}, error() {}, setFailed(message) { failures.push(message); } };
+  const args = { github, core, inputs: {}, context: { repo: { owner: 'octo', repo: 'demo' }, eventName: 'pull_request', payload: { pull_request: { number: 55, head: { sha: 'abc123' } } } } };
+  await run(args);
+  const firstBody = pull.body;
+  await run(args);
+  assert.deepEqual(failures, []);
+  assert.ok(bodies.length >= 1, 'the real run must update the body');
+  for (const body of [firstBody, pull.body]) {
+    assert.match(body, /<!-- meta:related-issue:123 -->/);
+    assert.match(body, /Related to #123/);
+    assert.doesNotMatch(body, /Closes #123|<!-- meta:issue:123 -->/);
+  }
+});

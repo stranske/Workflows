@@ -253,6 +253,12 @@ Before the next round begins:
 
 The source issue is the task of record. The `auto-status-summary` block is a
 machine-owned projection refreshed by PR metadata (`pr-meta` in the event hub).
+Issue linkage and closing intent are separate. A relation or title reference uses
+`meta:related-issue` and a visible `Related to #N` line, which remains non-closing
+on later refreshes. Closing keywords, `meta:issue`, and issue-branch provenance
+retain closing intent; active campaign issues retain their non-closing exemption.
+A declared non-issue Workflow Source takes precedence over relation wording;
+only an explicit closing keyword or `meta:issue` marker can override it.
 Source-issue edits reach that block on the next metadata refresh, not immediately;
 manual edits inside the block can be overwritten on regeneration. Keep durable
 source tasks in the source issue. Reviewer-added checkboxes outside the block
