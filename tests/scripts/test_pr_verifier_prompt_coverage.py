@@ -1931,6 +1931,57 @@ def test_product_field_modifier_repair_retains_passive_required_delivery() -> No
     ) == {"comments"}
 
 
+@pytest.mark.parametrize(
+    "verb",
+    [
+        "attach",
+        "upload",
+        "include",
+        "post",
+        "publish",
+        "record",
+        "capture",
+        "provide",
+        "document",
+        "add",
+        "leave",
+    ],
+)
+@pytest.mark.parametrize(
+    "actor,expected",
+    [
+        ("API", set()),
+        ("UI", set()),
+        ("service", set()),
+        ("endpoint", set()),
+        ("renderer", set()),
+        ("new public REST API endpoint", set()),
+        ("endpoint used by API reviewers", set()),
+        ("reviewer", {"comments"}),
+        ("API reviewer", {"comments"}),
+        ("API maintainer", {"comments"}),
+        ("reviewer of the endpoint", {"comments"}),
+    ],
+)
+@pytest.mark.parametrize("status", ["absent", "unavailable"])
+def test_comment_delivery_actor_operation_matrix(
+    verb: str,
+    actor: str,
+    expected: set[str],
+    status: str,
+) -> None:
+    destination = "with test results" if expected else "in its response"
+    criterion = f"The {actor} must {verb} a PR comment {destination}"
+    assert pr_verifier._required_evidence_channels("- [ ] " + criterion) == expected
+    context, _ = _context(1, 1_000, 1_000)
+    context = context.replace(ACCEPTANCE_SENTINEL, criterion).replace(
+        "## PR Diff Summary",
+        "## Acceptance evidence\n\n- Overall retrieval status: **present**\n"
+        f"- PR comments: **{status}**\n\n## PR Diff Summary",
+    )
+    assert pr_verifier.prompt_coverage(context, None).sufficient == (not expected)
+
+
 def test_product_capability_keeps_nested_user_comments_in_product_domain() -> None:
     assert (
         pr_verifier._required_evidence_channels(
