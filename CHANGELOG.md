@@ -6,6 +6,13 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 Breaking changes are called out with a **BREAKING** marker and scheduled according to the policy in `COMPATIBILITY.md`.
 
+## [1.37.13](https://github.com/stranske/Workflows/compare/v1.37.12...v1.37.13) (2026-10-04)
+
+
+### Bug Fixes
+
+* **sync:** bridge disposition requests to cloud task transport ([#3731](https://github.com/stranske/Workflows/issues/3731)) ([be2c9a1](https://github.com/stranske/Workflows/commit/be2c9a1868502c6c05d2e91af8a620cabf15507c))
+
 ## [1.37.12](https://github.com/stranske/Workflows/compare/v1.37.11...v1.37.12) (2026-10-04)
 
 
