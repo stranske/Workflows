@@ -197,6 +197,50 @@ def test_shared_destination_lists_preserve_review_and_editor_channels(criterion,
     ) == expected | {"comments"}
 
 
+@pytest.mark.parametrize("artifact_source", ["CI", "GitHub Actions"])
+def test_recognized_artifact_destinations_share_body_channel_classification(artifact_source):
+    criterion = f"The service must provide command output to clients and in the PR body and {artifact_source} artifacts"
+    assert verifier._required_evidence_channels(criterion) == {"body", "artifacts"}
+    assert (
+        verifier._required_evidence_channels(criterion.replace("must provide", "must not provide"))
+        == set()
+    )
+
+
+@pytest.mark.parametrize("modifier", ["written", "pasted"])
+@pytest.mark.parametrize("operation", ["displays", "shows", "renders"])
+def test_participial_alias_modifier_is_not_a_second_delivery(operation, modifier):
+    criterion = f"- [ ] The UI {operation} {modifier} evidence to users"
+    assert verifier._required_evidence_channels(criterion) == set()
+    assert verifier._required_evidence_channels(
+        criterion + "; record evidence in a PR comment"
+    ) == {"comments"}
+
+
+@pytest.mark.parametrize("recipient", ["clients", "its users", "the consumers"])
+@pytest.mark.parametrize(
+    "destination,channel",
+    [("a PR comment", "comments"), ("workflow artifacts", "artifacts"), ("the PR body", "body")],
+)
+def test_product_recipient_shared_destination_is_not_split(recipient, destination, channel):
+    criterion = f"The service must provide command output to {recipient} and {destination}"
+    assert verifier._required_evidence_channels(criterion) == {channel}
+
+
+@pytest.mark.parametrize(
+    "auxiliary", ["has to", "have to", "is required to", "is expected to", "is obliged to"]
+)
+@pytest.mark.parametrize("operation", ["returned", "displayed", "provided"])
+def test_shared_auxiliary_reaches_passive_review_requirement_gate(auxiliary, operation):
+    criterion = f"Command output {auxiliary} be {operation} in a PR comment by the service"
+    assert verifier._required_evidence_channels(criterion) == {"comments"}
+    negative = f"Command output does not have to be {operation} in a PR comment by the service"
+    assert verifier._required_evidence_channels(negative) == set()
+    assert verifier._required_evidence_channels(negative + "; record evidence in the PR body") == {
+        "body"
+    }
+
+
 @pytest.mark.parametrize("product", ["service", "API", "application", "endpoint"])
 @pytest.mark.parametrize("verb", ["provided", "returned", "displayed"])
 def test_reverse_product_output_retains_explicit_comment_delivery(product, verb):
@@ -695,3 +739,12 @@ def test_body_clause_matrix_controls_real_coverage_floor(criterion, expected, st
         verifier.EvaluationResult(verdict="PASS", used_llm=True), coverage
     )
     assert result.verdict == ("CONCERNS" if channel in expected and status != "present" else "PASS")
+
+
+@pytest.mark.parametrize("predicate", ["must describe the change", "should describe the change"])
+def test_product_recipient_does_not_absorb_independent_review_predicate(predicate):
+    criterion = f"The service must provide command output to clients, and the PR body {predicate}"
+    assert verifier._required_evidence_channels("- [ ] " + criterion) == set()
+    assert verifier._required_evidence_channels(
+        "- [ ] " + criterion + "; include evidence in a PR comment"
+    ) == {"comments"}

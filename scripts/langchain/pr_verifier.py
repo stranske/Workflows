@@ -977,16 +977,30 @@ def _acceptance_criteria_sections(plan_sources: str) -> str:
 def _required_evidence_channels(acceptance: str) -> set[str]:
     """Identify explicit evidence deliverables without treating negations as requirements."""
     channels: set[str] = set()
+    response_operation = (
+        r"(?:include|contain|have|return|display|show|store|emit|render|expose|provide)\w*\b"
+    )
+    mandatory_auxiliary = (
+        r"(?:(?:must|shall|needs?\s+to)|"
+        r"(?:(?:is|are)\s+)?(?:required|needed|mandated|expected|supposed|obliged)\s+to|"
+        r"(?:has|have)\s+to)"
+    )
+    passive_delivery_prefix = r"(?:be|have\s+been)(?:\s+being)?\s+"
     recipient_noun = (
         r"(?:(?:all|any|some|each|every)\s+)?"
         r"(?:(?:the|its|our|their|your|an?)\s+)?(?:clients?|users?|consumers?)\b"
     )
     product_recipient = r"(?:to|for)\s+" + recipient_noun
+    artifact_destination_object = r"(?:workflow|ci|github actions)\s+artifacts?\b"
     review_destination_noun = (
         r"(?:(?:the|an?)\s+)?(?:"
         r"(?:pr|pull request)\s+body\b(?:\s+editor\b)?|"
         r"(?:pr|pull request)\s+comments?\b|"
-        r"(?:workflow|ci|github actions)\s+artifacts?\b|(?:pr|pull request)\b)"
+        + artifact_destination_object
+        + r"|(?:pr|pull request)\b)"
+    )
+    independent_review_predicate = (
+        r"(?:must|shall|needs?\s+to|has\s+to|have\s+to|is|are|will|should|may|can)\b"
     )
     destination_preposition = r"(?:in|into|to|within|for|as|through|via)\s+"
     delivery_destination_item = r"(?:" + review_destination_noun + "|" + recipient_noun + ")"
@@ -1020,6 +1034,35 @@ def _required_evidence_channels(acceptance: str) -> set[str]:
         "writing": "recording",
         "wrote": "recorded",
     }
+
+    def normalize_record_alias(match: re.Match[str]) -> str:
+        """Preserve literals and participial modifiers of a prior governing verb."""
+        alias = match["alias"]
+        if not alias:
+            return match[0]
+        if alias.lower() in {"written", "pasted"}:
+            prefix = re.split(
+                r"[;\n]|\b(?:and|or|that|which|who)\b", acceptance[: match.start()], flags=re.I
+            )[-1]
+            operations = list(
+                re.finditer(
+                    r"\b(?!renderer\b)(?:"
+                    + response_operation
+                    + r"|record\w*|write\w*|paste\w*)\b",
+                    prefix,
+                    re.I,
+                )
+            )
+            if operations and not re.search(
+                r"(?:\b"
+                + mandatory_auxiliary
+                + r"|\b(?:is|are|was|were|be|been|being))\s+(?:(?:not|never)\s+)?$",
+                prefix[operations[-1].end() :],
+                re.I,
+            ):
+                return match[0]
+        return record_aliases[alias.lower()]
+
     acceptance = re.sub(
         r"(?P<literal>`+[^`]*`+|\"[^\"]*\"|'[^']*'|“[^”]*”|‘[^’]*’|"
         r"\b(?:the|an?)\s+(?:write|paste)\b"
@@ -1029,7 +1072,7 @@ def _required_evidence_channels(acceptance: str) -> set[str]:
         r"(?=\s+(?:(?:the|an?|any|before/after|failing|passing|supporting|validation|workflow|exact-head|execution|test|review|collected|recorded)\s+){0,4}"
         r"(?:evidence|artifacts?|transcripts?|command outputs?|pr comments?|pull request comments?)\b"
         r"|\s+" + destination_preposition + delivery_destination_item + r")",
-        lambda match: (record_aliases[match["alias"].lower()] if match["alias"] else match[0]),
+        normalize_record_alias,
         acceptance,
         flags=re.I,
     )
@@ -1043,25 +1086,18 @@ def _required_evidence_channels(acceptance: str) -> set[str]:
     )
     # Use the same product-response operation vocabulary when coalescing object
     # groups and when excluding response fields from review deliverables.
-    response_operation = (
-        r"(?:include|contain|have|return|display|show|store|emit|render|expose|provide)\w*\b"
-    )
     response_subject = r"(?:responses?|payloads?|return\s+values?|reports?|exports?)"
-    mandatory_auxiliary = (
-        r"(?:(?:must|shall|needs?\s+to)|"
-        r"(?:(?:is|are)\s+)?(?:required|needed|mandated|expected|supposed|obliged)\s+to|"
-        r"(?:has|have)\s+to)"
-    )
     product_auxiliary = r"(?:" + mandatory_auxiliary + r"|will|should|can|may)\s+"
     # Positive and negated obligations must recognize the same passive aspects.
-    passive_delivery_prefix = r"(?:be|have\s+been)(?:\s+being)?\s+"
     evidence_term = re.compile(
         r"\b(?:evidence|artifacts?|transcripts?|command outputs?|workflow runs?|"
         r"pr comments?|pull request comments?)\b",
         re.I,
     )
     requirement = re.compile(
-        r"\b(?:required|mandatory|(?:is|are)\s+needed|must|shall|needs? to|"
+        r"\b(?:"
+        + mandatory_auxiliary
+        + r"|required|mandatory|(?:is|are)\s+needed|must|shall|needs? to|"
         r"publish(?:es|ed)?|upload(?:s|ed)?|"
         r"attach(?:es|ed)?|captur(?:e|es|ed)|record(?:s|ed)?|provid(?:e|es|ed)|"
         r"includ(?:e|es|ed)|link(?:s|ed)?|post(?:s|ed)?|"
@@ -1201,7 +1237,7 @@ def _required_evidence_channels(acceptance: str) -> set[str]:
             destinations = {"body"}
             if re.search(r"\b(?:pr comments?|pull request comments?)\b", clause, re.I):
                 destinations.add("comments")
-            if re.search(r"\bworkflow artifacts?\b", clause, re.I):
+            if re.search(artifact_destination_object, clause, re.I):
                 destinations.add("artifacts")
             if disposition == "product":
                 # The editor is a product surface, but coordinated actual
@@ -1456,6 +1492,11 @@ def _required_evidence_channels(acceptance: str) -> set[str]:
         )
 
     evidence_prohibition = re.compile(
+        r"\b(?:evidence|artifacts?|transcripts?|command outputs?)\s+"
+        r"(?:does|do|did)\s+(?:not|never)\s+(?:need|have)\s+to\s+"
+        + passive_delivery_prefix
+        + response_operation
+        + r"|"
         r"\bnever\s+(?:upload|attach|provide|publish|post|record|capture|include|document|generate|link|add|leave)\w*\b|"
         r"\b(?:evidence|artifacts?|transcripts?|command outputs?|workflow runs?|"
         r"pr comments?|pull request comments?)\s+(?:is|are|was|were)\s+"
@@ -1563,6 +1604,11 @@ def _required_evidence_channels(acceptance: str) -> set[str]:
         # stay attached to their delivery verb.
         clause_boundary = (
             r"\s*;\s*|,?\s+(?:but|whereas)\s+|"
+            r"(?:,?\s+(?:and|while)\s+)(?="
+            + review_destination_noun
+            + r"\s+"
+            + independent_review_predicate
+            + r")|"
             r"(?:,?\s+(?:and|while)\s+|[,\.]\s+)(?="
             r"(?:optionally\s+)?(?:"
             r"(?:an?\s+|the\s+)?(?:validation\s+|exact-head\s+)?"
@@ -1597,11 +1643,25 @@ def _required_evidence_channels(acceptance: str) -> set[str]:
         )
         split_parts = []
         split_start = 0
+        review_destination_spans = [
+            match.span() for match in re.finditer(bound_review_destinations, criterion, re.I)
+        ]
         for boundary_match in re.finditer(clause_boundary, criterion, re.I):
-            if any(
-                record["span"][0] <= boundary_match.start()
-                and boundary_match.end() <= record["span"][1]
-                for record in criterion_body_records
+            independent_predicate = re.match(
+                review_destination_noun + r"\s+" + independent_review_predicate,
+                criterion[boundary_match.end() :],
+                re.I,
+            )
+            if not independent_predicate and (
+                any(
+                    record["span"][0] <= boundary_match.start()
+                    and boundary_match.end() <= record["span"][1]
+                    for record in criterion_body_records
+                )
+                or any(
+                    start <= boundary_match.start() and boundary_match.end() <= end
+                    for start, end in review_destination_spans
+                )
             ):
                 continue
             split_parts.extend((criterion[split_start : boundary_match.start()], boundary_match[0]))

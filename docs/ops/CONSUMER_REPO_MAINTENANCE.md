@@ -1059,6 +1059,13 @@ recipient does not erase coordinated PR/body/comment/workflow-artifact delivery;
 independent or negated predicates are not absorbed into that list. Product body
 editors remain product surfaces while coordinated artifact/comment deliveries
 retain their own channels.
+Shared destination spans survive clause splitting unless a destination starts a
+new independent predicate (for example, `the PR body must describe the change`).
+Participial modifiers such as `written evidence` under a product display verb do
+not become an independent record operation. The outer requirement gate shares
+passive obligation auxiliaries with destination recognition; negated `does not
+have to be` clauses remain non-obligations. CI, GitHub Actions and workflow
+artifact destinations use the same recognition and channel vocabulary.
 The four fresh canary findings are tested through the actual coverage floor with
 present, absent and unavailable evidence plus independent reviewer-delivery controls.
 
