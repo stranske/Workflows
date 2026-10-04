@@ -4,6 +4,10 @@ const test = require('node:test');
 const assert = require('node:assert/strict');
 const fs = require('node:fs');
 const path = require('node:path');
+const {
+  extractClosingIssueNumbersFromText,
+  extractIssueSourceFromPull,
+} = require('../source_context.js');
 
 const {
   run: templateRun,
@@ -1813,6 +1817,10 @@ test('buildPreamble writes a non-closing link for a relation-derived source issu
       assert.match(body, /<!-- meta:related-issue:123 -->/);
       assert.match(body, /> \*\*Source:\*\* Issue #123/);
       assert.doesNotMatch(body, /Closes #123|<!-- meta:issue:123 -->/);
+      assert.deepEqual([...extractClosingIssueNumbersFromText(body)], []);
+      assert.deepEqual(extractIssueSourceFromPull({ body }), {
+        issueNumber: 123, via: 'mention',
+      });
     }
   }
   for (const via of ['meta', 'closing', 'branch']) {
@@ -1833,15 +1841,22 @@ test('consumer PR body sync scripts match their Workflows sources byte-for-byte'
 });
 
 test('a relation-sourced PR stays non-closing across two body syncs', async (t) => {
-  await t.test('Workflows source', () => assertRelationSyncStaysNonClosing(run));
-  await t.test('consumer template', () => assertRelationSyncStaysNonClosing(templateRun));
+  for (const [name, sync] of [['Workflows source', run], ['consumer template', templateRun]]) {
+    await t.test(name, async (t) => {
+      await t.test('body mention', () => assertRelationSyncStaysNonClosing(sync));
+      await t.test('title reference', () => assertRelationSyncStaysNonClosing(sync, {
+        title: 'Issue #123: repair a local request', body: 'A local fix without an issue link',
+      }));
+    });
+  }
 });
 
-async function assertRelationSyncStaysNonClosing(sync) {
+async function assertRelationSyncStaysNonClosing(sync, overrides = {}) {
   const pull = {
     number: 55, state: 'open', title: 'Repair a local request',
     body: 'left to issue #123', head: { sha: 'abc123', ref: 'feature/relation' },
     base: { ref: 'main' }, labels: [],
+    ...overrides,
   };
   const bodies = [];
   const fetchedIssues = [];
@@ -1885,5 +1900,9 @@ async function assertRelationSyncStaysNonClosing(sync) {
     assert.match(body, /<!-- meta:related-issue:123 -->/);
     assert.match(body, /Related to #123/);
     assert.doesNotMatch(body, /Closes #123|<!-- meta:issue:123 -->/);
+    assert.deepEqual([...extractClosingIssueNumbersFromText(body)], []);
+    assert.deepEqual(extractIssueSourceFromPull({ ...pull, body }), {
+      issueNumber: 123, via: 'mention',
+    });
   }
 }
