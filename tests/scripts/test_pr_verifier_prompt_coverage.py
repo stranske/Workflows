@@ -2496,11 +2496,12 @@ def test_include_operation_retains_explicit_review_destination() -> None:
 @pytest.mark.parametrize("actor", ["API", "endpoint", "service"])
 @pytest.mark.parametrize("check", ["verify", "check", "assert"])
 @pytest.mark.parametrize("complementizer", ["that ", "whether ", ""])
+@pytest.mark.parametrize("auxiliary", ["must", "will", "is required to", "has to", "needs to"])
 def test_reviewers_product_check_uses_nested_governing_subject(
-    actor: str, check: str, complementizer: str
+    actor: str, check: str, complementizer: str, auxiliary: str
 ) -> None:
     criterion = (
-        f"The reviewer must {check} {complementizer}the {actor} "
+        f"The reviewer {auxiliary} {check} {complementizer}the {actor} "
         "includes PR comments in its response"
     )
     assert pr_verifier._required_evidence_channels(f"- [ ] {criterion}") == set()

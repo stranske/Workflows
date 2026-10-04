@@ -1043,18 +1043,24 @@ def _required_evidence_channels(acceptance: str) -> set[str]:
                 # earlier UI/API actor across "transcript that must be posted".
                 subject = re.split(r"\b(?:and|or|that|which|who)\b", between, flags=re.I)[-1]
         nested_subject = re.search(
-            r"\b(?:(?P<explicit>that|whether)|(?P<implicit>(?:must|shall|should)\s+"
-            r"(?:verify|check|assert))(?!\s+(?:that|whether)\b))"
+            r"\b(?:(?P<explicit>that|whether)|(?P<implicit>"
+            + product_auxiliary
+            + r"(?:verify|check|assert))(?!\s+(?:that|whether)\b))"
             r"\s+(?P<subject>(?:(?:the|an?)\s+)?"
             r"(?:[\w-]+\s+)*?(?:ui|api|application|interface|service|cli|endpoint|renderer|"
-            r"reviewers?|maintainers?|authors?|operators?))\s+(?:" + product_auxiliary + r")?\s*$",
+            r"reviewers?|maintainers?|authors?|operators?))\s+(?P<nested_aux>"
+            + product_auxiliary
+            + r")?\s*$",
             subject,
             re.I,
         )
         if (
             nested_subject
             and nested_subject["implicit"]
-            and re.search(r"\b(?:who|which|that)\b", subject[: nested_subject.start()], re.I)
+            and (
+                nested_subject["nested_aux"]
+                or re.search(r"\b(?:who|which|that)\b", subject[: nested_subject.start()], re.I)
+            )
         ):
             # A check predicate inside a relative qualifier cannot supply
             # the outer delivery's actor. Decline ambiguous attachment.
