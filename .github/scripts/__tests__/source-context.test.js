@@ -6,6 +6,7 @@ const assert = require('node:assert/strict');
 const {
   SOURCE_TYPES,
   extractIssueNumberFromPull,
+  extractIssueSourceFromPull,
   normalizeSourceType,
   parseDependencyRepairPromotionSource,
   parseWorkflowSourceBlock,
@@ -958,5 +959,23 @@ test('corpus harvest suppression requires the exact controlled repository branch
     assert.equal(context.sourceType, SOURCE_TYPES.GITHUB_ISSUE);
     assert.equal(context.issueNumber, 2819);
     assert.equal(context.isRecurringDataJob, false);
+  }
+});
+
+
+test('extractIssueSourceFromPull preserves provenance and ambiguity', () => {
+  for (const [pull, expected] of [
+    [{ body: '<!-- meta:issue:42 -->' }, { issueNumber: 42, via: 'meta' }],
+    [{ body: 'Closes #42' }, { issueNumber: 42, via: 'closing' }],
+    [{ body: 'Related to issue #42' }, { issueNumber: 42, via: 'mention' }],
+    [{ body: '<!-- meta:related-issue:42 -->' }, { issueNumber: 42, via: 'mention' }],
+    [{ head: { ref: 'codex/issue-42-example' } }, { issueNumber: 42, via: 'branch' }],
+    [{ title: 'Issue #42' }, { issueNumber: 42, via: 'title' }],
+    [{ body: 'Refs #42 and issue #43' }, { issueNumber: null, via: null }],
+    [{ body: '<!-- meta:related-issue:42 --> Related to #43' }, { issueNumber: null, via: null }],
+    [{}, { issueNumber: null, via: null }],
+  ]) {
+    assert.deepEqual(extractIssueSourceFromPull(pull), expected);
+    assert.equal(extractIssueNumberFromPull(pull), expected.issueNumber);
   }
 });

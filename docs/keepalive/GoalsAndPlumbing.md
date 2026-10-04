@@ -253,6 +253,12 @@ Before the next round begins:
 
 The source issue is the task of record. The `auto-status-summary` block is a
 machine-owned projection refreshed by PR metadata (`pr-meta` in the event hub).
+Issue linkage and closing intent are separate. A relation or title reference uses
+`meta:related-issue` and a visible `Related to #N` line, which remains non-closing
+on later refreshes. Closing keywords, `meta:issue`, and issue-branch provenance
+retain closing intent; active campaign issues retain their non-closing exemption.
+A declared non-issue Workflow Source takes precedence over relation wording;
+only an explicit closing keyword or `meta:issue` marker can override it.
 Source-issue edits reach that block on the next metadata refresh, not immediately;
 manual edits inside the block can be overwritten on regeneration. Keep durable
 source tasks in the source issue. Reviewer-added checkboxes outside the block
@@ -274,7 +280,7 @@ The Keepalive workflow depends on the **Automated Status Summary** block in the 
 3. **Keepalive Execution:** The keepalive loop extracts tasks from the Automated Status Summary and injects them into the agent prompt via the task appendix.
 
 ### Failure Modes & Recovery
-- **Missing Workflow Source:** If the PR lacks a source issue, it may still be valid. Add either a hidden `<!-- meta:issue:<issue_number> -->` marker plus a visible `Related to #<issue_number>` or `Closes #<issue_number>` line, or mark another valid source in the PR body/labels. Supported non-issue sources are local request, automation run, sync/maintenance campaign, Dependabot, review follow-up, and direct GitHub PR. Use `Related to` for active campaign/controller issues that must remain open.
+- **Missing Workflow Source:** If the PR lacks a source issue, it may still be valid. For a non-closing reference, add a hidden `<!-- meta:related-issue:<issue_number> -->` marker plus a visible `Related to #<issue_number>` line. For explicit closing intent, add a hidden `<!-- meta:issue:<issue_number> -->` marker plus a visible `Closes #<issue_number>` line. Do not pair `meta:issue` with `Related to`: the marker expresses closing intent and the next body sync writes a closing line for a non-campaign issue. Alternatively, mark another valid source in the PR body/labels. Supported non-issue sources are local request, automation run, sync/maintenance campaign, Dependabot, review follow-up, and direct GitHub PR. Use the non-closing marker and `Related to` for active campaign/controller issues that must remain open.
 - **Missing Sections:** If the source Issue lacks "Scope"/"Tasks"/"Acceptance", update the source Issue text.
 - **No Tasks:** If no checkboxes are found, keepalive will stop with reason `no-checklists`.
 

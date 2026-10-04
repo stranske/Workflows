@@ -267,7 +267,7 @@ function extractClosingIssueNumbersFromText(text) {
   return issueNumbers;
 }
 
-function extractIssueNumberFromPull(pull = {}) {
+function extractIssueSourceFromPull(pull = {}) {
   const bodyText = String(pull?.body || '');
   const metaIssueNumbers = new Set(
     Array.from(bodyText.matchAll(/<!--\s*meta:issue:([0-9]+)\s*-->/gi), (match) =>
@@ -275,40 +275,47 @@ function extractIssueNumberFromPull(pull = {}) {
     ),
   );
   if (metaIssueNumbers.size > 1) {
-    return null;
+    return { issueNumber: null, via: null };
   }
   if (metaIssueNumbers.size === 1) {
-    return Array.from(metaIssueNumbers)[0];
+    return { issueNumber: Array.from(metaIssueNumbers)[0], via: 'meta' };
   }
 
   const closingIssueNumbers = extractClosingIssueNumbersFromText(bodyText);
   if (closingIssueNumbers.size === 1) {
-    return Array.from(closingIssueNumbers)[0];
+    return { issueNumber: Array.from(closingIssueNumbers)[0], via: 'closing' };
   }
   if (closingIssueNumbers.size > 1) {
-    return null;
+    return { issueNumber: null, via: null };
   }
 
   const bodyIssueNumbers = extractIssueNumbersFromText(bodyText);
+  for (const match of bodyText.matchAll(/<!--\s*meta:related-issue:([0-9]+)\s*-->/gi)) {
+    bodyIssueNumbers.add(Number.parseInt(match[1], 10));
+  }
   if (bodyIssueNumbers.size === 1) {
-    return Array.from(bodyIssueNumbers)[0];
+    return { issueNumber: Array.from(bodyIssueNumbers)[0], via: 'mention' };
   }
   if (bodyIssueNumbers.size > 1) {
-    return null;
+    return { issueNumber: null, via: null };
   }
 
   const branch = String(pull?.head?.ref || '');
   const branchMatch = branch.match(/issue-#?([0-9]+)/i) || branch.match(/-issue-#([0-9]+)(?:$|[^0-9])/i);
   if (branchMatch) {
-    return Number.parseInt(branchMatch[1], 10);
+    return { issueNumber: Number.parseInt(branchMatch[1], 10), via: 'branch' };
   }
 
   const titleNumber = extractIssueNumberFromText(pull?.title || '');
   if (titleNumber) {
-    return titleNumber;
+    return { issueNumber: titleNumber, via: 'title' };
   }
 
-  return null;
+  return { issueNumber: null, via: null };
+}
+
+function extractIssueNumberFromPull(pull = {}) {
+  return extractIssueSourceFromPull(pull).issueNumber;
 }
 
 function parseHtmlMarker(body, name) {
@@ -646,6 +653,7 @@ module.exports = {
   extractIssueNumbersFromText,
   extractClosingIssueNumbersFromText,
   extractIssueNumberFromPull,
+  extractIssueSourceFromPull,
   parseWorkflowSourceBlock,
   parseDependencyRepairPromotionSource,
   hasBoundVerifierCorpusHarvestContext,

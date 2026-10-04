@@ -19,6 +19,8 @@ const { ensureRateLimitWrapped } = require('./github-rate-limited-wrapper.js');
 const { isRateLimitError: classifyRateLimitError } = require('./error_classifier');
 const {
   extractIssueNumbersFromText,
+  extractClosingIssueNumbersFromText,
+  extractIssueSourceFromPull,
   formatSourceContextForLog,
   normalizeSourceType,
   resolvePrSourceContext,
@@ -1154,13 +1156,21 @@ function resolveNonIssueWorkflowSourceContextForBodySync(pr = {}, issueNumber = 
   if (!explicitNonIssueSourceContext) {
     return null;
   }
-  const explicitIssueSyncNumbers = extractExplicitIssueSyncNumbers(pr);
+  const closingIntentNumbers = new Set();
+  for (const text of [pr.title, pr.body]) {
+    for (const number of extractClosingIssueNumbersFromText(text)) {
+      closingIntentNumbers.add(number);
+    }
+    for (const match of String(text || '').matchAll(/<!--\s*meta:issue:([0-9]+)\s*-->/gi)) {
+      closingIntentNumbers.add(Number.parseInt(match[1], 10));
+    }
+  }
   const targetIssueNumber = Number.parseInt(issueNumber, 10);
   if (
-    explicitIssueSyncNumbers.size > 0 &&
+    closingIntentNumbers.size > 0 &&
     (!Number.isFinite(targetIssueNumber) ||
       targetIssueNumber <= 0 ||
-      explicitIssueSyncNumbers.has(targetIssueNumber))
+      closingIntentNumbers.has(targetIssueNumber))
   ) {
     return null;
   }
@@ -1205,9 +1215,14 @@ function buildPreamble(sections) {
   
   // Add reference to source issue if available
   if (sections.issueNumber) {
-    lines.push(`<!-- meta:issue:${sections.issueNumber} -->`);
+    // Omitted provenance keeps the legacy helper API's closing behavior.
+    const relationOnly = ['mention', 'title'].includes(sections.via);
+    const marker = relationOnly ? 'meta:related-issue' : 'meta:issue';
+    lines.push(`<!-- ${marker}:${sections.issueNumber} -->`);
     lines.push(`> **Source:** Issue #${sections.issueNumber}`, '');
-    if (isCampaignIssue(sections.sourceIssue)) {
+    if (relationOnly) {
+      lines.push(`Related to #${sections.issueNumber}`, '');
+    } else if (isCampaignIssue(sections.sourceIssue)) {
       lines.push(`Related to campaign issue #${sections.issueNumber}`, '');
     } else {
       lines.push(`Closes #${sections.issueNumber}`, '');
@@ -1708,6 +1723,7 @@ async function run({github: rawGithub, context, core, inputs}) {
     ci,
     issueNumber,
     sourceIssue: issueResponse.data,
+    via: extractIssueSourceFromPull(pr).via,
   });
 
   const workflowRuns = await collectStatusWorkflowRuns({

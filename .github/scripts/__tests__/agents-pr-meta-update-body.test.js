@@ -2,6 +2,16 @@
 
 const test = require('node:test');
 const assert = require('node:assert/strict');
+const fs = require('node:fs');
+const path = require('node:path');
+const {
+  extractClosingIssueNumbersFromText,
+  extractIssueSourceFromPull,
+} = require('../source_context.js');
+
+const {
+  run: templateRun,
+} = require('../../../templates/consumer-repo/.github/scripts/agents_pr_meta_update_body.js');
 
 const {
   parseCheckboxStates,
@@ -790,6 +800,32 @@ test('resolveNonIssueWorkflowSourceContextForBodySync preserves non-issue marker
 
   assert.equal(context.sourceType, 'local_request');
   assert.equal(context.sourceRef, 'codex-thread-2026-04-26');
+});
+
+test('resolveNonIssueWorkflowSourceContextForBodySync separates related and closing issue targets', () => {
+  const sourceBody = [
+    '<!-- workflow-source:local_request -->',
+    '<!-- workflow-source-ref:codex-thread-2026-04-26 -->',
+    'left to issue #123',
+  ].join('\n');
+  const expectedContext = resolveExplicitNonIssueWorkflowSourceContext({ body: sourceBody });
+
+  for (const intent of ['Closes #456', '<!-- meta:issue:456 -->']) {
+    for (const pull of [
+      { body: `${sourceBody}\n${intent}` },
+      { body: sourceBody, title: intent },
+    ]) {
+      assert.deepEqual(
+        [...extractExplicitIssueSyncNumbers(pull)].sort((a, b) => a - b),
+        [123, 456],
+        'the explicit-reference helper must still include both issues',
+      );
+      assert.equal(hasExplicitIssueSyncReference(pull), true);
+      assert.deepEqual(resolveNonIssueWorkflowSourceContextForBodySync(pull, 123), expectedContext);
+      assert.equal(resolveNonIssueWorkflowSourceContextForBodySync(pull, 456), null);
+      assert.equal(resolveNonIssueWorkflowSourceContextForBodySync(pull), null);
+    }
+  }
 });
 
 test('resolveSourceContextRepairComment updates an existing warning once', async () => {
@@ -1770,4 +1806,219 @@ for (const hidden of ['<!--\n- [ ] Hidden comment\n-->\n', '```markdown\n- [ ] F
     const summary = '<!-- auto-status-summary:start -->\n## Tasks\n- [x] Source task\n<!-- auto-status-summary:end -->';
     assert.equal(stripPrTemplateContent('## Stale template\n' + hidden + summary), summary);
   });
+}
+
+test('resolveNonIssueWorkflowSourceContextForBodySync keeps a declared workflow-source over relation wording', () => {
+  for (const relation of [
+    'left to issue #123',
+    'keepalive on issue #123',
+    'Related to #123',
+    'Refs #123',
+    'References issue #123',
+    'source issue #123',
+    'Issue #123',
+    '> **Source:** Issue #123',
+    '<!-- meta:related-issue:123 -->',
+  ]) {
+    const body = `<!-- workflow-source:local_request -->\n${relation}`;
+    assert.equal(resolveNonIssueWorkflowSourceContextForBodySync({ body }, 123).sourceType, 'local_request');
+    assert.equal(resolveNonIssueWorkflowSourceContextForBodySync({
+      body: '<!-- workflow-source:local_request -->', title: relation,
+    }, 123).sourceType, 'local_request');
+    for (const intent of ['Closes #123', 'Fixes issue #123', 'Resolves #123', '<!-- meta:issue:123 -->']) {
+      assert.equal(resolveNonIssueWorkflowSourceContextForBodySync({ body: `${body}\n${intent}` }, 123), null);
+      assert.equal(resolveNonIssueWorkflowSourceContextForBodySync({ body, title: intent }, 123), null);
+      assert.equal(resolveNonIssueWorkflowSourceContextForBodySync({
+        body: `${body}\n${intent}`,
+      }, 456).sourceType, 'local_request');
+    }
+  }
+});
+
+test('buildPreamble writes a non-closing link for a relation-derived source issue', () => {
+  for (const sourceIssue of [undefined, { labels: [{ name: 'campaign:active' }] }]) {
+    for (const via of ['mention', 'title']) {
+      const body = buildPreamble({ issueNumber: 123, via, sourceIssue });
+      assert.match(body, /Related to #123/);
+      assert.match(body, /<!-- meta:related-issue:123 -->/);
+      assert.match(body, /> \*\*Source:\*\* Issue #123/);
+      assert.doesNotMatch(body, /Closes #123|<!-- meta:issue:123 -->/);
+      assert.deepEqual([...extractClosingIssueNumbersFromText(body)], []);
+      assert.deepEqual(extractIssueSourceFromPull({ body }), {
+        issueNumber: 123, via: 'mention',
+      });
+    }
+  }
+  for (const via of ['meta', 'closing', 'branch']) {
+    const body = buildPreamble({ issueNumber: 123, via });
+    assert.match(body, /Closes #123/);
+    assert.match(body, /<!-- meta:issue:123 -->/);
+  }
+});
+
+test('consumer PR body sync scripts match their Workflows sources byte-for-byte', () => {
+  for (const script of ['agents_pr_meta_update_body.js', 'source_context.js']) {
+    const source = path.resolve(__dirname, '..', script);
+    const template = path.resolve(
+      __dirname, '../../../templates/consumer-repo/.github/scripts', script,
+    );
+    assert.deepEqual(fs.readFileSync(template), fs.readFileSync(source), script);
+  }
+});
+
+test('a relation-sourced PR stays non-closing across two body syncs', async (t) => {
+  for (const [name, sync] of [['Workflows source', run], ['consumer template', templateRun]]) {
+    await t.test(name, async (t) => {
+      await t.test('body mention', () => assertIssueSyncPreservesIntent(sync));
+      await t.test('body mention takes precedence over an issue branch', () => {
+        return assertIssueSyncPreservesIntent(sync, {
+          head: { sha: 'abc123', ref: 'codex/issue-123' },
+        });
+      });
+      await t.test('related marker takes precedence over conflicting branch and title issues', () => {
+        return assertIssueSyncPreservesIntent(sync, {
+          body: '<!-- meta:related-issue:123 -->',
+          head: { sha: 'abc123', ref: 'codex/issue-456' },
+          title: 'Issue #789: repair a local request',
+        });
+      });
+      await t.test('title reference', () => assertIssueSyncPreservesIntent(sync, {
+        title: 'Issue #123: repair a local request', body: 'A local fix without an issue link',
+      }));
+    });
+  }
+});
+
+test('documented missing-source recovery preserves intent in source and consumer body syncs', async (t) => {
+  const document = fs.readFileSync(
+    path.resolve(__dirname, '../../../docs/keepalive/GoalsAndPlumbing.md'), 'utf8',
+  );
+  const recovery = document.match(/^- \*\*Missing Workflow Source:\*\*.*$/m);
+  assert.ok(recovery, 'the operator guide must document missing-source recovery');
+
+  for (const { instruction, marker, link, closing } of [
+    {
+      instruction: 'For a non-closing reference',
+      marker: '<!-- meta:related-issue:<issue_number> -->',
+      link: 'Related to #<issue_number>',
+      closing: false,
+    },
+    {
+      instruction: 'For explicit closing intent',
+      marker: '<!-- meta:issue:<issue_number> -->',
+      link: 'Closes #<issue_number>',
+      closing: true,
+    },
+  ]) {
+    const example = recovery[0].match(new RegExp(
+      instruction + ', add a hidden `([^`]+)` marker plus a visible `([^`]+)` line\\.',
+    ));
+    assert.ok(example, `missing documented instructions: ${instruction}`);
+    assert.equal(example[1], marker, `${instruction}: marker must express the intended linkage`);
+    assert.equal(example[2], link, `${instruction}: visible link must agree with the marker`);
+    const body = `${example[1]}\n${example[2]}`.replaceAll('<issue_number>', '123');
+
+    for (const [name, sync] of [['Workflows source', run], ['consumer template', templateRun]]) {
+      await t.test(`${name}: ${instruction}`, () => {
+        return assertIssueSyncPreservesIntent(sync, { body }, closing);
+      });
+    }
+  }
+});
+
+test('missing-source recovery preserves related and closing intent across two body syncs', async (t) => {
+  for (const [name, sync] of [['Workflows source', run], ['consumer template', templateRun]]) {
+    await t.test(name, async (t) => {
+      await t.test('non-closing recovery', () => assertIssueSyncPreservesIntent(sync, {
+        body: '<!-- meta:related-issue:123 -->\nRelated to #123',
+      }));
+      await t.test('explicit closing recovery', () => assertIssueSyncPreservesIntent(sync, {
+        body: '<!-- meta:issue:123 -->\nCloses #123',
+      }, true));
+      await t.test('a closing marker overrides visible relation wording', () => {
+        return assertIssueSyncPreservesIntent(sync, {
+          body: '<!-- meta:issue:123 -->\nRelated to #123',
+        }, true);
+      });
+    });
+  }
+});
+
+test('closing-keyword and branch sources retain closing intent across two body syncs', async (t) => {
+  for (const [name, sync] of [['Workflows source', run], ['consumer template', templateRun]]) {
+    await t.test(name, async (t) => {
+      for (const body of ['Closes #123', 'Fixes issue #123', 'Resolves #123']) {
+        await t.test(body, () => assertIssueSyncPreservesIntent(sync, { body }, true));
+      }
+      await t.test('issue branch without a body or title reference', () => {
+        return assertIssueSyncPreservesIntent(sync, {
+          body: 'A local fix without an issue link',
+          head: { sha: 'abc123', ref: 'codex/issue-123' },
+        }, true);
+      });
+    });
+  }
+});
+
+async function assertIssueSyncPreservesIntent(sync, overrides = {}, closing = false) {
+  const pull = {
+    number: 55, state: 'open', title: 'Repair a local request',
+    body: 'left to issue #123', head: { sha: 'abc123', ref: 'feature/relation' },
+    base: { ref: 'main' }, labels: [],
+    ...overrides,
+  };
+  const bodies = [];
+  const fetchedIssues = [];
+  let issueBody = '## Scope\nA local fix\n\n## Tasks\n- [ ] Fix the named behavior\n\n## Acceptance Criteria\n- [ ] Named regression passes';
+  const failures = [];
+  const github = {
+    paginate: async () => [],
+    graphql: async () => ({
+      repository: { ref: { branchProtectionRule: null } },
+    }),
+    rest: {
+      pulls: {
+        get: async () => ({ data: { ...pull } }),
+        update: async ({ body }) => { pull.body = body; bodies.push(body); },
+      },
+      issues: {
+        get: async ({ issue_number }) => {
+          fetchedIssues.push(issue_number);
+          return { data: { body: issueBody, labels: [] } };
+        },
+        listComments: async () => ({ data: [] }),
+      },
+      actions: {
+        listWorkflowRunsForRepo: async () => ({ data: { workflow_runs: [] } }),
+        listWorkflowRuns: async () => ({ data: { workflow_runs: [] } }),
+      },
+    },
+  };
+  const core = { info() {}, debug() {}, warning() {}, error() {}, setFailed(message) { failures.push(message); } };
+  const args = { github, core, inputs: {}, context: { repo: { owner: 'octo', repo: 'demo' }, eventName: 'pull_request', payload: { pull_request: { number: 55, head: { sha: 'abc123' } } } } };
+  await sync(args);
+  const firstBody = pull.body;
+  issueBody = issueBody.replace('A local fix', 'Updated issue scope for the second sync');
+  await sync(args);
+  assert.deepEqual(failures, []);
+  assert.deepEqual(fetchedIssues, [123, 123], 'both runs must fetch the same source issue');
+  assert.equal(bodies.length, 2, 'both runs must write synchronized issue content');
+  assert.notEqual(firstBody, pull.body);
+  assert.match(pull.body, /Updated issue scope for the second sync/);
+  for (const body of [firstBody, pull.body]) {
+    if (closing) {
+      assert.match(body, /<!-- meta:issue:123 -->/);
+      assert.match(body, /Closes #123/);
+      assert.doesNotMatch(body, /<!-- meta:related-issue:123 -->/);
+      assert.doesNotMatch(extractBlock(body, 'pr-preamble'), /Related to #123/);
+    } else {
+      assert.match(body, /<!-- meta:related-issue:123 -->/);
+      assert.match(body, /Related to #123/);
+      assert.doesNotMatch(body, /Closes #123|<!-- meta:issue:123 -->/);
+    }
+    assert.deepEqual([...extractClosingIssueNumbersFromText(body)], closing ? [123] : []);
+    assert.deepEqual(extractIssueSourceFromPull({ ...pull, body }), {
+      issueNumber: 123, via: closing ? 'meta' : 'mention',
+    });
+  }
 }
