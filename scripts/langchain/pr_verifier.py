@@ -988,7 +988,12 @@ def _required_evidence_channels(acceptance: str) -> set[str]:
 
     def remaining_delivery(text: str) -> bool:
         # Product object-field nouns are not requests to deliver evidence.
-        actions = re.sub(r"\bevidence\s+(?:links?|records?)\b", "evidence", text, flags=re.I)
+        actions = re.sub(
+            r"\bevidence\s+(?:links?|records?)(?:\s+(?:and|or)\s+(?:links?|records?))*\b",
+            "evidence",
+            text,
+            flags=re.I,
+        )
         return bool(evidence_term.search(text) and requirement.search(actions))
 
     evidence_prohibition = re.compile(
@@ -1412,22 +1417,25 @@ def _required_evidence_channels(acceptance: str) -> set[str]:
                     continue
             product_comment_behavior = bool(
                 re.search(
-                    r"\b(?:ui|api|application|interface|service|cli|endpoint|renderer)\b.{0,60}"
+                    r"^\s*(?:[-*]\s*(?:\[[ xX]\]\s*)?)?(?:[\w-]+\s+){0,3}"
+                    r"(?:ui|api|application|interface|service|cli|endpoint|renderer)\b.{0,60}"
                     r"\b(?:allow|enable|support)\w*\b.{0,40}"
                     r"\b(?:pr comments?|pull request comments?)\b",
                     requirement_text,
                     re.I,
                 )
                 or re.search(
-                    r"\b(?:ui|api|application|interface|service|cli|endpoint|renderer)\b.{0,60}"
-                    r"\b(?:display|store|include|attach|upload)\w*\s+"
+                    r"^\s*(?:[-*]\s*(?:\[[ xX]\]\s*)?)?(?:[\w-]+\s+){0,3}"
+                    r"(?:ui|api|application|interface|service|cli|endpoint|renderer)\b.{0,60}"
+                    r"\b(?:display|store|include|attach|upload|add|leave|left)\w*\s+"
                     r"(?:(?:the|stored|retrieved)\s+){0,2}"
                     r"(?:pr comments?|pull request comments?)\b",
                     requirement_text,
                     re.I,
                 )
                 or re.search(
-                    r"\b(?:ui|api|application|interface|service|cli|endpoint|renderer)\b\s+"
+                    r"^\s*(?:[-*]\s*(?:\[[ xX]\]\s*)?)?(?:[\w-]+\s+){0,3}"
+                    r"(?:ui|api|application|interface|service|cli|endpoint|renderer)\b\s+"
                     r"(?:must\s+|shall\s+|will\s+)?(?:post|publish)\w*\b",
                     requirement_text,
                     re.I,

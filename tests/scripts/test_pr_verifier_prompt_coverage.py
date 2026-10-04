@@ -1838,6 +1838,33 @@ def test_git_parser_error_marker_is_a_valid_filename() -> None:
     assert files[0].path == "__invalid_git_path__"
 
 
+def test_required_comment_subject_cannot_override_actual_delivery() -> None:
+    criterion = (
+        "Command output is required in a PR comment documenting how "
+        "the endpoint must include PR comments"
+    )
+    assert pr_verifier._required_evidence_channels("- [ ] " + criterion) == {"comments"}
+    context, _ = _context(1, 1_000, 1_000)
+    context = context.replace(ACCEPTANCE_SENTINEL, criterion).replace(
+        "## PR Diff Summary",
+        "## Acceptance evidence\n\n- Overall retrieval status: **absent**\n"
+        "- PR comments: **absent**\n\n## PR Diff Summary",
+    )
+    assert not pr_verifier.prompt_coverage(context, None).sufficient
+
+
+@pytest.mark.parametrize(
+    "criterion",
+    [
+        "The endpoint must add PR comments to its response",
+        "The API response must include evidence links and records",
+        "The API response must include evidence records and links",
+    ],
+)
+def test_product_comment_operations_and_coordinated_fields(criterion: str) -> None:
+    assert pr_verifier._required_evidence_channels("- [ ] " + criterion) == set()
+
+
 @pytest.mark.parametrize(
     "criterion",
     [
