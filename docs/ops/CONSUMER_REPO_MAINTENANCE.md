@@ -983,12 +983,12 @@ When verifier runs collect acceptance evidence, empty or whitespace-only review 
 must not count as PR-comment evidence. Single-provider non-PASS text/file output
 must carry the post-processed `Verdict: CONCERNS` or `Verdict: FAIL` line so the
 downstream artifact parser retains a terminal outcome rather than a partial run.
-PR-body evidence has its own builder-owned `PR body` retrieval channel: a fully
+PR-body evidence has its own builder-owned `PR body` retrieval channel. An
 affirmative body-delivery obligation is required, not merely a mention of the
 body. Negative obligations and product UI body-editor output do not create a
 review-evidence requirement; equivalent passive/existential obligations do,
 and a later independent reviewer delivery retains its own destination floor.
-retrieved bounded body is fenced as untrusted material, an empty body is absent,
+A fully retrieved bounded body is fenced as untrusted material, an empty body is absent,
 and missing/invalid/oversized bodies are unavailable. Body presence cannot satisfy
 a required PR comment or artifact. Generic comment/artifact retrieval status does
 not veto a complete specifically required body; `VERIFIER_EVIDENCE_BODY_CHARS`
