@@ -76,6 +76,7 @@ test('source-owned reviewer reassessment supports stable generated lanes without
   let merges = 0;
   let resolutions = 0;
   const github = {
+    paginate: async () => [],
     rest: {
       pulls: {
         get: async () => ({ data: pr }),
@@ -232,6 +233,17 @@ test('source-owned reviewer reassessment supports stable generated lanes without
   assert.equal(posts, postsAfterDisposition, 'disposition stage is independently idempotent');
   github.graphql = originalGraphql;
   thread.comments.nodes.pop();
+  comments.length = 0;
+  await runReviewReassessment(args);
+  github.paginate = async () => [{ user: { login: completed.author.login },
+    body: `${completed.body}\n\n**Reviewed commit:** \`${request.head_sha.slice(0, 10)}\``,
+    created_at: completed.createdAt }];
+  github.rest.repos = { getCommit: async () => ({ data: { sha: 'c'.repeat(40) } }) };
+  await assert.rejects(runReviewReassessment(dispositionArgs), /completed originating review/);
+  github.rest.repos.getCommit = async () => ({ data: { sha: request.head_sha } });
+  const topLevel = await runReviewReassessment(dispositionArgs);
+  assert.equal(topLevel.status, 'review_blocked_reassessment_requested');
+  github.paginate = async () => [];
   comments.length = 0;
   github.rest.pulls.createReplyForReviewComment = async () => {
     posts++;

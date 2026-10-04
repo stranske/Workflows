@@ -329,12 +329,29 @@ async function runReviewReassessment({
         || !Array.isArray(item.comments?.nodes))) {
         throw new Error('Review-thread inventory is incomplete');
       }
-      const completed = current.threads.flatMap((item) => item.comments.nodes).some((item) =>
+      const isCompletion = (item) =>
         reviewerProfileForLogin(item?.author?.login, profiles) === request.originating_reviewer
-        && item?.commit?.oid === request.head_sha
         && Date.parse(item?.createdAt || '') > Date.parse(prior?.createdAt || '')
-        && (profile.disposition_completion_patterns || []).some((pattern) =>
-          new RegExp(pattern).test(String(item?.body || ''))));
+        && (profile.disposition_completion_prefixes || []).some((prefix) =>
+          String(item?.body || '').startsWith(prefix));
+      let completed = current.threads.flatMap((item) => item.comments.nodes).some((item) =>
+        isCompletion(item) && item?.commit?.oid === request.head_sha);
+      if (prior && !completed) {
+        const comments = await withRetry((client) => client.paginate(client.rest.issues.listComments,
+          { owner, repo, issue_number: request.pr, per_page: 100 }));
+        for (const item of comments) {
+          if (!isCompletion({ ...item, author: item.user, createdAt: item.created_at })) continue;
+          const prefix = String(profile.disposition_reviewed_commit_prefix || '');
+          if (!prefix) continue;
+          const line = String(item.body || '').split('\n').find((value) => value.startsWith(prefix));
+          const ref = line?.slice(prefix.length).match(/`([0-9a-f]{10,40})`/)?.[1];
+          if (!ref || !request.head_sha.startsWith(ref)) continue;
+          const { data: commit } = await withRetry((client) => client.rest.repos.getCommit({
+            owner, repo, ref,
+          }));
+          if (commit.sha === request.head_sha) { completed = true; break; }
+        }
+      }
       if (!prior || !completed) {
         throw new Error('Disposition task requires a completed originating review on this binding');
       }

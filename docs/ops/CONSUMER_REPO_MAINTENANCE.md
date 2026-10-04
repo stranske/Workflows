@@ -903,6 +903,9 @@ reply but leaves the finding active, send the same binding with optional
 the subsequent originating-reviewer completion on that exact head, using a
 complete inventory even when the reviewer posts its summary in a sibling
 thread. The disposition task itself still replies in the original thread. It then
+also recognizes a trusted top-level completion from a fully paginated PR-comment
+inventory, but only after resolving its reported commit ID through GitHub to the
+exact requested full head; an ambiguous or different commit fails closed. It
 posts one separately idempotent `@codex address that feedback` disposition-only
 task, requesting an explicit accept/reject and exact-head acceptance marker in
 the existing thread. It cannot run while the first review is pending, on a
