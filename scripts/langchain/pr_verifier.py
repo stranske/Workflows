@@ -977,6 +977,25 @@ def _acceptance_criteria_sections(plan_sources: str) -> str:
 def _required_evidence_channels(acceptance: str) -> set[str]:
     """Identify explicit evidence deliverables without treating negations as requirements."""
     channels: set[str] = set()
+    # Lexical aliases share every obligation, negation, destination and product
+    # boundary rule. Adding a synonym to only one regex silently diverges them.
+    record_aliases = {
+        "paste": "record",
+        "pastes": "records",
+        "pasted": "recorded",
+        "pasting": "recording",
+        "write": "record",
+        "writes": "records",
+        "written": "recorded",
+        "writing": "recording",
+        "wrote": "recorded",
+    }
+    acceptance = re.sub(
+        r"\b(?:paste|pastes|pasted|pasting|write|writes|written|writing|wrote)\b",
+        lambda match: record_aliases[match[0].lower()],
+        acceptance,
+        flags=re.I,
+    )
     # Canonicalize the same explicit PR destination before clause/negation
     # processing, so an unrelated artifact cannot satisfy required comments.
     acceptance = re.sub(
@@ -1059,6 +1078,13 @@ def _required_evidence_channels(acceptance: str) -> set[str]:
             + r")*"
         )
         families = [
+            r"\b"
+            + noun
+            + r"\s+"
+            + destination
+            + r"\s+(?:is|are)\s+"
+            + polarity
+            + r"(?:required|needed|mandatory|optional)\b",
             r"\b" + mandatory_auxiliary + r"\s+" + polarity + operation + r"\s+" + destination,
             r"\b" + body + r"\s+" + auxiliary + r"\s+" + polarity + operation + r"\s+" + noun,
             r"\bthere\s+" + auxiliary + r"\s+" + polarity + r"be\s+" + noun + r"\s+" + destination,
@@ -1732,7 +1758,8 @@ def _required_evidence_channels(acceptance: str) -> set[str]:
                 # predicate such as "records evidence in a PR comment".
                 field_noun = (
                     r"(?:(?:links?|records?)(?:\s+(?:and|or)\s+(?:links?|records?))*"
-                    r"\s+(?:to|of|for)\s+(?:(?:the|an?)\s+)?evidence\b"
+                    r"\s+(?:to|of|for)\s+(?:(?:the|an?)\s+)?"
+                    r"(?:(?:supporting|execution|validation|test|review|collected|recorded)\s+){0,3}evidence\b"
                     r"|(?:links?|records?)\s+as\s+fields?\b"
                     r"|evidence\s+(?:links?|records?)\b"
                     r"|(?:links?|records?)\b(?=\s*(?:$|[;,.!?]|(?:and|or)\b)))"
@@ -2003,14 +2030,14 @@ def _required_evidence_channels(acceptance: str) -> set[str]:
                 + "(?:"
                 + product_auxiliary
                 + ")?"
-                + r"(?:return|display|show|store|emit|render|expose)\w*\b",
+                + r"(?:return|display|show|store|emit|render|expose|provide)\w*\b",
                 re.I,
             )
             product_output_match = product_output_prefix.search(requirement_text)
             reverse_product_output = bool(
                 re.search(
                     r"\b(?:command outputs?|transcripts?)\b.{0,60}"
-                    r"\b(?:return|display|show|store|emit|render|expose)\w*\b.{0,60}"
+                    r"\b(?:return|display|show|store|emit|render|expose|provide)\w*\b.{0,60}"
                     r"\b(?:ui|api|application|interface|service|cli|endpoint|renderer)\b",
                     requirement_text,
                     re.I,

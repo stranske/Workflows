@@ -9,6 +9,125 @@ from scripts import docs_drift_fix_agent as fix_agent
 from scripts.langchain import pr_verifier as verifier
 
 
+@pytest.mark.parametrize("verb", ["paste", "write"])
+@pytest.mark.parametrize(
+    "destination,channel", [("a PR comment", "comments"), ("the PR body", "body")]
+)
+def test_pasted_and_written_review_delivery(verb, destination, channel):
+    criterion = f"The reviewer must {verb} command output into {destination}"
+    assert verifier._required_evidence_channels(criterion) == {channel}
+    assert (
+        verifier._required_evidence_channels(
+            f"The reviewer must not {verb} command output into {destination}"
+        )
+        == set()
+    )
+    assert verifier._required_evidence_channels(
+        criterion + "; the service must provide command output to clients"
+    ) == {channel}
+
+
+@pytest.mark.parametrize("modifier", ["supporting", "supporting execution", "validation"])
+def test_modified_product_evidence_link_field(modifier):
+    criterion = f"The API response must include links to {modifier} evidence"
+    assert verifier._required_evidence_channels(criterion) == set()
+    assert verifier._required_evidence_channels(
+        criterion + "; paste command output into a PR comment"
+    ) == {"comments"}
+
+
+@pytest.mark.parametrize("noun", ["Evidence", "Before/after evidence", "Command output"])
+@pytest.mark.parametrize("requirement", ["required", "needed", "mandatory"])
+def test_preposed_body_destination_consumes_complete_predicate(noun, requirement):
+    criterion = f"{noun} in the PR body is {requirement}"
+    assert verifier._required_evidence_channels(criterion) == {"body"}
+    assert (
+        verifier._required_evidence_channels(f"{noun} in the PR body is not {requirement}") == set()
+    )
+    assert verifier._required_evidence_channels(
+        criterion + "; write command output into a PR comment"
+    ) == {"body", "comments"}
+
+
+@pytest.mark.parametrize("actor", ["service", "application", "API", "endpoint"])
+def test_product_provides_output_without_erasing_review_delivery(actor):
+    criterion = f"The {actor} must provide command output to clients"
+    assert verifier._required_evidence_channels(criterion) == set()
+    assert verifier._required_evidence_channels(
+        criterion + "; write command output into a PR comment"
+    ) == {"comments"}
+    assert verifier._required_evidence_channels(
+        "The reviewer must provide command output to a PR comment"
+    ) == {"comments"}
+
+
+@pytest.mark.parametrize(
+    "verb,canonical",
+    [
+        ("paste", "record"),
+        ("pastes", "records"),
+        ("pasted", "recorded"),
+        ("pasting", "recording"),
+        ("write", "record"),
+        ("writes", "records"),
+        ("written", "recorded"),
+        ("writing", "recording"),
+        ("wrote", "recorded"),
+    ],
+)
+def test_delivery_lexical_aliases_share_existing_grammar(verb, canonical):
+    for sentence in [
+        "The reviewer must {verb} evidence in a PR comment",
+        "Evidence must not be {verb} in a PR comment; record evidence in the PR body",
+        "The application must {verb} transcripts in its database",
+    ]:
+        assert verifier._required_evidence_channels(sentence.format(verb=verb)) == (
+            verifier._required_evidence_channels(sentence.format(verb=canonical))
+        )
+
+
+@pytest.mark.parametrize("participle", ["pasted", "written"])
+def test_passive_delivery_alias_preserves_negation(participle):
+    assert verifier._required_evidence_channels(
+        f"Evidence must be {participle} in a PR comment"
+    ) == {"comments"}
+    assert verifier._required_evidence_channels(
+        f"Evidence must not be {participle} in a PR comment; record evidence in the PR body"
+    ) == {"body"}
+
+
+@pytest.mark.parametrize(
+    "criterion,channel",
+    [
+        ("The reviewer must paste command output into a PR comment", "comments"),
+        ("Evidence in the PR body is required", "body"),
+        ("The API response must include links to supporting evidence", None),
+        ("The service must provide command output to clients", None),
+    ],
+)
+@pytest.mark.parametrize("status", ["present", "absent", "unavailable"])
+def test_fresh_canary_findings_control_actual_coverage_floor(criterion, channel, status):
+    spec = importlib.util.spec_from_file_location(
+        "fresh_canary_coverage_fixtures",
+        Path(__file__).with_name("test_pr_verifier_prompt_coverage.py"),
+    )
+    fixture = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(fixture)
+    context, _ = fixture._context(1, 1000, 1000)
+    context = context.replace(fixture.ACCEPTANCE_SENTINEL, criterion).replace(
+        "## PR Diff Summary",
+        "## Acceptance evidence\n\n- Overall retrieval status: **absent**\n"
+        f"- PR body: **{status if channel == 'body' else 'absent'}**\n"
+        f"- PR comments: **{status if channel == 'comments' else 'absent'}**\n"
+        "- Referenced workflow artifacts: **absent**\n\n## PR Diff Summary",
+    )
+    result = verifier._apply_coverage_floor(
+        verifier.EvaluationResult(verdict="PASS", used_llm=True),
+        verifier.prompt_coverage(context, None),
+    )
+    assert result.verdict == ("CONCERNS" if channel and status != "present" else "PASS")
+
+
 @pytest.mark.parametrize("prefix", ["", "- [ ] "])
 @pytest.mark.parametrize(
     "status,expected", [("present", "PASS"), ("absent", "CONCERNS"), ("unavailable", "CONCERNS")]

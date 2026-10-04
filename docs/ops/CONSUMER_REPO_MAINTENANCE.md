@@ -1021,6 +1021,14 @@ integration tests call that producer and verify present/absent/unavailable body
 floors with other evidence channels absent, instead of testing a simplified phrase.
 The same modifier grammar preserves `no before/after evidence` prohibitions;
 separate reviewer-comment deliveries remain required.
+Paste/write delivery verbs are canonicalized once before obligation, negation,
+destination and product-boundary classification, so those grammar surfaces cannot
+silently recognize different aliases. Product-provided command output and bounded
+supporting/execution/validation evidence-link modifiers remain product behavior.
+Preposed destinations such as `Evidence in the PR body is required` consume the
+whole predicate; they do not leave a second generic comment/artifact requirement.
+The four fresh canary findings are tested through the actual coverage floor with
+present, absent and unavailable evidence plus independent reviewer-delivery controls.
 
 Non-PASS CLI and file text includes the final verdict, summary, structured concerns and
 distinct raw model detail, so concise summaries do not discard actionable gaps.
