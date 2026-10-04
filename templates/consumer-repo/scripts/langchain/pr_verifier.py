@@ -990,6 +990,7 @@ def _required_evidence_channels(acceptance: str) -> set[str]:
     response_operation = (
         r"(?:include|contain|have|return|display|show|store|emit|render|expose|provide)\w*\b"
     )
+    response_subject = r"(?:responses?|payloads?|return\s+values?|reports?|exports?)"
     product_auxiliary = (
         r"(?:(?:must|shall|will|should|can|may|needs?\s+to)|"
         r"(?:(?:is|are)\s+)?(?:required|needed|mandated|expected|supposed|obliged)\s+to|"
@@ -1014,7 +1015,9 @@ def _required_evidence_channels(acceptance: str) -> set[str]:
     def remaining_delivery(text: str) -> bool:
         # Product object-field nouns are not requests to deliver evidence.
         actions = re.sub(
-            r"\bevidence\s+(?:links?|records?)(?:\s+(?:and|or)\s+(?:links?|records?))*\b",
+            r"\bevidence\s+(?:links?|records?)\b"
+            r"(?:\s+(?:and|or)\s+(?:links?|records?)\b"
+            r"(?=\s*(?:$|[;,.!?]|(?:and|or)\b|(?:to|of|for)\s+evidence\b)))*",
             "evidence",
             text,
             flags=re.I,
@@ -1379,12 +1382,14 @@ def _required_evidence_channels(acceptance: str) -> set[str]:
                         continue
             noun_only = re.fullmatch(
                 r"\s*(?:(?:an?|the|validation|workflow|exact-head|evidence)\s+)*"
-                r"(?:artifacts?|command outputs?|transcripts?)\s*",
+                r"(?:artifacts?|command outputs?|transcripts?|evidence\s+(?:links?|records?))\s*",
                 fragment,
                 re.I,
             )
             prior_product = fragments and re.search(
-                r"\b(?:responses?|payloads?|return values?)\s+"
+                r"\b"
+                + response_subject
+                + r"\s+"
                 + "(?:"
                 + product_auxiliary
                 + ")?"
@@ -1517,9 +1522,7 @@ def _required_evidence_channels(acceptance: str) -> set[str]:
                 continue
             lower = requirement_text.lower()
             response_prefix = re.compile(
-                r"\b(?:"
-                r"responses?|payloads?|return\s+values?|reports?|exports?"
-                r"|(?:command[- ]?outputs?|transcripts?)\s+api"
+                r"\b(?:" + response_subject + r"|(?:command[- ]?outputs?|transcripts?)\s+api"
                 r"|api\s+(?:command[- ]?outputs?|transcripts?)(?:\s+\w+){0,3}"
                 r")\b\s+" + "(?:" + product_auxiliary + ")?" + response_operation,
                 re.I,
@@ -1529,15 +1532,22 @@ def _required_evidence_channels(acceptance: str) -> set[str]:
                 # Only the immediate object of this product operation is a
                 # field noun. A later reviewer predicate must remain gating.
                 response_object = requirement_text[response_match.end() :]
-                response_object = re.sub(
-                    r"^\s+(?:(?:the|a|an)\s+)?(?:links?|records?)"
-                    r"(?:\s+(?:and|or)\s+(?:links?|records?))*"
+                # Normalize only bounded object nouns, never a later finite
+                # predicate such as "records evidence in a PR comment".
+                field_noun = (
+                    r"(?:(?:links?|records?)(?:\s+(?:and|or)\s+(?:links?|records?))*"
                     r"\s+(?:to|of|for)\s+evidence\b"
-                    r"(?:\s*,?\s+(?:and|or)\s+(?:(?:the|a|an)\s+)?"
-                    r"(?:links?|records?)(?:\s+(?:and|or)\s+(?:links?|records?))*"
-                    r"\s+(?:to|of|for)\s+evidence\b)*"
-                    r"(?:\s*,?\s+(?:and|or)\s+(?:(?:the|a|an)\s+)?"
-                    r"(?:links?|records?)\b(?=\s*(?:$|[;,.!?]|(?:and|or)\b)))*",
+                    r"|(?:links?|records?)\s+as\s+fields?\b"
+                    r"|evidence\s+(?:links?|records?)\b"
+                    r"|(?:links?|records?)\b(?=\s*(?:$|[;,.!?]|(?:and|or)\b)))"
+                )
+                response_object = re.sub(
+                    r"^\s+(?:(?:the|a|an)\s+)?"
+                    + field_noun
+                    + r"(?:\s*(?:,\s*(?:(?:and|or)\s+)?|(?:and|or)\s+)"
+                    + r"(?:(?:the|a|an)\s+)?"
+                    + field_noun
+                    + r")*",
                     " evidence",
                     response_object,
                     count=1,

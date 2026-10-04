@@ -1875,6 +1875,28 @@ def test_reversed_product_nouns_preserve_later_comment_link_requirement() -> Non
     assert not pr_verifier.prompt_coverage(context, None).sufficient
 
 
+@pytest.mark.parametrize("subject", ["API response", "generated report", "export"])
+def test_forward_order_product_nouns_preserve_finite_recording(subject: str) -> None:
+    criterion = f"The {subject} must include evidence links and records evidence in a PR comment"
+    assert pr_verifier._required_evidence_channels("- [ ] " + criterion) == {"comments"}
+    context, _ = _context(1, 1_000, 1_000)
+    context = context.replace(ACCEPTANCE_SENTINEL, criterion).replace(
+        "## PR Diff Summary",
+        "## Acceptance evidence\n\n- Overall retrieval status: **present**\n"
+        "- PR comments: **absent**\n\n## PR Diff Summary",
+    )
+    assert not pr_verifier.prompt_coverage(context, None).sufficient
+
+
+@pytest.mark.parametrize("subject", ["API response", "generated report", "export"])
+def test_product_subject_vocabulary_is_shared_by_object_coalescing(subject: str) -> None:
+    criterion = f"The {subject} must include records of evidence and transcripts"
+    assert pr_verifier._required_evidence_channels("- [ ] " + criterion) == set()
+    assert pr_verifier._required_evidence_channels(
+        "- [ ] " + criterion + "; the reviewer must post a PR comment"
+    ) == {"comments"}
+
+
 @pytest.mark.parametrize(
     ("criterion", "channel"),
     [
@@ -2490,6 +2512,24 @@ def test_product_capability_does_not_hide_distinct_reviewer_delivery(verb: str) 
         f"the reviewer {verb} a PR comment with test results"
     )
     assert pr_verifier._required_evidence_channels(f"- [ ] {criterion}") == {"comments"}
+
+
+@pytest.mark.parametrize("subject", ["API response", "generated report", "export"])
+@pytest.mark.parametrize(
+    "objects",
+    [
+        "links to evidence and evidence records",
+        "links to evidence and records as fields",
+        "links to evidence, records of evidence",
+        "records of evidence, links to evidence",
+    ],
+)
+def test_mixed_product_field_lists_are_not_review_delivery(subject: str, objects: str) -> None:
+    criterion = f"The {subject} must include {objects}"
+    assert pr_verifier._required_evidence_channels(f"- [ ] {criterion}") == set()
+    assert pr_verifier._required_evidence_channels(
+        f"- [ ] {criterion}; the reviewer must post a PR comment with results"
+    ) == {"comments"}
 
 
 @pytest.mark.parametrize("actor", ["reviewers", "the reviewer", "API reviewers"])

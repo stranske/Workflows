@@ -931,7 +931,11 @@ another channel cannot satisfy either requirement, and optional/negated forms
 retain their existing exemption.
 Product fields also preserve reversed noun order (`links to evidence`, `records of
 evidence`): the exemption applies only to the immediate object of the response
-operation, never a later reviewer linking/recording predicate.
+operation, never a later reviewer linking/recording predicate. Mixed-order and
+comma-separated field lists use one bounded object classifier; reports and exports
+share the same subject vocabulary during clause coalescing and classification.
+Bare `records`/`links` are nouns only at a field-list boundary, not before a finite
+evidence-recording or linking destination.
 Comment operations are classified by their subject head: an API reviewer or reviewer of an endpoint remains
 a review actor, while an endpoint used by reviewers remains a product actor. Actor
 classification alone cannot exempt real comment delivery: posting, adding or leaving
