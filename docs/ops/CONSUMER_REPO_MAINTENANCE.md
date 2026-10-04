@@ -919,7 +919,10 @@ are classified by their subject head: an API reviewer or reviewer of an endpoint
 a review actor, while an endpoint used by reviewers remains a product actor. Qualified
 product subjects have no arbitrary word-count ceiling. An embedded product description
 cannot veto an independently mandatory comment; unresolved subject attachment retains
-the evidence floor. Instructions to add
+the evidence floor. Initial human subject heads remain authoritative across unlisted
+modifiers, and negative contractions are normalized before obligation classification.
+Negated delivery never removes a separate mandatory clause. Diff hunk contents cannot
+replace path metadata. Instructions to add
 or leave a PR comment, including passive command-output requirements in that comment,
 require comment evidence and cannot pass when it is absent or unavailable. Git diff
 parse failures use a non-filename state; every valid filename, including

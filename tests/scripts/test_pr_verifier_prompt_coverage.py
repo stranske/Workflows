@@ -2343,3 +2343,44 @@ def test_introductory_qualifier_preserves_actual_subject(qualifier: str, actor: 
     criterion = f"When {qualifier} the {actor} must post a PR comment in its response"
     expected = set() if actor in {"API", "endpoint"} else {"comments"}
     assert pr_verifier._required_evidence_channels(f"- [ ] {criterion}") == expected
+
+
+@pytest.mark.parametrize("actor", ["reviewer", "maintainer", "API reviewer", "senior reviewer"])
+@pytest.mark.parametrize(
+    "qualifier",
+    [
+        "assigned to the endpoint",
+        "responsible for the API",
+        "working with the CLI",
+        "overseeing the service",
+    ],
+)
+def test_initial_human_head_survives_unlisted_modifiers(actor: str, qualifier: str) -> None:
+    assert pr_verifier._required_evidence_channels(
+        f"- [ ] The {actor} {qualifier} must post a PR comment with results"
+    ) == {"comments"}
+
+
+@pytest.mark.parametrize(
+    "negation",
+    [
+        "isn't required to",
+        "isn’t required to",
+        "is not expected to",
+        "is not supposed to",
+        "is not mandated to",
+        "does not have to",
+        "doesn't have to",
+        "doesn’t need to",
+        "needn't",
+    ],
+)
+@pytest.mark.parametrize("verb", ["add", "leave", "post", "provide", "record"])
+def test_equivalent_negated_obligations_preserve_distinct_delivery(
+    negation: str, verb: str
+) -> None:
+    criterion = f"The reviewer {negation} {verb} a PR comment"
+    assert pr_verifier._required_evidence_channels(f"- [ ] {criterion}") == set()
+    assert pr_verifier._required_evidence_channels(
+        f"- [ ] {criterion}; the maintainer must post a PR comment"
+    ) == {"comments"}

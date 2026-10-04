@@ -1043,6 +1043,18 @@ def _required_evidence_channels(acceptance: str) -> set[str]:
                 # earlier UI/API actor across "transcript that must be posted".
                 subject = re.split(r"\b(?:and|or|that|which|who)\b", between, flags=re.I)[-1]
         subject = re.split(product_auxiliary, subject, maxsplit=1, flags=re.I)[0]
+        actor_head = re.search(
+            r"\b(?:(?:api|ui)\s+)?(?:reviewers?|maintainers?|authors?|operators?)\b"
+            r"|\b(?:ui|api|application|interface|service|cli|endpoint|renderer)\b",
+            subject,
+            re.I,
+        )
+        if actor_head and re.search(
+            r"\b(?:reviewers?|maintainers?|authors?|operators?)\b", actor_head[0], re.I
+        ):
+            # Preserve the initial human head regardless of later modifiers;
+            # a product noun inside that modifier cannot change the actor.
+            return False
         # A participial modifier can qualify an already named actor, but an
         # introductory "When using OAuth" precedes the actual actor. Never
         # discard a later subject merely because the introduction uses a verb.
@@ -1081,8 +1093,8 @@ def _required_evidence_channels(acceptance: str) -> set[str]:
         )
 
     evidence_prohibition = re.compile(
-        r"\b(?:(?:is|are)\s+not\s+(?:required|needed|obliged)\s+to|"
-        r"(?:does|do)\s+not\s+need\s+to|needs?\s+not)\s+"
+        r"\b(?:(?:is|are)\s+not\s+(?:required|needed|mandated|expected|supposed|obliged)\s+to|"
+        r"(?:does|do|did)\s+not\s+(?:need|have)\s+to|needs?\s+not)\s+"
         r"(?:upload|attach|provide|publish|post|record|capture|include|document|generate|link|add|leave)\b"
         r"|"
         r"\bno\s+(?:\w+\s+){0,3}(?:evidence|artifacts?|transcripts?|command outputs?|"
@@ -1151,6 +1163,12 @@ def _required_evidence_channels(acceptance: str) -> set[str]:
         else:
             criteria.append(line)
     for criterion in criteria:
+        criterion = re.sub(
+            r"\b(is|are|does|do|did|must|should|need|has|have|was|were)n['’]t\b",
+            lambda match: match[1] + " not",
+            criterion,
+            flags=re.I,
+        )
         criterion_checklist = bool(re.match(r"^\s*[-*]\s*\[[ xX]\]", criterion))
         criterion_bullet = bool(re.match(r"^\s*[-*]\s+", criterion))
         # Quoted parser inputs are examples, including their verbs and clause
