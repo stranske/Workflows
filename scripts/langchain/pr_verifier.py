@@ -1051,11 +1051,14 @@ def _required_evidence_channels(acceptance: str) -> set[str]:
             subject,
             re.I,
         )
-        if nested_subject and nested_subject["implicit"]:
-            if re.search(r"\b(?:who|which|that)\b", subject[: nested_subject.start()], re.I):
-                # A check predicate inside a relative qualifier cannot supply
-                # the outer delivery's actor. Decline ambiguous attachment.
-                nested_subject = None
+        if (
+            nested_subject
+            and nested_subject["implicit"]
+            and re.search(r"\b(?:who|which|that)\b", subject[: nested_subject.start()], re.I)
+        ):
+            # A check predicate inside a relative qualifier cannot supply
+            # the outer delivery's actor. Decline ambiguous attachment.
+            nested_subject = None
         if nested_subject:
             # A direct nested clause's actor governs this operation, not a
             # reviewer merely asked to verify that product behavior. An outer
