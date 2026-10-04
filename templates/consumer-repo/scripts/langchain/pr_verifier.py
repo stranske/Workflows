@@ -996,6 +996,52 @@ def _required_evidence_channels(acceptance: str) -> set[str]:
         )
         return bool(evidence_term.search(text) and requirement.search(actions))
 
+    def product_comment_object(prefix: str) -> bool:
+        """Classify the governing operation's subject, not domain words anywhere."""
+        operations = list(
+            re.finditer(
+                r"\b(?:allow|enable|support|display|store|include|attach|upload|add|leave|left|post|publish)\w*\b",
+                prefix,
+                re.I,
+            )
+        )
+        if not operations:
+            return False
+        capability = bool(re.fullmatch(r"(?:allow|enable|support)\w*", operations[0][0], re.I))
+        operation = operations[0] if capability else operations[-1]
+        subject = prefix[: operation.start()]
+        if not capability and len(operations) > 1:
+            between = prefix[operations[-2].end() : operation.start()]
+            if not re.fullmatch(r"\s*(?:and|or)\s*", between, re.I):
+                # A later delivery has its own subject; do not inherit an
+                # earlier UI/API actor across "transcript that must be posted".
+                subject = re.split(r"\b(?:and|or|that|which|who)\b", between, flags=re.I)[-1]
+        subject = re.split(product_auxiliary, subject, maxsplit=1, flags=re.I)[0]
+        # Relative/prepositional modifiers do not change the subject head:
+        # "reviewer of the endpoint" is human; "endpoint used by reviewers"
+        # is a product. Introductory words need no arbitrary length ceiling.
+        subject = re.split(
+            r"\b(?:of|that|which|who|(?:used|operated|provided|managed)\s+by)\b",
+            subject,
+            maxsplit=1,
+            flags=re.I,
+        )[0]
+        words = re.findall(r"[\w-]+", subject.lower())
+        return bool(
+            words
+            and words[-1]
+            in {
+                "ui",
+                "api",
+                "application",
+                "interface",
+                "service",
+                "cli",
+                "endpoint",
+                "renderer",
+            }
+        )
+
     evidence_prohibition = re.compile(
         r"\bno\s+(?:\w+\s+){0,3}(?:evidence|artifacts?|transcripts?|command outputs?|"
         r"workflow runs?|pr comments?|pull request comments?)"
@@ -1415,31 +1461,17 @@ def _required_evidence_channels(acceptance: str) -> set[str]:
                         continue
                 elif not re.search(r"\b(?:pr comments?|pull request comments?)\b", lower):
                     continue
-            product_comment_behavior = bool(
-                re.search(
-                    r"^\s*(?:[-*]\s*(?:\[[ xX]\]\s*)?)?(?:[\w-]+\s+){0,3}"
-                    r"(?:ui|api|application|interface|service|cli|endpoint|renderer)\b.{0,60}"
-                    r"\b(?:allow|enable|support)\w*\b.{0,40}"
+            comment_objects = list(
+                re.finditer(
                     r"\b(?:pr comments?|pull request comments?)\b",
                     requirement_text,
                     re.I,
                 )
-                or re.search(
-                    r"^\s*(?:[-*]\s*(?:\[[ xX]\]\s*)?)?(?:[\w-]+\s+){0,3}"
-                    r"(?:ui|api|application|interface|service|cli|endpoint|renderer)\b.{0,60}"
-                    r"\b(?:display|store|include|attach|upload|add|leave|left)\w*\s+"
-                    r"(?:(?:the|stored|retrieved)\s+){0,2}"
-                    r"(?:pr comments?|pull request comments?)\b",
-                    requirement_text,
-                    re.I,
-                )
-                or re.search(
-                    r"^\s*(?:[-*]\s*(?:\[[ xX]\]\s*)?)?(?:[\w-]+\s+){0,3}"
-                    r"(?:ui|api|application|interface|service|cli|endpoint|renderer)\b\s+"
-                    r"(?:must\s+|shall\s+|will\s+)?(?:post|publish)\w*\b",
-                    requirement_text,
-                    re.I,
-                )
+            )
+            # Union delivery occurrences: a product object cannot erase an
+            # earlier mandatory comment, and unresolved subjects keep the floor.
+            product_comment_behavior = bool(comment_objects) and all(
+                product_comment_object(requirement_text[: item.start()]) for item in comment_objects
             )
             explicit_comment_delivery = bool(
                 re.search(

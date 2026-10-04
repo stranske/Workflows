@@ -1854,6 +1854,66 @@ def test_required_comment_subject_cannot_override_actual_delivery() -> None:
 
 
 @pytest.mark.parametrize(
+    "actor",
+    [
+        "API reviewer",
+        "API maintainer",
+        "endpoint reviewer",
+        "reviewer of the endpoint",
+    ],
+)
+@pytest.mark.parametrize("verb", ["add", "leave"])
+@pytest.mark.parametrize("status", ["absent", "unavailable"])
+def test_product_domain_reviewers_keep_real_comment_delivery(
+    actor: str, verb: str, status: str
+) -> None:
+    criterion = f"The {actor} must {verb} PR comments with test results"
+    assert pr_verifier._required_evidence_channels("- [ ] " + criterion) == {"comments"}
+    context, _ = _context(1, 1_000, 1_000)
+    context = context.replace(ACCEPTANCE_SENTINEL, criterion).replace(
+        "## PR Diff Summary",
+        "## Acceptance evidence\n\n- Overall retrieval status: **present**\n"
+        f"- PR comments: **{status}**\n\n## PR Diff Summary",
+    )
+    assert not pr_verifier.prompt_coverage(context, None).sufficient
+
+
+@pytest.mark.parametrize(
+    "subject",
+    [
+        "The new public REST API endpoint",
+        "For backward compatibility the endpoint",
+        "The backward compatible new public internal REST API endpoint",
+        "The endpoint used by API reviewers",
+    ],
+)
+def test_product_subject_length_does_not_change_comment_field_semantics(subject: str) -> None:
+    assert (
+        pr_verifier._required_evidence_channels(f"- [ ] {subject} must include PR comments")
+        == set()
+    )
+
+
+def test_governing_operations_preserve_product_coordination_and_passive_delivery() -> None:
+    assert (
+        pr_verifier._required_evidence_channels("- [ ] The UI must display and store PR comments")
+        == set()
+    )
+    assert pr_verifier._required_evidence_channels(
+        "- [ ] The UI must display a transcript that must be posted in a PR comment"
+    ) == {"comments"}
+
+
+def test_product_capability_keeps_nested_user_comments_in_product_domain() -> None:
+    assert (
+        pr_verifier._required_evidence_channels(
+            "- [ ] The endpoint must allow users to add PR comments"
+        )
+        == set()
+    )
+
+
+@pytest.mark.parametrize(
     "criterion",
     [
         "The endpoint must add PR comments to its response",

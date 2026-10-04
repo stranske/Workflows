@@ -914,7 +914,12 @@ UNKNOWN checkpoint, never a fabricated acceptance or another generic review loop
 Verifier acceptance classification distinguishes product output and product fields from
 review deliverables: a command that must output a transcript, response evidence links or
 records, and endpoint/service/CLI/renderer PR-comment fields do not require reviewing-PR
-evidence. A separate required delivery clause remains authoritative. Instructions to add
+evidence. A separate required delivery clause remains authoritative. Comment operations
+are classified by their subject head: an API reviewer or reviewer of an endpoint remains
+a review actor, while an endpoint used by reviewers remains a product actor. Qualified
+product subjects have no arbitrary word-count ceiling. An embedded product description
+cannot veto an independently mandatory comment; unresolved subject attachment retains
+the evidence floor. Instructions to add
 or leave a PR comment, including passive command-output requirements in that comment,
 require comment evidence and cannot pass when it is absent or unavailable. Git diff
 parse failures use a non-filename state; every valid filename, including
