@@ -21,7 +21,7 @@ from collections.abc import Callable, Mapping
 from dataclasses import dataclass
 from functools import partial
 from pathlib import Path
-from typing import Literal
+from typing import Any, Literal
 
 from pydantic import BaseModel, Field
 from scripts import api_client
@@ -1015,6 +1015,144 @@ def _required_evidence_channels(acceptance: str) -> set[str]:
         re.I,
     )
 
+    def body_occurrences(text: str, gate: bool) -> tuple[list[dict[str, Any]], str]:
+        """Classify complete, bounded body predicates before residual evidence gating."""
+        body = r"(?:pr|pull request)\s+body\b"
+        noun = r"(?:(?:the|an?|any|no|before/after)\s+)?(?:evidence|artifacts?|transcripts?|command outputs?)\b"
+        exclusion_operation = (
+            r"(?:exclude\w*|omit\w*|remove\w*|avoid\w*|suppress\w*|leave\s+out|left\s+out)\b"
+        )
+        operation = (
+            r"(?:"
+            + exclusion_operation
+            + r"|include\w*|contain\w*|attach\w*|provide\w*|publish\w*|post\w*|record\w*|capture\w*|document\w*|add\w*|show\w*|store\w*|have|left|leave\w*)\b"
+        )
+        auxiliary = (
+            r"(?:(?:is|are|was|were)\s+(?:not|never|no\s+longer)\s+"
+            r"(?:required|needed|mandated|expected|supposed|obliged)\s+to|"
+            r"(?:does|do|did)\s+(?:not|never)\s+(?:need|have)\s+to|"
+            + mandatory_auxiliary
+            + r"|is|are|was|were|will|should|may|can)"
+        )
+        polarity = r"(?:(?:not|never|no\s+longer)\s+)?"
+        aspect = r"(?:(?:be|have\s+been)(?:\s+being)?\s+)?"
+        body_destination = r"(?:(?:the|an?)\s+)?" + body + r"(?:\s+editor\b)?"
+        destination_item = (
+            r"(?:(?:the|an?)\s+)?(?:" + body + r"(?:\s+editor\b)?|"
+            r"pr comments?|pull request comments?|workflow artifacts?)\b"
+        )
+        destination_separator = (
+            r"(?:\s*,\s*(?:(?:and|or)\s+)?|\s+(?:and|or)\s+)(?:(?:in|into|to|within)\s+)?"
+        )
+        destination = (
+            r"(?:in|into|to|within)\s+(?:both\s+)?"
+            r"(?=(?:"
+            + destination_item
+            + destination_separator
+            + r")*"
+            + body_destination
+            + r")"
+            + destination_item
+            + r"(?:"
+            + destination_separator
+            + destination_item
+            + r")*"
+        )
+        families = [
+            r"\b" + mandatory_auxiliary + r"\s+" + polarity + operation + r"\s+" + destination,
+            r"\b" + body + r"\s+" + auxiliary + r"\s+" + polarity + operation + r"\s+" + noun,
+            r"\bthere\s+" + auxiliary + r"\s+" + polarity + r"be\s+" + noun + r"\s+" + destination,
+            r"\b"
+            + noun
+            + r"\s+(?:is|are)\s+"
+            + polarity
+            + r"(?:required|needed|mandatory|optional)\s+"
+            + destination,
+            r"\b"
+            + noun
+            + r"\s+"
+            + auxiliary
+            + r"\s+"
+            + polarity
+            + aspect
+            + operation
+            + r"\s+"
+            + destination,
+            r"\b(?:"
+            + auxiliary
+            + r"\s+)?"
+            + polarity
+            + aspect
+            + operation
+            + r"\s+"
+            + noun
+            + r"\s+"
+            + destination,
+            r"\b"
+            + body
+            + r"\s+(?:is|are)\s+"
+            + polarity
+            + r"(?:required|needed|mandatory|optional)\b",
+        ]
+        if gate:
+            families.insert(0, r"\b(?:without|unless|until)\s+" + noun + r"\s+" + destination)
+        candidates = sorted(
+            (match for family in families for match in re.finditer(family, text, re.I)),
+            key=lambda match: (match.start(), -len(match[0])),
+        )
+        records: list[dict[str, Any]] = []
+        consumed_end = -1
+        residual = list(text)
+        for match in candidates:
+            if match.start() < consumed_end:
+                continue
+            clause = match[0]
+            body_match = re.search(body, clause, re.I)
+            assert body_match is not None
+            is_gate = gate and bool(re.match(r"(?:without|unless|until)\b", clause, re.I))
+            prohibited = not is_gate and bool(
+                re.search(
+                    r"\b(?:not|never|no\s+longer|no\s+(?:evidence|artifacts?|transcripts?|command outputs?))\b",
+                    clause,
+                    re.I,
+                )
+            )
+            if not is_gate and re.search(exclusion_operation, clause, re.I):
+                prohibited = not prohibited
+            optional = not is_gate and bool(
+                re.search(r"\b(?:optional|should|may|can)\b", clause, re.I)
+            )
+            editor = re.match(r"\s+editor\b", clause[body_match.end() :], re.I)
+            product = bool(editor) and product_comment_object(
+                text[: match.start() + body_match.start()], clause[body_match.end() :]
+            )
+            disposition = (
+                "prohibited"
+                if prohibited
+                else "product" if product else "optional" if optional else "required"
+            )
+            destinations = {"body"}
+            if re.search(r"\b(?:pr comments?|pull request comments?)\b", clause, re.I):
+                destinations.add("comments")
+            if re.search(r"\bworkflow artifacts?\b", clause, re.I):
+                destinations.add("artifacts")
+            if disposition == "product":
+                # The editor is a product surface, but coordinated actual
+                # review destinations retain their own delivery obligation.
+                destinations.discard("body")
+                if destinations:
+                    disposition = "required"
+            records.append(
+                {
+                    "span": (match.start(), match.end()),
+                    "disposition": disposition,
+                    "destinations": destinations,
+                }
+            )
+            residual[match.start() : match.end()] = " " * len(clause)
+            consumed_end = match.end()
+        return records, "".join(residual)
+
     def remaining_delivery(text: str) -> bool:
         # Product object-field nouns are not requests to deliver evidence.
         actions = re.sub(
@@ -1043,7 +1181,7 @@ def _required_evidence_channels(acceptance: str) -> set[str]:
         """Classify the governing operation's subject, not domain words anywhere."""
         operations = list(
             re.finditer(
-                r"\b(?:allow|enable|support|display|store|include|attach|upload|add|leave|left|post|publish|provide|document|record|capture|link)\w*\b",
+                r"\b(?:allow|enable|support|display|show|store|include|contain|attach|upload|add|leave|left|post|publish|provide|document|record|capture|link)\w*\b",
                 prefix,
                 re.I,
             )
@@ -1058,8 +1196,10 @@ def _required_evidence_channels(acceptance: str) -> set[str]:
             )
             base_operations = {
                 "display",
+                "show",
                 "store",
                 "include",
+                "contain",
                 "attach",
                 "upload",
                 "add",
@@ -1209,7 +1349,9 @@ def _required_evidence_channels(acceptance: str) -> set[str]:
                 re.I,
             )
         )
-        field_operation = bool(re.fullmatch(r"(?:include|display|store)\w*", operation[0], re.I))
+        field_operation = bool(
+            re.fullmatch(r"(?:include|contain|display|show|store)\w*", operation[0], re.I)
+        )
         review_destination = bool(
             re.search(
                 r"\b(?:with|containing|including)\s+(?:[\w-]+\s+)*?"
@@ -1364,10 +1506,41 @@ def _required_evidence_channels(acceptance: str) -> set[str]:
             re.I,
         )
         fragments = []
-        split_parts = re.split("(" + clause_boundary + ")", criterion, flags=re.I)
+        # Shared-predicate destination lists are not independent clauses.
+        # Preserve their original text and delimiters using recognized spans,
+        # rather than making later noun-only fragments infer a missing verb.
+        criterion_body_records, _ = body_occurrences(
+            criterion, bool(negative_gate.search(criterion))
+        )
+        split_parts = []
+        split_start = 0
+        for boundary_match in re.finditer(clause_boundary, criterion, re.I):
+            if any(
+                record["span"][0] <= boundary_match.start()
+                and boundary_match.end() <= record["span"][1]
+                for record in criterion_body_records
+            ):
+                continue
+            split_parts.extend((criterion[split_start : boundary_match.start()], boundary_match[0]))
+            split_start = boundary_match.end()
+        split_parts.append(criterion[split_start:])
         for part_index in range(0, len(split_parts), 2):
             fragment = split_parts[part_index]
             boundary = split_parts[part_index - 1] if part_index else ""
+            if (
+                fragments
+                and re.fullmatch(r"\s*(?:,\s*(?:(?:and|or)\s*)?|(?:and|or)\s*)", boundary, re.I)
+                and re.fullmatch(
+                    r"\s*(?:(?:the|an?)\s+)?(?:pr comments?|pull request comments?|workflow artifacts?)"
+                    r"(?:\s*,\s*(?:(?:and|or)\s+)?(?:(?:the|an?)\s+)?"
+                    r"(?:pr comments?|pull request comments?|workflow artifacts?))*\s*",
+                    fragment,
+                    re.I,
+                )
+                and body_occurrences(fragments[-1] + boundary + fragment, False)[0]
+            ):
+                fragments[-1] += boundary + fragment
+                continue
             if (
                 fragments
                 and re.fullmatch(r"\s*,?\s*(?:and|or)\s+", boundary, re.I)
@@ -1435,6 +1608,7 @@ def _required_evidence_channels(acceptance: str) -> set[str]:
                 )
                 resolved_antecedent = clause_evidence_antecedent
             gate = bool(negative_gate.search(working_line))
+            body_records, body_residual = body_occurrences(working_line, gate)
             requirement_text = working_line if gate else evidence_prohibition.sub(" ", working_line)
             # An optional evidence noun can be the object of a mandatory
             # explanation (for example, "a PR comment must explain why
@@ -1448,7 +1622,7 @@ def _required_evidence_channels(acceptance: str) -> set[str]:
                 requirement_text,
                 flags=re.I,
             )
-            if not evidence_term.search(requirement_text):
+            if not evidence_term.search(requirement_text) and not body_records:
                 continue
             checklist = criterion_checklist
             bullet = criterion_bullet
@@ -1471,7 +1645,11 @@ def _required_evidence_channels(acceptance: str) -> set[str]:
             # Optional/conditional evidence clauses never create a hard floor,
             # whether or not the source used checklist syntax. Clause splitting
             # preserves a separate required comment/transcript on the same item.
-            if optional_evidence and not explanatory_comment:
+            if (
+                optional_evidence
+                and not explanatory_comment
+                and not any(record["disposition"] == "required" for record in body_records)
+            ):
                 continue
             meta_behavior = bool(
                 re.search(
@@ -1527,6 +1705,17 @@ def _required_evidence_channels(acceptance: str) -> set[str]:
                 or requirement.search(requirement_text)
             ):
                 continue
+            if body_records:
+                for record in body_records:
+                    if record["disposition"] == "required":
+                        channels.update(record["destinations"])
+                requirement_text = (
+                    body_residual if gate else evidence_prohibition.sub(" ", body_residual)
+                )
+                if optional_evidence and not explanatory_comment:
+                    continue
+                if not evidence_term.search(requirement_text):
+                    continue
             lower = requirement_text.lower()
             response_prefix = re.compile(
                 r"\b(?:" + response_subject + r"|(?:command[- ]?outputs?|transcripts?)\s+api"
@@ -1543,7 +1732,7 @@ def _required_evidence_channels(acceptance: str) -> set[str]:
                 # predicate such as "records evidence in a PR comment".
                 field_noun = (
                     r"(?:(?:links?|records?)(?:\s+(?:and|or)\s+(?:links?|records?))*"
-                    r"\s+(?:to|of|for)\s+evidence\b"
+                    r"\s+(?:to|of|for)\s+(?:(?:the|an?)\s+)?evidence\b"
                     r"|(?:links?|records?)\s+as\s+fields?\b"
                     r"|evidence\s+(?:links?|records?)\b"
                     r"|(?:links?|records?)\b(?=\s*(?:$|[;,.!?]|(?:and|or)\b)))"
@@ -1778,7 +1967,31 @@ def _required_evidence_channels(acceptance: str) -> set[str]:
                     re.I,
                 )
                 or (gate and bool(re.search(r"\b(?:pr comments?|pull request comments?)\b", lower)))
+                or re.search(
+                    r"\bthere\s+"
+                    + mandatory_auxiliary
+                    + r"\s+be\s+(?:(?:an?|the)\s+)?(?:pr comments?|pull request comments?)\b",
+                    requirement_text,
+                    re.I,
+                )
             )
+            # Consume one product persistence operation and its immediate
+            # storage destination, not later reviewer delivery predicates.
+            storage_operation = re.compile(
+                r"\b(?:(?:the|an?)\s+)?(?:application|app|service|api|endpoint)\s+"
+                + product_auxiliary
+                + r"(?:record|capture|attach|generate)\w*\s+"
+                r"(?:(?:the|an?)\s+)?(?:transcripts?|command outputs?|evidence|artifacts?)\s+"
+                r"(?:in|into|to|as)\s+(?:(?:its|the|an?)\s+)?"
+                r"(?:database|audit log|storage|application log)\b",
+                re.I,
+            )
+            if storage_operation.search(requirement_text):
+                delivery_text = storage_operation.sub(" ", requirement_text, count=1)
+                if not remaining_delivery(delivery_text):
+                    continue
+                requirement_text = delivery_text
+                lower = requirement_text.lower()
             product_output_prefix = re.compile(
                 r"^\s*(?:[-*]\s*(?:\[[ xX]\]\s*)?)?"
                 r"(?!(?:[\w-]+\s+){0,5}(?:reviewers?|authors?|maintainers?|operators?|"
@@ -1880,11 +2093,14 @@ def _required_evidence_is_missing(evidence: str, channels: set[str]) -> bool:
     # Comment and artifact bodies are untrusted. Their status-looking lines
     # cannot overwrite the builder's own preamble.
     preamble = re.split(
-        r"\n### Bounded (?:PR comments|referenced workflow artifacts)\n", evidence, maxsplit=1
+        r"\n### Bounded (?:PR body|PR comments|referenced workflow artifacts)\n",
+        evidence,
+        maxsplit=1,
     )[0]
     labels = {
         "overall": "Overall retrieval status",
         "comments": "PR comments",
+        "body": "PR body",
         "artifacts": "Referenced workflow artifacts",
     }
     for channel in channels:
@@ -2061,7 +2277,32 @@ def _apply_coverage_floor(
 def _evaluation_output_text(result: EvaluationResult) -> str:
     """CLI/file text aligned with the structured verdict after post-processing."""
     if result.verdict != "PASS":
-        body = result.summary or result.raw_content or ""
+        parts = [result.summary] if result.summary else []
+        if result.concerns:
+            parts.append("Concerns:\n" + "\n".join(f"- {item}" for item in result.concerns))
+        raw_detail = result.raw_content or ""
+        stale_spans: list[tuple[int, int]] = []
+        if result.raw_content:
+            decoder = json.JSONDecoder()
+            for index, char in enumerate(result.raw_content):
+                if char != "{":
+                    continue
+                try:
+                    raw_result, end = decoder.raw_decode(result.raw_content, index)
+                except json.JSONDecodeError:
+                    continue
+                if (
+                    isinstance(raw_result, dict)
+                    and raw_result.get("verdict") == "PASS"
+                    and (not stale_spans or index >= stale_spans[-1][1])
+                ):
+                    stale_spans.append((index, end))
+            for start, end in reversed(stale_spans):
+                raw_detail = raw_detail[:start] + raw_detail[end:]
+            raw_detail = raw_detail.strip()
+        if raw_detail and raw_detail != result.summary:
+            parts.append("Raw model detail (prior to verdict post-processing):\n" + raw_detail)
+        body = "\n\n".join(parts)
         return f"Verdict: {result.verdict}\n\n{body}"
     return result.raw_content or result.summary or ""
 

@@ -983,6 +983,42 @@ When verifier runs collect acceptance evidence, empty or whitespace-only review 
 must not count as PR-comment evidence. Single-provider non-PASS text/file output
 must carry the post-processed `Verdict: CONCERNS` or `Verdict: FAIL` line so the
 downstream artifact parser retains a terminal outcome rather than a partial run.
+PR-body evidence has its own builder-owned `PR body` retrieval channel. An
+affirmative body-delivery obligation is required, not merely a mention of the
+body. Negative obligations and product UI body-editor output do not create a
+review-evidence requirement; equivalent passive/existential obligations do,
+and a later independent reviewer delivery retains its own destination floor.
+Body obligations are classified as bounded occurrences, sharing polarity and
+aspect handling across active, passive, existential, body-subject and adjectival
+forms. Each recognized occurrence contributes its own required destinations and
+consumes only its matched span; residual clauses still undergo ordinary evidence
+classification. Product-editor output is exempt only for a recognized product
+actor and the immediate body-editor destination. Actual delivery into the PR body,
+human actors, negative merge prerequisites and independent comment/artifact
+obligations retain their evidence floors. Unrecognized wording is not exempted.
+The product-editor exemption applies only to that destination, not coordinated
+actual PR comments or workflow artifacts; both destination orders are retained.
+Recognized comma/and/or lists keep the shared delivery predicate across all
+listed destinations before clause splitting. Bare body mentions such as summary
+or formatting requirements do not become review-evidence obligations.
+Repeated destination prepositions retain the same list binding. Explicit exclusion
+verbs are prohibitions (their negated forms preserve the positive floor), and
+nested allow/enable/support product capabilities recognize show/contain consistently.
+An optional artifact suffix does not erase a recognized mandatory body obligation.
+A fully retrieved bounded body is fenced as untrusted material, an empty body is absent,
+and missing/invalid/oversized bodies are unavailable. Body presence cannot satisfy
+a required PR comment or artifact. Generic comment/artifact retrieval status does
+not veto a complete specifically required body; `VERIFIER_EVIDENCE_BODY_CHARS`
+bounds this channel without broadening the other evidence caps. Existential
+requirements such as `There must be a PR comment` retain the comment floor.
+Application recording/capture/attachment/generation into database or audit-log
+storage is product behavior; separate reviewer deliveries remain mandatory.
+Product `links to the evidence` noun fields stay product fields. Non-PASS CLI
+and file text includes the final verdict, summary, structured concerns and
+distinct raw model detail, so concise summaries do not discard actionable gaps.
+Embedded structured PASS objects, including prose/code-fence wrappers after a
+failed schema repair, are removed from non-PASS diagnostic detail by exact object
+span; surrounding actionable prose is retained even for incidental schema examples.
 These rules are source-owned and regression-tested before consumer regeneration.
 Product UI criteria that allow/enable/support users to upload artifacts likewise
 do not require workflow artifacts; separate PR-comment evidence remains required.
