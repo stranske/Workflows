@@ -72,11 +72,13 @@ test('source-owned reviewer reassessment supports stable generated lanes without
     ] },
   };
   const comments = [];
+  const tasks = [];
+  let taskPosts = 0;
   let posts = 0;
   let merges = 0;
   let resolutions = 0;
   const github = {
-    paginate: async () => [],
+    paginate: async () => tasks,
     rest: {
       pulls: {
         get: async () => ({ data: pr }),
@@ -94,7 +96,14 @@ test('source-owned reviewer reassessment supports stable generated lanes without
       users: { getAuthenticated: async () => ({ data: { login: 'stranske' } }) },
       issues: {
         listComments: async () => { throw new Error('must inspect the original thread'); },
-        createComment: async () => { throw new Error('must dispatch an in-thread task'); },
+        createComment: async ({ body }) => {
+          taskPosts++;
+          const task = { id: taskPosts, body, created_at: '2026-09-24T22:02:00Z',
+            html_url: `https://github.com/stranske/Ready/pull/592#issuecomment-${taskPosts}`,
+            user: { login: 'stranske' } };
+          tasks.push(task);
+          return { data: task };
+        },
       },
     },
     graphql: async (query) => {
@@ -128,6 +137,7 @@ test('source-owned reviewer reassessment supports stable generated lanes without
   assert.equal(second.status, 'review_blocked_reassessment_reused');
   assert.equal(second.writer, 'stranske');
   assert.equal(posts, 1);
+  assert.equal(taskPosts, 0, 'default reassessment cannot dispatch a top-level task');
   const reordered = Object.fromEntries(Object.entries(request).reverse());
   const reorderedRetry = await runReviewReassessment({
     ...args, rawRequest: JSON.stringify(reordered),
@@ -228,14 +238,66 @@ test('source-owned reviewer reassessment supports stable generated lanes without
   assert.match(comments.at(-1).body, /@codex address that feedback/);
   assert.match(comments.at(-1).body, /disposition-only task/);
   assert.match(comments.at(-1).body, /maint71-review-disposition:v1/);
+  assert.equal(disposition.task_status, 'disposition_task_requested');
+  assert.equal(taskPosts, 1);
+  assert.match(tasks[0].body, /^@codex address that feedback on exact head/);
+  assert.match(tasks[0].body, /maint71-review-task:v1/);
+  assert.match(tasks[0].body, /A top-level answer cannot authorize disposition/);
+  assert.ok(tasks[0].body.includes(comments.at(-1).html_url));
   const postsAfterDisposition = posts;
-  await runReviewReassessment(dispositionArgs);
+  const reusedTask = await runReviewReassessment(dispositionArgs);
   assert.equal(posts, postsAfterDisposition, 'disposition stage is independently idempotent');
+  assert.equal(taskPosts, 1, 'already-posted inline request reuses the task bridge');
+  assert.equal(reusedTask.task_status, 'disposition_task_reused');
+  tasks[0].user = { login: 'untrusted' };
+  await runReviewReassessment(dispositionArgs);
+  assert.equal(taskPosts, 2, 'forged marker cannot suppress authenticated task');
+  assert.equal(posts, postsAfterDisposition, 'bridge recovery never reposts inline request');
+  tasks.push({ ...tasks[1], id: 100 });
+  await assert.rejects(runReviewReassessment(dispositionArgs), /Duplicate bound disposition task/);
+  tasks.pop();
+  const originalPaginate = github.paginate;
+  github.paginate = async () => null;
+  await assert.rejects(runReviewReassessment(dispositionArgs), /task inventory is incomplete/);
+  github.paginate = originalPaginate;
+  tasks.length = 0;
+  const tasksBeforeRace = taskPosts;
+  github.paginate = async () => {
+    pr.head.sha = 'e'.repeat(40);
+    return [];
+  };
+  await assert.rejects(runReviewReassessment(dispositionArgs), /delivery changed or lease is invalid/);
+  assert.equal(taskPosts, tasksBeforeRace, 'head changed during task inventory must prevent POST');
+  pr.head.sha = request.head_sha;
+  github.paginate = originalPaginate;
+  const siblingGraphql = github.graphql;
+  let bridgeReads = 0;
+  github.graphql = async (query) => {
+    const result = await siblingGraphql(query);
+    if (++bridgeReads === 3) {
+      const currentThread = result.repository.pullRequest.reviewThreads.nodes[0];
+      currentThread.comments.nodes = currentThread.comments.nodes.filter((item) =>
+        !String(item.body).includes('maint71-review-disposition:v1'));
+    }
+    return result;
+  };
+  await assert.rejects(runReviewReassessment(dispositionArgs), /in-thread disposition request changed/);
+  assert.equal(taskPosts, tasksBeforeRace, 'deleted bound request must prevent task POST');
+  github.graphql = siblingGraphql;
+  const originalCreateTask = github.rest.issues.createComment;
+  let uncertainTaskPosts = 0;
+  github.rest.issues.createComment = async () => {
+    uncertainTaskPosts++;
+    throw new Error('connection reset after task write');
+  };
+  await assert.rejects(runReviewReassessment(dispositionArgs), /task POST uncertain/);
+  assert.equal(uncertainTaskPosts, 1, 'ambiguous task POST must not be retried');
+  github.rest.issues.createComment = originalCreateTask;
   github.graphql = originalGraphql;
   thread.comments.nodes.pop();
   comments.length = 0;
   await runReviewReassessment(args);
-  github.paginate = async () => [{ user: { login: completed.author.login },
+  github.paginate = async () => [...tasks, { user: { login: completed.author.login },
     body: `${completed.body}\n\n**Reviewed commit:** \`${request.head_sha.slice(0, 10)}\``,
     created_at: completed.createdAt }];
   github.rest.repos = { getCommit: async () => ({ data: { sha: 'c'.repeat(40) } }) };

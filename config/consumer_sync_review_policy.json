@@ -17,6 +17,8 @@
       "request_comment": "@codex review",
       "reassessment_comment": "@codex please reassess this specific finding",
       "disposition_comment": "@codex address that feedback",
+      "disposition_task_transport": "pr-conversation",
+      "disposition_task_comment": "@codex address that feedback",
       "disposition_completion_prefixes": ["Codex Review: Didn't find any major issues."],
       "disposition_reviewed_commit_prefix": "**Reviewed commit:** "
     },
