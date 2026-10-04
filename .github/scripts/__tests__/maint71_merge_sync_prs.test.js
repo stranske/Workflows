@@ -210,6 +210,18 @@ test('source-owned reviewer reassessment supports stable generated lanes without
   completed.author.login = 'coderabbitai';
   await assert.rejects(runReviewReassessment(dispositionArgs), /completed originating review/);
   completed.author.login = 'chatgpt-codex-connector';
+  let siblingTruncated = true;
+  github.graphql = async (query) => {
+    const result = await originalGraphql(query);
+    const nodes = result.repository.pullRequest.reviewThreads.nodes;
+    nodes[0].comments.nodes = nodes[0].comments.nodes.filter((item) =>
+      item.fullDatabaseId !== completed.fullDatabaseId);
+    nodes.push({ id: 'PRRT_sibling', isResolved: false, isOutdated: false,
+      comments: { pageInfo: { hasNextPage: siblingTruncated }, nodes: [completed] } });
+    return result;
+  };
+  await assert.rejects(runReviewReassessment(dispositionArgs), /inventory is incomplete/);
+  siblingTruncated = false;
   const disposition = await runReviewReassessment(dispositionArgs);
   assert.equal(disposition.status, 'review_blocked_reassessment_requested');
   assert.match(comments.at(-1).body, /@codex address that feedback/);
@@ -218,6 +230,7 @@ test('source-owned reviewer reassessment supports stable generated lanes without
   const postsAfterDisposition = posts;
   await runReviewReassessment(dispositionArgs);
   assert.equal(posts, postsAfterDisposition, 'disposition stage is independently idempotent');
+  github.graphql = originalGraphql;
   thread.comments.nodes.pop();
   comments.length = 0;
   github.rest.pulls.createReplyForReviewComment = async () => {

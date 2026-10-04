@@ -297,7 +297,7 @@ async function runReviewReassessment({
     if (reviewerProfileForLogin(origin, profiles) !== request.originating_reviewer) {
       throw new Error('Review thread origin does not match requested reviewer');
     }
-    return { pr, thread };
+    return { pr, thread, threads: connection.nodes };
   }
   await readBoundState();
   const { data: writer } = await withRetry((client) => client.rest.users.getAuthenticated());
@@ -325,7 +325,11 @@ async function runReviewReassessment({
       const prior = current.thread.comments.nodes.find((item) =>
         trustedWriters.has(item?.author?.login)
         && String(item?.body || '').includes(priorMarker));
-      const completed = current.thread.comments.nodes.some((item) =>
+      if (current.threads.some((item) => item.comments?.pageInfo?.hasNextPage !== false
+        || !Array.isArray(item.comments?.nodes))) {
+        throw new Error('Review-thread inventory is incomplete');
+      }
+      const completed = current.threads.flatMap((item) => item.comments.nodes).some((item) =>
         reviewerProfileForLogin(item?.author?.login, profiles) === request.originating_reviewer
         && item?.commit?.oid === request.head_sha
         && Date.parse(item?.createdAt || '') > Date.parse(prior?.createdAt || '')

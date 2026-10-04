@@ -900,7 +900,9 @@ checks, and merge gates. A reviewer request is not itself thread acceptance.
 If that exact request completes with a same-head Codex stock no-major-issues
 reply but leaves the finding active, send the same binding with optional
 `request_stage=disposition`. Maint 71 requires the trusted original request and
-the subsequent originating-reviewer completion in that same thread. It then
+the subsequent originating-reviewer completion on that exact head, using a
+complete inventory even when the reviewer posts its summary in a sibling
+thread. The disposition task itself still replies in the original thread. It then
 posts one separately idempotent `@codex address that feedback` disposition-only
 task, requesting an explicit accept/reject and exact-head acceptance marker in
 the existing thread. It cannot run while the first review is pending, on a
