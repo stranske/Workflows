@@ -117,6 +117,14 @@ def test_canonical_record_output_to_product_recipients(operation, destination):
     ) == {"body"}
 
 
+@pytest.mark.parametrize("product", ["service", "API", "application", "endpoint"])
+@pytest.mark.parametrize("verb", ["provided", "returned", "displayed"])
+def test_reverse_product_output_retains_explicit_comment_delivery(product, verb):
+    """An explicit review destination takes precedence over a product actor."""
+    criterion = f"Command output must be {verb} in a PR comment by the {product}"
+    assert verifier._required_evidence_channels(criterion) == {"comments"}
+
+
 @pytest.mark.parametrize(
     "criterion,channel",
     [

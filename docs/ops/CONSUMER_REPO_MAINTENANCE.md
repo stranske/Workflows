@@ -1031,6 +1031,9 @@ Negated optionality (`not`, `never`, or `no longer optional`) is mandatory, not
 prohibited. Canonical record/write/paste output to explicit product recipients
 (clients, users or consumers) remains product behavior; PR destinations and
 independent reviewer deliveries do not inherit that exemption.
+An explicit mandatory PR-comment destination also takes precedence in reverse
+word order (`Command output must be provided in a PR comment by the service`);
+the later product actor cannot erase that required evidence channel.
 The four fresh canary findings are tested through the actual coverage floor with
 present, absent and unavailable evidence plus independent reviewer-delivery controls.
 

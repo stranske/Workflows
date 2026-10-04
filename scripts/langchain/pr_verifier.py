@@ -1991,7 +1991,7 @@ def _required_evidence_channels(acceptance: str) -> set[str]:
                 or re.search(
                     r"\b(?:evidence|command outputs?|transcripts?)\b.{0,40}"
                     r"\b(?:(?:is|are)\s+(?:required|mandatory|needed)|"
-                    r"(?:must|shall)\s+be\s+(?:provided|posted|published|recorded|captured))"
+                    r"(?:must|shall)\s+be\s+(?:provided|posted|published|recorded|captured|returned|displayed))"
                     r"\s+in\s+(?:an?\s+|the\s+)?(?:pr comments?|pull request comments?)\b",
                     requirement_text,
                     re.I,
@@ -2073,7 +2073,11 @@ def _required_evidence_channels(acceptance: str) -> set[str]:
                     continue
                 requirement_text = delivery_text
                 lower = requirement_text.lower()
-            elif reverse_product_output and not line_channels:
+            elif (
+                reverse_product_output
+                and not line_channels
+                and not preserve_explicit_comment_delivery
+            ):
                 continue
             if re.search(r"\b(?:pr comments?|pull request comments?)\b", lower):
                 if explicit_comment_delivery and not product_comment_behavior:
