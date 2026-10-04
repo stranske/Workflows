@@ -1001,6 +1001,9 @@ actual PR comments or workflow artifacts; both destination orders are retained.
 Recognized comma/and/or lists keep the shared delivery predicate across all
 listed destinations before clause splitting. Bare body mentions such as summary
 or formatting requirements do not become review-evidence obligations.
+Repeated destination prepositions retain the same list binding. Explicit exclusion
+verbs are prohibitions (their negated forms preserve the positive floor), and
+nested allow/enable/support product capabilities recognize show/contain consistently.
 An optional artifact suffix does not erase a recognized mandatory body obligation.
 A fully retrieved bounded body is fenced as untrusted material, an empty body is absent,
 and missing/invalid/oversized bodies are unavailable. Body presence cannot satisfy

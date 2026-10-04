@@ -1019,7 +1019,14 @@ def _required_evidence_channels(acceptance: str) -> set[str]:
         """Classify complete, bounded body predicates before residual evidence gating."""
         body = r"(?:pr|pull request)\s+body\b"
         noun = r"(?:(?:the|an?|any|no|before/after)\s+)?(?:evidence|artifacts?|transcripts?|command outputs?)\b"
-        operation = r"(?:include\w*|contain\w*|attach\w*|provide\w*|publish\w*|post\w*|record\w*|capture\w*|document\w*|add\w*|show\w*|store\w*|have|left|leave\w*)\b"
+        exclusion_operation = (
+            r"(?:exclude\w*|omit\w*|remove\w*|avoid\w*|suppress\w*|leave\s+out|left\s+out)\b"
+        )
+        operation = (
+            r"(?:"
+            + exclusion_operation
+            + r"|include\w*|contain\w*|attach\w*|provide\w*|publish\w*|post\w*|record\w*|capture\w*|document\w*|add\w*|show\w*|store\w*|have|left|leave\w*)\b"
+        )
         auxiliary = (
             r"(?:(?:is|are|was|were)\s+(?:not|never|no\s+longer)\s+"
             r"(?:required|needed|mandated|expected|supposed|obliged)\s+to|"
@@ -1034,7 +1041,9 @@ def _required_evidence_channels(acceptance: str) -> set[str]:
             r"(?:(?:the|an?)\s+)?(?:" + body + r"(?:\s+editor\b)?|"
             r"pr comments?|pull request comments?|workflow artifacts?)\b"
         )
-        destination_separator = r"(?:\s*,\s*(?:(?:and|or)\s+)?|\s+(?:and|or)\s+)"
+        destination_separator = (
+            r"(?:\s*,\s*(?:(?:and|or)\s+)?|\s+(?:and|or)\s+)(?:(?:in|into|to|within)\s+)?"
+        )
         destination = (
             r"(?:in|into|to|within)\s+(?:both\s+)?"
             r"(?=(?:"
@@ -1108,6 +1117,8 @@ def _required_evidence_channels(acceptance: str) -> set[str]:
                     re.I,
                 )
             )
+            if not is_gate and re.search(exclusion_operation, clause, re.I):
+                prohibited = not prohibited
             optional = not is_gate and bool(
                 re.search(r"\b(?:optional|should|may|can)\b", clause, re.I)
             )
@@ -1185,8 +1196,10 @@ def _required_evidence_channels(acceptance: str) -> set[str]:
             )
             base_operations = {
                 "display",
+                "show",
                 "store",
                 "include",
+                "contain",
                 "attach",
                 "upload",
                 "add",

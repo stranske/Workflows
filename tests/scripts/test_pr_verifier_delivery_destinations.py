@@ -224,6 +224,15 @@ for actor in ("UI", "application", "service"):
             )
 BODY_CLAUSE_CASES.extend(
     [
+        ("Evidence must be included in a PR comment and in the PR body", {"body", "comments"}),
+        ("Evidence must be included in the PR body and in a PR comment", {"body", "comments"}),
+        ("The PR body must exclude evidence", set()),
+        ("The PR body must omit evidence", set()),
+        ("The PR body must remove evidence", set()),
+        ("The PR body must not exclude evidence", {"body"}),
+        ("The UI allows users to show evidence in the pull request body editor", set()),
+        ("The UI enables users to show evidence in the pull request body editor", set()),
+        ("The UI supports users to show evidence in the pull request body editor", set()),
         ("The PR body must contain no evidence", set()),
         ("The PR body must include no evidence", set()),
         ("No evidence must be included in the PR body", set()),
@@ -253,6 +262,12 @@ for destinations in permutations(("the PR body", "a PR comment", "a workflow art
                 {"body", "comments", "artifacts"},
             )
         )
+    BODY_CLAUSE_CASES.append(
+        (
+            "Evidence must be included in " + " and in ".join(destinations),
+            {"body", "comments", "artifacts"},
+        )
+    )
 
 
 @pytest.mark.parametrize(
