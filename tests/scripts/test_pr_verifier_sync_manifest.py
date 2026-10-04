@@ -47,6 +47,11 @@ def test_pr_verifier_api_client_is_available_in_consumer_template() -> None:
     assert TEMPLATE_API_CLIENT.read_text(encoding="utf-8") == API_CLIENT.read_text(encoding="utf-8")
 
 
+def test_pr_verifier_source_and_consumer_template_are_identical() -> None:
+    template = ROOT / "templates/consumer-repo/scripts/langchain/pr_verifier.py"
+    assert template.read_bytes() == PR_VERIFIER.read_bytes()
+
+
 def test_pr_verifier_copy_delivery_includes_doc_lineage() -> None:
     manifest = yaml.safe_load(MANIFEST.read_text(encoding="utf-8"))
     entry = next(

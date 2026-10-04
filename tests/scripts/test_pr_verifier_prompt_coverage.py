@@ -1773,6 +1773,82 @@ def test_mixed_quoted_git_header_paths_are_complete(header: str, destination: st
     assert files[0].path == destination
 
 
+@pytest.mark.parametrize(
+    "criterion",
+    [
+        "The CLI command must output a transcript",
+        "The command shall output command output",
+        "The command outputs a transcript",
+        "The API response must include evidence links",
+        "The API response must include evidence records",
+        "The endpoint must include PR comments",
+        "The service must include PR comments",
+        "The CLI must include PR comments",
+        "The renderer must include PR comments",
+    ],
+)
+def test_product_evidence_objects_do_not_require_review_delivery(criterion: str) -> None:
+    assert pr_verifier._required_evidence_channels("- [ ] " + criterion) == set()
+    context, _ = _context(1, 1_000, 1_000)
+    context = context.replace(ACCEPTANCE_SENTINEL, criterion).replace(
+        "## PR Diff Summary",
+        "## Acceptance evidence\n\n- Overall retrieval status: **absent**\n"
+        "- PR comments: **absent**\n\n## PR Diff Summary",
+    )
+    assert pr_verifier.prompt_coverage(context, None).sufficient
+    assert pr_verifier._required_evidence_channels(
+        "- [ ] " + criterion + "; post a PR comment with test results"
+    ) == {"comments"}
+    assert pr_verifier._required_evidence_channels(
+        "- [ ] " + criterion + "; upload a validation artifact"
+    ) == {"artifacts"}
+
+
+@pytest.mark.parametrize(
+    "criterion",
+    [
+        "The reviewer must add a PR comment with the test results",
+        "The reviewer must leave a PR comment with the test results",
+        "Command output is required in a PR comment",
+        "A transcript must be provided in a pull request comment",
+    ],
+)
+@pytest.mark.parametrize("status", ["absent", "unavailable"])
+def test_explicit_comment_delivery_cannot_pass_without_comments(
+    criterion: str, status: str
+) -> None:
+    assert pr_verifier._required_evidence_channels("- [ ] " + criterion) == {"comments"}
+    context, _ = _context(1, 1_000, 1_000)
+    context = context.replace(ACCEPTANCE_SENTINEL, criterion).replace(
+        "## PR Diff Summary",
+        "## Acceptance evidence\n\n- Overall retrieval status: **present**\n"
+        f"- PR comments: **{status}**\n\n## PR Diff Summary",
+    )
+    assert not pr_verifier.prompt_coverage(context, None).sufficient
+
+
+def test_git_parser_error_marker_is_a_valid_filename() -> None:
+    diff = (
+        "diff --git a/__invalid_git_path__ b/__invalid_git_path__\n"
+        "--- a/__invalid_git_path__\n+++ b/__invalid_git_path__\n"
+        "@@ -1 +1 @@\n-old\n+new\n"
+    )
+    _, status, files, _, _ = pr_verifier._build_code_block(diff, 10_000)
+    assert status == "complete"
+    assert files[0].path == "__invalid_git_path__"
+
+
+@pytest.mark.parametrize("verb", ["add", "leave"])
+def test_new_comment_delivery_verbs_preserve_negation_and_independent_clauses(verb: str) -> None:
+    assert (
+        pr_verifier._required_evidence_channels(f"- [ ] The reviewer must not {verb} a PR comment")
+        == set()
+    )
+    assert pr_verifier._required_evidence_channels(
+        f"- [ ] The endpoint must include PR comments and {verb} a PR comment with test results"
+    ) == {"comments"}
+
+
 def test_git_tab_delimiter_does_not_become_part_of_a_spaced_path() -> None:
     patch = (
         "diff --git a/docs/My File.md b/docs/My File.md\n"

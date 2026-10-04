@@ -635,7 +635,7 @@ def _strip_diff_fence(section: str) -> str:
     return body.strip("\n")
 
 
-def _split_diff_files(diff: str) -> list[tuple[str, str]]:
+def _split_diff_files(diff: str) -> list[tuple[str | None, str]]:
     def decode_quoted_path(raw: str) -> tuple[str, str] | None:
         if not raw.startswith('"'):
             return None
@@ -725,36 +725,36 @@ def _split_diff_files(diff: str) -> list[tuple[str, str]]:
             return None
         return decoded[0][2:]
 
-    files: list[tuple[str, str]] = []
+    files: list[tuple[str | None, str]] = []
     current: list[str] = []
-    path = ""
+    path: str | None = None
     for line in diff.splitlines(keepends=True):
         if line.startswith("diff --git "):
             if current:
                 files.append((path, "".join(current)))
             current = [line]
-            path = destination_from_git_header(line) or "__invalid_git_path__"
+            path = destination_from_git_header(line) or None
         elif current:
             current.append(line)
-            if path == "__invalid_git_path__":
+            if path is None:
                 continue
             if line.startswith("--- "):
                 source = normalized_path(line[4:])
                 if source is None:
-                    path = "__invalid_git_path__"
+                    path = None
                 elif source:
                     path = source
             elif line.startswith("+++ "):
                 destination = normalized_path(line[4:])
                 if destination is None:
-                    path = "__invalid_git_path__"
+                    path = None
                 elif destination:
                     path = destination
             elif line.startswith(("rename to ", "copy to ")):
                 # Git's metadata is repo-relative and unambiguous even when an
                 # unquoted header contains an embedded " b/" separator.
                 destination = normalized_path(line.split(" to ", 1)[1], strip_prefix=False)
-                path = destination if destination else "__invalid_git_path__"
+                path = destination or None
     if current:
         files.append((path, "".join(current)))
     return files
@@ -853,7 +853,7 @@ def _build_code_block(
         block = _cap_prompt_text(diff, max(1, budget_chars // TOKEN_CHARS))
         status: CoverageStatus = "complete" if block == diff else "truncated"
         return block, status, (), min(len(diff), len(block)), len(diff)
-    if any(path == "__invalid_git_path__" for path, _ in files):
+    if any(path is None for path, _ in files):
         return "(diff unavailable)", "unavailable", (), 0, 0
     # Doc-Lineage#81 review finding (discussion_r4169521235): appending
     # omitted paths after fair-share allocation exceeded the diff budget.
@@ -866,6 +866,7 @@ def _build_code_block(
     coverage: list[FileCoverage] = []
     omitted = 0
     for (path, text), share in zip(files, shares, strict=True):
+        assert path is not None  # Parse failures were rejected above.
         excerpt, item = _excerpt_file(path, text, share)
         coverage.append(item)
         if excerpt:
@@ -978,9 +979,16 @@ def _required_evidence_channels(acceptance: str) -> set[str]:
         r"\b(?:required|mandatory|(?:is|are)\s+needed|must|shall|needs? to|"
         r"publish(?:es|ed)?|upload(?:s|ed)?|"
         r"attach(?:es|ed)?|captur(?:e|es|ed)|record(?:s|ed)?|provid(?:e|es|ed)|"
-        r"includ(?:e|es|ed)|link(?:s|ed)?|post(?:s|ed)?|document(?:s|ed)?|prov(?:e|es|ed)|show(?:s|ed)?)\b",
+        r"includ(?:e|es|ed)|link(?:s|ed)?|post(?:s|ed)?|add(?:s|ed)?|leav(?:e|es)|left|"
+        r"document(?:s|ed)?|prov(?:e|es|ed)|show(?:s|ed)?)\b",
         re.I,
     )
+
+    def remaining_delivery(text: str) -> bool:
+        # Product object-field nouns are not requests to deliver evidence.
+        actions = re.sub(r"\bevidence\s+(?:links?|records?)\b", "evidence", text, flags=re.I)
+        return bool(evidence_term.search(text) and requirement.search(actions))
+
     evidence_prohibition = re.compile(
         r"\bno\s+(?:\w+\s+){0,3}(?:evidence|artifacts?|transcripts?|command outputs?|"
         r"workflow runs?|pr comments?|pull request comments?)"
@@ -989,7 +997,7 @@ def _required_evidence_channels(acceptance: str) -> set[str]:
         r"pr comments?|pull request comments?)"
         r"\s+(?:is|are)\s+not\s+(?:required|needed|mandatory)\b"
         r"|\b(?:must|shall|may|should|do|does)\s+not\s+"
-        r"(?:upload|attach|provide|publish|post|record|capture|include|document|generate|link)\b"
+        r"(?:upload|attach|provide|publish|post|record|capture|include|document|generate|link|add|leave)\b"
         r"(?:\s+(?:the\s+|an?\s+|any\s+)?(?:[\w-]+\s+){0,4}"
         r"(?:evidence|artifacts?|transcripts?|"
         r"command outputs?|workflow runs?|pr comments?|pull request comments?))?"
@@ -1077,8 +1085,8 @@ def _required_evidence_channels(acceptance: str) -> set[str]:
             r"(?:[\w-]+\s+){1,6}(?:must|shall|needs?\s+to|"
             r"(?:(?:is|are)\s+)?(?:required|needed|mandated|expected|supposed|obliged)\s+to|"
             r"(?:has|have)\s+to)\s+"
-            r"(?:publish|upload|attach|capture|record|provide|include|post|document|prove|show|link)\b|"
-            r"(?:publish|upload|attach|capture|record|provide|include|post|document|prove|show|link)\b"
+            r"(?:publish|upload|attach|capture|record|provide|include|post|document|prove|show|link|add|leave)\b|"
+            r"(?:publish|upload|attach|capture|record|provide|include|post|document|prove|show|link|add|leave)\b"
             r"))"
         )
         clause_evidence_antecedent: str | None = None
@@ -1241,7 +1249,7 @@ def _required_evidence_channels(acceptance: str) -> set[str]:
             )
             if response_prefix.search(requirement_text):
                 delivery_text = response_prefix.sub(" ", requirement_text, count=1)
-                if not (evidence_term.search(delivery_text) and requirement.search(delivery_text)):
+                if not remaining_delivery(delivery_text):
                     continue
                 requirement_text = delivery_text
                 lower = requirement_text.lower()
@@ -1398,14 +1406,14 @@ def _required_evidence_channels(acceptance: str) -> set[str]:
                     continue
             product_comment_behavior = bool(
                 re.search(
-                    r"\b(?:ui|api|application|interface)\b.{0,60}"
+                    r"\b(?:ui|api|application|interface|service|cli|endpoint|renderer)\b.{0,60}"
                     r"\b(?:allow|enable|support)\w*\b.{0,40}"
                     r"\b(?:pr comments?|pull request comments?)\b",
                     requirement_text,
                     re.I,
                 )
                 or re.search(
-                    r"\b(?:ui|api|application|interface)\b.{0,60}"
+                    r"\b(?:ui|api|application|interface|service|cli|endpoint|renderer)\b.{0,60}"
                     r"\b(?:display|store|include|attach|upload)\w*\s+"
                     r"(?:(?:the|stored|retrieved)\s+){0,2}"
                     r"(?:pr comments?|pull request comments?)\b",
@@ -1413,7 +1421,7 @@ def _required_evidence_channels(acceptance: str) -> set[str]:
                     re.I,
                 )
                 or re.search(
-                    r"\b(?:ui|api|application|interface)\b\s+"
+                    r"\b(?:ui|api|application|interface|service|cli|endpoint|renderer)\b\s+"
                     r"(?:must\s+|shall\s+|will\s+)?(?:post|publish)\w*\b",
                     requirement_text,
                     re.I,
@@ -1421,7 +1429,7 @@ def _required_evidence_channels(acceptance: str) -> set[str]:
             )
             explicit_comment_delivery = bool(
                 re.search(
-                    r"\b(?:attach|upload|include|post|publish|record|capture|provide|document)\w*\b"
+                    r"\b(?:attach|upload|include|post|publish|record|capture|provide|document|add|leave|left)\w*\b"
                     r"(?:\s+\w+){0,10}\s+\b(?:pr comments?|pull request comments?)\b",
                     requirement_text,
                     re.I,
@@ -1431,6 +1439,14 @@ def _required_evidence_channels(acceptance: str) -> set[str]:
                     r"\b(?:(?:is|are)\s+(?:required|mandatory|needed)|"
                     r"(?:must|shall|needs? to)\b|"
                     r"(?:is|are|must|shall|needs? to)\s+(?:be\s+)?(?:posted|published)\b)",
+                    requirement_text,
+                    re.I,
+                )
+                or re.search(
+                    r"\b(?:evidence|command outputs?|transcripts?)\b.{0,40}"
+                    r"\b(?:(?:is|are)\s+(?:required|mandatory|needed)|"
+                    r"(?:must|shall)\s+be\s+(?:provided|posted|published|recorded|captured))"
+                    r"\s+in\s+(?:an?\s+|the\s+)?(?:pr comments?|pull request comments?)\b",
                     requirement_text,
                     re.I,
                 )
@@ -1470,7 +1486,7 @@ def _required_evidence_channels(acceptance: str) -> set[str]:
             )
             if product_output_match and not preserve_explicit_comment_delivery:
                 delivery_text = product_output_prefix.sub(" ", requirement_text, count=1)
-                if not (evidence_term.search(delivery_text) and requirement.search(delivery_text)):
+                if not remaining_delivery(delivery_text):
                     continue
                 requirement_text = delivery_text
                 lower = requirement_text.lower()
@@ -1484,7 +1500,7 @@ def _required_evidence_channels(acceptance: str) -> set[str]:
             if not line_channels:
                 command_behavior = bool(
                     re.search(
-                        r"\b(?:cli\s+)?command\b\s+(?:must\s+|shall\s+|will\s+)?" r"outputs\b",
+                        r"\b(?:cli\s+)?command\b\s+(?:(?:must|shall|will)\s+output|outputs)\b",
                         requirement_text,
                         re.I,
                     )
@@ -1494,15 +1510,13 @@ def _required_evidence_channels(acceptance: str) -> set[str]:
                     # it is not itself a request to deliver command output.
                     # Preserve a separate downstream evidence requirement.
                     delivery_text = re.sub(
-                        r"\b(?:cli\s+)?command\b\s+" r"(?:must\s+|shall\s+|will\s+)?outputs\b",
+                        r"\b(?:cli\s+)?command\b\s+(?:(?:must|shall|will)\s+output|outputs)\b",
                         " ",
                         requirement_text,
                         count=1,
                         flags=re.I,
                     )
-                    if not (
-                        evidence_term.search(delivery_text) and requirement.search(delivery_text)
-                    ):
+                    if not remaining_delivery(delivery_text):
                         continue
                 if re.search(r"\bworkflow runs?\b", lower):
                     without_workflow_run = re.sub(r"\bworkflow runs?\b", " ", lower)

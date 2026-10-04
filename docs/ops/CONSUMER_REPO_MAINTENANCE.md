@@ -911,6 +911,15 @@ becomes ready; the recurring two-hour schedule is recovery, not the normal
 continuation mechanism. A failed assessment causes a concrete repair or explicit
 UNKNOWN checkpoint, never a fabricated acceptance or another generic review loop.
 
+Verifier acceptance classification distinguishes product output and product fields from
+review deliverables: a command that must output a transcript, response evidence links or
+records, and endpoint/service/CLI/renderer PR-comment fields do not require reviewing-PR
+evidence. A separate required delivery clause remains authoritative. Instructions to add
+or leave a PR comment, including passive command-output requirements in that comment,
+require comment evidence and cannot pass when it is absent or unavailable. Git diff
+parse failures use a non-filename state; every valid filename, including
+`__invalid_git_path__`, remains eligible for complete coverage.
+
 When verifier runs collect acceptance evidence, empty or whitespace-only review bodies
 must not count as PR-comment evidence. Single-provider non-PASS text/file output
 must carry the post-processed `Verdict: CONCERNS` or `Verdict: FAIL` line so the
