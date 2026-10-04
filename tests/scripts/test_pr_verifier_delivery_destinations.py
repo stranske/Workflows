@@ -121,6 +121,20 @@ def test_wrapped_nonpass_detail_is_preserved(wrapper):
 
 
 @pytest.mark.parametrize(
+    "raw",
+    [
+        'Schema example: {"verdict":"PASS"}. Missing exact-head witness; repair failed.',
+        '{"verdict":"CONCERNS","example":{"verdict":"PASS"},"detail":"Missing exact-head witness"}',
+    ],
+)
+def test_incidental_pass_object_does_not_erase_actionable_diagnostics(raw):
+    result = verifier.EvaluationResult(verdict="CONCERNS", raw_content=raw)
+    text = verifier._evaluation_output_text(result)
+    assert "Missing exact-head witness" in text
+    assert '"verdict":"PASS"' not in text
+
+
+@pytest.mark.parametrize(
     "criterion",
     [
         "The PR body must not include evidence",
@@ -209,6 +223,9 @@ for actor in ("UI", "application", "service"):
             )
 BODY_CLAUSE_CASES.extend(
     [
+        ("The PR body must contain no evidence", set()),
+        ("The PR body must include no evidence", set()),
+        ("No evidence must be included in the PR body", set()),
         (
             "The UI must include evidence in both workflow artifacts and the PR body editor",
             {"artifacts"},

@@ -1018,7 +1018,7 @@ def _required_evidence_channels(acceptance: str) -> set[str]:
     def body_occurrences(text: str, gate: bool) -> tuple[list[dict[str, Any]], str]:
         """Classify complete, bounded body predicates before residual evidence gating."""
         body = r"(?:pr|pull request)\s+body\b"
-        noun = r"(?:(?:the|an?|any|before/after)\s+)?(?:evidence|artifacts?|transcripts?|command outputs?)\b"
+        noun = r"(?:(?:the|an?|any|no|before/after)\s+)?(?:evidence|artifacts?|transcripts?|command outputs?)\b"
         operation = r"(?:include\w*|contain\w*|attach\w*|provide\w*|publish\w*|post\w*|record\w*|capture\w*|document\w*|add\w*|show\w*|store\w*|have|left|leave\w*)\b"
         auxiliary = (
             r"(?:(?:is|are|was|were)\s+(?:not|never|no\s+longer)\s+"
@@ -1089,7 +1089,11 @@ def _required_evidence_channels(acceptance: str) -> set[str]:
             assert body_match is not None
             is_gate = gate and bool(re.match(r"(?:without|unless|until)\b", clause, re.I))
             prohibited = not is_gate and bool(
-                re.search(r"\b(?:not|never|no\s+longer)\b", clause, re.I)
+                re.search(
+                    r"\b(?:not|never|no\s+longer|no\s+(?:evidence|artifacts?|transcripts?|command outputs?))\b",
+                    clause,
+                    re.I,
+                )
             )
             optional = not is_gate and bool(
                 re.search(r"\b(?:optional|should|may|can)\b", clause, re.I)
@@ -2231,23 +2235,28 @@ def _evaluation_output_text(result: EvaluationResult) -> str:
         parts = [result.summary] if result.summary else []
         if result.concerns:
             parts.append("Concerns:\n" + "\n".join(f"- {item}" for item in result.concerns))
-        stale_pass = False
+        raw_detail = result.raw_content or ""
+        stale_spans: list[tuple[int, int]] = []
         if result.raw_content:
             decoder = json.JSONDecoder()
             for index, char in enumerate(result.raw_content):
                 if char != "{":
                     continue
                 try:
-                    raw_result, _ = decoder.raw_decode(result.raw_content, index)
+                    raw_result, end = decoder.raw_decode(result.raw_content, index)
                 except json.JSONDecodeError:
                     continue
-                if isinstance(raw_result, dict) and raw_result.get("verdict") == "PASS":
-                    stale_pass = True
-                    break
-        if result.raw_content and result.raw_content != result.summary and not stale_pass:
-            parts.append(
-                "Raw model detail (prior to verdict post-processing):\n" + result.raw_content
-            )
+                if (
+                    isinstance(raw_result, dict)
+                    and raw_result.get("verdict") == "PASS"
+                    and (not stale_spans or index >= stale_spans[-1][1])
+                ):
+                    stale_spans.append((index, end))
+            for start, end in reversed(stale_spans):
+                raw_detail = raw_detail[:start] + raw_detail[end:]
+            raw_detail = raw_detail.strip()
+        if raw_detail and raw_detail != result.summary:
+            parts.append("Raw model detail (prior to verdict post-processing):\n" + raw_detail)
         body = "\n\n".join(parts)
         return f"Verdict: {result.verdict}\n\n{body}"
     return result.raw_content or result.summary or ""
