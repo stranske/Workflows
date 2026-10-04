@@ -1,6 +1,7 @@
 'use strict';
 
-const { validateIndependentFindingVerification } = require('./maint71_finding_verification');
+const { validateIndependentFindingVerification, collectFindingReviewState,
+  collectOriginatingCompletions } = require('./maint71_finding_verification');
 
 const DEFAULT_REVIEW_POLICY = Object.freeze({
   minimum_responses: 1,
@@ -1253,27 +1254,9 @@ async function run({ github, context, core }) {
           errors.push(`${proof.thread_id}:source_fix_not_in_delivery_source`);
           continue;
         }
-        const data = await withReviewReadRetry((client) => client.graphql(
-          `query($owner: String!, $repo: String!, $number: Int!) {
-            repository(owner: $owner, name: $repo) {
-              pullRequest(number: $number) {
-                headRefOid
-                reviewThreads(first: 100) {
-                  pageInfo { hasNextPage }
-                  nodes {
-                    id isResolved isOutdated
-                    comments(first: 100) {
-                      pageInfo { hasNextPage }
-                      nodes { url body createdAt author { login } commit { oid } }
-                    }
-                  }
-                }
-              }
-            }
-          }`,
-          { owner, repo, number: pr.number },
-        ));
-        const fresh = data?.repository?.pullRequest;
+        const fresh = await collectFindingReviewState({
+          owner, repo, number: pr.number, read: withReviewReadRetry,
+        });
         const threads = fresh?.reviewThreads;
         if (fresh?.headRefOid !== pr.head.sha) {
           errors.push(`${proof.thread_id}:head_changed`);
@@ -1294,9 +1277,13 @@ async function run({ github, context, core }) {
           const { data: comment } = await withRetry((client) => client.rest.issues.getComment({
             owner: context.repo.owner, repo: context.repo.repo, comment_id: commentId,
           }));
+          const topLevelComments = await collectOriginatingCompletions({
+            owner, repo, number: pr.number, head: pr.head.sha,
+            profiles: reviewerProfiles, read: withRetry,
+          });
           const verification = validateIndependentFindingVerification({
             proof, record: deliveryRecord, thread, threads, comment,
-            policy: reviewPolicy, reviewerProfiles,
+            policy: reviewPolicy, reviewerProfiles, topLevelComments,
           });
           accepted = verification.ok;
           if (!accepted) {
@@ -1316,30 +1303,22 @@ async function run({ github, context, core }) {
             errors.push(`${proof.thread_id}:head_changed`);
             continue;
           }
-          const latestData = await withReviewReadRetry((client) => client.graphql(
-            `query($owner: String!, $repo: String!, $number: Int!) {
-              repository(owner: $owner, name: $repo) {
-                pullRequest(number: $number) {
-                  headRefOid body
-                  reviewThreads(first: 100) {
-                    pageInfo { hasNextPage }
-                    nodes { id isResolved isOutdated
-                      comments(first: 100) {
-                        pageInfo { hasNextPage }
-                        nodes { url body createdAt author { login } commit { oid } }
-                      }
-                    }
-                  }
-                }
-              }
-            }`, { owner, repo, number: pr.number },
-          ));
-          const latest = latestData?.repository?.pullRequest;
+          const latest = await collectFindingReviewState({
+            owner, repo, number: pr.number, read: withReviewReadRetry,
+          });
+          const latestCompletions = await collectOriginatingCompletions({
+            owner, repo, number: pr.number, head: pr.head.sha,
+            profiles: reviewerProfiles, read: withRetry,
+          });
+          const { data: latestComment } = await withRetry((client) => client.rest.issues.getComment({
+            owner: context.repo.owner, repo: context.repo.repo, comment_id: commentId,
+          }));
           const latestRecord = parseDeliveryRecord(latest?.body || '');
           const latestThread = latest?.reviewThreads?.nodes?.find((item) => item.id === proof.thread_id);
           const finalVerification = validateIndependentFindingVerification({
             proof, record: latestRecord, thread: latestThread, threads: latest?.reviewThreads,
-            comment, policy: reviewPolicy, reviewerProfiles,
+            comment: latestComment, policy: reviewPolicy, reviewerProfiles,
+            topLevelComments: latestCompletions,
           });
           if (latest?.headRefOid !== pr.head.sha || !finalVerification.ok
             || latestRecord?.head_observed_sha !== pr.head.sha

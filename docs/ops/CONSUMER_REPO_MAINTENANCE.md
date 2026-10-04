@@ -893,10 +893,15 @@ Pass the normal resolution proof with
 `reviewer_acceptance_url=<durable-issue>#issuecomment-<id>`. Maint 71 fetches
 that actual comment; it checks the configured trusted publisher and verifier
 profile, exact complete binding, request and same-head originating completion,
-chronological order and a 24-hour freshness limit. Missing, duplicate, forged,
+chronological order and a 24-hour freshness limit. Both review-thread connections
+and each thread's comments are cursor-paginated to completion. Stock top-level
+completion comments are collected through the paginated issue-comment API; their
+short reviewed-commit references must resolve through GitHub to the exact full
+head, rather than merely matching its prefix. Missing, duplicate, forged,
 stale, incomplete or non-PASS results fail closed. New originating feedback after
 the assessment invalidates it. Immediately before resolution Maint 71 re-reads
-the PR head, lease, source/plan and complete thread inventory and validates again.
+the PR head, lease, source/plan and complete thread inventory, fetches the current
+attestation again (including publisher withdrawal or deletion), and validates again.
 Only Maint 71 resolves generated threads. Successful resolution still cannot
 waive exact-head checks, the seven-minute review floor, canary staging, sealing,
 promotion or full-fleet/Health 83 evidence.

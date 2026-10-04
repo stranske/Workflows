@@ -6,7 +6,8 @@ const sha256 = (text) => createHash('sha256').update(text).digest('hex');
 // An explicitly authorized owner attests an independent, completed assessment.
 // This is NOT a fabricated originating-reviewer reply or a generic clean review.
 function validateIndependentFindingVerification({
-  proof, record, thread, threads, comment, policy, reviewerProfiles, now = Date.now(),
+  proof, record, thread, threads, comment, policy, reviewerProfiles,
+  topLevelComments, now = Date.now(),
 }) {
   const deny = (reason) => ({ ok: false, reason });
   const fallback = policy?.finding_verification_fallback;
@@ -67,7 +68,9 @@ function validateIndependentFindingVerification({
     'generation', 'source_commit', 'originating_reviewer']) {
     if (requestBinding[key] !== binding[key]) return deny('targeted_request_binding_mismatch');
   }
-  const completion = threads.nodes.flatMap((item) => item.comments.nodes).find((item) =>
+  if (topLevelComments && topLevelComments.complete !== true) return deny('incomplete_completion_evidence');
+  const completion = [...threads.nodes.flatMap((item) => item.comments.nodes),
+    ...(topLevelComments?.nodes || [])].find((item) =>
     item.url === result.originating_completion_url && profile.logins.includes(item.author?.login)
     && item.commit?.oid === proof.head_sha
     && profile.disposition_completion_prefixes?.some((prefix) => item.body?.startsWith(prefix)));
@@ -82,4 +85,82 @@ function validateIndependentFindingVerification({
   return { ok: true, assessment_id: result.assessment_id, binding };
 }
 
-module.exports = { sha256, validateIndependentFindingVerification };
+async function collectFindingReviewState({ owner, repo, number, read }) {
+  const fields = 'url body createdAt author { login } commit { oid }';
+  let after = null;
+  let snapshot;
+  const nodes = [];
+  do {
+    const data = await read((client) => client.graphql(`
+      query($owner:String!,$repo:String!,$number:Int!,$after:String) {
+        repository(owner:$owner,name:$repo) { pullRequest(number:$number) {
+          headRefOid body reviewThreads(first:100,after:$after) {
+            pageInfo { hasNextPage endCursor } nodes { id isResolved isOutdated
+              comments(first:100) { pageInfo { hasNextPage endCursor } nodes { ${fields} } }
+            }
+          }
+        } }
+      }`, { owner, repo, number, after }));
+    const fresh = data?.repository?.pullRequest;
+    if (!fresh?.headRefOid || !Array.isArray(fresh.reviewThreads?.nodes)
+      || typeof fresh.reviewThreads?.pageInfo?.hasNextPage !== 'boolean') {
+      throw new Error('Incomplete review-thread inventory');
+    }
+    if (snapshot && (snapshot.headRefOid !== fresh.headRefOid || snapshot.body !== fresh.body)) {
+      throw new Error('Delivery changed during review pagination');
+    }
+    snapshot = fresh;
+    for (const thread of fresh.reviewThreads.nodes) {
+      if (!Array.isArray(thread.comments?.nodes)
+        || typeof thread.comments?.pageInfo?.hasNextPage !== 'boolean') {
+        throw new Error('Incomplete thread-comment inventory');
+      }
+      while (thread.comments.pageInfo.hasNextPage) {
+        const cursor = thread.comments.pageInfo.endCursor;
+        if (!cursor) throw new Error('Missing thread-comment cursor');
+        const page = await read((client) => client.graphql(`
+          query($id:ID!,$after:String!) { node(id:$id) { ... on PullRequestReviewThread {
+            comments(first:100,after:$after) { pageInfo { hasNextPage endCursor } nodes { ${fields} } }
+          } } }`, { id: thread.id, after: cursor }));
+        const connection = page?.node?.comments;
+        if (!Array.isArray(connection?.nodes)
+          || typeof connection?.pageInfo?.hasNextPage !== 'boolean'
+          || (connection.pageInfo.hasNextPage && connection.pageInfo.endCursor === cursor)) {
+          throw new Error('Incomplete thread-comment page');
+        }
+        thread.comments.nodes.push(...connection.nodes);
+        thread.comments.pageInfo = connection.pageInfo;
+      }
+      nodes.push(thread);
+    }
+    const info = fresh.reviewThreads.pageInfo;
+    if (!info.hasNextPage) break;
+    if (!info.endCursor || info.endCursor === after) throw new Error('Missing review-thread cursor');
+    after = info.endCursor;
+  } while (true);
+  return { ...snapshot, reviewThreads: { pageInfo: { hasNextPage: false }, nodes } };
+}
+
+async function collectOriginatingCompletions({ owner, repo, number, head, profiles, read }) {
+  const comments = await read((client) => client.paginate(client.rest.issues.listComments,
+    { owner, repo, issue_number: number, per_page: 100 }));
+  if (!Array.isArray(comments)) throw new Error('Incomplete top-level comment inventory');
+  const nodes = [];
+  for (const comment of comments) {
+    const profile = profiles.find((item) => item.logins.includes(comment.user?.login));
+    if (!profile?.disposition_completion_prefixes?.some((prefix) => comment.body?.startsWith(prefix))) continue;
+    const prefix = profile.disposition_reviewed_commit_prefix;
+    if (!prefix) continue;
+    const line = String(comment.body || '').split('\n').find((value) => value.startsWith(prefix));
+    const ref = line?.slice(prefix.length).match(/`([0-9a-f]{10,40})`/)?.[1];
+    if (!ref || !head.startsWith(ref)) continue;
+    const { data: commit } = await read((client) => client.rest.repos.getCommit({ owner, repo, ref }));
+    if (commit.sha !== head) continue;
+    nodes.push({ url: comment.html_url, body: comment.body, createdAt: comment.created_at,
+      author: comment.user, commit: { oid: commit.sha } });
+  }
+  return { complete: true, nodes };
+}
+
+module.exports = { sha256, validateIndependentFindingVerification,
+  collectFindingReviewState, collectOriginatingCompletions };

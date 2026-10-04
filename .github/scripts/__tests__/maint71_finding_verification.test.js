@@ -88,7 +88,7 @@ test('generic review, forged publisher, stale receipt, missing regression, and p
 
 // Exercise the actual controller closure with API doubles, including both race
 // checkpoints. Extracting the closure avoids a test-only production export.
-for (const race of ['none', 'rest-head', 'graphql-head', 'graphql-plan']) {
+for (const race of ['none', 'rest-head', 'graphql-head', 'graphql-plan', 'attestation-edited', 'attestation-deleted']) {
   test(`controller resolves only unchanged live verification: ${race}`, async () => {
     const f = fixture();
     const { args } = f;
@@ -100,10 +100,16 @@ for (const race of ['none', 'rest-head', 'graphql-head', 'graphql-plan']) {
     f.finish();
     let reads = 0;
     let resolutions = 0;
+    let attestationReads = 0;
     const body = (record) => `<!-- sync-pr-delivery-record:v1 ${JSON.stringify(record)} -->`;
     const github = { paginate: async () => [],
       rest: { repos: { compareCommitsWithBasehead: async () => ({ data: { status: 'ahead' } }) },
-        issues: { getComment: async () => ({ data: args.comment }) },
+        issues: { getComment: async () => {
+          attestationReads++;
+          if (attestationReads === 2 && race === 'attestation-deleted') throw new Error('404 deleted');
+          return { data: attestationReads === 2 && race === 'attestation-edited'
+            ? { ...args.comment, body: 'Acceptance withdrawn' } : args.comment };
+        } },
         pulls: { get: async ({ repo }) => ({ data: repo === 'Workflows'
           ? { merged_at: '2026-10-04T00:00:00Z', merge_commit_sha: args.proof.source_fix_sha }
           : { state: 'open', head: { sha: race === 'rest-head' ? 'changed' : args.proof.head_sha },
@@ -125,7 +131,7 @@ for (const race of ['none', 'rest-head', 'graphql-head', 'graphql-plan']) {
     const end = source.indexOf('  // Parse repos from previous step', start);
     assert.ok(start > 0 && end > start);
     const sandbox = {
-      ...controller, validateIndependentFindingVerification: validate,
+      ...controller, ...require('../maint71_finding_verification'),
       parseDeliveryRecord: require('../sync_pr_lease_contract').parseDeliveryRecord,
       reviewResolutionProofs: [args.proof], reviewResolutionProofParseError: '',
       trustedResolutionActors: ['stranske'], reviewerProfiles: args.reviewerProfiles,
@@ -141,3 +147,54 @@ for (const race of ['none', 'rest-head', 'graphql-head', 'graphql-plan']) {
     assert.equal(result.errors.length, race === 'none' ? 0 : 1);
   });
 }
+
+test('stock top-level completion resolves its short ref to the exact full head', async () => {
+  const { collectOriginatingCompletions } = require('../maint71_finding_verification');
+  const f = fixture();
+  const completion = f.args.thread.comments.nodes.pop();
+  Object.assign(f.args.reviewerProfiles[0], { disposition_reviewed_commit_prefix: '**Reviewed commit:** ' });
+  const item = { body: `Clean review.\n**Reviewed commit:** \`${f.args.proof.head_sha.slice(0, 10)}\``,
+    user: completion.author, html_url: completion.url, created_at: completion.createdAt };
+  let calls = 0;
+  const github = { paginate: async () => [item], rest: { issues: { listComments() {} },
+    repos: { getCommit: async () => { calls++; return { data: { sha: f.args.proof.head_sha } }; } } } };
+  f.args.topLevelComments = await collectOriginatingCompletions({ owner: 'stranske', repo: 'Ready',
+    number: 1, head: f.args.proof.head_sha, profiles: f.args.reviewerProfiles, read: (fn) => fn(github) });
+  assert.equal(calls, 1);
+  assert.equal(validate(f.finish()).ok, true);
+  github.rest.repos.getCommit = async () => ({ data: { sha: 'different-full-head' } });
+  f.args.topLevelComments = await collectOriginatingCompletions({ owner: 'stranske', repo: 'Ready',
+    number: 1, head: f.args.proof.head_sha, profiles: f.args.reviewerProfiles, read: (fn) => fn(github) });
+  assert.equal(validate(f.finish()).ok, false);
+});
+
+test('collect all outer thread and inner comment pages, rejecting interrupted or changed pages', async () => {
+  const { collectFindingReviewState } = require('../maint71_finding_verification');
+  for (const variant of ['complete', 'head-changed', 'cursor-missing']) {
+    const calls = [];
+    const github = { graphql: async (_query, vars) => {
+      calls.push(vars);
+      if (vars.id) return { node: { comments: {
+        pageInfo: { hasNextPage: false }, nodes: [{ body: 'second-comment' }],
+      } } };
+      const second = Boolean(vars.after);
+      return { repository: { pullRequest: {
+        headRefOid: second && variant === 'head-changed' ? 'changed' : 'head',
+        body: 'stable-body', reviewThreads: {
+          pageInfo: { hasNextPage: !second, endCursor: variant === 'cursor-missing' ? null : 'outer-cursor' },
+          nodes: [{ id: second ? 'thread2' : 'thread1', isResolved: false, isOutdated: false,
+            comments: { pageInfo: { hasNextPage: !second, endCursor: 'inner-cursor' },
+              nodes: [{ body: 'first-comment' }] } }],
+        },
+      } } };
+    } };
+    const run = () => collectFindingReviewState({ owner: 'owner', repo: 'repo', number: 1,
+      read: (fn) => fn(github) });
+    if (variant !== 'complete') { await assert.rejects(run); continue; }
+    const result = await run();
+    assert.equal(result.reviewThreads.nodes.length, 2);
+    assert.equal(result.reviewThreads.nodes[0].comments.nodes.length, 2);
+    assert.equal(result.reviewThreads.pageInfo.hasNextPage, false);
+    assert.equal(calls.length, 3);
+  }
+});
