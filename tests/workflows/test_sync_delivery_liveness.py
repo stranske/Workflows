@@ -168,6 +168,7 @@ def test_maint71_reviewer_reassessment_is_trusted_request_only_dispatch():
     assert "sync/workflows-candidate" in executor_tests
     assert "sync/workflows-delivery" in executor_tests
     assert '"reassessment_comment": "@codex please reassess this specific finding"' in policy
+    assert '"disposition_comment": "@codex address that feedback"' in policy
     assert "client.rest.pulls.createReplyForReviewComment" in executor
     assert "comment_id: originId" in executor
     assert '"reassessment_comment": "@coderabbitai full review"' in policy

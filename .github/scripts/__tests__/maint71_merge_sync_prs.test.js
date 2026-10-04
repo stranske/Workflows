@@ -39,6 +39,8 @@ test('review reassessment parser accepts only exact versioned identities', () =>
     /missing or extra fields/);
   assert.throws(() => parseReviewReassessmentRequest(JSON.stringify({ ...request, head_sha: 'bad' })),
     /invalid identity/);
+  assert.throws(() => parseReviewReassessmentRequest(JSON.stringify({ ...request, request_stage: 'unknown' })),
+    /invalid identity/);
 });
 
 test('source-owned reviewer reassessment supports stable generated lanes without merge authority', async () => {
@@ -74,6 +76,7 @@ test('source-owned reviewer reassessment supports stable generated lanes without
   let merges = 0;
   let resolutions = 0;
   const github = {
+    paginate: async () => [],
     rest: {
       pulls: {
         get: async () => ({ data: pr }),
@@ -193,6 +196,54 @@ test('source-owned reviewer reassessment supports stable generated lanes without
   comments[0].user.login = 'untrusted';
   await runReviewReassessment(args);
   assert.equal(posts, 5, 'an untrusted marker is not a prior request');
+  const dispositionArgs = { ...args,
+    rawRequest: JSON.stringify({ ...request, request_stage: 'disposition' }) };
+  await assert.rejects(runReviewReassessment(dispositionArgs), /completed originating review/);
+  const completed = { fullDatabaseId: '9000000001',
+    author: { login: 'chatgpt-codex-connector' },
+    commit: { oid: request.head_sha }, createdAt: '2026-09-24T22:01:00Z',
+    body: "Codex Review: Didn't find any major issues.",
+    url: 'https://github.com/stranske/Ready/pull/592#discussion_r9000000001' };
+  thread.comments.nodes.push(completed);
+  completed.commit.oid = 'c'.repeat(40);
+  await assert.rejects(runReviewReassessment(dispositionArgs), /completed originating review/);
+  completed.commit.oid = request.head_sha;
+  completed.author.login = 'coderabbitai';
+  await assert.rejects(runReviewReassessment(dispositionArgs), /completed originating review/);
+  completed.author.login = 'chatgpt-codex-connector';
+  let siblingTruncated = true;
+  github.graphql = async (query) => {
+    const result = await originalGraphql(query);
+    const nodes = result.repository.pullRequest.reviewThreads.nodes;
+    nodes[0].comments.nodes = nodes[0].comments.nodes.filter((item) =>
+      item.fullDatabaseId !== completed.fullDatabaseId);
+    nodes.push({ id: 'PRRT_sibling', isResolved: false, isOutdated: false,
+      comments: { pageInfo: { hasNextPage: siblingTruncated }, nodes: [completed] } });
+    return result;
+  };
+  await assert.rejects(runReviewReassessment(dispositionArgs), /inventory is incomplete/);
+  siblingTruncated = false;
+  const disposition = await runReviewReassessment(dispositionArgs);
+  assert.equal(disposition.status, 'review_blocked_reassessment_requested');
+  assert.match(comments.at(-1).body, /@codex address that feedback/);
+  assert.match(comments.at(-1).body, /disposition-only task/);
+  assert.match(comments.at(-1).body, /maint71-review-disposition:v1/);
+  const postsAfterDisposition = posts;
+  await runReviewReassessment(dispositionArgs);
+  assert.equal(posts, postsAfterDisposition, 'disposition stage is independently idempotent');
+  github.graphql = originalGraphql;
+  thread.comments.nodes.pop();
+  comments.length = 0;
+  await runReviewReassessment(args);
+  github.paginate = async () => [{ user: { login: completed.author.login },
+    body: `${completed.body}\n\n**Reviewed commit:** \`${request.head_sha.slice(0, 10)}\``,
+    created_at: completed.createdAt }];
+  github.rest.repos = { getCommit: async () => ({ data: { sha: 'c'.repeat(40) } }) };
+  await assert.rejects(runReviewReassessment(dispositionArgs), /completed originating review/);
+  github.rest.repos.getCommit = async () => ({ data: { sha: request.head_sha } });
+  const topLevel = await runReviewReassessment(dispositionArgs);
+  assert.equal(topLevel.status, 'review_blocked_reassessment_requested');
+  github.paginate = async () => [];
   comments.length = 0;
   github.rest.pulls.createReplyForReviewComment = async () => {
     posts++;

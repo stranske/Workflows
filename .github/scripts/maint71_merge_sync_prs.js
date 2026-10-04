@@ -188,7 +188,8 @@ function parseReviewReassessmentRequest(raw = '') {
     throw new Error('Reviewer reassessment input is not valid JSON');
   }
   if (!request || typeof request !== 'object' || Array.isArray(request)
-    || Object.keys(request).sort().join(',') !== [...REASSESSMENT_FIELDS].sort().join(',')) {
+    || Object.keys(request).filter((field) => field !== 'request_stage').sort().join(',')
+      !== [...REASSESSMENT_FIELDS].sort().join(',')) {
     throw new Error('Reviewer reassessment input has missing or extra fields');
   }
   if (request.schema !== REASSESSMENT_SCHEMA
@@ -200,7 +201,8 @@ function parseReviewReassessmentRequest(raw = '') {
     || typeof request.generation !== 'string' || !request.generation.trim()
     || !/^[0-9a-f]{40}$/.test(request.source_commit)
     || typeof request.originating_reviewer !== 'string'
-    || !/^[a-z][a-z0-9-]*$/.test(request.originating_reviewer)) {
+    || !/^[a-z][a-z0-9-]*$/.test(request.originating_reviewer)
+    || (request.request_stage !== undefined && request.request_stage !== 'disposition')) {
     throw new Error('Reviewer reassessment input has invalid identity fields');
   }
   return request;
@@ -210,7 +212,8 @@ function reviewReassessmentMarker(request) {
   const canonical = Object.fromEntries(
     REASSESSMENT_FIELDS.map((field) => [field, request[field]]),
   );
-  return `<!-- maint71-review-reassessment:v1 ${JSON.stringify(canonical)} -->`;
+  const kind = request.request_stage === 'disposition' ? 'disposition' : 'reassessment';
+  return `<!-- maint71-review-${kind}:v1 ${JSON.stringify(canonical)} -->`;
 }
 
 // A separate workflow job calls this function only for an explicit trusted
@@ -234,7 +237,9 @@ async function runReviewReassessment({
   const policy = JSON.parse(fs.readFileSync(policyPath, 'utf8'));
   const profiles = normalizeReviewPolicy(policy).reviewers;
   const profile = profiles.find((item) => item.id === request.originating_reviewer);
-  const command = String(profile?.reassessment_comment || '').trim();
+  const dispositionOnly = request.request_stage === 'disposition';
+  const command = String((dispositionOnly ? profile?.disposition_comment
+    : profile?.reassessment_comment) || '').trim();
   if (!profile || !/^@[A-Za-z0-9-]+(?:\s+[A-Za-z0-9-]+)*$/.test(command)) {
     throw new Error('Originating reviewer has no configured reassessment command');
   }
@@ -269,7 +274,7 @@ async function runReviewReassessment({
                 id isResolved isOutdated
                 comments(first: 100) {
                   pageInfo { hasNextPage }
-                  nodes { fullDatabaseId author { login } body createdAt url }
+                  nodes { fullDatabaseId author { login } body createdAt url commit { oid } }
                 }
               }
             }
@@ -292,7 +297,7 @@ async function runReviewReassessment({
     if (reviewerProfileForLogin(origin, profiles) !== request.originating_reviewer) {
       throw new Error('Review thread origin does not match requested reviewer');
     }
-    return { pr, thread };
+    return { pr, thread, threads: connection.nodes };
   }
   await readBoundState();
   const { data: writer } = await withRetry((client) => client.rest.users.getAuthenticated());
@@ -315,7 +320,44 @@ async function runReviewReassessment({
   }
   let comment = found;
   if (!comment) {
+    if (dispositionOnly) {
+      const priorMarker = reviewReassessmentMarker({ ...request, request_stage: undefined });
+      const prior = current.thread.comments.nodes.find((item) =>
+        trustedWriters.has(item?.author?.login)
+        && String(item?.body || '').includes(priorMarker));
+      if (current.threads.some((item) => item.comments?.pageInfo?.hasNextPage !== false
+        || !Array.isArray(item.comments?.nodes))) {
+        throw new Error('Review-thread inventory is incomplete');
+      }
+      const isCompletion = (item) =>
+        reviewerProfileForLogin(item?.author?.login, profiles) === request.originating_reviewer
+        && Date.parse(item?.createdAt || '') > Date.parse(prior?.createdAt || '')
+        && (profile.disposition_completion_prefixes || []).some((prefix) =>
+          String(item?.body || '').startsWith(prefix));
+      let completed = current.threads.flatMap((item) => item.comments.nodes).some((item) =>
+        isCompletion(item) && item?.commit?.oid === request.head_sha);
+      if (prior && !completed) {
+        const comments = await withRetry((client) => client.paginate(client.rest.issues.listComments,
+          { owner, repo, issue_number: request.pr, per_page: 100 }));
+        for (const item of comments) {
+          if (!isCompletion({ ...item, author: item.user, createdAt: item.created_at })) continue;
+          const prefix = String(profile.disposition_reviewed_commit_prefix || '');
+          if (!prefix) continue;
+          const line = String(item.body || '').split('\n').find((value) => value.startsWith(prefix));
+          const ref = line?.slice(prefix.length).match(/`([0-9a-f]{10,40})`/)?.[1];
+          if (!ref || !request.head_sha.startsWith(ref)) continue;
+          const { data: commit } = await withRetry((client) => client.rest.repos.getCommit({
+            owner, repo, ref,
+          }));
+          if (commit.sha === request.head_sha) { completed = true; break; }
+        }
+      }
+      if (!prior || !completed) {
+        throw new Error('Disposition task requires a completed originating review on this binding');
+      }
+    }
     const body = [`${command} on exact head ${request.head_sha}`,
+      ...(dispositionOnly ? ['This is a disposition-only task, not another general review. Answer the original finding with explicit ACCEPT or REJECT in this existing thread; do not create a separate finding thread.'] : []),
       `Maint 71 requests ${request.originating_reviewer} to reassess active thread ` +
         `${request.thread_id} on exact generated head ${request.head_sha}. ` +
         `The thread remains merge-blocking until reviewer disposition.`,
