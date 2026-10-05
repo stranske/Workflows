@@ -76,8 +76,12 @@ the comments channel; a present body or artifact cannot substitute for absent
 or unavailable comments. Optional, prohibited and product capability statements
 do not create that obligation.
 These presence predicates normalize to the existing passive-record grammar
-before polarity and modality classification, so `not expected`, `not supposed`,
-`no evidence` and `no longer required` cannot become affirmative floors.
+before polarity and modality classification, only when the mandatory auxiliary
+directly governs that predicate. Preserve
+subject-level `No`, exclude collection/product-preview clauses, and normalize
+equivalent `comments on/in the PR` destinations before matching presence.
+Thus `not expected`, `not supposed`, `no evidence` and `no longer required`
+cannot become affirmative floors.
 The same bounded adverbs apply to ordinary coordinated capability actions,
 prohibited predicates and modifiers inside perfect passive auxiliaries. Definite
 future (`will`) attached delivery retains its obligation. Conditional body records

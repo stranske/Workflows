@@ -1035,16 +1035,29 @@ def _required_evidence_channels(acceptance: str, *, _bind_attached: bool = True)
         + delivery_destination_item
         + r")*"
     )
+    # Normalize equivalent destinations before presence predicates, not after.
+    acceptance = re.sub(
+        r"\bcomments?\s+(?:on|in)\s+(?:(?:the|an?)\s+)?(?:pr|pull request)\b",
+        "PR comment",
+        acceptance,
+        flags=re.I,
+    )
     # Presence predicates use the existing passive-delivery grammar, including
     # governing negation and modality, instead of a second affirmative regex.
     acceptance = re.sub(
-        r"(?P<prefix>\b(?:evidence|command outputs?|transcripts?)\b.{0,40}?)"
+        r"(?P<prefix>\b(?:no\s+)?"
+        + evidence_modifiers
+        + r"(?:evidence|command outputs?|transcripts?)\s+"
+        + mandatory_auxiliary
+        + r"\s+"
+        + delivery_adverbs
+        + r"(?:not\s+)?)"
         r"(?:appear|be\s+present)"
         r"(?P<destination>\s+in\s+(?:an?\s+|the\s+)?"
         r"(?:pr comments?|pull request comments?)\b)",
         lambda match: (
             match["prefix"] + "be recorded" + match["destination"]
-            if re.search(mandatory_auxiliary, match["prefix"], re.I)
+            if not re.match(r"no\s+", match["prefix"], re.I)
             else match[0]
         ),
         acceptance,
@@ -1119,14 +1132,6 @@ def _required_evidence_channels(acceptance: str, *, _bind_attached: bool = True)
         + r"(?:evidence|artifacts?|transcripts?|command outputs?|pr comments?|pull request comments?)\b"
         r"|\s+" + destination_preposition + r"(?:both\s+)?" + delivery_destination_item + r")",
         normalize_record_alias,
-        acceptance,
-        flags=re.I,
-    )
-    # Canonicalize the same explicit PR destination before clause/negation
-    # processing, so an unrelated artifact cannot satisfy required comments.
-    acceptance = re.sub(
-        r"\bcomments?\s+(?:on|in)\s+(?:(?:the|an?)\s+)?(?:pr|pull request)\b",
-        "PR comment",
         acceptance,
         flags=re.I,
     )

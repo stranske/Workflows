@@ -15,9 +15,14 @@ NODE = shutil.which("node")
 
 
 @pytest.mark.parametrize("predicate", ["appear", "be present"])
+@pytest.mark.parametrize(
+    "destination", ["in a PR comment", "in comments on the PR", "in comments in the pull request"]
+)
 @pytest.mark.parametrize("noun", ["Test evidence", "Validation command output", "Test transcript"])
-def test_mandatory_evidence_presence_in_comments_cannot_use_other_channels(predicate, noun):
-    criterion = f"{noun} must {predicate} in a PR comment"
+def test_mandatory_evidence_presence_in_comments_cannot_use_other_channels(
+    predicate, destination, noun
+):
+    criterion = f"{noun} must {predicate} {destination}"
     assert pr_verifier._required_evidence_channels(criterion) == {"comments"}
     for status in ("absent", "unavailable", "present"):
         evidence = (
@@ -47,15 +52,20 @@ def test_mandatory_evidence_presence_in_comments_cannot_use_other_channels(predi
         "Test evidence is not expected to be present in a PR comment",
         "Test evidence is not supposed to appear in a PR comment",
         "No test evidence must appear in a PR comment",
+        "No test evidence is required to appear in a PR comment",
+        "No validation command output is required to be present in comments on the PR",
+        "Evidence must be collected, and the UI makes it appear in a PR comment preview",
+        "Evidence must be collected; the UI makes it appear in a PR comment preview",
         "Test evidence is no longer required to appear in a PR comment",
         "The UI lets users make test evidence appear in a PR comment preview",
     ],
 )
 def test_evidence_presence_keeps_optional_prohibited_and_product_boundaries(criterion):
-    assert pr_verifier._required_evidence_channels(criterion) == set()
+    expected = {"overall"} if criterion.startswith("Evidence must be collected;") else set()
+    assert pr_verifier._required_evidence_channels(criterion) == expected
     assert pr_verifier._required_evidence_channels(
         criterion + "; the reviewer must post validation evidence in a PR comment"
-    ) == {"comments"}
+    ) == expected | {"comments"}
 
 
 @pytest.mark.parametrize("operation", ["submit", "deliver", "record", "post"])
