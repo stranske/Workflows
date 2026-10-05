@@ -1135,7 +1135,7 @@ def _required_evidence_channels(acceptance: str, *, _bind_attached: bool = True)
             ):
                 return match[0]
         if alias.lower() == "put" and re.search(
-            r"\b(?:is|are|was|were|be|been|being)\s+"
+            r"\b(?:(?:is|are|was|were)(?:n['’]t)?|be|been|being)\s+"
             r"(?:(?:not|never|no\s+longer|" + delivery_adverb + r")\s+)*$",
             acceptance[: match.start()],
             re.I,

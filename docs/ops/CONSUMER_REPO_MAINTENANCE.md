@@ -1294,6 +1294,8 @@ Finite passive auxiliaries (`is`, `are`, `was`, `were`) share the same alias
 normalization and bounded adverb/polarity vocabulary. Negated finite progressive
 and passive delivery is removed before both body and residual channel
 classification; an independent affirmative reviewer clause retains its channel.
+Straight and curly contracted finite auxiliaries retain passive alias identity
+before clause-level contraction normalization.
 Negated obligations use the same delivery-operation grammar as positive
 delivery. An explicitly excluded PR-comment destination (`outside`, `rather
 than`, `instead of`) is not a required comment channel; generic evidence and

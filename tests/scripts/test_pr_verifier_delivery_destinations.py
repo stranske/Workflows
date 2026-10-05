@@ -10,6 +10,19 @@ from scripts.langchain import pr_verifier as verifier
 
 
 @pytest.mark.parametrize(
+    "predicate", ["isn't", "isn’t", "aren't", "aren’t", "wasn't", "wasn’t", "weren't", "weren’t"]
+)
+@pytest.mark.parametrize("adverb", ["", "already ", "previously ", "still "])
+@pytest.mark.parametrize("destination", ["in the database", "to clients"])
+def test_contracted_finite_passive_put_preserves_negation(predicate, adverb, destination):
+    criterion = f"Evidence {predicate} {adverb}put {destination} by the service"
+    assert verifier._required_evidence_channels(criterion) == set()
+    assert verifier._required_evidence_channels(
+        criterion + "; include evidence in a PR comment"
+    ) == {"comments"}
+
+
+@pytest.mark.parametrize(
     "predicate",
     [
         "is not",
