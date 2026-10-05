@@ -2624,12 +2624,21 @@ for (const strategy of ['merge', 'squash', 'rebase', 'rebase-unchanged', 'merge-
         fetchLocalDiff(options) {
           return fetchLocalGitDiff({ ...options,
             execFile(command, args, config) {
-              return execFileSync(command, args, { ...config, cwd: repoPath });
+              // Match the fixture's git helper and avoid inherited runner streams.
+              return execFileSync(command, args, {
+                ...config,
+                cwd: repoPath,
+                stdio: ['ignore', 'pipe', 'pipe'],
+              });
             },
           });
         },
       });
-      assert.equal(result.shouldRun, true);
+      assert.equal(
+        result.shouldRun,
+        true,
+        [core.outputs.skip_reason, ...core.warnings].filter(Boolean).join('\n')
+      );
       assert.match(result.markdown, /first\.txt/);
       assert.match(result.markdown, /second\.txt/);
       assert.doesNotMatch(result.markdown, /sibling\.txt|later\.txt/);
