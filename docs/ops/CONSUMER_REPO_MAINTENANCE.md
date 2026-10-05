@@ -1283,10 +1283,14 @@ commit must resolve through GitHub to the exact full head, and the summary's
 update time must corroborate that failure. Pending/completed activity, mixed
 activity rows, ambiguous summaries, forged authors and old heads fail closed.
 All sibling-thread comment inventories must also be complete. Explicit
-originating ACCEPT/REJECT replies suppress retry just as stock completion does;
+originating replies that start with ACCEPT/REJECT suppress retry just as stock completion does;
+quoted instructions or statements such as "I cannot ACCEPT or REJECT yet" do not.
 neither is treated as acceptance by the request-only job. Re-read the delivery,
 lease, active thread and original request after summary/commit discovery and
 before posting; a newly appeared retry marker aborts the POST for recovery.
+Repaginate provider conversation comments after the fresh binding read too:
+an edited failure summary aborts retry, and a newly posted completion suppresses it.
+Revalidate bindings again after that pagination; do not authorize from a stale snapshot.
 The canonical `maint71-review-retry:v1` marker makes repeated dispatches reuse
 one request rather than creating a retry loop. Retry grants no reviewer
 acceptance, resolution, sealing or merge authority; an automated reply remains

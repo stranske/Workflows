@@ -336,7 +336,7 @@ async function runReviewReassessment({
         || !failure?.marker || !failure?.row_pattern) {
         throw new Error('Review retry requires one original request and configured terminal-failure proof');
       }
-      const comments = await withRetry((client) => client.paginate(client.rest.issues.listComments,
+      let comments = await withRetry((client) => client.paginate(client.rest.issues.listComments,
         { owner, repo, issue_number: request.pr, per_page: 100 }));
       if (!Array.isArray(comments)) throw new Error('Review retry comment inventory is incomplete');
       const summaries = comments.filter((item) =>
@@ -360,6 +360,19 @@ async function runReviewReassessment({
       // External summary and commit lookups can outlive the inspected head or
       // a concurrent request. Re-read all bindings before the non-retryable POST.
       current = await readBoundState();
+      // A provider can edit its top-level status during the commit lookup.
+      // Refresh that evidence too; changed failure proof needs a new inspection.
+      comments = await withRetry((client) => client.paginate(client.rest.issues.listComments,
+        { owner, repo, issue_number: request.pr, per_page: 100 }));
+      if (!Array.isArray(comments)) throw new Error('Review retry comment inventory is incomplete');
+      const freshSummaries = comments.filter((item) =>
+        reviewerProfileForLogin(item?.user?.login, profiles) === request.originating_reviewer
+        && String(item?.body || '').startsWith(failure.marker));
+      if (freshSummaries.length !== 1 || freshSummaries[0].body !== summaries[0].body
+        || freshSummaries[0].updated_at !== summaries[0].updated_at) {
+        throw new Error('Review retry terminal-failure proof changed during discovery');
+      }
+      current = await readBoundState();
       const freshPriors = current.thread.comments.nodes.filter((item) =>
         trustedWriters.has(item?.author?.login)
         && String(item?.body || '').includes(priorMarker));
@@ -381,8 +394,8 @@ async function runReviewReassessment({
         && Date.parse(createdAt || '') > failedAt
         && ((profile.disposition_completion_prefixes || []).some((prefix) =>
           String(item?.body || '').startsWith(prefix))
-          || /\b(?:ACCEPT|REJECT)\b/i.test(String(item?.body || ''))
-          || String(item?.body || '').includes(`<!-- sync-review-accepted:${request.head_sha} -->`));
+          || /^\s*(?:\*\*)?(?:ACCEPT|REJECT)\b/i.test(String(item?.body || ''))
+          || String(item?.body || '').trimStart().startsWith(`<!-- sync-review-accepted:${request.head_sha} -->`));
       if (current.threads.flatMap((item) => item.comments.nodes).some((item) =>
         item?.commit?.oid === request.head_sha
         && laterCompletion(item, item?.author?.login, item?.createdAt))

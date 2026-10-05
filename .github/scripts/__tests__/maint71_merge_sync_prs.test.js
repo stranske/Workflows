@@ -32,14 +32,14 @@ test('failed reviewer retry is exact-head, terminal-only, once per binding and r
     updated_at: '2026-09-24T22:01:01Z',
     body: '<!-- codex-pull-request-review-summary -->\n| Review | Status | Commit | Review trigger |\n| --- | --- | --- | --- |\n' + failedRow };
   let summaries = [summary], resolvedSha = request.head_sha, posts = 0;
-  let paginationRace = false, siblingComplete = true;
+  let paginationRace = false, siblingComplete = true, commitRace = '';
   const pr = { state: 'open', draft: false, auto_merge: null,
     user: { login: 'stranske-automation-bot' },
     head: { ref: 'sync/workflows-candidate', sha: request.head_sha },
     body: '<!-- sync-pr-delivery-record:v1 ' + JSON.stringify(record) + ' -->' };
   const github = { paginate: async () => {
     if (paginationRace) pr.head.sha = 'c'.repeat(40);
-    return summaries;
+    return structuredClone(summaries);
   }, rest: {
     users: { getAuthenticated: async () => ({ data: { login: 'stranske' } }) },
     pulls: {
@@ -55,7 +55,13 @@ test('failed reviewer retry is exact-head, terminal-only, once per binding and r
       },
     },
     issues: { listComments: () => {} },
-    repos: { getCommit: async () => ({ data: { sha: resolvedSha } }) },
+    repos: { getCommit: async () => {
+      if (commitRace === 'edited-completion') summary.body = summary.body.replace('Failed', 'Completed');
+      if (commitRace === 'posted-completion') summaries.push({
+        user: { login: 'chatgpt-codex-connector' }, created_at: '2026-09-24T22:01:30Z',
+        body: "Codex Review: Didn't find any major issues." });
+      return { data: { sha: resolvedSha } };
+    } },
   }, graphql: async () => ({ repository: { pullRequest: { reviewThreads: {
     pageInfo: { hasNextPage: false }, nodes: [{ id: request.thread_id,
       isResolved: false, isOutdated: false,
@@ -74,7 +80,8 @@ test('failed reviewer retry is exact-head, terminal-only, once per binding and r
     'completed', 'wrong-head', 'ambiguous-commit', 'stale-failure', 'future-failure',
     'stale-update', 'multiple-rows', 'missing-prior', 'duplicate-prior', 'changed-head',
     'subsequent-completion', 'explicit-acceptance', 'explicit-rejection',
-    'partial-sibling', 'indented-running-row', 'pagination-head-race']) {
+    'partial-sibling', 'indented-running-row', 'pagination-head-race',
+    'edited-completion', 'posted-completion']) {
     const savedBody = summary.body, savedUpdate = summary.updated_at;
     summaries = [summary]; resolvedSha = request.head_sha;
     if (defect === 'missing-summary') summaries = [];
@@ -103,14 +110,27 @@ test('failed reviewer retry is exact-head, terminal-only, once per binding and r
     if (defect === 'partial-sibling') siblingComplete = false;
     if (defect === 'indented-running-row') summary.body += '\n  | Code Review | Running | `aaaaaaa` | Manual request |';
     if (defect === 'pagination-head-race') paginationRace = true;
+    if (['edited-completion', 'posted-completion'].includes(defect)) commitRace = defect;
     await assert.rejects(runReviewReassessment(args), /retry|delivery changed/i, defect);
     assert.equal(posts, 0, defect);
     summary.body = savedBody; summary.updated_at = savedUpdate;
     summary.user.login = 'chatgpt-codex-connector[bot]'; pr.head.sha = request.head_sha;
-    paginationRace = false; siblingComplete = true;
+    paginationRace = false; siblingComplete = true; commitRace = '';
     if (['explicit-acceptance', 'explicit-rejection'].includes(defect)) nodes.pop();
     if (defect === 'missing-prior') nodes.push(prior);
     if (defect === 'duplicate-prior') nodes.pop();
+  }
+  for (const body of ['I cannot ACCEPT or REJECT this yet',
+    '> Reply ACCEPT or REJECT in this thread',
+    `The request asks for <!-- sync-review-accepted:${request.head_sha} -->`]) {
+    summaries = [summary]; resolvedSha = request.head_sha;
+    nodes.push({ fullDatabaseId: '14', author: { login: 'chatgpt-codex-connector' },
+      createdAt: '2026-09-24T22:01:30Z', commit: { oid: request.head_sha }, body });
+    const permitted = await runReviewReassessment(args);
+    assert.equal(permitted.status, 'review_blocked_reassessment_requested', body);
+    assert.equal(posts, 1, body);
+    // Reset the independent fixture; each scenario starts without a retry marker.
+    nodes.pop(); nodes.pop(); posts = 0;
   }
   summaries = [summary]; resolvedSha = request.head_sha;
   const first = await runReviewReassessment(args);
