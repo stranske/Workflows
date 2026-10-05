@@ -587,7 +587,7 @@ scripts:
     description: "Updates PR body with stable completed dependency-provenance results, observer exclusion, and exact-head Gate visibility"
 
   - source: .github/scripts/agents_verifier_context.js
-    description: "Verifier context with mandatory unavailable linked-issue discovery, known non-closing source-issue retrieval, independent body/comment/artifact evidence, complete exact-head explicit-reference artifact scope, fail-closed associated discovery and aggregate availability, literal destination metadata and complete post-merge diffs"
+    description: "Verifier context with mandatory unavailable linked-issue discovery, known non-closing source-issue retrieval, independent body/comment/artifact evidence, complete exact-head typed/labelled explicit-union artifact scope selected before budgeting, incidental-only associated discovery, fail-closed aggregate availability, literal destination metadata and complete post-merge diffs"
 
   - source: .github/scripts/agents_dispatch_summary.js
     description: "Summarizes agent dispatch operations"

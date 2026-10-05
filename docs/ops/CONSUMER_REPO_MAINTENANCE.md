@@ -1143,11 +1143,28 @@ Overall retrieval availability includes the independently bounded PR body,
 comments and artifacts. A present body can supply generic retrieval availability
 when other channels are completely inspected and absent, not unavailable.
 Availability alone does not identify or satisfy the required evidence. Complete, provenance-validated
-explicit workflow-run references define the artifact retrieval set when both
+explicit workflow-run references in typed evidence inputs or locally labelled
+evidence/validation/artifact/test-result lines define the artifact retrieval set when both
 reference-bearing body and comment channels were fully inspected. Unrelated
-associated head/merge jobs cannot exhaust that set's run budget. Without complete
+associated head/merge jobs and incidental status URLs cannot exhaust that set's
+run budget. Select the deduplicated union of typed and labelled explicit IDs
+before budget accounting and provenance validation. Without complete
 explicit references, bounded associated-run discovery remains fail-closed.
-Wrong-head references, excess referenced runs, partial artifact pages, expired
+Incidental body/comment URLs, including status-table `View run` links, do not
+select an exclusive evidence set: when no explicit set exists, continue exact-head associated-run discovery
+so an unrelated no-artifact status job cannot hide the actual validation artifact.
+Production PR and linked-issue bodies are reference-bearing prose, not typed
+evidence inputs. Keep them in their own source channels; a duplicate body passed
+through the legacy evidence input must not promote incidental URLs to explicit
+scope. Labelled evidence in those sources still participates in scope selection.
+Generated status rows ending in a result column and `View run` link are excluded before
+keyword labelling, even when the workflow name contains `Validation` or
+`Artifact` or includes unescaped pipe separators. When no explicit set exists, their URLs receive provenance inspection
+and do not suppress associated-run discovery. With an explicit set, incidental
+URLs are outside the selected scope. A completely inspected explicit set with
+zero artifacts remains absent; do not search unrelated runs for substitute proof.
+Wrong-head selected references, excess selected runs, incomplete reference-bearing
+sources, partial artifact pages, expired
 archives and truncated contents still make artifacts unavailable; scope selection
 does not prove that any particular acceptance criterion was satisfied.
 Any unavailable eligible channel keeps destination-free aggregate retrieval

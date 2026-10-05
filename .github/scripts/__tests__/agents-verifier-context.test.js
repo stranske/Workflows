@@ -1178,6 +1178,29 @@ test('buildVerifierContext binds explicit artifact completeness to linked-issue 
   }
 });
 
+test('production source and template discover artifacts beyond a status-table body link', async () => {
+  const templateImpl = require('../../../templates/consumer-repo/.github/scripts/agents_verifier_context.js').buildVerifierContext;
+  const builders = [
+    buildVerifierContext,
+    options => templateImpl({ ...options, fetchLocalDiff: () => options.github.__testDiffText }),
+  ];
+  for (const builder of builders) {
+    const { result } = await buildEvidenceContext({
+      prBody: prBodyFixture + '\n| CI | SUCCESS | [View run](https://github.com/octo/workflows/actions/runs/123) |',
+      runsForRepo: {
+        ['b'.repeat(40)]: [{ id: 124, head_sha: 'b'.repeat(40) }],
+        ['c'.repeat(40)]: [],
+      },
+      artifactsByRun: { 124: [{ id: 17, name: 'actual-validation', size_in_bytes: 120, expired: false }] },
+      artifactDownloads: { 17: Buffer.from('zip bytes') },
+    }, { extractArtifactText: () => ({ text: 'actual RED then GREEN', truncated: false }) }, builder);
+    try {
+      assert.match(result.markdown, /Referenced workflow artifacts: \*\*present\*\*/);
+      assert.match(result.markdown, /actual RED then GREEN/);
+    } finally { removeVerifierDiffArtifacts(result); }
+  }
+});
+
 test('buildVerifierContext discovers artifacts from an associated PR head without a run URL', async () => {
   const headSha = 'bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb';
   const { core, result } = await buildEvidenceContext({
@@ -1510,7 +1533,7 @@ test('explicit artifact scope requires complete reference sources even with comp
               issues: { listComments: async () => ({
                 data: defect === 'invalid-comments' ? {} :
                   defect === 'truncated-comment' ? [{ body: url + 'x'.repeat(100) }] :
-                    defect === 'comment-reference' ? [{ body: url }] : [],
+                    defect === 'comment-reference' ? [{ body: 'Evidence run: ' + url }] : [],
                 headers: defect === 'partial-comments' ? { link: 'rel="next"' } : {},
               }) },
               pulls: { listReviewComments: empty, listReviews: empty },
@@ -1534,7 +1557,7 @@ test('explicit artifact scope requires complete reference sources even with comp
               github, owner: 'octo', repo: 'workflows', pullNumber: 700,
               pullRequestBody: defect === 'missing-body' ? undefined :
                 defect === 'truncated-body' ? url + 'x'.repeat(100) :
-                  defect === 'body-reference' ? url : '',
+                  defect === 'body-reference' ? 'Evidence run: ' + url : '',
               evidenceTexts: ['body-reference', 'comment-reference'].includes(defect) ? [] :
                 [url + (defect === 'excess-references' ? ' ' + url.replace('123', '124') : '')],
               referenceSourcesComplete: defect !== 'partial-issues',

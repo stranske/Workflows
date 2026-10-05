@@ -454,6 +454,7 @@ async function fetchVerifierEvidence({
   repo,
   pullNumber,
   evidenceTexts,
+  referenceTexts = [],
   referenceSourcesComplete = true,
   pullRequestBody,
   associatedCommitShas = [],
@@ -539,7 +540,24 @@ async function fetchVerifierEvidence({
   }
 
   const artifacts = { status: 'absent', complete: true, records: [], reason: '' };
-  const allRunIds = extractReferencedRunIds([pullRequestBody, ...(evidenceTexts || []), ...commentBodies]);
+  const allReferencedRunIds = extractReferencedRunIds([pullRequestBody, ...(evidenceTexts || []), ...referenceTexts, ...commentBodies]);
+  // A status-table "View run" or bare incidental body/comment URL is not an
+  // explicit evidence selection. Typed evidence inputs and locally labelled
+  // evidence lines select their union before budgeting; incidental links retain
+  // discovery only when no explicit set exists.
+  const labelledEvidenceLines = [pullRequestBody, ...referenceTexts, ...commentBodies]
+    .flatMap((text) => String(text || '').split('\n'))
+    .filter((line) => !/^\s*\|[^\n]+\|[^|\n]+\|\s*\[View run\]\([^\n)]+\)\s*\|\s*$/i.test(line))
+    .filter((line) => /\b(?:evidence|validation|artifacts?|test results?|red\s+(?:then\s+)?green)\b/i.test(line));
+  const explicitEvidenceRunIds = new Set(
+    extractReferencedRunIds([
+      ...(evidenceTexts || []).filter((text) => String(text || '') !== String(pullRequestBody || '')),
+      ...labelledEvidenceLines,
+    ])
+  );
+  const allRunIds = explicitEvidenceRunIds.size
+    ? Array.from(explicitEvidenceRunIds)
+    : allReferencedRunIds;
   const referencedRunIds = allRunIds.slice(0, runLimit);
   const runIds = [];
   const seenRunIds = new Set();
@@ -593,6 +611,7 @@ async function fetchVerifierEvidence({
   // associated-run discovery and retain the existing fail-closed behavior.
   const completeExplicitReferences = (
     referencedRunIds.length > 0
+    && referencedRunIds.every((runId) => explicitEvidenceRunIds.has(runId))
     && allRunIds.length === referencedRunIds.length
     && runIds.length === referencedRunIds.length
     && referenceInspectionComplete
@@ -1267,7 +1286,7 @@ async function buildVerifierContext({
     repo,
     pullNumber: pull.number,
     pullRequestBody: pull.body,
-    evidenceTexts: [pull.body || '', ...closingIssues.map((issue) => issue.body || '')],
+    referenceTexts: closingIssues.map((issue) => issue.body || ''),
     referenceSourcesComplete: closingIssueDiscovery.status === 'included',
     associatedCommitShas: [pull.head?.sha, pull.merge_commit_sha],
     extractArtifactText,

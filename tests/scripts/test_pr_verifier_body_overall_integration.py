@@ -1,6 +1,7 @@
 """Exercise the actual JavaScript evidence producer through Python verdict flooring."""
 
 import json
+import os
 import shutil
 import subprocess
 from pathlib import Path
@@ -204,6 +205,121 @@ def test_qualified_body_exemptions_preserve_independent_delivery(noun, template)
 )
 def test_qualified_body_delivery_preserves_optional_negative_and_product_boundaries(criterion):
     assert pr_verifier._required_evidence_channels(criterion) == set()
+
+
+@pytest.mark.skipif(NODE is None, reason="Node is required for producer integration")
+@pytest.mark.parametrize("source", ["body", "comment", "production-body"])
+@pytest.mark.parametrize(
+    "workflow", ["CI", "Validation", "Artifact validation", "Validation | Linux", "Artifact | Mac"]
+)
+def test_incidental_status_run_link_does_not_suppress_artifact_discovery(source, workflow):
+    """A status-table link is not an explicit validation-evidence selection."""
+    script = r"""
+const {fetchVerifierEvidence}=require('./.github/scripts/agents_verifier_context.js');
+const {source,workflow}=JSON.parse(require('fs').readFileSync(0,'utf8'));
+const sha='a'.repeat(40), status='| '+workflow+' | SUCCESS | [View run](https://github.com/owner/repo/actions/runs/123) |';
+let discoveries=0;
+const empty=async()=>({data:[]});
+const github={rest:{issues:{listComments:async()=>({data:source==='comment'?[{id:1,body:status}]:[]})},
+pulls:{listReviewComments:empty,listReviews:empty},actions:{
+getWorkflowRun:async()=>({data:{id:123,head_sha:sha}}),
+listWorkflowRunsForRepo:async()=>{discoveries++;return {data:{total_count:1,workflow_runs:[{id:124,head_sha:sha}]}}},
+listWorkflowRunArtifacts:async({run_id})=>({data:{total_count:run_id===124?1:0,artifacts:run_id===124?[{id:9,size_in_bytes:10,expired:false}]:[]}}),
+downloadArtifact:async()=>({data:Buffer.from('zip')})}}};
+fetchVerifierEvidence({github,owner:'owner',repo:'repo',pullNumber:1,
+pullRequestBody:source==='body'||source==='production-body'?status:'',associatedCommitShas:[sha],
+evidenceTexts:source==='production-body'?[status]:[],
+extractArtifactText:()=>({text:'RED then GREEN',truncated:false})})
+.then(e=>process.stdout.write(JSON.stringify({discoveries,status:e.artifacts.status})))
+.catch(e=>{console.error(e);process.exit(1)});
+"""
+    produced = json.loads(
+        subprocess.check_output(
+            [NODE, "-e", script],
+            cwd=ROOT,
+            input=json.dumps({"source": source, "workflow": workflow}),
+            text=True,
+        )
+    )
+    assert produced == {"discoveries": 1, "status": "present"}
+
+
+@pytest.mark.skipif(NODE is None, reason="Node is required for producer integration")
+@pytest.mark.parametrize("channel", ["body", "comment", "issue"])
+@pytest.mark.parametrize("explicit", ["typed", "labelled"])
+@pytest.mark.parametrize("overflow", [False, True])
+def test_explicit_artifact_scope_ignores_incidental_reference_budget(channel, explicit, overflow):
+    """Incidental status URLs cannot change a complete selected proof set."""
+    script = r"""
+const {fetchVerifierEvidence}=require('./.github/scripts/agents_verifier_context.js');
+const {channel,explicit,overflow}=JSON.parse(require('fs').readFileSync(0,'utf8'));
+const sha='a'.repeat(40), url='https://github.com/owner/repo/actions/runs/123';
+const count=overflow?5:1, rows=Array.from({length:count},(_,i)=>
+'| Validation | SUCCESS | [View run](https://github.com/owner/repo/actions/runs/'+(125+i)+') |').join('\n');
+const prose=rows+(explicit==='labelled'?'\nValidation evidence: '+url:'');
+const empty=async()=>({data:[]}), inspected=[];let discoveries=0;
+const github={rest:{issues:{listComments:async()=>({data:channel==='comment'?[{id:1,body:prose}]:[]})},
+pulls:{listReviewComments:empty,listReviews:empty},actions:{
+getWorkflowRun:async({run_id})=>{inspected.push(run_id);if(run_id!==123)throw Error('incidental run is outside selected scope');return {data:{id:123,head_sha:sha}}},
+listWorkflowRunsForRepo:async()=>{discoveries++;throw Error('explicit set must not discover unrelated runs')},
+listWorkflowRunArtifacts:async()=>({data:{total_count:1,artifacts:[{id:9,size_in_bytes:10,expired:false}]}}),
+downloadArtifact:async()=>({data:Buffer.from('zip')})}}};
+fetchVerifierEvidence({github,owner:'owner',repo:'repo',pullNumber:1,
+pullRequestBody:channel==='body'?prose:'',referenceTexts:channel==='issue'?[prose]:[],
+evidenceTexts:explicit==='typed'?[url]:[],associatedCommitShas:[sha],
+extractArtifactText:()=>({text:'RED then GREEN',truncated:false})})
+.then(e=>process.stdout.write(JSON.stringify({inspected,discoveries,status:e.artifacts.status})))
+.catch(e=>{console.error(e);process.exit(1)});
+"""
+    produced = json.loads(
+        subprocess.check_output(
+            [NODE, "-e", script],
+            cwd=ROOT,
+            input=json.dumps({"channel": channel, "explicit": explicit, "overflow": overflow}),
+            text=True,
+            env={**os.environ, "VERIFIER_EVIDENCE_RUN_LIMIT": "1"},
+        )
+    )
+    assert produced == {"inspected": [123], "discoveries": 0, "status": "present"}
+
+
+@pytest.mark.skipif(NODE is None, reason="Node is required for producer integration")
+@pytest.mark.parametrize("mode", ["union", "empty", "wrong-head", "excess", "incomplete"])
+def test_selected_explicit_union_retains_fail_closed_controls(mode):
+    """Incidental exclusion never repairs selected-set provenance or completeness."""
+    script = r"""
+const {fetchVerifierEvidence}=require('./.github/scripts/agents_verifier_context.js');
+const mode=JSON.parse(require('fs').readFileSync(0,'utf8')), sha='a'.repeat(40);
+const url=id=>'https://github.com/owner/repo/actions/runs/'+id;
+const empty=async()=>({data:[]}), inspected=[];let discoveries=0;
+const github={rest:{issues:{listComments:empty},pulls:{listReviewComments:empty,listReviews:empty},actions:{
+getWorkflowRun:async({run_id})=>{inspected.push(run_id);return {data:{id:run_id,head_sha:mode==='wrong-head'?'b'.repeat(40):sha}}},
+listWorkflowRunsForRepo:async()=>{discoveries++;return {data:{workflow_runs:[],total_count:0}}},
+listWorkflowRunArtifacts:async({run_id})=>({data:{total_count:mode==='empty'?0:1,artifacts:mode==='empty'?[]:[{id:run_id,size_in_bytes:10,expired:false}]}}),
+downloadArtifact:async()=>({data:Buffer.from('zip')})}}};
+fetchVerifierEvidence({github,owner:'owner',repo:'repo',pullNumber:1,
+pullRequestBody:'| Validation | SUCCESS | [View run]('+url(999)+') |',
+evidenceTexts:[url(123)],referenceTexts:['Validation evidence: '+url(123)+' '+url(124)],
+referenceSourcesComplete:mode!=='incomplete',associatedCommitShas:[sha],
+extractArtifactText:()=>({text:'RED then GREEN',truncated:false})})
+.then(e=>process.stdout.write(JSON.stringify({inspected,discoveries,status:e.artifacts.status})))
+.catch(e=>{console.error(e);process.exit(1)});
+"""
+    produced = json.loads(
+        subprocess.check_output(
+            [NODE, "-e", script],
+            cwd=ROOT,
+            input=json.dumps(mode),
+            text=True,
+            env={**os.environ, "VERIFIER_EVIDENCE_RUN_LIMIT": "1" if mode == "excess" else "2"},
+        )
+    )
+    assert produced["inspected"] == ([123] if mode == "excess" else [123, 124])
+    assert produced["status"] == (
+        "present" if mode == "union" else "absent" if mode == "empty" else "unavailable"
+    )
+    if mode in {"union", "empty"}:
+        assert produced["discoveries"] == 0
 
 
 @pytest.mark.skipif(NODE is None, reason="Node is required for producer integration")
