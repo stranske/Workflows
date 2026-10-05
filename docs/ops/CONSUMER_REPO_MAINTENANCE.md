@@ -881,8 +881,10 @@ deduplicated; an unrelated closing issue cannot substitute for the known source.
 An explicit closing title such as `Fixes #123` retains closing provenance when
 body sync generates its issue preamble, including after an earlier same-issue
 relation preamble. Incidental title mentions remain non-closing. Multiple closing
-title targets are ambiguous; a different authoritative body source is not
-silently replaced by title wording. Repeated source/template body syncs preserve
+title targets are ambiguous. An unambiguous closing title takes precedence over
+incidental non-closing body mentions, even when they name other issues; genuinely
+conflicting closing targets across title and body are ambiguous. Explicit
+`meta:issue` source metadata remains authoritative. Repeated source/template body syncs preserve
 this distinction.
 
 This extra lookup does not conceal unavailable or truncated closing discovery.
