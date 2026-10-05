@@ -1295,6 +1295,14 @@ def _required_evidence_channels(acceptance: str) -> set[str]:
 
     def product_comment_object(prefix: str, destination: str) -> bool:
         """Classify the governing operation's subject, not domain words anywhere."""
+        # These complete capability forms govern the same bare infinitive.
+        # Normalize only their adjacent auxiliaries, not a later actor clause.
+        prefix = re.sub(
+            r"\b(?:(?:is|are|was|were)|support(?:s|ed|ing)?)\s+letting\b",
+            "let",
+            prefix,
+            flags=re.I,
+        )
         operations = list(
             re.finditer(
                 r"\b(?!renderer\b)(?:"
@@ -2245,6 +2253,7 @@ def _required_evidence_channels(acceptance: str) -> set[str]:
             product_output_operation = (
                 r"(?:return|display|show|store|emit|render|expose|provide)\w*\b|"
                 r"record\w*\b(?=\s+(?:(?:the|an?)\s+)?"
+                r"(?:(?:supporting|execution|validation|test|review|collected|recorded)\s+){0,3}"
                 r"(?:command outputs?|transcripts?|evidence)\s+" + product_recipient + ")"
             )
             product_output_prefix = re.compile(

@@ -3093,3 +3093,23 @@ def test_let_capability_never_hides_separate_reviewer_obligation(
     criterion = f"The UI {capability} users post PR comments"
     assert pr_verifier._required_evidence_channels(criterion) == set()
     assert pr_verifier._required_evidence_channels(criterion + attachment) == {"comments"}
+
+
+@pytest.mark.parametrize(
+    "criterion",
+    [
+        "The API must deliver validation evidence to clients",
+        "The API must submit validation evidence to clients",
+        "The UI is letting users post PR comments",
+        "The UI supports letting users post PR comments",
+    ],
+)
+@pytest.mark.parametrize("independent", [False, True])
+def test_delivery_aliases_and_progressive_capabilities_keep_product_boundary(
+    criterion: str, independent: bool
+) -> None:
+    if independent:
+        criterion += "; the reviewer must submit validation evidence in a PR comment"
+    assert pr_verifier._required_evidence_channels(criterion) == (
+        {"comments"} if independent else set()
+    )
