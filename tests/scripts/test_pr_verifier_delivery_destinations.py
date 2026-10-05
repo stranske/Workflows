@@ -9,6 +9,90 @@ from scripts import docs_drift_fix_agent as fix_agent
 from scripts.langchain import pr_verifier as verifier
 
 
+@pytest.mark.parametrize("auxiliary", ["do", "does", "did"])
+@pytest.mark.parametrize("actor", ["service", "API"])
+@pytest.mark.parametrize("operation", ["put", "place", "write", "record"])
+@pytest.mark.parametrize(
+    "destination", ["in its database", "in the audit log", "to the assigned clients"]
+)
+def test_do_supported_product_storage_preserves_independent_delivery(
+    auxiliary, actor, operation, destination
+):
+    criterion = f"The {actor} {auxiliary} {operation} evidence {destination}"
+    assert verifier._required_evidence_channels(criterion) == set()
+    assert (
+        verifier._required_evidence_channels(criterion.replace(auxiliary, auxiliary + " not"))
+        == set()
+    )
+    for review_destination, channel in [
+        ("the PR body", "body"),
+        ("a PR comment", "comments"),
+        ("workflow artifacts", "artifacts"),
+    ]:
+        assert verifier._required_evidence_channels(
+            criterion + f"; the reviewer must record evidence in {review_destination}"
+        ) == {channel}
+
+
+@pytest.mark.parametrize(
+    "subject",
+    [
+        "The service must record evidence in its database",
+        "Evidence must be recorded in its database by the service",
+    ],
+)
+@pytest.mark.parametrize("separator", [", ", ", and ", " and "])
+@pytest.mark.parametrize("preposition", ["in ", ""])
+@pytest.mark.parametrize(
+    "destinations", list(permutations(["the PR body", "a PR comment", "workflow artifacts"], 2))
+)
+def test_punctuated_shared_product_review_destinations(
+    subject, separator, preposition, destinations
+):
+    criterion = (
+        subject
+        + separator
+        + preposition
+        + destinations[0]
+        + separator
+        + preposition
+        + destinations[1]
+    )
+    channels = {
+        "body" if "body" in d else "comments" if "comment" in d else "artifacts"
+        for d in destinations
+    }
+    assert verifier._required_evidence_channels(criterion) == channels
+    assert verifier._required_evidence_channels(criterion.replace("must ", "must not ")) == set()
+
+
+@pytest.mark.parametrize("role", ["reviewer", "maintainer"])
+@pytest.mark.parametrize(
+    "qualifier", ["after validating the", "before checking the", "following inspection of the"]
+)
+@pytest.mark.parametrize(
+    "evidence", ["output", "evidence", "artifacts", "transcript", "command output"]
+)
+@pytest.mark.parametrize("operation", ["placed", "submitted", "delivered"])
+@pytest.mark.parametrize(
+    "destination,channel",
+    [("the PR body", "body"), ("a PR comment", "comments"), ("workflow artifacts", "artifacts")],
+)
+def test_evidence_related_actor_aside_retains_outer_delivery(
+    role, qualifier, evidence, operation, destination, channel
+):
+    aside = f"{qualifier} {evidence}"
+    assert verifier._required_evidence_channels(
+        f"The {role}, {aside}, {operation} evidence in {destination}"
+    ) == {channel}
+    assert (
+        verifier._required_evidence_channels(
+            f"The service, {aside}, {operation} evidence in its database"
+        )
+        == set()
+    )
+
+
 @pytest.mark.parametrize("role", ["reviewer", "maintainer", "author", "operator"])
 @pytest.mark.parametrize(
     "parenthetical",

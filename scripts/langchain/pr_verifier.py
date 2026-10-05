@@ -1019,8 +1019,13 @@ def _required_evidence_channels(acceptance: str, *, _bind_attached: bool = True)
     )
     destination_preposition = r"(?:in|into|to|within|for|as|through|via)\s+"
     delivery_destination_item = r"(?:" + review_destination_noun + "|" + recipient_noun + ")"
+    delivery_destination_separator_base = r"(?:\s*,\s*(?:(?:and|or)\s+)?|\s+(?:and|or)\s+)"
     delivery_destination_separator = (
-        r"(?:\s*,\s*(?:(?:and|or)\s+)?|\s+(?:and|or)\s+)" r"(?:" + destination_preposition + r")?"
+        delivery_destination_separator_base + r"(?:" + destination_preposition + r")?"
+    )
+    shared_storage_separator_base = delivery_destination_separator_base.replace("(?:and|or)", "and")
+    shared_storage_separator = (
+        shared_storage_separator_base + r"(?:" + destination_preposition + r")?"
     )
     bound_review_destinations = (
         destination_preposition + r"(?:both\s+)?"
@@ -1110,8 +1115,16 @@ def _required_evidence_channels(acceptance: str, *, _bind_attached: bool = True)
         + mandatory_auxiliary
         + r"|must|shall|will|can|could|would|should|may|is|are|was|were|has|have|had|"
         r"required|needed|mandatory|optional|if|when|without|unless|until|not|never|no|"
-        r"evidence|artifacts?|transcripts?|command|outputs?|pr|pull|body|comments?)\b)"
-        r"[\w-]+\s*){1,12}"
+        r"pr|pull|body|comments?)\b)"
+        r"(?!" + r"(?:" + destination_preposition + r")?" + review_destination_noun + r")"
+        r"(?!(?:"
+        + delivery_operation
+        + "|"
+        + "|".join(record_aliases)
+        + r")\s+"
+        + evidence_modifiers
+        + r"(?:evidence|artifacts?|transcripts?|command outputs?)\b)"
+        r"[\w-]+(?=\s|,)\s*){1,12}"
     )
     acceptance = re.sub(
         r"(?P<literal>"
@@ -1199,14 +1212,16 @@ def _required_evidence_channels(acceptance: str, *, _bind_attached: bool = True)
     # groups and when excluding response fields from review deliverables.
     response_subject = r"(?:responses?|payloads?|return\s+values?|reports?|exports?)"
     optional_delivery_modal = r"(?:may|can|could|would|should)"
-    product_auxiliary = r"(?:" + mandatory_auxiliary + r"|will|" + optional_delivery_modal + r")\s+"
+    product_auxiliary = (
+        r"(?:" + mandatory_auxiliary + r"|will|" + optional_delivery_modal + r"|do|does|did)\s+"
+    )
     product_actor = r"(?:(?:the|an?)\s+)?(?:application|app|service|api|endpoint)"
     product_aspect = (
         r"(?:(?:"
         + mandatory_auxiliary
         + r"|will|"
         + optional_delivery_modal
-        + r"|has|have|had|is|are|was|were)\s+)?"
+        + r"|has|have|had|is|are|was|were|do|does|did)\s+)?"
         + delivery_adverbs
         + r"(?:have\s+)?(?:be\s+|been\s+)?(?:being\s+)?"
         + delivery_adverbs
@@ -1228,9 +1243,10 @@ def _required_evidence_channels(acceptance: str, *, _bind_attached: bool = True)
         + r"(?:record|capture|attach|generate|return|display|emit|render|expose|provide)\w*\s+"
         + product_evidence_object
         + product_destination
-        + r"(?!\s+(?:and|or)\s+(?:(?:in|into|to|for|as)\b|"
+        + r"(?!"
+        + delivery_destination_separator
         + review_destination_noun
-        + r"))"
+        + r")"
         + r"|\b"
         + product_evidence_object
         + product_aspect
@@ -1238,9 +1254,10 @@ def _required_evidence_channels(acceptance: str, *, _bind_attached: bool = True)
         + product_destination
         + r"\s+by\s+"
         + product_actor
-        + r"\b(?!\s+(?:and|or)\s+(?:(?:in|into|to|for|as)\b|"
+        + r"\b(?!"
+        + delivery_destination_separator
         + review_destination_noun
-        + r"))",
+        + r")",
         re.I,
     )
     shared_storage_review_destination = re.compile(
@@ -1252,8 +1269,13 @@ def _required_evidence_channels(acceptance: str, *, _bind_attached: bool = True)
         + product_evidence_object
         + r")"
         r"(?:in|into|to|as)\s+(?:(?:its|the|an?)\s+)?"
-        r"(?:database|audit log|storage|application log)\s+and\s+"
-        r"(?P<preposition>(?:in|into|to|as)\s+)?(?P<destination>" + review_destination_noun + r")",
+        r"(?:database|audit log|storage|application log)"
+        + shared_storage_separator_base
+        + r"(?P<preposition>"
+        + destination_preposition
+        + r")?(?P<destination>"
+        + review_destination_noun
+        + r")",
         re.I,
     )
     storage_destination = (
@@ -1265,7 +1287,7 @@ def _required_evidence_channels(acceptance: str, *, _bind_attached: bool = True)
         + mandatory_auxiliary
         + r"|will|"
         + optional_delivery_modal
-        + r"|has|have|had|is|are|was|were)\s+)?"
+        + r"|has|have|had|is|are|was|were|do|does|did)\s+)?"
         + delivery_adverbs
         + r"(?:(?:not|never|no\s+longer)\s+)?"
         + delivery_adverbs
@@ -1276,9 +1298,7 @@ def _required_evidence_channels(acceptance: str, *, _bind_attached: bool = True)
         r"(?:record|capture|attach|generate|return|display|emit|render|expose|provide)\w*\s+"
         + product_evidence_object
     )
-    shared_review_tail = (
-        r"(?:\s+and\s+(?:(?:in|into|to|as)\s+)?" + review_destination_noun + r"){0,3}"
-    )
+    shared_review_tail = r"(?:" + shared_storage_separator + review_destination_noun + r"){0,3}"
     shared_passive_product_review_destination = re.compile(
         r"(?P<predicate>\b"
         + product_evidence_object
@@ -1287,7 +1307,10 @@ def _required_evidence_channels(acceptance: str, *, _bind_attached: bool = True)
         + product_destination
         + r"\s+by\s+"
         + product_actor
-        + r"\s+and\s+(?P<preposition>(?:in|into|to|as)\s+)?"
+        + shared_storage_separator_base
+        + r"(?P<preposition>"
+        + destination_preposition
+        + r")?"
         + r"(?P<destination>"
         + review_destination_noun
         + r")",

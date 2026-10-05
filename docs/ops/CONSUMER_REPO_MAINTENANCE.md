@@ -1301,8 +1301,15 @@ Straight and curly contracted finite auxiliaries retain passive alias identity
 before clause-level contraction normalization.
 Non-clausal subject parentheticals of up to twelve words retain the actor
 before active-past alias classification. Governing auxiliaries, explicit
-obligation/polarity terms, merge-gate conditions, and evidence/destination terms
-prevent stripping a parenthetical that could contain a separate requirement.
+obligation/polarity terms, merge-gate conditions, actual evidence-delivery
+predicates, and review destinations prevent stripping a parenthetical that
+could contain a separate requirement. Evidence nouns in non-clausal validation
+qualifiers retain the outer actor; complete-word matching bounds the scan
+without repeatedly partitioning a rejected word into smaller matches.
+Do-supported product storage (`do`, `does`, `did`) shares the finite auxiliary
+grammar and does not create a review obligation. Comma-separated and conjunctive
+shared storage/review destinations reuse the delivery-list separator grammar,
+including inherited prepositions and channel-symmetric active/passive forms.
 The shared literal grammar recognizes
 single-quote delimiters only outside words, retains apostrophes inside quoted
 contractions, and cannot swallow an independent mandatory delivery between two
