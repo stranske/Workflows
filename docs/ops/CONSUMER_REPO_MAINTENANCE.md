@@ -61,7 +61,12 @@ product behavior. Only that operation/object span is excluded; a separate review
 delivery is classified from the residual criterion, including its evidence qualifiers.
 An object used by an attached mandatory delivery (`artifacts that the reviewer
 must upload`, or `artifacts must be uploaded`) remains as that delivery's
-antecedent. Coordinated capability actions consume only a complete recognized
+antecedent. Before suppressing a capability span, bind its attached mandatory
+predicate, original actor, polarity and immediate review destination together.
+Classify that isolated obligation with the shared destination and channel grammar;
+active/passive wording and bare/qualified artifacts must not select different
+preposition rules. Missing required evidence still lowers a supplied PASS to CONCERNS.
+Coordinated capability actions consume only a complete recognized
 preceding object, never an unknown intervening predicate. Recipient modifiers
 such as `authenticated users` and `enterprise clients` use one bounded grammar
 across channels. Contracted modal negations (`won't`, `couldn't`, `mustn't`) are

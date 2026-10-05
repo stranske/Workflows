@@ -2013,15 +2013,61 @@ def _required_evidence_channels(acceptance: str) -> set[str]:
                     # mandatory delivery, not just explicitly separate clauses.
                     attached_delivery = re.match(
                         r"\s+(?:(?:that|which)\s+)?"
-                        r"(?:(?!(?:must|shall|needs?|has|have|is|are)\b)[\w/-]+\s+){0,6}"
+                        r"(?P<actor>(?:(?!(?:must|shall|needs?|has|have|is|are)\b)[\w/-]+\s+){0,6})"
+                        + r"(?P<auxiliary>"
                         + mandatory_auxiliary
-                        + r"\s+(?:"
+                        + r")\s+(?P<aspect>"
                         + passive_delivery_prefix
-                        + r")?"
-                        + delivery_operation,
+                        + r")?(?P<operation>"
+                        + delivery_operation
+                        + r")",
                         requirement_text[product_delivery.end() :],
                         re.I,
                     )
+                    bound_destination = (
+                        re.match(
+                            r"\s+(?P<destination>" + bound_review_destinations + r")",
+                            requirement_text[product_delivery.end() + attached_delivery.end() :],
+                            re.I,
+                        )
+                        if attached_delivery
+                        else None
+                    )
+                    if attached_delivery and bound_destination:
+                        # Bind the antecedent, mandatory predicate and destination
+                        # before capability suppression. Reuse the same classifier
+                        # on this isolated obligation, without inventing an actor
+                        # or maintaining an artifact-only destination grammar.
+                        actor = attached_delivery["actor"].strip()
+                        predicate = " ".join(
+                            part.strip()
+                            for part in (
+                                attached_delivery["auxiliary"],
+                                attached_delivery["aspect"] or "",
+                                attached_delivery["operation"],
+                            )
+                            if part.strip()
+                        )
+                        obligation = (
+                            f"{product_delivery['object']} {predicate}"
+                            if attached_delivery["aspect"]
+                            else f"{actor} {predicate} {product_delivery['object']}"
+                        )
+                        channels.update(
+                            _required_evidence_channels(
+                                f"{obligation} {bound_destination['destination']}"
+                            )
+                        )
+                        product_spans.append(
+                            (
+                                product_delivery.start(),
+                                product_delivery.end()
+                                + attached_delivery.end()
+                                + bound_destination.end(),
+                                " ",
+                            )
+                        )
+                        continue
                     product_spans.append(
                         (
                             *product_delivery.span(),
@@ -2174,16 +2220,6 @@ def _required_evidence_channels(acceptance: str) -> set[str]:
                         r"\b(?:upload|attach|publish|post|record|capture|provide|include|document)"
                         r"\w*\b.{0,60}\bartifacts?\b.{0,40}"
                         r"\b(?:to|into|in)\s+(?:the\s+)?(?:pr|pull request)\b",
-                        requirement_text,
-                        re.I,
-                    )
-                    or re.search(
-                        r"\bartifacts?\b\s+(?:that|which)\s+"
-                        r"(?:(?!(?:must|shall|needs?|has|have|is|are)\b)[\w/-]+\s+){0,6}"
-                        + mandatory_auxiliary
-                        + r"\s+"
-                        r"(?:upload|attach|publish|post|record|capture|provide|include|document)\w*\b\s+"
-                        r"(?:to|into|in)\s+(?:the\s+)?(?:pr|pull request)\b",
                         requirement_text,
                         re.I,
                     )
