@@ -168,6 +168,10 @@ for (const race of ['none', 'expired', 'rest-head', 'graphql-head', 'graphql-pla
       pr: { number: 1, head: { sha: args.proof.head_sha } }, deliveryRecord: args.record });
     assert.equal(resolutions, race === 'none' ? 1 : 0, JSON.stringify(result));
     assert.equal(result.errors.length, race === 'none' ? 0 : 1);
+    if (race === 'expired') {
+      assert.equal(result.errors[0],
+        `${args.proof.thread_id}:failed_transport_or_freshness_unproven`);
+    }
   });
 }
 
