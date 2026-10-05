@@ -454,6 +454,7 @@ async function fetchVerifierEvidence({
   repo,
   pullNumber,
   evidenceTexts,
+  referenceTexts = [],
   referenceSourcesComplete = true,
   pullRequestBody,
   associatedCommitShas = [],
@@ -539,15 +540,18 @@ async function fetchVerifierEvidence({
   }
 
   const artifacts = { status: 'absent', complete: true, records: [], reason: '' };
-  const allRunIds = extractReferencedRunIds([pullRequestBody, ...(evidenceTexts || []), ...commentBodies]);
+  const allRunIds = extractReferencedRunIds([pullRequestBody, ...(evidenceTexts || []), ...referenceTexts, ...commentBodies]);
   // A status-table "View run" or bare incidental body/comment URL is not an
   // explicit evidence selection. Typed evidence inputs and locally labelled
   // evidence lines can select a bounded set; all other links retain discovery.
-  const labelledEvidenceLines = [pullRequestBody, ...commentBodies]
+  const labelledEvidenceLines = [pullRequestBody, ...referenceTexts, ...commentBodies]
     .flatMap((text) => String(text || '').split('\n'))
     .filter((line) => /\b(?:evidence|validation|artifacts?|test results?|red\s+(?:then\s+)?green)\b/i.test(line));
   const explicitEvidenceRunIds = new Set(
-    extractReferencedRunIds([...(evidenceTexts || []), ...labelledEvidenceLines])
+    extractReferencedRunIds([
+      ...(evidenceTexts || []).filter((text) => String(text || '') !== String(pullRequestBody || '')),
+      ...labelledEvidenceLines,
+    ])
   );
   const referencedRunIds = allRunIds.slice(0, runLimit);
   const runIds = [];
@@ -1277,7 +1281,7 @@ async function buildVerifierContext({
     repo,
     pullNumber: pull.number,
     pullRequestBody: pull.body,
-    evidenceTexts: [pull.body || '', ...closingIssues.map((issue) => issue.body || '')],
+    referenceTexts: closingIssues.map((issue) => issue.body || ''),
     referenceSourcesComplete: closingIssueDiscovery.status === 'included',
     associatedCommitShas: [pull.head?.sha, pull.merge_commit_sha],
     extractArtifactText,

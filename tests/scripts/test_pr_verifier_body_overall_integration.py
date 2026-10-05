@@ -207,7 +207,7 @@ def test_qualified_body_delivery_preserves_optional_negative_and_product_boundar
 
 
 @pytest.mark.skipif(NODE is None, reason="Node is required for producer integration")
-@pytest.mark.parametrize("source", ["body", "comment"])
+@pytest.mark.parametrize("source", ["body", "comment", "production-body"])
 def test_incidental_status_run_link_does_not_suppress_artifact_discovery(source):
     """A status-table link is not an explicit validation-evidence selection."""
     script = r"""
@@ -223,7 +223,8 @@ listWorkflowRunsForRepo:async()=>{discoveries++;return {data:{total_count:1,work
 listWorkflowRunArtifacts:async({run_id})=>({data:{total_count:run_id===124?1:0,artifacts:run_id===124?[{id:9,size_in_bytes:10,expired:false}]:[]}}),
 downloadArtifact:async()=>({data:Buffer.from('zip')})}}};
 fetchVerifierEvidence({github,owner:'owner',repo:'repo',pullNumber:1,
-pullRequestBody:source==='body'?status:'',associatedCommitShas:[sha],evidenceTexts:[],
+pullRequestBody:source==='body'||source==='production-body'?status:'',associatedCommitShas:[sha],
+evidenceTexts:source==='production-body'?[status]:[],
 extractArtifactText:()=>({text:'RED then GREEN',truncated:false})})
 .then(e=>process.stdout.write(JSON.stringify({discoveries,status:e.artifacts.status})))
 .catch(e=>{console.error(e);process.exit(1)});

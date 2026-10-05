@@ -1151,6 +1151,10 @@ explicit references, bounded associated-run discovery remains fail-closed.
 Incidental body/comment URLs, including status-table `View run` links, do not
 select an exclusive evidence set: continue exact-head associated-run discovery
 so an unrelated no-artifact status job cannot hide the actual validation artifact.
+Production PR and linked-issue bodies are reference-bearing prose, not typed
+evidence inputs. Keep them in their own source channels; a duplicate body passed
+through the legacy evidence input must not promote incidental URLs to explicit
+scope. Labelled evidence in those sources still participates in scope selection.
 Wrong-head references, excess referenced runs, partial artifact pages, expired
 archives and truncated contents still make artifacts unavailable; scope selection
 does not prove that any particular acceptance criterion was satisfied.

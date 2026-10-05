@@ -1178,6 +1178,28 @@ test('buildVerifierContext binds explicit artifact completeness to linked-issue 
   }
 });
 
+test('production source and template discover artifacts beyond a status-table body link', async () => {
+  const builders = [
+    buildVerifierContext,
+    require('../../../templates/consumer-repo/.github/scripts/agents_verifier_context.js').buildVerifierContext,
+  ];
+  for (const builder of builders) {
+    const { result } = await buildEvidenceContext({
+      prBody: prBodyFixture + '\n| CI | SUCCESS | [View run](https://github.com/octo/workflows/actions/runs/123) |',
+      runsForRepo: {
+        ['b'.repeat(40)]: [{ id: 124, head_sha: 'b'.repeat(40) }],
+        ['c'.repeat(40)]: [],
+      },
+      artifactsByRun: { 124: [{ id: 17, name: 'actual-validation', size_in_bytes: 120, expired: false }] },
+      artifactDownloads: { 17: Buffer.from('zip bytes') },
+    }, { extractArtifactText: () => ({ text: 'actual RED then GREEN', truncated: false }) }, builder);
+    try {
+      assert.match(result.markdown, /Referenced workflow artifacts: \*\*present\*\*/);
+      assert.match(result.markdown, /actual RED then GREEN/);
+    } finally { removeVerifierDiffArtifacts(result); }
+  }
+});
+
 test('buildVerifierContext discovers artifacts from an associated PR head without a run URL', async () => {
   const headSha = 'bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb';
   const { core, result } = await buildEvidenceContext({
