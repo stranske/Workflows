@@ -2681,6 +2681,25 @@ test('non-closing source issues are fetched in source and template builders', as
   }
 });
 
+test('declared local repairs do not fetch coordination-only issue contracts', async () => {
+  const templateImpl = require('../../../templates/consumer-repo/.github/scripts/agents_verifier_context.js').buildVerifierContext;
+  const templateBuilder = options => templateImpl({ ...options, fetchLocalDiff: () => options.github.__testDiffText });
+  for (const builder of [buildVerifierContext, templateBuilder]) {
+    const calls = [];
+    const { result } = await buildEvidenceContext({
+      prBody: prBodyFixture + '\n<!-- workflow-source:local_request -->\nRelated to #123',
+      sourceIssue: { number: 123, title: 'Campaign tracker', body: '## Acceptance Criteria\n- [ ] UNRELATED_CAMPAIGN_CONTRACT', state: 'open', labels: [] },
+      sourceIssueCalls: calls,
+    }, {}, builder);
+    try {
+      assert.deepEqual(calls, []);
+      assert.deepEqual(result.issueNumbers, []);
+      assert.doesNotMatch(result.markdown, /UNRELATED_CAMPAIGN_CONTRACT/);
+      assert.equal(result.sourceCoverage.acceptance_source_discovery.required, false);
+    } finally { removeVerifierDiffArtifacts(result); }
+  }
+});
+
 test('known issue retrieval rejects missing, wrong-number and PR responses without losing discovery gaps', async () => {
   const templateImpl = require('../../../templates/consumer-repo/.github/scripts/agents_verifier_context.js').buildVerifierContext;
   const templateBuilder = options => templateImpl({ ...options, fetchLocalDiff: () => options.github.__testDiffText });

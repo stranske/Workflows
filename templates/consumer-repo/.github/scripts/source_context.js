@@ -553,18 +553,24 @@ function resolvePrSourceContext(pull = {}) {
   // to its exact repository, branch, and controlled labels so stale metadata
   // cannot promote that provenance into a closing issue reference.
   const boundVerifierCorpusHarvest = hasBoundVerifierCorpusHarvestContext(pull);
-  const extractedIssueNumber = extractIssueNumberFromPull(pull);
-  // Controlled promotion/sync provenance is authoritative: a coincidental
-  // issue reference must not route the PR through issue-body synchronization.
-  const issueNumber = trustedDependencyRepairPromotion || boundGeneratedSync || boundVerifierCorpusHarvest
-    ? null
-    : extractedIssueNumber;
-  const noAutomation = hasNoAutomationWorkflowContext(pull);
-
+  const issueSource = extractIssueSourceFromPull(pull);
+  const extractedIssueNumber = issueSource?.issueNumber || null;
   const markerType = normalizeSourceType(parseHtmlMarker(body, 'workflow-source'));
   const blockType = normalizeSourceType(block.origin || block.source || block.type);
   const checkboxType = sourceTypeFromCheckedTemplate(body);
   const labelType = sourceTypeFromLabels(pull);
+  const declaredType = [markerType, blockType, checkboxType, labelType]
+    .find((type) => type !== SOURCE_TYPES.UNKNOWN);
+  const declaredNonIssue = declaredType && declaredType !== SOURCE_TYPES.GITHUB_ISSUE;
+  const explicitIssueOverride = issueSource?.via === 'closing' || issueSource?.via === 'meta';
+  // Controlled promotion/sync provenance is authoritative: a coincidental
+  // issue reference must not route the PR through issue-body synchronization.
+  const issueNumber = trustedDependencyRepairPromotion || boundGeneratedSync || boundVerifierCorpusHarvest
+    || (declaredNonIssue && !explicitIssueOverride)
+    ? null
+    : extractedIssueNumber;
+  const noAutomation = hasNoAutomationWorkflowContext(pull);
+
   const inferredType = inferredSourceType(pull);
   const detectedSourceType = trustedDependencyRepairPromotion
     ? SOURCE_TYPES.DEPENDABOT

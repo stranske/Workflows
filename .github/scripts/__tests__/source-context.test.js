@@ -868,6 +868,27 @@ test('resolvePrSourceContext accepts explicit sync source markers from consumer 
   assert.equal(context.isExplicit, true);
 });
 
+test('declared non-issue sources suppress coordination links but retain explicit closing overrides', () => {
+  for (const resolve of [resolvePrSourceContext, templateResolvePrSourceContext]) {
+    for (const declaration of [
+      { body: '<!-- workflow-source:local_request -->', labels: [] },
+      { body: '<!-- workflow-source:automation_run -->', labels: [] },
+      { body: '', labels: [{ name: 'workflow:source-local-request' }] },
+    ]) {
+      const pull = { ...declaration, title: 'Repair source #1836',
+        body: `${declaration.body}\nRelated to #1836`, head: { ref: 'codex/repair' } };
+      const context = resolve(pull);
+      assert.equal(context.requiresIssue, false, JSON.stringify(pull));
+      assert.equal(context.issueNumber, null);
+      for (const override of ['Closes #42', '<!-- meta:issue:42 -->']) {
+        const overridden = resolve({ ...pull, body: `${pull.body}\n${override}` });
+        assert.equal(overridden.sourceType, SOURCE_TYPES.GITHUB_ISSUE);
+        assert.equal(overridden.issueNumber, 42);
+      }
+    }
+  }
+});
+
 test('resolvePrSourceContext accepts direct-pr labels without issue metadata', () => {
   const context = resolvePrSourceContext({
     body: '',

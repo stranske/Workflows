@@ -864,6 +864,13 @@ passing Gate never resolves the current PR's review debt.
 
 ### Known issue sources and verifier discovery
 
+An explicitly declared non-issue source (marker, source block, checked source
+choice, or recognized source label) takes precedence over coordination relations
+and incidental title references in both body synchronization and verifier source
+resolution. Those relations must not import an unrelated campaign contract.
+Explicit closing keywords or `meta:issue` can still select an issue contract;
+inferred non-issue provenance alone does not suppress a genuine issue source.
+
 An issue-backed PR may use a non-closing relationship such as `Related to #123`
 or a source marker. The verifier retrieves the known same-repository source issue
 identified by `resolvePrSourceContext`, even when GitHub's
