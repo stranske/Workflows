@@ -1274,6 +1274,19 @@ resolves a thread, seals, merges, closes, or otherwise reconciles the PR. The
 ordinary Maint 71 run later rechecks the same head, reviewer disposition,
 checks, and merge gates. A reviewer request is not itself thread acceptance.
 
+If the originating provider reports a terminal failure instead of completing
+the targeted request, the same binding may use `request_stage=retry` once.
+The source-owned request-only job requires exactly one trusted original request
+and one fully discovered originating-provider activity summary with a single
+configured failure row. Its failure time must follow the request, its reported
+commit must resolve through GitHub to the exact full head, and the summary's
+update time must corroborate that failure. Pending/completed activity, mixed
+activity rows, ambiguous summaries, forged authors and old heads fail closed.
+The canonical `maint71-review-retry:v1` marker makes repeated dispatches reuse
+one request rather than creating a retry loop. Retry grants no reviewer
+acceptance, resolution, sealing or merge authority; an automated reply remains
+sufficient under the existing acceptance contract, without a human-reply gate.
+
 If that exact request completes with a same-head Codex stock no-major-issues
 reply but leaves the finding active, send the same binding with optional
 `request_stage=disposition`. Maint 71 requires the trusted original request and
