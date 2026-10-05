@@ -1180,7 +1180,7 @@ def _required_evidence_channels(acceptance: str, *, _bind_attached: bool = True)
             actor = bool(
                 re.fullmatch(
                     r"\s*(?:(?:the|an?)\s+)?"
-                    + evidence_modifiers
+                    + r"(?:(?:assigned|responsible|authorized|experienced|designated|senior|lead|primary|current|CI|API)\s+){0,3}"
                     + parenthetical_actor
                     + r"\b\s+"
                     + delivery_adverbs,

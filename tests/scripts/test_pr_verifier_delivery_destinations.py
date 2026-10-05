@@ -128,6 +128,25 @@ def test_comment_has_to_uses_shared_mandatory_auxiliary(criterion):
     assert verifier._required_evidence_channels(criterion) == {"comments"}
 
 
+@pytest.mark.parametrize("predicate", ["checks", "inspects", "reviews"])
+@pytest.mark.parametrize("compound", ["service", "API", "reviewer"])
+def test_actor_word_in_supply_object_is_not_clause_subject(predicate, compound):
+    """An object compound cannot create a delivery predicate."""
+    assert (
+        verifier._required_evidence_channels(
+            f"The reviewer {predicate} the {compound} supply evidence in the PR body"
+        )
+        == set()
+    )
+
+
+@pytest.mark.parametrize("actor", ["reviewer", "assigned reviewer", "senior reviewer", "CI runner"])
+def test_supply_clause_subject_preserves_delivery(actor):
+    assert verifier._required_evidence_channels(
+        f"The {actor} supplies evidence in a PR comment"
+    ) == {"comments"}
+
+
 @pytest.mark.parametrize("prefix", ["", "- ", "- [ ] ", "* [x] ", "1. "])
 def test_supply_imperative_list_marker_preserves_delivery(prefix):
     """List formatting does not turn an imperative delivery into a noun."""

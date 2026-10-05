@@ -1348,6 +1348,11 @@ the bounded adverb grammar. Participial evidence modifiers such as
 `previously published evidence` do not introduce an independent actor.
 Supply aliases require a verbal governor, qualified actor or list-normalized
 imperative; object nouns such as `power supply evidence` are not deliveries.
+The actor alternative starts at the clause subject and permits only bounded
+role qualifiers (assigned, responsible, authorized, experienced, designated,
+senior, lead, primary, current, CI or API), not an arbitrary preceding predicate.
+Thus `the reviewer checks the service supply evidence` cannot turn an object
+compound into an independent service delivery.
 Comment presence/containment predicates share the complete mandatory auxiliary
 grammar, including `has/have to`, with existing polarity controls.
 Do-supported product storage (`do`, `does`, `did`) shares the finite auxiliary
