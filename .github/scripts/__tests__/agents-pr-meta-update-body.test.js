@@ -591,6 +591,28 @@ test('an author description survives two body syncs', async (t) => {
   }
 });
 
+test('an unfilled PR template is removed on the second body sync in source and consumer templates', async (t) => {
+  for (const [name, sync, directory] of [
+    ['Workflows source', run, path.resolve(__dirname, '../..')],
+    ['consumer template', templateRun,
+      path.resolve(__dirname, '../../../templates/consumer-repo/.github')],
+  ]) {
+    await t.test(name, async () => {
+      const template = fs.readFileSync(path.join(directory, 'PULL_REQUEST_TEMPLATE.md'), 'utf8');
+      const [firstBody, secondBody] = await assertIssueSyncPreservesIntent(sync, {
+        body: template,
+        head: { sha: 'abc123', ref: 'codex/issue-123' },
+      }, true);
+      assert.ok(firstBody.startsWith(template.trimEnd() + '\n\n'),
+        'the first sync appends managed blocks after the original template');
+      assert.ok(secondBody.startsWith('<!-- pr-preamble:start -->'),
+        'the second sync removes the positively identified empty template');
+      assert.ok(extractBlock(secondBody, 'pr-preamble'), 'the preamble must remain');
+      assert.ok(extractBlock(secondBody, 'auto-status-summary'), 'the status must remain');
+    });
+  }
+});
+
 test('filled PR template sections survive two body syncs in source and consumer templates', async (t) => {
   for (const [name, sync, directory] of [
     ['Workflows source', run, path.resolve(__dirname, '../..')],
