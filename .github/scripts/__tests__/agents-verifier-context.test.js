@@ -1179,9 +1179,10 @@ test('buildVerifierContext binds explicit artifact completeness to linked-issue 
 });
 
 test('production source and template discover artifacts beyond a status-table body link', async () => {
+  const templateImpl = require('../../../templates/consumer-repo/.github/scripts/agents_verifier_context.js').buildVerifierContext;
   const builders = [
     buildVerifierContext,
-    require('../../../templates/consumer-repo/.github/scripts/agents_verifier_context.js').buildVerifierContext,
+    options => templateImpl({ ...options, fetchLocalDiff: () => options.github.__testDiffText }),
   ];
   for (const builder of builders) {
     const { result } = await buildEvidenceContext({
