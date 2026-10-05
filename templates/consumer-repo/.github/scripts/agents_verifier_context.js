@@ -547,7 +547,7 @@ async function fetchVerifierEvidence({
   // discovery only when no explicit set exists.
   const labelledEvidenceLines = [pullRequestBody, ...referenceTexts, ...commentBodies]
     .flatMap((text) => String(text || '').split('\n'))
-    .filter((line) => !/^\s*\|[^|\n]+\|[^|\n]+\|\s*\[View run\]\([^\n)]+\)\s*\|\s*$/i.test(line))
+    .filter((line) => !/^\s*\|[^\n]+\|[^|\n]+\|\s*\[View run\]\([^\n)]+\)\s*\|\s*$/i.test(line))
     .filter((line) => /\b(?:evidence|validation|artifacts?|test results?|red\s+(?:then\s+)?green)\b/i.test(line));
   const explicitEvidenceRunIds = new Set(
     extractReferencedRunIds([

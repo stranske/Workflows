@@ -1157,9 +1157,9 @@ Production PR and linked-issue bodies are reference-bearing prose, not typed
 evidence inputs. Keep them in their own source channels; a duplicate body passed
 through the legacy evidence input must not promote incidental URLs to explicit
 scope. Labelled evidence in those sources still participates in scope selection.
-Generated three-column status rows with `View run` links are excluded before
+Generated status rows ending in a result column and `View run` link are excluded before
 keyword labelling, even when the workflow name contains `Validation` or
-`Artifact`. When no explicit set exists, their URLs receive provenance inspection
+`Artifact` or includes unescaped pipe separators. When no explicit set exists, their URLs receive provenance inspection
 and do not suppress associated-run discovery. With an explicit set, incidental
 URLs are outside the selected scope. A completely inspected explicit set with
 zero artifacts remains absent; do not search unrelated runs for substitute proof.

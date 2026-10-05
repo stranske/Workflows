@@ -209,7 +209,9 @@ def test_qualified_body_delivery_preserves_optional_negative_and_product_boundar
 
 @pytest.mark.skipif(NODE is None, reason="Node is required for producer integration")
 @pytest.mark.parametrize("source", ["body", "comment", "production-body"])
-@pytest.mark.parametrize("workflow", ["CI", "Validation", "Artifact validation"])
+@pytest.mark.parametrize(
+    "workflow", ["CI", "Validation", "Artifact validation", "Validation | Linux", "Artifact | Mac"]
+)
 def test_incidental_status_run_link_does_not_suppress_artifact_discovery(source, workflow):
     """A status-table link is not an explicit validation-evidence selection."""
     script = r"""
