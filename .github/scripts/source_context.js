@@ -283,11 +283,12 @@ function extractIssueSourceFromPull(pull = {}) {
   }
 
   const closingIssueNumbers = extractClosingIssueNumbersFromText(bodyText);
-  if (closingIssueNumbers.size === 1) {
-    return { issueNumber: Array.from(closingIssueNumbers)[0], via: 'closing' };
-  }
-  if (closingIssueNumbers.size > 1) {
+  const explicitClosingTargets = new Set([...closingIssueNumbers, ...titleClosingIssueNumbers]);
+  if (explicitClosingTargets.size > 1) {
     return { issueNumber: null, via: null };
+  }
+  if (explicitClosingTargets.size === 1) {
+    return { issueNumber: Array.from(explicitClosingTargets)[0], via: 'closing' };
   }
 
   const bodyIssueNumbers = extractIssueNumbersFromText(bodyText);
@@ -296,10 +297,7 @@ function extractIssueSourceFromPull(pull = {}) {
   }
   if (bodyIssueNumbers.size === 1) {
     const issueNumber = Array.from(bodyIssueNumbers)[0];
-    // A synchronized relation marker must not erase explicit closing intent
-    // for this same issue in the title. Conflicting source bindings still win.
-    const titleClosesSource = titleClosingIssueNumbers.size === 1 && titleClosingIssueNumbers.has(issueNumber);
-    return { issueNumber, via: titleClosesSource ? 'closing' : 'mention' };
+    return { issueNumber, via: 'mention' };
   }
   if (bodyIssueNumbers.size > 1) {
     return { issueNumber: null, via: null };
@@ -311,12 +309,9 @@ function extractIssueSourceFromPull(pull = {}) {
     return { issueNumber: Number.parseInt(branchMatch[1], 10), via: 'branch' };
   }
 
-  if (titleClosingIssueNumbers.size > 1) return { issueNumber: null, via: null };
-  const titleNumber = titleClosingIssueNumbers.size === 1
-    ? Array.from(titleClosingIssueNumbers)[0]
-    : extractIssueNumberFromText(pull?.title || '');
+  const titleNumber = extractIssueNumberFromText(pull?.title || '');
   if (titleNumber) {
-    return { issueNumber: titleNumber, via: titleClosingIssueNumbers.size === 1 ? 'closing' : 'title' };
+    return { issueNumber: titleNumber, via: 'title' };
   }
 
   return { issueNumber: null, via: null };

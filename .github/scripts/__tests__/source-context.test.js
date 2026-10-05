@@ -79,7 +79,7 @@ test('extractIssueNumberFromPull prefers an explicit body link over inferred bra
     extractIssueNumberFromPull({
       body: 'Related to #222',
       head: { ref: 'codex/issue-111-stale-branch' },
-      title: 'Resolve issue #333',
+      title: 'Discuss issue #333',
     }),
     222,
   );
@@ -101,7 +101,7 @@ test('extractIssueNumberFromPull rejects ambiguous non-closing body references',
     extractIssueNumberFromPull({
       body: 'Related to #111.\nReferences issue #222.',
       head: { ref: 'codex/issue-333-fallback' },
-      title: 'Resolve issue #333',
+      title: 'Discuss issue #333',
     }),
     null,
   );
@@ -1008,5 +1008,18 @@ test('explicit closing title intent is distinguished from incidental title relat
   }
   assert.deepEqual(extractIssueSourceFromPull({ title: 'Related to #42' }), { issueNumber: 42, via: 'title' });
   assert.deepEqual(extractIssueSourceFromPull({ title: 'Fixes #42 and resolves #43' }), { issueNumber: null, via: null });
-  assert.deepEqual(extractIssueSourceFromPull({ title: 'Fixes #43', body: 'Related to #42' }), { issueNumber: 42, via: 'mention' });
+  assert.deepEqual(extractIssueSourceFromPull({ title: 'Fixes #43', body: 'Related to #42' }), { issueNumber: 43, via: 'closing' });
+});
+
+test('explicit closing titles outrank incidental body mentions without selecting conflicting closing targets', () => {
+  for (const resolve of [extractIssueSourceFromPull, require('../../../templates/consumer-repo/.github/scripts/source_context.js').extractIssueSourceFromPull]) {
+    for (const body of ['Tests cover issue #456 behavior', 'Refs #456 and issue #789', '<!-- meta:related-issue:456 --> Related to #456']) {
+      assert.deepEqual(resolve({ title: 'Fixes #123', body }), { issueNumber: 123, via: 'closing' });
+    }
+    assert.deepEqual(resolve({ title: 'Fixes #123', body: 'Closes #456' }), { issueNumber: null, via: null });
+    assert.deepEqual(resolve({ title: 'Fixes #123 and closes #456', body: 'Closes #123' }), { issueNumber: null, via: null });
+    assert.deepEqual(resolve({ title: 'Fixes #123', body: 'Closes #123' }), { issueNumber: 123, via: 'closing' });
+    assert.deepEqual(resolve({ title: 'Fixes #123', body: '<!-- meta:issue:456 -->' }), { issueNumber: 456, via: 'meta' });
+    assert.deepEqual(resolve({ title: 'Related to #123', body: 'Refs #456' }), { issueNumber: 456, via: 'mention' });
+  }
 });

@@ -1893,6 +1893,8 @@ test('explicit closing titles remain closing across two source and template body
   for (const sync of [run, templateRun]) {
     for (const title of ['Fixes #123', 'Closes issue #123', 'Resolves #123']) {
       await assertIssueSyncPreservesIntent(sync, { title, body: 'A local fix without an issue link' }, true);
+      await assertIssueSyncPreservesIntent(sync, { title, body: 'Tests cover issue #456 behavior' }, true);
+      await assertIssueSyncPreservesIntent(sync, { title, body: 'Refs #456 and issue #789' }, true);
       await assertIssueSyncPreservesIntent(sync, { title, body: '<!-- pr-preamble:start -->\n<!-- meta:related-issue:123 -->\nRelated to #123\n<!-- pr-preamble:end -->' }, true);
     }
   }
