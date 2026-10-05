@@ -9,6 +9,32 @@ from scripts import docs_drift_fix_agent as fix_agent
 from scripts.langchain import pr_verifier as verifier
 
 
+@pytest.mark.parametrize("boundary", [".", "!", "?"])
+def test_sentence_product_clause_preserves_active_past_delivery(boundary):
+    assert verifier._required_evidence_channels(
+        f"The API must include command output{boundary} The reviewer placed evidence in a PR comment."
+    ) == {"comments"}
+
+
+@pytest.mark.parametrize(
+    "auxiliary",
+    [
+        "will not have",
+        "will never have",
+        "will no longer have",
+        "will also have",
+        "will not already have",
+    ],
+)
+@pytest.mark.parametrize("verb", ["placed", "put"])
+def test_future_perfect_product_storage_modifier_positions(auxiliary, verb):
+    criterion = f"The application {auxiliary} {verb} transcripts in its database"
+    assert verifier._required_evidence_channels(criterion) == set()
+    assert verifier._required_evidence_channels(
+        criterion + "; record evidence in a PR comment"
+    ) == {"comments"}
+
+
 @pytest.mark.parametrize("boundary", ["but", "while", "because", "whereas", "although"])
 def test_compound_product_clause_preserves_active_past_placed(boundary):
     criterion = f"The API must include command output, {boundary} the reviewer placed evidence in a PR comment"
@@ -26,9 +52,10 @@ def test_perfect_product_storage_is_not_evidence(auxiliary, verb):
 
 
 @pytest.mark.parametrize("actor", ["assigned reviewer", "author", "maintainer", "API"])
-def test_active_past_placed_delivery_is_not_a_participial_modifier(actor):
+@pytest.mark.parametrize("marker", ["- [ ]", "+ [X]", "1. [ ]"])
+def test_active_past_placed_delivery_is_not_a_participial_modifier(actor, marker):
     assert verifier._required_evidence_channels(
-        f"The {actor} placed validation evidence in a PR comment"
+        f"{marker} The {actor} placed validation evidence in a PR comment"
     ) == {"comments"}
     assert (
         verifier._required_evidence_channels("The application placed transcripts in its database")

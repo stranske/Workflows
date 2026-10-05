@@ -993,7 +993,8 @@ def _required_evidence_channels(acceptance: str, *, _bind_attached: bool = True)
         r"(?:(?:is|are)\s+)?(?:required|needed|mandated|expected|supposed|obliged)\s+to|"
         r"(?:has|have)\s+to)"
     )
-    delivery_adverbs = r"(?:(?:also|now|still|already|[\w-]+ly)\s+){0,3}"
+    delivery_adverb = r"(?:also|now|still|already|[\w-]+ly)"
+    delivery_adverbs = r"(?:" + delivery_adverb + r"\s+){0,3}"
     passive_delivery_prefix = (
         r"(?:be|have\s+" + delivery_adverbs + r"been)" r"(?:\s+" + delivery_adverbs + r"being)?\s+"
     )
@@ -1101,12 +1102,16 @@ def _required_evidence_channels(acceptance: str, *, _bind_attached: bool = True)
             return match[0]
         if alias.lower() in {"written", "pasted", "placed", "submitted", "delivered"}:
             prefix = re.split(
-                r"[;,\n]|\b(?:and|or|but|that|which|who|while|after|once|before|when|until|unless|if|since|because|whereas|although)\b",
+                r"[;,.!?\n]|\b(?:and|or|but|that|which|who|while|after|once|before|when|until|unless|if|since|because|whereas|although)\b",
                 acceptance[: match.start()],
                 flags=re.I,
             )[-1]
             # Inspect the actor without altering the original checklist semantics.
-            prefix = re.sub(r"^\s*(?:[-*+]|\d+[.)])\s*(?:\[[ xX]\]\s*)?", "", prefix)
+            prefix = re.sub(
+                r"^\s*(?:(?:[-*+]|\d+[.)])\s*(?:\[[ xX]\]\s*)?|\[[ xX]\]\s*)?",
+                "",
+                prefix,
+            )
             active_delivery_subject = (
                 alias.lower() in {"placed", "submitted", "delivered"}
                 and bool(
@@ -2546,7 +2551,11 @@ def _required_evidence_channels(acceptance: str, *, _bind_attached: bool = True)
                 r"\b(?:(?:the|an?)\s+)?(?:application|app|service|api|endpoint)\s+"
                 + "(?:"
                 + product_auxiliary
-                + r"|(?:has|have|had|will\s+have)\s+(?:(?:not|never|no\s+longer|\w+ly)\s+)*)?"
+                + r"|(?:has|have|had|will\s+(?:(?:not|never|no\s+longer|"
+                + delivery_adverb
+                + r")\s+)*have)\s+(?:(?:not|never|no\s+longer|"
+                + delivery_adverb
+                + r")\s+)*)?"
                 + r"(?:record|capture|attach|generate)\w*\s+"
                 r"(?:(?:the|an?)\s+)?(?:transcripts?|command outputs?|evidence|artifacts?)\s+"
                 r"(?:in|into|to|as)\s+(?:(?:its|the|an?)\s+)?"

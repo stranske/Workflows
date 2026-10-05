@@ -96,6 +96,10 @@ Bounded conjunction/relative clause boundaries isolate the active-past subject
 before alias normalization. Perfect product persistence (`has/had placed`,
 `has put`, `will have placed`) is also excluded through its immediate
 storage destination without discarding a separate reviewer obligation.
+Sentence terminators (`.`, `!`, `?`) also isolate that subject. Future
+perfect persistence permits negation and the shared delivery adverbs both
+before `have` and afterward; those modifiers cannot manufacture a review
+evidence obligation from product storage.
 Product output exclusions reuse the complete shared response vocabulary,
 including `include`, `contain` and `have`; an independent reviewer
 delivery remains mandatory after the product clause is excluded.
