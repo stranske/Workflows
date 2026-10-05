@@ -722,10 +722,12 @@ async function fetchVerifierEvidence({
   }
 
   const statuses = [body.status, comments.status, artifacts.status];
-  const status = statuses.includes('unavailable')
-    ? 'unavailable'
-    : statuses.includes('present')
-      ? 'present'
+  // Destination-free evidence can use any completely retrieved channel.
+  // Individual unavailable channels remain unavailable for specific obligations.
+  const status = statuses.includes('present')
+    ? 'present'
+    : statuses.includes('unavailable')
+      ? 'unavailable'
       : 'absent';
   return { status, body, comments, artifacts, referencedRunIds: runIds };
 }

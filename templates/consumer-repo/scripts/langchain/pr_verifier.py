@@ -1582,11 +1582,14 @@ def _required_evidence_channels(acceptance: str) -> set[str]:
         line = raw_line.strip()
         if not line:
             continue
-        if criteria and not re.match(r"^[-*]\s+", line):
+        if criteria and not re.match(r"^(?:[-*+]|\d+[.)])\s+", line):
             criteria[-1] += " " + line
         else:
             criteria.append(line)
     for criterion in criteria:
+        # Canonicalize supported list markers once so every downstream negation,
+        # product-output and checklist guard uses the same established syntax.
+        criterion = re.sub(r"^\s*(?:[-*+]|\d+[.)])(?=\s)", "-", criterion)
         criterion = re.sub(
             r"\b(is|are|does|do|did|must|should|need|has|have|was|were|ca)n['’]t\b",
             lambda match: ("can" if match[1].lower() == "ca" else match[1]) + " not",
@@ -1594,8 +1597,8 @@ def _required_evidence_channels(acceptance: str) -> set[str]:
             flags=re.I,
         )
         criterion = re.sub(r"\bcannot\b", "can not", criterion, flags=re.I)
-        criterion_checklist = bool(re.match(r"^\s*[-*]\s*\[[ xX]\]", criterion))
-        criterion_bullet = bool(re.match(r"^\s*[-*]\s+", criterion))
+        criterion_checklist = bool(re.match(r"^\s*(?:[-*+]|\d+[.)])\s*\[[ xX]\]", criterion))
+        criterion_bullet = bool(re.match(r"^\s*(?:[-*+]|\d+[.)])\s+", criterion))
         # Quoted parser inputs are examples, including their verbs and clause
         # delimiters. Remove only the literal following the parser operation;
         # an actual delivery instruction after the example still applies.

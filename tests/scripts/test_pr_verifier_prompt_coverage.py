@@ -1079,6 +1079,48 @@ def test_ui_change_context_preserves_explicit_comment_delivery_variants() -> Non
         assert pr_verifier._required_evidence_channels(criterion) == {"comments"}
 
 
+@pytest.mark.parametrize(
+    "markers", [("+", "+"), ("1.", "2."), ("1)", "2)"), ("-", "*"), ("1. [ ]", "2. [ ]")]
+)
+def test_supported_list_markers_keep_optional_and_required_criteria_separate(markers) -> None:
+    """An optional preceding item cannot swallow an independently required item."""
+    first, second = markers
+    acceptance = f"{first} Workflow artifacts may be uploaded\n{second} A PR comment must include command output"
+    assert pr_verifier._required_evidence_channels(acceptance) == {"comments"}
+    for status in ("present", "absent", "unavailable"):
+        context, _ = _context(1, 1000, 1000)
+        context = context.replace(ACCEPTANCE_SENTINEL, acceptance).replace(
+            "## PR Diff Summary",
+            "## Acceptance evidence\n"
+            "- Overall retrieval status: **present**\n"
+            f"- PR comments: **{status}**\n"
+            "- Referenced workflow artifacts: **absent**\n\n## PR Diff Summary",
+        )
+        result = pr_verifier._apply_coverage_floor(
+            pr_verifier.EvaluationResult(verdict="PASS", used_llm=True),
+            pr_verifier.prompt_coverage(context, None),
+        )
+        assert result.verdict == ("PASS" if status == "present" else "CONCERNS")
+
+
+@pytest.mark.parametrize("marker", ["-", "*", "+", "1.", "1)"])
+@pytest.mark.parametrize(
+    "text,expected",
+    [
+        ("no evidence", set()),
+        ("no command output", set()),
+        ("no PR comment", set()),
+        ("no workflow artifact", set()),
+        ("Optional validation artifact", set()),
+        ("The API must return command output", set()),
+        ("Command output must be pasted in a PR comment", {"comments"}),
+    ],
+)
+def test_supported_checklist_markers_share_negation_and_product_boundaries(marker, text, expected):
+    """All accepted list syntax reaches the same downstream classifier rules."""
+    assert pr_verifier._required_evidence_channels(f"{marker} [ ] {text}") == expected
+
+
 def test_optional_checklist_evidence_is_not_required() -> None:
     assert (
         pr_verifier._required_evidence_channels("- [ ] Optional validation artifact (if produced)")
