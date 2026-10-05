@@ -1095,6 +1095,34 @@ def _required_evidence_channels(acceptance: str, *, _bind_attached: bool = True)
         "delivering": "recording",
     }
 
+    quoted_evidence_literal = (
+        r"`+[^`]*`+|\"[^\"]*\"|"
+        r"(?<!\w)'(?:[^']|(?<=\w)'(?=\w))*'(?!\w)|"
+        r"“[^”]*”|(?<!\w)‘(?:[^’]|(?<=\w)’(?=\w))*’(?!\w)"
+    )
+    parenthetical_actor = (
+        r"\b(?:reviewers?|maintainers?|authors?|operators?|agents?|bots?|runners?|"
+        r"developers?|engineers?|testers?|auditors?|verifiers?|teams?|users?|"
+        r"ui|api|application|service|endpoint)"
+    )
+    parenthetical_aside = (
+        r"(?:however|nevertheless|nonetheless|therefore|instead|also|still|[\w-]+ly|"
+        r"for\s+example|(?:after|before)\s+(?:checking|reviewing|testing)\s+"
+        r"(?:(?!(?:must|shall|will|can|could|would|should|may)\b)[\w-]+\s*){1,4})"
+    )
+    acceptance = re.sub(
+        r"(?P<literal>"
+        + quoted_evidence_literal
+        + r")|(?P<actor>"
+        + parenthetical_actor
+        + r")\s*,\s*"
+        + parenthetical_aside
+        + r"\s*,\s*",
+        lambda match: match[0] if match["literal"] else match["actor"] + " ",
+        acceptance,
+        flags=re.I,
+    )
+
     def normalize_record_alias(match: re.Match[str]) -> str:
         """Preserve literals and participial modifiers of a prior governing verb."""
         alias = match["alias"]
@@ -1144,7 +1172,7 @@ def _required_evidence_channels(acceptance: str, *, _bind_attached: bool = True)
         return record_aliases[alias.lower()]
 
     acceptance = re.sub(
-        r"(?P<literal>`+[^`]*`+|\"[^\"]*\"|'[^']*'|“[^”]*”|‘[^’]*’|"
+        r"(?P<literal>" + quoted_evidence_literal + r"|"
         r"\b(?:the|an?)\s+(?:write|paste|put|place|submit|deliver)\b"
         r"(?:\s+(?!(?:and|or|must|shall|will)\b)[\w-]+){0,6}\s+command\b"
         r"(?=\s+(?:(?:must|shall|will)\s+output|outputs)\b))|"
@@ -1272,10 +1300,7 @@ def _required_evidence_channels(acceptance: str, *, _bind_attached: bool = True)
 
     def normalize_storage_coordination(text: str) -> str:
         """Restore a bounded elided product actor/governor before clause splitting."""
-        literals = [
-            match.span()
-            for match in re.finditer(r"`+[^`]*`+|\"[^\"]*\"|'[^']*'|“[^”]*”|‘[^’]*’", text)
-        ]
+        literals = [match.span() for match in re.finditer(quoted_evidence_literal, text)]
         output: list[str] = []
         consumed = 0
         for head in storage_chain_head.finditer(text):
@@ -1975,7 +2000,7 @@ def _required_evidence_channels(acceptance: str, *, _bind_attached: bool = True)
             r"\b(?:recogniz|pars|detect|classif|match|identif|support|handl|validat)\w*\b\s*"
             r"(?:(?:the|a|an|phrase|syntax|example|literal|string|text|quoted|following)\b\s*){0,4}"
             r"(?::\s*)?"
-            r"(?P<example>`+[^`]*`+|\"[^\"]*\"|'[^']*'|“[^”]*”|‘[^’]*’)",
+            r"(?P<example>" + quoted_evidence_literal + r")",
             lambda match: match.group(0)[: match.start("example") - match.start()] + " ",
             criterion,
             flags=re.I,

@@ -1299,6 +1299,12 @@ and passive delivery is removed before both body and residual channel
 classification; an independent affirmative reviewer clause retains its channel.
 Straight and curly contracted finite auxiliaries retain passive alias identity
 before clause-level contraction normalization.
+Supported non-clausal subject parentheticals (bounded discourse adverbs,
+`for example`, and checking/reviewing/testing qualifiers) retain the actor
+before active-past alias classification. The shared literal grammar recognizes
+single-quote delimiters only outside words, retains apostrophes inside quoted
+contractions, and cannot swallow an independent mandatory delivery between two
+ordinary contractions. Parser examples and quoted inputs remain protected.
 Repeated active internal-storage predicates inherit their explicit product actor
 and complete governing modality/aspect/polarity before clause splitting. The
 bounded normalizer preserves each evidence object and its shared review

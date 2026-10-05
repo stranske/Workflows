@@ -9,6 +9,47 @@ from scripts import docs_drift_fix_agent as fix_agent
 from scripts.langchain import pr_verifier as verifier
 
 
+@pytest.mark.parametrize("role", ["reviewer", "maintainer", "author", "operator"])
+@pytest.mark.parametrize("parenthetical", ["however", "for example", "after checking CI"])
+@pytest.mark.parametrize("operation", ["placed", "submitted", "delivered", "wrote"])
+def test_parenthetical_actor_preserves_active_past_delivery(role, parenthetical, operation):
+    assert verifier._required_evidence_channels(
+        f"The {role}, {parenthetical}, {operation} evidence in a PR comment"
+    ) == {"comments"}
+
+
+@pytest.mark.parametrize("apostrophe", ["'", "’"])
+@pytest.mark.parametrize("actor", ["API", "service"])
+def test_parenthetical_product_storage_and_quoted_contractions(actor, apostrophe):
+    assert (
+        verifier._required_evidence_channels(
+            f"The {actor}, however, placed transcripts in its database"
+        )
+        == set()
+    )
+    quote_open, quote_close = ("'", "'") if apostrophe == "'" else ("‘", "’")
+    assert verifier._required_evidence_channels(
+        f"The parser must recognize {quote_open}The reviewer won{apostrophe}t place evidence in the PR body{quote_close}; include evidence in a PR comment"
+    ) == {"comments"}
+
+
+@pytest.mark.parametrize("apostrophe", ["'", "’"])
+@pytest.mark.parametrize("operation", ["put", "place", "write", "paste"])
+@pytest.mark.parametrize(
+    "destination,channel",
+    [("a PR comment", "comments"), ("workflow artifacts", "artifacts"), ("the PR body", "body")],
+)
+def test_multiple_contractions_do_not_form_a_quoted_literal(
+    apostrophe, operation, destination, channel
+):
+    criterion = (
+        f"The service won{apostrophe}t have put evidence in its database; "
+        f"the reviewer must {operation} evidence in {destination}; "
+        f"the operator couldn{apostrophe}t post artifacts"
+    )
+    assert verifier._required_evidence_channels(criterion) == {channel}
+
+
 @pytest.mark.parametrize(
     "modal",
     [
