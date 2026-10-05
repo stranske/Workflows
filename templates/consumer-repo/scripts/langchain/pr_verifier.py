@@ -983,7 +983,7 @@ def _required_evidence_channels(acceptance: str, *, _bind_attached: bool = True)
     response_operation = (
         r"(?:include|contain|have|return|display|show|store|emit|render|expose|provide)\w*\b"
     )
-    delivery_operation = r"(?:provide|return|display|show|emit|render|expose|store|upload|attach|publish|post|record|capture|include|document|generate|link|add|leave)\w*\b"
+    delivery_operation = r"(?:provide|return|display|show|emit|render|expose|store|upload|attach|publish|post|record|capture|include|contain|have|document|generate|link|add|leave)\w*\b"
     capability_operation = r"(?:(?:allow|enable|support)\w*|let(?:s|ting)?)"
     evidence_modifiers = (
         r"(?:(?!(?:and|or|but|must|shall|is|are|not|never|may|can)\b)[\w/-]+\s+){0,6}"
@@ -1069,6 +1069,13 @@ def _required_evidence_channels(acceptance: str, *, _bind_attached: bool = True)
     # boundary rule. Adding a synonym to only one regex silently diverges them.
     record_aliases = {
         "paste": "record",
+        "put": "record",
+        "puts": "records",
+        "putting": "recording",
+        "place": "record",
+        "places": "records",
+        "placed": "recorded",
+        "placing": "recording",
         "pastes": "records",
         "pasted": "recorded",
         "pasting": "recording",
@@ -1092,7 +1099,7 @@ def _required_evidence_channels(acceptance: str, *, _bind_attached: bool = True)
         alias = match["alias"]
         if not alias:
             return match[0]
-        if alias.lower() in {"written", "pasted", "submitted", "delivered"}:
+        if alias.lower() in {"written", "pasted", "placed", "submitted", "delivered"}:
             prefix = re.split(
                 r"[;\n]|\b(?:and|or|that|which|who)\b", acceptance[: match.start()], flags=re.I
             )[-1]
@@ -1124,10 +1131,10 @@ def _required_evidence_channels(acceptance: str, *, _bind_attached: bool = True)
 
     acceptance = re.sub(
         r"(?P<literal>`+[^`]*`+|\"[^\"]*\"|'[^']*'|“[^”]*”|‘[^’]*’|"
-        r"\b(?:the|an?)\s+(?:write|paste|submit|deliver)\b"
+        r"\b(?:the|an?)\s+(?:write|paste|put|place|submit|deliver)\b"
         r"(?:\s+(?!(?:and|or|must|shall|will)\b)[\w-]+){0,6}\s+command\b"
         r"(?=\s+(?:(?:must|shall|will)\s+output|outputs)\b))|"
-        r"(?P<alias>\b(?:paste|pastes|pasted|pasting|write|writes|written|writing|wrote|"
+        r"(?P<alias>\b(?:put|puts|putting|place|places|placed|placing|paste|pastes|pasted|pasting|write|writes|written|writing|wrote|"
         r"submit|submits|submitted|submitting|deliver|delivers|delivered|delivering)\b)"
         r"(?=\s+"
         + evidence_modifiers
@@ -2551,7 +2558,7 @@ def _required_evidence_channels(acceptance: str, *, _bind_attached: bool = True)
             # Record aliases are product output only with an immediate bounded
             # product recipient, never merely because the actor is a service.
             product_output_operation = (
-                r"(?:return|display|show|store|emit|render|expose|provide)\w*\b|"
+                response_operation + "|"
                 r"record\w*\b(?=\s+(?:(?:the|an?)\s+)?"
                 + evidence_modifiers
                 + r"(?:command outputs?|transcripts?|evidence)\s+"

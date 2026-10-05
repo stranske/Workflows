@@ -9,6 +9,41 @@ from scripts import docs_drift_fix_agent as fix_agent
 from scripts.langchain import pr_verifier as verifier
 
 
+@pytest.mark.parametrize("verb", ["put", "place"])
+@pytest.mark.parametrize(
+    "destination,channel", [("a PR comment", "comments"), ("the PR body", "body")]
+)
+def test_put_place_share_review_delivery_boundaries(verb, destination, channel):
+    criterion = f"The author must {verb} command output in {destination}"
+    assert verifier._required_evidence_channels(criterion) == {channel}
+    assert verifier._required_evidence_channels(
+        f"{verb.title()} the command output in {destination}"
+    ) == {channel}
+    assert (
+        verifier._required_evidence_channels(
+            f"The author must not {verb} command output in {destination}"
+        )
+        == set()
+    )
+    assert (
+        verifier._required_evidence_channels(f"The API must {verb} command output in its database")
+        == set()
+    )
+
+
+@pytest.mark.parametrize("verb", ["include", "contain", "have"])
+@pytest.mark.parametrize("actor", ["API", "application", "service"])
+def test_product_response_vocabulary_preserves_independent_review_delivery(verb, actor):
+    criterion = f"The {actor} must {verb} command output"
+    assert verifier._required_evidence_channels(criterion) == set()
+    assert verifier._required_evidence_channels(
+        criterion + "; record evidence in a PR comment"
+    ) == {"comments"}
+    assert verifier._required_evidence_channels(
+        f"The reviewer must {verb} command output in a PR comment"
+    ) == {"comments"}
+
+
 @pytest.mark.parametrize("verb", ["paste", "write"])
 @pytest.mark.parametrize(
     "destination,channel", [("a PR comment", "comments"), ("the PR body", "body")]

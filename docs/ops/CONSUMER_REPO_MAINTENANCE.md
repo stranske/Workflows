@@ -88,6 +88,11 @@ subject-level `No` and coordinated `neither … nor`, exclude collection/product
 equivalent `comments on/in the PR` destinations before matching presence.
 Bare and qualified artifact nouns share that grammar: validation artifacts
 required in a PR comment need comment evidence, not merely retrieved artifacts.
+The bounded lexical aliases `put` and `place` share the record-delivery
+grammar, including negation, body/comment destinations and product storage.
+Product output exclusions reuse the complete shared response vocabulary,
+including `include`, `contain` and `have`; an independent reviewer
+delivery remains mandatory after the product clause is excluded.
 Thus `not expected`, `not supposed`, `no evidence` and `no longer required`
 cannot become affirmative floors.
 The same bounded adverbs apply to ordinary coordinated capability actions,
