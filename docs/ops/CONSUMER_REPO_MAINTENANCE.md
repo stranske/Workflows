@@ -878,6 +878,12 @@ identified by `resolvePrSourceContext`, even when GitHub's
 included in the acceptance plan and issue-number outputs, without converting the
 relationship into a closing keyword. Already retrieved closing issues are
 deduplicated; an unrelated closing issue cannot substitute for the known source.
+An explicit closing title such as `Fixes #123` retains closing provenance when
+body sync generates its issue preamble, including after an earlier same-issue
+relation preamble. Incidental title mentions remain non-closing. Multiple closing
+title targets are ambiguous; a different authoritative body source is not
+silently replaced by title wording. Repeated source/template body syncs preserve
+this distinction.
 
 This extra lookup does not conceal unavailable or truncated closing discovery.
 A failed or malformed source lookup (including a pull-request response or a
