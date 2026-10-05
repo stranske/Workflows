@@ -15,6 +15,56 @@ NODE = shutil.which("node")
 
 
 @pytest.mark.skipif(NODE is None, reason="Node is required for producer integration")
+@pytest.mark.parametrize("comment", ["Validation evidence: command passed", ""])
+@pytest.mark.parametrize(
+    "channel,criterion",
+    [
+        ("overall", "Provide validation evidence"),
+        ("comments", "Post evidence in a PR comment"),
+        ("artifacts", "Upload a workflow artifact"),
+    ],
+)
+def test_complete_comment_is_sufficient_only_for_generic_or_comment_evidence(
+    comment, channel, criterion
+):
+    """An expired artifact cannot veto a different complete evidence channel."""
+    script = r"""
+const {fetchVerifierEvidence,formatVerifierEvidence}=require('./.github/scripts/agents_verifier_context.js');
+const input=JSON.parse(require('fs').readFileSync(0,'utf8'));
+const empty=async()=>({data:[]});
+const sha='a'.repeat(40);
+const github={rest:{issues:{listComments:async()=>({data:input.comment?[{id:1,body:input.comment}]:[]})},
+  pulls:{listReviewComments:empty,listReviews:empty},actions:{
+  listWorkflowRunsForRepo:async()=>({data:{workflow_runs:[{id:2,head_sha:sha}],total_count:1}}),
+  listWorkflowRunArtifacts:async()=>({data:{artifacts:[{id:3,expired:true}],total_count:1}}),
+  downloadArtifact:async()=>{throw Error('Expired artifacts must not be downloaded')}}}};
+fetchVerifierEvidence({github,owner:'owner',repo:'repo',pullNumber:1,evidenceTexts:[],
+  pullRequestBody:'',associatedCommitShas:[sha]})
+.then(e=>process.stdout.write(JSON.stringify({status:e.status,artifacts:e.artifacts.status,markdown:formatVerifierEvidence(e)})))
+.catch(e=>{console.error(e);process.exit(1)});
+"""
+    produced = json.loads(
+        subprocess.check_output(
+            [NODE, "-e", script], cwd=ROOT, input=json.dumps({"comment": comment}), text=True
+        )
+    )
+    assert produced["artifacts"] == "unavailable"
+    assert produced["status"] == ("present" if comment else "unavailable")
+    assert pr_verifier._required_evidence_channels("- [ ] " + criterion) == {channel}
+    context, _ = _context(1, 1000, 1000)
+    context = context.replace(ACCEPTANCE_SENTINEL, criterion).replace(
+        "## PR Diff Summary", produced["markdown"] + "\n\n## PR Diff Summary"
+    )
+    result = pr_verifier._apply_coverage_floor(
+        pr_verifier.EvaluationResult(verdict="PASS", used_llm=True),
+        pr_verifier.prompt_coverage(context, None),
+    )
+    assert result.verdict == (
+        "PASS" if comment and channel in {"overall", "comments"} else "CONCERNS"
+    )
+
+
+@pytest.mark.skipif(NODE is None, reason="Node is required for producer integration")
 @pytest.mark.parametrize(
     "body,status",
     [("Before/after evidence: RED then GREEN", "present"), ("", "absent"), (None, "unavailable")],

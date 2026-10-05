@@ -985,8 +985,12 @@ must carry the post-processed `Verdict: CONCERNS` or `Verdict: FAIL` line so the
 downstream artifact parser retains a terminal outcome rather than a partial run.
 Overall retrieval availability includes the independently bounded PR body,
 comments and artifacts. A present body can supply a generic evidence obligation
-when the other channels are absent; an unavailable channel keeps aggregate
-retrieval unavailable. This availability record is not proof of criterion
+when the other channels are absent or unavailable. Any complete present channel
+makes destination-free retrieval present; if none is present, an unavailable
+channel keeps aggregate retrieval unavailable. Acceptance-list splitting accepts
+`-`, `*`, `+`, and numbered `1.` / `1)` markers, including checkboxes, so an
+optional item cannot swallow the next independent required item.
+This availability record is not proof of criterion
 satisfaction. Channel-specific comment/artifact requirements still use their
 own retrieval statuses and cannot be satisfied by body presence.
 PR-body evidence has its own builder-owned `PR body` retrieval channel. An

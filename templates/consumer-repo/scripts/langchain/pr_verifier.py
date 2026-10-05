@@ -1582,7 +1582,7 @@ def _required_evidence_channels(acceptance: str) -> set[str]:
         line = raw_line.strip()
         if not line:
             continue
-        if criteria and not re.match(r"^[-*]\s+", line):
+        if criteria and not re.match(r"^(?:[-*+]|\d+[.)])\s+", line):
             criteria[-1] += " " + line
         else:
             criteria.append(line)
@@ -1594,8 +1594,8 @@ def _required_evidence_channels(acceptance: str) -> set[str]:
             flags=re.I,
         )
         criterion = re.sub(r"\bcannot\b", "can not", criterion, flags=re.I)
-        criterion_checklist = bool(re.match(r"^\s*[-*]\s*\[[ xX]\]", criterion))
-        criterion_bullet = bool(re.match(r"^\s*[-*]\s+", criterion))
+        criterion_checklist = bool(re.match(r"^\s*(?:[-*+]|\d+[.)])\s*\[[ xX]\]", criterion))
+        criterion_bullet = bool(re.match(r"^\s*(?:[-*+]|\d+[.)])\s+", criterion))
         # Quoted parser inputs are examples, including their verbs and clause
         # delimiters. Remove only the literal following the parser operation;
         # an actual delivery instruction after the example still applies.
