@@ -994,6 +994,7 @@ def _required_evidence_channels(acceptance: str) -> set[str]:
         r"(?:has|have)\s+to)"
     )
     passive_delivery_prefix = r"(?:be|have\s+been)(?:\s+being)?\s+"
+    delivery_adverbs = r"(?:(?:also|now|still|already|[\w-]+ly)\s+){0,3}"
     recipient_prefix = (
         r"(?:(?:all|any|some|each|every)\s+)?"
         r"(?:(?:the|its|our|their|your|an?)\s+)?"
@@ -1416,7 +1417,11 @@ def _required_evidence_channels(acceptance: str) -> set[str]:
                     )
                     recognized = re.fullmatch(
                         r"\s*,?\s*(?:and|or)"
-                        + ("" if current_capability else r"(?:\s+(?:" + actor + r"\s+)?to)?")
+                        + (
+                            r"\s+" + delivery_adverbs
+                            if current_capability
+                            else r"(?:\s+(?:" + actor + r"\s+)?to)?"
+                        )
                         + r"\s*",
                         between,
                         re.I,
@@ -2011,9 +2016,13 @@ def _required_evidence_channels(acceptance: str) -> set[str]:
                     r"(?P<actor>(?:(?!(?:must|shall|needs?|has|have|is|are)\b)[\w/-]+\s+){0,6})"
                     + r"(?P<auxiliary>"
                     + mandatory_auxiliary
-                    + r")\s+(?P<aspect>"
+                    + r")\s+"
+                    + delivery_adverbs
+                    + r"(?P<aspect>"
                     + passive_delivery_prefix
-                    + r")?(?P<operation>"
+                    + r")?"
+                    + delivery_adverbs
+                    + r"(?P<operation>"
                     + delivery_operation
                     + r")",
                     requirement_text[product_delivery.end() :],
@@ -2048,11 +2057,29 @@ def _required_evidence_channels(acceptance: str) -> set[str]:
                         if attached_delivery["aspect"]
                         else f"{actor} {predicate} {product_delivery['object']}"
                     )
-                    channels.update(
-                        _required_evidence_channels(
-                            f"{obligation} {bound_destination['destination']}"
+                    destination = bound_destination["destination"]
+                    destination_channels = set()
+                    if re.search(r"\b(?:pr|pull request)\s+body\b", destination, re.I):
+                        destination_channels.add("body")
+                    if re.search(r"\b(?:pr|pull request)\s+comments?\b", destination, re.I):
+                        destination_channels.add("comments")
+                    if re.search(artifact_destination_object, destination, re.I):
+                        destination_channels.add("artifacts")
+                    bare_pr = bool(
+                        re.search(
+                            r"\b(?:pr|pull request)\b(?!\s+(?:body|comments?)\b)",
+                            destination,
+                            re.I,
                         )
                     )
+                    # A named destination selects its channel; an artifact
+                    # antecedent is not a second upload obligation. A generic
+                    # PR destination still needs object-specific classification.
+                    if bare_pr or not destination_channels:
+                        destination_channels.update(
+                            _required_evidence_channels(f"{obligation} {destination}")
+                        )
+                    channels.update(destination_channels)
                     product_spans.append(
                         (
                             product_delivery.start(),

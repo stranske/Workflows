@@ -3428,3 +3428,37 @@ def test_attached_delivery_binding_uses_shared_destination_and_coverage_floor(
         ).verdict
         == "CONCERNS"
     )
+
+
+@pytest.mark.parametrize("modifier", ["also", "now", "still", "explicitly"])
+@pytest.mark.parametrize("following", ["upload artifacts", "post PR comments", "submit evidence"])
+@pytest.mark.parametrize("independent", [False, True])
+def test_repeated_capability_modifier_keeps_actor_boundary(
+    modifier: str, following: str, independent: bool
+) -> None:
+    criterion = f"The UI lets users submit evidence and {modifier} lets clients {following}"
+    if independent:
+        criterion += "; the reviewer must upload validation artifacts to the PR"
+    assert pr_verifier._required_evidence_channels(criterion) == (
+        {"artifacts"} if independent else set()
+    )
+
+
+@pytest.mark.parametrize("product", ["lets users upload", "must display"])
+@pytest.mark.parametrize("modifier", ["", "also ", "now ", "explicitly "])
+@pytest.mark.parametrize(
+    ("destination", "expected"),
+    [
+        ("a PR comment", {"comments"}),
+        ("the PR body", {"body"}),
+        ("workflow artifacts", {"artifacts"}),
+        ("a PR comment and the PR body", {"comments", "body"}),
+    ],
+)
+def test_attached_artifact_obligation_honors_explicit_channel(
+    product: str, modifier: str, destination: str, expected: set[str]
+) -> None:
+    criterion = (
+        f"The UI {product} artifacts that the reviewer must {modifier}document in {destination}"
+    )
+    assert pr_verifier._required_evidence_channels(criterion) == expected
