@@ -6,6 +6,13 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 Breaking changes are called out with a **BREAKING** marker and scheduled according to the policy in `COMPATIBILITY.md`.
 
+## [1.37.20](https://github.com/stranske/Workflows/compare/v1.37.19...v1.37.20) (2026-10-05)
+
+
+### Bug Fixes
+
+* **verifier:** share put/place delivery and product-response vocabulary ([#3764](https://github.com/stranske/Workflows/issues/3764)) ([8b3b8f8](https://github.com/stranske/Workflows/commit/8b3b8f817060325ea4045b5ad62402e5cbafb0ee))
+
 ## [1.37.19](https://github.com/stranske/Workflows/compare/v1.37.18...v1.37.19) (2026-10-05)
 
 
