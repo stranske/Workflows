@@ -9,6 +9,55 @@ from scripts import docs_drift_fix_agent as fix_agent
 from scripts.langchain import pr_verifier as verifier
 
 
+@pytest.mark.parametrize(
+    "predicate",
+    [
+        "is not",
+        "are not",
+        "was not",
+        "were not",
+        "will not be",
+        "must not be",
+        "is never",
+        "was no longer",
+    ],
+)
+@pytest.mark.parametrize("operation", ["putting", "placing", "writing", "pasting", "recording"])
+@pytest.mark.parametrize("destination", ["a PR comment", "workflow artifacts", "the PR body"])
+def test_negated_progressive_delivery_has_no_channel(predicate, operation, destination):
+    criterion = f"The reviewer {predicate} {operation} evidence in {destination}"
+    assert verifier._required_evidence_channels(criterion) == set()
+    assert verifier._required_evidence_channels(
+        criterion + "; include evidence in a PR comment"
+    ) == {"comments"}
+
+
+@pytest.mark.parametrize(
+    "predicate",
+    [
+        "is",
+        "are",
+        "was",
+        "were",
+        "is being",
+        "was being",
+        "is already",
+        "was previously",
+        "is not",
+        "was never",
+        "is no longer",
+    ],
+)
+@pytest.mark.parametrize("operation", ["put", "placed", "written", "pasted", "recorded"])
+@pytest.mark.parametrize("destination", ["in the database", "to clients"])
+def test_finite_passive_product_storage_has_no_channel(predicate, operation, destination):
+    criterion = f"Evidence {predicate} {operation} {destination} by the service"
+    assert verifier._required_evidence_channels(criterion) == set()
+    assert verifier._required_evidence_channels(
+        criterion + "; include evidence in a PR comment"
+    ) == {"comments"}
+
+
 @pytest.mark.parametrize("operation", ["record", "put", "place"])
 @pytest.mark.parametrize("preposition", ["in ", ""])
 @pytest.mark.parametrize(

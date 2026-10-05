@@ -1129,13 +1129,16 @@ def _required_evidence_channels(acceptance: str, *, _bind_attached: bool = True)
             )
             if not active_delivery_subject and not re.search(
                 r"\b(?:" + mandatory_auxiliary + r"|is|are|was|were|be|been|being|has|have|had)\s+"
-                r"(?:(?:not|never|no\s+longer|\w+ly)\s+)*$",
+                r"(?:(?:not|never|no\s+longer|" + delivery_adverb + r")\s+)*$",
                 prefix,
                 re.I,
             ):
                 return match[0]
         if alias.lower() == "put" and re.search(
-            r"\b(?:be|been|being)\s+$", acceptance[: match.start()], re.I
+            r"\b(?:is|are|was|were|be|been|being)\s+"
+            r"(?:(?:not|never|no\s+longer|" + delivery_adverb + r")\s+)*$",
+            acceptance[: match.start()],
+            re.I,
         ):
             return "recorded"
         return record_aliases[alias.lower()]
@@ -1169,7 +1172,7 @@ def _required_evidence_channels(acceptance: str, *, _bind_attached: bool = True)
     product_aspect = (
         r"(?:(?:"
         + mandatory_auxiliary
-        + r"|will|should|can|may|has|have|had|is|are)\s+)?"
+        + r"|will|should|can|may|has|have|had|is|are|was|were)\s+)?"
         + delivery_adverbs
         + r"(?:have\s+)?(?:be\s+|been\s+)?(?:being\s+)?"
         + delivery_adverbs
@@ -1717,8 +1720,32 @@ def _required_evidence_channels(acceptance: str, *, _bind_attached: bool = True)
         + delivery_operation,
         re.I,
     )
+    progressive_delivery_prohibition = (
+        r"\b(?:is|are|was|were|will|must|shall)\s+"
+        + delivery_adverbs
+        + r"(?:not|never|no\s+longer)\s+"
+        + delivery_adverbs
+        + r"(?:be\s+|been\s+)?(?:being\s+)?"
+        + delivery_adverbs
+        + r"(?=\w*ing\b)"
+        + delivery_operation
+    )
+    aspect_delivery_prohibition = re.compile(
+        perfect_delivery_prohibition.pattern
+        + "|"
+        + progressive_delivery_prohibition
+        + r"|\b(?:is|are|was|were)\s+"
+        + delivery_adverbs
+        + r"(?:not|never|no\s+longer)\s+"
+        + delivery_adverbs
+        + r"(?:being\s+)?"
+        + delivery_adverbs
+        + r"(?=\w*(?:ed|en)\b)"
+        + delivery_operation,
+        re.I,
+    )
     evidence_prohibition = re.compile(
-        perfect_delivery_prohibition.pattern + r"|"
+        aspect_delivery_prohibition.pattern + r"|"
         r"\b(?:must|shall|may|should|can|do|does|did|will)\s+"
         + r"(?=(?:(?:not|never|be|have|been|being)\s+){0,5}"
         + r"(?:also|now|still|already|[\w-]+ly)\s+)"
@@ -2068,7 +2095,7 @@ def _required_evidence_channels(acceptance: str, *, _bind_attached: bool = True)
             gate = bool(negative_gate.search(working_line))
             requirement_text = working_line if gate else evidence_prohibition.sub(" ", working_line)
             body_records, body_residual = body_occurrences(
-                working_line if gate else perfect_delivery_prohibition.sub(" ", working_line),
+                working_line if gate else aspect_delivery_prohibition.sub(" ", working_line),
                 gate,
                 pronoun_delivery=bool(resolved_antecedent),
             )

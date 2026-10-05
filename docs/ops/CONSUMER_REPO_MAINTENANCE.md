@@ -1290,6 +1290,10 @@ before body/comment/artifact classification, with an explicit or inherited
 destination preposition. Passive put/place aliases normalize only through their
 bounded explicit-actor storage/client destination, rather than requiring a
 following evidence object that is already the passive subject.
+Finite passive auxiliaries (`is`, `are`, `was`, `were`) share the same alias
+normalization and bounded adverb/polarity vocabulary. Negated finite progressive
+and passive delivery is removed before both body and residual channel
+classification; an independent affirmative reviewer clause retains its channel.
 Negated obligations use the same delivery-operation grammar as positive
 delivery. An explicitly excluded PR-comment destination (`outside`, `rather
 than`, `instead of`) is not a required comment channel; generic evidence and
