@@ -3275,3 +3275,53 @@ def test_product_submit_does_not_waive_independent_delivery(independent: str) ->
     assert pr_verifier._required_evidence_channels(
         f"The UI lets users submit evidence; the reviewer must {independent}"
     ) == ({"overall"} if independent == "record evidence" else {"artifacts"})
+
+
+@pytest.mark.parametrize("operation", ["submit", "upload"])
+@pytest.mark.parametrize(
+    "attachment", ["that the reviewer must upload", "that must be uploaded", "must be uploaded"]
+)
+def test_product_capability_keeps_object_attached_delivery(operation: str, attachment: str) -> None:
+    assert pr_verifier._required_evidence_channels(
+        f"The UI lets users {operation} validation artifacts {attachment} to the PR"
+    ) == {"artifacts"}
+
+
+@pytest.mark.parametrize(
+    "object_text", ["submit evidence", "upload validation artifacts", "deliver command outputs"]
+)
+@pytest.mark.parametrize("independent", [False, True])
+def test_coordinated_product_delivery_retains_independent_reviewer(
+    object_text: str, independent: bool
+) -> None:
+    criterion = f"The UI must let all clients {object_text} and post PR comments"
+    if independent:
+        criterion += "; the reviewer must upload validation artifacts to the PR"
+    assert pr_verifier._required_evidence_channels(criterion) == (
+        {"artifacts"} if independent else set()
+    )
+
+
+@pytest.mark.parametrize(
+    "recipient",
+    [
+        "authenticated users",
+        "enterprise clients",
+        "all authenticated users",
+        "our enterprise clients",
+    ],
+)
+@pytest.mark.parametrize(
+    "operation", ["lets", "won't let", "couldn't let", "mustn't let", "doesn't let"]
+)
+@pytest.mark.parametrize("object_text", ["post PR comments", "submit evidence", "upload artifacts"])
+@pytest.mark.parametrize("independent", [False, True])
+def test_modified_recipients_and_contracted_capabilities_preserve_review(
+    recipient: str, operation: str, object_text: str, independent: bool
+) -> None:
+    criterion = f"The UI {operation} {recipient} {object_text}"
+    if independent:
+        criterion += "; the reviewer must submit evidence in a PR comment"
+    assert pr_verifier._required_evidence_channels(criterion) == (
+        {"comments"} if independent else set()
+    )

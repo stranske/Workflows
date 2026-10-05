@@ -996,7 +996,9 @@ def _required_evidence_channels(acceptance: str) -> set[str]:
     passive_delivery_prefix = r"(?:be|have\s+been)(?:\s+being)?\s+"
     recipient_noun = (
         r"(?:(?:all|any|some|each|every)\s+)?"
-        r"(?:(?:the|its|our|their|your|an?)\s+)?(?:clients?|users?|consumers?)\b"
+        r"(?:(?:the|its|our|their|your|an?)\s+)?"
+        r"(?:(?!(?:and|or|but|must|shall|is|are|not|never|may|can|to|of|for|by|with|who|that|which)\b)[\w/-]+\s+){0,4}"
+        r"(?:clients?|users?|consumers?)\b"
     )
     product_recipient = r"(?:to|for)\s+" + recipient_noun
     artifact_destination_object = r"(?:workflow|ci|github actions)\s+artifacts?\b"
@@ -1317,6 +1319,14 @@ def _required_evidence_channels(acceptance: str) -> set[str]:
     def normalize_product_capability(text: str) -> str:
         """Canonicalize product recognition only, not the original obligation text."""
         text = re.sub(
+            r"\b(?:won['’]t|can['’]t|couldn['’]t|wouldn['’]t|shouldn['’]t|"
+            r"mustn['’]t|shan['’]t|doesn['’]t|don['’]t|didn['’]t)\s+"
+            r"(?=" + capability_operation + r"\b)",
+            "",
+            text,
+            flags=re.I,
+        )
+        text = re.sub(
             r"\b(?:(?P<modal>must|shall|will|should|can|may)\s+(?:not|never)|"
             r"(?:does|do|did)\s+(?:not|never)|cannot)\s+(?=" + capability_operation + r"\b)",
             lambda match: (match["modal"] or "") + " ",
@@ -1390,7 +1400,9 @@ def _required_evidence_channels(acceptance: str) -> set[str]:
                     # An unknown intervening clause may never be skipped or
                     # have capability inheritance restored by a later link.
                     between = re.sub(
-                        r"^\s*(?:(?:the|an?|their|its)\s+)?(?:pr|pull request)\s+comments?\b",
+                        r"^\s*"
+                        + evidence_modifiers
+                        + r"(?:evidence|artifacts?|transcripts?|command outputs?|pr comments?|pull request comments?)\b",
                         "",
                         between,
                         count=1,
@@ -1972,22 +1984,40 @@ def _required_evidence_channels(acceptance: str) -> set[str]:
             # a separate reviewer obligation retains its own destination.
             product_spans = []
             for product_delivery in re.finditer(
-                r"\b"
+                r"\b(?P<operation>"
                 + delivery_operation
-                + r"\s+"
+                + r")\s+(?P<object>"
                 + evidence_modifiers
-                + r"(?:evidence|artifacts?|transcripts?|command outputs?|pr comments?|pull request comments?)\b",
+                + r"(?:evidence|artifacts?|transcripts?|command outputs?|pr comments?|pull request comments?)\b)",
                 requirement_text,
                 re.I,
             ):
                 prefix = requirement_text[: product_delivery.end()]
                 if re.search(capability_operation, prefix, re.I) and product_comment_object(
-                    requirement_text[: product_delivery.start()] + product_delivery[0].split()[0],
+                    requirement_text[: product_delivery.start()] + product_delivery["operation"],
                     requirement_text[product_delivery.end() :],
                 ):
-                    product_spans.append(product_delivery.span())
-            for start, end in reversed(product_spans):
-                requirement_text = requirement_text[:start] + " " + requirement_text[end:]
+                    # Preserve an antecedent used by a relative/post-object
+                    # mandatory delivery, not just explicitly separate clauses.
+                    attached_delivery = re.match(
+                        r"\s+(?:(?:that|which)\s+)?"
+                        r"(?:(?!(?:must|shall|needs?|has|have|is|are)\b)[\w/-]+\s+){0,6}"
+                        + mandatory_auxiliary
+                        + r"\s+(?:"
+                        + passive_delivery_prefix
+                        + r")?"
+                        + delivery_operation,
+                        requirement_text[product_delivery.end() :],
+                        re.I,
+                    )
+                    product_spans.append(
+                        (
+                            *product_delivery.span(),
+                            product_delivery["object"] if attached_delivery else " ",
+                        )
+                    )
+            for start, end, replacement in reversed(product_spans):
+                requirement_text = requirement_text[:start] + replacement + requirement_text[end:]
             if product_spans and not remaining_delivery(requirement_text):
                 continue
             lower = requirement_text.lower()

@@ -59,6 +59,13 @@ Recognized capability delivery spans are removed before channel classification:
 `lets users submit evidence` and `let clients upload validation artifacts` remain
 product behavior. Only that operation/object span is excluded; a separate reviewer
 delivery is classified from the residual criterion, including its evidence qualifiers.
+An object used by an attached mandatory delivery (`artifacts that the reviewer
+must upload`, or `artifacts must be uploaded`) remains as that delivery's
+antecedent. Coordinated capability actions consume only a complete recognized
+preceding object, never an unknown intervening predicate. Recipient modifiers
+such as `authenticated users` and `enterprise clients` use one bounded grammar
+across channels. Contracted modal negations (`won't`, `couldn't`, `mustn't`) are
+canonicalized only for product recognition and cannot erase reviewer requirements.
 
 Regression gates: `python3 -m pytest tests/scripts/test_pr_verifier_prompt_coverage.py
 tests/scripts/test_pr_verifier_sync_manifest.py -q --no-cov` and
