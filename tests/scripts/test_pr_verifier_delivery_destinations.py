@@ -9,6 +9,43 @@ from scripts import docs_drift_fix_agent as fix_agent
 from scripts.langchain import pr_verifier as verifier
 
 
+@pytest.mark.parametrize("role", ["maintainer", "release reviewer"])
+@pytest.mark.parametrize("modal", ["may", "can", "could", "would", "should"])
+@pytest.mark.parametrize(
+    "governor,operation",
+    [
+        ("must", "place"),
+        ("will", "place"),
+        ("must have", "placed"),
+        ("has", "placed"),
+        ("is", "placing"),
+        ("needs to", "place"),
+    ],
+)
+@pytest.mark.parametrize(
+    "destinations", list(permutations(["the PR body", "a PR comment", "workflow artifacts"], 2))
+)
+def test_optional_predicate_cannot_suppress_named_actor_delivery(
+    role, modal, governor, operation, destinations
+):
+    before, after = destinations
+    expected = "body" if "body" in after else "comments" if "comment" in after else "artifacts"
+    first = f"The reviewer {modal} put evidence in {before}"
+    second = f"the {role} {governor} {operation} evidence in {after}"
+    assert verifier._required_evidence_channels(first + " and " + second) == {expected}
+    assert verifier._required_evidence_channels(first + "; " + second) == {expected}
+    negative = second.replace(
+        governor,
+        governor.replace(" have", "") + " not" + (" have" if " have" in governor else ""),
+        1,
+    )
+    assert verifier._required_evidence_channels(first + " and " + negative) == set()
+    assert verifier._required_evidence_is_missing(
+        "- Overall retrieval status: **absent**\n- PR body: **absent**\n- PR comments: **absent**\n- Referenced workflow artifacts: **absent**",
+        verifier._required_evidence_channels(first + " and " + second),
+    )
+
+
 @pytest.mark.parametrize("auxiliary", ["do", "does", "did"])
 @pytest.mark.parametrize("role", ["reviewer", "maintainer"])
 @pytest.mark.parametrize("modal", ["may", "can", "could", "would", "should"])

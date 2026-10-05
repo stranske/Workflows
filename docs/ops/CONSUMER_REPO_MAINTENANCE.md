@@ -1333,6 +1333,11 @@ that reset before optionality/polarity classification; a broad body match
 cannot hide it, and shared noun-only object inheritance cannot prepend a
 previous predicate to it. Bare product-field nouns such as `records` do not
 become independent predicates through this governor-only boundary.
+Named actors after a conjunction use the same complete governor, aspect and
+operation grammar as elided actors. The boundary and broad-destination span
+guards must agree: an optional reviewer delivery cannot absorb a separate
+maintainer's mandatory, perfect or progressive delivery. Regression controls
+cover qualified actors, all three destination channels and genuine prohibitions.
 Do-supported product storage (`do`, `does`, `did`) shares the finite auxiliary
 grammar and does not create a review obligation. Comma-separated and conjunctive
 shared storage/review destinations reuse the delivery-list separator grammar,

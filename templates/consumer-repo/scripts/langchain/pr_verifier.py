@@ -2096,6 +2096,13 @@ def _required_evidence_channels(acceptance: str, *, _bind_attached: bool = True)
         # named actors and modified subjects. Extra noun modifiers need a modal
         # so adjective lists such as "failing and restored passing transcript"
         # stay attached to their delivery verb.
+        named_actor_delivery_predicate = (
+            r"(?:(?!(?:and|or|but|while|whereas)\b)[\w-]+\s+){1,6}(?="
+            + delivery_governor_auxiliary
+            + r"\s+)"
+            + coordinated_governor
+            + delivery_operation
+        )
         clause_boundary = (
             r"\s*;\s*|,?\s+(?:but|whereas)\s+|"
             r"(?:,?\s+(?:and|while)\s+)(?="
@@ -2118,15 +2125,8 @@ def _required_evidence_channels(acceptance: str, *, _bind_attached: bool = True)
             r"(?:evidence|artifacts?|transcripts?|command outputs?|"
             r"workflow runs?|pr comments?|pull request comments?)\s+"
             r"(?:must|shall|needs?\s+to|(?:is|are)\s+(?:required|mandatory|needed))\b|"
-            r"(?:[\w-]+\s+){1,6}(?:must|shall|needs?\s+to|"
-            r"(?:(?:is|are)\s+)?(?:required|needed|mandated|expected|supposed|obliged)\s+to|"
-            r"(?:has|have)\s+to|will)\s+"
-            + delivery_adverbs
-            + r"(?:"
-            + passive_delivery_prefix
-            + r")?"
-            + delivery_adverbs
-            + r"(?:publish|upload|attach|capture|record|provide|include|post|document|prove|show|link|add|leave)\b|"
+            + named_actor_delivery_predicate
+            + r"|"
             r"(?:publish|upload|attach|capture|record|provide|include|post|document|prove|show|link|add|leave)\b"
             r"))"
         )
@@ -2162,6 +2162,8 @@ def _required_evidence_channels(acceptance: str, *, _bind_attached: bool = True)
                 + review_destination_noun
                 + r"\s+"
                 + independent_review_predicate
+                + r"|"
+                + named_actor_delivery_predicate
                 + r"|"
                 + delivery_governor_auxiliary
                 + r"\s+)",
