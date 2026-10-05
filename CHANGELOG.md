@@ -6,6 +6,15 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 Breaking changes are called out with a **BREAKING** marker and scheduled according to the policy in `COMPATIBILITY.md`.
 
+## [1.37.18](https://github.com/stranske/Workflows/compare/v1.37.17...v1.37.18) (2026-10-05)
+
+
+### Bug Fixes
+
+* **sync:** prefer explicit closing titles over incidental body references ([#3755](https://github.com/stranske/Workflows/issues/3755)) ([e2c761a](https://github.com/stranske/Workflows/commit/e2c761a12d022816d7584d63e8f955535f6047e0))
+* **sync:** preserve explicit closing title provenance ([#3752](https://github.com/stranske/Workflows/issues/3752)) ([340ea46](https://github.com/stranske/Workflows/commit/340ea4656487e790e194a3d00f7257c5a82a8b17))
+* **verifier:** retrieve non-closing source issue contracts ([609b32e](https://github.com/stranske/Workflows/commit/609b32ef4823f6856385a44e9838ac368af9e159))
+
 ## [1.37.17](https://github.com/stranske/Workflows/compare/v1.37.16...v1.37.17) (2026-10-05)
 
 
