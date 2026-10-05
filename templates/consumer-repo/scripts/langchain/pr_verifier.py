@@ -985,6 +985,9 @@ def _required_evidence_channels(acceptance: str) -> set[str]:
     )
     delivery_operation = r"(?:provide|return|display|show|emit|render|expose|store|upload|attach|publish|post|record|capture|include|document|generate|link|add|leave)\w*\b"
     capability_operation = r"(?:(?:allow|enable|support)\w*|let(?:s|ting)?)"
+    evidence_modifiers = (
+        r"(?:(?!(?:and|or|but|must|shall|is|are|not|never|may|can)\b)[\w/-]+\s+){0,6}"
+    )
     mandatory_auxiliary = (
         r"(?:(?:must|shall|needs?\s+to)|"
         r"(?:(?:is|are)\s+)?(?:required|needed|mandated|expected|supposed|obliged)\s+to|"
@@ -1057,7 +1060,16 @@ def _required_evidence_channels(acceptance: str) -> set[str]:
             prefix = re.split(
                 r"[;\n]|\b(?:and|or|that|which|who)\b", acceptance[: match.start()], flags=re.I
             )[-1]
-            if not re.search(
+            active_delivery_subject = alias.lower() in {"submitted", "delivered"} and bool(
+                re.fullmatch(
+                    r"\s*(?:(?:the|an?)\s+)?"
+                    r"(?:reviewers?|maintainers?|authors?|operators?|ui|api|application|"
+                    r"service|endpoint)\s*",
+                    prefix,
+                    re.I,
+                )
+            )
+            if not active_delivery_subject and not re.search(
                 r"\b(?:" + mandatory_auxiliary + r"|is|are|was|were|be|been|being|has|have|had)\s+"
                 r"(?:(?:not|never|no\s+longer|\w+ly)\s+)*$",
                 prefix,
@@ -1073,8 +1085,9 @@ def _required_evidence_channels(acceptance: str) -> set[str]:
         r"(?=\s+(?:(?:must|shall|will)\s+output|outputs)\b))|"
         r"(?P<alias>\b(?:paste|pastes|pasted|pasting|write|writes|written|writing|wrote|"
         r"submit|submits|submitted|submitting|deliver|delivers|delivered|delivering)\b)"
-        r"(?=\s+(?:(?:the|an?|any|before/after|failing|passing|supporting|validation|workflow|exact-head|execution|test|review|collected|recorded)\s+){0,4}"
-        r"(?:evidence|artifacts?|transcripts?|command outputs?|pr comments?|pull request comments?)\b"
+        r"(?=\s+"
+        + evidence_modifiers
+        + r"(?:evidence|artifacts?|transcripts?|command outputs?|pr comments?|pull request comments?)\b"
         r"|\s+" + destination_preposition + r"(?:both\s+)?" + delivery_destination_item + r")",
         normalize_record_alias,
         acceptance,
@@ -2253,8 +2266,10 @@ def _required_evidence_channels(acceptance: str) -> set[str]:
             product_output_operation = (
                 r"(?:return|display|show|store|emit|render|expose|provide)\w*\b|"
                 r"record\w*\b(?=\s+(?:(?:the|an?)\s+)?"
-                r"(?:(?:supporting|execution|validation|test|review|collected|recorded)\s+){0,3}"
-                r"(?:command outputs?|transcripts?|evidence)\s+" + product_recipient + ")"
+                + evidence_modifiers
+                + r"(?:command outputs?|transcripts?|evidence)\s+"
+                + product_recipient
+                + ")"
             )
             product_output_prefix = re.compile(
                 r"^\s*(?:[-*]\s*(?:\[[ xX]\]\s*)?)?"

@@ -3100,6 +3100,7 @@ def test_let_capability_never_hides_separate_reviewer_obligation(
     [
         "The API must deliver validation evidence to clients",
         "The API must submit validation evidence to clients",
+        "The API must deliver CI validation evidence to clients",
         "The UI is letting users post PR comments",
         "The UI supports letting users post PR comments",
     ],
@@ -3112,4 +3113,26 @@ def test_delivery_aliases_and_progressive_capabilities_keep_product_boundary(
         criterion += "; the reviewer must submit validation evidence in a PR comment"
     assert pr_verifier._required_evidence_channels(criterion) == (
         {"comments"} if independent else set()
+    )
+
+
+@pytest.mark.parametrize("verb", ["submit", "deliver", "submitted", "delivered"])
+@pytest.mark.parametrize(
+    "modifier", ["CI validation", "independently collected", "exact-head regression"]
+)
+def test_delivery_aliases_preserve_modified_and_active_past_obligations(
+    verb: str, modifier: str
+) -> None:
+    modal = "must " if verb in {"submit", "deliver"} else ""
+    criterion = f"The reviewer {modal}{verb} {modifier} evidence in a PR comment"
+    assert pr_verifier._required_evidence_channels(criterion) == {"comments"}
+
+
+@pytest.mark.parametrize("participle", ["submitted", "delivered"])
+def test_participial_evidence_modifiers_are_not_new_delivery_operations(participle: str) -> None:
+    assert (
+        pr_verifier._required_evidence_channels(
+            f"The UI must display {participle} validation evidence to users"
+        )
+        == set()
     )
