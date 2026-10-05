@@ -1464,6 +1464,72 @@ test('complete explicit exact-head artifacts do not require unrelated associated
   }
 });
 
+test('explicit artifact scope requires complete reference sources even with complete associated discovery', async () => {
+  const sha = 'a'.repeat(40);
+  const url = 'https://github.com/octo/workflows/actions/runs/123';
+  const empty = async () => ({ data: [] });
+  const implementations = [
+    fetchVerifierEvidence,
+    require('../../../templates/consumer-repo/.github/scripts/agents_verifier_context.js').fetchVerifierEvidence,
+  ];
+  await withEnv('VERIFIER_EVIDENCE_BODY_CHARS', '100', async () => {
+    await withEnv('VERIFIER_EVIDENCE_COMMENT_CHARS', '100', async () => {
+      await withEnv('VERIFIER_EVIDENCE_RUN_LIMIT', '1', async () => {
+        for (const fetchEvidence of implementations) {
+          for (const defect of [
+            'none', 'body-reference', 'comment-reference', 'partial-comments',
+            'truncated-comment', 'invalid-comments', 'missing-body', 'truncated-body',
+            'partial-issues', 'excess-references', 'invalid-provenance', 'failed-provenance',
+          ]) {
+            const discovered = [];
+            const inspected = [];
+            const github = { rest: {
+              issues: { listComments: async () => ({
+                data: defect === 'invalid-comments' ? {} :
+                  defect === 'truncated-comment' ? [{ body: url + 'x'.repeat(100) }] :
+                    defect === 'comment-reference' ? [{ body: url }] : [],
+                headers: defect === 'partial-comments' ? { link: 'rel="next"' } : {},
+              }) },
+              pulls: { listReviewComments: empty, listReviews: empty },
+              actions: {
+                getWorkflowRun: async () => {
+                  if (defect === 'failed-provenance') throw new Error('run lookup unavailable');
+                  return { data: { id: defect === 'invalid-provenance' ? 124 : 123, head_sha: sha } };
+                },
+                listWorkflowRunsForRepo: async () => {
+                  discovered.push(sha);
+                  return { data: { total_count: 1, workflow_runs: [{ id: 123, head_sha: sha }] } };
+                },
+                listWorkflowRunArtifacts: async ({ run_id }) => {
+                  inspected.push(run_id);
+                  return { data: { total_count: 1, artifacts: [{ id: 9, size_in_bytes: 10 }] } };
+                },
+                downloadArtifact: async () => ({ data: Buffer.from('zip') }),
+              },
+            } };
+            const evidence = await fetchEvidence({
+              github, owner: 'octo', repo: 'workflows', pullNumber: 700,
+              pullRequestBody: defect === 'missing-body' ? undefined :
+                defect === 'truncated-body' ? url + 'x'.repeat(100) :
+                  defect === 'body-reference' ? url : '',
+              evidenceTexts: ['body-reference', 'comment-reference'].includes(defect) ? [] :
+                [url + (defect === 'excess-references' ? ' ' + url.replace('123', '124') : '')],
+              referenceSourcesComplete: defect !== 'partial-issues',
+              associatedCommitShas: [sha],
+              extractArtifactText: () => ({ text: 'RED then GREEN', truncated: false }),
+            });
+            const complete = ['none', 'body-reference', 'comment-reference'].includes(defect);
+            assert.equal(evidence.artifacts.status, complete ? 'present' : 'unavailable', defect);
+            assert.equal(evidence.artifacts.complete, complete, defect);
+            assert.deepEqual(discovered, complete ? [] : [sha], defect);
+            assert.deepEqual(inspected, [123], defect);
+          }
+        }
+      });
+    });
+  });
+});
+
 test('artifact extractor truncates when zip entry count exceeds maxEntries', () => {
   const execFile = (_command, args) => (args[0] === '-Z1' ? 'a.txt\nb.txt\nc.txt\n' : 'x');
   const result = extractArtifactArchiveText({
