@@ -208,12 +208,13 @@ def test_qualified_body_delivery_preserves_optional_negative_and_product_boundar
 
 @pytest.mark.skipif(NODE is None, reason="Node is required for producer integration")
 @pytest.mark.parametrize("source", ["body", "comment", "production-body"])
-def test_incidental_status_run_link_does_not_suppress_artifact_discovery(source):
+@pytest.mark.parametrize("workflow", ["CI", "Validation", "Artifact validation"])
+def test_incidental_status_run_link_does_not_suppress_artifact_discovery(source, workflow):
     """A status-table link is not an explicit validation-evidence selection."""
     script = r"""
 const {fetchVerifierEvidence}=require('./.github/scripts/agents_verifier_context.js');
-const source=JSON.parse(require('fs').readFileSync(0,'utf8'));
-const sha='a'.repeat(40), status='| CI | SUCCESS | [View run](https://github.com/owner/repo/actions/runs/123) |';
+const {source,workflow}=JSON.parse(require('fs').readFileSync(0,'utf8'));
+const sha='a'.repeat(40), status='| '+workflow+' | SUCCESS | [View run](https://github.com/owner/repo/actions/runs/123) |';
 let discoveries=0;
 const empty=async()=>({data:[]});
 const github={rest:{issues:{listComments:async()=>({data:source==='comment'?[{id:1,body:status}]:[]})},
@@ -230,7 +231,12 @@ extractArtifactText:()=>({text:'RED then GREEN',truncated:false})})
 .catch(e=>{console.error(e);process.exit(1)});
 """
     produced = json.loads(
-        subprocess.check_output([NODE, "-e", script], cwd=ROOT, input=json.dumps(source), text=True)
+        subprocess.check_output(
+            [NODE, "-e", script],
+            cwd=ROOT,
+            input=json.dumps({"source": source, "workflow": workflow}),
+            text=True,
+        )
     )
     assert produced == {"discoveries": 1, "status": "present"}
 

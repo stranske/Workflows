@@ -546,6 +546,7 @@ async function fetchVerifierEvidence({
   // evidence lines can select a bounded set; all other links retain discovery.
   const labelledEvidenceLines = [pullRequestBody, ...referenceTexts, ...commentBodies]
     .flatMap((text) => String(text || '').split('\n'))
+    .filter((line) => !/^\s*\|[^|\n]+\|[^|\n]+\|\s*\[View run\]\([^\n)]+\)\s*\|\s*$/i.test(line))
     .filter((line) => /\b(?:evidence|validation|artifacts?|test results?|red\s+(?:then\s+)?green)\b/i.test(line));
   const explicitEvidenceRunIds = new Set(
     extractReferencedRunIds([
