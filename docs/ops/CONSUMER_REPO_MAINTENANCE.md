@@ -1353,6 +1353,10 @@ role qualifiers (assigned, responsible, authorized, experienced, designated,
 senior, lead, primary, current, CI or API), not an arbitrary preceding predicate.
 Thus `the reviewer checks the service supply evidence` cannot turn an object
 compound into an independent service delivery.
+The same bounded subject guard applies to active-past placed/submitted/delivered/
+supplied aliases. Independent finite-present delivery predicates share that actor
+and operation grammar across conjunctions and sentence endings; they cannot inherit
+a preceding actor's optional modal.
 Comment presence/containment predicates share the complete mandatory auxiliary
 grammar, including `has/have to`, with existing polarity controls.
 Do-supported product storage (`do`, `does`, `did`) shares the finite auxiliary

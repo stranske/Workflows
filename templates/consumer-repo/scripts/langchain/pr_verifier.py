@@ -1114,6 +1114,13 @@ def _required_evidence_channels(acceptance: str, *, _bind_attached: bool = True)
         r"developers?|engineers?|testers?|auditors?|verifiers?|teams?|users?|"
         r"ui|api|application|service|endpoint)"
     )
+    qualified_delivery_actor = (
+        r"(?:(?:the|an?)\s+)?"
+        r"(?:(?:assigned|responsible|authorized|experienced|designated|senior|lead|primary|current|CI|API)\s+){0,3}"
+        + parenthetical_actor
+        + r"\b\s+"
+        + delivery_adverbs
+    )
     parenthetical_aside = (
         r"(?!(?:(?:and|or)\s+)?"
         + r"(?:"
@@ -1179,11 +1186,7 @@ def _required_evidence_channels(acceptance: str, *, _bind_attached: bool = True)
             )
             actor = bool(
                 re.fullmatch(
-                    r"\s*(?:(?:the|an?)\s+)?"
-                    + r"(?:(?:assigned|responsible|authorized|experienced|designated|senior|lead|primary|current|CI|API)\s+){0,3}"
-                    + parenthetical_actor
-                    + r"\b\s+"
-                    + delivery_adverbs,
+                    r"\s*" + qualified_delivery_actor,
                     prefix,
                     re.I,
                 )
@@ -1206,11 +1209,7 @@ def _required_evidence_channels(acceptance: str, *, _bind_attached: bool = True)
                 alias.lower() in {"placed", "submitted", "delivered", "supplied"}
                 and bool(
                     re.fullmatch(
-                        r"\s*(?:(?:the|an?)\s+)?"
-                        + evidence_modifiers
-                        + r"(?:reviewers?|maintainers?|authors?|operators?|agents?|bots?|runners?|"
-                        r"developers?|engineers?|testers?|auditors?|verifiers?|teams?|users?|"
-                        r"ui|api|application|service|endpoint)\s+" + delivery_adverbs + r"\s*",
+                        r"\s*" + qualified_delivery_actor + r"\s*",
                         prefix,
                         re.I,
                     )
@@ -2141,12 +2140,9 @@ def _required_evidence_channels(acceptance: str, *, _bind_attached: bool = True)
             + r"\s+)"
             + coordinated_governor
             + delivery_operation
-            + r"|(?:(?:the|an?)\s+)?"
-            + evidence_modifiers
-            + parenthetical_actor
-            + r"\b\s+"
-            + delivery_adverbs
-            + r"(?:recorded|published|uploaded|attached|captured|provided|posted|documented)\b"
+            + r"|"
+            + qualified_delivery_actor
+            + delivery_operation
         )
         clause_boundary = (
             r"\s*;\s*|,?\s+(?:but|whereas)\s+|"

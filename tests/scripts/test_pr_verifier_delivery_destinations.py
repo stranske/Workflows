@@ -130,14 +130,26 @@ def test_comment_has_to_uses_shared_mandatory_auxiliary(criterion):
 
 @pytest.mark.parametrize("predicate", ["checks", "inspects", "reviews"])
 @pytest.mark.parametrize("compound", ["service", "API", "reviewer"])
-def test_actor_word_in_supply_object_is_not_clause_subject(predicate, compound):
+@pytest.mark.parametrize("alias", ["supply", "supplied", "placed", "submitted", "delivered"])
+def test_actor_word_in_supply_object_is_not_clause_subject(predicate, compound, alias):
     """An object compound cannot create a delivery predicate."""
     assert (
         verifier._required_evidence_channels(
-            f"The reviewer {predicate} the {compound} supply evidence in the PR body"
+            f"The reviewer {predicate} the {compound} {alias} evidence in the PR body"
         )
         == set()
     )
+
+
+@pytest.mark.parametrize("boundary", [" and ", " while ", ". ", "! ", "? "])
+@pytest.mark.parametrize("verb", ["supplies", "records", "provides", "places", "proves"])
+def test_optional_actor_cannot_suppress_finite_present_delivery(boundary, verb):
+    """An independent finite-present subject cannot inherit optional delivery."""
+    assert verifier._required_evidence_channels(
+        "The reviewer may supply evidence in the PR body"
+        + boundary
+        + f"the maintainer {verb} evidence in a PR comment"
+    ) == {"comments"}
 
 
 @pytest.mark.parametrize("actor", ["reviewer", "assigned reviewer", "senior reviewer", "CI runner"])
