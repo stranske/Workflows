@@ -6,6 +6,16 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 Breaking changes are called out with a **BREAKING** marker and scheduled according to the policy in `COMPATIBILITY.md`.
 
+## [1.37.17](https://github.com/stranske/Workflows/compare/v1.37.16...v1.37.17) (2026-10-05)
+
+
+### Bug Fixes
+
+* **pr-meta:** keep related issues non-closing across body syncs ([#3745](https://github.com/stranske/Workflows/issues/3745)) ([9bf99ef](https://github.com/stranske/Workflows/commit/9bf99ef1d953cda828e72381518945b5e9c1f61e))
+* **verifier:** include bounded body in overall evidence availability ([#3749](https://github.com/stranske/Workflows/issues/3749)) ([d907273](https://github.com/stranske/Workflows/commit/d9072731eb34f5efce958129bcb36569283a71b2))
+* **verifier:** isolate evidence channels and acceptance list items ([#3750](https://github.com/stranske/Workflows/issues/3750)) ([a388218](https://github.com/stranske/Workflows/commit/a3882189dcb162120cdf25ca584abecebd98d638))
+* **verifier:** share delivery aliases and preserve evidence boundaries ([#3747](https://github.com/stranske/Workflows/issues/3747)) ([6b45c2f](https://github.com/stranske/Workflows/commit/6b45c2fa08b252c75ce99ea40d506320625bc3c1))
+
 ## [1.37.16](https://github.com/stranske/Workflows/compare/v1.37.15...v1.37.16) (2026-10-04)
 
 
