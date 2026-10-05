@@ -977,7 +977,7 @@ def _acceptance_criteria_sections(plan_sources: str) -> str:
     return "\n\n".join(part for part in captured if part)
 
 
-def _required_evidence_channels(acceptance: str) -> set[str]:
+def _required_evidence_channels(acceptance: str, *, _bind_attached: bool = True) -> set[str]:
     """Identify explicit evidence deliverables without treating negations as requirements."""
     channels: set[str] = set()
     response_operation = (
@@ -1732,8 +1732,13 @@ def _required_evidence_channels(acceptance: str) -> set[str]:
             r"(?:must|shall|needs?\s+to|(?:is|are)\s+(?:required|mandatory|needed))\b|"
             r"(?:[\w-]+\s+){1,6}(?:must|shall|needs?\s+to|"
             r"(?:(?:is|are)\s+)?(?:required|needed|mandated|expected|supposed|obliged)\s+to|"
-            r"(?:has|have)\s+to)\s+"
-            r"(?:publish|upload|attach|capture|record|provide|include|post|document|prove|show|link|add|leave)\b|"
+            r"(?:has|have)\s+to|will)\s+"
+            + delivery_adverbs
+            + r"(?:"
+            + passive_delivery_prefix
+            + r")?"
+            + delivery_adverbs
+            + r"(?:publish|upload|attach|capture|record|provide|include|post|document|prove|show|link|add|leave)\b|"
             r"(?:publish|upload|attach|capture|record|provide|include|post|document|prove|show|link|add|leave)\b"
             r"))"
         )
@@ -2022,41 +2027,41 @@ def _required_evidence_channels(acceptance: str) -> set[str]:
             # capability. Qualifiers such as "validation" do not turn that
             # product input into workflow evidence. Classify the residual so
             # a separate reviewer obligation retains its own destination.
-            product_spans = []
-            for product_delivery in re.finditer(
-                r"\b(?P<operation>"
+            attached_delivery_pattern = re.compile(
+                r"\s+(?:(?:that|which)\s+)?"
+                r"(?P<actor>(?:(?!(?:and|or|that|which|must|shall|needs?|has|have|is|are)\b)[\w/-]+\s+){0,6})"
+                + r"(?P<auxiliary>"
+                + r"(?:"
+                + mandatory_auxiliary
+                + r"|will)"
+                + r")\s+"
+                + delivery_adverbs
+                + r"(?P<aspect>"
+                + passive_delivery_prefix
+                + r")?"
+                + delivery_adverbs
+                + r"(?P<operation>"
                 + delivery_operation
-                + r")\s+(?P<object>"
-                + evidence_modifiers
-                + r"(?:evidence|artifacts?|transcripts?|command outputs?|pr comments?|pull request comments?)\b)",
+                + r")",
+                re.I,
+            )
+            bound_spans = []
+            for attached_object in re.finditer(
+                (
+                    r"\b(?P<object>evidence|artifacts?|transcripts?|command outputs?|pr comments?|pull request comments?)\b"
+                    if _bind_attached and not resolved_antecedent
+                    else r"(?!)"
+                ),
                 requirement_text,
                 re.I,
             ):
-                # Preserve an antecedent used by a relative/post-object
-                # mandatory delivery, not just explicitly separate clauses.
-                attached_delivery = re.match(
-                    r"\s+(?:(?:that|which)\s+)?"
-                    r"(?P<actor>(?:(?!(?:must|shall|needs?|has|have|is|are)\b)[\w/-]+\s+){0,6})"
-                    + r"(?P<auxiliary>"
-                    + r"(?:"
-                    + mandatory_auxiliary
-                    + r"|will)"
-                    + r")\s+"
-                    + delivery_adverbs
-                    + r"(?P<aspect>"
-                    + passive_delivery_prefix
-                    + r")?"
-                    + delivery_adverbs
-                    + r"(?P<operation>"
-                    + delivery_operation
-                    + r")",
-                    requirement_text[product_delivery.end() :],
-                    re.I,
+                attached_delivery = attached_delivery_pattern.match(
+                    requirement_text[attached_object.end() :]
                 )
                 bound_destination = (
                     re.match(
                         r"\s+(?P<destination>" + bound_review_destinations + r")",
-                        requirement_text[product_delivery.end() + attached_delivery.end() :],
+                        requirement_text[attached_object.end() + attached_delivery.end() :],
                         re.I,
                     )
                     if attached_delivery
@@ -2078,9 +2083,9 @@ def _required_evidence_channels(acceptance: str) -> set[str]:
                         if part.strip()
                     )
                     obligation = (
-                        f"{product_delivery['object']} {predicate}"
+                        f"{attached_object['object']} {predicate}"
                         if attached_delivery["aspect"]
-                        else f"{actor} {predicate} {product_delivery['object']}"
+                        else f"{actor} {predicate} {attached_object['object']}"
                     )
                     destination = bound_destination["destination"]
                     destination_channels = set()
@@ -2102,24 +2107,41 @@ def _required_evidence_channels(acceptance: str) -> set[str]:
                     # PR destination still needs object-specific classification.
                     if bare_pr or not destination_channels:
                         destination_channels.update(
-                            _required_evidence_channels(f"{obligation} {destination}")
+                            _required_evidence_channels(
+                                f"{obligation} {destination}", _bind_attached=False
+                            )
                         )
                     channels.update(destination_channels)
-                    product_spans.append(
+                    bound_spans.append(
                         (
-                            product_delivery.start(),
-                            product_delivery.end()
+                            attached_object.start(),
+                            attached_object.end()
                             + attached_delivery.end()
                             + bound_destination.end(),
                             " ",
                         )
                     )
                     continue
+            for start, end, replacement in reversed(bound_spans):
+                requirement_text = requirement_text[:start] + replacement + requirement_text[end:]
+            product_spans = []
+            for product_delivery in re.finditer(
+                r"\b(?P<operation>"
+                + delivery_operation
+                + r")\s+(?P<object>"
+                + evidence_modifiers
+                + r"(?:evidence|artifacts?|transcripts?|command outputs?|pr comments?|pull request comments?)\b)",
+                requirement_text,
+                re.I,
+            ):
                 prefix = requirement_text[: product_delivery.end()]
                 if re.search(capability_operation, prefix, re.I) and product_comment_object(
                     requirement_text[: product_delivery.start()] + product_delivery["operation"],
                     requirement_text[product_delivery.end() :],
                 ):
+                    attached_delivery = attached_delivery_pattern.match(
+                        requirement_text[product_delivery.end() :]
+                    )
                     product_spans.append(
                         (
                             *product_delivery.span(),
@@ -2128,7 +2150,7 @@ def _required_evidence_channels(acceptance: str) -> set[str]:
                     )
             for start, end, replacement in reversed(product_spans):
                 requirement_text = requirement_text[:start] + replacement + requirement_text[end:]
-            if product_spans and not remaining_delivery(requirement_text):
+            if (bound_spans or product_spans) and not remaining_delivery(requirement_text):
                 continue
             lower = requirement_text.lower()
             delivery_object = r"(?:command outputs?|transcripts?|artifacts?|evidence)\b"

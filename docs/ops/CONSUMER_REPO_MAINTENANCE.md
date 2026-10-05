@@ -76,6 +76,11 @@ prohibited predicates and modifiers inside perfect passive auxiliaries. Definite
 future (`will`) attached delivery retains its obligation. Conditional body records
 (`if available`, `when present` and the declared availability conditions) are
 optional before channel accumulation; a separate required reviewer clause remains.
+Independent-clause recognition uses those same bounded predicate modifiers, so
+availability cannot spill into a later named reviewer obligation. Bind attached
+delivery to the noun itself (including a coordinated object), not only an
+operation/object pair. Isolated obligations are classified once with rebinding
+disabled, preventing recursive re-extraction of passive antecedents.
 active/passive wording and bare/qualified artifacts must not select different
 preposition rules. Missing required evidence still lowers a supplied PASS to CONCERNS.
 Coordinated capability actions consume only a complete recognized

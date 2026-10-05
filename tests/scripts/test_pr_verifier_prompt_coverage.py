@@ -3504,3 +3504,45 @@ def test_attached_conditional_body_record_keeps_independent_required_delivery(
     assert pr_verifier._required_evidence_channels(criterion) == (
         {"comments"} if independent else set()
     )
+
+
+@pytest.mark.parametrize("condition", ["if available", "when present"])
+@pytest.mark.parametrize("boundary", [" and ", " while ", ". "])
+@pytest.mark.parametrize("modifier", ["also", "explicitly", "now"])
+@pytest.mark.parametrize("product", ["lets users upload", "must display"])
+def test_conditional_body_does_not_waive_modified_independent_review_delivery(
+    condition: str, boundary: str, modifier: str, product: str
+) -> None:
+    criterion = (
+        f"The UI {product} artifacts that the reviewer must document in the PR body {condition}"
+        f"{boundary}the reviewer must {modifier} post validation evidence in a PR comment"
+    )
+    assert pr_verifier._required_evidence_channels(criterion) == {"comments"}
+    context, _ = _context(1, 1000, 1000)
+    context = context.replace(ACCEPTANCE_SENTINEL, criterion).replace(
+        "## PR Diff Summary",
+        "## Acceptance evidence\n\n- Overall retrieval status: **absent**\n"
+        "- PR comments: **absent**\n- Workflow artifacts: **absent**\n\n## PR Diff Summary",
+    )
+    coverage = pr_verifier.prompt_coverage(context, None)
+    assert not coverage.sufficient
+    assert (
+        pr_verifier._apply_coverage_floor(
+            pr_verifier.EvaluationResult(verdict="PASS", used_llm=True), coverage
+        ).verdict
+        == "CONCERNS"
+    )
+
+
+@pytest.mark.parametrize("product", ["lets users upload", "must display"])
+@pytest.mark.parametrize("prior", ["evidence", "command outputs", "transcripts"])
+@pytest.mark.parametrize("predicate", ["that the reviewer must upload", "that must be uploaded"])
+@pytest.mark.parametrize(
+    ("destination", "expected"),
+    [("to the PR", {"artifacts"}), ("in a PR comment", {"comments"}), ("in the PR body", {"body"})],
+)
+def test_coordinated_product_object_retains_attached_delivery(
+    product: str, prior: str, predicate: str, destination: str, expected: set[str]
+) -> None:
+    criterion = f"The UI {product} {prior} and artifacts {predicate} {destination}"
+    assert pr_verifier._required_evidence_channels(criterion) == expected
