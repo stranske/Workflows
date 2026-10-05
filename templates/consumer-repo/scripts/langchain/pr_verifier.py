@@ -1587,6 +1587,9 @@ def _required_evidence_channels(acceptance: str) -> set[str]:
         else:
             criteria.append(line)
     for criterion in criteria:
+        # Canonicalize supported list markers once so every downstream negation,
+        # product-output and checklist guard uses the same established syntax.
+        criterion = re.sub(r"^\s*(?:[-*+]|\d+[.)])(?=\s)", "-", criterion)
         criterion = re.sub(
             r"\b(is|are|does|do|did|must|should|need|has|have|was|were|ca)n['’]t\b",
             lambda match: ("can" if match[1].lower() == "ca" else match[1]) + " not",

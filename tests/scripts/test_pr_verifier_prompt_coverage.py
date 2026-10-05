@@ -1103,6 +1103,24 @@ def test_supported_list_markers_keep_optional_and_required_criteria_separate(mar
         assert result.verdict == ("PASS" if status == "present" else "CONCERNS")
 
 
+@pytest.mark.parametrize("marker", ["-", "*", "+", "1.", "1)"])
+@pytest.mark.parametrize(
+    "text,expected",
+    [
+        ("no evidence", set()),
+        ("no command output", set()),
+        ("no PR comment", set()),
+        ("no workflow artifact", set()),
+        ("Optional validation artifact", set()),
+        ("The API must return command output", set()),
+        ("Command output must be pasted in a PR comment", {"comments"}),
+    ],
+)
+def test_supported_checklist_markers_share_negation_and_product_boundaries(marker, text, expected):
+    """All accepted list syntax reaches the same downstream classifier rules."""
+    assert pr_verifier._required_evidence_channels(f"{marker} [ ] {text}") == expected
+
+
 def test_optional_checklist_evidence_is_not_required() -> None:
     assert (
         pr_verifier._required_evidence_channels("- [ ] Optional validation artifact (if produced)")
