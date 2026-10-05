@@ -1431,6 +1431,39 @@ test('summarizeDiff fails closed on malformed quoted Git paths', () => {
   assert.doesNotMatch(summary, /Files changed: 1/);
 });
 
+test('complete explicit exact-head artifacts do not require unrelated associated-run discovery', async () => {
+  const sha = 'a'.repeat(40);
+  const empty = async () => ({data: []});
+  for (const defect of ['none', 'wrong-head', 'expired', 'truncated', 'partial-artifacts', 'partial-comments']) {
+    let associatedQueries = 0;
+    const github = {rest: {
+      issues: {listComments: async () => ({data: [], headers: defect === 'partial-comments' ? {link: 'rel="next"'} : {}})},
+      pulls: {listReviewComments: empty, listReviews: empty},
+      actions: {
+        getWorkflowRun: async () => ({data: {id: 123, head_sha: defect === 'wrong-head' ? 'b'.repeat(40) : sha}}),
+        listWorkflowRunsForRepo: async () => {
+          associatedQueries += 1;
+          return {data: {total_count: 9, workflow_runs: [{id: 124, head_sha: sha}]}};
+        },
+        listWorkflowRunArtifacts: async () => ({data: {
+          total_count: defect === 'partial-artifacts' ? 2 : 1,
+          artifacts: [{id: 9, name: 'validation', size_in_bytes: 10, expired: defect === 'expired'}],
+        }}),
+        downloadArtifact: async () => ({data: Buffer.from('zip')}),
+      },
+    }};
+    const evidence = await fetchVerifierEvidence({
+      github, owner: 'octo', repo: 'workflows', pullNumber: 700,
+      pullRequestBody: '', associatedCommitShas: [sha],
+      evidenceTexts: ['https://github.com/octo/workflows/actions/runs/123'],
+      extractArtifactText: () => ({text: 'RED then GREEN', truncated: defect === 'truncated'}),
+    });
+    assert.equal(evidence.artifacts.status, defect === 'none' ? 'present' : 'unavailable', defect);
+    if (!['wrong-head', 'partial-comments'].includes(defect)) assert.equal(associatedQueries, 0, defect);
+    if (defect === 'none') assert.equal(evidence.artifacts.complete, true);
+  }
+});
+
 test('artifact extractor truncates when zip entry count exceeds maxEntries', () => {
   const execFile = (_command, args) => (args[0] === '-Z1' ? 'a.txt\nb.txt\nc.txt\n' : 'x');
   const result = extractArtifactArchiveText({

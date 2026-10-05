@@ -578,7 +578,19 @@ async function fetchVerifierEvidence({
     }
   }
 
-  for (const commitSha of commitShas) {
+  // Complete explicit references define the requested evidence set. Unrelated
+  // head/merge jobs must not exhaust its budget or invalidate retrieved proof.
+  // Incomplete reference-bearing channels or provenance still require bounded
+  // associated-run discovery and retain the existing fail-closed behavior.
+  const completeExplicitReferences = (
+    referencedRunIds.length > 0
+    && allRunIds.length === referencedRunIds.length
+    && runIds.length === referencedRunIds.length
+    && body.complete
+    && comments.complete
+    && commitShas.every(isValidSha)
+  );
+  for (const commitSha of completeExplicitReferences ? [] : commitShas) {
     if (!isValidSha(commitSha)) {
       associatedRunDiscoveryComplete = false;
       artifactIncomplete = true;

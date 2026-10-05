@@ -1143,7 +1143,11 @@ def _required_evidence_channels(acceptance: str, *, _bind_attached: bool = True)
     ) -> tuple[list[dict[str, Any]], str]:
         """Classify complete, bounded body predicates before residual evidence gating."""
         body = r"(?:pr|pull request)\s+body\b"
-        noun = r"(?:(?:the|an?|any|no)\s+)?(?:before/after\s+)?(?:evidence|artifacts?|transcripts?|command outputs?)\b"
+        noun = (
+            r"(?:(?:the|an?|any|no)\s+)?"
+            + evidence_modifiers
+            + r"(?:evidence|artifacts?|transcripts?|command outputs?)\b"
+        )
         noun = r"(?:" + noun + r")(?:\s+(?:and|or)\s+(?:" + noun + r")){0,3}"
         exclusion_operation = (
             r"(?:exclude\w*|omit\w*|remove\w*|avoid\w*|suppress\w*|leave\s+out|left\s+out)\b"
