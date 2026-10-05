@@ -968,7 +968,14 @@ relation preamble. Incidental title mentions remain non-closing. Multiple closin
 title targets are ambiguous. An unambiguous closing title takes precedence over
 incidental non-closing body mentions, even when they name other issues; genuinely
 conflicting closing targets across title and body are ambiguous. Explicit
-`meta:issue` source metadata remains authoritative. Repeated source/template body syncs preserve
+`meta:issue` source metadata remains authoritative. For a mention/title-derived
+PR without explicit closing intent in its title, one generated
+`meta:related-issue` binding precedes incidental synchronized body references,
+including closing keywords embedded in that issue text. Duplicate identical
+markers are idempotent; distinct related markers remain ambiguous. The binding
+retains mention provenance and does not manufacture a closing relationship.
+Explicit closing-title/body conflicts still fail closed.
+Repeated source/template body syncs preserve
 this distinction.
 
 This extra lookup does not conceal unavailable or truncated closing discovery.
