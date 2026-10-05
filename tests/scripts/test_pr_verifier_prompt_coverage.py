@@ -3219,3 +3219,25 @@ def test_negated_artifact_capability_keeps_independent_delivery(
     assert pr_verifier._required_evidence_channels(criterion) == (
         {"artifacts"} if independent else set()
     )
+
+
+@pytest.mark.parametrize(
+    "operation", ["is not currently letting", "has not been letting", "is currently not letting"]
+)
+@pytest.mark.parametrize("recipient", ["users", "clients", "consumers"])
+@pytest.mark.parametrize("channel", ["artifacts", "comments"])
+@pytest.mark.parametrize("independent", [False, True])
+def test_negated_progressive_capability_cross_channel_matrix(
+    operation: str, recipient: str, channel: str, independent: bool
+) -> None:
+    object_text = "upload artifacts" if channel == "artifacts" else "post PR comments"
+    criterion = f"The UI {operation} {recipient} {object_text}"
+    if independent:
+        criterion += "; the reviewer must " + (
+            "upload validation artifacts to the PR"
+            if channel == "artifacts"
+            else "submit validation evidence in a PR comment"
+        )
+    assert pr_verifier._required_evidence_channels(criterion) == (
+        {channel} if independent else set()
+    )

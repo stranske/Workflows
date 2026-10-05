@@ -51,6 +51,8 @@ classification; channel-specific copies must not diverge on auxiliary/adverb for
 Negated capability auxiliaries (`must not`, `does not`, `cannot`) are normalized
 only for product recognition. The original criterion and any separate positive
 reviewer delivery retain their obligation/negation semantics.
+The cross-channel regression matrix combines negated progressive/perfect
+auxiliaries, users/clients/consumers, and an optional independent reviewer delivery.
 
 Regression gates: `python3 -m pytest tests/scripts/test_pr_verifier_prompt_coverage.py
 tests/scripts/test_pr_verifier_sync_manifest.py -q --no-cov` and

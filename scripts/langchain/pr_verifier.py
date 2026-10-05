@@ -1324,8 +1324,9 @@ def _required_evidence_channels(acceptance: str) -> set[str]:
             flags=re.I,
         )
         return re.sub(
-            r"\b(?:(?:is|are|was|were)|(?:has|have|had)\s+been|support(?:s|ed|ing)?)\s+"
-            r"(?:(?:now|currently|already|still|[\w-]+ly)\s+){0,3}letting\b",
+            r"\b(?:(?:is|are|was|were)|(?:has|have|had)\s+(?:(?:not|never)\s+)?been|"
+            r"support(?:s|ed|ing)?)\s+"
+            r"(?:(?:not|never|now|currently|already|still|[\w-]+ly)\s+){0,3}letting\b",
             "let",
             text,
             flags=re.I,
@@ -1352,7 +1353,7 @@ def _required_evidence_channels(acceptance: str) -> set[str]:
         if capability:
             actor = (
                 r"(?:(?:the|an?)\s+)?(?:(?:api|ui)\s+)?"
-                r"(?:users?|clients?|reviewers?|maintainers?|authors?|operators?)"
+                r"(?:users?|clients?|consumers?|reviewers?|maintainers?|authors?|operators?)"
             )
             base_operations = {
                 "display",
