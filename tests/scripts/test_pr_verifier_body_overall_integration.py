@@ -14,6 +14,39 @@ ROOT = Path(__file__).resolve().parents[2]
 NODE = shutil.which("node")
 
 
+@pytest.mark.skipif(NODE is None, reason="Node is required for producer integration")
+@pytest.mark.parametrize("channel", ["overall", "body"])
+def test_unavailable_comments_cannot_hide_behind_requirement_only_body(channel):
+    """An available requirement is not proof of a generic evidence obligation."""
+    script = r"""
+const {fetchVerifierEvidence,formatVerifierEvidence}=require('./.github/scripts/agents_verifier_context.js');
+const empty=async()=>({data:[]});
+const github={rest:{issues:{listComments:async()=>{throw new Error('unavailable')}},
+  pulls:{listReviewComments:empty,listReviews:empty}}};
+fetchVerifierEvidence({github,owner:'owner',repo:'repo',pullNumber:1,evidenceTexts:[],
+  pullRequestBody:'Provide a link to test evidence'})
+.then(e=>process.stdout.write(JSON.stringify({status:e.status,markdown:formatVerifierEvidence(e)})))
+.catch(e=>{console.error(e);process.exit(1)});
+"""
+    produced = json.loads(subprocess.check_output([NODE, "-e", script], cwd=ROOT, text=True))
+    assert produced["status"] == "unavailable"
+    criterion = (
+        "Provide a link to test evidence"
+        if channel == "overall"
+        else "Evidence in the PR body is required"
+    )
+    context, _ = _context(1, 1000, 1000)
+    context = context.replace(ACCEPTANCE_SENTINEL, criterion).replace(
+        "## PR Diff Summary", produced["markdown"] + "\n\n## PR Diff Summary"
+    )
+    result = pr_verifier._apply_coverage_floor(
+        pr_verifier.EvaluationResult(verdict="PASS", used_llm=True),
+        pr_verifier.prompt_coverage(context, None),
+    )
+    # Explicit body retrieval is complete; the model still judges its contents.
+    assert result.verdict == ("CONCERNS" if channel == "overall" else "PASS")
+
+
 @pytest.mark.parametrize("predicate", ["appear", "be present"])
 @pytest.mark.parametrize(
     "destination", ["in a PR comment", "in comments on the PR", "in comments in the pull request"]
@@ -218,10 +251,10 @@ fetchVerifierEvidence({github,owner:'owner',repo:'repo',pullNumber:1,pullRequest
         ("artifacts", "Upload a workflow artifact"),
     ],
 )
-def test_complete_comment_is_sufficient_only_for_generic_or_comment_evidence(
+def test_complete_comment_only_satisfies_explicit_comment_retrieval_when_artifacts_incomplete(
     comment, channel, criterion
 ):
-    """An expired artifact cannot veto a different complete evidence channel."""
+    """Incomplete artifacts veto generic availability, not explicit comments."""
     script = r"""
 const {fetchVerifierEvidence,formatVerifierEvidence}=require('./.github/scripts/agents_verifier_context.js');
 const input=JSON.parse(require('fs').readFileSync(0,'utf8'));
@@ -243,7 +276,7 @@ fetchVerifierEvidence({github,owner:'owner',repo:'repo',pullNumber:1,evidenceTex
         )
     )
     assert produced["artifacts"] == "unavailable"
-    assert produced["status"] == ("present" if comment else "unavailable")
+    assert produced["status"] == "unavailable"
     assert pr_verifier._required_evidence_channels("- [ ] " + criterion) == {channel}
     context, _ = _context(1, 1000, 1000)
     context = context.replace(ACCEPTANCE_SENTINEL, criterion).replace(
@@ -253,9 +286,7 @@ fetchVerifierEvidence({github,owner:'owner',repo:'repo',pullNumber:1,evidenceTex
         pr_verifier.EvaluationResult(verdict="PASS", used_llm=True),
         pr_verifier.prompt_coverage(context, None),
     )
-    assert result.verdict == (
-        "PASS" if comment and channel in {"overall", "comments"} else "CONCERNS"
-    )
+    assert result.verdict == ("PASS" if comment and channel == "comments" else "CONCERNS")
 
 
 @pytest.mark.skipif(NODE is None, reason="Node is required for producer integration")

@@ -88,6 +88,21 @@ subject-level `No` and coordinated `neither … nor`, exclude collection/product
 equivalent `comments on/in the PR` destinations before matching presence.
 Bare and qualified artifact nouns share that grammar: validation artifacts
 required in a PR comment need comment evidence, not merely retrieved artifacts.
+The bounded lexical aliases `put` and `place` share the record-delivery
+grammar, including negation, body/comment destinations and product storage.
+Active-past `placed` with a declared reviewer/author actor is delivery, not an
+evidence-object modifier; bare active product persistence remains nongating.
+Bounded conjunction/relative clause boundaries isolate the active-past subject
+before alias normalization. Perfect product persistence (`has/had placed`,
+`has put`, `will have placed`) is also excluded through its immediate
+storage destination without discarding a separate reviewer obligation.
+Sentence terminators (`.`, `!`, `?`) also isolate that subject. Future
+perfect persistence permits negation and the shared delivery adverbs both
+before `have` and afterward; those modifiers cannot manufacture a review
+evidence obligation from product storage.
+Product output exclusions reuse the complete shared response vocabulary,
+including `include`, `contain` and `have`; an independent reviewer
+delivery remains mandatory after the product clause is excluded.
 Thus `not expected`, `not supposed`, `no evidence` and `no longer required`
 cannot become affirmative floors.
 The same bounded adverbs apply to ordinary coordinated capability actions,
@@ -1125,8 +1140,9 @@ must not count as PR-comment evidence. Single-provider non-PASS text/file output
 must carry the post-processed `Verdict: CONCERNS` or `Verdict: FAIL` line so the
 downstream artifact parser retains a terminal outcome rather than a partial run.
 Overall retrieval availability includes the independently bounded PR body,
-comments and artifacts. A present body can supply a generic evidence obligation
-when the other channels are absent or unavailable. Complete, provenance-validated
+comments and artifacts. A present body can supply generic retrieval availability
+when other channels are completely inspected and absent, not unavailable.
+Availability alone does not identify or satisfy the required evidence. Complete, provenance-validated
 explicit workflow-run references define the artifact retrieval set when both
 reference-bearing body and comment channels were fully inspected. Unrelated
 associated head/merge jobs cannot exhaust that set's run budget. Without complete
@@ -1134,9 +1150,11 @@ explicit references, bounded associated-run discovery remains fail-closed.
 Wrong-head references, excess referenced runs, partial artifact pages, expired
 archives and truncated contents still make artifacts unavailable; scope selection
 does not prove that any particular acceptance criterion was satisfied.
-Any complete present channel
-makes destination-free retrieval present; if none is present, an unavailable
-channel keeps aggregate retrieval unavailable. Acceptance-list splitting accepts
+Any unavailable eligible channel keeps destination-free aggregate retrieval
+unavailable, even if another channel is present: availability alone does not
+identify the required evidence, and a requirement-only body cannot mask an
+uninspected comment/artifact channel. Channel-specific obligations still use
+their own statuses without an unrelated-channel veto. Acceptance-list splitting accepts
 `-`, `*`, `+`, and numbered `1.` / `1)` markers, including checkboxes, so an
 optional item cannot swallow the next independent required item.
 This availability record is not proof of criterion
@@ -1242,13 +1260,87 @@ requirements. Destination-bound object modifiers are bounded tokens that exclude
 new predicates and conjunctions, not an independently growing adjective list.
 Perfect/modal passive prohibitions retain polarity after alias normalization,
 including intervening adverbs admitted by the alias grammar.
+Active perfect delivery negation (`has/have/had not`, contracted forms and
+`will not have`) uses shared delivery operations/adverbs across body, comments
+and artifacts, including intervening `yet`. Product-storage objects reuse the
+same bounded evidence modifiers as delivery objects rather than bare nouns only.
+Negated active-perfect operations are removed before body occurrences are classified. Independent required
+delivery clauses remain affirmative; negative merge gates still retain their
+existing required-evidence contract.
+Product storage also retains straight/curly contracted future-perfect auxiliaries
+(`won't have` / `won’t have`), including those shared adverbs, without erasing
+an independent reviewer delivery clause.
 An `and`-coordinated bare evidence object with a bounded review destination
 inherits the previous delivery predicate (including negation); independent
 finite predicates and semicolon-separated clauses do not inherit it.
 Alias destination normalization accepts the same `both` prefix as coordinated
 destination recognition. Optional delivery modals (`may`, `can`, `could`,
-`should`) do not become hard evidence obligations after alias normalization;
+`would`, `should`) share one vocabulary across body, residual, product and
+coordinated-storage classification and do not become hard evidence obligations
+after alias normalization. Straight and curly `couldn't`/`wouldn't` contractions
+normalize before classification just like the other supported auxiliaries;
 independent required clauses retain their own channels.
+Negated optional modals use that same optional-delivery grammar. Hyphenated
+evidence-object qualifiers such as `optional-case` do not make their governing
+delivery optional. Product storage and client delivery bind the bounded actor,
+perfect/progressive/passive aspect, evidence object and destination together;
+passive forms require the explicit product actor. A coordinated second review
+destination retains its shared governing verb rather than being consumed with
+the product destination. Independent reviewer clauses remain required.
+The fallback storage path applies the same coordination guard. Product database
+storage followed by a shared review destination retains the governing predicate
+before body/comment/artifact classification, with an explicit or inherited
+destination preposition. Passive put/place aliases normalize only through their
+bounded explicit-actor storage/client destination, rather than requiring a
+following evidence object that is already the passive subject.
+Finite passive auxiliaries (`is`, `are`, `was`, `were`) share the same alias
+normalization and bounded adverb/polarity vocabulary. Negated finite progressive
+and passive delivery is removed before both body and residual channel
+classification; an independent affirmative reviewer clause retains its channel.
+Straight and curly contracted finite auxiliaries retain passive alias identity
+before clause-level contraction normalization.
+Non-clausal subject parentheticals of up to twelve words retain the actor
+before active-past alias classification. Governing auxiliaries, explicit
+obligation/polarity terms, merge-gate conditions, actual evidence-delivery
+predicates, and review destinations prevent stripping a parenthetical that
+could contain a separate requirement. Evidence nouns in non-clausal validation
+qualifiers retain the outer actor; complete-word matching bounds the scan
+without repeatedly partitioning a rejected word into smaller matches.
+Review-related nouns inside validation qualifiers do not erase the outer
+actor. A comma-led shared destination is protected at the start of an aside
+(including its conjunction), while actual evidence-delivery predicates and
+governing terms remain protected throughout its bounded word sequence.
+An explicit new governor after an elided-subject coordination starts an
+independent delivery predicate. The shared finite auxiliary vocabulary bounds
+that reset before optionality/polarity classification; a broad body match
+cannot hide it, and shared noun-only object inheritance cannot prepend a
+previous predicate to it. Bare product-field nouns such as `records` do not
+become independent predicates through this governor-only boundary.
+Do-supported product storage (`do`, `does`, `did`) shares the finite auxiliary
+grammar and does not create a review obligation. Comma-separated and conjunctive
+shared storage/review destinations reuse the delivery-list separator grammar,
+including inherited prepositions and channel-symmetric active/passive forms.
+The shared literal grammar recognizes
+single-quote delimiters only outside words, retains apostrophes inside quoted
+contractions, and cannot swallow an independent mandatory delivery between two
+ordinary contractions. Parser examples and quoted inputs remain protected.
+Repeated active internal-storage predicates inherit their explicit product actor
+and complete governing modality/aspect/polarity before clause splitting. The
+bounded normalizer preserves each evidence object and its shared review
+destinations; an explicit new governor or independent reviewer clause ends
+inheritance. It protects parser examples and literals rather than deleting
+unrecognized text. Internal `and`/`or` storage chains are supported; alternative
+review-destination semantics and nested/passive coordination are not inferred.
+An explicit new mandatory governor also ends optionality after a single storage
+predicate, without requiring an intervening inherited storage member.
+Definite-future `will` uses that same reset; active-past reviewer subjects retain
+up to three shared delivery adverbs before alias classification.
+Single explicit-actor passive storage/client clauses retain shared review
+destinations, including inherited prepositions. The reverse product shortcut
+cannot consume a predicate with a following review destination; passive-perfect
+body classification retains the shared aspect and polarity grammar.
+Regression controls independently cover negation, optional versus mandatory
+delivery, three storage predicates, governor resets, and all review channels.
 Negated obligations use the same delivery-operation grammar as positive
 delivery. An explicitly excluded PR-comment destination (`outside`, `rather
 than`, `instead of`) is not a required comment channel; generic evidence and

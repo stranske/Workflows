@@ -983,7 +983,7 @@ def _required_evidence_channels(acceptance: str, *, _bind_attached: bool = True)
     response_operation = (
         r"(?:include|contain|have|return|display|show|store|emit|render|expose|provide)\w*\b"
     )
-    delivery_operation = r"(?:provide|return|display|show|emit|render|expose|store|upload|attach|publish|post|record|capture|include|document|generate|link|add|leave)\w*\b"
+    delivery_operation = r"(?:provide|return|display|show|emit|render|expose|store|upload|attach|publish|post|record|capture|include|contain|have|document|generate|link|add|leave)\w*\b"
     capability_operation = r"(?:(?:allow|enable|support)\w*|let(?:s|ting)?)"
     evidence_modifiers = (
         r"(?:(?!(?:and|or|but|must|shall|is|are|not|never|may|can)\b)[\w/-]+\s+){0,6}"
@@ -993,7 +993,8 @@ def _required_evidence_channels(acceptance: str, *, _bind_attached: bool = True)
         r"(?:(?:is|are)\s+)?(?:required|needed|mandated|expected|supposed|obliged)\s+to|"
         r"(?:has|have)\s+to)"
     )
-    delivery_adverbs = r"(?:(?:also|now|still|already|[\w-]+ly)\s+){0,3}"
+    delivery_adverb = r"(?:also|now|still|already|yet|[\w-]+ly)"
+    delivery_adverbs = r"(?:" + delivery_adverb + r"\s+){0,3}"
     passive_delivery_prefix = (
         r"(?:be|have\s+" + delivery_adverbs + r"been)" r"(?:\s+" + delivery_adverbs + r"being)?\s+"
     )
@@ -1018,8 +1019,13 @@ def _required_evidence_channels(acceptance: str, *, _bind_attached: bool = True)
     )
     destination_preposition = r"(?:in|into|to|within|for|as|through|via)\s+"
     delivery_destination_item = r"(?:" + review_destination_noun + "|" + recipient_noun + ")"
+    delivery_destination_separator_base = r"(?:\s*,\s*(?:(?:and|or)\s+)?|\s+(?:and|or)\s+)"
     delivery_destination_separator = (
-        r"(?:\s*,\s*(?:(?:and|or)\s+)?|\s+(?:and|or)\s+)" r"(?:" + destination_preposition + r")?"
+        delivery_destination_separator_base + r"(?:" + destination_preposition + r")?"
+    )
+    shared_storage_separator_base = delivery_destination_separator_base.replace("(?:and|or)", "and")
+    shared_storage_separator = (
+        shared_storage_separator_base + r"(?:" + destination_preposition + r")?"
     )
     bound_review_destinations = (
         destination_preposition + r"(?:both\s+)?"
@@ -1069,6 +1075,13 @@ def _required_evidence_channels(acceptance: str, *, _bind_attached: bool = True)
     # boundary rule. Adding a synonym to only one regex silently diverges them.
     record_aliases = {
         "paste": "record",
+        "put": "record",
+        "puts": "records",
+        "putting": "recording",
+        "place": "record",
+        "places": "records",
+        "placed": "recorded",
+        "placing": "recording",
         "pastes": "records",
         "pasted": "recorded",
         "pasting": "recording",
@@ -1087,26 +1100,78 @@ def _required_evidence_channels(acceptance: str, *, _bind_attached: bool = True)
         "delivering": "recording",
     }
 
+    quoted_evidence_literal = (
+        r"`+[^`]*`+|\"[^\"]*\"|"
+        r"(?<!\w)'(?:[^']|(?<=\w)'(?=\w))*'(?!\w)|"
+        r"“[^”]*”|(?<!\w)‘(?:[^’]|(?<=\w)’(?=\w))*’(?!\w)"
+    )
+    parenthetical_actor = (
+        r"\b(?:reviewers?|maintainers?|authors?|operators?|agents?|bots?|runners?|"
+        r"developers?|engineers?|testers?|auditors?|verifiers?|teams?|users?|"
+        r"ui|api|application|service|endpoint)"
+    )
+    parenthetical_aside = (
+        r"(?!(?:(?:and|or)\s+)?"
+        + r"(?:"
+        + destination_preposition
+        + r")?"
+        + review_destination_noun
+        + r")"
+        r"(?:(?!(?:"
+        + mandatory_auxiliary
+        + r"|must|shall|will|can|could|would|should|may|is|are|was|were|has|have|had|"
+        r"required|needed|mandatory|optional|if|when|without|unless|until|not|never|no)\b)"
+        r"(?!(?:"
+        + delivery_operation
+        + "|"
+        + "|".join(record_aliases)
+        + r")\s+(?:"
+        + evidence_modifiers
+        + r"(?:evidence|artifacts?|transcripts?|command outputs?)\b|"
+        + destination_preposition
+        + review_destination_noun
+        + r"))"
+        r"[\w-]+(?=\s|,)\s*){1,12}"
+    )
+    acceptance = re.sub(
+        r"(?P<literal>"
+        + quoted_evidence_literal
+        + r")|(?P<actor>"
+        + parenthetical_actor
+        + r")\s*,\s*"
+        + parenthetical_aside
+        + r"\s*,\s*",
+        lambda match: match[0] if match["literal"] else match["actor"] + " ",
+        acceptance,
+        flags=re.I,
+    )
+
     def normalize_record_alias(match: re.Match[str]) -> str:
         """Preserve literals and participial modifiers of a prior governing verb."""
         alias = match["alias"]
         if not alias:
             return match[0]
-        if alias.lower() in {"written", "pasted", "submitted", "delivered"}:
+        if alias.lower() in {"written", "pasted", "placed", "submitted", "delivered"}:
             prefix = re.split(
-                r"[;\n]|\b(?:and|or|that|which|who)\b", acceptance[: match.start()], flags=re.I
+                r"[;,.!?\n]|\b(?:and|or|but|that|which|who|while|after|once|before|when|until|unless|if|since|because|whereas|although)\b",
+                acceptance[: match.start()],
+                flags=re.I,
             )[-1]
             # Inspect the actor without altering the original checklist semantics.
-            prefix = re.sub(r"^\s*(?:[-*+]|\d+[.)])\s*(?:\[[ xX]\]\s*)?", "", prefix)
+            prefix = re.sub(
+                r"^\s*(?:(?:[-*+]|\d+[.)])\s*(?:\[[ xX]\]\s*)?|\[[ xX]\]\s*)?",
+                "",
+                prefix,
+            )
             active_delivery_subject = (
-                alias.lower() in {"submitted", "delivered"}
+                alias.lower() in {"placed", "submitted", "delivered"}
                 and bool(
                     re.fullmatch(
                         r"\s*(?:(?:the|an?)\s+)?"
                         + evidence_modifiers
                         + r"(?:reviewers?|maintainers?|authors?|operators?|agents?|bots?|runners?|"
                         r"developers?|engineers?|testers?|auditors?|verifiers?|teams?|users?|"
-                        r"ui|api|application|service|endpoint)\s*",
+                        r"ui|api|application|service|endpoint)\s+" + delivery_adverbs + r"\s*",
                         prefix,
                         re.I,
                     )
@@ -1115,24 +1180,37 @@ def _required_evidence_channels(acceptance: str, *, _bind_attached: bool = True)
             )
             if not active_delivery_subject and not re.search(
                 r"\b(?:" + mandatory_auxiliary + r"|is|are|was|were|be|been|being|has|have|had)\s+"
-                r"(?:(?:not|never|no\s+longer|\w+ly)\s+)*$",
+                r"(?:(?:not|never|no\s+longer|" + delivery_adverb + r")\s+)*$",
                 prefix,
                 re.I,
             ):
                 return match[0]
+        if alias.lower() == "put" and re.search(
+            r"\b(?:(?:is|are|was|were)(?:n['’]t)?|be|been|being)\s+"
+            r"(?:(?:not|never|no\s+longer|" + delivery_adverb + r")\s+)*$",
+            acceptance[: match.start()],
+            re.I,
+        ):
+            return "recorded"
         return record_aliases[alias.lower()]
 
     acceptance = re.sub(
-        r"(?P<literal>`+[^`]*`+|\"[^\"]*\"|'[^']*'|“[^”]*”|‘[^’]*’|"
-        r"\b(?:the|an?)\s+(?:write|paste|submit|deliver)\b"
+        r"(?P<literal>" + quoted_evidence_literal + r"|"
+        r"\b(?:the|an?)\s+(?:write|paste|put|place|submit|deliver)\b"
         r"(?:\s+(?!(?:and|or|must|shall|will)\b)[\w-]+){0,6}\s+command\b"
         r"(?=\s+(?:(?:must|shall|will)\s+output|outputs)\b))|"
-        r"(?P<alias>\b(?:paste|pastes|pasted|pasting|write|writes|written|writing|wrote|"
+        r"(?P<alias>\b(?:put|puts|putting|place|places|placed|placing|paste|pastes|pasted|pasting|write|writes|written|writing|wrote|"
         r"submit|submits|submitted|submitting|deliver|delivers|delivered|delivering)\b)"
         r"(?=\s+"
         + evidence_modifiers
         + r"(?:evidence|artifacts?|transcripts?|command outputs?|pr comments?|pull request comments?)\b"
-        r"|\s+" + destination_preposition + r"(?:both\s+)?" + delivery_destination_item + r")",
+        r"|\s+"
+        + destination_preposition
+        + r"(?:both\s+)?"
+        + delivery_destination_item
+        + r"|\s+(?:(?:in|into|to|as)\s+(?:(?:its|the|an?)\s+)?"
+        r"(?:database|audit log|storage|application log)\b|" + product_recipient + r")"
+        r"\s+by\s+(?:(?:the|an?)\s+)?(?:application|app|service|api|endpoint)\b)",
         normalize_record_alias,
         acceptance,
         flags=re.I,
@@ -1140,7 +1218,177 @@ def _required_evidence_channels(acceptance: str, *, _bind_attached: bool = True)
     # Use the same product-response operation vocabulary when coalescing object
     # groups and when excluding response fields from review deliverables.
     response_subject = r"(?:responses?|payloads?|return\s+values?|reports?|exports?)"
-    product_auxiliary = r"(?:" + mandatory_auxiliary + r"|will|should|can|may)\s+"
+    optional_delivery_modal = r"(?:may|can|could|would|should)"
+    product_auxiliary = (
+        r"(?:" + mandatory_auxiliary + r"|will|" + optional_delivery_modal + r"|do|does|did)\s+"
+    )
+    product_actor = r"(?:(?:the|an?)\s+)?(?:application|app|service|api|endpoint)"
+    delivery_governor_auxiliary = (
+        r"(?:"
+        + mandatory_auxiliary
+        + r"|will|"
+        + optional_delivery_modal
+        + r"|has|have|had|is|are|was|were|do|does|did)"
+    )
+    product_aspect = (
+        r"(?:"
+        + delivery_governor_auxiliary
+        + r"\s+)?"
+        + delivery_adverbs
+        + r"(?:have\s+)?(?:be\s+|been\s+)?(?:being\s+)?"
+        + delivery_adverbs
+    )
+    product_evidence_object = (
+        r"(?:(?:the|an?)\s+)?"
+        + evidence_modifiers
+        + r"(?:transcripts?|command outputs?|evidence|artifacts?)\s+"
+    )
+    product_destination = (
+        r"(?:(?:in|into|to|as)\s+(?:(?:its|the|an?)\s+)?"
+        r"(?:database|audit log|storage|application log)\b|" + product_recipient + r")"
+    )
+    bound_product_delivery = re.compile(
+        r"\b"
+        + product_actor
+        + r"\s+"
+        + product_aspect
+        + r"(?:record|capture|attach|generate|return|display|emit|render|expose|provide)\w*\s+"
+        + product_evidence_object
+        + product_destination
+        + r"(?!"
+        + delivery_destination_separator
+        + review_destination_noun
+        + r")"
+        + r"|\b"
+        + product_evidence_object
+        + product_aspect
+        + r"(?:recorded|captured|attached|generated|returned|displayed|emitted|rendered|exposed|provided)\s+"
+        + product_destination
+        + r"\s+by\s+"
+        + product_actor
+        + r"\b(?!"
+        + delivery_destination_separator
+        + review_destination_noun
+        + r")",
+        re.I,
+    )
+    shared_storage_review_destination = re.compile(
+        r"(?P<predicate>\b"
+        + product_actor
+        + r"\s+"
+        + product_aspect
+        + r"(?:record|capture|attach|generate)\w*\s+"
+        + product_evidence_object
+        + r")"
+        r"(?:in|into|to|as)\s+(?:(?:its|the|an?)\s+)?"
+        r"(?:database|audit log|storage|application log)"
+        + shared_storage_separator_base
+        + r"(?P<preposition>"
+        + destination_preposition
+        + r")?(?P<destination>"
+        + review_destination_noun
+        + r")",
+        re.I,
+    )
+    storage_destination = (
+        r"(?:in|into|to|as)\s+(?:(?:its|the|an?)\s+)?"
+        r"(?:database|audit log|storage|application log)\b"
+    )
+    coordinated_governor = (
+        r"(?:"
+        + delivery_governor_auxiliary
+        + r"\s+)?"
+        + delivery_adverbs
+        + r"(?:(?:not|never|no\s+longer)\s+)?"
+        + delivery_adverbs
+        + r"(?:have\s+)?(?:be\s+|been\s+)?(?:being\s+)?"
+        + delivery_adverbs
+    )
+    coordinated_operation = (
+        r"(?:record|capture|attach|generate|return|display|emit|render|expose|provide)\w*\s+"
+        + product_evidence_object
+    )
+    shared_review_tail = r"(?:" + shared_storage_separator + review_destination_noun + r"){0,3}"
+    shared_passive_product_review_destination = re.compile(
+        r"(?P<predicate>\b"
+        + product_evidence_object
+        + coordinated_governor
+        + r"(?:recorded|captured|attached|generated|returned|displayed|emitted|rendered|exposed|provided)\s+)"
+        + product_destination
+        + r"\s+by\s+"
+        + product_actor
+        + shared_storage_separator_base
+        + r"(?P<preposition>"
+        + destination_preposition
+        + r")?"
+        + r"(?P<destination>"
+        + review_destination_noun
+        + r")",
+        re.I,
+    )
+    storage_chain_head = re.compile(
+        r"\b(?P<actor>"
+        + product_actor
+        + r")\s+"
+        + r"(?P<governor>"
+        + coordinated_governor
+        + r")"
+        + coordinated_operation
+        + storage_destination
+        + shared_review_tail,
+        re.I,
+    )
+    storage_chain_member = re.compile(
+        r"\s+(?P<conjunction>and|or)\s+(?P<predicate>"
+        + coordinated_operation
+        + r"(?:"
+        + storage_destination
+        + shared_review_tail
+        + r"|(?:in|into|to|as)\s+"
+        + review_destination_noun
+        + r"))",
+        re.I,
+    )
+
+    def normalize_storage_coordination(text: str) -> str:
+        """Restore a bounded elided product actor/governor before clause splitting."""
+        literals = [match.span() for match in re.finditer(quoted_evidence_literal, text)]
+        output: list[str] = []
+        consumed = 0
+        for head in storage_chain_head.finditer(text):
+            if head.start() < consumed or any(
+                start <= head.start() < end for start, end in literals
+            ):
+                continue
+            cursor = head.end()
+            members = []
+            while member := storage_chain_member.match(text, cursor):
+                if any(start < member.end() and member.start() < end for start, end in literals):
+                    break
+                # Alternative review delivery is outside this finite inheritance
+                # repair; preserve it unchanged instead of changing its semantics.
+                if member["conjunction"].lower() == "or" and not re.match(
+                    coordinated_operation + storage_destination, member["predicate"], re.I
+                ):
+                    break
+                members.append(member)
+                cursor = member.end()
+            output.extend((text[consumed : head.end()],))
+            for member in members:
+                output.append("; " + head["actor"] + " " + head["governor"] + member["predicate"])
+            consumed = cursor
+            reset = re.match(
+                r"\s+(?:and|or)\s+(?=(?:" + mandatory_auxiliary + r"|will)\s+)",
+                text[cursor:],
+                re.I,
+            )
+            if reset:
+                # A new explicit governor starts a separate obligation. Do not
+                # inherit the preceding product modality or negation into it.
+                output.append("; ")
+                consumed += reset.end()
+        return "".join(output) + text[consumed:] if output else text
+
     # Positive and negated obligations must recognize the same passive aspects.
     evidence_term = re.compile(
         r"\b(?:evidence|artifacts?|transcripts?|command outputs?|workflow runs?|"
@@ -1152,7 +1400,7 @@ def _required_evidence_channels(acceptance: str, *, _bind_attached: bool = True)
         + mandatory_auxiliary
         + r"|required|mandatory|(?:is|are)\s+needed|must|shall|needs? to|"
         r"publish(?:es|ed)?|upload(?:s|ed)?|"
-        r"attach(?:es|ed)?|captur(?:e|es|ed)|record(?:s|ed)?|provid(?:e|es|ed)|"
+        r"attach(?:es|ed)?|captur(?:e|es|ed)|record(?:s|ed|ing)?|provid(?:e|es|ed)|"
         r"includ(?:e|es|ed)|link(?:s|ed)?|post(?:s|ed)?|"
         r"(?:add(?:s|ed)?|leav(?:e|es)|left)\s+(?:(?:an?|the)\s+)?"
         r"(?:pr|pull request)\s+comments?|"
@@ -1187,10 +1435,20 @@ def _required_evidence_channels(acceptance: str, *, _bind_attached: bool = True)
             r"(?:required|needed|mandated|expected|supposed|obliged)\s+to|"
             r"(?:does|do|did)\s+(?:not|never)\s+(?:need|have)\s+to|"
             + mandatory_auxiliary
-            + r"|is|are|was|were|will|should|may|can)"
+            + r"|is|are|was|were|has|have|had|will|"
+            + optional_delivery_modal
+            + r")"
         )
         polarity = r"(?:(?:not|never|no\s+longer)\s+)?"
-        aspect = r"(?:" + passive_delivery_prefix + r")?"
+        aspect = (
+            delivery_adverbs
+            + r"(?:"
+            + passive_delivery_prefix
+            + r"|been\s+"
+            + delivery_adverbs
+            + r")?"
+            + delivery_adverbs
+        )
         body_destination = r"(?:(?:the|an?)\s+)?" + body + r"(?:\s+editor\b)?"
         destination_item = delivery_destination_item
         destination_separator = delivery_destination_separator
@@ -1313,7 +1571,9 @@ def _required_evidence_channels(acceptance: str, *, _bind_attached: bool = True)
             optional = (
                 not is_gate
                 and bool(
-                    re.search(r"\b(?:optional|should|may|can)\b", polarity_clause, re.I)
+                    re.search(
+                        r"\b(?:optional|" + optional_delivery_modal + r")\b", polarity_clause, re.I
+                    )
                     or re.match(r"\s*" + conditional_evidence, text[match.end() :], re.I)
                 )
                 and not mandatory_optionality
@@ -1627,7 +1887,61 @@ def _required_evidence_channels(acceptance: str, *, _bind_attached: bool = True)
             and (capability or product_destination or (field_operation and not review_destination))
         )
 
+    perfect_delivery_prohibition = re.compile(
+        r"\b(?:has|have|had|will)\s+"
+        + delivery_adverbs
+        + r"(?:not|never|no\s+longer)\s+"
+        + delivery_adverbs
+        + r"(?:have\s+"
+        + delivery_adverbs
+        + r")?"
+        + r"(?:been\s+(?:being\s+)?"
+        + delivery_adverbs
+        + r")?"
+        + delivery_operation,
+        re.I,
+    )
+    progressive_delivery_prohibition = (
+        r"\b(?:is|are|was|were|will|must|shall)\s+"
+        + delivery_adverbs
+        + r"(?:not|never|no\s+longer)\s+"
+        + delivery_adverbs
+        + r"(?:be\s+|been\s+)?(?:being\s+)?"
+        + delivery_adverbs
+        + r"(?=\w*ing\b)"
+        + delivery_operation
+    )
+    aspect_delivery_prohibition = re.compile(
+        perfect_delivery_prohibition.pattern
+        + "|"
+        + progressive_delivery_prohibition
+        + r"|\b(?:is|are|was|were)\s+"
+        + delivery_adverbs
+        + r"(?:not|never|no\s+longer)\s+"
+        + delivery_adverbs
+        + r"(?:being\s+)?"
+        + delivery_adverbs
+        + r"(?=\w*(?:ed|en)\b)"
+        + delivery_operation,
+        re.I,
+    )
     evidence_prohibition = re.compile(
+        aspect_delivery_prohibition.pattern + r"|"
+        r"\b(?:"
+        + mandatory_auxiliary
+        + r")\s+"
+        + delivery_adverbs
+        + r"(?:not|never)\s+"
+        + delivery_adverbs
+        + r"(?:"
+        + passive_delivery_prefix
+        + r")?"
+        + delivery_adverbs
+        + delivery_operation
+        + r"(?:\s+"
+        + evidence_modifiers
+        + r"(?:evidence|artifacts?|transcripts?|command outputs?|workflow runs?|pr comments?|pull request comments?))?"
+        + r"|"
         r"\b(?:must|shall|may|should|can|do|does|did|will)\s+"
         + r"(?=(?:(?:not|never|be|have|been|being)\s+){0,5}"
         + r"(?:also|now|still|already|[\w-]+ly)\s+)"
@@ -1742,12 +2056,13 @@ def _required_evidence_channels(acceptance: str, *, _bind_attached: bool = True)
         # product-output and checklist guard uses the same established syntax.
         criterion = re.sub(r"^\s*(?:[-*+]|\d+[.)])(?=\s)", "-", criterion)
         criterion = re.sub(
-            r"\b(is|are|does|do|did|must|should|need|has|have|was|were|ca)n['’]t\b",
+            r"\b(is|are|does|do|did|must|should|could|would|need|has|have|had|was|were|ca)n['’]t\b",
             lambda match: ("can" if match[1].lower() == "ca" else match[1]) + " not",
             criterion,
             flags=re.I,
         )
         criterion = re.sub(r"\bcannot\b", "can not", criterion, flags=re.I)
+        criterion = re.sub(r"\bwon['’]t\b", "will not", criterion, flags=re.I)
         criterion_checklist = bool(re.match(r"^\s*(?:[-*+]|\d+[.)])\s*\[[ xX]\]", criterion))
         criterion_bullet = bool(re.match(r"^\s*(?:[-*+]|\d+[.)])\s+", criterion))
         # Quoted parser inputs are examples, including their verbs and clause
@@ -1758,10 +2073,24 @@ def _required_evidence_channels(acceptance: str, *, _bind_attached: bool = True)
             r"\b(?:recogniz|pars|detect|classif|match|identif|support|handl|validat)\w*\b\s*"
             r"(?:(?:the|a|an|phrase|syntax|example|literal|string|text|quoted|following)\b\s*){0,4}"
             r"(?::\s*)?"
-            r"(?P<example>`+[^`]*`+|\"[^\"]*\"|'[^']*'|“[^”]*”|‘[^’]*’)",
+            r"(?P<example>" + quoted_evidence_literal + r")",
             lambda match: match.group(0)[: match.start("example") - match.start()] + " ",
             criterion,
             flags=re.I,
+        )
+        criterion = normalize_storage_coordination(criterion)
+        criterion = shared_passive_product_review_destination.sub(
+            lambda match: match["predicate"]
+            + (match["preposition"] or "in ")
+            + match["destination"],
+            criterion,
+        )
+        # Shared destinations retain their predicate after actor inheritance.
+        criterion = shared_storage_review_destination.sub(
+            lambda match: match["predicate"]
+            + (match["preposition"] or "in ")
+            + match["destination"],
+            criterion,
         )
         # Split independent mandatory clauses after optional evidence, including
         # named actors and modified subjects. Extra noun modifiers need a modal
@@ -1769,6 +2098,12 @@ def _required_evidence_channels(acceptance: str, *, _bind_attached: bool = True)
         # stay attached to their delivery verb.
         clause_boundary = (
             r"\s*;\s*|,?\s+(?:but|whereas)\s+|"
+            r"(?:,?\s+(?:and|while)\s+)(?="
+            + delivery_governor_auxiliary
+            + r"\s+)(?="
+            + coordinated_governor
+            + delivery_operation
+            + r")|"
             r"(?:,?\s+(?:and|while)\s+)(?="
             + review_destination_noun
             + r"\s+"
@@ -1823,7 +2158,13 @@ def _required_evidence_channels(acceptance: str, *, _bind_attached: bool = True)
                 # A punctuated relative predicate still belongs to its noun.
                 continue
             independent_predicate = re.match(
-                review_destination_noun + r"\s+" + independent_review_predicate,
+                r"(?:"
+                + review_destination_noun
+                + r"\s+"
+                + independent_review_predicate
+                + r"|"
+                + delivery_governor_auxiliary
+                + r"\s+)",
                 criterion[boundary_match.end() :],
                 re.I,
             )
@@ -1848,6 +2189,7 @@ def _required_evidence_channels(acceptance: str, *, _bind_attached: bool = True)
             if (
                 fragments
                 and re.fullmatch(r"\s*,?\s*and\s+", boundary, re.I)
+                and not re.match(r"\s*" + delivery_governor_auxiliary + r"\s+", fragment, re.I)
                 and re.fullmatch(
                     r"\s*(?:(?!(?:and|or|but|must|shall|is|are|not|never)\b)[\w/-]+\s+){0,4}"
                     r"(?:evidence|artifacts?|transcripts?|command outputs?)\s+"
@@ -1966,10 +2308,12 @@ def _required_evidence_channels(acceptance: str, *, _bind_attached: bool = True)
                 flags=re.I,
             )
             gate = bool(negative_gate.search(working_line))
-            body_records, body_residual = body_occurrences(
-                working_line, gate, pronoun_delivery=bool(resolved_antecedent)
-            )
             requirement_text = working_line if gate else evidence_prohibition.sub(" ", working_line)
+            body_records, body_residual = body_occurrences(
+                working_line if gate else aspect_delivery_prohibition.sub(" ", working_line),
+                gate,
+                pronoun_delivery=bool(resolved_antecedent),
+            )
             # An optional evidence noun can be the object of a mandatory
             # explanation (for example, "a PR comment must explain why
             # artifacts are optional"). Remove only that optional subject;
@@ -1988,8 +2332,12 @@ def _required_evidence_channels(acceptance: str, *, _bind_attached: bool = True)
             bullet = criterion_bullet
             optional_evidence = bool(
                 re.search(
-                    r"\boptional(?:ly)?\b|"
-                    r"\b(?:may|can|could|should)\s+"
+                    r"\boptional(?:ly)?\b(?![-/])|"
+                    r"\b"
+                    + optional_delivery_modal
+                    + r"\s+"
+                    + delivery_adverbs
+                    + r"(?:(?:not|never|no\s+longer)\s+)?"
                     + delivery_adverbs
                     + r"(?:"
                     + passive_delivery_prefix
@@ -2533,13 +2881,37 @@ def _required_evidence_channels(acceptance: str, *, _bind_attached: bool = True)
             )
             # Consume one product persistence operation and its immediate
             # storage destination, not later reviewer delivery predicates.
+            if bound_product_delivery.search(requirement_text):
+                delivery_text = bound_product_delivery.sub(" ", requirement_text, count=1)
+                if not remaining_delivery(delivery_text):
+                    continue
+                requirement_text = delivery_text
+                lower = requirement_text.lower()
             storage_operation = re.compile(
                 r"\b(?:(?:the|an?)\s+)?(?:application|app|service|api|endpoint)\s+"
+                + "(?:"
                 + product_auxiliary
+                + r"|(?:has|have|had|(?:will|won['’]t)\s+(?:(?:not|never|no\s+longer|"
+                + delivery_adverb
+                + r")\s+)*have)\s+(?:(?:not|never|no\s+longer|"
+                + delivery_adverb
+                + r")\s+)*)?"
+                + r"(?:have\s+"
+                + delivery_adverbs
+                + r")?"
+                + r"(?:"
+                + passive_delivery_prefix
+                + r")?"
+                + delivery_adverbs
                 + r"(?:record|capture|attach|generate)\w*\s+"
-                r"(?:(?:the|an?)\s+)?(?:transcripts?|command outputs?|evidence|artifacts?)\s+"
+                + r"(?:(?:the|an?)\s+)?"
+                + evidence_modifiers
+                + r"(?:transcripts?|command outputs?|evidence|artifacts?)\s+"
                 r"(?:in|into|to|as)\s+(?:(?:its|the|an?)\s+)?"
-                r"(?:database|audit log|storage|application log)\b",
+                r"(?:database|audit log|storage|application log)\b"
+                + r"(?!\s+(?:and|or)\s+(?:(?:in|into|to|for|as)\b|"
+                + review_destination_noun
+                + r"))",
                 re.I,
             )
             if storage_operation.search(requirement_text):
@@ -2551,7 +2923,7 @@ def _required_evidence_channels(acceptance: str, *, _bind_attached: bool = True)
             # Record aliases are product output only with an immediate bounded
             # product recipient, never merely because the actor is a service.
             product_output_operation = (
-                r"(?:return|display|show|store|emit|render|expose|provide)\w*\b|"
+                response_operation + "|"
                 r"record\w*\b(?=\s+(?:(?:the|an?)\s+)?"
                 + evidence_modifiers
                 + r"(?:command outputs?|transcripts?|evidence)\s+"
