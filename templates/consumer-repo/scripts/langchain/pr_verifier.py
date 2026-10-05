@@ -1238,7 +1238,9 @@ def _required_evidence_channels(acceptance: str, *, _bind_attached: bool = True)
         + product_destination
         + r"\s+by\s+"
         + product_actor
-        + r"\b",
+        + r"\b(?!\s+(?:and|or)\s+(?:(?:in|into|to|for|as)\b|"
+        + review_destination_noun
+        + r"))",
         re.I,
     )
     shared_storage_review_destination = re.compile(
@@ -1276,6 +1278,20 @@ def _required_evidence_channels(acceptance: str, *, _bind_attached: bool = True)
     )
     shared_review_tail = (
         r"(?:\s+and\s+(?:(?:in|into|to|as)\s+)?" + review_destination_noun + r"){0,3}"
+    )
+    shared_passive_product_review_destination = re.compile(
+        r"(?P<predicate>\b"
+        + product_evidence_object
+        + coordinated_governor
+        + r"(?:recorded|captured|attached|generated|returned|displayed|emitted|rendered|exposed|provided)\s+)"
+        + product_destination
+        + r"\s+by\s+"
+        + product_actor
+        + r"\s+and\s+(?P<preposition>(?:in|into|to|as)\s+)?"
+        + r"(?P<destination>"
+        + review_destination_noun
+        + r")",
+        re.I,
     )
     storage_chain_head = re.compile(
         r"\b(?P<actor>"
@@ -1386,12 +1402,20 @@ def _required_evidence_channels(acceptance: str, *, _bind_attached: bool = True)
             r"(?:required|needed|mandated|expected|supposed|obliged)\s+to|"
             r"(?:does|do|did)\s+(?:not|never)\s+(?:need|have)\s+to|"
             + mandatory_auxiliary
-            + r"|is|are|was|were|will|"
+            + r"|is|are|was|were|has|have|had|will|"
             + optional_delivery_modal
             + r")"
         )
         polarity = r"(?:(?:not|never|no\s+longer)\s+)?"
-        aspect = r"(?:" + passive_delivery_prefix + r")?"
+        aspect = (
+            delivery_adverbs
+            + r"(?:"
+            + passive_delivery_prefix
+            + r"|been\s+"
+            + delivery_adverbs
+            + r")?"
+            + delivery_adverbs
+        )
         body_destination = r"(?:(?:the|an?)\s+)?" + body + r"(?:\s+editor\b)?"
         destination_item = delivery_destination_item
         destination_separator = delivery_destination_separator
@@ -2022,6 +2046,12 @@ def _required_evidence_channels(acceptance: str, *, _bind_attached: bool = True)
             flags=re.I,
         )
         criterion = normalize_storage_coordination(criterion)
+        criterion = shared_passive_product_review_destination.sub(
+            lambda match: match["predicate"]
+            + (match["preposition"] or "in ")
+            + match["destination"],
+            criterion,
+        )
         # Shared destinations retain their predicate after actor inheritance.
         criterion = shared_storage_review_destination.sub(
             lambda match: match["predicate"]

@@ -1318,6 +1318,10 @@ An explicit new mandatory governor also ends optionality after a single storage
 predicate, without requiring an intervening inherited storage member.
 Definite-future `will` uses that same reset; active-past reviewer subjects retain
 up to three shared delivery adverbs before alias classification.
+Single explicit-actor passive storage/client clauses retain shared review
+destinations, including inherited prepositions. The reverse product shortcut
+cannot consume a predicate with a following review destination; passive-perfect
+body classification retains the shared aspect and polarity grammar.
 Regression controls independently cover negation, optional versus mandatory
 delivery, three storage predicates, governor resets, and all review channels.
 Negated obligations use the same delivery-operation grammar as positive

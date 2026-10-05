@@ -111,6 +111,38 @@ def test_direct_storage_governor_reset_retains_mandatory_delivery(
     )
 
 
+@pytest.mark.parametrize("actor", ["service", "API"])
+@pytest.mark.parametrize(
+    "storage", ["in its database", "in the audit log", "to the assigned clients"]
+)
+@pytest.mark.parametrize(
+    "aspect,negative",
+    [
+        ("must be", "must not be"),
+        ("has been", "has not been"),
+        ("will be", "will not be"),
+        ("was", "was not"),
+        ("is", "is not"),
+        ("has already been", "has not already been"),
+        ("will have been", "will not have been"),
+    ],
+)
+@pytest.mark.parametrize("operation", ["put", "placed", "recorded", "written"])
+@pytest.mark.parametrize("preposition", ["in ", ""])
+@pytest.mark.parametrize(
+    "destination,channel",
+    [("the PR body", "body"), ("a PR comment", "comments"), ("workflow artifacts", "artifacts")],
+)
+def test_passive_product_storage_shared_review_destination(
+    actor, storage, aspect, negative, operation, preposition, destination, channel
+):
+    criterion = (
+        f"Evidence {aspect} {operation} {storage} by the {actor} and {preposition}{destination}"
+    )
+    assert verifier._required_evidence_channels(criterion) == {channel}
+    assert verifier._required_evidence_channels(criterion.replace(aspect, negative)) == set()
+
+
 @pytest.mark.parametrize("role", ["reviewer", "maintainer", "operator"])
 @pytest.mark.parametrize(
     "adverbs",
