@@ -972,8 +972,8 @@ test('coverage records retained acceptance evidence without hiding failed source
   }
 });
 
-test('linked-issue discovery is required only for an issue-backed acceptance plan', async () => {
-  for (const [issueBacked, status] of [[true, 'unavailable'], [false, 'unavailable'], [true, 'included'], [false, 'truncated']]) {
+test('linked-issue discovery failures floor every acceptance plan without inventing empty healthy sources', async () => {
+  for (const [issueBacked, status] of [[true, 'unavailable'], [false, 'unavailable'], [true, 'included'], [false, 'included'], [false, 'truncated']]) {
     const { result } = await buildEvidenceContext({
       prBody: prBodyFixture + (issueBacked ? '\nCloses #123\n' : '\n<!-- workflow-source:local_request -->\n'),
       graphqlError: status === 'unavailable' ? new Error('linked issue retrieval failed') : null,
@@ -982,7 +982,7 @@ test('linked-issue discovery is required only for an issue-backed acceptance pla
     try {
       const discovery = result.sourceCoverage.acceptance_source_discovery;
       assert.equal(discovery.status, issueBacked && status === 'included' ? 'unavailable' : status);
-      assert.equal(discovery.required, issueBacked || status === 'truncated');
+      assert.equal(discovery.required, issueBacked || ['truncated', 'unavailable'].includes(status));
       const serialized = JSON.parse(result.markdown.match(/## Context source coverage[\s\S]*?```json\n([\s\S]*?)\n```/)[1]);
       assert.deepEqual(serialized.acceptance_source_discovery, discovery);
     } finally {

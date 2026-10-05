@@ -8,6 +8,12 @@ Correct verifier findings in the Workflows source and copy-managed templates,
 then regenerate through Maint 68/71. An unsealed staging canary cannot be
 promoted merely because a reconciliation run completed successfully.
 
+Unavailable or truncated linked-issue discovery is a required completeness gap
+even for a PR not already classified as issue-backed: a failed query does not
+prove that its linked acceptance set is empty. A complete, empty query for a
+non-issue PR remains non-required; this does not invent an issue or human reply
+gate. Retry or repair the discovery source before claiming a complete verdict.
+
 Doc-Lineage#81 also reported that omitted-file diagnostics could exceed the
 verifier's diff budget. The source fits text excerpts first, then uses the remaining budget for a
 count-only diagnostic, including the separator after a partial line.
