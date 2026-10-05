@@ -1284,6 +1284,12 @@ perfect/progressive/passive aspect, evidence object and destination together;
 passive forms require the explicit product actor. A coordinated second review
 destination retains its shared governing verb rather than being consumed with
 the product destination. Independent reviewer clauses remain required.
+The fallback storage path applies the same coordination guard. Product database
+storage followed by a shared review destination retains the governing predicate
+before body/comment/artifact classification, with an explicit or inherited
+destination preposition. Passive put/place aliases normalize only through their
+bounded explicit-actor storage/client destination, rather than requiring a
+following evidence object that is already the passive subject.
 Negated obligations use the same delivery-operation grammar as positive
 delivery. An explicitly excluded PR-comment destination (`outside`, `rather
 than`, `instead of`) is not a required comment channel; generic evidence and

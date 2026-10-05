@@ -1134,6 +1134,10 @@ def _required_evidence_channels(acceptance: str, *, _bind_attached: bool = True)
                 re.I,
             ):
                 return match[0]
+        if alias.lower() == "put" and re.search(
+            r"\b(?:be|been|being)\s+$", acceptance[: match.start()], re.I
+        ):
+            return "recorded"
         return record_aliases[alias.lower()]
 
     acceptance = re.sub(
@@ -1146,7 +1150,13 @@ def _required_evidence_channels(acceptance: str, *, _bind_attached: bool = True)
         r"(?=\s+"
         + evidence_modifiers
         + r"(?:evidence|artifacts?|transcripts?|command outputs?|pr comments?|pull request comments?)\b"
-        r"|\s+" + destination_preposition + r"(?:both\s+)?" + delivery_destination_item + r")",
+        r"|\s+"
+        + destination_preposition
+        + r"(?:both\s+)?"
+        + delivery_destination_item
+        + r"|\s+(?:(?:in|into|to|as)\s+(?:(?:its|the|an?)\s+)?"
+        r"(?:database|audit log|storage|application log)\b|" + product_recipient + r")"
+        r"\s+by\s+(?:(?:the|an?)\s+)?(?:application|app|service|api|endpoint)\b)",
         normalize_record_alias,
         acceptance,
         flags=re.I,
@@ -1192,6 +1202,19 @@ def _required_evidence_channels(acceptance: str, *, _bind_attached: bool = True)
         + r"\s+by\s+"
         + product_actor
         + r"\b",
+        re.I,
+    )
+    shared_storage_review_destination = re.compile(
+        r"(?P<predicate>\b"
+        + product_actor
+        + r"\s+"
+        + product_aspect
+        + r"(?:record|capture|attach|generate)\w*\s+"
+        + product_evidence_object
+        + r")"
+        r"(?:in|into|to|as)\s+(?:(?:its|the|an?)\s+)?"
+        r"(?:database|audit log|storage|application log)\s+and\s+"
+        r"(?P<preposition>(?:in|into|to|as)\s+)?(?P<destination>" + review_destination_noun + r")",
         re.I,
     )
     # Positive and negated obligations must recognize the same passive aspects.
@@ -1817,6 +1840,14 @@ def _required_evidence_channels(acceptance: str, *, _bind_attached: bool = True)
         )
         criterion = re.sub(r"\bcannot\b", "can not", criterion, flags=re.I)
         criterion = re.sub(r"\bwon['’]t\b", "will not", criterion, flags=re.I)
+        # A second explicit destination inherits the same product operation;
+        # retain its predicate before channel-specific body classification.
+        criterion = shared_storage_review_destination.sub(
+            lambda match: match["predicate"]
+            + (match["preposition"] or "in ")
+            + match["destination"],
+            criterion,
+        )
         criterion_checklist = bool(re.match(r"^\s*(?:[-*+]|\d+[.)])\s*\[[ xX]\]", criterion))
         criterion_bullet = bool(re.match(r"^\s*(?:[-*+]|\d+[.)])\s+", criterion))
         # Quoted parser inputs are examples, including their verbs and clause
@@ -2633,7 +2664,10 @@ def _required_evidence_channels(acceptance: str, *, _bind_attached: bool = True)
                 + evidence_modifiers
                 + r"(?:transcripts?|command outputs?|evidence|artifacts?)\s+"
                 r"(?:in|into|to|as)\s+(?:(?:its|the|an?)\s+)?"
-                r"(?:database|audit log|storage|application log)\b",
+                r"(?:database|audit log|storage|application log)\b"
+                + r"(?!\s+(?:and|or)\s+(?:(?:in|into|to|for|as)\b|"
+                + review_destination_noun
+                + r"))",
                 re.I,
             )
             if storage_operation.search(requirement_text):

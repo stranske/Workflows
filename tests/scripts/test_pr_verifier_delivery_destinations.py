@@ -9,6 +9,34 @@ from scripts import docs_drift_fix_agent as fix_agent
 from scripts.langchain import pr_verifier as verifier
 
 
+@pytest.mark.parametrize("operation", ["record", "put", "place"])
+@pytest.mark.parametrize("preposition", ["in ", ""])
+@pytest.mark.parametrize(
+    "destination,channel",
+    [("a PR comment", "comments"), ("workflow artifacts", "artifacts"), ("the PR body", "body")],
+)
+def test_product_storage_shared_review_destination(operation, preposition, destination, channel):
+    criterion = (
+        f"The service must {operation} evidence in its database and {preposition}{destination}"
+    )
+    assert verifier._required_evidence_channels(criterion) == {channel}
+    assert verifier._required_evidence_channels(criterion.replace("must ", "must not ")) == set()
+    assert verifier._required_evidence_channels(
+        criterion + "; the maintainer must include evidence in a PR comment"
+    ) == {channel, "comments"}
+
+
+@pytest.mark.parametrize("operation", ["put", "placed", "written", "pasted"])
+@pytest.mark.parametrize("predicate", ["must be", "has been", "must have been"])
+@pytest.mark.parametrize("destination", ["in the database", "to clients"])
+def test_passive_product_aliases_share_bound_destination(operation, predicate, destination):
+    criterion = f"Validation evidence {predicate} {operation} {destination} by the service"
+    assert verifier._required_evidence_channels(criterion) == set()
+    assert verifier._required_evidence_channels(
+        criterion + "; include evidence in a PR comment"
+    ) == {"comments"}
+
+
 @pytest.mark.parametrize("modal", ["may", "can", "could", "should"])
 @pytest.mark.parametrize("operation", ["put", "place", "write", "paste"])
 @pytest.mark.parametrize("destination", ["a PR comment", "workflow artifacts", "the PR body"])
