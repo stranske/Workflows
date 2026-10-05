@@ -81,6 +81,15 @@ availability cannot spill into a later named reviewer obligation. Bind attached
 delivery to the noun itself (including a coordinated object), not only an
 operation/object pair. Isolated obligations are classified once with rebinding
 disabled, preventing recursive re-extraction of passive antecedents.
+Punctuated `, which` relative clauses retain the same noun binding. Capability
+recombination requires a new recognized evidence object in the incoming fragment;
+an explicit reviewer clause using `it`/`them` stays separate for antecedent resolution.
+Resolved plural pronoun uploads into the PR body are classified as body delivery,
+including bounded coordinated noun lists; attached relative-body uploads remain
+owned by the noun binder rather than consumed a second time as body records.
+The noun `command outputs` is not command execution behavior when its delivery
+has an explicit review destination. Test every declared evidence-object channel
+and the absent-evidence coverage floor, not only the original artifact example.
 active/passive wording and bare/qualified artifacts must not select different
 preposition rules. Missing required evidence still lowers a supplied PASS to CONCERNS.
 Coordinated capability actions consume only a complete recognized

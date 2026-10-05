@@ -3534,15 +3534,67 @@ def test_conditional_body_does_not_waive_modified_independent_review_delivery(
     )
 
 
-@pytest.mark.parametrize("product", ["lets users upload", "must display"])
+@pytest.mark.parametrize("product", ["lets users upload", "must display", "must let users upload"])
 @pytest.mark.parametrize("prior", ["evidence", "command outputs", "transcripts"])
-@pytest.mark.parametrize("predicate", ["that the reviewer must upload", "that must be uploaded"])
+@pytest.mark.parametrize("object_name", ["artifacts", "evidence", "transcripts", "command outputs"])
+@pytest.mark.parametrize(
+    "predicate",
+    [
+        "that the reviewer must upload",
+        "that must be uploaded",
+        "that the reviewer will upload",
+        "that must have already been uploaded",
+        "that the reviewer must explicitly upload",
+        ", which the reviewer will upload",
+    ],
+)
 @pytest.mark.parametrize(
     ("destination", "expected"),
-    [("to the PR", {"artifacts"}), ("in a PR comment", {"comments"}), ("in the PR body", {"body"})],
+    [
+        ("to the PR", None),
+        ("in a PR comment", {"comments"}),
+        ("in the PR body", {"body"}),
+        ("as workflow artifacts", {"artifacts"}),
+    ],
 )
 def test_coordinated_product_object_retains_attached_delivery(
-    product: str, prior: str, predicate: str, destination: str, expected: set[str]
+    product: str,
+    prior: str,
+    object_name: str,
+    predicate: str,
+    destination: str,
+    expected: set[str] | None,
 ) -> None:
-    criterion = f"The UI {product} {prior} and artifacts {predicate} {destination}"
+    if expected is None:
+        expected = {"artifacts"} if object_name == "artifacts" else {"overall"}
+    criterion = f"The UI {product} {prior} and {object_name} {predicate} {destination}"
+    assert pr_verifier._required_evidence_channels(criterion) == expected
+    context, _ = _context(1, 1000, 1000)
+    context = context.replace(ACCEPTANCE_SENTINEL, criterion).replace(
+        "## PR Diff Summary",
+        "## Acceptance evidence\n\n- Overall retrieval status: **absent**\n"
+        "- PR comments: **absent**\n- PR body: **absent**\n"
+        "- Referenced workflow artifacts: **absent**\n\n## PR Diff Summary",
+    )
+    coverage = pr_verifier.prompt_coverage(context, None)
+    assert not coverage.sufficient
+    assert (
+        pr_verifier._apply_coverage_floor(
+            pr_verifier.EvaluationResult(verdict="PASS", used_llm=True), coverage
+        ).verdict
+        == "CONCERNS"
+    )
+
+
+@pytest.mark.parametrize("product", ["lets users upload", "must let users upload"])
+@pytest.mark.parametrize("modal", ["must", "will"])
+@pytest.mark.parametrize("boundary", ["and", ";"])
+@pytest.mark.parametrize(
+    "destination,expected",
+    [("to the PR", {"artifacts"}), ("in a PR comment", {"comments"}), ("in the PR body", {"body"})],
+)
+def test_explicit_reviewer_pronoun_clause_is_not_capability_coordination(
+    product: str, modal: str, boundary: str, destination: str, expected: set[str]
+) -> None:
+    criterion = f"The UI {product} evidence and artifacts {boundary} the reviewer {modal} upload them {destination}"
     assert pr_verifier._required_evidence_channels(criterion) == expected

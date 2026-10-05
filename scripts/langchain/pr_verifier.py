@@ -1138,10 +1138,13 @@ def _required_evidence_channels(acceptance: str, *, _bind_attached: bool = True)
         re.I,
     )
 
-    def body_occurrences(text: str, gate: bool) -> tuple[list[dict[str, Any]], str]:
+    def body_occurrences(
+        text: str, gate: bool, *, pronoun_delivery: bool = False
+    ) -> tuple[list[dict[str, Any]], str]:
         """Classify complete, bounded body predicates before residual evidence gating."""
         body = r"(?:pr|pull request)\s+body\b"
         noun = r"(?:(?:the|an?|any|no)\s+)?(?:before/after\s+)?(?:evidence|artifacts?|transcripts?|command outputs?)\b"
+        noun = r"(?:" + noun + r")(?:\s+(?:and|or)\s+(?:" + noun + r")){0,3}"
         exclusion_operation = (
             r"(?:exclude\w*|omit\w*|remove\w*|avoid\w*|suppress\w*|leave\s+out|left\s+out)\b"
         )
@@ -1150,6 +1153,7 @@ def _required_evidence_channels(acceptance: str, *, _bind_attached: bool = True)
             + exclusion_operation
             + "|"
             + response_operation
+            + (r"|upload\w*" if pronoun_delivery else "")
             + r"|include\w*|contain\w*|attach\w*|provide\w*|publish\w*|post\w*|record\w*|capture\w*|document\w*|add\w*|show\w*|store\w*|have|left|leave\w*)\b"
         )
         auxiliary = (
@@ -1764,6 +1768,11 @@ def _required_evidence_channels(acceptance: str, *, _bind_attached: bool = True)
             match.span() for match in re.finditer(bound_review_destinations, criterion, re.I)
         ]
         for boundary_match in re.finditer(clause_boundary, criterion, re.I):
+            if re.fullmatch(r",\s+", boundary_match[0]) and re.match(
+                r"(?:that|which)\b", criterion[boundary_match.end() :], re.I
+            ):
+                # A punctuated relative predicate still belongs to its noun.
+                continue
             independent_predicate = re.match(
                 review_destination_noun + r"\s+" + independent_review_predicate,
                 criterion[boundary_match.end() :],
@@ -1841,7 +1850,9 @@ def _required_evidence_channels(acceptance: str, *, _bind_attached: bool = True)
                 )
                 if capability_objects:
                     last_object = capability_objects[-1]
-                    if product_comment_object(
+                    if last_object.start() >= len(
+                        fragments[-1] + boundary
+                    ) and product_comment_object(
                         combined[: last_object.start()], combined[last_object.end() :]
                     ):
                         # Only positive whole-chain recognition can preserve
@@ -1906,7 +1917,9 @@ def _required_evidence_channels(acceptance: str, *, _bind_attached: bool = True)
                 flags=re.I,
             )
             gate = bool(negative_gate.search(working_line))
-            body_records, body_residual = body_occurrences(working_line, gate)
+            body_records, body_residual = body_occurrences(
+                working_line, gate, pronoun_delivery=bool(resolved_antecedent)
+            )
             requirement_text = working_line if gate else evidence_prohibition.sub(" ", working_line)
             # An optional evidence noun can be the object of a mandatory
             # explanation (for example, "a PR comment must explain why
@@ -2028,7 +2041,7 @@ def _required_evidence_channels(acceptance: str, *, _bind_attached: bool = True)
             # product input into workflow evidence. Classify the residual so
             # a separate reviewer obligation retains its own destination.
             attached_delivery_pattern = re.compile(
-                r"\s+(?:(?:that|which)\s+)?"
+                r"(?:\s*,\s*(?:that|which)\s+|\s+(?:(?:that|which)\s+)?)"
                 r"(?P<actor>(?:(?!(?:and|or|that|which|must|shall|needs?|has|have|is|are)\b)[\w/-]+\s+){0,6})"
                 + r"(?P<auxiliary>"
                 + r"(?:"
@@ -2549,7 +2562,7 @@ def _required_evidence_channels(acceptance: str, *, _bind_attached: bool = True)
                         re.I,
                     )
                 )
-                if command_behavior:
+                if command_behavior and not explicit_review_destination:
                     # A command that outputs JSON describes product behavior;
                     # it is not itself a request to deliver command output.
                     # Preserve a separate downstream evidence requirement.
