@@ -983,6 +983,12 @@ When verifier runs collect acceptance evidence, empty or whitespace-only review 
 must not count as PR-comment evidence. Single-provider non-PASS text/file output
 must carry the post-processed `Verdict: CONCERNS` or `Verdict: FAIL` line so the
 downstream artifact parser retains a terminal outcome rather than a partial run.
+Overall retrieval availability includes the independently bounded PR body,
+comments and artifacts. A present body can supply a generic evidence obligation
+when the other channels are absent; an unavailable channel keeps aggregate
+retrieval unavailable. This availability record is not proof of criterion
+satisfaction. Channel-specific comment/artifact requirements still use their
+own retrieval statuses and cannot be satisfied by body presence.
 PR-body evidence has its own builder-owned `PR body` retrieval channel. An
 affirmative body-delivery obligation is required, not merely a mention of the
 body. Negative obligations and product UI body-editor output do not create a

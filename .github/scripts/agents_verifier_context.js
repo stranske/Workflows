@@ -721,9 +721,10 @@ async function fetchVerifierEvidence({
     if (!runIds.length) artifacts.reason = 'no referenced or associated workflow run found';
   }
 
-  const status = comments.status === 'unavailable' || artifacts.status === 'unavailable'
+  const statuses = [body.status, comments.status, artifacts.status];
+  const status = statuses.includes('unavailable')
     ? 'unavailable'
-    : comments.status === 'present' || artifacts.status === 'present'
+    : statuses.includes('present')
       ? 'present'
       : 'absent';
   return { status, body, comments, artifacts, referencedRunIds: runIds };

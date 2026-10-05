@@ -1455,7 +1455,7 @@ test('PR body is independently bounded, fenced and cannot satisfy comments', asy
     });
     assert.equal(evidence.body.status, status);
     assert.equal(evidence.comments.status, 'absent');
-    assert.equal(evidence.status, 'absent');
+    assert.equal(evidence.status, status);
     const text = formatVerifierEvidence(evidence);
     assert.ok(text.includes(`- PR body: **${status}**`));
     if (status === 'present') assert.match(text, /Untrusted PR body:\n```text\nbefore\/after/);
@@ -1473,6 +1473,7 @@ test('PR body is independently bounded, fenced and cannot satisfy comments', asy
 
 test('production context carries PR body when comments and artifacts are absent', async () => {
   const {result} = await buildEvidenceContext();
+  assert.match(result.markdown, /Overall retrieval status: \*\*present\*\*/);
   assert.match(result.markdown, /PR body: \*\*present\*\*/);
   assert.match(result.markdown, /### Bounded PR body/);
   assert.match(result.markdown, /PR comments: \*\*absent\*\*/);
@@ -1494,10 +1495,10 @@ test('expired referenced artifacts make a lookup unavailable even with usable ev
   removeVerifierDiffArtifacts(result);
 });
 
-test('buildVerifierContext reports genuinely empty complete evidence sources as absent', async () => {
+test('buildVerifierContext reports body-inclusive overall evidence with absent comments and artifacts', async () => {
   const { core, result } = await buildEvidenceContext();
   assert.equal(result.shouldRun, true);
-  assert.equal(core.outputs.evidence_status, 'absent');
+  assert.equal(core.outputs.evidence_status, 'present');
   assert.match(result.markdown, /PR comments: \*\*absent\*\*/);
   assert.match(result.markdown, /Referenced workflow artifacts: \*\*absent\*\*/);
   removeVerifierDiffArtifacts(result);
