@@ -9,6 +9,20 @@ from scripts import docs_drift_fix_agent as fix_agent
 from scripts.langchain import pr_verifier as verifier
 
 
+@pytest.mark.parametrize("actor", ["assigned reviewer", "author", "maintainer", "API"])
+def test_active_past_placed_delivery_is_not_a_participial_modifier(actor):
+    assert verifier._required_evidence_channels(
+        f"The {actor} placed validation evidence in a PR comment"
+    ) == {"comments"}
+    assert (
+        verifier._required_evidence_channels("The application placed transcripts in its database")
+        == set()
+    )
+    assert verifier._required_evidence_channels(
+        "Record placed validation evidence in the PR body"
+    ) == {"body"}
+
+
 @pytest.mark.parametrize("verb", ["put", "place"])
 @pytest.mark.parametrize(
     "destination,channel", [("a PR comment", "comments"), ("the PR body", "body")]

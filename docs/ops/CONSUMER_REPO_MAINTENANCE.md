@@ -90,6 +90,8 @@ Bare and qualified artifact nouns share that grammar: validation artifacts
 required in a PR comment need comment evidence, not merely retrieved artifacts.
 The bounded lexical aliases `put` and `place` share the record-delivery
 grammar, including negation, body/comment destinations and product storage.
+Active-past `placed` with a declared reviewer/author actor is delivery, not an
+evidence-object modifier; bare active product persistence remains nongating.
 Product output exclusions reuse the complete shared response vocabulary,
 including `include`, `contain` and `have`; an independent reviewer
 delivery remains mandatory after the product clause is excluded.

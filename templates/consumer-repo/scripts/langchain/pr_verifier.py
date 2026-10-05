@@ -1106,7 +1106,7 @@ def _required_evidence_channels(acceptance: str, *, _bind_attached: bool = True)
             # Inspect the actor without altering the original checklist semantics.
             prefix = re.sub(r"^\s*(?:[-*+]|\d+[.)])\s*(?:\[[ xX]\]\s*)?", "", prefix)
             active_delivery_subject = (
-                alias.lower() in {"submitted", "delivered"}
+                alias.lower() in {"placed", "submitted", "delivered"}
                 and bool(
                     re.fullmatch(
                         r"\s*(?:(?:the|an?)\s+)?"
@@ -2542,7 +2542,9 @@ def _required_evidence_channels(acceptance: str, *, _bind_attached: bool = True)
             # storage destination, not later reviewer delivery predicates.
             storage_operation = re.compile(
                 r"\b(?:(?:the|an?)\s+)?(?:application|app|service|api|endpoint)\s+"
+                + "(?:"
                 + product_auxiliary
+                + ")?"
                 + r"(?:record|capture|attach|generate)\w*\s+"
                 r"(?:(?:the|an?)\s+)?(?:transcripts?|command outputs?|evidence|artifacts?)\s+"
                 r"(?:in|into|to|as)\s+(?:(?:its|the|an?)\s+)?"
