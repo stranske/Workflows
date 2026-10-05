@@ -2497,6 +2497,14 @@ def _required_evidence_channels(acceptance: str, *, _bind_attached: bool = True)
                     requirement_text,
                     re.I,
                 )
+                or re.search(
+                    r"\b(?:evidence|command outputs?|transcripts?)\b.{0,40}"
+                    + mandatory_auxiliary
+                    + r"\s+(?:appear(?:s|ed)?|be\s+present)\s+in\s+"
+                    r"(?:an?\s+|the\s+)?(?:pr comments?|pull request comments?)\b",
+                    requirement_text,
+                    re.I,
+                )
                 or (gate and bool(re.search(r"\b(?:pr comments?|pull request comments?)\b", lower)))
                 or re.search(
                     r"\bthere\s+"

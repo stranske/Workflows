@@ -71,6 +71,10 @@ modifiers) cannot break this binding or restore inheritance across a new actor.
 An explicit comment/body/artifact destination selects that channel, not an extra
 artifact channel merely because the antecedent is an artifact. A generic PR
 destination continues to use object-specific classification.
+Mandatory evidence that must `appear` or `be present` in a PR comment requires
+the comments channel; a present body or artifact cannot substitute for absent
+or unavailable comments. Optional, prohibited and product capability statements
+do not create that obligation.
 The same bounded adverbs apply to ordinary coordinated capability actions,
 prohibited predicates and modifiers inside perfect passive auxiliaries. Definite
 future (`will`) attached delivery retains its obligation. Conditional body records

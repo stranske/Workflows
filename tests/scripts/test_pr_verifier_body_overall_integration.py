@@ -14,6 +14,46 @@ ROOT = Path(__file__).resolve().parents[2]
 NODE = shutil.which("node")
 
 
+@pytest.mark.parametrize("predicate", ["appear", "be present"])
+@pytest.mark.parametrize("noun", ["Test evidence", "Validation command output", "Test transcript"])
+def test_mandatory_evidence_presence_in_comments_cannot_use_other_channels(predicate, noun):
+    criterion = f"{noun} must {predicate} in a PR comment"
+    assert pr_verifier._required_evidence_channels(criterion) == {"comments"}
+    for status in ("absent", "unavailable", "present"):
+        evidence = (
+            "Overall retrieval status: **present**\n"
+            "- PR body: **present**\n"
+            f"- PR comments: **{status}**\n"
+            "- Referenced workflow artifacts: **present**\n"
+        )
+        context, _ = _context(1, 1000, 1000)
+        context = context.replace(ACCEPTANCE_SENTINEL, criterion).replace(
+            "## PR Diff Summary", "## Acceptance evidence\n\n- " + evidence + "\n## PR Diff Summary"
+        )
+        result = pr_verifier._apply_coverage_floor(
+            pr_verifier.EvaluationResult(verdict="PASS", used_llm=True),
+            pr_verifier.prompt_coverage(context, None),
+        )
+        assert result.verdict == ("PASS" if status == "present" else "CONCERNS")
+
+
+@pytest.mark.parametrize(
+    "criterion",
+    [
+        "Test evidence may appear in a PR comment",
+        "Test evidence need not be present in a PR comment",
+        "Test evidence must not appear in a PR comment",
+        "Test evidence must not be present in a PR comment",
+        "The UI lets users make test evidence appear in a PR comment preview",
+    ],
+)
+def test_evidence_presence_keeps_optional_prohibited_and_product_boundaries(criterion):
+    assert pr_verifier._required_evidence_channels(criterion) == set()
+    assert pr_verifier._required_evidence_channels(
+        criterion + "; the reviewer must post validation evidence in a PR comment"
+    ) == {"comments"}
+
+
 @pytest.mark.parametrize("operation", ["submit", "deliver", "record", "post"])
 @pytest.mark.parametrize(
     "noun",
