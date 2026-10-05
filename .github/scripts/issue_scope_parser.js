@@ -50,6 +50,17 @@ function visibleChecklistContent(markdown) {
     }).join('\n');
 }
 
+// The unfilled PR template's visible skeleton. Content outside these lines is
+// authored description text and must survive PR metadata regeneration.
+const PR_TEMPLATE_SKELETON_LINES = Object.freeze([
+  '## Workflow Source',
+  'Started from:',
+  'Automation intent:',
+  'Notes:',
+  '## Summary',
+  '## Testing',
+]);
+
 // Workflow Source contains mutually exclusive metadata controls, not delivery
 // work. Match only the known controls in their named template groups so real
 // reviewer tasks (including tasks in Notes) survive with their surrounding text.
@@ -820,6 +831,7 @@ const analyzeSectionPresence = (source) => {
 };
 
 module.exports = {
+  PR_TEMPLATE_SKELETON_LINES,
   visibleChecklistContent,
   stripPrTemplateControls,
   extractScopeTasksAcceptanceSections,

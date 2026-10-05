@@ -506,17 +506,48 @@ Add labels.
   assert.equal(result, body);
 });
 
-test('stripPrTemplateContent removes content before auto-status-summary if no preamble', () => {
-  const body = `Template junk here
+test('stripPrTemplateContent preserves an author description without checklist items before managed markers', () => {
+  const prose = '# What happened\n\nFixed the body sync.\n\n1. Evidence preserved.\n2. Tests rerun.\n\n';
+  const managed = '<!-- pr-preamble:start -->\nManaged preamble\n<!-- pr-preamble:end -->';
+  assert.equal(stripPrTemplateContent(prose + managed), prose + managed);
+});
 
-<!-- auto-status-summary:start -->
-## Automated Status Summary
-<!-- auto-status-summary:end -->`;
+test('stripPrTemplateContent drops an unfilled PR template before managed markers', () => {
+  const template = fs.readFileSync(path.resolve(__dirname, '../../PULL_REQUEST_TEMPLATE.md'), 'utf8');
+  const managed = '<!-- auto-status-summary:start -->\nManaged status\n<!-- auto-status-summary:end -->';
+  assert.equal(stripPrTemplateContent(template + '\n' + managed), managed);
+});
 
-  const result = stripPrTemplateContent(body);
-  
-  assert.ok(result.startsWith('<!-- auto-status-summary:start -->'));
-  assert.ok(!result.includes('Template junk'));
+test('the PR template skeleton constant matches .github/PULL_REQUEST_TEMPLATE.md', () => {
+  const { PR_TEMPLATE_SKELETON_LINES, stripPrTemplateControls } = require('../issue_scope_parser');
+  const template = fs.readFileSync(path.resolve(__dirname, '../../PULL_REQUEST_TEMPLATE.md'), 'utf8');
+  const remaining = stripPrTemplateControls(template).replace(/<!--[\s\S]*?-->/g, '');
+  for (const line of remaining.split('\n').map((line) => line.trim()).filter(Boolean)) {
+    assert.ok(PR_TEMPLATE_SKELETON_LINES.includes(line), `Unknown template skeleton: ${line}`);
+  }
+});
+
+test('an author description survives two body syncs', () => {
+  const description = '# Evidence\n\nVerified the fix.\n\n1. RED before repair.\n2. GREEN after repair.';
+  const managed = '<!-- pr-preamble:start -->\nManaged content\n<!-- pr-preamble:end -->';
+  const sync = (body) => upsertBlock(stripPrTemplateContent(body), 'pr-preamble', managed);
+  assert.equal(sync(sync(description)), description + '\n\n' + managed);
+});
+
+test('stripPrTemplateContent preserves filled summary and testing sections', () => {
+  const template = fs.readFileSync(path.resolve(__dirname, '../../PULL_REQUEST_TEMPLATE.md'), 'utf8');
+  const filled = template.replace('## Summary', '## Summary\nAuthor implementation detail.')
+    .replace('## Testing', '## Testing\nnode --test passes');
+  const managed = '<!-- auto-status-summary:start -->\nStatus\n<!-- auto-status-summary:end -->';
+  const { stripPrTemplateControls } = require('../issue_scope_parser');
+  assert.equal(stripPrTemplateContent(filled + managed), stripPrTemplateControls(filled) + managed);
+});
+
+test('stripPrTemplateContent preserves arbitrary text and fenced examples', () => {
+  for (const prefix of ['Template junk here\n\n', '```html\n<!-- example -->\n```\n', '## Summary\nUnknown skeleton text\n']) {
+    const managed = '<!-- auto-status-summary:start -->\nStatus\n<!-- auto-status-summary:end -->';
+    assert.equal(stripPrTemplateContent(prefix + managed), prefix + managed);
+  }
 });
 
 test('stripPrTemplateContent preserves body if no markers present', () => {
@@ -1802,9 +1833,10 @@ for (const templatePath of ['../../../.github/PULL_REQUEST_TEMPLATE.md', '../../
 }
 
 for (const hidden of ['<!--\n- [ ] Hidden comment\n-->\n', '```markdown\n- [ ] Fenced example\n```\n', '> ```markdown\n> - [ ] Quoted fenced example\n> ```\n']) {
-  test(`metadata refresh ignores hidden checkbox prefix: ${hidden.split('\n')[0]}`, () => {
+  test(`metadata refresh preserves non-template prefix with hidden checkbox: ${hidden.split('\n')[0]}`, () => {
     const summary = '<!-- auto-status-summary:start -->\n## Tasks\n- [x] Source task\n<!-- auto-status-summary:end -->';
-    assert.equal(stripPrTemplateContent('## Stale template\n' + hidden + summary), summary);
+    const body = '## Stale template\n' + hidden + summary;
+    assert.equal(stripPrTemplateContent(body), body);
   });
 }
 

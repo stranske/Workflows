@@ -10,7 +10,7 @@
  * - Building and updating PR body with preamble and status blocks
  */
 
-const { visibleChecklistContent, stripPrTemplateControls } = require('./issue_scope_parser');
+const { PR_TEMPLATE_SKELETON_LINES, visibleChecklistContent, stripPrTemplateControls } = require('./issue_scope_parser');
 const path = require('path');
 const fs = require('fs');
 const os = require('os');
@@ -712,7 +712,7 @@ async function fetchConnectorCheckboxStates(github, owner, repo, prNumber, core)
  * when a PR is created via the API or UI for agent-managed branches.
  * 
  * @param {string} body - PR body that may contain template content
- * @returns {string} Body with template content stripped (everything before first marker)
+ * @returns {string} Body with only an unfilled template prefix stripped
  */
 function stripPrTemplateContent(body) {
   if (!body) return '';
@@ -731,14 +731,15 @@ function stripPrTemplateContent(body) {
     firstMarkerIndex = statusStart;
   }
   
-  // A checkbox-bearing prefix may be reviewer-added work, not a template.
-  // Preserve it with its context and continuation lines across regeneration.
+  // Remove only a positively identified empty template skeleton. Authored prose,
+  // filled Summary/Testing sections and reviewer work survive regardless of lists.
   if (firstMarkerIndex > 0) {
     const prefix = stripPrTemplateControls(body.slice(0, firstMarkerIndex));
-    if (/^\s*(?:[-*+]|\d+[.)])\s*\[[ xX]\]/m.test(visibleChecklistContent(prefix))) {
-      return prefix + body.slice(firstMarkerIndex);
-    }
-    return body.slice(firstMarkerIndex);
+    const visible = prefix.replace(/<!--[\s\S]*?-->/g, '');
+    const isUnfilledTemplate = visible.split('\n').every((line) =>
+      !line.trim() || PR_TEMPLATE_SKELETON_LINES.includes(line.trim())
+    );
+    return isUnfilledTemplate ? body.slice(firstMarkerIndex) : prefix + body.slice(firstMarkerIndex);
   }
   
   return body;

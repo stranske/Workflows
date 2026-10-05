@@ -263,6 +263,14 @@ Source-issue edits reach that block on the next metadata refresh, not immediatel
 manual edits inside the block can be overwritten on regeneration. Keep durable
 source tasks in the source issue. Reviewer-added checkboxes outside the block
 remain in the PR body across regeneration, including before the managed preamble.
+PR metadata also preserves author prose, numbered lists, and filled Summary or
+Testing sections before the first managed marker across repeated refreshes.
+It strips a prefix only when removing Workflow Source choice controls leaves
+nothing but the shared unfilled template skeleton, HTML comments and whitespace;
+absence of a checkbox is never a template signal. The exported
+`PR_TEMPLATE_SKELETON_LINES` in `issue_scope_parser.js` is checked against the
+shipped PR template, and both scripts are mirrored to consumer templates.
+
 Keepalive includes those visible checkboxes in its dispatch decision, task appendix,
 and live progress counts, so a completed summary cannot hide remaining PR work.
 Blockquoted reviewer tasks count as visible work. Fenced examples, HTML comments,
