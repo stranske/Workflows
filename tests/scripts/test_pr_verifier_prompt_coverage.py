@@ -3016,3 +3016,634 @@ def test_semicolon_delivery_is_not_shared_capability_coordination() -> None:
     assert pr_verifier._required_evidence_channels(
         "- [ ] The endpoint allows users to add PR comments; post PR comments"
     ) == {"comments"}
+
+
+@pytest.mark.parametrize(
+    "criterion",
+    [
+        "The UI must let users post PR comments",
+        "The UI lets users post PR comments",
+        "The endpoint must let reviewers add PR comments and post PR comments",
+    ],
+)
+@pytest.mark.parametrize("independent_delivery", [False, True])
+def test_let_product_capability_preserves_independent_delivery(
+    criterion: str, independent_delivery: bool
+) -> None:
+    if independent_delivery:
+        criterion += "; the reviewer must submit validation evidence in a PR comment"
+    expected = {"comments"} if independent_delivery else set()
+    assert pr_verifier._required_evidence_channels(criterion) == expected
+    context, _ = _context(1, 1_000, 1_000)
+    context = context.replace(ACCEPTANCE_SENTINEL, criterion).replace(
+        "## PR Diff Summary",
+        "## Acceptance evidence\n\n- Overall retrieval status: **present**\n"
+        "- PR comments: **absent**\n\n## PR Diff Summary",
+    )
+    assert pr_verifier.prompt_coverage(context, None).sufficient == (not expected)
+
+
+@pytest.mark.parametrize("verb", ["submit", "deliver"])
+@pytest.mark.parametrize("form", ["mandatory", "passive", "optional", "negative", "literal"])
+def test_submit_deliver_share_evidence_obligation_boundaries(verb: str, form: str) -> None:
+    criterion = {
+        "mandatory": f"The reviewer must {verb} validation evidence in a PR comment",
+        "passive": (
+            f"Validation evidence must be {verb}ted in a PR comment"
+            if verb == "submit"
+            else "Validation evidence must be delivered in a PR comment"
+        ),
+        "optional": f"The reviewer may {verb} validation evidence in a PR comment",
+        "negative": f"The reviewer must not {verb} validation evidence in a PR comment",
+        "literal": f"The parser must recognize `{verb} validation evidence in a PR comment`",
+    }[form]
+    assert pr_verifier._required_evidence_channels(criterion) == (
+        {"comments"} if form in {"mandatory", "passive"} else set()
+    )
+    context, _ = _context(1, 1_000, 1_000)
+    context = context.replace(ACCEPTANCE_SENTINEL, criterion).replace(
+        "## PR Diff Summary",
+        "## Acceptance evidence\n\n- Overall retrieval status: **present**\n"
+        "- PR comments: **absent**\n\n## PR Diff Summary",
+    )
+    assert pr_verifier.prompt_coverage(context, None).sufficient == (
+        form not in {"mandatory", "passive"}
+    )
+
+
+@pytest.mark.parametrize(
+    "capability",
+    [
+        "must not let",
+        "does not let",
+        "cannot let",
+        "must let",
+    ],
+)
+@pytest.mark.parametrize(
+    "attachment",
+    [
+        "; the reviewer must submit validation evidence in a PR comment",
+        " after the reviewer must deliver validation evidence in a PR comment",
+    ],
+)
+def test_let_capability_never_hides_separate_reviewer_obligation(
+    capability: str, attachment: str
+) -> None:
+    criterion = f"The UI {capability} users post PR comments"
+    assert pr_verifier._required_evidence_channels(criterion) == set()
+    assert pr_verifier._required_evidence_channels(criterion + attachment) == {"comments"}
+
+
+@pytest.mark.parametrize(
+    "criterion",
+    [
+        "The API must deliver validation evidence to clients",
+        "The API must submit validation evidence to clients",
+        "The API must deliver CI validation evidence to clients",
+        "The UI is letting users post PR comments",
+        "The UI supports letting users post PR comments",
+    ],
+)
+@pytest.mark.parametrize("independent", [False, True])
+def test_delivery_aliases_and_progressive_capabilities_keep_product_boundary(
+    criterion: str, independent: bool
+) -> None:
+    if independent:
+        criterion += "; the reviewer must submit validation evidence in a PR comment"
+    assert pr_verifier._required_evidence_channels(criterion) == (
+        {"comments"} if independent else set()
+    )
+
+
+@pytest.mark.parametrize("verb", ["submit", "deliver", "submitted", "delivered"])
+@pytest.mark.parametrize(
+    "modifier", ["CI validation", "independently collected", "exact-head regression"]
+)
+def test_delivery_aliases_preserve_modified_and_active_past_obligations(
+    verb: str, modifier: str
+) -> None:
+    modal = "must " if verb in {"submit", "deliver"} else ""
+    criterion = f"The reviewer {modal}{verb} {modifier} evidence in a PR comment"
+    assert pr_verifier._required_evidence_channels(criterion) == {"comments"}
+
+
+@pytest.mark.parametrize("participle", ["submitted", "delivered"])
+def test_participial_evidence_modifiers_are_not_new_delivery_operations(participle: str) -> None:
+    assert (
+        pr_verifier._required_evidence_channels(
+            f"The UI must display {participle} validation evidence to users"
+        )
+        == set()
+    )
+
+
+@pytest.mark.parametrize(
+    "subject", ["The assigned reviewer", "The agent", "The CI runner", "The responsible maintainer"]
+)
+@pytest.mark.parametrize("verb", ["submitted", "delivered"])
+def test_modified_delivery_actors_preserve_active_past(subject: str, verb: str) -> None:
+    assert pr_verifier._required_evidence_channels(
+        f"{subject} {verb} validation evidence in a PR comment"
+    ) == {"comments"}
+
+
+@pytest.mark.parametrize(
+    "operation",
+    [
+        "is currently letting",
+        "is now letting",
+        "has been letting",
+        "supports reliably letting",
+        "was already letting",
+    ],
+)
+@pytest.mark.parametrize("independent", [False, True])
+def test_modified_progressive_capability_keeps_actor_boundary(
+    operation: str, independent: bool
+) -> None:
+    criterion = f"The UI {operation} users post PR comments"
+    if independent:
+        criterion += "; the assigned reviewer submitted validation evidence in a PR comment"
+    assert pr_verifier._required_evidence_channels(criterion) == (
+        {"comments"} if independent else set()
+    )
+
+
+@pytest.mark.parametrize("marker", ["- [ ]", "+ [X]", "1. [ ]"])
+@pytest.mark.parametrize("verb", ["submitted", "delivered"])
+def test_checklist_active_past_delivery_keeps_comment_requirement(marker: str, verb: str) -> None:
+    assert pr_verifier._required_evidence_channels(
+        f"{marker} The assigned reviewer {verb} validation evidence in a PR comment"
+    ) == {"comments"}
+
+
+@pytest.mark.parametrize("recipient", ["clients", "consumers", "the client"])
+@pytest.mark.parametrize("independent", [False, True])
+def test_client_artifact_capability_preserves_review_obligation(
+    recipient: str, independent: bool
+) -> None:
+    criterion = f"The UI must let {recipient} upload artifacts"
+    if independent:
+        criterion += "; the reviewer must upload validation artifacts to the PR"
+    assert pr_verifier._required_evidence_channels(criterion) == (
+        {"artifacts"} if independent else set()
+    )
+
+
+@pytest.mark.parametrize(
+    "operation", ["is currently letting", "has been letting", "supports reliably letting"]
+)
+@pytest.mark.parametrize("recipient", ["users", "clients", "consumers"])
+@pytest.mark.parametrize("independent", [False, True])
+def test_progressive_artifact_capability_shares_comment_grammar(
+    operation: str, recipient: str, independent: bool
+) -> None:
+    criterion = f"The UI {operation} {recipient} upload artifacts"
+    if independent:
+        criterion += "; the reviewer must upload validation artifacts to the PR"
+    assert pr_verifier._required_evidence_channels(criterion) == (
+        {"artifacts"} if independent else set()
+    )
+
+
+@pytest.mark.parametrize("operation", ["must not let", "does not let", "cannot let"])
+@pytest.mark.parametrize("recipient", ["users", "clients", "consumers"])
+@pytest.mark.parametrize("independent", [False, True])
+def test_negated_artifact_capability_keeps_independent_delivery(
+    operation: str, recipient: str, independent: bool
+) -> None:
+    criterion = f"The UI {operation} {recipient} upload artifacts"
+    if independent:
+        criterion += "; the reviewer must upload validation artifacts to the PR"
+    assert pr_verifier._required_evidence_channels(criterion) == (
+        {"artifacts"} if independent else set()
+    )
+
+
+@pytest.mark.parametrize(
+    "operation", ["is not currently letting", "has not been letting", "is currently not letting"]
+)
+@pytest.mark.parametrize("recipient", ["users", "clients", "consumers"])
+@pytest.mark.parametrize("channel", ["artifacts", "comments"])
+@pytest.mark.parametrize("independent", [False, True])
+def test_negated_progressive_capability_cross_channel_matrix(
+    operation: str, recipient: str, channel: str, independent: bool
+) -> None:
+    object_text = "upload artifacts" if channel == "artifacts" else "post PR comments"
+    criterion = f"The UI {operation} {recipient} {object_text}"
+    if independent:
+        criterion += "; the reviewer must " + (
+            "upload validation artifacts to the PR"
+            if channel == "artifacts"
+            else "submit validation evidence in a PR comment"
+        )
+    assert pr_verifier._required_evidence_channels(criterion) == (
+        {channel} if independent else set()
+    )
+
+
+@pytest.mark.parametrize(
+    "recipient", ["users", "all clients", "any consumers", "each user", "our clients"]
+)
+@pytest.mark.parametrize("operation", ["lets", "must not let", "is currently letting"])
+@pytest.mark.parametrize(
+    "object_text",
+    [
+        "submit evidence",
+        "deliver validation evidence",
+        "upload validation artifacts",
+        "post PR comments",
+    ],
+)
+@pytest.mark.parametrize("independent", [False, True])
+def test_product_capability_delivery_spans_preserve_separate_review(
+    recipient: str, operation: str, object_text: str, independent: bool
+) -> None:
+    criterion = f"The UI {operation} {recipient} {object_text}"
+    if independent:
+        criterion += "; the reviewer must submit validation evidence in a PR comment"
+    assert pr_verifier._required_evidence_channels(criterion) == (
+        {"comments"} if independent else set()
+    )
+
+
+@pytest.mark.parametrize(
+    "independent", ["record evidence", "upload validation artifacts to the PR"]
+)
+def test_product_submit_does_not_waive_independent_delivery(independent: str) -> None:
+    assert pr_verifier._required_evidence_channels(
+        f"The UI lets users submit evidence; the reviewer must {independent}"
+    ) == ({"overall"} if independent == "record evidence" else {"artifacts"})
+
+
+@pytest.mark.parametrize("operation", ["submit", "upload"])
+@pytest.mark.parametrize(
+    "attachment", ["that the reviewer must upload", "that must be uploaded", "must be uploaded"]
+)
+def test_product_capability_keeps_object_attached_delivery(operation: str, attachment: str) -> None:
+    assert pr_verifier._required_evidence_channels(
+        f"The UI lets users {operation} validation artifacts {attachment} to the PR"
+    ) == {"artifacts"}
+
+
+@pytest.mark.parametrize(
+    "object_text", ["submit evidence", "upload validation artifacts", "deliver command outputs"]
+)
+@pytest.mark.parametrize("independent", [False, True])
+def test_coordinated_product_delivery_retains_independent_reviewer(
+    object_text: str, independent: bool
+) -> None:
+    criterion = f"The UI must let all clients {object_text} and post PR comments"
+    if independent:
+        criterion += "; the reviewer must upload validation artifacts to the PR"
+    assert pr_verifier._required_evidence_channels(criterion) == (
+        {"artifacts"} if independent else set()
+    )
+
+
+@pytest.mark.parametrize(
+    "recipient",
+    [
+        "authenticated users",
+        "enterprise clients",
+        "all authenticated users",
+        "our enterprise clients",
+    ],
+)
+@pytest.mark.parametrize(
+    "operation", ["lets", "won't let", "couldn't let", "mustn't let", "doesn't let"]
+)
+@pytest.mark.parametrize("object_text", ["post PR comments", "submit evidence", "upload artifacts"])
+@pytest.mark.parametrize("independent", [False, True])
+def test_modified_recipients_and_contracted_capabilities_preserve_review(
+    recipient: str, operation: str, object_text: str, independent: bool
+) -> None:
+    criterion = f"The UI {operation} {recipient} {object_text}"
+    if independent:
+        criterion += "; the reviewer must submit evidence in a PR comment"
+    assert pr_verifier._required_evidence_channels(criterion) == (
+        {"comments"} if independent else set()
+    )
+
+
+@pytest.mark.parametrize("artifact", ["artifacts", "validation artifacts"])
+@pytest.mark.parametrize("capability", ["lets users", "won't let authenticated users"])
+@pytest.mark.parametrize("attachment", ["that the reviewer must upload", "that must be uploaded"])
+@pytest.mark.parametrize("independent", [False, True])
+def test_attached_artifact_delivery_does_not_depend_on_validation_qualifier(
+    artifact: str, capability: str, attachment: str, independent: bool
+) -> None:
+    criterion = f"The UI {capability} upload {artifact} {attachment} to the PR"
+    if independent:
+        criterion += "; the reviewer must submit evidence in a PR comment"
+    assert pr_verifier._required_evidence_channels(criterion) == (
+        {"artifacts", "comments"} if independent else {"artifacts"}
+    )
+
+
+@pytest.mark.parametrize(
+    "initial", ["upload artifacts", "upload validation artifacts", "submit evidence"]
+)
+@pytest.mark.parametrize("following", ["submit evidence", "post PR comments", "upload artifacts"])
+def test_product_capability_coordination_is_channel_symmetric(initial: str, following: str) -> None:
+    assert (
+        pr_verifier._required_evidence_channels(f"The UI lets users {initial} and {following}")
+        == set()
+    )
+
+
+@pytest.mark.parametrize(
+    "recipient",
+    ["assigned reviewers", "authorized maintainers", "experienced authors", "designated operators"],
+)
+@pytest.mark.parametrize("capability", ["lets", "allows"])
+@pytest.mark.parametrize("independent", [False, True])
+def test_qualified_review_role_can_be_a_product_capability_recipient(
+    recipient: str, capability: str, independent: bool
+) -> None:
+    infinitive = "" if capability == "lets" else "to "
+    criterion = f"The UI {capability} {recipient} {infinitive}post PR comments"
+    if independent:
+        criterion += "; the reviewer must submit evidence in a PR comment"
+    assert pr_verifier._required_evidence_channels(criterion) == (
+        {"comments"} if independent else set()
+    )
+
+
+@pytest.mark.parametrize("capability", ["lets clients", "allows authorized maintainers to"])
+@pytest.mark.parametrize("following", ["upload artifacts", "post PR comments", "submit evidence"])
+@pytest.mark.parametrize("independent", [False, True])
+def test_repeated_capability_verb_keeps_governing_product_subject(
+    capability: str, following: str, independent: bool
+) -> None:
+    criterion = f"The UI lets users submit evidence and {capability} {following}"
+    if independent:
+        criterion += "; the reviewer must upload validation artifacts to the PR"
+    assert pr_verifier._required_evidence_channels(criterion) == (
+        {"artifacts"} if independent else set()
+    )
+
+
+@pytest.mark.parametrize(
+    "product_clause",
+    [
+        "lets users upload",
+        "must not let clients upload",
+        "won't let authenticated users upload",
+        "must display",
+        "must show",
+        "must return",
+    ],
+)
+@pytest.mark.parametrize("artifact", ["artifacts", "validation artifacts"])
+@pytest.mark.parametrize(
+    "predicate",
+    [
+        "that the reviewer must upload",
+        "that must be uploaded",
+        "that must have been uploaded",
+        "that must have been being uploaded",
+        "that must have already been uploaded",
+        "that must have explicitly been uploaded",
+        "that the reviewer will upload",
+        "that will have already been uploaded",
+    ],
+)
+@pytest.mark.parametrize(
+    "destination", ["to", "into", "in", "within", "for", "as", "through", "via"]
+)
+def test_attached_delivery_binding_uses_shared_destination_and_coverage_floor(
+    product_clause: str, artifact: str, predicate: str, destination: str
+) -> None:
+    criterion = f"The UI {product_clause} {artifact} {predicate} {destination} the PR"
+    assert pr_verifier._required_evidence_channels(criterion) == {"artifacts"}
+    context, _ = _context(1, 1000, 1000)
+    context = context.replace(ACCEPTANCE_SENTINEL, criterion).replace(
+        "## PR Diff Summary",
+        "## Acceptance evidence\n\n- Overall retrieval status: **absent**\n"
+        "- PR comments: **absent**\n- Referenced workflow artifacts: **absent**\n\n## PR Diff Summary",
+    )
+    coverage = pr_verifier.prompt_coverage(context, None)
+    assert not coverage.sufficient
+    assert (
+        pr_verifier._apply_coverage_floor(
+            pr_verifier.EvaluationResult(verdict="PASS", used_llm=True), coverage
+        ).verdict
+        == "CONCERNS"
+    )
+
+
+@pytest.mark.parametrize("modifier", ["also", "now", "still", "explicitly"])
+@pytest.mark.parametrize("following", ["upload artifacts", "post PR comments", "submit evidence"])
+@pytest.mark.parametrize("independent", [False, True])
+@pytest.mark.parametrize("repeat", [False, True])
+def test_repeated_capability_modifier_keeps_actor_boundary(
+    modifier: str, following: str, independent: bool, repeat: bool
+) -> None:
+    recipient = "lets clients " if repeat else ""
+    criterion = f"The UI lets users submit evidence and {modifier} {recipient}{following}"
+    if independent:
+        criterion += "; the reviewer must upload validation artifacts to the PR"
+    assert pr_verifier._required_evidence_channels(criterion) == (
+        {"artifacts"} if independent else set()
+    )
+
+
+@pytest.mark.parametrize("product", ["lets users upload", "must display"])
+@pytest.mark.parametrize("modifier", ["", "also ", "now ", "explicitly "])
+@pytest.mark.parametrize(
+    ("destination", "expected"),
+    [
+        ("a PR comment", {"comments"}),
+        ("the PR body", {"body"}),
+        ("workflow artifacts", {"artifacts"}),
+        ("a PR comment and the PR body", {"comments", "body"}),
+    ],
+)
+def test_attached_artifact_obligation_honors_explicit_channel(
+    product: str, modifier: str, destination: str, expected: set[str]
+) -> None:
+    criterion = (
+        f"The UI {product} artifacts that the reviewer must {modifier}document in {destination}"
+    )
+    assert pr_verifier._required_evidence_channels(criterion) == expected
+
+
+@pytest.mark.parametrize("product", ["lets users upload", "must display"])
+@pytest.mark.parametrize(
+    "predicate",
+    [
+        "must not explicitly document",
+        "must explicitly not document",
+        "shall never also document",
+        "should not also document",
+        "should also document",
+        "may now document",
+    ],
+)
+@pytest.mark.parametrize("destination", ["a PR comment", "the PR body", "workflow artifacts"])
+def test_attached_modified_nonmandatory_delivery_does_not_create_channel(
+    product: str, predicate: str, destination: str
+) -> None:
+    criterion = f"The UI {product} artifacts that the reviewer {predicate} in {destination}"
+    assert pr_verifier._required_evidence_channels(criterion) == set()
+
+
+@pytest.mark.parametrize("product", ["lets users upload", "must display"])
+@pytest.mark.parametrize("condition", ["if available", "when present"])
+@pytest.mark.parametrize("independent", [False, True])
+def test_attached_conditional_body_record_keeps_independent_required_delivery(
+    product: str, condition: str, independent: bool
+) -> None:
+    criterion = (
+        f"The UI {product} artifacts that the reviewer must document in the PR body {condition}"
+    )
+    if independent:
+        criterion += "; the reviewer must post validation evidence in a PR comment"
+    assert pr_verifier._required_evidence_channels(criterion) == (
+        {"comments"} if independent else set()
+    )
+
+
+@pytest.mark.parametrize("condition", ["if available", "when present"])
+@pytest.mark.parametrize("boundary", [" and ", " while ", ". "])
+@pytest.mark.parametrize("modifier", ["also", "explicitly", "now"])
+@pytest.mark.parametrize("product", ["lets users upload", "must display"])
+def test_conditional_body_does_not_waive_modified_independent_review_delivery(
+    condition: str, boundary: str, modifier: str, product: str
+) -> None:
+    criterion = (
+        f"The UI {product} artifacts that the reviewer must document in the PR body {condition}"
+        f"{boundary}the reviewer must {modifier} post validation evidence in a PR comment"
+    )
+    assert pr_verifier._required_evidence_channels(criterion) == {"comments"}
+    context, _ = _context(1, 1000, 1000)
+    context = context.replace(ACCEPTANCE_SENTINEL, criterion).replace(
+        "## PR Diff Summary",
+        "## Acceptance evidence\n\n- Overall retrieval status: **absent**\n"
+        "- PR comments: **absent**\n- Referenced workflow artifacts: **absent**\n\n## PR Diff Summary",
+    )
+    coverage = pr_verifier.prompt_coverage(context, None)
+    assert not coverage.sufficient
+    assert (
+        pr_verifier._apply_coverage_floor(
+            pr_verifier.EvaluationResult(verdict="PASS", used_llm=True), coverage
+        ).verdict
+        == "CONCERNS"
+    )
+
+
+@pytest.mark.parametrize("product", ["lets users upload", "must display", "must let users upload"])
+@pytest.mark.parametrize("prior", ["evidence", "command outputs", "transcripts"])
+@pytest.mark.parametrize("object_name", ["artifacts", "evidence", "transcripts", "command outputs"])
+@pytest.mark.parametrize(
+    "predicate",
+    [
+        "that the reviewer must upload",
+        "that must be uploaded",
+        "that the reviewer will upload",
+        "that must have already been uploaded",
+        "that the reviewer must explicitly upload",
+        ", which the reviewer will upload",
+    ],
+)
+@pytest.mark.parametrize(
+    ("destination", "expected"),
+    [
+        ("to the PR", None),
+        ("in a PR comment", {"comments"}),
+        ("in the PR body", {"body"}),
+        ("as workflow artifacts", {"artifacts"}),
+    ],
+)
+def test_coordinated_product_object_retains_attached_delivery(
+    product: str,
+    prior: str,
+    object_name: str,
+    predicate: str,
+    destination: str,
+    expected: set[str] | None,
+) -> None:
+    if expected is None:
+        expected = {"artifacts"} if object_name == "artifacts" else {"overall"}
+    criterion = f"The UI {product} {prior} and {object_name} {predicate} {destination}"
+    assert pr_verifier._required_evidence_channels(criterion) == expected
+    context, _ = _context(1, 1000, 1000)
+    context = context.replace(ACCEPTANCE_SENTINEL, criterion).replace(
+        "## PR Diff Summary",
+        "## Acceptance evidence\n\n- Overall retrieval status: **absent**\n"
+        "- PR comments: **absent**\n- PR body: **absent**\n"
+        "- Referenced workflow artifacts: **absent**\n\n## PR Diff Summary",
+    )
+    coverage = pr_verifier.prompt_coverage(context, None)
+    assert not coverage.sufficient
+    assert (
+        pr_verifier._apply_coverage_floor(
+            pr_verifier.EvaluationResult(verdict="PASS", used_llm=True), coverage
+        ).verdict
+        == "CONCERNS"
+    )
+
+
+@pytest.mark.parametrize("product", ["lets users upload", "must let users upload"])
+@pytest.mark.parametrize("modal", ["must", "will"])
+@pytest.mark.parametrize("boundary", ["and", ";"])
+@pytest.mark.parametrize("pronoun", ["them", "these", "those", "both"])
+@pytest.mark.parametrize(
+    "destination,expected",
+    [("to the PR", {"artifacts"}), ("in a PR comment", {"comments"}), ("in the PR body", {"body"})],
+)
+def test_explicit_reviewer_pronoun_clause_is_not_capability_coordination(
+    product: str, modal: str, boundary: str, pronoun: str, destination: str, expected: set[str]
+) -> None:
+    criterion = f"The UI {product} evidence and artifacts {boundary} the reviewer {modal} upload {pronoun} {destination}"
+    assert pr_verifier._required_evidence_channels(criterion) == expected
+
+
+@pytest.mark.parametrize("product", ["lets users upload", "must display"])
+@pytest.mark.parametrize(
+    "predicate",
+    ["must be uploaded", "that the reviewer must upload", "that must have already been uploaded"],
+)
+@pytest.mark.parametrize("tail", ["", ", with validation evidence recorded in a PR comment"])
+def test_attached_binding_does_not_overlap_evidence_qualified_nouns(
+    product: str, predicate: str, tail: str
+) -> None:
+    criterion = f"The UI {product} evidence artifacts {predicate} to the PR{tail}"
+    expected = {"artifacts", "comments"} if tail else {"artifacts"}
+    assert pr_verifier._required_evidence_channels(criterion) == expected
+
+
+@pytest.mark.parametrize(
+    "role", ["artifact reviewer", "evidence reviewer", "workflow reviewer", "reviewer"]
+)
+@pytest.mark.parametrize("object_name", ["artifacts", "evidence", "transcripts", "command outputs"])
+@pytest.mark.parametrize("product", ["lets users upload", "must display"])
+@pytest.mark.parametrize("modal", ["must", "will"])
+@pytest.mark.parametrize("tail", ["", "; validation evidence must be recorded in a PR comment"])
+def test_attached_delivery_actor_qualifier_is_not_the_evidence_object(
+    role: str, object_name: str, product: str, modal: str, tail: str
+) -> None:
+    criterion = (
+        f"The UI {product} evidence {object_name} that the {role} {modal} upload to the PR{tail}"
+    )
+    expected = {"artifacts"} if object_name == "artifacts" else {"overall"}
+    if tail:
+        expected.add("comments")
+    assert pr_verifier._required_evidence_channels(criterion) == expected
+    context, _ = _context(1, 1000, 1000)
+    context = context.replace(ACCEPTANCE_SENTINEL, criterion).replace(
+        "## PR Diff Summary",
+        "## Acceptance evidence\n\n- Overall retrieval status: **absent**\n"
+        "- PR comments: **absent**\n- PR body: **absent**\n"
+        "- Referenced workflow artifacts: **absent**\n\n## PR Diff Summary",
+    )
+    coverage = pr_verifier.prompt_coverage(context, None)
+    assert not coverage.sufficient
+    assert (
+        pr_verifier._apply_coverage_floor(
+            pr_verifier.EvaluationResult(verdict="PASS", used_llm=True), coverage
+        ).verdict
+        == "CONCERNS"
+    )

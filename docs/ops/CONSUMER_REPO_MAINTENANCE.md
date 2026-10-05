@@ -29,6 +29,90 @@ a PR comment require comment evidence. Passive product uploads through a UI or
 by an application actor do not require GitHub workflow artifacts; a separate
 review-evidence instruction still applies.
 
+Common `submit` and `deliver` evidence verbs normalize through the same
+obligation, optionality, negation, literal and destination rules as `record`.
+Delivery recognition and product recipients share a bounded modifier grammar
+rather than an adjective allowlist. Active human/product past-tense subjects
+remain operations; participial evidence adjectives do not become new deliveries.
+The product capability `let users post PR comments` uses a bare infinitive
+(unlike `allow users to post`) and does not require discussion evidence.
+A separate reviewer delivery clause still requires its specified channel;
+capability inheritance cannot hide that independent obligation.
+Progressive auxiliaries and bounded adverbs (`is currently letting`, `has been
+letting`, `supports reliably letting`) obey the same product-only and independent
+reviewer boundaries. Qualified delivery actors, including assigned reviewers and
+automation agents/runners, retain active past-tense delivery requirements; an
+earlier governing display/output operation cannot turn a participle into a delivery.
+Actor normalization ignores only the existing list/checklist prefix syntax, without
+changing whether the acceptance item is mandatory. Product artifact capabilities
+use the shared client/user/consumer recipient grammar rather than a users-only rule.
+A single progressive-capability normalizer feeds both comment and artifact
+classification; channel-specific copies must not diverge on auxiliary/adverb forms.
+Negated capability auxiliaries (`must not`, `does not`, `cannot`) are normalized
+only for product recognition. The original criterion and any separate positive
+reviewer delivery retain their obligation/negation semantics.
+The cross-channel regression matrix combines negated progressive/perfect
+auxiliaries, users/clients/consumers, and an optional independent reviewer delivery.
+Comment capabilities share quantified and possessive recipients (`all clients`,
+`any consumers`, `each user`, `our clients`) with artifact capabilities.
+Recognized capability delivery spans are removed before channel classification:
+`lets users submit evidence` and `let clients upload validation artifacts` remain
+product behavior. Only that operation/object span is excluded; a separate reviewer
+delivery is classified from the residual criterion, including its evidence qualifiers.
+An object used by an attached mandatory delivery (`artifacts that the reviewer
+must upload`, or `artifacts must be uploaded`) remains as that delivery's
+antecedent. Before suppressing a capability span, bind its attached mandatory
+predicate, original actor, polarity and immediate review destination together.
+Apply this binding before both capability and product-response suppression.
+Classify that isolated obligation with the shared destination and channel grammar,
+including every declared passive aspect (`be`, `have been`, `have been being`);
+bounded predicate/coordination adverbs (`also`, `now`, `still`, ordinary `-ly`
+modifiers) cannot break this binding or restore inheritance across a new actor.
+An explicit comment/body/artifact destination selects that channel, not an extra
+artifact channel merely because the antecedent is an artifact. A generic PR
+destination continues to use object-specific classification.
+The same bounded adverbs apply to ordinary coordinated capability actions,
+prohibited predicates and modifiers inside perfect passive auxiliaries. Definite
+future (`will`) attached delivery retains its obligation. Conditional body records
+(`if available`, `when present` and the declared availability conditions) are
+optional before channel accumulation; a separate required reviewer clause remains.
+Independent-clause recognition uses those same bounded predicate modifiers, so
+availability cannot spill into a later named reviewer obligation. Bind attached
+delivery to the noun itself (including a coordinated object), not only an
+operation/object pair. Isolated obligations are classified once with rebinding
+disabled, preventing recursive re-extraction of passive antecedents.
+Punctuated `, which` relative clauses retain the same noun binding. Capability
+recombination requires a new recognized evidence object in the incoming fragment;
+an explicit reviewer clause using `it`/`them` stays separate for antecedent resolution.
+Bounded demonstratives `these`, `those` and `both` share that same resolver.
+Bound spans cannot overlap: skip nouns already consumed by an earlier binding,
+and do not parse a bare evidence noun qualifier as the attached predicate's actor.
+Qualified actor names select the delivery owner, not the evidence object: isolate
+the bound object, predicate and destination before classification so an `artifact
+reviewer` uploading transcripts to a generic PR retains the overall-evidence floor.
+Resolved plural pronoun uploads into the PR body are classified as body delivery,
+including bounded coordinated noun lists; attached relative-body uploads remain
+owned by the noun binder rather than consumed a second time as body records.
+The noun `command outputs` is not command execution behavior when its delivery
+has an explicit review destination. Test every declared evidence-object channel
+and the absent-evidence coverage floor, not only the original artifact example.
+active/passive wording and bare/qualified artifacts must not select different
+preposition rules. Missing required evidence still lowers a supplied PASS to CONCERNS.
+Coordinated capability actions consume only a complete recognized
+preceding object, never an unknown intervening predicate. Recipient modifiers
+such as `authenticated users` and `enterprise clients` use one bounded grammar
+across channels. Contracted modal negations (`won't`, `couldn't`, `mustn't`) are
+canonicalized only for product recognition and cannot erase reviewer requirements.
+Attached active reviewer delivery must bind bare `artifacts` as well as
+`validation artifacts` to its explicit PR destination. Clause recombination uses
+the same evidence/artifact/output/comment object vocabulary as capability-chain
+recognition, so changing the final channel cannot change product-only semantics.
+Capability recipients reuse the bounded qualifier prefix for supported review
+roles too (`assigned reviewers`, `authorized maintainers`). This does not make
+review roles product-output destinations. A repeated capability verb after a
+recognized object and coordination starts its own bare/`to` complement under
+the same product subject; a new human subject or unknown predicate cannot inherit it.
+
 Regression gates: `python3 -m pytest tests/scripts/test_pr_verifier_prompt_coverage.py
 tests/scripts/test_pr_verifier_sync_manifest.py -q --no-cov` and
 `node --test .github/scripts/__tests__/agents-verifier-context.test.js`.
