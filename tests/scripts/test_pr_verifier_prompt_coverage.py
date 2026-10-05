@@ -3241,3 +3241,37 @@ def test_negated_progressive_capability_cross_channel_matrix(
     assert pr_verifier._required_evidence_channels(criterion) == (
         {channel} if independent else set()
     )
+
+
+@pytest.mark.parametrize(
+    "recipient", ["users", "all clients", "any consumers", "each user", "our clients"]
+)
+@pytest.mark.parametrize("operation", ["lets", "must not let", "is currently letting"])
+@pytest.mark.parametrize(
+    "object_text",
+    [
+        "submit evidence",
+        "deliver validation evidence",
+        "upload validation artifacts",
+        "post PR comments",
+    ],
+)
+@pytest.mark.parametrize("independent", [False, True])
+def test_product_capability_delivery_spans_preserve_separate_review(
+    recipient: str, operation: str, object_text: str, independent: bool
+) -> None:
+    criterion = f"The UI {operation} {recipient} {object_text}"
+    if independent:
+        criterion += "; the reviewer must submit validation evidence in a PR comment"
+    assert pr_verifier._required_evidence_channels(criterion) == (
+        {"comments"} if independent else set()
+    )
+
+
+@pytest.mark.parametrize(
+    "independent", ["record evidence", "upload validation artifacts to the PR"]
+)
+def test_product_submit_does_not_waive_independent_delivery(independent: str) -> None:
+    assert pr_verifier._required_evidence_channels(
+        f"The UI lets users submit evidence; the reviewer must {independent}"
+    ) == ({"overall"} if independent == "record evidence" else {"artifacts"})

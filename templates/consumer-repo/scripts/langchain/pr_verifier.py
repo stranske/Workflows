@@ -1352,8 +1352,9 @@ def _required_evidence_channels(acceptance: str) -> set[str]:
         bare_capability = bool(re.fullmatch(r"let(?:s|ting)?", operations[0][0], re.I))
         if capability:
             actor = (
+                r"(?:" + recipient_noun + r"|"
                 r"(?:(?:the|an?)\s+)?(?:(?:api|ui)\s+)?"
-                r"(?:users?|clients?|consumers?|reviewers?|maintainers?|authors?|operators?)"
+                r"(?:users?|clients?|consumers?|reviewers?|maintainers?|authors?|operators?))"
             )
             base_operations = {
                 "display",
@@ -1965,6 +1966,30 @@ def _required_evidence_channels(acceptance: str) -> set[str]:
                     continue
                 if not evidence_term.search(requirement_text):
                     continue
+            # Remove only a delivery object governed by a recognized product
+            # capability. Qualifiers such as "validation" do not turn that
+            # product input into workflow evidence. Classify the residual so
+            # a separate reviewer obligation retains its own destination.
+            product_spans = []
+            for product_delivery in re.finditer(
+                r"\b"
+                + delivery_operation
+                + r"\s+"
+                + evidence_modifiers
+                + r"(?:evidence|artifacts?|transcripts?|command outputs?|pr comments?|pull request comments?)\b",
+                requirement_text,
+                re.I,
+            ):
+                prefix = requirement_text[: product_delivery.end()]
+                if re.search(capability_operation, prefix, re.I) and product_comment_object(
+                    requirement_text[: product_delivery.start()] + product_delivery[0].split()[0],
+                    requirement_text[product_delivery.end() :],
+                ):
+                    product_spans.append(product_delivery.span())
+            for start, end in reversed(product_spans):
+                requirement_text = requirement_text[:start] + " " + requirement_text[end:]
+            if product_spans and not remaining_delivery(requirement_text):
+                continue
             lower = requirement_text.lower()
             delivery_object = r"(?:command outputs?|transcripts?|artifacts?|evidence)\b"
             # Bind the destination to the immediate positive delivery object,

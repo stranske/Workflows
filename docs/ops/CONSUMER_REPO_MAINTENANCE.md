@@ -53,6 +53,12 @@ only for product recognition. The original criterion and any separate positive
 reviewer delivery retain their obligation/negation semantics.
 The cross-channel regression matrix combines negated progressive/perfect
 auxiliaries, users/clients/consumers, and an optional independent reviewer delivery.
+Comment capabilities share quantified and possessive recipients (`all clients`,
+`any consumers`, `each user`, `our clients`) with artifact capabilities.
+Recognized capability delivery spans are removed before channel classification:
+`lets users submit evidence` and `let clients upload validation artifacts` remain
+product behavior. Only that operation/object span is excluded; a separate reviewer
+delivery is classified from the residual criterion, including its evidence qualifiers.
 
 Regression gates: `python3 -m pytest tests/scripts/test_pr_verifier_prompt_coverage.py
 tests/scripts/test_pr_verifier_sync_manifest.py -q --no-cov` and
