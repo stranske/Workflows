@@ -1035,6 +1035,36 @@ def _required_evidence_channels(acceptance: str, *, _bind_attached: bool = True)
         + delivery_destination_item
         + r")*"
     )
+    # Normalize equivalent destinations before presence predicates, not after.
+    acceptance = re.sub(
+        r"\bcomments?\s+(?:on|in)\s+(?:(?:the|an?)\s+)?(?:pr|pull request)\b",
+        "PR comment",
+        acceptance,
+        flags=re.I,
+    )
+    # Presence predicates use the existing passive-delivery grammar, including
+    # governing negation and modality, instead of a second affirmative regex.
+    acceptance = re.sub(
+        r"(?P<prefix>\b(?:no\s+|neither\s+"
+        + evidence_modifiers
+        + r"(?:evidence|artifacts?|command outputs?|transcripts?)\s+nor\s+)?"
+        + evidence_modifiers
+        + r"(?:evidence|artifacts?|command outputs?|transcripts?)\s+"
+        + mandatory_auxiliary
+        + r"\s+"
+        + delivery_adverbs
+        + r"(?:not\s+)?)"
+        r"(?:appear|be\s+present)"
+        r"(?P<destination>\s+in\s+(?:an?\s+|the\s+)?"
+        r"(?:pr comments?|pull request comments?)\b)",
+        lambda match: (
+            match["prefix"] + "be recorded" + match["destination"]
+            if not re.match(r"(?:no|neither)\s+", match["prefix"], re.I)
+            else match[0]
+        ),
+        acceptance,
+        flags=re.I,
+    )
     # Lexical aliases share every obligation, negation, destination and product
     # boundary rule. Adding a synonym to only one regex silently diverges them.
     record_aliases = {
@@ -1104,14 +1134,6 @@ def _required_evidence_channels(acceptance: str, *, _bind_attached: bool = True)
         + r"(?:evidence|artifacts?|transcripts?|command outputs?|pr comments?|pull request comments?)\b"
         r"|\s+" + destination_preposition + r"(?:both\s+)?" + delivery_destination_item + r")",
         normalize_record_alias,
-        acceptance,
-        flags=re.I,
-    )
-    # Canonicalize the same explicit PR destination before clause/negation
-    # processing, so an unrelated artifact cannot satisfy required comments.
-    acceptance = re.sub(
-        r"\bcomments?\s+(?:on|in)\s+(?:(?:the|an?)\s+)?(?:pr|pull request)\b",
-        "PR comment",
         acceptance,
         flags=re.I,
     )
@@ -1663,9 +1685,12 @@ def _required_evidence_channels(acceptance: str, *, _bind_attached: bool = True)
         r"(?:must|shall|may|should)\s+not\s+be\s+"
         r"(?:uploaded|attached|provided|published|posted|recorded|captured|"
         r"included|documented|generated|linked)\b"
-        r"|\bneither\s+(?:\w+\s+){0,4}(?:evidence|artifacts?|transcripts?|command outputs?|"
+        r"|\bneither\s+"
+        + evidence_modifiers
+        + r"(?:evidence|artifacts?|transcripts?|command outputs?|"
         r"workflow runs?|pr comments?|pull request comments?)\s+nor\s+"
-        r"(?:\w+\s+){0,4}(?:evidence|artifacts?|transcripts?|command outputs?|"
+        + evidence_modifiers
+        + r"(?:evidence|artifacts?|transcripts?|command outputs?|"
         r"workflow runs?|pr comments?|pull request comments?)\s+"
         r"(?:is|are)\s+(?:required|needed|mandatory)\b"
         r"|\bno\s+(?:\w+\s+){0,4}(?:evidence|artifacts?|transcripts?|command outputs?|"

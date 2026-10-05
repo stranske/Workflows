@@ -14,6 +14,73 @@ ROOT = Path(__file__).resolve().parents[2]
 NODE = shutil.which("node")
 
 
+@pytest.mark.parametrize("predicate", ["appear", "be present"])
+@pytest.mark.parametrize(
+    "destination", ["in a PR comment", "in comments on the PR", "in comments in the pull request"]
+)
+@pytest.mark.parametrize(
+    "noun",
+    [
+        "Test evidence",
+        "Validation command output",
+        "Test transcript",
+        "Artifacts",
+        "Validation artifacts",
+    ],
+)
+def test_mandatory_evidence_presence_in_comments_cannot_use_other_channels(
+    predicate, destination, noun
+):
+    criterion = f"{noun} must {predicate} {destination}"
+    assert pr_verifier._required_evidence_channels(criterion) == {"comments"}
+    for status in ("absent", "unavailable", "present"):
+        evidence = (
+            "Overall retrieval status: **present**\n"
+            "- PR body: **present**\n"
+            f"- PR comments: **{status}**\n"
+            "- Referenced workflow artifacts: **present**\n"
+        )
+        context, _ = _context(1, 1000, 1000)
+        context = context.replace(ACCEPTANCE_SENTINEL, criterion).replace(
+            "## PR Diff Summary", "## Acceptance evidence\n\n- " + evidence + "\n## PR Diff Summary"
+        )
+        result = pr_verifier._apply_coverage_floor(
+            pr_verifier.EvaluationResult(verdict="PASS", used_llm=True),
+            pr_verifier.prompt_coverage(context, None),
+        )
+        assert result.verdict == ("PASS" if status == "present" else "CONCERNS")
+
+
+@pytest.mark.parametrize(
+    "criterion",
+    [
+        "Test evidence may appear in a PR comment",
+        "Test evidence need not be present in a PR comment",
+        "Test evidence must not appear in a PR comment",
+        "Test evidence must not be present in a PR comment",
+        "Test evidence is not expected to be present in a PR comment",
+        "Test evidence is not supposed to appear in a PR comment",
+        "No test evidence must appear in a PR comment",
+        "No test evidence is required to appear in a PR comment",
+        "No artifacts are required to appear in a PR comment",
+        "Neither test evidence nor command output is required to appear in a PR comment",
+        "Neither independently collected validation artifacts nor exact-head regression command output is required to be present in comments on the PR",
+        "Validation artifacts must not be present in comments on the PR",
+        "No validation command output is required to be present in comments on the PR",
+        "Evidence must be collected, and the UI makes it appear in a PR comment preview",
+        "Evidence must be collected; the UI makes it appear in a PR comment preview",
+        "Test evidence is no longer required to appear in a PR comment",
+        "The UI lets users make test evidence appear in a PR comment preview",
+    ],
+)
+def test_evidence_presence_keeps_optional_prohibited_and_product_boundaries(criterion):
+    expected = {"overall"} if criterion.startswith("Evidence must be collected;") else set()
+    assert pr_verifier._required_evidence_channels(criterion) == expected
+    assert pr_verifier._required_evidence_channels(
+        criterion + "; the reviewer must post validation evidence in a PR comment"
+    ) == expected | {"comments"}
+
+
 @pytest.mark.parametrize("operation", ["submit", "deliver", "record", "post"])
 @pytest.mark.parametrize(
     "noun",

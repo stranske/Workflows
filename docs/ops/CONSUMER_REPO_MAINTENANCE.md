@@ -77,6 +77,19 @@ modifiers) cannot break this binding or restore inheritance across a new actor.
 An explicit comment/body/artifact destination selects that channel, not an extra
 artifact channel merely because the antecedent is an artifact. A generic PR
 destination continues to use object-specific classification.
+Mandatory evidence that must `appear` or `be present` in a PR comment requires
+the comments channel; a present body or artifact cannot substitute for absent
+or unavailable comments. Optional, prohibited and product capability statements
+do not create that obligation.
+These presence predicates normalize to the existing passive-record grammar
+before polarity and modality classification, only when the mandatory auxiliary
+directly governs that predicate. Preserve
+subject-level `No` and coordinated `neither … nor`, exclude collection/product-preview clauses, and normalize
+equivalent `comments on/in the PR` destinations before matching presence.
+Bare and qualified artifact nouns share that grammar: validation artifacts
+required in a PR comment need comment evidence, not merely retrieved artifacts.
+Thus `not expected`, `not supposed`, `no evidence` and `no longer required`
+cannot become affirmative floors.
 The same bounded adverbs apply to ordinary coordinated capability actions,
 prohibited predicates and modifiers inside perfect passive auxiliaries. Definite
 future (`will`) attached delivery retains its obligation. Conditional body records
