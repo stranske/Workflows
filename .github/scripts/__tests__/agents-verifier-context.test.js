@@ -77,6 +77,9 @@ const buildGithubStub = ({
   closingIssueTotalCount = closingIssues.length,
   listError = null,
   graphqlError = null,
+  sourceIssue = null,
+  sourceIssueError = null,
+  sourceIssueCalls = null,
   runsByWorkflow = {},
   listWorkflowRunsHook = null,
   runsForRepo = {},
@@ -145,6 +148,12 @@ const buildGithubStub = ({
       },
     },
     issues: {
+      async get(params) {
+        sourceIssueCalls?.push(params);
+        if (sourceIssueError) throw sourceIssueError;
+        if (!sourceIssue) throw new Error('Known source issue is unavailable');
+        return { data: sourceIssue };
+      },
       async listComments() {
         if (commentError) throw commentError;
         return { data: comments, headers: { link: commentLink } };
@@ -2615,12 +2624,21 @@ for (const strategy of ['merge', 'squash', 'rebase', 'rebase-unchanged', 'merge-
         fetchLocalDiff(options) {
           return fetchLocalGitDiff({ ...options,
             execFile(command, args, config) {
-              return execFileSync(command, args, { ...config, cwd: repoPath });
+              // Match the fixture's git helper and avoid inherited runner streams.
+              return execFileSync(command, args, {
+                ...config,
+                cwd: repoPath,
+                stdio: ['ignore', 'pipe', 'pipe'],
+              });
             },
           });
         },
       });
-      assert.equal(result.shouldRun, true);
+      assert.equal(
+        result.shouldRun,
+        true,
+        [core.outputs.skip_reason, ...core.warnings].filter(Boolean).join('\n')
+      );
       assert.match(result.markdown, /first\.txt/);
       assert.match(result.markdown, /second\.txt/);
       assert.doesNotMatch(result.markdown, /sibling\.txt|later\.txt/);
@@ -2638,6 +2656,91 @@ test('merged PR fails closed when its first commit cannot be retrieved', async (
   assert.ok(core.warnings.some(message => message.includes('403 forbidden')));
 });
 
+
+test('non-closing source issues are fetched in source and template builders', async () => {
+  const templateImpl = require('../../../templates/consumer-repo/.github/scripts/agents_verifier_context.js').buildVerifierContext;
+  const templateBuilder = options => templateImpl({ ...options, fetchLocalDiff: () => options.github.__testDiffText });
+  for (const builder of [buildVerifierContext, templateBuilder]) {
+    for (const relation of ['Related to #123', '<!-- meta:issue:123 -->', '<!-- meta:related-issue:123 -->\nRelated to #123']) {
+      const calls = [];
+      const { result } = await buildEvidenceContext({
+        prBody: prBodyFixture + '\n' + relation,
+        sourceIssue: { number: 123, title: 'Source contract', body: '## Acceptance Criteria\n- [ ] NONCLOSING_SOURCE_CONTRACT', state: 'open', html_url: 'https://github.com/octo/workflows/issues/123', labels: [] },
+        sourceIssueCalls: calls,
+      }, {}, builder);
+      try {
+        assert.equal(result.sourceCoverage.acceptance_source_discovery.status, 'included');
+        assert.equal(result.sourceCoverage.acceptance_source_discovery.required, true);
+        assert.deepEqual(result.issueNumbers, [123]);
+        assert.match(result.markdown, /NONCLOSING_SOURCE_CONTRACT/);
+        assert.deepEqual(calls, [{ owner: 'octo', repo: 'workflows', issue_number: 123 }]);
+      } finally {
+        removeVerifierDiffArtifacts(result);
+      }
+    }
+  }
+});
+
+test('declared local repairs do not fetch coordination-only issue contracts', async () => {
+  const templateImpl = require('../../../templates/consumer-repo/.github/scripts/agents_verifier_context.js').buildVerifierContext;
+  const templateBuilder = options => templateImpl({ ...options, fetchLocalDiff: () => options.github.__testDiffText });
+  for (const builder of [buildVerifierContext, templateBuilder]) {
+    const calls = [];
+    const { result } = await buildEvidenceContext({
+      prBody: prBodyFixture + '\n<!-- workflow-source:local_request -->\nRelated to #123',
+      sourceIssue: { number: 123, title: 'Campaign tracker', body: '## Acceptance Criteria\n- [ ] UNRELATED_CAMPAIGN_CONTRACT', state: 'open', labels: [] },
+      sourceIssueCalls: calls,
+    }, {}, builder);
+    try {
+      assert.deepEqual(calls, []);
+      assert.deepEqual(result.issueNumbers, []);
+      assert.doesNotMatch(result.markdown, /UNRELATED_CAMPAIGN_CONTRACT/);
+      assert.equal(result.sourceCoverage.acceptance_source_discovery.required, false);
+    } finally { removeVerifierDiffArtifacts(result); }
+  }
+});
+
+test('known issue retrieval rejects missing, wrong-number and PR responses without losing discovery gaps', async () => {
+  const templateImpl = require('../../../templates/consumer-repo/.github/scripts/agents_verifier_context.js').buildVerifierContext;
+  const templateBuilder = options => templateImpl({ ...options, fetchLocalDiff: () => options.github.__testDiffText });
+  const known = { number: 123, title: 'Source', body: '## Acceptance Criteria\n- [ ] KNOWN_SOURCE_CONTRACT', state: 'open', labels: [] };
+  for (const builder of [buildVerifierContext, templateBuilder]) {
+    for (const options of [
+      { sourceIssueError: new Error('403 forbidden') },
+      { sourceIssue: { ...known, number: 456 } },
+      { sourceIssue: { ...known, pull_request: {} } },
+      { sourceIssue: { ...known, body: undefined } },
+      { sourceIssue: known, graphqlError: new Error('closing discovery unavailable') },
+      { sourceIssue: known, closingIssuePageInfo: { hasNextPage: true }, closingIssueTotalCount: 21 },
+    ]) {
+      const { result } = await buildEvidenceContext({ prBody: prBodyFixture + '\nRelated to #123', ...options }, {}, builder);
+      try {
+        assert.equal(result.sourceCoverage.acceptance_source_discovery.status,
+          options.closingIssueTotalCount ? 'truncated' : 'unavailable');
+        assert.equal(result.sourceCoverage.acceptance_source_discovery.required, true);
+        if (options.graphqlError || options.closingIssueTotalCount) assert.match(result.markdown, /KNOWN_SOURCE_CONTRACT/);
+        else assert.doesNotMatch(result.markdown, /KNOWN_SOURCE_CONTRACT/);
+      } finally { removeVerifierDiffArtifacts(result); }
+    }
+  }
+});
+
+test('known closing issue is deduplicated but an unrelated closing issue cannot replace it', async () => {
+  for (const alreadyRetrieved of [true, false]) {
+    const calls = [];
+    const { result } = await buildEvidenceContext({
+      prBody: prBodyFixture + '\n<!-- meta:issue:123 -->',
+      closingIssues: [{ number: alreadyRetrieved ? 123 : 456, title: 'Closing', body: issueBodyOpen, state: 'OPEN', labels: { nodes: [] } }],
+      sourceIssue: { number: 123, title: 'Known', body: issueBodyClosed, state: 'open', labels: [] },
+      sourceIssueCalls: calls,
+    });
+    try {
+      assert.deepEqual(result.issueNumbers, alreadyRetrieved ? [123] : [456, 123]);
+      assert.equal(calls.length, alreadyRetrieved ? 0 : 1);
+      assert.equal(result.sourceCoverage.acceptance_source_discovery.status, 'included');
+    } finally { removeVerifierDiffArtifacts(result); }
+  }
+});
 
 test('empty issue acceptance discovery stays incomplete in source and template builders', async () => {
   const templateImpl = require('../../../templates/consumer-repo/.github/scripts/agents_verifier_context.js').buildVerifierContext;

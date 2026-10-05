@@ -103,10 +103,11 @@ test('generic review, forged publisher, stale receipt, missing regression, and p
 
 // Exercise the actual controller closure with API doubles, including both race
 // checkpoints. Extracting the closure avoids a test-only production export.
-for (const race of ['none', 'rest-head', 'graphql-head', 'graphql-plan', 'attestation-edited', 'attestation-deleted']) {
+for (const race of ['none', 'expired', 'rest-head', 'graphql-head', 'graphql-plan', 'attestation-edited', 'attestation-deleted']) {
   test(`controller resolves only unchanged live verification: ${race}`, async () => {
     const f = fixture();
     const { args } = f;
+    if (race === 'expired') args.now += 25 * 60 * 60 * 1000;
     Object.assign(args.record, { schema: 'sync-pr-delivery-record/v1',
       repository: args.proof.repository, head_observed_sha: args.proof.head_sha,
       head_observed_at: '2026-10-04T00:00:00Z', desired_tree_hash: 'tree',
@@ -146,7 +147,14 @@ for (const race of ['none', 'rest-head', 'graphql-head', 'graphql-plan', 'attest
     const end = source.indexOf('  // Parse repos from previous step', start);
     assert.ok(start > 0 && end > start);
     const sandbox = {
+      // The receipt fixture has a fixed date. Exercise real freshness logic
+      // against its fixed clock, including an explicitly expired receipt,
+      // instead of making a formerly valid test expire as wall time advances.
+      Date: class FixtureDate extends Date { static now() { return args.now; } },
       ...controller, ...require('../maint71_finding_verification'),
+      // Imported helpers retain their own module's Date, so pass their
+      // supported clock argument as well as controlling the VM closure.
+      validateIndependentFindingVerification: options => validate({ ...options, now: args.now }),
       parseDeliveryRecord: require('../sync_pr_lease_contract').parseDeliveryRecord,
       reviewResolutionProofs: [args.proof], reviewResolutionProofParseError: '',
       trustedResolutionActors: ['stranske'], reviewerProfiles: args.reviewerProfiles,
@@ -160,6 +168,10 @@ for (const race of ['none', 'rest-head', 'graphql-head', 'graphql-plan', 'attest
       pr: { number: 1, head: { sha: args.proof.head_sha } }, deliveryRecord: args.record });
     assert.equal(resolutions, race === 'none' ? 1 : 0, JSON.stringify(result));
     assert.equal(result.errors.length, race === 'none' ? 0 : 1);
+    if (race === 'expired') {
+      assert.equal(result.errors[0],
+        `${args.proof.thread_id}:failed_transport_or_freshness_unproven`);
+    }
   });
 }
 

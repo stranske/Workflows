@@ -862,6 +862,29 @@ waive the zero active non-outdated thread requirement for ordinary merge
 eligibility. A source fix without this exact proof, a later candidate plan, or a
 passing Gate never resolves the current PR's review debt.
 
+### Known issue sources and verifier discovery
+
+An explicitly declared non-issue source (marker, source block, checked source
+choice, or recognized source label) takes precedence over coordination relations
+and incidental title references in both body synchronization and verifier source
+resolution. Those relations must not import an unrelated campaign contract.
+Explicit closing keywords or `meta:issue` can still select an issue contract;
+inferred non-issue provenance alone does not suppress a genuine issue source.
+
+An issue-backed PR may use a non-closing relationship such as `Related to #123`
+or a source marker. The verifier retrieves the known same-repository source issue
+identified by `resolvePrSourceContext`, even when GitHub's
+`closingIssuesReferences` is empty. A successfully retrieved source contract is
+included in the acceptance plan and issue-number outputs, without converting the
+relationship into a closing keyword. Already retrieved closing issues are
+deduplicated; an unrelated closing issue cannot substitute for the known source.
+
+This extra lookup does not conceal unavailable or truncated closing discovery.
+A failed or malformed source lookup (including a pull-request response or a
+different issue number) keeps required discovery unavailable. Incomplete discovery
+continues to withhold PASS. Source and consumer-template builders share the same
+retrieval behavior and regression controls.
+
 ### Independent automated finding-verification fallback
 
 After one targeted reassessment completes without explicit finding disposition,

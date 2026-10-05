@@ -1062,6 +1062,39 @@ async function fetchClosingIssues({ github, core, owner, repo, prNumber }) {
   }
 }
 
+async function fetchAcceptanceIssues({ github, core, owner, repo, prNumber, sourceIssueNumber }) {
+  const discovery = await fetchClosingIssues({ github, core, owner, repo, prNumber });
+  // Non-closing relations identify a real source contract without appearing
+  // in closingIssuesReferences. Read that known issue, not arbitrary mentions.
+  if (!Number.isSafeInteger(sourceIssueNumber) || sourceIssueNumber <= 0
+    || discovery.issues.some(issue => issue.number === sourceIssueNumber)) return discovery;
+  try {
+    const { data: issue } = await github.rest.issues.get({ owner, repo, issue_number: sourceIssueNumber });
+    if (!issue || issue.number !== sourceIssueNumber || issue.pull_request
+      || typeof issue.title !== 'string'
+      || !(typeof issue.body === 'string' || issue.body === null)) {
+      throw new Error('Known source issue response is invalid.');
+    }
+    return {
+      ...discovery,
+      // Preserve unavailable/truncated closing discovery even when this one
+      // issue was retrieved: other acceptance sources may remain unknown.
+      issues: [...discovery.issues, {
+        number: issue.number, title: issue.title, body: issue.body || '',
+        state: issue.state || 'UNKNOWN', url: issue.html_url || '',
+        labels: Array.isArray(issue.labels) ? issue.labels : [],
+      }],
+    };
+  } catch (error) {
+    core?.warning?.(`Failed to fetch known source issue #${sourceIssueNumber}: ${error.message}`);
+    return {
+      ...discovery,
+      status: 'unavailable',
+      reason: `Known source issue #${sourceIssueNumber} was not retrieved; no retrieved linked issue can substitute for that acceptance contract. ${discovery.reason}`.trim(),
+    };
+  }
+}
+
 async function buildVerifierContext({
   github,
   context,
@@ -1139,12 +1172,13 @@ async function buildVerifierContext({
     return { shouldRun: false, reason: skipReason, ciResults: [], ciFailed: false };
   }
 
-  const closingIssueDiscovery = await fetchClosingIssues({
+  const closingIssueDiscovery = await fetchAcceptanceIssues({
     github,
     core,
     owner,
     repo,
     prNumber: pull.number,
+    sourceIssueNumber: sourceContext.sourceType === 'github_issue' ? sourceContext.issueNumber : null,
   });
   const closingIssues = closingIssueDiscovery.issues;
   const issueNumbers = uniqueNumbers(closingIssues.map((issue) => issue.number));

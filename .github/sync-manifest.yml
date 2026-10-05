@@ -418,7 +418,7 @@ scripts:
     description: "Locates PRs associated with issues"
 
   - source: .github/scripts/source_context.js
-    description: "Classifies PR workflow source context for issue, local, automation, sync, Dependabot, review follow-up, and direct GitHub work"
+    description: "Classifies PR workflow source context while preserving declared non-issue precedence over coordination links and explicit closing overrides"
 
   - source: .github/scripts/issue_context_utils.js
     description: "Utilities for issue context extraction"
@@ -587,7 +587,7 @@ scripts:
     description: "Updates PR body with stable completed dependency-provenance results, observer exclusion, and exact-head Gate visibility"
 
   - source: .github/scripts/agents_verifier_context.js
-    description: "Verifier context with independent body/comment/artifact evidence, any-complete-present aggregate availability, exact PR-head identity, literal destination metadata and complete post-merge diffs"
+    description: "Verifier context with known non-closing source-issue retrieval, independent body/comment/artifact evidence, any-complete-present aggregate availability, exact PR-head identity, literal destination metadata and complete post-merge diffs"
 
   - source: .github/scripts/agents_dispatch_summary.js
     description: "Summarizes agent dispatch operations"
