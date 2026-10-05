@@ -1106,9 +1106,12 @@ def _required_evidence_channels(acceptance: str, *, _bind_attached: bool = True)
         r"ui|api|application|service|endpoint)"
     )
     parenthetical_aside = (
-        r"(?:however|nevertheless|nonetheless|therefore|instead|also|still|[\w-]+ly|"
-        r"for\s+example|(?:after|before)\s+(?:checking|reviewing|testing)\s+"
-        r"(?:(?!(?:must|shall|will|can|could|would|should|may)\b)[\w-]+\s*){1,4})"
+        r"(?:(?!(?:"
+        + mandatory_auxiliary
+        + r"|must|shall|will|can|could|would|should|may|is|are|was|were|has|have|had|"
+        r"required|needed|mandatory|optional|if|when|without|unless|until|not|never|no|"
+        r"evidence|artifacts?|transcripts?|command|outputs?|pr|pull|body|comments?)\b)"
+        r"[\w-]+\s*){1,12}"
     )
     acceptance = re.sub(
         r"(?P<literal>"
@@ -1321,8 +1324,6 @@ def _required_evidence_channels(acceptance: str, *, _bind_attached: bool = True)
                     break
                 members.append(member)
                 cursor = member.end()
-            if not members:
-                continue
             output.extend((text[consumed : head.end()],))
             for member in members:
                 output.append("; " + head["actor"] + " " + head["governor"] + member["predicate"])
@@ -1869,6 +1870,21 @@ def _required_evidence_channels(acceptance: str, *, _bind_attached: bool = True)
     )
     evidence_prohibition = re.compile(
         aspect_delivery_prohibition.pattern + r"|"
+        r"\b(?:"
+        + mandatory_auxiliary
+        + r")\s+"
+        + delivery_adverbs
+        + r"(?:not|never)\s+"
+        + delivery_adverbs
+        + r"(?:"
+        + passive_delivery_prefix
+        + r")?"
+        + delivery_adverbs
+        + delivery_operation
+        + r"(?:\s+"
+        + evidence_modifiers
+        + r"(?:evidence|artifacts?|transcripts?|command outputs?|workflow runs?|pr comments?|pull request comments?))?"
+        + r"|"
         r"\b(?:must|shall|may|should|can|do|does|did|will)\s+"
         + r"(?=(?:(?:not|never|be|have|been|being)\s+){0,5}"
         + r"(?:also|now|still|already|[\w-]+ly)\s+)"

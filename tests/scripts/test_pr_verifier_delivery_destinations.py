@@ -10,7 +10,19 @@ from scripts.langchain import pr_verifier as verifier
 
 
 @pytest.mark.parametrize("role", ["reviewer", "maintainer", "author", "operator"])
-@pytest.mark.parametrize("parenthetical", ["however", "for example", "after checking CI"])
+@pytest.mark.parametrize(
+    "parenthetical",
+    [
+        "however",
+        "for example",
+        "after checking CI",
+        "in addition",
+        "in particular",
+        "at this point",
+        "as noted above",
+        "after initial validation",
+    ],
+)
 @pytest.mark.parametrize("operation", ["placed", "submitted", "delivered", "wrote"])
 def test_parenthetical_actor_preserves_active_past_delivery(role, parenthetical, operation):
     assert verifier._required_evidence_channels(
@@ -33,6 +45,36 @@ def test_parenthetical_product_storage_and_quoted_contractions(actor, apostrophe
     ) == {"comments"}
 
 
+def test_parenthetical_normalization_preserves_independent_obligations_and_gates():
+    assert verifier._required_evidence_channels(
+        "Do not merge, without evidence in the PR body, until the reviewer placed evidence in a PR comment"
+    ) == {"body", "comments"}
+    assert "body" in verifier._required_evidence_channels(
+        "The reviewer, the maintainer must place evidence in the PR body, placed evidence in a PR comment"
+    )
+    assert verifier._required_evidence_channels(
+        'The parser must recognize "The reviewer, in addition, placed evidence in the PR body"; the maintainer must place evidence in a PR comment'
+    ) == {"comments"}
+
+
+@pytest.mark.parametrize(
+    "quote_open,quote_close", [('"', '"'), ("'", "'"), ("“", "”"), ("‘", "’"), ("`", "`")]
+)
+@pytest.mark.parametrize(
+    "destination,channel",
+    [("the PR body", "body"), ("a PR comment", "comments"), ("workflow artifacts", "artifacts")],
+)
+def test_quoted_later_storage_member_preserves_following_reviewer(
+    quote_open, quote_close, destination, channel
+):
+    criterion = (
+        "The API must record evidence in its database and record transcripts in its audit log; "
+        f"the parser must recognize {quote_open}and record evidence in the PR body{quote_close}; "
+        f"the reviewer must record evidence in {destination}"
+    )
+    assert verifier._required_evidence_channels(criterion) == {channel}
+
+
 @pytest.mark.parametrize("apostrophe", ["'", "’"])
 @pytest.mark.parametrize("operation", ["put", "place", "write", "paste"])
 @pytest.mark.parametrize(
@@ -48,6 +90,25 @@ def test_multiple_contractions_do_not_form_a_quoted_literal(
         f"the operator couldn{apostrophe}t post artifacts"
     )
     assert verifier._required_evidence_channels(criterion) == {channel}
+
+
+@pytest.mark.parametrize("modal", ["may", "can", "could", "would", "should", "would not"])
+@pytest.mark.parametrize("governor", ["must", "shall", "needs to"])
+@pytest.mark.parametrize(
+    "destination,channel",
+    [("the PR body", "body"), ("a PR comment", "comments"), ("workflow artifacts", "artifacts")],
+)
+def test_direct_storage_governor_reset_retains_mandatory_delivery(
+    modal, governor, destination, channel
+):
+    criterion = f"The service {modal} record evidence in its database and {governor} record evidence in {destination}"
+    assert verifier._required_evidence_channels(criterion) == {channel}
+    assert (
+        verifier._required_evidence_channels(
+            criterion.replace(f"and {governor} record", f"and {governor} not record")
+        )
+        == set()
+    )
 
 
 @pytest.mark.parametrize(

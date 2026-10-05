@@ -1299,9 +1299,11 @@ and passive delivery is removed before both body and residual channel
 classification; an independent affirmative reviewer clause retains its channel.
 Straight and curly contracted finite auxiliaries retain passive alias identity
 before clause-level contraction normalization.
-Supported non-clausal subject parentheticals (bounded discourse adverbs,
-`for example`, and checking/reviewing/testing qualifiers) retain the actor
-before active-past alias classification. The shared literal grammar recognizes
+Non-clausal subject parentheticals of up to twelve words retain the actor
+before active-past alias classification. Governing auxiliaries, explicit
+obligation/polarity terms, merge-gate conditions, and evidence/destination terms
+prevent stripping a parenthetical that could contain a separate requirement.
+The shared literal grammar recognizes
 single-quote delimiters only outside words, retains apostrophes inside quoted
 contractions, and cannot swallow an independent mandatory delivery between two
 ordinary contractions. Parser examples and quoted inputs remain protected.
@@ -1312,6 +1314,8 @@ destinations; an explicit new governor or independent reviewer clause ends
 inheritance. It protects parser examples and literals rather than deleting
 unrecognized text. Internal `and`/`or` storage chains are supported; alternative
 review-destination semantics and nested/passive coordination are not inferred.
+An explicit new mandatory governor also ends optionality after a single storage
+predicate, without requiring an intervening inherited storage member.
 Regression controls independently cover negation, optional versus mandatory
 delivery, three storage predicates, governor resets, and all review channels.
 Negated obligations use the same delivery-operation grammar as positive
