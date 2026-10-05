@@ -1506,7 +1506,9 @@ async function buildVerifierContext({
       : closingIssueDiscovery.reason,
     // An issue source (including one whose retrieval failed) cannot be
     // judged from the PR's retained subset of the acceptance contract.
-    required: sourceContext.sourceType === 'github_issue' || closingIssues.length > 0 || closingIssueDiscovery.status === 'truncated',
+    // Failed discovery cannot establish that the linked acceptance set is empty.
+    required: sourceContext.sourceType === 'github_issue' || closingIssues.length > 0
+      || ['truncated', 'unavailable'].includes(closingIssueDiscovery.status),
   };
   // Put the inventory before large CI/plan/evidence blocks, so a late omitted
   // source is named even when its payload is beyond the former 8k prefix.
