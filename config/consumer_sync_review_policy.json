@@ -21,6 +21,10 @@
       "check_names": [],
       "request_comment": "@codex review",
       "reassessment_comment": "@codex please reassess this specific finding",
+      "reassessment_failure_summary": {
+        "marker": "<!-- codex-pull-request-review-summary -->",
+        "row_pattern": "^\\| 📝 \\*\\*Code Review\\*\\* \\| ⚠️ \\*\\*Failed\\*\\* <relative-time datetime=\"(?<time>[^\"]+)\">[^<]+</relative-time> \\| `(?<head>[0-9a-f]{7,40})` \\| Manual request \\|$"
+      },
       "disposition_comment": "@codex address that feedback",
       "disposition_task_transport": "pr-conversation",
       "disposition_task_comment": "@codex answer this specific finding",

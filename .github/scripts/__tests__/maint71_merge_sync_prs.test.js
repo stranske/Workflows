@@ -10,6 +10,141 @@ const {
   parseReviewReassessmentRequest, runReviewReassessment, run,
 } = require('../maint71_merge_sync_prs');
 
+test('failed reviewer retry is exact-head, terminal-only, once per binding and request-only', async () => {
+  const request = { schema: 'maint71-review-reassessment/v1',
+    repository: 'stranske/Ready', pr: 592, head_sha: 'a'.repeat(40),
+    thread_id: 'PRRT_retry', plan_id: 'plan-1', generation: 'gen-1',
+    source_commit: 'b'.repeat(40), originating_reviewer: 'codex' };
+  const record = { schema: 'sync-pr-delivery-record/v1', repository: request.repository,
+    durable_issue_url: 'https://github.com/stranske/Workflows/issues/1836',
+    plan_id: request.plan_id, generation: request.generation, desired_tree_hash: 'tree-1',
+    source_commit: request.source_commit, head_observed_sha: request.head_sha,
+    head_observed_at: '2026-09-24T22:00:00Z',
+    lease_expires_at: '2099-01-01T00:00:00Z' };
+  const canonical = JSON.stringify(request);
+  const prior = { fullDatabaseId: '12', author: { login: 'stranske' },
+    createdAt: '2026-09-24T22:00:00Z',
+    body: '<!-- maint71-review-reassessment:v1 ' + canonical + ' -->' };
+  const nodes = [{ fullDatabaseId: '11', author: { login: 'chatgpt-codex-connector' },
+    body: 'Preserve required evidence' }, prior];
+  const failedRow = '| 📝 **Code Review** | ⚠️ **Failed** <relative-time datetime="2026-09-24T22:01:00Z">2026-09-24T22:01:00Z</relative-time> | `aaaaaaa` | Manual request |';
+  const summary = { user: { login: 'chatgpt-codex-connector[bot]' },
+    updated_at: '2026-09-24T22:01:01Z',
+    body: '<!-- codex-pull-request-review-summary -->\n| Review | Status | Commit | Review trigger |\n| --- | --- | --- | --- |\n' + failedRow };
+  let summaries = [summary], resolvedSha = request.head_sha, posts = 0;
+  let paginationRace = false, siblingComplete = true, commitRace = '';
+  const pr = { state: 'open', draft: false, auto_merge: null,
+    user: { login: 'stranske-automation-bot' },
+    head: { ref: 'sync/workflows-candidate', sha: request.head_sha },
+    body: '<!-- sync-pr-delivery-record:v1 ' + JSON.stringify(record) + ' -->' };
+  const github = { paginate: async () => {
+    if (paginationRace) pr.head.sha = 'c'.repeat(40);
+    return structuredClone(summaries);
+  }, rest: {
+    users: { getAuthenticated: async () => ({ data: { login: 'stranske' } }) },
+    pulls: {
+      get: async () => ({ data: pr }),
+      createReplyForReviewComment: async ({ body }) => {
+        posts++;
+        const posted = { id: 13, body, created_at: '2026-09-24T22:02:00Z',
+          html_url: 'https://github.com/stranske/Ready/pull/592#discussion_r13',
+          user: { login: 'stranske' } };
+        nodes.push({ fullDatabaseId: '13', author: posted.user, body,
+          createdAt: posted.created_at, url: posted.html_url });
+        return { data: posted };
+      },
+    },
+    issues: { listComments: () => {} },
+    repos: { getCommit: async () => {
+      if (commitRace === 'edited-completion') summary.body = summary.body.replace('Failed', 'Completed');
+      if (commitRace === 'posted-completion') summaries.push({
+        user: { login: 'chatgpt-codex-connector' }, created_at: '2026-09-24T22:01:30Z',
+        body: "Codex Review: Didn't find any major issues." });
+      return { data: { sha: resolvedSha } };
+    } },
+  }, graphql: async () => ({ repository: { pullRequest: { reviewThreads: {
+    pageInfo: { hasNextPage: false }, nodes: [{ id: request.thread_id,
+      isResolved: false, isOutdated: false,
+      comments: { pageInfo: { hasNextPage: false }, nodes } }, {
+        id: 'PRRT_sibling', isResolved: false, isOutdated: false,
+        comments: { pageInfo: { hasNextPage: !siblingComplete }, nodes: [] },
+      }],
+  } } } }) };
+  const args = { context: { eventName: 'repository_dispatch', ref: 'refs/heads/main',
+    payload: { action: 'maint71-review-reassessment' }, actor: 'stranske' },
+    withRetry: (fn) => fn(github),
+    rawRequest: JSON.stringify({ ...request, request_stage: 'retry' }),
+    registeredRepos: [request.repository],
+    policyPath: path.join(__dirname, '..', '..', '..', 'config', 'consumer_sync_review_policy.json') };
+  for (const defect of ['missing-summary', 'duplicate-summary', 'forged-summary', 'pending',
+    'completed', 'wrong-head', 'ambiguous-commit', 'stale-failure', 'future-failure',
+    'stale-update', 'multiple-rows', 'missing-prior', 'duplicate-prior', 'changed-head',
+    'subsequent-completion', 'explicit-acceptance', 'explicit-rejection',
+    'partial-sibling', 'indented-running-row', 'pagination-head-race',
+    'edited-completion', 'posted-completion']) {
+    const savedBody = summary.body, savedUpdate = summary.updated_at;
+    summaries = [summary]; resolvedSha = request.head_sha;
+    if (defect === 'missing-summary') summaries = [];
+    if (defect === 'duplicate-summary') summaries.push({ ...summary });
+    if (defect === 'forged-summary') summary.user.login = 'untrusted';
+    if (defect === 'pending') summary.body = savedBody.replace('Failed', 'Running');
+    if (defect === 'completed') summary.body = savedBody.replace('Failed', 'Completed');
+    if (defect === 'wrong-head') summary.body = savedBody.replace('aaaaaaa', 'ccccccc');
+    if (defect === 'ambiguous-commit') resolvedSha = 'c'.repeat(40);
+    if (defect === 'stale-failure') summary.body = savedBody.replaceAll('22:01:00', '21:59:00');
+    if (defect === 'future-failure') summary.body = savedBody.replaceAll('2026-09-24', '2099-09-24');
+    if (defect === 'stale-update') summary.updated_at = '2026-09-24T22:00:30Z';
+    if (defect === 'multiple-rows') summary.body += '\n' + failedRow;
+    if (defect === 'missing-prior') nodes.pop();
+    if (defect === 'duplicate-prior') nodes.push({ ...prior });
+    if (defect === 'changed-head') pr.head.sha = 'c'.repeat(40);
+    if (defect === 'subsequent-completion') summaries.push({
+      user: { login: 'chatgpt-codex-connector' }, created_at: '2026-09-24T22:01:30Z',
+      body: "Codex Review: Didn't find any major issues." });
+    if (['explicit-acceptance', 'explicit-rejection'].includes(defect)) nodes.push({
+      fullDatabaseId: '14', author: { login: 'chatgpt-codex-connector' },
+      createdAt: '2026-09-24T22:01:30Z', commit: { oid: request.head_sha },
+      body: defect === 'explicit-acceptance'
+        ? `ACCEPT <!-- sync-review-accepted:${request.head_sha} -->` : 'REJECT: still invalid',
+    });
+    if (defect === 'partial-sibling') siblingComplete = false;
+    if (defect === 'indented-running-row') summary.body += '\n  | Code Review | Running | `aaaaaaa` | Manual request |';
+    if (defect === 'pagination-head-race') paginationRace = true;
+    if (['edited-completion', 'posted-completion'].includes(defect)) commitRace = defect;
+    await assert.rejects(runReviewReassessment(args), /retry|delivery changed/i, defect);
+    assert.equal(posts, 0, defect);
+    summary.body = savedBody; summary.updated_at = savedUpdate;
+    summary.user.login = 'chatgpt-codex-connector[bot]'; pr.head.sha = request.head_sha;
+    paginationRace = false; siblingComplete = true; commitRace = '';
+    if (['explicit-acceptance', 'explicit-rejection'].includes(defect)) nodes.pop();
+    if (defect === 'missing-prior') nodes.push(prior);
+    if (defect === 'duplicate-prior') nodes.pop();
+  }
+  for (const body of ['I cannot ACCEPT or REJECT this yet',
+    '> Reply ACCEPT or REJECT in this thread',
+    `The request asks for <!-- sync-review-accepted:${request.head_sha} -->`]) {
+    summaries = [summary]; resolvedSha = request.head_sha;
+    nodes.push({ fullDatabaseId: '14', author: { login: 'chatgpt-codex-connector' },
+      createdAt: '2026-09-24T22:01:30Z', commit: { oid: request.head_sha }, body });
+    const permitted = await runReviewReassessment(args);
+    assert.equal(permitted.status, 'review_blocked_reassessment_requested', body);
+    assert.equal(posts, 1, body);
+    // Reset the independent fixture; each scenario starts without a retry marker.
+    nodes.pop(); nodes.pop(); posts = 0;
+  }
+  summaries = [summary]; resolvedSha = request.head_sha;
+  const first = await runReviewReassessment(args);
+  assert.equal(first.status, 'review_blocked_reassessment_requested');
+  assert.equal(posts, 1);
+  assert.match(nodes.at(-1).body, /maint71-review-retry:v1/);
+  assert.match(nodes.at(-1).body, /No unrelated edits, resolution or merge actions/);
+  summaries = []; // Recovery must reuse the durable request after summary updates.
+  const second = await runReviewReassessment(args);
+  assert.equal(second.status, 'review_blocked_reassessment_reused');
+  assert.equal(posts, 1);
+});
+
+
 test('behind leased dev-tool delivery routes to producer before branch update', () => {
   const context = {
     owner: 'stranske', repo: 'Ready', pr: 591,

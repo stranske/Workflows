@@ -205,7 +205,8 @@ function parseReviewReassessmentRequest(raw = '') {
     || !/^[0-9a-f]{40}$/.test(request.source_commit)
     || typeof request.originating_reviewer !== 'string'
     || !/^[a-z][a-z0-9-]*$/.test(request.originating_reviewer)
-    || (request.request_stage !== undefined && request.request_stage !== 'disposition')) {
+    || (request.request_stage !== undefined
+      && !['disposition', 'retry'].includes(request.request_stage))) {
     throw new Error('Reviewer reassessment input has invalid identity fields');
   }
   return request;
@@ -215,7 +216,8 @@ function reviewReassessmentMarker(request) {
   const canonical = Object.fromEntries(
     REASSESSMENT_FIELDS.map((field) => [field, request[field]]),
   );
-  const kind = request.request_stage === 'disposition' ? 'disposition' : 'reassessment';
+  const kind = request.request_stage === 'retry' ? 'retry'
+    : request.request_stage === 'disposition' ? 'disposition' : 'reassessment';
   return `<!-- maint71-review-${kind}:v1 ${JSON.stringify(canonical)} -->`;
 }
 
@@ -241,6 +243,7 @@ async function runReviewReassessment({
   const profiles = normalizeReviewPolicy(policy).reviewers;
   const profile = profiles.find((item) => item.id === request.originating_reviewer);
   const dispositionOnly = request.request_stage === 'disposition';
+  const retryFailed = request.request_stage === 'retry';
   const command = String((dispositionOnly ? profile?.disposition_comment
     : profile?.reassessment_comment) || '').trim();
   if (!profile || !/^@[A-Za-z0-9-]+(?:\s+[A-Za-z0-9-]+)*$/.test(command)) {
@@ -311,7 +314,7 @@ async function runReviewReassessment({
   // Revalidate bindings and scan the same fresh snapshot before deciding to
   // POST; a trusted request may have appeared since the initial read.
   // GitHub's APIs are non-transactional, so an ambiguous POST is never retried.
-  const current = await readBoundState();
+  let current = await readBoundState();
   let found = null;
   for (const comment of current.thread.comments.nodes) {
     if (trustedWriters.has(comment?.author?.login)
@@ -323,6 +326,83 @@ async function runReviewReassessment({
   }
   let comment = found;
   if (!comment) {
+    if (retryFailed) {
+      const priorMarker = reviewReassessmentMarker({ ...request, request_stage: undefined });
+      const priors = current.thread.comments.nodes.filter((item) =>
+        trustedWriters.has(item?.author?.login)
+        && String(item?.body || '').includes(priorMarker));
+      const failure = profile.reassessment_failure_summary;
+      if (priors.length !== 1 || !Number.isFinite(Date.parse(priors[0]?.createdAt || ''))
+        || !failure?.marker || !failure?.row_pattern) {
+        throw new Error('Review retry requires one original request and configured terminal-failure proof');
+      }
+      let comments = await withRetry((client) => client.paginate(client.rest.issues.listComments,
+        { owner, repo, issue_number: request.pr, per_page: 100 }));
+      if (!Array.isArray(comments)) throw new Error('Review retry comment inventory is incomplete');
+      const summaries = comments.filter((item) =>
+        reviewerProfileForLogin(item?.user?.login, profiles) === request.originating_reviewer
+        && String(item?.body || '').startsWith(failure.marker));
+      if (summaries.length !== 1) throw new Error('Review retry requires one trusted terminal-failure summary');
+      const rows = String(summaries[0].body).split('\n').map((line) => line.trim()).filter((line) =>
+        line.startsWith('|') && !/^\|\s*(?:Review\s*\||---)/.test(line));
+      const match = rows.length === 1 ? new RegExp(failure.row_pattern).exec(rows[0]) : null;
+      const failedAt = Date.parse(match?.groups?.time || '');
+      const ref = match?.groups?.head || '';
+      if (!Number.isFinite(failedAt) || failedAt <= Date.parse(priors[0].createdAt)
+        || failedAt > Date.now() || !/^[0-9a-f]{7,40}$/.test(ref)
+        || !request.head_sha.startsWith(ref)
+        || Date.parse(summaries[0].updated_at || '') < failedAt
+        || !Number.isFinite(Date.parse(summaries[0].updated_at || ''))) {
+        throw new Error('Review retry requires a subsequent exact-head terminal failure, not pending or completed review');
+      }
+      const { data: commit } = await withRetry((client) => client.rest.repos.getCommit({ owner, repo, ref }));
+      if (commit?.sha !== request.head_sha) throw new Error('Review retry failure commit does not resolve to exact head');
+      // External summary and commit lookups can outlive the inspected head or
+      // a concurrent request. Re-read all bindings before the non-retryable POST.
+      current = await readBoundState();
+      // A provider can edit its top-level status during the commit lookup.
+      // Refresh that evidence too; changed failure proof needs a new inspection.
+      comments = await withRetry((client) => client.paginate(client.rest.issues.listComments,
+        { owner, repo, issue_number: request.pr, per_page: 100 }));
+      if (!Array.isArray(comments)) throw new Error('Review retry comment inventory is incomplete');
+      const freshSummaries = comments.filter((item) =>
+        reviewerProfileForLogin(item?.user?.login, profiles) === request.originating_reviewer
+        && String(item?.body || '').startsWith(failure.marker));
+      if (freshSummaries.length !== 1 || freshSummaries[0].body !== summaries[0].body
+        || freshSummaries[0].updated_at !== summaries[0].updated_at) {
+        throw new Error('Review retry terminal-failure proof changed during discovery');
+      }
+      current = await readBoundState();
+      const freshPriors = current.thread.comments.nodes.filter((item) =>
+        trustedWriters.has(item?.author?.login)
+        && String(item?.body || '').includes(priorMarker));
+      if (freshPriors.length !== 1
+        || freshPriors[0].fullDatabaseId !== priors[0].fullDatabaseId
+        || freshPriors[0].createdAt !== priors[0].createdAt) {
+        throw new Error('Review retry original request changed during discovery');
+      }
+      if (current.threads.some((item) => item.comments?.pageInfo?.hasNextPage !== false
+        || !Array.isArray(item.comments?.nodes))) {
+        throw new Error('Review retry thread inventory is incomplete');
+      }
+      if (current.thread.comments.nodes.some((item) => trustedWriters.has(item?.author?.login)
+        && String(item?.body || '').includes(marker))) {
+        throw new Error('Review retry request appeared before POST; inspect durable marker and reuse');
+      }
+      const laterCompletion = (item, author, createdAt) =>
+        reviewerProfileForLogin(author, profiles) === request.originating_reviewer
+        && Date.parse(createdAt || '') > failedAt
+        && ((profile.disposition_completion_prefixes || []).some((prefix) =>
+          String(item?.body || '').startsWith(prefix))
+          || /^\s*(?:\*\*)?(?:ACCEPT|REJECT)\b/i.test(String(item?.body || ''))
+          || String(item?.body || '').trimStart().startsWith(`<!-- sync-review-accepted:${request.head_sha} -->`));
+      if (current.threads.flatMap((item) => item.comments.nodes).some((item) =>
+        item?.commit?.oid === request.head_sha
+        && laterCompletion(item, item?.author?.login, item?.createdAt))
+        || comments.some((item) => laterCompletion(item, item?.user?.login, item?.created_at))) {
+        throw new Error('Review retry cannot repeat a subsequent completed originating review');
+      }
+    }
     if (dispositionOnly) {
       const priorMarker = reviewReassessmentMarker({ ...request, request_stage: undefined });
       const prior = current.thread.comments.nodes.find((item) =>
@@ -360,6 +440,7 @@ async function runReviewReassessment({
       }
     }
     const body = [`${command} on exact head ${request.head_sha}`,
+      ...(retryFailed ? ['One bounded retry after the originating provider reported a verified terminal failure on this exact head. This is not acceptance and grants no resolution or merge authority.'] : []),
       ...(dispositionOnly ? ['This is a disposition-only task, not another general review. Answer the original finding with explicit ACCEPT or REJECT in this existing thread; do not create a separate finding thread.'] : []),
       `Maint 71 requests ${request.originating_reviewer} to reassess active thread ` +
         `${request.thread_id} on exact generated head ${request.head_sha}. ` +
