@@ -1101,7 +1101,9 @@ def _required_evidence_channels(acceptance: str, *, _bind_attached: bool = True)
             return match[0]
         if alias.lower() in {"written", "pasted", "placed", "submitted", "delivered"}:
             prefix = re.split(
-                r"[;\n]|\b(?:and|or|that|which|who)\b", acceptance[: match.start()], flags=re.I
+                r"[;,\n]|\b(?:and|or|but|that|which|who|while|after|once|before|when|until|unless|if|since|because|whereas|although)\b",
+                acceptance[: match.start()],
+                flags=re.I,
             )[-1]
             # Inspect the actor without altering the original checklist semantics.
             prefix = re.sub(r"^\s*(?:[-*+]|\d+[.)])\s*(?:\[[ xX]\]\s*)?", "", prefix)
@@ -2544,7 +2546,7 @@ def _required_evidence_channels(acceptance: str, *, _bind_attached: bool = True)
                 r"\b(?:(?:the|an?)\s+)?(?:application|app|service|api|endpoint)\s+"
                 + "(?:"
                 + product_auxiliary
-                + ")?"
+                + r"|(?:has|have|had|will\s+have)\s+(?:(?:not|never|no\s+longer|\w+ly)\s+)*)?"
                 + r"(?:record|capture|attach|generate)\w*\s+"
                 r"(?:(?:the|an?)\s+)?(?:transcripts?|command outputs?|evidence|artifacts?)\s+"
                 r"(?:in|into|to|as)\s+(?:(?:its|the|an?)\s+)?"

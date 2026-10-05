@@ -9,6 +9,22 @@ from scripts import docs_drift_fix_agent as fix_agent
 from scripts.langchain import pr_verifier as verifier
 
 
+@pytest.mark.parametrize("boundary", ["but", "while", "because", "whereas", "although"])
+def test_compound_product_clause_preserves_active_past_placed(boundary):
+    criterion = f"The API must include command output, {boundary} the reviewer placed evidence in a PR comment"
+    assert verifier._required_evidence_channels(criterion) == {"comments"}
+
+
+@pytest.mark.parametrize("auxiliary", ["has", "had", "will have"])
+@pytest.mark.parametrize("verb", ["placed", "put"])
+def test_perfect_product_storage_is_not_evidence(auxiliary, verb):
+    criterion = f"The application {auxiliary} {verb} transcripts in its database"
+    assert verifier._required_evidence_channels(criterion) == set()
+    assert verifier._required_evidence_channels(
+        criterion + "; record evidence in a PR comment"
+    ) == {"comments"}
+
+
 @pytest.mark.parametrize("actor", ["assigned reviewer", "author", "maintainer", "API"])
 def test_active_past_placed_delivery_is_not_a_participial_modifier(actor):
     assert verifier._required_evidence_channels(

@@ -92,6 +92,10 @@ The bounded lexical aliases `put` and `place` share the record-delivery
 grammar, including negation, body/comment destinations and product storage.
 Active-past `placed` with a declared reviewer/author actor is delivery, not an
 evidence-object modifier; bare active product persistence remains nongating.
+Bounded conjunction/relative clause boundaries isolate the active-past subject
+before alias normalization. Perfect product persistence (`has/had placed`,
+`has put`, `will have placed`) is also excluded through its immediate
+storage destination without discarding a separate reviewer obligation.
 Product output exclusions reuse the complete shared response vocabulary,
 including `include`, `contain` and `have`; an independent reviewer
 delivery remains mandatory after the product clause is excluded.
