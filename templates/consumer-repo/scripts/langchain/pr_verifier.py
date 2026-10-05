@@ -1314,8 +1314,15 @@ def _required_evidence_channels(acceptance: str) -> set[str]:
             evidence_term.search(text) and (requirement.search(actions) or passive_requirement)
         )
 
-    def normalize_progressive_capability(text: str) -> str:
-        """Share bounded auxiliary/adverb grammar across product evidence channels."""
+    def normalize_product_capability(text: str) -> str:
+        """Canonicalize product recognition only, not the original obligation text."""
+        text = re.sub(
+            r"\b(?:(?P<modal>must|shall|will|should|can|may)\s+(?:not|never)|"
+            r"(?:does|do|did)\s+(?:not|never)|cannot)\s+(?=" + capability_operation + r"\b)",
+            lambda match: (match["modal"] or "") + " ",
+            text,
+            flags=re.I,
+        )
         return re.sub(
             r"\b(?:(?:is|are|was|were)|(?:has|have|had)\s+been|support(?:s|ed|ing)?)\s+"
             r"(?:(?:now|currently|already|still|[\w-]+ly)\s+){0,3}letting\b",
@@ -1326,7 +1333,7 @@ def _required_evidence_channels(acceptance: str) -> set[str]:
 
     def product_comment_object(prefix: str, destination: str) -> bool:
         """Classify the governing operation's subject, not domain words anywhere."""
-        prefix = normalize_progressive_capability(prefix)
+        prefix = normalize_product_capability(prefix)
         operations = list(
             re.finditer(
                 r"\b(?!renderer\b)(?:"
@@ -2135,7 +2142,7 @@ def _required_evidence_channels(acceptance: str) -> set[str]:
                         + r"\s+(?:to\s+)?)?)?"
                         + r"(?:upload|attach|publish|post|record|capture|"
                         r"provide|include|document)\w*\b.{0,60}\bartifacts?\b",
-                        normalize_progressive_capability(requirement_text),
+                        normalize_product_capability(requirement_text),
                         re.I,
                     )
                 )

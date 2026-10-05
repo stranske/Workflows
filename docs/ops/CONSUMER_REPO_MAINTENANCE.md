@@ -48,6 +48,9 @@ changing whether the acceptance item is mandatory. Product artifact capabilities
 use the shared client/user/consumer recipient grammar rather than a users-only rule.
 A single progressive-capability normalizer feeds both comment and artifact
 classification; channel-specific copies must not diverge on auxiliary/adverb forms.
+Negated capability auxiliaries (`must not`, `does not`, `cannot`) are normalized
+only for product recognition. The original criterion and any separate positive
+reviewer delivery retain their obligation/negation semantics.
 
 Regression gates: `python3 -m pytest tests/scripts/test_pr_verifier_prompt_coverage.py
 tests/scripts/test_pr_verifier_sync_manifest.py -q --no-cov` and
