@@ -3613,3 +3613,37 @@ def test_attached_binding_does_not_overlap_evidence_qualified_nouns(
     criterion = f"The UI {product} evidence artifacts {predicate} to the PR{tail}"
     expected = {"artifacts", "comments"} if tail else {"artifacts"}
     assert pr_verifier._required_evidence_channels(criterion) == expected
+
+
+@pytest.mark.parametrize(
+    "role", ["artifact reviewer", "evidence reviewer", "workflow reviewer", "reviewer"]
+)
+@pytest.mark.parametrize("object_name", ["artifacts", "evidence", "transcripts", "command outputs"])
+@pytest.mark.parametrize("product", ["lets users upload", "must display"])
+@pytest.mark.parametrize("modal", ["must", "will"])
+@pytest.mark.parametrize("tail", ["", "; validation evidence must be recorded in a PR comment"])
+def test_attached_delivery_actor_qualifier_is_not_the_evidence_object(
+    role: str, object_name: str, product: str, modal: str, tail: str
+) -> None:
+    criterion = (
+        f"The UI {product} evidence {object_name} that the {role} {modal} upload to the PR{tail}"
+    )
+    expected = {"artifacts"} if object_name == "artifacts" else {"overall"}
+    if tail:
+        expected.add("comments")
+    assert pr_verifier._required_evidence_channels(criterion) == expected
+    context, _ = _context(1, 1000, 1000)
+    context = context.replace(ACCEPTANCE_SENTINEL, criterion).replace(
+        "## PR Diff Summary",
+        "## Acceptance evidence\n\n- Overall retrieval status: **absent**\n"
+        "- PR comments: **absent**\n- PR body: **absent**\n"
+        "- Referenced workflow artifacts: **absent**\n\n## PR Diff Summary",
+    )
+    coverage = pr_verifier.prompt_coverage(context, None)
+    assert not coverage.sufficient
+    assert (
+        pr_verifier._apply_coverage_floor(
+            pr_verifier.EvaluationResult(verdict="PASS", used_llm=True), coverage
+        ).verdict
+        == "CONCERNS"
+    )

@@ -2093,7 +2093,10 @@ def _required_evidence_channels(acceptance: str, *, _bind_attached: bool = True)
                     # before capability suppression. Reuse the same classifier
                     # on this isolated obligation, without inventing an actor
                     # or maintaining an artifact-only destination grammar.
-                    actor = attached_delivery["actor"].strip()
+                    # Actor qualifiers identify who delivers, not what is
+                    # delivered. Keep only the bound object/predicate in the
+                    # classifier input so "artifact reviewer" cannot replace
+                    # a transcript or evidence object with an artifact channel.
                     predicate = " ".join(
                         part.strip()
                         for part in (
@@ -2106,7 +2109,7 @@ def _required_evidence_channels(acceptance: str, *, _bind_attached: bool = True)
                     obligation = (
                         f"{attached_object['object']} {predicate}"
                         if attached_delivery["aspect"]
-                        else f"{actor} {predicate} {attached_object['object']}"
+                        else f"{predicate} {attached_object['object']}"
                     )
                     destination = bound_destination["destination"]
                     destination_channels = set()

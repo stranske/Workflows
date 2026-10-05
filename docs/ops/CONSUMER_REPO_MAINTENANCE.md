@@ -87,6 +87,9 @@ an explicit reviewer clause using `it`/`them` stays separate for antecedent reso
 Bounded demonstratives `these`, `those` and `both` share that same resolver.
 Bound spans cannot overlap: skip nouns already consumed by an earlier binding,
 and do not parse a bare evidence noun qualifier as the attached predicate's actor.
+Qualified actor names select the delivery owner, not the evidence object: isolate
+the bound object, predicate and destination before classification so an `artifact
+reviewer` uploading transcripts to a generic PR retains the overall-evidence floor.
 Resolved plural pronoun uploads into the PR body are classified as body delivery,
 including bounded coordinated noun lists; attached relative-body uploads remain
 owned by the noun binder rather than consumed a second time as body records.
