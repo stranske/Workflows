@@ -1060,6 +1060,8 @@ def _required_evidence_channels(acceptance: str) -> set[str]:
             prefix = re.split(
                 r"[;\n]|\b(?:and|or|that|which|who)\b", acceptance[: match.start()], flags=re.I
             )[-1]
+            # Inspect the actor without altering the original checklist semantics.
+            prefix = re.sub(r"^\s*(?:[-*+]|\d+[.)])\s*(?:\[[ xX]\]\s*)?", "", prefix)
             active_delivery_subject = (
                 alias.lower() in {"submitted", "delivered"}
                 and bool(
@@ -2126,7 +2128,9 @@ def _required_evidence_channels(acceptance: str) -> set[str]:
                         + ")?"
                         + r"(?:(?:"
                         + capability_operation
-                        + r")\s+(?:users?\s+(?:to\s+)?)?)?"
+                        + r")\s+(?:"
+                        + recipient_noun
+                        + r"\s+(?:to\s+)?)?)?"
                         + r"(?:upload|attach|publish|post|record|capture|"
                         r"provide|include|document)\w*\b.{0,60}\bartifacts?\b",
                         requirement_text,

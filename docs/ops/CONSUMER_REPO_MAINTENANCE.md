@@ -43,6 +43,9 @@ letting`, `supports reliably letting`) obey the same product-only and independen
 reviewer boundaries. Qualified delivery actors, including assigned reviewers and
 automation agents/runners, retain active past-tense delivery requirements; an
 earlier governing display/output operation cannot turn a participle into a delivery.
+Actor normalization ignores only the existing list/checklist prefix syntax, without
+changing whether the acceptance item is mandatory. Product artifact capabilities
+use the shared client/user/consumer recipient grammar rather than a users-only rule.
 
 Regression gates: `python3 -m pytest tests/scripts/test_pr_verifier_prompt_coverage.py
 tests/scripts/test_pr_verifier_sync_manifest.py -q --no-cov` and

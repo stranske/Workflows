@@ -3168,3 +3168,24 @@ def test_modified_progressive_capability_keeps_actor_boundary(
     assert pr_verifier._required_evidence_channels(criterion) == (
         {"comments"} if independent else set()
     )
+
+
+@pytest.mark.parametrize("marker", ["- [ ]", "+ [X]", "1. [ ]"])
+@pytest.mark.parametrize("verb", ["submitted", "delivered"])
+def test_checklist_active_past_delivery_keeps_comment_requirement(marker: str, verb: str) -> None:
+    assert pr_verifier._required_evidence_channels(
+        f"{marker} The assigned reviewer {verb} validation evidence in a PR comment"
+    ) == {"comments"}
+
+
+@pytest.mark.parametrize("recipient", ["clients", "consumers", "the client"])
+@pytest.mark.parametrize("independent", [False, True])
+def test_client_artifact_capability_preserves_review_obligation(
+    recipient: str, independent: bool
+) -> None:
+    criterion = f"The UI must let {recipient} upload artifacts"
+    if independent:
+        criterion += "; the reviewer must upload validation artifacts to the PR"
+    assert pr_verifier._required_evidence_channels(criterion) == (
+        {"artifacts"} if independent else set()
+    )
