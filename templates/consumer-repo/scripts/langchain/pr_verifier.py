@@ -1111,19 +1111,26 @@ def _required_evidence_channels(acceptance: str, *, _bind_attached: bool = True)
         r"ui|api|application|service|endpoint)"
     )
     parenthetical_aside = (
+        r"(?!(?:(?:and|or)\s+)?"
+        + r"(?:"
+        + destination_preposition
+        + r")?"
+        + review_destination_noun
+        + r")"
         r"(?:(?!(?:"
         + mandatory_auxiliary
         + r"|must|shall|will|can|could|would|should|may|is|are|was|were|has|have|had|"
-        r"required|needed|mandatory|optional|if|when|without|unless|until|not|never|no|"
-        r"pr|pull|body|comments?)\b)"
-        r"(?!" + r"(?:" + destination_preposition + r")?" + review_destination_noun + r")"
+        r"required|needed|mandatory|optional|if|when|without|unless|until|not|never|no)\b)"
         r"(?!(?:"
         + delivery_operation
         + "|"
         + "|".join(record_aliases)
-        + r")\s+"
+        + r")\s+(?:"
         + evidence_modifiers
-        + r"(?:evidence|artifacts?|transcripts?|command outputs?)\b)"
+        + r"(?:evidence|artifacts?|transcripts?|command outputs?)\b|"
+        + destination_preposition
+        + review_destination_noun
+        + r"))"
         r"[\w-]+(?=\s|,)\s*){1,12}"
     )
     acceptance = re.sub(

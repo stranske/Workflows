@@ -10,6 +10,32 @@ from scripts.langchain import pr_verifier as verifier
 
 
 @pytest.mark.parametrize("auxiliary", ["do", "does", "did"])
+@pytest.mark.parametrize("role", ["reviewer", "maintainer"])
+@pytest.mark.parametrize(
+    "qualifier", ["after checking the", "before reviewing the", "following inspection of the"]
+)
+@pytest.mark.parametrize(
+    "object_name", ["PR", "pull request", "PR body", "PR comments", "workflow artifacts"]
+)
+@pytest.mark.parametrize("operation", ["placed", "submitted", "delivered"])
+@pytest.mark.parametrize(
+    "destination,channel",
+    [("the PR body", "body"), ("a PR comment", "comments"), ("workflow artifacts", "artifacts")],
+)
+def test_review_related_actor_aside_preserves_delivery(
+    auxiliary, role, qualifier, object_name, operation, destination, channel
+):
+    criterion = f"The {role}, {qualifier} {object_name}, {operation} evidence in {destination}"
+    assert verifier._required_evidence_channels(criterion) == {channel}
+    assert (
+        verifier._required_evidence_channels(
+            f"The service, {qualifier} {object_name}, {auxiliary} put evidence in its database"
+        )
+        == set()
+    )
+
+
+@pytest.mark.parametrize("auxiliary", ["do", "does", "did"])
 @pytest.mark.parametrize("actor", ["service", "API"])
 @pytest.mark.parametrize("operation", ["put", "place", "write", "record"])
 @pytest.mark.parametrize(
@@ -127,6 +153,21 @@ def test_parenthetical_product_storage_and_quoted_contractions(actor, apostrophe
     assert verifier._required_evidence_channels(
         f"The parser must recognize {quote_open}The reviewer won{apostrophe}t place evidence in the PR body{quote_close}; include evidence in a PR comment"
     ) == {"comments"}
+
+
+@pytest.mark.parametrize(
+    "inner",
+    [
+        "the maintainer recorded evidence in the PR body",
+        "evidence was recorded in the PR body",
+        "record evidence in the PR body",
+        "the maintainer must record evidence in the PR body",
+    ],
+)
+def test_parenthetical_does_not_erase_actual_delivery_predicates(inner):
+    assert "body" in verifier._required_evidence_channels(
+        f"The reviewer, {inner}, placed evidence in a PR comment"
+    )
 
 
 def test_parenthetical_normalization_preserves_independent_obligations_and_gates():

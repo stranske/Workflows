@@ -1306,6 +1306,10 @@ predicates, and review destinations prevent stripping a parenthetical that
 could contain a separate requirement. Evidence nouns in non-clausal validation
 qualifiers retain the outer actor; complete-word matching bounds the scan
 without repeatedly partitioning a rejected word into smaller matches.
+Review-related nouns inside validation qualifiers do not erase the outer
+actor. A comma-led shared destination is protected at the start of an aside
+(including its conjunction), while actual evidence-delivery predicates and
+governing terms remain protected throughout its bounded word sequence.
 Do-supported product storage (`do`, `does`, `did`) shares the finite auxiliary
 grammar and does not create a review obligation. Comma-separated and conjunctive
 shared storage/review destinations reuse the delivery-list separator grammar,
