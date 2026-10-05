@@ -1161,8 +1161,12 @@ test('buildVerifierContext binds explicit artifact completeness to linked-issue 
       prBody: prBodyFixture + '\nhttps://github.com/octo/workflows/actions/runs/123',
       graphqlError: defect === 'failed-issues' ? new Error('linked issues unavailable') : null,
       closingIssuePageInfo: { hasNextPage: defect === 'partial-issues' },
-      listWorkflowRunsForRepoResponse: { data: { total_count: 9,
-        workflow_runs: [{ id: 321, head_sha: 'b'.repeat(40) }] } },
+      // Both fallback queries must be healthy so only linked-issue discovery
+      // can make the defect cases incomplete, not a mismatched/overflowed run list.
+      runsForRepo: {
+        ['b'.repeat(40)]: [{ id: 123, head_sha: 'b'.repeat(40) }],
+        ['c'.repeat(40)]: [{ id: 321, head_sha: 'c'.repeat(40) }],
+      },
       artifactsByRun: { 123: [{ id: 17, name: 'explicit-proof', size_in_bytes: 120, expired: false }] },
       artifactDownloads: { 17: Buffer.from('zip bytes') },
     }, { extractArtifactText: () => ({ text: 'complete explicit proof', truncated: false }) });
