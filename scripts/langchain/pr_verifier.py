@@ -1035,6 +1035,21 @@ def _required_evidence_channels(acceptance: str, *, _bind_attached: bool = True)
         + delivery_destination_item
         + r")*"
     )
+    # Presence predicates use the existing passive-delivery grammar, including
+    # governing negation and modality, instead of a second affirmative regex.
+    acceptance = re.sub(
+        r"(?P<prefix>\b(?:evidence|command outputs?|transcripts?)\b.{0,40}?)"
+        r"(?:appear|be\s+present)"
+        r"(?P<destination>\s+in\s+(?:an?\s+|the\s+)?"
+        r"(?:pr comments?|pull request comments?)\b)",
+        lambda match: (
+            match["prefix"] + "be recorded" + match["destination"]
+            if re.search(mandatory_auxiliary, match["prefix"], re.I)
+            else match[0]
+        ),
+        acceptance,
+        flags=re.I,
+    )
     # Lexical aliases share every obligation, negation, destination and product
     # boundary rule. Adding a synonym to only one regex silently diverges them.
     record_aliases = {
@@ -2494,14 +2509,6 @@ def _required_evidence_channels(acceptance: str, *, _bind_attached: bool = True)
                 )
                 or re.search(
                     r"\bexact-head\s+(?:pr comments?|pull request comments?)\b",
-                    requirement_text,
-                    re.I,
-                )
-                or re.search(
-                    r"\b(?:evidence|command outputs?|transcripts?)\b.{0,40}"
-                    + mandatory_auxiliary
-                    + r"\s+(?:appear(?:s|ed)?|be\s+present)\s+in\s+"
-                    r"(?:an?\s+|the\s+)?(?:pr comments?|pull request comments?)\b",
                     requirement_text,
                     re.I,
                 )

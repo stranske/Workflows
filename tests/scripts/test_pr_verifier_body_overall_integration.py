@@ -44,6 +44,10 @@ def test_mandatory_evidence_presence_in_comments_cannot_use_other_channels(predi
         "Test evidence need not be present in a PR comment",
         "Test evidence must not appear in a PR comment",
         "Test evidence must not be present in a PR comment",
+        "Test evidence is not expected to be present in a PR comment",
+        "Test evidence is not supposed to appear in a PR comment",
+        "No test evidence must appear in a PR comment",
+        "Test evidence is no longer required to appear in a PR comment",
         "The UI lets users make test evidence appear in a PR comment preview",
     ],
 )
