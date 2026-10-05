@@ -1149,6 +1149,7 @@ def _required_evidence_channels(acceptance: str, *, _bind_attached: bool = True)
             + r"(?:evidence|artifacts?|transcripts?|command outputs?)\b"
         )
         noun = r"(?:" + noun + r")(?:\s+(?:and|or)\s+(?:" + noun + r")){0,3}"
+        noun = r"(?P<body_object>" + noun + r")"
         exclusion_operation = (
             r"(?:exclude\w*|omit\w*|remove\w*|avoid\w*|suppress\w*|leave\s+out|left\s+out)\b"
         )
@@ -1245,24 +1246,44 @@ def _required_evidence_channels(acceptance: str, *, _bind_attached: bool = True)
             if match.start() < consumed_end:
                 continue
             clause = match[0]
+            # Object qualifiers are not governing polarity/modality predicates.
+            # For example, excluded-case or optional-case evidence is still a
+            # mandatory deliverable. Keep the predicate and post-object state.
+            polarity_clause = clause
+            object_prohibited = False
+            if match.groupdict().get("body_object") is not None:
+                start, end = match.span("body_object")
+                polarity_clause = clause[: start - match.start()] + clause[end - match.start() :]
+                object_prohibited = bool(
+                    re.search(
+                        r"\bno\s+"
+                        + evidence_modifiers
+                        + r"(?:evidence|artifacts?|transcripts?|command outputs?)\b",
+                        match["body_object"],
+                        re.I,
+                    )
+                )
             body_match = re.search(body, clause, re.I)
             assert body_match is not None
             is_gate = gate and bool(re.match(r"(?:without|unless|until)\b", clause, re.I))
-            prohibited = not is_gate and bool(
-                re.search(
-                    r"\b(?:not|never|no\s+longer|no\s+(?:before/after\s+)?(?:evidence|artifacts?|transcripts?|command outputs?))\b",
-                    clause,
-                    re.I,
+            prohibited = not is_gate and (
+                object_prohibited
+                or bool(
+                    re.search(
+                        r"\b(?:not|never|no\s+longer|no\s+(?:before/after\s+)?(?:evidence|artifacts?|transcripts?|command outputs?))\b",
+                        polarity_clause,
+                        re.I,
+                    )
                 )
             )
-            if not is_gate and re.search(exclusion_operation, clause, re.I):
+            if not is_gate and re.search(exclusion_operation, polarity_clause, re.I):
                 prohibited = not prohibited
             mandatory_optionality = bool(
                 re.search(
                     r"\b(?:(?:is|are)|"
                     + mandatory_auxiliary
                     + r")\s+(?:not|never|no\s+longer)\s+(?:be\s+)?optional\b",
-                    clause,
+                    polarity_clause,
                     re.I,
                 )
             )
@@ -1271,7 +1292,7 @@ def _required_evidence_channels(acceptance: str, *, _bind_attached: bool = True)
             optional = (
                 not is_gate
                 and bool(
-                    re.search(r"\b(?:optional|should|may|can)\b", clause, re.I)
+                    re.search(r"\b(?:optional|should|may|can)\b", polarity_clause, re.I)
                     or re.match(r"\s*" + conditional_evidence, text[match.end() :], re.I)
                 )
                 and not mandatory_optionality

@@ -22,6 +22,9 @@ NODE = shutil.which("node")
         "before/after evidence",
         "test transcript",
         "validation command output",
+        "excluded-case test evidence",
+        "omitted-case validation evidence",
+        "optional-case validation evidence",
     ],
 )
 def test_qualified_body_delivery_cannot_use_another_present_channel(operation, noun):
