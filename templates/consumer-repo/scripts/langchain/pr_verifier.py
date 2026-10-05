@@ -2551,7 +2551,7 @@ def _required_evidence_channels(acceptance: str, *, _bind_attached: bool = True)
                 r"\b(?:(?:the|an?)\s+)?(?:application|app|service|api|endpoint)\s+"
                 + "(?:"
                 + product_auxiliary
-                + r"|(?:has|have|had|will\s+(?:(?:not|never|no\s+longer|"
+                + r"|(?:has|have|had|(?:will|won['’]t)\s+(?:(?:not|never|no\s+longer|"
                 + delivery_adverb
                 + r")\s+)*have)\s+(?:(?:not|never|no\s+longer|"
                 + delivery_adverb

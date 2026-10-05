@@ -1259,6 +1259,9 @@ requirements. Destination-bound object modifiers are bounded tokens that exclude
 new predicates and conjunctions, not an independently growing adjective list.
 Perfect/modal passive prohibitions retain polarity after alias normalization,
 including intervening adverbs admitted by the alias grammar.
+Product storage also retains straight/curly contracted future-perfect auxiliaries
+(`won't have` / `won’t have`), including those shared adverbs, without erasing
+an independent reviewer delivery clause.
 An `and`-coordinated bare evidence object with a bounded review destination
 inherits the previous delivery predicate (including negation); independent
 finite predicates and semicolon-separated clauses do not inherit it.

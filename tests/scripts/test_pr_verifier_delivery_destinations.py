@@ -35,6 +35,18 @@ def test_future_perfect_product_storage_modifier_positions(auxiliary, verb):
     ) == {"comments"}
 
 
+@pytest.mark.parametrize(
+    "auxiliary", ["won't have", "won’t have", "won't already have", "won’t also have"]
+)
+@pytest.mark.parametrize("verb", ["placed", "put"])
+def test_contracted_future_perfect_storage_preserves_independent_delivery(auxiliary, verb):
+    criterion = f"The application {auxiliary} {verb} transcripts in its database"
+    assert verifier._required_evidence_channels(criterion) == set()
+    assert verifier._required_evidence_channels(
+        criterion + "; record evidence in a PR comment"
+    ) == {"comments"}
+
+
 @pytest.mark.parametrize("boundary", ["but", "while", "because", "whereas", "although"])
 def test_compound_product_clause_preserves_active_past_placed(boundary):
     criterion = f"The API must include command output, {boundary} the reviewer placed evidence in a PR comment"
