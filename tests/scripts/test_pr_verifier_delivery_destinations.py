@@ -152,6 +152,42 @@ def test_optional_actor_cannot_suppress_finite_present_delivery(boundary, verb):
     ) == {"comments"}
 
 
+@pytest.mark.parametrize("boundary", [" and ", " while ", ". ", "! ", "? "])
+@pytest.mark.parametrize(
+    "negation",
+    ["does not", "do not", "did not", "does never", "doesn't", "does no longer", "must not"],
+)
+@pytest.mark.parametrize("verb", ["prove", "supply", "record"])
+@pytest.mark.parametrize("destination", ["the PR body", "a PR comment", "workflow artifacts"])
+def test_independent_delivery_prohibition_uses_shared_operation_grammar(
+    boundary, negation, verb, destination
+):
+    assert (
+        verifier._required_evidence_channels(
+            "The reviewer may supply evidence in the PR body"
+            + boundary
+            + f"the senior maintainer {negation} {verb} evidence in {destination}"
+        )
+        == set()
+    )
+
+
+@pytest.mark.parametrize(
+    "negative_destination", ["the PR body", "a PR comment", "workflow artifacts"]
+)
+@pytest.mark.parametrize(
+    "positive_destination,channel",
+    [("the PR body", "body"), ("a PR comment", "comments"), ("workflow artifacts", "artifacts")],
+)
+def test_prohibition_does_not_erase_independent_mandatory_delivery(
+    negative_destination, positive_destination, channel
+):
+    assert verifier._required_evidence_channels(
+        f"The reviewer does not prove evidence in {negative_destination}"
+        + f" and the maintainer must record evidence in {positive_destination}"
+    ) == {channel}
+
+
 @pytest.mark.parametrize("actor", ["reviewer", "assigned reviewer", "senior reviewer", "CI runner"])
 def test_supply_clause_subject_preserves_delivery(actor):
     assert verifier._required_evidence_channels(

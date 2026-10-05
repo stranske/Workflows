@@ -1966,10 +1966,10 @@ def _required_evidence_channels(acceptance: str, *, _bind_attached: bool = True)
     evidence_prohibition = re.compile(
         aspect_delivery_prohibition.pattern + r"|"
         r"\b(?:"
-        + mandatory_auxiliary
+        + delivery_governor_auxiliary
         + r")\s+"
         + delivery_adverbs
-        + r"(?:not|never)\s+"
+        + r"(?:not|never|no\s+longer)\s+"
         + delivery_adverbs
         + r"(?:"
         + passive_delivery_prefix

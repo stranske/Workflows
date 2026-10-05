@@ -1357,6 +1357,9 @@ The same bounded subject guard applies to active-past placed/submitted/delivered
 supplied aliases. Independent finite-present delivery predicates share that actor
 and operation grammar across conjunctions and sentence endings; they cannot inherit
 a preceding actor's optional modal.
+Delivery prohibitions reuse the shared governor and operation vocabulary,
+including do/does/did and prove, with not/never/no-longer polarity. A required
+delivery in another independent clause remains authoritative.
 Comment presence/containment predicates share the complete mandatory auxiliary
 grammar, including `has/have to`, with existing polarity controls.
 Do-supported product storage (`do`, `does`, `did`) shares the finite auxiliary
