@@ -6,6 +6,18 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 Breaking changes are called out with a **BREAKING** marker and scheduled according to the policy in `COMPATIBILITY.md`.
 
+## [1.37.19](https://github.com/stranske/Workflows/compare/v1.37.18...v1.37.19) (2026-10-05)
+
+
+### Bug Fixes
+
+* **sync:** retain generated related-issue source binding ([#3760](https://github.com/stranske/Workflows/issues/3760)) ([8e0a990](https://github.com/stranske/Workflows/commit/8e0a99085e975a4fcb6fa0593555fa8eff58f9e3))
+* **sync:** retry one verified terminal reviewer failure ([#3761](https://github.com/stranske/Workflows/issues/3761)) ([2dcf3ed](https://github.com/stranske/Workflows/commit/2dcf3ed463d9026e944af50d18168d0e2e2fc131))
+* **verifier:** enforce mandatory comment evidence presence ([#3762](https://github.com/stranske/Workflows/issues/3762)) ([d8dfcd8](https://github.com/stranske/Workflows/commit/d8dfcd853a753e5fc7ff3062e2c177a2c1ba1d69))
+* **verifier:** floor unavailable linked-issue discovery ([#3763](https://github.com/stranske/Workflows/issues/3763)) ([8ebb895](https://github.com/stranske/Workflows/commit/8ebb89596d13e08546641b14749087c036b57add))
+* **verifier:** preserve complete destination-specific evidence ([#3759](https://github.com/stranske/Workflows/issues/3759)) ([747217d](https://github.com/stranske/Workflows/commit/747217d61492364cf523f64d6046ed761902a875))
+* **verifier:** recognize submit delivery and let product capability ([#3754](https://github.com/stranske/Workflows/issues/3754)) ([7d35ca1](https://github.com/stranske/Workflows/commit/7d35ca1d612f88b50ead70fe2b30fc5e41ca15bd))
+
 ## [1.37.18](https://github.com/stranske/Workflows/compare/v1.37.17...v1.37.18) (2026-10-05)
 
 
