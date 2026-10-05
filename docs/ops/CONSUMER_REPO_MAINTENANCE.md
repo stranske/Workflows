@@ -38,8 +38,11 @@ The product capability `let users post PR comments` uses a bare infinitive
 (unlike `allow users to post`) and does not require discussion evidence.
 A separate reviewer delivery clause still requires its specified channel;
 capability inheritance cannot hide that independent obligation.
-Adjacent `is letting` and `supports letting` capability forms obey the same
-product-only and independent-reviewer boundaries.
+Progressive auxiliaries and bounded adverbs (`is currently letting`, `has been
+letting`, `supports reliably letting`) obey the same product-only and independent
+reviewer boundaries. Qualified delivery actors, including assigned reviewers and
+automation agents/runners, retain active past-tense delivery requirements; an
+earlier governing display/output operation cannot turn a participle into a delivery.
 
 Regression gates: `python3 -m pytest tests/scripts/test_pr_verifier_prompt_coverage.py
 tests/scripts/test_pr_verifier_sync_manifest.py -q --no-cov` and

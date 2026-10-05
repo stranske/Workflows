@@ -3136,3 +3136,35 @@ def test_participial_evidence_modifiers_are_not_new_delivery_operations(particip
         )
         == set()
     )
+
+
+@pytest.mark.parametrize(
+    "subject", ["The assigned reviewer", "The agent", "The CI runner", "The responsible maintainer"]
+)
+@pytest.mark.parametrize("verb", ["submitted", "delivered"])
+def test_modified_delivery_actors_preserve_active_past(subject: str, verb: str) -> None:
+    assert pr_verifier._required_evidence_channels(
+        f"{subject} {verb} validation evidence in a PR comment"
+    ) == {"comments"}
+
+
+@pytest.mark.parametrize(
+    "operation",
+    [
+        "is currently letting",
+        "is now letting",
+        "has been letting",
+        "supports reliably letting",
+        "was already letting",
+    ],
+)
+@pytest.mark.parametrize("independent", [False, True])
+def test_modified_progressive_capability_keeps_actor_boundary(
+    operation: str, independent: bool
+) -> None:
+    criterion = f"The UI {operation} users post PR comments"
+    if independent:
+        criterion += "; the assigned reviewer submitted validation evidence in a PR comment"
+    assert pr_verifier._required_evidence_channels(criterion) == (
+        {"comments"} if independent else set()
+    )

@@ -1060,14 +1060,20 @@ def _required_evidence_channels(acceptance: str) -> set[str]:
             prefix = re.split(
                 r"[;\n]|\b(?:and|or|that|which|who)\b", acceptance[: match.start()], flags=re.I
             )[-1]
-            active_delivery_subject = alias.lower() in {"submitted", "delivered"} and bool(
-                re.fullmatch(
-                    r"\s*(?:(?:the|an?)\s+)?"
-                    r"(?:reviewers?|maintainers?|authors?|operators?|ui|api|application|"
-                    r"service|endpoint)\s*",
-                    prefix,
-                    re.I,
+            active_delivery_subject = (
+                alias.lower() in {"submitted", "delivered"}
+                and bool(
+                    re.fullmatch(
+                        r"\s*(?:(?:the|an?)\s+)?"
+                        + evidence_modifiers
+                        + r"(?:reviewers?|maintainers?|authors?|operators?|agents?|bots?|runners?|"
+                        r"developers?|engineers?|testers?|auditors?|verifiers?|teams?|users?|"
+                        r"ui|api|application|service|endpoint)\s*",
+                        prefix,
+                        re.I,
+                    )
                 )
+                and not bool(re.search(response_operation + "|" + delivery_operation, prefix, re.I))
             )
             if not active_delivery_subject and not re.search(
                 r"\b(?:" + mandatory_auxiliary + r"|is|are|was|were|be|been|being|has|have|had)\s+"
@@ -1309,9 +1315,10 @@ def _required_evidence_channels(acceptance: str) -> set[str]:
     def product_comment_object(prefix: str, destination: str) -> bool:
         """Classify the governing operation's subject, not domain words anywhere."""
         # These complete capability forms govern the same bare infinitive.
-        # Normalize only their adjacent auxiliaries, not a later actor clause.
+        # Consume bounded auxiliaries/adverbs, never a later actor clause.
         prefix = re.sub(
-            r"\b(?:(?:is|are|was|were)|support(?:s|ed|ing)?)\s+letting\b",
+            r"\b(?:(?:is|are|was|were)|(?:has|have|had)\s+been|support(?:s|ed|ing)?)\s+"
+            r"(?:(?:now|currently|already|still|[\w-]+ly)\s+){0,3}letting\b",
             "let",
             prefix,
             flags=re.I,
