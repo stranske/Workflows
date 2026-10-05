@@ -18,7 +18,16 @@ NODE = shutil.which("node")
 @pytest.mark.parametrize(
     "destination", ["in a PR comment", "in comments on the PR", "in comments in the pull request"]
 )
-@pytest.mark.parametrize("noun", ["Test evidence", "Validation command output", "Test transcript"])
+@pytest.mark.parametrize(
+    "noun",
+    [
+        "Test evidence",
+        "Validation command output",
+        "Test transcript",
+        "Artifacts",
+        "Validation artifacts",
+    ],
+)
 def test_mandatory_evidence_presence_in_comments_cannot_use_other_channels(
     predicate, destination, noun
 ):
@@ -53,6 +62,10 @@ def test_mandatory_evidence_presence_in_comments_cannot_use_other_channels(
         "Test evidence is not supposed to appear in a PR comment",
         "No test evidence must appear in a PR comment",
         "No test evidence is required to appear in a PR comment",
+        "No artifacts are required to appear in a PR comment",
+        "Neither test evidence nor command output is required to appear in a PR comment",
+        "Neither independently collected validation artifacts nor exact-head regression command output is required to be present in comments on the PR",
+        "Validation artifacts must not be present in comments on the PR",
         "No validation command output is required to be present in comments on the PR",
         "Evidence must be collected, and the UI makes it appear in a PR comment preview",
         "Evidence must be collected; the UI makes it appear in a PR comment preview",

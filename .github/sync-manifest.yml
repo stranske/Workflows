@@ -694,7 +694,7 @@ scripts:
 
   # PR verification and follow-up
   - source: scripts/langchain/pr_verifier.py
-    description: "PR verifier - validates independent acceptance-list items and destination-specific evidence with clause-bound mandatory comment-presence predicates, subject-level no polarity and canonical comment destinations, shared submit/deliver aliases, bounded product-capability spans, qualified recipients and evidence-object modifiers, local negation normalization, attached reviewer predicates through shared destinations, complete body predicates, non-PASS concerns and rename-safe diff coverage"
+    description: "PR verifier - validates independent acceptance-list items and destination-specific evidence with clause-bound mandatory evidence/artifact comment-presence predicates, subject-level no polarity and canonical comment destinations, shared submit/deliver aliases, bounded product-capability spans, qualified recipients and evidence-object modifiers, local negation normalization, attached reviewer predicates through shared destinations, complete body predicates, non-PASS concerns and rename-safe diff coverage"
     delivery: copy
 
   # NOTE (resolved: issue #2347): scripts/langchain/followup_issue_generator.py was MOVED

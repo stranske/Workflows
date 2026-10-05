@@ -1045,9 +1045,11 @@ def _required_evidence_channels(acceptance: str, *, _bind_attached: bool = True)
     # Presence predicates use the existing passive-delivery grammar, including
     # governing negation and modality, instead of a second affirmative regex.
     acceptance = re.sub(
-        r"(?P<prefix>\b(?:no\s+)?"
+        r"(?P<prefix>\b(?:no\s+|neither\s+"
         + evidence_modifiers
-        + r"(?:evidence|command outputs?|transcripts?)\s+"
+        + r"(?:evidence|artifacts?|command outputs?|transcripts?)\s+nor\s+)?"
+        + evidence_modifiers
+        + r"(?:evidence|artifacts?|command outputs?|transcripts?)\s+"
         + mandatory_auxiliary
         + r"\s+"
         + delivery_adverbs
@@ -1057,7 +1059,7 @@ def _required_evidence_channels(acceptance: str, *, _bind_attached: bool = True)
         r"(?:pr comments?|pull request comments?)\b)",
         lambda match: (
             match["prefix"] + "be recorded" + match["destination"]
-            if not re.match(r"no\s+", match["prefix"], re.I)
+            if not re.match(r"(?:no|neither)\s+", match["prefix"], re.I)
             else match[0]
         ),
         acceptance,
@@ -1683,9 +1685,12 @@ def _required_evidence_channels(acceptance: str, *, _bind_attached: bool = True)
         r"(?:must|shall|may|should)\s+not\s+be\s+"
         r"(?:uploaded|attached|provided|published|posted|recorded|captured|"
         r"included|documented|generated|linked)\b"
-        r"|\bneither\s+(?:\w+\s+){0,4}(?:evidence|artifacts?|transcripts?|command outputs?|"
+        r"|\bneither\s+"
+        + evidence_modifiers
+        + r"(?:evidence|artifacts?|transcripts?|command outputs?|"
         r"workflow runs?|pr comments?|pull request comments?)\s+nor\s+"
-        r"(?:\w+\s+){0,4}(?:evidence|artifacts?|transcripts?|command outputs?|"
+        + evidence_modifiers
+        + r"(?:evidence|artifacts?|transcripts?|command outputs?|"
         r"workflow runs?|pr comments?|pull request comments?)\s+"
         r"(?:is|are)\s+(?:required|needed|mandatory)\b"
         r"|\bno\s+(?:\w+\s+){0,4}(?:evidence|artifacts?|transcripts?|command outputs?|"

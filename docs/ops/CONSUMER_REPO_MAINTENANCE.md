@@ -78,8 +78,10 @@ do not create that obligation.
 These presence predicates normalize to the existing passive-record grammar
 before polarity and modality classification, only when the mandatory auxiliary
 directly governs that predicate. Preserve
-subject-level `No`, exclude collection/product-preview clauses, and normalize
+subject-level `No` and coordinated `neither … nor`, exclude collection/product-preview clauses, and normalize
 equivalent `comments on/in the PR` destinations before matching presence.
+Bare and qualified artifact nouns share that grammar: validation artifacts
+required in a PR comment need comment evidence, not merely retrieved artifacts.
 Thus `not expected`, `not supposed`, `no evidence` and `no longer required`
 cannot become affirmative floors.
 The same bounded adverbs apply to ordinary coordinated capability actions,
