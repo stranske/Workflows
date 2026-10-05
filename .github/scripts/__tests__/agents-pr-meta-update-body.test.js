@@ -1889,6 +1889,15 @@ test('a relation-sourced PR stays non-closing across two body syncs', async (t) 
   }
 });
 
+test('explicit closing titles remain closing across two source and template body syncs', async () => {
+  for (const sync of [run, templateRun]) {
+    for (const title of ['Fixes #123', 'Closes issue #123', 'Resolves #123']) {
+      await assertIssueSyncPreservesIntent(sync, { title, body: 'A local fix without an issue link' }, true);
+      await assertIssueSyncPreservesIntent(sync, { title, body: '<!-- pr-preamble:start -->\n<!-- meta:related-issue:123 -->\nRelated to #123\n<!-- pr-preamble:end -->' }, true);
+    }
+  }
+});
+
 test('documented missing-source recovery preserves intent in source and consumer body syncs', async (t) => {
   const document = fs.readFileSync(
     path.resolve(__dirname, '../../../docs/keepalive/GoalsAndPlumbing.md'), 'utf8',

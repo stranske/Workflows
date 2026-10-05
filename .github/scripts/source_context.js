@@ -269,6 +269,7 @@ function extractClosingIssueNumbersFromText(text) {
 
 function extractIssueSourceFromPull(pull = {}) {
   const bodyText = String(pull?.body || '');
+  const titleClosingIssueNumbers = extractClosingIssueNumbersFromText(pull?.title || '');
   const metaIssueNumbers = new Set(
     Array.from(bodyText.matchAll(/<!--\s*meta:issue:([0-9]+)\s*-->/gi), (match) =>
       Number.parseInt(match[1], 10),
@@ -294,7 +295,11 @@ function extractIssueSourceFromPull(pull = {}) {
     bodyIssueNumbers.add(Number.parseInt(match[1], 10));
   }
   if (bodyIssueNumbers.size === 1) {
-    return { issueNumber: Array.from(bodyIssueNumbers)[0], via: 'mention' };
+    const issueNumber = Array.from(bodyIssueNumbers)[0];
+    // A synchronized relation marker must not erase explicit closing intent
+    // for this same issue in the title. Conflicting source bindings still win.
+    const titleClosesSource = titleClosingIssueNumbers.size === 1 && titleClosingIssueNumbers.has(issueNumber);
+    return { issueNumber, via: titleClosesSource ? 'closing' : 'mention' };
   }
   if (bodyIssueNumbers.size > 1) {
     return { issueNumber: null, via: null };
@@ -306,9 +311,12 @@ function extractIssueSourceFromPull(pull = {}) {
     return { issueNumber: Number.parseInt(branchMatch[1], 10), via: 'branch' };
   }
 
-  const titleNumber = extractIssueNumberFromText(pull?.title || '');
+  if (titleClosingIssueNumbers.size > 1) return { issueNumber: null, via: null };
+  const titleNumber = titleClosingIssueNumbers.size === 1
+    ? Array.from(titleClosingIssueNumbers)[0]
+    : extractIssueNumberFromText(pull?.title || '');
   if (titleNumber) {
-    return { issueNumber: titleNumber, via: 'title' };
+    return { issueNumber: titleNumber, via: titleClosingIssueNumbers.size === 1 ? 'closing' : 'title' };
   }
 
   return { issueNumber: null, via: null };

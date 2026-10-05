@@ -1000,3 +1000,13 @@ test('extractIssueSourceFromPull preserves provenance and ambiguity', () => {
     assert.equal(extractIssueNumberFromPull(pull), expected.issueNumber);
   }
 });
+
+test('explicit closing title intent is distinguished from incidental title relations', () => {
+  for (const title of ['Fixes #42', 'Closes issue #42', 'Resolves #42']) {
+    assert.deepEqual(extractIssueSourceFromPull({ title }), { issueNumber: 42, via: 'closing' });
+    assert.deepEqual(extractIssueSourceFromPull({ title, body: '<!-- meta:related-issue:42 -->\nRelated to #42' }), { issueNumber: 42, via: 'closing' });
+  }
+  assert.deepEqual(extractIssueSourceFromPull({ title: 'Related to #42' }), { issueNumber: 42, via: 'title' });
+  assert.deepEqual(extractIssueSourceFromPull({ title: 'Fixes #42 and resolves #43' }), { issueNumber: null, via: null });
+  assert.deepEqual(extractIssueSourceFromPull({ title: 'Fixes #43', body: 'Related to #42' }), { issueNumber: 42, via: 'mention' });
+});
