@@ -1314,17 +1314,19 @@ def _required_evidence_channels(acceptance: str) -> set[str]:
             evidence_term.search(text) and (requirement.search(actions) or passive_requirement)
         )
 
-    def product_comment_object(prefix: str, destination: str) -> bool:
-        """Classify the governing operation's subject, not domain words anywhere."""
-        # These complete capability forms govern the same bare infinitive.
-        # Consume bounded auxiliaries/adverbs, never a later actor clause.
-        prefix = re.sub(
+    def normalize_progressive_capability(text: str) -> str:
+        """Share bounded auxiliary/adverb grammar across product evidence channels."""
+        return re.sub(
             r"\b(?:(?:is|are|was|were)|(?:has|have|had)\s+been|support(?:s|ed|ing)?)\s+"
             r"(?:(?:now|currently|already|still|[\w-]+ly)\s+){0,3}letting\b",
             "let",
-            prefix,
+            text,
             flags=re.I,
         )
+
+    def product_comment_object(prefix: str, destination: str) -> bool:
+        """Classify the governing operation's subject, not domain words anywhere."""
+        prefix = normalize_progressive_capability(prefix)
         operations = list(
             re.finditer(
                 r"\b(?!renderer\b)(?:"
@@ -2133,7 +2135,7 @@ def _required_evidence_channels(acceptance: str) -> set[str]:
                         + r"\s+(?:to\s+)?)?)?"
                         + r"(?:upload|attach|publish|post|record|capture|"
                         r"provide|include|document)\w*\b.{0,60}\bartifacts?\b",
-                        requirement_text,
+                        normalize_progressive_capability(requirement_text),
                         re.I,
                     )
                 )

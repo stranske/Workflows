@@ -3189,3 +3189,19 @@ def test_client_artifact_capability_preserves_review_obligation(
     assert pr_verifier._required_evidence_channels(criterion) == (
         {"artifacts"} if independent else set()
     )
+
+
+@pytest.mark.parametrize(
+    "operation", ["is currently letting", "has been letting", "supports reliably letting"]
+)
+@pytest.mark.parametrize("recipient", ["users", "clients", "consumers"])
+@pytest.mark.parametrize("independent", [False, True])
+def test_progressive_artifact_capability_shares_comment_grammar(
+    operation: str, recipient: str, independent: bool
+) -> None:
+    criterion = f"The UI {operation} {recipient} upload artifacts"
+    if independent:
+        criterion += "; the reviewer must upload validation artifacts to the PR"
+    assert pr_verifier._required_evidence_channels(criterion) == (
+        {"artifacts"} if independent else set()
+    )
