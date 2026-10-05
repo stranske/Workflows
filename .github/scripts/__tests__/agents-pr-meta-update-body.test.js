@@ -11,6 +11,7 @@ const {
 
 const {
   run: templateRun,
+  stripPrTemplateContent: templateStripPrTemplateContent,
 } = require('../../../templates/consumer-repo/.github/scripts/agents_pr_meta_update_body.js');
 
 const {
@@ -481,6 +482,19 @@ test('extractBlock returns empty string if markers not found', () => {
 
 // ========== stripPrTemplateContent tests ==========
 
+const managedMarkerOrders = [
+  ['pr-preamble'],
+  ['auto-status-summary'],
+  ['pr-preamble', 'auto-status-summary'],
+  ['auto-status-summary', 'pr-preamble'],
+];
+
+function managedBlocks(markers) {
+  return markers.map((marker) =>
+    `<!-- ${marker}:start -->\nManaged content\n<!-- ${marker}:end -->`
+  ).join('\n\n');
+}
+
 test('stripPrTemplateContent preserves checkbox-bearing content before pr-preamble marker', () => {
   const body = `# Summary
 
@@ -506,28 +520,55 @@ Add labels.
   assert.equal(result, body);
 });
 
-test('stripPrTemplateContent preserves an author description without checklist items before managed markers', () => {
+test('stripPrTemplateContent preserves an author description without checklist items before managed markers', async (t) => {
   const prose = '# What happened\n\nFixed the body sync.\n\n1. Evidence preserved.\n2. Tests rerun.\n\n';
-  const managed = '<!-- pr-preamble:start -->\nManaged preamble\n<!-- pr-preamble:end -->';
-  assert.equal(stripPrTemplateContent(prose + managed), prose + managed);
-});
-
-test('stripPrTemplateContent drops an unfilled PR template before managed markers', () => {
-  const template = fs.readFileSync(path.resolve(__dirname, '../../PULL_REQUEST_TEMPLATE.md'), 'utf8');
-  for (const marker of ['pr-preamble', 'auto-status-summary']) {
-    const managed = `<!-- ${marker}:start -->\nManaged content\n<!-- ${marker}:end -->`;
-    for (const prefix of [template, ` \n<!-- Template hint\ncontinued -->\n${template}\n\t`]) {
-      assert.equal(stripPrTemplateContent(prefix + '\n' + managed), managed);
-    }
+  for (const [name, strip] of [
+    ['Workflows source', stripPrTemplateContent],
+    ['consumer template', templateStripPrTemplateContent],
+  ]) {
+    await t.test(name, () => {
+      for (const markers of managedMarkerOrders) {
+        const body = prose + managedBlocks(markers);
+        assert.equal(strip(body), body, `Marker order: ${markers.join(', ')}`);
+      }
+    });
   }
 });
 
-test('the PR template skeleton constant matches .github/PULL_REQUEST_TEMPLATE.md', () => {
-  const { PR_TEMPLATE_SKELETON_LINES, stripPrTemplateControls } = require('../issue_scope_parser');
+test('stripPrTemplateContent drops an unfilled PR template before managed markers', async (t) => {
   const template = fs.readFileSync(path.resolve(__dirname, '../../PULL_REQUEST_TEMPLATE.md'), 'utf8');
-  const remaining = stripPrTemplateControls(template).replace(/<!--[\s\S]*?-->/g, '');
-  for (const line of remaining.split('\n').map((line) => line.trim()).filter(Boolean)) {
-    assert.ok(PR_TEMPLATE_SKELETON_LINES.includes(line), `Unknown template skeleton: ${line}`);
+  for (const [name, strip] of [
+    ['Workflows source', stripPrTemplateContent],
+    ['consumer template', templateStripPrTemplateContent],
+  ]) {
+    await t.test(name, () => {
+      for (const markers of managedMarkerOrders) {
+        const managed = managedBlocks(markers);
+        for (const prefix of [template, ` \n<!-- Template hint\ncontinued -->\n${template}\n\t`]) {
+          assert.equal(strip(prefix + '\n' + managed), managed, `Marker order: ${markers.join(', ')}`);
+        }
+      }
+    });
+  }
+});
+
+test('the PR template skeleton constant matches .github/PULL_REQUEST_TEMPLATE.md', async (t) => {
+  for (const [name, directory] of [
+    ['Workflows source', path.resolve(__dirname, '../..')],
+    ['consumer template', path.resolve(__dirname, '../../../templates/consumer-repo/.github')],
+  ]) {
+    await t.test(name, () => {
+      const { PR_TEMPLATE_SKELETON_LINES, stripPrTemplateControls } = require(
+        path.join(directory, 'scripts/issue_scope_parser.js')
+      );
+      const template = fs.readFileSync(path.join(directory, 'PULL_REQUEST_TEMPLATE.md'), 'utf8');
+      const remaining = stripPrTemplateControls(template).replace(/<!--[\s\S]*?-->/g, '');
+      const lines = remaining.split('\n').map((line) => line.trim()).filter(Boolean);
+      assert.ok(lines.length > 0, 'the shipped template must have visible skeleton lines');
+      for (const line of lines) {
+        assert.ok(PR_TEMPLATE_SKELETON_LINES.includes(line), `Unknown template skeleton: ${line}`);
+      }
+    });
   }
 });
 
