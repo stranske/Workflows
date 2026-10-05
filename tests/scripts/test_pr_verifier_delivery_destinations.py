@@ -92,6 +92,19 @@ def test_optional_actor_cannot_suppress_prove_delivery():
     ) == {"artifacts"}
 
 
+@pytest.mark.parametrize(
+    "modifier", ["previously published", "already uploaded", "recently recorded"]
+)
+def test_optional_participial_object_is_not_a_finite_past_actor(modifier):
+    """A coordinated evidence modifier has no independently governing actor."""
+    criterion = (
+        "The reviewer may include current evidence in the PR body and "
+        + modifier
+        + " evidence in workflow artifacts"
+    )
+    assert verifier._required_evidence_channels(criterion) == set()
+
+
 @pytest.mark.parametrize("auxiliary", ["do", "does", "did"])
 @pytest.mark.parametrize("role", ["reviewer", "maintainer"])
 @pytest.mark.parametrize("modal", ["may", "can", "could", "would", "should"])

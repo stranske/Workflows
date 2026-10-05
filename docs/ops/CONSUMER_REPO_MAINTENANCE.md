@@ -1343,6 +1343,9 @@ Bare active-past delivery predicates also reset the actor rather than inheriting
 a preceding optional modal. The shared operation grammar retains `prove`;
 `supply`, `supplies`, `supplied` and `supplying` normalize to the same
 record grammar in active/passive, polarity and product-recipient paths.
+The bare active-past branch requires a recognized qualified actor and shares
+the bounded adverb grammar. Participial evidence modifiers such as
+`previously published evidence` do not introduce an independent actor.
 Do-supported product storage (`do`, `does`, `did`) shares the finite auxiliary
 grammar and does not create a review obligation. Comma-separated and conjunctive
 shared storage/review destinations reuse the delivery-list separator grammar,

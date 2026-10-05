@@ -2106,7 +2106,11 @@ def _required_evidence_channels(acceptance: str, *, _bind_attached: bool = True)
             + r"\s+)"
             + coordinated_governor
             + delivery_operation
-            + r"|(?:(?!(?:and|or|but|while|whereas)\b)[\w-]+\s+){1,6}"
+            + r"|(?:(?:the|an?)\s+)?"
+            + evidence_modifiers
+            + parenthetical_actor
+            + r"\b\s+"
+            + delivery_adverbs
             + r"(?:recorded|published|uploaded|attached|captured|provided|posted|documented)\b"
         )
         clause_boundary = (
