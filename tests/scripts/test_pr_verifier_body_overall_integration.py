@@ -19,9 +19,13 @@ NODE = shutil.which("node")
     "noun",
     [
         "validation evidence",
+        "CI validation evidence",
+        "independently collected evidence",
+        "exact-head regression evidence",
         "before/after evidence",
         "test transcript",
         "validation command output",
+        "independently collected exact-head regression validation command output",
     ],
 )
 def test_qualified_body_delivery_cannot_use_another_present_channel(operation, noun):
@@ -37,6 +41,54 @@ def test_qualified_body_delivery_cannot_use_another_present_channel(operation, n
         assert pr_verifier._required_evidence_is_missing(evidence, {"body"}) == (
             body_status != "present"
         )
+        context, _ = _context(1, 1000, 1000)
+        context = context.replace(ACCEPTANCE_SENTINEL, criterion).replace(
+            "## PR Diff Summary", "## Acceptance evidence\n\n- " + evidence + "\n## PR Diff Summary"
+        )
+        result = pr_verifier._apply_coverage_floor(
+            pr_verifier.EvaluationResult(verdict="PASS", used_llm=True),
+            pr_verifier.prompt_coverage(context, None),
+        )
+        assert result.verdict == ("PASS" if body_status == "present" else "CONCERNS")
+
+
+@pytest.mark.parametrize(
+    "noun", ["CI validation evidence", "independently collected evidence", "test transcript"]
+)
+@pytest.mark.parametrize(
+    "template",
+    [
+        "{noun} must be delivered in the PR body",
+        "There must be {noun} in the PR body",
+        "The PR body must contain {noun}",
+        "{noun} in the PR body is required",
+    ],
+)
+def test_qualified_body_predicates_bind_the_same_destination(noun, template):
+    assert pr_verifier._required_evidence_channels(template.format(noun=noun)) == {"body"}
+
+
+@pytest.mark.parametrize(
+    "noun",
+    ["CI validation evidence", "independently collected evidence", "validation command output"],
+)
+@pytest.mark.parametrize(
+    "template",
+    [
+        "No {noun} must be recorded in the PR body",
+        "The PR body must contain no {noun}",
+        "No {noun} in the PR body is required",
+        "The reviewer may deliver {noun} in the PR body",
+        "The reviewer must not submit {noun} in the PR body",
+        "The UI lets users submit {noun} in the PR body editor",
+    ],
+)
+def test_qualified_body_exemptions_preserve_independent_delivery(noun, template):
+    criterion = template.format(noun=noun)
+    assert pr_verifier._required_evidence_channels(criterion) == set()
+    assert pr_verifier._required_evidence_channels(
+        criterion + "; the reviewer must deliver validation evidence in a PR comment"
+    ) == {"comments"}
 
 
 @pytest.mark.parametrize(
