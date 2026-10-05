@@ -3386,17 +3386,33 @@ def test_repeated_capability_verb_keeps_governing_product_subject(
 
 
 @pytest.mark.parametrize(
-    "capability", ["lets users", "must not let clients", "won't let authenticated users"]
+    "product_clause",
+    [
+        "lets users upload",
+        "must not let clients upload",
+        "won't let authenticated users upload",
+        "must display",
+        "must show",
+        "must return",
+    ],
 )
 @pytest.mark.parametrize("artifact", ["artifacts", "validation artifacts"])
-@pytest.mark.parametrize("predicate", ["that the reviewer must upload", "that must be uploaded"])
+@pytest.mark.parametrize(
+    "predicate",
+    [
+        "that the reviewer must upload",
+        "that must be uploaded",
+        "that must have been uploaded",
+        "that must have been being uploaded",
+    ],
+)
 @pytest.mark.parametrize(
     "destination", ["to", "into", "in", "within", "for", "as", "through", "via"]
 )
 def test_attached_delivery_binding_uses_shared_destination_and_coverage_floor(
-    capability: str, artifact: str, predicate: str, destination: str
+    product_clause: str, artifact: str, predicate: str, destination: str
 ) -> None:
-    criterion = f"The UI {capability} upload {artifact} {predicate} {destination} the PR"
+    criterion = f"The UI {product_clause} {artifact} {predicate} {destination} the PR"
     assert pr_verifier._required_evidence_channels(criterion) == {"artifacts"}
     context, _ = _context(1, 1000, 1000)
     context = context.replace(ACCEPTANCE_SENTINEL, criterion).replace(

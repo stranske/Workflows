@@ -63,7 +63,9 @@ An object used by an attached mandatory delivery (`artifacts that the reviewer
 must upload`, or `artifacts must be uploaded`) remains as that delivery's
 antecedent. Before suppressing a capability span, bind its attached mandatory
 predicate, original actor, polarity and immediate review destination together.
-Classify that isolated obligation with the shared destination and channel grammar;
+Apply this binding before both capability and product-response suppression.
+Classify that isolated obligation with the shared destination and channel grammar,
+including every declared passive aspect (`be`, `have been`, `have been being`);
 active/passive wording and bare/qualified artifacts must not select different
 preposition rules. Missing required evidence still lowers a supplied PASS to CONCERNS.
 Coordinated capability actions consume only a complete recognized
