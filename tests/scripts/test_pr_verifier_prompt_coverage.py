@@ -3325,3 +3325,61 @@ def test_modified_recipients_and_contracted_capabilities_preserve_review(
     assert pr_verifier._required_evidence_channels(criterion) == (
         {"comments"} if independent else set()
     )
+
+
+@pytest.mark.parametrize("artifact", ["artifacts", "validation artifacts"])
+@pytest.mark.parametrize("capability", ["lets users", "won't let authenticated users"])
+@pytest.mark.parametrize("attachment", ["that the reviewer must upload", "that must be uploaded"])
+@pytest.mark.parametrize("independent", [False, True])
+def test_attached_artifact_delivery_does_not_depend_on_validation_qualifier(
+    artifact: str, capability: str, attachment: str, independent: bool
+) -> None:
+    criterion = f"The UI {capability} upload {artifact} {attachment} to the PR"
+    if independent:
+        criterion += "; the reviewer must submit evidence in a PR comment"
+    assert pr_verifier._required_evidence_channels(criterion) == (
+        {"artifacts", "comments"} if independent else {"artifacts"}
+    )
+
+
+@pytest.mark.parametrize(
+    "initial", ["upload artifacts", "upload validation artifacts", "submit evidence"]
+)
+@pytest.mark.parametrize("following", ["submit evidence", "post PR comments", "upload artifacts"])
+def test_product_capability_coordination_is_channel_symmetric(initial: str, following: str) -> None:
+    assert (
+        pr_verifier._required_evidence_channels(f"The UI lets users {initial} and {following}")
+        == set()
+    )
+
+
+@pytest.mark.parametrize(
+    "recipient",
+    ["assigned reviewers", "authorized maintainers", "experienced authors", "designated operators"],
+)
+@pytest.mark.parametrize("capability", ["lets", "allows"])
+@pytest.mark.parametrize("independent", [False, True])
+def test_qualified_review_role_can_be_a_product_capability_recipient(
+    recipient: str, capability: str, independent: bool
+) -> None:
+    infinitive = "" if capability == "lets" else "to "
+    criterion = f"The UI {capability} {recipient} {infinitive}post PR comments"
+    if independent:
+        criterion += "; the reviewer must submit evidence in a PR comment"
+    assert pr_verifier._required_evidence_channels(criterion) == (
+        {"comments"} if independent else set()
+    )
+
+
+@pytest.mark.parametrize("capability", ["lets clients", "allows authorized maintainers to"])
+@pytest.mark.parametrize("following", ["upload artifacts", "post PR comments", "submit evidence"])
+@pytest.mark.parametrize("independent", [False, True])
+def test_repeated_capability_verb_keeps_governing_product_subject(
+    capability: str, following: str, independent: bool
+) -> None:
+    criterion = f"The UI lets users submit evidence and {capability} {following}"
+    if independent:
+        criterion += "; the reviewer must upload validation artifacts to the PR"
+    assert pr_verifier._required_evidence_channels(criterion) == (
+        {"artifacts"} if independent else set()
+    )

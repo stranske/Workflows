@@ -994,12 +994,12 @@ def _required_evidence_channels(acceptance: str) -> set[str]:
         r"(?:has|have)\s+to)"
     )
     passive_delivery_prefix = r"(?:be|have\s+been)(?:\s+being)?\s+"
-    recipient_noun = (
+    recipient_prefix = (
         r"(?:(?:all|any|some|each|every)\s+)?"
         r"(?:(?:the|its|our|their|your|an?)\s+)?"
         r"(?:(?!(?:and|or|but|must|shall|is|are|not|never|may|can|to|of|for|by|with|who|that|which)\b)[\w/-]+\s+){0,4}"
-        r"(?:clients?|users?|consumers?)\b"
     )
+    recipient_noun = recipient_prefix + r"(?:clients?|users?|consumers?)\b"
     product_recipient = r"(?:to|for)\s+" + recipient_noun
     artifact_destination_object = r"(?:workflow|ci|github actions)\s+artifacts?\b"
     review_destination_noun = (
@@ -1359,12 +1359,10 @@ def _required_evidence_channels(acceptance: str) -> set[str]:
         if not operations:
             return False
         capability = bool(re.fullmatch(capability_operation, operations[0][0], re.I))
-        bare_capability = bool(re.fullmatch(r"let(?:s|ting)?", operations[0][0], re.I))
         if capability:
             actor = (
-                r"(?:" + recipient_noun + r"|"
-                r"(?:(?:the|an?)\s+)?(?:(?:api|ui)\s+)?"
-                r"(?:users?|clients?|consumers?|reviewers?|maintainers?|authors?|operators?))"
+                recipient_prefix + r"(?:(?:api|ui)\s+)?"
+                r"(?:users?|clients?|consumers?|reviewers?|maintainers?|authors?|operators?)"
             )
             base_operations = {
                 "display",
@@ -1389,11 +1387,19 @@ def _required_evidence_channels(acceptance: str) -> set[str]:
                 "have",
             }
             for index, current in enumerate(operations[1:], start=1):
-                if current[0].lower() not in base_operations:
+                current_capability = bool(re.fullmatch(capability_operation, current[0], re.I))
+                if current[0].lower() not in base_operations and not current_capability:
                     return False
-                between = prefix[operations[index - 1].end() : current.start()]
-                if index == 1:
-                    complement = r"\s+" if bare_capability else r"\s+to\s*"
+                previous = operations[index - 1]
+                between = prefix[previous.end() : current.start()]
+                if re.fullmatch(capability_operation, previous[0], re.I):
+                    if current_capability:
+                        return False
+                    complement = (
+                        r"\s+"
+                        if re.fullmatch(r"let(?:s|ting)?", previous[0], re.I)
+                        else r"\s+to\s*"
+                    )
                     recognized = re.fullmatch(r"\s*" + actor + complement, between, re.I)
                 else:
                     # Consume only an entire recognized preceding object.
@@ -1409,7 +1415,9 @@ def _required_evidence_channels(acceptance: str) -> set[str]:
                         flags=re.I,
                     )
                     recognized = re.fullmatch(
-                        r"\s*,?\s*(?:and|or)(?:\s+(?:" + actor + r"\s+)?to)?\s*",
+                        r"\s*,?\s*(?:and|or)"
+                        + ("" if current_capability else r"(?:\s+(?:" + actor + r"\s+)?to)?")
+                        + r"\s*",
                         between,
                         re.I,
                     )
@@ -1796,11 +1804,15 @@ def _required_evidence_channels(acceptance: str) -> set[str]:
                 and re.search(r"\b" + capability_operation + r"\b", fragments[-1], re.I)
             ):
                 combined = fragments[-1] + boundary + fragment
-                comment_objects = list(
-                    re.finditer(r"\b(?:pr|pull request)\s+comments?\b", combined, re.I)
+                capability_objects = list(
+                    re.finditer(
+                        r"\b(?:evidence|artifacts?|transcripts?|command outputs?|pr comments?|pull request comments?)\b",
+                        combined,
+                        re.I,
+                    )
                 )
-                if comment_objects:
-                    last_object = comment_objects[-1]
+                if capability_objects:
+                    last_object = capability_objects[-1]
                     if product_comment_object(
                         combined[: last_object.start()], combined[last_object.end() :]
                     ):
@@ -2162,6 +2174,16 @@ def _required_evidence_channels(acceptance: str) -> set[str]:
                         r"\b(?:upload|attach|publish|post|record|capture|provide|include|document)"
                         r"\w*\b.{0,60}\bartifacts?\b.{0,40}"
                         r"\b(?:to|into|in)\s+(?:the\s+)?(?:pr|pull request)\b",
+                        requirement_text,
+                        re.I,
+                    )
+                    or re.search(
+                        r"\bartifacts?\b\s+(?:that|which)\s+"
+                        r"(?:(?!(?:must|shall|needs?|has|have|is|are)\b)[\w/-]+\s+){0,6}"
+                        + mandatory_auxiliary
+                        + r"\s+"
+                        r"(?:upload|attach|publish|post|record|capture|provide|include|document)\w*\b\s+"
+                        r"(?:to|into|in)\s+(?:the\s+)?(?:pr|pull request)\b",
                         requirement_text,
                         re.I,
                     )

@@ -66,6 +66,15 @@ preceding object, never an unknown intervening predicate. Recipient modifiers
 such as `authenticated users` and `enterprise clients` use one bounded grammar
 across channels. Contracted modal negations (`won't`, `couldn't`, `mustn't`) are
 canonicalized only for product recognition and cannot erase reviewer requirements.
+Attached active reviewer delivery must bind bare `artifacts` as well as
+`validation artifacts` to its explicit PR destination. Clause recombination uses
+the same evidence/artifact/output/comment object vocabulary as capability-chain
+recognition, so changing the final channel cannot change product-only semantics.
+Capability recipients reuse the bounded qualifier prefix for supported review
+roles too (`assigned reviewers`, `authorized maintainers`). This does not make
+review roles product-output destinations. A repeated capability verb after a
+recognized object and coordination starts its own bare/`to` complement under
+the same product subject; a new human subject or unknown predicate cannot inherit it.
 
 Regression gates: `python3 -m pytest tests/scripts/test_pr_verifier_prompt_coverage.py
 tests/scripts/test_pr_verifier_sync_manifest.py -q --no-cov` and
