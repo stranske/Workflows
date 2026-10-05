@@ -11,6 +11,35 @@ from scripts.langchain import pr_verifier as verifier
 
 @pytest.mark.parametrize("auxiliary", ["do", "does", "did"])
 @pytest.mark.parametrize("role", ["reviewer", "maintainer"])
+@pytest.mark.parametrize("modal", ["may", "can", "could", "would", "should"])
+@pytest.mark.parametrize("governor", ["must", "shall", "needs to", "will"])
+@pytest.mark.parametrize("operation", ["put", "place", "write"])
+@pytest.mark.parametrize(
+    "destinations", list(permutations(["the PR body", "a PR comment", "workflow artifacts"], 2))
+)
+def test_optional_review_predicate_cannot_suppress_elided_mandatory_delivery(
+    auxiliary, role, modal, governor, operation, destinations
+):
+    before, after = destinations
+    expected = "body" if "body" in after else "comments" if "comment" in after else "artifacts"
+    criterion = f"The {role} {modal} {operation} evidence in {before} and {governor} {operation} evidence in {after}"
+    assert verifier._required_evidence_channels(criterion) == {expected}
+    assert (
+        verifier._required_evidence_channels(
+            criterion.replace(f"and {governor} ", f"and {governor} not ")
+        )
+        == set()
+    )
+    assert verifier._required_evidence_channels(
+        criterion.replace(f"{modal} ", f"{modal} not ")
+    ) == {expected}
+    assert verifier._required_evidence_channels(
+        f"The service {auxiliary} put evidence in its database; " + criterion
+    ) == {expected}
+
+
+@pytest.mark.parametrize("auxiliary", ["do", "does", "did"])
+@pytest.mark.parametrize("role", ["reviewer", "maintainer"])
 @pytest.mark.parametrize(
     "qualifier", ["after checking the", "before reviewing the", "following inspection of the"]
 )

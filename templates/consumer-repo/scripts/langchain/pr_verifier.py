@@ -1223,12 +1223,17 @@ def _required_evidence_channels(acceptance: str, *, _bind_attached: bool = True)
         r"(?:" + mandatory_auxiliary + r"|will|" + optional_delivery_modal + r"|do|does|did)\s+"
     )
     product_actor = r"(?:(?:the|an?)\s+)?(?:application|app|service|api|endpoint)"
-    product_aspect = (
-        r"(?:(?:"
+    delivery_governor_auxiliary = (
+        r"(?:"
         + mandatory_auxiliary
         + r"|will|"
         + optional_delivery_modal
-        + r"|has|have|had|is|are|was|were|do|does|did)\s+)?"
+        + r"|has|have|had|is|are|was|were|do|does|did)"
+    )
+    product_aspect = (
+        r"(?:"
+        + delivery_governor_auxiliary
+        + r"\s+)?"
         + delivery_adverbs
         + r"(?:have\s+)?(?:be\s+|been\s+)?(?:being\s+)?"
         + delivery_adverbs
@@ -1290,11 +1295,9 @@ def _required_evidence_channels(acceptance: str, *, _bind_attached: bool = True)
         r"(?:database|audit log|storage|application log)\b"
     )
     coordinated_governor = (
-        r"(?:(?:"
-        + mandatory_auxiliary
-        + r"|will|"
-        + optional_delivery_modal
-        + r"|has|have|had|is|are|was|were|do|does|did)\s+)?"
+        r"(?:"
+        + delivery_governor_auxiliary
+        + r"\s+)?"
         + delivery_adverbs
         + r"(?:(?:not|never|no\s+longer)\s+)?"
         + delivery_adverbs
@@ -2096,6 +2099,12 @@ def _required_evidence_channels(acceptance: str, *, _bind_attached: bool = True)
         clause_boundary = (
             r"\s*;\s*|,?\s+(?:but|whereas)\s+|"
             r"(?:,?\s+(?:and|while)\s+)(?="
+            + delivery_governor_auxiliary
+            + r"\s+)(?="
+            + coordinated_governor
+            + delivery_operation
+            + r")|"
+            r"(?:,?\s+(?:and|while)\s+)(?="
             + review_destination_noun
             + r"\s+"
             + independent_review_predicate
@@ -2149,7 +2158,13 @@ def _required_evidence_channels(acceptance: str, *, _bind_attached: bool = True)
                 # A punctuated relative predicate still belongs to its noun.
                 continue
             independent_predicate = re.match(
-                review_destination_noun + r"\s+" + independent_review_predicate,
+                r"(?:"
+                + review_destination_noun
+                + r"\s+"
+                + independent_review_predicate
+                + r"|"
+                + delivery_governor_auxiliary
+                + r"\s+)",
                 criterion[boundary_match.end() :],
                 re.I,
             )
@@ -2174,6 +2189,7 @@ def _required_evidence_channels(acceptance: str, *, _bind_attached: bool = True)
             if (
                 fragments
                 and re.fullmatch(r"\s*,?\s*and\s+", boundary, re.I)
+                and not re.match(r"\s*" + delivery_governor_auxiliary + r"\s+", fragment, re.I)
                 and re.fullmatch(
                     r"\s*(?:(?!(?:and|or|but|must|shall|is|are|not|never)\b)[\w/-]+\s+){0,4}"
                     r"(?:evidence|artifacts?|transcripts?|command outputs?)\s+"

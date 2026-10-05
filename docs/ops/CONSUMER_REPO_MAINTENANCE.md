@@ -1310,6 +1310,12 @@ Review-related nouns inside validation qualifiers do not erase the outer
 actor. A comma-led shared destination is protected at the start of an aside
 (including its conjunction), while actual evidence-delivery predicates and
 governing terms remain protected throughout its bounded word sequence.
+An explicit new governor after an elided-subject coordination starts an
+independent delivery predicate. The shared finite auxiliary vocabulary bounds
+that reset before optionality/polarity classification; a broad body match
+cannot hide it, and shared noun-only object inheritance cannot prepend a
+previous predicate to it. Bare product-field nouns such as `records` do not
+become independent predicates through this governor-only boundary.
 Do-supported product storage (`do`, `does`, `did`) shares the finite auxiliary
 grammar and does not create a review obligation. Comma-separated and conjunctive
 shared storage/review destinations reuse the delivery-list separator grammar,
