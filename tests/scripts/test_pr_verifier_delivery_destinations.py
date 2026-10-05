@@ -28,6 +28,7 @@ from scripts.langchain import pr_verifier as verifier
 def test_optional_predicate_cannot_suppress_named_actor_delivery(
     role, modal, governor, operation, destinations
 ):
+    """Retain independently governed deliveries across optional actor clauses."""
     before, after = destinations
     expected = "body" if "body" in after else "comments" if "comment" in after else "artifacts"
     first = f"The reviewer {modal} put evidence in {before}"
@@ -44,6 +45,51 @@ def test_optional_predicate_cannot_suppress_named_actor_delivery(
         "- Overall retrieval status: **absent**\n- PR body: **absent**\n- PR comments: **absent**\n- Referenced workflow artifacts: **absent**",
         verifier._required_evidence_channels(first + " and " + second),
     )
+
+
+@pytest.mark.parametrize("boundary", ["! ", "? ", ". ", " while ", " and ", "; "])
+@pytest.mark.parametrize("predicate", ["must place", "placed", "has placed"])
+def test_optional_actor_sentence_boundaries_retain_delivery(boundary, predicate):
+    """Sentence and finite-past actor boundaries cannot erase a delivery."""
+    criterion = (
+        "The reviewer may put evidence in workflow artifacts"
+        + boundary
+        + f"the maintainer {predicate} evidence in a PR comment"
+    )
+    assert verifier._required_evidence_channels(criterion) == {"comments"}
+    assert verifier._required_evidence_is_missing("- PR comments: **absent**", {"comments"})
+
+
+@pytest.mark.parametrize(
+    "predicate", ["must supply", "must be supplied", "supplied", "is supplying"]
+)
+@pytest.mark.parametrize(
+    "destination,channel",
+    [("the PR body", "body"), ("a PR comment", "comments"), ("workflow artifacts", "artifacts")],
+)
+def test_supply_alias_retains_delivery_and_product_controls(predicate, destination, channel):
+    """Supply aliases share obligation, destination, and product semantics."""
+    subject = "Test evidence" if "be supplied" in predicate else "The reviewer"
+    obj = "" if "be supplied" in predicate else " test evidence"
+    criterion = f"{subject} {predicate}{obj} in {destination}"
+    assert verifier._required_evidence_channels(criterion) == {channel}
+    assert (
+        verifier._required_evidence_channels("The service must supply command output to its users")
+        == set()
+    )
+    assert (
+        verifier._required_evidence_channels(
+            f"The reviewer must not supply evidence in {destination}"
+        )
+        == set()
+    )
+
+
+def test_optional_actor_cannot_suppress_prove_delivery():
+    """Keep the existing prove operation in the shared actor grammar."""
+    assert verifier._required_evidence_channels(
+        "The reviewer may record evidence in the PR body and the maintainer must prove the result in workflow artifacts"
+    ) == {"artifacts"}
 
 
 @pytest.mark.parametrize("auxiliary", ["do", "does", "did"])

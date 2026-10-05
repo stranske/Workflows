@@ -1338,6 +1338,11 @@ operation grammar as elided actors. The boundary and broad-destination span
 guards must agree: an optional reviewer delivery cannot absorb a separate
 maintainer's mandatory, perfect or progressive delivery. Regression controls
 cover qualified actors, all three destination channels and genuine prohibitions.
+Sentence-ending period, exclamation and question marks share that boundary.
+Bare active-past delivery predicates also reset the actor rather than inheriting
+a preceding optional modal. The shared operation grammar retains `prove`;
+`supply`, `supplies`, `supplied` and `supplying` normalize to the same
+record grammar in active/passive, polarity and product-recipient paths.
 Do-supported product storage (`do`, `does`, `did`) shares the finite auxiliary
 grammar and does not create a review obligation. Comma-separated and conjunctive
 shared storage/review destinations reuse the delivery-list separator grammar,

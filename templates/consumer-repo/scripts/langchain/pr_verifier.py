@@ -983,7 +983,7 @@ def _required_evidence_channels(acceptance: str, *, _bind_attached: bool = True)
     response_operation = (
         r"(?:include|contain|have|return|display|show|store|emit|render|expose|provide)\w*\b"
     )
-    delivery_operation = r"(?:provide|return|display|show|emit|render|expose|store|upload|attach|publish|post|record|capture|include|contain|have|document|generate|link|add|leave)\w*\b"
+    delivery_operation = r"(?:prove|provide|return|display|show|emit|render|expose|store|upload|attach|publish|post|record|capture|include|contain|have|document|generate|link|add|leave)\w*\b"
     capability_operation = r"(?:(?:allow|enable|support)\w*|let(?:s|ting)?)"
     evidence_modifiers = (
         r"(?:(?!(?:and|or|but|must|shall|is|are|not|never|may|can)\b)[\w/-]+\s+){0,6}"
@@ -1098,6 +1098,10 @@ def _required_evidence_channels(acceptance: str, *, _bind_attached: bool = True)
         "delivers": "records",
         "delivered": "recorded",
         "delivering": "recording",
+        "supply": "record",
+        "supplies": "records",
+        "supplied": "recorded",
+        "supplying": "recording",
     }
 
     quoted_evidence_literal = (
@@ -1151,7 +1155,7 @@ def _required_evidence_channels(acceptance: str, *, _bind_attached: bool = True)
         alias = match["alias"]
         if not alias:
             return match[0]
-        if alias.lower() in {"written", "pasted", "placed", "submitted", "delivered"}:
+        if alias.lower() in {"written", "pasted", "placed", "submitted", "delivered", "supplied"}:
             prefix = re.split(
                 r"[;,.!?\n]|\b(?:and|or|but|that|which|who|while|after|once|before|when|until|unless|if|since|because|whereas|although)\b",
                 acceptance[: match.start()],
@@ -1164,7 +1168,7 @@ def _required_evidence_channels(acceptance: str, *, _bind_attached: bool = True)
                 prefix,
             )
             active_delivery_subject = (
-                alias.lower() in {"placed", "submitted", "delivered"}
+                alias.lower() in {"placed", "submitted", "delivered", "supplied"}
                 and bool(
                     re.fullmatch(
                         r"\s*(?:(?:the|an?)\s+)?"
@@ -1196,11 +1200,11 @@ def _required_evidence_channels(acceptance: str, *, _bind_attached: bool = True)
 
     acceptance = re.sub(
         r"(?P<literal>" + quoted_evidence_literal + r"|"
-        r"\b(?:the|an?)\s+(?:write|paste|put|place|submit|deliver)\b"
+        r"\b(?:the|an?)\s+(?:write|paste|put|place|submit|deliver|supply)\b"
         r"(?:\s+(?!(?:and|or|must|shall|will)\b)[\w-]+){0,6}\s+command\b"
         r"(?=\s+(?:(?:must|shall|will)\s+output|outputs)\b))|"
         r"(?P<alias>\b(?:put|puts|putting|place|places|placed|placing|paste|pastes|pasted|pasting|write|writes|written|writing|wrote|"
-        r"submit|submits|submitted|submitting|deliver|delivers|delivered|delivering)\b)"
+        r"submit|submits|submitted|submitting|deliver|delivers|delivered|delivering|supply|supplies|supplied|supplying)\b)"
         r"(?=\s+"
         + evidence_modifiers
         + r"(?:evidence|artifacts?|transcripts?|command outputs?|pr comments?|pull request comments?)\b"
@@ -2102,6 +2106,8 @@ def _required_evidence_channels(acceptance: str, *, _bind_attached: bool = True)
             + r"\s+)"
             + coordinated_governor
             + delivery_operation
+            + r"|(?:(?!(?:and|or|but|while|whereas)\b)[\w-]+\s+){1,6}"
+            + r"(?:recorded|published|uploaded|attached|captured|provided|posted|documented)\b"
         )
         clause_boundary = (
             r"\s*;\s*|,?\s+(?:but|whereas)\s+|"
@@ -2116,7 +2122,7 @@ def _required_evidence_channels(acceptance: str, *, _bind_attached: bool = True)
             + r"\s+"
             + independent_review_predicate
             + r")|"
-            r"(?:,?\s+(?:and|while)\s+|[,\.]\s+)(?="
+            r"(?:,?\s+(?:and|while)\s+|[,.!?]\s+)(?="
             r"(?:optionally\s+)?(?:"
             r"(?:an?\s+|the\s+)?(?:validation\s+|exact-head\s+)?"
             r"(?:evidence|artifacts?|transcripts?|command outputs?|"
