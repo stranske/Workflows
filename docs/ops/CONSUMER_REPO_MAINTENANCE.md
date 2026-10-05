@@ -1107,7 +1107,15 @@ must carry the post-processed `Verdict: CONCERNS` or `Verdict: FAIL` line so the
 downstream artifact parser retains a terminal outcome rather than a partial run.
 Overall retrieval availability includes the independently bounded PR body,
 comments and artifacts. A present body can supply a generic evidence obligation
-when the other channels are absent or unavailable. Any complete present channel
+when the other channels are absent or unavailable. Complete, provenance-validated
+explicit workflow-run references define the artifact retrieval set when both
+reference-bearing body and comment channels were fully inspected. Unrelated
+associated head/merge jobs cannot exhaust that set's run budget. Without complete
+explicit references, bounded associated-run discovery remains fail-closed.
+Wrong-head references, excess referenced runs, partial artifact pages, expired
+archives and truncated contents still make artifacts unavailable; scope selection
+does not prove that any particular acceptance criterion was satisfied.
+Any complete present channel
 makes destination-free retrieval present; if none is present, an unavailable
 channel keeps aggregate retrieval unavailable. Acceptance-list splitting accepts
 `-`, `*`, `+`, and numbered `1.` / `1)` markers, including checkboxes, so an
@@ -1122,7 +1130,13 @@ review-evidence requirement; equivalent passive/existential obligations do,
 and a later independent reviewer delivery retains its own destination floor.
 Body obligations are classified as bounded occurrences, sharing polarity and
 aspect handling across active, passive, existential, body-subject and adjectival
-forms. Each recognized occurrence contributes its own required destinations and
+forms. They share bounded evidence-object modifiers with delivery aliases.
+Qualified objects such
+as `validation evidence`, `test transcript` and `validation command output`
+retain the explicit body destination: present comments or artifacts cannot
+satisfy a missing required body. Optional/prohibited deliveries and recognized
+product UI body-editor capabilities retain their existing exemptions.
+Each recognized occurrence contributes its own required destinations and
 consumes only its matched span; residual clauses still undergo ordinary evidence
 classification. Product-editor output is exempt only for a recognized product
 actor and the immediate body-editor destination. Actual delivery into the PR body,

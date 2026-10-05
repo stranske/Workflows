@@ -454,6 +454,7 @@ async function fetchVerifierEvidence({
   repo,
   pullNumber,
   evidenceTexts,
+  referenceSourcesComplete = true,
   pullRequestBody,
   associatedCommitShas = [],
   extractArtifactText = extractArtifactArchiveText,
@@ -497,7 +498,10 @@ async function fetchVerifierEvidence({
     try {
       if (!source.method) throw new Error(`${source.name} API is unavailable`);
       const response = await source.method({ ...source.params, per_page: Math.min(commentLimit, 100) });
-      const records = Array.isArray(response?.data) ? response.data : [];
+      if (!Array.isArray(response?.data)) {
+        throw new Error(`${source.name} API returned an invalid comment list`);
+      }
+      const records = response.data;
       let truncated = Boolean(response?.headers?.link?.includes('rel="next"'));
       for (const comment of records) {
         if (typeof comment?.body !== 'string' || !comment.body.trim()) continue;
@@ -535,11 +539,16 @@ async function fetchVerifierEvidence({
   }
 
   const artifacts = { status: 'absent', complete: true, records: [], reason: '' };
-  const allRunIds = extractReferencedRunIds([...(evidenceTexts || []), ...commentBodies]);
+  const allRunIds = extractReferencedRunIds([pullRequestBody, ...(evidenceTexts || []), ...commentBodies]);
   const referencedRunIds = allRunIds.slice(0, runLimit);
   const runIds = [];
   const seenRunIds = new Set();
   let artifactIncomplete = allRunIds.length > referencedRunIds.length;
+  const referenceInspectionComplete = body.complete && comments.complete && referenceSourcesComplete;
+  if (allRunIds.length && !referenceInspectionComplete) {
+    artifactIncomplete = true;
+    artifacts.reason = 'reference-bearing body, comments, or linked issue sources were not completely inspected';
+  }
 
   const commitShas = Array.from(new Set((associatedCommitShas || []).filter(Boolean)));
   let associatedRunDiscoveryComplete = commitShas.length > 0;
@@ -578,7 +587,18 @@ async function fetchVerifierEvidence({
     }
   }
 
-  for (const commitSha of commitShas) {
+  // Complete explicit references define the requested evidence set. Unrelated
+  // head/merge jobs must not exhaust its budget or invalidate retrieved proof.
+  // Incomplete reference-bearing channels or provenance still require bounded
+  // associated-run discovery and retain the existing fail-closed behavior.
+  const completeExplicitReferences = (
+    referencedRunIds.length > 0
+    && allRunIds.length === referencedRunIds.length
+    && runIds.length === referencedRunIds.length
+    && referenceInspectionComplete
+    && commitShas.every(isValidSha)
+  );
+  for (const commitSha of completeExplicitReferences ? [] : commitShas) {
     if (!isValidSha(commitSha)) {
       associatedRunDiscoveryComplete = false;
       artifactIncomplete = true;
@@ -1247,6 +1267,7 @@ async function buildVerifierContext({
     pullNumber: pull.number,
     pullRequestBody: pull.body,
     evidenceTexts: [pull.body || '', ...closingIssues.map((issue) => issue.body || '')],
+    referenceSourcesComplete: closingIssueDiscovery.status === 'included',
     associatedCommitShas: [pull.head?.sha, pull.merge_commit_sha],
     extractArtifactText,
   });
