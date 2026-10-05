@@ -540,10 +540,11 @@ async function fetchVerifierEvidence({
   }
 
   const artifacts = { status: 'absent', complete: true, records: [], reason: '' };
-  const allRunIds = extractReferencedRunIds([pullRequestBody, ...(evidenceTexts || []), ...referenceTexts, ...commentBodies]);
+  const allReferencedRunIds = extractReferencedRunIds([pullRequestBody, ...(evidenceTexts || []), ...referenceTexts, ...commentBodies]);
   // A status-table "View run" or bare incidental body/comment URL is not an
   // explicit evidence selection. Typed evidence inputs and locally labelled
-  // evidence lines can select a bounded set; all other links retain discovery.
+  // evidence lines select their union before budgeting; incidental links retain
+  // discovery only when no explicit set exists.
   const labelledEvidenceLines = [pullRequestBody, ...referenceTexts, ...commentBodies]
     .flatMap((text) => String(text || '').split('\n'))
     .filter((line) => !/^\s*\|[^|\n]+\|[^|\n]+\|\s*\[View run\]\([^\n)]+\)\s*\|\s*$/i.test(line))
@@ -554,6 +555,9 @@ async function fetchVerifierEvidence({
       ...labelledEvidenceLines,
     ])
   );
+  const allRunIds = explicitEvidenceRunIds.size
+    ? Array.from(explicitEvidenceRunIds)
+    : allReferencedRunIds;
   const referencedRunIds = allRunIds.slice(0, runLimit);
   const runIds = [];
   const seenRunIds = new Set();
