@@ -993,8 +993,11 @@ def _required_evidence_channels(acceptance: str) -> set[str]:
         r"(?:(?:is|are)\s+)?(?:required|needed|mandated|expected|supposed|obliged)\s+to|"
         r"(?:has|have)\s+to)"
     )
-    passive_delivery_prefix = r"(?:be|have\s+been)(?:\s+being)?\s+"
     delivery_adverbs = r"(?:(?:also|now|still|already|[\w-]+ly)\s+){0,3}"
+    passive_delivery_prefix = (
+        r"(?:be|have\s+" + delivery_adverbs + r"been)" r"(?:\s+" + delivery_adverbs + r"being)?\s+"
+    )
+    conditional_evidence = r"\b(?:if|when)\s+(?:produced|available|present|uploaded|generated)\b"
     recipient_prefix = (
         r"(?:(?:all|any|some|each|every)\s+)?"
         r"(?:(?:the|its|our|their|your|an?)\s+)?"
@@ -1157,7 +1160,7 @@ def _required_evidence_channels(acceptance: str) -> set[str]:
             + r"|is|are|was|were|will|should|may|can)"
         )
         polarity = r"(?:(?:not|never|no\s+longer)\s+)?"
-        aspect = r"(?:(?:be|have\s+been)(?:\s+being)?\s+)?"
+        aspect = r"(?:" + passive_delivery_prefix + r")?"
         body_destination = r"(?:(?:the|an?)\s+)?" + body + r"(?:\s+editor\b)?"
         destination_item = delivery_destination_item
         destination_separator = delivery_destination_separator
@@ -1259,7 +1262,10 @@ def _required_evidence_channels(acceptance: str) -> set[str]:
                 prohibited = False
             optional = (
                 not is_gate
-                and bool(re.search(r"\b(?:optional|should|may|can)\b", clause, re.I))
+                and bool(
+                    re.search(r"\b(?:optional|should|may|can)\b", clause, re.I)
+                    or re.match(r"\s*" + conditional_evidence, text[match.end() :], re.I)
+                )
                 and not mandatory_optionality
             )
             editor = re.match(r"\s+editor\b", clause[body_match.end() :], re.I)
@@ -1416,12 +1422,9 @@ def _required_evidence_channels(acceptance: str) -> set[str]:
                         flags=re.I,
                     )
                     recognized = re.fullmatch(
-                        r"\s*,?\s*(?:and|or)"
-                        + (
-                            r"\s+" + delivery_adverbs
-                            if current_capability
-                            else r"(?:\s+(?:" + actor + r"\s+)?to)?"
-                        )
+                        r"\s*,?\s*(?:and|or)\s+"
+                        + delivery_adverbs
+                        + ("" if current_capability else r"(?:(?:" + actor + r"\s+)?to\s*)?")
                         + r"\s*",
                         between,
                         re.I,
@@ -1575,6 +1578,21 @@ def _required_evidence_channels(acceptance: str) -> set[str]:
         )
 
     evidence_prohibition = re.compile(
+        r"\b(?:must|shall|may|should|can|do|does|did|will)\s+"
+        + r"(?=(?:(?:not|never|be|have|been|being)\s+){0,5}"
+        + r"(?:also|now|still|already|[\w-]+ly)\s+)"
+        + delivery_adverbs
+        + r"(?:not|never)\s+"
+        + delivery_adverbs
+        + r"(?:"
+        + passive_delivery_prefix
+        + r")?"
+        + delivery_adverbs
+        + delivery_operation
+        + r"(?:\s+"
+        + evidence_modifiers
+        + r"(?:evidence|artifacts?|transcripts?|command outputs?|workflow runs?|pr comments?|pull request comments?))?"
+        + r"|"
         r"\b(?:evidence|artifacts?|transcripts?|command outputs?)\s+"
         r"(?:has|have|had|can|could|would|will|should|may|must|shall)\s+(?:not|never)\s+"
         r"(?:been|be)\s+(?:(?:being|\w+ly)\s+)*" + delivery_operation + r"|"
@@ -1904,10 +1922,15 @@ def _required_evidence_channels(acceptance: str) -> set[str]:
             optional_evidence = bool(
                 re.search(
                     r"\boptional(?:ly)?\b|"
-                    r"\b(?:may|can|could|should)\s+(?:(?:be|have\s+been|\w+ly)\s+){0,3}"
+                    r"\b(?:may|can|could|should)\s+"
+                    + delivery_adverbs
+                    + r"(?:"
+                    + passive_delivery_prefix
+                    + r")?"
+                    + delivery_adverbs
                     + delivery_operation
                     + r"|"
-                    r"\b(?:if|when)\s+(?:produced|available|present|uploaded|generated)\b",
+                    + conditional_evidence,
                     requirement_text,
                     re.I,
                 )
@@ -2015,7 +2038,9 @@ def _required_evidence_channels(acceptance: str) -> set[str]:
                     r"\s+(?:(?:that|which)\s+)?"
                     r"(?P<actor>(?:(?!(?:must|shall|needs?|has|have|is|are)\b)[\w/-]+\s+){0,6})"
                     + r"(?P<auxiliary>"
+                    + r"(?:"
                     + mandatory_auxiliary
+                    + r"|will)"
                     + r")\s+"
                     + delivery_adverbs
                     + r"(?P<aspect>"
@@ -2259,7 +2284,7 @@ def _required_evidence_channels(acceptance: str) -> set[str]:
                     or re.search(
                         r"\bartifacts?\b\s+(?:"
                         + mandatory_auxiliary
-                        + r"|is|are)\s+(?:"
+                        + r"|is|are|will)\s+(?:"
                         + passive_delivery_prefix
                         + r")?"
                         + delivery_operation

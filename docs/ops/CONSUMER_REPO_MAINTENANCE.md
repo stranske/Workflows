@@ -71,6 +71,11 @@ modifiers) cannot break this binding or restore inheritance across a new actor.
 An explicit comment/body/artifact destination selects that channel, not an extra
 artifact channel merely because the antecedent is an artifact. A generic PR
 destination continues to use object-specific classification.
+The same bounded adverbs apply to ordinary coordinated capability actions,
+prohibited predicates and modifiers inside perfect passive auxiliaries. Definite
+future (`will`) attached delivery retains its obligation. Conditional body records
+(`if available`, `when present` and the declared availability conditions) are
+optional before channel accumulation; a separate required reviewer clause remains.
 active/passive wording and bare/qualified artifacts must not select different
 preposition rules. Missing required evidence still lowers a supplied PASS to CONCERNS.
 Coordinated capability actions consume only a complete recognized
