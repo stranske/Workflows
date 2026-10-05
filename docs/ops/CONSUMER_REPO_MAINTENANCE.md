@@ -1140,8 +1140,9 @@ must not count as PR-comment evidence. Single-provider non-PASS text/file output
 must carry the post-processed `Verdict: CONCERNS` or `Verdict: FAIL` line so the
 downstream artifact parser retains a terminal outcome rather than a partial run.
 Overall retrieval availability includes the independently bounded PR body,
-comments and artifacts. A present body can supply a generic evidence obligation
-when the other channels are absent or unavailable. Complete, provenance-validated
+comments and artifacts. A present body can supply generic retrieval availability
+when other channels are completely inspected and absent, not unavailable.
+Availability alone does not identify or satisfy the required evidence. Complete, provenance-validated
 explicit workflow-run references define the artifact retrieval set when both
 reference-bearing body and comment channels were fully inspected. Unrelated
 associated head/merge jobs cannot exhaust that set's run budget. Without complete
@@ -1259,6 +1260,11 @@ requirements. Destination-bound object modifiers are bounded tokens that exclude
 new predicates and conjunctions, not an independently growing adjective list.
 Perfect/modal passive prohibitions retain polarity after alias normalization,
 including intervening adverbs admitted by the alias grammar.
+Active perfect delivery negation (`has/have/had not`, contracted forms and
+`will not have`) uses shared delivery operations/adverbs across body, comments
+and artifacts before body occurrences are classified. Independent required
+delivery clauses remain affirmative; negative merge gates still retain their
+existing required-evidence contract.
 Product storage also retains straight/curly contracted future-perfect auxiliaries
 (`won't have` / `won’t have`), including those shared adverbs, without erasing
 an independent reviewer delivery clause.

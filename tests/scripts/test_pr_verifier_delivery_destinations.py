@@ -9,6 +9,29 @@ from scripts import docs_drift_fix_agent as fix_agent
 from scripts.langchain import pr_verifier as verifier
 
 
+@pytest.mark.parametrize(
+    "auxiliary",
+    [
+        "has not",
+        "have never",
+        "had not",
+        "has not already",
+        "hasn't",
+        "hadn’t",
+        "will not have",
+        "won’t have",
+    ],
+)
+@pytest.mark.parametrize("verb", ["put", "placed", "pasted", "written", "recorded"])
+@pytest.mark.parametrize("destination", ["a PR comment", "the PR body", "a workflow artifact"])
+def test_perfect_negated_aliases_preserve_independent_delivery(auxiliary, verb, destination):
+    criterion = f"The reviewer {auxiliary} {verb} validation evidence in {destination}"
+    assert verifier._required_evidence_channels(criterion) == set()
+    assert verifier._required_evidence_channels(
+        criterion + "; the maintainer must record evidence in a PR comment"
+    ) == {"comments"}
+
+
 @pytest.mark.parametrize("boundary", [".", "!", "?"])
 def test_sentence_product_clause_preserves_active_past_delivery(boundary):
     assert verifier._required_evidence_channels(

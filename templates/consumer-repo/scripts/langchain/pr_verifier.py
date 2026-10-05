@@ -1641,7 +1641,22 @@ def _required_evidence_channels(acceptance: str, *, _bind_attached: bool = True)
             and (capability or product_destination or (field_operation and not review_destination))
         )
 
+    perfect_delivery_prohibition = re.compile(
+        r"\b(?:has|have|had|will)\s+"
+        + delivery_adverbs
+        + r"(?:not|never|no\s+longer)\s+"
+        + delivery_adverbs
+        + r"(?:have\s+"
+        + delivery_adverbs
+        + r")?"
+        + r"(?:been\s+(?:being\s+)?"
+        + delivery_adverbs
+        + r")?"
+        + delivery_operation,
+        re.I,
+    )
     evidence_prohibition = re.compile(
+        perfect_delivery_prohibition.pattern + r"|"
         r"\b(?:must|shall|may|should|can|do|does|did|will)\s+"
         + r"(?=(?:(?:not|never|be|have|been|being)\s+){0,5}"
         + r"(?:also|now|still|already|[\w-]+ly)\s+)"
@@ -1756,12 +1771,13 @@ def _required_evidence_channels(acceptance: str, *, _bind_attached: bool = True)
         # product-output and checklist guard uses the same established syntax.
         criterion = re.sub(r"^\s*(?:[-*+]|\d+[.)])(?=\s)", "-", criterion)
         criterion = re.sub(
-            r"\b(is|are|does|do|did|must|should|need|has|have|was|were|ca)n['’]t\b",
+            r"\b(is|are|does|do|did|must|should|need|has|have|had|was|were|ca)n['’]t\b",
             lambda match: ("can" if match[1].lower() == "ca" else match[1]) + " not",
             criterion,
             flags=re.I,
         )
         criterion = re.sub(r"\bcannot\b", "can not", criterion, flags=re.I)
+        criterion = re.sub(r"\bwon['’]t\b", "will not", criterion, flags=re.I)
         criterion_checklist = bool(re.match(r"^\s*(?:[-*+]|\d+[.)])\s*\[[ xX]\]", criterion))
         criterion_bullet = bool(re.match(r"^\s*(?:[-*+]|\d+[.)])\s+", criterion))
         # Quoted parser inputs are examples, including their verbs and clause
@@ -1980,10 +1996,12 @@ def _required_evidence_channels(acceptance: str, *, _bind_attached: bool = True)
                 flags=re.I,
             )
             gate = bool(negative_gate.search(working_line))
-            body_records, body_residual = body_occurrences(
-                working_line, gate, pronoun_delivery=bool(resolved_antecedent)
-            )
             requirement_text = working_line if gate else evidence_prohibition.sub(" ", working_line)
+            body_records, body_residual = body_occurrences(
+                working_line if gate else perfect_delivery_prohibition.sub(" ", working_line),
+                gate,
+                pronoun_delivery=bool(resolved_antecedent),
+            )
             # An optional evidence noun can be the object of a mandatory
             # explanation (for example, "a PR comment must explain why
             # artifacts are optional"). Remove only that optional subject;
