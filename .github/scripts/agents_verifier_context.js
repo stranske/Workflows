@@ -742,12 +742,13 @@ async function fetchVerifierEvidence({
   }
 
   const statuses = [body.status, comments.status, artifacts.status];
-  // Destination-free evidence can use any completely retrieved channel.
-  // Individual unavailable channels remain unavailable for specific obligations.
-  const status = statuses.includes('present')
-    ? 'present'
-    : statuses.includes('unavailable')
-      ? 'unavailable'
+  // Availability is not identification of the required evidence. A present
+  // requirement-only body cannot prove an obligation in an uninspected channel.
+  // Explicit channel obligations continue to use their individual statuses.
+  const status = statuses.includes('unavailable')
+    ? 'unavailable'
+    : statuses.includes('present')
+      ? 'present'
       : 'absent';
   return { status, body, comments, artifacts, referencedRunIds: runIds };
 }

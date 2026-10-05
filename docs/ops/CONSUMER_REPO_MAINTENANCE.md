@@ -1149,9 +1149,11 @@ explicit references, bounded associated-run discovery remains fail-closed.
 Wrong-head references, excess referenced runs, partial artifact pages, expired
 archives and truncated contents still make artifacts unavailable; scope selection
 does not prove that any particular acceptance criterion was satisfied.
-Any complete present channel
-makes destination-free retrieval present; if none is present, an unavailable
-channel keeps aggregate retrieval unavailable. Acceptance-list splitting accepts
+Any unavailable eligible channel keeps destination-free aggregate retrieval
+unavailable, even if another channel is present: availability alone does not
+identify the required evidence, and a requirement-only body cannot mask an
+uninspected comment/artifact channel. Channel-specific obligations still use
+their own statuses without an unrelated-channel veto. Acceptance-list splitting accepts
 `-`, `*`, `+`, and numbered `1.` / `1)` markers, including checkboxes, so an
 optional item cannot swallow the next independent required item.
 This availability record is not proof of criterion

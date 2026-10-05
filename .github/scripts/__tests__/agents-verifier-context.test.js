@@ -1082,7 +1082,7 @@ test('buildVerifierContext keeps incomplete comment retrieval unavailable with p
     { reviewCommentLink: '<https://api.example.com/page=2>; rel="next"' },
   ]) {
     const { core, result } = await buildEvidenceContext(options);
-    assert.equal(core.outputs.evidence_status, 'present');
+    assert.equal(core.outputs.evidence_status, 'unavailable');
     assert.match(result.markdown, /PR comments: \*\*unavailable\*\*/);
     removeVerifierDiffArtifacts(result);
   }
@@ -1136,7 +1136,7 @@ test('buildVerifierContext rejects a comment-referenced artifact from a differen
       return { text: 'proof from an unrelated commit', entryCount: 1, truncated: false };
     },
   });
-  assert.equal(core.outputs.evidence_status, 'present');
+  assert.equal(core.outputs.evidence_status, 'unavailable');
   assert.match(result.markdown, /does not match the exact PR head or merge commit/);
   assert.doesNotMatch(result.markdown, /proof from an unrelated commit/);
   removeVerifierDiffArtifacts(result);
@@ -1149,7 +1149,7 @@ test('buildVerifierContext fails closed when referenced run provenance is unavai
     artifactsByRun: { 456: [{ id: 8, size_in_bytes: 20, expired: false }] },
     artifactDownloads: { 8: Buffer.from('zip bytes') },
   });
-  assert.equal(core.outputs.evidence_status, 'present');
+  assert.equal(core.outputs.evidence_status, 'unavailable');
   assert.match(result.markdown, /workflow run provenance failed for referenced run 456/);
   assert.doesNotMatch(result.markdown, /Run 456/);
   removeVerifierDiffArtifacts(result);
@@ -1215,7 +1215,7 @@ test('buildVerifierContext preserves exact-head artifacts when PR comment retrie
       return { text: 'proof from the exact PR head', entryCount: 1, truncated: false };
     },
   });
-  assert.equal(core.outputs.evidence_status, 'present');
+  assert.equal(core.outputs.evidence_status, 'unavailable');
   assert.match(result.markdown, /PR comments: \*\*unavailable\*\*/);
   assert.match(result.markdown, /Referenced workflow artifacts: \*\*present\*\*/);
   assert.match(result.markdown, /proof from the exact PR head/);
@@ -1231,7 +1231,7 @@ test('buildVerifierContext fails closed when workflow discovery returns a differ
     artifactsByRun: { 654: [{ id: 18, size_in_bytes: 20, expired: false }] },
     artifactDownloads: { 18: Buffer.from('zip bytes') },
   });
-  assert.equal(core.outputs.evidence_status, 'present');
+  assert.equal(core.outputs.evidence_status, 'unavailable');
   assert.match(result.markdown, /Referenced workflow artifacts: \*\*unavailable\*\*/);
   assert.doesNotMatch(result.markdown, /Run 654/);
   removeVerifierDiffArtifacts(result);
@@ -1241,7 +1241,7 @@ test('buildVerifierContext fails closed when associated workflow run discovery f
   const failure = await buildEvidenceContext({
     listWorkflowRunsForRepoError: new Error('secondary rate limit'),
   });
-  assert.equal(failure.core.outputs.evidence_status, 'present');
+  assert.equal(failure.core.outputs.evidence_status, 'unavailable');
   assert.match(failure.result.markdown, /Referenced workflow artifacts: \*\*unavailable\*\*/);
   removeVerifierDiffArtifacts(failure.result);
 
@@ -1258,7 +1258,7 @@ test('buildVerifierContext fails closed when associated workflow run discovery f
     },
     artifactsByRun: { 777: [] },
   });
-  assert.equal(limit.core.outputs.evidence_status, 'present');
+  assert.equal(limit.core.outputs.evidence_status, 'unavailable');
   assert.match(limit.result.markdown, /exceeded the bounded result limit/);
   removeVerifierDiffArtifacts(limit.result);
 
@@ -1273,7 +1273,7 @@ test('buildVerifierContext fails closed when associated workflow run discovery f
       headers: {},
     },
   });
-  assert.equal(invalid.core.outputs.evidence_status, 'present');
+  assert.equal(invalid.core.outputs.evidence_status, 'unavailable');
   assert.match(invalid.result.markdown, /returned invalid evidence/);
   removeVerifierDiffArtifacts(invalid.result);
 });
@@ -1611,7 +1611,7 @@ test('production context carries PR body when comments and artifacts are absent'
   removeVerifierDiffArtifacts(result);
 });
 
-test('expired artifacts stay unavailable without vetoing complete present channels', async () => {
+test('expired artifacts keep aggregate unavailable without erasing retained proof', async () => {
   const { core, result } = await buildEvidenceContext({
     comments: [{ body: 'https://github.com/octo/workflows/actions/runs/123' }],
     artifactsByRun: { 123: [
@@ -1620,7 +1620,7 @@ test('expired artifacts stay unavailable without vetoing complete present channe
     ] },
     artifactDownloads: { 2: Buffer.from('zip bytes') },
   }, { extractArtifactText: () => ({ text: 'usable proof', entryCount: 1, truncated: false }) });
-  assert.equal(core.outputs.evidence_status, 'present');
+  assert.equal(core.outputs.evidence_status, 'unavailable');
   assert.match(result.markdown, /Referenced workflow artifacts: \*\*unavailable\*\*/);
   assert.match(result.markdown, /usable proof/);
   removeVerifierDiffArtifacts(result);
@@ -1638,7 +1638,7 @@ test('buildVerifierContext reports body-inclusive overall evidence with absent c
 test('buildVerifierContext reports retrieval failure as unavailable, never absent', async () => {
   const { core, result } = await buildEvidenceContext({ commentError: new Error('secondary rate limit') });
   assert.equal(result.shouldRun, true);
-  assert.equal(core.outputs.evidence_status, 'present');
+  assert.equal(core.outputs.evidence_status, 'unavailable');
   assert.match(result.markdown, /PR comments: \*\*unavailable\*\*/);
   assert.match(result.markdown, /Referenced workflow artifacts: \*\*absent\*\*/);
   assert.doesNotMatch(result.markdown, /PR comments: \*\*absent\*\*/);
@@ -1650,7 +1650,7 @@ test('buildVerifierContext reports a malformed artifact listing as unavailable',
     comments: [{ body: 'Evidence run: https://github.com/octo/workflows/actions/runs/123' }],
     artifactListResponse: { data: { artifacts: null }, headers: {} },
   });
-  assert.equal(core.outputs.evidence_status, 'present');
+  assert.equal(core.outputs.evidence_status, 'unavailable');
   assert.match(result.markdown, /Referenced workflow artifacts: \*\*unavailable\*\*/);
   assert.doesNotMatch(result.markdown, /Referenced workflow artifacts: \*\*absent\*\*/);
   removeVerifierDiffArtifacts(result);
@@ -1677,7 +1677,7 @@ test('buildVerifierContext reports a partial artifact page as unavailable withou
       return { text: 'only the first artifact', entryCount: 1, truncated: false };
     },
   });
-  assert.equal(core.outputs.evidence_status, 'present');
+  assert.equal(core.outputs.evidence_status, 'unavailable');
   assert.match(result.markdown, /artifact discovery for run 123 exceeded the bounded result limit/);
   assert.match(result.markdown, /only the first artifact/);
   removeVerifierDiffArtifacts(result);
@@ -1688,7 +1688,7 @@ test('buildVerifierContext reports a truncated comment listing as unavailable', 
     comments: [{ user: { login: 'evidence-bot' }, body: 'partial evidence' }],
     commentLink: '<https://api.example.com/comments?page=2>; rel="next"',
   });
-  assert.equal(core.outputs.evidence_status, 'present');
+  assert.equal(core.outputs.evidence_status, 'unavailable');
   assert.match(result.markdown, /comment count or character limit prevented complete inspection/);
   removeVerifierDiffArtifacts(result);
 });
@@ -1708,7 +1708,7 @@ test('buildVerifierContext reports unreadable referenced artifact content as una
       return { text: '', entryCount: 1, truncated: true };
     },
   });
-  assert.equal(core.outputs.evidence_status, 'present');
+  assert.equal(core.outputs.evidence_status, 'unavailable');
   assert.match(result.markdown, /Referenced workflow artifacts: \*\*unavailable\*\*/);
   removeVerifierDiffArtifacts(result);
 });
