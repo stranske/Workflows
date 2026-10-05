@@ -9,6 +9,90 @@ from scripts import docs_drift_fix_agent as fix_agent
 from scripts.langchain import pr_verifier as verifier
 
 
+@pytest.mark.parametrize("actor", ["API", "service"])
+@pytest.mark.parametrize("operation", ["place", "write", "record"])
+@pytest.mark.parametrize("conjunction", ["and", "or"])
+def test_coordinated_product_storage_keeps_actor_and_delivery_scope(actor, operation, conjunction):
+    criterion = f"The {actor} must record evidence in its database {conjunction} {operation} transcripts in its audit log"
+    assert verifier._required_evidence_channels(criterion) == set()
+    assert verifier._required_evidence_channels(criterion.replace("must ", "must not ")) == set()
+    for destination, channel in [
+        ("a PR comment", "comments"),
+        ("workflow artifacts", "artifacts"),
+        ("the PR body", "body"),
+    ]:
+        assert verifier._required_evidence_channels(
+            criterion + f"; the reviewer must record evidence in {destination}"
+        ) == {channel}
+        assert verifier._required_evidence_channels(
+            criterion + f" and record evidence in {destination}"
+        ) == {channel}
+
+
+@pytest.mark.parametrize(
+    "governor,operation,gating",
+    [
+        ("must", "record", True),
+        ("must not", "record", False),
+        ("has", "recorded", True),
+        ("has not", "recorded", False),
+        ("will have", "recorded", True),
+        ("may", "record", False),
+    ],
+)
+@pytest.mark.parametrize("conjunction", ["and", "or"])
+@pytest.mark.parametrize(
+    "destination,channel",
+    [("a PR comment", "comments"), ("workflow artifacts", "artifacts"), ("the PR body", "body")],
+)
+@pytest.mark.parametrize(
+    "continuation", ["internal", "inherited", "independent", "shared", "reset"]
+)
+def test_storage_coordination_governor_and_boundary_matrix(
+    governor, operation, gating, conjunction, destination, channel, continuation
+):
+    chain = (
+        f"The service {governor} {operation} evidence in its database "
+        f"{conjunction} {operation} transcripts in its audit log"
+    )
+    expected = set()
+    if continuation == "internal":
+        chain += f" and {operation} command output in its storage"
+    elif continuation == "inherited":
+        chain += f" and {operation} evidence in {destination}"
+        expected = {channel} if gating else set()
+    elif continuation == "independent":
+        chain += f" and the assigned reviewer must record evidence in {destination}"
+        expected = {channel}
+    elif continuation == "shared":
+        chain += f" and in {destination}"
+        expected = {channel} if gating else set()
+    else:
+        chain += f" and must record evidence in {destination}"
+        expected = {channel}
+    assert verifier._required_evidence_channels(chain) == expected
+
+
+@pytest.mark.parametrize("preposition", ["in ", ""])
+@pytest.mark.parametrize("polarity", ["", "not "])
+def test_storage_coordination_shared_body_destination(polarity, preposition):
+    chain = (
+        f"The API must {polarity}record evidence in its database and record "
+        f"transcripts in its audit log and {preposition}the PR body"
+    )
+    assert verifier._required_evidence_channels(chain) == (set() if polarity else {"body"})
+
+
+def test_storage_coordination_parser_literal_and_unsupported_suffix():
+    literal = "The API must record evidence in its database and record transcripts in its audit log"
+    assert verifier._required_evidence_channels(
+        f'The parser must recognize "{literal}"; the reviewer must record evidence in a PR comment'
+    ) == {"comments"}
+    assert verifier._required_evidence_channels(
+        literal + "; an independent reviewer must include evidence in the PR body"
+    ) == {"body"}
+
+
 @pytest.mark.parametrize(
     "predicate", ["isn't", "isn’t", "aren't", "aren’t", "wasn't", "wasn’t", "weren't", "weren’t"]
 )

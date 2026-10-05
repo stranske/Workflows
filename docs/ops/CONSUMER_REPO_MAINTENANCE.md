@@ -1296,6 +1296,15 @@ and passive delivery is removed before both body and residual channel
 classification; an independent affirmative reviewer clause retains its channel.
 Straight and curly contracted finite auxiliaries retain passive alias identity
 before clause-level contraction normalization.
+Repeated active internal-storage predicates inherit their explicit product actor
+and complete governing modality/aspect/polarity before clause splitting. The
+bounded normalizer preserves each evidence object and its shared review
+destinations; an explicit new governor or independent reviewer clause ends
+inheritance. It protects parser examples and literals rather than deleting
+unrecognized text. Internal `and`/`or` storage chains are supported; alternative
+review-destination semantics and nested/passive coordination are not inferred.
+Regression controls independently cover negation, optional versus mandatory
+delivery, three storage predicates, governor resets, and all review channels.
 Negated obligations use the same delivery-operation grammar as positive
 delivery. An explicitly excluded PR-comment destination (`outside`, `rather
 than`, `instead of`) is not a required comment channel; generic evidence and

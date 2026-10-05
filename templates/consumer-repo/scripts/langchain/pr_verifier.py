@@ -1220,6 +1220,95 @@ def _required_evidence_channels(acceptance: str, *, _bind_attached: bool = True)
         r"(?P<preposition>(?:in|into|to|as)\s+)?(?P<destination>" + review_destination_noun + r")",
         re.I,
     )
+    storage_destination = (
+        r"(?:in|into|to|as)\s+(?:(?:its|the|an?)\s+)?"
+        r"(?:database|audit log|storage|application log)\b"
+    )
+    coordinated_governor = (
+        r"(?:(?:"
+        + mandatory_auxiliary
+        + r"|will|should|can|may|has|have|had|is|are|was|were)\s+)?"
+        + delivery_adverbs
+        + r"(?:(?:not|never|no\s+longer)\s+)?"
+        + delivery_adverbs
+        + r"(?:have\s+)?(?:be\s+|been\s+)?(?:being\s+)?"
+        + delivery_adverbs
+    )
+    coordinated_operation = (
+        r"(?:record|capture|attach|generate|return|display|emit|render|expose|provide)\w*\s+"
+        + product_evidence_object
+    )
+    shared_review_tail = (
+        r"(?:\s+and\s+(?:(?:in|into|to|as)\s+)?" + review_destination_noun + r"){0,3}"
+    )
+    storage_chain_head = re.compile(
+        r"\b(?P<actor>"
+        + product_actor
+        + r")\s+"
+        + r"(?P<governor>"
+        + coordinated_governor
+        + r")"
+        + coordinated_operation
+        + storage_destination
+        + shared_review_tail,
+        re.I,
+    )
+    storage_chain_member = re.compile(
+        r"\s+(?P<conjunction>and|or)\s+(?P<predicate>"
+        + coordinated_operation
+        + r"(?:"
+        + storage_destination
+        + shared_review_tail
+        + r"|(?:in|into|to|as)\s+"
+        + review_destination_noun
+        + r"))",
+        re.I,
+    )
+
+    def normalize_storage_coordination(text: str) -> str:
+        """Restore a bounded elided product actor/governor before clause splitting."""
+        literals = [
+            match.span()
+            for match in re.finditer(r"`+[^`]*`+|\"[^\"]*\"|'[^']*'|“[^”]*”|‘[^’]*’", text)
+        ]
+        output: list[str] = []
+        consumed = 0
+        for head in storage_chain_head.finditer(text):
+            if head.start() < consumed or any(
+                start <= head.start() < end for start, end in literals
+            ):
+                continue
+            cursor = head.end()
+            members = []
+            while member := storage_chain_member.match(text, cursor):
+                if any(start < member.end() and member.start() < end for start, end in literals):
+                    break
+                # Alternative review delivery is outside this finite inheritance
+                # repair; preserve it unchanged instead of changing its semantics.
+                if member["conjunction"].lower() == "or" and not re.match(
+                    coordinated_operation + storage_destination, member["predicate"], re.I
+                ):
+                    break
+                members.append(member)
+                cursor = member.end()
+            if not members:
+                continue
+            output.extend((text[consumed : head.end()],))
+            for member in members:
+                output.append("; " + head["actor"] + " " + head["governor"] + member["predicate"])
+            consumed = cursor
+            reset = re.match(
+                r"\s+(?:and|or)\s+(?=" + mandatory_auxiliary + r"\s+)",
+                text[cursor:],
+                re.I,
+            )
+            if reset:
+                # A new explicit governor starts a separate obligation. Do not
+                # inherit the preceding product modality or negation into it.
+                output.append("; ")
+                consumed += reset.end()
+        return "".join(output) + text[consumed:] if output else text
+
     # Positive and negated obligations must recognize the same passive aspects.
     evidence_term = re.compile(
         r"\b(?:evidence|artifacts?|transcripts?|command outputs?|workflow runs?|"
@@ -1867,14 +1956,6 @@ def _required_evidence_channels(acceptance: str, *, _bind_attached: bool = True)
         )
         criterion = re.sub(r"\bcannot\b", "can not", criterion, flags=re.I)
         criterion = re.sub(r"\bwon['’]t\b", "will not", criterion, flags=re.I)
-        # A second explicit destination inherits the same product operation;
-        # retain its predicate before channel-specific body classification.
-        criterion = shared_storage_review_destination.sub(
-            lambda match: match["predicate"]
-            + (match["preposition"] or "in ")
-            + match["destination"],
-            criterion,
-        )
         criterion_checklist = bool(re.match(r"^\s*(?:[-*+]|\d+[.)])\s*\[[ xX]\]", criterion))
         criterion_bullet = bool(re.match(r"^\s*(?:[-*+]|\d+[.)])\s+", criterion))
         # Quoted parser inputs are examples, including their verbs and clause
@@ -1889,6 +1970,14 @@ def _required_evidence_channels(acceptance: str, *, _bind_attached: bool = True)
             lambda match: match.group(0)[: match.start("example") - match.start()] + " ",
             criterion,
             flags=re.I,
+        )
+        criterion = normalize_storage_coordination(criterion)
+        # Shared destinations retain their predicate after actor inheritance.
+        criterion = shared_storage_review_destination.sub(
+            lambda match: match["predicate"]
+            + (match["preposition"] or "in ")
+            + match["destination"],
+            criterion,
         )
         # Split independent mandatory clauses after optional evidence, including
         # named actors and modified subjects. Extra noun modifiers need a modal
