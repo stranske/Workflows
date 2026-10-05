@@ -32,11 +32,15 @@ test('failed reviewer retry is exact-head, terminal-only, once per binding and r
     updated_at: '2026-09-24T22:01:01Z',
     body: '<!-- codex-pull-request-review-summary -->\n| Review | Status | Commit | Review trigger |\n| --- | --- | --- | --- |\n' + failedRow };
   let summaries = [summary], resolvedSha = request.head_sha, posts = 0;
+  let paginationRace = false, siblingComplete = true;
   const pr = { state: 'open', draft: false, auto_merge: null,
     user: { login: 'stranske-automation-bot' },
     head: { ref: 'sync/workflows-candidate', sha: request.head_sha },
     body: '<!-- sync-pr-delivery-record:v1 ' + JSON.stringify(record) + ' -->' };
-  const github = { paginate: async () => summaries, rest: {
+  const github = { paginate: async () => {
+    if (paginationRace) pr.head.sha = 'c'.repeat(40);
+    return summaries;
+  }, rest: {
     users: { getAuthenticated: async () => ({ data: { login: 'stranske' } }) },
     pulls: {
       get: async () => ({ data: pr }),
@@ -55,7 +59,10 @@ test('failed reviewer retry is exact-head, terminal-only, once per binding and r
   }, graphql: async () => ({ repository: { pullRequest: { reviewThreads: {
     pageInfo: { hasNextPage: false }, nodes: [{ id: request.thread_id,
       isResolved: false, isOutdated: false,
-      comments: { pageInfo: { hasNextPage: false }, nodes } }],
+      comments: { pageInfo: { hasNextPage: false }, nodes } }, {
+        id: 'PRRT_sibling', isResolved: false, isOutdated: false,
+        comments: { pageInfo: { hasNextPage: !siblingComplete }, nodes: [] },
+      }],
   } } } }) };
   const args = { context: { eventName: 'repository_dispatch', ref: 'refs/heads/main',
     payload: { action: 'maint71-review-reassessment' }, actor: 'stranske' },
@@ -66,7 +73,8 @@ test('failed reviewer retry is exact-head, terminal-only, once per binding and r
   for (const defect of ['missing-summary', 'duplicate-summary', 'forged-summary', 'pending',
     'completed', 'wrong-head', 'ambiguous-commit', 'stale-failure', 'future-failure',
     'stale-update', 'multiple-rows', 'missing-prior', 'duplicate-prior', 'changed-head',
-    'subsequent-completion']) {
+    'subsequent-completion', 'explicit-acceptance', 'explicit-rejection',
+    'partial-sibling', 'indented-running-row', 'pagination-head-race']) {
     const savedBody = summary.body, savedUpdate = summary.updated_at;
     summaries = [summary]; resolvedSha = request.head_sha;
     if (defect === 'missing-summary') summaries = [];
@@ -86,10 +94,21 @@ test('failed reviewer retry is exact-head, terminal-only, once per binding and r
     if (defect === 'subsequent-completion') summaries.push({
       user: { login: 'chatgpt-codex-connector' }, created_at: '2026-09-24T22:01:30Z',
       body: "Codex Review: Didn't find any major issues." });
+    if (['explicit-acceptance', 'explicit-rejection'].includes(defect)) nodes.push({
+      fullDatabaseId: '14', author: { login: 'chatgpt-codex-connector' },
+      createdAt: '2026-09-24T22:01:30Z', commit: { oid: request.head_sha },
+      body: defect === 'explicit-acceptance'
+        ? `ACCEPT <!-- sync-review-accepted:${request.head_sha} -->` : 'REJECT: still invalid',
+    });
+    if (defect === 'partial-sibling') siblingComplete = false;
+    if (defect === 'indented-running-row') summary.body += '\n  | Code Review | Running | `aaaaaaa` | Manual request |';
+    if (defect === 'pagination-head-race') paginationRace = true;
     await assert.rejects(runReviewReassessment(args), /retry|delivery changed/i, defect);
     assert.equal(posts, 0, defect);
     summary.body = savedBody; summary.updated_at = savedUpdate;
     summary.user.login = 'chatgpt-codex-connector[bot]'; pr.head.sha = request.head_sha;
+    paginationRace = false; siblingComplete = true;
+    if (['explicit-acceptance', 'explicit-rejection'].includes(defect)) nodes.pop();
     if (defect === 'missing-prior') nodes.push(prior);
     if (defect === 'duplicate-prior') nodes.pop();
   }

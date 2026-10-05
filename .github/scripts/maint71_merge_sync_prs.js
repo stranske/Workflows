@@ -314,7 +314,7 @@ async function runReviewReassessment({
   // Revalidate bindings and scan the same fresh snapshot before deciding to
   // POST; a trusted request may have appeared since the initial read.
   // GitHub's APIs are non-transactional, so an ambiguous POST is never retried.
-  const current = await readBoundState();
+  let current = await readBoundState();
   let found = null;
   for (const comment of current.thread.comments.nodes) {
     if (trustedWriters.has(comment?.author?.login)
@@ -343,7 +343,7 @@ async function runReviewReassessment({
         reviewerProfileForLogin(item?.user?.login, profiles) === request.originating_reviewer
         && String(item?.body || '').startsWith(failure.marker));
       if (summaries.length !== 1) throw new Error('Review retry requires one trusted terminal-failure summary');
-      const rows = String(summaries[0].body).split('\n').filter((line) =>
+      const rows = String(summaries[0].body).split('\n').map((line) => line.trim()).filter((line) =>
         line.startsWith('|') && !/^\|\s*(?:Review\s*\||---)/.test(line));
       const match = rows.length === 1 ? new RegExp(failure.row_pattern).exec(rows[0]) : null;
       const failedAt = Date.parse(match?.groups?.time || '');
@@ -357,11 +357,32 @@ async function runReviewReassessment({
       }
       const { data: commit } = await withRetry((client) => client.rest.repos.getCommit({ owner, repo, ref }));
       if (commit?.sha !== request.head_sha) throw new Error('Review retry failure commit does not resolve to exact head');
+      // External summary and commit lookups can outlive the inspected head or
+      // a concurrent request. Re-read all bindings before the non-retryable POST.
+      current = await readBoundState();
+      const freshPriors = current.thread.comments.nodes.filter((item) =>
+        trustedWriters.has(item?.author?.login)
+        && String(item?.body || '').includes(priorMarker));
+      if (freshPriors.length !== 1
+        || freshPriors[0].fullDatabaseId !== priors[0].fullDatabaseId
+        || freshPriors[0].createdAt !== priors[0].createdAt) {
+        throw new Error('Review retry original request changed during discovery');
+      }
+      if (current.threads.some((item) => item.comments?.pageInfo?.hasNextPage !== false
+        || !Array.isArray(item.comments?.nodes))) {
+        throw new Error('Review retry thread inventory is incomplete');
+      }
+      if (current.thread.comments.nodes.some((item) => trustedWriters.has(item?.author?.login)
+        && String(item?.body || '').includes(marker))) {
+        throw new Error('Review retry request appeared before POST; inspect durable marker and reuse');
+      }
       const laterCompletion = (item, author, createdAt) =>
         reviewerProfileForLogin(author, profiles) === request.originating_reviewer
         && Date.parse(createdAt || '') > failedAt
-        && (profile.disposition_completion_prefixes || []).some((prefix) =>
-          String(item?.body || '').startsWith(prefix));
+        && ((profile.disposition_completion_prefixes || []).some((prefix) =>
+          String(item?.body || '').startsWith(prefix))
+          || /\b(?:ACCEPT|REJECT)\b/i.test(String(item?.body || ''))
+          || String(item?.body || '').includes(`<!-- sync-review-accepted:${request.head_sha} -->`));
       if (current.threads.flatMap((item) => item.comments.nodes).some((item) =>
         item?.commit?.oid === request.head_sha
         && laterCompletion(item, item?.author?.login, item?.createdAt))

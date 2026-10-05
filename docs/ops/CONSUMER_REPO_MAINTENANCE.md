@@ -1282,6 +1282,11 @@ configured failure row. Its failure time must follow the request, its reported
 commit must resolve through GitHub to the exact full head, and the summary's
 update time must corroborate that failure. Pending/completed activity, mixed
 activity rows, ambiguous summaries, forged authors and old heads fail closed.
+All sibling-thread comment inventories must also be complete. Explicit
+originating ACCEPT/REJECT replies suppress retry just as stock completion does;
+neither is treated as acceptance by the request-only job. Re-read the delivery,
+lease, active thread and original request after summary/commit discovery and
+before posting; a newly appeared retry marker aborts the POST for recovery.
 The canonical `maint71-review-retry:v1` marker makes repeated dispatches reuse
 one request rather than creating a retry loop. Retry grants no reviewer
 acceptance, resolution, sealing or merge authority; an automated reply remains
