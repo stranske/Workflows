@@ -9,6 +9,36 @@ from scripts import docs_drift_fix_agent as fix_agent
 from scripts.langchain import pr_verifier as verifier
 
 
+@pytest.mark.parametrize(
+    "modal",
+    [
+        "could",
+        "couldn't",
+        "couldn’t",
+        "wouldn't",
+        "wouldn’t",
+        "shouldn't",
+        "shouldn’t",
+        "may",
+        "can",
+        "should",
+    ],
+)
+@pytest.mark.parametrize("operation", ["put", "place", "write", "record"])
+@pytest.mark.parametrize(
+    "destination,channel",
+    [("a PR comment", "comments"), ("workflow artifacts", "artifacts"), ("the PR body", "body")],
+)
+def test_optional_modal_aliases_preserve_channels_and_contractions(
+    modal, operation, destination, channel
+):
+    criterion = f"The reviewer {modal} {operation} evidence in {destination}"
+    assert verifier._required_evidence_channels(criterion) == set()
+    assert verifier._required_evidence_channels(
+        criterion + f"; the maintainer must record evidence in {destination}"
+    ) == {channel}
+
+
 @pytest.mark.parametrize("actor", ["API", "service"])
 @pytest.mark.parametrize("operation", ["place", "write", "record"])
 @pytest.mark.parametrize("conjunction", ["and", "or"])

@@ -1275,7 +1275,10 @@ inherits the previous delivery predicate (including negation); independent
 finite predicates and semicolon-separated clauses do not inherit it.
 Alias destination normalization accepts the same `both` prefix as coordinated
 destination recognition. Optional delivery modals (`may`, `can`, `could`,
-`should`) do not become hard evidence obligations after alias normalization;
+`would`, `should`) share one vocabulary across body, residual, product and
+coordinated-storage classification and do not become hard evidence obligations
+after alias normalization. Straight and curly `couldn't`/`wouldn't` contractions
+normalize before classification just like the other supported auxiliaries;
 independent required clauses retain their own channels.
 Negated optional modals use that same optional-delivery grammar. Hyphenated
 evidence-object qualifiers such as `optional-case` do not make their governing

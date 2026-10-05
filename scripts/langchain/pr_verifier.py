@@ -1167,12 +1167,15 @@ def _required_evidence_channels(acceptance: str, *, _bind_attached: bool = True)
     # Use the same product-response operation vocabulary when coalescing object
     # groups and when excluding response fields from review deliverables.
     response_subject = r"(?:responses?|payloads?|return\s+values?|reports?|exports?)"
-    product_auxiliary = r"(?:" + mandatory_auxiliary + r"|will|should|can|may)\s+"
+    optional_delivery_modal = r"(?:may|can|could|would|should)"
+    product_auxiliary = r"(?:" + mandatory_auxiliary + r"|will|" + optional_delivery_modal + r")\s+"
     product_actor = r"(?:(?:the|an?)\s+)?(?:application|app|service|api|endpoint)"
     product_aspect = (
         r"(?:(?:"
         + mandatory_auxiliary
-        + r"|will|should|can|may|has|have|had|is|are|was|were)\s+)?"
+        + r"|will|"
+        + optional_delivery_modal
+        + r"|has|have|had|is|are|was|were)\s+)?"
         + delivery_adverbs
         + r"(?:have\s+)?(?:be\s+|been\s+)?(?:being\s+)?"
         + delivery_adverbs
@@ -1227,7 +1230,9 @@ def _required_evidence_channels(acceptance: str, *, _bind_attached: bool = True)
     coordinated_governor = (
         r"(?:(?:"
         + mandatory_auxiliary
-        + r"|will|should|can|may|has|have|had|is|are|was|were)\s+)?"
+        + r"|will|"
+        + optional_delivery_modal
+        + r"|has|have|had|is|are|was|were)\s+)?"
         + delivery_adverbs
         + r"(?:(?:not|never|no\s+longer)\s+)?"
         + delivery_adverbs
@@ -1355,7 +1360,9 @@ def _required_evidence_channels(acceptance: str, *, _bind_attached: bool = True)
             r"(?:required|needed|mandated|expected|supposed|obliged)\s+to|"
             r"(?:does|do|did)\s+(?:not|never)\s+(?:need|have)\s+to|"
             + mandatory_auxiliary
-            + r"|is|are|was|were|will|should|may|can)"
+            + r"|is|are|was|were|will|"
+            + optional_delivery_modal
+            + r")"
         )
         polarity = r"(?:(?:not|never|no\s+longer)\s+)?"
         aspect = r"(?:" + passive_delivery_prefix + r")?"
@@ -1481,7 +1488,9 @@ def _required_evidence_channels(acceptance: str, *, _bind_attached: bool = True)
             optional = (
                 not is_gate
                 and bool(
-                    re.search(r"\b(?:optional|should|may|can)\b", polarity_clause, re.I)
+                    re.search(
+                        r"\b(?:optional|" + optional_delivery_modal + r")\b", polarity_clause, re.I
+                    )
                     or re.match(r"\s*" + conditional_evidence, text[match.end() :], re.I)
                 )
                 and not mandatory_optionality
@@ -1949,7 +1958,7 @@ def _required_evidence_channels(acceptance: str, *, _bind_attached: bool = True)
         # product-output and checklist guard uses the same established syntax.
         criterion = re.sub(r"^\s*(?:[-*+]|\d+[.)])(?=\s)", "-", criterion)
         criterion = re.sub(
-            r"\b(is|are|does|do|did|must|should|need|has|have|had|was|were|ca)n['’]t\b",
+            r"\b(is|are|does|do|did|must|should|could|would|need|has|have|had|was|were|ca)n['’]t\b",
             lambda match: ("can" if match[1].lower() == "ca" else match[1]) + " not",
             criterion,
             flags=re.I,
@@ -2207,7 +2216,9 @@ def _required_evidence_channels(acceptance: str, *, _bind_attached: bool = True)
             optional_evidence = bool(
                 re.search(
                     r"\boptional(?:ly)?\b(?![-/])|"
-                    r"\b(?:may|can|could|should)\s+"
+                    r"\b"
+                    + optional_delivery_modal
+                    + r"\s+"
                     + delivery_adverbs
                     + r"(?:(?:not|never|no\s+longer)\s+)?"
                     + delivery_adverbs
