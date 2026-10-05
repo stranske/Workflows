@@ -9,6 +9,61 @@ from scripts import docs_drift_fix_agent as fix_agent
 from scripts.langchain import pr_verifier as verifier
 
 
+@pytest.mark.parametrize("modal", ["may", "can", "could", "should"])
+@pytest.mark.parametrize("operation", ["put", "place", "write", "paste"])
+@pytest.mark.parametrize("destination", ["a PR comment", "workflow artifacts", "the PR body"])
+def test_negated_optional_modal_alias_is_not_required(modal, operation, destination):
+    criterion = f"The reviewer {modal} not {operation} evidence in {destination}"
+    assert verifier._required_evidence_channels(criterion) == set()
+    assert verifier._required_evidence_channels(
+        criterion + "; the maintainer must record evidence in a PR comment"
+    ) == {"comments"}
+
+
+@pytest.mark.parametrize(
+    "predicate",
+    ["must be recorded", "must have been recorded", "has been recorded", "is being recorded"],
+)
+@pytest.mark.parametrize("destination", ["the database", "the audit log"])
+def test_passive_product_storage_preserves_independent_delivery(predicate, destination):
+    criterion = f"Validation evidence {predicate} in {destination} by the service"
+    assert verifier._required_evidence_channels(criterion) == set()
+    assert verifier._required_evidence_channels(
+        criterion + "; the reviewer must record evidence in a PR comment"
+    ) == {"comments"}
+
+
+@pytest.mark.parametrize(
+    "criterion",
+    [
+        "The service has written command output to clients",
+        "The service must have written command output to clients",
+        "The service is writing command output to clients",
+        "Validation evidence must be written to clients by the service",
+        "Validation evidence has been written to clients by the service",
+        "Validation evidence must have been written to clients by the service",
+    ],
+)
+def test_product_recipient_aspects_preserve_independent_delivery(criterion):
+    assert verifier._required_evidence_channels(criterion) == set()
+    assert verifier._required_evidence_channels(
+        criterion + "; the reviewer must record evidence in workflow artifacts"
+    ) == {"artifacts"}
+
+
+@pytest.mark.parametrize(
+    "predicate", ["must record", "has recorded", "is recording", "must have recorded"]
+)
+@pytest.mark.parametrize(
+    "destination,channel",
+    [("a PR comment", "comments"), ("workflow artifacts", "artifacts"), ("the PR body", "body")],
+)
+def test_optional_case_object_is_not_optional_delivery(predicate, destination, channel):
+    assert verifier._required_evidence_channels(
+        f"The service must record transcripts in its database; the reviewer {predicate} optional-case test transcript in {destination}"
+    ) == {channel}
+
+
 @pytest.mark.parametrize(
     "auxiliary",
     [
@@ -56,6 +111,20 @@ def test_yet_perfect_negation_preserves_independent_delivery(auxiliary, verb):
 @pytest.mark.parametrize("verb", ["put", "placed", "recorded"])
 def test_qualified_product_storage_preserves_independent_delivery(noun, verb):
     criterion = f"The service {verb} {noun} in its audit log"
+    assert verifier._required_evidence_channels(criterion) == set()
+    assert verifier._required_evidence_channels(
+        criterion + "; record evidence in a PR comment"
+    ) == {"comments"}
+
+
+@pytest.mark.parametrize("auxiliary", ["must", "shall", "needs to", "will"])
+@pytest.mark.parametrize("aspect", ["put", "be putting", "have put", "have been placing"])
+@pytest.mark.parametrize("noun", ["validation evidence", "regression command output"])
+@pytest.mark.parametrize("destination", ["database", "audit log"])
+def test_modal_product_storage_aspects_preserve_independent_delivery(
+    auxiliary, aspect, noun, destination
+):
+    criterion = f"The service {auxiliary} {aspect} {noun} in its {destination}"
     assert verifier._required_evidence_channels(criterion) == set()
     assert verifier._required_evidence_channels(
         criterion + "; record evidence in a PR comment"

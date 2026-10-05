@@ -1155,6 +1155,45 @@ def _required_evidence_channels(acceptance: str, *, _bind_attached: bool = True)
     # groups and when excluding response fields from review deliverables.
     response_subject = r"(?:responses?|payloads?|return\s+values?|reports?|exports?)"
     product_auxiliary = r"(?:" + mandatory_auxiliary + r"|will|should|can|may)\s+"
+    product_actor = r"(?:(?:the|an?)\s+)?(?:application|app|service|api|endpoint)"
+    product_aspect = (
+        r"(?:(?:"
+        + mandatory_auxiliary
+        + r"|will|should|can|may|has|have|had|is|are)\s+)?"
+        + delivery_adverbs
+        + r"(?:have\s+)?(?:be\s+|been\s+)?(?:being\s+)?"
+        + delivery_adverbs
+    )
+    product_evidence_object = (
+        r"(?:(?:the|an?)\s+)?"
+        + evidence_modifiers
+        + r"(?:transcripts?|command outputs?|evidence|artifacts?)\s+"
+    )
+    product_destination = (
+        r"(?:(?:in|into|to|as)\s+(?:(?:its|the|an?)\s+)?"
+        r"(?:database|audit log|storage|application log)\b|" + product_recipient + r")"
+    )
+    bound_product_delivery = re.compile(
+        r"\b"
+        + product_actor
+        + r"\s+"
+        + product_aspect
+        + r"(?:record|capture|attach|generate|return|display|emit|render|expose|provide)\w*\s+"
+        + product_evidence_object
+        + product_destination
+        + r"(?!\s+(?:and|or)\s+(?:(?:in|into|to|for|as)\b|"
+        + review_destination_noun
+        + r"))"
+        + r"|\b"
+        + product_evidence_object
+        + product_aspect
+        + r"(?:recorded|captured|attached|generated|returned|displayed|emitted|rendered|exposed|provided)\s+"
+        + product_destination
+        + r"\s+by\s+"
+        + product_actor
+        + r"\b",
+        re.I,
+    )
     # Positive and negated obligations must recognize the same passive aspects.
     evidence_term = re.compile(
         r"\b(?:evidence|artifacts?|transcripts?|command outputs?|workflow runs?|"
@@ -1166,7 +1205,7 @@ def _required_evidence_channels(acceptance: str, *, _bind_attached: bool = True)
         + mandatory_auxiliary
         + r"|required|mandatory|(?:is|are)\s+needed|must|shall|needs? to|"
         r"publish(?:es|ed)?|upload(?:s|ed)?|"
-        r"attach(?:es|ed)?|captur(?:e|es|ed)|record(?:s|ed)?|provid(?:e|es|ed)|"
+        r"attach(?:es|ed)?|captur(?:e|es|ed)|record(?:s|ed|ing)?|provid(?:e|es|ed)|"
         r"includ(?:e|es|ed)|link(?:s|ed)?|post(?:s|ed)?|"
         r"(?:add(?:s|ed)?|leav(?:e|es)|left)\s+(?:(?:an?|the)\s+)?"
         r"(?:pr|pull request)\s+comments?|"
@@ -2020,8 +2059,10 @@ def _required_evidence_channels(acceptance: str, *, _bind_attached: bool = True)
             bullet = criterion_bullet
             optional_evidence = bool(
                 re.search(
-                    r"\boptional(?:ly)?\b|"
+                    r"\boptional(?:ly)?\b(?![-/])|"
                     r"\b(?:may|can|could|should)\s+"
+                    + delivery_adverbs
+                    + r"(?:(?:not|never|no\s+longer)\s+)?"
                     + delivery_adverbs
                     + r"(?:"
                     + passive_delivery_prefix
@@ -2565,6 +2606,12 @@ def _required_evidence_channels(acceptance: str, *, _bind_attached: bool = True)
             )
             # Consume one product persistence operation and its immediate
             # storage destination, not later reviewer delivery predicates.
+            if bound_product_delivery.search(requirement_text):
+                delivery_text = bound_product_delivery.sub(" ", requirement_text, count=1)
+                if not remaining_delivery(delivery_text):
+                    continue
+                requirement_text = delivery_text
+                lower = requirement_text.lower()
             storage_operation = re.compile(
                 r"\b(?:(?:the|an?)\s+)?(?:application|app|service|api|endpoint)\s+"
                 + "(?:"
@@ -2574,6 +2621,13 @@ def _required_evidence_channels(acceptance: str, *, _bind_attached: bool = True)
                 + r")\s+)*have)\s+(?:(?:not|never|no\s+longer|"
                 + delivery_adverb
                 + r")\s+)*)?"
+                + r"(?:have\s+"
+                + delivery_adverbs
+                + r")?"
+                + r"(?:"
+                + passive_delivery_prefix
+                + r")?"
+                + delivery_adverbs
                 + r"(?:record|capture|attach|generate)\w*\s+"
                 + r"(?:(?:the|an?)\s+)?"
                 + evidence_modifiers

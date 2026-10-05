@@ -1277,6 +1277,13 @@ Alias destination normalization accepts the same `both` prefix as coordinated
 destination recognition. Optional delivery modals (`may`, `can`, `could`,
 `should`) do not become hard evidence obligations after alias normalization;
 independent required clauses retain their own channels.
+Negated optional modals use that same optional-delivery grammar. Hyphenated
+evidence-object qualifiers such as `optional-case` do not make their governing
+delivery optional. Product storage and client delivery bind the bounded actor,
+perfect/progressive/passive aspect, evidence object and destination together;
+passive forms require the explicit product actor. A coordinated second review
+destination retains its shared governing verb rather than being consumed with
+the product destination. Independent reviewer clauses remain required.
 Negated obligations use the same delivery-operation grammar as positive
 delivery. An explicitly excluded PR-comment destination (`outside`, `rather
 than`, `instead of`) is not a required comment channel; generic evidence and
