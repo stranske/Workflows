@@ -536,12 +536,13 @@ test('stripPrTemplateContent preserves an author description without checklist i
 });
 
 test('stripPrTemplateContent drops an unfilled PR template before managed markers', async (t) => {
-  const template = fs.readFileSync(path.resolve(__dirname, '../../PULL_REQUEST_TEMPLATE.md'), 'utf8');
-  for (const [name, strip] of [
-    ['Workflows source', stripPrTemplateContent],
-    ['consumer template', templateStripPrTemplateContent],
+  for (const [name, strip, directory] of [
+    ['Workflows source', stripPrTemplateContent, path.resolve(__dirname, '../..')],
+    ['consumer template', templateStripPrTemplateContent,
+      path.resolve(__dirname, '../../../templates/consumer-repo/.github')],
   ]) {
     await t.test(name, () => {
+      const template = fs.readFileSync(path.join(directory, 'PULL_REQUEST_TEMPLATE.md'), 'utf8');
       for (const markers of managedMarkerOrders) {
         const managed = managedBlocks(markers);
         for (const prefix of [template, ` \n<!-- Template hint\ncontinued -->\n${template}\n\t`]) {
@@ -585,6 +586,35 @@ test('an author description survives two body syncs', async (t) => {
         assert.ok(markerIndex > 0, 'the author description must precede the managed blocks');
         assert.equal(body.slice(0, markerIndex), description + '\n\n');
         assert.ok(extractBlock(body, 'auto-status-summary'), 'the status must also be synced');
+      }
+    });
+  }
+});
+
+test('filled PR template sections survive two body syncs in source and consumer templates', async (t) => {
+  for (const [name, sync, directory] of [
+    ['Workflows source', run, path.resolve(__dirname, '../..')],
+    ['consumer template', templateRun,
+      path.resolve(__dirname, '../../../templates/consumer-repo/.github')],
+  ]) {
+    await t.test(name, async (t) => {
+      const template = fs.readFileSync(path.join(directory, 'PULL_REQUEST_TEMPLATE.md'), 'utf8');
+      const { stripPrTemplateControls } = require(path.join(directory, 'scripts/issue_scope_parser.js'));
+      for (const section of ['Notes:', '## Summary', '## Testing']) {
+        await t.test(section, async () => {
+          const authored = 'Author evidence without checklist items.\n\n1. First observation.\n2. Second observation.';
+          const filled = template.replace(section, `${section}\n${authored}`);
+          const bodies = await assertIssueSyncPreservesIntent(sync, {
+            body: filled,
+            head: { sha: 'abc123', ref: 'codex/issue-123' },
+          }, true);
+          for (const [index, body] of bodies.entries()) {
+            const expected = index === 0 ? filled : stripPrTemplateControls(filled);
+            const markerIndex = body.indexOf('<!-- pr-preamble:start -->');
+            assert.equal(body.slice(0, markerIndex), expected.trimEnd() + '\n\n');
+            assert.ok(body.includes(authored), 'author evidence must remain verbatim');
+          }
+        });
       }
     });
   }
