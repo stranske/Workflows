@@ -514,8 +514,12 @@ test('stripPrTemplateContent preserves an author description without checklist i
 
 test('stripPrTemplateContent drops an unfilled PR template before managed markers', () => {
   const template = fs.readFileSync(path.resolve(__dirname, '../../PULL_REQUEST_TEMPLATE.md'), 'utf8');
-  const managed = '<!-- auto-status-summary:start -->\nManaged status\n<!-- auto-status-summary:end -->';
-  assert.equal(stripPrTemplateContent(template + '\n' + managed), managed);
+  for (const marker of ['pr-preamble', 'auto-status-summary']) {
+    const managed = `<!-- ${marker}:start -->\nManaged content\n<!-- ${marker}:end -->`;
+    for (const prefix of [template, ` \n<!-- Template hint\ncontinued -->\n${template}\n\t`]) {
+      assert.equal(stripPrTemplateContent(prefix + '\n' + managed), managed);
+    }
+  }
 });
 
 test('the PR template skeleton constant matches .github/PULL_REQUEST_TEMPLATE.md', () => {
@@ -527,20 +531,35 @@ test('the PR template skeleton constant matches .github/PULL_REQUEST_TEMPLATE.md
   }
 });
 
-test('an author description survives two body syncs', () => {
+test('an author description survives two body syncs', async (t) => {
   const description = '# Evidence\n\nVerified the fix.\n\n1. RED before repair.\n2. GREEN after repair.';
-  const managed = '<!-- pr-preamble:start -->\nManaged content\n<!-- pr-preamble:end -->';
-  const sync = (body) => upsertBlock(stripPrTemplateContent(body), 'pr-preamble', managed);
-  assert.equal(sync(sync(description)), description + '\n\n' + managed);
+  for (const [name, sync] of [['Workflows source', run], ['consumer template', templateRun]]) {
+    await t.test(name, async () => {
+      const bodies = await assertIssueSyncPreservesIntent(sync, {
+        body: description,
+        head: { sha: 'abc123', ref: 'codex/issue-123' },
+      }, true);
+      for (const body of bodies) {
+        const markerIndex = body.indexOf('<!-- pr-preamble:start -->');
+        assert.ok(markerIndex > 0, 'the author description must precede the managed blocks');
+        assert.equal(body.slice(0, markerIndex), description + '\n\n');
+        assert.ok(extractBlock(body, 'auto-status-summary'), 'the status must also be synced');
+      }
+    });
+  }
 });
 
 test('stripPrTemplateContent preserves filled summary and testing sections', () => {
   const template = fs.readFileSync(path.resolve(__dirname, '../../PULL_REQUEST_TEMPLATE.md'), 'utf8');
-  const filled = template.replace('## Summary', '## Summary\nAuthor implementation detail.')
-    .replace('## Testing', '## Testing\nnode --test passes');
   const managed = '<!-- auto-status-summary:start -->\nStatus\n<!-- auto-status-summary:end -->';
   const { stripPrTemplateControls } = require('../issue_scope_parser');
-  assert.equal(stripPrTemplateContent(filled + managed), stripPrTemplateControls(filled) + managed);
+  for (const filled of [
+    template.replace('## Summary', '## Summary\nAuthor implementation detail.'),
+    template.replace('## Testing', '## Testing\nnode --test passes'),
+    template.replace('Notes:', 'Notes:\nAuthor source detail.'),
+  ]) {
+    assert.equal(stripPrTemplateContent(filled + managed), stripPrTemplateControls(filled) + managed);
+  }
 });
 
 test('stripPrTemplateContent preserves arbitrary text and fenced examples', () => {
@@ -1889,7 +1908,7 @@ test('buildPreamble writes a non-closing link for a relation-derived source issu
 });
 
 test('consumer PR body sync scripts match their Workflows sources byte-for-byte', () => {
-  for (const script of ['agents_pr_meta_update_body.js', 'source_context.js']) {
+  for (const script of ['agents_pr_meta_update_body.js', 'issue_scope_parser.js', 'source_context.js']) {
     const source = path.resolve(__dirname, '..', script);
     const template = path.resolve(
       __dirname, '../../../templates/consumer-repo/.github/scripts', script,
@@ -2064,4 +2083,5 @@ async function assertIssueSyncPreservesIntent(sync, overrides = {}, closing = fa
       issueNumber: 123, via: closing ? 'meta' : 'mention',
     });
   }
+  return bodies;
 }
