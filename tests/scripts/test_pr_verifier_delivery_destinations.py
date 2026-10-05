@@ -32,6 +32,36 @@ def test_perfect_negated_aliases_preserve_independent_delivery(auxiliary, verb, 
     ) == {"comments"}
 
 
+@pytest.mark.parametrize(
+    "auxiliary", ["has not yet", "hasn't yet", "had not yet", "won’t yet have"]
+)
+@pytest.mark.parametrize("verb", ["put", "placed", "recorded"])
+def test_yet_perfect_negation_preserves_independent_delivery(auxiliary, verb):
+    criterion = f"The reviewer {auxiliary} {verb} validation evidence in a PR comment"
+    assert verifier._required_evidence_channels(criterion) == set()
+    assert verifier._required_evidence_channels(criterion + "; record evidence in the PR body") == {
+        "body"
+    }
+
+
+@pytest.mark.parametrize(
+    "noun",
+    [
+        "validation evidence",
+        "exact-head regression command output",
+        "independently collected artifacts",
+        "optional-case test transcript",
+    ],
+)
+@pytest.mark.parametrize("verb", ["put", "placed", "recorded"])
+def test_qualified_product_storage_preserves_independent_delivery(noun, verb):
+    criterion = f"The service {verb} {noun} in its audit log"
+    assert verifier._required_evidence_channels(criterion) == set()
+    assert verifier._required_evidence_channels(
+        criterion + "; record evidence in a PR comment"
+    ) == {"comments"}
+
+
 @pytest.mark.parametrize("boundary", [".", "!", "?"])
 def test_sentence_product_clause_preserves_active_past_delivery(boundary):
     assert verifier._required_evidence_channels(

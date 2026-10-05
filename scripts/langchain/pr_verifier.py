@@ -993,7 +993,7 @@ def _required_evidence_channels(acceptance: str, *, _bind_attached: bool = True)
         r"(?:(?:is|are)\s+)?(?:required|needed|mandated|expected|supposed|obliged)\s+to|"
         r"(?:has|have)\s+to)"
     )
-    delivery_adverb = r"(?:also|now|still|already|[\w-]+ly)"
+    delivery_adverb = r"(?:also|now|still|already|yet|[\w-]+ly)"
     delivery_adverbs = r"(?:" + delivery_adverb + r"\s+){0,3}"
     passive_delivery_prefix = (
         r"(?:be|have\s+" + delivery_adverbs + r"been)" r"(?:\s+" + delivery_adverbs + r"being)?\s+"
@@ -2575,7 +2575,9 @@ def _required_evidence_channels(acceptance: str, *, _bind_attached: bool = True)
                 + delivery_adverb
                 + r")\s+)*)?"
                 + r"(?:record|capture|attach|generate)\w*\s+"
-                r"(?:(?:the|an?)\s+)?(?:transcripts?|command outputs?|evidence|artifacts?)\s+"
+                + r"(?:(?:the|an?)\s+)?"
+                + evidence_modifiers
+                + r"(?:transcripts?|command outputs?|evidence|artifacts?)\s+"
                 r"(?:in|into|to|as)\s+(?:(?:its|the|an?)\s+)?"
                 r"(?:database|audit log|storage|application log)\b",
                 re.I,

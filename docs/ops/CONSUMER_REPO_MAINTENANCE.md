@@ -1262,7 +1262,9 @@ Perfect/modal passive prohibitions retain polarity after alias normalization,
 including intervening adverbs admitted by the alias grammar.
 Active perfect delivery negation (`has/have/had not`, contracted forms and
 `will not have`) uses shared delivery operations/adverbs across body, comments
-and artifacts before body occurrences are classified. Independent required
+and artifacts, including intervening `yet`. Product-storage objects reuse the
+same bounded evidence modifiers as delivery objects rather than bare nouns only.
+Negated active-perfect operations are removed before body occurrences are classified. Independent required
 delivery clauses remain affirmative; negative merge gates still retain their
 existing required-evidence contract.
 Product storage also retains straight/curly contracted future-perfect auxiliaries
