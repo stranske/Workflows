@@ -84,6 +84,9 @@ disabled, preventing recursive re-extraction of passive antecedents.
 Punctuated `, which` relative clauses retain the same noun binding. Capability
 recombination requires a new recognized evidence object in the incoming fragment;
 an explicit reviewer clause using `it`/`them` stays separate for antecedent resolution.
+Bounded demonstratives `these`, `those` and `both` share that same resolver.
+Bound spans cannot overlap: skip nouns already consumed by an earlier binding,
+and do not parse a bare evidence noun qualifier as the attached predicate's actor.
 Resolved plural pronoun uploads into the PR body are classified as body delivery,
 including bounded coordinated noun lists; attached relative-body uploads remain
 owned by the noun binder rather than consumed a second time as body records.

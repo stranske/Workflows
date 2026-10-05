@@ -3422,7 +3422,7 @@ def test_attached_delivery_binding_uses_shared_destination_and_coverage_floor(
     context = context.replace(ACCEPTANCE_SENTINEL, criterion).replace(
         "## PR Diff Summary",
         "## Acceptance evidence\n\n- Overall retrieval status: **absent**\n"
-        "- PR comments: **absent**\n- Workflow artifacts: **absent**\n\n## PR Diff Summary",
+        "- PR comments: **absent**\n- Referenced workflow artifacts: **absent**\n\n## PR Diff Summary",
     )
     coverage = pr_verifier.prompt_coverage(context, None)
     assert not coverage.sufficient
@@ -3522,7 +3522,7 @@ def test_conditional_body_does_not_waive_modified_independent_review_delivery(
     context = context.replace(ACCEPTANCE_SENTINEL, criterion).replace(
         "## PR Diff Summary",
         "## Acceptance evidence\n\n- Overall retrieval status: **absent**\n"
-        "- PR comments: **absent**\n- Workflow artifacts: **absent**\n\n## PR Diff Summary",
+        "- PR comments: **absent**\n- Referenced workflow artifacts: **absent**\n\n## PR Diff Summary",
     )
     coverage = pr_verifier.prompt_coverage(context, None)
     assert not coverage.sufficient
@@ -3589,12 +3589,27 @@ def test_coordinated_product_object_retains_attached_delivery(
 @pytest.mark.parametrize("product", ["lets users upload", "must let users upload"])
 @pytest.mark.parametrize("modal", ["must", "will"])
 @pytest.mark.parametrize("boundary", ["and", ";"])
+@pytest.mark.parametrize("pronoun", ["them", "these", "those", "both"])
 @pytest.mark.parametrize(
     "destination,expected",
     [("to the PR", {"artifacts"}), ("in a PR comment", {"comments"}), ("in the PR body", {"body"})],
 )
 def test_explicit_reviewer_pronoun_clause_is_not_capability_coordination(
-    product: str, modal: str, boundary: str, destination: str, expected: set[str]
+    product: str, modal: str, boundary: str, pronoun: str, destination: str, expected: set[str]
 ) -> None:
-    criterion = f"The UI {product} evidence and artifacts {boundary} the reviewer {modal} upload them {destination}"
+    criterion = f"The UI {product} evidence and artifacts {boundary} the reviewer {modal} upload {pronoun} {destination}"
+    assert pr_verifier._required_evidence_channels(criterion) == expected
+
+
+@pytest.mark.parametrize("product", ["lets users upload", "must display"])
+@pytest.mark.parametrize(
+    "predicate",
+    ["must be uploaded", "that the reviewer must upload", "that must have already been uploaded"],
+)
+@pytest.mark.parametrize("tail", ["", ", with validation evidence recorded in a PR comment"])
+def test_attached_binding_does_not_overlap_evidence_qualified_nouns(
+    product: str, predicate: str, tail: str
+) -> None:
+    criterion = f"The UI {product} evidence artifacts {predicate} to the PR{tail}"
+    expected = {"artifacts", "comments"} if tail else {"artifacts"}
     assert pr_verifier._required_evidence_channels(criterion) == expected

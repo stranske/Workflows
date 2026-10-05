@@ -1749,8 +1749,8 @@ def _required_evidence_channels(acceptance: str, *, _bind_attached: bool = True)
         clause_evidence_antecedent: str | None = None
         pronoun_pr_delivery = re.compile(
             r"\b(?:attach|upload|publish|post|record|capture|provide|include|document|link)\w*\b"
-            r".{0,40}\b(?:it|them|this|they)\b.{0,40}\b(?:pr|pull request)\b"
-            r"|\b(?:it|them|this|they)\b.{0,40}"
+            r".{0,40}\b(?:it|them|this|they|these|those|both)\b.{0,40}\b(?:pr|pull request)\b"
+            r"|\b(?:it|them|this|they|these|those|both)\b.{0,40}"
             r"\b(?:attached|uploaded|published|posted|recorded|captured|provided|"
             r"included|documented|linked)\b.{0,40}\b(?:pr|pull request)\b",
             re.I,
@@ -1900,7 +1900,7 @@ def _required_evidence_channels(acceptance: str, *, _bind_attached: bool = True)
                 and pronoun_pr_delivery.search(line)
             ):
                 working_line = re.sub(
-                    r"\b(?:it|them|this|they)\b",
+                    r"\b(?:it|them|this|they|these|those|both)\b",
                     clause_evidence_antecedent,
                     line,
                     count=1,
@@ -2059,6 +2059,7 @@ def _required_evidence_channels(acceptance: str, *, _bind_attached: bool = True)
                 re.I,
             )
             bound_spans = []
+            bound_end = -1
             for attached_object in re.finditer(
                 (
                     r"\b(?P<object>evidence|artifacts?|transcripts?|command outputs?|pr comments?|pull request comments?)\b"
@@ -2068,9 +2069,16 @@ def _required_evidence_channels(acceptance: str, *, _bind_attached: bool = True)
                 requirement_text,
                 re.I,
             ):
+                if attached_object.start() < bound_end:
+                    continue
                 attached_delivery = attached_delivery_pattern.match(
                     requirement_text[attached_object.end() :]
                 )
+                if attached_delivery and evidence_term.fullmatch(
+                    attached_delivery["actor"].strip()
+                ):
+                    # A noun qualifier is not a second actor/antecedent.
+                    continue
                 bound_destination = (
                     re.match(
                         r"\s+(?P<destination>" + bound_review_destinations + r")",
@@ -2125,12 +2133,13 @@ def _required_evidence_channels(acceptance: str, *, _bind_attached: bool = True)
                             )
                         )
                     channels.update(destination_channels)
+                    bound_end = (
+                        attached_object.end() + attached_delivery.end() + bound_destination.end()
+                    )
                     bound_spans.append(
                         (
                             attached_object.start(),
-                            attached_object.end()
-                            + attached_delivery.end()
-                            + bound_destination.end(),
+                            bound_end,
                             " ",
                         )
                     )
