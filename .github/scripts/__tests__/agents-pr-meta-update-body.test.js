@@ -640,6 +640,59 @@ test('stripPrTemplateContent preserves arbitrary text and fenced examples', () =
   }
 });
 
+test('stripPrTemplateContent removes template choices while preserving author prose', async (t) => {
+  const prefix = [
+    '## Workflow Source',
+    'Started from:',
+    '- [x] GitHub issue: #123',
+    'Automation intent:',
+    '- [x] Keepalive may manage this PR',
+    'Notes:',
+    'Author context without checklist items.',
+    '<!-- Author evidence annotation -->',
+    '',
+    '## Summary',
+    '1. Preserve the reported failure.',
+    '2. Keep the supporting evidence.',
+    '',
+    '## Testing',
+    'The regression suite passes.',
+    '',
+    '',
+  ].join('\n');
+  const expectedPrefix = [
+    '## Workflow Source',
+    'Notes:',
+    'Author context without checklist items.',
+    '<!-- Author evidence annotation -->',
+    '',
+    '## Summary',
+    '1. Preserve the reported failure.',
+    '2. Keep the supporting evidence.',
+    '',
+    '## Testing',
+    'The regression suite passes.',
+    '',
+    '',
+  ].join('\n');
+  for (const [name, strip] of [
+    ['Workflows source', stripPrTemplateContent],
+    ['consumer template', templateStripPrTemplateContent],
+  ]) {
+    await t.test(name, () => {
+      for (const markers of managedMarkerOrders) {
+        const managed = managedBlocks(markers);
+        const expected = expectedPrefix + managed;
+        for (const inputPrefix of [prefix, prefix.replace(/\n/g, '\r\n')]) {
+          const result = strip(inputPrefix + managed);
+          assert.equal(result, expected, `Marker order: ${markers.join(', ')}`);
+          assert.equal(strip(result), expected, 'a second cleanup must preserve the author text');
+        }
+      }
+    });
+  }
+});
+
 test('stripPrTemplateContent preserves body if no markers present', () => {
   const body = 'Just a normal PR body with no markers';
   const result = stripPrTemplateContent(body);
