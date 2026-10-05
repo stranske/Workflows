@@ -984,6 +984,7 @@ def _required_evidence_channels(acceptance: str) -> set[str]:
         r"(?:include|contain|have|return|display|show|store|emit|render|expose|provide)\w*\b"
     )
     delivery_operation = r"(?:provide|return|display|show|emit|render|expose|store|upload|attach|publish|post|record|capture|include|document|generate|link|add|leave)\w*\b"
+    capability_operation = r"(?:(?:allow|enable|support)\w*|let(?:s|ting)?)"
     mandatory_auxiliary = (
         r"(?:(?:must|shall|needs?\s+to)|"
         r"(?:(?:is|are)\s+)?(?:required|needed|mandated|expected|supposed|obliged)\s+to|"
@@ -1037,6 +1038,14 @@ def _required_evidence_channels(acceptance: str) -> set[str]:
         "written": "recorded",
         "writing": "recording",
         "wrote": "recorded",
+        "submit": "record",
+        "submits": "records",
+        "submitted": "recorded",
+        "submitting": "recording",
+        "deliver": "record",
+        "delivers": "records",
+        "delivered": "recorded",
+        "delivering": "recording",
     }
 
     def normalize_record_alias(match: re.Match[str]) -> str:
@@ -1044,7 +1053,7 @@ def _required_evidence_channels(acceptance: str) -> set[str]:
         alias = match["alias"]
         if not alias:
             return match[0]
-        if alias.lower() in {"written", "pasted"}:
+        if alias.lower() in {"written", "pasted", "submitted", "delivered"}:
             prefix = re.split(
                 r"[;\n]|\b(?:and|or|that|which|who)\b", acceptance[: match.start()], flags=re.I
             )[-1]
@@ -1059,10 +1068,11 @@ def _required_evidence_channels(acceptance: str) -> set[str]:
 
     acceptance = re.sub(
         r"(?P<literal>`+[^`]*`+|\"[^\"]*\"|'[^']*'|“[^”]*”|‘[^’]*’|"
-        r"\b(?:the|an?)\s+(?:write|paste)\b"
+        r"\b(?:the|an?)\s+(?:write|paste|submit|deliver)\b"
         r"(?:\s+(?!(?:and|or|must|shall|will)\b)[\w-]+){0,6}\s+command\b"
         r"(?=\s+(?:(?:must|shall|will)\s+output|outputs)\b))|"
-        r"(?P<alias>\b(?:paste|pastes|pasted|pasting|write|writes|written|writing|wrote)\b)"
+        r"(?P<alias>\b(?:paste|pastes|pasted|pasting|write|writes|written|writing|wrote|"
+        r"submit|submits|submitted|submitting|deliver|delivers|delivered|delivering)\b)"
         r"(?=\s+(?:(?:the|an?|any|before/after|failing|passing|supporting|validation|workflow|exact-head|execution|test|review|collected|recorded)\s+){0,4}"
         r"(?:evidence|artifacts?|transcripts?|command outputs?|pr comments?|pull request comments?)\b"
         r"|\s+" + destination_preposition + r"(?:both\s+)?" + delivery_destination_item + r")",
@@ -1289,14 +1299,17 @@ def _required_evidence_channels(acceptance: str) -> set[str]:
             re.finditer(
                 r"\b(?!renderer\b)(?:"
                 + response_operation
-                + r"|allow|enable|support|display|show|store|include|contain|attach|upload|add|leave|left|post|publish|provide|document|record|capture|link)\w*\b",
+                + r"|"
+                + capability_operation
+                + r"|display|show|store|include|contain|attach|upload|add|leave|left|post|publish|provide|document|record|capture|link)\w*\b",
                 prefix,
                 re.I,
             )
         )
         if not operations:
             return False
-        capability = bool(re.fullmatch(r"(?:allow|enable|support)\w*", operations[0][0], re.I))
+        capability = bool(re.fullmatch(capability_operation, operations[0][0], re.I))
+        bare_capability = bool(re.fullmatch(r"let(?:s|ting)?", operations[0][0], re.I))
         if capability:
             actor = (
                 r"(?:(?:the|an?)\s+)?(?:(?:api|ui)\s+)?"
@@ -1329,7 +1342,8 @@ def _required_evidence_channels(acceptance: str) -> set[str]:
                     return False
                 between = prefix[operations[index - 1].end() : current.start()]
                 if index == 1:
-                    recognized = re.fullmatch(r"\s*" + actor + r"\s+to\s*", between, re.I)
+                    complement = r"\s+" if bare_capability else r"\s+to\s*"
+                    recognized = re.fullmatch(r"\s*" + actor + complement, between, re.I)
                 else:
                     # Consume only an entire recognized preceding object.
                     # An unknown intervening clause may never be skipped or
@@ -1726,7 +1740,7 @@ def _required_evidence_channels(acceptance: str) -> set[str]:
             if (
                 fragments
                 and re.fullmatch(r"\s*,?\s*(?:and|or)\s+", boundary, re.I)
-                and re.search(r"\b(?:allow|enable|support)\w*\b", fragments[-1], re.I)
+                and re.search(r"\b" + capability_operation + r"\b", fragments[-1], re.I)
             ):
                 combined = fragments[-1] + boundary + fragment
                 comment_objects = list(
@@ -2082,7 +2096,9 @@ def _required_evidence_channels(acceptance: str) -> set[str]:
                         + "(?:"
                         + product_auxiliary
                         + ")?"
-                        + r"(?:(?:allow|enable|support)\w*\s+(?:users?\s+to\s+)?)?"
+                        + r"(?:(?:"
+                        + capability_operation
+                        + r")\s+(?:users?\s+(?:to\s+)?)?)?"
                         + r"(?:upload|attach|publish|post|record|capture|"
                         r"provide|include|document)\w*\b.{0,60}\bartifacts?\b",
                         requirement_text,

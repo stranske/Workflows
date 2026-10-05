@@ -29,6 +29,13 @@ a PR comment require comment evidence. Passive product uploads through a UI or
 by an application actor do not require GitHub workflow artifacts; a separate
 review-evidence instruction still applies.
 
+Common `submit` and `deliver` evidence verbs normalize through the same
+obligation, optionality, negation, literal and destination rules as `record`.
+The product capability `let users post PR comments` uses a bare infinitive
+(unlike `allow users to post`) and does not require discussion evidence.
+A separate reviewer delivery clause still requires its specified channel;
+capability inheritance cannot hide that independent obligation.
+
 Regression gates: `python3 -m pytest tests/scripts/test_pr_verifier_prompt_coverage.py
 tests/scripts/test_pr_verifier_sync_manifest.py -q --no-cov` and
 `node --test .github/scripts/__tests__/agents-verifier-context.test.js`.

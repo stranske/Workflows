@@ -3016,3 +3016,80 @@ def test_semicolon_delivery_is_not_shared_capability_coordination() -> None:
     assert pr_verifier._required_evidence_channels(
         "- [ ] The endpoint allows users to add PR comments; post PR comments"
     ) == {"comments"}
+
+
+@pytest.mark.parametrize(
+    "criterion",
+    [
+        "The UI must let users post PR comments",
+        "The UI lets users post PR comments",
+        "The endpoint must let reviewers add PR comments and post PR comments",
+    ],
+)
+@pytest.mark.parametrize("independent_delivery", [False, True])
+def test_let_product_capability_preserves_independent_delivery(
+    criterion: str, independent_delivery: bool
+) -> None:
+    if independent_delivery:
+        criterion += "; the reviewer must submit validation evidence in a PR comment"
+    expected = {"comments"} if independent_delivery else set()
+    assert pr_verifier._required_evidence_channels(criterion) == expected
+    context, _ = _context(1, 1_000, 1_000)
+    context = context.replace(ACCEPTANCE_SENTINEL, criterion).replace(
+        "## PR Diff Summary",
+        "## Acceptance evidence\n\n- Overall retrieval status: **present**\n"
+        "- PR comments: **absent**\n\n## PR Diff Summary",
+    )
+    assert pr_verifier.prompt_coverage(context, None).sufficient == (not expected)
+
+
+@pytest.mark.parametrize("verb", ["submit", "deliver"])
+@pytest.mark.parametrize("form", ["mandatory", "passive", "optional", "negative", "literal"])
+def test_submit_deliver_share_evidence_obligation_boundaries(verb: str, form: str) -> None:
+    criterion = {
+        "mandatory": f"The reviewer must {verb} validation evidence in a PR comment",
+        "passive": (
+            f"Validation evidence must be {verb}ted in a PR comment"
+            if verb == "submit"
+            else "Validation evidence must be delivered in a PR comment"
+        ),
+        "optional": f"The reviewer may {verb} validation evidence in a PR comment",
+        "negative": f"The reviewer must not {verb} validation evidence in a PR comment",
+        "literal": f"The parser must recognize `{verb} validation evidence in a PR comment`",
+    }[form]
+    assert pr_verifier._required_evidence_channels(criterion) == (
+        {"comments"} if form in {"mandatory", "passive"} else set()
+    )
+    context, _ = _context(1, 1_000, 1_000)
+    context = context.replace(ACCEPTANCE_SENTINEL, criterion).replace(
+        "## PR Diff Summary",
+        "## Acceptance evidence\n\n- Overall retrieval status: **present**\n"
+        "- PR comments: **absent**\n\n## PR Diff Summary",
+    )
+    assert pr_verifier.prompt_coverage(context, None).sufficient == (
+        form not in {"mandatory", "passive"}
+    )
+
+
+@pytest.mark.parametrize(
+    "capability",
+    [
+        "must not let",
+        "does not let",
+        "cannot let",
+        "must let",
+    ],
+)
+@pytest.mark.parametrize(
+    "attachment",
+    [
+        "; the reviewer must submit validation evidence in a PR comment",
+        " after the reviewer must deliver validation evidence in a PR comment",
+    ],
+)
+def test_let_capability_never_hides_separate_reviewer_obligation(
+    capability: str, attachment: str
+) -> None:
+    criterion = f"The UI {capability} users post PR comments"
+    assert pr_verifier._required_evidence_channels(criterion) == set()
+    assert pr_verifier._required_evidence_channels(criterion + attachment) == {"comments"}
