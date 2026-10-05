@@ -1346,6 +1346,10 @@ record grammar in active/passive, polarity and product-recipient paths.
 The bare active-past branch requires a recognized qualified actor and shares
 the bounded adverb grammar. Participial evidence modifiers such as
 `previously published evidence` do not introduce an independent actor.
+Supply aliases require a verbal governor, qualified actor or list-normalized
+imperative; object nouns such as `power supply evidence` are not deliveries.
+Comment presence/containment predicates share the complete mandatory auxiliary
+grammar, including `has/have to`, with existing polarity controls.
 Do-supported product storage (`do`, `does`, `did`) shares the finite auxiliary
 grammar and does not create a review obligation. Comma-separated and conjunctive
 shared storage/review destinations reuse the delivery-list separator grammar,

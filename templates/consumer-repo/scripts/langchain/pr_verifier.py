@@ -1155,6 +1155,41 @@ def _required_evidence_channels(acceptance: str, *, _bind_attached: bool = True)
         alias = match["alias"]
         if not alias:
             return match[0]
+        if alias.lower() in {"supply", "supplies", "supplying"}:
+            prefix = re.split(
+                r"[;,.!?\n]|\b(?:and|or|but|while|whereas)\b",
+                acceptance[: match.start()],
+                flags=re.I,
+            )[-1]
+            prefix = re.sub(
+                r"^\s*(?:(?:[-*+]|\d+[.)])\s*(?:\[[ xX]\]\s*)?|\[[ xX]\]\s*)?",
+                "",
+                prefix,
+            )
+            imperative = not prefix.strip()
+            governed = bool(
+                re.search(
+                    r"\b(?:"
+                    + mandatory_auxiliary
+                    + r"|will|may|can|could|would|should|do|does|did|is|are|was|were|has|have|had|be|been|being)\s+"
+                    r"(?:(?:not|never|no\s+longer|" + delivery_adverb + r")\s+)*$",
+                    prefix,
+                    re.I,
+                )
+            )
+            actor = bool(
+                re.fullmatch(
+                    r"\s*(?:(?:the|an?)\s+)?"
+                    + evidence_modifiers
+                    + parenthetical_actor
+                    + r"\b\s+"
+                    + delivery_adverbs,
+                    prefix,
+                    re.I,
+                )
+            )
+            if not (imperative or governed or actor):
+                return match[0]
         if alias.lower() in {"written", "pasted", "placed", "submitted", "delivered", "supplied"}:
             prefix = re.split(
                 r"[;,.!?\n]|\b(?:and|or|but|that|which|who|while|after|once|before|when|until|unless|if|since|because|whereas|although)\b",
@@ -2861,7 +2896,8 @@ def _required_evidence_channels(acceptance: str, *, _bind_attached: bool = True)
                 or re.search(
                     r"\b(?:pr comments?|pull request comments?)\b.{0,40}"
                     r"\b(?:(?:is|are)\s+(?:required|mandatory|needed)|"
-                    r"(?:must|shall|needs? to)\b|"
+                    + mandatory_auxiliary
+                    + r"\b|"
                     r"(?:is|are|must|shall|needs? to)\s+(?:be\s+)?(?:posted|published)\b)",
                     requirement_text,
                     re.I,
@@ -2874,6 +2910,13 @@ def _required_evidence_channels(acceptance: str, *, _bind_attached: bool = True)
                     + passive_delivery_prefix
                     + r"(?:provided|posted|published|recorded|captured|returned|displayed))"
                     r"\s+in\s+(?:an?\s+|the\s+)?(?:pr comments?|pull request comments?)\b",
+                    requirement_text,
+                    re.I,
+                )
+                or re.search(
+                    r"\b(?:evidence|command outputs?|transcripts?)\b.{0,40}\b"
+                    + mandatory_auxiliary
+                    + r"\s+be\s+in\s+(?:an?\s+|the\s+)?(?:pr comments?|pull request comments?)\b",
                     requirement_text,
                     re.I,
                 )

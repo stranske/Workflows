@@ -105,6 +105,37 @@ def test_optional_participial_object_is_not_a_finite_past_actor(modifier):
     assert verifier._required_evidence_channels(criterion) == set()
 
 
+@pytest.mark.parametrize("predicate", ["may inspect", "may check", "must inspect"])
+@pytest.mark.parametrize("object_name", ["power supply evidence", "water supply evidence"])
+def test_supply_noun_is_not_a_delivery_predicate(predicate, object_name):
+    """Object noun supply cannot invent a record operation."""
+    assert verifier._required_evidence_channels(
+        f"The reviewer {predicate} {object_name} in the PR body"
+    ) == ({"overall"} if predicate == "must inspect" else set())
+
+
+@pytest.mark.parametrize(
+    "criterion",
+    [
+        "The PR comment has to contain command output",
+        "The PR comments have to contain command output",
+        "Command output has to be in a PR comment",
+        "Command outputs have to be in a PR comment",
+    ],
+)
+def test_comment_has_to_uses_shared_mandatory_auxiliary(criterion):
+    """Comment requirements reuse the complete mandatory auxiliary vocabulary."""
+    assert verifier._required_evidence_channels(criterion) == {"comments"}
+
+
+@pytest.mark.parametrize("prefix", ["", "- ", "- [ ] ", "* [x] ", "1. "])
+def test_supply_imperative_list_marker_preserves_delivery(prefix):
+    """List formatting does not turn an imperative delivery into a noun."""
+    assert verifier._required_evidence_channels(prefix + "Supply evidence in a PR comment") == {
+        "comments"
+    }
+
+
 @pytest.mark.parametrize("auxiliary", ["do", "does", "did"])
 @pytest.mark.parametrize("role", ["reviewer", "maintainer"])
 @pytest.mark.parametrize("modal", ["may", "can", "could", "would", "should"])
