@@ -566,8 +566,53 @@ test('the PR template skeleton constant matches .github/PULL_REQUEST_TEMPLATE.md
       const remaining = stripPrTemplateControls(template).replace(/<!--[\s\S]*?-->/g, '');
       const lines = remaining.split('\n').map((line) => line.trim()).filter(Boolean);
       assert.ok(lines.length > 0, 'the shipped template must have visible skeleton lines');
-      for (const line of lines) {
-        assert.ok(PR_TEMPLATE_SKELETON_LINES.includes(line), `Unknown template skeleton: ${line}`);
+      const skeleton = template.replace(/<!--[\s\S]*?-->/g, '').split('\n')
+        .map((line) => line.trim()).filter((line) => line && !/^- \[[ xX]\]/.test(line));
+      assert.deepEqual(skeleton, PR_TEMPLATE_SKELETON_LINES,
+        'the complete shipped skeleton must match the exported constant');
+      assert.deepEqual(lines, stripPrTemplateControls(PR_TEMPLATE_SKELETON_LINES.join('\n'))
+        .split('\n').map((line) => line.trim()).filter(Boolean));
+    });
+  }
+});
+
+test('stripPrTemplateContent preserves incomplete, reordered and repeated skeleton lines', async (t) => {
+  const prefixes = [
+    '## Summary\n\n',
+    '## Summary\n\n## Testing\n\n',
+    '## Workflow Source\nNotes:\n## Testing\n## Summary\n\n',
+    '## Workflow Source\nNotes:\n## Summary\n## Summary\n## Testing\n\n',
+  ];
+  for (const [name, strip] of [
+    ['Workflows source', stripPrTemplateContent],
+    ['consumer template', templateStripPrTemplateContent],
+  ]) {
+    await t.test(name, () => {
+      for (const prefix of prefixes) {
+        for (const markers of managedMarkerOrders) {
+          const body = prefix + managedBlocks(markers);
+          assert.equal(strip(body), body, `Author prefix: ${prefix}`);
+          assert.equal(strip(strip(body)), body, 'repeated cleanup must preserve the prefix');
+        }
+      }
+    });
+  }
+});
+
+test('an author description containing only partial template headings survives two body syncs', async (t) => {
+  for (const [name, sync] of [['Workflows source', run], ['consumer template', templateRun]]) {
+    await t.test(name, async (t) => {
+      for (const description of ['## Summary', '## Summary\n\n## Testing']) {
+        await t.test(description, async () => {
+          const bodies = await assertIssueSyncPreservesIntent(sync, {
+            body: description,
+            head: { sha: 'abc123', ref: 'codex/issue-123' },
+          }, true);
+          for (const body of bodies) {
+            const markerIndex = body.indexOf('<!-- pr-preamble:start -->');
+            assert.equal(body.slice(0, markerIndex), description + '\n\n');
+          }
+        });
       }
     });
   }

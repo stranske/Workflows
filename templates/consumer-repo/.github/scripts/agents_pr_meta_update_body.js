@@ -736,9 +736,13 @@ function stripPrTemplateContent(body) {
   if (firstMarkerIndex > 0) {
     const prefix = stripPrTemplateControls(body.slice(0, firstMarkerIndex));
     const visible = prefix.replace(/<!--[\s\S]*?-->/g, '');
-    const isUnfilledTemplate = visible.split('\n').every((line) =>
-      !line.trim() || PR_TEMPLATE_SKELETON_LINES.includes(line.trim())
-    );
+    const lines = visible.split('\n').map((line) => line.trim()).filter(Boolean);
+    const skeleton = stripPrTemplateControls(PR_TEMPLATE_SKELETON_LINES.join('\n'))
+      .split('\n').map((line) => line.trim()).filter(Boolean);
+    // A partial heading or a rearranged/repeated skeleton can be authored text.
+    // Require the entire template after removing its choice controls.
+    const isUnfilledTemplate = lines.length === skeleton.length &&
+      lines.every((line, index) => line === skeleton[index]);
     return isUnfilledTemplate ? body.slice(firstMarkerIndex) : prefix + body.slice(firstMarkerIndex);
   }
   
