@@ -17,6 +17,7 @@ const {
 } = require('../source_context.js');
 
 const {
+  extractIssueSourceFromPull: templateExtractIssueSourceFromPull,
   resolvePrSourceContext: templateResolvePrSourceContext,
 } = require('../../../templates/consumer-repo/.github/scripts/source_context.js');
 
@@ -983,6 +984,73 @@ test('corpus harvest suppression requires the exact controlled repository branch
   }
 });
 
+test('generated related-issue binding outranks synchronized incidental issue text', () => {
+  for (const [name, extract, resolve] of [
+    ['source', extractIssueSourceFromPull, resolvePrSourceContext],
+    ['template', templateExtractIssueSourceFromPull, templateResolvePrSourceContext],
+  ]) {
+    for (const title of ['Issue #71', 'Related to #71', 'Repair metadata']) {
+      for (const suffix of [
+        'Fixes #72',
+        'Issue #72',
+        'Refs #72 and #73',
+        'Fixes #72 and closes #73',
+        '<!-- meta:related-issue:71 -->',
+      ]) {
+        const pull = {
+          title,
+          head: { ref: 'codex/issue-75-stale-branch' },
+          body: [
+            '<!-- pr-preamble:start -->',
+            '<!-- meta:related-issue:71 -->',
+            'Related to #71',
+            '<!-- pr-preamble:end -->',
+            '<!-- auto-status-summary:start -->',
+            '## Scope',
+            suffix,
+            '<!-- auto-status-summary:end -->',
+          ].join('\n'),
+        };
+        const message = `${name}: ${title} / ${suffix}`;
+        assert.deepEqual(extract(pull), { issueNumber: 71, via: 'mention' }, message);
+        const context = resolve(pull);
+        assert.equal(context.issueNumber, 71, message);
+        assert.equal(context.sourceType, SOURCE_TYPES.GITHUB_ISSUE, message);
+        assert.equal(context.sourceRef, '#71', message);
+        assert.equal(context.requiresIssue, true, message);
+
+        // Incidental synchronized closing text must not override a declared
+        // non-issue source by promoting this relation into closing intent.
+        const localContext = resolve({
+          ...pull,
+          body: '<!-- workflow-source:local_request -->\n' + pull.body,
+        });
+        assert.equal(localContext.sourceType, SOURCE_TYPES.LOCAL_REQUEST, message);
+        assert.equal(localContext.issueNumber, null, message);
+        assert.equal(localContext.requiresIssue, false, message);
+      }
+    }
+    const ambiguous = {
+      title: 'Issue #71',
+      head: { ref: 'codex/issue-71-fallback' },
+      body: '<!-- meta:related-issue:71 -->\n<!-- meta:related-issue:72 -->\nFixes #73',
+    };
+    assert.deepEqual(extract(ambiguous), { issueNumber: null, via: null }, name);
+    assert.equal(resolve(ambiguous).issueNumber, null, name);
+    assert.deepEqual(extract({
+      ...ambiguous, body: '<!-- meta:issue:74 -->\n' + ambiguous.body,
+    }), { issueNumber: 74, via: 'meta' }, name);
+    assert.deepEqual(extract({
+      body: '<!-- meta:issue:74 -->\n<!-- meta:issue:75 -->\n<!-- meta:related-issue:71 -->',
+    }), { issueNumber: null, via: null }, name);
+    assert.deepEqual(extract({
+      title: 'Fixes #74', body: '<!-- meta:related-issue:71 -->\nRelated to #72',
+    }), { issueNumber: 74, via: 'closing' }, name);
+    assert.deepEqual(extract({
+      title: 'Fixes #74', body: '<!-- meta:related-issue:71 -->\nFixes #72',
+    }), { issueNumber: null, via: null }, name);
+  }
+});
 
 test('extractIssueSourceFromPull preserves provenance and ambiguity', () => {
   for (const [pull, expected] of [
@@ -993,7 +1061,7 @@ test('extractIssueSourceFromPull preserves provenance and ambiguity', () => {
     [{ head: { ref: 'codex/issue-42-example' } }, { issueNumber: 42, via: 'branch' }],
     [{ title: 'Issue #42' }, { issueNumber: 42, via: 'title' }],
     [{ body: 'Refs #42 and issue #43' }, { issueNumber: null, via: null }],
-    [{ body: '<!-- meta:related-issue:42 --> Related to #43' }, { issueNumber: null, via: null }],
+    [{ body: '<!-- meta:related-issue:42 --> Related to #43' }, { issueNumber: 42, via: 'mention' }],
     [{}, { issueNumber: null, via: null }],
   ]) {
     assert.deepEqual(extractIssueSourceFromPull(pull), expected);

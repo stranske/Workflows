@@ -282,6 +282,21 @@ function extractIssueSourceFromPull(pull = {}) {
     return { issueNumber: Array.from(metaIssueNumbers)[0], via: 'meta' };
   }
 
+  // A generated mention/title binding survives synchronized issue text, which
+  // can itself contain closing references to a different issue. Explicit title
+  // closing intent retains the existing conflict checks below.
+  if (titleClosingIssueNumbers.size === 0) {
+    const relatedIssueNumbers = new Set(
+      Array.from(bodyText.matchAll(/<!--\s*meta:related-issue:([0-9]+)\s*-->/gi), (match) =>
+        Number.parseInt(match[1], 10),
+      ),
+    );
+    if (relatedIssueNumbers.size > 1) return { issueNumber: null, via: null };
+    if (relatedIssueNumbers.size === 1) {
+      return { issueNumber: Array.from(relatedIssueNumbers)[0], via: 'mention' };
+    }
+  }
+
   const closingIssueNumbers = extractClosingIssueNumbersFromText(bodyText);
   const explicitClosingTargets = new Set([...closingIssueNumbers, ...titleClosingIssueNumbers]);
   if (explicitClosingTargets.size > 1) {
