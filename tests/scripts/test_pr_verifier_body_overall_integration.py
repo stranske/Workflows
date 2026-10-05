@@ -207,6 +207,34 @@ def test_qualified_body_delivery_preserves_optional_negative_and_product_boundar
 
 
 @pytest.mark.skipif(NODE is None, reason="Node is required for producer integration")
+@pytest.mark.parametrize("source", ["body", "comment"])
+def test_incidental_status_run_link_does_not_suppress_artifact_discovery(source):
+    """A status-table link is not an explicit validation-evidence selection."""
+    script = r"""
+const {fetchVerifierEvidence}=require('./.github/scripts/agents_verifier_context.js');
+const source=JSON.parse(require('fs').readFileSync(0,'utf8'));
+const sha='a'.repeat(40), status='| CI | SUCCESS | [View run](https://github.com/owner/repo/actions/runs/123) |';
+let discoveries=0;
+const empty=async()=>({data:[]});
+const github={rest:{issues:{listComments:async()=>({data:source==='comment'?[{id:1,body:status}]:[]})},
+pulls:{listReviewComments:empty,listReviews:empty},actions:{
+getWorkflowRun:async()=>({data:{id:123,head_sha:sha}}),
+listWorkflowRunsForRepo:async()=>{discoveries++;return {data:{total_count:1,workflow_runs:[{id:124,head_sha:sha}]}}},
+listWorkflowRunArtifacts:async({run_id})=>({data:{total_count:run_id===124?1:0,artifacts:run_id===124?[{id:9,size_in_bytes:10,expired:false}]:[]}}),
+downloadArtifact:async()=>({data:Buffer.from('zip')})}}};
+fetchVerifierEvidence({github,owner:'owner',repo:'repo',pullNumber:1,
+pullRequestBody:source==='body'?status:'',associatedCommitShas:[sha],evidenceTexts:[],
+extractArtifactText:()=>({text:'RED then GREEN',truncated:false})})
+.then(e=>process.stdout.write(JSON.stringify({discoveries,status:e.artifacts.status})))
+.catch(e=>{console.error(e);process.exit(1)});
+"""
+    produced = json.loads(
+        subprocess.check_output([NODE, "-e", script], cwd=ROOT, input=json.dumps(source), text=True)
+    )
+    assert produced == {"discoveries": 1, "status": "present"}
+
+
+@pytest.mark.skipif(NODE is None, reason="Node is required for producer integration")
 @pytest.mark.parametrize("expired", [False, True])
 def test_complete_explicit_artifact_reaches_the_artifact_floor(expired):
     script = r"""

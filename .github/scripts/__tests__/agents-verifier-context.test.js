@@ -1510,7 +1510,7 @@ test('explicit artifact scope requires complete reference sources even with comp
               issues: { listComments: async () => ({
                 data: defect === 'invalid-comments' ? {} :
                   defect === 'truncated-comment' ? [{ body: url + 'x'.repeat(100) }] :
-                    defect === 'comment-reference' ? [{ body: url }] : [],
+                    defect === 'comment-reference' ? [{ body: 'Evidence run: ' + url }] : [],
                 headers: defect === 'partial-comments' ? { link: 'rel="next"' } : {},
               }) },
               pulls: { listReviewComments: empty, listReviews: empty },
@@ -1534,7 +1534,7 @@ test('explicit artifact scope requires complete reference sources even with comp
               github, owner: 'octo', repo: 'workflows', pullNumber: 700,
               pullRequestBody: defect === 'missing-body' ? undefined :
                 defect === 'truncated-body' ? url + 'x'.repeat(100) :
-                  defect === 'body-reference' ? url : '',
+                  defect === 'body-reference' ? 'Evidence run: ' + url : '',
               evidenceTexts: ['body-reference', 'comment-reference'].includes(defect) ? [] :
                 [url + (defect === 'excess-references' ? ' ' + url.replace('123', '124') : '')],
               referenceSourcesComplete: defect !== 'partial-issues',

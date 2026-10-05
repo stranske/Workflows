@@ -540,6 +540,15 @@ async function fetchVerifierEvidence({
 
   const artifacts = { status: 'absent', complete: true, records: [], reason: '' };
   const allRunIds = extractReferencedRunIds([pullRequestBody, ...(evidenceTexts || []), ...commentBodies]);
+  // A status-table "View run" or bare incidental body/comment URL is not an
+  // explicit evidence selection. Typed evidence inputs and locally labelled
+  // evidence lines can select a bounded set; all other links retain discovery.
+  const labelledEvidenceLines = [pullRequestBody, ...commentBodies]
+    .flatMap((text) => String(text || '').split('\n'))
+    .filter((line) => /\b(?:evidence|validation|artifacts?|test results?|red\s+(?:then\s+)?green)\b/i.test(line));
+  const explicitEvidenceRunIds = new Set(
+    extractReferencedRunIds([...(evidenceTexts || []), ...labelledEvidenceLines])
+  );
   const referencedRunIds = allRunIds.slice(0, runLimit);
   const runIds = [];
   const seenRunIds = new Set();
@@ -593,6 +602,7 @@ async function fetchVerifierEvidence({
   // associated-run discovery and retain the existing fail-closed behavior.
   const completeExplicitReferences = (
     referencedRunIds.length > 0
+    && referencedRunIds.every((runId) => explicitEvidenceRunIds.has(runId))
     && allRunIds.length === referencedRunIds.length
     && runIds.length === referencedRunIds.length
     && referenceInspectionComplete

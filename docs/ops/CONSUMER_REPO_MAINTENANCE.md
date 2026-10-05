@@ -1143,10 +1143,14 @@ Overall retrieval availability includes the independently bounded PR body,
 comments and artifacts. A present body can supply generic retrieval availability
 when other channels are completely inspected and absent, not unavailable.
 Availability alone does not identify or satisfy the required evidence. Complete, provenance-validated
-explicit workflow-run references define the artifact retrieval set when both
+explicit workflow-run references in typed evidence inputs or locally labelled
+evidence/validation/artifact/test-result lines define the artifact retrieval set when both
 reference-bearing body and comment channels were fully inspected. Unrelated
 associated head/merge jobs cannot exhaust that set's run budget. Without complete
 explicit references, bounded associated-run discovery remains fail-closed.
+Incidental body/comment URLs, including status-table `View run` links, do not
+select an exclusive evidence set: continue exact-head associated-run discovery
+so an unrelated no-artifact status job cannot hide the actual validation artifact.
 Wrong-head references, excess referenced runs, partial artifact pages, expired
 archives and truncated contents still make artifacts unavailable; scope selection
 does not prove that any particular acceptance criterion was satisfied.
