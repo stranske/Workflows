@@ -93,7 +93,7 @@ def test_multiple_contractions_do_not_form_a_quoted_literal(
 
 
 @pytest.mark.parametrize("modal", ["may", "can", "could", "would", "should", "would not"])
-@pytest.mark.parametrize("governor", ["must", "shall", "needs to"])
+@pytest.mark.parametrize("governor", ["must", "shall", "needs to", "will"])
 @pytest.mark.parametrize(
     "destination,channel",
     [("the PR body", "body"), ("a PR comment", "comments"), ("workflow artifacts", "artifacts")],
@@ -106,6 +106,36 @@ def test_direct_storage_governor_reset_retains_mandatory_delivery(
     assert (
         verifier._required_evidence_channels(
             criterion.replace(f"and {governor} record", f"and {governor} not record")
+        )
+        == set()
+    )
+
+
+@pytest.mark.parametrize("role", ["reviewer", "maintainer", "operator"])
+@pytest.mark.parametrize(
+    "adverbs",
+    [
+        "already",
+        "now",
+        "also",
+        "still",
+        "successfully",
+        "already successfully",
+        "also now successfully",
+    ],
+)
+@pytest.mark.parametrize("operation", ["placed", "submitted", "delivered"])
+@pytest.mark.parametrize(
+    "destination,channel",
+    [("the PR body", "body"), ("a PR comment", "comments"), ("workflow artifacts", "artifacts")],
+)
+def test_active_past_delivery_subject_adverbs(role, adverbs, operation, destination, channel):
+    assert verifier._required_evidence_channels(
+        f"The {role} {adverbs} {operation} evidence in {destination}"
+    ) == {channel}
+    assert (
+        verifier._required_evidence_channels(
+            f"The service {adverbs} {operation} evidence in its database"
         )
         == set()
     )

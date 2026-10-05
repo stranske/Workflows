@@ -1151,7 +1151,7 @@ def _required_evidence_channels(acceptance: str, *, _bind_attached: bool = True)
                         + evidence_modifiers
                         + r"(?:reviewers?|maintainers?|authors?|operators?|agents?|bots?|runners?|"
                         r"developers?|engineers?|testers?|auditors?|verifiers?|teams?|users?|"
-                        r"ui|api|application|service|endpoint)\s*",
+                        r"ui|api|application|service|endpoint)\s+" + delivery_adverbs + r"\s*",
                         prefix,
                         re.I,
                     )
@@ -1329,7 +1329,7 @@ def _required_evidence_channels(acceptance: str, *, _bind_attached: bool = True)
                 output.append("; " + head["actor"] + " " + head["governor"] + member["predicate"])
             consumed = cursor
             reset = re.match(
-                r"\s+(?:and|or)\s+(?=" + mandatory_auxiliary + r"\s+)",
+                r"\s+(?:and|or)\s+(?=(?:" + mandatory_auxiliary + r"|will)\s+)",
                 text[cursor:],
                 re.I,
             )

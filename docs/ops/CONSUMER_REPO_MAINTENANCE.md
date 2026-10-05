@@ -1316,6 +1316,8 @@ unrecognized text. Internal `and`/`or` storage chains are supported; alternative
 review-destination semantics and nested/passive coordination are not inferred.
 An explicit new mandatory governor also ends optionality after a single storage
 predicate, without requiring an intervening inherited storage member.
+Definite-future `will` uses that same reset; active-past reviewer subjects retain
+up to three shared delivery adverbs before alias classification.
 Regression controls independently cover negation, optional versus mandatory
 delivery, three storage predicates, governor resets, and all review channels.
 Negated obligations use the same delivery-operation grammar as positive
