@@ -2433,13 +2433,24 @@ def test_base_pytest_must_execute_a_test_before_counting_as_red(
 
 
 @pytest.mark.parametrize("stream", ["stdout", "stderr"])
-def test_base_missing_import_inside_a_test_still_proves_red(tmp_path, base_proof_helper, stream):
+@pytest.mark.parametrize("collection_text", [False, True])
+def test_base_missing_import_inside_a_test_still_proves_red(
+    tmp_path, base_proof_helper, stream, collection_text
+):
     """A ModuleNotFoundError raised by the selected test is an actual behavioral failure."""
     executions = tmp_path / "test-executions.txt"
     repo, base, spec = _base_proof_repo(
         tmp_path,
         base_proof_helper,
-        "def value():\n    import candidate_dependency\n    return candidate_dependency.VALUE\n",
+        (
+            "def value():\n"
+            + (
+                f"    import sys\n    print('ERROR collecting unrelated.py', file=sys.{stream})\n"
+                if collection_text
+                else ""
+            )
+            + "    import candidate_dependency\n    return candidate_dependency.VALUE\n"
+        ),
         "def value():\n    return 1\n",
         "import app\n"
         "from pathlib import Path\n"
@@ -2459,4 +2470,70 @@ def test_base_missing_import_inside_a_test_still_proves_red(tmp_path, base_proof
     assert result["reason"] == "head-passed-base-failed"
     assert "1 failed" in result[f"base_{stream}"]
     assert "ModuleNotFoundError: No module named 'candidate_dependency'" in result[f"base_{stream}"]
-    assert "ERROR collecting" not in result["base_stdout"] + result["base_stderr"]
+    assert ("ERROR collecting" in result["base_stdout"] + result["base_stderr"]) == collection_text
+
+
+@pytest.mark.parametrize(
+    "command",
+    [
+        ("pytest", "-q"),
+        ("/other/venv/bin/python3", "-m", "pytest", "-q"),
+        ("uv", "run", "pytest", "-q"),
+        ("uv", "run", "--project", "project", "--", "pytest", "-q"),
+        ("uv", "run", "--module", "pytest", "-q"),
+        ("uv", "run", "python", "-I", "-m", "pytest", "-q"),
+    ],
+)
+@pytest.mark.parametrize("exit_code", [2, 5])
+def test_wrapped_pytest_nonexecution_never_proves_red(
+    tmp_path, base_proof_helper, monkeypatch, command, exit_code
+):
+    repo, base, spec = _base_proof_repo(
+        tmp_path,
+        base_proof_helper,
+        "VALUE = 0\n",
+        "VALUE = 1\n",
+        "def test_value():\n    assert True\n",
+    )
+    spec = base_proof_helper["DeliberateBreakSpec"](
+        spec.test_id, spec.test_file, spec.break_file, (*command, spec.test_id)
+    )
+    calls = []
+
+    def execute(actual_command, cwd):
+        calls.append(actual_command)
+        code = 0 if len(calls) == 1 else exit_code
+        return subprocess.CompletedProcess(actual_command, code, "no tests ran", "")
+
+    monkeypatch.setitem(
+        base_proof_helper["verify_spec"].__globals__, "_run_with_runtime_deps", execute
+    )
+    result = base_proof_helper["verify_spec"](spec, base=base, cwd=repo, enforce_tamper=False)
+    assert calls == [spec.command, spec.command]
+    assert result["verdict"] == VERDICT_BROKEN
+    assert result["reason"] == "base-test-did-not-run"
+    assert result["returncode"] == exit_code
+
+
+@pytest.mark.parametrize("stream", ["stdout", "stderr"])
+def test_executed_head_import_failure_with_collection_text_is_behavioral(
+    tmp_path, base_proof_helper, stream
+):
+    repo, base, spec = _base_proof_repo(
+        tmp_path,
+        base_proof_helper,
+        "VALUE = 0\n",
+        "VALUE = 1\n",
+        "import sys\n"
+        "def test_value():\n"
+        f"    print('ERROR collecting unrelated.py', file=sys.{stream})\n"
+        "    raise ModuleNotFoundError(\"No module named 'candidate_dependency'\")\n",
+    )
+    result = base_proof_helper["verify_spec"](spec, base=base, cwd=repo, enforce_tamper=False)
+    assert result["verdict"] == VERDICT_BROKEN
+    assert result["reason"] == "head-test-failed"
+
+
+@pytest.mark.parametrize("command", [("custom", "-m", "pytest"), ("uv", "run", "custom", "pytest")])
+def test_custom_commands_keep_nonzero_contract(base_proof_helper, command):
+    assert not base_proof_helper["_is_pytest_command"](command)

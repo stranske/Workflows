@@ -624,6 +624,23 @@ def _uv_python_module_probe(command: tuple[str, ...]) -> tuple[str, ...] | None:
     return _python_module_pytest_probe(command, index)
 
 
+def _is_pytest_command(command: tuple[str, ...]) -> bool:
+    """Classify pytest execution independently of who owns its environment."""
+    return bool(
+        command
+        and (
+            Path(command[0]).name == "pytest"
+            or (
+                re.fullmatch(r"python(?:\d+(?:\.\d+)*)?", Path(command[0]).name)
+                and _python_module_pytest_probe(command, 0) is not None
+            )
+            or _uv_run_pytest_prefix(command) is not None
+            or _uv_module_pytest_prefix(command) is not None
+            or _uv_python_module_probe(command) is not None
+        )
+    )
+
+
 def _python_shebang_launcher(
     executable: Path,
     resolve_name: Callable[[str], str | None],
@@ -787,7 +804,12 @@ _COLLECTION_ERROR_RE = re.compile(
 )
 
 
-def _missing_module_from_pytest_output(*streams: str | None) -> str | None:
+_TEST_RESULT_RE = re.compile(r"(?m)^(?:PASSED|FAILED)\s+(\S+)|^(\S+)\s+(?:PASSED|FAILED)(?:\s|$)")
+
+
+def _missing_module_from_pytest_output(
+    *streams: str | None, executed_test_id: str | None = None
+) -> str | None:
     """Return the module missing at COLLECTION time, or None if that is not the failure.
 
     Collection-time ImportErrors surface inside pytest's captured output rather than as an
@@ -797,6 +819,10 @@ def _missing_module_from_pytest_output(*streams: str | None) -> str | None:
     joined = "\n".join(stream for stream in streams if stream)
     if not joined or not _COLLECTION_ERROR_RE.search(joined):
         return None
+    if executed_test_id is not None:
+        executed = {match.group(1) or match.group(2) for match in _TEST_RESULT_RE.finditer(joined)}
+        if executed_test_id in executed:
+            return None
     match = _MISSING_MODULE_RE.search(joined)
     return match.group(1) if match else None
 
@@ -980,7 +1006,9 @@ def verify_spec(
         # spent five autofix attempts on a missing runtime dependency while its own declaration
         # was correct, because `head-test-failed` reads as an acceptance failure. Name the
         # environment case so the next reader fixes the environment, not the PR.
-        missing = _missing_module_from_pytest_output(head_run.stdout, head_run.stderr)
+        missing = _missing_module_from_pytest_output(
+            head_run.stdout, head_run.stderr, executed_test_id=spec.test_id
+        )
         if missing is not None:
             return _json_result(
                 VERDICT_BROKEN,
@@ -1064,7 +1092,9 @@ def verify_spec(
         )
 
     # A test that never collected cannot establish sensitivity to the base behavior.
-    missing = _missing_module_from_pytest_output(base_run.stdout, base_run.stderr)
+    missing = _missing_module_from_pytest_output(
+        base_run.stdout, base_run.stderr, executed_test_id=spec.test_id
+    )
     if missing is not None:
         return _json_result(
             VERDICT_BROKEN,
@@ -1081,7 +1111,7 @@ def verify_spec(
         )
     # Pytest reserves 1 for failed tests; 2/3/4/5 denote interrupted execution,
     # internal/usage errors, or no collection. Custom commands keep their contract.
-    if _uses_pytest_runtime(spec.command) and base_run.returncode != 1:
+    if _is_pytest_command(spec.command) and base_run.returncode != 1:
         return _json_result(
             VERDICT_BROKEN,
             reason="base-test-did-not-run",
