@@ -608,7 +608,11 @@ def test_cli_skips_without_marker(tmp_path) -> None:
         cwd=tmp_path,
         text=True,
         capture_output=True,
-        env={**os.environ, "PR_BODY": "## Acceptance Criteria\n- [ ] normal"},
+        env={
+            **os.environ,
+            "PR_BODY": "## Acceptance Criteria\n- [ ] normal",
+            "GITHUB_OUTPUT": str(tmp_path / "github-output"),
+        },
     )
 
     assert completed.returncode == 0
