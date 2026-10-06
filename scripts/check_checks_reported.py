@@ -1028,6 +1028,14 @@ def collect(
     suites = evidence.items(
         f"repos/{repo}/commits/{head}/check-suites?per_page=100", "check_suites"
     )
+    # The endpoint alone is not a head witness. Validate every returned object,
+    # including advisory checks, stale attempts and suites from other apps.
+    for kind, inventory in (("check run", checks), ("check suite", suites)):
+        for item in inventory:
+            if item.get("head_sha") != head:
+                raise UnknownEvidence(
+                    f"{kind} {item.get('id')}: full head binding missing/mismatched"
+                )
     statuses = evidence.items(f"repos/{repo}/commits/{head}/statuses?per_page=100")
     workflows = evidence.one(f"repos/{repo}/contents/.github/workflows?ref={base}")
     # Collect every Actions run and every job page for this head; no bounded
