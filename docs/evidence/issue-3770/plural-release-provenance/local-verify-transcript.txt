@@ -1,0 +1,161 @@
+### Deliberate-break demonstration — PASS
+
+- gate: `node --test .github/scripts/__tests__/source-context.test.js .github/scripts/__tests__/agents-verifier-context.test.js`
+- base ref: `HEAD`
+- worktree: `/Users/teacher/.codex/automations/pd-workloop-resume/worktrees/Workflows-3770-plural-provenance`
+- candidate tests overlaid onto the base: `.github/scripts/__tests__/source-context.test.js`, `.github/scripts/__tests__/agents-verifier-context.test.js`, `.github/scripts/__tests__/fixtures/release-3787.json`
+
+**RED — the gate against the base implementation** (`HEAD` with only the candidate tests overlaid). Exit code `1`.
+
+```
+ipts/__tests__/agents-verifier-context.test.js:964:1
+✖ release #3787 builder retains acceptance without fetching historical fixes PR #3782 (2.030416ms)
+  AssertionError [ERR_ASSERTION]: Expected values to be strictly deep-equal:
+  + actual - expected
+
+  + [
+  +   {
+  +     issue_number: 3782,
+  +     owner: 'octo',
+  +     repo: 'workflows'
+  +   }
+  + ]
+  - []
+
+      at TestContext.<anonymous> (/private/var/folders/qm/w0dtc0j132gd6ymf1hxtd2p00000gp/T/orch-local-verify-rlovmr5u/base/.github/scripts/__tests__/agents-verifier-context.test.js:988:14)
+      at async Test.run (node:internal/test_runner/test:1069:7)
+      at async Test.processPendingSubtests (node:internal/test_runner/test:752:7) {
+    generatedMessage: true,
+    code: 'ERR_ASSERTION',
+    actual: [ { owner: 'octo', repo: 'workflows', issue_number: 3782 } ],
+    expected: [],
+    operator: 'deepStrictEqual'
+  }
+
+test at .github/scripts/__tests__/source-context.test.js:43:1
+✖ release #3787 historical plural fixes retain automation provenance (0.634583ms)
+  AssertionError [ERR_ASSERTION]: Expected values to be strictly equal:
+
+  3782 !== null
+
+      at TestContext.<anonymous> (/private/var/folders/qm/w0dtc0j132gd6ymf1hxtd2p00000gp/T/orch-local-verify-rlovmr5u/base/.github/scripts/__tests__/source-context.test.js:51:12)
+      at Test.runInAsyncScope (node:async_hooks:214:14)
+      at Test.run (node:internal/test_runner/test:1062:25)
+      at Test.processPendingSubtests (node:internal/test_runner/test:752:18)
+      at Test.postRun (node:internal/test_runner/test:1191:19)
+      at Test.run (node:internal/test_runner/test:1119:12)
+      at async startSubtestAfterBootstrap (node:internal/test_runner/harness:332:3) {
+    generatedMessage: true,
+    code: 'ERR_ASSERTION',
+    actual: 3782,
+    expected: null,
+    operator: 'strictEqual'
+  }
+
+test at .github/scripts/__tests__/source-context.test.js:111:1
+✖ historical fix nouns are not closing directives, including formatted release tasks (0.21675ms)
+  AssertionError [ERR_ASSERTION]: preserve release provenance for historical fixes ([#3782](https://github.com/stranske/Workflows/issues/3782))
+
+  3782 !== null
+
+      at TestContext.<anonymous> (/private/var/folders/qm/w0dtc0j132gd6ymf1hxtd2p00000gp/T/orch-local-verify-rlovmr5u/base/.github/scripts/__tests__/source-context.test.js:121:14)
+      at Test.runInAsyncScope (node:async_hooks:214:14)
+      at Test.run (node:internal/test_runner/test:1062:25)
+      at Test.processPendingSubtests (node:internal/test_runner/test:752:18)
+      at Test.postRun (node:internal/test_runner/test:1191:19)
+      at Test.run (node:internal/test_runner/test:1119:12)
+      at async Test.processPendingSubtests (node:internal/test_runner/test:752:7) {
+    generatedMessage: false,
+    code: 'ERR_ASSERTION',
+    actual: 3782,
+    expected: null,
+    operator: 'strictEqual'
+  }
+
+test at .github/scripts/__tests__/source-context.test.js:157:1
+✖ a historical fix noun cannot hide a subsequent closing directive on the same line (1.010292ms)
+  AssertionError [ERR_ASSERTION]: Revert the historical fixes #456 and Fixes #123
+  + actual - expected
+
+    {
+  +   issueNumber: null,
+  +   via: null
+  -   issueNumber: 123,
+  -   via: 'closing'
+    }
+
+      at TestContext.<anonymous> (/private/var/folders/qm/w0dtc0j132gd6ymf1hxtd2p00000gp/T/orch-local-verify-rlovmr5u/base/.github/scripts/__tests__/source-context.test.js:167:14)
+      at Test.runInAsyncScope (node:async_hooks:214:14)
+      at Test.run (node:internal/test_runner/test:1062:25)
+      at Test.processPendingSubtests (node:internal/test_runner/test:752:18)
+      at Test.postRun (node:internal/test_runner/test:1191:19)
+      at Test.run (node:internal/test_runner/test:1119:12)
+      at async Test.processPendingSubtests (node:internal/test_runner/test:752:7) {
+    generatedMessage: false,
+    code: 'ERR_ASSERTION',
+    actual: { issueNumber: null, via: null },
+    expected: { issueNumber: 123, via: 'closing' },
+    operator: 'deepStrictEqual'
+  }
+```
+
+**GREEN — the same gate in the worktree, with the implementation present.** Exit code `0`.
+
+```
+92ms)
+✔ extractIssueNumberFromPull ignores bare issue-number mentions in PR descriptions (0.050834ms)
+✔ extractIssueNumberFromPull skips PR references before later issue references (0.039ms)
+✔ extractIssueNumberFromPull requires explicit issue wording for body references (0.09075ms)
+✔ extractIssueNumberFromPull requires explicit issue wording for title references (0.048542ms)
+✔ resolvePrSourceContext does not classify bare and PR-only mentions as issue-sourced (0.08025ms)
+✔ resolvePrSourceContext still classifies explicit issue-sourced references (0.041833ms)
+✔ parseWorkflowSourceBlock reads source-context fields from hidden block (0.101959ms)
+✔ dependency repair promotion marker supplies explicit dependency source context (0.1785ms)
+✔ underscore dependency source label authorizes a valid promotion marker (0.082875ms)
+✔ dependency repair promotion marker suppresses incidental issue references (0.08375ms)
+✔ untrusted dependency repair promotion marker preserves issue routing (0.068708ms)
+✔ malformed dependency repair promotion marker does not authorize source context (0.058709ms)
+✔ partial promotion label sets do not authorize suppression of issue routing (0.10675ms)
+✔ mismatched promotion payloads preserve issue routing even when both labels are present (0.245583ms)
+✔ consumer template resolver stays behaviorally synchronized on promotion trust (0.213167ms)
+✔ promotion marker casing must match the dependency repair contract (0.063125ms)
+✔ sourceTypeFromCheckedTemplate reads direct GitHub PR source choice (0.149875ms)
+✔ sourceTypeFromCheckedTemplate accepts slash-separated local request wording (0.113917ms)
+✔ sourceTypeFromCheckedTemplate preserves source choice without automation intent opt-out (0.093834ms)
+✔ automation intent checkboxes do not disable automation without started-from source (0.059ms)
+✔ sourceTypeFromCheckedTemplate treats human-only PRs as manual remote work (0.039875ms)
+✔ resolvePrSourceContext marks no-automation sources without changing source type (0.068625ms)
+✔ resolvePrSourceContext normalizes explicit no-automation to a valid manual source (0.06175ms)
+✔ resolvePrSourceContext preserves legacy human-only no-automation wording (0.051083ms)
+✔ sourceTypeFromCheckedTemplate rejects ambiguous checked source choices (0.033ms)
+✔ sourceTypeFromLabels accepts workflow source labels (0.029541ms)
+✔ sourceTypeFromLabels rejects lookalike workflow source labels (0.045375ms)
+✔ resolvePrSourceContext prefers source issue when issue metadata exists (0.0575ms)
+✔ resolvePrSourceContext accepts explicit local request without issue (0.070792ms)
+✔ resolvePrSourceContext infers sync and dependabot sources for maintenance PRs (0.065625ms)
+✔ resolvePrSourceContext infers local_request for conventional work-branch prefixes (0.119875ms)
+✔ bound generated sync provenance overrides incidental issue text (1.220375ms)
+✔ resolvePrSourceContext accepts explicit sync source markers from consumer sync PRs (0.082917ms)
+✔ declared non-issue sources suppress coordination links but retain explicit closing overrides (0.487417ms)
+✔ resolvePrSourceContext accepts direct-pr labels without issue metadata (0.073709ms)
+✔ resolvePrSourceContext does not treat review PR references as source issues (0.191666ms)
+✔ resolvePrSourceContext leaves unrelated PRs unknown (0.050834ms)
+✔ resolvePrSourceContext suppresses stale issue metadata on the bound corpus harvest job (0.110792ms)
+✔ corpus harvest suppression requires the exact controlled repository branch and labels (0.094583ms)
+✔ generated related-issue binding outranks synchronized incidental issue text (1.197666ms)
+✔ extractIssueSourceFromPull preserves provenance and ambiguity (0.358667ms)
+✔ explicit closing title intent is distinguished from incidental title relations (0.126292ms)
+✔ explicit closing titles outrank incidental body mentions without selecting conflicting closing targets (0.195417ms)
+ℹ tests 162
+ℹ suites 0
+ℹ pass 162
+ℹ fail 0
+ℹ cancelled 0
+ℹ skipped 0
+ℹ todo 0
+ℹ duration_ms 2341.648083
+```
+
+**Per-node attribution unavailable**, so the red above is graded per COMMAND and one discriminating test would earn it for every tautology beside it: no candidate path is a Python test file or directory, so pytest cannot attribute per-node outcomes: .github/scripts/__tests__/source-context.test.js, .github/scripts/__tests__/agents-verifier-context.test.js, .github/scripts/__tests__/fixtures/release-3787.json
+
+_Produced by `local_verify.py --transcript`; the live worktree was never mutated._

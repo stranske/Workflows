@@ -1,0 +1,9 @@
+{
+  "number": 3787,
+  "title": "chore(main): release 1.37.26",
+  "body": ":robot: I have created a release *beep* *boop*\n---\n\n\n## [1.37.26](https://github.com/stranske/Workflows/compare/v1.37.25...v1.37.26) (2026-10-06)\n\n\n### Bug Fixes\n\n* **verifier:** preserve release provenance for historical fixes ([#3782](https://github.com/stranske/Workflows/issues/3782)) ([52712f2](https://github.com/stranske/Workflows/commit/52712f28d058ba1b3d6f1b7ad27e7cdb40f48e28))\n\n---\nThis PR was generated with [Release Please](https://github.com/googleapis/release-please). See [documentation](https://github.com/googleapis/release-please#release-please).\n\n## Tasks\n- [x] Publish release 1.37.26 from the reviewed release manifest and changelog.\n\n## Acceptance Criteria\n- [x] `.release-please-manifest.json` records 1.37.26.\n- [x] `CHANGELOG.md` contains the 1.37.26 release entry with the historical source #3782/52712f2 provenance.\n- [x] The release diff changes only these two files; this release has no new implementation or installed deployment acceptance criteria.\n\nVerification is limited to this release manifest/changelog. Historical implementation source issues retain their own acceptance and provider dispositions.\n",
+  "head": {
+    "ref": "release-please--branches--main",
+    "sha": "dccfd5b4fabaa9748b66380bf1a108e15c18f61a"
+  }
+}

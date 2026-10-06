@@ -1,0 +1,18 @@
+[
+  {
+    "number": 3787,
+    "url": "https://github.com/stranske/Workflows/pull/3787",
+    "body_matches": true,
+    "title_matches": true,
+    "branch_matches": true,
+    "head_matches": true
+  },
+  {
+    "number": 3769,
+    "url": "https://github.com/stranske/Workflows/pull/3769",
+    "body_matches": true,
+    "title_matches": true,
+    "branch_matches": true,
+    "head_matches": true
+  }
+]

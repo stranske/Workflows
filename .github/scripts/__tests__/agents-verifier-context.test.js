@@ -24,6 +24,7 @@ const prBodyFixture = fs.readFileSync(path.join(fixturesDir, 'pr-body.md'), 'utf
 const issueBodyOpen = fs.readFileSync(path.join(fixturesDir, 'issue-body-open.md'), 'utf8');
 const issueBodyClosed = fs.readFileSync(path.join(fixturesDir, 'issue-body-closed.md'), 'utf8');
 const release3769 = require('./fixtures/release-3769.json');
+const release3787 = require('./fixtures/release-3787.json');
 
 const buildVerifierContext = (options) => buildVerifierContextImpl({
   ...options,
@@ -910,6 +911,11 @@ test('release #3769 builder retains its own acceptance without fetching merged P
       assert.deepEqual(result.issueNumbers, []);
       assert.equal(result.sourceCoverage.acceptance_source_discovery.status, 'included');
       assert.equal(result.sourceCoverage.acceptance_source_discovery.required, false);
+      assert.deepEqual(result.sourceCoverage.acceptance_sources.map(source => source.source), ['Pull request #3769']);
+      assert.equal(result.sourceCoverage.acceptance_sources[0].status, 'included');
+      for (const item of release3769.body.matchAll(/^- \[[x ]\] (.+)$/gm)) {
+        assert.ok(result.markdown.includes(item[1]), `Missing release task/acceptance: ${item[1]}`);
+      }
       assert.match(result.markdown, /Manifest and changelog agree on 1\.37\.21/);
       assert.match(result.markdown, /Complete required\/expected pre-merge check topology/);
       assert.doesNotMatch(result.markdown, /Known source issue #3768 was not retrieved/);
@@ -955,6 +961,147 @@ test('release #3769 builder retains its own acceptance without fetching merged P
         }
       } finally {
         removeVerifierDiffArtifacts(linkedResult);
+      }
+    }
+  }
+});
+
+test('release #3787 builder retains acceptance without fetching historical fixes PR #3782', async () => {
+  const templateImpl = require('../../../templates/consumer-repo/.github/scripts/agents_verifier_context.js').buildVerifierContext;
+  const templateBuilder = options => templateImpl({ ...options, fetchLocalDiff: () => options.github.__testDiffText });
+  const prDetails = {
+    ...release3787,
+    merged: true,
+    merged_at: '2026-10-06T00:00:00Z',
+    merge_commit_sha: '4a270d7f08aa303e342fdc89ebcf5d540f0ec646',
+    // Synthetic trusted origin around the exact production body/title/branch.
+    user: { login: process.env.RELEASE_PLEASE_AUTHOR || 'github-actions[bot]' },
+    head: { ...release3787.head, repo: { full_name: 'octo/workflows' } },
+    base: { ref: 'main', sha: 'aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa', repo: { full_name: 'octo/workflows' } },
+  };
+  const diffText = coveragePatch('.release-please-manifest.json') + coveragePatch('CHANGELOG.md');
+  for (const builder of [buildVerifierContext, templateBuilder]) {
+    const calls = [];
+    const { result } = await buildEvidenceContext({
+      prDetails,
+      sourceIssue: { number: 3782, body: 'Not an issue contract', pull_request: {} },
+      sourceIssueCalls: calls,
+      diffText,
+    }, {}, builder);
+    try {
+      assert.equal(result.shouldRun, true);
+      assert.deepEqual(calls, []);
+      assert.deepEqual(result.issueNumbers, []);
+      assert.equal(result.sourceCoverage.acceptance_source_discovery.status, 'included');
+      assert.equal(result.sourceCoverage.acceptance_source_discovery.required, false);
+      assert.deepEqual(result.sourceCoverage.acceptance_sources.map(source => source.source), ['Pull request #3787']);
+      assert.equal(result.sourceCoverage.acceptance_sources[0].status, 'included');
+      for (const item of release3787.body.matchAll(/^- \[[x ]\] (.+)$/gm)) {
+        assert.ok(result.markdown.includes(item[1]), `Missing release task/acceptance: ${item[1]}`);
+      }
+      assert.match(result.markdown, /Publish release 1\.37\.26 from the reviewed release manifest and changelog/);
+      assert.match(result.markdown, /Historical implementation source issues retain their own acceptance/);
+      assert.doesNotMatch(result.markdown, /Known source issue #3782 was not retrieved/);
+    } finally { removeVerifierDiffArtifacts(result); }
+
+    // The generated release branch must not bypass a genuine issue contract,
+    // even while its body retains the historical merged-PR reference.
+    const sourceIssue = {
+      number: 123,
+      title: 'Release source contract',
+      body: '## Acceptance Criteria\n- [ ] RELEASE_SOURCE_CONTRACT',
+      state: 'open',
+      labels: [],
+    };
+    for (const sourceOptions of [
+      { sourceIssue },
+      { sourceIssueError: new Error('403 forbidden') },
+      { sourceIssue: { ...sourceIssue, pull_request: {} } },
+      { sourceIssue: { ...sourceIssue, number: 456 } },
+      { sourceIssue: { ...sourceIssue, body: undefined } },
+    ]) {
+      const sourceCalls = [];
+      const validIssue = sourceOptions.sourceIssue === sourceIssue;
+      const { result: linkedResult } = await buildEvidenceContext({
+        prDetails: { ...prDetails, body: prDetails.body + '\nRelated to #123' },
+        diffText,
+        ...sourceOptions,
+        sourceIssueCalls: sourceCalls,
+      }, {}, builder);
+      try {
+        assert.equal(linkedResult.shouldRun, true);
+        assert.deepEqual(sourceCalls, [{ owner: 'octo', repo: 'workflows', issue_number: 123 }]);
+        assert.deepEqual(linkedResult.issueNumbers, validIssue ? [123] : []);
+        const discovery = linkedResult.sourceCoverage.acceptance_source_discovery;
+        assert.equal(discovery.required, true);
+        assert.equal(discovery.status, validIssue ? 'included' : 'unavailable');
+        assert.match(linkedResult.markdown, /Publish release 1\.37\.26 from the reviewed release manifest and changelog/);
+        if (validIssue) {
+          assert.match(linkedResult.markdown, /RELEASE_SOURCE_CONTRACT/);
+        } else {
+          assert.match(discovery.reason, /Known source issue #123 was not retrieved/);
+          assert.doesNotMatch(linkedResult.markdown, /RELEASE_SOURCE_CONTRACT/);
+        }
+      } finally {
+        removeVerifierDiffArtifacts(linkedResult);
+      }
+    }
+  }
+});
+
+test('release #3787 Fix/Closes directives still require issue acceptance', async (t) => {
+  const templateImpl = require('../../../templates/consumer-repo/.github/scripts/agents_verifier_context.js').buildVerifierContext;
+  const templateBuilder = options => templateImpl({ ...options, fetchLocalDiff: () => options.github.__testDiffText });
+  const sourceIssue = {
+    number: 123,
+    title: 'Explicit release source',
+    body: '## Acceptance Criteria\n- [ ] EXPLICIT_RELEASE_SOURCE_CONTRACT',
+    state: 'open',
+    labels: [],
+  };
+  for (const [origin, builder] of [['shared', buildVerifierContext], ['consumer', templateBuilder]]) {
+    for (const directive of ['Fix #123', 'Closes #123']) {
+      for (const [response, options] of [
+        ['issue', { sourceIssue }],
+        ['inaccessible issue', { sourceIssueError: new Error('403 forbidden') }],
+        ['linked PR', { sourceIssue: { ...sourceIssue, pull_request: {} } }],
+      ]) {
+        await t.test(`${origin}: ${directive}: ${response}`, async () => {
+          const calls = [];
+          const { result } = await buildEvidenceContext({
+            prDetails: {
+              ...release3787,
+              merged: true,
+              merge_commit_sha: '4a270d7f08aa303e342fdc89ebcf5d540f0ec646',
+              user: { login: process.env.RELEASE_PLEASE_AUTHOR || 'github-actions[bot]' },
+              head: { ...release3787.head, repo: { full_name: 'octo/workflows' } },
+              base: { ref: 'main', sha: 'aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa', repo: { full_name: 'octo/workflows' } },
+              body: release3787.body + '\n<!-- workflow-source:local_request -->\n' + directive,
+            },
+            ...options,
+            sourceIssueCalls: calls,
+            diffText: coveragePatch('.release-please-manifest.json') + coveragePatch('CHANGELOG.md'),
+          }, {}, builder);
+          try {
+            assert.equal(result.shouldRun, true);
+            assert.deepEqual(calls, [{ owner: 'octo', repo: 'workflows', issue_number: 123 }]);
+            const valid = response === 'issue';
+            assert.deepEqual(result.issueNumbers, valid ? [123] : []);
+            const discovery = result.sourceCoverage.acceptance_source_discovery;
+            assert.equal(discovery.required, true);
+            assert.equal(discovery.status, valid ? 'included' : 'unavailable');
+            assert.deepEqual(result.sourceCoverage.acceptance_sources.map(source => source.source),
+              valid ? ['Pull request #3787', 'Issue #123'] : ['Pull request #3787']);
+            if (valid) {
+              assert.match(result.markdown, /EXPLICIT_RELEASE_SOURCE_CONTRACT/);
+            } else {
+              assert.match(discovery.reason, /Known source issue #123 was not retrieved/);
+              assert.doesNotMatch(result.markdown, /EXPLICIT_RELEASE_SOURCE_CONTRACT/);
+            }
+          } finally {
+            removeVerifierDiffArtifacts(result);
+          }
+        });
       }
     }
   }

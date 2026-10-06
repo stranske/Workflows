@@ -22,6 +22,7 @@ const {
 } = require('../../../templates/consumer-repo/.github/scripts/source_context.js');
 
 const release3769 = require('./fixtures/release-3769.json');
+const release3787 = require('./fixtures/release-3787.json');
 // Synthetic trusted origin; the captured production body/title/branch stay exact.
 const releasePull = {
   ...release3769,
@@ -36,6 +37,43 @@ test('release #3769 retains automation provenance instead of the already-merged 
     assert.equal(source.issueNumber, null);
     assert.equal(source.requiresIssue, false);
     assert.equal(source.sourceType, SOURCE_TYPES.AUTOMATION_RUN);
+  }
+});
+
+test('release #3787 historical plural fixes retain automation provenance', () => {
+  const pull = {
+    ...releasePull,
+    ...release3787,
+    head: { ...releasePull.head, ...release3787.head },
+  };
+  for (const resolve of [resolvePrSourceContext, templateResolvePrSourceContext]) {
+    const source = resolve(pull);
+    assert.equal(source.issueNumber, null);
+    assert.equal(source.requiresIssue, false);
+    assert.equal(source.sourceType, SOURCE_TYPES.AUTOMATION_RUN);
+  }
+});
+
+test('release #3787 history preserves genuine Fix/Closes sources over declared local requests', () => {
+  const pull = {
+    ...releasePull,
+    ...release3787,
+    head: { ...releasePull.head, ...release3787.head },
+  };
+  for (const resolve of [resolvePrSourceContext, templateResolvePrSourceContext]) {
+    for (const directive of ['Fix #123', 'Closes #123']) {
+      for (const placement of ['body', 'title']) {
+        const source = resolve({
+          ...pull,
+          body: pull.body + '\n<!-- workflow-source:local_request -->' +
+            (placement === 'body' ? '\n' + directive : ''),
+          title: placement === 'title' ? pull.title + ': ' + directive : pull.title,
+        });
+        assert.equal(source.sourceType, SOURCE_TYPES.GITHUB_ISSUE, `${placement}: ${directive}`);
+        assert.equal(source.issueNumber, 123, `${placement}: ${directive}`);
+        assert.equal(source.requiresIssue, true, `${placement}: ${directive}`);
+      }
+    }
   }
 });
 
@@ -99,6 +137,9 @@ test('historical fix nouns are not closing directives, including formatted relea
       'Record the already-merged artifact-discovery fix #3768 in the changelog.',
       '- [x] Document the **previous fix** #3768.',
       'Include the merged fix #3768 in release history.',
+      'preserve release provenance for historical fixes ([#3782](https://github.com/stranske/Workflows/issues/3782))',
+      'Record the already-merged fixes #3782 in the changelog.',
+      '- [x] Document the **historical fixes** #3782.',
     ]) {
       assert.equal(extract({ body }).issueNumber, null, body);
     }
@@ -143,6 +184,8 @@ test('a historical fix noun cannot hide a subsequent closing directive on the sa
       'Revert the already-merged fix then **Fix** #123',
       'Revert the prior fix but fix issue #123',
       'Revert the previous fix #456 and Fix #123',
+      'Revert the historical fixes #456 and Fixes #123',
+      'Record historical fixes, then Fix issue #123',
     ]) {
       assert.deepEqual(extract({ body }), { issueNumber: 123, via: 'closing' }, body);
       assert.deepEqual(extract({ title: body }), { issueNumber: 123, via: 'closing' }, body);
