@@ -146,7 +146,6 @@ def test_types_as_string_does_not_substring_match_opened():
 
 
 def test_duplicate_expected_job_names_force_unknown():
-    evidence = reporter.Evidence(lambda _: [])
     job_provenance = {
         "gate": {f"o/r/a.yml@{BASE}", f"o/r/b.yml@{BASE}"},
     }
