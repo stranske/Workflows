@@ -16,7 +16,9 @@ def test_regenerate_lock_retains_original_extras_and_platform(tmp_path, monkeypa
         "#    uv pip compile pyproject.toml --extra=app --extra dev --universal "
         "--output-file=requirements.lock\nast-serialize==0.6.0\nmypy==2.4.0\n"
     )
-    run = Mock()
+    run = Mock(
+        side_effect=lambda *_args, **_kwargs: lock.write_text(lock.read_text() + "# resolved\n")
+    )
     monkeypatch.setattr(sdd.subprocess, "run", run)
     changes, errors = sdd.regenerate_lockfile(lock, {"MYPY_VERSION": "2.4.0"})
     assert errors == []
@@ -51,6 +53,93 @@ def test_regenerate_lock_rejects_unsupported_provenance(tmp_path, monkeypatch, c
     monkeypatch.setattr(sdd.subprocess, "run", run)
     changes, errors = sdd.regenerate_lockfile(lock, {"MYPY_VERSION": "2.4.0"})
     assert changes == [] and errors
+    run.assert_not_called()
+
+
+@pytest.mark.parametrize("hashed", [False, True])
+@pytest.mark.parametrize("recorded_upgrade", [False, True])
+def test_regenerate_lock_replays_own_canonical_upgrade(
+    tmp_path, monkeypatch, hashed, recorded_upgrade
+):
+    monkeypatch.chdir(tmp_path)
+    Path("requirements.in").write_text("mypy>=2\n")
+    lock = Path("requirements.lock")
+    continuation = " \\" if hashed else ""
+    upgrade = "--upgrade-package mypy==2.3.0 " if recorded_upgrade else ""
+    lock.write_text(
+        "# uv pip compile requirements.in "
+        + upgrade
+        + "--generate-hashes -o requirements.lock\nmypy==2.3.0"
+        + continuation
+        + "\n"
+    )
+    run = Mock(
+        side_effect=lambda *_args, **_kwargs: lock.write_text(lock.read_text() + "# resolved\n")
+    )
+    monkeypatch.setattr(sdd.subprocess, "run", run)
+    changes, errors = sdd.regenerate_lockfile(lock, {"MYPY_VERSION": "2.4.0"})
+    assert changes and not errors
+    args = run.call_args.args[0]
+    assert "mypy==2.3.0" not in args
+    assert args.count("mypy==2.4.0") == 1
+
+
+def test_regenerate_lock_retains_consumer_baseline_txt(tmp_path, monkeypatch):
+    monkeypatch.chdir(tmp_path)
+    Path("pyproject.toml").write_text("[project]\nname='example'\nversion='1'\n")
+    baseline = Path("tests/baseline/requirements-baseline.txt")
+    baseline.parent.mkdir(parents=True)
+    baseline.write_text("example==1\n")
+    lock = Path("requirements.lock")
+    lock.write_text(
+        "# uv pip compile pyproject.toml tests/baseline/requirements-baseline.txt "
+        "--extra=dev --universal --output-file=requirements.lock\nmypy==2.4.0\n"
+    )
+    run = Mock(
+        side_effect=lambda *_args, **_kwargs: lock.write_text(lock.read_text() + "# resolved\n")
+    )
+    monkeypatch.setattr(sdd.subprocess, "run", run)
+    changes, errors = sdd.regenerate_lockfile(lock, {"MYPY_VERSION": "2.4.0"})
+    assert changes and not errors
+    assert str(baseline) in run.call_args.args[0]
+
+
+def test_regenerate_unchanged_lock_is_noop(tmp_path, monkeypatch):
+    monkeypatch.chdir(tmp_path)
+    Path("pyproject.toml").write_text("[project]\nname='example'\nversion='1'\n")
+    lock = Path("requirements.lock")
+    lock.write_text("# uv pip compile pyproject.toml -o requirements.lock\nmypy==2.4.0\n")
+    monkeypatch.setattr(sdd.subprocess, "run", Mock())
+    assert sdd.regenerate_lockfile(lock, {"MYPY_VERSION": "2.4.0"}) == ([], [])
+
+
+@pytest.mark.parametrize("flag", ["--constraints", "--overrides"])
+def test_regenerate_plural_uv_constraints(tmp_path, monkeypatch, flag):
+    monkeypatch.chdir(tmp_path)
+    Path("pyproject.toml").write_text("[project]\nname='example'\nversion='1'\n")
+    Path("constraints.txt").write_text("mypy>=2\n")
+    lock = Path("requirements.lock")
+    lock.write_text(
+        f"# uv pip compile pyproject.toml {flag} constraints.txt -o requirements.lock\nmypy==2.4.0\n"
+    )
+    run = Mock()
+    monkeypatch.setattr(sdd.subprocess, "run", run)
+    _, errors = sdd.regenerate_lockfile(lock, {"MYPY_VERSION": "2.4.0"})
+    assert not errors
+    run.assert_called_once()
+
+
+def test_regenerate_lock_rejects_external_output_symlink(tmp_path, monkeypatch):
+    monkeypatch.chdir(tmp_path)
+    Path("pyproject.toml").write_text("[project]\nname='example'\nversion='1'\n")
+    external = tmp_path.parent / "external-lock"
+    external.write_text("# uv pip compile pyproject.toml -o requirements.lock\nmypy==2.4.0\n")
+    lock = Path("requirements.lock")
+    lock.symlink_to(external)
+    run = Mock()
+    monkeypatch.setattr(sdd.subprocess, "run", run)
+    changes, errors = sdd.regenerate_lockfile(lock, {"MYPY_VERSION": "2.4.0"})
+    assert not changes and errors
     run.assert_not_called()
 
 

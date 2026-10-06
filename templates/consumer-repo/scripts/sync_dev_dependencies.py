@@ -386,13 +386,15 @@ def regenerate_lockfile(lockfile_path: Path, pins: dict[str, str]) -> tuple[list
             "--python-version",
             "--python-platform",
             "--no-emit-package",
-            "--constraint",
+            "--constraints",
             "-c",
-            "--override",
+            "--overrides",
             "--resolution",
             "--exclude-newer",
             "--output-file",
             "-o",
+            "--upgrade-package",
+            "-P",
         }
         bool_flags = {
             "--universal",
@@ -406,8 +408,12 @@ def regenerate_lockfile(lockfile_path: Path, pins: dict[str, str]) -> tuple[list
         }
         output = None
         sources = []
+        canonical = _build_lockfile_targets(pins)
+        remove_indices = set()
+        upgrade_names = set()
         i = 3
         while i < len(tokens):
+            start = i
             token = tokens[i]
             flag, separator, value = token.partition("=")
             if flag in value_flags:
@@ -422,11 +428,19 @@ def regenerate_lockfile(lockfile_path: Path, pins: dict[str, str]) -> tuple[list
                     if output is not None:
                         raise ValueError("duplicate output destination")
                     output = value
-                if flag in {"--constraint", "-c", "--override"}:
+                if flag in {"--constraints", "-c", "--overrides"}:
                     sources.append(value)
+                if flag in {"--upgrade-package", "-P"}:
+                    package = re.match(r"[A-Za-z0-9_.-]+", value)
+                    if package is None:
+                        raise ValueError("invalid package upgrade")
+                    name = package.group().lower()
+                    if name in canonical:
+                        upgrade_names.add(name)
+                        remove_indices.update(range(start, i + 1))
             elif token in bool_flags:
                 pass
-            elif token == "pyproject.toml" or token.endswith(".in"):
+            elif token == "pyproject.toml" or token.endswith((".in", ".txt")):
                 sources.append(token)
             else:
                 raise ValueError("unsupported compile argument")
@@ -434,6 +448,8 @@ def regenerate_lockfile(lockfile_path: Path, pins: dict[str, str]) -> tuple[list
         if output != str(lockfile_path) or not sources:
             raise ValueError("compile output or inputs do not match this lock")
         root = Path.cwd().resolve()
+        if lockfile_path.is_absolute() or not lockfile_path.resolve().is_relative_to(root):
+            raise ValueError("compile output must remain repository-local")
         for source in sources:
             path = Path(source)
             if path.is_absolute() or not path.resolve().is_relative_to(root) or not path.is_file():
@@ -441,12 +457,15 @@ def regenerate_lockfile(lockfile_path: Path, pins: dict[str, str]) -> tuple[list
         present = {
             match.group("name").lower()
             for line in content.splitlines()
-            if (match := LOCKFILE_PATTERN.match(line))
+            if (match := LOCKFILE_PATTERN.match(line.rstrip().removesuffix("\\").rstrip()))
         }
-        for name, version in _build_lockfile_targets(pins).items():
-            if name in present:
+        tokens = [token for index, token in enumerate(tokens) if index not in remove_indices]
+        for name, version in canonical.items():
+            if name in present or name in upgrade_names:
                 tokens.extend(["--upgrade-package", f"{name}=={version}"])
         subprocess.run(tokens, check=True)
+        if lockfile_path.read_text(encoding="utf-8") == content:
+            return [], []
     except (ValueError, OSError, subprocess.CalledProcessError) as exc:
         return [], [f"{lockfile_path}: transitive lock regeneration failed ({exc})"]
     return [f"{lockfile_path}: regenerated transitive dependencies"], []
@@ -513,7 +532,7 @@ def _pre_commit_repo_name(line: str) -> str | None:
             repo = parsed.path.lstrip("/")
     repo = repo.rstrip("/").removesuffix(".git")
     if repo.lower().startswith("github.com/"):
-        repo = repo.split("/", 1)[1]
+        repo = repo[len("github.com/") :]
     return repo.lower()
 
 

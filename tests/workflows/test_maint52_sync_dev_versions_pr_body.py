@@ -53,6 +53,18 @@ def test_maint52_regenerates_transitive_requirements_before_publishing():
     assert add_section.index("pip install") < add_section.index("--resolve-locks")
 
 
+def test_maint52_previews_resolution_and_uses_actual_tree_changes():
+    text = WORKFLOW.read_text(encoding="utf-8")
+    existing = text[
+        text.index("- name: Sync versions") : text.index("- name: Add dev dependencies")
+    ]
+    missing = text[text.index("- name: Add dev dependencies") : text.index("- name: Skip")]
+    assert "inputs.dry_run" not in existing
+    assert "inputs.dry_run" not in missing
+    assert "git diff --quiet" in existing and "git diff --quiet" in missing
+    assert 'grep -q "version updates"' not in missing
+
+
 def test_maint52_pr_body_reports_canonical_source_commit_and_never_proposes_upstream():
     """AC: Maint 52 reports the settled source commit and never opens an upstream bump."""
     text = WORKFLOW.read_text(encoding="utf-8")

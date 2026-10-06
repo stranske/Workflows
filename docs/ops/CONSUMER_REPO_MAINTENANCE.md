@@ -1702,6 +1702,13 @@ output pins remain resolver preferences. Unsupported provenance or a solver
 failure stops publication with a concrete error; it must not leave a knowingly
 unsatisfiable generated delivery marked ready to merge. Manually authored
 `requirements-dev.txt` without uv provenance remains a direct-pin surface.
+Repository-local baseline `.txt` inputs and uv's plural `--constraints` and
+`--overrides` options retain their scope. Hashed requirement continuations still
+receive canonical tool constraints; previously recorded managed upgrade options
+are replaced by the current canonical version. Escaped input/output destinations
+fail closed. A successful unchanged lock is a no-op, not an update receipt.
+Both apply branches derive publication readiness from the final tree diff; dry
+runs perform the same resolution in the disposable checkout without publishing.
 The propagation-script digest participates in the wave hash, so this repair
 produces a replacement wave even when the canonical tool versions are unchanged.
 

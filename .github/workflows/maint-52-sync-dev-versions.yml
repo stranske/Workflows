@@ -228,13 +228,15 @@ jobs:
 
           # Resolve even when direct pins already match: transitive drift is
           # invisible to the direct-pin check and can still break clean CI.
-          if [ "${{ inputs.dry_run }}" != "true" ]; then
-            python -m pip install --disable-pip-version-check 'uv>=0.5'
-            python ../scripts/sync_dev_dependencies.py --apply --pre-commit --resolve-locks
-            if [ -f uv.lock ]; then uv lock; fi
-            if ! git diff --quiet; then
-              echo "has_changes=true" >> "$GITHUB_OUTPUT"
-            fi
+          # Dry runs resolve in this disposable checkout too; publication is
+          # guarded separately. Only the final tree diff means an update exists.
+          python -m pip install --disable-pip-version-check 'uv>=0.5'
+          python ../scripts/sync_dev_dependencies.py --apply --pre-commit --resolve-locks
+          if [ -f uv.lock ]; then uv lock; fi
+          if ! git diff --quiet; then
+            echo "has_changes=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "has_changes=false" >> "$GITHUB_OUTPUT"
           fi
 
           # Save output for PR body
@@ -264,14 +266,11 @@ jobs:
             --resolve-locks \
             --create-if-missing 2>&1 \
             | tee /tmp/sync_output.txt; then
-            if grep -q "version updates" /tmp/sync_output.txt; then
+            if [ -f uv.lock ]; then uv lock; fi
+            if ! git diff --quiet; then
               echo "has_changes=true" >> "$GITHUB_OUTPUT"
             else
               echo "has_changes=false" >> "$GITHUB_OUTPUT"
-            fi
-            if [ "${{ inputs.dry_run }}" != "true" ] && [ -f uv.lock ]; then
-              python -m pip install --disable-pip-version-check 'uv>=0.5'
-              uv lock
             fi
           else
             exit 1
