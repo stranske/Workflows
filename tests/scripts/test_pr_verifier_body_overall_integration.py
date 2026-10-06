@@ -15,6 +15,76 @@ ROOT = Path(__file__).resolve().parents[2]
 NODE = shutil.which("node")
 
 
+@pytest.mark.parametrize("actor", ["The UI", "The reviewer"])
+@pytest.mark.parametrize("status", ["absent", "unavailable", "present"])
+def test_product_link_actual_floor(actor, status):
+    criterion = f"{actor} must link to PR comments"
+    evidence = (
+        "Overall retrieval status: **present**\n- PR body: **present**\n"
+        f"- PR comments: **{status}**\n- Referenced workflow artifacts: **absent**\n"
+    )
+    context, _ = _context(1, 1000, 1000)
+    context = context.replace(ACCEPTANCE_SENTINEL, criterion).replace(
+        "## PR Diff Summary", "## Acceptance evidence\n\n- " + evidence + "\n## PR Diff Summary"
+    )
+    result = pr_verifier._apply_coverage_floor(
+        pr_verifier.EvaluationResult(verdict="PASS", used_llm=True),
+        pr_verifier.prompt_coverage(context, None),
+    )
+    assert result.verdict == (
+        "CONCERNS" if actor == "The reviewer" and status != "present" else "PASS"
+    )
+
+
+@pytest.mark.parametrize("status", ["absent", "unavailable", "present"])
+@pytest.mark.parametrize("governor", ["must", "must not", "may"])
+def test_pr_contained_comment_actual_floor(status, governor):
+    criterion = f"The PR {governor} include a comment with test evidence"
+    evidence = (
+        "Overall retrieval status: **present**\n- PR body: **present**\n"
+        f"- PR comments: **{status}**\n- Referenced workflow artifacts: **absent**\n"
+    )
+    context, _ = _context(1, 1000, 1000)
+    context = context.replace(ACCEPTANCE_SENTINEL, criterion).replace(
+        "## PR Diff Summary", "## Acceptance evidence\n\n- " + evidence + "\n## PR Diff Summary"
+    )
+    result = pr_verifier._apply_coverage_floor(
+        pr_verifier.EvaluationResult(verdict="PASS", used_llm=True),
+        pr_verifier.prompt_coverage(context, None),
+    )
+    assert result.verdict == ("CONCERNS" if governor == "must" and status != "present" else "PASS")
+
+
+@pytest.mark.parametrize(
+    "object_name",
+    [
+        "Test results",
+        "Test logs",
+        "Before/after screenshots",
+        "Recordings",
+    ],
+)
+@pytest.mark.parametrize("status", ["absent", "unavailable", "present"])
+@pytest.mark.parametrize("negative", [False, True])
+def test_common_body_proof_objects_actual_floor(object_name, status, negative):
+    criterion = f"{object_name} must {'not ' if negative else ''}be recorded in the PR body"
+    evidence = (
+        "Overall retrieval status: **present**\n"
+        f"- PR body: **{status}**\n"
+        "- PR comments: **present**\n"
+        "- Referenced workflow artifacts: **present**\n"
+    )
+    context, _ = _context(1, 1000, 1000)
+    context = context.replace(ACCEPTANCE_SENTINEL, criterion).replace(
+        "## PR Diff Summary", "## Acceptance evidence\n\n- " + evidence + "\n## PR Diff Summary"
+    )
+    result = pr_verifier._apply_coverage_floor(
+        pr_verifier.EvaluationResult(verdict="PASS", used_llm=True),
+        pr_verifier.prompt_coverage(context, None),
+    )
+    assert result.verdict == ("CONCERNS" if not negative and status != "present" else "PASS")
+
+
 @pytest.mark.parametrize("governor", ["is not expected to", "is not supposed to"])
 @pytest.mark.parametrize("status", ["absent", "unavailable", "present"])
 @pytest.mark.parametrize("positive_position", ["none", "before", "after"])

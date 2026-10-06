@@ -979,6 +979,33 @@ def _acceptance_criteria_sections(plan_sources: str) -> str:
 
 def _required_evidence_channels(acceptance: str, *, _bind_attached: bool = True) -> set[str]:
     """Identify explicit evidence deliverables without treating negations as requirements."""
+
+    # Common proof nouns share the evidence grammar, including product exclusions,
+    # quoted-literal protection, negation, modality and attached obligations.
+    def normalize_proof_object(match: re.Match[str]) -> str:
+        # Do not reinterpret destination-free product outputs as reviewer proof.
+        before = re.split(r"[;\n.!?]", acceptance[: match.start()])[-1]
+        after = re.split(r"[;\n.!?]", acceptance[match.end() :])[0]
+        clause = before + match[0] + after
+        return (
+            "evidence"
+            if re.search(
+                r"\b(?:(?:pr|pull request)\s+(?:body|comments?)|"
+                r"comments?\s+(?:in|on)\s+(?:the\s+)?(?:pr|pull request)|"
+                r"(?:workflow|ci|github actions)\s+artifacts?)\b",
+                clause,
+                re.I,
+            )
+            else match[0]
+        )
+
+    acceptance = re.sub(
+        r"\b(?:(?:test|validation)\s+(?:results?|logs?|outputs?)|screenshots?|recordings|"
+        r"recording(?=\s+(?:must|shall|needs?|is|was|should|may|can|has|in|to|and|or)\b))\b",
+        normalize_proof_object,
+        acceptance,
+        flags=re.I,
+    )
     channels: set[str] = set()
     response_operation = (
         r"(?:include|contain|have|return|display|show|store|emit|render|expose|provide)\w*\b"
@@ -1008,6 +1035,27 @@ def _required_evidence_channels(acceptance: str, *, _bind_attached: bool = True)
         r"(?:required|needed|mandated|expected|supposed|obliged|allowed|permitted)\s+to|"
         r"(?:does|do|did)\s+(?:not|never)\s+(?:need|have)\s+to|"
         r"(?:never|no\s+longer)\s+(?:has|have|needs?)\s+to|needs?\s+not)"
+    )
+    # A comment contained by the PR is a PR comment, not an overall/body
+    # deliverable. Preserve its actual governor for the shared polarity pass.
+    acceptance = re.sub(
+        r"(?P<prefix>\b(?:pr|pull request)\s+(?:"
+        + mandatory_auxiliary
+        + r"|"
+        + negative_requirement_governor
+        + r"|may|can|should|will)\s+"
+        + delivery_adverbs
+        + r"(?:(?:not|never)\s+)?(?:include|contain|have)\s+(?:(?:an?|the)\s+)?)"
+        r"comments?\b",
+        lambda match: re.sub(
+            r"\b(?:contain|have)\b(?=\s+(?:(?:an?|the)\s+)?$)",
+            "include",
+            match["prefix"],
+            flags=re.I,
+        )
+        + "PR comment",
+        acceptance,
+        flags=re.I,
     )
     conditional_evidence = r"\b(?:if|when)\s+(?:produced|available|present|uploaded|generated)\b"
     recipient_prefix = (
@@ -1975,7 +2023,7 @@ def _required_evidence_channels(acceptance: str, *, _bind_attached: bool = True)
         )
         field_operation = bool(
             re.fullmatch(
-                r"(?:include|contain|display|show|store|return|emit|render|expose)\w*",
+                r"(?:include|contain|display|show|store|return|emit|render|expose|link)\w*",
                 operation[0],
                 re.I,
             )

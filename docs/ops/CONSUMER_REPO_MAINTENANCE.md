@@ -69,6 +69,20 @@ An object used by an attached mandatory delivery (`artifacts that the reviewer
 must upload`, or `artifacts must be uploaded`) remains as that delivery's
 antecedent. Before suppressing a capability span, bind its attached mandatory
 predicate, original actor, polarity and immediate review destination together.
+Common proof objects (test/validation results, logs and outputs, screenshots including before/after
+screenshots, and recordings) with an explicit review destination in the same
+clause normalize into this same evidence grammar before
+channel classification. They therefore retain negative/optional governors,
+quoted-literal and product-capability exclusions, and independent reviewer
+obligations; a mandatory PR-body proof cannot bypass the coverage floor when
+body retrieval is absent or unavailable.
+PR-subject inclusion predicates (`the PR must include/contain/have a comment`)
+normalize to PR-comment obligations while preserving their original governor.
+A present PR body cannot satisfy that comment channel; negative and optional
+inclusion stays nongating.
+Product-governed `link` operations use the same UI/API actor classification as
+other field operations. A separate reviewer-governed link or comment-delivery
+clause remains a real evidence obligation.
 Apply this binding before both capability and product-response suppression.
 Classify that isolated obligation with the shared destination and channel grammar,
 including every declared passive aspect (`be`, `have been`, `have been being`);
