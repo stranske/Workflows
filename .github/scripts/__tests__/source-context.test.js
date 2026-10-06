@@ -54,6 +54,29 @@ test('release #3787 historical plural fixes retain automation provenance', () =>
   }
 });
 
+test('release #3787 history preserves genuine Fix/Closes sources over declared local requests', () => {
+  const pull = {
+    ...releasePull,
+    ...release3787,
+    head: { ...releasePull.head, ...release3787.head },
+  };
+  for (const resolve of [resolvePrSourceContext, templateResolvePrSourceContext]) {
+    for (const directive of ['Fix #123', 'Closes #123']) {
+      for (const placement of ['body', 'title']) {
+        const source = resolve({
+          ...pull,
+          body: pull.body + '\n<!-- workflow-source:local_request -->' +
+            (placement === 'body' ? '\n' + directive : ''),
+          title: placement === 'title' ? pull.title + ': ' + directive : pull.title,
+        });
+        assert.equal(source.sourceType, SOURCE_TYPES.GITHUB_ISSUE, `${placement}: ${directive}`);
+        assert.equal(source.issueNumber, 123, `${placement}: ${directive}`);
+        assert.equal(source.requiresIssue, true, `${placement}: ${directive}`);
+      }
+    }
+  }
+});
+
 test('release branch automation inference requires the configured author and trusted head repository', () => {
   const previousAuthor = process.env.RELEASE_PLEASE_AUTHOR;
   process.env.RELEASE_PLEASE_AUTHOR = 'release-service[bot]';
