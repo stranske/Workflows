@@ -2220,17 +2220,25 @@ def _required_evidence_channels(acceptance: str, *, _bind_attached: bool = True)
             + r")?"
             + delivery_operation
         )
-        elided_passive_review_predicate = (
+        elided_review_delivery_predicate = (
             delivery_adverbs
             + passive_delivery_prefix
             + delivery_adverbs
             + delivery_operation
             + r"\s+"
             + bound_review_destinations
+            + r"|have\s+"
+            + delivery_adverbs
+            + r"(?=\w*(?:ed|en)\b)"
+            + delivery_operation
+            + r"\s+"
+            + evidence_modifiers
+            + r"(?:evidence|artifacts?|transcripts?|command outputs?)\s+"
+            + bound_review_destinations
         )
         clause_boundary = (
             r"\s*;\s*|,?\s+(?:but|whereas)\s+|"
-            r"(?:,?\s+(?:and|or)\s+)(?=" + elided_passive_review_predicate + r")|"
+            r"(?:,?\s+(?:and|or)\s+)(?=(?:" + elided_review_delivery_predicate + r"))|"
             r"(?:,?\s+(?:and|while)\s+)(?="
             + delivery_governor_auxiliary
             + r"\s+)(?="
@@ -2291,7 +2299,7 @@ def _required_evidence_channels(acceptance: str, *, _bind_attached: bool = True)
                 + r"|"
                 + named_actor_delivery_predicate
                 + r"|"
-                + elided_passive_review_predicate
+                + elided_review_delivery_predicate
                 + r"|"
                 + delivery_governor_auxiliary
                 + r"\s+)",
@@ -2320,7 +2328,7 @@ def _required_evidence_channels(acceptance: str, *, _bind_attached: bool = True)
                 fragments
                 and re.fullmatch(r"\s*,?\s*(?:and|or|but)\s+", boundary, re.I)
                 and re.fullmatch(
-                    r"\s*" + elided_passive_review_predicate + r"\s*[.!]?\s*",
+                    r"\s*(?:" + elided_review_delivery_predicate + r")\s*[.!]?\s*",
                     fragment,
                     re.I,
                 )
@@ -2348,10 +2356,35 @@ def _required_evidence_channels(acceptance: str, *, _bind_attached: bool = True)
                     fragments[-1],
                     re.I,
                 )
-                if prior_passive:
-                    # An elided passive review delivery inherits its object and
-                    # governor, never a new actor or a product-storage predicate.
-                    governor = prior_passive["governor"]
+                prior_active = re.search(
+                    r"(?P<actor>"
+                    + qualified_delivery_actor
+                    + r")"
+                    + r"(?P<governor>(?:"
+                    + negative_requirement_governor
+                    + r"|"
+                    + delivery_governor_auxiliary
+                    + r")\s+"
+                    + delivery_adverbs
+                    + r"(?:(?:not|never|no\s+longer)\s+)?"
+                    + delivery_adverbs
+                    + r")"
+                    + r"have\s+"
+                    + delivery_adverbs
+                    + r"(?=\w*(?:ed|en)\b)"
+                    + delivery_operation
+                    + r"\s+"
+                    + evidence_modifiers
+                    + r"(?:evidence|artifacts?|transcripts?|command outputs?)\s+"
+                    + bound_review_destinations,
+                    fragments[-1],
+                    re.I,
+                )
+                prior_delivery = prior_passive or prior_active
+                if prior_delivery:
+                    # Elided review delivery retains its passive object or
+                    # bounded active actor and governor, never product storage.
+                    governor = prior_delivery["governor"]
                     if re.fullmatch(r"\s*,?\s*but\s+", boundary, re.I):
                         # Contrast starts a positive delivery, not a second
                         # prohibition. Preserve the modality, not its negation.
@@ -2359,7 +2392,10 @@ def _required_evidence_channels(acceptance: str, *, _bind_attached: bool = True)
                             r"\b(?:not|never|no\s+longer)\s+", "", governor, flags=re.I
                         )
                         governor = re.sub(r"\bdoes\s+need\s+to\b", "needs to", governor, flags=re.I)
-                    fragment = prior_passive["object"] + " " + governor + fragment.lstrip()
+                    subject = (
+                        prior_passive["object"] + " " if prior_passive else prior_active["actor"]
+                    )
+                    fragment = subject + governor + fragment.lstrip()
             if (
                 fragments
                 and re.fullmatch(r"\s*,?\s*and\s+", boundary, re.I)

@@ -1381,6 +1381,10 @@ copy its negation to the contrasting delivery; and/or retain the negative govern
 Checklist syntax cannot reclassify object nouns left by a recognized negative
 delivery as mandatory evidence. Explicit independent positive predicates and
 required body records remain authoritative, including their real evidence floor.
+Active-perfect elided deliveries retain their bounded actor and complete governor,
+including optional/negative and contrastive paths, through the same splitting and
+inheritance predicate as passive delivery. Their explicit evidence objects are
+not mistaken for passive subjects or ungoverned checklist deliverables.
 Comment presence/containment predicates share the complete mandatory auxiliary
 grammar, including `has/have to`, with existing polarity controls.
 Do-supported product storage (`do`, `does`, `did`) shares the finite auxiliary

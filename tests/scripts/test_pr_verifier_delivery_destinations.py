@@ -397,6 +397,51 @@ def test_negative_passive_coordination_respects_contrast(
     assert verifier._required_evidence_channels(marker + criterion) == expected
 
 
+@pytest.mark.parametrize("adverb", ["already", "recently", "now"])
+@pytest.mark.parametrize("participle", ["recorded", "proved", "supplied"])
+@pytest.mark.parametrize("marker", ["", "- [ ] "])
+@pytest.mark.parametrize(
+    "governor",
+    [
+        "is not required to",
+        "does not need to",
+        "never has to",
+        "no longer needs to",
+        "must not",
+        "must",
+        "may",
+    ],
+)
+@pytest.mark.parametrize("boundary", ["and", "or", "but"])
+@pytest.mark.parametrize(
+    "first_destination,first_channel",
+    [("the PR body", "body"), ("a PR comment", "comments"), ("workflow artifacts", "artifacts")],
+)
+@pytest.mark.parametrize(
+    "second_destination,second_channel",
+    [("the PR body", "body"), ("a PR comment", "comments"), ("workflow artifacts", "artifacts")],
+)
+def test_active_perfect_elided_delivery_retains_actor_and_governor(
+    marker,
+    governor,
+    boundary,
+    first_destination,
+    first_channel,
+    second_destination,
+    second_channel,
+    adverb,
+    participle,
+):
+    """Active-perfect coordination shares finite actor/governor inheritance."""
+    criterion = f"The reviewer {governor} have {participle} evidence in {first_destination} {boundary} have {adverb} recorded evidence in {second_destination}"
+    expected = (
+        {first_channel, second_channel}
+        if governor == "must"
+        else set() if governor == "may" or boundary != "but" else {second_channel}
+    )
+    assert verifier._required_evidence_channels(marker + criterion) == expected
+
+
 @pytest.mark.parametrize("contrast", ["only", "merely", "just"])
 @pytest.mark.parametrize("participle", ["recorded", "proved", "supplied"])
 @pytest.mark.parametrize(
