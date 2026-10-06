@@ -104,6 +104,36 @@ def test_regenerate_lock_retains_consumer_baseline_txt(tmp_path, monkeypatch):
     assert str(baseline) in run.call_args.args[0]
 
 
+def test_regenerate_group_only_compile_uses_local_pyproject(tmp_path, monkeypatch):
+    monkeypatch.chdir(tmp_path)
+    Path("pyproject.toml").write_text("[dependency-groups]\ndev=['mypy>=2']\n")
+    lock = Path("requirements.lock")
+    lock.write_text("# uv pip compile --group dev -o requirements.lock\nmypy==2.4.0\n")
+    run = Mock()
+    monkeypatch.setattr(sdd.subprocess, "run", run)
+    _, errors = sdd.regenerate_lockfile(lock, {"MYPY_VERSION": "2.4.0"})
+    assert not errors
+    run.assert_called_once()
+    Path("pyproject.toml").unlink()
+    run.reset_mock()
+    _, errors = sdd.regenerate_lockfile(lock, {"MYPY_VERSION": "2.4.0"})
+    assert errors
+    run.assert_not_called()
+
+
+@pytest.mark.parametrize(
+    "repo,expected",
+    [
+        ("github.com/psf/black", "psf/black"),
+        ("GITHUB.COM/psf/black", "psf/black"),
+        ("github.com.evil/psf/black", "github.com.evil/psf/black"),
+        ("evil/github.com/psf/black", "evil/github.com/psf/black"),
+    ],
+)
+def test_precommit_bare_domain_is_exact_segment(repo, expected):
+    assert sdd._pre_commit_repo_name("- repo: " + repo) == expected
+
+
 def test_regenerate_unchanged_lock_is_noop(tmp_path, monkeypatch):
     monkeypatch.chdir(tmp_path)
     Path("pyproject.toml").write_text("[project]\nname='example'\nversion='1'\n")

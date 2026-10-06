@@ -430,6 +430,8 @@ def regenerate_lockfile(lockfile_path: Path, pins: dict[str, str]) -> tuple[list
                     output = value
                 if flag in {"--constraints", "-c", "--overrides"}:
                     sources.append(value)
+                if flag == "--group":
+                    sources.append("pyproject.toml")
                 if flag in {"--upgrade-package", "-P"}:
                     package = re.match(r"[A-Za-z0-9_.-]+", value)
                     if package is None:
@@ -531,8 +533,9 @@ def _pre_commit_repo_name(line: str) -> str | None:
         if parsed.hostname and parsed.hostname.lower() == "github.com":
             repo = parsed.path.lstrip("/")
     repo = repo.rstrip("/").removesuffix(".git")
-    if repo.lower().startswith("github.com/"):
-        repo = repo[len("github.com/") :]
+    host, separator, path = repo.partition("/")
+    if separator and host.lower() == "github.com":
+        repo = path
     return repo.lower()
 
 
