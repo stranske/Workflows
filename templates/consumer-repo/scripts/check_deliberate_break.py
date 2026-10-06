@@ -1063,6 +1063,35 @@ def verify_spec(
             stderr=base_run.stderr,
         )
 
+    # A test that never collected cannot establish sensitivity to the base behavior.
+    missing = _missing_module_from_pytest_output(base_run.stdout, base_run.stderr)
+    if missing is not None:
+        return _json_result(
+            VERDICT_BROKEN,
+            reason="base-test-not-importable",
+            test_id=spec.test_id,
+            command=list(spec.command),
+            missing_module=missing,
+            detail=(
+                f"The named base test could not be imported: no module named {missing!r}. "
+                "The test never ran, so this is not proof of a deliberate break."
+            ),
+            base_stdout=base_run.stdout,
+            base_stderr=base_run.stderr,
+        )
+    # Pytest reserves 1 for failed tests; 2/3/4/5 denote interrupted execution,
+    # internal/usage errors, or no collection. Custom commands keep their contract.
+    if _uses_pytest_runtime(spec.command) and base_run.returncode != 1:
+        return _json_result(
+            VERDICT_BROKEN,
+            reason="base-test-did-not-run",
+            test_id=spec.test_id,
+            command=list(spec.command),
+            returncode=base_run.returncode,
+            base_stdout=base_run.stdout,
+            base_stderr=base_run.stderr,
+        )
+
     return _json_result(
         VERDICT_PASS,
         reason="head-passed-base-failed",

@@ -2265,3 +2265,108 @@ def test_a_missing_module_raised_inside_a_test_body_is_a_real_failure() -> None:
     )
 
     assert deliberate_break._missing_module_from_pytest_output(in_test_body, None) is None
+
+
+@pytest.mark.parametrize("prefix", ["", "templates/consumer-repo/"])
+def test_base_collection_failure_cannot_prove_a_deliberate_break(tmp_path, prefix):
+    """The head can import a new dependency while the archived base cannot collect."""
+    helper = runpy.run_path(
+        str(Path(__file__).resolve().parents[2] / prefix / "scripts/check_deliberate_break.py")
+    )
+    repo = tmp_path / "repo"
+    repo.mkdir()
+    _init_repo(repo)
+    (repo / "app.py").write_text("VALUE = 1\n", encoding="utf-8")
+    base = _commit(repo, "base without the candidate dependency")
+    (repo / "candidate_dependency.py").write_text("VALUE = 1\n", encoding="utf-8")
+    (repo / "test_candidate.py").write_text(
+        "from candidate_dependency import VALUE\ndef test_value():\n    assert VALUE == 1\n",
+        encoding="utf-8",
+    )
+    _commit(repo, "candidate test and dependency")
+    spec = helper["DeliberateBreakSpec"](
+        "test_candidate.py::test_value",
+        "test_candidate.py",
+        "app.py",
+        (sys.executable, "-m", "pytest", "-q", "-o", "addopts=", "test_candidate.py::test_value"),
+    )
+    result = helper["verify_spec"](spec, base=base, cwd=repo, enforce_tamper=False)
+    assert result["verdict"] == VERDICT_BROKEN
+    assert result["reason"] == "base-test-not-importable"
+    assert result["missing_module"] == "candidate_dependency"
+    assert "never ran" in result["detail"]
+    assert "candidate_dependency" in result["base_stdout"] + result["base_stderr"]
+
+
+@pytest.mark.parametrize("stream", ["stdout", "stderr"])
+def test_base_import_diagnostics_preserve_both_streams(tmp_path, monkeypatch, stream):
+    repo = tmp_path / "repo"
+    repo.mkdir()
+    _init_repo(repo)
+    base, spec = _sound_spec(repo)
+    outputs = {"stdout": "base output", "stderr": "base errors"}
+    outputs[stream] = (
+        "ERROR collecting tests/test_app.py\n"
+        "E   ModuleNotFoundError: No module named 'missing_dependency'\n"
+    )
+    runs = iter(
+        [
+            subprocess.CompletedProcess(spec.command, 0, "1 passed", ""),
+            subprocess.CompletedProcess(spec.command, 1, outputs["stdout"], outputs["stderr"]),
+        ]
+    )
+    monkeypatch.setattr(deliberate_break, "_run_with_runtime_deps", lambda *_args: next(runs))
+    result = verify_spec(spec, base=base, cwd=repo, enforce_tamper=False)
+    assert result["verdict"] == VERDICT_BROKEN
+    assert result["reason"] == "base-test-not-importable"
+    assert result["missing_module"] == "missing_dependency"
+    assert result["base_stdout"] == outputs["stdout"]
+    assert result["base_stderr"] == outputs["stderr"]
+    assert result["command"] == list(spec.command)
+
+
+@pytest.mark.parametrize("exit_code", [2, 3, 4, 5])
+def test_base_pytest_must_execute_a_test_before_counting_as_red(tmp_path, monkeypatch, exit_code):
+    """Interrupted collection, internal/usage errors and no tests are not a failed assertion."""
+    repo = tmp_path / "repo"
+    repo.mkdir()
+    _init_repo(repo)
+    base, spec = _sound_spec(repo)
+    runs = iter(
+        [
+            subprocess.CompletedProcess(spec.command, 0, "1 passed", ""),
+            subprocess.CompletedProcess(
+                spec.command, exit_code, "no acceptance failure", "diagnostic"
+            ),
+        ]
+    )
+    monkeypatch.setattr(deliberate_break, "_run_with_runtime_deps", lambda *_args: next(runs))
+    result = verify_spec(spec, base=base, cwd=repo, enforce_tamper=False)
+    assert result["verdict"] == VERDICT_BROKEN
+    assert result["reason"] == "base-test-did-not-run"
+    assert result["returncode"] == exit_code
+    assert result["base_stdout"] == "no acceptance failure"
+    assert result["base_stderr"] == "diagnostic"
+
+
+def test_base_missing_import_inside_a_test_still_proves_red(tmp_path, monkeypatch):
+    """A ModuleNotFoundError raised by the selected test is an actual behavioral failure."""
+    repo = tmp_path / "repo"
+    repo.mkdir()
+    _init_repo(repo)
+    base, spec = _sound_spec(repo)
+    output = (
+        "tests/test_app.py::test_value FAILED\n"
+        "E   ModuleNotFoundError: No module named 'docx'\n1 failed in 0.01s\n"
+    )
+    runs = iter(
+        [
+            subprocess.CompletedProcess(spec.command, 0, "1 passed", ""),
+            subprocess.CompletedProcess(spec.command, 1, output, ""),
+        ]
+    )
+    monkeypatch.setattr(deliberate_break, "_run_with_runtime_deps", lambda *_args: next(runs))
+    result = verify_spec(spec, base=base, cwd=repo, enforce_tamper=False)
+    assert result["verdict"] == VERDICT_PASS
+    assert result["reason"] == "head-passed-base-failed"
+    assert result["base_stdout"] == output

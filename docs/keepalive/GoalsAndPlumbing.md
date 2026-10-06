@@ -319,7 +319,7 @@ Gate runs an opt-in execution check when the PR body's Acceptance Criteria decla
 <!-- deliberate-break: test=tests/test_feature.py::test_runtime_contract test-file=tests/test_feature.py break-file=src/feature.py -->
 ```
 
-When present, `scripts/check_deliberate_break.py` runs the named test on the PR head, archives the base ref, overlays only the named test file onto that base tree, and reruns the same test. The expected result is green on head and red on base; green on both is reported as `FAIL_HOLLOW`, and red on head is reported as `FAIL_BROKEN`. If no marker is present, the step logs `skipped: no deliberate-break marker` and exits successfully.
+When present, `scripts/check_deliberate_break.py` runs the named test on the PR head, archives the base ref, overlays only the named test file onto that base tree, and reruns the same test. The expected result is green on head and red on base; green on both is reported as `FAIL_HOLLOW`, and red on head is reported as `FAIL_BROKEN`. A base collection failure is not behavioral RED: a missing import during collection is `FAIL_BROKEN` with reason `base-test-not-importable` and the original base stdout/stderr. Pytest exits 2, 3, 4, or 5 (interrupted collection, internal error, usage error, or no tests collected) are `FAIL_BROKEN` with reason `base-test-did-not-run`. A missing import raised inside a test that actually ran remains a real failure. Custom non-pytest commands retain their declared nonzero-exit contract. If no marker is present, the step logs `skipped: no deliberate-break marker` and exits successfully.
 
 The default command is `python -m pytest <test-id> -o addopts= -q`: the named
 head/base proof clears suite-wide pytest `addopts` (for example, full-suite
