@@ -73,7 +73,9 @@ Common proof objects (test/validation results, logs and outputs, screenshots
 including before/after screenshots, and recordings) with an explicit review
 destination in the same clause normalize into this same evidence grammar before
 channel classification, stopping at independently governed coordinated actor
-clauses, including automation agent, runner and bot subjects. An explicit
+clauses, reusing the existing shared actor-role heads (including developers,
+testers, auditors, automation agents, runners and bots) and recipient-role heads
+rather than maintaining a narrower independent role list. An explicit
 pronoun delivery in the next actor clause retains the introduced proof as an
 antecedent; an unrelated body update does not canonicalize that proof. They
 therefore retain negative/optional governors,

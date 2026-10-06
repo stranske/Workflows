@@ -25,7 +25,23 @@ def test_pr_contained_comment_quoted_literal(quote, operation, independent):
 
 
 @pytest.mark.parametrize("proof", ["test results", "screenshots", "validation output"])
-@pytest.mark.parametrize("actor", ["reviewer", "automation agent", "runner", "bot"])
+@pytest.mark.parametrize(
+    "actor",
+    [
+        "reviewer",
+        "automation agent",
+        "runner",
+        "bot",
+        "developer",
+        "engineer",
+        "tester",
+        "auditor",
+        "verifier",
+        "team",
+        "user",
+        "consumer",
+    ],
+)
 @pytest.mark.parametrize("operation", ["record", "attach", "include"])
 @pytest.mark.parametrize("governor", ["must", "must not", "may"])
 def test_common_proof_pronoun_cross_actor_delivery(proof, actor, operation, governor):
@@ -37,7 +53,22 @@ def test_common_proof_pronoun_cross_actor_delivery(proof, actor, operation, gove
     )
 
 
-@pytest.mark.parametrize("actor", ["automation agent", "runner", "bot"])
+@pytest.mark.parametrize(
+    "actor",
+    [
+        "automation agent",
+        "runner",
+        "bot",
+        "developer",
+        "engineer",
+        "tester",
+        "auditor",
+        "verifier",
+        "team",
+        "user",
+        "consumer",
+    ],
+)
 @pytest.mark.parametrize("proof", ["test results", "screenshots", "validation output"])
 def test_automation_actor_unrelated_destination(proof, actor):
     assert (

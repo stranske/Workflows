@@ -1091,9 +1091,14 @@ def _required_evidence_channels(acceptance: str, *, _bind_attached: bool = True)
     )
     # Common proof nouns reuse shared polarity/product/literal grammar, but
     # destinations must belong to this object's own finite actor clause.
+    parenthetical_actor = (
+        r"\b(?:reviewers?|maintainers?|authors?|operators?|agents?|bots?|runners?|"
+        r"developers?|engineers?|testers?|auditors?|verifiers?|teams?|users?|"
+        r"ui|api|application|service|endpoint)"
+    )
     independent_proof_actor = recipient_prefix + (
-        r"(?:reviewers?|maintainers?|authors?|operators?|agents?|runners?|bots?|ui|api|application|interface|"
-        r"service|cli|endpoint|renderer|(?:pr|pull request)(?:\s+body)?)\b"
+        r"(?:" + parenthetical_actor + r"|clients?|consumers?|interface|cli|renderer|"
+        r"(?:pr|pull request)(?:\s+body)?)\b"
     )
     proof_actor_boundary = (
         r"(?:,?\s+)(?:and|or|but)\s+(?="
@@ -1225,11 +1230,6 @@ def _required_evidence_channels(acceptance: str, *, _bind_attached: bool = True)
         "supplying": "recording",
     }
 
-    parenthetical_actor = (
-        r"\b(?:reviewers?|maintainers?|authors?|operators?|agents?|bots?|runners?|"
-        r"developers?|engineers?|testers?|auditors?|verifiers?|teams?|users?|"
-        r"ui|api|application|service|endpoint)"
-    )
     qualified_delivery_actor = (
         r"(?:(?:the|an?)\s+)?"
         r"(?:(?:assigned|responsible|authorized|experienced|designated|senior|lead|primary|current|CI|API|"
