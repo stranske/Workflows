@@ -16,7 +16,7 @@ anyio==4.14.2
     #   httpx
     #   langsmith
     #   openai
-ast-serialize==0.6.0
+ast-serialize==0.12.1
     # via mypy
 attrs==26.1.0
     # via
@@ -167,7 +167,7 @@ langsmith==0.10.10
     #   langchain-classic
     #   langchain-community
     #   langchain-core
-librt==0.13.0 ; platform_python_implementation != 'PyPy'
+librt==0.16.0 ; platform_python_implementation != 'PyPy'
     # via mypy
 mccabe==0.7.0
     # via flake8
@@ -180,6 +180,7 @@ mypy==2.4.0
 mypy-extensions==1.1.0
     # via
     #   black
+    #   isort
     #   mypy
 nodeenv==1.10.0
     # via pre-commit
