@@ -1,0 +1,80 @@
+Traceback (most recent call last):
+  File "/opt/hostedtoolcache/Python/3.14.7/x64/bin/black", line 6, in <module>
+    sys.exit(patched_main())
+             ~~~~~~~~~~~~^^
+  File "src/black/__init__.py", line 1822, in patched_main
+  File "/opt/hostedtoolcache/Python/3.14.7/x64/lib/python3.14/site-packages/click/core.py", line 1631, in __call__
+    return self.main(*args, **kwargs)
+           ~~~~~~~~~^^^^^^^^^^^^^^^^^
+  File "/opt/hostedtoolcache/Python/3.14.7/x64/lib/python3.14/site-packages/click/core.py", line 1552, in main
+    rv = self.invoke(ctx)
+  File "/opt/hostedtoolcache/Python/3.14.7/x64/lib/python3.14/site-packages/click/core.py", line 1415, in invoke
+    return ctx.invoke(self.callback, **ctx.params)
+           ~~~~~~~~~~^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/opt/hostedtoolcache/Python/3.14.7/x64/lib/python3.14/site-packages/click/core.py", line 910, in invoke
+    return callback(*args, **kwargs)
+  File "/opt/hostedtoolcache/Python/3.14.7/x64/lib/python3.14/site-packages/click/decorators.py", line 34, in new_func
+    return f(get_current_context(), *args, **kwargs)
+  File "src/black/__init__.py", line 776, in main
+  File "/opt/hostedtoolcache/Python/3.14.7/x64/lib/python3.14/site-packages/black/concurrency.py", line 136, in reformat_many
+    loop.run_until_complete(
+    ~~~~~~~~~~~~~~~~~~~~~~~^
+        schedule_formatting(
+        ^^^^^^^^^^^^^^^^^^^^
+    ...<8 lines>...
+        )
+        ^
+    )
+    ^
+  File "/opt/hostedtoolcache/Python/3.14.7/x64/lib/python3.14/asyncio/base_events.py", line 720, in run_until_complete
+    return future.result()
+           ~~~~~~~~~~~~~^^
+  File "/opt/hostedtoolcache/Python/3.14.7/x64/lib/python3.14/site-packages/black/concurrency.py", line 198, in schedule_formatting
+    loop.run_in_executor(
+    ~~~~~~~~~~~~~~~~~~~~^
+        executor, format_file_in_place, src, fast, mode, write_back, lock
+        ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+    )
+    ^
+  File "/opt/hostedtoolcache/Python/3.14.7/x64/lib/python3.14/asyncio/base_events.py", line 899, in run_in_executor
+    executor.submit(func, *args), loop=self)
+    ~~~~~~~~~~~~~~~^^^^^^^^^^^^^
+  File "/opt/hostedtoolcache/Python/3.14.7/x64/lib/python3.14/concurrent/futures/process.py", line 914, in submit
+    self._adjust_process_count()
+    ~~~~~~~~~~~~~~~~~~~~~~~~~~^^
+  File "/opt/hostedtoolcache/Python/3.14.7/x64/lib/python3.14/concurrent/futures/process.py", line 878, in _adjust_process_count
+    self._spawn_process()
+    ~~~~~~~~~~~~~~~~~~~^^
+  File "/opt/hostedtoolcache/Python/3.14.7/x64/lib/python3.14/concurrent/futures/process.py", line 889, in _spawn_process
+    _spawn_worker(self._mp_context, self._call_queue,
+    ~~~~~~~~~~~~~^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+                  self._result_queue, self._initializer,
+                  ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+                  self._initargs, self._max_tasks_per_child,
+                  ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+                  self._processes)
+                  ^^^^^^^^^^^^^^^^
+  File "/opt/hostedtoolcache/Python/3.14.7/x64/lib/python3.14/concurrent/futures/process.py", line 282, in _spawn_worker
+    p.start()
+    ~~~~~~~^^
+  File "/opt/hostedtoolcache/Python/3.14.7/x64/lib/python3.14/multiprocessing/process.py", line 121, in start
+    self._popen = self._Popen(self)
+                  ~~~~~~~~~~~^^^^^^
+  File "/opt/hostedtoolcache/Python/3.14.7/x64/lib/python3.14/multiprocessing/context.py", line 306, in _Popen
+    return Popen(process_obj)
+  File "/opt/hostedtoolcache/Python/3.14.7/x64/lib/python3.14/multiprocessing/popen_forkserver.py", line 35, in __init__
+    super().__init__(process_obj)
+    ~~~~~~~~~~~~~~~~^^^^^^^^^^^^^
+  File "/opt/hostedtoolcache/Python/3.14.7/x64/lib/python3.14/multiprocessing/popen_fork.py", line 20, in __init__
+    self._launch(process_obj)
+    ~~~~~~~~~~~~^^^^^^^^^^^^^
+  File "/opt/hostedtoolcache/Python/3.14.7/x64/lib/python3.14/multiprocessing/popen_forkserver.py", line 51, in _launch
+    self.sentinel, w = forkserver.connect_to_new_process(self._fds)
+                       ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~^^^^^^^^^^^
+  File "/opt/hostedtoolcache/Python/3.14.7/x64/lib/python3.14/multiprocessing/forkserver.py", line 89, in connect_to_new_process
+    self.ensure_running()
+    ~~~~~~~~~~~~~~~~~~~^^
+  File "/opt/hostedtoolcache/Python/3.14.7/x64/lib/python3.14/multiprocessing/forkserver.py", line 167, in ensure_running
+    listener.bind(address)
+    ~~~~~~~~~~~~~^^^^^^^^^
+PermissionError: [Errno 1] Operation not permitted

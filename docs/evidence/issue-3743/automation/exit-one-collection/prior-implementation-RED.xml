@@ -1,0 +1,21 @@
+<?xml version="1.0" encoding="utf-8"?><testsuites name="pytest tests"><testsuite name="pytest" errors="0" failures="4" skipped="0" tests="4" time="21.031" timestamp="2026-10-06T17:36:49.989869+00:00" hostname="runnervm8df0l"><testcase classname="tests.scripts.test_check_deliberate_break" name="test_base_pytest_must_execute_a_test_before_counting_as_red[root-1-stdout]" time="4.977"><failure message="AssertionError: assert 'PASS' == 'FAIL_BROKEN'&#10;  &#10;  - FAIL_BROKEN&#10;  + PASS">tests/scripts/test_check_deliberate_break.py:2435: in test_base_pytest_must_execute_a_test_before_counting_as_red
+    assert result["verdict"] == VERDICT_BROKEN
+E   AssertionError: assert 'PASS' == 'FAIL_BROKEN'
+E
+E     - FAIL_BROKEN
+E     + PASS</failure></testcase><testcase classname="tests.scripts.test_check_deliberate_break" name="test_base_pytest_must_execute_a_test_before_counting_as_red[root-1-stderr]" time="4.995"><failure message="AssertionError: assert 'PASS' == 'FAIL_BROKEN'&#10;  &#10;  - FAIL_BROKEN&#10;  + PASS">tests/scripts/test_check_deliberate_break.py:2435: in test_base_pytest_must_execute_a_test_before_counting_as_red
+    assert result["verdict"] == VERDICT_BROKEN
+E   AssertionError: assert 'PASS' == 'FAIL_BROKEN'
+E
+E     - FAIL_BROKEN
+E     + PASS</failure></testcase><testcase classname="tests.scripts.test_check_deliberate_break" name="test_base_pytest_must_execute_a_test_before_counting_as_red[consumer-1-stdout]" time="5.002"><failure message="AssertionError: assert 'PASS' == 'FAIL_BROKEN'&#10;  &#10;  - FAIL_BROKEN&#10;  + PASS">tests/scripts/test_check_deliberate_break.py:2435: in test_base_pytest_must_execute_a_test_before_counting_as_red
+    assert result["verdict"] == VERDICT_BROKEN
+E   AssertionError: assert 'PASS' == 'FAIL_BROKEN'
+E
+E     - FAIL_BROKEN
+E     + PASS</failure></testcase><testcase classname="tests.scripts.test_check_deliberate_break" name="test_base_pytest_must_execute_a_test_before_counting_as_red[consumer-1-stderr]" time="4.993"><failure message="AssertionError: assert 'PASS' == 'FAIL_BROKEN'&#10;  &#10;  - FAIL_BROKEN&#10;  + PASS">tests/scripts/test_check_deliberate_break.py:2435: in test_base_pytest_must_execute_a_test_before_counting_as_red
+    assert result["verdict"] == VERDICT_BROKEN
+E   AssertionError: assert 'PASS' == 'FAIL_BROKEN'
+E
+E     - FAIL_BROKEN
+E     + PASS</failure></testcase></testsuite></testsuites>

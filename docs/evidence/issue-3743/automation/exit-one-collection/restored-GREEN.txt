@@ -1,0 +1,26 @@
+Command: /opt/hostedtoolcache/Python/3.14.7/x64/bin/python3 -m pytest tests/scripts/test_check_deliberate_break.py -vv --tb=short -o addopts= -m not slow -k (test_base_pytest_must_execute_a_test_before_counting_as_red and -1-) or test_base_missing_import_inside_a_test_still_proves_red --junitxml=/home/runner/work/Workflows/Workflows/docs/evidence/issue-3743/automation/exit-one-collection/restored-GREEN.xml
+Exit: 0
+============================= test session starts ==============================
+platform linux -- Python 3.14.7, pytest-9.1.1, pluggy-1.6.0 -- /opt/hostedtoolcache/Python/3.14.7/x64/bin/python3
+cachedir: .pytest_cache
+hypothesis profile 'ci' -> database=None, deadline=None, print_blob=True, derandomize=True, suppress_health_check=(HealthCheck.too_slow,)
+rootdir: /home/runner/work/Workflows/Workflows
+configfile: pyproject.toml
+plugins: langsmith-0.14.4, hypothesis-6.168.5, platformdirs-4.12.3, cov-7.1.0, xdist-3.8.0, anyio-4.15.1
+collecting ... collected 248 items / 236 deselected / 12 selected
+
+tests/scripts/test_check_deliberate_break.py::test_base_pytest_must_execute_a_test_before_counting_as_red[root-1-stdout] PASSED [  8%]
+tests/scripts/test_check_deliberate_break.py::test_base_pytest_must_execute_a_test_before_counting_as_red[root-1-stderr] PASSED [ 16%]
+tests/scripts/test_check_deliberate_break.py::test_base_pytest_must_execute_a_test_before_counting_as_red[consumer-1-stdout] PASSED [ 25%]
+tests/scripts/test_check_deliberate_break.py::test_base_pytest_must_execute_a_test_before_counting_as_red[consumer-1-stderr] PASSED [ 33%]
+tests/scripts/test_check_deliberate_break.py::test_base_missing_import_inside_a_test_still_proves_red[root-False-stdout] PASSED [ 41%]
+tests/scripts/test_check_deliberate_break.py::test_base_missing_import_inside_a_test_still_proves_red[root-False-stderr] PASSED [ 50%]
+tests/scripts/test_check_deliberate_break.py::test_base_missing_import_inside_a_test_still_proves_red[root-True-stdout] PASSED [ 58%]
+tests/scripts/test_check_deliberate_break.py::test_base_missing_import_inside_a_test_still_proves_red[root-True-stderr] PASSED [ 66%]
+tests/scripts/test_check_deliberate_break.py::test_base_missing_import_inside_a_test_still_proves_red[consumer-False-stdout] PASSED [ 75%]
+tests/scripts/test_check_deliberate_break.py::test_base_missing_import_inside_a_test_still_proves_red[consumer-False-stderr] PASSED [ 83%]
+tests/scripts/test_check_deliberate_break.py::test_base_missing_import_inside_a_test_still_proves_red[consumer-True-stdout] PASSED [ 91%]
+tests/scripts/test_check_deliberate_break.py::test_base_missing_import_inside_a_test_still_proves_red[consumer-True-stderr] PASSED [100%]
+
+- generated xml file: /home/runner/work/Workflows/Workflows/docs/evidence/issue-3743/automation/exit-one-collection/restored-GREEN.xml -
+================ 12 passed, 236 deselected in 69.61s (0:01:09) =================

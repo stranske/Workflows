@@ -2382,9 +2382,12 @@ def test_base_import_diagnostics_preserve_both_streams(tmp_path, base_proof_help
     assert result["command"] == list(spec.command)
 
 
-@pytest.mark.parametrize("exit_code", [2, 3, 4, 5])
+@pytest.mark.parametrize(
+    "exit_code,stream",
+    [(1, "stdout"), (1, "stderr"), (2, "stdout"), (3, "stdout"), (4, "stdout"), (5, "stdout")],
+)
 def test_base_pytest_must_execute_a_test_before_counting_as_red(
-    tmp_path, base_proof_helper, exit_code
+    tmp_path, base_proof_helper, exit_code, stream
 ):
     """Interrupted collection, internal/usage errors and no tests are not a failed assertion."""
     executions = tmp_path / "test-executions.txt"
@@ -2394,16 +2397,19 @@ def test_base_pytest_must_execute_a_test_before_counting_as_red(
         f"MODE = {exit_code}\n",
         "MODE = 0\n",
         "import app\n"
-        "if app.MODE == 2:\n"
+        "if app.MODE in (1, 2):\n"
         "    raise RuntimeError('base collection diagnostic')\n"
         "def test_value():\n"
         "    assert app.MODE == 0\n",
         "import app, pytest, sys\n"
         "from pathlib import Path\n"
+        "from _pytest._io import TerminalWriter\n"
         "def pytest_runtest_call(item):\n"
         f"    with Path({str(executions)!r}).open('a') as output:\n"
         "        output.write(f'{app.MODE}\\n')\n"
         "def pytest_sessionstart(session):\n"
+        "    reporter = session.config.pluginmanager.getplugin('terminalreporter')\n"
+        f"    reporter._tw = TerminalWriter(file=sys.{stream})\n"
         "    if app.MODE:\n"
         "        print('base stdout sentinel', file=sys.stdout)\n"
         "        print('base stderr sentinel', file=sys.stderr)\n"
@@ -2415,6 +2421,14 @@ def test_base_pytest_must_execute_a_test_before_counting_as_red(
         "    if app.MODE == 5:\n"
         "        items.clear()\n",
     )
+    if exit_code == 1:
+        # Pytest can report a collection error as exit 1 without running a test.
+        spec = base_proof_helper["DeliberateBreakSpec"](
+            spec.test_id,
+            spec.test_file,
+            spec.break_file,
+            (*spec.command, "--continue-on-collection-errors"),
+        )
     result = base_proof_helper["verify_spec"](spec, base=base, cwd=repo, enforce_tamper=False)
     # The external record survives archive cleanup: head ran, base never did.
     assert executions.read_text(encoding="utf-8").splitlines() == ["0"]
@@ -2424,12 +2438,15 @@ def test_base_pytest_must_execute_a_test_before_counting_as_red(
     assert "base stdout sentinel" in result["base_stdout"]
     assert "base stderr sentinel" in result["base_stderr"]
     diagnostic = {
+        1: "base collection diagnostic",
         2: "base collection diagnostic",
         3: "INTERNALERROR",
         4: "base usage diagnostic",
         5: "no tests ran",
     }[exit_code]
     assert diagnostic in result["base_stdout"] + result["base_stderr"]
+    if exit_code == 1:
+        assert "ERROR collecting" in result[f"base_{stream}"]
 
 
 @pytest.mark.parametrize("stream", ["stdout", "stderr"])

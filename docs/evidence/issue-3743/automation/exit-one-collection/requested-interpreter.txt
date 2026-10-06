@@ -1,0 +1,6 @@
+Command: /opt/anaconda3/bin/python3 -m pytest tests/scripts/test_check_deliberate_break.py tests/scripts/test_check_deliberate_break_archive.py -q -o addopts= -m not slow --cov=scripts.check_deliberate_break --cov-branch --cov-report=json:docs/evidence/issue-3743/automation/exit-one-collection/focused-after.json
+Exit: 127
+[Errno 2] No such file or directory: '/opt/anaconda3/bin/python3'
+Command: /opt/anaconda3/bin/python3 -m pytest tests/scripts/test_check_deliberate_break.py -q -m not slow
+Exit: 127
+[Errno 2] No such file or directory: '/opt/anaconda3/bin/python3'
