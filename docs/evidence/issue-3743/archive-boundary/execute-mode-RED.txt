@@ -1,0 +1,60 @@
+FF                                                                       [100%]
+=================================== FAILURES ===================================
+___________ test_real_archive_preserves_executable_proof_mode[root] ____________
+
+tmp_path = PosixPath('/private/var/folders/qm/w0dtc0j132gd6ymf1hxtd2p00000gp/T/pytest-of-teacher/pytest-974/test_real_archive_preserves_ex0')
+archive_helper = {'__name__': '<run_path>', '__doc__': 'Opt-in execution check for deliberate-break acceptance criteria.', '__package__': '', '__loader__': None, ...}
+
+    def test_real_archive_preserves_executable_proof_mode(tmp_path, archive_helper):
+        repo = _committed_repo(tmp_path)
+        script = repo / "bin" / "proof.sh"
+        script.parent.mkdir()
+        script.write_text("#!/bin/sh\nprintf 'archive-proof-ok\\n'\n", encoding="utf-8")
+        script.chmod(0o755)
+        _commit(repo)
+        target = tmp_path / "archive"
+        target.mkdir()
+
+        archive_helper["_archive_ref"]("HEAD", target, repo)
+
+        extracted = target / "bin" / "proof.sh"
+        assert extracted.read_bytes() == script.read_bytes()
+>       assert extracted.stat().st_mode & stat.S_IXUSR
+E       AssertionError: assert (33152 & 64)
+E        +  where 33152 = os.stat_result(st_mode=33152, st_ino=404644488, st_dev=16777233, st_nlink=1, st_uid=502, st_gid=20, st_size=38, st_atime=1791306577, st_mtime=1791306577, st_ctime=1791306577).st_mode
+E        +    where os.stat_result(st_mode=33152, st_ino=404644488, st_dev=16777233, st_nlink=1, st_uid=502, st_gid=20, st_size=38, st_atime=1791306577, st_mtime=1791306577, st_ctime=1791306577) = stat()
+E        +      where stat = PosixPath('/private/var/folders/qm/w0dtc0j132gd6ymf1hxtd2p00000gp/T/pytest-of-teacher/pytest-974/test_real_archive_preserves_ex0/archive/bin/proof.sh').stat
+E        +  and   64 = stat.S_IXUSR
+
+tests/scripts/test_check_deliberate_break_archive.py:50: AssertionError
+_________ test_real_archive_preserves_executable_proof_mode[template] __________
+
+tmp_path = PosixPath('/private/var/folders/qm/w0dtc0j132gd6ymf1hxtd2p00000gp/T/pytest-of-teacher/pytest-974/test_real_archive_preserves_ex1')
+archive_helper = {'__name__': '<run_path>', '__doc__': 'Opt-in execution check for deliberate-break acceptance criteria.', '__package__': '', '__loader__': None, ...}
+
+    def test_real_archive_preserves_executable_proof_mode(tmp_path, archive_helper):
+        repo = _committed_repo(tmp_path)
+        script = repo / "bin" / "proof.sh"
+        script.parent.mkdir()
+        script.write_text("#!/bin/sh\nprintf 'archive-proof-ok\\n'\n", encoding="utf-8")
+        script.chmod(0o755)
+        _commit(repo)
+        target = tmp_path / "archive"
+        target.mkdir()
+
+        archive_helper["_archive_ref"]("HEAD", target, repo)
+
+        extracted = target / "bin" / "proof.sh"
+        assert extracted.read_bytes() == script.read_bytes()
+>       assert extracted.stat().st_mode & stat.S_IXUSR
+E       AssertionError: assert (33152 & 64)
+E        +  where 33152 = os.stat_result(st_mode=33152, st_ino=404644562, st_dev=16777233, st_nlink=1, st_uid=502, st_gid=20, st_size=38, st_atime=1791306577, st_mtime=1791306577, st_ctime=1791306577).st_mode
+E        +    where os.stat_result(st_mode=33152, st_ino=404644562, st_dev=16777233, st_nlink=1, st_uid=502, st_gid=20, st_size=38, st_atime=1791306577, st_mtime=1791306577, st_ctime=1791306577) = stat()
+E        +      where stat = PosixPath('/private/var/folders/qm/w0dtc0j132gd6ymf1hxtd2p00000gp/T/pytest-of-teacher/pytest-974/test_real_archive_preserves_ex1/archive/bin/proof.sh').stat
+E        +  and   64 = stat.S_IXUSR
+
+tests/scripts/test_check_deliberate_break_archive.py:50: AssertionError
+=========================== short test summary info ============================
+FAILED tests/scripts/test_check_deliberate_break_archive.py::test_real_archive_preserves_executable_proof_mode[root]
+FAILED tests/scripts/test_check_deliberate_break_archive.py::test_real_archive_preserves_executable_proof_mode[template]
+2 failed, 6 deselected in 0.68s

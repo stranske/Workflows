@@ -1,0 +1,74 @@
+{
+  "records": [
+    {
+      "name": "execute-mode",
+      "command": [
+        "/opt/anaconda3/bin/python3",
+        "-m",
+        "pytest",
+        "tests/scripts/test_check_deliberate_break_archive.py",
+        "-q",
+        "-o",
+        "addopts=",
+        "-k",
+        "real_archive_preserves_executable_proof_mode"
+      ],
+      "mutation": {
+        "before": "resolved.chmod(member.mode & 0o777)",
+        "after": "resolved.chmod(0o600)"
+      },
+      "red_exit": 1,
+      "failed_cases": 2,
+      "green_exit": 0,
+      "source_restored_byte_identical": true
+    },
+    {
+      "name": "external-symlink",
+      "command": [
+        "/opt/anaconda3/bin/python3",
+        "-m",
+        "pytest",
+        "tests/scripts/test_check_deliberate_break_archive.py",
+        "-q",
+        "-o",
+        "addopts=",
+        "-k",
+        "real_archive_does_not_materialize_external_symlink"
+      ],
+      "mutation": {
+        "before": "if not member.isfile():",
+        "after": "if not (member.isfile() or member.issym()):"
+      },
+      "red_exit": 1,
+      "failed_cases": 2,
+      "green_exit": 0,
+      "source_restored_byte_identical": true
+    },
+    {
+      "name": "archive-escape",
+      "command": [
+        "/opt/anaconda3/bin/python3",
+        "-m",
+        "pytest",
+        "tests/scripts/test_check_deliberate_break_archive.py",
+        "-q",
+        "-o",
+        "addopts=",
+        "-k",
+        "archive_escape_returns_broken_without_overwriting_external_file"
+      ],
+      "mutation": {
+        "before": "raise ValueError(f\"unsafe archive path: {member.name}\")",
+        "after": "pass  # deliberate removal of path containment guard"
+      },
+      "red_exit": 1,
+      "failed_cases": 4,
+      "green_exit": 0,
+      "source_restored_byte_identical": true
+    }
+  ],
+  "source_sha256": [
+    "5e90a2c58fea8fe906f538f829c4a929cdc2fc5bb3a2d21fcb61c4fb23bec9ca",
+    "5e90a2c58fea8fe906f538f829c4a929cdc2fc5bb3a2d21fcb61c4fb23bec9ca"
+  ]
+}
