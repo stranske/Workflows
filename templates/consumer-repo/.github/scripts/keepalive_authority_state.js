@@ -985,47 +985,57 @@ async function findAuthorityPrForAttempt({ request, repository, ownerAttempt }) 
   return { prNumber: index.pr_number, state };
 }
 
-function attemptsDirPath(repository) {
-  if (!/^[a-z0-9_.-]+\/[a-z0-9_.-]+$/i.test(String(repository))) {
-    throw new Error('Invalid challenge repository for attempts directory');
-  }
-  return `/repos/${String(repository).toLowerCase()}/contents/.github/keepalive-authority-attempts`;
-}
-
 async function hasAttemptIndexesForPr(request, repository, prNumber) {
-  let directory;
-  try {
-    directory = await request('GET', `${attemptsDirPath(repository)}?ref=${BRANCH}`);
-  } catch (error) {
-    if (error.status === 404) return false;
-    throw error;
+  const repo = String(repository).toLowerCase();
+  pathFor(repo, prNumber);
+  const ref = await request('GET', `/repos/${repo}/git/ref/heads/${BRANCH}`);
+  const commitSha = ref?.object?.sha;
+  if (ref?.object?.type !== 'commit' || !HEAD.test(String(commitSha))) {
+    throw new Error('Authority attempt branch did not resolve to a commit');
   }
-  
-  if (!Array.isArray(directory)) return false;
-  
-  for (const entry of directory) {
-    if (entry.type !== 'file' || !entry.name?.endsWith('.json')) continue;
-    
-    let file;
-    try {
-      file = await request('GET', `${attemptsDirPath(repository)}/${entry.name}?ref=${BRANCH}`);
-    } catch (error) {
-      if (error.status === 404) continue;
-      throw error;
+  const commit = await request('GET', `/repos/${repo}/git/commits/${commitSha}`);
+  let treeSha = commit?.tree?.sha;
+  const segments = ['.github', 'keepalive-authority-attempts'];
+  // Non-recursive trees avoid the Contents API's 1,000-entry directory limit.
+  // Every later read uses immutable SHAs from this one branch snapshot.
+  for (const segment of [...segments, null]) {
+    if (!HEAD.test(String(treeSha))) throw new Error('Invalid authority attempt tree SHA');
+    const tree = await request('GET', `/repos/${repo}/git/trees/${treeSha}`);
+    if (tree?.truncated !== false || !Array.isArray(tree.tree) ||
+        !tree.tree.every((entry) => entry && typeof entry.path === 'string' &&
+          entry.path.length > 0 && !entry.path.includes('/') &&
+          ['blob', 'tree', 'commit'].includes(entry.type) && HEAD.test(String(entry.sha))) ||
+        new Set(tree.tree.map((entry) => entry.path)).size !== tree.tree.length) {
+      throw new Error('Incomplete or malformed authority attempt tree');
     }
-    
-    if (!/^[0-9a-f]{40}$/.test(String(file?.sha)) || file?.encoding !== 'base64') continue;
-    
-    let index;
-    try {
-      index = JSON.parse(Buffer.from(String(file.content).replace(/\s/g, ''), 'base64').toString('utf8'));
-    } catch (error) {
+    if (segment !== null) {
+      const entry = tree.tree.find((item) => item.path === segment);
+      if (!entry) return false;
+      if (entry.type !== 'tree') throw new Error('Authority attempt directory is not a tree');
+      treeSha = entry.sha;
       continue;
     }
-    
-    if (index?.pr_number === Number(prNumber)) return true;
+    for (const entry of tree.tree) {
+      if (!/^[0-9a-f]{64}\.json$/.test(entry.path) || entry.type !== 'blob') {
+        throw new Error('Invalid authority attempt index path');
+      }
+      const blob = await request('GET', `/repos/${repo}/git/blobs/${entry.sha}`);
+      if (blob?.sha !== entry.sha || blob?.encoding !== 'base64' ||
+          typeof blob.content !== 'string') {
+        throw new Error('Invalid authority attempt index metadata');
+      }
+      const encoded = blob.content.replace(/\s/g, '');
+      if (!encoded || Buffer.from(encoded, 'base64').toString('base64') !== encoded) {
+        throw new Error('Malformed authority attempt index base64');
+      }
+      const index = JSON.parse(Buffer.from(encoded, 'base64').toString('utf8'));
+      if (!validAttemptIndex(index, repo, index?.owner_attempt) ||
+          attemptPath(repo, index.owner_attempt).split('/').pop() !== entry.path) {
+        throw new Error('Invalid authority attempt index');
+      }
+      if (index.pr_number === Number(prNumber)) return true;
+    }
   }
-  
   return false;
 }
 
