@@ -1712,6 +1712,8 @@ must validate its own existing repository-local project, not an unrelated root
 file. Before any direct apply write, validate all potential output destinations
 against repository containment, including resolved symlink targets. Canonical
 pyproject updates keep dependency extras before the version and preserve markers.
+Inline dependency arrays recognize quoted extras brackets as requirement content,
+not the end of the array, and are tested through the full pyproject update path.
 Both apply branches derive publication readiness from the final tree diff; dry
 runs perform the same resolution in the disposable checkout without publishing.
 The final apply output, rather than the preliminary direct-pin check, supplies

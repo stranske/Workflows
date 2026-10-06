@@ -118,7 +118,11 @@ def find_dev_dependencies_section(content: str) -> tuple[int, int, str] | None:
         return match.start(), match.end(), match.group(0)
 
     # Try inline format: dev = ["pkg1", "pkg2"]
-    inline_pattern = re.compile(r"^dev\s*=\s*\[(.*?)\]", re.MULTILINE)
+    # An extras bracket belongs to its quoted requirement, not the array end.
+    inline_pattern = re.compile(
+        r"""^dev\s*=\s*\[(?:[^\]\n"']|"(?:\\.|[^"\\])*"|'[^']*')*\]""",
+        re.MULTILINE,
+    )
     match = inline_pattern.search(content)
     if match:
         return match.start(), match.end(), match.group(0)

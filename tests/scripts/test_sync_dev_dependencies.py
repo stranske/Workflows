@@ -7,6 +7,24 @@ import pytest
 from scripts import sync_dev_dependencies as sdd
 
 
+@pytest.mark.parametrize("inline", [True, False])
+@pytest.mark.parametrize(
+    "requirement",
+    ["coverage[toml]==7.0", "coverage[toml]", "coverage[toml]>=7.0; python_version < '3.14'"],
+)
+def test_sync_pyproject_extras_end_to_end(tmp_path, requirement, inline):
+    deps = f'dev = ["{requirement}"]\n' if inline else f'dev = [\n    "{requirement}",\n]\n'
+    project = tmp_path / "pyproject.toml"
+    project.write_text(
+        '[project]\nname="example"\nversion="1"\n[project.optional-dependencies]\n' + deps
+    )
+    changes, errors = sdd.sync_pyproject(project, {"COVERAGE_VERSION": "7.1"}, apply=True)
+    assert changes and not errors
+    assert "coverage[toml]==7.1" in project.read_text()
+    if ";" in requirement:
+        assert "; python_version < '3.14'" in project.read_text()
+
+
 @pytest.mark.parametrize(
     "requirement",
     ["coverage[toml]==7.0", "coverage[toml]", "coverage[toml]>=7.0; python_version < '3.14'"],
