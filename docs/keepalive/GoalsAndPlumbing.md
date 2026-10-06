@@ -259,6 +259,21 @@ on later refreshes. Closing keywords, `meta:issue`, and issue-branch provenance
 retain closing intent; active campaign issues retain their non-closing exemption.
 A declared non-issue Workflow Source takes precedence over relation wording;
 only an explicit closing keyword or `meta:issue` marker can override it.
+Release Please's `release-please--branches--*` branches infer an automation
+source only when head and base repository identities match and the author matches
+`RELEASE_PLEASE_AUTHOR` (default `github-actions[bot]`). Configure that login in the
+producer environment when releases use another publisher. Genuine issue lineage
+and declared sources retain precedence. Conflicting explicit issue references
+remain unresolved and keep verifier acceptance discovery required and unavailable;
+branch inference cannot turn ambiguity into automation provenance.
+Recorded history such as "the already-merged artifact-discovery fix #N" names
+a delivered change, not a new closing directive. Historical noun matching stops
+before a subsequent closing verb or coordinated clause, so
+`Revert the previous fix and Fix #123` still closes issue #123.
+Explicit `Fix #N`, `Closes #N`,
+metadata, `Related to #N`, and issue branches retain their existing source
+semantics. Verifier context keeps the release's own acceptance criteria and
+still fails closed when a genuine required issue cannot be retrieved.
 Source-issue edits reach that block on the next metadata refresh, not immediately;
 manual edits inside the block can be overwritten on regeneration. Keep durable
 source tasks in the source issue. Reviewer-added checkboxes outside the block

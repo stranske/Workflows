@@ -12,11 +12,43 @@ const {
   shouldFail,
 } = require('../pr_source_context_coverage.js');
 
+const { buildPrSourceContextReport } = require('../pr_source_context_report.js');
+const release3769 = require('./fixtures/release-3769.json');
+
 function writeReport(root, artifactName, report) {
   const dir = path.join(root, artifactName, '123');
   fs.mkdirSync(dir, { recursive: true });
   fs.writeFileSync(path.join(dir, 'pr-source-context.json'), `${JSON.stringify(report)}\n`);
 }
+
+test('release #3769 artifact coverage counts automation without inventing an issue contract', () => {
+  const root = fs.mkdtempSync(path.join(os.tmpdir(), 'release-source-context-coverage-'));
+  try {
+    writeReport(root, 'pr-source-context', buildPrSourceContextReport({
+      eventName: 'pull_request',
+      event: { pull_request: {
+        ...release3769,
+        user: { login: process.env.RELEASE_PLEASE_AUTHOR || 'github-actions[bot]' },
+        head: { ...release3769.head, repo: { full_name: 'octo/workflows' } },
+        base: { repo: { full_name: 'octo/workflows' } },
+      } },
+      now: '2026-10-06T00:00:00.000Z',
+    }));
+    const report = buildCoverageReport({ root, now: '2026-10-06T00:00:00.000Z' });
+
+    assert.equal(report.status, 'pass');
+    assert.equal(report.records, 1);
+    assert.equal(report.valid_source_context_count, 1);
+    assert.equal(report.unknown_source_context_count, 0);
+    assert.deepEqual(report.source_type_counts, { automation_run: 1 });
+    assert.equal(report.task_items_total, 5);
+    assert.equal(report.task_items_open, 0);
+    assert.deepEqual(report.open_task_prs, []);
+    assert.deepEqual(report.unknown_source_prs, []);
+  } finally {
+    fs.rmSync(root, { recursive: true, force: true });
+  }
+});
 
 test('buildCoverageReport summarizes PR source context and task-list artifacts', () => {
   const root = fs.mkdtempSync(path.join(os.tmpdir(), 'pr-source-context-coverage-'));

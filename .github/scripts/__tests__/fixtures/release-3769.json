@@ -1,0 +1,9 @@
+{
+  "number": 3769,
+  "title": "chore(main): release 1.37.21",
+  "body": ":robot: I have created a release *beep* *boop*\n---\n\n\n## [1.37.21](https://github.com/stranske/Workflows/compare/v1.37.20...v1.37.21) (2026-10-05)\n\n\n### Bug Fixes\n\n* **verifier:** retain artifact discovery for incidental status links ([#3768](https://github.com/stranske/Workflows/issues/3768)) ([2897731](https://github.com/stranske/Workflows/commit/289773105ecc6207a2e528806a482821c84d53bf))\n\n---\nThis PR was generated with [Release Please](https://github.com/googleapis/release-please). See [documentation](https://github.com/googleapis/release-please#release-please).\n\n## Tasks\n- [x] Advance the release manifest from 1.37.20 to 1.37.21.\n- [x] Record the already-merged artifact-discovery fix #3768 in the changelog.\n\n## Acceptance Criteria\n- [x] Release diff is limited to `.release-please-manifest.json` and `CHANGELOG.md`; no product source changes.\n- [x] Manifest and changelog agree on 1.37.21 and the referenced merged fix.\n- [x] Complete required/expected pre-merge check topology, all suites, exact head, zero active review threads and seven-minute review floor verified before pinned squash.\n",
+  "head": {
+    "ref": "release-please--branches--main",
+    "sha": "08b07c8b1bfbe254d6d59f384f83d087a91ba93b"
+  }
+}

@@ -418,7 +418,7 @@ scripts:
     description: "Locates PRs associated with issues"
 
   - source: .github/scripts/source_context.js
-    description: "Classifies PR workflow source context with generated related-issue bindings over synchronized incidental text, explicit closing titles over incidental body mentions, ambiguous closing-target rejection, declared non-issue precedence and explicit closing overrides"
+    description: "Classifies PR workflow sources with bounded historical fix references, unresolved explicit issue ambiguity, repository/author-bound Release Please inference, related-issue bindings and declared non-issue precedence"
 
   - source: .github/scripts/issue_context_utils.js
     description: "Utilities for issue context extraction"

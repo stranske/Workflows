@@ -21,6 +21,141 @@ const {
   resolvePrSourceContext: templateResolvePrSourceContext,
 } = require('../../../templates/consumer-repo/.github/scripts/source_context.js');
 
+const release3769 = require('./fixtures/release-3769.json');
+// Synthetic trusted origin; the captured production body/title/branch stay exact.
+const releasePull = {
+  ...release3769,
+  user: { login: process.env.RELEASE_PLEASE_AUTHOR || 'github-actions[bot]' },
+  head: { ...release3769.head, repo: { full_name: 'octo/workflows' } },
+  base: { repo: { full_name: 'octo/workflows' } },
+};
+
+test('release #3769 retains automation provenance instead of the already-merged fix', () => {
+  for (const resolve of [resolvePrSourceContext, templateResolvePrSourceContext]) {
+    const source = resolve(releasePull);
+    assert.equal(source.issueNumber, null);
+    assert.equal(source.requiresIssue, false);
+    assert.equal(source.sourceType, SOURCE_TYPES.AUTOMATION_RUN);
+  }
+});
+
+test('release branch automation inference requires the configured author and trusted head repository', () => {
+  const previousAuthor = process.env.RELEASE_PLEASE_AUTHOR;
+  process.env.RELEASE_PLEASE_AUTHOR = 'release-service[bot]';
+  try {
+    const trusted = { ...releasePull, user: { login: 'release-service[bot]' } };
+    for (const resolve of [resolvePrSourceContext, templateResolvePrSourceContext]) {
+      assert.equal(resolve(trusted).sourceType, SOURCE_TYPES.AUTOMATION_RUN);
+      for (const pull of [
+        { ...trusted, user: { login: 'human' } },
+        { ...trusted, user: { login: 'github-actions[bot]' } },
+        { ...trusted, user: {} },
+        { ...trusted, head: { ...trusted.head, repo: { full_name: 'fork/workflows' } } },
+        { ...trusted, head: { ref: trusted.head.ref } },
+        { ...trusted, base: {} },
+        release3769,
+      ]) {
+        const source = resolve(pull);
+        assert.equal(source.sourceType, SOURCE_TYPES.UNKNOWN, JSON.stringify(pull));
+        assert.equal(source.isValid, false);
+      }
+      const explicit = resolve({ ...trusted, user: { login: 'human' }, body: 'Closes #123' });
+      assert.equal(explicit.issueNumber, 123);
+      assert.equal(explicit.requiresIssue, true);
+      const local = resolve({ ...trusted, user: { login: 'human' }, body: '<!-- workflow-source:local_request -->' });
+      assert.equal(local.sourceType, SOURCE_TYPES.LOCAL_REQUEST);
+    }
+  } finally {
+    if (previousAuthor === undefined) delete process.env.RELEASE_PLEASE_AUTHOR;
+    else process.env.RELEASE_PLEASE_AUTHOR = previousAuthor;
+  }
+});
+
+test('release history cannot hide genuine or ambiguous issue lineage', () => {
+  for (const resolve of [resolvePrSourceContext, templateResolvePrSourceContext]) {
+    for (const relation of [
+      '<!-- meta:issue:123 -->', 'Closes #123', 'Related to #123',
+      '<!-- meta:related-issue:123 -->', 'Fix issue #123',
+      'The prior change was merged.\nFix #123',
+    ]) {
+      const source = resolve({ ...release3769, body: release3769.body + '\n' + relation });
+      assert.equal(source.issueNumber, 123, relation);
+      assert.equal(source.requiresIssue, true, relation);
+    }
+    const branchSource = resolve({ ...release3769, head: { ref: 'codex/issue-123-release' } });
+    assert.equal(branchSource.issueNumber, 123);
+    assert.equal(branchSource.requiresIssue, true);
+    const ambiguous = resolve({ ...release3769, body: release3769.body + '\nRelated to #123\nRelated to #456' });
+    assert.equal(ambiguous.issueNumber, null);
+    const local = resolve({ ...release3769, body: release3769.body + '\n<!-- workflow-source:local_request -->\nRelated to #123' });
+    assert.equal(local.sourceType, SOURCE_TYPES.LOCAL_REQUEST);
+    assert.equal(local.requiresIssue, false);
+  }
+});
+
+test('historical fix nouns are not closing directives, including formatted release tasks', () => {
+  for (const extract of [extractIssueSourceFromPull, templateExtractIssueSourceFromPull]) {
+    for (const body of [
+      'Record the already-merged artifact-discovery fix #3768 in the changelog.',
+      '- [x] Document the **previous fix** #3768.',
+      'Include the merged fix #3768 in release history.',
+    ]) {
+      assert.equal(extract({ body }).issueNumber, null, body);
+    }
+    assert.equal(extract({ body: 'Fix #123' }).issueNumber, 123);
+    assert.equal(extract({ body: 'The prior change was merged. Fix #123' }).issueNumber, 123);
+  }
+});
+
+test('ambiguous explicit release issue references remain unresolved instead of inferring automation', () => {
+  for (const resolve of [resolvePrSourceContext, templateResolvePrSourceContext]) {
+    for (const body of [
+      'Related to #123\nRelated to #456',
+      'Closes #123\nFixes #456',
+      '<!-- meta:issue:123 -->\n<!-- meta:issue:456 -->',
+      '<!-- meta:related-issue:123 -->\n<!-- meta:related-issue:456 -->',
+    ]) {
+      const source = resolve({ ...releasePull, body: release3769.body + '\n' + body });
+      assert.equal(source.issueNumber, null, body);
+      assert.equal(source.sourceType, SOURCE_TYPES.UNKNOWN, body);
+      assert.equal(source.isValid, false, body);
+      assert.equal(source.requiresIssue, true, body);
+      assert.equal(source.hasAmbiguousIssueSource, true, body);
+    }
+    for (const title of ['Fixes #123 and closes #456', 'Related to #123 and Related to #456']) {
+      const source = resolve({ ...releasePull, title });
+      assert.equal(source.sourceType, SOURCE_TYPES.UNKNOWN, title);
+      assert.equal(source.requiresIssue, true, title);
+    }
+    const declared = resolve({
+      ...releasePull,
+      body: '<!-- workflow-source:automation_run -->\nCloses #123\nFixes #456',
+    });
+    assert.equal(declared.sourceType, SOURCE_TYPES.UNKNOWN);
+    assert.equal(declared.requiresIssue, true);
+  }
+});
+
+test('a historical fix noun cannot hide a subsequent closing directive on the same line', () => {
+  for (const extract of [extractIssueSourceFromPull, templateExtractIssueSourceFromPull]) {
+    for (const body of [
+      'Revert the previous fix and Fix #123',
+      'Revert the already-merged fix then **Fix** #123',
+      'Revert the prior fix but fix issue #123',
+      'Revert the previous fix #456 and Fix #123',
+    ]) {
+      assert.deepEqual(extract({ body }), { issueNumber: 123, via: 'closing' }, body);
+      assert.deepEqual(extract({ title: body }), { issueNumber: 123, via: 'closing' }, body);
+      for (const resolve of [resolvePrSourceContext, templateResolvePrSourceContext]) {
+        const source = resolve({ ...release3769, body });
+        assert.equal(source.sourceType, SOURCE_TYPES.GITHUB_ISSUE, body);
+        assert.equal(source.issueNumber, 123, body);
+        assert.equal(source.requiresIssue, true, body);
+      }
+    }
+  }
+});
+
 test('normalizeSourceType maps human aliases to canonical origin types', () => {
   assert.equal(normalizeSourceType('GitHub Issue'), SOURCE_TYPES.GITHUB_ISSUE);
   assert.equal(normalizeSourceType('local Codex request'), SOURCE_TYPES.LOCAL_REQUEST);
