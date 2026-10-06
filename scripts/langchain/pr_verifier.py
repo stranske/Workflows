@@ -1224,17 +1224,31 @@ def _required_evidence_channels(acceptance: str, *, _bind_attached: bool = True)
             else match[0]
         )
 
-    proof_qualifier = (
-        r"(?:\s+of\s+(?:(?!(?:and|or|but|must|shall|is|are|may|can|has|have|"
-        + destination_preposition_head
-        + r")\b)"
-        r"[\w/-]+\s+){0,4}[\w/-]+(?=\s+(?:"
-        + mandatory_auxiliary
+    proof_object_boundary = (
+        r"(?:"
+        + delivery_governor_auxiliary
+        + r"(?=\s+)"
         + r"|"
         + negative_requirement_governor
-        + r"|may|can|should|will|"
+        + r"(?=\s+)"
+        + r"|"
         + destination_preposition_head
-        + r")\b))?"
+        + r"(?=\s+)"
+        + r"|"
+        + shared_proof_delivery_operation
+        + r"(?=\s+"
+        + bound_review_destinations
+        + r"))\b"
+    )
+    proof_qualifier_word = r"(?!(?:and|or|but)(?=\s+)|" + proof_object_boundary + r")[\w/-]+"
+    proof_qualifier = (
+        r"(?:\s+of\s+(?:"
+        + proof_qualifier_word
+        + r"\s+){0,4}"
+        + proof_qualifier_word
+        + r"(?=\s+"
+        + proof_object_boundary
+        + r"))?"
     )
     acceptance = re.sub(
         r"(?P<literal>" + quoted_evidence_literal + r")|"
@@ -1242,8 +1256,8 @@ def _required_evidence_channels(acceptance: str, *, _bind_attached: bool = True)
         + proof_qualifier
         + r"|recording"
         + proof_qualifier
-        + r"(?=\s+(?:of|must|shall|needs?|is|was|should|may|can|has|and|or|"
-        + destination_preposition_head
+        + r"(?=\s+(?:of|and|or|"
+        + proof_object_boundary
         + r")\b))\b",
         normalize_proof_object,
         acceptance,

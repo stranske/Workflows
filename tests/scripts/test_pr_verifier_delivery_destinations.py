@@ -2894,3 +2894,73 @@ def test_common_proof_pronoun_reuses_shared_finite_destination_grammar(
         expected.add("comments")
     assert verifier._required_evidence_channels(canonical) == expected
     assert verifier._required_evidence_channels(criterion) == expected
+
+
+@pytest.mark.parametrize(
+    "proof", ["A recording", "Recordings", "Screenshots", "Test results", "Validation output"]
+)
+@pytest.mark.parametrize("qualifier", ["the session", "posted output", "required scenarios"])
+@pytest.mark.parametrize(
+    "predicate",
+    [
+        "has been uploaded",
+        "is being uploaded",
+        "had been uploaded",
+        "was uploaded",
+        "uploaded",
+        "must be uploaded",
+        "has not been uploaded",
+        "may be uploaded",
+    ],
+)
+@pytest.mark.parametrize(
+    "preposition", ["in", "into", "to", "within", "for", "as", "through", "via"]
+)
+@pytest.mark.parametrize("independent", [False, True])
+def test_qualified_common_proof_reuses_shared_governor_boundary(
+    proof, qualifier, predicate, preposition, independent
+):
+    criterion = f"{proof} of {qualifier} {predicate} {preposition} the PR body"
+    canonical = f"Evidence {predicate} {preposition} the PR body"
+    # Bare participial descriptors retain the canonical generic-evidence policy;
+    # this normalization repair must not introduce a new body-specific gate.
+    expected = (
+        set()
+        if predicate in {"has not been uploaded", "may be uploaded"}
+        else {"overall"} if predicate == "uploaded" else {"body"}
+    )
+    if independent:
+        suffix = "; the reviewer must record evidence in a PR comment"
+        criterion += suffix
+        canonical += suffix
+        expected.add("comments")
+    assert verifier._required_evidence_channels(canonical) == expected
+    assert verifier._required_evidence_channels(criterion) == expected
+
+
+@pytest.mark.parametrize("proof", ["A recording", "Screenshots"])
+@pytest.mark.parametrize(
+    "qualifier",
+    [
+        "in-depth sessions",
+        "for-sale scenarios",
+        "has-been services",
+        "optional scenarios",
+        "no longer required cases",
+        "and/or cases",
+    ],
+)
+@pytest.mark.parametrize(
+    "predicate", ["has been uploaded", "is being uploaded", "was uploaded", "has not been uploaded"]
+)
+@pytest.mark.parametrize("preposition", ["in", "via"])
+@pytest.mark.parametrize("independent", [False, True])
+def test_qualified_common_proof_modifier_tokens_are_not_governor_prefixes(
+    proof, qualifier, predicate, preposition, independent
+):
+    criterion = f"{proof} of {qualifier} {predicate} {preposition} the PR body"
+    expected = set() if predicate == "has not been uploaded" else {"body"}
+    if independent:
+        criterion += "; the reviewer must record evidence in a PR comment"
+        expected.add("comments")
+    assert verifier._required_evidence_channels(criterion) == expected

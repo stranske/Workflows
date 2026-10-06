@@ -100,7 +100,13 @@ input intact. Contextual proof binding uses an offset-preserving literal-free
 projection, so quoted destinations or actors cannot govern unquoted proof nouns.
 Common proof nouns share a bounded object qualifier before explicit delivery
 destinations or governors, retaining active qualified-recording body delivery
-without converting the progressive recording verb into an object. Direct upload
+without converting the progressive recording verb into an object. The qualifier
+boundary uses the existing shared delivery governors, negative governors and
+destination prepositions; finite operations end the qualifier only when followed
+by a bound review destination, so operation-like adjectives remain part of the
+object. Neither qualifier repetition nor its final token may consume the actual
+governor or operation. Bare participial descriptors retain the ordinary canonical
+evidence policy rather than acquiring a new body-specific gate. Direct upload
 and pronoun upload use the same PR-body operation grammar; neither may fall back
 to generic overall evidence when the body is explicitly required. Body matching
 must leave a nounless attached predicate with its antecedent for the shared
