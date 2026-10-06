@@ -9,6 +9,21 @@ from scripts import docs_drift_fix_agent as fix_agent
 from scripts.langchain import pr_verifier as verifier
 
 
+@pytest.mark.parametrize("quote", ['"', "'", "`", "“"])
+@pytest.mark.parametrize("operation", ["include", "contain", "have"])
+@pytest.mark.parametrize("independent", [False, True])
+def test_pr_contained_comment_quoted_literal(quote, operation, independent):
+    closing = "”" if quote == "“" else quote
+    criterion = (
+        f"The parser must accept the string {quote}The PR must {operation} a comment{closing}"
+    )
+    if independent:
+        criterion += "; the reviewer must record evidence in a PR comment"
+    assert verifier._required_evidence_channels(criterion) == (
+        {"comments"} if independent else set()
+    )
+
+
 @pytest.mark.parametrize("proof", ["test results", "screenshots", "validation output"])
 @pytest.mark.parametrize("actor", ["reviewer", "automation agent", "runner", "bot"])
 @pytest.mark.parametrize("operation", ["record", "attach", "include"])

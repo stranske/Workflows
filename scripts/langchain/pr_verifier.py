@@ -1010,9 +1010,15 @@ def _required_evidence_channels(acceptance: str, *, _bind_attached: bool = True)
         r"(?:does|do|did)\s+(?:not|never)\s+(?:need|have)\s+to|"
         r"(?:never|no\s+longer)\s+(?:has|have|needs?)\s+to|needs?\s+not)"
     )
+    quoted_evidence_literal = (
+        r"`+[^`]*`+|\"[^\"]*\"|"
+        r"(?<!\w)'(?:[^']|(?<=\w)'(?=\w))*'(?!\w)|"
+        r"“[^”]*”|(?<!\w)‘(?:[^’]|(?<=\w)’(?=\w))*’(?!\w)"
+    )
     # A comment contained by the PR is a PR comment, not an overall/body
     # deliverable. Preserve its actual governor for the shared polarity pass.
     acceptance = re.sub(
+        r"(?P<literal>" + quoted_evidence_literal + r")|"
         r"(?P<prefix>\b(?:pr|pull request)\s+(?:"
         + mandatory_auxiliary
         + r"|"
@@ -1022,13 +1028,17 @@ def _required_evidence_channels(acceptance: str, *, _bind_attached: bool = True)
         + r"(?:(?:not|never)\s+)?(?:include|contain|have)\s+(?:(?:an?|the)\s+)?)"
         r"comments?\b(?=\s*(?:$|[;,.!?\n]|(?:with|containing|that|which|"
         r"in|on|for|to|and|or|but)\b))",
-        lambda match: re.sub(
-            r"\b(?:contain|have)\b(?=\s+(?:(?:an?|the)\s+)?$)",
-            "include",
-            match["prefix"],
-            flags=re.I,
-        )
-        + "PR comment",
+        lambda match: (
+            match[0]
+            if match["literal"]
+            else re.sub(
+                r"\b(?:contain|have)\b(?=\s+(?:(?:an?|the)\s+)?$)",
+                "include",
+                match["prefix"],
+                flags=re.I,
+            )
+            + "PR comment"
+        ),
         acceptance,
         flags=re.I,
     )
@@ -1149,11 +1159,6 @@ def _required_evidence_channels(acceptance: str, *, _bind_attached: bool = True)
     )
     # Presence predicates use the existing passive-delivery grammar, including
     # governing negation and modality, instead of a second affirmative regex.
-    quoted_evidence_literal = (
-        r"`+[^`]*`+|\"[^\"]*\"|"
-        r"(?<!\w)'(?:[^']|(?<=\w)'(?=\w))*'(?!\w)|"
-        r"“[^”]*”|(?<!\w)‘(?:[^’]|(?<=\w)’(?=\w))*’(?!\w)"
-    )
     acceptance = re.sub(
         r"(?P<literal>" + quoted_evidence_literal + r")|"
         r"(?P<prefix>\b(?:no\s+|neither\s+"

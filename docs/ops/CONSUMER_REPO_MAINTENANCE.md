@@ -83,7 +83,10 @@ body retrieval is absent or unavailable.
 PR-subject inclusion predicates (`the PR must include/contain/have a comment`)
 normalize to PR-comment obligations while preserving their original governor.
 A present PR body cannot satisfy that comment channel; negative and optional
-inclusion stays nongating.
+inclusion stays nongating. This normalization skips the shared straight/curly
+quoted and backtick literal spans before substituting a PR-comment noun, so
+parser/documentation examples remain nongating while an independent reviewer
+delivery still requires its own channel.
 Comment inclusion requires a delivered noun boundary (end/punctuation or an
 object qualifier, destination or coordination), not an open-ended feature-noun
 blocklist. Compounds such as comment button, form, count, thread and parser are
