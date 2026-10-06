@@ -1369,11 +1369,15 @@ governor cannot be discarded by matching an embedded need-to/has-to substring.
 These guards share the passive aspect vocabulary, including residual been/being
 after a finite has/had/is governor and the same governed aspect in immediate
 review-destination recognition. A short negative requirement match consumes
-its complete optional passive action instead of leaving to-be-recorded text
-behind as a new delivery. A coordinated elided passive
+its complete optional passive or active-perfect action instead of leaving
+to-be-recorded or to-have-supplied text behind as a new delivery. Body predicates,
+negative action removal, and elided-passive inheritance share the complete
+negative requirement governor vocabulary. A coordinated elided passive
 review delivery inherits only the preceding evidence object and governor;
 optional/negative governors remain optional/negative, and a new actor or product
 storage predicate cannot supply that inheritance.
+An explicit contrastive but boundary retains the inherited modality but does not
+copy its negation to the contrasting delivery; and/or retain the negative governor.
 Comment presence/containment predicates share the complete mandatory auxiliary
 grammar, including `has/have to`, with existing polarity controls.
 Do-supported product storage (`do`, `does`, `did`) shares the finite auxiliary

@@ -347,6 +347,54 @@ def test_finite_aspect_additive_contrast_preserves_both_channels(
     ) == {first_channel, second_channel}
 
 
+@pytest.mark.parametrize(
+    "governor",
+    [
+        "is not required to",
+        "is not needed to",
+        "was not required to",
+        "were not needed to",
+        "is never expected to",
+        "is no longer supposed to",
+        "does not need to",
+        "doesn't need to",
+        "never has to",
+        "no longer needs to",
+    ],
+)
+@pytest.mark.parametrize("participle", ["recorded", "supplied", "proved"])
+@pytest.mark.parametrize("destination", ["the PR body", "a PR comment", "workflow artifacts"])
+@pytest.mark.parametrize("positive_first", [True, False])
+def test_negative_active_perfect_governor_preserves_independent_delivery(
+    governor, participle, destination, positive_first
+):
+    """Active perfect actions retain their negative requirement governor."""
+    negative = f"The reviewer {governor} have {participle} evidence in {destination}"
+    assert verifier._required_evidence_channels(negative) == set()
+    positive = "The maintainer must record evidence in the PR body"
+    criterion = positive + "; " + negative if positive_first else negative + "; " + positive
+    assert verifier._required_evidence_channels(criterion) == {"body"}
+
+
+@pytest.mark.parametrize(
+    "governor",
+    ["must not", "is not required to", "does not need to", "never has to", "no longer needs to"],
+)
+@pytest.mark.parametrize("participle", ["recorded", "supplied", "proved"])
+@pytest.mark.parametrize("boundary", ["and", "or", "but"])
+@pytest.mark.parametrize("first_destination", ["the PR body", "a PR comment", "workflow artifacts"])
+@pytest.mark.parametrize(
+    "second_destination,second_channel",
+    [("the PR body", "body"), ("a PR comment", "comments"), ("workflow artifacts", "artifacts")],
+)
+def test_negative_passive_coordination_respects_contrast(
+    governor, participle, boundary, first_destination, second_destination, second_channel
+):
+    criterion = f"Command output {governor} be {participle} in {first_destination} {boundary} be posted in {second_destination}"
+    expected = {second_channel} if boundary == "but" else set()
+    assert verifier._required_evidence_channels(criterion) == expected
+
+
 @pytest.mark.parametrize("contrast", ["only", "merely", "just"])
 @pytest.mark.parametrize("participle", ["recorded", "proved", "supplied"])
 @pytest.mark.parametrize(

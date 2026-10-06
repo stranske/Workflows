@@ -999,6 +999,15 @@ def _required_evidence_channels(acceptance: str, *, _bind_attached: bool = True)
         r"(?:be|been|being|have\s+" + delivery_adverbs + r"been)"
         r"(?:\s+" + delivery_adverbs + r"being)?\s+"
     )
+    delivery_action_prefix = (
+        r"(?:" + passive_delivery_prefix + r"|have\s+" + delivery_adverbs + r")"
+    )
+    negative_requirement_governor = (
+        r"(?:(?:is|are|was|were)\s+(?:not|never|no\s+longer)\s+"
+        r"(?:required|needed|mandated|expected|supposed|obliged|allowed|permitted)\s+to|"
+        r"(?:does|do|did)\s+(?:not|never)\s+(?:need|have)\s+to|"
+        r"(?:never|no\s+longer)\s+(?:has|have|needs?)\s+to|needs?\s+not)"
+    )
     conditional_evidence = r"\b(?:if|when)\s+(?:produced|available|present|uploaded|generated)\b"
     recipient_prefix = (
         r"(?:(?:all|any|some|each|every)\s+)?"
@@ -1502,9 +1511,9 @@ def _required_evidence_channels(acceptance: str, *, _bind_attached: bool = True)
             + r"|prove\w*|include\w*|contain\w*|attach\w*|provide\w*|publish\w*|post\w*|record\w*|capture\w*|document\w*|add\w*|show\w*|store\w*|have|left|leave\w*)\b"
         )
         auxiliary = (
-            r"(?:(?:is|are|was|were)\s+(?:not|never|no\s+longer)\s+"
-            r"(?:required|needed|mandated|expected|supposed|obliged)\s+to|"
-            r"(?:does|do|did)\s+(?:not|never)\s+(?:need|have)\s+to|"
+            r"(?:"
+            + negative_requirement_governor
+            + r"|"
             + mandatory_auxiliary
             + r"|is|are|was|were|has|have|had|will|"
             + optional_delivery_modal
@@ -1514,7 +1523,7 @@ def _required_evidence_channels(acceptance: str, *, _bind_attached: bool = True)
         aspect = (
             delivery_adverbs
             + r"(?:"
-            + passive_delivery_prefix
+            + delivery_action_prefix
             + r"|been\s+"
             + delivery_adverbs
             + r")?"
@@ -1996,8 +2005,19 @@ def _required_evidence_channels(acceptance: str, *, _bind_attached: bool = True)
         + delivery_operation,
         re.I,
     )
+    negative_requirement_action = (
+        r"\b"
+        + negative_requirement_governor
+        + r"\s+"
+        + delivery_adverbs
+        + r"(?:"
+        + delivery_action_prefix
+        + r")?"
+        + delivery_adverbs
+        + delivery_operation
+    )
     evidence_prohibition = re.compile(
-        aspect_delivery_prohibition.pattern + r"|"
+        negative_requirement_action + r"|" + aspect_delivery_prohibition.pattern + r"|"
         r"\b(?:(?:do|does|did)\s+not|never|no\s+longer)\s+"
         + mandatory_auxiliary
         + r"\s+"
@@ -2079,7 +2099,7 @@ def _required_evidence_channels(acceptance: str, *, _bind_attached: bool = True)
         r"|\b(?:evidence|artifacts?|transcripts?|command outputs?|workflow runs?|"
         r"pr comments?|pull request comments?)"
         r"\s+(?:is|are)\s+not\s+(?:required|needed|mandatory)\b"
-        r"(?:\s+to\s+(?:" + passive_delivery_prefix + r")?" + delivery_operation + r")?"
+        r"(?:\s+to\s+(?:" + delivery_action_prefix + r")?" + delivery_operation + r")?"
         r"|\b(?:must|shall|may|should|can|do|does|did)\s+not\s+"
         r"(?:upload|attach|provide|publish|post|record|capture|include|document|generate|link|add|leave)\b"
         r"(?:\s+(?:the\s+|an?\s+|any\s+)?(?:[\w-]+\s+){0,4}"
@@ -2310,7 +2330,11 @@ def _required_evidence_channels(acceptance: str, *, _bind_attached: bool = True)
                     + evidence_modifiers
                     + r"(?:evidence|artifacts?|transcripts?|command outputs?))\s+"
                     + r"(?P<governor>"
+                    + r"(?:"
+                    + negative_requirement_governor
+                    + r"|"
                     + delivery_governor_auxiliary
+                    + r")"
                     + r"\s+"
                     + delivery_adverbs
                     + r"(?:(?:not|never|no\s+longer)\s+)?"
@@ -2327,12 +2351,15 @@ def _required_evidence_channels(acceptance: str, *, _bind_attached: bool = True)
                 if prior_passive:
                     # An elided passive review delivery inherits its object and
                     # governor, never a new actor or a product-storage predicate.
-                    fragment = (
-                        prior_passive["object"]
-                        + " "
-                        + prior_passive["governor"]
-                        + fragment.lstrip()
-                    )
+                    governor = prior_passive["governor"]
+                    if re.fullmatch(r"\s*,?\s*but\s+", boundary, re.I):
+                        # Contrast starts a positive delivery, not a second
+                        # prohibition. Preserve the modality, not its negation.
+                        governor = re.sub(
+                            r"\b(?:not|never|no\s+longer)\s+", "", governor, flags=re.I
+                        )
+                        governor = re.sub(r"\bdoes\s+need\s+to\b", "needs to", governor, flags=re.I)
+                    fragment = prior_passive["object"] + " " + governor + fragment.lstrip()
             if (
                 fragments
                 and re.fullmatch(r"\s*,?\s*and\s+", boundary, re.I)
