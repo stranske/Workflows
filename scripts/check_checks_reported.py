@@ -95,13 +95,27 @@ class Evidence:
     def items(self, endpoint: str, key: str | None = None) -> list[Any]:
         items = []
         total = None
+        seen_ids = set()
         for page in self.pages(endpoint):
             values = page if key is None else page.get(key)
             if not isinstance(values, list):
                 raise UnknownEvidence(f"{endpoint}: invalid list page")
+            # A stable count alone cannot prove completeness: a moving page
+            # boundary can repeat one object while silently omitting another.
+            for value in values:
+                if isinstance(value, dict) and value.get("id") is not None:
+                    ident = value["id"]
+                    if ident in seen_ids:
+                        raise UnknownEvidence(f"{endpoint}: repeated object id {ident}")
+                    seen_ids.add(ident)
             items.extend(values)
             if key is not None and "total_count" in page:
-                total = page["total_count"]
+                page_total = page["total_count"]
+                if type(page_total) is not int or page_total < 0:
+                    raise UnknownEvidence(f"{endpoint}: invalid total_count")
+                if total is not None and page_total != total:
+                    raise UnknownEvidence(f"{endpoint}: total_count changed during pagination")
+                total = page_total
         if total is not None and len(items) != total:
             raise UnknownEvidence(f"{endpoint}: enumerated {len(items)} of {total} items")
         return items

@@ -20,6 +20,13 @@ it does not invoke the incumbent CLI, its Orchestrator-only `REPO` default, or i
 ratchet updates. Pass the trusted tracked reporter from an Orchestrator checkout
 with `--presence-reporter`; do not create another transport or historical algorithm.
 
+The [opener's source lookup](https://github.com/stranske/Workflows/issues/3757#issuecomment-5989178591)
+establishes this incumbent and routes implementation to Reviewed Repo Backlog
+Opener, then live exact-head verification to Reviewed Repo Merge Verify Closer.
+Orphan Steward retains the named consumer PRs until their own merge gates are
+proved. The adapter command below is the delivery-lane entry point; the
+incumbent's `--pr N` command alone does not satisfy this contract.
+
 The issue's `docs/AGENT_ISSUE_FORMAT.md` citation is absent in this checkout.
 `.github/scripts/issue_format.py` is the implemented work-order validator:
 Tasks must name concrete targets and Acceptance Criteria must name verification
@@ -156,7 +163,9 @@ incomplete or large path inventories cannot establish Actions path filtering.
 
 The tool collects all check runs/suites and every latest-run job page, rather than
 an arbitrary latest-N run sample. Counts must agree with API `total_count` where
-provided. A changed head/base during collection becomes UNKNOWN. Re-run after
+provided. Conflicting page totals, invalid counts and repeated object IDs also
+remain UNKNOWN: a repeated object can hide an omitted check or suite even when
+the final count matches. A changed head/base during collection becomes UNKNOWN. Re-run after
 async completion or obtain concrete source-bound evidence for unsupported
 conditions; never relabel UNKNOWN as PASS or waive missing checks.
 

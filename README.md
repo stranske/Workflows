@@ -27,6 +27,9 @@ python3 scripts/check_checks_reported.py --repo stranske/Orchestrator --pr 461 \
 ```
 
 Replace `FULL_HEAD_SHA` with the PR's current 40-character commit SHA before running.
+Delivery lanes invoke this adapter command; the incumbent's standalone `--pr N`
+command reports historical presence only. The receiving lanes are identified in
+the [shared source boundary](docs/ops/EXPECTED_CHECK_RECEIPTS.md#shared-source-boundary).
 
 The output records full head/base, event/action, changed paths, authored workflow
 topology, required branch/ruleset contexts, complete check/suite pages and latest

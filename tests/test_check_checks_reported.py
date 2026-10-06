@@ -223,6 +223,36 @@ def test_truncated_suites_cannot_pass():
         evidence.items("suites", "check_suites")
 
 
+@pytest.mark.parametrize("key", ["check_runs", "check_suites", "workflow_runs", "jobs"])
+def test_changing_page_totals_cannot_establish_complete_inventory(key):
+    evidence = reporter.Evidence(
+        lambda _: [
+            {"total_count": 3, key: [{"id": 1}]},
+            {"total_count": 2, key: [{"id": 2}]},
+        ]
+    )
+    with pytest.raises(reporter.UnknownEvidence, match="total_count changed"):
+        evidence.items("inventory", key)
+    assert evidence.requests[0]["pages"] == 2
+
+
+@pytest.mark.parametrize("key", ["check_runs", "check_suites", "workflow_runs", "jobs", None])
+def test_duplicate_page_objects_cannot_hide_missing_inventory(key):
+    # Two enumerated entries meet total_count=2 but represent only one object.
+    values = [{"id": 1}]
+    page = values if key is None else {"total_count": 2, key: values}
+    evidence = reporter.Evidence(lambda _: [page, page])
+    with pytest.raises(reporter.UnknownEvidence, match="repeated object id 1"):
+        evidence.items("inventory", key)
+
+
+@pytest.mark.parametrize("total", [-1, True, "1", 1.0, None])
+def test_invalid_inventory_totals_remain_unknown(total):
+    evidence = reporter.Evidence(lambda _: [{"total_count": total, "check_runs": [check()]}])
+    with pytest.raises(reporter.UnknownEvidence, match="invalid total_count"):
+        evidence.items("checks", "check_runs")
+
+
 def test_inaccessible_discovery_becomes_unknown_evidence():
     def inaccessible(_):
         raise SystemExit("rate limit reached")
@@ -666,6 +696,41 @@ def test_successful_cli_receipt_retains_incumbent_identity(tmp_path, monkeypatch
     )
     assert receipt["expected_names"] == receipt["passing_names"] == ["gate"]
     assert receipt["evidence_complete"] is True
+
+
+@pytest.mark.parametrize("key", ["check_runs", "check_suites"])
+@pytest.mark.parametrize("finding", ["changing_total", "duplicate_id"])
+def test_unstable_inventory_emits_unknown_cli_receipt(tmp_path, monkeypatch, key, finding):
+    incumbent = tmp_path / "presence.py"
+    incumbent.write_text("# Tracked incumbent\n")
+    transport = fixture_transport()
+    endpoint_kind = "check-runs" if key == "check_runs" else "check-suites"
+
+    def unstable_pages(endpoint):
+        if f"/{endpoint_kind}?" in endpoint:
+            second_id = 1 if finding == "duplicate_id" else 2
+            values = (
+                [check(), check("other", ident=second_id)]
+                if key == "check_runs"
+                else [{"id": ident, "conclusion": "success"} for ident in (1, second_id)]
+            )
+            return [
+                {"total_count": 3 if finding == "changing_total" else 2, key: [values[0]]},
+                {"total_count": 2, key: [values[1]]},
+            ]
+        return transport(endpoint)
+
+    monkeypatch.setattr(reporter, "load_presence_reporter", lambda _: unstable_pages)
+    code, receipt = invoke_main(monkeypatch, incumbent, tmp_path / "receipt.json")
+
+    assert code == 2 and receipt["verdict"] == "UNKNOWN"
+    assert receipt["head"] == HEAD
+    assert receipt["event"] == "pull_request" and receipt["action"] == "opened"
+    assert receipt["evidence_complete"] is False
+    assert receipt["merge_authorization"] is False
+    assert endpoint_kind in receipt["unknown"][0]
+    assert receipt["request_evidence"][-1]["pages"] == 2
+    assert endpoint_kind in receipt["request_evidence"][-1]["endpoint"]
 
 
 def test_changed_incumbent_during_collection_invalidates_cli_receipt(tmp_path, monkeypatch):
