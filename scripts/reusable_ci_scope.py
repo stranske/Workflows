@@ -19,7 +19,7 @@ import json
 import os
 import sys
 from dataclasses import dataclass, field
-from pathlib import PurePosixPath
+from pathlib import Path, PurePosixPath
 from typing import Any
 
 JsonObject = dict[str, Any]
@@ -43,6 +43,57 @@ class SelectedMatrix:
     force_full: bool = False
     scope_found: bool = False
     matched_patterns: tuple[str, ...] = field(default_factory=tuple)
+
+
+def select_python_matrix(
+    workflow_name: str,
+    python_versions: str,
+    python_version: str,
+    changed_files: list[str],
+    force_full: bool,
+) -> SelectedMatrix:
+    """Pure resolver shared by the Python producer and expected-check auditor."""
+    if not isinstance(changed_files, list) or any(not isinstance(p, str) for p in changed_files):
+        raise ValueError("changed_files must be a list of strings")
+    if not isinstance(force_full, bool):
+        raise ValueError("force_full must be a boolean")
+    if not isinstance(python_versions, str) or not isinstance(python_version, str):
+        raise ValueError("Python inputs must be strings")
+    if python_versions and python_versions != "[]" and "[" in python_versions:
+        versions = json.loads(python_versions)
+        if not isinstance(versions, list) or not versions:
+            raise ValueError("python_versions must be a nonempty list")
+    elif python_versions and python_versions != "[]":
+        versions = [python_versions]
+    else:
+        versions = [python_version or "3.12"]
+    if any(not isinstance(v, str) or not v.strip() for v in versions):
+        raise ValueError("Python versions must be nonempty strings")
+    if len(versions) != len(set(versions)):
+        raise ValueError("duplicate Python versions are ambiguous")
+    matrix = {
+        "include": [
+            {
+                "python-version": version,
+                "scope": {
+                    "paths": [
+                        ".github/workflows/reusable-10-ci-python.yml",
+                        "scripts/**",
+                        "tools/**",
+                        "src/**",
+                        "tests/**",
+                        "pyproject.toml",
+                        "requirements*.txt",
+                    ],
+                    "reason": "Python CI inputs changed",
+                },
+            }
+            for version in versions
+        ]
+    }
+    return select_scenarios(
+        workflow_name, changed_files, matrix, SelectionOptions(force_full=force_full)
+    )
 
 
 def _options_from(value: Any) -> SelectionOptions:
@@ -294,6 +345,36 @@ def describe_selection(selected: SelectedMatrix, full: MatrixInput) -> str:
     if selected.force_full:
         return f"running {total}/{total} scenarios because force_full was requested"
     return f"running {selected_count}/{total} scenarios because {selected.reason}"
+
+
+def scenario_matrix_receipt(
+    workflow_path: str, changed_files: list[str], full_matrix: MatrixInput, selected: SelectedMatrix
+) -> dict[str, Any]:
+    """Witness the executed selector inputs and immutable source for independent replay."""
+    import hashlib
+    import os
+    import subprocess
+
+    helper = Path(__file__)
+    return {
+        "schema": "scenario-matrix-producer/v1",
+        "repository": os.environ["GITHUB_REPOSITORY"],
+        "run_id": int(os.environ["GITHUB_RUN_ID"]),
+        "run_attempt": int(os.environ["GITHUB_RUN_ATTEMPT"]),
+        "head_sha": os.environ["PR_HEAD_SHA"],
+        "base_sha": os.environ["PR_BASE_SHA"],
+        "helper_sha": subprocess.check_output(["git", "rev-parse", "HEAD"], text=True).strip(),
+        "helper_sha256": hashlib.sha256(helper.read_bytes()).hexdigest(),
+        "workflow_path": workflow_path,
+        "workflow_sha256": hashlib.sha256(Path(workflow_path).read_bytes()).hexdigest(),
+        "inputs": {
+            "workflow_name": selected.workflow_name,
+            "changed_files": changed_files,
+            "full_matrix": full_matrix,
+            "force_full": selected.force_full,
+        },
+        "matrix": selected.matrix,
+    }
 
 
 def _load_json(raw: str, label: str) -> Any:

@@ -135,3 +135,29 @@ def test_github_outputs_use_multiline_format(tmp_path: Path) -> None:
         "first line\nsecond=line%\n"
         "__REUSABLE_CI_SCOPE_RATIONALE__\n"
     )
+
+
+def test_python_resolver_preserves_runtime_selection():
+    selected = reusable_ci_scope.select_python_matrix(
+        "Gate", '["3.12","3.13"]', "3.12", ["src/example.py"], False
+    )
+    assert selected.matrix == {"include": [{"python-version": "3.12"}, {"python-version": "3.13"}]}
+    assert reusable_ci_scope.select_python_matrix("Gate", "", "", [], False).matrix == {
+        "include": [{"python-version": "3.12"}]
+    }
+    assert reusable_ci_scope.select_python_matrix(
+        "Gate", "3.13", "3.12", ["docs/a.md"], True
+    ).matrix == {"include": [{"python-version": "3.13"}]}
+    assert reusable_ci_scope.select_python_matrix(
+        "Gate", '["3.12"]', "3.12", ["docs/a.md"], False
+    ).matrix == {"include": []}
+
+
+def test_python_resolver_rejects_ambiguous_inputs():
+    import pytest
+
+    for versions in ('["3.12", "3.12"]', "[3.12]", "[null]"):
+        with pytest.raises(ValueError):
+            reusable_ci_scope.select_python_matrix("Gate", versions, "3.12", [], False)
+    with pytest.raises(ValueError):
+        reusable_ci_scope.select_python_matrix("Gate", "", "3.12", [None], False)

@@ -16,14 +16,14 @@ anyio==4.14.2
     #   httpx
     #   langsmith
     #   openai
-ast-serialize==0.6.0
+ast-serialize==0.12.1
     # via mypy
 attrs==26.1.0
     # via
     #   aiohttp
     #   jsonschema
     #   referencing
-black==26.5.1
+black==26.10.0
     # via workflows (pyproject.toml)
 certifi==2026.7.22
     # via
@@ -43,7 +43,7 @@ colorama==0.4.6 ; sys_platform == 'win32'
     #   click
     #   pytest
     #   tqdm
-coverage==7.16.1
+coverage==7.16.2
     # via
     #   workflows (pyproject.toml)
     #   pytest-cov
@@ -100,7 +100,7 @@ idna==3.18
     #   yarl
 iniconfig==2.3.0
     # via pytest
-isort==9.0.1
+isort==9.0.2
     # via workflows (pyproject.toml)
 jiter==0.16.0
     # via
@@ -167,7 +167,7 @@ langsmith==0.10.10
     #   langchain-classic
     #   langchain-community
     #   langchain-core
-librt==0.13.0 ; platform_python_implementation != 'PyPy'
+librt==0.16.0 ; platform_python_implementation != 'PyPy'
     # via mypy
 mccabe==0.7.0
     # via flake8
@@ -175,11 +175,12 @@ multidict==6.7.1
     # via
     #   aiohttp
     #   yarl
-mypy==2.3.1
+mypy==2.4.0
     # via workflows (pyproject.toml)
 mypy-extensions==1.1.0
     # via
     #   black
+    #   isort
     #   mypy
 nodeenv==1.10.0
     # via pre-commit
@@ -303,7 +304,7 @@ rpds-py==2026.6.3
     # via
     #   jsonschema
     #   referencing
-ruff==0.16.9
+ruff==0.16.10
     # via workflows (pyproject.toml)
 six==1.17.0
     # via
