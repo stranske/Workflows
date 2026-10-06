@@ -996,7 +996,8 @@ def _required_evidence_channels(acceptance: str, *, _bind_attached: bool = True)
     delivery_adverb = r"(?:also|now|still|already|yet|[\w-]+ly)"
     delivery_adverbs = r"(?:" + delivery_adverb + r"\s+){0,3}"
     passive_delivery_prefix = (
-        r"(?:be|have\s+" + delivery_adverbs + r"been)" r"(?:\s+" + delivery_adverbs + r"being)?\s+"
+        r"(?:be|been|being|have\s+" + delivery_adverbs + r"been)"
+        r"(?:\s+" + delivery_adverbs + r"being)?\s+"
     )
     conditional_evidence = r"\b(?:if|when)\s+(?:produced|available|present|uploaded|generated)\b"
     recipient_prefix = (
@@ -2078,6 +2079,7 @@ def _required_evidence_channels(acceptance: str, *, _bind_attached: bool = True)
         r"|\b(?:evidence|artifacts?|transcripts?|command outputs?|workflow runs?|"
         r"pr comments?|pull request comments?)"
         r"\s+(?:is|are)\s+not\s+(?:required|needed|mandatory)\b"
+        r"(?:\s+to\s+(?:" + passive_delivery_prefix + r")?" + delivery_operation + r")?"
         r"|\b(?:must|shall|may|should|can|do|does|did)\s+not\s+"
         r"(?:upload|attach|provide|publish|post|record|capture|include|document|generate|link|add|leave)\b"
         r"(?:\s+(?:the\s+|an?\s+|any\s+)?(?:[\w-]+\s+){0,4}"
@@ -2735,9 +2737,11 @@ def _required_evidence_channels(acceptance: str, *, _bind_attached: bool = True)
                     + "|"
                     + delivery_object
                     + r"\s+(?:"
-                    + mandatory_auxiliary
+                    + delivery_governor_auxiliary
                     + r"\s+"
+                    + delivery_adverbs
                     + passive_delivery_prefix
+                    + delivery_adverbs
                     + r")?"
                     + delivery_operation
                     + r"\s+"

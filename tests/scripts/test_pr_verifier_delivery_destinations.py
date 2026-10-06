@@ -291,6 +291,62 @@ def test_additive_contrast_inside_parser_literal_is_not_delivery(contrast):
     ) == {"body"}
 
 
+@pytest.mark.parametrize(
+    "governor",
+    [
+        "is not required to",
+        "is not needed to",
+        "is never expected to",
+        "is no longer supposed to",
+        "is not obliged to",
+        "is not mandated to",
+        "are not required to",
+        "was not required to",
+        "were never needed to",
+    ],
+)
+@pytest.mark.parametrize("participle", ["recorded", "supplied", "proved"])
+@pytest.mark.parametrize("destination", ["the PR body", "a PR comment", "workflow artifacts"])
+@pytest.mark.parametrize("positive_first", [True, False])
+def test_negative_requirement_governor_consumes_complete_passive_action(
+    governor, participle, destination, positive_first
+):
+    """Short optionality matches cannot leave a required action behind."""
+    negative = f"Evidence {governor} be {participle} in {destination}"
+    assert verifier._required_evidence_channels(negative) == set()
+    positive = "The reviewer must record evidence in a PR comment"
+    criterion = positive + "; " + negative if positive_first else negative + "; " + positive
+    assert verifier._required_evidence_channels(criterion) == {"comments"}
+
+
+@pytest.mark.parametrize("contrast", ["only", "merely", "just"])
+@pytest.mark.parametrize("aspect", ["has been", "had been", "is being", "was being"])
+@pytest.mark.parametrize("participle", ["recorded", "supplied", "proved"])
+@pytest.mark.parametrize(
+    "first_destination,first_channel",
+    [("the PR body", "body"), ("a PR comment", "comments"), ("workflow artifacts", "artifacts")],
+)
+@pytest.mark.parametrize(
+    "second_destination,second_channel",
+    [("the PR body", "body"), ("a PR comment", "comments"), ("workflow artifacts", "artifacts")],
+)
+def test_finite_aspect_additive_contrast_preserves_both_channels(
+    contrast,
+    aspect,
+    participle,
+    first_destination,
+    first_channel,
+    second_destination,
+    second_channel,
+):
+    """Residual passive aspects share additive and elided-governor handling."""
+    governor, residual = aspect.split()
+    assert verifier._required_evidence_channels(
+        f"Evidence {governor} not {contrast} {residual} {participle} in {first_destination}"
+        + f" but also {residual} recorded in {second_destination}"
+    ) == {first_channel, second_channel}
+
+
 @pytest.mark.parametrize("contrast", ["only", "merely", "just"])
 @pytest.mark.parametrize("participle", ["recorded", "proved", "supplied"])
 @pytest.mark.parametrize(

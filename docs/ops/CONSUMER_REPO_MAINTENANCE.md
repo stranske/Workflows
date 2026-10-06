@@ -1366,7 +1366,11 @@ Contrastive not-only/not-merely/not-just deliveries are additive, not prohibitio
 using the same bounded delivery operation/aspect grammar and preserving quoted
 literal bytes. A negative
 governor cannot be discarded by matching an embedded need-to/has-to substring.
-These guards share the passive aspect vocabulary. A coordinated elided passive
+These guards share the passive aspect vocabulary, including residual been/being
+after a finite has/had/is governor and the same governed aspect in immediate
+review-destination recognition. A short negative requirement match consumes
+its complete optional passive action instead of leaving to-be-recorded text
+behind as a new delivery. A coordinated elided passive
 review delivery inherits only the preceding evidence object and governor;
 optional/negative governors remain optional/negative, and a new actor or product
 storage predicate cannot supply that inheritance.
