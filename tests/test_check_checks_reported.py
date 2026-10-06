@@ -2061,3 +2061,19 @@ def test_current_canonical_gate_summary_can_bind_status(relative):
     packet = actions_status_packet()
     packet["runs"][0]["jobs"][0]["name"] = workflow["jobs"]["summary"]["name"]
     assert status_packet_verdict(packet)["verdict"] == "PASS"
+
+
+@pytest.mark.parametrize("suffix", ["@refs/pull/1006/merge", "@main", "@" + "a" * 40])
+def test_gate_status_accepts_nonempty_workflow_run_ref_suffix(suffix):
+    packet = actions_status_packet()
+    packet["runs"][0]["path"] += suffix
+    assert reporter.gate_status_provenance(**packet)
+
+
+@pytest.mark.parametrize(
+    "path", [".github/workflows/pr-00-gate.yml@", ".github/workflows/decoy.yml@main"]
+)
+def test_gate_status_rejects_empty_ref_and_foreign_workflow(path):
+    packet = actions_status_packet()
+    packet["runs"][0]["path"] = path
+    assert reporter.gate_status_provenance(**packet) == {}

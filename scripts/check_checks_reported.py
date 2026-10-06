@@ -885,11 +885,13 @@ def gate_status_provenance(
     created = instant(status.get("created_at"))
     matches = []
     for run in runs:
+        workflow_path, separator, workflow_ref = str(run.get("path", "")).partition("@")
         if (
             (run.get("repository") or {}).get("full_name") != repo
             or run.get("head_sha") != head
             or run.get("event") != "pull_request"
-            or run.get("path") != ".github/workflows/pr-00-gate.yml"
+            or workflow_path != ".github/workflows/pr-00-gate.yml"
+            or (separator and not workflow_ref)
             or run.get("status") != "completed"
             or run.get("conclusion") != "success"
             or any(
