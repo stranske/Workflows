@@ -1357,6 +1357,11 @@ The same bounded subject guard applies to active-past placed/submitted/delivered
 supplied aliases. Independent finite-present delivery predicates share that actor
 and operation grammar across conjunctions and sentence endings; they cannot inherit
 a preceding actor's optional modal.
+Base supply/supplies after bare has/have/had possession is not a verbal alias;
+progressive supplying retains be-family governors, while supplied retains perfect
+governors. Bounded optional inspect/review/check-whether clauses about product
+possession of supply evidence are nongating across review destinations and checklist
+markers; independently required reviewer deliveries remain authoritative.
 Delivery prohibitions reuse the shared governor and operation vocabulary,
 including do/does/did and prove, with not/never/no-longer polarity. A required
 delivery in another independent clause remains authoritative. Supply alias

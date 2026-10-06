@@ -1212,11 +1212,14 @@ def _required_evidence_channels(acceptance: str, *, _bind_attached: bool = True)
                 prefix,
                 flags=re.I,
             )
+            # Base supply/supplies following bare possession auxiliaries is a
+            # noun phrase, not perfect delivery (which requires supplied).
+            verbal_governor = mandatory_auxiliary + r"|will|may|can|could|would|should|do|does|did"
+            if alias.lower() == "supplying":
+                verbal_governor += r"|is|are|was|were|be|been|being"
             governed = bool(
                 re.search(
-                    r"\b(?:"
-                    + mandatory_auxiliary
-                    + r"|will|may|can|could|would|should|do|does|did|is|are|was|were|has|have|had|be|been|being)\s+"
+                    r"\b(?:" + verbal_governor + r")\s+"
                     r"(?:(?:not|never|no\s+longer|" + delivery_adverb + r")\s+)*$",
                     prefix,
                     re.I,
@@ -2510,6 +2513,24 @@ def _required_evidence_channels(acceptance: str, *, _bind_attached: bool = True)
                 resolved_antecedent = clause_evidence_antecedent
             # Excluded destinations are not delivery targets. Keep the
             # generic evidence object and other independent deliveries.
+            # Optional inspection of a possession noun is not a delivery.
+            # Match only the bounded subordinate supply noun clause so a
+            # separate positive reviewer requirement remains authoritative.
+            working_line = re.sub(
+                qualified_delivery_actor
+                + optional_delivery_modal
+                + r"\s+"
+                + delivery_adverbs
+                + r"(?:inspect|review|check)\s+whether\s+"
+                + product_actor
+                + r"\s+(?:has|have|had)\s+(?:supply|supplies)\s+"
+                + evidence_modifiers
+                + r"(?:evidence|artifacts?|transcripts?|command outputs?)\s+"
+                + bound_review_destinations,
+                " ",
+                working_line,
+                flags=re.I,
+            )
             working_line = re.sub(
                 r"\b(?:outside|rather\s+than|instead\s+of)\s+"
                 r"(?:(?:the|an?)\s+)?(?:pr|pull request)\s+comments?\b",

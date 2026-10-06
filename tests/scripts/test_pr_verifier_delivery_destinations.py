@@ -9,6 +9,24 @@ from scripts import docs_drift_fix_agent as fix_agent
 from scripts.langchain import pr_verifier as verifier
 
 
+@pytest.mark.parametrize("role", ["reviewer", "maintainer", "release reviewer"])
+@pytest.mark.parametrize("auxiliary", ["has", "have", "had"])
+@pytest.mark.parametrize("alias", ["supply", "supplies"])
+@pytest.mark.parametrize("inspection", ["inspect", "review", "check"])
+@pytest.mark.parametrize("destination", ["the PR body", "a PR comment", "workflow artifacts"])
+@pytest.mark.parametrize("marker", ["", "- [ ] ", "- [x] "])
+def test_possession_auxiliary_cannot_make_supply_noun_a_delivery(
+    role, auxiliary, alias, inspection, destination, marker
+):
+    criterion = (
+        f"The {role} may {inspection} whether the API {auxiliary} {alias} evidence in {destination}"
+    )
+    assert verifier._required_evidence_channels(marker + criterion) == set()
+    positive = "The maintainer must record evidence in the PR body"
+    assert verifier._required_evidence_channels(marker + criterion + "; " + positive) == {"body"}
+    assert verifier._required_evidence_channels(marker + positive + "; " + criterion) == {"body"}
+
+
 @pytest.mark.parametrize("role", ["maintainer", "release reviewer"])
 @pytest.mark.parametrize("modal", ["may", "can", "could", "would", "should"])
 @pytest.mark.parametrize(
@@ -1591,6 +1609,7 @@ def test_fresh_canary_findings_control_actual_coverage_floor(criterion, channel,
     "criterion",
     [
         "The reviewer is not required to have supplied evidence in workflow artifacts",
+        "The reviewer may inspect whether the API has supply evidence in workflow artifacts",
         "Command output must not be recorded in the PR body and be posted in workflow artifacts",
     ],
 )
