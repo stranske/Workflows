@@ -1,0 +1,41 @@
+$ /opt/hostedtoolcache/Python/3.14.7/x64/bin/python3 -m pytest tests/scripts/test_check_deliberate_break.py -vv --tb=short -m 'not slow' -k test_base_missing_import_inside_a_test_still_proves_red --junitxml=/home/runner/work/Workflows/Workflows/docs/evidence/issue-3743/automation/in-test-import-red.xml
+============================= test session starts ==============================
+platform linux -- Python 3.14.7, pytest-9.1.1, pluggy-1.6.0 -- /opt/hostedtoolcache/Python/3.14.7/x64/bin/python3
+cachedir: .pytest_cache
+hypothesis profile 'ci' -> database=None, deadline=None, print_blob=True, derandomize=True, suppress_health_check=(HealthCheck.too_slow,)
+rootdir: /home/runner/work/Workflows/Workflows
+configfile: pyproject.toml
+plugins: langsmith-0.14.4, hypothesis-6.168.5, platformdirs-4.12.3, cov-7.1.0, xdist-3.8.0, anyio-4.15.1
+collecting ... collected 198 items / 196 deselected / 2 selected
+
+tests/scripts/test_check_deliberate_break.py::test_base_missing_import_inside_a_test_still_proves_red[root] FAILED [ 50%]
+tests/scripts/test_check_deliberate_break.py::test_base_missing_import_inside_a_test_still_proves_red[consumer] FAILED [100%]
+
+=================================== FAILURES ===================================
+________ test_base_missing_import_inside_a_test_still_proves_red[root] _________
+tests/scripts/test_check_deliberate_break.py:2417: in test_base_missing_import_inside_a_test_still_proves_red
+    assert result["verdict"] == VERDICT_PASS
+E   AssertionError: assert 'FAIL_BROKEN' == 'PASS'
+E
+E     - PASS
+E     + FAIL_BROKEN
+______ test_base_missing_import_inside_a_test_still_proves_red[consumer] _______
+tests/scripts/test_check_deliberate_break.py:2417: in test_base_missing_import_inside_a_test_still_proves_red
+    assert result["verdict"] == VERDICT_PASS
+E   AssertionError: assert 'FAIL_BROKEN' == 'PASS'
+E
+E     - PASS
+E     + FAIL_BROKEN
+- generated xml file: /home/runner/work/Workflows/Workflows/docs/evidence/issue-3743/automation/in-test-import-red.xml -
+=========================== short test summary info ============================
+FAILED tests/scripts/test_check_deliberate_break.py::test_base_missing_import_inside_a_test_still_proves_red[root] - AssertionError: assert 'FAIL_BROKEN' == 'PASS'
+
+  - PASS
+  + FAIL_BROKEN
+FAILED tests/scripts/test_check_deliberate_break.py::test_base_missing_import_inside_a_test_still_proves_red[consumer] - AssertionError: assert 'FAIL_BROKEN' == 'PASS'
+
+  - PASS
+  + FAIL_BROKEN
+====================== 2 failed, 196 deselected in 11.59s ======================
+
+Process exit: 1

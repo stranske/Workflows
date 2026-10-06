@@ -2298,75 +2298,124 @@ def test_base_collection_failure_cannot_prove_a_deliberate_break(tmp_path, prefi
     assert "candidate_dependency" in result["base_stdout"] + result["base_stderr"]
 
 
-@pytest.mark.parametrize("stream", ["stdout", "stderr"])
-def test_base_import_diagnostics_preserve_both_streams(tmp_path, monkeypatch, stream):
+@pytest.fixture(params=["", "templates/consumer-repo/"], ids=["root", "consumer"])
+def base_proof_helper(request):
+    return runpy.run_path(
+        str(
+            Path(__file__).resolve().parents[2]
+            / request.param
+            / "scripts/check_deliberate_break.py"
+        )
+    )
+
+
+def _base_proof_repo(tmp_path, helper, base_app, head_app, test_source, conftest_source=""):
+    """Commit a base tree and a candidate test for a real archive/pytest proof."""
     repo = tmp_path / "repo"
     repo.mkdir()
     _init_repo(repo)
-    base, spec = _sound_spec(repo)
-    outputs = {"stdout": "base output", "stderr": "base errors"}
-    outputs[stream] = (
-        "ERROR collecting tests/test_app.py\n"
-        "E   ModuleNotFoundError: No module named 'missing_dependency'\n"
+    (repo / "app.py").write_text(base_app, encoding="utf-8")
+    (repo / "conftest.py").write_text(conftest_source, encoding="utf-8")
+    base = _commit(repo, "base behavior")
+    (repo / "app.py").write_text(head_app, encoding="utf-8")
+    (repo / "test_candidate.py").write_text(test_source, encoding="utf-8")
+    _commit(repo, "candidate implementation and test")
+    spec = helper["DeliberateBreakSpec"](
+        "test_candidate.py::test_value",
+        "test_candidate.py",
+        "app.py",
+        # The file contains one test. Selecting the file lets collection failures
+        # use exit 2 rather than the node-selector's additional usage error.
+        (sys.executable, "-m", "pytest", "-q", "-o", "addopts=", "test_candidate.py"),
     )
-    runs = iter(
-        [
-            subprocess.CompletedProcess(spec.command, 0, "1 passed", ""),
-            subprocess.CompletedProcess(spec.command, 1, outputs["stdout"], outputs["stderr"]),
-        ]
+    return repo, base, spec
+
+
+@pytest.mark.parametrize("stream", ["stdout", "stderr"])
+def test_base_import_diagnostics_preserve_both_streams(tmp_path, base_proof_helper, stream):
+    """Route actual pytest collection diagnostics to either stream, retaining both."""
+    repo, base, spec = _base_proof_repo(
+        tmp_path,
+        base_proof_helper,
+        "VALUE = 1\n",
+        "VALUE = 1\n",
+        "from candidate_dependency import VALUE\ndef test_value():\n    assert VALUE == 1\n",
+        "import sys\n"
+        "from _pytest._io import TerminalWriter\n"
+        "def pytest_sessionstart(session):\n"
+        "    reporter = session.config.pluginmanager.getplugin('terminalreporter')\n"
+        f"    reporter._tw = TerminalWriter(file=sys.{stream})\n"
+        "    print('base stdout sentinel', file=sys.stdout)\n"
+        "    print('base stderr sentinel', file=sys.stderr)\n",
     )
-    monkeypatch.setattr(deliberate_break, "_run_with_runtime_deps", lambda *_args: next(runs))
-    result = verify_spec(spec, base=base, cwd=repo, enforce_tamper=False)
+    (repo / "candidate_dependency.py").write_text("VALUE = 1\n", encoding="utf-8")
+    _commit(repo, "dependency available only on head")
+    result = base_proof_helper["verify_spec"](spec, base=base, cwd=repo, enforce_tamper=False)
     assert result["verdict"] == VERDICT_BROKEN
     assert result["reason"] == "base-test-not-importable"
-    assert result["missing_module"] == "missing_dependency"
-    assert result["base_stdout"] == outputs["stdout"]
-    assert result["base_stderr"] == outputs["stderr"]
+    assert result["missing_module"] == "candidate_dependency"
+    assert "ERROR collecting" in result[f"base_{stream}"]
+    assert "ModuleNotFoundError: No module named 'candidate_dependency'" in result[f"base_{stream}"]
+    assert "base stdout sentinel" in result["base_stdout"]
+    assert "base stderr sentinel" in result["base_stderr"]
     assert result["command"] == list(spec.command)
 
 
 @pytest.mark.parametrize("exit_code", [2, 3, 4, 5])
-def test_base_pytest_must_execute_a_test_before_counting_as_red(tmp_path, monkeypatch, exit_code):
+def test_base_pytest_must_execute_a_test_before_counting_as_red(
+    tmp_path, base_proof_helper, exit_code
+):
     """Interrupted collection, internal/usage errors and no tests are not a failed assertion."""
-    repo = tmp_path / "repo"
-    repo.mkdir()
-    _init_repo(repo)
-    base, spec = _sound_spec(repo)
-    runs = iter(
-        [
-            subprocess.CompletedProcess(spec.command, 0, "1 passed", ""),
-            subprocess.CompletedProcess(
-                spec.command, exit_code, "no acceptance failure", "diagnostic"
-            ),
-        ]
+    repo, base, spec = _base_proof_repo(
+        tmp_path,
+        base_proof_helper,
+        f"MODE = {exit_code}\n",
+        "MODE = 0\n",
+        "import app\n"
+        "if app.MODE == 2:\n"
+        "    raise RuntimeError('base collection diagnostic')\n"
+        "def test_value():\n"
+        "    assert app.MODE == 0\n",
+        "import app, pytest, sys\n"
+        "def pytest_sessionstart(session):\n"
+        "    if app.MODE:\n"
+        "        print('base stdout sentinel', file=sys.stdout)\n"
+        "        print('base stderr sentinel', file=sys.stderr)\n"
+        "def pytest_collection_modifyitems(items):\n"
+        "    if app.MODE == 3:\n"
+        "        raise RuntimeError('base internal diagnostic')\n"
+        "    if app.MODE == 4:\n"
+        "        raise pytest.UsageError('base usage diagnostic')\n"
+        "    if app.MODE == 5:\n"
+        "        items.clear()\n",
     )
-    monkeypatch.setattr(deliberate_break, "_run_with_runtime_deps", lambda *_args: next(runs))
-    result = verify_spec(spec, base=base, cwd=repo, enforce_tamper=False)
+    result = base_proof_helper["verify_spec"](spec, base=base, cwd=repo, enforce_tamper=False)
     assert result["verdict"] == VERDICT_BROKEN
     assert result["reason"] == "base-test-did-not-run"
     assert result["returncode"] == exit_code
-    assert result["base_stdout"] == "no acceptance failure"
-    assert result["base_stderr"] == "diagnostic"
+    assert "base stdout sentinel" in result["base_stdout"]
+    assert "base stderr sentinel" in result["base_stderr"]
+    diagnostic = {
+        2: "base collection diagnostic",
+        3: "INTERNALERROR",
+        4: "base usage diagnostic",
+        5: "no tests ran",
+    }[exit_code]
+    assert diagnostic in result["base_stdout"] + result["base_stderr"]
 
 
-def test_base_missing_import_inside_a_test_still_proves_red(tmp_path, monkeypatch):
+def test_base_missing_import_inside_a_test_still_proves_red(tmp_path, base_proof_helper):
     """A ModuleNotFoundError raised by the selected test is an actual behavioral failure."""
-    repo = tmp_path / "repo"
-    repo.mkdir()
-    _init_repo(repo)
-    base, spec = _sound_spec(repo)
-    output = (
-        "tests/test_app.py::test_value FAILED\n"
-        "E   ModuleNotFoundError: No module named 'docx'\n1 failed in 0.01s\n"
+    repo, base, spec = _base_proof_repo(
+        tmp_path,
+        base_proof_helper,
+        "def value():\n    import candidate_dependency\n    return candidate_dependency.VALUE\n",
+        "def value():\n    return 1\n",
+        "import app\ndef test_value():\n    assert app.value() == 1\n",
     )
-    runs = iter(
-        [
-            subprocess.CompletedProcess(spec.command, 0, "1 passed", ""),
-            subprocess.CompletedProcess(spec.command, 1, output, ""),
-        ]
-    )
-    monkeypatch.setattr(deliberate_break, "_run_with_runtime_deps", lambda *_args: next(runs))
-    result = verify_spec(spec, base=base, cwd=repo, enforce_tamper=False)
+    result = base_proof_helper["verify_spec"](spec, base=base, cwd=repo, enforce_tamper=False)
     assert result["verdict"] == VERDICT_PASS
     assert result["reason"] == "head-passed-base-failed"
-    assert result["base_stdout"] == output
+    assert "1 failed" in result["base_stdout"]
+    assert "ModuleNotFoundError: No module named 'candidate_dependency'" in result["base_stdout"]
+    assert "ERROR collecting" not in result["base_stdout"] + result["base_stderr"]
