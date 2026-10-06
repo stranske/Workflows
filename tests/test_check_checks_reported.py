@@ -371,6 +371,69 @@ def test_complete_static_topology_receipt_is_bound_to_full_head():
     assert result["merge_authorization"] is False
 
 
+def protection_transport(error, rules=None):
+    transport = fixture_transport()
+
+    def wrapped(endpoint):
+        if "/rules/branches/" in endpoint:
+            return [rules or []]
+        if endpoint.endswith("/branches/main"):
+            return [{"protected": True}]
+        if endpoint.endswith("/branches/main/protection"):
+            raise SystemExit(error)
+        return transport(endpoint)
+
+    return wrapped
+
+
+def test_ruleset_only_branch_records_absent_classic_protection():
+    result = reporter.collect(
+        reporter.Evidence(protection_transport("gh: Branch not protected (HTTP 404)")),
+        "o/r",
+        1,
+        HEAD,
+        "pull_request",
+        "opened",
+    )
+    assert result["verdict"] == "PASS"
+    assert any(item.get("classic_protection") == "absent" for item in result["request_evidence"])
+
+
+def test_ruleset_required_check_survives_absent_classic_protection():
+    rules = [
+        {
+            "type": "required_status_checks",
+            "parameters": {
+                "required_status_checks": [{"context": "missing", "integration_id": 42}]
+            },
+        }
+    ]
+    result = reporter.collect(
+        reporter.Evidence(protection_transport("gh: Branch not protected (HTTP 404)", rules)),
+        "o/r",
+        1,
+        HEAD,
+        "pull_request",
+        "opened",
+    )
+    assert result["verdict"] == "FAIL"
+    assert result["missing_names"] == ["missing"]
+    assert result["required_checks"][0]["app_id"] == 42
+
+
+@pytest.mark.parametrize("error", ["gh: Not Found (HTTP 404)", "gh: Forbidden (HTTP 403)"])
+def test_unavailable_classic_protection_remains_unknown(error):
+    with pytest.raises(reporter.UnknownEvidence, match="HTTP"):
+        reporter.collect(
+            reporter.Evidence(protection_transport(error)),
+            "o/r",
+            1,
+            HEAD,
+            "pull_request",
+            "opened",
+        )
+
+
 def test_head_changed_during_collection_is_unknown():
     assert (
         reporter.collect(
@@ -494,3 +557,164 @@ def test_changed_incumbent_during_collection_invalidates_cli_receipt(tmp_path, m
     assert receipt["request_evidence"]
     assert receipt["evidence_complete"] is False
     assert receipt["merge_authorization"] is False
+
+
+def reusable_fixture(uses="o/r/.github/workflows/child.yml@main", condition=True):
+    job = {"name": "call", "uses": uses}
+    if condition:
+        job["if"] = "needs.detect.outputs.run == 'true'"
+    root = {"jobs": {"child": job}}
+    child = {"on": {"workflow_call": {}}, "jobs": {"test": {"name": "test"}}}
+    evidence = reporter.Evidence(lambda _: [])
+    evidence.workflow = lambda repo, path, ref: child
+    run = {
+        "referenced_workflows": [{"path": uses, "sha": BASE}],
+        "jobs": [{"name": "call / test", "conclusion": "success"}],
+    }
+    return root, evidence, run
+
+
+def test_conditional_reusable_uses_exact_execution_sha():
+    root, evidence, run = reusable_fixture()
+    requests = []
+    child = evidence.workflow("o/r", "child", BASE)
+    evidence.workflow = lambda repo, path, ref: requests.append((repo, path, ref)) or child
+    assert reporter.expected_jobs(evidence, "o/r", "gate.yml", HEAD, root, run=run) == {
+        "call / test"
+    }
+    assert requests == [("o/r", ".github/workflows/child.yml", BASE)]
+
+
+def test_conditional_reusable_explicit_skipped_caller_is_bound():
+    root, evidence, run = reusable_fixture()
+    run["jobs"] = [{"name": "call", "conclusion": "skipped", "check_run_url": "url/1"}]
+    assert reporter.expected_jobs(evidence, "o/r", "gate.yml", HEAD, root, run=run) == {"call"}
+    assert run["reusable_absences"][0]["check_run_url"] == "url/1"
+
+
+@pytest.mark.parametrize("field", ["referenced_workflows", "jobs"])
+def test_conditional_reusable_missing_binding_is_unknown(field):
+    root, evidence, run = reusable_fixture()
+    run[field] = []
+    with pytest.raises(reporter.UnknownEvidence):
+        reporter.expected_jobs(evidence, "o/r", "gate.yml", HEAD, root, run=run)
+
+
+def test_reusable_pinned_sha_mismatch_is_unknown():
+    root, evidence, run = reusable_fixture("o/r/.github/workflows/child.yml@" + HEAD)
+    with pytest.raises(reporter.UnknownEvidence, match="differs"):
+        reporter.expected_jobs(evidence, "o/r", "gate.yml", HEAD, root, run=run)
+
+
+def test_reusable_wrong_ref_cannot_bind_floating_caller():
+    root, evidence, run = reusable_fixture()
+    run["referenced_workflows"][0]["path"] = "o/r/.github/workflows/child.yml@other"
+    with pytest.raises(reporter.UnknownEvidence, match="missing"):
+        reporter.expected_jobs(evidence, "o/r", "gate.yml", HEAD, root, run=run)
+
+
+def test_literal_reusable_matrix_input_expands_expected_names():
+    job = {
+        "name": "test ${{ matrix.version }}",
+        "strategy": {"matrix": {"version": "${{ fromJSON(inputs.versions) }}"}},
+    }
+    bound = reporter.bind_job_inputs(job, {"versions": '["3.12", "3.13"]'})
+    assert reporter.job_names("test", bound) == ["test 3.12", "test 3.13"]
+
+
+def test_dynamic_reusable_matrix_input_remains_unknown():
+    job = {"strategy": {"matrix": {"version": "${{ fromJSON(inputs.versions) }}"}}}
+    with pytest.raises(reporter.UnknownEvidence, match="nonliteral"):
+        reporter.bind_job_inputs(job, {"versions": "${{ needs.detect.outputs.versions }}"})
+
+
+def duplicate_run_transport(failed=False, missing=False):
+    original = fixture_transport()
+
+    def wrapped(endpoint):
+        if "/contents/.github/workflows?" in endpoint:
+            return [
+                [
+                    {"path": ".github/workflows/gate.yml", "sha": "d" * 40},
+                    {"path": ".github/workflows/other.yml", "sha": "e" * 40},
+                ]
+            ]
+        if "/contents/.github/workflows/other.yml?" in endpoint:
+            return original(endpoint.replace("other.yml", "gate.yml"))
+        if "/check-runs?" in endpoint:
+            values = []
+            for number in [1, 2]:
+                if missing and number == 1:
+                    continue
+                item = check()
+                item.update(id=number, url=f"check/{number}", head_sha=HEAD)
+                if failed and number == 1:
+                    item["conclusion"] = "failure"
+                values.append(item)
+            return [{"total_count": len(values), "check_runs": values}]
+        if "/actions/runs?" in endpoint:
+            return [
+                {
+                    "total_count": 2,
+                    "workflow_runs": [
+                        {
+                            "id": 101,
+                            "head_sha": HEAD,
+                            "workflow_id": 1,
+                            "event": "pull_request",
+                            "path": ".github/workflows/gate.yml",
+                            "run_number": 1,
+                        },
+                        {
+                            "id": 102,
+                            "head_sha": HEAD,
+                            "workflow_id": 2,
+                            "event": "pull_request",
+                            "path": ".github/workflows/other.yml",
+                            "run_number": 1,
+                        },
+                    ],
+                }
+            ]
+        if "/actions/runs/101/jobs?" in endpoint or "/actions/runs/102/jobs?" in endpoint:
+            number = 1 if "/101/" in endpoint else 2
+            return [
+                {
+                    "total_count": 1,
+                    "jobs": [
+                        {
+                            "name": "gate",
+                            "id": number,
+                            "conclusion": "success",
+                            "check_run_url": f"check/{number}",
+                        }
+                    ],
+                }
+            ]
+        return original(endpoint)
+
+    return wrapped
+
+
+def test_duplicate_names_require_independent_source_run_success():
+    result = reporter.collect(
+        reporter.Evidence(duplicate_run_transport()), "o/r", 1, HEAD, "pull_request", "opened"
+    )
+    assert result["verdict"] == "PASS"
+    claims = result["duplicate_identity_evidence"][0]["independent_claims"]
+    assert {claim["check_run_url"] for claim in claims} == {"check/1", "check/2"}
+    assert len({claim["source"] for claim in claims}) == 2
+
+
+@pytest.mark.parametrize("failure", [{"failed": True}, {"missing": True}])
+def test_one_duplicate_success_cannot_mask_other_source_debt(failure):
+    result = reporter.collect(
+        reporter.Evidence(duplicate_run_transport(**failure)),
+        "o/r",
+        1,
+        HEAD,
+        "pull_request",
+        "opened",
+    )
+    assert result["verdict"] != "PASS"
+    assert any("independent success unproven" in reason for reason in result["unknown"])

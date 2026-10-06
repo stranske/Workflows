@@ -46,7 +46,7 @@ the PR's lifetime.
 
 ```bash
 python3 /path/to/Workflows/scripts/check_checks_reported.py \
-  --repo stranske/Orchestrator --pr 461 --head <current-full-head> \
+  --repo stranske/Orchestrator --pr 461 --head FULL_HEAD_SHA \
   --event pull_request --action synchronize \
   --presence-reporter /path/to/Orchestrator/scripts/check_checks_reported.py \
   --output /path/to/evidence/Orchestrator-461-checks.json
@@ -54,6 +54,7 @@ python3 /path/to/Workflows/scripts/check_checks_reported.py \
 
 Where the local lane requires it, prefix the command with that lane's
 `detached-net.sh` wrapper; its location is environment-specific.
+Replace `FULL_HEAD_SHA` with the freshly read 40-character head before running.
 
 Use the same command with `--repo stranske/Workflows --pr 3756` and its current
 head to refresh the issue's other named consumer. Changed heads
@@ -67,6 +68,10 @@ The JSON `expected-check-receipt/v1` records:
 - Full repository, PR, head/base, base branch, caller event/action and changed paths.
 - Required status contexts and app restrictions from current branch protection
   and applicable branch rules. Inaccessible protection/rules evidence is UNKNOWN.
+  A ruleset-only branch can report `protected: true` while the classic endpoint
+  explicitly returns `Branch not protected (HTTP 404)`. Only that specific
+  response records absent classic protection; applicable rules are still read
+  independently. Generic 404 and permission errors remain UNKNOWN.
 - Base workflow source refs, blob identities and authored YAML documents. Each
   legitimate event/action/branch/path absence records its concrete source and
   reason. A workflow changed in the PR requires merge-ref adjudication, so it
@@ -88,12 +93,27 @@ GitHub Actions provenance. App-restricted contexts require matching app evidence
 
 ## Conservative boundary
 
-Literal job names and literal Cartesian matrices are supported. Local reusable
-workflows recurse at the same source ref; external reusable calls require a full
-SHA. Floating `@main` calls, dynamic inputs/matrices/names, conditional reusable
-calls, recursive calls, include/exclude matrix transforms, unsupported glob
-syntax, and required-workflow rulesets emit UNKNOWN. This deliberately does not
-invent expected child names from whichever children happened to report.
+Literal job names and literal Cartesian matrices are supported, including JSON
+matrix axes supplied by literal caller inputs. Without run bindings, local
+reusable workflows recurse at the source ref and external calls require a full
+SHA. A completely enumerated latest Actions run can instead bind a floating call
+to its exact `referenced_workflows` SHA. Pinned calls must match their declared
+SHA; ambiguous or missing bindings remain UNKNOWN. A conditional call requires
+an executed child or GitHub's explicit skipped caller job in that same run.
+Skipped callers retain their check URL and source as a concrete absence receipt.
+Child expectations still come from the bound authored workflow, never from the
+set of successful child jobs.
+
+Duplicate display names require independent source-workflow/run/job/check URL
+bindings, matching head and GitHub Actions app, and a successful or skipped
+conclusion for every origin. One successful check cannot mask another origin's
+missing or failing check. The receipt retains each independent claim.
+
+Dynamic output-derived matrices/names, nonliteral inputs, recursive calls,
+include/exclude matrix transforms, unsupported glob syntax, and required-workflow
+rulesets emit UNKNOWN. In particular, observing `python 3.12` and `python 3.13`
+cannot prove the expected `needs.select-scope.outputs.python_matrix` set. That
+requires additional source-bound matrix evidence before a complete verdict.
 
 Ordinary conditional jobs still require a reported skipped/successful check.
 Event-only workflows are absent only when the authored event/action or supported

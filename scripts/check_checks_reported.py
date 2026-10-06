@@ -213,6 +213,8 @@ def expected_jobs(
     workflow: dict[str, Any],
     prefix: str = "",
     stack: tuple[str, ...] = (),
+    run: dict[str, Any] | None = None,
+    inputs: dict[str, Any] | None = None,
 ) -> set[str]:
     identity = f"{repo}/{path}@{ref}"
     if identity in stack or len(stack) >= 10:
@@ -224,28 +226,85 @@ def expected_jobs(
     for job_id, job in jobs.items():
         if not isinstance(job, dict):
             raise UnknownEvidence(f"invalid job {job_id}")
-        # Conditional ordinary jobs still report a skipped check; conditional
-        # reusable calls can omit child checks, so do not guess their topology.
+        job = bind_job_inputs(job, inputs or {})
         uses = job.get("uses")
         for name in job_names(job_id, job):
             full_name = prefix + name
             if not uses:
                 names.add(full_name)
                 continue
-            if job.get("if"):
+            if job.get("if") and run is None:
                 raise UnknownEvidence(f"conditional reusable call: {identity}:{job_id}")
+            if run is not None:
+                skipped = [
+                    item
+                    for item in run.get("jobs", [])
+                    if item.get("name") == full_name
+                    and item.get("conclusion") == "skipped"
+                    and item.get("check_run_url")
+                ]
+                if len(skipped) == 1:
+                    names.add(full_name)
+                    run.setdefault("reusable_absences", []).append(
+                        {
+                            "caller": identity,
+                            "job": job_id,
+                            "uses": uses,
+                            "check_run_url": skipped[0]["check_run_url"],
+                            "reason": "GitHub emitted the skipped caller job on this exact run",
+                        }
+                    )
+                    continue
             if uses.startswith("./.github/workflows/"):
                 child_repo, child_path, child_ref = repo, uses[2:], ref
             else:
-                match = re.fullmatch(
-                    r"([^/]+/[^/]+)/(.github/workflows/[^@]+)@([0-9a-f]{40})", uses
-                )
+                match = re.fullmatch(r"([^/]+/[^/]+)/(.github/workflows/[^@]+)@([^\s]+)", uses)
                 if not match:
                     raise UnknownEvidence(f"unpinned/dynamic reusable workflow: {uses}")
                 child_repo, child_path, child_ref = match.groups()
+            if run is not None:
+                source = f"{child_repo}/{child_path}@"
+                refs = [
+                    item
+                    for item in run.get("referenced_workflows", [])
+                    if str(item.get("path", "")).startswith(source)
+                    and (uses.startswith("./") or item.get("path") == uses)
+                ]
+                shas = {item.get("sha") for item in refs}
+                if len(shas) != 1 or not re.fullmatch(r"[0-9a-f]{40}", str(next(iter(shas), ""))):
+                    raise UnknownEvidence(f"ambiguous/missing executed reusable SHA: {uses}")
+                resolved = next(iter(shas))
+                if (
+                    not uses.startswith("./")
+                    and re.fullmatch(r"[0-9a-f]{40}", child_ref)
+                    and resolved != child_ref
+                ):
+                    raise UnknownEvidence(
+                        f"executed reusable SHA differs from pinned source: {uses}"
+                    )
+                if job.get("if") and not any(
+                    item.get("name", "").startswith(full_name + " / ")
+                    for item in run.get("jobs", [])
+                ):
+                    raise UnknownEvidence(
+                        f"conditional reusable call lacks execution/skip evidence: {uses}"
+                    )
+                child_ref = resolved
+            elif not re.fullmatch(r"[0-9a-f]{40}", child_ref):
+                raise UnknownEvidence(f"unpinned/dynamic reusable workflow: {uses}")
             child = evidence.workflow(child_repo, child_path, child_ref)
             if "workflow_call" not in (child.get("on") or {}):
                 raise UnknownEvidence(f"{uses}: not a reusable workflow")
+            triggers = child.get("on")
+            definitions = (
+                (triggers.get("workflow_call") or {}) if isinstance(triggers, dict) else {}
+            )
+            child_inputs = {
+                key: value.get("default")
+                for key, value in (definitions.get("inputs") or {}).items()
+                if isinstance(value, dict) and "default" in value
+            }
+            child_inputs.update(job.get("with") or {})
             names |= expected_jobs(
                 evidence,
                 child_repo,
@@ -254,8 +313,47 @@ def expected_jobs(
                 child,
                 full_name + " / ",
                 (*stack, identity),
+                run,
+                child_inputs,
             )
     return names
+
+
+def bind_job_inputs(job: dict[str, Any], inputs: dict[str, Any]) -> dict[str, Any]:
+    """Resolve only literal caller inputs, never arbitrary Actions expressions."""
+
+    def bind(value: Any) -> Any:
+        if isinstance(value, dict):
+            return {key: bind(item) for key, item in value.items()}
+        if isinstance(value, list):
+            return [bind(item) for item in value]
+        if not isinstance(value, str):
+            return value
+        match = re.fullmatch(r"\$\{\{\s*fromJSON\(inputs\.([\w-]+)\)\s*\}\}", value)
+        if match:
+            raw = inputs.get(match[1])
+            if not isinstance(raw, str) or "${{" in raw:
+                raise UnknownEvidence(f"nonliteral matrix input: {match[1]}")
+            try:
+                return json.loads(raw)
+            except ValueError as exc:
+                raise UnknownEvidence(f"invalid JSON matrix input: {match[1]}") from exc
+
+        def replace(match: re.Match[str]) -> str:
+            raw = inputs.get(match[1])
+            if raw is None or isinstance(raw, (list, dict)) or "${{" in str(raw):
+                raise UnknownEvidence(f"nonliteral job input: {match[1]}")
+            return str(raw)
+
+        return re.sub(r"\$\{\{\s*inputs\.([\w-]+)\s*\}\}", replace, value)
+
+    # Conditions and steps may intentionally use runtime inputs; only the
+    # display-name/matrix topology and nested caller literals need binding.
+    result = dict(job)
+    for key in ("name", "strategy"):
+        if key in result:
+            result[key] = bind(result[key])
+    return result
 
 
 def latest_checks(
@@ -398,10 +496,48 @@ def collect(
     )
     statuses = evidence.items(f"repos/{repo}/commits/{head}/statuses?per_page=100")
     workflows = evidence.one(f"repos/{repo}/contents/.github/workflows?ref={base}")
+    # Collect every Actions run and every job page for this head; no bounded
+    # latest-N sample and no zero-job success inference.
+    runs = evidence.items(
+        f"repos/{repo}/actions/runs?head_sha={head}&event={quote(event)}&per_page=100",
+        "workflow_runs",
+    )
+    latest_runs: dict[tuple[Any, Any], dict[str, Any]] = {}
+    for run in runs:
+        if run.get("head_sha") != head:
+            raise UnknownEvidence("Actions returned a run for a different head")
+        key = (run.get("workflow_id"), run.get("event"))
+        previous = latest_runs.get(key)
+        if previous is None or (run.get("run_number", 0), run.get("run_attempt", 1)) > (
+            previous.get("run_number", 0),
+            previous.get("run_attempt", 1),
+        ):
+            latest_runs[key] = run
+    for run in latest_runs.values():
+        run["jobs"] = evidence.items(
+            f"repos/{repo}/actions/runs/{run['id']}/jobs?filter=latest&per_page=100", "jobs"
+        )
     required = []
     branch_info = evidence.one(f"repos/{repo}/branches/{quote(branch, safe='')}")
     if branch_info.get("protected"):
-        protection = evidence.one(f"repos/{repo}/branches/{quote(branch, safe='')}/protection")
+        protection_endpoint = f"repos/{repo}/branches/{quote(branch, safe='')}/protection"
+        try:
+            protection = evidence.one(protection_endpoint)
+        except UnknownEvidence as exc:
+            # `protected` also covers rulesets. Their requirements are read
+            # independently below; the classic endpoint explicitly reports
+            # "Branch not protected" when no classic rule exists. Generic
+            # 404s (including permission-masked ones) remain UNKNOWN.
+            if "gh: Branch not protected (HTTP 404)" not in str(exc):
+                raise
+            protection = {}
+            evidence.requests.append(
+                {
+                    "endpoint": protection_endpoint,
+                    "classic_protection": "absent",
+                    "evidence": str(exc),
+                }
+            )
         settings = protection.get("required_status_checks") or {}
         required.extend(
             settings.get("checks") or [{"context": name} for name in settings.get("contexts", [])]
@@ -446,16 +582,60 @@ def collect(
                 absences.append({**source, "reason": reason, "triggers": workflow.get("on")})
                 continue
             source_key = f"{repo}/{path}@{base}"
-            for job_name in expected_jobs(evidence, repo, path, base, workflow):
+            run_matches = [run for run in latest_runs.values() if run.get("path") == path]
+            bound_run = run_matches[0] if len(run_matches) == 1 else None
+            for job_name in expected_jobs(evidence, repo, path, base, workflow, run=bound_run):
                 job_provenance.setdefault(job_name, set()).add(source_key)
         except UnknownEvidence as exc:
             unknown.append(f"{path}: {exc}")
+    identity_evidence = []
     for job_name, origins in job_provenance.items():
-        if len(origins) > 1:
-            unknown.append(
-                "duplicate expected check identity "
-                f"{job_name!r} from {sorted(origins)}; cannot correlate runs conservatively"
+        if len(origins) <= 1:
+            continue
+        claims = []
+        for origin in sorted(origins):
+            source_path = origin.split("/", 2)[2].rsplit("@", 1)[0]
+            matched_runs = [run for run in latest_runs.values() if run.get("path") == source_path]
+            if len(matched_runs) != 1:
+                unknown.append(
+                    f"duplicate expected check identity {job_name!r}: missing run for {origin}"
+                )
+                continue
+            jobs = [job for job in matched_runs[0]["jobs"] if job.get("name") == job_name]
+            if len(jobs) != 1:
+                unknown.append(
+                    f"duplicate expected check identity {job_name!r}: ambiguous/missing job for {origin}"
+                )
+                continue
+            job = jobs[0]
+            check_matches = [
+                check
+                for check in checks
+                if check.get("url") == job.get("check_run_url")
+                and check.get("name") == job_name
+                and check.get("head_sha") == head
+                and (check.get("app") or {}).get("slug") == "github-actions"
+            ]
+            if len(check_matches) != 1 or check_matches[0].get("conclusion") not in {
+                "success",
+                "skipped",
+                "neutral",
+            }:
+                unknown.append(
+                    f"duplicate expected check identity {job_name!r}: independent success unproven for {origin}"
+                )
+                continue
+            claims.append(
+                {
+                    "source": origin,
+                    "run_id": matched_runs[0]["id"],
+                    "job_id": job.get("id"),
+                    "check_run_url": job.get("check_run_url"),
+                    "conclusion": check_matches[0]["conclusion"],
+                }
             )
+        if len(claims) == len(origins):
+            identity_evidence.append({"name": job_name, "independent_claims": claims})
     workflow_expected = set(job_provenance)
     expected |= workflow_expected
     action_checks = [
@@ -471,27 +651,6 @@ def collect(
             unknown.append(
                 f"GitHub Actions provenance/success not established for workflow job: {name}"
             )
-    # Collect every Actions run and every job page for this head; no bounded
-    # latest-N sample and no zero-job success inference.
-    runs = evidence.items(
-        f"repos/{repo}/actions/runs?head_sha={head}&event={quote(event)}&per_page=100",
-        "workflow_runs",
-    )
-    latest_runs: dict[tuple[Any, Any], dict[str, Any]] = {}
-    for run in runs:
-        if run.get("head_sha") != head:
-            raise UnknownEvidence("Actions returned a run for a different head")
-        key = (run.get("workflow_id"), run.get("event"))
-        previous = latest_runs.get(key)
-        if previous is None or (run.get("run_number", 0), run.get("run_attempt", 1)) > (
-            previous.get("run_number", 0),
-            previous.get("run_attempt", 1),
-        ):
-            latest_runs[key] = run
-    for run in latest_runs.values():
-        run["jobs"] = evidence.items(
-            f"repos/{repo}/actions/runs/{run['id']}/jobs?filter=latest&per_page=100", "jobs"
-        )
     after = evidence.one(f"repos/{repo}/pulls/{number}")
     if after["head"]["sha"] != head or after["base"]["sha"] != base:
         unknown.append("PR head or base changed during evidence collection")
@@ -519,6 +678,7 @@ def collect(
             "event_source": "explicit caller context; Actions REST does not expose webhook action",
             "changed_paths": paths,
             "required_checks": required,
+            "duplicate_identity_evidence": identity_evidence,
             "workflow_sources": sources,
             "legitimate_absences": absences,
             "check_runs": checks,
