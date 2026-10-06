@@ -1,0 +1,11 @@
+<?xml version="1.0" encoding="utf-8"?><testsuites name="pytest tests"><testsuite name="pytest" errors="0" failures="2" skipped="0" tests="2" time="11.454" timestamp="2026-10-06T04:22:10.603792+00:00" hostname="runnervm8df0l"><testcase classname="tests.scripts.test_check_deliberate_break" name="test_base_missing_import_inside_a_test_still_proves_red[root]" time="5.111"><failure message="AssertionError: assert 'FAIL_BROKEN' == 'PASS'&#10;  &#10;  - PASS&#10;  + FAIL_BROKEN">tests/scripts/test_check_deliberate_break.py:2417: in test_base_missing_import_inside_a_test_still_proves_red
+    assert result["verdict"] == VERDICT_PASS
+E   AssertionError: assert 'FAIL_BROKEN' == 'PASS'
+E
+E     - PASS
+E     + FAIL_BROKEN</failure></testcase><testcase classname="tests.scripts.test_check_deliberate_break" name="test_base_missing_import_inside_a_test_still_proves_red[consumer]" time="5.315"><failure message="AssertionError: assert 'FAIL_BROKEN' == 'PASS'&#10;  &#10;  - PASS&#10;  + FAIL_BROKEN">tests/scripts/test_check_deliberate_break.py:2417: in test_base_missing_import_inside_a_test_still_proves_red
+    assert result["verdict"] == VERDICT_PASS
+E   AssertionError: assert 'FAIL_BROKEN' == 'PASS'
+E
+E     - PASS
+E     + FAIL_BROKEN</failure></testcase></testsuite></testsuites>

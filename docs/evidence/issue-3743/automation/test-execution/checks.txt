@@ -1,0 +1,22 @@
+Command: python3 scripts/validate_template_sync.py
+Exit: 0
+✅ All template files in sync
+
+Command: python3 scripts/validate_template_completeness.py
+Exit: 0
+✅ All consumer workflows are properly templated and manifested
+
+Command: black --check --line-length 100 tests/scripts/test_check_deliberate_break.py
+Exit: 0
+All done! ✨ 🍰 ✨
+1 file would be left unchanged.
+
+Command: ruff check scripts/check_deliberate_break.py templates/consumer-repo/scripts/check_deliberate_break.py tests/scripts/test_check_deliberate_break.py
+Exit: 0
+All checks passed!
+
+Command: git diff --check
+Exit: 0
+
+Command: cmp scripts/check_deliberate_break.py templates/consumer-repo/scripts/check_deliberate_break.py
+Exit: 0

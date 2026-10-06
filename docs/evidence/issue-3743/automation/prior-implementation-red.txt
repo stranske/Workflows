@@ -1,0 +1,187 @@
+$ /opt/hostedtoolcache/Python/3.14.7/x64/bin/python3 -m pytest tests/scripts/test_check_deliberate_break.py -vv --tb=short -m 'not slow' -k 'test_base_collection_failure_cannot_prove_a_deliberate_break or test_base_import_diagnostics_preserve_both_streams or test_base_pytest_must_execute_a_test_before_counting_as_red or test_base_missing_import_inside_a_test_still_proves_red' --junitxml=/home/runner/work/Workflows/Workflows/docs/evidence/issue-3743/automation/prior-implementation-red.xml
+============================= test session starts ==============================
+platform linux -- Python 3.14.7, pytest-9.1.1, pluggy-1.6.0 -- /opt/hostedtoolcache/Python/3.14.7/x64/bin/python3
+cachedir: .pytest_cache
+hypothesis profile 'ci' -> database=None, deadline=None, print_blob=True, derandomize=True, suppress_health_check=(HealthCheck.too_slow,)
+rootdir: /home/runner/work/Workflows/Workflows
+configfile: pyproject.toml
+plugins: langsmith-0.14.4, hypothesis-6.168.5, platformdirs-4.12.3, cov-7.1.0, xdist-3.8.0, anyio-4.15.1
+collecting ... collected 198 items / 182 deselected / 16 selected
+
+tests/scripts/test_check_deliberate_break.py::test_base_collection_failure_cannot_prove_a_deliberate_break[] FAILED [  6%]
+tests/scripts/test_check_deliberate_break.py::test_base_collection_failure_cannot_prove_a_deliberate_break[templates/consumer-repo/] FAILED [ 12%]
+tests/scripts/test_check_deliberate_break.py::test_base_import_diagnostics_preserve_both_streams[root-stdout] FAILED [ 18%]
+tests/scripts/test_check_deliberate_break.py::test_base_import_diagnostics_preserve_both_streams[root-stderr] FAILED [ 25%]
+tests/scripts/test_check_deliberate_break.py::test_base_import_diagnostics_preserve_both_streams[consumer-stdout] FAILED [ 31%]
+tests/scripts/test_check_deliberate_break.py::test_base_import_diagnostics_preserve_both_streams[consumer-stderr] FAILED [ 37%]
+tests/scripts/test_check_deliberate_break.py::test_base_pytest_must_execute_a_test_before_counting_as_red[root-2] FAILED [ 43%]
+tests/scripts/test_check_deliberate_break.py::test_base_pytest_must_execute_a_test_before_counting_as_red[root-3] FAILED [ 50%]
+tests/scripts/test_check_deliberate_break.py::test_base_pytest_must_execute_a_test_before_counting_as_red[root-4] FAILED [ 56%]
+tests/scripts/test_check_deliberate_break.py::test_base_pytest_must_execute_a_test_before_counting_as_red[root-5] FAILED [ 62%]
+tests/scripts/test_check_deliberate_break.py::test_base_pytest_must_execute_a_test_before_counting_as_red[consumer-2] FAILED [ 68%]
+tests/scripts/test_check_deliberate_break.py::test_base_pytest_must_execute_a_test_before_counting_as_red[consumer-3] FAILED [ 75%]
+tests/scripts/test_check_deliberate_break.py::test_base_pytest_must_execute_a_test_before_counting_as_red[consumer-4] FAILED [ 81%]
+tests/scripts/test_check_deliberate_break.py::test_base_pytest_must_execute_a_test_before_counting_as_red[consumer-5] FAILED [ 87%]
+tests/scripts/test_check_deliberate_break.py::test_base_missing_import_inside_a_test_still_proves_red[root] PASSED [ 93%]
+tests/scripts/test_check_deliberate_break.py::test_base_missing_import_inside_a_test_still_proves_red[consumer] PASSED [100%]
+
+=================================== FAILURES ===================================
+________ test_base_collection_failure_cannot_prove_a_deliberate_break[] ________
+tests/scripts/test_check_deliberate_break.py:2294: in test_base_collection_failure_cannot_prove_a_deliberate_break
+    assert result["verdict"] == VERDICT_BROKEN
+E   AssertionError: assert 'PASS' == 'FAIL_BROKEN'
+E
+E     - FAIL_BROKEN
+E     + PASS
+_ test_base_collection_failure_cannot_prove_a_deliberate_break[templates/consumer-repo/] _
+tests/scripts/test_check_deliberate_break.py:2294: in test_base_collection_failure_cannot_prove_a_deliberate_break
+    assert result["verdict"] == VERDICT_BROKEN
+E   AssertionError: assert 'PASS' == 'FAIL_BROKEN'
+E
+E     - FAIL_BROKEN
+E     + PASS
+_______ test_base_import_diagnostics_preserve_both_streams[root-stdout] ________
+tests/scripts/test_check_deliberate_break.py:2354: in test_base_import_diagnostics_preserve_both_streams
+    assert result["verdict"] == VERDICT_BROKEN
+E   AssertionError: assert 'PASS' == 'FAIL_BROKEN'
+E
+E     - FAIL_BROKEN
+E     + PASS
+_______ test_base_import_diagnostics_preserve_both_streams[root-stderr] ________
+tests/scripts/test_check_deliberate_break.py:2354: in test_base_import_diagnostics_preserve_both_streams
+    assert result["verdict"] == VERDICT_BROKEN
+E   AssertionError: assert 'PASS' == 'FAIL_BROKEN'
+E
+E     - FAIL_BROKEN
+E     + PASS
+_____ test_base_import_diagnostics_preserve_both_streams[consumer-stdout] ______
+tests/scripts/test_check_deliberate_break.py:2354: in test_base_import_diagnostics_preserve_both_streams
+    assert result["verdict"] == VERDICT_BROKEN
+E   AssertionError: assert 'PASS' == 'FAIL_BROKEN'
+E
+E     - FAIL_BROKEN
+E     + PASS
+_____ test_base_import_diagnostics_preserve_both_streams[consumer-stderr] ______
+tests/scripts/test_check_deliberate_break.py:2354: in test_base_import_diagnostics_preserve_both_streams
+    assert result["verdict"] == VERDICT_BROKEN
+E   AssertionError: assert 'PASS' == 'FAIL_BROKEN'
+E
+E     - FAIL_BROKEN
+E     + PASS
+_____ test_base_pytest_must_execute_a_test_before_counting_as_red[root-2] ______
+tests/scripts/test_check_deliberate_break.py:2393: in test_base_pytest_must_execute_a_test_before_counting_as_red
+    assert result["verdict"] == VERDICT_BROKEN
+E   AssertionError: assert 'PASS' == 'FAIL_BROKEN'
+E
+E     - FAIL_BROKEN
+E     + PASS
+_____ test_base_pytest_must_execute_a_test_before_counting_as_red[root-3] ______
+tests/scripts/test_check_deliberate_break.py:2393: in test_base_pytest_must_execute_a_test_before_counting_as_red
+    assert result["verdict"] == VERDICT_BROKEN
+E   AssertionError: assert 'PASS' == 'FAIL_BROKEN'
+E
+E     - FAIL_BROKEN
+E     + PASS
+_____ test_base_pytest_must_execute_a_test_before_counting_as_red[root-4] ______
+tests/scripts/test_check_deliberate_break.py:2393: in test_base_pytest_must_execute_a_test_before_counting_as_red
+    assert result["verdict"] == VERDICT_BROKEN
+E   AssertionError: assert 'PASS' == 'FAIL_BROKEN'
+E
+E     - FAIL_BROKEN
+E     + PASS
+_____ test_base_pytest_must_execute_a_test_before_counting_as_red[root-5] ______
+tests/scripts/test_check_deliberate_break.py:2393: in test_base_pytest_must_execute_a_test_before_counting_as_red
+    assert result["verdict"] == VERDICT_BROKEN
+E   AssertionError: assert 'PASS' == 'FAIL_BROKEN'
+E
+E     - FAIL_BROKEN
+E     + PASS
+___ test_base_pytest_must_execute_a_test_before_counting_as_red[consumer-2] ____
+tests/scripts/test_check_deliberate_break.py:2393: in test_base_pytest_must_execute_a_test_before_counting_as_red
+    assert result["verdict"] == VERDICT_BROKEN
+E   AssertionError: assert 'PASS' == 'FAIL_BROKEN'
+E
+E     - FAIL_BROKEN
+E     + PASS
+___ test_base_pytest_must_execute_a_test_before_counting_as_red[consumer-3] ____
+tests/scripts/test_check_deliberate_break.py:2393: in test_base_pytest_must_execute_a_test_before_counting_as_red
+    assert result["verdict"] == VERDICT_BROKEN
+E   AssertionError: assert 'PASS' == 'FAIL_BROKEN'
+E
+E     - FAIL_BROKEN
+E     + PASS
+___ test_base_pytest_must_execute_a_test_before_counting_as_red[consumer-4] ____
+tests/scripts/test_check_deliberate_break.py:2393: in test_base_pytest_must_execute_a_test_before_counting_as_red
+    assert result["verdict"] == VERDICT_BROKEN
+E   AssertionError: assert 'PASS' == 'FAIL_BROKEN'
+E
+E     - FAIL_BROKEN
+E     + PASS
+___ test_base_pytest_must_execute_a_test_before_counting_as_red[consumer-5] ____
+tests/scripts/test_check_deliberate_break.py:2393: in test_base_pytest_must_execute_a_test_before_counting_as_red
+    assert result["verdict"] == VERDICT_BROKEN
+E   AssertionError: assert 'PASS' == 'FAIL_BROKEN'
+E
+E     - FAIL_BROKEN
+E     + PASS
+- generated xml file: /home/runner/work/Workflows/Workflows/docs/evidence/issue-3743/automation/prior-implementation-red.xml -
+=========================== short test summary info ============================
+FAILED tests/scripts/test_check_deliberate_break.py::test_base_collection_failure_cannot_prove_a_deliberate_break[] - AssertionError: assert 'PASS' == 'FAIL_BROKEN'
+
+  - FAIL_BROKEN
+  + PASS
+FAILED tests/scripts/test_check_deliberate_break.py::test_base_collection_failure_cannot_prove_a_deliberate_break[templates/consumer-repo/] - AssertionError: assert 'PASS' == 'FAIL_BROKEN'
+
+  - FAIL_BROKEN
+  + PASS
+FAILED tests/scripts/test_check_deliberate_break.py::test_base_import_diagnostics_preserve_both_streams[root-stdout] - AssertionError: assert 'PASS' == 'FAIL_BROKEN'
+
+  - FAIL_BROKEN
+  + PASS
+FAILED tests/scripts/test_check_deliberate_break.py::test_base_import_diagnostics_preserve_both_streams[root-stderr] - AssertionError: assert 'PASS' == 'FAIL_BROKEN'
+
+  - FAIL_BROKEN
+  + PASS
+FAILED tests/scripts/test_check_deliberate_break.py::test_base_import_diagnostics_preserve_both_streams[consumer-stdout] - AssertionError: assert 'PASS' == 'FAIL_BROKEN'
+
+  - FAIL_BROKEN
+  + PASS
+FAILED tests/scripts/test_check_deliberate_break.py::test_base_import_diagnostics_preserve_both_streams[consumer-stderr] - AssertionError: assert 'PASS' == 'FAIL_BROKEN'
+
+  - FAIL_BROKEN
+  + PASS
+FAILED tests/scripts/test_check_deliberate_break.py::test_base_pytest_must_execute_a_test_before_counting_as_red[root-2] - AssertionError: assert 'PASS' == 'FAIL_BROKEN'
+
+  - FAIL_BROKEN
+  + PASS
+FAILED tests/scripts/test_check_deliberate_break.py::test_base_pytest_must_execute_a_test_before_counting_as_red[root-3] - AssertionError: assert 'PASS' == 'FAIL_BROKEN'
+
+  - FAIL_BROKEN
+  + PASS
+FAILED tests/scripts/test_check_deliberate_break.py::test_base_pytest_must_execute_a_test_before_counting_as_red[root-4] - AssertionError: assert 'PASS' == 'FAIL_BROKEN'
+
+  - FAIL_BROKEN
+  + PASS
+FAILED tests/scripts/test_check_deliberate_break.py::test_base_pytest_must_execute_a_test_before_counting_as_red[root-5] - AssertionError: assert 'PASS' == 'FAIL_BROKEN'
+
+  - FAIL_BROKEN
+  + PASS
+FAILED tests/scripts/test_check_deliberate_break.py::test_base_pytest_must_execute_a_test_before_counting_as_red[consumer-2] - AssertionError: assert 'PASS' == 'FAIL_BROKEN'
+
+  - FAIL_BROKEN
+  + PASS
+FAILED tests/scripts/test_check_deliberate_break.py::test_base_pytest_must_execute_a_test_before_counting_as_red[consumer-3] - AssertionError: assert 'PASS' == 'FAIL_BROKEN'
+
+  - FAIL_BROKEN
+  + PASS
+FAILED tests/scripts/test_check_deliberate_break.py::test_base_pytest_must_execute_a_test_before_counting_as_red[consumer-4] - AssertionError: assert 'PASS' == 'FAIL_BROKEN'
+
+  - FAIL_BROKEN
+  + PASS
+FAILED tests/scripts/test_check_deliberate_break.py::test_base_pytest_must_execute_a_test_before_counting_as_red[consumer-5] - AssertionError: assert 'PASS' == 'FAIL_BROKEN'
+
+  - FAIL_BROKEN
+  + PASS
+=========== 14 failed, 2 passed, 182 deselected in 83.24s (0:01:23) ============
+
+Process exit: 1

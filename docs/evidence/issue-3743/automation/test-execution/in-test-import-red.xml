@@ -1,0 +1,21 @@
+<?xml version="1.0" encoding="utf-8"?><testsuites name="pytest tests"><testsuite name="pytest" errors="0" failures="4" skipped="0" tests="4" time="21.265" timestamp="2026-10-06T04:53:33.582586+00:00" hostname="runnervm8df0l"><testcase classname="tests.scripts.test_check_deliberate_break" name="test_base_missing_import_inside_a_test_still_proves_red[root-stdout]" time="5.067"><failure message="AssertionError: assert 'FAIL_BROKEN' == 'PASS'&#10;  &#10;  - PASS&#10;  + FAIL_BROKEN">tests/scripts/test_check_deliberate_break.py:2446: in test_base_missing_import_inside_a_test_still_proves_red
+    assert result["verdict"] == VERDICT_PASS
+E   AssertionError: assert 'FAIL_BROKEN' == 'PASS'
+E
+E     - PASS
+E     + FAIL_BROKEN</failure></testcase><testcase classname="tests.scripts.test_check_deliberate_break" name="test_base_missing_import_inside_a_test_still_proves_red[root-stderr]" time="5.021"><failure message="AssertionError: assert 'FAIL_BROKEN' == 'PASS'&#10;  &#10;  - PASS&#10;  + FAIL_BROKEN">tests/scripts/test_check_deliberate_break.py:2446: in test_base_missing_import_inside_a_test_still_proves_red
+    assert result["verdict"] == VERDICT_PASS
+E   AssertionError: assert 'FAIL_BROKEN' == 'PASS'
+E
+E     - PASS
+E     + FAIL_BROKEN</failure></testcase><testcase classname="tests.scripts.test_check_deliberate_break" name="test_base_missing_import_inside_a_test_still_proves_red[consumer-stdout]" time="5.060"><failure message="AssertionError: assert 'FAIL_BROKEN' == 'PASS'&#10;  &#10;  - PASS&#10;  + FAIL_BROKEN">tests/scripts/test_check_deliberate_break.py:2446: in test_base_missing_import_inside_a_test_still_proves_red
+    assert result["verdict"] == VERDICT_PASS
+E   AssertionError: assert 'FAIL_BROKEN' == 'PASS'
+E
+E     - PASS
+E     + FAIL_BROKEN</failure></testcase><testcase classname="tests.scripts.test_check_deliberate_break" name="test_base_missing_import_inside_a_test_still_proves_red[consumer-stderr]" time="5.066"><failure message="AssertionError: assert 'FAIL_BROKEN' == 'PASS'&#10;  &#10;  - PASS&#10;  + FAIL_BROKEN">tests/scripts/test_check_deliberate_break.py:2446: in test_base_missing_import_inside_a_test_still_proves_red
+    assert result["verdict"] == VERDICT_PASS
+E   AssertionError: assert 'FAIL_BROKEN' == 'PASS'
+E
+E     - PASS
+E     + FAIL_BROKEN</failure></testcase></testsuite></testsuites>

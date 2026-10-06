@@ -608,7 +608,11 @@ def test_cli_skips_without_marker(tmp_path) -> None:
         cwd=tmp_path,
         text=True,
         capture_output=True,
-        env={**os.environ, "PR_BODY": "## Acceptance Criteria\n- [ ] normal"},
+        env={
+            **os.environ,
+            "PR_BODY": "## Acceptance Criteria\n- [ ] normal",
+            "GITHUB_OUTPUT": str(tmp_path / "github-output"),
+        },
     )
 
     assert completed.returncode == 0
@@ -2265,3 +2269,302 @@ def test_a_missing_module_raised_inside_a_test_body_is_a_real_failure() -> None:
     )
 
     assert deliberate_break._missing_module_from_pytest_output(in_test_body, None) is None
+
+
+@pytest.mark.parametrize("prefix", ["", "templates/consumer-repo/"])
+def test_base_collection_failure_cannot_prove_a_deliberate_break(tmp_path, prefix):
+    """The head can import a new dependency while the archived base cannot collect."""
+    executions = tmp_path / "test-executions.txt"
+    helper = runpy.run_path(
+        str(Path(__file__).resolve().parents[2] / prefix / "scripts/check_deliberate_break.py")
+    )
+    repo = tmp_path / "repo"
+    repo.mkdir()
+    _init_repo(repo)
+    (repo / "app.py").write_text("VALUE = 1\n", encoding="utf-8")
+    (repo / "conftest.py").write_text(
+        "import sys\n"
+        "from pathlib import Path\n"
+        "def pytest_runtest_call(item):\n"
+        f"    with Path({str(executions)!r}).open('a') as output:\n"
+        "        output.write('called\\n')\n"
+        "def pytest_sessionstart(session):\n"
+        "    print('base dependency stdout sentinel', file=sys.stdout)\n"
+        "    print('base dependency stderr sentinel', file=sys.stderr)\n",
+        encoding="utf-8",
+    )
+    base = _commit(repo, "base without the candidate dependency")
+    (repo / "candidate_dependency.py").write_text("VALUE = 1\n", encoding="utf-8")
+    (repo / "test_candidate.py").write_text(
+        "from candidate_dependency import VALUE\ndef test_value():\n    assert VALUE == 1\n",
+        encoding="utf-8",
+    )
+    _commit(repo, "candidate test and dependency")
+    spec = helper["DeliberateBreakSpec"](
+        "test_candidate.py::test_value",
+        "test_candidate.py",
+        "app.py",
+        (sys.executable, "-m", "pytest", "-q", "-o", "addopts=", "test_candidate.py::test_value"),
+    )
+    result = helper["verify_spec"](spec, base=base, cwd=repo, enforce_tamper=False)
+    # This record survives archive cleanup and proves head execution, not just a verdict.
+    assert executions.exists(), "the head pytest command never executed the test"
+    assert executions.read_text(encoding="utf-8").splitlines() == ["called"]
+    assert result["verdict"] == VERDICT_BROKEN
+    assert result["reason"] == "base-test-not-importable"
+    assert result["missing_module"] == "candidate_dependency"
+    assert "never ran" in result["detail"]
+    assert "ModuleNotFoundError: No module named 'candidate_dependency'" in result["base_stdout"]
+    assert "base dependency stdout sentinel" in result["base_stdout"]
+    assert "base dependency stderr sentinel" in result["base_stderr"]
+
+
+@pytest.fixture(params=["", "templates/consumer-repo/"], ids=["root", "consumer"])
+def base_proof_helper(request):
+    return runpy.run_path(
+        str(
+            Path(__file__).resolve().parents[2]
+            / request.param
+            / "scripts/check_deliberate_break.py"
+        )
+    )
+
+
+def _base_proof_repo(tmp_path, helper, base_app, head_app, test_source, conftest_source=""):
+    """Commit a base tree and a candidate test for a real archive/pytest proof."""
+    repo = tmp_path / "repo"
+    repo.mkdir()
+    _init_repo(repo)
+    (repo / "app.py").write_text(base_app, encoding="utf-8")
+    (repo / "conftest.py").write_text(conftest_source, encoding="utf-8")
+    base = _commit(repo, "base behavior")
+    (repo / "app.py").write_text(head_app, encoding="utf-8")
+    (repo / "test_candidate.py").write_text(test_source, encoding="utf-8")
+    _commit(repo, "candidate implementation and test")
+    spec = helper["DeliberateBreakSpec"](
+        "test_candidate.py::test_value",
+        "test_candidate.py",
+        "app.py",
+        # The file contains one test. Selecting the file lets collection failures
+        # use exit 2 rather than the node-selector's additional usage error.
+        (sys.executable, "-m", "pytest", "-q", "-o", "addopts=", "test_candidate.py"),
+    )
+    return repo, base, spec
+
+
+@pytest.mark.parametrize("stream", ["stdout", "stderr"])
+def test_base_import_diagnostics_preserve_both_streams(tmp_path, base_proof_helper, stream):
+    """Route actual pytest collection diagnostics to either stream, retaining both."""
+    repo, base, spec = _base_proof_repo(
+        tmp_path,
+        base_proof_helper,
+        "VALUE = 1\n",
+        "VALUE = 1\n",
+        "from candidate_dependency import VALUE\ndef test_value():\n    assert VALUE == 1\n",
+        "import sys\n"
+        "from _pytest._io import TerminalWriter\n"
+        "def pytest_sessionstart(session):\n"
+        "    reporter = session.config.pluginmanager.getplugin('terminalreporter')\n"
+        f"    reporter._tw = TerminalWriter(file=sys.{stream})\n"
+        "    print('base stdout sentinel', file=sys.stdout)\n"
+        "    print('base stderr sentinel', file=sys.stderr)\n",
+    )
+    (repo / "candidate_dependency.py").write_text("VALUE = 1\n", encoding="utf-8")
+    _commit(repo, "dependency available only on head")
+    result = base_proof_helper["verify_spec"](spec, base=base, cwd=repo, enforce_tamper=False)
+    assert result["verdict"] == VERDICT_BROKEN
+    assert result["reason"] == "base-test-not-importable"
+    assert result["missing_module"] == "candidate_dependency"
+    assert "ERROR collecting" in result[f"base_{stream}"]
+    assert "ModuleNotFoundError: No module named 'candidate_dependency'" in result[f"base_{stream}"]
+    assert "base stdout sentinel" in result["base_stdout"]
+    assert "base stderr sentinel" in result["base_stderr"]
+    assert result["command"] == list(spec.command)
+
+
+@pytest.mark.parametrize("exit_code", [2, 3, 4, 5])
+def test_base_pytest_must_execute_a_test_before_counting_as_red(
+    tmp_path, base_proof_helper, exit_code
+):
+    """Interrupted collection, internal/usage errors and no tests are not a failed assertion."""
+    executions = tmp_path / "test-executions.txt"
+    repo, base, spec = _base_proof_repo(
+        tmp_path,
+        base_proof_helper,
+        f"MODE = {exit_code}\n",
+        "MODE = 0\n",
+        "import app\n"
+        "if app.MODE == 2:\n"
+        "    raise RuntimeError('base collection diagnostic')\n"
+        "def test_value():\n"
+        "    assert app.MODE == 0\n",
+        "import app, pytest, sys\n"
+        "from pathlib import Path\n"
+        "def pytest_runtest_call(item):\n"
+        f"    with Path({str(executions)!r}).open('a') as output:\n"
+        "        output.write(f'{app.MODE}\\n')\n"
+        "def pytest_sessionstart(session):\n"
+        "    if app.MODE:\n"
+        "        print('base stdout sentinel', file=sys.stdout)\n"
+        "        print('base stderr sentinel', file=sys.stderr)\n"
+        "def pytest_collection_modifyitems(items):\n"
+        "    if app.MODE == 3:\n"
+        "        raise RuntimeError('base internal diagnostic')\n"
+        "    if app.MODE == 4:\n"
+        "        raise pytest.UsageError('base usage diagnostic')\n"
+        "    if app.MODE == 5:\n"
+        "        items.clear()\n",
+    )
+    result = base_proof_helper["verify_spec"](spec, base=base, cwd=repo, enforce_tamper=False)
+    # The external record survives archive cleanup: head ran, base never did.
+    assert executions.read_text(encoding="utf-8").splitlines() == ["0"]
+    assert result["verdict"] == VERDICT_BROKEN
+    assert result["reason"] == "base-test-did-not-run"
+    assert result["returncode"] == exit_code
+    assert "base stdout sentinel" in result["base_stdout"]
+    assert "base stderr sentinel" in result["base_stderr"]
+    diagnostic = {
+        2: "base collection diagnostic",
+        3: "INTERNALERROR",
+        4: "base usage diagnostic",
+        5: "no tests ran",
+    }[exit_code]
+    assert diagnostic in result["base_stdout"] + result["base_stderr"]
+
+
+@pytest.mark.parametrize("stream", ["stdout", "stderr"])
+@pytest.mark.parametrize("collection_text", [False, True])
+def test_base_missing_import_inside_a_test_still_proves_red(
+    tmp_path, base_proof_helper, stream, collection_text
+):
+    """A ModuleNotFoundError raised by the selected test is an actual behavioral failure."""
+    executions = tmp_path / "test-executions.txt"
+    repo, base, spec = _base_proof_repo(
+        tmp_path,
+        base_proof_helper,
+        (
+            "def value():\n"
+            + (
+                f"    import sys\n    print('ERROR collecting unrelated.py', file=sys.{stream})\n"
+                if collection_text
+                else ""
+            )
+            + "    import candidate_dependency\n    return candidate_dependency.VALUE\n"
+        ),
+        "def value():\n    return 1\n",
+        "import app\n"
+        "from pathlib import Path\n"
+        "def test_value():\n"
+        f"    with Path({str(executions)!r}).open('a') as output:\n"
+        "        output.write('called\\n')\n"
+        "    assert app.value() == 1\n",
+        "import sys\n"
+        "from _pytest._io import TerminalWriter\n"
+        "def pytest_sessionstart(session):\n"
+        "    reporter = session.config.pluginmanager.getplugin('terminalreporter')\n"
+        f"    reporter._tw = TerminalWriter(file=sys.{stream})\n",
+    )
+    result = base_proof_helper["verify_spec"](spec, base=base, cwd=repo, enforce_tamper=False)
+    assert executions.read_text(encoding="utf-8").splitlines() == ["called", "called"]
+    assert result["verdict"] == VERDICT_PASS
+    assert result["reason"] == "head-passed-base-failed"
+    assert "1 failed" in result[f"base_{stream}"]
+    assert "ModuleNotFoundError: No module named 'candidate_dependency'" in result[f"base_{stream}"]
+    assert ("ERROR collecting" in result["base_stdout"] + result["base_stderr"]) == collection_text
+
+
+@pytest.mark.parametrize(
+    "command",
+    [
+        ("pytest", "-q"),
+        ("/other/venv/bin/python3", "-m", "pytest", "-q"),
+        ("uv", "run", "pytest", "-q"),
+        ("uv", "run", "--project", "project", "--", "pytest", "-q"),
+        ("uv", "run", "--module", "pytest", "-q"),
+        ("uv", "run", "python", "-I", "-m", "pytest", "-q"),
+    ],
+)
+@pytest.mark.parametrize("exit_code", [2, 5])
+def test_wrapped_pytest_nonexecution_never_proves_red(
+    tmp_path, base_proof_helper, monkeypatch, command, exit_code
+):
+    repo, base, spec = _base_proof_repo(
+        tmp_path,
+        base_proof_helper,
+        "VALUE = 0\n",
+        "VALUE = 1\n",
+        "def test_value():\n    assert True\n",
+    )
+    spec = base_proof_helper["DeliberateBreakSpec"](
+        spec.test_id, spec.test_file, spec.break_file, (*command, spec.test_id)
+    )
+    calls = []
+
+    def execute(actual_command, cwd):
+        calls.append(actual_command)
+        code = 0 if len(calls) == 1 else exit_code
+        return subprocess.CompletedProcess(actual_command, code, "no tests ran", "")
+
+    monkeypatch.setitem(
+        base_proof_helper["verify_spec"].__globals__, "_run_with_runtime_deps", execute
+    )
+    result = base_proof_helper["verify_spec"](spec, base=base, cwd=repo, enforce_tamper=False)
+    assert calls == [spec.command, spec.command]
+    assert result["verdict"] == VERDICT_BROKEN
+    assert result["reason"] == "base-test-did-not-run"
+    assert result["returncode"] == exit_code
+
+
+@pytest.mark.parametrize("stream", ["stdout", "stderr"])
+def test_executed_head_import_failure_with_collection_text_is_behavioral(
+    tmp_path, base_proof_helper, stream
+):
+    repo, base, spec = _base_proof_repo(
+        tmp_path,
+        base_proof_helper,
+        "VALUE = 0\n",
+        "VALUE = 1\n",
+        "import sys\n"
+        "def test_value():\n"
+        f"    print('ERROR collecting unrelated.py', file=sys.{stream})\n"
+        "    raise ModuleNotFoundError(\"No module named 'candidate_dependency'\")\n",
+    )
+    result = base_proof_helper["verify_spec"](spec, base=base, cwd=repo, enforce_tamper=False)
+    assert result["verdict"] == VERDICT_BROKEN
+    assert result["reason"] == "head-test-failed"
+
+
+@pytest.mark.parametrize("command", [("custom", "-m", "pytest"), ("uv", "run", "custom", "pytest")])
+def test_custom_commands_keep_nonzero_contract(base_proof_helper, command):
+    assert not base_proof_helper["_is_pytest_command"](command)
+
+
+@pytest.mark.parametrize("stream", ["stdout", "stderr"])
+@pytest.mark.parametrize("exit_code", [1, 5])
+def test_real_custom_command_collection_text_preserves_nonzero_contract(
+    tmp_path, base_proof_helper, stream, exit_code
+):
+    executions = tmp_path / "custom-executions.txt"
+    repo, base, _ = _base_proof_repo(
+        tmp_path,
+        base_proof_helper,
+        "VALUE = 0\n",
+        "VALUE = 1\n",
+        "import app, sys\nfrom pathlib import Path\n"
+        f'with Path({str(executions)!r}).open("a") as output:\n'
+        '    output.write(str(app.VALUE) + "\\n")\n'
+        "if app.VALUE != 1:\n"
+        f'    print("ERROR collecting custom output", file=sys.{stream})\n'
+        f"    print(\"ModuleNotFoundError: No module named 'diagnostic_only'\", file=sys.{stream})\n"
+        f"    sys.exit({exit_code})\n",
+    )
+    spec = base_proof_helper["DeliberateBreakSpec"](
+        "test_candidate.py::test_value",
+        "test_candidate.py",
+        "app.py",
+        (sys.executable, "test_candidate.py"),
+    )
+    result = base_proof_helper["verify_spec"](spec, base=base, cwd=repo, enforce_tamper=False)
+    assert executions.read_text().splitlines() == ["1", "0"]
+    assert result["verdict"] == VERDICT_PASS
+    assert result["reason"] == "head-passed-base-failed"

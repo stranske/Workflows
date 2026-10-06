@@ -1,0 +1,10 @@
+--- scripts/check_deliberate_break.py
++++ scripts/check_deliberate_break.py
+@@ -798 +798 @@
+-    if not joined or not _COLLECTION_ERROR_RE.search(joined):
++    if not joined:
+--- templates/consumer-repo/scripts/check_deliberate_break.py
++++ templates/consumer-repo/scripts/check_deliberate_break.py
+@@ -798 +798 @@
+-    if not joined or not _COLLECTION_ERROR_RE.search(joined):
++    if not joined:

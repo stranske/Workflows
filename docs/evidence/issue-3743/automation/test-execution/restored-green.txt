@@ -1,0 +1,32 @@
+Command: /opt/hostedtoolcache/Python/3.14.7/x64/bin/python3 -m pytest tests/scripts/test_check_deliberate_break.py -vv --tb=short -m not slow -k test_base_collection_failure_cannot_prove_a_deliberate_break or test_base_import_diagnostics_preserve_both_streams or test_base_pytest_must_execute_a_test_before_counting_as_red or test_base_missing_import_inside_a_test_still_proves_red --junitxml=/home/runner/work/Workflows/Workflows/docs/evidence/issue-3743/automation/test-execution/restored-green.xml
+Exit: 0
+============================= test session starts ==============================
+platform linux -- Python 3.14.7, pytest-9.1.1, pluggy-1.6.0 -- /opt/hostedtoolcache/Python/3.14.7/x64/bin/python3
+cachedir: .pytest_cache
+hypothesis profile 'ci' -> database=None, deadline=None, print_blob=True, derandomize=True, suppress_health_check=(HealthCheck.too_slow,)
+rootdir: /home/runner/work/Workflows/Workflows
+configfile: pyproject.toml
+plugins: langsmith-0.14.4, hypothesis-6.168.5, platformdirs-4.12.3, cov-7.1.0, xdist-3.8.0, anyio-4.15.1
+collecting ... collected 200 items / 182 deselected / 18 selected
+
+tests/scripts/test_check_deliberate_break.py::test_base_collection_failure_cannot_prove_a_deliberate_break[] PASSED [  5%]
+tests/scripts/test_check_deliberate_break.py::test_base_collection_failure_cannot_prove_a_deliberate_break[templates/consumer-repo/] PASSED [ 11%]
+tests/scripts/test_check_deliberate_break.py::test_base_import_diagnostics_preserve_both_streams[root-stdout] PASSED [ 16%]
+tests/scripts/test_check_deliberate_break.py::test_base_import_diagnostics_preserve_both_streams[root-stderr] PASSED [ 22%]
+tests/scripts/test_check_deliberate_break.py::test_base_import_diagnostics_preserve_both_streams[consumer-stdout] PASSED [ 27%]
+tests/scripts/test_check_deliberate_break.py::test_base_import_diagnostics_preserve_both_streams[consumer-stderr] PASSED [ 33%]
+tests/scripts/test_check_deliberate_break.py::test_base_pytest_must_execute_a_test_before_counting_as_red[root-2] PASSED [ 38%]
+tests/scripts/test_check_deliberate_break.py::test_base_pytest_must_execute_a_test_before_counting_as_red[root-3] PASSED [ 44%]
+tests/scripts/test_check_deliberate_break.py::test_base_pytest_must_execute_a_test_before_counting_as_red[root-4] PASSED [ 50%]
+tests/scripts/test_check_deliberate_break.py::test_base_pytest_must_execute_a_test_before_counting_as_red[root-5] PASSED [ 55%]
+tests/scripts/test_check_deliberate_break.py::test_base_pytest_must_execute_a_test_before_counting_as_red[consumer-2] PASSED [ 61%]
+tests/scripts/test_check_deliberate_break.py::test_base_pytest_must_execute_a_test_before_counting_as_red[consumer-3] PASSED [ 66%]
+tests/scripts/test_check_deliberate_break.py::test_base_pytest_must_execute_a_test_before_counting_as_red[consumer-4] PASSED [ 72%]
+tests/scripts/test_check_deliberate_break.py::test_base_pytest_must_execute_a_test_before_counting_as_red[consumer-5] PASSED [ 77%]
+tests/scripts/test_check_deliberate_break.py::test_base_missing_import_inside_a_test_still_proves_red[root-stdout] PASSED [ 83%]
+tests/scripts/test_check_deliberate_break.py::test_base_missing_import_inside_a_test_still_proves_red[root-stderr] PASSED [ 88%]
+tests/scripts/test_check_deliberate_break.py::test_base_missing_import_inside_a_test_still_proves_red[consumer-stdout] PASSED [ 94%]
+tests/scripts/test_check_deliberate_break.py::test_base_missing_import_inside_a_test_still_proves_red[consumer-stderr] PASSED [100%]
+
+- generated xml file: /home/runner/work/Workflows/Workflows/docs/evidence/issue-3743/automation/test-execution/restored-green.xml -
+================ 18 passed, 182 deselected in 92.71s (0:01:32) =================

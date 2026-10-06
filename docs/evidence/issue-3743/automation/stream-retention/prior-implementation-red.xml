@@ -1,0 +1,71 @@
+<?xml version="1.0" encoding="utf-8"?><testsuites name="pytest tests"><testsuite name="pytest" errors="0" failures="14" skipped="0" tests="16" time="88.150" timestamp="2026-10-06T04:39:10.794225+00:00" hostname="runnervm8df0l"><testcase classname="tests.scripts.test_check_deliberate_break" name="test_base_collection_failure_cannot_prove_a_deliberate_break[]" time="5.320"><failure message="AssertionError: assert 'PASS' == 'FAIL_BROKEN'&#10;  &#10;  - FAIL_BROKEN&#10;  + PASS">tests/scripts/test_check_deliberate_break.py:2301: in test_base_collection_failure_cannot_prove_a_deliberate_break
+    assert result["verdict"] == VERDICT_BROKEN
+E   AssertionError: assert 'PASS' == 'FAIL_BROKEN'
+E
+E     - FAIL_BROKEN
+E     + PASS</failure></testcase><testcase classname="tests.scripts.test_check_deliberate_break" name="test_base_collection_failure_cannot_prove_a_deliberate_break[templates/consumer-repo/]" time="5.266"><failure message="AssertionError: assert 'PASS' == 'FAIL_BROKEN'&#10;  &#10;  - FAIL_BROKEN&#10;  + PASS">tests/scripts/test_check_deliberate_break.py:2301: in test_base_collection_failure_cannot_prove_a_deliberate_break
+    assert result["verdict"] == VERDICT_BROKEN
+E   AssertionError: assert 'PASS' == 'FAIL_BROKEN'
+E
+E     - FAIL_BROKEN
+E     + PASS</failure></testcase><testcase classname="tests.scripts.test_check_deliberate_break" name="test_base_import_diagnostics_preserve_both_streams[root-stdout]" time="5.469"><failure message="AssertionError: assert 'PASS' == 'FAIL_BROKEN'&#10;  &#10;  - FAIL_BROKEN&#10;  + PASS">tests/scripts/test_check_deliberate_break.py:2363: in test_base_import_diagnostics_preserve_both_streams
+    assert result["verdict"] == VERDICT_BROKEN
+E   AssertionError: assert 'PASS' == 'FAIL_BROKEN'
+E
+E     - FAIL_BROKEN
+E     + PASS</failure></testcase><testcase classname="tests.scripts.test_check_deliberate_break" name="test_base_import_diagnostics_preserve_both_streams[root-stderr]" time="5.678"><failure message="AssertionError: assert 'PASS' == 'FAIL_BROKEN'&#10;  &#10;  - FAIL_BROKEN&#10;  + PASS">tests/scripts/test_check_deliberate_break.py:2363: in test_base_import_diagnostics_preserve_both_streams
+    assert result["verdict"] == VERDICT_BROKEN
+E   AssertionError: assert 'PASS' == 'FAIL_BROKEN'
+E
+E     - FAIL_BROKEN
+E     + PASS</failure></testcase><testcase classname="tests.scripts.test_check_deliberate_break" name="test_base_import_diagnostics_preserve_both_streams[consumer-stdout]" time="5.748"><failure message="AssertionError: assert 'PASS' == 'FAIL_BROKEN'&#10;  &#10;  - FAIL_BROKEN&#10;  + PASS">tests/scripts/test_check_deliberate_break.py:2363: in test_base_import_diagnostics_preserve_both_streams
+    assert result["verdict"] == VERDICT_BROKEN
+E   AssertionError: assert 'PASS' == 'FAIL_BROKEN'
+E
+E     - FAIL_BROKEN
+E     + PASS</failure></testcase><testcase classname="tests.scripts.test_check_deliberate_break" name="test_base_import_diagnostics_preserve_both_streams[consumer-stderr]" time="5.652"><failure message="AssertionError: assert 'PASS' == 'FAIL_BROKEN'&#10;  &#10;  - FAIL_BROKEN&#10;  + PASS">tests/scripts/test_check_deliberate_break.py:2363: in test_base_import_diagnostics_preserve_both_streams
+    assert result["verdict"] == VERDICT_BROKEN
+E   AssertionError: assert 'PASS' == 'FAIL_BROKEN'
+E
+E     - FAIL_BROKEN
+E     + PASS</failure></testcase><testcase classname="tests.scripts.test_check_deliberate_break" name="test_base_pytest_must_execute_a_test_before_counting_as_red[root-2]" time="5.518"><failure message="AssertionError: assert 'PASS' == 'FAIL_BROKEN'&#10;  &#10;  - FAIL_BROKEN&#10;  + PASS">tests/scripts/test_check_deliberate_break.py:2402: in test_base_pytest_must_execute_a_test_before_counting_as_red
+    assert result["verdict"] == VERDICT_BROKEN
+E   AssertionError: assert 'PASS' == 'FAIL_BROKEN'
+E
+E     - FAIL_BROKEN
+E     + PASS</failure></testcase><testcase classname="tests.scripts.test_check_deliberate_break" name="test_base_pytest_must_execute_a_test_before_counting_as_red[root-3]" time="4.621"><failure message="AssertionError: assert 'PASS' == 'FAIL_BROKEN'&#10;  &#10;  - FAIL_BROKEN&#10;  + PASS">tests/scripts/test_check_deliberate_break.py:2402: in test_base_pytest_must_execute_a_test_before_counting_as_red
+    assert result["verdict"] == VERDICT_BROKEN
+E   AssertionError: assert 'PASS' == 'FAIL_BROKEN'
+E
+E     - FAIL_BROKEN
+E     + PASS</failure></testcase><testcase classname="tests.scripts.test_check_deliberate_break" name="test_base_pytest_must_execute_a_test_before_counting_as_red[root-4]" time="5.534"><failure message="AssertionError: assert 'PASS' == 'FAIL_BROKEN'&#10;  &#10;  - FAIL_BROKEN&#10;  + PASS">tests/scripts/test_check_deliberate_break.py:2402: in test_base_pytest_must_execute_a_test_before_counting_as_red
+    assert result["verdict"] == VERDICT_BROKEN
+E   AssertionError: assert 'PASS' == 'FAIL_BROKEN'
+E
+E     - FAIL_BROKEN
+E     + PASS</failure></testcase><testcase classname="tests.scripts.test_check_deliberate_break" name="test_base_pytest_must_execute_a_test_before_counting_as_red[root-5]" time="5.451"><failure message="AssertionError: assert 'PASS' == 'FAIL_BROKEN'&#10;  &#10;  - FAIL_BROKEN&#10;  + PASS">tests/scripts/test_check_deliberate_break.py:2402: in test_base_pytest_must_execute_a_test_before_counting_as_red
+    assert result["verdict"] == VERDICT_BROKEN
+E   AssertionError: assert 'PASS' == 'FAIL_BROKEN'
+E
+E     - FAIL_BROKEN
+E     + PASS</failure></testcase><testcase classname="tests.scripts.test_check_deliberate_break" name="test_base_pytest_must_execute_a_test_before_counting_as_red[consumer-2]" time="5.519"><failure message="AssertionError: assert 'PASS' == 'FAIL_BROKEN'&#10;  &#10;  - FAIL_BROKEN&#10;  + PASS">tests/scripts/test_check_deliberate_break.py:2402: in test_base_pytest_must_execute_a_test_before_counting_as_red
+    assert result["verdict"] == VERDICT_BROKEN
+E   AssertionError: assert 'PASS' == 'FAIL_BROKEN'
+E
+E     - FAIL_BROKEN
+E     + PASS</failure></testcase><testcase classname="tests.scripts.test_check_deliberate_break" name="test_base_pytest_must_execute_a_test_before_counting_as_red[consumer-3]" time="4.741"><failure message="AssertionError: assert 'PASS' == 'FAIL_BROKEN'&#10;  &#10;  - FAIL_BROKEN&#10;  + PASS">tests/scripts/test_check_deliberate_break.py:2402: in test_base_pytest_must_execute_a_test_before_counting_as_red
+    assert result["verdict"] == VERDICT_BROKEN
+E   AssertionError: assert 'PASS' == 'FAIL_BROKEN'
+E
+E     - FAIL_BROKEN
+E     + PASS</failure></testcase><testcase classname="tests.scripts.test_check_deliberate_break" name="test_base_pytest_must_execute_a_test_before_counting_as_red[consumer-4]" time="5.579"><failure message="AssertionError: assert 'PASS' == 'FAIL_BROKEN'&#10;  &#10;  - FAIL_BROKEN&#10;  + PASS">tests/scripts/test_check_deliberate_break.py:2402: in test_base_pytest_must_execute_a_test_before_counting_as_red
+    assert result["verdict"] == VERDICT_BROKEN
+E   AssertionError: assert 'PASS' == 'FAIL_BROKEN'
+E
+E     - FAIL_BROKEN
+E     + PASS</failure></testcase><testcase classname="tests.scripts.test_check_deliberate_break" name="test_base_pytest_must_execute_a_test_before_counting_as_red[consumer-5]" time="5.581"><failure message="AssertionError: assert 'PASS' == 'FAIL_BROKEN'&#10;  &#10;  - FAIL_BROKEN&#10;  + PASS">tests/scripts/test_check_deliberate_break.py:2402: in test_base_pytest_must_execute_a_test_before_counting_as_red
+    assert result["verdict"] == VERDICT_BROKEN
+E   AssertionError: assert 'PASS' == 'FAIL_BROKEN'
+E
+E     - FAIL_BROKEN
+E     + PASS</failure></testcase><testcase classname="tests.scripts.test_check_deliberate_break" name="test_base_missing_import_inside_a_test_still_proves_red[root]" time="5.543" /><testcase classname="tests.scripts.test_check_deliberate_break" name="test_base_missing_import_inside_a_test_still_proves_red[consumer]" time="5.459" /></testsuite></testsuites>

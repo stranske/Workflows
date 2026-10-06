@@ -1,0 +1,10 @@
+--- scripts/check_deliberate_break.py
++++ scripts/check_deliberate_break.py
+@@ -959 +959 @@
+-        head_run = _run_with_runtime_deps(spec.command, repo)
++        head_run = subprocess.CompletedProcess(spec.command, 0, "", "")
+--- templates/consumer-repo/scripts/check_deliberate_break.py
++++ templates/consumer-repo/scripts/check_deliberate_break.py
+@@ -959 +959 @@
+-        head_run = _run_with_runtime_deps(spec.command, repo)
++        head_run = subprocess.CompletedProcess(spec.command, 0, "", "")

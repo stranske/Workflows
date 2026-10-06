@@ -1,0 +1,78 @@
+{
+  "interpreter": "/opt/hostedtoolcache/Python/3.14.7/x64/bin/python3",
+  "runs": {
+    "prior-implementation-red": {
+      "command": [
+        "/opt/hostedtoolcache/Python/3.14.7/x64/bin/python3",
+        "-m",
+        "pytest",
+        "tests/scripts/test_check_deliberate_break.py",
+        "-vv",
+        "--tb=short",
+        "-m",
+        "not slow",
+        "-k",
+        "test_base_collection_failure_cannot_prove_a_deliberate_break"
+      ],
+      "exit": 1,
+      "failed": [
+        "tests/scripts/test_check_deliberate_break.py::test_base_collection_failure_cannot_prove_a_deliberate_break[] FAILED [ 50%]",
+        "tests/scripts/test_check_deliberate_break.py::test_base_collection_failure_cannot_prove_a_deliberate_break[templates/consumer-repo/] FAILED [100%]"
+      ],
+      "passed": []
+    },
+    "unexecuted-head-red": {
+      "command": [
+        "/opt/hostedtoolcache/Python/3.14.7/x64/bin/python3",
+        "-m",
+        "pytest",
+        "tests/scripts/test_check_deliberate_break.py",
+        "-vv",
+        "--tb=short",
+        "-m",
+        "not slow",
+        "-k",
+        "test_base_collection_failure_cannot_prove_a_deliberate_break"
+      ],
+      "exit": 1,
+      "failed": [
+        "tests/scripts/test_check_deliberate_break.py::test_base_collection_failure_cannot_prove_a_deliberate_break[] FAILED [ 50%]",
+        "tests/scripts/test_check_deliberate_break.py::test_base_collection_failure_cannot_prove_a_deliberate_break[templates/consumer-repo/] FAILED [100%]"
+      ],
+      "passed": []
+    },
+    "restored-green": {
+      "command": [
+        "/opt/hostedtoolcache/Python/3.14.7/x64/bin/python3",
+        "-m",
+        "pytest",
+        "tests/scripts/test_check_deliberate_break.py",
+        "-vv",
+        "--tb=short",
+        "-m",
+        "not slow",
+        "-k",
+        "test_base_collection_failure_cannot_prove_a_deliberate_break"
+      ],
+      "exit": 0,
+      "failed": [],
+      "passed": [
+        "tests/scripts/test_check_deliberate_break.py::test_base_collection_failure_cannot_prove_a_deliberate_break[] PASSED [ 50%]",
+        "tests/scripts/test_check_deliberate_break.py::test_base_collection_failure_cannot_prove_a_deliberate_break[templates/consumer-repo/] PASSED [100%]"
+      ]
+    }
+  },
+  "restored_sources": {
+    "scripts/check_deliberate_break.py": {
+      "before": "704ce62c2b3d0470476571d3703799b8c9aac73a74ed7a0e61ea772fdd6f749a",
+      "after": "704ce62c2b3d0470476571d3703799b8c9aac73a74ed7a0e61ea772fdd6f749a",
+      "byte_identical": true
+    },
+    "templates/consumer-repo/scripts/check_deliberate_break.py": {
+      "before": "704ce62c2b3d0470476571d3703799b8c9aac73a74ed7a0e61ea772fdd6f749a",
+      "after": "704ce62c2b3d0470476571d3703799b8c9aac73a74ed7a0e61ea772fdd6f749a",
+      "byte_identical": true
+    }
+  },
+  "test_sha256": "6e3a293d20c7662cf1cc9064613a99a530b131d0c15acaa1400c73501c758b7e"
+}

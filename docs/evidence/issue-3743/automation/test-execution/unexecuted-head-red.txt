@@ -1,0 +1,208 @@
+Command: /opt/hostedtoolcache/Python/3.14.7/x64/bin/python3 -m pytest tests/scripts/test_check_deliberate_break.py -vv --tb=short -m not slow -k test_base_pytest_must_execute_a_test_before_counting_as_red or test_base_missing_import_inside_a_test_still_proves_red --junitxml=/home/runner/work/Workflows/Workflows/docs/evidence/issue-3743/automation/test-execution/unexecuted-head-red.xml
+Exit: 1
+============================= test session starts ==============================
+platform linux -- Python 3.14.7, pytest-9.1.1, pluggy-1.6.0 -- /opt/hostedtoolcache/Python/3.14.7/x64/bin/python3
+cachedir: .pytest_cache
+hypothesis profile 'ci' -> database=None, deadline=None, print_blob=True, derandomize=True, suppress_health_check=(HealthCheck.too_slow,)
+rootdir: /home/runner/work/Workflows/Workflows
+configfile: pyproject.toml
+plugins: langsmith-0.14.4, hypothesis-6.168.5, platformdirs-4.12.3, cov-7.1.0, xdist-3.8.0, anyio-4.15.1
+collecting ... collected 200 items / 188 deselected / 12 selected
+
+tests/scripts/test_check_deliberate_break.py::test_base_pytest_must_execute_a_test_before_counting_as_red[root-2] FAILED [  8%]
+tests/scripts/test_check_deliberate_break.py::test_base_pytest_must_execute_a_test_before_counting_as_red[root-3] FAILED [ 16%]
+tests/scripts/test_check_deliberate_break.py::test_base_pytest_must_execute_a_test_before_counting_as_red[root-4] FAILED [ 25%]
+tests/scripts/test_check_deliberate_break.py::test_base_pytest_must_execute_a_test_before_counting_as_red[root-5] FAILED [ 33%]
+tests/scripts/test_check_deliberate_break.py::test_base_pytest_must_execute_a_test_before_counting_as_red[consumer-2] FAILED [ 41%]
+tests/scripts/test_check_deliberate_break.py::test_base_pytest_must_execute_a_test_before_counting_as_red[consumer-3] FAILED [ 50%]
+tests/scripts/test_check_deliberate_break.py::test_base_pytest_must_execute_a_test_before_counting_as_red[consumer-4] FAILED [ 58%]
+tests/scripts/test_check_deliberate_break.py::test_base_pytest_must_execute_a_test_before_counting_as_red[consumer-5] FAILED [ 66%]
+tests/scripts/test_check_deliberate_break.py::test_base_missing_import_inside_a_test_still_proves_red[root-stdout] FAILED [ 75%]
+tests/scripts/test_check_deliberate_break.py::test_base_missing_import_inside_a_test_still_proves_red[root-stderr] FAILED [ 83%]
+tests/scripts/test_check_deliberate_break.py::test_base_missing_import_inside_a_test_still_proves_red[consumer-stdout] FAILED [ 91%]
+tests/scripts/test_check_deliberate_break.py::test_base_missing_import_inside_a_test_still_proves_red[consumer-stderr] FAILED [100%]
+
+=================================== FAILURES ===================================
+_____ test_base_pytest_must_execute_a_test_before_counting_as_red[root-2] ______
+tests/scripts/test_check_deliberate_break.py:2408: in test_base_pytest_must_execute_a_test_before_counting_as_red
+    assert executions.read_text(encoding="utf-8").splitlines() == ["0"]
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+/opt/hostedtoolcache/Python/3.14.7/x64/lib/python3.14/pathlib/__init__.py:787: in read_text
+    with self.open(mode='r', encoding=encoding, errors=errors, newline=newline) as f:
+         ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+/opt/hostedtoolcache/Python/3.14.7/x64/lib/python3.14/pathlib/__init__.py:771: in open
+    return io.open(self, mode, buffering, encoding, errors, newline)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+E   FileNotFoundError: [Errno 2] No such file or directory: '/tmp/pytest-of-runner/pytest-5/test_base_pytest_must_execute_0/test-executions.txt'
+_____ test_base_pytest_must_execute_a_test_before_counting_as_red[root-3] ______
+tests/scripts/test_check_deliberate_break.py:2408: in test_base_pytest_must_execute_a_test_before_counting_as_red
+    assert executions.read_text(encoding="utf-8").splitlines() == ["0"]
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+/opt/hostedtoolcache/Python/3.14.7/x64/lib/python3.14/pathlib/__init__.py:787: in read_text
+    with self.open(mode='r', encoding=encoding, errors=errors, newline=newline) as f:
+         ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+/opt/hostedtoolcache/Python/3.14.7/x64/lib/python3.14/pathlib/__init__.py:771: in open
+    return io.open(self, mode, buffering, encoding, errors, newline)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+E   FileNotFoundError: [Errno 2] No such file or directory: '/tmp/pytest-of-runner/pytest-5/test_base_pytest_must_execute_1/test-executions.txt'
+_____ test_base_pytest_must_execute_a_test_before_counting_as_red[root-4] ______
+tests/scripts/test_check_deliberate_break.py:2408: in test_base_pytest_must_execute_a_test_before_counting_as_red
+    assert executions.read_text(encoding="utf-8").splitlines() == ["0"]
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+/opt/hostedtoolcache/Python/3.14.7/x64/lib/python3.14/pathlib/__init__.py:787: in read_text
+    with self.open(mode='r', encoding=encoding, errors=errors, newline=newline) as f:
+         ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+/opt/hostedtoolcache/Python/3.14.7/x64/lib/python3.14/pathlib/__init__.py:771: in open
+    return io.open(self, mode, buffering, encoding, errors, newline)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+E   FileNotFoundError: [Errno 2] No such file or directory: '/tmp/pytest-of-runner/pytest-5/test_base_pytest_must_execute_2/test-executions.txt'
+_____ test_base_pytest_must_execute_a_test_before_counting_as_red[root-5] ______
+tests/scripts/test_check_deliberate_break.py:2408: in test_base_pytest_must_execute_a_test_before_counting_as_red
+    assert executions.read_text(encoding="utf-8").splitlines() == ["0"]
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+/opt/hostedtoolcache/Python/3.14.7/x64/lib/python3.14/pathlib/__init__.py:787: in read_text
+    with self.open(mode='r', encoding=encoding, errors=errors, newline=newline) as f:
+         ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+/opt/hostedtoolcache/Python/3.14.7/x64/lib/python3.14/pathlib/__init__.py:771: in open
+    return io.open(self, mode, buffering, encoding, errors, newline)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+E   FileNotFoundError: [Errno 2] No such file or directory: '/tmp/pytest-of-runner/pytest-5/test_base_pytest_must_execute_3/test-executions.txt'
+___ test_base_pytest_must_execute_a_test_before_counting_as_red[consumer-2] ____
+tests/scripts/test_check_deliberate_break.py:2408: in test_base_pytest_must_execute_a_test_before_counting_as_red
+    assert executions.read_text(encoding="utf-8").splitlines() == ["0"]
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+/opt/hostedtoolcache/Python/3.14.7/x64/lib/python3.14/pathlib/__init__.py:787: in read_text
+    with self.open(mode='r', encoding=encoding, errors=errors, newline=newline) as f:
+         ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+/opt/hostedtoolcache/Python/3.14.7/x64/lib/python3.14/pathlib/__init__.py:771: in open
+    return io.open(self, mode, buffering, encoding, errors, newline)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+E   FileNotFoundError: [Errno 2] No such file or directory: '/tmp/pytest-of-runner/pytest-5/test_base_pytest_must_execute_4/test-executions.txt'
+___ test_base_pytest_must_execute_a_test_before_counting_as_red[consumer-3] ____
+tests/scripts/test_check_deliberate_break.py:2408: in test_base_pytest_must_execute_a_test_before_counting_as_red
+    assert executions.read_text(encoding="utf-8").splitlines() == ["0"]
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+/opt/hostedtoolcache/Python/3.14.7/x64/lib/python3.14/pathlib/__init__.py:787: in read_text
+    with self.open(mode='r', encoding=encoding, errors=errors, newline=newline) as f:
+         ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+/opt/hostedtoolcache/Python/3.14.7/x64/lib/python3.14/pathlib/__init__.py:771: in open
+    return io.open(self, mode, buffering, encoding, errors, newline)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+E   FileNotFoundError: [Errno 2] No such file or directory: '/tmp/pytest-of-runner/pytest-5/test_base_pytest_must_execute_5/test-executions.txt'
+___ test_base_pytest_must_execute_a_test_before_counting_as_red[consumer-4] ____
+tests/scripts/test_check_deliberate_break.py:2408: in test_base_pytest_must_execute_a_test_before_counting_as_red
+    assert executions.read_text(encoding="utf-8").splitlines() == ["0"]
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+/opt/hostedtoolcache/Python/3.14.7/x64/lib/python3.14/pathlib/__init__.py:787: in read_text
+    with self.open(mode='r', encoding=encoding, errors=errors, newline=newline) as f:
+         ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+/opt/hostedtoolcache/Python/3.14.7/x64/lib/python3.14/pathlib/__init__.py:771: in open
+    return io.open(self, mode, buffering, encoding, errors, newline)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+E   FileNotFoundError: [Errno 2] No such file or directory: '/tmp/pytest-of-runner/pytest-5/test_base_pytest_must_execute_6/test-executions.txt'
+___ test_base_pytest_must_execute_a_test_before_counting_as_red[consumer-5] ____
+tests/scripts/test_check_deliberate_break.py:2408: in test_base_pytest_must_execute_a_test_before_counting_as_red
+    assert executions.read_text(encoding="utf-8").splitlines() == ["0"]
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+/opt/hostedtoolcache/Python/3.14.7/x64/lib/python3.14/pathlib/__init__.py:787: in read_text
+    with self.open(mode='r', encoding=encoding, errors=errors, newline=newline) as f:
+         ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+/opt/hostedtoolcache/Python/3.14.7/x64/lib/python3.14/pathlib/__init__.py:771: in open
+    return io.open(self, mode, buffering, encoding, errors, newline)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+E   FileNotFoundError: [Errno 2] No such file or directory: '/tmp/pytest-of-runner/pytest-5/test_base_pytest_must_execute_7/test-executions.txt'
+_____ test_base_missing_import_inside_a_test_still_proves_red[root-stdout] _____
+tests/scripts/test_check_deliberate_break.py:2445: in test_base_missing_import_inside_a_test_still_proves_red
+    assert executions.read_text(encoding="utf-8").splitlines() == ["called", "called"]
+E   AssertionError: assert ['called'] == ['called', 'called']
+E
+E     Right contains one more item: 'called'
+E
+E     Full diff:
+E       [
+E           'called',
+E     -     'called',
+E       ]
+_____ test_base_missing_import_inside_a_test_still_proves_red[root-stderr] _____
+tests/scripts/test_check_deliberate_break.py:2445: in test_base_missing_import_inside_a_test_still_proves_red
+    assert executions.read_text(encoding="utf-8").splitlines() == ["called", "called"]
+E   AssertionError: assert ['called'] == ['called', 'called']
+E
+E     Right contains one more item: 'called'
+E
+E     Full diff:
+E       [
+E           'called',
+E     -     'called',
+E       ]
+___ test_base_missing_import_inside_a_test_still_proves_red[consumer-stdout] ___
+tests/scripts/test_check_deliberate_break.py:2445: in test_base_missing_import_inside_a_test_still_proves_red
+    assert executions.read_text(encoding="utf-8").splitlines() == ["called", "called"]
+E   AssertionError: assert ['called'] == ['called', 'called']
+E
+E     Right contains one more item: 'called'
+E
+E     Full diff:
+E       [
+E           'called',
+E     -     'called',
+E       ]
+___ test_base_missing_import_inside_a_test_still_proves_red[consumer-stderr] ___
+tests/scripts/test_check_deliberate_break.py:2445: in test_base_missing_import_inside_a_test_still_proves_red
+    assert executions.read_text(encoding="utf-8").splitlines() == ["called", "called"]
+E   AssertionError: assert ['called'] == ['called', 'called']
+E
+E     Right contains one more item: 'called'
+E
+E     Full diff:
+E       [
+E           'called',
+E     -     'called',
+E       ]
+- generated xml file: /home/runner/work/Workflows/Workflows/docs/evidence/issue-3743/automation/test-execution/unexecuted-head-red.xml -
+=========================== short test summary info ============================
+FAILED tests/scripts/test_check_deliberate_break.py::test_base_pytest_must_execute_a_test_before_counting_as_red[root-2] - FileNotFoundError: [Errno 2] No such file or directory: '/tmp/pytest-of-runner/pytest-5/test_base_pytest_must_execute_0/test-executions.txt'
+FAILED tests/scripts/test_check_deliberate_break.py::test_base_pytest_must_execute_a_test_before_counting_as_red[root-3] - FileNotFoundError: [Errno 2] No such file or directory: '/tmp/pytest-of-runner/pytest-5/test_base_pytest_must_execute_1/test-executions.txt'
+FAILED tests/scripts/test_check_deliberate_break.py::test_base_pytest_must_execute_a_test_before_counting_as_red[root-4] - FileNotFoundError: [Errno 2] No such file or directory: '/tmp/pytest-of-runner/pytest-5/test_base_pytest_must_execute_2/test-executions.txt'
+FAILED tests/scripts/test_check_deliberate_break.py::test_base_pytest_must_execute_a_test_before_counting_as_red[root-5] - FileNotFoundError: [Errno 2] No such file or directory: '/tmp/pytest-of-runner/pytest-5/test_base_pytest_must_execute_3/test-executions.txt'
+FAILED tests/scripts/test_check_deliberate_break.py::test_base_pytest_must_execute_a_test_before_counting_as_red[consumer-2] - FileNotFoundError: [Errno 2] No such file or directory: '/tmp/pytest-of-runner/pytest-5/test_base_pytest_must_execute_4/test-executions.txt'
+FAILED tests/scripts/test_check_deliberate_break.py::test_base_pytest_must_execute_a_test_before_counting_as_red[consumer-3] - FileNotFoundError: [Errno 2] No such file or directory: '/tmp/pytest-of-runner/pytest-5/test_base_pytest_must_execute_5/test-executions.txt'
+FAILED tests/scripts/test_check_deliberate_break.py::test_base_pytest_must_execute_a_test_before_counting_as_red[consumer-4] - FileNotFoundError: [Errno 2] No such file or directory: '/tmp/pytest-of-runner/pytest-5/test_base_pytest_must_execute_6/test-executions.txt'
+FAILED tests/scripts/test_check_deliberate_break.py::test_base_pytest_must_execute_a_test_before_counting_as_red[consumer-5] - FileNotFoundError: [Errno 2] No such file or directory: '/tmp/pytest-of-runner/pytest-5/test_base_pytest_must_execute_7/test-executions.txt'
+FAILED tests/scripts/test_check_deliberate_break.py::test_base_missing_import_inside_a_test_still_proves_red[root-stdout] - AssertionError: assert ['called'] == ['called', 'called']
+
+  Right contains one more item: 'called'
+
+  Full diff:
+    [
+        'called',
+  -     'called',
+    ]
+FAILED tests/scripts/test_check_deliberate_break.py::test_base_missing_import_inside_a_test_still_proves_red[root-stderr] - AssertionError: assert ['called'] == ['called', 'called']
+
+  Right contains one more item: 'called'
+
+  Full diff:
+    [
+        'called',
+  -     'called',
+    ]
+FAILED tests/scripts/test_check_deliberate_break.py::test_base_missing_import_inside_a_test_still_proves_red[consumer-stdout] - AssertionError: assert ['called'] == ['called', 'called']
+
+  Right contains one more item: 'called'
+
+  Full diff:
+    [
+        'called',
+  -     'called',
+    ]
+FAILED tests/scripts/test_check_deliberate_break.py::test_base_missing_import_inside_a_test_still_proves_red[consumer-stderr] - AssertionError: assert ['called'] == ['called', 'called']
+
+  Right contains one more item: 'called'
+
+  Full diff:
+    [
+        'called',
+  -     'called',
+    ]
+===================== 12 failed, 188 deselected in 30.85s ======================

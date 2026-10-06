@@ -1,0 +1,5 @@
+$ black --check --line-length 100 --exclude '(\.workflows-lib|node_modules)' .
+PATH prepended with the retained serial file-dispatch adapter.
+All done! ✨ 🍰 ✨
+661 files would be left unchanged.
+Process exit: 0

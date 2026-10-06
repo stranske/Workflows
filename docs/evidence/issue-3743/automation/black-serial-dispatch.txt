@@ -1,0 +1,20 @@
+#!/opt/hostedtoolcache/Python/3.14.7/x64/bin/python3
+"""Run Black's unchanged checks with serial file dispatch in this sandbox."""
+import black
+import black.concurrency
+
+
+def reformat_many(sources, fast, write_back, mode, report, workers, no_cache=False):
+    for source in sorted(sources):
+        black.reformat_one(
+            src=source,
+            fast=fast,
+            write_back=write_back,
+            mode=mode,
+            report=report,
+            no_cache=no_cache,
+        )
+
+
+black.concurrency.reformat_many = reformat_many
+black.patched_main()

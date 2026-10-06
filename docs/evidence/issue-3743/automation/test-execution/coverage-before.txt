@@ -1,0 +1,42 @@
+Command: python3 -m pytest tests/scripts/test_check_deliberate_break.py -q -m 'not slow' --cov=scripts.check_deliberate_break --cov-report=term-missing --cov-report=json:/tmp/deliberate-coverage-before.json
+Exit: 1
+.............................F.......................................... [ 36%]
+........................................................................ [ 72%]
+......................................................                   [100%]
+=================================== FAILURES ===================================
+________________________ test_cli_skips_without_marker _________________________
+
+tmp_path = PosixPath('/tmp/pytest-of-runner/pytest-0/test_cli_skips_without_marker0')
+
+    def test_cli_skips_without_marker(tmp_path) -> None:
+        completed = subprocess.run(
+            [
+                sys.executable,
+                str(Path(__file__).parents[2] / "scripts" / "check_deliberate_break.py"),
+                "--base",
+                "HEAD",
+            ],
+            cwd=tmp_path,
+            text=True,
+            capture_output=True,
+            env={**os.environ, "PR_BODY": "## Acceptance Criteria\n- [ ] normal"},
+        )
+
+>       assert completed.returncode == 0
+E       AssertionError: assert 1 == 0
+E        +  where 1 = CompletedProcess(args=['/opt/hostedtoolcache/Python/3.14.7/x64/bin/python3', '/home/runner/work/Workflows/Workflows/sc...only file system: \'/home/runner/work/_temp/_runner_file_commands/set_output_ab2c520f-7a70-47a9-8129-8fd6953471cd\'\n').returncode
+
+tests/scripts/test_check_deliberate_break.py:614: AssertionError
+================================ tests coverage ================================
+_______________ coverage: platform linux, python 3.14.7-final-0 ________________
+
+Name                                Stmts   Miss Branch BrPart   Cover   Missing
+--------------------------------------------------------------------------------
+scripts/check_deliberate_break.py     582     50    258     26  90.71%   160->162, 200, 235, 300->exit, 337-338, 340, 343-344, 355, 358, 386, 458-459, 476, 478, 491->501, 528, 551, 603, 615, 617-618, 663, 668, 694->701, 706-710, 721-722, 743-744, 745->751, 748-749, 764-765, 768-769, 775-776, 891, 896, 900, 918, 961, 969-970, 1017, 1024, 1030, 1143
+--------------------------------------------------------------------------------
+TOTAL                                 582     50    258     26  90.71%
+Coverage JSON written to file /tmp/deliberate-coverage-before.json
+=========================== short test summary info ============================
+FAILED tests/scripts/test_check_deliberate_break.py::test_cli_skips_without_marker - AssertionError: assert 1 == 0
+ +  where 1 = CompletedProcess(args=['/opt/hostedtoolcache/Python/3.14.7/x64/bin/python3', '/home/runner/work/Workflows/Workflows/sc...only file system: \'/home/runner/work/_temp/_runner_file_commands/set_output_ab2c520f-7a70-47a9-8129-8fd6953471cd\'\n').returncode
+1 failed, 197 passed in 114.65s (0:01:54)
