@@ -7,6 +7,62 @@ import pytest
 from scripts import sync_dev_dependencies as sdd
 
 
+@pytest.mark.parametrize(
+    "requirement",
+    ["coverage[toml]==7.0", "coverage[toml]", "coverage[toml]>=7.0; python_version < '3.14'"],
+)
+def test_sync_dependency_extras_before_version_preserves_marker(requirement):
+    section = f'dev = ["{requirement}"]'
+    assert sdd.extract_dependencies(section)[0][0] == "coverage"
+    updated, changed = sdd.update_dependency_in_section(section, "coverage", "7.1")
+    assert changed
+    marker = "; python_version < '3.14'" if ";" in requirement else ""
+    assert updated == f'dev = ["coverage[toml]==7.1{marker}"]'
+
+
+@pytest.mark.parametrize(
+    "group,valid",
+    [
+        ("nested/pyproject.toml:dev", True),
+        ("/outside/pyproject.toml:dev", False),
+        ("../outside/pyproject.toml:dev", False),
+    ],
+)
+def test_regenerate_explicit_group_validates_its_actual_input(tmp_path, monkeypatch, group, valid):
+    monkeypatch.chdir(tmp_path)
+    Path("nested").mkdir()
+    Path("nested/pyproject.toml").write_text("[dependency-groups]\ndev=[]\n")
+    # A root project must neither authorize an escaped group nor be required
+    # when a legitimate local group supplies its own project.
+    if not valid:
+        Path("pyproject.toml").write_text("[dependency-groups]\ndev=[]\n")
+    lock = Path("requirements.lock")
+    lock.write_text(f"# uv pip compile --group {group} -o requirements.lock\nmypy==2.4.0\n")
+    run = Mock()
+    monkeypatch.setattr(sdd.subprocess, "run", run)
+    _, errors = sdd.regenerate_lockfile(lock, {"MYPY_VERSION": "2.4.0"})
+    assert bool(errors) is not valid
+    assert run.called is valid
+
+
+def test_main_rejects_escaped_write_before_any_direct_pin_mutation(tmp_path, monkeypatch):
+    monkeypatch.chdir(tmp_path)
+    env = Path("pins.env")
+    env.write_text("MYPY_VERSION=2.4.0\n")
+    project = Path("pyproject.toml")
+    project.write_text(
+        '[project]\nname="example"\nversion="1"\n[project.optional-dependencies]\ndev=["mypy==2.3.0"]\n'
+    )
+    external = tmp_path.parent / "external-before-write.lock"
+    original = "# uv pip compile pyproject.toml -o requirements.lock\nmypy==2.3.0\n"
+    external.write_text(original)
+    Path("requirements.lock").symlink_to(external)
+    before = project.read_text()
+    assert sdd.main(["--apply", "--resolve-locks", "--pin-file", str(env)]) == 2
+    assert external.read_text() == original
+    assert project.read_text() == before
+
+
 def test_regenerate_lock_retains_original_extras_and_platform(tmp_path, monkeypatch):
     monkeypatch.chdir(tmp_path)
     Path("pyproject.toml").write_text("[project]\nname='example'\nversion='1'\n")

@@ -182,12 +182,14 @@ def extract_dependencies(section: str) -> list[tuple[str, str, str]]:
     deps = []
     # Match patterns like "package>=1.0.0" or "package==1.0.0" or just "package"
     # Be precise: package name followed by optional version specifier
-    pattern = re.compile(r'"([a-zA-Z0-9_-]+)(?:(>=|==|~=|>|<|<=|!=)([^"\[\]]+))?(?:\[.*?\])?"')
+    pattern = re.compile(
+        r'"([a-zA-Z0-9_.-]+)(?:\[[^\]]+\])?(?:(>=|==|~=|<=|!=|>|<)([^";]+))?(?:;[^\"]*)?"'
+    )
 
     for match in pattern.finditer(section):
         package = match.group(1)
         operator = match.group(2) or ""
-        version = match.group(3) or ""
+        version = (match.group(3) or "").strip()
         deps.append((package, operator, version))
 
     return deps
@@ -211,15 +213,16 @@ def update_dependency_in_section(
     # Match: "package" + optional version spec, NOT followed by more pkg name chars
     # The negative lookahead (?!-) ensures we don't match "pytest" in "pytest-cov"
     pattern = re.compile(
-        rf'"({re.escape(package)})(?![-\w])(>=|==|~=|>|<|<=|!=)?([^"\[\]]*)?(\[.*?\])?"',
+        rf'"({re.escape(package)})(?![-\w])(\[[^\]]+\])?(?:(>=|==|~=|<=|!=|>|<)([^";]+))?(;[^\"]*)?"',
         re.IGNORECASE,
     )
 
     def replacer(m: re.Match) -> str:
         pkg_name = m.group(1)
-        extras = m.group(4) or ""
+        extras = m.group(2) or ""
+        marker = m.group(5) or ""
         op = "==" if use_exact_pin else ">="
-        return f'"{pkg_name}{op}{new_version}{extras}"'
+        return f'"{pkg_name}{extras}{op}{new_version}{marker}"'
 
     new_section, count = pattern.subn(replacer, section)
     return new_section, count > 0
@@ -431,7 +434,10 @@ def regenerate_lockfile(lockfile_path: Path, pins: dict[str, str]) -> tuple[list
                 if flag in {"--constraints", "-c", "--overrides"}:
                     sources.append(value)
                 if flag == "--group":
-                    sources.append("pyproject.toml")
+                    group_path, qualified, group_name = value.rpartition(":")
+                    if qualified and (not group_path or not group_name):
+                        raise ValueError("invalid explicit group input")
+                    sources.append(group_path if qualified else "pyproject.toml")
                 if flag in {"--upgrade-package", "-P"}:
                     package = re.match(r"[A-Za-z0-9_.-]+", value)
                     if package is None:
@@ -679,6 +685,21 @@ def main(argv: list[str] | None = None) -> int:
     if not pins:
         print("Error: No pins found in env file", file=sys.stderr)
         return 2
+
+    # Validate every potential output before the first direct write. A later
+    # resolver guard cannot undo pyproject/lock edits through an escaped symlink.
+    if args.apply:
+        root = Path.cwd().resolve()
+        outputs = [args.pyproject, *LOCKFILE_FILES]
+        if args.pre_commit:
+            outputs.append(PRE_COMMIT_FILE)
+        for output in outputs:
+            if not output.resolve().is_relative_to(root):
+                print(
+                    f"Error: write destination must remain repository-local: {output}",
+                    file=sys.stderr,
+                )
+                return 2
 
     changes, errors = sync_pyproject(
         args.pyproject,

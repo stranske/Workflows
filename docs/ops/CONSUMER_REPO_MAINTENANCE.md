@@ -1707,8 +1707,15 @@ Repository-local baseline `.txt` inputs and uv's plural `--constraints` and
 receive canonical tool constraints; previously recorded managed upgrade options
 are replaced by the current canonical version. Escaped input/output destinations
 fail closed. A successful unchanged lock is a no-op, not an update receipt.
+Implicit group inputs use the local `pyproject.toml`; an explicit group path
+must validate its own existing repository-local project, not an unrelated root
+file. Before any direct apply write, validate all potential output destinations
+against repository containment, including resolved symlink targets. Canonical
+pyproject updates keep dependency extras before the version and preserve markers.
 Both apply branches derive publication readiness from the final tree diff; dry
 runs perform the same resolution in the disposable checkout without publishing.
+The final apply output, rather than the preliminary direct-pin check, supplies
+the preview and PR change summary for transitive-only updates.
 The propagation-script digest participates in the wave hash, so this repair
 produces a replacement wave even when the canonical tool versions are unchanged.
 

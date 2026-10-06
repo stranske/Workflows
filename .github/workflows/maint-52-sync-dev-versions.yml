@@ -231,7 +231,8 @@ jobs:
           # Dry runs resolve in this disposable checkout too; publication is
           # guarded separately. Only the final tree diff means an update exists.
           python -m pip install --disable-pip-version-check 'uv>=0.5'
-          python ../scripts/sync_dev_dependencies.py --apply --pre-commit --resolve-locks
+          python ../scripts/sync_dev_dependencies.py --apply --pre-commit --resolve-locks 2>&1 \
+            | tee /tmp/sync_output.txt
           if [ -f uv.lock ]; then uv lock; fi
           if ! git diff --quiet; then
             echo "has_changes=true" >> "$GITHUB_OUTPUT"

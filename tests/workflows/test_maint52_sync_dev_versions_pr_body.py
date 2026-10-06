@@ -3,6 +3,16 @@ from pathlib import Path
 WORKFLOW = Path(".github/workflows/maint-52-sync-dev-versions.yml")
 
 
+def test_transitive_summary_captures_final_apply_not_preliminary_check():
+    text = WORKFLOW.read_text()
+    existing = text[
+        text.index("- name: Sync versions") : text.index("- name: Add dev dependencies")
+    ]
+    apply = existing[existing.index("--apply --pre-commit --resolve-locks") :]
+    assert "tee /tmp/sync_output.txt" in apply
+    assert apply.index("tee /tmp/sync_output.txt") < apply.index("cat /tmp/sync_output.txt")
+
+
 def test_dev_version_sync_pr_body_matches_changed_files():
     text = WORKFLOW.read_text(encoding="utf-8")
     pr_scope_lines = [
