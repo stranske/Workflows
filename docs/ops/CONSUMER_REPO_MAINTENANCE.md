@@ -90,6 +90,15 @@ artifact destinations, including `Evidence must not appear as workflow artifacts
 For negative `No`/`Neither` presence clauses, normalization consumes the full
 bounded coordinated destination list (including qualified recipients), not just
 its first channel; leftover checklist destinations must not invent an obligation.
+The shared destination list stops before a destination-shaped noun governed by
+an independent predicate, using the shared mandatory auxiliary vocabulary,
+bounded delivery adverbs, and attached `that`/`which` prefixes. Body-subject
+delivery predicates recognize the same prefixes rather than losing the channel.
+For example, `No evidence is required to appear in a PR comment, and workflow
+artifacts must contain command output` still requires the artifacts channel.
+Quoted presence text remains literal during normalization. An explicit quote
+instruction does not turn its quoted example into an evidence obligation;
+independent delivery instructions outside that example retain their channel.
 Product capability `permit` shares the bounded `allow`/`enable`/`support`
 classification; reviewer `share` and its inflections share the existing record
 delivery alias grammar, including negation and independent destinations.

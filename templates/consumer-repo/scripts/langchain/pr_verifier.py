@@ -1025,9 +1025,7 @@ def _required_evidence_channels(acceptance: str, *, _bind_attached: bool = True)
         + artifact_destination_object
         + r"|(?:pr|pull request)\b)"
     )
-    independent_review_predicate = (
-        r"(?:must|shall|needs?\s+to|has\s+to|have\s+to|is|are|will|should|may|can)\b"
-    )
+    independent_review_predicate = r"(?:" + mandatory_auxiliary + r"|is|are|will|should|may|can)\b"
     destination_preposition = r"(?:in|into|to|within|for|as|through|via)\s+"
     delivery_destination_item = r"(?:" + review_destination_noun + "|" + recipient_noun + ")"
     delivery_destination_separator_base = r"(?:\s*,\s*(?:(?:and|or)\s+)?|\s+(?:and|or)\s+)"
@@ -1049,6 +1047,12 @@ def _required_evidence_channels(acceptance: str, *, _bind_attached: bool = True)
         + delivery_destination_item
         + r"(?:"
         + delivery_destination_separator
+        + r"(?!"
+        + delivery_destination_item
+        + r"\s+(?:(?:that|which)\s+)?"
+        + delivery_adverbs
+        + independent_review_predicate
+        + r")"
         + delivery_destination_item
         + r")*"
     )
@@ -1061,7 +1065,13 @@ def _required_evidence_channels(acceptance: str, *, _bind_attached: bool = True)
     )
     # Presence predicates use the existing passive-delivery grammar, including
     # governing negation and modality, instead of a second affirmative regex.
+    quoted_evidence_literal = (
+        r"`+[^`]*`+|\"[^\"]*\"|"
+        r"(?<!\w)'(?:[^']|(?<=\w)'(?=\w))*'(?!\w)|"
+        r"“[^”]*”|(?<!\w)‘(?:[^’]|(?<=\w)’(?=\w))*’(?!\w)"
+    )
     acceptance = re.sub(
+        r"(?P<literal>" + quoted_evidence_literal + r")|"
         r"(?P<prefix>\b(?:no\s+|neither\s+"
         + evidence_modifiers
         + r"(?:evidence|artifacts?|command outputs?|transcripts?)\s+nor\s+)?"
@@ -1078,9 +1088,13 @@ def _required_evidence_channels(acceptance: str, *, _bind_attached: bool = True)
         r"(?:appear|be\s+present)"
         r"(?P<destination>\s+" + bound_review_destinations + r")",
         lambda match: (
-            match["prefix"] + "be recorded" + match["destination"]
-            if not re.match(r"(?:no|neither)\s+", match["prefix"], re.I)
-            else " "
+            match[0]
+            if match["literal"]
+            else (
+                match["prefix"] + "be recorded" + match["destination"]
+                if not re.match(r"(?:no|neither)\s+", match["prefix"], re.I)
+                else " "
+            )
         ),
         acceptance,
         flags=re.I,
@@ -1122,11 +1136,6 @@ def _required_evidence_channels(acceptance: str, *, _bind_attached: bool = True)
         "supplying": "recording",
     }
 
-    quoted_evidence_literal = (
-        r"`+[^`]*`+|\"[^\"]*\"|"
-        r"(?<!\w)'(?:[^']|(?<=\w)'(?=\w))*'(?!\w)|"
-        r"“[^”]*”|(?<!\w)‘(?:[^’]|(?<=\w)’(?=\w))*’(?!\w)"
-    )
     parenthetical_actor = (
         r"\b(?:reviewers?|maintainers?|authors?|operators?|agents?|bots?|runners?|"
         r"developers?|engineers?|testers?|auditors?|verifiers?|teams?|users?|"
@@ -1578,7 +1587,16 @@ def _required_evidence_channels(acceptance: str, *, _bind_attached: bool = True)
             + r"(?:be\s+)?"
             + r"(?:required|needed|mandatory|optional)\b",
             r"\b" + mandatory_auxiliary + r"\s+" + polarity + operation + r"\s+" + destination,
-            r"\b" + body + r"\s+" + auxiliary + r"\s+" + polarity + operation + r"\s+" + noun,
+            r"\b"
+            + body
+            + r"\s+(?:(?:that|which)\s+)?"
+            + delivery_adverbs
+            + auxiliary
+            + r"\s+"
+            + polarity
+            + operation
+            + r"\s+"
+            + noun,
             r"\bthere\s+" + auxiliary + r"\s+" + polarity + r"be\s+" + noun + r"\s+" + destination,
             r"\b"
             + noun
@@ -2207,6 +2225,13 @@ def _required_evidence_channels(acceptance: str, *, _bind_attached: bool = True)
         # Quoted parser inputs are examples, including their verbs and clause
         # delimiters. Remove only the literal following the parser operation;
         # an actual delivery instruction after the example still applies.
+        criterion = re.sub(
+            r"\bquot(?:e|es|ed|ing)\s+(?:the\s+(?:phrase|string|text)\s+)?"
+            r"(?P<example>" + quoted_evidence_literal + r")",
+            lambda match: match.group(0)[: match.start("example") - match.start()] + " ",
+            criterion,
+            flags=re.I,
+        )
         criterion = re.sub(
             r"\b(?:parser|verifier|code|script|implementation)\b.{0,80}?"
             r"\b(?:recogniz|pars|detect|classif|match|identif|support|handl|validat)\w*\b\s*"
