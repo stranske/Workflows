@@ -1333,6 +1333,76 @@ that reset before optionality/polarity classification; a broad body match
 cannot hide it, and shared noun-only object inheritance cannot prepend a
 previous predicate to it. Bare product-field nouns such as `records` do not
 become independent predicates through this governor-only boundary.
+Named actors after a conjunction use the same complete governor, aspect and
+operation grammar as elided actors. The boundary and broad-destination span
+guards must agree: an optional reviewer delivery cannot absorb a separate
+maintainer's mandatory, perfect or progressive delivery. Regression controls
+cover qualified actors, all three destination channels and genuine prohibitions.
+Sentence-ending period, exclamation and question marks share that boundary.
+Bare active-past delivery predicates also reset the actor rather than inheriting
+a preceding optional modal. The shared operation grammar retains `prove`;
+`supply`, `supplies`, `supplied` and `supplying` normalize to the same
+record grammar in active/passive, polarity and product-recipient paths.
+The bare active-past branch requires a recognized qualified actor and shares
+the bounded adverb grammar. Participial evidence modifiers such as
+`previously published evidence` do not introduce an independent actor.
+Supply aliases require a verbal governor, qualified actor or list-normalized
+imperative; object nouns such as `power supply evidence` are not deliveries.
+The actor alternative starts at the clause subject and permits only bounded
+role qualifiers (assigned, responsible, authorized, experienced, designated,
+senior, lead, primary, current, CI or API), not an arbitrary preceding predicate.
+Thus `the reviewer checks the service supply evidence` cannot turn an object
+compound into an independent service delivery.
+The same bounded subject guard applies to active-past placed/submitted/delivered/
+supplied aliases. Independent finite-present delivery predicates share that actor
+and operation grammar across conjunctions and sentence endings; they cannot inherit
+a preceding actor's optional modal.
+Base supply/supplies after bare has/have/had possession is not a verbal alias;
+progressive supplying retains be-family governors, while supplied retains perfect
+governors. Bounded optional inspect/review/check-whether clauses about product
+possession of supply evidence are nongating across review destinations and checklist
+markers, including shared bounded adverbs before and after has/have/had;
+bounded possession modifiers also retain not/never/no-longer polarity there;
+independently required reviewer deliveries remain authoritative.
+Elided active-perfect review deliveries admit the shared bounded adverbs before
+and after have, retaining the same actor/governor inheritance as passive actions.
+Active-past and finite-present aliases share the qualified actor vocabulary:
+assigned/responsible/authorized/experienced/designated/senior/lead/primary/current,
+CI/API, and release/security/compliance/quality/platform/infrastructure/deployment/
+operations/finance/data/privacy/audit/risk/project/independent. Up to three such
+modifiers may qualify the existing role heads; this is finite compound-role support,
+not arbitrary English parsing. Full-prefix subject matching rejects inspection
+predicates such as audits/observes/tests before object service/API actors.
+Delivery prohibitions reuse the shared governor and operation vocabulary,
+including do/does/did and prove, with not/never/no-longer polarity. A required
+delivery in another independent clause remains authoritative. Supply alias
+classification inspects contracted negative governors before clause expansion;
+bare never/no-longer delivery predicates remain negative in either clause order.
+Contrastive not-only/not-merely/not-just deliveries are additive, not prohibitions,
+using the same bounded delivery operation/aspect grammar and preserving quoted
+literal bytes. A negative
+governor cannot be discarded by matching an embedded need-to/has-to substring.
+These guards share the passive aspect vocabulary, including residual been/being
+after a finite has/had/is governor and the same governed aspect in immediate
+review-destination recognition. A short negative requirement match consumes
+its complete optional passive or active-perfect action instead of leaving
+to-be-recorded or to-have-supplied text behind as a new delivery. Body predicates,
+negative action removal, and elided-passive inheritance share the complete
+negative requirement governor vocabulary. A coordinated elided passive
+review delivery inherits only the preceding evidence object and governor;
+optional/negative governors remain optional/negative, and a new actor or product
+storage predicate cannot supply that inheritance.
+An explicit contrastive but boundary retains the inherited modality but does not
+copy its negation to the contrasting delivery; and/or retain the negative governor.
+Checklist syntax cannot reclassify object nouns left by a recognized negative
+delivery as mandatory evidence. Explicit independent positive predicates and
+required body records remain authoritative, including their real evidence floor.
+Active-perfect elided deliveries retain their bounded actor and complete governor,
+including optional/negative and contrastive paths, through the same splitting and
+inheritance predicate as passive delivery. Their explicit evidence objects are
+not mistaken for passive subjects or ungoverned checklist deliverables.
+Comment presence/containment predicates share the complete mandatory auxiliary
+grammar, including `has/have to`, with existing polarity controls.
 Do-supported product storage (`do`, `does`, `did`) shares the finite auxiliary
 grammar and does not create a review obligation. Comma-separated and conjunctive
 shared storage/review destinations reuse the delivery-list separator grammar,

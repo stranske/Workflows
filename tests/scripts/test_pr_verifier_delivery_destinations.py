@@ -9,6 +9,620 @@ from scripts import docs_drift_fix_agent as fix_agent
 from scripts.langchain import pr_verifier as verifier
 
 
+@pytest.mark.parametrize(
+    "role",
+    [
+        "release reviewer",
+        "security reviewer",
+        "compliance maintainer",
+        "risk auditor",
+        "security release reviewer",
+        "CI release reviewer",
+        "project team",
+        "independent security auditor",
+    ],
+)
+@pytest.mark.parametrize("operation", ["placed", "submitted", "delivered", "supplied"])
+@pytest.mark.parametrize("adverb", ["", "already ", "currently "])
+@pytest.mark.parametrize("marker", ["", "- [ ] "])
+@pytest.mark.parametrize(
+    "destination,channel",
+    [("the PR body", "body"), ("a PR comment", "comments"), ("workflow artifacts", "artifacts")],
+)
+def test_compound_review_roles_retain_active_past_delivery(
+    role, operation, adverb, marker, destination, channel
+):
+    """Role noun modifiers cannot erase explicit delivered-evidence obligations."""
+    criterion = f"The {role} {adverb}{operation} evidence in {destination}"
+    assert verifier._required_evidence_channels(marker + criterion) == {channel}
+    optional = "The reviewer may supply evidence in the PR body"
+    assert verifier._required_evidence_channels(optional + "; " + criterion) == {channel}
+    assert verifier._required_evidence_channels(criterion + "; " + optional) == {channel}
+
+
+@pytest.mark.parametrize("predicate", ["audits", "observes", "tests"])
+@pytest.mark.parametrize("actor", ["service", "API"])
+@pytest.mark.parametrize("alias", ["placed", "submitted", "supplied", "supplies"])
+@pytest.mark.parametrize("marker", ["", "- [ ] "])
+@pytest.mark.parametrize("destination", ["the PR body", "a PR comment", "workflow artifacts"])
+def test_inspection_object_actor_is_not_compound_delivery_role(
+    predicate, actor, alias, marker, destination
+):
+    """Inspection cannot invent delivery; retain existing noun-only checklist floors."""
+    criterion = f"The reviewer {predicate} {actor} {alias} evidence in {destination}"
+    expected = (
+        {"artifacts"}
+        if marker and destination == "workflow artifacts"
+        else {"overall"} if marker and destination == "the PR body" else set()
+    )
+    assert verifier._required_evidence_channels(marker + criterion) == expected
+
+
+@pytest.mark.parametrize("role", ["release reviewer", "security reviewer", "risk auditor"])
+@pytest.mark.parametrize("alias", ["supplies", "placed", "submitted", "supplied"])
+@pytest.mark.parametrize("marker", ["", "- [ ] "])
+@pytest.mark.parametrize(
+    "destination,channel",
+    [("the PR body", "body"), ("a PR comment", "comments"), ("workflow artifacts", "artifacts")],
+)
+def test_compound_role_polarity_and_independent_delivery(role, alias, marker, destination, channel):
+    """Compound roles share optional, negative and independent delivery grammar."""
+    positive = f"The {role} {alias} evidence in {destination}"
+    optional = "The reviewer may supply evidence in workflow artifacts"
+    assert verifier._required_evidence_channels(marker + optional + " and " + positive) == {channel}
+    negative = f"The {role} must not supply evidence in {destination}"
+    assert verifier._required_evidence_channels(marker + negative) == set()
+    assert verifier._required_evidence_channels(marker + negative + "; " + positive) == {channel}
+
+
+@pytest.mark.parametrize("role", ["reviewer", "maintainer", "release reviewer"])
+@pytest.mark.parametrize("auxiliary", ["has", "have", "had"])
+@pytest.mark.parametrize("alias", ["supply", "supplies"])
+@pytest.mark.parametrize("inspection", ["inspect", "review", "check"])
+@pytest.mark.parametrize("destination", ["the PR body", "a PR comment", "workflow artifacts"])
+@pytest.mark.parametrize("marker", ["", "- [ ] ", "- [x] "])
+@pytest.mark.parametrize(
+    "before,after",
+    [
+        ("", ""),
+        ("already ", ""),
+        ("currently ", ""),
+        ("still ", ""),
+        ("", "already "),
+        ("", "currently "),
+        ("already ", "still "),
+        ("still already currently ", "now still already "),
+        ("no longer ", ""),
+        ("never ", ""),
+        ("", "not "),
+        ("already no longer ", "currently "),
+        ("still ", "no longer already "),
+    ],
+)
+def test_possession_auxiliary_cannot_make_supply_noun_a_delivery(
+    role, auxiliary, alias, inspection, destination, marker, before, after
+):
+    criterion = (
+        f"The {role} may {inspection} whether the API {before}{auxiliary} {after}"
+        f"{alias} evidence in {destination}"
+    )
+    assert verifier._required_evidence_channels(marker + criterion) == set()
+    positive = "The maintainer must record evidence in the PR body"
+    assert verifier._required_evidence_channels(marker + criterion + "; " + positive) == {"body"}
+    assert verifier._required_evidence_channels(marker + positive + "; " + criterion) == {"body"}
+
+
+@pytest.mark.parametrize("role", ["maintainer", "release reviewer"])
+@pytest.mark.parametrize("modal", ["may", "can", "could", "would", "should"])
+@pytest.mark.parametrize(
+    "governor,operation",
+    [
+        ("must", "place"),
+        ("will", "place"),
+        ("must have", "placed"),
+        ("has", "placed"),
+        ("is", "placing"),
+        ("needs to", "place"),
+    ],
+)
+@pytest.mark.parametrize(
+    "destinations", list(permutations(["the PR body", "a PR comment", "workflow artifacts"], 2))
+)
+def test_optional_predicate_cannot_suppress_named_actor_delivery(
+    role, modal, governor, operation, destinations
+):
+    """Retain independently governed deliveries across optional actor clauses."""
+    before, after = destinations
+    expected = "body" if "body" in after else "comments" if "comment" in after else "artifacts"
+    first = f"The reviewer {modal} put evidence in {before}"
+    second = f"the {role} {governor} {operation} evidence in {after}"
+    assert verifier._required_evidence_channels(first + " and " + second) == {expected}
+    assert verifier._required_evidence_channels(first + "; " + second) == {expected}
+    negative = second.replace(
+        governor,
+        governor.replace(" have", "") + " not" + (" have" if " have" in governor else ""),
+        1,
+    )
+    assert verifier._required_evidence_channels(first + " and " + negative) == set()
+    assert verifier._required_evidence_is_missing(
+        "- Overall retrieval status: **absent**\n- PR body: **absent**\n- PR comments: **absent**\n- Referenced workflow artifacts: **absent**",
+        verifier._required_evidence_channels(first + " and " + second),
+    )
+
+
+@pytest.mark.parametrize("boundary", ["! ", "? ", ". ", " while ", " and ", "; "])
+@pytest.mark.parametrize("predicate", ["must place", "placed", "has placed"])
+def test_optional_actor_sentence_boundaries_retain_delivery(boundary, predicate):
+    """Sentence and finite-past actor boundaries cannot erase a delivery."""
+    criterion = (
+        "The reviewer may put evidence in workflow artifacts"
+        + boundary
+        + f"the maintainer {predicate} evidence in a PR comment"
+    )
+    assert verifier._required_evidence_channels(criterion) == {"comments"}
+    assert verifier._required_evidence_is_missing("- PR comments: **absent**", {"comments"})
+
+
+@pytest.mark.parametrize(
+    "predicate", ["must supply", "must be supplied", "supplied", "is supplying"]
+)
+@pytest.mark.parametrize(
+    "destination,channel",
+    [("the PR body", "body"), ("a PR comment", "comments"), ("workflow artifacts", "artifacts")],
+)
+def test_supply_alias_retains_delivery_and_product_controls(predicate, destination, channel):
+    """Supply aliases share obligation, destination, and product semantics."""
+    subject = "Test evidence" if "be supplied" in predicate else "The reviewer"
+    obj = "" if "be supplied" in predicate else " test evidence"
+    criterion = f"{subject} {predicate}{obj} in {destination}"
+    assert verifier._required_evidence_channels(criterion) == {channel}
+    assert (
+        verifier._required_evidence_channels("The service must supply command output to its users")
+        == set()
+    )
+    assert (
+        verifier._required_evidence_channels(
+            f"The reviewer must not supply evidence in {destination}"
+        )
+        == set()
+    )
+
+
+def test_optional_actor_cannot_suppress_prove_delivery():
+    """Keep the existing prove operation in the shared actor grammar."""
+    assert verifier._required_evidence_channels(
+        "The reviewer may record evidence in the PR body and the maintainer must prove the result in workflow artifacts"
+    ) == {"artifacts"}
+
+
+@pytest.mark.parametrize(
+    "modifier", ["previously published", "already uploaded", "recently recorded"]
+)
+def test_optional_participial_object_is_not_a_finite_past_actor(modifier):
+    """A coordinated evidence modifier has no independently governing actor."""
+    criterion = (
+        "The reviewer may include current evidence in the PR body and "
+        + modifier
+        + " evidence in workflow artifacts"
+    )
+    assert verifier._required_evidence_channels(criterion) == set()
+
+
+@pytest.mark.parametrize("predicate", ["may inspect", "may check", "must inspect"])
+@pytest.mark.parametrize("object_name", ["power supply evidence", "water supply evidence"])
+def test_supply_noun_is_not_a_delivery_predicate(predicate, object_name):
+    """Object noun supply cannot invent a record operation."""
+    assert verifier._required_evidence_channels(
+        f"The reviewer {predicate} {object_name} in the PR body"
+    ) == ({"overall"} if predicate == "must inspect" else set())
+
+
+@pytest.mark.parametrize(
+    "criterion",
+    [
+        "The PR comment has to contain command output",
+        "The PR comments have to contain command output",
+        "Command output has to be in a PR comment",
+        "Command outputs have to be in a PR comment",
+    ],
+)
+def test_comment_has_to_uses_shared_mandatory_auxiliary(criterion):
+    """Comment requirements reuse the complete mandatory auxiliary vocabulary."""
+    assert verifier._required_evidence_channels(criterion) == {"comments"}
+
+
+@pytest.mark.parametrize("predicate", ["checks", "inspects", "reviews"])
+@pytest.mark.parametrize("compound", ["service", "API", "reviewer"])
+@pytest.mark.parametrize("alias", ["supply", "supplied", "placed", "submitted", "delivered"])
+def test_actor_word_in_supply_object_is_not_clause_subject(predicate, compound, alias):
+    """An object compound cannot create a delivery predicate."""
+    assert (
+        verifier._required_evidence_channels(
+            f"The reviewer {predicate} the {compound} {alias} evidence in the PR body"
+        )
+        == set()
+    )
+
+
+@pytest.mark.parametrize("boundary", [" and ", " while ", ". ", "! ", "? "])
+@pytest.mark.parametrize("verb", ["supplies", "records", "provides", "places", "proves"])
+def test_optional_actor_cannot_suppress_finite_present_delivery(boundary, verb):
+    """An independent finite-present subject cannot inherit optional delivery."""
+    assert verifier._required_evidence_channels(
+        "The reviewer may supply evidence in the PR body"
+        + boundary
+        + f"the maintainer {verb} evidence in a PR comment"
+    ) == {"comments"}
+
+
+@pytest.mark.parametrize("boundary", [" and ", " while ", ". ", "! ", "? "])
+@pytest.mark.parametrize(
+    "negation",
+    ["does not", "do not", "did not", "does never", "doesn't", "does no longer", "must not"],
+)
+@pytest.mark.parametrize("verb", ["prove", "supply", "record"])
+@pytest.mark.parametrize("destination", ["the PR body", "a PR comment", "workflow artifacts"])
+def test_independent_delivery_prohibition_uses_shared_operation_grammar(
+    boundary, negation, verb, destination
+):
+    assert (
+        verifier._required_evidence_channels(
+            "The reviewer may supply evidence in the PR body"
+            + boundary
+            + f"the senior maintainer {negation} {verb} evidence in {destination}"
+        )
+        == set()
+    )
+
+
+@pytest.mark.parametrize(
+    "negative_destination", ["the PR body", "a PR comment", "workflow artifacts"]
+)
+@pytest.mark.parametrize(
+    "positive_destination,channel",
+    [("the PR body", "body"), ("a PR comment", "comments"), ("workflow artifacts", "artifacts")],
+)
+def test_prohibition_does_not_erase_independent_mandatory_delivery(
+    negative_destination, positive_destination, channel
+):
+    assert verifier._required_evidence_channels(
+        f"The reviewer does not prove evidence in {negative_destination}"
+        + f" and the maintainer must record evidence in {positive_destination}"
+    ) == {channel}
+
+
+@pytest.mark.parametrize("actor", ["reviewer", "assigned reviewer", "senior reviewer", "CI runner"])
+def test_supply_clause_subject_preserves_delivery(actor):
+    assert verifier._required_evidence_channels(
+        f"The {actor} supplies evidence in a PR comment"
+    ) == {"comments"}
+
+
+@pytest.mark.parametrize("boundary", [" and ", " while ", "; ", ". ", "! ", "? "])
+@pytest.mark.parametrize("negation", ["doesn't", "doesn’t", "does not", "never", "no longer"])
+@pytest.mark.parametrize("verb", ["supply", "prove", "record"])
+@pytest.mark.parametrize(
+    "negative_destination", ["the PR body", "a PR comment", "workflow artifacts"]
+)
+@pytest.mark.parametrize(
+    "positive_destination,channel",
+    [("the PR body", "body"), ("a PR comment", "comments"), ("workflow artifacts", "artifacts")],
+)
+@pytest.mark.parametrize("positive_first", [True, False])
+def test_prohibition_polarity_is_clause_order_and_alias_symmetric(
+    boundary, negation, verb, negative_destination, positive_destination, channel, positive_first
+):
+    """Negated aliases cannot invent a channel beside an independent obligation."""
+    positive = f"The reviewer must record evidence in {positive_destination}"
+    negative = f"the senior maintainer {negation} {verb} evidence in {negative_destination}"
+    criterion = positive + boundary + negative if positive_first else negative + boundary + positive
+    assert verifier._required_evidence_channels(criterion) == {channel}
+
+
+@pytest.mark.parametrize("verb", ["proves", "records", "supplies"])
+@pytest.mark.parametrize("negation", ["never", "no longer"])
+@pytest.mark.parametrize("destination", ["the PR body", "a PR comment", "workflow artifacts"])
+def test_bare_finite_negative_delivery_has_no_channel(verb, negation, destination):
+    """Finite negative predicates do not require evidence delivery."""
+    assert (
+        verifier._required_evidence_channels(
+            f"The reviewer {negation} {verb} evidence in {destination}"
+        )
+        == set()
+    )
+
+
+@pytest.mark.parametrize("contrast", ["only", "merely", "just"])
+@pytest.mark.parametrize("verb", ["prove", "record", "supply"])
+@pytest.mark.parametrize(
+    "first_destination,first_channel",
+    [("the PR body", "body"), ("a PR comment", "comments"), ("workflow artifacts", "artifacts")],
+)
+@pytest.mark.parametrize(
+    "second_destination,second_channel",
+    [("the PR body", "body"), ("a PR comment", "comments"), ("workflow artifacts", "artifacts")],
+)
+def test_contrastive_not_only_preserves_both_delivery_channels(
+    contrast, verb, first_destination, first_channel, second_destination, second_channel
+):
+    """Declared additive contrasts are not delivery prohibitions."""
+    assert verifier._required_evidence_channels(
+        f"The reviewer must not {contrast} {verb} evidence in {first_destination}"
+        + f" but also record evidence in {second_destination}"
+    ) == {first_channel, second_channel}
+
+
+@pytest.mark.parametrize(
+    "negative_auxiliary",
+    ["does not need to", "doesn't need to", "never has to", "no longer needs to"],
+)
+@pytest.mark.parametrize("destination", ["the PR body", "a PR comment", "workflow artifacts"])
+def test_negative_embedded_mandatory_auxiliary_is_not_required(negative_auxiliary, destination):
+    """Embedded need-to/has-to cannot override its negative governor."""
+    assert (
+        verifier._required_evidence_channels(
+            f"Command output {negative_auxiliary} be in {destination}"
+        )
+        == set()
+    )
+
+
+@pytest.mark.parametrize("contrast", ["only", "merely", "just"])
+@pytest.mark.parametrize("modal", ["may", "should"])
+@pytest.mark.parametrize("destination", ["the PR body", "a PR comment", "workflow artifacts"])
+def test_additive_contrast_preserves_optional_governor(contrast, modal, destination):
+    """Additive normalization cannot promote an optional delivery."""
+    assert (
+        verifier._required_evidence_channels(
+            f"Evidence {modal} not {contrast} be proved in {destination}"
+            + " but also be recorded in a PR comment"
+        )
+        == set()
+    )
+
+
+@pytest.mark.parametrize("contrast", ["only", "merely", "just"])
+def test_additive_contrast_inside_parser_literal_is_not_delivery(contrast):
+    """Quoted parser examples stay literal, with independent obligations intact."""
+    criterion = (
+        f'The parser must recognize "Evidence must not {contrast} be proved'
+        + ' in workflow artifacts but also be recorded in a PR comment"'
+    )
+    assert verifier._required_evidence_channels(criterion) == set()
+    assert verifier._required_evidence_channels(
+        criterion + "; include evidence in the PR body"
+    ) == {"body"}
+
+
+@pytest.mark.parametrize(
+    "governor",
+    [
+        "is not required to",
+        "is not needed to",
+        "is never expected to",
+        "is no longer supposed to",
+        "is not obliged to",
+        "is not mandated to",
+        "are not required to",
+        "was not required to",
+        "were never needed to",
+    ],
+)
+@pytest.mark.parametrize("participle", ["recorded", "supplied", "proved"])
+@pytest.mark.parametrize("destination", ["the PR body", "a PR comment", "workflow artifacts"])
+@pytest.mark.parametrize("positive_first", [True, False])
+def test_negative_requirement_governor_consumes_complete_passive_action(
+    governor, participle, destination, positive_first
+):
+    """Short optionality matches cannot leave a required action behind."""
+    negative = f"Evidence {governor} be {participle} in {destination}"
+    assert verifier._required_evidence_channels(negative) == set()
+    positive = "The reviewer must record evidence in a PR comment"
+    criterion = positive + "; " + negative if positive_first else negative + "; " + positive
+    assert verifier._required_evidence_channels(criterion) == {"comments"}
+
+
+@pytest.mark.parametrize("contrast", ["only", "merely", "just"])
+@pytest.mark.parametrize("aspect", ["has been", "had been", "is being", "was being"])
+@pytest.mark.parametrize("participle", ["recorded", "supplied", "proved"])
+@pytest.mark.parametrize(
+    "first_destination,first_channel",
+    [("the PR body", "body"), ("a PR comment", "comments"), ("workflow artifacts", "artifacts")],
+)
+@pytest.mark.parametrize(
+    "second_destination,second_channel",
+    [("the PR body", "body"), ("a PR comment", "comments"), ("workflow artifacts", "artifacts")],
+)
+def test_finite_aspect_additive_contrast_preserves_both_channels(
+    contrast,
+    aspect,
+    participle,
+    first_destination,
+    first_channel,
+    second_destination,
+    second_channel,
+):
+    """Residual passive aspects share additive and elided-governor handling."""
+    governor, residual = aspect.split()
+    assert verifier._required_evidence_channels(
+        f"Evidence {governor} not {contrast} {residual} {participle} in {first_destination}"
+        + f" but also {residual} recorded in {second_destination}"
+    ) == {first_channel, second_channel}
+
+
+@pytest.mark.parametrize(
+    "governor",
+    [
+        "is not required to",
+        "is not needed to",
+        "was not required to",
+        "were not needed to",
+        "is never expected to",
+        "is no longer supposed to",
+        "does not need to",
+        "doesn't need to",
+        "never has to",
+        "no longer needs to",
+    ],
+)
+@pytest.mark.parametrize("participle", ["recorded", "supplied", "proved"])
+@pytest.mark.parametrize("destination", ["the PR body", "a PR comment", "workflow artifacts"])
+@pytest.mark.parametrize("positive_first", [True, False])
+@pytest.mark.parametrize("marker", ["", "- [ ] ", "- [x] ", "* [ ] ", "- "])
+def test_negative_active_perfect_governor_preserves_independent_delivery(
+    governor, participle, destination, positive_first, marker
+):
+    """Active perfect actions retain their negative requirement governor."""
+    negative = f"The reviewer {governor} have {participle} evidence in {destination}"
+    assert verifier._required_evidence_channels(marker + negative) == set()
+    positive = "The maintainer must record evidence in the PR body"
+    criterion = positive + "; " + negative if positive_first else negative + "; " + positive
+    assert verifier._required_evidence_channels(marker + criterion) == {"body"}
+
+
+@pytest.mark.parametrize(
+    "governor",
+    ["must not", "is not required to", "does not need to", "never has to", "no longer needs to"],
+)
+@pytest.mark.parametrize("participle", ["recorded", "supplied", "proved"])
+@pytest.mark.parametrize("boundary", ["and", "or", "but"])
+@pytest.mark.parametrize("first_destination", ["the PR body", "a PR comment", "workflow artifacts"])
+@pytest.mark.parametrize(
+    "second_destination,second_channel",
+    [("the PR body", "body"), ("a PR comment", "comments"), ("workflow artifacts", "artifacts")],
+)
+@pytest.mark.parametrize("marker", ["", "- [ ] ", "- [x] ", "* [ ] ", "- "])
+def test_negative_passive_coordination_respects_contrast(
+    governor, participle, boundary, first_destination, second_destination, second_channel, marker
+):
+    criterion = f"Command output {governor} be {participle} in {first_destination} {boundary} be posted in {second_destination}"
+    expected = {second_channel} if boundary == "but" else set()
+    assert verifier._required_evidence_channels(marker + criterion) == expected
+
+
+@pytest.mark.parametrize("adverb", ["already", "recently", "now"])
+@pytest.mark.parametrize("adverb_position", ["before", "after", "both"])
+@pytest.mark.parametrize("participle", ["recorded", "proved", "supplied"])
+@pytest.mark.parametrize("marker", ["", "- [ ] "])
+@pytest.mark.parametrize(
+    "governor",
+    [
+        "is not required to",
+        "does not need to",
+        "never has to",
+        "no longer needs to",
+        "must not",
+        "must",
+        "may",
+    ],
+)
+@pytest.mark.parametrize("boundary", ["and", "or", "but"])
+@pytest.mark.parametrize(
+    "first_destination,first_channel",
+    [("the PR body", "body"), ("a PR comment", "comments"), ("workflow artifacts", "artifacts")],
+)
+@pytest.mark.parametrize(
+    "second_destination,second_channel",
+    [("the PR body", "body"), ("a PR comment", "comments"), ("workflow artifacts", "artifacts")],
+)
+def test_active_perfect_elided_delivery_retains_actor_and_governor(
+    marker,
+    governor,
+    boundary,
+    first_destination,
+    first_channel,
+    second_destination,
+    second_channel,
+    adverb,
+    participle,
+    adverb_position,
+):
+    """Active-perfect coordination shares finite actor/governor inheritance."""
+    before = adverb + " " if adverb_position != "after" else ""
+    after = adverb + " " if adverb_position != "before" else ""
+    criterion = f"The reviewer {governor} have {participle} evidence in {first_destination} {boundary} {before}have {after}recorded evidence in {second_destination}"
+    expected = (
+        {first_channel, second_channel}
+        if governor == "must"
+        else set() if governor == "may" or boundary != "but" else {second_channel}
+    )
+    assert verifier._required_evidence_channels(marker + criterion) == expected
+
+
+@pytest.mark.parametrize("contrast", ["only", "merely", "just"])
+@pytest.mark.parametrize("participle", ["recorded", "proved", "supplied"])
+@pytest.mark.parametrize(
+    "first_destination,first_channel",
+    [("the PR body", "body"), ("a PR comment", "comments"), ("workflow artifacts", "artifacts")],
+)
+@pytest.mark.parametrize(
+    "second_destination,second_channel",
+    [("the PR body", "body"), ("a PR comment", "comments"), ("workflow artifacts", "artifacts")],
+)
+def test_passive_not_only_preserves_complete_destination_set(
+    contrast, participle, first_destination, first_channel, second_destination, second_channel
+):
+    """Additive obligations share the passive aspect grammar."""
+    assert verifier._required_evidence_channels(
+        f"Evidence must not {contrast} be {participle} in {first_destination}"
+        + f" but also be recorded in {second_destination}"
+    ) == {first_channel, second_channel}
+
+
+@pytest.mark.parametrize(
+    "negative_auxiliary", ["does not need to", "never has to", "no longer needs to"]
+)
+@pytest.mark.parametrize("participle", ["recorded", "proved", "supplied"])
+@pytest.mark.parametrize(
+    "negative_destination", ["the PR body", "a PR comment", "workflow artifacts"]
+)
+@pytest.mark.parametrize(
+    "positive_destination,channel",
+    [("the PR body", "body"), ("a PR comment", "comments"), ("workflow artifacts", "artifacts")],
+)
+@pytest.mark.parametrize("positive_first", [True, False])
+def test_negative_embedded_governor_preserves_independent_passive_delivery(
+    negative_auxiliary,
+    participle,
+    negative_destination,
+    positive_destination,
+    channel,
+    positive_first,
+):
+    """Passive prohibitions cannot add a channel or erase a separate obligation."""
+    negative = f"Command output {negative_auxiliary} be {participle} in {negative_destination}"
+    positive = f"The reviewer must record evidence in {positive_destination}"
+    assert verifier._required_evidence_channels(negative) == set()
+    criterion = positive + "; " + negative if positive_first else negative + "; " + positive
+    assert verifier._required_evidence_channels(criterion) == {channel}
+
+
+@pytest.mark.parametrize("governor", ["may", "should", "must not", "shall never"])
+@pytest.mark.parametrize("first_destination", ["the PR body", "a PR comment", "workflow artifacts"])
+@pytest.mark.parametrize(
+    "second_destination", ["the PR body", "a PR comment", "workflow artifacts"]
+)
+def test_elided_passive_inherits_optional_or_negative_governor(
+    governor, first_destination, second_destination
+):
+    """Object inheritance cannot turn an optional or prohibited delivery positive."""
+    assert (
+        verifier._required_evidence_channels(
+            f"Evidence {governor} be recorded in {first_destination}"
+            + f" and also be recorded in {second_destination}"
+        )
+        == set()
+    )
+
+
+@pytest.mark.parametrize("prefix", ["", "- ", "- [ ] ", "* [x] ", "1. "])
+def test_supply_imperative_list_marker_preserves_delivery(prefix):
+    """List formatting does not turn an imperative delivery into a noun."""
+    assert verifier._required_evidence_channels(prefix + "Supply evidence in a PR comment") == {
+        "comments"
+    }
+
+
 @pytest.mark.parametrize("auxiliary", ["do", "does", "did"])
 @pytest.mark.parametrize("role", ["reviewer", "maintainer"])
 @pytest.mark.parametrize("modal", ["may", "can", "could", "would", "should"])
@@ -1054,6 +1668,9 @@ def test_reverse_record_output_binds_its_own_recipient(participle, recipient):
         ("The service must provide command output to clients and in the PR body", "body"),
         ("The service must provide command output to clients and in a PR comment", "comments"),
         ("The write to the PR command must output evidence", None),
+        ("The release reviewer placed evidence in a PR comment", "comments"),
+        ("The security reviewer submitted evidence in the PR body", "body"),
+        ("The independent security auditor supplied evidence in workflow artifacts", "artifacts"),
     ],
 )
 @pytest.mark.parametrize("status", ["present", "absent", "unavailable"])
@@ -1077,6 +1694,46 @@ def test_fresh_canary_findings_control_actual_coverage_floor(criterion, channel,
         verifier.prompt_coverage(context, None),
     )
     assert result.verdict == ("CONCERNS" if channel and status != "present" else "PASS")
+
+
+@pytest.mark.parametrize("prefix", ["", "- [ ] "])
+@pytest.mark.parametrize(
+    "criterion",
+    [
+        "The reviewer is not required to have supplied evidence in workflow artifacts",
+        "The reviewer may inspect whether the API has supply evidence in workflow artifacts",
+        "The reviewer may inspect whether the API already has supply evidence in workflow artifacts",
+        "The reviewer may inspect whether the API have currently supplies evidence in workflow artifacts",
+        "The reviewer may inspect whether the API still had already supply evidence in workflow artifacts",
+        "The reviewer may inspect whether the API no longer has supply evidence in workflow artifacts",
+        "The reviewer may inspect whether the API never had supply evidence in workflow artifacts",
+        "The reviewer may inspect whether the API has not supply evidence in workflow artifacts",
+        "The reviewer is not required to have supplied evidence in workflow artifacts and already have recorded evidence in the PR body",
+        "Command output must not be recorded in the PR body and be posted in workflow artifacts",
+    ],
+)
+@pytest.mark.parametrize("positive", ["", "; The maintainer must record evidence in the PR body"])
+@pytest.mark.parametrize("body_status", ["present", "absent", "unavailable"])
+def test_negative_checklist_does_not_regain_actual_evidence_floor(
+    prefix, criterion, positive, body_status
+):
+    spec = importlib.util.spec_from_file_location(
+        "negative_checklist_floor", Path(__file__).with_name("test_pr_verifier_prompt_coverage.py")
+    )
+    fixture = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(fixture)
+    context, _ = fixture._context(1, 1000, 1000)
+    context = context.replace(
+        "- " + fixture.ACCEPTANCE_SENTINEL, prefix + criterion + positive
+    ).replace(
+        "## PR Diff Summary",
+        f"## Acceptance evidence\n\n- Overall retrieval status: **absent**\n- PR body: **{body_status}**\n- PR comments: **present**\n- Referenced workflow artifacts: **absent**\n\n## PR Diff Summary",
+    )
+    result = verifier._apply_coverage_floor(
+        verifier.EvaluationResult(verdict="PASS", used_llm=True),
+        verifier.prompt_coverage(context, None),
+    )
+    assert result.verdict == ("CONCERNS" if positive and body_status != "present" else "PASS")
 
 
 @pytest.mark.parametrize("prefix", ["", "- [ ] "])
