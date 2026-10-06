@@ -229,6 +229,7 @@ def test_bare_finite_negative_delivery_has_no_channel(verb, negation, destinatio
     )
 
 
+@pytest.mark.parametrize("contrast", ["only", "merely", "just"])
 @pytest.mark.parametrize("verb", ["prove", "record", "supply"])
 @pytest.mark.parametrize(
     "first_destination,first_channel",
@@ -239,11 +240,11 @@ def test_bare_finite_negative_delivery_has_no_channel(verb, negation, destinatio
     [("the PR body", "body"), ("a PR comment", "comments"), ("workflow artifacts", "artifacts")],
 )
 def test_contrastive_not_only_preserves_both_delivery_channels(
-    verb, first_destination, first_channel, second_destination, second_channel
+    contrast, verb, first_destination, first_channel, second_destination, second_channel
 ):
-    """Not-only contrast is additive, not a delivery prohibition."""
+    """Declared additive contrasts are not delivery prohibitions."""
     assert verifier._required_evidence_channels(
-        f"The reviewer must not only {verb} evidence in {first_destination}"
+        f"The reviewer must not {contrast} {verb} evidence in {first_destination}"
         + f" but also record evidence in {second_destination}"
     ) == {first_channel, second_channel}
 
@@ -263,6 +264,34 @@ def test_negative_embedded_mandatory_auxiliary_is_not_required(negative_auxiliar
     )
 
 
+@pytest.mark.parametrize("contrast", ["only", "merely", "just"])
+@pytest.mark.parametrize("modal", ["may", "should"])
+@pytest.mark.parametrize("destination", ["the PR body", "a PR comment", "workflow artifacts"])
+def test_additive_contrast_preserves_optional_governor(contrast, modal, destination):
+    """Additive normalization cannot promote an optional delivery."""
+    assert (
+        verifier._required_evidence_channels(
+            f"Evidence {modal} not {contrast} be proved in {destination}"
+            + " but also be recorded in a PR comment"
+        )
+        == set()
+    )
+
+
+@pytest.mark.parametrize("contrast", ["only", "merely", "just"])
+def test_additive_contrast_inside_parser_literal_is_not_delivery(contrast):
+    """Quoted parser examples stay literal, with independent obligations intact."""
+    criterion = (
+        f'The parser must recognize "Evidence must not {contrast} be proved'
+        + ' in workflow artifacts but also be recorded in a PR comment"'
+    )
+    assert verifier._required_evidence_channels(criterion) == set()
+    assert verifier._required_evidence_channels(
+        criterion + "; include evidence in the PR body"
+    ) == {"body"}
+
+
+@pytest.mark.parametrize("contrast", ["only", "merely", "just"])
 @pytest.mark.parametrize("participle", ["recorded", "proved", "supplied"])
 @pytest.mark.parametrize(
     "first_destination,first_channel",
@@ -273,11 +302,11 @@ def test_negative_embedded_mandatory_auxiliary_is_not_required(negative_auxiliar
     [("the PR body", "body"), ("a PR comment", "comments"), ("workflow artifacts", "artifacts")],
 )
 def test_passive_not_only_preserves_complete_destination_set(
-    participle, first_destination, first_channel, second_destination, second_channel
+    contrast, participle, first_destination, first_channel, second_destination, second_channel
 ):
     """Additive obligations share the passive aspect grammar."""
     assert verifier._required_evidence_channels(
-        f"Evidence must not only be {participle} in {first_destination}"
+        f"Evidence must not {contrast} be {participle} in {first_destination}"
         + f" but also be recorded in {second_destination}"
     ) == {first_channel, second_channel}
 

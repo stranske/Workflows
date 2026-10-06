@@ -1157,6 +1157,26 @@ def _required_evidence_channels(acceptance: str, *, _bind_attached: bool = True)
         flags=re.I,
     )
 
+    # Additive contrast is not negation. Normalize before aliases so finite
+    # words such as "just" cannot hide the supply alias's governing auxiliary.
+    acceptance = re.sub(
+        r"(?P<literal>" + quoted_evidence_literal + r")|"
+        r"\bnot\s+(?:only|merely|just)(?=\s+"
+        + delivery_adverbs
+        + r"(?:"
+        + passive_delivery_prefix
+        + r")?"
+        + delivery_adverbs
+        + r"(?:"
+        + delivery_operation
+        + "|"
+        + "|".join(record_aliases)
+        + r"))",
+        lambda match: match[0] if match["literal"] else "also",
+        acceptance,
+        flags=re.I,
+    )
+
     def normalize_record_alias(match: re.Match[str]) -> str:
         """Preserve literals and participial modifiers of a prior governing verb."""
         alias = match["alias"]
@@ -1267,20 +1287,6 @@ def _required_evidence_channels(acceptance: str, *, _bind_attached: bool = True)
     )
     # Use the same product-response operation vocabulary when coalescing object
     # groups and when excluding response fields from review deliverables.
-    acceptance = re.sub(
-        r"(?P<literal>" + quoted_evidence_literal + r")|"
-        r"\bnot\s+only(?=\s+"
-        + delivery_adverbs
-        + r"(?:"
-        + passive_delivery_prefix
-        + r")?"
-        + delivery_adverbs
-        + delivery_operation
-        + r")",
-        lambda match: match[0] if match["literal"] else "also",
-        acceptance,
-        flags=re.I,
-    )
     response_subject = r"(?:responses?|payloads?|return\s+values?|reports?|exports?)"
     optional_delivery_modal = r"(?:may|can|could|would|should)"
     product_auxiliary = (
