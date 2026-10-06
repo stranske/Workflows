@@ -69,10 +69,11 @@ An object used by an attached mandatory delivery (`artifacts that the reviewer
 must upload`, or `artifacts must be uploaded`) remains as that delivery's
 antecedent. Before suppressing a capability span, bind its attached mandatory
 predicate, original actor, polarity and immediate review destination together.
-Common proof objects (test/validation results, logs and outputs, screenshots including before/after
-screenshots, and recordings) with an explicit review destination in the same
-clause normalize into this same evidence grammar before
-channel classification. They therefore retain negative/optional governors,
+Common proof objects (test/validation results, logs and outputs, screenshots
+including before/after screenshots, and recordings) with an explicit review
+destination in the same clause normalize into this same evidence grammar before
+channel classification, stopping at independently governed coordinated actor
+clauses. They therefore retain negative/optional governors,
 quoted-literal and product-capability exclusions, and independent reviewer
 obligations; a mandatory PR-body proof cannot bypass the coverage floor when
 body retrieval is absent or unavailable.
@@ -80,6 +81,15 @@ PR-subject inclusion predicates (`the PR must include/contain/have a comment`)
 normalize to PR-comment obligations while preserving their original governor.
 A present PR body cannot satisfy that comment channel; negative and optional
 inclusion stays nongating.
+Trailing comment feature nouns (counter, field, icon, parser, metadata, preview,
+schema, editor, support, handler, component, feature and widget) are not delivered
+comment objects.
+Qualified singular `recording of ...` proof nouns use a bounded noun qualifier
+ending before the original governor; verbal `is recording evidence` is not a
+proof noun. Product link capabilities (`allow users to link`, `let users link`)
+share the base operation vocabulary with direct product-owned links.
+Bare mandatory `be in` presence shares the same polarity-aware normalized
+delivery grammar as `appear` and `be present`, including PR-body destinations.
 Product-governed `link` operations use the same UI/API actor classification as
 other field operations. A separate reviewer-governed link or comment-delivery
 clause remains a real evidence obligation.

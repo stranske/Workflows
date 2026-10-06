@@ -9,6 +9,81 @@ from scripts import docs_drift_fix_agent as fix_agent
 from scripts.langchain import pr_verifier as verifier
 
 
+@pytest.mark.parametrize(
+    "destination,channel",
+    [
+        ("the PR body", "body"),
+        ("a PR comment", "comments"),
+    ],
+)
+def test_qualified_recording_presence_retains_governor(destination, channel):
+    assert verifier._required_evidence_channels(
+        f"A recording of the session must be in {destination}"
+    ) == {channel}
+    assert (
+        verifier._required_evidence_channels(
+            f"A recording of the session must not be in {destination}"
+        )
+        == set()
+    )
+
+
+@pytest.mark.parametrize("capability", ["allow users to", "let users"])
+@pytest.mark.parametrize("independent", [False, True])
+def test_product_link_capability_preserves_reviewer_delivery(capability, independent):
+    criterion = f"The UI must {capability} link to PR comments"
+    if independent:
+        criterion += "; the reviewer must record evidence in a PR comment"
+    assert verifier._required_evidence_channels(criterion) == (
+        {"comments"} if independent else set()
+    )
+
+
+@pytest.mark.parametrize("joiner", [", and ", " and ", "; "])
+@pytest.mark.parametrize("position", ["before", "after"])
+@pytest.mark.parametrize("proof", ["test results", "screenshots", "validation output"])
+@pytest.mark.parametrize(
+    "actor",
+    [
+        "the reviewer",
+        "our security reviewer",
+        "the reviewer of the endpoint",
+        "the endpoint used by reviewers",
+    ],
+)
+def test_proof_destination_does_not_cross_independent_actor(joiner, position, proof, actor):
+    product = f"The UI must display {proof}"
+    unrelated = f"{actor} must update the PR body"
+    criterion = (
+        product + joiner + unrelated if position == "after" else unrelated + joiner + product
+    )
+    assert verifier._required_evidence_channels(criterion) == set()
+
+
+@pytest.mark.parametrize("operation", ["include", "contain", "have"])
+@pytest.mark.parametrize("noun", ["counter", "field", "icon", "parser", "metadata", "editor"])
+def test_comment_feature_noun_is_not_comment_delivery(operation, noun):
+    assert (
+        verifier._required_evidence_channels(f"The PR must {operation} a comment {noun}") == set()
+    )
+
+
+@pytest.mark.parametrize("proof", ["Test results", "Screenshots", "Validation output"])
+@pytest.mark.parametrize("governor", ["must", "have to", "are required to"])
+@pytest.mark.parametrize(
+    "destination,channel",
+    [
+        ("the PR body", "body"),
+        ("a PR comment", "comments"),
+        ("workflow artifacts", "artifacts"),
+    ],
+)
+def test_common_proof_bare_presence_uses_shared_delivery(proof, governor, destination, channel):
+    assert verifier._required_evidence_channels(f"{proof} {governor} be in {destination}") == {
+        channel
+    }
+
+
 @pytest.mark.parametrize("proof", ["Test output", "Validation output", "Validation results"])
 def test_passive_test_output_requires_comment(proof):
     assert verifier._required_evidence_channels(f"{proof} must be in a PR comment") == {"comments"}

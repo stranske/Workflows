@@ -15,6 +15,37 @@ ROOT = Path(__file__).resolve().parents[2]
 NODE = shutil.which("node")
 
 
+@pytest.mark.parametrize("status", ["absent", "unavailable", "present"])
+@pytest.mark.parametrize("governor", ["must", "must not", "is not expected to"])
+@pytest.mark.parametrize(
+    "destination,channel",
+    [
+        ("the PR body", "body"),
+        ("a PR comment", "comments"),
+        ("workflow artifacts", "artifacts"),
+    ],
+)
+def test_qualified_recording_actual_floor(status, governor, destination, channel):
+    criterion = f"A recording of the session {governor} be in {destination}"
+    channels = {"body": "present", "comments": "present", "artifacts": "present"}
+    channels[channel] = status
+    evidence = (
+        "Overall retrieval status: **present**\n"
+        f"- PR body: **{channels['body']}**\n"
+        f"- PR comments: **{channels['comments']}**\n"
+        f"- Referenced workflow artifacts: **{channels['artifacts']}**\n"
+    )
+    context, _ = _context(1, 1000, 1000)
+    context = context.replace(ACCEPTANCE_SENTINEL, criterion).replace(
+        "## PR Diff Summary", "## Acceptance evidence\n\n- " + evidence + "\n## PR Diff Summary"
+    )
+    result = pr_verifier._apply_coverage_floor(
+        pr_verifier.EvaluationResult(verdict="PASS", used_llm=True),
+        pr_verifier.prompt_coverage(context, None),
+    )
+    assert result.verdict == ("CONCERNS" if governor == "must" and status != "present" else "PASS")
+
+
 @pytest.mark.parametrize("actor", ["The UI", "The reviewer"])
 @pytest.mark.parametrize("status", ["absent", "unavailable", "present"])
 def test_product_link_actual_floor(actor, status):
