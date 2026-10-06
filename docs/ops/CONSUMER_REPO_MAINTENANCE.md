@@ -1692,6 +1692,19 @@ direct `requirements.lock` pins must move in the same Workflows PR. Maint 52
 also updates managed `.pre-commit-config.yaml` hook revisions and direct tool pins in a consumer's `requirements-dev.lock` when that
 additional generated lockfile exists.
 
+Direct pin replacement is not lock regeneration. Maint 52 applies
+`sync_dev_dependencies.py --apply --pre-commit --resolve-locks` before publishing
+a changed dependency tree. For generated uv requirements locks, this replays the
+recorded repository-local compile inputs and supported extras/platform options
+as an argument vector (never a shell command), permitting upgrades of managed
+tools and resolving their changed transitive requirements. Existing unrelated
+output pins remain resolver preferences. Unsupported provenance or a solver
+failure stops publication with a concrete error; it must not leave a knowingly
+unsatisfiable generated delivery marked ready to merge. Manually authored
+`requirements-dev.txt` without uv provenance remains a direct-pin surface.
+The propagation-script digest participates in the wave hash, so this repair
+produces a replacement wave even when the canonical tool versions are unchanged.
+
 Consumer repos receive those pins through `maint-52-sync-dev-versions.yml`, not
 the general `maint-68-sync-consumer-repos.yml` template sync. Keep
 `.github/workflows/autofix-versions.env` out of `.github/sync-manifest.yml` so a

@@ -45,6 +45,14 @@ def test_maint52_stages_managed_precommit_repairs():
     assert "if [ -f .pre-commit-config.yaml ]; then git add .pre-commit-config.yaml; fi" in text
 
 
+def test_maint52_regenerates_transitive_requirements_before_publishing():
+    text = WORKFLOW.read_text(encoding="utf-8")
+    assert "--apply --pre-commit --resolve-locks" in text
+    add_section = text[text.index("- name: Add dev dependencies") : text.index("- name: Skip")]
+    assert "--resolve-locks" in add_section
+    assert add_section.index("pip install") < add_section.index("--resolve-locks")
+
+
 def test_maint52_pr_body_reports_canonical_source_commit_and_never_proposes_upstream():
     """AC: Maint 52 reports the settled source commit and never opens an upstream bump."""
     text = WORKFLOW.read_text(encoding="utf-8")

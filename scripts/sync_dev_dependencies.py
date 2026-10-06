@@ -23,6 +23,8 @@ from __future__ import annotations
 
 import argparse
 import re
+import shlex
+import subprocess
 import sys
 from pathlib import Path
 from urllib.parse import urlparse
@@ -352,6 +354,104 @@ def _build_lockfile_targets(pins: dict[str, str]) -> dict[str, str]:
     return targets
 
 
+def regenerate_lockfile(lockfile_path: Path, pins: dict[str, str]) -> tuple[list[str], list[str]]:
+    """Resolve a generated lock using its recorded inputs, never shell replay.
+
+    Direct pin rewriting is not sufficient when a tool adds or tightens a
+    transitive requirement. Preserve the consumer's extras/platform choices
+    and existing output preferences, permitting managed tools to upgrade.
+    Unsupported provenance fails closed instead of guessing a lock scope.
+    """
+    if not lockfile_path.exists():
+        return [], []
+    content = lockfile_path.read_text(encoding="utf-8")
+    command = next(
+        (
+            line[1:].strip()
+            for line in content.splitlines()
+            if line.startswith("#") and line[1:].strip().startswith("uv pip compile ")
+        ),
+        "",
+    )
+    # requirements-dev.txt may be a manually authored direct requirement list.
+    if not command and lockfile_path.suffix == ".txt":
+        return [], []
+    try:
+        tokens = shlex.split(command)
+        if tokens[:3] != ["uv", "pip", "compile"]:
+            raise ValueError("missing supported uv compile provenance")
+        value_flags = {
+            "--extra",
+            "--group",
+            "--python-version",
+            "--python-platform",
+            "--no-emit-package",
+            "--constraint",
+            "-c",
+            "--override",
+            "--resolution",
+            "--exclude-newer",
+            "--output-file",
+            "-o",
+        }
+        bool_flags = {
+            "--universal",
+            "--all-extras",
+            "--generate-hashes",
+            "--no-strip-extras",
+            "--no-strip-markers",
+            "--no-annotate",
+            "--emit-index-url",
+            "--emit-find-links",
+        }
+        output = None
+        sources = []
+        i = 3
+        while i < len(tokens):
+            token = tokens[i]
+            flag, separator, value = token.partition("=")
+            if flag in value_flags:
+                if not separator:
+                    i += 1
+                    if i >= len(tokens):
+                        raise ValueError("missing compile option value")
+                    value = tokens[i]
+                if not value or value.startswith("-"):
+                    raise ValueError("invalid compile option value")
+                if flag in {"--output-file", "-o"}:
+                    if output is not None:
+                        raise ValueError("duplicate output destination")
+                    output = value
+                if flag in {"--constraint", "-c", "--override"}:
+                    sources.append(value)
+            elif token in bool_flags:
+                pass
+            elif token == "pyproject.toml" or token.endswith(".in"):
+                sources.append(token)
+            else:
+                raise ValueError("unsupported compile argument")
+            i += 1
+        if output != str(lockfile_path) or not sources:
+            raise ValueError("compile output or inputs do not match this lock")
+        root = Path.cwd().resolve()
+        for source in sources:
+            path = Path(source)
+            if path.is_absolute() or not path.resolve().is_relative_to(root) or not path.is_file():
+                raise ValueError("compile input must be an existing repository-local file")
+        present = {
+            match.group("name").lower()
+            for line in content.splitlines()
+            if (match := LOCKFILE_PATTERN.match(line))
+        }
+        for name, version in _build_lockfile_targets(pins).items():
+            if name in present:
+                tokens.extend(["--upgrade-package", f"{name}=={version}"])
+        subprocess.run(tokens, check=True)
+    except (ValueError, OSError, subprocess.CalledProcessError) as exc:
+        return [], [f"{lockfile_path}: transitive lock regeneration failed ({exc})"]
+    return [f"{lockfile_path}: regenerated transitive dependencies"], []
+
+
 def sync_lockfile(
     lockfile_path: Path, pins: dict[str, str], apply: bool = False
 ) -> tuple[list[str], list[str]]:
@@ -501,6 +601,11 @@ def main(argv: list[str] | None = None) -> int:
         help="Apply version updates to pyproject.toml and supported requirements lockfiles",
     )
     parser.add_argument(
+        "--resolve-locks",
+        action="store_true",
+        help="After applying pins, regenerate uv requirements locks with their recorded scope",
+    )
+    parser.add_argument(
         "--create-if-missing",
         action="store_true",
         help="Create dev dependencies section if it doesn't exist",
@@ -540,6 +645,8 @@ def main(argv: list[str] | None = None) -> int:
 
     if args.check and args.apply:
         parser.error("--check and --apply are mutually exclusive")
+    if args.resolve_locks and not args.apply:
+        parser.error("--resolve-locks requires --apply")
 
     if not args.check and not args.apply:
         args.check = True  # Default to check mode
@@ -570,6 +677,12 @@ def main(argv: list[str] | None = None) -> int:
         )
         changes.extend(pre_commit_changes)
         errors.extend(pre_commit_errors)
+
+    if args.resolve_locks and not errors:
+        for lockfile_path in LOCKFILE_FILES:
+            lock_changes, lock_errors = regenerate_lockfile(lockfile_path, pins)
+            changes.extend(lock_changes)
+            errors.extend(lock_errors)
 
     if errors:
         for err in errors:

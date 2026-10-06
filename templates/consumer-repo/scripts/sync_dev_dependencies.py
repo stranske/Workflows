@@ -1,34 +1,48 @@
 #!/usr/bin/env python3
-"""Sync dev tool version pins from autofix-versions.env to pyproject.toml.
+"""Sync dev tool version pins from autofix-versions.env to dependency surfaces.
 
-This script updates the [project.optional-dependencies] dev section in pyproject.toml
+This script updates the [project.optional-dependencies] dev section in pyproject.toml,
+supported requirements lockfiles, and (when explicitly requested) managed
+.pre-commit-config.yaml hook revisions
 to use the pinned versions from the central autofix-versions.env file.
 
 It handles both exact pins (==) and minimum version pins (>=) in pyproject.toml,
 converting them to exact pins for reproducibility.
 
+If no dev dependencies section exists, it can create one with --create-if-missing.
+
 Usage:
-    python sync_dev_dependencies.py --check    # Verify versions match
-    python sync_dev_dependencies.py --apply    # Update pyproject.toml
-    python sync_dev_dependencies.py --apply  # Syncs requirements.lock automatically if it exists
+    python sync_dev_dependencies.py --check           # Verify versions match
+    python sync_dev_dependencies.py --apply           # Update pyproject.toml
+    python sync_dev_dependencies.py --apply --create-if-missing  # Create dev deps if missing
+    python sync_dev_dependencies.py --apply  # Syncs supported requirements lockfiles when present
+    python sync_dev_dependencies.py --apply --pre-commit  # Include managed hook revisions
 """
 
 from __future__ import annotations
 
 import argparse
 import re
+import shlex
+import subprocess
 import sys
 from pathlib import Path
+from urllib.parse import urlparse
 
 # Default paths (can be overridden for testing)
 PIN_FILE = Path(".github/workflows/autofix-versions.env")
 PYPROJECT_FILE = Path("pyproject.toml")
-LOCKFILE_FILE = Path("requirements.lock")
+# Direct requirement files can be installed by CI independently of pyproject.
+# Keep every supported dev-tool surface aligned with the canonical pin file.
+LOCKFILE_FILES = (
+    Path("requirements.lock"),
+    Path("requirements-dev.lock"),
+    Path("requirements-dev.txt"),
+)
+PRE_COMMIT_FILE = Path(".pre-commit-config.yaml")
 
 # Map env file keys to package names
 # Format: ENV_KEY -> (package_name, optional_alternative_names)
-# NOTE: Only include dev tools here. Runtime dependencies (hypothesis, pyyaml,
-# pydantic, jsonschema) should NOT be synced - they're managed by Dependabot.
 TOOL_MAPPING: dict[str, tuple[str, ...]] = {
     "RUFF_VERSION": ("ruff",),
     "BLACK_VERSION": ("black",),
@@ -39,10 +53,33 @@ TOOL_MAPPING: dict[str, tuple[str, ...]] = {
     "PYTEST_XDIST_VERSION": ("pytest-xdist",),
     "COVERAGE_VERSION": ("coverage",),
     "DOCFORMATTER_VERSION": ("docformatter",),
+    "HYPOTHESIS_VERSION": ("hypothesis",),
 }
 
+# Only version pins for tools already governed by autofix-versions.env are managed.
+# The rest of a consumer's pre-commit configuration remains consumer-owned.
+PRE_COMMIT_REPO_MAPPING = {
+    "psf/black": "BLACK_VERSION",
+    "astral-sh/ruff-pre-commit": "RUFF_VERSION",
+    "charliermarsh/ruff-pre-commit": "RUFF_VERSION",
+    "pre-commit/mirrors-mypy": "MYPY_VERSION",
+    "pycqa/isort": "ISORT_VERSION",
+    "pycqa/docformatter": "DOCFORMATTER_VERSION",
+}
+
+# Core dev tools to include when creating a new dev section
+# (subset of TOOL_MAPPING - only the most essential ones)
+CORE_DEV_TOOLS = [
+    "RUFF_VERSION",
+    "MYPY_VERSION",
+    "PYTEST_VERSION",
+    "PYTEST_COV_VERSION",
+]
+
 LOCKFILE_PATTERN = re.compile(
-    r"^(?P<lead>\s*)(?P<name>[A-Za-z0-9_.-]+)==(?P<version>[^\s#]+)(?P<trail>\s*(?:#.*)?)$"
+    r"^(?P<lead>\s*)(?P<name>[A-Za-z0-9_.-]+)(?P<extras>\[[^]]+\])?"
+    r"(?P<specifier>(?:===|==|!=|<=|>=|~=|<|>)[^\s;#]+)?"
+    r"(?P<marker>\s*;[^#]+?)?(?P<trail>\s*(?:#.*)?)$"
 )
 
 
@@ -89,60 +126,111 @@ def find_dev_dependencies_section(content: str) -> tuple[int, int, str] | None:
     return None
 
 
+def find_optional_dependencies_section(content: str) -> int | None:
+    """Find the [project.optional-dependencies] section header.
+
+    Returns the index after the section header, or None if not found.
+    """
+    pattern = re.compile(r"^\[project\.optional-dependencies\]\s*$", re.MULTILINE)
+    match = pattern.search(content)
+    if match:
+        return match.end()
+    return None
+
+
+def find_project_section_end(content: str) -> int | None:
+    """Find a good place to insert [project.optional-dependencies].
+
+    Returns the index after the [project] section ends (before next section).
+    """
+    # Find [project] section
+    project_match = re.search(r"^\[project\]\s*$", content, re.MULTILINE)
+    if not project_match:
+        return None
+
+    # Find the next section header after [project]
+    next_section = re.search(r"^\[", content[project_match.end() :], re.MULTILINE)
+    if next_section:
+        return project_match.end() + next_section.start()
+
+    # No next section, return end of content
+    return len(content)
+
+
+def create_dev_dependencies_section(pins: dict[str, str], use_exact_pins: bool = True) -> str:
+    """Create a new dev dependencies section with core tools."""
+    op = "==" if use_exact_pins else ">="
+    deps = []
+
+    for env_key in CORE_DEV_TOOLS:
+        if env_key in pins:
+            pkg_name = TOOL_MAPPING[env_key][0]
+            version = pins[env_key]
+            deps.append(f'    "{pkg_name}{op}{version}",')
+
+    if not deps:
+        return ""
+
+    return "dev = [\n" + "\n".join(deps) + "\n]"
+
+
 def extract_dependencies(section: str) -> list[tuple[str, str, str]]:
     """Extract dependencies from a dev section.
 
     Returns list of (package_name, operator, version) tuples.
     """
     deps = []
-    # Match patterns like "package>=1.0.0", "package==1.0.0", "package", or "package[extra]==1.0.0"
-    # Per PEP 508, extras come BEFORE version specifier: package[extra]>=1.0.0
-    pattern = re.compile(
-        r'"([a-zA-Z0-9_-]+)'  # package name
-        r"(?:\[[^\]]+\])?"  # optional extras, e.g. [standard]
-        r"(?:(>=|==|~=|>|<|<=|!=)"  # optional operator
-        r'([^"\[\]]+))?"'  # optional version
-    )
+    # Match patterns like "package>=1.0.0" or "package==1.0.0" or just "package"
+    # Be precise: package name followed by optional version specifier
+    pattern = re.compile(r'"([a-zA-Z0-9_-]+)(?:(>=|==|~=|>|<|<=|!=)([^"\[\]]+))?(?:\[.*?\])?"')
 
     for match in pattern.finditer(section):
         package = match.group(1)
         operator = match.group(2) or ""
-        version = (match.group(3) or "").strip()
+        version = match.group(3) or ""
         deps.append((package, operator, version))
 
     return deps
 
 
-def update_dependency_version(
-    content: str, package: str, new_version: str, use_exact_pin: bool = True
+def update_dependency_in_section(
+    section: str, package: str, new_version: str, use_exact_pin: bool = True
 ) -> tuple[str, bool]:
-    """Update a single dependency version in the content.
+    """Update a single dependency version within a section.
 
-    Returns (new_content, was_changed).
+    IMPORTANT: This only updates exact package name matches, not partial matches.
+    For example, "pytest" will NOT match "pytest-cov" or "pytest-xdist".
+
+    Returns (new_section, was_changed).
     """
-    # Pattern to match the package with any version specifier
-    # Per PEP 508: extras come BEFORE version specifier (package[extra]>=1.0.0)
+    # Pattern to match EXACT package name with any version specifier
+    # The key is using word boundaries and ensuring we match the exact package
+    # Pattern: "package" or "package>=version" or "package[extras]>=version"
+    # We need to be careful not to match "pytest" when looking at "pytest-cov"
+
+    # Match: "package" + optional version spec, NOT followed by more pkg name chars
+    # The negative lookahead (?!-) ensures we don't match "pytest" in "pytest-cov"
     pattern = re.compile(
-        rf'"({re.escape(package)})(\[[^\]]+\])?(?![-\w])(>=|==|~=|>|<|<=|!=)?([^"\[\]]*)?"',
+        rf'"({re.escape(package)})(?![-\w])(>=|==|~=|>|<|<=|!=)?([^"\[\]]*)?(\[.*?\])?"',
         re.IGNORECASE,
     )
 
     def replacer(m: re.Match) -> str:
         pkg_name = m.group(1)
-        extras = m.group(2) or ""
+        extras = m.group(4) or ""
         op = "==" if use_exact_pin else ">="
-        # PEP 508: extras come BEFORE version specifier
-        return f'"{pkg_name}{extras}{op}{new_version}"'
+        return f'"{pkg_name}{op}{new_version}{extras}"'
 
-    new_content, count = pattern.subn(replacer, content)
-    return new_content, count > 0
+    new_section, count = pattern.subn(replacer, section)
+    return new_section, count > 0
 
 
-def sync_versions(
+def sync_pyproject(
     pyproject_path: Path,
     pins: dict[str, str],
     apply: bool = False,
     use_exact_pins: bool = True,
+    create_if_missing: bool = False,
 ) -> tuple[list[str], list[str]]:
     """Sync versions from pin file to pyproject.toml.
 
@@ -160,13 +248,63 @@ def sync_versions(
 
     # Find dev section
     section_info = find_dev_dependencies_section(content)
-    if not section_info:
-        return [], ["No dev dependencies section found in pyproject.toml"]
 
-    # Extract current dependencies
-    _, _, section = section_info
+    if not section_info:
+        if not create_if_missing:
+            return [], ["No dev dependencies section found in pyproject.toml"]
+
+        # Create new dev dependencies section
+        new_section = create_dev_dependencies_section(pins, use_exact_pins)
+        if not new_section:
+            return [], ["Could not create dev dependencies section - no pins available"]
+
+        # Find where to insert
+        opt_deps_pos = find_optional_dependencies_section(content)
+        if opt_deps_pos is not None:
+            # Add after [project.optional-dependencies] header
+            content = content[:opt_deps_pos] + "\n" + new_section + "\n" + content[opt_deps_pos:]
+        else:
+            # Need to add [project.optional-dependencies] section
+            insert_pos = find_project_section_end(content)
+            if insert_pos is None:
+                # A tool-only pyproject does not declare an installable project.
+                # Creating project.optional-dependencies would turn it into a
+                # package contract and can break consumers' editable CI install.
+                legacy_package_file = any(
+                    (pyproject_path.parent / name).exists() for name in ("setup.py", "setup.cfg")
+                )
+                if not legacy_package_file and not re.search(
+                    r"^\[(?:build-system|tool\.poetry)(?:\]|\.)",
+                    content,
+                    re.MULTILINE,
+                ):
+                    print("Skipping package dev section in tool-only pyproject.toml")
+                    return [], []
+                return [], ["Could not find [project] section to add optional-dependencies"]
+
+            section_to_add = "\n[project.optional-dependencies]\n" + new_section + "\n"
+            content = content[:insert_pos] + section_to_add + content[insert_pos:]
+
+        op = "==" if use_exact_pins else ">="
+        for env_key in CORE_DEV_TOOLS:
+            if env_key in pins:
+                pkg_name = TOOL_MAPPING[env_key][0]
+                changes.append(f"{pkg_name}: (new) -> {op}{pins[env_key]}")
+
+        if apply:
+            pyproject_path.write_text(content, encoding="utf-8")
+
+        return changes, errors
+
+    # Extract the section boundaries and content
+    section_start, section_end, section = section_info
+
+    # Extract current dependencies from the section
     current_deps = extract_dependencies(section)
     current_packages = {pkg.lower(): (pkg, op, ver) for pkg, op, ver in current_deps}
+
+    # Work on a copy of just the section
+    new_section = section
 
     # Check each pinned tool
     for env_key, package_names in TOOL_MAPPING.items():
@@ -181,10 +319,12 @@ def sync_versions(
             if pkg_lower in current_packages:
                 actual_pkg, current_op, current_ver = current_packages[pkg_lower]
 
-                # Check if version differs
-                if current_ver != target_version:
-                    content, changed = update_dependency_version(
-                        content, actual_pkg, target_version, use_exact_pins
+                # Normalize both the version and the operator. A dependency that
+                # already has the target version but still uses ">=" is not in
+                # sync with the reproducible, exact-pin contract.
+                if current_ver != target_version or (use_exact_pins and current_op != "=="):
+                    new_section, changed = update_dependency_in_section(
+                        new_section, actual_pkg, target_version, use_exact_pins
                     )
                     if changed:
                         op = "==" if use_exact_pins else ">="
@@ -192,6 +332,10 @@ def sync_versions(
                             f"{actual_pkg}: {current_op}{current_ver} -> {op}{target_version}"
                         )
                 break
+
+    # Replace the section in the full content
+    if new_section != section:
+        content = content[:section_start] + new_section + content[section_end:]
 
     # Apply changes if requested
     if apply and content != original_content:
@@ -210,9 +354,108 @@ def _build_lockfile_targets(pins: dict[str, str]) -> dict[str, str]:
     return targets
 
 
+def regenerate_lockfile(lockfile_path: Path, pins: dict[str, str]) -> tuple[list[str], list[str]]:
+    """Resolve a generated lock using its recorded inputs, never shell replay.
+
+    Direct pin rewriting is not sufficient when a tool adds or tightens a
+    transitive requirement. Preserve the consumer's extras/platform choices
+    and existing output preferences, permitting managed tools to upgrade.
+    Unsupported provenance fails closed instead of guessing a lock scope.
+    """
+    if not lockfile_path.exists():
+        return [], []
+    content = lockfile_path.read_text(encoding="utf-8")
+    command = next(
+        (
+            line[1:].strip()
+            for line in content.splitlines()
+            if line.startswith("#") and line[1:].strip().startswith("uv pip compile ")
+        ),
+        "",
+    )
+    # requirements-dev.txt may be a manually authored direct requirement list.
+    if not command and lockfile_path.suffix == ".txt":
+        return [], []
+    try:
+        tokens = shlex.split(command)
+        if tokens[:3] != ["uv", "pip", "compile"]:
+            raise ValueError("missing supported uv compile provenance")
+        value_flags = {
+            "--extra",
+            "--group",
+            "--python-version",
+            "--python-platform",
+            "--no-emit-package",
+            "--constraint",
+            "-c",
+            "--override",
+            "--resolution",
+            "--exclude-newer",
+            "--output-file",
+            "-o",
+        }
+        bool_flags = {
+            "--universal",
+            "--all-extras",
+            "--generate-hashes",
+            "--no-strip-extras",
+            "--no-strip-markers",
+            "--no-annotate",
+            "--emit-index-url",
+            "--emit-find-links",
+        }
+        output = None
+        sources = []
+        i = 3
+        while i < len(tokens):
+            token = tokens[i]
+            flag, separator, value = token.partition("=")
+            if flag in value_flags:
+                if not separator:
+                    i += 1
+                    if i >= len(tokens):
+                        raise ValueError("missing compile option value")
+                    value = tokens[i]
+                if not value or value.startswith("-"):
+                    raise ValueError("invalid compile option value")
+                if flag in {"--output-file", "-o"}:
+                    if output is not None:
+                        raise ValueError("duplicate output destination")
+                    output = value
+                if flag in {"--constraint", "-c", "--override"}:
+                    sources.append(value)
+            elif token in bool_flags:
+                pass
+            elif token == "pyproject.toml" or token.endswith(".in"):
+                sources.append(token)
+            else:
+                raise ValueError("unsupported compile argument")
+            i += 1
+        if output != str(lockfile_path) or not sources:
+            raise ValueError("compile output or inputs do not match this lock")
+        root = Path.cwd().resolve()
+        for source in sources:
+            path = Path(source)
+            if path.is_absolute() or not path.resolve().is_relative_to(root) or not path.is_file():
+                raise ValueError("compile input must be an existing repository-local file")
+        present = {
+            match.group("name").lower()
+            for line in content.splitlines()
+            if (match := LOCKFILE_PATTERN.match(line))
+        }
+        for name, version in _build_lockfile_targets(pins).items():
+            if name in present:
+                tokens.extend(["--upgrade-package", f"{name}=={version}"])
+        subprocess.run(tokens, check=True)
+    except (ValueError, OSError, subprocess.CalledProcessError) as exc:
+        return [], [f"{lockfile_path}: transitive lock regeneration failed ({exc})"]
+    return [f"{lockfile_path}: regenerated transitive dependencies"], []
+
+
 def sync_lockfile(
     lockfile_path: Path, pins: dict[str, str], apply: bool = False
 ) -> tuple[list[str], list[str]]:
+    """Sync direct tool pins in one supported requirements lockfile."""
     if not lockfile_path.exists():
         return [], []
 
@@ -229,13 +472,18 @@ def sync_lockfile(
             continue
 
         name = match.group("name")
-        version = match.group("version")
         target_version = targets.get(name.lower())
-        if target_version and version != target_version:
-            changes.append(f"requirements.lock:{name}: {version} -> =={target_version}")
+        current_requirement = f"{match.group('specifier') or ''}{match.group('marker') or ''}"
+        target_requirement = f"=={target_version}{match.group('marker') or ''}"
+        if target_version and current_requirement != target_requirement:
+            current_version = match.group("specifier") or "(unversioned)"
+            if current_version.startswith("=="):
+                current_version = current_version[2:]
+            changes.append(f"{lockfile_path.name}:{name}: {current_version} -> =={target_version}")
             if apply:
                 updated_lines.append(
-                    f"{match.group('lead')}{name}=={target_version}{match.group('trail')}"
+                    f"{match.group('lead')}{name}{match.group('extras') or ''}"
+                    f"=={target_version}{match.group('marker') or ''}{match.group('trail')}"
                 )
             else:
                 updated_lines.append(line)
@@ -252,6 +500,92 @@ def sync_lockfile(
     return changes, []
 
 
+def _pre_commit_repo_name(line: str) -> str | None:
+    """Return the normalized repository name from a pre-commit ``repo:`` line."""
+    match = re.match(r"^\s*-\s*repo:\s*(?P<repo>[^\s#]+)", line)
+    if not match:
+        return None
+
+    repo = match.group("repo").strip().strip("\"'")
+    if "://" in repo:
+        parsed = urlparse(repo)
+        if parsed.hostname and parsed.hostname.lower() == "github.com":
+            repo = parsed.path.lstrip("/")
+    repo = repo.rstrip("/").removesuffix(".git")
+    if repo.lower().startswith("github.com/"):
+        repo = repo.split("/", 1)[1]
+    return repo.lower()
+
+
+def sync_pre_commit_config(
+    pre_commit_path: Path, pins: dict[str, str], apply: bool = False
+) -> tuple[list[str], list[str]]:
+    """Sync managed pre-commit hook revisions while preserving all other text.
+
+    Pre-commit configuration is intentionally not copied wholesale to consumers.
+    This only changes a recognized remote hook's ``rev:`` value and preserves that
+    hook's existing ``v`` prefix convention.
+    """
+    if not pre_commit_path.exists():
+        return [], []
+
+    with pre_commit_path.open(encoding="utf-8", newline="") as pre_commit_file:
+        content = pre_commit_file.read()
+    lines = content.splitlines(keepends=True)
+    changes: list[str] = []
+    current_env_key: str | None = None
+    current_repo_name: str | None = None
+
+    for index, line in enumerate(lines):
+        repo_name = _pre_commit_repo_name(line)
+        if repo_name is not None:
+            current_env_key = PRE_COMMIT_REPO_MAPPING.get(repo_name)
+            current_repo_name = repo_name if current_env_key is not None else None
+            continue
+
+        if current_env_key is None or current_env_key not in pins:
+            continue
+
+        line_ending = "\r\n" if line.endswith("\r\n") else "\n" if line.endswith("\n") else ""
+        revision_line = line[: -len(line_ending)] if line_ending else line
+        rev_match = re.match(
+            r"^(?P<prefix>\s*rev:\s*)(?P<quote>['\"]?)(?P<value>[^\s#'\"]+)"
+            r"(?P=quote)(?P<suffix>.*)$",
+            revision_line,
+        )
+        if not rev_match:
+            continue
+
+        current_value = rev_match.group("value")
+        target_value = pins[current_env_key]
+        if current_value.startswith("v"):
+            target_value = f"v{target_value}"
+        if current_value == target_value:
+            current_env_key = None
+            current_repo_name = None
+            continue
+
+        changes.append(
+            f"{pre_commit_path.name}:{current_repo_name}: {current_value} -> {target_value}"
+        )
+        if apply:
+            lines[index] = (
+                f"{rev_match.group('prefix')}{rev_match.group('quote')}{target_value}"
+                f"{rev_match.group('quote')}{rev_match.group('suffix')}"
+                f"{line_ending}"
+            )
+        current_env_key = None
+        current_repo_name = None
+
+    if apply:
+        updated = "".join(lines)
+        if updated != content:
+            with pre_commit_path.open("w", encoding="utf-8", newline="") as pre_commit_file:
+                pre_commit_file.write(updated)
+
+    return changes, []
+
+
 def main(argv: list[str] | None = None) -> int:
     parser = argparse.ArgumentParser(
         description="Sync dev dependency versions from autofix-versions.env to pyproject.toml"
@@ -264,71 +598,111 @@ def main(argv: list[str] | None = None) -> int:
     parser.add_argument(
         "--apply",
         action="store_true",
-        help="Apply version updates to pyproject.toml",
+        help="Apply version updates to pyproject.toml and supported requirements lockfiles",
+    )
+    parser.add_argument(
+        "--resolve-locks",
+        action="store_true",
+        help="After applying pins, regenerate uv requirements locks with their recorded scope",
+    )
+    parser.add_argument(
+        "--create-if-missing",
+        action="store_true",
+        help="Create dev dependencies section if it doesn't exist",
+    )
+    parser.add_argument(
+        "--use-minimum-pins",
+        action="store_true",
+        help="Use >= instead of == for version pins",
     )
     parser.add_argument(
         "--lockfile",
         action="store_true",
-        help="Force lockfile sync even if requirements.lock doesn't exist (no-op)",
+        help="Compatibility flag; supported requirements lockfiles are always checked",
     )
     parser.add_argument(
-        "--lockfile-path",
-        type=Path,
-        default=LOCKFILE_FILE,
-        help="Path to lockfile (default: requirements.lock)",
+        "--pre-commit",
+        action="store_true",
+        help=(
+            "Include managed .pre-commit-config.yaml hook revisions; Maint 52 opts in "
+            "after the canonical dependency wave is ready"
+        ),
     )
     parser.add_argument(
         "--pin-file",
         type=Path,
         default=PIN_FILE,
-        help=f"Path to pin file (default: {PIN_FILE})",
+        help="Path to the version pins file",
     )
     parser.add_argument(
         "--pyproject",
         type=Path,
         default=PYPROJECT_FILE,
-        help=f"Path to pyproject.toml (default: {PYPROJECT_FILE})",
+        help="Path to pyproject.toml",
     )
 
     args = parser.parse_args(argv)
 
+    if args.check and args.apply:
+        parser.error("--check and --apply are mutually exclusive")
+    if args.resolve_locks and not args.apply:
+        parser.error("--resolve-locks requires --apply")
+
     if not args.check and not args.apply:
-        parser.error("Must specify either --check or --apply")
+        args.check = True  # Default to check mode
+
+    use_exact_pins = not args.use_minimum_pins
 
     pins = parse_env_file(args.pin_file)
     if not pins:
         print("Error: No pins found in env file", file=sys.stderr)
-        return 1
+        return 2
 
-    changes, errors = sync_versions(
+    changes, errors = sync_pyproject(
         args.pyproject,
         pins,
         apply=args.apply,
+        use_exact_pins=use_exact_pins,
+        create_if_missing=args.create_if_missing,
     )
 
-    lockfile_path = args.lockfile_path
-    lockfile_enabled = args.lockfile or lockfile_path.exists()
-    if lockfile_enabled:
+    for lockfile_path in LOCKFILE_FILES:
         lock_changes, lock_errors = sync_lockfile(lockfile_path, pins, apply=args.apply)
         changes.extend(lock_changes)
         errors.extend(lock_errors)
 
+    if args.pre_commit:
+        pre_commit_changes, pre_commit_errors = sync_pre_commit_config(
+            PRE_COMMIT_FILE, pins, apply=args.apply
+        )
+        changes.extend(pre_commit_changes)
+        errors.extend(pre_commit_errors)
+
+    if args.resolve_locks and not errors:
+        for lockfile_path in LOCKFILE_FILES:
+            lock_changes, lock_errors = regenerate_lockfile(lockfile_path, pins)
+            changes.extend(lock_changes)
+            errors.extend(lock_errors)
+
     if errors:
-        for error in errors:
-            print(f"Error: {error}", file=sys.stderr)
-        return 1
+        for err in errors:
+            print(f"Error: {err}", file=sys.stderr)
+        return 2
 
     if changes:
-        action = "Updated" if args.apply else "Would update"
-        print(f"{action} the following dependencies:")
+        print(f"{'Applied' if args.apply else 'Found'} {len(changes)} version updates:")
         for change in changes:
-            print(f"  {change}")
-        if args.check:
-            return 1
-    else:
-        print("All dev dependencies are in sync")
+            print(f"  - {change}")
 
-    return 0
+        if args.check:
+            print("\nRun with --apply to update dependency files")
+            return 1
+        else:
+            print("\n✓ Dependency files updated")
+            return 0
+    else:
+        print("✓ All dev dependency versions are in sync")
+        return 0
 
 
 if __name__ == "__main__":
