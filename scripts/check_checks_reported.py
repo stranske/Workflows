@@ -832,8 +832,143 @@ def bind_job_inputs(job: dict[str, Any], inputs: dict[str, Any]) -> dict[str, An
     return result
 
 
+def gate_status_provenance(
+    repo: str,
+    head: str,
+    statuses: list[dict[str, Any]],
+    runs: list[dict[str, Any]],
+    suites: list[dict[str, Any]],
+    checks: list[dict[str, Any]],
+    platform_app: dict[str, Any],
+    platform_bot: dict[str, Any],
+) -> dict[int, dict[str, Any]]:
+    """Bind the latest Actions Gate status; REST statuses have no app foreign key.
+
+    Only the built-in github.com publisher is supported. All inputs come from
+    authenticated API reads in collect(); URL text and raw caller app_id fields
+    never establish identity. Unknown publishers and incomplete attempts stay
+    unbound. The status itself must exist and succeed independently of the job.
+    """
+    owner = platform_app.get("owner") or {}
+    bot = {"id": 41898282, "login": "github-actions[bot]", "type": "Bot"}
+    if (
+        platform_app.get("id") != 15368
+        or platform_app.get("slug") != "github-actions"
+        or owner.get("id") != 9919
+        or owner.get("login") != "github"
+        or owner.get("type") != "Organization"
+        or any(platform_bot.get(key) != value for key, value in bot.items())
+    ):
+        return {}
+    candidates = [item for item in statuses if item.get("context") == "Gate / gate"]
+    if not candidates:
+        return {}
+    status = max(candidates, key=lambda item: (item.get("created_at") or "", item.get("id", 0)))
+    creator = status.get("creator") or {}
+    if (
+        status.get("state") != "success"
+        or type(status.get("id")) is not int
+        or status["id"] < 1
+        or status.get("url") != f"https://api.github.com/repos/{repo}/statuses/{head}"
+        or any(creator.get(key) != value for key, value in bot.items())
+    ):
+        return {}
+
+    def instant(value: Any) -> datetime | None:
+        try:
+            parsed = datetime.fromisoformat(value.replace("Z", "+00:00"))
+            return parsed if parsed.tzinfo is not None else None
+        except (AttributeError, TypeError, ValueError):
+            return None
+
+    created = instant(status.get("created_at"))
+    matches = []
+    for run in runs:
+        if (
+            (run.get("repository") or {}).get("full_name") != repo
+            or run.get("head_sha") != head
+            or run.get("event") != "pull_request"
+            or run.get("path") != ".github/workflows/pr-00-gate.yml"
+            or run.get("status") != "completed"
+            or run.get("conclusion") != "success"
+            or any(
+                type(run.get(key)) is not int or run[key] < 1
+                for key in ("id", "check_suite_id", "run_attempt")
+            )
+            or run["run_attempt"] < 1
+            or status.get("target_url") != f"https://github.com/{repo}/actions/runs/{run.get('id')}"
+        ):
+            continue
+        bound_suites = [
+            suite
+            for suite in suites
+            if suite.get("id") == run.get("check_suite_id")
+            and suite.get("head_sha") == head
+            and (suite.get("app") or {}).get("id") == 15368
+            and (suite.get("app") or {}).get("slug") == "github-actions"
+        ]
+        if len(bound_suites) != 1:
+            continue
+        for job in run.get("jobs", []):
+            if (
+                type(job.get("id")) is not int
+                or job["id"] < 1
+                or job.get("name") != "gate-summary"
+                or job.get("run_id") != run.get("id")
+                or job.get("run_attempt") != run["run_attempt"]
+                or job.get("head_sha") != head
+                or job.get("status") != "completed"
+                or job.get("conclusion") != "success"
+                or job.get("check_run_url")
+                != f"https://api.github.com/repos/{repo}/check-runs/{job.get('id')}"
+            ):
+                continue
+            bound_checks = [
+                check
+                for check in checks
+                if check.get("id") == job.get("id")
+                and check.get("head_sha") == head
+                and (check.get("check_suite") or {}).get("id") == run.get("check_suite_id")
+                and (check.get("app") or {}).get("id") == 15368
+                and (check.get("app") or {}).get("slug") == "github-actions"
+                and check.get("status") == "completed"
+                and check.get("conclusion") == "success"
+            ]
+            if len(bound_checks) != 1:
+                continue
+            for step in job.get("steps", []):
+                start, end = instant(step.get("started_at")), instant(step.get("completed_at"))
+                if (
+                    step.get("name") == "Report Gate commit status"
+                    and step.get("status") == "completed"
+                    and step.get("conclusion") == "success"
+                    and created is not None
+                    and start is not None
+                    and end is not None
+                    and start <= created <= end
+                ):
+                    matches.append(
+                        {
+                            "status_id": status["id"],
+                            "app_id": 15368,
+                            "publisher_id": bot["id"],
+                            "repository": repo,
+                            "head": head,
+                            "run_id": run["id"],
+                            "run_attempt": run["run_attempt"],
+                            "suite_id": run["check_suite_id"],
+                            "job_id": job["id"],
+                            "report_started_at": step["started_at"],
+                            "report_completed_at": step["completed_at"],
+                        }
+                    )
+    return {status["id"]: matches[0]} if len(matches) == 1 else {}
+
+
 def latest_checks(
-    checks: list[dict[str, Any]], statuses: list[dict[str, Any]]
+    checks: list[dict[str, Any]],
+    statuses: list[dict[str, Any]],
+    status_provenance: dict[int, dict[str, Any]] | None = None,
 ) -> dict[str, dict[str, Any]]:
     latest: dict[str, dict[str, Any]] = {}
     for item in checks:
@@ -860,7 +995,7 @@ def latest_checks(
             "order": stamp,
             "state": item.get("state"),
             "url": item.get("target_url"),
-            "app_id": None,
+            "app_id": (status_provenance or {}).get(item.get("id"), {}).get("app_id"),
         }
     for key, item in latest_statuses.items():
         # A status cannot erase a failing check-run with the same context name.
@@ -881,8 +1016,9 @@ def adjudicate(
     unknown: list[str],
     required: list[dict[str, Any]],
     applicable_suite_ids: set[Any] | None = None,
+    status_provenance: dict[int, dict[str, Any]] | None = None,
 ) -> dict[str, Any]:
-    states = latest_checks(checks, statuses)
+    states = latest_checks(checks, statuses, status_provenance)
     missing = sorted(expected - states.keys())
     failures = []
     for name in sorted(expected & states.keys()):
@@ -1213,14 +1349,31 @@ def collect(
             unknown.append(
                 f"GitHub Actions provenance/success not established for workflow job: {name}"
             )
-    after = evidence.one(f"repos/{repo}/pulls/{number}")
-    if after["head"]["sha"] != head or after["base"]["sha"] != base:
-        unknown.append("PR head or base changed during evidence collection")
     applicable_suite_ids = {
         run.get("check_suite_id")
         for run in latest_runs.values()
         if run.get("check_suite_id") is not None
     }
+    status_provenance = {}
+    if any(
+        rule.get("context") == "Gate / gate" and rule.get("app_id") == 15368 for rule in required
+    ):
+        try:
+            status_provenance = gate_status_provenance(
+                repo,
+                head,
+                statuses,
+                list(latest_runs.values()),
+                suites,
+                checks,
+                evidence.one("apps/github-actions"),
+                evidence.one("users/github-actions[bot]"),
+            )
+        except UnknownEvidence as exc:
+            unknown.append(f"Actions status publisher discovery unavailable: {exc}")
+    after = evidence.one(f"repos/{repo}/pulls/{number}")
+    if after["head"]["sha"] != head or after["base"]["sha"] != base:
+        unknown.append("PR head or base changed during evidence collection")
     receipt = adjudicate(
         expected,
         checks,
@@ -1230,6 +1383,7 @@ def collect(
         unknown,
         required,
         applicable_suite_ids,
+        status_provenance,
     )
     receipt.update(
         {
@@ -1244,6 +1398,7 @@ def collect(
             "event_source": "explicit caller context; Actions REST does not expose webhook action",
             "changed_paths": paths,
             "required_checks": required,
+            "status_provenance": list(status_provenance.values()),
             "duplicate_identity_evidence": identity_evidence,
             "workflow_sources": sources,
             "legitimate_absences": absences,

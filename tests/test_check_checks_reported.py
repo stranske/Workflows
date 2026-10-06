@@ -1552,3 +1552,176 @@ def test_collect_binds_real_suite_id_to_current_run():
     assert result["startup_failures"] == [
         {"kind": "suite", "id": 90, "conclusion": "startup_failure"}
     ]
+
+
+def actions_status_packet():
+    """Minimized authenticated shape of Inv-Man-Intake1006's actual Gate retry."""
+    repo = "stranske/Inv-Man-Intake"
+    status = {
+        "id": 55746211600,
+        "context": "Gate / gate",
+        "state": "success",
+        "created_at": "2026-10-06T22:28:41Z",
+        "url": f"https://api.github.com/repos/{repo}/statuses/{HEAD}",
+        "target_url": f"https://github.com/{repo}/actions/runs/37538210728",
+        "creator": {"id": 41898282, "login": "github-actions[bot]", "type": "Bot"},
+    }
+    app = {
+        "id": 15368,
+        "slug": "github-actions",
+        "owner": {"id": 9919, "login": "github", "type": "Organization"},
+    }
+    suite = {"id": 101687549688, "head_sha": HEAD, "app": app}
+    run = {
+        "id": 37538210728,
+        "repository": {"full_name": repo},
+        "head_sha": HEAD,
+        "event": "pull_request",
+        "path": ".github/workflows/pr-00-gate.yml",
+        "status": "completed",
+        "conclusion": "success",
+        "run_attempt": 2,
+        "check_suite_id": suite["id"],
+        "jobs": [
+            {
+                "id": 112533083718,
+                "name": "gate-summary",
+                "run_id": 37538210728,
+                "run_attempt": 2,
+                "head_sha": HEAD,
+                "status": "completed",
+                "conclusion": "success",
+                "check_run_url": f"https://api.github.com/repos/{repo}/check-runs/112533083718",
+                "steps": [
+                    {
+                        "name": "Report Gate commit status",
+                        "status": "completed",
+                        "conclusion": "success",
+                        "started_at": "2026-10-06T22:28:41Z",
+                        "completed_at": "2026-10-06T22:28:42Z",
+                    }
+                ],
+            }
+        ],
+    }
+    gate = check("gate-summary", ident=112533083718)
+    gate["check_suite"] = {"id": suite["id"]}
+    return {
+        "repo": repo,
+        "head": HEAD,
+        "statuses": [status],
+        "runs": [run],
+        "suites": [suite],
+        "checks": [gate],
+        "platform_app": app,
+        "platform_bot": dict(status["creator"]),
+    }
+
+
+def status_packet_verdict(packet):
+    proof = reporter.gate_status_provenance(**packet)
+    return reporter.adjudicate(
+        {"Gate / gate"},
+        packet["checks"],
+        packet["statuses"],
+        packet["suites"],
+        packet["runs"],
+        [],
+        [{"context": "Gate / gate", "app_id": 15368}],
+        status_provenance=proof,
+    )
+
+
+def test_real_gate_retry_resolves_only_the_missing_app_binding():
+    packet = actions_status_packet()
+    assert (
+        reporter.adjudicate(
+            {"Gate / gate"},
+            packet["checks"],
+            packet["statuses"],
+            packet["suites"],
+            packet["runs"],
+            [],
+            [{"context": "Gate / gate", "app_id": 15368}],
+        )["verdict"]
+        == "UNKNOWN"
+    )
+    proof = reporter.gate_status_provenance(**packet)
+    assert proof[55746211600]["run_attempt"] == 2
+    assert proof[55746211600]["suite_id"] == 101687549688
+    result = status_packet_verdict(packet)
+    assert result["verdict"] == "PASS"
+    assert result["missing_names"] == result["unknown"] == result["failing_checks"] == []
+
+
+@pytest.mark.parametrize(
+    "object_path,key,value",
+    [
+        (("statuses", 0, "creator"), "id", 123),
+        (("statuses", 0, "creator"), "login", "someone[bot]"),
+        (("statuses", 0, "creator"), "type", "User"),
+        (("platform_app",), "id", 999),
+        (("platform_app", "owner"), "id", 999),
+        (("platform_bot",), "id", 999),
+        (("statuses", 0), "url", "https://api.github.com/repos/other/repo/statuses/" + HEAD),
+        (("statuses", 0), "created_at", "2026-10-06T22:28:43Z"),
+        (("statuses", 0), "created_at", "not-a-time"),
+        (("runs", 0), "head_sha", BASE),
+        (("runs", 0, "repository"), "full_name", "other/repo"),
+        (("runs", 0), "event", "workflow_dispatch"),
+        (("runs", 0), "path", ".github/workflows/unrelated.yml"),
+        (("runs", 0), "run_attempt", 3),
+        (("statuses", 0), "id", True),
+        (("runs", 0), "id", None),
+        (("runs", 0), "check_suite_id", None),
+        (("runs", 0), "run_attempt", True),
+        (("runs", 0, "jobs", 0), "id", None),
+        (("runs", 0), "conclusion", "failure"),
+        (("suites", 0), "head_sha", BASE),
+        (("suites", 0), "id", 123),
+        (("suites", 0, "app"), "slug", "other"),
+        (("checks", 0, "app"), "id", 123),
+        (("checks", 0, "check_suite"), "id", 123),
+        (("runs", 0, "jobs", 0), "run_attempt", 1),
+        (("runs", 0, "jobs", 0), "head_sha", BASE),
+        (("runs", 0, "jobs", 0), "check_run_url", "https://example.com/check-runs/112533083718"),
+        (("runs", 0, "jobs", 0, "steps", 0), "conclusion", "failure"),
+        (("runs", 0, "jobs", 0, "steps", 0), "name", "Unrelated step"),
+    ],
+)
+def test_gate_status_binding_rejects_spoofed_or_incomplete_correspondence(object_path, key, value):
+    packet = actions_status_packet()
+    # Remove shared fixture identity so each negative changes only its named evidence.
+    packet = json.loads(json.dumps(packet))
+    node = packet
+    for part in object_path:
+        node = node[part]
+    node[key] = value
+    assert reporter.gate_status_provenance(**packet) == {}
+    assert status_packet_verdict(packet)["verdict"] == "UNKNOWN"
+
+
+def test_newer_untrusted_status_never_falls_back_to_older_trusted_success():
+    packet = actions_status_packet()
+    newer = json.loads(json.dumps(packet["statuses"][0]))
+    newer.update(id=55746211601, created_at="2026-10-06T22:28:42Z", app_id=15368)
+    newer["creator"]["id"] = 123
+    for statuses in [[newer, *packet["statuses"]], [*packet["statuses"], newer]]:
+        packet["statuses"] = statuses
+        assert reporter.gate_status_provenance(**packet) == {}
+        assert status_packet_verdict(packet)["verdict"] == "UNKNOWN"
+
+
+def test_verified_status_still_cannot_mask_a_failed_same_context_check():
+    packet = actions_status_packet()
+    packet["checks"].append(check("Gate / gate", conclusion="failure", ident=2))
+    assert status_packet_verdict(packet)["verdict"] == "FAIL"
+
+
+def test_url_only_and_missing_status_are_not_publishing_identity():
+    packet = actions_status_packet()
+    packet["statuses"][0]["creator"] = {}
+    assert status_packet_verdict(packet)["verdict"] == "UNKNOWN"
+    packet["statuses"] = []
+    assert reporter.gate_status_provenance(**packet) == {}
+    assert status_packet_verdict(packet)["verdict"] == "FAIL"

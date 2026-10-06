@@ -200,3 +200,19 @@ Workflows Gate, reusable CI selftest and integration-consumer workflows invoke
 the reusable workflow from the tested tree and pass `workflows_ref: ${{ github.sha }}`.
 This keeps the helper checkout on that same tested commit, including before a
 new helper API reaches main. Consumer remote calls retain their `@main` default.
+
+### Required Gate commit-status publisher
+
+REST commit statuses do not expose an app foreign key. The local lane adapter
+binds the latest successful `Gate / gate` status only for the built-in github.com
+GitHub Actions publisher. Authenticated app and bot records must match their
+immutable platform IDs. The status repository/head, successful pull-request Gate
+run and attempt, Actions suite, summary job/check, and successful status-report
+step must agree; the status timestamp must fall inside that step. The receipt
+retains these identifiers in `status_provenance`. A target URL, publisher login,
+or caller-supplied app ID alone is insufficient. Unbound, stale, ambiguous, or
+unavailable evidence remains UNKNOWN; a missing status remains missing and a
+failed check cannot be hidden by a successful status.
+
+This is a local lane-adapter change, not a reusable workflow or consumer sync
+change. It does not authorize installing an unreviewed helper into a running lane.
