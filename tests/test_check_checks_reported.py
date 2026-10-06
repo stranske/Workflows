@@ -1632,8 +1632,10 @@ def status_packet_verdict(packet):
     )
 
 
-def test_real_gate_retry_resolves_only_the_missing_app_binding():
+@pytest.mark.parametrize("summary_name", ["summary", "gate-summary"])
+def test_real_gate_retry_resolves_only_the_missing_app_binding(summary_name):
     packet = actions_status_packet()
+    packet["runs"][0]["jobs"][0]["name"] = summary_name
     assert (
         reporter.adjudicate(
             {"Gate / gate"},
@@ -1682,6 +1684,7 @@ def test_real_gate_retry_resolves_only_the_missing_app_binding():
         (("suites", 0, "app"), "slug", "other"),
         (("checks", 0, "app"), "id", 123),
         (("checks", 0, "check_suite"), "id", 123),
+        (("runs", 0, "jobs", 0), "name", "unrelated-summary"),
         (("runs", 0, "jobs", 0), "run_attempt", 1),
         (("runs", 0, "jobs", 0), "head_sha", BASE),
         (("runs", 0, "jobs", 0), "check_run_url", "https://example.com/check-runs/112533083718"),
@@ -1725,3 +1728,19 @@ def test_url_only_and_missing_status_are_not_publishing_identity():
     packet["statuses"] = []
     assert reporter.gate_status_provenance(**packet) == {}
     assert status_packet_verdict(packet)["verdict"] == "FAIL"
+
+
+@pytest.mark.parametrize(
+    "relative",
+    [
+        ".github/workflows/pr-00-gate.yml",
+        "templates/consumer-repo/.github/workflows/pr-00-gate.yml",
+    ],
+)
+def test_current_canonical_gate_summary_can_bind_status(relative):
+    workflow = reporter.yaml.load(
+        (Path(__file__).parents[1] / relative).read_text(), Loader=reporter.WorkflowLoader
+    )
+    packet = actions_status_packet()
+    packet["runs"][0]["jobs"][0]["name"] = workflow["jobs"]["summary"]["name"]
+    assert status_packet_verdict(packet)["verdict"] == "PASS"

@@ -2,8 +2,8 @@
 
 Related to closed source #3757; no broad acceptance issue is reopened.
 
-Incident: Inv-Man-Intake#1006 head102ebbe3a6d93275f015fe1485d2fefdbde578a6
-had successful Gate attempt2 and a real successful Gate / gate status, but the
+Incident: Inv-Man-Intake#1006 head 102ebbe3a6d93275f015fe1485d2fefdbde578a6
+had successful Gate attempt 2 and a real successful Gate / gate status, but the
 REST status object has no app foreign key. The installed reporter correctly
 returned UNKNOWN rather than silently accepting an unproven required app.
 

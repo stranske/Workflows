@@ -914,7 +914,7 @@ def gate_status_provenance(
             if (
                 type(job.get("id")) is not int
                 or job["id"] < 1
-                or job.get("name") != "gate-summary"
+                or job.get("name") not in {"summary", "gate-summary"}
                 or job.get("run_id") != run.get("id")
                 or job.get("run_attempt") != run["run_attempt"]
                 or job.get("head_sha") != head
