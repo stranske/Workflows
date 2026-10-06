@@ -1,0 +1,32 @@
+GITHUB_OUTPUT and GITHUB_STEP_SUMMARY removed for local validation.
+The serial Black adapter is retained at ../black-serial-dispatch.txt.
+
+$ python3 scripts/validate_template_sync.py
+✅ All template files in sync
+Process exit: 0
+
+$ python3 scripts/validate_template_completeness.py
+✅ All consumer workflows are properly templated and manifested
+Process exit: 0
+
+$ black --check --line-length 100 tests/scripts/test_check_deliberate_break.py
+All done! ✨ 🍰 ✨
+1 file would be left unchanged.
+Process exit: 0
+
+$ python3 /tmp/deliberate-break-black-serial.py --check --line-length 100 tests/scripts/test_check_deliberate_break.py scripts/check_deliberate_break.py templates/consumer-repo/scripts/check_deliberate_break.py
+All done! ✨ 🍰 ✨
+3 files would be left unchanged.
+Process exit: 0
+
+$ ruff check tests/scripts/test_check_deliberate_break.py scripts/check_deliberate_break.py templates/consumer-repo/scripts/check_deliberate_break.py
+All checks passed!
+Process exit: 0
+
+$ git diff --check
+
+Process exit: 0
+
+$ cmp scripts/check_deliberate_break.py templates/consumer-repo/scripts/check_deliberate_break.py
+
+Process exit: 0

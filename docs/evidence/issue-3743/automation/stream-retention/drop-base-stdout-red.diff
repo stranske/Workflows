@@ -1,0 +1,10 @@
+--- scripts/check_deliberate_break.py
++++ drop-base-stdout-red/scripts/check_deliberate_break.py
+@@ -1079 +1079 @@
+-            base_stdout=base_run.stdout,
++            base_stdout="",
+--- templates/consumer-repo/scripts/check_deliberate_break.py
++++ drop-base-stdout-red/templates/consumer-repo/scripts/check_deliberate_break.py
+@@ -1079 +1079 @@
+-            base_stdout=base_run.stdout,
++            base_stdout="",

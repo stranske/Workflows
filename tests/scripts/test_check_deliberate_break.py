@@ -2277,6 +2277,13 @@ def test_base_collection_failure_cannot_prove_a_deliberate_break(tmp_path, prefi
     repo.mkdir()
     _init_repo(repo)
     (repo / "app.py").write_text("VALUE = 1\n", encoding="utf-8")
+    (repo / "conftest.py").write_text(
+        "import sys\n"
+        "def pytest_sessionstart(session):\n"
+        "    print('base dependency stdout sentinel', file=sys.stdout)\n"
+        "    print('base dependency stderr sentinel', file=sys.stderr)\n",
+        encoding="utf-8",
+    )
     base = _commit(repo, "base without the candidate dependency")
     (repo / "candidate_dependency.py").write_text("VALUE = 1\n", encoding="utf-8")
     (repo / "test_candidate.py").write_text(
@@ -2295,7 +2302,9 @@ def test_base_collection_failure_cannot_prove_a_deliberate_break(tmp_path, prefi
     assert result["reason"] == "base-test-not-importable"
     assert result["missing_module"] == "candidate_dependency"
     assert "never ran" in result["detail"]
-    assert "candidate_dependency" in result["base_stdout"] + result["base_stderr"]
+    assert "ModuleNotFoundError: No module named 'candidate_dependency'" in result["base_stdout"]
+    assert "base dependency stdout sentinel" in result["base_stdout"]
+    assert "base dependency stderr sentinel" in result["base_stderr"]
 
 
 @pytest.fixture(params=["", "templates/consumer-repo/"], ids=["root", "consumer"])

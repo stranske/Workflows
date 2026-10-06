@@ -1,0 +1,10 @@
+--- scripts/check_deliberate_break.py
++++ drop-base-stderr-red/scripts/check_deliberate_break.py
+@@ -1080 +1080 @@
+-            base_stderr=base_run.stderr,
++            base_stderr="",
+--- templates/consumer-repo/scripts/check_deliberate_break.py
++++ drop-base-stderr-red/templates/consumer-repo/scripts/check_deliberate_break.py
+@@ -1080 +1080 @@
+-            base_stderr=base_run.stderr,
++            base_stderr="",
