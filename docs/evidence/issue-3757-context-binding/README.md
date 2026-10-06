@@ -70,3 +70,34 @@ exclusions, validation and result reporting. No repository tooling was changed.
 This run's checkout mounts `.git` read-only, so staging could not advance its
 branch. The verified source changes were committed in a temporary Git checkout
 and exported as a bundle; the original workspace retains the same edits.
+
+## CLI scenario follow-up
+
+- [x] Add tests for the four reporter scenarios, enumerate check-run and
+  check-suite pages, and bind output to the unchanged full head, event, action
+  and changed paths.
+- [x] Verify that pytest passes the four scenarios, including FAIL for a
+  missing required reporter and a zero-job startup failure.
+
+The follow-up adds 19 cases in `tests/test_check_checks_reported.py`. Each incident
+is driven through the CLI into a durable JSON receipt, with both page orders and
+two caller actions. The tests retain the authored absence evidence and verify
+expected, reported, passing and missing names. Separate controls reject reuse of
+an absence for an applicable action and changed head/path closing snapshots.
+The startup failure is recovered from a suite beyond the first page, even beside
+successful checks.
+
+`python3 -m pytest -q tests/test_check_checks_reported.py -m "not slow"` passes
+all 213 tests; Ruff and `git diff --check` pass. Both supported commands above
+were rerun after reading current heads through the connector. The adjacent
+receipts retain UNKNOWN because local `gh` still cannot connect to GitHub.
+Live completeness and the exact-head merge gates remain unverified.
+
+Updating PR #3791's verified checkboxes through the GitHub connector was rejected:
+the tool requires approval, while this run's approval policy is `never`. These
+local checkboxes record verified work without claiming the remote body changed.
+
+The required repository-wide Black check passes with 664 files unchanged via
+the same sequential scheduling workaround described above. The original `.git`
+is still read-only; the follow-up commit is exported from a temporary checkout
+as `/tmp/issue-3757-cli-receipts.bundle`, with its reviewable patch alongside it.
