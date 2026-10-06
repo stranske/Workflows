@@ -1361,7 +1361,8 @@ Base supply/supplies after bare has/have/had possession is not a verbal alias;
 progressive supplying retains be-family governors, while supplied retains perfect
 governors. Bounded optional inspect/review/check-whether clauses about product
 possession of supply evidence are nongating across review destinations and checklist
-markers; independently required reviewer deliveries remain authoritative.
+markers, including shared bounded adverbs before and after has/have/had;
+independently required reviewer deliveries remain authoritative.
 Delivery prohibitions reuse the shared governor and operation vocabulary,
 including do/does/did and prove, with not/never/no-longer polarity. A required
 delivery in another independent clause remains authoritative. Supply alias

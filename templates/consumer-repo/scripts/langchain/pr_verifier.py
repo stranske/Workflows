@@ -2523,7 +2523,11 @@ def _required_evidence_channels(acceptance: str, *, _bind_attached: bool = True)
                 + delivery_adverbs
                 + r"(?:inspect|review|check)\s+whether\s+"
                 + product_actor
-                + r"\s+(?:has|have|had)\s+(?:supply|supplies)\s+"
+                + r"\s+"
+                + delivery_adverbs
+                + r"(?:has|have|had)\s+"
+                + delivery_adverbs
+                + r"(?:supply|supplies)\s+"
                 + evidence_modifiers
                 + r"(?:evidence|artifacts?|transcripts?|command outputs?)\s+"
                 + bound_review_destinations,

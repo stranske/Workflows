@@ -15,11 +15,25 @@ from scripts.langchain import pr_verifier as verifier
 @pytest.mark.parametrize("inspection", ["inspect", "review", "check"])
 @pytest.mark.parametrize("destination", ["the PR body", "a PR comment", "workflow artifacts"])
 @pytest.mark.parametrize("marker", ["", "- [ ] ", "- [x] "])
+@pytest.mark.parametrize(
+    "before,after",
+    [
+        ("", ""),
+        ("already ", ""),
+        ("currently ", ""),
+        ("still ", ""),
+        ("", "already "),
+        ("", "currently "),
+        ("already ", "still "),
+        ("still already currently ", "now still already "),
+    ],
+)
 def test_possession_auxiliary_cannot_make_supply_noun_a_delivery(
-    role, auxiliary, alias, inspection, destination, marker
+    role, auxiliary, alias, inspection, destination, marker, before, after
 ):
     criterion = (
-        f"The {role} may {inspection} whether the API {auxiliary} {alias} evidence in {destination}"
+        f"The {role} may {inspection} whether the API {before}{auxiliary} {after}"
+        f"{alias} evidence in {destination}"
     )
     assert verifier._required_evidence_channels(marker + criterion) == set()
     positive = "The maintainer must record evidence in the PR body"
@@ -1610,6 +1624,9 @@ def test_fresh_canary_findings_control_actual_coverage_floor(criterion, channel,
     [
         "The reviewer is not required to have supplied evidence in workflow artifacts",
         "The reviewer may inspect whether the API has supply evidence in workflow artifacts",
+        "The reviewer may inspect whether the API already has supply evidence in workflow artifacts",
+        "The reviewer may inspect whether the API have currently supplies evidence in workflow artifacts",
+        "The reviewer may inspect whether the API still had already supply evidence in workflow artifacts",
         "Command output must not be recorded in the PR body and be posted in workflow artifacts",
     ],
 )
