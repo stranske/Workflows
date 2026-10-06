@@ -9,6 +9,72 @@ from scripts import docs_drift_fix_agent as fix_agent
 from scripts.langchain import pr_verifier as verifier
 
 
+@pytest.mark.parametrize(
+    "role",
+    [
+        "release reviewer",
+        "security reviewer",
+        "compliance maintainer",
+        "risk auditor",
+        "security release reviewer",
+        "CI release reviewer",
+        "project team",
+        "independent security auditor",
+    ],
+)
+@pytest.mark.parametrize("operation", ["placed", "submitted", "delivered", "supplied"])
+@pytest.mark.parametrize("adverb", ["", "already ", "currently "])
+@pytest.mark.parametrize("marker", ["", "- [ ] "])
+@pytest.mark.parametrize(
+    "destination,channel",
+    [("the PR body", "body"), ("a PR comment", "comments"), ("workflow artifacts", "artifacts")],
+)
+def test_compound_review_roles_retain_active_past_delivery(
+    role, operation, adverb, marker, destination, channel
+):
+    """Role noun modifiers cannot erase explicit delivered-evidence obligations."""
+    criterion = f"The {role} {adverb}{operation} evidence in {destination}"
+    assert verifier._required_evidence_channels(marker + criterion) == {channel}
+    optional = "The reviewer may supply evidence in the PR body"
+    assert verifier._required_evidence_channels(optional + "; " + criterion) == {channel}
+    assert verifier._required_evidence_channels(criterion + "; " + optional) == {channel}
+
+
+@pytest.mark.parametrize("predicate", ["audits", "observes", "tests"])
+@pytest.mark.parametrize("actor", ["service", "API"])
+@pytest.mark.parametrize("alias", ["placed", "submitted", "supplied", "supplies"])
+@pytest.mark.parametrize("marker", ["", "- [ ] "])
+@pytest.mark.parametrize("destination", ["the PR body", "a PR comment", "workflow artifacts"])
+def test_inspection_object_actor_is_not_compound_delivery_role(
+    predicate, actor, alias, marker, destination
+):
+    """Inspection cannot invent delivery; retain existing noun-only checklist floors."""
+    criterion = f"The reviewer {predicate} {actor} {alias} evidence in {destination}"
+    expected = (
+        {"artifacts"}
+        if marker and destination == "workflow artifacts"
+        else {"overall"} if marker and destination == "the PR body" else set()
+    )
+    assert verifier._required_evidence_channels(marker + criterion) == expected
+
+
+@pytest.mark.parametrize("role", ["release reviewer", "security reviewer", "risk auditor"])
+@pytest.mark.parametrize("alias", ["supplies", "placed", "submitted", "supplied"])
+@pytest.mark.parametrize("marker", ["", "- [ ] "])
+@pytest.mark.parametrize(
+    "destination,channel",
+    [("the PR body", "body"), ("a PR comment", "comments"), ("workflow artifacts", "artifacts")],
+)
+def test_compound_role_polarity_and_independent_delivery(role, alias, marker, destination, channel):
+    """Compound roles share optional, negative and independent delivery grammar."""
+    positive = f"The {role} {alias} evidence in {destination}"
+    optional = "The reviewer may supply evidence in workflow artifacts"
+    assert verifier._required_evidence_channels(marker + optional + " and " + positive) == {channel}
+    negative = f"The {role} must not supply evidence in {destination}"
+    assert verifier._required_evidence_channels(marker + negative) == set()
+    assert verifier._required_evidence_channels(marker + negative + "; " + positive) == {channel}
+
+
 @pytest.mark.parametrize("role", ["reviewer", "maintainer", "release reviewer"])
 @pytest.mark.parametrize("auxiliary", ["has", "have", "had"])
 @pytest.mark.parametrize("alias", ["supply", "supplies"])
@@ -1602,6 +1668,9 @@ def test_reverse_record_output_binds_its_own_recipient(participle, recipient):
         ("The service must provide command output to clients and in the PR body", "body"),
         ("The service must provide command output to clients and in a PR comment", "comments"),
         ("The write to the PR command must output evidence", None),
+        ("The release reviewer placed evidence in a PR comment", "comments"),
+        ("The security reviewer submitted evidence in the PR body", "body"),
+        ("The independent security auditor supplied evidence in workflow artifacts", "artifacts"),
     ],
 )
 @pytest.mark.parametrize("status", ["present", "absent", "unavailable"])

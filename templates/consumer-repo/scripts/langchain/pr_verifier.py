@@ -1127,7 +1127,9 @@ def _required_evidence_channels(acceptance: str, *, _bind_attached: bool = True)
     )
     qualified_delivery_actor = (
         r"(?:(?:the|an?)\s+)?"
-        r"(?:(?:assigned|responsible|authorized|experienced|designated|senior|lead|primary|current|CI|API)\s+){0,3}"
+        r"(?:(?:assigned|responsible|authorized|experienced|designated|senior|lead|primary|current|CI|API|"
+        r"release|security|compliance|quality|platform|infrastructure|deployment|operations|"
+        r"finance|data|privacy|audit|risk|project|independent)\s+){0,3}"
         + parenthetical_actor
         + r"\b\s+"
         + delivery_adverbs

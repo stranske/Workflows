@@ -1366,6 +1366,13 @@ bounded possession modifiers also retain not/never/no-longer polarity there;
 independently required reviewer deliveries remain authoritative.
 Elided active-perfect review deliveries admit the shared bounded adverbs before
 and after have, retaining the same actor/governor inheritance as passive actions.
+Active-past and finite-present aliases share the qualified actor vocabulary:
+assigned/responsible/authorized/experienced/designated/senior/lead/primary/current,
+CI/API, and release/security/compliance/quality/platform/infrastructure/deployment/
+operations/finance/data/privacy/audit/risk/project/independent. Up to three such
+modifiers may qualify the existing role heads; this is finite compound-role support,
+not arbitrary English parsing. Full-prefix subject matching rejects inspection
+predicates such as audits/observes/tests before object service/API actors.
 Delivery prohibitions reuse the shared governor and operation vocabulary,
 including do/does/did and prove, with not/never/no-longer polarity. A required
 delivery in another independent clause remains authoritative. Supply alias
