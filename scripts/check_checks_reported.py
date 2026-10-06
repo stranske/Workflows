@@ -971,7 +971,7 @@ def complete_workflow_runs(
         if (suite.get("app") or {}).get("slug") != "github-actions":
             continue
         suite_id = suite.get("id")
-        if not isinstance(suite_id, int) or suite.get("head_sha", head) != head:
+        if not isinstance(suite_id, int) or suite.get("head_sha") != head:
             raise UnknownEvidence("Actions suite identity/head binding missing")
         if suite_id in known_suites:
             continue

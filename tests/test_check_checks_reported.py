@@ -532,6 +532,24 @@ def test_partial_head_inventory_still_recovers_unrepresented_suite():
     assert len(evidence.requests) == 2
 
 
+@pytest.mark.parametrize("suite_head", [None, "wrong", ""])
+@pytest.mark.parametrize("known_run", [False, True])
+def test_missing_or_wrong_suite_head_is_unknown_even_with_a_matching_run(suite_head, known_run):
+    run = {"id": 10, "head_sha": HEAD, "event": "pull_request", "check_suite_id": 900}
+    suite = {"id": 900, "app": {"slug": "github-actions"}}
+    if suite_head is not None:
+        suite["head_sha"] = suite_head
+
+    def transport(endpoint):
+        rows = [run] if known_run or "check_suite_id=" in endpoint else []
+        return [{"total_count": len(rows), "workflow_runs": rows}]
+
+    with pytest.raises(reporter.UnknownEvidence, match="identity/head binding missing"):
+        reporter.complete_workflow_runs(
+            reporter.Evidence(transport), "o/r", HEAD, "pull_request", [suite]
+        )
+
+
 def protection_transport(error, rules=None):
     transport = fixture_transport()
 
