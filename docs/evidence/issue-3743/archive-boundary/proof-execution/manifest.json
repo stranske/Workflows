@@ -90,7 +90,7 @@
     "Evidence captures trim trailing whitespace; mutation diffs use zero context for whitespace hygiene. No outcomes or diagnostics are omitted."
   ],
   "files_sha256": {
-    "README.md": "fb168d11381d921e7ffebc819a10b86c1e6c7da8a15ce4677ac125c2655137ad",
+    "README.md": "48ef23fb86e42facd3dcc2208e3198fe4d1bfca6ed4886bb06b4e39bf4b17e6a",
     "archive-escape-GREEN.txt": "d852ff8f0649c64c791aa9cc81ebe7791f05daffd9281f9dbcb08d076f15cf0b",
     "archive-escape-GREEN.xml": "85b1511cf003837829d0833d171328806f8387932203318059facff18abd3b2b",
     "archive-escape-RED.txt": "9202914e6e16b99d3e633d8bcb4ebb932ab18b8a9de997b64a12e929ae8ccca5",

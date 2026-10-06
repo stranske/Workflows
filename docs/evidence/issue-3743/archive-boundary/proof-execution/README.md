@@ -45,10 +45,13 @@ and [after](focused-after.txt) captures and coverage JSON are retained. Identica
 focused module coverage remains **91.77%**: statements **544/589 (92.36%)**,
 branches **237/262 (90.46%)**, with zero lost lines or branches.
 
-Both runs use the following command, changing only the coverage output filename:
+The retained runs used the following pytest scope. For a replay, create a fresh
+directory outside the repository so the retained captures and their manifest
+hashes remain unchanged:
 
 ```sh
-python3 -m pytest tests/scripts/test_check_deliberate_break.py tests/scripts/test_check_deliberate_break_archive.py -q -o addopts= -m "not slow" --cov=scripts.check_deliberate_break --cov-branch --cov-report=json:docs/evidence/issue-3743/archive-boundary/proof-execution/focused-after.json --cov-report=term-missing
+replay_dir=$(mktemp -d "${TMPDIR:-/tmp}/archive-proof-replay.XXXXXX")
+python3 -m pytest tests/scripts/test_check_deliberate_break.py tests/scripts/test_check_deliberate_break_archive.py -q -o addopts= -m "not slow" --cov=scripts.check_deliberate_break --cov-branch --cov-report="json:$replay_dir/focused-after.json" --cov-report=term-missing
 ```
 
 The fresh [ranking](ranking.json) still selects this helper by the 400-commit
