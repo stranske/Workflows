@@ -984,7 +984,7 @@ def _required_evidence_channels(acceptance: str, *, _bind_attached: bool = True)
         r"(?:include|contain|have|return|display|show|store|emit|render|expose|provide)\w*\b"
     )
     delivery_operation = r"(?:prove|provide|return|display|show|emit|render|expose|store|upload|attach|publish|post|record|capture|include|contain|have|document|generate|link|add|leave)\w*\b"
-    capability_operation = r"(?:(?:allow|enable|support)\w*|let(?:s|ting)?)"
+    capability_operation = r"(?:(?:allow|enable|support|permit)\w*|let(?:s|ting)?)"
     evidence_modifiers = (
         r"(?:(?!(?:and|or|but|must|shall|is|are|not|never|may|can)\b)[\w/-]+\s+){0,6}"
     )
@@ -1067,17 +1067,20 @@ def _required_evidence_channels(acceptance: str, *, _bind_attached: bool = True)
         + r"(?:evidence|artifacts?|command outputs?|transcripts?)\s+nor\s+)?"
         + evidence_modifiers
         + r"(?:evidence|artifacts?|command outputs?|transcripts?)\s+"
+        + r"(?:"
         + mandatory_auxiliary
+        + r"|"
+        + negative_requirement_governor
+        + r")"
         + r"\s+"
         + delivery_adverbs
         + r"(?:not\s+)?)"
         r"(?:appear|be\s+present)"
-        r"(?P<destination>\s+in\s+(?:an?\s+|the\s+)?"
-        r"(?:pr comments?|pull request comments?)\b)",
+        r"(?P<destination>\s+" + destination_preposition + review_destination_noun + r")",
         lambda match: (
             match["prefix"] + "be recorded" + match["destination"]
             if not re.match(r"(?:no|neither)\s+", match["prefix"], re.I)
-            else match[0]
+            else " "
         ),
         acceptance,
         flags=re.I,
@@ -1085,6 +1088,10 @@ def _required_evidence_channels(acceptance: str, *, _bind_attached: bool = True)
     # Lexical aliases share every obligation, negation, destination and product
     # boundary rule. Adding a synonym to only one regex silently diverges them.
     record_aliases = {
+        "share": "record",
+        "shares": "records",
+        "shared": "recorded",
+        "sharing": "recording",
         "paste": "record",
         "put": "record",
         "puts": "records",
@@ -1195,7 +1202,7 @@ def _required_evidence_channels(acceptance: str, *, _bind_attached: bool = True)
         alias = match["alias"]
         if not alias:
             return match[0]
-        if alias.lower() in {"supply", "supplies", "supplying"}:
+        if alias.lower() in {"supply", "supplies", "supplying", "share", "shares", "sharing"}:
             prefix = re.split(
                 r"[;,.!?\n]|\b(?:and|or|but|while|whereas)\b",
                 acceptance[: match.start()],
@@ -1218,7 +1225,7 @@ def _required_evidence_channels(acceptance: str, *, _bind_attached: bool = True)
             # Base supply/supplies following bare possession auxiliaries is a
             # noun phrase, not perfect delivery (which requires supplied).
             verbal_governor = mandatory_auxiliary + r"|will|may|can|could|would|should|do|does|did"
-            if alias.lower() == "supplying":
+            if alias.lower() in {"supplying", "sharing"}:
                 verbal_governor += r"|is|are|was|were|be|been|being"
             governed = bool(
                 re.search(
@@ -1241,7 +1248,15 @@ def _required_evidence_channels(acceptance: str, *, _bind_attached: bool = True)
             )
             if not (imperative or governed or actor):
                 return match[0]
-        if alias.lower() in {"written", "pasted", "placed", "submitted", "delivered", "supplied"}:
+        if alias.lower() in {
+            "written",
+            "pasted",
+            "placed",
+            "submitted",
+            "delivered",
+            "supplied",
+            "shared",
+        }:
             prefix = re.split(
                 r"[;,.!?\n]|\b(?:and|or|but|that|which|who|while|after|once|before|when|until|unless|if|since|because|whereas|although)\b",
                 acceptance[: match.start()],
@@ -1254,7 +1269,7 @@ def _required_evidence_channels(acceptance: str, *, _bind_attached: bool = True)
                 prefix,
             )
             active_delivery_subject = (
-                alias.lower() in {"placed", "submitted", "delivered", "supplied"}
+                alias.lower() in {"placed", "submitted", "delivered", "supplied", "shared"}
                 and bool(
                     re.fullmatch(
                         r"\s*" + qualified_delivery_actor + r"\s*",
@@ -1282,11 +1297,10 @@ def _required_evidence_channels(acceptance: str, *, _bind_attached: bool = True)
 
     acceptance = re.sub(
         r"(?P<literal>" + quoted_evidence_literal + r"|"
-        r"\b(?:the|an?)\s+(?:write|paste|put|place|submit|deliver|supply)\b"
+        r"\b(?:the|an?)\s+(?:write|paste|put|place|submit|deliver|supply|share)\b"
         r"(?:\s+(?!(?:and|or|must|shall|will)\b)[\w-]+){0,6}\s+command\b"
         r"(?=\s+(?:(?:must|shall|will)\s+output|outputs)\b))|"
-        r"(?P<alias>\b(?:put|puts|putting|place|places|placed|placing|paste|pastes|pasted|pasting|write|writes|written|writing|wrote|"
-        r"submit|submits|submitted|submitting|deliver|delivers|delivered|delivering|supply|supplies|supplied|supplying)\b)"
+        r"(?P<alias>\b(?:" + "|".join(record_aliases) + r")\b)"
         r"(?=\s+"
         + evidence_modifiers
         + r"(?:evidence|artifacts?|transcripts?|command outputs?|pr comments?|pull request comments?)\b"
@@ -2024,6 +2038,14 @@ def _required_evidence_channels(acceptance: str, *, _bind_attached: bool = True)
     )
     evidence_prohibition = re.compile(
         negative_requirement_action + r"|" + aspect_delivery_prohibition.pattern + r"|"
+        r"\b"
+        + negative_requirement_governor
+        + r"\s+"
+        + delivery_adverbs
+        + r"be\s+(?="
+        + destination_preposition
+        + delivery_destination_item
+        + r")|"
         r"\b(?:(?:do|does|did)\s+not|never|no\s+longer)\s+"
         + mandatory_auxiliary
         + r"\s+"

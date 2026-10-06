@@ -77,13 +77,24 @@ modifiers) cannot break this binding or restore inheritance across a new actor.
 An explicit comment/body/artifact destination selects that channel, not an extra
 artifact channel merely because the antecedent is an artifact. A generic PR
 destination continues to use object-specific classification.
-Mandatory evidence that must `appear` or `be present` in a PR comment requires
-the comments channel; a present body or artifact cannot substitute for absent
-or unavailable comments. Optional, prohibited and product capability statements
+Mandatory evidence that must `appear` or `be present` in a declared review
+destination requires that channel; a present body or artifact cannot substitute
+for absent or unavailable comments. Optional, prohibited and product capability statements
 do not create that obligation.
 These presence predicates normalize to the existing passive-record grammar
 before polarity and modality classification, only when the mandatory auxiliary
-directly governs that predicate. Preserve
+directly governs that predicate. Bare `be in` destinations consume the shared
+negative requirement governor.
+Presence normalization preserves negative governors for body, comment and
+artifact destinations, including `Evidence must not appear as workflow artifacts`.
+Product capability `permit` shares the bounded `allow`/`enable`/`support`
+classification; reviewer `share` and its inflections share the existing record
+delivery alias grammar, including negation and independent destinations.
+Thus `Command output is not expected to be in a PR comment` and `is not
+supposed to be in` impose no comment requirement; a separate affirmative
+delivery before or after either clause still selects its destination and floors
+PASS when that channel is absent or unavailable.
+Preserve
 subject-level `No` and coordinated `neither … nor`, exclude collection/product-preview clauses, and normalize
 equivalent `comments on/in the PR` destinations before matching presence.
 Bare and qualified artifact nouns share that grammar: validation artifacts
