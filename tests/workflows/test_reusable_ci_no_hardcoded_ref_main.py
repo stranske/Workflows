@@ -117,6 +117,7 @@ def test_workflows_checkouts_use_workflows_ref_input() -> None:
 
 def test_local_python_callers_pin_the_helper_to_the_tested_commit():
     from pathlib import Path
+
     import yaml
 
     root = Path(__file__).parents[2]
