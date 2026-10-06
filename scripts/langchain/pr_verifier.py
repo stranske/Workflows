@@ -1076,7 +1076,7 @@ def _required_evidence_channels(acceptance: str, *, _bind_attached: bool = True)
         + delivery_adverbs
         + r"(?:not\s+)?)"
         r"(?:appear|be\s+present)"
-        r"(?P<destination>\s+" + destination_preposition + review_destination_noun + r")",
+        r"(?P<destination>\s+" + bound_review_destinations + r")",
         lambda match: (
             match["prefix"] + "be recorded" + match["destination"]
             if not re.match(r"(?:no|neither)\s+", match["prefix"], re.I)

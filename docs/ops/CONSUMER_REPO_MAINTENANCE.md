@@ -87,6 +87,9 @@ directly governs that predicate. Bare `be in` destinations consume the shared
 negative requirement governor.
 Presence normalization preserves negative governors for body, comment and
 artifact destinations, including `Evidence must not appear as workflow artifacts`.
+For negative `No`/`Neither` presence clauses, normalization consumes the full
+bounded coordinated destination list (including qualified recipients), not just
+its first channel; leftover checklist destinations must not invent an obligation.
 Product capability `permit` shares the bounded `allow`/`enable`/`support`
 classification; reviewer `share` and its inflections share the existing record
 delivery alias grammar, including negation and independent destinations.

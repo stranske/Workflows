@@ -313,6 +313,28 @@ def test_negative_presence_subject_preserves_independent_delivery(
     assert verifier._required_evidence_channels(positive + "; " + negative) == {channel}
 
 
+@pytest.mark.parametrize("subject", ["No evidence", "Neither evidence nor command output"])
+@pytest.mark.parametrize("marker", ["", "- [ ] "])
+@pytest.mark.parametrize(
+    "destinations",
+    [
+        "a PR comment or workflow artifacts",
+        "workflow artifacts and the PR body",
+        "the PR body, a PR comment and workflow artifacts",
+        "a PR comment or in workflow artifacts",
+        "the users and a PR comment or workflow artifacts",
+    ],
+)
+def test_negative_presence_consumes_entire_coordinated_destination_list(
+    subject, marker, destinations
+):
+    negative = f"{marker}{subject} is required to appear in {destinations}"
+    assert verifier._required_evidence_channels(negative) == set()
+    positive = "The reviewer must record evidence in workflow artifacts"
+    assert verifier._required_evidence_channels(negative + "; " + positive) == {"artifacts"}
+    assert verifier._required_evidence_channels(positive + "; " + negative) == {"artifacts"}
+
+
 @pytest.mark.parametrize(
     "governor", ["is not expected to", "is not supposed to", "is no longer required to"]
 )
