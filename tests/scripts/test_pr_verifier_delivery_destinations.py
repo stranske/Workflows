@@ -10,6 +10,47 @@ from scripts.langchain import pr_verifier as verifier
 
 
 @pytest.mark.parametrize(
+    "proof",
+    [
+        "test results",
+        "validation results",
+        "test logs",
+        "validation logs",
+        "test output",
+        "validation output",
+        "screenshots",
+        "recordings",
+        "a recording of the session",
+    ],
+)
+@pytest.mark.parametrize("governor", ["must", "must not", "may"])
+@pytest.mark.parametrize(
+    "destination,channel",
+    [("the PR body", "body"), ("a PR comment", "comments"), ("workflow artifacts", "artifacts")],
+)
+@pytest.mark.parametrize("independent", [False, True])
+def test_direct_common_proof_upload_keeps_its_destination(
+    proof, governor, destination, channel, independent
+):
+    criterion = f"The reviewer {governor} upload {proof} in {destination}"
+    expected = {channel} if governor == "must" else set()
+    if independent:
+        criterion += "; the reviewer must record evidence in a PR comment"
+        expected.add("comments")
+    assert verifier._required_evidence_channels(criterion) == expected
+
+
+@pytest.mark.parametrize("proof", ["screenshots", "test results", "recordings"])
+@pytest.mark.parametrize("actor", ["The UI", "The API"])
+def test_product_upload_capability_does_not_require_review_delivery(proof, actor):
+    criterion = f"{actor} must allow users to upload {proof}"
+    assert verifier._required_evidence_channels(criterion) == set()
+    assert verifier._required_evidence_channels(criterion + "; upload evidence in the PR body") == {
+        "body"
+    }
+
+
+@pytest.mark.parametrize(
     "governor", ["doesn't need to", "doesn’t need to", "isn't expected to", "isn’t expected to"]
 )
 @pytest.mark.parametrize("proof", ["test results", "screenshots", "validation output"])

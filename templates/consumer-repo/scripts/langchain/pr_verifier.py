@@ -1641,9 +1641,30 @@ def _required_evidence_channels(acceptance: str, *, _bind_attached: bool = True)
         re.I,
     )
 
-    def body_occurrences(
-        text: str, gate: bool, *, pronoun_delivery: bool = False
-    ) -> tuple[list[dict[str, Any]], str]:
+    attached_object_pattern = re.compile(
+        r"\b(?P<object>evidence|artifacts?|transcripts?|command outputs?|pr comments?|pull request comments?)\b",
+        re.I,
+    )
+    attached_delivery_pattern = re.compile(
+        r"(?:\s*,\s*(?:that|which)\s+|\s+(?:(?:that|which)\s+)?)"
+        r"(?P<actor>(?:(?!(?:and|or|that|which|must|shall|needs?|has|have|is|are)\b)[\w/-]+\s+){0,6})"
+        + r"(?P<auxiliary>"
+        + r"(?:"
+        + mandatory_auxiliary
+        + r"|will)"
+        + r")\s+"
+        + delivery_adverbs
+        + r"(?P<aspect>"
+        + passive_delivery_prefix
+        + r")?"
+        + delivery_adverbs
+        + r"(?P<operation>"
+        + delivery_operation
+        + r")",
+        re.I,
+    )
+
+    def body_occurrences(text: str, gate: bool) -> tuple[list[dict[str, Any]], str]:
         """Classify complete, bounded body predicates before residual evidence gating."""
         body = r"(?:pr|pull request)\s+body\b"
         qualified_object = (
@@ -1660,7 +1681,7 @@ def _required_evidence_channels(acceptance: str, *, _bind_attached: bool = True)
             + exclusion_operation
             + "|"
             + response_operation
-            + (r"|upload\w*" if pronoun_delivery else "")
+            + r"|upload\w*"
             + r"|prove\w*|include\w*|contain\w*|attach\w*|provide\w*|publish\w*|post\w*|record\w*|capture\w*|document\w*|add\w*|show\w*|store\w*|have|left|leave\w*)\b"
         )
         auxiliary = (
@@ -1766,6 +1787,19 @@ def _required_evidence_channels(acceptance: str, *, _bind_attached: bool = True)
         for match in candidates:
             if match.start() < consumed_end:
                 continue
+            if _bind_attached and match.groupdict().get("body_object") is None:
+                # Do not consume an attached predicate without its antecedent.
+                # The shared attached-delivery pass must bind and remove the
+                # complete object/predicate/destination before product suppression.
+                attached_predicates = (
+                    attached_delivery_pattern.match(text, obj.end())
+                    for obj in attached_object_pattern.finditer(text, 0, match.start())
+                )
+                if any(
+                    predicate and predicate.start() <= match.start() < predicate.end()
+                    for predicate in attached_predicates
+                ):
+                    continue
             clause = match[0]
             # Object qualifiers are not governing polarity/modality predicates.
             # For example, excluded-case or optional-case evidence is still a
@@ -1786,6 +1820,14 @@ def _required_evidence_channels(acceptance: str, *, _bind_attached: bool = True)
                 )
             body_match = re.search(body, clause, re.I)
             assert body_match is not None
+            if product_comment_object(
+                text[: match.start() + body_match.start()],
+                "in " + clause[body_match.start() :],
+            ):
+                # A capability's upload destination remains product behavior.
+                # Preserve the full clause for shared product suppression,
+                # rather than consuming its body tail as a separate delivery.
+                continue
             is_gate = gate and bool(re.match(r"(?:without|unless|until)\b", clause, re.I))
             prohibited = not is_gate and (
                 object_prohibited
@@ -2718,7 +2760,6 @@ def _required_evidence_channels(acceptance: str, *, _bind_attached: bool = True)
             body_records, body_residual = body_occurrences(
                 working_line if gate else aspect_delivery_prohibition.sub(" ", working_line),
                 gate,
-                pronoun_delivery=bool(resolved_antecedent),
             )
             # An optional evidence noun can be the object of a mandatory
             # explanation (for example, "a PR comment must explain why
@@ -2847,34 +2888,12 @@ def _required_evidence_channels(acceptance: str, *, _bind_attached: bool = True)
             # capability. Qualifiers such as "validation" do not turn that
             # product input into workflow evidence. Classify the residual so
             # a separate reviewer obligation retains its own destination.
-            attached_delivery_pattern = re.compile(
-                r"(?:\s*,\s*(?:that|which)\s+|\s+(?:(?:that|which)\s+)?)"
-                r"(?P<actor>(?:(?!(?:and|or|that|which|must|shall|needs?|has|have|is|are)\b)[\w/-]+\s+){0,6})"
-                + r"(?P<auxiliary>"
-                + r"(?:"
-                + mandatory_auxiliary
-                + r"|will)"
-                + r")\s+"
-                + delivery_adverbs
-                + r"(?P<aspect>"
-                + passive_delivery_prefix
-                + r")?"
-                + delivery_adverbs
-                + r"(?P<operation>"
-                + delivery_operation
-                + r")",
-                re.I,
-            )
             bound_spans = []
             bound_end = -1
-            for attached_object in re.finditer(
-                (
-                    r"\b(?P<object>evidence|artifacts?|transcripts?|command outputs?|pr comments?|pull request comments?)\b"
-                    if _bind_attached and not resolved_antecedent
-                    else r"(?!)"
-                ),
-                requirement_text,
-                re.I,
+            for attached_object in (
+                attached_object_pattern.finditer(requirement_text)
+                if _bind_attached and not resolved_antecedent
+                else ()
             ):
                 if attached_object.start() < bound_end:
                     continue

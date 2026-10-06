@@ -93,7 +93,12 @@ input intact. Contextual proof binding uses an offset-preserving literal-free
 projection, so quoted destinations or actors cannot govern unquoted proof nouns.
 Common proof nouns share a bounded object qualifier before explicit delivery
 destinations or governors, retaining active qualified-recording body delivery
-without converting the progressive recording verb into an object. They
+without converting the progressive recording verb into an object. Direct upload
+and pronoun upload use the same PR-body operation grammar; neither may fall back
+to generic overall evidence when the body is explicitly required. Body matching
+must leave a nounless attached predicate with its antecedent for the shared
+attached-delivery pass, preventing an orphaned product object from creating an
+extra generic requirement. They
 therefore retain negative/optional governors,
 quoted-literal and product-capability exclusions, and independent reviewer
 obligations; a mandatory PR-body proof cannot bypass the coverage floor when

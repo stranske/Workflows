@@ -18,6 +18,33 @@ NODE = shutil.which("node")
 @pytest.mark.parametrize("overall_status", ["present", "absent", "unavailable"])
 @pytest.mark.parametrize("body_status", ["present", "absent", "unavailable"])
 @pytest.mark.parametrize("comment_status", ["present", "absent", "unavailable"])
+@pytest.mark.parametrize("governor", ["must", "must not", "may"])
+@pytest.mark.parametrize("marker", ["", "- [ ] "])
+@pytest.mark.parametrize("independent", [False, True])
+def test_direct_common_proof_upload_actual_body_floor(
+    overall_status, body_status, comment_status, governor, marker, independent
+):
+    criterion = f"The reviewer {governor} upload screenshots in the PR body"
+    if independent:
+        criterion += "; the reviewer must record evidence in a PR comment"
+    evidence = f"- Overall retrieval status: **{overall_status}**\n- PR body: **{body_status}**\n- PR comments: **{comment_status}**\n- Referenced workflow artifacts: **present**\n"
+    context, _ = _context(1, 1000, 1000)
+    context = context.replace("- " + ACCEPTANCE_SENTINEL, marker + criterion).replace(
+        "## PR Diff Summary", "## Acceptance evidence\n\n" + evidence + "\n## PR Diff Summary"
+    )
+    result = pr_verifier._apply_coverage_floor(
+        pr_verifier.EvaluationResult(verdict="PASS", used_llm=True),
+        pr_verifier.prompt_coverage(context, None),
+    )
+    missing = (governor == "must" and body_status != "present") or (
+        independent and comment_status != "present"
+    )
+    assert result.verdict == ("CONCERNS" if missing else "PASS")
+
+
+@pytest.mark.parametrize("overall_status", ["present", "absent", "unavailable"])
+@pytest.mark.parametrize("body_status", ["present", "absent", "unavailable"])
+@pytest.mark.parametrize("comment_status", ["present", "absent", "unavailable"])
 @pytest.mark.parametrize("marker", ["", "- [ ] "])
 @pytest.mark.parametrize("case", ["contracted", "adjacent-literal", "qualified-recording"])
 @pytest.mark.parametrize("independent", [False, True])
