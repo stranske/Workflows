@@ -16,6 +16,40 @@ NODE = shutil.which("node")
 
 
 @pytest.mark.parametrize("overall_status", ["present", "absent", "unavailable"])
+@pytest.mark.parametrize("body_status", ["present", "absent", "unavailable"])
+@pytest.mark.parametrize("comment_status", ["present", "absent", "unavailable"])
+@pytest.mark.parametrize("marker", ["", "- [ ] "])
+@pytest.mark.parametrize("case", ["contracted", "adjacent-literal", "qualified-recording"])
+@pytest.mark.parametrize("independent", [False, True])
+def test_common_proof_context_and_qualifier_actual_floor(
+    overall_status, body_status, comment_status, marker, case, independent
+):
+    criterion = {
+        "contracted": "The UI must display screenshots, and the reviewer doesn't need to update the PR body",
+        "adjacent-literal": 'The UI must display screenshots with the label "Test results must be in the PR body"',
+        "qualified-recording": "The reviewer must record a recording of the session in the PR body",
+    }[case]
+    if independent:
+        criterion += "; the reviewer must record evidence in a PR comment"
+    evidence = (
+        f"Overall retrieval status: **{overall_status}**\n- PR body: **{body_status}**\n"
+        f"- PR comments: **{comment_status}**\n- Referenced workflow artifacts: **present**\n"
+    )
+    context, _ = _context(1, 1000, 1000)
+    context = context.replace("- " + ACCEPTANCE_SENTINEL, marker + criterion).replace(
+        "## PR Diff Summary", "## Acceptance evidence\n\n- " + evidence + "\n## PR Diff Summary"
+    )
+    result = pr_verifier._apply_coverage_floor(
+        pr_verifier.EvaluationResult(verdict="PASS", used_llm=True),
+        pr_verifier.prompt_coverage(context, None),
+    )
+    missing = (case == "qualified-recording" and body_status != "present") or (
+        independent and comment_status != "present"
+    )
+    assert result.verdict == ("CONCERNS" if missing else "PASS")
+
+
+@pytest.mark.parametrize("overall_status", ["present", "absent", "unavailable"])
 @pytest.mark.parametrize("comment_status", ["present", "absent", "unavailable"])
 @pytest.mark.parametrize("marker", ["", "- [ ] "])
 @pytest.mark.parametrize("case", ["negative-actor", "literal"])

@@ -88,6 +88,12 @@ optional or excluded PR-body update cannot become the proof's destination.
 Explicit next-actor pronoun deliveries retain their introduced proof across
 semicolon and sentence boundaries as well as coordination; unrelated updates
 and negative or optional deliveries remain nongating. They
+canonicalize contracted governors before all normalization while leaving quoted
+input intact. Contextual proof binding uses an offset-preserving literal-free
+projection, so quoted destinations or actors cannot govern unquoted proof nouns.
+Common proof nouns share a bounded object qualifier before explicit delivery
+destinations or governors, retaining active qualified-recording body delivery
+without converting the progressive recording verb into an object. They
 therefore retain negative/optional governors,
 quoted-literal and product-capability exclusions, and independent reviewer
 obligations; a mandatory PR-body proof cannot bypass the coverage floor when

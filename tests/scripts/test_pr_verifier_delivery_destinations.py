@@ -10,6 +10,50 @@ from scripts.langchain import pr_verifier as verifier
 
 
 @pytest.mark.parametrize(
+    "governor", ["doesn't need to", "doesn’t need to", "isn't expected to", "isn’t expected to"]
+)
+@pytest.mark.parametrize("proof", ["test results", "screenshots", "validation output"])
+@pytest.mark.parametrize("independent", [False, True])
+def test_common_proof_contracted_negative_actor(proof, governor, independent):
+    criterion = f"The UI must display {proof}, and the reviewer {governor} update the PR body"
+    if independent:
+        criterion += "; the reviewer must record evidence in a PR comment"
+    assert verifier._required_evidence_channels(criterion) == (
+        {"comments"} if independent else set()
+    )
+
+
+@pytest.mark.parametrize(
+    "quote,closing", [('"', '"'), ("'", "'"), ("`", "`"), ("“", "”"), ("‘", "’")]
+)
+@pytest.mark.parametrize("proof", ["test results", "screenshots", "validation output"])
+@pytest.mark.parametrize("independent", [False, True])
+def test_common_proof_destination_inside_adjacent_literal(quote, closing, proof, independent):
+    criterion = f"The UI must display {proof} with the label {quote}Test results must be in the PR body{closing}"
+    if independent:
+        criterion += "; the reviewer must record evidence in a PR comment"
+    assert verifier._required_evidence_channels(criterion) == (
+        {"comments"} if independent else set()
+    )
+
+
+@pytest.mark.parametrize(
+    "proof", ["a recording", "recordings", "screenshots", "test results", "validation output"]
+)
+@pytest.mark.parametrize("governor", ["must", "must not", "may"])
+@pytest.mark.parametrize("operation", ["record", "attach", "put"])
+@pytest.mark.parametrize(
+    "destination,channel",
+    [("the PR body", "body"), ("a PR comment", "comments"), ("workflow artifacts", "artifacts")],
+)
+def test_common_proof_active_qualified_object(proof, governor, operation, destination, channel):
+    criterion = f"The reviewer {governor} {operation} {proof} of the session in {destination}"
+    assert verifier._required_evidence_channels(criterion) == (
+        {channel} if governor == "must" else set()
+    )
+
+
+@pytest.mark.parametrize(
     "proof", ["test results", "screenshots", "validation output", "recordings"]
 )
 @pytest.mark.parametrize("actor", ["reviewer", "automation agent", "developer"])

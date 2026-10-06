@@ -1015,6 +1015,18 @@ def _required_evidence_channels(acceptance: str, *, _bind_attached: bool = True)
         r"(?<!\w)'(?:[^']|(?<=\w)'(?=\w))*'(?!\w)|"
         r"“[^”]*”|(?<!\w)‘(?:[^’]|(?<=\w)’(?=\w))*’(?!\w)"
     )
+    # Canonical governors precede every normalization; quoted input stays literal.
+    acceptance = re.sub(
+        r"(?P<literal>" + quoted_evidence_literal + r")|"
+        r"\b(?P<auxiliary>is|are|does|do|did|must|should|could|would|need|has|have|had|was|were|ca)n['’]t\b",
+        lambda match: (
+            match[0]
+            if match["literal"]
+            else ("can" if match["auxiliary"].lower() == "ca" else match["auxiliary"]) + " not"
+        ),
+        acceptance,
+        flags=re.I,
+    )
     # Lexical aliases share obligation, negation, destination and product rules,
     # including the earlier proof-pronoun antecedent path.
     record_aliases = {
@@ -1157,13 +1169,16 @@ def _required_evidence_channels(acceptance: str, *, _bind_attached: bool = True)
         + r")"
     )
 
+    # Keep offsets but exclude literals from all contextual destination/actor tests.
+    proof_context = re.sub(quoted_evidence_literal, lambda match: " " * len(match[0]), acceptance)
+
     def normalize_proof_object(match: re.Match[str]) -> str:
         if match["literal"]:
             return match[0]
         before = re.split(
-            r"[;\n.!?]|" + proof_actor_boundary, acceptance[: match.start()], flags=re.I
+            r"[;\n.!?]|" + proof_actor_boundary, proof_context[: match.start()], flags=re.I
         )[-1]
-        tail = acceptance[match.end() :]
+        tail = proof_context[match.end() :]
         after = re.split(r"[;\n.!?]|" + proof_actor_boundary, tail, flags=re.I)[0]
         clause = before + match[0] + after
         # Keep an introduced proof object available to the shared antecedent
@@ -1190,16 +1205,21 @@ def _required_evidence_channels(acceptance: str, *, _bind_attached: bool = True)
             else match[0]
         )
 
-    acceptance = re.sub(
-        r"(?P<literal>" + quoted_evidence_literal + r")|"
-        r"\b(?:(?:test|validation)\s+(?:results?|logs?|outputs?)|screenshots?|recordings|"
-        r"recording(?:\s+of\s+(?:(?!(?:and|or|but|must|shall|is|are|may|can|has|have)\b)"
+    proof_qualifier = (
+        r"(?:\s+of\s+(?:(?!(?:and|or|but|must|shall|is|are|may|can|has|have|in|into|to|within|for|as)\b)"
         r"[\w/-]+\s+){0,4}[\w/-]+(?=\s+(?:"
         + mandatory_auxiliary
         + r"|"
         + negative_requirement_governor
-        + r"|may|can|should|will)\b))?"
-        r"(?=\s+(?:of|must|shall|needs?|is|was|should|may|can|has|in|to|and|or)\b))\b",
+        + r"|may|can|should|will|in|into|to|within|for|as)\b))?"
+    )
+    acceptance = re.sub(
+        r"(?P<literal>" + quoted_evidence_literal + r")|"
+        r"\b(?:(?:(?:test|validation)\s+(?:results?|logs?|outputs?)|screenshots?|recordings)"
+        + proof_qualifier
+        + r"|recording"
+        + proof_qualifier
+        + r"(?=\s+(?:of|must|shall|needs?|is|was|should|may|can|has|in|to|and|or)\b))\b",
         normalize_proof_object,
         acceptance,
         flags=re.I,
@@ -2317,12 +2337,6 @@ def _required_evidence_channels(acceptance: str, *, _bind_attached: bool = True)
         # Canonicalize supported list markers once so every downstream negation,
         # product-output and checklist guard uses the same established syntax.
         criterion = re.sub(r"^\s*(?:[-*+]|\d+[.)])(?=\s)", "-", criterion)
-        criterion = re.sub(
-            r"\b(is|are|does|do|did|must|should|could|would|need|has|have|had|was|were|ca)n['’]t\b",
-            lambda match: ("can" if match[1].lower() == "ca" else match[1]) + " not",
-            criterion,
-            flags=re.I,
-        )
         criterion = re.sub(r"\bcannot\b", "can not", criterion, flags=re.I)
         criterion = re.sub(r"\bwon['’]t\b", "will not", criterion, flags=re.I)
         criterion_checklist = bool(re.match(r"^\s*(?:[-*+]|\d+[.)])\s*\[[ xX]\]", criterion))
