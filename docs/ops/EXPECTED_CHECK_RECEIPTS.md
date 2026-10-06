@@ -165,8 +165,10 @@ The tool collects all check runs/suites and every latest-run job page, rather th
 an arbitrary latest-N run sample. Counts must agree with API `total_count` where
 provided. Conflicting page totals, invalid counts and repeated object IDs also
 remain UNKNOWN: a repeated object can hide an omitted check or suite even when
-the final count matches. A changed head/base during collection becomes UNKNOWN. Re-run after
-async completion or obtain concrete source-bound evidence for unsupported
+the final count matches. Every check run and suite on every page must explicitly
+report the requested full head, including advisory checks and other apps' suites;
+missing or mismatched heads remain UNKNOWN. A changed head/base during collection
+becomes UNKNOWN. Re-run after async completion or obtain concrete source-bound evidence for unsupported
 conditions; never relabel UNKNOWN as PASS or waive missing checks.
 
 Merged-head Actions search can return an empty inventory even while its exact-head

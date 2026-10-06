@@ -26,6 +26,7 @@ def check(name="gate", conclusion="success", ident=1, started="2026-10-01T01:00:
         "name": name,
         "conclusion": conclusion,
         "id": ident,
+        "head_sha": HEAD,
         "started_at": started,
         "status": "completed",
         "app": {"id": 15368, "slug": "github-actions"},
@@ -532,6 +533,24 @@ def test_partial_head_inventory_still_recovers_unrepresented_suite():
     assert len(evidence.requests) == 2
 
 
+@pytest.mark.parametrize("suite_head", [None, "wrong", ""])
+@pytest.mark.parametrize("known_run", [False, True])
+def test_missing_or_wrong_suite_head_is_unknown_even_with_a_matching_run(suite_head, known_run):
+    run = {"id": 10, "head_sha": HEAD, "event": "pull_request", "check_suite_id": 900}
+    suite = {"id": 900, "app": {"slug": "github-actions"}}
+    if suite_head is not None:
+        suite["head_sha"] = suite_head
+
+    def transport(endpoint):
+        rows = [run] if known_run or "check_suite_id=" in endpoint else []
+        return [{"total_count": len(rows), "workflow_runs": rows}]
+
+    with pytest.raises(reporter.UnknownEvidence, match="identity/head binding missing"):
+        reporter.complete_workflow_runs(
+            reporter.Evidence(transport), "o/r", HEAD, "pull_request", [suite]
+        )
+
+
 def protection_transport(error, rules=None):
     transport = fixture_transport()
 
@@ -696,6 +715,49 @@ def test_successful_cli_receipt_retains_incumbent_identity(tmp_path, monkeypatch
     )
     assert receipt["expected_names"] == receipt["passing_names"] == ["gate"]
     assert receipt["evidence_complete"] is True
+
+
+@pytest.mark.parametrize("key", ["check_runs", "check_suites"])
+@pytest.mark.parametrize("app", ["github-actions", "other-app"])
+@pytest.mark.parametrize("inventory_head", [None, BASE, HEAD[:8]])
+def test_every_inventory_page_requires_full_head_binding(
+    tmp_path, monkeypatch, key, app, inventory_head
+):
+    incumbent = tmp_path / "presence.py"
+    incumbent.write_text("# Tracked incumbent\n")
+    transport = fixture_transport()
+    endpoint_kind = "check-runs" if key == "check_runs" else "check-suites"
+
+    def mismatched_pages(endpoint):
+        if f"/{endpoint_kind}?" in endpoint:
+            first = check()
+            second = check("advisory", ident=2)
+            if key == "check_suites":
+                first["app"] = {"slug": "other-app"}
+            second["app"] = {"slug": app}
+            if inventory_head is None:
+                second.pop("head_sha")
+            else:
+                second["head_sha"] = inventory_head
+            return [
+                {"total_count": 2, key: [first]},
+                {"total_count": 2, key: [second]},
+            ]
+        return transport(endpoint)
+
+    monkeypatch.setattr(reporter, "load_presence_reporter", lambda _: mismatched_pages)
+    code, receipt = invoke_main(monkeypatch, incumbent, tmp_path / "receipt.json")
+
+    assert code == 2 and receipt["verdict"] == "UNKNOWN"
+    assert "head binding" in receipt["unknown"][0]
+    assert receipt["head"] == HEAD
+    assert receipt["event"] == "pull_request" and receipt["action"] == "opened"
+    assert receipt["evidence_complete"] is False
+    assert receipt["merge_authorization"] is False
+    assert any(
+        endpoint_kind in request["endpoint"] and request["pages"] == 2
+        for request in receipt["request_evidence"]
+    )
 
 
 @pytest.mark.parametrize("key", ["check_runs", "check_suites"])
@@ -1453,7 +1515,12 @@ def test_collect_binds_real_suite_id_to_current_run():
                 {
                     "total_count": 1,
                     "check_suites": [
-                        {"id": 90, "conclusion": "startup_failure", "latest_check_runs_count": 0}
+                        {
+                            "id": 90,
+                            "head_sha": HEAD,
+                            "conclusion": "startup_failure",
+                            "latest_check_runs_count": 0,
+                        }
                     ],
                 }
             ]
