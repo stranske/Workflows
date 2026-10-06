@@ -1364,6 +1364,8 @@ possession of supply evidence are nongating across review destinations and check
 markers, including shared bounded adverbs before and after has/have/had;
 bounded possession modifiers also retain not/never/no-longer polarity there;
 independently required reviewer deliveries remain authoritative.
+Elided active-perfect review deliveries admit the shared bounded adverbs before
+and after have, retaining the same actor/governor inheritance as passive actions.
 Delivery prohibitions reuse the shared governor and operation vocabulary,
 including do/does/did and prove, with not/never/no-longer polarity. A required
 delivery in another independent clause remains authoritative. Supply alias

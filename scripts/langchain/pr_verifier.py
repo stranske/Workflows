@@ -2231,7 +2231,9 @@ def _required_evidence_channels(acceptance: str, *, _bind_attached: bool = True)
             + delivery_operation
             + r"\s+"
             + bound_review_destinations
-            + r"|have\s+"
+            + r"|"
+            + delivery_adverbs
+            + r"have\s+"
             + delivery_adverbs
             + r"(?=\w*(?:ed|en)\b)"
             + delivery_operation

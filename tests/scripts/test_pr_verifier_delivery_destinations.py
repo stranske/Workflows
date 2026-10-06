@@ -435,6 +435,7 @@ def test_negative_passive_coordination_respects_contrast(
 
 
 @pytest.mark.parametrize("adverb", ["already", "recently", "now"])
+@pytest.mark.parametrize("adverb_position", ["before", "after", "both"])
 @pytest.mark.parametrize("participle", ["recorded", "proved", "supplied"])
 @pytest.mark.parametrize("marker", ["", "- [ ] "])
 @pytest.mark.parametrize(
@@ -468,9 +469,12 @@ def test_active_perfect_elided_delivery_retains_actor_and_governor(
     second_channel,
     adverb,
     participle,
+    adverb_position,
 ):
     """Active-perfect coordination shares finite actor/governor inheritance."""
-    criterion = f"The reviewer {governor} have {participle} evidence in {first_destination} {boundary} have {adverb} recorded evidence in {second_destination}"
+    before = adverb + " " if adverb_position != "after" else ""
+    after = adverb + " " if adverb_position != "before" else ""
+    criterion = f"The reviewer {governor} have {participle} evidence in {first_destination} {boundary} {before}have {after}recorded evidence in {second_destination}"
     expected = (
         {first_channel, second_channel}
         if governor == "must"
@@ -1635,6 +1639,7 @@ def test_fresh_canary_findings_control_actual_coverage_floor(criterion, channel,
         "The reviewer may inspect whether the API no longer has supply evidence in workflow artifacts",
         "The reviewer may inspect whether the API never had supply evidence in workflow artifacts",
         "The reviewer may inspect whether the API has not supply evidence in workflow artifacts",
+        "The reviewer is not required to have supplied evidence in workflow artifacts and already have recorded evidence in the PR body",
         "Command output must not be recorded in the PR body and be posted in workflow artifacts",
     ],
 )
