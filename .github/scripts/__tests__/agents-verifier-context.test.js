@@ -885,15 +885,21 @@ function coveragePatch(name, lines = 1) {
 test('release #3769 builder retains its own acceptance without fetching merged PR #3768 as an issue', async () => {
   const templateImpl = require('../../../templates/consumer-repo/.github/scripts/agents_verifier_context.js').buildVerifierContext;
   const templateBuilder = options => templateImpl({ ...options, fetchLocalDiff: () => options.github.__testDiffText });
+  const prDetails = {
+    ...release3769,
+    merged: true,
+    merged_at: '2026-10-06T00:00:00Z',
+    merge_commit_sha: 'b847857162a2eb652e3b6e6cc1d982899bf6b7b2',
+    base: { ref: 'main', sha: 'aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa' },
+  };
+  const diffText = coveragePatch('.release-please-manifest.json') + coveragePatch('CHANGELOG.md');
   for (const builder of [buildVerifierContext, templateBuilder]) {
     const calls = [];
     const { result } = await buildEvidenceContext({
-      prDetails: { ...release3769, merged: true, merged_at: '2026-10-06T00:00:00Z',
-        merge_commit_sha: 'b847857162a2eb652e3b6e6cc1d982899bf6b7b2',
-        base: { ref: 'main', sha: 'aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa' } },
+      prDetails,
       sourceIssue: { number: 3768, body: 'Not an issue contract', pull_request: {} },
       sourceIssueCalls: calls,
-      diffText: coveragePatch('.release-please-manifest.json') + coveragePatch('CHANGELOG.md'),
+      diffText,
     }, {}, builder);
     try {
       assert.equal(result.shouldRun, true);
@@ -905,6 +911,49 @@ test('release #3769 builder retains its own acceptance without fetching merged P
       assert.match(result.markdown, /Complete required\/expected pre-merge check topology/);
       assert.doesNotMatch(result.markdown, /Known source issue #3768 was not retrieved/);
     } finally { removeVerifierDiffArtifacts(result); }
+
+    // The generated release branch must not bypass a genuine issue contract,
+    // even while its body retains the historical merged-PR reference.
+    const sourceIssue = {
+      number: 123,
+      title: 'Release source contract',
+      body: '## Acceptance Criteria\n- [ ] RELEASE_SOURCE_CONTRACT',
+      state: 'open',
+      labels: [],
+    };
+    for (const sourceOptions of [
+      { sourceIssue },
+      { sourceIssueError: new Error('403 forbidden') },
+      { sourceIssue: { ...sourceIssue, pull_request: {} } },
+      { sourceIssue: { ...sourceIssue, number: 456 } },
+      { sourceIssue: { ...sourceIssue, body: undefined } },
+    ]) {
+      const sourceCalls = [];
+      const validIssue = sourceOptions.sourceIssue === sourceIssue;
+      const { result: linkedResult } = await buildEvidenceContext({
+        prDetails: { ...prDetails, body: prDetails.body + '\nRelated to #123' },
+        diffText,
+        ...sourceOptions,
+        sourceIssueCalls: sourceCalls,
+      }, {}, builder);
+      try {
+        assert.equal(linkedResult.shouldRun, true);
+        assert.deepEqual(sourceCalls, [{ owner: 'octo', repo: 'workflows', issue_number: 123 }]);
+        assert.deepEqual(linkedResult.issueNumbers, validIssue ? [123] : []);
+        const discovery = linkedResult.sourceCoverage.acceptance_source_discovery;
+        assert.equal(discovery.required, true);
+        assert.equal(discovery.status, validIssue ? 'included' : 'unavailable');
+        assert.match(linkedResult.markdown, /Manifest and changelog agree on 1\.37\.21/);
+        if (validIssue) {
+          assert.match(linkedResult.markdown, /RELEASE_SOURCE_CONTRACT/);
+        } else {
+          assert.match(discovery.reason, /Known source issue #123 was not retrieved/);
+          assert.doesNotMatch(linkedResult.markdown, /RELEASE_SOURCE_CONTRACT/);
+        }
+      } finally {
+        removeVerifierDiffArtifacts(linkedResult);
+      }
+    }
   }
 });
 

@@ -14,6 +14,31 @@ const {
   writeReport,
 } = require('../pr_source_context_report.js');
 
+const release3769 = require('./fixtures/release-3769.json');
+
+test('release #3769 report retains inferred automation and the complete release checklist', () => {
+  const report = buildPrSourceContextReport({
+    eventName: 'pull_request',
+    event: { pull_request: release3769 },
+    now: '2026-10-06T00:00:00.000Z',
+  });
+
+  assert.equal(report.status, 'pass');
+  assert.equal(report.pull_request.number, 3769);
+  assert.equal(report.source_context.sourceType, 'automation_run');
+  assert.equal(report.source_context.issueNumber, null);
+  assert.equal(report.source_context.requiresIssue, false);
+  assert.equal(report.source_context.isExplicit, false);
+  assert.match(report.warnings[0], /inferred from PR metadata/);
+  assert.equal(report.task_list.total, 5);
+  assert.equal(report.task_list.checked, 5);
+  assert.equal(report.task_list.open_item_count, 0);
+  assert.deepEqual(report.task_list.sections, [
+    { heading: 'Tasks', total: 2, checked: 2, unchecked: 0 },
+    { heading: 'Acceptance Criteria', total: 3, checked: 3, unchecked: 0 },
+  ]);
+});
+
 test('analyzeTaskList counts checkbox items outside fenced code blocks by section', () => {
   const result = analyzeTaskList(`
 # Scope
