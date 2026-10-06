@@ -131,6 +131,21 @@ receipt as a legacy transcript witness. Child conclusions never supply versions.
 Other historical runs lacking either complete witness, changed helper/producer
 source, ambiguous or incomplete receipts, empty include matrices and mismatched
 recomputation remain UNKNOWN.
+The two first-party scenario selectors now emit `scenario-matrix-producer/v1`
+receipts. The adapter binds their exact completed job/run/attempt, immutable
+checkout and helper/workflow digests, and independently verifies changed paths
+against the base-to-checkout compare (an ancestor base and fewer than 300 paths
+are required). It reads constant scenario matrices from trusted source without
+executing fetched code, then replays the pure selector. Missing children fail;
+forged inputs, transformed matrices, incomplete paths or changed sources stay
+UNKNOWN. Scheduled and dispatch scenario receipts remain unsupported.
+
+Changed caller roots can retain an expectation only when their complete parsed
+source differs solely by the exact local helper checkout pin and the exact
+receipt observer additions. Added/removed jobs, conditions, triggers, permissions,
+selector logic or other source edits still require separate adjudication. The
+receipt retains both authored documents and the narrow adjudication reason.
+
 Other dynamic matrices/names, recursive calls, include/exclude transforms,
 unsupported glob syntax and required-workflow rulesets remain UNKNOWN. The workflow and helper must actually have executed the bound contract; local tests or a new PR do not establish historical run provenance.
 

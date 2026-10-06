@@ -188,13 +188,15 @@ jobs:
       - name: Select scenarios
         id: scope
         env:
+          PR_HEAD_SHA: ${{ github.event.pull_request.head.sha || github.sha }}
+          PR_BASE_SHA: ${{ github.event.pull_request.base.sha || '' }}
           FORCE_FULL: ${{ github.event_name == 'schedule' || github.event_name == 'workflow_dispatch' }}
         run: |
           python - <<'PY'
           import json
           import os
 
-          from scripts.reusable_ci_scope import SelectionOptions, describe_selection, select_scenarios
+          from scripts.reusable_ci_scope import SelectionOptions, describe_selection, select_scenarios, scenario_matrix_receipt
 
           matrix = {
               "include": [
@@ -327,6 +329,7 @@ jobs:
               handle.write(f"scenario_list={scenario_list}\n")
               handle.write(f"selected_count={selected.selected_count}\n")
               handle.write(f"rationale={describe_selection(selected, matrix)}\n")
+          print("SCENARIO_MATRIX_RECEIPT=" + json.dumps(scenario_matrix_receipt(".github/workflows/selftest-reusable-ci.yml", changed_files, matrix, selected), sort_keys=True))
           print(describe_selection(selected, matrix))
           PY
 

@@ -10,7 +10,9 @@ that it cannot statically establish. It does not authorize a merge.
 from __future__ import annotations
 
 import argparse
+import ast
 import base64
+import copy
 import hashlib
 import importlib.util
 import itertools
@@ -28,7 +30,7 @@ import yaml
 
 # Import only the trusted local pure resolver, never execute fetched helper code.
 sys.path.insert(0, str(Path(__file__).resolve().parent))
-from reusable_ci_scope import select_python_matrix  # noqa: E402
+from reusable_ci_scope import SelectionOptions, select_python_matrix, select_scenarios  # noqa: E402
 
 # Audited legacy producer/helper from Workflows5656aa96 and PR3773 parent.
 # Only this immutable contract may use the old Actions environment transcript.
@@ -123,10 +125,12 @@ class Evidence:
         )
         return proc.stdout
 
-    def job_receipts(self, repo: str, job_id: int) -> list[dict[str, Any]]:
+    def job_receipts(
+        self, repo: str, job_id: int, marker: str = "PYTHON_MATRIX_RECEIPT"
+    ) -> list[dict[str, Any]]:
         result = []
         for line in self.job_log(repo, job_id).splitlines():
-            match = re.fullmatch(r"(?:[0-9T:Z.+-]+\s+)?PYTHON_MATRIX_RECEIPT=(\{.*\})", line)
+            match = re.fullmatch(r"(?:[0-9T:Z.+-]+\s+)?" + re.escape(marker) + r"=(\{.*\})", line)
             if match:
                 result.append(json.loads(match[1]))
         return result
@@ -247,7 +251,6 @@ def job_names(job_id: str, job: dict[str, Any]) -> list[str]:
             if (
                 not isinstance(key, str)
                 or not isinstance(value, (str, int, float))
-                or isinstance(value, bool)
                 or "${{" in str(value)
             ):
                 raise UnknownEvidence(f"dynamic matrix value on {job_id}")
@@ -460,6 +463,187 @@ def bind_python_matrix(
     return result
 
 
+SCENARIO_PATHS = {
+    ".github/workflows/selftest-reusable-ci.yml",
+    ".github/workflows/maint-62-integration-consumer.yml",
+}
+
+
+def root_topology_equivalent(base: dict[str, Any], head: dict[str, Any], path: str) -> bool:
+    """Adjudicate only helper checkout pins and the observer's exact source addition."""
+    if path not in SCENARIO_PATHS | {".github/workflows/pr-00-gate.yml"}:
+        return False
+    candidate = copy.deepcopy(head)
+    for key, job in candidate.get("jobs", {}).items():
+        old_job = base.get("jobs", {}).get(key, {})
+        if job.get("uses", "").startswith("./.github/workflows/"):
+            values = job.get("with", {})
+            if values.get("workflows_ref") == "${{ github.sha }}":
+                if "workflows_ref" in old_job.get("with", {}):
+                    values["workflows_ref"] = old_job["with"]["workflows_ref"]
+                else:
+                    values.pop("workflows_ref")
+        if key == "select-scenarios" and path in SCENARIO_PATHS:
+            for step in job.get("steps", []):
+                if step.get("name") != "Select scenarios":
+                    continue
+                env = step.get("env", {})
+                for name, value in {
+                    "PR_HEAD_SHA": "${{ github.event.pull_request.head.sha || github.sha }}",
+                    "PR_BASE_SHA": "${{ github.event.pull_request.base.sha || '' }}",
+                }.items():
+                    if env.get(name) == value:
+                        env.pop(name)
+                code = step.get("run", "")
+                code = code.replace(
+                    "from scripts.reusable_ci_scope import SelectionOptions, describe_selection, select_scenarios, scenario_matrix_receipt",
+                    "from scripts.reusable_ci_scope import SelectionOptions, describe_selection, select_scenarios",
+                )
+                observer = (
+                    'print("SCENARIO_MATRIX_RECEIPT=" + json.dumps(scenario_matrix_receipt("'
+                    + path
+                    + '", changed_files, matrix, selected), sort_keys=True))\n'
+                )
+                step["run"] = code.replace(observer, "")
+    return candidate == base
+
+
+def scenario_source_matrix(producer: dict[str, Any]) -> dict[str, Any]:
+    """Read only constant matrix assignments from trusted source, without executing it."""
+    steps = [s for s in producer.get("steps", []) if s.get("name") == "Select scenarios"]
+    if len(steps) != 1:
+        raise UnknownEvidence("scenario selector step ambiguous")
+    script = steps[0].get("run", "")
+    lines = script.splitlines()
+    if not lines or lines[0] != "python - <<'PY'" or lines[-1] != "PY":
+        raise UnknownEvidence("unsupported scenario selector source")
+    try:
+        tree = ast.parse("\n".join(lines[1:-1]))
+        values: dict[str, Any] = {}
+
+        def literal(node):
+            if isinstance(node, ast.Constant):
+                return node.value
+            if isinstance(node, ast.Name) and node.id in values:
+                return values[node.id]
+            if isinstance(node, ast.List):
+                return [literal(v) for v in node.elts]
+            if isinstance(node, ast.BinOp) and isinstance(node.op, ast.Add):
+                left, right = literal(node.left), literal(node.right)
+                if isinstance(left, list) and isinstance(right, list):
+                    return left + right
+            if isinstance(node, ast.Dict):
+                return {literal(k): literal(v) for k, v in zip(node.keys, node.values, strict=True)}
+            raise ValueError("nonliteral scenario matrix")
+
+        for node in tree.body:
+            if isinstance(node, ast.Assign) and len(node.targets) == 1:
+                name = node.targets[0]
+                if isinstance(name, ast.Name) and name.id in {"matrix", "common_scope"}:
+                    values[name.id] = literal(node.value)
+        return values["matrix"]
+    except (SyntaxError, KeyError, ValueError, TypeError) as exc:
+        raise UnknownEvidence("scenario matrix source is not constant") from exc
+
+
+def bind_scenario_matrix(evidence, repo, path, workflow, job, run):
+    """Replay witnessed scenario selection independently of reported child jobs."""
+    matrix = (job.get("strategy") or {}).get("matrix")
+    if matrix != "${{ fromJson(needs.select-scenarios.outputs.matrix) }}":
+        return job
+    if repo != "stranske/Workflows" or path not in SCENARIO_PATHS or run is None:
+        raise UnknownEvidence("scenario matrix lacks supported producer")
+    trusted = yaml.load((Path(__file__).parents[1] / path).read_bytes(), Loader=WorkflowLoader)
+    producer = workflow["jobs"].get("select-scenarios")
+    # Base roots are allowed only through the complete observer/pin equivalence check.
+    if producer != trusted["jobs"]["select-scenarios"] and not root_topology_equivalent(
+        workflow, trusted, path
+    ):
+        raise UnknownEvidence("scenario producer differs from trusted source")
+    jobs = [
+        j for j in run.get("jobs", []) if j.get("name") == producer.get("name", "select-scenarios")
+    ]
+    if (
+        len(jobs) != 1
+        or jobs[0].get("run_id") != run["id"]
+        or jobs[0].get("run_attempt") != run.get("run_attempt", 1)
+    ):
+        raise UnknownEvidence("scenario producer run/attempt binding missing")
+    steps = [s for s in jobs[0].get("steps", []) if s.get("name") == "Select scenarios"]
+    if len(steps) != 1 or steps[0].get("conclusion") != "success":
+        raise UnknownEvidence("scenario producer did not execute")
+    receipts = evidence.job_receipts(
+        run["repository"]["full_name"], jobs[0]["id"], "SCENARIO_MATRIX_RECEIPT"
+    )
+    if len(receipts) != 1:
+        raise UnknownEvidence("missing/ambiguous scenario producer receipt")
+    receipt = receipts[0]
+    for key, value in {
+        "schema": "scenario-matrix-producer/v1",
+        "repository": run["repository"]["full_name"],
+        "run_id": run["id"],
+        "run_attempt": run.get("run_attempt", 1),
+        "head_sha": run["head_sha"],
+        "workflow_path": path,
+    }.items():
+        if receipt.get(key) != value:
+            raise UnknownEvidence(f"scenario producer {key} mismatch")
+    helper_sha, base_sha = receipt.get("helper_sha"), receipt.get("base_sha")
+    if any(
+        not isinstance(sha, str) or not re.fullmatch(r"[0-9a-f]{40}", sha)
+        for sha in (helper_sha, base_sha)
+    ):
+        raise UnknownEvidence("scenario immutable checkout/base missing")
+    helper = evidence.content(repo, "scripts/reusable_ci_scope.py", helper_sha)
+    actual_workflow = evidence.content(repo, path, helper_sha)
+    if helper != (Path(__file__).parent / "reusable_ci_scope.py").read_bytes() or hashlib.sha256(
+        helper
+    ).hexdigest() != receipt.get("helper_sha256"):
+        raise UnknownEvidence("scenario executed helper differs from trusted resolver")
+    if (
+        hashlib.sha256(actual_workflow).hexdigest() != receipt.get("workflow_sha256")
+        or yaml.load(actual_workflow, Loader=WorkflowLoader) != trusted
+    ):
+        raise UnknownEvidence("scenario executed workflow differs from trusted producer")
+    args = receipt.get("inputs")
+    expected_matrix = scenario_source_matrix(trusted["jobs"]["select-scenarios"])
+    if (
+        not isinstance(args, dict)
+        or set(args) != {"workflow_name", "changed_files", "full_matrix", "force_full"}
+        or args["full_matrix"] != expected_matrix
+        or args["workflow_name"] != Path(path).stem
+        or not isinstance(args["changed_files"], list)
+        or any(not isinstance(value, str) for value in args["changed_files"])
+        or len(args["changed_files"]) != len(set(args["changed_files"]))
+    ):
+        raise UnknownEvidence("scenario inputs differ from authored matrix")
+    if run.get("event") != "pull_request" or args["force_full"] is not False:
+        raise UnknownEvidence("unsupported scenario event/force-full evidence")
+    comparison = evidence.one(f"repos/{repo}/compare/{base_sha}...{helper_sha}")
+    files = comparison.get("files")
+    if (
+        comparison.get("merge_base_commit", {}).get("sha") != base_sha
+        or not isinstance(files, list)
+        or len(files) >= 300
+        or sorted(args["changed_files"]) != sorted(f["filename"] for f in files)
+    ):
+        raise UnknownEvidence("scenario changed-path witness incomplete or mismatched")
+    selected = select_scenarios(
+        args["workflow_name"],
+        args["changed_files"],
+        expected_matrix,
+        SelectionOptions(force_full=False),
+    )
+    if receipt.get("matrix") != selected.matrix:
+        raise UnknownEvidence("scenario matrix disagrees with independent recomputation")
+    run.setdefault("matrix_evidence", []).append(
+        {"producer_job_id": jobs[0]["id"], "receipt": receipt, "recomputed_matrix": selected.matrix}
+    )
+    result = dict(job)
+    result["strategy"] = {**job["strategy"], "matrix": selected.matrix}
+    return result
+
+
 def expected_jobs(
     evidence: Evidence,
     repo: str,
@@ -482,6 +666,7 @@ def expected_jobs(
         if not isinstance(job, dict):
             raise UnknownEvidence(f"invalid job {job_id}")
         job = bind_job_inputs(job, inputs or {})
+        job = bind_scenario_matrix(evidence, repo, path, workflow, job, run)
         job = bind_python_matrix(evidence, repo, path, workflow, job, prefix, run, inputs or {})
         uses = job.get("uses")
         for name in job_names(job_id, job):
@@ -856,9 +1041,16 @@ def collect(
                 head_workflow = evidence.workflow(repo, path, head)
                 head_applies, _ = event_applies(head_workflow, event, action, branch, paths)
                 if applies or head_applies:
-                    unknown.append(
-                        f"workflow changed on PR head: {path}; merge-ref topology needs adjudication"
-                    )
+                    if root_topology_equivalent(workflow, head_workflow, path):
+                        source["head_topology_ref"] = head
+                        source["head_document"] = head_workflow
+                        source["topology_adjudication"] = (
+                            "only exact helper pin / observer additions"
+                        )
+                    else:
+                        unknown.append(
+                            f"workflow changed on PR head: {path}; merge-ref topology needs adjudication"
+                        )
                 else:
                     source["head_absence_ref"] = head
                     source["head_document"] = head_workflow

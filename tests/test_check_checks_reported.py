@@ -1024,3 +1024,159 @@ def test_new_workflow_not_in_base_directory_is_unknown():
     result = reporter.collect(reporter.Evidence(wrapped), "o/r", 1, HEAD, "pull_request", "opened")
     assert result["verdict"] == "UNKNOWN"
     assert any("new workflow" in item for item in result["unknown"])
+
+
+def scenario_fixture(path=".github/workflows/selftest-reusable-ci.yml"):
+    import copy
+
+    workflow_bytes = (Path(__file__).parents[1] / path).read_bytes()
+    workflow = reporter.yaml.load(workflow_bytes, Loader=reporter.WorkflowLoader)
+    helper = (Path(__file__).parents[1] / "scripts/reusable_ci_scope.py").read_bytes()
+    full = reporter.scenario_source_matrix(workflow["jobs"]["select-scenarios"])
+    changed = [path]
+    selected = reporter.select_scenarios(Path(path).stem, changed, full)
+    receipt = {
+        "schema": "scenario-matrix-producer/v1",
+        "repository": "stranske/Workflows",
+        "run_id": 42,
+        "run_attempt": 2,
+        "head_sha": HEAD,
+        "base_sha": BASE,
+        "helper_sha": "c" * 40,
+        "helper_sha256": hashlib.sha256(helper).hexdigest(),
+        "workflow_path": path,
+        "workflow_sha256": hashlib.sha256(workflow_bytes).hexdigest(),
+        "inputs": {
+            "workflow_name": Path(path).stem,
+            "changed_files": changed,
+            "full_matrix": full,
+            "force_full": False,
+        },
+        "matrix": selected.matrix,
+    }
+    run = {
+        "id": 42,
+        "run_attempt": 2,
+        "head_sha": HEAD,
+        "event": "pull_request",
+        "repository": {"full_name": "stranske/Workflows"},
+        "jobs": [
+            {
+                "id": 99,
+                "run_id": 42,
+                "run_attempt": 2,
+                "name": workflow["jobs"]["select-scenarios"]["name"],
+                "steps": [{"name": "Select scenarios", "conclusion": "success"}],
+            }
+        ],
+    }
+    evidence = reporter.Evidence(lambda _: [])
+    evidence.content = lambda repo, file, ref: helper if file.endswith(".py") else workflow_bytes
+    evidence.one = lambda endpoint: {
+        "merge_base_commit": {"sha": BASE},
+        "files": [{"filename": path}],
+    }
+    evidence.job_receipts = lambda *args: [receipt]
+    return evidence, path, workflow, copy.deepcopy(workflow["jobs"]["scenarios"]), run, receipt
+
+
+def bind_scenario_fixture(fixture):
+    evidence, path, workflow, job, run, _ = fixture
+    return reporter.bind_scenario_matrix(evidence, "stranske/Workflows", path, workflow, job, run)
+
+
+@pytest.mark.parametrize(
+    "path,count",
+    [
+        (".github/workflows/selftest-reusable-ci.yml", 6),
+        (".github/workflows/maint-62-integration-consumer.yml", 3),
+    ],
+)
+def test_scenario_expectations_detect_missing_child_independently(path, count):
+    fixture = scenario_fixture(path)
+    bound = bind_scenario_fixture(fixture)
+    names = reporter.job_names("scenarios", bound)
+    assert len(names) == count
+    result = verdict(expected=set(names), checks=[check(n) for n in names[:-1]])
+    assert result["verdict"] == "FAIL" and result["missing_names"] == names[-1:]
+    assert fixture[4]["matrix_evidence"][0]["receipt"]["helper_sha"] == "c" * 40
+
+
+@pytest.mark.parametrize(
+    "finding",
+    [
+        "head",
+        "attempt",
+        "run",
+        "step",
+        "helper",
+        "workflow",
+        "matrix",
+        "paths",
+        "base",
+        "force_full",
+        "full_matrix",
+        "duplicate",
+        "source",
+        "truncated_compare",
+    ],
+)
+def test_scenario_forgery_cannot_complete_topology(finding):
+    fixture = scenario_fixture()
+    evidence, path, workflow, job, run, receipt = fixture
+    if finding == "head":
+        receipt["head_sha"] = BASE
+    elif finding == "attempt":
+        receipt["run_attempt"] = 1
+    elif finding == "run":
+        run["jobs"][0]["run_id"] = 1
+    elif finding == "step":
+        run["jobs"][0]["steps"][0]["conclusion"] = "skipped"
+    elif finding == "helper":
+        receipt["helper_sha256"] = "0" * 64
+    elif finding == "workflow":
+        receipt["workflow_sha256"] = "0" * 64
+    elif finding == "matrix":
+        receipt["matrix"]["include"].pop()
+    elif finding == "paths":
+        receipt["inputs"]["changed_files"] = []
+    elif finding == "base":
+        receipt["base_sha"] = "main"
+    elif finding == "force_full":
+        receipt["inputs"]["force_full"] = True
+    elif finding == "full_matrix":
+        receipt["inputs"]["full_matrix"]["include"].pop()
+    elif finding == "duplicate":
+        evidence.job_receipts = lambda *args: [receipt, receipt]
+    elif finding == "source":
+        workflow["jobs"]["select-scenarios"]["steps"][-1]["run"] += "\n# altered\n"
+    elif finding == "truncated_compare":
+        evidence.one = lambda _: {
+            "merge_base_commit": {"sha": BASE},
+            "files": [{"filename": path}] * 300,
+        }
+    with pytest.raises(reporter.UnknownEvidence):
+        bind_scenario_fixture(fixture)
+
+
+@pytest.mark.parametrize(
+    "path",
+    [
+        ".github/workflows/selftest-reusable-ci.yml",
+        ".github/workflows/maint-62-integration-consumer.yml",
+        ".github/workflows/pr-00-gate.yml",
+    ],
+)
+def test_only_observer_and_pin_changes_are_topology_equivalent(path):
+    import subprocess
+
+    head = reporter.yaml.load(
+        (Path(__file__).parents[1] / path).read_bytes(), Loader=reporter.WorkflowLoader
+    )
+    base_bytes = subprocess.check_output(
+        ["git", "show", "origin/main:" + path], cwd=Path(__file__).parents[1]
+    )
+    base = reporter.yaml.load(base_bytes, Loader=reporter.WorkflowLoader)
+    assert reporter.root_topology_equivalent(base, head, path)
+    head["jobs"]["new-unreported-job"] = {"runs-on": "ubuntu-latest", "steps": []}
+    assert not reporter.root_topology_equivalent(base, head, path)
