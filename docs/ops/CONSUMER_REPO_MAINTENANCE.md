@@ -1364,6 +1364,10 @@ classification inspects contracted negative governors before clause expansion;
 bare never/no-longer delivery predicates remain negative in either clause order.
 Contrastive not-only deliveries are additive, not prohibitions, and a negative
 governor cannot be discarded by matching an embedded need-to/has-to substring.
+These guards share the passive aspect vocabulary. A coordinated elided passive
+review delivery inherits only the preceding evidence object and governor;
+optional/negative governors remain optional/negative, and a new actor or product
+storage predicate cannot supply that inheritance.
 Comment presence/containment predicates share the complete mandatory auxiliary
 grammar, including `has/have to`, with existing polarity controls.
 Do-supported product storage (`do`, `does`, `did`) shares the finite auxiliary

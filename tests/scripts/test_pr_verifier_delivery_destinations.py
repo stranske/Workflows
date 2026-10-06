@@ -263,6 +263,71 @@ def test_negative_embedded_mandatory_auxiliary_is_not_required(negative_auxiliar
     )
 
 
+@pytest.mark.parametrize("participle", ["recorded", "proved", "supplied"])
+@pytest.mark.parametrize(
+    "first_destination,first_channel",
+    [("the PR body", "body"), ("a PR comment", "comments"), ("workflow artifacts", "artifacts")],
+)
+@pytest.mark.parametrize(
+    "second_destination,second_channel",
+    [("the PR body", "body"), ("a PR comment", "comments"), ("workflow artifacts", "artifacts")],
+)
+def test_passive_not_only_preserves_complete_destination_set(
+    participle, first_destination, first_channel, second_destination, second_channel
+):
+    """Additive obligations share the passive aspect grammar."""
+    assert verifier._required_evidence_channels(
+        f"Evidence must not only be {participle} in {first_destination}"
+        + f" but also be recorded in {second_destination}"
+    ) == {first_channel, second_channel}
+
+
+@pytest.mark.parametrize(
+    "negative_auxiliary", ["does not need to", "never has to", "no longer needs to"]
+)
+@pytest.mark.parametrize("participle", ["recorded", "proved", "supplied"])
+@pytest.mark.parametrize(
+    "negative_destination", ["the PR body", "a PR comment", "workflow artifacts"]
+)
+@pytest.mark.parametrize(
+    "positive_destination,channel",
+    [("the PR body", "body"), ("a PR comment", "comments"), ("workflow artifacts", "artifacts")],
+)
+@pytest.mark.parametrize("positive_first", [True, False])
+def test_negative_embedded_governor_preserves_independent_passive_delivery(
+    negative_auxiliary,
+    participle,
+    negative_destination,
+    positive_destination,
+    channel,
+    positive_first,
+):
+    """Passive prohibitions cannot add a channel or erase a separate obligation."""
+    negative = f"Command output {negative_auxiliary} be {participle} in {negative_destination}"
+    positive = f"The reviewer must record evidence in {positive_destination}"
+    assert verifier._required_evidence_channels(negative) == set()
+    criterion = positive + "; " + negative if positive_first else negative + "; " + positive
+    assert verifier._required_evidence_channels(criterion) == {channel}
+
+
+@pytest.mark.parametrize("governor", ["may", "should", "must not", "shall never"])
+@pytest.mark.parametrize("first_destination", ["the PR body", "a PR comment", "workflow artifacts"])
+@pytest.mark.parametrize(
+    "second_destination", ["the PR body", "a PR comment", "workflow artifacts"]
+)
+def test_elided_passive_inherits_optional_or_negative_governor(
+    governor, first_destination, second_destination
+):
+    """Object inheritance cannot turn an optional or prohibited delivery positive."""
+    assert (
+        verifier._required_evidence_channels(
+            f"Evidence {governor} be recorded in {first_destination}"
+            + f" and also be recorded in {second_destination}"
+        )
+        == set()
+    )
+
+
 @pytest.mark.parametrize("prefix", ["", "- ", "- [ ] ", "* [x] ", "1. "])
 def test_supply_imperative_list_marker_preserves_delivery(prefix):
     """List formatting does not turn an imperative delivery into a noun."""
