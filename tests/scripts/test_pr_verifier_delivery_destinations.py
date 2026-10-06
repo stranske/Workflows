@@ -9,6 +9,22 @@ from scripts import docs_drift_fix_agent as fix_agent
 from scripts.langchain import pr_verifier as verifier
 
 
+@pytest.mark.parametrize("proof", ["test results", "screenshots", "validation output"])
+@pytest.mark.parametrize(
+    "operation", ["put", "place", "share", "paste", "write", "submit", "deliver", "supply"]
+)
+@pytest.mark.parametrize("governor", ["must", "must not", "may"])
+@pytest.mark.parametrize(
+    "destination,channel",
+    [("the PR body", "body"), ("a PR comment", "comments"), ("workflow artifacts", "artifacts")],
+)
+def test_common_proof_pronoun_shared_aliases(proof, operation, governor, destination, channel):
+    criterion = f"The UI must display {proof}, and the reviewer {governor} {operation} them in {destination}"
+    assert verifier._required_evidence_channels(criterion) == (
+        {channel} if governor == "must" else set()
+    )
+
+
 @pytest.mark.parametrize("quote", ['"', "'", "`", "“"])
 @pytest.mark.parametrize("operation", ["include", "contain", "have"])
 @pytest.mark.parametrize("independent", [False, True])

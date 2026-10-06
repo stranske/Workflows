@@ -16,9 +16,19 @@ NODE = shutil.which("node")
 
 
 @pytest.mark.parametrize("status", ["absent", "unavailable", "present"])
-@pytest.mark.parametrize("case", ["pronoun", "unrelated", "compound"])
+@pytest.mark.parametrize(
+    "case", ["pronoun", "alias-pronoun", "alias-negative", "unrelated", "compound"]
+)
 def test_proof_actor_and_comment_compound_actual_floor(status, case):
     criterion, channel = {
+        "alias-pronoun": (
+            "The UI must display test results, and the reviewer must put them in the PR body",
+            "body",
+        ),
+        "alias-negative": (
+            "The UI must display test results, and the reviewer must not share them in the PR body",
+            "body",
+        ),
         "pronoun": (
             "The UI must display test results, and the reviewer must record them in the PR body",
             "body",
@@ -45,7 +55,9 @@ def test_proof_actor_and_comment_compound_actual_floor(status, case):
         pr_verifier.EvaluationResult(verdict="PASS", used_llm=True),
         pr_verifier.prompt_coverage(context, None),
     )
-    assert result.verdict == ("CONCERNS" if case == "pronoun" and status != "present" else "PASS")
+    assert result.verdict == (
+        "CONCERNS" if case in {"pronoun", "alias-pronoun"} and status != "present" else "PASS"
+    )
 
 
 @pytest.mark.parametrize("status", ["absent", "unavailable", "present"])

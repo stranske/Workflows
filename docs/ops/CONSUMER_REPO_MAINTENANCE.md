@@ -77,7 +77,10 @@ clauses, reusing the existing shared actor-role heads (including developers,
 testers, auditors, automation agents, runners and bots) and recipient-role heads
 rather than maintaining a narrower independent role list. An explicit
 pronoun delivery in the next actor clause retains the introduced proof as an
-antecedent; an unrelated body update does not canonicalize that proof. They
+antecedent; an unrelated body update does not canonicalize that proof. The
+antecedent predicate shares the canonical delivery operations and record-alias
+map with ordinary delivery; bounded alias-plus-pronoun review destinations
+normalize before resolution, retaining governing negation and modality. They
 therefore retain negative/optional governors,
 quoted-literal and product-capability exclusions, and independent reviewer
 obligations; a mandatory PR-body proof cannot bypass the coverage floor when

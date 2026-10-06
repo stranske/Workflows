@@ -1015,6 +1015,45 @@ def _required_evidence_channels(acceptance: str, *, _bind_attached: bool = True)
         r"(?<!\w)'(?:[^']|(?<=\w)'(?=\w))*'(?!\w)|"
         r"“[^”]*”|(?<!\w)‘(?:[^’]|(?<=\w)’(?=\w))*’(?!\w)"
     )
+    # Lexical aliases share obligation, negation, destination and product rules,
+    # including the earlier proof-pronoun antecedent path.
+    record_aliases = {
+        "share": "record",
+        "shares": "records",
+        "shared": "recorded",
+        "sharing": "recording",
+        "paste": "record",
+        "put": "record",
+        "puts": "records",
+        "putting": "recording",
+        "place": "record",
+        "places": "records",
+        "placed": "recorded",
+        "placing": "recording",
+        "pastes": "records",
+        "pasted": "recorded",
+        "pasting": "recording",
+        "write": "record",
+        "writes": "records",
+        "written": "recorded",
+        "writing": "recording",
+        "wrote": "recorded",
+        "submit": "record",
+        "submits": "records",
+        "submitted": "recorded",
+        "submitting": "recording",
+        "deliver": "record",
+        "delivers": "records",
+        "delivered": "recorded",
+        "delivering": "recording",
+        "supply": "record",
+        "supplies": "records",
+        "supplied": "recorded",
+        "supplying": "recording",
+    }
+    shared_proof_delivery_operation = (
+        r"(?:" + delivery_operation + r"|" + "|".join(record_aliases) + r"\b)"
+    )
     # A comment contained by the PR is a PR comment, not an overall/body
     # deliverable. Preserve its actual governor for the shared polarity pass.
     acceptance = re.sub(
@@ -1123,8 +1162,9 @@ def _required_evidence_channels(acceptance: str, *, _bind_attached: bool = True)
         # resolver only when the next actor actually delivers that pronoun.
         following = re.split(proof_actor_boundary, tail, maxsplit=1, flags=re.I)
         pronoun_delivery = len(following) == 2 and re.search(
-            r"\b(?:record|attach|upload|publish|post|capture|provide|include|document|link)\w*"
-            r"\s+(?:it|them|this|these|those|both)\s+(?:in|into|to|within|as)\s+"
+            r"\b"
+            + shared_proof_delivery_operation
+            + r"\s+(?:it|them|this|these|those|both)\s+(?:in|into|to|within|as)\s+"
             + review_destination_noun,
             re.split(r"[;\n.!?]", following[1])[0],
             re.I,
@@ -1193,43 +1233,6 @@ def _required_evidence_channels(acceptance: str, *, _bind_attached: bool = True)
         acceptance,
         flags=re.I,
     )
-    # Lexical aliases share every obligation, negation, destination and product
-    # boundary rule. Adding a synonym to only one regex silently diverges them.
-    record_aliases = {
-        "share": "record",
-        "shares": "records",
-        "shared": "recorded",
-        "sharing": "recording",
-        "paste": "record",
-        "put": "record",
-        "puts": "records",
-        "putting": "recording",
-        "place": "record",
-        "places": "records",
-        "placed": "recorded",
-        "placing": "recording",
-        "pastes": "records",
-        "pasted": "recorded",
-        "pasting": "recording",
-        "write": "record",
-        "writes": "records",
-        "written": "recorded",
-        "writing": "recording",
-        "wrote": "recorded",
-        "submit": "record",
-        "submits": "records",
-        "submitted": "recorded",
-        "submitting": "recording",
-        "deliver": "record",
-        "delivers": "records",
-        "delivered": "recorded",
-        "delivering": "recording",
-        "supply": "record",
-        "supplies": "records",
-        "supplied": "recorded",
-        "supplying": "recording",
-    }
-
     qualified_delivery_actor = (
         r"(?:(?:the|an?)\s+)?"
         r"(?:(?:assigned|responsible|authorized|experienced|designated|senior|lead|primary|current|CI|API|"
@@ -1400,6 +1403,9 @@ def _required_evidence_channels(acceptance: str, *, _bind_attached: bool = True)
         r"(?=\s+(?:(?:must|shall|will)\s+output|outputs)\b))|"
         r"(?P<alias>\b(?:" + "|".join(record_aliases) + r")\b)"
         r"(?=\s+"
+        + r"(?:it|them|this|these|those|both)\s+"
+        + bound_review_destinations
+        + r"|\s+"
         + evidence_modifiers
         + r"(?:evidence|artifacts?|transcripts?|command outputs?|pr comments?|pull request comments?)\b"
         r"|\s+"
