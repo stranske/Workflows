@@ -1020,8 +1020,8 @@ def _required_evidence_channels(acceptance: str, *, _bind_attached: bool = True)
         + r"|may|can|should|will)\s+"
         + delivery_adverbs
         + r"(?:(?:not|never)\s+)?(?:include|contain|have)\s+(?:(?:an?|the)\s+)?)"
-        r"comments?\b(?!\s+(?:counter|field|icon|parser|metadata|preview|schema|"
-        r"editor|support|handler|component|feature|widget)\b)",
+        r"comments?\b(?=\s*(?:$|[;,.!?\n]|(?:with|containing|that|which|"
+        r"in|on|for|to|and|or|but)\b))",
         lambda match: re.sub(
             r"\b(?:contain|have)\b(?=\s+(?:(?:an?|the)\s+)?$)",
             "include",
@@ -1082,7 +1082,7 @@ def _required_evidence_channels(acceptance: str, *, _bind_attached: bool = True)
     # Common proof nouns reuse shared polarity/product/literal grammar, but
     # destinations must belong to this object's own finite actor clause.
     independent_proof_actor = recipient_prefix + (
-        r"(?:reviewers?|maintainers?|authors?|operators?|ui|api|application|interface|"
+        r"(?:reviewers?|maintainers?|authors?|operators?|agents?|runners?|bots?|ui|api|application|interface|"
         r"service|cli|endpoint|renderer|(?:pr|pull request)(?:\s+body)?)\b"
     )
     proof_actor_boundary = (
@@ -1101,13 +1101,23 @@ def _required_evidence_channels(acceptance: str, *, _bind_attached: bool = True)
         before = re.split(
             r"[;\n.!?]|" + proof_actor_boundary, acceptance[: match.start()], flags=re.I
         )[-1]
-        after = re.split(
-            r"[;\n.!?]|" + proof_actor_boundary, acceptance[match.end() :], flags=re.I
-        )[0]
+        tail = acceptance[match.end() :]
+        after = re.split(r"[;\n.!?]|" + proof_actor_boundary, tail, flags=re.I)[0]
         clause = before + match[0] + after
+        # Keep an introduced proof object available to the shared antecedent
+        # resolver only when the next actor actually delivers that pronoun.
+        following = re.split(proof_actor_boundary, tail, maxsplit=1, flags=re.I)
+        pronoun_delivery = len(following) == 2 and re.search(
+            r"\b(?:record|attach|upload|publish|post|capture|provide|include|document|link)\w*"
+            r"\s+(?:it|them|this|these|those|both)\s+(?:in|into|to|within|as)\s+"
+            + review_destination_noun,
+            re.split(r"[;\n.!?]", following[1])[0],
+            re.I,
+        )
         return (
             "evidence"
-            if re.search(
+            if pronoun_delivery
+            or re.search(
                 r"\b(?:(?:pr|pull request)\s+(?:body|comments?)|"
                 r"comments?\s+(?:in|on)\s+(?:the\s+)?(?:pr|pull request)|"
                 r"(?:workflow|ci|github actions)\s+artifacts?)\b",

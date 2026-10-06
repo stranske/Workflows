@@ -9,6 +9,38 @@ from scripts import docs_drift_fix_agent as fix_agent
 from scripts.langchain import pr_verifier as verifier
 
 
+@pytest.mark.parametrize("proof", ["test results", "screenshots", "validation output"])
+@pytest.mark.parametrize("actor", ["reviewer", "automation agent", "runner", "bot"])
+@pytest.mark.parametrize("operation", ["record", "attach", "include"])
+@pytest.mark.parametrize("governor", ["must", "must not", "may"])
+def test_common_proof_pronoun_cross_actor_delivery(proof, actor, operation, governor):
+    criterion = (
+        f"The UI must display {proof}, and the {actor} {governor} {operation} them in the PR body"
+    )
+    assert verifier._required_evidence_channels(criterion) == (
+        {"body"} if governor == "must" else set()
+    )
+
+
+@pytest.mark.parametrize("actor", ["automation agent", "runner", "bot"])
+@pytest.mark.parametrize("proof", ["test results", "screenshots", "validation output"])
+def test_automation_actor_unrelated_destination(proof, actor):
+    assert (
+        verifier._required_evidence_channels(
+            f"The UI must display {proof}, and the {actor} must update the PR body"
+        )
+        == set()
+    )
+
+
+@pytest.mark.parametrize("operation", ["include", "contain", "have"])
+@pytest.mark.parametrize("noun", ["button", "form", "count", "thread", "dashboard", "catalog"])
+def test_pr_comment_compound_is_not_delivery(operation, noun):
+    assert (
+        verifier._required_evidence_channels(f"The PR must {operation} a comment {noun}") == set()
+    )
+
+
 @pytest.mark.parametrize(
     "destination,channel",
     [

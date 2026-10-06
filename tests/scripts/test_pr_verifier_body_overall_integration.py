@@ -16,6 +16,39 @@ NODE = shutil.which("node")
 
 
 @pytest.mark.parametrize("status", ["absent", "unavailable", "present"])
+@pytest.mark.parametrize("case", ["pronoun", "unrelated", "compound"])
+def test_proof_actor_and_comment_compound_actual_floor(status, case):
+    criterion, channel = {
+        "pronoun": (
+            "The UI must display test results, and the reviewer must record them in the PR body",
+            "body",
+        ),
+        "unrelated": (
+            "The UI must display test results, and the automation agent must update the PR body",
+            "body",
+        ),
+        "compound": ("The PR must include a comment button", "comments"),
+    }[case]
+    states = {"body": "present", "comments": "present"}
+    states[channel] = status
+    evidence = (
+        "Overall retrieval status: **present**\n"
+        f"- PR body: **{states['body']}**\n"
+        f"- PR comments: **{states['comments']}**\n"
+        "- Referenced workflow artifacts: **absent**\n"
+    )
+    context, _ = _context(1, 1000, 1000)
+    context = context.replace(ACCEPTANCE_SENTINEL, criterion).replace(
+        "## PR Diff Summary", "## Acceptance evidence\n\n- " + evidence + "\n## PR Diff Summary"
+    )
+    result = pr_verifier._apply_coverage_floor(
+        pr_verifier.EvaluationResult(verdict="PASS", used_llm=True),
+        pr_verifier.prompt_coverage(context, None),
+    )
+    assert result.verdict == ("CONCERNS" if case == "pronoun" and status != "present" else "PASS")
+
+
+@pytest.mark.parametrize("status", ["absent", "unavailable", "present"])
 @pytest.mark.parametrize("governor", ["must", "must not", "is not expected to"])
 @pytest.mark.parametrize(
     "destination,channel",

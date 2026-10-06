@@ -73,7 +73,10 @@ Common proof objects (test/validation results, logs and outputs, screenshots
 including before/after screenshots, and recordings) with an explicit review
 destination in the same clause normalize into this same evidence grammar before
 channel classification, stopping at independently governed coordinated actor
-clauses. They therefore retain negative/optional governors,
+clauses, including automation agent, runner and bot subjects. An explicit
+pronoun delivery in the next actor clause retains the introduced proof as an
+antecedent; an unrelated body update does not canonicalize that proof. They
+therefore retain negative/optional governors,
 quoted-literal and product-capability exclusions, and independent reviewer
 obligations; a mandatory PR-body proof cannot bypass the coverage floor when
 body retrieval is absent or unavailable.
@@ -81,9 +84,10 @@ PR-subject inclusion predicates (`the PR must include/contain/have a comment`)
 normalize to PR-comment obligations while preserving their original governor.
 A present PR body cannot satisfy that comment channel; negative and optional
 inclusion stays nongating.
-Trailing comment feature nouns (counter, field, icon, parser, metadata, preview,
-schema, editor, support, handler, component, feature and widget) are not delivered
-comment objects.
+Comment inclusion requires a delivered noun boundary (end/punctuation or an
+object qualifier, destination or coordination), not an open-ended feature-noun
+blocklist. Compounds such as comment button, form, count, thread and parser are
+product features, not delivered comment objects.
 Qualified singular `recording of ...` proof nouns use a bounded noun qualifier
 ending before the original governor; verbal `is recording evidence` is not a
 proof noun. Product link capabilities (`allow users to link`, `let users link`)
