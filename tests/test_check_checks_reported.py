@@ -1168,15 +1168,58 @@ def test_scenario_forgery_cannot_complete_topology(finding):
     ],
 )
 def test_only_observer_and_pin_changes_are_topology_equivalent(path):
-    import subprocess
+    import copy
 
-    head = reporter.yaml.load(
-        (Path(__file__).parents[1] / path).read_bytes(), Loader=reporter.WorkflowLoader
-    )
-    base_bytes = subprocess.check_output(
-        ["git", "show", "origin/main:" + path], cwd=Path(__file__).parents[1]
-    )
-    base = reporter.yaml.load(base_bytes, Loader=reporter.WorkflowLoader)
+    base = {
+        "on": {"pull_request": {"paths": ["scripts/**"]}},
+        "permissions": {"contents": "read"},
+        "jobs": {
+            "ci": {
+                "uses": "./.github/workflows/reusable-10-ci-python.yml",
+                "with": {"python-versions": '["3.12"]'},
+            }
+        },
+    }
+    if path in reporter.SCENARIO_PATHS:
+        base["jobs"]["select-scenarios"] = {
+            "steps": [
+                {
+                    "name": "Select scenarios",
+                    "env": {"FORCE_FULL": "false"},
+                    "run": (
+                        "from scripts.reusable_ci_scope import SelectionOptions, describe_selection, select_scenarios\n"
+                        "print(describe_selection(selected, matrix))\n"
+                    ),
+                }
+            ]
+        }
+    head = copy.deepcopy(base)
+    head["jobs"]["ci"]["with"]["workflows_ref"] = "${{ github.sha }}"
+    if path in reporter.SCENARIO_PATHS:
+        step = head["jobs"]["select-scenarios"]["steps"][0]
+        step["env"].update(
+            {
+                "PR_HEAD_SHA": "${{ github.event.pull_request.head.sha || github.sha }}",
+                "PR_BASE_SHA": "${{ github.event.pull_request.base.sha || '' }}",
+            }
+        )
+        step["run"] = (
+            step["run"]
+            .replace("select_scenarios\n", "select_scenarios, scenario_matrix_receipt\n")
+            .replace(
+                "print(describe_selection(selected, matrix))",
+                'print("SCENARIO_MATRIX_RECEIPT=" + json.dumps(scenario_matrix_receipt("'
+                + path
+                + '", changed_files, matrix, selected), sort_keys=True))\n'
+                + "print(describe_selection(selected, matrix))",
+            )
+        )
     assert reporter.root_topology_equivalent(base, head, path)
-    head["jobs"]["new-unreported-job"] = {"runs-on": "ubuntu-latest", "steps": []}
-    assert not reporter.root_topology_equivalent(base, head, path)
+    for field, value in [
+        ("jobs", {"new-unreported-job": {"runs-on": "ubuntu-latest", "steps": []}}),
+        ("permissions", {"contents": "write"}),
+        ("on", {"push": None}),
+    ]:
+        changed = copy.deepcopy(head)
+        changed[field].update(value)
+        assert not reporter.root_topology_equivalent(base, changed, path)
