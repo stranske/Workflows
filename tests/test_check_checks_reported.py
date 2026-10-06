@@ -718,3 +718,21 @@ def test_one_duplicate_success_cannot_mask_other_source_debt(failure):
     )
     assert result["verdict"] != "PASS"
     assert any("independent success unproven" in reason for reason in result["unknown"])
+
+
+def test_duplicate_job_names_inside_one_workflow_are_unknown():
+    with pytest.raises(reporter.UnknownEvidence, match="duplicate expected job name"):
+        reporter.expected_jobs(
+            reporter.Evidence(lambda _: []),
+            "o/r",
+            "gate.yml",
+            BASE,
+            {"jobs": {"one": {"name": "gate"}, "two": {"name": "gate"}}},
+        )
+
+
+def test_duplicate_reusable_child_prefixes_are_unknown():
+    root, evidence, run = reusable_fixture(condition=False)
+    root["jobs"]["second"] = dict(root["jobs"]["child"])
+    with pytest.raises(reporter.UnknownEvidence, match="duplicate expected child names"):
+        reporter.expected_jobs(evidence, "o/r", "gate.yml", HEAD, root, run=run)

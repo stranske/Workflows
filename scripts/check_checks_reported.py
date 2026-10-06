@@ -231,6 +231,8 @@ def expected_jobs(
         for name in job_names(job_id, job):
             full_name = prefix + name
             if not uses:
+                if full_name in names:
+                    raise UnknownEvidence(f"duplicate expected job name in {identity}: {full_name}")
                 names.add(full_name)
                 continue
             if job.get("if") and run is None:
@@ -244,6 +246,10 @@ def expected_jobs(
                     and item.get("check_run_url")
                 ]
                 if len(skipped) == 1:
+                    if full_name in names:
+                        raise UnknownEvidence(
+                            f"duplicate expected job name in {identity}: {full_name}"
+                        )
                     names.add(full_name)
                     run.setdefault("reusable_absences", []).append(
                         {
@@ -305,7 +311,7 @@ def expected_jobs(
                 if isinstance(value, dict) and "default" in value
             }
             child_inputs.update(job.get("with") or {})
-            names |= expected_jobs(
+            children = expected_jobs(
                 evidence,
                 child_repo,
                 child_path,
@@ -316,6 +322,12 @@ def expected_jobs(
                 run,
                 child_inputs,
             )
+            duplicates = names & children
+            if duplicates:
+                raise UnknownEvidence(
+                    f"duplicate expected child names in {identity}: {sorted(duplicates)}"
+                )
+            names |= children
     return names
 
 
