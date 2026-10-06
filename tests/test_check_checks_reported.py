@@ -1,0 +1,337 @@
+"""Completeness controls for the shared adapter, including the incident shapes."""
+
+from __future__ import annotations
+
+import base64
+import importlib.util
+from pathlib import Path
+
+import pytest
+
+SPEC = importlib.util.spec_from_file_location(
+    "check_topology", Path(__file__).parents[1] / "scripts/check_checks_reported.py"
+)
+assert SPEC and SPEC.loader
+reporter = importlib.util.module_from_spec(SPEC)
+SPEC.loader.exec_module(reporter)
+HEAD = "a" * 40
+BASE = "b" * 40
+
+
+def check(name="gate", conclusion="success", ident=1, started="2026-10-01T01:00:00Z"):
+    return {
+        "name": name,
+        "conclusion": conclusion,
+        "id": ident,
+        "started_at": started,
+        "status": "completed",
+        "app": {"id": 15368, "slug": "github-actions"},
+    }
+
+
+def verdict(
+    expected=None, checks=None, suites=None, runs=None, unknown=None, required=None, statuses=None
+):
+    return reporter.adjudicate(
+        {"gate"} if expected is None else expected,
+        [check()] if checks is None else checks,
+        statuses or [],
+        suites or [],
+        runs or [],
+        unknown or [],
+        required or [],
+    )
+
+
+def test_missing_required_check_is_fail():
+    result = verdict(checks=[], required=[{"context": "gate"}])
+    assert result["verdict"] == "FAIL"
+    assert result["missing_names"] == ["gate"]
+
+
+def test_legitimately_absent_event_only_job():
+    # Actual Orchestrator461 incident shape: auto-pilot only on labeled/closed.
+    applies, reason = reporter.event_applies(
+        {"on": {"pull_request": {"types": ["labeled", "closed"]}}},
+        "pull_request",
+        "opened",
+        "main",
+        ["src/example.py"],
+    )
+    assert not applies and "opened" in reason
+    assert verdict()["verdict"] == "PASS"
+
+
+def test_stale_cancelled_attempt_replaced_by_success():
+    result = verdict(
+        checks=[check(conclusion="cancelled"), check(ident=2, started="2026-10-01T02:00:00Z")]
+    )
+    assert result["verdict"] == "PASS"
+    assert result["states"]["gate"]["order"][1] == 2
+
+
+def test_new_cancelled_attempt_does_not_reuse_old_success():
+    assert (
+        verdict(
+            checks=[check(), check(conclusion="cancelled", ident=2, started="2026-10-01T02:00:00Z")]
+        )["verdict"]
+        == "FAIL"
+    )
+
+
+def test_zero_job_startup_failure_is_fail_even_with_green_check():
+    result = verdict(runs=[{"id": 90, "jobs": [], "conclusion": "action_required"}])
+    assert result["verdict"] == "FAIL"
+    assert result["startup_failures"][0]["id"] == 90
+
+
+def test_zero_job_failed_suite_is_fail():
+    assert verdict(suites=[{"id": 90, "conclusion": "failure"}])["verdict"] == "FAIL"
+
+
+def test_empty_expectation_cannot_pass():
+    assert verdict(expected=set())["verdict"] == "UNKNOWN"
+
+
+def test_unsupported_evidence_is_unknown():
+    assert verdict(unknown=["dynamic matrix"])["verdict"] == "UNKNOWN"
+
+
+def test_missing_required_reporter_overrides_unknown():
+    assert verdict(checks=[], unknown=["inaccessible workflow"])["verdict"] == "FAIL"
+
+
+def test_required_check_skip_is_not_success():
+    assert (
+        verdict(checks=[check(conclusion="skipped")], required=[{"context": "gate"}])["verdict"]
+        == "FAIL"
+    )
+
+
+def test_required_app_mismatch_is_unknown():
+    assert verdict(required=[{"context": "gate", "app_id": 99}])["verdict"] == "UNKNOWN"
+
+
+def test_latest_status_replaces_old_failure_regardless_of_page_order():
+    statuses = [
+        {"context": "gate", "created_at": "2026-10-01T02:00:00Z", "id": 2, "state": "success"},
+        {"context": "gate", "created_at": "2026-10-01T01:00:00Z", "id": 1, "state": "failure"},
+    ]
+    assert verdict(checks=[], statuses=statuses)["verdict"] == "PASS"
+    assert verdict(checks=[], statuses=list(reversed(statuses)))["verdict"] == "PASS"
+
+
+def test_status_success_cannot_mask_failed_check_run():
+    assert (
+        verdict(
+            checks=[check(conclusion="failure")], statuses=[{"context": "gate", "state": "success"}]
+        )["verdict"]
+        == "FAIL"
+    )
+
+
+def test_paginated_checks_are_all_enumerated():
+    evidence = reporter.Evidence(
+        lambda _: [
+            {"total_count": 2, "check_runs": [check()]},
+            {"total_count": 2, "check_runs": [check("test", ident=2)]},
+        ]
+    )
+    assert len(evidence.items("checks", "check_runs")) == 2
+    assert evidence.requests[0]["pages"] == 2
+
+
+def test_truncated_suites_cannot_pass():
+    evidence = reporter.Evidence(lambda _: [{"total_count": 2, "check_suites": [{}]}])
+    with pytest.raises(reporter.UnknownEvidence, match="enumerated 1 of 2"):
+        evidence.items("suites", "check_suites")
+
+
+def test_inaccessible_discovery_becomes_unknown_evidence():
+    def inaccessible(_):
+        raise SystemExit("rate limit reached")
+
+    with pytest.raises(reporter.UnknownEvidence, match="rate limit"):
+        reporter.Evidence(inaccessible).pages("workflow")
+
+
+def test_yaml_on_is_not_boolean():
+    document = reporter.yaml.load("on: [pull_request]\njobs: {}", Loader=reporter.WorkflowLoader)
+    assert "on" in document and True not in document
+
+
+@pytest.mark.parametrize(
+    "pattern,value,expected",
+    [
+        ("docs/**", "docs/a/b.md", True),
+        ("**/*.py", "a.py", True),
+        ("**/*.py", "src/a.py", True),
+        ("*.py", "src/a.py", False),
+    ],
+)
+def test_actions_glob_subset(pattern, value, expected):
+    assert reporter.glob_match(value, pattern) is expected
+
+
+def test_negated_path_glob_is_unknown_instead_of_false_absence():
+    with pytest.raises(reporter.UnknownEvidence, match="unsupported Actions glob"):
+        reporter.event_applies(
+            {"on": {"pull_request": {"paths": ["**", "!docs/**"]}}},
+            "pull_request",
+            "opened",
+            "main",
+            ["docs/a.md"],
+        )
+
+
+def test_branch_and_path_absence_has_concrete_reason():
+    applies, reason = reporter.event_applies(
+        {"on": {"pull_request": {"branches": ["release/**"]}}},
+        "pull_request",
+        "opened",
+        "main",
+        ["src/a.py"],
+    )
+    assert not applies and "branches excludes" in reason
+
+
+def test_literal_matrix_names():
+    assert reporter.job_names(
+        "test",
+        {"name": "test ${{ matrix.python }}", "strategy": {"matrix": {"python": ["3.11", "3.12"]}}},
+    ) == ["test 3.11", "test 3.12"]
+
+
+def test_dynamic_matrix_is_unknown():
+    with pytest.raises(reporter.UnknownEvidence, match="unsupported matrix"):
+        reporter.job_names(
+            "test", {"strategy": {"matrix": "${{ fromJSON(needs.setup.outputs.matrix) }}"}}
+        )
+
+
+def test_reusable_child_workflow_names():
+    content = "on: workflow_call\njobs:\n  lint:\n    name: Lint\n    runs-on: ubuntu-latest\n    steps: []\n"
+    evidence = reporter.Evidence(
+        lambda _: [{"encoding": "base64", "content": base64.b64encode(content.encode()).decode()}]
+    )
+    names = reporter.expected_jobs(
+        evidence,
+        "o/r",
+        ".github/workflows/gate.yml",
+        BASE,
+        {"jobs": {"ci": {"name": "Python CI", "uses": "./.github/workflows/child.yml"}}},
+    )
+    assert names == {"Python CI / Lint"}
+
+
+def test_floating_reusable_workflow_is_unknown():
+    with pytest.raises(reporter.UnknownEvidence, match="unpinned"):
+        reporter.expected_jobs(
+            reporter.Evidence(lambda _: []),
+            "o/r",
+            "gate.yml",
+            BASE,
+            {"jobs": {"ci": {"uses": "o/r/.github/workflows/ci.yml@main"}}},
+        )
+
+
+def test_conditional_reusable_workflow_is_unknown():
+    with pytest.raises(reporter.UnknownEvidence, match="conditional reusable"):
+        reporter.expected_jobs(
+            reporter.Evidence(lambda _: []),
+            "o/r",
+            "gate.yml",
+            BASE,
+            {
+                "jobs": {
+                    "ci": {
+                        "uses": "./.github/workflows/ci.yml",
+                        "if": "needs.setup.outputs.run == 'true'",
+                    }
+                }
+            },
+        )
+
+
+def fixture_transport(changed_head=False, forged=False):
+    workflow = "on: pull_request\njobs:\n  gate:\n    runs-on: ubuntu-latest\n    steps: []\n"
+    calls = []
+
+    def transport(endpoint):
+        calls.append(endpoint)
+        if endpoint.endswith("/pulls/1"):
+            count = calls.count(endpoint)
+            return [
+                {
+                    "head": {"sha": "c" * 40 if changed_head and count > 1 else HEAD},
+                    "base": {"sha": BASE, "ref": "main"},
+                    "changed_files": 1,
+                }
+            ]
+        if "/files?" in endpoint:
+            return [[{"filename": "src/a.py"}]]
+        if "/check-runs?" in endpoint:
+            item = check()
+            if forged:
+                item["app"] = {"id": 99, "slug": "other-app"}
+            return [{"total_count": 1, "check_runs": [item]}]
+        if "/check-suites?" in endpoint:
+            return [{"total_count": 0, "check_suites": []}]
+        if "/statuses?" in endpoint or "/rules/branches/" in endpoint:
+            return [[]]
+        if endpoint.endswith("/branches/main"):
+            return [{"protected": False}]
+        if "/contents/.github/workflows?" in endpoint:
+            return [[{"path": ".github/workflows/gate.yml", "sha": "d" * 40}]]
+        if "/contents/.github/workflows/gate.yml?" in endpoint:
+            return [{"encoding": "base64", "content": base64.b64encode(workflow.encode()).decode()}]
+        if "/actions/runs?" in endpoint:
+            return [{"total_count": 0, "workflow_runs": []}]
+        raise AssertionError(endpoint)
+
+    return transport
+
+
+def test_complete_static_topology_receipt_is_bound_to_full_head():
+    result = reporter.collect(
+        reporter.Evidence(fixture_transport()), "o/r", 1, HEAD, "pull_request", "opened"
+    )
+    assert result["verdict"] == "PASS"
+    assert result["head"] == HEAD and result["base"] == BASE
+    assert result["expected_names"] == ["gate"]
+    assert result["workflow_sources"][0]["document"]["jobs"]
+    assert result["merge_authorization"] is False
+
+
+def test_head_changed_during_collection_is_unknown():
+    assert (
+        reporter.collect(
+            reporter.Evidence(fixture_transport(changed_head=True)),
+            "o/r",
+            1,
+            HEAD,
+            "pull_request",
+            "opened",
+        )["verdict"]
+        == "UNKNOWN"
+    )
+
+
+def test_other_app_cannot_supply_workflow_completeness():
+    assert (
+        reporter.collect(
+            reporter.Evidence(fixture_transport(forged=True)),
+            "o/r",
+            1,
+            HEAD,
+            "pull_request",
+            "opened",
+        )["verdict"]
+        == "UNKNOWN"
+    )
+
+
+def test_incumbent_transport_is_reused_without_copying_reference_algorithm(tmp_path):
+    incumbent = tmp_path / "presence.py"
+    incumbent.write_text("def _gh_json(path):\n    return [{'endpoint': path}]\n")
+    assert reporter.load_presence_reporter(incumbent)("checks") == [{"endpoint": "checks"}]

@@ -11,6 +11,26 @@ For a narrative of how the repo evolved through five development phases (bootstr
 
 ✅ **Production Ready** - Actively used and maintained.
 
+### Delivery-lane expected-check receipts
+
+Run the shared [exact-head reporter](scripts/check_checks_reported.py) before
+interpreting a green check list as complete. It extends the incumbent Orchestrator
+presence reporter through its existing paginated transport; it does not copy or
+replace that reporter's historical frequency/ratchet algorithm.
+
+```bash
+python3 scripts/check_checks_reported.py --repo stranske/Orchestrator --pr 476 \
+  --head <full-current-40-character-head> --event pull_request --action synchronize \
+  --presence-reporter /path/to/Orchestrator/scripts/check_checks_reported.py \
+  --output /path/to/evidence/Orchestrator-476-checks.json
+```
+
+The output records full head/base, event/action, changed paths, authored workflow
+topology, required branch/ruleset contexts, complete check/suite pages and latest
+workflow attempts. Exit codes are PASS=0, FAIL=1 and UNKNOWN=2. Unsupported or
+inaccessible topology stays UNKNOWN; the receipt never authorizes a merge.
+See [the supported context and evidence contract](docs/ops/EXPECTED_CHECK_RECEIPTS.md).
+
 ### First-party Consumers
 
 17 repos are currently registered as first-party consumers (synced via [`.github/workflows/maint-68-sync-consumer-repos.yml`](.github/workflows/maint-68-sync-consumer-repos.yml)):
