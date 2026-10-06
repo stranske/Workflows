@@ -345,6 +345,8 @@ jobs:
       contents: read
       actions: read
     with:
+      # Local reusable source and its helper must be tested at the same commit.
+      workflows_ref: ${{ github.sha }}
       python-versions: >-
         ${{
           (github.event_name == 'workflow_dispatch' &&

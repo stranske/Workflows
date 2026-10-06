@@ -158,3 +158,10 @@ in `adjudicate()` and run
 `python3 -m pytest -q tests/test_check_checks_reported.py::test_missing_required_check_is_fail`.
 The test must fail. Restore the implementation and rerun the entire focused suite;
 retain both command outputs beside the live receipts. Do not commit the mutation.
+
+## First-party local-call validation
+
+Workflows Gate, reusable CI selftest and integration-consumer workflows invoke
+the reusable workflow from the tested tree and pass `workflows_ref: ${{ github.sha }}`.
+This keeps the helper checkout on that same tested commit, including before a
+new helper API reaches main. Consumer remote calls retain their `@main` default.

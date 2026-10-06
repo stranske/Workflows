@@ -113,3 +113,19 @@ def test_workflows_checkouts_use_workflows_ref_input() -> None:
     assert checked >= 4, (
         f"expected to inspect the 4 known Workflows helper checkouts, " f"found {checked}"
     )
+
+
+def test_local_python_callers_pin_the_helper_to_the_tested_commit():
+    from pathlib import Path
+    import yaml
+
+    root = Path(__file__).parents[2]
+    for name in ("pr-00-gate.yml", "selftest-reusable-ci.yml", "maint-62-integration-consumer.yml"):
+        workflow = yaml.safe_load((root / ".github/workflows" / name).read_text())
+        callers = [
+            job
+            for job in workflow["jobs"].values()
+            if job.get("uses") == "./.github/workflows/reusable-10-ci-python.yml"
+        ]
+        assert callers, name
+        assert all(job["with"]["workflows_ref"] == "${{ github.sha }}" for job in callers), name

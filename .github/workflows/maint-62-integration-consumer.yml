@@ -153,6 +153,8 @@ jobs:
       fail-fast: false
       matrix: ${{ fromJson(needs.select-scenarios.outputs.matrix) }}
     with:
+      # Local reusable source and its helper must be tested at the same commit.
+      workflows_ref: ${{ github.sha }}
       working-directory: templates/integration-repo
       python-versions: ${{ matrix['python-versions'] }}
       coverage: ${{ matrix.coverage }}
