@@ -1010,6 +1010,14 @@ def _required_evidence_channels(acceptance: str, *, _bind_attached: bool = True)
         r"(?:does|do|did)\s+(?:not|never)\s+(?:need|have)\s+to|"
         r"(?:never|no\s+longer)\s+(?:has|have|needs?)\s+to|needs?\s+not)"
     )
+    optional_delivery_modal = r"(?:may|can|could|would|should)"
+    delivery_governor_auxiliary = (
+        r"(?:"
+        + mandatory_auxiliary
+        + r"|will|"
+        + optional_delivery_modal
+        + r"|has|have|had|is|are|was|were|do|does|did)"
+    )
     quoted_evidence_literal = (
         r"`+[^`]*`+|\"[^\"]*\"|"
         r"(?<!\w)'(?:[^']|(?<=\w)'(?=\w))*'(?!\w)|"
@@ -1116,7 +1124,8 @@ def _required_evidence_channels(acceptance: str, *, _bind_attached: bool = True)
         + negative_requirement_governor
         + r"|is|are|will|should|may|can)\b"
     )
-    destination_preposition = r"(?:in|into|to|within|for|as|through|via)\s+"
+    destination_preposition_head = r"(?:in|into|to|within|for|as|through|via)"
+    destination_preposition = destination_preposition_head + r"\s+"
     delivery_destination_item = r"(?:" + review_destination_noun + "|" + recipient_noun + ")"
     delivery_destination_separator_base = r"(?:\s*,\s*(?:(?:and|or)\s+)?|\s+(?:and|or)\s+)"
     delivery_destination_separator = (
@@ -1157,6 +1166,15 @@ def _required_evidence_channels(acceptance: str, *, _bind_attached: bool = True)
         r"(?:" + parenthetical_actor + r"|clients?|consumers?|interface|cli|renderer|"
         r"(?:pr|pull request)(?:\s+body)?)\b"
     )
+    independent_proof_predicate = (
+        r"(?:"
+        + delivery_governor_auxiliary
+        + r"|"
+        + negative_requirement_governor
+        + r"|"
+        + shared_proof_delivery_operation
+        + r")"
+    )
     proof_actor_boundary = (
         r"(?:(?:,?\s+)(?:and|or|but)\s+|;\s*|[.!?]\s+)(?="
         + independent_proof_actor
@@ -1165,7 +1183,7 @@ def _required_evidence_channels(acceptance: str, *, _bind_attached: bool = True)
         r"(?!(?:and|or|but|must|shall|is|are|not|never|may|can|has|have)\b)[\w/-]+)?"
         + r"\s+(?:(?:that|which)\s+)?"
         + delivery_adverbs
-        + independent_review_predicate
+        + independent_proof_predicate
         + r")"
     )
 
@@ -1187,7 +1205,8 @@ def _required_evidence_channels(acceptance: str, *, _bind_attached: bool = True)
         pronoun_delivery = len(following) == 2 and re.search(
             r"\b"
             + shared_proof_delivery_operation
-            + r"\s+(?:it|them|this|these|those|both)\s+(?:in|into|to|within|as)\s+"
+            + r"\s+(?:it|them|this|these|those|both)\s+"
+            + destination_preposition
             + review_destination_noun,
             re.split(r"[;\n.!?]", following[1])[0],
             re.I,
@@ -1206,12 +1225,16 @@ def _required_evidence_channels(acceptance: str, *, _bind_attached: bool = True)
         )
 
     proof_qualifier = (
-        r"(?:\s+of\s+(?:(?!(?:and|or|but|must|shall|is|are|may|can|has|have|in|into|to|within|for|as)\b)"
+        r"(?:\s+of\s+(?:(?!(?:and|or|but|must|shall|is|are|may|can|has|have|"
+        + destination_preposition_head
+        + r")\b)"
         r"[\w/-]+\s+){0,4}[\w/-]+(?=\s+(?:"
         + mandatory_auxiliary
         + r"|"
         + negative_requirement_governor
-        + r"|may|can|should|will|in|into|to|within|for|as)\b))?"
+        + r"|may|can|should|will|"
+        + destination_preposition_head
+        + r")\b))?"
     )
     acceptance = re.sub(
         r"(?P<literal>" + quoted_evidence_literal + r")|"
@@ -1219,7 +1242,9 @@ def _required_evidence_channels(acceptance: str, *, _bind_attached: bool = True)
         + proof_qualifier
         + r"|recording"
         + proof_qualifier
-        + r"(?=\s+(?:of|must|shall|needs?|is|was|should|may|can|has|in|to|and|or)\b))\b",
+        + r"(?=\s+(?:of|must|shall|needs?|is|was|should|may|can|has|and|or|"
+        + destination_preposition_head
+        + r")\b))\b",
         normalize_proof_object,
         acceptance,
         flags=re.I,
@@ -1451,18 +1476,10 @@ def _required_evidence_channels(acceptance: str, *, _bind_attached: bool = True)
     # Use the same product-response operation vocabulary when coalescing object
     # groups and when excluding response fields from review deliverables.
     response_subject = r"(?:responses?|payloads?|return\s+values?|reports?|exports?)"
-    optional_delivery_modal = r"(?:may|can|could|would|should)"
     product_auxiliary = (
         r"(?:" + mandatory_auxiliary + r"|will|" + optional_delivery_modal + r"|do|does|did)\s+"
     )
     product_actor = r"(?:(?:the|an?)\s+)?(?:application|app|service|api|endpoint)"
-    delivery_governor_auxiliary = (
-        r"(?:"
-        + mandatory_auxiliary
-        + r"|will|"
-        + optional_delivery_modal
-        + r"|has|have|had|is|are|was|were|do|does|did)"
-    )
     product_aspect = (
         r"(?:"
         + delivery_governor_auxiliary

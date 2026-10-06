@@ -824,3 +824,32 @@ fetchVerifierEvidence({github,owner:'owner',repo:'repo',pullNumber:1,evidenceTex
     )
     expected = "PASS" if channel in {"overall", "body"} and status == "present" else "CONCERNS"
     assert result.verdict == expected
+
+
+@pytest.mark.parametrize("case", ["via", "finite", "perfect"])
+@pytest.mark.parametrize("body_status", ["present", "absent", "unavailable"])
+@pytest.mark.parametrize("overall_status", ["present", "absent", "unavailable"])
+@pytest.mark.parametrize("comment_status", ["present", "absent", "unavailable"])
+@pytest.mark.parametrize("marker", ["", "- [ ] "])
+@pytest.mark.parametrize("independent", [False, True])
+def test_common_proof_finite_and_shared_preposition_actual_floor(
+    case, body_status, overall_status, comment_status, marker, independent
+):
+    criterion = {
+        "via": "The UI must display screenshots; the reviewer must upload them via the PR body",
+        "finite": "The UI must display test results; the reviewer uploaded them in the PR body",
+        "perfect": "The UI must display screenshots; the reviewer has already uploaded them via the PR body",
+    }[case]
+    if independent:
+        criterion += "; the reviewer must record evidence in a PR comment"
+    context, _ = _context(1, 1000, 1000)
+    evidence = f"- Overall retrieval status: **{overall_status}**\n- PR body: **{body_status}**\n- PR comments: **{comment_status}**\n- Referenced workflow artifacts: **present**\n"
+    context = context.replace("- " + ACCEPTANCE_SENTINEL, marker + criterion).replace(
+        "## PR Diff Summary", "## Acceptance evidence\n\n" + evidence + "\n## PR Diff Summary"
+    )
+    result = pr_verifier._apply_coverage_floor(
+        pr_verifier.EvaluationResult(verdict="PASS", used_llm=True),
+        pr_verifier.prompt_coverage(context, None),
+    )
+    missing = body_status != "present" or (independent and comment_status != "present")
+    assert result.verdict == ("CONCERNS" if missing else "PASS")

@@ -77,7 +77,14 @@ clauses, reusing the existing shared actor-role heads (including developers,
 testers, auditors, automation agents, runners and bots) and recipient-role heads
 rather than maintaining a narrower independent role list. An explicit
 pronoun delivery in the next actor clause retains the introduced proof as an
-antecedent; an unrelated body update does not canonicalize that proof. The
+antecedent; an unrelated body update does not canonicalize that proof. Its actor
+boundary accepts the shared delivery operations and aliases as finite predicates
+and the existing shared delivery-governor grammar for perfect/progressive and
+optional/negative actions, not a narrower auxiliary subset. Its destination uses the same shared
+preposition grammar (in, into, to, within, for, as, through and via) as ordinary
+delivery, including bounded proof qualifiers, rather than a narrower duplicate.
+The ordinary classifier still decides actual obligation, negation and product
+behavior after normalization. The
 antecedent predicate shares the canonical delivery operations and record-alias
 map with ordinary delivery; bounded alias-plus-pronoun review destinations
 normalize before resolution, retaining governing negation and modality. They

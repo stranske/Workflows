@@ -2854,3 +2854,43 @@ def test_optional_delivery_modal_does_not_become_a_mandatory_alias(modal, operat
     assert verifier._required_evidence_channels(
         criterion + "; include evidence in a PR comment"
     ) == {"comments"}
+
+
+@pytest.mark.parametrize("proof", ["screenshots", "test results", "validation logs"])
+@pytest.mark.parametrize(
+    "preposition", ["in", "into", "to", "within", "for", "as", "through", "via"]
+)
+@pytest.mark.parametrize("separator", [", and ", "; ", ". "])
+@pytest.mark.parametrize(
+    "predicate",
+    [
+        "must upload",
+        "must not upload",
+        "may upload",
+        "uploaded",
+        "uploads",
+        "recorded",
+        "puts",
+        "has uploaded",
+        "had uploaded",
+        "was uploading",
+        "has already uploaded",
+        "has not uploaded",
+    ],
+)
+@pytest.mark.parametrize("independent", [False, True])
+def test_common_proof_pronoun_reuses_shared_finite_destination_grammar(
+    proof, preposition, separator, predicate, independent
+):
+    criterion = f"The UI must display {proof}{separator}the reviewer {predicate} them {preposition} the PR body"
+    canonical = criterion.replace(proof, "evidence", 1)
+    expected = (
+        set() if predicate in {"must not upload", "may upload", "has not uploaded"} else {"body"}
+    )
+    if independent:
+        suffix = "; the reviewer must record evidence in a PR comment"
+        criterion += suffix
+        canonical += suffix
+        expected.add("comments")
+    assert verifier._required_evidence_channels(canonical) == expected
+    assert verifier._required_evidence_channels(criterion) == expected
