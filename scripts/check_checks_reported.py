@@ -30,6 +30,7 @@ import yaml
 
 # Import only the trusted local pure resolver, never execute fetched helper code.
 sys.path.insert(0, str(Path(__file__).resolve().parent))
+from api_client import GITHUB_API  # noqa: E402
 from reusable_ci_scope import SelectionOptions, select_python_matrix, select_scenarios  # noqa: E402
 
 # Audited legacy producer/helper from Workflows5656aa96 and PR3773 parent.
@@ -869,7 +870,7 @@ def gate_status_provenance(
         status.get("state") != "success"
         or type(status.get("id")) is not int
         or status["id"] < 1
-        or status.get("url") != f"https://api.github.com/repos/{repo}/statuses/{head}"
+        or status.get("url") != f"{GITHUB_API}/repos/{repo}/statuses/{head}"
         or any(creator.get(key) != value for key, value in bot.items())
     ):
         return {}
@@ -920,7 +921,7 @@ def gate_status_provenance(
                 or job.get("status") != "completed"
                 or job.get("conclusion") != "success"
                 or job.get("check_run_url")
-                != f"https://api.github.com/repos/{repo}/check-runs/{job.get('id')}"
+                != f"{GITHUB_API}/repos/{repo}/check-runs/{job.get('id')}"
             ):
                 continue
             bound_checks = [
