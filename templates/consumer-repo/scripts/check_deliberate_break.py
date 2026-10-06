@@ -1006,8 +1006,12 @@ def verify_spec(
         # spent five autofix attempts on a missing runtime dependency while its own declaration
         # was correct, because `head-test-failed` reads as an acceptance failure. Name the
         # environment case so the next reader fixes the environment, not the PR.
-        missing = _missing_module_from_pytest_output(
-            head_run.stdout, head_run.stderr, executed_test_id=spec.test_id
+        missing = (
+            _missing_module_from_pytest_output(
+                head_run.stdout, head_run.stderr, executed_test_id=spec.test_id
+            )
+            if _is_pytest_command(spec.command)
+            else None
         )
         if missing is not None:
             return _json_result(
@@ -1092,8 +1096,12 @@ def verify_spec(
         )
 
     # A test that never collected cannot establish sensitivity to the base behavior.
-    missing = _missing_module_from_pytest_output(
-        base_run.stdout, base_run.stderr, executed_test_id=spec.test_id
+    missing = (
+        _missing_module_from_pytest_output(
+            base_run.stdout, base_run.stderr, executed_test_id=spec.test_id
+        )
+        if _is_pytest_command(spec.command)
+        else None
     )
     if missing is not None:
         return _json_result(

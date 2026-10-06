@@ -2537,3 +2537,34 @@ def test_executed_head_import_failure_with_collection_text_is_behavioral(
 @pytest.mark.parametrize("command", [("custom", "-m", "pytest"), ("uv", "run", "custom", "pytest")])
 def test_custom_commands_keep_nonzero_contract(base_proof_helper, command):
     assert not base_proof_helper["_is_pytest_command"](command)
+
+
+@pytest.mark.parametrize("stream", ["stdout", "stderr"])
+@pytest.mark.parametrize("exit_code", [1, 5])
+def test_real_custom_command_collection_text_preserves_nonzero_contract(
+    tmp_path, base_proof_helper, stream, exit_code
+):
+    executions = tmp_path / "custom-executions.txt"
+    repo, base, _ = _base_proof_repo(
+        tmp_path,
+        base_proof_helper,
+        "VALUE = 0\n",
+        "VALUE = 1\n",
+        "import app, sys\nfrom pathlib import Path\n"
+        f'with Path({str(executions)!r}).open("a") as output:\n'
+        '    output.write(str(app.VALUE) + "\\n")\n'
+        "if app.VALUE != 1:\n"
+        f'    print("ERROR collecting custom output", file=sys.{stream})\n'
+        f"    print(\"ModuleNotFoundError: No module named 'diagnostic_only'\", file=sys.{stream})\n"
+        f"    sys.exit({exit_code})\n",
+    )
+    spec = base_proof_helper["DeliberateBreakSpec"](
+        "test_candidate.py::test_value",
+        "test_candidate.py",
+        "app.py",
+        (sys.executable, "test_candidate.py"),
+    )
+    result = base_proof_helper["verify_spec"](spec, base=base, cwd=repo, enforce_tamper=False)
+    assert executions.read_text().splitlines() == ["1", "0"]
+    assert result["verdict"] == VERDICT_PASS
+    assert result["reason"] == "head-passed-base-failed"
