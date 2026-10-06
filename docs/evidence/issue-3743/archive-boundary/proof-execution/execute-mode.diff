@@ -1,0 +1,10 @@
+--- scripts/check_deliberate_break.py
++++ scripts/check_deliberate_break.py
+@@ -929 +929 @@
+-            resolved.chmod(member.mode & 0o777)
++            resolved.chmod(0o600)
+--- templates/consumer-repo/scripts/check_deliberate_break.py
++++ templates/consumer-repo/scripts/check_deliberate_break.py
+@@ -929 +929 @@
+-            resolved.chmod(member.mode & 0o777)
++            resolved.chmod(0o600)

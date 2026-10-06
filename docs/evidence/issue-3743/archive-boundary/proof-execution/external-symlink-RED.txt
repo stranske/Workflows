@@ -1,0 +1,44 @@
+Command: /opt/hostedtoolcache/Python/3.14.7/x64/bin/python3 -m pytest tests/scripts/test_check_deliberate_break_archive.py -vv --tb=short -o addopts= -m not slow -k external_symlink --junitxml=/home/runner/work/Workflows/Workflows/docs/evidence/issue-3743/archive-boundary/proof-execution/external-symlink-RED.xml
+Exit: 1
+============================= test session starts ==============================
+platform linux -- Python 3.14.7, pytest-9.1.1, pluggy-1.6.0 -- /opt/hostedtoolcache/Python/3.14.7/x64/bin/python3
+cachedir: .pytest_cache
+hypothesis profile 'ci' -> database=None, deadline=None, print_blob=True, derandomize=True, suppress_health_check=(HealthCheck.too_slow,)
+rootdir: /home/runner/work/Workflows/Workflows
+configfile: pyproject.toml
+plugins: langsmith-0.14.4, hypothesis-6.168.5, platformdirs-4.12.3, cov-7.1.0, xdist-3.8.0, anyio-4.15.1
+collecting ... collected 8 items / 6 deselected / 2 selected
+
+tests/scripts/test_check_deliberate_break_archive.py::test_real_archive_does_not_materialize_external_symlink[root] FAILED [ 50%]
+tests/scripts/test_check_deliberate_break_archive.py::test_real_archive_does_not_materialize_external_symlink[template] FAILED [100%]
+
+=================================== FAILURES ===================================
+________ test_real_archive_does_not_materialize_external_symlink[root] _________
+tests/scripts/test_check_deliberate_break_archive.py:93: in test_real_archive_does_not_materialize_external_symlink
+    archive_helper["_archive_ref"](base, target, repo)
+scripts/check_deliberate_break.py:924: in _archive_ref
+    source = tar.extractfile(member)
+             ^^^^^^^^^^^^^^^^^^^^^^^
+/opt/hostedtoolcache/Python/3.14.7/x64/lib/python3.14/tarfile.py:2639: in extractfile
+    return self.extractfile(self._find_link_target(tarinfo))
+                            ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+/opt/hostedtoolcache/Python/3.14.7/x64/lib/python3.14/tarfile.py:3024: in _find_link_target
+    raise KeyError("linkname %r not found" % linkname)
+E   KeyError: "linkname '/tmp/pytest-of-runner/pytest-4/test_real_archive_does_not_mat0/victim.txt' not found"
+______ test_real_archive_does_not_materialize_external_symlink[template] _______
+tests/scripts/test_check_deliberate_break_archive.py:93: in test_real_archive_does_not_materialize_external_symlink
+    archive_helper["_archive_ref"](base, target, repo)
+templates/consumer-repo/scripts/check_deliberate_break.py:924: in _archive_ref
+    source = tar.extractfile(member)
+             ^^^^^^^^^^^^^^^^^^^^^^^
+/opt/hostedtoolcache/Python/3.14.7/x64/lib/python3.14/tarfile.py:2639: in extractfile
+    return self.extractfile(self._find_link_target(tarinfo))
+                            ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+/opt/hostedtoolcache/Python/3.14.7/x64/lib/python3.14/tarfile.py:3024: in _find_link_target
+    raise KeyError("linkname %r not found" % linkname)
+E   KeyError: "linkname '/tmp/pytest-of-runner/pytest-4/test_real_archive_does_not_mat1/victim.txt' not found"
+- generated xml file: /home/runner/work/Workflows/Workflows/docs/evidence/issue-3743/archive-boundary/proof-execution/external-symlink-RED.xml -
+=========================== short test summary info ============================
+FAILED tests/scripts/test_check_deliberate_break_archive.py::test_real_archive_does_not_materialize_external_symlink[root] - KeyError: "linkname '/tmp/pytest-of-runner/pytest-4/test_real_archive_does_not_mat0/victim.txt' not found"
+FAILED tests/scripts/test_check_deliberate_break_archive.py::test_real_archive_does_not_materialize_external_symlink[template] - KeyError: "linkname '/tmp/pytest-of-runner/pytest-4/test_real_archive_does_not_mat1/victim.txt' not found"
+======================= 2 failed, 6 deselected in 0.84s ========================

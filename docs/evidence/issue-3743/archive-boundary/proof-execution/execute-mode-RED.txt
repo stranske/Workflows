@@ -1,0 +1,44 @@
+Command: /opt/hostedtoolcache/Python/3.14.7/x64/bin/python3 -m pytest tests/scripts/test_check_deliberate_break_archive.py -vv --tb=short -o addopts= -m not slow -k preserves_executable --junitxml=/home/runner/work/Workflows/Workflows/docs/evidence/issue-3743/archive-boundary/proof-execution/execute-mode-RED.xml
+Exit: 1
+============================= test session starts ==============================
+platform linux -- Python 3.14.7, pytest-9.1.1, pluggy-1.6.0 -- /opt/hostedtoolcache/Python/3.14.7/x64/bin/python3
+cachedir: .pytest_cache
+hypothesis profile 'ci' -> database=None, deadline=None, print_blob=True, derandomize=True, suppress_health_check=(HealthCheck.too_slow,)
+rootdir: /home/runner/work/Workflows/Workflows
+configfile: pyproject.toml
+plugins: langsmith-0.14.4, hypothesis-6.168.5, platformdirs-4.12.3, cov-7.1.0, xdist-3.8.0, anyio-4.15.1
+collecting ... collected 8 items / 6 deselected / 2 selected
+
+tests/scripts/test_check_deliberate_break_archive.py::test_real_archive_preserves_executable_proof_mode[root] FAILED [ 50%]
+tests/scripts/test_check_deliberate_break_archive.py::test_real_archive_preserves_executable_proof_mode[template] FAILED [100%]
+
+=================================== FAILURES ===================================
+___________ test_real_archive_preserves_executable_proof_mode[root] ____________
+tests/scripts/test_check_deliberate_break_archive.py:64: in test_real_archive_preserves_executable_proof_mode
+    assert extracted.stat().st_mode & stat.S_IXUSR
+E   AssertionError: assert (33152 & 64)
+E    +  where 33152 = os.stat_result(st_mode=33152, st_ino=9200083, st_dev=66305, st_nlink=1, st_uid=1001, st_gid=1001, st_size=220, st_atime=1791307286, st_mtime=1791307286, st_ctime=1791307286).st_mode
+E    +    where os.stat_result(st_mode=33152, st_ino=9200083, st_dev=66305, st_nlink=1, st_uid=1001, st_gid=1001, st_size=220, st_atime=1791307286, st_mtime=1791307286, st_ctime=1791307286) = stat()
+E    +      where stat = PosixPath('/tmp/pytest-of-runner/pytest-2/test_real_archive_preserves_ex0/archive/bin/proof.sh').stat
+E    +  and   64 = stat.S_IXUSR
+_________ test_real_archive_preserves_executable_proof_mode[template] __________
+tests/scripts/test_check_deliberate_break_archive.py:64: in test_real_archive_preserves_executable_proof_mode
+    assert extracted.stat().st_mode & stat.S_IXUSR
+E   AssertionError: assert (33152 & 64)
+E    +  where 33152 = os.stat_result(st_mode=33152, st_ino=9200141, st_dev=66305, st_nlink=1, st_uid=1001, st_gid=1001, st_size=220, st_atime=1791307286, st_mtime=1791307286, st_ctime=1791307286).st_mode
+E    +    where os.stat_result(st_mode=33152, st_ino=9200141, st_dev=66305, st_nlink=1, st_uid=1001, st_gid=1001, st_size=220, st_atime=1791307286, st_mtime=1791307286, st_ctime=1791307286) = stat()
+E    +      where stat = PosixPath('/tmp/pytest-of-runner/pytest-2/test_real_archive_preserves_ex1/archive/bin/proof.sh').stat
+E    +  and   64 = stat.S_IXUSR
+- generated xml file: /home/runner/work/Workflows/Workflows/docs/evidence/issue-3743/archive-boundary/proof-execution/execute-mode-RED.xml -
+=========================== short test summary info ============================
+FAILED tests/scripts/test_check_deliberate_break_archive.py::test_real_archive_preserves_executable_proof_mode[root] - AssertionError: assert (33152 & 64)
+ +  where 33152 = os.stat_result(st_mode=33152, st_ino=9200083, st_dev=66305, st_nlink=1, st_uid=1001, st_gid=1001, st_size=220, st_atime=1791307286, st_mtime=1791307286, st_ctime=1791307286).st_mode
+ +    where os.stat_result(st_mode=33152, st_ino=9200083, st_dev=66305, st_nlink=1, st_uid=1001, st_gid=1001, st_size=220, st_atime=1791307286, st_mtime=1791307286, st_ctime=1791307286) = stat()
+ +      where stat = PosixPath('/tmp/pytest-of-runner/pytest-2/test_real_archive_preserves_ex0/archive/bin/proof.sh').stat
+ +  and   64 = stat.S_IXUSR
+FAILED tests/scripts/test_check_deliberate_break_archive.py::test_real_archive_preserves_executable_proof_mode[template] - AssertionError: assert (33152 & 64)
+ +  where 33152 = os.stat_result(st_mode=33152, st_ino=9200141, st_dev=66305, st_nlink=1, st_uid=1001, st_gid=1001, st_size=220, st_atime=1791307286, st_mtime=1791307286, st_ctime=1791307286).st_mode
+ +    where os.stat_result(st_mode=33152, st_ino=9200141, st_dev=66305, st_nlink=1, st_uid=1001, st_gid=1001, st_size=220, st_atime=1791307286, st_mtime=1791307286, st_ctime=1791307286) = stat()
+ +      where stat = PosixPath('/tmp/pytest-of-runner/pytest-2/test_real_archive_preserves_ex1/archive/bin/proof.sh').stat
+ +  and   64 = stat.S_IXUSR
+======================= 2 failed, 6 deselected in 0.66s ========================

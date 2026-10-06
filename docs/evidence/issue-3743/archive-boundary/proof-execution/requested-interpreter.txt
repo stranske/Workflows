@@ -1,0 +1,5 @@
+Command: /opt/anaconda3/bin/python3 -m pytest tests/scripts/test_check_deliberate_break.py tests/scripts/test_check_deliberate_break_archive.py -q -o addopts= -m not slow --cov=scripts.check_deliberate_break --cov-branch --cov-report=json:/tmp/archive-proof-anaconda-after.json
+Unavailable: [Errno 2] No such file or directory: '/opt/anaconda3/bin/python3'
+Available interpreter: /opt/hostedtoolcache/Python/3.14.7/x64/bin/python3
+Version: 3.14.7 (main, Aug  6 2026, 02:19:46) [GCC 13.3.0]
+Platform: Linux-6.17.0-1022-azure-x86_64-with-glibc2.39

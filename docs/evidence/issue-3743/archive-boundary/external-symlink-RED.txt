@@ -1,0 +1,106 @@
+FF                                                                       [100%]
+=================================== FAILURES ===================================
+________ test_real_archive_does_not_materialize_external_symlink[root] _________
+
+tmp_path = PosixPath('/private/var/folders/qm/w0dtc0j132gd6ymf1hxtd2p00000gp/T/pytest-of-teacher/pytest-976/test_real_archive_does_not_mat0')
+archive_helper = {'__name__': '<run_path>', '__doc__': 'Opt-in execution check for deliberate-break acceptance criteria.', '__package__': '', '__loader__': None, ...}
+
+    def test_real_archive_does_not_materialize_external_symlink(tmp_path, archive_helper):
+        repo = _committed_repo(tmp_path)
+        victim = tmp_path / "victim.txt"
+        victim.write_text("external-original", encoding="utf-8")
+        (repo / "external-link").symlink_to(victim)
+        (repo / "regular.txt").write_text("regular-base", encoding="utf-8")
+        _commit(repo)
+        target = tmp_path / "archive"
+        target.mkdir()
+
+>       archive_helper["_archive_ref"]("HEAD", target, repo)
+
+tests/scripts/test_check_deliberate_break_archive.py:65:
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _
+scripts/check_deliberate_break.py:924: in _archive_ref
+    source = tar.extractfile(member)
+             ^^^^^^^^^^^^^^^^^^^^^^^
+/opt/anaconda3/lib/python3.12/tarfile.py:2385: in extractfile
+    return self.extractfile(self._find_link_target(tarinfo))
+                            ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _
+
+self = <tarfile.TarFile object at 0x111223f20>
+tarinfo = <TarInfo 'external-link' at 0x1110e7880>
+
+    def _find_link_target(self, tarinfo):
+        """Find the target member of a symlink or hardlink member in the
+           archive.
+        """
+        if tarinfo.issym():
+            # Always search the entire archive.
+            linkname = "/".join(filter(None, (os.path.dirname(tarinfo.name), tarinfo.linkname)))
+            limit = None
+        else:
+            # Search the archive before the link, because a hard link is
+            # just a reference to an already archived file.
+            linkname = tarinfo.linkname
+            limit = tarinfo
+
+        member = self._getmember(linkname, tarinfo=limit, normalize=True)
+        if member is None:
+>           raise KeyError("linkname %r not found" % linkname)
+E           KeyError: "linkname '/private/var/folders/qm/w0dtc0j132gd6ymf1hxtd2p00000gp/T/pytest-of-teacher/pytest-976/test_real_archive_does_not_mat0/victim.txt' not found"
+
+/opt/anaconda3/lib/python3.12/tarfile.py:2725: KeyError
+______ test_real_archive_does_not_materialize_external_symlink[template] _______
+
+tmp_path = PosixPath('/private/var/folders/qm/w0dtc0j132gd6ymf1hxtd2p00000gp/T/pytest-of-teacher/pytest-976/test_real_archive_does_not_mat1')
+archive_helper = {'__name__': '<run_path>', '__doc__': 'Opt-in execution check for deliberate-break acceptance criteria.', '__package__': '', '__loader__': None, ...}
+
+    def test_real_archive_does_not_materialize_external_symlink(tmp_path, archive_helper):
+        repo = _committed_repo(tmp_path)
+        victim = tmp_path / "victim.txt"
+        victim.write_text("external-original", encoding="utf-8")
+        (repo / "external-link").symlink_to(victim)
+        (repo / "regular.txt").write_text("regular-base", encoding="utf-8")
+        _commit(repo)
+        target = tmp_path / "archive"
+        target.mkdir()
+
+>       archive_helper["_archive_ref"]("HEAD", target, repo)
+
+tests/scripts/test_check_deliberate_break_archive.py:65:
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _
+templates/consumer-repo/scripts/check_deliberate_break.py:924: in _archive_ref
+    source = tar.extractfile(member)
+             ^^^^^^^^^^^^^^^^^^^^^^^
+/opt/anaconda3/lib/python3.12/tarfile.py:2385: in extractfile
+    return self.extractfile(self._find_link_target(tarinfo))
+                            ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _
+
+self = <tarfile.TarFile object at 0x1112933b0>
+tarinfo = <TarInfo 'external-link' at 0x111384100>
+
+    def _find_link_target(self, tarinfo):
+        """Find the target member of a symlink or hardlink member in the
+           archive.
+        """
+        if tarinfo.issym():
+            # Always search the entire archive.
+            linkname = "/".join(filter(None, (os.path.dirname(tarinfo.name), tarinfo.linkname)))
+            limit = None
+        else:
+            # Search the archive before the link, because a hard link is
+            # just a reference to an already archived file.
+            linkname = tarinfo.linkname
+            limit = tarinfo
+
+        member = self._getmember(linkname, tarinfo=limit, normalize=True)
+        if member is None:
+>           raise KeyError("linkname %r not found" % linkname)
+E           KeyError: "linkname '/private/var/folders/qm/w0dtc0j132gd6ymf1hxtd2p00000gp/T/pytest-of-teacher/pytest-976/test_real_archive_does_not_mat1/victim.txt' not found"
+
+/opt/anaconda3/lib/python3.12/tarfile.py:2725: KeyError
+=========================== short test summary info ============================
+FAILED tests/scripts/test_check_deliberate_break_archive.py::test_real_archive_does_not_materialize_external_symlink[root]
+FAILED tests/scripts/test_check_deliberate_break_archive.py::test_real_archive_does_not_materialize_external_symlink[template]
+2 failed, 6 deselected in 0.45s

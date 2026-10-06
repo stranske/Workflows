@@ -1,0 +1,268 @@
+FFFF                                                                     [100%]
+=================================== FAILURES ===================================
+_ test_archive_escape_returns_broken_without_overwriting_external_file[root-parent] _
+
+tmp_path = PosixPath('/private/var/folders/qm/w0dtc0j132gd6ymf1hxtd2p00000gp/T/pytest-of-teacher/pytest-978/test_archive_escape_returns_br0')
+monkeypatch = <_pytest.monkeypatch.MonkeyPatch object at 0x113077e90>
+archive_helper = {'__name__': '<run_path>', '__doc__': 'Opt-in execution check for deliberate-break acceptance criteria.', '__package__': '', '__loader__': None, ...}
+path_kind = 'parent'
+
+    @pytest.mark.parametrize("path_kind", ["parent", "absolute"])
+    def test_archive_escape_returns_broken_without_overwriting_external_file(
+        tmp_path, monkeypatch, archive_helper, path_kind
+    ):
+        repo = tmp_path / "repo"
+        repo.mkdir()
+        test_file = repo / "test_proof.py"
+        test_file.write_text("def test_proof():\n    assert True\n", encoding="utf-8")
+        victim = tmp_path / "victim.txt"
+        victim.write_text("external-original", encoding="utf-8")
+        member_name = "../victim.txt" if path_kind == "parent" else str(victim)
+        archive_bytes = io.BytesIO()
+        with tarfile.open(fileobj=archive_bytes, mode="w") as archive:
+            member = tarfile.TarInfo(member_name)
+            payload = b"overwritten-by-archive"
+            member.size = len(payload)
+            archive.addfile(member, io.BytesIO(payload))
+
+        # Substitute only the git-archive transport boundary, using real tar extraction.
+        real_run = subprocess.run
+
+        def run_command(command, **kwargs):
+            if list(command)[:2] == ["git", "archive"]:
+                return subprocess.CompletedProcess(command, 0, archive_bytes.getvalue(), b"")
+            if Path(kwargs["cwd"]) == repo:
+                return subprocess.CompletedProcess(command, 0, "1 passed", "")
+            return subprocess.CompletedProcess(command, 1, "FAILED test_proof.py::test_proof", "")
+
+        monkeypatch.setattr(archive_helper["subprocess"], "run", run_command)
+        temporary_directory = archive_helper["tempfile"].TemporaryDirectory
+        monkeypatch.setattr(
+            archive_helper["tempfile"],
+            "TemporaryDirectory",
+            lambda **kwargs: temporary_directory(dir=tmp_path, **kwargs),
+        )
+        spec = archive_helper["DeliberateBreakSpec"](
+            "test_proof.py::test_proof", "test_proof.py", "app.py", ("proof-command",)
+        )
+
+        result = archive_helper["verify_spec"](spec, base="frozen-base", cwd=repo, enforce_tamper=False)
+
+>       assert result == {
+            "verdict": "FAIL_BROKEN",
+            "reason": "archive-extract-failed",
+            "detail": f"unsafe archive path: {member_name}",
+        }
+E       AssertionError: assert {'verdict': '...roof.py', ...} == {'verdict': '..../victim.txt'}
+E
+E         Differing items:
+E         {'reason': 'head-passed-base-failed'} != {'reason': 'archive-extract-failed'}
+E         {'verdict': 'PASS'} != {'verdict': 'FAIL_BROKEN'}
+E         Left contains 6 more items:
+E         {'base_stderr': '',
+E          'base_stdout': 'FAILED test_proof.py::test_proof',...
+E
+E         ...Full output truncated (7 lines hidden), use '-vv' to show
+
+tests/scripts/test_check_deliberate_break_archive.py:114: AssertionError
+_ test_archive_escape_returns_broken_without_overwriting_external_file[root-absolute] _
+
+tmp_path = PosixPath('/private/var/folders/qm/w0dtc0j132gd6ymf1hxtd2p00000gp/T/pytest-of-teacher/pytest-978/test_archive_escape_returns_br1')
+monkeypatch = <_pytest.monkeypatch.MonkeyPatch object at 0x1130e6690>
+archive_helper = {'__name__': '<run_path>', '__doc__': 'Opt-in execution check for deliberate-break acceptance criteria.', '__package__': '', '__loader__': None, ...}
+path_kind = 'absolute'
+
+    @pytest.mark.parametrize("path_kind", ["parent", "absolute"])
+    def test_archive_escape_returns_broken_without_overwriting_external_file(
+        tmp_path, monkeypatch, archive_helper, path_kind
+    ):
+        repo = tmp_path / "repo"
+        repo.mkdir()
+        test_file = repo / "test_proof.py"
+        test_file.write_text("def test_proof():\n    assert True\n", encoding="utf-8")
+        victim = tmp_path / "victim.txt"
+        victim.write_text("external-original", encoding="utf-8")
+        member_name = "../victim.txt" if path_kind == "parent" else str(victim)
+        archive_bytes = io.BytesIO()
+        with tarfile.open(fileobj=archive_bytes, mode="w") as archive:
+            member = tarfile.TarInfo(member_name)
+            payload = b"overwritten-by-archive"
+            member.size = len(payload)
+            archive.addfile(member, io.BytesIO(payload))
+
+        # Substitute only the git-archive transport boundary, using real tar extraction.
+        real_run = subprocess.run
+
+        def run_command(command, **kwargs):
+            if list(command)[:2] == ["git", "archive"]:
+                return subprocess.CompletedProcess(command, 0, archive_bytes.getvalue(), b"")
+            if Path(kwargs["cwd"]) == repo:
+                return subprocess.CompletedProcess(command, 0, "1 passed", "")
+            return subprocess.CompletedProcess(command, 1, "FAILED test_proof.py::test_proof", "")
+
+        monkeypatch.setattr(archive_helper["subprocess"], "run", run_command)
+        temporary_directory = archive_helper["tempfile"].TemporaryDirectory
+        monkeypatch.setattr(
+            archive_helper["tempfile"],
+            "TemporaryDirectory",
+            lambda **kwargs: temporary_directory(dir=tmp_path, **kwargs),
+        )
+        spec = archive_helper["DeliberateBreakSpec"](
+            "test_proof.py::test_proof", "test_proof.py", "app.py", ("proof-command",)
+        )
+
+        result = archive_helper["verify_spec"](spec, base="frozen-base", cwd=repo, enforce_tamper=False)
+
+>       assert result == {
+            "verdict": "FAIL_BROKEN",
+            "reason": "archive-extract-failed",
+            "detail": f"unsafe archive path: {member_name}",
+        }
+E       AssertionError: assert {'verdict': '...roof.py', ...} == {'verdict': '...1/victim.txt'}
+E
+E         Differing items:
+E         {'reason': 'head-passed-base-failed'} != {'reason': 'archive-extract-failed'}
+E         {'verdict': 'PASS'} != {'verdict': 'FAIL_BROKEN'}
+E         Left contains 6 more items:
+E         {'base_stderr': '',
+E          'base_stdout': 'FAILED test_proof.py::test_proof',...
+E
+E         ...Full output truncated (8 lines hidden), use '-vv' to show
+
+tests/scripts/test_check_deliberate_break_archive.py:114: AssertionError
+_ test_archive_escape_returns_broken_without_overwriting_external_file[template-parent] _
+
+tmp_path = PosixPath('/private/var/folders/qm/w0dtc0j132gd6ymf1hxtd2p00000gp/T/pytest-of-teacher/pytest-978/test_archive_escape_returns_br2')
+monkeypatch = <_pytest.monkeypatch.MonkeyPatch object at 0x1130e7530>
+archive_helper = {'__name__': '<run_path>', '__doc__': 'Opt-in execution check for deliberate-break acceptance criteria.', '__package__': '', '__loader__': None, ...}
+path_kind = 'parent'
+
+    @pytest.mark.parametrize("path_kind", ["parent", "absolute"])
+    def test_archive_escape_returns_broken_without_overwriting_external_file(
+        tmp_path, monkeypatch, archive_helper, path_kind
+    ):
+        repo = tmp_path / "repo"
+        repo.mkdir()
+        test_file = repo / "test_proof.py"
+        test_file.write_text("def test_proof():\n    assert True\n", encoding="utf-8")
+        victim = tmp_path / "victim.txt"
+        victim.write_text("external-original", encoding="utf-8")
+        member_name = "../victim.txt" if path_kind == "parent" else str(victim)
+        archive_bytes = io.BytesIO()
+        with tarfile.open(fileobj=archive_bytes, mode="w") as archive:
+            member = tarfile.TarInfo(member_name)
+            payload = b"overwritten-by-archive"
+            member.size = len(payload)
+            archive.addfile(member, io.BytesIO(payload))
+
+        # Substitute only the git-archive transport boundary, using real tar extraction.
+        real_run = subprocess.run
+
+        def run_command(command, **kwargs):
+            if list(command)[:2] == ["git", "archive"]:
+                return subprocess.CompletedProcess(command, 0, archive_bytes.getvalue(), b"")
+            if Path(kwargs["cwd"]) == repo:
+                return subprocess.CompletedProcess(command, 0, "1 passed", "")
+            return subprocess.CompletedProcess(command, 1, "FAILED test_proof.py::test_proof", "")
+
+        monkeypatch.setattr(archive_helper["subprocess"], "run", run_command)
+        temporary_directory = archive_helper["tempfile"].TemporaryDirectory
+        monkeypatch.setattr(
+            archive_helper["tempfile"],
+            "TemporaryDirectory",
+            lambda **kwargs: temporary_directory(dir=tmp_path, **kwargs),
+        )
+        spec = archive_helper["DeliberateBreakSpec"](
+            "test_proof.py::test_proof", "test_proof.py", "app.py", ("proof-command",)
+        )
+
+        result = archive_helper["verify_spec"](spec, base="frozen-base", cwd=repo, enforce_tamper=False)
+
+>       assert result == {
+            "verdict": "FAIL_BROKEN",
+            "reason": "archive-extract-failed",
+            "detail": f"unsafe archive path: {member_name}",
+        }
+E       AssertionError: assert {'verdict': '...roof.py', ...} == {'verdict': '..../victim.txt'}
+E
+E         Differing items:
+E         {'reason': 'head-passed-base-failed'} != {'reason': 'archive-extract-failed'}
+E         {'verdict': 'PASS'} != {'verdict': 'FAIL_BROKEN'}
+E         Left contains 6 more items:
+E         {'base_stderr': '',
+E          'base_stdout': 'FAILED test_proof.py::test_proof',...
+E
+E         ...Full output truncated (7 lines hidden), use '-vv' to show
+
+tests/scripts/test_check_deliberate_break_archive.py:114: AssertionError
+_ test_archive_escape_returns_broken_without_overwriting_external_file[template-absolute] _
+
+tmp_path = PosixPath('/private/var/folders/qm/w0dtc0j132gd6ymf1hxtd2p00000gp/T/pytest-of-teacher/pytest-978/test_archive_escape_returns_br3')
+monkeypatch = <_pytest.monkeypatch.MonkeyPatch object at 0x1130fc710>
+archive_helper = {'__name__': '<run_path>', '__doc__': 'Opt-in execution check for deliberate-break acceptance criteria.', '__package__': '', '__loader__': None, ...}
+path_kind = 'absolute'
+
+    @pytest.mark.parametrize("path_kind", ["parent", "absolute"])
+    def test_archive_escape_returns_broken_without_overwriting_external_file(
+        tmp_path, monkeypatch, archive_helper, path_kind
+    ):
+        repo = tmp_path / "repo"
+        repo.mkdir()
+        test_file = repo / "test_proof.py"
+        test_file.write_text("def test_proof():\n    assert True\n", encoding="utf-8")
+        victim = tmp_path / "victim.txt"
+        victim.write_text("external-original", encoding="utf-8")
+        member_name = "../victim.txt" if path_kind == "parent" else str(victim)
+        archive_bytes = io.BytesIO()
+        with tarfile.open(fileobj=archive_bytes, mode="w") as archive:
+            member = tarfile.TarInfo(member_name)
+            payload = b"overwritten-by-archive"
+            member.size = len(payload)
+            archive.addfile(member, io.BytesIO(payload))
+
+        # Substitute only the git-archive transport boundary, using real tar extraction.
+        real_run = subprocess.run
+
+        def run_command(command, **kwargs):
+            if list(command)[:2] == ["git", "archive"]:
+                return subprocess.CompletedProcess(command, 0, archive_bytes.getvalue(), b"")
+            if Path(kwargs["cwd"]) == repo:
+                return subprocess.CompletedProcess(command, 0, "1 passed", "")
+            return subprocess.CompletedProcess(command, 1, "FAILED test_proof.py::test_proof", "")
+
+        monkeypatch.setattr(archive_helper["subprocess"], "run", run_command)
+        temporary_directory = archive_helper["tempfile"].TemporaryDirectory
+        monkeypatch.setattr(
+            archive_helper["tempfile"],
+            "TemporaryDirectory",
+            lambda **kwargs: temporary_directory(dir=tmp_path, **kwargs),
+        )
+        spec = archive_helper["DeliberateBreakSpec"](
+            "test_proof.py::test_proof", "test_proof.py", "app.py", ("proof-command",)
+        )
+
+        result = archive_helper["verify_spec"](spec, base="frozen-base", cwd=repo, enforce_tamper=False)
+
+>       assert result == {
+            "verdict": "FAIL_BROKEN",
+            "reason": "archive-extract-failed",
+            "detail": f"unsafe archive path: {member_name}",
+        }
+E       AssertionError: assert {'verdict': '...roof.py', ...} == {'verdict': '...3/victim.txt'}
+E
+E         Differing items:
+E         {'reason': 'head-passed-base-failed'} != {'reason': 'archive-extract-failed'}
+E         {'verdict': 'PASS'} != {'verdict': 'FAIL_BROKEN'}
+E         Left contains 6 more items:
+E         {'base_stderr': '',
+E          'base_stdout': 'FAILED test_proof.py::test_proof',...
+E
+E         ...Full output truncated (8 lines hidden), use '-vv' to show
+
+tests/scripts/test_check_deliberate_break_archive.py:114: AssertionError
+=========================== short test summary info ============================
+FAILED tests/scripts/test_check_deliberate_break_archive.py::test_archive_escape_returns_broken_without_overwriting_external_file[root-parent]
+FAILED tests/scripts/test_check_deliberate_break_archive.py::test_archive_escape_returns_broken_without_overwriting_external_file[root-absolute]
+FAILED tests/scripts/test_check_deliberate_break_archive.py::test_archive_escape_returns_broken_without_overwriting_external_file[template-parent]
+FAILED tests/scripts/test_check_deliberate_break_archive.py::test_archive_escape_returns_broken_without_overwriting_external_file[template-absolute]
+4 failed, 4 deselected in 0.24s

@@ -1,0 +1,16 @@
+Command: python3 -m pytest tests/scripts/test_check_deliberate_break.py tests/scripts/test_check_deliberate_break_archive.py -q -o addopts= -m "not slow" --cov=scripts.check_deliberate_break --cov-branch --cov-report=json:/tmp/proof-focused-before.json --cov-report=term-missing
+Exit: 0
+........................................................................ [ 28%]
+........................................................................ [ 57%]
+........................................................................ [ 85%]
+....................................                                     [100%]
+================================ tests coverage ================================
+_______________ coverage: platform linux, python 3.14.7-final-0 ________________
+
+Name                                Stmts   Miss Branch BrPart   Cover   Missing
+--------------------------------------------------------------------------------
+scripts/check_deliberate_break.py     589     45    262     23  91.77%   160->162, 200, 235, 300->exit, 337-338, 340, 343-344, 355, 358, 386, 476, 478, 491->501, 528, 551, 603, 615, 617-618, 680, 685, 711->718, 723-727, 738-739, 760-761, 762->768, 765-766, 781-782, 785-786, 792-793, 926, 944, 987, 995-996, 1049, 1062, 1181
+--------------------------------------------------------------------------------
+TOTAL                                 589     45    262     23  91.77%
+Coverage JSON written to file /tmp/proof-focused-before.json
+252 passed in 173.98s (0:02:53)

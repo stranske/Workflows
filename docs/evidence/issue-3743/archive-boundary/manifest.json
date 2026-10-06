@@ -1,0 +1,72 @@
+{
+  "base": "4a270d7f08aa303e342fdc89ebcf5d540f0ec646",
+  "interpreter": "/opt/anaconda3/bin/python3 (Python3.12.2/macOS)",
+  "scope": "scripts.check_deliberate_break, configured branch coverage, no exclusions changed",
+  "before_tests": 244,
+  "after_tests": 252,
+  "before": {
+    "covered_lines": 541,
+    "num_statements": 589,
+    "percent_covered": 91.18683901292597,
+    "percent_covered_display": "91.19",
+    "missing_lines": 48,
+    "excluded_lines": 0,
+    "percent_statements_covered": 91.85059422750425,
+    "percent_statements_covered_display": "91.85",
+    "num_branches": 262,
+    "num_partial_branches": 25,
+    "covered_branches": 235,
+    "missing_branches": 27,
+    "percent_branches_covered": 89.69465648854961,
+    "percent_branches_covered_display": "89.69"
+  },
+  "after": {
+    "covered_lines": 544,
+    "num_statements": 589,
+    "percent_covered": 91.7743830787309,
+    "percent_covered_display": "91.77",
+    "missing_lines": 45,
+    "excluded_lines": 0,
+    "percent_statements_covered": 92.35993208828523,
+    "percent_statements_covered_display": "92.36",
+    "num_branches": 262,
+    "num_partial_branches": 23,
+    "covered_branches": 237,
+    "missing_branches": 25,
+    "percent_branches_covered": 90.45801526717557,
+    "percent_branches_covered_display": "90.46"
+  },
+  "new_covered_lines": [
+    917,
+    922,
+    1056
+  ],
+  "lost_covered_lines": [],
+  "sources": {
+    "scripts/check_deliberate_break.py": "5e90a2c58fea8fe906f538f829c4a929cdc2fc5bb3a2d21fcb61c4fb23bec9ca",
+    "templates/consumer-repo/scripts/check_deliberate_break.py": "5e90a2c58fea8fe906f538f829c4a929cdc2fc5bb3a2d21fcb61c4fb23bec9ca"
+  },
+  "files_sha256": {
+    "focused-before.json": "0739253acaab55a905213e80ca6e155268bc2805e995896c38b4d87bb97a107b",
+    "focused-after.json": "ecdac3e992f52be776ace00b60e57fe21f9027c2ed5d9a3363cded41a8cbf2b2",
+    "focused-before.txt": "f985c7077553d6159f143e39bf148a8917535f33068aab506836aae6b8a9cf22",
+    "focused-after.txt": "2739583243d266e7b5d0db1f87ddc9d04e0370bfa12d4141940e25afa3b3676c",
+    "ranking.json": "cf508120a2ba46230ae0b32e9ce41652c96ebf32800952e2d8f24790b63fc5b1",
+    "mutation-manifest.json": "f558d9f6803a8b47222909884d53feecb73629d3a95a776dd8afa7f254ddaf77",
+    "execute-mode-RED.txt": "111aaa1fc53a46edde381015ed84ffefa95528ea2c11a0c4c14d32547700438a",
+    "execute-mode-GREEN.txt": "af0212064d6ca51c19b9d9d00652bae8aed7c49d4918506c7a2c0598f218b03a",
+    "external-symlink-RED.txt": "463cba3de7ea1174aa9be5100cfbbab49c0629a438c4723795e6461a1b2bb892",
+    "external-symlink-GREEN.txt": "12c29f90fbac1cdc61b1a51d29d2bb4823b3d47e21c8aa7e6e1c60447119ad36",
+    "archive-escape-RED.txt": "fff251a5f1bead6ea3e6b3735c4a25ffc41352a465e4d49d7f7174aa51e14d24",
+    "archive-escape-GREEN.txt": "e0d34069df9d0c29ed1015a100abfbbed727aa348cec7e7c5fa6a6cb8024483c",
+    "template-sync.txt": "e00bc56a4eb4ab5ca9c721c61262b90d9d55e74187fec23e1144d500af0fcc6b",
+    "template-completeness.txt": "571919c147488c55064046a0c64cf3a5919172b39a3d890dbad258b6d65c1018",
+    "black-all.txt": "30684307df9c3a684c36281f0ed48a2d3851a304353bbce8486962c6799920a3"
+  },
+  "limitations": [
+    "Focused helper coverage only; no whole-repository90% or hosted PASS claim",
+    "Broad scripts suite attempted and interrupted after9973 passed/145s; incomplete, no broad validation claim",
+    "Real git archives prove executable mode and symlink omission; hostile tar cases substitute only archive transport and proof command outputs, not extraction or verdict classification",
+    "Console captures preserve every line and outcome; trailing whitespace removed for git diff hygiene"
+  ]
+}

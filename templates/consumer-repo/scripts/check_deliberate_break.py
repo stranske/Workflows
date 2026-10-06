@@ -1119,7 +1119,15 @@ def verify_spec(
         )
     # Pytest reserves 1 for failed tests; 2/3/4/5 denote interrupted execution,
     # internal/usage errors, or no collection. Custom commands keep their contract.
-    if _is_pytest_command(spec.command) and base_run.returncode != 1:
+    # With --continue-on-collection-errors, exit 1 also covers collection errors.
+    # Collection diagnostics require evidence that the selected test actually ran;
+    # collection-like text printed inside a failing test remains behavioral RED.
+    base_output = "\n".join(stream for stream in (base_run.stdout, base_run.stderr) if stream)
+    unexecuted_collection = _COLLECTION_ERROR_RE.search(base_output) and not any(
+        (match.group(1) or match.group(2)) == spec.test_id
+        for match in _TEST_RESULT_RE.finditer(base_output)
+    )
+    if _is_pytest_command(spec.command) and (base_run.returncode != 1 or unexecuted_collection):
         return _json_result(
             VERDICT_BROKEN,
             reason="base-test-did-not-run",

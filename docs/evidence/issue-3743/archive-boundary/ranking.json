@@ -1,0 +1,652 @@
+{
+  "method": "400 most recent commits touching scripts; whole-word fix/bug/repair/regression/correct subject proxy, then churn, then uncovered statements; proxy is not an escaped-incident count",
+  "ordered_history": [
+    {
+      "file": "scripts/check_deliberate_break.py",
+      "repair_subject_proxy": 72,
+      "churn": 2155
+    },
+    {
+      "file": "scripts/runner_lib/core.py",
+      "repair_subject_proxy": 29,
+      "churn": 2049
+    },
+    {
+      "file": "scripts/langchain/pr_verifier.py",
+      "repair_subject_proxy": 28,
+      "churn": 4505
+    },
+    {
+      "file": "scripts/langchain/issue_formatter.py",
+      "repair_subject_proxy": 16,
+      "churn": 483
+    },
+    {
+      "file": "scripts/sync_test_dependencies.py",
+      "repair_subject_proxy": 16,
+      "churn": 274
+    },
+    {
+      "file": "scripts/docs_drift_fix_agent.py",
+      "repair_subject_proxy": 12,
+      "churn": 1339
+    },
+    {
+      "file": "scripts/langchain/followup_issue_generator.py",
+      "repair_subject_proxy": 11,
+      "churn": 258
+    },
+    {
+      "file": "scripts/validate_run_contract.py",
+      "repair_subject_proxy": 8,
+      "churn": 1024
+    },
+    {
+      "file": "scripts/check_docs_drift.py",
+      "repair_subject_proxy": 8,
+      "churn": 468
+    },
+    {
+      "file": "scripts/sync_dev_dependencies.py",
+      "repair_subject_proxy": 8,
+      "churn": 212
+    },
+    {
+      "file": "scripts/check_consumer_sync_drift.py",
+      "repair_subject_proxy": 7,
+      "churn": 485
+    },
+    {
+      "file": "scripts/langchain/task_validator.py",
+      "repair_subject_proxy": 7,
+      "churn": 202
+    },
+    {
+      "file": "scripts/repo_review_coordinator.py",
+      "repair_subject_proxy": 6,
+      "churn": 1238
+    },
+    {
+      "file": "scripts/check_durable_tracker_liveness.py",
+      "repair_subject_proxy": 6,
+      "churn": 791
+    },
+    {
+      "file": "scripts/aggregate_agent_metrics.py",
+      "repair_subject_proxy": 6,
+      "churn": 532
+    },
+    {
+      "file": "scripts/langchain/label_matcher.py",
+      "repair_subject_proxy": 5,
+      "churn": 159
+    },
+    {
+      "file": "scripts/api_client.py",
+      "repair_subject_proxy": 5,
+      "churn": 114
+    },
+    {
+      "file": "scripts/langsmith_fleet.py",
+      "repair_subject_proxy": 4,
+      "churn": 790
+    },
+    {
+      "file": "scripts/repo_review_round1_runner.py",
+      "repair_subject_proxy": 4,
+      "churn": 490
+    },
+    {
+      "file": "scripts/repo_review_body_writer.py",
+      "repair_subject_proxy": 4,
+      "churn": 489
+    },
+    {
+      "file": "scripts/check_template_drift.py",
+      "repair_subject_proxy": 4,
+      "churn": 486
+    },
+    {
+      "file": "scripts/sync_status_file_ignores.py",
+      "repair_subject_proxy": 4,
+      "churn": 448
+    },
+    {
+      "file": "scripts/scope_consumer_sync_plan.py",
+      "repair_subject_proxy": 4,
+      "churn": 324
+    },
+    {
+      "file": "scripts/langchain/verdict_policy.py",
+      "repair_subject_proxy": 4,
+      "churn": 29
+    },
+    {
+      "file": "scripts/workflow_startup_failure_diagnostic.py",
+      "repair_subject_proxy": 3,
+      "churn": 869
+    },
+    {
+      "file": "scripts/sync_manifest_compiler.py",
+      "repair_subject_proxy": 3,
+      "churn": 716
+    },
+    {
+      "file": "scripts/langsmith_observability_health.py",
+      "repair_subject_proxy": 3,
+      "churn": 461
+    },
+    {
+      "file": "scripts/repo_review_round2_runner.py",
+      "repair_subject_proxy": 3,
+      "churn": 390
+    },
+    {
+      "file": "scripts/langchain/trace_utils.py",
+      "repair_subject_proxy": 3,
+      "churn": 264
+    },
+    {
+      "file": "scripts/metrics_dashboard_generator.py",
+      "repair_subject_proxy": 3,
+      "churn": 212
+    },
+    {
+      "file": "scripts/check_checks_reported.py",
+      "repair_subject_proxy": 2,
+      "churn": 1333
+    },
+    {
+      "file": "scripts/bootstrap_consumer_settings.py",
+      "repair_subject_proxy": 2,
+      "churn": 792
+    },
+    {
+      "file": "scripts/belt_ledger_completion.py",
+      "repair_subject_proxy": 2,
+      "churn": 356
+    },
+    {
+      "file": "scripts/langchain/issue_optimizer.py",
+      "repair_subject_proxy": 2,
+      "churn": 302
+    },
+    {
+      "file": "scripts/select_consumer_sync_phase.py",
+      "repair_subject_proxy": 2,
+      "churn": 254
+    },
+    {
+      "file": "scripts/langchain/task_decomposer.py",
+      "repair_subject_proxy": 2,
+      "churn": 186
+    },
+    {
+      "file": "scripts/langchain/issue_pr_context.py",
+      "repair_subject_proxy": 2,
+      "churn": 82
+    },
+    {
+      "file": "scripts/audit_belt_ledger_completion.py",
+      "repair_subject_proxy": 2,
+      "churn": 79
+    },
+    {
+      "file": "scripts/cleanup_labels.py",
+      "repair_subject_proxy": 2,
+      "churn": 73
+    },
+    {
+      "file": "scripts/metrics_alerting.py",
+      "repair_subject_proxy": 2,
+      "churn": 66
+    },
+    {
+      "file": "scripts/repo_review_heartbeat.py",
+      "repair_subject_proxy": 2,
+      "churn": 54
+    },
+    {
+      "file": "scripts/langchain/progress_reviewer.py",
+      "repair_subject_proxy": 2,
+      "churn": 29
+    },
+    {
+      "file": "scripts/langchain/semantic_matcher.py",
+      "repair_subject_proxy": 2,
+      "churn": 21
+    },
+    {
+      "file": "scripts/langchain/verifier_config.py",
+      "repair_subject_proxy": 2,
+      "churn": 20
+    },
+    {
+      "file": "scripts/runner_lib/__init__.py",
+      "repair_subject_proxy": 2,
+      "churn": 8
+    },
+    {
+      "file": "scripts/model_profile_trial_contract.py",
+      "repair_subject_proxy": 1,
+      "churn": 671
+    },
+    {
+      "file": "scripts/repo_review_evaluator.py",
+      "repair_subject_proxy": 1,
+      "churn": 537
+    },
+    {
+      "file": "scripts/dependency_sync_efficiency_metrics.py",
+      "repair_subject_proxy": 1,
+      "churn": 503
+    },
+    {
+      "file": "scripts/orchestrator_skill.py",
+      "repair_subject_proxy": 1,
+      "churn": 403
+    },
+    {
+      "file": "scripts/langsmith_fleet_conformance.py",
+      "repair_subject_proxy": 1,
+      "churn": 269
+    },
+    {
+      "file": "scripts/generate_consumer_renovate_ownership.py",
+      "repair_subject_proxy": 1,
+      "churn": 230
+    },
+    {
+      "file": "scripts/check_agents_md_freshness.py",
+      "repair_subject_proxy": 1,
+      "churn": 202
+    },
+    {
+      "file": "scripts/ledger_validate.py",
+      "repair_subject_proxy": 1,
+      "churn": 166
+    },
+    {
+      "file": "scripts/generate_llm_workflow_update_comment.py",
+      "repair_subject_proxy": 1,
+      "churn": 117
+    },
+    {
+      "file": "scripts/validate_template_sync.py",
+      "repair_subject_proxy": 1,
+      "churn": 92
+    },
+    {
+      "file": "scripts/guard_stable_plan_rotation.py",
+      "repair_subject_proxy": 1,
+      "churn": 81
+    },
+    {
+      "file": "scripts/run_consumer_repo_tests.py",
+      "repair_subject_proxy": 1,
+      "churn": 49
+    },
+    {
+      "file": "scripts/capture_bootstrap_label_tests.py",
+      "repair_subject_proxy": 1,
+      "churn": 44
+    },
+    {
+      "file": "scripts/repo_review_docs_drift_scan.py",
+      "repair_subject_proxy": 1,
+      "churn": 35
+    },
+    {
+      "file": "scripts/issue_pattern_corpus.py",
+      "repair_subject_proxy": 1,
+      "churn": 32
+    },
+    {
+      "file": "scripts/langchain/structured_output.py",
+      "repair_subject_proxy": 1,
+      "churn": 30
+    },
+    {
+      "file": "scripts/keepalive_metrics_dashboard.py",
+      "repair_subject_proxy": 1,
+      "churn": 30
+    },
+    {
+      "file": "scripts/langchain/capability_check.py",
+      "repair_subject_proxy": 1,
+      "churn": 21
+    },
+    {
+      "file": "scripts/langchain/checklist_utils.py",
+      "repair_subject_proxy": 1,
+      "churn": 20
+    },
+    {
+      "file": "scripts/validate_template_completeness.py",
+      "repair_subject_proxy": 1,
+      "churn": 16
+    },
+    {
+      "file": "scripts/state_fingerprint.py",
+      "repair_subject_proxy": 1,
+      "churn": 15
+    },
+    {
+      "file": "scripts/check_issue_consistency.py",
+      "repair_subject_proxy": 1,
+      "churn": 12
+    },
+    {
+      "file": "scripts/langchain/issue_dedup.py",
+      "repair_subject_proxy": 1,
+      "churn": 11
+    },
+    {
+      "file": "scripts/aggregate_repo_metrics.py",
+      "repair_subject_proxy": 1,
+      "churn": 9
+    },
+    {
+      "file": "scripts/workflow_validator.py",
+      "repair_subject_proxy": 1,
+      "churn": 6
+    },
+    {
+      "file": "scripts/sync_label_docs.py",
+      "repair_subject_proxy": 1,
+      "churn": 4
+    },
+    {
+      "file": "scripts/reference_packs.py",
+      "repair_subject_proxy": 1,
+      "churn": 3
+    },
+    {
+      "file": "scripts/check_api_wrapper_guard.py",
+      "repair_subject_proxy": 1,
+      "churn": 2
+    },
+    {
+      "file": "scripts/autopilot_step_timer.py",
+      "repair_subject_proxy": 1,
+      "churn": 2
+    },
+    {
+      "file": "scripts/cli_handler.py",
+      "repair_subject_proxy": 1,
+      "churn": 2
+    },
+    {
+      "file": "scripts/repo_review_scorecard.py",
+      "repair_subject_proxy": 0,
+      "churn": 678
+    },
+    {
+      "file": "scripts/validate_backplane_registry.py",
+      "repair_subject_proxy": 0,
+      "churn": 459
+    },
+    {
+      "file": "scripts/export_keepalive_durability.py",
+      "repair_subject_proxy": 0,
+      "churn": 387
+    },
+    {
+      "file": "scripts/generate_metrics_badges.py",
+      "repair_subject_proxy": 0,
+      "churn": 333
+    },
+    {
+      "file": "scripts/ensure_langsmith_fleet_artifact.py",
+      "repair_subject_proxy": 0,
+      "churn": 313
+    },
+    {
+      "file": "scripts/keepalive_post_merge_metrics.py",
+      "repair_subject_proxy": 0,
+      "churn": 236
+    },
+    {
+      "file": "scripts/keepalive_metrics_collector.py",
+      "repair_subject_proxy": 0,
+      "churn": 230
+    },
+    {
+      "file": "scripts/pr_metrics_tracker.py",
+      "repair_subject_proxy": 0,
+      "churn": 166
+    },
+    {
+      "file": "scripts/check_gate_diff_quality.py",
+      "repair_subject_proxy": 0,
+      "churn": 154
+    },
+    {
+      "file": "scripts/repo_review_notify.py",
+      "repair_subject_proxy": 0,
+      "churn": 126
+    },
+    {
+      "file": "scripts/orchestrator_runtime/completion_event_adapter.py",
+      "repair_subject_proxy": 0,
+      "churn": 123
+    },
+    {
+      "file": "scripts/orchestrator_runtime/evidence_schema.py",
+      "repair_subject_proxy": 0,
+      "churn": 117
+    },
+    {
+      "file": "scripts/gate_detect_output_diff.py",
+      "repair_subject_proxy": 0,
+      "churn": 113
+    },
+    {
+      "file": "scripts/prune_agent_stubs.py",
+      "repair_subject_proxy": 0,
+      "churn": 110
+    },
+    {
+      "file": "scripts/update_readme_badges.py",
+      "repair_subject_proxy": 0,
+      "churn": 110
+    },
+    {
+      "file": "scripts/orchestrator_runtime/capability_lifecycle.py",
+      "repair_subject_proxy": 0,
+      "churn": 108
+    },
+    {
+      "file": "scripts/orchestrator_runtime/consumer_sync_report.py",
+      "repair_subject_proxy": 0,
+      "churn": 105
+    },
+    {
+      "file": "scripts/upload_repo_review_issues.py",
+      "repair_subject_proxy": 0,
+      "churn": 103
+    },
+    {
+      "file": "scripts/build_consumer_sync_shadow_handoff.py",
+      "repair_subject_proxy": 0,
+      "churn": 101
+    },
+    {
+      "file": "scripts/ci_failure_analyzer.py",
+      "repair_subject_proxy": 0,
+      "churn": 98
+    },
+    {
+      "file": "scripts/langchain/_llm_client.py",
+      "repair_subject_proxy": 0,
+      "churn": 96
+    },
+    {
+      "file": "scripts/reusable_ci_scope.py",
+      "repair_subject_proxy": 0,
+      "churn": 83
+    },
+    {
+      "file": "scripts/workflow_pr_context_audit.py",
+      "repair_subject_proxy": 0,
+      "churn": 73
+    },
+    {
+      "file": "scripts/orchestrator_runtime/runner_effect_bridge.py",
+      "repair_subject_proxy": 0,
+      "churn": 70
+    },
+    {
+      "file": "scripts/repo_review_queue_builder.py",
+      "repair_subject_proxy": 0,
+      "churn": 70
+    },
+    {
+      "file": "scripts/orchestrator_runtime/capabilities.py",
+      "repair_subject_proxy": 0,
+      "churn": 53
+    },
+    {
+      "file": "scripts/duplicate_detection.py",
+      "repair_subject_proxy": 0,
+      "churn": 48
+    },
+    {
+      "file": "scripts/metrics_format_utils.py",
+      "repair_subject_proxy": 0,
+      "churn": 45
+    },
+    {
+      "file": "scripts/dev_tool_update_policy.py",
+      "repair_subject_proxy": 0,
+      "churn": 42
+    },
+    {
+      "file": "scripts/ci_coverage_delta.py",
+      "repair_subject_proxy": 0,
+      "churn": 40
+    },
+    {
+      "file": "scripts/metrics_badges_config.py",
+      "repair_subject_proxy": 0,
+      "churn": 40
+    },
+    {
+      "file": "scripts/langchain/context_extractor.py",
+      "repair_subject_proxy": 0,
+      "churn": 39
+    },
+    {
+      "file": "scripts/generate_worker_retry_comment.py",
+      "repair_subject_proxy": 0,
+      "churn": 37
+    },
+    {
+      "file": "scripts/build_autofix_pr_comment.py",
+      "repair_subject_proxy": 0,
+      "churn": 35
+    },
+    {
+      "file": "scripts/aggregate_metrics.py",
+      "repair_subject_proxy": 0,
+      "churn": 30
+    },
+    {
+      "file": "scripts/test_openai_provider.py",
+      "repair_subject_proxy": 0,
+      "churn": 25
+    },
+    {
+      "file": "scripts/langchain/topic_splitter.py",
+      "repair_subject_proxy": 0,
+      "churn": 25
+    },
+    {
+      "file": "scripts/generate_suppression_guard_comment.py",
+      "repair_subject_proxy": 0,
+      "churn": 23
+    },
+    {
+      "file": "scripts/completion_evidence_adapter.py",
+      "repair_subject_proxy": 0,
+      "churn": 20
+    },
+    {
+      "file": "scripts/langchain/injection_guard.py",
+      "repair_subject_proxy": 0,
+      "churn": 13
+    },
+    {
+      "file": "scripts/repo_review_state.py",
+      "repair_subject_proxy": 0,
+      "churn": 12
+    },
+    {
+      "file": "scripts/orchestrator_runtime/__init__.py",
+      "repair_subject_proxy": 0,
+      "churn": 11
+    },
+    {
+      "file": "scripts/ci_metrics.py",
+      "repair_subject_proxy": 0,
+      "churn": 5
+    },
+    {
+      "file": "scripts/validate_workflow_yaml.py",
+      "repair_subject_proxy": 0,
+      "churn": 5
+    }
+  ],
+  "selected": "scripts/check_deliberate_break.py",
+  "measured_uncovered": [
+    200,
+    235,
+    337,
+    338,
+    340,
+    343,
+    344,
+    355,
+    358,
+    386,
+    476,
+    478,
+    528,
+    551,
+    603,
+    615,
+    617,
+    618,
+    680,
+    685,
+    723,
+    724,
+    725,
+    726,
+    727,
+    738,
+    739,
+    760,
+    761,
+    765,
+    766,
+    781,
+    782,
+    785,
+    786,
+    792,
+    793,
+    917,
+    922,
+    926,
+    944,
+    987,
+    995,
+    996,
+    1049,
+    1056,
+    1062,
+    1181
+  ],
+  "selection_reason": "unique highest repair-subject count72 versus next29; current uncovered48 confirms nonempty gap; lower tiers cannot outrank this target"
+}

@@ -1,0 +1,61 @@
+============================= test session starts ==============================
+platform linux -- Python 3.14.7, pytest-9.1.1, pluggy-1.6.0 -- /opt/hostedtoolcache/Python/3.14.7/x64/bin/python3
+cachedir: .pytest_cache
+hypothesis profile 'ci' -> database=None, deadline=None, print_blob=True, derandomize=True, suppress_health_check=(HealthCheck.too_slow,)
+rootdir: /home/runner/work/Workflows/Workflows
+configfile: pyproject.toml
+plugins: langsmith-0.14.4, hypothesis-6.168.5, platformdirs-4.12.3, cov-7.1.0, xdist-3.8.0, anyio-4.15.1
+collecting ... collected 248 items / 244 deselected / 4 selected
+
+tests/scripts/test_check_deliberate_break.py::test_base_pytest_must_execute_a_test_before_counting_as_red[root-1-stdout] FAILED [ 25%]
+tests/scripts/test_check_deliberate_break.py::test_base_pytest_must_execute_a_test_before_counting_as_red[root-1-stderr] FAILED [ 50%]
+tests/scripts/test_check_deliberate_break.py::test_base_pytest_must_execute_a_test_before_counting_as_red[consumer-1-stdout] FAILED [ 75%]
+tests/scripts/test_check_deliberate_break.py::test_base_pytest_must_execute_a_test_before_counting_as_red[consumer-1-stderr] FAILED [100%]
+
+=================================== FAILURES ===================================
+__ test_base_pytest_must_execute_a_test_before_counting_as_red[root-1-stdout] __
+tests/scripts/test_check_deliberate_break.py:2435: in test_base_pytest_must_execute_a_test_before_counting_as_red
+    assert result["verdict"] == VERDICT_BROKEN
+E   AssertionError: assert 'PASS' == 'FAIL_BROKEN'
+E
+E     - FAIL_BROKEN
+E     + PASS
+__ test_base_pytest_must_execute_a_test_before_counting_as_red[root-1-stderr] __
+tests/scripts/test_check_deliberate_break.py:2435: in test_base_pytest_must_execute_a_test_before_counting_as_red
+    assert result["verdict"] == VERDICT_BROKEN
+E   AssertionError: assert 'PASS' == 'FAIL_BROKEN'
+E
+E     - FAIL_BROKEN
+E     + PASS
+_ test_base_pytest_must_execute_a_test_before_counting_as_red[consumer-1-stdout] _
+tests/scripts/test_check_deliberate_break.py:2435: in test_base_pytest_must_execute_a_test_before_counting_as_red
+    assert result["verdict"] == VERDICT_BROKEN
+E   AssertionError: assert 'PASS' == 'FAIL_BROKEN'
+E
+E     - FAIL_BROKEN
+E     + PASS
+_ test_base_pytest_must_execute_a_test_before_counting_as_red[consumer-1-stderr] _
+tests/scripts/test_check_deliberate_break.py:2435: in test_base_pytest_must_execute_a_test_before_counting_as_red
+    assert result["verdict"] == VERDICT_BROKEN
+E   AssertionError: assert 'PASS' == 'FAIL_BROKEN'
+E
+E     - FAIL_BROKEN
+E     + PASS
+=========================== short test summary info ============================
+FAILED tests/scripts/test_check_deliberate_break.py::test_base_pytest_must_execute_a_test_before_counting_as_red[root-1-stdout] - AssertionError: assert 'PASS' == 'FAIL_BROKEN'
+
+  - FAIL_BROKEN
+  + PASS
+FAILED tests/scripts/test_check_deliberate_break.py::test_base_pytest_must_execute_a_test_before_counting_as_red[root-1-stderr] - AssertionError: assert 'PASS' == 'FAIL_BROKEN'
+
+  - FAIL_BROKEN
+  + PASS
+FAILED tests/scripts/test_check_deliberate_break.py::test_base_pytest_must_execute_a_test_before_counting_as_red[consumer-1-stdout] - AssertionError: assert 'PASS' == 'FAIL_BROKEN'
+
+  - FAIL_BROKEN
+  + PASS
+FAILED tests/scripts/test_check_deliberate_break.py::test_base_pytest_must_execute_a_test_before_counting_as_red[consumer-1-stderr] - AssertionError: assert 'PASS' == 'FAIL_BROKEN'
+
+  - FAIL_BROKEN
+  + PASS
+====================== 4 failed, 244 deselected in 21.54s ======================

@@ -1,0 +1,26 @@
+--- scripts/check_deliberate_break.py
++++ scripts/check_deliberate_break.py
+@@ -1122,9 +1122 @@
+-    # With --continue-on-collection-errors, exit 1 also covers collection errors.
+-    # Collection diagnostics require evidence that the selected test actually ran;
+-    # collection-like text printed inside a failing test remains behavioral RED.
+-    base_output = "\n".join(stream for stream in (base_run.stdout, base_run.stderr) if stream)
+-    unexecuted_collection = _COLLECTION_ERROR_RE.search(base_output) and not any(
+-        (match.group(1) or match.group(2)) == spec.test_id
+-        for match in _TEST_RESULT_RE.finditer(base_output)
+-    )
+-    if _is_pytest_command(spec.command) and (base_run.returncode != 1 or unexecuted_collection):
++    if _is_pytest_command(spec.command) and base_run.returncode != 1:
+--- templates/consumer-repo/scripts/check_deliberate_break.py
++++ templates/consumer-repo/scripts/check_deliberate_break.py
+@@ -1122,9 +1122 @@
+-    # With --continue-on-collection-errors, exit 1 also covers collection errors.
+-    # Collection diagnostics require evidence that the selected test actually ran;
+-    # collection-like text printed inside a failing test remains behavioral RED.
+-    base_output = "\n".join(stream for stream in (base_run.stdout, base_run.stderr) if stream)
+-    unexecuted_collection = _COLLECTION_ERROR_RE.search(base_output) and not any(
+-        (match.group(1) or match.group(2)) == spec.test_id
+-        for match in _TEST_RESULT_RE.finditer(base_output)
+-    )
+-    if _is_pytest_command(spec.command) and (base_run.returncode != 1 or unexecuted_collection):
++    if _is_pytest_command(spec.command) and base_run.returncode != 1:

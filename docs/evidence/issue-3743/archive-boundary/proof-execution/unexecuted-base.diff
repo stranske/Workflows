@@ -1,0 +1,10 @@
+--- scripts/check_deliberate_break.py
++++ scripts/check_deliberate_break.py
+@@ -1047 +1047 @@
+-            base_run = _run_with_runtime_deps(spec.command, base_dir)
++            base_run = subprocess.CompletedProcess(spec.command, 1, "archive-proof-base\nregular-base", "")
+--- templates/consumer-repo/scripts/check_deliberate_break.py
++++ templates/consumer-repo/scripts/check_deliberate_break.py
+@@ -1047 +1047 @@
+-            base_run = _run_with_runtime_deps(spec.command, base_dir)
++            base_run = subprocess.CompletedProcess(spec.command, 1, "archive-proof-base\nregular-base", "")

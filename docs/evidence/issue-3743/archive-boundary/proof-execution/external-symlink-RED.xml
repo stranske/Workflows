@@ -1,0 +1,21 @@
+<?xml version="1.0" encoding="utf-8"?><testsuites name="pytest tests"><testsuite name="pytest" errors="0" failures="2" skipped="0" tests="2" time="0.772" timestamp="2026-10-06T17:21:30.306042+00:00" hostname="runnervm8df0l"><testcase classname="tests.scripts.test_check_deliberate_break_archive" name="test_real_archive_does_not_materialize_external_symlink[root]" time="0.025"><failure message="KeyError: &quot;linkname '/tmp/pytest-of-runner/pytest-4/test_real_archive_does_not_mat0/victim.txt' not found&quot;">tests/scripts/test_check_deliberate_break_archive.py:93: in test_real_archive_does_not_materialize_external_symlink
+    archive_helper["_archive_ref"](base, target, repo)
+scripts/check_deliberate_break.py:924: in _archive_ref
+    source = tar.extractfile(member)
+             ^^^^^^^^^^^^^^^^^^^^^^^
+/opt/hostedtoolcache/Python/3.14.7/x64/lib/python3.14/tarfile.py:2639: in extractfile
+    return self.extractfile(self._find_link_target(tarinfo))
+                            ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+/opt/hostedtoolcache/Python/3.14.7/x64/lib/python3.14/tarfile.py:3024: in _find_link_target
+    raise KeyError("linkname %r not found" % linkname)
+E   KeyError: "linkname '/tmp/pytest-of-runner/pytest-4/test_real_archive_does_not_mat0/victim.txt' not found"</failure></testcase><testcase classname="tests.scripts.test_check_deliberate_break_archive" name="test_real_archive_does_not_materialize_external_symlink[template]" time="0.022"><failure message="KeyError: &quot;linkname '/tmp/pytest-of-runner/pytest-4/test_real_archive_does_not_mat1/victim.txt' not found&quot;">tests/scripts/test_check_deliberate_break_archive.py:93: in test_real_archive_does_not_materialize_external_symlink
+    archive_helper["_archive_ref"](base, target, repo)
+templates/consumer-repo/scripts/check_deliberate_break.py:924: in _archive_ref
+    source = tar.extractfile(member)
+             ^^^^^^^^^^^^^^^^^^^^^^^
+/opt/hostedtoolcache/Python/3.14.7/x64/lib/python3.14/tarfile.py:2639: in extractfile
+    return self.extractfile(self._find_link_target(tarinfo))
+                            ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+/opt/hostedtoolcache/Python/3.14.7/x64/lib/python3.14/tarfile.py:3024: in _find_link_target
+    raise KeyError("linkname %r not found" % linkname)
+E   KeyError: "linkname '/tmp/pytest-of-runner/pytest-4/test_real_archive_does_not_mat1/victim.txt' not found"</failure></testcase></testsuite></testsuites>

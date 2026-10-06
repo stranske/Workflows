@@ -1,0 +1,10 @@
+--- scripts/check_deliberate_break.py
++++ scripts/check_deliberate_break.py
+@@ -921 +921 @@
+-            if not member.isfile():
++            if not (member.isfile() or member.issym()):
+--- templates/consumer-repo/scripts/check_deliberate_break.py
++++ templates/consumer-repo/scripts/check_deliberate_break.py
+@@ -921 +921 @@
+-            if not member.isfile():
++            if not (member.isfile() or member.issym()):

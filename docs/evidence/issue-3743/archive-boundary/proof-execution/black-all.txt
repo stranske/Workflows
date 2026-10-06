@@ -1,0 +1,4 @@
+Command: black --check --line-length 100 --exclude (\.workflows-lib|node_modules) .
+Exit: 0
+All done! ✨ 🍰 ✨
+664 files would be left unchanged.
