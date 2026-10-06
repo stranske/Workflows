@@ -195,6 +195,74 @@ def test_supply_clause_subject_preserves_delivery(actor):
     ) == {"comments"}
 
 
+@pytest.mark.parametrize("boundary", [" and ", " while ", "; ", ". ", "! ", "? "])
+@pytest.mark.parametrize("negation", ["doesn't", "doesn’t", "does not", "never", "no longer"])
+@pytest.mark.parametrize("verb", ["supply", "prove", "record"])
+@pytest.mark.parametrize(
+    "negative_destination", ["the PR body", "a PR comment", "workflow artifacts"]
+)
+@pytest.mark.parametrize(
+    "positive_destination,channel",
+    [("the PR body", "body"), ("a PR comment", "comments"), ("workflow artifacts", "artifacts")],
+)
+@pytest.mark.parametrize("positive_first", [True, False])
+def test_prohibition_polarity_is_clause_order_and_alias_symmetric(
+    boundary, negation, verb, negative_destination, positive_destination, channel, positive_first
+):
+    """Negated aliases cannot invent a channel beside an independent obligation."""
+    positive = f"The reviewer must record evidence in {positive_destination}"
+    negative = f"the senior maintainer {negation} {verb} evidence in {negative_destination}"
+    criterion = positive + boundary + negative if positive_first else negative + boundary + positive
+    assert verifier._required_evidence_channels(criterion) == {channel}
+
+
+@pytest.mark.parametrize("verb", ["proves", "records", "supplies"])
+@pytest.mark.parametrize("negation", ["never", "no longer"])
+@pytest.mark.parametrize("destination", ["the PR body", "a PR comment", "workflow artifacts"])
+def test_bare_finite_negative_delivery_has_no_channel(verb, negation, destination):
+    """Finite negative predicates do not require evidence delivery."""
+    assert (
+        verifier._required_evidence_channels(
+            f"The reviewer {negation} {verb} evidence in {destination}"
+        )
+        == set()
+    )
+
+
+@pytest.mark.parametrize("verb", ["prove", "record", "supply"])
+@pytest.mark.parametrize(
+    "first_destination,first_channel",
+    [("the PR body", "body"), ("a PR comment", "comments"), ("workflow artifacts", "artifacts")],
+)
+@pytest.mark.parametrize(
+    "second_destination,second_channel",
+    [("the PR body", "body"), ("a PR comment", "comments"), ("workflow artifacts", "artifacts")],
+)
+def test_contrastive_not_only_preserves_both_delivery_channels(
+    verb, first_destination, first_channel, second_destination, second_channel
+):
+    """Not-only contrast is additive, not a delivery prohibition."""
+    assert verifier._required_evidence_channels(
+        f"The reviewer must not only {verb} evidence in {first_destination}"
+        + f" but also record evidence in {second_destination}"
+    ) == {first_channel, second_channel}
+
+
+@pytest.mark.parametrize(
+    "negative_auxiliary",
+    ["does not need to", "doesn't need to", "never has to", "no longer needs to"],
+)
+@pytest.mark.parametrize("destination", ["the PR body", "a PR comment", "workflow artifacts"])
+def test_negative_embedded_mandatory_auxiliary_is_not_required(negative_auxiliary, destination):
+    """Embedded need-to/has-to cannot override its negative governor."""
+    assert (
+        verifier._required_evidence_channels(
+            f"Command output {negative_auxiliary} be in {destination}"
+        )
+        == set()
+    )
+
+
 @pytest.mark.parametrize("prefix", ["", "- ", "- [ ] ", "* [x] ", "1. "])
 def test_supply_imperative_list_marker_preserves_delivery(prefix):
     """List formatting does not turn an imperative delivery into a noun."""

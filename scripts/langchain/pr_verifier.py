@@ -1174,6 +1174,14 @@ def _required_evidence_channels(acceptance: str, *, _bind_attached: bool = True)
                 prefix,
             )
             imperative = not prefix.strip()
+            # Alias recognition precedes clause-level contraction expansion.
+            # Normalize only the inspected governor, never quoted input bytes.
+            prefix = re.sub(
+                r"\b(does|do|did)n['’]t\b",
+                lambda match: match[1] + " not",
+                prefix,
+                flags=re.I,
+            )
             governed = bool(
                 re.search(
                     r"\b(?:"
@@ -1186,7 +1194,11 @@ def _required_evidence_channels(acceptance: str, *, _bind_attached: bool = True)
             )
             actor = bool(
                 re.fullmatch(
-                    r"\s*" + qualified_delivery_actor,
+                    r"\s*"
+                    + qualified_delivery_actor
+                    + r"(?:(?:never|no\s+longer)\s+"
+                    + delivery_adverbs
+                    + r")?",
                     prefix,
                     re.I,
                 )
@@ -1255,6 +1267,13 @@ def _required_evidence_channels(acceptance: str, *, _bind_attached: bool = True)
     )
     # Use the same product-response operation vocabulary when coalescing object
     # groups and when excluding response fields from review deliverables.
+    acceptance = re.sub(
+        r"(?P<literal>" + quoted_evidence_literal + r")|"
+        r"\bnot\s+only(?=\s+" + delivery_adverbs + delivery_operation + r")",
+        lambda match: match[0] if match["literal"] else "also",
+        acceptance,
+        flags=re.I,
+    )
     response_subject = r"(?:responses?|payloads?|return\s+values?|reports?|exports?)"
     optional_delivery_modal = r"(?:may|can|could|would|should)"
     product_auxiliary = (
@@ -1466,7 +1485,7 @@ def _required_evidence_channels(acceptance: str, *, _bind_attached: bool = True)
             + "|"
             + response_operation
             + (r"|upload\w*" if pronoun_delivery else "")
-            + r"|include\w*|contain\w*|attach\w*|provide\w*|publish\w*|post\w*|record\w*|capture\w*|document\w*|add\w*|show\w*|store\w*|have|left|leave\w*)\b"
+            + r"|prove\w*|include\w*|contain\w*|attach\w*|provide\w*|publish\w*|post\w*|record\w*|capture\w*|document\w*|add\w*|show\w*|store\w*|have|left|leave\w*)\b"
         )
         auxiliary = (
             r"(?:(?:is|are|was|were)\s+(?:not|never|no\s+longer)\s+"
@@ -1965,6 +1984,13 @@ def _required_evidence_channels(acceptance: str, *, _bind_attached: bool = True)
     )
     evidence_prohibition = re.compile(
         aspect_delivery_prohibition.pattern + r"|"
+        r"\b(?:(?:do|does|did)\s+not|never|no\s+longer)\s+"
+        + mandatory_auxiliary
+        + r"\s+be\s+(?="
+        + destination_preposition
+        + delivery_destination_item
+        + r")|"
+        r"\b(?:never|no\s+longer)\s+" + delivery_adverbs + delivery_operation + r"|"
         r"\b(?:"
         + delivery_governor_auxiliary
         + r")\s+"
@@ -2142,6 +2168,9 @@ def _required_evidence_channels(acceptance: str, *, _bind_attached: bool = True)
             + delivery_operation
             + r"|"
             + qualified_delivery_actor
+            + r"(?:(?:not|never|no\s+longer)\s+"
+            + delivery_adverbs
+            + r")?"
             + delivery_operation
         )
         clause_boundary = (

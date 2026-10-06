@@ -1359,7 +1359,11 @@ and operation grammar across conjunctions and sentence endings; they cannot inhe
 a preceding actor's optional modal.
 Delivery prohibitions reuse the shared governor and operation vocabulary,
 including do/does/did and prove, with not/never/no-longer polarity. A required
-delivery in another independent clause remains authoritative.
+delivery in another independent clause remains authoritative. Supply alias
+classification inspects contracted negative governors before clause expansion;
+bare never/no-longer delivery predicates remain negative in either clause order.
+Contrastive not-only deliveries are additive, not prohibitions, and a negative
+governor cannot be discarded by matching an embedded need-to/has-to substring.
 Comment presence/containment predicates share the complete mandatory auxiliary
 grammar, including `has/have to`, with existing polarity controls.
 Do-supported product storage (`do`, `does`, `did`) shares the finite auxiliary
