@@ -45,6 +45,57 @@ class SelectedMatrix:
     matched_patterns: tuple[str, ...] = field(default_factory=tuple)
 
 
+def select_python_matrix(
+    workflow_name: str,
+    python_versions: str,
+    python_version: str,
+    changed_files: list[str],
+    force_full: bool,
+) -> SelectedMatrix:
+    """Pure resolver shared by the Python producer and expected-check auditor."""
+    if not isinstance(changed_files, list) or any(not isinstance(p, str) for p in changed_files):
+        raise ValueError("changed_files must be a list of strings")
+    if not isinstance(force_full, bool):
+        raise ValueError("force_full must be a boolean")
+    if not isinstance(python_versions, str) or not isinstance(python_version, str):
+        raise ValueError("Python inputs must be strings")
+    if python_versions and python_versions != "[]" and "[" in python_versions:
+        versions = json.loads(python_versions)
+        if not isinstance(versions, list) or not versions:
+            raise ValueError("python_versions must be a nonempty list")
+    elif python_versions and python_versions != "[]":
+        versions = [python_versions]
+    else:
+        versions = [python_version or "3.12"]
+    if any(not isinstance(v, str) or not v.strip() for v in versions):
+        raise ValueError("Python versions must be nonempty strings")
+    if len(versions) != len(set(versions)):
+        raise ValueError("duplicate Python versions are ambiguous")
+    matrix = {
+        "include": [
+            {
+                "python-version": version,
+                "scope": {
+                    "paths": [
+                        ".github/workflows/reusable-10-ci-python.yml",
+                        "scripts/**",
+                        "tools/**",
+                        "src/**",
+                        "tests/**",
+                        "pyproject.toml",
+                        "requirements*.txt",
+                    ],
+                    "reason": "Python CI inputs changed",
+                },
+            }
+            for version in versions
+        ]
+    }
+    return select_scenarios(
+        workflow_name, changed_files, matrix, SelectionOptions(force_full=force_full)
+    )
+
+
 def _options_from(value: Any) -> SelectionOptions:
     if isinstance(value, SelectionOptions):
         return value

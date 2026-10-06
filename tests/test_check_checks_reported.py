@@ -736,3 +736,291 @@ def test_duplicate_reusable_child_prefixes_are_unknown():
     root["jobs"]["second"] = dict(root["jobs"]["child"])
     with pytest.raises(reporter.UnknownEvidence, match="duplicate expected child names"):
         reporter.expected_jobs(evidence, "o/r", "gate.yml", HEAD, root, run=run)
+
+
+def python_producer_fixture():
+    import copy
+
+    path = ".github/workflows/reusable-10-ci-python.yml"
+    workflow = reporter.yaml.load(
+        (Path(__file__).parents[1] / path).read_text(), Loader=reporter.WorkflowLoader
+    )
+    helper = (Path(__file__).parents[1] / "scripts/reusable_ci_scope.py").read_bytes()
+    arguments = {
+        "workflow_name": "Gate",
+        "python_versions": '["3.12","3.13"]',
+        "python_version": "3.12",
+        "changed_files": ["src/example.py"],
+        "force_full": False,
+    }
+    receipt = {
+        "schema": "python-matrix-producer/v1",
+        "repository": "o/r",
+        "run_id": 42,
+        "run_attempt": 2,
+        "head_sha": HEAD,
+        "helper_sha": BASE,
+        "helper_sha256": hashlib.sha256(helper).hexdigest(),
+        "inputs": arguments,
+        "matrix": {"include": [{"python-version": "3.12"}, {"python-version": "3.13"}]},
+    }
+    run = {
+        "id": 42,
+        "run_attempt": 2,
+        "head_sha": HEAD,
+        "name": "Gate",
+        "repository": {"full_name": "o/r"},
+        "jobs": [
+            {
+                "name": "ci / select reusable CI scope",
+                "id": 99,
+                "run_id": 42,
+                "run_attempt": 2,
+                "steps": [{"name": "Select Python version matrix", "conclusion": "success"}],
+            }
+        ],
+    }
+    evidence = reporter.Evidence(lambda _: [])
+    evidence.content = lambda *args: helper
+    evidence.job_receipts = lambda *args: [receipt]
+    inputs = {
+        "python-versions": '["3.12","3.13"]',
+        "python-version": "3.12",
+        "changed-files-json": "${{ needs.changes.outputs.files }}",
+        "force-full": False,
+    }
+    job = copy.deepcopy(workflow["jobs"]["tests"])
+    return evidence, workflow, job, run, inputs, receipt
+
+
+def bind_producer(fixture):
+    evidence, workflow, job, run, inputs, _ = fixture
+    return reporter.bind_python_matrix(
+        evidence,
+        "stranske/Workflows",
+        ".github/workflows/reusable-10-ci-python.yml",
+        workflow,
+        job,
+        "ci / ",
+        run,
+        inputs,
+    )
+
+
+def test_python_matrix_independent_expectations_detect_missing_child():
+    fixture = python_producer_fixture()
+    bound = bind_producer(fixture)
+    names = reporter.job_names("tests", bound)
+    assert names == ["python 3.12", "python 3.13"]
+    result = verdict(expected=set(names), checks=[check("python 3.12")])
+    assert result["verdict"] == "FAIL"
+    assert result["missing_names"] == ["python 3.13"]
+    assert fixture[3]["matrix_evidence"][0]["helper_sha"] == BASE
+
+
+@pytest.mark.parametrize(
+    "finding",
+    [
+        "head",
+        "run",
+        "attempt",
+        "helper_revision",
+        "helper_digest",
+        "missing_receipt",
+        "duplicate_receipt",
+        "producer_source",
+        "producer_step",
+        "input",
+        "matrix",
+        "workflow",
+    ],
+)
+def test_python_producer_missing_or_forged_evidence_stays_unknown(finding):
+    fixture = python_producer_fixture()
+    evidence, workflow, _, run, _, receipt = fixture
+    if finding == "head":
+        receipt["head_sha"] = BASE
+    elif finding == "run":
+        receipt["run_id"] = 43
+    elif finding == "attempt":
+        receipt["run_attempt"] = 1
+    elif finding == "helper_revision":
+        receipt["helper_sha"] = "main"
+    elif finding == "helper_digest":
+        receipt["helper_sha256"] = "0" * 64
+    elif finding == "missing_receipt":
+        evidence.job_receipts = lambda *args: []
+    elif finding == "duplicate_receipt":
+        evidence.job_receipts = lambda *args: [receipt, receipt]
+    elif finding == "producer_source":
+        workflow["jobs"]["select-scope"]["steps"][-1]["run"] = "echo fake"
+    elif finding == "producer_step":
+        run["jobs"][0]["steps"][0]["conclusion"] = "skipped"
+    elif finding == "input":
+        receipt["inputs"]["python_versions"] = '["3.12"]'
+    elif finding == "matrix":
+        receipt["matrix"]["include"].pop()
+    elif finding == "workflow":
+        receipt["inputs"]["workflow_name"] = "other"
+    with pytest.raises(reporter.UnknownEvidence):
+        bind_producer(fixture)
+
+
+def test_executed_helper_source_must_equal_local_resolver():
+    fixture = python_producer_fixture()
+    fixture[0].content = lambda *args: b"different helper"
+    with pytest.raises(reporter.UnknownEvidence, match="trusted pure resolver"):
+        bind_producer(fixture)
+
+
+def test_literal_include_only_matrix_and_transform_boundary():
+    assert reporter.job_names(
+        "test",
+        {
+            "name": "Python ${{ matrix.version }}",
+            "strategy": {"matrix": {"include": [{"version": "3.12"}, {"version": "3.13"}]}},
+        },
+    ) == ["Python 3.12", "Python 3.13"]
+    for matrix in (
+        {"include": [{"version": "3.12"}], "version": ["3.13"]},
+        {"version": ["3.12"], "exclude": []},
+        {"include": []},
+    ):
+        with pytest.raises(reporter.UnknownEvidence):
+            reporter.job_names("test", {"strategy": {"matrix": matrix}})
+
+
+def test_real_workflow_producer_emits_recomputable_receipt(tmp_path, monkeypatch, capsys):
+    import os
+    import subprocess
+
+    evidence, workflow, _, run, inputs, _ = python_producer_fixture()
+    step = workflow["jobs"]["select-scope"]["steps"][-1]
+    helper = tmp_path / ".workflows-lib/scripts/reusable_ci_scope.py"
+    helper.parent.mkdir(parents=True)
+    helper.write_bytes((Path(__file__).parents[1] / "scripts/reusable_ci_scope.py").read_bytes())
+    monkeypatch.chdir(tmp_path)
+    for name, value in {
+        "WORKFLOW_NAME": "Gate",
+        "PYTHON_VERSIONS": '["3.12","3.13"]',
+        "PYTHON_VERSION": "3.12",
+        "CHANGED_FILES_JSON": '["src/example.py"]',
+        "FORCE_FULL": "false",
+        "GITHUB_OUTPUT": str(tmp_path / "outputs"),
+        "GITHUB_REPOSITORY": "o/r",
+        "GITHUB_RUN_ID": "42",
+        "GITHUB_RUN_ATTEMPT": "2",
+        "GITHUB_WORKFLOW_SHA": HEAD,
+        "PR_HEAD_SHA": HEAD,
+    }.items():
+        monkeypatch.setenv(name, value)
+    monkeypatch.setattr(subprocess, "check_output", lambda *args, **kwargs: BASE + "\n")
+    source = step["run"].split("python - <<'PY'\n", 1)[1].rsplit("\nPY", 1)[0]
+    exec(compile(source, "<production-matrix-step>", "exec"), {})
+    output = capsys.readouterr().out
+    receipt = json.loads(
+        next(
+            line.split("=", 1)[1]
+            for line in output.splitlines()
+            if line.startswith("PYTHON_MATRIX_RECEIPT=")
+        )
+    )
+    evidence.job_receipts = lambda *args: [receipt]
+    fixture = (evidence, workflow, workflow["jobs"]["tests"], run, inputs, receipt)
+    assert reporter.job_names("tests", bind_producer(fixture)) == ["python 3.12", "python 3.13"]
+    assert 'python_matrix={"include"' in Path(os.environ["GITHUB_OUTPUT"]).read_text()
+
+
+def legacy_log_fixture():
+    stamp = "2026-10-06T03:57:22.0000000Z "
+    lines = [
+        "[command]/usr/bin/git log -1 --format=%H",
+        BASE,
+        "##[group]Run python - <<'PY'",
+        "  WORKFLOW_NAME: Gate",
+        '  PYTHON_VERSIONS: ["3.12", "3.13"]',
+        "  PYTHON_VERSION: 3.12",
+        "  CHANGED_FILES_JSON: []",
+        "  FORCE_FULL: false",
+        "##[endgroup]",
+    ]
+    return "\n".join(stamp + line for line in lines)
+
+
+def test_legacy_source_bound_inputs_recompute_missing_child_without_success_inference():
+    run = python_producer_fixture()[3]
+    receipt = reporter.legacy_python_receipt(legacy_log_fixture(), run)
+    assert receipt["helper_sha"] == BASE
+    assert receipt["inputs"]["changed_files"] == []
+    selected = reporter.select_python_matrix(**receipt["inputs"])
+    names = reporter.job_names(
+        "test",
+        {"name": "python ${{ matrix.python-version }}", "strategy": {"matrix": selected.matrix}},
+    )
+    result = verdict(expected=set(names), checks=[check("python 3.12")])
+    assert result["verdict"] == "FAIL" and result["missing_names"] == ["python 3.13"]
+
+
+@pytest.mark.parametrize("bad", ["missing", "masked", "duplicate", "checkout", "group", "bool"])
+def test_legacy_transcript_incomplete_or_ambiguous_stays_unknown(bad):
+    log = legacy_log_fixture()
+    if bad == "missing":
+        log = log.replace("  CHANGED_FILES_JSON: []", "  OTHER: []")
+    elif bad == "masked":
+        log = log.replace("  CHANGED_FILES_JSON: []", "  CHANGED_FILES_JSON: ***")
+    elif bad == "duplicate":
+        log += "\n" + log
+    elif bad == "checkout":
+        log = log.replace(BASE, "main")
+    elif bad == "group":
+        log = log.replace("##[endgroup]", "")
+    elif bad == "bool":
+        log = log.replace("FORCE_FULL: false", "FORCE_FULL: unknown")
+    with pytest.raises(reporter.UnknownEvidence):
+        reporter.legacy_python_receipt(log, python_producer_fixture()[3])
+
+
+@pytest.mark.parametrize(
+    "head_trigger,expected", [("workflow_call", "PASS"), ("pull_request", "UNKNOWN")]
+)
+def test_changed_callable_workflow_requires_absence_on_both_sources(head_trigger, expected):
+    transport = fixture_transport()
+    original = "on: workflow_call\njobs:\n  child:\n    steps: []\n"
+    head_doc = original.replace("workflow_call", head_trigger)
+
+    def wrapped(endpoint):
+        if endpoint.endswith("/pulls/1"):
+            obj = transport(endpoint)[0]
+            obj["changed_files"] = 1
+            return [obj]
+        if "/pulls/1/files?" in endpoint:
+            return [[{"filename": ".github/workflows/child.yml"}]]
+        if "/contents/.github/workflows?" in endpoint:
+            return [
+                [
+                    {"path": ".github/workflows/gate.yml", "sha": "d" * 40},
+                    {"path": ".github/workflows/child.yml", "sha": "e" * 40},
+                ]
+            ]
+        if "/contents/.github/workflows/child.yml?" in endpoint:
+            text = head_doc if endpoint.endswith(HEAD) else original
+            return [{"encoding": "base64", "content": base64.b64encode(text.encode()).decode()}]
+        return transport(endpoint)
+
+    result = reporter.collect(reporter.Evidence(wrapped), "o/r", 1, HEAD, "pull_request", "opened")
+    assert result["verdict"] == expected
+    if expected == "PASS":
+        assert result["legitimate_absences"][0]["head_absence_ref"] == HEAD
+
+
+def test_new_workflow_not_in_base_directory_is_unknown():
+    transport = fixture_transport()
+
+    def wrapped(endpoint):
+        if "/pulls/1/files?" in endpoint:
+            return [[{"filename": ".github/workflows/new.yml"}]]
+        return transport(endpoint)
+
+    result = reporter.collect(reporter.Evidence(wrapped), "o/r", 1, HEAD, "pull_request", "opened")
+    assert result["verdict"] == "UNKNOWN"
+    assert any("new workflow" in item for item in result["unknown"])

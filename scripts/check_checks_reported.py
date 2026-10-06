@@ -16,6 +16,8 @@ import importlib.util
 import itertools
 import json
 import re
+import subprocess
+import sys
 from collections.abc import Callable
 from datetime import UTC, datetime
 from pathlib import Path
@@ -23,6 +25,15 @@ from typing import Any
 from urllib.parse import quote
 
 import yaml
+
+# Import only the trusted local pure resolver, never execute fetched helper code.
+sys.path.insert(0, str(Path(__file__).resolve().parent))
+from reusable_ci_scope import select_python_matrix  # noqa: E402
+
+# Audited legacy producer/helper from Workflows5656aa96 and PR3773 parent.
+# Only this immutable contract may use the old Actions environment transcript.
+LEGACY_PRODUCER_SHA256 = "97cccd183c1e6a8eed465c55c6cdfdee4c0611eca0074d41901d893ec5c6aad2"
+LEGACY_HELPER_SHA256 = "ba653f7e90af12b4f8651b6fb8ecb629b2703a1ed161f96f447b31db8c224499"
 
 
 class UnknownEvidence(Exception):
@@ -92,6 +103,33 @@ class Evidence:
         if total is not None and len(items) != total:
             raise UnknownEvidence(f"{endpoint}: enumerated {len(items)} of {total} items")
         return items
+
+    def content(self, repo: str, path: str, ref: str) -> bytes:
+        obj = self.one(f"repos/{repo}/contents/{path}?ref={quote(ref, safe='')}")
+        if obj.get("encoding") != "base64":
+            raise UnknownEvidence(f"{repo}/{path}: unsupported content encoding")
+        return base64.b64decode(obj["content"])
+
+    def job_log(self, repo: str, job_id: int) -> str:
+        """Supplement the incumbent JSON transport with the producer's text log."""
+        endpoint = f"repos/{repo}/actions/jobs/{job_id}/logs"
+        proc = subprocess.run(
+            ["gh", "api", endpoint], capture_output=True, text=True, timeout=60, check=False
+        )
+        if proc.returncode:
+            raise UnknownEvidence(f"{endpoint}: producer log unavailable")
+        self.requests.append(
+            {"endpoint": endpoint, "sha256": hashlib.sha256(proc.stdout.encode()).hexdigest()}
+        )
+        return proc.stdout
+
+    def job_receipts(self, repo: str, job_id: int) -> list[dict[str, Any]]:
+        result = []
+        for line in self.job_log(repo, job_id).splitlines():
+            match = re.fullmatch(r"(?:[0-9T:Z.+-]+\s+)?PYTHON_MATRIX_RECEIPT=(\{.*\})", line)
+            if match:
+                result.append(json.loads(match[1]))
+        return result
 
     def workflow(self, repo: str, path: str, ref: str) -> dict[str, Any]:
         obj = self.one(f"repos/{repo}/contents/{path}?ref={quote(ref, safe='')}")
@@ -173,36 +211,253 @@ def event_applies(
 
 
 def job_names(job_id: str, job: dict[str, Any]) -> list[str]:
-    """Expand literal matrices; dynamic matrices and expressions are UNKNOWN."""
+    """Expand literal Cartesian or include-only matrices, rejecting transforms."""
     matrix = (job.get("strategy") or {}).get("matrix")
     name = str(job.get("name", job_id))
-    if not matrix:
+    if matrix is None:
         if "${{" in name:
             raise UnknownEvidence(f"dynamic job name: {name}")
         return [name]
-    if not isinstance(matrix, dict) or set(matrix) & {"include", "exclude"}:
+    if not isinstance(matrix, dict) or "exclude" in matrix:
         raise UnknownEvidence(f"unsupported matrix on {job_id}")
-    if any(not isinstance(values, list) or not values for values in matrix.values()):
-        raise UnknownEvidence(f"dynamic/empty matrix on {job_id}")
-    combinations = list(itertools.product(*matrix.values()))
-    if len(combinations) > 256:
+    if set(matrix) == {"include"}:
+        rows = matrix["include"]
+        if (
+            not isinstance(rows, list)
+            or not rows
+            or any(not isinstance(row, dict) or not row for row in rows)
+        ):
+            raise UnknownEvidence(f"invalid include-only matrix on {job_id}")
+    else:
+        if (
+            not matrix
+            or "include" in matrix
+            or any(not isinstance(v, list) or not v for v in matrix.values())
+        ):
+            raise UnknownEvidence(f"dynamic/empty matrix on {job_id}")
+        rows = [
+            dict(zip(matrix, values, strict=True)) for values in itertools.product(*matrix.values())
+        ]
+    if len(rows) > 256:
         raise UnknownEvidence(f"matrix too large on {job_id}")
     names = []
-    for values in combinations:
+    for row in rows:
         expanded = name
-        for key, value in zip(matrix, values, strict=True):
-            if not isinstance(value, (str, int, float)) or "${{" in str(value):
+        for key, value in row.items():
+            if (
+                not isinstance(key, str)
+                or not isinstance(value, (str, int, float))
+                or isinstance(value, bool)
+                or "${{" in str(value)
+            ):
                 raise UnknownEvidence(f"dynamic matrix value on {job_id}")
             expanded = re.sub(
                 r"\$\{\{\s*matrix\." + re.escape(key) + r"\s*\}\}", str(value), expanded
             )
         if "${{" in expanded:
             raise UnknownEvidence(f"unresolved job name: {expanded}")
-        # Actions appends literal axis values when a display name was not authored.
-        names.append(expanded if "name" in job else f"{expanded} ({', '.join(map(str, values))})")
+        names.append(
+            expanded if "name" in job else f"{expanded} ({', '.join(map(str, row.values()))})"
+        )
     if len(names) != len(set(names)):
         raise UnknownEvidence(f"ambiguous duplicate matrix names on {job_id}")
     return names
+
+
+def legacy_python_receipt(log: str, run: dict[str, Any]) -> dict[str, Any]:
+    """Extract checkout and input witnesses from the audited two-step producer."""
+    lines = []
+    for line in log.splitlines():
+        match = re.fullmatch(r"[0-9T:Z.+-]+ (.*)", line)
+        if match:
+            lines.append(match[1])
+    checkout = [
+        i for i, line in enumerate(lines) if line == "[command]/usr/bin/git log -1 --format=%H"
+    ]
+    groups = [i for i, line in enumerate(lines) if line == "##[group]Run python - <<'PY'"]
+    if len(checkout) != 1 or len(groups) != 1 or checkout[0] + 1 >= groups[0]:
+        raise UnknownEvidence("legacy Python checkout/producer transcript ambiguous")
+    helper_sha = lines[checkout[0] + 1]
+    if not re.fullmatch(r"[0-9a-f]{40}", helper_sha):
+        raise UnknownEvidence("legacy Python helper checkout SHA missing")
+    group = lines[groups[0] + 1 :]
+    try:
+        group = group[: group.index("##[endgroup]")]
+    except ValueError as exc:
+        raise UnknownEvidence("legacy Python input group incomplete") from exc
+    fields = {
+        "WORKFLOW_NAME",
+        "PYTHON_VERSIONS",
+        "PYTHON_VERSION",
+        "CHANGED_FILES_JSON",
+        "FORCE_FULL",
+    }
+    values = {}
+    for line in group:
+        match = re.fullmatch(r"  ([A-Z_]+): (.*)", line)
+        if match and match[1] in fields:
+            if match[1] in values or "***" in match[2]:
+                raise UnknownEvidence("legacy Python inputs ambiguous or masked")
+            values[match[1]] = match[2]
+    if set(values) != fields or values["FORCE_FULL"] not in {"true", "false"}:
+        raise UnknownEvidence("legacy Python input witness incomplete")
+    try:
+        changed = json.loads(values["CHANGED_FILES_JSON"])
+    except ValueError as exc:
+        raise UnknownEvidence("legacy Python changed paths malformed") from exc
+    return {
+        "schema": "python-matrix-producer/v1",
+        "repository": run["repository"]["full_name"],
+        "head_sha": run["head_sha"],
+        "run_id": run["id"],
+        "run_attempt": run.get("run_attempt", 1),
+        "helper_sha": helper_sha,
+        "helper_sha256": LEGACY_HELPER_SHA256,
+        "inputs": {
+            "workflow_name": values["WORKFLOW_NAME"],
+            "python_versions": values["PYTHON_VERSIONS"],
+            "python_version": values["PYTHON_VERSION"],
+            "changed_files": changed,
+            "force_full": values["FORCE_FULL"] == "true",
+        },
+        "legacy_transcript": True,
+    }
+
+
+def bind_python_matrix(
+    evidence: Evidence,
+    repo: str,
+    path: str,
+    workflow: dict[str, Any],
+    job: dict[str, Any],
+    prefix: str,
+    run: dict[str, Any] | None,
+    inputs: dict[str, Any],
+) -> dict[str, Any]:
+    """Recompute only the known source-bound producer; job successes are not inputs."""
+    matrix = (job.get("strategy") or {}).get("matrix")
+    if not isinstance(matrix, str) or "needs.select-scope.outputs.python_matrix" not in matrix:
+        return job
+    if (
+        path != ".github/workflows/reusable-10-ci-python.yml"
+        or repo != "stranske/Workflows"
+        or run is None
+    ):
+        raise UnknownEvidence("Python matrix lacks supported executed producer")
+    trusted = yaml.load((Path(__file__).parents[1] / path).read_bytes(), Loader=WorkflowLoader)[
+        "jobs"
+    ]["select-scope"]
+    producer = workflow["jobs"].get("select-scope")
+    producer_digest = hashlib.sha256(json.dumps(producer, sort_keys=True).encode()).hexdigest()
+    legacy = producer_digest == LEGACY_PRODUCER_SHA256
+    if producer != trusted and not legacy:
+        raise UnknownEvidence("Python matrix producer source differs from supported contract")
+    if matrix.strip() != "${{ fromJson(needs.select-scope.outputs.python_matrix) }}":
+        raise UnknownEvidence("unsupported Python matrix expression")
+    jobs = [j for j in run.get("jobs", []) if j.get("name") == prefix + "select reusable CI scope"]
+    if (
+        len(jobs) != 1
+        or jobs[0].get("run_id") != run["id"]
+        or jobs[0].get("run_attempt") != run.get("run_attempt", 1)
+    ):
+        raise UnknownEvidence("Python matrix producer job/run/attempt binding missing")
+    producer_job = jobs[0]
+    steps = [
+        s for s in producer_job.get("steps", []) if s.get("name") == "Select Python version matrix"
+    ]
+    if len(steps) != 1 or steps[0].get("conclusion") != "success":
+        raise UnknownEvidence("Python matrix producer step did not complete")
+    if legacy:
+        checkout_steps = [
+            s for s in producer_job.get("steps", []) if s.get("name") == "Checkout Workflows helper"
+        ]
+        if len(checkout_steps) != 1 or checkout_steps[0].get("conclusion") != "success":
+            raise UnknownEvidence("legacy Python helper checkout did not complete")
+        receipts = [
+            legacy_python_receipt(
+                evidence.job_log(run["repository"]["full_name"], producer_job["id"]), run
+            )
+        ]
+    else:
+        receipts = evidence.job_receipts(run["repository"]["full_name"], producer_job["id"])
+    if len(receipts) != 1:
+        raise UnknownEvidence("missing/ambiguous Python matrix producer receipt")
+    receipt = receipts[0]
+    for key, expected in {
+        "schema": "python-matrix-producer/v1",
+        "repository": run["repository"]["full_name"],
+        "run_id": run["id"],
+        "run_attempt": run.get("run_attempt", 1),
+        "head_sha": run["head_sha"],
+    }.items():
+        if receipt.get(key) != expected:
+            raise UnknownEvidence(f"Python matrix receipt {key} mismatch")
+    helper_sha = receipt.get("helper_sha", "")
+    if not isinstance(helper_sha, str) or not re.fullmatch(r"[0-9a-f]{40}", helper_sha):
+        raise UnknownEvidence("Python matrix helper revision missing")
+    helper_path = "scripts/reusable_ci_scope.py"
+    trusted_helper = (Path(__file__).parent / "reusable_ci_scope.py").read_bytes()
+    actual_helper = evidence.content(repo, helper_path, helper_sha)
+    digest = hashlib.sha256(actual_helper).hexdigest()
+    if (
+        digest != LEGACY_HELPER_SHA256 if legacy else actual_helper != trusted_helper
+    ) or receipt.get("helper_sha256") != digest:
+        raise UnknownEvidence("executed Python helper differs from trusted pure resolver")
+    arguments = receipt.get("inputs")
+    keys = {"workflow_name", "python_versions", "python_version", "changed_files", "force_full"}
+    if (
+        not isinstance(arguments, dict)
+        or set(arguments) != keys
+        or arguments.get("workflow_name") != run.get("name")
+    ):
+        raise UnknownEvidence("Python producer inputs incomplete or workflow mismatch")
+    # Literals must agree with the authored caller. Dynamic caller values are
+    # witnessed by the immutable producer step, never inferred from child jobs.
+    for source, argument in {
+        "python-versions": "python_versions",
+        "python-version": "python_version",
+        "changed-files-json": "changed_files",
+        "force-full": "force_full",
+    }.items():
+        raw = inputs.get(source)
+        if isinstance(raw, str) and "${{" in raw:
+            continue
+        if source == "changed-files-json":
+            try:
+                raw = json.loads(raw or "[]")
+            except (ValueError, TypeError) as exc:
+                raise UnknownEvidence("invalid caller changed paths") from exc
+        if source == "force-full":
+            raw = raw in (True, "true")
+        if raw != arguments[argument]:
+            raise UnknownEvidence(f"Python producer input {source} differs from caller")
+    try:
+        selected = select_python_matrix(**arguments)
+    except (TypeError, ValueError) as exc:
+        raise UnknownEvidence(f"invalid Python producer inputs: {exc}") from exc
+    if legacy:
+        receipt["matrix"] = selected.matrix
+        receipt["matrix_source"] = (
+            "independent pure recomputation from exact legacy input transcript"
+        )
+    elif receipt.get("matrix") != selected.matrix:
+        raise UnknownEvidence("Python producer matrix disagrees with independent recomputation")
+    run.setdefault("matrix_evidence", []).append(
+        {
+            "producer_job_id": producer_job["id"],
+            "producer_source_sha256": producer_digest,
+            "receipt_source": (
+                "audited legacy step transcript" if legacy else "producer-emitted log receipt"
+            ),
+            "helper_sha": helper_sha,
+            "helper_sha256": digest,
+            "receipt": receipt,
+            "recomputed_matrix": selected.matrix,
+        }
+    )
+    result = dict(job)
+    result["strategy"] = {**job["strategy"], "matrix": selected.matrix}
+    return result
 
 
 def expected_jobs(
@@ -227,6 +482,7 @@ def expected_jobs(
         if not isinstance(job, dict):
             raise UnknownEvidence(f"invalid job {job_id}")
         job = bind_job_inputs(job, inputs or {})
+        job = bind_python_matrix(evidence, repo, path, workflow, job, prefix, run, inputs or {})
         uses = job.get("uses")
         for name in job_names(job_id, job):
             full_name = prefix + name
@@ -571,6 +827,16 @@ def collect(
     if not isinstance(workflows, list) or not workflows:
         unknown.append("workflow directory is empty or inaccessible")
         workflows = []
+    known_paths = {entry["path"] for entry in workflows}
+    for changed in paths:
+        if (
+            changed.startswith(".github/workflows/")
+            and changed.endswith((".yml", ".yaml"))
+            and changed not in known_paths
+        ):
+            unknown.append(
+                f"new workflow on PR head: {changed}; merge-ref topology needs adjudication"
+            )
     for entry in workflows:
         path = entry["path"]
         if not path.endswith((".yml", ".yaml")):
@@ -585,11 +851,17 @@ def collect(
                 "document": workflow,
             }
             sources.append(source)
-            if path in paths:
-                unknown.append(
-                    f"workflow changed on PR head: {path}; merge-ref topology needs adjudication"
-                )
             applies, reason = event_applies(workflow, event, action, branch, paths)
+            if path in paths:
+                head_workflow = evidence.workflow(repo, path, head)
+                head_applies, _ = event_applies(head_workflow, event, action, branch, paths)
+                if applies or head_applies:
+                    unknown.append(
+                        f"workflow changed on PR head: {path}; merge-ref topology needs adjudication"
+                    )
+                else:
+                    source["head_absence_ref"] = head
+                    source["head_document"] = head_workflow
             if not applies:
                 absences.append({**source, "reason": reason, "triggers": workflow.get("on")})
                 continue

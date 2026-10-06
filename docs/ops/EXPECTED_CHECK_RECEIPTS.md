@@ -93,7 +93,7 @@ GitHub Actions provenance. App-restricted contexts require matching app evidence
 
 ## Conservative boundary
 
-Literal job names and literal Cartesian matrices are supported, including JSON
+Literal job names, Cartesian matrices and nonempty include-only matrices are supported, including JSON
 matrix axes supplied by literal caller inputs. Without run bindings, local
 reusable workflows recurse at the source ref and external calls require a full
 SHA. A completely enumerated latest Actions run can instead bind a floating call
@@ -109,11 +109,30 @@ bindings, matching head and GitHub Actions app, and a successful or skipped
 conclusion for every origin. One successful check cannot mask another origin's
 missing or failing check. The receipt retains each independent claim.
 
-Dynamic output-derived matrices/names, nonliteral inputs, recursive calls,
-include/exclude matrix transforms, unsupported glob syntax, and required-workflow
-rulesets emit UNKNOWN. In particular, observing `python 3.12` and `python 3.13`
-cannot prove the expected `needs.select-scope.outputs.python_matrix` set. That
-requires additional source-bound matrix evidence before a complete verdict.
+The Python reusable workflow has one supported output-derived matrix contract.
+Its immutable `select-scope` job calls the versioned pure
+`scripts/reusable_ci_scope.py::select_python_matrix` and emits a
+`python-matrix-producer/v1` receipt in its text log. The adapter uses the incumbent
+JSON transport for all metadata and one bounded `gh api` text-log read for that
+producer job. Raw logs are not retained in the receipt; their digest is retained.
+The receipt binds repository, head, run ID, attempt, helper commit and digest,
+resolved inputs and selected matrix. The executed helper bytes must equal the
+trusted local resolver, and the producer job source must equal the supported
+local workflow contract. The adapter recomputes selection independently and
+checks literal caller inputs. Dynamic caller values are witnessed by that
+source-bound producer, never inferred from the successful child jobs.
+
+A missing Python child is FAIL even when other Python jobs succeeded. One explicitly audited legacy producer/helper pair also supports a complete
+Actions checkout/input transcript. The adapter pins both source digests, requires
+successful checkout and selector steps in the same exact job/run/attempt, extracts
+the checkout commit and five resolved inputs, fetches the helper at that commit,
+and recomputes the expected matrix. It retains the log digest and identifies the
+receipt as a legacy transcript witness. Child conclusions never supply versions.
+Other historical runs lacking either complete witness, changed helper/producer
+source, ambiguous or incomplete receipts, empty include matrices and mismatched
+recomputation remain UNKNOWN.
+Other dynamic matrices/names, recursive calls, include/exclude transforms,
+unsupported glob syntax and required-workflow rulesets remain UNKNOWN. The workflow and helper must actually have executed the bound contract; local tests or a new PR do not establish historical run provenance.
 
 Ordinary conditional jobs still require a reported skipped/successful check.
 Event-only workflows are absent only when the authored event/action or supported
