@@ -160,6 +160,15 @@ provided. A changed head/base during collection becomes UNKNOWN. Re-run after
 async completion or obtain concrete source-bound evidence for unsupported
 conditions; never relabel UNKNOWN as PASS or waive missing checks.
 
+Merged-head Actions search can return an empty inventory even while its exact-head
+check suites still resolve to retained runs. The adapter reconciles every GitHub
+Actions suite absent from the head search through the paginated `check_suite_id`
+lookup. Each recovered run must match that suite and full head; only the requested
+event is included. The receipt records other-event exclusions and every recovery
+lookup. Missing, truncated or mismatched suite/run evidence remains UNKNOWN, and
+recovered zero-job startup failures remain FAIL beside green checks. Successful
+child jobs never supply the expected topology.
+
 ## Regression gate
 
 Run `python3 -m pytest -q tests/test_check_checks_reported.py`. The suite contains

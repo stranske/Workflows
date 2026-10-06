@@ -379,6 +379,129 @@ def test_complete_static_topology_receipt_is_bound_to_full_head():
     assert result["merge_authorization"] is False
 
 
+def suite_recovery_transport(mode="valid"):
+    original = fixture_transport()
+
+    def wrapped(endpoint):
+        if "/check-suites?" in endpoint:
+            return [
+                {
+                    "total_count": 1,
+                    "check_suites": [
+                        {
+                            "id": 901,
+                            "head_sha": HEAD,
+                            "app": {"slug": "github-actions"},
+                            "conclusion": "action_required" if mode == "startup" else "success",
+                            "latest_check_runs_count": 0 if mode == "startup" else 1,
+                        }
+                    ],
+                }
+            ]
+        if "check_suite_id=901" in endpoint:
+            run = {
+                "id": 101,
+                "check_suite_id": 901,
+                "head_sha": HEAD,
+                "event": "pull_request",
+                "workflow_id": 1,
+                "run_number": 1,
+                "path": ".github/workflows/gate.yml",
+                "conclusion": "success",
+            }
+            if mode == "head":
+                run["head_sha"] = BASE
+            elif mode == "suite":
+                run["check_suite_id"] = 902
+            elif mode == "event":
+                run["event"] = None
+            elif mode == "other_event":
+                run["event"] = "pull_request_target"
+            elif mode == "startup":
+                run["conclusion"] = "action_required"
+            values = [] if mode == "missing" else [run]
+            return [
+                {"total_count": 2 if mode == "truncated" else len(values), "workflow_runs": values}
+            ]
+        if "/actions/runs/101/jobs?" in endpoint:
+            jobs = (
+                [] if mode == "startup" else [{"id": 201, "name": "gate", "conclusion": "success"}]
+            )
+            return [{"total_count": len(jobs), "jobs": jobs}]
+        return original(endpoint)
+
+    return wrapped
+
+
+def test_merged_head_empty_search_recovers_exact_suite_runs():
+    result = reporter.collect(
+        reporter.Evidence(suite_recovery_transport()), "o/r", 1, HEAD, "pull_request", "opened"
+    )
+    assert result["verdict"] == "PASS"
+    assert result["workflow_run_inventory"][0]["id"] == 101
+    assert result["workflow_runs"][0]["jobs"][0]["id"] == 201
+    assert result["workflow_run_inventory_recovery"][0]["included"] is True
+    assert any("check_suite_id=901" in e["endpoint"] for e in result["request_evidence"])
+
+
+@pytest.mark.parametrize("mode", ["head", "suite", "event", "missing", "truncated"])
+def test_suite_inventory_mismatch_or_incomplete_evidence_is_unknown(mode):
+    with pytest.raises(reporter.UnknownEvidence):
+        reporter.collect(
+            reporter.Evidence(suite_recovery_transport(mode)),
+            "o/r",
+            1,
+            HEAD,
+            "pull_request",
+            "opened",
+        )
+
+
+def test_recovered_zero_job_startup_failure_cannot_hide_behind_green_checks():
+    result = reporter.collect(
+        reporter.Evidence(suite_recovery_transport("startup")),
+        "o/r",
+        1,
+        HEAD,
+        "pull_request",
+        "opened",
+    )
+    assert result["verdict"] == "FAIL"
+    assert result["startup_failures"]
+
+
+def test_recovered_other_event_remains_outside_requested_context():
+    result = reporter.collect(
+        reporter.Evidence(suite_recovery_transport("other_event")),
+        "o/r",
+        1,
+        HEAD,
+        "pull_request",
+        "opened",
+    )
+    assert result["workflow_run_inventory"] == []
+    assert result["workflow_run_inventory_recovery"][0]["event"] == "pull_request_target"
+    assert result["workflow_run_inventory_recovery"][0]["included"] is False
+
+
+def test_partial_head_inventory_still_recovers_unrepresented_suite():
+    first = {"id": 10, "head_sha": HEAD, "event": "pull_request", "check_suite_id": 900}
+    second = {"id": 11, "head_sha": HEAD, "event": "pull_request", "check_suite_id": 901}
+
+    def transport(endpoint):
+        run = second if "check_suite_id=901" in endpoint else first
+        return [{"total_count": 1, "workflow_runs": [run]}]
+
+    suites = [
+        {"id": ident, "head_sha": HEAD, "app": {"slug": "github-actions"}} for ident in (900, 901)
+    ]
+    evidence = reporter.Evidence(transport)
+    runs, recovery = reporter.complete_workflow_runs(evidence, "o/r", HEAD, "pull_request", suites)
+    assert {run["id"] for run in runs} == {10, 11}
+    assert [item["suite_id"] for item in recovery] == [901]
+    assert len(evidence.requests) == 2
+
+
 def protection_transport(error, rules=None):
     transport = fixture_transport()
 
