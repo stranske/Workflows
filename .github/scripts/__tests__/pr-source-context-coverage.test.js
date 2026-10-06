@@ -26,7 +26,12 @@ test('release #3769 artifact coverage counts automation without inventing an iss
   try {
     writeReport(root, 'pr-source-context', buildPrSourceContextReport({
       eventName: 'pull_request',
-      event: { pull_request: release3769 },
+      event: { pull_request: {
+        ...release3769,
+        user: { login: process.env.RELEASE_PLEASE_AUTHOR || 'github-actions[bot]' },
+        head: { ...release3769.head, repo: { full_name: 'octo/workflows' } },
+        base: { repo: { full_name: 'octo/workflows' } },
+      } },
       now: '2026-10-06T00:00:00.000Z',
     }));
     const report = buildCoverageReport({ root, now: '2026-10-06T00:00:00.000Z' });
