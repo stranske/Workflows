@@ -1,0 +1,64 @@
+import difflib
+import hashlib
+import json
+import os
+import subprocess
+import sys
+import xml.etree.ElementTree as ET
+from pathlib import Path
+
+root = Path('/home/runner/work/Workflows/Workflows')
+evidence = root / 'docs/evidence/issue-3743/automation/test-execution'
+paths = [root / 'scripts/check_deliberate_break.py', root / 'templates/consumer-repo/scripts/check_deliberate_break.py']
+original = {path: path.read_bytes() for path in paths}
+environment = os.environ.copy()
+for name in ['GITHUB_OUTPUT', 'GITHUB_STEP_SUMMARY']:
+    environment.pop(name, None)
+selection = 'test_base_collection_failure_cannot_prove_a_deliberate_break or test_base_import_diagnostics_preserve_both_streams or test_base_pytest_must_execute_a_test_before_counting_as_red or test_base_missing_import_inside_a_test_still_proves_red'
+controls = 'test_base_missing_import_inside_a_test_still_proves_red'
+execution = 'test_base_pytest_must_execute_a_test_before_counting_as_red or ' + controls
+manifest = {'interpreter': sys.executable, 'runs': {}}
+
+def run(name, selected, expected_failed, expected_passed):
+    command = [sys.executable, '-m', 'pytest', 'tests/scripts/test_check_deliberate_break.py', '-vv', '--tb=short', '-m', 'not slow', '-k', selected, '--junitxml=' + str(evidence / (name + '.xml'))]
+    result = subprocess.run(command, cwd=root, env=environment, text=True, capture_output=True)
+    output = 'Command: ' + ' '.join(command) + '\nExit: ' + str(result.returncode) + '\n' + result.stdout + result.stderr
+    (evidence / (name + '.txt')).write_text('\n'.join(line.rstrip() for line in output.splitlines()) + '\n')
+    cases = ET.parse(evidence / (name + '.xml')).findall('.//testcase')
+    failed = [case.attrib['name'] for case in cases if case.find('failure') is not None]
+    passed = [case.attrib['name'] for case in cases if len(case) == 0]
+    manifest['runs'][name] = {'command': command, 'exit': result.returncode, 'failed': failed, 'passed': passed}
+    print(name, result.returncode, len(failed), len(passed), flush=True)
+    assert len(failed) == expected_failed and len(passed) == expected_passed, output
+    assert result.returncode == (1 if expected_failed else 0), output
+
+def restore():
+    for path, source in original.items():
+        path.write_bytes(source)
+        assert path.read_bytes() == source
+
+def mutate(name, transform):
+    changes = []
+    for path, source in original.items():
+        changed = transform(path, source.decode())
+        assert changed != source.decode()
+        path.write_text(changed)
+        changes.extend(difflib.unified_diff(source.decode().splitlines(), changed.splitlines(), fromfile=str(path.relative_to(root)), tofile=str(path.relative_to(root)), n=0, lineterm=''))
+    (evidence / (name + '.diff')).write_text('\n'.join(changes) + '\n')
+
+try:
+    mutate('prior-implementation-red', lambda path, source: subprocess.check_output(['git', 'show', '5656aa96:' + str(path.relative_to(root))], cwd=root, text=True))
+    run('prior-implementation-red', selection, 14, 4)
+    restore()
+    mutate('in-test-import-red', lambda path, source: source.replace('if not joined or not _COLLECTION_ERROR_RE.search(joined):', 'if not joined:'))
+    run('in-test-import-red', controls, 4, 0)
+    restore()
+    mutate('unexecuted-head-red', lambda path, source: source.replace('head_run = _run_with_runtime_deps(spec.command, repo)', 'head_run = subprocess.CompletedProcess(spec.command, 0, "", "")'))
+    run('unexecuted-head-red', execution, 12, 0)
+finally:
+    restore()
+    manifest['restored_sources'] = {str(path.relative_to(root)): {'before': hashlib.sha256(source).hexdigest(), 'after': hashlib.sha256(path.read_bytes()).hexdigest(), 'byte_identical': path.read_bytes() == source} for path, source in original.items()}
+    manifest['test_sha256'] = hashlib.sha256((root / 'tests/scripts/test_check_deliberate_break.py').read_bytes()).hexdigest()
+    (evidence / 'mutation-manifest.json').write_text(json.dumps(manifest, indent=2) + '\n')
+run('restored-green', selection, 0, 18)
+(evidence / 'mutation-manifest.json').write_text(json.dumps(manifest, indent=2) + '\n')

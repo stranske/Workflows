@@ -2375,6 +2375,7 @@ def test_base_pytest_must_execute_a_test_before_counting_as_red(
     tmp_path, base_proof_helper, exit_code
 ):
     """Interrupted collection, internal/usage errors and no tests are not a failed assertion."""
+    executions = tmp_path / "test-executions.txt"
     repo, base, spec = _base_proof_repo(
         tmp_path,
         base_proof_helper,
@@ -2386,6 +2387,10 @@ def test_base_pytest_must_execute_a_test_before_counting_as_red(
         "def test_value():\n"
         "    assert app.MODE == 0\n",
         "import app, pytest, sys\n"
+        "from pathlib import Path\n"
+        "def pytest_runtest_call(item):\n"
+        f"    with Path({str(executions)!r}).open('a') as output:\n"
+        "        output.write(f'{app.MODE}\\n')\n"
         "def pytest_sessionstart(session):\n"
         "    if app.MODE:\n"
         "        print('base stdout sentinel', file=sys.stdout)\n"
@@ -2399,6 +2404,8 @@ def test_base_pytest_must_execute_a_test_before_counting_as_red(
         "        items.clear()\n",
     )
     result = base_proof_helper["verify_spec"](spec, base=base, cwd=repo, enforce_tamper=False)
+    # The external record survives archive cleanup: head ran, base never did.
+    assert executions.read_text(encoding="utf-8").splitlines() == ["0"]
     assert result["verdict"] == VERDICT_BROKEN
     assert result["reason"] == "base-test-did-not-run"
     assert result["returncode"] == exit_code
@@ -2413,18 +2420,31 @@ def test_base_pytest_must_execute_a_test_before_counting_as_red(
     assert diagnostic in result["base_stdout"] + result["base_stderr"]
 
 
-def test_base_missing_import_inside_a_test_still_proves_red(tmp_path, base_proof_helper):
+@pytest.mark.parametrize("stream", ["stdout", "stderr"])
+def test_base_missing_import_inside_a_test_still_proves_red(tmp_path, base_proof_helper, stream):
     """A ModuleNotFoundError raised by the selected test is an actual behavioral failure."""
+    executions = tmp_path / "test-executions.txt"
     repo, base, spec = _base_proof_repo(
         tmp_path,
         base_proof_helper,
         "def value():\n    import candidate_dependency\n    return candidate_dependency.VALUE\n",
         "def value():\n    return 1\n",
-        "import app\ndef test_value():\n    assert app.value() == 1\n",
+        "import app\n"
+        "from pathlib import Path\n"
+        "def test_value():\n"
+        f"    with Path({str(executions)!r}).open('a') as output:\n"
+        "        output.write('called\\n')\n"
+        "    assert app.value() == 1\n",
+        "import sys\n"
+        "from _pytest._io import TerminalWriter\n"
+        "def pytest_sessionstart(session):\n"
+        "    reporter = session.config.pluginmanager.getplugin('terminalreporter')\n"
+        f"    reporter._tw = TerminalWriter(file=sys.{stream})\n",
     )
     result = base_proof_helper["verify_spec"](spec, base=base, cwd=repo, enforce_tamper=False)
+    assert executions.read_text(encoding="utf-8").splitlines() == ["called", "called"]
     assert result["verdict"] == VERDICT_PASS
     assert result["reason"] == "head-passed-base-failed"
-    assert "1 failed" in result["base_stdout"]
-    assert "ModuleNotFoundError: No module named 'candidate_dependency'" in result["base_stdout"]
+    assert "1 failed" in result[f"base_{stream}"]
+    assert "ModuleNotFoundError: No module named 'candidate_dependency'" in result[f"base_{stream}"]
     assert "ERROR collecting" not in result["base_stdout"] + result["base_stderr"]

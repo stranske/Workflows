@@ -1,0 +1,147 @@
+{
+  "interpreter": "/opt/hostedtoolcache/Python/3.14.7/x64/bin/python3",
+  "runs": {
+    "prior-implementation-red": {
+      "command": [
+        "/opt/hostedtoolcache/Python/3.14.7/x64/bin/python3",
+        "-m",
+        "pytest",
+        "tests/scripts/test_check_deliberate_break.py",
+        "-vv",
+        "--tb=short",
+        "-m",
+        "not slow",
+        "-k",
+        "test_base_collection_failure_cannot_prove_a_deliberate_break or test_base_import_diagnostics_preserve_both_streams or test_base_pytest_must_execute_a_test_before_counting_as_red or test_base_missing_import_inside_a_test_still_proves_red",
+        "--junitxml=/home/runner/work/Workflows/Workflows/docs/evidence/issue-3743/automation/test-execution/prior-implementation-red.xml"
+      ],
+      "exit": 1,
+      "failed": [
+        "test_base_collection_failure_cannot_prove_a_deliberate_break[]",
+        "test_base_collection_failure_cannot_prove_a_deliberate_break[templates/consumer-repo/]",
+        "test_base_import_diagnostics_preserve_both_streams[root-stdout]",
+        "test_base_import_diagnostics_preserve_both_streams[root-stderr]",
+        "test_base_import_diagnostics_preserve_both_streams[consumer-stdout]",
+        "test_base_import_diagnostics_preserve_both_streams[consumer-stderr]",
+        "test_base_pytest_must_execute_a_test_before_counting_as_red[root-2]",
+        "test_base_pytest_must_execute_a_test_before_counting_as_red[root-3]",
+        "test_base_pytest_must_execute_a_test_before_counting_as_red[root-4]",
+        "test_base_pytest_must_execute_a_test_before_counting_as_red[root-5]",
+        "test_base_pytest_must_execute_a_test_before_counting_as_red[consumer-2]",
+        "test_base_pytest_must_execute_a_test_before_counting_as_red[consumer-3]",
+        "test_base_pytest_must_execute_a_test_before_counting_as_red[consumer-4]",
+        "test_base_pytest_must_execute_a_test_before_counting_as_red[consumer-5]"
+      ],
+      "passed": [
+        "test_base_missing_import_inside_a_test_still_proves_red[root-stdout]",
+        "test_base_missing_import_inside_a_test_still_proves_red[root-stderr]",
+        "test_base_missing_import_inside_a_test_still_proves_red[consumer-stdout]",
+        "test_base_missing_import_inside_a_test_still_proves_red[consumer-stderr]"
+      ]
+    },
+    "in-test-import-red": {
+      "command": [
+        "/opt/hostedtoolcache/Python/3.14.7/x64/bin/python3",
+        "-m",
+        "pytest",
+        "tests/scripts/test_check_deliberate_break.py",
+        "-vv",
+        "--tb=short",
+        "-m",
+        "not slow",
+        "-k",
+        "test_base_missing_import_inside_a_test_still_proves_red",
+        "--junitxml=/home/runner/work/Workflows/Workflows/docs/evidence/issue-3743/automation/test-execution/in-test-import-red.xml"
+      ],
+      "exit": 1,
+      "failed": [
+        "test_base_missing_import_inside_a_test_still_proves_red[root-stdout]",
+        "test_base_missing_import_inside_a_test_still_proves_red[root-stderr]",
+        "test_base_missing_import_inside_a_test_still_proves_red[consumer-stdout]",
+        "test_base_missing_import_inside_a_test_still_proves_red[consumer-stderr]"
+      ],
+      "passed": []
+    },
+    "unexecuted-head-red": {
+      "command": [
+        "/opt/hostedtoolcache/Python/3.14.7/x64/bin/python3",
+        "-m",
+        "pytest",
+        "tests/scripts/test_check_deliberate_break.py",
+        "-vv",
+        "--tb=short",
+        "-m",
+        "not slow",
+        "-k",
+        "test_base_pytest_must_execute_a_test_before_counting_as_red or test_base_missing_import_inside_a_test_still_proves_red",
+        "--junitxml=/home/runner/work/Workflows/Workflows/docs/evidence/issue-3743/automation/test-execution/unexecuted-head-red.xml"
+      ],
+      "exit": 1,
+      "failed": [
+        "test_base_pytest_must_execute_a_test_before_counting_as_red[root-2]",
+        "test_base_pytest_must_execute_a_test_before_counting_as_red[root-3]",
+        "test_base_pytest_must_execute_a_test_before_counting_as_red[root-4]",
+        "test_base_pytest_must_execute_a_test_before_counting_as_red[root-5]",
+        "test_base_pytest_must_execute_a_test_before_counting_as_red[consumer-2]",
+        "test_base_pytest_must_execute_a_test_before_counting_as_red[consumer-3]",
+        "test_base_pytest_must_execute_a_test_before_counting_as_red[consumer-4]",
+        "test_base_pytest_must_execute_a_test_before_counting_as_red[consumer-5]",
+        "test_base_missing_import_inside_a_test_still_proves_red[root-stdout]",
+        "test_base_missing_import_inside_a_test_still_proves_red[root-stderr]",
+        "test_base_missing_import_inside_a_test_still_proves_red[consumer-stdout]",
+        "test_base_missing_import_inside_a_test_still_proves_red[consumer-stderr]"
+      ],
+      "passed": []
+    },
+    "restored-green": {
+      "command": [
+        "/opt/hostedtoolcache/Python/3.14.7/x64/bin/python3",
+        "-m",
+        "pytest",
+        "tests/scripts/test_check_deliberate_break.py",
+        "-vv",
+        "--tb=short",
+        "-m",
+        "not slow",
+        "-k",
+        "test_base_collection_failure_cannot_prove_a_deliberate_break or test_base_import_diagnostics_preserve_both_streams or test_base_pytest_must_execute_a_test_before_counting_as_red or test_base_missing_import_inside_a_test_still_proves_red",
+        "--junitxml=/home/runner/work/Workflows/Workflows/docs/evidence/issue-3743/automation/test-execution/restored-green.xml"
+      ],
+      "exit": 0,
+      "failed": [],
+      "passed": [
+        "test_base_collection_failure_cannot_prove_a_deliberate_break[]",
+        "test_base_collection_failure_cannot_prove_a_deliberate_break[templates/consumer-repo/]",
+        "test_base_import_diagnostics_preserve_both_streams[root-stdout]",
+        "test_base_import_diagnostics_preserve_both_streams[root-stderr]",
+        "test_base_import_diagnostics_preserve_both_streams[consumer-stdout]",
+        "test_base_import_diagnostics_preserve_both_streams[consumer-stderr]",
+        "test_base_pytest_must_execute_a_test_before_counting_as_red[root-2]",
+        "test_base_pytest_must_execute_a_test_before_counting_as_red[root-3]",
+        "test_base_pytest_must_execute_a_test_before_counting_as_red[root-4]",
+        "test_base_pytest_must_execute_a_test_before_counting_as_red[root-5]",
+        "test_base_pytest_must_execute_a_test_before_counting_as_red[consumer-2]",
+        "test_base_pytest_must_execute_a_test_before_counting_as_red[consumer-3]",
+        "test_base_pytest_must_execute_a_test_before_counting_as_red[consumer-4]",
+        "test_base_pytest_must_execute_a_test_before_counting_as_red[consumer-5]",
+        "test_base_missing_import_inside_a_test_still_proves_red[root-stdout]",
+        "test_base_missing_import_inside_a_test_still_proves_red[root-stderr]",
+        "test_base_missing_import_inside_a_test_still_proves_red[consumer-stdout]",
+        "test_base_missing_import_inside_a_test_still_proves_red[consumer-stderr]"
+      ]
+    }
+  },
+  "restored_sources": {
+    "scripts/check_deliberate_break.py": {
+      "before": "704ce62c2b3d0470476571d3703799b8c9aac73a74ed7a0e61ea772fdd6f749a",
+      "after": "704ce62c2b3d0470476571d3703799b8c9aac73a74ed7a0e61ea772fdd6f749a",
+      "byte_identical": true
+    },
+    "templates/consumer-repo/scripts/check_deliberate_break.py": {
+      "before": "704ce62c2b3d0470476571d3703799b8c9aac73a74ed7a0e61ea772fdd6f749a",
+      "after": "704ce62c2b3d0470476571d3703799b8c9aac73a74ed7a0e61ea772fdd6f749a",
+      "byte_identical": true
+    }
+  },
+  "test_sha256": "d482d5eac34ce3542556ba7f954dd5f5da031b718533c93c79d4a31e05bcd74d"
+}
