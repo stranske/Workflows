@@ -1,0 +1,104 @@
+Command: /opt/hostedtoolcache/Python/3.14.7/x64/bin/python3 -m pytest tests/scripts/test_check_deliberate_break_archive.py -vv --tb=short -o addopts= -m not slow -k preserves_executable or external_symlink --junitxml=/home/runner/work/Workflows/Workflows/docs/evidence/issue-3743/archive-boundary/proof-execution/unexecuted-base-RED.xml
+Exit: 1
+============================= test session starts ==============================
+platform linux -- Python 3.14.7, pytest-9.1.1, pluggy-1.6.0 -- /opt/hostedtoolcache/Python/3.14.7/x64/bin/python3
+cachedir: .pytest_cache
+hypothesis profile 'ci' -> database=None, deadline=None, print_blob=True, derandomize=True, suppress_health_check=(HealthCheck.too_slow,)
+rootdir: /home/runner/work/Workflows/Workflows
+configfile: pyproject.toml
+plugins: langsmith-0.14.4, hypothesis-6.168.5, platformdirs-4.12.3, cov-7.1.0, xdist-3.8.0, anyio-4.15.1
+collecting ... collected 8 items / 4 deselected / 4 selected
+
+tests/scripts/test_check_deliberate_break_archive.py::test_real_archive_preserves_executable_proof_mode[root] FAILED [ 25%]
+tests/scripts/test_check_deliberate_break_archive.py::test_real_archive_preserves_executable_proof_mode[template] FAILED [ 50%]
+tests/scripts/test_check_deliberate_break_archive.py::test_real_archive_does_not_materialize_external_symlink[root] FAILED [ 75%]
+tests/scripts/test_check_deliberate_break_archive.py::test_real_archive_does_not_materialize_external_symlink[template] FAILED [100%]
+
+=================================== FAILURES ===================================
+___________ test_real_archive_preserves_executable_proof_mode[root] ____________
+tests/scripts/test_check_deliberate_break_archive.py:73: in test_real_archive_preserves_executable_proof_mode
+    assert executions.read_text().splitlines() == ["head", "base"]
+E   AssertionError: assert ['head'] == ['head', 'base']
+E
+E     Right contains one more item: 'base'
+E
+E     Full diff:
+E       [
+E           'head',
+E     -     'base',
+E       ]
+_________ test_real_archive_preserves_executable_proof_mode[template] __________
+tests/scripts/test_check_deliberate_break_archive.py:73: in test_real_archive_preserves_executable_proof_mode
+    assert executions.read_text().splitlines() == ["head", "base"]
+E   AssertionError: assert ['head'] == ['head', 'base']
+E
+E     Right contains one more item: 'base'
+E
+E     Full diff:
+E       [
+E           'head',
+E     -     'base',
+E       ]
+________ test_real_archive_does_not_materialize_external_symlink[root] _________
+tests/scripts/test_check_deliberate_break_archive.py:119: in test_real_archive_does_not_materialize_external_symlink
+    assert executions.read_text().splitlines() == ["called", "called"]
+E   AssertionError: assert ['called'] == ['called', 'called']
+E
+E     Right contains one more item: 'called'
+E
+E     Full diff:
+E       [
+E           'called',
+E     -     'called',
+E       ]
+______ test_real_archive_does_not_materialize_external_symlink[template] _______
+tests/scripts/test_check_deliberate_break_archive.py:119: in test_real_archive_does_not_materialize_external_symlink
+    assert executions.read_text().splitlines() == ["called", "called"]
+E   AssertionError: assert ['called'] == ['called', 'called']
+E
+E     Right contains one more item: 'called'
+E
+E     Full diff:
+E       [
+E           'called',
+E     -     'called',
+E       ]
+- generated xml file: /home/runner/work/Workflows/Workflows/docs/evidence/issue-3743/archive-boundary/proof-execution/unexecuted-base-RED.xml -
+=========================== short test summary info ============================
+FAILED tests/scripts/test_check_deliberate_break_archive.py::test_real_archive_preserves_executable_proof_mode[root] - AssertionError: assert ['head'] == ['head', 'base']
+
+  Right contains one more item: 'base'
+
+  Full diff:
+    [
+        'head',
+  -     'base',
+    ]
+FAILED tests/scripts/test_check_deliberate_break_archive.py::test_real_archive_preserves_executable_proof_mode[template] - AssertionError: assert ['head'] == ['head', 'base']
+
+  Right contains one more item: 'base'
+
+  Full diff:
+    [
+        'head',
+  -     'base',
+    ]
+FAILED tests/scripts/test_check_deliberate_break_archive.py::test_real_archive_does_not_materialize_external_symlink[root] - AssertionError: assert ['called'] == ['called', 'called']
+
+  Right contains one more item: 'called'
+
+  Full diff:
+    [
+        'called',
+  -     'called',
+    ]
+FAILED tests/scripts/test_check_deliberate_break_archive.py::test_real_archive_does_not_materialize_external_symlink[template] - AssertionError: assert ['called'] == ['called', 'called']
+
+  Right contains one more item: 'called'
+
+  Full diff:
+    [
+        'called',
+  -     'called',
+    ]
+======================= 4 failed, 4 deselected in 4.03s ========================

@@ -1,0 +1,31 @@
+Environment: runner output/summary destinations unset locally; Black serial dispatch adapter on PATH
+
+Command: python3 scripts/validate_template_sync.py
+Exit: 0
+✅ All template files in sync
+
+Command: python3 scripts/validate_template_completeness.py
+Exit: 0
+✅ All consumer workflows are properly templated and manifested
+
+Command: black --line-length 100 tests/scripts/test_check_deliberate_break_archive.py
+Exit: 0
+All done! ✨ 🍰 ✨
+1 file left unchanged.
+
+Command: black --check --line-length 100 scripts/check_deliberate_break.py templates/consumer-repo/scripts/check_deliberate_break.py tests/scripts/test_check_deliberate_break.py tests/scripts/test_check_deliberate_break_archive.py
+Exit: 0
+All done! ✨ 🍰 ✨
+4 files would be left unchanged.
+
+Command: ruff check scripts/check_deliberate_break.py templates/consumer-repo/scripts/check_deliberate_break.py tests/scripts/test_check_deliberate_break.py tests/scripts/test_check_deliberate_break_archive.py
+Exit: 0
+All checks passed!
+
+Command: cmp scripts/check_deliberate_break.py templates/consumer-repo/scripts/check_deliberate_break.py
+Exit: 0
+
+Command: black --check --line-length 100 --exclude (\.workflows-lib|node_modules) .
+Exit: 0
+All done! ✨ 🍰 ✨
+664 files would be left unchanged.

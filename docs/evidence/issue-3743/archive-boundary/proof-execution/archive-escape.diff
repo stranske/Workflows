@@ -1,0 +1,10 @@
+--- scripts/check_deliberate_break.py
++++ scripts/check_deliberate_break.py
+@@ -917 +917 @@
+-                raise ValueError(f"unsafe archive path: {member.name}")
++                pass  # deliberate removal of containment guard
+--- templates/consumer-repo/scripts/check_deliberate_break.py
++++ templates/consumer-repo/scripts/check_deliberate_break.py
+@@ -917 +917 @@
+-                raise ValueError(f"unsafe archive path: {member.name}")
++                pass  # deliberate removal of containment guard

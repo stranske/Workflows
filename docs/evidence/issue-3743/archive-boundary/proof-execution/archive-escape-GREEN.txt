@@ -1,0 +1,18 @@
+Command: /opt/hostedtoolcache/Python/3.14.7/x64/bin/python3 -m pytest tests/scripts/test_check_deliberate_break_archive.py -vv --tb=short -o addopts= -m not slow -k archive_escape --junitxml=/home/runner/work/Workflows/Workflows/docs/evidence/issue-3743/archive-boundary/proof-execution/archive-escape-GREEN.xml
+Exit: 0
+============================= test session starts ==============================
+platform linux -- Python 3.14.7, pytest-9.1.1, pluggy-1.6.0 -- /opt/hostedtoolcache/Python/3.14.7/x64/bin/python3
+cachedir: .pytest_cache
+hypothesis profile 'ci' -> database=None, deadline=None, print_blob=True, derandomize=True, suppress_health_check=(HealthCheck.too_slow,)
+rootdir: /home/runner/work/Workflows/Workflows
+configfile: pyproject.toml
+plugins: langsmith-0.14.4, hypothesis-6.168.5, platformdirs-4.12.3, cov-7.1.0, xdist-3.8.0, anyio-4.15.1
+collecting ... collected 8 items / 4 deselected / 4 selected
+
+tests/scripts/test_check_deliberate_break_archive.py::test_archive_escape_returns_broken_without_overwriting_external_file[root-parent] PASSED [ 25%]
+tests/scripts/test_check_deliberate_break_archive.py::test_archive_escape_returns_broken_without_overwriting_external_file[root-absolute] PASSED [ 50%]
+tests/scripts/test_check_deliberate_break_archive.py::test_archive_escape_returns_broken_without_overwriting_external_file[template-parent] PASSED [ 75%]
+tests/scripts/test_check_deliberate_break_archive.py::test_archive_escape_returns_broken_without_overwriting_external_file[template-absolute] PASSED [100%]
+
+- generated xml file: /home/runner/work/Workflows/Workflows/docs/evidence/issue-3743/archive-boundary/proof-execution/archive-escape-GREEN.xml -
+======================= 4 passed, 4 deselected in 7.67s ========================

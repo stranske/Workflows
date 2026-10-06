@@ -1,0 +1,310 @@
+{
+  "interpreter": "/opt/hostedtoolcache/Python/3.14.7/x64/bin/python3",
+  "runs": {
+    "execute-mode-RED": {
+      "command": [
+        "/opt/hostedtoolcache/Python/3.14.7/x64/bin/python3",
+        "-m",
+        "pytest",
+        "tests/scripts/test_check_deliberate_break_archive.py",
+        "-vv",
+        "--tb=short",
+        "-o",
+        "addopts=",
+        "-m",
+        "not slow",
+        "-k",
+        "preserves_executable",
+        "--junitxml=/home/runner/work/Workflows/Workflows/docs/evidence/issue-3743/archive-boundary/proof-execution/execute-mode-RED.xml"
+      ],
+      "exit": 1,
+      "failed": [
+        "test_real_archive_preserves_executable_proof_mode[root]",
+        "test_real_archive_preserves_executable_proof_mode[template]"
+      ],
+      "passed": []
+    },
+    "execute-mode-GREEN": {
+      "command": [
+        "/opt/hostedtoolcache/Python/3.14.7/x64/bin/python3",
+        "-m",
+        "pytest",
+        "tests/scripts/test_check_deliberate_break_archive.py",
+        "-vv",
+        "--tb=short",
+        "-o",
+        "addopts=",
+        "-m",
+        "not slow",
+        "-k",
+        "preserves_executable",
+        "--junitxml=/home/runner/work/Workflows/Workflows/docs/evidence/issue-3743/archive-boundary/proof-execution/execute-mode-GREEN.xml"
+      ],
+      "exit": 0,
+      "failed": [],
+      "passed": [
+        "test_real_archive_preserves_executable_proof_mode[root]",
+        "test_real_archive_preserves_executable_proof_mode[template]"
+      ]
+    },
+    "external-symlink-RED": {
+      "command": [
+        "/opt/hostedtoolcache/Python/3.14.7/x64/bin/python3",
+        "-m",
+        "pytest",
+        "tests/scripts/test_check_deliberate_break_archive.py",
+        "-vv",
+        "--tb=short",
+        "-o",
+        "addopts=",
+        "-m",
+        "not slow",
+        "-k",
+        "external_symlink",
+        "--junitxml=/home/runner/work/Workflows/Workflows/docs/evidence/issue-3743/archive-boundary/proof-execution/external-symlink-RED.xml"
+      ],
+      "exit": 1,
+      "failed": [
+        "test_real_archive_does_not_materialize_external_symlink[root]",
+        "test_real_archive_does_not_materialize_external_symlink[template]"
+      ],
+      "passed": []
+    },
+    "external-symlink-GREEN": {
+      "command": [
+        "/opt/hostedtoolcache/Python/3.14.7/x64/bin/python3",
+        "-m",
+        "pytest",
+        "tests/scripts/test_check_deliberate_break_archive.py",
+        "-vv",
+        "--tb=short",
+        "-o",
+        "addopts=",
+        "-m",
+        "not slow",
+        "-k",
+        "external_symlink",
+        "--junitxml=/home/runner/work/Workflows/Workflows/docs/evidence/issue-3743/archive-boundary/proof-execution/external-symlink-GREEN.xml"
+      ],
+      "exit": 0,
+      "failed": [],
+      "passed": [
+        "test_real_archive_does_not_materialize_external_symlink[root]",
+        "test_real_archive_does_not_materialize_external_symlink[template]"
+      ]
+    },
+    "archive-escape-RED": {
+      "command": [
+        "/opt/hostedtoolcache/Python/3.14.7/x64/bin/python3",
+        "-m",
+        "pytest",
+        "tests/scripts/test_check_deliberate_break_archive.py",
+        "-vv",
+        "--tb=short",
+        "-o",
+        "addopts=",
+        "-m",
+        "not slow",
+        "-k",
+        "archive_escape",
+        "--junitxml=/home/runner/work/Workflows/Workflows/docs/evidence/issue-3743/archive-boundary/proof-execution/archive-escape-RED.xml"
+      ],
+      "exit": 1,
+      "failed": [
+        "test_archive_escape_returns_broken_without_overwriting_external_file[root-parent]",
+        "test_archive_escape_returns_broken_without_overwriting_external_file[root-absolute]",
+        "test_archive_escape_returns_broken_without_overwriting_external_file[template-parent]",
+        "test_archive_escape_returns_broken_without_overwriting_external_file[template-absolute]"
+      ],
+      "passed": []
+    },
+    "archive-escape-GREEN": {
+      "command": [
+        "/opt/hostedtoolcache/Python/3.14.7/x64/bin/python3",
+        "-m",
+        "pytest",
+        "tests/scripts/test_check_deliberate_break_archive.py",
+        "-vv",
+        "--tb=short",
+        "-o",
+        "addopts=",
+        "-m",
+        "not slow",
+        "-k",
+        "archive_escape",
+        "--junitxml=/home/runner/work/Workflows/Workflows/docs/evidence/issue-3743/archive-boundary/proof-execution/archive-escape-GREEN.xml"
+      ],
+      "exit": 0,
+      "failed": [],
+      "passed": [
+        "test_archive_escape_returns_broken_without_overwriting_external_file[root-parent]",
+        "test_archive_escape_returns_broken_without_overwriting_external_file[root-absolute]",
+        "test_archive_escape_returns_broken_without_overwriting_external_file[template-parent]",
+        "test_archive_escape_returns_broken_without_overwriting_external_file[template-absolute]"
+      ]
+    },
+    "unexecuted-head-RED": {
+      "command": [
+        "/opt/hostedtoolcache/Python/3.14.7/x64/bin/python3",
+        "-m",
+        "pytest",
+        "tests/scripts/test_check_deliberate_break_archive.py",
+        "-vv",
+        "--tb=short",
+        "-o",
+        "addopts=",
+        "-m",
+        "not slow",
+        "-k",
+        "",
+        "--junitxml=/home/runner/work/Workflows/Workflows/docs/evidence/issue-3743/archive-boundary/proof-execution/unexecuted-head-RED.xml"
+      ],
+      "exit": 1,
+      "failed": [
+        "test_real_archive_preserves_executable_proof_mode[root]",
+        "test_real_archive_preserves_executable_proof_mode[template]",
+        "test_real_archive_does_not_materialize_external_symlink[root]",
+        "test_real_archive_does_not_materialize_external_symlink[template]",
+        "test_archive_escape_returns_broken_without_overwriting_external_file[root-parent]",
+        "test_archive_escape_returns_broken_without_overwriting_external_file[root-absolute]",
+        "test_archive_escape_returns_broken_without_overwriting_external_file[template-parent]",
+        "test_archive_escape_returns_broken_without_overwriting_external_file[template-absolute]"
+      ],
+      "passed": []
+    },
+    "unexecuted-head-GREEN": {
+      "command": [
+        "/opt/hostedtoolcache/Python/3.14.7/x64/bin/python3",
+        "-m",
+        "pytest",
+        "tests/scripts/test_check_deliberate_break_archive.py",
+        "-vv",
+        "--tb=short",
+        "-o",
+        "addopts=",
+        "-m",
+        "not slow",
+        "-k",
+        "",
+        "--junitxml=/home/runner/work/Workflows/Workflows/docs/evidence/issue-3743/archive-boundary/proof-execution/unexecuted-head-GREEN.xml"
+      ],
+      "exit": 0,
+      "failed": [],
+      "passed": [
+        "test_real_archive_preserves_executable_proof_mode[root]",
+        "test_real_archive_preserves_executable_proof_mode[template]",
+        "test_real_archive_does_not_materialize_external_symlink[root]",
+        "test_real_archive_does_not_materialize_external_symlink[template]",
+        "test_archive_escape_returns_broken_without_overwriting_external_file[root-parent]",
+        "test_archive_escape_returns_broken_without_overwriting_external_file[root-absolute]",
+        "test_archive_escape_returns_broken_without_overwriting_external_file[template-parent]",
+        "test_archive_escape_returns_broken_without_overwriting_external_file[template-absolute]"
+      ]
+    },
+    "unexecuted-base-RED": {
+      "command": [
+        "/opt/hostedtoolcache/Python/3.14.7/x64/bin/python3",
+        "-m",
+        "pytest",
+        "tests/scripts/test_check_deliberate_break_archive.py",
+        "-vv",
+        "--tb=short",
+        "-o",
+        "addopts=",
+        "-m",
+        "not slow",
+        "-k",
+        "preserves_executable or external_symlink",
+        "--junitxml=/home/runner/work/Workflows/Workflows/docs/evidence/issue-3743/archive-boundary/proof-execution/unexecuted-base-RED.xml"
+      ],
+      "exit": 1,
+      "failed": [
+        "test_real_archive_preserves_executable_proof_mode[root]",
+        "test_real_archive_preserves_executable_proof_mode[template]",
+        "test_real_archive_does_not_materialize_external_symlink[root]",
+        "test_real_archive_does_not_materialize_external_symlink[template]"
+      ],
+      "passed": []
+    },
+    "unexecuted-base-GREEN": {
+      "command": [
+        "/opt/hostedtoolcache/Python/3.14.7/x64/bin/python3",
+        "-m",
+        "pytest",
+        "tests/scripts/test_check_deliberate_break_archive.py",
+        "-vv",
+        "--tb=short",
+        "-o",
+        "addopts=",
+        "-m",
+        "not slow",
+        "-k",
+        "preserves_executable or external_symlink",
+        "--junitxml=/home/runner/work/Workflows/Workflows/docs/evidence/issue-3743/archive-boundary/proof-execution/unexecuted-base-GREEN.xml"
+      ],
+      "exit": 0,
+      "failed": [],
+      "passed": [
+        "test_real_archive_preserves_executable_proof_mode[root]",
+        "test_real_archive_preserves_executable_proof_mode[template]",
+        "test_real_archive_does_not_materialize_external_symlink[root]",
+        "test_real_archive_does_not_materialize_external_symlink[template]"
+      ]
+    }
+  },
+  "mutations": {
+    "execute-mode": {
+      "before": "resolved.chmod(member.mode & 0o777)",
+      "after": "resolved.chmod(0o600)",
+      "restored_sha256": {
+        "scripts/check_deliberate_break.py": "5e90a2c58fea8fe906f538f829c4a929cdc2fc5bb3a2d21fcb61c4fb23bec9ca",
+        "templates/consumer-repo/scripts/check_deliberate_break.py": "5e90a2c58fea8fe906f538f829c4a929cdc2fc5bb3a2d21fcb61c4fb23bec9ca"
+      }
+    },
+    "external-symlink": {
+      "before": "if not member.isfile():",
+      "after": "if not (member.isfile() or member.issym()):",
+      "restored_sha256": {
+        "scripts/check_deliberate_break.py": "5e90a2c58fea8fe906f538f829c4a929cdc2fc5bb3a2d21fcb61c4fb23bec9ca",
+        "templates/consumer-repo/scripts/check_deliberate_break.py": "5e90a2c58fea8fe906f538f829c4a929cdc2fc5bb3a2d21fcb61c4fb23bec9ca"
+      }
+    },
+    "archive-escape": {
+      "before": "raise ValueError(f\"unsafe archive path: {member.name}\")",
+      "after": "pass  # deliberate removal of containment guard",
+      "restored_sha256": {
+        "scripts/check_deliberate_break.py": "5e90a2c58fea8fe906f538f829c4a929cdc2fc5bb3a2d21fcb61c4fb23bec9ca",
+        "templates/consumer-repo/scripts/check_deliberate_break.py": "5e90a2c58fea8fe906f538f829c4a929cdc2fc5bb3a2d21fcb61c4fb23bec9ca"
+      }
+    },
+    "unexecuted-head": {
+      "before": "head_run = _run_with_runtime_deps(spec.command, repo)",
+      "after": "head_run = subprocess.CompletedProcess(spec.command, 0, \"\", \"\")",
+      "restored_sha256": {
+        "scripts/check_deliberate_break.py": "5e90a2c58fea8fe906f538f829c4a929cdc2fc5bb3a2d21fcb61c4fb23bec9ca",
+        "templates/consumer-repo/scripts/check_deliberate_break.py": "5e90a2c58fea8fe906f538f829c4a929cdc2fc5bb3a2d21fcb61c4fb23bec9ca"
+      }
+    },
+    "unexecuted-base": {
+      "before": "base_run = _run_with_runtime_deps(spec.command, base_dir)",
+      "after": "base_run = subprocess.CompletedProcess(spec.command, 1, \"archive-proof-base\\nregular-base\", \"\")",
+      "restored_sha256": {
+        "scripts/check_deliberate_break.py": "5e90a2c58fea8fe906f538f829c4a929cdc2fc5bb3a2d21fcb61c4fb23bec9ca",
+        "templates/consumer-repo/scripts/check_deliberate_break.py": "5e90a2c58fea8fe906f538f829c4a929cdc2fc5bb3a2d21fcb61c4fb23bec9ca"
+      }
+    }
+  },
+  "sources": {
+    "scripts/check_deliberate_break.py": {
+      "before_sha256": "5e90a2c58fea8fe906f538f829c4a929cdc2fc5bb3a2d21fcb61c4fb23bec9ca",
+      "after_sha256": "5e90a2c58fea8fe906f538f829c4a929cdc2fc5bb3a2d21fcb61c4fb23bec9ca",
+      "byte_identical": true
+    },
+    "templates/consumer-repo/scripts/check_deliberate_break.py": {
+      "before_sha256": "5e90a2c58fea8fe906f538f829c4a929cdc2fc5bb3a2d21fcb61c4fb23bec9ca",
+      "after_sha256": "5e90a2c58fea8fe906f538f829c4a929cdc2fc5bb3a2d21fcb61c4fb23bec9ca",
+      "byte_identical": true
+    }
+  },
+  "test_sha256": "b6387a191078d8d33d4efefecc8ec7256ddf4901e7901187f764a7f0f983b5db"
+}

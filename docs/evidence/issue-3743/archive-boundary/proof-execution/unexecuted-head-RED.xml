@@ -1,0 +1,79 @@
+<?xml version="1.0" encoding="utf-8"?><testsuites name="pytest tests"><testsuite name="pytest" errors="0" failures="8" skipped="0" tests="8" time="4.447" timestamp="2026-10-06T17:22:05.859630+00:00" hostname="runnervm8df0l"><testcase classname="tests.scripts.test_check_deliberate_break_archive" name="test_real_archive_preserves_executable_proof_mode[root]" time="0.036"><failure message="AssertionError: assert ['base'] == ['head', 'base']&#10;  &#10;  At index 0 diff: 'base' != 'head'&#10;  Right contains one more item: 'base'&#10;  &#10;  Full diff:&#10;    [&#10;  -     'head',&#10;        'base',&#10;    ]">tests/scripts/test_check_deliberate_break_archive.py:73: in test_real_archive_preserves_executable_proof_mode
+    assert executions.read_text().splitlines() == ["head", "base"]
+E   AssertionError: assert ['base'] == ['head', 'base']
+E
+E     At index 0 diff: 'base' != 'head'
+E     Right contains one more item: 'base'
+E
+E     Full diff:
+E       [
+E     -     'head',
+E           'base',
+E       ]</failure></testcase><testcase classname="tests.scripts.test_check_deliberate_break_archive" name="test_real_archive_preserves_executable_proof_mode[template]" time="0.030"><failure message="AssertionError: assert ['base'] == ['head', 'base']&#10;  &#10;  At index 0 diff: 'base' != 'head'&#10;  Right contains one more item: 'base'&#10;  &#10;  Full diff:&#10;    [&#10;  -     'head',&#10;        'base',&#10;    ]">tests/scripts/test_check_deliberate_break_archive.py:73: in test_real_archive_preserves_executable_proof_mode
+    assert executions.read_text().splitlines() == ["head", "base"]
+E   AssertionError: assert ['base'] == ['head', 'base']
+E
+E     At index 0 diff: 'base' != 'head'
+E     Right contains one more item: 'base'
+E
+E     Full diff:
+E       [
+E     -     'head',
+E           'base',
+E       ]</failure></testcase><testcase classname="tests.scripts.test_check_deliberate_break_archive" name="test_real_archive_does_not_materialize_external_symlink[root]" time="1.823"><failure message="AssertionError: assert ['called'] == ['called', 'called']&#10;  &#10;  Right contains one more item: 'called'&#10;  &#10;  Full diff:&#10;    [&#10;        'called',&#10;  -     'called',&#10;    ]">tests/scripts/test_check_deliberate_break_archive.py:119: in test_real_archive_does_not_materialize_external_symlink
+    assert executions.read_text().splitlines() == ["called", "called"]
+E   AssertionError: assert ['called'] == ['called', 'called']
+E
+E     Right contains one more item: 'called'
+E
+E     Full diff:
+E       [
+E           'called',
+E     -     'called',
+E       ]</failure></testcase><testcase classname="tests.scripts.test_check_deliberate_break_archive" name="test_real_archive_does_not_materialize_external_symlink[template]" time="1.787"><failure message="AssertionError: assert ['called'] == ['called', 'called']&#10;  &#10;  Right contains one more item: 'called'&#10;  &#10;  Full diff:&#10;    [&#10;        'called',&#10;  -     'called',&#10;    ]">tests/scripts/test_check_deliberate_break_archive.py:119: in test_real_archive_does_not_materialize_external_symlink
+    assert executions.read_text().splitlines() == ["called", "called"]
+E   AssertionError: assert ['called'] == ['called', 'called']
+E
+E     Right contains one more item: 'called'
+E
+E     Full diff:
+E       [
+E           'called',
+E     -     'called',
+E       ]</failure></testcase><testcase classname="tests.scripts.test_check_deliberate_break_archive" name="test_archive_escape_returns_broken_without_overwriting_external_file[root-parent]" time="0.028"><failure message="FileNotFoundError: [Errno 2] No such file or directory: '/tmp/pytest-of-runner/pytest-8/test_archive_escape_returns_br0/test-executions.txt'">tests/scripts/test_check_deliberate_break_archive.py:187: in test_archive_escape_returns_broken_without_overwriting_external_file
+    assert executions.read_text().splitlines() == ["1"]
+           ^^^^^^^^^^^^^^^^^^^^^^
+/opt/hostedtoolcache/Python/3.14.7/x64/lib/python3.14/pathlib/__init__.py:787: in read_text
+    with self.open(mode='r', encoding=encoding, errors=errors, newline=newline) as f:
+         ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+/opt/hostedtoolcache/Python/3.14.7/x64/lib/python3.14/pathlib/__init__.py:771: in open
+    return io.open(self, mode, buffering, encoding, errors, newline)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+E   FileNotFoundError: [Errno 2] No such file or directory: '/tmp/pytest-of-runner/pytest-8/test_archive_escape_returns_br0/test-executions.txt'</failure></testcase><testcase classname="tests.scripts.test_check_deliberate_break_archive" name="test_archive_escape_returns_broken_without_overwriting_external_file[root-absolute]" time="0.025"><failure message="FileNotFoundError: [Errno 2] No such file or directory: '/tmp/pytest-of-runner/pytest-8/test_archive_escape_returns_br1/test-executions.txt'">tests/scripts/test_check_deliberate_break_archive.py:187: in test_archive_escape_returns_broken_without_overwriting_external_file
+    assert executions.read_text().splitlines() == ["1"]
+           ^^^^^^^^^^^^^^^^^^^^^^
+/opt/hostedtoolcache/Python/3.14.7/x64/lib/python3.14/pathlib/__init__.py:787: in read_text
+    with self.open(mode='r', encoding=encoding, errors=errors, newline=newline) as f:
+         ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+/opt/hostedtoolcache/Python/3.14.7/x64/lib/python3.14/pathlib/__init__.py:771: in open
+    return io.open(self, mode, buffering, encoding, errors, newline)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+E   FileNotFoundError: [Errno 2] No such file or directory: '/tmp/pytest-of-runner/pytest-8/test_archive_escape_returns_br1/test-executions.txt'</failure></testcase><testcase classname="tests.scripts.test_check_deliberate_break_archive" name="test_archive_escape_returns_broken_without_overwriting_external_file[template-parent]" time="0.025"><failure message="FileNotFoundError: [Errno 2] No such file or directory: '/tmp/pytest-of-runner/pytest-8/test_archive_escape_returns_br2/test-executions.txt'">tests/scripts/test_check_deliberate_break_archive.py:187: in test_archive_escape_returns_broken_without_overwriting_external_file
+    assert executions.read_text().splitlines() == ["1"]
+           ^^^^^^^^^^^^^^^^^^^^^^
+/opt/hostedtoolcache/Python/3.14.7/x64/lib/python3.14/pathlib/__init__.py:787: in read_text
+    with self.open(mode='r', encoding=encoding, errors=errors, newline=newline) as f:
+         ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+/opt/hostedtoolcache/Python/3.14.7/x64/lib/python3.14/pathlib/__init__.py:771: in open
+    return io.open(self, mode, buffering, encoding, errors, newline)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+E   FileNotFoundError: [Errno 2] No such file or directory: '/tmp/pytest-of-runner/pytest-8/test_archive_escape_returns_br2/test-executions.txt'</failure></testcase><testcase classname="tests.scripts.test_check_deliberate_break_archive" name="test_archive_escape_returns_broken_without_overwriting_external_file[template-absolute]" time="0.025"><failure message="FileNotFoundError: [Errno 2] No such file or directory: '/tmp/pytest-of-runner/pytest-8/test_archive_escape_returns_br3/test-executions.txt'">tests/scripts/test_check_deliberate_break_archive.py:187: in test_archive_escape_returns_broken_without_overwriting_external_file
+    assert executions.read_text().splitlines() == ["1"]
+           ^^^^^^^^^^^^^^^^^^^^^^
+/opt/hostedtoolcache/Python/3.14.7/x64/lib/python3.14/pathlib/__init__.py:787: in read_text
+    with self.open(mode='r', encoding=encoding, errors=errors, newline=newline) as f:
+         ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+/opt/hostedtoolcache/Python/3.14.7/x64/lib/python3.14/pathlib/__init__.py:771: in open
+    return io.open(self, mode, buffering, encoding, errors, newline)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+E   FileNotFoundError: [Errno 2] No such file or directory: '/tmp/pytest-of-runner/pytest-8/test_archive_escape_returns_br3/test-executions.txt'</failure></testcase></testsuite></testsuites>

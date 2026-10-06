@@ -1,5 +1,10 @@
 # Archived-base filesystem proof
 
+The [proof-execution follow-up](proof-execution/README.md) strengthens these same
+eight cases with real head/base commands and independent execution records.
+Its Linux validation and mutation captures supplement the initial macOS evidence
+below; they do not replace it.
+
 This test-only #3743 chunk protects executable proof scripts, omitted external
 symlinks, and rejection of parent/absolute tar paths. The latter cases assert
 both an unchanged external file and structured `FAIL_BROKEN` rather than valid

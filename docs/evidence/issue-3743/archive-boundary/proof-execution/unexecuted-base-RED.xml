@@ -1,0 +1,41 @@
+<?xml version="1.0" encoding="utf-8"?><testsuites name="pytest tests"><testsuite name="pytest" errors="0" failures="4" skipped="0" tests="4" time="4.013" timestamp="2026-10-06T17:22:27.263469+00:00" hostname="runnervm8df0l"><testcase classname="tests.scripts.test_check_deliberate_break_archive" name="test_real_archive_preserves_executable_proof_mode[root]" time="0.035"><failure message="AssertionError: assert ['head'] == ['head', 'base']&#10;  &#10;  Right contains one more item: 'base'&#10;  &#10;  Full diff:&#10;    [&#10;        'head',&#10;  -     'base',&#10;    ]">tests/scripts/test_check_deliberate_break_archive.py:73: in test_real_archive_preserves_executable_proof_mode
+    assert executions.read_text().splitlines() == ["head", "base"]
+E   AssertionError: assert ['head'] == ['head', 'base']
+E
+E     Right contains one more item: 'base'
+E
+E     Full diff:
+E       [
+E           'head',
+E     -     'base',
+E       ]</failure></testcase><testcase classname="tests.scripts.test_check_deliberate_break_archive" name="test_real_archive_preserves_executable_proof_mode[template]" time="0.030"><failure message="AssertionError: assert ['head'] == ['head', 'base']&#10;  &#10;  Right contains one more item: 'base'&#10;  &#10;  Full diff:&#10;    [&#10;        'head',&#10;  -     'base',&#10;    ]">tests/scripts/test_check_deliberate_break_archive.py:73: in test_real_archive_preserves_executable_proof_mode
+    assert executions.read_text().splitlines() == ["head", "base"]
+E   AssertionError: assert ['head'] == ['head', 'base']
+E
+E     Right contains one more item: 'base'
+E
+E     Full diff:
+E       [
+E           'head',
+E     -     'base',
+E       ]</failure></testcase><testcase classname="tests.scripts.test_check_deliberate_break_archive" name="test_real_archive_does_not_materialize_external_symlink[root]" time="1.690"><failure message="AssertionError: assert ['called'] == ['called', 'called']&#10;  &#10;  Right contains one more item: 'called'&#10;  &#10;  Full diff:&#10;    [&#10;        'called',&#10;  -     'called',&#10;    ]">tests/scripts/test_check_deliberate_break_archive.py:119: in test_real_archive_does_not_materialize_external_symlink
+    assert executions.read_text().splitlines() == ["called", "called"]
+E   AssertionError: assert ['called'] == ['called', 'called']
+E
+E     Right contains one more item: 'called'
+E
+E     Full diff:
+E       [
+E           'called',
+E     -     'called',
+E       ]</failure></testcase><testcase classname="tests.scripts.test_check_deliberate_break_archive" name="test_real_archive_does_not_materialize_external_symlink[template]" time="1.682"><failure message="AssertionError: assert ['called'] == ['called', 'called']&#10;  &#10;  Right contains one more item: 'called'&#10;  &#10;  Full diff:&#10;    [&#10;        'called',&#10;  -     'called',&#10;    ]">tests/scripts/test_check_deliberate_break_archive.py:119: in test_real_archive_does_not_materialize_external_symlink
+    assert executions.read_text().splitlines() == ["called", "called"]
+E   AssertionError: assert ['called'] == ['called', 'called']
+E
+E     Right contains one more item: 'called'
+E
+E     Full diff:
+E       [
+E           'called',
+E     -     'called',
+E       ]</failure></testcase></testsuite></testsuites>

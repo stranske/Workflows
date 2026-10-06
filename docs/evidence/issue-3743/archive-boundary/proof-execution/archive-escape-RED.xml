@@ -1,0 +1,33 @@
+<?xml version="1.0" encoding="utf-8"?><testsuites name="pytest tests"><testsuite name="pytest" errors="0" failures="4" skipped="0" tests="4" time="14.617" timestamp="2026-10-06T17:21:41.119894+00:00" hostname="runnervm8df0l"><testcase classname="tests.scripts.test_check_deliberate_break_archive" name="test_archive_escape_returns_broken_without_overwriting_external_file[root-parent]" time="3.538"><failure message="AssertionError: assert b'overwritten-by-archive' == b'external-original'&#10;  &#10;  At index 0 diff: b'o' != b'e'&#10;  &#10;  Full diff:&#10;  - (b'external-original')&#10;  + (b'overwritten-by-archive')">tests/scripts/test_check_deliberate_break_archive.py:186: in test_archive_escape_returns_broken_without_overwriting_external_file
+    assert victim.read_bytes() == original
+E   AssertionError: assert b'overwritten-by-archive' == b'external-original'
+E
+E     At index 0 diff: b'o' != b'e'
+E
+E     Full diff:
+E     - (b'external-original')
+E     + (b'overwritten-by-archive')</failure></testcase><testcase classname="tests.scripts.test_check_deliberate_break_archive" name="test_archive_escape_returns_broken_without_overwriting_external_file[root-absolute]" time="3.512"><failure message="AssertionError: assert b'overwritten-by-archive' == b'external-original'&#10;  &#10;  At index 0 diff: b'o' != b'e'&#10;  &#10;  Full diff:&#10;  - (b'external-original')&#10;  + (b'overwritten-by-archive')">tests/scripts/test_check_deliberate_break_archive.py:186: in test_archive_escape_returns_broken_without_overwriting_external_file
+    assert victim.read_bytes() == original
+E   AssertionError: assert b'overwritten-by-archive' == b'external-original'
+E
+E     At index 0 diff: b'o' != b'e'
+E
+E     Full diff:
+E     - (b'external-original')
+E     + (b'overwritten-by-archive')</failure></testcase><testcase classname="tests.scripts.test_check_deliberate_break_archive" name="test_archive_escape_returns_broken_without_overwriting_external_file[template-parent]" time="3.484"><failure message="AssertionError: assert b'overwritten-by-archive' == b'external-original'&#10;  &#10;  At index 0 diff: b'o' != b'e'&#10;  &#10;  Full diff:&#10;  - (b'external-original')&#10;  + (b'overwritten-by-archive')">tests/scripts/test_check_deliberate_break_archive.py:186: in test_archive_escape_returns_broken_without_overwriting_external_file
+    assert victim.read_bytes() == original
+E   AssertionError: assert b'overwritten-by-archive' == b'external-original'
+E
+E     At index 0 diff: b'o' != b'e'
+E
+E     Full diff:
+E     - (b'external-original')
+E     + (b'overwritten-by-archive')</failure></testcase><testcase classname="tests.scripts.test_check_deliberate_break_archive" name="test_archive_escape_returns_broken_without_overwriting_external_file[template-absolute]" time="3.505"><failure message="AssertionError: assert b'overwritten-by-archive' == b'external-original'&#10;  &#10;  At index 0 diff: b'o' != b'e'&#10;  &#10;  Full diff:&#10;  - (b'external-original')&#10;  + (b'overwritten-by-archive')">tests/scripts/test_check_deliberate_break_archive.py:186: in test_archive_escape_returns_broken_without_overwriting_external_file
+    assert victim.read_bytes() == original
+E   AssertionError: assert b'overwritten-by-archive' == b'external-original'
+E
+E     At index 0 diff: b'o' != b'e'
+E
+E     Full diff:
+E     - (b'external-original')
+E     + (b'overwritten-by-archive')</failure></testcase></testsuite></testsuites>

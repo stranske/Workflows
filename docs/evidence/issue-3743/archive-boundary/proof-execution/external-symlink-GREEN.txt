@@ -1,0 +1,16 @@
+Command: /opt/hostedtoolcache/Python/3.14.7/x64/bin/python3 -m pytest tests/scripts/test_check_deliberate_break_archive.py -vv --tb=short -o addopts= -m not slow -k external_symlink --junitxml=/home/runner/work/Workflows/Workflows/docs/evidence/issue-3743/archive-boundary/proof-execution/external-symlink-GREEN.xml
+Exit: 0
+============================= test session starts ==============================
+platform linux -- Python 3.14.7, pytest-9.1.1, pluggy-1.6.0 -- /opt/hostedtoolcache/Python/3.14.7/x64/bin/python3
+cachedir: .pytest_cache
+hypothesis profile 'ci' -> database=None, deadline=None, print_blob=True, derandomize=True, suppress_health_check=(HealthCheck.too_slow,)
+rootdir: /home/runner/work/Workflows/Workflows
+configfile: pyproject.toml
+plugins: langsmith-0.14.4, hypothesis-6.168.5, platformdirs-4.12.3, cov-7.1.0, xdist-3.8.0, anyio-4.15.1
+collecting ... collected 8 items / 6 deselected / 2 selected
+
+tests/scripts/test_check_deliberate_break_archive.py::test_real_archive_does_not_materialize_external_symlink[root] PASSED [ 50%]
+tests/scripts/test_check_deliberate_break_archive.py::test_real_archive_does_not_materialize_external_symlink[template] PASSED [100%]
+
+- generated xml file: /home/runner/work/Workflows/Workflows/docs/evidence/issue-3743/archive-boundary/proof-execution/external-symlink-GREEN.xml -
+======================= 2 passed, 6 deselected in 7.52s ========================
