@@ -365,15 +365,16 @@ def test_finite_aspect_additive_contrast_preserves_both_channels(
 @pytest.mark.parametrize("participle", ["recorded", "supplied", "proved"])
 @pytest.mark.parametrize("destination", ["the PR body", "a PR comment", "workflow artifacts"])
 @pytest.mark.parametrize("positive_first", [True, False])
+@pytest.mark.parametrize("marker", ["", "- [ ] ", "- [x] ", "* [ ] ", "- "])
 def test_negative_active_perfect_governor_preserves_independent_delivery(
-    governor, participle, destination, positive_first
+    governor, participle, destination, positive_first, marker
 ):
     """Active perfect actions retain their negative requirement governor."""
     negative = f"The reviewer {governor} have {participle} evidence in {destination}"
-    assert verifier._required_evidence_channels(negative) == set()
+    assert verifier._required_evidence_channels(marker + negative) == set()
     positive = "The maintainer must record evidence in the PR body"
     criterion = positive + "; " + negative if positive_first else negative + "; " + positive
-    assert verifier._required_evidence_channels(criterion) == {"body"}
+    assert verifier._required_evidence_channels(marker + criterion) == {"body"}
 
 
 @pytest.mark.parametrize(
@@ -387,12 +388,13 @@ def test_negative_active_perfect_governor_preserves_independent_delivery(
     "second_destination,second_channel",
     [("the PR body", "body"), ("a PR comment", "comments"), ("workflow artifacts", "artifacts")],
 )
+@pytest.mark.parametrize("marker", ["", "- [ ] ", "- [x] ", "* [ ] ", "- "])
 def test_negative_passive_coordination_respects_contrast(
-    governor, participle, boundary, first_destination, second_destination, second_channel
+    governor, participle, boundary, first_destination, second_destination, second_channel, marker
 ):
     criterion = f"Command output {governor} be {participle} in {first_destination} {boundary} be posted in {second_destination}"
     expected = {second_channel} if boundary == "but" else set()
-    assert verifier._required_evidence_channels(criterion) == expected
+    assert verifier._required_evidence_channels(marker + criterion) == expected
 
 
 @pytest.mark.parametrize("contrast", ["only", "merely", "just"])
@@ -1537,6 +1539,38 @@ def test_fresh_canary_findings_control_actual_coverage_floor(criterion, channel,
         verifier.prompt_coverage(context, None),
     )
     assert result.verdict == ("CONCERNS" if channel and status != "present" else "PASS")
+
+
+@pytest.mark.parametrize("prefix", ["", "- [ ] "])
+@pytest.mark.parametrize(
+    "criterion",
+    [
+        "The reviewer is not required to have supplied evidence in workflow artifacts",
+        "Command output must not be recorded in the PR body and be posted in workflow artifacts",
+    ],
+)
+@pytest.mark.parametrize("positive", ["", "; The maintainer must record evidence in the PR body"])
+@pytest.mark.parametrize("body_status", ["present", "absent", "unavailable"])
+def test_negative_checklist_does_not_regain_actual_evidence_floor(
+    prefix, criterion, positive, body_status
+):
+    spec = importlib.util.spec_from_file_location(
+        "negative_checklist_floor", Path(__file__).with_name("test_pr_verifier_prompt_coverage.py")
+    )
+    fixture = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(fixture)
+    context, _ = fixture._context(1, 1000, 1000)
+    context = context.replace(
+        "- " + fixture.ACCEPTANCE_SENTINEL, prefix + criterion + positive
+    ).replace(
+        "## PR Diff Summary",
+        f"## Acceptance evidence\n\n- Overall retrieval status: **absent**\n- PR body: **{body_status}**\n- PR comments: **present**\n- Referenced workflow artifacts: **absent**\n\n## PR Diff Summary",
+    )
+    result = verifier._apply_coverage_floor(
+        verifier.EvaluationResult(verdict="PASS", used_llm=True),
+        verifier.prompt_coverage(context, None),
+    )
+    assert result.verdict == ("CONCERNS" if positive and body_status != "present" else "PASS")
 
 
 @pytest.mark.parametrize("prefix", ["", "- [ ] "])

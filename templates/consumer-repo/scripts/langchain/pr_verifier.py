@@ -2584,6 +2584,10 @@ def _required_evidence_channels(acceptance: str, *, _bind_attached: bool = True)
                     continue
             checklist_deliverable = bool(
                 checklist
+                # Removing a complete negative action leaves its object nouns.
+                # A checkbox cannot turn those residual nouns into an obligation.
+                # Explicit positive predicates and body records still gate below.
+                and (gate or not evidence_prohibition.search(working_line))
                 and evidence_term.search(requirement_text)
                 and not re.match(r"^\s*[-*]\s*\[[ xX]\]\s*no\s", requirement_text, re.I)
             )

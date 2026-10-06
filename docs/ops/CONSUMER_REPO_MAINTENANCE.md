@@ -1378,6 +1378,9 @@ optional/negative governors remain optional/negative, and a new actor or product
 storage predicate cannot supply that inheritance.
 An explicit contrastive but boundary retains the inherited modality but does not
 copy its negation to the contrasting delivery; and/or retain the negative governor.
+Checklist syntax cannot reclassify object nouns left by a recognized negative
+delivery as mandatory evidence. Explicit independent positive predicates and
+required body records remain authoritative, including their real evidence floor.
 Comment presence/containment predicates share the complete mandatory auxiliary
 grammar, including `has/have to`, with existing polarity controls.
 Do-supported product storage (`do`, `does`, `did`) shares the finite auxiliary
