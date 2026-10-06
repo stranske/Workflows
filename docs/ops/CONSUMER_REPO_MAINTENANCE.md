@@ -1362,6 +1362,7 @@ progressive supplying retains be-family governors, while supplied retains perfec
 governors. Bounded optional inspect/review/check-whether clauses about product
 possession of supply evidence are nongating across review destinations and checklist
 markers, including shared bounded adverbs before and after has/have/had;
+bounded possession modifiers also retain not/never/no-longer polarity there;
 independently required reviewer deliveries remain authoritative.
 Delivery prohibitions reuse the shared governor and operation vocabulary,
 including do/does/did and prove, with not/never/no-longer polarity. A required

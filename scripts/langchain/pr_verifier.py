@@ -995,6 +995,7 @@ def _required_evidence_channels(acceptance: str, *, _bind_attached: bool = True)
     )
     delivery_adverb = r"(?:also|now|still|already|yet|[\w-]+ly)"
     delivery_adverbs = r"(?:" + delivery_adverb + r"\s+){0,3}"
+    possession_modifiers = r"(?:(?:not|never|no\s+longer|" + delivery_adverb + r")\s+){0,3}"
     passive_delivery_prefix = (
         r"(?:be|been|being|have\s+" + delivery_adverbs + r"been)"
         r"(?:\s+" + delivery_adverbs + r"being)?\s+"
@@ -2524,9 +2525,9 @@ def _required_evidence_channels(acceptance: str, *, _bind_attached: bool = True)
                 + r"(?:inspect|review|check)\s+whether\s+"
                 + product_actor
                 + r"\s+"
-                + delivery_adverbs
+                + possession_modifiers
                 + r"(?:has|have|had)\s+"
-                + delivery_adverbs
+                + possession_modifiers
                 + r"(?:supply|supplies)\s+"
                 + evidence_modifiers
                 + r"(?:evidence|artifacts?|transcripts?|command outputs?)\s+"

@@ -26,6 +26,11 @@ from scripts.langchain import pr_verifier as verifier
         ("", "currently "),
         ("already ", "still "),
         ("still already currently ", "now still already "),
+        ("no longer ", ""),
+        ("never ", ""),
+        ("", "not "),
+        ("already no longer ", "currently "),
+        ("still ", "no longer already "),
     ],
 )
 def test_possession_auxiliary_cannot_make_supply_noun_a_delivery(
@@ -1627,6 +1632,9 @@ def test_fresh_canary_findings_control_actual_coverage_floor(criterion, channel,
         "The reviewer may inspect whether the API already has supply evidence in workflow artifacts",
         "The reviewer may inspect whether the API have currently supplies evidence in workflow artifacts",
         "The reviewer may inspect whether the API still had already supply evidence in workflow artifacts",
+        "The reviewer may inspect whether the API no longer has supply evidence in workflow artifacts",
+        "The reviewer may inspect whether the API never had supply evidence in workflow artifacts",
+        "The reviewer may inspect whether the API has not supply evidence in workflow artifacts",
         "Command output must not be recorded in the PR body and be posted in workflow artifacts",
     ],
 )
