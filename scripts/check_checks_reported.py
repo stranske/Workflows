@@ -907,9 +907,7 @@ def adjudicate(
     verdict = (
         "FAIL"
         if missing or failures or startup
-        else "UNKNOWN"
-        if unknown or not expected
-        else "PASS"
+        else "UNKNOWN" if unknown or not expected else "PASS"
     )
     return {
         "verdict": verdict,
