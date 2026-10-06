@@ -1,0 +1,26 @@
+{
+  "base": "4a270d7f08aa303e342fdc89ebcf5d540f0ec646",
+  "captured_at": "2026-10-06T18:08:18.409819+00:00",
+  "fixture_origin": "GitHub PR3787 exact current body/title/head retrieved with gh pr view; origin identity around fixtures is synthetic",
+  "fixture_sha256": "be195d6a304d9b996119aa50dfaa084834d06ce424702cb55f6e7f95965aa21d",
+  "source_sha256": {
+    ".github/scripts/source_context.js": "afe13b294611cb3514552fd83438646d495891e82f2c773f2c60bb9c0e5197c9",
+    "templates/consumer-repo/.github/scripts/source_context.js": "afe13b294611cb3514552fd83438646d495891e82f2c773f2c60bb9c0e5197c9"
+  },
+  "evidence_sha256": {
+    "mutation-receipt.json": "290653ac775f8f44547d0328c66e9918532fc3b57712a88e091adfe60b2b95af",
+    "mutation-template-only-RED.txt": "f6a94c31f85c2d8c72b0607b3c971152eb1a6c914506e445d8bb816a224ed6cc",
+    "all-js-tests.txt": "071333d78d4af3581cbffab34ba802fe12d08b41f67fa1f929ad19b4ece04385",
+    "mutation-root-only-RED.txt": "95d06398542285076b097412456dd2bba7f838e97b54045ab44eb47c50f8ceff",
+    "template-sync.txt": "e00bc56a4eb4ab5ca9c721c61262b90d9d55e74187fec23e1144d500af0fcc6b",
+    "mutation-template-only-GREEN.txt": "1f07f2b40a1aabfa4c23875f9a94ce123253e97ea648f449d79f80e96f113d79",
+    "mutation-root-only-GREEN.txt": "9bb627b667ac5672ce80db3134cb3e089ba22eea0c70756e56f3c8bc00cdc303",
+    "template-completeness.txt": "571919c147488c55064046a0c64cf3a5919172b39a3d890dbad258b6d65c1018",
+    "local-verify-transcript.txt": "6b45ff785c1ed4415fa39fc69d517927a6eadf94e18dea677e4421f05c14a31c"
+  },
+  "limitations": [
+    "Unit builder uses synthetic transport and a synthetic trusted release origin around exact production body/title/branch.",
+    "local_verify command-level attribution only; JavaScript per-node attribution unsupported. Independent root-only/template-only mutation failures are captured.",
+    "No installed consumer sync or production comparison PASS claimed. Original3769/3787 NON_PASS results retained."
+  ]
+}

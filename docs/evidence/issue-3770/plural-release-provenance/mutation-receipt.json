@@ -1,0 +1,28 @@
+[
+  {
+    "mutation": "root-only",
+    "red_exit": 1,
+    "green_exit": 0,
+    "fixed_sha256": {
+      ".github/scripts/source_context.js": "afe13b294611cb3514552fd83438646d495891e82f2c773f2c60bb9c0e5197c9",
+      "templates/consumer-repo/.github/scripts/source_context.js": "afe13b294611cb3514552fd83438646d495891e82f2c773f2c60bb9c0e5197c9"
+    },
+    "restored_sha256": {
+      ".github/scripts/source_context.js": "afe13b294611cb3514552fd83438646d495891e82f2c773f2c60bb9c0e5197c9",
+      "templates/consumer-repo/.github/scripts/source_context.js": "afe13b294611cb3514552fd83438646d495891e82f2c773f2c60bb9c0e5197c9"
+    }
+  },
+  {
+    "mutation": "template-only",
+    "red_exit": 1,
+    "green_exit": 0,
+    "fixed_sha256": {
+      ".github/scripts/source_context.js": "afe13b294611cb3514552fd83438646d495891e82f2c773f2c60bb9c0e5197c9",
+      "templates/consumer-repo/.github/scripts/source_context.js": "afe13b294611cb3514552fd83438646d495891e82f2c773f2c60bb9c0e5197c9"
+    },
+    "restored_sha256": {
+      ".github/scripts/source_context.js": "afe13b294611cb3514552fd83438646d495891e82f2c773f2c60bb9c0e5197c9",
+      "templates/consumer-repo/.github/scripts/source_context.js": "afe13b294611cb3514552fd83438646d495891e82f2c773f2c60bb9c0e5197c9"
+    }
+  }
+]

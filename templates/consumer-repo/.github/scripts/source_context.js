@@ -206,8 +206,9 @@ function hasHistoricalFixReferencePrefix(prefix) {
   // "Fix #N" directive. Strip Markdown formatting, not clause boundaries.
   const line = String(prefix || '').split(/\r?\n/).pop().replace(/[_[\]()`~>*]/g, ' ');
   // Modifiers cannot cross another fix/closing verb or a coordinating clause.
-  // "previous fix and Fix #N" ends with a new directive, not the earlier noun.
-  return /\b(?:already[- ]merged|merged|released|previous|prior|existing)\s+(?:(?!(?:and|or|but|then|close[sd]?|closing|fix(?:e[sd])?|fixing|resolve[sd]?|resolving)\b)[\w-]+\s+){0,6}fix\s*[:#-]?\s*$/i.test(line);
+  // "previous fixes and Fix #N" ends with a new directive, not the earlier noun.
+  // Release changelogs also use "historical fixes" as a plural delivered noun.
+  return /\b(?:already[- ]merged|merged|released|previous|prior|existing|historical)\s+(?:(?!(?:and|or|but|then|close[sd]?|closing|fix(?:e[sd])?|fixing|resolve[sd]?|resolving)\b)[\w-]+\s+){0,6}fix(?:es)?\s*[:#-]?\s*$/i.test(line);
 }
 
 function extractIssueNumbersFromText(text) {
