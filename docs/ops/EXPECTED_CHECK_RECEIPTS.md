@@ -73,6 +73,9 @@ are evidence pointers, not current-head assertions.
 The JSON `expected-check-receipt/v1` records:
 
 - Full repository, PR, head/base, base branch, caller event/action and changed paths.
+  The complete paginated path inventory is read again before the closing PR
+  snapshot. `closing_context` retains the final head/base, branch, declared and
+  enumerated file counts, and normalized paths, including renamed sources.
 - Required status contexts and app restrictions from current branch protection
   and applicable branch rules. Inaccessible protection/rules evidence is UNKNOWN.
   A ruleset-only branch can report `protected: true` while the classic endpoint
@@ -167,8 +170,11 @@ provided. Conflicting page totals, invalid counts and repeated object IDs also
 remain UNKNOWN: a repeated object can hide an omitted check or suite even when
 the final count matches. Every check run and suite on every page must explicitly
 report the requested full head, including advisory checks and other apps' suites;
-missing or mismatched heads remain UNKNOWN. A changed head/base during collection
-becomes UNKNOWN. Re-run after async completion or obtain concrete source-bound evidence for unsupported
+missing or mismatched heads remain UNKNOWN. A changed head/base, base branch,
+declared file count or normalized path inventory during collection becomes
+UNKNOWN. Equal SHAs cannot prove branch-filter or rules stability after a PR is
+retargeted. Page order and unrelated diff statistics do not alter path identity.
+Re-run after async completion or obtain concrete source-bound evidence for unsupported
 conditions; never relabel UNKNOWN as PASS or waive missing checks.
 
 Merged-head Actions search can return an empty inventory even while its exact-head

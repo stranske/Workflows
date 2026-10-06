@@ -628,6 +628,118 @@ def test_head_changed_during_collection_is_unknown():
     )
 
 
+@pytest.mark.parametrize("finding", ["base_branch", "changed_files"])
+def test_changed_pr_filter_context_invalidates_receipt(finding):
+    transport = fixture_transport()
+    snapshots = 0
+
+    def changed_context(endpoint):
+        nonlocal snapshots
+        pages = transport(endpoint)
+        if endpoint.endswith("/pulls/1"):
+            snapshots += 1
+            if snapshots > 1:
+                if finding == "base_branch":
+                    # Retargeting can preserve both SHAs but change branch rules/filters.
+                    pages[0]["base"]["ref"] = "release"
+                else:
+                    pages[0]["changed_files"] = 2
+        return pages
+
+    result = reporter.collect(
+        reporter.Evidence(changed_context), "o/r", 1, HEAD, "pull_request", "opened"
+    )
+
+    assert result["verdict"] == "UNKNOWN"
+    assert any("changed during evidence collection" in reason for reason in result["unknown"])
+    assert result["head"] == HEAD and result["base"] == BASE
+    assert result["merge_authorization"] is False
+
+
+@pytest.mark.parametrize("finding", ["filename", "previous_filename", "truncated"])
+def test_changed_path_inventory_invalidates_event_absence(finding):
+    transport = fixture_transport()
+    file_reads = 0
+    workflow = (
+        "on:\n  pull_request:\n    paths: ['docs/**']\n"
+        "jobs:\n  docs:\n    runs-on: ubuntu-latest\n    steps: []\n"
+    )
+
+    def changed_paths(endpoint):
+        nonlocal file_reads
+        if "/contents/.github/workflows?" in endpoint:
+            return [
+                [
+                    {"path": ".github/workflows/gate.yml", "sha": "d" * 40},
+                    {"path": ".github/workflows/docs.yml", "sha": "e" * 40},
+                ]
+            ]
+        if "/contents/.github/workflows/docs.yml?" in endpoint:
+            return [{"encoding": "base64", "content": base64.b64encode(workflow.encode()).decode()}]
+        if "/files?" in endpoint:
+            file_reads += 1
+            if file_reads > 1:
+                if finding == "truncated":
+                    return [[]]
+                item = {"filename": "src/a.py"}
+                item[finding] = "docs/guide.md"
+                return [[item]]
+        return transport(endpoint)
+
+    result = reporter.collect(
+        reporter.Evidence(changed_paths), "o/r", 1, HEAD, "pull_request", "opened"
+    )
+
+    assert result["verdict"] == "UNKNOWN"
+    assert any("changed-path" in reason for reason in result["unknown"])
+    assert result["changed_paths"] == ["src/a.py"]
+    assert result["legitimate_absences"][0]["path"] == ".github/workflows/docs.yml"
+    assert result["merge_authorization"] is False
+
+
+def test_stable_paginated_paths_ignore_page_order_and_diff_statistics():
+    transport = fixture_transport()
+    file_reads = 0
+
+    def stable_paths(endpoint):
+        nonlocal file_reads
+        if endpoint.endswith("/pulls/1"):
+            pages = transport(endpoint)
+            pages[0]["changed_files"] = 2
+            return pages
+        if "/files?" in endpoint:
+            file_reads += 1
+            pages = [
+                [{"filename": "src/a.py", "previous_filename": "src/old.py", "additions": 1}],
+                [{"filename": "src/b.py"}],
+            ]
+            if file_reads > 1:
+                pages[0][0]["additions"] = 2
+                pages.reverse()
+            return pages
+        return transport(endpoint)
+
+    evidence = reporter.Evidence(stable_paths)
+    result = reporter.collect(evidence, "o/r", 1, HEAD, "pull_request", "opened")
+
+    assert result["verdict"] == "PASS"
+    assert result["changed_paths"] == ["src/a.py", "src/b.py", "src/old.py"]
+    assert result["closing_context"] == {
+        "head": HEAD,
+        "base": BASE,
+        "base_branch": "main",
+        "changed_file_count": 2,
+        "enumerated_file_count": 2,
+        "changed_paths": result["changed_paths"],
+    }
+    assert [
+        request["pages"] for request in evidence.requests if "/files?" in request["endpoint"]
+    ] == [
+        2,
+        2,
+    ]
+
+
 def test_other_app_cannot_supply_workflow_completeness():
     assert (
         reporter.collect(

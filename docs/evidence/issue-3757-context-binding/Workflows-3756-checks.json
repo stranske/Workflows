@@ -1,0 +1,20 @@
+{
+  "action": "synchronize",
+  "collected_at": "2026-10-06T22:47:04.062776+00:00",
+  "event": "pull_request",
+  "evidence_complete": false,
+  "head": "b1ab592d177fcd0773a756aeb957f76593a6f09f",
+  "merge_authorization": false,
+  "pr": 3756,
+  "presence_reporter": {
+    "path": "/tmp/issue-3757-incumbent/check_checks_reported.py",
+    "sha256": "0f3c52eafa35896ae3b81520a43dbf54d0e876ad48b44a23b01f3221f82a28f2"
+  },
+  "repository": "stranske/Workflows",
+  "request_evidence": [],
+  "schema": "expected-check-receipt/v1",
+  "unknown": [
+    "repos/stranske/Workflows/pulls/3756: gh api repos/stranske/Workflows/pulls/3756 failed: error connecting to api.github.com\ncheck your internet connection or https://githubstatus.com"
+  ],
+  "verdict": "UNKNOWN"
+}

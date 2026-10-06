@@ -1142,6 +1142,14 @@ def complete_workflow_runs(
     return list(by_id.values()), recovered
 
 
+def paths_from_files(files: list[dict[str, Any]]) -> list[str]:
+    """Normalize the complete path inventory, including both sides of renames."""
+    return sorted(
+        {value["filename"] for value in files}
+        | {value["previous_filename"] for value in files if value.get("previous_filename")}
+    )
+
+
 def collect(
     evidence: Evidence, repo: str, number: int, head: str, event: str, action: str
 ) -> dict[str, Any]:
@@ -1150,10 +1158,7 @@ def collect(
         raise UnknownEvidence(f"head changed: requested {head}, observed {pr['head']['sha']}")
     branch, base = pr["base"]["ref"], pr["base"]["sha"]
     files = evidence.items(f"repos/{repo}/pulls/{number}/files?per_page=100")
-    paths = sorted(
-        {value["filename"] for value in files}
-        | {value["previous_filename"] for value in files if value.get("previous_filename")}
-    )
+    paths = paths_from_files(files)
     unknown = []
     if len(files) != pr.get("changed_files") or len(files) >= 300:
         unknown.append(
@@ -1372,9 +1377,19 @@ def collect(
             )
         except UnknownEvidence as exc:
             unknown.append(f"Actions status publisher discovery unavailable: {exc}")
+    # Re-enumerate paths before the closing PR snapshot. Equal commit SHAs
+    # alone do not bind a retargeted branch or a delayed/truncated files API.
+    after_files = evidence.items(f"repos/{repo}/pulls/{number}/files?per_page=100")
+    after_paths = paths_from_files(after_files)
     after = evidence.one(f"repos/{repo}/pulls/{number}")
     if after["head"]["sha"] != head or after["base"]["sha"] != base:
         unknown.append("PR head or base changed during evidence collection")
+    if after["base"]["ref"] != branch:
+        unknown.append("PR base branch changed during evidence collection")
+    if after.get("changed_files") != pr.get("changed_files"):
+        unknown.append("PR changed-path count changed during evidence collection")
+    if after_paths != paths or len(after_files) != len(files):
+        unknown.append("changed-path inventory changed during evidence collection")
     receipt = adjudicate(
         expected,
         checks,
@@ -1398,6 +1413,14 @@ def collect(
             "action": action,
             "event_source": "explicit caller context; Actions REST does not expose webhook action",
             "changed_paths": paths,
+            "closing_context": {
+                "head": after["head"]["sha"],
+                "base": after["base"]["sha"],
+                "base_branch": after["base"]["ref"],
+                "changed_file_count": after.get("changed_files"),
+                "enumerated_file_count": len(after_files),
+                "changed_paths": after_paths,
+            },
             "required_checks": required,
             "status_provenance": list(status_provenance.values()),
             "duplicate_identity_evidence": identity_evidence,

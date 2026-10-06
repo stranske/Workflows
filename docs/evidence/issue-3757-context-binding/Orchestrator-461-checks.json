@@ -1,0 +1,20 @@
+{
+  "action": "synchronize",
+  "collected_at": "2026-10-06T22:47:04.044901+00:00",
+  "event": "pull_request",
+  "evidence_complete": false,
+  "head": "4e82b31b09d5e70a62364b41e3a8c6da369549e1",
+  "merge_authorization": false,
+  "pr": 461,
+  "presence_reporter": {
+    "path": "/tmp/issue-3757-incumbent/check_checks_reported.py",
+    "sha256": "0f3c52eafa35896ae3b81520a43dbf54d0e876ad48b44a23b01f3221f82a28f2"
+  },
+  "repository": "stranske/Orchestrator",
+  "request_evidence": [],
+  "schema": "expected-check-receipt/v1",
+  "unknown": [
+    "repos/stranske/Orchestrator/pulls/461: gh api repos/stranske/Orchestrator/pulls/461 failed: error connecting to api.github.com\ncheck your internet connection or https://githubstatus.com"
+  ],
+  "verdict": "UNKNOWN"
+}

@@ -35,6 +35,9 @@ The output records full head/base, event/action, changed paths, authored workflo
 topology, required branch/ruleset contexts, complete check/suite pages and latest
 workflow attempts. Exit codes are PASS=0, FAIL=1 and UNKNOWN=2. Unsupported or
 inaccessible topology stays UNKNOWN; the receipt never authorizes a merge.
+Both paginated path inventories and the closing PR context are retained. A
+changed base branch, file count or path inventory also invalidates the receipt,
+even when the head and base SHAs remain equal.
 The incumbent file digest is retained even when loading or discovery fails;
 changing that file during collection invalidates the receipt as UNKNOWN.
 See [the supported context and evidence contract](docs/ops/EXPECTED_CHECK_RECEIPTS.md).
