@@ -69,6 +69,73 @@ An object used by an attached mandatory delivery (`artifacts that the reviewer
 must upload`, or `artifacts must be uploaded`) remains as that delivery's
 antecedent. Before suppressing a capability span, bind its attached mandatory
 predicate, original actor, polarity and immediate review destination together.
+Common proof objects (test/validation results, logs and outputs, screenshots
+including before/after screenshots, and recordings) with an explicit review
+destination in the same clause normalize into this same evidence grammar before
+channel classification, stopping at independently governed coordinated actor
+clauses, reusing the existing shared actor-role heads (including developers,
+testers, auditors, automation agents, runners and bots) and recipient-role heads
+rather than maintaining a narrower independent role list. An explicit
+pronoun delivery in the next actor clause retains the introduced proof as an
+antecedent; an unrelated body update does not canonicalize that proof. Its actor
+boundary accepts the shared delivery operations and aliases as finite predicates
+and the existing shared delivery-governor grammar for perfect/progressive and
+optional/negative actions, not a narrower auxiliary subset. Its destination uses the same shared
+preposition grammar (in, into, to, within, for, as, through and via) as ordinary
+delivery, including bounded proof qualifiers, rather than a narrower duplicate.
+The ordinary classifier still decides actual obligation, negation and product
+behavior after normalization. The
+antecedent predicate shares the canonical delivery operations and record-alias
+map with ordinary delivery; bounded alias-plus-pronoun review destinations
+normalize before resolution, retaining governing negation and modality. They
+skip shared quoted literal spans before common-proof substitution, not only
+before PR-contained comment substitution. The shared independent-predicate
+boundary includes negative requirement governors, so an unrelated actor's
+optional or excluded PR-body update cannot become the proof's destination.
+Explicit next-actor pronoun deliveries retain their introduced proof across
+semicolon and sentence boundaries as well as coordination; unrelated updates
+and negative or optional deliveries remain nongating. They
+canonicalize contracted governors before all normalization while leaving quoted
+input intact. Contextual proof binding uses an offset-preserving literal-free
+projection, so quoted destinations or actors cannot govern unquoted proof nouns.
+Common proof nouns share a bounded object qualifier before explicit delivery
+destinations or governors, retaining active qualified-recording body delivery
+without converting the progressive recording verb into an object. The qualifier
+boundary uses the existing shared delivery governors, negative governors and
+destination prepositions; finite operations end the qualifier only when followed
+by a bound review destination, so operation-like adjectives remain part of the
+object. Neither qualifier repetition nor its final token may consume the actual
+governor or operation. Bare participial descriptors retain the ordinary canonical
+evidence policy rather than acquiring a new body-specific gate. Direct upload
+and pronoun upload use the same PR-body operation grammar; neither may fall back
+to generic overall evidence when the body is explicitly required. Body matching
+must leave a nounless attached predicate with its antecedent for the shared
+attached-delivery pass, preventing an orphaned product object from creating an
+extra generic requirement. They
+therefore retain negative/optional governors,
+quoted-literal and product-capability exclusions, and independent reviewer
+obligations; a mandatory PR-body proof cannot bypass the coverage floor when
+body retrieval is absent or unavailable.
+PR-subject inclusion predicates (`the PR must include/contain/have a comment`)
+normalize to PR-comment obligations while preserving their original governor.
+A present PR body cannot satisfy that comment channel; negative and optional
+inclusion stays nongating. This normalization skips the shared straight/curly
+quoted and backtick literal spans before substituting a PR-comment noun, so
+parser/documentation examples remain nongating while an independent reviewer
+delivery still requires its own channel.
+Comment inclusion requires a delivered noun boundary (end/punctuation or an
+object qualifier, destination or coordination), not an open-ended feature-noun
+blocklist. Compounds such as comment button, form, count, thread and parser are
+product features, not delivered comment objects.
+Qualified singular `recording of ...` proof nouns use a bounded noun qualifier
+ending before the original governor; verbal `is recording evidence` is not a
+proof noun. Product link capabilities (`allow users to link`, `let users link`)
+share the base operation vocabulary with direct product-owned links.
+Bare mandatory `be in` presence shares the same polarity-aware normalized
+delivery grammar as `appear` and `be present`, including PR-body destinations.
+Product-governed `link` operations use the same UI/API actor classification as
+other field operations. A separate reviewer-governed link or comment-delivery
+clause remains a real evidence obligation.
 Apply this binding before both capability and product-response suppression.
 Classify that isolated obligation with the shared destination and channel grammar,
 including every declared passive aspect (`be`, `have been`, `have been being`);

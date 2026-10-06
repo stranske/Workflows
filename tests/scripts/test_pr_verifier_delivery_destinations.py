@@ -9,6 +9,403 @@ from scripts import docs_drift_fix_agent as fix_agent
 from scripts.langchain import pr_verifier as verifier
 
 
+@pytest.mark.parametrize(
+    "proof",
+    [
+        "test results",
+        "validation results",
+        "test logs",
+        "validation logs",
+        "test output",
+        "validation output",
+        "screenshots",
+        "recordings",
+        "a recording of the session",
+    ],
+)
+@pytest.mark.parametrize("governor", ["must", "must not", "may"])
+@pytest.mark.parametrize(
+    "destination,channel",
+    [("the PR body", "body"), ("a PR comment", "comments"), ("workflow artifacts", "artifacts")],
+)
+@pytest.mark.parametrize("independent", [False, True])
+def test_direct_common_proof_upload_keeps_its_destination(
+    proof, governor, destination, channel, independent
+):
+    criterion = f"The reviewer {governor} upload {proof} in {destination}"
+    expected = {channel} if governor == "must" else set()
+    if independent:
+        criterion += "; the reviewer must record evidence in a PR comment"
+        expected.add("comments")
+    assert verifier._required_evidence_channels(criterion) == expected
+
+
+@pytest.mark.parametrize("proof", ["screenshots", "test results", "recordings"])
+@pytest.mark.parametrize("actor", ["The UI", "The API"])
+def test_product_upload_capability_does_not_require_review_delivery(proof, actor):
+    criterion = f"{actor} must allow users to upload {proof}"
+    assert verifier._required_evidence_channels(criterion) == set()
+    assert verifier._required_evidence_channels(criterion + "; upload evidence in the PR body") == {
+        "body"
+    }
+
+
+@pytest.mark.parametrize(
+    "governor", ["doesn't need to", "doesn’t need to", "isn't expected to", "isn’t expected to"]
+)
+@pytest.mark.parametrize("proof", ["test results", "screenshots", "validation output"])
+@pytest.mark.parametrize("independent", [False, True])
+def test_common_proof_contracted_negative_actor(proof, governor, independent):
+    criterion = f"The UI must display {proof}, and the reviewer {governor} update the PR body"
+    if independent:
+        criterion += "; the reviewer must record evidence in a PR comment"
+    assert verifier._required_evidence_channels(criterion) == (
+        {"comments"} if independent else set()
+    )
+
+
+@pytest.mark.parametrize(
+    "quote,closing", [('"', '"'), ("'", "'"), ("`", "`"), ("“", "”"), ("‘", "’")]
+)
+@pytest.mark.parametrize("proof", ["test results", "screenshots", "validation output"])
+@pytest.mark.parametrize("independent", [False, True])
+def test_common_proof_destination_inside_adjacent_literal(quote, closing, proof, independent):
+    criterion = f"The UI must display {proof} with the label {quote}Test results must be in the PR body{closing}"
+    if independent:
+        criterion += "; the reviewer must record evidence in a PR comment"
+    assert verifier._required_evidence_channels(criterion) == (
+        {"comments"} if independent else set()
+    )
+
+
+@pytest.mark.parametrize(
+    "proof", ["a recording", "recordings", "screenshots", "test results", "validation output"]
+)
+@pytest.mark.parametrize("governor", ["must", "must not", "may"])
+@pytest.mark.parametrize("operation", ["record", "attach", "put"])
+@pytest.mark.parametrize(
+    "destination,channel",
+    [("the PR body", "body"), ("a PR comment", "comments"), ("workflow artifacts", "artifacts")],
+)
+def test_common_proof_active_qualified_object(proof, governor, operation, destination, channel):
+    criterion = f"The reviewer {governor} {operation} {proof} of the session in {destination}"
+    assert verifier._required_evidence_channels(criterion) == (
+        {channel} if governor == "must" else set()
+    )
+
+
+@pytest.mark.parametrize(
+    "proof", ["test results", "screenshots", "validation output", "recordings"]
+)
+@pytest.mark.parametrize("actor", ["reviewer", "automation agent", "developer"])
+@pytest.mark.parametrize("governor", ["does not need to", "no longer has to", "need not"])
+@pytest.mark.parametrize("independent", [False, True])
+def test_common_proof_negative_actor_boundary(proof, actor, governor, independent):
+    criterion = f"The UI must display {proof}, and the {actor} {governor} update the PR body"
+    if independent:
+        criterion += "; the reviewer must record evidence in a PR comment"
+    assert verifier._required_evidence_channels(criterion) == (
+        {"comments"} if independent else set()
+    )
+
+
+@pytest.mark.parametrize("quote", ['"', "'", "`", "“"])
+@pytest.mark.parametrize(
+    "proof", ["Test results", "Screenshots", "Validation output", "Recordings"]
+)
+@pytest.mark.parametrize("independent", [False, True])
+def test_common_proof_quoted_input(quote, proof, independent):
+    closing = "”" if quote == "“" else quote
+    criterion = f"The parser must accept the string {quote}{proof} must be in the PR body{closing}"
+    if independent:
+        criterion += "; the reviewer must record evidence in a PR comment"
+    assert verifier._required_evidence_channels(criterion) == (
+        {"comments"} if independent else set()
+    )
+
+
+@pytest.mark.parametrize("joiner", [", and ", "; ", ". "])
+@pytest.mark.parametrize("proof", ["test results", "screenshots", "validation output"])
+@pytest.mark.parametrize("governor", ["must", "must not", "may"])
+@pytest.mark.parametrize("operation", ["record", "put", "share"])
+@pytest.mark.parametrize(
+    "destination,channel",
+    [("the PR body", "body"), ("a PR comment", "comments")],
+)
+def test_common_proof_pronoun_clause_separator(
+    joiner, proof, governor, operation, destination, channel
+):
+    criterion = f"The UI must display {proof}{joiner}the reviewer {governor} {operation} them in {destination}"
+    assert verifier._required_evidence_channels(criterion) == (
+        {channel} if governor == "must" else set()
+    )
+
+
+@pytest.mark.parametrize("proof", ["test results", "screenshots", "validation output"])
+@pytest.mark.parametrize(
+    "operation", ["put", "place", "share", "paste", "write", "submit", "deliver", "supply"]
+)
+@pytest.mark.parametrize("governor", ["must", "must not", "may"])
+@pytest.mark.parametrize(
+    "destination,channel",
+    [("the PR body", "body"), ("a PR comment", "comments"), ("workflow artifacts", "artifacts")],
+)
+def test_common_proof_pronoun_shared_aliases(proof, operation, governor, destination, channel):
+    criterion = f"The UI must display {proof}, and the reviewer {governor} {operation} them in {destination}"
+    assert verifier._required_evidence_channels(criterion) == (
+        {channel} if governor == "must" else set()
+    )
+
+
+@pytest.mark.parametrize("quote", ['"', "'", "`", "“"])
+@pytest.mark.parametrize("operation", ["include", "contain", "have"])
+@pytest.mark.parametrize("independent", [False, True])
+def test_pr_contained_comment_quoted_literal(quote, operation, independent):
+    closing = "”" if quote == "“" else quote
+    criterion = (
+        f"The parser must accept the string {quote}The PR must {operation} a comment{closing}"
+    )
+    if independent:
+        criterion += "; the reviewer must record evidence in a PR comment"
+    assert verifier._required_evidence_channels(criterion) == (
+        {"comments"} if independent else set()
+    )
+
+
+@pytest.mark.parametrize("proof", ["test results", "screenshots", "validation output"])
+@pytest.mark.parametrize(
+    "actor",
+    [
+        "reviewer",
+        "automation agent",
+        "runner",
+        "bot",
+        "developer",
+        "engineer",
+        "tester",
+        "auditor",
+        "verifier",
+        "team",
+        "user",
+        "consumer",
+    ],
+)
+@pytest.mark.parametrize("operation", ["record", "attach", "include"])
+@pytest.mark.parametrize("governor", ["must", "must not", "may"])
+def test_common_proof_pronoun_cross_actor_delivery(proof, actor, operation, governor):
+    criterion = (
+        f"The UI must display {proof}, and the {actor} {governor} {operation} them in the PR body"
+    )
+    assert verifier._required_evidence_channels(criterion) == (
+        {"body"} if governor == "must" else set()
+    )
+
+
+@pytest.mark.parametrize(
+    "actor",
+    [
+        "automation agent",
+        "runner",
+        "bot",
+        "developer",
+        "engineer",
+        "tester",
+        "auditor",
+        "verifier",
+        "team",
+        "user",
+        "consumer",
+    ],
+)
+@pytest.mark.parametrize("proof", ["test results", "screenshots", "validation output"])
+def test_automation_actor_unrelated_destination(proof, actor):
+    assert (
+        verifier._required_evidence_channels(
+            f"The UI must display {proof}, and the {actor} must update the PR body"
+        )
+        == set()
+    )
+
+
+@pytest.mark.parametrize("operation", ["include", "contain", "have"])
+@pytest.mark.parametrize("noun", ["button", "form", "count", "thread", "dashboard", "catalog"])
+def test_pr_comment_compound_is_not_delivery(operation, noun):
+    assert (
+        verifier._required_evidence_channels(f"The PR must {operation} a comment {noun}") == set()
+    )
+
+
+@pytest.mark.parametrize(
+    "destination,channel",
+    [
+        ("the PR body", "body"),
+        ("a PR comment", "comments"),
+    ],
+)
+def test_qualified_recording_presence_retains_governor(destination, channel):
+    assert verifier._required_evidence_channels(
+        f"A recording of the session must be in {destination}"
+    ) == {channel}
+    assert (
+        verifier._required_evidence_channels(
+            f"A recording of the session must not be in {destination}"
+        )
+        == set()
+    )
+
+
+@pytest.mark.parametrize("capability", ["allow users to", "let users"])
+@pytest.mark.parametrize("independent", [False, True])
+def test_product_link_capability_preserves_reviewer_delivery(capability, independent):
+    criterion = f"The UI must {capability} link to PR comments"
+    if independent:
+        criterion += "; the reviewer must record evidence in a PR comment"
+    assert verifier._required_evidence_channels(criterion) == (
+        {"comments"} if independent else set()
+    )
+
+
+@pytest.mark.parametrize("joiner", [", and ", " and ", "; "])
+@pytest.mark.parametrize("position", ["before", "after"])
+@pytest.mark.parametrize("proof", ["test results", "screenshots", "validation output"])
+@pytest.mark.parametrize(
+    "actor",
+    [
+        "the reviewer",
+        "our security reviewer",
+        "the reviewer of the endpoint",
+        "the endpoint used by reviewers",
+    ],
+)
+def test_proof_destination_does_not_cross_independent_actor(joiner, position, proof, actor):
+    product = f"The UI must display {proof}"
+    unrelated = f"{actor} must update the PR body"
+    criterion = (
+        product + joiner + unrelated if position == "after" else unrelated + joiner + product
+    )
+    assert verifier._required_evidence_channels(criterion) == set()
+
+
+@pytest.mark.parametrize("operation", ["include", "contain", "have"])
+@pytest.mark.parametrize("noun", ["counter", "field", "icon", "parser", "metadata", "editor"])
+def test_comment_feature_noun_is_not_comment_delivery(operation, noun):
+    assert (
+        verifier._required_evidence_channels(f"The PR must {operation} a comment {noun}") == set()
+    )
+
+
+@pytest.mark.parametrize("proof", ["Test results", "Screenshots", "Validation output"])
+@pytest.mark.parametrize("governor", ["must", "have to", "are required to"])
+@pytest.mark.parametrize(
+    "destination,channel",
+    [
+        ("the PR body", "body"),
+        ("a PR comment", "comments"),
+        ("workflow artifacts", "artifacts"),
+    ],
+)
+def test_common_proof_bare_presence_uses_shared_delivery(proof, governor, destination, channel):
+    assert verifier._required_evidence_channels(f"{proof} {governor} be in {destination}") == {
+        channel
+    }
+
+
+@pytest.mark.parametrize("proof", ["Test output", "Validation output", "Validation results"])
+def test_passive_test_output_requires_comment(proof):
+    assert verifier._required_evidence_channels(f"{proof} must be in a PR comment") == {"comments"}
+    assert verifier._required_evidence_channels(f"{proof} must not be in a PR comment") == set()
+
+
+@pytest.mark.parametrize("actor", ["The UI", "The API", "The reviewer"])
+@pytest.mark.parametrize("independent", [False, True])
+def test_product_links_preserve_independent_review_delivery(actor, independent):
+    criterion = f"{actor} must link to PR comments"
+    if independent:
+        criterion += "; the reviewer must record evidence in a PR comment"
+    assert verifier._required_evidence_channels(criterion) == (
+        {"comments"} if actor == "The reviewer" or independent else set()
+    )
+
+
+@pytest.mark.parametrize("subject", ["The PR", "The pull request"])
+@pytest.mark.parametrize("operation", ["include", "contain", "have"])
+def test_pr_contained_comment_evidence_is_comment_channel(subject, operation):
+    assert verifier._required_evidence_channels(
+        f"{subject} must {operation} a comment with test evidence"
+    ) == {"comments"}
+    for governor in ("must not", "is not expected to", "may"):
+        assert (
+            verifier._required_evidence_channels(
+                f"{subject} {governor} {operation} a comment with test evidence"
+            )
+            == set()
+        )
+
+
+@pytest.mark.parametrize(
+    "object_name",
+    [
+        "Test results",
+        "Test logs",
+        "Before/after screenshots",
+        "Recordings",
+    ],
+)
+@pytest.mark.parametrize(
+    "destination,channel",
+    [
+        ("the PR body", "body"),
+        ("a PR comment", "comments"),
+        ("workflow artifacts", "artifacts"),
+    ],
+)
+def test_common_proof_objects_reuse_delivery_polarity(object_name, destination, channel):
+    assert verifier._required_evidence_channels(
+        f"{object_name} must be recorded in {destination}"
+    ) == {channel}
+    for governor in ("must not", "are not expected to", "are no longer required to"):
+        assert (
+            verifier._required_evidence_channels(
+                f"{object_name} {governor} be recorded in {destination}"
+            )
+            == set()
+        )
+    assert (
+        verifier._required_evidence_channels(
+            f"The UI must allow users to upload {object_name.lower()}"
+        )
+        == set()
+    )
+    assert (
+        verifier._required_evidence_channels(
+            f'The release notes must quote "{object_name} must be recorded in {destination}"'
+        )
+        == set()
+    )
+    assert (
+        verifier._required_evidence_channels(f"{object_name} may be recorded in {destination}")
+        == set()
+    )
+    assert verifier._required_evidence_channels(
+        f"{object_name} must not be recorded in {destination}; "
+        "the reviewer must record evidence in a PR comment"
+    ) == {"comments"}
+
+
+@pytest.mark.parametrize(
+    "criterion",
+    [
+        "The UI must capture screenshots",
+        "The recorder must save recordings",
+        "The UI must capture screenshots; the reviewer must record evidence in a PR comment",
+    ],
+)
+def test_product_proof_nouns_do_not_create_overall_obligation(criterion):
+    assert verifier._required_evidence_channels(criterion) == (
+        {"comments"} if ";" in criterion else set()
+    )
+
+
 @pytest.mark.parametrize("quote", ["'", '"', "`"])
 @pytest.mark.parametrize("predicate", ["appear", "be present"])
 def test_quoted_presence_is_not_delivery(quote, predicate):
@@ -2457,3 +2854,113 @@ def test_optional_delivery_modal_does_not_become_a_mandatory_alias(modal, operat
     assert verifier._required_evidence_channels(
         criterion + "; include evidence in a PR comment"
     ) == {"comments"}
+
+
+@pytest.mark.parametrize("proof", ["screenshots", "test results", "validation logs"])
+@pytest.mark.parametrize(
+    "preposition", ["in", "into", "to", "within", "for", "as", "through", "via"]
+)
+@pytest.mark.parametrize("separator", [", and ", "; ", ". "])
+@pytest.mark.parametrize(
+    "predicate",
+    [
+        "must upload",
+        "must not upload",
+        "may upload",
+        "uploaded",
+        "uploads",
+        "recorded",
+        "puts",
+        "has uploaded",
+        "had uploaded",
+        "was uploading",
+        "has already uploaded",
+        "has not uploaded",
+    ],
+)
+@pytest.mark.parametrize("independent", [False, True])
+def test_common_proof_pronoun_reuses_shared_finite_destination_grammar(
+    proof, preposition, separator, predicate, independent
+):
+    criterion = f"The UI must display {proof}{separator}the reviewer {predicate} them {preposition} the PR body"
+    canonical = criterion.replace(proof, "evidence", 1)
+    expected = (
+        set() if predicate in {"must not upload", "may upload", "has not uploaded"} else {"body"}
+    )
+    if independent:
+        suffix = "; the reviewer must record evidence in a PR comment"
+        criterion += suffix
+        canonical += suffix
+        expected.add("comments")
+    assert verifier._required_evidence_channels(canonical) == expected
+    assert verifier._required_evidence_channels(criterion) == expected
+
+
+@pytest.mark.parametrize(
+    "proof", ["A recording", "Recordings", "Screenshots", "Test results", "Validation output"]
+)
+@pytest.mark.parametrize("qualifier", ["the session", "posted output", "required scenarios"])
+@pytest.mark.parametrize(
+    "predicate",
+    [
+        "has been uploaded",
+        "is being uploaded",
+        "had been uploaded",
+        "was uploaded",
+        "uploaded",
+        "must be uploaded",
+        "has not been uploaded",
+        "may be uploaded",
+    ],
+)
+@pytest.mark.parametrize(
+    "preposition", ["in", "into", "to", "within", "for", "as", "through", "via"]
+)
+@pytest.mark.parametrize("independent", [False, True])
+def test_qualified_common_proof_reuses_shared_governor_boundary(
+    proof, qualifier, predicate, preposition, independent
+):
+    criterion = f"{proof} of {qualifier} {predicate} {preposition} the PR body"
+    canonical = f"Evidence {predicate} {preposition} the PR body"
+    # Bare participial descriptors retain the canonical generic-evidence policy;
+    # this normalization repair must not introduce a new body-specific gate.
+    expected = (
+        set()
+        if predicate in {"has not been uploaded", "may be uploaded"}
+        else {"overall"} if predicate == "uploaded" else {"body"}
+    )
+    if independent:
+        suffix = "; the reviewer must record evidence in a PR comment"
+        criterion += suffix
+        canonical += suffix
+        expected.add("comments")
+    assert verifier._required_evidence_channels(canonical) == expected
+    assert verifier._required_evidence_channels(criterion) == expected
+
+
+@pytest.mark.parametrize("proof", ["A recording", "Screenshots"])
+@pytest.mark.parametrize(
+    "qualifier",
+    [
+        "in-depth sessions",
+        "for-sale scenarios",
+        "has-been services",
+        "optional scenarios",
+        "no longer required cases",
+        "and/or cases",
+    ],
+)
+@pytest.mark.parametrize(
+    "predicate", ["has been uploaded", "is being uploaded", "was uploaded", "has not been uploaded"]
+)
+@pytest.mark.parametrize("preposition", ["in", "via"])
+@pytest.mark.parametrize("independent", [False, True])
+def test_qualified_common_proof_modifier_tokens_are_not_governor_prefixes(
+    proof, qualifier, predicate, preposition, independent
+):
+    criterion = f"{proof} of {qualifier} {predicate} {preposition} the PR body"
+    expected = set() if predicate == "has not been uploaded" else {"body"}
+    if independent:
+        criterion += "; the reviewer must record evidence in a PR comment"
+        expected.add("comments")
+    assert verifier._required_evidence_channels(criterion) == expected
