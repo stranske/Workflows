@@ -1,0 +1,15 @@
+Command: /opt/hostedtoolcache/Python/3.14.7/x64/bin/python3 -m pytest tests/scripts/test_check_deliberate_break.py -vv --tb=short -m not slow -k test_base_collection_failure_cannot_prove_a_deliberate_break
+Exit: 0
+============================= test session starts ==============================
+platform linux -- Python 3.14.7, pytest-9.1.1, pluggy-1.6.0 -- /opt/hostedtoolcache/Python/3.14.7/x64/bin/python3
+cachedir: .pytest_cache
+hypothesis profile 'ci' -> database=None, deadline=None, print_blob=True, derandomize=True, suppress_health_check=(HealthCheck.too_slow,)
+rootdir: /home/runner/work/Workflows/Workflows
+configfile: pyproject.toml
+plugins: langsmith-0.14.4, hypothesis-6.168.5, platformdirs-4.12.3, cov-7.1.0, xdist-3.8.0, anyio-4.15.1
+collecting ... collected 200 items / 198 deselected / 2 selected
+
+tests/scripts/test_check_deliberate_break.py::test_base_collection_failure_cannot_prove_a_deliberate_break[] PASSED [ 50%]
+tests/scripts/test_check_deliberate_break.py::test_base_collection_failure_cannot_prove_a_deliberate_break[templates/consumer-repo/] PASSED [100%]
+
+====================== 2 passed, 198 deselected in 7.24s =======================

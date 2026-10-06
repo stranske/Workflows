@@ -1,0 +1,6 @@
+Stock command: BLACK_NUM_WORKERS=1 black --check --line-length 100 --exclude '(\.workflows-lib|node_modules)' .
+Stock command stalled without output and was interrupted (exit 130).
+Command: python3 docs/evidence/issue-3743/automation/black-serial-dispatch.txt --check --line-length 100 --exclude '(\.workflows-lib|node_modules)' .
+Exit: 0
+All done! ✨ 🍰 ✨
+661 files would be left unchanged.

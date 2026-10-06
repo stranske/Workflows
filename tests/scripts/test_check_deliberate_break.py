@@ -2270,6 +2270,7 @@ def test_a_missing_module_raised_inside_a_test_body_is_a_real_failure() -> None:
 @pytest.mark.parametrize("prefix", ["", "templates/consumer-repo/"])
 def test_base_collection_failure_cannot_prove_a_deliberate_break(tmp_path, prefix):
     """The head can import a new dependency while the archived base cannot collect."""
+    executions = tmp_path / "test-executions.txt"
     helper = runpy.run_path(
         str(Path(__file__).resolve().parents[2] / prefix / "scripts/check_deliberate_break.py")
     )
@@ -2279,6 +2280,10 @@ def test_base_collection_failure_cannot_prove_a_deliberate_break(tmp_path, prefi
     (repo / "app.py").write_text("VALUE = 1\n", encoding="utf-8")
     (repo / "conftest.py").write_text(
         "import sys\n"
+        "from pathlib import Path\n"
+        "def pytest_runtest_call(item):\n"
+        f"    with Path({str(executions)!r}).open('a') as output:\n"
+        "        output.write('called\\n')\n"
         "def pytest_sessionstart(session):\n"
         "    print('base dependency stdout sentinel', file=sys.stdout)\n"
         "    print('base dependency stderr sentinel', file=sys.stderr)\n",
@@ -2298,6 +2303,9 @@ def test_base_collection_failure_cannot_prove_a_deliberate_break(tmp_path, prefi
         (sys.executable, "-m", "pytest", "-q", "-o", "addopts=", "test_candidate.py::test_value"),
     )
     result = helper["verify_spec"](spec, base=base, cwd=repo, enforce_tamper=False)
+    # This record survives archive cleanup and proves head execution, not just a verdict.
+    assert executions.exists(), "the head pytest command never executed the test"
+    assert executions.read_text(encoding="utf-8").splitlines() == ["called"]
     assert result["verdict"] == VERDICT_BROKEN
     assert result["reason"] == "base-test-not-importable"
     assert result["missing_module"] == "candidate_dependency"

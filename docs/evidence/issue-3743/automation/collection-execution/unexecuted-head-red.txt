@@ -1,0 +1,39 @@
+Command: /opt/hostedtoolcache/Python/3.14.7/x64/bin/python3 -m pytest tests/scripts/test_check_deliberate_break.py -vv --tb=short -m not slow -k test_base_collection_failure_cannot_prove_a_deliberate_break
+Exit: 1
+============================= test session starts ==============================
+platform linux -- Python 3.14.7, pytest-9.1.1, pluggy-1.6.0 -- /opt/hostedtoolcache/Python/3.14.7/x64/bin/python3
+cachedir: .pytest_cache
+hypothesis profile 'ci' -> database=None, deadline=None, print_blob=True, derandomize=True, suppress_health_check=(HealthCheck.too_slow,)
+rootdir: /home/runner/work/Workflows/Workflows
+configfile: pyproject.toml
+plugins: langsmith-0.14.4, hypothesis-6.168.5, platformdirs-4.12.3, cov-7.1.0, xdist-3.8.0, anyio-4.15.1
+collecting ... collected 200 items / 198 deselected / 2 selected
+
+tests/scripts/test_check_deliberate_break.py::test_base_collection_failure_cannot_prove_a_deliberate_break[] FAILED [ 50%]
+tests/scripts/test_check_deliberate_break.py::test_base_collection_failure_cannot_prove_a_deliberate_break[templates/consumer-repo/] FAILED [100%]
+
+=================================== FAILURES ===================================
+________ test_base_collection_failure_cannot_prove_a_deliberate_break[] ________
+tests/scripts/test_check_deliberate_break.py:2307: in test_base_collection_failure_cannot_prove_a_deliberate_break
+    assert executions.exists(), "the head pytest command never executed the test"
+E   AssertionError: the head pytest command never executed the test
+E   assert False
+E    +  where False = exists()
+E    +    where exists = PosixPath('/tmp/pytest-of-runner/pytest-2/test_base_collection_failure_c0/test-executions.txt').exists
+_ test_base_collection_failure_cannot_prove_a_deliberate_break[templates/consumer-repo/] _
+tests/scripts/test_check_deliberate_break.py:2307: in test_base_collection_failure_cannot_prove_a_deliberate_break
+    assert executions.exists(), "the head pytest command never executed the test"
+E   AssertionError: the head pytest command never executed the test
+E   assert False
+E    +  where False = exists()
+E    +    where exists = PosixPath('/tmp/pytest-of-runner/pytest-2/test_base_collection_failure_c1/test-executions.txt').exists
+=========================== short test summary info ============================
+FAILED tests/scripts/test_check_deliberate_break.py::test_base_collection_failure_cannot_prove_a_deliberate_break[] - AssertionError: the head pytest command never executed the test
+assert False
+ +  where False = exists()
+ +    where exists = PosixPath('/tmp/pytest-of-runner/pytest-2/test_base_collection_failure_c0/test-executions.txt').exists
+FAILED tests/scripts/test_check_deliberate_break.py::test_base_collection_failure_cannot_prove_a_deliberate_break[templates/consumer-repo/] - AssertionError: the head pytest command never executed the test
+assert False
+ +  where False = exists()
+ +    where exists = PosixPath('/tmp/pytest-of-runner/pytest-2/test_base_collection_failure_c1/test-executions.txt').exists
+====================== 2 failed, 198 deselected in 3.91s =======================
