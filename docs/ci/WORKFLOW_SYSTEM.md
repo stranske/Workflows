@@ -878,6 +878,11 @@ snapshots for audit trails.
 
 ## Verification checklist
 
+The existing Agents Verifier caller and reusable expose a fixed `standard` or
+`expanded` evidence profile for inspected input-limit recovery. Consumer callers
+fingerprint that profile, and comparison input manifests retain the selected
+profile and actual limits. Expanded does not weaken completeness or CI floors.
+
 - Gate badge in `README.md` and branch protection both show as required for the default branch.
 - New pull requests list **Gate / gate** under **Required checks**; missing the
   entry is an incident that requires running the branch-protection playbook.

@@ -20,6 +20,18 @@ const {
 } = require('../agents_verifier_context.js');
 
 const fixturesDir = path.join(__dirname, 'fixtures');
+test('artifact extractor reads NDJSON proof but retains filtered-payload completeness gaps', () => {
+  const extract = (listing) => extractArtifactArchiveText({
+    archiveBuffer: Buffer.from('zip'), maxEntries: 10, maxChars: 500,
+    execFile: (_command, args) => args[0] === '-Z1' ? listing : '{"verdict":"PASS"}\n',
+  });
+  const complete = extract('metrics/disposition.ndjson\nsummary.md\n');
+  assert.equal(complete.truncated, false);
+  assert.match(complete.text, /metrics\/disposition\.ndjson/);
+  for (const unsafe of ['-injected.ndjson', 'wild*.ndjson', 'binary.png']) {
+    assert.equal(extract(`proof.ndjson\n${unsafe}\n`).truncated, true);
+  }
+});
 const prBodyFixture = fs.readFileSync(path.join(fixturesDir, 'pr-body.md'), 'utf8');
 const issueBodyOpen = fs.readFileSync(path.join(fixturesDir, 'issue-body-open.md'), 'utf8');
 const issueBodyClosed = fs.readFileSync(path.join(fixturesDir, 'issue-body-closed.md'), 'utf8');

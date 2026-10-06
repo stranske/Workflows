@@ -52,6 +52,12 @@ on:
         required: false
         type: string
         default: ''
+      evidence_profile:
+        description: 'Bounded input limits; expanded retries documented input truncation only'
+        required: false
+        type: choice
+        options: [standard, expanded]
+        default: 'standard'
       provider:
         description: 'LLM provider override (auto uses slot order)'
         required: true
@@ -238,4 +244,5 @@ jobs:
       provider: ${{ needs.check.outputs.provider }}
       # Second model for compare mode (empty string uses default)
       model2: ${{ needs.check.outputs.model2 }}
+      evidence_profile: ${{ inputs.evidence_profile || 'standard' }}
     secrets: inherit

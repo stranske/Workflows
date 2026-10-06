@@ -28,7 +28,7 @@ const DEFAULT_EVIDENCE_ENTRY_LIMIT = 20;
 const DEFAULT_EVIDENCE_ARTIFACT_CHARS = 60000;
 const SHA_PATTERN = /^[0-9a-f]{7,40}$/i;
 const WORKFLOW_RUN_URL_RE = /\/actions\/runs\/(\d+)/g;
-const TEXT_ARTIFACT_ENTRY_RE = /\.(?:txt|md|markdown|log|json|jsonl|xml|csv|tsv)$/i;
+const TEXT_ARTIFACT_ENTRY_RE = /\.(?:txt|md|markdown|log|json|jsonl|ndjson|xml|csv|tsv)$/i;
 
 const DIFF_SUMMARY_LIMITS = {
   maxFiles: 50,
