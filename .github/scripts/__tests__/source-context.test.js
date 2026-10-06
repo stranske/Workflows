@@ -21,6 +21,53 @@ const {
   resolvePrSourceContext: templateResolvePrSourceContext,
 } = require('../../../templates/consumer-repo/.github/scripts/source_context.js');
 
+const release3769 = require('./fixtures/release-3769.json');
+
+test('release #3769 retains automation provenance instead of the already-merged fix', () => {
+  for (const resolve of [resolvePrSourceContext, templateResolvePrSourceContext]) {
+    const source = resolve(release3769);
+    assert.equal(source.issueNumber, null);
+    assert.equal(source.requiresIssue, false);
+    assert.equal(source.sourceType, SOURCE_TYPES.AUTOMATION_RUN);
+  }
+});
+
+test('release history cannot hide genuine or ambiguous issue lineage', () => {
+  for (const resolve of [resolvePrSourceContext, templateResolvePrSourceContext]) {
+    for (const relation of [
+      '<!-- meta:issue:123 -->', 'Closes #123', 'Related to #123',
+      '<!-- meta:related-issue:123 -->', 'Fix issue #123',
+      'The prior change was merged.\nFix #123',
+    ]) {
+      const source = resolve({ ...release3769, body: release3769.body + '\n' + relation });
+      assert.equal(source.issueNumber, 123, relation);
+      assert.equal(source.requiresIssue, true, relation);
+    }
+    const branchSource = resolve({ ...release3769, head: { ref: 'codex/issue-123-release' } });
+    assert.equal(branchSource.issueNumber, 123);
+    assert.equal(branchSource.requiresIssue, true);
+    const ambiguous = resolve({ ...release3769, body: release3769.body + '\nRelated to #123\nRelated to #456' });
+    assert.equal(ambiguous.issueNumber, null);
+    const local = resolve({ ...release3769, body: release3769.body + '\n<!-- workflow-source:local_request -->\nRelated to #123' });
+    assert.equal(local.sourceType, SOURCE_TYPES.LOCAL_REQUEST);
+    assert.equal(local.requiresIssue, false);
+  }
+});
+
+test('historical fix nouns are not closing directives, including formatted release tasks', () => {
+  for (const extract of [extractIssueSourceFromPull, templateExtractIssueSourceFromPull]) {
+    for (const body of [
+      'Record the already-merged artifact-discovery fix #3768 in the changelog.',
+      '- [x] Document the **previous fix** #3768.',
+      'Include the merged fix #3768 in release history.',
+    ]) {
+      assert.equal(extract({ body }).issueNumber, null, body);
+    }
+    assert.equal(extract({ body: 'Fix #123' }).issueNumber, 123);
+    assert.equal(extract({ body: 'The prior change was merged. Fix #123' }).issueNumber, 123);
+  }
+});
+
 test('normalizeSourceType maps human aliases to canonical origin types', () => {
   assert.equal(normalizeSourceType('GitHub Issue'), SOURCE_TYPES.GITHUB_ISSUE);
   assert.equal(normalizeSourceType('local Codex request'), SOURCE_TYPES.LOCAL_REQUEST);

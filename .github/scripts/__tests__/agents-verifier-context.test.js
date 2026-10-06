@@ -23,6 +23,7 @@ const fixturesDir = path.join(__dirname, 'fixtures');
 const prBodyFixture = fs.readFileSync(path.join(fixturesDir, 'pr-body.md'), 'utf8');
 const issueBodyOpen = fs.readFileSync(path.join(fixturesDir, 'issue-body-open.md'), 'utf8');
 const issueBodyClosed = fs.readFileSync(path.join(fixturesDir, 'issue-body-closed.md'), 'utf8');
+const release3769 = require('./fixtures/release-3769.json');
 
 const buildVerifierContext = (options) => buildVerifierContextImpl({
   ...options,
@@ -880,6 +881,32 @@ async function buildEvidenceContext(githubOptions = {}, buildOptions = {}, build
 function coveragePatch(name, lines = 1) {
   return `diff --git a/${name} b/${name}\n--- a/${name}\n+++ b/${name}\n@@ -1 +1 @@\n-old\n${'+new\n'.repeat(lines)}`;
 }
+
+test('release #3769 builder retains its own acceptance without fetching merged PR #3768 as an issue', async () => {
+  const templateImpl = require('../../../templates/consumer-repo/.github/scripts/agents_verifier_context.js').buildVerifierContext;
+  const templateBuilder = options => templateImpl({ ...options, fetchLocalDiff: () => options.github.__testDiffText });
+  for (const builder of [buildVerifierContext, templateBuilder]) {
+    const calls = [];
+    const { result } = await buildEvidenceContext({
+      prDetails: { ...release3769, merged: true, merged_at: '2026-10-06T00:00:00Z',
+        merge_commit_sha: 'b847857162a2eb652e3b6e6cc1d982899bf6b7b2',
+        base: { ref: 'main', sha: 'aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa' } },
+      sourceIssue: { number: 3768, body: 'Not an issue contract', pull_request: {} },
+      sourceIssueCalls: calls,
+      diffText: coveragePatch('.release-please-manifest.json') + coveragePatch('CHANGELOG.md'),
+    }, {}, builder);
+    try {
+      assert.equal(result.shouldRun, true);
+      assert.deepEqual(calls, []);
+      assert.deepEqual(result.issueNumbers, []);
+      assert.equal(result.sourceCoverage.acceptance_source_discovery.status, 'included');
+      assert.equal(result.sourceCoverage.acceptance_source_discovery.required, false);
+      assert.match(result.markdown, /Manifest and changelog agree on 1\.37\.21/);
+      assert.match(result.markdown, /Complete required\/expected pre-merge check topology/);
+      assert.doesNotMatch(result.markdown, /Known source issue #3768 was not retrieved/);
+    } finally { removeVerifierDiffArtifacts(result); }
+  }
+});
 
 for (const [name, files, codeChars, acceptanceChars] of [
   ['workflows-3601', 30, 159700, 9000],

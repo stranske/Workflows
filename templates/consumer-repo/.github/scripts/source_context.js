@@ -182,6 +182,11 @@ function hasExplicitIssueReferencePrefix(value) {
   if (/\b(?:known|no)\s+(?:linked\s+)?issue\s*[:#-]?\s*$/i.test(prefix)) {
     return false;
   }
+  // In release tasks/history, "record the already-merged ... fix #N"
+  // names a delivered change. Here "fix" is a noun, not closing intent.
+  if (hasHistoricalFixReferencePrefix(rawPrefix)) {
+    return false;
+  }
 
   const issuePrefixPattern =
     '(?:(?:close[sd]?|closing|fix(?:e[sd])?|fixing|resolve[sd]?|resolving|address(?:e[sd])?|addressing)(?:\\s+(?:issue|source\\s+issue|github\\s+issue))?|relate[sd]?\\s+to(?:\\s+(?:(?:[a-z-]+\\s+)?issue|source\\s+issue|github\\s+issue))?|refs?(?:\\s+(?:issue|source\\s+issue|github\\s+issue))?|references?(?:\\s+(?:issue|source\\s+issue|github\\s+issue))?|source(?:\\s*:\\s*|\\s+)issue|github\\s+issue|linked\\s+issue|issue)';
@@ -194,6 +199,13 @@ function hasExplicitIssueReferencePrefix(value) {
     'i',
   );
   return linePattern.test(rawPrefix);
+}
+
+function hasHistoricalFixReferencePrefix(prefix) {
+  // Stay within this line: history on a preceding line must not mask a new
+  // "Fix #N" directive. Strip Markdown formatting, not clause boundaries.
+  const line = String(prefix || '').split(/\r?\n/).pop().replace(/[_[\]()`~>*]/g, ' ');
+  return /\b(?:already[- ]merged|merged|released|previous|prior|existing)\s+(?:[\w-]+\s+){0,6}fix\s*[:#-]?\s*$/i.test(line);
 }
 
 function extractIssueNumbersFromText(text) {
@@ -252,6 +264,9 @@ function extractClosingIssueNumbersFromText(text) {
       .trim()
       .replace(/[>*]/g, ' ')
       .replace(/\s+/g, ' ');
+    if (hasHistoricalFixReferencePrefix(before)) {
+      continue;
+    }
     if (
       !/\b(?:close[sd]?|closing|fix(?:e[sd])?|fixing|resolve[sd]?|resolving)(?:\s+(?:source\s+issue|github\s+issue|issue))?\s*[:#-]?\s*$/i.test(
         prefix
@@ -529,6 +544,11 @@ function inferredSourceType(pull = {}) {
   }
   if (labels.includes('campaign:sync-dependabot')) {
     return SOURCE_TYPES.SYNC_CAMPAIGN;
+  }
+  // Release Please's stable generated branch is an automation source when
+  // no genuine issue lineage or declared source took precedence above.
+  if (branch.startsWith('release-please--branches--')) {
+    return SOURCE_TYPES.AUTOMATION_RUN;
   }
   if (author === 'github-actions[bot]' || author === 'github-actions') {
     return SOURCE_TYPES.AUTOMATION_RUN;

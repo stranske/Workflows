@@ -1212,6 +1212,9 @@ async function buildVerifierContext({
     return { shouldRun: false, reason: skipReason, ciResults: [], ciFailed: false };
   }
 
+  // Shared source classification excludes recorded historical fixes (such as
+  // release changelog PRs). Genuine issue lineage still uses this fail-closed
+  // retrieval; a PR-shaped issues.get response cannot replace an issue contract.
   const closingIssueDiscovery = await fetchAcceptanceIssues({
     github,
     core,
