@@ -70,7 +70,14 @@ def test_input_snapshot_retains_profile_and_every_actual_limit():
         "ARCHIVE_BYTES",
         "ENTRY_LIMIT",
         "ARTIFACT_CHARS",
+        "BODY_CHARS",
     ]:
         assert f"os.environ.get('VERIFIER_EVIDENCE_{name}'" in workflow
-    for name in ["DIFF_BUDGET_TOKENS", "ACCEPTANCE_EVIDENCE_BUDGET_TOKENS"]:
+    for name in [
+        "DIFF_BUDGET_TOKENS",
+        "ACCEPTANCE_EVIDENCE_BUDGET_TOKENS",
+        "DIFF_MAX_BYTES",
+        "DIFF_MAX_CHARS",
+        "CONTEXT_BUDGET_TOKENS",
+    ]:
         assert f"os.environ.get('VERIFIER_{name}'" in workflow

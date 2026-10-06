@@ -162,11 +162,11 @@ fingerprint_refreshed = 2026-10-01
 [pair.14]
 main = .github/workflows/agents-verifier.yml
 template = templates/consumer-repo/.github/workflows/agents-verifier.yml
-main_sha256 = 9eac4dcf473c8be04bdd6cf168dda13da2d1a2c3b19a69c091b67fe3ad47eabe
-template_sha256 = a7692b7c3a3cf030e18c7f97ad2fc62bb8def38a3f52546bea5dc3276faf3b23
-divergence = Named-secrets rollout 2026-08-23: both surfaces now pass named setup-api-client secret inputs instead of the whole-secrets-context blob, applied identically to root and consumer, and scoped to each workflow's DECLARED workflow_call secrets where that context is a closed set. Removing that handoff is the demonstrated remedy for GitHub's suspicious-workflow hold (agents-dedup then ran at run_attempt 1 with nothing approved after 22 days held). Prior divergence unchanged: Intentional divergence re-reviewed 2026-08-23: the Workflows verifier retains its local corpus and provider plumbing, while the consumer verifier calls the distributed surface with consumer-specific action pins and token setup. Do not align wholesale because those execution environments are intentionally different.
+main_sha256 = 184afdca9561ae5f014bcecc7aa2a1d9f0bbab3571befa14891328f35b5e8805
+template_sha256 = 0329d42836177b6513e468c75e337e5c20df069f544bf7e0891b4afdbada9db1
+divergence = Bounded input recovery 2026-10-06: both surfaces declare and pass the same standard/expanded evidence_profile. The consumer also fingerprints that input in its existing state-ledger path, which the root corpus caller does not implement. No new execution-context divergence; only fingerprints refreshed, original divergence review retained. Prior history: Named-secrets rollout 2026-08-23: both surfaces now pass named setup-api-client secret inputs instead of the whole-secrets-context blob, applied identically to root and consumer, and scoped to each workflow's DECLARED workflow_call secrets where that context is a closed set. Removing that handoff is the demonstrated remedy for GitHub's suspicious-workflow hold (agents-dedup then ran at run_attempt 1 with nothing approved after 22 days held). Prior divergence unchanged: Intentional divergence re-reviewed 2026-08-23: the Workflows verifier retains its local corpus and provider plumbing, while the consumer verifier calls the distributed surface with consumer-specific action pins and token setup. Do not align wholesale because those execution environments are intentionally different.
 divergence_reviewed = 2026-08-23
-fingerprint_refreshed = 2026-08-23
+fingerprint_refreshed = 2026-10-06
 
 [pair.15]
 main = .github/workflows/agents-weekly-metrics.yml

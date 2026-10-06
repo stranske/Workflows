@@ -43,6 +43,12 @@ Each tuple is recorded in `REVIEWED_SCRIPT_INTERPOLATIONS` inside
 `inputs.*`/`github.event.*` script interpolation requires updating that set and
 this document.
 
+The 2026-10-06 bounded verifier evidence-profile step shifts the existing
+reusable verifier locations by one (12→13, 22→23, 28→29, 32→33). Those nine
+occurrences are unchanged expressions, not newly approved inputs. The new
+profile uses step `env:` indirection and an exact fixed-value case statement;
+it adds no script interpolation exception.
+
 ## Test gate
 
 `tests/workflows/test_no_untrusted_interpolation.py::test_no_untrusted_expressions_in_script_bodies`

@@ -10,7 +10,9 @@ After inspecting an actual incomplete verifier report, manual `Agents Verifier`
 dispatch may select `evidence_profile=expanded`. Standard remains the default;
 this is not an automatic retry or a verdict override. Expanded allows 300 total
 review records, 128,000 comment characters, 32,000 changed-code budget tokens and
-48,000 acceptance-evidence budget tokens. These are fixed limits, not arbitrary
+48,000 acceptance-evidence budget tokens. Comment retrieval follows at most
+three pages per channel within the shared record/character budget (bodyless
+reviews still consume bounded API pages). These are fixed limits, not arbitrary
 operator-provided numbers. Retrieval is bounded to 40 exact-head/merge runs,
 80 artifacts, 4 MiB per archive, 80 entries per archive and 128,000 characters
 per artifact. NDJSON proof is recognized as text alongside JSONL; unsafe entry
