@@ -9,18 +9,19 @@
   },
   "evidence_sha256": {
     "mutation-receipt.json": "290653ac775f8f44547d0328c66e9918532fc3b57712a88e091adfe60b2b95af",
-    "mutation-template-only-RED.txt": "f6a94c31f85c2d8c72b0607b3c971152eb1a6c914506e445d8bb816a224ed6cc",
-    "all-js-tests.txt": "071333d78d4af3581cbffab34ba802fe12d08b41f67fa1f929ad19b4ece04385",
-    "mutation-root-only-RED.txt": "95d06398542285076b097412456dd2bba7f838e97b54045ab44eb47c50f8ceff",
+    "mutation-template-only-RED.txt": "9c2fe1e402e1f4e9cbc1e44ab85b0e7d112d4aafb5b8e33e63f8b5be129f90a7",
+    "all-js-tests.txt": "086052019e9de16905cb93c4aace4d0e302964f06782b0af6da92d74e88d690d",
+    "mutation-root-only-RED.txt": "07e1263d9b09c74b15ac7c25276aa92371655481984ef577d7a10d16f393c601",
     "template-sync.txt": "e00bc56a4eb4ab5ca9c721c61262b90d9d55e74187fec23e1144d500af0fcc6b",
     "mutation-template-only-GREEN.txt": "1f07f2b40a1aabfa4c23875f9a94ce123253e97ea648f449d79f80e96f113d79",
     "mutation-root-only-GREEN.txt": "9bb627b667ac5672ce80db3134cb3e089ba22eea0c70756e56f3c8bc00cdc303",
     "template-completeness.txt": "571919c147488c55064046a0c64cf3a5919172b39a3d890dbad258b6d65c1018",
-    "local-verify-transcript.txt": "6b45ff785c1ed4415fa39fc69d517927a6eadf94e18dea677e4421f05c14a31c"
+    "local-verify-transcript.txt": "eed309a3613a8e4cfa84a8cdd7ed8f356bfbee1ab1757ba6d6738004c2f7ce6e"
   },
   "limitations": [
     "Unit builder uses synthetic transport and a synthetic trusted release origin around exact production body/title/branch.",
     "local_verify command-level attribution only; JavaScript per-node attribution unsupported. Independent root-only/template-only mutation failures are captured.",
     "No installed consumer sync or production comparison PASS claimed. Original3769/3787 NON_PASS results retained."
-  ]
+  ],
+  "committed_log_normalization": "Trailing horizontal whitespace removed from committed text captures; original console bytes retained in automation evidence20261006T1800Z."
 }

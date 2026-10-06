@@ -175,7 +175,7 @@ test at .github/scripts/__tests__/agents-verifier-context.test.js:964:1
 ✖ release #3787 builder retains acceptance without fetching historical fixes PR #3782 (2.015042ms)
   AssertionError [ERR_ASSERTION]: Expected values to be strictly deep-equal:
   + actual - expected
-  
+
   + [
   +   {
   +     issue_number: 3782,
@@ -184,7 +184,7 @@ test at .github/scripts/__tests__/agents-verifier-context.test.js:964:1
   +   }
   + ]
   - []
-  
+
       at TestContext.<anonymous> (/Users/teacher/.codex/automations/pd-workloop-resume/worktrees/Workflows-3770-plural-provenance/.github/scripts/__tests__/agents-verifier-context.test.js:988:14)
       at async Test.run (node:internal/test_runner/test:1069:7)
       at async Test.processPendingSubtests (node:internal/test_runner/test:752:7) {
@@ -198,9 +198,9 @@ test at .github/scripts/__tests__/agents-verifier-context.test.js:964:1
 test at .github/scripts/__tests__/source-context.test.js:43:1
 ✖ release #3787 historical plural fixes retain automation provenance (0.84175ms)
   AssertionError [ERR_ASSERTION]: Expected values to be strictly equal:
-  
+
   3782 !== null
-  
+
       at TestContext.<anonymous> (/Users/teacher/.codex/automations/pd-workloop-resume/worktrees/Workflows-3770-plural-provenance/.github/scripts/__tests__/source-context.test.js:51:12)
       at Test.runInAsyncScope (node:async_hooks:214:14)
       at Test.run (node:internal/test_runner/test:1062:25)
@@ -218,9 +218,9 @@ test at .github/scripts/__tests__/source-context.test.js:43:1
 test at .github/scripts/__tests__/source-context.test.js:111:1
 ✖ historical fix nouns are not closing directives, including formatted release tasks (0.191792ms)
   AssertionError [ERR_ASSERTION]: preserve release provenance for historical fixes ([#3782](https://github.com/stranske/Workflows/issues/3782))
-  
+
   3782 !== null
-  
+
       at TestContext.<anonymous> (/Users/teacher/.codex/automations/pd-workloop-resume/worktrees/Workflows-3770-plural-provenance/.github/scripts/__tests__/source-context.test.js:121:14)
       at Test.runInAsyncScope (node:async_hooks:214:14)
       at Test.run (node:internal/test_runner/test:1062:25)
@@ -239,14 +239,14 @@ test at .github/scripts/__tests__/source-context.test.js:157:1
 ✖ a historical fix noun cannot hide a subsequent closing directive on the same line (0.951084ms)
   AssertionError [ERR_ASSERTION]: Revert the historical fixes #456 and Fixes #123
   + actual - expected
-  
+
     {
   +   issueNumber: null,
   +   via: null
   -   issueNumber: 123,
   -   via: 'closing'
     }
-  
+
       at TestContext.<anonymous> (/Users/teacher/.codex/automations/pd-workloop-resume/worktrees/Workflows-3770-plural-provenance/.github/scripts/__tests__/source-context.test.js:167:14)
       at Test.runInAsyncScope (node:async_hooks:214:14)
       at Test.run (node:internal/test_runner/test:1062:25)

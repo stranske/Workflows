@@ -543,7 +543,7 @@ GITHUB_TOKEN_RATE first 100: {"source":"GITHUB_TOKEN","core":{"limit":5000,"rema
 PAT_RATE first 100: {"source":"OWNER_PR_PAT","core":{"limit":5000,"remaining":1000,"used":4000,"pct":"80.0"},"graphql":{
 SERVICE_BOT_RATE first 100: {}
 APP_RATE first 100: {"source":"WORKFLOWS_APP","core":{"limit":15000,"remaining":14999,"used":1,"pct":"0"},"graphql":{"li
-KEEPALIVE_APP_RATE first 100: 
+KEEPALIVE_APP_RATE first 100:
 GH_APP_RATE first 100: {bad json
 Parsed JSON lengths:
   gt=237, pat=247, svc=2, app=234
