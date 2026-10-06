@@ -214,6 +214,11 @@ def event_applies(
     return True, "event/action/branch/changed-path filters apply"
 
 
+def actions_str(value: Any) -> str:
+    """Render literal scalars with GitHub Actions boolean spelling."""
+    return ("true" if value else "false") if isinstance(value, bool) else str(value)
+
+
 def job_names(job_id: str, job: dict[str, Any]) -> list[str]:
     """Expand literal Cartesian or include-only matrices, rejecting transforms."""
     matrix = (job.get("strategy") or {}).get("matrix")
@@ -255,12 +260,16 @@ def job_names(job_id: str, job: dict[str, Any]) -> list[str]:
             ):
                 raise UnknownEvidence(f"dynamic matrix value on {job_id}")
             expanded = re.sub(
-                r"\$\{\{\s*matrix\." + re.escape(key) + r"\s*\}\}", str(value), expanded
+                r"\$\{\{\s*matrix\." + re.escape(key) + r"\s*\}\}",
+                lambda _match, literal=value: actions_str(literal),
+                expanded,
             )
         if "${{" in expanded:
             raise UnknownEvidence(f"unresolved job name: {expanded}")
         names.append(
-            expanded if "name" in job else f"{expanded} ({', '.join(map(str, row.values()))})"
+            expanded
+            if "name" in job
+            else f"{expanded} ({', '.join(map(actions_str, row.values()))})"
         )
     if len(names) != len(set(names)):
         raise UnknownEvidence(f"ambiguous duplicate matrix names on {job_id}")
@@ -796,7 +805,7 @@ def bind_job_inputs(job: dict[str, Any], inputs: dict[str, Any]) -> dict[str, An
             raw = inputs.get(match[1])
             if raw is None or isinstance(raw, (list, dict)) or "${{" in str(raw):
                 raise UnknownEvidence(f"nonliteral job input: {match[1]}")
-            return str(raw)
+            return actions_str(raw)
 
         return re.sub(r"\$\{\{\s*inputs\.([\w-]+)\s*\}\}", replace, value)
 
@@ -857,7 +866,7 @@ def adjudicate(
     runs: list[dict[str, Any]],
     unknown: list[str],
     required: list[dict[str, Any]],
-    applicable_workflow_ids: set[Any] | None = None,
+    applicable_suite_ids: set[Any] | None = None,
 ) -> dict[str, Any]:
     states = latest_checks(checks, statuses)
     missing = sorted(expected - states.keys())
@@ -888,8 +897,8 @@ def adjudicate(
             "timed_out",
         }:
             continue
-        workflow_id = suite.get("workflow_id")
-        if applicable_workflow_ids is not None and workflow_id not in applicable_workflow_ids:
+        suite_id = suite.get("id")
+        if applicable_suite_ids is not None and suite_id not in applicable_suite_ids:
             continue
         if suite.get("latest_check_runs_count", 1) != 0:
             continue
@@ -1130,7 +1139,11 @@ def collect(
     after = evidence.one(f"repos/{repo}/pulls/{number}")
     if after["head"]["sha"] != head or after["base"]["sha"] != base:
         unknown.append("PR head or base changed during evidence collection")
-    applicable_workflow_ids = {run.get("workflow_id") for run in latest_runs.values()}
+    applicable_suite_ids = {
+        run.get("check_suite_id")
+        for run in latest_runs.values()
+        if run.get("check_suite_id") is not None
+    }
     receipt = adjudicate(
         expected,
         checks,
@@ -1139,7 +1152,7 @@ def collect(
         list(latest_runs.values()),
         unknown,
         required,
-        applicable_workflow_ids,
+        applicable_suite_ids,
     )
     receipt.update(
         {

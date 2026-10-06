@@ -37,7 +37,7 @@ def verdict(
 ):
     run_list = runs if runs is not None else []
     applicable = (
-        {item.get("workflow_id") for item in run_list if item.get("workflow_id") is not None}
+        {item.get("check_suite_id") for item in run_list if item.get("check_suite_id") is not None}
         if runs is not None
         else None
     )
@@ -103,11 +103,10 @@ def test_zero_job_failed_suite_is_fail():
                 {
                     "id": 90,
                     "conclusion": "failure",
-                    "workflow_id": workflow_id,
                     "latest_check_runs_count": 0,
                 }
             ],
-            runs=[{"id": 1, "workflow_id": workflow_id, "jobs": []}],
+            runs=[{"id": 1, "workflow_id": workflow_id, "check_suite_id": 90, "jobs": []}],
             unknown=[],
             required=[],
         )["verdict"]
@@ -122,11 +121,10 @@ def test_optional_failed_suite_outside_applicable_workflow_does_not_fail():
                 {
                     "id": 90,
                     "conclusion": "failure",
-                    "workflow_id": 99,
                     "latest_check_runs_count": 0,
                 }
             ],
-            runs=[{"id": 1, "workflow_id": 42, "jobs": [check()]}],
+            runs=[{"id": 1, "workflow_id": 42, "check_suite_id": 91, "jobs": [check()]}],
             unknown=[],
             required=[],
         )["verdict"]
@@ -146,15 +144,25 @@ def test_types_as_string_does_not_substring_match_opened():
 
 
 def test_duplicate_expected_job_names_force_unknown():
-    job_provenance = {
-        "gate": {f"o/r/a.yml@{BASE}", f"o/r/b.yml@{BASE}"},
-    }
-    unknown = []
-    for job_name, sources in job_provenance.items():
-        if len(sources) > 1:
-            unknown.append(f"duplicate expected check identity {job_name!r}")
-    result = verdict(expected={"gate"}, unknown=unknown)
+    transport = fixture_transport()
+
+    def duplicate_sources(endpoint):
+        if "/contents/.github/workflows?" in endpoint:
+            return [
+                [
+                    {"path": ".github/workflows/gate.yml", "sha": "d" * 40},
+                    {"path": ".github/workflows/other.yml", "sha": "e" * 40},
+                ]
+            ]
+        if "/contents/.github/workflows/other.yml?" in endpoint:
+            return transport(endpoint.replace("other.yml", "gate.yml"))
+        return transport(endpoint)
+
+    result = reporter.collect(
+        reporter.Evidence(duplicate_sources), "o/r", 1, HEAD, "pull_request", "opened"
+    )
     assert result["verdict"] == "UNKNOWN"
+    assert any("duplicate expected check identity" in reason for reason in result["unknown"])
 
 
 def test_empty_expectation_cannot_pass():
@@ -1223,3 +1231,69 @@ def test_only_observer_and_pin_changes_are_topology_equivalent(path):
         changed = copy.deepcopy(head)
         changed[field].update(value)
         assert not reporter.root_topology_equivalent(base, changed, path)
+
+
+def test_boolean_matrix_names_use_actions_spelling():
+    assert reporter.job_names(
+        "lint",
+        {"name": "lint ${{ matrix.strict }}", "strategy": {"matrix": {"strict": [True, False]}}},
+    ) == ["lint true", "lint false"]
+    assert reporter.job_names("lint", {"strategy": {"matrix": {"strict": [True, False]}}}) == [
+        "lint (true)",
+        "lint (false)",
+    ]
+
+
+def test_matrix_substitution_preserves_literal_backslashes():
+    value = r"C:\new\tools"
+    assert reporter.job_names(
+        "lint", {"name": "lint ${{ matrix.path }}", "strategy": {"matrix": {"path": [value]}}}
+    ) == ["lint " + value]
+
+
+def test_boolean_input_names_use_actions_spelling():
+    bound = reporter.bind_job_inputs({"name": "lint ${{ inputs.strict }}"}, {"strict": True})
+    assert bound["name"] == "lint true"
+
+
+def test_collect_binds_real_suite_id_to_current_run():
+    transport = fixture_transport()
+
+    def realistic_suite(endpoint):
+        if "/check-suites?" in endpoint:
+            return [
+                {
+                    "total_count": 1,
+                    "check_suites": [
+                        {"id": 90, "conclusion": "startup_failure", "latest_check_runs_count": 0}
+                    ],
+                }
+            ]
+        if "/actions/runs?" in endpoint:
+            return [
+                {
+                    "total_count": 1,
+                    "workflow_runs": [
+                        {
+                            "id": 1,
+                            "workflow_id": 42,
+                            "check_suite_id": 90,
+                            "head_sha": HEAD,
+                            "event": "pull_request",
+                            "path": ".github/workflows/gate.yml",
+                            "conclusion": "success",
+                        }
+                    ],
+                }
+            ]
+        if "/actions/runs/1/jobs?" in endpoint:
+            return [{"total_count": 1, "jobs": [{"id": 2, "name": "gate"}]}]
+        return transport(endpoint)
+
+    result = reporter.collect(
+        reporter.Evidence(realistic_suite), "o/r", 1, HEAD, "pull_request", "opened"
+    )
+    assert result["verdict"] == "FAIL"
+    assert result["startup_failures"] == [
+        {"kind": "suite", "id": 90, "conclusion": "startup_failure"}
+    ]
