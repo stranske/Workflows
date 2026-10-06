@@ -81,6 +81,13 @@ antecedent; an unrelated body update does not canonicalize that proof. The
 antecedent predicate shares the canonical delivery operations and record-alias
 map with ordinary delivery; bounded alias-plus-pronoun review destinations
 normalize before resolution, retaining governing negation and modality. They
+skip shared quoted literal spans before common-proof substitution, not only
+before PR-contained comment substitution. The shared independent-predicate
+boundary includes negative requirement governors, so an unrelated actor's
+optional or excluded PR-body update cannot become the proof's destination.
+Explicit next-actor pronoun deliveries retain their introduced proof across
+semicolon and sentence boundaries as well as coordination; unrelated updates
+and negative or optional deliveries remain nongating. They
 therefore retain negative/optional governors,
 quoted-literal and product-capability exclusions, and independent reviewer
 obligations; a mandatory PR-body proof cannot bypass the coverage floor when

@@ -1097,7 +1097,13 @@ def _required_evidence_channels(acceptance: str, *, _bind_attached: bool = True)
         + artifact_destination_object
         + r"|(?:pr|pull request)\b)"
     )
-    independent_review_predicate = r"(?:" + mandatory_auxiliary + r"|is|are|will|should|may|can)\b"
+    independent_review_predicate = (
+        r"(?:"
+        + mandatory_auxiliary
+        + r"|"
+        + negative_requirement_governor
+        + r"|is|are|will|should|may|can)\b"
+    )
     destination_preposition = r"(?:in|into|to|within|for|as|through|via)\s+"
     delivery_destination_item = r"(?:" + review_destination_noun + "|" + recipient_noun + ")"
     delivery_destination_separator_base = r"(?:\s*,\s*(?:(?:and|or)\s+)?|\s+(?:and|or)\s+)"
@@ -1140,7 +1146,7 @@ def _required_evidence_channels(acceptance: str, *, _bind_attached: bool = True)
         r"(?:pr|pull request)(?:\s+body)?)\b"
     )
     proof_actor_boundary = (
-        r"(?:,?\s+)(?:and|or|but)\s+(?="
+        r"(?:(?:,?\s+)(?:and|or|but)\s+|;\s*|[.!?]\s+)(?="
         + independent_proof_actor
         + r"(?:\s+(?:of|for|used\s+by|managed\s+by|using|testing|accessing|operating)\s+"
         r"(?:(?!(?:and|or|but|must|shall|is|are|not|never|may|can|has|have)\b)[\w/-]+\s+){0,4}"
@@ -1152,6 +1158,8 @@ def _required_evidence_channels(acceptance: str, *, _bind_attached: bool = True)
     )
 
     def normalize_proof_object(match: re.Match[str]) -> str:
+        if match["literal"]:
+            return match[0]
         before = re.split(
             r"[;\n.!?]|" + proof_actor_boundary, acceptance[: match.start()], flags=re.I
         )[-1]
@@ -1183,6 +1191,7 @@ def _required_evidence_channels(acceptance: str, *, _bind_attached: bool = True)
         )
 
     acceptance = re.sub(
+        r"(?P<literal>" + quoted_evidence_literal + r")|"
         r"\b(?:(?:test|validation)\s+(?:results?|logs?|outputs?)|screenshots?|recordings|"
         r"recording(?:\s+of\s+(?:(?!(?:and|or|but|must|shall|is|are|may|can|has|have)\b)"
         r"[\w/-]+\s+){0,4}[\w/-]+(?=\s+(?:"
