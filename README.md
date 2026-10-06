@@ -21,10 +21,12 @@ replace that reporter's historical frequency/ratchet algorithm.
 
 ```bash
 python3 scripts/check_checks_reported.py --repo stranske/Orchestrator --pr 461 \
-  --head <full-current-40-character-head> --event pull_request --action synchronize \
+  --head FULL_HEAD_SHA --event pull_request --action synchronize \
   --presence-reporter /path/to/Orchestrator/scripts/check_checks_reported.py \
   --output /path/to/evidence/Orchestrator-461-checks.json
 ```
+
+Replace `FULL_HEAD_SHA` with the PR's current 40-character commit SHA before running.
 
 The output records full head/base, event/action, changed paths, authored workflow
 topology, required branch/ruleset contexts, complete check/suite pages and latest

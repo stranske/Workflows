@@ -35,14 +35,21 @@ def check(name="gate", conclusion="success", ident=1, started="2026-10-01T01:00:
 def verdict(
     expected=None, checks=None, suites=None, runs=None, unknown=None, required=None, statuses=None
 ):
+    run_list = runs if runs is not None else []
+    applicable = (
+        {item.get("workflow_id") for item in run_list if item.get("workflow_id") is not None}
+        if runs is not None
+        else None
+    )
     return reporter.adjudicate(
         {"gate"} if expected is None else expected,
         [check()] if checks is None else checks,
         statuses or [],
         suites or [],
-        runs or [],
+        run_list,
         unknown or [],
         required or [],
+        applicable,
     )
 
 
@@ -89,7 +96,66 @@ def test_zero_job_startup_failure_is_fail_even_with_green_check():
 
 
 def test_zero_job_failed_suite_is_fail():
-    assert verdict(suites=[{"id": 90, "conclusion": "failure"}])["verdict"] == "FAIL"
+    workflow_id = 42
+    assert (
+        verdict(
+            suites=[
+                {
+                    "id": 90,
+                    "conclusion": "failure",
+                    "workflow_id": workflow_id,
+                    "latest_check_runs_count": 0,
+                }
+            ],
+            runs=[{"id": 1, "workflow_id": workflow_id, "jobs": []}],
+            unknown=[],
+            required=[],
+        )["verdict"]
+        == "FAIL"
+    )
+
+
+def test_optional_failed_suite_outside_applicable_workflow_does_not_fail():
+    assert (
+        verdict(
+            suites=[
+                {
+                    "id": 90,
+                    "conclusion": "failure",
+                    "workflow_id": 99,
+                    "latest_check_runs_count": 0,
+                }
+            ],
+            runs=[{"id": 1, "workflow_id": 42, "jobs": [check()]}],
+            unknown=[],
+            required=[],
+        )["verdict"]
+        == "PASS"
+    )
+
+
+def test_types_as_string_does_not_substring_match_opened():
+    applies, _ = reporter.event_applies(
+        {"on": {"pull_request": {"types": "reopened"}}},
+        "pull_request",
+        "opened",
+        "main",
+        ["src/a.py"],
+    )
+    assert not applies
+
+
+def test_duplicate_expected_job_names_force_unknown():
+    evidence = reporter.Evidence(lambda _: [])
+    job_provenance = {
+        "gate": {f"o/r/a.yml@{BASE}", f"o/r/b.yml@{BASE}"},
+    }
+    unknown = []
+    for job_name, sources in job_provenance.items():
+        if len(sources) > 1:
+            unknown.append(f"duplicate expected check identity {job_name!r}")
+    result = verdict(expected={"gate"}, unknown=unknown)
+    assert result["verdict"] == "UNKNOWN"
 
 
 def test_empty_expectation_cannot_pass():

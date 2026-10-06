@@ -140,6 +140,10 @@ def event_applies(
     if event not in {"pull_request", "pull_request_target"}:
         raise UnknownEvidence(f"unsupported event context: {event}")
     types = config.get("types", ["opened", "synchronize", "reopened"])
+    if isinstance(types, str):
+        types = [types]
+    if not isinstance(types, list):
+        raise UnknownEvidence("invalid types filter")
     if action not in types:
         return False, f"action {action!r} not in {types}"
     for unknown in set(config) - {"types", "branches", "branches-ignore", "paths", "paths-ignore"}:
@@ -302,6 +306,7 @@ def adjudicate(
     runs: list[dict[str, Any]],
     unknown: list[str],
     required: list[dict[str, Any]],
+    applicable_workflow_ids: set[Any] | None = None,
 ) -> dict[str, Any]:
     states = latest_checks(checks, statuses)
     missing = sorted(expected - states.keys())
@@ -323,11 +328,23 @@ def adjudicate(
             unknown.append(
                 f"required app provenance not established: {rule['context']} app {app_id}"
             )
-    startup = [
-        {"kind": "suite", "id": suite.get("id"), "conclusion": suite.get("conclusion")}
-        for suite in suites
-        if suite.get("conclusion") in {"failure", "action_required", "startup_failure", "timed_out"}
-    ]
+    startup = []
+    for suite in suites:
+        if suite.get("conclusion") not in {
+            "failure",
+            "action_required",
+            "startup_failure",
+            "timed_out",
+        }:
+            continue
+        workflow_id = suite.get("workflow_id")
+        if applicable_workflow_ids is not None and workflow_id not in applicable_workflow_ids:
+            continue
+        if suite.get("latest_check_runs_count", 1) != 0:
+            continue
+        startup.append(
+            {"kind": "suite", "id": suite.get("id"), "conclusion": suite.get("conclusion")}
+        )
     startup += [
         {"kind": "run", "id": run.get("id"), "conclusion": run.get("conclusion")}
         for run in runs
@@ -400,6 +417,7 @@ def collect(
             rule["app_id"] = rule["integration_id"]
     expected = {rule["context"] for rule in required}
     workflow_expected: set[str] = set()
+    job_provenance: dict[str, set[str]] = {}
     absences = []
     sources = []
     if not isinstance(workflows, list) or not workflows:
@@ -427,9 +445,18 @@ def collect(
             if not applies:
                 absences.append({**source, "reason": reason, "triggers": workflow.get("on")})
                 continue
-            workflow_expected |= expected_jobs(evidence, repo, path, base, workflow)
+            source_key = f"{repo}/{path}@{base}"
+            for job_name in expected_jobs(evidence, repo, path, base, workflow):
+                job_provenance.setdefault(job_name, set()).add(source_key)
         except UnknownEvidence as exc:
             unknown.append(f"{path}: {exc}")
+    for job_name, origins in job_provenance.items():
+        if len(origins) > 1:
+            unknown.append(
+                "duplicate expected check identity "
+                f"{job_name!r} from {sorted(origins)}; cannot correlate runs conservatively"
+            )
+    workflow_expected = set(job_provenance)
     expected |= workflow_expected
     action_checks = [
         check for check in checks if (check.get("app") or {}).get("slug") == "github-actions"
@@ -447,7 +474,8 @@ def collect(
     # Collect every Actions run and every job page for this head; no bounded
     # latest-N sample and no zero-job success inference.
     runs = evidence.items(
-        f"repos/{repo}/actions/runs?head_sha={head}&per_page=100", "workflow_runs"
+        f"repos/{repo}/actions/runs?head_sha={head}&event={quote(event)}&per_page=100",
+        "workflow_runs",
     )
     latest_runs: dict[tuple[Any, Any], dict[str, Any]] = {}
     for run in runs:
@@ -467,8 +495,16 @@ def collect(
     after = evidence.one(f"repos/{repo}/pulls/{number}")
     if after["head"]["sha"] != head or after["base"]["sha"] != base:
         unknown.append("PR head or base changed during evidence collection")
+    applicable_workflow_ids = {run.get("workflow_id") for run in latest_runs.values()}
     receipt = adjudicate(
-        expected, checks, statuses, suites, list(latest_runs.values()), unknown, required
+        expected,
+        checks,
+        statuses,
+        suites,
+        list(latest_runs.values()),
+        unknown,
+        required,
+        applicable_workflow_ids,
     )
     receipt.update(
         {
