@@ -3,7 +3,10 @@
 from __future__ import annotations
 
 import base64
+import hashlib
 import importlib.util
+import json
+import sys
 from pathlib import Path
 
 import pytest
@@ -335,3 +338,94 @@ def test_incumbent_transport_is_reused_without_copying_reference_algorithm(tmp_p
     incumbent = tmp_path / "presence.py"
     incumbent.write_text("def _gh_json(path):\n    return [{'endpoint': path}]\n")
     assert reporter.load_presence_reporter(incumbent)("checks") == [{"endpoint": "checks"}]
+
+
+def invoke_main(monkeypatch, incumbent, output):
+    monkeypatch.setattr(
+        sys,
+        "argv",
+        [
+            "check_checks_reported.py",
+            "--repo",
+            "o/r",
+            "--pr",
+            "1",
+            "--head",
+            HEAD,
+            "--event",
+            "pull_request",
+            "--action",
+            "opened",
+            "--presence-reporter",
+            str(incumbent),
+            "--output",
+            str(output),
+        ],
+    )
+    code = reporter.main()
+    return code, json.loads(output.read_text())
+
+
+@pytest.mark.parametrize(
+    "source,reason",
+    [
+        (
+            "def _gh_json(path):\n    raise SystemExit('GitHub rate limit reached')\n",
+            "GitHub rate limit reached",
+        ),
+        ("# No compatible transport\n", "lacks its paginated _gh_json transport"),
+    ],
+)
+def test_unknown_cli_receipt_retains_incumbent_identity(tmp_path, monkeypatch, source, reason):
+    incumbent = tmp_path / "presence.py"
+    incumbent.write_text(source)
+    output = tmp_path / "evidence" / "receipt.json"
+
+    code, receipt = invoke_main(monkeypatch, incumbent, output)
+
+    assert code == 2 and receipt["verdict"] == "UNKNOWN"
+    assert reason in receipt["unknown"][0]
+    assert receipt["head"] == HEAD
+    assert receipt["presence_reporter"] == {
+        "path": str(incumbent),
+        "sha256": hashlib.sha256(incumbent.read_bytes()).hexdigest(),
+    }
+    assert receipt["evidence_complete"] is False
+    assert receipt["merge_authorization"] is False
+
+
+def test_successful_cli_receipt_retains_incumbent_identity(tmp_path, monkeypatch):
+    incumbent = tmp_path / "presence.py"
+    incumbent.write_text("# Tracked incumbent\n")
+    monkeypatch.setattr(reporter, "load_presence_reporter", lambda _: fixture_transport())
+
+    code, receipt = invoke_main(monkeypatch, incumbent, tmp_path / "receipt.json")
+
+    assert code == 0 and receipt["verdict"] == "PASS"
+    assert (
+        receipt["presence_reporter"]["sha256"] == hashlib.sha256(incumbent.read_bytes()).hexdigest()
+    )
+    assert receipt["expected_names"] == receipt["passing_names"] == ["gate"]
+    assert receipt["evidence_complete"] is True
+
+
+def test_changed_incumbent_during_collection_invalidates_cli_receipt(tmp_path, monkeypatch):
+    incumbent = tmp_path / "presence.py"
+    incumbent.write_text("# Original incumbent\n")
+    original_digest = hashlib.sha256(incumbent.read_bytes()).hexdigest()
+    transport = fixture_transport()
+
+    def changed_source(endpoint):
+        incumbent.write_text("# Changed incumbent\n")
+        return transport(endpoint)
+
+    monkeypatch.setattr(reporter, "load_presence_reporter", lambda _: changed_source)
+
+    code, receipt = invoke_main(monkeypatch, incumbent, tmp_path / "receipt.json")
+
+    assert code == 2 and receipt["verdict"] == "UNKNOWN"
+    assert "incumbent reporter changed" in receipt["unknown"][0]
+    assert receipt["presence_reporter"]["sha256"] == original_digest
+    assert receipt["request_evidence"]
+    assert receipt["evidence_complete"] is False
+    assert receipt["merge_authorization"] is False

@@ -523,13 +523,18 @@ def main() -> int:
             raise UnknownEvidence(
                 "repository and full lowercase 40-character head SHA are required"
             )
-        transport = load_presence_reporter(args.presence_reporter)
-        evidence = Evidence(transport)
-        receipt = collect(evidence, args.repo, args.pr, args.head, args.event, args.action)
+        # Bind source identity before loading or requesting evidence so even
+        # an import/discovery failure retains the incumbent being audited.
+        source_digest = hashlib.sha256(args.presence_reporter.read_bytes()).hexdigest()
         receipt["presence_reporter"] = {
             "path": str(args.presence_reporter),
-            "sha256": hashlib.sha256(args.presence_reporter.read_bytes()).hexdigest(),
+            "sha256": source_digest,
         }
+        transport = load_presence_reporter(args.presence_reporter)
+        evidence = Evidence(transport)
+        receipt.update(collect(evidence, args.repo, args.pr, args.head, args.event, args.action))
+        if hashlib.sha256(args.presence_reporter.read_bytes()).hexdigest() != source_digest:
+            raise UnknownEvidence("incumbent reporter changed during evidence collection")
     except (Exception, SystemExit) as exc:
         receipt.update({"verdict": "UNKNOWN", "unknown": [str(exc)]})
         if evidence is not None:

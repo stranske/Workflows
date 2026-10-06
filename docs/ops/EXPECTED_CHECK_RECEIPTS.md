@@ -3,9 +3,29 @@
 `scripts/check_checks_reported.py` is the Workflows-owned, read-only adapter for
 the existing Orchestrator `scripts/check_checks_reported.py`. The adapter loads
 that tracked reporter's `_gh_json` transport, which enumerates every GitHub REST
-page. It records the incumbent file's SHA-256 in the receipt. Keep using the
+page. It records the incumbent file's SHA-256 before importing it or collecting
+evidence, so import/API failures retain that source identity in UNKNOWN receipts.
+Changing the incumbent file during collection also returns UNKNOWN; a later
+digest cannot describe the source used for earlier requests. Keep using the
 incumbent frequency/ratchet report as an additional warning; frequency and a
 visible green list cannot establish event-specific completeness.
+
+## Shared source boundary
+
+The [Orchestrator reporter](https://github.com/stranske/Orchestrator/blob/main/scripts/check_checks_reported.py)
+owns historical frequency/ratchet reporting and the paginated `_gh_json` transport.
+The Workflows adapter owns event-specific topology, exact-head evidence and receipt
+adjudication for an explicitly named repository. It calls only that transport;
+it does not invoke the incumbent CLI, its Orchestrator-only `REPO` default, or its
+ratchet updates. Pass the trusted tracked reporter from an Orchestrator checkout
+with `--presence-reporter`; do not create another transport or historical algorithm.
+
+The issue's `docs/AGENT_ISSUE_FORMAT.md` citation is absent in this checkout.
+`.github/scripts/issue_format.py` is the implemented work-order validator:
+Tasks must name concrete targets and Acceptance Criteria must name verification
+gates. That formatting contract does not establish check completeness. Reporter
+behavior belongs in the adapter and `tests/test_check_checks_reported.py`, with
+this document and `README.md` defining its supported invocation.
 
 This is a local lane tool, not a consumer workflow or copy-managed template.
 No workflow, registry, branch protection, installed mirror, or scheduler changes
@@ -25,15 +45,18 @@ with its event evidence. A receipt covers that context, not every event over
 the PR's lifetime.
 
 ```bash
-/Users/teacher/.codex/bin/detached-net.sh python3 /path/to/Workflows/scripts/check_checks_reported.py \
-  --repo stranske/Orchestrator --pr 476 --head <current-full-head> \
+python3 /path/to/Workflows/scripts/check_checks_reported.py \
+  --repo stranske/Orchestrator --pr 461 --head <current-full-head> \
   --event pull_request --action synchronize \
   --presence-reporter /path/to/Orchestrator/scripts/check_checks_reported.py \
-  --output /path/to/evidence/Orchestrator-476-checks.json
+  --output /path/to/evidence/Orchestrator-461-checks.json
 ```
 
+Where the local lane requires it, prefix the command with that lane's
+`detached-net.sh` wrapper; its location is environment-specific.
+
 Use the same command with `--repo stranske/Workflows --pr 3756` and its current
-head, or Orchestrator #461, to refresh the issue's named consumers. Changed heads
+head to refresh the issue's other named consumer. Changed heads
 must not reuse older receipts. The historically observed heads in issue #3757
 are evidence pointers, not current-head assertions.
 
