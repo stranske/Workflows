@@ -223,6 +223,36 @@ def test_truncated_suites_cannot_pass():
         evidence.items("suites", "check_suites")
 
 
+@pytest.mark.parametrize("key", ["check_runs", "check_suites", "workflow_runs", "jobs"])
+def test_changing_page_totals_cannot_establish_complete_inventory(key):
+    evidence = reporter.Evidence(
+        lambda _: [
+            {"total_count": 3, key: [{"id": 1}]},
+            {"total_count": 2, key: [{"id": 2}]},
+        ]
+    )
+    with pytest.raises(reporter.UnknownEvidence, match="total_count changed"):
+        evidence.items("inventory", key)
+    assert evidence.requests[0]["pages"] == 2
+
+
+@pytest.mark.parametrize("key", ["check_runs", "check_suites", "workflow_runs", "jobs", None])
+def test_duplicate_page_objects_cannot_hide_missing_inventory(key):
+    # Two enumerated entries meet total_count=2 but represent only one object.
+    values = [{"id": 1}]
+    page = values if key is None else {"total_count": 2, key: values}
+    evidence = reporter.Evidence(lambda _: [page, page])
+    with pytest.raises(reporter.UnknownEvidence, match="repeated object id 1"):
+        evidence.items("inventory", key)
+
+
+@pytest.mark.parametrize("total", [-1, True, "1", 1.0, None])
+def test_invalid_inventory_totals_remain_unknown(total):
+    evidence = reporter.Evidence(lambda _: [{"total_count": total, "check_runs": [check()]}])
+    with pytest.raises(reporter.UnknownEvidence, match="invalid total_count"):
+        evidence.items("checks", "check_runs")
+
+
 def test_inaccessible_discovery_becomes_unknown_evidence():
     def inaccessible(_):
         raise SystemExit("rate limit reached")
@@ -377,6 +407,129 @@ def test_complete_static_topology_receipt_is_bound_to_full_head():
     assert result["expected_names"] == ["gate"]
     assert result["workflow_sources"][0]["document"]["jobs"]
     assert result["merge_authorization"] is False
+
+
+def suite_recovery_transport(mode="valid"):
+    original = fixture_transport()
+
+    def wrapped(endpoint):
+        if "/check-suites?" in endpoint:
+            return [
+                {
+                    "total_count": 1,
+                    "check_suites": [
+                        {
+                            "id": 901,
+                            "head_sha": HEAD,
+                            "app": {"slug": "github-actions"},
+                            "conclusion": "action_required" if mode == "startup" else "success",
+                            "latest_check_runs_count": 0 if mode == "startup" else 1,
+                        }
+                    ],
+                }
+            ]
+        if "check_suite_id=901" in endpoint:
+            run = {
+                "id": 101,
+                "check_suite_id": 901,
+                "head_sha": HEAD,
+                "event": "pull_request",
+                "workflow_id": 1,
+                "run_number": 1,
+                "path": ".github/workflows/gate.yml",
+                "conclusion": "success",
+            }
+            if mode == "head":
+                run["head_sha"] = BASE
+            elif mode == "suite":
+                run["check_suite_id"] = 902
+            elif mode == "event":
+                run["event"] = None
+            elif mode == "other_event":
+                run["event"] = "pull_request_target"
+            elif mode == "startup":
+                run["conclusion"] = "action_required"
+            values = [] if mode == "missing" else [run]
+            return [
+                {"total_count": 2 if mode == "truncated" else len(values), "workflow_runs": values}
+            ]
+        if "/actions/runs/101/jobs?" in endpoint:
+            jobs = (
+                [] if mode == "startup" else [{"id": 201, "name": "gate", "conclusion": "success"}]
+            )
+            return [{"total_count": len(jobs), "jobs": jobs}]
+        return original(endpoint)
+
+    return wrapped
+
+
+def test_merged_head_empty_search_recovers_exact_suite_runs():
+    result = reporter.collect(
+        reporter.Evidence(suite_recovery_transport()), "o/r", 1, HEAD, "pull_request", "opened"
+    )
+    assert result["verdict"] == "PASS"
+    assert result["workflow_run_inventory"][0]["id"] == 101
+    assert result["workflow_runs"][0]["jobs"][0]["id"] == 201
+    assert result["workflow_run_inventory_recovery"][0]["included"] is True
+    assert any("check_suite_id=901" in e["endpoint"] for e in result["request_evidence"])
+
+
+@pytest.mark.parametrize("mode", ["head", "suite", "event", "missing", "truncated"])
+def test_suite_inventory_mismatch_or_incomplete_evidence_is_unknown(mode):
+    with pytest.raises(reporter.UnknownEvidence):
+        reporter.collect(
+            reporter.Evidence(suite_recovery_transport(mode)),
+            "o/r",
+            1,
+            HEAD,
+            "pull_request",
+            "opened",
+        )
+
+
+def test_recovered_zero_job_startup_failure_cannot_hide_behind_green_checks():
+    result = reporter.collect(
+        reporter.Evidence(suite_recovery_transport("startup")),
+        "o/r",
+        1,
+        HEAD,
+        "pull_request",
+        "opened",
+    )
+    assert result["verdict"] == "FAIL"
+    assert result["startup_failures"]
+
+
+def test_recovered_other_event_remains_outside_requested_context():
+    result = reporter.collect(
+        reporter.Evidence(suite_recovery_transport("other_event")),
+        "o/r",
+        1,
+        HEAD,
+        "pull_request",
+        "opened",
+    )
+    assert result["workflow_run_inventory"] == []
+    assert result["workflow_run_inventory_recovery"][0]["event"] == "pull_request_target"
+    assert result["workflow_run_inventory_recovery"][0]["included"] is False
+
+
+def test_partial_head_inventory_still_recovers_unrepresented_suite():
+    first = {"id": 10, "head_sha": HEAD, "event": "pull_request", "check_suite_id": 900}
+    second = {"id": 11, "head_sha": HEAD, "event": "pull_request", "check_suite_id": 901}
+
+    def transport(endpoint):
+        run = second if "check_suite_id=901" in endpoint else first
+        return [{"total_count": 1, "workflow_runs": [run]}]
+
+    suites = [
+        {"id": ident, "head_sha": HEAD, "app": {"slug": "github-actions"}} for ident in (900, 901)
+    ]
+    evidence = reporter.Evidence(transport)
+    runs, recovery = reporter.complete_workflow_runs(evidence, "o/r", HEAD, "pull_request", suites)
+    assert {run["id"] for run in runs} == {10, 11}
+    assert [item["suite_id"] for item in recovery] == [901]
+    assert len(evidence.requests) == 2
 
 
 def protection_transport(error, rules=None):
@@ -543,6 +696,41 @@ def test_successful_cli_receipt_retains_incumbent_identity(tmp_path, monkeypatch
     )
     assert receipt["expected_names"] == receipt["passing_names"] == ["gate"]
     assert receipt["evidence_complete"] is True
+
+
+@pytest.mark.parametrize("key", ["check_runs", "check_suites"])
+@pytest.mark.parametrize("finding", ["changing_total", "duplicate_id"])
+def test_unstable_inventory_emits_unknown_cli_receipt(tmp_path, monkeypatch, key, finding):
+    incumbent = tmp_path / "presence.py"
+    incumbent.write_text("# Tracked incumbent\n")
+    transport = fixture_transport()
+    endpoint_kind = "check-runs" if key == "check_runs" else "check-suites"
+
+    def unstable_pages(endpoint):
+        if f"/{endpoint_kind}?" in endpoint:
+            second_id = 1 if finding == "duplicate_id" else 2
+            values = (
+                [check(), check("other", ident=second_id)]
+                if key == "check_runs"
+                else [{"id": ident, "conclusion": "success"} for ident in (1, second_id)]
+            )
+            return [
+                {"total_count": 3 if finding == "changing_total" else 2, key: [values[0]]},
+                {"total_count": 2, key: [values[1]]},
+            ]
+        return transport(endpoint)
+
+    monkeypatch.setattr(reporter, "load_presence_reporter", lambda _: unstable_pages)
+    code, receipt = invoke_main(monkeypatch, incumbent, tmp_path / "receipt.json")
+
+    assert code == 2 and receipt["verdict"] == "UNKNOWN"
+    assert receipt["head"] == HEAD
+    assert receipt["event"] == "pull_request" and receipt["action"] == "opened"
+    assert receipt["evidence_complete"] is False
+    assert receipt["merge_authorization"] is False
+    assert endpoint_kind in receipt["unknown"][0]
+    assert receipt["request_evidence"][-1]["pages"] == 2
+    assert endpoint_kind in receipt["request_evidence"][-1]["endpoint"]
 
 
 def test_changed_incumbent_during_collection_invalidates_cli_receipt(tmp_path, monkeypatch):

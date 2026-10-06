@@ -95,13 +95,27 @@ class Evidence:
     def items(self, endpoint: str, key: str | None = None) -> list[Any]:
         items = []
         total = None
+        seen_ids = set()
         for page in self.pages(endpoint):
             values = page if key is None else page.get(key)
             if not isinstance(values, list):
                 raise UnknownEvidence(f"{endpoint}: invalid list page")
+            # A stable count alone cannot prove completeness: a moving page
+            # boundary can repeat one object while silently omitting another.
+            for value in values:
+                if isinstance(value, dict) and value.get("id") is not None:
+                    ident = value["id"]
+                    if ident in seen_ids:
+                        raise UnknownEvidence(f"{endpoint}: repeated object id {ident}")
+                    seen_ids.add(ident)
             items.extend(values)
             if key is not None and "total_count" in page:
-                total = page["total_count"]
+                page_total = page["total_count"]
+                if type(page_total) is not int or page_total < 0:
+                    raise UnknownEvidence(f"{endpoint}: invalid total_count")
+                if total is not None and page_total != total:
+                    raise UnknownEvidence(f"{endpoint}: total_count changed during pagination")
+                total = page_total
         if total is not None and len(items) != total:
             raise UnknownEvidence(f"{endpoint}: enumerated {len(items)} of {total} items")
         return items
@@ -933,6 +947,64 @@ def adjudicate(
     }
 
 
+def complete_workflow_runs(
+    evidence: Evidence, repo: str, head: str, event: str, suites: list[dict[str, Any]]
+) -> tuple[list[dict[str, Any]], list[dict[str, Any]]]:
+    """Reconcile head-filtered search with every exact-head Actions suite.
+
+    GitHub can omit historical merged-head runs from its head search while
+    retaining their suites and suite-filtered run metadata. Neither successful
+    checks nor an empty search prove that those workflows did not execute.
+    """
+    runs = evidence.items(
+        f"repos/{repo}/actions/runs?head_sha={head}&event={quote(event)}&per_page=100",
+        "workflow_runs",
+    )
+    recovered = []
+    by_id = {}
+    for run in runs:
+        if run.get("head_sha") != head or run.get("event") != event:
+            raise UnknownEvidence("Actions returned a run for a different head or event")
+        by_id[run["id"]] = run
+    known_suites = {run.get("check_suite_id") for run in runs}
+    for suite in suites:
+        if (suite.get("app") or {}).get("slug") != "github-actions":
+            continue
+        suite_id = suite.get("id")
+        if not isinstance(suite_id, int) or suite.get("head_sha", head) != head:
+            raise UnknownEvidence("Actions suite identity/head binding missing")
+        if suite_id in known_suites:
+            continue
+        candidates = evidence.items(
+            f"repos/{repo}/actions/runs?check_suite_id={suite_id}&per_page=100",
+            "workflow_runs",
+        )
+        if not candidates:
+            raise UnknownEvidence(f"Actions suite {suite_id} has no discoverable run")
+        for run in candidates:
+            if (
+                run.get("check_suite_id") != suite_id
+                or run.get("head_sha") != head
+                or not isinstance(run.get("event"), str)
+            ):
+                raise UnknownEvidence(f"Actions suite {suite_id} run identity/head/event mismatch")
+            recovered.append(
+                {
+                    "suite_id": suite_id,
+                    "run_id": run["id"],
+                    "event": run["event"],
+                    "included": run["event"] == event,
+                    "source": "complete exact-head suite inventory and paginated suite lookup",
+                }
+            )
+            if run["event"] != event:
+                continue
+            if run["id"] in by_id and by_id[run["id"]] != run:
+                raise UnknownEvidence("Actions run metadata disagrees across inventory sources")
+            by_id[run["id"]] = run
+    return list(by_id.values()), recovered
+
+
 def collect(
     evidence: Evidence, repo: str, number: int, head: str, event: str, action: str
 ) -> dict[str, Any]:
@@ -960,10 +1032,7 @@ def collect(
     workflows = evidence.one(f"repos/{repo}/contents/.github/workflows?ref={base}")
     # Collect every Actions run and every job page for this head; no bounded
     # latest-N sample and no zero-job success inference.
-    runs = evidence.items(
-        f"repos/{repo}/actions/runs?head_sha={head}&event={quote(event)}&per_page=100",
-        "workflow_runs",
-    )
+    runs, recovered_runs = complete_workflow_runs(evidence, repo, head, event, suites)
     latest_runs: dict[tuple[Any, Any], dict[str, Any]] = {}
     for run in runs:
         if run.get("head_sha") != head:
@@ -1174,6 +1243,7 @@ def collect(
             "check_suites": suites,
             "workflow_runs": list(latest_runs.values()),
             "workflow_run_inventory": runs,
+            "workflow_run_inventory_recovery": recovered_runs,
             "request_evidence": evidence.requests,
             "merge_authorization": False,
         }
