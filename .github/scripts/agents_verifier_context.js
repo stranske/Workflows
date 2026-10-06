@@ -1518,19 +1518,22 @@ async function buildVerifierContext({
     evidence: verifierEvidence,
   });
   const missingIssueSource =
-    sourceContext.sourceType === 'github_issue' &&
+    sourceContext.requiresIssue &&
     closingIssues.length === 0 &&
     closingIssueDiscovery.status === 'included';
   sourceCoverage.acceptance_source_discovery = {
     source: 'Linked issues',
-    status: missingIssueSource ? 'unavailable' : closingIssueDiscovery.status,
-    reason: missingIssueSource
+    status: sourceContext.hasAmbiguousIssueSource || missingIssueSource
+      ? 'unavailable' : closingIssueDiscovery.status,
+    reason: sourceContext.hasAmbiguousIssueSource
+      ? 'Conflicting explicit source issues remain unresolved; acceptance-source discovery is incomplete.'
+      : missingIssueSource
       ? 'Issue-backed PR has no retrieved linked issue; acceptance-source discovery is incomplete.'
       : closingIssueDiscovery.reason,
     // An issue source (including one whose retrieval failed) cannot be
     // judged from the PR's retained subset of the acceptance contract.
     // Failed discovery cannot establish that the linked acceptance set is empty.
-    required: sourceContext.sourceType === 'github_issue' || closingIssues.length > 0
+    required: sourceContext.requiresIssue || closingIssues.length > 0
       || ['truncated', 'unavailable'].includes(closingIssueDiscovery.status),
   };
   // Put the inventory before large CI/plan/evidence blocks, so a late omitted

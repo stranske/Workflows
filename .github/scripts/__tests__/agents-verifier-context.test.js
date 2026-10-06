@@ -890,7 +890,10 @@ test('release #3769 builder retains its own acceptance without fetching merged P
     merged: true,
     merged_at: '2026-10-06T00:00:00Z',
     merge_commit_sha: 'b847857162a2eb652e3b6e6cc1d982899bf6b7b2',
-    base: { ref: 'main', sha: 'aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa' },
+    // Synthetic trusted origin around the exact production body/title/branch.
+    user: { login: process.env.RELEASE_PLEASE_AUTHOR || 'github-actions[bot]' },
+    head: { ...release3769.head, repo: { full_name: 'octo/workflows' } },
+    base: { ref: 'main', sha: 'aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa', repo: { full_name: 'octo/workflows' } },
   };
   const diffText = coveragePatch('.release-please-manifest.json') + coveragePatch('CHANGELOG.md');
   for (const builder of [buildVerifierContext, templateBuilder]) {
@@ -952,6 +955,40 @@ test('release #3769 builder retains its own acceptance without fetching merged P
         }
       } finally {
         removeVerifierDiffArtifacts(linkedResult);
+      }
+    }
+  }
+});
+
+test('ambiguous release issue lineage keeps verifier discovery required and unavailable', async () => {
+  const templateImpl = require('../../../templates/consumer-repo/.github/scripts/agents_verifier_context.js').buildVerifierContext;
+  const templateBuilder = options => templateImpl({ ...options, fetchLocalDiff: () => options.github.__testDiffText });
+  for (const builder of [buildVerifierContext, templateBuilder]) {
+    for (const closingIssues of [[], [{ number: 123, title: 'Partial source', body: issueBodyOpen, state: 'OPEN' }]]) {
+      const calls = [];
+      const { result } = await buildEvidenceContext({
+        prDetails: {
+          ...release3769,
+          merged: true,
+          merge_commit_sha: 'b847857162a2eb652e3b6e6cc1d982899bf6b7b2',
+          user: { login: process.env.RELEASE_PLEASE_AUTHOR || 'github-actions[bot]' },
+          head: { ...release3769.head, repo: { full_name: 'octo/workflows' } },
+          base: { ref: 'main', sha: 'aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa', repo: { full_name: 'octo/workflows' } },
+          body: release3769.body + '\nRelated to #123\nRelated to #456',
+        },
+        closingIssues,
+        sourceIssueCalls: calls,
+        diffText: coveragePatch('CHANGELOG.md'),
+      }, {}, builder);
+      try {
+        assert.equal(result.shouldRun, true);
+        assert.deepEqual(calls, []);
+        assert.equal(result.sourceCoverage.acceptance_source_discovery.required, true);
+        assert.equal(result.sourceCoverage.acceptance_source_discovery.status, 'unavailable');
+        assert.match(result.sourceCoverage.acceptance_source_discovery.reason, /Conflicting explicit source issues/);
+        assert.match(result.markdown, /Manifest and changelog agree on 1\.37\.21/);
+      } finally {
+        removeVerifierDiffArtifacts(result);
       }
     }
   }
