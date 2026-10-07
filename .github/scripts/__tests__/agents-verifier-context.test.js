@@ -1018,6 +1018,15 @@ test('release #3769 builder retains its own acceptance without fetching merged P
 });
 
 test('release #3787 builder retains acceptance without fetching historical fixes PR #3782', async () => {
+  // Exact production changelog noun that merged resolver 52712f28 misread as closing #3782.
+  assert.match(
+    release3787.body,
+    /preserve release provenance for historical fixes \(\[#3782\]\(https:\/\/github\.com\/stranske\/Workflows\/issues\/3782\)\) \(\[52712f2\]/,
+  );
+  assert.equal(release3787.title, 'chore(main): release 1.37.26');
+  assert.equal(release3787.head.ref, 'release-please--branches--main');
+  assert.equal(release3787.head.sha, 'dccfd5b4fabaa9748b66380bf1a108e15c18f61a');
+
   const templateImpl = require('../../../templates/consumer-repo/.github/scripts/agents_verifier_context.js').buildVerifierContext;
   const templateBuilder = options => templateImpl({ ...options, fetchLocalDiff: () => options.github.__testDiffText });
   const prDetails = {
@@ -3112,7 +3121,6 @@ test('merged PR fails closed when its first commit cannot be retrieved', async (
   assert.ok(core.warnings.some(message => message.includes('403 forbidden')));
 });
 
-
 test('non-closing source issues are fetched in source and template builders', async () => {
   const templateImpl = require('../../../templates/consumer-repo/.github/scripts/agents_verifier_context.js').buildVerifierContext;
   const templateBuilder = options => templateImpl({ ...options, fetchLocalDiff: () => options.github.__testDiffText });
@@ -3215,6 +3223,69 @@ test('empty issue acceptance discovery stays incomplete in source and template b
       } finally {
         removeVerifierDiffArtifacts(result);
       }
+    }
+  }
+});
+
+test('conflicting closing title and metadata keep real verifier discovery unavailable', async () => {
+  const templateImpl = require('../../../templates/consumer-repo/.github/scripts/agents_verifier_context.js').buildVerifierContext;
+  const templateBuilder = options => templateImpl({ ...options, fetchLocalDiff: () => options.github.__testDiffText });
+  for (const builder of [buildVerifierContext, templateBuilder]) {
+    for (const declaration of ['', '<!-- workflow-source:local_request -->\n']) {
+      for (const closingIssues of [[], [{ number: 456, title: 'Stale binding', body: issueBodyOpen, state: 'OPEN' }]]) {
+        const calls = [];
+        const { result } = await buildEvidenceContext({
+          prDetails: {
+            merged: true,
+            number: 700,
+            title: 'Fixes #123',
+            body: declaration + '<!-- meta:issue:456 -->\nCloses #456\n' + prBodyFixture,
+            merge_commit_sha: 'cccccccccccccccccccccccccccccccccccccccc',
+            head: { ref: 'codex/issue-456-stale-binding', sha: 'bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb' },
+            base: { ref: 'main', sha: 'aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa' },
+          },
+          closingIssues,
+          sourceIssue: { number: 456, title: 'Stale binding', body: issueBodyOpen, state: 'open', labels: [] },
+          sourceIssueCalls: calls,
+        }, {}, builder);
+        try {
+          assert.equal(result.shouldRun, true);
+          assert.deepEqual(calls, []);
+          assert.equal(result.sourceCoverage.acceptance_source_discovery.required, true);
+          assert.equal(result.sourceCoverage.acceptance_source_discovery.status, 'unavailable');
+          assert.match(result.sourceCoverage.acceptance_source_discovery.reason, /Conflicting explicit source issues/);
+        } finally { removeVerifierDiffArtifacts(result); }
+      }
+    }
+  }
+});
+
+test('matching closing title and metadata retain known-source verifier acceptance', async () => {
+  const templateImpl = require('../../../templates/consumer-repo/.github/scripts/agents_verifier_context.js').buildVerifierContext;
+  const templateBuilder = options => templateImpl({ ...options, fetchLocalDiff: () => options.github.__testDiffText });
+  for (const builder of [buildVerifierContext, templateBuilder]) {
+    for (const title of ['Fixes #456', 'Implement repair', 'Does not fix #123']) {
+      const calls = [];
+      const { result } = await buildEvidenceContext({
+        prDetails: {
+          merged: true,
+          number: 700,
+          title,
+          body: '<!-- meta:issue:456 -->\n' + prBodyFixture,
+          merge_commit_sha: 'cccccccccccccccccccccccccccccccccccccccc',
+          head: { sha: 'bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb' },
+          base: { ref: 'main', sha: 'aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa' },
+        },
+        sourceIssue: { number: 456, title: 'Known source', body: issueBodyOpen, state: 'open', labels: [] },
+        sourceIssueCalls: calls,
+      }, {}, builder);
+      try {
+        assert.equal(calls.length, 1);
+        assert.equal(calls[0].issue_number, 456);
+        assert.deepEqual(result.issueNumbers, [456]);
+        assert.equal(result.sourceCoverage.acceptance_source_discovery.required, true);
+        assert.equal(result.sourceCoverage.acceptance_source_discovery.status, 'included');
+      } finally { removeVerifierDiffArtifacts(result); }
     }
   }
 });

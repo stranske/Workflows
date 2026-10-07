@@ -1,0 +1,70 @@
+[
+  {
+    "path": ".github/scripts/source_context.js",
+    "mode": "conflict",
+    "command": [
+      "node",
+      "--test",
+      "--test-name-pattern=explicit closing title and metadata conflicts|conflicting closing title and metadata|explicit closing titles outrank|matching closing title and metadata|negated closing titles",
+      ".github/scripts/__tests__/source-context.test.js",
+      ".github/scripts/__tests__/agents-verifier-context.test.js"
+    ],
+    "red_exit": 1,
+    "restored_exit": 0,
+    "mutant_revision": "72611afbe75b34b9145b8469dddb15c35ac3cfef",
+    "mutant_sha256": "afe13b294611cb3514552fd83438646d495891e82f2c773f2c60bb9c0e5197c9",
+    "fixed_sha256": "28c230e58898d72cdcbe5842ca6eff57bdd1d2252cbced1bb2f2aec44aafd13d",
+    "restoration_byte_identical": true
+  },
+  {
+    "path": ".github/scripts/source_context.js",
+    "mode": "negation",
+    "command": [
+      "node",
+      "--test",
+      "--test-name-pattern=explicit closing title and metadata conflicts|conflicting closing title and metadata|explicit closing titles outrank|matching closing title and metadata|negated closing titles",
+      ".github/scripts/__tests__/source-context.test.js",
+      ".github/scripts/__tests__/agents-verifier-context.test.js"
+    ],
+    "red_exit": 1,
+    "restored_exit": 0,
+    "mutant_revision": "1bd2d7c86081c1e114b807cd9de46b711d4fdc3c",
+    "mutant_sha256": "17692fa237afa7df2030834a81502ed84f39efe1ce0027315eca6a2936b57a66",
+    "fixed_sha256": "28c230e58898d72cdcbe5842ca6eff57bdd1d2252cbced1bb2f2aec44aafd13d",
+    "restoration_byte_identical": true
+  },
+  {
+    "path": "templates/consumer-repo/.github/scripts/source_context.js",
+    "mode": "conflict",
+    "command": [
+      "node",
+      "--test",
+      "--test-name-pattern=explicit closing title and metadata conflicts|conflicting closing title and metadata|explicit closing titles outrank|matching closing title and metadata|negated closing titles",
+      ".github/scripts/__tests__/source-context.test.js",
+      ".github/scripts/__tests__/agents-verifier-context.test.js"
+    ],
+    "red_exit": 1,
+    "restored_exit": 0,
+    "mutant_revision": "72611afbe75b34b9145b8469dddb15c35ac3cfef",
+    "mutant_sha256": "afe13b294611cb3514552fd83438646d495891e82f2c773f2c60bb9c0e5197c9",
+    "fixed_sha256": "28c230e58898d72cdcbe5842ca6eff57bdd1d2252cbced1bb2f2aec44aafd13d",
+    "restoration_byte_identical": true
+  },
+  {
+    "path": "templates/consumer-repo/.github/scripts/source_context.js",
+    "mode": "negation",
+    "command": [
+      "node",
+      "--test",
+      "--test-name-pattern=explicit closing title and metadata conflicts|conflicting closing title and metadata|explicit closing titles outrank|matching closing title and metadata|negated closing titles",
+      ".github/scripts/__tests__/source-context.test.js",
+      ".github/scripts/__tests__/agents-verifier-context.test.js"
+    ],
+    "red_exit": 1,
+    "restored_exit": 0,
+    "mutant_revision": "1bd2d7c86081c1e114b807cd9de46b711d4fdc3c",
+    "mutant_sha256": "17692fa237afa7df2030834a81502ed84f39efe1ce0027315eca6a2936b57a66",
+    "fixed_sha256": "28c230e58898d72cdcbe5842ca6eff57bdd1d2252cbced1bb2f2aec44aafd13d",
+    "restoration_byte_identical": true
+  }
+]

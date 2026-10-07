@@ -1,0 +1,33 @@
+{
+  "schema": "workflows-verifier-input-snapshot/v1",
+  "capture_kind": "production",
+  "repository": "stranske/Workflows",
+  "pr": 3769,
+  "merge_sha": "b847857162a2eb652e3b6e6cc1d982899bf6b7b2",
+  "source_run_id": "37567257334",
+  "chain_depth": 0,
+  "ci_workflows": [
+    "pr-00-gate.yml",
+    "pr-11-ci-smoke.yml",
+    "selftest-ci.yml"
+  ],
+  "evidence_profile": "standard",
+  "input_limits": {
+    "comment_records": 50,
+    "comment_chars": 40000,
+    "workflow_runs": 5,
+    "artifacts": 10,
+    "archive_bytes": 2097152,
+    "archive_entries": 20,
+    "artifact_chars": 60000,
+    "body_chars": 40000,
+    "diff_fetch_bytes": 8388608,
+    "diff_fetch_chars": 300000,
+    "context_budget_tokens": 4000,
+    "diff_budget_tokens": 16000,
+    "acceptance_evidence_budget_tokens": 4000
+  },
+  "context_sha256": "b057785eb676469e0cb83adc00aa60101cb6643e1149d33d67a69c749614f2c3",
+  "diff_summary_sha256": "790d5e5799fd432edaa36a21cb5e4230c1e0533441a0132ff35d2f680e2a97fe",
+  "diff_sha256": "810df9cce7ee6125ec268b97848d3b295cded75dd4f6a5d5c6241a576f2d367b"
+}

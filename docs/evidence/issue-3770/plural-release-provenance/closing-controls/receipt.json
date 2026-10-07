@@ -6,6 +6,7 @@
     ".github/scripts/__tests__/source-context.test.js",
     ".github/scripts/__tests__/agents-verifier-context.test.js"
   ],
+  "note": "Refreshed after fixture surface locks for exact release #3787/#3769 production bodies; title-conflict resolver bytes remain current HEAD.",
   "experiments": [
     {
       "name": "merged-52712f2-root",
@@ -16,56 +17,61 @@
         "sourceType": "github_issue",
         "issueNumber": 3782,
         "sourceRef": "#3782",
-        "lifecycle": "",
-        "automation": "",
-        "isKnown": true,
+        "requiresIssue": true,
         "isValid": true,
         "isExplicit": true,
-        "requiresIssue": true,
-        "hasAmbiguousIssueSource": false,
-        "noAutomation": false,
-        "isRecurringDataJob": false
+        "hasAmbiguousIssueSource": false
       },
       "red": {
         "exit_code": 1,
         "counts": {
-          "tests": 176,
-          "pass": 164,
-          "fail": 12
+          "tests": 185,
+          "pass": 168,
+          "fail": 17
         },
         "failed_tests": [
-          "\u2716 release #3787 builder retains acceptance without fetching historical fixes PR #3782 (2.468407ms)",
-          "\u2716 release #3787 Fix/Closes directives still require issue acceptance (15.375587ms)",
-          "\u2716 release #3787 historical plural fixes retain automation provenance (0.426333ms)",
-          "\u2716 release #3787 history preserves genuine Fix/Closes sources over declared local requests (0.524586ms)",
-          "\u2716 historical fix nouns are not closing directives, including formatted release tasks (0.349615ms)",
-          "\u2716 a historical fix noun cannot hide a subsequent closing directive on the same line (0.627482ms)",
+          "\u2716 release #3787 builder retains acceptance without fetching historical fixes PR #3782 (2.317009ms)",
+          "\u2716 release #3787 Fix/Closes directives still require issue acceptance (15.481564ms)",
+          "\u2716 conflicting closing title and metadata keep real verifier discovery unavailable (1.078044ms)",
+          "\u2716 release #3787 fixture retains production historical-fixes provenance surface (0.36952ms)",
+          "\u2716 release #3787 historical plural fixes retain automation provenance (0.242829ms)",
+          "\u2716 release #3787 history preserves genuine Fix/Closes sources over declared local requests (0.341053ms)",
+          "\u2716 historical fix nouns are not closing directives, including formatted release tasks (0.304689ms)",
+          "\u2716 a historical fix noun cannot hide a subsequent closing directive on the same line (0.530672ms)",
+          "\u2716 explicit closing titles outrank incidental body mentions without selecting conflicting closing targets (0.299433ms)",
+          "\u2716 explicit closing title and metadata conflicts stay unresolved in both resolvers (0.299997ms)",
+          "\u2716 negated closing titles preserve metadata without masking a later affirmative target (0.424196ms)",
           "\u2716 failing tests:",
-          "\u2716 release #3787 builder retains acceptance without fetching historical fixes PR #3782 (2.468407ms)",
-          "\u2716 shared: Fix #123: issue (1.401677ms)",
-          "\u2716 shared: Fix #123: inaccessible issue (1.029735ms)",
-          "\u2716 shared: Fix #123: linked PR (1.154289ms)",
-          "\u2716 shared: Closes #123: issue (0.930187ms)",
-          "\u2716 shared: Closes #123: inaccessible issue (0.945682ms)",
-          "\u2716 shared: Closes #123: linked PR (0.945569ms)",
-          "\u2716 release #3787 historical plural fixes retain automation provenance (0.426333ms)",
-          "\u2716 release #3787 history preserves genuine Fix/Closes sources over declared local requests (0.524586ms)",
-          "\u2716 historical fix nouns are not closing directives, including formatted release tasks (0.349615ms)",
-          "\u2716 a historical fix noun cannot hide a subsequent closing directive on the same line (0.627482ms)"
+          "\u2716 release #3787 builder retains acceptance without fetching historical fixes PR #3782 (2.317009ms)",
+          "\u2716 shared: Fix #123: issue (1.334257ms)",
+          "\u2716 shared: Fix #123: inaccessible issue (0.940969ms)",
+          "\u2716 shared: Fix #123: linked PR (0.992316ms)",
+          "\u2716 shared: Closes #123: issue (1.029802ms)",
+          "\u2716 shared: Closes #123: inaccessible issue (1.079313ms)",
+          "\u2716 shared: Closes #123: linked PR (1.021265ms)",
+          "\u2716 conflicting closing title and metadata keep real verifier discovery unavailable (1.078044ms)",
+          "\u2716 release #3787 fixture retains production historical-fixes provenance surface (0.36952ms)",
+          "\u2716 release #3787 historical plural fixes retain automation provenance (0.242829ms)",
+          "\u2716 release #3787 history preserves genuine Fix/Closes sources over declared local requests (0.341053ms)",
+          "\u2716 historical fix nouns are not closing directives, including formatted release tasks (0.304689ms)",
+          "\u2716 a historical fix noun cannot hide a subsequent closing directive on the same line (0.530672ms)",
+          "\u2716 explicit closing titles outrank incidental body mentions without selecting conflicting closing targets (0.299433ms)",
+          "\u2716 explicit closing title and metadata conflicts stay unresolved in both resolvers (0.299997ms)",
+          "\u2716 negated closing titles preserve metadata without masking a later affirmative target (0.424196ms)"
         ]
       },
       "green": {
         "exit_code": 0,
         "counts": {
-          "tests": 176,
-          "pass": 176,
+          "tests": 185,
+          "pass": 185,
           "fail": 0
         },
         "failed_tests": []
       },
       "restored_sha256": {
-        ".github/scripts/source_context.js": "afe13b294611cb3514552fd83438646d495891e82f2c773f2c60bb9c0e5197c9",
-        "templates/consumer-repo/.github/scripts/source_context.js": "afe13b294611cb3514552fd83438646d495891e82f2c773f2c60bb9c0e5197c9"
+        ".github/scripts/source_context.js": "28c230e58898d72cdcbe5842ca6eff57bdd1d2252cbced1bb2f2aec44aafd13d",
+        "templates/consumer-repo/.github/scripts/source_context.js": "28c230e58898d72cdcbe5842ca6eff57bdd1d2252cbced1bb2f2aec44aafd13d"
       }
     },
     {
@@ -77,142 +83,67 @@
         "sourceType": "github_issue",
         "issueNumber": 3782,
         "sourceRef": "#3782",
-        "lifecycle": "",
-        "automation": "",
-        "isKnown": true,
+        "requiresIssue": true,
         "isValid": true,
         "isExplicit": true,
-        "requiresIssue": true,
-        "hasAmbiguousIssueSource": false,
-        "noAutomation": false,
-        "isRecurringDataJob": false
+        "hasAmbiguousIssueSource": false
       },
       "red": {
         "exit_code": 1,
         "counts": {
-          "tests": 176,
-          "pass": 164,
-          "fail": 12
+          "tests": 185,
+          "pass": 168,
+          "fail": 17
         },
         "failed_tests": [
-          "\u2716 release #3787 builder retains acceptance without fetching historical fixes PR #3782 (7.372076ms)",
-          "\u2716 release #3787 Fix/Closes directives still require issue acceptance (14.300956ms)",
-          "\u2716 release #3787 historical plural fixes retain automation provenance (0.545793ms)",
-          "\u2716 release #3787 history preserves genuine Fix/Closes sources over declared local requests (0.664829ms)",
-          "\u2716 historical fix nouns are not closing directives, including formatted release tasks (0.660801ms)",
-          "\u2716 a historical fix noun cannot hide a subsequent closing directive on the same line (0.720241ms)",
+          "\u2716 release #3787 builder retains acceptance without fetching historical fixes PR #3782 (7.410304ms)",
+          "\u2716 release #3787 Fix/Closes directives still require issue acceptance (14.481018ms)",
+          "\u2716 conflicting closing title and metadata keep real verifier discovery unavailable (3.371675ms)",
+          "\u2716 release #3787 fixture retains production historical-fixes provenance surface (0.42685ms)",
+          "\u2716 release #3787 historical plural fixes retain automation provenance (0.349913ms)",
+          "\u2716 release #3787 history preserves genuine Fix/Closes sources over declared local requests (0.555534ms)",
+          "\u2716 historical fix nouns are not closing directives, including formatted release tasks (0.392716ms)",
+          "\u2716 a historical fix noun cannot hide a subsequent closing directive on the same line (0.587178ms)",
+          "\u2716 explicit closing titles outrank incidental body mentions without selecting conflicting closing targets (0.400761ms)",
+          "\u2716 explicit closing title and metadata conflicts stay unresolved in both resolvers (0.569765ms)",
+          "\u2716 negated closing titles preserve metadata without masking a later affirmative target (0.887553ms)",
           "\u2716 failing tests:",
-          "\u2716 release #3787 builder retains acceptance without fetching historical fixes PR #3782 (7.372076ms)",
-          "\u2716 consumer: Fix #123: issue (1.372316ms)",
-          "\u2716 consumer: Fix #123: inaccessible issue (1.268773ms)",
-          "\u2716 consumer: Fix #123: linked PR (1.060599ms)",
-          "\u2716 consumer: Closes #123: issue (0.978287ms)",
-          "\u2716 consumer: Closes #123: inaccessible issue (0.982864ms)",
-          "\u2716 consumer: Closes #123: linked PR (1.066715ms)",
-          "\u2716 release #3787 historical plural fixes retain automation provenance (0.545793ms)",
-          "\u2716 release #3787 history preserves genuine Fix/Closes sources over declared local requests (0.664829ms)",
-          "\u2716 historical fix nouns are not closing directives, including formatted release tasks (0.660801ms)",
-          "\u2716 a historical fix noun cannot hide a subsequent closing directive on the same line (0.720241ms)"
+          "\u2716 release #3787 builder retains acceptance without fetching historical fixes PR #3782 (7.410304ms)",
+          "\u2716 consumer: Fix #123: issue (2.156886ms)",
+          "\u2716 consumer: Fix #123: inaccessible issue (1.159971ms)",
+          "\u2716 consumer: Fix #123: linked PR (1.1298ms)",
+          "\u2716 consumer: Closes #123: issue (1.020157ms)",
+          "\u2716 consumer: Closes #123: inaccessible issue (1.059388ms)",
+          "\u2716 consumer: Closes #123: linked PR (0.986341ms)",
+          "\u2716 conflicting closing title and metadata keep real verifier discovery unavailable (3.371675ms)",
+          "\u2716 release #3787 fixture retains production historical-fixes provenance surface (0.42685ms)",
+          "\u2716 release #3787 historical plural fixes retain automation provenance (0.349913ms)",
+          "\u2716 release #3787 history preserves genuine Fix/Closes sources over declared local requests (0.555534ms)",
+          "\u2716 historical fix nouns are not closing directives, including formatted release tasks (0.392716ms)",
+          "\u2716 a historical fix noun cannot hide a subsequent closing directive on the same line (0.587178ms)",
+          "\u2716 explicit closing titles outrank incidental body mentions without selecting conflicting closing targets (0.400761ms)",
+          "\u2716 explicit closing title and metadata conflicts stay unresolved in both resolvers (0.569765ms)",
+          "\u2716 negated closing titles preserve metadata without masking a later affirmative target (0.887553ms)"
         ]
       },
       "green": {
         "exit_code": 0,
         "counts": {
-          "tests": 176,
-          "pass": 176,
+          "tests": 185,
+          "pass": 185,
           "fail": 0
         },
         "failed_tests": []
       },
       "restored_sha256": {
-        ".github/scripts/source_context.js": "afe13b294611cb3514552fd83438646d495891e82f2c773f2c60bb9c0e5197c9",
-        "templates/consumer-repo/.github/scripts/source_context.js": "afe13b294611cb3514552fd83438646d495891e82f2c773f2c60bb9c0e5197c9"
-      }
-    },
-    {
-      "name": "original-3769-root",
-      "mutated_path": ".github/scripts/source_context.js",
-      "baseline_revision": "52712f28^",
-      "baseline_sha256": "6f36ba33eb50b203ad6491bc52183c315306f9dddf8d9c7fae6a07445cd2c88e",
-      "broken_fixture_source": {
-        "sourceType": "github_issue",
-        "issueNumber": 3768,
-        "sourceRef": "#3768",
-        "lifecycle": "",
-        "automation": "",
-        "isKnown": true,
-        "isValid": true,
-        "isExplicit": true,
-        "requiresIssue": true,
-        "noAutomation": false,
-        "isRecurringDataJob": false
-      },
-      "red": {
-        "exit_code": 1,
-        "counts": {
-          "tests": 176,
-          "pass": 154,
-          "fail": 22
-        },
-        "failed_tests": [
-          "\u2716 release #3769 builder retains its own acceptance without fetching merged PR #3768 as an issue (7.873188ms)",
-          "\u2716 release #3787 builder retains acceptance without fetching historical fixes PR #3782 (1.744864ms)",
-          "\u2716 release #3787 Fix/Closes directives still require issue acceptance (23.0461ms)",
-          "\u2716 ambiguous release issue lineage keeps verifier discovery required and unavailable (1.293062ms)",
-          "\u2716 release #3769 retains automation provenance instead of the already-merged fix (0.414437ms)",
-          "\u2716 release #3787 historical plural fixes retain automation provenance (0.251987ms)",
-          "\u2716 release #3787 history preserves genuine Fix/Closes sources over declared local requests (0.379912ms)",
-          "\u2716 release branch automation inference requires the configured author and trusted head repository (0.314112ms)",
-          "\u2716 release history cannot hide genuine or ambiguous issue lineage (0.280511ms)",
-          "\u2716 historical fix nouns are not closing directives, including formatted release tasks (0.176897ms)",
-          "\u2716 ambiguous explicit release issue references remain unresolved instead of inferring automation (0.275247ms)",
-          "\u2716 a historical fix noun cannot hide a subsequent closing directive on the same line (0.491339ms)",
-          "\u2716 consumer template resolver stays behaviorally synchronized on promotion trust (0.404761ms)",
-          "\u2716 resolvePrSourceContext infers local_request for conventional work-branch prefixes (0.435879ms)",
-          "\u2716 bound generated sync provenance overrides incidental issue text (0.80784ms)",
-          "\u2716 resolvePrSourceContext suppresses stale issue metadata on the bound corpus harvest job (0.442924ms)",
-          "\u2716 failing tests:",
-          "\u2716 release #3769 builder retains its own acceptance without fetching merged PR #3768 as an issue (7.873188ms)",
-          "\u2716 release #3787 builder retains acceptance without fetching historical fixes PR #3782 (1.744864ms)",
-          "\u2716 shared: Fix #123: issue (1.656362ms)",
-          "\u2716 shared: Fix #123: inaccessible issue (1.15945ms)",
-          "\u2716 shared: Fix #123: linked PR (1.028075ms)",
-          "\u2716 shared: Closes #123: issue (1.094578ms)",
-          "\u2716 shared: Closes #123: inaccessible issue (1.555502ms)",
-          "\u2716 shared: Closes #123: linked PR (1.004478ms)",
-          "\u2716 ambiguous release issue lineage keeps verifier discovery required and unavailable (1.293062ms)",
-          "\u2716 release #3769 retains automation provenance instead of the already-merged fix (0.414437ms)",
-          "\u2716 release #3787 historical plural fixes retain automation provenance (0.251987ms)",
-          "\u2716 release #3787 history preserves genuine Fix/Closes sources over declared local requests (0.379912ms)",
-          "\u2716 release branch automation inference requires the configured author and trusted head repository (0.314112ms)",
-          "\u2716 release history cannot hide genuine or ambiguous issue lineage (0.280511ms)",
-          "\u2716 historical fix nouns are not closing directives, including formatted release tasks (0.176897ms)",
-          "\u2716 ambiguous explicit release issue references remain unresolved instead of inferring automation (0.275247ms)",
-          "\u2716 a historical fix noun cannot hide a subsequent closing directive on the same line (0.491339ms)",
-          "\u2716 consumer template resolver stays behaviorally synchronized on promotion trust (0.404761ms)",
-          "\u2716 resolvePrSourceContext infers local_request for conventional work-branch prefixes (0.435879ms)",
-          "\u2716 bound generated sync provenance overrides incidental issue text (0.80784ms)",
-          "\u2716 resolvePrSourceContext suppresses stale issue metadata on the bound corpus harvest job (0.442924ms)"
-        ]
-      },
-      "green": {
-        "exit_code": 0,
-        "counts": {
-          "tests": 176,
-          "pass": 176,
-          "fail": 0
-        },
-        "failed_tests": []
-      },
-      "restored_sha256": {
-        ".github/scripts/source_context.js": "afe13b294611cb3514552fd83438646d495891e82f2c773f2c60bb9c0e5197c9",
-        "templates/consumer-repo/.github/scripts/source_context.js": "afe13b294611cb3514552fd83438646d495891e82f2c773f2c60bb9c0e5197c9"
+        ".github/scripts/source_context.js": "28c230e58898d72cdcbe5842ca6eff57bdd1d2252cbced1bb2f2aec44aafd13d",
+        "templates/consumer-repo/.github/scripts/source_context.js": "28c230e58898d72cdcbe5842ca6eff57bdd1d2252cbced1bb2f2aec44aafd13d"
       }
     }
   ],
   "fixed_sha256": {
-    ".github/scripts/source_context.js": "afe13b294611cb3514552fd83438646d495891e82f2c773f2c60bb9c0e5197c9",
-    "templates/consumer-repo/.github/scripts/source_context.js": "afe13b294611cb3514552fd83438646d495891e82f2c773f2c60bb9c0e5197c9"
+    ".github/scripts/source_context.js": "28c230e58898d72cdcbe5842ca6eff57bdd1d2252cbced1bb2f2aec44aafd13d",
+    "templates/consumer-repo/.github/scripts/source_context.js": "28c230e58898d72cdcbe5842ca6eff57bdd1d2252cbced1bb2f2aec44aafd13d"
   },
   "required_command": {
     "command": [
@@ -221,7 +152,8 @@
       ".github/scripts/__tests__/source-context.test.js",
       ".github/scripts/__tests__/agents-verifier-context.test.js"
     ],
-    "exit_code": 0
+    "exit_code": 0,
+    "tests_passed": 185
   },
   "parity": [
     {
@@ -232,8 +164,8 @@
       ],
       "exit_code": 0,
       "sha256": {
-        ".github/scripts/source_context.js": "afe13b294611cb3514552fd83438646d495891e82f2c773f2c60bb9c0e5197c9",
-        "templates/consumer-repo/.github/scripts/source_context.js": "afe13b294611cb3514552fd83438646d495891e82f2c773f2c60bb9c0e5197c9"
+        ".github/scripts/source_context.js": "28c230e58898d72cdcbe5842ca6eff57bdd1d2252cbced1bb2f2aec44aafd13d",
+        "templates/consumer-repo/.github/scripts/source_context.js": "28c230e58898d72cdcbe5842ca6eff57bdd1d2252cbced1bb2f2aec44aafd13d"
       }
     },
     {
@@ -244,8 +176,8 @@
       ],
       "exit_code": 0,
       "sha256": {
-        ".github/scripts/agents_verifier_context.js": "cccc68a2e60c347ed3dc7203c52c8d6e4cfac12f2ef60f53865c2893d1a9fef9",
-        "templates/consumer-repo/.github/scripts/agents_verifier_context.js": "cccc68a2e60c347ed3dc7203c52c8d6e4cfac12f2ef60f53865c2893d1a9fef9"
+        ".github/scripts/agents_verifier_context.js": "6658a763b27e72cce6022ce5d30310517034fe1e1ce4dedc8d40b8a8b59e534b",
+        "templates/consumer-repo/.github/scripts/agents_verifier_context.js": "6658a763b27e72cce6022ce5d30310517034fe1e1ce4dedc8d40b8a8b59e534b"
       }
     }
   ]

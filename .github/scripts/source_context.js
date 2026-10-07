@@ -267,6 +267,12 @@ function extractClosingIssueNumbersFromText(text) {
       .trim()
       .replace(/[>*]/g, ' ')
       .replace(/\s+/g, ' ');
+    // A negated verb is not closing intent. Keep this governor on the same
+    // line and immediately before the verb so it cannot hide a later directive.
+    const linePrefix = before.split(/\r?\n/).pop().replace(/[_\[\]()`~>*]/g, ' ');
+    if (/\b(?:not|never|without|avoid(?:s|ing)?|(?:do|does|did|should|would|could|must)n['’]t|can['’]t|won['’]t)\s+(?:(?:actually|directly|currently|fully|completely|yet)\s+){0,2}(?:close[sd]?|closing|fix(?:e[sd])?|fixing|resolve[sd]?|resolving)(?:\s+(?:source\s+issue|github\s+issue|issue))?\s*[:#-]?\s*$/i.test(linePrefix)) {
+      continue;
+    }
     if (hasHistoricalFixReferencePrefix(before)) {
       continue;
     }
@@ -297,7 +303,13 @@ function findIssueSourceFromPull(pull = {}) {
     return { issueNumber: null, via: null, ambiguous: true, closing: true };
   }
   if (metaIssueNumbers.size === 1) {
-    return { issueNumber: Array.from(metaIssueNumbers)[0], via: 'meta' };
+    const issueNumber = Array.from(metaIssueNumbers)[0];
+    // Metadata pins synchronized body text, but cannot silently override a
+    // different explicit closing target in the independently authored title.
+    if (Array.from(titleClosingIssueNumbers).some((target) => target !== issueNumber)) {
+      return { issueNumber: null, via: null, ambiguous: true, closing: true };
+    }
+    return { issueNumber, via: 'meta' };
   }
 
   // A generated mention/title binding survives synchronized issue text, which

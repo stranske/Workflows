@@ -21,17 +21,17 @@ node --test .github/scripts/__tests__/source-context.test.js .github/scripts/__t
 ```
 
 Node 24 in this runner summarizes isolated files without individual test names.
-The retained complete output adds `--test-isolation=none` to expose all 176 named
-tests. Captured console lines have trailing whitespace removed. The same two
-files are executed in both commands; `receipt.json` records
-the commands and exit codes.
+The retained complete output adds `--test-isolation=none` to expose all named
+tests (185 after the exact fixture-surface locks). Captured console lines have
+trailing whitespace removed. The same two files are executed in both commands;
+`receipt.json` records the commands and exit codes.
 
 Independent root-only and consumer-only restoration of the merged `52712f28`
-resolver reproduces `github_issue` #3782 and required discovery: 12 tests fail
-in each experiment. Restoring the root resolver from `52712f28^` reproduces
-required issue #3768 for release #3769: 22 tests fail. Each fixed-byte restoration
-passes all 176 tests. RED/GREEN output, classifications and source hashes are
-retained here; the fixed parser hash matches the preceding repair evidence.
+resolver reproduces `github_issue` #3782 and required discovery: 17 tests fail
+in each experiment against the current suites. Each fixed-byte restoration
+passes all 185 tests. RED/GREEN output, classifications and source hashes are
+retained here; `fixed_sha256` matches current HEAD resolver bytes
+(`28c230e58898d72cdcbe5842ca6eff57bdd1d2252cbced1bb2f2aec44aafd13d`).
 Both parser and verifier-context `cmp` commands exit 0. Production code requires
 no further change for these controls.
 

@@ -1,0 +1,185 @@
+{
+  "baseline": {
+    "acceptance_source_discovery": {
+      "reason": "Known source issue #3768 was not retrieved; no retrieved linked issue can substitute for that acceptance contract.",
+      "required": true,
+      "source": "Linked issues",
+      "status": "unavailable"
+    },
+    "artifact_inventory": {
+      "comparison_results": {
+        "artifact_name": "comparison-results-37400729553",
+        "complete": true,
+        "expected_files": [
+          "comparison.json",
+          "comparison-stderr.log",
+          "comparison-comment.md",
+          "verifier-context.md",
+          "verifier-diff-summary.md",
+          "verifier-pr-diff.patch",
+          "verifier-input-manifest.json"
+        ],
+        "file_count": 7,
+        "missing_files": [],
+        "present_files": [
+          "comparison-comment.md",
+          "comparison-stderr.log",
+          "comparison.json",
+          "verifier-context.md",
+          "verifier-diff-summary.md",
+          "verifier-input-manifest.json",
+          "verifier-pr-diff.patch"
+        ]
+      },
+      "metrics": {
+        "artifact_name": "agents-verifier-metrics"
+      },
+      "terminal_disposition": {
+        "artifact_name": "verifier-terminal-disposition-37400729553",
+        "disposition": "needs-human",
+        "present": true,
+        "verdict": "concerns"
+      }
+    },
+    "corpus_decision": {
+      "ci_failed": false,
+      "evaluated_sha": "b847857162a2eb652e3b6e6cc1d982899bf6b7b2",
+      "head_sha": "08b07c8b1bfbe254d6d59f384f83d087a91ba93b",
+      "pr": "3769",
+      "provider_verdicts": [
+        "CONCERNS",
+        "CONCERNS"
+      ],
+      "repo": "stranske/Workflows",
+      "run_attempt": "1",
+      "run_id": "37400729553",
+      "schema": "verifier-corpus-decision/v1",
+      "verdict": "NON_PASS"
+    },
+    "corpus_verdict": "NON_PASS",
+    "head_sha": "08b07c8b1bfbe254d6d59f384f83d087a91ba93b",
+    "immutable": true,
+    "merge_sha": "b847857162a2eb652e3b6e6cc1d982899bf6b7b2",
+    "pr": "3769",
+    "provider_rows": [
+      {
+        "confidence": 0.96,
+        "model": "gpt-5.6-terra",
+        "used_llm": true,
+        "verdict": "CONCERNS"
+      },
+      {
+        "confidence": 0.8,
+        "model": "claude-sonnet-5-5",
+        "used_llm": true,
+        "verdict": "CONCERNS"
+      }
+    ],
+    "provider_verdicts": [
+      "CONCERNS",
+      "CONCERNS"
+    ],
+    "repository": "stranske/Workflows",
+    "role": "baseline",
+    "run_id": "37400729553"
+  },
+  "baseline_preserved": true,
+  "followup": {
+    "acceptance_source_discovery": {
+      "reason": "",
+      "required": false,
+      "source": "Linked issues",
+      "status": "included"
+    },
+    "artifact_inventory": {
+      "comparison_results": {
+        "artifact_name": "comparison-results-37567257334",
+        "complete": true,
+        "expected_files": [
+          "comparison.json",
+          "comparison-stderr.log",
+          "comparison-comment.md",
+          "verifier-context.md",
+          "verifier-diff-summary.md",
+          "verifier-pr-diff.patch",
+          "verifier-input-manifest.json"
+        ],
+        "file_count": 7,
+        "missing_files": [],
+        "present_files": [
+          "comparison-comment.md",
+          "comparison-stderr.log",
+          "comparison.json",
+          "verifier-context.md",
+          "verifier-diff-summary.md",
+          "verifier-input-manifest.json",
+          "verifier-pr-diff.patch"
+        ]
+      },
+      "metrics": {
+        "artifact_name": "agents-verifier-metrics"
+      },
+      "terminal_disposition": {
+        "artifact_name": "verifier-terminal-disposition-37567257334",
+        "disposition": "needs-human",
+        "present": true,
+        "verdict": "concerns"
+      }
+    },
+    "corpus_decision": {
+      "ci_failed": false,
+      "evaluated_sha": "b847857162a2eb652e3b6e6cc1d982899bf6b7b2",
+      "head_sha": "08b07c8b1bfbe254d6d59f384f83d087a91ba93b",
+      "pr": "3769",
+      "provider_verdicts": [
+        "CONCERNS",
+        "PASS"
+      ],
+      "repo": "stranske/Workflows",
+      "run_attempt": "1",
+      "run_id": "37567257334",
+      "schema": "verifier-corpus-decision/v1",
+      "verdict": "NON_PASS"
+    },
+    "corpus_verdict": "NON_PASS",
+    "head_sha": "08b07c8b1bfbe254d6d59f384f83d087a91ba93b",
+    "immutable": false,
+    "merge_sha": "b847857162a2eb652e3b6e6cc1d982899bf6b7b2",
+    "pr": "3769",
+    "provider_rows": [
+      {
+        "confidence": 0.96,
+        "model": "gpt-5.6-terra",
+        "used_llm": true,
+        "verdict": "CONCERNS"
+      },
+      {
+        "confidence": 0.88,
+        "model": "claude-sonnet-5-5",
+        "used_llm": true,
+        "verdict": "PASS"
+      }
+    ],
+    "provider_verdicts": [
+      "CONCERNS",
+      "PASS"
+    ],
+    "repository": "stranske/Workflows",
+    "role": "followup",
+    "run_id": "37567257334",
+    "source_repair_demonstrated": true
+  },
+  "independent_gates": {
+    "complete_artifact_count_evidence": "required_on_followup_comparison_bundle",
+    "source_3757_topology": "required_external"
+  },
+  "pr": "3769",
+  "repository": "stranske/Workflows",
+  "schema": "workflows-verifier-compare-receipt/v1",
+  "steward_dispatch": {
+    "command": "gh workflow run agents-verifier.yml --repo stranske/Workflows -f pr_number=3769 -f mode=compare",
+    "mode": "compare",
+    "pr_number": "3769",
+    "workflow": "agents-verifier.yml"
+  }
+}

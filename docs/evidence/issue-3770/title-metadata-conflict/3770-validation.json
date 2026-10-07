@@ -1,0 +1,173 @@
+[
+  {
+    "tag": "focused",
+    "command": [
+      "node",
+      "--test",
+      ".github/scripts/__tests__/source-context.test.js",
+      ".github/scripts/__tests__/agents-verifier-context.test.js"
+    ],
+    "exit": 0
+  },
+  {
+    "tag": "full-js",
+    "command": [
+      "node",
+      "--test",
+      ".github/scripts/__tests__/keepalive-review-guard.test.js",
+      ".github/scripts/__tests__/error-classifier.test.js",
+      ".github/scripts/__tests__/coverage-normalize.test.js",
+      ".github/scripts/__tests__/keepalive-attempt-presence.test.js",
+      ".github/scripts/__tests__/keepalive-authority-state.test.js",
+      ".github/scripts/__tests__/pr-context-graphql.test.js",
+      ".github/scripts/__tests__/agents-pr-meta-orchestrator.test.js",
+      ".github/scripts/__tests__/keepalive-model-profile-contract.test.js",
+      ".github/scripts/__tests__/github-api-with-retry.test.js",
+      ".github/scripts/__tests__/issue_template_sections.test.js",
+      ".github/scripts/__tests__/connector-exclusion-smoke.test.js",
+      ".github/scripts/__tests__/agent-event-eligibility.test.js",
+      ".github/scripts/__tests__/agents-belt-scan.test.js",
+      ".github/scripts/__tests__/capability-bundle-contract.test.js",
+      ".github/scripts/__tests__/keepalive-runner-scope.test.js",
+      ".github/scripts/__tests__/path-classifier.test.js",
+      ".github/scripts/__tests__/path-classifier-replay.test.js",
+      ".github/scripts/__tests__/verifier-acceptance-prompt.test.js",
+      ".github/scripts/__tests__/agent-registry.test.js",
+      ".github/scripts/__tests__/autopilot-metrics.test.js",
+      ".github/scripts/__tests__/weekly-metrics-download-manifest.test.js",
+      ".github/scripts/__tests__/verifier-issue-formatter.test.js",
+      ".github/scripts/__tests__/api-helpers.test.js",
+      ".github/scripts/__tests__/maint71_merge_sync_prs.test.js",
+      ".github/scripts/__tests__/keepalive-prompt-routing.test.js",
+      ".github/scripts/__tests__/merge-manager.test.js",
+      ".github/scripts/__tests__/comment-dedupe.test.js",
+      ".github/scripts/__tests__/keepalive-runner-dispatch.test.js",
+      ".github/scripts/__tests__/conflict-detector.test.js",
+      ".github/scripts/__tests__/bot-comment-handler.test.js",
+      ".github/scripts/__tests__/timeout-config.test.js",
+      ".github/scripts/__tests__/agent-stall-rotation.test.js",
+      ".github/scripts/__tests__/github-api-cache.test.js",
+      ".github/scripts/__tests__/agent-delegation-policy.test.js",
+      ".github/scripts/__tests__/keepalive-challenge-due.test.js",
+      ".github/scripts/__tests__/agent_delegation_policy.test.js",
+      ".github/scripts/__tests__/github-api-retry.test.js",
+      ".github/scripts/__tests__/agents-orchestrator-resolve.test.js",
+      ".github/scripts/__tests__/keepalive-prompt-composer.test.js",
+      ".github/scripts/__tests__/terminal-disposition-coverage.test.js",
+      ".github/scripts/__tests__/api-rate-diagnostic.test.js",
+      ".github/scripts/__tests__/bot-comment-auth-coverage.test.js",
+      ".github/scripts/__tests__/keepalive-state.test.js",
+      ".github/scripts/__tests__/runtime-ac-merge-guard.test.js",
+      ".github/scripts/__tests__/issue_pr_locator.test.js",
+      ".github/scripts/__tests__/pr-source-context-coverage.test.js",
+      ".github/scripts/__tests__/keepalive-worker-gate.test.js",
+      ".github/scripts/__tests__/keepalive-loop.test.js",
+      ".github/scripts/__tests__/prompt_integrity_guard.test.js",
+      ".github/scripts/__tests__/dependency-repair-contract.test.js",
+      ".github/scripts/__tests__/keepalive-worker-evidence.test.js",
+      ".github/scripts/__tests__/agents-verifier-context.test.js",
+      ".github/scripts/__tests__/sync-run-contract.test.js",
+      ".github/scripts/__tests__/bot-comment-dismiss.test.js",
+      ".github/scripts/__tests__/coverage-monitor-summary.test.js",
+      ".github/scripts/__tests__/github-rate-limited-wrapper.test.js",
+      ".github/scripts/__tests__/weekly-metrics-artifacts.test.js",
+      ".github/scripts/__tests__/issue_context_utils.test.js",
+      ".github/scripts/__tests__/keepalive-gate.test.js",
+      ".github/scripts/__tests__/keepalive-runner-prompt.test.js",
+      ".github/scripts/__tests__/keepalive-guard-utils.test.js",
+      ".github/scripts/__tests__/keepalive-contract.test.js",
+      ".github/scripts/__tests__/keepalive-runner-token.test.js",
+      ".github/scripts/__tests__/vendored-glob-security.test.js",
+      ".github/scripts/__tests__/create-signed-sync-commit.test.js",
+      ".github/scripts/__tests__/keepalive-reporter-applicability.test.js",
+      ".github/scripts/__tests__/prompt-injection-guard.test.js",
+      ".github/scripts/__tests__/agents-pr-meta-contract-status.test.js",
+      ".github/scripts/__tests__/keepalive-post-work.test.js",
+      ".github/scripts/__tests__/keepalive-instruction-segment.test.js",
+      ".github/scripts/__tests__/error-diagnostics.test.js",
+      ".github/scripts/__tests__/token-load-balancer.test.js",
+      ".github/scripts/__tests__/sync_pr_merge_contract.test.js",
+      ".github/scripts/__tests__/gate-docs-only.test.js",
+      ".github/scripts/__tests__/source-context.test.js",
+      ".github/scripts/__tests__/pr-source-context-report.test.js",
+      ".github/scripts/__tests__/agents-pr-meta-status-idempotence.test.js",
+      ".github/scripts/__tests__/generated-delivery-seal-action.test.js",
+      ".github/scripts/__tests__/artifact-cache.test.js",
+      ".github/scripts/__tests__/agents-pr-meta-keepalive.test.js",
+      ".github/scripts/__tests__/agents-pr-meta-update-body.test.js",
+      ".github/scripts/__tests__/consumer-sync-drift-issue-body.test.js",
+      ".github/scripts/__tests__/checkout_source.test.js",
+      ".github/scripts/__tests__/agents-dispatch-summary.test.js",
+      ".github/scripts/__tests__/sync_pr_lease_contract.test.js",
+      ".github/scripts/__tests__/terminal-disposition.test.js",
+      ".github/scripts/__tests__/maint-post-ci.test.js",
+      ".github/scripts/__tests__/keepalive-instruction-template.test.js",
+      ".github/scripts/__tests__/post-completion-comment.test.js",
+      ".github/scripts/__tests__/maint71_finding_verification.test.js",
+      ".github/scripts/__tests__/agents-guard.test.js",
+      ".github/scripts/__tests__/github-api-cache-client.test.js",
+      ".github/scripts/__tests__/issue_scope_parser.test.js",
+      ".github/scripts/__tests__/keepalive-orchestrator-gate-runner.test.js",
+      ".github/scripts/__tests__/sync-tracker-state.test.js",
+      ".github/scripts/__tests__/token-load-balancer-resolution.test.js",
+      ".github/scripts/__tests__/failure-comment-formatter.test.js",
+      ".github/scripts/__tests__/sync_dependency_campaign.test.js",
+      ".github/scripts/__tests__/detect-changes.test.js",
+      ".github/scripts/__tests__/verifier-ci-query.test.js",
+      ".github/scripts/__tests__/auto-pilot-transitions.test.js"
+    ],
+    "exit": 0
+  },
+  {
+    "tag": "sync",
+    "command": [
+      "bash",
+      "scripts/sync_templates.sh"
+    ],
+    "exit": 0
+  },
+  {
+    "tag": "template-completeness",
+    "command": [
+      "python3",
+      "scripts/validate_template_completeness.py",
+      "--strict"
+    ],
+    "exit": 0
+  },
+  {
+    "tag": "template-drift",
+    "command": [
+      "python3",
+      "scripts/validate_template_sync.py"
+    ],
+    "exit": 0
+  },
+  {
+    "tag": "resolver-parity",
+    "command": [
+      "cmp",
+      ".github/scripts/source_context.js",
+      "templates/consumer-repo/.github/scripts/source_context.js"
+    ],
+    "exit": 0
+  },
+  {
+    "tag": "context-parity",
+    "command": [
+      "cmp",
+      ".github/scripts/agents_verifier_context.js",
+      "templates/consumer-repo/.github/scripts/agents_verifier_context.js"
+    ],
+    "exit": 0
+  },
+  {
+    "tag": "diff-check",
+    "command": [
+      "git",
+      "diff",
+      "--check"
+    ],
+    "exit": 0
+  }
+]

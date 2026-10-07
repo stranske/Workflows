@@ -1,0 +1,17 @@
+{
+  "report": "synthetic follow-up compare for dual-run receipt attach",
+  "results": [
+    {
+      "model": "gpt-5.6-terra",
+      "verdict": "CONCERNS",
+      "confidence": 0.9,
+      "used_llm": true
+    },
+    {
+      "model": "claude-sonnet-5-5",
+      "verdict": "CONCERNS",
+      "confidence": 0.85,
+      "used_llm": true
+    }
+  ]
+}
