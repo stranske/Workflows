@@ -1687,6 +1687,23 @@ function withTrailingSpaceRename(callback) {
   }
 }
 
+test('binary patch terminal blank line is normalized once for shared offsets', () => {
+  withTrailingSpaceRename((_diff, { repoPath, git }) => {
+    fs.writeFileSync(path.join(repoPath, 'binary.bin'), Buffer.from([0, 1, 2, 3]));
+    git('add', 'binary.bin');
+    const diff = git('diff', '--cached', '--binary', '--', 'binary.bin');
+    assert.ok(diff.endsWith('\n\n'));
+    const patch = formatDiffForContext(diff, diff.length);
+    const coverage = buildContextSourceCoverage({
+      planSources: [], diffText: diff, diffMaxChars: patch.length,
+      evidence: { comments: { records: [], complete: true }, artifacts: { records: [], complete: true } },
+    });
+    assert.equal(coverage.changed_code_sources.reduce((sum, file) => sum + file.total_chars, 0), patch.length);
+    assert.equal(coverage.changed_code_sources.reduce((sum, file) => sum + file.included_chars, 0), patch.length);
+    assert.equal(coverage.changed_code_sources.find(file => file.source === 'binary.bin').status, 'unavailable');
+  });
+});
+
 test('canonical patch preserves final carriage-return file content emitted by Git', () => {
   withTrailingSpaceRename((_diff, { repoPath, git }) => {
     fs.writeFileSync(path.join(repoPath, 'trailing '), 'changed\r\n');

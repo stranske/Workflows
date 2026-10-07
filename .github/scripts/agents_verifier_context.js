@@ -838,7 +838,7 @@ function buildContextSourceCoverage({ planSources, diffText, diffMaxChars, evide
   const diff = normalizeDiffPatch(diffText);
   const limit = Number.isFinite(diffMaxChars) ? Math.max(0, diffMaxChars) : DEFAULT_DIFF_MAX_CHARS;
   // The coverage inventory must not inherit the summary's 50-file/20k-line limits.
-  const { fileSummaries, pathParsingFailed } = parseDiffFiles(diff, Number.MAX_SAFE_INTEGER);
+  const { fileSummaries, pathParsingFailed } = parseDiffFiles(diffText, Number.MAX_SAFE_INTEGER);
   const changedCodeSources = fileSummaries.map((file) => {
     const total = file.end - file.start;
     const included = Math.max(0, Math.min(file.end, limit) - file.start);
