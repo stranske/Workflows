@@ -1,0 +1,7 @@
+{
+  "mutation": "disable publisher real environment attempt validation before status write",
+  "red_named_failures": 3,
+  "red_exit": 1,
+  "byte_identical_restored": true,
+  "helper_sha256": "beb093482223c99f9a07683d971cf90c1d4eed54eee4cedeb254ab16dcdcd165"
+}

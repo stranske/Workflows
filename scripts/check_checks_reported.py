@@ -43,7 +43,7 @@ FORK_PUBLISHER_PATH = ".github/workflows/pr-00-gate-fork-status.yml"
 FORK_HELPER_PATH = ".github/scripts/gate-fork-status-publication.js"
 # Only this audited immutable workflow/helper pair can establish v1 receipts.
 FORK_WORKFLOW_SHA256 = "9ea99adebfe79ca9054d5e19e2fdcfe0b66afb39fb243ae296021c935920b43c"
-FORK_HELPER_SHA256 = "9665b9b08120031b5d1f2c198c360c7ecff5083adce7cb2a5426b919995ee6d6"
+FORK_HELPER_SHA256 = "beb093482223c99f9a07683d971cf90c1d4eed54eee4cedeb254ab16dcdcd165"
 
 # GitHub's supported pull_request and pull_request_target activity types:
 # https://docs.github.com/en/actions/reference/workflows-and-actions/events-that-trigger-workflows#pull_request

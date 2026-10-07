@@ -160,6 +160,10 @@ async function assertLatestAttempt({ github, retry, owner, repo, run }) {
 }
 
 async function publishGateForkStatus({ github, context, core }) {
+  const publisherAttempt = Number(process.env.GITHUB_RUN_ATTEMPT);
+  if (!Number.isInteger(publisherAttempt) || publisherAttempt < 1) {
+    throw new Error('Publisher run attempt is missing or invalid');
+  }
   const payloadRun = context.payload.workflow_run;
   if (!payloadRun?.id) throw new Error('workflow_run id is required');
   const { owner, repo } = context.repo;
@@ -251,7 +255,7 @@ async function publishGateForkStatus({ github, context, core }) {
     gate_run_id: run.id,
     gate_run_attempt: run.run_attempt,
     publisher_run_id: context.runId,
-    publisher_run_attempt: context.runAttempt,
+    publisher_run_attempt: publisherAttempt,
     status_id: published.data.id,
   }));
   core.notice(`Published ${GATE_CONTEXT}=${result.state} for fork PR #${pr.number} at ${pr.head.sha}.`);

@@ -44,6 +44,7 @@ def _publish_scenario(
     summary_name="summary",
     base_ref="main",
     status_read_drift=None,
+    publisher_attempt="2",
 ):
     initial_run = {
         "id": 9,
@@ -87,6 +88,7 @@ def _publish_scenario(
     source = f"""
 const helper = require({json.dumps(str(HELPER))});
 const scenario = {json.dumps(scenario)};
+process.env.GITHUB_RUN_ATTEMPT = {json.dumps(publisher_attempt)};
 let runReads = 0;
 let statusRead = false;
 let currentRun = scenario.finalRun;
@@ -133,7 +135,7 @@ const core = {{info: text => {{if (text.startsWith('GATE_FORK_STATUS_RECEIPT='))
       core,
       context: {{
         repo: {{owner: 'stranske', repo: 'Workflows'}},
-        runId: 99, runAttempt: 2,
+        runId: 99,
         payload: {{workflow_run: {{id: 9}}, repository: {{id: 1, default_branch: 'main'}}}},
       }},
     }});
@@ -413,3 +415,11 @@ def test_publisher_receipt_binds_status_and_both_run_attempts():
         }
     ]
     assert _publish_scenario(replay=True)["receipts"] == []
+
+
+@pytest.mark.parametrize("publisher_attempt", ["", "0", "not-an-attempt"])
+def test_publisher_requires_real_environment_attempt_before_writing(publisher_attempt):
+    result = _publish_scenario(publisher_attempt=publisher_attempt)
+    assert "error" in result
+    assert "Publisher run attempt is missing or invalid" in result["error"]
+    assert result["writes"] == []
