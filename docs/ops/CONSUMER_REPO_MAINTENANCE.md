@@ -885,6 +885,13 @@ full plan or source range, never to reuse an older evidence artifact. These
 rules are enforced by `sync_run_contract.js`, `maint71_merge_sync_prs.js`, and
 `sync_pr_merge_contract.js`, with the workflow carrying the immutable fields
 between those boundaries.
+Maint 82 matches configured review-bot identities case-insensitively after
+removing an optional terminal `[bot]` suffix from both the configured identity
+and the observed login. This reconciles REST and GraphQL representations without
+expanding the configured reviewer allowlist; original author logins remain in
+finding evidence. Resolved, outdated and ignored-path threads remain excluded.
+An empty discovered queue is not completion evidence when discovery is incomplete.
+
 Maint 82 retains every transient Maint 71 handoff with an immutable plan binding,
 idempotency key, and due time and supplies a ten-minute fallback for
 candidate/campaign evidence holds, delivery-review startup,

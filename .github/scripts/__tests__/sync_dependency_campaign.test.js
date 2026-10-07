@@ -773,6 +773,38 @@ test('collectActiveBotThreads keeps active bot review threads only', () => {
   assert.equal(threads[0].author, 'Copilot');
 });
 
+test('review discovery canonicalizes only terminal bot suffixes across API representations', () => {
+  const thread = (id, login, extra = {}) => ({
+    id, path: 'scripts/verifier.py', isResolved: false, isOutdated: false,
+    comments: { nodes: [{ author: { login }, body: 'A substantive finding.' }] },
+    ...extra,
+  });
+  for (const login of ['chatgpt-codex-connector', 'chatgpt-codex-connector[bot]',
+    'CHATGPT-CODEX-CONNECTOR', 'coderabbitai', 'coderabbitai[bot]']) {
+    const findings = collectActiveBotThreads([thread('active', login)]);
+    assert.equal(findings.length, 1, login);
+    assert.equal(findings[0].author, login, 'retain original evidence identity');
+  }
+  for (const configured of ['custom-reviewer', 'custom-reviewer[bot]']) {
+    for (const observed of ['custom-reviewer', 'CUSTOM-REVIEWER[bot]']) {
+      assert.equal(collectActiveBotThreads([thread('custom', observed)],
+        { botAuthors: [configured] }).length, 1);
+    }
+    assert.equal(collectActiveBotThreads([thread('not-configured', 'coderabbitai')],
+      { botAuthors: [configured] }).length, 0, 'configuration remains authoritative');
+  }
+  const controls = [
+    thread('human', 'stranske'), thread('prefix', 'coderabbitai-unrelated'),
+    thread('embedded', 'coderabbitai[bot]-unrelated'),
+    thread('resolved', 'coderabbitai', { isResolved: true }),
+    thread('outdated', 'chatgpt-codex-connector', { isOutdated: true }),
+    thread('ignored', 'coderabbitai', { path: '.agents/generated.md' }),
+  ];
+  assert.deepEqual(collectActiveBotThreads(controls), []);
+  assert.deepEqual(collectActiveBotThreads([thread('anonymous', '')],
+    { botAuthors: ['[bot]'] }), [], 'malformed configured suffix cannot allow anonymous authors');
+});
+
 test('buildQueueItem creates stable PR-scoped work items', () => {
   const item = buildQueueItem({
     repoFullName: 'stranske/TPP',
