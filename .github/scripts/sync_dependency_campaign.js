@@ -128,7 +128,13 @@ function classifyPullRequest(pr = {}) {
 }
 
 function botAuthorSet(botAuthors = DEFAULT_BOT_AUTHORS) {
-  return new Set(parseCsv(botAuthors).map(normaliseLogin));
+  return new Set(parseCsv(botAuthors).map(normaliseBotLogin));
+}
+
+// REST app logins may include [bot]; GraphQL commonly returns the bare login.
+// Canonicalize both sides of this configured reviewer allowlist, not PR authors.
+function normaliseBotLogin(value) {
+  return normaliseLogin(value).replace(/\[bot\]$/, '');
 }
 
 function pathIgnored(path, ignoredPaths = DEFAULT_IGNORED_PATHS) {
@@ -144,7 +150,7 @@ function normaliseReviewThread(thread = {}, options = {}) {
   const authors = botAuthorSet(options.botAuthors);
   const comments = cleanArray(thread.comments?.nodes || thread.comments || []);
   const botComments = comments.filter((comment) =>
-    authors.has(normaliseLogin(comment.author?.login || comment.user?.login))
+    authors.has(normaliseBotLogin(comment.author?.login || comment.user?.login))
   );
 
   if (!botComments.length) {
