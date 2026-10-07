@@ -284,6 +284,10 @@ Declared temporal qualifiers also terminate an already recognized component
 qualifier alone after bare `PR description` does not create a product component;
 human and independent reviewer deliveries remain mandatory.
 Both channel classification and destination-OR expansion use that same span.
+Both paths also share the independent review-predicate exclusion: an actor
+such as `the PR description that must contain command output` is not consumed
+as another destination of an earlier prohibited delivery. OR expansion cannot
+invent an overall-evidence requirement by splitting that independent actor.
 A comma may introduce a declared availability condition. Human body/comment ORs
 retain genuine alternatives; a product-only component cannot erase a coordinated
 mandatory review delivery, even when an independent artifact keeps every expanded

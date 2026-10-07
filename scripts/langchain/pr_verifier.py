@@ -984,6 +984,30 @@ _QUOTED_EVIDENCE_LITERAL = (
 )
 
 
+_MANDATORY_EVIDENCE_AUXILIARY = (
+    r"(?:(?:must|shall|needs?\s+to)|"
+    r"(?:(?:is|are)\s+)?(?:required|needed|mandated|expected|supposed|obliged)\s+to|"
+    r"(?:has|have)\s+to)"
+)
+_EVIDENCE_DELIVERY_ADVERB = r"(?:also|now|still|already|yet|[\w-]+ly)"
+_EVIDENCE_DELIVERY_ADVERBS = r"(?:" + _EVIDENCE_DELIVERY_ADVERB + r"\s+){0,3}"
+_NEGATIVE_EVIDENCE_ADJECTIVE_GOVERNOR = (
+    r"(?:is|are|was|were)\s+(?:not|never|no\s+longer)\s+"
+    r"(?:required|needed|mandated|expected|supposed|obliged|allowed|permitted)"
+)
+_NEGATIVE_EVIDENCE_REQUIREMENT_GOVERNOR = (
+    r"(?:" + _NEGATIVE_EVIDENCE_ADJECTIVE_GOVERNOR + r"\s+to|"
+    r"(?:does|do|did)\s+(?:not|never)\s+(?:need|have)\s+to|"
+    r"(?:never|no\s+longer)\s+(?:has|have|needs?)\s+to|needs?\s+not)"
+)
+_INDEPENDENT_REVIEW_PREDICATE = (
+    r"(?:"
+    + _MANDATORY_EVIDENCE_AUXILIARY
+    + r"|"
+    + _NEGATIVE_EVIDENCE_REQUIREMENT_GOVERNOR
+    + r"|is|are|will|should|may|can)\b"
+)
+
 _REVIEW_BODY_COMPONENT_TEMPORAL = (
     r"before|after|now|today|tomorrow|again|here|there|soon|always|daily|weekly|[\w-]+ly"
 )
@@ -1018,13 +1042,9 @@ def _required_evidence_channels(acceptance: str, *, _bind_attached: bool = True)
     evidence_modifiers = (
         r"(?:(?!(?:and|or|but|must|shall|is|are|not|never|may|can)\b)[\w/-]+\s+){0,6}"
     )
-    mandatory_auxiliary = (
-        r"(?:(?:must|shall|needs?\s+to)|"
-        r"(?:(?:is|are)\s+)?(?:required|needed|mandated|expected|supposed|obliged)\s+to|"
-        r"(?:has|have)\s+to)"
-    )
-    delivery_adverb = r"(?:also|now|still|already|yet|[\w-]+ly)"
-    delivery_adverbs = r"(?:" + delivery_adverb + r"\s+){0,3}"
+    mandatory_auxiliary = _MANDATORY_EVIDENCE_AUXILIARY
+    delivery_adverb = _EVIDENCE_DELIVERY_ADVERB
+    delivery_adverbs = _EVIDENCE_DELIVERY_ADVERBS
     possession_modifiers = r"(?:(?:not|never|no\s+longer|" + delivery_adverb + r")\s+){0,3}"
     passive_delivery_prefix = (
         r"(?:be|been|being|have\s+" + delivery_adverbs + r"been)"
@@ -1033,15 +1053,8 @@ def _required_evidence_channels(acceptance: str, *, _bind_attached: bool = True)
     delivery_action_prefix = (
         r"(?:" + passive_delivery_prefix + r"|have\s+" + delivery_adverbs + r")"
     )
-    negative_adjective_governor = (
-        r"(?:is|are|was|were)\s+(?:not|never|no\s+longer)\s+"
-        r"(?:required|needed|mandated|expected|supposed|obliged|allowed|permitted)"
-    )
-    negative_requirement_governor = (
-        r"(?:" + negative_adjective_governor + r"\s+to|"
-        r"(?:does|do|did)\s+(?:not|never)\s+(?:need|have)\s+to|"
-        r"(?:never|no\s+longer)\s+(?:has|have|needs?)\s+to|needs?\s+not)"
-    )
+    negative_adjective_governor = _NEGATIVE_EVIDENCE_ADJECTIVE_GOVERNOR
+    negative_requirement_governor = _NEGATIVE_EVIDENCE_REQUIREMENT_GOVERNOR
     optional_delivery_modal = r"(?:may|can|could|would|should)"
     delivery_governor_auxiliary = (
         r"(?:"
@@ -1146,13 +1159,7 @@ def _required_evidence_channels(acceptance: str, *, _bind_attached: bool = True)
         + artifact_destination_object
         + r"|(?:pr|pull request)\b)"
     )
-    independent_review_predicate = (
-        r"(?:"
-        + mandatory_auxiliary
-        + r"|"
-        + negative_requirement_governor
-        + r"|is|are|will|should|may|can)\b"
-    )
+    independent_review_predicate = _INDEPENDENT_REVIEW_PREDICATE
     destination_preposition_head = r"(?:in|into|to|within|for|as|through|via)"
     destination_preposition = destination_preposition_head + r"\s+"
     delivery_destination_item = r"(?:" + review_destination_noun + "|" + recipient_noun + ")"
@@ -3672,6 +3679,12 @@ def _required_evidence_options(acceptance: str) -> list[set[str]]:
         + r")\s+(?:either\s+)?(?P<items>"
         + destination
         + r"(?:(?:\s*,\s*(?:(?:and|or)\s+)?|\s+(?:and|or)\s+)"
+        + r"(?!"
+        + member
+        + r"\s+(?:(?:that|which)\s+)?"
+        + _EVIDENCE_DELIVERY_ADVERBS
+        + _INDEPENDENT_REVIEW_PREDICATE
+        + r")"
         + member
         + r")+)",
         re.I,

@@ -1175,6 +1175,25 @@ def test_destination_list_cannot_consume_independent_affirmative_actor(
     negative = marker + "No evidence is required to appear in a PR comment"
     positive = f"{destination} {predicate_prefix}{governor} contain command output"
     assert verifier._required_evidence_channels(negative + separator + positive) == {channel}
+    criterion = negative + separator + positive
+    assert verifier._required_evidence_options(criterion) == [{channel}]
+    spec = importlib.util.spec_from_file_location(
+        "independent_actor_fixture", Path(__file__).with_name("test_pr_verifier_prompt_coverage.py")
+    )
+    fixture = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(fixture)
+    context, _ = fixture._context(1, 1000, 1000)
+    context = context.replace("- " + fixture.ACCEPTANCE_SENTINEL, criterion).replace(
+        "## PR Diff Summary",
+        "## Acceptance evidence\n\n- Overall retrieval status: **unavailable**\n"
+        "- PR body: **present**\n- PR comments: **present**\n"
+        "- Referenced workflow artifacts: **present**\n\n## PR Diff Summary",
+    )
+    result = verifier._apply_coverage_floor(
+        verifier.EvaluationResult(verdict="PASS", used_llm=True),
+        verifier.prompt_coverage(context, None),
+    )
+    assert result.verdict == "PASS"
 
 
 @pytest.mark.parametrize(
