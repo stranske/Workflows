@@ -73,6 +73,9 @@ are evidence pointers, not current-head assertions.
 The JSON `expected-check-receipt/v1` records:
 
 - Full repository, PR, head/base, base branch, caller event/action and changed paths.
+  The complete paginated path inventory is read again before the closing PR
+  snapshot. `closing_context` retains the final head/base, branch, declared and
+  enumerated file counts, and normalized paths, including renamed sources.
 - Required status contexts and app restrictions from current branch protection
   and applicable branch rules. Inaccessible protection/rules evidence is UNKNOWN.
   A ruleset-only branch can report `protected: true` while the classic endpoint
@@ -167,8 +170,11 @@ provided. Conflicting page totals, invalid counts and repeated object IDs also
 remain UNKNOWN: a repeated object can hide an omitted check or suite even when
 the final count matches. Every check run and suite on every page must explicitly
 report the requested full head, including advisory checks and other apps' suites;
-missing or mismatched heads remain UNKNOWN. A changed head/base during collection
-becomes UNKNOWN. Re-run after async completion or obtain concrete source-bound evidence for unsupported
+missing or mismatched heads remain UNKNOWN. A changed head/base, base branch,
+declared file count or normalized path inventory during collection becomes
+UNKNOWN. Equal SHAs cannot prove branch-filter or rules stability after a PR is
+retargeted. Page order and unrelated diff statistics do not alter path identity.
+Re-run after async completion or obtain concrete source-bound evidence for unsupported
 conditions; never relabel UNKNOWN as PASS or waive missing checks.
 
 Merged-head Actions search can return an empty inventory even while its exact-head
@@ -200,3 +206,19 @@ Workflows Gate, reusable CI selftest and integration-consumer workflows invoke
 the reusable workflow from the tested tree and pass `workflows_ref: ${{ github.sha }}`.
 This keeps the helper checkout on that same tested commit, including before a
 new helper API reaches main. Consumer remote calls retain their `@main` default.
+
+### Required Gate commit-status publisher
+
+REST commit statuses do not expose an app foreign key. The local lane adapter
+binds the latest successful `Gate / gate` status only for the built-in github.com
+GitHub Actions publisher. Authenticated app and bot records must match their
+immutable platform IDs. The status repository/head, successful pull-request Gate
+run and attempt, Actions suite, summary job/check, and successful status-report
+step must agree; the status timestamp must fall inside that step. The receipt
+retains these identifiers in `status_provenance`. A target URL, publisher login,
+or caller-supplied app ID alone is insufficient. Unbound, stale, ambiguous, or
+unavailable evidence remains UNKNOWN; a missing status remains missing and a
+failed check cannot be hidden by a successful status.
+
+This is a local lane-adapter change, not a reusable workflow or consumer sync
+change. It does not authorize installing an unreviewed helper into a running lane.

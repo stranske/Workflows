@@ -628,6 +628,118 @@ def test_head_changed_during_collection_is_unknown():
     )
 
 
+@pytest.mark.parametrize("finding", ["base_branch", "changed_files"])
+def test_changed_pr_filter_context_invalidates_receipt(finding):
+    transport = fixture_transport()
+    snapshots = 0
+
+    def changed_context(endpoint):
+        nonlocal snapshots
+        pages = transport(endpoint)
+        if endpoint.endswith("/pulls/1"):
+            snapshots += 1
+            if snapshots > 1:
+                if finding == "base_branch":
+                    # Retargeting can preserve both SHAs but change branch rules/filters.
+                    pages[0]["base"]["ref"] = "release"
+                else:
+                    pages[0]["changed_files"] = 2
+        return pages
+
+    result = reporter.collect(
+        reporter.Evidence(changed_context), "o/r", 1, HEAD, "pull_request", "opened"
+    )
+
+    assert result["verdict"] == "UNKNOWN"
+    assert any("changed during evidence collection" in reason for reason in result["unknown"])
+    assert result["head"] == HEAD and result["base"] == BASE
+    assert result["merge_authorization"] is False
+
+
+@pytest.mark.parametrize("finding", ["filename", "previous_filename", "truncated"])
+def test_changed_path_inventory_invalidates_event_absence(finding):
+    transport = fixture_transport()
+    file_reads = 0
+    workflow = (
+        "on:\n  pull_request:\n    paths: ['docs/**']\n"
+        "jobs:\n  docs:\n    runs-on: ubuntu-latest\n    steps: []\n"
+    )
+
+    def changed_paths(endpoint):
+        nonlocal file_reads
+        if "/contents/.github/workflows?" in endpoint:
+            return [
+                [
+                    {"path": ".github/workflows/gate.yml", "sha": "d" * 40},
+                    {"path": ".github/workflows/docs.yml", "sha": "e" * 40},
+                ]
+            ]
+        if "/contents/.github/workflows/docs.yml?" in endpoint:
+            return [{"encoding": "base64", "content": base64.b64encode(workflow.encode()).decode()}]
+        if "/files?" in endpoint:
+            file_reads += 1
+            if file_reads > 1:
+                if finding == "truncated":
+                    return [[]]
+                item = {"filename": "src/a.py"}
+                item[finding] = "docs/guide.md"
+                return [[item]]
+        return transport(endpoint)
+
+    result = reporter.collect(
+        reporter.Evidence(changed_paths), "o/r", 1, HEAD, "pull_request", "opened"
+    )
+
+    assert result["verdict"] == "UNKNOWN"
+    assert any("changed-path" in reason for reason in result["unknown"])
+    assert result["changed_paths"] == ["src/a.py"]
+    assert result["legitimate_absences"][0]["path"] == ".github/workflows/docs.yml"
+    assert result["merge_authorization"] is False
+
+
+def test_stable_paginated_paths_ignore_page_order_and_diff_statistics():
+    transport = fixture_transport()
+    file_reads = 0
+
+    def stable_paths(endpoint):
+        nonlocal file_reads
+        if endpoint.endswith("/pulls/1"):
+            pages = transport(endpoint)
+            pages[0]["changed_files"] = 2
+            return pages
+        if "/files?" in endpoint:
+            file_reads += 1
+            pages = [
+                [{"filename": "src/a.py", "previous_filename": "src/old.py", "additions": 1}],
+                [{"filename": "src/b.py"}],
+            ]
+            if file_reads > 1:
+                pages[0][0]["additions"] = 2
+                pages.reverse()
+            return pages
+        return transport(endpoint)
+
+    evidence = reporter.Evidence(stable_paths)
+    result = reporter.collect(evidence, "o/r", 1, HEAD, "pull_request", "opened")
+
+    assert result["verdict"] == "PASS"
+    assert result["changed_paths"] == ["src/a.py", "src/b.py", "src/old.py"]
+    assert result["closing_context"] == {
+        "head": HEAD,
+        "base": BASE,
+        "base_branch": "main",
+        "changed_file_count": 2,
+        "enumerated_file_count": 2,
+        "changed_paths": result["changed_paths"],
+    }
+    assert [
+        request["pages"] for request in evidence.requests if "/files?" in request["endpoint"]
+    ] == [
+        2,
+        2,
+    ]
+
+
 def test_other_app_cannot_supply_workflow_completeness():
     assert (
         reporter.collect(
@@ -648,7 +760,7 @@ def test_incumbent_transport_is_reused_without_copying_reference_algorithm(tmp_p
     assert reporter.load_presence_reporter(incumbent)("checks") == [{"endpoint": "checks"}]
 
 
-def invoke_main(monkeypatch, incumbent, output):
+def invoke_main(monkeypatch, incumbent, output, action="opened"):
     monkeypatch.setattr(
         sys,
         "argv",
@@ -663,7 +775,7 @@ def invoke_main(monkeypatch, incumbent, output):
             "--event",
             "pull_request",
             "--action",
-            "opened",
+            action,
             "--presence-reporter",
             str(incumbent),
             "--output",
@@ -672,6 +784,211 @@ def invoke_main(monkeypatch, incumbent, output):
     )
     code = reporter.main()
     return code, json.loads(output.read_text())
+
+
+def incident_transport(scenario, reverse_pages=False):
+    """Full discovery evidence with incident data beyond the first API page."""
+    fallback = fixture_transport()
+    workflows = {
+        "gate": "on: pull_request\njobs:\n  gate:\n    runs-on: ubuntu-latest\n    steps: []\n",
+        "auto-pilot": (
+            "on:\n  pull_request:\n    types: [labeled, closed]\n"
+            "jobs:\n  auto-pilot:\n    runs-on: ubuntu-latest\n    steps: []\n"
+        ),
+    }
+    checks = [check(), check("advisory", ident=2)]
+    suites = [
+        {
+            "id": 90,
+            "head_sha": HEAD,
+            "app": {"slug": "github-actions"},
+            "conclusion": "success",
+            "latest_check_runs_count": 1,
+        },
+        {"id": 91, "head_sha": HEAD, "app": {"slug": "other-app"}},
+    ]
+    gate_run = {
+        "id": 101,
+        "workflow_id": 42,
+        "check_suite_id": 90,
+        "head_sha": HEAD,
+        "event": "pull_request",
+        "path": ".github/workflows/gate.yml",
+        "run_attempt": 2 if scenario == "cancelled_retry" else 1,
+        "conclusion": "success",
+    }
+    if scenario == "cancelled_retry":
+        checks = [
+            check(conclusion="cancelled"),
+            check(ident=2, started="2026-10-01T02:00:00Z"),
+        ]
+    startup_run = {**gate_run, "id": 102, "workflow_id": 43, "check_suite_id": 91}
+    if scenario == "startup_failure":
+        workflows["bootstrap"] = workflows["gate"].replace("  gate:", "  bootstrap:")
+        startup_run.update(path=".github/workflows/bootstrap.yml", conclusion="startup_failure")
+        suites[1].update(
+            app={"slug": "github-actions"},
+            conclusion="startup_failure",
+            latest_check_runs_count=0,
+        )
+
+    def inventory(key, items):
+        pages = [{"total_count": len(items), key: [item]} for item in items]
+        return list(reversed(pages)) if reverse_pages else pages
+
+    def transport(endpoint):
+        if "/check-runs?" in endpoint:
+            return inventory("check_runs", checks)
+        if "/check-suites?" in endpoint:
+            return inventory("check_suites", suites)
+        if "/contents/.github/workflows?" in endpoint:
+            return [
+                [{"path": f".github/workflows/{name}.yml", "sha": "d" * 40} for name in workflows]
+            ]
+        for name, document in workflows.items():
+            if f"/contents/.github/workflows/{name}.yml?" in endpoint:
+                return [
+                    {"encoding": "base64", "content": base64.b64encode(document.encode()).decode()}
+                ]
+        if "/actions/runs?check_suite_id=91&" in endpoint:
+            return [{"total_count": 1, "workflow_runs": [startup_run]}]
+        if "/actions/runs?head_sha=" in endpoint:
+            return [{"total_count": 1, "workflow_runs": [gate_run]}]
+        if "/actions/runs/101/jobs?" in endpoint:
+            return [
+                {"total_count": 1, "jobs": [{"id": 201, "name": "gate", "conclusion": "success"}]}
+            ]
+        if "/actions/runs/102/jobs?" in endpoint:
+            return [{"total_count": 0, "jobs": []}]
+        if "/rules/branches/" in endpoint:
+            contexts = ["gate"]
+            if scenario == "missing_required":
+                contexts.append("required-reporter")
+            return [
+                [
+                    {
+                        "type": "required_status_checks",
+                        "parameters": {
+                            "required_status_checks": [{"context": name} for name in contexts]
+                        },
+                    }
+                ]
+            ]
+        return fallback(endpoint)
+
+    return transport
+
+
+@pytest.mark.parametrize("reverse_pages", [False, True])
+@pytest.mark.parametrize("action", ["synchronize", "reopened"])
+@pytest.mark.parametrize(
+    "scenario,expected_verdict,exit_code,missing",
+    [
+        ("missing_required", "FAIL", 1, ["required-reporter"]),
+        ("event_only_absence", "PASS", 0, []),
+        ("cancelled_retry", "PASS", 0, []),
+        ("startup_failure", "FAIL", 1, ["bootstrap"]),
+    ],
+)
+def test_incident_cli_receipt(
+    tmp_path, monkeypatch, scenario, expected_verdict, exit_code, missing, action, reverse_pages
+):
+    incumbent = tmp_path / "presence.py"
+    incumbent.write_text("# Tracked incumbent\n")
+    monkeypatch.setattr(
+        reporter, "load_presence_reporter", lambda _: incident_transport(scenario, reverse_pages)
+    )
+    code, receipt = invoke_main(monkeypatch, incumbent, tmp_path / "evidence/receipt.json", action)
+
+    assert (code, receipt["verdict"]) == (exit_code, expected_verdict)
+    assert receipt["evidence_complete"] is True and receipt["unknown"] == []
+    assert receipt["head"] == HEAD and receipt["base"] == BASE
+    assert receipt["repository"] == "o/r" and receipt["pr"] == 1
+    assert receipt["event"] == "pull_request" and receipt["action"] == action
+    assert receipt["changed_paths"] == ["src/a.py"]
+    assert receipt["closing_context"] == {
+        "head": HEAD,
+        "base": BASE,
+        "base_branch": "main",
+        "changed_file_count": 1,
+        "enumerated_file_count": 1,
+        "changed_paths": ["src/a.py"],
+    }
+    assert receipt["missing_names"] == missing
+    assert receipt["expected_names"] == sorted(["gate", *missing])
+    reported = ["gate"] if scenario == "cancelled_retry" else ["advisory", "gate"]
+    assert receipt["reported_names"] == receipt["passing_names"] == reported
+    assert receipt["states"]["gate"]["state"] == "success"
+    assert {item["id"] for item in receipt["check_runs"]} == {1, 2}
+    assert {item["id"] for item in receipt["check_suites"]} == {90, 91}
+    for endpoint_kind in ["check-runs", "check-suites"]:
+        requests = [r for r in receipt["request_evidence"] if f"/{endpoint_kind}?" in r["endpoint"]]
+        assert len(requests) == 1 and requests[0]["pages"] == 2
+        assert HEAD in requests[0]["endpoint"]
+    (absence,) = receipt["legitimate_absences"]
+    assert absence["repository"] == "o/r" and absence["ref"] == BASE
+    assert absence["blob_sha"] == "d" * 40
+    assert absence["path"] == ".github/workflows/auto-pilot.yml"
+    assert absence["triggers"] == {"pull_request": {"types": ["labeled", "closed"]}}
+    assert absence["document"]["jobs"]["auto-pilot"]
+    assert absence["reason"] == f"action '{action}' not in ['labeled', 'closed']"
+    if scenario == "cancelled_retry":
+        assert receipt["states"]["gate"]["order"] == ["2026-10-01T02:00:00Z", 2]
+        assert receipt["workflow_runs"][0]["run_attempt"] == 2
+    if scenario == "startup_failure":
+        assert receipt["startup_failures"] == [
+            {"kind": "suite", "id": 91, "conclusion": "startup_failure"},
+            {"kind": "run", "id": 102, "conclusion": "startup_failure"},
+        ]
+        assert receipt["workflow_run_inventory_recovery"][0]["included"] is True
+        assert next(run for run in receipt["workflow_runs"] if run["id"] == 102)["jobs"] == []
+    else:
+        assert receipt["startup_failures"] == []
+    assert receipt["merge_authorization"] is False
+
+
+def test_event_only_absence_cannot_be_reused_for_applicable_action(tmp_path, monkeypatch):
+    incumbent = tmp_path / "presence.py"
+    incumbent.write_text("# Tracked incumbent\n")
+    monkeypatch.setattr(
+        reporter, "load_presence_reporter", lambda _: incident_transport("event_only_absence")
+    )
+    code, receipt = invoke_main(monkeypatch, incumbent, tmp_path / "receipt.json", action="labeled")
+    assert code == 1 and receipt["verdict"] == "FAIL"
+    assert receipt["expected_names"] == ["auto-pilot", "gate"]
+    assert receipt["missing_names"] == ["auto-pilot"]
+    assert receipt["legitimate_absences"][0]["path"] == ".github/workflows/gate.yml"
+    assert receipt["merge_authorization"] is False
+
+
+@pytest.mark.parametrize("changed", ["head", "paths"])
+def test_incident_cli_rejects_changed_closing_context(tmp_path, monkeypatch, changed):
+    incumbent = tmp_path / "presence.py"
+    incumbent.write_text("# Tracked incumbent\n")
+    transport = incident_transport("event_only_absence")
+    reads = {}
+
+    def changed_context(endpoint):
+        pages = transport(endpoint)
+        reads[endpoint] = reads.get(endpoint, 0) + 1
+        if reads[endpoint] > 1:
+            if changed == "head" and endpoint.endswith("/pulls/1"):
+                pages[0]["head"]["sha"] = "c" * 40
+            if changed == "paths" and "/pulls/1/files?" in endpoint:
+                pages[0][0]["filename"] = "docs/guide.md"
+        return pages
+
+    monkeypatch.setattr(reporter, "load_presence_reporter", lambda _: changed_context)
+    code, receipt = invoke_main(monkeypatch, incumbent, tmp_path / "receipt.json")
+    assert code == 2 and receipt["verdict"] == "UNKNOWN"
+    assert receipt["evidence_complete"] is False
+    assert any("changed during evidence collection" in reason for reason in receipt["unknown"])
+    assert receipt["head"] == HEAD and receipt["changed_paths"] == ["src/a.py"]
+    if changed == "head":
+        assert receipt["closing_context"]["head"] == "c" * 40
+    else:
+        assert receipt["closing_context"]["changed_paths"] == ["docs/guide.md"]
+    assert receipt["merge_authorization"] is False
 
 
 @pytest.mark.parametrize(
@@ -1552,3 +1869,211 @@ def test_collect_binds_real_suite_id_to_current_run():
     assert result["startup_failures"] == [
         {"kind": "suite", "id": 90, "conclusion": "startup_failure"}
     ]
+
+
+def actions_status_packet():
+    """Minimized authenticated shape of Inv-Man-Intake1006's actual Gate retry."""
+    repo = "stranske/Inv-Man-Intake"
+    status = {
+        "id": 55746211600,
+        "context": "Gate / gate",
+        "state": "success",
+        "created_at": "2026-10-06T22:28:41Z",
+        "url": f"https://api.github.com/repos/{repo}/statuses/{HEAD}",
+        "target_url": f"https://github.com/{repo}/actions/runs/37538210728",
+        "creator": {"id": 41898282, "login": "github-actions[bot]", "type": "Bot"},
+    }
+    app = {
+        "id": 15368,
+        "slug": "github-actions",
+        "owner": {"id": 9919, "login": "github", "type": "Organization"},
+    }
+    suite = {"id": 101687549688, "head_sha": HEAD, "app": app}
+    run = {
+        "id": 37538210728,
+        "repository": {"full_name": repo},
+        "head_sha": HEAD,
+        "event": "pull_request",
+        "path": ".github/workflows/pr-00-gate.yml",
+        "status": "completed",
+        "conclusion": "success",
+        "run_attempt": 2,
+        "check_suite_id": suite["id"],
+        "jobs": [
+            {
+                "id": 112533083718,
+                "name": "gate-summary",
+                "run_id": 37538210728,
+                "run_attempt": 2,
+                "head_sha": HEAD,
+                "status": "completed",
+                "conclusion": "success",
+                "check_run_url": f"https://api.github.com/repos/{repo}/check-runs/112533083718",
+                "steps": [
+                    {
+                        "name": "Report Gate commit status",
+                        "status": "completed",
+                        "conclusion": "success",
+                        "started_at": "2026-10-06T22:28:41Z",
+                        "completed_at": "2026-10-06T22:28:42Z",
+                    }
+                ],
+            }
+        ],
+    }
+    gate = check("gate-summary", ident=112533083718)
+    gate["check_suite"] = {"id": suite["id"]}
+    return {
+        "repo": repo,
+        "head": HEAD,
+        "statuses": [status],
+        "runs": [run],
+        "suites": [suite],
+        "checks": [gate],
+        "platform_app": app,
+        "platform_bot": dict(status["creator"]),
+    }
+
+
+def status_packet_verdict(packet):
+    proof = reporter.gate_status_provenance(**packet)
+    return reporter.adjudicate(
+        {"Gate / gate"},
+        packet["checks"],
+        packet["statuses"],
+        packet["suites"],
+        packet["runs"],
+        [],
+        [{"context": "Gate / gate", "app_id": 15368}],
+        status_provenance=proof,
+    )
+
+
+@pytest.mark.parametrize("summary_name", ["summary", "gate-summary"])
+def test_real_gate_retry_resolves_only_the_missing_app_binding(summary_name):
+    packet = actions_status_packet()
+    packet["runs"][0]["jobs"][0]["name"] = summary_name
+    assert (
+        reporter.adjudicate(
+            {"Gate / gate"},
+            packet["checks"],
+            packet["statuses"],
+            packet["suites"],
+            packet["runs"],
+            [],
+            [{"context": "Gate / gate", "app_id": 15368}],
+        )["verdict"]
+        == "UNKNOWN"
+    )
+    proof = reporter.gate_status_provenance(**packet)
+    assert proof[55746211600]["run_attempt"] == 2
+    assert proof[55746211600]["suite_id"] == 101687549688
+    result = status_packet_verdict(packet)
+    assert result["verdict"] == "PASS"
+    assert result["missing_names"] == result["unknown"] == result["failing_checks"] == []
+
+
+@pytest.mark.parametrize(
+    "object_path,key,value",
+    [
+        (("statuses", 0, "creator"), "id", 123),
+        (("statuses", 0, "creator"), "login", "someone[bot]"),
+        (("statuses", 0, "creator"), "type", "User"),
+        (("platform_app",), "id", 999),
+        (("platform_app", "owner"), "id", 999),
+        (("platform_bot",), "id", 999),
+        (("statuses", 0), "url", "https://api.github.com/repos/other/repo/statuses/" + HEAD),
+        (("statuses", 0), "created_at", "2026-10-06T22:28:43Z"),
+        (("statuses", 0), "created_at", "not-a-time"),
+        (("runs", 0), "head_sha", BASE),
+        (("runs", 0, "repository"), "full_name", "other/repo"),
+        (("runs", 0), "event", "workflow_dispatch"),
+        (("runs", 0), "path", ".github/workflows/unrelated.yml"),
+        (("runs", 0), "run_attempt", 3),
+        (("statuses", 0), "id", True),
+        (("runs", 0), "id", None),
+        (("runs", 0), "check_suite_id", None),
+        (("runs", 0), "run_attempt", True),
+        (("runs", 0, "jobs", 0), "id", None),
+        (("runs", 0), "conclusion", "failure"),
+        (("suites", 0), "head_sha", BASE),
+        (("suites", 0), "id", 123),
+        (("suites", 0, "app"), "slug", "other"),
+        (("checks", 0, "app"), "id", 123),
+        (("checks", 0, "check_suite"), "id", 123),
+        (("runs", 0, "jobs", 0), "name", "unrelated-summary"),
+        (("runs", 0, "jobs", 0), "run_attempt", 1),
+        (("runs", 0, "jobs", 0), "head_sha", BASE),
+        (("runs", 0, "jobs", 0), "check_run_url", "https://example.com/check-runs/112533083718"),
+        (("runs", 0, "jobs", 0, "steps", 0), "conclusion", "failure"),
+        (("runs", 0, "jobs", 0, "steps", 0), "name", "Unrelated step"),
+    ],
+)
+def test_gate_status_binding_rejects_spoofed_or_incomplete_correspondence(object_path, key, value):
+    packet = actions_status_packet()
+    # Remove shared fixture identity so each negative changes only its named evidence.
+    packet = json.loads(json.dumps(packet))
+    node = packet
+    for part in object_path:
+        node = node[part]
+    node[key] = value
+    assert reporter.gate_status_provenance(**packet) == {}
+    assert status_packet_verdict(packet)["verdict"] == "UNKNOWN"
+
+
+def test_newer_untrusted_status_never_falls_back_to_older_trusted_success():
+    packet = actions_status_packet()
+    newer = json.loads(json.dumps(packet["statuses"][0]))
+    newer.update(id=55746211601, created_at="2026-10-06T22:28:42Z", app_id=15368)
+    newer["creator"]["id"] = 123
+    for statuses in [[newer, *packet["statuses"]], [*packet["statuses"], newer]]:
+        packet["statuses"] = statuses
+        assert reporter.gate_status_provenance(**packet) == {}
+        assert status_packet_verdict(packet)["verdict"] == "UNKNOWN"
+
+
+def test_verified_status_still_cannot_mask_a_failed_same_context_check():
+    packet = actions_status_packet()
+    packet["checks"].append(check("Gate / gate", conclusion="failure", ident=2))
+    assert status_packet_verdict(packet)["verdict"] == "FAIL"
+
+
+def test_url_only_and_missing_status_are_not_publishing_identity():
+    packet = actions_status_packet()
+    packet["statuses"][0]["creator"] = {}
+    assert status_packet_verdict(packet)["verdict"] == "UNKNOWN"
+    packet["statuses"] = []
+    assert reporter.gate_status_provenance(**packet) == {}
+    assert status_packet_verdict(packet)["verdict"] == "FAIL"
+
+
+@pytest.mark.parametrize(
+    "relative",
+    [
+        ".github/workflows/pr-00-gate.yml",
+        "templates/consumer-repo/.github/workflows/pr-00-gate.yml",
+    ],
+)
+def test_current_canonical_gate_summary_can_bind_status(relative):
+    workflow = reporter.yaml.load(
+        (Path(__file__).parents[1] / relative).read_text(), Loader=reporter.WorkflowLoader
+    )
+    packet = actions_status_packet()
+    packet["runs"][0]["jobs"][0]["name"] = workflow["jobs"]["summary"]["name"]
+    assert status_packet_verdict(packet)["verdict"] == "PASS"
+
+
+@pytest.mark.parametrize("suffix", ["@refs/pull/1006/merge", "@main", "@" + "a" * 40])
+def test_gate_status_accepts_nonempty_workflow_run_ref_suffix(suffix):
+    packet = actions_status_packet()
+    packet["runs"][0]["path"] += suffix
+    assert reporter.gate_status_provenance(**packet)
+
+
+@pytest.mark.parametrize(
+    "path", [".github/workflows/pr-00-gate.yml@", ".github/workflows/decoy.yml@main"]
+)
+def test_gate_status_rejects_empty_ref_and_foreign_workflow(path):
+    packet = actions_status_packet()
+    packet["runs"][0]["path"] = path
+    assert reporter.gate_status_provenance(**packet) == {}

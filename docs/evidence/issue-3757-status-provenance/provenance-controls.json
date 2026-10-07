@@ -1,0 +1,16 @@
+[
+  {
+    "control": "drop-verified-binding",
+    "red_exit": 1,
+    "green_exit": 0,
+    "source_sha256": "3ead50cf7ec946e300ce1abbd4ac1041c8215ce383c09f93ea682770e70ec986",
+    "restored_identical": true
+  },
+  {
+    "control": "trust-publisher-login-only",
+    "red_exit": 1,
+    "green_exit": 0,
+    "source_sha256": "3ead50cf7ec946e300ce1abbd4ac1041c8215ce383c09f93ea682770e70ec986",
+    "restored_identical": true
+  }
+]
