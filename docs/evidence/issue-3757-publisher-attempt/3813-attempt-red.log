@@ -1,0 +1,40 @@
+FFF                                                                      [100%]
+=================================== FAILURES ===================================
+______ test_publisher_requires_real_environment_attempt_before_writing[] _______
+
+publisher_attempt = ''
+
+    @pytest.mark.parametrize("publisher_attempt", ["", "0", "not-an-attempt"])
+    def test_publisher_requires_real_environment_attempt_before_writing(publisher_attempt):
+        result = _publish_scenario(publisher_attempt=publisher_attempt)
+>       assert "error" in result
+E       AssertionError: assert 'error' in {'result': {'state': 'success', 'description': 'Trusted Gate completed successfully'}, 'writes': [{'owner': 'stranske'.....}], 'receipts': [{'schema': 'gate-fork-status/v1', 'repository': 'stranske/Workflows', 'head': 'abc', 'pr': 4, ...}]}
+
+tests/workflows/test_gate_fork_status_publication.py:423: AssertionError
+______ test_publisher_requires_real_environment_attempt_before_writing[0] ______
+
+publisher_attempt = '0'
+
+    @pytest.mark.parametrize("publisher_attempt", ["", "0", "not-an-attempt"])
+    def test_publisher_requires_real_environment_attempt_before_writing(publisher_attempt):
+        result = _publish_scenario(publisher_attempt=publisher_attempt)
+>       assert "error" in result
+E       AssertionError: assert 'error' in {'result': {'state': 'success', 'description': 'Trusted Gate completed successfully'}, 'writes': [{'owner': 'stranske'.....}], 'receipts': [{'schema': 'gate-fork-status/v1', 'repository': 'stranske/Workflows', 'head': 'abc', 'pr': 4, ...}]}
+
+tests/workflows/test_gate_fork_status_publication.py:423: AssertionError
+_ test_publisher_requires_real_environment_attempt_before_writing[not-an-attempt] _
+
+publisher_attempt = 'not-an-attempt'
+
+    @pytest.mark.parametrize("publisher_attempt", ["", "0", "not-an-attempt"])
+    def test_publisher_requires_real_environment_attempt_before_writing(publisher_attempt):
+        result = _publish_scenario(publisher_attempt=publisher_attempt)
+>       assert "error" in result
+E       AssertionError: assert 'error' in {'result': {'state': 'success', 'description': 'Trusted Gate completed successfully'}, 'writes': [{'owner': 'stranske'.....}], 'receipts': [{'schema': 'gate-fork-status/v1', 'repository': 'stranske/Workflows', 'head': 'abc', 'pr': 4, ...}]}
+
+tests/workflows/test_gate_fork_status_publication.py:423: AssertionError
+=========================== short test summary info ============================
+FAILED tests/workflows/test_gate_fork_status_publication.py::test_publisher_requires_real_environment_attempt_before_writing[]
+FAILED tests/workflows/test_gate_fork_status_publication.py::test_publisher_requires_real_environment_attempt_before_writing[0]
+FAILED tests/workflows/test_gate_fork_status_publication.py::test_publisher_requires_real_environment_attempt_before_writing[not-an-attempt]
+3 failed, 33 deselected in 0.36s

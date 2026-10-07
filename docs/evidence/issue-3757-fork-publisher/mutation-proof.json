@@ -1,0 +1,7 @@
+{
+  "mutation": "disable production collect_fork_publishers call",
+  "red_exit": 1,
+  "red_named_failures": 2,
+  "restoration_sha256": "6c027f0fc1ff64682c730fffddfc6fefca8ceca2aaa412f4ba6e5604bdaef3f8",
+  "byte_identical_restored": true
+}

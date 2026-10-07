@@ -1,14 +1,14 @@
 {
   "action": "synchronize",
-  "collected_at": "2026-10-06T23:01:43.316962+00:00",
+  "collected_at": "2026-10-07T11:51:14.682689+00:00",
   "event": "pull_request",
   "evidence_complete": false,
   "head": "4e82b31b09d5e70a62364b41e3a8c6da369549e1",
   "merge_authorization": false,
   "pr": 461,
   "presence_reporter": {
-    "path": "/tmp/issue-3757-incumbent/check_checks_reported.py",
-    "sha256": "0f3c52eafa35896ae3b81520a43dbf54d0e876ad48b44a23b01f3221f82a28f2"
+    "path": "/tmp/checks-reporter-source/check_checks_reported.py",
+    "sha256": "022d0fa993beb3071533b74d221ce5bdc8ecae84c90d99f133970c8e556e90d9"
   },
   "repository": "stranske/Orchestrator",
   "request_evidence": [],

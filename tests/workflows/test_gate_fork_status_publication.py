@@ -44,6 +44,7 @@ def _publish_scenario(
     summary_name="summary",
     base_ref="main",
     status_read_drift=None,
+    publisher_attempt="2",
 ):
     initial_run = {
         "id": 9,
@@ -87,11 +88,13 @@ def _publish_scenario(
     source = f"""
 const helper = require({json.dumps(str(HELPER))});
 const scenario = {json.dumps(scenario)};
+process.env.GITHUB_RUN_ATTEMPT = {json.dumps(publisher_attempt)};
 let runReads = 0;
 let statusRead = false;
 let currentRun = scenario.finalRun;
 let currentPr = scenario.pr;
 const writes = [];
+const receipts = [];
 const endpoint = value => async () => ({{data: value}});
 const github = {{
   paginate: async (method, params) => (await method(params)).data,
@@ -120,11 +123,11 @@ const github = {{
         }}
         return {{data: scenario.statuses}};
       }},
-      createCommitStatus: async params => {{ writes.push(params); return {{data: params}}; }},
+      createCommitStatus: async params => {{ writes.push(params); return {{data: {{...params, id: 123}}}}; }},
     }},
   }},
 }};
-const core = {{info: () => {{}}, notice: () => {{}}}};
+const core = {{info: text => {{if (text.startsWith('GATE_FORK_STATUS_RECEIPT=')) receipts.push(JSON.parse(text.split('=')[1]));}}, notice: () => {{}}}};
 (async () => {{
   try {{
     const result = await helper.publishGateForkStatus({{
@@ -132,10 +135,11 @@ const core = {{info: () => {{}}, notice: () => {{}}}};
       core,
       context: {{
         repo: {{owner: 'stranske', repo: 'Workflows'}},
+        runId: 99,
         payload: {{workflow_run: {{id: 9}}, repository: {{id: 1, default_branch: 'main'}}}},
       }},
     }});
-    process.stdout.write(JSON.stringify({{result, writes}}));
+    process.stdout.write(JSON.stringify({{result, writes, receipts}}));
   }} catch (error) {{
     process.stdout.write(JSON.stringify({{error: error.message, writes}}));
   }}
@@ -154,7 +158,7 @@ def test_fork_gate_status_publisher_has_trusted_minimal_permissions():
         "statuses": "write",
     }
     source = WORKFLOW.read_text(encoding="utf-8")
-    assert "github.event.repository.default_branch" in source
+    assert "ref: ${{ github.sha }}" in source
     assert "persist-credentials: false" in source
     assert "pull_request_target" not in source
     assert "zizmor: ignore[dangerous-triggers]" in source
@@ -393,3 +397,29 @@ for (const changed of [
         "Gate run attempt changed before publication",
         "Gate run status changed before publication",
     ]
+
+
+def test_publisher_receipt_binds_status_and_both_run_attempts():
+    result = _publish_scenario()
+    assert result["receipts"] == [
+        {
+            "schema": "gate-fork-status/v1",
+            "repository": "stranske/Workflows",
+            "head": "abc",
+            "pr": 4,
+            "gate_run_id": 9,
+            "gate_run_attempt": 1,
+            "publisher_run_id": 99,
+            "publisher_run_attempt": 2,
+            "status_id": 123,
+        }
+    ]
+    assert _publish_scenario(replay=True)["receipts"] == []
+
+
+@pytest.mark.parametrize("publisher_attempt", ["", "0", "not-an-attempt"])
+def test_publisher_requires_real_environment_attempt_before_writing(publisher_attempt):
+    result = _publish_scenario(publisher_attempt=publisher_attempt)
+    assert "error" in result
+    assert "Publisher run attempt is missing or invalid" in result["error"]
+    assert result["writes"] == []

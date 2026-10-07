@@ -10,6 +10,14 @@ digest cannot describe the source used for earlier requests. Keep using the
 incumbent frequency/ratchet report as an additional warning; frequency and a
 visible green list cannot establish event-specific completeness.
 
+Required commit statuses apply to the head across events. When auditing
+`pull_request_target`, the adapter independently collects the exact-head
+`pull_request` Gate publisher and its latest attempt/jobs for status provenance.
+The receipt retains those runs separately as `status_publisher_runs`; they do
+not contribute jobs or suite applicability to the target-event topology.
+The existing immutable bot/app, run, suite, job/check and reporting-step time
+bindings remain mandatory. A failed, stale or incomplete publisher stays UNKNOWN.
+
 ## Shared source boundary
 
 The [Orchestrator reporter](https://github.com/stranske/Orchestrator/blob/main/scripts/check_checks_reported.py)
@@ -50,6 +58,14 @@ GitHub Actions REST does not expose the webhook action: the receipt explicitly
 identifies event/action as caller context, which the receiving lane must retain
 with its event evidence. A receipt covers that context, not every event over
 the PR's lifetime.
+
+Only `pull_request` and `pull_request_target` contexts with GitHub's documented
+[pull request activity types](https://docs.github.com/en/actions/reference/workflows-and-actions/events-that-trigger-workflows#pull_request)
+are supported. Unsupported events, empty or misspelled actions, and invalid
+authored `types` filters remain UNKNOWN. Caller context is validated before
+discovery or event-only absence adjudication; an unknown action cannot exempt
+every workflow and leave only green required statuses. A newly introduced
+GitHub activity type requires an explicit adapter update before use.
 
 ```bash
 python3 /path/to/Workflows/scripts/check_checks_reported.py \
@@ -105,8 +121,9 @@ The JSON `expected-check-receipt/v1` records:
   failed suites remain conservative failures when replacement cannot be proved.
 - Explicit `merge_authorization: false`. A PASS establishes only this tool's
   supported context. The receiving lane must still establish all expected event
-  contexts, exact-head required/product checks, every active review thread and
-  the seven-minute floor immediately before a pinned merge.
+  contexts, passing expected and required/product checks, zero active non-outdated
+  unresolved review threads, and at least seven minutes elapsed for that unchanged
+  full head immediately before a pinned merge.
 
 An absent required reporter or a current startup failure with zero jobs is FAIL,
 even beside green checks. Required contexts must succeed, rather than merely
@@ -200,11 +217,13 @@ child jobs never supply the expected topology.
 
 ## Regression gate
 
-Run `python3 -m pytest -q tests/test_check_checks_reported.py`. The suite contains
+Run `python3 -m pytest -q tests/test_check_checks_reported.py -m "not slow"`. The suite contains
 the four issue-required controls: missing required check, legitimate label-only
 absence (Orchestrator #461's auto-pilot shape), cancelled attempt replaced by
 success, and zero-job startup failure. It also checks pagination, truncation,
 required app restrictions, reusable children, matrices, and head changes.
+Unsupported caller events/actions and invalid workflow activity types have
+regression controls so they cannot produce a legitimate absence or a PASS.
 
 For a deliberate-break control, temporarily omit `missing` from the FAIL decision
 in `adjudicate()` and run

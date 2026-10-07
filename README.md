@@ -41,6 +41,12 @@ A changed base branch, file count or path inventory also invalidates the receipt
 even when the head and base SHAs remain equal.
 The incumbent file digest is retained even when loading or discovery fails;
 changing that file during collection invalidates the receipt as UNKNOWN.
+Unsupported event/action values also emit UNKNOWN; a typo cannot establish a
+legitimate absence. Supported actions follow GitHub's
+[pull request activity types](https://docs.github.com/en/actions/reference/workflows-and-actions/events-that-trigger-workflows#pull_request).
+Before a merge, the receiving lane must independently verify passing expected
+and required checks, zero active non-outdated unresolved review threads, and
+at least seven minutes elapsed for that unchanged full head.
 See [the supported context and evidence contract](docs/ops/EXPECTED_CHECK_RECEIPTS.md).
 
 ### First-party Consumers

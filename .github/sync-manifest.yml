@@ -251,7 +251,7 @@ codex_config:
 # that run in the consumer repo context
 scripts:
   - source: .github/scripts/gate-fork-status-publication.js
-    description: "Validates trusted Gate run identity, fork PR head binding, run attempt freshness, and job conclusions before publishing Gate / gate."
+    description: "Validates trusted Gate identity and attempt/head binding; publishes Gate / gate with an authenticated status-id receipt from immutable default-branch code."
 
   # Tools directory - Python helpers used by reusable-10-ci-python.yml
 

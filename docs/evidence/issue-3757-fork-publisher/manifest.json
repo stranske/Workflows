@@ -1,0 +1,20 @@
+{
+  "recorded_at": "2026-10-07T12:30:56.594540+00:00",
+  "source_base": "ebcd1405932e7440fd515d4a361a0716c5623d33",
+  "files": {
+    "scripts/check_checks_reported.py": "6c027f0fc1ff64682c730fffddfc6fefca8ceca2aaa412f4ba6e5604bdaef3f8",
+    ".github/scripts/gate-fork-status-publication.js": "9665b9b08120031b5d1f2c198c360c7ecff5083adce7cb2a5426b919995ee6d6",
+    ".github/workflows/pr-00-gate-fork-status.yml": "9ea99adebfe79ca9054d5e19e2fdcfe0b66afb39fb243ae296021c935920b43c",
+    "tests/test_check_checks_reported.py": "69c24f83e3e4db14e795a43da40535c245a00f259ef587c823bceeac26e01f6a",
+    "tests/workflows/test_gate_fork_status_publication.py": "dab002964310ded2a2e5928fd4fb44249b3ead23fb6eed411a58ed4b2c03758e"
+  },
+  "proof": {
+    "mutation": "disable production collect_fork_publishers call",
+    "red_exit": 1,
+    "red_named_failures": 2,
+    "restoration_sha256": "6c027f0fc1ff64682c730fffddfc6fefca8ceca2aaa412f4ba6e5604bdaef3f8",
+    "byte_identical_restored": true
+  },
+  "green_command": "python3 -m pytest -q tests/test_check_checks_reported.py tests/workflows/test_gate_fork_status_publication.py tests/workflows/test_gate_commit_status_fork_tolerance.py --disable-warnings",
+  "green_exit": 0
+}

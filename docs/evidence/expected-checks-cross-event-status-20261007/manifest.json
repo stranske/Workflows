@@ -1,0 +1,48 @@
+{
+  "evaluated_source_base": "f9c26992bb3eb8ffe424ced0a166b44f73d0f639",
+  "target": "stranske/Pension-Data#950",
+  "target_head": "47c538e606f1c612e97bc0d027fea6bcea77a8b2",
+  "candidate_source_sha256": "642466d3d357f430dcdd11c4a9fa09988236f13b22f5e9ee9d347ab35e9ea936",
+  "candidate_test_sha256": "9b5c8bc6e853657e17f02677360ac34a6c68ee6cb8f30fd0c91c8109553718c7",
+  "files": {
+    "docs/evidence/expected-checks-cross-event-status-20261007/cross-event-local-verifier.txt": {
+      "sha256": "50afc25bf91de568cf6b498926c53d699b6d35936c6fe9945cbf143f1602e602",
+      "bytes": 2570
+    },
+    "docs/evidence/expected-checks-cross-event-status-20261007/950-candidate-target-topology.json.gz": {
+      "sha256": "db5a2fead4f1a1bf59cdf7fb9dbbb45ae3fe889a375eb9a07ae36085bf4e7d20",
+      "bytes": 342386
+    },
+    "docs/evidence/expected-checks-cross-event-status-20261007/cross-event-green.txt": {
+      "sha256": "6a2d1c69a9b8f02c4a0419ae3bf95b1ff424baf0fc6acfc080c63e07cdd6062f",
+      "bytes": 340
+    },
+    "docs/evidence/expected-checks-cross-event-status-20261007/cross-event-black.txt": {
+      "sha256": "01c1a68712fbc1c134f1bfcee7eac2c6a7e7f5c671a07861a9d81a834a9f9516",
+      "bytes": 368
+    },
+    "docs/evidence/expected-checks-cross-event-status-20261007/950-current-source-topology.json.gz": {
+      "sha256": "6e08a55a46e1c7fcb48e5642227f38111d5b6d6c4f52e34d563076983158608d",
+      "bytes": 351248
+    },
+    "docs/evidence/expected-checks-cross-event-status-20261007/950-current-source-target-topology.json.gz": {
+      "sha256": "be87821acf77345f037da35f9963a5608eba3e8691e9489091bb94cc554e4fef",
+      "bytes": 340329
+    },
+    "docs/evidence/expected-checks-cross-event-status-20261007/cross-event-red.txt": {
+      "sha256": "d5624c8162a7ad6e7c06fc0c062bb7f52e6e3aac5687a14358959e72549e51af",
+      "bytes": 1009
+    }
+  },
+  "results": {
+    "production_pull_request": "PASS",
+    "production_pull_request_target": "UNKNOWN required Gate app binding only",
+    "candidate_pull_request_target": "PASS unknown=[] missing=[]",
+    "full_reporter_tests": "243 PASS",
+    "named_regression": "base RED1 / candidate GREEN1; existing controls not claimed discriminating"
+  },
+  "commands": {
+    "full_tests": "/opt/anaconda3/bin/python3 -m pytest tests/test_check_checks_reported.py -q",
+    "live_receipt": "scripts/check_checks_reported.py --repo stranske/Pension-Data --pr 950 --head 47c538e606f1c612e97bc0d027fea6bcea77a8b2 --event pull_request_target --action synchronize --presence-reporter /path/to/Orchestrator/scripts/check_checks_reported.py"
+  }
+}
