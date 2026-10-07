@@ -524,40 +524,50 @@ Constants live in `scripts/runner_lib/core.py`:
 
 ### Durable missing-ledger attempt presence
 
-The missing-ledger replay guard uses a durable complete presence inventory on the
-`keepalive-authority-state` branch, under
-`.github/keepalive-authority-presence/<attempt-index-tree-sha>.json`. The key is the
-immutable `.github/keepalive-authority-attempts` subtree, not the branch commit:
-writing an inventory does not invalidate itself. The inventory stores the sorted
-set of PRs with validated indexes; absence from that set is a negative result only
-for that exact complete tree. It grants no execution authority and never replaces
-ledger or receipt reconciliation for a positive PR.
+The missing-ledger replay guard stores version 2 complete manifests on the
+`keepalive-authority-state` branch under
+`.github/keepalive-authority-presence-v2/<attempt-index-tree-sha>.json`.
+Each manifest binds the repository and immutable attempt subtree to sorted
+`{path, blob_sha, pr_number}` entries and their derived sorted positive PR set.
+The pointer `checkpoint.json` in that directory names a complete prior manifest;
+it is an optimization, never proof of current presence or execution authority.
+Existing version 1 positive-only inventories remain untouched and cannot provide
+per-entry reuse. One explicit v2 migration validates every legacy index blob.
 
-On a cache miss, the reporter traverses complete non-truncated pinned Git trees,
-validates every index blob and its receipt/filename/repository binding, and creates
-the inventory without an overwrite SHA. A concurrent create is accepted only when
-readback exactly matches the independently computed set. Partial, malformed,
-unavailable, lost-response, conflicting or unconfirmed writes fail closed. Cache
-reads use the snapshot commit and recheck the current index subtree before return;
-backfill and publication also recheck it. Any writer, including an older writer,
-that creates an attempt index changes the subtree key. An older negative inventory
-therefore cannot certify absence in the newer tree. Retry rebuilds that complete
-new tree rather than updating a partial positive-only marker.
+On a changed tree, the reporter reads the checkpoint and its manifest at the
+captured commit, validates complete non-truncated tree correspondence, and reuses
+an entry only when its filename and immutable blob SHA match. Only added or
+changed blobs are fetched and validated against receipt/repository/filename
+bindings. Membership is recomputed from current entries, so replacements and
+removals cannot leave stale positive PRs. Unchanged historical blobs are not
+refetched. Tree enumeration and manifest size remain O(N); this does not claim
+constant total hourly work. Warm reporter calls remain bounded (at most 18 in the
+retained production-default fixture), with zero historical index-blob reads.
 
-When the pinned snapshot has no `.github` or attempt directory, the reader
-rechecks the current branch's complete trees before returning absence. Creation
-of the first attempt directory during that read is uncertain and fails closed;
-the next independent read migrates the newly present subtree. A failed scan
-publishes nothing. A publication whose response is lost denies the current read
-even if it landed; a later reader may reuse it only after validating the durable
-inventory and the current subtree. Concurrent create-only backfills may converge
-on an identical independently validated inventory after a 409/422 response.
+The manifest is create-only. A racing publisher must read back the identical
+complete mapping, not merely the same positive set. Checkpoint advancement uses
+the prior file SHA as a conditional write; a stale loser cannot erase a newer
+pointer. A 409/422 is accepted only when readback names the same complete tree.
+Different-tree races reject and resume through a later independent invocation;
+there is no unbounded retry or branch-history scan. An existing v2 directory with
+no expected checkpoint and no exact current manifest fails closed rather than
+silently restarting a full migration. A complete manifest published before a
+lost response can repair its pointer on a subsequent independently validated read.
 
-The first migration scan remains proportional to legacy indexes. Once persisted,
-separate later reporter instances reuse one inventory without reading every index
-blob again; tree and inventory API calls remain bounded independently of index
-count. Migration requires the existing dedicated reporter App's contents-write
-permission. The read-only target classifier does not invoke this migration path.
-An inaccessible writer is an automation error, never successful absence. Retained
-inventories are evidence for immutable trees; this change does not garbage-collect
-the authority branch or claim that all broader recovery acceptance is complete.
+Cache reads are pinned to immutable commits. Current subtree checks fence delta
+validation, manifest publication, checkpoint publication and both positive and
+negative returns. First-directory creation during an absence read is uncertain
+and rejects. Partial delta work, malformed/incomplete manifests, unavailable reads,
+lost responses and conflicting writes deny the current read. Positive presence
+still requires the independent exact ledger/receipt path; missing ledger rejects.
+An older writer need only publish its index: changing the attempt subtree forces
+delta validation even though that writer knows nothing about manifests.
+
+The existing dedicated reporter App's contents-write permission is required;
+read-only classification does not invoke migration. Retained immutable manifests
+are not garbage-collected here. This source repair does not establish live fleet
+deployment or close broader recovery acceptance. Source/template regressions
+include independent Node processes sharing only simulated durable server state,
+1,001 bootstrap reads then exactly one read per new legacy attempt, batched
+additions, replacements/removals, same-membership mapping conflicts, stale CAS
+writers, lost writes and positive/negative concurrency fences.

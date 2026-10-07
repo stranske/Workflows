@@ -1,0 +1,11 @@
+{
+  "captured_at": "2026-10-07T01:29:26.961578+00:00",
+  "mutation": "Disable immutable filename/blob-SHA reuse in scanAttemptIndexes, forcing historical blob rereads",
+  "red_exit": 1,
+  "green_exit": 0,
+  "restored_sha256": {
+    ".github/scripts/keepalive_authority_state.js": "6a605c32048862512179d04c19af8366852fbc0a4f2aacb8fb52bdec8772df29",
+    "templates/consumer-repo/.github/scripts/keepalive_authority_state.js": "6a605c32048862512179d04c19af8366852fbc0a4f2aacb8fb52bdec8772df29"
+  },
+  "byte_identical_restore": true
+}

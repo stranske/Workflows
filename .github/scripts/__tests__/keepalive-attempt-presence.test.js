@@ -26,8 +26,8 @@ function fixture({ count = 1, target = 42, truncate = false, mutate = () => {},
   });
   const request = async (method, path, body) => {
     calls.push(path);
-    if (path.includes('/contents/.github/keepalive-authority-presence/')) {
-      const key = path.split('keepalive-authority-presence/')[1].split('?')[0];
+    if (path.includes('/contents/.github/keepalive-authority-presence-v2/')) {
+      const key = path.split('keepalive-authority-presence-v2/')[1].split('?')[0];
       if (method === 'PUT') {
         if (putStatus) {
           const attempted = JSON.parse(Buffer.from(body.content, 'base64').toString('utf8'));
@@ -128,7 +128,7 @@ for (const surface of ['../keepalive_authority_state.js',
       if (url.endsWith('/git/trees/' + '3'.repeat(40)) && changed) {
         return { truncated: false, tree: [{ path: 'keepalive-authority-attempts', type: 'tree', sha: '5'.repeat(40) }] };
       }
-      if (armed && ((trigger === 'warm' && method === 'GET' && url.includes('/keepalive-authority-presence/')) ||
+      if (armed && ((trigger === 'warm' && method === 'GET' && url.includes('/keepalive-authority-presence-v2/')) ||
           (trigger === 'backfill' && url.includes('/git/blobs/')) ||
           (trigger === 'publication' && method === 'PUT'))) changed = true;
       return response;

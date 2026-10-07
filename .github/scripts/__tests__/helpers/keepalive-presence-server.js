@@ -36,7 +36,8 @@ function presenceServer({ count = 1001, missing = null } = {}) {
     trees.set(indexTree, { truncated: false, tree: entries.map((entry) => ({ ...entry })) });
     const githubTree = sha(300000 + version);
     trees.set(githubTree, { truncated: false, tree: missing === 'attempts' ? [] :
-      [{ path: 'keepalive-authority-attempts', type: 'tree', sha: indexTree }] });
+      [{ path: 'keepalive-authority-attempts', type: 'tree', sha: indexTree },
+       ...(inventories.size ? [{ path: 'keepalive-authority-presence-v2', type: 'tree', sha: sha(700000 + version) }] : [])] });
     const rootTree = sha(200000 + version);
     trees.set(rootTree, { truncated: false, tree: missing === 'github' ? [] :
       [{ path: '.github', type: 'tree', sha: githubTree }] });
@@ -46,12 +47,17 @@ function presenceServer({ count = 1001, missing = null } = {}) {
   const request = async (method, path, body) => {
     calls.push({ method, path });
     let response;
-    if (path.includes('/contents/.github/keepalive-authority-presence/')) {
-      const key = path.split('keepalive-authority-presence/')[1].split('?')[0];
+    if (path.includes('/contents/.github/keepalive-authority-presence-v2/')) {
+      const key = path.split('keepalive-authority-presence-v2/')[1].split('?')[0];
       if (method === 'PUT') {
-        assert.equal(body.sha, undefined, 'inventory must be create-only');
-        if (inventories.has(key)) throw Object.assign(new Error('existing'), { status: 422 });
-        inventories.set(key, body.content);
+        const old = inventories.get(key);
+        if (key === 'checkpoint.json') {
+          if ((old?.sha || undefined) !== body.sha) throw Object.assign(new Error('CAS conflict'), { status: 409 });
+        } else {
+          assert.equal(body.sha, undefined, 'inventory must be create-only');
+          if (old) throw Object.assign(new Error('existing'), { status: 422 });
+        }
+        inventories.set(key, { content: body.content, sha: sha(600000 + version) });
         publish();
         response = {};
       } else {
@@ -59,7 +65,7 @@ function presenceServer({ count = 1001, missing = null } = {}) {
         const ref = path.split('?ref=')[1];
         const snapshot = ref === 'keepalive-authority-state' ? inventories : commits.get(ref)?.inventories;
         if (!snapshot?.has(key)) throw Object.assign(new Error('missing'), { status: 404 });
-        response = { sha: sha(600000), encoding: 'base64', content: snapshot.get(key) };
+        response = { ...snapshot.get(key), encoding: 'base64' };
       }
     } else {
       assert.equal(method, 'GET');
@@ -77,11 +83,37 @@ function presenceServer({ count = 1001, missing = null } = {}) {
     request,
     calls,
     setHook(value) { hook = value; },
-    addAttempt(prNumber = 44) {
+    addAttempt(prNumber = 44, runId = 9999) {
       missing = null;
-      addIndex(prNumber, 9999);
+      addIndex(prNumber, runId);
       publish();
     },
+    removeAttempt(runId) {
+      const path = crypto.createHash('sha256').update(`owner/repo:${runId}:1`).digest('hex') + '.json';
+      entries.splice(entries.findIndex((entry) => entry.path === path), 1);
+      indexVersion += 1; publish();
+    },
+    replaceAttempt(runId, prNumber) {
+      const path = crypto.createHash('sha256').update(`owner/repo:${runId}:1`).digest('hex') + '.json';
+      entries.splice(entries.findIndex((entry) => entry.path === path), 1);
+      addIndex(prNumber, runId + 20000);
+      // Replacement keeps the original owner/filename but changes immutable blob bytes.
+      const entry = entries.pop();
+      const blob = blobs.get(entry.sha);
+      const index = JSON.parse(Buffer.from(blob.content, 'base64').toString('utf8'));
+      index.owner_attempt = `owner/repo:${runId}:1`; index.receipt.owner_attempt = index.owner_attempt;
+      blob.content = Buffer.from(JSON.stringify(index)).toString('base64');
+      entries.push({ ...entry, path }); publish();
+    },
+    corruptInventory(edit) {
+      for (const [key, file] of inventories) {
+        if (key === 'checkpoint.json') continue;
+        const value = JSON.parse(Buffer.from(file.content, 'base64').toString('utf8'));
+        edit(value); inventories.set(key, { ...file, content: Buffer.from(JSON.stringify(value)).toString('base64') });
+      }
+      publish();
+    },
+    dropCheckpoint() { inventories.delete('checkpoint.json'); publish(); },
     stats() {
       return { blobs: calls.filter((call) => call.path.includes('/git/blobs/')).length,
         writes: calls.filter((call) => call.method === 'PUT').length, calls: calls.length };

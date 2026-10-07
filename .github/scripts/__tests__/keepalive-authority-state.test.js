@@ -43,19 +43,19 @@ for (const directory of ['..', '../../../templates/consumer-repo/.github/scripts
     };
     assert.deepEqual(await replay(42), { prNumber: 42, results: [] });
     assert.equal(server.stats().blobs, 1001);
-    assert.equal(server.stats().writes, 1);
+    assert.equal(server.stats().writes, 2);
     for (const number of [43, 44, 9000, 45, 9000]) {
       const before = server.stats();
       if (number === 9000) await assert.rejects(replay(number), /ledger is missing/);
       else assert.deepEqual(await replay(number), { prNumber: number, results: [] });
       assert.equal(server.stats().blobs, before.blobs);
       assert.equal(server.stats().writes, before.writes);
-      assert.ok(server.stats().calls - before.calls <= 15, 'warm calls must be bounded');
+      assert.ok(server.stats().calls - before.calls <= 18, 'warm calls must be bounded');
     }
     // An older writer only publishes an index; it knows nothing about inventories.
     server.addAttempt(44);
     await assert.rejects(replay(44), /ledger is missing/);
-    assert.equal(server.stats().blobs, 2003);
+    assert.equal(server.stats().blobs, 1002);
     const settled = server.stats();
     await assert.rejects(replay(44), /ledger is missing/);
     await replay(45);
@@ -71,7 +71,7 @@ for (const directory of ['..', '../../../templates/consumer-repo/.github/scripts
       first.hasAttemptIndexesForPr(server.request, repository, 44),
       second.hasAttemptIndexesForPr(server.request, repository, 9000),
     ]), [false, true]);
-    assert.equal(server.stats().writes, 2, 'the second create must reconcile its 422');
+    assert.equal(server.stats().writes, 4, 'manifest create and checkpoint CAS races must reconcile');
     const before = server.stats();
     assert.equal(await freshHelper('keepalive_authority_state.js')
       .hasAttemptIndexesForPr(server.request, repository, 44), false);

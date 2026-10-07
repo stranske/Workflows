@@ -455,7 +455,7 @@ scripts:
     description: "Selects due automation-owned authority challenges for the hourly keepalive sweep"
 
   - source: .github/scripts/keepalive_authority_state.js
-    description: "PR-wide conditional authority generation, immutable attempt index, pinned-tree replay reads, exact-attempt release retry, single-use receipt ledger, and attempt-index presence check for PR classification"
+    description: "PR-wide conditional authority generation, immutable attempt index, pinned-tree replay reads, exact-attempt release retry, single-use receipt ledger, and versioned per-entry attempt-presence manifests with pinned delta validation and a conditional checkpoint for PR classification"
 
   - source: .github/scripts/keepalive_worker_evidence.js
     description: "Attempt-bound worker job evidence from the originating registry revision for keepalive authority recovery"
