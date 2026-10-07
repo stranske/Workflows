@@ -107,3 +107,20 @@ root/template production mutations were replayed successfully. Raw compressed
 logs and receipts are under `review-recovery/`; prior proof is retained unchanged.
 Focused Black, Ruff and `git diff --check` pass. No full-suite or hosted CI PASS
 is inferred from this focused recovery.
+
+### Final same-round review controls
+
+The current archived-base case now writes an external readiness signal only after
+its child verifies candidate proof bytes and reads the archived base phase. The
+test requires that signal, preserved candidate bytes and deleted private archive.
+Successful head keeps10seconds; base now has5seconds before its deliberate
+30second sleep times out, allowing interpreter startup headroom. Historical
+0.25second base receipts remain historical; current final replay supersedes them.
+
+A synthetic-process successful-driver test checks20calls, ten distinct root/template
+receipts, expected source/test/mutant hashes, restored bytes and20compressed logs.
+Actually truncating the driver to root-only fails that test (exit1); exact-byte
+restoration passes(exit0). Synthetic logs are explicitly test controls; actual
+production mutation evidence remains the separate real ten-case replay.
+Current focused combined suite16PASS; real ten-case replay allRED1/GREEN0.
+Compressed raw outputs are retained under review-recovery/final.

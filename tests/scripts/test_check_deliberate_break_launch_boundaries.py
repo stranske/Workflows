@@ -59,11 +59,11 @@ def test_real_missing_executable_is_wrapped_with_its_cause(tmp_path, helper):
     assert str(tmp_path / "nonexistent-command") in str(caught.value.error)
 
 
-def _short_timeout(helper, monkeypatch, *, head_cwd=None):
+def _short_timeout(helper, monkeypatch, *, head_cwd=None, base_timeout=0.25):
     original = helper["_run"]
 
     def run(command, cwd):
-        return original(command, cwd, timeout=10 if cwd == head_cwd else 0.25)
+        return original(command, cwd, timeout=10 if cwd == head_cwd else base_timeout)
 
     monkeypatch.setitem(helper["_run_with_runtime_deps"].__globals__, "_run", run)
 
@@ -109,17 +109,21 @@ def test_real_base_timeout_is_broken_and_cleans_private_archive(tmp_path, monkey
         for path in repo.rglob("*")
         if path.is_file() and ".git" not in path.relative_to(repo).parts
     }
+    started = tmp_path / "base-started"
     command = (
         sys.executable,
         "-c",
         "from pathlib import Path; import time; "
         "assert Path('test_proof.txt').read_bytes() == b'candidate proof\\r\\n'; "
-        "time.sleep(10 if Path('phase.txt').read_text() == 'base' else 0)",
+        "phase = Path('phase.txt').read_text(); "
+        "assert phase in {'head', 'base'}; "
+        f"Path({str(started)!r}).write_text('proof/base') if phase == 'base' else None; "
+        "time.sleep(30 if phase == 'base' else 0)",
     )
     spec = helper["DeliberateBreakSpec"](
         "base-timeout-proof", "test_proof.txt", "phase.txt", command
     )
-    _short_timeout(helper, monkeypatch, head_cwd=repo)
+    _short_timeout(helper, monkeypatch, head_cwd=repo, base_timeout=5)
     extracted = []
     original = helper["_archive_ref"]
 
@@ -137,8 +141,9 @@ def test_real_base_timeout_is_broken_and_cleans_private_archive(tmp_path, monkey
         "verdict": "FAIL_BROKEN",
         "reason": "command-timeout",
         "command": list(command),
-        "timeout": 0.25,
+        "timeout": 5,
     }
+    assert started.read_text() == "proof/base"
     assert len(extracted) == 1
     assert not extracted[0].exists()
     assert {
