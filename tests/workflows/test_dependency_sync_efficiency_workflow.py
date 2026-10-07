@@ -41,3 +41,14 @@ def test_efficiency_workflow_collects_fixture_backed_report_and_dedupes_tracker_
     assert "EFFICIENCY_TRACKER_ISSUE: '2897'" in text
     assert "tracker === 1836" in text
     assert "actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a" in text
+
+
+def test_dedicated_health83_contract_retains_unknown_collection_boundary():
+    from pathlib import Path
+
+    contract = (
+        Path(__file__).resolve().parents[2] / "docs/ops/DEPENDENCY_SYNC_EFFICIENCY.md"
+    ).read_text()
+    assert "dense or inconsistent workflow-run intervals" in contract
+    assert "advisory `unknown`" in contract
+    assert "cannot guarantee an atomic snapshot" in contract
