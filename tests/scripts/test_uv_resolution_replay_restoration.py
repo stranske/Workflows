@@ -1,4 +1,4 @@
-"""Failed replay proofs must restore private sources without claiming acceptance."""
+"""Replay proofs must restore private sources and retain accurate outcome receipts."""
 
 import importlib.util
 import json
@@ -26,7 +26,7 @@ def private_replay(tmp_path, monkeypatch):
     relatives = [replay.TEST, replay.HELPER, "templates/consumer-repo/" + replay.HELPER]
     caller_bytes = {relative: (ROOT / relative).read_bytes() for relative in relatives}
     tree = tmp_path / "private-tree"
-    output = tmp_path / "reports"
+    output = tmp_path / "proof reports with spaces"
 
     @contextmanager
     def private_tree(*, prefix):
@@ -37,6 +37,75 @@ def private_replay(tmp_path, monkeypatch):
     monkeypatch.setattr(replay.tempfile, "TemporaryDirectory", private_tree)
     monkeypatch.setattr(sys, "argv", [str(DRIVER), "--output", str(output)])
     return replay, tree, output, caller_bytes
+
+
+def test_successful_replay_records_all_restored_proofs(private_replay, monkeypatch, capsys):
+    replay, tree, output, caller_bytes = private_replay
+    calls = []
+
+    def subprocess_result(argv, **kwargs):
+        # Exercise the real orchestration and proof validator with fixed XML.
+        # This validates receipts and restoration, not child pytest execution.
+        xml = Path(argv[-1].removeprefix("--junitxml="))
+        phase = xml.stem
+        node = argv[3]
+        copy, kind = xml.parent.name.split("-", 1)
+        relative = ("templates/consumer-repo/" if copy == "template" else "") + replay.HELPER
+        original = caller_bytes[relative]
+        before, after = replay.MUTATIONS[kind]
+        mutated = original.decode("utf-8").replace(before, after).encode("utf-8")
+        assert (tree / relative).read_bytes() == (mutated if phase == "red" else original)
+        other = replay.HELPER if copy == "template" else "templates/consumer-repo/" + replay.HELPER
+        assert (tree / other).read_bytes() == caller_bytes[other]
+        assert kwargs["cwd"] == tree
+        assert argv[7:9] == ["-m", "not slow"]
+        assert xml.parent.parent == output
+        calls.append((copy, kind, phase))
+        name = node.rsplit("::", 1)[-1]
+        xml.write_text(
+            f'<testsuite><testcase name="{name}">'
+            + ("<failure/>" if phase == "red" else "")
+            + "</testcase></testsuite>",
+            encoding="utf-8",
+        )
+        return types.SimpleNamespace(returncode=int(phase == "red"))
+
+    monkeypatch.setattr(replay.subprocess, "run", subprocess_result)
+    replay.main()
+
+    expected_pairs = [(copy, kind) for copy in ("root", "template") for kind in replay.MUTATIONS]
+    assert calls == [
+        (copy, kind, phase) for copy, kind in expected_pairs for phase in ("red", "green")
+    ]
+    manifest = json.loads((output / "controls.json").read_text())
+    assert manifest["caller_identity"] == {
+        **{relative: replay.digest(original) for relative, original in caller_bytes.items()},
+        str(DRIVER.relative_to(ROOT)): replay.digest(DRIVER.read_bytes()),
+    }
+    assert [
+        (control["copy"], control["kind"]) for control in manifest["controls"]
+    ] == expected_pairs
+    for control in manifest["controls"]:
+        copy, kind = control["copy"], control["kind"]
+        relative = ("templates/consumer-repo/" if copy == "template" else "") + replay.HELPER
+        original = caller_bytes[relative]
+        before, after = replay.MUTATIONS[kind]
+        mutated = original.decode("utf-8").replace(before, after).encode("utf-8")
+        assert control["original_sha256"] == replay.digest(original)
+        assert control["restored_sha256"] == replay.digest(original)
+        assert control["mutated_sha256"] == replay.digest(mutated) != replay.digest(original)
+        for phase, code in (("red", 1), ("green", 0)):
+            receipt = control[phase]
+            assert receipt == json.loads((output / f"{copy}-{kind}" / f"{phase}.json").read_text())
+            assert receipt["exit"] == code
+            assert receipt["node"] == (
+                f"{replay.TEST}::test_uv_resolution_refuses_failed_or_empty_lookup[{copy}-{kind}]"
+            )
+    for relative, original in caller_bytes.items():
+        assert (tree / relative).read_bytes() == original
+        assert (ROOT / relative).read_bytes() == original
+        assert manifest["caller_identity"][relative] == replay.digest(original)
+    assert "8 named production mutations RED; 8 exact restorations GREEN" in capsys.readouterr().out
 
 
 @pytest.mark.parametrize("copy", ["root", "template"])

@@ -236,3 +236,41 @@ no commit or push was made. The full eight-mutant replay was not rerun because
 `defusedxml` is unavailable; its prior indexed evidence was verified.
 Repository-wide coverage remains UNKNOWN; the evidence does not authorize
 merging or closing issue 3743.
+
+### Successful replay receipts
+
+The mutation replay now selects `-m "not slow"`. A new successful-replay control
+calls the real orchestration and proof validator with fixed synthetic pytest
+results, using report paths containing spaces. It verifies all eight ordered
+RED/GREEN pairs, receipt exits and named cases, caller identities, mutation and
+restoration hashes, and unchanged private helpers and caller inputs. This does
+not execute child pytest or test XML hardening. The focused command above passes
+50 tests. Removing the slow-test selector, corrupting a restoration hash, or
+changing a receipt exit in private driver copies makes this new control fail;
+byte-identical restoration makes each pass.
+
+Fresh matched suites pass 300/308 tests with focused helper coverage
+94.84% → 95.31%, unchanged 591 statements / 262 branches / zero exclusions,
+and no old outcome, covered-line or covered-branch regression. The new control
+remains outside the matched suite; all ten selected input hashes are unchanged.
+
+`success-receipts.tar.gz` and `success-receipts-index.json` retain the three
+mutation/restoration pairs, command receipts, JUnit, logs, validation driver,
+formatting results and reconciliation record. Extract
+`validate_successful_uv_replay.py` to a temporary directory and run it from the
+repository root with a fresh output path:
+
+```sh
+python3 /tmp/validate_successful_uv_replay.py '/tmp/uv-success-receipts-fresh reports'
+```
+
+Reconciliation verifies seven prior archive hashes, all 306 member hashes, ten
+suite input hashes, and the original eight named production RED/GREEN pairs.
+The proposed checked PR body is retained in the archive. Its publication, the
+blocker comment and `needs-human` label were rejected because the connector
+requires approval and this run's policy is `never`. PR 3817 remains open with
+`isDraft=false`. Staging is blocked by read-only Git metadata. Standard whole-tree
+Black fails at sandbox worker startup; standard single-file Black and sequential
+whole-tree Black pass, as do Ruff, template completeness and whitespace checks.
+No commit or push was made. Repository-wide coverage remains UNKNOWN; the
+evidence does not authorize merging or closing issue 3743.

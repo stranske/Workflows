@@ -44,7 +44,18 @@ def require(condition, detail):
 
 def run_case(tree, output, node, phase):
     xml = output / f"{phase}.xml"
-    argv = [sys.executable, "-m", "pytest", node, "-q", "-o", "addopts=", f"--junitxml={xml}"]
+    argv = [
+        sys.executable,
+        "-m",
+        "pytest",
+        node,
+        "-q",
+        "-o",
+        "addopts=",
+        "-m",
+        "not slow",
+        f"--junitxml={xml}",
+    ]
     with (output / f"{phase}.log").open("w", encoding="utf-8") as log:
         process = subprocess.run(argv, cwd=tree, stdout=log, stderr=subprocess.STDOUT, timeout=120)
     cases = list(ET.parse(xml).getroot().iter("testcase"))
