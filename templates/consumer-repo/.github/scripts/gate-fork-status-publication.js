@@ -234,7 +234,7 @@ async function publishGateForkStatus({ github, context, core }) {
     return result;
   }
 
-  await retry.withRetry(client => client.rest.repos.createCommitStatus({
+  const published = await retry.withRetry(client => client.rest.repos.createCommitStatus({
       owner,
       repo,
       sha: pr.head.sha,
@@ -243,6 +243,17 @@ async function publishGateForkStatus({ github, context, core }) {
       description: result.description,
       target_url: run.html_url,
     }), { maxRetries: 0 });
+  core.info('GATE_FORK_STATUS_RECEIPT=' + JSON.stringify({
+    schema: 'gate-fork-status/v1',
+    repository: `${owner}/${repo}`,
+    head: pr.head.sha,
+    pr: pr.number,
+    gate_run_id: run.id,
+    gate_run_attempt: run.run_attempt,
+    publisher_run_id: context.runId,
+    publisher_run_attempt: context.runAttempt,
+    status_id: published.data.id,
+  }));
   core.notice(`Published ${GATE_CONTEXT}=${result.state} for fork PR #${pr.number} at ${pr.head.sha}.`);
   return result;
 }

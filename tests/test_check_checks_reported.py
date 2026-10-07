@@ -2363,3 +2363,236 @@ def test_gate_status_rejects_empty_ref_and_foreign_workflow(path):
     packet = actions_status_packet()
     packet["runs"][0]["path"] = path
     assert reporter.gate_status_provenance(**packet) == {}
+
+
+def fork_status_packet():
+    import copy
+
+    packet = actions_status_packet()
+    # Real fork status is written after the original read-only reporting step.
+    packet["statuses"][0]["created_at"] = "2026-10-06T22:30:01Z"
+    gate = packet["runs"][0]
+    publisher = copy.deepcopy(gate)
+    publisher.update(
+        id=701,
+        run_attempt=3,
+        event="workflow_run",
+        path=reporter.FORK_PUBLISHER_PATH,
+        head_sha=BASE,
+        check_suite_id=702,
+    )
+    job = publisher.pop("jobs")[0]
+    job.update(
+        id=703,
+        name="publish trusted fork Gate status",
+        run_id=701,
+        run_attempt=3,
+        head_sha=BASE,
+        check_run_url=f"{reporter.GITHUB_API}/repos/{packet['repo']}/check-runs/703",
+    )
+    job["steps"] = [
+        {
+            "name": "Publish exact-head Gate status",
+            "status": "completed",
+            "conclusion": "success",
+            "started_at": "2026-10-06T22:30:00Z",
+            "completed_at": "2026-10-06T22:30:02Z",
+        }
+    ]
+    bound_check = check("publish trusted fork Gate status", ident=703)
+    bound_check.update(head_sha=BASE, check_suite={"id": 702})
+    receipt = {
+        "schema": "gate-fork-status/v1",
+        "repository": packet["repo"],
+        "head": HEAD,
+        "pr": 1,
+        "gate_run_id": gate["id"],
+        "gate_run_attempt": gate["run_attempt"],
+        "publisher_run_id": 701,
+        "publisher_run_attempt": 3,
+        "status_id": packet["statuses"][0]["id"],
+    }
+    packet["fork_publishers"] = [
+        {
+            "run": publisher,
+            "jobs": [job],
+            "suite": {"id": 702, "head_sha": BASE, "app": packet["platform_app"]},
+            "checks": [bound_check],
+            "receipts": [receipt],
+            "workflow_sha256": reporter.FORK_WORKFLOW_SHA256,
+            "helper_sha256": reporter.FORK_HELPER_SHA256,
+        }
+    ]
+    return packet
+
+
+def test_fork_status_binds_later_publisher_to_original_gate_attempt():
+    packet = fork_status_packet()
+    proof = reporter.gate_status_provenance(**packet)
+    assert proof[packet["statuses"][0]["id"]]["publisher_run_id"] == 701
+    assert proof[packet["statuses"][0]["id"]]["run_id"] == packet["runs"][0]["id"]
+    assert proof[packet["statuses"][0]["id"]]["publisher_source_head"] == BASE
+    assert (
+        reporter.adjudicate(
+            {"Gate / gate"},
+            packet["checks"],
+            packet["statuses"],
+            packet["suites"],
+            packet["runs"],
+            [],
+            [{"context": "Gate / gate", "app_id": 15368}],
+            status_provenance=proof,
+        )["verdict"]
+        == "PASS"
+    )
+
+
+@pytest.mark.parametrize(
+    "finding",
+    [
+        "gate_attempt",
+        "gate_id",
+        "receipt_head",
+        "status_id",
+        "publisher_id",
+        "publisher_attempt",
+        "duplicate_receipt",
+        "workflow_hash",
+        "helper_hash",
+        "event",
+        "path",
+        "repository",
+        "suite",
+        "suite_app",
+        "job_attempt",
+        "job_head",
+        "job_check_url",
+        "check_suite",
+        "check_app",
+        "step_name",
+        "step_failure",
+        "step_time",
+        "gate_check",
+        "gate_failed",
+        "new_status",
+        "duplicate_publisher",
+    ],
+)
+def test_fork_status_rejects_unbound_provenance(finding):
+    import copy
+
+    packet = fork_status_packet()
+    fork = packet["fork_publishers"][0]
+    receipt, run, job, bound_check = (
+        fork["receipts"][0],
+        fork["run"],
+        fork["jobs"][0],
+        fork["checks"][0],
+    )
+    if finding in {
+        "gate_attempt",
+        "gate_id",
+        "receipt_head",
+        "status_id",
+        "publisher_id",
+        "publisher_attempt",
+    }:
+        key = {
+            "gate_attempt": "gate_run_attempt",
+            "gate_id": "gate_run_id",
+            "receipt_head": "head",
+            "status_id": "status_id",
+            "publisher_id": "publisher_run_id",
+            "publisher_attempt": "publisher_run_attempt",
+        }[finding]
+        receipt[key] = "forged" if key == "head" else 999
+    elif finding == "duplicate_receipt":
+        fork["receipts"].append(copy.deepcopy(receipt))
+    elif finding == "workflow_hash":
+        fork["workflow_sha256"] = "0" * 64
+    elif finding == "helper_hash":
+        fork["helper_sha256"] = "0" * 64
+    elif finding == "event":
+        run["event"] = "pull_request"
+    elif finding == "path":
+        run["path"] = ".github/workflows/attacker.yml"
+    elif finding == "repository":
+        run["repository"] = {"full_name": "attacker/fork"}
+    elif finding == "suite":
+        fork["suite"]["head_sha"] = HEAD
+    elif finding == "suite_app":
+        fork["suite"]["app"] = {"id": 42, "slug": "github-actions"}
+    elif finding == "job_attempt":
+        job["run_attempt"] = 1
+    elif finding == "job_head":
+        job["head_sha"] = HEAD
+    elif finding == "job_check_url":
+        job["check_run_url"] = "https://example.test/forged"
+    elif finding == "check_suite":
+        bound_check["check_suite"]["id"] = 999
+    elif finding == "check_app":
+        bound_check["app"]["id"] = 42
+    elif finding == "step_name":
+        job["steps"][0]["name"] = "Untrusted PR code"
+    elif finding == "step_failure":
+        job["steps"][0]["conclusion"] = "failure"
+    elif finding == "step_time":
+        job["steps"][0]["completed_at"] = "2026-10-06T22:30:00Z"
+    elif finding == "gate_check":
+        packet["checks"][0]["check_suite"]["id"] = 999
+    elif finding == "gate_failed":
+        packet["runs"][0]["conclusion"] = "failure"
+    elif finding == "new_status":
+        later = copy.deepcopy(packet["statuses"][0])
+        later.update(id=999, created_at="2026-10-06T22:30:02Z")
+        packet["statuses"].append(later)
+    elif finding == "duplicate_publisher":
+        packet["fork_publishers"].append(copy.deepcopy(fork))
+    assert reporter.gate_status_provenance(**packet) == {}
+
+
+@pytest.mark.parametrize("event", ["pull_request", "pull_request_target"])
+def test_collect_fork_receipt_keeps_publisher_separate_from_event_topology(event):
+    packet = fork_status_packet()
+    fork = packet["fork_publishers"][0]
+    fallback = status_collection_transport(packet)
+
+    def transport(endpoint):
+        if "/actions/workflows/pr-00-gate-fork-status.yml/runs?" in endpoint:
+            assert "event=workflow_run&created=2026-10-06" in endpoint
+            assert "head_sha=" not in endpoint
+            return [{"total_count": 1, "workflow_runs": [fork["run"]]}]
+        if "/attempts/3/jobs?" in endpoint:
+            return [{"total_count": 1, "jobs": fork["jobs"]}]
+        if endpoint.endswith("/check-suites/702"):
+            return [fork["suite"]]
+        if endpoint.endswith("/check-runs/703"):
+            return [fork["checks"][0]]
+        if endpoint.endswith("/actions/runs/701"):
+            return [fork["run"]]
+        if endpoint[-8:] == "/pulls/1":
+            pr = fallback(endpoint)[0]
+            pr["head"]["repo"] = {"full_name": "contributor/fork"}
+            return [pr]
+        return fallback(endpoint)
+
+    evidence = reporter.Evidence(transport)
+    evidence.content = lambda repo, path, ref: Path(__file__).parents[1].joinpath(path).read_bytes()
+    evidence.job_receipts = lambda repo, job_id, marker: fork["receipts"]
+    result = reporter.collect(evidence, packet["repo"], 1, HEAD, event, "synchronize")
+    assert result["verdict"] == "PASS", result["unknown"]
+    assert result["status_provenance"][0]["publisher_run_attempt"] == 3
+    assert all(r["event"] == event for r in result["workflow_runs"])
+    assert len(result["fork_status_publishers"]) == 1
+
+
+def test_fork_publisher_hashes_match_immutable_audited_source():
+    root = Path(__file__).parents[1]
+    assert (
+        hashlib.sha256((root / reporter.FORK_PUBLISHER_PATH).read_bytes()).hexdigest()
+        == reporter.FORK_WORKFLOW_SHA256
+    )
+    assert (
+        hashlib.sha256((root / reporter.FORK_HELPER_PATH).read_bytes()).hexdigest()
+        == reporter.FORK_HELPER_SHA256
+    )
