@@ -991,9 +991,10 @@ async function findAuthorityPrForAttempt({ request, repository, ownerAttempt }) 
 }
 
 async function hasAttemptIndexesForPr(request, repository, prNumber) {
+  pathFor(repository, prNumber);
   const snapshot = await attemptIndexTree(request, repository);
   if (!snapshot) return false;
-  let inventory = await readAttemptPresence(request, snapshot.repo, snapshot.treeSha);
+  let inventory = await readAttemptPresence(request, snapshot.repo, snapshot.treeSha, snapshot.commitSha);
   if (!inventory) {
     const positives = await scanAttemptIndexes(request, snapshot);
     // A writer may have added an index while this complete scan was in flight.
@@ -1007,6 +1008,10 @@ async function hasAttemptIndexesForPr(request, repository, prNumber) {
     if (!settled || settled.treeSha !== snapshot.treeSha) {
       throw new Error('Authority attempt indexes changed during inventory publication');
     }
+  }
+  const current = await attemptIndexTree(request, snapshot.repo);
+  if (!current || current.treeSha !== snapshot.treeSha) {
+    throw new Error('Authority attempt indexes changed during presence read');
   }
   return inventory.positive_prs.includes(Number(prNumber));
 }
@@ -1040,7 +1045,7 @@ async function attemptIndexTree(request, repository) {
       treeSha = entry.sha;
       continue;
     }
-    return { repo, treeSha };
+    return { repo, commitSha, treeSha };
   }
   throw new Error('Authority attempt tree traversal did not settle');
 }
@@ -1096,9 +1101,9 @@ function decodePresence(file, repository, treeSha) {
   return inventory;
 }
 
-async function readAttemptPresence(request, repository, treeSha) {
+async function readAttemptPresence(request, repository, treeSha, ref = BRANCH) {
   try {
-    return decodePresence(await request('GET', `${presencePath(repository, treeSha)}?ref=${BRANCH}`), repository, treeSha);
+    return decodePresence(await request('GET', `${presencePath(repository, treeSha)}?ref=${ref}`), repository, treeSha);
   } catch (error) {
     if (error.status === 404) return null;
     throw error;
@@ -1115,8 +1120,11 @@ async function createAttemptPresence(request, snapshot, positives) {
   } catch (error) {
     if (![409, 422].includes(error.status)) throw error;
   }
-  const settled = await readAttemptPresence(request, snapshot.repo, snapshot.treeSha);
+  const settled = await readAttemptPresence(request, snapshot.repo, snapshot.treeSha, BRANCH);
   if (!settled) throw new Error('Authority attempt presence write was not confirmed');
+  if (JSON.stringify(settled.positive_prs) !== JSON.stringify(positives)) {
+    throw new Error('Authority attempt presence conflicts with validated inventory');
+  }
   return settled;
 }
 
