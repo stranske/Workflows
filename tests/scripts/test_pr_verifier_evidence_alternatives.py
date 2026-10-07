@@ -32,6 +32,7 @@ def verdict(criterion, *, comments="absent", artifacts="absent", body="absent", 
     "destinations",
     [
         "in a PR comment or workflow artifact",
+        "in either a PR comment or a workflow artifact",
         "in workflow artifacts or a PR comment",
         "in a PR comment or in a workflow artifact",
         "in the PR body or a PR comment or workflow artifacts",

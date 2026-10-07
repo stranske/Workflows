@@ -3538,7 +3538,7 @@ def _required_evidence_options(acceptance: str) -> list[set[str]]:
     destination_list = re.compile(
         r"\b(?P<prep>"
         + preposition
-        + r")\s+(?P<items>"
+        + r")\s+(?:either\s+)?(?P<items>"
         + destination
         + r"(?:\s+(?:and|or)\s+"
         + member

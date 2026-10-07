@@ -74,7 +74,7 @@ logs, screenshots
 including before/after screenshots, and recordings) with an explicit review
 destination in the same clause normalize into this same evidence grammar before
 channel classification. Explicit concrete destination alternatives (a PR comment
-or workflow artifact, including repeated prepositions) need one present alternative;
+or workflow artifact, including `in either` and repeated prepositions) need one present alternative;
 `and` and independent clauses still require every obligation. Expansion preserves
 the full criterion and its actor, polarity and modality in every alternative,
 including overlapping independently required destinations. Mixed conjunctions or
