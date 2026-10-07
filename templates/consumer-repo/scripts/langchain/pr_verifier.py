@@ -1011,9 +1011,12 @@ def _required_evidence_channels(acceptance: str, *, _bind_attached: bool = True)
     delivery_action_prefix = (
         r"(?:" + passive_delivery_prefix + r"|have\s+" + delivery_adverbs + r")"
     )
+    negative_adjective_governor = (
+        r"(?:is|are|was|were)\s+(?:not|never|no\s+longer)\s+"
+        r"(?:required|needed|mandated|expected|supposed|obliged|allowed|permitted)"
+    )
     negative_requirement_governor = (
-        r"(?:(?:is|are|was|were)\s+(?:not|never|no\s+longer)\s+"
-        r"(?:required|needed|mandated|expected|supposed|obliged|allowed|permitted)\s+to|"
+        r"(?:" + negative_adjective_governor + r"\s+to|"
         r"(?:does|do|did)\s+(?:not|never)\s+(?:need|have)\s+to|"
         r"(?:never|no\s+longer)\s+(?:has|have|needs?)\s+to|needs?\s+not)"
     )
@@ -1115,7 +1118,7 @@ def _required_evidence_channels(acceptance: str, *, _bind_attached: bool = True)
     artifact_destination_object = r"(?:workflow|ci|github actions)\s+artifacts?\b"
     review_destination_noun = (
         r"(?:(?:the|an?)\s+)?(?:"
-        r"(?:pr|pull request)\s+body\b(?:\s+editor\b)?|"
+        r"(?:pr|pull request)\s+(?:body|description)\b(?:\s+editor\b)?|"
         r"(?:pr|pull request)\s+comments?\b|"
         + artifact_destination_object
         + r"|(?:pr|pull request)\b)"
@@ -1236,7 +1239,7 @@ def _required_evidence_channels(acceptance: str, *, _bind_attached: bool = True)
             "evidence"
             if pronoun_delivery
             or re.search(
-                r"\b(?:(?:pr|pull request)\s+(?:body|comments?)|"
+                r"\b(?:(?:pr|pull request)\s+(?:body|description|comments?)|"
                 r"comments?\s+(?:in|on)\s+(?:the\s+)?(?:pr|pull request)|"
                 r"(?:workflow|ci|github actions)\s+artifacts?)\b",
                 clause,
@@ -1289,6 +1292,21 @@ def _required_evidence_channels(acceptance: str, *, _bind_attached: bool = True)
     acceptance = re.sub(
         r"\bcomments?\s+(?:on|in)\s+(?:(?:the|an?)\s+)?(?:pr|pull request)\b",
         "PR comment",
+        acceptance,
+        flags=re.I,
+    )
+    # Bare negative presence uses the same adjective/modal vocabulary as
+    # explicit delivery; a checkbox must not revive its residual nouns.
+    acceptance = re.sub(
+        r"(?P<literal>" + quoted_evidence_literal + r")|"
+        r"(?P<prefix>\b"
+        + evidence_modifiers
+        + r"(?:evidence|artifacts?|command outputs?|transcripts?)\s+"
+        + negative_adjective_governor
+        + r")\s+(?="
+        + bound_review_destinations
+        + r")",
+        lambda match: match[0] if match["literal"] else match["prefix"] + " to be recorded ",
         acceptance,
         flags=re.I,
     )
@@ -1719,7 +1737,7 @@ def _required_evidence_channels(acceptance: str, *, _bind_attached: bool = True)
 
     def body_occurrences(text: str, gate: bool) -> tuple[list[dict[str, Any]], str]:
         """Classify complete, bounded body predicates before residual evidence gating."""
-        body = r"(?:pr|pull request)\s+body\b"
+        body = r"(?:pr|pull request)\s+(?:body|description)\b"
         qualified_object = (
             evidence_modifiers + r"(?:evidence|artifacts?|transcripts?|command outputs?)\b"
         )
@@ -3004,7 +3022,9 @@ def _required_evidence_channels(acceptance: str, *, _bind_attached: bool = True)
                     )
                     destination = bound_destination["destination"]
                     destination_channels = set()
-                    if re.search(r"\b(?:pr|pull request)\s+body\b", destination, re.I):
+                    if re.search(
+                        r"\b(?:pr|pull request)\s+(?:body|description)\b", destination, re.I
+                    ):
                         destination_channels.add("body")
                     if re.search(r"\b(?:pr|pull request)\s+comments?\b", destination, re.I):
                         destination_channels.add("comments")
@@ -3012,7 +3032,7 @@ def _required_evidence_channels(acceptance: str, *, _bind_attached: bool = True)
                         destination_channels.add("artifacts")
                     bare_pr = bool(
                         re.search(
-                            r"\b(?:pr|pull request)\b(?!\s+(?:body|comments?)\b)",
+                            r"\b(?:pr|pull request)\b(?!\s+(?:body|description|comments?)\b)",
                             destination,
                             re.I,
                         )
@@ -3331,6 +3351,18 @@ def _required_evidence_channels(acceptance: str, *, _bind_attached: bool = True)
             )
             explicit_comment_delivery = bool(
                 (
+                    checklist_deliverable
+                    and re.fullmatch(
+                        r"\s*(?:[-*]\s*(?:\[[ xX]\]\s*)?)?"
+                        r"(?:(?:test|validation|CI|build|execution)\s+){0,3}"
+                        r"(?:evidence|command outputs?|transcripts?)\s+"
+                        + destination_preposition
+                        + r"(?:an?\s+|the\s+)?(?:pr comments?|pull request comments?)\s*[.!]?\s*",
+                        requirement_text,
+                        re.I,
+                    )
+                )
+                or (
                     explicit_review_destination
                     and re.search(
                         r"\b(?:pr comments?|pull request comments?)\b", requirement_text, re.I
@@ -3486,6 +3518,16 @@ def _required_evidence_channels(acceptance: str, *, _bind_attached: bool = True)
                 and not explicit_review_destination
             ):
                 continue
+            if checklist_deliverable and re.fullmatch(
+                r"\s*(?:[-*]\s*(?:\[[ xX]\]\s*)?)?"
+                + r"(?:(?:test|validation|CI|build|execution)\s+){0,3}"
+                + r"(?:evidence|command outputs?|transcripts?)\s+"
+                + destination_preposition
+                + r"(?:the\s+|an?\s+)?(?:pr|pull request)\s+(?:body|description)\s*[.!]?\s*",
+                requirement_text,
+                re.I,
+            ):
+                line_channels.add("body")
             if re.search(r"\b(?:pr comments?|pull request comments?)\b", lower):
                 if explicit_comment_delivery and not product_comment_behavior:
                     line_channels.add("comments")
@@ -3558,7 +3600,7 @@ def _required_evidence_options(acceptance: str) -> list[set[str]]:
     """
     preposition = r"(?:in|into|to|within|for|as|through|via)"
     destination = (
-        r"(?:(?:the|an?)\s+)?(?:(?:pr|pull request)\s+(?:body|comments?)\b|"
+        r"(?:(?:the|an?)\s+)?(?:(?:pr|pull request)\s+(?:body|description|comments?)\b|"
         r"(?:workflow|ci|github actions)\s+artifacts?\b)"
     )
     member = r"(?:" + preposition + r"\s+)?" + destination

@@ -4,6 +4,18 @@ This document outlines the process for maintaining workflow system consistency a
 
 ## Verifier canary review recovery
 
+Named review-evidence destinations include both PR body and PR description.
+Mandatory checklist noun phrases such as `Test evidence in a PR comment`
+retain their destination even without a delivery verb. Optional/prohibited
+evidence, product behavior and quoted examples remain subject to the shared
+polarity, modality and literal boundary rules.
+
+Reusable Python CI scope includes Python modules at the repository root and
+under arbitrary flat-layout package directories, not only `src/`, `scripts/`,
+`tools/` and `tests/`. This conservative language-level scope avoids silently
+skipping application changes in packages such as `pa_core/` or `dashboard/`;
+documentation-only changes still select no Python scenarios.
+
 ### Bounded input-limit recovery
 
 After inspecting an actual incomplete verifier report, manual `Agents Verifier`

@@ -10,6 +10,65 @@ from scripts.langchain import pr_verifier as verifier
 
 
 @pytest.mark.parametrize(
+    "destination,channel",
+    [
+        ("a PR comment", "comments"),
+        ("the PR description", "body"),
+        ("a workflow artifact", "artifacts"),
+    ],
+)
+@pytest.mark.parametrize("prefix", ["- [ ] ", "- [x] "])
+def test_checklist_noun_evidence_retains_named_destination(destination, channel, prefix):
+    assert verifier._required_evidence_channels(prefix + "Test evidence in " + destination) == {
+        channel
+    }
+
+
+@pytest.mark.parametrize("destination", ["PR description", "pull request description"])
+@pytest.mark.parametrize(
+    "governor,expected", [("must", {"body"}), ("must not", set()), ("may", set())]
+)
+def test_description_alias_preserves_body_polarity(destination, governor, expected):
+    assert (
+        verifier._required_evidence_channels(f"Command output {governor} be in the {destination}")
+        == expected
+    )
+
+
+@pytest.mark.parametrize(
+    "destination", ["a PR comment", "the PR description", "a workflow artifact"]
+)
+@pytest.mark.parametrize(
+    "phrase",
+    [
+        "No evidence is required in ",
+        "Evidence is not expected in ",
+        "Evidence is not supposed to be in ",
+        "Evidence is no longer required in ",
+        "Optional evidence in ",
+    ],
+)
+def test_checklist_noun_destinations_keep_negative_and_optional_controls(destination, phrase):
+    criterion = "- [ ] " + phrase + destination
+    assert verifier._required_evidence_channels(criterion) == set()
+    assert verifier._required_evidence_channels(
+        criterion + "; provide command output in a PR comment"
+    ) == {"comments"}
+
+
+@pytest.mark.parametrize(
+    "criterion",
+    [
+        "The UI must display command output in the PR description editor",
+        'The UI must display the label "Command output must be in the PR description"',
+        "The verifier must recognize evidence in a PR comment",
+    ],
+)
+def test_description_and_checklist_changes_keep_product_boundaries(criterion):
+    assert verifier._required_evidence_channels("- [ ] " + criterion) == set()
+
+
+@pytest.mark.parametrize(
     "proof",
     [
         "test results",
@@ -2214,6 +2273,9 @@ def test_reverse_record_output_binds_its_own_recipient(participle, recipient):
     "criterion,channel",
     [
         ("The reviewer must paste command output into a PR comment", "comments"),
+        ("Test evidence in a PR comment", "comments"),
+        ("Test evidence in the PR description", "body"),
+        ("Command output must be in the PR description", "body"),
         ("Evidence in the PR body is required", "body"),
         ("Evidence in the PR body is not optional", "body"),
         ("Command output must be provided in a PR comment by the service", "comments"),
