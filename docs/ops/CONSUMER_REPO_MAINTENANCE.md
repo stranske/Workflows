@@ -69,10 +69,20 @@ An object used by an attached mandatory delivery (`artifacts that the reviewer
 must upload`, or `artifacts must be uploaded`) remains as that delivery's
 antecedent. Before suppressing a capability span, bind its attached mandatory
 predicate, original actor, polarity and immediate review destination together.
-Common proof objects (test/validation results, logs and outputs, screenshots
+Common proof objects (test/validation results, logs and outputs, CI/build/execution
+logs, screenshots
 including before/after screenshots, and recordings) with an explicit review
 destination in the same clause normalize into this same evidence grammar before
-channel classification, stopping at independently governed coordinated actor
+channel classification. Explicit concrete destination alternatives (a PR comment
+or workflow artifact, including repeated prepositions) need one present alternative;
+`and` and independent clauses still require every obligation. Expansion preserves
+the full criterion and its actor, polarity and modality in every alternative,
+including overlapping independently required destinations. Mixed conjunctions or
+more than 32 combinations retain strict legacy requirements, never a permissive
+any-channel shortcut. Only builder-owned present statuses satisfy a branch;
+absent/unavailable statuses and quoted status-looking content cannot do so.
+Quoted labels/examples cannot supply destinations or clause boundaries.
+Normalization stops at independently governed coordinated actor
 clauses, reusing the existing shared actor-role heads (including developers,
 testers, auditors, automation agents, runners and bots) and recipient-role heads
 rather than maintaining a narrower independent role list. An explicit
