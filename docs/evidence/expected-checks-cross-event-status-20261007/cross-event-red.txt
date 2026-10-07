@@ -1,0 +1,20 @@
+F.                                                                       [100%]
+=================================== FAILURES ===================================
+_ test_target_event_receipt_binds_required_status_to_its_pull_request_publisher _
+
+    def test_target_event_receipt_binds_required_status_to_its_pull_request_publisher():
+        packet = actions_status_packet()
+        result = reporter.collect(
+            reporter.Evidence(status_collection_transport(packet)), packet["repo"], 1,
+            HEAD, "pull_request_target", "synchronize",
+        )
+>       assert result["verdict"] == "PASS"
+E       AssertionError: assert 'UNKNOWN' == 'PASS'
+E         
+E         - PASS
+E         + UNKNOWN
+
+tests/test_check_checks_reported.py:2115: AssertionError
+=========================== short test summary info ============================
+FAILED tests/test_check_checks_reported.py::test_target_event_receipt_binds_required_status_to_its_pull_request_publisher
+1 failed, 1 passed, 240 deselected in 0.34s

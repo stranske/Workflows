@@ -1415,15 +1415,40 @@ def collect(
         if run.get("check_suite_id") is not None
     }
     status_provenance = {}
+    status_runs = list(latest_runs.values())
     if any(
         rule.get("context") == "Gate / gate" and rule.get("app_id") == 15368 for rule in required
     ):
         try:
+            if event != "pull_request":
+                # Required commit statuses are head-scoped, not event-scoped.
+                # Keep publisher evidence separate from this event's topology.
+                publisher_runs, _ = complete_workflow_runs(
+                    evidence, repo, head, "pull_request", suites
+                )
+                publishers = {}
+                for run in publisher_runs:
+                    path = str(run.get("path", "")).partition("@")[0]
+                    if path != ".github/workflows/pr-00-gate.yml":
+                        continue
+                    key = (run.get("workflow_id"), run.get("event"))
+                    previous = publishers.get(key)
+                    if previous is None or (run.get("run_number", 0), run.get("run_attempt", 1)) > (
+                        previous.get("run_number", 0),
+                        previous.get("run_attempt", 1),
+                    ):
+                        publishers[key] = run
+                status_runs = list(publishers.values())
+                for run in status_runs:
+                    run["jobs"] = evidence.items(
+                        f"repos/{repo}/actions/runs/{run['id']}/jobs?filter=latest&per_page=100",
+                        "jobs",
+                    )
             status_provenance = gate_status_provenance(
                 repo,
                 head,
                 statuses,
-                list(latest_runs.values()),
+                status_runs,
                 suites,
                 checks,
                 evidence.one("apps/github-actions"),
@@ -1477,6 +1502,7 @@ def collect(
             },
             "required_checks": required,
             "status_provenance": list(status_provenance.values()),
+            "status_publisher_runs": status_runs,
             "duplicate_identity_evidence": identity_evidence,
             "workflow_sources": sources,
             "legitimate_absences": absences,

@@ -10,6 +10,14 @@ digest cannot describe the source used for earlier requests. Keep using the
 incumbent frequency/ratchet report as an additional warning; frequency and a
 visible green list cannot establish event-specific completeness.
 
+Required commit statuses apply to the head across events. When auditing
+`pull_request_target`, the adapter independently collects the exact-head
+`pull_request` Gate publisher and its latest attempt/jobs for status provenance.
+The receipt retains those runs separately as `status_publisher_runs`; they do
+not contribute jobs or suite applicability to the target-event topology.
+The existing immutable bot/app, run, suite, job/check and reporting-step time
+bindings remain mandatory. A failed, stale or incomplete publisher stays UNKNOWN.
+
 ## Shared source boundary
 
 The [Orchestrator reporter](https://github.com/stranske/Orchestrator/blob/main/scripts/check_checks_reported.py)

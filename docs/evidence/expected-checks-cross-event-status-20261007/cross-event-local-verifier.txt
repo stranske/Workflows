@@ -1,0 +1,46 @@
+### Deliberate-break demonstration — PASS
+
+- gate: `/opt/anaconda3/bin/python3 -m pytest tests/test_check_checks_reported.py::test_target_event_receipt_binds_required_status_to_its_pull_request_publisher -q`
+- base ref: `f9c26992bb3eb8ffe424ced0a166b44f73d0f639`
+- worktree: `/Users/teacher/.codex/automations/imi-merge-verify-closer/worktrees/workflows-status-provenance-1120`
+- candidate tests overlaid onto the base: `tests/test_check_checks_reported.py`
+
+**RED — the gate against the base implementation** (`f9c26992bb3eb8ffe424ced0a166b44f73d0f639` with only the candidate tests overlaid). Exit code `1`.
+
+```
+F                                                                        [100%]
+=================================== FAILURES ===================================
+_ test_target_event_receipt_binds_required_status_to_its_pull_request_publisher _
+
+    def test_target_event_receipt_binds_required_status_to_its_pull_request_publisher():
+        packet = actions_status_packet()
+        result = reporter.collect(
+            reporter.Evidence(status_collection_transport(packet)),
+            packet["repo"],
+            1,
+            HEAD,
+            "pull_request_target",
+            "synchronize",
+        )
+>       assert result["verdict"] == "PASS"
+E       AssertionError: assert 'UNKNOWN' == 'PASS'
+E         
+E         - PASS
+E         + UNKNOWN
+
+tests/test_check_checks_reported.py:2129: AssertionError
+=========================== short test summary info ============================
+FAILED tests/test_check_checks_reported.py::test_target_event_receipt_binds_required_status_to_its_pull_request_publisher
+1 failed in 0.55s
+```
+
+**GREEN — the same gate in the worktree, with the implementation present.** Exit code `0`.
+
+```
+.                                                                        [100%]
+1 passed in 0.21s
+```
+
+**Per-node attribution: FAIL_HOLLOW_NODES.** 241 of 243 candidate nodes PASS against the base and are therefore no part of this proof: tests/test_check_checks_reported.py::test_missing_required_check_is_fail, tests/test_check_checks_reported.py::test_legitimately_absent_event_only_job, tests/test_check_checks_reported.py::test_stale_cancelled_attempt_replaced_by_success, tests/test_check_checks_reported.py::test_new_cancelled_attempt_does_not_reuse_old_success, tests/test_check_checks_reported.py::test_zero_job_startup_failure_is_fail_even_with_green_check (+236 more). The command-level red above was earned by the others.
+
+_Produced by `local_verify.py --transcript`; the live worktree was never mutated._

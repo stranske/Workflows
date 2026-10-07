@@ -2074,6 +2074,98 @@ def status_packet_verdict(packet):
     )
 
 
+def status_collection_transport(packet):
+    fallback = fixture_transport()
+
+    def transport(endpoint):
+        if "/check-runs?" in endpoint:
+            return [{"total_count": len(packet["checks"]), "check_runs": packet["checks"]}]
+        if "/check-suites?" in endpoint:
+            return [{"total_count": len(packet["suites"]), "check_suites": packet["suites"]}]
+        if "/statuses?" in endpoint:
+            return [packet["statuses"]]
+        if "/rules/branches/" in endpoint:
+            return [
+                [
+                    {
+                        "type": "required_status_checks",
+                        "parameters": {
+                            "required_status_checks": [
+                                {"context": "Gate / gate", "integration_id": 15368}
+                            ]
+                        },
+                    }
+                ]
+            ]
+        if endpoint == "apps/github-actions":
+            return [packet["platform_app"]]
+        if endpoint == "users/github-actions[bot]":
+            return [packet["platform_bot"]]
+        if "/actions/runs?" in endpoint:
+            runs = [] if "event=pull_request_target" in endpoint else packet["runs"]
+            return [{"total_count": len(runs), "workflow_runs": runs}]
+        if "/jobs?" in endpoint:
+            return [
+                {"total_count": len(packet["runs"][0]["jobs"]), "jobs": packet["runs"][0]["jobs"]}
+            ]
+        if "/contents/.github/workflows/gate.yml?" in endpoint:
+            workflow = "on: pull_request\njobs:\n  gate-summary:\n    runs-on: ubuntu-latest\n    steps: []\n"
+            return [{"encoding": "base64", "content": base64.b64encode(workflow.encode()).decode()}]
+        return fallback(endpoint)
+
+    return transport
+
+
+def test_target_event_receipt_binds_required_status_to_its_pull_request_publisher():
+    packet = actions_status_packet()
+    result = reporter.collect(
+        reporter.Evidence(status_collection_transport(packet)),
+        packet["repo"],
+        1,
+        HEAD,
+        "pull_request_target",
+        "synchronize",
+    )
+    assert result["verdict"] == "PASS"
+    assert result["status_provenance"][0]["run_id"] == packet["runs"][0]["id"]
+    # The other event's run proves status origin, never target-event job applicability.
+    assert result["workflow_run_inventory"] == []
+    assert result["expected_names"] == ["Gate / gate"]
+
+
+def test_target_event_status_publisher_failure_does_not_become_app_evidence():
+    packet = actions_status_packet()
+    packet["runs"][0]["conclusion"] = "failure"
+    result = reporter.collect(
+        reporter.Evidence(status_collection_transport(packet)),
+        packet["repo"],
+        1,
+        HEAD,
+        "pull_request_target",
+        "synchronize",
+    )
+    assert result["verdict"] == "UNKNOWN"
+    assert result["status_provenance"] == []
+
+
+def test_target_event_never_reuses_older_success_after_new_publisher_failure():
+    packet = actions_status_packet()
+    newer = json.loads(json.dumps(packet["runs"][0]))
+    newer.update(id=newer["id"] + 1, run_number=2, conclusion="failure")
+    packet["runs"].append(newer)
+    result = reporter.collect(
+        reporter.Evidence(status_collection_transport(packet)),
+        packet["repo"],
+        1,
+        HEAD,
+        "pull_request_target",
+        "synchronize",
+    )
+    assert result["verdict"] == "UNKNOWN"
+    assert result["status_provenance"] == []
+    assert [run["id"] for run in result["status_publisher_runs"]] == [newer["id"]]
+
+
 @pytest.mark.parametrize("summary_name", ["summary", "gate-summary"])
 def test_real_gate_retry_resolves_only_the_missing_app_binding(summary_name):
     packet = actions_status_packet()
