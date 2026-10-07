@@ -10,7 +10,34 @@ from scripts.langchain import pr_verifier as verifier
 
 
 @pytest.mark.parametrize("actor", ["UI", "application", "service", "renderer"])
-@pytest.mark.parametrize("operation", ["generate", "link", "post", "record"])
+@pytest.mark.parametrize(
+    "operation",
+    [
+        "prove",
+        "provide",
+        "return",
+        "display",
+        "show",
+        "emit",
+        "render",
+        "expose",
+        "store",
+        "upload",
+        "attach",
+        "publish",
+        "post",
+        "record",
+        "capture",
+        "include",
+        "contain",
+        "have",
+        "document",
+        "generate",
+        "link",
+        "add",
+        "leave",
+    ],
+)
 @pytest.mark.parametrize("destination", ["the PR body", "the PR description", "a PR comment"])
 @pytest.mark.parametrize("component", ["panel", "editor", "field"])
 @pytest.mark.parametrize("capability", [False, True])
@@ -30,6 +57,65 @@ def test_product_generation_uses_shared_delivery_operations(
         "- PR comments: **absent**\n- Referenced workflow artifacts: **present**",
         expected,
     )
+
+
+@pytest.mark.parametrize("actor", ["UI", "service"])
+@pytest.mark.parametrize("operation", ["generate", "link", "post", "record", "prove"])
+@pytest.mark.parametrize("product_channel", ["body", "comments"])
+@pytest.mark.parametrize("body_alias", ["body", "description"])
+@pytest.mark.parametrize("reverse", [False, True])
+@pytest.mark.parametrize("coordination", ["and", "or"])
+@pytest.mark.parametrize("independent", [False, True])
+@pytest.mark.parametrize("governor", ["must", "may", "must not"])
+@pytest.mark.parametrize("condition", ["", " if available"])
+def test_product_component_coordination_preserves_bare_other_channel(
+    actor,
+    operation,
+    product_channel,
+    body_alias,
+    reverse,
+    coordination,
+    independent,
+    governor,
+    condition,
+):
+    members = (
+        [f"the PR {body_alias} panel", "a PR comment"]
+        if product_channel == "body"
+        else ["a PR comment panel", f"the PR {body_alias}"]
+    )
+    if reverse:
+        members.reverse()
+    criterion = (
+        f"The {actor} {governor} {operation} evidence in "
+        + f" {coordination} ".join(members)
+        + condition
+    )
+    if independent:
+        criterion += "; the reviewer must record evidence in a workflow artifact"
+    bare_channel = "comments" if product_channel == "body" else "body"
+    required = governor == "must" and not condition
+    expected = ({bare_channel} if required else set()) | ({"artifacts"} if independent else set())
+    assert verifier._required_evidence_channels(criterion) == expected
+    assert verifier._required_evidence_options(criterion) == [expected]
+    spec = importlib.util.spec_from_file_location(
+        "mixed_product_component_floor_fixture",
+        Path(__file__).with_name("test_pr_verifier_prompt_coverage.py"),
+    )
+    fixture = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(fixture)
+    context, _ = fixture._context(1, 1000, 1000)
+    context = context.replace("- " + fixture.ACCEPTANCE_SENTINEL, criterion).replace(
+        "## PR Diff Summary",
+        "## Acceptance evidence\n\n- Overall retrieval status: **present**\n"
+        "- PR body: **absent**\n- PR comments: **absent**\n"
+        "- Referenced workflow artifacts: **present**\n\n## PR Diff Summary",
+    )
+    result = verifier._apply_coverage_floor(
+        verifier.EvaluationResult(verdict="PASS", used_llm=True),
+        verifier.prompt_coverage(context, None),
+    )
+    assert result.verdict == ("CONCERNS" if required else "PASS")
 
 
 @pytest.mark.parametrize("contrast", ["only", "merely", "just"])

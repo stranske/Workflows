@@ -1182,7 +1182,9 @@ def _required_evidence_channels(acceptance: str, *, _bind_attached: bool = True)
     review_destination_noun = (
         r"(?:(?:the|an?)\s+)?(?:"
         r"(?:pr|pull request)\s+(?:body|description)\b(?:\s+" + body_component + r")?|"
-        r"(?:pr|pull request)\s+comments?\b|"
+        r"(?:pr|pull request)\s+comments?\b(?:\s+"
+        + body_component
+        + r")?|"
         + artifact_destination_object
         + r"|(?:pr|pull request)\b)"
     )
@@ -2137,19 +2139,32 @@ def _required_evidence_channels(acceptance: str, *, _bind_attached: bool = True)
                 if prohibited
                 else "product" if product else "optional" if optional else "required"
             )
-            destinations = {"body"}
-            if re.search(r"\b(?:pr comments?|pull request comments?)\b", clause, re.I):
-                destinations.add("comments")
-            if re.search(artifact_destination_object, clause, re.I):
-                destinations.add("artifacts")
-            if disposition == "product":
-                # A UI component is a product surface, but coordinated actual
-                # review destinations retain their own delivery obligation.
-                destinations.discard("body")
-                if destinations:
-                    # Product ownership does not strengthen an optional governor.
-                    # Only a mandatory coordinated delivery may require evidence.
-                    disposition = "optional" if optional else "required"
+            destinations = set()
+            product_surface = False
+            for item in re.finditer(
+                r"\b(?:pr|pull request)\s+(?P<channel>body|description|comments?)\b"
+                r"(?P<component>\s+" + body_component + r")?|"
+                r"(?P<artifact>" + artifact_destination_object + r")",
+                clause,
+                re.I,
+            ):
+                if item["artifact"]:
+                    destinations.add("artifacts")
+                    continue
+                if item["component"] and product_comment_object(
+                    text[: match.start() + item.start()], item["component"]
+                ):
+                    product_surface = True
+                    continue
+                destinations.add(
+                    "comments" if item["channel"].lower().startswith("comment") else "body"
+                )
+            if product_surface and not prohibited:
+                # Classify each coordinated item, not an entire channel. A
+                # structural component cannot consume a bare sibling delivery.
+                disposition = (
+                    ("optional" if optional else "required") if destinations else "product"
+                )
             records.append(
                 {
                     "span": (match.start(), clause_end),
@@ -2220,7 +2235,9 @@ def _required_evidence_channels(acceptance: str, *, _bind_attached: bool = True)
                 + response_operation
                 + r"|"
                 + capability_operation
-                + r"|display|show|store|include|contain|attach|upload|add|leave|left|post|publish|provide|document|record|capture|generate|link)\w*\b",
+                + r"|"
+                + delivery_operation
+                + r"|left)\w*\b",
                 prefix,
                 re.I,
             )
@@ -2250,6 +2267,7 @@ def _required_evidence_channels(acceptance: str, *, _bind_attached: bool = True)
                 "record",
                 "capture",
                 "generate",
+                "prove",
                 "return",
                 "emit",
                 "render",
@@ -3780,7 +3798,8 @@ def _required_evidence_options(acceptance: str) -> list[set[str]]:
     preposition = r"(?:in|into|to|within|for|as|through|via)"
     destination = (
         r"(?:(?:the|an?)\s+)?(?:(?:pr|pull request)\s+(?:(?:body|description)\b"
-        r"(?:\s+" + _REVIEW_BODY_COMPONENT + r")?|comments?\b)|"
+        r"(?:\s+" + _REVIEW_BODY_COMPONENT + r")?|comments?\b"
+        r"(?:\s+" + _REVIEW_BODY_COMPONENT + r")?)|"
         r"(?:workflow|ci|github actions)\s+artifacts?\b)"
     )
     member = r"(?:" + preposition + r"\s+)?" + destination
@@ -3810,6 +3829,34 @@ def _required_evidence_options(acceptance: str) -> list[set[str]]:
         if not re.search(r"\bor\b", items, re.I):
             continue
         alternatives = re.split(r"\s*,\s*(?:or\s+)?|\s+or\s+", items, flags=re.I)
+        # Product components are not alternative evidence deliveries. Classify
+        # each bounded member with its original governing prefix before adding
+        # independent trailing duties; those duties must not make a product
+        # alternative appear nonempty and thereby waive its bare sibling.
+        clause_start = (
+            max(masked.rfind(";", 0, match.start()), masked.rfind("\n", 0, match.start())) + 1
+        )
+        governing_prefix = acceptance[clause_start : match.start()] + match["prep"] + " "
+        deliveries = []
+        for item in alternatives:
+            component = re.search(
+                r"\b(?:pr|pull request)\s+(?P<channel>body|description|comments?)\b"
+                r"\s+" + _REVIEW_BODY_COMPONENT,
+                item,
+                re.I,
+            )
+            if component:
+                channel = (
+                    "comments" if component["channel"].lower().startswith("comment") else "body"
+                )
+                isolated = governing_prefix + re.sub(
+                    r"^" + preposition + r"\s+", "", item, flags=re.I
+                )
+                if channel not in _required_evidence_channels(isolated):
+                    continue
+            deliveries.append(item)
+        if deliveries:
+            alternatives = deliveries
         if len(variants) * len(alternatives) > 32:
             return [_required_evidence_channels(acceptance)]
         variants = [

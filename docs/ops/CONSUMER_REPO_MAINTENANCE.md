@@ -321,6 +321,16 @@ remains product-owned for generation, linking, posting and recording, while a
 bare explicit review destination and independent reviewer duties stay authoritative.
 The shared modifier grammar includes `always`, so `that must always remain available`
 stays attached to its existing OR destination rather than becoming a new duty.
+Governing product operations reuse the canonical delivery-operation grammar,
+including `prove`. Coordinated destinations are classified individually: a
+structural comment component cannot consume a bare body/description sibling,
+and a structural body component cannot require a bare comment's product channel.
+Both orders retain mandatory bare destinations, optional/prohibited governors,
+conditional suffixes and independent reviewer artifacts.
+OR expansion classifies each bounded structural member with its governing
+prefix before trailing independent duties are added. A product-only branch is
+not an alternative evidence delivery; an unrelated artifact duty cannot make
+that branch satisfy a missing bare review destination.
 Both paths also share the independent review-predicate exclusion: an actor
 such as `the PR description that must contain command output` is not consumed
 as another destination of an earlier prohibited delivery. OR expansion cannot
