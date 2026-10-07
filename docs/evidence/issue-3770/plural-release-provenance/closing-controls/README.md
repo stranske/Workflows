@@ -43,3 +43,36 @@ Original runs 37400729553 and 37481681340 remain CONCERNS/NON_PASS. No provider
 verdict or post-merge comparison is inferred from unit results. After merge,
 Orphan Steward owns the single repaired-input comparison and complete artifact
 inventory; source #3757 topology and observed provider verdicts remain required.
+
+
+## Immutable manifest binding after PR #3800
+
+`manifest.json` binds each entry to evaluated merge
+`35552aa22e794fbed1a6ee59d4942ede66fa386e` through its explicit `revision` field.
+Verify the exact blob at that revision rather than compare a historical test
+hash with a later working tree. For each entry, the byte length and SHA256 are
+of `git show <revision>:<path>`. No retained console, fixture, receipt or source
+bytes were regenerated to change the outcome.
+
+PR #3800 updated this directory's README, four complete RED/GREEN captures and
+receipt, but left their earlier manifest hashes behind. Its test entries also
+pre-dated the updated suites. `manifest-before-title-metadata-replay.json`
+preserves that original manifest verbatim as historical, superseded metadata;
+it is not the acceptance manifest for the replay delivered by PR #3800.
+The replacement binds all 13 entries to the immutable evaluated merge, including
+both complete test files and both root/template implementations. Later parser
+repair PR #3807 is separate and does not change this historical binding.
+
+The 2026-10-07 closer audit independently downloaded expanded comparison
+37572459483 and release follow-up 37567257334. The expanded comparison remains
+CONCERNS/CONCERNS and NON_PASS because its input omitted evidence. The release
+follow-up's complete seven-file bundle records CONCERNS/PASS, NON_PASS and
+`acceptance_source_discovery.required=false`; original baseline 37400729553
+remains CONCERNS/CONCERNS, NON_PASS. No provider verdict is relabeled.
+
+On audit main `7793e353f` the named resolver/builder command passed 190 tests;
+receipt tests passed 20; the full JavaScript suite passed 2,077 with one existing
+skip. Four actual root/template conflict/negation source mutations each exited
+1, followed by exit 0 and byte-identical restoration. Those are current-main
+checks; the 185-test historical transcript above belongs to its recorded
+revision. They do not establish complete release topology or provider PASS.
