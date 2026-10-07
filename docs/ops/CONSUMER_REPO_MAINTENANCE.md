@@ -298,8 +298,8 @@ proof-object recognition, including `and`/`or`/`but` forms; a conditional or
 negative clause cannot govern a later mandatory reviewer. This normalization
 does not rewrite unrelated product clauses, and capability verbs cannot become
 recipient adjectives that split repeated product capabilities into deliveries.
-Relative optional/prohibited delivery
-predicates reuse the shared governors and delivery operations. Attached simple
+Relative optional/prohibited delivery predicates reuse shared adverbs before
+their governor as well as the shared governors and delivery operations. Attached simple
 copular availability (`that is available`) stays inside the destination branch.
 Simple copular qualifiers reuse the shared adverbs before and after `is`/`are`
 (`that now is available` and `that is now available` are equivalent).

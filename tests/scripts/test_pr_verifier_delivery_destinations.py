@@ -416,10 +416,11 @@ def test_checklist_suffix_cannot_promote_conditional_or_negative_delivery(
 @pytest.mark.parametrize("destination", ["a PR comment", "the PR body", "the PR description"])
 @pytest.mark.parametrize("joiner", ["; ", " and ", ", and "])
 @pytest.mark.parametrize("independent", [False, True])
+@pytest.mark.parametrize("adverb", ["", "now ", "currently "])
 def test_relative_checklist_delivery_reuses_negative_optional_governor(
-    marker, relative, predicate, destination, joiner, independent
+    marker, relative, predicate, destination, joiner, independent, adverb
 ):
-    criterion = f"{marker} [ ] Test evidence in {destination} {relative} {predicate}"
+    criterion = f"{marker} [ ] Test evidence in {destination} {relative} {adverb}{predicate}"
     if independent:
         criterion += joiner + "the reviewer must record evidence in a workflow artifact"
     expected = {"artifacts"} if independent else set()

@@ -1265,6 +1265,8 @@ def _required_evidence_channels(acceptance: str, *, _bind_attached: bool = True)
                 + match["relative_predicate"]
                 + " "
                 + match["destinations"]
+                + " "
+                + match["relative_adverbs"]
                 + following
             )
         if match["conditional"]:
@@ -1297,7 +1299,9 @@ def _required_evidence_channels(acceptance: str, *, _bind_attached: bool = True)
         r"(?:evidence|command outputs?|transcripts?))\s+"
         r"(?P<destinations>" + bound_review_destinations + r")"
         r"(?P<qualification>\s+(?:"
-        r"(?:that|which)\s+(?P<relative_predicate>(?:"
+        r"(?:that|which)\s+(?P<relative_adverbs>"
+        + delivery_adverbs
+        + r")(?P<relative_predicate>(?:"
         + negative_requirement_governor
         + r"|"
         + optional_delivery_modal
