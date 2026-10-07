@@ -233,6 +233,43 @@ def test_content_object_polarity_does_not_change_delivery_governor(
         )
 
 
+@pytest.mark.parametrize(
+    "modifier", ["optional archived", "no longer required", "not expected", "not supposed"]
+)
+@pytest.mark.parametrize(
+    "destination,channel",
+    [("the PR body", "body"), ("the PR description", "body"), ("a PR comment", "comments")],
+)
+@pytest.mark.parametrize("governor", ["must", "may", "must not", "is not expected to"])
+@pytest.mark.parametrize("actor", ["UI", "reviewer"])
+@pytest.mark.parametrize("component", ["", " results panel"])
+@pytest.mark.parametrize("voice", ["active", "passive-before", "passive-after"])
+def test_content_object_polarity_across_passive_agents(
+    modifier, destination, channel, governor, actor, component, voice
+):
+    tail = f"in {destination}{component} displaying {modifier} evidence"
+    if voice == "active":
+        criterion = f"The {actor} {governor} publish test logs {tail}"
+    elif voice == "passive-before":
+        criterion = f"Test logs {governor} be published by the {actor} {tail}"
+    else:
+        criterion = f"Test logs {governor} be published {tail} by the {actor}"
+    criterion += "; the auditor must record evidence in a workflow artifact"
+    expected = {"artifacts"} | (
+        {channel} if governor == "must" and (actor == "reviewer" or not component) else set()
+    )
+    assert verifier._required_evidence_channels(criterion) == expected
+    assert verifier._required_evidence_options(criterion) == [expected]
+    for overall in ("present", "absent", "unavailable"):
+        assert (
+            _floor_verdict(criterion, body="present", comments="present", overall=overall) == "PASS"
+        )
+    for missing in ("absent", "unavailable"):
+        assert _floor_verdict(criterion, body=missing, comments=missing) == (
+            "CONCERNS" if channel in expected else "PASS"
+        )
+
+
 @pytest.mark.parametrize("qualifier", ["containing logs", "showing failures"])
 @pytest.mark.parametrize(
     "destination,channel", [("the PR body", "body"), ("a PR comment", "comments")]

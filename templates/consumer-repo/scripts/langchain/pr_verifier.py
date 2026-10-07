@@ -1415,7 +1415,11 @@ def _normalize_review_content_qualifiers(acceptance: str) -> str:
     """Keep bounded destination content from becoming a second proof delivery."""
     modifier = (
         r"(?!(?:if|when|only|solely|that|which|where|before|after)\b)"
+        + r"(?:"
+        + _NEGATIVE_EVIDENCE_ADJECTIVE_TAIL.replace(r"\s+", r"[ \t]+")
+        + r"|"
         + _EVIDENCE_OBJECT_MODIFIER_WORD
+        + r")"
         + r"[ \t]+"
     )
     content = (

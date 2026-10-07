@@ -1742,6 +1742,11 @@ Both classifiers normalize the same bounded, literal-safe content-object spans
 before proof-alias and alternative expansion, so a qualifier cannot invent an
 additional overall obligation or hide a following destination alternative.
 Conditional and relative boundaries remain outside the content-object span.
+Content-object adjectives reuse the shared negative-modality grammar: `not
+expected`, `not supposed`, and `no longer required` describe that object, not
+the mandatory delivery governor. Passive agents after such content do not
+create an additional overall evidence obligation. Literal, conditional, and
+independently governed delivery boundaries remain authoritative.
 The same finite actor, operation, aspect, polarity,
 and destination grammar applies whether `by the reviewer` or `by the UI` occurs
 before or after the destination. Agent text cannot become a component name or
