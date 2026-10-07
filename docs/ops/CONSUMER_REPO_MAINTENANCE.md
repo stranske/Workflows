@@ -1250,6 +1250,15 @@ and the final JSON-string marker is authoritative. Malformed marker metadata mak
 coverage UNKNOWN and withholds PASS, never silently removing a file. Legacy summaries retain
 their existing parser for compatibility; generated contexts always emit the marker.
 
+Patch normalization removes only Git's terminal LF, never content carriage
+returns or filename-significant spaces in final rename/copy metadata. Summary parsing,
+formatted diff text and changed-code inventory share these canonical bytes and
+character offsets; whitespace-only input remains unavailable. Real-Git rename
+regressions cover trailing spaces, with/without a final newline, and exact
+included/truncated inventory boundaries. Each public path normalizes the original
+patch exactly once, including binary patches with two terminal LFs; binary code
+remains unavailable even when its character inventory is exact.
+
 Verifier acceptance classification distinguishes product output and product fields from
 review deliverables: a command that must output a transcript, response evidence links or
 records, and endpoint/service/CLI/renderer PR-comment fields do not require reviewing-PR
