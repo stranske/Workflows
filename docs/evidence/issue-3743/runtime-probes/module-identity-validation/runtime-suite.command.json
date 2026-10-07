@@ -1,0 +1,26 @@
+{
+  "argv": [
+    "python3",
+    "-m",
+    "pytest",
+    "tests/scripts/test_check_deliberate_break_runtime_probes.py",
+    "-q",
+    "-o",
+    "addopts=",
+    "-m",
+    "not slow",
+    "--junitxml=/home/runner/work/Workflows/Workflows/docs/evidence/issue-3743/runtime-probes/module-identity-validation/runtime-suite.xml"
+  ],
+  "cwd": "/home/runner/work/Workflows/Workflows",
+  "exit": 0,
+  "stdout": {
+    "path": "runtime-suite.stdout.gz",
+    "sha256": "c2682b548e75989f5ccc94242c9bd8c8538c0b15b976161754c4df0c73a47826",
+    "bytes": 99
+  },
+  "stderr": {
+    "path": "runtime-suite.stderr.gz",
+    "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+    "bytes": 0
+  }
+}

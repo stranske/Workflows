@@ -1,0 +1,12 @@
+{
+  "argv": [
+    "python3",
+    "scripts/validate_template_sync.py"
+  ],
+  "cwd": "/home/runner/work/Workflows/Workflows",
+  "exit": 0,
+  "stdout": "template-sync.stdout.gz",
+  "stdout_sha256": "e00bc56a4eb4ab5ca9c721c61262b90d9d55e74187fec23e1144d500af0fcc6b",
+  "stderr": "template-sync.stderr.gz",
+  "stderr_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+}

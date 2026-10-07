@@ -1,0 +1,16 @@
+{
+  "argv": [
+    "git",
+    "--git-dir=/tmp/runtime-probe-commit-6hi951kx/repo.git",
+    "--work-tree=/home/runner/work/Workflows/Workflows",
+    "diff",
+    "--cached",
+    "--check"
+  ],
+  "cwd": "/home/runner/work/Workflows/Workflows",
+  "exit": 2,
+  "stdout": "staged-diff-check-plaintext-junit.stdout.gz",
+  "stdout_sha256": "73231c000ce7b76fd1b3dfb35a725f0c59f662b0b0235857fbd4e599854b2daf",
+  "stderr": "staged-diff-check-plaintext-junit.stderr.gz",
+  "stderr_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+}

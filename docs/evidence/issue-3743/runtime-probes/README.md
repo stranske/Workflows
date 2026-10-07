@@ -1,0 +1,184 @@
+# Runtime-probe evidence for #3743
+
+The fourteen existing root/template cases now observe the real subprocess runner.
+They assert the import probe's exact command, working directory, exit code and
+stdout sentinel; the original OS exception's identity as well as its ENOENT,
+filename and cause; and the absence of any further launch after failed repair.
+The unrecognized-command mutation now actually launches that command while
+returning False, so its RED result proves the non-launch contract directly.
+No production defect was reproduced and no production code was changed.
+
+The original receipts in this directory describe the earlier test and driver
+bytes. Fresh receipts for the strengthened tests are under `revalidation/`.
+Each command receipt contains the actual argv, cwd, process exit and hashes of
+its complete separate stdout/stderr files. JUnit and coverage JSON are retained
+without abridgment. `source-provenance.json` verifies that both production copies
+and all four baseline test files are byte-identical to base
+`98b6ed3de1fdea92e3eb00420c863f873a00a210`.
+
+Replay into a directory that does not already exist:
+
+```sh
+python3 docs/evidence/issue-3743/runtime-probes/replay.py --output /tmp/unique-runtime-probe-proof
+```
+
+The fresh replay ran in a new temporary directory. Its complete output was then
+copied to `revalidation/replay/`; argv and JUnit retain the actual temporary paths.
+All fourteen distinct named cases have mutation exit 1 and restoration exit 0.
+Each RED JUnit reports one executed failure with zero errors/skips; each GREEN
+reports one passing case. Original and restored SHA-256 hashes match in every
+record. The driver also retains each phase's separate raw console streams and
+asserts source restoration hashes. `replay-verification.json` records the receipt
+cross-checks.
+
+Replay stdout/stderr and JUnit files are losslessly gzip-compressed in the
+retained copy because pytest failure diagnostics contain trailing whitespace.
+`compressed-manifest.json` records both encoded and decoded hashes; decompressed
+bytes match the original raw captures and the embedded control receipts exactly.
+
+Verified task checklist:
+
+- [x] Fourteen root/template runtime-probe cases pass, including real private-module
+  imports, sentinel semantics, non-launch, missing executable causes and failed
+  repair exception preservation without another launch (`runtime-suite.xml`).
+- [x] All fourteen production mutations fail and all byte-identical restorations
+  pass, with complete console/JUnit/exit/hash receipts (`replay/controls.json`).
+- [x] Matched 272-case baseline and 286-case candidate coverage comparison,
+  with zero failures/errors/skips (`comparison.json`).
+
+Both coverage commands use `--cov=scripts.check_deliberate_break --cov-branch`
+and `-m "not slow"`. Aside from output destinations, the candidate adds only the
+new runtime-probe test file. The source, line and branch universes are unchanged:
+591 statements, 262 branches and zero excluded lines. Covered lines increase
+552 to 563 and covered branches increase 239 to 241, with no covered-set
+regressions. Combined coverage increases from 92.73153575615474% to
+94.25556858147714%. The table's `Cover` column reports 92.73% and 94.26%,
+respectively; both complete coverage JSON files are retained.
+
+The required repository-wide Black command exits 0 for all 674 Python files;
+focused Black/Ruff and template sync/completeness checks also exit 0. This
+runner's multi-file Black execution stalled, so `revalidation/black_serial.py`
+uses the installed formatter's same source discovery, configuration and AST
+safety checks serially to populate a writable cache. The unmodified required
+CLI then verifies that cache with `BLACK_CACHE_DIR=/tmp/runtime-probes-black-cache`.
+The serial and CLI receipts retain the commands, environment overrides and
+complete output. `validation.json` records the final checks and
+`revalidation/manifest.json` hashes all fresh receipts.
+
+The retained ranking selects `scripts/check_deliberate_break.py` using a
+repair-history proxy followed by churn, rather than file size. That proxy does
+not establish verified escaped-defect frequency. These measurements cover only
+this helper and do not establish repository-wide 90% coverage.
+
+The replay driver now verifies each JUnit receipt before accepting a phase:
+exactly the selected named case must execute, with one failure for RED or one
+pass for GREEN and no errors or skips. Three driver regressions reject setup
+errors, skips, wrong cases and inconsistent outcomes. Each new regression was
+run against a deliberately disabled validator (exit 1), then its byte-identical
+restoration (exit 0). Fresh full production replay, driver controls, matched
+coverage and validation receipts are retained under `replay-validation/`.
+Console streams are losslessly gzip-compressed; command receipts hash the
+decoded bytes. The fourteen production controls embed the raw console and JUnit.
+Driver failure JUnit is also losslessly compressed because pytest diagnostics
+include trailing whitespace; the initial diff rejection is retained.
+The fresh baseline and candidate again pass 272 and 286 cases, respectively,
+with the same 92.73% to 94.26% combined coverage increase. Repository Black
+checks all 675 Python files. Template completeness initially confirmed alignment
+but failed writing the inherited read-only runner summary path; the retained
+retry exits 0 with `GITHUB_STEP_SUMMARY` pointing to a writable `/tmp` file.
+
+The seven previously unchecked PR tasks and acceptance criteria reconcile to
+the verified receipts above. GitHub read access confirms PR #3808 is open and
+ready for review. Automatic approval review rejected the PR-body write because
+the run's approval policy is `never`; the remote checkboxes remain unchecked.
+The canonical `.git` directory is read-only; commit handoff uses isolated Git
+metadata under `/tmp` and a bundle.
+
+`module-identity-validation/` retains a further replay-validator repair: JUnit
+must identify the selected module as well as the test name. A same-named case
+from another module can no longer satisfy either RED or GREEN validation.
+The added regression fails when that module check is removed and passes after
+byte-identical restoration; all four validator tests pass. Fresh fourteen-case
+production replay and matched 272/286 coverage receipts again confirm the same
+92.73% to 94.26% combined increase, with unchanged source/branch universes.
+
+## Closer runtime validation
+
+The replay reads JUnit and child output as UTF-8; generated private-runtime scripts
+are written as UTF-8. All replay acceptance guards now use explicit RuntimeError
+checks and remain active under Python -O, including anchor uniqueness, exact phase
+exit, JUnit identity/outcome, restoration hashes and complete case count.
+
+The existing 14 production mutations were replayed with the driver under -O:
+14 named RED failures and14 restored GREEN passes. The old assert-based validator
+yields3 failed/1passed rejection tests under -O; candidate yields4passed. The combined
+optimized focused tests yield18passed, and14 runtime cases pass with non-ASCII paths
+and LC_ALL=C/PYTHONUTF8=0/PYTHONCOERCECLOCALE=0. Raw receipts are retained under
+closer-runtime-validation/. Initial optimized pytest stopped on a warning-as-error;
+the subsequent explicit warning policy run is the successful receipt.
+
+The Semgrep command-injection warning is scoped to one exact rule at the fixed argv
+argument: shell=False, executable/module/options fixed, user output directory remains
+--junitxml filename data. Semgrep CE p/python and p/default report0findings/0errors
+across all3changed Python files. No broad suppression or finding dismissal was used.
+Historical baseline/candidate coverage measurements are preserved unchanged.
+
+Related runtime/replay/helper suite:266passed in77.40seconds,exit0.
+
+## Temporary JUnit transport supersedes suppression
+
+Actual GitHub check112704789319 still reported the argv warning at41b685b despite
+the preceding local nosemgrep0finding scan. That local result did not establish
+hosted security clearance. The replay now generates each child JUnit path in a
+fresh TemporaryDirectory, then copies XML into the requested output directory.
+User-selected output paths no longer enter child argv; the suppression is removed.
+All4workflow Semgrep configurations scan the final driver with0findings/0errors.
+Another actual optimized14mutation replay yields14RED/14GREEN with named JUnit
+outcomes and byte-identical root/template restoration. Raw receipts and the
+contradicting hosted annotation are preserved under closer-temp-junit/. Hosted
+clearance remains required on the new head; no alert was dismissed.
+
+The two closer validation directories package their raw phase/scan artifacts in
+phase-artifacts.json.gz to keep changed-path discovery below its300-file trust
+limit. Each JSON key is the original filename, with exact bytes base64-encoded
+and independently hashed by SHA256. Decode the base64 value, then decompress
+original .gz members normally. The validation summaries remain separate. All
+previously captured bytes are preserved; historical evidence directories are
+untouched.
+
+## Lossless historical replay packaging
+
+The three earlier `revalidation/replay`, `replay-validation/replay`, and
+`module-identity-validation/replay` directories are retained byte-for-byte in
+their sibling `replay-artifacts.json.gz` files. This reduces the PR below the
+300-path Actions-filter evidence limit; it does not remove a test or change a
+recorded outcome. Each archive is a gzip JSON object keyed by original relative
+filename, containing `base64`, `bytes`, and `sha256`. Before reading a historical
+nested manifest or transcript, reconstruct its directory with:
+
+```python
+import base64, gzip, hashlib, json
+from pathlib import Path
+root = Path("docs/evidence/issue-3743/runtime-probes")
+for archive in root.glob("*/replay-artifacts.json.gz"):
+    destination = archive.parent / "replay"
+    for name, record in json.loads(gzip.decompress(archive.read_bytes())).items():
+        member = Path(name)
+        if member.is_absolute() or ".." in member.parts:
+            raise ValueError("unsafe archive member")
+        data = base64.b64decode(record["base64"], validate=True)
+        if len(data) != record["bytes"] or hashlib.sha256(data).hexdigest() != record["sha256"]:
+            raise ValueError("archive integrity failure")
+        target = destination / member
+        target.parent.mkdir(parents=True, exist_ok=True)
+        target.write_bytes(data)
+```
+
+All 255 original members were decoded and compared against their original Git
+checkout bytes before packaging. Original source, tests, replay scripts, JUnit,
+coverage measurements and raw outputs are unchanged. The earlier root manifest
+is preserved verbatim as `manifest.prepack-historical.json`; it describes its
+historical capture rather than later driver/README changes. `manifest.json` now
+hashes every retained file in this directory except itself, including the
+archives and the original manifest. Historical nested manifests remain intact
+and refer to their original filenames after extraction.

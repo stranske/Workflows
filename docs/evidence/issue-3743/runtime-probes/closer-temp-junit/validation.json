@@ -1,0 +1,22 @@
+{
+  "at": "2026-10-07T08:38:58.948427+00:00",
+  "driver_optimized": true,
+  "actual_exit": 0,
+  "named_red_failures": 14,
+  "restored_green_passes": 14,
+  "root_template_restoration": true,
+  "semgrep": {
+    "configs": [
+      "p/python",
+      "p/default",
+      "p/github-actions",
+      "p/secrets"
+    ],
+    "findings": 0,
+    "errors": 0,
+    "exit": 0,
+    "suppression": false
+  },
+  "replay_sha256": "e9546f813ba1573ae5d6e345a9265f1adaac2b1c430e5de9701aab76d0ab2baa",
+  "reason": "Earlier nosemgrep local scan passed but actual GitHub Semgrep OSS check112704789319 retained error; remove suppression and user output path from childargv"
+}

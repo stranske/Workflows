@@ -1,0 +1,25 @@
+{
+  "argv": [
+    "env",
+    "BLACK_CACHE_DIR=/tmp/runtime-probe-module-black-cache",
+    "black",
+    "--check",
+    "--line-length",
+    "100",
+    "--exclude",
+    "(\\.workflows-lib|node_modules)",
+    "."
+  ],
+  "cwd": "/home/runner/work/Workflows/Workflows",
+  "exit": 0,
+  "stdout": {
+    "path": "black-all.stdout.gz",
+    "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+    "bytes": 0
+  },
+  "stderr": {
+    "path": "black-all.stderr.gz",
+    "sha256": "9fc7f5611aa672af6d23bee7690fe2fb9727765822f3c7f181843aa1f4af9a61",
+    "bytes": 58
+  }
+}

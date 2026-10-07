@@ -1,0 +1,15 @@
+{
+  "argv": [
+    "python3",
+    "scripts/validate_template_completeness.py"
+  ],
+  "cwd": "/home/runner/work/Workflows/Workflows",
+  "exit": 0,
+  "environment_overrides": {
+    "GITHUB_STEP_SUMMARY": "/tmp/runtime-probes-validation-summary.md"
+  },
+  "stdout": "template-completeness.stdout.gz",
+  "stdout_sha256": "571919c147488c55064046a0c64cf3a5919172b39a3d890dbad258b6d65c1018",
+  "stderr": "template-completeness.stderr.gz",
+  "stderr_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+}

@@ -1,0 +1,18 @@
+{
+  "argv": [
+    "black",
+    "--check",
+    "--line-length",
+    "100",
+    "docs/evidence/issue-3743/runtime-probes/replay.py"
+  ],
+  "cwd": "/home/runner/work/Workflows/Workflows",
+  "exit": 0,
+  "environment_overrides": {
+    "BLACK_CACHE_DIR": "/tmp/runtime-probes-final-black-cache"
+  },
+  "stdout": "black-focused-2.stdout.gz",
+  "stdout_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+  "stderr": "black-focused-2.stderr.gz",
+  "stderr_sha256": "1a56c7cd8457fd05d978cfbd139d7bfd86e86acaa9b57668e718ef8bccc0cf48"
+}

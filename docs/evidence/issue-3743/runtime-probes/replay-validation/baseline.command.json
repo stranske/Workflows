@@ -1,0 +1,27 @@
+{
+  "argv": [
+    "python3",
+    "-m",
+    "pytest",
+    "tests/scripts/test_check_deliberate_break.py",
+    "tests/scripts/test_check_deliberate_break_archive.py",
+    "tests/scripts/test_check_deliberate_break_launch_boundaries.py",
+    "tests/scripts/test_launch_mutation_driver.py",
+    "-q",
+    "-o",
+    "addopts=",
+    "-m",
+    "not slow",
+    "--cov=scripts.check_deliberate_break",
+    "--cov-branch",
+    "--cov-report=term-missing",
+    "--cov-report=json:/home/runner/work/Workflows/Workflows/docs/evidence/issue-3743/runtime-probes/replay-validation/baseline.json",
+    "--junitxml=/home/runner/work/Workflows/Workflows/docs/evidence/issue-3743/runtime-probes/replay-validation/baseline.xml"
+  ],
+  "cwd": "/home/runner/work/Workflows/Workflows",
+  "exit": 0,
+  "stdout": "baseline.stdout.gz",
+  "stdout_sha256": "3b984fb38dfd680bb49acaf6943cc89540d712a1b4723144c475e1c9f331f677",
+  "stderr": "baseline.stderr.gz",
+  "stderr_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+}

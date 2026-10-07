@@ -1,0 +1,7 @@
+{
+  "base": "98b6ed3de1fdea92e3eb00420c863f873a00a210",
+  "sha256": {
+    "scripts/check_deliberate_break.py": "cc97119ea26afec275be3c83d22bc75de0d452cd0f4764896cc9d037274ab25a",
+    "templates/consumer-repo/scripts/check_deliberate_break.py": "cc97119ea26afec275be3c83d22bc75de0d452cd0f4764896cc9d037274ab25a"
+  }
+}
