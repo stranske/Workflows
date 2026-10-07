@@ -92,6 +92,18 @@ reviewer or product actor before or after the complete destination list.
 Human AND/OR deliveries and product-component alternatives retain independent
 reviewer/artifact obligations and actual missing/unavailable-channel floors;
 canonical recorded, optional, prohibited and quoted controls remain unchanged.
+Recognized availability relatives also stay attached to bounded product
+components while passive actor binding reads the complete destination list.
+Moving the qualifier after that list preserves a mandatory bare sibling in
+either order and with AND/OR, without turning the component into a delivery.
+An independent artifact duty cannot satisfy a missing bare review channel.
+Component content relatives use the same bounded presence grammar as bare
+channels, but do not create a separate review delivery: their parent governor
+and full destination list remain authoritative. Bare-channel relative duties
+remain independent. Passive binding reads both attachment kinds before channel
+classification, and independent reviewer/artifact clauses remain intact. This
+normalization changes only delivery classification, not the original criterion
+supplied to the substantive review prompt.
 Delivery recognition and product recipients share a bounded modifier grammar
 rather than an adjective allowlist. Active human/product past-tense subjects
 remain operations; participial evidence adjectives do not become new deliveries.

@@ -268,6 +268,160 @@ def test_passive_aliases_preserve_actor_options_and_actual_floor(
         assert result.verdict == ("PASS" if satisfied else "CONCERNS")
 
 
+@pytest.mark.parametrize("operation", ["record", "supply", "leave"])
+@pytest.mark.parametrize("voice", ["active", "agent-before", "agent-after"])
+@pytest.mark.parametrize(
+    "destination,channel,other,other_channel",
+    [
+        ("the PR body", "body", "a PR comment", "comments"),
+        ("the PR description", "body", "a PR comment", "comments"),
+        ("a PR comment", "comments", "the PR body", "body"),
+    ],
+)
+@pytest.mark.parametrize("coordination", ["and", "or"])
+@pytest.mark.parametrize("reverse", [False, True])
+@pytest.mark.parametrize(
+    "availability", ["", " that is available", " that must always remain available"]
+)
+@pytest.mark.parametrize("governor", ["must", "may", "must not"])
+@pytest.mark.parametrize("independent", [False, True])
+@pytest.mark.parametrize("missing", ["absent", "unavailable"])
+def test_component_availability_preserves_bare_sibling_and_passive_actor(
+    operation,
+    voice,
+    destination,
+    channel,
+    other,
+    other_channel,
+    coordination,
+    reverse,
+    availability,
+    governor,
+    independent,
+    missing,
+):
+    members = [destination + " settings panel" + availability, other]
+    if reverse:
+        members.reverse()
+    target = f" {coordination} in ".join(members)
+    participle = {"record": "recorded", "supply": "supplied", "leave": "left"}[operation]
+    if voice == "active":
+        criterion = f"The UI {governor} {operation} evidence in {target}"
+    elif voice == "agent-before":
+        criterion = f"Evidence {governor} be {participle} by the UI in {target}"
+    else:
+        criterion = f"Evidence {governor} be {participle} in {target} by the UI"
+    expected = {other_channel} if governor == "must" else set()
+    if independent:
+        criterion += "; the auditor must record evidence in a workflow artifact"
+        expected.add("artifacts")
+    assert verifier._required_evidence_channels(criterion) == expected
+    assert verifier._required_evidence_options(criterion) == [expected]
+    spec = importlib.util.spec_from_file_location(
+        "component_availability_floor_fixture",
+        Path(__file__).with_name("test_pr_verifier_prompt_coverage.py"),
+    )
+    fixture = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(fixture)
+    for present in (set(), {"body"}, {"comments"}, {"body", "comments"}):
+        evidence = (
+            "- Overall retrieval status: **present**\n"
+            f"- PR body: **{'present' if 'body' in present else missing}**\n"
+            f"- PR comments: **{'present' if 'comments' in present else missing}**\n"
+            "- Referenced workflow artifacts: **present**"
+        )
+        context, _ = fixture._context(1, 1000, 1000)
+        context = context.replace("- " + fixture.ACCEPTANCE_SENTINEL, criterion).replace(
+            "## PR Diff Summary", "## Acceptance evidence\n\n" + evidence + "\n\n## PR Diff Summary"
+        )
+        result = verifier._apply_coverage_floor(
+            verifier.EvaluationResult(verdict="PASS", used_llm=True),
+            verifier.prompt_coverage(context, None),
+        )
+        assert result.verdict == ("PASS" if expected <= (present | {"artifacts"}) else "CONCERNS")
+
+
+@pytest.mark.parametrize("operation", ["record", "supply", "leave"])
+@pytest.mark.parametrize("voice", ["active", "agent-before", "agent-after"])
+@pytest.mark.parametrize(
+    "destination,channel,other,other_channel",
+    [
+        ("the PR body", "body", "a PR comment", "comments"),
+        ("the PR description", "body", "a PR comment", "comments"),
+        ("a PR comment", "comments", "the PR body", "body"),
+    ],
+)
+@pytest.mark.parametrize("reverse", [False, True])
+@pytest.mark.parametrize("coordination", ["and", "or"])
+@pytest.mark.parametrize("governor", ["must", "may", "must not"])
+def test_component_availability_comma_retains_actual_floor(
+    operation, voice, destination, channel, other, other_channel, reverse, coordination, governor
+):
+    for availability in (", that is available", ", which must always remain available"):
+        test_component_availability_preserves_bare_sibling_and_passive_actor(
+            operation,
+            voice,
+            destination,
+            channel,
+            other,
+            other_channel,
+            coordination,
+            reverse,
+            availability,
+            governor,
+            True,
+            "unavailable",
+        )
+
+
+@pytest.mark.parametrize("operation", ["record", "supply", "leave"])
+@pytest.mark.parametrize("voice", ["active", "agent-before", "agent-after"])
+@pytest.mark.parametrize(
+    "destination,channel,other,other_channel",
+    [
+        ("the PR body", "body", "a PR comment", "comments"),
+        ("the PR description", "body", "a PR comment", "comments"),
+        ("a PR comment", "comments", "the PR body", "body"),
+    ],
+)
+@pytest.mark.parametrize("reverse", [False, True])
+@pytest.mark.parametrize("coordination", ["and", "or"])
+@pytest.mark.parametrize("governor", ["must", "may", "must not"])
+@pytest.mark.parametrize("missing", ["absent", "unavailable"])
+def test_component_relative_presence_preserves_parent_actual_floor(
+    operation,
+    voice,
+    destination,
+    channel,
+    other,
+    other_channel,
+    reverse,
+    coordination,
+    governor,
+    missing,
+):
+    for attachment in (
+        " that may contain command output",
+        " that must contain command output",
+        " that must not contain command output",
+        " that must contain command output if available",
+    ):
+        test_component_availability_preserves_bare_sibling_and_passive_actor(
+            operation,
+            voice,
+            destination,
+            channel,
+            other,
+            other_channel,
+            coordination,
+            reverse,
+            attachment,
+            governor,
+            True,
+            missing,
+        )
+
+
 @pytest.mark.parametrize("actor", ["reviewer", "service"])
 @pytest.mark.parametrize(
     "operation",

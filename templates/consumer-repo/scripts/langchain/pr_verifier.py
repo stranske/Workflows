@@ -1131,6 +1131,24 @@ _EVIDENCE_RECORD_ALIASES = {
 }
 
 
+_RELATIVE_REVIEW_PRESENCE_PREDICATE = (
+    _EVIDENCE_DELIVERY_ADVERBS
+    + _INDEPENDENT_REVIEW_PREDICATE
+    + r"\s+"
+    + _EVIDENCE_DELIVERY_ADVERBS
+    + r"(?:(?:not|never|no\s+longer)\s+"
+    + _EVIDENCE_DELIVERY_ADVERBS
+    + r")?(?:"
+    + _EVIDENCE_PASSIVE_PREFIX
+    + r")?(?:contain|includ(?:e|ing)|hav(?:e|ing))\w*\s+"
+    r"(?:(?:the|an?|any|no)\s+)?"
+    + _EVIDENCE_OBJECT_MODIFIERS
+    + r"(?:evidence|artifacts?|transcripts?|command outputs?|"
+    + _EVIDENCE_PROOF_ALIAS_NOUN
+    + r")\b"
+)
+
+
 def _normalize_passive_review_agents(acceptance: str) -> str:
     """Retain passive actor/governor binding for both channels and OR expansion."""
     actor = (
@@ -1163,13 +1181,23 @@ def _normalize_passive_review_agents(acceptance: str) -> str:
     separator = (
         _EVIDENCE_DESTINATION_SEPARATOR_BASE + r"(?:" + _EVIDENCE_DESTINATION_PREPOSITION + r"\s+)?"
     )
+    attachment = (
+        r"(?:"
+        + _ATTACHED_REVIEW_AVAILABILITY
+        + r"|(?:that|which)\s+"
+        + _RELATIVE_REVIEW_PRESENCE_PREDICATE
+        + r"(?:\s*,?\s*"
+        + _EVIDENCE_CONDITIONAL
+        + r")?)"
+    )
+    destination_item = _EVIDENCE_REVIEW_DESTINATION + r"(?:\s*,?\s*" + attachment + r")?"
     destination = (
         _EVIDENCE_DESTINATION_PREPOSITION
         + r"\s+(?:either\s+)?"
-        + _EVIDENCE_REVIEW_DESTINATION
+        + destination_item
         + r"(?:"
         + separator
-        + _EVIDENCE_REVIEW_DESTINATION
+        + destination_item
         + r")*"
     )
     predicate = (
@@ -1218,27 +1246,15 @@ def _normalize_passive_review_agents(acceptance: str) -> str:
 
 
 def _normalize_relative_review_presence(acceptance: str) -> str:
-    """Keep a relative presence governor independent of its parent's AND/OR."""
+    """Retain parent lists and distinguish bare-channel duties from component content."""
     presence = (
-        r"(?P<destination>(?:pr|pull request)\s+(?:body|description|comments?)\b)"
-        r"\s*,?\s*(?:that|which)\s+(?P<predicate>"
-        + _EVIDENCE_DELIVERY_ADVERBS
-        + _INDEPENDENT_REVIEW_PREDICATE
-        + r"\s+"
-        + _EVIDENCE_DELIVERY_ADVERBS
-        + r"(?:(?:not|never|no\s+longer)\s+"
-        + _EVIDENCE_DELIVERY_ADVERBS
-        + r")?(?:"
-        + _EVIDENCE_PASSIVE_PREFIX
-        + r")?(?:contain|includ(?:e|ing)|hav(?:e|ing))\w*\s+"
-        r"(?:(?:the|an?|any|no)\s+)?"
-        + _EVIDENCE_OBJECT_MODIFIERS
-        + r"(?:evidence|artifacts?|transcripts?|command outputs?|"
-        + _EVIDENCE_PROOF_ALIAS_NOUN
-        + r"))\b"
+        r"(?P<destination>(?:pr|pull request)\s+(?:body|description|comments?)\b"
+        r"(?P<presence_component>\s+" + _REVIEW_BODY_COMPONENT + r")?)"
+        r"\s*,?\s*(?:that|which)\s+(?P<predicate>" + _RELATIVE_REVIEW_PRESENCE_PREDICATE + r")"
     )
     availability = (
-        r"(?P<availability_destination>(?:pr|pull request)\s+(?:body|description|comments?)\b)"
+        r"(?P<availability_destination>(?:pr|pull request)\s+(?:body|description|comments?)\b"
+        r"(?:\s+" + _REVIEW_BODY_COMPONENT + r")?)"
         r"\s*,?\s*(?P<availability>" + _ATTACHED_REVIEW_AVAILABILITY + r")"
     )
     destination_tail = re.compile(
@@ -1273,7 +1289,12 @@ def _normalize_relative_review_presence(acceptance: str) -> str:
         assert tail is not None
         destination = match["destination"] or match["availability_destination"]
         parent = destination + tail[0]
-        if match["predicate"]:
+        if match["predicate"] and match["presence_component"]:
+            # Component content is product behavior, not another review-channel
+            # delivery. Keep the parent's complete destinations and governor;
+            # the original criterion remains unchanged in the review prompt.
+            replacement = parent
+        elif match["predicate"]:
             replacement = (
                 parent
                 + "; "
