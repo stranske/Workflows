@@ -127,6 +127,20 @@ for (const [surface, builder] of [
   ['root', require('../keepalive_instruction_template')],
   ['consumer', require('../../../templates/consumer-repo/.github/scripts/keepalive_instruction_template')],
 ]) {
+  test(`${surface}: durable round state renders outcomes without polluting cached instructions`, () => {
+    const attempt = Object.freeze({
+      iteration: 2, action: 'fix', reason: 'fix-tests', run_result: 'failure',
+      prompt_mode: 'fix_ci', gate: 'failure', error_category: 'code',
+    });
+    const state = Object.freeze({ attempts: Object.freeze([attempt]) });
+    const result = builder.composeKeepaliveInstruction({ state });
+    assert.deepEqual(result.segments, ['instruction', 'round-history']);
+    assert.match(result.text, /Round 2: fix; result=failure/);
+    assert.match(result.text, /strategy=fix_ci; gate=failure; error=code/);
+    assert.ok(!builder.getKeepaliveInstruction().includes('Recent Round Outcomes'));
+    assert.equal(state.attempts[0], attempt);
+  });
+
   test(`${surface}: composition exposes routed mode and renders segments with mock state`, () => {
     const state = Object.freeze({ iteration: 3, previous_task: 'Add parser' });
     const context = Object.freeze({ task: 'Test parser' });

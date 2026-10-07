@@ -2410,7 +2410,102 @@ test('updateKeepaliveLoopSummary stores attempted task focus', async () => {
   assert.equal(parsed.data.last_focus, 'Task B');
   assert.ok(Array.isArray(parsed.data.attempted_tasks));
   assert.equal(parsed.data.attempted_tasks[0].task, 'Task B');
+  assert.equal(parsed.data.attempts[0].focus_task, 'Task B');
 });
+
+for (const [surface, loop] of [
+  ['root', require('../keepalive_loop.js')],
+  ['consumer', require('../../../templates/consumer-repo/.github/scripts/keepalive_loop.js')],
+]) {
+  test(`${surface}: task and failed outcome survive a new round and reach its prompt`, async () => {
+    const comments = [{ id: 41, body: formatStateComment({
+      trace: 'trace-outcomes', iteration: 0, current_focus: 'Task A',
+      tasks: { total: 3, unchecked: 3 },
+    }) }];
+    const pr = {
+      number: 654, head: { ref: 'feature/outcomes', sha: 'sha-outcomes' },
+      labels: [{ name: 'agent:codex' }],
+      body: '## Tasks\n- [ ] Task A\n- [ ] Task B\n## Acceptance Criteria\n- [ ] pass',
+    };
+    const inputs = {
+      prNumber: pr.number, action: 'run', reason: 'ready', runResult: 'failure',
+      gateConclusion: 'success', tasksTotal: 3, tasksUnchecked: 3,
+      keepaliveEnabled: true, iteration: 0, maxIterations: 10,
+      failureThreshold: 10, trace: 'trace-outcomes', prompt_mode: 'normal',
+    };
+    const first = buildGithubStub({ pr, comments });
+    await loop.updateKeepaliveLoopSummary({
+      github: first, context: buildContext(pr.number), core: buildCore(), inputs,
+    });
+    const firstWrite = first.actions.find((action) => action.type === 'update');
+    const firstState = parseStateComment(firstWrite.body).data;
+    assert.equal(firstState.attempts[0].focus_task, 'Task A');
+    assert.equal(firstState.attempts[0].run_result, 'failure');
+    assert.ok(firstState.attempts[0].error_category);
+
+    // A fresh client loads only the serialized trusted comment, as on the next
+    // workflow invocation. No in-memory state manager is shared between rounds.
+    const nextComments = [{ id: 41, body: firstWrite.body }];
+    const second = buildGithubStub({ pr, comments: nextComments });
+    const { loadKeepaliveState } = require('../keepalive_state.js');
+    const loaded = await loadKeepaliveState({
+      github: second, context: buildContext(pr.number), prNumber: pr.number,
+      trace: inputs.trace,
+    });
+    assert.deepEqual(loaded.state.attempts, firstState.attempts);
+    const appendix = loop.buildTaskAppendix(
+      { tasks: '- [ ] Task A\n- [ ] Task B' },
+      { total: 2, checked: 0, unchecked: 2 }, loaded.state,
+    );
+    assert.match(appendix, /Round 1: run; result=failure; task=Task A/);
+    assert.match(appendix, /### Suggested Next Task\n- Task B/);
+
+    await loop.markAgentRunning({
+      github: second, context: buildContext(pr.number), core: buildCore(),
+      inputs: { ...inputs, iteration: 1 },
+    });
+    const runningWrite = second.actions.find((action) => action.type === 'update');
+    assert.deepEqual(parseStateComment(runningWrite.body).data.attempts, firstState.attempts);
+    const third = buildGithubStub({ pr, comments: [{ id: 41, body: runningWrite.body }] });
+    await loop.updateKeepaliveLoopSummary({
+      github: third, context: buildContext(pr.number), core: buildCore(),
+      inputs: { ...inputs, iteration: 1, runResult: 'success' },
+    });
+    const state = parseStateComment(third.actions.find((action) => action.type === 'update').body).data;
+    assert.equal(state.attempts.length, 2);
+    assert.deepEqual(state.attempts[0], firstState.attempts[0]);
+    assert.equal(state.attempts[1].focus_task, 'Task B');
+    assert.equal(state.attempts[1].run_result, 'success');
+    assert.equal(state.attempts[1].tasks_completed_delta, 0);
+  });
+
+  test(`${surface}: repair and verification outcomes do not claim a stale feature focus`, async () => {
+    for (const [action, reason] of [
+      ['fix', 'fix-tests'], ['conflict', 'merge-conflict'], ['run', 'verify-acceptance'],
+      ['run', 'fix-verification-gaps'],
+    ]) {
+      const github = buildGithubStub({ comments: [{ id: 41, body: formatStateComment({
+        trace: 'trace-routed-outcome', iteration: 1, current_focus: 'Task A',
+        attempted_tasks: [{ task: 'Earlier task' }],
+      }) }] });
+      await loop.updateKeepaliveLoopSummary({
+        github, context: buildContext(654), core: buildCore(),
+        inputs: {
+          prNumber: 654, action, reason, runResult: 'success',
+          gateConclusion: 'success', tasksTotal: 2, tasksUnchecked: 0,
+          keepaliveEnabled: true, iteration: 1, maxIterations: 10,
+          failureThreshold: 10, trace: 'trace-routed-outcome',
+        },
+      });
+      const state = parseStateComment(github.actions.find((a) => a.type === 'update').body).data;
+      assert.equal(state.attempts[0].action, action);
+      assert.equal(state.attempts[0].reason, reason);
+      assert.equal(state.attempts[0].run_result, 'success');
+      assert.ok(!Object.hasOwn(state.attempts[0], 'focus_task'));
+      assert.deepEqual(state.attempted_tasks, [{ task: 'Earlier task', key: 'earlier task' }]);
+    }
+  });
+}
 
 test('updateKeepaliveLoopSummary marks verification when verifier succeeds', async () => {
   const existingState = formatStateComment({

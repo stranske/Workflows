@@ -3,7 +3,7 @@
 const fs = require('fs');
 const path = require('path');
 const { resolvePromptMode } = require('./keepalive_prompt_routing');
-const { composePrompt } = require('./keepalive_prompt_composer');
+const { composePrompt, createRoundHistorySegment } = require('./keepalive_prompt_composer');
 
 /**
  * Path to the fallback keepalive instruction template.
@@ -136,6 +136,7 @@ function composeKeepaliveInstruction(options = {}) {
         text: BLACK_PREFLIGHT_BLOCK,
       },
       { id: 'instruction', text: content },
+      createRoundHistorySegment(),
       ...(Array.isArray(params.segments) ? params.segments : []),
     ],
   });

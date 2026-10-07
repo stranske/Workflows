@@ -178,7 +178,23 @@ canonical directive, then appends `options.segments` (an array). It forwards
 Only template text is cached: callbacks run again on each composition.
 `getKeepaliveInstruction(options)` remains a string-returning wrapper, and
 the existing mention wrapper uses that same composed text. Existing calls
-without extra segments retain their directive text and routing behavior.
+without round history or extra segments retain their directive text and routing behavior.
+
+Round outcomes use the existing `keepalive_state.js` trusted PR-comment storage,
+scoped to the PR and trace. `updateKeepaliveLoopSummary` retains the bounded
+`attempts` history (20 entries) with iteration, action/reason, routed prompt,
+run result, Gate conclusion, classified errors, and task-completion delta.
+Feature rounds also record `focus_task`, binding the attempted task to its
+outcome; CI repair, conflict repair, and acceptance verification omit that
+field so a stale feature focus is not reported as attempted work.
+The separate `attempted_tasks` memory continues to deprioritize tried tasks.
+
+`createRoundHistorySegment()` renders the last three agent outcomes from
+`state.attempts`. Both `composeKeepaliveInstruction({ state })` and the loop's
+task appendix include this reusable segment. Empty/legacy state is supported;
+missing results render as unknown, and wait/skip/defer entries are omitted.
+State loading and saving remain the caller's responsibility. A successful run
+is reported separately from verified checklist progress.
 
 For example, a caller can add a context segment without changing the base
 template:

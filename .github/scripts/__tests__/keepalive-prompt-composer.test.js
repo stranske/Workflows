@@ -3,8 +3,40 @@
 const test = require('node:test');
 const assert = require('node:assert/strict');
 
-const { createPromptComposer, composePrompt } = require('../keepalive_prompt_composer');
+const { createPromptComposer, composePrompt, createRoundHistorySegment } = require('../keepalive_prompt_composer');
 const { computeCapabilityBundleHash } = require('../capability_bundle');
+
+test('round history tolerates legacy and malformed state without inventing outcomes', () => {
+  for (const attempts of [undefined, null, {}, [], [null, 'invalid', { action: 'wait' }]]) {
+    const result = composePrompt({ state: { attempts }, segments: [createRoundHistorySegment()] });
+    assert.equal(result.text, '');
+    assert.deepEqual(result.segments, []);
+  }
+  const result = composePrompt({
+    state: { attempts: [{ iteration: 1, action: 'run', reason: 'ready' }] },
+    segments: [createRoundHistorySegment()],
+  });
+  assert.match(result.text, /Round 1: run; result=unknown; reason=ready/);
+  assert.ok(!result.text.includes('task='));
+});
+
+test('round history keeps the last three agent rounds and includes progress and errors', () => {
+  const attempts = [
+    { iteration: 1, action: 'run', run_result: 'success' },
+    { iteration: 2, action: 'run', run_result: 'failure', focus_task: 'Add\n parser', error_type: 'tests' },
+    { iteration: 2, action: 'wait', reason: 'gate-pending' },
+    { iteration: 3, action: 'fix', run_result: 'failure', prompt_mode: 'fix_ci' },
+    { iteration: 4, action: 'run', run_result: 'success', tasks_completed_delta: 1 },
+  ];
+  const before = JSON.stringify(attempts);
+  const result = composePrompt({ state: { attempts }, segments: [createRoundHistorySegment()] });
+  assert.ok(!result.text.includes('Round 1:'));
+  assert.ok(!result.text.includes('gate-pending'));
+  assert.match(result.text, /Round 2: run; result=failure; task=Add parser; error_type=tests/);
+  assert.match(result.text, /Round 3: fix; result=failure; strategy=fix_ci/);
+  assert.match(result.text, /Round 4: run; result=success; tasks_completed=1/);
+  assert.equal(JSON.stringify(attempts), before);
+});
 
 test('createPromptComposer composes segments in order with default separator', () => {
   const composer = createPromptComposer({

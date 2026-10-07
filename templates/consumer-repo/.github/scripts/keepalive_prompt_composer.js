@@ -118,7 +118,51 @@ function composePrompt(params = {}) {
   return composer.compose(params);
 }
 
+/**
+ * Render durable round outcomes supplied by keepalive_state. The composer stays
+ * read-only; legacy records without a focus still describe the routed attempt.
+ */
+function createRoundHistorySegment() {
+  const field = (value) => normalise(value).replace(/\s+/g, ' ').slice(0, 200);
+  return {
+    id: 'round-history',
+    build: ({ state }) => {
+      const attempts = Array.isArray(state.attempts) ? state.attempts : [];
+      const rounds = attempts.filter((entry) => entry && typeof entry === 'object'
+        && ['run', 'fix', 'conflict', 'verify'].includes(entry.action)).slice(-3);
+      if (!rounds.length) {
+        return '';
+      }
+      const lines = [
+        '### Recent Round Outcomes',
+        'Use these outcomes to adapt the next attempt; a successful run alone does not verify task completion.',
+        '',
+      ];
+      for (const entry of rounds) {
+        const details = [
+          `Round ${field(entry.iteration) || '?'}: ${field(entry.action)}`,
+          `result=${field(entry.run_result) || 'unknown'}`,
+        ];
+        for (const [key, label] of [
+          ['focus_task', 'task'], ['reason', 'reason'], ['prompt_mode', 'strategy'],
+          ['gate', 'gate'], ['error_category', 'error'], ['error_type', 'error_type'],
+        ]) {
+          if (field(entry[key])) {
+            details.push(`${label}=${field(entry[key])}`);
+          }
+        }
+        if (Number.isFinite(entry.tasks_completed_delta)) {
+          details.push(`tasks_completed=${entry.tasks_completed_delta}`);
+        }
+        lines.push(`- ${details.join('; ')}`);
+      }
+      return lines.join('\n');
+    },
+  };
+}
+
 module.exports = {
   createPromptComposer,
   composePrompt,
+  createRoundHistorySegment,
 };

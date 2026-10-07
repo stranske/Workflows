@@ -12,6 +12,7 @@ const {
   upsertStateCommentBody,
 } = require('./keepalive_state');
 const { resolvePromptMode } = require('./keepalive_prompt_routing');
+const { composePrompt, createRoundHistorySegment } = require('./keepalive_prompt_composer');
 const { classifyError, ERROR_CATEGORIES } = require('./error_classifier');
 const { formatFailureComment } = require('./failure_comment_formatter');
 const { detectConflicts } = require('./conflict_detector');
@@ -341,6 +342,7 @@ function buildAttemptEntry({
   tasksUnchecked,
   tasksCompletedDelta,
   allComplete,
+  focusTask,
 }) {
   const actionValue = normalise(action) || 'unknown';
   const reasonValue = normalise(reason) || actionValue;
@@ -349,6 +351,10 @@ function buildAttemptEntry({
     action: actionValue,
     reason: reasonValue,
   };
+
+  if (focusTask) {
+    entry.focus_task = normaliseTaskText(focusTask);
+  }
 
   if (runResult) {
     entry.run_result = normalise(runResult);
@@ -1711,6 +1717,11 @@ function buildTaskAppendix(sections, checkboxCounts, state = {}, options = {}) {
     lines.push('');
     lines.push(sections.acceptance);
     lines.push('');
+  }
+
+  const roundHistory = composePrompt({ state, segments: [createRoundHistorySegment()] }).text;
+  if (roundHistory) {
+    lines.push(roundHistory, '');
   }
 
   const attemptedTasks = normaliseAttemptedTasks(state?.attempted_tasks);
@@ -4249,7 +4260,7 @@ async function updateKeepaliveLoopSummary({ github: rawGithub, context, core, in
     }
 
     const focusTask = currentFocus || fallbackFocus;
-    const shouldRecordAttempt = action === 'run' && reason !== 'verify-acceptance';
+    const shouldRecordAttempt = action === 'run' && promptMode === 'normal';
     let attemptedTasks = normaliseAttemptedTasks(previousState?.attempted_tasks);
     if (shouldRecordAttempt) {
       const attemptLabel = focusTask || (tasksCompletedThisRound > 0 ? 'checkbox-progress' : 'no-focus');
@@ -4478,6 +4489,9 @@ async function updateKeepaliveLoopSummary({ github: rawGithub, context, core, in
       tasksUnchecked,
       tasksCompletedDelta: tasksCompletedThisRound,
       allComplete: allTasksComplete,
+      // CI repair and verification do not attempt the feature task left in
+      // current_focus by markAgentRunning. Bind focus only to feature work.
+      focusTask: shouldRecordAttempt ? focusTask : '',
     });
     newState.attempts = updateAttemptHistory(previousState?.attempts, attemptEntry);
 
