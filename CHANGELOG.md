@@ -6,6 +6,13 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 Breaking changes are called out with a **BREAKING** marker and scheduled according to the policy in `COMPATIBILITY.md`.
 
+## [1.37.28](https://github.com/stranske/Workflows/compare/v1.37.27...v1.37.28) (2026-10-07)
+
+
+### Bug Fixes
+
+* establish authenticated Gate status app provenance ([#3791](https://github.com/stranske/Workflows/issues/3791)) ([fe47f93](https://github.com/stranske/Workflows/commit/fe47f93273d6349d680e633f121d3e37a1ca50fe))
+
 ## [1.37.27](https://github.com/stranske/Workflows/compare/v1.37.26...v1.37.27) (2026-10-06)
 
 
