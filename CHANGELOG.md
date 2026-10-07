@@ -6,6 +6,17 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 Breaking changes are called out with a **BREAKING** marker and scheduled according to the policy in `COMPATIBILITY.md`.
 
+## [1.37.29](https://github.com/stranske/Workflows/compare/v1.37.28...v1.37.29) (2026-10-07)
+
+
+### Bug Fixes
+
+* **checks:** bind empty scenarios to exact skipped caller evidence ([#3798](https://github.com/stranske/Workflows/issues/3798)) ([7e51497](https://github.com/stranske/Workflows/commit/7e51497acabcc76e8ce9e343a169015b21cc3920))
+* **maint52:** regenerate transitive locks before dev-tool delivery ([#3785](https://github.com/stranske/Workflows/issues/3785)) ([89be005](https://github.com/stranske/Workflows/commit/89be00518ca4770be9dd9d746273b9aabbd87203))
+* validate only changed attempt index blobs after migration ([#3797](https://github.com/stranske/Workflows/issues/3797)) ([b4c5c6b](https://github.com/stranske/Workflows/commit/b4c5c6bb92c5571e2c5e5c9f65fa45484446fa4d))
+* **verifier:** bounded input-coverage recovery for large source repairs ([#3786](https://github.com/stranske/Workflows/issues/3786)) ([72611af](https://github.com/stranske/Workflows/commit/72611afbe75b34b9145b8469dddb15c35ac3cfef))
+* **verifier:** preserve alternative evidence destinations and passive CI logs ([#3796](https://github.com/stranske/Workflows/issues/3796)) ([ed90456](https://github.com/stranske/Workflows/commit/ed90456ff075ac88138972b38a74cb4476bd8fed))
+
 ## [1.37.28](https://github.com/stranske/Workflows/compare/v1.37.27...v1.37.28) (2026-10-07)
 
 
