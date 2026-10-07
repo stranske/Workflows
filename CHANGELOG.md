@@ -6,6 +6,14 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 Breaking changes are called out with a **BREAKING** marker and scheduled according to the policy in `COMPATIBILITY.md`.
 
+## [1.37.30](https://github.com/stranske/Workflows/compare/v1.37.29...v1.37.30) (2026-10-07)
+
+
+### Bug Fixes
+
+* **health83:** bound dense workflow-run evidence windows ([#3801](https://github.com/stranske/Workflows/issues/3801)) ([91c1131](https://github.com/stranske/Workflows/commit/91c1131e0b3b323d1eb105ad3fa1d44827189c7c))
+* reject conflicting title and metadata issue bindings ([#3800](https://github.com/stranske/Workflows/issues/3800)) ([35552aa](https://github.com/stranske/Workflows/commit/35552aa22e794fbed1a6ee59d4942ede66fa386e))
+
 ## [1.37.29](https://github.com/stranske/Workflows/compare/v1.37.28...v1.37.29) (2026-10-07)
 
 
