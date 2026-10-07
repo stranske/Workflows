@@ -83,7 +83,9 @@ def test_failed_replay_restores_both_private_helpers(
 
 @pytest.mark.parametrize("copy", ["root", "template"])
 @pytest.mark.parametrize("phase", ["red", "green"])
-@pytest.mark.parametrize("failure", ["outcome", "identity", "malformed-xml", "timeout"])
+@pytest.mark.parametrize(
+    "failure", ["outcome", "identity", "malformed-xml", "timeout", "launch-error"]
+)
 def test_junit_rejection_restores_private_helpers(
     private_replay, monkeypatch, copy, phase, failure
 ):
@@ -108,6 +110,8 @@ def test_junit_rejection_restores_private_helpers(
             assert (tree / relative).read_bytes() != caller_bytes[relative]
         calls.append((selected_copy, proof_phase))
         rejecting = (selected_copy, proof_phase) == (copy, phase)
+        if rejecting and failure == "launch-error":
+            raise FileNotFoundError(2, "pytest interpreter unavailable", argv[0])
         if rejecting and failure == "timeout":
             raise subprocess.TimeoutExpired(argv, kwargs["timeout"])
         name = "wrong" if rejecting and failure == "identity" else node.rsplit("::", 1)[-1]
@@ -121,6 +125,7 @@ def test_junit_rejection_restores_private_helpers(
 
     monkeypatch.setattr(replay.subprocess, "run", subprocess_result)
     expected_error = {
+        "launch-error": FileNotFoundError,
         "timeout": subprocess.TimeoutExpired,
         "malformed-xml": ElementTree.ParseError,
     }.get(failure, ValueError)

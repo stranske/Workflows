@@ -194,3 +194,45 @@ startup; sequential Black passes for 682 files, and the changed test passes
 standard Black individually. Ruff, template completeness and whitespace checks
 pass. No commit or push was made. Repository-wide coverage remains UNKNOWN;
 these artifacts do not authorize merging or closing issue 3743.
+
+### Replay interpreter launch failures
+
+Four additional restoration controls inject `FileNotFoundError` at the pytest
+process boundary during RED and GREEN in each helper copy. They call the real
+`main()` and `run_case()`, verify propagation of the launch failure, restore both
+private helpers and caller inputs, and reject success receipts. This is a
+synthetic launch-error control, not execution of a missing interpreter.
+The focused command above passes 49 tests. Breaking the production driver's
+restoration in a private copy makes all four new controls fail; byte-identical
+restoration makes the same four pass. Caller files remain unchanged.
+
+Fresh matched suites pass 300/308 tests with focused helper coverage
+94.84% → 95.31%, unchanged 591 statements / 262 branches / zero exclusions,
+and no old outcome, covered-line or covered-branch regressions. Their report
+directory contains spaces. The four new replay controls are outside this
+matched suite; its production and test input hashes remain unchanged.
+
+`launch-restoration.tar.gz` and `launch-restoration-index.json` retain the
+focused run, mutation/restoration commands, JUnit, raw logs, input hashes,
+fresh suite comparison, validation results and reconciliation record. Extract
+`validate_uv_launch_restoration.py` into a temporary directory and run it from
+the repository root with a fresh report directory:
+
+```sh
+python3 /tmp/validate_uv_launch_restoration.py '/tmp/uv-launch-restoration-fresh reports'
+```
+
+Reconciliation verified all 266 members of the six prior indexed archives and
+all ten selected suite input hashes. All seven local acceptance items above
+remain verified. PR 3817 is open with `isDraft=false`; the connector rejected
+its checklist update, blocker comment and `needs-human` label because approval
+is required and the policy is `never`.
+The edited test passes standard Black individually, and the retained sequential
+Black adapter passes for all 682 files. The required standard whole-tree Black
+invocation fails at sandbox forkserver startup; its single-worker invocation
+hangs and was interrupted. Ruff, template completeness and whitespace checks
+pass. Staging fails because `.git/index.lock` is on a read-only filesystem, so
+no commit or push was made. The full eight-mutant replay was not rerun because
+`defusedxml` is unavailable; its prior indexed evidence was verified.
+Repository-wide coverage remains UNKNOWN; the evidence does not authorize
+merging or closing issue 3743.
