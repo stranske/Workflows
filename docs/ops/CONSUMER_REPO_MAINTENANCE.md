@@ -277,6 +277,13 @@ destination: leading `either` retains the mandatory alternative, while trailing
 Single, body-first and body-last structural destinations share that bounded
 availability binding for both product and human deliveries; an independent
 reviewer clause retains its own mandatory channels.
+Component spans are bounded to one through three same-line words and stop at
+shared clause/list/availability boundaries, not an expanding UI noun allowlist.
+Both channel classification and destination-OR expansion use that same span.
+A comma may introduce a declared availability condition. Human body/comment ORs
+retain genuine alternatives; a product-only component cannot erase a coordinated
+mandatory review delivery, even when an independent artifact keeps every expanded
+variant nonempty.
 Independent-clause recognition uses those same bounded predicate modifiers, so
 availability cannot spill into a later named reviewer obligation. Bind attached
 delivery to the noun itself (including a coordinated object), not only an

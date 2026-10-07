@@ -984,7 +984,22 @@ _QUOTED_EVIDENCE_LITERAL = (
 )
 
 
-_REVIEW_BODY_COMPONENT = r"(?:editor|field|textarea|preview)\b"
+_REVIEW_BODY_COMPONENT_WORD = (
+    r"(?!(?:and|or|but|in|on|to|for|with|before|after|when|if|"
+    r"is|are|was|were|must|shall|will|should|can|may|has|have|"
+    r"not|never|no|optional|required|mandatory|expected|supposed|"
+    r"contains?|includes?|requires?|needs?|now|today|tomorrow|again|"
+    r"here|there|soon|always|daily|weekly|[\w-]+ly)\b)[\w-]+"
+)
+# One to three same-line words, bounded by a clause/list/availability boundary.
+# The classifier and OR expander must recognize identical component spans.
+_REVIEW_BODY_COMPONENT = (
+    _REVIEW_BODY_COMPONENT_WORD
+    + r"(?:[ \t]+"
+    + _REVIEW_BODY_COMPONENT_WORD
+    + r"){0,2}"
+    + r"(?=[ \t]*(?:$|[;,.!?\n]|(?:and|or|but|if|when|that|which)\b))"
+)
 
 
 def _required_evidence_channels(acceptance: str, *, _bind_attached: bool = True) -> set[str]:
@@ -1953,7 +1968,7 @@ def _required_evidence_channels(acceptance: str, *, _bind_attached: bool = True)
                     re.search(
                         r"\b(?:optional|" + optional_delivery_modal + r")\b", polarity_clause, re.I
                     )
-                    or re.match(r"\s*" + conditional_evidence, text[match.end() :], re.I)
+                    or re.match(r"\s*,?\s*" + conditional_evidence, text[match.end() :], re.I)
                 )
                 and not mandatory_optionality
             )
@@ -1966,11 +1981,7 @@ def _required_evidence_channels(acceptance: str, *, _bind_attached: bool = True)
             # destination followed by a preposition/governor stay authoritative.
             component_tail = text[match.start() + body_match.end() :]
             structural_component = re.match(
-                r"\s+(?!(?:and|or|but|in|on|to|for|with|before|after|when|if|"
-                r"is|are|was|were|must|shall|will|should|can|may|has|have|"
-                r"contains?|includes?|requires?|needs?|now|today|tomorrow|again|"
-                r"here|there|soon|always|daily|weekly|[\w-]+ly)\b)[\w-]+"
-                r"(?=\s*(?:$|[;,.!?]|(?:and|or|but)\b|" + conditional_evidence + r"))",
+                r"\s+" + body_component,
                 component_tail,
                 re.I,
             )
@@ -1982,7 +1993,12 @@ def _required_evidence_channels(acceptance: str, *, _bind_attached: bool = True)
             clause_end = match.end()
             if structural_component:
                 coordinated_tail = re.match(
-                    r"\s+[\w-]+(?:" + destination_separator + destination_item + r")*",
+                    r"\s+"
+                    + body_component
+                    + r"(?:"
+                    + destination_separator
+                    + destination_item
+                    + r")*",
                     component_tail,
                     re.I,
                 )
@@ -1993,7 +2009,7 @@ def _required_evidence_channels(acceptance: str, *, _bind_attached: bool = True)
                     # delivery, including a structurally recognized UI component.
                     if not is_gate and not mandatory_optionality:
                         optional = optional or bool(
-                            re.match(r"\s*" + conditional_evidence, text[clause_end:], re.I)
+                            re.match(r"\s*,?\s*" + conditional_evidence, text[clause_end:], re.I)
                         )
             disposition = (
                 "prohibited"
@@ -3683,11 +3699,16 @@ def _required_evidence_options(acceptance: str) -> list[set[str]]:
         channels = _required_evidence_channels(variant)
         if channels not in options:
             options.append(channels)
-    if any(options) and not all(options):
+    if not all(options):
         # Partial recognition is ambiguous, never permission to drop all
         # evidence. Retain original requirements, plus recognized obligations.
         return [_required_evidence_channels(acceptance) | set().union(*options)]
-    return options
+    # Splitting a product component away from its coordinated review delivery
+    # may suppress that delivery in every variant. Independent obligations can
+    # make every variant nonempty, so the empty-option guard alone is insufficient.
+    # Preserve original obligations absent from the union of recognized options.
+    unrepresented = _required_evidence_channels(acceptance) - set().union(*options)
+    return [option | unrepresented for option in options]
 
 
 def _required_evidence_is_missing(evidence: str, channels: set[str]) -> bool:

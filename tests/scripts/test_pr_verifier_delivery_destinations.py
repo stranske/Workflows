@@ -201,6 +201,58 @@ def test_structural_component_last_preserves_conditionality(
     assert verifier._required_evidence_channels(criterion) == expected
 
 
+@pytest.mark.parametrize("component", ["field", "panel", "settings panel", "results section"])
+@pytest.mark.parametrize("actor,operation", [("UI", "display"), ("reviewer", "post")])
+@pytest.mark.parametrize("destination", ["PR body", "PR description"])
+@pytest.mark.parametrize("body_first", [False, True])
+@pytest.mark.parametrize("coordination", ["and", "or"])
+@pytest.mark.parametrize("condition", ["", " if available", ", if available"])
+@pytest.mark.parametrize("independent", [False, True])
+def test_component_options_and_actual_floor_are_order_symmetric(
+    component, actor, operation, destination, body_first, coordination, condition, independent
+):
+    members = [f"the {destination} {component}", "a PR comment"]
+    if not body_first:
+        members.reverse()
+    criterion = (
+        f"- [ ] The {actor} must {operation} test results in either "
+        + f" {coordination} ".join(members)
+        + condition
+    )
+    if independent:
+        criterion += "; the reviewer must provide evidence in a workflow artifact"
+    extra = {"artifacts"} if independent else set()
+    if condition:
+        expected = [extra]
+    elif actor == "UI":
+        expected = [{"comments"} | extra]
+    elif coordination == "or":
+        expected = [{"body"} | extra, {"comments"} | extra]
+    else:
+        expected = [{"body", "comments"} | extra]
+    assert {frozenset(x) for x in verifier._required_evidence_options(criterion)} == {
+        frozenset(x) for x in expected
+    }
+    spec = importlib.util.spec_from_file_location(
+        "component_options_fixture", Path(__file__).with_name("test_pr_verifier_prompt_coverage.py")
+    )
+    fixture = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(fixture)
+    context, _ = fixture._context(1, 1000, 1000)
+    context = context.replace("- " + fixture.ACCEPTANCE_SENTINEL, criterion).replace(
+        "## PR Diff Summary",
+        "## Acceptance evidence\n\n- Overall retrieval status: **present**\n"
+        "- PR body: **absent**\n- PR comments: **present**\n"
+        "- Referenced workflow artifacts: **present**\n\n## PR Diff Summary",
+    )
+    result = verifier._apply_coverage_floor(
+        verifier.EvaluationResult(verdict="PASS", used_llm=True),
+        verifier.prompt_coverage(context, None),
+    )
+    expected_pass = bool(condition) or actor == "UI" or coordination == "or"
+    assert result.verdict == ("PASS" if expected_pass else "CONCERNS")
+
+
 @pytest.mark.parametrize("marker", ["-", "*", "+", "1.", "1)"])
 @pytest.mark.parametrize(
     "destination,channel",
