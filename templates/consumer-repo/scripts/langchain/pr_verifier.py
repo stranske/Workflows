@@ -1116,9 +1116,10 @@ def _required_evidence_channels(acceptance: str, *, _bind_attached: bool = True)
     recipient_noun = recipient_prefix + r"(?:clients?|users?|consumers?)\b"
     product_recipient = r"(?:to|for)\s+" + recipient_noun
     artifact_destination_object = r"(?:workflow|ci|github actions)\s+artifacts?\b"
+    body_component = r"(?:editor|field|textarea|preview)\b"
     review_destination_noun = (
         r"(?:(?:the|an?)\s+)?(?:"
-        r"(?:pr|pull request)\s+(?:body|description)\b(?:\s+editor\b)?|"
+        r"(?:pr|pull request)\s+(?:body|description)\b(?:\s+" + body_component + r")?|"
         r"(?:pr|pull request)\s+comments?\b|"
         + artifact_destination_object
         + r"|(?:pr|pull request)\b)"
@@ -1160,6 +1161,23 @@ def _required_evidence_channels(acceptance: str, *, _bind_attached: bool = True)
         + r")"
         + delivery_destination_item
         + r")*"
+    )
+    # Checklist shorthand is a bounded delivery predicate. Reuse the normal
+    # destination grammar so AND/OR lists retain their established semantics.
+    acceptance = re.sub(
+        r"(?P<literal>" + quoted_evidence_literal + r")|"
+        r"(?P<checklist>^\s*[-*]\s*\[[ xX]\]\s*)"
+        r"(?P<object>(?:(?:test|validation|CI|build|execution)\s+){0,3}"
+        r"(?:evidence|command outputs?|transcripts?))\s+"
+        r"(?P<destinations>" + bound_review_destinations + r")"
+        r"(?=\s*(?:[;.!]|$))",
+        lambda match: (
+            match[0]
+            if match["literal"]
+            else (match["checklist"] + "Provide " + match["object"] + " " + match["destinations"])
+        ),
+        acceptance,
+        flags=re.I | re.M,
     )
     # Common proof nouns reuse shared polarity/product/literal grammar, but
     # destinations must belong to this object's own finite actor clause.
@@ -1774,7 +1792,7 @@ def _required_evidence_channels(acceptance: str, *, _bind_attached: bool = True)
             + r")?"
             + delivery_adverbs
         )
-        body_destination = r"(?:(?:the|an?)\s+)?" + body + r"(?:\s+editor\b)?"
+        body_destination = r"(?:(?:the|an?)\s+)?" + body + r"(?:\s+" + body_component + r")?"
         destination_item = delivery_destination_item
         destination_separator = delivery_destination_separator
         destination = (
@@ -1933,8 +1951,8 @@ def _required_evidence_channels(acceptance: str, *, _bind_attached: bool = True)
                 )
                 and not mandatory_optionality
             )
-            editor = re.match(r"\s+editor\b", clause[body_match.end() :], re.I)
-            product = bool(editor) and product_comment_object(
+            component = re.match(r"\s+" + body_component, clause[body_match.end() :], re.I)
+            product = bool(component) and product_comment_object(
                 text[: match.start() + body_match.start()], clause[body_match.end() :]
             )
             disposition = (
@@ -1948,7 +1966,7 @@ def _required_evidence_channels(acceptance: str, *, _bind_attached: bool = True)
             if re.search(artifact_destination_object, clause, re.I):
                 destinations.add("artifacts")
             if disposition == "product":
-                # The editor is a product surface, but coordinated actual
+                # A UI component is a product surface, but coordinated actual
                 # review destinations retain their own delivery obligation.
                 destinations.discard("body")
                 if destinations:
@@ -3351,18 +3369,6 @@ def _required_evidence_channels(acceptance: str, *, _bind_attached: bool = True)
             )
             explicit_comment_delivery = bool(
                 (
-                    checklist_deliverable
-                    and re.fullmatch(
-                        r"\s*(?:[-*]\s*(?:\[[ xX]\]\s*)?)?"
-                        r"(?:(?:test|validation|CI|build|execution)\s+){0,3}"
-                        r"(?:evidence|command outputs?|transcripts?)\s+"
-                        + destination_preposition
-                        + r"(?:an?\s+|the\s+)?(?:pr comments?|pull request comments?)\s*[.!]?\s*",
-                        requirement_text,
-                        re.I,
-                    )
-                )
-                or (
                     explicit_review_destination
                     and re.search(
                         r"\b(?:pr comments?|pull request comments?)\b", requirement_text, re.I
@@ -3518,16 +3524,6 @@ def _required_evidence_channels(acceptance: str, *, _bind_attached: bool = True)
                 and not explicit_review_destination
             ):
                 continue
-            if checklist_deliverable and re.fullmatch(
-                r"\s*(?:[-*]\s*(?:\[[ xX]\]\s*)?)?"
-                + r"(?:(?:test|validation|CI|build|execution)\s+){0,3}"
-                + r"(?:evidence|command outputs?|transcripts?)\s+"
-                + destination_preposition
-                + r"(?:the\s+|an?\s+)?(?:pr|pull request)\s+(?:body|description)\s*[.!]?\s*",
-                requirement_text,
-                re.I,
-            ):
-                line_channels.add("body")
             if re.search(r"\b(?:pr comments?|pull request comments?)\b", lower):
                 if explicit_comment_delivery and not product_comment_behavior:
                     line_channels.add("comments")

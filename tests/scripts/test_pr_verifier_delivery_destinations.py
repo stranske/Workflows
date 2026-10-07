@@ -9,6 +9,47 @@ from scripts import docs_drift_fix_agent as fix_agent
 from scripts.langchain import pr_verifier as verifier
 
 
+@pytest.mark.parametrize("component", ["editor", "field", "textarea", "preview"])
+@pytest.mark.parametrize("destination", ["PR body", "PR description"])
+@pytest.mark.parametrize("independent", [False, True])
+def test_review_body_product_components_do_not_create_delivery(component, destination, independent):
+    criterion = f"- [ ] The UI must display test results in the {destination} {component}"
+    if independent:
+        criterion += "; provide command output in a PR comment"
+    assert verifier._required_evidence_channels(criterion) == (
+        {"comments"} if independent else set()
+    )
+
+
+@pytest.mark.parametrize("operator", ["and", "or"])
+@pytest.mark.parametrize("comment_status", ["present", "absent", "unavailable"])
+@pytest.mark.parametrize("body_status", ["present", "absent", "unavailable"])
+def test_checklist_destination_lists_control_real_floor(operator, comment_status, body_status):
+    spec = importlib.util.spec_from_file_location(
+        "checklist_list_fixture", Path(__file__).with_name("test_pr_verifier_prompt_coverage.py")
+    )
+    fixture = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(fixture)
+    criterion = f"- [ ] Test evidence in a PR comment {operator} the PR description"
+    context, _ = fixture._context(1, 1000, 1000)
+    context = context.replace("- " + fixture.ACCEPTANCE_SENTINEL, criterion).replace(
+        "## PR Diff Summary",
+        "## Acceptance evidence\n\n- Overall retrieval status: **present**\n"
+        f"- PR body: **{body_status}**\n- PR comments: **{comment_status}**\n"
+        "- Referenced workflow artifacts: **absent**\n\n## PR Diff Summary",
+    )
+    result = verifier._apply_coverage_floor(
+        verifier.EvaluationResult(verdict="PASS", used_llm=True),
+        verifier.prompt_coverage(context, None),
+    )
+    expected = (
+        (comment_status == "present" and body_status == "present")
+        if operator == "and"
+        else (comment_status == "present" or body_status == "present")
+    )
+    assert result.verdict == ("PASS" if expected else "CONCERNS")
+
+
 @pytest.mark.parametrize(
     "destination,channel",
     [
@@ -2308,7 +2349,13 @@ def test_fresh_canary_findings_control_actual_coverage_floor(criterion, channel,
     fixture = importlib.util.module_from_spec(spec)
     spec.loader.exec_module(fixture)
     context, _ = fixture._context(1, 1000, 1000)
-    context = context.replace(fixture.ACCEPTANCE_SENTINEL, criterion).replace(
+    if criterion.startswith("Test evidence in "):
+        # This fixture starts with a plain bullet. The canary finding is an
+        # actual checkbox noun phrase, not an ungoverned prose fragment.
+        context = context.replace("- " + fixture.ACCEPTANCE_SENTINEL, "- [ ] " + criterion)
+    else:
+        context = context.replace(fixture.ACCEPTANCE_SENTINEL, criterion)
+    context = context.replace(
         "## PR Diff Summary",
         f"## Acceptance evidence\n\n- Overall retrieval status: **{status if channel == 'overall' else 'absent'}**\n"
         f"- PR body: **{status if channel == 'body' else 'absent'}**\n"
