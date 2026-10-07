@@ -1,0 +1,25 @@
+✖ ../keepalive_authority_state.js: concurrent changes fail closed during warm read, backfill and publication (3.861667ms)
+✔ ../../../templates/consumer-repo/.github/scripts/keepalive_authority_state.js: concurrent changes fail closed during warm read, backfill and publication (1.459416ms)
+ℹ tests 2
+ℹ suites 0
+ℹ pass 1
+ℹ fail 1
+ℹ cancelled 0
+ℹ skipped 0
+ℹ todo 0
+ℹ duration_ms 59.228708
+
+✖ failing tests:
+
+test at .github/scripts/__tests__/keepalive-attempt-presence.test.js:147:3
+✖ ../keepalive_authority_state.js: concurrent changes fail closed during warm read, backfill and publication (3.861667ms)
+  AssertionError [ERR_ASSERTION]: Missing expected rejection.
+      at async TestContext.<anonymous> (/Users/teacher/.codex/automations/reviewed-repo-orphan-pr-steward/worktrees/workflows-3792-repair/.github/scripts/__tests__/keepalive-attempt-presence.test.js:153:7)
+      at async Test.run (node:internal/test_runner/test:1069:7)
+      at async startSubtestAfterBootstrap (node:internal/test_runner/harness:332:3) {
+    generatedMessage: false,
+    code: 'ERR_ASSERTION',
+    actual: undefined,
+    expected: /changed during/,
+    operator: 'rejects'
+  }
