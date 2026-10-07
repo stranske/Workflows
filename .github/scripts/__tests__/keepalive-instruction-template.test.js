@@ -127,6 +127,16 @@ for (const [surface, builder] of [
   ['root', require('../keepalive_instruction_template')],
   ['consumer', require('../../../templates/consumer-repo/.github/scripts/keepalive_instruction_template')],
 ]) {
+  test(`${surface}: active CI repair composes fix instructions despite a verification override`, () => {
+    const result = builder.composeKeepaliveInstruction({
+      action: 'fix', reason: 'fix-test', mode: 'verify', scenario: 'verification',
+    });
+    assert.equal(result.mode, 'fix_ci');
+    assert.equal(result.text, fs.readFileSync(builder.FIX_TEMPLATE_PATH, 'utf8').trim());
+    assert.deepEqual(result.segments, ['instruction']);
+    builder.clearCache();
+  });
+
   test(`${surface}: durable round state renders outcomes without polluting cached instructions`, () => {
     const attempt = Object.freeze({
       iteration: 2, action: 'fix', reason: 'fix-tests', run_result: 'failure',

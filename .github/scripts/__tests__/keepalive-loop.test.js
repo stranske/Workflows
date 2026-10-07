@@ -1207,6 +1207,69 @@ test('evaluateKeepaliveLoop uses normal prompt when tasks remain', async () => {
   assert.equal(result.promptFile, '.github/codex/prompts/keepalive_next_task.md');
 });
 
+for (const [surface, loop] of [
+  ['root', require('../keepalive_loop')],
+  ['consumer', require('../../../templates/consumer-repo/.github/scripts/keepalive_loop')],
+]) {
+  test(`${surface}: failed CI overrides feature and verification prompt configuration`, async () => {
+    for (const complete of [false, true]) {
+      for (const prompt_mode of ['normal', 'verify', 'conflict']) {
+        const checkbox = complete ? '[x]' : '[ ]';
+        const pr = {
+          number: 505,
+          head: { ref: 'feature/ci-routing', sha: 'sha-ci-routing' },
+          labels: [{ name: 'agent:codex' }],
+          body: [
+            '## Tasks', `- ${checkbox} one`,
+            '## Acceptance Criteria', `- ${checkbox} a`,
+            `<!-- keepalive-config: ${JSON.stringify({
+              prompt_mode, prompt_scenario: 'verification',
+              prompt_file: '.github/codex/prompts/keepalive_next_task.md',
+            })} -->`,
+          ].join('\n'),
+        };
+        const github = buildGithubStub({
+          pr,
+          workflowRuns: [{ id: 1001, head_sha: pr.head.sha, conclusion: 'failure' }],
+          workflowJobs: [{ name: 'test (3.11)', status: 'completed', conclusion: 'failure' }],
+        });
+        const result = await loop.evaluateKeepaliveLoop({
+          github, context: buildContext(pr.number), core: buildCore(),
+        });
+        assert.equal(result.action, 'fix');
+        assert.equal(result.reason, 'fix-test');
+        assert.equal(result.promptMode, 'fix_ci');
+        assert.equal(result.promptFile, '.github/codex/prompts/fix_ci_failures.md');
+      }
+    }
+  });
+
+  test(`${surface}: green CI retains explicit prompt mode and file preferences`, async () => {
+    const promptFile = '.github/codex/prompts/verifier_acceptance_check.md';
+    const pr = {
+      number: 505,
+      head: { ref: 'feature/ci-routing', sha: 'sha-ci-routing-green' },
+      labels: [{ name: 'agent:codex' }],
+      body: [
+        '## Tasks', '- [ ] one', '## Acceptance Criteria', '- [ ] a',
+        `<!-- keepalive-config: ${JSON.stringify({
+          prompt_mode: 'verify', prompt_file: promptFile, prompt_scenario: 'feature-work',
+        })} -->`,
+      ].join('\n'),
+    };
+    const result = await loop.evaluateKeepaliveLoop({
+      github: buildGithubStub({
+        pr, workflowRuns: [{ head_sha: pr.head.sha, conclusion: 'success' }],
+      }),
+      context: buildContext(pr.number), core: buildCore(),
+    });
+    assert.equal(result.action, 'run');
+    assert.equal(result.reason, 'ready');
+    assert.equal(result.promptMode, 'verify');
+    assert.equal(result.promptFile, promptFile);
+  });
+}
+
 test('evaluateKeepaliveLoop honors prompt scenario overrides from config', async () => {
   const pr = {
     number: 5050,

@@ -180,6 +180,15 @@ Only template text is cached: callbacks run again on each composition.
 the existing mention wrapper uses that same composed text. Existing calls
 without round history or extra segments retain their directive text and routing behavior.
 
+An active repair action takes precedence over prompt preferences: `action: 'fix'`
+routes to `fix_ci`, while `action: 'conflict'` routes to conflict repair. When the
+loop selects CI repair for a failed Gate, it dispatches the canonical
+`fix_ci_failures.md` directive even if the PR config sets `prompt_mode`,
+`prompt_scenario`, or `prompt_file` for feature work or verification. This also
+applies when all task checkboxes are complete: repair comes before acceptance
+verification. Other loop actions retain the configured overrides, and standalone
+instruction composition still supports an explicit custom `templatePath`.
+
 Round outcomes use the existing `keepalive_state.js` trusted PR-comment storage,
 scoped to the PR and trace. `updateKeepaliveLoopSummary` retains the bounded
 `attempts` history (20 entries) with iteration, action/reason, routed prompt,

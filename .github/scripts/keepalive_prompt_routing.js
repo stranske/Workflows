@@ -47,6 +47,16 @@ const VERIFY_MODES = new Set(['verify', 'verification', 'verify-acceptance', 'ac
 const CONFLICT_MODES = new Set(['conflict', 'merge-conflict', 'merge_conflict', 'fix-conflict', 'fix_conflict']);
 
 function resolvePromptMode({ scenario, mode, action, reason } = {}) {
+  const actionValue = normalise(action);
+  // An active repair decision must not inherit a feature or verification override.
+  // Resolve actual merge-conflict work first, then CI repair, before preferences.
+  if (actionValue === 'conflict') {
+    return 'conflict';
+  }
+  if (actionValue === 'fix') {
+    return 'fix_ci';
+  }
+
   const modeValue = normalise(mode);
   if (modeValue) {
     // Conflict mode takes highest priority - merge conflicts block all other work
@@ -61,7 +71,6 @@ function resolvePromptMode({ scenario, mode, action, reason } = {}) {
     }
   }
 
-  const actionValue = normalise(action);
   const reasonValue = normalise(reason);
   
   // Check for conflict-related actions/reasons first

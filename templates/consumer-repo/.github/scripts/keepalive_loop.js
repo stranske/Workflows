@@ -3157,8 +3157,11 @@ async function evaluateKeepaliveLoop({ github: rawGithub, context, core, payload
       action,
       reason,
     });
-    const promptMode = promptModeOverride || promptRoute.mode;
-    const promptFile = promptFileOverride || promptRoute.file;
+    // CI repair uses the canonical fix-first directive even when the PR carries
+    // feature/verification preferences or a custom prompt file from earlier work.
+    const isCiRepair = action === 'fix';
+    const promptMode = isCiRepair ? promptRoute.mode : promptModeOverride || promptRoute.mode;
+    const promptFile = isCiRepair ? promptRoute.file : promptFileOverride || promptRoute.file;
     // For verification steps, prefer a different agent than the one that did
     // the implementation work.  This avoids the structural problem where the
     // same model that produced the work also verifies it — a conflict of
