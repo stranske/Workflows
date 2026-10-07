@@ -1,0 +1,20 @@
+{
+  "argv": [
+    "python3",
+    "-m",
+    "pytest",
+    "tests/scripts/test_runtime_probe_replay.py::test_replay_rejects_errors_and_skips_even_with_failure_exit",
+    "-q",
+    "-o",
+    "addopts=",
+    "-m",
+    "not slow",
+    "--junitxml=/home/runner/work/Workflows/Workflows/docs/evidence/issue-3743/runtime-probes/replay-validation/driver-1-green.xml"
+  ],
+  "cwd": "/home/runner/work/Workflows/Workflows",
+  "exit": 0,
+  "stdout": "driver-1-green.stdout.gz",
+  "stdout_sha256": "bc4c2ff1a05d78db864338a871f51116604f720d25667467a47cb7c30039c666",
+  "stderr": "driver-1-green.stderr.gz",
+  "stderr_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+}

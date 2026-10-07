@@ -70,6 +70,26 @@ repair-history proxy followed by churn, rather than file size. That proxy does
 not establish verified escaped-defect frequency. These measurements cover only
 this helper and do not establish repository-wide 90% coverage.
 
-GitHub API access is unavailable, so this local checklist does not claim a remote
-PR-body update or verification of PR readiness. The canonical `.git` directory
-is read-only; commit handoff uses isolated Git metadata under `/tmp` and a bundle.
+The replay driver now verifies each JUnit receipt before accepting a phase:
+exactly the selected named case must execute, with one failure for RED or one
+pass for GREEN and no errors or skips. Three driver regressions reject setup
+errors, skips, wrong cases and inconsistent outcomes. Each new regression was
+run against a deliberately disabled validator (exit 1), then its byte-identical
+restoration (exit 0). Fresh full production replay, driver controls, matched
+coverage and validation receipts are retained under `replay-validation/`.
+Console streams are losslessly gzip-compressed; command receipts hash the
+decoded bytes. The fourteen production controls embed the raw console and JUnit.
+Driver failure JUnit is also losslessly compressed because pytest diagnostics
+include trailing whitespace; the initial diff rejection is retained.
+The fresh baseline and candidate again pass 272 and 286 cases, respectively,
+with the same 92.73% to 94.26% combined coverage increase. Repository Black
+checks all 675 Python files. Template completeness initially confirmed alignment
+but failed writing the inherited read-only runner summary path; the retained
+retry exits 0 with `GITHUB_STEP_SUMMARY` pointing to a writable `/tmp` file.
+
+The seven previously unchecked PR tasks and acceptance criteria reconcile to
+the verified receipts above. GitHub read access confirms PR #3808 is open and
+ready for review. Automatic approval review rejected the PR-body write because
+the run's approval policy is `never`; the remote checkboxes remain unchecked.
+The canonical `.git` directory is read-only; commit handoff uses isolated Git
+metadata under `/tmp` and a bundle.

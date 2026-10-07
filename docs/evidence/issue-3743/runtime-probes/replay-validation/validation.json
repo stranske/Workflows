@@ -1,0 +1,15 @@
+{
+  "runtime_tests": 14,
+  "driver_tests": 3,
+  "production_controls": 14,
+  "driver_controls": 3,
+  "baseline_tests": 272,
+  "candidate_tests": 286,
+  "all_control_phases_have_expected_exit_and_executed_junit_outcome": true,
+  "complete_streams_verified": true,
+  "source_bytes_restored": true,
+  "checks": "Black (675 files), focused Ruff, sync, completeness and diff checks pass",
+  "remote_checkboxes_updated": false,
+  "remote_write_blocker": "Automatic approval review requires approval; approval policy is never",
+  "canonical_git_updated": false
+}

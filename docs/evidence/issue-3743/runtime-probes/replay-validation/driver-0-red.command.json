@@ -1,0 +1,20 @@
+{
+  "argv": [
+    "python3",
+    "-m",
+    "pytest",
+    "tests/scripts/test_runtime_probe_replay.py::test_replay_accepts_only_executed_red_failure_and_green_pass",
+    "-q",
+    "-o",
+    "addopts=",
+    "-m",
+    "not slow",
+    "--junitxml=/home/runner/work/Workflows/Workflows/docs/evidence/issue-3743/runtime-probes/replay-validation/driver-0-red.xml"
+  ],
+  "cwd": "/home/runner/work/Workflows/Workflows",
+  "exit": 1,
+  "stdout": "driver-0-red.stdout.gz",
+  "stdout_sha256": "7bc2c03940e2d14bb89123a65942b61879cf12af63fb9bc795b8790c76e9662b",
+  "stderr": "driver-0-red.stderr.gz",
+  "stderr_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+}

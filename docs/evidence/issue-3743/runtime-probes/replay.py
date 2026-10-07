@@ -6,10 +6,27 @@ import json
 import subprocess
 import sys
 from pathlib import Path
+from xml.etree import ElementTree
 
 
 def digest(data):
     return hashlib.sha256(data).hexdigest()
+
+
+def validate_junit(text, node, phase):
+    """Require the selected test's assertion failure or pass, never an error/skip."""
+    report = ElementTree.fromstring(text)
+    suites = list(report.iter("testsuite"))
+    assert len(suites) == 1, "expected exactly one JUnit suite"
+    suite = suites[0]
+    counts = {key: int(suite.get(key, "-1")) for key in ("tests", "failures", "errors", "skipped")}
+    expected = {"tests": 1, "failures": int(phase == "red"), "errors": 0, "skipped": 0}
+    assert counts == expected, (node, phase, counts)
+    cases = list(suite.iter("testcase"))
+    assert len(cases) == 1 and cases[0].get("name") == node.rsplit("::", 1)[1], node
+    outcomes = [child.tag for child in cases[0] if child.tag in {"failure", "error", "skipped"}]
+    assert outcomes == (["failure"] if phase == "red" else []), (node, phase, outcomes)
+    return counts
 
 
 def main():
@@ -118,6 +135,9 @@ def main():
                         }
                         print(label, name, parameter, phase, result.returncode, flush=True)
                         assert result.returncode == (1 if phase == "red" else 0), record
+                        record[phase]["junit_counts"] = validate_junit(
+                            record[phase]["junit"], node, phase
+                        )
                 finally:
                     source.write_bytes(original)
                     record["restored_sha256"] = digest(source.read_bytes())
