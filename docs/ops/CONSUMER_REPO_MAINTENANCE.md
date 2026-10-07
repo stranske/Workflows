@@ -274,6 +274,9 @@ optional before channel accumulation; a separate required reviewer clause remain
 This also applies after a structural product component and its coordinated review
 destination: leading `either` retains the mandatory alternative, while trailing
 `if available`/other declared availability conditions qualify the full list.
+Single, body-first and body-last structural destinations share that bounded
+availability binding for both product and human deliveries; an independent
+reviewer clause retains its own mandatory channels.
 Independent-clause recognition uses those same bounded predicate modifiers, so
 availability cannot spill into a later named reviewer obligation. Bind attached
 delivery to the noun itself (including a coordinated object), not only an

@@ -1970,7 +1970,7 @@ def _required_evidence_channels(acceptance: str, *, _bind_attached: bool = True)
                 r"is|are|was|were|must|shall|will|should|can|may|has|have|"
                 r"contains?|includes?|requires?|needs?|now|today|tomorrow|again|"
                 r"here|there|soon|always|daily|weekly|[\w-]+ly)\b)[\w-]+"
-                r"(?=\s*(?:$|[;,.!?]|(?:and|or|but)\b))",
+                r"(?=\s*(?:$|[;,.!?]|(?:and|or|but)\b|" + conditional_evidence + r"))",
                 component_tail,
                 re.I,
             )
@@ -1980,9 +1980,9 @@ def _required_evidence_channels(acceptance: str, *, _bind_attached: bool = True)
                 and product_comment_object(text[: match.start() + body_match.start()], "")
             )
             clause_end = match.end()
-            if product and structural_component:
+            if structural_component:
                 coordinated_tail = re.match(
-                    r"\s+[\w-]+(?:" + destination_separator + destination_item + r")+",
+                    r"\s+[\w-]+(?:" + destination_separator + destination_item + r")*",
                     component_tail,
                     re.I,
                 )

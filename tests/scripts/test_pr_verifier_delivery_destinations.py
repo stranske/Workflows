@@ -173,6 +173,34 @@ def test_structural_coordination_preserves_conditional_suffix(
     assert verifier._required_evidence_channels(criterion) == expected
 
 
+@pytest.mark.parametrize("component", ["field", "textarea", "preview", "panel"])
+@pytest.mark.parametrize("actor,operation", [("UI", "display"), ("reviewer", "post")])
+@pytest.mark.parametrize("ordering", ["single", "body-first", "body-last"])
+@pytest.mark.parametrize("suffix", ["", " if available", " when produced"])
+@pytest.mark.parametrize("independent", [False, True])
+def test_structural_component_last_preserves_conditionality(
+    component, actor, operation, ordering, suffix, independent
+):
+    body = f"the PR description {component}"
+    destination = (
+        body
+        if ordering == "single"
+        else f"{body} and a PR comment" if ordering == "body-first" else f"a PR comment and {body}"
+    )
+    criterion = f"- [ ] The {actor} must {operation} test results in {destination}{suffix}"
+    if independent:
+        criterion += "; the reviewer must provide evidence in a workflow artifact"
+    expected = set()
+    if not suffix:
+        if actor == "reviewer":
+            expected.add("body")
+        if ordering != "single":
+            expected.add("comments")
+    if independent:
+        expected.add("artifacts")
+    assert verifier._required_evidence_channels(criterion) == expected
+
+
 @pytest.mark.parametrize("marker", ["-", "*", "+", "1.", "1)"])
 @pytest.mark.parametrize(
     "destination,channel",
