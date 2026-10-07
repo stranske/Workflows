@@ -599,6 +599,7 @@ def bind_scenario_matrix(evidence, repo, path, workflow, job, run):
         len(jobs) != 1
         or jobs[0].get("run_id") != run["id"]
         or jobs[0].get("run_attempt") != run.get("run_attempt", 1)
+        or jobs[0].get("head_sha") != run["head_sha"]
     ):
         raise UnknownEvidence("scenario producer run/attempt binding missing")
     steps = [s for s in jobs[0].get("steps", []) if s.get("name") == "Select scenarios"]
@@ -695,6 +696,26 @@ def bind_scenario_matrix(evidence, repo, path, workflow, job, run):
             or not callers[0].get("check_run_url")
         ):
             raise UnknownEvidence("empty scenario selection lacks exact-run skipped caller")
+        caller = callers[0]
+        endpoint = f"repos/{repo}/check-runs/{caller['id']}"
+        if caller["check_run_url"] != f"https://api.github.com/{endpoint}":
+            raise UnknownEvidence("empty scenario caller check URL identity mismatch")
+        check = evidence.one(endpoint)
+        if (
+            any(
+                check.get(key) != value
+                for key, value in {
+                    "id": caller["id"],
+                    "url": caller["check_run_url"],
+                    "name": caller["name"],
+                    "head_sha": run["head_sha"],
+                    "status": "completed",
+                    "conclusion": "skipped",
+                }.items()
+            )
+            or (check.get("app") or {}).get("slug") != "github-actions"
+        ):
+            raise UnknownEvidence("empty scenario caller lacks matching Actions check object")
         return _WitnessedEmptyScenario(result)
     return result
 
