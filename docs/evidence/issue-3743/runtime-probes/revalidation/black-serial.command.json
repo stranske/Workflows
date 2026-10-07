@@ -1,0 +1,17 @@
+{
+  "argv": [
+    "python3",
+    "docs/evidence/issue-3743/runtime-probes/revalidation/black_serial.py"
+  ],
+  "cwd": "/home/runner/work/Workflows/Workflows",
+  "exit": 0,
+  "stdout": "black-serial.stdout",
+  "stderr": "black-serial.stderr",
+  "stdout_sha256": "0ab61da14f21155b2d3c5f4a6caca5e1d699cf1ae07ea131b2b6a9ca3b6cdfb5",
+  "stderr_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+  "environment_overrides": {
+    "BLACK_NUM_WORKERS": "1",
+    "BLACK_CACHE_DIR": "/tmp/runtime-probes-black-cache",
+    "GITHUB_STEP_SUMMARY": "/tmp/runtime-probes-step-summary.md"
+  }
+}

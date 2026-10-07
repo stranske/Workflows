@@ -1,0 +1,24 @@
+{
+  "argv": [
+    "black",
+    "--check",
+    "--line-length",
+    "100",
+    "tests/scripts/test_check_deliberate_break_runtime_probes.py",
+    "docs/evidence/issue-3743/runtime-probes/replay.py",
+    "docs/evidence/issue-3743/runtime-probes/revalidation/black_serial.py",
+    "scripts/check_deliberate_break.py",
+    "templates/consumer-repo/scripts/check_deliberate_break.py"
+  ],
+  "cwd": "/home/runner/work/Workflows/Workflows",
+  "exit": 0,
+  "stdout": "black-focused-cached.stdout",
+  "stderr": "black-focused-cached.stderr",
+  "stdout_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+  "stderr_sha256": "25369eabb8c122f861d58ddb255f81f4b9ee797f42f3882975bef953218258ed",
+  "environment_overrides": {
+    "BLACK_NUM_WORKERS": "1",
+    "BLACK_CACHE_DIR": "/tmp/runtime-probes-black-cache",
+    "GITHUB_STEP_SUMMARY": "/tmp/runtime-probes-step-summary.md"
+  }
+}

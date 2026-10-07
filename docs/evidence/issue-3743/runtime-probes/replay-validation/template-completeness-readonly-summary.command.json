@@ -1,0 +1,15 @@
+{
+  "argv": [
+    "python3",
+    "scripts/validate_template_completeness.py"
+  ],
+  "cwd": "/home/runner/work/Workflows/Workflows",
+  "exit": 1,
+  "stdout": "template-completeness-readonly-summary.stdout.gz",
+  "stdout_sha256": "571919c147488c55064046a0c64cf3a5919172b39a3d890dbad258b6d65c1018",
+  "stderr": "template-completeness-readonly-summary.stderr.gz",
+  "stderr_sha256": "2f7f86fd584d5f503182ac652a881047d7410d960b3f23bece9eaa195b03e829",
+  "environment_inherited": {
+    "GITHUB_STEP_SUMMARY": "/home/runner/work/_temp/_runner_file_commands/step_summary_e1a31760-15a7-41ef-bef5-73d6396001f5"
+  }
+}

@@ -1,0 +1,31 @@
+{
+  "argv": [
+    "python3",
+    "-m",
+    "pytest",
+    "tests/scripts/test_check_deliberate_break.py",
+    "tests/scripts/test_check_deliberate_break_archive.py",
+    "tests/scripts/test_check_deliberate_break_launch_boundaries.py",
+    "tests/scripts/test_launch_mutation_driver.py",
+    "-q",
+    "-o",
+    "addopts=",
+    "-m",
+    "not slow",
+    "--cov=scripts.check_deliberate_break",
+    "--cov-branch",
+    "--cov-report=term-missing",
+    "--cov-report=json:docs/evidence/issue-3743/runtime-probes/revalidation/baseline.json",
+    "--junitxml=docs/evidence/issue-3743/runtime-probes/revalidation/baseline.xml"
+  ],
+  "cwd": "/home/runner/work/Workflows/Workflows",
+  "exit": 0,
+  "stdout": "baseline.stdout",
+  "stderr": "baseline.stderr",
+  "stdout_sha256": "8183a9784604bfe9e1f1a74be7446c5c2cb6ea06995bb94a973549f29ed6d41d",
+  "stderr_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+  "environment_overrides": {
+    "BLACK_NUM_WORKERS": "1",
+    "GITHUB_STEP_SUMMARY": "/tmp/runtime-probes-step-summary.md"
+  }
+}

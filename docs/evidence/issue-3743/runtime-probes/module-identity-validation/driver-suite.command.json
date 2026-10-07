@@ -1,0 +1,26 @@
+{
+  "argv": [
+    "python3",
+    "-m",
+    "pytest",
+    "tests/scripts/test_runtime_probe_replay.py",
+    "-q",
+    "-o",
+    "addopts=",
+    "-m",
+    "not slow",
+    "--junitxml=docs/evidence/issue-3743/runtime-probes/module-identity-validation/driver-suite.xml"
+  ],
+  "cwd": "/home/runner/work/Workflows/Workflows",
+  "exit": 0,
+  "stdout": {
+    "path": "driver-suite.stdout.gz",
+    "sha256": "7eb3878804a36e397b690b06959940424d4b86de20af5b47bb0c6c60a9b2f3a3",
+    "bytes": 98
+  },
+  "stderr": {
+    "path": "driver-suite.stderr.gz",
+    "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+    "bytes": 0
+  }
+}

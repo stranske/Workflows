@@ -1,0 +1,45 @@
+{
+  "at": "2026-10-07T08:32:28.949759+00:00",
+  "production_mutations": 14,
+  "actual_red_named_failures": 14,
+  "actual_restored_green": 14,
+  "optimized_driver_exit": 0,
+  "optimized_validator_old_source": {
+    "exit": 1,
+    "failed": 3,
+    "passed": 1
+  },
+  "optimized_validator_candidate": {
+    "exit": 0,
+    "passed": 4
+  },
+  "optimized_runtime_and_validator_tests": {
+    "exit": 0,
+    "passed": 18
+  },
+  "ascii_locale_unicode_path_runtime_tests": {
+    "exit": 0,
+    "passed": 14
+  },
+  "semgrep": {
+    "configs": [
+      "p/python",
+      "p/default"
+    ],
+    "scanned_files": 3,
+    "findings": 0,
+    "errors": 0,
+    "exit": 0
+  },
+  "candidate_hashes": {
+    "docs/evidence/issue-3743/runtime-probes/replay.py": "6d33313afaf88da7ec8998a4b4349b3fb19ccb0f8521cdb2b74ebf20ea1c16b4",
+    "tests/scripts/test_check_deliberate_break_runtime_probes.py": "7dd93ef4dfddc7aca89eb6e1e4b4448335a6a12025b8e2c4d887dc7460f54ebc",
+    "tests/scripts/test_runtime_probe_replay.py": "35765607f5d629042cb322afd0936c0c95cb7e83b28d1b3d67b918ec9e6f9951"
+  },
+  "limitation": "No new full-suite or coverage percentage claim; earlier retained matched coverage unchanged. Initial optimized pytest command stopped on config warning; corrected invocation retained.",
+  "focused_related_tests": {
+    "exit": 0,
+    "passed": 266,
+    "seconds": 77.4
+  }
+}

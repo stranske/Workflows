@@ -1,0 +1,19 @@
+{
+  "distinct_cases": 14,
+  "red": {
+    "exit": 1,
+    "tests": 1,
+    "failures": 1,
+    "errors": 0,
+    "skipped": 0
+  },
+  "green": {
+    "exit": 0,
+    "tests": 1,
+    "failures": 0,
+    "errors": 0,
+    "skipped": 0
+  },
+  "all_sources_restored_byte_identically": true,
+  "raw_streams_and_junit_match_receipts": true
+}

@@ -1,0 +1,38 @@
+{
+  "baseline": {
+    "covered_lines": 552,
+    "num_statements": 591,
+    "percent_covered": 92.73153575615474,
+    "percent_covered_display": "92.73",
+    "missing_lines": 39,
+    "excluded_lines": 0,
+    "percent_statements_covered": 93.4010152284264,
+    "percent_statements_covered_display": "93.40",
+    "num_branches": 262,
+    "num_partial_branches": 21,
+    "covered_branches": 239,
+    "missing_branches": 23,
+    "percent_branches_covered": 91.22137404580153,
+    "percent_branches_covered_display": "91.22"
+  },
+  "candidate": {
+    "covered_lines": 563,
+    "num_statements": 591,
+    "percent_covered": 94.25556858147714,
+    "percent_covered_display": "94.26",
+    "missing_lines": 28,
+    "excluded_lines": 0,
+    "percent_statements_covered": 95.26226734348562,
+    "percent_statements_covered_display": "95.26",
+    "num_branches": 262,
+    "num_partial_branches": 21,
+    "covered_branches": 241,
+    "missing_branches": 21,
+    "percent_branches_covered": 91.98473282442748,
+    "percent_branches_covered_display": "91.98"
+  },
+  "baseline_tests": 272,
+  "candidate_tests": 286,
+  "same_source_universe": true,
+  "no_covered_set_regressions": true
+}

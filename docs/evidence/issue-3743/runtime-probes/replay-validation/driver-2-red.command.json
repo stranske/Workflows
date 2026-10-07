@@ -1,0 +1,20 @@
+{
+  "argv": [
+    "python3",
+    "-m",
+    "pytest",
+    "tests/scripts/test_runtime_probe_replay.py::test_replay_rejects_wrong_case_and_inconsistent_outcome",
+    "-q",
+    "-o",
+    "addopts=",
+    "-m",
+    "not slow",
+    "--junitxml=/home/runner/work/Workflows/Workflows/docs/evidence/issue-3743/runtime-probes/replay-validation/driver-2-red.xml"
+  ],
+  "cwd": "/home/runner/work/Workflows/Workflows",
+  "exit": 1,
+  "stdout": "driver-2-red.stdout.gz",
+  "stdout_sha256": "36d876ea5e9c80e535910f16d9bf777c16b89a585bf920fd9e44d9316c52bca1",
+  "stderr": "driver-2-red.stderr.gz",
+  "stderr_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+}

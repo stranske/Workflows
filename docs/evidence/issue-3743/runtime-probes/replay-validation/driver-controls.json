@@ -1,0 +1,152 @@
+[
+  {
+    "node": "tests/scripts/test_runtime_probe_replay.py::test_replay_accepts_only_executed_red_failure_and_green_pass",
+    "source": "docs/evidence/issue-3743/runtime-probes/replay.py",
+    "source_sha256": "199cbb78947f45da857d5b09fa41277f467878c15537802e2ad4934e2dec166c",
+    "mutation_sha256": "5f814e7550fcf5ff3d44a4034a8ab58f9a321e1bbf1e16a8d6c08f27c1b498c7",
+    "red": {
+      "argv": [
+        "python3",
+        "-m",
+        "pytest",
+        "tests/scripts/test_runtime_probe_replay.py::test_replay_accepts_only_executed_red_failure_and_green_pass",
+        "-q",
+        "-o",
+        "addopts=",
+        "-m",
+        "not slow",
+        "--junitxml=/home/runner/work/Workflows/Workflows/docs/evidence/issue-3743/runtime-probes/replay-validation/driver-0-red.xml"
+      ],
+      "cwd": "/home/runner/work/Workflows/Workflows",
+      "exit": 1,
+      "stdout": "driver-0-red.stdout.gz",
+      "stdout_sha256": "7bc2c03940e2d14bb89123a65942b61879cf12af63fb9bc795b8790c76e9662b",
+      "stderr": "driver-0-red.stderr.gz",
+      "stderr_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    "green": {
+      "argv": [
+        "python3",
+        "-m",
+        "pytest",
+        "tests/scripts/test_runtime_probe_replay.py::test_replay_accepts_only_executed_red_failure_and_green_pass",
+        "-q",
+        "-o",
+        "addopts=",
+        "-m",
+        "not slow",
+        "--junitxml=/home/runner/work/Workflows/Workflows/docs/evidence/issue-3743/runtime-probes/replay-validation/driver-0-green.xml"
+      ],
+      "cwd": "/home/runner/work/Workflows/Workflows",
+      "exit": 0,
+      "stdout": "driver-0-green.stdout.gz",
+      "stdout_sha256": "8a5d3f8c1b452931de963c4bdff9775f7404361fdf3f79b4d740fb5a4f7e6e92",
+      "stderr": "driver-0-green.stderr.gz",
+      "stderr_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    "restored_sha256": "199cbb78947f45da857d5b09fa41277f467878c15537802e2ad4934e2dec166c",
+    "before": "    report = ElementTree.fromstring(text)\n    suites = list(report.iter(\"testsuite\"))\n    assert len(suites) == 1, \"expected exactly one JUnit suite\"\n    suite = suites[0]\n    counts = {key: int(suite.get(key, \"-1\")) for key in (\"tests\", \"failures\", \"errors\", \"skipped\")}\n    expected = {\"tests\": 1, \"failures\": int(phase == \"red\"), \"errors\": 0, \"skipped\": 0}\n    assert counts == expected, (node, phase, counts)\n    cases = list(suite.iter(\"testcase\"))\n    assert len(cases) == 1 and cases[0].get(\"name\") == node.rsplit(\"::\", 1)[1], node\n    outcomes = [child.tag for child in cases[0] if child.tag in {\"failure\", \"error\", \"skipped\"}]\n    assert outcomes == ([\"failure\"] if phase == \"red\" else []), (node, phase, outcomes)\n    return counts\n",
+    "after": "    return {}\n",
+    "test_sha256": "fcaac4a632c67f3aa861e29e4027f77e234dc1cf9147093b6d952095fa8e0731"
+  },
+  {
+    "node": "tests/scripts/test_runtime_probe_replay.py::test_replay_rejects_errors_and_skips_even_with_failure_exit",
+    "source": "docs/evidence/issue-3743/runtime-probes/replay.py",
+    "source_sha256": "199cbb78947f45da857d5b09fa41277f467878c15537802e2ad4934e2dec166c",
+    "mutation_sha256": "5f814e7550fcf5ff3d44a4034a8ab58f9a321e1bbf1e16a8d6c08f27c1b498c7",
+    "red": {
+      "argv": [
+        "python3",
+        "-m",
+        "pytest",
+        "tests/scripts/test_runtime_probe_replay.py::test_replay_rejects_errors_and_skips_even_with_failure_exit",
+        "-q",
+        "-o",
+        "addopts=",
+        "-m",
+        "not slow",
+        "--junitxml=/home/runner/work/Workflows/Workflows/docs/evidence/issue-3743/runtime-probes/replay-validation/driver-1-red.xml"
+      ],
+      "cwd": "/home/runner/work/Workflows/Workflows",
+      "exit": 1,
+      "stdout": "driver-1-red.stdout.gz",
+      "stdout_sha256": "d2cfd263a1b0a62da9d04a09292768be25829f2c6681b96ae0d1ac9c33479458",
+      "stderr": "driver-1-red.stderr.gz",
+      "stderr_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    "green": {
+      "argv": [
+        "python3",
+        "-m",
+        "pytest",
+        "tests/scripts/test_runtime_probe_replay.py::test_replay_rejects_errors_and_skips_even_with_failure_exit",
+        "-q",
+        "-o",
+        "addopts=",
+        "-m",
+        "not slow",
+        "--junitxml=/home/runner/work/Workflows/Workflows/docs/evidence/issue-3743/runtime-probes/replay-validation/driver-1-green.xml"
+      ],
+      "cwd": "/home/runner/work/Workflows/Workflows",
+      "exit": 0,
+      "stdout": "driver-1-green.stdout.gz",
+      "stdout_sha256": "bc4c2ff1a05d78db864338a871f51116604f720d25667467a47cb7c30039c666",
+      "stderr": "driver-1-green.stderr.gz",
+      "stderr_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    "restored_sha256": "199cbb78947f45da857d5b09fa41277f467878c15537802e2ad4934e2dec166c",
+    "before": "    report = ElementTree.fromstring(text)\n    suites = list(report.iter(\"testsuite\"))\n    assert len(suites) == 1, \"expected exactly one JUnit suite\"\n    suite = suites[0]\n    counts = {key: int(suite.get(key, \"-1\")) for key in (\"tests\", \"failures\", \"errors\", \"skipped\")}\n    expected = {\"tests\": 1, \"failures\": int(phase == \"red\"), \"errors\": 0, \"skipped\": 0}\n    assert counts == expected, (node, phase, counts)\n    cases = list(suite.iter(\"testcase\"))\n    assert len(cases) == 1 and cases[0].get(\"name\") == node.rsplit(\"::\", 1)[1], node\n    outcomes = [child.tag for child in cases[0] if child.tag in {\"failure\", \"error\", \"skipped\"}]\n    assert outcomes == ([\"failure\"] if phase == \"red\" else []), (node, phase, outcomes)\n    return counts\n",
+    "after": "    return {}\n",
+    "test_sha256": "fcaac4a632c67f3aa861e29e4027f77e234dc1cf9147093b6d952095fa8e0731"
+  },
+  {
+    "node": "tests/scripts/test_runtime_probe_replay.py::test_replay_rejects_wrong_case_and_inconsistent_outcome",
+    "source": "docs/evidence/issue-3743/runtime-probes/replay.py",
+    "source_sha256": "199cbb78947f45da857d5b09fa41277f467878c15537802e2ad4934e2dec166c",
+    "mutation_sha256": "5f814e7550fcf5ff3d44a4034a8ab58f9a321e1bbf1e16a8d6c08f27c1b498c7",
+    "red": {
+      "argv": [
+        "python3",
+        "-m",
+        "pytest",
+        "tests/scripts/test_runtime_probe_replay.py::test_replay_rejects_wrong_case_and_inconsistent_outcome",
+        "-q",
+        "-o",
+        "addopts=",
+        "-m",
+        "not slow",
+        "--junitxml=/home/runner/work/Workflows/Workflows/docs/evidence/issue-3743/runtime-probes/replay-validation/driver-2-red.xml"
+      ],
+      "cwd": "/home/runner/work/Workflows/Workflows",
+      "exit": 1,
+      "stdout": "driver-2-red.stdout.gz",
+      "stdout_sha256": "36d876ea5e9c80e535910f16d9bf777c16b89a585bf920fd9e44d9316c52bca1",
+      "stderr": "driver-2-red.stderr.gz",
+      "stderr_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    "green": {
+      "argv": [
+        "python3",
+        "-m",
+        "pytest",
+        "tests/scripts/test_runtime_probe_replay.py::test_replay_rejects_wrong_case_and_inconsistent_outcome",
+        "-q",
+        "-o",
+        "addopts=",
+        "-m",
+        "not slow",
+        "--junitxml=/home/runner/work/Workflows/Workflows/docs/evidence/issue-3743/runtime-probes/replay-validation/driver-2-green.xml"
+      ],
+      "cwd": "/home/runner/work/Workflows/Workflows",
+      "exit": 0,
+      "stdout": "driver-2-green.stdout.gz",
+      "stdout_sha256": "b263d69c44b612282137de0281bd9556f3ac416582ffd664301063cbd8c10652",
+      "stderr": "driver-2-green.stderr.gz",
+      "stderr_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    "restored_sha256": "199cbb78947f45da857d5b09fa41277f467878c15537802e2ad4934e2dec166c",
+    "before": "    report = ElementTree.fromstring(text)\n    suites = list(report.iter(\"testsuite\"))\n    assert len(suites) == 1, \"expected exactly one JUnit suite\"\n    suite = suites[0]\n    counts = {key: int(suite.get(key, \"-1\")) for key in (\"tests\", \"failures\", \"errors\", \"skipped\")}\n    expected = {\"tests\": 1, \"failures\": int(phase == \"red\"), \"errors\": 0, \"skipped\": 0}\n    assert counts == expected, (node, phase, counts)\n    cases = list(suite.iter(\"testcase\"))\n    assert len(cases) == 1 and cases[0].get(\"name\") == node.rsplit(\"::\", 1)[1], node\n    outcomes = [child.tag for child in cases[0] if child.tag in {\"failure\", \"error\", \"skipped\"}]\n    assert outcomes == ([\"failure\"] if phase == \"red\" else []), (node, phase, outcomes)\n    return counts\n",
+    "after": "    return {}\n",
+    "test_sha256": "fcaac4a632c67f3aa861e29e4027f77e234dc1cf9147093b6d952095fa8e0731"
+  }
+]

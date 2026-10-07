@@ -1,0 +1,16 @@
+{
+  "argv": [
+    "python3",
+    "scripts/validate_template_sync.py"
+  ],
+  "cwd": "/home/runner/work/Workflows/Workflows",
+  "exit": 0,
+  "stdout": "template-sync.stdout",
+  "stderr": "template-sync.stderr",
+  "stdout_sha256": "e00bc56a4eb4ab5ca9c721c61262b90d9d55e74187fec23e1144d500af0fcc6b",
+  "stderr_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+  "environment_overrides": {
+    "BLACK_NUM_WORKERS": "1",
+    "GITHUB_STEP_SUMMARY": "/tmp/runtime-probes-step-summary.md"
+  }
+}

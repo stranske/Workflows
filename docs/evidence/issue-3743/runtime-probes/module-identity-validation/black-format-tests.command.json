@@ -1,0 +1,20 @@
+{
+  "argv": [
+    "black",
+    "--line-length",
+    "100",
+    "tests/scripts/test_runtime_probe_replay.py"
+  ],
+  "cwd": "/home/runner/work/Workflows/Workflows",
+  "exit": 0,
+  "stdout": {
+    "path": "black-format-tests.stdout.gz",
+    "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+    "bytes": 0
+  },
+  "stderr": {
+    "path": "black-format-tests.stderr.gz",
+    "sha256": "c78d4bc341e5cfb6cba20095bbb680bc8471adaac200271c9ee2cc1424564efe",
+    "bytes": 46
+  }
+}
