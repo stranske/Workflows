@@ -1018,6 +1018,15 @@ test('release #3769 builder retains its own acceptance without fetching merged P
 });
 
 test('release #3787 builder retains acceptance without fetching historical fixes PR #3782', async () => {
+  // Exact production changelog noun that merged resolver 52712f28 misread as closing #3782.
+  assert.match(
+    release3787.body,
+    /preserve release provenance for historical fixes \(\[#3782\]\(https:\/\/github\.com\/stranske\/Workflows\/issues\/3782\)\) \(\[52712f2\]/,
+  );
+  assert.equal(release3787.title, 'chore(main): release 1.37.26');
+  assert.equal(release3787.head.ref, 'release-please--branches--main');
+  assert.equal(release3787.head.sha, 'dccfd5b4fabaa9748b66380bf1a108e15c18f61a');
+
   const templateImpl = require('../../../templates/consumer-repo/.github/scripts/agents_verifier_context.js').buildVerifierContext;
   const templateBuilder = options => templateImpl({ ...options, fetchLocalDiff: () => options.github.__testDiffText });
   const prDetails = {

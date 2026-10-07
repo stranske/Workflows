@@ -1,196 +1,205 @@
-✔ buildVerifierContext skips when pull request is not merged (5.606926ms)
-✔ buildVerifierContext resolves PR from VERIFIER_PR_NUMBER (9.157898ms)
-✔ buildVerifierContext skips when VERIFIER_PR_NUMBER PR is not merged (0.344583ms)
-✔ buildVerifierContext warns on invalid VERIFIER_PR_NUMBER and falls back (2.016518ms)
-✔ buildVerifierContext allows non-default base branches when acceptance criteria exist (4.985141ms)
-✔ buildVerifierContext skips forked pull requests (0.315285ms)
-✔ buildVerifierContext skips when no acceptance criteria found (1.046654ms)
-✔ buildVerifierContext skips bound recurring corpus data-job PRs despite stale closing issues (0.532253ms)
-✔ buildVerifierContext runs when acceptance criteria exists in linked issue (3.146897ms)
-✔ buildVerifierContext uses custom ciWorkflows when provided (1.398101ms)
-✔ buildVerifierContext writes verifier context with linked issues (2.003872ms)
-✔ buildVerifierContext writes diff summary for LLM context (1.523592ms)
-✔ release #3769 builder retains its own acceptance without fetching merged PR #3768 as an issue (33.244968ms)
-✖ release #3787 builder retains acceptance without fetching historical fixes PR #3782 (2.468407ms)
+✔ expanded comment collection follows bounded pages across each channel (5.467051ms)
+✔ expanded pagination retains bounded overflow and later-page failure gaps (0.649171ms)
+✔ artifact extractor reads NDJSON proof but retains filtered-payload completeness gaps (1.365788ms)
+✔ buildVerifierContext skips when pull request is not merged (1.301141ms)
+✔ buildVerifierContext resolves PR from VERIFIER_PR_NUMBER (7.656928ms)
+✔ buildVerifierContext skips when VERIFIER_PR_NUMBER PR is not merged (0.368128ms)
+✔ buildVerifierContext warns on invalid VERIFIER_PR_NUMBER and falls back (1.997974ms)
+✔ buildVerifierContext allows non-default base branches when acceptance criteria exist (2.357851ms)
+✔ buildVerifierContext skips forked pull requests (0.361227ms)
+✔ buildVerifierContext skips when no acceptance criteria found (1.915205ms)
+✔ buildVerifierContext skips bound recurring corpus data-job PRs despite stale closing issues (0.495559ms)
+✔ buildVerifierContext runs when acceptance criteria exists in linked issue (2.154637ms)
+✔ buildVerifierContext uses custom ciWorkflows when provided (1.909172ms)
+✔ buildVerifierContext writes verifier context with linked issues (2.622995ms)
+✔ buildVerifierContext writes diff summary for LLM context (1.903831ms)
+✔ release #3769 builder retains its own acceptance without fetching merged PR #3768 as an issue (24.993706ms)
+✖ release #3787 builder retains acceptance without fetching historical fixes PR #3782 (2.317009ms)
 ▶ release #3787 Fix/Closes directives still require issue acceptance
-  ✖ shared: Fix #123: issue (1.401677ms)
-  ✖ shared: Fix #123: inaccessible issue (1.029735ms)
-  ✖ shared: Fix #123: linked PR (1.154289ms)
-  ✖ shared: Closes #123: issue (0.930187ms)
-  ✖ shared: Closes #123: inaccessible issue (0.945682ms)
-  ✖ shared: Closes #123: linked PR (0.945569ms)
-  ✔ consumer: Fix #123: issue (1.433061ms)
-  ✔ consumer: Fix #123: inaccessible issue (1.12061ms)
-  ✔ consumer: Fix #123: linked PR (1.125582ms)
-  ✔ consumer: Closes #123: issue (1.111331ms)
-  ✔ consumer: Closes #123: inaccessible issue (0.923076ms)
-  ✔ consumer: Closes #123: linked PR (1.899391ms)
-✖ release #3787 Fix/Closes directives still require issue acceptance (15.375587ms)
-✔ ambiguous release issue lineage keeps verifier discovery required and unavailable (3.809509ms)
-✔ generated workflows-3601 context inventories every source before model invocation (9.347226ms)
-✔ generated manager-database-1703 context inventories every source before model invocation (4.94807ms)
-✔ generated pension-data-912 context inventories every source before model invocation (2.333085ms)
-✔ generated coverage names included, truncated, and late omitted code while preserving the full patch (2.09412ms)
-✔ coverage inventory is independent of summary limits and validates Git path metadata (2.785098ms)
-✔ coverage records retained acceptance evidence without hiding failed source retrieval (1.065439ms)
-✔ linked-issue discovery failures floor every acceptance plan without inventing empty healthy sources (3.998681ms)
-✔ coverage records truncated linked-issue discovery and artifact text by source (1.134094ms)
-✔ buildVerifierContext includes bounded comment-only acceptance evidence (0.790734ms)
-✔ buildVerifierContext excludes bodyless reviews from comment evidence (0.769029ms)
-✔ buildVerifierContext discovers artifact links from inline comments and review bodies (0.911304ms)
-✔ buildVerifierContext keeps incomplete comment retrieval unavailable with present body evidence (2.155405ms)
-✔ buildVerifierContext includes bounded text from a referenced workflow artifact (0.773813ms)
-✔ buildVerifierContext rejects a comment-referenced artifact from a different commit (0.722341ms)
-✔ buildVerifierContext fails closed when referenced run provenance is unavailable (0.732391ms)
-✔ buildVerifierContext binds explicit artifact completeness to linked-issue discovery (1.947833ms)
-✔ production source and template discover artifacts beyond a status-table body link (2.448989ms)
-✔ buildVerifierContext discovers artifacts from an associated PR head without a run URL (0.738576ms)
-✔ buildVerifierContext preserves exact-head artifacts when PR comment retrieval fails (0.972735ms)
-✔ buildVerifierContext fails closed when workflow discovery returns a different head SHA (0.628239ms)
-✔ buildVerifierContext fails closed when associated workflow run discovery fails, is truncated, or is invalid (1.78281ms)
-✔ artifact extractor charges headings and separators to the rendered character limit (0.781241ms)
-✔ artifact extractor skips disallowed zip entry names (0.343756ms)
-✔ artifact extractor marks mixed supported and unsupported payload entries incomplete (0.341089ms)
-✔ summarizeDiff preserves machine-readable literal status suffixes (0.233291ms)
-✔ summary destination metadata survives marker text and display line breaks (0.999186ms)
-✔ summarizeDiff decodes quoted Git paths and uses the rename destination (0.240779ms)
-✔ summarizeDiff supports independently quoted rename header paths (0.24215ms)
-✔ summarizeDiff preserves delimiter-like components in unquoted Git paths (0.160511ms)
-✔ summarizeDiff fails closed on unresolved ambiguous rename headers (0.162913ms)
-✔ summarizeDiff fails closed on malformed mixed quoted paths (0.198053ms)
-✔ summarizeDiff resolves ambiguous patch and copy paths before counting hunks (0.154517ms)
-✔ summarizeDiff overrides equal header candidates only with complete consistent metadata (0.149067ms)
-✔ summarizeDiff preserves delimiter-bearing binary additions and deletions (0.110403ms)
-✔ summarizeDiff fails closed on malformed quoted Git paths (0.160653ms)
-✔ complete explicit exact-head artifacts do not require unrelated associated-run discovery (0.717442ms)
-✔ explicit artifact scope requires complete reference sources even with complete associated discovery (2.868838ms)
-✔ artifact extractor truncates when zip entry count exceeds maxEntries (0.552281ms)
-✔ verifier evidence fences untrusted headings and embedded backticks (0.190729ms)
-✔ PR body is independently bounded, fenced and cannot satisfy comments (0.714479ms)
-✔ production context carries PR body when comments and artifacts are absent (1.01998ms)
-✔ expired artifacts keep aggregate unavailable without erasing retained proof (0.899899ms)
-✔ buildVerifierContext reports body-inclusive overall evidence with absent comments and artifacts (0.664895ms)
-✔ buildVerifierContext reports retrieval failure as unavailable, never absent (0.770893ms)
-✔ buildVerifierContext reports a malformed artifact listing as unavailable (0.712148ms)
-✔ buildVerifierContext reports a partial artifact page as unavailable without a link header (0.765983ms)
-✔ buildVerifierContext reports a truncated comment listing as unavailable (1.465801ms)
-✔ buildVerifierContext reports unreadable referenced artifact content as unavailable (0.74793ms)
-✔ buildVerifierContext uses the authoritative PR diff after the base advances (0.814722ms)
-✔ buildVerifierContext file summary lists only files from the merged PR (0.694969ms)
-✔ buildVerifierContext skips when the authoritative merged PR diff is unavailable (0.490844ms)
-✔ fetchLocalGitDiff fetches a missing pull request head before reconstructing the range (0.395494ms)
-✔ fetchLocalGitDiff fetches the exact head SHA when the pull ref does not yield it (0.210304ms)
-✔ fetchLocalGitDiff fetches and verifies an absent cross-repo base with a present head (0.199708ms)
-✔ fetchLocalGitDiff refuses reconstruction when fetched base is still absent (0.121912ms)
-✔ buildVerifierContext queries CI runs for merge and head SHAs (0.766383ms)
-✔ buildVerifierContext queries CI runs with merge commit SHA (1.276226ms)
-✔ buildVerifierContext selects CI results for the merge commit SHA (1.014262ms)
-✔ buildVerifierContext uses API url when html_url is missing (0.848766ms)
-✔ buildVerifierContext falls back to head SHA when merge runs are missing (0.953221ms)
-✔ buildVerifierContext uses merge commit SHA for push events (0.947176ms)
-✔ buildVerifierContext skips push events without a commit SHA (0.187269ms)
-✔ buildVerifierContext skips push events with no associated PR (0.178341ms)
-✔ buildVerifierContext skips push events when PR lookup fails (0.158281ms)
-✔ formatDiffForContext truncates long diffs (0.072898ms)
-✔ formatDiffForContext returns placeholder for empty diff (0.050948ms)
-✔ isValidSha validates hex shas (0.04844ms)
-✔ fetchLocalGitDiff skips invalid shas (0.075748ms)
-✔ fetchLocalGitDiff returns diff output when exec succeeds (0.101708ms)
-✔ buildVerifierContext extracts chain_depth from issue body marker (1.010857ms)
-✔ buildVerifierContext outputs chain_depth 0 when no marker present (1.121605ms)
-✔ buildVerifierContext detects follow-up label as depth 1 (1.356516ms)
-✔ buildVerifierContext includes chain depth in context markdown (0.935195ms)
-✔ buildVerifierContext flags ciFailed when a CI workflow concluded failure on the merge commit (1.984917ms)
-✔ buildVerifierContext rejects bounded API fallback when the local PR range is unavailable (0.511223ms)
-✔ summarizeDiff preserves unquoted spaces and repository a/b directory prefixes (0.154982ms)
-✔ summarizeDiff preserves literal supplementary Unicode in quoted paths (0.166392ms)
-✔ merged merge PR uses its first commit parent after base advances (90.544387ms)
-✔ merged squash PR uses its first commit parent after base advances (91.999588ms)
-✔ merged rebase PR uses its first commit parent after base advances (99.389283ms)
-✔ merged rebase-unchanged PR uses its first commit parent after base advances (97.386651ms)
-✔ merged merge-updated-base PR uses its first commit parent after base advances (105.051935ms)
-✔ merged squash-updated-base PR uses its first commit parent after base advances (106.966276ms)
-✔ merged PR fails closed when its first commit cannot be retrieved (0.852123ms)
-✔ non-closing source issues are fetched in source and template builders (4.63191ms)
-✔ declared local repairs do not fetch coordination-only issue contracts (1.495497ms)
-✔ known issue retrieval rejects missing, wrong-number and PR responses without losing discovery gaps (8.441356ms)
-✔ known closing issue is deduplicated but an unrelated closing issue cannot replace it (1.566083ms)
-✔ empty issue acceptance discovery stays incomplete in source and template builders (2.761701ms)
-✔ release #3769 retains automation provenance instead of the already-merged fix (0.342009ms)
-✖ release #3787 historical plural fixes retain automation provenance (0.426333ms)
-✖ release #3787 history preserves genuine Fix/Closes sources over declared local requests (0.524586ms)
-✔ release branch automation inference requires the configured author and trusted head repository (1.247414ms)
-✔ release history cannot hide genuine or ambiguous issue lineage (1.138806ms)
-✖ historical fix nouns are not closing directives, including formatted release tasks (0.349615ms)
-✔ ambiguous explicit release issue references remain unresolved instead of inferring automation (1.346459ms)
-✖ a historical fix noun cannot hide a subsequent closing directive on the same line (0.627482ms)
-✔ normalizeSourceType maps human aliases to canonical origin types (0.111357ms)
-✔ extractIssueNumberFromPull keeps existing issue resolution behavior (0.160468ms)
-✔ extractIssueNumberFromPull prefers an explicit body link over inferred branch and title issues (0.083511ms)
-✔ extractIssueNumberFromPull prefers one closing link over secondary body references (0.068828ms)
-✔ extractIssueNumberFromPull rejects ambiguous non-closing body references (0.079353ms)
-✔ extractIssueNumberFromPull rejects distinct meta issue markers (0.073825ms)
-✔ extractIssueNumberFromPull ignores PR references in workflow source templates (0.882435ms)
-✔ extractIssueNumberFromPull ignores arbitrary PR number references (0.153082ms)
-✔ extractIssueNumberFromPull ignores bare issue-number mentions in PR descriptions (0.111ms)
-✔ extractIssueNumberFromPull skips PR references before later issue references (0.083853ms)
-✔ extractIssueNumberFromPull requires explicit issue wording for body references (0.171623ms)
-✔ extractIssueNumberFromPull requires explicit issue wording for title references (0.098866ms)
-✔ resolvePrSourceContext does not classify bare and PR-only mentions as issue-sourced (0.173095ms)
-✔ resolvePrSourceContext still classifies explicit issue-sourced references (0.090128ms)
-✔ parseWorkflowSourceBlock reads source-context fields from hidden block (0.194438ms)
-✔ dependency repair promotion marker supplies explicit dependency source context (0.330176ms)
-✔ underscore dependency source label authorizes a valid promotion marker (0.14974ms)
-✔ dependency repair promotion marker suppresses incidental issue references (0.148171ms)
-✔ untrusted dependency repair promotion marker preserves issue routing (0.158682ms)
-✔ malformed dependency repair promotion marker does not authorize source context (0.127105ms)
-✔ partial promotion label sets do not authorize suppression of issue routing (0.237239ms)
-✔ mismatched promotion payloads preserve issue routing even when both labels are present (0.466367ms)
-✔ consumer template resolver stays behaviorally synchronized on promotion trust (0.398311ms)
-✔ promotion marker casing must match the dependency repair contract (0.135145ms)
-✔ sourceTypeFromCheckedTemplate reads direct GitHub PR source choice (0.186302ms)
-✔ sourceTypeFromCheckedTemplate accepts slash-separated local request wording (0.126228ms)
-✔ sourceTypeFromCheckedTemplate preserves source choice without automation intent opt-out (0.165663ms)
-✔ automation intent checkboxes do not disable automation without started-from source (0.128858ms)
-✔ sourceTypeFromCheckedTemplate treats human-only PRs as manual remote work (0.104477ms)
-✔ resolvePrSourceContext marks no-automation sources without changing source type (0.15169ms)
-✔ resolvePrSourceContext normalizes explicit no-automation to a valid manual source (0.113775ms)
-✔ resolvePrSourceContext preserves legacy human-only no-automation wording (0.094707ms)
-✔ sourceTypeFromCheckedTemplate rejects ambiguous checked source choices (0.063592ms)
-✔ sourceTypeFromLabels accepts workflow source labels (0.055864ms)
-✔ sourceTypeFromLabels rejects lookalike workflow source labels (0.075401ms)
-✔ resolvePrSourceContext prefers source issue when issue metadata exists (0.09474ms)
-✔ resolvePrSourceContext accepts explicit local request without issue (0.119065ms)
-✔ resolvePrSourceContext infers sync and dependabot sources for maintenance PRs (0.166251ms)
-✔ resolvePrSourceContext infers local_request for conventional work-branch prefixes (0.212626ms)
-✔ bound generated sync provenance overrides incidental issue text (1.195692ms)
-✔ resolvePrSourceContext accepts explicit sync source markers from consumer sync PRs (0.133615ms)
-✔ declared non-issue sources suppress coordination links but retain explicit closing overrides (0.66482ms)
-✔ resolvePrSourceContext accepts direct-pr labels without issue metadata (0.11581ms)
-✔ resolvePrSourceContext does not treat review PR references as source issues (0.204699ms)
-✔ resolvePrSourceContext leaves unrelated PRs unknown (0.100968ms)
-✔ resolvePrSourceContext suppresses stale issue metadata on the bound corpus harvest job (0.277932ms)
-✔ corpus harvest suppression requires the exact controlled repository branch and labels (0.252655ms)
-✔ generated related-issue binding outranks synchronized incidental issue text (1.726262ms)
-✔ extractIssueSourceFromPull preserves provenance and ambiguity (0.403167ms)
-✔ explicit closing title intent is distinguished from incidental title relations (0.193967ms)
-✔ explicit closing titles outrank incidental body mentions without selecting conflicting closing targets (0.905862ms)
-ℹ tests 176
+  ✖ shared: Fix #123: issue (1.334257ms)
+  ✖ shared: Fix #123: inaccessible issue (0.940969ms)
+  ✖ shared: Fix #123: linked PR (0.992316ms)
+  ✖ shared: Closes #123: issue (1.029802ms)
+  ✖ shared: Closes #123: inaccessible issue (1.079313ms)
+  ✖ shared: Closes #123: linked PR (1.021265ms)
+  ✔ consumer: Fix #123: issue (1.403055ms)
+  ✔ consumer: Fix #123: inaccessible issue (1.124936ms)
+  ✔ consumer: Fix #123: linked PR (1.207974ms)
+  ✔ consumer: Closes #123: issue (1.254136ms)
+  ✔ consumer: Closes #123: inaccessible issue (1.008109ms)
+  ✔ consumer: Closes #123: linked PR (1.835603ms)
+✖ release #3787 Fix/Closes directives still require issue acceptance (15.481564ms)
+✔ ambiguous release issue lineage keeps verifier discovery required and unavailable (3.903392ms)
+✔ generated workflows-3601 context inventories every source before model invocation (11.680204ms)
+✔ generated manager-database-1703 context inventories every source before model invocation (6.536217ms)
+✔ generated pension-data-912 context inventories every source before model invocation (3.065603ms)
+✔ generated coverage names included, truncated, and late omitted code while preserving the full patch (3.067435ms)
+✔ coverage inventory is independent of summary limits and validates Git path metadata (3.073453ms)
+✔ coverage records retained acceptance evidence without hiding failed source retrieval (0.853669ms)
+✔ linked-issue discovery failures floor every acceptance plan without inventing empty healthy sources (3.893795ms)
+✔ coverage records truncated linked-issue discovery and artifact text by source (0.965286ms)
+✔ buildVerifierContext includes bounded comment-only acceptance evidence (0.84472ms)
+✔ buildVerifierContext excludes bodyless reviews from comment evidence (0.727384ms)
+✔ buildVerifierContext discovers artifact links from inline comments and review bodies (0.949377ms)
+✔ buildVerifierContext keeps incomplete comment retrieval unavailable with present body evidence (2.054109ms)
+✔ buildVerifierContext includes bounded text from a referenced workflow artifact (0.797953ms)
+✔ buildVerifierContext rejects a comment-referenced artifact from a different commit (0.710414ms)
+✔ buildVerifierContext fails closed when referenced run provenance is unavailable (0.775172ms)
+✔ buildVerifierContext binds explicit artifact completeness to linked-issue discovery (2.199411ms)
+✔ production source and template discover artifacts beyond a status-table body link (2.500274ms)
+✔ buildVerifierContext discovers artifacts from an associated PR head without a run URL (0.827797ms)
+✔ buildVerifierContext preserves exact-head artifacts when PR comment retrieval fails (1.024619ms)
+✔ buildVerifierContext fails closed when workflow discovery returns a different head SHA (0.676289ms)
+✔ buildVerifierContext fails closed when associated workflow run discovery fails, is truncated, or is invalid (1.841622ms)
+✔ artifact extractor charges headings and separators to the rendered character limit (0.457229ms)
+✔ artifact extractor skips disallowed zip entry names (0.364108ms)
+✔ artifact extractor marks mixed supported and unsupported payload entries incomplete (0.3484ms)
+✔ summarizeDiff preserves machine-readable literal status suffixes (0.23457ms)
+✔ summary destination metadata survives marker text and display line breaks (1.147391ms)
+✔ summarizeDiff decodes quoted Git paths and uses the rename destination (0.227802ms)
+✔ summarizeDiff supports independently quoted rename header paths (0.267679ms)
+✔ summarizeDiff preserves delimiter-like components in unquoted Git paths (0.165279ms)
+✔ summarizeDiff fails closed on unresolved ambiguous rename headers (0.109798ms)
+✔ summarizeDiff fails closed on malformed mixed quoted paths (0.170968ms)
+✔ summarizeDiff resolves ambiguous patch and copy paths before counting hunks (0.126536ms)
+✔ summarizeDiff overrides equal header candidates only with complete consistent metadata (0.12191ms)
+✔ summarizeDiff preserves delimiter-bearing binary additions and deletions (0.08133ms)
+✔ summarizeDiff fails closed on malformed quoted Git paths (0.246664ms)
+✔ complete explicit exact-head artifacts do not require unrelated associated-run discovery (0.717138ms)
+✔ explicit artifact scope requires complete reference sources even with complete associated discovery (2.178032ms)
+✔ artifact extractor truncates when zip entry count exceeds maxEntries (0.31385ms)
+✔ verifier evidence fences untrusted headings and embedded backticks (0.133526ms)
+✔ PR body is independently bounded, fenced and cannot satisfy comments (0.411602ms)
+✔ production context carries PR body when comments and artifacts are absent (0.717575ms)
+✔ expired artifacts keep aggregate unavailable without erasing retained proof (0.85199ms)
+✔ buildVerifierContext reports body-inclusive overall evidence with absent comments and artifacts (0.676767ms)
+✔ buildVerifierContext reports retrieval failure as unavailable, never absent (0.681273ms)
+✔ buildVerifierContext reports a malformed artifact listing as unavailable (0.68052ms)
+✔ buildVerifierContext reports a partial artifact page as unavailable without a link header (0.785569ms)
+✔ buildVerifierContext reports a truncated comment listing as unavailable (1.440179ms)
+✔ buildVerifierContext reports unreadable referenced artifact content as unavailable (0.983301ms)
+✔ buildVerifierContext uses the authoritative PR diff after the base advances (0.924418ms)
+✔ buildVerifierContext file summary lists only files from the merged PR (0.711184ms)
+✔ buildVerifierContext skips when the authoritative merged PR diff is unavailable (0.778891ms)
+✔ fetchLocalGitDiff fetches a missing pull request head before reconstructing the range (0.414333ms)
+✔ fetchLocalGitDiff fetches the exact head SHA when the pull ref does not yield it (0.184246ms)
+✔ fetchLocalGitDiff fetches and verifies an absent cross-repo base with a present head (0.158603ms)
+✔ fetchLocalGitDiff refuses reconstruction when fetched base is still absent (0.097856ms)
+✔ buildVerifierContext queries CI runs for merge and head SHAs (0.777585ms)
+✔ buildVerifierContext queries CI runs with merge commit SHA (1.502825ms)
+✔ buildVerifierContext selects CI results for the merge commit SHA (1.536762ms)
+✔ buildVerifierContext uses API url when html_url is missing (1.305964ms)
+✔ buildVerifierContext falls back to head SHA when merge runs are missing (1.53026ms)
+✔ buildVerifierContext uses merge commit SHA for push events (1.392329ms)
+✔ buildVerifierContext skips push events without a commit SHA (0.175899ms)
+✔ buildVerifierContext skips push events with no associated PR (0.11791ms)
+✔ buildVerifierContext skips push events when PR lookup fails (0.133192ms)
+✔ formatDiffForContext truncates long diffs (0.055873ms)
+✔ formatDiffForContext returns placeholder for empty diff (0.036837ms)
+✔ isValidSha validates hex shas (0.034908ms)
+✔ fetchLocalGitDiff skips invalid shas (0.052511ms)
+✔ fetchLocalGitDiff returns diff output when exec succeeds (0.074713ms)
+✔ buildVerifierContext extracts chain_depth from issue body marker (1.502424ms)
+✔ buildVerifierContext outputs chain_depth 0 when no marker present (1.746352ms)
+✔ buildVerifierContext detects follow-up label as depth 1 (1.629692ms)
+✔ buildVerifierContext includes chain depth in context markdown (1.644338ms)
+✔ buildVerifierContext flags ciFailed when a CI workflow concluded failure on the merge commit (2.525279ms)
+✔ buildVerifierContext rejects bounded API fallback when the local PR range is unavailable (1.288717ms)
+✔ summarizeDiff preserves unquoted spaces and repository a/b directory prefixes (0.139374ms)
+✔ summarizeDiff preserves literal supplementary Unicode in quoted paths (0.114585ms)
+✔ merged merge PR uses its first commit parent after base advances (99.810422ms)
+✔ merged squash PR uses its first commit parent after base advances (95.9313ms)
+✔ merged rebase PR uses its first commit parent after base advances (116.822207ms)
+✔ merged rebase-unchanged PR uses its first commit parent after base advances (99.100542ms)
+✔ merged merge-updated-base PR uses its first commit parent after base advances (111.319694ms)
+✔ merged squash-updated-base PR uses its first commit parent after base advances (110.40323ms)
+✔ merged PR fails closed when its first commit cannot be retrieved (0.845139ms)
+✔ non-closing source issues are fetched in source and template builders (4.477643ms)
+✔ declared local repairs do not fetch coordination-only issue contracts (1.499977ms)
+✔ known issue retrieval rejects missing, wrong-number and PR responses without losing discovery gaps (9.206933ms)
+✔ known closing issue is deduplicated but an unrelated closing issue cannot replace it (1.456723ms)
+✔ empty issue acceptance discovery stays incomplete in source and template builders (2.665445ms)
+✖ conflicting closing title and metadata keep real verifier discovery unavailable (1.078044ms)
+✔ matching closing title and metadata retain known-source verifier acceptance (4.49294ms)
+✔ release #3769 fixture retains production merged-fix changelog surface (0.336798ms)
+✔ release #3769 retains automation provenance instead of the already-merged fix (0.249823ms)
+✖ release #3787 fixture retains production historical-fixes provenance surface (0.36952ms)
+✖ release #3787 historical plural fixes retain automation provenance (0.242829ms)
+✖ release #3787 history preserves genuine Fix/Closes sources over declared local requests (0.341053ms)
+✔ release branch automation inference requires the configured author and trusted head repository (1.090349ms)
+✔ release history cannot hide genuine or ambiguous issue lineage (1.106291ms)
+✖ historical fix nouns are not closing directives, including formatted release tasks (0.304689ms)
+✔ ambiguous explicit release issue references remain unresolved instead of inferring automation (0.817266ms)
+✖ a historical fix noun cannot hide a subsequent closing directive on the same line (0.530672ms)
+✔ normalizeSourceType maps human aliases to canonical origin types (0.123788ms)
+✔ extractIssueNumberFromPull keeps existing issue resolution behavior (0.214694ms)
+✔ extractIssueNumberFromPull prefers an explicit body link over inferred branch and title issues (0.084372ms)
+✔ extractIssueNumberFromPull prefers one closing link over secondary body references (0.054515ms)
+✔ extractIssueNumberFromPull rejects ambiguous non-closing body references (0.061399ms)
+✔ extractIssueNumberFromPull rejects distinct meta issue markers (0.055099ms)
+✔ extractIssueNumberFromPull ignores PR references in workflow source templates (0.880639ms)
+✔ extractIssueNumberFromPull ignores arbitrary PR number references (0.227541ms)
+✔ extractIssueNumberFromPull ignores bare issue-number mentions in PR descriptions (0.167009ms)
+✔ extractIssueNumberFromPull skips PR references before later issue references (0.074419ms)
+✔ extractIssueNumberFromPull requires explicit issue wording for body references (0.188748ms)
+✔ extractIssueNumberFromPull requires explicit issue wording for title references (0.10385ms)
+✔ resolvePrSourceContext does not classify bare and PR-only mentions as issue-sourced (0.232046ms)
+✔ resolvePrSourceContext still classifies explicit issue-sourced references (0.100249ms)
+✔ parseWorkflowSourceBlock reads source-context fields from hidden block (0.233249ms)
+✔ dependency repair promotion marker supplies explicit dependency source context (0.347133ms)
+✔ underscore dependency source label authorizes a valid promotion marker (0.146631ms)
+✔ dependency repair promotion marker suppresses incidental issue references (0.137287ms)
+✔ untrusted dependency repair promotion marker preserves issue routing (0.109604ms)
+✔ malformed dependency repair promotion marker does not authorize source context (0.082143ms)
+✔ partial promotion label sets do not authorize suppression of issue routing (0.171965ms)
+✔ mismatched promotion payloads preserve issue routing even when both labels are present (0.472881ms)
+✔ consumer template resolver stays behaviorally synchronized on promotion trust (0.349532ms)
+✔ promotion marker casing must match the dependency repair contract (0.118509ms)
+✔ sourceTypeFromCheckedTemplate reads direct GitHub PR source choice (0.220768ms)
+✔ sourceTypeFromCheckedTemplate accepts slash-separated local request wording (0.120339ms)
+✔ sourceTypeFromCheckedTemplate preserves source choice without automation intent opt-out (0.149778ms)
+✔ automation intent checkboxes do not disable automation without started-from source (0.104579ms)
+✔ sourceTypeFromCheckedTemplate treats human-only PRs as manual remote work (0.048187ms)
+✔ resolvePrSourceContext marks no-automation sources without changing source type (0.115074ms)
+✔ resolvePrSourceContext normalizes explicit no-automation to a valid manual source (0.128351ms)
+✔ resolvePrSourceContext preserves legacy human-only no-automation wording (0.154989ms)
+✔ sourceTypeFromCheckedTemplate rejects ambiguous checked source choices (0.065662ms)
+✔ sourceTypeFromLabels accepts workflow source labels (0.049219ms)
+✔ sourceTypeFromLabels rejects lookalike workflow source labels (0.067686ms)
+✔ resolvePrSourceContext prefers source issue when issue metadata exists (0.087462ms)
+✔ resolvePrSourceContext accepts explicit local request without issue (0.076209ms)
+✔ resolvePrSourceContext infers sync and dependabot sources for maintenance PRs (0.082856ms)
+✔ resolvePrSourceContext infers local_request for conventional work-branch prefixes (0.805244ms)
+✔ bound generated sync provenance overrides incidental issue text (1.219957ms)
+✔ resolvePrSourceContext accepts explicit sync source markers from consumer sync PRs (0.140242ms)
+✔ declared non-issue sources suppress coordination links but retain explicit closing overrides (0.641272ms)
+✔ resolvePrSourceContext accepts direct-pr labels without issue metadata (0.24833ms)
+✔ resolvePrSourceContext does not treat review PR references as source issues (0.231894ms)
+✔ resolvePrSourceContext leaves unrelated PRs unknown (0.107539ms)
+✔ resolvePrSourceContext suppresses stale issue metadata on the bound corpus harvest job (0.173387ms)
+✔ corpus harvest suppression requires the exact controlled repository branch and labels (0.158051ms)
+✔ generated related-issue binding outranks synchronized incidental issue text (1.502785ms)
+✔ extractIssueSourceFromPull preserves provenance and ambiguity (0.322752ms)
+✔ explicit closing title intent is distinguished from incidental title relations (0.161666ms)
+✖ explicit closing titles outrank incidental body mentions without selecting conflicting closing targets (0.299433ms)
+✖ explicit closing title and metadata conflicts stay unresolved in both resolvers (0.299997ms)
+✖ negated closing titles preserve metadata without masking a later affirmative target (0.424196ms)
+ℹ tests 185
 ℹ suites 0
-ℹ pass 164
-ℹ fail 12
+ℹ pass 168
+ℹ fail 17
 ℹ cancelled 0
 ℹ skipped 0
 ℹ todo 0
-ℹ duration_ms 836.819095
+ℹ duration_ms 891.090237
 
 ✖ failing tests:
 
-test at .github/scripts/__tests__/agents-verifier-context.test.js:969:1
-✖ release #3787 builder retains acceptance without fetching historical fixes PR #3782 (2.468407ms)
+test at .github/scripts/__tests__/agents-verifier-context.test.js:1020:1
+✖ release #3787 builder retains acceptance without fetching historical fixes PR #3782 (2.317009ms)
   AssertionError [ERR_ASSERTION]: Expected values to be strictly deep-equal:
   + actual - expected
-
+  
   + [
   +   {
   +     issue_number: 3782,
@@ -199,23 +208,22 @@ test at .github/scripts/__tests__/agents-verifier-context.test.js:969:1
   +   }
   + ]
   - []
-
-      at TestContext.<anonymous> (/home/runner/work/Workflows/Workflows/.github/scripts/__tests__/agents-verifier-context.test.js:993:14)
-      at async Test.run (node:internal/test_runner/test:1409:7)
-      at async Test.processPendingSubtests (node:internal/test_runner/test:974:7) {
+  
+      at TestContext.<anonymous> (/home/runner/work/Workflows/Workflows/.github/scripts/__tests__/agents-verifier-context.test.js:1053:14)
+      at async Test.run (node:internal/test_runner/test:1088:7)
+      at async Test.processPendingSubtests (node:internal/test_runner/test:763:7) {
     generatedMessage: true,
     code: 'ERR_ASSERTION',
     actual: [Array],
     expected: [],
-    operator: 'deepStrictEqual',
-    diff: 'simple'
+    operator: 'deepStrictEqual'
   }
 
-test at .github/scripts/__tests__/agents-verifier-context.test.js:1069:17
-✖ shared: Fix #123: issue (1.401677ms)
+test at .github/scripts/__tests__/agents-verifier-context.test.js:1129:17
+✖ shared: Fix #123: issue (1.334257ms)
   AssertionError [ERR_ASSERTION]: Expected values to be strictly deep-equal:
   + actual - expected
-
+  
   + []
   - [
   -   {
@@ -224,25 +232,24 @@ test at .github/scripts/__tests__/agents-verifier-context.test.js:1069:17
   -     repo: 'workflows'
   -   }
   - ]
-
-      at TestContext.<anonymous> (/home/runner/work/Workflows/Workflows/.github/scripts/__tests__/agents-verifier-context.test.js:1087:20)
-      at async Test.run (node:internal/test_runner/test:1409:7)
-      at async TestContext.<anonymous> (/home/runner/work/Workflows/Workflows/.github/scripts/__tests__/agents-verifier-context.test.js:1069:9)
-      at async Test.run (node:internal/test_runner/test:1409:7)
-      at async Test.processPendingSubtests (node:internal/test_runner/test:974:7) {
+  
+      at TestContext.<anonymous> (/home/runner/work/Workflows/Workflows/.github/scripts/__tests__/agents-verifier-context.test.js:1147:20)
+      at async Test.run (node:internal/test_runner/test:1088:7)
+      at async TestContext.<anonymous> (/home/runner/work/Workflows/Workflows/.github/scripts/__tests__/agents-verifier-context.test.js:1129:9)
+      at async Test.run (node:internal/test_runner/test:1088:7)
+      at async Test.processPendingSubtests (node:internal/test_runner/test:763:7) {
     generatedMessage: true,
     code: 'ERR_ASSERTION',
     actual: [],
     expected: [Array],
-    operator: 'deepStrictEqual',
-    diff: 'simple'
+    operator: 'deepStrictEqual'
   }
 
-test at .github/scripts/__tests__/agents-verifier-context.test.js:1069:17
-✖ shared: Fix #123: inaccessible issue (1.029735ms)
+test at .github/scripts/__tests__/agents-verifier-context.test.js:1129:17
+✖ shared: Fix #123: inaccessible issue (0.940969ms)
   AssertionError [ERR_ASSERTION]: Expected values to be strictly deep-equal:
   + actual - expected
-
+  
   + []
   - [
   -   {
@@ -251,25 +258,24 @@ test at .github/scripts/__tests__/agents-verifier-context.test.js:1069:17
   -     repo: 'workflows'
   -   }
   - ]
-
-      at TestContext.<anonymous> (/home/runner/work/Workflows/Workflows/.github/scripts/__tests__/agents-verifier-context.test.js:1087:20)
-      at async Test.run (node:internal/test_runner/test:1409:7)
-      at async TestContext.<anonymous> (/home/runner/work/Workflows/Workflows/.github/scripts/__tests__/agents-verifier-context.test.js:1069:9)
-      at async Test.run (node:internal/test_runner/test:1409:7)
-      at async Test.processPendingSubtests (node:internal/test_runner/test:974:7) {
+  
+      at TestContext.<anonymous> (/home/runner/work/Workflows/Workflows/.github/scripts/__tests__/agents-verifier-context.test.js:1147:20)
+      at async Test.run (node:internal/test_runner/test:1088:7)
+      at async TestContext.<anonymous> (/home/runner/work/Workflows/Workflows/.github/scripts/__tests__/agents-verifier-context.test.js:1129:9)
+      at async Test.run (node:internal/test_runner/test:1088:7)
+      at async Test.processPendingSubtests (node:internal/test_runner/test:763:7) {
     generatedMessage: true,
     code: 'ERR_ASSERTION',
     actual: [],
     expected: [Array],
-    operator: 'deepStrictEqual',
-    diff: 'simple'
+    operator: 'deepStrictEqual'
   }
 
-test at .github/scripts/__tests__/agents-verifier-context.test.js:1069:17
-✖ shared: Fix #123: linked PR (1.154289ms)
+test at .github/scripts/__tests__/agents-verifier-context.test.js:1129:17
+✖ shared: Fix #123: linked PR (0.992316ms)
   AssertionError [ERR_ASSERTION]: Expected values to be strictly deep-equal:
   + actual - expected
-
+  
   + []
   - [
   -   {
@@ -278,25 +284,24 @@ test at .github/scripts/__tests__/agents-verifier-context.test.js:1069:17
   -     repo: 'workflows'
   -   }
   - ]
-
-      at TestContext.<anonymous> (/home/runner/work/Workflows/Workflows/.github/scripts/__tests__/agents-verifier-context.test.js:1087:20)
-      at async Test.run (node:internal/test_runner/test:1409:7)
-      at async TestContext.<anonymous> (/home/runner/work/Workflows/Workflows/.github/scripts/__tests__/agents-verifier-context.test.js:1069:9)
-      at async Test.run (node:internal/test_runner/test:1409:7)
-      at async Test.processPendingSubtests (node:internal/test_runner/test:974:7) {
+  
+      at TestContext.<anonymous> (/home/runner/work/Workflows/Workflows/.github/scripts/__tests__/agents-verifier-context.test.js:1147:20)
+      at async Test.run (node:internal/test_runner/test:1088:7)
+      at async TestContext.<anonymous> (/home/runner/work/Workflows/Workflows/.github/scripts/__tests__/agents-verifier-context.test.js:1129:9)
+      at async Test.run (node:internal/test_runner/test:1088:7)
+      at async Test.processPendingSubtests (node:internal/test_runner/test:763:7) {
     generatedMessage: true,
     code: 'ERR_ASSERTION',
     actual: [],
     expected: [Array],
-    operator: 'deepStrictEqual',
-    diff: 'simple'
+    operator: 'deepStrictEqual'
   }
 
-test at .github/scripts/__tests__/agents-verifier-context.test.js:1069:17
-✖ shared: Closes #123: issue (0.930187ms)
+test at .github/scripts/__tests__/agents-verifier-context.test.js:1129:17
+✖ shared: Closes #123: issue (1.029802ms)
   AssertionError [ERR_ASSERTION]: Expected values to be strictly deep-equal:
   + actual - expected
-
+  
   + []
   - [
   -   {
@@ -305,25 +310,24 @@ test at .github/scripts/__tests__/agents-verifier-context.test.js:1069:17
   -     repo: 'workflows'
   -   }
   - ]
-
-      at TestContext.<anonymous> (/home/runner/work/Workflows/Workflows/.github/scripts/__tests__/agents-verifier-context.test.js:1087:20)
-      at async Test.run (node:internal/test_runner/test:1409:7)
-      at async TestContext.<anonymous> (/home/runner/work/Workflows/Workflows/.github/scripts/__tests__/agents-verifier-context.test.js:1069:9)
-      at async Test.run (node:internal/test_runner/test:1409:7)
-      at async Test.processPendingSubtests (node:internal/test_runner/test:974:7) {
+  
+      at TestContext.<anonymous> (/home/runner/work/Workflows/Workflows/.github/scripts/__tests__/agents-verifier-context.test.js:1147:20)
+      at async Test.run (node:internal/test_runner/test:1088:7)
+      at async TestContext.<anonymous> (/home/runner/work/Workflows/Workflows/.github/scripts/__tests__/agents-verifier-context.test.js:1129:9)
+      at async Test.run (node:internal/test_runner/test:1088:7)
+      at async Test.processPendingSubtests (node:internal/test_runner/test:763:7) {
     generatedMessage: true,
     code: 'ERR_ASSERTION',
     actual: [],
     expected: [Array],
-    operator: 'deepStrictEqual',
-    diff: 'simple'
+    operator: 'deepStrictEqual'
   }
 
-test at .github/scripts/__tests__/agents-verifier-context.test.js:1069:17
-✖ shared: Closes #123: inaccessible issue (0.945682ms)
+test at .github/scripts/__tests__/agents-verifier-context.test.js:1129:17
+✖ shared: Closes #123: inaccessible issue (1.079313ms)
   AssertionError [ERR_ASSERTION]: Expected values to be strictly deep-equal:
   + actual - expected
-
+  
   + []
   - [
   -   {
@@ -332,25 +336,24 @@ test at .github/scripts/__tests__/agents-verifier-context.test.js:1069:17
   -     repo: 'workflows'
   -   }
   - ]
-
-      at TestContext.<anonymous> (/home/runner/work/Workflows/Workflows/.github/scripts/__tests__/agents-verifier-context.test.js:1087:20)
-      at async Test.run (node:internal/test_runner/test:1409:7)
-      at async TestContext.<anonymous> (/home/runner/work/Workflows/Workflows/.github/scripts/__tests__/agents-verifier-context.test.js:1069:9)
-      at async Test.run (node:internal/test_runner/test:1409:7)
-      at async Test.processPendingSubtests (node:internal/test_runner/test:974:7) {
+  
+      at TestContext.<anonymous> (/home/runner/work/Workflows/Workflows/.github/scripts/__tests__/agents-verifier-context.test.js:1147:20)
+      at async Test.run (node:internal/test_runner/test:1088:7)
+      at async TestContext.<anonymous> (/home/runner/work/Workflows/Workflows/.github/scripts/__tests__/agents-verifier-context.test.js:1129:9)
+      at async Test.run (node:internal/test_runner/test:1088:7)
+      at async Test.processPendingSubtests (node:internal/test_runner/test:763:7) {
     generatedMessage: true,
     code: 'ERR_ASSERTION',
     actual: [],
     expected: [Array],
-    operator: 'deepStrictEqual',
-    diff: 'simple'
+    operator: 'deepStrictEqual'
   }
 
-test at .github/scripts/__tests__/agents-verifier-context.test.js:1069:17
-✖ shared: Closes #123: linked PR (0.945569ms)
+test at .github/scripts/__tests__/agents-verifier-context.test.js:1129:17
+✖ shared: Closes #123: linked PR (1.021265ms)
   AssertionError [ERR_ASSERTION]: Expected values to be strictly deep-equal:
   + actual - expected
-
+  
   + []
   - [
   -   {
@@ -359,108 +362,219 @@ test at .github/scripts/__tests__/agents-verifier-context.test.js:1069:17
   -     repo: 'workflows'
   -   }
   - ]
-
-      at TestContext.<anonymous> (/home/runner/work/Workflows/Workflows/.github/scripts/__tests__/agents-verifier-context.test.js:1087:20)
-      at async Test.run (node:internal/test_runner/test:1409:7)
-      at async TestContext.<anonymous> (/home/runner/work/Workflows/Workflows/.github/scripts/__tests__/agents-verifier-context.test.js:1069:9)
-      at async Test.run (node:internal/test_runner/test:1409:7)
-      at async Test.processPendingSubtests (node:internal/test_runner/test:974:7) {
+  
+      at TestContext.<anonymous> (/home/runner/work/Workflows/Workflows/.github/scripts/__tests__/agents-verifier-context.test.js:1147:20)
+      at async Test.run (node:internal/test_runner/test:1088:7)
+      at async TestContext.<anonymous> (/home/runner/work/Workflows/Workflows/.github/scripts/__tests__/agents-verifier-context.test.js:1129:9)
+      at async Test.run (node:internal/test_runner/test:1088:7)
+      at async Test.processPendingSubtests (node:internal/test_runner/test:763:7) {
     generatedMessage: true,
     code: 'ERR_ASSERTION',
     actual: [],
     expected: [Array],
-    operator: 'deepStrictEqual',
-    diff: 'simple'
+    operator: 'deepStrictEqual'
   }
 
-test at .github/scripts/__tests__/source-context.test.js:43:1
-✖ release #3787 historical plural fixes retain automation provenance (0.426333ms)
+test at .github/scripts/__tests__/agents-verifier-context.test.js:3230:1
+✖ conflicting closing title and metadata keep real verifier discovery unavailable (1.078044ms)
+  AssertionError [ERR_ASSERTION]: Expected values to be strictly deep-equal:
+  + actual - expected
+  
+  + [
+  +   {
+  +     issue_number: 456,
+  +     owner: 'octo',
+  +     repo: 'workflows'
+  +   }
+  + ]
+  - []
+  
+      at TestContext.<anonymous> (/home/runner/work/Workflows/Workflows/.github/scripts/__tests__/agents-verifier-context.test.js:3253:18)
+      at async Test.run (node:internal/test_runner/test:1088:7)
+      at async Test.processPendingSubtests (node:internal/test_runner/test:763:7) {
+    generatedMessage: true,
+    code: 'ERR_ASSERTION',
+    actual: [Array],
+    expected: [],
+    operator: 'deepStrictEqual'
+  }
+
+test at .github/scripts/__tests__/source-context.test.js:61:1
+✖ release #3787 fixture retains production historical-fixes provenance surface (0.36952ms)
   AssertionError [ERR_ASSERTION]: Expected values to be strictly equal:
-
+  
   3782 !== null
-
-      at TestContext.<anonymous> (/home/runner/work/Workflows/Workflows/.github/scripts/__tests__/source-context.test.js:51:12)
-      at Test.runInAsyncScope (node:async_hooks:227:14)
-      at Test.run (node:internal/test_runner/test:1402:25)
-      at Test.processPendingSubtests (node:internal/test_runner/test:974:18)
-      at Test.postRun (node:internal/test_runner/test:1542:19)
-      at Test.run (node:internal/test_runner/test:1467:12)
-      at async Test.processPendingSubtests (node:internal/test_runner/test:974:7) {
+  
+      at TestContext.<anonymous> (/home/runner/work/Workflows/Workflows/.github/scripts/__tests__/source-context.test.js:73:12)
+      at Test.runInAsyncScope (node:async_hooks:214:14)
+      at Test.run (node:internal/test_runner/test:1081:25)
+      at Test.processPendingSubtests (node:internal/test_runner/test:763:18)
+      at Test.postRun (node:internal/test_runner/test:1210:19)
+      at Test.run (node:internal/test_runner/test:1138:12)
+      at async Test.processPendingSubtests (node:internal/test_runner/test:763:7) {
     generatedMessage: true,
     code: 'ERR_ASSERTION',
     actual: 3782,
     expected: null,
-    operator: 'strictEqual',
-    diff: 'simple'
+    operator: 'strictEqual'
   }
 
-test at .github/scripts/__tests__/source-context.test.js:57:1
-✖ release #3787 history preserves genuine Fix/Closes sources over declared local requests (0.524586ms)
+test at .github/scripts/__tests__/source-context.test.js:77:1
+✖ release #3787 historical plural fixes retain automation provenance (0.242829ms)
+  AssertionError [ERR_ASSERTION]: Expected values to be strictly equal:
+  
+  3782 !== null
+  
+      at TestContext.<anonymous> (/home/runner/work/Workflows/Workflows/.github/scripts/__tests__/source-context.test.js:85:12)
+      at Test.runInAsyncScope (node:async_hooks:214:14)
+      at Test.run (node:internal/test_runner/test:1081:25)
+      at Test.processPendingSubtests (node:internal/test_runner/test:763:18)
+      at Test.postRun (node:internal/test_runner/test:1210:19)
+      at Test.run (node:internal/test_runner/test:1138:12)
+      at async Test.processPendingSubtests (node:internal/test_runner/test:763:7) {
+    generatedMessage: true,
+    code: 'ERR_ASSERTION',
+    actual: 3782,
+    expected: null,
+    operator: 'strictEqual'
+  }
+
+test at .github/scripts/__tests__/source-context.test.js:91:1
+✖ release #3787 history preserves genuine Fix/Closes sources over declared local requests (0.341053ms)
   AssertionError [ERR_ASSERTION]: body: Fix #123
   + actual - expected
-
+  
   + 'unknown'
   - 'github_issue'
-
-      at TestContext.<anonymous> (/home/runner/work/Workflows/Workflows/.github/scripts/__tests__/source-context.test.js:72:16)
-      at Test.runInAsyncScope (node:async_hooks:227:14)
-      at Test.run (node:internal/test_runner/test:1402:25)
-      at Test.processPendingSubtests (node:internal/test_runner/test:974:18)
-      at Test.postRun (node:internal/test_runner/test:1542:19)
-      at Test.run (node:internal/test_runner/test:1467:12)
-      at async Test.processPendingSubtests (node:internal/test_runner/test:974:7) {
+  
+      at TestContext.<anonymous> (/home/runner/work/Workflows/Workflows/.github/scripts/__tests__/source-context.test.js:106:16)
+      at Test.runInAsyncScope (node:async_hooks:214:14)
+      at Test.run (node:internal/test_runner/test:1081:25)
+      at Test.processPendingSubtests (node:internal/test_runner/test:763:18)
+      at Test.postRun (node:internal/test_runner/test:1210:19)
+      at Test.run (node:internal/test_runner/test:1138:12)
+      at async Test.processPendingSubtests (node:internal/test_runner/test:763:7) {
     generatedMessage: false,
     code: 'ERR_ASSERTION',
     actual: 'unknown',
     expected: 'github_issue',
-    operator: 'strictEqual',
-    diff: 'simple'
+    operator: 'strictEqual'
   }
 
-test at .github/scripts/__tests__/source-context.test.js:134:1
-✖ historical fix nouns are not closing directives, including formatted release tasks (0.349615ms)
+test at .github/scripts/__tests__/source-context.test.js:168:1
+✖ historical fix nouns are not closing directives, including formatted release tasks (0.304689ms)
   AssertionError [ERR_ASSERTION]: preserve release provenance for historical fixes ([#3782](https://github.com/stranske/Workflows/issues/3782))
-
+  
   3782 !== null
-
-      at TestContext.<anonymous> (/home/runner/work/Workflows/Workflows/.github/scripts/__tests__/source-context.test.js:144:14)
-      at Test.runInAsyncScope (node:async_hooks:227:14)
-      at Test.run (node:internal/test_runner/test:1402:25)
-      at Test.processPendingSubtests (node:internal/test_runner/test:974:18)
-      at Test.postRun (node:internal/test_runner/test:1542:19)
-      at Test.run (node:internal/test_runner/test:1467:12)
-      at async Test.processPendingSubtests (node:internal/test_runner/test:974:7) {
+  
+      at TestContext.<anonymous> (/home/runner/work/Workflows/Workflows/.github/scripts/__tests__/source-context.test.js:178:14)
+      at Test.runInAsyncScope (node:async_hooks:214:14)
+      at Test.run (node:internal/test_runner/test:1081:25)
+      at Test.processPendingSubtests (node:internal/test_runner/test:763:18)
+      at Test.postRun (node:internal/test_runner/test:1210:19)
+      at Test.run (node:internal/test_runner/test:1138:12)
+      at async Test.processPendingSubtests (node:internal/test_runner/test:763:7) {
     generatedMessage: false,
     code: 'ERR_ASSERTION',
     actual: 3782,
     expected: null,
-    operator: 'strictEqual',
-    diff: 'simple'
+    operator: 'strictEqual'
   }
 
-test at .github/scripts/__tests__/source-context.test.js:180:1
-✖ a historical fix noun cannot hide a subsequent closing directive on the same line (0.627482ms)
+test at .github/scripts/__tests__/source-context.test.js:214:1
+✖ a historical fix noun cannot hide a subsequent closing directive on the same line (0.530672ms)
   AssertionError [ERR_ASSERTION]: Revert the historical fixes #456 and Fixes #123
   + actual - expected
-
+  
     {
   +   issueNumber: null,
   +   via: null
   -   issueNumber: 123,
   -   via: 'closing'
     }
-
-      at TestContext.<anonymous> (/home/runner/work/Workflows/Workflows/.github/scripts/__tests__/source-context.test.js:190:14)
-      at Test.runInAsyncScope (node:async_hooks:227:14)
-      at Test.run (node:internal/test_runner/test:1402:25)
-      at Test.processPendingSubtests (node:internal/test_runner/test:974:18)
-      at Test.postRun (node:internal/test_runner/test:1542:19)
-      at Test.run (node:internal/test_runner/test:1467:12)
-      at async Test.processPendingSubtests (node:internal/test_runner/test:974:7) {
+  
+      at TestContext.<anonymous> (/home/runner/work/Workflows/Workflows/.github/scripts/__tests__/source-context.test.js:224:14)
+      at Test.runInAsyncScope (node:async_hooks:214:14)
+      at Test.run (node:internal/test_runner/test:1081:25)
+      at Test.processPendingSubtests (node:internal/test_runner/test:763:18)
+      at Test.postRun (node:internal/test_runner/test:1210:19)
+      at Test.run (node:internal/test_runner/test:1138:12)
+      at async Test.processPendingSubtests (node:internal/test_runner/test:763:7) {
     generatedMessage: false,
     code: 'ERR_ASSERTION',
     actual: [Object],
     expected: [Object],
-    operator: 'deepStrictEqual',
-    diff: 'simple'
+    operator: 'deepStrictEqual'
+  }
+
+test at .github/scripts/__tests__/source-context.test.js:1294:1
+✖ explicit closing titles outrank incidental body mentions without selecting conflicting closing targets (0.299433ms)
+  AssertionError [ERR_ASSERTION]: Expected values to be strictly deep-equal:
+  + actual - expected
+  
+    {
+  +   issueNumber: 456,
+  +   via: 'meta'
+  -   issueNumber: null,
+  -   via: null
+    }
+  
+      at TestContext.<anonymous> (/home/runner/work/Workflows/Workflows/.github/scripts/__tests__/source-context.test.js:1302:12)
+      at Test.runInAsyncScope (node:async_hooks:214:14)
+      at Test.run (node:internal/test_runner/test:1081:25)
+      at Test.processPendingSubtests (node:internal/test_runner/test:763:18)
+      at Test.postRun (node:internal/test_runner/test:1210:19)
+      at Test.run (node:internal/test_runner/test:1138:12)
+      at async Test.processPendingSubtests (node:internal/test_runner/test:763:7) {
+    generatedMessage: true,
+    code: 'ERR_ASSERTION',
+    actual: [Object],
+    expected: [Object],
+    operator: 'deepStrictEqual'
+  }
+
+test at .github/scripts/__tests__/source-context.test.js:1307:1
+✖ explicit closing title and metadata conflicts stay unresolved in both resolvers (0.299997ms)
+  AssertionError [ERR_ASSERTION]: Expected values to be strictly deep-equal:
+  + actual - expected
+  
+    {
+  +   issueNumber: 456,
+  +   via: 'meta'
+  -   issueNumber: null,
+  -   via: null
+    }
+  
+      at TestContext.<anonymous> (/home/runner/work/Workflows/Workflows/.github/scripts/__tests__/source-context.test.js:1319:16)
+      at Test.runInAsyncScope (node:async_hooks:214:14)
+      at Test.run (node:internal/test_runner/test:1081:25)
+      at Test.processPendingSubtests (node:internal/test_runner/test:763:18)
+      at Test.postRun (node:internal/test_runner/test:1210:19)
+      at Test.run (node:internal/test_runner/test:1138:12)
+      at async Test.processPendingSubtests (node:internal/test_runner/test:763:7) {
+    generatedMessage: true,
+    code: 'ERR_ASSERTION',
+    actual: [Object],
+    expected: [Object],
+    operator: 'deepStrictEqual'
+  }
+
+test at .github/scripts/__tests__/source-context.test.js:1344:1
+✖ negated closing titles preserve metadata without masking a later affirmative target (0.424196ms)
+  AssertionError [ERR_ASSERTION]: Does not fix #789 but closes #123
+  
+  false !== true
+  
+      at TestContext.<anonymous> (/home/runner/work/Workflows/Workflows/.github/scripts/__tests__/source-context.test.js:1360:14)
+      at Test.runInAsyncScope (node:async_hooks:214:14)
+      at Test.run (node:internal/test_runner/test:1081:25)
+      at Test.processPendingSubtests (node:internal/test_runner/test:763:18)
+      at Test.postRun (node:internal/test_runner/test:1210:19)
+      at Test.run (node:internal/test_runner/test:1138:12)
+      at async Test.processPendingSubtests (node:internal/test_runner/test:763:7) {
+    generatedMessage: false,
+    code: 'ERR_ASSERTION',
+    actual: false,
+    expected: true,
+    operator: 'strictEqual'
   }

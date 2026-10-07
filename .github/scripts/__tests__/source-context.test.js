@@ -31,12 +31,46 @@ const releasePull = {
   base: { repo: { full_name: 'octo/workflows' } },
 };
 
+test('release #3769 fixture retains production merged-fix changelog surface', () => {
+  assert.equal(release3769.number, 3769);
+  assert.equal(release3769.title, 'chore(main): release 1.37.21');
+  assert.equal(release3769.head.ref, 'release-please--branches--main');
+  assert.equal(release3769.head.sha, '08b07c8b1bfbe254d6d59f384f83d087a91ba93b');
+  assert.match(
+    release3769.body,
+    /Record the already-merged artifact-discovery fix #3768 in the changelog/,
+  );
+  assert.match(
+    release3769.body,
+    /retain artifact discovery for incidental status links \(\[#3768\]\(https:\/\/github\.com\/stranske\/Workflows\/issues\/3768\)\)/,
+  );
+  for (const extract of [extractIssueSourceFromPull, templateExtractIssueSourceFromPull]) {
+    assert.equal(extract({ body: release3769.body, title: release3769.title }).issueNumber, null);
+  }
+});
+
 test('release #3769 retains automation provenance instead of the already-merged fix', () => {
   for (const resolve of [resolvePrSourceContext, templateResolvePrSourceContext]) {
     const source = resolve(releasePull);
     assert.equal(source.issueNumber, null);
     assert.equal(source.requiresIssue, false);
     assert.equal(source.sourceType, SOURCE_TYPES.AUTOMATION_RUN);
+  }
+});
+
+test('release #3787 fixture retains production historical-fixes provenance surface', () => {
+  // Exact production PR #3787 surface. Merged resolver 52712f28 still treated the
+  // plural changelog noun as closing intent for #3782; the shared repair must not.
+  assert.equal(release3787.number, 3787);
+  assert.equal(release3787.title, 'chore(main): release 1.37.26');
+  assert.equal(release3787.head.ref, 'release-please--branches--main');
+  assert.equal(release3787.head.sha, 'dccfd5b4fabaa9748b66380bf1a108e15c18f61a');
+  assert.match(
+    release3787.body,
+    /\*\*verifier:\*\* preserve release provenance for historical fixes \(\[#3782\]\(https:\/\/github\.com\/stranske\/Workflows\/issues\/3782\)\) \(\[52712f2\]\(https:\/\/github\.com\/stranske\/Workflows\/commit\/52712f28d058ba1b3d6f1b7ad27e7cdb40f48e28\)\)/,
+  );
+  for (const extract of [extractIssueSourceFromPull, templateExtractIssueSourceFromPull]) {
+    assert.equal(extract({ body: release3787.body, title: release3787.title }).issueNumber, null);
   }
 });
 
