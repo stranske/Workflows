@@ -377,17 +377,17 @@ def collect_changed_files(
     if base_sha:
         fallbacks: list[list[str]] = []
         if base_ref and resolved_remote:
-            fallbacks.append([*log_prefix, f"{resolved_remote}/{base_ref}..HEAD"])
+            fallbacks.append(["diff", "--name-only", f"{resolved_remote}/{base_ref}...HEAD"])
         fallbacks.append([*log_prefix, "-n", "20"])
         output, used_fallback = _run_git_with_fallbacks_and_flag(
-            [*log_prefix, f"{base_sha}..HEAD"],
+            ["diff", "--name-only", f"{base_sha}...HEAD"],
             fallbacks,
         )
     elif base_ref:
         if resolved_remote:
-            range_spec = f"{resolved_remote}/{base_ref}..HEAD"
+            range_spec = f"{resolved_remote}/{base_ref}...HEAD"
             output, used_fallback = _run_git_with_fallbacks_and_flag(
-                [*log_prefix, range_spec],
+                ["diff", "--name-only", range_spec],
                 [[*log_prefix, "-n", "20"]],
             )
         else:
