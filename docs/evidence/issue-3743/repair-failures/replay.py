@@ -74,7 +74,15 @@ def main():
     output = args.output.resolve()
     output.mkdir(parents=True, exist_ok=False)
     root = Path(__file__).resolve().parents[4]
-    identities = {path: digest((root / path).read_bytes()) for path in [TEST, HELPER]}
+    identities = {
+        path: digest((root / path).read_bytes())
+        for path in [
+            TEST,
+            HELPER,
+            "templates/consumer-repo/" + HELPER,
+            str(Path(__file__).resolve().relative_to(root)),
+        ]
+    }
     controls = []
     with tempfile.TemporaryDirectory(prefix="repair-failures-proof-") as temporary:
         tree = Path(temporary)

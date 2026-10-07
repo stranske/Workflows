@@ -1,8 +1,8 @@
 {
   "base": "9a0219f361e4ba4b9072a554362ef378ff47ec4c",
   "source_sha256": "cc97119ea26afec275be3c83d22bc75de0d452cd0f4764896cc9d037274ab25a",
-  "test_sha256": "b737c32c12a97180d24d55d64e06c5398680d1a5c033467ba94bd459649b6324",
-  "driver_sha256": "a63d26e5519732515e977821345677e4223b84dd404f3b9592aca12a6b5ae4e3",
+  "test_sha256": "40dc7a08d8e70591b898ce1d0ea11ce7b2ccb567b74f1a9afd1fdabe1adba095",
+  "driver_sha256": "c878e46ae7f66afa0dc1debc66cd99be6e267606344a916895a1b5c8147502e2",
   "baseline": {
     "covered_lines": 563,
     "num_statements": 591,
@@ -88,5 +88,23 @@
     "malicious_entity": "EntitiesForbidden",
     "semgrep_local_available": false,
     "scope": "evidence driver only; existing300-test coverage proof unchanged"
+  },
+  "revalidation": {
+    "python": "3.14.7",
+    "interpreter": "/opt/hostedtoolcache/Python/3.14.7/x64/bin/python3",
+    "requested_interpreter_available": false,
+    "requested_interpreter": "/opt/anaconda3/bin/python3",
+    "previous_test_sha256": "b737c32c12a97180d24d55d64e06c5398680d1a5c033467ba94bd459649b6324",
+    "caller_bindings": {
+      "tests/scripts/test_check_deliberate_break_repair_failures.py": "40dc7a08d8e70591b898ce1d0ea11ce7b2ccb567b74f1a9afd1fdabe1adba095",
+      "scripts/check_deliberate_break.py": "cc97119ea26afec275be3c83d22bc75de0d452cd0f4764896cc9d037274ab25a",
+      "templates/consumer-repo/scripts/check_deliberate_break.py": "cc97119ea26afec275be3c83d22bc75de0d452cd0f4764896cc9d037274ab25a",
+      "docs/evidence/issue-3743/repair-failures/replay.py": "c878e46ae7f66afa0dc1debc66cd99be6e267606344a916895a1b5c8147502e2"
+    },
+    "output_reuse_files_unchanged": 37,
+    "archive_assertions": "Populated base archive, current candidate overlay, exact repair exception identity, and exactly one head/base launch.",
+    "dependency_provenance": "revalidation/dependency-provenance.json",
+    "no_covered_branch_regressions": true,
+    "suite_environment": "PYTHONPATH unset for both matched suites; parser dependency path only needed for repair replay."
   }
 }

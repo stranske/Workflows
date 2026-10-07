@@ -109,22 +109,45 @@ def test_base_dependency_failure_keeps_its_cause_and_cleans_real_archive(
     git("commit", "-qm", "private base runtime")
     base = git("rev-parse", "HEAD")
     (repo / "phase.txt").write_text("head", encoding="utf-8")
+    (repo / "proof.txt").write_text("updated candidate test overlay\n", encoding="utf-8")
     namespace = helper["verify_spec"].__globals__
     archive = namespace["_archive_ref"]
+    run = namespace["_run"]
+    dependency_result = namespace["_runtime_dependency_error_result"]
     archives = []
     repairs = []
+    launches = []
+    reported_errors = []
     cause = OSError("private wheel storage unavailable")
     dependency_error = ImportError("private dependency repair failed")
 
     def observed_archive(ref, target, cwd):
         archives.append(target)
-        return archive(ref, target, cwd)
+        result = archive(ref, target, cwd)
+        assert (target / "phase.txt").read_text() == "base"
+        assert (target / "proof.txt").read_bytes() == b"candidate test overlay\n"
+        return result
+
+    def observed_run(argv, cwd):
+        result = run(argv, cwd)
+        if argv == command:
+            launches.append((cwd, result.returncode))
+        return result
+
+    def observed_dependency_result(error):
+        reported_errors.append(error)
+        return dependency_result(error)
 
     def failed_repair():
+        assert archives[0].is_dir()
+        assert (archives[0] / "phase.txt").read_text() == "base"
+        assert (archives[0] / "proof.txt").read_bytes() == b"updated candidate test overlay\n"
         repairs.append(True)
         raise dependency_error from cause
 
     monkeypatch.setitem(namespace, "_archive_ref", observed_archive)
+    monkeypatch.setitem(namespace, "_run", observed_run)
+    monkeypatch.setitem(namespace, "_runtime_dependency_error_result", observed_dependency_result)
     monkeypatch.setitem(namespace, "_ensure_pytest_runtime_deps", failed_repair)
     command = (sys.executable, "-m", "pytest")
     spec = helper["DeliberateBreakSpec"]("repair-proof", "proof.txt", "phase.txt", command)
@@ -138,8 +161,11 @@ def test_base_dependency_failure_keeps_its_cause_and_cleans_real_archive(
         "cause": "private wheel storage unavailable",
     }
     assert repairs == [True]
+    assert reported_errors == [dependency_error]
+    assert reported_errors[0] is dependency_error
     assert dependency_error.__cause__ is cause
     assert len(archives) == 1
+    assert launches == [(repo, 0), (archives[0], 1)]
     assert not archives[0].exists()
     assert (repo / "phase.txt").read_text() == "head"
-    assert (repo / "proof.txt").read_bytes() == b"candidate test overlay\n"
+    assert (repo / "proof.txt").read_bytes() == b"updated candidate test overlay\n"

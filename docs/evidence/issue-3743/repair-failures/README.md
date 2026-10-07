@@ -20,7 +20,7 @@ execution. A separate temporary Git repository exercises a real base archive:
 head succeeds, base repair fails, its cause is reported as FAIL_BROKEN, the
 archive disappears, and candidate bytes stay unchanged.
 
-## Validation
+## Original validation
 
 `/opt/anaconda3/bin/python3 -m pytest
 tests/scripts/test_check_deliberate_break_repair_failures.py -q -o addopts=`:
@@ -51,7 +51,7 @@ its Python 3.12/target 3.13 parser warning; this is retained, not suppressed.
 
 ## Lossless evidence
 
-`validation.tar.gz` retains 93 complete members: baseline/candidate coverage JSON,
+The original proof contributes 93 complete members to `validation.tar.gz`: baseline/candidate coverage JSON,
 JUnit and console, process receipts, history ranking, six RED/GREEN process
 receipts and raw console/JUnit pairs, original/mutated/restored hashes, output
 reuse refusal and formatting/template output. `manifest.json` binds the archive,
@@ -76,3 +76,38 @@ and a control proving a malicious entity is rejected with `EntitiesForbidden`.
 Semgrep is unavailable locally; the hosted security scan must requalify the new
 head. This parser-only evidence correction changes no production/test coverage
 universe; the original 294-to-300 proof remains scoped as stated above.
+
+## Automation-runner follow-up
+
+- [x] Verify all six root/template cases, strengthening the base cases to observe
+  the populated archive, its candidate test overlay, exact dependency exception
+  identity, and exactly one head and one base command launch.
+- [x] Replay all six production mutations: RED exit 1, byte-identical restoration,
+  GREEN exit 0. Bind caller root, template, test, and replay-driver hashes.
+- [x] Compare the matched suites: 294 baseline PASS and 300 candidate PASS,
+  exactly six added nodes, unchanged old outcomes, and no covered-line or branch
+  regressions. Preserve 591 statements, 262 branches, and zero exclusions.
+
+Fresh receipts in `revalidation/` reproduce 563 → 568 covered statements and
+241 covered branches, or 94.25556858% → 94.84173505% combined coverage. The six
+cases also pass independently. Reusing `/tmp/new-repair-proof` fails before
+mutation and leaves all 37 output files unchanged. Black checks all 677 files;
+focused Ruff, template completeness, root/template parity against base, and
+`git diff --check` pass. All 184 archived members verify, including the original
+93 members preserved byte-for-byte. Historical test/driver snapshots remain
+bound to the prior comparison; the manifest binds the current files separately.
+
+This runner uses Python 3.14.7; `/opt/anaconda3/bin/python3` is absent. The replay
+dependency was also absent. Its required modules were staged under `/tmp` from
+the official [defusedxml 0.7.1 source](https://github.com/tiran/defusedxml/tree/v0.7.1),
+with source, provenance, hashes, and an `EntitiesForbidden` control archived.
+Tests install nothing and access no network. The matched suites run with
+`PYTHONPATH` unset. An initial pair inherited the replay dependency path and
+covered 240 branches because `_run` never saw an empty `PYTHONPATH`; those
+receipts remain under `revalidation/with-replay-import-path/`.
+
+The implementation and evidence are verified locally. This runner mounts
+`.git` read-only, so `git add` fails creating `index.lock` and no commit can be
+created. GitHub API access is unavailable, preventing PR checkbox updates and
+readiness-state verification. These environment limits remain open; the literal
+Anaconda-interpreter acceptance command was not rerun here.
