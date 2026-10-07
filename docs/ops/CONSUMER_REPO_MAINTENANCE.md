@@ -285,7 +285,7 @@ qualifier alone after bare `PR description` does not create a product component;
 human and independent reviewer deliveries remain mandatory.
 Relative markers `that`, `which` and `where` likewise cannot start component
 names and terminate an already matched component before its relative clause.
-Named checklist shorthand accepts the same declared temporal continuation
+Named checklist shorthand accepts the same declared temporal and relative continuation
 after its destination (`Test evidence in a PR comment before merge` remains
 mandatory comment evidence). Optional and negative delivery governors keep
 their own polarity; an independent artifact cannot replace the named channel.
@@ -294,6 +294,10 @@ Both paths also share the independent review-predicate exclusion: an actor
 such as `the PR description that must contain command output` is not consumed
 as another destination of an earlier prohibited delivery. OR expansion cannot
 invent an overall-evidence requirement by splitting that independent actor.
+An attached `that`/`which` availability qualifier using `remain`/`stay`/`be`
+and `available`/`accessible`/`present` is not a new delivery predicate. It keeps
+body/comment OR branches alternative; a relative requirement to contain proof
+remains independent and authoritative under the existing shared grammar.
 A comma may introduce a declared availability condition. Human body/comment ORs
 retain genuine alternatives; a product-only component cannot erase a coordinated
 mandatory review delivery, even when an independent artifact keeps every expanded

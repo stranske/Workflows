@@ -304,7 +304,18 @@ def test_component_options_and_actual_floor_are_order_symmetric(
 
 @pytest.mark.parametrize("marker", ["-", "*", "+", "1.", "1)"])
 @pytest.mark.parametrize("proof", ["Test evidence", "Command output", "Transcripts"])
-@pytest.mark.parametrize("suffix", ["before merge", "after approval", "today", "daily"])
+@pytest.mark.parametrize(
+    "suffix",
+    [
+        "before merge",
+        "after approval",
+        "today",
+        "daily",
+        "that reviewers can inspect",
+        "which reviewers can inspect",
+        "where reviewers can inspect",
+    ],
+)
 @pytest.mark.parametrize(
     "destination,channel",
     [
@@ -346,6 +357,51 @@ def test_temporal_checklist_shorthand_preserves_named_delivery(
         assert verifier._required_evidence_channels(negative + extra) == (
             {"artifacts"} if independent else set()
         )
+
+
+@pytest.mark.parametrize("relative", ["that", "which"])
+@pytest.mark.parametrize(
+    "predicate", ["must remain available", "shall stay accessible", "is required to be present"]
+)
+@pytest.mark.parametrize("reverse", [False, True])
+@pytest.mark.parametrize("independent", [False, True])
+def test_attached_availability_relative_preserves_destination_or(
+    relative, predicate, reverse, independent
+):
+    destinations = ["the PR body", "a PR comment"]
+    if reverse:
+        destinations.reverse()
+    criterion = (
+        f"Test evidence must be in {destinations[0]} or {destinations[1]} {relative} {predicate}"
+    )
+    if independent:
+        criterion += "; the reviewer must record evidence in a workflow artifact"
+    extra = {"artifacts"} if independent else set()
+    assert verifier._required_evidence_channels(criterion) == {"body", "comments"} | extra
+    assert verifier._required_evidence_options(criterion) == [
+        {"comments" if reverse else "body"} | extra,
+        {"body" if reverse else "comments"} | extra,
+    ]
+    spec = importlib.util.spec_from_file_location(
+        "attached_availability_fixture",
+        Path(__file__).with_name("test_pr_verifier_prompt_coverage.py"),
+    )
+    fixture = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(fixture)
+    for present in ["body", "comments"]:
+        context, _ = fixture._context(1, 1000, 1000)
+        context = context.replace("- " + fixture.ACCEPTANCE_SENTINEL, criterion).replace(
+            "## PR Diff Summary",
+            "## Acceptance evidence\n\n- Overall retrieval status: **present**\n"
+            f"- PR body: **{'present' if present == 'body' else 'absent'}**\n"
+            f"- PR comments: **{'present' if present == 'comments' else 'absent'}**\n"
+            "- Referenced workflow artifacts: **present**\n\n## PR Diff Summary",
+        )
+        result = verifier._apply_coverage_floor(
+            verifier.EvaluationResult(verdict="PASS", used_llm=True),
+            verifier.prompt_coverage(context, None),
+        )
+        assert result.verdict == "PASS"
 
 
 @pytest.mark.parametrize("marker", ["-", "*", "+", "1.", "1)"])

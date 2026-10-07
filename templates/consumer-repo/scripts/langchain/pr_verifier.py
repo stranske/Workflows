@@ -1007,6 +1007,16 @@ _INDEPENDENT_REVIEW_PREDICATE = (
     + _NEGATIVE_EVIDENCE_REQUIREMENT_GOVERNOR
     + r"|is|are|will|should|may|can)\b"
 )
+_INDEPENDENT_REVIEW_CLAUSE = (
+    # An attached availability qualifier does not introduce another delivery.
+    r"(?!(?:that|which)\s+"
+    + _EVIDENCE_DELIVERY_ADVERBS
+    + _INDEPENDENT_REVIEW_PREDICATE
+    + r"\s+"
+    + _EVIDENCE_DELIVERY_ADVERBS
+    + r"(?:remain|stay|be)\s+(?:available|accessible|present)\b)"
+    r"(?:(?:that|which)\s+)?" + _EVIDENCE_DELIVERY_ADVERBS + _INDEPENDENT_REVIEW_PREDICATE
+)
 
 _REVIEW_BODY_COMPONENT_TEMPORAL = (
     r"before|after|now|today|tomorrow|again|here|there|soon|always|daily|weekly|[\w-]+ly"
@@ -1184,9 +1194,8 @@ def _required_evidence_channels(acceptance: str, *, _bind_attached: bool = True)
         + delivery_destination_separator
         + r"(?!"
         + delivery_destination_item
-        + r"\s+(?:(?:that|which)\s+)?"
-        + delivery_adverbs
-        + independent_review_predicate
+        + r"\s+"
+        + _INDEPENDENT_REVIEW_CLAUSE
         + r")"
         + delivery_destination_item
         + r")*"
@@ -1199,7 +1208,7 @@ def _required_evidence_channels(acceptance: str, *, _bind_attached: bool = True)
         r"(?P<object>(?:(?:test|validation|CI|build|execution)\s+){0,3}"
         r"(?:evidence|command outputs?|transcripts?))\s+"
         r"(?P<destinations>" + bound_review_destinations + r")"
-        r"(?=[ \t]*(?:[;.!]|$|(?:" + _REVIEW_BODY_COMPONENT_TEMPORAL + r")\b))",
+        r"(?=[ \t]*(?:[;.!]|$|(?:that|which|where|" + _REVIEW_BODY_COMPONENT_TEMPORAL + r")\b))",
         lambda match: (
             match[0]
             if match["literal"] or re.search(r"\r?\n[ \t]*\r?\n", match[0])
@@ -3681,9 +3690,8 @@ def _required_evidence_options(acceptance: str) -> list[set[str]]:
         + r"(?:(?:\s*,\s*(?:(?:and|or)\s+)?|\s+(?:and|or)\s+)"
         + r"(?!"
         + member
-        + r"\s+(?:(?:that|which)\s+)?"
-        + _EVIDENCE_DELIVERY_ADVERBS
-        + _INDEPENDENT_REVIEW_PREDICATE
+        + r"\s+"
+        + _INDEPENDENT_REVIEW_CLAUSE
         + r")"
         + member
         + r")+)",
