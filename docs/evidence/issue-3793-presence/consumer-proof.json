@@ -1,0 +1,15 @@
+{
+  "before": {
+    "blob_reads": 3003,
+    "inventory_writes": 0
+  },
+  "after": {
+    "blob_reads": 1001,
+    "inventory_writes": 1
+  },
+  "warm_blob_reads": 0,
+  "negative_prs": 3,
+  "positive_missing_ledger": "rejected",
+  "consumer_default_helper": "actual default helper across module reloads",
+  "live_api_load": 0
+}

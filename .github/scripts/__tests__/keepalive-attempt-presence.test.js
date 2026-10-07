@@ -101,3 +101,56 @@ for (const surface of ['../keepalive_authority_state.js',
     }
   });
 }
+
+
+// A legacy writer never touches presence records. Its new attempt still changes
+// the immutable subtree key, so old negative inventory cannot hide the attempt.
+for (const surface of ['../keepalive_authority_state.js',
+  '../../../templates/consumer-repo/.github/scripts/keepalive_authority_state.js']) {
+  function changingServer(trigger) {
+    const base = fixture({ target: 43 });
+    let changed = false;
+    let armed = false;
+    const owner = 'owner/repo:9999:1';
+    const index = { version: 1, repository: 'owner/repo', owner_attempt: owner,
+      pr_number: 44, generation: 'a'.repeat(64),
+      receipt: { id: 'b'.repeat(64), claim_digest: 'c'.repeat(64), owner_attempt: owner,
+        head_sha: 'd'.repeat(40), provider: 'codex', consumed_at: '2026-10-01T00:00:00.000Z' } };
+    const request = async (method, url, body) => {
+      if (url.endsWith('/git/trees/' + '5'.repeat(40))) {
+        return { truncated: false, tree: [{ path: crypto.createHash('sha256').update(owner).digest('hex') + '.json',
+          type: 'blob', sha: '6'.repeat(40) }] };
+      }
+      if (url.endsWith('/git/blobs/' + '6'.repeat(40))) {
+        return { sha: '6'.repeat(40), encoding: 'base64', content: Buffer.from(JSON.stringify(index)).toString('base64') };
+      }
+      const response = await base.request(method, url, body);
+      if (url.endsWith('/git/trees/' + '3'.repeat(40)) && changed) {
+        return { truncated: false, tree: [{ path: 'keepalive-authority-attempts', type: 'tree', sha: '5'.repeat(40) }] };
+      }
+      if (armed && ((trigger === 'warm' && method === 'GET' && url.includes('/keepalive-authority-presence/')) ||
+          (trigger === 'backfill' && url.includes('/git/blobs/')) ||
+          (trigger === 'publication' && method === 'PUT'))) changed = true;
+      return response;
+    };
+    return { request, arm: () => { armed = true; }, advance: () => { changed = true; } };
+  }
+  test(`${surface}: an older writer invalidates negative presence by changing the subtree`, async () => {
+    let { hasAttemptIndexesForPr } = require(surface);
+    const server = changingServer();
+    assert.equal(await hasAttemptIndexesForPr(server.request, 'owner/repo', 44), false);
+    server.advance();
+    delete require.cache[require.resolve(surface)];
+    ({ hasAttemptIndexesForPr } = require(surface));
+    assert.equal(await hasAttemptIndexesForPr(server.request, 'owner/repo', 44), true);
+  });
+  test(`${surface}: concurrent changes fail closed during warm read, backfill and publication`, async () => {
+    const { hasAttemptIndexesForPr } = require(surface);
+    for (const phase of ['warm', 'backfill', 'publication']) {
+      const server = changingServer(phase);
+      if (phase === 'warm') assert.equal(await hasAttemptIndexesForPr(server.request, 'owner/repo', 44), false);
+      server.arm();
+      await assert.rejects(hasAttemptIndexesForPr(server.request, 'owner/repo', 44), /changed during/);
+    }
+  });
+}

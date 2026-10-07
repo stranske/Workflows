@@ -520,3 +520,35 @@ field empty, which keeps "no drainable path stated" from ever reading as "nothin
 
 Constants live in `scripts/runner_lib/core.py`:
 `UNPRODUCTIVE_COMPLETION_RETRY_LIMIT` and `UNPRODUCTIVE_COMPLETION_COOLDOWN_SECONDS`.
+
+
+### Durable missing-ledger attempt presence
+
+The missing-ledger replay guard uses a durable complete presence inventory on the
+`keepalive-authority-state` branch, under
+`.github/keepalive-authority-presence/<attempt-index-tree-sha>.json`. The key is the
+immutable `.github/keepalive-authority-attempts` subtree, not the branch commit:
+writing an inventory does not invalidate itself. The inventory stores the sorted
+set of PRs with validated indexes; absence from that set is a negative result only
+for that exact complete tree. It grants no execution authority and never replaces
+ledger or receipt reconciliation for a positive PR.
+
+On a cache miss, the reporter traverses complete non-truncated pinned Git trees,
+validates every index blob and its receipt/filename/repository binding, and creates
+the inventory without an overwrite SHA. A concurrent create is accepted only when
+readback exactly matches the independently computed set. Partial, malformed,
+unavailable, lost-response, conflicting or unconfirmed writes fail closed. Cache
+reads use the snapshot commit and recheck the current index subtree before return;
+backfill and publication also recheck it. Any writer, including an older writer,
+that creates an attempt index changes the subtree key. An older negative inventory
+therefore cannot certify absence in the newer tree. Retry rebuilds that complete
+new tree rather than updating a partial positive-only marker.
+
+The first migration scan remains proportional to legacy indexes. Once persisted,
+separate later reporter instances reuse one inventory without reading every index
+blob again; tree and inventory API calls remain bounded independently of index
+count. Migration requires the existing dedicated reporter App's contents-write
+permission. The read-only target classifier does not invoke this migration path.
+An inaccessible writer is an automation error, never successful absence. Retained
+inventories are evidence for immutable trees; this change does not garbage-collect
+the authority branch or claim that all broader recovery acceptance is complete.
