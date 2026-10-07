@@ -1,0 +1,222 @@
+[
+  {
+    "side": "root",
+    "case": "test_real_command_preserves_existing_pythonpath",
+    "red_exit": 1,
+    "green_exit": 0,
+    "argv": [
+      "python3",
+      "-m",
+      "pytest",
+      "tests/scripts/test_check_deliberate_break_launch_boundaries.py::test_real_command_preserves_existing_pythonpath[root]",
+      "-q",
+      "-o",
+      "addopts=",
+      "-m",
+      "not slow"
+    ],
+    "source_sha256": "cc97119ea26afec275be3c83d22bc75de0d452cd0f4764896cc9d037274ab25a",
+    "mutant_sha256": "4865369bd683101a16cbfa9bab38a46654b39e2a3fd61a79e983637f4c35315a",
+    "restored_sha256": "cc97119ea26afec275be3c83d22bc75de0d452cd0f4764896cc9d037274ab25a",
+    "test_sha256": "f6304c400b41e275d3ea00662e02a992daf4939a767aa27fa3bdd02296dc3d57",
+    "restored_byte_identical": true
+  },
+  {
+    "side": "root",
+    "case": "test_missing_test_never_launches_the_command",
+    "red_exit": 1,
+    "green_exit": 0,
+    "argv": [
+      "python3",
+      "-m",
+      "pytest",
+      "tests/scripts/test_check_deliberate_break_launch_boundaries.py::test_missing_test_never_launches_the_command[root]",
+      "-q",
+      "-o",
+      "addopts=",
+      "-m",
+      "not slow"
+    ],
+    "source_sha256": "cc97119ea26afec275be3c83d22bc75de0d452cd0f4764896cc9d037274ab25a",
+    "mutant_sha256": "e62d41931355f11240b9b1206b6645d327cb878b7be0c03ada2776a13f259f0e",
+    "restored_sha256": "cc97119ea26afec275be3c83d22bc75de0d452cd0f4764896cc9d037274ab25a",
+    "test_sha256": "f6304c400b41e275d3ea00662e02a992daf4939a767aa27fa3bdd02296dc3d57",
+    "restored_byte_identical": true
+  },
+  {
+    "side": "root",
+    "case": "test_real_missing_executable_is_wrapped_with_its_cause",
+    "red_exit": 1,
+    "green_exit": 0,
+    "argv": [
+      "python3",
+      "-m",
+      "pytest",
+      "tests/scripts/test_check_deliberate_break_launch_boundaries.py::test_real_missing_executable_is_wrapped_with_its_cause[root]",
+      "-q",
+      "-o",
+      "addopts=",
+      "-m",
+      "not slow"
+    ],
+    "source_sha256": "cc97119ea26afec275be3c83d22bc75de0d452cd0f4764896cc9d037274ab25a",
+    "mutant_sha256": "6270ea01e23f5a224af62da73f6c67b9486ca2c4e0ecd08b3a0616961fa5c18e",
+    "restored_sha256": "cc97119ea26afec275be3c83d22bc75de0d452cd0f4764896cc9d037274ab25a",
+    "test_sha256": "f6304c400b41e275d3ea00662e02a992daf4939a767aa27fa3bdd02296dc3d57",
+    "restored_byte_identical": true
+  },
+  {
+    "side": "root",
+    "case": "test_real_head_timeout_stops_before_base_archive",
+    "red_exit": 1,
+    "green_exit": 0,
+    "argv": [
+      "python3",
+      "-m",
+      "pytest",
+      "tests/scripts/test_check_deliberate_break_launch_boundaries.py::test_real_head_timeout_stops_before_base_archive[root]",
+      "-q",
+      "-o",
+      "addopts=",
+      "-m",
+      "not slow"
+    ],
+    "source_sha256": "cc97119ea26afec275be3c83d22bc75de0d452cd0f4764896cc9d037274ab25a",
+    "mutant_sha256": "ec7fd06592c58f7ff9aa40a6393b07ee3641a1251aa1b5a3bc8126d24fc107be",
+    "restored_sha256": "cc97119ea26afec275be3c83d22bc75de0d452cd0f4764896cc9d037274ab25a",
+    "test_sha256": "f6304c400b41e275d3ea00662e02a992daf4939a767aa27fa3bdd02296dc3d57",
+    "restored_byte_identical": true
+  },
+  {
+    "side": "root",
+    "case": "test_real_base_timeout_is_broken_and_cleans_private_archive",
+    "red_exit": 1,
+    "green_exit": 0,
+    "argv": [
+      "python3",
+      "-m",
+      "pytest",
+      "tests/scripts/test_check_deliberate_break_launch_boundaries.py::test_real_base_timeout_is_broken_and_cleans_private_archive[root]",
+      "-q",
+      "-o",
+      "addopts=",
+      "-m",
+      "not slow"
+    ],
+    "source_sha256": "cc97119ea26afec275be3c83d22bc75de0d452cd0f4764896cc9d037274ab25a",
+    "mutant_sha256": "09e2b49017c8a1ad8c41b0ba4e3661604c0856ebbe6ba17f27dfb0661cc54f91",
+    "restored_sha256": "cc97119ea26afec275be3c83d22bc75de0d452cd0f4764896cc9d037274ab25a",
+    "test_sha256": "f6304c400b41e275d3ea00662e02a992daf4939a767aa27fa3bdd02296dc3d57",
+    "restored_byte_identical": true
+  },
+  {
+    "side": "template",
+    "case": "test_real_command_preserves_existing_pythonpath",
+    "red_exit": 1,
+    "green_exit": 0,
+    "argv": [
+      "python3",
+      "-m",
+      "pytest",
+      "tests/scripts/test_check_deliberate_break_launch_boundaries.py::test_real_command_preserves_existing_pythonpath[template]",
+      "-q",
+      "-o",
+      "addopts=",
+      "-m",
+      "not slow"
+    ],
+    "source_sha256": "cc97119ea26afec275be3c83d22bc75de0d452cd0f4764896cc9d037274ab25a",
+    "mutant_sha256": "4865369bd683101a16cbfa9bab38a46654b39e2a3fd61a79e983637f4c35315a",
+    "restored_sha256": "cc97119ea26afec275be3c83d22bc75de0d452cd0f4764896cc9d037274ab25a",
+    "test_sha256": "f6304c400b41e275d3ea00662e02a992daf4939a767aa27fa3bdd02296dc3d57",
+    "restored_byte_identical": true
+  },
+  {
+    "side": "template",
+    "case": "test_missing_test_never_launches_the_command",
+    "red_exit": 1,
+    "green_exit": 0,
+    "argv": [
+      "python3",
+      "-m",
+      "pytest",
+      "tests/scripts/test_check_deliberate_break_launch_boundaries.py::test_missing_test_never_launches_the_command[template]",
+      "-q",
+      "-o",
+      "addopts=",
+      "-m",
+      "not slow"
+    ],
+    "source_sha256": "cc97119ea26afec275be3c83d22bc75de0d452cd0f4764896cc9d037274ab25a",
+    "mutant_sha256": "e62d41931355f11240b9b1206b6645d327cb878b7be0c03ada2776a13f259f0e",
+    "restored_sha256": "cc97119ea26afec275be3c83d22bc75de0d452cd0f4764896cc9d037274ab25a",
+    "test_sha256": "f6304c400b41e275d3ea00662e02a992daf4939a767aa27fa3bdd02296dc3d57",
+    "restored_byte_identical": true
+  },
+  {
+    "side": "template",
+    "case": "test_real_missing_executable_is_wrapped_with_its_cause",
+    "red_exit": 1,
+    "green_exit": 0,
+    "argv": [
+      "python3",
+      "-m",
+      "pytest",
+      "tests/scripts/test_check_deliberate_break_launch_boundaries.py::test_real_missing_executable_is_wrapped_with_its_cause[template]",
+      "-q",
+      "-o",
+      "addopts=",
+      "-m",
+      "not slow"
+    ],
+    "source_sha256": "cc97119ea26afec275be3c83d22bc75de0d452cd0f4764896cc9d037274ab25a",
+    "mutant_sha256": "6270ea01e23f5a224af62da73f6c67b9486ca2c4e0ecd08b3a0616961fa5c18e",
+    "restored_sha256": "cc97119ea26afec275be3c83d22bc75de0d452cd0f4764896cc9d037274ab25a",
+    "test_sha256": "f6304c400b41e275d3ea00662e02a992daf4939a767aa27fa3bdd02296dc3d57",
+    "restored_byte_identical": true
+  },
+  {
+    "side": "template",
+    "case": "test_real_head_timeout_stops_before_base_archive",
+    "red_exit": 1,
+    "green_exit": 0,
+    "argv": [
+      "python3",
+      "-m",
+      "pytest",
+      "tests/scripts/test_check_deliberate_break_launch_boundaries.py::test_real_head_timeout_stops_before_base_archive[template]",
+      "-q",
+      "-o",
+      "addopts=",
+      "-m",
+      "not slow"
+    ],
+    "source_sha256": "cc97119ea26afec275be3c83d22bc75de0d452cd0f4764896cc9d037274ab25a",
+    "mutant_sha256": "ec7fd06592c58f7ff9aa40a6393b07ee3641a1251aa1b5a3bc8126d24fc107be",
+    "restored_sha256": "cc97119ea26afec275be3c83d22bc75de0d452cd0f4764896cc9d037274ab25a",
+    "test_sha256": "f6304c400b41e275d3ea00662e02a992daf4939a767aa27fa3bdd02296dc3d57",
+    "restored_byte_identical": true
+  },
+  {
+    "side": "template",
+    "case": "test_real_base_timeout_is_broken_and_cleans_private_archive",
+    "red_exit": 1,
+    "green_exit": 0,
+    "argv": [
+      "python3",
+      "-m",
+      "pytest",
+      "tests/scripts/test_check_deliberate_break_launch_boundaries.py::test_real_base_timeout_is_broken_and_cleans_private_archive[template]",
+      "-q",
+      "-o",
+      "addopts=",
+      "-m",
+      "not slow"
+    ],
+    "source_sha256": "cc97119ea26afec275be3c83d22bc75de0d452cd0f4764896cc9d037274ab25a",
+    "mutant_sha256": "09e2b49017c8a1ad8c41b0ba4e3661604c0856ebbe6ba17f27dfb0661cc54f91",
+    "restored_sha256": "cc97119ea26afec275be3c83d22bc75de0d452cd0f4764896cc9d037274ab25a",
+    "test_sha256": "f6304c400b41e275d3ea00662e02a992daf4939a767aa27fa3bdd02296dc3d57",
+    "restored_byte_identical": true
+  }
+]
