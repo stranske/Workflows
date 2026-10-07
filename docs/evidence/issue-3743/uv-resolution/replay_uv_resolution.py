@@ -37,6 +37,11 @@ def digest(data):
     return hashlib.sha256(data).hexdigest()
 
 
+def require(condition, detail):
+    if not condition:
+        raise ValueError(f"invalid proof: {detail}")
+
+
 def run_case(tree, output, node, phase):
     xml = output / f"{phase}.xml"
     argv = [sys.executable, "-m", "pytest", node, "-q", "-o", "addopts=", f"--junitxml={xml}"]
@@ -44,10 +49,12 @@ def run_case(tree, output, node, phase):
         process = subprocess.run(argv, cwd=tree, stdout=log, stderr=subprocess.STDOUT, timeout=120)
     cases = list(ET.parse(xml).getroot().iter("testcase"))
     expected = 1 if phase == "red" else 0
-    assert process.returncode == expected, (node, phase, process.returncode)
-    assert len(cases) == 1 and not list(cases[0].iter("error")), (node, phase)
-    assert bool(list(cases[0].iter("failure"))) is (phase == "red"), (node, phase)
-    assert not list(cases[0].iter("skipped")), (node, phase)
+    require(process.returncode == expected, (node, phase, process.returncode))
+    require(len(cases) == 1, (node, phase, "expected one case"))
+    require(cases[0].get("name") == node.rsplit("::", 1)[-1], (node, phase, "wrong case"))
+    require(not list(cases[0].iter("error")), (node, phase, "test error"))
+    require(bool(list(cases[0].iter("failure"))) is (phase == "red"), (node, phase))
+    require(not list(cases[0].iter("skipped")), (node, phase, "test skipped"))
     receipt = {"argv": argv, "cwd": str(tree), "exit": process.returncode, "node": node}
     (output / f"{phase}.json").write_text(json.dumps(receipt, indent=2), encoding="utf-8")
     return receipt
@@ -84,14 +91,14 @@ def main():
                 case.mkdir()
                 node = f"{TEST}::test_uv_resolution_refuses_failed_or_empty_lookup[{copy}-{kind}]"
                 text = original.decode("utf-8")
-                assert text.count(before) == 1, (copy, kind, "mutation anchor drift")
+                require(text.count(before) == 1, (copy, kind, "mutation anchor drift"))
                 mutated = text.replace(before, after).encode("utf-8")
                 try:
                     source.write_bytes(mutated)
                     red = run_case(tree, case, node, "red")
                 finally:
                     source.write_bytes(original)
-                assert source.read_bytes() == original
+                require(source.read_bytes() == original, (copy, kind, "restoration drift"))
                 green = run_case(tree, case, node, "green")
                 controls.append(
                     {
@@ -104,8 +111,11 @@ def main():
                         "green": green,
                     }
                 )
-    assert len(controls) == 8
-    assert identities == {path: digest((root / path).read_bytes()) for path in identities}
+    require(len(controls) == 8, "expected eight controls")
+    require(
+        identities == {path: digest((root / path).read_bytes()) for path in identities},
+        "caller identity drift",
+    )
     (output / "controls.json").write_text(
         json.dumps({"caller_identity": identities, "controls": controls}, indent=2),
         encoding="utf-8",
