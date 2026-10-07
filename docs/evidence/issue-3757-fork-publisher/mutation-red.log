@@ -1,0 +1,88 @@
+FF                                                                       [100%]
+=================================== FAILURES ===================================
+_ test_collect_fork_receipt_keeps_publisher_separate_from_event_topology[pull_request] _
+
+event = 'pull_request'
+
+    @pytest.mark.parametrize("event", ["pull_request", "pull_request_target"])
+    def test_collect_fork_receipt_keeps_publisher_separate_from_event_topology(event):
+        packet = fork_status_packet()
+        fork = packet["fork_publishers"][0]
+        fallback = status_collection_transport(packet)
+    
+        def transport(endpoint):
+            if "/actions/workflows/pr-00-gate-fork-status.yml/runs?" in endpoint:
+                assert "event=workflow_run&created=2026-10-06" in endpoint
+                assert "head_sha=" not in endpoint
+                return [{"total_count": 1, "workflow_runs": [fork["run"]]}]
+            if "/attempts/3/jobs?" in endpoint:
+                return [{"total_count": 1, "jobs": fork["jobs"]}]
+            if endpoint.endswith("/check-suites/702"):
+                return [fork["suite"]]
+            if endpoint.endswith("/check-runs/703"):
+                return [fork["checks"][0]]
+            if endpoint.endswith("/actions/runs/701"):
+                return [fork["run"]]
+            if endpoint[-8:] == "/pulls/1":
+                pr = fallback(endpoint)[0]
+                pr["head"]["repo"] = {"full_name": "contributor/fork"}
+                return [pr]
+            return fallback(endpoint)
+    
+        evidence = reporter.Evidence(transport)
+        evidence.content = lambda repo, path, ref: Path(__file__).parents[1].joinpath(path).read_bytes()
+        evidence.job_receipts = lambda repo, job_id, marker: fork["receipts"]
+        result = reporter.collect(evidence, packet["repo"], 1, HEAD, event, "synchronize")
+>       assert result["verdict"] == "PASS", result["unknown"]
+E       AssertionError: ['required app provenance not established: Gate / gate app 15368']
+E       assert 'UNKNOWN' == 'PASS'
+E         
+E         - PASS
+E         + UNKNOWN
+
+tests/test_check_checks_reported.py:2583: AssertionError
+_ test_collect_fork_receipt_keeps_publisher_separate_from_event_topology[pull_request_target] _
+
+event = 'pull_request_target'
+
+    @pytest.mark.parametrize("event", ["pull_request", "pull_request_target"])
+    def test_collect_fork_receipt_keeps_publisher_separate_from_event_topology(event):
+        packet = fork_status_packet()
+        fork = packet["fork_publishers"][0]
+        fallback = status_collection_transport(packet)
+    
+        def transport(endpoint):
+            if "/actions/workflows/pr-00-gate-fork-status.yml/runs?" in endpoint:
+                assert "event=workflow_run&created=2026-10-06" in endpoint
+                assert "head_sha=" not in endpoint
+                return [{"total_count": 1, "workflow_runs": [fork["run"]]}]
+            if "/attempts/3/jobs?" in endpoint:
+                return [{"total_count": 1, "jobs": fork["jobs"]}]
+            if endpoint.endswith("/check-suites/702"):
+                return [fork["suite"]]
+            if endpoint.endswith("/check-runs/703"):
+                return [fork["checks"][0]]
+            if endpoint.endswith("/actions/runs/701"):
+                return [fork["run"]]
+            if endpoint[-8:] == "/pulls/1":
+                pr = fallback(endpoint)[0]
+                pr["head"]["repo"] = {"full_name": "contributor/fork"}
+                return [pr]
+            return fallback(endpoint)
+    
+        evidence = reporter.Evidence(transport)
+        evidence.content = lambda repo, path, ref: Path(__file__).parents[1].joinpath(path).read_bytes()
+        evidence.job_receipts = lambda repo, job_id, marker: fork["receipts"]
+        result = reporter.collect(evidence, packet["repo"], 1, HEAD, event, "synchronize")
+>       assert result["verdict"] == "PASS", result["unknown"]
+E       AssertionError: ['required app provenance not established: Gate / gate app 15368']
+E       assert 'UNKNOWN' == 'PASS'
+E         
+E         - PASS
+E         + UNKNOWN
+
+tests/test_check_checks_reported.py:2583: AssertionError
+=========================== short test summary info ============================
+FAILED tests/test_check_checks_reported.py::test_collect_fork_receipt_keeps_publisher_separate_from_event_topology[pull_request]
+FAILED tests/test_check_checks_reported.py::test_collect_fork_receipt_keeps_publisher_separate_from_event_topology[pull_request_target]
+2 failed, 296 deselected in 0.36s

@@ -101,3 +101,54 @@ The required repository-wide Black check passes with 664 files unchanged via
 the same sequential scheduling workaround described above. The original `.git`
 is still read-only; the follow-up commit is exported from a temporary checkout
 as `/tmp/issue-3757-cli-receipts.bundle`, with its reviewable patch alongside it.
+
+## Unsupported event/action follow-up (2026-10-07)
+
+- [x] Inspect the Workflows README, missing `docs/AGENT_ISSUE_FORMAT.md` citation,
+  implemented `.github/scripts/issue_format.py` validator and linked Orchestrator
+  reporter; verify the shared source boundary and supported invocation.
+- [x] Retain UNKNOWN for unsupported caller events/actions and invalid authored
+  activity types in the existing `check_checks_reported.py` adapter.
+- [ ] Establish live completeness and all exact-head merge gates for the named PRs.
+
+The source boundary remains unchanged: the Orchestrator incumbent owns `_gh_json`
+pagination and historical reporting; this Workflows adapter owns event-specific
+topology receipts. The opener comment was read again and still names Reviewed
+Repo Backlog Opener followed by Reviewed Repo Merge Verify Closer, with Orphan
+Steward retaining the named PRs. The missing issue-format document was not
+invented or substituted for the implemented validator.
+
+New regression controls first reproduced false PASS for empty, misspelled,
+uppercase and unrelated caller actions. Collection now validates the context
+before any API requests, and `event_applies()` validates it before exempting
+even an unrelated workflow. Unsupported CLI events emit durable UNKNOWN JSON
+rather than only an argument-parser error. Authored `types` containing unknown
+activities, non-string values or an empty list also remain UNKNOWN. Supported
+explicit label, close, ready-for-review and queue activities continue to apply.
+
+Validation: `python3 -m pytest -q tests/test_check_checks_reported.py -m "not slow"`
+passes all 268 tests, including the original four named reporter scenarios.
+The 17 negative cases failed before the implementation change. Ruff on both
+changed Python files and `git diff --check` pass. Black formats both files at
+line length 100; its repository-wide check uses the sequential scheduling
+workaround described above because both process and thread worker paths fail
+or hang in this sandbox. Black's normal source discovery and formatter remain
+in use; the full check passes with 675 files unchanged. No repository tool
+configuration changes.
+
+Both supported commands in this document were rerun against freshly read heads,
+using `/tmp/checks-reporter-source/check_checks_reported.py` as the incumbent.
+Its bytes were verified against the fetched Git blob
+`2759fb74f6f750d25ceec89d3a43e718ac061302` before the final reruns.
+The current heads remain `4e82b31b09d5e70a62364b41e3a8c6da369549e1` for
+Orchestrator #461 and `b1ab592d177fcd0773a756aeb957f76593a6f09f` for Workflows
+#3756. Both PRs are closed, merged and non-draft; they were not changed by this run.
+The adjacent refreshed receipts exit 2 with UNKNOWN because `gh api` cannot
+connect to GitHub. No check completeness, review settlement or seven-minute
+head-age gate is inferred from the connector's PR metadata. Live acceptance
+remains incomplete and must be retried where the incumbent transport is available.
+
+This checkout's `.git` is read-only: `git add` cannot create `index.lock`.
+The verified change is committed in a temporary local checkout and exported as
+`/tmp/issue-3757-event-context.bundle` and `/tmp/issue-3757-event-context.patch`.
+The original workspace retains all reviewed edits; no push or PR mutation occurs.

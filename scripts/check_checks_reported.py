@@ -39,6 +39,41 @@ LEGACY_PRODUCER_SHA256 = "97cccd183c1e6a8eed465c55c6cdfdee4c0611eca0074d41901d89
 LEGACY_HELPER_SHA256 = "ba653f7e90af12b4f8651b6fb8ecb629b2703a1ed161f96f447b31db8c224499"
 
 
+FORK_PUBLISHER_PATH = ".github/workflows/pr-00-gate-fork-status.yml"
+FORK_HELPER_PATH = ".github/scripts/gate-fork-status-publication.js"
+# Only this audited immutable workflow/helper pair can establish v1 receipts.
+FORK_WORKFLOW_SHA256 = "9ea99adebfe79ca9054d5e19e2fdcfe0b66afb39fb243ae296021c935920b43c"
+FORK_HELPER_SHA256 = "beb093482223c99f9a07683d971cf90c1d4eed54eee4cedeb254ab16dcdcd165"
+
+# GitHub's supported pull_request and pull_request_target activity types:
+# https://docs.github.com/en/actions/reference/workflows-and-actions/events-that-trigger-workflows#pull_request
+PR_ACTIONS = frozenset(
+    {
+        "assigned",
+        "unassigned",
+        "labeled",
+        "unlabeled",
+        "opened",
+        "edited",
+        "closed",
+        "reopened",
+        "synchronize",
+        "converted_to_draft",
+        "locked",
+        "unlocked",
+        "enqueued",
+        "dequeued",
+        "milestoned",
+        "demilestoned",
+        "ready_for_review",
+        "review_requested",
+        "review_request_removed",
+        "auto_merge_enabled",
+        "auto_merge_disabled",
+    }
+)
+
+
 class UnknownEvidence(Exception):
     """Evidence unavailable or not supported by the conservative evaluator."""
 
@@ -179,9 +214,18 @@ def glob_match(value: str, pattern: str) -> bool:
     return re.fullmatch("".join(pieces), value) is not None
 
 
+def validate_event_context(event: str, action: str) -> None:
+    """Reject unsupported caller context before it can exempt any workflow."""
+    if event not in {"pull_request", "pull_request_target"}:
+        raise UnknownEvidence(f"unsupported event context: {event}")
+    if action not in PR_ACTIONS:
+        raise UnknownEvidence(f"unsupported event action for {event}: {action!r}")
+
+
 def event_applies(
     workflow: dict[str, Any], event: str, action: str, branch: str, paths: list[str]
 ) -> tuple[bool, str]:
+    validate_event_context(event, action)
     triggers = workflow.get("on")
     if isinstance(triggers, str):
         triggers = {triggers: None}
@@ -194,12 +238,14 @@ def event_applies(
     config = triggers[event] or {}
     if not isinstance(config, dict):
         raise UnknownEvidence("invalid event configuration")
-    if event not in {"pull_request", "pull_request_target"}:
-        raise UnknownEvidence(f"unsupported event context: {event}")
     types = config.get("types", ["opened", "synchronize", "reopened"])
     if isinstance(types, str):
         types = [types]
-    if not isinstance(types, list):
+    if (
+        not isinstance(types, list)
+        or not types
+        or any(not isinstance(value, str) or value not in PR_ACTIONS for value in types)
+    ):
         raise UnknownEvidence("invalid types filter")
     if action not in types:
         return False, f"action {action!r} not in {types}"
@@ -885,6 +931,192 @@ def bind_job_inputs(job: dict[str, Any], inputs: dict[str, Any]) -> dict[str, An
     return result
 
 
+def fork_publisher_provenance(
+    repo: str,
+    head: str,
+    status: dict[str, Any],
+    gate: dict[str, Any],
+    packet: dict[str, Any],
+) -> dict[str, Any] | None:
+    """Authenticate a later default-branch publisher, never PR-provided text."""
+    run, suite = packet.get("run", {}), packet.get("suite", {})
+    source_head = run.get("head_sha")
+    if (
+        run.get("event") != "workflow_run"
+        or str(run.get("path", "")).partition("@")[0] != FORK_PUBLISHER_PATH
+        or (run.get("repository") or {}).get("full_name") != repo
+        or not isinstance(source_head, str)
+        or not re.fullmatch(r"[0-9a-f]{40}", source_head)
+        or run.get("status") != "completed"
+        or run.get("conclusion") != "success"
+        or any(
+            type(run.get(k)) is not int or run[k] < 1
+            for k in ("id", "run_attempt", "check_suite_id")
+        )
+        or suite.get("id") != run.get("check_suite_id")
+        or suite.get("head_sha") != source_head
+        or (suite.get("app") or {}).get("id") != 15368
+        or (suite.get("app") or {}).get("slug") != "github-actions"
+        or packet.get("workflow_sha256") != FORK_WORKFLOW_SHA256
+        or packet.get("helper_sha256") != FORK_HELPER_SHA256
+    ):
+        return None
+    receipts = packet.get("receipts", [])
+    if len(receipts) != 1:
+        return None
+    receipt = receipts[0]
+    expected = {
+        "schema": "gate-fork-status/v1",
+        "repository": repo,
+        "head": head,
+        "gate_run_id": gate["id"],
+        "gate_run_attempt": gate["run_attempt"],
+        "publisher_run_id": run["id"],
+        "publisher_run_attempt": run["run_attempt"],
+        "status_id": status["id"],
+    }
+    if any(type(receipt.get(k)) is not type(v) or receipt.get(k) != v for k, v in expected.items()):
+        return None
+    jobs = [
+        j for j in packet.get("jobs", []) if j.get("name") == "publish trusted fork Gate status"
+    ]
+    if len(jobs) != 1:
+        return None
+    job = jobs[0]
+    if (
+        type(job.get("id")) is not int
+        or job["id"] < 1
+        or job.get("run_id") != run["id"]
+        or job.get("run_attempt") != run["run_attempt"]
+        or job.get("head_sha") != source_head
+        or job.get("status") != "completed"
+        or job.get("conclusion") != "success"
+        or job.get("check_run_url") != f"{GITHUB_API}/repos/{repo}/check-runs/{job['id']}"
+    ):
+        return None
+    checks = [c for c in packet.get("checks", []) if c.get("id") == job["id"]]
+    if len(checks) != 1:
+        return None
+    check = checks[0]
+    if (
+        check.get("head_sha") != source_head
+        or (check.get("check_suite") or {}).get("id") != suite["id"]
+        or (check.get("app") or {}).get("id") != 15368
+        or (check.get("app") or {}).get("slug") != "github-actions"
+        or check.get("status") != "completed"
+        or check.get("conclusion") != "success"
+    ):
+        return None
+    steps = [x for x in job.get("steps", []) if x.get("name") == "Publish exact-head Gate status"]
+    if (
+        len(steps) != 1
+        or steps[0].get("status") != "completed"
+        or steps[0].get("conclusion") != "success"
+    ):
+        return None
+    step = steps[0]
+    try:
+        times = [
+            datetime.fromisoformat(v.replace("Z", "+00:00"))
+            for v in (step["started_at"], status["created_at"], step["completed_at"])
+        ]
+        if any(t.tzinfo is None for t in times) or not times[0] <= times[1] <= times[2]:
+            return None
+    except (KeyError, AttributeError, TypeError, ValueError):
+        return None
+    return {
+        **expected,
+        "app_id": 15368,
+        "publisher_id": 41898282,
+        "run_id": gate["id"],
+        "run_attempt": gate["run_attempt"],
+        "suite_id": gate["check_suite_id"],
+        "publisher_suite_id": suite["id"],
+        "publisher_job_id": job["id"],
+        "publisher_source_head": source_head,
+        "report_started_at": step["started_at"],
+        "report_completed_at": step["completed_at"],
+    }
+
+
+def collect_fork_publishers(
+    evidence: Evidence, repo: str, statuses: list[dict[str, Any]]
+) -> list[dict[str, Any]]:
+    """Read only canonical publisher runs on the latest status's UTC date.
+
+    workflow_run code executes on the default branch, so filtering on the PR
+    head would discard its publisher. The v1 log binds both independent heads.
+    """
+    candidates = [s for s in statuses if s.get("context") == "Gate / gate"]
+    if not candidates:
+        return []
+    status = max(candidates, key=lambda x: (x.get("created_at") or "", x.get("id", 0)))
+    date = str(status.get("created_at", ""))[:10]
+    if not re.fullmatch(r"[0-9]{4}-[0-9]{2}-[0-9]{2}", date):
+        raise UnknownEvidence("Gate status creation date unavailable")
+    runs = evidence.items(
+        f"repos/{repo}/actions/workflows/pr-00-gate-fork-status.yml/runs?event=workflow_run&created={date}&per_page=100",
+        "workflow_runs",
+    )
+    packets = []
+    for run in runs:
+        if (
+            run.get("event") != "workflow_run"
+            or str(run.get("path", "")).partition("@")[0] != FORK_PUBLISHER_PATH
+        ):
+            raise UnknownEvidence("fork publisher run identity mismatch")
+        if run.get("status") != "completed" or run.get("conclusion") != "success":
+            continue
+        # The successful publication step must overlap this status. Prune
+        # unrelated default-branch runs before loading jobs/source/logs.
+        if (
+            run.get("run_started_at")
+            and run.get("updated_at")
+            and not run["run_started_at"] <= status["created_at"] <= run["updated_at"]
+        ):
+            continue
+        ident, attempt, sha = run.get("id"), run.get("run_attempt"), run.get("head_sha")
+        if (
+            type(ident) is not int
+            or type(attempt) is not int
+            or attempt < 1
+            or not isinstance(sha, str)
+            or not re.fullmatch(r"[0-9a-f]{40}", sha)
+        ):
+            raise UnknownEvidence("fork publisher run/attempt/source identity missing")
+        # Hash only; never execute API-fetched code. Immutable checkout binds
+        # the producer bytes to the run instead of a moving default branch.
+        workflow_hash = hashlib.sha256(evidence.content(repo, FORK_PUBLISHER_PATH, sha)).hexdigest()
+        helper_hash = hashlib.sha256(evidence.content(repo, FORK_HELPER_PATH, sha)).hexdigest()
+        if workflow_hash != FORK_WORKFLOW_SHA256 or helper_hash != FORK_HELPER_SHA256:
+            continue
+        jobs = evidence.items(
+            f"repos/{repo}/actions/runs/{ident}/attempts/{attempt}/jobs?per_page=100", "jobs"
+        )
+        matches = [j for j in jobs if j.get("name") == "publish trusted fork Gate status"]
+        if len(matches) != 1:
+            continue
+        job = matches[0]
+        packets.append(
+            {
+                "run": run,
+                "jobs": jobs,
+                "suite": evidence.one(f"repos/{repo}/check-suites/{run['check_suite_id']}"),
+                "checks": [evidence.one(f"repos/{repo}/check-runs/{job['id']}")],
+                "workflow_sha256": workflow_hash,
+                "helper_sha256": helper_hash,
+                "receipts": evidence.job_receipts(repo, job["id"], "GATE_FORK_STATUS_RECEIPT"),
+            }
+        )
+        after = evidence.one(f"repos/{repo}/actions/runs/{ident}")
+        if any(
+            after.get(k) != run.get(k)
+            for k in ("id", "run_attempt", "head_sha", "status", "conclusion")
+        ):
+            raise UnknownEvidence("fork publisher changed during collection")
+    return packets
+
+
 def gate_status_provenance(
     repo: str,
     head: str,
@@ -894,6 +1126,7 @@ def gate_status_provenance(
     checks: list[dict[str, Any]],
     platform_app: dict[str, Any],
     platform_bot: dict[str, Any],
+    fork_publishers: list[dict[str, Any]] | None = None,
 ) -> dict[int, dict[str, Any]]:
     """Bind the latest Actions Gate status; REST statuses have no app foreign key.
 
@@ -1017,6 +1250,10 @@ def gate_status_provenance(
                             "report_completed_at": step["completed_at"],
                         }
                     )
+            for publisher in fork_publishers or []:
+                proof = fork_publisher_provenance(repo, head, status, run, publisher)
+                if proof is not None:
+                    matches.append(proof)
     return {status["id"]: matches[0]} if len(matches) == 1 else {}
 
 
@@ -1207,6 +1444,7 @@ def paths_from_files(files: list[dict[str, Any]]) -> list[str]:
 def collect(
     evidence: Evidence, repo: str, number: int, head: str, event: str, action: str
 ) -> dict[str, Any]:
+    validate_event_context(event, action)
     pr = evidence.one(f"repos/{repo}/pulls/{number}")
     if pr["head"]["sha"] != head:
         raise UnknownEvidence(f"head changed: requested {head}, observed {pr['head']['sha']}")
@@ -1415,20 +1653,61 @@ def collect(
         if run.get("check_suite_id") is not None
     }
     status_provenance = {}
+    fork_publishers = []
+    status_runs = list(latest_runs.values())
     if any(
         rule.get("context") == "Gate / gate" and rule.get("app_id") == 15368 for rule in required
     ):
         try:
+            if event != "pull_request":
+                # Required commit statuses are head-scoped, not event-scoped.
+                # Keep publisher evidence separate from this event's topology.
+                publisher_runs, _ = complete_workflow_runs(
+                    evidence, repo, head, "pull_request", suites
+                )
+                publishers = {}
+                for run in publisher_runs:
+                    path = str(run.get("path", "")).partition("@")[0]
+                    if path != ".github/workflows/pr-00-gate.yml":
+                        continue
+                    key = (run.get("workflow_id"), run.get("event"))
+                    previous = publishers.get(key)
+                    if previous is None or (run.get("run_number", 0), run.get("run_attempt", 1)) > (
+                        previous.get("run_number", 0),
+                        previous.get("run_attempt", 1),
+                    ):
+                        publishers[key] = run
+                status_runs = list(publishers.values())
+                for run in status_runs:
+                    run["jobs"] = evidence.items(
+                        f"repos/{repo}/actions/runs/{run['id']}/jobs?filter=latest&per_page=100",
+                        "jobs",
+                    )
             status_provenance = gate_status_provenance(
                 repo,
                 head,
                 statuses,
-                list(latest_runs.values()),
+                status_runs,
                 suites,
                 checks,
                 evidence.one("apps/github-actions"),
                 evidence.one("users/github-actions[bot]"),
             )
+            if not status_provenance and (pr.get("head", {}).get("repo") or {}).get(
+                "full_name"
+            ) not in {None, repo}:
+                fork_publishers = collect_fork_publishers(evidence, repo, statuses)
+                status_provenance = gate_status_provenance(
+                    repo,
+                    head,
+                    statuses,
+                    status_runs,
+                    suites,
+                    checks,
+                    evidence.one("apps/github-actions"),
+                    evidence.one("users/github-actions[bot]"),
+                    fork_publishers,
+                )
         except UnknownEvidence as exc:
             unknown.append(f"Actions status publisher discovery unavailable: {exc}")
     # Re-enumerate paths before the closing PR snapshot. Equal commit SHAs
@@ -1477,6 +1756,8 @@ def collect(
             },
             "required_checks": required,
             "status_provenance": list(status_provenance.values()),
+            "status_publisher_runs": status_runs,
+            "fork_status_publishers": fork_publishers,
             "duplicate_identity_evidence": identity_evidence,
             "workflow_sources": sources,
             "legitimate_absences": absences,
@@ -1497,7 +1778,7 @@ def main() -> int:
     parser.add_argument("--repo", required=True)
     parser.add_argument("--pr", required=True, type=int)
     parser.add_argument("--head", required=True)
-    parser.add_argument("--event", choices=["pull_request", "pull_request_target"], required=True)
+    parser.add_argument("--event", required=True, help="pull_request or pull_request_target")
     parser.add_argument("--action", required=True)
     parser.add_argument("--presence-reporter", required=True, type=Path)
     parser.add_argument("--output", required=True, type=Path)

@@ -44,6 +44,18 @@ history without confusing it with the live inventory.
 | **Gate Fork Status Publisher** | `.github/workflows/pr-00-gate-fork-status.yml` | `workflow_run` for Gate requested/in-progress/completed | `actions: read`, `contents: read`, `pull-requests: read`, `statuses: write` | Publishes the existing `Gate / gate` context for fork PRs. | Trusted default-branch publisher; never checks out PR code and fails closed on stale heads, changed controls, missing jobs, or ambiguous conclusions. |
 | **Minimal invariant CI** | `.github/workflows/pr-11-ci-smoke.yml` | `push`/`pull_request` targeting `main`, `workflow_dispatch` | `contents: read` | **No** – supplemental smoke test. | Single-runtime import + invariants sweep (`pytest tests/test_invariants.py -q`) that catches regressions quickly while Gate runs the heavier matrix. |
 
+The fork publisher checks out the immutable default-branch `github.sha` for its
+`workflow_run`, rather than a moving branch name. A successful status write logs
+`GATE_FORK_STATUS_RECEIPT` v1 with the returned status ID, PR head, original Gate
+run/attempt and publisher run/attempt. No receipt is emitted for replay suppression.
+The exact-head reporter collects these runs separately from PR-event topology,
+validates the audited workflow/helper hashes and authenticated suite/check/job,
+and requires the status timestamp inside the successful publication step. Missing,
+old-schema, ambiguous, stale-attempt or mismatched evidence stays UNKNOWN. Updating
+this producer contract requires updating both templates, the sync manifest and the
+reporter's audited hashes together. Historical statuses are not retroactively
+certified by a new producer; a fresh legitimate publication is required.
+
 #### Gate job map
 
 Use this map when triaging Gate failures. It illustrates the jobs that run on
