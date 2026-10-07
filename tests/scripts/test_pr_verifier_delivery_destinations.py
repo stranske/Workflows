@@ -9,6 +9,113 @@ from scripts import docs_drift_fix_agent as fix_agent
 from scripts.langchain import pr_verifier as verifier
 
 
+@pytest.mark.parametrize("contrast", ["only", "merely", "just"])
+@pytest.mark.parametrize("position", ["direct", "before", "after"])
+@pytest.mark.parametrize("relative", ["that", "which"])
+@pytest.mark.parametrize(
+    "destination,channel",
+    [("a PR comment", "comments"), ("the PR body", "body"), ("the PR description", "body")],
+)
+@pytest.mark.parametrize("independent", [False, True])
+def test_relative_additive_adjective_does_not_erase_delivery(
+    contrast, position, relative, destination, channel, independent
+):
+    before = "currently " if position == "before" else ""
+    after = "currently " if position == "after" else ""
+    criterion = (
+        f"- [ ] Test evidence in {destination} {relative} is not {before}{contrast} {after}required"
+    )
+    if independent:
+        criterion += "; the reviewer must record evidence in a workflow artifact"
+    expected = {channel} | ({"artifacts"} if independent else set())
+    assert verifier._required_evidence_channels(criterion) == expected
+    assert verifier._required_evidence_options(criterion) == [expected]
+
+
+@pytest.mark.parametrize("relative", ["that", "which"])
+@pytest.mark.parametrize("adjective", ["required", "expected", "supposed", "permitted"])
+@pytest.mark.parametrize("negative", ["not", "never", "no longer"])
+@pytest.mark.parametrize("adverb", ["now", "currently"])
+@pytest.mark.parametrize("position", ["before-copula", "after-copula", "after-negative"])
+@pytest.mark.parametrize("destination", ["a PR comment", "the PR body", "the PR description"])
+@pytest.mark.parametrize("independent", [False, True])
+def test_relative_negative_adjective_shares_internal_adverbs(
+    relative, adjective, negative, adverb, position, destination, independent
+):
+    before = adverb + " " if position == "before-copula" else ""
+    after = adverb + " " if position == "after-copula" else ""
+    internal = adverb + " " if position == "after-negative" else ""
+    criterion = f"- [ ] Test evidence in {destination} {relative} {before}is {after}{negative} {internal}{adjective}"
+    if independent:
+        criterion += "; the reviewer must record evidence in a workflow artifact"
+    expected = {"artifacts"} if independent else set()
+    assert verifier._required_evidence_channels(criterion) == expected
+    assert verifier._required_evidence_options(criterion) == [expected]
+    if adjective == "required" and negative == "not":
+        spec = importlib.util.spec_from_file_location(
+            "relative_negative_adverb_floor_fixture",
+            Path(__file__).with_name("test_pr_verifier_prompt_coverage.py"),
+        )
+        fixture = importlib.util.module_from_spec(spec)
+        spec.loader.exec_module(fixture)
+        context, _ = fixture._context(1, 1000, 1000)
+        context = context.replace("- " + fixture.ACCEPTANCE_SENTINEL, criterion).replace(
+            "## PR Diff Summary",
+            "## Acceptance evidence\n\n- Overall retrieval status: **present**\n"
+            "- PR body: **absent**\n- PR comments: **absent**\n"
+            "- Referenced workflow artifacts: **present**\n\n## PR Diff Summary",
+        )
+        result = verifier._apply_coverage_floor(
+            verifier.EvaluationResult(verdict="PASS", used_llm=True),
+            verifier.prompt_coverage(context, None),
+        )
+        assert result.verdict == "PASS"
+
+
+@pytest.mark.parametrize("operation", ["link", "generate", "post"])
+@pytest.mark.parametrize("body_alias", ["body", "description"])
+@pytest.mark.parametrize("component", ["", " panel"])
+@pytest.mark.parametrize("reverse", [False, True])
+@pytest.mark.parametrize("proof", ["evidence", "test results"])
+@pytest.mark.parametrize("independent", [False, True])
+@pytest.mark.parametrize("governor", ["must", "may", "must not", "is not expected to"])
+def test_body_delivery_uses_shared_operation_and_polarity(
+    operation, body_alias, component, reverse, proof, independent, governor
+):
+    destinations = [f"the PR {body_alias}{component}", "a PR comment"]
+    if reverse:
+        destinations.reverse()
+    criterion = f"- [ ] The assigned reviewer {governor} {operation} {proof} in " + " and ".join(
+        destinations
+    )
+    if independent:
+        criterion += "; the maintainer must record evidence in a workflow artifact"
+    expected = ({"body", "comments"} if governor == "must" else set()) | (
+        {"artifacts"} if independent else set()
+    )
+    assert verifier._required_evidence_channels(criterion) == expected
+    assert verifier._required_evidence_options(criterion) == [expected]
+
+    spec = importlib.util.spec_from_file_location(
+        "shared_operation_floor_fixture",
+        Path(__file__).with_name("test_pr_verifier_prompt_coverage.py"),
+    )
+    fixture = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(fixture)
+    context, _ = fixture._context(1, 1000, 1000)
+    context = context.replace("- " + fixture.ACCEPTANCE_SENTINEL, criterion).replace(
+        "## PR Diff Summary",
+        "## Acceptance evidence\n\n- Overall retrieval status: **present**\n"
+        "- PR body: **absent**\n- PR comments: **present**\n"
+        "- Referenced workflow artifacts: **present**\n\n## PR Diff Summary",
+    )
+    result = verifier._apply_coverage_floor(
+        verifier.EvaluationResult(verdict="PASS", used_llm=True),
+        verifier.prompt_coverage(context, None),
+    )
+    assert result.verdict == ("CONCERNS" if governor == "must" else "PASS")
+
+
 @pytest.mark.parametrize("qualifier", ["only if tests fail", "currently not required"])
 @pytest.mark.parametrize("modifier", ["", "also ", "now ", "explicitly "])
 @pytest.mark.parametrize("independent", [False, True])

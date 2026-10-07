@@ -304,6 +304,17 @@ copular availability (`that is available`) stays inside the destination branch.
 Simple copular qualifiers reuse the shared adverbs before and after `is`/`are`
 (`that now is available` and `that is now available` are equivalent).
 Both channel classification and destination-OR expansion use that same span.
+Body predicates reuse the shared delivery-operation grammar rather than a
+separate verb list: linking or generating proof has the same destination and
+polarity contract as posting it, and AND still requires both destinations.
+This is the canonical operation grammar after context-bound alias normalization,
+not the broader alias vocabulary that could mistake an evidence-object word for
+another actor. Shared negative adjective governors retain modifiers before the
+copula, after it, and after negation (`that is not currently required`), without
+turning an optional/prohibited relative checklist into an imperative.
+The existing additive contrasts `not only`, `not merely`, and `not just` are
+not negative adjective governors, even with supported intervening modifiers;
+they cannot erase a mandatory checklist destination.
 Both paths also share the independent review-predicate exclusion: an actor
 such as `the PR description that must contain command output` is not consumed
 as another destination of an earlier prohibited delivery. OR expansion cannot

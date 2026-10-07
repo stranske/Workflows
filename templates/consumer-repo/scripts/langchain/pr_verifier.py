@@ -991,12 +991,18 @@ _MANDATORY_EVIDENCE_AUXILIARY = (
 )
 _EVIDENCE_DELIVERY_ADVERB = r"(?:also|now|still|already|yet|[\w-]+ly)"
 _EVIDENCE_DELIVERY_ADVERBS = r"(?:" + _EVIDENCE_DELIVERY_ADVERB + r"\s+){0,3}"
+_EVIDENCE_ADDITIVE_CONTRAST = r"(?:only|merely|just)"
 _NEGATIVE_EVIDENCE_ADJECTIVE_TAIL = (
     r"(?:not|never|no\s+longer)\s+"
-    r"(?:required|needed|mandated|expected|supposed|obliged|allowed|permitted)"
+    + r"(?:(?!"
+    + _EVIDENCE_ADDITIVE_CONTRAST
+    + r"\b)"
+    + _EVIDENCE_DELIVERY_ADVERB
+    + r"\s+){0,3}"
+    + r"(?:required|needed|mandated|expected|supposed|obliged|allowed|permitted)"
 )
 _NEGATIVE_EVIDENCE_ADJECTIVE_GOVERNOR = (
-    r"(?:is|are|was|were)\s+" + _NEGATIVE_EVIDENCE_ADJECTIVE_TAIL
+    r"(?:is|are|was|were)\s+" + _EVIDENCE_DELIVERY_ADVERBS + _NEGATIVE_EVIDENCE_ADJECTIVE_TAIL
 )
 _NEGATIVE_EVIDENCE_REQUIREMENT_GOVERNOR = (
     r"(?:" + _NEGATIVE_EVIDENCE_ADJECTIVE_GOVERNOR + r"\s+to|"
@@ -1258,6 +1264,17 @@ def _required_evidence_channels(acceptance: str, *, _bind_attached: bool = True)
             match["following"] or "",
             flags=re.I,
         )
+        if match["relative_negative"]:
+            return (
+                subject
+                + " "
+                + match["relative_negative"]
+                + " to be "
+                + match["destinations"]
+                + " "
+                + match["relative_negative_adverbs"]
+                + following
+            )
         if match["relative_predicate"]:
             return (
                 subject
@@ -1299,6 +1316,11 @@ def _required_evidence_channels(acceptance: str, *, _bind_attached: bool = True)
         r"(?:evidence|command outputs?|transcripts?))\s+"
         r"(?P<destinations>" + bound_review_destinations + r")"
         r"(?P<qualification>\s+(?:"
+        r"(?:that|which)\s+(?P<relative_negative_adverbs>"
+        + delivery_adverbs
+        + r")(?P<relative_negative>"
+        + negative_adjective_governor
+        + r")|"
         r"(?:that|which)\s+(?P<relative_adverbs>"
         + delivery_adverbs
         + r")(?P<relative_predicate>(?:"
@@ -1525,7 +1547,9 @@ def _required_evidence_channels(acceptance: str, *, _bind_attached: bool = True)
     # words such as "just" cannot hide the supply alias's governing auxiliary.
     acceptance = re.sub(
         r"(?P<literal>" + quoted_evidence_literal + r")|"
-        r"\bnot\s+(?:only|merely|just)(?=\s+"
+        r"\bnot\s+"
+        + _EVIDENCE_ADDITIVE_CONTRAST
+        + r"(?=\s+"
         + delivery_adverbs
         + r"(?:"
         + passive_delivery_prefix
@@ -1887,8 +1911,9 @@ def _required_evidence_channels(acceptance: str, *, _bind_attached: bool = True)
             + exclusion_operation
             + "|"
             + response_operation
-            + r"|upload\w*"
-            + r"|prove\w*|include\w*|contain\w*|attach\w*|provide\w*|publish\w*|post\w*|record\w*|capture\w*|document\w*|add\w*|show\w*|store\w*|have|left|leave\w*)\b"
+            + r"|"
+            + delivery_operation
+            + r"|left)\b"
         )
         auxiliary = (
             r"(?:"
