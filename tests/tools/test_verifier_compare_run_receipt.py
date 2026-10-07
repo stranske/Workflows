@@ -7,7 +7,6 @@ from pathlib import Path
 
 import pytest
 import yaml
-
 from tools import verifier_compare_run_receipt as receipt
 
 ROOT = Path(__file__).resolve().parents[2]
@@ -134,3 +133,54 @@ def test_agents_verifier_dispatch_exposes_compare_mode() -> None:
     options = triggers["workflow_dispatch"]["inputs"]["mode"]["options"]
     assert "compare" in options
     assert triggers["workflow_dispatch"]["inputs"]["pr_number"]["required"] is True
+
+
+@pytest.mark.parametrize("source", ["manifest", "corpus", "terminal"])
+def test_run_receipt_rejects_cross_run_artifacts(tmp_path: Path, source: str) -> None:
+    import shutil
+
+    bundle = tmp_path / "comparison"
+    shutil.copytree(BASELINE_DIR, bundle)
+    terminal = receipt.load_terminal_disposition(BASELINE_TERMINAL)
+    if source == "manifest":
+        path = bundle / "verifier-input-manifest.json"
+        manifest = json.loads(path.read_text(encoding="utf-8"))
+        manifest["source_run_id"] = "123"
+        path.write_text(json.dumps(manifest), encoding="utf-8")
+    elif source == "corpus":
+        path = bundle / "comparison-comment.md"
+        path.write_text(
+            path.read_text(encoding="utf-8").replace('"run_id": "37400729553"', '"run_id": "123"'),
+            encoding="utf-8",
+        )
+    else:
+        terminal["run_id"] = "123"
+    with pytest.raises(ValueError, match="run identity"):
+        receipt.summarize_compare_run(
+            run_id=receipt.BASELINE_RUN_ID, comparison_dir=bundle, terminal_disposition=terminal
+        )
+
+
+@pytest.mark.parametrize("field,value", [("repository", "stranske/Other"), ("pr", "99")])
+def test_dual_run_receipt_rejects_cross_target_followup(field: str, value: str) -> None:
+    baseline = receipt.summarize_compare_run(
+        run_id=receipt.BASELINE_RUN_ID, comparison_dir=BASELINE_DIR
+    )
+    followup = receipt.summarize_compare_run(
+        run_id="39999999999", comparison_dir=FOLLOWUP_DIR, role="followup"
+    )
+    followup[field] = value
+    with pytest.raises(ValueError, match="target identity"):
+        receipt.build_dual_run_receipt(baseline=baseline, followup=followup)
+
+
+def test_dual_run_receipt_rejects_zero_followup_run() -> None:
+    baseline = receipt.summarize_compare_run(
+        run_id=receipt.BASELINE_RUN_ID, comparison_dir=BASELINE_DIR
+    )
+    followup = receipt.summarize_compare_run(
+        run_id="39999999999", comparison_dir=FOLLOWUP_DIR, role="followup"
+    )
+    followup["run_id"] = "0"
+    with pytest.raises(ValueError, match="positive integer"):
+        receipt.build_dual_run_receipt(baseline=baseline, followup=followup)

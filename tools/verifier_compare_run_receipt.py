@@ -130,6 +130,30 @@ def summarize_compare_run(
 
     corpus_decision = _parse_corpus_decision(comment_text)
     discovery = _parse_discovery(context_text)
+    identity_sources = [
+        ("manifest", manifest.get("source_run_id"), manifest.get("repository"), manifest.get("pr")),
+        (
+            "corpus",
+            (corpus_decision or {}).get("run_id"),
+            (corpus_decision or {}).get("repo"),
+            (corpus_decision or {}).get("pr"),
+        ),
+        (
+            "terminal",
+            (terminal_disposition or {}).get("run_id"),
+            (terminal_disposition or {}).get("repository"),
+            (terminal_disposition or {}).get("pr_number"),
+        ),
+    ]
+    if not any(run for _, run, _, _ in identity_sources):
+        raise ValueError("run identity is unavailable in comparison artifacts")
+    for source, recorded_run, _, _ in identity_sources:
+        if recorded_run is not None and str(recorded_run) != str(run_id):
+            raise ValueError(f"run identity mismatch in {source}: {recorded_run!r} != {run_id!r}")
+    for index, label in [(2, "repository"), (3, "pr")]:
+        identities = {str(row[index]) for row in identity_sources if row[index] is not None}
+        if len(identities) > 1:
+            raise ValueError(f"target identity mismatch for {label}: {sorted(identities)}")
     provider_verdicts = [row["verdict"] for row in _provider_rows(results) if row.get("verdict")]
 
     summary: dict[str, Any] = {
@@ -184,6 +208,9 @@ def build_dual_run_receipt(
             f"got {baseline.get('provider_verdicts')!r}"
         )
 
+    if baseline.get("repository") != "stranske/Workflows" or str(baseline.get("pr")) != BASELINE_PR:
+        raise ValueError("baseline target identity must be stranske/Workflows#3769")
+
     frozen_baseline = json.loads(json.dumps(baseline))
     frozen_baseline["role"] = "baseline"
     frozen_baseline["immutable"] = True
@@ -216,8 +243,11 @@ def build_dual_run_receipt(
         raise ValueError(
             "followup run_id must differ from the frozen baseline " f"{expected_baseline_run_id}"
         )
-    if not re.fullmatch(r"\d+", str(followup.get("run_id", ""))):
+    if not re.fullmatch(r"[1-9]\d*", str(followup.get("run_id", ""))):
         raise ValueError("followup.run_id must be a positive integer string")
+
+    if any(str(followup.get(key)) != str(baseline.get(key)) for key in ("repository", "pr")):
+        raise ValueError("followup target identity must match the frozen baseline")
 
     attached = json.loads(json.dumps(followup))
     attached["role"] = "followup"
