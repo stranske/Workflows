@@ -96,10 +96,17 @@ function formatSections({ heading, url, body }) {
   return lines.join('\n');
 }
 
+// Git patch records use LF: preserve filename spaces and content carriage returns.
+// Empty/whitespace-only transport data is still unavailable, not a valid patch.
+function normalizeDiffPatch(diffText) {
+  const diff = String(diffText || '');
+  return diff.trim() ? diff.replace(/\n$/, '') : '';
+}
+
 // Share path validation between the human summary and the coverage inventory.
-// Offsets refer to the trimmed patch used by formatDiffForContext.
+// Offsets refer to the canonical patch used by formatDiffForContext.
 function parseDiffFiles(diffText, maxLines = DIFF_SUMMARY_LIMITS.maxLines) {
-  const diff = String(diffText || '').trim();
+  const diff = normalizeDiffPatch(diffText);
   const fileSummaries = [];
   let current = null;
   let truncated = false;
@@ -816,7 +823,7 @@ function formatVerifierEvidence(evidence) {
 }
 
 function formatDiffForContext(diffText, maxChars) {
-  const diff = String(diffText || '').trim();
+  const diff = normalizeDiffPatch(diffText);
   if (!diff) {
     return '_Diff unavailable or empty._';
   }
@@ -828,10 +835,10 @@ function formatDiffForContext(diffText, maxChars) {
 }
 
 function buildContextSourceCoverage({ planSources, diffText, diffMaxChars, evidence }) {
-  const diff = String(diffText || '').trim();
+  const diff = normalizeDiffPatch(diffText);
   const limit = Number.isFinite(diffMaxChars) ? Math.max(0, diffMaxChars) : DEFAULT_DIFF_MAX_CHARS;
   // The coverage inventory must not inherit the summary's 50-file/20k-line limits.
-  const { fileSummaries, pathParsingFailed } = parseDiffFiles(diff, Number.MAX_SAFE_INTEGER);
+  const { fileSummaries, pathParsingFailed } = parseDiffFiles(diffText, Number.MAX_SAFE_INTEGER);
   const changedCodeSources = fileSummaries.map((file) => {
     const total = file.end - file.start;
     const included = Math.max(0, Math.min(file.end, limit) - file.start);
