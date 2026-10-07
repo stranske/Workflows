@@ -332,7 +332,7 @@ scripts:
     description: "Computes coverage delta between runs - required by reusable CI workflow"
 
   - source: scripts/reusable_ci_scope.py
-    description: "Selects changed-input reusable CI scenarios including flat-layout and root Python modules - required by reusable CI workflows"
+    description: "Selects changed-input reusable CI scenarios including flat-layout/root Python modules and requirements lock files - required by reusable CI workflows"
 
   - source: scripts/sync_test_dependencies.py
     description: "Syncs test dependency pins - required by reusable CI workflow"

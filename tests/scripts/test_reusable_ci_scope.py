@@ -169,3 +169,16 @@ def test_python_resolver_includes_flat_and_root_application_modules():
             "Gate", '["3.12","3.13"]', "3.12", [path], False
         )
         assert selected.selected_count == 2, path
+
+
+def test_python_resolver_includes_dependency_locks_but_not_unrelated_lockfiles():
+    for path in ("requirements.lock", "requirements-dev.lock", "requirements-test.lock"):
+        selected = reusable_ci_scope.select_python_matrix(
+            "Gate", '["3.12","3.13"]', "3.12", [path], False
+        )
+        assert selected.selected_count == 2, path
+    for path in ("package-lock.json", "docs/lock-policy.md"):
+        selected = reusable_ci_scope.select_python_matrix(
+            "Gate", '["3.12","3.13"]', "3.12", [path], False
+        )
+        assert selected.selected_count == 0, path

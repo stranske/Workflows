@@ -88,6 +88,7 @@ def select_python_matrix(
                         "tests/**",
                         "pyproject.toml",
                         "requirements*.txt",
+                        "requirements*.lock",
                     ],
                     "reason": "Python CI inputs changed",
                 },

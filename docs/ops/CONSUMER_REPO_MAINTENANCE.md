@@ -21,7 +21,9 @@ Reusable Python CI scope includes Python modules at the repository root and
 under arbitrary flat-layout package directories, not only `src/`, `scripts/`,
 `tools/` and `tests/`. This conservative language-level scope avoids silently
 skipping application changes in packages such as `pa_core/` or `dashboard/`;
-documentation-only changes still select no Python scenarios.
+requirements*.lock inputs also select Python scenarios because lock-only
+dependency graph changes are test inputs. Documentation-only and unrelated
+JavaScript lock changes still select no Python scenarios.
 
 ### Bounded input-limit recovery
 
