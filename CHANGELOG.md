@@ -6,6 +6,13 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 Breaking changes are called out with a **BREAKING** marker and scheduled according to the policy in `COMPATIBILITY.md`.
 
+## [1.37.32](https://github.com/stranske/Workflows/compare/v1.37.31...v1.37.32) (2026-10-07)
+
+
+### Bug Fixes
+
+* **checks:** bind required status publisher across events ([#3813](https://github.com/stranske/Workflows/issues/3813)) ([f3efbfc](https://github.com/stranske/Workflows/commit/f3efbfc4d4ee95fb584057885c7cc985be0ca5c2))
+
 ## [1.37.31](https://github.com/stranske/Workflows/compare/v1.37.30...v1.37.31) (2026-10-07)
 
 
