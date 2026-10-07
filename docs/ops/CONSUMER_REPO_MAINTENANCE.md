@@ -271,6 +271,9 @@ prohibited predicates and modifiers inside perfect passive auxiliaries. Definite
 future (`will`) attached delivery retains its obligation. Conditional body records
 (`if available`, `when present` and the declared availability conditions) are
 optional before channel accumulation; a separate required reviewer clause remains.
+This also applies after a structural product component and its coordinated review
+destination: leading `either` retains the mandatory alternative, while trailing
+`if available`/other declared availability conditions qualify the full list.
 Independent-clause recognition uses those same bounded predicate modifiers, so
 availability cannot spill into a later named reviewer obligation. Bind attached
 delivery to the noun itself (including a coordinated object), not only an

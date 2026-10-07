@@ -1802,7 +1802,7 @@ def _required_evidence_channels(acceptance: str, *, _bind_attached: bool = True)
         destination_item = delivery_destination_item
         destination_separator = delivery_destination_separator
         destination = (
-            destination_preposition + r"(?:both\s+)?"
+            destination_preposition + r"(?:(?:both|either)\s+)?"
             r"(?=(?:"
             + destination_item
             + destination_separator
@@ -1989,6 +1989,12 @@ def _required_evidence_channels(acceptance: str, *, _bind_attached: bool = True)
                 if coordinated_tail:
                     clause_end = match.start() + body_match.end() + coordinated_tail.end()
                     clause = text[match.start() : clause_end]
+                    # Conditional availability belongs to the full coordinated
+                    # delivery, including a structurally recognized UI component.
+                    if not is_gate and not mandatory_optionality:
+                        optional = optional or bool(
+                            re.match(r"\s*" + conditional_evidence, text[clause_end:], re.I)
+                        )
             disposition = (
                 "prohibited"
                 if prohibited

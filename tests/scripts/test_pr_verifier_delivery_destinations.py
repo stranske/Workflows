@@ -154,6 +154,25 @@ def test_product_coordination_preserves_optional_modality(
     assert verifier._required_evidence_channels(criterion) == expected
 
 
+@pytest.mark.parametrize("component", ["field", "textarea", "preview", "panel"])
+@pytest.mark.parametrize("prefix", ["", "either "])
+@pytest.mark.parametrize("suffix", ["", " if available", " when produced"])
+@pytest.mark.parametrize("independent", [False, True])
+def test_structural_coordination_preserves_conditional_suffix(
+    component, prefix, suffix, independent
+):
+    criterion = (
+        f"- [ ] The UI must display test results in {prefix}the PR description "
+        f"{component} or a PR comment{suffix}"
+    )
+    if independent:
+        criterion += "; the reviewer must provide evidence in a workflow artifact"
+    expected = set() if suffix else {"comments"}
+    if independent:
+        expected.add("artifacts")
+    assert verifier._required_evidence_channels(criterion) == expected
+
+
 @pytest.mark.parametrize("marker", ["-", "*", "+", "1.", "1)"])
 @pytest.mark.parametrize(
     "destination,channel",
