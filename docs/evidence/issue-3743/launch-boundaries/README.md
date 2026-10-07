@@ -89,3 +89,21 @@ verified checklist does not claim a remote PR-body update.
 The canonical `.git` directory is also read-only in this runner. The change is
 committed using isolated Git metadata under `/tmp/workflows-launch-boundaries-commit/`;
 a bundle and patch under `/tmp` provide the handoff without changing canonical refs.
+
+### 2026-10-07 review recovery
+
+The successful head process now receives 10 seconds while the intentionally
+sleeping archived-base process retains its 0.25-second timeout. The head-timeout
+case still deliberately limits its sleeping head to 0.25 seconds. This avoids
+confusing interpreter startup delay with the base-timeout cleanup obligation.
+Both mutation validation subprocesses have a 300-second bound. Importing the
+retained driver is side-effect free; CLI flags and default output remain supported.
+
+Focused command: `python3 -m pytest tests/scripts/test_check_deliberate_break_launch_boundaries.py tests/scripts/test_launch_mutation_driver.py -q -o addopts=`: 15 passed.
+Five new driver cases check source restoration after launch error, timeout, red
+exit 0/2 and green timeout; actually removing its finally restoration fails all
+five, and byte-identical restoration passes all five. The ten original actual
+root/template production mutations were replayed successfully. Raw compressed
+logs and receipts are under `review-recovery/`; prior proof is retained unchanged.
+Focused Black, Ruff and `git diff --check` pass. No full-suite or hosted CI PASS
+is inferred from this focused recovery.
