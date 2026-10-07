@@ -6,7 +6,7 @@ const crypto = require('node:crypto');
 
 function fixture({ count = 1, target = 42, truncate = false, mutate = () => {},
   missingDirectory = false, unreadable = false, wrongBlob = false, badBase64 = false,
-  malformedTree = false, missingBranch = false } = {}) {
+  malformedTree = false, missingBranch = false, putStatus = 0, corruptPresence = false } = {}) {
   const calls = [];
   const hashes = ['1', '2', '3', '4'].map((x) => x.repeat(40));
   const blobs = new Map();
@@ -29,13 +29,18 @@ function fixture({ count = 1, target = 42, truncate = false, mutate = () => {},
     if (path.includes('/contents/.github/keepalive-authority-presence/')) {
       const key = path.split('keepalive-authority-presence/')[1].split('?')[0];
       if (method === 'PUT') {
+        if (putStatus) {
+          const attempted = JSON.parse(Buffer.from(body.content, 'base64').toString('utf8'));
+          if (putStatus === 409) inventories.set(key, { ...attempted, positive_prs: [999] });
+          throw Object.assign(new Error('write failed'), { status: putStatus });
+        }
         inventories.set(key, JSON.parse(Buffer.from(body.content, 'base64').toString('utf8')));
         return {};
       }
       assert.equal(method, 'GET');
       if (!inventories.has(key)) throw Object.assign(new Error('missing inventory'), { status: 404 });
       return { sha: 'e'.repeat(40), encoding: 'base64',
-        content: Buffer.from(JSON.stringify(inventories.get(key))).toString('base64') };
+        content: corruptPresence ? 'not base64!' : Buffer.from(JSON.stringify(inventories.get(key))).toString('base64') };
     }
     assert.equal(method, 'GET');
     if (path.endsWith('/git/ref/heads/keepalive-authority-state')) {
@@ -87,6 +92,11 @@ for (const surface of ['../keepalive_authority_state.js',
       { mutate: (index) => { index.receipt = null; } },
       { mutate: (index) => { index.owner_attempt = 'owner/repo:999:1'; index.receipt.owner_attempt = index.owner_attempt; } },
     ]) {
+      await assert.rejects(hasAttemptIndexesForPr(fixture(options).request, 'owner/repo', 42));
+    }
+  });
+  test(`${surface}: rejects lost, conflicting, or malformed inventory publication`, async () => {
+    for (const options of [{ putStatus: 500 }, { putStatus: 409 }, { corruptPresence: true }]) {
       await assert.rejects(hasAttemptIndexesForPr(fixture(options).request, 'owner/repo', 42));
     }
   });
