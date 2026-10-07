@@ -74,19 +74,26 @@ logs, artifact-provenance proof delivered to an explicit review destination, scr
 including before/after screenshots, and recordings) with an explicit review
 destination in the same clause normalize into this same evidence grammar before
 channel classification. Explicit concrete destination alternatives (a PR comment
-or workflow artifact, including `in either` and repeated prepositions) need one present alternative;
+or workflow artifact, including `in either`, punctuated OR lists and repeated prepositions) need one present alternative;
 `and` and independent clauses still require every obligation. Expansion preserves
 the full criterion and its actor, polarity and modality in every alternative,
 including overlapping independently required destinations. Mixed conjunctions or
 more than 32 combinations retain strict legacy requirements, never a permissive
 any-channel shortcut. Only builder-owned present statuses satisfy a branch;
+Partially recognized branches retain strict original and recognized requirements,
+never disable evidence enforcement. Comma-only lists are not implicit ORs.
 absent/unavailable statuses and quoted status-looking content cannot do so.
 Artifact provenance is otherwise a property noun: enforcing existing exact-head
 or workflow artifact provenance does not demand a new artifact, even in a checked
 criterion. A qualified property cannot be its own review destination. Independent
+enforcement of provenance within workflow-artifact storage is likewise a property,
+not a proof delivery. Independent
 actual artifact deliveries remain required; explicit active/passive provenance
 delivery uses the same polarity, actor and destination grammar.
-Quoted labels/examples cannot supply destinations or clause boundaries.
+Quoted labels/examples cannot supply destinations or clause boundaries, except
+exact quoted review-destination names (for example, `workflow artifacts` or
+`PR body`) in actual delivery instructions. Parser-operation examples remain
+opaque before that narrow destination-name normalization.
 Normalization stops at independently governed coordinated actor
 clauses, reusing the existing shared actor-role heads (including developers,
 testers, auditors, automation agents, runners and bots) and recipient-role heads

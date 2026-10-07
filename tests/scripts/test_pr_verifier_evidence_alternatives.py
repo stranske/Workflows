@@ -32,6 +32,83 @@ def verdict(criterion, *, comments="absent", artifacts="absent", body="absent", 
     ).verdict
 
 
+@pytest.mark.parametrize("quote", ["`", '"', "'"])
+@pytest.mark.parametrize(
+    "destination,channel",
+    [("workflow artifacts", "artifacts"), ("PR body", "body"), ("PR comment", "comments")],
+)
+def test_quoted_review_destination_retains_channel(quote, destination, channel):
+    criterion = f"Upload the transcript to the {quote}{destination}{quote}."
+    assert verifier._required_evidence_channels(criterion) == {channel}
+    assert verdict(criterion) == "CONCERNS"
+    assert verdict(criterion, **{channel: "present"}) == "PASS"
+
+
+@pytest.mark.parametrize("quote", ["`", '"', "'"])
+def test_quoted_destination_parser_examples_remain_opaque(quote):
+    criterion = f"The parser must recognize {quote}PR comment{quote}."
+    assert verifier._required_evidence_channels(criterion) == set()
+    independent = criterion + " The reviewer must upload a workflow artifact."
+    assert verifier._required_evidence_channels(independent) == {"artifacts"}
+
+
+@pytest.mark.parametrize("quote", ["`", '"', "'"])
+def test_quoted_destination_preserves_common_proof_and_negation(quote):
+    criterion = f"CI logs must be provided in a {quote}PR comment{quote}."
+    assert verifier._required_evidence_channels(criterion) == {"comments"}
+    assert verdict(criterion) == "CONCERNS"
+    assert (
+        verifier._required_evidence_channels(criterion.replace("must be", "must not be")) == set()
+    )
+
+
+def test_partially_recognized_alternatives_fail_closed():
+    criterion = "Evidence must be available in a PR comment or workflow artifacts."
+    assert verdict(criterion) == "CONCERNS"
+
+
+@pytest.mark.parametrize(
+    "suffix",
+    [
+        "; the reviewer must upload a workflow artifact",
+        " and the reviewer must attach evidence in a PR comment",
+    ],
+)
+def test_provenance_enforcement_storage_preserves_independent_delivery(suffix):
+    criterion = (
+        "- [x] Exact-head artifact provenance must remain enforced in workflow artifacts" + suffix
+    )
+    assert verdict(criterion) == "CONCERNS"
+
+
+def test_comma_only_and_mixed_lists_are_not_permissive_alternatives():
+    for destinations in [
+        "a PR comment, a workflow artifact",
+        "a PR comment and the PR body, or workflow artifacts",
+    ]:
+        assert verdict("Provide evidence in " + destinations, comments="present") == "CONCERNS"
+
+
+@pytest.mark.parametrize("prefix", ["", "- [x] "])
+def test_provenance_storage_property_is_not_delivery(prefix):
+    criterion = (
+        prefix + "Exact-head artifact provenance must remain enforced in workflow artifacts."
+    )
+    assert verifier._required_evidence_channels(criterion) == set()
+    assert verdict(criterion, artifacts="unavailable") == "PASS"
+
+
+@pytest.mark.parametrize(
+    "destinations",
+    ["a PR comment, or a workflow artifact", "the PR body, a PR comment, or workflow artifacts"],
+)
+@pytest.mark.parametrize("channel", ["comments", "artifacts"])
+def test_punctuated_explicit_destination_alternatives(destinations, channel):
+    criterion = "Provide evidence in " + destinations + "."
+    assert verdict(criterion, **{channel: "present"}) == "PASS"
+    assert verdict(criterion) == "CONCERNS"
+
+
 @pytest.mark.parametrize("prefix", ["", "- [ ] ", "- [x] "])
 @pytest.mark.parametrize("qualifier", ["", "exact-head ", "workflow ", "CI ", "GitHub Actions "])
 def test_artifact_provenance_property_does_not_require_delivery(prefix, qualifier):

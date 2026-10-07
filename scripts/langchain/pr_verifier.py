@@ -1190,6 +1190,18 @@ def _required_evidence_channels(acceptance: str, *, _bind_attached: bool = True)
         + r")"
     )
 
+    # Enforcing provenance at a storage location is a property, not delivery.
+    # Bind only that property's own enforcement predicate/destination; never
+    # suppress independent actual deliveries elsewhere in the same criterion.
+    acceptance = re.sub(
+        r"(?P<literal>" + quoted_evidence_literal + r")|"
+        r"(?P<property>\b(?:(?:workflow|ci|github actions)\s+)?artifact\s+provenance\s+"
+        r"(?:(?:must|shall|will|should)\s+)?(?:(?:remain|remains|be|is)\s+)?enforced\s+"
+        r"(?:in|within)\s+(?:the\s+)?)(?:workflow|ci|github actions)\s+artifacts?\b",
+        lambda match: match[0] if match["literal"] else match["property"] + "workflow storage",
+        acceptance,
+        flags=re.I,
+    )
     # Keep offsets but exclude literals from all contextual destination/actor tests.
     proof_context = re.sub(quoted_evidence_literal, lambda match: " " * len(match[0]), acceptance)
 
@@ -2444,9 +2456,18 @@ def _required_evidence_channels(acceptance: str, *, _bind_attached: bool = True)
             criterion,
             flags=re.I,
         )
-        # Quoted labels/examples cannot supply a review destination or split
-        # an independent unquoted delivery into artificial actor clauses.
-        criterion = re.sub(quoted_evidence_literal, lambda m: " " * len(m[0]), criterion)
+        # Exact quoted destination names remain destinations. Parser examples
+        # were removed above; longer quoted labels/instructions stay opaque so
+        # their verbs and conjunctions cannot create delivery obligations.
+        criterion = re.sub(
+            quoted_evidence_literal,
+            lambda match: (
+                match[0][1:-1]
+                if re.fullmatch(review_destination_noun, match[0][1:-1], re.I)
+                else " " * len(match[0])
+            ),
+            criterion,
+        )
         criterion = normalize_storage_coordination(criterion)
         criterion = shared_passive_product_review_destination.sub(
             lambda match: match["predicate"]
@@ -3546,7 +3567,7 @@ def _required_evidence_options(acceptance: str) -> list[set[str]]:
         + preposition
         + r")\s+(?:either\s+)?(?P<items>"
         + destination
-        + r"(?:\s+(?:and|or)\s+"
+        + r"(?:(?:\s*,\s*(?:(?:and|or)\s+)?|\s+(?:and|or)\s+)"
         + member
         + r")+)",
         re.I,
@@ -3558,7 +3579,10 @@ def _required_evidence_options(acceptance: str) -> list[set[str]]:
         items = match["items"]
         if re.search(r"\band\b", items, re.I):
             continue
-        alternatives = re.split(r"\s+or\s+", items, flags=re.I)
+        # A comma-only list has no explicit alternative semantics.
+        if not re.search(r"\bor\b", items, re.I):
+            continue
+        alternatives = re.split(r"\s*,\s*(?:or\s+)?|\s+or\s+", items, flags=re.I)
         if len(variants) * len(alternatives) > 32:
             return [_required_evidence_channels(acceptance)]
         variants = [
@@ -3575,6 +3599,10 @@ def _required_evidence_options(acceptance: str) -> list[set[str]]:
         channels = _required_evidence_channels(variant)
         if channels not in options:
             options.append(channels)
+    if any(options) and not all(options):
+        # Partial recognition is ambiguous, never permission to drop all
+        # evidence. Retain original requirements, plus recognized obligations.
+        return [_required_evidence_channels(acceptance) | set().union(*options)]
     return options
 
 
