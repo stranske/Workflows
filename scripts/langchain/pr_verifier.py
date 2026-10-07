@@ -1979,6 +1979,16 @@ def _required_evidence_channels(acceptance: str, *, _bind_attached: bool = True)
                 or bool(structural_component)
                 and product_comment_object(text[: match.start() + body_match.start()], "")
             )
+            clause_end = match.end()
+            if product and structural_component:
+                coordinated_tail = re.match(
+                    r"\s+[\w-]+(?:" + destination_separator + destination_item + r")+",
+                    component_tail,
+                    re.I,
+                )
+                if coordinated_tail:
+                    clause_end = match.start() + body_match.end() + coordinated_tail.end()
+                    clause = text[match.start() : clause_end]
             disposition = (
                 "prohibited"
                 if prohibited
@@ -1994,16 +2004,18 @@ def _required_evidence_channels(acceptance: str, *, _bind_attached: bool = True)
                 # review destinations retain their own delivery obligation.
                 destinations.discard("body")
                 if destinations:
-                    disposition = "required"
+                    # Product ownership does not strengthen an optional governor.
+                    # Only a mandatory coordinated delivery may require evidence.
+                    disposition = "optional" if optional else "required"
             records.append(
                 {
-                    "span": (match.start(), match.end()),
+                    "span": (match.start(), clause_end),
                     "disposition": disposition,
                     "destinations": destinations,
                 }
             )
-            residual[match.start() : match.end()] = " " * len(clause)
-            consumed_end = match.end()
+            residual[match.start() : clause_end] = " " * len(clause)
+            consumed_end = clause_end
         return records, "".join(residual)
 
     def remaining_delivery(text: str) -> bool:

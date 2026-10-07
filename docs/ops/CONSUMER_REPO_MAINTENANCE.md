@@ -1576,6 +1576,11 @@ is product-owned only when its governing subject and operation establish that
 ownership; an unlisted UI noun is not automatically an evidence destination.
 Human deliveries, prepositional continuations, and independent positive clauses
 remain authoritative.
+When a product-owned body component is followed by coordinated destinations,
+the shared governor remains authoritative: optional UI behavior cannot create a
+mandatory comment/artifact obligation. Structural component nouns consume the
+same coordinated destination grammar as named components; a separate mandatory
+reviewer delivery remains required.
 Active-perfect elided deliveries retain their bounded actor and complete governor,
 including optional/negative and contrastive paths, through the same splitting and
 inheritance predicate as passive delivery. Their explicit evidence objects are

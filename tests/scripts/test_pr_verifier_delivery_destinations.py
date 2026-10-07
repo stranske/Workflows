@@ -132,6 +132,28 @@ def test_temporal_body_continuation_is_not_product_component(continuation):
     assert verifier._required_evidence_channels(criterion) == {"body"}
 
 
+@pytest.mark.parametrize("component", ["field", "textarea", "preview", "panel"])
+@pytest.mark.parametrize("destination", ["PR body", "PR description"])
+@pytest.mark.parametrize("governor", ["may", "can", "could", "must"])
+@pytest.mark.parametrize("coordination", ["and", "or"])
+@pytest.mark.parametrize("channel", ["comments", "artifacts"])
+@pytest.mark.parametrize("independent", [False, True])
+def test_product_coordination_preserves_optional_modality(
+    component, destination, governor, coordination, channel, independent
+):
+    other = "a PR comment" if channel == "comments" else "a workflow artifact"
+    criterion = (
+        f"- [ ] The UI {governor} display test results in the "
+        f"{destination} {component} {coordination} {other}"
+    )
+    if independent:
+        criterion += "; the reviewer must provide command output in a PR comment"
+    expected = {channel} if governor == "must" else set()
+    if independent:
+        expected.add("comments")
+    assert verifier._required_evidence_channels(criterion) == expected
+
+
 @pytest.mark.parametrize("marker", ["-", "*", "+", "1.", "1)"])
 @pytest.mark.parametrize(
     "destination,channel",
