@@ -3,6 +3,16 @@ from pathlib import Path
 WORKFLOW = Path(".github/workflows/maint-52-sync-dev-versions.yml")
 
 
+def test_transitive_summary_captures_final_apply_not_preliminary_check():
+    text = WORKFLOW.read_text()
+    existing = text[
+        text.index("- name: Sync versions") : text.index("- name: Add dev dependencies")
+    ]
+    apply = existing[existing.index("--apply --pre-commit --resolve-locks") :]
+    assert "tee /tmp/sync_output.txt" in apply
+    assert apply.index("tee /tmp/sync_output.txt") < apply.index("cat /tmp/sync_output.txt")
+
+
 def test_dev_version_sync_pr_body_matches_changed_files():
     text = WORKFLOW.read_text(encoding="utf-8")
     pr_scope_lines = [
@@ -43,6 +53,26 @@ def test_maint52_stages_managed_precommit_repairs():
     text = WORKFLOW.read_text(encoding="utf-8")
 
     assert "if [ -f .pre-commit-config.yaml ]; then git add .pre-commit-config.yaml; fi" in text
+
+
+def test_maint52_regenerates_transitive_requirements_before_publishing():
+    text = WORKFLOW.read_text(encoding="utf-8")
+    assert "--apply --pre-commit --resolve-locks" in text
+    add_section = text[text.index("- name: Add dev dependencies") : text.index("- name: Skip")]
+    assert "--resolve-locks" in add_section
+    assert add_section.index("pip install") < add_section.index("--resolve-locks")
+
+
+def test_maint52_previews_resolution_and_uses_actual_tree_changes():
+    text = WORKFLOW.read_text(encoding="utf-8")
+    existing = text[
+        text.index("- name: Sync versions") : text.index("- name: Add dev dependencies")
+    ]
+    missing = text[text.index("- name: Add dev dependencies") : text.index("- name: Skip")]
+    assert "inputs.dry_run" not in existing
+    assert "inputs.dry_run" not in missing
+    assert "git diff --quiet" in existing and "git diff --quiet" in missing
+    assert 'grep -q "version updates"' not in missing
 
 
 def test_maint52_pr_body_reports_canonical_source_commit_and_never_proposes_upstream():

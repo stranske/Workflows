@@ -23,6 +23,8 @@ from __future__ import annotations
 
 import argparse
 import re
+import shlex
+import subprocess
 import sys
 from pathlib import Path
 from urllib.parse import urlparse
@@ -116,7 +118,11 @@ def find_dev_dependencies_section(content: str) -> tuple[int, int, str] | None:
         return match.start(), match.end(), match.group(0)
 
     # Try inline format: dev = ["pkg1", "pkg2"]
-    inline_pattern = re.compile(r"^dev\s*=\s*\[(.*?)\]", re.MULTILINE)
+    # An extras bracket belongs to its quoted requirement, not the array end.
+    inline_pattern = re.compile(
+        r"""^dev\s*=\s*\[(?:[^\]\n"']|"(?:\\.|[^"\\])*"|'[^']*')*\]""",
+        re.MULTILINE,
+    )
     match = inline_pattern.search(content)
     if match:
         return match.start(), match.end(), match.group(0)
@@ -180,12 +186,14 @@ def extract_dependencies(section: str) -> list[tuple[str, str, str]]:
     deps = []
     # Match patterns like "package>=1.0.0" or "package==1.0.0" or just "package"
     # Be precise: package name followed by optional version specifier
-    pattern = re.compile(r'"([a-zA-Z0-9_-]+)(?:(>=|==|~=|>|<|<=|!=)([^"\[\]]+))?(?:\[.*?\])?"')
+    pattern = re.compile(
+        r'"([a-zA-Z0-9_.-]+)(?:\[[^\]]+\])?(?:(>=|==|~=|<=|!=|>|<)([^";]+))?(?:;[^\"]*)?"'
+    )
 
     for match in pattern.finditer(section):
         package = match.group(1)
         operator = match.group(2) or ""
-        version = match.group(3) or ""
+        version = (match.group(3) or "").strip()
         deps.append((package, operator, version))
 
     return deps
@@ -209,15 +217,16 @@ def update_dependency_in_section(
     # Match: "package" + optional version spec, NOT followed by more pkg name chars
     # The negative lookahead (?!-) ensures we don't match "pytest" in "pytest-cov"
     pattern = re.compile(
-        rf'"({re.escape(package)})(?![-\w])(>=|==|~=|>|<|<=|!=)?([^"\[\]]*)?(\[.*?\])?"',
+        rf'"({re.escape(package)})(?![-\w])(\[[^\]]+\])?(?:(>=|==|~=|<=|!=|>|<)([^";]+))?(;[^\"]*)?"',
         re.IGNORECASE,
     )
 
     def replacer(m: re.Match) -> str:
         pkg_name = m.group(1)
-        extras = m.group(4) or ""
+        extras = m.group(2) or ""
+        marker = m.group(5) or ""
         op = "==" if use_exact_pin else ">="
-        return f'"{pkg_name}{op}{new_version}{extras}"'
+        return f'"{pkg_name}{extras}{op}{new_version}{marker}"'
 
     new_section, count = pattern.subn(replacer, section)
     return new_section, count > 0
@@ -299,7 +308,9 @@ def sync_pyproject(
 
     # Extract current dependencies from the section
     current_deps = extract_dependencies(section)
-    current_packages = {pkg.lower(): (pkg, op, ver) for pkg, op, ver in current_deps}
+    current_packages: dict[str, list[tuple[str, str, str]]] = {}
+    for pkg, op, ver in current_deps:
+        current_packages.setdefault(pkg.lower(), []).append((pkg, op, ver))
 
     # Work on a copy of just the section
     new_section = section
@@ -315,12 +326,18 @@ def sync_pyproject(
         for pkg_name in package_names:
             pkg_lower = pkg_name.lower()
             if pkg_lower in current_packages:
-                actual_pkg, current_op, current_ver = current_packages[pkg_lower]
+                occurrences = current_packages[pkg_lower]
+                mismatches = [
+                    item
+                    for item in occurrences
+                    if item[2] != target_version or (use_exact_pins and item[1] != "==")
+                ]
 
                 # Normalize both the version and the operator. A dependency that
                 # already has the target version but still uses ">=" is not in
                 # sync with the reproducible, exact-pin contract.
-                if current_ver != target_version or (use_exact_pins and current_op != "=="):
+                if mismatches:
+                    actual_pkg, current_op, current_ver = mismatches[0]
                     new_section, changed = update_dependency_in_section(
                         new_section, actual_pkg, target_version, use_exact_pins
                     )
@@ -350,6 +367,128 @@ def _build_lockfile_targets(pins: dict[str, str]) -> dict[str, str]:
         for name in package_names:
             targets[name.lower()] = pins[env_key]
     return targets
+
+
+def regenerate_lockfile(lockfile_path: Path, pins: dict[str, str]) -> tuple[list[str], list[str]]:
+    """Resolve a generated lock using its recorded inputs, never shell replay.
+
+    Direct pin rewriting is not sufficient when a tool adds or tightens a
+    transitive requirement. Preserve the consumer's extras/platform choices
+    and existing output preferences, permitting managed tools to upgrade.
+    Unsupported provenance fails closed instead of guessing a lock scope.
+    """
+    if not lockfile_path.exists():
+        return [], []
+    content = lockfile_path.read_text(encoding="utf-8")
+    command = next(
+        (
+            line[1:].strip()
+            for line in content.splitlines()
+            if line.startswith("#") and line[1:].strip().startswith("uv pip compile ")
+        ),
+        "",
+    )
+    # requirements-dev.txt may be a manually authored direct requirement list.
+    if not command and lockfile_path.suffix == ".txt":
+        return [], []
+    try:
+        tokens = shlex.split(command)
+        if tokens[:3] != ["uv", "pip", "compile"]:
+            raise ValueError("missing supported uv compile provenance")
+        value_flags = {
+            "--extra",
+            "--group",
+            "--python-version",
+            "--python-platform",
+            "--no-emit-package",
+            "--constraints",
+            "-c",
+            "--overrides",
+            "--resolution",
+            "--exclude-newer",
+            "--output-file",
+            "-o",
+            "--upgrade-package",
+            "-P",
+        }
+        bool_flags = {
+            "--universal",
+            "--all-extras",
+            "--generate-hashes",
+            "--no-strip-extras",
+            "--no-strip-markers",
+            "--no-annotate",
+            "--emit-index-url",
+            "--emit-find-links",
+        }
+        output = None
+        sources = []
+        canonical = _build_lockfile_targets(pins)
+        remove_indices = set()
+        upgrade_names = set()
+        i = 3
+        while i < len(tokens):
+            start = i
+            token = tokens[i]
+            flag, separator, value = token.partition("=")
+            if flag in value_flags:
+                if not separator:
+                    i += 1
+                    if i >= len(tokens):
+                        raise ValueError("missing compile option value")
+                    value = tokens[i]
+                if not value or value.startswith("-"):
+                    raise ValueError("invalid compile option value")
+                if flag in {"--output-file", "-o"}:
+                    if output is not None:
+                        raise ValueError("duplicate output destination")
+                    output = value
+                if flag in {"--constraints", "-c", "--overrides"}:
+                    sources.append(value)
+                if flag == "--group":
+                    group_path, qualified, group_name = value.rpartition(":")
+                    if qualified and (not group_path or not group_name):
+                        raise ValueError("invalid explicit group input")
+                    sources.append(group_path if qualified else "pyproject.toml")
+                if flag in {"--upgrade-package", "-P"}:
+                    package = re.match(r"[A-Za-z0-9_.-]+", value)
+                    if package is None:
+                        raise ValueError("invalid package upgrade")
+                    name = package.group().lower()
+                    if name in canonical:
+                        upgrade_names.add(name)
+                        remove_indices.update(range(start, i + 1))
+            elif token in bool_flags:
+                pass
+            elif token == "pyproject.toml" or token.endswith((".in", ".txt")):
+                sources.append(token)
+            else:
+                raise ValueError("unsupported compile argument")
+            i += 1
+        if output != str(lockfile_path) or not sources:
+            raise ValueError("compile output or inputs do not match this lock")
+        root = Path.cwd().resolve()
+        if lockfile_path.is_absolute() or not lockfile_path.resolve().is_relative_to(root):
+            raise ValueError("compile output must remain repository-local")
+        for source in sources:
+            path = Path(source)
+            if path.is_absolute() or not path.resolve().is_relative_to(root) or not path.is_file():
+                raise ValueError("compile input must be an existing repository-local file")
+        present = {
+            match.group("name").lower()
+            for line in content.splitlines()
+            if (match := LOCKFILE_PATTERN.match(line.rstrip().removesuffix("\\").rstrip()))
+        }
+        tokens = [token for index, token in enumerate(tokens) if index not in remove_indices]
+        for name, version in canonical.items():
+            if name in present or name in upgrade_names:
+                tokens.extend(["--upgrade-package", f"{name}=={version}"])
+        subprocess.run(tokens, check=True)
+        if lockfile_path.read_text(encoding="utf-8") == content:
+            return [], []
+    except (ValueError, OSError, subprocess.CalledProcessError) as exc:
+        return [], [f"{lockfile_path}: transitive lock regeneration failed ({exc})"]
+    return [f"{lockfile_path}: regenerated transitive dependencies"], []
 
 
 def sync_lockfile(
@@ -412,8 +551,9 @@ def _pre_commit_repo_name(line: str) -> str | None:
         if parsed.hostname and parsed.hostname.lower() == "github.com":
             repo = parsed.path.lstrip("/")
     repo = repo.rstrip("/").removesuffix(".git")
-    if repo.lower().startswith("github.com/"):
-        repo = repo.split("/", 1)[1]
+    host, separator, path = repo.partition("/")
+    if separator and host.lower() == "github.com":
+        repo = path
     return repo.lower()
 
 
@@ -501,6 +641,11 @@ def main(argv: list[str] | None = None) -> int:
         help="Apply version updates to pyproject.toml and supported requirements lockfiles",
     )
     parser.add_argument(
+        "--resolve-locks",
+        action="store_true",
+        help="After applying pins, regenerate uv requirements locks with their recorded scope",
+    )
+    parser.add_argument(
         "--create-if-missing",
         action="store_true",
         help="Create dev dependencies section if it doesn't exist",
@@ -540,6 +685,8 @@ def main(argv: list[str] | None = None) -> int:
 
     if args.check and args.apply:
         parser.error("--check and --apply are mutually exclusive")
+    if args.resolve_locks and not args.apply:
+        parser.error("--resolve-locks requires --apply")
 
     if not args.check and not args.apply:
         args.check = True  # Default to check mode
@@ -550,6 +697,21 @@ def main(argv: list[str] | None = None) -> int:
     if not pins:
         print("Error: No pins found in env file", file=sys.stderr)
         return 2
+
+    # Validate every potential output before the first direct write. A later
+    # resolver guard cannot undo pyproject/lock edits through an escaped symlink.
+    if args.apply:
+        root = Path.cwd().resolve()
+        outputs = [args.pyproject, *LOCKFILE_FILES]
+        if args.pre_commit:
+            outputs.append(PRE_COMMIT_FILE)
+        for output in outputs:
+            if not output.resolve().is_relative_to(root):
+                print(
+                    f"Error: write destination must remain repository-local: {output}",
+                    file=sys.stderr,
+                )
+                return 2
 
     changes, errors = sync_pyproject(
         args.pyproject,
@@ -570,6 +732,12 @@ def main(argv: list[str] | None = None) -> int:
         )
         changes.extend(pre_commit_changes)
         errors.extend(pre_commit_errors)
+
+    if args.resolve_locks and not errors:
+        for lockfile_path in LOCKFILE_FILES:
+            lock_changes, lock_errors = regenerate_lockfile(lockfile_path, pins)
+            changes.extend(lock_changes)
+            errors.extend(lock_errors)
 
     if errors:
         for err in errors:

@@ -253,7 +253,8 @@ scripts:
 
   # Dev dependency sync script
   - source: scripts/sync_dev_dependencies.py
-    description: "Syncs dev dependency versions from autofix-versions.env to pyproject.toml"
+    description: "Syncs every marker-qualified dev-tool pin and safely regenerates transitive uv requirements locks with their recorded scope"
+    template_sync: exact
   - source: scripts/check_agents_md_freshness.py
     description: "Warns when the generated Orchestrator AGENTS.md playbook section cites stale repo paths or commands"
     template_sync: exact

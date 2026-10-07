@@ -1692,6 +1692,39 @@ direct `requirements.lock` pins must move in the same Workflows PR. Maint 52
 also updates managed `.pre-commit-config.yaml` hook revisions and direct tool pins in a consumer's `requirements-dev.lock` when that
 additional generated lockfile exists.
 
+Direct pin replacement is not lock regeneration. Maint 52 applies
+`sync_dev_dependencies.py --apply --pre-commit --resolve-locks` before publishing
+a changed dependency tree. For generated uv requirements locks, this replays the
+recorded repository-local compile inputs and supported extras/platform options
+as an argument vector (never a shell command), permitting upgrades of managed
+tools and resolving their changed transitive requirements. Existing unrelated
+output pins remain resolver preferences. Unsupported provenance or a solver
+failure stops publication with a concrete error; it must not leave a knowingly
+unsatisfiable generated delivery marked ready to merge. Manually authored
+`requirements-dev.txt` without uv provenance remains a direct-pin surface.
+Repository-local baseline `.txt` inputs and uv's plural `--constraints` and
+`--overrides` options retain their scope. Hashed requirement continuations still
+receive canonical tool constraints; previously recorded managed upgrade options
+are replaced by the current canonical version. Escaped input/output destinations
+fail closed. A successful unchanged lock is a no-op, not an update receipt.
+Implicit group inputs use the local `pyproject.toml`; an explicit group path
+must validate its own existing repository-local project, not an unrelated root
+file. Before any direct apply write, validate all potential output destinations
+against repository containment, including resolved symlink targets. Canonical
+pyproject updates keep dependency extras before the version and preserve markers.
+Inline dependency arrays recognize quoted extras brackets as requirement content,
+not the end of the array, and are tested through the full pyproject update path.
+Repeated marker-qualified entries are evaluated together: a canonical last entry
+must not hide an earlier stale version or non-exact operator. Update every
+matching occurrence while preserving its extras and environment marker; a second
+apply must be a no-op.
+Both apply branches derive publication readiness from the final tree diff; dry
+runs perform the same resolution in the disposable checkout without publishing.
+The final apply output, rather than the preliminary direct-pin check, supplies
+the preview and PR change summary for transitive-only updates.
+The propagation-script digest participates in the wave hash, so this repair
+produces a replacement wave even when the canonical tool versions are unchanged.
+
 Consumer repos receive those pins through `maint-52-sync-dev-versions.yml`, not
 the general `maint-68-sync-consumer-repos.yml` template sync. Keep
 `.github/workflows/autofix-versions.env` out of `.github/sync-manifest.yml` so a
