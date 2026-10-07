@@ -1,67 +1,80 @@
 [
   {
     "path": "docs/evidence/issue-3770/plural-release-provenance/closing-controls/README.md",
-    "bytes": 2580,
-    "sha256": "3d79d18a9eccf067ae895bb7bea2d909762004a70f1a95d960eee7b9da519e2d"
+    "bytes": 2596,
+    "sha256": "3215a708667d010a79506047e69220fb04fe69afdc6b6c4899ca0a9439a330f1",
+    "revision": "35552aa22e794fbed1a6ee59d4942ede66fa386e"
   },
   {
     "path": "docs/evidence/issue-3770/plural-release-provenance/closing-controls/fixture-parity.json",
     "bytes": 397,
-    "sha256": "e8b3560e1b21902cd9ae7b79d4b6ed0caaf64def730c82843656e5df9250b457"
+    "sha256": "e8b3560e1b21902cd9ae7b79d4b6ed0caaf64def730c82843656e5df9250b457",
+    "revision": "35552aa22e794fbed1a6ee59d4942ede66fa386e"
   },
   {
     "path": "docs/evidence/issue-3770/plural-release-provenance/closing-controls/merged-52712f2-consumer-GREEN.txt",
-    "bytes": 15840,
-    "sha256": "8c8bc0c17b7104bf51ba4274800008fd80a9d00aa97ce6dfee1b4d8ef226684c"
+    "bytes": 16683,
+    "sha256": "13bda0192842c96bf37442cfce3feff0868e55470c16aa5e3bc1c2c97691d03c",
+    "revision": "35552aa22e794fbed1a6ee59d4942ede66fa386e"
   },
   {
     "path": "docs/evidence/issue-3770/plural-release-provenance/closing-controls/merged-52712f2-consumer-RED.txt",
-    "bytes": 26434,
-    "sha256": "d2cc79854d0274cc3eee5231319ddc8cc5c1004b560a0b0785e3768e4f9303e2"
+    "bytes": 31790,
+    "sha256": "8dc4a0a0be972c8eaa4e30e6b7a9e54d26f0fdbf3428b19e6b1df7ea48fd7807",
+    "revision": "35552aa22e794fbed1a6ee59d4942ede66fa386e"
   },
   {
     "path": "docs/evidence/issue-3770/plural-release-provenance/closing-controls/merged-52712f2-root-GREEN.txt",
-    "bytes": 15829,
-    "sha256": "63f7a69d7fa4095a21ed96b9d6744a95dd46556be1a2b1f389509fcdd4f808b3"
+    "bytes": 16691,
+    "sha256": "c4fbf2289018934f632bad1c98bd09ae797107b5ab772150297dbcdd001f59b5",
+    "revision": "35552aa22e794fbed1a6ee59d4942ede66fa386e"
   },
   {
     "path": "docs/evidence/issue-3770/plural-release-provenance/closing-controls/merged-52712f2-root-RED.txt",
-    "bytes": 26480,
-    "sha256": "bf16c12f58d8010e705b92ac9381e92400b712ed055f75a80c14c3dedfd54d66"
+    "bytes": 31850,
+    "sha256": "91d7a9c3aaf289b75f3c2991d381cb8d5e1ef0b8ea27d77a340565fa61c6d8a7",
+    "revision": "35552aa22e794fbed1a6ee59d4942ede66fa386e"
   },
   {
     "path": "docs/evidence/issue-3770/plural-release-provenance/closing-controls/original-3769-root-GREEN.txt",
     "bytes": 15833,
-    "sha256": "20efbefdb40e38c6bd767614d49c888c5205b76ef9e8408b78109fe51efde6bc"
+    "sha256": "20efbefdb40e38c6bd767614d49c888c5205b76ef9e8408b78109fe51efde6bc",
+    "revision": "35552aa22e794fbed1a6ee59d4942ede66fa386e"
   },
   {
     "path": "docs/evidence/issue-3770/plural-release-provenance/closing-controls/original-3769-root-RED.txt",
     "bytes": 36386,
-    "sha256": "1e4b38677d852dbf655ae9cf8c6404190ba71552a789dc24176c0e51854cd9c2"
+    "sha256": "1e4b38677d852dbf655ae9cf8c6404190ba71552a789dc24176c0e51854cd9c2",
+    "revision": "35552aa22e794fbed1a6ee59d4942ede66fa386e"
   },
   {
     "path": "docs/evidence/issue-3770/plural-release-provenance/closing-controls/receipt.json",
-    "bytes": 12833,
-    "sha256": "7947e06a0b105c956dfb8cd29b87da94e38157485747dbc19dbe4e6e74e8304e"
+    "bytes": 9875,
+    "sha256": "a218630dc71f3d12b11e8f575fdb7b71376aa2a54461b97b75dd924b3504be41",
+    "revision": "35552aa22e794fbed1a6ee59d4942ede66fa386e"
   },
   {
     "path": ".github/scripts/__tests__/source-context.test.js",
-    "bytes": 46076,
-    "sha256": "3933bd0e246b6042e8af867197f652f4b0c32cd848ef337816ec958aae404879"
+    "bytes": 50991,
+    "sha256": "c522799e29200ea0d3e28fe4d1f7e2595c2e52223a05333d412297af3fc0f875",
+    "revision": "35552aa22e794fbed1a6ee59d4942ede66fa386e"
   },
   {
     "path": ".github/scripts/__tests__/agents-verifier-context.test.js",
-    "bytes": 122972,
-    "sha256": "3c5a04d2f7897293ae5e736978438b137081912044540a868f98cbdab793cf7e"
+    "bytes": 129460,
+    "sha256": "13563987e953a1f37d1b5ac21664cbbb335f258ffa072091335411649de58968",
+    "revision": "35552aa22e794fbed1a6ee59d4942ede66fa386e"
   },
   {
     "path": ".github/scripts/__tests__/fixtures/release-3769.json",
     "bytes": 1320,
-    "sha256": "0538def24f60119c7e8405572d552f16988982bc728f7dc84299e51751682fca"
+    "sha256": "0538def24f60119c7e8405572d552f16988982bc728f7dc84299e51751682fca",
+    "revision": "35552aa22e794fbed1a6ee59d4942ede66fa386e"
   },
   {
     "path": ".github/scripts/__tests__/fixtures/release-3787.json",
     "bytes": 1354,
-    "sha256": "be195d6a304d9b996119aa50dfaa084834d06ce424702cb55f6e7f95965aa21d"
+    "sha256": "be195d6a304d9b996119aa50dfaa084834d06ce424702cb55f6e7f95965aa21d",
+    "revision": "35552aa22e794fbed1a6ee59d4942ede66fa386e"
   }
 ]

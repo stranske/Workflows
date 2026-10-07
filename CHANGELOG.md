@@ -6,6 +6,16 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 Breaking changes are called out with a **BREAKING** marker and scheduled according to the policy in `COMPATIBILITY.md`.
 
+## [1.37.31](https://github.com/stranske/Workflows/compare/v1.37.30...v1.37.31) (2026-10-07)
+
+
+### Bug Fixes
+
+* **maint82:** recognize canonical review bot identities ([#3810](https://github.com/stranske/Workflows/issues/3810)) ([efcbe22](https://github.com/stranske/Workflows/commit/efcbe223069288a75c584b0a9ce5e230774cad24))
+* reconcile numeric Actions API cap in Health 83 ([#3805](https://github.com/stranske/Workflows/issues/3805)) ([7793e35](https://github.com/stranske/Workflows/commit/7793e353f5d0832a48af798371a350171f5a47fe))
+* scan net changed headers after base integration ([#3806](https://github.com/stranske/Workflows/issues/3806)) ([32d6ab8](https://github.com/stranske/Workflows/commit/32d6ab80022c2871efc0cbbd8c5a6a3c8d9553cb))
+* **verifier:** preserve trailing rename filename bytes ([#3807](https://github.com/stranske/Workflows/issues/3807)) ([25d10fb](https://github.com/stranske/Workflows/commit/25d10fbbd2134e3779657734c773fe8f5dc916fb))
+
 ## [1.37.30](https://github.com/stranske/Workflows/compare/v1.37.29...v1.37.30) (2026-10-07)
 
 

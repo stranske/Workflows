@@ -251,11 +251,19 @@ Scheduled health jobs keep the automation ecosystem aligned:
 
 Together these workflows define the CI surface area referenced by Gate and the Gate summary job, keeping the automation stack observable, testable, and easier to evolve.
 
-Health 83 accepts the documented Actions API `2,500+` total as a saturated
-lower bound and subdivides it before paging. Child unions must exceed that
-bound and retain parent-observed identities; malformed totals remain unknown.
+Health 83 subdivides saturated Actions API totals before paging. The explicit
+`2,500+` total requires a complete child union above that bound; an observed
+numeric `2500` cap requires at least 2,500. Both retain parent-observed
+identities and timestamps; other numeric totals reconcile exactly and malformed
+totals remain unknown.
 
 ## Self-test Harness
+
+Gate issue-consistency scans file headers from the net base-to-head diff, not
+first-parent merge history. Integrating current main cannot make an unchanged
+release changelog's historical issue references part of the repair's contract.
+Commit-message checks retain their independent first-parent semantics; missing
+base references retain the existing explicitly marked fallback behavior.
 
 * [`selftest-reusable-ci.yml`](../../.github/workflows/selftest-reusable-ci.yml) exercises `reusable-10-ci-python.yml` across curated scenarios, publishing summaries or PR comments so maintainers can validate reusable changes before they ship.
 

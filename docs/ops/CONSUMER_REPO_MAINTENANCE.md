@@ -821,6 +821,13 @@ full plan or source range, never to reuse an older evidence artifact. These
 rules are enforced by `sync_run_contract.js`, `maint71_merge_sync_prs.js`, and
 `sync_pr_merge_contract.js`, with the workflow carrying the immutable fields
 between those boundaries.
+Maint 82 matches configured review-bot identities case-insensitively after
+removing an optional terminal `[bot]` suffix from both the configured identity
+and the observed login. This reconciles REST and GraphQL representations without
+expanding the configured reviewer allowlist; original author logins remain in
+finding evidence. Resolved, outdated and ignored-path threads remain excluded.
+An empty discovered queue is not completion evidence when discovery is incomplete.
+
 Maint 82 retains every transient Maint 71 handoff with an immutable plan binding,
 idempotency key, and due time and supplies a ten-minute fallback for
 candidate/campaign evidence holds, delivery-review startup,
@@ -1222,6 +1229,15 @@ line breaks, marker metadata escapes HTML delimiters and Unicode line separators
 and the final JSON-string marker is authoritative. Malformed marker metadata makes
 coverage UNKNOWN and withholds PASS, never silently removing a file. Legacy summaries retain
 their existing parser for compatibility; generated contexts always emit the marker.
+
+Patch normalization removes only Git's terminal LF, never content carriage
+returns or filename-significant spaces in final rename/copy metadata. Summary parsing,
+formatted diff text and changed-code inventory share these canonical bytes and
+character offsets; whitespace-only input remains unavailable. Real-Git rename
+regressions cover trailing spaces, with/without a final newline, and exact
+included/truncated inventory boundaries. Each public path normalizes the original
+patch exactly once, including binary patches with two terminal LFs; binary code
+remains unavailable even when its character inventory is exact.
 
 Verifier acceptance classification distinguishes product output and product fields from
 review deliverables: a command that must output a transcript, response evidence links or

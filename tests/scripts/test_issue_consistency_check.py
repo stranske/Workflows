@@ -1,10 +1,38 @@
 from __future__ import annotations
 
 import json
+import subprocess
 import sys
 from pathlib import Path
 
 from scripts import check_issue_consistency
+
+
+def test_changed_headers_exclude_unchanged_base_merge_files(tmp_path, monkeypatch):
+    def git(*args):
+        return subprocess.check_output(["git", *args], cwd=tmp_path, text=True).strip()
+
+    git("init", "-b", "main")
+    git("config", "user.email", "test@example.invalid")
+    git("config", "user.name", "Regression Test")
+    (tmp_path / "base.txt").write_text("base\n")
+    git("add", ".")
+    git("commit", "-m", "initial")
+    git("checkout", "-b", "repair")
+    (tmp_path / "repair.py").write_text("value = 1\n")
+    git("add", ".")
+    git("commit", "-m", "fix: bounded repair")
+    git("checkout", "main")
+    (tmp_path / "CHANGELOG.md").write_text("* issue #11\n* issue #22\n")
+    git("add", ".")
+    git("commit", "-m", "release metadata")
+    base = git("rev-parse", "HEAD")
+    git("checkout", "repair")
+    git("merge", "--no-edit", "main")
+    monkeypatch.chdir(tmp_path)
+    files, fallback = check_issue_consistency.collect_changed_files(None, base, "origin")
+    assert files == [Path("repair.py")]
+    assert fallback is False
 
 
 def test_extract_issue_numbers_handles_word_and_slug() -> None:
@@ -249,7 +277,7 @@ def test_resolve_base_sha_keeps_ancestor(monkeypatch) -> None:
     assert calls == [("is_ancestor", "deadbeef", "HEAD")]
 
 
-def test_collect_changed_files_uses_first_parent_log(monkeypatch) -> None:
+def test_collect_changed_files_uses_net_diff(monkeypatch) -> None:
     recorded = {}
 
     monkeypatch.setattr(
@@ -281,14 +309,12 @@ def test_collect_changed_files_uses_first_parent_log(monkeypatch) -> None:
     )
 
     assert recorded["primary"] == [
-        "log",
-        "--format=",
+        "diff",
         "--name-only",
-        "--first-parent",
-        "deadbeef..HEAD",
+        "deadbeef...HEAD",
     ]
     assert recorded["fallbacks"] == [
-        ["log", "--format=", "--name-only", "--first-parent", "upstream/main..HEAD"],
+        ["diff", "--name-only", "upstream/main...HEAD"],
         ["log", "--format=", "--name-only", "--first-parent", "-n", "20"],
     ]
     assert files == [Path("src/a.py"), Path("src/b.py")]
