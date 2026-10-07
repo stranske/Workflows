@@ -68,6 +68,7 @@ def test_product_generation_uses_shared_delivery_operations(
 @pytest.mark.parametrize("independent", [False, True])
 @pytest.mark.parametrize("governor", ["must", "may", "must not"])
 @pytest.mark.parametrize("condition", ["", " if available"])
+@pytest.mark.parametrize("voice", ["active", "agent-before", "agent-after"])
 def test_product_component_coordination_preserves_bare_other_channel(
     actor,
     operation,
@@ -78,6 +79,7 @@ def test_product_component_coordination_preserves_bare_other_channel(
     independent,
     governor,
     condition,
+    voice,
 ):
     members = (
         [f"the PR {body_alias} panel", "a PR comment"]
@@ -86,11 +88,24 @@ def test_product_component_coordination_preserves_bare_other_channel(
     )
     if reverse:
         members.reverse()
-    criterion = (
-        f"The {actor} {governor} {operation} evidence in "
-        + f" {coordination} ".join(members)
-        + condition
-    )
+    destination = f" {coordination} ".join(members)
+    participle = {
+        "generate": "generated",
+        "link": "linked",
+        "post": "posted",
+        "record": "recorded",
+        "prove": "proved",
+    }[operation]
+    if voice == "active":
+        criterion = f"The {actor} {governor} {operation} evidence in {destination}{condition}"
+    elif voice == "agent-before":
+        criterion = (
+            f"Evidence {governor} be {participle} by the {actor} in {destination}{condition}"
+        )
+    else:
+        criterion = (
+            f"Evidence {governor} be {participle} in {destination} by the {actor}{condition}"
+        )
     if independent:
         criterion += "; the reviewer must record evidence in a workflow artifact"
     bare_channel = "comments" if product_channel == "body" else "body"
@@ -116,6 +131,42 @@ def test_product_component_coordination_preserves_bare_other_channel(
         verifier.prompt_coverage(context, None),
     )
     assert result.verdict == ("CONCERNS" if required else "PASS")
+
+
+@pytest.mark.parametrize("actor", ["reviewer", "assigned reviewer", "UI", "service"])
+@pytest.mark.parametrize("operation", ["posted", "generated", "recorded", "linked"])
+@pytest.mark.parametrize("object_", ["Evidence", "Command output"])
+@pytest.mark.parametrize("governor", ["must", "may", "must not", "is not expected to"])
+@pytest.mark.parametrize(
+    "destination,channel",
+    [("the PR body", "body"), ("the PR description", "body"), ("a PR comment", "comments")],
+)
+@pytest.mark.parametrize("component", ["", " settings panel"])
+@pytest.mark.parametrize("position", ["agent-before", "agent-after"])
+@pytest.mark.parametrize("aspect", ["be", "have been", "have been being"])
+def test_passive_delivery_agent_position_preserves_actor_and_floor(
+    actor, operation, object_, governor, destination, channel, component, position, aspect
+):
+    if position == "agent-before":
+        criterion = (
+            f"{object_} {governor} {aspect} {operation} by the {actor} in {destination}{component}"
+        )
+    else:
+        criterion = (
+            f"{object_} {governor} {aspect} {operation} in {destination}{component} by the {actor}"
+        )
+    required = governor == "must" and not (component and actor in {"UI", "service"})
+    expected = {channel} if required else set()
+    assert verifier._required_evidence_channels(criterion) == expected
+    assert verifier._required_evidence_options(criterion) == [expected]
+    assert (
+        verifier._required_evidence_is_missing(
+            "- Overall retrieval status: **present**\n- PR body: **absent**\n"
+            "- PR comments: **absent**\n- Referenced workflow artifacts: **present**",
+            expected,
+        )
+        == required
+    )
 
 
 @pytest.mark.parametrize("contrast", ["only", "merely", "just"])

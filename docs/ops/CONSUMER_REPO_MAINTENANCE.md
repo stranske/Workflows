@@ -1700,6 +1700,16 @@ cannot consume a predicate with a following review destination; passive-perfect
 body classification retains the shared aspect and polarity grammar.
 Regression controls independently cover negation, optional versus mandatory
 delivery, three storage predicates, governor resets, and all review channels.
+Explicit passive delivery agents are normalized before both destination and
+alternative classification. The same finite actor, operation, aspect, polarity,
+and destination grammar applies whether `by the reviewer` or `by the UI` occurs
+before or after the destination. Agent text cannot become a component name or
+detach a bare sibling review obligation. A bare explicit `in a PR comment`
+delivery remains review evidence even for a product linking operation; a named
+PR-comment settings panel remains product functionality. Regression cases cover
+ordinary, perfect, and progressive passive forms and the actual evidence floors.
+The explicit delivery guard requires a named evidence object after the operation:
+product functionality that merely links to PR comments remains nongating.
 Negated obligations use the same delivery-operation grammar as positive
 delivery. An explicitly excluded PR-comment destination (`outside`, `rather
 than`, `instead of`) is not a required comment channel; generic evidence and

@@ -991,6 +991,27 @@ _MANDATORY_EVIDENCE_AUXILIARY = (
 )
 _EVIDENCE_DELIVERY_ADVERB = r"(?:also|now|still|already|yet|always|[\w-]+ly)"
 _EVIDENCE_DELIVERY_ADVERBS = r"(?:" + _EVIDENCE_DELIVERY_ADVERB + r"\s+){0,3}"
+_EVIDENCE_DELIVERY_OPERATION = r"(?:prove|provide|return|display|show|emit|render|expose|store|upload|attach|publish|post|record|capture|include|contain|have|document|generate|link|add|leave)\w*\b"
+_EVIDENCE_OBJECT_MODIFIERS = (
+    r"(?:(?!(?:and|or|but|must|shall|is|are|not|never|may|can)\b)[\w/-]+\s+){0,6}"
+)
+_EVIDENCE_RECIPIENT_PREFIX = (
+    r"(?:(?:all|any|some|each|every)\s+)?"
+    r"(?:(?:the|its|our|their|your|an?)\s+)?"
+    r"(?:(?!(?:and|or|but|must|shall|is|are|not|never|may|can|to|of|for|by|with|who|that|which|lets?|allows?|enables?)\b)[\w/-]+\s+){0,4}"
+)
+_EVIDENCE_ACTOR_NOUN = r"\b(?:reviewers?|maintainers?|authors?|operators?|agents?|bots?|runners?|developers?|engineers?|testers?|auditors?|verifiers?|teams?|users?|ui|api|application|service|endpoint)"
+_EVIDENCE_ACTOR_QUALIFIER = (
+    r"(?:\s+(?:of|for|used\s+by|managed\s+by|using|testing|accessing|operating)\s+"
+    r"(?:(?!(?:and|or|but|must|shall|is|are|not|never|may|can|has|have)\b)[\w/-]+\s+){0,4}"
+    r"(?!(?:and|or|but|must|shall|is|are|not|never|may|can|has|have)\b)[\w/-]+)?"
+)
+_EVIDENCE_PROOF_ALIAS_NOUN = r"(?:(?:test|validation)\s+(?:results?|logs?|outputs?)|(?:ci|build|execution)\s+logs?|(?:(?:workflow|ci|github actions)\s+)?artifacts?\s+provenance|screenshots?|recordings)"
+_EVIDENCE_OPTIONAL_MODAL = r"(?:may|can|could|would|should)"
+_EVIDENCE_PASSIVE_PREFIX = (
+    r"(?:be|been|being|have\s+" + _EVIDENCE_DELIVERY_ADVERBS + r"been)"
+    r"(?:\s+" + _EVIDENCE_DELIVERY_ADVERBS + r"being)?\s+"
+)
 _EVIDENCE_ADDITIVE_CONTRAST = r"(?:only|merely|just)"
 _NEGATIVE_EVIDENCE_ADJECTIVE_TAIL = (
     r"(?:not|never|no\s+longer)\s+"
@@ -1039,7 +1060,7 @@ _REVIEW_BODY_COMPONENT_TEMPORAL = (
     r"before|after|now|today|tomorrow|again|here|there|soon|always|daily|weekly|[\w-]+ly"
 )
 _REVIEW_BODY_COMPONENT_WORD = (
-    r"(?!(?:and|or|but|in|on|to|for|with|when|if|that|which|where|"
+    r"(?!(?:and|or|but|in|on|to|for|by|with|when|if|that|which|where|"
     r"is|are|was|were|must|shall|will|should|can|may|has|have|"
     r"not|never|no|optional|required|mandatory|expected|supposed|"
     r"contains?|includes?|requires?|needs?|" + _REVIEW_BODY_COMPONENT_TEMPORAL + r")\b)[\w-]+"
@@ -1051,38 +1072,128 @@ _REVIEW_BODY_COMPONENT = (
     + r"(?:[ \t]+"
     + _REVIEW_BODY_COMPONENT_WORD
     + r"){0,2}"
-    + r"(?=[ \t]*(?:$|[;,.!?\n]|(?:and|or|but|if|when|that|which|where|"
+    + r"(?=[ \t]*(?:$|[;,.!?\n]|(?:and|or|but|by|if|when|that|which|where|"
     + _REVIEW_BODY_COMPONENT_TEMPORAL
     + r")\b))"
 )
 
 
+_EVIDENCE_ARTIFACT_DESTINATION = r"(?:workflow|ci|github actions)\s+artifacts?\b"
+_EVIDENCE_REVIEW_DESTINATION = (
+    r"(?:(?:the|an?)\s+)?(?:"
+    r"(?:pr|pull request)\s+(?:body|description)\b(?:\s+" + _REVIEW_BODY_COMPONENT + r")?|"
+    r"(?:pr|pull request)\s+comments?\b(?:\s+"
+    + _REVIEW_BODY_COMPONENT
+    + r")?|"
+    + _EVIDENCE_ARTIFACT_DESTINATION
+    + r"|(?:pr|pull request)\b)"
+)
+_EVIDENCE_DESTINATION_PREPOSITION = r"(?:in|into|to|within|for|as|through|via)"
+_EVIDENCE_DESTINATION_SEPARATOR_BASE = r"(?:\s*,\s*(?:(?:and|or)\s+)?|\s+(?:and|or)\s+)"
+
+
+def _normalize_passive_review_agents(acceptance: str) -> str:
+    """Retain passive actor/governor binding for both channels and OR expansion."""
+    actor = (
+        _EVIDENCE_RECIPIENT_PREFIX
+        + r"(?:"
+        + _EVIDENCE_ACTOR_NOUN
+        + r"|interface|cli|renderer)\b"
+        + _EVIDENCE_ACTOR_QUALIFIER
+    )
+    object_ = (
+        r"(?:(?:the|an?|any|no)\s+)?"
+        + _EVIDENCE_OBJECT_MODIFIERS
+        + r"(?:evidence|artifacts?|transcripts?|command outputs?|"
+        + _EVIDENCE_PROOF_ALIAS_NOUN
+        + r"|recording)\b"
+    )
+    governor = (
+        r"(?:"
+        + _MANDATORY_EVIDENCE_AUXILIARY
+        + r"|"
+        + _NEGATIVE_EVIDENCE_REQUIREMENT_GOVERNOR
+        + r"|"
+        + _EVIDENCE_OPTIONAL_MODAL
+        + r"|will)\s+"
+        + _EVIDENCE_DELIVERY_ADVERBS
+        + r"(?:(?:not|never|no\s+longer)\s+"
+        + _EVIDENCE_DELIVERY_ADVERBS
+        + r")?"
+    )
+    separator = (
+        _EVIDENCE_DESTINATION_SEPARATOR_BASE + r"(?:" + _EVIDENCE_DESTINATION_PREPOSITION + r"\s+)?"
+    )
+    destination = (
+        _EVIDENCE_DESTINATION_PREPOSITION
+        + r"\s+(?:either\s+)?"
+        + _EVIDENCE_REVIEW_DESTINATION
+        + r"(?:"
+        + separator
+        + _EVIDENCE_REVIEW_DESTINATION
+        + r")*"
+    )
+    predicate = (
+        r"\b(?P<object>"
+        + object_
+        + r")\s+(?P<governor>"
+        + governor
+        + r")"
+        + _EVIDENCE_PASSIVE_PREFIX
+        + _EVIDENCE_DELIVERY_ADVERBS
+        + r"(?P<operation>"
+        + _EVIDENCE_DELIVERY_OPERATION
+        + r")\s+"
+    )
+    for agent_first in (True, False):
+        tail = (
+            r"by\s+(?P<actor>" + actor + r")\s+(?P<destination>" + destination + r")"
+            if agent_first
+            else r"(?P<destination>" + destination + r")\s+by\s+(?P<actor>" + actor + r")"
+        )
+        acceptance = re.sub(
+            r"(?P<literal>" + _QUOTED_EVIDENCE_LITERAL + r")|" + predicate + tail,
+            lambda match: (
+                match[0]
+                if match["literal"]
+                else " ".join(
+                    (
+                        match["actor"].strip(),
+                        match["governor"].strip(),
+                        match["operation"],
+                        match["object"].strip(),
+                        match["destination"],
+                    )
+                )
+            ),
+            acceptance,
+            flags=re.I,
+        )
+    return acceptance
+
+
 def _required_evidence_channels(acceptance: str, *, _bind_attached: bool = True) -> set[str]:
     """Identify explicit evidence deliverables without treating negations as requirements."""
 
+    acceptance = _normalize_passive_review_agents(acceptance)
     channels: set[str] = set()
     response_operation = (
         r"(?:include|contain|have|return|display|show|store|emit|render|expose|provide)\w*\b"
     )
-    delivery_operation = r"(?:prove|provide|return|display|show|emit|render|expose|store|upload|attach|publish|post|record|capture|include|contain|have|document|generate|link|add|leave)\w*\b"
+    delivery_operation = _EVIDENCE_DELIVERY_OPERATION
     capability_operation = r"(?:(?:allow|enable|support|permit)\w*|let(?:s|ting)?)"
-    evidence_modifiers = (
-        r"(?:(?!(?:and|or|but|must|shall|is|are|not|never|may|can)\b)[\w/-]+\s+){0,6}"
-    )
+    evidence_modifiers = _EVIDENCE_OBJECT_MODIFIERS
     mandatory_auxiliary = _MANDATORY_EVIDENCE_AUXILIARY
     delivery_adverb = _EVIDENCE_DELIVERY_ADVERB
     delivery_adverbs = _EVIDENCE_DELIVERY_ADVERBS
     possession_modifiers = r"(?:(?:not|never|no\s+longer|" + delivery_adverb + r")\s+){0,3}"
-    passive_delivery_prefix = (
-        r"(?:be|been|being|have\s+" + delivery_adverbs + r"been)"
-        r"(?:\s+" + delivery_adverbs + r"being)?\s+"
-    )
+    passive_delivery_prefix = _EVIDENCE_PASSIVE_PREFIX
     delivery_action_prefix = (
         r"(?:" + passive_delivery_prefix + r"|have\s+" + delivery_adverbs + r")"
     )
     negative_adjective_governor = _NEGATIVE_EVIDENCE_ADJECTIVE_GOVERNOR
     negative_requirement_governor = _NEGATIVE_EVIDENCE_REQUIREMENT_GOVERNOR
-    optional_delivery_modal = r"(?:may|can|could|would|should)"
+    optional_delivery_modal = _EVIDENCE_OPTIONAL_MODAL
     delivery_governor_auxiliary = (
         r"(?:"
         + mandatory_auxiliary
@@ -1170,29 +1281,17 @@ def _required_evidence_channels(acceptance: str, *, _bind_attached: bool = True)
         flags=re.I,
     )
     conditional_evidence = r"\b(?:if|when)\s+(?:produced|available|present|uploaded|generated)\b"
-    recipient_prefix = (
-        r"(?:(?:all|any|some|each|every)\s+)?"
-        r"(?:(?:the|its|our|their|your|an?)\s+)?"
-        r"(?:(?!(?:and|or|but|must|shall|is|are|not|never|may|can|to|of|for|by|with|who|that|which|lets?|allows?|enables?)\b)[\w/-]+\s+){0,4}"
-    )
+    recipient_prefix = _EVIDENCE_RECIPIENT_PREFIX
     recipient_noun = recipient_prefix + r"(?:clients?|users?|consumers?)\b"
     product_recipient = r"(?:to|for)\s+" + recipient_noun
-    artifact_destination_object = r"(?:workflow|ci|github actions)\s+artifacts?\b"
+    artifact_destination_object = _EVIDENCE_ARTIFACT_DESTINATION
     body_component = _REVIEW_BODY_COMPONENT
-    review_destination_noun = (
-        r"(?:(?:the|an?)\s+)?(?:"
-        r"(?:pr|pull request)\s+(?:body|description)\b(?:\s+" + body_component + r")?|"
-        r"(?:pr|pull request)\s+comments?\b(?:\s+"
-        + body_component
-        + r")?|"
-        + artifact_destination_object
-        + r"|(?:pr|pull request)\b)"
-    )
+    review_destination_noun = _EVIDENCE_REVIEW_DESTINATION
     independent_review_predicate = _INDEPENDENT_REVIEW_PREDICATE
-    destination_preposition_head = r"(?:in|into|to|within|for|as|through|via)"
+    destination_preposition_head = _EVIDENCE_DESTINATION_PREPOSITION
     destination_preposition = destination_preposition_head + r"\s+"
     delivery_destination_item = r"(?:" + review_destination_noun + "|" + recipient_noun + ")"
-    delivery_destination_separator_base = r"(?:\s*,\s*(?:(?:and|or)\s+)?|\s+(?:and|or)\s+)"
+    delivery_destination_separator_base = _EVIDENCE_DESTINATION_SEPARATOR_BASE
     delivery_destination_separator = (
         delivery_destination_separator_base + r"(?:" + destination_preposition + r")?"
     )
@@ -1222,11 +1321,7 @@ def _required_evidence_channels(acceptance: str, *, _bind_attached: bool = True)
 
     # Common proof nouns reuse shared polarity/product/literal grammar, but
     # destinations must belong to this object's own finite actor clause.
-    parenthetical_actor = (
-        r"\b(?:reviewers?|maintainers?|authors?|operators?|agents?|bots?|runners?|"
-        r"developers?|engineers?|testers?|auditors?|verifiers?|teams?|users?|"
-        r"ui|api|application|service|endpoint)"
-    )
+    parenthetical_actor = _EVIDENCE_ACTOR_NOUN
     independent_proof_actor = recipient_prefix + (
         r"(?:" + parenthetical_actor + r"|clients?|consumers?|interface|cli|renderer|"
         r"(?:pr|pull request)(?:\s+body)?)\b"
@@ -1243,9 +1338,7 @@ def _required_evidence_channels(acceptance: str, *, _bind_attached: bool = True)
     proof_actor_boundary = (
         r"(?:(?:,?\s+)(?:and|or|but)\s+|;\s*|[.!?]\s+)(?="
         + independent_proof_actor
-        + r"(?:\s+(?:of|for|used\s+by|managed\s+by|using|testing|accessing|operating)\s+"
-        r"(?:(?!(?:and|or|but|must|shall|is|are|not|never|may|can|has|have)\b)[\w/-]+\s+){0,4}"
-        r"(?!(?:and|or|but|must|shall|is|are|not|never|may|can|has|have)\b)[\w/-]+)?"
+        + _EVIDENCE_ACTOR_QUALIFIER
         + r"\s+(?!"
         + _ATTACHED_REVIEW_AVAILABILITY
         + r")(?:(?:that|which)\s+)?"
@@ -1432,8 +1525,8 @@ def _required_evidence_channels(acceptance: str, *, _bind_attached: bool = True)
     )
     acceptance = re.sub(
         r"(?P<literal>" + quoted_evidence_literal + r")|"
-        r"\b(?:(?:(?:test|validation)\s+(?:results?|logs?|outputs?)|"
-        r"(?:ci|build|execution)\s+logs?|(?:(?:workflow|ci|github actions)\s+)?artifacts?\s+provenance|screenshots?|recordings)"
+        r"\b(?:"
+        + _EVIDENCE_PROOF_ALIAS_NOUN
         + proof_qualifier
         + r"|recording"
         + proof_qualifier
@@ -2441,6 +2534,18 @@ def _required_evidence_channels(acceptance: str, *, _bind_attached: bool = True)
                 r"|\b(?:on|in|to)\s+(?:(?:the|this|reviewing)\s+)?(?:pr|pull request)\b",
                 destination,
                 re.I,
+            )
+            or (
+                re.fullmatch(
+                    r"\s*"
+                    + evidence_modifiers
+                    + r"(?:evidence|artifacts?|transcripts?|command outputs?)\s+"
+                    + destination_preposition_head
+                    + r"\s+(?:(?:the|an?)\s+)?",
+                    prefix[operation.end() :],
+                    re.I,
+                )
+                and not re.match(r"\s+" + body_component, destination, re.I)
             )
         )
         return bool(
@@ -3795,7 +3900,8 @@ def _required_evidence_options(acceptance: str) -> list[set[str]]:
     Ambiguous mixed conjunctions or excessive expansion retain the strict legacy
     requirement rather than dropping an obligation.
     """
-    preposition = r"(?:in|into|to|within|for|as|through|via)"
+    acceptance = _normalize_passive_review_agents(acceptance)
+    preposition = _EVIDENCE_DESTINATION_PREPOSITION
     destination = (
         r"(?:(?:the|an?)\s+)?(?:(?:pr|pull request)\s+(?:(?:body|description)\b"
         r"(?:\s+" + _REVIEW_BODY_COMPONENT + r")?|comments?\b"
