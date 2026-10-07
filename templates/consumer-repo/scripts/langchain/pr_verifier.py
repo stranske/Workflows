@@ -1169,11 +1169,11 @@ def _required_evidence_channels(acceptance: str, *, _bind_attached: bool = True)
     # destination grammar so AND/OR lists retain their established semantics.
     acceptance = re.sub(
         r"(?P<literal>" + quoted_evidence_literal + r")|"
-        r"(?P<checklist>^\s*[-*]\s*\[[ xX]\]\s*)"
+        r"(?P<checklist>^[ \t]*[-*][ \t]*\[[ xX]\][ \t]*(?:\r?\n[ \t]*)?)"
         r"(?P<object>(?:(?:test|validation|CI|build|execution)\s+){0,3}"
         r"(?:evidence|command outputs?|transcripts?))\s+"
         r"(?P<destinations>" + bound_review_destinations + r")"
-        r"(?=\s*(?:[;.!]|$))",
+        r"(?=[ \t]*(?:[;.!]|$))",
         lambda match: (
             match[0]
             if match["literal"]
@@ -1351,6 +1351,7 @@ def _required_evidence_channels(acceptance: str, *, _bind_attached: bool = True)
         + delivery_adverbs
         + r"(?:not\s+)?)"
         r"(?:appear|be(?:\s+present)?)"
+        r"(?:\s+either)?"
         r"(?P<destination>\s+" + bound_review_destinations + r")",
         lambda match: (
             match[0]
@@ -2461,14 +2462,17 @@ def _required_evidence_channels(acceptance: str, *, _bind_attached: bool = True)
         re.I,
     )
     criteria: list[str] = []
+    paragraph_break = False
     for raw_line in acceptance.splitlines():
         line = raw_line.strip()
         if not line:
+            paragraph_break = True
             continue
-        if criteria and not re.match(r"^(?:[-*+]|\d+[.)])\s+", line):
+        if criteria and not paragraph_break and not re.match(r"^(?:[-*+]|\d+[.)])\s+", line):
             criteria[-1] += " " + line
         else:
             criteria.append(line)
+        paragraph_break = False
     for criterion in criteria:
         # Canonicalize supported list markers once so every downstream negation,
         # product-output and checklist guard uses the same established syntax.

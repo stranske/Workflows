@@ -1563,6 +1563,11 @@ copy its negation to the contrasting delivery; and/or retain the negative govern
 Checklist syntax cannot reclassify object nouns left by a recognized negative
 delivery as mandatory evidence. Explicit independent positive predicates and
 required body records remain authoritative, including their real evidence floor.
+An immediate single-line checklist continuation retains its delivery context;
+a blank paragraph ends that context. Bare allowed/permitted evidence-presence
+clauses remain nongating. Optional or negative presence alternatives also retain
+their governor when `either` precedes the destination preposition, including
+PR description components and independently required deliveries.
 Active-perfect elided deliveries retain their bounded actor and complete governor,
 including optional/negative and contrastive paths, through the same splitting and
 inheritance predicate as passive delivery. Their explicit evidence objects are

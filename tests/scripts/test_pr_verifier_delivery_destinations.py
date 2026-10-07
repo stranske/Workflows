@@ -9,9 +9,44 @@ from scripts import docs_drift_fix_agent as fix_agent
 from scripts.langchain import pr_verifier as verifier
 
 
+@pytest.mark.parametrize("newline", ["\n", "\n\n"])
+@pytest.mark.parametrize("checked", [" ", "x"])
+@pytest.mark.parametrize(
+    "destination,channel",
+    [
+        ("a PR comment", "comments"),
+        ("the PR description", "body"),
+        ("a workflow artifact", "artifacts"),
+    ],
+)
+def test_checklist_immediate_continuation_not_blank_paragraph(
+    newline, checked, destination, channel
+):
+    criterion = f"- [{checked}]{newline}Evidence in {destination}."
+    assert verifier._required_evidence_channels(criterion) == (
+        {channel} if newline == "\n" else set()
+    )
+    assert "comments" in verifier._required_evidence_channels(
+        criterion + "; provide command output in a PR comment"
+    )
+
+
+@pytest.mark.parametrize("obligation", ["allowed", "permitted"])
+@pytest.mark.parametrize(
+    "destination", ["a PR comment", "the PR description", "a workflow artifact"]
+)
+def test_bare_negative_evidence_presence_allowed_permitted(obligation, destination):
+    criterion = f"- [ ] Evidence is not {obligation} in {destination}"
+    assert verifier._required_evidence_channels(criterion) == set()
+    assert verifier._required_evidence_channels(
+        criterion + "; provide command output in a PR comment"
+    ) == {"comments"}
+
+
 @pytest.mark.parametrize("component", ["editor", "field", "textarea", "preview"])
 @pytest.mark.parametrize("destination", ["PR body", "PR description"])
 @pytest.mark.parametrize("operator", ["and", "or"])
+@pytest.mark.parametrize("either", ["", "either "])
 @pytest.mark.parametrize("independent", [False, True])
 @pytest.mark.parametrize(
     "governor",
@@ -27,11 +62,9 @@ from scripts.langchain import pr_verifier as verifier
     ],
 )
 def test_component_alternatives_preserve_optional_negative_floor(
-    component, destination, operator, independent, governor
+    component, destination, operator, either, independent, governor
 ):
-    criterion = (
-        f"- [ ] Evidence {governor} be in the {destination} {component} {operator} a PR comment"
-    )
+    criterion = f"- [ ] Evidence {governor} be {either}in the {destination} {component} {operator} a PR comment"
     if independent:
         criterion += "; provide command output in a PR comment"
     options = verifier._required_evidence_options(criterion)
