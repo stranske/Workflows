@@ -25,6 +25,32 @@ EVIDENCE = ROOT / "docs/evidence/issue-3743/uv-resolution"
     ids=["exit", "error", "skip", "identity", "missing-failure", "case-count"],
 )
 def test_optimized_replay_rejects_invalid_proof(tmp_path, code, case):
+    result = _run_optimized_proof(tmp_path, "red", code, case)
+    assert result.returncode == 0, result.stdout + result.stderr
+    assert "rejected invalid proof" in result.stdout
+    assert not (tmp_path / "red.json").exists()
+
+
+@pytest.mark.parametrize(
+    "code,case",
+    [
+        (1, '<testcase name="target"/>'),
+        (0, '<testcase name="target"><error/></testcase>'),
+        (0, '<testcase name="target"><skipped/></testcase>'),
+        (0, '<testcase name="wrong"/>'),
+        (0, '<testcase name="target"><failure/></testcase>'),
+        (0, '<testcase name="target"/>' * 2),
+    ],
+    ids=["exit", "error", "skip", "identity", "unexpected-failure", "case-count"],
+)
+def test_optimized_green_replay_rejects_invalid_proof(tmp_path, code, case):
+    result = _run_optimized_proof(tmp_path, "green", code, case)
+    assert result.returncode == 0, result.stdout + result.stderr
+    assert "rejected invalid proof" in result.stdout
+    assert not (tmp_path / "green.json").exists()
+
+
+def _run_optimized_proof(tmp_path, phase, code, case):
     # A child interpreter is essential: -O must affect the production module.
     program = """
 import importlib.util, pathlib, sys, types
@@ -37,18 +63,19 @@ spec = importlib.util.spec_from_file_location('replay', sys.argv[1])
 module = importlib.util.module_from_spec(spec)
 spec.loader.exec_module(module)
 output = pathlib.Path(sys.argv[2])
+phase = sys.argv[5]
 def fake_run(argv, **kwargs):
-    (output / 'red.xml').write_text('<testsuite>' + sys.argv[4] + '</testsuite>')
+    (output / (phase + '.xml')).write_text('<testsuite>' + sys.argv[4] + '</testsuite>')
     return types.SimpleNamespace(returncode=int(sys.argv[3]))
 module.subprocess.run = fake_run
 try:
-    module.run_case(output, output, 'test_proof.py::target', 'red')
+    module.run_case(output, output, 'test_proof.py::target', phase)
 except ValueError:
     print('rejected invalid proof')
 else:
     raise SystemExit('accepted invalid proof under optimization')
 """
-    result = subprocess.run(
+    return subprocess.run(
         [
             sys.executable,
             "-O",
@@ -59,14 +86,12 @@ else:
             str(tmp_path),
             str(code),
             case,
+            phase,
         ],
         capture_output=True,
         text=True,
         timeout=30,
     )
-    assert result.returncode == 0, result.stdout + result.stderr
-    assert "rejected invalid proof" in result.stdout
-    assert not (tmp_path / "red.json").exists()
 
 
 def test_replay_suite_cli_quotes_report_paths_with_spaces(tmp_path):

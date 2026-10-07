@@ -107,3 +107,44 @@ Verified acceptance for this bounded chunk:
 - [x] **Documentation**
   - [x] Retained test evidence, matched coverage comparisons, replay instructions
     and artifact integrity records, with repository-wide coverage unmeasured.
+
+### Optimized GREEN result controls
+
+Six additional subprocess controls reject invalid GREEN proof results under
+`python -O -S`: nonzero exit, test error, skipped test, wrong case identity,
+unexpected failure and duplicate cases. They share the existing RED fixture's
+fixed synthetic XML stand-in; the production replay keeps `defusedxml`.
+Each control fails when its corresponding production proof guard is weakened in
+a private copy, then passes after byte-identical restoration. Caller files are
+unchanged. The three focused modules now pass 29 tests. Run them with the focused
+command above; the new nodes are `test_optimized_green_replay_rejects_invalid_proof`.
+
+`green-proof-controls.tar.gz` and `green-proof-controls-index.json` retain the
+six individual mutation/restoration pairs, command receipts, JUnit, logs, the
+reproducible validation driver and current input hashes. Extract the validation
+driver to a temporary directory and run it from the repository root with a fresh
+output directory:
+
+```sh
+python3 /tmp/validate_green_controls.py /tmp/uv-green-controls-fresh
+```
+
+Fresh matched suites again pass 300/308 tests with focused helper coverage
+94.84% → 95.31%, unchanged 591 statements / 262 branches / zero exclusions,
+and no old outcome, covered-line or covered-branch regressions. Their raw
+reports, exact command receipts and verified comparison are retained in the
+same archive. The six new replay controls are outside this matched suite.
+
+All four prior indexed archives (159 members) and all ten selected suite input
+hashes were verified before this extension. The live PR was open and ready for
+review, but updating its acceptance checklist was blocked because the GitHub
+connector requires approval and this run's approval policy is `never`.
+The requested blocker comment and `needs-human` label hit the same approval block.
+The verified local acceptance checklist above remains the reconciliation record.
+Whole-tree formatting is verified for 682 files with the retained sequential
+Black CLI adapter, which uses normal discovery and per-file safety checks.
+The required standard Black invocation fails during worker startup because the
+sandbox blocks its forkserver socket; its failure log is retained. Focused Ruff,
+template completeness and diff whitespace checks pass. Creating the requested
+commit is also blocked: `git add` cannot create `.git/index.lock` on the read-only
+Git metadata mount. The code and evidence remain in the worktree.
