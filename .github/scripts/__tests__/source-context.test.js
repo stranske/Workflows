@@ -31,12 +31,46 @@ const releasePull = {
   base: { repo: { full_name: 'octo/workflows' } },
 };
 
+test('release #3769 fixture retains production merged-fix changelog surface', () => {
+  assert.equal(release3769.number, 3769);
+  assert.equal(release3769.title, 'chore(main): release 1.37.21');
+  assert.equal(release3769.head.ref, 'release-please--branches--main');
+  assert.equal(release3769.head.sha, '08b07c8b1bfbe254d6d59f384f83d087a91ba93b');
+  assert.match(
+    release3769.body,
+    /Record the already-merged artifact-discovery fix #3768 in the changelog/,
+  );
+  assert.match(
+    release3769.body,
+    /retain artifact discovery for incidental status links \(\[#3768\]\(https:\/\/github\.com\/stranske\/Workflows\/issues\/3768\)\)/,
+  );
+  for (const extract of [extractIssueSourceFromPull, templateExtractIssueSourceFromPull]) {
+    assert.equal(extract({ body: release3769.body, title: release3769.title }).issueNumber, null);
+  }
+});
+
 test('release #3769 retains automation provenance instead of the already-merged fix', () => {
   for (const resolve of [resolvePrSourceContext, templateResolvePrSourceContext]) {
     const source = resolve(releasePull);
     assert.equal(source.issueNumber, null);
     assert.equal(source.requiresIssue, false);
     assert.equal(source.sourceType, SOURCE_TYPES.AUTOMATION_RUN);
+  }
+});
+
+test('release #3787 fixture retains production historical-fixes provenance surface', () => {
+  // Exact production PR #3787 surface. Merged resolver 52712f28 still treated the
+  // plural changelog noun as closing intent for #3782; the shared repair must not.
+  assert.equal(release3787.number, 3787);
+  assert.equal(release3787.title, 'chore(main): release 1.37.26');
+  assert.equal(release3787.head.ref, 'release-please--branches--main');
+  assert.equal(release3787.head.sha, 'dccfd5b4fabaa9748b66380bf1a108e15c18f61a');
+  assert.match(
+    release3787.body,
+    /\*\*verifier:\*\* preserve release provenance for historical fixes \(\[#3782\]\(https:\/\/github\.com\/stranske\/Workflows\/issues\/3782\)\) \(\[52712f2\]\(https:\/\/github\.com\/stranske\/Workflows\/commit\/52712f28d058ba1b3d6f1b7ad27e7cdb40f48e28\)\)/,
+  );
+  for (const extract of [extractIssueSourceFromPull, templateExtractIssueSourceFromPull]) {
+    assert.equal(extract({ body: release3787.body, title: release3787.title }).issueNumber, null);
   }
 });
 
@@ -1265,7 +1299,66 @@ test('explicit closing titles outrank incidental body mentions without selecting
     assert.deepEqual(resolve({ title: 'Fixes #123', body: 'Closes #456' }), { issueNumber: null, via: null });
     assert.deepEqual(resolve({ title: 'Fixes #123 and closes #456', body: 'Closes #123' }), { issueNumber: null, via: null });
     assert.deepEqual(resolve({ title: 'Fixes #123', body: 'Closes #123' }), { issueNumber: 123, via: 'closing' });
-    assert.deepEqual(resolve({ title: 'Fixes #123', body: '<!-- meta:issue:456 -->' }), { issueNumber: 456, via: 'meta' });
+    assert.deepEqual(resolve({ title: 'Fixes #123', body: '<!-- meta:issue:456 -->' }), { issueNumber: null, via: null });
     assert.deepEqual(resolve({ title: 'Related to #123', body: 'Refs #456' }), { issueNumber: 456, via: 'mention' });
+  }
+});
+
+test('explicit closing title and metadata conflicts stay unresolved in both resolvers', () => {
+  for (const implementation of [
+    require('../source_context.js'),
+    require('../../../templates/consumer-repo/.github/scripts/source_context.js'),
+  ]) {
+    for (const title of ['Fixes #123', 'Closes issue #123', 'Resolves #123', 'Fixes #456 and closes #123']) {
+      for (const declaration of ['', '<!-- workflow-source:local_request -->\n']) {
+        const pull = {
+          title,
+          body: declaration + '<!-- meta:issue:456 -->\nCloses #456',
+          head: { ref: 'codex/issue-456-stale-binding' },
+        };
+        assert.deepEqual(implementation.extractIssueSourceFromPull(pull), { issueNumber: null, via: null });
+        const context = implementation.resolvePrSourceContext(pull);
+        assert.equal(context.issueNumber, null);
+        assert.equal(context.sourceType, SOURCE_TYPES.UNKNOWN);
+        assert.equal(context.hasAmbiguousIssueSource, true);
+        assert.equal(context.requiresIssue, true);
+        assert.equal(context.isValid, false);
+      }
+    }
+    for (const title of ['Fixes #456', 'Fixes #456 and closes #456', 'Related to #123', 'Implement source repair']) {
+      const pull = {
+        title,
+        // Synchronized source text can mention a different closing issue.
+        body: '<!-- meta:issue:456 -->\nCloses #789',
+      };
+      assert.deepEqual(implementation.extractIssueSourceFromPull(pull), { issueNumber: 456, via: 'meta' });
+      const context = implementation.resolvePrSourceContext(pull);
+      assert.equal(context.issueNumber, 456);
+      assert.equal(context.hasAmbiguousIssueSource, false);
+      assert.equal(context.requiresIssue, true);
+    }
+  }
+});
+
+
+test('negated closing titles preserve metadata without masking a later affirmative target', () => {
+  for (const implementation of [require('../source_context.js'), require('../../../templates/consumer-repo/.github/scripts/source_context.js')]) {
+    for (const title of [
+      'Does not fix #123', 'Do not close issue #123', "Doesn't resolve #123",
+      'Never fixes #123', 'Avoid closing #123', 'Without fixing #123',
+      'Does not actually fix #123', 'Does **not fix** #123',
+      'Does not fix #123 but closes #456', 'Not only fixes #456 but also closes #456',
+    ]) {
+      const pull = { title, body: '<!-- meta:issue:456 -->' };
+      assert.deepEqual(implementation.extractIssueSourceFromPull(pull), { issueNumber: 456, via: 'meta' }, title);
+      const context = implementation.resolvePrSourceContext(pull);
+      assert.equal(context.hasAmbiguousIssueSource, false, title);
+      assert.equal(context.issueNumber, 456, title);
+    }
+    for (const title of ['Does not fix #789 but closes #123', 'Never fix #789; Fixes #123', 'Do not fix\nFixes #123']) {
+      const context = implementation.resolvePrSourceContext({ title, body: '<!-- meta:issue:456 -->' });
+      assert.equal(context.hasAmbiguousIssueSource, true, title);
+      assert.equal(context.issueNumber, null, title);
+    }
   }
 });

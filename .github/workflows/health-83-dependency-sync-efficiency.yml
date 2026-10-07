@@ -52,6 +52,7 @@ jobs:
           github-token: ${{ secrets.OWNER_PR_PAT || secrets.SERVICE_BOT_PAT || github.token }}
           script: |
             const fs = require('fs');
+            const { collectRunWindow } = require('./.github/scripts/dependency_sync_run_window.js');
             const { createTokenAwareRetry } = require('./.github/scripts/github-api-with-retry.js');
             const { github: api, paginateWithRetry, withRetry } = await createTokenAwareRetry({
               github, core, env: process.env,
@@ -132,21 +133,22 @@ jobs:
                 const oldestUpdated = prPage.data.at(-1)?.updated_at;
                 if (prPage.data.length < 100 || !oldestUpdated || new Date(oldestUpdated) < windowStart) break;
               }
-              for (let page = 1; ; page += 1) {
-                const runPage = await withRetry((client) => client.rest.actions.listWorkflowRunsForRepo({owner, repo: name, per_page: 100, page}));
-                for (const run of runPage.data.workflow_runs) {
-                  if (!inWindow(run.created_at)) continue;
+              try {
+                const runs = await collectRunWindow({start: windowStart, end: windowEnd,
+                  listPage: (params) => withRetry((client) => client.rest.actions.listWorkflowRunsForRepo({owner, repo: name, ...params})),
+                });
+                for (const run of runs) {
                   const linkedPr = run.pull_requests?.[0]?.number;
                   const source_commit = linkedPr ? sourceByPr.get(`${owner}/${name}#${linkedPr}`) : null;
                   workflow_runs.push({repo: `${owner}/${name}`, source_commit, status: run.status, conclusion: run.conclusion, created_at: run.created_at});
                 }
-                const oldestRunCreated = runPage.data.workflow_runs.at(-1)?.created_at;
-                if (runPage.data.workflow_runs.length < 100 || !oldestRunCreated || new Date(oldestRunCreated) < windowStart) break;
+              } catch (error) {
+                collectionFailures.push(`${owner}/${name}: workflow runs: ${error.message}`);
               }
             }
             fs.writeFileSync('dependency-sync-efficiency-input.json', JSON.stringify({
               period: {kind: 'trailing-7-day-window', start: windowStart.toISOString(), end: windowEnd.toISOString()},
-              collection: {history_complete: false, window_complete: collectionFailures.length === 0, failures: collectionFailures, limitations: ['Pull requests and workflow runs are completely paginated for the explicit trailing seven-day reporting window; all-time GitHub history is intentionally not collected.', 'Stable-delivery timeline events are completely paginated for each stable PR observed in the reporting window.']},
+              collection: {history_complete: false, window_complete: collectionFailures.length === 0, failures: collectionFailures, limitations: ['Pull requests and workflow runs are paginated for the explicit trailing seven-day reporting window; workflow-run queries subdivide dense time intervals before the filtered API ceiling. Collection failures make window_complete false; all-time GitHub history is intentionally not collected.', 'Stable-delivery timeline events are paginated for each stable PR observed in the reporting window; unavailable events remain explicit failures.']},
               pulls, workflow_runs, timeline_events,
             }, null, 2));
 

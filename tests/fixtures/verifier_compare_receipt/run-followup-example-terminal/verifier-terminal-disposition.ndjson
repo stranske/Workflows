@@ -1,0 +1,1 @@
+{"schema": "workflows-terminal-disposition/v1", "disposition": "needs-human", "pr_number": 3769, "verdict": "concerns", "run_id": "39999999999", "artifact_name": "verifier-terminal-disposition-39999999999", "verifier_mode": "compare"}

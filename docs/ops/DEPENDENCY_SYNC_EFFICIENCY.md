@@ -41,10 +41,22 @@ routine cadence violations merely because they bypass the weekly update window.
 ## Evidence and retention
 
 The workflow uploads JSON and Markdown artifacts for every run. Its collector
-completely paginates PRs and workflow runs for the explicit trailing seven-day
-reporting window and completely paginates timeline events for each stable sync
-PR observed in that window. It writes `window_complete: true` only when every
-stable-PR timeline read succeeds. All-time history remains deliberately
+collects PRs and workflow runs for the explicit trailing seven-day reporting
+window and completely paginates timeline events for each stable sync PR observed
+in that window. Workflow-run queries use bounded created-time intervals; exact
+totals of 1,000 or more and GitHub's capped `2,500+` total trigger subdivision,
+not unrestricted pagination. Numeric child totals must reconcile with exact
+parent counts, capped parents require a child union above the lower bound, and
+parent-observed identities and timestamps must survive subdivision.
+
+It writes `window_complete: true` only when all collection reads succeed.
+Transport failures, malformed responses, missing pages, dense or inconsistent workflow-run intervals
+that cannot be completely collected, and failed stable-PR timeline reads leave
+the window incomplete and produce advisory `unknown`, even if observed data
+also shows a threshold breach. An unsplittable dense one-second interval remains
+incomplete. Consistency-checked API reads cannot guarantee an atomic snapshot
+or detect same-count membership churn involving entirely unseen identities.
+All-time history remains deliberately
 uncollected, so every report also writes `history_complete: false`; rates are
 never presented as complete historical truth outside the stated window.
 Malformed lifecycle timestamps in a PR body are treated as unavailable timing

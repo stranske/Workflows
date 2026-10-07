@@ -1,0 +1,9 @@
+{
+  "schema": "workflows-verifier-input-snapshot/v1",
+  "capture_kind": "production",
+  "repository": "stranske/Workflows",
+  "pr": 3769,
+  "merge_sha": "b847857162a2eb652e3b6e6cc1d982899bf6b7b2",
+  "source_run_id": "37400729553",
+  "chain_depth": 0
+}

@@ -1,0 +1,17 @@
+{
+  "report": "baseline production compare retained for receipt contract",
+  "results": [
+    {
+      "model": "gpt-5.6-terra",
+      "verdict": "CONCERNS",
+      "confidence": 0.96,
+      "used_llm": true
+    },
+    {
+      "model": "claude-sonnet-5-5",
+      "verdict": "CONCERNS",
+      "confidence": 0.8,
+      "used_llm": true
+    }
+  ]
+}

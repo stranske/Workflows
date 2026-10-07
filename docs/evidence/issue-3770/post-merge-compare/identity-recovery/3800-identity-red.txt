@@ -1,0 +1,124 @@
+.......FFFFFF                                                            [100%]
+=================================== FAILURES ===================================
+____________ test_run_receipt_rejects_cross_run_artifacts[manifest] ____________
+
+tmp_path = PosixPath('/private/var/folders/qm/w0dtc0j132gd6ymf1hxtd2p00000gp/T/pytest-of-teacher/pytest-1446/test_run_receipt_rejects_cross0')
+source = 'manifest'
+
+    @pytest.mark.parametrize("source", ["manifest", "corpus", "terminal"])
+    def test_run_receipt_rejects_cross_run_artifacts(tmp_path: Path, source: str) -> None:
+        import shutil
+    
+        bundle = tmp_path / "comparison"
+        shutil.copytree(BASELINE_DIR, bundle)
+        terminal = receipt.load_terminal_disposition(BASELINE_TERMINAL)
+        if source == "manifest":
+            path = bundle / "verifier-input-manifest.json"
+            manifest = json.loads(path.read_text(encoding="utf-8"))
+            manifest["source_run_id"] = "123"
+            path.write_text(json.dumps(manifest), encoding="utf-8")
+        elif source == "corpus":
+            path = bundle / "comparison-comment.md"
+            path.write_text(path.read_text(encoding="utf-8").replace('"run_id": "37400729553"', '"run_id": "123"'), encoding="utf-8")
+        else:
+            terminal["run_id"] = "123"
+>       with pytest.raises(ValueError, match="run identity"):
+E       Failed: DID NOT RAISE ValueError
+
+tests/tools/test_verifier_compare_run_receipt.py:156: Failed
+_____________ test_run_receipt_rejects_cross_run_artifacts[corpus] _____________
+
+tmp_path = PosixPath('/private/var/folders/qm/w0dtc0j132gd6ymf1hxtd2p00000gp/T/pytest-of-teacher/pytest-1446/test_run_receipt_rejects_cross1')
+source = 'corpus'
+
+    @pytest.mark.parametrize("source", ["manifest", "corpus", "terminal"])
+    def test_run_receipt_rejects_cross_run_artifacts(tmp_path: Path, source: str) -> None:
+        import shutil
+    
+        bundle = tmp_path / "comparison"
+        shutil.copytree(BASELINE_DIR, bundle)
+        terminal = receipt.load_terminal_disposition(BASELINE_TERMINAL)
+        if source == "manifest":
+            path = bundle / "verifier-input-manifest.json"
+            manifest = json.loads(path.read_text(encoding="utf-8"))
+            manifest["source_run_id"] = "123"
+            path.write_text(json.dumps(manifest), encoding="utf-8")
+        elif source == "corpus":
+            path = bundle / "comparison-comment.md"
+            path.write_text(path.read_text(encoding="utf-8").replace('"run_id": "37400729553"', '"run_id": "123"'), encoding="utf-8")
+        else:
+            terminal["run_id"] = "123"
+>       with pytest.raises(ValueError, match="run identity"):
+E       Failed: DID NOT RAISE ValueError
+
+tests/tools/test_verifier_compare_run_receipt.py:156: Failed
+____________ test_run_receipt_rejects_cross_run_artifacts[terminal] ____________
+
+tmp_path = PosixPath('/private/var/folders/qm/w0dtc0j132gd6ymf1hxtd2p00000gp/T/pytest-of-teacher/pytest-1446/test_run_receipt_rejects_cross2')
+source = 'terminal'
+
+    @pytest.mark.parametrize("source", ["manifest", "corpus", "terminal"])
+    def test_run_receipt_rejects_cross_run_artifacts(tmp_path: Path, source: str) -> None:
+        import shutil
+    
+        bundle = tmp_path / "comparison"
+        shutil.copytree(BASELINE_DIR, bundle)
+        terminal = receipt.load_terminal_disposition(BASELINE_TERMINAL)
+        if source == "manifest":
+            path = bundle / "verifier-input-manifest.json"
+            manifest = json.loads(path.read_text(encoding="utf-8"))
+            manifest["source_run_id"] = "123"
+            path.write_text(json.dumps(manifest), encoding="utf-8")
+        elif source == "corpus":
+            path = bundle / "comparison-comment.md"
+            path.write_text(path.read_text(encoding="utf-8").replace('"run_id": "37400729553"', '"run_id": "123"'), encoding="utf-8")
+        else:
+            terminal["run_id"] = "123"
+>       with pytest.raises(ValueError, match="run identity"):
+E       Failed: DID NOT RAISE ValueError
+
+tests/tools/test_verifier_compare_run_receipt.py:156: Failed
+_ test_dual_run_receipt_rejects_cross_target_followup[repository-stranske/Other] _
+
+field = 'repository', value = 'stranske/Other'
+
+    @pytest.mark.parametrize("field,value", [("repository", "stranske/Other"), ("pr", "99")])
+    def test_dual_run_receipt_rejects_cross_target_followup(field: str, value: str) -> None:
+        baseline = receipt.summarize_compare_run(run_id=receipt.BASELINE_RUN_ID, comparison_dir=BASELINE_DIR)
+        followup = receipt.summarize_compare_run(run_id="39999999999", comparison_dir=FOLLOWUP_DIR, role="followup")
+        followup[field] = value
+>       with pytest.raises(ValueError, match="target identity"):
+E       Failed: DID NOT RAISE ValueError
+
+tests/tools/test_verifier_compare_run_receipt.py:165: Failed
+__________ test_dual_run_receipt_rejects_cross_target_followup[pr-99] __________
+
+field = 'pr', value = '99'
+
+    @pytest.mark.parametrize("field,value", [("repository", "stranske/Other"), ("pr", "99")])
+    def test_dual_run_receipt_rejects_cross_target_followup(field: str, value: str) -> None:
+        baseline = receipt.summarize_compare_run(run_id=receipt.BASELINE_RUN_ID, comparison_dir=BASELINE_DIR)
+        followup = receipt.summarize_compare_run(run_id="39999999999", comparison_dir=FOLLOWUP_DIR, role="followup")
+        followup[field] = value
+>       with pytest.raises(ValueError, match="target identity"):
+E       Failed: DID NOT RAISE ValueError
+
+tests/tools/test_verifier_compare_run_receipt.py:165: Failed
+_______________ test_dual_run_receipt_rejects_zero_followup_run ________________
+
+    def test_dual_run_receipt_rejects_zero_followup_run() -> None:
+        baseline = receipt.summarize_compare_run(run_id=receipt.BASELINE_RUN_ID, comparison_dir=BASELINE_DIR)
+        followup = receipt.summarize_compare_run(run_id="39999999999", comparison_dir=FOLLOWUP_DIR, role="followup")
+        followup["run_id"] = "0"
+>       with pytest.raises(ValueError, match="positive integer"):
+E       Failed: DID NOT RAISE ValueError
+
+tests/tools/test_verifier_compare_run_receipt.py:173: Failed
+=========================== short test summary info ============================
+FAILED tests/tools/test_verifier_compare_run_receipt.py::test_run_receipt_rejects_cross_run_artifacts[manifest]
+FAILED tests/tools/test_verifier_compare_run_receipt.py::test_run_receipt_rejects_cross_run_artifacts[corpus]
+FAILED tests/tools/test_verifier_compare_run_receipt.py::test_run_receipt_rejects_cross_run_artifacts[terminal]
+FAILED tests/tools/test_verifier_compare_run_receipt.py::test_dual_run_receipt_rejects_cross_target_followup[repository-stranske/Other]
+FAILED tests/tools/test_verifier_compare_run_receipt.py::test_dual_run_receipt_rejects_cross_target_followup[pr-99]
+FAILED tests/tools/test_verifier_compare_run_receipt.py::test_dual_run_receipt_rejects_zero_followup_run
+6 failed, 7 passed in 0.28s
