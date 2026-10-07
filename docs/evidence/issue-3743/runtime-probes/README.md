@@ -101,3 +101,26 @@ The added regression fails when that module check is removed and passes after
 byte-identical restoration; all four validator tests pass. Fresh fourteen-case
 production replay and matched 272/286 coverage receipts again confirm the same
 92.73% to 94.26% combined increase, with unchanged source/branch universes.
+
+## Closer runtime validation
+
+The replay reads JUnit and child output as UTF-8; generated private-runtime scripts
+are written as UTF-8. All replay acceptance guards now use explicit RuntimeError
+checks and remain active under Python -O, including anchor uniqueness, exact phase
+exit, JUnit identity/outcome, restoration hashes and complete case count.
+
+The existing 14 production mutations were replayed with the driver under -O:
+14 named RED failures and14 restored GREEN passes. The old assert-based validator
+yields3 failed/1passed rejection tests under -O; candidate yields4passed. The combined
+optimized focused tests yield18passed, and14 runtime cases pass with non-ASCII paths
+and LC_ALL=C/PYTHONUTF8=0/PYTHONCOERCECLOCALE=0. Raw receipts are retained under
+closer-runtime-validation/. Initial optimized pytest stopped on a warning-as-error;
+the subsequent explicit warning policy run is the successful receipt.
+
+The Semgrep command-injection warning is scoped to one exact rule at the fixed argv
+argument: shell=False, executable/module/options fixed, user output directory remains
+--junitxml filename data. Semgrep CE p/python and p/default report0findings/0errors
+across all3changed Python files. No broad suppression or finding dismissal was used.
+Historical baseline/candidate coverage measurements are preserved unchanged.
+
+Related runtime/replay/helper suite:266passed in77.40seconds,exit0.

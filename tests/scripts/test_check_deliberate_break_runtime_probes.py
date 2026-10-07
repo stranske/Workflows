@@ -47,7 +47,7 @@ def test_real_import_probe_requires_success_and_its_sentinel(tmp_path, helper, r
         if mode == "nonzero":
             code += f"print({helper['PYYAML_PROBE_SENTINEL']!r}, flush=True)\n"
         code += f"import os\nos._exit({0 if mode == 'zero-without-sentinel' else 7})\n"
-    (tmp_path / "yaml.py").write_text(code)
+    (tmp_path / "yaml.py").write_text(code, encoding="utf-8")
 
     result = helper["_pyyaml_probe_succeeds"]((sys.executable, "-m", "pytest"), tmp_path)
 
@@ -79,7 +79,8 @@ def _failing_runtime(tmp_path, *, managed):
         f"with Path({str(marker)!r}).open('a') as stream: stream.write('original-command')\n"
         "print('File \"/private/runtime/yaml/parser.py\", line 1', file=sys.stderr)\n"
         "print('SyntaxError: broken private runtime', file=sys.stderr)\n"
-        "raise SystemExit(1)\n"
+        "raise SystemExit(1)\n",
+        encoding="utf-8",
     )
     command = (sys.executable, "-m", "pytest") if managed else (sys.executable, str(script))
     return command, marker

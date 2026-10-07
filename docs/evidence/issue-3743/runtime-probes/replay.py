@@ -13,21 +13,26 @@ def digest(data):
     return hashlib.sha256(data).hexdigest()
 
 
+def require(condition, detail):
+    if not condition:
+        raise RuntimeError(detail)
+
+
 def validate_junit(text, node, phase):
     """Require the selected test's assertion failure or pass, never an error/skip."""
     report = ElementTree.fromstring(text)
     suites = list(report.iter("testsuite"))
-    assert len(suites) == 1, "expected exactly one JUnit suite"
+    require(len(suites) == 1, "expected exactly one JUnit suite")
     suite = suites[0]
     counts = {key: int(suite.get(key, "-1")) for key in ("tests", "failures", "errors", "skipped")}
     expected = {"tests": 1, "failures": int(phase == "red"), "errors": 0, "skipped": 0}
-    assert counts == expected, (node, phase, counts)
+    require(counts == expected, (node, phase, counts))
     cases = list(suite.iter("testcase"))
-    assert len(cases) == 1 and cases[0].get("name") == node.rsplit("::", 1)[1], node
+    require(len(cases) == 1 and cases[0].get("name") == node.rsplit("::", 1)[1], node)
     module = Path(node.split("::", 1)[0]).with_suffix("").as_posix().replace("/", ".")
-    assert cases[0].get("classname") == module, (node, cases[0].get("classname"))
+    require(cases[0].get("classname") == module, (node, cases[0].get("classname")))
     outcomes = [child.tag for child in cases[0] if child.tag in {"failure", "error", "skipped"}]
-    assert outcomes == (["failure"] if phase == "red" else []), (node, phase, outcomes)
+    require(outcomes == (["failure"] if phase == "red" else []), (node, phase, outcomes))
     return counts
 
 
@@ -93,7 +98,7 @@ def main():
             originals[source] = original
             for name, parameter, before, after in cases:
                 text = original.decode()
-                assert text.count(before) == 1, (name, text.count(before))
+                require(text.count(before) == 1, (name, text.count(before)))
                 mutated = text.replace(before, after, 1).encode()
                 node = f"{test}::{name}[{label}{'-' + parameter if parameter else ''}]"
                 record = {
@@ -121,35 +126,41 @@ def main():
                             "not slow",
                             f"--junitxml={junit}",
                         ]
+                        # Fixed argv with shell=False; output path is --junitxml data.
                         result = subprocess.run(
-                            argv, cwd=root, text=True, capture_output=True, timeout=60
+                            argv,  # nosemgrep: python.lang.security.audit.dangerous-subprocess-use-tainted-env-args.dangerous-subprocess-use-tainted-env-args
+                            cwd=root,
+                            text=True,
+                            encoding="utf-8",
+                            capture_output=True,
+                            timeout=60,
                         )
                         stem = output / f"{len(records):02}-{phase}"
-                        stem.with_suffix(".stdout").write_text(result.stdout)
-                        stem.with_suffix(".stderr").write_text(result.stderr)
+                        stem.with_suffix(".stdout").write_text(result.stdout, encoding="utf-8")
+                        stem.with_suffix(".stderr").write_text(result.stderr, encoding="utf-8")
                         record[phase] = {
                             "argv": argv,
                             "cwd": str(root),
                             "exit": result.returncode,
                             "stdout": result.stdout,
                             "stderr": result.stderr,
-                            "junit": junit.read_text() if junit.exists() else None,
+                            "junit": junit.read_text(encoding="utf-8") if junit.exists() else None,
                         }
                         print(label, name, parameter, phase, result.returncode, flush=True)
-                        assert result.returncode == (1 if phase == "red" else 0), record
+                        require(result.returncode == (1 if phase == "red" else 0), record)
                         record[phase]["junit_counts"] = validate_junit(
                             record[phase]["junit"], node, phase
                         )
                 finally:
                     source.write_bytes(original)
                     record["restored_sha256"] = digest(source.read_bytes())
-                    assert record["restored_sha256"] == record["source_sha256"]
+                    require(record["restored_sha256"] == record["source_sha256"], record)
                     records.append(record)
                     (output / "controls.json").write_text(json.dumps(records, indent=2) + "\n")
     finally:
         for source, original in originals.items():
             source.write_bytes(original)
-    assert len(records) == 14
+    require(len(records) == 14, "Incomplete mutation replay")
 
 
 if __name__ == "__main__":

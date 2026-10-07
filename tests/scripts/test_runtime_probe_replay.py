@@ -52,13 +52,13 @@ def test_replay_rejects_errors_and_skips_even_with_failure_exit(validate):
         report(failures=0, errors=1, outcome="<error />"),
         report(failures=0, skipped=1, outcome="<skipped />"),
     ):
-        with pytest.raises(AssertionError):
+        with pytest.raises(RuntimeError):
             validate(invalid, "tests/scripts/private.py::probe[root]", "red")
 
 
 def test_replay_rejects_wrong_case_and_inconsistent_outcome(validate):
     for invalid in (report(name="other[root]"), report(outcome="<error />")):
-        with pytest.raises(AssertionError):
+        with pytest.raises(RuntimeError):
             validate(invalid, "tests/scripts/private.py::probe[root]", "red")
 
 
@@ -70,5 +70,5 @@ def test_replay_rejects_same_named_case_from_another_module(validate):
             failures=int(phase == "red"),
             outcome="<failure />" if phase == "red" else "",
         )
-        with pytest.raises(AssertionError):
+        with pytest.raises(RuntimeError):
             validate(xml, node, phase)
