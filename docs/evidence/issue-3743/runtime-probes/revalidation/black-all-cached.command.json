@@ -1,0 +1,22 @@
+{
+  "argv": [
+    "black",
+    "--check",
+    "--line-length",
+    "100",
+    "--exclude",
+    "(\\.workflows-lib|node_modules)",
+    "."
+  ],
+  "cwd": "/home/runner/work/Workflows/Workflows",
+  "exit": 0,
+  "stdout": "black-all-cached.stdout",
+  "stderr": "black-all-cached.stderr",
+  "stdout_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+  "stderr_sha256": "01c1a3d79d576f9ad5c9c99405a915ce09abd2f3be633361ea93bfbc643c9808",
+  "environment_overrides": {
+    "BLACK_NUM_WORKERS": "1",
+    "BLACK_CACHE_DIR": "/tmp/runtime-probes-black-cache",
+    "GITHUB_STEP_SUMMARY": "/tmp/runtime-probes-step-summary.md"
+  }
+}

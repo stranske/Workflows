@@ -1,0 +1,287 @@
+{
+  "checks": {
+    "runtime-suite": {
+      "argv": [
+        "python3",
+        "-m",
+        "pytest",
+        "tests/scripts/test_check_deliberate_break_runtime_probes.py",
+        "-q",
+        "-o",
+        "addopts=",
+        "-m",
+        "not slow",
+        "--junitxml=docs/evidence/issue-3743/runtime-probes/revalidation/runtime-suite.xml"
+      ],
+      "cwd": "/home/runner/work/Workflows/Workflows",
+      "exit": 0,
+      "stdout": "runtime-suite.stdout",
+      "stderr": "runtime-suite.stderr",
+      "stdout_sha256": "aa4f5a20c09c2f1527e7843ff4ce8a7e51f6d06a501d3768743e7b54b3401d7f",
+      "stderr_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "environment_overrides": {
+        "BLACK_NUM_WORKERS": "1",
+        "GITHUB_STEP_SUMMARY": "/tmp/runtime-probes-step-summary.md"
+      }
+    },
+    "replay": {
+      "argv": [
+        "python3",
+        "docs/evidence/issue-3743/runtime-probes/replay.py",
+        "--output",
+        "/tmp/runtime-probe-proof.hMRVBw/proof"
+      ],
+      "cwd": "/home/runner/work/Workflows/Workflows",
+      "exit": 0,
+      "stdout": "replay.stdout",
+      "stderr": "replay.stderr",
+      "stdout_sha256": "2ecf133378f3a4eca70f0f9bfd9e9a219e5041a36909fde51a429dc3349a828e",
+      "stderr_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "environment_overrides": {
+        "BLACK_NUM_WORKERS": "1",
+        "GITHUB_STEP_SUMMARY": "/tmp/runtime-probes-step-summary.md"
+      }
+    },
+    "baseline": {
+      "argv": [
+        "python3",
+        "-m",
+        "pytest",
+        "tests/scripts/test_check_deliberate_break.py",
+        "tests/scripts/test_check_deliberate_break_archive.py",
+        "tests/scripts/test_check_deliberate_break_launch_boundaries.py",
+        "tests/scripts/test_launch_mutation_driver.py",
+        "-q",
+        "-o",
+        "addopts=",
+        "-m",
+        "not slow",
+        "--cov=scripts.check_deliberate_break",
+        "--cov-branch",
+        "--cov-report=term-missing",
+        "--cov-report=json:docs/evidence/issue-3743/runtime-probes/revalidation/baseline.json",
+        "--junitxml=docs/evidence/issue-3743/runtime-probes/revalidation/baseline.xml"
+      ],
+      "cwd": "/home/runner/work/Workflows/Workflows",
+      "exit": 0,
+      "stdout": "baseline.stdout",
+      "stderr": "baseline.stderr",
+      "stdout_sha256": "8183a9784604bfe9e1f1a74be7446c5c2cb6ea06995bb94a973549f29ed6d41d",
+      "stderr_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "environment_overrides": {
+        "BLACK_NUM_WORKERS": "1",
+        "GITHUB_STEP_SUMMARY": "/tmp/runtime-probes-step-summary.md"
+      }
+    },
+    "candidate": {
+      "argv": [
+        "python3",
+        "-m",
+        "pytest",
+        "tests/scripts/test_check_deliberate_break.py",
+        "tests/scripts/test_check_deliberate_break_archive.py",
+        "tests/scripts/test_check_deliberate_break_launch_boundaries.py",
+        "tests/scripts/test_launch_mutation_driver.py",
+        "tests/scripts/test_check_deliberate_break_runtime_probes.py",
+        "-q",
+        "-o",
+        "addopts=",
+        "-m",
+        "not slow",
+        "--cov=scripts.check_deliberate_break",
+        "--cov-branch",
+        "--cov-report=term-missing",
+        "--cov-report=json:docs/evidence/issue-3743/runtime-probes/revalidation/candidate.json",
+        "--junitxml=docs/evidence/issue-3743/runtime-probes/revalidation/candidate.xml"
+      ],
+      "cwd": "/home/runner/work/Workflows/Workflows",
+      "exit": 0,
+      "stdout": "candidate.stdout",
+      "stderr": "candidate.stderr",
+      "stdout_sha256": "1a25978d00516ed637c2a2802b70919709d639080fb5e7cc6a31d020b032c065",
+      "stderr_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "environment_overrides": {
+        "BLACK_NUM_WORKERS": "1",
+        "GITHUB_STEP_SUMMARY": "/tmp/runtime-probes-step-summary.md"
+      }
+    },
+    "black-serial": {
+      "argv": [
+        "python3",
+        "docs/evidence/issue-3743/runtime-probes/revalidation/black_serial.py"
+      ],
+      "cwd": "/home/runner/work/Workflows/Workflows",
+      "exit": 0,
+      "stdout": "black-serial.stdout",
+      "stderr": "black-serial.stderr",
+      "stdout_sha256": "0ab61da14f21155b2d3c5f4a6caca5e1d699cf1ae07ea131b2b6a9ca3b6cdfb5",
+      "stderr_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "environment_overrides": {
+        "BLACK_NUM_WORKERS": "1",
+        "BLACK_CACHE_DIR": "/tmp/runtime-probes-black-cache",
+        "GITHUB_STEP_SUMMARY": "/tmp/runtime-probes-step-summary.md"
+      }
+    },
+    "black-all-cached": {
+      "argv": [
+        "black",
+        "--check",
+        "--line-length",
+        "100",
+        "--exclude",
+        "(\\.workflows-lib|node_modules)",
+        "."
+      ],
+      "cwd": "/home/runner/work/Workflows/Workflows",
+      "exit": 0,
+      "stdout": "black-all-cached.stdout",
+      "stderr": "black-all-cached.stderr",
+      "stdout_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "stderr_sha256": "01c1a3d79d576f9ad5c9c99405a915ce09abd2f3be633361ea93bfbc643c9808",
+      "environment_overrides": {
+        "BLACK_NUM_WORKERS": "1",
+        "BLACK_CACHE_DIR": "/tmp/runtime-probes-black-cache",
+        "GITHUB_STEP_SUMMARY": "/tmp/runtime-probes-step-summary.md"
+      }
+    },
+    "black-focused-cached": {
+      "argv": [
+        "black",
+        "--check",
+        "--line-length",
+        "100",
+        "tests/scripts/test_check_deliberate_break_runtime_probes.py",
+        "docs/evidence/issue-3743/runtime-probes/replay.py",
+        "docs/evidence/issue-3743/runtime-probes/revalidation/black_serial.py",
+        "scripts/check_deliberate_break.py",
+        "templates/consumer-repo/scripts/check_deliberate_break.py"
+      ],
+      "cwd": "/home/runner/work/Workflows/Workflows",
+      "exit": 0,
+      "stdout": "black-focused-cached.stdout",
+      "stderr": "black-focused-cached.stderr",
+      "stdout_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "stderr_sha256": "25369eabb8c122f861d58ddb255f81f4b9ee797f42f3882975bef953218258ed",
+      "environment_overrides": {
+        "BLACK_NUM_WORKERS": "1",
+        "BLACK_CACHE_DIR": "/tmp/runtime-probes-black-cache",
+        "GITHUB_STEP_SUMMARY": "/tmp/runtime-probes-step-summary.md"
+      }
+    },
+    "ruff-final": {
+      "argv": [
+        "ruff",
+        "check",
+        "tests/scripts/test_check_deliberate_break_runtime_probes.py",
+        "docs/evidence/issue-3743/runtime-probes/replay.py",
+        "docs/evidence/issue-3743/runtime-probes/revalidation/black_serial.py",
+        "scripts/check_deliberate_break.py",
+        "templates/consumer-repo/scripts/check_deliberate_break.py"
+      ],
+      "cwd": "/home/runner/work/Workflows/Workflows",
+      "exit": 0,
+      "stdout": "ruff-final.stdout",
+      "stderr": "ruff-final.stderr",
+      "stdout_sha256": "82b3e6a6c090a57601d22943bd23fca9218d1031dbe5a7b754092f9a156b4f18",
+      "stderr_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "environment_overrides": {
+        "BLACK_NUM_WORKERS": "1",
+        "BLACK_CACHE_DIR": "/tmp/runtime-probes-black-cache",
+        "GITHUB_STEP_SUMMARY": "/tmp/runtime-probes-step-summary.md"
+      }
+    },
+    "template-sync": {
+      "argv": [
+        "python3",
+        "scripts/validate_template_sync.py"
+      ],
+      "cwd": "/home/runner/work/Workflows/Workflows",
+      "exit": 0,
+      "stdout": "template-sync.stdout",
+      "stderr": "template-sync.stderr",
+      "stdout_sha256": "e00bc56a4eb4ab5ca9c721c61262b90d9d55e74187fec23e1144d500af0fcc6b",
+      "stderr_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "environment_overrides": {
+        "BLACK_NUM_WORKERS": "1",
+        "GITHUB_STEP_SUMMARY": "/tmp/runtime-probes-step-summary.md"
+      }
+    },
+    "template-completeness": {
+      "argv": [
+        "python3",
+        "scripts/validate_template_completeness.py"
+      ],
+      "cwd": "/home/runner/work/Workflows/Workflows",
+      "exit": 0,
+      "stdout": "template-completeness.stdout",
+      "stderr": "template-completeness.stderr",
+      "stdout_sha256": "571919c147488c55064046a0c64cf3a5919172b39a3d890dbad258b6d65c1018",
+      "stderr_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "environment_overrides": {
+        "BLACK_NUM_WORKERS": "1",
+        "GITHUB_STEP_SUMMARY": "/tmp/runtime-probes-step-summary.md"
+      }
+    },
+    "diff-check": {
+      "argv": [
+        "git",
+        "diff",
+        "--check"
+      ],
+      "cwd": "/home/runner/work/Workflows/Workflows",
+      "exit": 0,
+      "stdout": "diff-check.stdout",
+      "stderr": "diff-check.stderr",
+      "stdout_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "stderr_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "environment_overrides": {
+        "BLACK_NUM_WORKERS": "1",
+        "BLACK_CACHE_DIR": "/tmp/runtime-probes-black-cache",
+        "GITHUB_STEP_SUMMARY": "/tmp/runtime-probes-step-summary.md"
+      }
+    },
+    "staged-diff-check": {
+      "argv": [
+        "git",
+        "--git-dir=/tmp/runtime-probes-commit-emo2md09/repo.git",
+        "--work-tree=/home/runner/work/Workflows/Workflows",
+        "diff",
+        "--cached",
+        "--check"
+      ],
+      "cwd": "/home/runner/work/Workflows/Workflows",
+      "exit": 0,
+      "stdout": "staged-diff-check.stdout",
+      "stderr": "staged-diff-check.stderr",
+      "stdout_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "stderr_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "environment_overrides": {
+        "BLACK_NUM_WORKERS": "1",
+        "BLACK_CACHE_DIR": "/tmp/runtime-probes-black-cache",
+        "GITHUB_STEP_SUMMARY": "/tmp/runtime-probes-step-summary.md"
+      }
+    },
+    "diff-check-final": {
+      "argv": [
+        "git",
+        "diff",
+        "--check"
+      ],
+      "cwd": "/home/runner/work/Workflows/Workflows",
+      "exit": 0,
+      "stdout": "diff-check-final.stdout",
+      "stderr": "diff-check-final.stderr",
+      "stdout_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "stderr_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "environment_overrides": {
+        "BLACK_NUM_WORKERS": "1",
+        "BLACK_CACHE_DIR": "/tmp/runtime-probes-black-cache",
+        "GITHUB_STEP_SUMMARY": "/tmp/runtime-probes-step-summary.md"
+      }
+    }
+  },
+  "production_unchanged_from_base": true,
+  "root_template_byte_identical": true,
+  "replay_test_bytes_match_final_test": true,
+  "lossless_compressed_replay_artifacts_verified": 84
+}

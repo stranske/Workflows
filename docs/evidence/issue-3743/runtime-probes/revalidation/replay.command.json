@@ -1,0 +1,18 @@
+{
+  "argv": [
+    "python3",
+    "docs/evidence/issue-3743/runtime-probes/replay.py",
+    "--output",
+    "/tmp/runtime-probe-proof.hMRVBw/proof"
+  ],
+  "cwd": "/home/runner/work/Workflows/Workflows",
+  "exit": 0,
+  "stdout": "replay.stdout",
+  "stderr": "replay.stderr",
+  "stdout_sha256": "2ecf133378f3a4eca70f0f9bfd9e9a219e5041a36909fde51a429dc3349a828e",
+  "stderr_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+  "environment_overrides": {
+    "BLACK_NUM_WORKERS": "1",
+    "GITHUB_STEP_SUMMARY": "/tmp/runtime-probes-step-summary.md"
+  }
+}

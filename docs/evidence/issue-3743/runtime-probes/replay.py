@@ -44,7 +44,7 @@ def main():
             "test_unrecognized_runtime_probe_never_launches_custom_command",
             "",
             "if probe_command is None:\n        return False",
-            "if probe_command is None:\n        return True",
+            "if probe_command is None:\n        _run(command, cwd)\n        return False",
         ),
         (
             "test_real_missing_probe_executable_preserves_launch_cause",
@@ -98,11 +98,16 @@ def main():
                             "-q",
                             "-o",
                             "addopts=",
+                            "-m",
+                            "not slow",
                             f"--junitxml={junit}",
                         ]
                         result = subprocess.run(
                             argv, cwd=root, text=True, capture_output=True, timeout=60
                         )
+                        stem = output / f"{len(records):02}-{phase}"
+                        stem.with_suffix(".stdout").write_text(result.stdout)
+                        stem.with_suffix(".stderr").write_text(result.stderr)
                         record[phase] = {
                             "argv": argv,
                             "cwd": str(root),
@@ -116,6 +121,7 @@ def main():
                 finally:
                     source.write_bytes(original)
                     record["restored_sha256"] = digest(source.read_bytes())
+                    assert record["restored_sha256"] == record["source_sha256"]
                     records.append(record)
                     (output / "controls.json").write_text(json.dumps(records, indent=2) + "\n")
     finally:

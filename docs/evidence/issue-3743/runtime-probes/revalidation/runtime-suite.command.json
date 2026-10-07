@@ -1,0 +1,24 @@
+{
+  "argv": [
+    "python3",
+    "-m",
+    "pytest",
+    "tests/scripts/test_check_deliberate_break_runtime_probes.py",
+    "-q",
+    "-o",
+    "addopts=",
+    "-m",
+    "not slow",
+    "--junitxml=docs/evidence/issue-3743/runtime-probes/revalidation/runtime-suite.xml"
+  ],
+  "cwd": "/home/runner/work/Workflows/Workflows",
+  "exit": 0,
+  "stdout": "runtime-suite.stdout",
+  "stderr": "runtime-suite.stderr",
+  "stdout_sha256": "aa4f5a20c09c2f1527e7843ff4ce8a7e51f6d06a501d3768743e7b54b3401d7f",
+  "stderr_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+  "environment_overrides": {
+    "BLACK_NUM_WORKERS": "1",
+    "GITHUB_STEP_SUMMARY": "/tmp/runtime-probes-step-summary.md"
+  }
+}
