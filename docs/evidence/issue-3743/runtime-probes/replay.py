@@ -5,6 +5,7 @@ import hashlib
 import json
 import subprocess
 import sys
+import tempfile
 from pathlib import Path
 from xml.etree import ElementTree
 
@@ -113,44 +114,53 @@ def main():
                 try:
                     for phase, data in [("red", mutated), ("green", original)]:
                         source.write_bytes(data)
-                        junit = output / f"{len(records):02}-{phase}.xml"
-                        argv = [
-                            sys.executable,
-                            "-m",
-                            "pytest",
-                            node,
-                            "-q",
-                            "-o",
-                            "addopts=",
-                            "-m",
-                            "not slow",
-                            f"--junitxml={junit}",
-                        ]
-                        # Fixed argv with shell=False; output path is --junitxml data.
-                        result = subprocess.run(
-                            argv,  # nosemgrep: python.lang.security.audit.dangerous-subprocess-use-tainted-env-args.dangerous-subprocess-use-tainted-env-args
-                            cwd=root,
-                            text=True,
-                            encoding="utf-8",
-                            capture_output=True,
-                            timeout=60,
-                        )
-                        stem = output / f"{len(records):02}-{phase}"
-                        stem.with_suffix(".stdout").write_text(result.stdout, encoding="utf-8")
-                        stem.with_suffix(".stderr").write_text(result.stderr, encoding="utf-8")
-                        record[phase] = {
-                            "argv": argv,
-                            "cwd": str(root),
-                            "exit": result.returncode,
-                            "stdout": result.stdout,
-                            "stderr": result.stderr,
-                            "junit": junit.read_text(encoding="utf-8") if junit.exists() else None,
-                        }
-                        print(label, name, parameter, phase, result.returncode, flush=True)
-                        require(result.returncode == (1 if phase == "red" else 0), record)
-                        record[phase]["junit_counts"] = validate_junit(
-                            record[phase]["junit"], node, phase
-                        )
+                        # Keep user-selected output paths out of child argv.
+                        with tempfile.TemporaryDirectory(
+                            prefix="runtime-probe-junit-"
+                        ) as phase_dir:
+                            junit = Path(phase_dir) / "pytest.xml"
+                            argv = [
+                                sys.executable,
+                                "-m",
+                                "pytest",
+                                node,
+                                "-q",
+                                "-o",
+                                "addopts=",
+                                "-m",
+                                "not slow",
+                                f"--junitxml={junit}",
+                            ]
+                            result = subprocess.run(
+                                argv,
+                                cwd=root,
+                                text=True,
+                                encoding="utf-8",
+                                capture_output=True,
+                                timeout=60,
+                            )
+                            if junit.exists():
+                                (output / f"{len(records):02}-{phase}.xml").write_bytes(
+                                    junit.read_bytes()
+                                )
+                            stem = output / f"{len(records):02}-{phase}"
+                            stem.with_suffix(".stdout").write_text(result.stdout, encoding="utf-8")
+                            stem.with_suffix(".stderr").write_text(result.stderr, encoding="utf-8")
+                            record[phase] = {
+                                "argv": argv,
+                                "cwd": str(root),
+                                "exit": result.returncode,
+                                "stdout": result.stdout,
+                                "stderr": result.stderr,
+                                "junit": (
+                                    junit.read_text(encoding="utf-8") if junit.exists() else None
+                                ),
+                            }
+                            print(label, name, parameter, phase, result.returncode, flush=True)
+                            require(result.returncode == (1 if phase == "red" else 0), record)
+                            record[phase]["junit_counts"] = validate_junit(
+                                record[phase]["junit"], node, phase
+                            )
                 finally:
                     source.write_bytes(original)
                     record["restored_sha256"] = digest(source.read_bytes())

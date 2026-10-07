@@ -124,3 +124,24 @@ across all3changed Python files. No broad suppression or finding dismissal was u
 Historical baseline/candidate coverage measurements are preserved unchanged.
 
 Related runtime/replay/helper suite:266passed in77.40seconds,exit0.
+
+## Temporary JUnit transport supersedes suppression
+
+Actual GitHub check112704789319 still reported the argv warning at41b685b despite
+the preceding local nosemgrep0finding scan. That local result did not establish
+hosted security clearance. The replay now generates each child JUnit path in a
+fresh TemporaryDirectory, then copies XML into the requested output directory.
+User-selected output paths no longer enter child argv; the suppression is removed.
+All4workflow Semgrep configurations scan the final driver with0findings/0errors.
+Another actual optimized14mutation replay yields14RED/14GREEN with named JUnit
+outcomes and byte-identical root/template restoration. Raw receipts and the
+contradicting hosted annotation are preserved under closer-temp-junit/. Hosted
+clearance remains required on the new head; no alert was dismissed.
+
+The two closer validation directories package their raw phase/scan artifacts in
+phase-artifacts.json.gz to keep changed-path discovery below its300-file trust
+limit. Each JSON key is the original filename, with exact bytes base64-encoded
+and independently hashed by SHA256. Decode the base64 value, then decompress
+original .gz members normally. The validation summaries remain separate. All
+previously captured bytes are preserved; historical evidence directories are
+untouched.
