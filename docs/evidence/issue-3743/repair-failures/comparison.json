@@ -1,0 +1,110 @@
+{
+  "base": "9a0219f361e4ba4b9072a554362ef378ff47ec4c",
+  "source_sha256": "cc97119ea26afec275be3c83d22bc75de0d452cd0f4764896cc9d037274ab25a",
+  "test_sha256": "40dc7a08d8e70591b898ce1d0ea11ce7b2ccb567b74f1a9afd1fdabe1adba095",
+  "driver_sha256": "c878e46ae7f66afa0dc1debc66cd99be6e267606344a916895a1b5c8147502e2",
+  "baseline": {
+    "covered_lines": 563,
+    "num_statements": 591,
+    "percent_covered": 94.25556858147714,
+    "percent_covered_display": "94.26",
+    "missing_lines": 28,
+    "excluded_lines": 0,
+    "percent_statements_covered": 95.26226734348562,
+    "percent_statements_covered_display": "95.26",
+    "num_branches": 262,
+    "num_partial_branches": 21,
+    "covered_branches": 241,
+    "missing_branches": 21,
+    "percent_branches_covered": 91.98473282442748,
+    "percent_branches_covered_display": "91.98"
+  },
+  "candidate": {
+    "covered_lines": 568,
+    "num_statements": 591,
+    "percent_covered": 94.84173505275498,
+    "percent_covered_display": "94.84",
+    "missing_lines": 23,
+    "excluded_lines": 0,
+    "percent_statements_covered": 96.1082910321489,
+    "percent_statements_covered_display": "96.11",
+    "num_branches": 262,
+    "num_partial_branches": 21,
+    "covered_branches": 241,
+    "missing_branches": 21,
+    "percent_branches_covered": 91.98473282442748,
+    "percent_branches_covered_display": "91.98"
+  },
+  "baseline_tests": 294,
+  "candidate_tests": 300,
+  "new_nodes": [
+    [
+      "tests.scripts.test_check_deliberate_break_repair_failures",
+      "test_base_dependency_failure_keeps_its_cause_and_cleans_real_archive[root]"
+    ],
+    [
+      "tests.scripts.test_check_deliberate_break_repair_failures",
+      "test_base_dependency_failure_keeps_its_cause_and_cleans_real_archive[template]"
+    ],
+    [
+      "tests.scripts.test_check_deliberate_break_repair_failures",
+      "test_repaired_runtime_preserves_a_later_real_launch_failure[root-probe]"
+    ],
+    [
+      "tests.scripts.test_check_deliberate_break_repair_failures",
+      "test_repaired_runtime_preserves_a_later_real_launch_failure[root-rerun]"
+    ],
+    [
+      "tests.scripts.test_check_deliberate_break_repair_failures",
+      "test_repaired_runtime_preserves_a_later_real_launch_failure[template-probe]"
+    ],
+    [
+      "tests.scripts.test_check_deliberate_break_repair_failures",
+      "test_repaired_runtime_preserves_a_later_real_launch_failure[template-rerun]"
+    ]
+  ],
+  "removed_nodes": [],
+  "old_outcome_changes": [],
+  "covered_line_regressions": [],
+  "new_covered_lines": [
+    785,
+    786,
+    792,
+    793,
+    1062
+  ],
+  "limitations": [
+    "Focused helper scope only; no repository-wide 90% or hosted-parity claim.",
+    "Private child runtimes and real missing-executable errors; no package installation or network in tests.",
+    "Prior3808 provider CONCERNS/NON_PASS unchanged; its independent bounded acceptance permits the next chunk.",
+    "Repair-subject history is a proxy for priority, not verified escaped incidents."
+  ],
+  "parser_recovery": {
+    "parser": "defusedxml.ElementTree",
+    "original_review_head": "a42d77ec236f08de76ed3c2acf506e58373a8f15",
+    "replay_cases": 6,
+    "red_exit": 1,
+    "green_exit": 0,
+    "malicious_entity": "EntitiesForbidden",
+    "semgrep_local_available": false,
+    "scope": "evidence driver only; existing300-test coverage proof unchanged"
+  },
+  "revalidation": {
+    "python": "3.14.7",
+    "interpreter": "/opt/hostedtoolcache/Python/3.14.7/x64/bin/python3",
+    "requested_interpreter_available": false,
+    "requested_interpreter": "/opt/anaconda3/bin/python3",
+    "previous_test_sha256": "b737c32c12a97180d24d55d64e06c5398680d1a5c033467ba94bd459649b6324",
+    "caller_bindings": {
+      "tests/scripts/test_check_deliberate_break_repair_failures.py": "40dc7a08d8e70591b898ce1d0ea11ce7b2ccb567b74f1a9afd1fdabe1adba095",
+      "scripts/check_deliberate_break.py": "cc97119ea26afec275be3c83d22bc75de0d452cd0f4764896cc9d037274ab25a",
+      "templates/consumer-repo/scripts/check_deliberate_break.py": "cc97119ea26afec275be3c83d22bc75de0d452cd0f4764896cc9d037274ab25a",
+      "docs/evidence/issue-3743/repair-failures/replay.py": "c878e46ae7f66afa0dc1debc66cd99be6e267606344a916895a1b5c8147502e2"
+    },
+    "output_reuse_files_unchanged": 37,
+    "archive_assertions": "Populated base archive, current candidate overlay, exact repair exception identity, and exactly one head/base launch.",
+    "dependency_provenance": "revalidation/dependency-provenance.json",
+    "no_covered_branch_regressions": true,
+    "suite_environment": "PYTHONPATH unset for both matched suites; parser dependency path only needed for repair replay."
+  }
+}
