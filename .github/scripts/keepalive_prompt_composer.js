@@ -28,6 +28,23 @@ function coerceSegments(value) {
   return [value];
 }
 
+/**
+ * @typedef {object} PromptSegment
+ * @property {string} [id] - Stable ID reported when this segment renders
+ * @property {string} [text] - Static content, used when build is absent
+ * @property {function({state: object, context: object, mode: string}): string} [build]
+ * @property {function({state: object, context: object, mode: string}): boolean} [when]
+ */
+
+/**
+ * Creates a synchronous, ordered composer. Callbacks should treat state/context
+ * as read-only inputs; persistence belongs to the caller. Empty content and
+ * excluded segments are omitted from both text and the returned segment IDs.
+ *
+ * @param {object} [options]
+ * @param {PromptSegment[]} [options.segments]
+ * @returns {{segments: PromptSegment[], separator: string, compose: function}}
+ */
 function createPromptComposer(options = {}) {
   const segments = coerceSegments(options.segments);
   const separator = normalise(options.separator) || DEFAULT_SEPARATOR;

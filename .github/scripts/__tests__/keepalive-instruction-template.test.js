@@ -122,3 +122,95 @@ test('getKeepaliveInstruction falls back to the default copy when template is mi
     clearCache();
   }
 });
+
+for (const [surface, builder] of [
+  ['root', require('../keepalive_instruction_template')],
+  ['consumer', require('../../../templates/consumer-repo/.github/scripts/keepalive_instruction_template')],
+]) {
+  test(`${surface}: composition exposes routed mode and renders segments with mock state`, () => {
+    const state = Object.freeze({ iteration: 3, previous_task: 'Add parser' });
+    const context = Object.freeze({ task: 'Test parser' });
+    const inputs = [];
+    const result = builder.composeKeepaliveInstruction({
+      scenario: 'ci-failure',
+      state,
+      context,
+      segments: [
+        {
+          id: 'round-context',
+          when: (input) => {
+            inputs.push(input);
+            return input.state.iteration > 1;
+          },
+          build: (input) => {
+            inputs.push(input);
+            return `Round ${input.state.iteration}: ${input.context.task}`;
+          },
+        },
+        { id: 'excluded', when: () => false, build: () => assert.fail('excluded build ran') },
+        { id: 'empty', text: '  ' },
+      ],
+    });
+
+    assert.equal(result.mode, 'fix_ci');
+    assert.deepEqual(result.segments, ['instruction', 'round-context']);
+    assert.equal(result.text, `${builder.getKeepaliveInstruction({ mode: 'fix_ci' })}\n\nRound 3: Test parser`);
+    for (const input of inputs) {
+      assert.equal(input.state, state);
+      assert.equal(input.context, context);
+      assert.equal(input.mode, 'fix_ci');
+    }
+    assert.equal(inputs.length, 2);
+    builder.clearCache();
+  });
+
+  test(`${surface}: composition reevaluates segments while the directive is cached`, () => {
+    builder.clearCache();
+    const options = {
+      segments: [{ id: 'task', build: ({ context }) => context.task }],
+    };
+    const first = builder.composeKeepaliveInstruction({ ...options, context: { task: 'First task' } });
+    const second = builder.composeKeepaliveInstruction({ ...options, context: { task: 'Next task' } });
+
+    assert.equal(first.text, `${builder.getKeepaliveInstruction()}\n\nFirst task`);
+    assert.equal(second.text, `${builder.getKeepaliveInstruction()}\n\nNext task`);
+    assert.deepEqual(second.segments, ['instruction', 'task']);
+    assert.equal(second.mode, 'normal');
+    builder.clearCache();
+  });
+
+  test(`${surface}: formatting preflight is composed only for work modes missing it`, () => {
+    const originalRead = fs.readFileSync;
+    fs.readFileSync = () => 'Directive without formatting instructions';
+    builder.clearCache();
+    try {
+      for (const mode of ['normal', 'fix_ci', 'verify', 'conflict']) {
+        const result = builder.composeKeepaliveInstruction({ mode });
+        const needsPreflight = mode === 'normal' || mode === 'fix_ci';
+        assert.deepEqual(result.segments, needsPreflight
+          ? ['black-preflight', 'instruction'] : ['instruction']);
+        assert.equal(result.text.includes('## Pre-Commit Formatting Gate (Black)'), needsPreflight);
+        assert.ok(result.text.endsWith('Directive without formatting instructions'));
+        assert.equal(result.mode, mode);
+      }
+    } finally {
+      fs.readFileSync = originalRead;
+      builder.clearCache();
+    }
+  });
+
+  test(`${surface}: custom templates and mention wrappers support additional segments`, () => {
+    const options = {
+      templatePath: builder.VERIFY_TEMPLATE_PATH,
+      segments: [{ id: 'evidence', text: 'Check the recorded evidence.' }],
+    };
+    const result = builder.composeKeepaliveInstruction(options);
+    const expected = `${fs.readFileSync(builder.VERIFY_TEMPLATE_PATH, 'utf8').trim()}\n\nCheck the recorded evidence.`;
+    assert.equal(result.text, expected);
+    assert.equal(result.mode, 'custom');
+    assert.deepEqual(result.segments, ['instruction', 'evidence']);
+    assert.equal(builder.getKeepaliveInstructionWithMention({ ...options, agent: 'test-agent' }),
+      `@test-agent ${expected}`);
+    builder.clearCache();
+  });
+}

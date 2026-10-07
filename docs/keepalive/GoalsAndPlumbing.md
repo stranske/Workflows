@@ -162,6 +162,41 @@ When running is allowed:
 2. **Agent-agnostic prompt:** The base prompt (`.github/codex/prompts/keepalive_next_task.md`) is agent-agnostic—no `@codex` or agent mentions.
 3. **Progress tracking:** The appendix includes progress count (e.g., "3/10 tasks complete, 7 remaining").
 
+The instruction builder uses the shared segment interface in
+`.github/scripts/keepalive_prompt_composer.js`. A segment has an `id`, static
+`text` or a synchronous `build({ state, context, mode })` callback, and an
+optional `when({ state, context, mode })` predicate. Segments render in order;
+excluded segments and blank content produce neither text nor an included ID.
+Callbacks should treat their inputs as read-only. State is supplied by the
+caller; composition itself does not persist round history.
+
+`composeKeepaliveInstruction(options)` in `keepalive_instruction_template.js`
+returns `{ text, segments, separator, capability_bundles, mode }`. It resolves
+the existing routing inputs, composes the conditional Black preflight and the
+canonical directive, then appends `options.segments` (an array). It forwards
+`options.state` and `options.context` to callbacks with the resolved mode.
+Only template text is cached: callbacks run again on each composition.
+`getKeepaliveInstruction(options)` remains a string-returning wrapper, and
+the existing mention wrapper uses that same composed text. Existing calls
+without extra segments retain their directive text and routing behavior.
+
+For example, a caller can add a context segment without changing the base
+template:
+
+```javascript
+const { composeKeepaliveInstruction } = require('./keepalive_instruction_template');
+const prompt = composeKeepaliveInstruction({
+  scenario: 'feature-work',
+  state: { iteration: 2 },
+  context: { task: 'Add parser tests' },
+  segments: [{
+    id: 'round-context',
+    when: ({ state }) => state.iteration > 1,
+    build: ({ state, context }) => `Round ${state.iteration}: ${context.task}`,
+  }],
+});
+```
+
 Example prompt appendix:
 ```markdown
 ---
