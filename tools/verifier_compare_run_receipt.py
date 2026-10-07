@@ -193,13 +193,14 @@ def _followup_repairs_release_source(followup: dict[str, Any]) -> bool:
     discovery = followup.get("acceptance_source_discovery") or {}
     if not isinstance(discovery, dict):
         return False
-    if discovery.get("required") is True:
+    if discovery.get("required") is not False or discovery.get("status") not in {
+        "included",
+        "not_required",
+    }:
         return False
     reason = str(discovery.get("reason") or "")
     # Baseline misclassification text must not reappear as a required contract.
-    if "#3768" in reason and "not retrieved" in reason.lower():
-        return False
-    return True
+    return not ("#3768" in reason and "not retrieved" in reason.lower())
 
 
 def build_dual_run_receipt(

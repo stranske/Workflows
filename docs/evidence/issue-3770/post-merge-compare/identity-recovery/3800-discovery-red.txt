@@ -1,0 +1,72 @@
+................FFFF                                                     [100%]
+=================================== FAILURES ===================================
+___ test_followup_source_repair_requires_explicit_available_discovery[None] ____
+
+discovery = None
+
+    @pytest.mark.parametrize(
+        "discovery",
+        [None, {}, {"required": False, "status": "unavailable"}, {"status": "included"}],
+    )
+    def test_followup_source_repair_requires_explicit_available_discovery(discovery) -> None:
+        baseline = receipt.summarize_compare_run(run_id=receipt.BASELINE_RUN_ID, comparison_dir=BASELINE_DIR)
+        followup = receipt.summarize_compare_run(run_id="39999999999", comparison_dir=FOLLOWUP_DIR, role="followup")
+        followup["acceptance_source_discovery"] = discovery
+>       with pytest.raises(ValueError, match="repaired source discovery"):
+E       Failed: DID NOT RAISE ValueError
+
+tests/tools/test_verifier_compare_run_receipt.py:268: Failed
+_ test_followup_source_repair_requires_explicit_available_discovery[discovery1] _
+
+discovery = {}
+
+    @pytest.mark.parametrize(
+        "discovery",
+        [None, {}, {"required": False, "status": "unavailable"}, {"status": "included"}],
+    )
+    def test_followup_source_repair_requires_explicit_available_discovery(discovery) -> None:
+        baseline = receipt.summarize_compare_run(run_id=receipt.BASELINE_RUN_ID, comparison_dir=BASELINE_DIR)
+        followup = receipt.summarize_compare_run(run_id="39999999999", comparison_dir=FOLLOWUP_DIR, role="followup")
+        followup["acceptance_source_discovery"] = discovery
+>       with pytest.raises(ValueError, match="repaired source discovery"):
+E       Failed: DID NOT RAISE ValueError
+
+tests/tools/test_verifier_compare_run_receipt.py:268: Failed
+_ test_followup_source_repair_requires_explicit_available_discovery[discovery2] _
+
+discovery = {'required': False, 'status': 'unavailable'}
+
+    @pytest.mark.parametrize(
+        "discovery",
+        [None, {}, {"required": False, "status": "unavailable"}, {"status": "included"}],
+    )
+    def test_followup_source_repair_requires_explicit_available_discovery(discovery) -> None:
+        baseline = receipt.summarize_compare_run(run_id=receipt.BASELINE_RUN_ID, comparison_dir=BASELINE_DIR)
+        followup = receipt.summarize_compare_run(run_id="39999999999", comparison_dir=FOLLOWUP_DIR, role="followup")
+        followup["acceptance_source_discovery"] = discovery
+>       with pytest.raises(ValueError, match="repaired source discovery"):
+E       Failed: DID NOT RAISE ValueError
+
+tests/tools/test_verifier_compare_run_receipt.py:268: Failed
+_ test_followup_source_repair_requires_explicit_available_discovery[discovery3] _
+
+discovery = {'status': 'included'}
+
+    @pytest.mark.parametrize(
+        "discovery",
+        [None, {}, {"required": False, "status": "unavailable"}, {"status": "included"}],
+    )
+    def test_followup_source_repair_requires_explicit_available_discovery(discovery) -> None:
+        baseline = receipt.summarize_compare_run(run_id=receipt.BASELINE_RUN_ID, comparison_dir=BASELINE_DIR)
+        followup = receipt.summarize_compare_run(run_id="39999999999", comparison_dir=FOLLOWUP_DIR, role="followup")
+        followup["acceptance_source_discovery"] = discovery
+>       with pytest.raises(ValueError, match="repaired source discovery"):
+E       Failed: DID NOT RAISE ValueError
+
+tests/tools/test_verifier_compare_run_receipt.py:268: Failed
+=========================== short test summary info ============================
+FAILED tests/tools/test_verifier_compare_run_receipt.py::test_followup_source_repair_requires_explicit_available_discovery[None]
+FAILED tests/tools/test_verifier_compare_run_receipt.py::test_followup_source_repair_requires_explicit_available_discovery[discovery1]
+FAILED tests/tools/test_verifier_compare_run_receipt.py::test_followup_source_repair_requires_explicit_available_discovery[discovery2]
+FAILED tests/tools/test_verifier_compare_run_receipt.py::test_followup_source_repair_requires_explicit_available_discovery[discovery3]
+4 failed, 16 passed in 0.31s

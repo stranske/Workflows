@@ -255,3 +255,19 @@ def test_dual_run_receipt_rejects_zero_followup_run() -> None:
     followup["run_id"] = "0"
     with pytest.raises(ValueError, match="positive integer"):
         receipt.build_dual_run_receipt(baseline=baseline, followup=followup)
+
+
+@pytest.mark.parametrize(
+    "discovery",
+    [None, {}, {"required": False, "status": "unavailable"}, {"status": "included"}],
+)
+def test_followup_source_repair_requires_explicit_available_discovery(discovery) -> None:
+    baseline = receipt.summarize_compare_run(
+        run_id=receipt.BASELINE_RUN_ID, comparison_dir=BASELINE_DIR
+    )
+    followup = receipt.summarize_compare_run(
+        run_id="39999999999", comparison_dir=FOLLOWUP_DIR, role="followup"
+    )
+    followup["acceptance_source_discovery"] = discovery
+    with pytest.raises(ValueError, match="repaired source discovery"):
+        receipt.build_dual_run_receipt(baseline=baseline, followup=followup)

@@ -6,3 +6,7 @@ The helper now rejects conflicting run IDs in the manifest, corpus decision or t
 
 Command: `/opt/anaconda3/bin/python3 -m pytest tests/tools/test_verifier_compare_run_receipt.py -q`.
 Six new regression cases: original helper6FAILED/7PASSED (exit1); repaired helper13PASSED (exit0). Raw console receipts are adjacent. Focused source-context/verifier-builder suites185PASSED; Black/Ruff/diff checks passed. No live verifier dispatch or original-verdict relabeling.
+
+## Current-head continuation8352ee67
+
+Keepalive added actual follow-up capture and a source-repair guard. Hosted lint37567819697/job112619513057 fails SIM103 in that new function. Independently, missing or unavailable acceptance-source discovery passed the new repair guard. Four actual negative controls failed before repair; after requiring explicit required=false plus included/not_required status, all20receipt tests pass. The same edit fixes the exact SIM103 condition. Full repositoryRuff andBlack checks are retained adjacent. Original provider/campaign verdicts remain unchanged; the receipt is still not independent deployment or source3757topology acceptance.
