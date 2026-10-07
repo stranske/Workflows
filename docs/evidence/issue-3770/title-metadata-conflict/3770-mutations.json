@@ -1,0 +1,32 @@
+[
+  {
+    "path": ".github/scripts/source_context.js",
+    "command": [
+      "node",
+      "--test",
+      "--test-name-pattern=explicit closing title and metadata conflicts|conflicting closing title and metadata|explicit closing titles outrank|matching closing title and metadata",
+      ".github/scripts/__tests__/source-context.test.js",
+      ".github/scripts/__tests__/agents-verifier-context.test.js"
+    ],
+    "red_exit": 1,
+    "restored_exit": 0,
+    "incumbent_sha256": "afe13b294611cb3514552fd83438646d495891e82f2c773f2c60bb9c0e5197c9",
+    "fixed_sha256": "17692fa237afa7df2030834a81502ed84f39efe1ce0027315eca6a2936b57a66",
+    "restoration_byte_identical": true
+  },
+  {
+    "path": "templates/consumer-repo/.github/scripts/source_context.js",
+    "command": [
+      "node",
+      "--test",
+      "--test-name-pattern=explicit closing title and metadata conflicts|conflicting closing title and metadata|explicit closing titles outrank|matching closing title and metadata",
+      ".github/scripts/__tests__/source-context.test.js",
+      ".github/scripts/__tests__/agents-verifier-context.test.js"
+    ],
+    "red_exit": 1,
+    "restored_exit": 0,
+    "incumbent_sha256": "afe13b294611cb3514552fd83438646d495891e82f2c773f2c60bb9c0e5197c9",
+    "fixed_sha256": "17692fa237afa7df2030834a81502ed84f39efe1ce0027315eca6a2936b57a66",
+    "restoration_byte_identical": true
+  }
+]

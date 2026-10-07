@@ -1,0 +1,9 @@
+{
+  "command": [
+    "node",
+    "--test",
+    ".github/scripts/__tests__/source-context.test.js",
+    ".github/scripts/__tests__/agents-verifier-context.test.js"
+  ],
+  "exit": 0
+}

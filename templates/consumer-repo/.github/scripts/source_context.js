@@ -297,7 +297,13 @@ function findIssueSourceFromPull(pull = {}) {
     return { issueNumber: null, via: null, ambiguous: true, closing: true };
   }
   if (metaIssueNumbers.size === 1) {
-    return { issueNumber: Array.from(metaIssueNumbers)[0], via: 'meta' };
+    const issueNumber = Array.from(metaIssueNumbers)[0];
+    // Metadata pins synchronized body text, but cannot silently override a
+    // different explicit closing target in the independently authored title.
+    if (Array.from(titleClosingIssueNumbers).some((target) => target !== issueNumber)) {
+      return { issueNumber: null, via: null, ambiguous: true, closing: true };
+    }
+    return { issueNumber, via: 'meta' };
   }
 
   // A generated mention/title binding survives synchronized issue text, which

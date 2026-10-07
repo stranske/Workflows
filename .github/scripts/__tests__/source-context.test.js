@@ -1265,7 +1265,43 @@ test('explicit closing titles outrank incidental body mentions without selecting
     assert.deepEqual(resolve({ title: 'Fixes #123', body: 'Closes #456' }), { issueNumber: null, via: null });
     assert.deepEqual(resolve({ title: 'Fixes #123 and closes #456', body: 'Closes #123' }), { issueNumber: null, via: null });
     assert.deepEqual(resolve({ title: 'Fixes #123', body: 'Closes #123' }), { issueNumber: 123, via: 'closing' });
-    assert.deepEqual(resolve({ title: 'Fixes #123', body: '<!-- meta:issue:456 -->' }), { issueNumber: 456, via: 'meta' });
+    assert.deepEqual(resolve({ title: 'Fixes #123', body: '<!-- meta:issue:456 -->' }), { issueNumber: null, via: null });
     assert.deepEqual(resolve({ title: 'Related to #123', body: 'Refs #456' }), { issueNumber: 456, via: 'mention' });
+  }
+});
+
+test('explicit closing title and metadata conflicts stay unresolved in both resolvers', () => {
+  for (const implementation of [
+    require('../source_context.js'),
+    require('../../../templates/consumer-repo/.github/scripts/source_context.js'),
+  ]) {
+    for (const title of ['Fixes #123', 'Closes issue #123', 'Resolves #123', 'Fixes #456 and closes #123']) {
+      for (const declaration of ['', '<!-- workflow-source:local_request -->\n']) {
+        const pull = {
+          title,
+          body: declaration + '<!-- meta:issue:456 -->\nCloses #456',
+          head: { ref: 'codex/issue-456-stale-binding' },
+        };
+        assert.deepEqual(implementation.extractIssueSourceFromPull(pull), { issueNumber: null, via: null });
+        const context = implementation.resolvePrSourceContext(pull);
+        assert.equal(context.issueNumber, null);
+        assert.equal(context.sourceType, SOURCE_TYPES.UNKNOWN);
+        assert.equal(context.hasAmbiguousIssueSource, true);
+        assert.equal(context.requiresIssue, true);
+        assert.equal(context.isValid, false);
+      }
+    }
+    for (const title of ['Fixes #456', 'Fixes #456 and closes #456', 'Related to #123', 'Implement source repair']) {
+      const pull = {
+        title,
+        // Synchronized source text can mention a different closing issue.
+        body: '<!-- meta:issue:456 -->\nCloses #789',
+      };
+      assert.deepEqual(implementation.extractIssueSourceFromPull(pull), { issueNumber: 456, via: 'meta' });
+      const context = implementation.resolvePrSourceContext(pull);
+      assert.equal(context.issueNumber, 456);
+      assert.equal(context.hasAmbiguousIssueSource, false);
+      assert.equal(context.requiresIssue, true);
+    }
   }
 });

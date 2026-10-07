@@ -1,0 +1,88 @@
+✖ conflicting closing title and metadata keep real verifier discovery unavailable (15.868792ms)
+✔ matching closing title and metadata retain known-source verifier acceptance (8.563625ms)
+✖ explicit closing titles outrank incidental body mentions without selecting conflicting closing targets (2.965542ms)
+✖ explicit closing title and metadata conflicts stay unresolved in both resolvers (0.352584ms)
+ℹ tests 4
+ℹ suites 0
+ℹ pass 1
+ℹ fail 3
+ℹ cancelled 0
+ℹ skipped 0
+ℹ todo 0
+ℹ duration_ms 89.493917
+
+✖ failing tests:
+
+test at .github/scripts/__tests__/agents-verifier-context.test.js:3223:1
+✖ conflicting closing title and metadata keep real verifier discovery unavailable (15.868792ms)
+  AssertionError [ERR_ASSERTION]: Expected values to be strictly deep-equal:
+  + actual - expected
+  
+  + [
+  +   {
+  +     issue_number: 456,
+  +     owner: 'octo',
+  +     repo: 'workflows'
+  +   }
+  + ]
+  - []
+  
+      at TestContext.<anonymous> (/Users/teacher/.codex/automations/pd-workloop-resume/worktrees/workflows-3770-title-conflict/.github/scripts/__tests__/agents-verifier-context.test.js:3246:18)
+      at async Test.run (node:internal/test_runner/test:1069:7)
+      at async startSubtestAfterBootstrap (node:internal/test_runner/harness:332:3) {
+    generatedMessage: true,
+    code: 'ERR_ASSERTION',
+    actual: [ { owner: 'octo', repo: 'workflows', issue_number: 456 } ],
+    expected: [],
+    operator: 'deepStrictEqual'
+  }
+
+test at .github/scripts/__tests__/source-context.test.js:1260:1
+✖ explicit closing titles outrank incidental body mentions without selecting conflicting closing targets (2.965542ms)
+  AssertionError [ERR_ASSERTION]: Expected values to be strictly deep-equal:
+  + actual - expected
+  
+    {
+  +   issueNumber: 456,
+  +   via: 'meta'
+  -   issueNumber: null,
+  -   via: null
+    }
+  
+      at TestContext.<anonymous> (/Users/teacher/.codex/automations/pd-workloop-resume/worktrees/workflows-3770-title-conflict/.github/scripts/__tests__/source-context.test.js:1268:12)
+      at Test.runInAsyncScope (node:async_hooks:214:14)
+      at Test.run (node:internal/test_runner/test:1062:25)
+      at Test.start (node:internal/test_runner/test:959:17)
+      at startSubtestAfterBootstrap (node:internal/test_runner/harness:332:17) {
+    generatedMessage: true,
+    code: 'ERR_ASSERTION',
+    actual: { issueNumber: 456, via: 'meta' },
+    expected: { issueNumber: null, via: null },
+    operator: 'deepStrictEqual'
+  }
+
+test at .github/scripts/__tests__/source-context.test.js:1274:1
+✖ explicit closing title and metadata conflicts stay unresolved in both resolvers (0.352584ms)
+  AssertionError [ERR_ASSERTION]: Expected values to be strictly deep-equal:
+  + actual - expected
+  
+    {
+  +   issueNumber: 456,
+  +   via: 'meta'
+  -   issueNumber: null,
+  -   via: null
+    }
+  
+      at TestContext.<anonymous> (/Users/teacher/.codex/automations/pd-workloop-resume/worktrees/workflows-3770-title-conflict/.github/scripts/__tests__/source-context.test.js:1286:16)
+      at Test.runInAsyncScope (node:async_hooks:214:14)
+      at Test.run (node:internal/test_runner/test:1062:25)
+      at Test.processPendingSubtests (node:internal/test_runner/test:752:18)
+      at Test.postRun (node:internal/test_runner/test:1191:19)
+      at Test.run (node:internal/test_runner/test:1119:12)
+      at async startSubtestAfterBootstrap (node:internal/test_runner/harness:332:3) {
+    generatedMessage: true,
+    code: 'ERR_ASSERTION',
+    actual: { issueNumber: 456, via: 'meta' },
+    expected: { issueNumber: null, via: null },
+    operator: 'deepStrictEqual'
+  }
