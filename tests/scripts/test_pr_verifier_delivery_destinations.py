@@ -32,6 +32,74 @@ def _floor_verdict(criterion, *, body, comments, artifacts="present", overall="p
     ).verdict
 
 
+@pytest.mark.parametrize(
+    "destination,channel", [("the PR body", "body"), ("a PR comment", "comments")]
+)
+@pytest.mark.parametrize("modifier", ["", "optional archived "])
+@pytest.mark.parametrize("wrap", ["\n", "\r\n"])
+def test_passive_object_boundary_preserves_legitimate_soft_wrap(
+    destination, channel, modifier, wrap
+):
+    criterion = f"{modifier}Evidence{wrap}must be recorded by the reviewer in {destination}"
+    assert verifier._required_evidence_options(criterion) == [{channel}]
+    for missing in ("absent", "unavailable"):
+        assert _floor_verdict(criterion, body=missing, comments=missing) == "CONCERNS"
+
+
+@pytest.mark.parametrize("marker", ["-", "*", "1.", "- [ ]"])
+@pytest.mark.parametrize("newline", ["\n", "\r\n"])
+@pytest.mark.parametrize(
+    "destination,channel", [("the PR body", "body"), ("a PR comment", "comments")]
+)
+@pytest.mark.parametrize("governor", ["must", "may", "must not", "is not expected to"])
+@pytest.mark.parametrize("agent_first", [False, True])
+@pytest.mark.parametrize("modifier", ["", "optional archived "])
+def test_passive_object_does_not_capture_previous_list_item(
+    marker, newline, destination, channel, governor, agent_first, modifier
+):
+    delivery = f"{modifier}Evidence {governor} be recorded " + (
+        f"by the reviewer in {destination}" if agent_first else f"in {destination} by the reviewer"
+    )
+    criterion = f"{marker} Tests pass locally{newline}{marker} {delivery}"
+    expected = {channel} if governor == "must" else set()
+    assert verifier._required_evidence_channels(criterion) == expected
+    assert verifier._required_evidence_options(criterion) == [expected]
+    for missing in ("absent", "unavailable"):
+        assert _floor_verdict(criterion, body=missing, comments=missing) == (
+            "CONCERNS" if expected else "PASS"
+        )
+
+
+@pytest.mark.parametrize(
+    "preposition", ["in", "into", "to", "within", "for", "as", "through", "via"]
+)
+@pytest.mark.parametrize(
+    "destination,channel",
+    [("the PR body", "body"), ("the PR description", "body"), ("a PR comment", "comments")],
+)
+@pytest.mark.parametrize("component", ["", " results panel"])
+@pytest.mark.parametrize("governor", ["must", "may", "must not", "is not expected to"])
+@pytest.mark.parametrize("independent", [False, True])
+def test_transport_qualifier_is_not_a_product_component(
+    preposition, destination, channel, component, governor, independent
+):
+    criterion = (
+        f"The UI {governor} display test results in {destination}{component} "
+        f"{preposition} automation"
+    )
+    if independent:
+        criterion += "; the reviewer must record evidence in a workflow artifact"
+    expected = ({channel} if governor == "must" and not component else set()) | (
+        {"artifacts"} if independent else set()
+    )
+    assert verifier._required_evidence_channels(criterion) == expected
+    assert verifier._required_evidence_options(criterion) == [expected]
+    for missing in ("absent", "unavailable"):
+        assert _floor_verdict(criterion, body=missing, comments=missing) == (
+            "CONCERNS" if channel in expected else "PASS"
+        )
+
+
 @pytest.mark.parametrize("actor", ["reviewer", "UI"])
 @pytest.mark.parametrize("body_alias", ["body", "description"])
 @pytest.mark.parametrize("reverse", [False, True])

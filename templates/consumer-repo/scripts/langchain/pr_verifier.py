@@ -993,9 +993,10 @@ _EVIDENCE_DELIVERY_ADVERB = r"(?:also|now|still|already|yet|always|[\w-]+ly)"
 _EVIDENCE_DELIVERY_ADVERBS = r"(?:" + _EVIDENCE_DELIVERY_ADVERB + r"\s+){0,3}"
 _EVIDENCE_DELIVERY_OPERATION = r"(?:prov(?:e|ing)|provid(?:e|ing)|return|display|show|emit|render|expos(?:e|ing)|stor(?:e|ing)|upload|attach|publish|post|record|captur(?:e|ing)|includ(?:e|ing)|contain|hav(?:e|ing)|document|generat(?:e|ing)|link|add|leav(?:e|ing)|left)\w*\b"
 _EVIDENCE_DELIVERY_PARTICIPLE_START = r"(?=(?:\w*(?:ed|en)|left)\b)"
-_EVIDENCE_OBJECT_MODIFIERS = (
-    r"(?:(?!(?:and|or|but|must|shall|is|are|not|never|may|can)\b)[\w/-]+\s+){0,6}"
+_EVIDENCE_OBJECT_MODIFIER_WORD = (
+    r"(?!(?:and|or|but|must|shall|is|are|not|never|may|can)\b)" r"(?=[\w/-]*\w)[\w/-]+"
 )
+_EVIDENCE_OBJECT_MODIFIERS = r"(?:" + _EVIDENCE_OBJECT_MODIFIER_WORD + r"\s+){0,6}"
 _EVIDENCE_RECIPIENT_PREFIX = (
     r"(?:(?:all|any|some|each|every)\s+)?"
     r"(?:(?:the|its|our|their|your|an?)\s+)?"
@@ -1057,14 +1058,19 @@ _INDEPENDENT_REVIEW_CLAUSE = (
     r"(?:(?:that|which)\s+)?" + _EVIDENCE_DELIVERY_ADVERBS + _INDEPENDENT_REVIEW_PREDICATE
 )
 
+_EVIDENCE_DESTINATION_PREPOSITION = r"(?:in|into|to|within|for|as|through|via)"
 _REVIEW_BODY_COMPONENT_TEMPORAL = (
     r"before|after|now|today|tomorrow|again|here|there|soon|always|daily|weekly|[\w-]+ly"
 )
 _REVIEW_BODY_COMPONENT_WORD = (
-    r"(?!(?:and|or|but|in|on|to|for|by|with|when|if|that|which|where|"
+    r"(?!(?:and|or|but|on|by|with|when|if|that|which|where|"
     r"is|are|was|were|must|shall|will|should|can|may|has|have|"
     r"not|never|no|optional|required|mandatory|expected|supposed|"
-    r"contains?|includes?|requires?|needs?|" + _REVIEW_BODY_COMPONENT_TEMPORAL + r")\b)[\w-]+"
+    r"contains?|includes?|requires?|needs?|"
+    + _EVIDENCE_DESTINATION_PREPOSITION
+    + r"|"
+    + _REVIEW_BODY_COMPONENT_TEMPORAL
+    + r")\b)[\w-]+"
 )
 # One to three same-line words, bounded by a clause/list/availability boundary.
 # The classifier and OR expander must recognize identical component spans.
@@ -1074,6 +1080,8 @@ _REVIEW_BODY_COMPONENT = (
     + _REVIEW_BODY_COMPONENT_WORD
     + r"){0,2}"
     + r"(?=[ \t]*(?:$|[;,.!?\n]|(?:and|or|but|by|if|when|that|which|where|"
+    + _EVIDENCE_DESTINATION_PREPOSITION
+    + r"|"
     + _REVIEW_BODY_COMPONENT_TEMPORAL
     + r")\b))"
 )
@@ -1089,7 +1097,6 @@ _EVIDENCE_REVIEW_DESTINATION = (
     + _EVIDENCE_ARTIFACT_DESTINATION
     + r"|(?:pr|pull request)\b)"
 )
-_EVIDENCE_DESTINATION_PREPOSITION = r"(?:in|into|to|within|for|as|through|via)"
 _EVIDENCE_DESTINATION_SEPARATOR_BASE = r"(?:\s*,\s*(?:(?:and|or)\s+)?|\s+(?:and|or)\s+)"
 _EVIDENCE_PRODUCT_ACTOR = (
     _EVIDENCE_RECIPIENT_PREFIX
@@ -1172,6 +1179,25 @@ _RELATIVE_REVIEW_PRESENCE_PREDICATE = (
 
 def _normalize_passive_review_agents(acceptance: str) -> str:
     """Retain passive actor/governor binding for both channels and OR expansion."""
+    # Separate real criteria before restoring an actor. Preserve soft wrapping
+    # inside a criterion and quoted examples, but never borrow a prior bullet.
+    literals = [match.span() for match in re.finditer(_QUOTED_EVIDENCE_LITERAL, acceptance)]
+    boundaries = sorted(
+        {
+            match.start()
+            for match in re.finditer(
+                r"(?m)^[ \t]*(?:[-*+]|\d+[.)])[ \t]+|\r?\n[ \t]*\r?\n", acceptance
+            )
+            if 0 < match.start() < len(acceptance)
+            and not any(start <= match.start() < end for start, end in literals)
+        }
+    )
+    if boundaries:
+        points = [0, *boundaries, len(acceptance)]
+        return "".join(
+            _normalize_passive_review_agents(acceptance[start:end])
+            for start, end in zip(points[:-1], points[1:], strict=True)
+        )
     actor = (
         _EVIDENCE_RECIPIENT_PREFIX
         + r"(?:"
@@ -3469,6 +3495,25 @@ def _required_evidence_channels(acceptance: str, *, _bind_attached: bool = True)
                 continue
             checklist = criterion_checklist
             bullet = criterion_bullet
+            # Object adjectives do not make their governing delivery optional.
+            # Keep pre-operation modals and post-object conditions untouched.
+            optional_requirement_text = re.sub(
+                r"(?P<operation>\b"
+                + mandatory_auxiliary
+                + r"\s+"
+                + delivery_adverbs
+                + r"(?:"
+                + passive_delivery_prefix
+                + r")?"
+                + delivery_adverbs
+                + delivery_operation
+                + r"\s+)"
+                + evidence_modifiers
+                + r"(?:evidence|artifacts?|transcripts?|command outputs?)\b",
+                lambda match: match["operation"] + "evidence",
+                requirement_text,
+                flags=re.I,
+            )
             optional_evidence = bool(
                 re.search(
                     r"\boptional(?:ly)?\b(?![-/])|"
@@ -3485,7 +3530,7 @@ def _required_evidence_channels(acceptance: str, *, _bind_attached: bool = True)
                     + delivery_operation
                     + r"|"
                     + conditional_evidence,
-                    requirement_text,
+                    optional_requirement_text,
                     re.I,
                 )
             )

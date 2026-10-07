@@ -1720,6 +1720,16 @@ Regression controls independently cover negation, optional versus mandatory
 delivery, three storage predicates, governor resets, and all review channels.
 Explicit passive delivery agents are normalized before both destination and
 alternative classification. The same finite actor, operation, aspect, polarity,
+and destination grammar stops at unquoted list-item and paragraph boundaries.
+Soft wraps within one criterion and quoted multiline examples remain intact;
+bare list markers are not evidence-object adjectives. An adjective such as
+`optional` inside an explicitly mandatory delivery object does not change its
+governor, while optional modals and post-object availability conditions remain
+authoritative. The component start and terminal guards share the full
+destination-preposition vocabulary, so `via automation` is a qualifier of a
+bare review destination, not a component name. A real named product component
+can terminate before the same qualifier without inventing a review obligation.
+The same finite actor, operation, aspect, polarity,
 and destination grammar applies whether `by the reviewer` or `by the UI` occurs
 before or after the destination. Agent text cannot become a component name or
 detach a bare sibling review obligation. A bare explicit `in a PR comment`
