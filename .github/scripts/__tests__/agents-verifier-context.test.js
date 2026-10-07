@@ -1669,6 +1669,64 @@ test('artifact extractor marks mixed supported and unsupported payload entries i
   assert.equal(result.truncated, true);
 });
 
+function withTrailingSpaceRename(callback) {
+  const repoPath = fs.mkdtempSync(path.join(os.tmpdir(), 'verifier-trailing-rename-'));
+  const git = (...args) => execFileSync('git', args, { cwd: repoPath, encoding: 'utf8' });
+  try {
+    git('init', '-q');
+    fs.writeFileSync(path.join(repoPath, 'old'), 'unchanged\n');
+    git('add', 'old');
+    git('-c', 'user.name=Regression', '-c', 'user.email=regression@example.invalid',
+      'commit', '-qm', 'baseline');
+    git('mv', 'old', 'trailing ');
+    const diff = git('diff', '--cached', '--find-renames');
+    assert.ok(diff.endsWith('rename to trailing \n'));
+    callback(diff);
+  } finally {
+    fs.rmSync(repoPath, { recursive: true, force: true });
+  }
+}
+
+test('summary preserves real-Git terminal rename filename spaces', () => {
+  withTrailingSpaceRename(diff => {
+    for (const patch of [diff, diff.slice(0, -1)]) {
+      const summary = summarizeDiff(patch);
+      assert.doesNotMatch(summary, /path parsing unavailable/);
+      assert.ok(summary.includes('old -> trailing '), summary);
+    }
+  });
+});
+
+test('formatted patch preserves real-Git terminal rename filename spaces', () => {
+  withTrailingSpaceRename(diff => {
+    const patch = diff.slice(0, -1);
+    assert.equal(formatDiffForContext(diff, diff.length), patch);
+    assert.equal(formatDiffForContext(patch, patch.length), patch);
+    assert.equal(formatDiffForContext(' \n\t\n', 100), '_Diff unavailable or empty._');
+  });
+});
+
+test('coverage offsets preserve real-Git terminal rename filename spaces', () => {
+  withTrailingSpaceRename(diff => {
+    const patch = diff.slice(0, -1);
+    for (const input of [diff, patch]) {
+      for (const limit of [patch.length, patch.length - 1]) {
+        const coverage = buildContextSourceCoverage({
+          planSources: [], diffText: input, diffMaxChars: limit,
+          evidence: { comments: { records: [], complete: true }, artifacts: { records: [], complete: true } },
+        });
+        assert.equal(coverage.changed_code_sources.length, 1);
+        const source = coverage.changed_code_sources[0];
+        assert.equal(source.source, 'trailing ');
+        assert.equal(source.from_path, 'old');
+        assert.equal(source.total_chars, patch.length);
+        assert.equal(source.included_chars, limit);
+        assert.equal(source.status, limit === patch.length ? 'included' : 'truncated');
+      }
+    }
+  });
+});
+
 test('summarizeDiff preserves machine-readable literal status suffixes', () => {
   for (const suffix of [' (added)', ' (deleted)']) {
     for (const mode of ['', 'new file mode 100644', 'deleted file mode 100644']) {
