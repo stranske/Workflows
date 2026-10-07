@@ -1017,7 +1017,9 @@ _ATTACHED_REVIEW_AVAILABILITY = (
     + r"\s+"
     + _EVIDENCE_DELIVERY_ADVERBS
     + r"(?:remain|stay|be)\s+(?:available|accessible|present)\b|"
-    r"(?:that|which)\s+(?:is|are)\s+"
+    r"(?:that|which)\s+"
+    + _EVIDENCE_DELIVERY_ADVERBS
+    + r"(?:is|are)\s+"
     + _EVIDENCE_DELIVERY_ADVERBS
     + r"(?:available|accessible|present)\b"
 )

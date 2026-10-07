@@ -437,14 +437,27 @@ def test_relative_checklist_delivery_reuses_negative_optional_governor(
         "is available",
         "is accessible",
         "are present",
+        "now is available",
+        "currently is available",
+        "now is accessible",
+        "currently is accessible",
+        "now are present",
+        "currently are present",
+        "is now available",
+        "is currently available",
+        "is now accessible",
+        "is currently accessible",
+        "are now present",
+        "are currently present",
     ],
 )
 @pytest.mark.parametrize("reverse", [False, True])
 @pytest.mark.parametrize("independent", [False, True])
+@pytest.mark.parametrize("body_alias", ["body", "description"])
 def test_attached_availability_relative_preserves_destination_or(
-    relative, predicate, reverse, independent
+    relative, predicate, reverse, independent, body_alias
 ):
-    destinations = ["the PR body", "a PR comment"]
+    destinations = [f"the PR {body_alias}", "a PR comment"]
     if reverse:
         destinations.reverse()
     criterion = (

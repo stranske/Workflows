@@ -301,6 +301,8 @@ recipient adjectives that split repeated product capabilities into deliveries.
 Relative optional/prohibited delivery
 predicates reuse the shared governors and delivery operations. Attached simple
 copular availability (`that is available`) stays inside the destination branch.
+Simple copular qualifiers reuse the shared adverbs before and after `is`/`are`
+(`that now is available` and `that is now available` are equivalent).
 Both channel classification and destination-OR expansion use that same span.
 Both paths also share the independent review-predicate exclusion: an actor
 such as `the PR description that must contain command output` is not consumed
