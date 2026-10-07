@@ -70,6 +70,18 @@ are evidence pointers, not current-head assertions.
 
 ## Receipt and verdict
 
+An independently recomputed empty scenario selection is supported only after the
+existing immutable producer receipt, helper/workflow bytes, complete changed-path
+witness and exact run/attempt are verified. The authored zero-count guard must be
+unchanged, and GitHub must emit exactly one skipped caller with the same literal
+name, head, run/attempt and canonical repository/job-ID check-run URL. The fetched
+check object must agree on ID, URL, name, head, completed/skipped state and Actions
+app identity; the producer job head must also agree with the run. That caller remains an expected check;
+the adapter does not invent child jobs or accept a missing caller. Arbitrary empty
+literal matrices, forged receipts, changed guards and incomplete skip evidence
+remain UNKNOWN. An internal witnessed type cannot be opted into by workflow YAML.
+This is a local read-only adapter change, not a consumer template or manifest change.
+
 The JSON `expected-check-receipt/v1` records:
 
 - Full repository, PR, head/base, base branch, caller event/action and changed paths.

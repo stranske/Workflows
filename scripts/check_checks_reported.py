@@ -234,8 +234,16 @@ def actions_str(value: Any) -> str:
     return ("true" if value else "false") if isinstance(value, bool) else str(value)
 
 
+class _WitnessedEmptyScenario(dict):
+    """Internal type: only authenticated/recomputed empty selection can create it."""
+
+
 def job_names(job_id: str, job: dict[str, Any]) -> list[str]:
     """Expand literal Cartesian or include-only matrices, rejecting transforms."""
+    if isinstance(job, _WitnessedEmptyScenario):
+        # GitHub emits the literal, unexpanded caller name when its guard skips
+        # an empty matrix. Ordinary authored dictionaries cannot opt into this.
+        return [str(job["name"])]
     matrix = (job.get("strategy") or {}).get("matrix")
     name = str(job.get("name", job_id))
     if matrix is None:
@@ -591,6 +599,7 @@ def bind_scenario_matrix(evidence, repo, path, workflow, job, run):
         len(jobs) != 1
         or jobs[0].get("run_id") != run["id"]
         or jobs[0].get("run_attempt") != run.get("run_attempt", 1)
+        or jobs[0].get("head_sha") != run["head_sha"]
     ):
         raise UnknownEvidence("scenario producer run/attempt binding missing")
     steps = [s for s in jobs[0].get("steps", []) if s.get("name") == "Select scenarios"]
@@ -665,6 +674,49 @@ def bind_scenario_matrix(evidence, repo, path, workflow, job, run):
     )
     result = dict(job)
     result["strategy"] = {**job["strategy"], "matrix": selected.matrix}
+    if selected.matrix == {"include": []}:
+        guard = trusted["jobs"]["scenarios"].get("if", "")
+        if (
+            job.get("if") != guard
+            or "needs.select-scenarios.outputs.selected_count != '0'" not in guard
+        ):
+            raise UnknownEvidence("empty scenario selection lacks trusted zero-count guard")
+        callers = [j for j in run.get("jobs", []) if j.get("name") == job.get("name")]
+        if (
+            len(callers) != 1
+            or any(
+                callers[0].get(key) != value
+                for key, value in {
+                    "run_id": run["id"],
+                    "run_attempt": run.get("run_attempt", 1),
+                    "head_sha": run["head_sha"],
+                    "conclusion": "skipped",
+                }.items()
+            )
+            or not callers[0].get("check_run_url")
+        ):
+            raise UnknownEvidence("empty scenario selection lacks exact-run skipped caller")
+        caller = callers[0]
+        endpoint = f"repos/{repo}/check-runs/{caller['id']}"
+        if caller["check_run_url"] != f"{GITHUB_API}/{endpoint}":
+            raise UnknownEvidence("empty scenario caller check URL identity mismatch")
+        check = evidence.one(endpoint)
+        if (
+            any(
+                check.get(key) != value
+                for key, value in {
+                    "id": caller["id"],
+                    "url": caller["check_run_url"],
+                    "name": caller["name"],
+                    "head_sha": run["head_sha"],
+                    "status": "completed",
+                    "conclusion": "skipped",
+                }.items()
+            )
+            or (check.get("app") or {}).get("slug") != "github-actions"
+        ):
+            raise UnknownEvidence("empty scenario caller lacks matching Actions check object")
+        return _WitnessedEmptyScenario(result)
     return result
 
 
