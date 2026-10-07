@@ -9,6 +9,9 @@ Their editor, field, textarea and preview suffixes use one shared grammar in
 channel recognition and destination alternatives: an explicit `or` permits
 either channel, while `and` retains both obligations. This does not turn UI
 product requirements into reviewer-delivery obligations.
+Optional presence predicates use the shared delivery-modality grammar before
+checklist fallback, so expanding alternatives cannot revive residual evidence
+nouns as mandatory overall evidence. Independent mandatory clauses still gate.
 Mandatory checklist noun phrases such as `Test evidence in a PR comment`
 retain their destination even without a delivery verb. Optional/prohibited
 evidence, product behavior and quoted examples remain subject to the shared

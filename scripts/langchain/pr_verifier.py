@@ -1343,6 +1343,8 @@ def _required_evidence_channels(acceptance: str, *, _bind_attached: bool = True)
         + r"(?:"
         + mandatory_auxiliary
         + r"|"
+        + optional_delivery_modal
+        + r"|"
         + negative_requirement_governor
         + r")"
         + r"\s+"

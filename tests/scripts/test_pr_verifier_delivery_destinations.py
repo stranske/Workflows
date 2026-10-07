@@ -11,6 +11,53 @@ from scripts.langchain import pr_verifier as verifier
 
 @pytest.mark.parametrize("component", ["editor", "field", "textarea", "preview"])
 @pytest.mark.parametrize("destination", ["PR body", "PR description"])
+@pytest.mark.parametrize("operator", ["and", "or"])
+@pytest.mark.parametrize("independent", [False, True])
+@pytest.mark.parametrize(
+    "governor",
+    [
+        "may",
+        "can",
+        "could",
+        "would",
+        "should",
+        "must not",
+        "is not expected to",
+        "is no longer required to",
+    ],
+)
+def test_component_alternatives_preserve_optional_negative_floor(
+    component, destination, operator, independent, governor
+):
+    criterion = (
+        f"- [ ] Evidence {governor} be in the {destination} {component} {operator} a PR comment"
+    )
+    if independent:
+        criterion += "; provide command output in a PR comment"
+    options = verifier._required_evidence_options(criterion)
+    assert options == ([{"comments"}] if independent else [set()])
+    spec = importlib.util.spec_from_file_location(
+        "optional_component_fixture",
+        Path(__file__).with_name("test_pr_verifier_prompt_coverage.py"),
+    )
+    fixture = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(fixture)
+    context, _ = fixture._context(1, 1000, 1000)
+    context = context.replace("- " + fixture.ACCEPTANCE_SENTINEL, criterion).replace(
+        "## PR Diff Summary",
+        "## Acceptance evidence\n\n- Overall retrieval status: **absent**\n"
+        "- PR body: **absent**\n- PR comments: **absent**\n"
+        "- Referenced workflow artifacts: **absent**\n\n## PR Diff Summary",
+    )
+    result = verifier._apply_coverage_floor(
+        verifier.EvaluationResult(verdict="PASS", used_llm=True),
+        verifier.prompt_coverage(context, None),
+    )
+    assert result.verdict == ("CONCERNS" if independent else "PASS")
+
+
+@pytest.mark.parametrize("component", ["editor", "field", "textarea", "preview"])
+@pytest.mark.parametrize("destination", ["PR body", "PR description"])
 @pytest.mark.parametrize("independent", [False, True])
 def test_review_body_product_components_do_not_create_delivery(component, destination, independent):
     criterion = f"- [ ] The UI must display test results in the {destination} {component}"
