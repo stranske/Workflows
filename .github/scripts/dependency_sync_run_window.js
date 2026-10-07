@@ -18,8 +18,12 @@ async function collectRunWindow({ start, end, listPage }) {
     const first = await listPage({ created, per_page: 100, page: 1 });
     const total = first?.data?.total_count;
     // GitHub's September 2026 capped total is a lower bound, not an exact
-    // cardinality. Only its documented representation authorizes subdivision.
-    const capped = total === '2,500+' || total === '2500+';
+    // cardinality. Recognized capped representations authorize subdivision.
+    const cappedPlus = total === '2,500+' || total === '2500+';
+    // Authenticated API recovery showed integer 2500 also represents a cap.
+    // Its exact-vs-capped ambiguity is settled by complete child collection,
+    // not by treating the parent as an exact cardinality.
+    const capped = cappedPlus || total === 2500;
     if ((!capped && (!Number.isSafeInteger(total) || total < 0)) || !Array.isArray(first?.data?.workflow_runs)) {
       throw new Error('incomplete workflow-run response');
     }
@@ -37,9 +41,10 @@ async function collectRunWindow({ start, end, listPage }) {
         rows.set(id, run);
       }
       for (const run of first.data.workflow_runs) validate(run, left, right);
-      const countMatches = capped ? rows.size > 2500 : rows.size === total;
+      const countMatches = cappedPlus ? rows.size > 2500
+        : total === 2500 ? rows.size >= 2500 : rows.size === total;
       if (!countMatches || first.data.workflow_runs.some((run) => rows.get(run.id)?.created_at !== run.created_at)) {
-        throw new Error(`subdivision is incomplete or window changed: ${created}`);
+        throw new Error(`subdivision is incomplete or window changed: ${created}; parent=${total}, children=${rows.size}`);
       }
       return rows;
     }
