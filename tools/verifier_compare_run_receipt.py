@@ -183,11 +183,31 @@ def summarize_compare_run(
     return summary
 
 
+def _followup_comparison_complete(followup: dict[str, Any]) -> bool:
+    inventory = (followup.get("artifact_inventory") or {}).get("comparison_results") or {}
+    return bool(inventory.get("complete")) and not inventory.get("missing_files")
+
+
+def _followup_repairs_release_source(followup: dict[str, Any]) -> bool:
+    """True when follow-up discovery no longer requires incidental #3768."""
+    discovery = followup.get("acceptance_source_discovery") or {}
+    if not isinstance(discovery, dict):
+        return False
+    if discovery.get("required") is True:
+        return False
+    reason = str(discovery.get("reason") or "")
+    # Baseline misclassification text must not reappear as a required contract.
+    if "#3768" in reason and "not retrieved" in reason.lower():
+        return False
+    return True
+
+
 def build_dual_run_receipt(
     *,
     baseline: dict[str, Any],
     followup: dict[str, Any] | None = None,
     expected_baseline_run_id: str = BASELINE_RUN_ID,
+    require_followup_repair: bool = True,
 ) -> dict[str, Any]:
     """Combine baseline + optional follow-up without mutating baseline fields."""
     if baseline.get("run_id") != expected_baseline_run_id:
@@ -222,6 +242,10 @@ def build_dual_run_receipt(
         "baseline": frozen_baseline,
         "followup": None,
         "baseline_preserved": True,
+        "independent_gates": {
+            "source_3757_topology": "required_external",
+            "complete_artifact_count_evidence": "required_on_followup_comparison_bundle",
+        },
         "steward_dispatch": {
             "workflow": "agents-verifier.yml",
             "mode": "compare",
@@ -249,9 +273,19 @@ def build_dual_run_receipt(
     if any(str(followup.get(key)) != str(baseline.get(key)) for key in ("repository", "pr")):
         raise ValueError("followup target identity must match the frozen baseline")
 
+    if not _followup_comparison_complete(followup):
+        raise ValueError("followup comparison artifact inventory must be complete")
+
+    if require_followup_repair and not _followup_repairs_release_source(followup):
+        raise ValueError(
+            "followup must demonstrate repaired source discovery "
+            "(#3768 must not remain a required unavailable source issue)"
+        )
+
     attached = json.loads(json.dumps(followup))
     attached["role"] = "followup"
     attached["immutable"] = False
+    attached["source_repair_demonstrated"] = _followup_repairs_release_source(followup)
     receipt["followup"] = attached
 
     # Re-check baseline identity after attach — never allow silent relabel.

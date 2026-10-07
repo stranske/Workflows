@@ -15,6 +15,11 @@ BASELINE_DIR = FIXTURES / "run-37400729553"
 BASELINE_TERMINAL = FIXTURES / "run-37400729553-terminal/verifier-terminal-disposition.ndjson"
 FOLLOWUP_DIR = FIXTURES / "run-followup-example"
 FOLLOWUP_TERMINAL = FIXTURES / "run-followup-example-terminal/verifier-terminal-disposition.ndjson"
+PRODUCTION_FOLLOWUP_DIR = FIXTURES / "run-37567257334"
+PRODUCTION_FOLLOWUP_TERMINAL = (
+    FIXTURES / "run-37567257334-terminal/verifier-terminal-disposition.ndjson"
+)
+PRODUCTION_FOLLOWUP_RUN_ID = "37567257334"
 
 
 def test_baseline_inventory_lists_seven_comparison_files() -> None:
@@ -70,8 +75,74 @@ def test_dual_run_receipt_freezes_baseline_when_followup_attached() -> None:
     assert built["baseline"]["run_id"] == "37400729553"
     assert built["followup"]["run_id"] == "39999999999"
     assert built["followup"]["acceptance_source_discovery"]["required"] is False
+    assert built["followup"]["source_repair_demonstrated"] is True
+    assert built["independent_gates"]["source_3757_topology"] == "required_external"
     assert "mode=compare" in built["steward_dispatch"]["command"]
     assert built["steward_dispatch"]["pr_number"] == "3769"
+
+
+def test_production_followup_receipt_preserves_baseline_and_records_repair() -> None:
+    baseline = receipt.summarize_compare_run(
+        run_id=receipt.BASELINE_RUN_ID,
+        comparison_dir=BASELINE_DIR,
+        terminal_disposition=receipt.load_terminal_disposition(BASELINE_TERMINAL),
+        role="baseline",
+    )
+    followup = receipt.summarize_compare_run(
+        run_id=PRODUCTION_FOLLOWUP_RUN_ID,
+        comparison_dir=PRODUCTION_FOLLOWUP_DIR,
+        terminal_disposition=receipt.load_terminal_disposition(PRODUCTION_FOLLOWUP_TERMINAL),
+        role="followup",
+    )
+    built = receipt.build_dual_run_receipt(baseline=baseline, followup=followup)
+
+    assert built["baseline"]["run_id"] == "37400729553"
+    assert built["baseline"]["provider_verdicts"] == ["CONCERNS", "CONCERNS"]
+    assert built["baseline"]["corpus_verdict"] == "NON_PASS"
+    assert built["baseline_preserved"] is True
+    assert built["followup"]["run_id"] == PRODUCTION_FOLLOWUP_RUN_ID
+    assert built["followup"]["provider_verdicts"] == ["CONCERNS", "PASS"]
+    assert built["followup"]["corpus_verdict"] == "NON_PASS"
+    assert built["followup"]["acceptance_source_discovery"]["required"] is False
+    assert "#3768" not in str(built["followup"]["acceptance_source_discovery"].get("reason", ""))
+    assert built["followup"]["artifact_inventory"]["comparison_results"]["complete"] is True
+    assert built["followup"]["artifact_inventory"]["comparison_results"]["file_count"] == 7
+    assert built["followup"]["source_repair_demonstrated"] is True
+
+
+def test_dual_run_receipt_rejects_incomplete_followup_inventory() -> None:
+    baseline = receipt.summarize_compare_run(
+        run_id=receipt.BASELINE_RUN_ID, comparison_dir=BASELINE_DIR, role="baseline"
+    )
+    followup = receipt.summarize_compare_run(
+        run_id="39999999999", comparison_dir=FOLLOWUP_DIR, role="followup"
+    )
+    followup["artifact_inventory"]["comparison_results"]["complete"] = False
+    followup["artifact_inventory"]["comparison_results"]["missing_files"] = [
+        "comparison-stderr.log"
+    ]
+    with pytest.raises(ValueError, match="inventory must be complete"):
+        receipt.build_dual_run_receipt(baseline=baseline, followup=followup)
+
+
+def test_dual_run_receipt_rejects_unrepaired_followup_source() -> None:
+    baseline = receipt.summarize_compare_run(
+        run_id=receipt.BASELINE_RUN_ID, comparison_dir=BASELINE_DIR, role="baseline"
+    )
+    followup = receipt.summarize_compare_run(
+        run_id="39999999999", comparison_dir=FOLLOWUP_DIR, role="followup"
+    )
+    followup["acceptance_source_discovery"] = {
+        "source": "Linked issues",
+        "status": "unavailable",
+        "reason": (
+            "Known source issue #3768 was not retrieved; no retrieved linked issue "
+            "can substitute for that acceptance contract."
+        ),
+        "required": True,
+    }
+    with pytest.raises(ValueError, match="repaired source discovery"):
+        receipt.build_dual_run_receipt(baseline=baseline, followup=followup)
 
 
 def test_dual_run_receipt_rejects_baseline_relabel() -> None:

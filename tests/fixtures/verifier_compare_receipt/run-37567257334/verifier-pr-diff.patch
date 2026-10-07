@@ -1,0 +1,26 @@
+diff --git a/.release-please-manifest.json b/.release-please-manifest.json
+index 8a20e1f1..030dc679 100644
+--- a/.release-please-manifest.json
++++ b/.release-please-manifest.json
+@@ -1 +1 @@
+-{".":"1.37.20"}
++{".":"1.37.21"}
+diff --git a/CHANGELOG.md b/CHANGELOG.md
+index 391e040e..29a0f84d 100644
+--- a/CHANGELOG.md
++++ b/CHANGELOG.md
+@@ -6,6 +6,13 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
+ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
+ Breaking changes are called out with a **BREAKING** marker and scheduled according to the policy in `COMPATIBILITY.md`.
+ 
++## [1.37.21](https://github.com/stranske/Workflows/compare/v1.37.20...v1.37.21) (2026-10-05)
++
++
++### Bug Fixes
++
++* **verifier:** retain artifact discovery for incidental status links ([#3768](https://github.com/stranske/Workflows/issues/3768)) ([2897731](https://github.com/stranske/Workflows/commit/289773105ecc6207a2e528806a482821c84d53bf))
++
+ ## [1.37.20](https://github.com/stranske/Workflows/compare/v1.37.19...v1.37.20) (2026-10-05)
+ 
+ 
+

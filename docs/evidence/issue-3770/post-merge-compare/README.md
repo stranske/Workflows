@@ -2,8 +2,8 @@
 
 Orphan Steward owns exactly one repaired-input `verify:compare` for merged
 release PR #3769 after the producer repair lands on `main`. This directory
-holds the dual-run receipt contract; it does **not** claim the steward rerun
-is complete.
+holds the dual-run receipt: the original NON_PASS baseline stays frozen, and
+the steward follow-up records newly observed verdicts plus source coverage.
 
 ## Frozen baseline (do not relabel)
 
@@ -18,6 +18,26 @@ is complete.
 | Terminal artifact | `verifier-terminal-disposition-37400729553` |
 | Metrics artifact | `agents-verifier-metrics` |
 
+## Steward follow-up (recorded)
+
+| Field | Value |
+|-------|-------|
+| Run | [37567257334](https://github.com/stranske/Workflows/actions/runs/37567257334) |
+| Dispatch | `gh workflow run agents-verifier.yml -f pr_number=3769 -f mode=compare` |
+| Provider verdicts | CONCERNS / PASS |
+| Corpus decision | NON_PASS |
+| Source discovery | `required=false`, status `included` (no #3768 required-source contract) |
+| Comparison artifact | `comparison-results-37567257334` (7/7 files present) |
+| Terminal artifact | `verifier-terminal-disposition-37567257334` (`needs-human`, concerns) |
+| Metrics artifact | `agents-verifier-metrics` |
+
+Receipt JSON: `receipt.json` (also `baseline-receipt.json` for the pre-follow-up freeze).
+Fixture copies for tests: `tests/fixtures/verifier_compare_receipt/run-37567257334/`.
+
+Independent source #3757 topology and complete artifact-count evidence remain
+required and are not satisfied by this receipt alone. The original baseline is
+not relabeled.
+
 ## Steward dispatch (after merge)
 
 ```sh
@@ -27,25 +47,22 @@ gh workflow run agents-verifier.yml \
   -f mode=compare
 ```
 
-Then build the dual-run receipt (follow-up run ID filled after the new run):
+Then build the dual-run receipt:
 
 ```sh
-gh run download <NEW_RUN_ID> -R stranske/Workflows \
-  -n comparison-results-<NEW_RUN_ID> -D /tmp/followup/comparison
-gh run download <NEW_RUN_ID> -R stranske/Workflows \
-  -n verifier-terminal-disposition-<NEW_RUN_ID> -D /tmp/followup/terminal
+gh run download 37567257334 -R stranske/Workflows \
+  -n comparison-results-37567257334 -D /tmp/followup/comparison
+gh run download 37567257334 -R stranske/Workflows \
+  -n verifier-terminal-disposition-37567257334 -D /tmp/followup/terminal
 
 python tools/verifier_compare_run_receipt.py \
   --baseline-comparison-dir tests/fixtures/verifier_compare_receipt/run-37400729553 \
   --baseline-terminal tests/fixtures/verifier_compare_receipt/run-37400729553-terminal \
-  --followup-run-id <NEW_RUN_ID> \
+  --followup-run-id 37567257334 \
   --followup-comparison-dir /tmp/followup/comparison \
   --followup-terminal /tmp/followup/terminal \
   --output docs/evidence/issue-3770/post-merge-compare/receipt.json
 ```
-
-Independent source #3757 topology and complete artifact-count evidence remain
-required and are not satisfied by this receipt alone.
 
 ## Validation
 
