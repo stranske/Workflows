@@ -1,0 +1,85 @@
+{
+  "base": "98b6ed3de1fdea92e3eb00420c863f873a00a210",
+  "source_sha256": "cc97119ea26afec275be3c83d22bc75de0d452cd0f4764896cc9d037274ab25a",
+  "test_sha256": "1c7fdec7b396e333ec13295b759373a8600812bf6ca6fd1927663fc10988d111",
+  "cwd": "/Users/teacher/.codex/automations/pd-workloop-resume/worktrees/workflows-3743-runtime-probes",
+  "commands": {
+    "baseline": [
+      "/opt/anaconda3/bin/python3",
+      "-m",
+      "pytest",
+      "tests/scripts/test_check_deliberate_break.py",
+      "tests/scripts/test_check_deliberate_break_archive.py",
+      "tests/scripts/test_check_deliberate_break_launch_boundaries.py",
+      "tests/scripts/test_launch_mutation_driver.py",
+      "-q",
+      "-o",
+      "addopts=",
+      "--cov=scripts.check_deliberate_break",
+      "--cov-branch",
+      "--cov-report=json:/Users/teacher/.codex/automations/pd-workloop-resume/evidence/20261007T0600Z/baseline.json",
+      "--junitxml=/Users/teacher/.codex/automations/pd-workloop-resume/evidence/20261007T0600Z/baseline.xml"
+    ],
+    "candidate": [
+      "/opt/anaconda3/bin/python3",
+      "-m",
+      "pytest",
+      "tests/scripts/test_check_deliberate_break.py",
+      "tests/scripts/test_check_deliberate_break_archive.py",
+      "tests/scripts/test_check_deliberate_break_launch_boundaries.py",
+      "tests/scripts/test_launch_mutation_driver.py",
+      "tests/scripts/test_check_deliberate_break_runtime_probes.py",
+      "-q",
+      "-o",
+      "addopts=",
+      "--cov=scripts.check_deliberate_break",
+      "--cov-branch",
+      "--cov-report=json:/Users/teacher/.codex/automations/pd-workloop-resume/evidence/20261007T0600Z/candidate.json",
+      "--junitxml=/Users/teacher/.codex/automations/pd-workloop-resume/evidence/20261007T0600Z/candidate.xml"
+    ]
+  },
+  "observed_exits": {
+    "baseline": 0,
+    "candidate": 0
+  },
+  "baseline": {
+    "covered_lines": 552,
+    "num_statements": 591,
+    "percent_covered": 92.73153575615474,
+    "percent_covered_display": "92.73",
+    "missing_lines": 39,
+    "excluded_lines": 0,
+    "percent_statements_covered": 93.4010152284264,
+    "percent_statements_covered_display": "93.40",
+    "num_branches": 262,
+    "num_partial_branches": 21,
+    "covered_branches": 239,
+    "missing_branches": 23,
+    "percent_branches_covered": 91.22137404580153,
+    "percent_branches_covered_display": "91.22"
+  },
+  "candidate": {
+    "covered_lines": 563,
+    "num_statements": 591,
+    "percent_covered": 94.25556858147714,
+    "percent_covered_display": "94.26",
+    "missing_lines": 28,
+    "excluded_lines": 0,
+    "percent_statements_covered": 95.26226734348562,
+    "percent_statements_covered_display": "95.26",
+    "num_branches": 262,
+    "num_partial_branches": 21,
+    "covered_branches": 241,
+    "missing_branches": 21,
+    "percent_branches_covered": 91.98473282442748,
+    "percent_branches_covered_display": "91.98"
+  },
+  "baseline_tests": 272,
+  "candidate_tests": 286,
+  "limitations": [
+    "Focused helper coverage only; repository-wide coverage and hosted expected topology remain unproven.",
+    "Private pytest stand-ins emit controlled failures; subprocesses and launch errors are real, no package install or network.",
+    "Repair-subject ranking is a proxy, not verified escaped incidents.",
+    "Prior3803 original provider CONCERNS/NON_PASS remains unchanged and closer-owned."
+  ]
+}

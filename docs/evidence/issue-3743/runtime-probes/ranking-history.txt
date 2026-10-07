@@ -1,0 +1,1318 @@
+COMMIT 91c1131e0b3b323d1eb105ad3fa1d44827189c7c fix(health83): bound dense workflow-run evidence windows (#3801)
+
+scripts/dependency_sync_efficiency_metrics.py
+COMMIT ed90456ff075ac88138972b38a74cb4476bd8fed fix(verifier): preserve alternative evidence destinations and passive CI logs (#3796)
+
+scripts/langchain/pr_verifier.py
+COMMIT 7e51497acabcc76e8ce9e343a169015b21cc3920 fix(checks): bind empty scenarios to exact skipped caller evidence (#3798)
+
+scripts/check_checks_reported.py
+COMMIT 89be00518ca4770be9dd9d746273b9aabbd87203 fix(maint52): regenerate transitive locks before dev-tool delivery (#3785)
+
+scripts/sync_dev_dependencies.py
+COMMIT fe47f93273d6349d680e633f121d3e37a1ca50fe fix: establish authenticated Gate status app provenance (#3791)
+
+scripts/check_checks_reported.py
+COMMIT e0b42b28456b938b71a198efd6d0fdcf053398e4 test(proof): protect archived-base filesystem boundaries (#3788)
+
+scripts/check_deliberate_break.py
+COMMIT 174550086287e800f1d87e8ff880594d239423ed fix(checks): require explicit exact-head suite evidence (#3783)
+
+scripts/check_checks_reported.py
+COMMIT 31e6e01e7b5d8e0507b76fa9f9738bc405bbd32d fix(checks): recover retained workflow runs from exact-head suites (#3780)
+
+scripts/check_checks_reported.py
+COMMIT 23cfcb161d3805e91971dce43f0daf6df28d1dc9 fix(verifier): common proof objects and PR-contained comments (#3774)
+
+scripts/langchain/pr_verifier.py
+COMMIT cfeea3babb8a52f1b9e19950a8b4aae5a571a3b7 Report exact-head expected check topology conservatively (#3773)
+
+scripts/check_checks_reported.py
+scripts/reusable_ci_scope.py
+COMMIT 8f7c9ed0966ef7c79d78c81fb3435ff0d5732d57 fix(deliberate-break): reject unexecuted base tests (#3775)
+
+scripts/check_deliberate_break.py
+COMMIT 5656aa96fc0f4f2d0525d42c40c15694ca2c949d fix(verifier): preserve presence polarity and shared delivery vocabulary (#3772)
+
+scripts/langchain/pr_verifier.py
+COMMIT 596c11fd9791ffa3397d863429ac85fe5eb4fc09 fix(verifier): preserve named actor delivery boundaries (#3767)
+
+scripts/langchain/pr_verifier.py
+COMMIT 8b3b8f817060325ea4045b5ad62402e5cbafb0ee fix(verifier): share put/place delivery and product-response vocabulary (#3764)
+
+scripts/langchain/pr_verifier.py
+COMMIT d8dfcd853a753e5fc7ff3062e2c177a2c1ba1d69 fix(verifier): enforce mandatory comment evidence presence (#3762)
+
+scripts/langchain/pr_verifier.py
+COMMIT 747217d61492364cf523f64d6046ed761902a875 fix(verifier): preserve complete destination-specific evidence (#3759)
+
+scripts/langchain/pr_verifier.py
+COMMIT 7d35ca1d612f88b50ead70fe2b30fc5e41ca15bd fix(verifier): recognize submit delivery and let product capability (#3754)
+
+scripts/langchain/pr_verifier.py
+COMMIT a3882189dcb162120cdf25ca584abecebd98d638 fix(verifier): isolate evidence channels and acceptance list items (#3750)
+
+scripts/langchain/pr_verifier.py
+COMMIT bb5f24fae3f58f178b4dc97e602e874486af7677 Cover verifier late omissions in the required comparison command (#3738)
+
+scripts/langchain/pr_verifier.py
+COMMIT 6b45c2fa08b252c75ce99ea40d506320625bc3c1 fix(verifier): share delivery aliases and preserve evidence boundaries (#3747)
+
+scripts/langchain/pr_verifier.py
+COMMIT c3285c9cb82e45c53be563133169163b03053b20 fix(verifier): test and recognize actual generated body evidence (#3746)
+
+scripts/langchain/pr_verifier.py
+COMMIT 2f0631e006750100b7655780641783e994bd2ef6 fix(verifier): complete evidence destinations and preserve diagnostics (#3740)
+
+scripts/langchain/pr_verifier.py
+COMMIT 89c9d29cacd28f5214fc96c32a0cf2875288d3b4 fix(verifier): preserve product nouns and literal summary destinations (#3737)
+
+scripts/langchain/pr_verifier.py
+COMMIT af6e20c1c4d28c3bfbeee93edc82f2b38d206613 fix(verifier): close six final-review classification and Git-path gaps (#3735)
+
+scripts/langchain/pr_verifier.py
+COMMIT 22873949619e3ef22df9d6d0a4fb9ecdb17a314d Fix verifier evidence and terminal verdicts blocking canaries (#3728)
+
+scripts/langchain/pr_verifier.py
+COMMIT 217a5c9d707ffb80bb73df54096e6d71fd5d4545 fix(verifier): preserve evidence channels and fitting diff text (#3713)
+
+scripts/langchain/pr_verifier.py
+COMMIT e2dea1809ae05d9f72d1a7ae5be1fb4e95b115ec Fail closed on verifier evidence and generated review disposition (#3711) (#3712)
+
+scripts/langchain/pr_verifier.py
+COMMIT 0118af7410b29371058f883d6fee75a4f849fbd8 fix(verifier): state prompt coverage and withhold PASS on omitted code (#3701) (#3703)
+
+scripts/langchain/pr_verifier.py
+scripts/langchain/verifier_config.py
+COMMIT 7519d4c99142c1fcfd860b0d575cb4339964f868 fix(verifier): bounded PR evidence retrieval (#3700)
+
+scripts/langchain/prompts/pr_evaluation.md
+COMMIT a0fb2a3014355080c7d7770aa5a287fcb779d068 Fix historical belt completion audit noise (#3697)
+
+scripts/audit_belt_ledger_completion.py
+scripts/belt_ledger_completion.py
+COMMIT 74992b418c837193b2021ce5562f09e4a4ae0f1b MAINT-78: enable rapid paired verifier model screen (#3687)
+
+scripts/langchain/pr_verifier.py
+scripts/langchain/prompts/pr_evaluation.md
+COMMIT 1c0a1e0fdd2691fc989d7504e913090f567306aa Fail closed on repository review provenance drift
+
+scripts/repo_review_coordinator.py
+COMMIT b7a1147aa9c1c092a9269f74a84862e73fbce9de fix: provision priority labels from synced core source (#3624)
+
+scripts/bootstrap_consumer_settings.py
+scripts/capture_bootstrap_label_tests.py
+COMMIT 43153eec2d46863ca788896343b5c4a8f7212089 fix: reconcile keepalive authority receipts using exact worker evidence (#3601)
+
+scripts/runner_lib/core.py
+COMMIT 0ffc22dceb607817c5d268a0648b554b1e6128ef Reject self-superseding evidence references (#3538)
+
+scripts/validate_run_contract.py
+COMMIT c5857d5e208759f5efa27bd5bbbaeeb8578196eb fix(keepalive): upstream sync-review authority fixes for #3496 (#3591)
+
+scripts/check_api_wrapper_guard.py
+scripts/runner_lib/core.py
+COMMIT 420f6ca0a6af078b7e780cb57a9b5b3699c1e155 fix(scripts): ASCII delimiter guard for unquoted test_* tokens (#3466)
+
+scripts/check_deliberate_break.py
+COMMIT 40c4af4efe8748104d217536d7f91d87df151566 fix(sync): continue partial checklist progress on unchanged heads (#3582)
+
+scripts/runner_lib/core.py
+COMMIT b633970db5a7409387c5a49ede37b3fff257c9ab fix(sync): keep runner progress returns mypy-compatible (#3581)
+
+scripts/runner_lib/core.py
+COMMIT 674a92fdcca6643dd978c1fb9b88abb86a92e405 fix: count checklist progress in keepalive debounce (#3449)
+
+scripts/runner_lib/core.py
+COMMIT b9af0b5e7a4e87b5a82f68381201951bff8558ff Fix template sync path validation before mutation (#3573)
+
+scripts/sync_templates.sh
+scripts/validate_template_sync.py
+COMMIT fcfab45c20890f2ae5cc02822c9c4bc73830014d fix: contain forced consumer test cleanup (#3570)
+
+scripts/run_consumer_repo_tests.py
+COMMIT f8ed5675484dea0d58d10282b9681db3655f27d4 Reject non-finite coverage and CI metric inputs (#3428)
+
+scripts/ci_coverage_delta.py
+scripts/ci_metrics.py
+COMMIT 8d1cc9143ca6f4ace0c2da25c783a16cdb7a9a89 fix: bootstrap consumer priority labels (#3564)
+
+scripts/bootstrap_consumer_settings.py
+COMMIT b4529ca14b2c61603f5edc674827a46bbbe1caed fix(repo-review): guard self-review sync provenance (#3554)
+
+scripts/repo_review_round1_runner.py
+COMMIT f0fcb0c8c3eae57fb67e8c05d1a45887f1864f34 fix: restore belt ready queue selection (#3552)
+
+scripts/cleanup_labels.py
+COMMIT 0165a52124a0bc465e078b95de5f22bedc29da5c fix(runner): query full-width issue comment IDs alone (#3551)
+
+scripts/runner_lib/core.py
+COMMIT e0c4b8d7e61c520fd2439bc513b3ad23e139ec42 fix(sync): restore deliberate-break Ruff lint in consumers (#3548)
+
+scripts/check_deliberate_break.py
+COMMIT d27a78e0fa49c8b566bc58061e10c48c196377b1 Bind GraphQL Actions bot identity to Bot typename (#3543)
+
+scripts/runner_lib/core.py
+COMMIT b31ea84f84dc5390fba298bce5b4f055876aec32 fix(contracts): redact standalone evidence errors and scale duplicate checks (#3542)
+
+scripts/validate_run_contract.py
+COMMIT 342564948ad14fd6fce0ff13536ab7a0ed77831d fix(gate): retire obsolete spoofable assertion exception (#3540)
+
+scripts/check_deliberate_break.py
+COMMIT c7f0544654613d9fa8f92f6d3f84a16eeff325e1 fix(runner): preserve full-width comment IDs in authority cursor (#3536)
+
+scripts/runner_lib/core.py
+COMMIT 37a83f28367428cabd2820fc3d0331d62cc9d26c fix(sync): co-deliver packaged evidence schemas to owning consumers (#3529)
+
+scripts/check_consumer_sync_drift.py
+scripts/generate_consumer_renovate_ownership.py
+scripts/select_consumer_sync_phase.py
+scripts/sync_manifest_compiler.py
+COMMIT d6f3cc4ee898f895a5c6cbe770d18deb6dc6049b feat(backplane): enforce Inv-Man emitted evidence closure in canonical gate (#3526)
+
+scripts/validate_backplane_registry.py
+scripts/validate_run_contract.py
+COMMIT febf4119d26a0efad22e115081963bec598e0fa5 fix(belt): require completion evidence for ledger tasks (#3391)
+
+scripts/audit_belt_ledger_completion.py
+scripts/belt_ledger_completion.py
+scripts/ledger_validate.py
+COMMIT 231aa6423cc78553725778cf7e1c8a42925710cb fix(sync): restore consumer mypy compatibility
+
+scripts/check_deliberate_break.py
+scripts/runner_lib/core.py
+COMMIT 6914f65c533cd6d0ceac70f73098181a92997c71 fix(dev-sync): fail closed for legacy package metadata
+
+scripts/sync_dev_dependencies.py
+COMMIT fc14bebabdcc37261e42c6dcbed3c69702073ddb fix(dev-sync): preserve tool-only pyproject consumers
+
+scripts/sync_dev_dependencies.py
+COMMIT c9c47cc51093649f54d921c8a97b9722058cb065 Merge pull request #3481 from stranske/codex/sync-completion-receipts-20260920
+COMMIT fd61c2d78311875b39f825438907079547551a39 fix(embeddings): align injected client blank positions
+
+scripts/langchain/semantic_matcher.py
+COMMIT 835be45673362752bcba324dfc63d822279c5955 fix(embeddings): preserve semantic matcher input positions
+
+scripts/langchain/semantic_matcher.py
+COMMIT e528fb621f558d956bdaeda2560bb6e277bef76c Merge pull request #3473 from stranske/codex/sync-normalization-20260919
+COMMIT 8c0f90400d44d706e1061287fdca48fd7946a347 fix(verifier): preserve confidence threshold precision
+
+scripts/langchain/followup_issue_generator.py
+COMMIT 75d7d762971c04ab51011d8d6a9fb21ee39bdf5c feat(contracts): define document identity for evidence objects (#3506)
+
+scripts/validate_run_contract.py
+COMMIT 0c2c5e3881e062501c5202e9e59da773d8e880a6 fix(deliberate-break): one-for-one assertion replacement and PR-body source (#3502)
+
+scripts/check_deliberate_break.py
+COMMIT dad32e3245f6b62c69f8ad840595e612dfa43b01 fix(sync): carry contract schemas with validator deliveries (#3487)
+
+scripts/validate_run_contract.py
+COMMIT 18b41459aee43acf526d7b9ff526e5f7e46c6c22 fix(sync): guard stable delta rotations from dropped payloads (#3488)
+
+scripts/guard_stable_plan_rotation.py
+COMMIT c1e00bcc34b60e2c08626c02be750cb98762f0f2 fix(sync): isolate named deliberate-break pytest options (#3478)
+
+scripts/check_deliberate_break.py
+COMMIT 048c5ffdacc5144af7e042c436161d026a36cb2f fix(runner): preserve authority storage narrowing (#3500)
+
+scripts/runner_lib/core.py
+COMMIT 8b6401c73c373f30bc56aeaeb4af214b9617ef4d fix(keepalive): close authority challenge review gaps (#3497)
+
+scripts/runner_lib/core.py
+COMMIT d66cb0d1d6d5acae31966d13333b0552f4321f60 fix(verifier): clamp normalized confidence ceiling
+
+scripts/langchain/verdict_policy.py
+COMMIT 85341d195c566659e52bb76150e0f92f6a307f87 fix(verifier): clamp explicit percentage bounds
+
+scripts/langchain/verdict_policy.py
+COMMIT 69776c4ab1a18b50e44f0b08d894fadeb90a84b8 fix(verifier): preserve shared percent units
+
+scripts/langchain/followup_issue_generator.py
+scripts/langchain/verdict_policy.py
+COMMIT cee229bcb071b958662ae490fbb63f0a6237f28c fix(verifier): retain percentage units in policy input
+
+scripts/langchain/followup_issue_generator.py
+COMMIT 79c6153913695a2072a8246a5de694961883794d fix(verifier): preserve explicit percentage scale
+
+scripts/langchain/followup_issue_generator.py
+COMMIT 9b2eaa36c765dc76bb487294fce1c17d74f66492 fix(verifier): parse confidence without separator
+
+scripts/langchain/followup_issue_generator.py
+COMMIT 5d982b2443752e498b648aa04ba6e0cdb4adf03c fix(verifier): clamp parsed confidence boundaries
+
+scripts/langchain/followup_issue_generator.py
+COMMIT 41f560259046318ffffbf8d2c012d2815c4722cf fix(verifier): coerce direct confidence strings
+
+scripts/langchain/followup_issue_generator.py
+COMMIT 43c52bfd5aefe52ab079409e41c4843b45ca6b71 fix(verifier): normalize single-verdict confidence tokens
+
+scripts/langchain/followup_issue_generator.py
+COMMIT f5aa262cc735f1ac4bc3e81c1ff8a75fd70a344e fix(verifier): preserve complete confidence tokens in followups
+
+scripts/langchain/followup_issue_generator.py
+COMMIT 3b2749d8eb8a66d608ad7e0d33d53205405315a6 fix(verifier): reject nonfinite confidence values
+
+scripts/langchain/verdict_policy.py
+COMMIT 1dce77e5eb332835853b101f15e0b30752476ce6 Merge remote-tracking branch 'origin/main' into codex/sync-completion-receipts-20260920
+COMMIT 49c7e9e4c82e08555116975804e604782a3fdc29 style(runner): format GraphQL endpoint coverage
+
+scripts/state_fingerprint.py
+COMMIT f8f6111de909b8bd94fb44efdc0a639142e90d50 fix(runner): use dedicated GraphQL endpoint on GHES
+
+scripts/state_fingerprint.py
+COMMIT 2e03bfbc33f972b2505fab86589fcb3be9a6bc3d Prevent replay of signed keepalive authority challenges (#3489)
+
+scripts/runner_lib/core.py
+COMMIT fb2a8fc914fabc3608478d0192332893668f5f93 fix(sync): address canary review findings in source (#3486)
+
+scripts/runner_lib/core.py
+scripts/validate_run_contract.py
+COMMIT 982c39f074f8e52611ad10e471cbeda7712f0a94 Pin weekly repo-review Codex child to Astra High (#3483)
+
+scripts/repo_review_body_writer.py
+scripts/repo_review_round2_runner.py
+COMMIT 01ac60d728c6cbf0b5e34ffb8fc6f93ad26612e9 Read runner authority through stable comment cursors
+
+scripts/runner_lib/core.py
+COMMIT 0f5dea3cebe736bf3a5f8d92dff9ea205f3b89bd Match only marked completion receipts on retry
+
+scripts/runner_lib/core.py
+COMMIT 7e50335340f7108fad418e9fdf956f45b8e0a0ea Recover ambiguous reservations and bound receipt reads
+
+scripts/runner_lib/core.py
+COMMIT 4d5e9b1eb097c2dd5ed666b93845759712043405 fix(runner): isolate completion writes with reservation receipts
+
+scripts/runner_lib/core.py
+COMMIT 2a09ba145b9f0439e96c9e8417ef8c409222776b fix(keepalive): reserve signed challenge attempts before dispatch (#3477)
+
+scripts/runner_lib/core.py
+COMMIT 4c49e654e7127310812983aed415e5a1e432638b fix(runner): propagate denied repository-variable writes (#3476)
+
+scripts/runner_lib/core.py
+COMMIT 6e00279d2ab8e7f1a600b32647a7d86d86c5e777 fix(scripts): map the `docx` import to python-docx in the shared dependency checker (#3462)
+
+scripts/sync_test_dependencies.py
+COMMIT 190eafedb0d2174f427211d8679cd02d399605ac fix(runner): require authoritative reservations before dispatch (#3470)
+
+scripts/runner_lib/core.py
+COMMIT f68bad8067f2bd13bd147ff649f139878fcab9d4 feat(contracts): add document mirror catalogs and validation (#3373)
+
+scripts/validate_run_contract.py
+COMMIT c9994cc9720631f1fa9bb597e9c7f7ad40ef0c1d feat(contracts): define output substrate and validate consumer ingest (#3468)
+
+scripts/validate_run_contract.py
+COMMIT 1699ca1b427d2bea401c4b9fa7344be5975c95a8 feat(contracts): add mosaic-core records and manifest kinds (#3467)
+
+scripts/validate_run_contract.py
+COMMIT a8335dc29ebc7798fe67649f3136b5d07e11a182 fix(scripts): correct unquoted test-name boundary in deliberate-break parser (#3348)
+
+scripts/check_deliberate_break.py
+COMMIT 5ef1f72907e90b6a838a10b68ac047455ebd3914 fix(gate): install the project before the deliberate-break check (#3464)
+
+scripts/check_deliberate_break.py
+COMMIT b0e1045e8cf13f6bf9223ce773ee45203fc8d026 Merge pull request #3452 from stranske/codex/runner-reservation-ownership-20260914
+COMMIT b4e9756d96508df4fb9ee60f347e6552cf68d941 fix(contracts): discover every bundled schema in self-smoke and map capability-bundle/v1
+
+scripts/validate_run_contract.py
+COMMIT b08a3b2ea1864d4ba797f92cd0751c11570204ba fix: resolve CI failures
+
+scripts/check_deliberate_break.py
+COMMIT 7b9d5e54414babbbee1991906fd8c43fa4281367 fix(dedup): handle non-finite similarity scores (#3453)
+
+scripts/langchain/issue_dedup.py
+COMMIT 98abc71a5dc72887fe02352a871c9b8beebcd51e fix(runner): log safe completion storage diagnostics
+
+scripts/runner_lib/core.py
+COMMIT 42c2080e7ed93911b562b3e08ee1c677cd139e01 fix(runner): require authoritative completion storage
+
+scripts/runner_lib/core.py
+COMMIT 60fc90ca32dae25fb9be96c67a7ed7813211ae88 fix(runner): retain productive head-change completion contract
+
+scripts/runner_lib/core.py
+COMMIT 71dd8196dac92742ca77e2b5fd35218e90318a1e fix(runner): fence stale completions and retain retry state
+
+scripts/runner_lib/core.py
+COMMIT 42eee1e319331957dc5369a6ec537984c35ce1c7 fix(runner): narrow optional completion state for consumer mypy
+
+scripts/runner_lib/core.py
+COMMIT a5908e2624eefd374d7582bbd600186a51ab54fe fix(keepalive): expire the unproductive retry allowance into a cooldown, not a latch (#3440)
+
+scripts/runner_lib/__init__.py
+scripts/runner_lib/core.py
+COMMIT f65449d1d1b0074bb169792f30680fd47073762c fix(keepalive): stop the dispatch debounce latching on a zero-output run (#3436)
+
+scripts/runner_lib/__init__.py
+scripts/runner_lib/core.py
+COMMIT a6420f2fd6bd19141cf68a0e824686f8c9ec8ca5 fix(repo-review): refresh inputs during head restart
+
+scripts/repo_review_coordinator.py
+COMMIT 4b7ae30a5ee6bd8ccbc22b4f7c9ff1f9678ed239 fix(repo-review): restart repo analysis on head drift
+
+scripts/repo_review_coordinator.py
+COMMIT 608b91e5781a0acacf1ecc0312299fa6e99b29dc fix(repo-review): fail closed on incomplete docs drift (#3395)
+
+scripts/repo_review_coordinator.py
+scripts/repo_review_docs_drift_scan.py
+COMMIT ee5a12cdd41ce9074b03a09aeb7d5a38328b8096 feat(contracts): add tracked-variable schema and offline validation (#3383)
+
+scripts/validate_run_contract.py
+COMMIT 6ff8167458e2bb7aa4d7fdb6f5ee776b8afbdda6 Defer repo-review work across provider resets (#3381)
+
+scripts/repo_review_coordinator.py
+scripts/repo_review_round2_runner.py
+COMMIT b06c6d16c3162a624c179a4c4f2080ec3c14876e Complete Astra high-reasoning worker rollout (#3379)
+
+scripts/model_profile_trial_contract.py
+COMMIT 7b81e806816bc397ddff04cfa38c2f1a790a09b8 fix(repo-review): track artifact progress in heartbeats (#3360)
+
+scripts/repo_review_body_writer.py
+scripts/repo_review_heartbeat.py
+scripts/repo_review_round1_runner.py
+scripts/repo_review_round2_runner.py
+COMMIT 5eddcaf840560b788d56800984b470436f1da1a3 fix(repo-review): fail closed on exhausted repairs (#3357)
+
+scripts/repo_review_body_writer.py
+scripts/repo_review_coordinator.py
+COMMIT 760bd824251e6d292f8d9fe38a2a5e8c988dde53 Bind round-one findings to reviewed commits (#3356)
+
+scripts/repo_review_round1_runner.py
+COMMIT 74e0a3b6544962e782e9cfffff3683b55219b223 Fix weekly repo-review failures with repair loops (#3345)
+
+scripts/repo_review_body_writer.py
+scripts/repo_review_coordinator.py
+scripts/repo_review_evaluator.py
+scripts/repo_review_round1_runner.py
+scripts/repo_review_round2_runner.py
+COMMIT 94196ca22043b63c1255540b1aa1b9486211a0e3 fix(metrics): reject overflowing and partial token samples (#3312)
+
+scripts/metrics_alerting.py
+COMMIT 7c10e6835f927971d89163e4b85f14429daddd44 fix(metrics): harden dashboard parsing with complete branch coverage (#3317)
+
+scripts/metrics_dashboard_generator.py
+COMMIT ec6e724b9108e562a9d043123f6279386b51f3dc fix(metrics): keep issue-pattern corpus counts trustworthy (#3314)
+
+scripts/issue_pattern_corpus.py
+COMMIT c106b57690ab89d4b353dd32f2d254aed9d382e6 fix(issue-bridge): prevent empty-diff bootstrap poison-pill loop (#3295)
+
+scripts/check_deliberate_break.py
+COMMIT 4fde8af828aeae519114f211864ab947213c55b5 fix: harden issue auto-label matching
+
+scripts/langchain/label_matcher.py
+COMMIT 076810479b5d3cf75ba8faf1920d135004f9ece1 fix(health): monitor consumer metrics trackers (#3276)
+
+scripts/check_durable_tracker_liveness.py
+COMMIT 5ba391025f8dfb9873cc417a62461f0cf807d8b6 fix(health): bound required-step liveness probes (#3256)
+
+scripts/check_durable_tracker_liveness.py
+COMMIT c8459fd1b595f9593755dd62d94bd559317e1020 fix(sync): give each pair the review date its own rationale records (#3250)
+
+scripts/check_template_drift.py
+COMMIT 6f7f74561eb676abacbb47639da8c989f745c96e fix(health): measure whether Health 68 COMPARED, not whether it concluded (#3247)
+
+scripts/check_durable_tracker_liveness.py
+COMMIT a377fd30ac155cc18978829064ed5b09aa11c34d fix(sync): treat importable test modules as local (#3239)
+
+scripts/sync_test_dependencies.py
+COMMIT 454fc6f78d2b06cc14530c2e219e906b52ea62a5 fix(sync): regularize default branch as main
+
+scripts/repo_review_body_writer.py
+scripts/repo_review_round1_runner.py
+COMMIT bae4fd166e7d3abed15ebb3543dc6bfcb2bb3c18 fix(health): register recurring evidence trackers (#3221)
+
+scripts/check_durable_tracker_liveness.py
+COMMIT fa0ba785988e4a5ee9a25e8dfb8e259626a6aca9 fix(runner): write the worker-attempt artifact outside the checkout (#3210)
+
+scripts/sync_status_file_ignores.py
+COMMIT 498c50c46602f853ad7aa6cd6caaefb359a4d80f chore(auto): bootstrap issue #3204 (#3205)
+
+scripts/check_deliberate_break.py
+COMMIT f592f24cc5c64c188ee97b6bf2ccf4166bbda55f fix(tracker-liveness): retry the probe, and name the hold it finds (#3208)
+
+scripts/check_durable_tracker_liveness.py
+COMMIT 08b1c35312a5cb5f0d3041bf0100614316b133e5 fix(sync): make sync rationale checks self-validating
+
+scripts/check_template_drift.py
+scripts/cleanup_labels.py
+scripts/langsmith_fleet.py
+scripts/validate_template_completeness.py
+COMMIT 9f044aa08096e975e4602e40f79bf0bb3d7e64a2 fix(sync): cover every shared workflow drift pair (#3194)
+
+scripts/check_template_drift.py
+COMMIT 14788576927db916bf9b3e21bfd6b718837db2cc fix(liveness): make the sweep importable when run by file path (#3199)
+
+scripts/workflow_startup_failure_diagnostic.py
+COMMIT 72a74ec63c8d90f5cb5267189c6991207ea40a17 fix(health): restore Health 68 execution and assert durable-tracker liveness (#3189)
+
+scripts/check_durable_tracker_liveness.py
+COMMIT 3c3104a5d54b285ad434bb7c60b668bafa8a5bfe feat(liveness): auto-review each hold, run daily, and survive the API (#3196)
+
+scripts/workflow_startup_failure_diagnostic.py
+COMMIT 35267fb6c0c487f3ce8631c0c2c1eeaa3013ef10 fix(sync): fail closed on missing manifest sources (#3193)
+
+scripts/sync_manifest_compiler.py
+COMMIT 5ed34a53982d4bb5f222dcca7dca089289894836 fix(sync): report unmeasured create-only positions (#3190)
+
+scripts/check_consumer_sync_drift.py
+COMMIT 43528a9f1ea30fe720a942c9cfd3c36a30f939b0 fix(liveness): judge holds by the newest run, not the held share (#3188)
+
+scripts/workflow_startup_failure_diagnostic.py
+COMMIT cb2c01f2ffad538690d10adb2630641f42954a47 feat(health-40): assert workflow liveness from run history (#3184)
+
+scripts/workflow_startup_failure_diagnostic.py
+COMMIT ebf666f28cf9196074640203e1f8d0978189f0ad fix(docs-drift): scope consumer config locally (#3178)
+
+scripts/docs_drift_fix_agent.py
+COMMIT fb30d4f7adf507d5cac0ad352591a6f8cc4f3868 fix(docs-drift): honor Trend agents filename casing
+
+scripts/check_docs_drift.py
+COMMIT 451b60904e096f60551e911c9758af2df0d39442 fix(sync): typecheck manifest docs helpers (#3176)
+
+scripts/check_docs_drift.py
+scripts/sync_status_file_ignores.py
+COMMIT 07850bbc638d3e294492f824586da2ce3315c8c4 fix(labels): restore common feature verb aliases (#3175)
+
+scripts/langchain/label_matcher.py
+COMMIT 5c87b72130df903db5aaa381371dfb61097aba68 fix(agents): migrate capability check off check_capability alias (#3173)
+
+scripts/langchain/capability_check.py
+COMMIT 607f2ab4cd03dd4bd87d2ec149e4063e30cc9330 fix(sync): specialize drift repair by consumer (#3168)
+
+scripts/docs_drift_fix_agent.py
+scripts/scope_consumer_sync_plan.py
+scripts/sync_status_file_ignores.py
+COMMIT f49a6942b81ab8bcd979f04d45aa44616a5e47cf fix(sync): close docs drift review cluster (#3167)
+
+scripts/docs_drift_fix_agent.py
+scripts/sync_status_file_ignores.py
+COMMIT 21924937d717f8237c591a5b6e801c017e59dae3 fix(docs): enforce drift repair evidence (#3166)
+
+scripts/docs_drift_fix_agent.py
+COMMIT 269939b52f40447bbaebd3afad2efee6c8fca88d fix(sync): preserve immutable Maint 71 handoff bindings
+
+scripts/docs_drift_fix_agent.py
+COMMIT 8774b59804077da80671d212e2de714e21799586 fix(labels): restore document documentation alias (#3162)
+
+scripts/langchain/label_matcher.py
+COMMIT e3ca998530ace13c456dc65a0171cd352bf4854a fix(langchain): complete label and review contracts (#3160)
+
+scripts/langchain/label_matcher.py
+scripts/langchain/progress_reviewer.py
+COMMIT e704e161f8d67ede1e62a026c6905f7ff63c1de4 feat(consumers): register stranske/Orchestrator, protect its agent rules, fix routing-label drift
+
+scripts/langsmith_fleet.py
+COMMIT 1aedb2f5cbf2e06cef641638a3f30c9bd2927350 fix(docs): preserve consumer repair boundaries
+
+scripts/docs_drift_fix_agent.py
+COMMIT 003dc611c4fbb1e78a2310d23e014e42cfbde07c chore(autofix): formatting/lint
+
+scripts/docs_drift_fix_agent.py
+COMMIT f5f96ee33408e298480ca38a67acd589f57435bf fix(docs): support consumer drift planning
+
+scripts/check_docs_drift.py
+scripts/docs_drift_fix_agent.py
+COMMIT 803bc8b5ee95442f732c2b92a192780fcfd0d949 feat(sync): deliver managed .gitignore block via maint-68 consumer sync (#3151)
+
+scripts/sync_status_file_ignores.py
+COMMIT 3e9528cdbaa4379348ec4458032091d20aa13474 feat(sync): deliver the managed .gitignore block to consumer repos (#3148)
+
+scripts/sync_status_file_ignores.py
+COMMIT cde98936ddf911c7142edd1423ae4ba5b72bfd27 chore: ignore root node_modules in the consumer template (#3145)
+
+scripts/sync_status_file_ignores.py
+COMMIT fa30c6c1a6270f42e8b06ea82d0954af206de57c chore(sync): consolidate retired consumer cleanup
+
+scripts/sync_test_dependencies.py
+COMMIT e09fbb4db47d187e27dbfc5dc14269e1978bc80f fix(sync): keep label docs consumer-specific
+
+scripts/sync_label_docs.py
+COMMIT caf292d5d2af6c9ec904706e62bf030528d3c20e test(sync): validate consumer-specific workflow targets
+
+scripts/validate_template_completeness.py
+COMMIT bdb7f2e790947015334a7a8502683969bb4b4254 fix(maint-87): address generated review findings (#3146)
+
+scripts/check_docs_drift.py
+scripts/docs_drift_fix_agent.py
+COMMIT d7824f369e19b153cc064d3fb542ef64e9c83911 fix(sync): keep retired Trend packages removed (#3144)
+
+scripts/sync_test_dependencies.py
+COMMIT 0eacef4602b2139e8b76b8ea43d893d907b3aa3c fix(sync): honor upstream AGENTS source sections (#3143)
+
+scripts/check_docs_drift.py
+COMMIT 593951e1365c6483aab4665f2a1fb628e5cd6b7f fix(sync): make docs drift checks consumer-safe (#3142)
+
+scripts/check_docs_drift.py
+scripts/docs_drift_fix_agent.py
+COMMIT e5cad91706d4c9336f465234108d00e216dfc831 fix(maint-87): close post-push review gaps
+
+scripts/check_docs_drift.py
+scripts/docs_drift_fix_agent.py
+COMMIT 6266d3cf0e5fbc5c5318f94c41c020800d5f52e4 fix(maint-87): address docs drift review findings
+
+scripts/docs_drift_fix_agent.py
+COMMIT c2e1007a7513199e329c4b80e0ccf3e98fccfe69 fix(sync): seal fleet delivery before merging (#3120)
+
+scripts/scope_consumer_sync_plan.py
+scripts/sync_manifest_compiler.py
+COMMIT 8b3ef5f5c9635307fec47d581a82f2b78ea237bc fix(sync): carry delivery contract with path classifier (#3117)
+
+scripts/scope_consumer_sync_plan.py
+COMMIT 4e54ac242a03efca48eacdbafacdf2d5f0fb7eec fix(langsmith): validate pause health metadata
+
+scripts/langsmith_observability_health.py
+COMMIT 5f1977283825f08131fd46ff61f90404f82fd654 fix(langsmith): close observability security findings
+
+scripts/langsmith_observability_health.py
+COMMIT b8710daa7b06eaa19eda6dc909f3da9781e9c176 fix(langsmith): harden observability sentinel
+
+scripts/langsmith_fleet.py
+scripts/langsmith_observability_health.py
+COMMIT bf7cd4faf3f1f57b179f093074cf2f5f7d5987b6 feat(langsmith): add observable pause and freshness protocol
+
+scripts/langsmith_fleet.py
+scripts/langsmith_observability_health.py
+COMMIT b5b40e5225e0b5b28bbc76f1490a1e61c58ef97b fix: model LangSmith fleet evidence states (#3098)
+
+scripts/langsmith_fleet.py
+scripts/langsmith_fleet_conformance.py
+scripts/metrics_dashboard_generator.py
+COMMIT 4a0bf7757a876a9c162a4f8f0fa9d31a518f6be8 fix(sync): isolate delivery scope and measure convergence (#3086)
+
+scripts/dependency_sync_efficiency_metrics.py
+scripts/scope_consumer_sync_plan.py
+COMMIT 26f9bb909b47d7d83d93d9f72fa984a7cbe8c3ac Fix shared agent-tooling contracts (#3060)
+
+scripts/langchain/label_matcher.py
+scripts/langchain/structured_output.py
+scripts/langchain/verifier_config.py
+COMMIT 017688fc075807b55056557749de688a8f9bcc4f fix(sync): make delivery and consumer gates truthful (#3084)
+
+scripts/sync_dev_dependencies.py
+COMMIT 5befd18432bc6691592876c0981e82476436e597 feat(runtime): report consumer sync shadow state (#3074)
+
+scripts/orchestrator_runtime/completion_event_adapter.py
+scripts/orchestrator_runtime/consumer_sync_report.py
+COMMIT 60a0826ffbf0d3b600bc92d700c383199944b8fd fix(sync): recover terminal keepalive stops (#3072)
+
+scripts/sync_dev_dependencies.py
+COMMIT bae175aff54d60a96e7a7668636ac044df084e78 fix(sync): address canary review findings (#3070)
+
+scripts/sync_dev_dependencies.py
+COMMIT eec418055a5f74ca32263f0248c26373133711d7 fix: sync managed pre-commit tool pins (#3050)
+
+scripts/sync_dev_dependencies.py
+COMMIT 508dedfb5934519302a6320b06e1b0012d802ebc feat: record typed completion evidence for shadow sync (#3056)
+
+scripts/completion_evidence_adapter.py
+scripts/orchestrator_runtime/__init__.py
+scripts/orchestrator_runtime/capabilities.py
+scripts/orchestrator_runtime/capability_lifecycle.py
+scripts/orchestrator_runtime/completion_event_adapter.py
+scripts/orchestrator_runtime/evidence_schema.py
+scripts/orchestrator_runtime/runner_effect_bridge.py
+COMMIT 61ade7f7d0a87294dec94e419fbe25ac722f05d6 fix(sync): close delivery review regressions (#3054)
+
+scripts/langchain/issue_formatter.py
+COMMIT 5e4e6279db17f63aeac1185383989669b55f8ce8 fix(sync): converge delivery in stable reviewed PRs (#3049)
+
+scripts/check_consumer_sync_drift.py
+COMMIT 9a03648c002b139e338e2c838810720ecc5b3556 fix(issue-format): validate consumer path context
+
+scripts/langchain/issue_formatter.py
+COMMIT 1054a6f4bbef5ddb5e9a1f340224380fb2a00043 fix(issue-format): close validation gaps
+
+scripts/langchain/issue_formatter.py
+COMMIT a36357f17aa504c2f55da005033115c5d7bf4989 fix(sync): harden candidate branch inputs
+
+scripts/check_consumer_sync_drift.py
+COMMIT 2712b026f50a2568277c9d346a4b7e57ecd638cb fix(sync): enforce canary promotion boundary
+
+scripts/check_consumer_sync_drift.py
+scripts/select_consumer_sync_phase.py
+COMMIT 73a3ab13e5196952abc2638c46bd1c155a3d5309 fix(tasks): preserve slash-separated subjective prose (#3038)
+
+scripts/langchain/task_validator.py
+COMMIT 8e716a46aa72b98784dcad7a29fb9d2b9c3e9706 fix(agents): address corrected sync review debt (#3033)
+
+scripts/langchain/issue_formatter.py
+COMMIT 659e0d80b7054649cb92b85e4895bec556e69ae2 fix(agents): address sync review debt (#3024)
+
+scripts/langchain/issue_formatter.py
+COMMIT 5b8018cda049ee90ad1993b7097d8bbf6c112224 fix(agents): address sync review debt (#3022)
+
+scripts/check_deliberate_break.py
+scripts/langchain/issue_formatter.py
+scripts/langchain/task_validator.py
+COMMIT e6b4733f0acad6f95d4ffc5fed73cd9ce1e1440b fix(agents): surface formatter errors in sync consumers (#3019)
+
+scripts/langchain/issue_formatter.py
+COMMIT 9a1d71eda49c14739effa19bfe647bb979e96905 fix(agents): align formatter and deliberate-break parsing (#3014)
+
+scripts/check_deliberate_break.py
+scripts/langchain/issue_formatter.py
+COMMIT d396cd06d798853100448bc17ceb3a13bce95344 fix(agents): preserve formatter refinement diagnostics (#3012)
+
+scripts/langchain/issue_formatter.py
+COMMIT d77080c2fd3032e4613725b0f94cc955607fe42a fix(labels): sync core labels with a cross-repo token and fail the job on write errors (#3011)
+
+scripts/check_deliberate_break.py
+COMMIT 7a1347e52a420b86ba31940112802701df064f4a fix(agents): classify conventional local PR branches (#3008)
+
+scripts/langchain/issue_formatter.py
+COMMIT 4b20bd38a52f9a78b8b632cbdaf2d16b11ff1a20 fix(agents): address sync review debt (#3005)
+
+scripts/langchain/issue_formatter.py
+COMMIT 102f1fb3f1a95bab7891ab7a1cdc6fc64d411b00 fix(issues): harden formatter contract handling (#3004)
+
+scripts/langchain/issue_formatter.py
+COMMIT 6e7289a2ef27c688196902139465340d80eaf23c fix(issues): enforce formatter acceptance validation (#2999)
+
+scripts/langchain/issue_formatter.py
+COMMIT 7258187c571182328876f68ab86940b60bc45863 fix: restore agent rail startup recovery (#2957)
+
+scripts/workflow_startup_failure_diagnostic.py
+COMMIT ecda8dd48e776e547216a9fa927e8ebd0e4dbafb fix: harden release and verifier automation (#2955)
+
+scripts/check_issue_consistency.py
+scripts/langchain/pr_verifier.py
+COMMIT e46735ebef7bd98f91ddab2bfe7168580e790e10 fix: accept newer PyYAML prereleases safely (#2953)
+
+scripts/check_deliberate_break.py
+COMMIT 65dd1de0e2da68ad2cb0d788b9fec27108230a39 fix: harden probes and verifier content (#2951)
+
+scripts/check_deliberate_break.py
+scripts/langchain/pr_verifier.py
+COMMIT 3830a5457698c10845f2a70308701961158f26d4 docs: clarify PyYAML compatibility floor
+
+scripts/check_deliberate_break.py
+COMMIT 669d1dadfc3f0c82b3074bba47ad94fb19d60b38 fix: separate launcher probe typing
+
+scripts/check_deliberate_break.py
+COMMIT 290a99d96d253c4154ba28da846c5e1edd6c9a99 fix: distinguish tamper timeouts and pytest launchers
+
+scripts/check_deliberate_break.py
+COMMIT 0a5a3e7fbe5dad6a8eb55214d68ebbb5805fa5b8 Merge branch 'main' into codex/checker-oserror
+COMMIT 3ebffdd78248b84b505816ba37a8981768e36db6 fix(gate): handle tamper OS failures
+
+scripts/check_deliberate_break.py
+COMMIT a403abb95a94b20b349cfa86c6eaf346969fa0f5 fix(gate): accept PyYAML post releases
+
+scripts/check_deliberate_break.py
+COMMIT 0b61c07ecc3b3770269c6d487b095e1850fae2b0 fix: remove checker packaging dependency
+
+scripts/check_deliberate_break.py
+COMMIT 019b17b29fb16b52ee289951ff1e0eed32db7026 fix: defer PyYAML repair until needed
+
+scripts/check_deliberate_break.py
+COMMIT 3b3c951b30b1f401a3ecd14b5670fc76b88d11de fix(gate): align PyYAML runtime checks
+
+scripts/check_deliberate_break.py
+COMMIT 3c22c3ec022e002253ffdd817b713de010290a31 fix(verifier): preserve ordinary coercion fallback
+
+scripts/langchain/pr_verifier.py
+COMMIT 5d56c56c367c31eeb00ca4b2dfe5836ecaebb357 fix(verifier): narrow response coercion errors
+
+scripts/langchain/pr_verifier.py
+COMMIT 8aa618f4993fbb4bf2cfe119d2317e458a908376 docs(gate): clarify managed pytest runtime
+
+scripts/check_deliberate_break.py
+COMMIT aeb1a93f6b75d18e8b8021ffe1cd66472a52e0b9 docs(gate): describe runtime dependency preflight
+
+scripts/check_deliberate_break.py
+COMMIT 1bfdebae5d5f123fcf3c4fc22d641c214d1e112d fix(gate): serialize archive command failures
+
+scripts/check_deliberate_break.py
+COMMIT 15fcd38bbb8619f0a5c6faf8a62073b8a7ccc556 fix(gate): isolate flagged runtime dependency checks
+
+scripts/check_deliberate_break.py
+COMMIT 8103655913495ca0e47029bb75555b5dd1d9120d test(gate): preserve lowercase user-site flag
+
+scripts/check_deliberate_break.py
+COMMIT 6966daad038861e7110655b07ae9f2a01e28a124 fix(gate): avoid repairing site-disabled Python
+
+scripts/check_deliberate_break.py
+COMMIT 0d34a5ef90e19724bc9bedea0fcf46717bcdd970 fix(gate): require yaml probe success sentinel
+
+scripts/check_deliberate_break.py
+COMMIT 5a4238caadb44c8c3a03835ede20d089bafc1548 chore(autofix): formatting/lint
+
+scripts/check_deliberate_break.py
+COMMIT 7565dfe21caed1cf7f0a21d38f380e9c9f4707d9 fix(gate): omit interactive -i from PyYAML probes
+
+scripts/check_deliberate_break.py
+COMMIT 75b02aa092b240f5014b598c048ce908dc9bece6 fix(gate): inspect interactive probe errors
+
+scripts/check_deliberate_break.py
+COMMIT 562bb3455ddceaa10a3a4b9cc3b62ad760bcd78d fix(gate): accept python t compatibility flag
+
+scripts/check_deliberate_break.py
+COMMIT 0a4692d0eade18dc137f407d535eb6d75758666a fix(gate): validate python hash policy
+
+scripts/check_deliberate_break.py
+COMMIT 9b55d39bd76ea41beb762fc013ba5145ba64cf03 fix(gate): reject unknown python long options
+
+scripts/check_deliberate_break.py
+COMMIT e04f5b81f2279712a920004aede504a98c83f964 fix(gate): admit minimal nested uv pytest
+
+scripts/check_deliberate_break.py
+COMMIT 152501e069aa4f6c7965415dcea768ddbeeaf564 fix(gate): support attached pytest module selectors
+
+scripts/check_deliberate_break.py
+COMMIT 250c01b52b2d423bb50dfbf0ab8e0ad3dc7bc66a fix(gate): stop at python stdin selector
+
+scripts/check_deliberate_break.py
+COMMIT dd6e8059bffa716c4375360d9cfec942a20f3bfa fix(gate): parse compact python option groups
+
+scripts/check_deliberate_break.py
+COMMIT 428b5faf9740d4cae730ac499fa4eceb7e4a6a42 fix(gate): parse compact python selectors
+
+scripts/check_deliberate_break.py
+COMMIT a36263506326326f2d0b442fd93f488117d76fa3 fix(gate): stop at compact python selectors
+
+scripts/check_deliberate_break.py
+COMMIT c91ae65e9276a47d96ef263e055fe931aca3a1fc fix(gate): parse python selector boundaries
+
+scripts/check_deliberate_break.py
+COMMIT 468265032d1d63672ddd6845bd5ea3987efec2e5 fix(gate): recognize flagged managed pytest
+
+scripts/check_deliberate_break.py
+COMMIT a2c82d44f8c402a0bc61e1fe1331cc8acd682712 fix(gate): stop at python program selector
+
+scripts/check_deliberate_break.py
+COMMIT f565934c5f2d7c5ed6c9ad9fa918b4f9871e57ba fix(gate): probe nested uv python pytest
+
+scripts/check_deliberate_break.py
+COMMIT 9cde40759eb28097061e5e8937a8a4809f6b9f7b fix(gate): handle uv pytest module mode
+
+scripts/check_deliberate_break.py
+COMMIT 1dfb886ad4a1882b96b5186184c5a4bd90ff7daa fix(gate): resolve general pytest launchers
+
+scripts/check_deliberate_break.py
+COMMIT 2ea1ba39d01e5f35379cef27fe7d910c995fc7ec fix(gate): preserve uv run options in probe
+
+scripts/check_deliberate_break.py
+COMMIT 5f944574b8902eb9df399b04157b54d0a7de836a fix(gate): preserve pytest interpreter flags
+
+scripts/check_deliberate_break.py
+COMMIT 0fc7c720a0420766cf643495e63aafce3c2b1de6 fix(gate): reject non-python pytest shims
+
+scripts/check_deliberate_break.py
+COMMIT 70d5f22e5e9d5e47f880488052a0af636b001571 fix(gate): probe pytest launcher interpreter
+
+scripts/check_deliberate_break.py
+COMMIT a024c6fbd1899da75dba332de47ad88237ba100a fix(gate): probe wrapper yaml runtime
+
+scripts/check_deliberate_break.py
+COMMIT be0c08bc1bd460e6a79c932d8c4387dbeada78ef fix(gate): require import context for yaml repair
+
+scripts/check_deliberate_break.py
+COMMIT 038d1101871053302b3711b3a32e7b92331e5d31 fix(gate): detect pytest-prefixed import failures
+
+scripts/check_deliberate_break.py
+COMMIT 12794e3dc2862cf627a40e73efa71048ab7b20ed docs(gate): clarify runtime ownership
+
+scripts/check_deliberate_break.py
+COMMIT e35a42162eea01cbdbe6d87c5811064a0c2c1a21 fix(gate): distinguish yaml test failures
+
+scripts/check_deliberate_break.py
+COMMIT 66b61060a5fb91aaf790b2bd0d48eff5af59b784 fix(gate): reject unmanaged YAML tracebacks
+
+scripts/check_deliberate_break.py
+COMMIT 57d8acf1856dce629ed4399181f5a0af76d3d00c fix(gate): bind repairs to active interpreter
+
+scripts/check_deliberate_break.py
+COMMIT 2efd2e2e70befb9f00a4b911b18048126800d511 fix(gate): reject wrapper-owned dependency repair
+
+scripts/check_deliberate_break.py
+COMMIT c9d39ec4e81c2d55c4be546392cd9a55c1d81ee3 fix(gate): normalize wrapped commands in Actions
+
+scripts/check_deliberate_break.py
+COMMIT d72163d28f1a76b1e5394d3103f7f6829eefa630 fix(gate): normalize pytest runtime before comparison
+
+scripts/check_deliberate_break.py
+COMMIT 84879ced2fae2c9b3173f4aad5c16e9b6b3bca07 fix(gate): harden runtime review fallbacks
+
+scripts/check_deliberate_break.py
+scripts/langchain/pr_verifier.py
+COMMIT b56d9d6270550f1a73c9a553e8ab5a87c9443366 fix(gate): satisfy consumer mypy
+
+scripts/check_deliberate_break.py
+COMMIT cc6ce7a55de76998217fd0959de777313ca7c876 fix(gate): mirror and distinguish command launch errors
+
+scripts/check_deliberate_break.py
+COMMIT b00f873a6e184458224d2bb8cd91359deca6e4e4 fix(gate): attribute base setup failures accurately
+
+scripts/check_deliberate_break.py
+COMMIT 767bdc702675adaa108c2cb2c0c61ba774e750a7 fix(gate): narrow PyYAML retry detection
+
+scripts/check_deliberate_break.py
+COMMIT bd20e7cbe6803b4aeb60207904b1832bcb7ecdf4 fix(gate): avoid local dependency mutation
+
+scripts/check_deliberate_break.py
+COMMIT 258f761a0f69f019aabf9d778e1f77cbfef0c258 fix(sync): harden consumer review fallbacks
+
+scripts/check_deliberate_break.py
+scripts/langchain/pr_verifier.py
+COMMIT 59a4cf8294ea5ccc58249808c5279d7a058fc445 fix(gate): install PyYAML only on demand
+
+scripts/check_deliberate_break.py
+COMMIT 5f87a7dae1cb3b0b6b311e260d19ee6560b05e1f fix(gate): force reinstall broken PyYAML
+
+scripts/check_deliberate_break.py
+COMMIT 4d0a2d4208cf6657a2e624abb0e65a3a5c739d63 fix(sync): address generated review follow-ups
+
+scripts/check_deliberate_break.py
+scripts/langchain/pr_verifier.py
+COMMIT 561bbced179fadfb7afaa2ccc74998c4e230b946 fix(sync): address generated review findings
+
+scripts/check_deliberate_break.py
+scripts/langchain/pr_verifier.py
+COMMIT 7f413be910537ef0f25a6b3aa890313149169fd8 perf(verifier): avoid copying response blocks
+
+scripts/langchain/pr_verifier.py
+COMMIT 65fdd9390a2bf8be86565751ea58806affdd707b fix(sync): repair broken PyYAML runtime installs
+
+scripts/check_deliberate_break.py
+COMMIT cf0438711ae3df143a91958187f4e909a4356eac fix(sync): clarify generated validation contracts
+
+scripts/check_deliberate_break.py
+COMMIT 76c9383ea7c4c4e7f90e7ecc17c70139640004de fix(verifier): preserve split-block whitespace
+
+scripts/langchain/pr_verifier.py
+COMMIT 9f153da8f4c11e7d34d2e59b067bbe16cbe82db2 fix(sync): address generated review findings
+
+scripts/check_deliberate_break.py
+scripts/langchain/pr_verifier.py
+COMMIT e92136d61e5d96a0e774181a317aa6c5c60f0d1c fix(sync): repair generated review and dependency drift (#2908)
+
+scripts/check_deliberate_break.py
+COMMIT 4445fd7d527e396011ac185ae7fb9b3c8ad8b47c feat(maint): batch canonical dev-tool updates (#2902)
+
+scripts/dev_tool_update_policy.py
+COMMIT 22f2393276beb6bc66823d9401adb0743cdb43b5 feat(renovate): stop consumer Renovate from editing Maint 68-owned files (#2892)
+
+scripts/check_deliberate_break.py
+scripts/dev_check.sh
+scripts/generate_consumer_renovate_ownership.py
+COMMIT 6b845c266a19508229c5bb6a6edf1f6f1aae966a fix: close the review findings that landed after their PRs merged (#2890)
+
+scripts/langchain/pr_verifier.py
+COMMIT 9c49bc63ea0319243d26df537b1c69d59f0f2839 feat(sync): publish maintenance efficiency SLOs (#2896)
+
+scripts/dependency_sync_efficiency_metrics.py
+COMMIT 18f25a9c95f1a1e09a3dc349a6b127d2e4423b9a feat(renovate): bound fleet maintenance intake (#2893)
+
+scripts/dev_check.sh
+COMMIT 40dd4e81f9cd26a6cd4c780111c3e981372d5677 feat(sync): gate fleet fan-out on consumer canaries (#2886)
+
+scripts/select_consumer_sync_phase.py
+COMMIT 2e3e5b34957b835f7af951bc5c682f7292d6abcc fix(verifier): normalize structured provider content (#2887)
+
+scripts/langchain/pr_verifier.py
+COMMIT 79db012664ec949204fb7d5080f1dab6d158b7b3 fix(sync): classify covered consumer drift (#2885)
+
+scripts/check_consumer_sync_drift.py
+COMMIT d362a6c6adcd1306de28d9b126a2d04d6faead0c fix(scripts): drop dead run_tests.sh recommendation from check_test_dependencies.sh (#2835)
+
+scripts/check_test_dependencies.sh
+COMMIT 6d8d26fca4ff26a556b56697ba2ffad1e490d6c6 Make backplane reference-run freshness warning-only + surface on a weekly cadence (#2827)
+
+scripts/validate_backplane_registry.py
+COMMIT fd64793b6dad7b5d4a9b953d7d0275a51c26ad3e Stop backplane reference-run staleness from blocking all PRs (Health/summary) (#2821)
+
+scripts/check_template_drift.py
+scripts/validate_backplane_registry.py
+COMMIT 4dd7de2c55ebae1fed4f3427043f7f2edac7ac88 fix: sync all dev dependency pin surfaces (#2790)
+
+scripts/sync_dev_dependencies.py
+COMMIT 47304edda491ca61939d8ef5977749b9d4ad9f82 fix: unblock generated maintenance waves (#2789)
+
+scripts/sync_dev_dependencies.py
+COMMIT 7452d5ab4f1c6950a1299736363912a306956997 fix: preserve consumer slot compatibility (#2781)
+
+scripts/api_client.py
+COMMIT 6e6c92979287018064fbd77d6a6a348303de653b fix: address shared sync review blockers (#2778)
+
+scripts/runner_lib/core.py
+COMMIT a7afe69fe9ee7453db209f9eca55662ccf290b42 fix: align consumer model registry contract (#2775)
+
+scripts/runner_lib/core.py
+COMMIT 7a9e289f18ca1cd6a0059545a82f4a1a8d8d652c feat(llm): add evidence-gated model evaluation pipeline (#2710)
+
+scripts/api_client.py
+COMMIT 5aa070b65cbdab6a1ab80554e35d7dac9206239e feat: publish bounded consumer-sync shadow evidence (#2757)
+
+scripts/build_consumer_sync_shadow_handoff.py
+COMMIT d1b3994f88c9526175794d4b5ec1f7baf1db9aa0 feat: compile consumer sync into one typed normalized plan (#2756)
+
+scripts/check_consumer_sync_drift.py
+scripts/sync_manifest_compiler.py
+scripts/validate_template_sync.py
+COMMIT b6c232420d6d0e257e2e6ada86c50de041762ca8 feat: add typed capability effect evidence to agent runners (#2755)
+
+scripts/runner_lib/__init__.py
+scripts/runner_lib/core.py
+COMMIT d20414f12434e5ebb9f44df9f6058b3697a18d10 Format hardened trial contract
+
+scripts/model_profile_trial_contract.py
+COMMIT 822e323eefba3edb640e0bd9c922caec6fffee65 Harden immutable model profile trial boundary
+
+scripts/model_profile_trial_contract.py
+COMMIT 49cc9b470ab71a8dad9f16bbabd54019bfae3e3a Fix trial contract lint
+
+scripts/model_profile_trial_contract.py
+COMMIT 292eb205b84edba2b081f57a9b130370036565ff Satisfy trial runner docs and formatting guards
+
+scripts/model_profile_trial_contract.py
+COMMIT 42f63468e18f470dd1c5516237b2c5b5def284e1 Wire pinned Sol Terra Luna trial dispatch
+
+scripts/validate_template_completeness.py
+scripts/validate_workflow_yaml.py
+COMMIT 9a76665fa59afbbd0464259f91371d5704e44b1b Add immutable read-only model profile trial runner
+
+scripts/model_profile_trial_contract.py
+COMMIT dcefc3cca1f3cc75e0c2b1a1d1f0029b575c5ae6 Record backplane registry evidence
+
+scripts/validate_backplane_registry.py
+COMMIT 87a55876636848594aabcc541dc49b1ff5e3d80f fix: pin consumer LLM workflow installs (#2730)
+
+scripts/check_test_dependencies.sh
+scripts/generate_llm_workflow_update_comment.py
+COMMIT ff79b33c02414d7dafcfb7b519d07dbdc1d6dabe fix: repair shared sync gate failures (#2722)
+
+scripts/autopilot_step_timer.py
+COMMIT 16ac01dfd210dccc576820e0b2d3cfb75469abb0 test: cover label cleanup classifier (#2664) (#2704)
+
+scripts/cleanup_labels.py
+COMMIT 8f17557dba54d739626671942f79c3ac60cf5c0e Ensure agent prompts include repo playbook guidance (#2696)
+
+scripts/runner_lib/core.py
+COMMIT 2caa88c334cbbd4262c743a3d81de88db2d71ffd Add OpenAI smoke provider tests (#2694)
+
+scripts/test_openai_provider.py
+COMMIT ff7ebbfd2e526bad4b59880fe0786a6ad186f026 test: cover unsafe raw payload field rejection (#2596)
+
+scripts/validate_run_contract.py
+COMMIT 13b2df43695fdb1650fed404e6bb7611e74b9ee5 [Route Weight][codemod] Refactor suppression guard comment parsing helpers (#2609)
+
+scripts/generate_suppression_guard_comment.py
+COMMIT 85a6010c8fbac9a515425ca15c5227854619947d Refactor LLM workflow update comment assembly into pure-helper paths (#2608)
+
+scripts/generate_llm_workflow_update_comment.py
+COMMIT 1f7657090a886c4bb62032000c3b739c90c99a1b Refactor worker retry comment scans (#2606)
+
+scripts/generate_worker_retry_comment.py
+COMMIT 9acf5f3f9eb2afa8370688fbbac7d2395904b0c0 refactor metrics format helpers (#2607)
+
+scripts/metrics_format_utils.py
+COMMIT 97c492cdb60b82ad6ef84263abb74295a42a71d3 [Route Weight][codemod] Refactor CI failure report formatting helpers (#2588)
+
+scripts/ci_failure_analyzer.py
+COMMIT 27699998deedd775e47128af5431ecd2fd818609 feat: refactor duplicate detection retry helpers (#2587)
+
+scripts/duplicate_detection.py
+COMMIT d2e8f6eaf256167b5b7ed1d37fc07ffe9f6dc360 [codex] Refactor autofix PR comment metadata helpers (#2584)
+
+scripts/build_autofix_pr_comment.py
+COMMIT 051b4bab6826740ccf6fd8a98cff4b697c5d9f68 test repo review state reconstruction (#2585)
+
+scripts/repo_review_state.py
+COMMIT edd4f3e2dd1dbf2012a6445bff22aad5a394164c refactor workflow PR context audit serialization (#2570)
+
+scripts/workflow_pr_context_audit.py
+COMMIT cac90c150a700c955a2d4066b7edc921e27f3cb3 Refactor gate diff quality scanners (#2569)
+
+scripts/check_gate_diff_quality.py
+COMMIT 4c2b86b898b503d514eeda6945d790bbb82306ab feat: split run contract missing-envelope decision helpers (#2572)
+
+scripts/validate_run_contract.py
+COMMIT a64255d910dd8321180e8330b9f76d2c5c26c46b [Route Weight][codemod] Refactor ledger commit validation caches (#2571)
+
+scripts/ledger_validate.py
+COMMIT 443df8bd43e5fcf7d97f12e3c0a90bc2c82a2f18 [Route Weight][codemod] Refactor PR verifier comparison client selection (#2567)
+
+scripts/langchain/pr_verifier.py
+COMMIT 9fa2f9cf69a72f3af7cee17d213730be6735dc36 [codex] Export keepalive durability fleet records (#2532)
+
+scripts/export_keepalive_durability.py
+COMMIT d096fa26a2bfc1c416f9fcb30673582548115efb [codex] Ensure LangSmith fleet fallback artifacts (#2528)
+
+scripts/ensure_langsmith_fleet_artifact.py
+COMMIT 680260c913e1c136e0b0ba11c07a760e23c26b0c fix: restore shared llm client resolution (#2500)
+
+scripts/langchain/progress_reviewer.py
+COMMIT 821168725d0568cade5bb9a18fc58cab97657975 fix: clear sync review debt at source (#2498)
+
+scripts/check_agents_md_freshness.py
+scripts/runner_lib/core.py
+COMMIT 606ecfb69c5fa63683e017b72c4bb993372d215b chore(deps): update stranske/workflows digest to c2537cc (#2472)
+
+scripts/ledger_validate.py
+COMMIT 9ed1ab5b484f619b90fa48d4c14c614b99ac7086 fix(runners): preserve agent run-base checkout
+
+scripts/runner_lib/core.py
+COMMIT 1bc0f231da20f5596199ce25d3923f9230ac4b76 fix: harden orchestrator skill materialization (#2495)
+
+scripts/orchestrator_skill.py
+scripts/reference_packs.py
+scripts/runner_lib/core.py
+COMMIT cc55a4c84f4d5d54bb218bbea948d272cecb9acc Add docs drift fix agent (#2493)
+
+scripts/check_docs_drift.py
+scripts/docs_drift_fix_agent.py
+COMMIT 2baf871360a6ebf83c2b24dd7eafd94d7f262733 Issue #2476: warn on stale managed AGENTS playbook refs
+
+scripts/check_agents_md_freshness.py
+COMMIT 509eceb28eb49f48ca51d40b77841cf7acf701d6 Add repo review liveness evidence dimension (#2485)
+
+scripts/orchestrator_skill.py
+scripts/repo_review_evaluator.py
+scripts/runner_lib/core.py
+COMMIT 5b5640d1d603d62d04400f8c25475faf96e4a3bf Issue #2475: Add opt-in deliberate-break Gate check (#2479)
+
+scripts/check_deliberate_break.py
+COMMIT 491bc31b0f686bb963d9278e808fb079402c6dae feat(repo-review): surface dynamic run-evidence in the weekly evaluator (#2474)
+
+scripts/repo_review_evaluator.py
+COMMIT 37aa31432df0343c898056177c1d0be719ea4046 feat(agents): add Gemini as a keepalive coding agent
+
+scripts/runner_lib/core.py
+COMMIT 899008e020c3524e5f601750fd6b7720ddaf9f44 repo-review: human-gated OpenSSF Scorecard candidate source (#2380)
+
+scripts/repo_review_coordinator.py
+scripts/repo_review_evaluator.py
+scripts/repo_review_notify.py
+scripts/repo_review_queue_builder.py
+scripts/repo_review_scorecard.py
+COMMIT dc781a85f1c12baa089f264e7fb25ea06b690857 fix: unblock renovate workflow updates (#2426)
+
+scripts/workflow_validator.py
+COMMIT 088fd4f8bd40479ac83452833a7442a4e4f30eb8 fix: preserve metrics after partial parse errors
+
+scripts/aggregate_agent_metrics.py
+COMMIT 459051114fd11b1a930ea04d0344e69dbad7f359 fix: harden synced metrics parser
+
+scripts/aggregate_agent_metrics.py
+COMMIT ca668dd1d60b54742ef3a94edfa96b7ef857e648 fix: keep synced metrics script self-contained
+
+scripts/aggregate_agent_metrics.py
+COMMIT c38cdd6a0b27c60c9adf3d6ea3d2640084048d59 feat: add deterministic docs-drift detector (scripts/check_docs_drift.py) (#2416)
+
+scripts/check_docs_drift.py
+COMMIT 7d1021db9485662bc1bec8db77a43a4229f7773a fix: complete metrics NDJSON parser consolidation
+
+scripts/aggregate_agent_metrics.py
+COMMIT 854e8c59657f82ee645084ea9d08d7c49ba88a86 chore(renovate): distribute fleet preset to consumers + renovate[bot] CI parity (#2394)
+
+scripts/keepalive-runner.js
+COMMIT 3cf34ec519bc52e87d7cff026d5adcff63759dd3 Agent belt for #2354
+
+scripts/aggregate_agent_metrics.py
+COMMIT 8d8ac926f6e6cdc6d02a467cb371814a9bbd74ac Agent belt for #2352
+
+scripts/check_gate_diff_quality.py
+scripts/langchain/pr_verifier.py
+COMMIT 7d01d669128891cc3257da98e0098752b8a3dd80 feat: validate agent registry capacity blocks (#2353)
+
+scripts/langsmith_fleet.py
+COMMIT 88d785032302e8cc663cd096f5bea47a85f403b7 fix: enforce Health 74 template drift guard (#2358)
+
+scripts/check_template_drift.py
+COMMIT 9ee2ef22554e4a48251c077d5ab2e796843498a0 refactor(langchain): extract shared llm client (#2355)
+
+scripts/langchain/_llm_client.py
+scripts/langchain/capability_check.py
+scripts/langchain/context_extractor.py
+scripts/langchain/followup_issue_generator.py
+scripts/langchain/issue_formatter.py
+scripts/langchain/issue_optimizer.py
+scripts/langchain/pr_verifier.py
+scripts/langchain/task_decomposer.py
+scripts/langchain/task_validator.py
+scripts/langchain/topic_splitter.py
+COMMIT c850cbf57ac1f2fa6808cc2ba54c0fa3823523d8 fix: consolidate 4 local _read_ndjson copies to canonical ndjson_parser (#2340)
+
+scripts/aggregate_repo_metrics.py
+scripts/keepalive_metrics_dashboard.py
+scripts/metrics_alerting.py
+scripts/metrics_dashboard_generator.py
+COMMIT e43b36147923303e27daca30d13ff2f8a0dbf8a4 feat(#2336): add agent-stub garbage collector (prune_agent_stubs.py + maint-84) (#2339)
+
+scripts/prune_agent_stubs.py
+COMMIT 8eb8a86f78937299d69cc95504a1973c6f57d58f fix: size round-2 subprocess timeout to full multi-turn budget (#2334)
+
+scripts/repo_review_coordinator.py
+COMMIT 6e7d3ab4465a0bdad12a9e46e10d4f43321fa108 fix: spawn agent in new session and use killpg to terminate process group (#2333)
+
+scripts/repo_review_heartbeat.py
+COMMIT 6f80da4f87b9ff818b8fbaa86cce36dbba243058 fix: resolve WORKFLOWS_STEWARD from env or module location in round2_runner (#2331)
+
+scripts/repo_review_round2_runner.py
+COMMIT c50512601f8511951f2f8cb6549f8f33c94ec3b1 feat(agents): add Cursor as a keepalive coding agent (#2317)
+
+scripts/runner_lib/core.py
+COMMIT ca0cb36fa9f585a6d0c1adb72b5d06c4a84fb4d3 docs: add LOCAL_LANES.md lane contract + ignore workloop-state.md fleet-wide (#2280)
+
+scripts/sync_status_file_ignores.py
+COMMIT ba179f1eb195aadb8fe7aeabfbf1b93f3f33ae07 chore(metrics): remove orphaned metrics scripts and no-op retention cron (#2276)
+
+scripts/generate_metrics_badges.py
+scripts/keepalive_metrics_collector.py
+scripts/keepalive_post_merge_metrics.py
+scripts/metrics_badges_config.py
+scripts/pr_metrics_tracker.py
+scripts/update_readme_badges.py
+COMMIT 7f64157a5a4ed8411e37eb1891d1f28494ce2675 (#2272) priority tiering + single queue producer + materialization ledger (#2300)
+
+scripts/repo_review_coordinator.py
+scripts/repo_review_evaluator.py
+scripts/repo_review_queue_builder.py
+scripts/upload_repo_review_issues.py
+COMMIT d2488e56fd4cb6838155c05453c6892d300f528b feat(repo-review): cycle-bind blanket approvals (stale-feedback guard) (#2272 core) (#2285)
+
+scripts/repo_review_evaluator.py
+COMMIT 551f804fa083ed5003866b4a391ded2379d05835 fix: resolve synced script type hygiene
+
+scripts/api_client.py
+scripts/sync_test_dependencies.py
+COMMIT c989974d7f676d3acbb6ccaf0e667afa6aca0184 fix: resolve synced typecheck and gate summary failures
+
+scripts/api_client.py
+scripts/sync_test_dependencies.py
+COMMIT 47cc9bbc8365faa6f0c7869fd64c1e69a6eda20d fix: resolve synced API client review debt (#2250)
+
+scripts/api_client.py
+scripts/cli_handler.py
+COMMIT 28ef54ccfac96ef4899536d18eb5b76f6563b29f fix: resolve synced review debt (#2248)
+
+scripts/api_client.py
+COMMIT b88c06d19ecf49c441a01560aae61fe10a679b50 fix: prefer gpt-5.5 for chatgpt codex runs (#2239)
+
+scripts/aggregate_agent_metrics.py
+COMMIT 64502adfed947c9b8242ff713f56b28f8714d56f Sync api client with PR verifier
+
+scripts/check_api_wrapper_guard.py
+COMMIT a4ec643f7434f52632c804f5f6d140c163a56cbd Detect multiline injection guard triggers
+
+scripts/langchain/injection_guard.py
+COMMIT c51f144cecfac3c19480ad469667bd2b7f155271 chore: align LLM workflow pins (#2235)
+
+scripts/validate_template_sync.py
+COMMIT b5491d83a1ef746a37e085ac8a6a80dc2ad62949 fix: resolve pythonpath review debt (#2232)
+
+scripts/sync_test_dependencies.py
+COMMIT 60ddb5615a7f1eabce1c5a52e3d0ee6df96ce1c3 fix: harden pytest config pythonpath detection (#2231)
+
+scripts/sync_test_dependencies.py
+COMMIT 08efd8ad97f9040a2db12c9167fda66648e30693 fix: harden synced dependency tooling
+
+scripts/sync_test_dependencies.py
+COMMIT 2a89714b84903864def14a373de040147089c63d fix: harden pytest config discovery (#2227)
+
+scripts/sync_test_dependencies.py
+COMMIT 18892408ec48b75a020f49435add3abec4be57c0 fix: read pytest pythonpath configs (#2226)
+
+scripts/sync_test_dependencies.py
+COMMIT d0a03fccf2d7417ee2f6dd1179b0ad9cf42a39c1 fix: refine packaged test module detection (#2225)
+
+scripts/sync_test_dependencies.py
+COMMIT f375fd1c92f6cb0569f4c793dd1885eb49e698f2 fix: keep packaged test helper detection
+
+scripts/sync_test_dependencies.py
+COMMIT 29b5a38c8206e6de9b2f054744252ef885ad61c2 fix: avoid packaged test submodule masking
+
+scripts/sync_test_dependencies.py
+COMMIT edca1176fcce7cbb661e8b639c6f891863d460af fix: refine test helper dependency detection (#2222)
+
+scripts/sync_test_dependencies.py
+COMMIT 221a83f7799169d25da52aff4e26b1c82b103bd4 fix: ignore test helper modules in dependency sync (#2221)
+
+scripts/sync_test_dependencies.py
+COMMIT 75c8462e543d885f5a398a6d2e47d0767dd61018 fix: centralize checklist placeholder handling
+
+scripts/langchain/checklist_utils.py
+scripts/langchain/followup_issue_generator.py
+scripts/langchain/issue_formatter.py
+COMMIT f6cea4550208687bf62561c35d186840f09b7e82 fix: drop placeholder checklist rows
+
+scripts/langchain/followup_issue_generator.py
+scripts/langchain/issue_formatter.py
+COMMIT 083378150435ce77df939ce9d3a5274029084ccf fix: include manifest path in contract load errors (#2218)
+
+scripts/validate_run_contract.py
+COMMIT 6c97b27fb653923bd430cdd0f35ffdc27d00d95f fix: unblock sync template gate failures (#2217)
+
+scripts/sync_test_dependencies.py
+scripts/validate_run_contract.py
+COMMIT 8ac4b6f73d03ff7d98bd126c20e52e574c38a946 fix: address Collab Admin sync review blockers
+
+scripts/langchain/task_decomposer.py
+scripts/validate_run_contract.py
+COMMIT 4581ee9c91240b6d3ef628f0f8ff982f6bcaba36 Add shared app-baseline-kit package + repo-review baseline-signals hook (#2203)
+
+scripts/repo_review_evaluator.py
+COMMIT 2ceb07388e9877b62fd3a59b0caca45bf96bb328 Issue #2182: harden selftest CI contract coverage (#2196)
+
+scripts/metrics_dashboard_generator.py
+COMMIT 38dd38ad797e06fd8fe27e05ad60c02345fb953f Add LangSmith fleet conformance gate (#2184)
+
+scripts/langsmith_fleet_conformance.py
+COMMIT 5666626551c932fe391857a1e59dcdc2f1fe6f42 chore(sync): drift-checker header-strip parity (E1) + custom_gate->manifest skip_repos (E5) + template gate @main refs (G3) (#2189)
+
+scripts/check_consumer_sync_drift.py
+COMMIT a16f3c41e0ce8d22a42711c0dbf7a757599411db fix(backplane): conformance gate skips on missing run envelope
+
+scripts/validate_run_contract.py
+COMMIT eb20f6d44355d1e8dd5b2cda8fc79764405ae5e3 [DRAFT — human review] Issue first-pass quality: Definition of Ready + generator enforcement (#2174)
+
+scripts/langchain/issue_optimizer.py
+scripts/repo_review_body_writer.py
+COMMIT 6851e76e90e682f30a04ac65107a00923bc29b7b [DRAFT — human review] Backplane run-contract v1 (P0): central contract, schemas, validator, conformance workflow, opt-in registry (#2172)
+
+scripts/validate_run_contract.py
+COMMIT 060e9910f24e526ca408d0dca0c95a0b47652419 Fix ARG001 unused-arg in issue_optimizer (_reset_oversized_body) (#2181)
+
+scripts/langchain/issue_optimizer.py
+COMMIT 5c423a37f9617f9d5ac2c29ad8916279f7ae71a6 Fix issue-optimizer/formatter runaway expansion (idempotency + caps + anti-rewrap) (#2178)
+
+scripts/langchain/issue_formatter.py
+scripts/langchain/issue_optimizer.py
+scripts/langchain/issue_pr_context.py
+scripts/langchain/prompts/apply_suggestions.md
+scripts/langchain/prompts/decompose_task.md
+scripts/langchain/prompts/format_issue.md
+scripts/langchain/task_decomposer.py
+COMMIT 31cd968f3afaf9dc5d72de35afc59ce5b5fff36f feat(maint): automate fresh-consumer bootstrap GitHub-settings toggles (#2170) (#2171)
+
+scripts/bootstrap_consumer_settings.py
+COMMIT a4968aaf2fff456b333f4874cd94e3f8b796ffa1 fix(sync): keep Template create-only workflows current
+
+scripts/check_consumer_sync_drift.py
+COMMIT 7f5632ab48307886af7fbd65b131d0eb798d9964 docs: mark expanded consumer Gate bootstrap risk (#2160)
+
+scripts/gate_detect_output_diff.py
+scripts/workflow_startup_failure_diagnostic.py
+COMMIT eea485281fce06a9df19295fbd42d561310ee27d Issue #2150: Add LangSmith fleet contract (#2151)
+
+scripts/langsmith_fleet.py
+scripts/metrics_dashboard_generator.py
+COMMIT b2d74df4823e887a6c397fa522839710789539db fix sync review trace helper followups
+
+scripts/langchain/task_validator.py
+scripts/langchain/trace_utils.py
+COMMIT cd021105db8a71bf652127e3ded8486f580885c9 Handle delegated trace fallback wrappers
+
+scripts/langchain/task_validator.py
+scripts/langchain/trace_utils.py
+COMMIT 27b0dea60b315953cab9a593a9ec50e230e3d826 Tighten trace fallback TypeError detection (#2132)
+
+scripts/langchain/trace_utils.py
+COMMIT 8d0e1c4d1ed8f69ec6b8128326189db6569a0d6f fix sync review trace fallback docs (#2131)
+
+scripts/langchain/task_validator.py
+scripts/langchain/trace_utils.py
+COMMIT e94286eaf69dd1d79c12df98bcd951292ef78bf8 fix task validator fallback ordering (#2130)
+
+scripts/langchain/task_validator.py
+COMMIT 311bff976532c4df2db99316692b85a659474b0c fix sync review followups (#2129)
+
+scripts/langchain/task_validator.py
