@@ -1,0 +1,56 @@
+{
+  "before": {
+    "coverage": {
+      "covered_lines": 546,
+      "num_statements": 591,
+      "percent_covered": 91.7936694021102,
+      "percent_covered_display": "91.79",
+      "missing_lines": 45,
+      "excluded_lines": 0,
+      "percent_statements_covered": 92.38578680203045,
+      "percent_statements_covered_display": "92.39",
+      "num_branches": 262,
+      "num_partial_branches": 23,
+      "covered_branches": 237,
+      "missing_branches": 25,
+      "percent_branches_covered": 90.45801526717557,
+      "percent_branches_covered_display": "90.46"
+    },
+    "junit": {
+      "tests": 256,
+      "failures": 0,
+      "errors": 0,
+      "skipped": 0
+    }
+  },
+  "after": {
+    "coverage": {
+      "covered_lines": 552,
+      "num_statements": 591,
+      "percent_covered": 92.73153575615474,
+      "percent_covered_display": "92.73",
+      "missing_lines": 39,
+      "excluded_lines": 0,
+      "percent_statements_covered": 93.4010152284264,
+      "percent_statements_covered_display": "93.40",
+      "num_branches": 262,
+      "num_partial_branches": 21,
+      "covered_branches": 239,
+      "missing_branches": 23,
+      "percent_branches_covered": 91.22137404580153,
+      "percent_branches_covered_display": "91.22"
+    },
+    "junit": {
+      "tests": 266,
+      "failures": 0,
+      "errors": 0,
+      "skipped": 0
+    }
+  },
+  "base": "32a525a5b652bf04a432406e6a9d5fd0b343ea68",
+  "identical_scope_denominators_exclusions": true,
+  "unchanged_production_bytes": true,
+  "root_template_byte_identical": true,
+  "test_sha256": "97e6a5814f90da1fadd993f93de3ea408da2c8e743cb16ab3b17c798d1647c87",
+  "scope": "focused module; not repository-wide coverage"
+}

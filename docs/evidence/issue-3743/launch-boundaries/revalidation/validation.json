@@ -1,0 +1,78 @@
+[
+  {
+    "name": "black-test",
+    "argv": [
+      "black",
+      "--check",
+      "--line-length",
+      "100",
+      "tests/scripts/test_check_deliberate_break_launch_boundaries.py"
+    ],
+    "exit": 0
+  },
+  {
+    "name": "black-driver",
+    "argv": [
+      "black",
+      "--check",
+      "--line-length",
+      "100",
+      "docs/evidence/issue-3743/launch-boundaries/wf-mutation-driver.py"
+    ],
+    "exit": 0
+  },
+  {
+    "name": "ruff",
+    "argv": [
+      "ruff",
+      "check",
+      "tests/scripts/test_check_deliberate_break_launch_boundaries.py",
+      "docs/evidence/issue-3743/launch-boundaries/wf-mutation-driver.py",
+      "scripts/check_deliberate_break.py",
+      "templates/consumer-repo/scripts/check_deliberate_break.py"
+    ],
+    "exit": 0
+  },
+  {
+    "name": "template-sync",
+    "argv": [
+      "python3",
+      "scripts/validate_template_sync.py"
+    ],
+    "exit": 0
+  },
+  {
+    "name": "template-completeness",
+    "argv": [
+      "python3",
+      "scripts/validate_template_completeness.py"
+    ],
+    "exit": 0
+  },
+  {
+    "name": "diff-check",
+    "argv": [
+      "git",
+      "diff",
+      "--check"
+    ],
+    "exit": 0
+  },
+  {
+    "name": "black-repository",
+    "argv": [
+      "black",
+      "--check",
+      "--line-length",
+      "100",
+      "--exclude",
+      "(\\.workflows-lib|node_modules)",
+      "."
+    ],
+    "exit": 0,
+    "environment": {
+      "BLACK_CACHE_DIR": "/tmp/launch-boundaries-black-cache"
+    },
+    "note": "Black cache was populated by serial calls to the installed formatter because forkserver sockets are unavailable in this sandbox; all 668 files were checked."
+  }
+]
