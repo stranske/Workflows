@@ -984,12 +984,14 @@ _QUOTED_EVIDENCE_LITERAL = (
 )
 
 
+_REVIEW_BODY_COMPONENT_TEMPORAL = (
+    r"before|after|now|today|tomorrow|again|here|there|soon|always|daily|weekly|[\w-]+ly"
+)
 _REVIEW_BODY_COMPONENT_WORD = (
-    r"(?!(?:and|or|but|in|on|to|for|with|before|after|when|if|"
+    r"(?!(?:and|or|but|in|on|to|for|with|when|if|"
     r"is|are|was|were|must|shall|will|should|can|may|has|have|"
     r"not|never|no|optional|required|mandatory|expected|supposed|"
-    r"contains?|includes?|requires?|needs?|now|today|tomorrow|again|"
-    r"here|there|soon|always|daily|weekly|[\w-]+ly)\b)[\w-]+"
+    r"contains?|includes?|requires?|needs?|" + _REVIEW_BODY_COMPONENT_TEMPORAL + r")\b)[\w-]+"
 )
 # One to three same-line words, bounded by a clause/list/availability boundary.
 # The classifier and OR expander must recognize identical component spans.
@@ -998,7 +1000,9 @@ _REVIEW_BODY_COMPONENT = (
     + r"(?:[ \t]+"
     + _REVIEW_BODY_COMPONENT_WORD
     + r"){0,2}"
-    + r"(?=[ \t]*(?:$|[;,.!?\n]|(?:and|or|but|if|when|that|which)\b))"
+    + r"(?=[ \t]*(?:$|[;,.!?\n]|(?:and|or|but|if|when|that|which|"
+    + _REVIEW_BODY_COMPONENT_TEMPORAL
+    + r")\b))"
 )
 
 

@@ -132,6 +132,44 @@ def test_temporal_body_continuation_is_not_product_component(continuation):
     assert verifier._required_evidence_channels(criterion) == {"body"}
 
 
+@pytest.mark.parametrize("component", ["", "field", "settings panel", "results section"])
+@pytest.mark.parametrize("continuation", ["before merge", "after approval", "today", "daily"])
+@pytest.mark.parametrize("destination", ["PR body", "PR description"])
+@pytest.mark.parametrize("actor,operation", [("UI", "display"), ("reviewer", "post")])
+@pytest.mark.parametrize("independent", [False, True])
+def test_component_temporal_boundary_preserves_bare_and_independent_delivery(
+    component, continuation, destination, actor, operation, independent
+):
+    criterion = (
+        f"- [ ] The {actor} must {operation} test results in the "
+        f"{destination} {component} {continuation}"
+    )
+    expected = set() if actor == "UI" and component else {"body"}
+    if independent:
+        criterion += "; the reviewer must provide command output in a PR comment"
+        expected.add("comments")
+    assert verifier._required_evidence_channels(criterion) == expected
+    assert verifier._required_evidence_options(criterion) == [expected]
+    spec = importlib.util.spec_from_file_location(
+        "temporal_component_fixture",
+        Path(__file__).with_name("test_pr_verifier_prompt_coverage.py"),
+    )
+    fixture = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(fixture)
+    context, _ = fixture._context(1, 1000, 1000)
+    context = context.replace("- " + fixture.ACCEPTANCE_SENTINEL, criterion).replace(
+        "## PR Diff Summary",
+        "## Acceptance evidence\n\n- Overall retrieval status: **present**\n"
+        "- PR body: **absent**\n- PR comments: **present**\n"
+        "- Referenced workflow artifacts: **present**\n\n## PR Diff Summary",
+    )
+    result = verifier._apply_coverage_floor(
+        verifier.EvaluationResult(verdict="PASS", used_llm=True),
+        verifier.prompt_coverage(context, None),
+    )
+    assert result.verdict == ("CONCERNS" if "body" in expected else "PASS")
+
+
 @pytest.mark.parametrize("component", ["field", "textarea", "preview", "panel"])
 @pytest.mark.parametrize("destination", ["PR body", "PR description"])
 @pytest.mark.parametrize("governor", ["may", "can", "could", "must"])

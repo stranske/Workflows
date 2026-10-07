@@ -279,6 +279,10 @@ availability binding for both product and human deliveries; an independent
 reviewer clause retains its own mandatory channels.
 Component spans are bounded to one through three same-line words and stop at
 shared clause/list/availability boundaries, not an expanding UI noun allowlist.
+Declared temporal qualifiers also terminate an already recognized component
+(for example, `settings panel before merge` or `field today`). A temporal
+qualifier alone after bare `PR description` does not create a product component;
+human and independent reviewer deliveries remain mandatory.
 Both channel classification and destination-OR expansion use that same span.
 A comma may introduce a declared availability condition. Human body/comment ORs
 retain genuine alternatives; a product-only component cannot erase a coordinated
