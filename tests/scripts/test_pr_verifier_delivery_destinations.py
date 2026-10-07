@@ -60,7 +60,7 @@ def test_product_generation_uses_shared_delivery_operations(
 
 
 @pytest.mark.parametrize("actor", ["UI", "service"])
-@pytest.mark.parametrize("operation", ["generate", "link", "post", "record", "prove"])
+@pytest.mark.parametrize("operation", ["generate", "link", "post", "record", "prove", "leave"])
 @pytest.mark.parametrize("product_channel", ["body", "comments"])
 @pytest.mark.parametrize("body_alias", ["body", "description"])
 @pytest.mark.parametrize("reverse", [False, True])
@@ -97,6 +97,7 @@ def test_product_component_coordination_preserves_bare_other_channel(
         "post": "posted",
         "record": "recorded",
         "prove": "proved",
+        "leave": "left",
     }[operation]
     if voice == "active":
         criterion = f"The {actor} {governor} {operation} evidence in {destination}{condition}"
@@ -210,21 +211,71 @@ def test_active_progressive_delivery_inflections(actor, operation, destination, 
 
 @pytest.mark.parametrize("governor", ["must not", "may", "is not expected to"])
 @pytest.mark.parametrize("relative", ["that", "which"])
-@pytest.mark.parametrize("predicate", ["must contain", "must include", "must have"])
-@pytest.mark.parametrize("body_alias", ["body", "description"])
+@pytest.mark.parametrize(
+    "predicate",
+    [
+        "must contain",
+        "must include",
+        "must have",
+        "may contain",
+        "must not contain",
+        "is not expected to contain",
+    ],
+)
+@pytest.mark.parametrize(
+    "destination,channel,other",
+    [
+        ("the PR body", "body", "a PR comment"),
+        ("the PR description", "body", "a PR comment"),
+        ("a PR comment", "comments", "the PR body"),
+    ],
+)
 @pytest.mark.parametrize("coordination", ["and", "or"])
 def test_independent_relative_body_presence_after_nonmandatory_delivery(
-    governor, relative, predicate, body_alias, coordination
+    governor, relative, predicate, destination, channel, other, coordination
 ):
-    criterion = f"The reviewer {governor} record evidence in a PR comment {coordination} the PR {body_alias} {relative} {predicate} command output"
-    expected = {"body"}
+    criterion = f"The reviewer {governor} record evidence in {other} {coordination} {destination} {relative} {predicate} command output"
+    expected = {channel} if predicate in {"must contain", "must include", "must have"} else set()
     assert verifier._required_evidence_channels(criterion) == expected
     assert verifier._required_evidence_options(criterion) == [expected]
     assert verifier._required_evidence_is_missing(
         "- Overall retrieval status: **present**\n- PR body: **absent**\n"
-        "- PR comments: **present**\n- Referenced workflow artifacts: **present**",
+        "- PR comments: **absent**\n- Referenced workflow artifacts: **present**",
         expected,
-    )
+    ) == bool(expected)
+
+
+@pytest.mark.parametrize("relative", ["that", "which"])
+@pytest.mark.parametrize(
+    "destination,channel,other,other_channel",
+    [
+        ("the PR body", "body", "a PR comment", "comments"),
+        ("the PR description", "body", "a PR comment", "comments"),
+        ("a PR comment", "comments", "the PR body", "body"),
+    ],
+)
+@pytest.mark.parametrize("coordination", ["and", "or"])
+@pytest.mark.parametrize("predicate", ["must contain", "may contain", "must not contain"])
+def test_relative_presence_preserves_parent_mandatory_alternatives(
+    relative, destination, channel, other, other_channel, coordination, predicate
+):
+    criterion = f"The reviewer must record evidence in {other} {coordination} {destination} {relative} {predicate} command output"
+    options = verifier._required_evidence_options(criterion)
+    statuses = (set(), {channel}, {other_channel}, {channel, other_channel})
+    for present in statuses:
+        satisfied = (bool(present) if coordination == "or" else len(present) == 2) and (
+            predicate != "must contain" or channel in present
+        )
+        evidence = (
+            "- Overall retrieval status: **present**\n"
+            f"- PR body: **{'present' if 'body' in present else 'absent'}**\n"
+            f"- PR comments: **{'present' if 'comments' in present else 'absent'}**\n"
+            "- Referenced workflow artifacts: **present**"
+        )
+        assert (
+            any(not verifier._required_evidence_is_missing(evidence, option) for option in options)
+            == satisfied
+        )
 
 
 @pytest.mark.parametrize("contrast", ["only", "merely", "just"])

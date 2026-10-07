@@ -991,7 +991,7 @@ _MANDATORY_EVIDENCE_AUXILIARY = (
 )
 _EVIDENCE_DELIVERY_ADVERB = r"(?:also|now|still|already|yet|always|[\w-]+ly)"
 _EVIDENCE_DELIVERY_ADVERBS = r"(?:" + _EVIDENCE_DELIVERY_ADVERB + r"\s+){0,3}"
-_EVIDENCE_DELIVERY_OPERATION = r"(?:prov(?:e|ing)|provid(?:e|ing)|return|display|show|emit|render|expos(?:e|ing)|stor(?:e|ing)|upload|attach|publish|post|record|captur(?:e|ing)|includ(?:e|ing)|contain|hav(?:e|ing)|document|generat(?:e|ing)|link|add|leav(?:e|ing))\w*\b"
+_EVIDENCE_DELIVERY_OPERATION = r"(?:prov(?:e|ing)|provid(?:e|ing)|return|display|show|emit|render|expos(?:e|ing)|stor(?:e|ing)|upload|attach|publish|post|record|captur(?:e|ing)|includ(?:e|ing)|contain|hav(?:e|ing)|document|generat(?:e|ing)|link|add|leav(?:e|ing)|left)\w*\b"
 _EVIDENCE_OBJECT_MODIFIERS = (
     r"(?:(?!(?:and|or|but|must|shall|is|are|not|never|may|can)\b)[\w/-]+\s+){0,6}"
 )
@@ -1172,10 +1172,43 @@ def _normalize_passive_review_agents(acceptance: str) -> str:
     return acceptance
 
 
+def _normalize_relative_review_presence(acceptance: str) -> str:
+    """Keep a relative presence governor independent of its parent's AND/OR."""
+    presence = (
+        r"(?P<destination>(?:pr|pull request)\s+(?:body|description|comments?)\b)"
+        r"\s+(?:that|which)\s+(?P<predicate>"
+        + _EVIDENCE_DELIVERY_ADVERBS
+        + _INDEPENDENT_REVIEW_PREDICATE
+        + r"\s+"
+        + _EVIDENCE_DELIVERY_ADVERBS
+        + r"(?:(?:not|never|no\s+longer)\s+"
+        + _EVIDENCE_DELIVERY_ADVERBS
+        + r")?(?:"
+        + _EVIDENCE_PASSIVE_PREFIX
+        + r")?(?:contain|includ(?:e|ing)|hav(?:e|ing))\w*\s+"
+        r"(?:(?:the|an?|any|no)\s+)?"
+        + _EVIDENCE_OBJECT_MODIFIERS
+        + r"(?:evidence|artifacts?|transcripts?|command outputs?|"
+        + _EVIDENCE_PROOF_ALIAS_NOUN
+        + r"))\b"
+    )
+    return re.sub(
+        r"(?P<literal>" + _QUOTED_EVIDENCE_LITERAL + r")|" + presence,
+        lambda match: (
+            match[0]
+            if match["literal"]
+            else match["destination"] + "; " + match["destination"] + " " + match["predicate"]
+        ),
+        acceptance,
+        flags=re.I,
+    )
+
+
 def _required_evidence_channels(acceptance: str, *, _bind_attached: bool = True) -> set[str]:
     """Identify explicit evidence deliverables without treating negations as requirements."""
 
     acceptance = _normalize_passive_review_agents(acceptance)
+    acceptance = _normalize_relative_review_presence(acceptance)
     channels: set[str] = set()
     response_operation = (
         r"(?:include|contain|have|return|display|show|store|emit|render|expose|provide)\w*\b"
@@ -2833,6 +2866,12 @@ def _required_evidence_channels(acceptance: str, *, _bind_attached: bool = True)
             criterion,
         )
         criterion = normalize_storage_coordination(criterion)
+        # A bare review channel's relative presence predicate has its own
+        # governor. Separate it before enclosing prohibitions/alternatives can
+        # consume its antecedent; named product components and availability
+        # qualifiers are not presence deliveries. Quoted examples are already
+        # protected above. Keep the destination in the enclosing clause too.
+        criterion = _normalize_relative_review_presence(criterion)
         criterion = shared_passive_product_review_destination.sub(
             lambda match: match["predicate"]
             + (match["preposition"] or "in ")
@@ -3920,6 +3959,7 @@ def _required_evidence_options(acceptance: str) -> list[set[str]]:
     requirement rather than dropping an obligation.
     """
     acceptance = _normalize_passive_review_agents(acceptance)
+    acceptance = _normalize_relative_review_presence(acceptance)
     preposition = _EVIDENCE_DESTINATION_PREPOSITION
     destination = (
         r"(?:(?:the|an?)\s+)?(?:(?:pr|pull request)\s+(?:(?:body|description)\b"

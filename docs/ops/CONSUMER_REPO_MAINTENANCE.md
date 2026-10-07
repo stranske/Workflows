@@ -1718,6 +1718,12 @@ its own governor is classified independently of an enclosing optional or
 prohibited delivery, retaining its own polarity rather than inheriting the
 parent's. Product alternatives, bare sibling duties and independent artifacts
 are validated across ordinary, perfect, progressive and passive forms.
+The supported irregular `leave`/`left` operation shares those same guards.
+Bare body, description and comment relative presence duties are separated from
+their enclosing delivery before channel and alternative classification. Their
+independent governor retains polarity, while the parent's genuine AND/OR list
+retains its own semantics. Availability relatives and named product components
+are not independent presence deliveries; quoted parser examples stay opaque.
 Negated obligations use the same delivery-operation grammar as positive
 delivery. An explicitly excluded PR-comment destination (`outside`, `rather
 than`, `instead of`) is not a required comment channel; generic evidence and
