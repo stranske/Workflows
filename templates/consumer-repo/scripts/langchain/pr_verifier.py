@@ -977,6 +977,13 @@ def _acceptance_criteria_sections(plan_sources: str) -> str:
     return "\n\n".join(part for part in captured if part)
 
 
+_QUOTED_EVIDENCE_LITERAL = (
+    r"`+[^`]*`+|\"[^\"]*\"|"
+    r"(?<!\w)'(?:[^']|(?<=\w)'(?=\w))*'(?!\w)|"
+    r"“[^”]*”|(?<!\w)‘(?:[^’]|(?<=\w)’(?=\w))*’(?!\w)"
+)
+
+
 def _required_evidence_channels(acceptance: str, *, _bind_attached: bool = True) -> set[str]:
     """Identify explicit evidence deliverables without treating negations as requirements."""
 
@@ -1018,11 +1025,7 @@ def _required_evidence_channels(acceptance: str, *, _bind_attached: bool = True)
         + optional_delivery_modal
         + r"|has|have|had|is|are|was|were|do|does|did)"
     )
-    quoted_evidence_literal = (
-        r"`+[^`]*`+|\"[^\"]*\"|"
-        r"(?<!\w)'(?:[^']|(?<=\w)'(?=\w))*'(?!\w)|"
-        r"“[^”]*”|(?<!\w)‘(?:[^’]|(?<=\w)’(?=\w))*’(?!\w)"
-    )
+    quoted_evidence_literal = _QUOTED_EVIDENCE_LITERAL
     # Canonical governors precede every normalization; quoted input stays literal.
     acceptance = re.sub(
         r"(?P<literal>" + quoted_evidence_literal + r")|"
@@ -1187,6 +1190,18 @@ def _required_evidence_channels(acceptance: str, *, _bind_attached: bool = True)
         + r")"
     )
 
+    # Enforcing provenance at a storage location is a property, not delivery.
+    # Bind only that property's own enforcement predicate/destination; never
+    # suppress independent actual deliveries elsewhere in the same criterion.
+    acceptance = re.sub(
+        r"(?P<literal>" + quoted_evidence_literal + r")|"
+        r"(?P<property>\b(?:(?:workflow|ci|github actions)\s+)?artifact\s+provenance\s+"
+        r"(?:(?:must|shall|will|should)\s+)?(?:(?:remain|remains|be|is)\s+)?enforced\s+"
+        r"(?:in|within)\s+(?:the\s+)?)(?:workflow|ci|github actions)\s+artifacts?\b",
+        lambda match: match[0] if match["literal"] else match["property"] + "workflow storage",
+        acceptance,
+        flags=re.I,
+    )
     # Keep offsets but exclude literals from all contextual destination/actor tests.
     proof_context = re.sub(quoted_evidence_literal, lambda match: " " * len(match[0]), acceptance)
 
@@ -1198,7 +1213,13 @@ def _required_evidence_channels(acceptance: str, *, _bind_attached: bool = True)
         )[-1]
         tail = proof_context[match.end() :]
         after = re.split(r"[;\n.!?]|" + proof_actor_boundary, tail, flags=re.I)[0]
-        clause = before + match[0] + after
+        provenance_property = bool(
+            re.fullmatch(
+                r"(?:(?:workflow|ci|github actions)\s+)?artifacts?\s+provenance", match[0], re.I
+            )
+        )
+        # A qualified property noun is not its own review destination.
+        clause = before + ("" if provenance_property else match[0]) + after
         # Keep an introduced proof object available to the shared antecedent
         # resolver only when the next actor actually delivers that pronoun.
         following = re.split(proof_actor_boundary, tail, maxsplit=1, flags=re.I)
@@ -1221,7 +1242,7 @@ def _required_evidence_channels(acceptance: str, *, _bind_attached: bool = True)
                 clause,
                 re.I,
             )
-            else match[0]
+            else ("provenance" if provenance_property else match[0])
         )
 
     proof_object_boundary = (
@@ -1252,7 +1273,8 @@ def _required_evidence_channels(acceptance: str, *, _bind_attached: bool = True)
     )
     acceptance = re.sub(
         r"(?P<literal>" + quoted_evidence_literal + r")|"
-        r"\b(?:(?:(?:test|validation)\s+(?:results?|logs?|outputs?)|screenshots?|recordings)"
+        r"\b(?:(?:(?:test|validation)\s+(?:results?|logs?|outputs?)|"
+        r"(?:ci|build|execution)\s+logs?|(?:(?:workflow|ci|github actions)\s+)?artifacts?\s+provenance|screenshots?|recordings)"
         + proof_qualifier
         + r"|recording"
         + proof_qualifier
@@ -2434,6 +2456,18 @@ def _required_evidence_channels(acceptance: str, *, _bind_attached: bool = True)
             criterion,
             flags=re.I,
         )
+        # Exact quoted destination names remain destinations. Parser examples
+        # were removed above; longer quoted labels/instructions stay opaque so
+        # their verbs and conjunctions cannot create delivery obligations.
+        criterion = re.sub(
+            quoted_evidence_literal,
+            lambda match: (
+                match[0][1:-1]
+                if re.fullmatch(review_destination_noun, match[0][1:-1], re.I)
+                else " " * len(match[0])
+            ),
+            criterion,
+        )
         criterion = normalize_storage_coordination(criterion)
         criterion = shared_passive_product_review_destination.sub(
             lambda match: match["predicate"]
@@ -3513,6 +3547,65 @@ def _required_evidence_channels(acceptance: str, *, _bind_attached: bool = True)
     return channels
 
 
+def _required_evidence_options(acceptance: str) -> list[set[str]]:
+    """Bounded destination ORs; every variant retains all independent clauses.
+
+    Expand only concrete destination lists outside literals, then use the same
+    actor/polarity/modality grammar for every complete acceptance variant. This
+    is DNF (OR of AND channel sets), not a global any-channel presence shortcut.
+    Ambiguous mixed conjunctions or excessive expansion retain the strict legacy
+    requirement rather than dropping an obligation.
+    """
+    preposition = r"(?:in|into|to|within|for|as|through|via)"
+    destination = (
+        r"(?:(?:the|an?)\s+)?(?:(?:pr|pull request)\s+(?:body|comments?)\b|"
+        r"(?:workflow|ci|github actions)\s+artifacts?\b)"
+    )
+    member = r"(?:" + preposition + r"\s+)?" + destination
+    destination_list = re.compile(
+        r"\b(?P<prep>"
+        + preposition
+        + r")\s+(?:either\s+)?(?P<items>"
+        + destination
+        + r"(?:(?:\s*,\s*(?:(?:and|or)\s+)?|\s+(?:and|or)\s+)"
+        + member
+        + r")+)",
+        re.I,
+    )
+    masked = re.sub(_QUOTED_EVIDENCE_LITERAL, lambda m: " " * len(m[0]), acceptance)
+    variants = [acceptance]
+    # Right-to-left replacement keeps all original offsets valid.
+    for match in reversed(list(destination_list.finditer(masked))):
+        items = match["items"]
+        if re.search(r"\band\b", items, re.I):
+            continue
+        # A comma-only list has no explicit alternative semantics.
+        if not re.search(r"\bor\b", items, re.I):
+            continue
+        alternatives = re.split(r"\s*,\s*(?:or\s+)?|\s+or\s+", items, flags=re.I)
+        if len(variants) * len(alternatives) > 32:
+            return [_required_evidence_channels(acceptance)]
+        variants = [
+            variant[: match.start()]
+            + match["prep"]
+            + " "
+            + re.sub(r"^" + preposition + r"\s+", "", item, flags=re.I)
+            + variant[match.end() :]
+            for variant in variants
+            for item in alternatives
+        ]
+    options = []
+    for variant in variants:
+        channels = _required_evidence_channels(variant)
+        if channels not in options:
+            options.append(channels)
+    if any(options) and not all(options):
+        # Partial recognition is ambiguous, never permission to drop all
+        # evidence. Retain original requirements, plus recognized obligations.
+        return [_required_evidence_channels(acceptance) | set().union(*options)]
+    return options
+
+
 def _required_evidence_is_missing(evidence: str, channels: set[str]) -> bool:
     """Read only builder-owned statuses for the required retrieval channels."""
     # Comment and artifact bodies are untrusted. Their status-looking lines
@@ -3643,12 +3736,13 @@ def build_prompt_inputs(context: str, diff: str | None) -> PromptInputs:
         reasons.append("Acceptance/plan sources were truncated to fit the prompt budget.")
     elif acceptance == "unavailable":
         reasons.append("Acceptance/plan sources do not fit or are unavailable.")
-    required_evidence_channels = _required_evidence_channels(
+    required_evidence_options = _required_evidence_options(
         _acceptance_criteria_sections(acceptance_source)
     )
-    if required_evidence_channels:
-        if acceptance_evidence in {"not_declared", "unavailable"} or _required_evidence_is_missing(
-            evidence_source, required_evidence_channels
+    if all(required_evidence_options):
+        if acceptance_evidence in {"not_declared", "unavailable"} or all(
+            _required_evidence_is_missing(evidence_source, channels)
+            for channels in required_evidence_options
         ):
             reasons.append(
                 "Required acceptance evidence is unavailable; completeness cannot be judged."
