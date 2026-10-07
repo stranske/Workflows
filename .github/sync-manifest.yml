@@ -703,7 +703,7 @@ scripts:
   # Body-component alternatives and checklist nouns share polarity/modality boundaries.
   # Blank paragraphs end checklist inheritance; optional either-in alternatives stay optional.
   # All supported list markers and structurally product-owned terminal components share those guards.
-  # Temporal qualifiers terminate recognized components without suppressing bare review destinations.
+  # Temporal/relative qualifiers terminate recognized components without suppressing bare review destinations.
   # OR expansion shares independent review-predicate boundaries with channel classification.
   # Coordinated product destinations retain optional modality and independent reviewer obligations.
   - source: scripts/langchain/pr_verifier.py

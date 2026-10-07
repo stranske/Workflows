@@ -283,6 +283,8 @@ Declared temporal qualifiers also terminate an already recognized component
 (for example, `settings panel before merge` or `field today`). A temporal
 qualifier alone after bare `PR description` does not create a product component;
 human and independent reviewer deliveries remain mandatory.
+Relative markers `that`, `which` and `where` likewise cannot start component
+names and terminate an already matched component before its relative clause.
 Both channel classification and destination-OR expansion use that same span.
 Both paths also share the independent review-predicate exclusion: an actor
 such as `the PR description that must contain command output` is not consumed

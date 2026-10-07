@@ -133,7 +133,18 @@ def test_temporal_body_continuation_is_not_product_component(continuation):
 
 
 @pytest.mark.parametrize("component", ["", "field", "settings panel", "results section"])
-@pytest.mark.parametrize("continuation", ["before merge", "after approval", "today", "daily"])
+@pytest.mark.parametrize(
+    "continuation",
+    [
+        "before merge",
+        "after approval",
+        "today",
+        "daily",
+        "that reviewers can inspect",
+        "which reviewers can inspect",
+        "where reviewers can inspect",
+    ],
+)
 @pytest.mark.parametrize("destination", ["PR body", "PR description"])
 @pytest.mark.parametrize("actor,operation", [("UI", "display"), ("reviewer", "post")])
 @pytest.mark.parametrize("independent", [False, True])
