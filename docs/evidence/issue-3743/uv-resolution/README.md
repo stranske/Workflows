@@ -20,7 +20,7 @@ Selection uses the latest 400 scripts-touching commits at base `0543a3f2712e08a8
 From repository root, using an environment with pytest, pytest-cov and defusedxml:
 
 ```sh
-python3 -m pytest tests/scripts/test_check_deliberate_break_uv_resolution.py -q -o addopts=
+python3 -m pytest tests/scripts/test_check_deliberate_break_uv_resolution.py -q -o addopts= -m "not slow"
 python3 docs/evidence/issue-3743/uv-resolution/replay_uv_resolution.py --output /tmp/uv-resolution-fresh-proof
 python3 docs/evidence/issue-3743/uv-resolution/replay_suites.py --output /tmp/uv-suites-fresh-proof
 ```
@@ -43,3 +43,67 @@ XML hardening; the actual eight-mutant replay still uses `defusedxml`.
 Removing the stand-in yields six assertion failures; restoration passes all
 15 affected tests. Raw logs, JUnit and commands are bound by
 `ci-portability.tar.gz` and `ci-portability-index.json`. Fresh hosted Gate is required.
+
+### Failed-proof restoration controls
+
+`tests/scripts/test_uv_resolution_replay_restoration.py` adds eight controls for
+timeouts and rejected proofs during RED and GREEN in both helper copies. Each
+control checks that both private helpers and caller inputs retain their original
+bytes, the original exception propagates, and no successful `controls.json` is
+published. These controls replace the proof runner and do not parse XML, so they
+need no `defusedxml` installation. Changing the production replay's restoration
+write to retain the mutated bytes makes all eight controls fail; byte-identical
+restoration makes all eight pass. The three focused test modules pass 23 tests.
+
+The suite replay now selects `-m "not slow"` and prints `term-missing` coverage
+alongside JSON. Its CLI regression checks both options while preserving report
+paths containing spaces. Fresh matched runs reproduce 300/308 passing tests,
+95.31% candidate helper coverage, and no old outcome, line or branch regression.
+The seven prior suite inputs, eight boundary cases and production helpers retain
+their selected hashes. The replay controls are validated separately from this
+matched suite.
+
+`failure-restoration.tar.gz` retains fresh suite reports, focused JUnit/logs,
+restoration RED/GREEN receipts, validation drivers, formatting/lint/template
+checks and historical integrity verification. `failure-restoration-index.json`
+binds every member by size and SHA256, the archive digest and current code input
+identities. Run the focused controls from the repository root:
+
+```sh
+python3 -m pytest tests/scripts/test_check_deliberate_break_uv_resolution.py \
+  tests/scripts/test_uv_resolution_replay_cli.py \
+  tests/scripts/test_uv_resolution_replay_restoration.py \
+  -q -o addopts= -m "not slow"
+```
+
+The retained validation drivers run from the repository root; their historical
+artifact paths are receipts, so use a fresh output location for a new run.
+The restoration validation driver temporarily changes the replay driver and
+restores it in `finally`, verifying its final SHA256. Production helper files
+are untouched. The suite comparison driver accepts the fresh suite output path.
+Whole-tree Black passes for 682 files using a retained sequential CLI adapter;
+the installed Black's parallel execution is blocked and its one-worker event
+loop hangs in this sandbox. The adapter uses Black's normal source discovery,
+per-file formatting and safety checks. Focused Ruff, template completeness and
+diff whitespace checks pass.
+
+The full `replay_uv_resolution.py` command could not be rerun here because
+`defusedxml` is absent and PyPI DNS is unavailable. All three historical archives
+and their 125 member records were independently verified, including the eight
+original production RED/GREEN outcomes and restoration hashes against current
+helper bytes. GitHub DNS is also unavailable, so this local acceptance record
+does not update the live PR checklist or verify its ready-for-review state.
+The requested commit could not be created: staging fails while creating
+`.git/index.lock` because `.git` is mounted read-only. The reviewed changes remain
+in the worktree.
+Hosted Gate remains required; repository-wide coverage remains UNKNOWN, and
+these artifacts do not authorize merging or closing issue 3743.
+
+Verified acceptance for this bounded chunk:
+
+- [x] **Tests**
+  - [x] Added eight tests covering failed or empty `uv` lookups in both helper copies.
+  - [x] Added replay checks that verify results and restore temporary changes.
+- [x] **Documentation**
+  - [x] Retained test evidence, matched coverage comparisons, replay instructions
+    and artifact integrity records, with repository-wide coverage unmeasured.

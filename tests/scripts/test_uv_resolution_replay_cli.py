@@ -77,7 +77,7 @@ def test_replay_suite_cli_quotes_report_paths_with_spaces(tmp_path):
         """
 import json, os, pathlib, shlex, sys
 options = shlex.split(os.environ['PYTEST_ADDOPTS'])
-if len(options) != 2:
+if len(options) != 3 or options[2] != '--cov-report=term-missing':
     raise SystemExit('report options split at a space')
 coverage = pathlib.Path(options[0].removeprefix('--cov-report=json:'))
 junit = pathlib.Path(options[1].removeprefix('--junitxml='))
@@ -103,6 +103,7 @@ junit.write_text('<testsuite/>')
         assert report["cwd"] == str(ROOT)
         assert report["coverage_file"] == str(output / f".coverage-{phase}")
         assert all(str(output) not in arg for arg in report["argv"])
+        assert report["argv"][report["argv"].index("-m", 3) + 1] == "not slow"
         assert (output / f"{phase}.xml").read_text() == "<testsuite/>"
         assert json.loads((output / f"{phase}-exit.json").read_text()) == {"exit": 0}
         command = json.loads((output / f"{phase}-command.json").read_text())

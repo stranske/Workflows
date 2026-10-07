@@ -44,6 +44,8 @@ def main():
             "-q",
             "-o",
             "addopts=",
+            "-m",
+            "not slow",
             "--cov=scripts.check_deliberate_break",
             "--cov-branch",
         ]
@@ -52,7 +54,11 @@ def main():
         # Keep user-selected artifact paths out of the executable argument list.
         # pytest parses this value with shlex; quote each complete option.
         env["PYTEST_ADDOPTS"] = shlex.join(
-            [f"--cov-report=json:{output / phase}.json", f"--junitxml={output / phase}.xml"]
+            [
+                f"--cov-report=json:{output / phase}.json",
+                f"--junitxml={output / phase}.xml",
+                "--cov-report=term-missing",
+            ]
         )
         (output / f"{phase}-command.json").write_text(
             json.dumps(
