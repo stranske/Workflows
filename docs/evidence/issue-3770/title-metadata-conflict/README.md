@@ -54,3 +54,14 @@ drift PASS. `3770-current-mutations.json` independently replays both defects on
 both copies: four real incumbent-source REDexit1/candidate-restoredGREENexit0
 controls with current source hashes. Current console captures use the same
 lossless compression/manifests as the historical initial182/2028 receipts above.
+
+## Concurrent-main synchronization
+
+Before the review-fix push, main advanced to
+`b4c5c6bb9` (merged3797). Rebased onto that main, preserved all current mutated
+production-source hashes, then re-ran the complete JavaScript suite:2,057PASS,
+1existingSkip,0failures. `3770-rebased-validation.json` records full base/tested
+head, exact command and exit; raw console is `3770-rebased-full-js.log.gz`.
+The earlier2028/2029 full-scope counts above are historical pre-rebase receipts,
+not final-tree counts. No tested implementation bytes changed when adding this
+receipt. Final staged/base diff checks pass.

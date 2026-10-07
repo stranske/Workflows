@@ -123,5 +123,10 @@
     "decoded_name": "3770-current-root-negation-red.log",
     "decoded_sha256": "3d1271c8c3ed2ae88cce08c1c3b47e358ac06ad965acd4ec46cf57da3fb236ab",
     "decoded_bytes": 2465
+  },
+  "3770-rebased-full-js.log.gz": {
+    "decoded_name": "3770-rebased-full-js.log",
+    "decoded_sha256": "b96b0d775ca2dd0e877b373cfe3e593253d5dc2a67895c716dcc28afa0539571",
+    "decoded_bytes": 225178
   }
 }

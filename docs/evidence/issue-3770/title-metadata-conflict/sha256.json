@@ -14,7 +14,7 @@
   "3770-template-completeness.log.gz": "656f7275f9150805286479b46cbb8fd6ea88133797117bd5c2025247aa8705b4",
   "3770-template-restored-green.log.gz": "8670e0fc63b7da14659de1fd571439b4d4d3a63cf14c7ca78bfd37e0751cc625",
   "3770-root-restored-green.log.gz": "9ecb863d536f69e6e8badfd094edee9f50f453d860958ce4f769def984b36117",
-  "decoded-captures.json": "8c93647fb4e98bd1b59d5e168c309afb2721f9fa1bfeac8fbfa31f9f45e8ff94",
+  "decoded-captures.json": "0e767c644541ea3554da20f33ad4da650313d116830d57fa6e3bead19f9e1734",
   "3770-current-focused.log.gz": "9bc0b2bd5706946eae45c2e6628ac7044c383c8f0e84bf836aebcfac19b00f3e",
   "3770-current-root-negation-green.log.gz": "35840156bbc400110da1551314802953ec76b669fcaddd2c8e16ee98c508278c",
   "3770-current-template-negation-red.log.gz": "120744c25ff0c22eeaa984c0baa5a1c9d152cd54379d60c6d5352bb8f3289f9a",
@@ -29,5 +29,7 @@
   "3770-current-sync.log.gz": "ce07c1b32ca5c7da9d109fade7d32b1205f4c6a9927f35b83067affb976cb2f8",
   "3770-current-root-negation-red.log.gz": "bbd355911c52a3530727832e9e1ad1f3cdbcc9310979d3b9e2bcfdef2e566576",
   "3770-current-mutations.json": "8f661fc8bd485221349a9177fb402a93bd2717a645732bcc5b20373efb6ef982",
-  "3770-current-validation.json": "3d06ed4a39ffd3bfe0af5f4ddcecb224a52ab1189c9603fa6d16135cae1bf9b8"
+  "3770-current-validation.json": "3d06ed4a39ffd3bfe0af5f4ddcecb224a52ab1189c9603fa6d16135cae1bf9b8",
+  "3770-rebased-full-js.log.gz": "e2e36b6fc07da0c61b47d880578ccedcd3ab497993e89901206fef6cc87f7cd4",
+  "3770-rebased-validation.json": "57da164b8d74690b34ebce5702cd5ffc8832203269a0a73bf715dc1f8df6c11f"
 }
