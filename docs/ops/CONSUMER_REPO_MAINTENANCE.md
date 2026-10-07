@@ -1737,13 +1737,39 @@ prohibited delivery, retaining its own polarity rather than inheriting the
 parent's. Product alternatives, bare sibling duties and independent artifacts
 are validated across ordinary, perfect, progressive and passive forms.
 The supported irregular `leave`/`left` operation shares those same guards.
+Active-perfect coordinated deliveries reuse the same supported participle guard,
+including irregular `left`, when inheriting a bounded actor and governor. A
+repeated operation does not reset product ownership: coordinated body/comment
+components retain their product actor and polarity, while bare review siblings
+and independently governed artifact duties remain distinct. Alternative review
+deliveries are not converted into conjunctive obligations by that inheritance.
+This bounded restoration also retains qualified product actors, repeated
+perfect/progressive aspects, and repeated capability predicates with qualified
+recipients. An explicit repeated aspect replaces only the inherited aspect,
+never its actor, modality, or negation. Tests reuse one coverage-fixture module
+and exercise the actual floor; caching does not remove destination assertions.
+Storage, qualified product recipients and named components use that same product
+actor grammar. A repeated explicit governor replaces the inherited governor but
+does not invent a new actor; bare destinations still require their own evidence.
+Shared negative-governor controls include `not expected`, `not supposed`, and
+`no longer required`, alongside optional and direct prohibited deliveries.
+Product storage and qualified client/user destinations reuse the canonical
+delivery operations and passive agent binding in either position. They do not
+invent a generic overall-evidence duty; independently governed artifact and
+bare-comment deliveries remain required even when overall retrieval is absent
+or unavailable. Reviewer actors are not reclassified as product actors.
 Passive destination lists accept the shared `both` and `either` quantifiers
-before actor binding; a product component cannot erase a mandatory bare sibling.
+on either side of their leading preposition before actor binding; a product
+component cannot erase a mandatory bare sibling.
 Bare body, description and comment relative presence duties are separated from
 their enclosing delivery before channel and alternative classification. Their
 independent governor retains polarity, while the parent's genuine AND/OR list
 retains its own semantics. Availability relatives and named product components
 are not independent presence deliveries; quoted parser examples stay opaque.
+Relative normalization stops at a blank paragraph, including CRLF and
+whitespace-only blank lines. Soft single-line wrapping remains supported and
+quoted examples spanning paragraphs remain opaque; a later paragraph cannot
+become a relative delivery or disappear as an earlier component property.
 First-member relative qualifiers preserve the complete bounded parent
 destination tail, including repeated prepositions, before independent presence
 duties are separated. Recognized attached availability is kept with that whole

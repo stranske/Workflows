@@ -992,6 +992,7 @@ _MANDATORY_EVIDENCE_AUXILIARY = (
 _EVIDENCE_DELIVERY_ADVERB = r"(?:also|now|still|already|yet|always|[\w-]+ly)"
 _EVIDENCE_DELIVERY_ADVERBS = r"(?:" + _EVIDENCE_DELIVERY_ADVERB + r"\s+){0,3}"
 _EVIDENCE_DELIVERY_OPERATION = r"(?:prov(?:e|ing)|provid(?:e|ing)|return|display|show|emit|render|expos(?:e|ing)|stor(?:e|ing)|upload|attach|publish|post|record|captur(?:e|ing)|includ(?:e|ing)|contain|hav(?:e|ing)|document|generat(?:e|ing)|link|add|leav(?:e|ing)|left)\w*\b"
+_EVIDENCE_DELIVERY_PARTICIPLE_START = r"(?=(?:\w*(?:ed|en)|left)\b)"
 _EVIDENCE_OBJECT_MODIFIERS = (
     r"(?:(?!(?:and|or|but|must|shall|is|are|not|never|may|can)\b)[\w/-]+\s+){0,6}"
 )
@@ -1090,6 +1091,26 @@ _EVIDENCE_REVIEW_DESTINATION = (
 )
 _EVIDENCE_DESTINATION_PREPOSITION = r"(?:in|into|to|within|for|as|through|via)"
 _EVIDENCE_DESTINATION_SEPARATOR_BASE = r"(?:\s*,\s*(?:(?:and|or)\s+)?|\s+(?:and|or)\s+)"
+_EVIDENCE_PRODUCT_ACTOR = (
+    _EVIDENCE_RECIPIENT_PREFIX
+    + r"(?:application|app|service|api|endpoint|ui|interface|cli|renderer)\b"
+    + _EVIDENCE_ACTOR_QUALIFIER
+)
+_EVIDENCE_PRODUCT_RECIPIENT = (
+    _EVIDENCE_RECIPIENT_PREFIX + r"(?:clients?|users?|consumers?)\b" + _EVIDENCE_ACTOR_QUALIFIER
+)
+_EVIDENCE_PRODUCT_STORAGE = (
+    r"(?:(?:its|the|an?)\s+)?(?:database|audit log|storage|application log)\b"
+)
+_EVIDENCE_PRODUCT_DESTINATION = (
+    r"(?:"
+    + _EVIDENCE_DESTINATION_PREPOSITION
+    + r"\s+"
+    + _EVIDENCE_PRODUCT_STORAGE
+    + r"|(?:to|for)\s+"
+    + _EVIDENCE_PRODUCT_RECIPIENT
+    + r")"
+)
 _EVIDENCE_CONDITIONAL = (
     r"\b(?:(?:only|solely)\s+)?(?:if|when)\s+(?:produced|available|present|uploaded|generated)\b"
 )
@@ -1155,7 +1176,7 @@ def _normalize_passive_review_agents(acceptance: str) -> str:
         _EVIDENCE_RECIPIENT_PREFIX
         + r"(?:"
         + _EVIDENCE_ACTOR_NOUN
-        + r"|interface|cli|renderer)\b"
+        + r"|app|interface|cli|renderer)\b"
         + _EVIDENCE_ACTOR_QUALIFIER
     )
     object_ = (
@@ -1191,10 +1212,24 @@ def _normalize_passive_review_agents(acceptance: str) -> str:
         + _EVIDENCE_CONDITIONAL
         + r")?"
     )
-    destination_item = _EVIDENCE_REVIEW_DESTINATION + r"(?:\s*,?\s*" + attachment + r")?"
+    destination_item = (
+        r"(?:"
+        + _EVIDENCE_REVIEW_DESTINATION
+        + r"|"
+        + _EVIDENCE_PRODUCT_STORAGE
+        + r"|"
+        + _EVIDENCE_PRODUCT_RECIPIENT
+        + r")"
+        + r"(?:\s*,?\s*"
+        + attachment
+        + r")?"
+    )
     destination = (
-        _EVIDENCE_DESTINATION_PREPOSITION
-        + r"\s+(?:(?:either|both)\s+)?"
+        r"(?:(?:either|both)\s+"
+        + _EVIDENCE_DESTINATION_PREPOSITION
+        + r"\s+|"
+        + _EVIDENCE_DESTINATION_PREPOSITION
+        + r"\s+(?:(?:either|both)\s+)?)"
         + destination_item
         + r"(?:"
         + separator
@@ -1236,7 +1271,12 @@ def _normalize_passive_review_agents(acceptance: str) -> str:
                             match["operation"].lower(), match["operation"]
                         ),
                         match["object"].strip(),
-                        match["destination"],
+                        re.sub(
+                            r"^(either|both)\s+(" + _EVIDENCE_DESTINATION_PREPOSITION + r")\s+",
+                            r"\2 \1 ",
+                            match["destination"],
+                            flags=re.I,
+                        ),
                     )
                 )
             ),
@@ -1248,6 +1288,27 @@ def _normalize_passive_review_agents(acceptance: str) -> str:
 
 def _normalize_relative_review_presence(acceptance: str) -> str:
     """Retain parent lists and distinguish bare-channel duties from component content."""
+    # Soft line wraps may belong to one criterion; a blank paragraph cannot.
+    # Keep quoted examples intact even when the example spans paragraphs.
+    literals = [match.span() for match in re.finditer(_QUOTED_EVIDENCE_LITERAL, acceptance)]
+    paragraphs = [
+        match
+        for match in re.finditer(r"\r?\n[ \t]*\r?\n", acceptance)
+        if not any(start <= match.start() < end for start, end in literals)
+    ]
+    if paragraphs:
+        pieces = []
+        cursor = 0
+        for paragraph in paragraphs:
+            pieces.extend(
+                (
+                    _normalize_relative_review_presence(acceptance[cursor : paragraph.start()]),
+                    paragraph[0],
+                )
+            )
+            cursor = paragraph.end()
+        pieces.append(_normalize_relative_review_presence(acceptance[cursor:]))
+        return "".join(pieces)
     presence = (
         r"(?P<destination>(?:pr|pull request)\s+(?:body|description|comments?)\b"
         r"(?P<presence_component>\s+" + _REVIEW_BODY_COMPONENT + r")?)"
@@ -1393,8 +1454,10 @@ def _required_evidence_channels(acceptance: str, *, _bind_attached: bool = True)
     )
     conditional_evidence = _EVIDENCE_CONDITIONAL
     recipient_prefix = _EVIDENCE_RECIPIENT_PREFIX
-    recipient_noun = recipient_prefix + r"(?:clients?|users?|consumers?)\b"
+    recipient_noun = _EVIDENCE_PRODUCT_RECIPIENT
     product_recipient = r"(?:to|for)\s+" + recipient_noun
+    product_actor = _EVIDENCE_PRODUCT_ACTOR
+    product_destination = _EVIDENCE_PRODUCT_DESTINATION
     artifact_destination_object = _EVIDENCE_ARTIFACT_DESTINATION
     body_component = _REVIEW_BODY_COMPONENT
     review_destination_noun = _EVIDENCE_REVIEW_DESTINATION
@@ -1885,9 +1948,11 @@ def _required_evidence_channels(acceptance: str, *, _bind_attached: bool = True)
         + destination_preposition
         + r"(?:both\s+)?"
         + delivery_destination_item
-        + r"|\s+(?:(?:in|into|to|as)\s+(?:(?:its|the|an?)\s+)?"
-        r"(?:database|audit log|storage|application log)\b|" + product_recipient + r")"
-        r"\s+by\s+(?:(?:the|an?)\s+)?(?:application|app|service|api|endpoint)\b)",
+        + r"|\s+"
+        + product_destination
+        + r"\s+by\s+"
+        + product_actor
+        + r")",
         normalize_record_alias,
         acceptance,
         flags=re.I,
@@ -1898,7 +1963,6 @@ def _required_evidence_channels(acceptance: str, *, _bind_attached: bool = True)
     product_auxiliary = (
         r"(?:" + mandatory_auxiliary + r"|will|" + optional_delivery_modal + r"|do|does|did)\s+"
     )
-    product_actor = r"(?:(?:the|an?)\s+)?(?:application|app|service|api|endpoint)"
     product_aspect = (
         r"(?:"
         + delivery_governor_auxiliary
@@ -1912,16 +1976,13 @@ def _required_evidence_channels(acceptance: str, *, _bind_attached: bool = True)
         + evidence_modifiers
         + r"(?:transcripts?|command outputs?|evidence|artifacts?)\s+"
     )
-    product_destination = (
-        r"(?:(?:in|into|to|as)\s+(?:(?:its|the|an?)\s+)?"
-        r"(?:database|audit log|storage|application log)\b|" + product_recipient + r")"
-    )
     bound_product_delivery = re.compile(
         r"\b"
         + product_actor
         + r"\s+"
         + product_aspect
-        + r"(?:record|capture|attach|generate|return|display|emit|render|expose|provide)\w*\s+"
+        + delivery_operation
+        + r"\s+"
         + product_evidence_object
         + product_destination
         + r"(?!"
@@ -1931,7 +1992,8 @@ def _required_evidence_channels(acceptance: str, *, _bind_attached: bool = True)
         + r"|\b"
         + product_evidence_object
         + product_aspect
-        + r"(?:recorded|captured|attached|generated|returned|displayed|emitted|rendered|exposed|provided)\s+"
+        + delivery_operation
+        + r"\s+"
         + product_destination
         + r"\s+by\s+"
         + product_actor
@@ -1959,10 +2021,6 @@ def _required_evidence_channels(acceptance: str, *, _bind_attached: bool = True)
         + r")",
         re.I,
     )
-    storage_destination = (
-        r"(?:in|into|to|as)\s+(?:(?:its|the|an?)\s+)?"
-        r"(?:database|audit log|storage|application log)\b"
-    )
     coordinated_governor = (
         r"(?:"
         + delivery_governor_auxiliary
@@ -1973,9 +2031,43 @@ def _required_evidence_channels(acceptance: str, *, _bind_attached: bool = True)
         + r"(?:have\s+)?(?:be\s+|been\s+)?(?:being\s+)?"
         + delivery_adverbs
     )
+    coordinated_aspect = (
+        delivery_adverbs + r"(?:have\s+)?(?:be\s+|been\s+)?(?:being\s+)?" + delivery_adverbs
+    )
+    coordinated_capability = (
+        r"(?:"
+        + capability_operation
+        + r"\s+"
+        + recipient_prefix
+        + _EVIDENCE_ACTOR_NOUN
+        + r"\b"
+        + _EVIDENCE_ACTOR_QUALIFIER
+        + r"\s+(?:to\s+)?)?"
+    )
     coordinated_operation = (
-        r"(?:record|capture|attach|generate|return|display|emit|render|expose|provide)\w*\s+"
+        coordinated_aspect
+        + coordinated_capability
+        + delivery_operation
+        + r"\s+"
         + product_evidence_object
+    )
+    component_destination = (
+        _EVIDENCE_DESTINATION_PREPOSITION
+        + r"\s+(?:(?:the|an?)\s+)?(?:pr|pull request)\s+(?:body|description|comments?)\s+"
+        + body_component
+    )
+    explicit_chain_governor = (
+        r"(?:"
+        + negative_requirement_governor
+        + r"|"
+        + mandatory_auxiliary
+        + r"|"
+        + optional_delivery_modal
+        + r"|will|is|are|was|were|do|does|did"
+        + r")\s+"
+        + delivery_adverbs
+        + r"(?:(?:not|never|no\s+longer)\s+)?"
+        + delivery_adverbs
     )
     shared_review_tail = r"(?:" + shared_storage_separator + review_destination_noun + r"){0,3}"
     shared_passive_product_review_destination = re.compile(
@@ -1995,23 +2087,36 @@ def _required_evidence_channels(acceptance: str, *, _bind_attached: bool = True)
         + r")",
         re.I,
     )
-    storage_chain_head = re.compile(
+    product_chain_head = re.compile(
         r"\b(?P<actor>"
         + product_actor
         + r")\s+"
         + r"(?P<governor>"
+        + r"(?:"
+        + negative_requirement_governor
+        + r"\s+"
+        + delivery_adverbs
+        + r"|"
         + coordinated_governor
         + r")"
+        + r")"
         + coordinated_operation
-        + storage_destination
+        + r"(?:"
+        + product_destination
+        + r"|"
+        + component_destination
+        + r")"
         + shared_review_tail,
         re.I,
     )
-    storage_chain_member = re.compile(
+    product_chain_member = re.compile(
         r"\s+(?P<conjunction>and|or)\s+(?P<predicate>"
+        + r"(?P<explicit_governor>"
+        + explicit_chain_governor
+        + r")?"
         + coordinated_operation
         + r"(?:"
-        + storage_destination
+        + product_destination
         + shared_review_tail
         + r"|(?:in|into|to|as)\s+"
         + review_destination_noun
@@ -2019,32 +2124,53 @@ def _required_evidence_channels(acceptance: str, *, _bind_attached: bool = True)
         re.I,
     )
 
-    def normalize_storage_coordination(text: str) -> str:
+    def normalize_product_coordination(text: str) -> str:
         """Restore a bounded elided product actor/governor before clause splitting."""
         literals = [match.span() for match in re.finditer(quoted_evidence_literal, text)]
         output: list[str] = []
         consumed = 0
-        for head in storage_chain_head.finditer(text):
+        for head in product_chain_head.finditer(text):
             if head.start() < consumed or any(
                 start <= head.start() < end for start, end in literals
             ):
                 continue
             cursor = head.end()
             members = []
-            while member := storage_chain_member.match(text, cursor):
+            while member := product_chain_member.match(text, cursor):
                 if any(start < member.end() and member.start() < end for start, end in literals):
                     break
                 # Alternative review delivery is outside this finite inheritance
                 # repair; preserve it unchanged instead of changing its semantics.
                 if member["conjunction"].lower() == "or" and not re.match(
-                    coordinated_operation + storage_destination, member["predicate"], re.I
+                    coordinated_operation
+                    + r"(?:"
+                    + product_destination
+                    + r"|"
+                    + component_destination
+                    + r")",
+                    member["predicate"][len(member["explicit_governor"] or "") :],
+                    re.I,
                 ):
                     break
                 members.append(member)
                 cursor = member.end()
             output.extend((text[consumed : head.end()],))
             for member in members:
-                output.append("; " + head["actor"] + " " + head["governor"] + member["predicate"])
+                governor = "" if member["explicit_governor"] else head["governor"]
+                if re.match(
+                    delivery_adverbs + r"(?:have|be|been|being)\s+", member["predicate"], re.I
+                ):
+                    # An explicit repeated aspect replaces the inherited aspect,
+                    # but never the head's modality, polarity, or product actor.
+                    governor = re.sub(
+                        r"(?:have|be|been|being)\s+(?:(?:be|been|being)\s+)*"
+                        + delivery_adverbs
+                        + r"$",
+                        "",
+                        governor,
+                        flags=re.I,
+                    )
+                output.append("; " + head["actor"] + " " + governor + member["predicate"])
             consumed = cursor
             reset = re.match(
                 r"\s+(?:and|or)\s+(?=(?:" + mandatory_auxiliary + r"|will)\s+)",
@@ -2475,6 +2601,7 @@ def _required_evidence_channels(acceptance: str, *, _bind_attached: bool = True)
             actor = (
                 recipient_prefix + r"(?:(?:api|ui)\s+)?"
                 r"(?:users?|clients?|consumers?|reviewers?|maintainers?|authors?|operators?)"
+                + _EVIDENCE_ACTOR_QUALIFIER
             )
             base_operations = {
                 "display",
@@ -2731,7 +2858,7 @@ def _required_evidence_channels(acceptance: str, *, _bind_attached: bool = True)
         + delivery_adverbs
         + r"(?:being\s+)?"
         + delivery_adverbs
-        + r"(?=\w*(?:ed|en)\b)"
+        + _EVIDENCE_DELIVERY_PARTICIPLE_START
         + delivery_operation,
         re.I,
     )
@@ -2943,7 +3070,7 @@ def _required_evidence_channels(acceptance: str, *, _bind_attached: bool = True)
             ),
             criterion,
         )
-        criterion = normalize_storage_coordination(criterion)
+        criterion = normalize_product_coordination(criterion)
         # A bare review channel's relative presence predicate has its own
         # governor. Separate it before enclosing prohibitions/alternatives can
         # consume its antecedent; named product components and availability
@@ -2991,7 +3118,7 @@ def _required_evidence_channels(acceptance: str, *, _bind_attached: bool = True)
             + delivery_adverbs
             + r"have\s+"
             + delivery_adverbs
-            + r"(?=\w*(?:ed|en)\b)"
+            + _EVIDENCE_DELIVERY_PARTICIPLE_START
             + delivery_operation
             + r"\s+"
             + evidence_modifiers
@@ -3133,7 +3260,7 @@ def _required_evidence_channels(acceptance: str, *, _bind_attached: bool = True)
                     + r")"
                     + r"have\s+"
                     + delivery_adverbs
-                    + r"(?=\w*(?:ed|en)\b)"
+                    + _EVIDENCE_DELIVERY_PARTICIPLE_START
                     + delivery_operation
                     + r"\s+"
                     + evidence_modifiers

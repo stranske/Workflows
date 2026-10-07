@@ -8,6 +8,309 @@ import pytest
 from scripts import docs_drift_fix_agent as fix_agent
 from scripts.langchain import pr_verifier as verifier
 
+_COVERAGE_SPEC = importlib.util.spec_from_file_location(
+    "delivery_coverage_fixtures", Path(__file__).with_name("test_pr_verifier_prompt_coverage.py")
+)
+_COVERAGE_FIXTURE = importlib.util.module_from_spec(_COVERAGE_SPEC)
+_COVERAGE_SPEC.loader.exec_module(_COVERAGE_FIXTURE)
+
+
+def _floor_verdict(criterion, *, body, comments, artifacts="present", overall="present"):
+    """Use the real prompt and coverage floor with one immutable fixture module."""
+    context, _ = _COVERAGE_FIXTURE._context(1, 1000, 1000)
+    evidence = (
+        f"- Overall retrieval status: **{overall}**\n"
+        f"- PR body: **{body}**\n- PR comments: **{comments}**\n"
+        f"- Referenced workflow artifacts: **{artifacts}**"
+    )
+    context = context.replace("- " + _COVERAGE_FIXTURE.ACCEPTANCE_SENTINEL, criterion).replace(
+        "## PR Diff Summary", "## Acceptance evidence\n\n" + evidence + "\n\n## PR Diff Summary"
+    )
+    return verifier._apply_coverage_floor(
+        verifier.EvaluationResult(verdict="PASS", used_llm=True),
+        verifier.prompt_coverage(context, None),
+    ).verdict
+
+
+@pytest.mark.parametrize("actor", ["reviewer", "maintainer"])
+@pytest.mark.parametrize("first", ["recorded", "supplied", "left"])
+@pytest.mark.parametrize("second", ["recorded", "left"])
+@pytest.mark.parametrize("governor", ["must", "may", "must not", "is not expected to"])
+@pytest.mark.parametrize("boundary", ["and", "but"])
+@pytest.mark.parametrize("reverse", [False, True])
+def test_irregular_perfect_delivery_inherits_actor_and_polarity(
+    actor, first, second, governor, boundary, reverse
+):
+    first_destination, second_destination = ("the PR description", "a PR comment")
+    if reverse:
+        first_destination, second_destination = second_destination, first_destination
+    criterion = (
+        f"The {actor} {governor} have {first} evidence in {first_destination} "
+        f"{boundary} have {second} evidence in {second_destination}"
+    )
+    expected = (
+        {"body", "comments"}
+        if governor == "must"
+        else (
+            {"body" if reverse else "comments"}
+            if boundary == "but" and governor != "may"
+            else set()
+        )
+    )
+    assert verifier._required_evidence_channels(criterion) == expected
+    assert verifier._required_evidence_options(criterion) == [expected]
+    for missing in ("absent", "unavailable"):
+        for channel in ("body", "comments"):
+            assert _floor_verdict(
+                criterion,
+                body=missing if channel == "body" else "present",
+                comments=missing if channel == "comments" else "present",
+            ) == ("CONCERNS" if channel in expected else "PASS")
+
+
+@pytest.mark.parametrize("actor", ["UI", "service", "interface"])
+@pytest.mark.parametrize("operation", ["generate", "record", "supply", "leave"])
+@pytest.mark.parametrize("component", ["panel", "preview panel", "formatted preview panel"])
+@pytest.mark.parametrize("boundary", ["and", "or"])
+@pytest.mark.parametrize("reverse", [False, True])
+@pytest.mark.parametrize("governor", ["must", "may", "must not"])
+def test_repeated_product_operations_keep_component_ownership(
+    actor, operation, component, boundary, reverse, governor
+):
+    destinations = ["the PR body " + component, "a PR comment " + component]
+    if reverse:
+        destinations.reverse()
+    criterion = (
+        f"The {actor} {governor} {operation} evidence in {destinations[0]} "
+        f"{boundary} {operation} evidence in {destinations[1]}; "
+        "the auditor must record evidence in a workflow artifact"
+    )
+    assert verifier._required_evidence_channels(criterion) == {"artifacts"}
+    assert verifier._required_evidence_options(criterion) == [{"artifacts"}]
+    for missing in ("absent", "unavailable"):
+        assert _floor_verdict(criterion, body=missing, comments=missing) == "PASS"
+
+
+@pytest.mark.parametrize("participle", ["recorded", "supplied", "left"])
+@pytest.mark.parametrize("position", ["before", "after"])
+@pytest.mark.parametrize("quantifier,conjunction", [("both", "and"), ("either", "or")])
+@pytest.mark.parametrize("agent_first", [False, True])
+@pytest.mark.parametrize("actor", ["UI", "reviewer"])
+@pytest.mark.parametrize("reverse", [False, True])
+@pytest.mark.parametrize("governor", ["must", "may", "must not"])
+def test_passive_both_preposition_order_retains_actor_and_destinations(
+    participle, position, quantifier, conjunction, agent_first, actor, reverse, governor
+):
+    destinations = ["the PR body panel", "a PR comment"]
+    if reverse:
+        destinations.reverse()
+    target = (
+        quantifier + " in " if position == "before" else "in " + quantifier + " "
+    ) + f" {conjunction} in ".join(destinations)
+    predicate = f"Evidence {governor} be {participle} "
+    criterion = predicate + (
+        f"by the {actor} {target}" if agent_first else f"{target} by the {actor}"
+    )
+    expected = (
+        ({"comments"} if actor == "UI" else {"body", "comments"}) if governor == "must" else set()
+    )
+    assert verifier._required_evidence_channels(criterion) == expected
+    options = (
+        [{"body"}, {"comments"}]
+        if governor == "must" and actor == "reviewer" and quantifier == "either"
+        else [expected]
+    )
+    assert {frozenset(option) for option in verifier._required_evidence_options(criterion)} == {
+        frozenset(option) for option in options
+    }
+    for missing in ("absent", "unavailable"):
+        assert _floor_verdict(criterion, body="present", comments=missing) == (
+            "CONCERNS"
+            if "comments" in expected and not (actor == "reviewer" and quantifier == "either")
+            else "PASS"
+        )
+
+
+@pytest.mark.parametrize("destination", ["the PR body", "a PR comment"])
+@pytest.mark.parametrize("component", ["", " panel"])
+@pytest.mark.parametrize("relative", ["which must contain command output", "that is available"])
+@pytest.mark.parametrize("separator", ["\n\n", "\n \n", "\r\n\r\n"])
+def test_relative_normalization_does_not_join_blank_paragraphs(
+    destination, component, relative, separator
+):
+    criterion = "The UI may generate evidence in " + destination + component + separator + relative
+    assert verifier._normalize_relative_review_presence(criterion) == criterion
+
+
+def test_relative_normalization_retains_soft_wrap_and_quoted_paragraph_controls():
+    soft_wrap = "The PR body\nwhich must contain command output"
+    assert verifier._normalize_relative_review_presence(soft_wrap) == (
+        "The PR body; PR body must contain command output"
+    )
+    quoted = 'The parser recognizes "PR body\n\nwhich must contain command output"'
+    assert verifier._normalize_relative_review_presence(quoted) == quoted
+
+
+@pytest.mark.parametrize("actor", ["UI", "service used by users", "UI used by users"])
+@pytest.mark.parametrize(
+    "operation,perfect,progressive",
+    [
+        ("record", "recorded", "recording"),
+        ("supply", "supplied", "supplying"),
+        ("leave", "left", "leaving"),
+    ],
+)
+@pytest.mark.parametrize(
+    "form",
+    [
+        "ordinary",
+        "perfect",
+        "progressive",
+        "capability",
+        "qualified-user",
+        "qualified-reviewer",
+        "permit",
+        "let",
+    ],
+)
+@pytest.mark.parametrize("governor", ["must", "may", "must not"])
+@pytest.mark.parametrize("coordination", ["and", "or"])
+@pytest.mark.parametrize("reverse", [False, True])
+def test_repeated_product_predicate_shares_aspect_recipient_and_qualified_actor(
+    actor, operation, perfect, progressive, form, governor, coordination, reverse
+):
+    predicate = {
+        "ordinary": operation,
+        "perfect": "have " + perfect,
+        "progressive": "be " + progressive,
+        "capability": "allow authenticated users to " + operation,
+        "qualified-user": "allow users of the UI to " + operation,
+        "qualified-reviewer": "enable authorized reviewers to " + operation,
+        "permit": "permit users of the UI to " + operation,
+        "let": "let users of the UI " + operation,
+    }[form]
+    destinations = ["the PR description preview panel", "a PR comment preview panel"]
+    if reverse:
+        destinations.reverse()
+    criterion = (
+        f"The {actor} {governor} {predicate} evidence in {destinations[0]} "
+        f"{coordination} {predicate} evidence in {destinations[1]}; "
+        "the auditor must record evidence in a workflow artifact"
+    )
+    assert verifier._required_evidence_channels(criterion) == {"artifacts"}
+    assert verifier._required_evidence_options(criterion) == [{"artifacts"}]
+    for missing in ("absent", "unavailable"):
+        assert _floor_verdict(criterion, body=missing, comments=missing) == "PASS"
+
+
+@pytest.mark.parametrize("actor", ["UI", "service"])
+@pytest.mark.parametrize(
+    "first_destination",
+    [
+        "in the PR body panel",
+        "in the database",
+        "to clients",
+        "to users of the UI",
+    ],
+)
+@pytest.mark.parametrize(
+    "first_governor",
+    [
+        "must",
+        "may",
+        "must not",
+        "is not expected to",
+        "is not supposed to",
+        "is no longer required to",
+    ],
+)
+@pytest.mark.parametrize(
+    "second_governor",
+    [
+        "",
+        "must ",
+        "may ",
+        "must not ",
+        "is not expected to ",
+        "is not supposed to ",
+        "is no longer required to ",
+    ],
+)
+@pytest.mark.parametrize(
+    "second_destination,coordination",
+    [
+        ("a PR comment panel", "and"),
+        ("a PR comment panel", "or"),
+        ("a PR comment", "and"),
+    ],
+)
+def test_product_coordination_preserves_recipients_and_explicit_governor_reset(
+    actor, first_destination, first_governor, second_governor, second_destination, coordination
+):
+    criterion = (
+        f"The {actor} {first_governor} record evidence {first_destination} "
+        f"{coordination} {second_governor}record evidence in {second_destination}; "
+        "the auditor must record evidence in a workflow artifact"
+    )
+    effective_governor = second_governor.strip() or first_governor
+    expected = {"artifacts"} | (
+        {"comments"}
+        if second_destination == "a PR comment" and effective_governor == "must"
+        else set()
+    )
+    assert verifier._required_evidence_channels(criterion) == expected
+    assert verifier._required_evidence_options(criterion) == [expected]
+    for missing in ("absent", "unavailable"):
+        assert _floor_verdict(criterion, body=missing, comments=missing) == (
+            "CONCERNS" if "comments" in expected else "PASS"
+        )
+
+
+@pytest.mark.parametrize(
+    "operation,participle",
+    [
+        ("record", "recorded"),
+        ("capture", "captured"),
+        ("generate", "generated"),
+        ("leave", "left"),
+        ("prove", "proved"),
+        ("upload", "uploaded"),
+        ("publish", "published"),
+        ("share", "shared"),
+        ("supply", "supplied"),
+    ],
+)
+@pytest.mark.parametrize("voice", ["active", "agent-before", "agent-after"])
+@pytest.mark.parametrize("actor", ["UI", "service"])
+@pytest.mark.parametrize("destination", ["in the database", "to authorized clients of the UI"])
+@pytest.mark.parametrize("governor", ["must", "may", "must not"])
+@pytest.mark.parametrize("independent_comment", [False, True])
+def test_product_delivery_operations_share_storage_recipient_and_voice_guards(
+    operation, participle, voice, actor, destination, governor, independent_comment
+):
+    if voice == "active":
+        criterion = f"The {actor} {governor} {operation} evidence {destination}"
+    elif voice == "agent-before":
+        criterion = f"Evidence {governor} be {participle} by the {actor} {destination}"
+    else:
+        criterion = f"Evidence {governor} be {participle} {destination} by the {actor}"
+    criterion += "; the auditor must record evidence in a workflow artifact"
+    if independent_comment:
+        criterion += "; the reviewer must record evidence in a PR comment"
+    expected = {"artifacts"} | ({"comments"} if independent_comment else set())
+    assert verifier._required_evidence_channels(criterion) == expected
+    assert verifier._required_evidence_options(criterion) == [expected]
+    for missing in ("absent", "unavailable"):
+        assert (
+            _floor_verdict(
+                criterion,
+                body=missing,
+                comments="present",
+                overall=missing,
+            )
+            == "PASS"
+        )
+
 
 @pytest.mark.parametrize(
     "operation,participle", [("record", "recorded"), ("supply", "supplied"), ("leave", "left")]
@@ -44,12 +347,7 @@ def test_availability_first_final_retains_parent_condition(
     expected = {"artifacts"}
     assert verifier._required_evidence_channels(criterion) == expected
     assert verifier._required_evidence_options(criterion) == [expected]
-    spec = importlib.util.spec_from_file_location(
-        "availability_parent_condition_floor",
-        Path(__file__).with_name("test_pr_verifier_prompt_coverage.py"),
-    )
-    fixture = importlib.util.module_from_spec(spec)
-    spec.loader.exec_module(fixture)
+    fixture = _COVERAGE_FIXTURE
     for missing in ("absent", "unavailable"):
         for present in (set(), {"body"}, {"comments"}, {"body", "comments"}):
             context, _ = fixture._context(1, 1000, 1000)
@@ -115,11 +413,7 @@ def test_relative_qualifier_preserves_parent_and_local_condition_scope(
     expected = {"artifacts"} | ({channel} if not component and not local_condition else set())
     assert verifier._required_evidence_channels(criterion) == expected
     assert verifier._required_evidence_options(criterion) == [expected]
-    spec = importlib.util.spec_from_file_location(
-        "relative_condition_floor", Path(__file__).with_name("test_pr_verifier_prompt_coverage.py")
-    )
-    fixture = importlib.util.module_from_spec(spec)
-    spec.loader.exec_module(fixture)
+    fixture = _COVERAGE_FIXTURE
     for missing in ("absent", "unavailable"):
         for present in (set(), {"body"}, {"comments"}, {"body", "comments"}):
             evidence = (
@@ -168,11 +462,7 @@ def test_passive_destination_quantifier_retains_bare_sibling(
     expected = {other_channel, "artifacts"}
     assert verifier._required_evidence_channels(criterion) == expected
     assert verifier._required_evidence_options(criterion) == [expected]
-    spec = importlib.util.spec_from_file_location(
-        "passive_quantifier_floor", Path(__file__).with_name("test_pr_verifier_prompt_coverage.py")
-    )
-    fixture = importlib.util.module_from_spec(spec)
-    spec.loader.exec_module(fixture)
+    fixture = _COVERAGE_FIXTURE
     for missing in ("absent", "unavailable"):
         context, _ = fixture._context(1, 1000, 1000)
         context = context.replace("- " + fixture.ACCEPTANCE_SENTINEL, criterion).replace(
@@ -300,12 +590,7 @@ def test_product_component_coordination_preserves_bare_other_channel(
     expected = ({bare_channel} if required else set()) | ({"artifacts"} if independent else set())
     assert verifier._required_evidence_channels(criterion) == expected
     assert verifier._required_evidence_options(criterion) == [expected]
-    spec = importlib.util.spec_from_file_location(
-        "mixed_product_component_floor_fixture",
-        Path(__file__).with_name("test_pr_verifier_prompt_coverage.py"),
-    )
-    fixture = importlib.util.module_from_spec(spec)
-    spec.loader.exec_module(fixture)
+    fixture = _COVERAGE_FIXTURE
     context, _ = fixture._context(1, 1000, 1000)
     context = context.replace("- " + fixture.ACCEPTANCE_SENTINEL, criterion).replace(
         "## PR Diff Summary",
@@ -422,12 +707,7 @@ def test_passive_aliases_preserve_actor_options_and_actual_floor(
     assert {frozenset(option) for option in verifier._required_evidence_options(criterion)} == {
         frozenset(option) for option in expected
     }
-    spec = importlib.util.spec_from_file_location(
-        "passive_alias_floor_fixture",
-        Path(__file__).with_name("test_pr_verifier_prompt_coverage.py"),
-    )
-    fixture = importlib.util.module_from_spec(spec)
-    spec.loader.exec_module(fixture)
+    fixture = _COVERAGE_FIXTURE
     for present in (set(), {"body"}, {"comments"}, {"body", "comments"}):
         evidence = (
             "- Overall retrieval status: **present**\n"
@@ -496,12 +776,7 @@ def test_component_availability_preserves_bare_sibling_and_passive_actor(
         expected.add("artifacts")
     assert verifier._required_evidence_channels(criterion) == expected
     assert verifier._required_evidence_options(criterion) == [expected]
-    spec = importlib.util.spec_from_file_location(
-        "component_availability_floor_fixture",
-        Path(__file__).with_name("test_pr_verifier_prompt_coverage.py"),
-    )
-    fixture = importlib.util.module_from_spec(spec)
-    spec.loader.exec_module(fixture)
+    fixture = _COVERAGE_FIXTURE
     for present in (set(), {"body"}, {"comments"}, {"body", "comments"}):
         evidence = (
             "- Overall retrieval status: **present**\n"
@@ -826,12 +1101,7 @@ def test_relative_negative_adjective_shares_internal_adverbs(
     assert verifier._required_evidence_channels(criterion) == expected
     assert verifier._required_evidence_options(criterion) == [expected]
     if adjective == "required" and negative == "not":
-        spec = importlib.util.spec_from_file_location(
-            "relative_negative_adverb_floor_fixture",
-            Path(__file__).with_name("test_pr_verifier_prompt_coverage.py"),
-        )
-        fixture = importlib.util.module_from_spec(spec)
-        spec.loader.exec_module(fixture)
+        fixture = _COVERAGE_FIXTURE
         context, _ = fixture._context(1, 1000, 1000)
         context = context.replace("- " + fixture.ACCEPTANCE_SENTINEL, criterion).replace(
             "## PR Diff Summary",
@@ -870,12 +1140,7 @@ def test_body_delivery_uses_shared_operation_and_polarity(
     assert verifier._required_evidence_channels(criterion) == expected
     assert verifier._required_evidence_options(criterion) == [expected]
 
-    spec = importlib.util.spec_from_file_location(
-        "shared_operation_floor_fixture",
-        Path(__file__).with_name("test_pr_verifier_prompt_coverage.py"),
-    )
-    fixture = importlib.util.module_from_spec(spec)
-    spec.loader.exec_module(fixture)
+    fixture = _COVERAGE_FIXTURE
     context, _ = fixture._context(1, 1000, 1000)
     context = context.replace("- " + fixture.ACCEPTANCE_SENTINEL, criterion).replace(
         "## PR Diff Summary",
@@ -983,12 +1248,7 @@ def test_component_alternatives_preserve_optional_negative_floor(
         criterion += "; provide command output in a PR comment"
     options = verifier._required_evidence_options(criterion)
     assert options == ([{"comments"}] if independent else [set()])
-    spec = importlib.util.spec_from_file_location(
-        "optional_component_fixture",
-        Path(__file__).with_name("test_pr_verifier_prompt_coverage.py"),
-    )
-    fixture = importlib.util.module_from_spec(spec)
-    spec.loader.exec_module(fixture)
+    fixture = _COVERAGE_FIXTURE
     context, _ = fixture._context(1, 1000, 1000)
     context = context.replace("- " + fixture.ACCEPTANCE_SENTINEL, criterion).replace(
         "## PR Diff Summary",
@@ -1059,12 +1319,7 @@ def test_component_temporal_boundary_preserves_bare_and_independent_delivery(
         expected.add("comments")
     assert verifier._required_evidence_channels(criterion) == expected
     assert verifier._required_evidence_options(criterion) == [expected]
-    spec = importlib.util.spec_from_file_location(
-        "temporal_component_fixture",
-        Path(__file__).with_name("test_pr_verifier_prompt_coverage.py"),
-    )
-    fixture = importlib.util.module_from_spec(spec)
-    spec.loader.exec_module(fixture)
+    fixture = _COVERAGE_FIXTURE
     context, _ = fixture._context(1, 1000, 1000)
     context = context.replace("- " + fixture.ACCEPTANCE_SENTINEL, criterion).replace(
         "## PR Diff Summary",
@@ -1180,11 +1435,7 @@ def test_component_options_and_actual_floor_are_order_symmetric(
     assert {frozenset(x) for x in verifier._required_evidence_options(criterion)} == {
         frozenset(x) for x in expected
     }
-    spec = importlib.util.spec_from_file_location(
-        "component_options_fixture", Path(__file__).with_name("test_pr_verifier_prompt_coverage.py")
-    )
-    fixture = importlib.util.module_from_spec(spec)
-    spec.loader.exec_module(fixture)
+    fixture = _COVERAGE_FIXTURE
     context, _ = fixture._context(1, 1000, 1000)
     context = context.replace("- " + fixture.ACCEPTANCE_SENTINEL, criterion).replace(
         "## PR Diff Summary",
@@ -1232,12 +1483,7 @@ def test_temporal_checklist_shorthand_preserves_named_delivery(
     expected = {channel} | ({"artifacts"} if independent else set())
     assert verifier._required_evidence_channels(criterion + extra) == expected
     assert verifier._required_evidence_options(criterion + extra) == [expected]
-    spec = importlib.util.spec_from_file_location(
-        "temporal_checklist_fixture",
-        Path(__file__).with_name("test_pr_verifier_prompt_coverage.py"),
-    )
-    fixture = importlib.util.module_from_spec(spec)
-    spec.loader.exec_module(fixture)
+    fixture = _COVERAGE_FIXTURE
     context, _ = fixture._context(1, 1000, 1000)
     context = context.replace("- " + fixture.ACCEPTANCE_SENTINEL, criterion + extra).replace(
         "## PR Diff Summary",
@@ -1368,12 +1614,7 @@ def test_attached_availability_relative_preserves_destination_or(
         {"comments" if reverse else "body"} | extra,
         {"body" if reverse else "comments"} | extra,
     ]
-    spec = importlib.util.spec_from_file_location(
-        "attached_availability_fixture",
-        Path(__file__).with_name("test_pr_verifier_prompt_coverage.py"),
-    )
-    fixture = importlib.util.module_from_spec(spec)
-    spec.loader.exec_module(fixture)
+    fixture = _COVERAGE_FIXTURE
     for present in ["body", "comments"]:
         context, _ = fixture._context(1, 1000, 1000)
         context = context.replace("- " + fixture.ACCEPTANCE_SENTINEL, criterion).replace(
@@ -1422,11 +1663,7 @@ def test_every_supported_checklist_marker_retains_destination(marker, destinatio
 def test_checklist_destination_lists_control_real_floor(
     operator, component, destination, body_first, comment_status, body_status
 ):
-    spec = importlib.util.spec_from_file_location(
-        "checklist_list_fixture", Path(__file__).with_name("test_pr_verifier_prompt_coverage.py")
-    )
-    fixture = importlib.util.module_from_spec(spec)
-    spec.loader.exec_module(fixture)
+    fixture = _COVERAGE_FIXTURE
     destinations = ["a PR comment", f"the {destination}{component}"]
     if body_first:
         destinations.reverse()
@@ -2276,11 +2513,7 @@ def test_destination_list_cannot_consume_independent_affirmative_actor(
     assert verifier._required_evidence_channels(negative + separator + positive) == {channel}
     criterion = negative + separator + positive
     assert verifier._required_evidence_options(criterion) == [{channel}]
-    spec = importlib.util.spec_from_file_location(
-        "independent_actor_fixture", Path(__file__).with_name("test_pr_verifier_prompt_coverage.py")
-    )
-    fixture = importlib.util.module_from_spec(spec)
-    spec.loader.exec_module(fixture)
+    fixture = _COVERAGE_FIXTURE
     context, _ = fixture._context(1, 1000, 1000)
     context = context.replace("- " + fixture.ACCEPTANCE_SENTINEL, criterion).replace(
         "## PR Diff Summary",
@@ -3761,12 +3994,7 @@ def test_reverse_record_output_binds_its_own_recipient(participle, recipient):
 )
 @pytest.mark.parametrize("status", ["present", "absent", "unavailable"])
 def test_fresh_canary_findings_control_actual_coverage_floor(criterion, channel, status):
-    spec = importlib.util.spec_from_file_location(
-        "fresh_canary_coverage_fixtures",
-        Path(__file__).with_name("test_pr_verifier_prompt_coverage.py"),
-    )
-    fixture = importlib.util.module_from_spec(spec)
-    spec.loader.exec_module(fixture)
+    fixture = _COVERAGE_FIXTURE
     context, _ = fixture._context(1, 1000, 1000)
     if criterion.startswith("Test evidence in "):
         # This fixture starts with a plain bullet. The canary finding is an
@@ -3809,11 +4037,7 @@ def test_fresh_canary_findings_control_actual_coverage_floor(criterion, channel,
 def test_negative_checklist_does_not_regain_actual_evidence_floor(
     prefix, criterion, positive, body_status
 ):
-    spec = importlib.util.spec_from_file_location(
-        "negative_checklist_floor", Path(__file__).with_name("test_pr_verifier_prompt_coverage.py")
-    )
-    fixture = importlib.util.module_from_spec(spec)
-    spec.loader.exec_module(fixture)
+    fixture = _COVERAGE_FIXTURE
     context, _ = fixture._context(1, 1000, 1000)
     context = context.replace(
         "- " + fixture.ACCEPTANCE_SENTINEL, prefix + criterion + positive
@@ -3844,12 +4068,7 @@ def test_generated_docs_drift_body_requirement_controls_floor(prefix, status, ex
     criterion = fix_agent.semantic_verification_requirements([finding])[0]
     assert "record the before/after evidence in the pull request body" in criterion
     assert verifier._required_evidence_channels(prefix + criterion) == {"body"}
-    spec = importlib.util.spec_from_file_location(
-        "producer_coverage_fixtures",
-        Path(__file__).with_name("test_pr_verifier_prompt_coverage.py"),
-    )
-    fixture = importlib.util.module_from_spec(spec)
-    spec.loader.exec_module(fixture)
+    fixture = _COVERAGE_FIXTURE
     context, _ = fixture._context(1, 1000, 1000)
     context = context.replace(fixture.ACCEPTANCE_SENTINEL, prefix + criterion).replace(
         "## PR Diff Summary",
@@ -3963,11 +4182,7 @@ def test_body_is_its_own_evidence_channel():
     "status, verdict", [("present", "PASS"), ("absent", "CONCERNS"), ("unavailable", "CONCERNS")]
 )
 def test_actual_body_channel_controls_full_coverage_floor(status, verdict):
-    spec = importlib.util.spec_from_file_location(
-        "body_coverage_fixtures", Path(__file__).with_name("test_pr_verifier_prompt_coverage.py")
-    )
-    fixture = importlib.util.module_from_spec(spec)
-    spec.loader.exec_module(fixture)
+    fixture = _COVERAGE_FIXTURE
     context, _ = fixture._context(1, 1000, 1000)
     context = context.replace(
         fixture.ACCEPTANCE_SENTINEL, "Include before/after evidence in the PR body"
@@ -4215,11 +4430,7 @@ def test_body_clause_matrix_preserves_independent_destinations(
 @pytest.mark.parametrize("status", ["present", "absent", "unavailable"])
 @pytest.mark.parametrize("channel", ["body", "comments", "artifacts"])
 def test_body_clause_matrix_controls_real_coverage_floor(criterion, expected, status, channel):
-    spec = importlib.util.spec_from_file_location(
-        "clause_coverage_fixtures", Path(__file__).with_name("test_pr_verifier_prompt_coverage.py")
-    )
-    fixture = importlib.util.module_from_spec(spec)
-    spec.loader.exec_module(fixture)
+    fixture = _COVERAGE_FIXTURE
     context, _ = fixture._context(1, 1000, 1000)
     context = context.replace(fixture.ACCEPTANCE_SENTINEL, criterion)
     statuses = {
