@@ -51,7 +51,7 @@ its Python 3.12/target 3.13 parser warning; this is retained, not suppressed.
 
 ## Lossless evidence
 
-`validation.tar.gz` retains 55 complete members: baseline/candidate coverage JSON,
+`validation.tar.gz` retains 93 complete members: baseline/candidate coverage JSON,
 JUnit and console, process receipts, history ranking, six RED/GREEN process
 receipts and raw console/JUnit pairs, original/mutated/restored hashes, output
 reuse refusal and formatting/template output. `manifest.json` binds the archive,
@@ -63,3 +63,16 @@ Matching keepalive owns hosted checks and review after PR birth. Reviewed Repo
 Merge Verify Closer owns complete current expected topology, unchanged head,
 full review threads and seven-minute activity floor, guarded merge, actual
 verify:compare and bounded disposition. The broader source stays open.
+
+## Parser review recovery
+
+The fresh Semgrep thread on the initial review head identified the native XML
+parser in this evidence driver. It now imports `defusedxml.ElementTree` (available
+in the recorded Python environment as defusedxml 0.7.1; no package was installed).
+Replay requires pytest and defusedxml. All six production mutations were actually
+replayed again: RED exit 1 and exact-restoration GREEN exit 0. The archive retains
+the original 55 members byte-for-byte plus the complete new 37-member replay
+and a control proving a malicious entity is rejected with `EntitiesForbidden`.
+Semgrep is unavailable locally; the hosted security scan must requalify the new
+head. This parser-only evidence correction changes no production/test coverage
+universe; the original 294-to-300 proof remains scoped as stated above.

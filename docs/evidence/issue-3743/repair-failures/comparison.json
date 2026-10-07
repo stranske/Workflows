@@ -2,7 +2,7 @@
   "base": "9a0219f361e4ba4b9072a554362ef378ff47ec4c",
   "source_sha256": "cc97119ea26afec275be3c83d22bc75de0d452cd0f4764896cc9d037274ab25a",
   "test_sha256": "b737c32c12a97180d24d55d64e06c5398680d1a5c033467ba94bd459649b6324",
-  "driver_sha256": "2280bd040976d0cdf7810b808638235c7b642b00b09d4d9b28889e08f19c8191",
+  "driver_sha256": "a63d26e5519732515e977821345677e4223b84dd404f3b9592aca12a6b5ae4e3",
   "baseline": {
     "covered_lines": 563,
     "num_statements": 591,
@@ -78,5 +78,15 @@
     "Private child runtimes and real missing-executable errors; no package installation or network in tests.",
     "Prior3808 provider CONCERNS/NON_PASS unchanged; its independent bounded acceptance permits the next chunk.",
     "Repair-subject history is a proxy for priority, not verified escaped incidents."
-  ]
+  ],
+  "parser_recovery": {
+    "parser": "defusedxml.ElementTree",
+    "original_review_head": "a42d77ec236f08de76ed3c2acf506e58373a8f15",
+    "replay_cases": 6,
+    "red_exit": 1,
+    "green_exit": 0,
+    "malicious_entity": "EntitiesForbidden",
+    "semgrep_local_available": false,
+    "scope": "evidence driver only; existing300-test coverage proof unchanged"
+  }
 }

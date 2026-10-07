@@ -7,8 +7,9 @@ import shutil
 import subprocess
 import sys
 import tempfile
-import xml.etree.ElementTree as ET
 from pathlib import Path
+
+from defusedxml import ElementTree as ET
 
 TEST = "tests/scripts/test_check_deliberate_break_repair_failures.py"
 HELPER = "scripts/check_deliberate_break.py"

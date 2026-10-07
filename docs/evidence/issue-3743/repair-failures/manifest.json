@@ -1,8 +1,8 @@
 {
   "archive": {
     "file": "validation.tar.gz",
-    "sha256": "97cbf86c9e0348266c77858b68fe11519e78261fdf00fb9271941537d23a4489",
-    "bytes": 57889
+    "sha256": "526183be522ca623e95ba9d565c1e44f2353fab739370b594255ac088f86ff1d",
+    "bytes": 69192
   },
   "members": {
     "baseline.json": {
@@ -224,11 +224,163 @@
     "mutations-final/template-rerun/red.xml": {
       "sha256": "3ac05f4252632dd0f430a34e88e630ca0053b1f2c5f664bdab94bd76408e3187",
       "bytes": 12377
+    },
+    "parser-recovery/controls.json": {
+      "sha256": "16ced2b98db9b8c212d550644ecb161af4fc53a778ca6e0a4a2b9dc2ab18e17c",
+      "bytes": 11238
+    },
+    "parser-recovery/template-base/red.json": {
+      "sha256": "9baa126dab93e23825c5e4ce9ea346aa10661c468fdd6abe8f55c7c7d0bf6f9b",
+      "bytes": 652
+    },
+    "parser-recovery/template-base/red.log": {
+      "sha256": "4d417546f081000b64425f126cb82cbab47af2ecb237a34ad49d4a650b183037",
+      "bytes": 3748
+    },
+    "parser-recovery/template-base/green.log": {
+      "sha256": "a132c74d7b7c74739e7571fb00cd0a8be848d9686b936586ce31a93451c151b2",
+      "bytes": 98
+    },
+    "parser-recovery/template-base/green.json": {
+      "sha256": "b6142b1d664d328ea0171f22c8b85d27823f1e34c524510298e4b41d2a3ff71f",
+      "bytes": 654
+    },
+    "parser-recovery/template-base/green.xml": {
+      "sha256": "75543ebf43372c4d19a330a7eb893175db34d219d048c42e8034cc8ef56b93d1",
+      "bytes": 435
+    },
+    "parser-recovery/template-base/red.xml": {
+      "sha256": "26c8ca168824d7af0291bca77ebcb7bc9a739252bd4a88725153263e8eb5a17a",
+      "bytes": 4170
+    },
+    "parser-recovery/root-rerun/red.json": {
+      "sha256": "55cdcc286aa3cabaf7280a6c933200733eff7b8a5f288d0ffbdb2a366b00b923",
+      "bytes": 635
+    },
+    "parser-recovery/root-rerun/red.log": {
+      "sha256": "6625f6eff789d74578134db19ab47db4428af5e6ead4114317d1ded7bcf41619",
+      "bytes": 12117
+    },
+    "parser-recovery/root-rerun/green.log": {
+      "sha256": "59b9466559aeabf218a54ec041fd83cd357cf9bf1d80a17c47aab62ed0c205bf",
+      "bytes": 98
+    },
+    "parser-recovery/root-rerun/green.json": {
+      "sha256": "381373e83e62671ded1a7fae0bccec5f8b3b53e2c5f45fc84ba52a1dec41871c",
+      "bytes": 637
+    },
+    "parser-recovery/root-rerun/green.xml": {
+      "sha256": "e216ab8289f55e947b4b7781afef5dc526bcf4edb55037c96673c32e7df40819",
+      "bytes": 428
+    },
+    "parser-recovery/root-rerun/red.xml": {
+      "sha256": "c6c07f07c7996721d3b899c873ccb41657572c20c84f20443889f30da97dfbaa",
+      "bytes": 12325
+    },
+    "parser-recovery/template-rerun/red.json": {
+      "sha256": "efd342fcd6f35627ddf7cf7bbb8faa2d4f2953a3e903b74985cc2ac324d5ee1e",
+      "bytes": 647
+    },
+    "parser-recovery/template-rerun/red.log": {
+      "sha256": "2ff30b813e69a4351b74c8b9fd6b2d34777c6fdad25173afee89a6ab2f9f6c36",
+      "bytes": 12169
+    },
+    "parser-recovery/template-rerun/green.log": {
+      "sha256": "791acbb2840ecff621592488f8e65512e312896e3865560d4000495c22ef5d13",
+      "bytes": 98
+    },
+    "parser-recovery/template-rerun/green.json": {
+      "sha256": "00e519768dfb486fa5d0098e67caf297058d9acd1f6d9170beac9cc00d992957",
+      "bytes": 649
+    },
+    "parser-recovery/template-rerun/green.xml": {
+      "sha256": "596e5822f7c9a35d4814aeb7b97e97fca2baa23b245293d5f38499e29fe3d546",
+      "bytes": 432
+    },
+    "parser-recovery/template-rerun/red.xml": {
+      "sha256": "19fe80bff1bb34c028dfd2c2038c485cb635e4c4d0b2de872bee42de7637b5cc",
+      "bytes": 12377
+    },
+    "parser-recovery/root-base/red.json": {
+      "sha256": "7de5066c2c0f7d1534eca3e48beeae3d017e79c3911ee94131abf01782a580b7",
+      "bytes": 640
+    },
+    "parser-recovery/root-base/red.log": {
+      "sha256": "44eecd356f2c4ae3e77b97361e37c73ed411a8552246f5030d8efb7f170218b7",
+      "bytes": 3742
+    },
+    "parser-recovery/root-base/green.log": {
+      "sha256": "a132c74d7b7c74739e7571fb00cd0a8be848d9686b936586ce31a93451c151b2",
+      "bytes": 98
+    },
+    "parser-recovery/root-base/green.json": {
+      "sha256": "ee124a357cbac2719e917844b6e7a8529ccf9e6c76bf40e9a9c97d36a9ba17a9",
+      "bytes": 642
+    },
+    "parser-recovery/root-base/green.xml": {
+      "sha256": "3b5d3d0a0f82dcb5d8d480ed56828fec251c5996883d98985aae7ea6b18825b2",
+      "bytes": 431
+    },
+    "parser-recovery/root-base/red.xml": {
+      "sha256": "c17d02ef07c796f58160be8ff829c64b9307ee89ca12a7189a57ee714fd27a75",
+      "bytes": 4166
+    },
+    "parser-recovery/root-probe/red.json": {
+      "sha256": "320029d2fb84f3501f2fdb8ff7856bba610aad73529a25bf56c08c6e446e79f2",
+      "bytes": 635
+    },
+    "parser-recovery/root-probe/red.log": {
+      "sha256": "761c66f2b4192800e52ce4b7f5620b18e7d991058bec2bad515a40593d5c04e6",
+      "bytes": 12335
+    },
+    "parser-recovery/root-probe/green.log": {
+      "sha256": "59b9466559aeabf218a54ec041fd83cd357cf9bf1d80a17c47aab62ed0c205bf",
+      "bytes": 98
+    },
+    "parser-recovery/root-probe/green.json": {
+      "sha256": "efc7d8603ed430b35269fe47c030cece4fd49ccd83bc9535797041b2d71398a3",
+      "bytes": 637
+    },
+    "parser-recovery/root-probe/green.xml": {
+      "sha256": "5a6ca942ed2722d66f5636803154d0fa65db7e8e37c29256854646dec81533f3",
+      "bytes": 428
+    },
+    "parser-recovery/root-probe/red.xml": {
+      "sha256": "3db4f61cb6ca6cbbbe076e621237c2d4c5174297ebcf6dd61cb09b5975f6d579",
+      "bytes": 12550
+    },
+    "parser-recovery/template-probe/red.json": {
+      "sha256": "2b9db0075488e2e9a0f0fae53b520ef934681bfa7ee19c0c01fabb341ed6355f",
+      "bytes": 647
+    },
+    "parser-recovery/template-probe/red.log": {
+      "sha256": "f9c0aa26d4eecdeccadfb70f67c1e8c2f9db4abbe7ca1039e2d196e32bd250e6",
+      "bytes": 12411
+    },
+    "parser-recovery/template-probe/green.log": {
+      "sha256": "b4eb7be9000651a3e89c6a77e8b346d05d1d706d620aa6f8193e574a39b3ced1",
+      "bytes": 98
+    },
+    "parser-recovery/template-probe/green.json": {
+      "sha256": "bf786db20b7b79b50d56a9e0e1fa215a4b9ec35cbdb5c1a761ef1e53446388a2",
+      "bytes": 649
+    },
+    "parser-recovery/template-probe/green.xml": {
+      "sha256": "552d7ba72ec481a94b01376aaad920f9b328e611b4df76ee06cc49e7cc2edd57",
+      "bytes": 432
+    },
+    "parser-recovery/template-probe/red.xml": {
+      "sha256": "47900bc33de55c3799399ac93916c06aaeb6471f1fe97dedc5adf4991fca0627",
+      "bytes": 12626
+    },
+    "parser-hardening-control.json": {
+      "sha256": "6a7a4fe6bee23a11884b1f86fbf7f88bce9faad919e40d402bac1be3b14e5179",
+      "bytes": 150
     }
   },
   "current_files": {
-    "replay.py": "2280bd040976d0cdf7810b808638235c7b642b00b09d4d9b28889e08f19c8191",
-    "comparison.json": "def133d902c036be2e57700f984e2c6d355c86298089f97a836ffa1502547762"
+    "replay.py": "a63d26e5519732515e977821345677e4223b84dd404f3b9592aca12a6b5ae4e3",
+    "comparison.json": "afbf72af1b84a8ba3d7783dca844f9a9c75c05822e204495ad5e8c6c89b0bc95"
   },
   "test_file": {
     "path": "tests/scripts/test_check_deliberate_break_repair_failures.py",
