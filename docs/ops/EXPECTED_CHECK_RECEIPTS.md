@@ -59,6 +59,14 @@ identifies event/action as caller context, which the receiving lane must retain
 with its event evidence. A receipt covers that context, not every event over
 the PR's lifetime.
 
+Only `pull_request` and `pull_request_target` contexts with GitHub's documented
+[pull request activity types](https://docs.github.com/en/actions/reference/workflows-and-actions/events-that-trigger-workflows#pull_request)
+are supported. Unsupported events, empty or misspelled actions, and invalid
+authored `types` filters remain UNKNOWN. Caller context is validated before
+discovery or event-only absence adjudication; an unknown action cannot exempt
+every workflow and leave only green required statuses. A newly introduced
+GitHub activity type requires an explicit adapter update before use.
+
 ```bash
 python3 /path/to/Workflows/scripts/check_checks_reported.py \
   --repo stranske/Orchestrator --pr 461 --head FULL_HEAD_SHA \
@@ -113,8 +121,9 @@ The JSON `expected-check-receipt/v1` records:
   failed suites remain conservative failures when replacement cannot be proved.
 - Explicit `merge_authorization: false`. A PASS establishes only this tool's
   supported context. The receiving lane must still establish all expected event
-  contexts, exact-head required/product checks, every active review thread and
-  the seven-minute floor immediately before a pinned merge.
+  contexts, passing expected and required/product checks, zero active non-outdated
+  unresolved review threads, and at least seven minutes elapsed for that unchanged
+  full head immediately before a pinned merge.
 
 An absent required reporter or a current startup failure with zero jobs is FAIL,
 even beside green checks. Required contexts must succeed, rather than merely
@@ -208,11 +217,13 @@ child jobs never supply the expected topology.
 
 ## Regression gate
 
-Run `python3 -m pytest -q tests/test_check_checks_reported.py`. The suite contains
+Run `python3 -m pytest -q tests/test_check_checks_reported.py -m "not slow"`. The suite contains
 the four issue-required controls: missing required check, legitimate label-only
 absence (Orchestrator #461's auto-pilot shape), cancelled attempt replaced by
 success, and zero-job startup failure. It also checks pagination, truncation,
 required app restrictions, reusable children, matrices, and head changes.
+Unsupported caller events/actions and invalid workflow activity types have
+regression controls so they cannot produce a legitimate absence or a PASS.
 
 For a deliberate-break control, temporarily omit `missing` from the FAIL decision
 in `adjudicate()` and run

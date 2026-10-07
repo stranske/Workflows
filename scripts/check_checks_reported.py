@@ -38,6 +38,34 @@ from reusable_ci_scope import SelectionOptions, select_python_matrix, select_sce
 LEGACY_PRODUCER_SHA256 = "97cccd183c1e6a8eed465c55c6cdfdee4c0611eca0074d41901d893ec5c6aad2"
 LEGACY_HELPER_SHA256 = "ba653f7e90af12b4f8651b6fb8ecb629b2703a1ed161f96f447b31db8c224499"
 
+# GitHub's supported pull_request and pull_request_target activity types:
+# https://docs.github.com/en/actions/reference/workflows-and-actions/events-that-trigger-workflows#pull_request
+PR_ACTIONS = frozenset(
+    {
+        "assigned",
+        "unassigned",
+        "labeled",
+        "unlabeled",
+        "opened",
+        "edited",
+        "closed",
+        "reopened",
+        "synchronize",
+        "converted_to_draft",
+        "locked",
+        "unlocked",
+        "enqueued",
+        "dequeued",
+        "milestoned",
+        "demilestoned",
+        "ready_for_review",
+        "review_requested",
+        "review_request_removed",
+        "auto_merge_enabled",
+        "auto_merge_disabled",
+    }
+)
+
 
 class UnknownEvidence(Exception):
     """Evidence unavailable or not supported by the conservative evaluator."""
@@ -179,9 +207,18 @@ def glob_match(value: str, pattern: str) -> bool:
     return re.fullmatch("".join(pieces), value) is not None
 
 
+def validate_event_context(event: str, action: str) -> None:
+    """Reject unsupported caller context before it can exempt any workflow."""
+    if event not in {"pull_request", "pull_request_target"}:
+        raise UnknownEvidence(f"unsupported event context: {event}")
+    if action not in PR_ACTIONS:
+        raise UnknownEvidence(f"unsupported event action for {event}: {action!r}")
+
+
 def event_applies(
     workflow: dict[str, Any], event: str, action: str, branch: str, paths: list[str]
 ) -> tuple[bool, str]:
+    validate_event_context(event, action)
     triggers = workflow.get("on")
     if isinstance(triggers, str):
         triggers = {triggers: None}
@@ -194,12 +231,14 @@ def event_applies(
     config = triggers[event] or {}
     if not isinstance(config, dict):
         raise UnknownEvidence("invalid event configuration")
-    if event not in {"pull_request", "pull_request_target"}:
-        raise UnknownEvidence(f"unsupported event context: {event}")
     types = config.get("types", ["opened", "synchronize", "reopened"])
     if isinstance(types, str):
         types = [types]
-    if not isinstance(types, list):
+    if (
+        not isinstance(types, list)
+        or not types
+        or any(not isinstance(value, str) or value not in PR_ACTIONS for value in types)
+    ):
         raise UnknownEvidence("invalid types filter")
     if action not in types:
         return False, f"action {action!r} not in {types}"
@@ -1207,6 +1246,7 @@ def paths_from_files(files: list[dict[str, Any]]) -> list[str]:
 def collect(
     evidence: Evidence, repo: str, number: int, head: str, event: str, action: str
 ) -> dict[str, Any]:
+    validate_event_context(event, action)
     pr = evidence.one(f"repos/{repo}/pulls/{number}")
     if pr["head"]["sha"] != head:
         raise UnknownEvidence(f"head changed: requested {head}, observed {pr['head']['sha']}")
@@ -1523,7 +1563,7 @@ def main() -> int:
     parser.add_argument("--repo", required=True)
     parser.add_argument("--pr", required=True, type=int)
     parser.add_argument("--head", required=True)
-    parser.add_argument("--event", choices=["pull_request", "pull_request_target"], required=True)
+    parser.add_argument("--event", required=True, help="pull_request or pull_request_target")
     parser.add_argument("--action", required=True)
     parser.add_argument("--presence-reporter", required=True, type=Path)
     parser.add_argument("--output", required=True, type=Path)

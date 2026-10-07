@@ -760,7 +760,7 @@ def test_incumbent_transport_is_reused_without_copying_reference_algorithm(tmp_p
     assert reporter.load_presence_reporter(incumbent)("checks") == [{"endpoint": "checks"}]
 
 
-def invoke_main(monkeypatch, incumbent, output, action="opened"):
+def invoke_main(monkeypatch, incumbent, output, action="opened", event="pull_request"):
     monkeypatch.setattr(
         sys,
         "argv",
@@ -773,7 +773,7 @@ def invoke_main(monkeypatch, incumbent, output, action="opened"):
             "--head",
             HEAD,
             "--event",
-            "pull_request",
+            event,
             "--action",
             action,
             "--presence-reporter",
@@ -959,6 +959,75 @@ def test_event_only_absence_cannot_be_reused_for_applicable_action(tmp_path, mon
     assert receipt["missing_names"] == ["auto-pilot"]
     assert receipt["legitimate_absences"][0]["path"] == ".github/workflows/gate.yml"
     assert receipt["merge_authorization"] is False
+
+
+@pytest.mark.parametrize("event", ["pull_request", "pull_request_target"])
+@pytest.mark.parametrize("action", ["", "syncronize", "SYNCHRONIZE", "completed"])
+def test_unsupported_action_cannot_exempt_workflows(tmp_path, monkeypatch, event, action):
+    incumbent = tmp_path / "presence.py"
+    incumbent.write_text("# Tracked incumbent\n")
+    transport = incident_transport("event_only_absence")
+    requests = []
+
+    def recording_transport(endpoint):
+        requests.append(endpoint)
+        return transport(endpoint)
+
+    monkeypatch.setattr(reporter, "load_presence_reporter", lambda _: recording_transport)
+    code, receipt = invoke_main(monkeypatch, incumbent, tmp_path / "receipt.json", action, event)
+
+    assert code == 2 and receipt["verdict"] == "UNKNOWN"
+    assert "unsupported event action" in receipt["unknown"][0]
+    assert receipt["event"] == event and receipt["action"] == action
+    assert receipt["head"] == HEAD
+    assert (
+        receipt["presence_reporter"]["sha256"] == hashlib.sha256(incumbent.read_bytes()).hexdigest()
+    )
+    assert receipt["evidence_complete"] is False and receipt["merge_authorization"] is False
+    assert requests == []
+    assert not receipt.get("legitimate_absences")
+
+
+def test_unsupported_event_emits_durable_unknown_receipt(tmp_path, monkeypatch):
+    incumbent = tmp_path / "presence.py"
+    incumbent.write_text("def _gh_json(path):\n    raise AssertionError('unexpected discovery')\n")
+
+    code, receipt = invoke_main(
+        monkeypatch, incumbent, tmp_path / "receipt.json", action="completed", event="workflow_run"
+    )
+
+    assert code == 2 and receipt["verdict"] == "UNKNOWN"
+    assert "unsupported event context" in receipt["unknown"][0]
+    assert receipt["event"] == "workflow_run" and receipt["action"] == "completed"
+    assert receipt["request_evidence"] == []
+    assert receipt["evidence_complete"] is False and receipt["merge_authorization"] is False
+
+
+@pytest.mark.parametrize("event", ["pull_request", "pull_request_target"])
+@pytest.mark.parametrize("workflow", [{"on": "push"}, {"on": "pull_request"}])
+def test_invalid_context_cannot_become_an_event_only_absence(event, workflow):
+    with pytest.raises(reporter.UnknownEvidence, match="unsupported event action"):
+        reporter.event_applies(workflow, event, "syncronize", "main", ["src/a.py"])
+
+
+@pytest.mark.parametrize("types", [[], ["syncronize"], ["opened", None], [True]])
+def test_invalid_workflow_activity_types_remain_unknown(types):
+    with pytest.raises(reporter.UnknownEvidence, match="invalid types filter"):
+        reporter.event_applies(
+            {"on": {"pull_request": {"types": types}}},
+            "pull_request",
+            "opened",
+            "main",
+            ["src/a.py"],
+        )
+
+
+@pytest.mark.parametrize("event", ["pull_request", "pull_request_target"])
+@pytest.mark.parametrize("action", ["labeled", "closed", "ready_for_review", "enqueued"])
+def test_supported_explicit_activity_types_still_apply(event, action):
+    assert reporter.event_applies(
+        {"on": {event: {"types": [action]}}}, event, action, "main", ["src/a.py"]
+    )[0]
 
 
 @pytest.mark.parametrize("changed", ["head", "paths"])
