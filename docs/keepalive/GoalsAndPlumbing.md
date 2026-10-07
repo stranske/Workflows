@@ -125,7 +125,7 @@ PR head and labels live outside the authority ledger, so their reads and ledger 
 
 After a failed or cancelled originating run, the workflow-run reporter reads that run's exact job attempt and the agent registry from that run's exact head commit. A worker step that actually entered is treated as started; a fully terminal skipped worker path is positively not-started; incomplete jobs, API errors, missing job evidence, or unavailable originating registry are unknown. Unknown evidence fails the reporter before summary or fingerprint persistence so a retry remains possible. Only the not-started case may reconcile the matching receipt and owner attempt independently of summary `running` state or a fresh authority-failure classification. A prepared receipt can then be released and an unconfirmed consumed receipt can be reopened after a same-head PR read; confirmed receipts remain spent. A retry of an already reopened receipt revalidates the immutable attempt index, exact PR head, soft attention label, and absence of `needs-human` before returning success. If its 24-hour window expired, the retry conditionally rotates the generation and retains the original plus recent recovered generations as bounded lineage; summary projection accepts only that receipt-bound recovered lineage. A fresh preparation clears the lineage so a different attempt cannot inherit it. The reporter's consumed-receipt primitive requires non-start proof, so an ordinary summary or confirmation caller cannot bypass this boundary. Expired initialization is a separate preparation-only recovery: because `prepared` has not granted execution, exact claim/index and PR-state validation plus the conditional SHA are sufficient, while any consumed or conflicting state stays fail-closed. The reporter then projects the settled generation, due/expiry times, and non-running status to a matching trusted summary; retrying a lost projection response is idempotent. A running summary is bound to its exact repository, run ID, and run attempt, so a delayed reporter cannot clear a newer run that happens to share the same generation. Immediately before projection, the reporter re-reads the authoritative ledger and treats any changed or non-available settled receipt as superseded without falling through to the ordinary summary writer. A sweep-triggered run may have no webhook PR association; the reporter reads the exact attempt locator directly and verifies the receipt ID and bindings in the authoritative PR ledger without scanning historical PRs. Missing, conflicting or uncertain lookup fails explicitly for owner reconciliation rather than asserting no worker executed. Associated runs use their known PR directly. Consumer fingerprinting includes run ID and attempt so a rerun cannot be skipped as identical to its predecessor. A missing or inconclusive job read never refunds consumed authority.
 
-Reporter concurrency is only a mutual-exclusion boundary; GitHub may replace an older pending job when several runs share one group. Every reporter wake therefore reconciles the PR ledger's current `receipt`, `released_receipt`, and `recovered_receipt` obligations before handling its triggering event. Each owner attempt is verified through its immutable index, exact run attempt, originating-head registry, and exact worker evidence. The hourly sweep independently dispatches a PR-bound reporter replay before ordinary keepalive evaluation, so a cancelled last reporter or a crash before projection does not require another producer completion. Replay is bounded to three ledger rereads and never scans historical indexes. It resolves the authority branch to one commit, walks complete non-recursive trees to the PR path, and treats the path's verified absence from that pinned snapshot as a successful no-op. Every tree entry and every present receipt must be structurally valid and repository-bound before absence or replay can be concluded. A missing or inaccessible branch, commit, tree, or present blob, as well as a truncated or malformed tree, fails closed instead of impersonating absence. A receipt whose exact indexed workflow attempt is still queued or running returns `deferred-active-attempt` without worker-evidence reads, reconciliation, projection, or state writes. Missing runs, unknown worker evidence, unsupported run states, changed heads, hard human holds, inaccessible storage, and an `uncertain` reconciliation fail the replay rather than completing successfully. Consumer fingerprint debounce cannot suppress this manual replay path. The guarantee is eventual reconciliation of current ledger obligations, not an audit acknowledgment for every superseded historical completion.
+Reporter concurrency is only a mutual-exclusion boundary; GitHub may replace an older pending job when several runs share one group. Every reporter wake therefore reconciles the PR ledger's current `receipt`, `released_receipt`, and `recovered_receipt` obligations before handling its triggering event. Each owner attempt is verified through its immutable index, exact run attempt, originating-head registry, and exact worker evidence. The hourly sweep independently dispatches a PR-bound reporter replay before ordinary keepalive evaluation, so a cancelled last reporter or a crash before projection does not require another producer completion. Replay is bounded to three ledger rereads. Only when a ledger is missing, it scans the immutable attempt-index directory from a pinned commit using complete non-recursive trees and SHA-bound blobs to prove whether the PR has any prior attempts; truncated trees, unreadable blobs, or invalid indexes fail closed. Replay does not scan historical indexes for other purposes. It resolves the authority branch to one commit, walks complete non-recursive trees to the PR path, and treats the path's verified absence from that pinned snapshot as a potential no-op. Every tree entry and every present receipt must be structurally valid and repository-bound before absence or replay can be concluded. A confirmed missing ledger is only accepted as a successful no-op after verifying the PR has no attempt indexes (i.e., it is ordinary); a PR with attempt indexes fails closed to prevent silently abandoning reconciliation for one that previously entered the challenge path. A missing or inaccessible branch, commit, tree, or present blob, as well as a truncated or malformed tree, fails closed instead of impersonating absence. A receipt whose exact indexed workflow attempt is still queued or running returns `deferred-active-attempt` without worker-evidence reads, reconciliation, projection, or state writes. Missing runs, unknown worker evidence, unsupported run states, changed heads, hard human holds, inaccessible storage, and an `uncertain` reconciliation fail the replay rather than completing successfully. Consumer fingerprint debounce cannot suppress this manual replay path. The guarantee is eventual reconciliation of current ledger obligations, not an audit acknowledgment for every superseded historical completion.
 
 Reporter mutation is serialized by the resolved PR, including for unassociated
 `workflow_dispatch` runs. A read-only resolver job classifies the originating
@@ -520,3 +520,44 @@ field empty, which keeps "no drainable path stated" from ever reading as "nothin
 
 Constants live in `scripts/runner_lib/core.py`:
 `UNPRODUCTIVE_COMPLETION_RETRY_LIMIT` and `UNPRODUCTIVE_COMPLETION_COOLDOWN_SECONDS`.
+
+
+### Durable missing-ledger attempt presence
+
+The missing-ledger replay guard uses a durable complete presence inventory on the
+`keepalive-authority-state` branch, under
+`.github/keepalive-authority-presence/<attempt-index-tree-sha>.json`. The key is the
+immutable `.github/keepalive-authority-attempts` subtree, not the branch commit:
+writing an inventory does not invalidate itself. The inventory stores the sorted
+set of PRs with validated indexes; absence from that set is a negative result only
+for that exact complete tree. It grants no execution authority and never replaces
+ledger or receipt reconciliation for a positive PR.
+
+On a cache miss, the reporter traverses complete non-truncated pinned Git trees,
+validates every index blob and its receipt/filename/repository binding, and creates
+the inventory without an overwrite SHA. A concurrent create is accepted only when
+readback exactly matches the independently computed set. Partial, malformed,
+unavailable, lost-response, conflicting or unconfirmed writes fail closed. Cache
+reads use the snapshot commit and recheck the current index subtree before return;
+backfill and publication also recheck it. Any writer, including an older writer,
+that creates an attempt index changes the subtree key. An older negative inventory
+therefore cannot certify absence in the newer tree. Retry rebuilds that complete
+new tree rather than updating a partial positive-only marker.
+
+When the pinned snapshot has no `.github` or attempt directory, the reader
+rechecks the current branch's complete trees before returning absence. Creation
+of the first attempt directory during that read is uncertain and fails closed;
+the next independent read migrates the newly present subtree. A failed scan
+publishes nothing. A publication whose response is lost denies the current read
+even if it landed; a later reader may reuse it only after validating the durable
+inventory and the current subtree. Concurrent create-only backfills may converge
+on an identical independently validated inventory after a 409/422 response.
+
+The first migration scan remains proportional to legacy indexes. Once persisted,
+separate later reporter instances reuse one inventory without reading every index
+blob again; tree and inventory API calls remain bounded independently of index
+count. Migration requires the existing dedicated reporter App's contents-write
+permission. The read-only target classifier does not invoke this migration path.
+An inaccessible writer is an automation error, never successful absence. Retained
+inventories are evidence for immutable trees; this change does not garbage-collect
+the authority branch or claim that all broader recovery acceptance is complete.
