@@ -1095,6 +1095,42 @@ _EVIDENCE_CONDITIONAL = (
 )
 
 
+_EVIDENCE_RECORD_ALIASES = {
+    "share": "record",
+    "shares": "records",
+    "shared": "recorded",
+    "sharing": "recording",
+    "paste": "record",
+    "put": "record",
+    "puts": "records",
+    "putting": "recording",
+    "place": "record",
+    "places": "records",
+    "placed": "recorded",
+    "placing": "recording",
+    "pastes": "records",
+    "pasted": "recorded",
+    "pasting": "recording",
+    "write": "record",
+    "writes": "records",
+    "written": "recorded",
+    "writing": "recording",
+    "wrote": "recorded",
+    "submit": "record",
+    "submits": "records",
+    "submitted": "recorded",
+    "submitting": "recording",
+    "deliver": "record",
+    "delivers": "records",
+    "delivered": "recorded",
+    "delivering": "recording",
+    "supply": "record",
+    "supplies": "records",
+    "supplied": "recorded",
+    "supplying": "recording",
+}
+
+
 def _normalize_passive_review_agents(acceptance: str) -> str:
     """Retain passive actor/governor binding for both channels and OR expansion."""
     actor = (
@@ -1145,7 +1181,11 @@ def _normalize_passive_review_agents(acceptance: str) -> str:
         + _EVIDENCE_PASSIVE_PREFIX
         + _EVIDENCE_DELIVERY_ADVERBS
         + r"(?P<operation>"
+        + r"(?:"
         + _EVIDENCE_DELIVERY_OPERATION
+        + r"|"
+        + "|".join(_EVIDENCE_RECORD_ALIASES)
+        + r"\b)"
         + r")\s+"
     )
     for agent_first in (True, False):
@@ -1163,7 +1203,9 @@ def _normalize_passive_review_agents(acceptance: str) -> str:
                     (
                         match["actor"].strip(),
                         match["governor"].strip(),
-                        match["operation"],
+                        _EVIDENCE_RECORD_ALIASES.get(
+                            match["operation"].lower(), match["operation"]
+                        ),
                         match["object"].strip(),
                         match["destination"],
                     )
@@ -1295,40 +1337,7 @@ def _required_evidence_channels(acceptance: str, *, _bind_attached: bool = True)
     )
     # Lexical aliases share obligation, negation, destination and product rules,
     # including the earlier proof-pronoun antecedent path.
-    record_aliases = {
-        "share": "record",
-        "shares": "records",
-        "shared": "recorded",
-        "sharing": "recording",
-        "paste": "record",
-        "put": "record",
-        "puts": "records",
-        "putting": "recording",
-        "place": "record",
-        "places": "records",
-        "placed": "recorded",
-        "placing": "recording",
-        "pastes": "records",
-        "pasted": "recorded",
-        "pasting": "recording",
-        "write": "record",
-        "writes": "records",
-        "written": "recorded",
-        "writing": "recording",
-        "wrote": "recorded",
-        "submit": "record",
-        "submits": "records",
-        "submitted": "recorded",
-        "submitting": "recording",
-        "deliver": "record",
-        "delivers": "records",
-        "delivered": "recorded",
-        "delivering": "recording",
-        "supply": "record",
-        "supplies": "records",
-        "supplied": "recorded",
-        "supplying": "recording",
-    }
+    record_aliases = _EVIDENCE_RECORD_ALIASES
     shared_proof_delivery_operation = (
         r"(?:" + delivery_operation + r"|" + "|".join(record_aliases) + r"\b)"
     )

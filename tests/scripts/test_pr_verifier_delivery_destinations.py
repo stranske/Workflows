@@ -177,6 +177,97 @@ def test_passive_delivery_agent_position_preserves_actor_and_floor(
     )
 
 
+@pytest.mark.parametrize(
+    "operation",
+    [
+        "recorded",
+        "supplied",
+        "shared",
+        "written",
+        "placed",
+        "delivered",
+        "submitted",
+        "pasted",
+        "put",
+    ],
+)
+@pytest.mark.parametrize(
+    "destination,channel,other,other_channel",
+    [
+        ("the PR body", "body", "a PR comment", "comments"),
+        ("the PR description", "body", "a PR comment", "comments"),
+        ("a PR comment", "comments", "the PR body", "body"),
+    ],
+)
+@pytest.mark.parametrize("position", ["agent-before", "agent-after"])
+@pytest.mark.parametrize("shape", ["single", "human-and", "human-or", "product-and", "product-or"])
+@pytest.mark.parametrize("governor", ["must", "may", "must not"])
+@pytest.mark.parametrize("independent", [False, True])
+@pytest.mark.parametrize("missing", ["absent", "unavailable"])
+def test_passive_aliases_preserve_actor_options_and_actual_floor(
+    operation,
+    destination,
+    channel,
+    other,
+    other_channel,
+    position,
+    shape,
+    governor,
+    independent,
+    missing,
+):
+    actor = "UI" if shape.startswith("product") else "reviewer"
+    target = destination + (" panel" if actor == "UI" else "")
+    if shape != "single":
+        target += " " + shape.split("-")[1] + " " + other
+    tail = (
+        f"by the {actor} in {target}"
+        if position == "agent-before"
+        else f"in {target} by the {actor}"
+    )
+    criterion = f"Evidence {governor} be {operation} {tail}"
+    artifact = {"artifacts"} if independent else set()
+    if independent:
+        criterion += "; the auditor must record evidence in a workflow artifact"
+    if governor != "must":
+        expected = [artifact]
+    elif actor == "UI":
+        expected = [{other_channel} | artifact]
+    elif shape == "human-or":
+        expected = [{channel} | artifact, {other_channel} | artifact]
+    elif shape == "human-and":
+        expected = [{channel, other_channel} | artifact]
+    else:
+        expected = [{channel} | artifact]
+    assert verifier._required_evidence_channels(criterion) == set().union(*expected)
+    assert {frozenset(option) for option in verifier._required_evidence_options(criterion)} == {
+        frozenset(option) for option in expected
+    }
+    spec = importlib.util.spec_from_file_location(
+        "passive_alias_floor_fixture",
+        Path(__file__).with_name("test_pr_verifier_prompt_coverage.py"),
+    )
+    fixture = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(fixture)
+    for present in (set(), {"body"}, {"comments"}, {"body", "comments"}):
+        evidence = (
+            "- Overall retrieval status: **present**\n"
+            f"- PR body: **{'present' if 'body' in present else missing}**\n"
+            f"- PR comments: **{'present' if 'comments' in present else missing}**\n"
+            "- Referenced workflow artifacts: **present**"
+        )
+        context, _ = fixture._context(1, 1000, 1000)
+        context = context.replace("- " + fixture.ACCEPTANCE_SENTINEL, criterion).replace(
+            "## PR Diff Summary", "## Acceptance evidence\n\n" + evidence + "\n\n## PR Diff Summary"
+        )
+        result = verifier._apply_coverage_floor(
+            verifier.EvaluationResult(verdict="PASS", used_llm=True),
+            verifier.prompt_coverage(context, None),
+        )
+        satisfied = any(option <= (present | {"artifacts"}) for option in expected)
+        assert result.verdict == ("PASS" if satisfied else "CONCERNS")
+
+
 @pytest.mark.parametrize("actor", ["reviewer", "service"])
 @pytest.mark.parametrize(
     "operation",

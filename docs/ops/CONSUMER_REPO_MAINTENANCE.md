@@ -86,6 +86,12 @@ review-evidence instruction still applies.
 
 Common `submit` and `deliver` evidence verbs normalize through the same
 obligation, optionality, negation, literal and destination rules as `record`.
+The same shared alias mapping also precedes passive actor binding: supplied,
+shared, written, placed, submitted, delivered, pasted and put retain an explicit
+reviewer or product actor before or after the complete destination list.
+Human AND/OR deliveries and product-component alternatives retain independent
+reviewer/artifact obligations and actual missing/unavailable-channel floors;
+canonical recorded, optional, prohibited and quoted controls remain unchanged.
 Delivery recognition and product recipients share a bounded modifier grammar
 rather than an adjective allowlist. Active human/product past-tense subjects
 remain operations; participial evidence adjectives do not become new deliveries.
