@@ -1568,6 +1568,12 @@ a blank paragraph ends that context. Bare allowed/permitted evidence-presence
 clauses remain nongating. Optional or negative presence alternatives also retain
 their governor when `either` precedes the destination preposition, including
 PR description components and independently required deliveries.
+Checklist shorthand uses the same `-`, `*`, `+`, and numbered `1.` / `1)`
+markers as criterion parsing. A terminal component noun after body/description
+is product-owned only when its governing subject and operation establish that
+ownership; an unlisted UI noun is not automatically an evidence destination.
+Human deliveries, prepositional continuations, and independent positive clauses
+remain authoritative.
 Active-perfect elided deliveries retain their bounded actor and complete governor,
 including optional/negative and contrastive paths, through the same splitting and
 inheritance predicate as passive delivery. Their explicit evidence objects are

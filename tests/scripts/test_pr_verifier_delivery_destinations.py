@@ -105,7 +105,9 @@ def test_component_alternatives_preserve_optional_negative_floor(
     assert result.verdict == ("CONCERNS" if independent else "PASS")
 
 
-@pytest.mark.parametrize("component", ["editor", "field", "textarea", "preview"])
+@pytest.mark.parametrize(
+    "component", ["editor", "field", "textarea", "preview", "panel", "section", "tab", "widget"]
+)
 @pytest.mark.parametrize("destination", ["PR body", "PR description"])
 @pytest.mark.parametrize("independent", [False, True])
 def test_review_body_product_components_do_not_create_delivery(component, destination, independent):
@@ -114,6 +116,42 @@ def test_review_body_product_components_do_not_create_delivery(component, destin
         criterion += "; provide command output in a PR comment"
     assert verifier._required_evidence_channels(criterion) == (
         {"comments"} if independent else set()
+    )
+
+
+@pytest.mark.parametrize("component", ["panel", "section", "tab", "widget"])
+@pytest.mark.parametrize("destination", ["PR body", "PR description"])
+def test_human_delivery_to_structural_component_remains_required(component, destination):
+    criterion = f"- [ ] The reviewer must post test evidence in the {destination} {component}"
+    assert verifier._required_evidence_channels(criterion) == {"body"}
+
+
+@pytest.mark.parametrize("continuation", ["before merge", "today", "daily"])
+def test_temporal_body_continuation_is_not_product_component(continuation):
+    criterion = f"- [ ] The UI must display test results in the PR description {continuation}"
+    assert verifier._required_evidence_channels(criterion) == {"body"}
+
+
+@pytest.mark.parametrize("marker", ["-", "*", "+", "1.", "1)"])
+@pytest.mark.parametrize(
+    "destination,channel",
+    [
+        ("a PR comment", "comments"),
+        ("the PR description", "body"),
+        ("a workflow artifact", "artifacts"),
+    ],
+)
+def test_every_supported_checklist_marker_retains_destination(marker, destination, channel):
+    assert verifier._required_evidence_channels(f"{marker} [ ] Test evidence in {destination}") == {
+        channel
+    }
+    assert (
+        verifier._required_evidence_channels(f"{marker} [ ] Evidence may be in {destination}")
+        == set()
+    )
+    assert (
+        verifier._required_evidence_channels(f"{marker} [ ] Evidence must not be in {destination}")
+        == set()
     )
 
 

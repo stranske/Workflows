@@ -1169,7 +1169,7 @@ def _required_evidence_channels(acceptance: str, *, _bind_attached: bool = True)
     # destination grammar so AND/OR lists retain their established semantics.
     acceptance = re.sub(
         r"(?P<literal>" + quoted_evidence_literal + r")|"
-        r"(?P<checklist>^[ \t]*[-*][ \t]*\[[ xX]\][ \t]*(?:\r?\n[ \t]*)?)"
+        r"(?P<checklist>^[ \t]*(?:[-*+]|\d+[.)])[ \t]*\[[ xX]\][ \t]*(?:\r?\n[ \t]*)?)"
         r"(?P<object>(?:(?:test|validation|CI|build|execution)\s+){0,3}"
         r"(?:evidence|command outputs?|transcripts?))\s+"
         r"(?P<destinations>" + bound_review_destinations + r")"
@@ -1960,6 +1960,24 @@ def _required_evidence_channels(acceptance: str, *, _bind_attached: bool = True)
             component = re.match(r"\s+" + body_component, clause[body_match.end() :], re.I)
             product = bool(component) and product_comment_object(
                 text[: match.start() + body_match.start()], clause[body_match.end() :]
+            )
+            # A product-owned terminal component noun is structural, not an
+            # ever-growing UI suffix allowlist. Human deliveries and a true
+            # destination followed by a preposition/governor stay authoritative.
+            component_tail = text[match.start() + body_match.end() :]
+            structural_component = re.match(
+                r"\s+(?!(?:and|or|but|in|on|to|for|with|before|after|when|if|"
+                r"is|are|was|were|must|shall|will|should|can|may|has|have|"
+                r"contains?|includes?|requires?|needs?|now|today|tomorrow|again|"
+                r"here|there|soon|always|daily|weekly|[\w-]+ly)\b)[\w-]+"
+                r"(?=\s*(?:$|[;,.!?]|(?:and|or|but)\b))",
+                component_tail,
+                re.I,
+            )
+            product = (
+                product
+                or bool(structural_component)
+                and product_comment_object(text[: match.start() + body_match.start()], "")
             )
             disposition = (
                 "prohibited"
