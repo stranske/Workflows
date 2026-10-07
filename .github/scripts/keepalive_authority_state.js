@@ -76,6 +76,11 @@ function attemptPath(repository, ownerAttempt) {
   return `/repos/${String(repository).toLowerCase()}/contents/.github/keepalive-authority-attempts/${key}.json`;
 }
 
+function presencePath(repository, indexTreeSha) {
+  if (!HEAD.test(String(indexTreeSha))) throw new Error('Invalid authority attempt tree SHA');
+  return `/repos/${String(repository).toLowerCase()}/contents/.github/keepalive-authority-presence/${indexTreeSha}.json`;
+}
+
 function validAttemptIndex(index, repository, ownerAttempt) {
   return index?.version === 1 && index.repository === String(repository).toLowerCase() &&
     index.owner_attempt === ownerAttempt && Number.isSafeInteger(index.pr_number) &&
@@ -986,8 +991,28 @@ async function findAuthorityPrForAttempt({ request, repository, ownerAttempt }) 
 }
 
 async function hasAttemptIndexesForPr(request, repository, prNumber) {
+  const snapshot = await attemptIndexTree(request, repository);
+  if (!snapshot) return false;
+  let inventory = await readAttemptPresence(request, snapshot.repo, snapshot.treeSha);
+  if (!inventory) {
+    const positives = await scanAttemptIndexes(request, snapshot);
+    // A writer may have added an index while this complete scan was in flight.
+    // Never publish an absence result for a different subtree.
+    const current = await attemptIndexTree(request, snapshot.repo);
+    if (!current || current.treeSha !== snapshot.treeSha) {
+      throw new Error('Authority attempt indexes changed during inventory backfill');
+    }
+    inventory = await createAttemptPresence(request, snapshot, positives);
+    const settled = await attemptIndexTree(request, snapshot.repo);
+    if (!settled || settled.treeSha !== snapshot.treeSha) {
+      throw new Error('Authority attempt indexes changed during inventory publication');
+    }
+  }
+  return inventory.positive_prs.includes(Number(prNumber));
+}
+
+async function attemptIndexTree(request, repository) {
   const repo = String(repository).toLowerCase();
-  pathFor(repo, prNumber);
   const ref = await request('GET', `/repos/${repo}/git/ref/heads/${BRANCH}`);
   const commitSha = ref?.object?.sha;
   if (ref?.object?.type !== 'commit' || !HEAD.test(String(commitSha))) {
@@ -1015,11 +1040,22 @@ async function hasAttemptIndexesForPr(request, repository, prNumber) {
       treeSha = entry.sha;
       continue;
     }
-    for (const entry of tree.tree) {
+    return { repo, treeSha };
+  }
+  throw new Error('Authority attempt tree traversal did not settle');
+}
+
+async function scanAttemptIndexes(request, snapshot) {
+  const tree = await request('GET', `/repos/${snapshot.repo}/git/trees/${snapshot.treeSha}`);
+  if (tree?.truncated !== false || !Array.isArray(tree.tree)) {
+    throw new Error('Incomplete or malformed authority attempt tree');
+  }
+  const positives = new Set();
+  for (const entry of tree.tree) {
       if (!/^[0-9a-f]{64}\.json$/.test(entry.path) || entry.type !== 'blob') {
         throw new Error('Invalid authority attempt index path');
       }
-      const blob = await request('GET', `/repos/${repo}/git/blobs/${entry.sha}`);
+      const blob = await request('GET', `/repos/${snapshot.repo}/git/blobs/${entry.sha}`);
       if (blob?.sha !== entry.sha || blob?.encoding !== 'base64' ||
           typeof blob.content !== 'string') {
         throw new Error('Invalid authority attempt index metadata');
@@ -1029,14 +1065,59 @@ async function hasAttemptIndexesForPr(request, repository, prNumber) {
         throw new Error('Malformed authority attempt index base64');
       }
       const index = JSON.parse(Buffer.from(encoded, 'base64').toString('utf8'));
-      if (!validAttemptIndex(index, repo, index?.owner_attempt) ||
-          attemptPath(repo, index.owner_attempt).split('/').pop() !== entry.path) {
+      if (!validAttemptIndex(index, snapshot.repo, index?.owner_attempt) ||
+          attemptPath(snapshot.repo, index.owner_attempt).split('/').pop() !== entry.path) {
         throw new Error('Invalid authority attempt index');
       }
-      if (index.pr_number === Number(prNumber)) return true;
+      positives.add(index.pr_number);
     }
+  return [...positives].sort((left, right) => left - right);
+}
+
+function decodePresence(file, repository, treeSha) {
+  if (!HEAD.test(String(file?.sha)) || file?.encoding !== 'base64' || typeof file.content !== 'string') {
+    throw new Error('Invalid authority attempt presence metadata');
   }
-  return false;
+  const encoded = file.content.replace(/\s/g, '');
+  if (!encoded || Buffer.from(encoded, 'base64').toString('base64') !== encoded) {
+    throw new Error('Malformed authority attempt presence base64');
+  }
+  let inventory;
+  try { inventory = JSON.parse(Buffer.from(encoded, 'base64').toString('utf8')); } catch (error) {
+    throw new Error(`Malformed authority attempt presence: ${error.message}`);
+  }
+  if (inventory?.version !== 1 || inventory.repository !== repository ||
+      inventory.index_tree_sha !== treeSha || !Array.isArray(inventory.positive_prs) ||
+      !inventory.positive_prs.every((value) => Number.isSafeInteger(value) && value > 0) ||
+      new Set(inventory.positive_prs).size !== inventory.positive_prs.length ||
+      inventory.positive_prs.some((value, index) => index && inventory.positive_prs[index - 1] >= value)) {
+    throw new Error('Invalid authority attempt presence');
+  }
+  return inventory;
+}
+
+async function readAttemptPresence(request, repository, treeSha) {
+  try {
+    return decodePresence(await request('GET', `${presencePath(repository, treeSha)}?ref=${BRANCH}`), repository, treeSha);
+  } catch (error) {
+    if (error.status === 404) return null;
+    throw error;
+  }
+}
+
+async function createAttemptPresence(request, snapshot, positives) {
+  const inventory = { version: 1, repository: snapshot.repo, index_tree_sha: snapshot.treeSha,
+    positive_prs: positives };
+  try {
+    await request('PUT', presencePath(snapshot.repo, snapshot.treeSha), { branch: BRANCH,
+      message: `keepalive authority presence ${snapshot.treeSha}`,
+      content: Buffer.from(`${JSON.stringify(inventory)}\n`).toString('base64') });
+  } catch (error) {
+    if (![409, 422].includes(error.status)) throw error;
+  }
+  const settled = await readAttemptPresence(request, snapshot.repo, snapshot.treeSha);
+  if (!settled) throw new Error('Authority attempt presence write was not confirmed');
+  return settled;
 }
 
 module.exports = {

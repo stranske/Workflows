@@ -10,6 +10,7 @@ function fixture({ count = 1, target = 42, truncate = false, mutate = () => {},
   const calls = [];
   const hashes = ['1', '2', '3', '4'].map((x) => x.repeat(40));
   const blobs = new Map();
+  const inventories = new Map();
   const entries = Array.from({ length: count }, (_, i) => {
     const owner = `owner/repo:${i + 1}:1`;
     const name = crypto.createHash('sha256').update(owner).digest('hex') + '.json';
@@ -23,9 +24,20 @@ function fixture({ count = 1, target = 42, truncate = false, mutate = () => {},
       content: Buffer.from(JSON.stringify(index)).toString('base64') + (badBase64 ? '!' : '') });
     return { path: name, type: 'blob', sha };
   });
-  const request = async (method, path) => {
-    assert.equal(method, 'GET');
+  const request = async (method, path, body) => {
     calls.push(path);
+    if (path.includes('/contents/.github/keepalive-authority-presence/')) {
+      const key = path.split('keepalive-authority-presence/')[1].split('?')[0];
+      if (method === 'PUT') {
+        inventories.set(key, JSON.parse(Buffer.from(body.content, 'base64').toString('utf8')));
+        return {};
+      }
+      assert.equal(method, 'GET');
+      if (!inventories.has(key)) throw Object.assign(new Error('missing inventory'), { status: 404 });
+      return { sha: 'e'.repeat(40), encoding: 'base64',
+        content: Buffer.from(JSON.stringify(inventories.get(key))).toString('base64') };
+    }
+    assert.equal(method, 'GET');
     if (path.endsWith('/git/ref/heads/keepalive-authority-state')) {
       if (missingBranch) throw Object.assign(new Error('unavailable branch'), { status: 404 });
       return { object: { type: 'commit', sha: hashes[0] } };
@@ -53,8 +65,13 @@ for (const surface of ['../keepalive_authority_state.js',
   test(`${surface}: finds an index beyond the Contents API directory limit`, async () => {
     const { request, calls } = fixture({ count: 1001 });
     assert.equal(await hasAttemptIndexesForPr(request, 'owner/repo', 42), true);
-    assert.equal(calls.filter((p) => p.includes('/git/ref/')).length, 1);
-    assert.ok(calls.every((p) => !p.includes('/contents/')));
+    const blobReads = calls.filter((p) => p.includes('/git/blobs/')).length;
+    assert.equal(await hasAttemptIndexesForPr(request, 'owner/repo', 42), true);
+    assert.equal(await hasAttemptIndexesForPr(request, 'owner/repo', 43), true);
+    assert.equal(await hasAttemptIndexesForPr(request, 'owner/repo', 44), false);
+    assert.equal(calls.filter((p) => p.includes('/git/blobs/')).length, blobReads);
+    assert.ok(calls.filter((p) => p.includes('/git/ref/')).length >= 1);
+    assert.ok(calls.every((p) => !p.includes('/contents/.github/keepalive-authority-attempts/')));
   });
   test(`${surface}: proves absence only from complete validated evidence`, async () => {
     for (const options of [{ target: 43 }, { count: 0 }, { missingDirectory: true }]) {
