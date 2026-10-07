@@ -145,3 +145,40 @@ and independently hashed by SHA256. Decode the base64 value, then decompress
 original .gz members normally. The validation summaries remain separate. All
 previously captured bytes are preserved; historical evidence directories are
 untouched.
+
+## Lossless historical replay packaging
+
+The three earlier `revalidation/replay`, `replay-validation/replay`, and
+`module-identity-validation/replay` directories are retained byte-for-byte in
+their sibling `replay-artifacts.json.gz` files. This reduces the PR below the
+300-path Actions-filter evidence limit; it does not remove a test or change a
+recorded outcome. Each archive is a gzip JSON object keyed by original relative
+filename, containing `base64`, `bytes`, and `sha256`. Before reading a historical
+nested manifest or transcript, reconstruct its directory with:
+
+```python
+import base64, gzip, hashlib, json
+from pathlib import Path
+root = Path("docs/evidence/issue-3743/runtime-probes")
+for archive in root.glob("*/replay-artifacts.json.gz"):
+    destination = archive.parent / "replay"
+    for name, record in json.loads(gzip.decompress(archive.read_bytes())).items():
+        member = Path(name)
+        if member.is_absolute() or ".." in member.parts:
+            raise ValueError("unsafe archive member")
+        data = base64.b64decode(record["base64"], validate=True)
+        if len(data) != record["bytes"] or hashlib.sha256(data).hexdigest() != record["sha256"]:
+            raise ValueError("archive integrity failure")
+        target = destination / member
+        target.parent.mkdir(parents=True, exist_ok=True)
+        target.write_bytes(data)
+```
+
+All 255 original members were decoded and compared against their original Git
+checkout bytes before packaging. Original source, tests, replay scripts, JUnit,
+coverage measurements and raw outputs are unchanged. The earlier root manifest
+is preserved verbatim as `manifest.prepack-historical.json`; it describes its
+historical capture rather than later driver/README changes. `manifest.json` now
+hashes every retained file in this directory except itself, including the
+archives and the original manifest. Historical nested manifests remain intact
+and refer to their original filenames after extraction.
