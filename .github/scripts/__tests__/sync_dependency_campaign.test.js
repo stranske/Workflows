@@ -801,6 +801,8 @@ test('review discovery canonicalizes only terminal bot suffixes across API repre
     thread('ignored', 'coderabbitai', { path: '.agents/generated.md' }),
   ];
   assert.deepEqual(collectActiveBotThreads(controls), []);
+  assert.deepEqual(collectActiveBotThreads([thread('anonymous', '')],
+    { botAuthors: ['[bot]'] }), [], 'malformed configured suffix cannot allow anonymous authors');
 });
 
 test('buildQueueItem creates stable PR-scoped work items', () => {

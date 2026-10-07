@@ -128,7 +128,7 @@ function classifyPullRequest(pr = {}) {
 }
 
 function botAuthorSet(botAuthors = DEFAULT_BOT_AUTHORS) {
-  return new Set(parseCsv(botAuthors).map(normaliseBotLogin));
+  return new Set(parseCsv(botAuthors).map(normaliseBotLogin).filter(Boolean));
 }
 
 // REST app logins may include [bot]; GraphQL commonly returns the bare login.
