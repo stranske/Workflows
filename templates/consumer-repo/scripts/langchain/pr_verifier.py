@@ -1201,7 +1201,13 @@ def _required_evidence_channels(acceptance: str, *, _bind_attached: bool = True)
         )[-1]
         tail = proof_context[match.end() :]
         after = re.split(r"[;\n.!?]|" + proof_actor_boundary, tail, flags=re.I)[0]
-        clause = before + match[0] + after
+        provenance_property = bool(
+            re.fullmatch(
+                r"(?:(?:workflow|ci|github actions)\s+)?artifacts?\s+provenance", match[0], re.I
+            )
+        )
+        # A qualified property noun is not its own review destination.
+        clause = before + ("" if provenance_property else match[0]) + after
         # Keep an introduced proof object available to the shared antecedent
         # resolver only when the next actor actually delivers that pronoun.
         following = re.split(proof_actor_boundary, tail, maxsplit=1, flags=re.I)
@@ -1224,7 +1230,7 @@ def _required_evidence_channels(acceptance: str, *, _bind_attached: bool = True)
                 clause,
                 re.I,
             )
-            else match[0]
+            else ("provenance" if provenance_property else match[0])
         )
 
     proof_object_boundary = (
@@ -1256,7 +1262,7 @@ def _required_evidence_channels(acceptance: str, *, _bind_attached: bool = True)
     acceptance = re.sub(
         r"(?P<literal>" + quoted_evidence_literal + r")|"
         r"\b(?:(?:(?:test|validation)\s+(?:results?|logs?|outputs?)|"
-        r"(?:ci|build|execution)\s+logs?|screenshots?|recordings)"
+        r"(?:ci|build|execution)\s+logs?|(?:(?:workflow|ci|github actions)\s+)?artifacts?\s+provenance|screenshots?|recordings)"
         + proof_qualifier
         + r"|recording"
         + proof_qualifier

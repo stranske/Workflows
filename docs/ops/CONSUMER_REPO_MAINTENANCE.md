@@ -70,7 +70,7 @@ must upload`, or `artifacts must be uploaded`) remains as that delivery's
 antecedent. Before suppressing a capability span, bind its attached mandatory
 predicate, original actor, polarity and immediate review destination together.
 Common proof objects (test/validation results, logs and outputs, CI/build/execution
-logs, screenshots
+logs, artifact-provenance proof delivered to an explicit review destination, screenshots
 including before/after screenshots, and recordings) with an explicit review
 destination in the same clause normalize into this same evidence grammar before
 channel classification. Explicit concrete destination alternatives (a PR comment
@@ -81,6 +81,11 @@ including overlapping independently required destinations. Mixed conjunctions or
 more than 32 combinations retain strict legacy requirements, never a permissive
 any-channel shortcut. Only builder-owned present statuses satisfy a branch;
 absent/unavailable statuses and quoted status-looking content cannot do so.
+Artifact provenance is otherwise a property noun: enforcing existing exact-head
+or workflow artifact provenance does not demand a new artifact, even in a checked
+criterion. A qualified property cannot be its own review destination. Independent
+actual artifact deliveries remain required; explicit active/passive provenance
+delivery uses the same polarity, actor and destination grammar.
 Quoted labels/examples cannot supply destinations or clause boundaries.
 Normalization stops at independently governed coordinated actor
 clauses, reusing the existing shared actor-role heads (including developers,

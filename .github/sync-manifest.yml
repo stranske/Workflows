@@ -5,6 +5,8 @@
 # A validation CI workflow ensures this manifest is complete.
 #
 # POLICY: Any file intended for consumer repos MUST be listed here.
+# Verifier destination grammar also binds artifact-provenance property delivery
+# without treating checked provenance enforcement as a new artifact obligation.
 # Files not listed will NOT be synced, even if they exist in templates/consumer-repo/.
 #
 # Last sync trigger: 2026-02-10 - manifest audit + sync trigger expansion

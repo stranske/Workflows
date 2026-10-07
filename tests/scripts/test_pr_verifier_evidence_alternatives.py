@@ -15,7 +15,12 @@ spec.loader.exec_module(fixture)
 
 def verdict(criterion, *, comments="absent", artifacts="absent", body="absent", suffix=""):
     context, _ = fixture._context(1, 1000, 1000)
-    context = context.replace(fixture.ACCEPTANCE_SENTINEL, criterion).replace(
+    # Replace the whole authored bullet, not just its text: checked criteria
+    # must not accidentally become nested "- - [x]" pseudo-items.
+    context = context.replace(
+        "- " + fixture.ACCEPTANCE_SENTINEL,
+        criterion if criterion.startswith("- ") else "- " + criterion,
+    ).replace(
         "## PR Diff Summary",
         "## Acceptance evidence\n\n- Overall retrieval status: **present**\n"
         f"- PR body: **{body}**\n- PR comments: **{comments}**\n"
@@ -25,6 +30,89 @@ def verdict(criterion, *, comments="absent", artifacts="absent", body="absent", 
         verifier.EvaluationResult(verdict="PASS", used_llm=True),
         verifier.prompt_coverage(context, None),
     ).verdict
+
+
+@pytest.mark.parametrize("prefix", ["", "- [ ] ", "- [x] "])
+@pytest.mark.parametrize("qualifier", ["", "exact-head ", "workflow ", "CI ", "GitHub Actions "])
+def test_artifact_provenance_property_does_not_require_delivery(prefix, qualifier):
+    criterion = f"{prefix}Source/template context helpers match and existing {qualifier}artifact provenance remains enforced."
+    assert verifier._required_evidence_channels(criterion) == set()
+    assert verdict(criterion, artifacts="unavailable") == "PASS"
+
+
+@pytest.mark.parametrize("prefix", ["", "- [ ] ", "- [x] "])
+@pytest.mark.parametrize(
+    "form",
+    [
+        "Provide artifact provenance in a PR comment.",
+        "Artifact provenance must be provided in a PR comment.",
+    ],
+)
+def test_provenance_review_delivery_still_requires_comments(prefix, form):
+    assert verifier._required_evidence_channels(prefix + form) == {"comments"}
+    assert verdict(prefix + form, comments="unavailable") == "CONCERNS"
+    assert verdict(prefix + form, comments="present", artifacts="unavailable") == "PASS"
+
+
+@pytest.mark.parametrize("joiner", ["; ", " and "])
+def test_provenance_property_cannot_erase_independent_artifact_delivery(joiner):
+    criterion = (
+        "- [x] Exact-head artifact provenance remains enforced"
+        + joiner
+        + "the reviewer must attach a workflow artifact."
+    )
+    assert verifier._required_evidence_channels(criterion) == {"artifacts"}
+    assert verdict(criterion, artifacts="unavailable") == "CONCERNS"
+    assert verdict(criterion, artifacts="present") == "PASS"
+
+
+@pytest.mark.parametrize(
+    "form",
+    [
+        "Do not provide artifact provenance in a PR comment.",
+        "Artifact provenance is not supposed to be provided in a PR comment.",
+    ],
+)
+def test_provenance_prohibition_does_not_require_comment(form):
+    assert verifier._required_evidence_channels("- [x] " + form) == set()
+
+
+@pytest.mark.parametrize(
+    "destination,channel",
+    [("the PR body", "body"), ("a PR comment", "comments"), ("a workflow artifact", "artifacts")],
+)
+@pytest.mark.parametrize("verb", ["Provide", "Artifact provenance must be provided"])
+@pytest.mark.parametrize("state", ["absent", "unavailable"])
+def test_provenance_delivery_channel_matrix(destination, channel, verb, state):
+    subject = " artifact provenance" if verb == "Provide" else ""
+    criterion = f"- [x] {verb}{subject} in {destination}."
+    assert verifier._required_evidence_channels(criterion) == {channel}
+    assert verdict(criterion, **{channel: state}) == "CONCERNS"
+    assert verdict(criterion, **{channel: "present"}) == "PASS"
+
+
+@pytest.mark.parametrize(
+    "governor", ["may", "is not expected to", "is not supposed to", "is no longer required to"]
+)
+def test_provenance_optional_and_negative_governors_preserve_independent_delivery(governor):
+    optional = f"- [x] Artifact provenance {governor} be provided in a PR comment."
+    assert verifier._required_evidence_channels(optional) == set()
+    combined = optional + " The reviewer must attach a workflow artifact."
+    assert verifier._required_evidence_channels(combined) == {"artifacts"}
+    assert verdict(combined, artifacts="unavailable") == "CONCERNS"
+
+
+@pytest.mark.parametrize("order", [False, True])
+def test_provenance_property_keeps_separate_reviewer_actor(order):
+    parts = [
+        "The application enforces workflow artifact provenance",
+        "the reviewer must provide evidence in a PR comment",
+    ]
+    if order:
+        parts.reverse()
+    criterion = "- [x] " + "; ".join(parts)
+    assert verifier._required_evidence_channels(criterion) == {"comments"}
+    assert verdict(criterion, comments="unavailable") == "CONCERNS"
 
 
 @pytest.mark.parametrize("prefix", ["", "[ ] "])
