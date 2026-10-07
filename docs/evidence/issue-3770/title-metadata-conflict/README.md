@@ -26,8 +26,11 @@ Validation commands and process exits are in `3770-validation.json`:
 For each of root and template, replace only that resolver with the incumbent base
 bytes: the conflict assertions fail (exit1). Restore the exact candidate bytes:
 the same command passes (exit0). Raw console logs are retained independently for
-each side. These are executed production mutations, not a test-only mock.
-`sha256.json` covers every retained capture.
+each side. Console captures are losslessly gzip-compressed to preserve their
+original bytes without trailing-whitespace diffs. `decoded-captures.json` retains
+decoded names, lengths and SHA256; use `gzip -dc <capture.log.gz>` to read them.
+These are executed production mutations, not a test-only mock.
+`sha256.json` covers every retained compressed capture and receipt.
 
 This bounded source repair does not complete the broader source3770 release
 comparison follow-through. Original NON_PASS outcomes are retained. Keepalive
