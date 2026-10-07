@@ -247,7 +247,9 @@ real delivery instructions after the closing quote remain required.
 
 If an actual verifier report identifies bounded-input truncation, manual dispatch
 can select `evidence_profile=expanded`. This fixed recovery profile widens review
-collection and code/evidence prompt limits, not model acceptance authority. Its
+collection and code/evidence prompt limits, not model acceptance authority. Free-text
+model identifiers cross the evaluation/comparison shell boundary through step
+environment variables and quoted argument arrays, never interpolated script text. Its
 profile is fingerprinted by consumer callers; real retrieval gaps, missing proof,
 CI failures and clipped code still withhold PASS. Standard remains the default.
 

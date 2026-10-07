@@ -1,6 +1,7 @@
 """Bounded recovery inputs must widen inspection without weakening coverage."""
 
 import os
+import re
 import subprocess
 from pathlib import Path
 
@@ -17,6 +18,51 @@ def profile_step():
         for s in workflow["jobs"]["verifier"]["steps"]
         if s.get("name") == "Select bounded verifier evidence profile"
     )
+
+
+@pytest.mark.parametrize("step_id", ["llm_evaluate", "llm_compare"])
+@pytest.mark.parametrize(
+    "model", ["$(printf INTERPOLATION_EXECUTED)", 'name"; printf EXECUTED; #', "normal-model"]
+)
+def test_model_inputs_remain_literal_shell_arguments(step_id, model):
+    workflow = yaml.load(
+        Path(".github/workflows/reusable-agents-verifier.yml").read_text(), Loader=yaml.BaseLoader
+    )
+    step = next(s for s in workflow["jobs"]["verifier"]["steps"] if s.get("id") == step_id)
+    inputs = {"inputs.model": model, "inputs.model2": model, "inputs.provider": "auto"}
+
+    def render(value):
+        return re.sub(r"\$\{\{\s*(.*?)\s*\}\}", lambda m: inputs[m[1]], value)
+
+    env = {**os.environ, "VERIFIER_CONTEXT_PATH": "/absent-context", "VERIFIER_DIFF_PATH": ""}
+    for name, value in step["env"].items():
+        if value in {"${{ inputs.model }}", "${{ inputs.model2 }}", "${{ inputs.provider }}"}:
+            env[name] = render(value)
+    if step_id == "llm_evaluate":
+        script = step["run"].split("# Build args array", 1)[0]
+        script += '\nprintf "%s" "$model"\n'
+        expected = model
+    else:
+        script = step["run"].split("# Run comparison", 1)[0]
+        script += '\nprintf "%s\\n" "${args[@]}"\n'
+        expected = (
+            "\n".join(
+                [
+                    "--context-file",
+                    "/absent-context",
+                    "--compare",
+                    "--json",
+                    "--model",
+                    model,
+                    "--model2",
+                    model,
+                ]
+            )
+            + "\n"
+        )
+    result = subprocess.run(["bash", "-c", render(script)], env=env, capture_output=True, text=True)
+    assert result.returncode == 0, result.stderr
+    assert result.stdout == expected
 
 
 @pytest.mark.parametrize("profile", ["standard", "expanded", "invalid", "expanded; touch owned"])

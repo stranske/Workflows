@@ -44,10 +44,16 @@ Each tuple is recorded in `REVIEWED_SCRIPT_INTERPOLATIONS` inside
 this document.
 
 The 2026-10-06 bounded verifier evidence-profile step shifts the existing
-reusable verifier locations by one (12→13, 22→23, 28→29, 32→33). Those nine
-occurrences are unchanged expressions, not newly approved inputs. The new
-profile uses step `env:` indirection and an exact fixed-value case statement;
-it adds no script interpolation exception.
+reusable verifier locations by one (12→13, 22→23, 28→29, 32→33). Subsequent
+independent assessment showed that model/model2 are free text, not constrained
+values: shell command substitution executed before argument construction.
+Evaluation and comparison now transport model/model2 and provider via step
+`env:` and quoted shell variables. Six obsolete allowlist occurrences were
+removed; only the three existing enumerated mode occurrences remain. Model
+inputs are globally banned from script interpolation. Executable regression
+tests preserve command-substitution and quote-breaking payloads as literal
+arguments in both modes, with normal-model controls. The new profile likewise
+uses `env:` and a fixed-value case statement, adding no exception.
 
 ## Test gate
 
