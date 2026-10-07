@@ -563,6 +563,11 @@ negative returns. First-directory creation during an absence read is uncertain
 and rejects. Partial delta work, malformed/incomplete manifests, unavailable reads,
 lost responses and conflicting writes deny the current read. Positive presence
 still requires the independent exact ledger/receipt path; missing ledger rejects.
+An invalid newly added or replaced index denies both positive and negative
+reads before any manifest or checkpoint write, even for a PR already present in
+the prior manifest. A later independent reporter validates that delta again;
+the previous complete manifest still permits reuse of unchanged blobs. A stale
+reporter that loses checkpoint CAS cannot replace a newer complete mapping.
 An older writer need only publish its index: changing the attempt subtree forces
 delta validation even though that writer knows nothing about manifests.
 

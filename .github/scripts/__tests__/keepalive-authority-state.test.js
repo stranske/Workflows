@@ -33,14 +33,16 @@ for (const directory of ['..', '../../../templates/consumer-repo/.github/scripts
     return require(target);
   }
 
+  function replayWithDefaultAuthority(request, number) {
+    const { replayReporterAuthority } = freshHelper('keepalive_reporter_applicability.js');
+    return replayReporterAuthority({ github: {}, context: { repo: { owner: 'owner', repo: 'repo' } },
+      prNumber: number, makeRequest: () => request });
+  }
+
   test(`${directory}: separate default reporters reuse positive and negative inventory`, async () => {
     const server = presenceServer();
-    const replay = async (number) => {
-      const { replayReporterAuthority } = freshHelper('keepalive_reporter_applicability.js');
-      // Exercise both production defaults, including the real pinned ledger read.
-      return replayReporterAuthority({ github: {}, context: { repo: { owner: 'owner', repo: 'repo' } },
-        prNumber: number, makeRequest: () => server.request });
-    };
+    // Exercise both production defaults, including the real pinned ledger read.
+    const replay = (number) => replayWithDefaultAuthority(server.request, number);
     assert.deepEqual(await replay(42), { prNumber: 42, results: [] });
     assert.equal(server.stats().blobs, 1001);
     assert.equal(server.stats().writes, 3);
@@ -61,6 +63,71 @@ for (const directory of ['..', '../../../templates/consumer-repo/.github/scripts
     await replay(45);
     assert.equal(server.stats().blobs, settled.blobs);
     assert.equal(server.stats().writes, settled.writes);
+  });
+
+  test(`${directory}: a stale default reporter cannot replace a newer checkpoint`, async () => {
+    const server = presenceServer();
+    await replayWithDefaultAuthority(server.request, 42);
+    server.addAttempt(44);
+    let raced = false;
+    const staleRequest = async (method, path, body) => {
+      if (!raced && method === 'PUT' && path.endsWith('/checkpoint.json')) {
+        raced = true;
+        // This older writer does not publish presence metadata. A separate
+        // default reporter observes its tree and advances the checkpoint first.
+        server.addAttempt(45, 12000);
+        await assert.rejects(replayWithDefaultAuthority(server.request, 45), /ledger is missing/);
+      }
+      return server.request(method, path, body);
+    };
+    await assert.rejects(replayWithDefaultAuthority(staleRequest, 42), /checkpoint conflict/);
+    assert.equal(raced, true);
+    const settled = server.stats();
+    for (const number of [44, 45, 9000, 44]) {
+      await assert.rejects(replayWithDefaultAuthority(server.request, number), /ledger is missing/);
+    }
+    assert.deepEqual(await replayWithDefaultAuthority(server.request, 42), { prNumber: 42, results: [] });
+    assert.equal(server.stats().blobs, settled.blobs, 'the newer complete mapping must survive');
+    assert.equal(server.stats().writes, settled.writes, 'warm reporters must retain the winning checkpoint');
+  });
+
+  test(`${directory}: invalid delta indexes deny positive and negative default reporter reads`, async () => {
+    for (const mutate of [
+      (index) => { index.repository = 'other/repo'; },
+      (index) => { index.receipt.owner_attempt = 'owner/repo:123:1'; },
+      (index) => { index.receipt.consumed_at = 'not-a-time'; },
+      (index) => { index.generation = 'invalid'; },
+      (index) => {
+        index.owner_attempt = 'owner/repo:123:1';
+        index.receipt.owner_attempt = index.owner_attempt;
+      },
+    ]) {
+      for (const number of [44, 9000]) {
+        const server = presenceServer({ count: 20 });
+        await replayWithDefaultAuthority(server.request, 44);
+        const bootstrap = server.stats();
+        server.addAttempt(44);
+        const invalidRequest = async (method, path, body) => {
+          const response = await server.request(method, path, body);
+          if (!path.includes('/git/blobs/')) return response;
+          const index = JSON.parse(Buffer.from(response.content, 'base64').toString('utf8'));
+          mutate(index);
+          return { ...response, content: Buffer.from(JSON.stringify(index)).toString('base64') };
+        };
+        await assert.rejects(replayWithDefaultAuthority(invalidRequest, number), /Invalid authority attempt index/);
+        assert.equal(server.stats().blobs - bootstrap.blobs, 1, 'only the new immutable blob is inspected');
+        assert.equal(server.stats().writes, bootstrap.writes, 'invalid delta must not publish presence');
+        // Failure leaves the previous complete manifest usable by another
+        // helper, but never turns uncertain evidence into a cached negative.
+        await assert.rejects(replayWithDefaultAuthority(server.request, 44), /ledger is missing/);
+        assert.equal(server.stats().blobs - bootstrap.blobs, 2, 'retry validates only the new blob again');
+        const settled = server.stats();
+        await assert.rejects(replayWithDefaultAuthority(server.request, 44), /ledger is missing/);
+        await replayWithDefaultAuthority(server.request, 42);
+        assert.equal(server.stats().blobs, settled.blobs);
+        assert.equal(server.stats().writes, settled.writes);
+      }
+    }
   });
 
   test(`${directory}: separate backfill writers converge on the same complete inventory`, async () => {
