@@ -24,6 +24,8 @@ def validate_junit(text, node, phase):
     assert counts == expected, (node, phase, counts)
     cases = list(suite.iter("testcase"))
     assert len(cases) == 1 and cases[0].get("name") == node.rsplit("::", 1)[1], node
+    module = Path(node.split("::", 1)[0]).with_suffix("").as_posix().replace("/", ".")
+    assert cases[0].get("classname") == module, (node, cases[0].get("classname"))
     outcomes = [child.tag for child in cases[0] if child.tag in {"failure", "error", "skipped"}]
     assert outcomes == (["failure"] if phase == "red" else []), (node, phase, outcomes)
     return counts

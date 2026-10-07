@@ -1,0 +1,9 @@
+{
+  "source": "docs/evidence/issue-3743/runtime-probes/replay.py",
+  "source_sha256": "bcf31bfcb6c5173b615a009c74f32454d947c12a84796a3ed89197c71cc38aad",
+  "mutation_sha256": "d807a60b77a47080a4cd6e9273d456acbca50f5ec0a8106d005eaaa6676c3a4c",
+  "red_exit": 1,
+  "restored_sha256": "bcf31bfcb6c5173b615a009c74f32454d947c12a84796a3ed89197c71cc38aad",
+  "green_exit": 0,
+  "test_sha256": "1789c61598be13668928881e7cbea82d013f9d696bcced6c6f5657cb4f68a9f9"
+}

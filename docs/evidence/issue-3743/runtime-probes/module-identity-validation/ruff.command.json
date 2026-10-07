@@ -1,0 +1,23 @@
+{
+  "argv": [
+    "ruff",
+    "check",
+    "docs/evidence/issue-3743/runtime-probes/replay.py",
+    "tests/scripts/test_runtime_probe_replay.py",
+    "tests/scripts/test_check_deliberate_break_runtime_probes.py",
+    "scripts/check_deliberate_break.py",
+    "templates/consumer-repo/scripts/check_deliberate_break.py"
+  ],
+  "cwd": "/home/runner/work/Workflows/Workflows",
+  "exit": 0,
+  "stdout": {
+    "path": "ruff.stdout.gz",
+    "sha256": "82b3e6a6c090a57601d22943bd23fca9218d1031dbe5a7b754092f9a156b4f18",
+    "bytes": 19
+  },
+  "stderr": {
+    "path": "ruff.stderr.gz",
+    "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+    "bytes": 0
+  }
+}

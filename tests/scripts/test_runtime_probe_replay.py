@@ -14,10 +14,19 @@ def validate():
     ]
 
 
-def report(*, name="probe[root]", failures=1, errors=0, skipped=0, outcome="<failure />"):
+def report(
+    *,
+    name="probe[root]",
+    classname="tests.scripts.private",
+    failures=1,
+    errors=0,
+    skipped=0,
+    outcome="<failure />",
+):
     return (
         f'<testsuites><testsuite tests="1" failures="{failures}" errors="{errors}" '
-        f'skipped="{skipped}"><testcase name="{name}">{outcome}</testcase>'
+        f'skipped="{skipped}"><testcase classname="{classname}" name="{name}">'
+        f"{outcome}</testcase>"
         "</testsuite></testsuites>"
     )
 
@@ -51,3 +60,15 @@ def test_replay_rejects_wrong_case_and_inconsistent_outcome(validate):
     for invalid in (report(name="other[root]"), report(outcome="<error />")):
         with pytest.raises(AssertionError):
             validate(invalid, "tests/scripts/private.py::probe[root]", "red")
+
+
+def test_replay_rejects_same_named_case_from_another_module(validate):
+    node = "tests/scripts/private.py::probe[root]"
+    for phase in ("red", "green"):
+        xml = report(
+            classname="tests.scripts.other",
+            failures=int(phase == "red"),
+            outcome="<failure />" if phase == "red" else "",
+        )
+        with pytest.raises(AssertionError):
+            validate(xml, node, phase)

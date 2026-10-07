@@ -1,0 +1,22 @@
+{
+  "argv": [
+    "git",
+    "--git-dir=/tmp/runtime-probe-module-git.CZzikJ/.git",
+    "--work-tree=/home/runner/work/Workflows/Workflows",
+    "diff",
+    "--cached",
+    "--check"
+  ],
+  "cwd": "/home/runner/work/Workflows/Workflows",
+  "exit": 0,
+  "stdout": {
+    "path": "staged-diff-check.stdout.gz",
+    "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+    "bytes": 0
+  },
+  "stderr": {
+    "path": "staged-diff-check.stderr.gz",
+    "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+    "bytes": 0
+  }
+}

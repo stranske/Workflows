@@ -1,0 +1,34 @@
+{
+  "argv": [
+    "python3",
+    "-m",
+    "pytest",
+    "tests/scripts/test_check_deliberate_break.py",
+    "tests/scripts/test_check_deliberate_break_archive.py",
+    "tests/scripts/test_check_deliberate_break_launch_boundaries.py",
+    "tests/scripts/test_launch_mutation_driver.py",
+    "tests/scripts/test_check_deliberate_break_runtime_probes.py",
+    "-q",
+    "-o",
+    "addopts=",
+    "-m",
+    "not slow",
+    "--cov=scripts.check_deliberate_break",
+    "--cov-branch",
+    "--cov-report=term-missing",
+    "--cov-report=json:/home/runner/work/Workflows/Workflows/docs/evidence/issue-3743/runtime-probes/module-identity-validation/candidate.json",
+    "--junitxml=/home/runner/work/Workflows/Workflows/docs/evidence/issue-3743/runtime-probes/module-identity-validation/candidate.xml"
+  ],
+  "cwd": "/home/runner/work/Workflows/Workflows",
+  "exit": 0,
+  "stdout": {
+    "path": "candidate.stdout.gz",
+    "sha256": "b4df6d159b5c334bffa0dd64bf290074664c8288c079b1a2ab2a18809bd9a6f5",
+    "bytes": 1238
+  },
+  "stderr": {
+    "path": "candidate.stderr.gz",
+    "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+    "bytes": 0
+  }
+}

@@ -1,0 +1,8 @@
+{
+  "url": "https://github.com/stranske/Workflows/pull/3808",
+  "state": "open",
+  "isDraft": false,
+  "head": "db774b24ec8a194dea192f51821ad86239a834f0",
+  "remote_checkboxes_updated": false,
+  "remote_write_blocker": "Automatic approval review: MCP tool call requires approval, but approval policy is never"
+}

@@ -1,0 +1,20 @@
+{
+  "argv": [
+    "env",
+    "BLACK_CACHE_DIR=/tmp/runtime-probe-module-black-cache",
+    "python3",
+    "docs/evidence/issue-3743/runtime-probes/revalidation/black_serial.py"
+  ],
+  "cwd": "/home/runner/work/Workflows/Workflows",
+  "exit": 0,
+  "stdout": {
+    "path": "black-serial.stdout.gz",
+    "sha256": "17ead90c82c7997d6deb679a68375ede328846924fc8fbc8d7d3bb24bba75180",
+    "bytes": 35
+  },
+  "stderr": {
+    "path": "black-serial.stderr.gz",
+    "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+    "bytes": 0
+  }
+}

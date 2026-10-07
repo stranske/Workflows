@@ -1,0 +1,26 @@
+{
+  "argv": [
+    "python3",
+    "-m",
+    "pytest",
+    "tests/scripts/test_runtime_probe_replay.py::test_replay_rejects_same_named_case_from_another_module",
+    "-q",
+    "-o",
+    "addopts=",
+    "-m",
+    "not slow",
+    "--junitxml=/home/runner/work/Workflows/Workflows/docs/evidence/issue-3743/runtime-probes/module-identity-validation/module-green.xml"
+  ],
+  "cwd": "/home/runner/work/Workflows/Workflows",
+  "exit": 0,
+  "stdout": {
+    "path": "module-green.stdout.gz",
+    "sha256": "01311baa852db076753814271165a33a7a35b7e0b63de979423ac3269388316e",
+    "bytes": 98
+  },
+  "stderr": {
+    "path": "module-green.stderr.gz",
+    "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+    "bytes": 0
+  }
+}

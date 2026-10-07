@@ -1,0 +1,20 @@
+{
+  "argv": [
+    "env",
+    "GITHUB_STEP_SUMMARY=/tmp/runtime-probe-module-summary.md",
+    "python3",
+    "scripts/validate_template_completeness.py"
+  ],
+  "cwd": "/home/runner/work/Workflows/Workflows",
+  "exit": 0,
+  "stdout": {
+    "path": "template-completeness.stdout.gz",
+    "sha256": "571919c147488c55064046a0c64cf3a5919172b39a3d890dbad258b6d65c1018",
+    "bytes": 65
+  },
+  "stderr": {
+    "path": "template-completeness.stderr.gz",
+    "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+    "bytes": 0
+  }
+}

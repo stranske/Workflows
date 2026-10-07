@@ -1,0 +1,29 @@
+{
+  "base": "98b6ed3de1fdea92e3eb00420c863f873a00a210",
+  "files": {
+    "scripts/check_deliberate_break.py": {
+      "base_sha256": "cc97119ea26afec275be3c83d22bc75de0d452cd0f4764896cc9d037274ab25a",
+      "current_sha256": "cc97119ea26afec275be3c83d22bc75de0d452cd0f4764896cc9d037274ab25a"
+    },
+    "templates/consumer-repo/scripts/check_deliberate_break.py": {
+      "base_sha256": "cc97119ea26afec275be3c83d22bc75de0d452cd0f4764896cc9d037274ab25a",
+      "current_sha256": "cc97119ea26afec275be3c83d22bc75de0d452cd0f4764896cc9d037274ab25a"
+    },
+    "tests/scripts/test_check_deliberate_break.py": {
+      "base_sha256": "ea511f9830b946074103d5ef315df606043cc6f70f2bb509e5b831ff4fcef0f7",
+      "current_sha256": "ea511f9830b946074103d5ef315df606043cc6f70f2bb509e5b831ff4fcef0f7"
+    },
+    "tests/scripts/test_check_deliberate_break_archive.py": {
+      "base_sha256": "b6387a191078d8d33d4efefecc8ec7256ddf4901e7901187f764a7f0f983b5db",
+      "current_sha256": "b6387a191078d8d33d4efefecc8ec7256ddf4901e7901187f764a7f0f983b5db"
+    },
+    "tests/scripts/test_check_deliberate_break_launch_boundaries.py": {
+      "base_sha256": "7839e44f89a2335205c0337c7271ae710a8c6b81a0a0d7789cdc29187c55ea48",
+      "current_sha256": "7839e44f89a2335205c0337c7271ae710a8c6b81a0a0d7789cdc29187c55ea48"
+    },
+    "tests/scripts/test_launch_mutation_driver.py": {
+      "base_sha256": "835dd55ce8682f2ee6bfa532b342389066e066e8c9ca5e082688742509a5783f",
+      "current_sha256": "835dd55ce8682f2ee6bfa532b342389066e066e8c9ca5e082688742509a5783f"
+    }
+  }
+}

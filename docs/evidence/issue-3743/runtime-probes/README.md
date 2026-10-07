@@ -93,3 +93,11 @@ ready for review. Automatic approval review rejected the PR-body write because
 the run's approval policy is `never`; the remote checkboxes remain unchecked.
 The canonical `.git` directory is read-only; commit handoff uses isolated Git
 metadata under `/tmp` and a bundle.
+
+`module-identity-validation/` retains a further replay-validator repair: JUnit
+must identify the selected module as well as the test name. A same-named case
+from another module can no longer satisfy either RED or GREEN validation.
+The added regression fails when that module check is removed and passes after
+byte-identical restoration; all four validator tests pass. Fresh fourteen-case
+production replay and matched 272/286 coverage receipts again confirm the same
+92.73% to 94.26% combined increase, with unchanged source/branch universes.
