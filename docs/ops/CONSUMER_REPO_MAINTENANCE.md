@@ -285,6 +285,10 @@ qualifier alone after bare `PR description` does not create a product component;
 human and independent reviewer deliveries remain mandatory.
 Relative markers `that`, `which` and `where` likewise cannot start component
 names and terminate an already matched component before its relative clause.
+Named checklist shorthand accepts the same declared temporal continuation
+after its destination (`Test evidence in a PR comment before merge` remains
+mandatory comment evidence). Optional and negative delivery governors keep
+their own polarity; an independent artifact cannot replace the named channel.
 Both channel classification and destination-OR expansion use that same span.
 Both paths also share the independent review-predicate exclusion: an actor
 such as `the PR description that must contain command output` is not consumed

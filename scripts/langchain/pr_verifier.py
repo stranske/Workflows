@@ -1199,7 +1199,7 @@ def _required_evidence_channels(acceptance: str, *, _bind_attached: bool = True)
         r"(?P<object>(?:(?:test|validation|CI|build|execution)\s+){0,3}"
         r"(?:evidence|command outputs?|transcripts?))\s+"
         r"(?P<destinations>" + bound_review_destinations + r")"
-        r"(?=[ \t]*(?:[;.!]|$))",
+        r"(?=[ \t]*(?:[;.!]|$|(?:" + _REVIEW_BODY_COMPONENT_TEMPORAL + r")\b))",
         lambda match: (
             match[0]
             if match["literal"] or re.search(r"\r?\n[ \t]*\r?\n", match[0])

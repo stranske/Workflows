@@ -303,6 +303,52 @@ def test_component_options_and_actual_floor_are_order_symmetric(
 
 
 @pytest.mark.parametrize("marker", ["-", "*", "+", "1.", "1)"])
+@pytest.mark.parametrize("proof", ["Test evidence", "Command output", "Transcripts"])
+@pytest.mark.parametrize("suffix", ["before merge", "after approval", "today", "daily"])
+@pytest.mark.parametrize(
+    "destination,channel",
+    [
+        ("a PR comment", "comments"),
+        ("the PR body", "body"),
+        ("the PR description", "body"),
+        ("a workflow artifact", "artifacts"),
+    ],
+)
+@pytest.mark.parametrize("independent", [False, True])
+def test_temporal_checklist_shorthand_preserves_named_delivery(
+    marker, proof, suffix, destination, channel, independent
+):
+    criterion = f"{marker} [ ] {proof} in {destination} {suffix}."
+    extra = "; the reviewer must record evidence in a workflow artifact" if independent else ""
+    expected = {channel} | ({"artifacts"} if independent else set())
+    assert verifier._required_evidence_channels(criterion + extra) == expected
+    assert verifier._required_evidence_options(criterion + extra) == [expected]
+    spec = importlib.util.spec_from_file_location(
+        "temporal_checklist_fixture",
+        Path(__file__).with_name("test_pr_verifier_prompt_coverage.py"),
+    )
+    fixture = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(fixture)
+    context, _ = fixture._context(1, 1000, 1000)
+    context = context.replace("- " + fixture.ACCEPTANCE_SENTINEL, criterion + extra).replace(
+        "## PR Diff Summary",
+        "## Acceptance evidence\n\n- Overall retrieval status: **present**\n"
+        "- PR body: **absent**\n- PR comments: **absent**\n"
+        "- Referenced workflow artifacts: **absent**\n\n## PR Diff Summary",
+    )
+    result = verifier._apply_coverage_floor(
+        verifier.EvaluationResult(verdict="PASS", used_llm=True),
+        verifier.prompt_coverage(context, None),
+    )
+    assert result.verdict == "CONCERNS"
+    for governor in ["may be", "is not expected to be", "is no longer required to be"]:
+        negative = f"{marker} [ ] Evidence {governor} in {destination} {suffix}."
+        assert verifier._required_evidence_channels(negative + extra) == (
+            {"artifacts"} if independent else set()
+        )
+
+
+@pytest.mark.parametrize("marker", ["-", "*", "+", "1.", "1)"])
 @pytest.mark.parametrize(
     "destination,channel",
     [
