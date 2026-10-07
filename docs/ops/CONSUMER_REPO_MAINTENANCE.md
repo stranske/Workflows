@@ -1751,6 +1751,13 @@ and exercise the actual floor; caching does not remove destination assertions.
 Storage, qualified product recipients and named components use that same product
 actor grammar. A repeated explicit governor replaces the inherited governor but
 does not invent a new actor; bare destinations still require their own evidence.
+Chains of three or more operations carry forward the latest explicit governor
+and aspect, not the original head's stale state. A mandatory middle predicate
+cannot be made optional by an earlier `may`, nor can an optional middle
+predicate borrow an earlier `must` for a later bare review destination.
+Product-only AND/OR members preserve that state without inventing proof
+alternatives. Once a bare review destination participates, genuine destination
+OR still permits either channel; it is not converted to mandatory AND.
 Shared negative-governor controls include `not expected`, `not supposed`, and
 `no longer required`, alongside optional and direct prohibited deliveries.
 Product storage and qualified client/user destinations reuse the canonical

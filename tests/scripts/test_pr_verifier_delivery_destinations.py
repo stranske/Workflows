@@ -32,6 +32,107 @@ def _floor_verdict(criterion, *, body, comments, artifacts="present", overall="p
     ).verdict
 
 
+@pytest.mark.parametrize("actor", ["reviewer", "UI"])
+@pytest.mark.parametrize("body_alias", ["body", "description"])
+@pytest.mark.parametrize("reverse", [False, True])
+def test_product_chain_keeps_genuine_destination_alternatives(actor, body_alias, reverse):
+    first, second = f"the PR {body_alias}", "a PR comment"
+    if reverse:
+        first, second = second, first
+    prefix = (
+        "The UI must record evidence in the PR body panel and "
+        if actor == "UI"
+        else "The reviewer must "
+    )
+    criterion = (
+        prefix + f"record evidence in {first} or {second}; "
+        "the auditor must record evidence in a workflow artifact"
+    )
+    assert {frozenset(option) for option in verifier._required_evidence_options(criterion)} == {
+        frozenset({"body", "artifacts"}),
+        frozenset({"comments", "artifacts"}),
+    }
+    for missing in ("absent", "unavailable"):
+        assert _floor_verdict(criterion, body=missing, comments="present") == "PASS"
+        assert _floor_verdict(criterion, body="present", comments=missing) == "PASS"
+        assert _floor_verdict(criterion, body=missing, comments=missing) == "CONCERNS"
+
+
+@pytest.mark.parametrize("first_governor", ["must", "may", "must not", "is not expected to"])
+@pytest.mark.parametrize("middle_governor", ["must", "may", "must not", "is not expected to"])
+@pytest.mark.parametrize(
+    "first_conjunction,last_conjunction",
+    [
+        ("and", "and"),
+        ("and", "or"),
+        ("or", "and"),
+        ("or", "or"),
+    ],
+)
+@pytest.mark.parametrize(
+    "operation,perfect,progressive",
+    [
+        ("record", "recorded", "recording"),
+        ("supply", "supplied", "supplying"),
+        ("leave", "left", "leaving"),
+    ],
+)
+@pytest.mark.parametrize(
+    "forms",
+    [
+        ("ordinary", "ordinary", "ordinary"),
+        ("perfect", "ordinary", "ordinary"),
+        ("ordinary", "perfect", "perfect"),
+        ("ordinary", "progressive", "progressive"),
+        ("perfect", "progressive", "ordinary"),
+        ("progressive", "perfect", "ordinary"),
+    ],
+)
+@pytest.mark.parametrize("reverse", [False, True])
+def test_product_chain_inherits_latest_explicit_governor_and_aspect(
+    first_governor,
+    middle_governor,
+    first_conjunction,
+    last_conjunction,
+    operation,
+    perfect,
+    progressive,
+    forms,
+    reverse,
+):
+    predicates = {
+        "ordinary": operation,
+        "perfect": "have " + perfect,
+        "progressive": "be " + progressive,
+    }
+    first, middle, final = [predicates[form] for form in forms]
+    first_destination, middle_destination, final_destination = (
+        "the PR body panel",
+        "a PR comment panel",
+        "a PR comment",
+    )
+    if reverse:
+        first_destination, middle_destination, final_destination = (
+            "a PR comment panel",
+            "the PR body panel",
+            "the PR body",
+        )
+    criterion = (
+        f"The UI {first_governor} {first} evidence in {first_destination} "
+        f"{first_conjunction} {middle_governor} {middle} evidence in {middle_destination} "
+        f"{last_conjunction} {final} evidence in {final_destination}; "
+        "the auditor must record evidence in a workflow artifact"
+    )
+    channel = "body" if reverse else "comments"
+    expected = {"artifacts"} | ({channel} if middle_governor == "must" else set())
+    assert verifier._required_evidence_channels(criterion) == expected
+    assert verifier._required_evidence_options(criterion) == [expected]
+    for missing in ("absent", "unavailable"):
+        assert _floor_verdict(criterion, body=missing, comments=missing) == (
+            "CONCERNS" if channel in expected else "PASS"
+        )
+
+
 @pytest.mark.parametrize("actor", ["reviewer", "maintainer"])
 @pytest.mark.parametrize("first", ["recorded", "supplied", "left"])
 @pytest.mark.parametrize("second", ["recorded", "left"])

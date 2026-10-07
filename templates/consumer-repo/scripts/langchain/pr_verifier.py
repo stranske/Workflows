@@ -2101,12 +2101,13 @@ def _required_evidence_channels(acceptance: str, *, _bind_attached: bool = True)
         + r")"
         + r")"
         + coordinated_operation
-        + r"(?:"
+        + r"(?P<destinations>(?:"
         + product_destination
         + r"|"
         + component_destination
         + r")"
-        + shared_review_tail,
+        + shared_review_tail
+        + r")",
         re.I,
     )
     product_chain_member = re.compile(
@@ -2115,12 +2116,13 @@ def _required_evidence_channels(acceptance: str, *, _bind_attached: bool = True)
         + explicit_chain_governor
         + r")?"
         + coordinated_operation
+        + r"(?P<destinations>"
         + r"(?:"
         + product_destination
         + shared_review_tail
         + r"|(?:in|into|to|as)\s+"
         + review_destination_noun
-        + r"))",
+        + r")))",
         re.I,
     )
 
@@ -2136,30 +2138,39 @@ def _required_evidence_channels(acceptance: str, *, _bind_attached: bool = True)
                 continue
             cursor = head.end()
             members = []
+
+            def product_only(destinations: str) -> bool:
+                # Product components are not valid proof alternatives. A bare
+                # review destination in any earlier member retains real OR
+                # semantics and prevents this product-only coalescing shortcut.
+                return all(
+                    re.fullmatch(
+                        r"(?:(?:the|an?)\s+)?(?:pr|pull request)\s+"
+                        r"(?:body|description|comments?)\s+" + body_component,
+                        match[0],
+                        re.I,
+                    )
+                    for match in re.finditer(review_destination_noun, destinations, re.I)
+                )
+
+            only_product = product_only(head["destinations"])
             while member := product_chain_member.match(text, cursor):
                 if any(start < member.end() and member.start() < end for start, end in literals):
                     break
-                # Alternative review delivery is outside this finite inheritance
-                # repair; preserve it unchanged instead of changing its semantics.
-                if member["conjunction"].lower() == "or" and not re.match(
-                    coordinated_operation
-                    + r"(?:"
-                    + product_destination
-                    + r"|"
-                    + component_destination
-                    + r")",
-                    member["predicate"][len(member["explicit_governor"] or "") :],
-                    re.I,
-                ):
+                member_product = product_only(member["destinations"])
+                if member["conjunction"].lower() == "or" and not (only_product or member_product):
                     break
                 members.append(member)
+                only_product = only_product and member_product
                 cursor = member.end()
             output.extend((text[consumed : head.end()],))
+            inherited_governor = head["governor"]
             for member in members:
-                governor = "" if member["explicit_governor"] else head["governor"]
-                if re.match(
-                    delivery_adverbs + r"(?:have|be|been|being)\s+", member["predicate"], re.I
-                ):
+                explicit = member["explicit_governor"] or ""
+                predicate = member["predicate"][len(explicit) :]
+                governor = explicit or inherited_governor
+                aspect = re.match(coordinated_aspect, predicate, re.I)
+                if aspect and re.search(r"\b(?:have|be|been|being)\b", aspect[0], re.I):
                     # An explicit repeated aspect replaces the inherited aspect,
                     # but never the head's modality, polarity, or product actor.
                     governor = re.sub(
@@ -2170,7 +2181,18 @@ def _required_evidence_channels(acceptance: str, *, _bind_attached: bool = True)
                         governor,
                         flags=re.I,
                     )
-                output.append("; " + head["actor"] + " " + governor + member["predicate"])
+                    inherited_governor = governor + aspect[0]
+                else:
+                    inherited_governor = governor
+                # Later elided predicates inherit the most recent explicit
+                # governor/aspect, not the original chain head's stale state.
+                output.append(
+                    "; "
+                    + head["actor"]
+                    + " "
+                    + ("" if explicit else governor)
+                    + member["predicate"]
+                )
             consumed = cursor
             reset = re.match(
                 r"\s+(?:and|or)\s+(?=(?:" + mandatory_auxiliary + r"|will)\s+)",
