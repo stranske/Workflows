@@ -4,6 +4,7 @@ import argparse
 import hashlib
 import json
 import os
+import shlex
 import subprocess
 import sys
 from pathlib import Path
@@ -45,13 +46,24 @@ def main():
             "addopts=",
             "--cov=scripts.check_deliberate_break",
             "--cov-branch",
-            f"--cov-report=json:{output / phase}.json",
-            f"--junitxml={output / phase}.xml",
         ]
         env = os.environ.copy()
         env["COVERAGE_FILE"] = str(output / f".coverage-{phase}")
+        # Keep user-selected artifact paths out of the executable argument list.
+        # pytest parses this value with shlex; quote each complete option.
+        env["PYTEST_ADDOPTS"] = shlex.join(
+            [f"--cov-report=json:{output / phase}.json", f"--junitxml={output / phase}.xml"]
+        )
         (output / f"{phase}-command.json").write_text(
-            json.dumps({"argv": argv, "cwd": str(root)}, indent=2), encoding="utf-8"
+            json.dumps(
+                {
+                    "argv": argv,
+                    "cwd": str(root),
+                    "env": {name: env[name] for name in ("COVERAGE_FILE", "PYTEST_ADDOPTS")},
+                },
+                indent=2,
+            ),
+            encoding="utf-8",
         )
         with (output / f"{phase}.log").open("w", encoding="utf-8") as log:
             result = subprocess.run(
