@@ -1062,11 +1062,18 @@ _EVIDENCE_DESTINATION_PREPOSITION = r"(?:in|into|to|within|for|as|through|via)"
 _REVIEW_BODY_COMPONENT_TEMPORAL = (
     r"before|after|now|today|tomorrow|again|here|there|soon|always|daily|weekly|[\w-]+ly"
 )
+_REVIEW_CONTENT_PARTICIPLE = (
+    r"containing|including|showing|displaying|summarizing|presenting|listing|describing"
+)
+_REVIEW_BODY_COMPONENT_CONTENT = (
+    r"contains?|includes?|requires?|needs?|" + _REVIEW_CONTENT_PARTICIPLE
+)
 _REVIEW_BODY_COMPONENT_WORD = (
     r"(?!(?:and|or|but|on|by|with|when|if|that|which|where|"
     r"is|are|was|were|must|shall|will|should|can|may|has|have|"
     r"not|never|no|optional|required|mandatory|expected|supposed|"
-    r"contains?|includes?|requires?|needs?|"
+    + _REVIEW_BODY_COMPONENT_CONTENT
+    + r"|"
     + _EVIDENCE_DESTINATION_PREPOSITION
     + r"|"
     + _REVIEW_BODY_COMPONENT_TEMPORAL
@@ -1081,6 +1088,8 @@ _REVIEW_BODY_COMPONENT = (
     + r"){0,2}"
     + r"(?=[ \t]*(?:$|[;,.!?\n]|(?:and|or|but|by|if|when|that|which|where|"
     + _EVIDENCE_DESTINATION_PREPOSITION
+    + r"|"
+    + _REVIEW_BODY_COMPONENT_CONTENT
     + r"|"
     + _REVIEW_BODY_COMPONENT_TEMPORAL
     + r")\b))"
@@ -1402,9 +1411,35 @@ def _normalize_relative_review_presence(acceptance: str) -> str:
     return acceptance
 
 
+def _normalize_review_content_qualifiers(acceptance: str) -> str:
+    """Keep bounded destination content from becoming a second proof delivery."""
+    modifier = (
+        r"(?!(?:if|when|only|solely|that|which|where|before|after)\b)"
+        + _EVIDENCE_OBJECT_MODIFIER_WORD
+        + r"[ \t]+"
+    )
+    content = (
+        r"(?:"
+        + modifier
+        + r"){0,6}(?:"
+        + _EVIDENCE_PROOF_ALIAS_NOUN
+        + r"|evidence|artifacts?|transcripts?|command outputs?|logs?|failures?|results?)\b"
+    )
+    return re.sub(
+        r"(?P<literal>" + _QUOTED_EVIDENCE_LITERAL + r")|"
+        r"(?P<destination>\b(?:pr|pull request)\s+(?:body|description|comments?)\b"
+        r"(?:[ \t]+" + _REVIEW_BODY_COMPONENT + r")?)"
+        r"[ \t]+(?:" + _REVIEW_CONTENT_PARTICIPLE + r")[ \t]+" + content,
+        lambda match: match["literal"] or match["destination"],
+        acceptance,
+        flags=re.I,
+    )
+
+
 def _required_evidence_channels(acceptance: str, *, _bind_attached: bool = True) -> set[str]:
     """Identify explicit evidence deliverables without treating negations as requirements."""
 
+    acceptance = _normalize_review_content_qualifiers(acceptance)
     acceptance = _normalize_passive_review_agents(acceptance)
     acceptance = _normalize_relative_review_presence(acceptance)
     channels: set[str] = set()
@@ -4238,6 +4273,7 @@ def _required_evidence_options(acceptance: str) -> list[set[str]]:
     Ambiguous mixed conjunctions or excessive expansion retain the strict legacy
     requirement rather than dropping an obligation.
     """
+    acceptance = _normalize_review_content_qualifiers(acceptance)
     acceptance = _normalize_passive_review_agents(acceptance)
     acceptance = _normalize_relative_review_presence(acceptance)
     preposition = _EVIDENCE_DESTINATION_PREPOSITION

@@ -127,6 +127,139 @@ def test_transport_qualifier_is_not_a_product_component(
         )
 
 
+@pytest.mark.parametrize(
+    "qualifier",
+    [
+        "containing logs",
+        "including test results",
+        "showing failures",
+        "displaying command output",
+        "summarizing validation results",
+        "presenting screenshots",
+        "listing failures",
+        "describing test results",
+    ],
+)
+@pytest.mark.parametrize(
+    "destination,channel",
+    [("the PR body", "body"), ("the PR description", "body"), ("a PR comment", "comments")],
+)
+@pytest.mark.parametrize("component", ["", " results panel"])
+@pytest.mark.parametrize("governor", ["must", "may", "must not", "is not expected to"])
+@pytest.mark.parametrize("actor", ["UI", "reviewer"])
+@pytest.mark.parametrize("passive", [False, True])
+@pytest.mark.parametrize("independent", [False, True])
+def test_participial_content_is_not_a_component_name(
+    qualifier, destination, channel, component, governor, actor, passive, independent
+):
+    criterion = (
+        f"Test logs {governor} be posted by the {actor} in {destination}{component} {qualifier}"
+        if passive
+        else f"The {actor} {governor} post test logs in {destination}{component} {qualifier}"
+    )
+    if independent:
+        criterion += "; the auditor must record evidence in a workflow artifact"
+    expected = (
+        {channel} if governor == "must" and (actor == "reviewer" or not component) else set()
+    ) | ({"artifacts"} if independent else set())
+    assert verifier._required_evidence_channels(criterion) == expected
+    assert verifier._required_evidence_options(criterion) == [expected]
+    for missing in ("absent", "unavailable"):
+        assert _floor_verdict(criterion, body=missing, comments=missing) == (
+            "CONCERNS" if channel in expected else "PASS"
+        )
+
+
+@pytest.mark.parametrize(
+    "qualifier",
+    ["containing logs", "including test results", "showing failures", "displaying command output"],
+)
+@pytest.mark.parametrize("actor", ["UI", "reviewer"])
+@pytest.mark.parametrize("coordination", ["AND", "OR"])
+@pytest.mark.parametrize("reverse", [False, True])
+@pytest.mark.parametrize("bare_body", [False, True])
+def test_content_qualifiers_preserve_destination_alternatives(
+    qualifier, actor, coordination, reverse, bare_body
+):
+    bare = "the PR body" if bare_body else "a PR comment"
+    component = "a PR comment results panel" if bare_body else "the PR body results panel"
+    bare_channel = "body" if bare_body else "comments"
+    members = [component, bare + " " + qualifier]
+    if reverse:
+        members.reverse()
+    criterion = f"The {actor} must post test logs in " + f" {coordination} ".join(members)
+    criterion += "; the auditor must record evidence in a workflow artifact"
+    expected = (
+        [{bare_channel, "artifacts"}]
+        if actor == "UI"
+        else (
+            [{"body", "comments", "artifacts"}]
+            if coordination == "AND"
+            else [{"body", "artifacts"}, {"comments", "artifacts"}]
+        )
+    )
+    assert {frozenset(s) for s in verifier._required_evidence_options(criterion)} == {
+        frozenset(s) for s in expected
+    }
+    for body in ("present", "absent", "unavailable"):
+        for comments in ("present", "absent", "unavailable"):
+            available = (
+                {"artifacts"}
+                | ({"body"} if body == "present" else set())
+                | ({"comments"} if comments == "present" else set())
+            )
+            assert _floor_verdict(criterion, body=body, comments=comments) == (
+                "PASS" if any(s <= available for s in expected) else "CONCERNS"
+            )
+
+
+@pytest.mark.parametrize(
+    "modifier", ["optional archived", "no longer required", "not expected", "not supposed", "no"]
+)
+@pytest.mark.parametrize(
+    "destination,channel", [("the PR body", "body"), ("a PR comment", "comments")]
+)
+@pytest.mark.parametrize("governor", ["must", "may", "must not", "is not expected to"])
+def test_content_object_polarity_does_not_change_delivery_governor(
+    modifier, destination, channel, governor
+):
+    criterion = f"The UI {governor} post test logs in {destination} containing {modifier} evidence"
+    criterion += "; the auditor must record evidence in a workflow artifact"
+    expected = {"artifacts"} | ({channel} if governor == "must" else set())
+    assert verifier._required_evidence_options(criterion) == [expected]
+    for missing in ("absent", "unavailable"):
+        assert _floor_verdict(criterion, body=missing, comments=missing) == (
+            "CONCERNS" if governor == "must" else "PASS"
+        )
+
+
+@pytest.mark.parametrize("qualifier", ["containing logs", "showing failures"])
+@pytest.mark.parametrize(
+    "destination,channel", [("the PR body", "body"), ("a PR comment", "comments")]
+)
+@pytest.mark.parametrize(
+    "tail", ["only if available", ", when produced", "that must contain command output"]
+)
+@pytest.mark.parametrize("quoted", [False, True])
+def test_content_qualifier_preserves_literals_conditions_and_independent_duties(
+    qualifier, destination, channel, tail, quoted
+):
+    criterion = f"The UI must post test logs in {destination} {qualifier} {tail}"
+    if quoted:
+        criterion = 'The parser recognizes "' + criterion + '"'
+    criterion += "; the auditor must record evidence in a workflow artifact"
+    expected = {"artifacts"} | ({channel} if not quoted and tail.startswith("that") else set())
+    assert verifier._required_evidence_options(criterion) == [expected]
+    for missing in ("absent", "unavailable"):
+        assert _floor_verdict(criterion, body=missing, comments=missing) == (
+            "CONCERNS" if channel in expected else "PASS"
+        )
+        assert (
+            _floor_verdict(criterion, body="present", comments="present", artifacts=missing)
+            == "CONCERNS"
+        )
+
+
 @pytest.mark.parametrize("actor", ["reviewer", "UI"])
 @pytest.mark.parametrize("body_alias", ["body", "description"])
 @pytest.mark.parametrize("reverse", [False, True])

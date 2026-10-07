@@ -1732,6 +1732,16 @@ authoritative. The component start and terminal guards share the full
 destination-preposition vocabulary, so `via automation` is a qualifier of a
 bare review destination, not a component name. A real named product component
 can terminate before the same qualifier without inventing a review obligation.
+The component start and terminal guards also share the finite content-predicate
+vocabulary: containing, including, showing, displaying, summarizing, presenting,
+listing and describing. Such a predicate qualifies the destination's content,
+not its component name. Bare mandatory destinations retain their evidence duty;
+a real named component before the predicate remains product functionality.
+Polarity, passive agents and independent artifact duties retain their own scope.
+Both classifiers normalize the same bounded, literal-safe content-object spans
+before proof-alias and alternative expansion, so a qualifier cannot invent an
+additional overall obligation or hide a following destination alternative.
+Conditional and relative boundaries remain outside the content-object span.
 The same finite actor, operation, aspect, polarity,
 and destination grammar applies whether `by the reviewer` or `by the UI` occurs
 before or after the destination. Agent text cannot become a component name or
