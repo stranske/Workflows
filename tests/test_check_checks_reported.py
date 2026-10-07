@@ -1601,14 +1601,14 @@ def test_new_workflow_not_in_base_directory_is_unknown():
     assert any("new workflow" in item for item in result["unknown"])
 
 
-def scenario_fixture(path=".github/workflows/selftest-reusable-ci.yml"):
+def scenario_fixture(path=".github/workflows/selftest-reusable-ci.yml", changed=None):
     import copy
 
     workflow_bytes = (Path(__file__).parents[1] / path).read_bytes()
     workflow = reporter.yaml.load(workflow_bytes, Loader=reporter.WorkflowLoader)
     helper = (Path(__file__).parents[1] / "scripts/reusable_ci_scope.py").read_bytes()
     full = reporter.scenario_source_matrix(workflow["jobs"]["select-scenarios"])
-    changed = [path]
+    changed = [path] if changed is None else changed
     selected = reporter.select_scenarios(Path(path).stem, changed, full)
     receipt = {
         "schema": "scenario-matrix-producer/v1",
@@ -1640,6 +1640,7 @@ def scenario_fixture(path=".github/workflows/selftest-reusable-ci.yml"):
                 "id": 99,
                 "run_id": 42,
                 "run_attempt": 2,
+                "head_sha": HEAD,
                 "name": workflow["jobs"]["select-scenarios"]["name"],
                 "steps": [{"name": "Select scenarios", "conclusion": "success"}],
             }
@@ -1649,7 +1650,7 @@ def scenario_fixture(path=".github/workflows/selftest-reusable-ci.yml"):
     evidence.content = lambda repo, file, ref: helper if file.endswith(".py") else workflow_bytes
     evidence.one = lambda endpoint: {
         "merge_base_commit": {"sha": BASE},
-        "files": [{"filename": path}],
+        "files": [{"filename": name} for name in changed],
     }
     evidence.job_receipts = lambda *args: [receipt]
     return evidence, path, workflow, copy.deepcopy(workflow["jobs"]["scenarios"]), run, receipt
@@ -1658,6 +1659,130 @@ def scenario_fixture(path=".github/workflows/selftest-reusable-ci.yml"):
 def bind_scenario_fixture(fixture):
     evidence, path, workflow, job, run, _ = fixture
     return reporter.bind_scenario_matrix(evidence, "stranske/Workflows", path, workflow, job, run)
+
+
+def empty_scenario_fixture():
+    fixture = scenario_fixture(changed=["docs/example.md"])
+    evidence, _, _, job, run, receipt = fixture
+    assert receipt["matrix"] == {"include": []}
+    run["jobs"].append(
+        {
+            "id": 100,
+            "name": job["name"],
+            "run_id": 42,
+            "run_attempt": 2,
+            "head_sha": HEAD,
+            "conclusion": "skipped",
+            "check_run_url": "https://api.github.com/repos/stranske/Workflows/check-runs/100",
+        }
+    )
+    original_one = evidence.one
+    evidence.one = lambda endpoint: (
+        {
+            "id": 100,
+            "url": run["jobs"][-1]["check_run_url"],
+            "name": job["name"],
+            "head_sha": HEAD,
+            "status": "completed",
+            "conclusion": "skipped",
+            "app": {"slug": "github-actions"},
+        }
+        if endpoint == "repos/stranske/Workflows/check-runs/100"
+        else original_one(endpoint)
+    )
+    return fixture
+
+
+@pytest.mark.parametrize(
+    "gap",
+    [
+        "url",
+        "repo",
+        "id",
+        "producer_head",
+        "check_head",
+        "check_name",
+        "check_app",
+        "check_conclusion",
+        "check_status",
+        "check_id",
+        "check_url",
+    ],
+)
+def test_empty_scenario_rejects_contradictory_check_identity(gap):
+    fixture = empty_scenario_fixture()
+    evidence, _, _, _, run, _ = fixture
+    caller = run["jobs"][-1]
+    if gap in {"url", "repo", "id"}:
+        caller["check_run_url"] = {
+            "url": "https://evil.invalid/forged",
+            "repo": "https://api.github.com/repos/other/repo/check-runs/100",
+            "id": "https://api.github.com/repos/stranske/Workflows/check-runs/101",
+        }[gap]
+    elif gap == "producer_head":
+        run["jobs"][0]["head_sha"] = "d" * 40
+    else:
+        original_one = evidence.one
+        key = {"check_head": "head_sha"}.get(gap, gap.removeprefix("check_"))
+
+        def contradictory(endpoint):
+            result = original_one(endpoint)
+            if endpoint.endswith("/check-runs/100"):
+                result[key] = {"app": {"slug": "other"}, "id": 101}.get(key, "wrong")
+            return result
+
+        evidence.one = contradictory
+    with pytest.raises(reporter.UnknownEvidence):
+        bind_scenario_fixture(fixture)
+
+
+def test_verified_empty_scenario_requires_the_skipped_caller_not_children():
+    fixture = empty_scenario_fixture()
+    bound = bind_scenario_fixture(fixture)
+    assert reporter.job_names("scenarios", bound) == [fixture[3]["name"]]
+
+
+def test_empty_scenario_flows_through_expected_jobs_without_inventing_children():
+    evidence, path, workflow, job, run, _ = empty_scenario_fixture()
+    workflow["jobs"] = {
+        key: value
+        for key, value in workflow["jobs"].items()
+        if key in {"select-scenarios", "scenarios"}
+    }
+    names = reporter.expected_jobs(evidence, "stranske/Workflows", path, HEAD, workflow, run=run)
+    assert names == {workflow["jobs"]["select-scenarios"]["name"], job["name"]}
+    assert run["reusable_absences"][0]["job"] == "scenarios"
+
+
+@pytest.mark.parametrize(
+    "gap", ["missing", "duplicate", "run", "attempt", "head", "conclusion", "check", "guard"]
+)
+def test_empty_scenario_evidence_gaps_remain_unknown(gap):
+    fixture = empty_scenario_fixture()
+    skipped = fixture[4]["jobs"][-1]
+    if gap == "missing":
+        fixture[4]["jobs"].pop()
+    elif gap == "duplicate":
+        fixture[4]["jobs"].append(dict(skipped))
+    elif gap == "guard":
+        fixture[3]["if"] = "${{ always() }}"
+    else:
+        skipped[
+            {
+                "run": "run_id",
+                "attempt": "run_attempt",
+                "head": "head_sha",
+                "conclusion": "conclusion",
+                "check": "check_run_url",
+            }[gap]
+        ] = None
+    with pytest.raises(reporter.UnknownEvidence):
+        bind_scenario_fixture(fixture)
+
+
+def test_unwitnessed_empty_literal_matrix_still_fails_closed():
+    with pytest.raises(reporter.UnknownEvidence):
+        reporter.job_names("scenarios", {"strategy": {"matrix": {"include": []}}})
 
 
 @pytest.mark.parametrize(
