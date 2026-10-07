@@ -9,6 +9,21 @@ assert SPEC.loader is not None
 SPEC.loader.exec_module(metrics)
 
 
+def test_incomplete_window_is_unknown_not_a_baseline_pass():
+    report = metrics.calculate(
+        {"collection": {"window_complete": False, "failures": ["workflow runs unavailable"]}},
+        datetime(2026, 1, 10, tzinfo=UTC),
+    )
+    assert report["advisory_slo"]["state"] == "unknown"
+
+
+def test_complete_empty_window_can_pass_baseline():
+    report = metrics.calculate(
+        {"collection": {"window_complete": True}}, datetime(2026, 1, 10, tzinfo=UTC)
+    )
+    assert report["advisory_slo"]["state"] == "baseline-pass"
+
+
 def test_fixture_classifies_all_generated_lanes_and_excludes_collab_admin():
     report = metrics.calculate(
         {
@@ -154,7 +169,8 @@ def test_markdown_includes_denominators_limits_and_threshold_breach():
         datetime(2026, 1, 10, tzinfo=UTC),
     )
     text = metrics.markdown(report)
-    assert report["advisory_slo"]["state"] == "breach"
+    assert report["advisory_slo"]["state"] == "unknown"
+    assert any(report["advisory_slo"]["breaches"].values())
     assert "Generated PRs: **41**" in text
     assert "Complete GitHub history: **false**" in text
     assert "last 100 PRs per repo" in text

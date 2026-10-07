@@ -373,7 +373,11 @@ def calculate(snapshot: dict[str, Any], now: datetime) -> dict[str, Any]:
         "thresholds": THRESHOLDS,
         "advisory_slo": {
             "breaches": breaches,
-            "state": "breach" if any(breaches.values()) else "baseline-pass",
+            "state": (
+                "unknown"
+                if not collection.get("window_complete", False) or collection.get("failures")
+                else "breach" if any(breaches.values()) else "baseline-pass"
+            ),
         },
     }
 

@@ -52,6 +52,28 @@ test('duplicate or missing pages cannot satisfy completeness', async () => {
   await assert.rejects(collectRunWindow({ start, end, listPage: (params) => list({ ...params, page: 1 }) }), /incomplete workflow-run pages/);
 });
 
+test('subdivision cannot silently lose a parent-observed run', async () => {
+  const rows = Array.from({ length: 1000 }, (_, id) => ({ id, created_at: new Date(+start + id * 2000).toISOString() }));
+  const childList = fixture(rows, []);
+  await assert.rejects(collectRunWindow({ start, end, listPage: (params) => {
+    if (params.created === `${start.toISOString()}..${end.toISOString()}`) {
+      return { data: { total_count: 1001, workflow_runs: [{ id: 1001, created_at: start.toISOString() }, ...rows.slice(0, 99)] } };
+    }
+    return childList(params);
+  } }), /subdivision.*incomplete|window changed/);
+});
+
+test('same-count substitution cannot erase a parent-observed identity', async () => {
+  const rows = Array.from({ length: 1001 }, (_, id) => ({ id, created_at: new Date(+start + id * 2000).toISOString() }));
+  const childList = fixture(rows, []);
+  await assert.rejects(collectRunWindow({ start, end, listPage: (params) => {
+    if (params.created === `${start.toISOString()}..${end.toISOString()}`) {
+      return { data: { total_count: 1001, workflow_runs: [{ id: 2001, created_at: start.toISOString() }, ...rows.slice(0, 99)] } };
+    }
+    return childList(params);
+  } }), /subdivision.*incomplete|window changed/);
+});
+
 test('the actual workflow records collection failure and does not emit partial runs', async () => {
   const fs = require('node:fs');
   const path = require('node:path');
