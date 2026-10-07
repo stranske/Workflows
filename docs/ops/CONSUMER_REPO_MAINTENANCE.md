@@ -4,6 +4,34 @@ This document outlines the process for maintaining workflow system consistency a
 
 ## Verifier canary review recovery
 
+### Bounded input-limit recovery
+
+After inspecting an actual incomplete verifier report, manual `Agents Verifier`
+dispatch may select `evidence_profile=expanded`. Standard remains the default;
+this is not an automatic retry or a verdict override. Expanded allows 300 total
+review records, 128,000 comment characters, 32,000 changed-code budget tokens and
+48,000 acceptance-evidence budget tokens. Comment retrieval follows at most
+three pages per channel within the shared record/character budget (bodyless
+reviews still consume bounded API pages). These are fixed limits, not arbitrary
+operator-provided numbers. Retrieval is bounded to 40 exact-head/merge runs,
+80 artifacts, 4 MiB per archive, 80 entries per archive and 128,000 characters
+per artifact. NDJSON proof is recognized as text alongside JSONL; unsafe entry
+names and unsupported payloads still make extraction incomplete. Explicit,
+complete exact-head validation references may select the existing scoped proof
+set instead of incidental associated jobs; do not remove genuine obligations
+to force completeness. The input snapshot records the selected profile and limits.
+Pagination, real API failures, missing required proof,
+oversized inputs and every existing CI/coverage floor remain non-PASS.
+The consumer state fingerprint includes the profile so a material input-limit
+repair is not skipped as an unchanged standard evaluation. Inspect the actual
+new coverage and both provider verdicts; workflow success alone is not acceptance.
+
+For Workflows#3774, the standard report clipped 89,554 changed-code characters
+to 63,401 and exceeded the 40,000-character review collection limit. Its reported
+CONCERNS remains CONCERNS until a complete expanded evaluation actually passes.
+The explicit recovery uses the same merged PR and acceptance criteria, rather
+than weakening the obligations or requiring a human reply.
+
 Correct verifier findings in the Workflows source and copy-managed templates,
 then regenerate through Maint 68/71. An unsealed staging canary cannot be
 promoted merely because a reconciliation run completed successfully.

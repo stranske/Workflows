@@ -248,6 +248,31 @@ def test_free_form_context_without_diff_withholds_pass() -> None:
     assert any("Changed code is unavailable" in reason for reason in coverage.reasons)
 
 
+def test_expanded_profile_recovers_large_code_and_evidence_without_waiver(monkeypatch):
+    context, _ = _context(6, 90_000, 1000)
+    context = context.replace(
+        "## PR Diff Summary",
+        "## Acceptance evidence\n\n- Overall retrieval status: **present**\n"
+        "- PR comments: **present**\n\n### Bounded PR comments\n\n"
+        + ("review evidence detail\n" * 3000)
+        + "\n## PR Diff Summary",
+    )
+    standard = pr_verifier.prompt_coverage(context, None)
+    assert standard.code == "truncated" and standard.acceptance_evidence == "truncated"
+    monkeypatch.setenv("VERIFIER_DIFF_BUDGET_TOKENS", "32000")
+    monkeypatch.setenv("VERIFIER_ACCEPTANCE_EVIDENCE_BUDGET_TOKENS", "48000")
+    expanded = pr_verifier.prompt_coverage(context, None)
+    assert expanded.sufficient
+    assert expanded.code == "complete" and expanded.acceptance_evidence == "complete"
+    required = context.replace(
+        ACCEPTANCE_SENTINEL, "Reviewer must attach test output to a PR comment"
+    )
+    unavailable = required.replace(
+        "PR comments: **present**", "PR comments: **unavailable** — API failure"
+    )
+    assert not pr_verifier.prompt_coverage(unavailable, None).sufficient
+
+
 def test_acceptance_evidence_has_its_own_budget_and_preserves_plan() -> None:
     context, _ = _context(1, 1_000, 1_000)
     context = context.replace(

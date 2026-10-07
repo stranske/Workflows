@@ -39,6 +39,11 @@ on:
         required: false
         type: string
         default: ''
+      evidence_profile:
+        description: 'Input coverage profile: standard or bounded expanded recovery'
+        required: false
+        type: string
+        default: 'standard'
       model2:
         description: 'Second model for compare mode (defaults to slot 2)'
         required: false
@@ -88,6 +93,29 @@ jobs:
     name: Run post-merge verifier
     runs-on: ubuntu-latest
     steps:
+      - name: Select bounded verifier evidence profile
+        env:
+          VERIFIER_EVIDENCE_PROFILE: ${{ inputs.evidence_profile }}
+        run: |
+          set -euo pipefail
+          case "$VERIFIER_EVIDENCE_PROFILE" in
+            standard) ;;
+            expanded)
+              # Explicit recovery after inspecting incomplete input evidence.
+              # Retrieval failures and clipped code remain non-PASS.
+              printf '%s\n' \
+                'VERIFIER_EVIDENCE_COMMENT_LIMIT=300' \
+                'VERIFIER_EVIDENCE_COMMENT_CHARS=128000' \
+                'VERIFIER_EVIDENCE_RUN_LIMIT=40' \
+                'VERIFIER_EVIDENCE_ARTIFACT_LIMIT=80' \
+                'VERIFIER_EVIDENCE_ARCHIVE_BYTES=4194304' \
+                'VERIFIER_EVIDENCE_ENTRY_LIMIT=80' \
+                'VERIFIER_EVIDENCE_ARTIFACT_CHARS=128000' \
+                'VERIFIER_DIFF_BUDGET_TOKENS=32000' \
+                'VERIFIER_ACCEPTANCE_EVIDENCE_BUDGET_TOKENS=48000' >> "$GITHUB_ENV"
+              ;;
+            *) echo 'Unsupported verifier evidence profile' >&2; exit 1 ;;
+          esac
       # Mint GitHub App token early to use for API calls (avoids rate limits)
       - name: Mint GitHub App token
         id: app_token
@@ -373,6 +401,7 @@ jobs:
           VERIFIER_CHAIN_DEPTH: ${{ steps.context.outputs.chain_depth }}
           VERIFIER_PR_NUMBER: ${{ steps.context.outputs.pr_number }}
           VERIFIER_CI_WORKFLOWS: ${{ inputs.ci_workflows }}
+          VERIFIER_EVIDENCE_PROFILE: ${{ inputs.evidence_profile }}
         run: |
           python3 - <<'PY'
           import hashlib
@@ -399,6 +428,22 @@ jobs:
               'source_run_id': os.environ['GITHUB_RUN_ID'],
               'chain_depth': int(os.environ['VERIFIER_CHAIN_DEPTH'] or 0),
               'ci_workflows': ci_workflows,
+              'evidence_profile': os.environ['VERIFIER_EVIDENCE_PROFILE'],
+              'input_limits': {
+                  'comment_records': int(os.environ.get('VERIFIER_EVIDENCE_COMMENT_LIMIT', '50')),
+                  'comment_chars': int(os.environ.get('VERIFIER_EVIDENCE_COMMENT_CHARS', '40000')),
+                  'workflow_runs': int(os.environ.get('VERIFIER_EVIDENCE_RUN_LIMIT', '5')),
+                  'artifacts': int(os.environ.get('VERIFIER_EVIDENCE_ARTIFACT_LIMIT', '10')),
+                  'archive_bytes': int(os.environ.get('VERIFIER_EVIDENCE_ARCHIVE_BYTES', '2097152')),
+                  'archive_entries': int(os.environ.get('VERIFIER_EVIDENCE_ENTRY_LIMIT', '20')),
+                  'artifact_chars': int(os.environ.get('VERIFIER_EVIDENCE_ARTIFACT_CHARS', '60000')),
+                  'body_chars': int(os.environ.get('VERIFIER_EVIDENCE_BODY_CHARS', '40000')),
+                  'diff_fetch_bytes': int(os.environ.get('VERIFIER_DIFF_MAX_BYTES', '8388608')),
+                  'diff_fetch_chars': int(os.environ.get('VERIFIER_DIFF_MAX_CHARS', '300000')),
+                  'context_budget_tokens': int(os.environ.get('VERIFIER_CONTEXT_BUDGET_TOKENS', '4000')),
+                  'diff_budget_tokens': int(os.environ.get('VERIFIER_DIFF_BUDGET_TOKENS', '16000')),
+                  'acceptance_evidence_budget_tokens': int(os.environ.get('VERIFIER_ACCEPTANCE_EVIDENCE_BUDGET_TOKENS', '4000')),
+              },
               'context_sha256': hashlib.sha256(context).hexdigest(),
               'diff_summary_sha256': hashlib.sha256(diff_summary).hexdigest(),
               'diff_sha256': hashlib.sha256(diff).hexdigest(),
@@ -871,12 +916,14 @@ jobs:
           CHAIN_DEPTH: ${{ steps.context.outputs.chain_depth || '0' }}
           VERIFIER_CONTEXT_PATH: ${{ steps.context.outputs.context_path }}
           VERIFIER_DIFF_PATH: ${{ steps.context.outputs.diff_path }}
+          VERIFIER_MODEL: ${{ inputs.model }}
+          VERIFIER_PROVIDER: ${{ inputs.provider }}
         run: |
           set -euo pipefail
           context_file="$VERIFIER_CONTEXT_PATH"
           diff_file="$VERIFIER_DIFF_PATH"
-          model="${{ inputs.model }}"
-          provider="${{ inputs.provider }}"
+          model="$VERIFIER_MODEL"
+          provider="$VERIFIER_PROVIDER"
           if [ "$provider" = "auto" ]; then
             provider=""
           fi
@@ -1130,6 +1177,8 @@ jobs:
           CHAIN_DEPTH: ${{ steps.context.outputs.chain_depth || '0' }}
           VERIFIER_CONTEXT_PATH: ${{ steps.context.outputs.context_path }}
           VERIFIER_DIFF_PATH: ${{ steps.context.outputs.diff_path }}
+          VERIFIER_MODEL: ${{ inputs.model }}
+          VERIFIER_MODEL2: ${{ inputs.model2 }}
         run: |
           set -euo pipefail
           context_file="$VERIFIER_CONTEXT_PATH"
@@ -1144,11 +1193,11 @@ jobs:
           fi
 
           # Add model parameters if provided
-          if [ -n "${{ inputs.model }}" ]; then
-            args+=(--model "${{ inputs.model }}")
+          if [ -n "$VERIFIER_MODEL" ]; then
+            args+=(--model "$VERIFIER_MODEL")
           fi
-          if [ -n "${{ inputs.model2 }}" ]; then
-            args+=(--model2 "${{ inputs.model2 }}")
+          if [ -n "$VERIFIER_MODEL2" ]; then
+            args+=(--model2 "$VERIFIER_MODEL2")
           fi
 
           # Run comparison (stderr to separate file to avoid corrupting JSON)

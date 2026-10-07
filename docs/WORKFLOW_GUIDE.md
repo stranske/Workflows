@@ -245,6 +245,14 @@ real delivery instructions after the closing quote remain required.
 2. Apply one of the `verify:*` labels to the PR before merging.
 3. Merge the PR; `agents-verifier.yml` runs in the default branch and reads the label to pick a mode.
 
+If an actual verifier report identifies bounded-input truncation, manual dispatch
+can select `evidence_profile=expanded`. This fixed recovery profile widens review
+collection and code/evidence prompt limits, not model acceptance authority. Free-text
+model identifiers cross the evaluation/comparison shell boundary through step
+environment variables and quoted argument arrays, never interpolated script text. Its
+profile is fingerprinted by consumer callers; real retrieval gaps, missing proof,
+CI failures and clipped code still withhold PASS. Standard remains the default.
+
 ### What each mode does
 - **Checkbox (`verify:checkbox`)** — Validates acceptance-criteria checkboxes against implementation evidence in the merged PR.
 - **Evaluate (`verify:evaluate`)** — Runs LLM-based evaluation for correctness, quality, and completeness using the merged PR context.

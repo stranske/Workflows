@@ -20,6 +20,57 @@ const {
 } = require('../agents_verifier_context.js');
 
 const fixturesDir = path.join(__dirname, 'fixtures');
+test('expanded comment collection follows bounded pages across each channel', async () => {
+  await withEnv('VERIFIER_EVIDENCE_COMMENT_LIMIT', '300', async () => {
+    const calls = [];
+    const github = {
+      rest: {
+        issues: { listComments: async ({page = 1, per_page}) => {
+          calls.push({page, per_page});
+          return page === 1
+            ? {data: Array.from({length: 100}, (_, id) => ({id, body: `proof ${id}`})), headers: {link: '<next>; rel="next"'}}
+            : {data: [{id: 100, body: 'last complete proof'}], headers: {}};
+        }},
+        pulls: {listReviewComments: async () => ({data: [], headers: {}}), listReviews: async () => ({data: [], headers: {}})},
+      },
+    };
+    const evidence = await fetchVerifierEvidence({github, owner:'o', repo:'r', pullNumber:1, pullRequestBody:''});
+    assert.equal(evidence.comments.complete, true);
+    assert.equal(evidence.comments.records.length, 101);
+    assert.deepEqual(calls, [{page:1,per_page:100},{page:2,per_page:100}]);
+  });
+});
+test('expanded pagination retains bounded overflow and later-page failure gaps', async () => {
+  await withEnv('VERIFIER_EVIDENCE_COMMENT_LIMIT', '300', async () => {
+    for (const failSecond of [false, true]) {
+      let calls = 0;
+      const github = {rest: {
+        issues: {listComments: async () => {
+          calls += 1;
+          if (failSecond && calls === 2) throw new Error('transport unavailable');
+          return {data: [], headers: {link: '<next>; rel="next"'}};
+        }},
+        pulls: {listReviewComments: async () => ({data: []}), listReviews: async () => ({data: []})},
+      }};
+      const evidence = await fetchVerifierEvidence({github, owner:'o', repo:'r', pullNumber:1, pullRequestBody:''});
+      assert.equal(evidence.comments.complete, false);
+      assert.equal(evidence.comments.status, 'unavailable');
+      assert.equal(calls, failSecond ? 2 : 3);
+    }
+  });
+});
+test('artifact extractor reads NDJSON proof but retains filtered-payload completeness gaps', () => {
+  const extract = (listing) => extractArtifactArchiveText({
+    archiveBuffer: Buffer.from('zip'), maxEntries: 10, maxChars: 500,
+    execFile: (_command, args) => args[0] === '-Z1' ? listing : '{"verdict":"PASS"}\n',
+  });
+  const complete = extract('metrics/disposition.ndjson\nsummary.md\n');
+  assert.equal(complete.truncated, false);
+  assert.match(complete.text, /metrics\/disposition\.ndjson/);
+  for (const unsafe of ['-injected.ndjson', 'wild*.ndjson', 'binary.png']) {
+    assert.equal(extract(`proof.ndjson\n${unsafe}\n`).truncated, true);
+  }
+});
 const prBodyFixture = fs.readFileSync(path.join(fixturesDir, 'pr-body.md'), 'utf8');
 const issueBodyOpen = fs.readFileSync(path.join(fixturesDir, 'issue-body-open.md'), 'utf8');
 const issueBodyClosed = fs.readFileSync(path.join(fixturesDir, 'issue-body-closed.md'), 'utf8');

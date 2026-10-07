@@ -27,6 +27,8 @@ BANNED_FREE_TEXT_EXPRESSIONS = frozenset(
         "inputs.target_repo",
         "inputs.commit_prefix",
         "inputs.head_repository",
+        "inputs.model",
+        "inputs.model2",
     }
 )
 
@@ -411,19 +413,9 @@ REVIEWED_SCRIPT_INTERPOLATIONS = frozenset(
             "bridge/step-8/with.script",
             "inputs.post_agent_comment",
         ),
-        (".github/workflows/reusable-agents-verifier.yml", "verifier/step-12/run", "inputs.mode"),
-        (".github/workflows/reusable-agents-verifier.yml", "verifier/step-22/run", "inputs.model"),
-        (
-            ".github/workflows/reusable-agents-verifier.yml",
-            "verifier/step-22/run",
-            "inputs.provider",
-        ),
-        (".github/workflows/reusable-agents-verifier.yml", "verifier/step-28/run", "inputs.model"),
-        (".github/workflows/reusable-agents-verifier.yml", "verifier/step-28/run", "inputs.model"),
-        (".github/workflows/reusable-agents-verifier.yml", "verifier/step-28/run", "inputs.model2"),
-        (".github/workflows/reusable-agents-verifier.yml", "verifier/step-28/run", "inputs.model2"),
-        (".github/workflows/reusable-agents-verifier.yml", "verifier/step-32/run", "inputs.mode"),
-        (".github/workflows/reusable-agents-verifier.yml", "verifier/step-32/run", "inputs.mode"),
+        (".github/workflows/reusable-agents-verifier.yml", "verifier/step-13/run", "inputs.mode"),
+        (".github/workflows/reusable-agents-verifier.yml", "verifier/step-33/run", "inputs.mode"),
+        (".github/workflows/reusable-agents-verifier.yml", "verifier/step-33/run", "inputs.mode"),
         (
             ".github/workflows/reusable-backplane-conformance.yml",
             "conformance/step-6/run",

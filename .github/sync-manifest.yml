@@ -99,7 +99,7 @@ workflows:
     description: "Autofix dispatch bridge - acknowledges legacy Gate repository_dispatch events; agents-81-gate-followups handles repair work"
 
   - source: .github/workflows/agents-verifier.yml
-    description: "Verifier - validates agent work meets acceptance criteria"
+    description: "Verifier - validates acceptance criteria with standard or bounded expanded evidence recovery; profile participates in consumer state fingerprint"
 
   - source: .github/workflows/list-llm-models.yml
     description: "List LLM Models - helper to show available models for verifier"
@@ -588,7 +588,7 @@ scripts:
     description: "Updates PR body while preserving authored descriptions; stable completed dependency-provenance results, observer exclusion, and exact-head Gate visibility"
 
   - source: .github/scripts/agents_verifier_context.js
-    description: "Verifier context with mandatory unavailable linked-issue discovery, known non-closing source-issue retrieval, independent body/comment/artifact evidence, complete exact-head typed/labelled explicit-union artifact scope selected before budgeting, incidental-only associated discovery, fail-closed aggregate availability, literal destination metadata and complete post-merge diffs"
+    description: "Verifier context with mandatory unavailable linked-issue discovery, known non-closing source-issue retrieval, independent body/comment/artifact evidence, safe NDJSON proof alongside JSONL, complete exact-head typed/labelled explicit-union artifact scope selected before budgeting, incidental-only associated discovery, fail-closed aggregate availability, literal destination metadata and complete post-merge diffs"
 
   - source: .github/scripts/agents_dispatch_summary.js
     description: "Summarizes agent dispatch operations"

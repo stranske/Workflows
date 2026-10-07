@@ -9,8 +9,10 @@ Follow-up to merged PR #3020. This documents the repository-wide review of
 | Category | Count | Action |
 | --- | ---: | --- |
 | Free-text inputs moved to `env:` in #3020 | 3 fields | `commit_message`, `codex_args`, `repos` |
-| Additional free-text fixes in this PR | 4 fields | `target_repo`, `commit_prefix`, `head_repository`, campaign script outputs |
-| Reviewed constrained interpolations | 103 | Explicit allowlist in `test_no_untrusted_interpolation.py` |
+| Additional free-text input fixes | 3 fields | `target_repo`, `commit_prefix`, `head_repository` |
+| Campaign output transport | Step outputs | Use step `env:` indirection |
+| Verifier model input fixes | 2 fields | `model`, `model2` |
+| Reviewed interpolation allowlist | 91 distinct tuples | Explicit allowlist in `test_no_untrusted_interpolation.py` (100 literal entries including duplicates) |
 
 ## Free-text inputs (must use `env:` indirection)
 
@@ -23,25 +25,39 @@ appear directly inside a `run:`/`script:` scalar:
 - `inputs.target_repo` — fixed here (`maint-72`)
 - `inputs.commit_prefix` — fixed here (`reusable-18-autofix`)
 - `inputs.head_repository` — fixed here (`agents-keepalive-branch-sync`)
+- `inputs.model`, `inputs.model2` — verifier evaluation/comparison environment transport
 
 The regression guard bans these expressions in script bodies and fails if they
 reappear.
 
 ## Constrained-value allowlist
 
-The remaining 103 `(workflow, step, expression)` tuples are provably
-constrained:
+The remaining 91 distinct `(workflow, step, expression)` tuples are the
+historically reviewed inventory; an allowlist entry is not proof against a
+new concrete counterexample. Their reviewed categories include:
 
 - **Booleans / dry-run flags** — `inputs.dry_run`, `inputs.create_issue`, etc.
 - **Numeric identifiers** — `inputs.pr_number`, `inputs.issue_number`, `github.event.issue.number`
 - **Repo-controlled refs** — `github.event.pull_request.base.ref`, `github.event.repository.default_branch`
-- **Enumerated modes** — `inputs.mode`, `inputs.agent_key`, `inputs.provider`, `inputs.package-manager`, `inputs.test-runner`
+- **Enumerated modes** — `inputs.mode`, `inputs.agent_key`, `inputs.package-manager`, `inputs.test-runner`
 - **Step output passthrough** — `steps.registered.outputs.repos` consumed via step `env:` in `maint-82`
 
 Each tuple is recorded in `REVIEWED_SCRIPT_INTERPOLATIONS` inside
 `tests/workflows/test_no_untrusted_interpolation.py`. Adding a new
 `inputs.*`/`github.event.*` script interpolation requires updating that set and
 this document.
+
+The 2026-10-06 bounded verifier evidence-profile step shifts the existing
+reusable verifier locations by one (12→13, 22→23, 28→29, 32→33). Subsequent
+independent assessment showed that model/model2 are free text, not constrained
+values: shell command substitution executed before argument construction.
+Evaluation and comparison now transport model/model2 and provider via step
+`env:` and quoted shell variables. Six obsolete allowlist occurrences were
+removed; only the three existing enumerated mode occurrences remain. Model
+inputs are globally banned from script interpolation. Executable regression
+tests preserve command-substitution and quote-breaking payloads as literal
+arguments in both modes, with normal-model controls. The new profile likewise
+uses `env:` and a fixed-value case statement, adding no exception.
 
 ## Test gate
 

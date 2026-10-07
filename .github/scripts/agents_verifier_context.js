@@ -28,7 +28,7 @@ const DEFAULT_EVIDENCE_ENTRY_LIMIT = 20;
 const DEFAULT_EVIDENCE_ARTIFACT_CHARS = 60000;
 const SHA_PATTERN = /^[0-9a-f]{7,40}$/i;
 const WORKFLOW_RUN_URL_RE = /\/actions\/runs\/(\d+)/g;
-const TEXT_ARTIFACT_ENTRY_RE = /\.(?:txt|md|markdown|log|json|jsonl|xml|csv|tsv)$/i;
+const TEXT_ARTIFACT_ENTRY_RE = /\.(?:txt|md|markdown|log|json|jsonl|ndjson|xml|csv|tsv)$/i;
 
 const DIFF_SUMMARY_LIMITS = {
   maxFiles: 50,
@@ -498,27 +498,33 @@ async function fetchVerifierEvidence({
   for (const source of commentSources) {
     try {
       if (!source.method) throw new Error(`${source.name} API is unavailable`);
-      const response = await source.method({ ...source.params, per_page: Math.min(commentLimit, 100) });
-      if (!Array.isArray(response?.data)) {
-        throw new Error(`${source.name} API returned an invalid comment list`);
-      }
-      const records = response.data;
-      let truncated = Boolean(response?.headers?.link?.includes('rel="next"'));
-      for (const comment of records) {
-        if (typeof comment?.body !== 'string' || !comment.body.trim()) continue;
-        if (comments.records.length >= commentLimit) {
-          truncated = true;
-          break;
+      const perPage = Math.min(commentLimit, 100);
+      const maxPages = Math.ceil(commentLimit / perPage);
+      let truncated = false;
+      for (let page = 1; page <= maxPages; page += 1) {
+        const response = await source.method({ ...source.params, per_page: perPage, page });
+        if (!Array.isArray(response?.data)) {
+          throw new Error(`${source.name} API returned an invalid comment list`);
         }
-        const result = appendBoundedText(comments.records, {
-          author: comment?.user?.login || comment?.author?.login || 'unknown',
-          url: comment?.html_url || comment?.url || '',
-          body: comment?.body || '',
-          source: source.name,
-        }, commentChars, usedCommentChars);
-        usedCommentChars = result.usedChars;
-        truncated = truncated || result.truncated;
-        if (result.truncated) break;
+        const hasNext = Boolean(response?.headers?.link?.includes('rel="next"'));
+        for (const comment of response.data) {
+          if (typeof comment?.body !== 'string' || !comment.body.trim()) continue;
+          if (comments.records.length >= commentLimit) {
+            truncated = true;
+            break;
+          }
+          const result = appendBoundedText(comments.records, {
+            author: comment?.user?.login || comment?.author?.login || 'unknown',
+            url: comment?.html_url || comment?.url || '',
+            body: comment?.body || '',
+            source: source.name,
+          }, commentChars, usedCommentChars);
+          usedCommentChars = result.usedChars;
+          truncated = result.truncated;
+          if (truncated) break;
+        }
+        if (truncated || !hasNext) break;
+        if (page === maxPages) truncated = true;
       }
       if (truncated) {
         commentFailures.push(
