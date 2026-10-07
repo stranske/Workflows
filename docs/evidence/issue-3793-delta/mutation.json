@@ -1,0 +1,12 @@
+{
+  "reuse_mutant": "Disable immutable filename/blob-SHA reuse",
+  "reuse_red_exit": 1,
+  "bootstrap_control": "975fb508ac29b948507bc047243a632902a02645 source with final manifest-loss-plus-churn regression",
+  "bootstrap_red_exit": 1,
+  "green_exit": 0,
+  "restored_sha256": {
+    ".github/scripts/keepalive_authority_state.js": "df70d060db6e0bd4f2dbb2fe141fc06c9b3c4b3c2c6194fb3d23252478921034",
+    "templates/consumer-repo/.github/scripts/keepalive_authority_state.js": "df70d060db6e0bd4f2dbb2fe141fc06c9b3c4b3c2c6194fb3d23252478921034"
+  },
+  "byte_identical_restore": true
+}

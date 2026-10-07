@@ -1,0 +1,46 @@
+✖ ..: interrupted bootstrap manifest recovers after ordinary legacy-writer churn (52.1775ms)
+✖ ../../../templates/consumer-repo/.github/scripts: interrupted bootstrap manifest recovers after ordinary legacy-writer churn (40.2125ms)
+ℹ tests 2
+ℹ suites 0
+ℹ pass 0
+ℹ fail 2
+ℹ cancelled 0
+ℹ skipped 0
+ℹ todo 0
+ℹ duration_ms 144.574959
+
+✖ failing tests:
+
+test at .github/scripts/__tests__/keepalive-presence-delta.test.js:164:5
+✖ ..: interrupted bootstrap manifest recovers after ordinary legacy-writer churn (52.1775ms)
+  AssertionError [ERR_ASSERTION]: The input did not match the regular expression /ledger is missing/. Input:
+  
+  'Authority presence checkpoint missing from existing v2 directory'
+  
+      at TestContext.<anonymous> (/Users/teacher/.codex/automations/imi-merge-verify-closer/worktrees/workflows-3793-delta/.github/scripts/__tests__/keepalive-presence-delta.test.js:181:14)
+      at process.processTicksAndRejections (node:internal/process/task_queues:105:5)
+      at async Test.run (node:internal/test_runner/test:1069:7)
+      at async startSubtestAfterBootstrap (node:internal/test_runner/harness:332:3) {
+    generatedMessage: true,
+    code: 'ERR_ASSERTION',
+    actual: 'Authority presence checkpoint missing from existing v2 directory',
+    expected: /ledger is missing/,
+    operator: 'match'
+  }
+
+test at .github/scripts/__tests__/keepalive-presence-delta.test.js:164:5
+✖ ../../../templates/consumer-repo/.github/scripts: interrupted bootstrap manifest recovers after ordinary legacy-writer churn (40.2125ms)
+  AssertionError [ERR_ASSERTION]: The input did not match the regular expression /ledger is missing/. Input:
+  
+  'Authority presence checkpoint missing from existing v2 directory'
+  
+      at TestContext.<anonymous> (/Users/teacher/.codex/automations/imi-merge-verify-closer/worktrees/workflows-3793-delta/.github/scripts/__tests__/keepalive-presence-delta.test.js:181:14)
+      at process.processTicksAndRejections (node:internal/process/task_queues:105:5)
+      at async Test.run (node:internal/test_runner/test:1069:7)
+      at async Test.processPendingSubtests (node:internal/test_runner/test:752:7) {
+    generatedMessage: true,
+    code: 'ERR_ASSERTION',
+    actual: 'Authority presence checkpoint missing from existing v2 directory',
+    expected: /ledger is missing/,
+    operator: 'match'
+  }

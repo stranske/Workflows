@@ -78,7 +78,15 @@ function attemptPath(repository, ownerAttempt) {
 
 function presencePath(repository, indexTreeSha) {
   if (!HEAD.test(String(indexTreeSha))) throw new Error('Invalid authority attempt tree SHA');
-  return `/repos/${String(repository).toLowerCase()}/contents/.github/keepalive-authority-presence/${indexTreeSha}.json`;
+  return `/repos/${String(repository).toLowerCase()}/contents/.github/keepalive-authority-presence-v2/${indexTreeSha}.json`;
+}
+
+function checkpointPath(repository) {
+  return `/repos/${repository}/contents/.github/keepalive-authority-presence-v2/checkpoint.json`;
+}
+
+function bootstrapPresencePath(repository) {
+  return `/repos/${repository}/contents/.github/keepalive-authority-presence-v2/bootstrap.json`;
 }
 
 function validAttemptIndex(index, repository, ownerAttempt) {
@@ -1004,18 +1012,39 @@ async function hasAttemptIndexesForPr(request, repository, prNumber) {
   }
   let inventory = await readAttemptPresence(request, snapshot.repo, snapshot.treeSha, snapshot.commitSha);
   if (!inventory) {
-    const positives = await scanAttemptIndexes(request, snapshot);
+    const checkpoint = await readPresenceCheckpoint(request, snapshot);
+    const bootstrap = !checkpoint ? await readBootstrapPresence(request, snapshot) : null;
+    if (!checkpoint && !bootstrap && snapshot.presenceExists) {
+      throw new Error('Authority presence checkpoint missing from existing v2 directory');
+    }
+    const previous = checkpoint ? await readAttemptPresence(request, snapshot.repo,
+      checkpoint.treeSha, snapshot.commitSha) : bootstrap;
+    if (checkpoint && !previous) throw new Error('Authority presence checkpoint manifest missing');
+    if (previous) await validatePresenceTree(request, snapshot.repo, previous);
+    const entries = await scanAttemptIndexes(request, snapshot, previous);
     // A writer may have added an index while this complete scan was in flight.
     // Never publish an absence result for a different subtree.
     const current = await attemptIndexTree(request, snapshot.repo);
     if (!current || current.treeSha !== snapshot.treeSha) {
       throw new Error('Authority attempt indexes changed during inventory backfill');
     }
-    inventory = await createAttemptPresence(request, snapshot, positives);
+    // Publish a fixed, complete recovery manifest before the keyed publication.
+    // If any later response is lost and an older writer advances the tree, the
+    // next process still has a known validated base without history discovery.
+    if (!checkpoint && !bootstrap) await createBootstrapPresence(request, snapshot, entries);
+    inventory = await createAttemptPresence(request, snapshot, entries);
     const settled = await attemptIndexTree(request, snapshot.repo);
     if (!settled || settled.treeSha !== snapshot.treeSha) {
       throw new Error('Authority attempt indexes changed during inventory publication');
     }
+    await advancePresenceCheckpoint(request, snapshot, checkpoint);
+  }
+  await validatePresenceTree(request, snapshot.repo, inventory);
+  // A previous invocation may have published the complete manifest but lost its
+  // response before advancing the pointer. Repair only from that exact manifest.
+  const checkpoint = await readPresenceCheckpoint(request, snapshot, BRANCH);
+  if (!checkpoint || checkpoint.treeSha !== snapshot.treeSha) {
+    await advancePresenceCheckpoint(request, snapshot, checkpoint);
   }
   const current = await attemptIndexTree(request, snapshot.repo);
   if (!current || current.treeSha !== snapshot.treeSha) {
@@ -1033,6 +1062,7 @@ async function attemptIndexTree(request, repository) {
   }
   const commit = await request('GET', `/repos/${repo}/git/commits/${commitSha}`);
   let treeSha = commit?.tree?.sha;
+  let presenceExists = false;
   const segments = ['.github', 'keepalive-authority-attempts'];
   // Non-recursive trees avoid the Contents API's 1,000-entry directory limit.
   // Every later read uses immutable SHAs from this one branch snapshot.
@@ -1047,26 +1077,38 @@ async function attemptIndexTree(request, repository) {
       throw new Error('Incomplete or malformed authority attempt tree');
     }
     if (segment !== null) {
+      if (segment === 'keepalive-authority-attempts') {
+        const presence = tree.tree.find((item) => item.path === 'keepalive-authority-presence-v2');
+        if (presence && presence.type !== 'tree') throw new Error('Invalid authority presence directory');
+        presenceExists = Boolean(presence);
+      }
       const entry = tree.tree.find((item) => item.path === segment);
       if (!entry) return { repo, commitSha, treeSha: null };
       if (entry.type !== 'tree') throw new Error('Authority attempt directory is not a tree');
       treeSha = entry.sha;
       continue;
     }
-    return { repo, commitSha, treeSha };
+    return { repo, commitSha, treeSha, presenceExists };
   }
   throw new Error('Authority attempt tree traversal did not settle');
 }
 
-async function scanAttemptIndexes(request, snapshot) {
+async function scanAttemptIndexes(request, snapshot, previous = null) {
   const tree = await request('GET', `/repos/${snapshot.repo}/git/trees/${snapshot.treeSha}`);
-  if (tree?.truncated !== false || !Array.isArray(tree.tree)) {
+  if (tree?.truncated !== false || !Array.isArray(tree.tree) ||
+      new Set(tree.tree.map((entry) => entry.path)).size !== tree.tree.length) {
     throw new Error('Incomplete or malformed authority attempt tree');
   }
-  const positives = new Set();
+  const cached = new Map((previous?.entries || []).map((entry) => [entry.path, entry]));
+  const entries = [];
   for (const entry of tree.tree) {
-      if (!/^[0-9a-f]{64}\.json$/.test(entry.path) || entry.type !== 'blob') {
+      if (!/^[0-9a-f]{64}\.json$/.test(entry.path) || entry.type !== 'blob' || !HEAD.test(String(entry.sha))) {
         throw new Error('Invalid authority attempt index path');
+      }
+      const prior = cached.get(entry.path);
+      if (prior && prior.blob_sha === entry.sha) {
+        entries.push(prior);
+        continue;
       }
       const blob = await request('GET', `/repos/${snapshot.repo}/git/blobs/${entry.sha}`);
       if (blob?.sha !== entry.sha || blob?.encoding !== 'base64' ||
@@ -1082,9 +1124,9 @@ async function scanAttemptIndexes(request, snapshot) {
           attemptPath(snapshot.repo, index.owner_attempt).split('/').pop() !== entry.path) {
         throw new Error('Invalid authority attempt index');
       }
-      positives.add(index.pr_number);
+      entries.push({ path: entry.path, blob_sha: entry.sha, pr_number: index.pr_number });
     }
-  return [...positives].sort((left, right) => left - right);
+  return entries.sort((left, right) => left.path.localeCompare(right.path));
 }
 
 function decodePresence(file, repository, treeSha) {
@@ -1099,14 +1141,96 @@ function decodePresence(file, repository, treeSha) {
   try { inventory = JSON.parse(Buffer.from(encoded, 'base64').toString('utf8')); } catch (error) {
     throw new Error(`Malformed authority attempt presence: ${error.message}`);
   }
-  if (inventory?.version !== 1 || inventory.repository !== repository ||
-      inventory.index_tree_sha !== treeSha || !Array.isArray(inventory.positive_prs) ||
+  if (inventory?.version !== 2 || inventory.repository !== repository ||
+      !HEAD.test(String(inventory.index_tree_sha)) || (treeSha && inventory.index_tree_sha !== treeSha) ||
+      !Array.isArray(inventory.positive_prs) ||
       !inventory.positive_prs.every((value) => Number.isSafeInteger(value) && value > 0) ||
       new Set(inventory.positive_prs).size !== inventory.positive_prs.length ||
       inventory.positive_prs.some((value, index) => index && inventory.positive_prs[index - 1] >= value)) {
     throw new Error('Invalid authority attempt presence');
   }
+  if (!Array.isArray(inventory.entries) || !inventory.entries.every((entry, index) =>
+    entry && /^[0-9a-f]{64}\.json$/.test(entry.path) && HEAD.test(String(entry.blob_sha)) &&
+    Number.isSafeInteger(entry.pr_number) && entry.pr_number > 0 &&
+    (!index || inventory.entries[index - 1].path.localeCompare(entry.path) < 0)) ||
+    JSON.stringify(presenceMembership(inventory.entries)) !== JSON.stringify(inventory.positive_prs)) {
+    throw new Error('Invalid authority attempt presence manifest');
+  }
   return inventory;
+}
+
+function presenceMembership(entries) {
+  return [...new Set(entries.map((entry) => entry.pr_number))].sort((left, right) => left - right);
+}
+
+async function readBootstrapPresence(request, snapshot, ref = snapshot.commitSha) {
+  try {
+    return decodePresence(await request('GET', `${bootstrapPresencePath(snapshot.repo)}?ref=${ref}`), snapshot.repo);
+  } catch (error) { if (error.status === 404) return null; throw error; }
+}
+
+async function createBootstrapPresence(request, snapshot, entries) {
+  const inventory = { version: 2, repository: snapshot.repo, index_tree_sha: snapshot.treeSha,
+    entries, positive_prs: presenceMembership(entries) };
+  try {
+    await request('PUT', bootstrapPresencePath(snapshot.repo), { branch: BRANCH,
+      message: `keepalive authority presence bootstrap ${snapshot.treeSha}`,
+      content: Buffer.from(`${JSON.stringify(inventory)}\n`).toString('base64') });
+  } catch (error) { if (![409, 422].includes(error.status)) throw error; }
+  const settled = await readBootstrapPresence(request, snapshot, BRANCH);
+  if (!settled || settled.index_tree_sha !== snapshot.treeSha ||
+      JSON.stringify(settled.entries) !== JSON.stringify(entries)) {
+    throw new Error('Authority presence bootstrap conflicts with validated inventory');
+  }
+}
+
+async function validatePresenceTree(request, repository, inventory) {
+  const tree = await request('GET', `/repos/${repository}/git/trees/${inventory.index_tree_sha}`);
+  if (tree?.truncated !== false || !Array.isArray(tree.tree) ||
+      tree.tree.length !== inventory.entries.length ||
+      new Set(tree.tree.map((entry) => entry.path)).size !== tree.tree.length) {
+    throw new Error('Authority presence manifest does not cover complete tree');
+  }
+  const entries = new Map(inventory.entries.map((entry) => [entry.path, entry]));
+  if (!tree.tree.every((entry) => entry.type === 'blob' && entries.get(entry.path)?.blob_sha === entry.sha)) {
+    throw new Error('Authority presence manifest differs from immutable tree');
+  }
+}
+
+async function readPresenceCheckpoint(request, snapshot, ref = snapshot.commitSha) {
+  let file;
+  try { file = await request('GET', `${checkpointPath(snapshot.repo)}?ref=${ref}`); }
+  catch (error) { if (error.status === 404) return null; throw error; }
+  const encoded = typeof file?.content === 'string' ? file.content.replace(/\s/g, '') : '';
+  if (!HEAD.test(String(file?.sha)) || file.encoding !== 'base64' || !encoded ||
+      Buffer.from(encoded, 'base64').toString('base64') !== encoded) {
+    throw new Error('Invalid authority presence checkpoint metadata');
+  }
+  const value = JSON.parse(Buffer.from(encoded, 'base64').toString('utf8'));
+  if (value?.version !== 2 || value.repository !== snapshot.repo || !HEAD.test(String(value.index_tree_sha))) {
+    throw new Error('Invalid authority presence checkpoint');
+  }
+  return { treeSha: value.index_tree_sha, fileSha: file.sha };
+}
+
+async function advancePresenceCheckpoint(request, snapshot, previous) {
+  const current = await attemptIndexTree(request, snapshot.repo);
+  if (!current || current.treeSha !== snapshot.treeSha) {
+    throw new Error('Authority attempt indexes changed during checkpoint publication');
+  }
+  const value = { version: 2, repository: snapshot.repo, index_tree_sha: snapshot.treeSha };
+  try {
+    await request('PUT', checkpointPath(snapshot.repo), { branch: BRANCH,
+      ...(previous ? { sha: previous.fileSha } : {}),
+      message: `keepalive authority presence checkpoint ${snapshot.treeSha}`,
+      content: Buffer.from(`${JSON.stringify(value)}\n`).toString('base64') });
+  } catch (error) {
+    if (![409, 422].includes(error.status)) throw error;
+  }
+  const settled = await readPresenceCheckpoint(request, snapshot, BRANCH);
+  if (!settled || settled.treeSha !== snapshot.treeSha) {
+    throw new Error('Authority presence checkpoint conflict or unconfirmed write');
+  }
 }
 
 async function readAttemptPresence(request, repository, treeSha, ref = BRANCH) {
@@ -1118,9 +1242,9 @@ async function readAttemptPresence(request, repository, treeSha, ref = BRANCH) {
   }
 }
 
-async function createAttemptPresence(request, snapshot, positives) {
-  const inventory = { version: 1, repository: snapshot.repo, index_tree_sha: snapshot.treeSha,
-    positive_prs: positives };
+async function createAttemptPresence(request, snapshot, entries) {
+  const inventory = { version: 2, repository: snapshot.repo, index_tree_sha: snapshot.treeSha,
+    entries, positive_prs: presenceMembership(entries) };
   try {
     await request('PUT', presencePath(snapshot.repo, snapshot.treeSha), { branch: BRANCH,
       message: `keepalive authority presence ${snapshot.treeSha}`,
@@ -1130,7 +1254,7 @@ async function createAttemptPresence(request, snapshot, positives) {
   }
   const settled = await readAttemptPresence(request, snapshot.repo, snapshot.treeSha, BRANCH);
   if (!settled) throw new Error('Authority attempt presence write was not confirmed');
-  if (JSON.stringify(settled.positive_prs) !== JSON.stringify(positives)) {
+  if (JSON.stringify(settled.entries) !== JSON.stringify(entries)) {
     throw new Error('Authority attempt presence conflicts with validated inventory');
   }
   return settled;
