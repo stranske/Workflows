@@ -102,11 +102,15 @@ these artifacts do not authorize merging or closing issue 3743.
 Verified acceptance for this bounded chunk:
 
 - [x] **Tests**
-  - [x] Added eight tests covering failed or empty `uv` lookups in both helper copies.
-  - [x] Added replay checks that verify results and restore temporary changes.
+  - [x] Added coverage for failed or blank `uv` lookups in both helper copies.
+  - [x] Added replay tests for report paths containing spaces, invalid proof
+    results, and restoration after failures or timeouts.
+  - [x] Replay checks verify test outcomes and restore temporary changes.
 - [x] **Documentation**
   - [x] Retained test evidence, matched coverage comparisons, replay instructions
-    and artifact integrity records, with repository-wide coverage unmeasured.
+    and artifact integrity records.
+  - [x] Repository-wide coverage remains unmeasured; evidence does not authorize
+    merging or closing issue 3743.
 
 ### Optimized GREEN result controls
 
@@ -148,3 +152,45 @@ sandbox blocks its forkserver socket; its failure log is retained. Focused Ruff,
 template completeness and diff whitespace checks pass. Creating the requested
 commit is also blocked: `git add` cannot create `.git/index.lock` on the read-only
 Git metadata mount. The code and evidence remain in the worktree.
+
+### JUnit validation and restoration together
+
+Sixteen additional controls call the real `main()` and `run_case()` together.
+They supply synthetic pytest results for incorrect outcomes, wrong case names,
+malformed XML and timeouts during RED and GREEN for both helper copies. Each
+checks byte-identical restoration of both private helpers and caller inputs,
+propagation of the rejection, and absence of a success receipt for the rejected
+phase or the whole replay. A successful preceding RED receipt remains available
+when GREEN fails. The XML parser stand-in handles only fixed fixture text;
+these controls do not test XML hardening or execute the pytest child process.
+
+The focused command above passes 45 tests. Three private production mutations
+prove that the new tests detect missing restoration (16 failures), ignored
+outcomes (four failures) and ignored case identity (four failures). Every
+selected test passes after byte-identical restoration; caller files are unchanged.
+Fresh matched suites again pass 300/308 tests with helper coverage
+94.84% → 95.31%, unchanged 591 statements / 262 branches / zero exclusions,
+and no old outcome, covered-line or covered-branch regressions. Their report
+directory contains spaces. The new replay controls remain outside this
+matched suite.
+`junit-restoration.tar.gz` and `junit-restoration-index.json` retain commands,
+JUnit, logs, mutation/restoration receipts, a reproducible validation driver,
+formatting results and current input identities. Extract
+`validate_junit_restoration.py` into a temporary directory and run it from the
+repository root with a fresh report directory:
+
+```sh
+python3 /tmp/validate_junit_restoration.py /tmp/uv-junit-restoration-fresh
+```
+
+Reconciliation verified all 219 members in the five prior indexed archives,
+including the original eight named RED/GREEN pairs and restoration digests.
+The local checklist above records all seven acceptance items. PR 3817 was open
+and ready for review, but its checklist update, blocker comment and
+`needs-human` label require connector approval, prohibited by this run's
+`never` approval policy. Staging is blocked by read-only `.git` metadata.
+The required standard whole-tree Black command fails at sandbox forkserver
+startup; sequential Black passes for 682 files, and the changed test passes
+standard Black individually. Ruff, template completeness and whitespace checks
+pass. No commit or push was made. Repository-wide coverage remains UNKNOWN;
+these artifacts do not authorize merging or closing issue 3743.
