@@ -32,3 +32,14 @@ Hosted Gate/check topology and provider verifier disposition remain separate acc
 ## Review recovery: optimized proof and quoted report paths
 
 Proof guards now raise explicit errors under `python -O` and `PYTHONOPTIMIZE=1`, including named-case identity. Six invalid-result subprocess regressions fail on the original production replay and pass after restoration of the fix. A seventh CLI transport regression detects broken report quoting for an output path containing spaces (stand-in pytest, not a suite-acceptance claim). The actual optimized production replay independently retains all eight named RED1/GREEN0 pairs. Raw logs, JUnit and command receipts are in `review-recovery.tar.gz`, bound by `review-recovery-index.json`. The original validation archive and matched 300/308 coverage result remain historical and unchanged.
+
+### Hosted subprocess portability recovery
+
+The e3836e4 hosted Python 3.13 run failed all six optimized proof controls because
+its environment lacks `defusedxml`. The fixed synthetic XML unit fixture now
+supplies a standard-library parser stand-in and runs the production module in
+a `-O -S` child, proving these controls need no site packages. This does not test
+XML hardening; the actual eight-mutant replay still uses `defusedxml`.
+Removing the stand-in yields six assertion failures; restoration passes all
+15 affected tests. Raw logs, JUnit and commands are bound by
+`ci-portability.tar.gz` and `ci-portability-index.json`. Fresh hosted Gate is required.

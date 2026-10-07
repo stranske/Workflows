@@ -28,6 +28,11 @@ def test_optimized_replay_rejects_invalid_proof(tmp_path, code, case):
     # A child interpreter is essential: -O must affect the production module.
     program = """
 import importlib.util, pathlib, sys, types
+# Only fixed synthetic XML is parsed in this proof-validation unit fixture.
+# The real replay keeps defusedxml; this stand-in lets -S prove that the
+# subprocess validation controls need no undeclared site-package dependency.
+from xml.etree import ElementTree
+sys.modules['defusedxml'] = types.SimpleNamespace(ElementTree=ElementTree)
 spec = importlib.util.spec_from_file_location('replay', sys.argv[1])
 module = importlib.util.module_from_spec(spec)
 spec.loader.exec_module(module)
@@ -47,6 +52,7 @@ else:
         [
             sys.executable,
             "-O",
+            "-S",
             "-c",
             program,
             str(EVIDENCE / "replay_uv_resolution.py"),
