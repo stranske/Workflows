@@ -289,6 +289,10 @@ Named checklist shorthand accepts the same declared temporal and relative contin
 after its destination (`Test evidence in a PR comment before merge` remains
 mandatory comment evidence). Optional and negative delivery governors keep
 their own polarity; an independent artifact cannot replace the named channel.
+Postposed `only`/`solely if`/`when` conditions do not become unconditional
+checklist deliveries. Postposed negative requirement adjectives reuse the shared
+negative-governor vocabulary, retaining their adverb qualifier rather than
+turning `currently not required` into a positive imperative.
 Both channel classification and destination-OR expansion use that same span.
 Both paths also share the independent review-predicate exclusion: an actor
 such as `the PR description that must contain command output` is not consumed

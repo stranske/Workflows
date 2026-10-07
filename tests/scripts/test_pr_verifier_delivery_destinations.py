@@ -359,6 +359,28 @@ def test_temporal_checklist_shorthand_preserves_named_delivery(
         )
 
 
+@pytest.mark.parametrize("marker", ["-", "*", "+", "1.", "1)"])
+@pytest.mark.parametrize(
+    "suffix",
+    [
+        "only if tests fail",
+        "solely if tests fail",
+        "currently not required",
+        "currently not expected",
+    ],
+)
+@pytest.mark.parametrize("destination", ["a PR comment", "the PR body", "the PR description"])
+@pytest.mark.parametrize("independent", [False, True])
+def test_checklist_suffix_cannot_promote_conditional_or_negative_delivery(
+    marker, suffix, destination, independent
+):
+    criterion = f"{marker} [ ] Test evidence in {destination} {suffix}."
+    extra = "; the reviewer must record evidence in a workflow artifact" if independent else ""
+    expected = {"artifacts"} if independent else set()
+    assert verifier._required_evidence_channels(criterion + extra) == expected
+    assert verifier._required_evidence_options(criterion + extra) == [expected]
+
+
 @pytest.mark.parametrize("relative", ["that", "which"])
 @pytest.mark.parametrize(
     "predicate", ["must remain available", "shall stay accessible", "is required to be present"]

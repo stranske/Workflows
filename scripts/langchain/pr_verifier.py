@@ -991,9 +991,12 @@ _MANDATORY_EVIDENCE_AUXILIARY = (
 )
 _EVIDENCE_DELIVERY_ADVERB = r"(?:also|now|still|already|yet|[\w-]+ly)"
 _EVIDENCE_DELIVERY_ADVERBS = r"(?:" + _EVIDENCE_DELIVERY_ADVERB + r"\s+){0,3}"
-_NEGATIVE_EVIDENCE_ADJECTIVE_GOVERNOR = (
-    r"(?:is|are|was|were)\s+(?:not|never|no\s+longer)\s+"
+_NEGATIVE_EVIDENCE_ADJECTIVE_TAIL = (
+    r"(?:not|never|no\s+longer)\s+"
     r"(?:required|needed|mandated|expected|supposed|obliged|allowed|permitted)"
+)
+_NEGATIVE_EVIDENCE_ADJECTIVE_GOVERNOR = (
+    r"(?:is|are|was|were)\s+" + _NEGATIVE_EVIDENCE_ADJECTIVE_TAIL
 )
 _NEGATIVE_EVIDENCE_REQUIREMENT_GOVERNOR = (
     r"(?:" + _NEGATIVE_EVIDENCE_ADJECTIVE_GOVERNOR + r"\s+to|"
@@ -1208,11 +1211,38 @@ def _required_evidence_channels(acceptance: str, *, _bind_attached: bool = True)
         r"(?P<object>(?:(?:test|validation|CI|build|execution)\s+){0,3}"
         r"(?:evidence|command outputs?|transcripts?))\s+"
         r"(?P<destinations>" + bound_review_destinations + r")"
+        r"(?P<qualification>\s+(?:"
+        r"(?P<conditional>(?:only|solely)\s+(?:if|when)\b[^\n;.!]*)|"
+        r"(?P<qualifier_adverbs>" + delivery_adverbs + r")"
+        r"(?P<negative>" + _NEGATIVE_EVIDENCE_ADJECTIVE_TAIL + r")))?"
         r"(?=[ \t]*(?:[;.!]|$|(?:that|which|where|" + _REVIEW_BODY_COMPONENT_TEMPORAL + r")\b))",
         lambda match: (
             match[0]
             if match["literal"] or re.search(r"\r?\n[ \t]*\r?\n", match[0])
-            else (match["checklist"] + "Provide " + match["object"] + " " + match["destinations"])
+            else (
+                match["checklist"]
+                + match["object"]
+                + " may be "
+                + match["destinations"]
+                + match["qualification"]
+                if match["conditional"]
+                else (
+                    match["checklist"]
+                    + match["object"]
+                    + " is "
+                    + match["negative"]
+                    + " to be "
+                    + match["destinations"]
+                    + " "
+                    + match["qualifier_adverbs"]
+                    if match["negative"]
+                    else match["checklist"]
+                    + "Provide "
+                    + match["object"]
+                    + " "
+                    + match["destinations"]
+                )
+            )
         ),
         acceptance,
         flags=re.I | re.M,
