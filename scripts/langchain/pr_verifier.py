@@ -989,7 +989,7 @@ _MANDATORY_EVIDENCE_AUXILIARY = (
     r"(?:(?:is|are)\s+)?(?:required|needed|mandated|expected|supposed|obliged)\s+to|"
     r"(?:has|have)\s+to)"
 )
-_EVIDENCE_DELIVERY_ADVERB = r"(?:also|now|still|already|yet|[\w-]+ly)"
+_EVIDENCE_DELIVERY_ADVERB = r"(?:also|now|still|already|yet|always|[\w-]+ly)"
 _EVIDENCE_DELIVERY_ADVERBS = r"(?:" + _EVIDENCE_DELIVERY_ADVERB + r"\s+){0,3}"
 _EVIDENCE_ADDITIVE_CONTRAST = r"(?:only|merely|just)"
 _NEGATIVE_EVIDENCE_ADJECTIVE_TAIL = (
@@ -2220,7 +2220,7 @@ def _required_evidence_channels(acceptance: str, *, _bind_attached: bool = True)
                 + response_operation
                 + r"|"
                 + capability_operation
-                + r"|display|show|store|include|contain|attach|upload|add|leave|left|post|publish|provide|document|record|capture|link)\w*\b",
+                + r"|display|show|store|include|contain|attach|upload|add|leave|left|post|publish|provide|document|record|capture|generate|link)\w*\b",
                 prefix,
                 re.I,
             )
@@ -2249,6 +2249,7 @@ def _required_evidence_channels(acceptance: str, *, _bind_attached: bool = True)
                 "document",
                 "record",
                 "capture",
+                "generate",
                 "return",
                 "emit",
                 "render",
@@ -2403,7 +2404,7 @@ def _required_evidence_channels(acceptance: str, *, _bind_attached: bool = True)
                 r"^\s*(?:in|into|to|as)\s+(?:(?:its|the|an?)\s+)?"
                 r"(?:(?:json|api|audit|output)\s+)*"
                 r"(?:responses?|payloads?|outputs?|fields?|records?|storage|data)\b"
-                r"|^\s*(?:fields?|metadata)\b",
+                r"|^\s*(?:fields?|metadata)\b|^\s+" + body_component,
                 destination,
                 re.I,
             )

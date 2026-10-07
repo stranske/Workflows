@@ -9,6 +9,29 @@ from scripts import docs_drift_fix_agent as fix_agent
 from scripts.langchain import pr_verifier as verifier
 
 
+@pytest.mark.parametrize("actor", ["UI", "application", "service", "renderer"])
+@pytest.mark.parametrize("operation", ["generate", "link", "post", "record"])
+@pytest.mark.parametrize("destination", ["the PR body", "the PR description", "a PR comment"])
+@pytest.mark.parametrize("component", ["panel", "editor", "field"])
+@pytest.mark.parametrize("capability", [False, True])
+@pytest.mark.parametrize("independent", [False, True])
+def test_product_generation_uses_shared_delivery_operations(
+    actor, operation, destination, component, capability, independent
+):
+    predicate = f"must let users {operation}" if capability else f"must {operation}"
+    criterion = f"The {actor} {predicate} evidence in {destination} {component}"
+    if independent:
+        criterion += "; the reviewer must record evidence in a workflow artifact"
+    expected = {"artifacts"} if independent else set()
+    assert verifier._required_evidence_channels(criterion) == expected
+    assert verifier._required_evidence_options(criterion) == [expected]
+    assert not verifier._required_evidence_is_missing(
+        "- Overall retrieval status: **present**\n- PR body: **absent**\n"
+        "- PR comments: **absent**\n- Referenced workflow artifacts: **present**",
+        expected,
+    )
+
+
 @pytest.mark.parametrize("contrast", ["only", "merely", "just"])
 @pytest.mark.parametrize("position", ["direct", "before", "after"])
 @pytest.mark.parametrize("relative", ["that", "which"])
@@ -557,6 +580,12 @@ def test_relative_checklist_delivery_reuses_negative_optional_governor(
         "is currently accessible",
         "are now present",
         "are currently present",
+        "must always remain available",
+        "shall always stay accessible",
+        "is required to always be present",
+        "always is available",
+        "is always accessible",
+        "are always present",
     ],
 )
 @pytest.mark.parametrize("reverse", [False, True])

@@ -315,6 +315,12 @@ turning an optional/prohibited relative checklist into an imperative.
 The existing additive contrasts `not only`, `not merely`, and `not just` are
 not negative adjective governors, even with supported intervening modifiers;
 they cannot erase a mandatory checklist destination.
+Product-side generation uses the same governing-actor classification as other
+delivery operations. A bounded structural body/description/comment component
+remains product-owned for generation, linking, posting and recording, while a
+bare explicit review destination and independent reviewer duties stay authoritative.
+The shared modifier grammar includes `always`, so `that must always remain available`
+stays attached to its existing OR destination rather than becoming a new duty.
 Both paths also share the independent review-predicate exclusion: an actor
 such as `the PR description that must contain command output` is not consumed
 as another destination of an earlier prohibited delivery. OR expansion cannot
