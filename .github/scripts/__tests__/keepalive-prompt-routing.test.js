@@ -44,18 +44,3 @@ test('resolvePromptMode prioritizes fix/verify signals over normal mode', () => 
   assert.equal(resolvePromptMode({ mode: 'normal', reason: 'verify-acceptance' }), 'verify');
   assert.equal(resolvePromptMode({ mode: 'normal', scenario: 'ci-failure' }), 'fix_ci');
 });
-
-for (const [surface, router] of [
-  ['root', require('../keepalive_prompt_routing')],
-  ['consumer', require('../../../templates/consumer-repo/.github/scripts/keepalive_prompt_routing')],
-]) {
-  test(`${surface}: active CI repair takes precedence over configured prompt modes`, () => {
-    for (const mode of ['normal', 'verification', 'conflict', 'unknown']) {
-      assert.equal(router.resolvePromptMode({
-        action: ' FIX ', reason: 'fix-test', mode, scenario: 'verification',
-      }), 'fix_ci', mode);
-    }
-    assert.equal(router.resolvePromptMode({ action: 'fix', reason: 'force-retry-fix-test' }), 'fix_ci');
-    assert.equal(router.resolvePromptMode({ action: 'conflict', mode: 'verify' }), 'conflict');
-  });
-}

@@ -12,7 +12,6 @@ const {
   upsertStateCommentBody,
 } = require('./keepalive_state');
 const { resolvePromptMode } = require('./keepalive_prompt_routing');
-const { composePrompt, createRoundHistorySegment } = require('./keepalive_prompt_composer');
 const { classifyError, ERROR_CATEGORIES } = require('./error_classifier');
 const { formatFailureComment } = require('./failure_comment_formatter');
 const { detectConflicts } = require('./conflict_detector');
@@ -342,7 +341,6 @@ function buildAttemptEntry({
   tasksUnchecked,
   tasksCompletedDelta,
   allComplete,
-  focusTask,
 }) {
   const actionValue = normalise(action) || 'unknown';
   const reasonValue = normalise(reason) || actionValue;
@@ -351,10 +349,6 @@ function buildAttemptEntry({
     action: actionValue,
     reason: reasonValue,
   };
-
-  if (focusTask) {
-    entry.focus_task = normaliseTaskText(focusTask);
-  }
 
   if (runResult) {
     entry.run_result = normalise(runResult);
@@ -1717,11 +1711,6 @@ function buildTaskAppendix(sections, checkboxCounts, state = {}, options = {}) {
     lines.push('');
     lines.push(sections.acceptance);
     lines.push('');
-  }
-
-  const roundHistory = composePrompt({ state, segments: [createRoundHistorySegment()] }).text;
-  if (roundHistory) {
-    lines.push(roundHistory, '');
   }
 
   const attemptedTasks = normaliseAttemptedTasks(state?.attempted_tasks);
@@ -3157,11 +3146,8 @@ async function evaluateKeepaliveLoop({ github: rawGithub, context, core, payload
       action,
       reason,
     });
-    // CI repair uses the canonical fix-first directive even when the PR carries
-    // feature/verification preferences or a custom prompt file from earlier work.
-    const isCiRepair = action === 'fix';
-    const promptMode = isCiRepair ? promptRoute.mode : promptModeOverride || promptRoute.mode;
-    const promptFile = isCiRepair ? promptRoute.file : promptFileOverride || promptRoute.file;
+    const promptMode = promptModeOverride || promptRoute.mode;
+    const promptFile = promptFileOverride || promptRoute.file;
     // For verification steps, prefer a different agent than the one that did
     // the implementation work.  This avoids the structural problem where the
     // same model that produced the work also verifies it — a conflict of
@@ -4263,7 +4249,7 @@ async function updateKeepaliveLoopSummary({ github: rawGithub, context, core, in
     }
 
     const focusTask = currentFocus || fallbackFocus;
-    const shouldRecordAttempt = action === 'run' && promptMode === 'normal';
+    const shouldRecordAttempt = action === 'run' && reason !== 'verify-acceptance';
     let attemptedTasks = normaliseAttemptedTasks(previousState?.attempted_tasks);
     if (shouldRecordAttempt) {
       const attemptLabel = focusTask || (tasksCompletedThisRound > 0 ? 'checkbox-progress' : 'no-focus');
@@ -4492,9 +4478,6 @@ async function updateKeepaliveLoopSummary({ github: rawGithub, context, core, in
       tasksUnchecked,
       tasksCompletedDelta: tasksCompletedThisRound,
       allComplete: allTasksComplete,
-      // CI repair and verification do not attempt the feature task left in
-      // current_focus by markAgentRunning. Bind focus only to feature work.
-      focusTask: shouldRecordAttempt ? focusTask : '',
     });
     newState.attempts = updateAttemptHistory(previousState?.attempts, attemptEntry);
 

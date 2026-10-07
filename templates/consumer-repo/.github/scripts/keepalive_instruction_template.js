@@ -3,7 +3,6 @@
 const fs = require('fs');
 const path = require('path');
 const { resolvePromptMode } = require('./keepalive_prompt_routing');
-const { composePrompt, createRoundHistorySegment } = require('./keepalive_prompt_composer');
 
 /**
  * Path to the fallback keepalive instruction template.
@@ -110,47 +109,25 @@ function loadInstruction(templatePath, { allowDefaultFallback = true } = {}) {
 }
 
 /**
- * Composes the routed directive and reusable instruction segments.
- * Additional segments are appended after the canonical directive. Their when/build
- * callbacks receive { state, context, mode } from the shared composer; this function
- * performs no state persistence. Template caching only applies to the directive.
- *
- * @param {object} [options]
- * @param {import('./keepalive_prompt_composer').PromptSegment[]} [options.segments]
- * @param {object} [options.state] - Round state supplied by the caller
- * @param {object} [options.context] - Per-composition context supplied by the caller
- * @returns {object} Composition text, included segment IDs, and resolved mode
+ * Returns the canonical keepalive instruction directive text.
+ * The text is loaded from .github/templates/keepalive-instruction.md.
+ * 
+ * @returns {string} The instruction directive (without @agent prefix)
  */
-function composeKeepaliveInstruction(options = {}) {
+function getKeepaliveInstruction(options = {}) {
   const params = options && typeof options === 'object' ? options : {};
   const resolved = resolveTemplatePath(params);
   const content = loadInstruction(resolved.path, { allowDefaultFallback: true });
-  const result = composePrompt({
-    ...params,
-    mode: resolved.mode,
-    segments: [
-      {
-        id: 'black-preflight',
-        when: ({ mode }) => (mode === 'normal' || mode === 'fix_ci')
-          && !content.includes(BLACK_PREFLIGHT_HEADER),
-        text: BLACK_PREFLIGHT_BLOCK,
-      },
-      { id: 'instruction', text: content },
-      createRoundHistorySegment(),
-      ...(Array.isArray(params.segments) ? params.segments : []),
-    ],
-  });
-  return { ...result, mode: resolved.mode };
-}
 
-/**
- * Returns the composed instruction directive without an agent mention.
- * Existing callers retain the string-returning API.
- *
- * @returns {string}
- */
-function getKeepaliveInstruction(options = {}) {
-  return composeKeepaliveInstruction(options).text;
+  if (resolved.mode !== 'normal' && resolved.mode !== 'fix_ci') {
+    return content;
+  }
+
+  if (content.includes(BLACK_PREFLIGHT_HEADER)) {
+    return content;
+  }
+
+  return [BLACK_PREFLIGHT_BLOCK, '', content].join('\n');
 }
 
 /**
@@ -190,7 +167,6 @@ module.exports = {
   NEXT_TASK_TEMPLATE_PATH,
   FIX_TEMPLATE_PATH,
   VERIFY_TEMPLATE_PATH,
-  composeKeepaliveInstruction,
   getKeepaliveInstruction,
   getKeepaliveInstructionWithMention,
   clearCache,
