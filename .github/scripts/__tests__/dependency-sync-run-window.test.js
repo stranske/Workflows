@@ -97,6 +97,32 @@ test('a capped parent still requires its observed identities and lower bound', a
   } }), /subdivision.*incomplete|window changed/);
 });
 
+test('numeric 2500 is an API cap, not proof of an exact parent cardinality', async () => {
+  for (const size of [2500, 3001]) {
+    const rows = Array.from({ length: size }, (_, id) => ({ id, created_at: new Date(+start + id * 1000).toISOString() }));
+    const list = fixture(rows, []);
+    const result = await collectRunWindow({ start, end, listPage: async (params) => {
+      const response = await list(params);
+      response.data.total_count = Math.min(2500, response.data.total_count);
+      return response;
+    } });
+    assert.equal(result.length, size);
+  }
+});
+
+test('numeric capped parents cannot lose observed identities or lower-bound cardinality', async () => {
+  for (const size of [2499, 3001]) {
+    const rows = Array.from({ length: size }, (_, id) => ({ id, created_at: new Date(+start + id * 1000).toISOString() }));
+    const list = fixture(rows, []);
+    await assert.rejects(collectRunWindow({ start, end, listPage: (params) => {
+      if (params.created === `${start.toISOString()}..${end.toISOString()}`) {
+        return { data: { total_count: 2500, workflow_runs: [{ id: 99999, created_at: start.toISOString() }, ...rows.slice(0, 99)] } };
+      }
+      return list(params);
+    } }), /subdivision.*incomplete|window changed/);
+  }
+});
+
 test('the actual workflow records collection failure and does not emit partial runs', async () => {
   const fs = require('node:fs');
   const path = require('node:path');
