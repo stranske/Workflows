@@ -698,7 +698,7 @@ def bind_scenario_matrix(evidence, repo, path, workflow, job, run):
             raise UnknownEvidence("empty scenario selection lacks exact-run skipped caller")
         caller = callers[0]
         endpoint = f"repos/{repo}/check-runs/{caller['id']}"
-        if caller["check_run_url"] != f"https://api.github.com/{endpoint}":
+        if caller["check_run_url"] != f"{GITHUB_API}/{endpoint}":
             raise UnknownEvidence("empty scenario caller check URL identity mismatch")
         check = evidence.one(endpoint)
         if (
