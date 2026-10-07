@@ -1,5 +1,5 @@
-✖ ..: separate processes read only new blobs across repeated legacy churn (248.406291ms)
-✖ ../../../templates/consumer-repo/.github/scripts: separate processes read only new blobs across repeated legacy churn (233.102125ms)
+✖ ..: separate processes read only new blobs across repeated legacy churn (265.684833ms)
+✖ ../../../templates/consumer-repo/.github/scripts: separate processes read only new blobs across repeated legacy churn (252.844083ms)
 ℹ tests 2
 ℹ suites 0
 ℹ pass 0
@@ -7,12 +7,12 @@
 ℹ cancelled 0
 ℹ skipped 0
 ℹ todo 0
-ℹ duration_ms 542.458167
+ℹ duration_ms 572.50825
 
 ✖ failing tests:
 
 test at .github/scripts/__tests__/keepalive-presence-delta.test.js:37:3
-✖ ..: separate processes read only new blobs across repeated legacy churn (248.406291ms)
+✖ ..: separate processes read only new blobs across repeated legacy churn (265.684833ms)
   AssertionError [ERR_ASSERTION]: exactly one delta blob per added index
   
   1002 !== 1
@@ -29,7 +29,7 @@ test at .github/scripts/__tests__/keepalive-presence-delta.test.js:37:3
   }
 
 test at .github/scripts/__tests__/keepalive-presence-delta.test.js:37:3
-✖ ../../../templates/consumer-repo/.github/scripts: separate processes read only new blobs across repeated legacy churn (233.102125ms)
+✖ ../../../templates/consumer-repo/.github/scripts: separate processes read only new blobs across repeated legacy churn (252.844083ms)
   AssertionError [ERR_ASSERTION]: exactly one delta blob per added index
   
   1002 !== 1

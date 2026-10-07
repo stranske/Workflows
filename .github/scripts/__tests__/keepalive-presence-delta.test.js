@@ -159,4 +159,28 @@ for (const surface of ['..', '../../../templates/consumer-repo/.github/scripts']
       assert.equal(server.stats().blobs - before, phase === 'delta' ? 1 : 0);
     }
   });
+
+  for (const phase of ['bootstrap', 'manifest', 'checkpoint', 'churn']) {
+    test(`${surface}: interrupted bootstrap ${phase} recovers after ordinary legacy-writer churn`, async () => {
+      const server = presenceServer({ count: 2 });
+      let failed = false;
+      server.setHook(({ method, path }) => {
+        if (method !== 'PUT' || failed) return;
+        const match = phase === 'bootstrap' ? path.endsWith('/bootstrap.json') :
+          phase === 'checkpoint' ? path.endsWith('/checkpoint.json') :
+            !path.endsWith('/bootstrap.json') && !path.endsWith('/checkpoint.json');
+        if (!match) return;
+        failed = true;
+        if (phase === 'churn') server.addAttempt(44);
+        else throw Object.assign(new Error('bootstrap lost response'), { status: 503 });
+      });
+      await assert.rejects(read(server, 42), phase === 'churn' ? /changed during/ : /lost response/);
+      server.setHook(() => {});
+      if (phase !== 'churn') server.addAttempt(44);
+      const before = server.stats().blobs;
+      assert.match((await reporterProcess(server, surface, 44)).error, /ledger is missing/);
+      assert.equal(server.stats().blobs - before, 1, 'durable bootstrap recovers with only the new blob');
+      assert.equal(await read(server, 42), false);
+    });
+  }
 }

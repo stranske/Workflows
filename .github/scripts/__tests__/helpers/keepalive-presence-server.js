@@ -113,7 +113,7 @@ function presenceServer({ count = 1001, missing = null } = {}) {
       }
       publish();
     },
-    dropCheckpoint() { inventories.delete('checkpoint.json'); publish(); },
+    dropCheckpoint() { inventories.delete('checkpoint.json'); inventories.delete('bootstrap.json'); publish(); },
     stats() {
       return { blobs: calls.filter((call) => call.path.includes('/git/blobs/')).length,
         writes: calls.filter((call) => call.method === 'PUT').length, calls: calls.length };

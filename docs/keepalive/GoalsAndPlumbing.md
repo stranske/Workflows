@@ -531,6 +531,9 @@ Each manifest binds the repository and immutable attempt subtree to sorted
 `{path, blob_sha, pr_number}` entries and their derived sorted positive PR set.
 The pointer `checkpoint.json` in that directory names a complete prior manifest;
 it is an optimization, never proof of current presence or execution authority.
+A fixed create-only `bootstrap.json` stores the first complete v2 manifest before
+keyed publication. It is a known recovery base if initial publication/checkpoint
+responses are lost and legacy attempts advance before the next invocation.
 Existing version 1 positive-only inventories remain untouched and cannot provide
 per-entry reuse. One explicit v2 migration validates every legacy index blob.
 
@@ -549,9 +552,9 @@ complete mapping, not merely the same positive set. Checkpoint advancement uses
 the prior file SHA as a conditional write; a stale loser cannot erase a newer
 pointer. A 409/422 is accepted only when readback names the same complete tree.
 Different-tree races reject and resume through a later independent invocation;
-there is no unbounded retry or branch-history scan. An existing v2 directory with
-no expected checkpoint and no exact current manifest fails closed rather than
-silently restarting a full migration. A complete manifest published before a
+there is no unbounded retry or branch-history scan. If the pointer is missing, the complete pinned bootstrap can recover delta work
+and repair the pointer without discovering history or rescanning its old blobs.
+An existing v2 directory missing both checkpoint and bootstrap fails closed. A complete manifest published before a
 lost response can repair its pointer on a subsequent independently validated read.
 
 Cache reads are pinned to immutable commits. Current subtree checks fence delta
@@ -570,4 +573,4 @@ deployment or close broader recovery acceptance. Source/template regressions
 include independent Node processes sharing only simulated durable server state,
 1,001 bootstrap reads then exactly one read per new legacy attempt, batched
 additions, replacements/removals, same-membership mapping conflicts, stale CAS
-writers, lost writes and positive/negative concurrency fences.
+writers, lost writes, interrupted-bootstrap-plus-churn recovery and positive/negative concurrency fences.

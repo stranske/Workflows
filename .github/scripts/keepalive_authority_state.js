@@ -85,6 +85,10 @@ function checkpointPath(repository) {
   return `/repos/${repository}/contents/.github/keepalive-authority-presence-v2/checkpoint.json`;
 }
 
+function bootstrapPresencePath(repository) {
+  return `/repos/${repository}/contents/.github/keepalive-authority-presence-v2/bootstrap.json`;
+}
+
 function validAttemptIndex(index, repository, ownerAttempt) {
   return index?.version === 1 && index.repository === String(repository).toLowerCase() &&
     index.owner_attempt === ownerAttempt && Number.isSafeInteger(index.pr_number) &&
@@ -1009,11 +1013,12 @@ async function hasAttemptIndexesForPr(request, repository, prNumber) {
   let inventory = await readAttemptPresence(request, snapshot.repo, snapshot.treeSha, snapshot.commitSha);
   if (!inventory) {
     const checkpoint = await readPresenceCheckpoint(request, snapshot);
-    if (!checkpoint && snapshot.presenceExists) {
+    const bootstrap = !checkpoint ? await readBootstrapPresence(request, snapshot) : null;
+    if (!checkpoint && !bootstrap && snapshot.presenceExists) {
       throw new Error('Authority presence checkpoint missing from existing v2 directory');
     }
     const previous = checkpoint ? await readAttemptPresence(request, snapshot.repo,
-      checkpoint.treeSha, snapshot.commitSha) : null;
+      checkpoint.treeSha, snapshot.commitSha) : bootstrap;
     if (checkpoint && !previous) throw new Error('Authority presence checkpoint manifest missing');
     if (previous) await validatePresenceTree(request, snapshot.repo, previous);
     const entries = await scanAttemptIndexes(request, snapshot, previous);
@@ -1023,6 +1028,10 @@ async function hasAttemptIndexesForPr(request, repository, prNumber) {
     if (!current || current.treeSha !== snapshot.treeSha) {
       throw new Error('Authority attempt indexes changed during inventory backfill');
     }
+    // Publish a fixed, complete recovery manifest before the keyed publication.
+    // If any later response is lost and an older writer advances the tree, the
+    // next process still has a known validated base without history discovery.
+    if (!checkpoint && !bootstrap) await createBootstrapPresence(request, snapshot, entries);
     inventory = await createAttemptPresence(request, snapshot, entries);
     const settled = await attemptIndexTree(request, snapshot.repo);
     if (!settled || settled.treeSha !== snapshot.treeSha) {
@@ -1133,7 +1142,8 @@ function decodePresence(file, repository, treeSha) {
     throw new Error(`Malformed authority attempt presence: ${error.message}`);
   }
   if (inventory?.version !== 2 || inventory.repository !== repository ||
-      inventory.index_tree_sha !== treeSha || !Array.isArray(inventory.positive_prs) ||
+      !HEAD.test(String(inventory.index_tree_sha)) || (treeSha && inventory.index_tree_sha !== treeSha) ||
+      !Array.isArray(inventory.positive_prs) ||
       !inventory.positive_prs.every((value) => Number.isSafeInteger(value) && value > 0) ||
       new Set(inventory.positive_prs).size !== inventory.positive_prs.length ||
       inventory.positive_prs.some((value, index) => index && inventory.positive_prs[index - 1] >= value)) {
@@ -1151,6 +1161,27 @@ function decodePresence(file, repository, treeSha) {
 
 function presenceMembership(entries) {
   return [...new Set(entries.map((entry) => entry.pr_number))].sort((left, right) => left - right);
+}
+
+async function readBootstrapPresence(request, snapshot, ref = snapshot.commitSha) {
+  try {
+    return decodePresence(await request('GET', `${bootstrapPresencePath(snapshot.repo)}?ref=${ref}`), snapshot.repo);
+  } catch (error) { if (error.status === 404) return null; throw error; }
+}
+
+async function createBootstrapPresence(request, snapshot, entries) {
+  const inventory = { version: 2, repository: snapshot.repo, index_tree_sha: snapshot.treeSha,
+    entries, positive_prs: presenceMembership(entries) };
+  try {
+    await request('PUT', bootstrapPresencePath(snapshot.repo), { branch: BRANCH,
+      message: `keepalive authority presence bootstrap ${snapshot.treeSha}`,
+      content: Buffer.from(`${JSON.stringify(inventory)}\n`).toString('base64') });
+  } catch (error) { if (![409, 422].includes(error.status)) throw error; }
+  const settled = await readBootstrapPresence(request, snapshot, BRANCH);
+  if (!settled || settled.index_tree_sha !== snapshot.treeSha ||
+      JSON.stringify(settled.entries) !== JSON.stringify(entries)) {
+    throw new Error('Authority presence bootstrap conflicts with validated inventory');
+  }
 }
 
 async function validatePresenceTree(request, repository, inventory) {

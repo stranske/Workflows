@@ -43,7 +43,7 @@ for (const directory of ['..', '../../../templates/consumer-repo/.github/scripts
     };
     assert.deepEqual(await replay(42), { prNumber: 42, results: [] });
     assert.equal(server.stats().blobs, 1001);
-    assert.equal(server.stats().writes, 2);
+    assert.equal(server.stats().writes, 3);
     for (const number of [43, 44, 9000, 45, 9000]) {
       const before = server.stats();
       if (number === 9000) await assert.rejects(replay(number), /ledger is missing/);
@@ -71,7 +71,7 @@ for (const directory of ['..', '../../../templates/consumer-repo/.github/scripts
       first.hasAttemptIndexesForPr(server.request, repository, 44),
       second.hasAttemptIndexesForPr(server.request, repository, 9000),
     ]), [false, true]);
-    assert.equal(server.stats().writes, 4, 'manifest create and checkpoint CAS races must reconcile');
+    assert.equal(server.stats().writes, 6, 'manifest create and checkpoint CAS races must reconcile');
     const before = server.stats();
     assert.equal(await freshHelper('keepalive_authority_state.js')
       .hasAttemptIndexesForPr(server.request, repository, 44), false);

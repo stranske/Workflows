@@ -1,11 +1,12 @@
 {
-  "captured_at": "2026-10-07T01:29:26.961578+00:00",
-  "mutation": "Disable immutable filename/blob-SHA reuse in scanAttemptIndexes, forcing historical blob rereads",
-  "red_exit": 1,
+  "reuse_mutant": "Disable immutable filename/blob-SHA reuse",
+  "reuse_red_exit": 1,
+  "bootstrap_control": "975fb508ac29b948507bc047243a632902a02645 source with final manifest-loss-plus-churn regression",
+  "bootstrap_red_exit": 1,
   "green_exit": 0,
   "restored_sha256": {
-    ".github/scripts/keepalive_authority_state.js": "6a605c32048862512179d04c19af8366852fbc0a4f2aacb8fb52bdec8772df29",
-    "templates/consumer-repo/.github/scripts/keepalive_authority_state.js": "6a605c32048862512179d04c19af8366852fbc0a4f2aacb8fb52bdec8772df29"
+    ".github/scripts/keepalive_authority_state.js": "df70d060db6e0bd4f2dbb2fe141fc06c9b3c4b3c2c6194fb3d23252478921034",
+    "templates/consumer-repo/.github/scripts/keepalive_authority_state.js": "df70d060db6e0bd4f2dbb2fe141fc06c9b3c4b3c2c6194fb3d23252478921034"
   },
   "byte_identical_restore": true
 }
