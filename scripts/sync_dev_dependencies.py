@@ -308,7 +308,9 @@ def sync_pyproject(
 
     # Extract current dependencies from the section
     current_deps = extract_dependencies(section)
-    current_packages = {pkg.lower(): (pkg, op, ver) for pkg, op, ver in current_deps}
+    current_packages: dict[str, list[tuple[str, str, str]]] = {}
+    for pkg, op, ver in current_deps:
+        current_packages.setdefault(pkg.lower(), []).append((pkg, op, ver))
 
     # Work on a copy of just the section
     new_section = section
@@ -324,12 +326,18 @@ def sync_pyproject(
         for pkg_name in package_names:
             pkg_lower = pkg_name.lower()
             if pkg_lower in current_packages:
-                actual_pkg, current_op, current_ver = current_packages[pkg_lower]
+                occurrences = current_packages[pkg_lower]
+                mismatches = [
+                    item
+                    for item in occurrences
+                    if item[2] != target_version or (use_exact_pins and item[1] != "==")
+                ]
 
                 # Normalize both the version and the operator. A dependency that
                 # already has the target version but still uses ">=" is not in
                 # sync with the reproducible, exact-pin contract.
-                if current_ver != target_version or (use_exact_pins and current_op != "=="):
+                if mismatches:
+                    actual_pkg, current_op, current_ver = mismatches[0]
                     new_section, changed = update_dependency_in_section(
                         new_section, actual_pkg, target_version, use_exact_pins
                     )

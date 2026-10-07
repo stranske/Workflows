@@ -9,6 +9,31 @@ from scripts import sync_dev_dependencies as sdd
 
 @pytest.mark.parametrize("inline", [True, False])
 @pytest.mark.parametrize(
+    "versions", [("==7.0", "==7.1"), ("==7.1", "==7.0"), (">=7.1", "==7.1"), ("==7.1", "==7.1")]
+)
+def test_sync_pyproject_updates_every_marker_occurrence(tmp_path, inline, versions):
+    requirements = [
+        f"coverage[toml]{versions[0]}; python_version < '3.11'",
+        f"coverage[toml]{versions[1]}; python_version >= '3.11'",
+    ]
+    separator = ", " if inline else ",\n    "
+    deps = separator.join(f'"{item}"' for item in requirements)
+    original = "[project.optional-dependencies]\ndev = [" + deps + "]\n"
+    if not inline:
+        original = "[project.optional-dependencies]\ndev = [\n    " + deps + ",\n]\n"
+    project = tmp_path / "pyproject.toml"
+    project.write_text(original)
+    changes, errors = sdd.sync_pyproject(project, {"COVERAGE_VERSION": "7.1"}, apply=True)
+    assert not errors
+    assert bool(changes) == (versions != ("==7.1", "==7.1"))
+    expected = original.replace(versions[0] + "; python_version <", "==7.1; python_version <")
+    expected = expected.replace(versions[1] + "; python_version >=", "==7.1; python_version >=")
+    assert project.read_text() == expected
+    assert sdd.sync_pyproject(project, {"COVERAGE_VERSION": "7.1"}, apply=True) == ([], [])
+
+
+@pytest.mark.parametrize("inline", [True, False])
+@pytest.mark.parametrize(
     "requirement",
     ["coverage[toml]==7.0", "coverage[toml]", "coverage[toml]>=7.0; python_version < '3.14'"],
 )

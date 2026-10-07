@@ -1714,6 +1714,10 @@ against repository containment, including resolved symlink targets. Canonical
 pyproject updates keep dependency extras before the version and preserve markers.
 Inline dependency arrays recognize quoted extras brackets as requirement content,
 not the end of the array, and are tested through the full pyproject update path.
+Repeated marker-qualified entries are evaluated together: a canonical last entry
+must not hide an earlier stale version or non-exact operator. Update every
+matching occurrence while preserving its extras and environment marker; a second
+apply must be a no-op.
 Both apply branches derive publication readiness from the final tree diff; dry
 runs perform the same resolution in the disposable checkout without publishing.
 The final apply output, rather than the preliminary direct-pin check, supplies
