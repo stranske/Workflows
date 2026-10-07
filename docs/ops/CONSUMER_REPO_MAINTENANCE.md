@@ -293,6 +293,14 @@ Postposed `only`/`solely if`/`when` conditions do not become unconditional
 checklist deliveries. Postposed negative requirement adjectives reuse the shared
 negative-governor vocabulary, retaining their adverb qualifier rather than
 turning `currently not required` into a positive imperative.
+Qualified checklist continuations use the same independent-actor grammar as
+proof-object recognition, including `and`/`or`/`but` forms; a conditional or
+negative clause cannot govern a later mandatory reviewer. This normalization
+does not rewrite unrelated product clauses, and capability verbs cannot become
+recipient adjectives that split repeated product capabilities into deliveries.
+Relative optional/prohibited delivery
+predicates reuse the shared governors and delivery operations. Attached simple
+copular availability (`that is available`) stays inside the destination branch.
 Both channel classification and destination-OR expansion use that same span.
 Both paths also share the independent review-predicate exclusion: an actor
 such as `the PR description that must contain command output` is not consumed

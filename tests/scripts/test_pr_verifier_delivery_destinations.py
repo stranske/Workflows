@@ -9,6 +9,23 @@ from scripts import docs_drift_fix_agent as fix_agent
 from scripts.langchain import pr_verifier as verifier
 
 
+@pytest.mark.parametrize("qualifier", ["only if tests fail", "currently not required"])
+@pytest.mark.parametrize("modifier", ["", "also ", "now ", "explicitly "])
+@pytest.mark.parametrize("independent", [False, True])
+def test_qualified_checklist_does_not_split_following_product_capability(
+    qualifier, modifier, independent
+):
+    criterion = (
+        f"- [ ] Test evidence in a PR comment {qualifier}; "
+        f"the UI lets users submit evidence and {modifier}lets clients post PR comments"
+    )
+    if independent:
+        criterion += "; the reviewer must upload validation artifacts to the PR"
+    assert verifier._required_evidence_channels(criterion) == (
+        {"artifacts"} if independent else set()
+    )
+
+
 @pytest.mark.parametrize(
     "destination", ["a PR comment", "the PR description", "a workflow artifact"]
 )
@@ -371,19 +388,56 @@ def test_temporal_checklist_shorthand_preserves_named_delivery(
 )
 @pytest.mark.parametrize("destination", ["a PR comment", "the PR body", "the PR description"])
 @pytest.mark.parametrize("independent", [False, True])
+@pytest.mark.parametrize("joiner", [". ", "; ", " and ", ", and ", " or ", ", or ", " but "])
 def test_checklist_suffix_cannot_promote_conditional_or_negative_delivery(
-    marker, suffix, destination, independent
+    marker, suffix, destination, independent, joiner
 ):
-    criterion = f"{marker} [ ] Test evidence in {destination} {suffix}."
-    extra = "; the reviewer must record evidence in a workflow artifact" if independent else ""
+    criterion = f"{marker} [ ] Test evidence in {destination} {suffix}"
+    extra = (
+        joiner + "the reviewer must record evidence in a workflow artifact" if independent else "."
+    )
     expected = {"artifacts"} if independent else set()
     assert verifier._required_evidence_channels(criterion + extra) == expected
     assert verifier._required_evidence_options(criterion + extra) == [expected]
 
 
+@pytest.mark.parametrize("marker", ["-", "*", "+", "1.", "1)"])
 @pytest.mark.parametrize("relative", ["that", "which"])
 @pytest.mark.parametrize(
-    "predicate", ["must remain available", "shall stay accessible", "is required to be present"]
+    "predicate",
+    [
+        "need not be provided",
+        "is not expected to be recorded",
+        "may be omitted",
+        "can be provided",
+        "must not be supplied",
+    ],
+)
+@pytest.mark.parametrize("destination", ["a PR comment", "the PR body", "the PR description"])
+@pytest.mark.parametrize("joiner", ["; ", " and ", ", and "])
+@pytest.mark.parametrize("independent", [False, True])
+def test_relative_checklist_delivery_reuses_negative_optional_governor(
+    marker, relative, predicate, destination, joiner, independent
+):
+    criterion = f"{marker} [ ] Test evidence in {destination} {relative} {predicate}"
+    if independent:
+        criterion += joiner + "the reviewer must record evidence in a workflow artifact"
+    expected = {"artifacts"} if independent else set()
+    assert verifier._required_evidence_channels(criterion) == expected
+    assert verifier._required_evidence_options(criterion) == [expected]
+
+
+@pytest.mark.parametrize("relative", ["that", "which"])
+@pytest.mark.parametrize(
+    "predicate",
+    [
+        "must remain available",
+        "shall stay accessible",
+        "is required to be present",
+        "is available",
+        "is accessible",
+        "are present",
+    ],
 )
 @pytest.mark.parametrize("reverse", [False, True])
 @pytest.mark.parametrize("independent", [False, True])

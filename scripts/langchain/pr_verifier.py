@@ -1010,14 +1010,20 @@ _INDEPENDENT_REVIEW_PREDICATE = (
     + _NEGATIVE_EVIDENCE_REQUIREMENT_GOVERNOR
     + r"|is|are|will|should|may|can)\b"
 )
-_INDEPENDENT_REVIEW_CLAUSE = (
-    # An attached availability qualifier does not introduce another delivery.
-    r"(?!(?:that|which)\s+"
+_ATTACHED_REVIEW_AVAILABILITY = (
+    r"(?:that|which)\s+"
     + _EVIDENCE_DELIVERY_ADVERBS
     + _INDEPENDENT_REVIEW_PREDICATE
     + r"\s+"
     + _EVIDENCE_DELIVERY_ADVERBS
-    + r"(?:remain|stay|be)\s+(?:available|accessible|present)\b)"
+    + r"(?:remain|stay|be)\s+(?:available|accessible|present)\b|"
+    r"(?:that|which)\s+(?:is|are)\s+"
+    + _EVIDENCE_DELIVERY_ADVERBS
+    + r"(?:available|accessible|present)\b"
+)
+_INDEPENDENT_REVIEW_CLAUSE = (
+    # An attached availability qualifier does not introduce another delivery.
+    r"(?!" + _ATTACHED_REVIEW_AVAILABILITY + r")"
     r"(?:(?:that|which)\s+)?" + _EVIDENCE_DELIVERY_ADVERBS + _INDEPENDENT_REVIEW_PREDICATE
 )
 
@@ -1159,7 +1165,7 @@ def _required_evidence_channels(acceptance: str, *, _bind_attached: bool = True)
     recipient_prefix = (
         r"(?:(?:all|any|some|each|every)\s+)?"
         r"(?:(?:the|its|our|their|your|an?)\s+)?"
-        r"(?:(?!(?:and|or|but|must|shall|is|are|not|never|may|can|to|of|for|by|with|who|that|which)\b)[\w/-]+\s+){0,4}"
+        r"(?:(?!(?:and|or|but|must|shall|is|are|not|never|may|can|to|of|for|by|with|who|that|which|lets?|allows?|enables?)\b)[\w/-]+\s+){0,4}"
     )
     recipient_noun = recipient_prefix + r"(?:clients?|users?|consumers?)\b"
     product_recipient = r"(?:to|for)\s+" + recipient_noun
@@ -1203,50 +1209,7 @@ def _required_evidence_channels(acceptance: str, *, _bind_attached: bool = True)
         + delivery_destination_item
         + r")*"
     )
-    # Checklist shorthand is a bounded delivery predicate. Reuse the normal
-    # destination grammar so AND/OR lists retain their established semantics.
-    acceptance = re.sub(
-        r"(?P<literal>" + quoted_evidence_literal + r")|"
-        r"(?P<checklist>^[ \t]*(?:[-*+]|\d+[.)])[ \t]*\[[ xX]\][ \t]*(?:\r?\n[ \t]*)?)"
-        r"(?P<object>(?:(?:test|validation|CI|build|execution)\s+){0,3}"
-        r"(?:evidence|command outputs?|transcripts?))\s+"
-        r"(?P<destinations>" + bound_review_destinations + r")"
-        r"(?P<qualification>\s+(?:"
-        r"(?P<conditional>(?:only|solely)\s+(?:if|when)\b[^\n;.!]*)|"
-        r"(?P<qualifier_adverbs>" + delivery_adverbs + r")"
-        r"(?P<negative>" + _NEGATIVE_EVIDENCE_ADJECTIVE_TAIL + r")))?"
-        r"(?=[ \t]*(?:[;.!]|$|(?:that|which|where|" + _REVIEW_BODY_COMPONENT_TEMPORAL + r")\b))",
-        lambda match: (
-            match[0]
-            if match["literal"] or re.search(r"\r?\n[ \t]*\r?\n", match[0])
-            else (
-                match["checklist"]
-                + match["object"]
-                + " may be "
-                + match["destinations"]
-                + match["qualification"]
-                if match["conditional"]
-                else (
-                    match["checklist"]
-                    + match["object"]
-                    + " is "
-                    + match["negative"]
-                    + " to be "
-                    + match["destinations"]
-                    + " "
-                    + match["qualifier_adverbs"]
-                    if match["negative"]
-                    else match["checklist"]
-                    + "Provide "
-                    + match["object"]
-                    + " "
-                    + match["destinations"]
-                )
-            )
-        ),
-        acceptance,
-        flags=re.I | re.M,
-    )
+
     # Common proof nouns reuse shared polarity/product/literal grammar, but
     # destinations must belong to this object's own finite actor clause.
     parenthetical_actor = (
@@ -1273,10 +1236,87 @@ def _required_evidence_channels(acceptance: str, *, _bind_attached: bool = True)
         + r"(?:\s+(?:of|for|used\s+by|managed\s+by|using|testing|accessing|operating)\s+"
         r"(?:(?!(?:and|or|but|must|shall|is|are|not|never|may|can|has|have)\b)[\w/-]+\s+){0,4}"
         r"(?!(?:and|or|but|must|shall|is|are|not|never|may|can|has|have)\b)[\w/-]+)?"
-        + r"\s+(?:(?:that|which)\s+)?"
+        + r"\s+(?!"
+        + _ATTACHED_REVIEW_AVAILABILITY
+        + r")(?:(?:that|which)\s+)?"
         + delivery_adverbs
         + independent_proof_predicate
         + r")"
+    )
+
+    # Checklist shorthand is a bounded delivery predicate. Reuse the normal
+    # destination grammar so AND/OR lists retain their established semantics.
+    def normalize_checklist_delivery(match: re.Match) -> str:
+        if match["literal"] or re.search(r"\r?\n[ \t]*\r?\n", match[0]):
+            return match[0]
+        subject = match["checklist"] + match["object"]
+        following = re.sub(
+            r"(?P<literal>" + quoted_evidence_literal + r")|" + proof_actor_boundary,
+            lambda boundary: boundary[0] if boundary["literal"] else "; ",
+            match["following"] or "",
+            flags=re.I,
+        )
+        if match["relative_predicate"]:
+            return (
+                subject
+                + " "
+                + match["relative_predicate"]
+                + " "
+                + match["destinations"]
+                + following
+            )
+        if match["conditional"]:
+            # Scope boundary normalization to this postposed condition only.
+            # Product capability clauses elsewhere keep their governing actor.
+            qualification = re.sub(
+                r"(?P<literal>" + quoted_evidence_literal + r")|" + proof_actor_boundary,
+                lambda boundary: boundary[0] if boundary["literal"] else "; ",
+                match["qualification"],
+                flags=re.I,
+            )
+            return subject + " may be " + match["destinations"] + qualification + following
+        if match["negative"]:
+            return (
+                subject
+                + " is "
+                + match["negative"]
+                + " to be "
+                + match["destinations"]
+                + " "
+                + match["qualifier_adverbs"]
+                + following
+            )
+        return match["checklist"] + "Provide " + match["object"] + " " + match["destinations"]
+
+    acceptance = re.sub(
+        r"(?P<literal>" + quoted_evidence_literal + r")|"
+        r"(?P<checklist>^[ \t]*(?:[-*+]|\d+[.)])[ \t]*\[[ xX]\][ \t]*(?:\r?\n[ \t]*)?)"
+        r"(?P<object>(?:(?:test|validation|CI|build|execution)\s+){0,3}"
+        r"(?:evidence|command outputs?|transcripts?))\s+"
+        r"(?P<destinations>" + bound_review_destinations + r")"
+        r"(?P<qualification>\s+(?:"
+        r"(?:that|which)\s+(?P<relative_predicate>(?:"
+        + negative_requirement_governor
+        + r"|"
+        + optional_delivery_modal
+        + r"(?:\s+(?:not|never|no\s+longer))?|"
+        + mandatory_auxiliary
+        + r"\s+(?:not|never|no\s+longer))\s+"
+        + delivery_adverbs
+        + r"(?:"
+        + delivery_action_prefix
+        + r")?(?:"
+        + shared_proof_delivery_operation
+        + r"|omit\w*\b))|"
+        r"(?P<conditional>(?:only|solely)\s+(?:if|when)\b[^\n;.!]*)|"
+        r"(?P<qualifier_adverbs>" + delivery_adverbs + r")"
+        r"(?P<negative>" + _NEGATIVE_EVIDENCE_ADJECTIVE_TAIL + r")))?"
+        r"(?=[ \t]*(?:[,;.!]|$|(?:and|or|but|if|when|that|which|where|"
+        + _REVIEW_BODY_COMPONENT_TEMPORAL
+        + r")\b))(?(qualification)(?P<following>[^\n]*))",
+        normalize_checklist_delivery,
+        acceptance,
+        flags=re.I | re.M,
     )
 
     # Enforcing provenance at a storage location is a property, not delivery.
