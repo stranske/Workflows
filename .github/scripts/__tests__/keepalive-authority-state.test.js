@@ -22,6 +22,103 @@ const prNumber = 42;
 const fingerprint = 'a'.repeat(64);
 const headSha = 'd'.repeat(40);
 const ownerAttempt = 'owner/repo:100:1';
+const { presenceServer } = require('./helpers/keepalive-presence-server.js');
+
+for (const directory of ['..', '../../../templates/consumer-repo/.github/scripts']) {
+  function freshHelper(filename) {
+    const authority = require.resolve(`${directory}/keepalive_authority_state.js`);
+    delete require.cache[authority];
+    const target = require.resolve(`${directory}/${filename}`);
+    delete require.cache[target];
+    return require(target);
+  }
+
+  test(`${directory}: separate default reporters reuse positive and negative inventory`, async () => {
+    const server = presenceServer();
+    const replay = async (number) => {
+      const { replayReporterAuthority } = freshHelper('keepalive_reporter_applicability.js');
+      // Exercise both production defaults, including the real pinned ledger read.
+      return replayReporterAuthority({ github: {}, context: { repo: { owner: 'owner', repo: 'repo' } },
+        prNumber: number, makeRequest: () => server.request });
+    };
+    assert.deepEqual(await replay(42), { prNumber: 42, results: [] });
+    assert.equal(server.stats().blobs, 1001);
+    assert.equal(server.stats().writes, 1);
+    for (const number of [43, 44, 9000, 45, 9000]) {
+      const before = server.stats();
+      if (number === 9000) await assert.rejects(replay(number), /ledger is missing/);
+      else assert.deepEqual(await replay(number), { prNumber: number, results: [] });
+      assert.equal(server.stats().blobs, before.blobs);
+      assert.equal(server.stats().writes, before.writes);
+      assert.ok(server.stats().calls - before.calls <= 15, 'warm calls must be bounded');
+    }
+    // An older writer only publishes an index; it knows nothing about inventories.
+    server.addAttempt(44);
+    await assert.rejects(replay(44), /ledger is missing/);
+    assert.equal(server.stats().blobs, 2003);
+    const settled = server.stats();
+    await assert.rejects(replay(44), /ledger is missing/);
+    await replay(45);
+    assert.equal(server.stats().blobs, settled.blobs);
+    assert.equal(server.stats().writes, settled.writes);
+  });
+
+  test(`${directory}: separate backfill writers converge on the same complete inventory`, async () => {
+    const server = presenceServer({ count: 20 });
+    const first = freshHelper('keepalive_authority_state.js');
+    const second = freshHelper('keepalive_authority_state.js');
+    assert.deepEqual(await Promise.all([
+      first.hasAttemptIndexesForPr(server.request, repository, 44),
+      second.hasAttemptIndexesForPr(server.request, repository, 9000),
+    ]), [false, true]);
+    assert.equal(server.stats().writes, 2, 'the second create must reconcile its 422');
+    const before = server.stats();
+    assert.equal(await freshHelper('keepalive_authority_state.js')
+      .hasAttemptIndexesForPr(server.request, repository, 44), false);
+    assert.equal(server.stats().blobs, before.blobs);
+  });
+
+  test(`${directory}: partial backfill and landed lost response deny the current read`, async () => {
+    for (const phase of ['scan', 'publication']) {
+      const server = presenceServer({ count: 20 });
+      let failed = false;
+      server.setHook(({ method, path }) => {
+        if (!failed && (phase === 'scan' ? path.includes('/git/blobs/') : method === 'PUT')) {
+          failed = true;
+          throw status(503);
+        }
+      });
+      await assert.rejects(freshHelper('keepalive_authority_state.js')
+        .hasAttemptIndexesForPr(server.request, repository, 44), /HTTP 503/);
+      assert.equal(server.stats().writes, phase === 'scan' ? 0 : 1);
+      const before = server.stats();
+      assert.equal(await freshHelper('keepalive_authority_state.js')
+        .hasAttemptIndexesForPr(server.request, repository, 44), false);
+      // A failed scan publishes nothing. A landed lost-response write is usable
+      // only by a later independent reader that validates the settled snapshot.
+      assert.equal(server.stats().blobs - before.blobs, phase === 'scan' ? 20 : 0);
+    }
+  });
+
+  for (const missing of ['github', 'attempts']) {
+    test(`${directory}: first older-writer index cannot hide behind absent ${missing}`, async () => {
+      const server = presenceServer({ count: 0, missing });
+      const { hasAttemptIndexesForPr } = freshHelper('keepalive_authority_state.js');
+      assert.equal(await hasAttemptIndexesForPr(server.request, repository, 44), false);
+      let advanced = false;
+      server.setHook(({ path }) => {
+        const absentTree = missing === 'github' ? 200001 : 300001;
+        if (!advanced && path.endsWith(absentTree.toString(16).padStart(40, '0'))) {
+          advanced = true;
+          server.addAttempt(44);
+        }
+      });
+      await assert.rejects(hasAttemptIndexesForPr(server.request, repository, 44), /changed during/);
+      assert.equal(server.stats().writes, 0, 'uncertain absence must not be published');
+      assert.equal(await hasAttemptIndexesForPr(server.request, repository, 44), true);
+    });
+  }
+}
 
 function replayTreeRequest({ missingRef = false, truncated = false,
   ledgerPresent = false, blobUnavailable = false, malformedBase64 = false,

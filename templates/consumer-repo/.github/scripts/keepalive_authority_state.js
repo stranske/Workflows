@@ -993,7 +993,15 @@ async function findAuthorityPrForAttempt({ request, repository, ownerAttempt }) 
 async function hasAttemptIndexesForPr(request, repository, prNumber) {
   pathFor(repository, prNumber);
   const snapshot = await attemptIndexTree(request, repository);
-  if (!snapshot) return false;
+  if (snapshot.treeSha === null) {
+    // The first index may be created by a legacy writer after this snapshot.
+    // Missing directories need the same freshness fence as cached negatives.
+    const current = await attemptIndexTree(request, snapshot.repo);
+    if (current.treeSha !== null) {
+      throw new Error('Authority attempt indexes changed during absence read');
+    }
+    return false;
+  }
   let inventory = await readAttemptPresence(request, snapshot.repo, snapshot.treeSha, snapshot.commitSha);
   if (!inventory) {
     const positives = await scanAttemptIndexes(request, snapshot);
@@ -1040,7 +1048,7 @@ async function attemptIndexTree(request, repository) {
     }
     if (segment !== null) {
       const entry = tree.tree.find((item) => item.path === segment);
-      if (!entry) return false;
+      if (!entry) return { repo, commitSha, treeSha: null };
       if (entry.type !== 'tree') throw new Error('Authority attempt directory is not a tree');
       treeSha = entry.sha;
       continue;

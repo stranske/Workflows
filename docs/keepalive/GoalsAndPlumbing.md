@@ -544,6 +544,15 @@ that creates an attempt index changes the subtree key. An older negative invento
 therefore cannot certify absence in the newer tree. Retry rebuilds that complete
 new tree rather than updating a partial positive-only marker.
 
+When the pinned snapshot has no `.github` or attempt directory, the reader
+rechecks the current branch's complete trees before returning absence. Creation
+of the first attempt directory during that read is uncertain and fails closed;
+the next independent read migrates the newly present subtree. A failed scan
+publishes nothing. A publication whose response is lost denies the current read
+even if it landed; a later reader may reuse it only after validating the durable
+inventory and the current subtree. Concurrent create-only backfills may converge
+on an identical independently validated inventory after a 409/422 response.
+
 The first migration scan remains proportional to legacy indexes. Once persisted,
 separate later reporter instances reuse one inventory without reading every index
 blob again; tree and inventory API calls remain bounded independently of index
