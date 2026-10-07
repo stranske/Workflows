@@ -66,7 +66,7 @@
     "tests/scripts/test_launch_mutation_driver.py": "835dd55ce8682f2ee6bfa532b342389066e066e8c9ca5e082688742509a5783f",
     "tests/scripts/test_runtime_probe_replay.py": "62656876543b4346f93035507a57371dddc88ac9952e280a46cf155267260bd1",
     "tests/scripts/test_check_deliberate_break_repair_failures.py": "40dc7a08d8e70591b898ce1d0ea11ce7b2ccb567b74f1a9afd1fdabe1adba095",
-    "tests/scripts/test_check_deliberate_break_uv_resolution.py": "ce94b9563434ca3e4ab0eba5e26a288f6910121629cb4e76d11194648ab12d54",
+    "tests/scripts/test_check_deliberate_break_uv_resolution.py": "7a5ad7cee37549cbbdc4feac00f53e535e31f691d0dcc3f26268fd28d3bbf934",
     "scripts/check_deliberate_break.py": "cc97119ea26afec275be3c83d22bc75de0d452cd0f4764896cc9d037274ab25a",
     "templates/consumer-repo/scripts/check_deliberate_break.py": "cc97119ea26afec275be3c83d22bc75de0d452cd0f4764896cc9d037274ab25a"
   }

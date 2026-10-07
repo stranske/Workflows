@@ -64,6 +64,42 @@ test('task progress snapshot changes identity when task membership changes', () 
 
   assert.notEqual(after.fingerprint, before.fingerprint);
 });
+
+test('CodeRabbit release notes do not inflate unchecked keepalive checklist progress', () => {
+  const body = [
+    '### Tasks and acceptance for this chunk',
+    '- [x] Add eight named subprocess boundary cases across both checked-in helper copies.',
+    '',
+    '### Acceptance Criteria',
+    '- [x] **Tests**',
+    '  - [x] Added coverage for failed or blank `uv` lookups in both the root and template checks.',
+    '  - [x] Added replay tests for report paths containing spaces, invalid proof results, and restoration after failures or timeouts.',
+    '  - [x] Replay checks also verify test outcomes and confirm temporary changes are restored.',
+    '- [x] **Documentation**',
+    '  - [x] Added test evidence, coverage comparisons, replay instructions, and artifact integrity records.',
+    '  - [x] Repository-wide coverage remains unmeasured, and the evidence does not authorize merging or closing the issue.',
+    '',
+    '<!-- This is an auto-generated comment: release notes by coderabbit.ai -->',
+    '## Summary by CodeRabbit',
+    '',
+    '* **Tests**',
+    '  * Added coverage for failed or blank `uv` lookups in both the root and template checks.',
+    '  * Added replay tests for report paths containing spaces, invalid proof results, and restoration after failures or timeouts.',
+    '  * Replay checks also verify test outcomes and confirm temporary changes are restored.',
+    '',
+    '* **Documentation**',
+    '  * Added test evidence, coverage comparisons, replay instructions, and artifact integrity records.',
+    '  * Repository-wide coverage remains unmeasured, and the evidence does not authorize merging or closing the issue.',
+    '<!-- end of auto-generated comment: release notes by coderabbit.ai -->',
+  ].join('\n');
+
+  const snapshot = buildTaskProgressSnapshot(body);
+  assert.deepEqual(
+    { total: snapshot.total, completed: snapshot.completed },
+    { total: 8, completed: 8 },
+  );
+});
+
 const { formatStateComment, parseStateComment } = require('../keepalive_state.js');
 const { signAuthorityChallengeClaim } = require('../keepalive_challenge_due.js');
 const { stripPrTemplateContent, upsertBlock } = require('../agents_pr_meta_update_body.js');

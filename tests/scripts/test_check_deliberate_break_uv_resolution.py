@@ -29,10 +29,10 @@ def test_uv_resolution_refuses_failed_or_empty_lookup(tmp_path, helper, phase):
         f"with Path({str(calls)!r}).open('a') as stream:\n"
         "    stream.write(json.dumps({'args': sys.argv[1:], 'cwd': str(Path.cwd())}) + '\\n')\n"
         "if sys.argv[1:] == ['run', 'which', 'pytest']:\n"
-        f"    print('   ' if phase == 'pytest-empty' else {str(pytest_launcher)!r})\n"
+        f"    print('\\n\\t' if phase == 'pytest-empty' else {str(pytest_launcher)!r})\n"
         "    raise SystemExit(1 if phase == 'pytest-nonzero' else 0)\n"
         "if sys.argv[1:] == ['run', 'which', 'python3']:\n"
-        f"    print('   ' if phase == 'python-empty' else {sys.executable!r})\n"
+        f"    print('\\n\\t' if phase == 'python-empty' else {sys.executable!r})\n"
         "    raise SystemExit(1 if phase == 'python-nonzero' else 0)\n"
         "raise AssertionError('lookup must not launch pytest, Python, or an installer')\n",
         encoding="utf-8",
