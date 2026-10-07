@@ -256,15 +256,96 @@ def test_independent_relative_body_presence_after_nonmandatory_delivery(
 )
 @pytest.mark.parametrize("coordination", ["and", "or"])
 @pytest.mark.parametrize("predicate", ["must contain", "may contain", "must not contain"])
+@pytest.mark.parametrize("first", [False, True])
+@pytest.mark.parametrize("independent", [False, True])
+@pytest.mark.parametrize(
+    "condition",
+    ["", " if available", ", when present", " only if available", " solely when present"],
+)
 def test_relative_presence_preserves_parent_mandatory_alternatives(
-    relative, destination, channel, other, other_channel, coordination, predicate
+    relative,
+    destination,
+    channel,
+    other,
+    other_channel,
+    coordination,
+    predicate,
+    first,
+    independent,
+    condition,
 ):
-    criterion = f"The reviewer must record evidence in {other} {coordination} {destination} {relative} {predicate} command output"
+    relative_destination = f"{destination} {relative} {predicate} command output{condition}"
+    members = [relative_destination, "in " + other] if first else [other, relative_destination]
+    criterion = "The reviewer must record evidence in " + f" {coordination} ".join(members)
+    if independent:
+        criterion += "; the auditor must record evidence in a workflow artifact"
     options = verifier._required_evidence_options(criterion)
+    if independent:
+        assert all("artifacts" in option for option in options)
     statuses = (set(), {channel}, {other_channel}, {channel, other_channel})
     for present in statuses:
         satisfied = (bool(present) if coordination == "or" else len(present) == 2) and (
-            predicate != "must contain" or channel in present
+            predicate != "must contain" or bool(condition) or channel in present
+        )
+        evidence = (
+            "- Overall retrieval status: **present**\n"
+            f"- PR body: **{'present' if 'body' in present else 'absent'}**\n"
+            f"- PR comments: **{'present' if 'comments' in present else 'absent'}**\n"
+            "- Referenced workflow artifacts: **present**"
+        )
+        assert (
+            any(not verifier._required_evidence_is_missing(evidence, option) for option in options)
+            == satisfied
+        )
+
+
+@pytest.mark.parametrize(
+    "qualifier",
+    [
+        "may contain command output",
+        "must contain command output",
+        "must not contain command output",
+        "may contain command output if available",
+        "must contain command output if available",
+        "must always remain available",
+        "is currently available",
+    ],
+)
+@pytest.mark.parametrize("first", [False, True])
+@pytest.mark.parametrize("actor,operation", [("reviewer", "record"), ("UI", "generate")])
+@pytest.mark.parametrize(
+    "destination,channel,other,other_channel",
+    [
+        ("the PR body", "body", "a PR comment", "comments"),
+        ("the PR description", "body", "a PR comment", "comments"),
+        ("a PR comment", "comments", "the PR body", "body"),
+    ],
+)
+@pytest.mark.parametrize("coordination", ["and", "or"])
+@pytest.mark.parametrize("independent", [False, True])
+def test_comma_relative_attachments_preserve_parent_floor(
+    qualifier,
+    first,
+    actor,
+    operation,
+    destination,
+    channel,
+    other,
+    other_channel,
+    coordination,
+    independent,
+):
+    attached = f"{destination}, which {qualifier}"
+    members = [attached + ",", "in " + other] if first else [other, attached]
+    criterion = f"The {actor} must {operation} evidence in " + f" {coordination} ".join(members)
+    if independent:
+        criterion += "; the auditor must record evidence in a workflow artifact"
+    options = verifier._required_evidence_options(criterion)
+    if independent:
+        assert all("artifacts" in option for option in options)
+    for present in (set(), {channel}, {other_channel}, {channel, other_channel}):
+        satisfied = (bool(present) if coordination == "or" else len(present) == 2) and (
+            qualifier != "must contain command output" or channel in present
         )
         evidence = (
             "- Overall retrieval status: **present**\n"
@@ -837,15 +918,24 @@ def test_relative_checklist_delivery_reuses_negative_optional_governor(
 @pytest.mark.parametrize("reverse", [False, True])
 @pytest.mark.parametrize("independent", [False, True])
 @pytest.mark.parametrize("body_alias", ["body", "description"])
+@pytest.mark.parametrize("first", [False, True])
+@pytest.mark.parametrize("repeat_preposition", [False, True])
+@pytest.mark.parametrize("actor", ["nominal", "reviewer", "UI"])
 def test_attached_availability_relative_preserves_destination_or(
-    relative, predicate, reverse, independent, body_alias
+    relative, predicate, reverse, independent, body_alias, first, repeat_preposition, actor
 ):
     destinations = [f"the PR {body_alias}", "a PR comment"]
     if reverse:
         destinations.reverse()
-    criterion = (
-        f"Test evidence must be in {destinations[0]} or {destinations[1]} {relative} {predicate}"
+    destinations[0 if first else 1] += f" {relative} {predicate}"
+    if repeat_preposition:
+        destinations[1] = "in " + destinations[1]
+    prefix = (
+        "Test evidence must be in "
+        if actor == "nominal"
+        else f"The {actor} must generate evidence in "
     )
+    criterion = prefix + " or ".join(destinations)
     if independent:
         criterion += "; the reviewer must record evidence in a workflow artifact"
     extra = {"artifacts"} if independent else set()

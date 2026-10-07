@@ -1090,6 +1090,9 @@ _EVIDENCE_REVIEW_DESTINATION = (
 )
 _EVIDENCE_DESTINATION_PREPOSITION = r"(?:in|into|to|within|for|as|through|via)"
 _EVIDENCE_DESTINATION_SEPARATOR_BASE = r"(?:\s*,\s*(?:(?:and|or)\s+)?|\s+(?:and|or)\s+)"
+_EVIDENCE_CONDITIONAL = (
+    r"\b(?:(?:only|solely)\s+)?(?:if|when)\s+(?:produced|available|present|uploaded|generated)\b"
+)
 
 
 def _normalize_passive_review_agents(acceptance: str) -> str:
@@ -1176,7 +1179,7 @@ def _normalize_relative_review_presence(acceptance: str) -> str:
     """Keep a relative presence governor independent of its parent's AND/OR."""
     presence = (
         r"(?P<destination>(?:pr|pull request)\s+(?:body|description|comments?)\b)"
-        r"\s+(?:that|which)\s+(?P<predicate>"
+        r"\s*,?\s*(?:that|which)\s+(?P<predicate>"
         + _EVIDENCE_DELIVERY_ADVERBS
         + _INDEPENDENT_REVIEW_PREDICATE
         + r"\s+"
@@ -1192,16 +1195,59 @@ def _normalize_relative_review_presence(acceptance: str) -> str:
         + _EVIDENCE_PROOF_ALIAS_NOUN
         + r"))\b"
     )
-    return re.sub(
-        r"(?P<literal>" + _QUOTED_EVIDENCE_LITERAL + r")|" + presence,
-        lambda match: (
-            match[0]
-            if match["literal"]
-            else match["destination"] + "; " + match["destination"] + " " + match["predicate"]
-        ),
-        acceptance,
-        flags=re.I,
+    availability = (
+        r"(?P<availability_destination>(?:pr|pull request)\s+(?:body|description|comments?)\b)"
+        r"\s*,?\s*(?P<availability>" + _ATTACHED_REVIEW_AVAILABILITY + r")"
     )
+    destination_tail = re.compile(
+        r"(?:"
+        + _EVIDENCE_DESTINATION_SEPARATOR_BASE
+        + r"(?:"
+        + _EVIDENCE_DESTINATION_PREPOSITION
+        + r"\s+)?"
+        + _EVIDENCE_REVIEW_DESTINATION
+        + r")*",
+        re.I,
+    )
+    matches = list(
+        re.finditer(
+            r"(?P<literal>" + _QUOTED_EVIDENCE_LITERAL + r")|" + presence + "|" + availability,
+            acceptance,
+            re.I,
+        )
+    )
+    # Handle later qualifiers first so an earlier parent's complete destination
+    # tail is visible after those qualifiers have been separated. Earlier
+    # immutable offsets remain valid because all edits are to their right.
+    for match in reversed(matches):
+        if match["literal"]:
+            continue
+        condition = (
+            re.compile(r"\s*,?\s*" + _EVIDENCE_CONDITIONAL, re.I).match(acceptance, match.end())
+            if match["predicate"]
+            else None
+        )
+        tail = destination_tail.match(acceptance, condition.end() if condition else match.end())
+        assert tail is not None
+        destination = match["destination"] or match["availability_destination"]
+        parent = destination + tail[0]
+        if match["predicate"]:
+            replacement = (
+                parent
+                + "; "
+                + destination
+                + " "
+                + match["predicate"]
+                + (condition[0] if condition else "")
+            )
+        elif tail[0]:
+            # Availability is attached metadata, not a second presence duty.
+            # Keep the full parent alternatives before this qualifier.
+            replacement = parent + " " + match["availability"]
+        else:
+            continue
+        acceptance = acceptance[: match.start()] + replacement + acceptance[tail.end() :]
+    return acceptance
 
 
 def _required_evidence_channels(acceptance: str, *, _bind_attached: bool = True) -> set[str]:
@@ -1313,7 +1359,7 @@ def _required_evidence_channels(acceptance: str, *, _bind_attached: bool = True)
         acceptance,
         flags=re.I,
     )
-    conditional_evidence = r"\b(?:if|when)\s+(?:produced|available|present|uploaded|generated)\b"
+    conditional_evidence = _EVIDENCE_CONDITIONAL
     recipient_prefix = _EVIDENCE_RECIPIENT_PREFIX
     recipient_noun = recipient_prefix + r"(?:clients?|users?|consumers?)\b"
     product_recipient = r"(?:to|for)\s+" + recipient_noun

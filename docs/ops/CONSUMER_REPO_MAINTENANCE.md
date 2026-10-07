@@ -1724,6 +1724,19 @@ their enclosing delivery before channel and alternative classification. Their
 independent governor retains polarity, while the parent's genuine AND/OR list
 retains its own semantics. Availability relatives and named product components
 are not independent presence deliveries; quoted parser examples stay opaque.
+First-member relative qualifiers preserve the complete bounded parent
+destination tail, including repeated prepositions, before independent presence
+duties are separated. Recognized attached availability is kept with that whole
+AND/OR list rather than hiding its following members. Both attachment positions
+are covered for nominal evidence, reviewer and product actors, channel aliases,
+independent artifact duties and actual missing-channel satisfaction.
+The same shared `if`/`when` evidence-condition vocabulary stays attached to a
+relative presence predicate before its parent destination tail is restored;
+comma-delimited conditions cannot sever or make optional a parent's sibling.
+Comma-delimited relative clauses use that same attachment path, including their
+closing comma before a following destination. Existing `only if`/`solely when`
+condition prefixes remain attached to the relative duty rather than consuming
+the parent's list. Both first/final positions retain actual AND/OR floors.
 Negated obligations use the same delivery-operation grammar as positive
 delivery. An explicitly excluded PR-comment destination (`outside`, `rather
 than`, `instead of`) is not a required comment channel; generic evidence and
