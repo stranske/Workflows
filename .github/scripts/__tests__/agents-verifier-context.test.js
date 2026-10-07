@@ -1681,11 +1681,21 @@ function withTrailingSpaceRename(callback) {
     git('mv', 'old', 'trailing ');
     const diff = git('diff', '--cached', '--find-renames');
     assert.ok(diff.endsWith('rename to trailing \n'));
-    callback(diff);
+    callback(diff, { repoPath, git });
   } finally {
     fs.rmSync(repoPath, { recursive: true, force: true });
   }
 }
+
+test('canonical patch preserves final carriage-return file content emitted by Git', () => {
+  withTrailingSpaceRename((_diff, { repoPath, git }) => {
+    fs.writeFileSync(path.join(repoPath, 'trailing '), 'changed\r\n');
+    git('add', 'trailing ');
+    const diff = git('diff', '--cached', '--find-renames');
+    assert.ok(diff.endsWith('+changed\r\n'));
+    assert.equal(formatDiffForContext(diff, diff.length), diff.slice(0, -1));
+  });
+});
 
 test('summary preserves real-Git terminal rename filename spaces', () => {
   withTrailingSpaceRename(diff => {

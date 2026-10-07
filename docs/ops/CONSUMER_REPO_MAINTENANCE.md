@@ -1223,8 +1223,8 @@ and the final JSON-string marker is authoritative. Malformed marker metadata mak
 coverage UNKNOWN and withholds PASS, never silently removing a file. Legacy summaries retain
 their existing parser for compatibility; generated contexts always emit the marker.
 
-Patch normalization removes only the terminal line break, never
-filename-significant spaces in final rename/copy metadata. Summary parsing,
+Patch normalization removes only Git's terminal LF, never content carriage
+returns or filename-significant spaces in final rename/copy metadata. Summary parsing,
 formatted diff text and changed-code inventory share these canonical bytes and
 character offsets; whitespace-only input remains unavailable. Real-Git rename
 regressions cover trailing spaces, with/without a final newline, and exact

@@ -96,11 +96,11 @@ function formatSections({ heading, url, body }) {
   return lines.join('\n');
 }
 
-// Preserve filename-significant whitespace; only remove the terminal line break.
+// Git patch records use LF: preserve filename spaces and content carriage returns.
 // Empty/whitespace-only transport data is still unavailable, not a valid patch.
 function normalizeDiffPatch(diffText) {
   const diff = String(diffText || '');
-  return diff.trim() ? diff.replace(/\r?\n$/, '') : '';
+  return diff.trim() ? diff.replace(/\n$/, '') : '';
 }
 
 // Share path validation between the human summary and the coverage inventory.
