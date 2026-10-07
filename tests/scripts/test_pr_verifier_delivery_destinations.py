@@ -32,6 +32,33 @@ def _floor_verdict(criterion, *, body, comments, artifacts="present", overall="p
     ).verdict
 
 
+@pytest.mark.parametrize("quotes", [('"', '"'), ("'", "'"), ("`", "`"), ("“", "”"), ("‘", "’")])
+@pytest.mark.parametrize("separator", ["\n", "\r\n", "\n\n", " "])
+@pytest.mark.parametrize("destination", ["the PR body", "a PR comment"])
+@pytest.mark.parametrize("operation", ["The parser recognizes", "The reviewer quotes"])
+@pytest.mark.parametrize("independent", [False, True])
+def test_multiline_quoted_criteria_cannot_create_delivery(
+    quotes, separator, destination, operation, independent
+):
+    opening, closing = quotes
+    criterion = (
+        f"{operation} {opening}- Tests pass locally{separator}"
+        f"- Evidence must be recorded in {destination} by the reviewer{closing}"
+    )
+    if independent:
+        criterion += "; the auditor must record evidence in a workflow artifact"
+    expected = {"artifacts"} if independent else set()
+    assert verifier._required_evidence_channels(criterion) == expected
+    assert verifier._required_evidence_options(criterion) == [expected]
+    for missing in ("absent", "unavailable"):
+        assert _floor_verdict(criterion, body=missing, comments=missing) == "PASS"
+        if independent:
+            assert (
+                _floor_verdict(criterion, body="present", comments="present", artifacts=missing)
+                == "CONCERNS"
+            )
+
+
 @pytest.mark.parametrize(
     "destination,channel", [("the PR body", "body"), ("a PR comment", "comments")]
 )

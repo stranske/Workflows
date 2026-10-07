@@ -1722,6 +1722,9 @@ Explicit passive delivery agents are normalized before both destination and
 alternative classification. The same finite actor, operation, aspect, polarity,
 and destination grammar stops at unquoted list-item and paragraph boundaries.
 Soft wraps within one criterion and quoted multiline examples remain intact;
+criterion splitting protects complete quoted literals before recognizing list
+items or blank paragraphs. Embedded apparent duties cannot create an evidence
+requirement, while independent delivery clauses outside the literal still apply.
 bare list markers are not evidence-object adjectives. An adjective such as
 `optional` inside an explicitly mandatory delivery object does not change its
 governor, while optional modals and post-object availability conditions remain

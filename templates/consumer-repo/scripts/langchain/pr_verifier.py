@@ -3068,7 +3068,15 @@ def _required_evidence_channels(acceptance: str, *, _bind_attached: bool = True)
     )
     criteria: list[str] = []
     paragraph_break = False
-    for raw_line in acceptance.splitlines():
+    # A literal may contain apparent list items and blank paragraphs. Keep it
+    # intact until the literal-aware removal below; only unquoted newlines may
+    # split criteria. Do not change the original text used by other guards.
+    criterion_input = re.sub(
+        quoted_evidence_literal,
+        lambda match: re.sub(r"\r\n|\r|\n", " ", match[0]),
+        acceptance,
+    )
+    for raw_line in criterion_input.splitlines():
         line = raw_line.strip()
         if not line:
             paragraph_break = True
