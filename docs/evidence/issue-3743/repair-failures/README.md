@@ -37,11 +37,22 @@ helper values; no repository-wide percentage or hosted parity is claimed.
 All six named cases actually fail under their respective production mutation
 (exit 1, one JUnit failure, no collection error) and pass after byte-identical
 restoration (exit 0, one pass). Replay creates a private source tree and restores
-each mutated copy in `finally`; caller source/test hashes are unchanged. Rerun:
+each mutated copy in `finally`; caller source/test hashes are unchanged. From the
+repository root, create an isolated environment and install the replay's explicit
+prerequisites before running it (no project dependency installation is needed):
 
 ```sh
-python3 docs/evidence/issue-3743/repair-failures/replay.py --output /tmp/new-repair-proof
+replay_env=$(mktemp -d /tmp/repair-replay-env.XXXXXX)
+python3 -m venv "$replay_env"
+"$replay_env/bin/python" -m pip install 'pytest==8.3.5' 'defusedxml==0.7.1'
+"$replay_env/bin/python" docs/evidence/issue-3743/repair-failures/replay.py \
+  --output /tmp/new-repair-proof
 ```
+
+Use the same environment's Python for any focused pytest rerun. The replay uses
+`sys.executable` for its child processes, so they inherit these installed
+prerequisites. Package installation requires network access; the replay itself
+uses private fixtures and does not install packages or call the network.
 
 The output directory must be new. An actual repeated-output invocation was
 refused with FileExistsError; all 37 existing output-member hashes stayed equal.
