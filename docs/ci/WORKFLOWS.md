@@ -259,6 +259,12 @@ totals remain unknown.
 
 ## Self-test Harness
 
+Gate issue-consistency scans file headers from the net base-to-head diff, not
+first-parent merge history. Integrating current main cannot make an unchanged
+release changelog's historical issue references part of the repair's contract.
+Commit-message checks retain their independent first-parent semantics; missing
+base references retain the existing explicitly marked fallback behavior.
+
 * [`selftest-reusable-ci.yml`](../../.github/workflows/selftest-reusable-ci.yml) exercises `reusable-10-ci-python.yml` across curated scenarios, publishing summaries or PR comments so maintainers can validate reusable changes before they ship.
 
 * [`selftest-ci.yml`](../../.github/workflows/selftest-ci.yml) runs the repository's own test suite (JS + Python tests, linting, YAML validation) on push and PR, including the langchain verdict, verifier, and structured-output contract tests.
