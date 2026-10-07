@@ -1176,7 +1176,7 @@ def _required_evidence_channels(acceptance: str, *, _bind_attached: bool = True)
         r"(?=[ \t]*(?:[;.!]|$))",
         lambda match: (
             match[0]
-            if match["literal"]
+            if match["literal"] or re.search(r"\r?\n[ \t]*\r?\n", match[0])
             else (match["checklist"] + "Provide " + match["object"] + " " + match["destinations"])
         ),
         acceptance,

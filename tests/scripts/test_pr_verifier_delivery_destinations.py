@@ -9,6 +9,22 @@ from scripts import docs_drift_fix_agent as fix_agent
 from scripts.langchain import pr_verifier as verifier
 
 
+@pytest.mark.parametrize(
+    "destination", ["a PR comment", "the PR description", "a workflow artifact"]
+)
+@pytest.mark.parametrize("separator", ["\n", "\n\n"])
+def test_checklist_noun_destination_paragraph_boundary(destination, separator):
+    criterion = f"- [ ]\nEvidence{separator}in {destination}."
+    channels = {
+        "a PR comment": "comments",
+        "the PR description": "body",
+        "a workflow artifact": "artifacts",
+    }
+    assert verifier._required_evidence_channels(criterion) == (
+        {channels[destination]} if separator == "\n" else {"overall"}
+    )
+
+
 @pytest.mark.parametrize("newline", ["\n", "\n\n"])
 @pytest.mark.parametrize("checked", [" ", "x"])
 @pytest.mark.parametrize(
