@@ -1,0 +1,16 @@
+{
+  "argv": [
+    "python3",
+    "-m",
+    "pytest",
+    "tests/scripts/test_launch_mutation_driver.py",
+    "-q",
+    "-o",
+    "addopts="
+  ],
+  "red_exit": 1,
+  "green_exit": 0,
+  "restored_sha256": "e8446f973d4b7263fc35b44b457ef4ec4416d1a06b595122790cb2adcb596f92",
+  "changed_behavior": "finally cleanup removal fails all five launch/exit/timeout cleanup cases; exact restoration passes all five",
+  "prior_suite": "15 passed; root/template ten production mutations replayed separately"
+}
