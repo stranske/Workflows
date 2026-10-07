@@ -1,12 +1,17 @@
+import argparse
+import gzip
 import hashlib
 import json
 import subprocess
 from pathlib import Path
 
-repo = Path(
-    "/Users/teacher/.codex/automations/pd-workloop-resume/worktrees/workflows-3743-proof-coverage"
-)
-out = Path("/Users/teacher/.codex/automations/pd-workloop-resume/evidence/20261007T0401Z")
+parser = argparse.ArgumentParser(description="Rerun the ten launch-boundary source mutations.")
+parser.add_argument("--repo", type=Path, default=Path(__file__).resolve().parents[4])
+parser.add_argument("--output", type=Path, default=Path(__file__).resolve().parent / "revalidation")
+args = parser.parse_args()
+repo = args.repo.resolve()
+out = args.output.resolve()
+out.mkdir(parents=True, exist_ok=True)
 test = "tests/scripts/test_check_deliberate_break_launch_boundaries.py"
 mutations = [
     (
@@ -69,17 +74,21 @@ for prefix in ["", "templates/consumer-repo/"]:
             "-q",
             "-o",
             "addopts=",
+            "-m",
+            "not slow",
         ]
         try:
             source.write_text(changed)
             red = subprocess.run(argv, cwd=repo, capture_output=True, text=True)
-            (out / f"wf-{side}-{name}-red.log").write_text(red.stdout + red.stderr)
+            with gzip.open(out / f"wf-{side}-{name}-red.log.gz", "wt") as log:
+                log.write(red.stdout + red.stderr)
             assert red.returncode == 1, (side, name, red.returncode, red.stdout, red.stderr)
         finally:
             source.write_bytes(original)
         assert source.read_bytes() == original
         green = subprocess.run(argv, cwd=repo, capture_output=True, text=True)
-        (out / f"wf-{side}-{name}-green.log").write_text(green.stdout + green.stderr)
+        with gzip.open(out / f"wf-{side}-{name}-green.log.gz", "wt") as log:
+            log.write(green.stdout + green.stderr)
         assert green.returncode == 0, (side, name, green.stdout, green.stderr)
         receipts.append(
             {
@@ -90,6 +99,8 @@ for prefix in ["", "templates/consumer-repo/"]:
                 "argv": argv,
                 "source_sha256": hashlib.sha256(original).hexdigest(),
                 "mutant_sha256": hashlib.sha256(changed.encode()).hexdigest(),
+                "restored_sha256": hashlib.sha256(source.read_bytes()).hexdigest(),
+                "test_sha256": hashlib.sha256((repo / test).read_bytes()).hexdigest(),
                 "restored_byte_identical": True,
             }
         )

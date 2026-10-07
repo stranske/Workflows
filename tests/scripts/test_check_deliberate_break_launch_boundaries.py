@@ -1,5 +1,6 @@
 """Exercise real command launch boundaries in root and consumer proof helpers."""
 
+import errno
 import os
 import runpy
 import subprocess
@@ -16,12 +17,20 @@ def helper(request):
 
 
 def test_real_command_preserves_existing_pythonpath(tmp_path, monkeypatch, helper):
-    prior = str(tmp_path / "prior-import-root")
+    prior_root = tmp_path / "prior-import-root"
+    prior_root.mkdir()
+    (prior_root / "launch_dependency.py").write_text("VALUE = 'inherited-import'\n")
+    prior = str(prior_root)
     monkeypatch.setenv("PYTHONPATH", prior)
-    command = (sys.executable, "-c", "import os; print(os.environ['PYTHONPATH'])")
+    command = (
+        sys.executable,
+        "-c",
+        "import os, launch_dependency; print(os.environ['PYTHONPATH']); "
+        "print(launch_dependency.VALUE)",
+    )
     result = helper["_run"](command, tmp_path)
     assert result.returncode == 0
-    assert result.stdout.strip() == str(tmp_path) + os.pathsep + prior
+    assert result.stdout.splitlines() == [str(tmp_path) + os.pathsep + prior, "inherited-import"]
     assert result.stderr == ""
     assert os.environ["PYTHONPATH"] == prior
 
@@ -45,6 +54,8 @@ def test_real_missing_executable_is_wrapped_with_its_cause(tmp_path, helper):
         helper["_run_with_runtime_deps"](command, tmp_path)
     assert isinstance(caught.value.error, FileNotFoundError)
     assert caught.value.__cause__ is caught.value.error
+    assert caught.value.error.errno == errno.ENOENT
+    assert caught.value.error.filename == command[0]
     assert str(tmp_path / "nonexistent-command") in str(caught.value.error)
 
 
@@ -91,10 +102,19 @@ def test_real_base_timeout_is_broken_and_cleans_private_archive(tmp_path, monkey
     subprocess.run(["git", "commit", "-qm", "base"], cwd=repo, check=True, capture_output=True)
     base = subprocess.check_output(["git", "rev-parse", "HEAD"], cwd=repo, text=True).strip()
     (repo / "phase.txt").write_text("head")
+    (repo / "test_proof.txt").write_bytes(b"candidate proof\r\n")
+    (repo / "untracked.bin").write_bytes(b"\x00\xffcandidate\r\n")
+    candidate_bytes = {
+        path.relative_to(repo): path.read_bytes()
+        for path in repo.rglob("*")
+        if path.is_file() and ".git" not in path.relative_to(repo).parts
+    }
     command = (
         sys.executable,
         "-c",
-        "from pathlib import Path; import time; time.sleep(10 if Path('phase.txt').read_text() == 'base' else 0)",
+        "from pathlib import Path; import time; "
+        "assert Path('test_proof.txt').read_bytes() == b'candidate proof\\r\\n'; "
+        "time.sleep(10 if Path('phase.txt').read_text() == 'base' else 0)",
     )
     spec = helper["DeliberateBreakSpec"](
         "base-timeout-proof", "test_proof.txt", "phase.txt", command
@@ -105,7 +125,11 @@ def test_real_base_timeout_is_broken_and_cleans_private_archive(tmp_path, monkey
 
     def archive(base, target, cwd):
         extracted.append(target)
-        return original(base, target, cwd)
+        original(base, target, cwd)
+        assert target != repo
+        assert (target / "phase.txt").read_bytes() == b"base"
+        assert (target / "test_proof.txt").read_bytes() == b"proof"
+        assert not (target / "untracked.bin").exists()
 
     monkeypatch.setitem(helper["verify_spec"].__globals__, "_archive_ref", archive)
     result = helper["verify_spec"](spec, base=base, cwd=repo, enforce_tamper=False)
@@ -117,4 +141,8 @@ def test_real_base_timeout_is_broken_and_cleans_private_archive(tmp_path, monkey
     }
     assert len(extracted) == 1
     assert not extracted[0].exists()
-    assert (repo / "phase.txt").read_text() == "head"
+    assert {
+        path.relative_to(repo): path.read_bytes()
+        for path in repo.rglob("*")
+        if path.is_file() and ".git" not in path.relative_to(repo).parts
+    } == candidate_bytes
