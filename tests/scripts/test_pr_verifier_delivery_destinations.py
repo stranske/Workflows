@@ -68,7 +68,9 @@ def test_product_generation_uses_shared_delivery_operations(
 @pytest.mark.parametrize("independent", [False, True])
 @pytest.mark.parametrize("governor", ["must", "may", "must not"])
 @pytest.mark.parametrize("condition", ["", " if available"])
-@pytest.mark.parametrize("voice", ["active", "agent-before", "agent-after"])
+@pytest.mark.parametrize(
+    "voice", ["active", "active-perfect", "active-progressive", "agent-before", "agent-after"]
+)
 def test_product_component_coordination_preserves_bare_other_channel(
     actor,
     operation,
@@ -98,6 +100,11 @@ def test_product_component_coordination_preserves_bare_other_channel(
     }[operation]
     if voice == "active":
         criterion = f"The {actor} {governor} {operation} evidence in {destination}{condition}"
+    elif voice == "active-perfect":
+        criterion = f"The {actor} {governor} have {participle} evidence in {destination}{condition}"
+    elif voice == "active-progressive":
+        progressive = operation[:-1] + "ing" if operation.endswith("e") else operation + "ing"
+        criterion = f"The {actor} {governor} be {progressive} evidence in {destination}{condition}"
     elif voice == "agent-before":
         criterion = (
             f"Evidence {governor} be {participle} by the {actor} in {destination}{condition}"
@@ -166,6 +173,57 @@ def test_passive_delivery_agent_position_preserves_actor_and_floor(
             expected,
         )
         == required
+    )
+
+
+@pytest.mark.parametrize("actor", ["reviewer", "service"])
+@pytest.mark.parametrize(
+    "operation",
+    [
+        "providing",
+        "generating",
+        "proving",
+        "exposing",
+        "storing",
+        "including",
+        "capturing",
+        "leaving",
+        "having",
+    ],
+)
+@pytest.mark.parametrize(
+    "destination,channel",
+    [("the PR body", "body"), ("the PR description", "body"), ("a PR comment", "comments")],
+)
+@pytest.mark.parametrize("governor", ["must", "may", "must not"])
+def test_active_progressive_delivery_inflections(actor, operation, destination, channel, governor):
+    criterion = f"The {actor} {governor} be {operation} evidence in {destination}"
+    expected = {channel} if governor == "must" else set()
+    assert verifier._required_evidence_channels(criterion) == expected
+    assert verifier._required_evidence_options(criterion) == [expected]
+    assert verifier._required_evidence_is_missing(
+        "- Overall retrieval status: **present**\n- PR body: **absent**\n"
+        "- PR comments: **absent**\n- Referenced workflow artifacts: **present**",
+        expected,
+    ) == bool(expected)
+
+
+@pytest.mark.parametrize("governor", ["must not", "may", "is not expected to"])
+@pytest.mark.parametrize("relative", ["that", "which"])
+@pytest.mark.parametrize("predicate", ["must contain", "must include", "must have"])
+@pytest.mark.parametrize("body_alias", ["body", "description"])
+@pytest.mark.parametrize("coordination", ["and", "or"])
+def test_independent_relative_body_presence_after_nonmandatory_delivery(
+    governor, relative, predicate, body_alias, coordination
+):
+    criterion = f"The reviewer {governor} record evidence in a PR comment {coordination} the PR {body_alias} {relative} {predicate} command output"
+    expected = {"body"}
+    assert verifier._required_evidence_channels(criterion) == expected
+    assert verifier._required_evidence_options(criterion) == [expected]
+    assert verifier._required_evidence_is_missing(
+        "- Overall retrieval status: **present**\n- PR body: **absent**\n"
+        "- PR comments: **present**\n- Referenced workflow artifacts: **present**",
+        expected,
     )
 
 

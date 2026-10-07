@@ -991,7 +991,7 @@ _MANDATORY_EVIDENCE_AUXILIARY = (
 )
 _EVIDENCE_DELIVERY_ADVERB = r"(?:also|now|still|already|yet|always|[\w-]+ly)"
 _EVIDENCE_DELIVERY_ADVERBS = r"(?:" + _EVIDENCE_DELIVERY_ADVERB + r"\s+){0,3}"
-_EVIDENCE_DELIVERY_OPERATION = r"(?:prove|provide|return|display|show|emit|render|expose|store|upload|attach|publish|post|record|capture|include|contain|have|document|generate|link|add|leave)\w*\b"
+_EVIDENCE_DELIVERY_OPERATION = r"(?:prov(?:e|ing)|provid(?:e|ing)|return|display|show|emit|render|expos(?:e|ing)|stor(?:e|ing)|upload|attach|publish|post|record|captur(?:e|ing)|includ(?:e|ing)|contain|hav(?:e|ing)|document|generat(?:e|ing)|link|add|leav(?:e|ing))\w*\b"
 _EVIDENCE_OBJECT_MODIFIERS = (
     r"(?:(?!(?:and|or|but|must|shall|is|are|not|never|may|can)\b)[\w/-]+\s+){0,6}"
 )
@@ -2111,7 +2111,12 @@ def _required_evidence_channels(acceptance: str, *, _bind_attached: bool = True)
         consumed_end = -1
         residual = list(text)
         for match in candidates:
-            if match.start() < consumed_end:
+            independent_relative_presence = re.match(
+                body + r"\s+(?:that|which)\s+" + delivery_adverbs + auxiliary + r"\s+",
+                match[0],
+                re.I,
+            )
+            if match.start() < consumed_end and not independent_relative_presence:
                 continue
             if _bind_attached and match.groupdict().get("body_object") is None:
                 # Do not consume an attached predicate without its antecedent.
@@ -2266,7 +2271,7 @@ def _required_evidence_channels(acceptance: str, *, _bind_attached: bool = True)
                 }
             )
             residual[match.start() : clause_end] = " " * len(clause)
-            consumed_end = clause_end
+            consumed_end = max(consumed_end, clause_end)
         return records, "".join(residual)
 
     def remaining_delivery(text: str) -> bool:
@@ -2335,6 +2340,23 @@ def _required_evidence_channels(acceptance: str, *, _bind_attached: bool = True)
                 re.I,
             )
         )
+        if not operations:
+            return False
+        # Perfect aspect's have is an auxiliary, not a second product
+        # operation or a new subject boundary. Possession of an evidence
+        # object remains an operation when no following delivery verb exists.
+        operations = [
+            operation
+            for operation in operations
+            if not (
+                operation[0].lower() == "have"
+                and re.match(
+                    r"\s+" + delivery_adverbs + r"(?:(?:been|being)\s+)?" + delivery_operation,
+                    prefix[operation.end() :],
+                    re.I,
+                )
+            )
+        ]
         if not operations:
             return False
         capability = bool(re.fullmatch(capability_operation, operations[0][0], re.I))
@@ -3164,10 +3186,7 @@ def _required_evidence_channels(acceptance: str, *, _bind_attached: bool = True)
             )
             gate = bool(negative_gate.search(working_line))
             requirement_text = working_line if gate else evidence_prohibition.sub(" ", working_line)
-            body_records, body_residual = body_occurrences(
-                working_line if gate else aspect_delivery_prohibition.sub(" ", working_line),
-                gate,
-            )
+            body_records, body_residual = body_occurrences(working_line, gate)
             # An optional evidence noun can be the object of a mandatory
             # explanation (for example, "a PR comment must explain why
             # artifacts are optional"). Remove only that optional subject;

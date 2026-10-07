@@ -1710,6 +1710,14 @@ PR-comment settings panel remains product functionality. Regression cases cover
 ordinary, perfect, and progressive passive forms and the actual evidence floors.
 The explicit delivery guard requires a named evidence object after the operation:
 product functionality that merely links to PR comments remains nongating.
+Shared delivery operations include their ordinary progressive inflections,
+including dropped-e forms such as generating, providing and storing. Perfect
+aspect `have` is not a second product operation; possession of an evidence
+object remains distinct. An explicit body/description relative predicate with
+its own governor is classified independently of an enclosing optional or
+prohibited delivery, retaining its own polarity rather than inheriting the
+parent's. Product alternatives, bare sibling duties and independent artifacts
+are validated across ordinary, perfect, progressive and passive forms.
 Negated obligations use the same delivery-operation grammar as positive
 delivery. An explicitly excluded PR-comment destination (`outside`, `rather
 than`, `instead of`) is not a required comment channel; generic evidence and
