@@ -9,6 +9,185 @@ from scripts import docs_drift_fix_agent as fix_agent
 from scripts.langchain import pr_verifier as verifier
 
 
+@pytest.mark.parametrize(
+    "operation,participle", [("record", "recorded"), ("supply", "supplied"), ("leave", "left")]
+)
+@pytest.mark.parametrize("voice", ["active", "agent-before", "agent-after"])
+@pytest.mark.parametrize(
+    "destination,other",
+    [
+        ("the PR body", "a PR comment"),
+        ("the PR description", "a PR comment"),
+        ("a PR comment", "the PR body"),
+    ],
+)
+@pytest.mark.parametrize("coordination", ["and", "or"])
+@pytest.mark.parametrize("reverse", [False, True])
+@pytest.mark.parametrize("condition", ["if available", "only when produced"])
+@pytest.mark.parametrize("component", [False, True])
+def test_availability_first_final_retains_parent_condition(
+    operation, participle, voice, destination, other, coordination, reverse, condition, component
+):
+    relative = destination + (" panel" if component else "") + " that is available"
+    members = [relative, other]
+    if reverse:
+        members.reverse()
+    target = f" {coordination} in ".join(members)
+    actor = "UI" if component else "reviewer"
+    if voice == "active":
+        criterion = f"The {actor} must {operation} evidence in {target} {condition}"
+    elif voice == "agent-before":
+        criterion = f"Evidence must be {participle} by the {actor} in {target} {condition}"
+    else:
+        criterion = f"Evidence must be {participle} in {target} by the {actor} {condition}"
+    criterion += "; the auditor must record evidence in a workflow artifact"
+    expected = {"artifacts"}
+    assert verifier._required_evidence_channels(criterion) == expected
+    assert verifier._required_evidence_options(criterion) == [expected]
+    spec = importlib.util.spec_from_file_location(
+        "availability_parent_condition_floor",
+        Path(__file__).with_name("test_pr_verifier_prompt_coverage.py"),
+    )
+    fixture = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(fixture)
+    for missing in ("absent", "unavailable"):
+        for present in (set(), {"body"}, {"comments"}, {"body", "comments"}):
+            context, _ = fixture._context(1, 1000, 1000)
+            evidence = (
+                "- Overall retrieval status: **present**\n"
+                + f"- PR body: **{'present' if 'body' in present else missing}**\n"
+                + f"- PR comments: **{'present' if 'comments' in present else missing}**\n"
+                + "- Referenced workflow artifacts: **present**"
+            )
+            context = context.replace("- " + fixture.ACCEPTANCE_SENTINEL, criterion).replace(
+                "## PR Diff Summary",
+                "## Acceptance evidence\n\n" + evidence + "\n\n## PR Diff Summary",
+            )
+            result = verifier._apply_coverage_floor(
+                verifier.EvaluationResult(verdict="PASS", used_llm=True),
+                verifier.prompt_coverage(context, None),
+            )
+            assert result.verdict == "PASS"
+
+
+@pytest.mark.parametrize(
+    "operation,participle", [("record", "recorded"), ("supply", "supplied"), ("leave", "left")]
+)
+@pytest.mark.parametrize("voice", ["active", "agent-before", "agent-after"])
+@pytest.mark.parametrize(
+    "destination,channel,other",
+    [
+        ("the PR body", "body", "a PR comment"),
+        ("the PR description", "body", "a PR comment"),
+        ("a PR comment", "comments", "the PR body"),
+    ],
+)
+@pytest.mark.parametrize("coordination", ["and", "or"])
+@pytest.mark.parametrize("condition", ["if available", "only if available", "when produced"])
+@pytest.mark.parametrize("component", [False, True])
+@pytest.mark.parametrize("local_condition", [False, True])
+def test_relative_qualifier_preserves_parent_and_local_condition_scope(
+    operation,
+    participle,
+    voice,
+    destination,
+    channel,
+    other,
+    coordination,
+    condition,
+    component,
+    local_condition,
+):
+    target = destination + (
+        " panel that is available" if component else " that must contain command output"
+    )
+    if local_condition:
+        target += " if available"
+    target += f" {coordination} in {other}"
+    actor = "UI" if component else "reviewer"
+    if voice == "active":
+        criterion = f"The {actor} must {operation} evidence in {target} {condition}"
+    elif voice == "agent-before":
+        criterion = f"Evidence must be {participle} by the {actor} in {target} {condition}"
+    else:
+        criterion = f"Evidence must be {participle} in {target} by the {actor} {condition}"
+    criterion += "; the auditor must record evidence in a workflow artifact"
+    expected = {"artifacts"} | ({channel} if not component and not local_condition else set())
+    assert verifier._required_evidence_channels(criterion) == expected
+    assert verifier._required_evidence_options(criterion) == [expected]
+    spec = importlib.util.spec_from_file_location(
+        "relative_condition_floor", Path(__file__).with_name("test_pr_verifier_prompt_coverage.py")
+    )
+    fixture = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(fixture)
+    for missing in ("absent", "unavailable"):
+        for present in (set(), {"body"}, {"comments"}, {"body", "comments"}):
+            evidence = (
+                "- Overall retrieval status: **present**\n"
+                f"- PR body: **{'present' if 'body' in present else missing}**\n"
+                f"- PR comments: **{'present' if 'comments' in present else missing}**\n"
+                "- Referenced workflow artifacts: **present**"
+            )
+            context, _ = fixture._context(1, 1000, 1000)
+            context = context.replace("- " + fixture.ACCEPTANCE_SENTINEL, criterion).replace(
+                "## PR Diff Summary",
+                "## Acceptance evidence\n\n" + evidence + "\n\n## PR Diff Summary",
+            )
+            result = verifier._apply_coverage_floor(
+                verifier.EvaluationResult(verdict="PASS", used_llm=True),
+                verifier.prompt_coverage(context, None),
+            )
+            assert result.verdict == (
+                "PASS" if expected <= (present | {"artifacts"}) else "CONCERNS"
+            )
+
+
+@pytest.mark.parametrize("actor", ["UI", "application", "service", "renderer"])
+@pytest.mark.parametrize("operation", ["recorded", "supplied", "left"])
+@pytest.mark.parametrize("voice", ["agent-before", "agent-after"])
+@pytest.mark.parametrize(
+    "destination,channel,other,other_channel",
+    [
+        ("the PR body", "body", "a PR comment", "comments"),
+        ("the PR description", "body", "a PR comment", "comments"),
+        ("a PR comment", "comments", "the PR body", "body"),
+    ],
+)
+@pytest.mark.parametrize("quantifier", ["both", "either"])
+def test_passive_destination_quantifier_retains_bare_sibling(
+    actor, operation, voice, destination, channel, other, other_channel, quantifier
+):
+    coordination = "and" if quantifier == "both" else "or"
+    target = f"in {quantifier} {destination} panel {coordination} in {other}"
+    criterion = (
+        f"Evidence must be {operation} by the {actor} {target}"
+        if voice == "agent-before"
+        else f"Evidence must be {operation} {target} by the {actor}"
+    )
+    criterion += "; the auditor must record evidence in a workflow artifact"
+    expected = {other_channel, "artifacts"}
+    assert verifier._required_evidence_channels(criterion) == expected
+    assert verifier._required_evidence_options(criterion) == [expected]
+    spec = importlib.util.spec_from_file_location(
+        "passive_quantifier_floor", Path(__file__).with_name("test_pr_verifier_prompt_coverage.py")
+    )
+    fixture = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(fixture)
+    for missing in ("absent", "unavailable"):
+        context, _ = fixture._context(1, 1000, 1000)
+        context = context.replace("- " + fixture.ACCEPTANCE_SENTINEL, criterion).replace(
+            "## PR Diff Summary",
+            "## Acceptance evidence\n\n- Overall retrieval status: **present**\n"
+            + f"- PR body: **{missing}**\n- PR comments: **{missing}**\n"
+            + "- Referenced workflow artifacts: **present**\n\n## PR Diff Summary",
+        )
+        result = verifier._apply_coverage_floor(
+            verifier.EvaluationResult(verdict="PASS", used_llm=True),
+            verifier.prompt_coverage(context, None),
+        )
+        assert result.verdict == "CONCERNS"
+
+
 @pytest.mark.parametrize("actor", ["UI", "application", "service", "renderer"])
 @pytest.mark.parametrize(
     "operation",

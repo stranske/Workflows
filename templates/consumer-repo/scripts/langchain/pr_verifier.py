@@ -1186,14 +1186,15 @@ def _normalize_passive_review_agents(acceptance: str) -> str:
         + _ATTACHED_REVIEW_AVAILABILITY
         + r"|(?:that|which)\s+"
         + _RELATIVE_REVIEW_PRESENCE_PREDICATE
+        + r")"
         + r"(?:\s*,?\s*"
         + _EVIDENCE_CONDITIONAL
-        + r")?)"
+        + r")?"
     )
     destination_item = _EVIDENCE_REVIEW_DESTINATION + r"(?:\s*,?\s*" + attachment + r")?"
     destination = (
         _EVIDENCE_DESTINATION_PREPOSITION
-        + r"\s+(?:either\s+)?"
+        + r"\s+(?:(?:either|both)\s+)?"
         + destination_item
         + r"(?:"
         + separator
@@ -1280,15 +1281,17 @@ def _normalize_relative_review_presence(acceptance: str) -> str:
     for match in reversed(matches):
         if match["literal"]:
             continue
-        condition = (
-            re.compile(r"\s*,?\s*" + _EVIDENCE_CONDITIONAL, re.I).match(acceptance, match.end())
-            if match["predicate"]
-            else None
-        )
+        conditional = re.compile(r"\s*,?\s*" + _EVIDENCE_CONDITIONAL, re.I)
+        condition = conditional.match(acceptance, match.end())
         tail = destination_tail.match(acceptance, condition.end() if condition else match.end())
         assert tail is not None
+        parent_condition = (
+            conditional.match(acceptance, tail.end())
+            if tail[0]
+            else condition if not match["predicate"] else None
+        )
         destination = match["destination"] or match["availability_destination"]
-        parent = destination + tail[0]
+        parent = destination + tail[0] + (parent_condition[0] if parent_condition else "")
         if match["predicate"] and match["presence_component"]:
             # Component content is product behavior, not another review-channel
             # delivery. Keep the parent's complete destinations and governor;
@@ -1303,13 +1306,12 @@ def _normalize_relative_review_presence(acceptance: str) -> str:
                 + match["predicate"]
                 + (condition[0] if condition else "")
             )
-        elif tail[0]:
-            # Availability is attached metadata, not a second presence duty.
-            # Keep the full parent alternatives before this qualifier.
-            replacement = parent + " " + match["availability"]
         else:
-            continue
-        acceptance = acceptance[: match.start()] + replacement + acceptance[tail.end() :]
+            # Availability metadata must not obstruct the parent's condition or
+            # migrate onto a separately governed bare-channel presence duty.
+            replacement = parent
+        end = parent_condition.end() if parent_condition else tail.end()
+        acceptance = acceptance[: match.start()] + replacement + acceptance[end:]
     return acceptance
 
 

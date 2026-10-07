@@ -1737,6 +1737,8 @@ prohibited delivery, retaining its own polarity rather than inheriting the
 parent's. Product alternatives, bare sibling duties and independent artifacts
 are validated across ordinary, perfect, progressive and passive forms.
 The supported irregular `leave`/`left` operation shares those same guards.
+Passive destination lists accept the shared `both` and `either` quantifiers
+before actor binding; a product component cannot erase a mandatory bare sibling.
 Bare body, description and comment relative presence duties are separated from
 their enclosing delivery before channel and alternative classification. Their
 independent governor retains polarity, while the parent's genuine AND/OR list
@@ -1745,7 +1747,14 @@ are not independent presence deliveries; quoted parser examples stay opaque.
 First-member relative qualifiers preserve the complete bounded parent
 destination tail, including repeated prepositions, before independent presence
 duties are separated. Recognized attached availability is kept with that whole
-AND/OR list rather than hiding its following members. Both attachment positions
+AND/OR list rather than hiding its following members. Availability metadata is
+removed only from delivery classification, never relocated across a trailing
+parent condition. A condition after the complete parent list stays on that
+delivery; it cannot migrate to an independently mandatory bare-channel relative
+predicate. A condition immediately attached to that relative retains its own
+scope. When availability metadata ends the destination list, its trailing
+condition remains on the parent delivery instead of disappearing with that
+nongating metadata. Both attachment positions
 are covered for nominal evidence, reviewer and product actors, channel aliases,
 independent artifact duties and actual missing-channel satisfaction.
 The same shared `if`/`when` evidence-condition vocabulary stays attached to a
