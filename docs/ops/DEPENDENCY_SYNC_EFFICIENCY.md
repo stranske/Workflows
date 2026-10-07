@@ -45,8 +45,10 @@ collects PRs and workflow runs for the explicit trailing seven-day reporting
 window and completely paginates timeline events for each stable sync PR observed
 in that window. Workflow-run queries use bounded created-time intervals; exact
 totals of 1,000 or more and GitHub's capped `2,500+` total trigger subdivision,
-not unrestricted pagination. Numeric child totals must reconcile with exact
-parent counts, capped parents require a child union above the lower bound, and
+not unrestricted pagination. A numeric `2500` is also an observed API cap,
+not proof of exact cardinality: complete child unions must contain at least
+2,500 runs. The explicit `2,500+` string requires more than 2,500. Other numeric
+child totals must reconcile with exact parent counts, and
 parent-observed identities and timestamps must survive subdivision.
 
 It writes `window_complete: true` only when all collection reads succeed.
