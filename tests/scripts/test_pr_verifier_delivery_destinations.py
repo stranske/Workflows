@@ -22,15 +22,23 @@ def test_review_body_product_components_do_not_create_delivery(component, destin
 
 
 @pytest.mark.parametrize("operator", ["and", "or"])
+@pytest.mark.parametrize("component", ["", " editor", " field", " textarea", " preview"])
+@pytest.mark.parametrize("destination", ["PR body", "PR description"])
+@pytest.mark.parametrize("body_first", [False, True])
 @pytest.mark.parametrize("comment_status", ["present", "absent", "unavailable"])
 @pytest.mark.parametrize("body_status", ["present", "absent", "unavailable"])
-def test_checklist_destination_lists_control_real_floor(operator, comment_status, body_status):
+def test_checklist_destination_lists_control_real_floor(
+    operator, component, destination, body_first, comment_status, body_status
+):
     spec = importlib.util.spec_from_file_location(
         "checklist_list_fixture", Path(__file__).with_name("test_pr_verifier_prompt_coverage.py")
     )
     fixture = importlib.util.module_from_spec(spec)
     spec.loader.exec_module(fixture)
-    criterion = f"- [ ] Test evidence in a PR comment {operator} the PR description"
+    destinations = ["a PR comment", f"the {destination}{component}"]
+    if body_first:
+        destinations.reverse()
+    criterion = "- [ ] Test evidence in " + f" {operator} ".join(destinations)
     context, _ = fixture._context(1, 1000, 1000)
     context = context.replace("- " + fixture.ACCEPTANCE_SENTINEL, criterion).replace(
         "## PR Diff Summary",

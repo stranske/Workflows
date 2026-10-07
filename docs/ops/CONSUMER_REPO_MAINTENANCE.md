@@ -5,6 +5,10 @@ This document outlines the process for maintaining workflow system consistency a
 ## Verifier canary review recovery
 
 Named review-evidence destinations include both PR body and PR description.
+Their editor, field, textarea and preview suffixes use one shared grammar in
+channel recognition and destination alternatives: an explicit `or` permits
+either channel, while `and` retains both obligations. This does not turn UI
+product requirements into reviewer-delivery obligations.
 Mandatory checklist noun phrases such as `Test evidence in a PR comment`
 retain their destination even without a delivery verb. Optional/prohibited
 evidence, product behavior and quoted examples remain subject to the shared

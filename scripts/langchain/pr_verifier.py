@@ -984,6 +984,9 @@ _QUOTED_EVIDENCE_LITERAL = (
 )
 
 
+_REVIEW_BODY_COMPONENT = r"(?:editor|field|textarea|preview)\b"
+
+
 def _required_evidence_channels(acceptance: str, *, _bind_attached: bool = True) -> set[str]:
     """Identify explicit evidence deliverables without treating negations as requirements."""
 
@@ -1116,7 +1119,7 @@ def _required_evidence_channels(acceptance: str, *, _bind_attached: bool = True)
     recipient_noun = recipient_prefix + r"(?:clients?|users?|consumers?)\b"
     product_recipient = r"(?:to|for)\s+" + recipient_noun
     artifact_destination_object = r"(?:workflow|ci|github actions)\s+artifacts?\b"
-    body_component = r"(?:editor|field|textarea|preview)\b"
+    body_component = _REVIEW_BODY_COMPONENT
     review_destination_noun = (
         r"(?:(?:the|an?)\s+)?(?:"
         r"(?:pr|pull request)\s+(?:body|description)\b(?:\s+" + body_component + r")?|"
@@ -3596,7 +3599,8 @@ def _required_evidence_options(acceptance: str) -> list[set[str]]:
     """
     preposition = r"(?:in|into|to|within|for|as|through|via)"
     destination = (
-        r"(?:(?:the|an?)\s+)?(?:(?:pr|pull request)\s+(?:body|description|comments?)\b|"
+        r"(?:(?:the|an?)\s+)?(?:(?:pr|pull request)\s+(?:(?:body|description)\b"
+        r"(?:\s+" + _REVIEW_BODY_COMPONENT + r")?|comments?\b)|"
         r"(?:workflow|ci|github actions)\s+artifacts?\b)"
     )
     member = r"(?:" + preposition + r"\s+)?" + destination
