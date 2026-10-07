@@ -3255,7 +3255,7 @@ test('matching closing title and metadata retain known-source verifier acceptanc
   const templateImpl = require('../../../templates/consumer-repo/.github/scripts/agents_verifier_context.js').buildVerifierContext;
   const templateBuilder = options => templateImpl({ ...options, fetchLocalDiff: () => options.github.__testDiffText });
   for (const builder of [buildVerifierContext, templateBuilder]) {
-    for (const title of ['Fixes #456', 'Implement repair']) {
+    for (const title of ['Fixes #456', 'Implement repair', 'Does not fix #123']) {
       const calls = [];
       const { result } = await buildEvidenceContext({
         prDetails: {

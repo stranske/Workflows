@@ -38,3 +38,19 @@ owns current-head CI/review; closer owns complete expected topology, unchanged
 head, full review-thread evidence and seven-minute floor before merge/compare.
 Orphan Steward then owns the repaired-input release3769/3787 comparisons, and
 Maint71 owns generated consumer delivery qualification. No deployed claim.
+
+## Review follow-through: negated titles
+
+Review4202339183 identified `Does not fix #123` as a new false conflict. The
+closing-reference parser now excludes immediate negative governors on the same
+line, with bounded adverbs and contraction controls. A later affirmative closing
+target still conflicts; a previous line's negation and positive `not only`
+construction do not mask affirmative intent. Real root/template verifier builders
+retain the known metadata contract for the negated title.
+
+Current-head commands/exits are in `3770-current-validation.json`:183 focused
+PASS;2,029 full JavaScript PASS,1 existing skip; template sync/strict completeness/
+drift PASS. `3770-current-mutations.json` independently replays both defects on
+both copies: four real incumbent-source REDexit1/candidate-restoredGREENexit0
+controls with current source hashes. Current console captures use the same
+lossless compression/manifests as the historical initial182/2028 receipts above.

@@ -14,5 +14,20 @@
   "3770-template-completeness.log.gz": "656f7275f9150805286479b46cbb8fd6ea88133797117bd5c2025247aa8705b4",
   "3770-template-restored-green.log.gz": "8670e0fc63b7da14659de1fd571439b4d4d3a63cf14c7ca78bfd37e0751cc625",
   "3770-root-restored-green.log.gz": "9ecb863d536f69e6e8badfd094edee9f50f453d860958ce4f769def984b36117",
-  "decoded-captures.json": "bb03669f16b3cf87533abd8d9286d91f296458aea0bb654484fc668a13670cf0"
+  "decoded-captures.json": "8c93647fb4e98bd1b59d5e168c309afb2721f9fa1bfeac8fbfa31f9f45e8ff94",
+  "3770-current-focused.log.gz": "9bc0b2bd5706946eae45c2e6628ac7044c383c8f0e84bf836aebcfac19b00f3e",
+  "3770-current-root-negation-green.log.gz": "35840156bbc400110da1551314802953ec76b669fcaddd2c8e16ee98c508278c",
+  "3770-current-template-negation-red.log.gz": "120744c25ff0c22eeaa984c0baa5a1c9d152cd54379d60c6d5352bb8f3289f9a",
+  "3770-current-template-completeness.log.gz": "656f7275f9150805286479b46cbb8fd6ea88133797117bd5c2025247aa8705b4",
+  "3770-current-root-conflict-green.log.gz": "63c6a7f5e72a6677f53fbc1a08a201eb0a278186984c154cdc7145de3f2b6f0f",
+  "3770-current-full-js.log.gz": "7783935400e29c82a0b570120b1801b3e7c2eb42e13cd8c3d57a8ad6fb36526a",
+  "3770-current-template-conflict-red.log.gz": "3819a5ce4d4f1457a423e2df747e59dde5530c0975634d0d37c8496a7e9e0546",
+  "3770-current-template-conflict-green.log.gz": "bb5ecca9404dbb58a8daab494fc36ea265fc4d02c365f6de0b65355bc5415f1f",
+  "3770-current-template-drift.log.gz": "60e36235f56ba58ed9d78e6589432f02806a69e5c86bb82d54b94474900982f9",
+  "3770-current-root-conflict-red.log.gz": "8a4d1ac6af1de4560fa40a2f0bb24b74d5189201a739cf79c4f475619cea3d82",
+  "3770-current-template-negation-green.log.gz": "01deab80e83266d795ac0b835c218eb3404282ed9fcbea55ab2a188320439562",
+  "3770-current-sync.log.gz": "ce07c1b32ca5c7da9d109fade7d32b1205f4c6a9927f35b83067affb976cb2f8",
+  "3770-current-root-negation-red.log.gz": "bbd355911c52a3530727832e9e1ad1f3cdbcc9310979d3b9e2bcfdef2e566576",
+  "3770-current-mutations.json": "8f661fc8bd485221349a9177fb402a93bd2717a645732bcc5b20373efb6ef982",
+  "3770-current-validation.json": "3d06ed4a39ffd3bfe0af5f4ddcecb224a52ab1189c9603fa6d16135cae1bf9b8"
 }

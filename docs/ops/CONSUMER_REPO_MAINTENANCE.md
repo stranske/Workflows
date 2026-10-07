@@ -1125,7 +1125,9 @@ closing references copied from the source issue. A different explicit closing
 target in the PR title conflicts with that metadata: the resolver selects neither
 issue and verifier acceptance discovery remains required and unavailable. Matching
 title/metadata targets and titles without closing intent retain the metadata
-binding. For a mention/title-derived PR without explicit closing intent in its
+binding. Negated title phrases such as `Does not fix #123` do not express closing
+intent or create a conflict; negation cannot suppress a later affirmative
+directive or cross a line boundary. For a mention/title-derived PR without explicit closing intent in its
 title, one generated
 `meta:related-issue` binding precedes incidental synchronized body references,
 including closing keywords embedded in that issue text. Duplicate identical

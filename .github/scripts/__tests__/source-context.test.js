@@ -1305,3 +1305,26 @@ test('explicit closing title and metadata conflicts stay unresolved in both reso
     }
   }
 });
+
+
+test('negated closing titles preserve metadata without masking a later affirmative target', () => {
+  for (const implementation of [require('../source_context.js'), require('../../../templates/consumer-repo/.github/scripts/source_context.js')]) {
+    for (const title of [
+      'Does not fix #123', 'Do not close issue #123', "Doesn't resolve #123",
+      'Never fixes #123', 'Avoid closing #123', 'Without fixing #123',
+      'Does not actually fix #123', 'Does **not fix** #123',
+      'Does not fix #123 but closes #456', 'Not only fixes #456 but also closes #456',
+    ]) {
+      const pull = { title, body: '<!-- meta:issue:456 -->' };
+      assert.deepEqual(implementation.extractIssueSourceFromPull(pull), { issueNumber: 456, via: 'meta' }, title);
+      const context = implementation.resolvePrSourceContext(pull);
+      assert.equal(context.hasAmbiguousIssueSource, false, title);
+      assert.equal(context.issueNumber, 456, title);
+    }
+    for (const title of ['Does not fix #789 but closes #123', 'Never fix #789; Fixes #123', 'Do not fix\nFixes #123']) {
+      const context = implementation.resolvePrSourceContext({ title, body: '<!-- meta:issue:456 -->' });
+      assert.equal(context.hasAmbiguousIssueSource, true, title);
+      assert.equal(context.issueNumber, null, title);
+    }
+  }
+});
