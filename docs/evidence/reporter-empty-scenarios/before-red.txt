@@ -1,0 +1,43 @@
+F                                                                        [100%]
+=================================== FAILURES ===================================
+__ test_empty_witnessed_scenario_matrix_requires_the_reported_skipped_caller ___
+
+    def test_empty_witnessed_scenario_matrix_requires_the_reported_skipped_caller():
+        evidence, path, root, run, _ = empty_scenario_fixture()
+>       expected = reporter.expected_jobs(evidence, "stranske/Workflows", path, HEAD, root, run=run)
+                   ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+tests/test_check_checks_reported.py:1690: 
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
+scripts/check_checks_reported.py:696: in expected_jobs
+    for name in job_names(job_id, job):
+                ^^^^^^^^^^^^^^^^^^^^^^
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
+
+job_id = 'scenarios'
+job = {'name': 'Scenario - ${{ matrix.name }}', 'needs': ['rate-limit-check', 'select-scenarios'], 'if': "${{\n  needs.rate-...eeds.select-scenarios.outputs.selected_count != '0'\n}}", 'uses': './.github/workflows/reusable-10-ci-python.yml', ...}
+
+    def job_names(job_id: str, job: dict[str, Any]) -> list[str]:
+        """Expand literal Cartesian or include-only matrices, rejecting transforms."""
+        matrix = (job.get("strategy") or {}).get("matrix")
+        name = str(job.get("name", job_id))
+        if matrix is None:
+            if "${{" in name:
+                raise UnknownEvidence(f"dynamic job name: {name}")
+            return [name]
+        if not isinstance(matrix, dict) or "exclude" in matrix:
+            raise UnknownEvidence(f"unsupported matrix on {job_id}")
+        if set(matrix) == {"include"}:
+            rows = matrix["include"]
+            if (
+                not isinstance(rows, list)
+                or not rows
+                or any(not isinstance(row, dict) or not row for row in rows)
+            ):
+>               raise UnknownEvidence(f"invalid include-only matrix on {job_id}")
+E               check_topology.UnknownEvidence: invalid include-only matrix on scenarios
+
+scripts/check_checks_reported.py:254: UnknownEvidence
+=========================== short test summary info ============================
+FAILED tests/test_check_checks_reported.py::test_empty_witnessed_scenario_matrix_requires_the_reported_skipped_caller
+1 failed, 227 deselected in 0.44s

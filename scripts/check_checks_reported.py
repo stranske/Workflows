@@ -690,9 +690,40 @@ def expected_jobs(
         if not isinstance(job, dict):
             raise UnknownEvidence(f"invalid job {job_id}")
         job = bind_job_inputs(job, inputs or {})
+        witnessed_scenario = (job.get("strategy") or {}).get("matrix") == (
+            "${{ fromJson(needs.select-scenarios.outputs.matrix) }}"
+        )
         job = bind_scenario_matrix(evidence, repo, path, workflow, job, run)
         job = bind_python_matrix(evidence, repo, path, workflow, job, prefix, run, inputs or {})
         uses = job.get("uses")
+        if witnessed_scenario and (job.get("strategy") or {}).get("matrix") == {"include": []}:
+            # Only the authenticated producer replay above can establish an
+            # empty selection. GitHub still reports the unexpanded skipped
+            # caller: require that check instead of inventing matrix children.
+            full_name = prefix + str(job.get("name", job_id))
+            skipped = [item for item in run.get("jobs", []) if item.get("name") == full_name]
+            if (
+                len(skipped) != 1
+                or full_name in names
+                or skipped[0].get("conclusion") != "skipped"
+                or skipped[0].get("run_id") != run["id"]
+                or skipped[0].get("run_attempt") != run.get("run_attempt", 1)
+                or not skipped[0].get("check_run_url")
+            ):
+                raise UnknownEvidence(
+                    f"empty scenario skipped caller witness missing/ambiguous: {full_name}"
+                )
+            names.add(full_name)
+            run.setdefault("reusable_absences", []).append(
+                {
+                    "caller": identity,
+                    "job": job_id,
+                    "uses": uses,
+                    "check_run_url": skipped[0]["check_run_url"],
+                    "reason": "Independently recomputed empty scenario selection and exact-run skipped caller",
+                }
+            )
+            continue
         for name in job_names(job_id, job):
             full_name = prefix + name
             if not uses:

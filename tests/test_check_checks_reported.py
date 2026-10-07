@@ -1660,6 +1660,72 @@ def bind_scenario_fixture(fixture):
     return reporter.bind_scenario_matrix(evidence, "stranske/Workflows", path, workflow, job, run)
 
 
+def empty_scenario_fixture():
+    evidence, path, workflow, job, run, receipt = scenario_fixture()
+    changed = ["docs/WORKFLOW_GUIDE.md"]
+    receipt["inputs"]["changed_files"] = changed
+    receipt["matrix"] = reporter.select_scenarios(
+        Path(path).stem, changed, receipt["inputs"]["full_matrix"]
+    ).matrix
+    assert receipt["matrix"] == {"include": []}
+    evidence.one = lambda _: {
+        "merge_base_commit": {"sha": BASE},
+        "files": [{"filename": value} for value in changed],
+    }
+    run["jobs"].append(
+        {
+            "name": job["name"],
+            "conclusion": "skipped",
+            "run_id": run["id"],
+            "run_attempt": run["run_attempt"],
+            "check_run_url": "https://api.github.com/repos/stranske/Workflows/check-runs/100",
+        }
+    )
+    root = {"jobs": {"select-scenarios": workflow["jobs"]["select-scenarios"], "scenarios": job}}
+    return evidence, path, root, run, receipt
+
+
+def test_empty_witnessed_scenario_matrix_requires_the_reported_skipped_caller():
+    evidence, path, root, run, _ = empty_scenario_fixture()
+    expected = reporter.expected_jobs(evidence, "stranske/Workflows", path, HEAD, root, run=run)
+    assert expected == {"Select reusable CI scenarios", "Scenario - ${{ matrix.name }}"}
+    assert run["matrix_evidence"][-1]["recomputed_matrix"] == {"include": []}
+    assert run["reusable_absences"][-1]["check_run_url"] == run["jobs"][-1]["check_run_url"]
+
+
+@pytest.mark.parametrize(
+    "finding", ["missing", "duplicate", "name", "conclusion", "run", "attempt", "url"]
+)
+def test_empty_scenario_missing_or_mismatched_skip_witness_remains_unknown(finding):
+    evidence, path, root, run, _ = empty_scenario_fixture()
+    if finding == "missing":
+        run["jobs"].pop()
+    elif finding == "duplicate":
+        run["jobs"].append(dict(run["jobs"][-1]))
+    else:
+        field = {"run": "run_id", "attempt": "run_attempt", "url": "check_run_url"}.get(
+            finding, finding
+        )
+        run["jobs"][-1][field] = {"conclusion": "success", "run": 99, "attempt": 1, "url": ""}.get(
+            finding, "other"
+        )
+    with pytest.raises(reporter.UnknownEvidence):
+        reporter.expected_jobs(evidence, "stranske/Workflows", path, HEAD, root, run=run)
+
+
+def test_empty_scenario_claim_cannot_override_the_producer_recomputation():
+    evidence, path, root, run, receipt = empty_scenario_fixture()
+    receipt["inputs"]["changed_files"] = [path]
+    evidence.one = lambda _: {"merge_base_commit": {"sha": BASE}, "files": [{"filename": path}]}
+    with pytest.raises(reporter.UnknownEvidence, match="independent recomputation"):
+        reporter.expected_jobs(evidence, "stranske/Workflows", path, HEAD, root, run=run)
+
+
+def test_literal_empty_matrix_without_a_verified_producer_remains_unknown():
+    with pytest.raises(reporter.UnknownEvidence, match="invalid include-only"):
+        reporter.job_names("literal", {"strategy": {"matrix": {"include": []}}})
+
+
 @pytest.mark.parametrize(
     "path,count",
     [

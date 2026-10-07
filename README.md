@@ -283,3 +283,9 @@ MIT License - See [LICENSE](LICENSE) for details.
 - Agent policy: docs/AGENTS_POLICY.md
 - Compatibility: docs/COMPATIBILITY.md
 - Contributing: docs/CONTRIBUTING.md
+
+The shared reporter accepts a zero-selected dynamic scenario only after the
+supported producer's immutable run/attempt/helper/workflow/input receipt is
+independently recomputed and GitHub reports the exact skipped caller on that run.
+That caller remains an expected check. Literal empty matrices, missing skip
+witnesses and unverified dynamic selection remain UNKNOWN.
