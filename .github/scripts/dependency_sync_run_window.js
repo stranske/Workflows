@@ -1,5 +1,6 @@
 // Health 83 source-only collector. A filtered Actions query exposes at most
 // 1,000 runs, so dense intervals must be subdivided before pagination.
+// Capped counts: https://github.blog/changelog/2026-09-25-changes-to-query-results-in-the-github-actions-api-and-ui/
 async function collectRunWindow({ start, end, listPage }) {
   const lo = Math.floor(new Date(start).getTime() / 1000) * 1000;
   const hi = Math.ceil(new Date(end).getTime() / 1000) * 1000;
@@ -16,11 +17,14 @@ async function collectRunWindow({ start, end, listPage }) {
     const created = `${new Date(left).toISOString()}..${new Date(right).toISOString()}`;
     const first = await listPage({ created, per_page: 100, page: 1 });
     const total = first?.data?.total_count;
-    if (!Number.isSafeInteger(total) || total < 0 || !Array.isArray(first?.data?.workflow_runs)) {
+    // GitHub's September 2026 capped total is a lower bound, not an exact
+    // cardinality. Only its documented representation authorizes subdivision.
+    const capped = total === '2,500+' || total === '2500+';
+    if ((!capped && (!Number.isSafeInteger(total) || total < 0)) || !Array.isArray(first?.data?.workflow_runs)) {
       throw new Error('incomplete workflow-run response');
     }
     // Split even at exactly 1,000: the server may cap its reported count.
-    if (total >= 1000) {
+    if (capped || total >= 1000) {
       if (right - left <= 1000) {
         throw new Error(`cannot completely collect dense workflow-run interval ${created}`);
       }
@@ -33,7 +37,8 @@ async function collectRunWindow({ start, end, listPage }) {
         rows.set(id, run);
       }
       for (const run of first.data.workflow_runs) validate(run, left, right);
-      if (rows.size !== total || first.data.workflow_runs.some((run) => rows.get(run.id)?.created_at !== run.created_at)) {
+      const countMatches = capped ? rows.size > 2500 : rows.size === total;
+      if (!countMatches || first.data.workflow_runs.some((run) => rows.get(run.id)?.created_at !== run.created_at)) {
         throw new Error(`subdivision is incomplete or window changed: ${created}`);
       }
       return rows;

@@ -74,6 +74,29 @@ test('same-count substitution cannot erase a parent-observed identity', async ()
   } }), /subdivision.*incomplete|window changed/);
 });
 
+test('documented 2,500+ totals trigger subdivision rather than unavailable collection', async () => {
+  const rows = Array.from({ length: 3001 }, (_, id) => ({ id, created_at: new Date(+start + id * 1000).toISOString() }));
+  for (const total_count of ['2,500+', '2500+']) {
+    const list = fixture(rows, []);
+    const result = await collectRunWindow({ start, end, listPage: (params) => {
+      if (params.created === `${start.toISOString()}..${end.toISOString()}`) {
+        return { data: { total_count, workflow_runs: rows.slice(0, 100) } };
+      }
+      return list(params);
+    } });
+    assert.equal(result.length, rows.length);
+  }
+});
+
+test('a capped parent still requires its observed identities and lower bound', async () => {
+  const rows = Array.from({ length: 2001 }, (_, id) => ({ id, created_at: new Date(+start + id * 1000).toISOString() }));
+  const list = fixture(rows, []);
+  await assert.rejects(collectRunWindow({ start, end, listPage: (params) => {
+    if (params.created === `${start.toISOString()}..${end.toISOString()}`) return { data: { total_count: '2,500+', workflow_runs: rows.slice(0, 100) } };
+    return list(params);
+  } }), /subdivision.*incomplete|window changed/);
+});
+
 test('the actual workflow records collection failure and does not emit partial runs', async () => {
   const fs = require('node:fs');
   const path = require('node:path');
