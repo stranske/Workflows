@@ -988,7 +988,7 @@ _REVIEW_BODY_COMPONENT_TEMPORAL = (
     r"before|after|now|today|tomorrow|again|here|there|soon|always|daily|weekly|[\w-]+ly"
 )
 _REVIEW_BODY_COMPONENT_WORD = (
-    r"(?!(?:and|or|but|in|on|to|for|with|when|if|"
+    r"(?!(?:and|or|but|in|on|to|for|with|when|if|that|which|"
     r"is|are|was|were|must|shall|will|should|can|may|has|have|"
     r"not|never|no|optional|required|mandatory|expected|supposed|"
     r"contains?|includes?|requires?|needs?|" + _REVIEW_BODY_COMPONENT_TEMPORAL + r")\b)[\w-]+"
