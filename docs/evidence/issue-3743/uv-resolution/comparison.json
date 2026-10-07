@@ -1,0 +1,96 @@
+{
+  "base": "0543a3f2712e08a83ed2f4eb40e3b72fd06ef14f",
+  "baseline": {
+    "covered_lines": 568,
+    "num_statements": 591,
+    "percent_covered": 94.84173505275498,
+    "percent_covered_display": "94.84",
+    "missing_lines": 23,
+    "excluded_lines": 0,
+    "percent_statements_covered": 96.1082910321489,
+    "percent_statements_covered_display": "96.11",
+    "num_branches": 262,
+    "num_partial_branches": 21,
+    "covered_branches": 241,
+    "missing_branches": 21,
+    "percent_branches_covered": 91.98473282442748,
+    "percent_branches_covered_display": "91.98"
+  },
+  "candidate": {
+    "covered_lines": 570,
+    "num_statements": 591,
+    "percent_covered": 95.31066822977726,
+    "percent_covered_display": "95.31",
+    "missing_lines": 21,
+    "excluded_lines": 0,
+    "percent_statements_covered": 96.44670050761421,
+    "percent_statements_covered_display": "96.45",
+    "num_branches": 262,
+    "num_partial_branches": 19,
+    "covered_branches": 243,
+    "missing_branches": 19,
+    "percent_branches_covered": 92.74809160305344,
+    "percent_branches_covered_display": "92.75"
+  },
+  "baseline_tests": 300,
+  "candidate_tests": 308,
+  "added_nodes": [
+    [
+      "tests.scripts.test_check_deliberate_break_uv_resolution",
+      "test_uv_resolution_refuses_failed_or_empty_lookup[root-pytest-empty]"
+    ],
+    [
+      "tests.scripts.test_check_deliberate_break_uv_resolution",
+      "test_uv_resolution_refuses_failed_or_empty_lookup[root-pytest-nonzero]"
+    ],
+    [
+      "tests.scripts.test_check_deliberate_break_uv_resolution",
+      "test_uv_resolution_refuses_failed_or_empty_lookup[root-python-empty]"
+    ],
+    [
+      "tests.scripts.test_check_deliberate_break_uv_resolution",
+      "test_uv_resolution_refuses_failed_or_empty_lookup[root-python-nonzero]"
+    ],
+    [
+      "tests.scripts.test_check_deliberate_break_uv_resolution",
+      "test_uv_resolution_refuses_failed_or_empty_lookup[template-pytest-empty]"
+    ],
+    [
+      "tests.scripts.test_check_deliberate_break_uv_resolution",
+      "test_uv_resolution_refuses_failed_or_empty_lookup[template-pytest-nonzero]"
+    ],
+    [
+      "tests.scripts.test_check_deliberate_break_uv_resolution",
+      "test_uv_resolution_refuses_failed_or_empty_lookup[template-python-empty]"
+    ],
+    [
+      "tests.scripts.test_check_deliberate_break_uv_resolution",
+      "test_uv_resolution_refuses_failed_or_empty_lookup[template-python-nonzero]"
+    ]
+  ],
+  "new_lines": [
+    680,
+    685
+  ],
+  "new_branches": [
+    [
+      679,
+      680
+    ],
+    [
+      684,
+      685
+    ]
+  ],
+  "old_covered_line_regressions": [],
+  "old_covered_branch_regressions": [],
+  "old_test_outcome_regressions": [],
+  "repository_90_percent": "UNKNOWN; not measured here",
+  "proof_scope": "real private uv lookup subprocesses, both checked-in helper copies; not an installed uv integration test",
+  "caller_identity": {
+    "tests/scripts/test_check_deliberate_break_uv_resolution.py": "ce94b9563434ca3e4ab0eba5e26a288f6910121629cb4e76d11194648ab12d54",
+    "scripts/check_deliberate_break.py": "cc97119ea26afec275be3c83d22bc75de0d452cd0f4764896cc9d037274ab25a",
+    "templates/consumer-repo/scripts/check_deliberate_break.py": "cc97119ea26afec275be3c83d22bc75de0d452cd0f4764896cc9d037274ab25a",
+    "docs/evidence/issue-3743/uv-resolution/replay_uv_resolution.py": "d3a4059314c04bb53848cef2bd5c64cc53f1d302ea19a08c06d231f02bd470c0"
+  }
+}

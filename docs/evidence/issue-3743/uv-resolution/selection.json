@@ -1,0 +1,61 @@
+{
+  "base": "0543a3f2712e08a83ed2f4eb40e3b72fd06ef14f",
+  "history_command": [
+    "git",
+    "log",
+    "-400",
+    "--format=%H %s",
+    "--name-only",
+    "--",
+    "scripts"
+  ],
+  "ranking": "subject fix/repair/correct/regression/bug/error/fail proxy; not proven escaped incidents",
+  "leaders": [
+    [
+      "scripts/check_deliberate_break.py",
+      [
+        73,
+        82
+      ]
+    ],
+    [
+      "scripts/langchain/pr_verifier.py",
+      [
+        30,
+        36
+      ]
+    ],
+    [
+      "scripts/runner_lib/core.py",
+      [
+        27,
+        37
+      ]
+    ],
+    [
+      "scripts/langchain/issue_formatter.py",
+      [
+        16,
+        17
+      ]
+    ],
+    [
+      "scripts/sync_test_dependencies.py",
+      [
+        16,
+        17
+      ]
+    ]
+  ],
+  "prior_chunk": {
+    "pr": 3814,
+    "head": "1b1cdb091c60a20a2a92f464cb1a8d8920503f8e",
+    "provider_result": "CONCERNS/CONCERNS/NON_PASS",
+    "independent_acceptance": "https://github.com/stranske/Workflows/pull/3814#issuecomment-6041492603"
+  },
+  "repository_coverage_90": "UNKNOWN; no full-repository run in this chunk",
+  "production_sha256": {
+    "scripts/check_deliberate_break.py": "cc97119ea26afec275be3c83d22bc75de0d452cd0f4764896cc9d037274ab25a",
+    "templates/consumer-repo/scripts/check_deliberate_break.py": "cc97119ea26afec275be3c83d22bc75de0d452cd0f4764896cc9d037274ab25a"
+  }
+}
