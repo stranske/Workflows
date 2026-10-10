@@ -82,9 +82,11 @@ jobs:
           echo "$(pwd)/.github/actions/maint78-codex-cli/node_modules/.bin" >> "$GITHUB_PATH"
       - name: Read pinned CLI catalog without model calls
         run: codex debug models --bundled > cli-catalog.json
+      - uses: astral-sh/setup-uv@c771a70e6277c0a99b617c7a806ffedaca235ff9 # v9.0.0
       - name: Publish no-spend readiness report
         run: >-
-          python -m tools.plan_model_eval --output model-eval-plan.json
+          uv run --extra dev --extra langchain python -m tools.plan_model_eval
+          --output model-eval-plan.json
           --cli-catalog cli-catalog.json --summary "$GITHUB_STEP_SUMMARY"
       - name: Capture production verifier inputs without model calls
         if: github.event_name == 'workflow_dispatch' && inputs.mode == 'capture'
@@ -131,8 +133,6 @@ jobs:
                   "MAINT-78 screen requires ChatGPT subscription auth, not API-key billing"
               )
           PY
-      - uses: astral-sh/setup-uv@c771a70e6277c0a99b617c7a806ffedaca235ff9 # v9.0.0
-        if: github.event_name == 'workflow_dispatch' && (inputs.mode == 'screen' || inputs.mode == 'confirm')
       - name: Run bounded Codex CLI screen
         if: github.event_name == 'workflow_dispatch' && inputs.mode == 'screen'
         env:
