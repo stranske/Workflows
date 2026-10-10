@@ -3,6 +3,7 @@
 import os
 import re
 import subprocess
+import sys
 from pathlib import Path
 
 import pytest
@@ -115,7 +116,34 @@ def test_profile_is_propagated_and_fingerprinted():
         assert "evidence_profile: ${{ inputs.evidence_profile || 'standard' }}" in text
     template = Path("templates/consumer-repo/.github/workflows/agents-verifier.yml").read_text()
     assert '"evidence_profile": os.environ.get("VERIFY_EVIDENCE_PROFILE", "standard")' in template
-    assert '"evidence_contract": "bounded-native-capacity-v2"' in template
+
+
+@pytest.mark.parametrize("profile", [None, "standard", "expanded"])
+@pytest.mark.parametrize("consumer", [False, True])
+def test_only_expanded_contract_fingerprint_changes(profile, consumer):
+    path = (
+        "templates/consumer-repo/.github/workflows/agents-verifier.yml"
+        if consumer
+        else ".github/workflows/reusable-agents-verifier.yml"
+    )
+    text = Path(path).read_text()
+    expression = re.search(r"['\"]evidence_contract['\"]:\s*(\(.*?\)),", text, re.S)[1]
+    env = {**os.environ}
+    name = "VERIFY_EVIDENCE_PROFILE" if consumer else "VERIFIER_EVIDENCE_PROFILE"
+    env.pop(name, None)
+    # The reusable worker's job env always resolves an absent input to standard.
+    if profile is not None or not consumer:
+        env[name] = profile or "standard"
+    result = subprocess.run(
+        [sys.executable, "-c", f"import os\nprint({expression})"],
+        env=env,
+        capture_output=True,
+        text=True,
+        check=True,
+    )
+    assert result.stdout.strip() == (
+        "bounded-native-capacity-v3" if profile == "expanded" else "bounded-native-capacity-v2"
+    )
 
 
 def test_input_snapshot_retains_profile_and_every_actual_limit():

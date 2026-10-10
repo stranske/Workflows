@@ -5,6 +5,7 @@ from unittest import mock
 
 
 def with_capacity(client):
+    client._unit_capacity_fake = True
     client.profile = {"max_input_tokens": 1_000_000, "max_output_tokens": 4096}
     client.max_tokens = 4096
     client._get_request_payload = lambda prompt: {

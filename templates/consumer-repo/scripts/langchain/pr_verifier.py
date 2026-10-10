@@ -11,6 +11,7 @@ Run with:
 from __future__ import annotations
 
 import argparse
+import hashlib
 import io
 import json
 import logging
@@ -4764,17 +4765,119 @@ class InputCapacityError(ValueError):
     """No provider generation is authorized for an uncounted or oversized input."""
 
 
+def _prepare_capacity_client(client: object) -> object:
+    """Opt only the exact Terra adapter into Responses, without mutating its owner.
+
+    A shallow Pydantic copy retains the authenticated SDK instances, endpoint,
+    timeout/retry policy and every other generation setting. Standard never calls
+    this helper. Unknown models are left alone and refused by the native contract.
+    """
+    try:
+        from langchain_openai import ChatOpenAI
+    except ImportError:
+        return client
+    if type(client) is ChatOpenAI and client.model_name == "gpt-5.6-terra":
+        updates = {"use_responses_api": True}
+        if client.max_tokens is None:
+            updates["max_tokens"] = 128000
+        return client.model_copy(update=updates)
+    return client
+
+
+def _native_capacity_contract(client: object) -> dict[str, object]:
+    """Bind exact model facts to the adapter and its generation/count SDK root.
+
+    OpenAI facts: https://developers.openai.com/api/docs/models/gpt-5.6-terra
+    (2026-10-10 owner-fetched: context 1050000, input 922000, output 128000).
+    Anthropic: exact Models API response, additionally bounded by Sonnet 5.5's
+    documented nonbatch context/output ceilings (1000000/128000):
+    https://platform.claude.com/docs/en/models/sonnet-5-5/overview
+    https://platform.claude.com/docs/en/api/http/models
+    No prefix matching or caller-supplied profile can establish these facts.
+    """
+    try:
+        from langchain_openai import ChatOpenAI
+    except ImportError:
+        ChatOpenAI = None
+    try:
+        from langchain_anthropic import ChatAnthropic
+    except ImportError:
+        ChatAnthropic = None
+    if type(client) is ChatOpenAI:
+        from openai import OpenAI
+
+        provider, model = "openai", client.model_name
+        native = client.root_client
+        if model != "gpt-5.6-terra":
+            raise InputCapacityError("unsupported exact OpenAI capacity model")
+        if (
+            type(native) is not OpenAI
+            or str(native.base_url).rstrip("/") != "https://api.openai.com/v1"
+            or native.responses._client is not native
+            or native.responses.input_tokens._client is not native
+            or not client.use_responses_api
+        ):
+            raise InputCapacityError("OpenAI native generation/count transport mismatch")
+        profile = {"max_input_tokens": 922000, "max_output_tokens": 128000}
+        provenance = "openai-exact-model-docs:2026-10-10"
+        endpoint = "https://api.openai.com/v1/responses/input_tokens"
+    elif type(client) is ChatAnthropic:
+        from anthropic import Anthropic
+
+        provider, model = "anthropic", client.model
+        native = client._client
+        if model != "claude-sonnet-5-5":
+            raise InputCapacityError("unsupported exact Anthropic capacity model")
+        if (
+            type(native) is not Anthropic
+            or str(native.base_url).rstrip("/") != "https://api.anthropic.com"
+            or native.messages._client is not native
+            or native.models._client is not native
+        ):
+            raise InputCapacityError("Anthropic native generation/count transport mismatch")
+        metadata = native.models.retrieve(model)
+        window = getattr(metadata, "max_input_tokens", None)
+        output = getattr(metadata, "max_tokens", None)
+        if getattr(metadata, "id", None) != model or any(
+            type(value) is not int or value <= 0 for value in (window, output)
+        ):
+            raise InputCapacityError("malformed or mismatched exact-model native metadata")
+        profile = {
+            "max_input_tokens": min(window, 1000000),
+            "max_output_tokens": min(output, 128000),
+        }
+        provenance = "anthropic-exact-model-api+sonnet-5-5-docs:2026-10-10"
+        endpoint = "https://api.anthropic.com/v1/messages/count_tokens"
+    else:
+        raise InputCapacityError("unsupported native capacity client/provider")
+    if native.default_query:
+        raise InputCapacityError("uncounted native transport query fields")
+    supplied = getattr(client, "profile", None)
+    if isinstance(supplied, dict) and (
+        supplied.get("model", model) != model or supplied.get("provider", provider) != provider
+    ):
+        raise InputCapacityError("capacity profile model/provider mismatch")
+    return {
+        "provider": provider,
+        "model": model,
+        "profile": profile,
+        "provenance": provenance,
+        "endpoint": endpoint,
+    }
+
+
 def _preflight_input_capacity(client: object, prompt: str) -> dict[str, object]:
     """Count the complete native request; never substitute four-character estimates.
 
-    Capacity comes from the resolved client's exact-model profile. No model aliases,
+    Capacity comes from the source-owned exact-model native contract. No model aliases,
     larger-model retry, tokenizer fallback or operator-supplied guessed limit is used.
-    Native SDK count endpoints include the request's instructions and metadata.
-    Older SDKs, unknown model profiles and chat-only counters remain NON_PASS.
+    Native SDK count endpoints include all supported model-visible request fields.
+    Older SDKs, unknown models and chat-only counters remain NON_PASS.
     """
     receipt: dict[str, object] = {"status": "unavailable", "prompt_chars": len(prompt)}
     try:
-        profile = getattr(client, "profile", None)
+        contract = _native_capacity_contract(client)
+        profile = contract["profile"]
         if not isinstance(profile, dict):
             raise InputCapacityError("model-specific capacity profile unavailable")
         window = profile.get("max_input_tokens")
@@ -4784,18 +4887,24 @@ def _preflight_input_capacity(client: object, prompt: str) -> dict[str, object]:
         payload = client._get_request_payload(prompt)
         if not isinstance(payload, dict) or not isinstance(payload.get("model"), str):
             raise InputCapacityError("native request capacity binding unavailable")
+        if payload["model"] != contract["model"]:
+            raise InputCapacityError("native payload/model capacity mismatch")
+        receipt.update({key: value for key, value in contract.items() if key != "profile"})
         for name in ("max_output_tokens", "max_tokens", "max_completion_tokens"):
             if payload.get(name) is not None:
                 value = payload[name]
                 if type(value) is not int or value <= 0:
                     raise InputCapacityError("native output capacity ceiling is invalid")
                 output = max(output, value)
+        ceiling = profile.get("max_output_tokens")
+        if type(ceiling) is not int or ceiling <= 0 or output > ceiling:
+            raise InputCapacityError("native output capacity exceeds exact-model ceiling")
         receipt.update(model=payload["model"], input_limit=window, output_reserve=output)
         if payload.get("truncation") not in (None, "disabled"):
             raise InputCapacityError("automatic input truncation is forbidden by capacity policy")
         if payload.get("previous_response_id") or payload.get("conversation"):
             raise InputCapacityError("stateful input capacity cannot be established")
-        if "input" in payload:
+        if contract["provider"] == "openai" and "input" in payload and "messages" not in payload:
             root = getattr(client, "root_client", None)
             counter = getattr(
                 getattr(getattr(root, "responses", None), "input_tokens", None), "count", None
@@ -4809,9 +4918,12 @@ def _preflight_input_capacity(client: object, prompt: str) -> dict[str, object]:
                 "reasoning",
                 "text",
                 "parallel_tool_calls",
+                "truncation",
             }
             method = "native_response_input_tokens"
-        elif "messages" in payload:
+        elif (
+            contract["provider"] == "anthropic" and "messages" in payload and "input" not in payload
+        ):
             native = getattr(client, "_client", None)
             counter = getattr(getattr(native, "messages", None), "count_tokens", None)
             names = {
@@ -4821,11 +4933,13 @@ def _preflight_input_capacity(client: object, prompt: str) -> dict[str, object]:
                 "tools",
                 "tool_choice",
                 "thinking",
-                "context_management",
+                "output_config",
+                "output_format",
+                "cache_control",
             }
             method = "native_message_count_tokens"
         else:
-            raise InputCapacityError("native input capacity counter unavailable")
+            raise InputCapacityError("native provider/payload capacity mismatch")
         if not callable(counter):
             raise InputCapacityError("native input capacity counter unavailable")
         non_input = {
@@ -4847,10 +4961,15 @@ def _preflight_input_capacity(client: object, prompt: str) -> dict[str, object]:
         unknown = set(payload) - names - non_input
         if unknown:
             raise InputCapacityError(f"uncounted native capacity fields: {sorted(unknown)}")
+        request_bytes = json.dumps(payload, sort_keys=True, separators=(",", ":")).encode()
+        receipt["request_sha256"] = hashlib.sha256(request_bytes).hexdigest()
         counted = counter(**{key: value for key, value in payload.items() if key in names})
         tokens = getattr(counted, "input_tokens", None)
         if type(tokens) is not int or tokens <= 0:
             raise InputCapacityError("native capacity count returned invalid input_tokens")
+        current = client._get_request_payload(prompt)
+        if json.dumps(current, sort_keys=True, separators=(",", ":")).encode() != request_bytes:
+            raise InputCapacityError("native generation payload changed during count")
         # Reserve the complete configured output ceiling, including thinking tokens.
         # max_input_tokens may itself be a conservative input-only bound; using
         # input + output <= bound also protects a shared context window.
@@ -4883,9 +5002,13 @@ class _CapacityCheckedRepairClient:
         self.client = client
 
     def invoke(self, prompt: str, **kwargs: Any) -> Any:
+        client = self.client
         if os.environ.get("VERIFIER_EVIDENCE_PROFILE") == "expanded":
-            _preflight_input_capacity(self.client, prompt)
-        return self.client.invoke(prompt, **kwargs)
+            client = _prepare_capacity_client(client)
+            if set(kwargs) - {"config"}:
+                raise InputCapacityError("uncounted schema repair generation kwargs")
+            _preflight_input_capacity(client, prompt)
+        return client.invoke(prompt, **kwargs)
 
 
 def _invoke_llm(
@@ -4905,6 +5028,7 @@ def _invoke_llm(
     # Native counting is an explicit expanded-recovery contract. Standard keeps
     # its existing adapter behavior without claiming native capacity proof.
     if os.environ.get("VERIFIER_EVIDENCE_PROFILE") == "expanded":
+        client = _prepare_capacity_client(client)
         _preflight_input_capacity(client, prompt)
     config = _build_llm_config(
         operation=operation,
@@ -5231,7 +5355,12 @@ def evaluate_pr(
         )
     except Exception as exc:  # pragma: no cover - exercised in integration
         # If auth error and not explicitly requesting a provider, try fallback
-        if not isinstance(exc, InputCapacityError) and _is_auth_error(exc) and provider is None:
+        if (
+            os.environ.get("VERIFIER_EVIDENCE_PROFILE") != "expanded"
+            and not isinstance(exc, InputCapacityError)
+            and _is_auth_error(exc)
+            and provider is None
+        ):
             fallback_provider = "openai" if "github-models" in provider_name else "github-models"
             fallback_resolved = _get_llm_client(model=model, provider=fallback_provider)
             if fallback_resolved is not None:

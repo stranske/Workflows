@@ -71,7 +71,7 @@ fetch and 300,000-character context-diff ceiling remain. These allocation units
 are **not model token counts**. Only for explicit expanded recovery, before each
 evaluation, comparison arm and schema repair generation, the verifier counts the entire native request through the
 resolved client's SDK token-count endpoint and reserves its complete configured
-output ceiling (including thinking). It requires the exact-model client profile's
+output ceiling (including thinking). It requires the source-owned exact-model contract's
 positive `max_input_tokens` and output ceiling, and blocks when input plus output
 exceeds the input bound. This is conservative even for an input-only bound.
 No approximate tokenizer, automatic truncation, stateful unseen context or model
@@ -97,19 +97,46 @@ profile exports or generation, including empty, mistyped and whitespace modes.
 The existing comparison verdict and CI/coverage floors remain authoritative.
 No human-only gate is introduced.
 
-The selected Terra/Sonnet models currently have no capacity facts in the installed
-client profiles. This source repair deliberately does not invent those facts or
-claim live provider capacity. A model-specific supported profile and native counter
-must be available before expanded generation. Standard remains the default profile
-and preserves its existing invocation and schema-repair behavior without claiming
-native capacity proof. In particular, the configured Terra adapter uses OpenAI Chat
-Completions, which does not expose the native counter required here. No guessed
-limits, model substitution or adapter changes are introduced. Retrieval completeness,
-required evidence and changed-code coverage floors apply unconditionally in both
-profiles. Inspect actual new retrieval,
-capacity receipts and both provider verdicts; workflow success alone is not acceptance.
+SDK-bundled profiles vary by installed version and do not establish the native
+counting contract by themselves. Expanded recovery now prepares only
+exact `gpt-5.6-terra` as a shallow verifier-local copy with Responses enabled,
+retaining the authenticated SDK objects, credentials, endpoint, timeout and retry
+settings. An unset Terra output ceiling becomes the documented 128,000; explicit
+ceilings are preserved and checked against the model maximum. The source-owned
+[Terra facts](https://developers.openai.com/api/docs/models/gpt-5.6-terra)
+(owner-fetched 2026-10-10) are context 1,050,000, input 922,000, output 128,000.
+The unchanged conservative sum policy requires input + reserved output <= 922,000;
+this deliberately leaves more headroom than the shared context requires. It does
+not incorrectly describe the input-only bound as a context window.
+
+Exact `claude-sonnet-5-5` retains its Messages adapter and 128,000 configured ceiling.
+Each preflight queries the same authenticated SDK's
+[Models API](https://platform.claude.com/docs/en/api/models/retrieve), requires an
+identical model ID and positive integer `max_input_tokens`/`max_tokens`, and bounds
+those values by the [Sonnet nonbatch facts](https://platform.claude.com/docs/en/models/sonnet-5-5/overview)
+(context 1,000,000, output 128,000; owner-fetched 2026-10-10). Metadata failure is
+NON_PASS, never permission to guess a profile. The conservative sum policy applies
+to the smaller input/context bound, reserving the complete actual output ceiling.
+
+Both contracts require the exact native adapter/SDK type and official API root;
+custom endpoints, counter/client mismatches, query extensions, mismatched payload
+models, stateful input, truncation and unsupported input fields fail closed. OpenAI
+messages can never be routed to Anthropic's counter. The native counters receive
+all supported input fields (including instructions/system, tools, reasoning/thinking
+and response formats). The receipt binds provider, exact model, provenance,
+endpoint and full generation-request SHA256, and a changed request after counting
+blocks generation. Native metadata/count failures and expanded generation failures
+cannot trigger alternate-provider resolution. SDK retries keep their existing bound.
+
+Standard remains the default and preserves the original shared builders, request
+shape, invocation and schema repair without native capacity claims. No caller client
+is mutated. Unknown future models do not inherit these capabilities by prefix.
+Retrieval completeness, required evidence and changed-code coverage floors apply
+unconditionally in both profiles. Local simulated transport tests establish source
+behavior only. Inspect actual new retrieval, authenticated capacity receipts and
+both provider verdicts; workflow success alone is not acceptance.
 The input snapshot records every bound, and the consumer fingerprint includes the
-profile plus `bounded-native-capacity-v2`, so a previously fingerprinted expanded
+profile plus `bounded-native-capacity-v3` (standard retains `bounded-native-capacity-v2`), so a previously fingerprinted expanded
 evaluation cannot suppress this changed input contract. Existing manifest entries already manage both repaired scripts; no file
 addition, rename or delivery scope change requires a new manifest entry.
 

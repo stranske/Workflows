@@ -252,6 +252,11 @@ model identifiers cross the evaluation/comparison shell boundary through step
 environment variables and quoted argument arrays, never interpolated script text. Its
 profile is fingerprinted by consumer callers; real retrieval gaps, missing proof,
 CI failures and clipped code still withhold PASS. Standard remains the default.
+Expanded invocation prepares a local copy of the exact Terra client for Responses
+native input counting; Sonnet uses its own Messages counter and exact Models API
+metadata. Source-owned model facts, transport binding, output reserves and failure
+behavior are documented in [consumer maintenance](ops/CONSUMER_REPO_MAINTENANCE.md).
+Local count/transport tests do not establish live provider capacity or acceptance.
 
 ### What each mode does
 - **Checkbox (`verify:checkbox`)** — Validates acceptance-criteria checkboxes against implementation evidence in the merged PR.

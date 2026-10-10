@@ -20,7 +20,7 @@ def expanded_recovery(monkeypatch):
 
 
 @pytest.fixture(params=["openai", "anthropic"])
-def configured_native_client(request):
+def configured_native_client(request, monkeypatch):
     """Construct the actual selected adapters without credentials or network calls."""
     from tools import langchain_client
 
@@ -45,6 +45,17 @@ def configured_native_client(request):
     assert "messages" in payload
     if provider == "openai":
         assert "input" not in payload  # Incumbent Terra uses Chat Completions.
+        monkeypatch.setattr(
+            client.root_client.responses.input_tokens,
+            "count",
+            mock.Mock(side_effect=RuntimeError("native transport unavailable")),
+        )
+    else:
+        monkeypatch.setattr(
+            client._client.models,
+            "retrieve",
+            mock.Mock(side_effect=RuntimeError("native transport unavailable")),
+        )
     return client, provider, selection["model_id"]
 
 
@@ -54,7 +65,7 @@ def test_configured_native_client_compatibility(
     configured_native_client, profile, operation, monkeypatch, tmp_path
 ):
     client, provider, model = configured_native_client
-    # Current installed adapters have no authoritative exact-model capacity facts.
+    # Standard still uses the original adapters without bundled profiles.
     assert client.profile is None
     if profile is None:
         monkeypatch.delenv("VERIFIER_EVIDENCE_PROFILE", raising=False)
@@ -79,7 +90,7 @@ def test_configured_native_client_compatibility(
         invoke.assert_not_called()
         record = json.loads(report.read_text())
         assert record["status"] == "unavailable"
-        assert "model-specific capacity profile unavailable" in record["reason"]
+        assert "native transport unavailable" in record["reason"]
     else:
         invoke.assert_called_once()
         assert result.used_llm
@@ -166,6 +177,7 @@ def test_authenticated_capture_replay(monkeypatch):
 def capacity_client(input_tokens=100, window=120, output=20):
     counter = mock.Mock(return_value=SimpleNamespace(input_tokens=input_tokens))
     client = SimpleNamespace(
+        _unit_capacity_fake=True,
         profile={"max_input_tokens": window, "max_output_tokens": output},
         max_tokens=output,
         root_client=SimpleNamespace(

@@ -172,7 +172,12 @@ the consumer caller's unchanged-state fingerprint. Native input-capacity preflig
 is required only for explicit expanded evaluate/compare recovery, including schema
 repair. Standard retains existing client behavior without capacity claims; evidence
 and coverage floors remain unconditional. Both Python modes retain expanded capacity
-receipts, even after generation failures. See the bounded input-limit
+receipts even when generation fails.
+Expanded Terra alone uses a verifier-local Responses adapter copy; Sonnet's native
+Models API supplies exact-model limits before its Messages count. Unsupported
+models/transports or unavailable counts remain NON_PASS. The expanded fingerprint
+uses `bounded-native-capacity-v3`; standard keeps `bounded-native-capacity-v2`.
+See the bounded input-limit
 recovery contract in `docs/ops/CONSUMER_REPO_MAINTENANCE.md`.
 
 The agent workflows coordinate Codex and chat orchestration across topics:

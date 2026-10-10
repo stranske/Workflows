@@ -443,7 +443,11 @@ jobs:
               'chain_depth': int(os.environ['VERIFIER_CHAIN_DEPTH'] or 0),
               'ci_workflows': ci_workflows,
               'evidence_profile': os.environ['VERIFIER_EVIDENCE_PROFILE'],
-              'evidence_contract': 'bounded-native-capacity-v2',
+              'evidence_contract': (
+                  'bounded-native-capacity-v3'
+                  if os.environ['VERIFIER_EVIDENCE_PROFILE'] == 'expanded'
+                  else 'bounded-native-capacity-v2'
+              ),
               'input_limits': {
                   'comment_records': int(os.environ.get('VERIFIER_EVIDENCE_COMMENT_LIMIT', '50')),
                   'comment_chars': int(os.environ.get('VERIFIER_EVIDENCE_COMMENT_CHARS', '40000')),
