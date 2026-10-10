@@ -6,6 +6,14 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 Breaking changes are called out with a **BREAKING** marker and scheduled according to the policy in `COMPATIBILITY.md`.
 
+## [1.37.34](https://github.com/stranske/Workflows/compare/v1.37.33...v1.37.34) (2026-10-10)
+
+
+### Bug Fixes
+
+* **keepalive:** retain nested authored section aliases ([#3817](https://github.com/stranske/Workflows/issues/3817)) ([71357a2](https://github.com/stranske/Workflows/commit/71357a2a38033302e99ba3276bbb82dbe35c7b65))
+* **verifier:** recover bounded evidence and check native input capacity ([#3821](https://github.com/stranske/Workflows/issues/3821)) ([cfeff10](https://github.com/stranske/Workflows/commit/cfeff10dd0213068fcc5ee893323d445a6ecc341))
+
 ## [1.37.33](https://github.com/stranske/Workflows/compare/v1.37.32...v1.37.33) (2026-10-10)
 
 
