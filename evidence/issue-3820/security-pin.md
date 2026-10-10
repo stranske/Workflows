@@ -1,0 +1,9 @@
+# Evaluate receipt action pin
+
+Original Semgrep finding4238116465 / code-scanning alert6156 on source873de51694d850a988a1e9c2e5dd03f7fe2d0729 identifies the new evaluate upload's mutable v7 reference. Adopted, not waived. Official authenticated GitHub API repos/actions/upload-artifact/git/ref/tags/v7 returned object type commit, full SHA cf430e030ddbb5b0abf93d22962f4752f3646cd9. No model, provider, upload conditions, retention or existing worker commits changed.
+
+Added test_evaluate_capacity_upload_uses_immutable_action to tests/workflows/test_verifier_evidence_profile.py. It failed on the original production v7 reference (exit1), then passed on the full pin. Deliberate production mutation changed the repaired upload back to v7: the same test failed exit1; byte-identical restoration yielded GREEN exit0. Repaired reusable workflow SHA256 before and after mutation: c3165ca103a245c5efe340f03a5bde9a50e3916dde3042930dc5f7b9b4ec842c.
+
+Validation after pin: python3 -m pytest tests/workflows/test_verifier_evidence_profile.py tests/workflows/test_reusable_workflow_inputs_doc.py tests/workflows/test_sync_manifest_delivery.py -q --no-cov — 49 passed, exit0. actionlint on reusable workflow, Ruff, Black check, git diff --check — exit0. The 4014 Python and134Node suites were owner-executed on preceding873de51, not claimed freshly executed on this pin head. Source scripts/templates remain unchanged by this security-only correction. The reusable workflow is source-owned and consumed via existing template delegation; no managed delivery entry or template scope is added/changed. Documentation now states the evaluate upload pin contract.
+
+Hosted Semgrep must run on the new head and produce actual fixed disposition. No self-resolution, merge, provider PASS or campaign completion is claimed by local tests.

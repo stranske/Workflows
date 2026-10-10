@@ -65,6 +65,8 @@ replacement is allowed on capacity failure. Native counter or profile absence is
 NON_PASS, including authentication failure while counting; it never authorizes
 an alternate judge. Capacity receipts are retained as `verifier-capacity-checks.jsonl`
 for both evaluate and compare, including failed generation attempts.
+The evaluate receipt upload uses a full action commit pin; its regression rejects
+mutable tags without changing upload eligibility or retention.
 Receipt open, write or close failures emit a warning without replacing the
 preflight result or entering provider authentication fallback. The structured
 capacity decision remains in the job log; a failed receipt write means the JSONL

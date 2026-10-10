@@ -222,3 +222,15 @@ def test_capacity_receipt_upload_survives_failed_generation(mode):
     assert matching, f"capacity receipt has no upload for {mode}"
     assert all("always()" in step["if"] for step in matching)
     assert all("outcome" not in step["if"] and "has_results" not in step["if"] for step in matching)
+
+
+def test_evaluate_capacity_upload_uses_immutable_action():
+    workflow = yaml.load(
+        Path(".github/workflows/reusable-agents-verifier.yml").read_text(), Loader=yaml.BaseLoader
+    )
+    upload = next(
+        step
+        for step in workflow["jobs"]["verifier"]["steps"]
+        if step.get("name") == "Upload evaluation capacity receipts"
+    )
+    assert re.fullmatch(r"actions/upload-artifact@[0-9a-f]{40}", upload["uses"])
