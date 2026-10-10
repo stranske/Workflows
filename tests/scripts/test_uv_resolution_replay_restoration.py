@@ -58,7 +58,7 @@ def test_successful_replay_records_all_restored_proofs(private_replay, monkeypat
         other = replay.HELPER if copy == "template" else "templates/consumer-repo/" + replay.HELPER
         assert (tree / other).read_bytes() == caller_bytes[other]
         assert kwargs["cwd"] == tree
-        assert argv[7:9] == ["-m", "not slow"]
+        assert argv[5:9] == ["-o", "addopts=", "-m", "not slow"]
         assert xml.parent.parent == output
         calls.append((copy, kind, phase))
         name = node.rsplit("::", 1)[-1]
