@@ -392,17 +392,193 @@ def test_installed_sdk_counts_and_generates_on_same_native_transport(provider, m
     assert requests[-2].headers[auth] == requests[-1].headers[auth]
 
 
-def test_native_exact_conservative_boundary_and_explicit_output_preservation(native):
+@pytest.mark.parametrize("output", [64000, 128000])
+def test_native_exact_input_and_context_boundary_and_explicit_output_preservation(native, output):
     client, provider, _, counter, _ = native
-    client.max_tokens = 64000
+    client.max_tokens = output
     prepared = pr_verifier._prepare_capacity_client(client)
-    limit = 922000 if provider == "openai" else 1000000
-    counter.return_value.input_tokens = limit - 64000
+    limit = 922000 if provider == "openai" else 1000000 - output
+    counter.return_value.input_tokens = limit
     receipt = pr_verifier._preflight_input_capacity(prepared, "all input")
     assert receipt["status"] == "PASS"
-    assert receipt["output_reserve"] == 64000
+    assert receipt["input_limit"] == (922000 if provider == "openai" else 1000000)
+    assert receipt["context_limit"] == (1050000 if provider == "openai" else 1000000)
+    assert receipt["output_limit"] == 128000
+    assert receipt["output_reserve"] == output
     payload = prepared._get_request_payload("all input")
-    assert payload["max_output_tokens" if provider == "openai" else "max_tokens"] == 64000
+    assert payload["max_output_tokens" if provider == "openai" else "max_tokens"] == output
     counter.return_value.input_tokens += 1
     with pytest.raises(pr_verifier.InputCapacityError, match="overflow"):
         pr_verifier._preflight_input_capacity(prepared, "all input")
+
+
+def _run_operation(client, provider, model, operation, monkeypatch):
+    monkeypatch.setattr(pr_verifier, "_get_llm_client", lambda **kwargs: (client, provider))
+    if operation == "repair":
+        return pr_verifier._parse_llm_response("invalid JSON", provider, client=client)
+    if operation == "compare":
+        return pr_verifier.ComparisonRunner("context", None, "full request", []).run_single(
+            client, provider, model
+        )
+    return pr_verifier.evaluate_pr("context", provider=provider)
+
+
+@pytest.mark.parametrize("operation", ["evaluate", "compare", "repair"])
+@pytest.mark.parametrize(
+    "case",
+    [
+        "formerly-rejected-low",
+        "formerly-rejected-mid",
+        "boundary",
+        "input-overflow",
+        "context-overflow",
+        "smaller-output-boundary",
+        "smaller-output-overflow",
+        "output-overflow",
+        "metadata-smaller-input-boundary",
+        "metadata-smaller-input-overflow",
+        "metadata-larger-input-context-boundary",
+        "metadata-larger-input-context-overflow",
+    ],
+)
+def test_native_capacity_operations_matrix(native, operation, case, monkeypatch, tmp_path):
+    client, provider, model, counter, metadata = native
+    input_limit, context_limit, output = (
+        (922000, 1050000, 128000) if provider == "openai" else (1000000, 1000000, 128000)
+    )
+    if case.startswith("metadata-"):
+        if provider != "anthropic":
+            pytest.skip("Anthropic Models API contract")
+        input_limit = 800000 if "smaller" in case else 1100000
+        metadata.return_value.max_input_tokens = input_limit
+    if case.startswith("smaller-output"):
+        output = 64000
+        client.max_tokens = output
+    if case == "output-overflow":
+        output = 128001
+        client.max_tokens = output
+    tokens = min(input_limit, context_limit - output)
+    if case == "formerly-rejected-low":
+        tokens = 794001
+    elif case == "formerly-rejected-mid":
+        tokens = 858001
+    elif case == "input-overflow":
+        # Isolate the input-only constraint from combined context overflow.
+        client.max_tokens = output = 64000
+        if provider == "anthropic":
+            metadata.return_value.max_input_tokens = input_limit = 800000
+        tokens = input_limit + 1
+    elif case == "context-overflow":
+        # Terra's official input+maximum output equals its context; this crosses both.
+        tokens = context_limit - output + 1
+    elif case.endswith("overflow") and case != "output-overflow":
+        tokens += 1
+    counter.return_value.input_tokens = tokens
+    report = tmp_path / "capacity.jsonl"
+    monkeypatch.setenv("VERIFIER_CAPACITY_REPORT_PATH", str(report))
+    expected = "overflow" not in case
+    generated = []
+
+    def generate(prepared, prompt, **kwargs):
+        payload = prepared._get_request_payload(prompt)
+        generated.append(payload)
+        key = "input" if provider == "openai" else "messages"
+        assert counter.call_args.kwargs[key] == payload[key]
+        assert counter.call_args.kwargs["model"] == payload["model"] == model
+        assert payload["max_output_tokens" if provider == "openai" else "max_tokens"] == output
+        return SimpleNamespace(content='{"verdict":"PASS"}')
+
+    with mock.patch.object(type(client), "invoke", autospec=True, side_effect=generate):
+        result = _run_operation(client, provider, model, operation, monkeypatch)
+    if operation != "repair":
+        assert result.used_llm is expected, result.error
+    assert bool(generated) is expected
+    receipt = json.loads(report.read_text())
+    assert receipt["status"] == (
+        "PASS" if expected else "unavailable" if case == "output-overflow" else "overflow"
+    )
+    assert receipt["input_limit"] == input_limit
+    assert receipt["context_limit"] == context_limit
+    assert receipt["output_limit"] == 128000
+    assert receipt["output_reserve"] == output
+    if case == "output-overflow":
+        counter.assert_not_called()
+    else:
+        counter.assert_called_once()
+        assert receipt["input_tokens"] == tokens
+        assert len(receipt["request_sha256"]) == 64
+    if not expected:
+        assert result.verdict == "CONCERNS"
+
+
+@pytest.mark.parametrize("operation", ["evaluate", "compare", "repair"])
+@pytest.mark.parametrize("context", ["missing", None, True, False, 0, -1, "1050000", 1050000.0])
+def test_native_malformed_context_facts_block(native, operation, context, monkeypatch, tmp_path):
+    client, provider, model, counter, _ = native
+    native_contract = pr_verifier._native_capacity_contract
+
+    def contract(prepared):
+        result = native_contract(prepared)
+        if context == "missing":
+            result["profile"].pop("max_context_tokens", None)
+        else:
+            result["profile"]["max_context_tokens"] = context
+        return result
+
+    monkeypatch.setattr(pr_verifier, "_native_capacity_contract", contract)
+    report = tmp_path / "capacity.jsonl"
+    monkeypatch.setenv("VERIFIER_CAPACITY_REPORT_PATH", str(report))
+    with mock.patch.object(type(client), "invoke") as invoke:
+        result = _run_operation(client, provider, model, operation, monkeypatch)
+    assert result.verdict == "CONCERNS"
+    if operation != "repair":
+        assert not result.used_llm
+    invoke.assert_not_called()
+    counter.assert_not_called()
+    receipt = json.loads(report.read_text())
+    assert receipt["status"] == "unavailable"
+    assert "context" in receipt["reason"]
+
+
+def test_native_reserves_actual_payload_output(native, monkeypatch):
+    client, provider, _, counter, _ = native
+    # Payload overrides are authoritative even when the adapter's default is larger.
+    original = type(client)._get_request_payload
+
+    def payload(prepared, prompt, **kwargs):
+        result = original(prepared, prompt, **kwargs)
+        result["max_output_tokens" if provider == "openai" else "max_tokens"] = 64000
+        return result
+
+    monkeypatch.setattr(type(client), "_get_request_payload", payload)
+    counter.return_value.input_tokens = 922000 if provider == "openai" else 936000
+    receipt = pr_verifier._preflight_input_capacity(
+        pr_verifier._prepare_capacity_client(client), "full request"
+    )
+    assert receipt["status"] == "PASS"
+    assert receipt["output_reserve"] == 64000
+
+
+@pytest.mark.parametrize("operation", ["evaluate", "compare", "repair"])
+@pytest.mark.parametrize("output", ["missing", None, True, 0, -1, "64000", 64000.0])
+def test_native_missing_or_malformed_payload_output_blocks(native, operation, output, monkeypatch):
+    client, provider, model, counter, _ = native
+    original = type(client)._get_request_payload
+
+    def payload(prepared, prompt, **kwargs):
+        result = original(prepared, prompt, **kwargs)
+        key = "max_output_tokens" if provider == "openai" else "max_tokens"
+        if output == "missing":
+            result.pop(key)
+        else:
+            result[key] = output
+        return result
+
+    monkeypatch.setattr(type(client), "_get_request_payload", payload)
+    with mock.patch.object(type(client), "invoke") as invoke:
+        result = _run_operation(client, provider, model, operation, monkeypatch)
+    assert result.verdict == "CONCERNS"
+    if operation != "repair":
+        assert not result.used_llm
+    invoke.assert_not_called()
+    counter.assert_not_called()

@@ -4818,7 +4818,11 @@ def _native_capacity_contract(client: object) -> dict[str, object]:
             or not client.use_responses_api
         ):
             raise InputCapacityError("OpenAI native generation/count transport mismatch")
-        profile = {"max_input_tokens": 922000, "max_output_tokens": 128000}
+        profile = {
+            "max_input_tokens": 922000,
+            "max_context_tokens": 1050000,
+            "max_output_tokens": 128000,
+        }
         provenance = "openai-exact-model-docs:2026-10-10"
         endpoint = "https://api.openai.com/v1/responses/input_tokens"
     elif type(client) is ChatAnthropic:
@@ -4843,7 +4847,8 @@ def _native_capacity_contract(client: object) -> dict[str, object]:
         ):
             raise InputCapacityError("malformed or mismatched exact-model native metadata")
         profile = {
-            "max_input_tokens": min(window, 1000000),
+            "max_input_tokens": window,
+            "max_context_tokens": 1000000,
             "max_output_tokens": min(output, 128000),
         }
         provenance = "anthropic-exact-model-api+sonnet-5-5-docs:2026-10-10"
@@ -4881,25 +4886,39 @@ def _preflight_input_capacity(client: object, prompt: str) -> dict[str, object]:
         if not isinstance(profile, dict):
             raise InputCapacityError("model-specific capacity profile unavailable")
         window = profile.get("max_input_tokens")
-        output = getattr(client, "max_tokens", None) or profile.get("max_output_tokens")
-        if any(type(value) is not int or value <= 0 for value in (window, output)):
-            raise InputCapacityError("input capacity or output reserve unavailable")
+        context = profile.get("max_context_tokens")
+        # Only legacy synthetic fixtures may reuse the input bound as context.
+        # Every real native contract must establish all three independent facts.
+        if (
+            "max_context_tokens" not in profile
+            and contract.get("provenance") == "synthetic-unit-test-only"
+        ):
+            context = window
+        ceiling = profile.get("max_output_tokens")
+        if type(context) is not int or context <= 0:
+            raise InputCapacityError("native context capacity unavailable or invalid")
+        if any(type(value) is not int or value <= 0 for value in (window, ceiling)):
+            raise InputCapacityError("input capacity or output ceiling unavailable")
+        receipt.update({key: value for key, value in contract.items() if key != "profile"})
+        receipt.update(input_limit=window, context_limit=context, output_limit=ceiling)
         payload = client._get_request_payload(prompt)
         if not isinstance(payload, dict) or not isinstance(payload.get("model"), str):
             raise InputCapacityError("native request capacity binding unavailable")
         if payload["model"] != contract["model"]:
             raise InputCapacityError("native payload/model capacity mismatch")
-        receipt.update({key: value for key, value in contract.items() if key != "profile"})
+        output_limits = []
         for name in ("max_output_tokens", "max_tokens", "max_completion_tokens"):
             if payload.get(name) is not None:
                 value = payload[name]
                 if type(value) is not int or value <= 0:
                     raise InputCapacityError("native output capacity ceiling is invalid")
-                output = max(output, value)
-        ceiling = profile.get("max_output_tokens")
-        if type(ceiling) is not int or ceiling <= 0 or output > ceiling:
+                output_limits.append(value)
+        if not output_limits:
+            raise InputCapacityError("actual native request output ceiling unavailable")
+        output = max(output_limits)
+        receipt.update(model=payload["model"], output_reserve=output)
+        if output > ceiling:
             raise InputCapacityError("native output capacity exceeds exact-model ceiling")
-        receipt.update(model=payload["model"], input_limit=window, output_reserve=output)
         if payload.get("truncation") not in (None, "disabled"):
             raise InputCapacityError("automatic input truncation is forbidden by capacity policy")
         if payload.get("previous_response_id") or payload.get("conversation"):
@@ -4970,13 +4989,15 @@ def _preflight_input_capacity(client: object, prompt: str) -> dict[str, object]:
         current = client._get_request_payload(prompt)
         if json.dumps(current, sort_keys=True, separators=(",", ":")).encode() != request_bytes:
             raise InputCapacityError("native generation payload changed during count")
-        # Reserve the complete configured output ceiling, including thinking tokens.
-        # max_input_tokens may itself be a conservative input-only bound; using
-        # input + output <= bound also protects a shared context window.
+        # Reserve the actual request output ceiling, including thinking tokens,
+        # against context, independently of the exact model's input-only bound.
         receipt.update(input_tokens=tokens, counting_method=method)
-        if tokens + output > window:
+        if tokens > window or tokens + output > context:
             receipt["status"] = "overflow"
-            raise InputCapacityError(f"input capacity overflow: {tokens} + {output} > {window}")
+            raise InputCapacityError(
+                f"input/context capacity overflow: input {tokens} <= {window} and "
+                f"input + output {tokens} + {output} <= {context} required"
+            )
         receipt["status"] = "PASS"
         return receipt
     except Exception as exc:

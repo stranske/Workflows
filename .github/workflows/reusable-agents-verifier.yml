@@ -444,7 +444,7 @@ jobs:
               'ci_workflows': ci_workflows,
               'evidence_profile': os.environ['VERIFIER_EVIDENCE_PROFILE'],
               'evidence_contract': (
-                  'bounded-native-capacity-v3'
+                  'bounded-native-capacity-v4'
                   if os.environ['VERIFIER_EVIDENCE_PROFILE'] == 'expanded'
                   else 'bounded-native-capacity-v2'
               ),

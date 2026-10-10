@@ -223,3 +223,20 @@ Exit 0: **227 passed, 6 skipped in 15.79s**. The six skips are the same
 Anthropic-only metadata cases under OpenAI; authenticated capture replay ran.
 Ruff, Black with Python 3.12 AST checking, and current test diff whitespace
 validation all passed. This remains local source validation, not provider acceptance.
+
+## Reviewer adoption — Workflows#3822 / Codex finding 4238407535
+
+The preceding narrative, hashes and results are historical and retained unchanged.
+The reviewer correctly identified that the conservative sum policy double-reserves
+128000 against Terra's input-only 922000 bound. The new source repair checks exact
+native input and combined context independently, preserves actual smaller output
+ceilings, and requires explicit input/context/output facts for real native clients.
+Sonnet enforces its exact metadata input bound separately from documented context.
+Expanded fingerprints advance from v3 to v4; standard stays v2.
+
+See [the adopted current contract](../native-capacity-recovery.md) and
+[new production RED/restored GREEN proof](native-context-window-repair.md).
+The new validation uses the actual locked newer SDK environment, superseding the
+historical local SDK-version limitation above. Local source tests still do not
+resolve provider UNKNOWN or establish live verifier acceptance. Parent owns
+publication, exact-head review/disposition, merge and live fleet continuation.

@@ -175,8 +175,10 @@ and coverage floors remain unconditional. Both Python modes retain expanded capa
 receipts even when generation fails.
 Expanded Terra alone uses a verifier-local Responses adapter copy; Sonnet's native
 Models API supplies exact-model limits before its Messages count. Unsupported
-models/transports or unavailable counts remain NON_PASS. The expanded fingerprint
-uses `bounded-native-capacity-v3`; standard keeps `bounded-native-capacity-v2`.
+models/transports or unavailable counts remain NON_PASS. Native input limits and
+combined input/output context limits are independent; Terra no longer reserves
+output twice against its input-only bound. The expanded fingerprint uses
+`bounded-native-capacity-v4`; standard keeps `bounded-native-capacity-v2`.
 See the bounded input-limit
 recovery contract in `docs/ops/CONSUMER_REPO_MAINTENANCE.md`.
 
