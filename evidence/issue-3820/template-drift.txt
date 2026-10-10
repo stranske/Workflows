@@ -1,0 +1,10 @@
+python3 scripts/check_template_drift.py --allowlist config/template-drift-allowlist.txt
+Exit 0
+# Template Drift Report
+
+- in sync: 6
+- allowlisted baseline drift: 20
+- unallowlisted drift: 0
+
+.................................                                        [100%]
+33 passed in 0.57s

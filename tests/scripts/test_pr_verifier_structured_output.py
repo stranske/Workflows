@@ -9,6 +9,8 @@ from unittest import mock
 import pytest
 from scripts.langchain import pr_verifier
 
+from tests.scripts.verifier_capacity_fakes import with_capacity
+
 SAMPLE_DIFF = "diff --git a/example.py b/example.py\n--- a/example.py\n+++ b/example.py\n@@ -1 +1 @@\n-old\n+new\n"
 
 
@@ -51,7 +53,7 @@ def test_evaluate_pr_repairs_malformed_output(monkeypatch: pytest.MonkeyPatch, b
     bad = bad_content(payload)
     good = json.dumps(payload)
 
-    mock_client = mock.MagicMock()
+    mock_client = with_capacity(mock.MagicMock())
     mock_client.invoke.side_effect = [_response_with(bad), _response_with(good)]
 
     monkeypatch.setattr(pr_verifier, "_prepare_prompt", lambda ctx, diff: "prompt")
@@ -72,7 +74,7 @@ def test_comparison_runner_repairs_malformed_output() -> None:
     bad = "```json\n" + json.dumps(payload) + "\n```"
     good = json.dumps(payload)
 
-    mock_client = mock.MagicMock()
+    mock_client = with_capacity(mock.MagicMock())
     mock_client.invoke.side_effect = [_response_with(bad), _response_with(good)]
 
     runner = pr_verifier.ComparisonRunner(
@@ -95,7 +97,7 @@ def test_comparison_runner_handles_structured_response_content() -> None:
             {"type": "text", "text": payload},
         ]
     )
-    mock_client = mock.MagicMock()
+    mock_client = with_capacity(mock.MagicMock())
     mock_client.invoke.return_value = response
 
     runner = pr_verifier.ComparisonRunner(
@@ -122,7 +124,7 @@ def test_comparison_runner_concatenates_split_text_blocks() -> None:
             {"type": "text", "text": payload[split:]},
         ]
     )
-    mock_client = mock.MagicMock()
+    mock_client = with_capacity(mock.MagicMock())
     mock_client.invoke.return_value = response
 
     runner = pr_verifier.ComparisonRunner(
@@ -153,7 +155,7 @@ def test_comparison_runner_normalizes_structured_repair_response() -> None:
             {"type": "text", "text": payload},
         ]
     )
-    mock_client = mock.MagicMock()
+    mock_client = with_capacity(mock.MagicMock())
     mock_client.invoke.side_effect = [malformed, repaired]
 
     runner = pr_verifier.ComparisonRunner(
@@ -184,7 +186,7 @@ def test_comparison_runner_normalizes_structured_repair_response() -> None:
 def test_comparison_runner_treats_a_textless_repair_as_no_repair(empty_repair_content) -> None:
     payload = json.dumps(_valid_payload())
     malformed_text = "```json\n" + payload + "\n```"
-    mock_client = mock.MagicMock()
+    mock_client = with_capacity(mock.MagicMock())
     mock_client.invoke.side_effect = [
         _response_with(malformed_text),
         _response_with(empty_repair_content),
@@ -358,7 +360,7 @@ def test_evaluate_pr_valid_output_no_repair(monkeypatch: pytest.MonkeyPatch) -> 
     payload = _valid_payload()
     good = json.dumps(payload)
 
-    mock_client = mock.MagicMock()
+    mock_client = with_capacity(mock.MagicMock())
     mock_client.invoke.side_effect = [_response_with(good)]
 
     monkeypatch.setattr(pr_verifier, "_prepare_prompt", lambda ctx, diff: "prompt")
@@ -379,7 +381,7 @@ def test_evaluate_pr_repair_prompt_includes_schema(monkeypatch: pytest.MonkeyPat
     bad = "Here you go:\n" + json.dumps(payload)
     good = json.dumps(payload)
 
-    mock_client = mock.MagicMock()
+    mock_client = with_capacity(mock.MagicMock())
     mock_client.invoke.side_effect = [_response_with(bad), _response_with(good)]
 
     monkeypatch.setattr(pr_verifier, "_prepare_prompt", lambda ctx, diff: "prompt")
@@ -406,7 +408,7 @@ def test_evaluate_pr_repairs_once_then_returns_error(monkeypatch: pytest.MonkeyP
     payload = _valid_payload()
     bad = "```json\n" + json.dumps(payload) + "\n```"
 
-    mock_client = mock.MagicMock()
+    mock_client = with_capacity(mock.MagicMock())
     mock_client.invoke.side_effect = [_response_with(bad), _response_with(bad)]
 
     monkeypatch.setattr(pr_verifier, "_prepare_prompt", lambda ctx, diff: "prompt")
@@ -456,7 +458,7 @@ def test_invoke_llm_passes_config_metadata(llm_config_sentinel) -> None:
             self.calls.append(dict(kwargs))
             return object()
 
-    client = DummyClient()
+    client = with_capacity(DummyClient())
     context = "Pull request: [#321](https://github.com/sentinel/repo/pull/321)"
 
     response = pr_verifier._invoke_llm(
@@ -477,7 +479,7 @@ def test_invoke_llm_typeerror_fallback_logs_and_retries(
     caplog: pytest.LogCaptureFixture,
     llm_typeerror_client_factory,
 ) -> None:
-    client = llm_typeerror_client_factory(object(), message="config mismatch")
+    client = with_capacity(llm_typeerror_client_factory(object(), message="config mismatch"))
     caplog.set_level(logging.WARNING, logger=pr_verifier.__name__)
 
     response = pr_verifier._invoke_llm(
@@ -522,7 +524,7 @@ def test_pr_verifier_call_site_config_propagation(
             self.calls.append(dict(kwargs))
             return self.response
 
-    client = DummyClient()
+    client = with_capacity(DummyClient())
     context = "Pull request: [#456](https://github.com/sentinel/repo/pull/456)"
 
     if call_site == "evaluate_pr":
@@ -566,7 +568,7 @@ def test_pr_verifier_call_site_metadata_propagation(
             self.calls.append(dict(kwargs))
             return self.response
 
-    client = DummyClient()
+    client = with_capacity(DummyClient())
     context = "Pull request: [#456](https://github.com/sentinel/repo/pull/456)"
 
     if call_site == "evaluate_pr":
@@ -600,7 +602,7 @@ def test_evaluate_pr_passes_config_metadata(
             self.calls.append(dict(kwargs))
             return self.response
 
-    client = DummyClient()
+    client = with_capacity(DummyClient())
     context = "Pull request: [#456](https://github.com/sentinel/repo/pull/456)"
 
     monkeypatch.setattr(pr_verifier, "_prepare_prompt", lambda ctx, diff: "prompt")
@@ -626,7 +628,7 @@ def test_comparison_runner_passes_config_metadata(llm_config_sentinel) -> None:
             self.calls.append(dict(kwargs))
             return self.response
 
-    client = DummyClient()
+    client = with_capacity(DummyClient())
     context = "Pull request: [#456](https://github.com/sentinel/repo/pull/456)"
     runner = pr_verifier.ComparisonRunner(
         context=context,

@@ -4760,6 +4760,134 @@ def _build_llm_config(
     return {"metadata": metadata, "tags": tags}
 
 
+class InputCapacityError(ValueError):
+    """No provider generation is authorized for an uncounted or oversized input."""
+
+
+def _preflight_input_capacity(client: object, prompt: str) -> dict[str, object]:
+    """Count the complete native request; never substitute four-character estimates.
+
+    Capacity comes from the resolved client's exact-model profile. No model aliases,
+    larger-model retry, tokenizer fallback or operator-supplied guessed limit is used.
+    Native SDK count endpoints include the request's instructions and metadata.
+    Older SDKs, unknown model profiles and chat-only counters remain NON_PASS.
+    """
+    receipt: dict[str, object] = {"status": "unavailable", "prompt_chars": len(prompt)}
+    try:
+        profile = getattr(client, "profile", None)
+        if not isinstance(profile, dict):
+            raise InputCapacityError("model-specific capacity profile unavailable")
+        window = profile.get("max_input_tokens")
+        output = getattr(client, "max_tokens", None) or profile.get("max_output_tokens")
+        if any(type(value) is not int or value <= 0 for value in (window, output)):
+            raise InputCapacityError("input capacity or output reserve unavailable")
+        payload = client._get_request_payload(prompt)
+        if not isinstance(payload, dict) or not isinstance(payload.get("model"), str):
+            raise InputCapacityError("native request capacity binding unavailable")
+        for name in ("max_output_tokens", "max_tokens", "max_completion_tokens"):
+            if payload.get(name) is not None:
+                value = payload[name]
+                if type(value) is not int or value <= 0:
+                    raise InputCapacityError("native output capacity ceiling is invalid")
+                output = max(output, value)
+        receipt.update(model=payload["model"], input_limit=window, output_reserve=output)
+        if payload.get("truncation") not in (None, "disabled"):
+            raise InputCapacityError("automatic input truncation is forbidden by capacity policy")
+        if payload.get("previous_response_id") or payload.get("conversation"):
+            raise InputCapacityError("stateful input capacity cannot be established")
+        if "input" in payload:
+            root = getattr(client, "root_client", None)
+            counter = getattr(
+                getattr(getattr(root, "responses", None), "input_tokens", None), "count", None
+            )
+            names = {
+                "model",
+                "input",
+                "instructions",
+                "tools",
+                "tool_choice",
+                "reasoning",
+                "text",
+                "parallel_tool_calls",
+            }
+            method = "native_response_input_tokens"
+        elif "messages" in payload:
+            native = getattr(client, "_client", None)
+            counter = getattr(getattr(native, "messages", None), "count_tokens", None)
+            names = {
+                "model",
+                "messages",
+                "system",
+                "tools",
+                "tool_choice",
+                "thinking",
+                "context_management",
+            }
+            method = "native_message_count_tokens"
+        else:
+            raise InputCapacityError("native input capacity counter unavailable")
+        if not callable(counter):
+            raise InputCapacityError("native input capacity counter unavailable")
+        non_input = {
+            "max_tokens",
+            "max_output_tokens",
+            "max_completion_tokens",
+            "temperature",
+            "top_p",
+            "top_k",
+            "stop",
+            "stop_sequences",
+            "stream",
+            "timeout",
+            "metadata",
+            "store",
+            "service_tier",
+            "truncation",
+        }
+        unknown = set(payload) - names - non_input
+        if unknown:
+            raise InputCapacityError(f"uncounted native capacity fields: {sorted(unknown)}")
+        counted = counter(**{key: value for key, value in payload.items() if key in names})
+        tokens = getattr(counted, "input_tokens", None)
+        if type(tokens) is not int or tokens <= 0:
+            raise InputCapacityError("native capacity count returned invalid input_tokens")
+        # Reserve the complete configured output ceiling, including thinking tokens.
+        # max_input_tokens may itself be a conservative input-only bound; using
+        # input + output <= bound also protects a shared context window.
+        receipt.update(input_tokens=tokens, counting_method=method)
+        if tokens + output > window:
+            receipt["status"] = "overflow"
+            raise InputCapacityError(f"input capacity overflow: {tokens} + {output} > {window}")
+        receipt["status"] = "PASS"
+        return receipt
+    except Exception as exc:
+        receipt["reason"] = str(exc)
+        raise InputCapacityError(f"Verifier input capacity blocked: {exc}") from exc
+    finally:
+        LOGGER.info("Verifier input capacity: %s", json.dumps(receipt, sort_keys=True))
+        report = os.environ.get("VERIFIER_CAPACITY_REPORT_PATH")
+        if report:
+            try:
+                with Path(report).open("a", encoding="utf-8") as stream:
+                    stream.write(json.dumps(receipt, sort_keys=True) + "\n")
+            except OSError as exc:
+                LOGGER.warning(
+                    "Verifier capacity receipt write failed (%s): %s", type(exc).__name__, exc
+                )
+
+
+class _CapacityCheckedRepairClient:
+    """Schema repair is another provider invocation with its own full input."""
+
+    def __init__(self, client: object) -> None:
+        self.client = client
+
+    def invoke(self, prompt: str, **kwargs: Any) -> Any:
+        if os.environ.get("VERIFIER_EVIDENCE_PROFILE") == "expanded":
+            _preflight_input_capacity(self.client, prompt)
+        return self.client.invoke(prompt, **kwargs)
+
+
 def _invoke_llm(
     client: object,
     prompt: str,
@@ -4774,6 +4902,10 @@ def _invoke_llm(
     Returns:
         Tuple of (response, trace_id, trace_url)
     """
+    # Native counting is an explicit expanded-recovery contract. Standard keeps
+    # its existing adapter behavior without claiming native capacity proof.
+    if os.environ.get("VERIFIER_EVIDENCE_PROFILE") == "expanded":
+        _preflight_input_capacity(client, prompt)
     config = _build_llm_config(
         operation=operation,
         context=context,
@@ -5027,7 +5159,7 @@ def _parse_llm_response(
 
 
 def _build_verifier_repair_callback(client: object) -> Callable[[str, str, str], str | None]:
-    repair = build_repair_callback(client)
+    repair = build_repair_callback(_CapacityCheckedRepairClient(client))
 
     def _repair(schema_json: str, validation_errors: str, raw_response: str) -> str | None:
         repaired = repair(
@@ -5099,7 +5231,7 @@ def evaluate_pr(
         )
     except Exception as exc:  # pragma: no cover - exercised in integration
         # If auth error and not explicitly requesting a provider, try fallback
-        if _is_auth_error(exc) and provider is None:
+        if not isinstance(exc, InputCapacityError) and _is_auth_error(exc) and provider is None:
             fallback_provider = "openai" if "github-models" in provider_name else "github-models"
             fallback_resolved = _get_llm_client(model=model, provider=fallback_provider)
             if fallback_resolved is not None:

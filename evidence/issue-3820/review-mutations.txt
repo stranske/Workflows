@@ -1,0 +1,2 @@
+decoded-string-byte-accounting: RED=1 GREEN=0 byte-identical restoration
+receipt-io-masks-capacity-and-enters-auth-fallback: RED=1 GREEN=0 byte-identical restoration

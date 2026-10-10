@@ -1,0 +1,391 @@
+[
+  {
+    "mutation": "standard-native-invocation-regression",
+    "source": "scripts/langchain/pr_verifier.py",
+    "before": "    if os.environ.get(\"VERIFIER_EVIDENCE_PROFILE\") == \"expanded\":\n        _preflight_input_capacity(client, prompt)\n",
+    "after": "    _preflight_input_capacity(client, prompt)\n",
+    "command": [
+      "python3",
+      "-m",
+      "pytest",
+      "-q",
+      "--no-cov",
+      "tests/scripts/test_pr_verifier_recovery.py::test_configured_native_client_compatibility",
+      "-k",
+      "not repair"
+    ],
+    "source_sha256": {
+      "scripts/langchain/pr_verifier.py": "968b6d02020fc226716918c1c1a0dec50715cbe0919be288cc44319f44789f66",
+      "templates/consumer-repo/scripts/langchain/pr_verifier.py": "968b6d02020fc226716918c1c1a0dec50715cbe0919be288cc44319f44789f66"
+    },
+    "restoration_byte_identical": true,
+    "red": {
+      "exit": 1,
+      "output_sha256": "512e81b1b19b3836b844f334eeb0148198e6f3425647c0a35d9fb84e64aaef53",
+      "tail": [
+        "    def assert_called_once(self):",
+        "        \"\"\"assert that the mock was called only once.",
+        "        \"\"\"",
+        "        if not self.call_count == 1:",
+        "            msg = (\"Expected '%s' to have been called once. Called %s times.%s\"",
+        "                   % (self._mock_name or 'mock',",
+        "                      self.call_count,",
+        "                      self._calls_repr()))",
+        ">           raise AssertionError(msg)",
+        "E           AssertionError: Expected 'invoke' to have been called once. Called 0 times.",
+        "",
+        "/opt/anaconda3/lib/python3.12/unittest/mock.py:923: AssertionError",
+        "=========================== short test summary info ============================",
+        "FAILED tests/scripts/test_pr_verifier_recovery.py::test_configured_native_client_compatibility[openai-evaluate-None]",
+        "FAILED tests/scripts/test_pr_verifier_recovery.py::test_configured_native_client_compatibility[openai-evaluate-standard]",
+        "FAILED tests/scripts/test_pr_verifier_recovery.py::test_configured_native_client_compatibility[openai-compare-None]",
+        "FAILED tests/scripts/test_pr_verifier_recovery.py::test_configured_native_client_compatibility[openai-compare-standard]",
+        "FAILED tests/scripts/test_pr_verifier_recovery.py::test_configured_native_client_compatibility[anthropic-evaluate-None]",
+        "FAILED tests/scripts/test_pr_verifier_recovery.py::test_configured_native_client_compatibility[anthropic-evaluate-standard]",
+        "FAILED tests/scripts/test_pr_verifier_recovery.py::test_configured_native_client_compatibility[anthropic-compare-None]",
+        "FAILED tests/scripts/test_pr_verifier_recovery.py::test_configured_native_client_compatibility[anthropic-compare-standard]",
+        "8 failed, 4 passed, 6 deselected in 8.38s"
+      ]
+    },
+    "green": {
+      "exit": 0,
+      "output_sha256": "7eedcc9b7cd5435e82a402b1f2278d720c89bd0ba82bb0811e08b67142816b1f",
+      "tail": [
+        "............                                                             [100%]",
+        "12 passed, 6 deselected in 6.43s"
+      ]
+    }
+  },
+  {
+    "mutation": "standard-native-repair-regression",
+    "source": "scripts/langchain/pr_verifier.py",
+    "before": "        if os.environ.get(\"VERIFIER_EVIDENCE_PROFILE\") == \"expanded\":\n            _preflight_input_capacity(self.client, prompt)\n",
+    "after": "        _preflight_input_capacity(self.client, prompt)\n",
+    "command": [
+      "python3",
+      "-m",
+      "pytest",
+      "-q",
+      "--no-cov",
+      "tests/scripts/test_pr_verifier_recovery.py::test_configured_native_client_compatibility",
+      "-k",
+      "repair"
+    ],
+    "source_sha256": {
+      "scripts/langchain/pr_verifier.py": "968b6d02020fc226716918c1c1a0dec50715cbe0919be288cc44319f44789f66",
+      "templates/consumer-repo/scripts/langchain/pr_verifier.py": "968b6d02020fc226716918c1c1a0dec50715cbe0919be288cc44319f44789f66"
+    },
+    "restoration_byte_identical": true,
+    "red": {
+      "exit": 1,
+      "output_sha256": "5f5db7ece388798a302a8d05ea945667e5019c364dec7c041510e9e032720cbf",
+      "tail": [
+        "_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ ",
+        "",
+        "self = <MagicMock name='invoke' id='4640325408'>",
+        "",
+        "    def assert_called_once(self):",
+        "        \"\"\"assert that the mock was called only once.",
+        "        \"\"\"",
+        "        if not self.call_count == 1:",
+        "            msg = (\"Expected '%s' to have been called once. Called %s times.%s\"",
+        "                   % (self._mock_name or 'mock',",
+        "                      self.call_count,",
+        "                      self._calls_repr()))",
+        ">           raise AssertionError(msg)",
+        "E           AssertionError: Expected 'invoke' to have been called once. Called 0 times.",
+        "",
+        "/opt/anaconda3/lib/python3.12/unittest/mock.py:923: AssertionError",
+        "=========================== short test summary info ============================",
+        "FAILED tests/scripts/test_pr_verifier_recovery.py::test_configured_native_client_compatibility[openai-repair-None]",
+        "FAILED tests/scripts/test_pr_verifier_recovery.py::test_configured_native_client_compatibility[openai-repair-standard]",
+        "FAILED tests/scripts/test_pr_verifier_recovery.py::test_configured_native_client_compatibility[anthropic-repair-None]",
+        "FAILED tests/scripts/test_pr_verifier_recovery.py::test_configured_native_client_compatibility[anthropic-repair-standard]",
+        "4 failed, 2 passed, 12 deselected in 6.98s"
+      ]
+    },
+    "green": {
+      "exit": 0,
+      "output_sha256": "cbc970373d46569c0a6cad9008027523dc80b00294efaacf3aa0891c86e847f4",
+      "tail": [
+        "......                                                                   [100%]",
+        "6 passed, 12 deselected in 4.69s"
+      ]
+    }
+  },
+  {
+    "mutation": "lose-selected-profile-before-python",
+    "source": ".github/workflows/reusable-agents-verifier.yml",
+    "before": "\n      VERIFIER_EVIDENCE_PROFILE: ${{ inputs.evidence_profile }}\n    steps:\n      - name: Select bounded verifier evidence profile\n        env:\n",
+    "after": "\n    steps:\n      - name: Select bounded verifier evidence profile\n        env:\n          VERIFIER_EVIDENCE_PROFILE: ${{ inputs.evidence_profile }}\n",
+    "command": [
+      "python3",
+      "-m",
+      "pytest",
+      "-q",
+      "--no-cov",
+      "tests/workflows/test_verifier_evidence_profile.py::test_selected_profile_reaches_python_process"
+    ],
+    "source_sha256": {
+      ".github/workflows/reusable-agents-verifier.yml": "170916b0682833e6f975debfbad3b30b0608ccee1286e567c396236ebc35ba4b"
+    },
+    "restoration_byte_identical": true,
+    "red": {
+      "exit": 1,
+      "output_sha256": "7af8a23048e1ff6c8f94a139356a3ace3c834f058ea7291beb1cb067fea7fdf2",
+      "tail": [
+        "        binary.write_text('#!/bin/sh\\nprintf \"%s\" \"${VERIFIER_EVIDENCE_PROFILE:-missing}\"\\n')",
+        "        binary.chmod(0o755)",
+        "        env[\"PATH\"] = str(tmp_path) + os.pathsep + env[\"PATH\"]",
+        "        script = re.sub(r\"\\$\\{\\{.*?\\}\\}\", \"\", invoke[\"run\"].split(\"# Parse result\", 1)[0])",
+        "        run = subprocess.run(",
+        "            [\"bash\", \"-c\", script], cwd=tmp_path, env=step_env(invoke), capture_output=True, text=True",
+        "        )",
+        "        assert run.returncode == 0, run.stderr",
+        "        result = tmp_path / (\"evaluation.json\" if step_id == \"llm_evaluate\" else \"comparison.json\")",
+        ">       assert result.read_text() == profile",
+        "E       AssertionError: assert 'missing' == 'expanded'",
+        "E         ",
+        "E         - expanded",
+        "E         + missing",
+        "",
+        "tests/workflows/test_verifier_evidence_profile.py:207: AssertionError",
+        "=========================== short test summary info ============================",
+        "FAILED tests/workflows/test_verifier_evidence_profile.py::test_selected_profile_reaches_python_process[standard-llm_evaluate]",
+        "FAILED tests/workflows/test_verifier_evidence_profile.py::test_selected_profile_reaches_python_process[standard-llm_compare]",
+        "FAILED tests/workflows/test_verifier_evidence_profile.py::test_selected_profile_reaches_python_process[expanded-llm_evaluate]",
+        "FAILED tests/workflows/test_verifier_evidence_profile.py::test_selected_profile_reaches_python_process[expanded-llm_compare]",
+        "4 failed in 1.29s"
+      ]
+    },
+    "green": {
+      "exit": 0,
+      "output_sha256": "3efc219b4a7c964f30786f5ddd9f61369bfa66d6d5ac4533e92fcd62ee7366e2",
+      "tail": [
+        "....                                                                     [100%]",
+        "4 passed in 1.12s"
+      ]
+    }
+  },
+  {
+    "mutation": "lose-evaluate-capacity-upload",
+    "source": ".github/workflows/reusable-agents-verifier.yml",
+    "before": "          name: evaluation-capacity-${{ github.run_id }}\n          path: verifier-capacity-checks.jsonl",
+    "after": "          name: evaluation-capacity-${{ github.run_id }}\n          path: nonexistent.jsonl",
+    "command": [
+      "python3",
+      "-m",
+      "pytest",
+      "-q",
+      "--no-cov",
+      "tests/workflows/test_verifier_evidence_profile.py::test_capacity_receipt_upload_survives_failed_generation"
+    ],
+    "source_sha256": {
+      ".github/workflows/reusable-agents-verifier.yml": "170916b0682833e6f975debfbad3b30b0608ccee1286e567c396236ebc35ba4b"
+    },
+    "restoration_byte_identical": true,
+    "red": {
+      "exit": 1,
+      "output_sha256": "ca4527e4ff8f6b6750032988f6a0be371fd74f6b607b4cf8639e43267d317d5e",
+      "tail": [
+        "mode = 'evaluate'",
+        "",
+        "    @pytest.mark.parametrize(\"mode\", [\"evaluate\", \"compare\"])",
+        "    def test_capacity_receipt_upload_survives_failed_generation(mode):",
+        "        workflow = yaml.load(",
+        "            Path(\".github/workflows/reusable-agents-verifier.yml\").read_text(), Loader=yaml.BaseLoader",
+        "        )",
+        "        uploads = [",
+        "            step",
+        "            for step in workflow[\"jobs\"][\"verifier\"][\"steps\"]",
+        "            if step.get(\"uses\", \"\").startswith(\"actions/upload-artifact@\")",
+        "            and \"verifier-capacity-checks.jsonl\" in step[\"with\"].get(\"path\", \"\")",
+        "        ]",
+        "        matching = [step for step in uploads if f\"inputs.mode == '{mode}'\" in step.get(\"if\", \"\")]",
+        ">       assert matching, f\"capacity receipt has no upload for {mode}\"",
+        "E       AssertionError: capacity receipt has no upload for evaluate",
+        "E       assert []",
+        "",
+        "tests/workflows/test_verifier_evidence_profile.py:222: AssertionError",
+        "=========================== short test summary info ============================",
+        "FAILED tests/workflows/test_verifier_evidence_profile.py::test_capacity_receipt_upload_survives_failed_generation[evaluate]",
+        "1 failed, 1 passed in 0.31s"
+      ]
+    },
+    "green": {
+      "exit": 0,
+      "output_sha256": "d2e19278f2acef7cfe468afa87fbba8925315ff38a8d23649526ec4f7bbe6521",
+      "tail": [
+        "..                                                                       [100%]",
+        "2 passed in 0.27s"
+      ]
+    }
+  },
+  {
+    "mutation": "bypass-expanded-invocation-unknown-count-and-overflow",
+    "source": "scripts/langchain/pr_verifier.py",
+    "before": "    if os.environ.get(\"VERIFIER_EVIDENCE_PROFILE\") == \"expanded\":\n        _preflight_input_capacity(client, prompt)\n",
+    "after": "",
+    "command": [
+      "python3",
+      "-m",
+      "pytest",
+      "-q",
+      "--no-cov",
+      "tests/scripts/test_pr_verifier_recovery.py::test_actual_capacity_unknowns_never_invoke",
+      "tests/scripts/test_pr_verifier_recovery.py::test_actual_capacity_boundary_counts_entire_rendered_request"
+    ],
+    "source_sha256": {
+      "scripts/langchain/pr_verifier.py": "968b6d02020fc226716918c1c1a0dec50715cbe0919be288cc44319f44789f66",
+      "templates/consumer-repo/scripts/langchain/pr_verifier.py": "968b6d02020fc226716918c1c1a0dec50715cbe0919be288cc44319f44789f66"
+    },
+    "restoration_byte_identical": true,
+    "red": {
+      "exit": 1,
+      "output_sha256": "b7f95ffa19dd817c84e13653151798464062d13bd00445ab69d6953afe89db35",
+      "tail": [
+        "            \"## Acceptance evidence\\n- PR body: **present**\\nall required evidence\",",
+        "            \"diff --git a/a.py b/a.py\\n--- a/a.py\\n+++ b/a.py\\n@@ -1 +1 @@\\n-old\\n+new\\n\",",
+        "        )",
+        "        assert \"## Verifier input coverage\" in prompt",
+        "        assert \"all required evidence\" in prompt",
+        "        assert \"+new\" in prompt",
+        "        pr_verifier._invoke_llm(client, prompt, operation=\"test\")",
+        ">       assert counter.call_args.kwargs[\"input\"][0][\"content\"] == prompt",
+        "               ^^^^^^^^^^^^^^^^^^^^^^^^",
+        "E       AttributeError: 'NoneType' object has no attribute 'kwargs'",
+        "",
+        "tests/scripts/test_pr_verifier_recovery.py:197: AttributeError",
+        "=========================== short test summary info ============================",
+        "FAILED tests/scripts/test_pr_verifier_recovery.py::test_actual_capacity_unknowns_never_invoke[invoke-unknown-window]",
+        "FAILED tests/scripts/test_pr_verifier_recovery.py::test_actual_capacity_unknowns_never_invoke[invoke-unknown-output]",
+        "FAILED tests/scripts/test_pr_verifier_recovery.py::test_actual_capacity_unknowns_never_invoke[invoke-bad-count]",
+        "FAILED tests/scripts/test_pr_verifier_recovery.py::test_actual_capacity_unknowns_never_invoke[invoke-counter-error]",
+        "FAILED tests/scripts/test_pr_verifier_recovery.py::test_actual_capacity_unknowns_never_invoke[invoke-unsupported-counter]",
+        "FAILED tests/scripts/test_pr_verifier_recovery.py::test_actual_capacity_unknowns_never_invoke[invoke-auto-truncation]",
+        "FAILED tests/scripts/test_pr_verifier_recovery.py::test_actual_capacity_unknowns_never_invoke[invoke-overflow]",
+        "FAILED tests/scripts/test_pr_verifier_recovery.py::test_actual_capacity_boundary_counts_entire_rendered_request",
+        "8 failed, 7 passed in 0.85s"
+      ]
+    },
+    "green": {
+      "exit": 0,
+      "output_sha256": "f968a72b8717eed20753bb60f1c4d3703a55dfb4ae8246e6c65d520da8ca6922",
+      "tail": [
+        "...............                                                          [100%]",
+        "15 passed in 0.77s"
+      ]
+    }
+  },
+  {
+    "mutation": "bypass-expanded-repair-unknown-count-and-overflow",
+    "source": "scripts/langchain/pr_verifier.py",
+    "before": "        if os.environ.get(\"VERIFIER_EVIDENCE_PROFILE\") == \"expanded\":\n            _preflight_input_capacity(self.client, prompt)\n",
+    "after": "",
+    "command": [
+      "python3",
+      "-m",
+      "pytest",
+      "-q",
+      "--no-cov",
+      "tests/scripts/test_pr_verifier_recovery.py::test_actual_capacity_unknowns_never_invoke",
+      "tests/scripts/test_pr_verifier_recovery.py::test_native_message_capacity_and_schema_repair_are_checked"
+    ],
+    "source_sha256": {
+      "scripts/langchain/pr_verifier.py": "968b6d02020fc226716918c1c1a0dec50715cbe0919be288cc44319f44789f66",
+      "templates/consumer-repo/scripts/langchain/pr_verifier.py": "968b6d02020fc226716918c1c1a0dec50715cbe0919be288cc44319f44789f66"
+    },
+    "restoration_byte_identical": true,
+    "red": {
+      "exit": 1,
+      "output_sha256": "a8ca118d9032ca983ee80703b88267fe8d0bbb9c3a14885412766e43952c8fe1",
+      "tail": [
+        "        receipt = pr_verifier._preflight_input_capacity(client, \"all evidence\")",
+        "        assert receipt[\"status\"] == \"PASS\"",
+        "        assert counter.call_args.kwargs[\"system\"] == \"system instructions\"",
+        "        assert counter.call_args.kwargs[\"messages\"][0][\"content\"] == \"all evidence\"",
+        "        client.invoke.reset_mock()",
+        "        counter.return_value.input_tokens = 101",
+        "        repair = pr_verifier._build_verifier_repair_callback(client)",
+        ">       assert repair(\"{}\", \"invalid\", \"all previous findings\") is None",
+        "E       assert '{\"verdict\":\"PASS\",\"concerns\":[\"retained\"]}' is None",
+        "E        +  where '{\"verdict\":\"PASS\",\"concerns\":[\"retained\"]}' = <function _build_verifier_repair_callback.<locals>._repair at 0x109146e80>('{}', 'invalid', 'all previous findings')",
+        "",
+        "tests/scripts/test_pr_verifier_recovery.py:291: AssertionError",
+        "=========================== short test summary info ============================",
+        "FAILED tests/scripts/test_pr_verifier_recovery.py::test_actual_capacity_unknowns_never_invoke[repair-unknown-window]",
+        "FAILED tests/scripts/test_pr_verifier_recovery.py::test_actual_capacity_unknowns_never_invoke[repair-unknown-output]",
+        "FAILED tests/scripts/test_pr_verifier_recovery.py::test_actual_capacity_unknowns_never_invoke[repair-bad-count]",
+        "FAILED tests/scripts/test_pr_verifier_recovery.py::test_actual_capacity_unknowns_never_invoke[repair-counter-error]",
+        "FAILED tests/scripts/test_pr_verifier_recovery.py::test_actual_capacity_unknowns_never_invoke[repair-unsupported-counter]",
+        "FAILED tests/scripts/test_pr_verifier_recovery.py::test_actual_capacity_unknowns_never_invoke[repair-auto-truncation]",
+        "FAILED tests/scripts/test_pr_verifier_recovery.py::test_actual_capacity_unknowns_never_invoke[repair-overflow]",
+        "FAILED tests/scripts/test_pr_verifier_recovery.py::test_native_message_capacity_and_schema_repair_are_checked",
+        "8 failed, 7 passed in 0.32s"
+      ]
+    },
+    "green": {
+      "exit": 0,
+      "output_sha256": "7639c4ed0a2ed22fce7e4e1386776a89779938e35b2155d151dde3aba64c1f01",
+      "tail": [
+        "...............                                                          [100%]",
+        "15 passed in 0.27s"
+      ]
+    }
+  },
+  {
+    "mutation": "disable-standard-evidence-floor",
+    "source": "scripts/langchain/pr_verifier.py",
+    "before": "if coverage.sufficient or result.verdict != \"PASS\" or not result.used_llm:",
+    "after": "if os.environ.get(\"VERIFIER_EVIDENCE_PROFILE\") != \"expanded\" or coverage.sufficient or result.verdict != \"PASS\" or not result.used_llm:",
+    "command": [
+      "python3",
+      "-m",
+      "pytest",
+      "-q",
+      "--no-cov",
+      "tests/scripts/test_pr_verifier_recovery.py::test_evidence_floor_is_unconditional"
+    ],
+    "source_sha256": {
+      "scripts/langchain/pr_verifier.py": "968b6d02020fc226716918c1c1a0dec50715cbe0919be288cc44319f44789f66",
+      "templates/consumer-repo/scripts/langchain/pr_verifier.py": "968b6d02020fc226716918c1c1a0dec50715cbe0919be288cc44319f44789f66"
+    },
+    "restoration_byte_identical": true,
+    "red": {
+      "exit": 1,
+      "output_sha256": "1dc908b603e99143f19f9693e6af3e2e254e950b682db8e7b711ee4a3c16e0e6",
+      "tail": [
+        "                \"## CI Information\",",
+        "                \"## Context source coverage\\n\\n```json\\n\"",
+        "                + json.dumps(inventory)",
+        "                + \"\\n```\\n\\n## CI Information\",",
+        "                1,",
+        "            )",
+        "        monkeypatch.setenv(\"VERIFIER_EVIDENCE_PROFILE\", profile)",
+        "        client, _ = capacity_client(window=1_000_000)",
+        "        monkeypatch.setattr(pr_verifier, \"_get_llm_client\", lambda **kwargs: (client, \"configured\"))",
+        "        result = pr_verifier.evaluate_pr(context)",
+        "        client.invoke.assert_called_once()",
+        ">       assert result.verdict == \"CONCERNS\"",
+        "E       AssertionError: assert 'PASS' == 'CONCERNS'",
+        "E         ",
+        "E         - CONCERNS",
+        "E         + PASS",
+        "",
+        "tests/scripts/test_pr_verifier_recovery.py:111: AssertionError",
+        "=========================== short test summary info ============================",
+        "FAILED tests/scripts/test_pr_verifier_recovery.py::test_evidence_floor_is_unconditional[code-standard]",
+        "FAILED tests/scripts/test_pr_verifier_recovery.py::test_evidence_floor_is_unconditional[evidence-standard]",
+        "2 failed, 2 passed in 0.88s"
+      ]
+    },
+    "green": {
+      "exit": 0,
+      "output_sha256": "b59be68fb6adfb7d9fc7d91fadce2bc4dfc5c56c4256d1f498efef44320e1fa0",
+      "tail": [
+        "....                                                                     [100%]",
+        "4 passed in 0.82s"
+      ]
+    }
+  }
+]

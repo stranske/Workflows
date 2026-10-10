@@ -5,6 +5,8 @@ from pathlib import Path
 import pytest
 import scripts.langchain.pr_verifier as pr_verifier
 
+from tests.scripts.verifier_capacity_fakes import with_capacity
+
 
 def _valid_response(summary: str = "ok") -> str:
     return json.dumps(
@@ -30,6 +32,7 @@ class FakeResponse:
 
 class FakeClient:
     def __init__(self, name: str, calls: list[str], responses: list[str] | None = None) -> None:
+        with_capacity(self)
         self.name = name
         self.calls = calls
         self.responses = list(responses or [_valid_response()])

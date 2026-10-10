@@ -1,0 +1,23 @@
+Executed actual production mutation; see review-deliberate-red-green.json for commands and hashes.
+
+        with mock.patch.object(Path, "open", autospec=True, side_effect=open_report):
+            result = pr_verifier.evaluate_pr("full context")
+>       assert resolver.call_count == 1
+E       AssertionError: assert 2 == 1
+E        +  where 2 = <Mock id='4438293872'>.call_count
+
+tests/scripts/test_pr_verifier_recovery.py:358: AssertionError
+=========================== short test summary info ============================
+FAILED tests/scripts/test_pr_verifier_recovery.py::test_capacity_receipt_io_failure_preserves_outcome[open-PASS]
+FAILED tests/scripts/test_pr_verifier_recovery.py::test_capacity_receipt_io_failure_preserves_outcome[open-unavailable]
+FAILED tests/scripts/test_pr_verifier_recovery.py::test_capacity_receipt_io_failure_preserves_outcome[open-overflow]
+FAILED tests/scripts/test_pr_verifier_recovery.py::test_capacity_receipt_io_failure_preserves_outcome[write-PASS]
+FAILED tests/scripts/test_pr_verifier_recovery.py::test_capacity_receipt_io_failure_preserves_outcome[write-unavailable]
+FAILED tests/scripts/test_pr_verifier_recovery.py::test_capacity_receipt_io_failure_preserves_outcome[write-overflow]
+FAILED tests/scripts/test_pr_verifier_recovery.py::test_capacity_receipt_io_failure_preserves_outcome[close-PASS]
+FAILED tests/scripts/test_pr_verifier_recovery.py::test_capacity_receipt_io_failure_preserves_outcome[close-unavailable]
+FAILED tests/scripts/test_pr_verifier_recovery.py::test_capacity_receipt_io_failure_preserves_outcome[close-overflow]
+FAILED tests/scripts/test_pr_verifier_recovery.py::test_capacity_receipt_permission_error_never_switches_provider[PASS]
+FAILED tests/scripts/test_pr_verifier_recovery.py::test_capacity_receipt_permission_error_never_switches_provider[unavailable]
+FAILED tests/scripts/test_pr_verifier_recovery.py::test_capacity_receipt_permission_error_never_switches_provider[overflow]
+12 failed, 42 deselected in 1.82s

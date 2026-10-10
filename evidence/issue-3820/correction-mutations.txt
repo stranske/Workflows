@@ -1,0 +1,7 @@
+standard-native-invocation-regression: RED=1 GREEN=0 byte-identical restoration
+standard-native-repair-regression: RED=1 GREEN=0 byte-identical restoration
+lose-selected-profile-before-python: RED=1 GREEN=0 byte-identical restoration
+lose-evaluate-capacity-upload: RED=1 GREEN=0 byte-identical restoration
+bypass-expanded-invocation-unknown-count-and-overflow: RED=1 GREEN=0 byte-identical restoration
+bypass-expanded-repair-unknown-count-and-overflow: RED=1 GREEN=0 byte-identical restoration
+disable-standard-evidence-floor: RED=1 GREEN=0 byte-identical restoration

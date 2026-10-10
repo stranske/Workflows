@@ -1,0 +1,8 @@
+single-run-artifact-page: RED=1 GREEN=0 byte-identical restoration
+ignore-incomplete-reference-sources: RED=1 GREEN=0 byte-identical restoration
+ignore-unsupported-archive-payload: RED=1 GREEN=0 byte-identical restoration
+remove-global-download-bound: RED=1 GREEN=0 byte-identical restoration
+old-expanded-diff-budget: RED=1 GREEN=0 byte-identical restoration
+remove-native-capacity-guard: RED=1 GREEN=0 byte-identical restoration
+remove-schema-repair-capacity-guard: RED=1 GREEN=0 byte-identical restoration
+disable-incomplete-coverage-floor: RED=1 GREEN=0 byte-identical restoration

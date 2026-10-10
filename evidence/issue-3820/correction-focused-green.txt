@@ -1,0 +1,4 @@
+......................s....................................              [100%]
+=========================== short test summary info ============================
+SKIPPED [1] tests/scripts/test_pr_verifier_recovery.py:119: immutable authenticated capture is owner-local; set VERIFIER_RECOVERY_CAPTURE_DIR
+58 passed, 1 skipped in 8.16s

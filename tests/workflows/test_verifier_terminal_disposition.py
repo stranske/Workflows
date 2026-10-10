@@ -65,7 +65,7 @@ def test_reusable_verifier_uploads_terminal_disposition_artifact() -> None:
     assert install_step.get("id") == "codex_cli"
     assert (
         resolve_step.get("if")
-        == "steps.context.outputs.should_run == 'true' && inputs.mode != 'evaluate'"
+        == "steps.context.outputs.should_run == 'true' && inputs.mode != 'evaluate' && inputs.evidence_profile != 'expanded'"
     )
     assert install_step["env"]["CODEX_CLI_PACKAGE"] == "@openai/codex@0.153.2"
     assert (

@@ -12,7 +12,7 @@ Follow-up to merged PR #3020. This documents the repository-wide review of
 | Additional free-text input fixes | 3 fields | `target_repo`, `commit_prefix`, `head_repository` |
 | Campaign output transport | Step outputs | Use step `env:` indirection |
 | Verifier model input fixes | 2 fields | `model`, `model2` |
-| Reviewed interpolation allowlist | 91 distinct tuples | Explicit allowlist in `test_no_untrusted_interpolation.py` (100 literal entries including duplicates) |
+| Reviewed interpolation allowlist | 89 distinct tuples | Explicit allowlist in `test_no_untrusted_interpolation.py` (97 literal entries including duplicates) |
 
 ## Free-text inputs (must use `env:` indirection)
 
@@ -32,7 +32,7 @@ reappear.
 
 ## Constrained-value allowlist
 
-The remaining 91 distinct `(workflow, step, expression)` tuples are the
+The remaining 89 distinct `(workflow, step, expression)` tuples are the
 historically reviewed inventory; an allowlist entry is not proof against a
 new concrete counterexample. Their reviewed categories include:
 
@@ -53,11 +53,19 @@ independent assessment showed that model/model2 are free text, not constrained
 values: shell command substitution executed before argument construction.
 Evaluation and comparison now transport model/model2 and provider via step
 `env:` and quoted shell variables. Six obsolete allowlist occurrences were
-removed; only the three existing enumerated mode occurrences remain. Model
+removed; three existing enumerated mode occurrences remained at that checkpoint. Model
 inputs are globally banned from script interpolation. Executable regression
 tests preserve command-substitution and quote-breaking payloads as literal
 arguments in both modes, with normal-model controls. The new profile likewise
 uses `env:` and a fixed-value case statement, adding no exception.
+
+The evaluate-capacity upload added in PR #3821 shifted the unified-verdict
+step and exposed its positional allowlist dependency. A deliberate mode payload
+executed shell command substitution in that step; the related auth precheck
+used the same direct interpolation. Both now transport `inputs.mode` through
+step `env:` and quoted shell variables. Their three obsolete allowlist entries
+are removed, not moved or widened. Execution regressions cover substitution,
+quote-breaking and ordinary evaluate/compare/checkbox controls.
 
 ## Test gate
 

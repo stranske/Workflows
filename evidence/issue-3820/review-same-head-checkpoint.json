@@ -1,0 +1,44 @@
+{
+  "observed_at_utc": "2026-10-10T15:24:27.442717+00:00",
+  "pr": {
+    "headRefOid": "ab346e00ecec5645f70ccdd15bf9a11da2b13a52",
+    "isDraft": false,
+    "state": "OPEN"
+  },
+  "comments": [
+    {
+      "id": 4238112447,
+      "in_reply_to_id": 4238073688,
+      "created_at": "2026-10-10T15:19:13Z",
+      "commit_id": "ab346e00ecec5645f70ccdd15bf9a11da2b13a52",
+      "html_url": "https://github.com/stranske/Workflows/pull/3821#discussion_r4238112447",
+      "body": "@codex please reassess this specific finding on exact head ab346e00ecec5645f70ccdd15bf9a11da2b13a52: original4238073688 evaluate capacity receipt loss. The reusable workflow now uploads evaluation-capacity-${{ github.run_id }} containing verifier-capacity-checks.jsonl for evaluate mode with always()/context binding; expanded profile propagation and retention regression tests passed, with deliberate production RED/GREEN and byte-identical restoration in evidence/issue-3820/correction-deliberate-red-green.json. Please explicitly ACCEPT or REJECT this finding in this same thread on that exact head. Read-only bounded reassessment only; no unrelated edits, new PR, merge or generated-consumer action. Other findings remain independently owned and are not waived."
+    },
+    {
+      "id": 4238126067,
+      "in_reply_to_id": 4238073688,
+      "created_at": "2026-10-10T15:22:08Z",
+      "commit_id": "ab346e00ecec5645f70ccdd15bf9a11da2b13a52",
+      "html_url": "https://github.com/stranske/Workflows/pull/3821#discussion_r4238126067",
+      "body": "Codex Review: Didn't find any major issues. Can't wait for the next one!\n\n**Reviewed commit:** `ab346e00ec`\n\n<details> <summary>\u2139\ufe0f About Codex in GitHub</summary>\n<br/>\n\n[Your team has set up Codex to review pull requests in this repo](https://chatgpt.com/codex/cloud/settings/general). Reviews are triggered when you\n- Open a pull request for review\n- Mark a draft as ready\n- Comment \"@codex review\".\n\nIf Codex has suggestions, it will comment; otherwise it will react with \ud83d\udc4d.\n\n\n\n\nCodex can also answer questions or update the PR. Try commenting \"@codex address that feedback\".\n            \n</details>"
+    },
+    {
+      "id": 4238128539,
+      "in_reply_to_id": 4238073688,
+      "created_at": "2026-10-10T15:22:31Z",
+      "commit_id": "ab346e00ecec5645f70ccdd15bf9a11da2b13a52",
+      "html_url": "https://github.com/stranske/Workflows/pull/3821#discussion_r4238128539",
+      "body": "@coderabbitai source-owner automated finding fallback: please independently reassess only original Codex finding4238073688 (evaluate capacity receipt upload) on exact head ab346e00ecec5645f70ccdd15bf9a11da2b13a52 and explicitly ACCEPT or REJECT in this same thread. The originating targeted request4238112447 completed as stock generic text4238126067, not finding disposition. Current reusable workflow Upload evaluation capacity receipts retains verifier-capacity-checks.jsonl under always()/context/evaluate binding; source evidence/issue-3820/correction-deliberate-red-green.json contains deliberate retention/profile RED/GREEN and byte-identical restore, focused4002Python/133Node passing. Check actual workflow and regression bytes. Read-only; no edits, merge, new PR or generated-consumer actions. Other extraction/receipt-I/O defects are independently being repaired locally and are not waived. This is finding-specific acceptance only, not whole-PR approval."
+    },
+    {
+      "id": 4238132058,
+      "in_reply_to_id": 4238073688,
+      "created_at": "2026-10-10T15:23:08Z",
+      "commit_id": "ab346e00ecec5645f70ccdd15bf9a11da2b13a52",
+      "html_url": "https://github.com/stranske/Workflows/pull/3821#discussion_r4238132058",
+      "body": "<details>\n<summary>\ud83e\udde9 Analysis chain</summary>\n\n\ud83c\udfc1 Script executed:\n\n```shell\n#!/bin/bash\nset -euo pipefail\nsha=ab346e00ecec5645f70ccdd15bf9a11da2b13a52\ngit rev-parse HEAD\ngit cat-file -t \"$sha\"\ngit show \"$sha:.github/workflows/reusable-agents-verifier.yml\" | nl -ba | sed -n '1380,1445p'\ngit show \"$sha:tests/workflows/test_verifier_evidence_profile.py\" | rg -n -C 8 'capacity|receipt|retention|expanded'\ngit show \"$sha:evidence/issue-3820/correction-deliberate-red-green.json\" | python -c 'import json,sys; print(json.dumps(json.load(sys.stdin),indent=2))'\n```\n\nLength of output: 29802\n\n---\n\n\ud83c\udfc1 Script executed:\n\n```shell\n#!/bin/bash\nset -euo pipefail\nsha=ab346e00ecec5645f70ccdd15bf9a11da2b13a52\nast-grep outline tests/workflows/test_verifier_evidence_profile.py --match 'test_selected_profile_reaches_python_process|test_capacity_receipt_upload_survives_failed_generation'\ngit show \"$sha:tests/workflows/test_verifier_evidence_profile.py\" | nl -ba | sed -n '168,230p'\ngit show \"$sha:.github/workflows/reusable-agents-verifier.yml\" | sha256sum\ngit show \"$sha:.github/workflows/reusable-agents-verifier.yml\" | nl -ba | sed -n '90,106p'\n```\n\nLength of output: 4771\n\n---\n\n</details>\n\n`@stranske` **ACCEPT the fix for finding4238073688** on exact head `ab346e00ecec5645f70ccdd15bf9a11da2b13a52`. The original evaluate capacity receipt upload defect is addressed.\n\nRead-only verification confirmed:\n- `.github/workflows/reusable-agents-verifier.yml`, Line 1410\u20131422, uploads `verifier-capacity-checks.jsonl` as `evaluation-capacity-${{ github.run_id }}` with seven-day retention.\n- The upload requires `always()`, eligible context, and `evaluate` mode. It does not require successful generation or restrict the evidence profile.\n- `tests/workflows/test_verifier_evidence_profile.py`, Line 210\u2013224, checks receipt uploads for both modes and rejects generation-success conditions. The profile-propagation regression covers both `standard` and `expanded`.\n- The workflow SHA-256 matches the correction receipt. Its `lose-evaluate-capacity-upload` mutation records RED failure, GREEN success, and byte-identical restoration.\n\nI inspected the code and recorded receipts. I did not rerun tests or perform repository actions. This acceptance applies only to this finding. It does not approve the PR or waive extraction or receipt-I/O defects.\n\n\u2705 Review thread resolved.\n\n_You are interacting with an AI system._\n\n<!-- This is an auto-generated reply by CodeRabbit -->"
+    }
+  ],
+  "scope": "Preserved same-head targeted Codex generic response and parent-requested CodeRabbit finding-specific ACCEPT. No whole-PR acceptance or independently repaired findings waived.",
+  "raw_comments_sha256": "e3d42810d2720b9fffdf782e3fa689e2667cbc0710566d9bc0ac1460f85ddafc"
+}
