@@ -1,0 +1,172 @@
+✖ marker-less summary retains authored checklist (../issue_scope_parser,  ) (2.27775ms)
+✖ marker-less summary retains authored checklist (../issue_scope_parser, x) (0.33975ms)
+✖ marker-less summary retains authored checklist (../../../templates/consumer-repo/.github/scripts/issue_scope_parser,  ) (0.272166ms)
+✖ marker-less summary retains authored checklist (../../../templates/consumer-repo/.github/scripts/issue_scope_parser, x) (0.118792ms)
+✖ marker-less summary retains real keepalive progress (../keepalive_loop) (3.88375ms)
+✖ marker-less summary retains real keepalive progress (../../../templates/consumer-repo/.github/scripts/keepalive_loop) (12.961334ms)
+ℹ tests 6
+ℹ suites 0
+ℹ pass 0
+ℹ fail 6
+ℹ cancelled 0
+ℹ skipped 0
+ℹ todo 0
+ℹ duration_ms 100.457042
+
+✖ failing tests:
+
+test at .github/scripts/__tests__/issue_scope_parser.test.js:1046:5
+✖ marker-less summary retains authored checklist (../issue_scope_parser,  ) (2.27775ms)
+  AssertionError [ERR_ASSERTION]: Expected values to be strictly equal:
+  + actual - expected
+  
+  + ''
+  - '## Summary by CodeRabbit\n' +
+  -   '\n' +
+  -   '- [ ] Owner-authored release decision\n' +
+  -   '\n' +
+  -   '### Review observations\n' +
+  -   '- [ ] Recheck the real acceptance evidence'
+  
+      at TestContext.<anonymous> (/Users/teacher/.codex/automations/imi-merge-verify-closer/worktrees/wf3817-authored-summary-20261010T1822Z/.github/scripts/__tests__/issue_scope_parser.test.js:1049:14)
+      at Test.runInAsyncScope (node:async_hooks:214:14)
+      at Test.run (node:internal/test_runner/test:1062:25)
+      at Test.start (node:internal/test_runner/test:959:17)
+      at startSubtestAfterBootstrap (node:internal/test_runner/harness:332:17) {
+    generatedMessage: true,
+    code: 'ERR_ASSERTION',
+    actual: '',
+    expected: '## Summary by CodeRabbit\n\n- [ ] Owner-authored release decision\n\n### Review observations\n- [ ] Recheck the real acceptance evidence',
+    operator: 'strictEqual'
+  }
+
+test at .github/scripts/__tests__/issue_scope_parser.test.js:1046:5
+✖ marker-less summary retains authored checklist (../issue_scope_parser, x) (0.33975ms)
+  AssertionError [ERR_ASSERTION]: Expected values to be strictly equal:
+  + actual - expected
+  
+  + ''
+  - '## Summary by CodeRabbit\n' +
+  -   '\n' +
+  -   '- [x] Owner-authored release decision\n' +
+  -   '\n' +
+  -   '### Review observations\n' +
+  -   '- [ ] Recheck the real acceptance evidence'
+  
+      at TestContext.<anonymous> (/Users/teacher/.codex/automations/imi-merge-verify-closer/worktrees/wf3817-authored-summary-20261010T1822Z/.github/scripts/__tests__/issue_scope_parser.test.js:1049:14)
+      at Test.runInAsyncScope (node:async_hooks:214:14)
+      at Test.run (node:internal/test_runner/test:1062:25)
+      at Test.processPendingSubtests (node:internal/test_runner/test:752:18)
+      at Test.postRun (node:internal/test_runner/test:1191:19)
+      at Test.run (node:internal/test_runner/test:1119:12)
+      at async startSubtestAfterBootstrap (node:internal/test_runner/harness:332:3) {
+    generatedMessage: true,
+    code: 'ERR_ASSERTION',
+    actual: '',
+    expected: '## Summary by CodeRabbit\n\n- [x] Owner-authored release decision\n\n### Review observations\n- [ ] Recheck the real acceptance evidence',
+    operator: 'strictEqual'
+  }
+
+test at .github/scripts/__tests__/issue_scope_parser.test.js:1046:5
+✖ marker-less summary retains authored checklist (../../../templates/consumer-repo/.github/scripts/issue_scope_parser,  ) (0.272166ms)
+  AssertionError [ERR_ASSERTION]: Expected values to be strictly equal:
+  + actual - expected
+  
+  + ''
+  - '## Summary by CodeRabbit\n' +
+  -   '\n' +
+  -   '- [ ] Owner-authored release decision\n' +
+  -   '\n' +
+  -   '### Review observations\n' +
+  -   '- [ ] Recheck the real acceptance evidence'
+  
+      at TestContext.<anonymous> (/Users/teacher/.codex/automations/imi-merge-verify-closer/worktrees/wf3817-authored-summary-20261010T1822Z/.github/scripts/__tests__/issue_scope_parser.test.js:1049:14)
+      at Test.runInAsyncScope (node:async_hooks:214:14)
+      at Test.run (node:internal/test_runner/test:1062:25)
+      at Test.processPendingSubtests (node:internal/test_runner/test:752:18)
+      at Test.postRun (node:internal/test_runner/test:1191:19)
+      at Test.run (node:internal/test_runner/test:1119:12)
+      at async Test.processPendingSubtests (node:internal/test_runner/test:752:7) {
+    generatedMessage: true,
+    code: 'ERR_ASSERTION',
+    actual: '',
+    expected: '## Summary by CodeRabbit\n\n- [ ] Owner-authored release decision\n\n### Review observations\n- [ ] Recheck the real acceptance evidence',
+    operator: 'strictEqual'
+  }
+
+test at .github/scripts/__tests__/issue_scope_parser.test.js:1046:5
+✖ marker-less summary retains authored checklist (../../../templates/consumer-repo/.github/scripts/issue_scope_parser, x) (0.118792ms)
+  AssertionError [ERR_ASSERTION]: Expected values to be strictly equal:
+  + actual - expected
+  
+  + ''
+  - '## Summary by CodeRabbit\n' +
+  -   '\n' +
+  -   '- [x] Owner-authored release decision\n' +
+  -   '\n' +
+  -   '### Review observations\n' +
+  -   '- [ ] Recheck the real acceptance evidence'
+  
+      at TestContext.<anonymous> (/Users/teacher/.codex/automations/imi-merge-verify-closer/worktrees/wf3817-authored-summary-20261010T1822Z/.github/scripts/__tests__/issue_scope_parser.test.js:1049:14)
+      at Test.runInAsyncScope (node:async_hooks:214:14)
+      at Test.run (node:internal/test_runner/test:1062:25)
+      at Test.processPendingSubtests (node:internal/test_runner/test:752:18)
+      at Test.postRun (node:internal/test_runner/test:1191:19)
+      at Test.run (node:internal/test_runner/test:1119:12)
+      at async Test.processPendingSubtests (node:internal/test_runner/test:752:7) {
+    generatedMessage: true,
+    code: 'ERR_ASSERTION',
+    actual: '',
+    expected: '## Summary by CodeRabbit\n\n- [x] Owner-authored release decision\n\n### Review observations\n- [ ] Recheck the real acceptance evidence',
+    operator: 'strictEqual'
+  }
+
+test at .github/scripts/__tests__/keepalive-loop.test.js:7016:3
+✖ marker-less summary retains real keepalive progress (../keepalive_loop) (3.88375ms)
+  AssertionError [ERR_ASSERTION]: Expected values to be strictly deep-equal:
+  + actual - expected
+  
+    {
+  +   completed: 0,
+  +   total: 0
+  -   completed: 1,
+  -   total: 2
+    }
+  
+      at TestContext.<anonymous> (/Users/teacher/.codex/automations/imi-merge-verify-closer/worktrees/wf3817-authored-summary-20261010T1822Z/.github/scripts/__tests__/keepalive-loop.test.js:7020:12)
+      at Test.runInAsyncScope (node:async_hooks:214:14)
+      at Test.run (node:internal/test_runner/test:1062:25)
+      at Test.start (node:internal/test_runner/test:959:17)
+      at startSubtestAfterBootstrap (node:internal/test_runner/harness:332:17) {
+    generatedMessage: true,
+    code: 'ERR_ASSERTION',
+    actual: { total: 0, completed: 0 },
+    expected: { total: 2, completed: 1 },
+    operator: 'deepStrictEqual'
+  }
+
+test at .github/scripts/__tests__/keepalive-loop.test.js:7016:3
+✖ marker-less summary retains real keepalive progress (../../../templates/consumer-repo/.github/scripts/keepalive_loop) (12.961334ms)
+  AssertionError [ERR_ASSERTION]: Expected values to be strictly deep-equal:
+  + actual - expected
+  
+    {
+  +   completed: 0,
+  +   total: 0
+  -   completed: 1,
+  -   total: 2
+    }
+  
+      at TestContext.<anonymous> (/Users/teacher/.codex/automations/imi-merge-verify-closer/worktrees/wf3817-authored-summary-20261010T1822Z/.github/scripts/__tests__/keepalive-loop.test.js:7020:12)
+      at Test.runInAsyncScope (node:async_hooks:214:14)
+      at Test.run (node:internal/test_runner/test:1062:25)
+      at Test.processPendingSubtests (node:internal/test_runner/test:752:18)
+      at Test.postRun (node:internal/test_runner/test:1191:19)
+      at Test.run (node:internal/test_runner/test:1119:12)
+      at async startSubtestAfterBootstrap (node:internal/test_runner/harness:332:3) {
+    generatedMessage: true,
+    code: 'ERR_ASSERTION',
+    actual: { total: 0, completed: 0 },
+    expected: { total: 2, completed: 1 },
+    operator: 'deepStrictEqual'
+  }

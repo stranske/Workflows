@@ -1,0 +1,10 @@
+{
+  "red": 1,
+  "red_failures": 6,
+  "green": 0,
+  "green_passes": 249,
+  "source_restoration_sha256": {
+    ".github/scripts/issue_scope_parser.js": "41c7f1d4f1bf576d98b79761e6f13f45150ccf9732c067834df9682015e678ec",
+    "templates/consumer-repo/.github/scripts/issue_scope_parser.js": "41c7f1d4f1bf576d98b79761e6f13f45150ccf9732c067834df9682015e678ec"
+  }
+}

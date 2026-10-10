@@ -1,0 +1,9 @@
+# PR3817 verifier follow-up: preserve authored checklist work
+
+Actual compare38073044299 returned CONCERNS/CONCERNS for merged3817, including a substantive marker-less summary compatibility concern. At main71357a2a3, an authored `## Summary by CodeRabbit` section containing delivery checkboxes disappears from the parser and keepalive task snapshot. Six new root/template parser and keepalive cases reproduce the loss (exit1, six assertion failures).
+
+The fallback now refuses to infer a generated section when its visible content contains an explicit checkbox obligation. Marked bot sections still use their existing explicit wrappers; ordinary marker-less generated bullet summaries remain filtered. Existing nested task/acceptance boundaries remain intact. Ambiguous checklists are conservatively retained, which may keep a copied generated checkbox instead of silently dropping real work. This patch does not claim semantic provenance for arbitrary prose under that heading.
+
+Production sensitivity was independently rechecked after the repair: both parser copies were temporarily restored to their actual main implementation, all six new named tests failed, then the repaired bytes were restored exactly and all249parser/keepalive tests passed. Source hashes and full RED/GREEN consoles are adjacent. No check, scope, floor or exclusion was weakened. Root/template source bytes are identical; sync-manifest existing entry description now records the behavior. No workflow permission/secret/routing/model surface changed.
+
+Related to source3743; bounded follow-up to merged3817 only. The broader coverage initiative remains OPEN. Hosted checks, review floor, active threads, guarded squash and actual post-merge comparison remain required. Neither the original provider verdict nor this local evidence is relabeled providerPASS.

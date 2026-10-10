@@ -447,7 +447,7 @@ scripts:
     description: "Weekly metrics artifact download and extraction manifest contract"
 
   - source: .github/scripts/issue_scope_parser.js
-    description: "Parses issue scope and requirements; owns the shared PR template skeleton"
+    description: "Parses issue scope and requirements; preserves authored checklists in marker-less summaries and owns the shared PR template skeleton"
 
   - source: .github/scripts/keepalive_instruction_template.js
     description: "Generates keepalive instructions for Codex"
