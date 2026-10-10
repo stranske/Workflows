@@ -351,3 +351,9 @@ def test_capacity_docs_do_not_assume_absent_sdk_profiles():
     contract = Path("docs/ops/CONSUMER_REPO_MAINTENANCE.md").read_text()
     assert "SDK-bundled profiles vary by installed version" in contract
     assert "selected Terra/Sonnet models currently have no capacity facts" not in contract
+
+
+def test_capacity_docs_keep_input_and_context_bounds_independent():
+    contract = Path("docs/ops/CONSUMER_REPO_MAINTENANCE.md").read_text()
+    assert "exceeds the input bound. This is conservative" not in contract
+    assert "input <= input limit, input + actual output <= context limit" in contract

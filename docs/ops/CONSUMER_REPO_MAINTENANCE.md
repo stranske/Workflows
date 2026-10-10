@@ -70,10 +70,11 @@ estimated tokens (four characters per allocation unit). The existing 8 MiB diff
 fetch and 300,000-character context-diff ceiling remain. These allocation units
 are **not model token counts**. Only for explicit expanded recovery, before each
 evaluation, comparison arm and schema repair generation, the verifier counts the entire native request through the
-resolved client's SDK token-count endpoint and reserves its complete configured
+resolved client's SDK token-count endpoint and reserves its complete actual request
 output ceiling (including thinking). It requires the source-owned exact-model contract's
-positive `max_input_tokens` and output ceiling, and blocks when input plus output
-exceeds the input bound. This is conservative even for an input-only bound.
+positive independent input, context and output limits, enforcing
+input <= input limit, input + actual output <= context limit, and actual output
+<= output limit. An input-only ceiling never reserves output a second time.
 No approximate tokenizer, automatic truncation, stateful unseen context or model
 replacement is allowed on capacity failure. Native counter or profile absence is
 NON_PASS, including authentication failure while counting; it never authorizes
