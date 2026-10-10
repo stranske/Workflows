@@ -69,6 +69,8 @@ def test_repaired_runtime_preserves_a_later_real_launch_failure(
     assert marker.read_text() == "original\n"
     assert isinstance(caught.value.error, FileNotFoundError)
     assert caught.value.__cause__ is caught.value.error
+    assert caught.value.__context__ is caught.value.error
+    assert caught.value.args == (str(caught.value.error),)
     assert caught.value.error.errno == errno.ENOENT
     assert caught.value.error.filename == str(missing)
     assert caught.value.error is calls[-1]["error"]
@@ -130,11 +132,13 @@ def test_base_dependency_failure_keeps_its_cause_and_cleans_real_archive(
 
     def observed_run(argv, cwd):
         result = run(argv, cwd)
-        if argv == command:
-            launches.append((cwd, result.returncode))
+        launches.append((argv, cwd, result.returncode))
         return result
 
     def observed_dependency_result(error):
+        # Cleanup must precede reporting, including when the reporter itself fails.
+        assert len(archives) == 1
+        assert not archives[0].exists()
         reported_errors.append(error)
         return dependency_result(error)
 
@@ -165,7 +169,7 @@ def test_base_dependency_failure_keeps_its_cause_and_cleans_real_archive(
     assert reported_errors[0] is dependency_error
     assert dependency_error.__cause__ is cause
     assert len(archives) == 1
-    assert launches == [(repo, 0), (archives[0], 1)]
+    assert launches == [(command, repo, 0), (command, archives[0], 1)]
     assert not archives[0].exists()
     assert (repo / "phase.txt").read_text() == "head"
     assert (repo / "proof.txt").read_bytes() == b"updated candidate test overlay\n"

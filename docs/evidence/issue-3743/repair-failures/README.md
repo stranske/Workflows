@@ -122,3 +122,23 @@ The implementation and evidence are verified locally. This runner mounts
 created. GitHub API access is unavailable, preventing PR checkbox updates and
 readiness-state verification. These environment limits remain open; the literal
 Anaconda-interpreter acceptance command was not rerun here.
+
+## October 10 task reconciliation
+
+The six existing cases were strengthened without changing their node IDs. Later
+launch failures now assert exception context and wrapper arguments. Base repair
+failures observe every helper launch and require archive cleanup before the
+failure reporter runs. Four supplemental production mutations prove that early
+reporting and an extra probe after failed repair are rejected in both copies.
+Each mutation fails and passes after exact byte restoration.
+
+Fresh receipts under `followup-20261010/` retain six required RED/GREEN pairs,
+output-reuse rejection, 294 baseline and 300 candidate passes, exactly six new
+JUnit nodes, unchanged old outcomes, and zero covered-line or branch regressions.
+The helper retains 591 statements, 262 branches, and zero exclusions. Python
+3.14.8 was used; the requested Anaconda interpreter remains absent. The replay
+uses the previously archived and hash-verified defusedxml source; tests install
+nothing. Full-repository Black, focused Ruff, template completeness, base parity,
+and diff checks pass. All earlier evidence members are preserved byte-for-byte.
+Hosted checks, review settlement, guarded merge, and actual comparison remain
+unchecked until independently completed.
