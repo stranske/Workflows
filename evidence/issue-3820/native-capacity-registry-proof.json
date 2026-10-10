@@ -1,0 +1,103 @@
+{
+  "head": "fbb4e424d29f3f51058b247e2be390093dca299d",
+  "before": {
+    "config/model_registry.json": "6f5dc7c505dde55565458f24d6f34b8a7dcda453e88dcddb75b732515f91e09d",
+    "templates/consumer-repo/config/model_registry.json": "6f5dc7c505dde55565458f24d6f34b8a7dcda453e88dcddb75b732515f91e09d",
+    "tools/llm_registry.py": "527a624c8aeb2e6590ef62aaa5756dce252dcd7aece6b5861bd1846758fa5777",
+    "templates/consumer-repo/tools/llm_registry.py": "527a624c8aeb2e6590ef62aaa5756dce252dcd7aece6b5861bd1846758fa5777",
+    "scripts/langchain/pr_verifier.py": "892d992e8fe614a05373219eb5aaa9173e5ba8b92105774b62f070e2979264e5",
+    "templates/consumer-repo/scripts/langchain/pr_verifier.py": "892d992e8fe614a05373219eb5aaa9173e5ba8b92105774b62f070e2979264e5",
+    "tests/scripts/test_native_capacity_recovery.py": "3cef9527c8d1a775a859ad1bc37a6705770ffb8f648e8e0c077d14e747625ee4",
+    "tests/scripts/test_native_capacity_registry.py": "6c339de11e7917410ff76a4e9c4de16756fa5a785ede8d1cc30086a81cd6c4cc"
+  },
+  "runs": [
+    {
+      "command": [
+        "uv",
+        "run",
+        "--offline",
+        "--isolated",
+        "--no-project",
+        "--python",
+        "/opt/anaconda3/bin/python3",
+        "--with-requirements",
+        "requirements.lock",
+        "python",
+        "-m",
+        "pytest",
+        "tests/scripts/test_native_capacity_recovery.py",
+        "-k",
+        "configured_native_expanded_reaches_count_and_generation",
+        "-q",
+        "-o",
+        "addopts=",
+        "--junitxml=evidence/issue-3820/native-capacity-registry-mutation-red.xml"
+      ],
+      "exit_code": 1,
+      "summary": {
+        "name": "pytest",
+        "errors": "0",
+        "failures": "6",
+        "skipped": "0",
+        "tests": "6",
+        "time": "2.205",
+        "timestamp": "2026-10-10T12:36:41.702930-05:00",
+        "hostname": "server.trs.private"
+      },
+      "artifacts": {
+        "evidence/issue-3820/native-capacity-registry-mutation-red.txt": "7c356f5007b745e3b2962892ba6afa7fb8ed6f357626db1884709a264e99d2c6",
+        "evidence/issue-3820/native-capacity-registry-mutation-red.xml": "a80057f794c67fcd0e3b3f94c6d4cf630a1df38b5a74e6bbb25c5abb4d976281"
+      }
+    },
+    {
+      "command": [
+        "uv",
+        "run",
+        "--offline",
+        "--isolated",
+        "--no-project",
+        "--python",
+        "/opt/anaconda3/bin/python3",
+        "--with-requirements",
+        "requirements.lock",
+        "python",
+        "-m",
+        "pytest",
+        "tests/scripts/test_native_capacity_recovery.py",
+        "-k",
+        "configured_native_expanded_reaches_count_and_generation",
+        "-q",
+        "-o",
+        "addopts=",
+        "--junitxml=evidence/issue-3820/native-capacity-registry-restored-green.xml"
+      ],
+      "exit_code": 0,
+      "summary": {
+        "name": "pytest",
+        "errors": "0",
+        "failures": "0",
+        "skipped": "0",
+        "tests": "6",
+        "time": "1.764",
+        "timestamp": "2026-10-10T12:36:45.054767-05:00",
+        "hostname": "server.trs.private"
+      },
+      "artifacts": {
+        "evidence/issue-3820/native-capacity-registry-restored-green.txt": "b146b29b7d73968601feca0d53936f7f5288698dd91bcce670eb655e0185ee50",
+        "evidence/issue-3820/native-capacity-registry-restored-green.xml": "a40bf306507a4ffa7c84d848a3e3eea8a3343154ab38119c11ada5afb63bae18"
+      }
+    }
+  ],
+  "mutation": "Remove both supported native_capacity objects from actual production config/model_registry.json; native supported-generation cases must refuse count/generation.",
+  "mutated_config_sha256": "b31cafac904272deac2f6e574b9e91a35581bc1e275daad36c8da466cb0e8c6c",
+  "restored": {
+    "config/model_registry.json": "6f5dc7c505dde55565458f24d6f34b8a7dcda453e88dcddb75b732515f91e09d",
+    "templates/consumer-repo/config/model_registry.json": "6f5dc7c505dde55565458f24d6f34b8a7dcda453e88dcddb75b732515f91e09d",
+    "tools/llm_registry.py": "527a624c8aeb2e6590ef62aaa5756dce252dcd7aece6b5861bd1846758fa5777",
+    "templates/consumer-repo/tools/llm_registry.py": "527a624c8aeb2e6590ef62aaa5756dce252dcd7aece6b5861bd1846758fa5777",
+    "scripts/langchain/pr_verifier.py": "892d992e8fe614a05373219eb5aaa9173e5ba8b92105774b62f070e2979264e5",
+    "templates/consumer-repo/scripts/langchain/pr_verifier.py": "892d992e8fe614a05373219eb5aaa9173e5ba8b92105774b62f070e2979264e5",
+    "tests/scripts/test_native_capacity_recovery.py": "3cef9527c8d1a775a859ad1bc37a6705770ffb8f648e8e0c077d14e747625ee4",
+    "tests/scripts/test_native_capacity_registry.py": "6c339de11e7917410ff76a4e9c4de16756fa5a785ede8d1cc30086a81cd6c4cc"
+  }
+}

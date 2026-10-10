@@ -740,6 +740,7 @@ scripts:
     # Expanded-only exact Terra Responses and Sonnet native Models/count binding;
     # explicit independent input/context/output facts and actual request reserve.
     # Terra context 1050000/input 922000; Sonnet native input/context 1000000.
+    # Exact facts now come from managed registry/helper validation; expanded v6.
     # standard shared builders and invocation remain unchanged. Existing copy scope.
     description: "PR verifier - normalizes actor-bound common test-result/log/screenshot/recording proof objects with early canonical contracted governors, offset-preserving literal-free proof contexts, bounded active/passive object qualifiers and literal-safe explicit pronoun antecedents across finite actor clause separators and shared negative-governor actor boundaries and structurally bounded PR-contained comment nouns through shared polarity/modality/product/literal grammar and validates independent acceptance-list items and destination-specific evidence with clause-bound mandatory evidence/artifact comment-presence predicates with shared negative requirement governors for bare be-in destinations, subject-level no polarity and canonical comment destinations, product permit capability and shared share/put/place/submit/deliver/supply aliases with shared finite compound-role subjects and possession-safe verbal guards with bounded adverb-and-polarity-aware optional-inspection noun spans and prove operations, contracted and bare prohibition polarity with additive not-only/not-merely/not-just and negative embedded-auxiliary guards with complete passive/active-perfect negative requirement actions, shared adverb-aware active-perfect/passive contrast-aware elided actor/governors and prohibition-safe checklist fallback, shared bounded multiword component and comma-availability grammar with order-symmetric single/coordinated destination OR options and actual floors and leading either alternatives, complete product-response vocabulary, bounded product-capability spans, qualified recipients and evidence-object modifiers, bound product storage/client aspects, optional-modal polarity, named and elided actor governor and finite-past sentence boundaries, attached reviewer predicates through shared destinations, complete body predicates, non-PASS concerns and rename-safe diff coverage; native capacity required only for explicit expanded invocation and schema repair, with unconditional evidence floors and isolated receipt I/O warnings preserving capacity outcomes"
     delivery: copy
@@ -801,7 +802,7 @@ scripts:
     description: "LangChain client builder - multi-provider client with slot-based fallback and configuration"
 
   - source: tools/llm_registry.py
-    description: "LLM model registry helper - shared slot/model selection and blocked-model enforcement"
+    description: "LLM model registry helper - shared selection/blocked-model enforcement plus strict expanded-only exact native capacity facts"
     template_sync: exact
 
   - source: tools/embedding_provider.py
@@ -890,7 +891,7 @@ llm_config:
     sync_mode: create_only  # Don't overwrite - repos may customize provider preferences
 
   - source: config/model_registry.json
-    description: "Model registry - available LLM models and their capabilities"
+    description: "Model registry - available LLM models, selections and optional reviewed exact native capacity/transport facts"
 
   - source: config/model_selection_policy.json
     description: "Model selection policy - benchmark gates, measurements, optimization order, and review triggers"

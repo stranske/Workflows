@@ -255,7 +255,9 @@ CI failures and clipped code still withhold PASS. Standard remains the default.
 Expanded invocation prepares a local copy of the exact Terra client for Responses
 native input counting; Sonnet uses its own Messages counter and exact Models API
 metadata. Native input, combined context and actual output ceilings are checked
-independently. Source-owned model facts, transport binding, output reserves and failure
+independently. Exact optional `native_capacity` facts in the managed model registry
+are consumed through a strict helper; missing or invalid selected facts fail closed
+without changing routing or model selection. Transport binding, output reserves and failure
 behavior are documented in [consumer maintenance](ops/CONSUMER_REPO_MAINTENANCE.md).
 Local count/transport tests do not establish live provider capacity or acceptance.
 

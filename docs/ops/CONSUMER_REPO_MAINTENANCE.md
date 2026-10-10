@@ -130,6 +130,33 @@ positive integer input/context/output facts; missing or malformed facts fail
 closed. Legacy synthetic unit fixtures without a context fact alone retain the
 old conservative input + output <= input-bound fallback.
 
+The existing managed `config/model_registry.json` v2 model rows now carry optional
+`native_capacity` facts for exactly these two provider/model pairs. The strict
+expanded-only `tools/llm_registry.py::native_capacity_facts_for` lookup uses
+`LANGCHAIN_MODEL_REGISTRY_CONFIG` (the existing empty-value default-path convention
+is retained). Missing/unreadable/malformed configuration, duplicate JSON keys or
+exact identities, blocked/unregistered selected entries, absent facts and invalid
+limits/provenance fail closed. Optional facts do not alter model selection, routing,
+shared builders or catalog promotion. Catalog entries without facts remain unsupported
+for expanded counting; future models require separately reviewed exact official facts
+and a compatible implemented native protocol, never a name/prefix guess.
+
+The closed facts object requires `transport`, `api_root`, `count_endpoint`,
+`input_limit_source`, `max_context_tokens`, `max_output_tokens`, `provenance`,
+`as_of` (ISO date) and `source_urls` (ordered exact official URLs).
+OpenAI additionally requires a positive integer
+`max_input_tokens`; Anthropic must obtain that independent positive integer from
+its exact native Models API response on every preflight and cannot substitute a
+configured input guess. Boolean, float, string, null, missing and nonpositive limits
+are invalid. Only the implemented `openai-responses`/`documented` and
+`anthropic-messages`/`models-api` combinations are accepted for their exact providers.
+The helper checks official roots/endpoints and model-bound source URLs against
+code-owned protocol constraints; configuration cannot import SDK types, select
+custom endpoints or invent counter methods. These checks validate configuration
+structure and provenance bindings, not the truth of new provider claims: capacity
+maintenance still requires official evidence and review. The existing facts and
+provenance were relocated unchanged; no new capacity assertion was introduced.
+
 Both contracts require the exact native adapter/SDK type and official API root;
 custom endpoints, counter/client mismatches, query extensions, mismatched payload
 models, stateful input, truncation and unsupported input fields fail closed. OpenAI
@@ -149,7 +176,7 @@ unconditionally in both profiles. Local simulated transport tests establish sour
 behavior only. Inspect actual new retrieval, authenticated capacity receipts and
 both provider verdicts; workflow success alone is not acceptance.
 The input snapshot records every bound, and the consumer fingerprint includes the
-profile plus `bounded-native-capacity-v5` (standard retains `bounded-native-capacity-v2`), so a previously fingerprinted expanded
+profile plus `bounded-native-capacity-v6` (standard retains `bounded-native-capacity-v2`), so a previously fingerprinted expanded
 evaluation cannot suppress this changed expanded contract. Existing manifest entries already manage the repaired verifier; no file
 addition, rename or delivery scope change requires a new manifest entry.
 
@@ -162,7 +189,7 @@ Missing, duplicate, extra, malformed or fallback-provider/model arms withhold PA
 so do native capacity/count failures and unsupported native inputs. An available
 judge's PASS cannot hide an unavailable judge. The existing standard aggregation
 and all CI, retrieval, acceptance-evidence and changed-code floors remain in force.
-The v5 fingerprint invalidates previous expanded aggregation receipts; it does
+The v6 fingerprint also invalidates expanded receipts predating registry validation; it does
 not turn local tests or prior capacity-function reviews into hosted acceptance.
 
 Workflows#3802's immutable expanded capture reproduces 4/7 complete files and

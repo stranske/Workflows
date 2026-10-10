@@ -285,3 +285,15 @@ the same evidence does not duplicate a case. Existing adjudicated corpus entries
 keep their historical identifiers. The staging file is FYI-only; a staging-only
 PR does not grow approval metrics. Only additions to `model_eval_pilot.json` count
 as promotions, and existing category/size caps and model approval policy remain.
+
+### Optional native capacity facts
+
+`config/model_registry.json` retains schema v2 and existing selection decisions.
+A model row may additionally contain `native_capacity`, consumed only by expanded
+verifier preflight through `tools.llm_registry.native_capacity_facts_for`. This
+optional metadata does not promote, select or route a model. Only exact Terra and
+Sonnet 5.5 rows currently have reviewed facts. A selected entry without valid facts
+fails closed; existing shared builders and standard verification remain unchanged.
+See [consumer maintenance](https://github.com/stranske/Workflows/blob/main/docs/ops/CONSUMER_REPO_MAINTENANCE.md) for the closed field
+schema, official provenance and finite code-owned native transport constraints.
+Catalog discovery must not synthesize capacity facts or infer future model support.

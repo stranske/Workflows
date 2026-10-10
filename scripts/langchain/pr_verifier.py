@@ -39,6 +39,7 @@ from scripts.langchain.verifier_config import (
     VERIFIER_DIFF_BUDGET_TOKENS,
     SchemaRepairPolicy,
 )
+from tools.llm_registry import NativeCapacityFacts, native_capacity_facts_for
 
 # The shared client builder returns the ClientInfo ``provider_label`` for the
 # verifier (the historical ``_get_llm_client`` returned that field). Bound under
@@ -4765,35 +4766,37 @@ class InputCapacityError(ValueError):
     """No provider generation is authorized for an uncounted or oversized input."""
 
 
-def _prepare_capacity_client(client: object) -> object:
-    """Opt only the exact Terra adapter into Responses, without mutating its owner.
+def _capacity_facts_for(provider: str, model: str) -> NativeCapacityFacts:
+    try:
+        return native_capacity_facts_for(provider, model)
+    except ValueError as exc:
+        raise InputCapacityError(str(exc)) from exc
 
-    A shallow Pydantic copy retains the authenticated SDK instances, endpoint,
-    timeout/retry policy and every other generation setting. Standard never calls
-    this helper. Unknown models are left alone and refused by the native contract.
+
+def _prepare_capacity_client(client: object) -> object:
+    """Prepare a registry-authorized Responses copy without mutating its owner.
+
+    Standard never calls this helper. Registry facts cannot choose adapter/SDK
+    types or endpoints; the native contract independently checks those bindings.
     """
     try:
         from langchain_openai import ChatOpenAI
     except ImportError:
         return client
-    if type(client) is ChatOpenAI and client.model_name == "gpt-5.6-terra":
+    if type(client) is ChatOpenAI:
+        facts = _capacity_facts_for("openai", client.model_name)
         updates = {"use_responses_api": True}
         if client.max_tokens is None:
-            updates["max_tokens"] = 128000
+            updates["max_tokens"] = facts.max_output_tokens
         return client.model_copy(update=updates)
     return client
 
 
 def _native_capacity_contract(client: object) -> dict[str, object]:
-    """Bind exact model facts to the adapter and its generation/count SDK root.
+    """Bind validated exact registry facts to generation/count on the same SDK.
 
-    OpenAI facts: https://developers.openai.com/api/docs/models/gpt-5.6-terra
-    (2026-10-10 owner-fetched: context 1050000, input 922000, output 128000).
-    Anthropic: exact Models API response, additionally bounded by Sonnet 5.5's
-    documented nonbatch context/output ceilings (1000000/128000):
-    https://platform.claude.com/docs/en/models/sonnet-5-5/overview
-    https://platform.claude.com/docs/en/api/http/models
-    No prefix matching or caller-supplied profile can establish these facts.
+    Capacity data and dated official provenance live in model_registry.json.
+    Transport implementations/types and payload validation remain code-owned.
     """
     try:
         from langchain_openai import ChatOpenAI
@@ -4808,33 +4811,29 @@ def _native_capacity_contract(client: object) -> dict[str, object]:
 
         provider, model = "openai", client.model_name
         native = client.root_client
-        if model != "gpt-5.6-terra":
-            raise InputCapacityError("unsupported exact OpenAI capacity model")
+        facts = _capacity_facts_for(provider, model)
         if (
             type(native) is not OpenAI
-            or str(native.base_url).rstrip("/") != "https://api.openai.com/v1"
+            or str(native.base_url).rstrip("/") != facts.api_root
             or native.responses._client is not native
             or native.responses.input_tokens._client is not native
             or not client.use_responses_api
         ):
             raise InputCapacityError("OpenAI native generation/count transport mismatch")
         profile = {
-            "max_input_tokens": 922000,
-            "max_context_tokens": 1050000,
-            "max_output_tokens": 128000,
+            "max_input_tokens": facts.max_input_tokens,
+            "max_context_tokens": facts.max_context_tokens,
+            "max_output_tokens": facts.max_output_tokens,
         }
-        provenance = "openai-exact-model-docs:2026-10-10"
-        endpoint = "https://api.openai.com/v1/responses/input_tokens"
     elif type(client) is ChatAnthropic:
         from anthropic import Anthropic
 
         provider, model = "anthropic", client.model
         native = client._client
-        if model != "claude-sonnet-5-5":
-            raise InputCapacityError("unsupported exact Anthropic capacity model")
+        facts = _capacity_facts_for(provider, model)
         if (
             type(native) is not Anthropic
-            or str(native.base_url).rstrip("/") != "https://api.anthropic.com"
+            or str(native.base_url).rstrip("/") != facts.api_root
             or native.messages._client is not native
             or native.models._client is not native
         ):
@@ -4848,11 +4847,9 @@ def _native_capacity_contract(client: object) -> dict[str, object]:
             raise InputCapacityError("malformed or mismatched exact-model native metadata")
         profile = {
             "max_input_tokens": window,
-            "max_context_tokens": 1000000,
-            "max_output_tokens": min(output, 128000),
+            "max_context_tokens": facts.max_context_tokens,
+            "max_output_tokens": min(output, facts.max_output_tokens),
         }
-        provenance = "anthropic-exact-model-api+sonnet-5-5-docs:2026-10-10"
-        endpoint = "https://api.anthropic.com/v1/messages/count_tokens"
     else:
         raise InputCapacityError("unsupported native capacity client/provider")
     if native.default_query:
@@ -4866,8 +4863,8 @@ def _native_capacity_contract(client: object) -> dict[str, object]:
         "provider": provider,
         "model": model,
         "profile": profile,
-        "provenance": provenance,
-        "endpoint": endpoint,
+        "provenance": facts.provenance,
+        "endpoint": facts.count_endpoint,
     }
 
 

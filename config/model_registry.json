@@ -221,6 +221,20 @@
     },
     {
       "model_id": "gpt-5.6-terra",
+      "native_capacity": {
+        "transport": "openai-responses",
+        "api_root": "https://api.openai.com/v1",
+        "count_endpoint": "https://api.openai.com/v1/responses/input_tokens",
+        "input_limit_source": "documented",
+        "max_input_tokens": 922000,
+        "max_context_tokens": 1050000,
+        "max_output_tokens": 128000,
+        "provenance": "openai-exact-model-docs:2026-10-10",
+        "as_of": "2026-10-10",
+        "source_urls": [
+          "https://developers.openai.com/api/docs/models/gpt-5.6-terra"
+        ]
+      },
       "provider": "openai",
       "api": "chat",
       "lifecycle": "current",
@@ -340,6 +354,20 @@
     },
     {
       "model_id": "claude-sonnet-5-5",
+      "native_capacity": {
+        "transport": "anthropic-messages",
+        "api_root": "https://api.anthropic.com",
+        "count_endpoint": "https://api.anthropic.com/v1/messages/count_tokens",
+        "input_limit_source": "models-api",
+        "max_context_tokens": 1000000,
+        "max_output_tokens": 128000,
+        "provenance": "anthropic-exact-model-api+sonnet-5-5-docs:2026-10-10",
+        "as_of": "2026-10-10",
+        "source_urls": [
+          "https://platform.claude.com/docs/en/models/sonnet-5-5/overview",
+          "https://platform.claude.com/docs/en/api/http/models"
+        ]
+      },
       "provider": "anthropic",
       "api": "chat",
       "lifecycle": "current",
