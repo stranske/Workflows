@@ -317,3 +317,9 @@ def test_auth_mode_is_literal_environment_transport(mode):
     assert run.returncode == 1
     assert not run.stderr
     assert f"mode '{mode}'" in run.stdout
+
+
+def test_capacity_docs_do_not_assume_absent_sdk_profiles():
+    contract = Path("docs/ops/CONSUMER_REPO_MAINTENANCE.md").read_text()
+    assert "SDK-bundled profiles vary by installed version" in contract
+    assert "selected Terra/Sonnet models currently have no capacity facts" not in contract

@@ -97,9 +97,13 @@ profile exports or generation, including empty, mistyped and whitespace modes.
 The existing comparison verdict and CI/coverage floors remain authoritative.
 No human-only gate is introduced.
 
-The selected Terra/Sonnet models currently have no capacity facts in the installed
-client profiles. This source repair deliberately does not invent those facts or
-claim live provider capacity. A model-specific supported profile and native counter
+SDK-bundled profiles vary by installed version. Hosted `langchain-openai==1.4.1`
+supplies Terra profile facts; the observed local Sonnet adapter profile is absent,
+which is not a claim about every SDK version. A populated profile alone does not
+establish native counting: the configured Terra Chat Completions adapter lacks
+the required native message counter, so expanded capacity remains UNKNOWN for
+that separate transport reason. This source repair does not invent missing facts
+or claim live provider capacity. A model-specific supported profile and native counter
 must be available before expanded generation. Standard remains the default profile
 and preserves its existing invocation and schema-repair behavior without claiming
 native capacity proof. In particular, the configured Terra adapter uses OpenAI Chat
