@@ -6,6 +6,13 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 Breaking changes are called out with a **BREAKING** marker and scheduled according to the policy in `COMPATIBILITY.md`.
 
+## [1.37.33](https://github.com/stranske/Workflows/compare/v1.37.32...v1.37.33) (2026-10-10)
+
+
+### Bug Fixes
+
+* **sync:** cover flat Python modules and named checklist evidence ([#3802](https://github.com/stranske/Workflows/issues/3802)) ([427798d](https://github.com/stranske/Workflows/commit/427798df1c0dd46a39d1f94e809b8959952d9ca4))
+
 ## [1.37.32](https://github.com/stranske/Workflows/compare/v1.37.31...v1.37.32) (2026-10-07)
 
 
