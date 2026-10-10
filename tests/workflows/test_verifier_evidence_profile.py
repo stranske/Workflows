@@ -357,3 +357,16 @@ def test_capacity_docs_keep_input_and_context_bounds_independent():
     contract = Path("docs/ops/CONSUMER_REPO_MAINTENANCE.md").read_text()
     assert "exceeds the input bound. This is conservative" not in contract
     assert "input <= input limit, input + actual output <= context limit" in contract
+
+
+def test_workflow_inventory_names_current_expanded_fingerprint():
+    inventory = Path("docs/ci/WORKFLOWS.md").read_text()
+    workflow = Path(".github/workflows/reusable-agents-verifier.yml").read_text()
+    assert "`bounded-native-capacity-v6`" in inventory
+    assert "bounded-native-capacity-v6" in workflow
+
+
+def test_workflow_guide_distinguishes_verifier_checkout_tokens():
+    guide = Path("docs/WORKFLOW_GUIDE.md").read_text()
+    assert "App token is restricted to the caller checkout" in guide
+    assert "Workflows scripts checkout uses `github.token`" in guide
