@@ -49,7 +49,10 @@ actionlint .github/workflows/reusable-agents-verifier.yml templates/consumer-rep
 ```
 
 `context-green.txt`, `python-green.txt` and `workflows-green.txt` retain suite outcomes.
-Empty `actionlint.txt` is successful exit 0. Existing sync-manifest entries cover both
+Empty `actionlint.txt` is successful exit 0. `template-drift.txt` records the additional
+reviewed-drift guard and its tests. Initial hosted Health 74 caught the stale consumer
+fingerprint hash; the pair-14 entry was refreshed only for the reviewed one-line contract
+revision, preserving the original divergence review date and other pairs. Existing sync-manifest entries cover both
 repaired scripts and the consumer caller; no managed file is added or re-scoped.
 The consumer fingerprint and input snapshot carry `bounded-native-capacity-v2` so
 previously fingerprinted expanded inputs cannot suppress this changed contract.
