@@ -5456,6 +5456,51 @@ def evaluate_pr_multiple(
     return results
 
 
+def expanded_comparison_verdict(
+    data: object, *, model1: str | None = None, model2: str | None = None
+) -> str:
+    """Require one complete PASS per configured comparison slot, without filtering.
+
+    Compare uses two slots. Resolve their identities before credential/client
+    availability filtering, so a missing native judge cannot be replaced by an
+    available fallback or hidden by the other judge's PASS. Model overrides
+    follow build_chat_clients; no client is constructed and no provider is called.
+    """
+    from tools.llm_registry import resolve_slots
+
+    slots = resolve_slots()[:2]
+    overrides = [model1 or os.environ.get("LANGCHAIN_MODEL"), model2 or model1]
+    expected = [
+        (slot.provider, override or slot.model)
+        for slot, override in zip(slots, overrides, strict=False)
+    ]
+    if len(expected) != 2 or len({provider for provider, _ in expected}) != 2:
+        return "CONCERNS"
+    if not isinstance(data, dict) or not isinstance(data.get("results"), list):
+        return "CONCERNS"
+    results = data["results"]
+    if len(results) != len(expected):
+        return "CONCERNS"
+    observed = []
+    for arm in results:
+        if (
+            not isinstance(arm, dict)
+            or not {"provider_used", "model", "verdict", "used_llm"} <= arm.keys()
+        ):
+            return "CONCERNS"
+        try:
+            result = EvaluationResult.model_validate(arm, strict=True, extra="forbid")
+        except ValueError:
+            return "CONCERNS"
+        if result.used_llm is not True or result.verdict != "PASS" or result.error:
+            return "CONCERNS"
+        identity = (result.provider_used, result.model)
+        if identity not in expected or identity in observed:
+            return "CONCERNS"
+        observed.append(identity)
+    return "PASS" if set(observed) == set(expected) else "CONCERNS"
+
+
 def _provider_family(provider: str) -> str:
     label = provider.lower()
     if "github-models" in label:

@@ -142,7 +142,7 @@ def test_only_expanded_contract_fingerprint_changes(profile, consumer):
         check=True,
     )
     assert result.stdout.strip() == (
-        "bounded-native-capacity-v4" if profile == "expanded" else "bounded-native-capacity-v2"
+        "bounded-native-capacity-v5" if profile == "expanded" else "bounded-native-capacity-v2"
     )
 
 

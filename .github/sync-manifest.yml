@@ -735,6 +735,8 @@ scripts:
   # Content-object negative adjectives share modality grammar without inventing overall proof obligations after passive agents.
   # Passive quantifiers on either side of prepositions and blank-paragraph relative boundaries share both classifiers.
   - source: scripts/langchain/pr_verifier.py
+    # Expanded v5 comparison requires every configured provider/model arm to be
+    # complete, used_llm=true, error-free and PASS; no availability filtering.
     # Expanded-only exact Terra Responses and Sonnet native Models/count binding;
     # explicit independent input/context/output facts and actual request reserve.
     # Terra context 1050000/input 922000; Sonnet native input/context 1000000.

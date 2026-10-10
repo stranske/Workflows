@@ -300,7 +300,7 @@ jobs:
               "provider": os.environ.get("VERIFY_PROVIDER", ""),
               "evidence_profile": os.environ.get("VERIFY_EVIDENCE_PROFILE", "standard"),
               "evidence_contract": (
-                  "bounded-native-capacity-v4"
+                  "bounded-native-capacity-v5"
                   if os.environ.get("VERIFY_EVIDENCE_PROFILE", "standard") == "expanded"
                   else "bounded-native-capacity-v2"
               ),

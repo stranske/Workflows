@@ -444,7 +444,7 @@ jobs:
               'ci_workflows': ci_workflows,
               'evidence_profile': os.environ['VERIFIER_EVIDENCE_PROFILE'],
               'evidence_contract': (
-                  'bounded-native-capacity-v4'
+                  'bounded-native-capacity-v5'
                   if os.environ['VERIFIER_EVIDENCE_PROFILE'] == 'expanded'
                   else 'bounded-native-capacity-v2'
               ),
@@ -1248,13 +1248,25 @@ jobs:
           except Exception:
             data = {}
 
-          results = data.get('results', [])
-          usable = [r for r in results if r.get('used_llm') and r.get('verdict')]
-          verdicts = [r.get('verdict') for r in (usable if usable else results) if r.get('verdict')]
-          if verdicts and all(v == 'PASS' for v in verdicts):
-            print('PASS')
+          import os
+
+          if os.environ.get('VERIFIER_EVIDENCE_PROFILE') == 'expanded':
+            from scripts.langchain.pr_verifier import expanded_comparison_verdict
+
+            print(expanded_comparison_verdict(
+              data,
+              model1=os.environ.get('VERIFIER_MODEL') or None,
+              model2=os.environ.get('VERIFIER_MODEL2') or None,
+            ))
           else:
-            print('CONCERNS')
+            # Standard retains its existing aggregation contract.
+            results = data.get('results', [])
+            usable = [r for r in results if r.get('used_llm') and r.get('verdict')]
+            verdicts = [r.get('verdict') for r in (usable if usable else results) if r.get('verdict')]
+            if verdicts and all(v == 'PASS' for v in verdicts):
+              print('PASS')
+            else:
+              print('CONCERNS')
           PY
 
             verdict="$(cat verdict.txt 2>/dev/null || echo CONCERNS)"

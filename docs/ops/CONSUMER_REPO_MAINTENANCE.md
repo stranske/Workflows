@@ -149,9 +149,21 @@ unconditionally in both profiles. Local simulated transport tests establish sour
 behavior only. Inspect actual new retrieval, authenticated capacity receipts and
 both provider verdicts; workflow success alone is not acceptance.
 The input snapshot records every bound, and the consumer fingerprint includes the
-profile plus `bounded-native-capacity-v4` (standard retains `bounded-native-capacity-v2`), so a previously fingerprinted expanded
-evaluation cannot suppress this changed input contract. Existing manifest entries already manage both repaired scripts; no file
+profile plus `bounded-native-capacity-v5` (standard retains `bounded-native-capacity-v2`), so a previously fingerprinted expanded
+evaluation cannot suppress this changed expanded contract. Existing manifest entries already manage the repaired verifier; no file
 addition, rename or delivery scope change requires a new manifest entry.
+
+Expanded comparison requires exactly one complete result for each of the first two
+configured comparison slots, resolved from the shared registry/slot configuration
+before credential or client availability filtering. Provider and exact model must
+match those slots (including explicit model overrides), each `used_llm` must be
+boolean `true`, each verdict must be `PASS`, and neither arm may carry an error.
+Missing, duplicate, extra, malformed or fallback-provider/model arms withhold PASS;
+so do native capacity/count failures and unsupported native inputs. An available
+judge's PASS cannot hide an unavailable judge. The existing standard aggregation
+and all CI, retrieval, acceptance-evidence and changed-code floors remain in force.
+The v5 fingerprint invalidates previous expanded aggregation receipts; it does
+not turn local tests or prior capacity-function reviews into hosted acceptance.
 
 Workflows#3802's immutable expanded capture reproduces 4/7 complete files and
 127,635/257,099 included code characters with the old allocation. The new expanded
