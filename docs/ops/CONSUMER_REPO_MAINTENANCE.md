@@ -44,7 +44,8 @@ Archives retain the 4 MiB compressed, 80-entry and 128,000-rendered-character
 per-archive bounds. Collection also has global 32 MiB downloaded, 64 MiB extracted
 and 4 MiB rendered-text ceilings. Declared sizes are checked before download and
 actual buffer sizes afterward; an oversize response fails closed. Extraction
-charges bytes before rendering, and headings/separators count toward characters.
+charges raw stdout bytes before UTF-8 decoding or rendering (including invalid
+UTF-8), and headings/separators count toward characters.
 NDJSON is supported alongside JSONL. Unsupported payloads, expired artifacts,
 entry overflow and read/extraction failures remain actionable gaps alongside any
 complete siblings. The context records separate page, record, character, archive,
@@ -64,6 +65,10 @@ replacement is allowed on capacity failure. Native counter or profile absence is
 NON_PASS, including authentication failure while counting; it never authorizes
 an alternate judge. Capacity receipts are retained as `verifier-capacity-checks.jsonl`
 for both evaluate and compare, including failed generation attempts.
+Receipt open, write or close failures emit a warning without replacing the
+preflight result or entering provider authentication fallback. The structured
+capacity decision remains in the job log; a failed receipt write means the JSONL
+artifact may be absent or incomplete and must not be claimed as retained proof.
 A profile's absent output ceiling cannot make an unknown reserve zero.
 The selected `VERIFIER_EVIDENCE_PROFILE` is a job-level environment value inherited
 by the actual Python processes, not just the allocation and snapshot steps.

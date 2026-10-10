@@ -1,5 +1,55 @@
 # Workflows #3820 source recovery evidence
 
+## CodeRabbit extraction and receipt I/O corrections
+
+The full review `5479536243` and full threads `4238096234` and `4238096249`
+were read and both defects independently reproduced against `ab346e00`. The
+receipt finding remains valid despite CodeRabbit's automatic resolved marker:
+an unguarded `Path.open` replaces `InputCapacityError` with `PermissionError`.
+The ast-grep `jsonify` hint is declined because this is CLI JSONL, not Flask.
+
+Raw unzip stdout is now charged before UTF-8 decoding. A real ZIP regression
+contains invalid UTF-8, multibyte text and a final entry within the exact raw
+byte budget. Receipt open/write/close errors warn while preserving successful,
+unavailable and overflow preflight outcomes. Evaluation regressions prove a
+permission error does not select an alternate provider. Source and consumer
+template changes match; the existing manifest descriptions and consumer contract
+document both corrections without changing delivery scope.
+
+`python3 evidence/issue-3820/review_red_green.py` records two actual production
+mutations, each RED exit 1, restored GREEN exit 0, with byte-identical restoration
+of source and template and current production SHA-256 values in
+`review-deliberate-red-green.json`. Historical mutation receipts above remain
+historical; they are not relabeled as bindings for these changed script bytes.
+`review-original-*-red.txt` contains normalized output tails from these mutations.
+
+Validation: `node --test .github/scripts/__tests__/agents-verifier-context.test.js`
+passed 134 tests (`review-context-green.txt`). The eleven-suite Python command
+listed below, plus `tests/scripts/test_template_drift_allowlist.py`,
+`tests/scripts/test_check_template_drift.py`,
+`tests/scripts/test_check_template_drift_coverage.py` and
+`tests/workflows/test_template_drift_workflow.py`, with the authenticated capture
+environment set, passed 4,014 tests (`review-python-green.txt`). The initial focused run skipped
+the owner-local capture; the complete run explicitly enabled and passed it.
+Template sync/completeness/drift, Black, Ruff and whitespace commands and results
+are retained in `review-validation.json`.
+
+At 15:24:27 UTC, remote head remained
+`ab346e00ecec5645f70ccdd15bf9a11da2b13a52`, OPEN and ready. The targeted Codex
+request `4238112447` returned generic reply `4238126067`; the parent's fallback
+request `4238128539` obtained explicit CodeRabbit finding-specific ACCEPT
+`4238132058` for evaluate receipt upload only. These full replies and unchanged
+head readback are preserved in `review-same-head-checkpoint.json` before any push.
+Both workflow files remain byte-identical to that accepted checkpoint.
+
+Limits: failed receipt I/O can leave the JSONL artifact absent or partial; the
+capacity decision stays in the job log and artifact retention must not be claimed.
+No live provider capacity or provider verdict acceptance is established here.
+The expanded guard, standard compatibility and all evidence floors stay intact.
+The parent owns disposition of these two findings, general review, the new-head
+review floor, hosted checks, merge and post-merge comparison. No reviews were
+dispatched and no threads were resolved by this correction lane.
+
 Base: `427798df1c0dd46a39d1f94e809b8959952d9ca4` (current origin/main at implementation).
 Implementation issue: https://github.com/stranske/Workflows/issues/3820.
 

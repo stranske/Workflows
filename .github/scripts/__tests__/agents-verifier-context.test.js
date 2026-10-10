@@ -1634,6 +1634,28 @@ test('artifact extractor charges headings and separators to the rendered charact
   assert.ok(calls[1].options.maxBuffer >= Buffer.byteLength('éééé', 'utf8'));
 });
 
+test('artifact extractor counts raw bytes before UTF8 decode across entries', () => {
+  const directory = fs.mkdtempSync(path.join(os.tmpdir(), 'verifier-raw-bytes-'));
+  try {
+    fs.writeFileSync(path.join(directory, 'invalid.txt'), Buffer.from([0xff]));
+    fs.writeFileSync(path.join(directory, 'unicode.txt'), 'é');
+    fs.writeFileSync(path.join(directory, 'last.txt'), 'ok');
+    execFileSync('zip', ['-q', 'proof.zip', 'invalid.txt', 'unicode.txt', 'last.txt'], { cwd: directory });
+    const result = extractArtifactArchiveText({
+      archiveBuffer: fs.readFileSync(path.join(directory, 'proof.zip')),
+      maxEntries: 3, maxChars: 200, maxBytes: 5,
+    });
+    assert.equal(result.extractedBytes, 5);
+    assert.equal(result.truncated, false);
+    assert.deepEqual(result.failures, []);
+    assert.match(result.text, /invalid.txt\n\n�/);
+    assert.match(result.text, /unicode.txt\n\né/);
+    assert.match(result.text, /last.txt\n\nok/);
+  } finally {
+    fs.rmSync(directory, { recursive: true, force: true });
+  }
+});
+
 test('artifact extractor skips disallowed zip entry names', () => {
   const extractedEntries = [];
   const execFile = (_command, args) => {

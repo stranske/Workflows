@@ -1,0 +1,23 @@
+Executed actual production mutation; see review-deliberate-red-green.json for commands and hashes.
+ℹ todo 0
+ℹ duration_ms 110.432375
+
+✖ failing tests:
+
+test at .github/scripts/__tests__/agents-verifier-context.test.js:1637:1
+✖ artifact extractor counts raw bytes before UTF8 decode across entries (24.278875ms)
+  AssertionError [ERR_ASSERTION]: Expected values to be strictly equal:
+
+  true !== false
+
+      at TestContext.<anonymous> (/Users/teacher/.codex/orchestrator/worktrees/stranske__Workflows__3820__opener/.github/scripts/__tests__/agents-verifier-context.test.js:1649:12)
+      at Test.runInAsyncScope (node:async_hooks:214:14)
+      at Test.run (node:internal/test_runner/test:1062:25)
+      at Test.start (node:internal/test_runner/test:959:17)
+      at startSubtestAfterBootstrap (node:internal/test_runner/harness:332:17) {
+    generatedMessage: true,
+    code: 'ERR_ASSERTION',
+    actual: true,
+    expected: false,
+    operator: 'strictEqual'
+  }

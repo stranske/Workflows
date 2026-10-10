@@ -4867,8 +4867,13 @@ def _preflight_input_capacity(client: object, prompt: str) -> dict[str, object]:
         LOGGER.info("Verifier input capacity: %s", json.dumps(receipt, sort_keys=True))
         report = os.environ.get("VERIFIER_CAPACITY_REPORT_PATH")
         if report:
-            with Path(report).open("a", encoding="utf-8") as stream:
-                stream.write(json.dumps(receipt, sort_keys=True) + "\n")
+            try:
+                with Path(report).open("a", encoding="utf-8") as stream:
+                    stream.write(json.dumps(receipt, sort_keys=True) + "\n")
+            except OSError as exc:
+                LOGGER.warning(
+                    "Verifier capacity receipt write failed (%s): %s", type(exc).__name__, exc
+                )
 
 
 class _CapacityCheckedRepairClient:

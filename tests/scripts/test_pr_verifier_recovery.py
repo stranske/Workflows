@@ -303,3 +303,62 @@ def test_capacity_receipt_retains_overflow_without_prompt_clipping(tmp_path, mon
     assert record["input_tokens"] == 101
     assert record["output_reserve"] == 20
     assert record["prompt_chars"] == len("entire request")
+
+
+@pytest.mark.parametrize("outcome", ["PASS", "unavailable", "overflow"])
+@pytest.mark.parametrize("stage", ["open", "write", "close"])
+def test_capacity_receipt_io_failure_preserves_outcome(outcome, stage, monkeypatch, caplog):
+    monkeypatch.setenv("VERIFIER_CAPACITY_REPORT_PATH", "capacity.jsonl")
+    client, _ = capacity_client(input_tokens=101 if outcome == "overflow" else 100)
+    if outcome == "unavailable":
+        client.profile = None
+    error = PermissionError("Permission denied")
+    stream = mock.MagicMock()
+    if stage == "write":
+        stream.__enter__.return_value.write.side_effect = error
+    elif stage == "close":
+        stream.__exit__.side_effect = error
+    with mock.patch.object(
+        Path, "open", side_effect=error if stage == "open" else None, return_value=stream
+    ):
+        if outcome == "PASS":
+            assert (
+                pr_verifier._preflight_input_capacity(client, "entire request")["status"] == "PASS"
+            )
+        else:
+            reason = (
+                "model-specific capacity profile unavailable"
+                if outcome == "unavailable"
+                else "overflow"
+            )
+            with pytest.raises(pr_verifier.InputCapacityError, match=reason):
+                pr_verifier._preflight_input_capacity(client, "entire request")
+    assert "capacity receipt" in caplog.text.lower()
+    assert "PermissionError" in caplog.text
+    client.invoke.assert_not_called()
+
+
+@pytest.mark.parametrize("outcome", ["PASS", "unavailable", "overflow"])
+def test_capacity_receipt_permission_error_never_switches_provider(outcome, monkeypatch):
+    monkeypatch.setenv("VERIFIER_CAPACITY_REPORT_PATH", "capacity.jsonl")
+    client, _ = capacity_client(input_tokens=101 if outcome == "overflow" else 100)
+    if outcome == "unavailable":
+        client.profile = None
+    resolver = mock.Mock(return_value=(client, "configured-provider"))
+    monkeypatch.setattr(pr_verifier, "_get_llm_client", resolver)
+    original_open = Path.open
+
+    def open_report(path, *args, **kwargs):
+        if path == Path("capacity.jsonl"):
+            raise PermissionError("Permission denied")
+        return original_open(path, *args, **kwargs)
+
+    with mock.patch.object(Path, "open", autospec=True, side_effect=open_report):
+        result = pr_verifier.evaluate_pr("full context")
+    assert resolver.call_count == 1
+    if outcome == "PASS":
+        client.invoke.assert_called_once()
+    else:
+        assert result.verdict == "CONCERNS"
+        assert "capacity" in result.error.lower()
+        client.invoke.assert_not_called()

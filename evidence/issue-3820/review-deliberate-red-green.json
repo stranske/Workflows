@@ -1,0 +1,119 @@
+[
+  {
+    "mutation": "decoded-string-byte-accounting",
+    "source": ".github/scripts/agents_verifier_context.js",
+    "before": "        const rawValue = execFile('unzip', ['-p', archivePath, entry], {\n          maxBuffer: Math.min(contentBudget * 4 + 1, remainingBytes),\n        });\n        remainingBytes -= rawValue.length;\n        const value = rawValue.toString('utf8');",
+    "after": "        const value = execFile('unzip', ['-p', archivePath, entry], {\n          encoding: 'utf8',\n          maxBuffer: Math.min(contentBudget * 4 + 1, remainingBytes),\n        });\n        remainingBytes -= Buffer.byteLength(value, \"utf8\");",
+    "command": [
+      "node",
+      "--test",
+      "--test-name-pattern=counts raw bytes before",
+      ".github/scripts/__tests__/agents-verifier-context.test.js"
+    ],
+    "source_sha256": {
+      ".github/scripts/agents_verifier_context.js": "429e29cc3b96e7cb8e99b018873892633b08707c7ef462e7d314d16ae0d30f60",
+      "templates/consumer-repo/.github/scripts/agents_verifier_context.js": "429e29cc3b96e7cb8e99b018873892633b08707c7ef462e7d314d16ae0d30f60"
+    },
+    "restoration_byte_identical": true,
+    "red": {
+      "exit": 1,
+      "output_sha256": "0199b94bdac0b1d4413bb56846a70903da43e4eeb4626c16eda711fb183736c9",
+      "tail": [
+        "\u2139 todo 0",
+        "\u2139 duration_ms 110.432375",
+        "",
+        "\u2716 failing tests:",
+        "",
+        "test at .github/scripts/__tests__/agents-verifier-context.test.js:1637:1",
+        "\u2716 artifact extractor counts raw bytes before UTF8 decode across entries (24.278875ms)",
+        "  AssertionError [ERR_ASSERTION]: Expected values to be strictly equal:",
+        "  ",
+        "  true !== false",
+        "  ",
+        "      at TestContext.<anonymous> (/Users/teacher/.codex/orchestrator/worktrees/stranske__Workflows__3820__opener/.github/scripts/__tests__/agents-verifier-context.test.js:1649:12)",
+        "      at Test.runInAsyncScope (node:async_hooks:214:14)",
+        "      at Test.run (node:internal/test_runner/test:1062:25)",
+        "      at Test.start (node:internal/test_runner/test:959:17)",
+        "      at startSubtestAfterBootstrap (node:internal/test_runner/harness:332:17) {",
+        "    generatedMessage: true,",
+        "    code: 'ERR_ASSERTION',",
+        "    actual: true,",
+        "    expected: false,",
+        "    operator: 'strictEqual'",
+        "  }"
+      ]
+    },
+    "green": {
+      "exit": 0,
+      "output_sha256": "eeb3b9adbbcb638ad45c03c3f3a76273af597769c60c5103b0cbf4db333ee097",
+      "tail": [
+        "\u2714 artifact extractor counts raw bytes before UTF8 decode across entries (20.196083ms)",
+        "\u2139 tests 1",
+        "\u2139 suites 0",
+        "\u2139 pass 1",
+        "\u2139 fail 0",
+        "\u2139 cancelled 0",
+        "\u2139 skipped 0",
+        "\u2139 todo 0",
+        "\u2139 duration_ms 83.421541"
+      ]
+    }
+  },
+  {
+    "mutation": "receipt-io-masks-capacity-and-enters-auth-fallback",
+    "source": "scripts/langchain/pr_verifier.py",
+    "before": "            try:\n                with Path(report).open(\"a\", encoding=\"utf-8\") as stream:\n                    stream.write(json.dumps(receipt, sort_keys=True) + \"\\n\")\n            except OSError as exc:\n                LOGGER.warning(\n                    \"Verifier capacity receipt write failed (%s): %s\", type(exc).__name__, exc\n                )",
+    "after": "            with Path(report).open(\"a\", encoding=\"utf-8\") as stream:\n                stream.write(json.dumps(receipt, sort_keys=True) + \"\\n\")",
+    "command": [
+      "python3",
+      "-m",
+      "pytest",
+      "-q",
+      "--no-cov",
+      "tests/scripts/test_pr_verifier_recovery.py",
+      "-k",
+      "receipt_io_failure or receipt_permission_error"
+    ],
+    "source_sha256": {
+      "scripts/langchain/pr_verifier.py": "cd868298de417cd944d8e887827dbac55f7a4bd1ada987ce2f9498471af05c12",
+      "templates/consumer-repo/scripts/langchain/pr_verifier.py": "cd868298de417cd944d8e887827dbac55f7a4bd1ada987ce2f9498471af05c12"
+    },
+    "restoration_byte_identical": true,
+    "red": {
+      "exit": 1,
+      "output_sha256": "80004f4cdd9e5ec45cdb0143c6decad59d1af6819caeb10bdf4ded4101aba9c4",
+      "tail": [
+        "    ",
+        "        with mock.patch.object(Path, \"open\", autospec=True, side_effect=open_report):",
+        "            result = pr_verifier.evaluate_pr(\"full context\")",
+        ">       assert resolver.call_count == 1",
+        "E       AssertionError: assert 2 == 1",
+        "E        +  where 2 = <Mock id='4438293872'>.call_count",
+        "",
+        "tests/scripts/test_pr_verifier_recovery.py:358: AssertionError",
+        "=========================== short test summary info ============================",
+        "FAILED tests/scripts/test_pr_verifier_recovery.py::test_capacity_receipt_io_failure_preserves_outcome[open-PASS]",
+        "FAILED tests/scripts/test_pr_verifier_recovery.py::test_capacity_receipt_io_failure_preserves_outcome[open-unavailable]",
+        "FAILED tests/scripts/test_pr_verifier_recovery.py::test_capacity_receipt_io_failure_preserves_outcome[open-overflow]",
+        "FAILED tests/scripts/test_pr_verifier_recovery.py::test_capacity_receipt_io_failure_preserves_outcome[write-PASS]",
+        "FAILED tests/scripts/test_pr_verifier_recovery.py::test_capacity_receipt_io_failure_preserves_outcome[write-unavailable]",
+        "FAILED tests/scripts/test_pr_verifier_recovery.py::test_capacity_receipt_io_failure_preserves_outcome[write-overflow]",
+        "FAILED tests/scripts/test_pr_verifier_recovery.py::test_capacity_receipt_io_failure_preserves_outcome[close-PASS]",
+        "FAILED tests/scripts/test_pr_verifier_recovery.py::test_capacity_receipt_io_failure_preserves_outcome[close-unavailable]",
+        "FAILED tests/scripts/test_pr_verifier_recovery.py::test_capacity_receipt_io_failure_preserves_outcome[close-overflow]",
+        "FAILED tests/scripts/test_pr_verifier_recovery.py::test_capacity_receipt_permission_error_never_switches_provider[PASS]",
+        "FAILED tests/scripts/test_pr_verifier_recovery.py::test_capacity_receipt_permission_error_never_switches_provider[unavailable]",
+        "FAILED tests/scripts/test_pr_verifier_recovery.py::test_capacity_receipt_permission_error_never_switches_provider[overflow]",
+        "12 failed, 42 deselected in 1.82s"
+      ]
+    },
+    "green": {
+      "exit": 0,
+      "output_sha256": "0e16ca808e92112d28a2f2f887846ad32559afc369ecc8b0d97108f983c32ae7",
+      "tail": [
+        "............                                                             [100%]",
+        "12 passed, 42 deselected in 0.62s"
+      ]
+    }
+  }
+]

@@ -465,11 +465,11 @@ function extractArtifactArchiveText({ archiveBuffer, maxEntries, maxChars, maxBy
         break;
       }
       try {
-        const value = execFile('unzip', ['-p', archivePath, entry], {
-          encoding: 'utf8',
+        const rawValue = execFile('unzip', ['-p', archivePath, entry], {
           maxBuffer: Math.min(contentBudget * 4 + 1, remainingBytes),
         });
-        remainingBytes -= Buffer.byteLength(value, "utf8");
+        remainingBytes -= rawValue.length;
+        const value = rawValue.toString('utf8');
         const fragment = `${prefix}${value.trim()}`;
         if (fragment.length + separator.length > remaining) {
           failures.push("character");
