@@ -1,0 +1,45 @@
+{
+  "baseline": {
+    "tests": 300,
+    "coverage": {
+      "covered_lines": 568,
+      "num_statements": 591,
+      "percent_covered": 94.84173505275498,
+      "percent_covered_display": "94.84",
+      "missing_lines": 23,
+      "excluded_lines": 0,
+      "percent_statements_covered": 96.1082910321489,
+      "percent_statements_covered_display": "96.11",
+      "num_branches": 262,
+      "num_partial_branches": 21,
+      "covered_branches": 241,
+      "missing_branches": 21,
+      "percent_branches_covered": 91.98473282442748,
+      "percent_branches_covered_display": "91.98"
+    },
+    "console_sha256": "0a0a72a0eff8553cc5216d26f4f16b83729e0c791c272643f50870b3dc152840"
+  },
+  "candidate": {
+    "tests": 308,
+    "coverage": {
+      "covered_lines": 570,
+      "num_statements": 591,
+      "percent_covered": 95.31066822977726,
+      "percent_covered_display": "95.31",
+      "missing_lines": 21,
+      "excluded_lines": 0,
+      "percent_statements_covered": 96.44670050761421,
+      "percent_statements_covered_display": "96.45",
+      "num_branches": 262,
+      "num_partial_branches": 19,
+      "covered_branches": 243,
+      "missing_branches": 19,
+      "percent_branches_covered": 92.74809160305344,
+      "percent_branches_covered_display": "92.75"
+    },
+    "console_sha256": "840bdc49f7fa38211607293dfc924971b5e9550f5f59e7ed06fa519831c94073"
+  },
+  "preserved_baseline_nodes": 300,
+  "new_candidate_nodes": 8,
+  "covered_line_or_branch_regressions": []
+}
