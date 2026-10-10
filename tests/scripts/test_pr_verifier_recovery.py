@@ -14,6 +14,105 @@ import yaml
 from scripts.langchain import pr_verifier
 
 
+@pytest.fixture(autouse=True)
+def expanded_recovery(monkeypatch):
+    monkeypatch.setenv("VERIFIER_EVIDENCE_PROFILE", "expanded")
+
+
+@pytest.fixture(params=["openai", "anthropic"])
+def configured_native_client(request):
+    """Construct the actual selected adapters without credentials or network calls."""
+    from tools import langchain_client
+
+    provider = request.param
+    registry = json.loads(Path("config/model_registry.json").read_text())
+    selection = next(
+        item
+        for item in registry["selections"]
+        if item["profile"] == "verifier-balanced" and item["provider"] == provider
+    )
+    if provider == "openai":
+        cls = pytest.importorskip("langchain_openai").ChatOpenAI
+        builder = langchain_client._build_openai_client
+    else:
+        cls = pytest.importorskip("langchain_anthropic").ChatAnthropic
+        builder = langchain_client._build_anthropic_client
+    client = builder(
+        cls, model=selection["model_id"], token="offline-placeholder", timeout=1, max_retries=0
+    )
+    payload = client._get_request_payload("full request")
+    assert payload["model"] == selection["model_id"]
+    assert "messages" in payload
+    if provider == "openai":
+        assert "input" not in payload  # Incumbent Terra uses Chat Completions.
+    return client, provider, selection["model_id"]
+
+
+@pytest.mark.parametrize("profile", [None, "standard", "expanded"])
+@pytest.mark.parametrize("operation", ["evaluate", "compare", "repair"])
+def test_configured_native_client_compatibility(
+    configured_native_client, profile, operation, monkeypatch, tmp_path
+):
+    client, provider, model = configured_native_client
+    # Current installed adapters have no authoritative exact-model capacity facts.
+    assert client.profile is None
+    if profile is None:
+        monkeypatch.delenv("VERIFIER_EVIDENCE_PROFILE", raising=False)
+    else:
+        monkeypatch.setenv("VERIFIER_EVIDENCE_PROFILE", profile)
+    report = tmp_path / "capacity.jsonl"
+    monkeypatch.setenv("VERIFIER_CAPACITY_REPORT_PATH", str(report))
+    monkeypatch.setattr(pr_verifier, "_get_llm_client", lambda **kwargs: (client, provider))
+    with mock.patch.object(
+        type(client), "invoke", return_value=SimpleNamespace(content='{"verdict":"PASS"}')
+    ) as invoke:
+        if operation == "repair":
+            result = pr_verifier._parse_llm_response("invalid JSON", provider, client=client)
+        elif operation == "compare":
+            result = pr_verifier.ComparisonRunner("context", None, "full request", []).run_single(
+                client, provider, model
+            )
+        else:
+            result = pr_verifier.evaluate_pr("context", provider=provider)
+    if profile == "expanded":
+        assert result.verdict == "CONCERNS"
+        invoke.assert_not_called()
+        record = json.loads(report.read_text())
+        assert record["status"] == "unavailable"
+        assert "model-specific capacity profile unavailable" in record["reason"]
+    else:
+        invoke.assert_called_once()
+        assert result.used_llm
+        assert not report.exists()  # Standard does not claim native capacity proof.
+        if operation == "repair":
+            assert result.verdict == "PASS"
+
+
+@pytest.mark.parametrize("profile", ["standard", "expanded"])
+@pytest.mark.parametrize("gap", ["code", "evidence"])
+def test_evidence_floor_is_unconditional(profile, gap, monkeypatch):
+    from tests.scripts.test_pr_verifier_prompt_coverage import _context
+
+    context, _ = _context(1, 1000, 500, drop_diff=gap == "code")
+    if gap == "evidence":
+        inventory = {"acceptance_source_discovery": {"required": True, "status": "unavailable"}}
+        context = context.replace(
+            "## CI Information",
+            "## Context source coverage\n\n```json\n"
+            + json.dumps(inventory)
+            + "\n```\n\n## CI Information",
+            1,
+        )
+    monkeypatch.setenv("VERIFIER_EVIDENCE_PROFILE", profile)
+    client, _ = capacity_client(window=1_000_000)
+    monkeypatch.setattr(pr_verifier, "_get_llm_client", lambda **kwargs: (client, "configured"))
+    result = pr_verifier.evaluate_pr(context)
+    client.invoke.assert_called_once()
+    assert result.verdict == "CONCERNS"
+    assert "retained" in result.concerns
+    assert not result.input_coverage["sufficient"]
+
+
 def test_authenticated_capture_replay(monkeypatch):
     capture = os.environ.get("VERIFIER_RECOVERY_CAPTURE_DIR")
     if not capture:
@@ -113,9 +212,11 @@ def test_actual_capacity_boundary_counts_entire_rendered_request():
         "counter-error",
         "unsupported-counter",
         "auto-truncation",
+        "overflow",
     ],
 )
-def test_actual_capacity_unknowns_never_invoke(defect):
+@pytest.mark.parametrize("operation", ["invoke", "repair"])
+def test_actual_capacity_unknowns_never_invoke(defect, operation):
     client, counter = capacity_client()
     if defect == "unknown-window":
         client.profile = None
@@ -128,14 +229,21 @@ def test_actual_capacity_unknowns_never_invoke(defect):
         counter.side_effect = RuntimeError("capacity count unavailable")
     if defect == "unsupported-counter":
         client.root_client = None
+    if defect == "overflow":
+        counter.return_value.input_tokens = 101
     if defect == "auto-truncation":
         client._get_request_payload = lambda prompt: {
             "model": "configured-model",
             "input": prompt,
             "truncation": "auto",
         }
-    with pytest.raises(Exception, match="capacity"):
-        pr_verifier._invoke_llm(client, "entire input", operation="test")
+    if operation == "repair":
+        result = pr_verifier._parse_llm_response("invalid JSON", "configured", client=client)
+        assert result.verdict == "CONCERNS"
+        assert result.error
+    else:
+        with pytest.raises(pr_verifier.InputCapacityError, match="capacity"):
+            pr_verifier._invoke_llm(client, "entire input", operation="test")
     client.invoke.assert_not_called()
 
 

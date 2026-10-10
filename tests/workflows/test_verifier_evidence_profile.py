@@ -163,3 +163,62 @@ def test_expanded_checkbox_rejects_before_any_generation(tmp_path):
     )
     step = next(s for s in workflow["jobs"]["verifier"]["steps"] if s.get("id") == "codex")
     assert "inputs.evidence_profile != 'expanded'" in step["if"]
+
+
+@pytest.mark.parametrize("step_id", ["llm_evaluate", "llm_compare"])
+@pytest.mark.parametrize("profile", ["standard", "expanded"])
+def test_selected_profile_reaches_python_process(tmp_path, step_id, profile):
+    workflow = yaml.load(
+        Path(".github/workflows/reusable-agents-verifier.yml").read_text(), Loader=yaml.BaseLoader
+    )
+    job = workflow["jobs"]["verifier"]
+    select = next(
+        s for s in job["steps"] if s.get("name") == "Select bounded verifier evidence profile"
+    )
+    invoke = next(s for s in job["steps"] if s.get("id") == step_id)
+    env = dict(os.environ)
+    env.pop("VERIFIER_EVIDENCE_PROFILE", None)
+    env["GITHUB_ENV"] = str(tmp_path / "github-env")
+
+    def step_env(step):
+        resolved = {**env, **job.get("env", {}), **step.get("env", {})}
+        for key, value in resolved.items():
+            if "${{" in value:
+                resolved[key] = profile if value == "${{ inputs.evidence_profile }}" else ""
+        return resolved
+
+    selected = subprocess.run(
+        ["bash", "-c", select["run"]], env=step_env(select), capture_output=True, text=True
+    )
+    assert selected.returncode == 0, selected.stderr
+    if Path(env["GITHUB_ENV"]).exists():
+        env.update(line.split("=", 1) for line in Path(env["GITHUB_ENV"]).read_text().splitlines())
+    # Execute the authored invocation shell; intercept only its Python program.
+    binary = tmp_path / "python"
+    binary.write_text('#!/bin/sh\nprintf "%s" "${VERIFIER_EVIDENCE_PROFILE:-missing}"\n')
+    binary.chmod(0o755)
+    env["PATH"] = str(tmp_path) + os.pathsep + env["PATH"]
+    script = re.sub(r"\$\{\{.*?\}\}", "", invoke["run"].split("# Parse result", 1)[0])
+    run = subprocess.run(
+        ["bash", "-c", script], cwd=tmp_path, env=step_env(invoke), capture_output=True, text=True
+    )
+    assert run.returncode == 0, run.stderr
+    result = tmp_path / ("evaluation.json" if step_id == "llm_evaluate" else "comparison.json")
+    assert result.read_text() == profile
+
+
+@pytest.mark.parametrize("mode", ["evaluate", "compare"])
+def test_capacity_receipt_upload_survives_failed_generation(mode):
+    workflow = yaml.load(
+        Path(".github/workflows/reusable-agents-verifier.yml").read_text(), Loader=yaml.BaseLoader
+    )
+    uploads = [
+        step
+        for step in workflow["jobs"]["verifier"]["steps"]
+        if step.get("uses", "").startswith("actions/upload-artifact@")
+        and "verifier-capacity-checks.jsonl" in step["with"].get("path", "")
+    ]
+    matching = [step for step in uploads if f"inputs.mode == '{mode}'" in step.get("if", "")]
+    assert matching, f"capacity receipt has no upload for {mode}"
+    assert all("always()" in step["if"] for step in matching)
+    assert all("outcome" not in step["if"] and "has_results" not in step["if"] for step in matching)

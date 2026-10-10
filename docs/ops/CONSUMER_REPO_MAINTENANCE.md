@@ -53,8 +53,8 @@ entry, unsupported-payload and provenance counters and failure reasons.
 Expanded prompt allocation is 16,384 context, 65,536 diff and 65,536 evidence
 estimated tokens (four characters per allocation unit). The existing 8 MiB diff
 fetch and 300,000-character context-diff ceiling remain. These allocation units
-are **not model token counts**. Before each evaluation, comparison arm and schema
-repair generation, the verifier counts the entire native request through the
+are **not model token counts**. Only for explicit expanded recovery, before each
+evaluation, comparison arm and schema repair generation, the verifier counts the entire native request through the
 resolved client's SDK token-count endpoint and reserves its complete configured
 output ceiling (including thinking). It requires the exact-model client profile's
 positive `max_input_tokens` and output ceiling, and blocks when input plus output
@@ -62,8 +62,11 @@ exceeds the input bound. This is conservative even for an input-only bound.
 No approximate tokenizer, automatic truncation, stateful unseen context or model
 replacement is allowed on capacity failure. Native counter or profile absence is
 NON_PASS, including authentication failure while counting; it never authorizes
-an alternate judge. Capacity receipts are retained as `verifier-capacity-checks.jsonl`.
+an alternate judge. Capacity receipts are retained as `verifier-capacity-checks.jsonl`
+for both evaluate and compare, including failed generation attempts.
 A profile's absent output ceiling cannot make an unknown reserve zero.
+The selected `VERIFIER_EVIDENCE_PROFILE` is a job-level environment value inherited
+by the actual Python processes, not just the allocation and snapshot steps.
 
 Expanded recovery supports `evaluate` and `compare`. The ancillary checkbox CLI
 has no native input-count contract here, so expanded compare skips it and expanded
@@ -73,8 +76,13 @@ CI/coverage floors remain authoritative. No human-only gate is introduced.
 The selected Terra/Sonnet models currently have no capacity facts in the installed
 client profiles. This source repair deliberately does not invent those facts or
 claim live provider capacity. A model-specific supported profile and native counter
-must be available before generation. Standard remains the default profile; Python
-generation also applies the capacity guard there. Inspect actual new retrieval,
+must be available before expanded generation. Standard remains the default profile
+and preserves its existing invocation and schema-repair behavior without claiming
+native capacity proof. In particular, the configured Terra adapter uses OpenAI Chat
+Completions, which does not expose the native counter required here. No guessed
+limits, model substitution or adapter changes are introduced. Retrieval completeness,
+required evidence and changed-code coverage floors apply unconditionally in both
+profiles. Inspect actual new retrieval,
 capacity receipts and both provider verdicts; workflow success alone is not acceptance.
 The input snapshot records every bound, and the consumer fingerprint includes the
 profile plus `bounded-native-capacity-v2`, so a previously fingerprinted expanded

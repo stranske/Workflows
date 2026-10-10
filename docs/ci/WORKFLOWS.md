@@ -168,7 +168,11 @@ when an earlier commit, patch, or push step failed.
 Manual Agents Verifier dispatch supports `evidence_profile=expanded` for a
 documented input-limit recovery. It uses fixed larger code/comment/evidence
 limits, keeps standard defaults and all non-PASS floors, and participates in
-the consumer caller's unchanged-state fingerprint. See the bounded input-limit
+the consumer caller's unchanged-state fingerprint. Native input-capacity preflight
+is required only for explicit expanded evaluate/compare recovery, including schema
+repair. Standard retains existing client behavior without capacity claims; evidence
+and coverage floors remain unconditional. Both Python modes retain expanded capacity
+receipts, even after generation failures. See the bounded input-limit
 recovery contract in `docs/ops/CONSUMER_REPO_MAINTENANCE.md`.
 
 The agent workflows coordinate Codex and chat orchestration across topics:

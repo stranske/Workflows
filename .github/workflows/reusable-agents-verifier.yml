@@ -94,10 +94,10 @@ jobs:
     runs-on: ubuntu-latest
     env:
       VERIFIER_CAPACITY_REPORT_PATH: verifier-capacity-checks.jsonl
+      VERIFIER_EVIDENCE_PROFILE: ${{ inputs.evidence_profile }}
     steps:
       - name: Select bounded verifier evidence profile
         env:
-          VERIFIER_EVIDENCE_PROFILE: ${{ inputs.evidence_profile }}
           VERIFIER_MODE: ${{ inputs.mode }}
         run: |
           set -euo pipefail
@@ -1404,6 +1404,20 @@ jobs:
             verifier-pr-diff.patch
             verifier-input-manifest.json
             verifier-capacity-checks.jsonl
+          if-no-files-found: ignore
+          retention-days: 7
+
+      - name: Upload evaluation capacity receipts
+        if: >-
+          ${{
+            always() &&
+            steps.context.outputs.should_run == 'true' &&
+            inputs.mode == 'evaluate'
+          }}
+        uses: actions/upload-artifact@v7
+        with:
+          name: evaluation-capacity-${{ github.run_id }}
+          path: verifier-capacity-checks.jsonl
           if-no-files-found: ignore
           retention-days: 7
 

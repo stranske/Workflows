@@ -4878,7 +4878,8 @@ class _CapacityCheckedRepairClient:
         self.client = client
 
     def invoke(self, prompt: str, **kwargs: Any) -> Any:
-        _preflight_input_capacity(self.client, prompt)
+        if os.environ.get("VERIFIER_EVIDENCE_PROFILE") == "expanded":
+            _preflight_input_capacity(self.client, prompt)
         return self.client.invoke(prompt, **kwargs)
 
 
@@ -4896,7 +4897,10 @@ def _invoke_llm(
     Returns:
         Tuple of (response, trace_id, trace_url)
     """
-    _preflight_input_capacity(client, prompt)
+    # Native counting is an explicit expanded-recovery contract. Standard keeps
+    # its existing adapter behavior without claiming native capacity proof.
+    if os.environ.get("VERIFIER_EVIDENCE_PROFILE") == "expanded":
+        _preflight_input_capacity(client, prompt)
     config = _build_llm_config(
         operation=operation,
         context=context,

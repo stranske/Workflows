@@ -57,14 +57,14 @@ MUTATIONS = [
     (
         "remove-native-capacity-guard",
         PYTHON,
-        "    _preflight_input_capacity(client, prompt)\n    config =",
+        '    if os.environ.get("VERIFIER_EVIDENCE_PROFILE") == "expanded":\n        _preflight_input_capacity(client, prompt)\n    config =',
         "    config =",
         PYTEST + [RECOVERY + "::test_actual_capacity_boundary_counts_entire_rendered_request"],
     ),
     (
         "remove-schema-repair-capacity-guard",
         PYTHON,
-        "        _preflight_input_capacity(self.client, prompt)\n",
+        '        if os.environ.get("VERIFIER_EVIDENCE_PROFILE") == "expanded":\n            _preflight_input_capacity(self.client, prompt)\n',
         "",
         PYTEST + [RECOVERY + "::test_native_message_capacity_and_schema_repair_are_checked"],
     ),
@@ -92,11 +92,11 @@ def execute(command):
     }
 
 
-def main():
-    if not os.environ.get("VERIFIER_RECOVERY_CAPTURE_DIR"):
+def main(mutations=MUTATIONS, output_name="deliberate-red-green.json", require_capture=True):
+    if require_capture and not os.environ.get("VERIFIER_RECOVERY_CAPTURE_DIR"):
         raise SystemExit("Set VERIFIER_RECOVERY_CAPTURE_DIR to the immutable authenticated capture")
     results = []
-    for name, source, before, after, command in MUTATIONS:
+    for name, source, before, after, command in mutations:
         paths = [ROOT / source]
         template = ROOT / "templates/consumer-repo" / source
         if template.is_file():
@@ -125,7 +125,7 @@ def main():
             "green": green,
         }
         results.append(record)
-        (EVIDENCE / "deliberate-red-green.json").write_text(json.dumps(results, indent=2) + "\n")
+        (EVIDENCE / output_name).write_text(json.dumps(results, indent=2) + "\n")
         print(
             f'{name}: RED={red["exit"]} GREEN={green["exit"]} byte-identical restoration',
             flush=True,

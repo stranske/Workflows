@@ -59,10 +59,53 @@ previously fingerprinted expanded inputs cannot suppress this changed contract.
 
 Limits: omitted production comments/artifacts and original archive inventories remain
 unknown. The currently selected models have no capacity facts in the installed native
-client profiles. Native counting and exact-model capacity are required before generation;
+client profiles. Native counting and exact-model capacity are required before expanded generation;
 unknown/overflow blocks with NON_PASS, including schema repair and counting auth failure.
 No provider invocation or live acceptance is claimed by these offline tests. Expanded
 compare skips its uncounted ancillary CLI; expanded checkbox is rejected. Standard Python
-evaluations also enforce capacity. These safety constraints may reduce verifier liveness
-until model profiles/native counting are supported; the repair does not invent capacities.
+evaluations and schema repairs preserve their existing behavior without native capacity
+claims. Evidence completeness and coverage floors remain unconditional. Expanded stays
+NON_PASS until authoritative profiles/native counting are supported; this repair does not
+invent capacities or change adapters.
 Post-merge compare, final review/merge, sync regeneration and promotion remain parent-owned.
+
+## Scoped correction after parent diagnosis
+
+Commits `4638b08` and `a903fe7` are preserved. Parent issue comments
+[6098866934](https://github.com/stranske/Workflows/issues/3820#issuecomment-6098866934) and
+[6098920380](https://github.com/stranske/Workflows/issues/3820#issuecomment-6098920380),
+the completed assessment `9e922f81d0ba8fc78bd42d710d0c18ade12f0f0b472af2a5988763c3b1489e8d-1`,
+and Codex [finding 4238073688](https://github.com/stranske/Workflows/pull/3821#discussion_r4238073688)
+define the correction. The assessment is diagnosis, not whole-PR acceptance.
+
+`correction-original-red.txt` records 17 failures against unchanged `a903fe7` source:
+real configured OpenAI/Anthropic client construction blocked standard invoke/repair,
+both Python steps lost the selected profile, and evaluate omitted the receipt upload.
+The new compatibility tests construct the actual selected adapters with placeholder
+credentials and intercept generation. They reproduce Chat Completions payloads and
+missing authoritative profiles; no provider calls or live capacity are claimed.
+Missing-profile and explicit standard invocation/repair now work, while expanded
+unknown/count/overflow failures remain CONCERNS without generation or substitution.
+
+`correction_red_green.py` deliberately mutates the corrected production guards,
+job environment, upload path and standard evidence floor. Each RED occurs while the
+source is broken; source/template bytes are restored before GREEN. Commands, hashes,
+exit codes and output tails are retained in `correction-deliberate-red-green.json`.
+The original mutation runner is updated for the conditional guards; its original
+receipt JSON remains a historical record until deliberately rerun.
+
+```sh
+python3 evidence/issue-3820/correction_red_green.py
+python3 -m pytest tests/scripts/test_pr_verifier_recovery.py tests/workflows/test_verifier_evidence_profile.py -q --no-cov
+```
+
+`correction-focused-green.txt`, `correction-python-green.txt` and
+`correction-validation.txt` retain final focused results. Final validation: 4,002
+Python tests passed with the authenticated capture replay enabled; 133 context tests
+passed; all seven correction mutations produced RED exit 1 and restored GREEN exit 0.
+Template sync/completeness/drift, actionlint, Black, Ruff and diff checks passed.
+The source Python file and
+copy-managed template remain identical; existing manifest entries cover both changed
+surfaces, with no managed addition, rename or scope change. The existing v2 fingerprint
+contract is retained within this unmerged PR. Parent owns hosted checks, review
+disposition, merge and campaign continuation.
