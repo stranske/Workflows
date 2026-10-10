@@ -1,0 +1,42 @@
+[
+  {
+    "name": "regression",
+    "command": "uv run --offline --isolated --no-project --python /opt/anaconda3/bin/python3 --with-requirements requirements.lock python -m pytest tests/workflows/test_verifier_caller_security.py tests/workflows/test_verifier_expanded_comparison.py tests/workflows/test_verifier_evidence_profile.py tests/workflows/test_verifier_terminal_disposition.py tests/workflows/test_verifier_verdict_parsing.py tests/scripts/test_native_capacity_recovery.py tests/scripts/test_native_capacity_registry.py tests/scripts/test_pr_verifier_recovery.py tests/scripts/test_pr_verifier_compare.py tests/scripts/test_pr_verifier_structured_output.py tests/scripts/test_pr_verifier_sync_manifest.py tests/scripts/test_template_drift_allowlist.py tests/scripts/test_validate_template_sync.py tests/scripts/test_sync_manifest_compiler.py tests/workflows/test_sync_manifest_delivery.py tests/workflows/test_no_untrusted_interpolation.py tests/test_workflow_guide_verifier_sections.py -q -o addopts= --junitxml=evidence/issue-3820/verifier-caller-security-regression-final.xml > evidence/issue-3820/verifier-caller-security-regression-final.txt 2>&1",
+    "exit_code": 0
+  },
+  {
+    "name": "zizmor",
+    "command": "uv run --offline --no-project --with zizmor zizmor --offline --config .github/zizmor.yml --format json --no-progress .github/workflows/agents-verifier.yml templates/consumer-repo/.github/workflows/agents-verifier.yml .github/workflows/reusable-agents-verifier.yml > evidence/issue-3820/verifier-caller-security-zizmor-final.json 2> evidence/issue-3820/verifier-caller-security-zizmor-final.txt",
+    "exit_code": 12
+  },
+  {
+    "name": "semgrep",
+    "command": "SEMGREP_SETTINGS_FILE=/private/tmp/verifier-security-semgrep/settings.yml SEMGREP_LOG_FILE=/private/tmp/verifier-security-semgrep/semgrep.log /Users/teacher/.cache/uv/archive-v0/226k66loq5GP6yWx6iTp5/bin/semgrep scan --metrics=off --disable-version-check --config p/default --config p/python --config p/github-actions --config p/secrets --error --json --output evidence/issue-3820/verifier-caller-security-semgrep-final.json .github/workflows/agents-verifier.yml templates/consumer-repo/.github/workflows/agents-verifier.yml .github/workflows/reusable-agents-verifier.yml > evidence/issue-3820/verifier-caller-security-semgrep-final.txt 2>&1",
+    "exit_code": 1
+  },
+  {
+    "name": "ruff",
+    "command": "uv run --offline --isolated --no-project --python /opt/anaconda3/bin/python3 --with-requirements requirements.lock python -m ruff check tests/workflows/test_verifier_caller_security.py evidence/issue-3820/verifier-caller-security-red-green.py > evidence/issue-3820/verifier-caller-security-ruff-final.txt 2>&1",
+    "exit_code": 0
+  },
+  {
+    "name": "black",
+    "command": "uv run --offline --isolated --no-project --python /opt/anaconda3/bin/python3 --with-requirements requirements.lock python -m black --check --target-version py312 tests/workflows/test_verifier_caller_security.py evidence/issue-3820/verifier-caller-security-red-green.py > evidence/issue-3820/verifier-caller-security-black-final.txt 2>&1",
+    "exit_code": 0
+  },
+  {
+    "name": "actionlint",
+    "command": "actionlint .github/workflows/agents-verifier.yml templates/consumer-repo/.github/workflows/agents-verifier.yml .github/workflows/reusable-agents-verifier.yml > evidence/issue-3820/verifier-caller-security-actionlint-final.txt 2>&1",
+    "exit_code": 0
+  },
+  {
+    "name": "sync",
+    "command": "uv run --offline --isolated --no-project --python /opt/anaconda3/bin/python3 --with-requirements requirements.lock python scripts/validate_template_sync.py > evidence/issue-3820/verifier-caller-security-template-sync-final.txt 2>&1",
+    "exit_code": 0
+  },
+  {
+    "name": "drift",
+    "command": "uv run --offline --isolated --no-project --python /opt/anaconda3/bin/python3 --with-requirements requirements.lock python scripts/check_template_drift.py > evidence/issue-3820/verifier-caller-security-drift-final.txt 2>&1",
+    "exit_code": 0
+  }
+]

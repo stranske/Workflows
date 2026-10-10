@@ -1,0 +1,125 @@
+<?xml version="1.0" encoding="utf-8"?><testsuites name="pytest tests"><testsuite name="pytest" errors="0" failures="2" skipped="0" tests="2" time="1.232" timestamp="2026-10-10T12:22:08.136005-05:00" hostname="server.trs.private"><testcase classname="tests.workflows.test_verifier_expanded_comparison" name="test_expanded_each_arm_blocks_pass[used-false-openai]" time="0.659"><failure message="AssertionError: {'verdict': 'PASS', 'has_results': 'true', 'unified': 'PASS'}&#10;assert 'PASS' == 'CONCERNS'&#10;  &#10;  - CONCERNS&#10;  + PASS">tmp_path = PosixPath('/Users/teacher/.codex/orchestrator/agent-runtime/codex/tmp/pytest-of-teacher/pytest-1897/test_expanded_each_arm_blocks_0')
+provider_index = 0, case = 'used-false'
+
+    @pytest.mark.parametrize("provider_index", [0, 1], ids=["openai", "anthropic"])
+    @pytest.mark.parametrize(
+        "case",
+        [
+            "missing",
+            "used-false",
+            "used-false-pass",
+            "CONCERNS",
+            "FAIL",
+            "UNKNOWN",
+            "error-verdict",
+            "native-count-error",
+            "unsupported-fallback",
+            "malformed",
+            "empty-arm",
+            "no-verdict",
+            "no-provider",
+            "no-model",
+            "used-string",
+            "used-int",
+            "malformed-scores",
+            "wrong-model",
+        ],
+    )
+    def test_expanded_each_arm_blocks_pass(tmp_path, provider_index, case):
+        arms = _arms()
+        arm = arms[provider_index]
+        if case == "missing":
+            arms.pop(provider_index)
+        elif case in {"used-false", "used-false-pass"}:
+            arm.update(used_llm=False, verdict="CONCERNS" if case == "used-false" else "PASS")
+        elif case in {"CONCERNS", "FAIL", "UNKNOWN", "error-verdict"}:
+            arm["verdict"] = "ERROR" if case == "error-verdict" else case
+        elif case == "native-count-error":
+            arm["error"] = "native capacity/count unavailable"
+        elif case == "unsupported-fallback":
+            arm["provider_used"] = "github-models"
+        elif case == "malformed":
+            arms[provider_index] = None
+        elif case == "empty-arm":
+            arms[provider_index] = {}
+        elif case.startswith("no-"):
+            arm.pop(
+                {"no-verdict": "verdict", "no-provider": "provider_used", "no-model": "model"}[case]
+            )
+        elif case.startswith("used-"):
+            arm["used_llm"] = "true" if case == "used-string" else 1
+        elif case == "malformed-scores":
+            arm["scores"] = "PASS"
+        elif case == "wrong-model":
+            arm["model"] = "unexpected-model"
+        outputs = run_workflow(tmp_path, {"results": arms})
+&gt;       assert outputs["verdict"] == "CONCERNS", outputs
+E       AssertionError: {'verdict': 'PASS', 'has_results': 'true', 'unified': 'PASS'}
+E       assert 'PASS' == 'CONCERNS'
+E         
+E         - CONCERNS
+E         + PASS
+
+tests/workflows/test_verifier_expanded_comparison.py:179: AssertionError</failure></testcase><testcase classname="tests.workflows.test_verifier_expanded_comparison" name="test_expanded_each_arm_blocks_pass[used-false-anthropic]" time="0.430"><failure message="AssertionError: {'verdict': 'PASS', 'has_results': 'true', 'unified': 'PASS'}&#10;assert 'PASS' == 'CONCERNS'&#10;  &#10;  - CONCERNS&#10;  + PASS">tmp_path = PosixPath('/Users/teacher/.codex/orchestrator/agent-runtime/codex/tmp/pytest-of-teacher/pytest-1897/test_expanded_each_arm_blocks_1')
+provider_index = 1, case = 'used-false'
+
+    @pytest.mark.parametrize("provider_index", [0, 1], ids=["openai", "anthropic"])
+    @pytest.mark.parametrize(
+        "case",
+        [
+            "missing",
+            "used-false",
+            "used-false-pass",
+            "CONCERNS",
+            "FAIL",
+            "UNKNOWN",
+            "error-verdict",
+            "native-count-error",
+            "unsupported-fallback",
+            "malformed",
+            "empty-arm",
+            "no-verdict",
+            "no-provider",
+            "no-model",
+            "used-string",
+            "used-int",
+            "malformed-scores",
+            "wrong-model",
+        ],
+    )
+    def test_expanded_each_arm_blocks_pass(tmp_path, provider_index, case):
+        arms = _arms()
+        arm = arms[provider_index]
+        if case == "missing":
+            arms.pop(provider_index)
+        elif case in {"used-false", "used-false-pass"}:
+            arm.update(used_llm=False, verdict="CONCERNS" if case == "used-false" else "PASS")
+        elif case in {"CONCERNS", "FAIL", "UNKNOWN", "error-verdict"}:
+            arm["verdict"] = "ERROR" if case == "error-verdict" else case
+        elif case == "native-count-error":
+            arm["error"] = "native capacity/count unavailable"
+        elif case == "unsupported-fallback":
+            arm["provider_used"] = "github-models"
+        elif case == "malformed":
+            arms[provider_index] = None
+        elif case == "empty-arm":
+            arms[provider_index] = {}
+        elif case.startswith("no-"):
+            arm.pop(
+                {"no-verdict": "verdict", "no-provider": "provider_used", "no-model": "model"}[case]
+            )
+        elif case.startswith("used-"):
+            arm["used_llm"] = "true" if case == "used-string" else 1
+        elif case == "malformed-scores":
+            arm["scores"] = "PASS"
+        elif case == "wrong-model":
+            arm["model"] = "unexpected-model"
+        outputs = run_workflow(tmp_path, {"results": arms})
+&gt;       assert outputs["verdict"] == "CONCERNS", outputs
+E       AssertionError: {'verdict': 'PASS', 'has_results': 'true', 'unified': 'PASS'}
+E       assert 'PASS' == 'CONCERNS'
+E         
+E         - CONCERNS
+E         + PASS
+
+tests/workflows/test_verifier_expanded_comparison.py:179: AssertionError</failure></testcase></testsuite></testsuites>

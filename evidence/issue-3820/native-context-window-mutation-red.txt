@@ -1,0 +1,988 @@
+FFFFFFFFFFFF                                                             [100%]
+=================================== FAILURES ===================================
+_ test_native_capacity_operations_matrix[openai-formerly-rejected-low-evaluate] _
+
+native = (ChatOpenAI(metadata={'lc_versions': {'langchain-core': '1.5.3', 'langchain': '1.3.14', 'langchain-openai': '1.4.1'}},... max_retries=0, stream_chunk_timeout=120.0), 'openai', 'gpt-5.6-terra', <Mock id='4355965200'>, <Mock id='4355964560'>)
+operation = 'evaluate', case = 'formerly-rejected-low'
+monkeypatch = <_pytest.monkeypatch.MonkeyPatch object at 0x103a2bb90>
+tmp_path = PosixPath('/Users/teacher/.codex/orchestrator/agent-runtime/codex/tmp/pytest-of-teacher/pytest-1891/test_native_capacity_operation0')
+
+    @pytest.mark.parametrize("operation", ["evaluate", "compare", "repair"])
+    @pytest.mark.parametrize(
+        "case",
+        [
+            "formerly-rejected-low",
+            "formerly-rejected-mid",
+            "boundary",
+            "input-overflow",
+            "context-overflow",
+            "smaller-output-boundary",
+            "smaller-output-overflow",
+            "output-overflow",
+            "metadata-smaller-input-boundary",
+            "metadata-smaller-input-overflow",
+            "metadata-larger-input-context-boundary",
+            "metadata-larger-input-context-overflow",
+        ],
+    )
+    def test_native_capacity_operations_matrix(native, operation, case, monkeypatch, tmp_path):
+        client, provider, model, counter, metadata = native
+        input_limit, context_limit, output = (
+            (922000, 1050000, 128000) if provider == "openai" else (1000000, 1000000, 128000)
+        )
+        if case.startswith("metadata-"):
+            if provider != "anthropic":
+                pytest.skip("Anthropic Models API contract")
+            input_limit = 800000 if "smaller" in case else 1100000
+            metadata.return_value.max_input_tokens = input_limit
+        if case.startswith("smaller-output"):
+            output = 64000
+            client.max_tokens = output
+        if case == "output-overflow":
+            output = 128001
+            client.max_tokens = output
+        tokens = min(input_limit, context_limit - output)
+        if case == "formerly-rejected-low":
+            tokens = 794001
+        elif case == "formerly-rejected-mid":
+            tokens = 858001
+        elif case == "input-overflow":
+            # Isolate the input-only constraint from combined context overflow.
+            client.max_tokens = output = 64000
+            if provider == "anthropic":
+                metadata.return_value.max_input_tokens = input_limit = 800000
+            tokens = input_limit + 1
+        elif case == "context-overflow":
+            # Terra's official input+maximum output equals its context; this crosses both.
+            tokens = context_limit - output + 1
+        elif case.endswith("overflow") and case != "output-overflow":
+            tokens += 1
+        counter.return_value.input_tokens = tokens
+        report = tmp_path / "capacity.jsonl"
+        monkeypatch.setenv("VERIFIER_CAPACITY_REPORT_PATH", str(report))
+        expected = "overflow" not in case
+        generated = []
+    
+        def generate(prepared, prompt, **kwargs):
+            payload = prepared._get_request_payload(prompt)
+            generated.append(payload)
+            key = "input" if provider == "openai" else "messages"
+            assert counter.call_args.kwargs[key] == payload[key]
+            assert counter.call_args.kwargs["model"] == payload["model"] == model
+            assert payload["max_output_tokens" if provider == "openai" else "max_tokens"] == output
+            return SimpleNamespace(content='{"verdict":"PASS"}')
+    
+        with mock.patch.object(type(client), "invoke", autospec=True, side_effect=generate):
+            result = _run_operation(client, provider, model, operation, monkeypatch)
+        if operation != "repair":
+>           assert result.used_llm is expected, result.error
+E           AssertionError: LLM invocation failed: Verifier input capacity blocked: input/context capacity overflow: input 794001 <= 922000 and input + output 794001 + 128000 <= 1050000 required
+E           assert False is True
+E            +  where False = EvaluationResult(verdict='CONCERNS', scores=None, confidence=None, concerns=['LLM evaluation could not run.'], summary...e_ratio': 0.0, 'context_truncated': False, 'reasons': ['Changed code is unavailable; completeness cannot be judged.']}).used_llm
+
+tests/scripts/test_native_capacity_recovery.py:494: AssertionError
+_ test_native_capacity_operations_matrix[openai-formerly-rejected-low-compare] _
+
+native = (ChatOpenAI(metadata={'lc_versions': {'langchain-core': '1.5.3', 'langchain': '1.3.14', 'langchain-openai': '1.4.1'}},... max_retries=0, stream_chunk_timeout=120.0), 'openai', 'gpt-5.6-terra', <Mock id='4513321504'>, <Mock id='4515539488'>)
+operation = 'compare', case = 'formerly-rejected-low'
+monkeypatch = <_pytest.monkeypatch.MonkeyPatch object at 0x103a2bbc0>
+tmp_path = PosixPath('/Users/teacher/.codex/orchestrator/agent-runtime/codex/tmp/pytest-of-teacher/pytest-1891/test_native_capacity_operation1')
+
+    @pytest.mark.parametrize("operation", ["evaluate", "compare", "repair"])
+    @pytest.mark.parametrize(
+        "case",
+        [
+            "formerly-rejected-low",
+            "formerly-rejected-mid",
+            "boundary",
+            "input-overflow",
+            "context-overflow",
+            "smaller-output-boundary",
+            "smaller-output-overflow",
+            "output-overflow",
+            "metadata-smaller-input-boundary",
+            "metadata-smaller-input-overflow",
+            "metadata-larger-input-context-boundary",
+            "metadata-larger-input-context-overflow",
+        ],
+    )
+    def test_native_capacity_operations_matrix(native, operation, case, monkeypatch, tmp_path):
+        client, provider, model, counter, metadata = native
+        input_limit, context_limit, output = (
+            (922000, 1050000, 128000) if provider == "openai" else (1000000, 1000000, 128000)
+        )
+        if case.startswith("metadata-"):
+            if provider != "anthropic":
+                pytest.skip("Anthropic Models API contract")
+            input_limit = 800000 if "smaller" in case else 1100000
+            metadata.return_value.max_input_tokens = input_limit
+        if case.startswith("smaller-output"):
+            output = 64000
+            client.max_tokens = output
+        if case == "output-overflow":
+            output = 128001
+            client.max_tokens = output
+        tokens = min(input_limit, context_limit - output)
+        if case == "formerly-rejected-low":
+            tokens = 794001
+        elif case == "formerly-rejected-mid":
+            tokens = 858001
+        elif case == "input-overflow":
+            # Isolate the input-only constraint from combined context overflow.
+            client.max_tokens = output = 64000
+            if provider == "anthropic":
+                metadata.return_value.max_input_tokens = input_limit = 800000
+            tokens = input_limit + 1
+        elif case == "context-overflow":
+            # Terra's official input+maximum output equals its context; this crosses both.
+            tokens = context_limit - output + 1
+        elif case.endswith("overflow") and case != "output-overflow":
+            tokens += 1
+        counter.return_value.input_tokens = tokens
+        report = tmp_path / "capacity.jsonl"
+        monkeypatch.setenv("VERIFIER_CAPACITY_REPORT_PATH", str(report))
+        expected = "overflow" not in case
+        generated = []
+    
+        def generate(prepared, prompt, **kwargs):
+            payload = prepared._get_request_payload(prompt)
+            generated.append(payload)
+            key = "input" if provider == "openai" else "messages"
+            assert counter.call_args.kwargs[key] == payload[key]
+            assert counter.call_args.kwargs["model"] == payload["model"] == model
+            assert payload["max_output_tokens" if provider == "openai" else "max_tokens"] == output
+            return SimpleNamespace(content='{"verdict":"PASS"}')
+    
+        with mock.patch.object(type(client), "invoke", autospec=True, side_effect=generate):
+            result = _run_operation(client, provider, model, operation, monkeypatch)
+        if operation != "repair":
+>           assert result.used_llm is expected, result.error
+E           AssertionError: LLM invocation failed: Verifier input capacity blocked: input/context capacity overflow: input 794001 <= 922000 and input + output 794001 + 128000 <= 1050000 required
+E           assert False is True
+E            +  where False = EvaluationResult(verdict='CONCERNS', scores=None, confidence=None, concerns=['LLM evaluation could not run.'], summary... 128000 <= 1050000 required', change_type=None, langsmith_trace_id=None, langsmith_trace_url=None, input_coverage=None).used_llm
+
+tests/scripts/test_native_capacity_recovery.py:494: AssertionError
+_ test_native_capacity_operations_matrix[openai-formerly-rejected-low-repair] __
+
+native = (ChatOpenAI(metadata={'lc_versions': {'langchain-core': '1.5.3', 'langchain': '1.3.14', 'langchain-openai': '1.4.1'}},... max_retries=0, stream_chunk_timeout=120.0), 'openai', 'gpt-5.6-terra', <Mock id='4510381216'>, <Mock id='4515539968'>)
+operation = 'repair', case = 'formerly-rejected-low'
+monkeypatch = <_pytest.monkeypatch.MonkeyPatch object at 0x10d25bad0>
+tmp_path = PosixPath('/Users/teacher/.codex/orchestrator/agent-runtime/codex/tmp/pytest-of-teacher/pytest-1891/test_native_capacity_operation2')
+
+    @pytest.mark.parametrize("operation", ["evaluate", "compare", "repair"])
+    @pytest.mark.parametrize(
+        "case",
+        [
+            "formerly-rejected-low",
+            "formerly-rejected-mid",
+            "boundary",
+            "input-overflow",
+            "context-overflow",
+            "smaller-output-boundary",
+            "smaller-output-overflow",
+            "output-overflow",
+            "metadata-smaller-input-boundary",
+            "metadata-smaller-input-overflow",
+            "metadata-larger-input-context-boundary",
+            "metadata-larger-input-context-overflow",
+        ],
+    )
+    def test_native_capacity_operations_matrix(native, operation, case, monkeypatch, tmp_path):
+        client, provider, model, counter, metadata = native
+        input_limit, context_limit, output = (
+            (922000, 1050000, 128000) if provider == "openai" else (1000000, 1000000, 128000)
+        )
+        if case.startswith("metadata-"):
+            if provider != "anthropic":
+                pytest.skip("Anthropic Models API contract")
+            input_limit = 800000 if "smaller" in case else 1100000
+            metadata.return_value.max_input_tokens = input_limit
+        if case.startswith("smaller-output"):
+            output = 64000
+            client.max_tokens = output
+        if case == "output-overflow":
+            output = 128001
+            client.max_tokens = output
+        tokens = min(input_limit, context_limit - output)
+        if case == "formerly-rejected-low":
+            tokens = 794001
+        elif case == "formerly-rejected-mid":
+            tokens = 858001
+        elif case == "input-overflow":
+            # Isolate the input-only constraint from combined context overflow.
+            client.max_tokens = output = 64000
+            if provider == "anthropic":
+                metadata.return_value.max_input_tokens = input_limit = 800000
+            tokens = input_limit + 1
+        elif case == "context-overflow":
+            # Terra's official input+maximum output equals its context; this crosses both.
+            tokens = context_limit - output + 1
+        elif case.endswith("overflow") and case != "output-overflow":
+            tokens += 1
+        counter.return_value.input_tokens = tokens
+        report = tmp_path / "capacity.jsonl"
+        monkeypatch.setenv("VERIFIER_CAPACITY_REPORT_PATH", str(report))
+        expected = "overflow" not in case
+        generated = []
+    
+        def generate(prepared, prompt, **kwargs):
+            payload = prepared._get_request_payload(prompt)
+            generated.append(payload)
+            key = "input" if provider == "openai" else "messages"
+            assert counter.call_args.kwargs[key] == payload[key]
+            assert counter.call_args.kwargs["model"] == payload["model"] == model
+            assert payload["max_output_tokens" if provider == "openai" else "max_tokens"] == output
+            return SimpleNamespace(content='{"verdict":"PASS"}')
+    
+        with mock.patch.object(type(client), "invoke", autospec=True, side_effect=generate):
+            result = _run_operation(client, provider, model, operation, monkeypatch)
+        if operation != "repair":
+            assert result.used_llm is expected, result.error
+>       assert bool(generated) is expected
+E       assert False is True
+E        +  where False = bool([])
+
+tests/scripts/test_native_capacity_recovery.py:495: AssertionError
+_ test_native_capacity_operations_matrix[openai-formerly-rejected-mid-evaluate] _
+
+native = (ChatOpenAI(metadata={'lc_versions': {'langchain-core': '1.5.3', 'langchain': '1.3.14', 'langchain-openai': '1.4.1'}},... max_retries=0, stream_chunk_timeout=120.0), 'openai', 'gpt-5.6-terra', <Mock id='4354178896'>, <Mock id='4354177840'>)
+operation = 'evaluate', case = 'formerly-rejected-mid'
+monkeypatch = <_pytest.monkeypatch.MonkeyPatch object at 0x10cfa6420>
+tmp_path = PosixPath('/Users/teacher/.codex/orchestrator/agent-runtime/codex/tmp/pytest-of-teacher/pytest-1891/test_native_capacity_operation3')
+
+    @pytest.mark.parametrize("operation", ["evaluate", "compare", "repair"])
+    @pytest.mark.parametrize(
+        "case",
+        [
+            "formerly-rejected-low",
+            "formerly-rejected-mid",
+            "boundary",
+            "input-overflow",
+            "context-overflow",
+            "smaller-output-boundary",
+            "smaller-output-overflow",
+            "output-overflow",
+            "metadata-smaller-input-boundary",
+            "metadata-smaller-input-overflow",
+            "metadata-larger-input-context-boundary",
+            "metadata-larger-input-context-overflow",
+        ],
+    )
+    def test_native_capacity_operations_matrix(native, operation, case, monkeypatch, tmp_path):
+        client, provider, model, counter, metadata = native
+        input_limit, context_limit, output = (
+            (922000, 1050000, 128000) if provider == "openai" else (1000000, 1000000, 128000)
+        )
+        if case.startswith("metadata-"):
+            if provider != "anthropic":
+                pytest.skip("Anthropic Models API contract")
+            input_limit = 800000 if "smaller" in case else 1100000
+            metadata.return_value.max_input_tokens = input_limit
+        if case.startswith("smaller-output"):
+            output = 64000
+            client.max_tokens = output
+        if case == "output-overflow":
+            output = 128001
+            client.max_tokens = output
+        tokens = min(input_limit, context_limit - output)
+        if case == "formerly-rejected-low":
+            tokens = 794001
+        elif case == "formerly-rejected-mid":
+            tokens = 858001
+        elif case == "input-overflow":
+            # Isolate the input-only constraint from combined context overflow.
+            client.max_tokens = output = 64000
+            if provider == "anthropic":
+                metadata.return_value.max_input_tokens = input_limit = 800000
+            tokens = input_limit + 1
+        elif case == "context-overflow":
+            # Terra's official input+maximum output equals its context; this crosses both.
+            tokens = context_limit - output + 1
+        elif case.endswith("overflow") and case != "output-overflow":
+            tokens += 1
+        counter.return_value.input_tokens = tokens
+        report = tmp_path / "capacity.jsonl"
+        monkeypatch.setenv("VERIFIER_CAPACITY_REPORT_PATH", str(report))
+        expected = "overflow" not in case
+        generated = []
+    
+        def generate(prepared, prompt, **kwargs):
+            payload = prepared._get_request_payload(prompt)
+            generated.append(payload)
+            key = "input" if provider == "openai" else "messages"
+            assert counter.call_args.kwargs[key] == payload[key]
+            assert counter.call_args.kwargs["model"] == payload["model"] == model
+            assert payload["max_output_tokens" if provider == "openai" else "max_tokens"] == output
+            return SimpleNamespace(content='{"verdict":"PASS"}')
+    
+        with mock.patch.object(type(client), "invoke", autospec=True, side_effect=generate):
+            result = _run_operation(client, provider, model, operation, monkeypatch)
+        if operation != "repair":
+>           assert result.used_llm is expected, result.error
+E           AssertionError: LLM invocation failed: Verifier input capacity blocked: input/context capacity overflow: input 858001 <= 922000 and input + output 858001 + 128000 <= 1050000 required
+E           assert False is True
+E            +  where False = EvaluationResult(verdict='CONCERNS', scores=None, confidence=None, concerns=['LLM evaluation could not run.'], summary...e_ratio': 0.0, 'context_truncated': False, 'reasons': ['Changed code is unavailable; completeness cannot be judged.']}).used_llm
+
+tests/scripts/test_native_capacity_recovery.py:494: AssertionError
+_ test_native_capacity_operations_matrix[openai-formerly-rejected-mid-compare] _
+
+native = (ChatOpenAI(metadata={'lc_versions': {'langchain-core': '1.5.3', 'langchain': '1.3.14', 'langchain-openai': '1.4.1'}},... max_retries=0, stream_chunk_timeout=120.0), 'openai', 'gpt-5.6-terra', <Mock id='4509694528'>, <Mock id='4515541936'>)
+operation = 'compare', case = 'formerly-rejected-mid'
+monkeypatch = <_pytest.monkeypatch.MonkeyPatch object at 0x10d25b830>
+tmp_path = PosixPath('/Users/teacher/.codex/orchestrator/agent-runtime/codex/tmp/pytest-of-teacher/pytest-1891/test_native_capacity_operation4')
+
+    @pytest.mark.parametrize("operation", ["evaluate", "compare", "repair"])
+    @pytest.mark.parametrize(
+        "case",
+        [
+            "formerly-rejected-low",
+            "formerly-rejected-mid",
+            "boundary",
+            "input-overflow",
+            "context-overflow",
+            "smaller-output-boundary",
+            "smaller-output-overflow",
+            "output-overflow",
+            "metadata-smaller-input-boundary",
+            "metadata-smaller-input-overflow",
+            "metadata-larger-input-context-boundary",
+            "metadata-larger-input-context-overflow",
+        ],
+    )
+    def test_native_capacity_operations_matrix(native, operation, case, monkeypatch, tmp_path):
+        client, provider, model, counter, metadata = native
+        input_limit, context_limit, output = (
+            (922000, 1050000, 128000) if provider == "openai" else (1000000, 1000000, 128000)
+        )
+        if case.startswith("metadata-"):
+            if provider != "anthropic":
+                pytest.skip("Anthropic Models API contract")
+            input_limit = 800000 if "smaller" in case else 1100000
+            metadata.return_value.max_input_tokens = input_limit
+        if case.startswith("smaller-output"):
+            output = 64000
+            client.max_tokens = output
+        if case == "output-overflow":
+            output = 128001
+            client.max_tokens = output
+        tokens = min(input_limit, context_limit - output)
+        if case == "formerly-rejected-low":
+            tokens = 794001
+        elif case == "formerly-rejected-mid":
+            tokens = 858001
+        elif case == "input-overflow":
+            # Isolate the input-only constraint from combined context overflow.
+            client.max_tokens = output = 64000
+            if provider == "anthropic":
+                metadata.return_value.max_input_tokens = input_limit = 800000
+            tokens = input_limit + 1
+        elif case == "context-overflow":
+            # Terra's official input+maximum output equals its context; this crosses both.
+            tokens = context_limit - output + 1
+        elif case.endswith("overflow") and case != "output-overflow":
+            tokens += 1
+        counter.return_value.input_tokens = tokens
+        report = tmp_path / "capacity.jsonl"
+        monkeypatch.setenv("VERIFIER_CAPACITY_REPORT_PATH", str(report))
+        expected = "overflow" not in case
+        generated = []
+    
+        def generate(prepared, prompt, **kwargs):
+            payload = prepared._get_request_payload(prompt)
+            generated.append(payload)
+            key = "input" if provider == "openai" else "messages"
+            assert counter.call_args.kwargs[key] == payload[key]
+            assert counter.call_args.kwargs["model"] == payload["model"] == model
+            assert payload["max_output_tokens" if provider == "openai" else "max_tokens"] == output
+            return SimpleNamespace(content='{"verdict":"PASS"}')
+    
+        with mock.patch.object(type(client), "invoke", autospec=True, side_effect=generate):
+            result = _run_operation(client, provider, model, operation, monkeypatch)
+        if operation != "repair":
+>           assert result.used_llm is expected, result.error
+E           AssertionError: LLM invocation failed: Verifier input capacity blocked: input/context capacity overflow: input 858001 <= 922000 and input + output 858001 + 128000 <= 1050000 required
+E           assert False is True
+E            +  where False = EvaluationResult(verdict='CONCERNS', scores=None, confidence=None, concerns=['LLM evaluation could not run.'], summary... 128000 <= 1050000 required', change_type=None, langsmith_trace_id=None, langsmith_trace_url=None, input_coverage=None).used_llm
+
+tests/scripts/test_native_capacity_recovery.py:494: AssertionError
+_ test_native_capacity_operations_matrix[openai-formerly-rejected-mid-repair] __
+
+native = (ChatOpenAI(metadata={'lc_versions': {'langchain-core': '1.5.3', 'langchain': '1.3.14', 'langchain-openai': '1.4.1'}},... max_retries=0, stream_chunk_timeout=120.0), 'openai', 'gpt-5.6-terra', <Mock id='4515539344'>, <Mock id='4517044320'>)
+operation = 'repair', case = 'formerly-rejected-mid'
+monkeypatch = <_pytest.monkeypatch.MonkeyPatch object at 0x10d25b4a0>
+tmp_path = PosixPath('/Users/teacher/.codex/orchestrator/agent-runtime/codex/tmp/pytest-of-teacher/pytest-1891/test_native_capacity_operation5')
+
+    @pytest.mark.parametrize("operation", ["evaluate", "compare", "repair"])
+    @pytest.mark.parametrize(
+        "case",
+        [
+            "formerly-rejected-low",
+            "formerly-rejected-mid",
+            "boundary",
+            "input-overflow",
+            "context-overflow",
+            "smaller-output-boundary",
+            "smaller-output-overflow",
+            "output-overflow",
+            "metadata-smaller-input-boundary",
+            "metadata-smaller-input-overflow",
+            "metadata-larger-input-context-boundary",
+            "metadata-larger-input-context-overflow",
+        ],
+    )
+    def test_native_capacity_operations_matrix(native, operation, case, monkeypatch, tmp_path):
+        client, provider, model, counter, metadata = native
+        input_limit, context_limit, output = (
+            (922000, 1050000, 128000) if provider == "openai" else (1000000, 1000000, 128000)
+        )
+        if case.startswith("metadata-"):
+            if provider != "anthropic":
+                pytest.skip("Anthropic Models API contract")
+            input_limit = 800000 if "smaller" in case else 1100000
+            metadata.return_value.max_input_tokens = input_limit
+        if case.startswith("smaller-output"):
+            output = 64000
+            client.max_tokens = output
+        if case == "output-overflow":
+            output = 128001
+            client.max_tokens = output
+        tokens = min(input_limit, context_limit - output)
+        if case == "formerly-rejected-low":
+            tokens = 794001
+        elif case == "formerly-rejected-mid":
+            tokens = 858001
+        elif case == "input-overflow":
+            # Isolate the input-only constraint from combined context overflow.
+            client.max_tokens = output = 64000
+            if provider == "anthropic":
+                metadata.return_value.max_input_tokens = input_limit = 800000
+            tokens = input_limit + 1
+        elif case == "context-overflow":
+            # Terra's official input+maximum output equals its context; this crosses both.
+            tokens = context_limit - output + 1
+        elif case.endswith("overflow") and case != "output-overflow":
+            tokens += 1
+        counter.return_value.input_tokens = tokens
+        report = tmp_path / "capacity.jsonl"
+        monkeypatch.setenv("VERIFIER_CAPACITY_REPORT_PATH", str(report))
+        expected = "overflow" not in case
+        generated = []
+    
+        def generate(prepared, prompt, **kwargs):
+            payload = prepared._get_request_payload(prompt)
+            generated.append(payload)
+            key = "input" if provider == "openai" else "messages"
+            assert counter.call_args.kwargs[key] == payload[key]
+            assert counter.call_args.kwargs["model"] == payload["model"] == model
+            assert payload["max_output_tokens" if provider == "openai" else "max_tokens"] == output
+            return SimpleNamespace(content='{"verdict":"PASS"}')
+    
+        with mock.patch.object(type(client), "invoke", autospec=True, side_effect=generate):
+            result = _run_operation(client, provider, model, operation, monkeypatch)
+        if operation != "repair":
+            assert result.used_llm is expected, result.error
+>       assert bool(generated) is expected
+E       assert False is True
+E        +  where False = bool([])
+
+tests/scripts/test_native_capacity_recovery.py:495: AssertionError
+_______ test_native_capacity_operations_matrix[openai-boundary-evaluate] _______
+
+native = (ChatOpenAI(metadata={'lc_versions': {'langchain-core': '1.5.3', 'langchain': '1.3.14', 'langchain-openai': '1.4.1'}},... max_retries=0, stream_chunk_timeout=120.0), 'openai', 'gpt-5.6-terra', <Mock id='4517040624'>, <Mock id='4517050656'>)
+operation = 'evaluate', case = 'boundary'
+monkeypatch = <_pytest.monkeypatch.MonkeyPatch object at 0x10d3cb5f0>
+tmp_path = PosixPath('/Users/teacher/.codex/orchestrator/agent-runtime/codex/tmp/pytest-of-teacher/pytest-1891/test_native_capacity_operation6')
+
+    @pytest.mark.parametrize("operation", ["evaluate", "compare", "repair"])
+    @pytest.mark.parametrize(
+        "case",
+        [
+            "formerly-rejected-low",
+            "formerly-rejected-mid",
+            "boundary",
+            "input-overflow",
+            "context-overflow",
+            "smaller-output-boundary",
+            "smaller-output-overflow",
+            "output-overflow",
+            "metadata-smaller-input-boundary",
+            "metadata-smaller-input-overflow",
+            "metadata-larger-input-context-boundary",
+            "metadata-larger-input-context-overflow",
+        ],
+    )
+    def test_native_capacity_operations_matrix(native, operation, case, monkeypatch, tmp_path):
+        client, provider, model, counter, metadata = native
+        input_limit, context_limit, output = (
+            (922000, 1050000, 128000) if provider == "openai" else (1000000, 1000000, 128000)
+        )
+        if case.startswith("metadata-"):
+            if provider != "anthropic":
+                pytest.skip("Anthropic Models API contract")
+            input_limit = 800000 if "smaller" in case else 1100000
+            metadata.return_value.max_input_tokens = input_limit
+        if case.startswith("smaller-output"):
+            output = 64000
+            client.max_tokens = output
+        if case == "output-overflow":
+            output = 128001
+            client.max_tokens = output
+        tokens = min(input_limit, context_limit - output)
+        if case == "formerly-rejected-low":
+            tokens = 794001
+        elif case == "formerly-rejected-mid":
+            tokens = 858001
+        elif case == "input-overflow":
+            # Isolate the input-only constraint from combined context overflow.
+            client.max_tokens = output = 64000
+            if provider == "anthropic":
+                metadata.return_value.max_input_tokens = input_limit = 800000
+            tokens = input_limit + 1
+        elif case == "context-overflow":
+            # Terra's official input+maximum output equals its context; this crosses both.
+            tokens = context_limit - output + 1
+        elif case.endswith("overflow") and case != "output-overflow":
+            tokens += 1
+        counter.return_value.input_tokens = tokens
+        report = tmp_path / "capacity.jsonl"
+        monkeypatch.setenv("VERIFIER_CAPACITY_REPORT_PATH", str(report))
+        expected = "overflow" not in case
+        generated = []
+    
+        def generate(prepared, prompt, **kwargs):
+            payload = prepared._get_request_payload(prompt)
+            generated.append(payload)
+            key = "input" if provider == "openai" else "messages"
+            assert counter.call_args.kwargs[key] == payload[key]
+            assert counter.call_args.kwargs["model"] == payload["model"] == model
+            assert payload["max_output_tokens" if provider == "openai" else "max_tokens"] == output
+            return SimpleNamespace(content='{"verdict":"PASS"}')
+    
+        with mock.patch.object(type(client), "invoke", autospec=True, side_effect=generate):
+            result = _run_operation(client, provider, model, operation, monkeypatch)
+        if operation != "repair":
+>           assert result.used_llm is expected, result.error
+E           AssertionError: LLM invocation failed: Verifier input capacity blocked: input/context capacity overflow: input 922000 <= 922000 and input + output 922000 + 128000 <= 1050000 required
+E           assert False is True
+E            +  where False = EvaluationResult(verdict='CONCERNS', scores=None, confidence=None, concerns=['LLM evaluation could not run.'], summary...e_ratio': 0.0, 'context_truncated': False, 'reasons': ['Changed code is unavailable; completeness cannot be judged.']}).used_llm
+
+tests/scripts/test_native_capacity_recovery.py:494: AssertionError
+_______ test_native_capacity_operations_matrix[openai-boundary-compare] ________
+
+native = (ChatOpenAI(metadata={'lc_versions': {'langchain-core': '1.5.3', 'langchain': '1.3.14', 'langchain-openai': '1.4.1'}},... max_retries=0, stream_chunk_timeout=120.0), 'openai', 'gpt-5.6-terra', <Mock id='4517050464'>, <Mock id='4517048304'>)
+operation = 'compare', case = 'boundary'
+monkeypatch = <_pytest.monkeypatch.MonkeyPatch object at 0x10d3c9c70>
+tmp_path = PosixPath('/Users/teacher/.codex/orchestrator/agent-runtime/codex/tmp/pytest-of-teacher/pytest-1891/test_native_capacity_operation7')
+
+    @pytest.mark.parametrize("operation", ["evaluate", "compare", "repair"])
+    @pytest.mark.parametrize(
+        "case",
+        [
+            "formerly-rejected-low",
+            "formerly-rejected-mid",
+            "boundary",
+            "input-overflow",
+            "context-overflow",
+            "smaller-output-boundary",
+            "smaller-output-overflow",
+            "output-overflow",
+            "metadata-smaller-input-boundary",
+            "metadata-smaller-input-overflow",
+            "metadata-larger-input-context-boundary",
+            "metadata-larger-input-context-overflow",
+        ],
+    )
+    def test_native_capacity_operations_matrix(native, operation, case, monkeypatch, tmp_path):
+        client, provider, model, counter, metadata = native
+        input_limit, context_limit, output = (
+            (922000, 1050000, 128000) if provider == "openai" else (1000000, 1000000, 128000)
+        )
+        if case.startswith("metadata-"):
+            if provider != "anthropic":
+                pytest.skip("Anthropic Models API contract")
+            input_limit = 800000 if "smaller" in case else 1100000
+            metadata.return_value.max_input_tokens = input_limit
+        if case.startswith("smaller-output"):
+            output = 64000
+            client.max_tokens = output
+        if case == "output-overflow":
+            output = 128001
+            client.max_tokens = output
+        tokens = min(input_limit, context_limit - output)
+        if case == "formerly-rejected-low":
+            tokens = 794001
+        elif case == "formerly-rejected-mid":
+            tokens = 858001
+        elif case == "input-overflow":
+            # Isolate the input-only constraint from combined context overflow.
+            client.max_tokens = output = 64000
+            if provider == "anthropic":
+                metadata.return_value.max_input_tokens = input_limit = 800000
+            tokens = input_limit + 1
+        elif case == "context-overflow":
+            # Terra's official input+maximum output equals its context; this crosses both.
+            tokens = context_limit - output + 1
+        elif case.endswith("overflow") and case != "output-overflow":
+            tokens += 1
+        counter.return_value.input_tokens = tokens
+        report = tmp_path / "capacity.jsonl"
+        monkeypatch.setenv("VERIFIER_CAPACITY_REPORT_PATH", str(report))
+        expected = "overflow" not in case
+        generated = []
+    
+        def generate(prepared, prompt, **kwargs):
+            payload = prepared._get_request_payload(prompt)
+            generated.append(payload)
+            key = "input" if provider == "openai" else "messages"
+            assert counter.call_args.kwargs[key] == payload[key]
+            assert counter.call_args.kwargs["model"] == payload["model"] == model
+            assert payload["max_output_tokens" if provider == "openai" else "max_tokens"] == output
+            return SimpleNamespace(content='{"verdict":"PASS"}')
+    
+        with mock.patch.object(type(client), "invoke", autospec=True, side_effect=generate):
+            result = _run_operation(client, provider, model, operation, monkeypatch)
+        if operation != "repair":
+>           assert result.used_llm is expected, result.error
+E           AssertionError: LLM invocation failed: Verifier input capacity blocked: input/context capacity overflow: input 922000 <= 922000 and input + output 922000 + 128000 <= 1050000 required
+E           assert False is True
+E            +  where False = EvaluationResult(verdict='CONCERNS', scores=None, confidence=None, concerns=['LLM evaluation could not run.'], summary... 128000 <= 1050000 required', change_type=None, langsmith_trace_id=None, langsmith_trace_url=None, input_coverage=None).used_llm
+
+tests/scripts/test_native_capacity_recovery.py:494: AssertionError
+________ test_native_capacity_operations_matrix[openai-boundary-repair] ________
+
+native = (ChatOpenAI(metadata={'lc_versions': {'langchain-core': '1.5.3', 'langchain': '1.3.14', 'langchain-openai': '1.4.1'}},... max_retries=0, stream_chunk_timeout=120.0), 'openai', 'gpt-5.6-terra', <Mock id='4517039184'>, <Mock id='4517050224'>)
+operation = 'repair', case = 'boundary'
+monkeypatch = <_pytest.monkeypatch.MonkeyPatch object at 0x10d3c8770>
+tmp_path = PosixPath('/Users/teacher/.codex/orchestrator/agent-runtime/codex/tmp/pytest-of-teacher/pytest-1891/test_native_capacity_operation8')
+
+    @pytest.mark.parametrize("operation", ["evaluate", "compare", "repair"])
+    @pytest.mark.parametrize(
+        "case",
+        [
+            "formerly-rejected-low",
+            "formerly-rejected-mid",
+            "boundary",
+            "input-overflow",
+            "context-overflow",
+            "smaller-output-boundary",
+            "smaller-output-overflow",
+            "output-overflow",
+            "metadata-smaller-input-boundary",
+            "metadata-smaller-input-overflow",
+            "metadata-larger-input-context-boundary",
+            "metadata-larger-input-context-overflow",
+        ],
+    )
+    def test_native_capacity_operations_matrix(native, operation, case, monkeypatch, tmp_path):
+        client, provider, model, counter, metadata = native
+        input_limit, context_limit, output = (
+            (922000, 1050000, 128000) if provider == "openai" else (1000000, 1000000, 128000)
+        )
+        if case.startswith("metadata-"):
+            if provider != "anthropic":
+                pytest.skip("Anthropic Models API contract")
+            input_limit = 800000 if "smaller" in case else 1100000
+            metadata.return_value.max_input_tokens = input_limit
+        if case.startswith("smaller-output"):
+            output = 64000
+            client.max_tokens = output
+        if case == "output-overflow":
+            output = 128001
+            client.max_tokens = output
+        tokens = min(input_limit, context_limit - output)
+        if case == "formerly-rejected-low":
+            tokens = 794001
+        elif case == "formerly-rejected-mid":
+            tokens = 858001
+        elif case == "input-overflow":
+            # Isolate the input-only constraint from combined context overflow.
+            client.max_tokens = output = 64000
+            if provider == "anthropic":
+                metadata.return_value.max_input_tokens = input_limit = 800000
+            tokens = input_limit + 1
+        elif case == "context-overflow":
+            # Terra's official input+maximum output equals its context; this crosses both.
+            tokens = context_limit - output + 1
+        elif case.endswith("overflow") and case != "output-overflow":
+            tokens += 1
+        counter.return_value.input_tokens = tokens
+        report = tmp_path / "capacity.jsonl"
+        monkeypatch.setenv("VERIFIER_CAPACITY_REPORT_PATH", str(report))
+        expected = "overflow" not in case
+        generated = []
+    
+        def generate(prepared, prompt, **kwargs):
+            payload = prepared._get_request_payload(prompt)
+            generated.append(payload)
+            key = "input" if provider == "openai" else "messages"
+            assert counter.call_args.kwargs[key] == payload[key]
+            assert counter.call_args.kwargs["model"] == payload["model"] == model
+            assert payload["max_output_tokens" if provider == "openai" else "max_tokens"] == output
+            return SimpleNamespace(content='{"verdict":"PASS"}')
+    
+        with mock.patch.object(type(client), "invoke", autospec=True, side_effect=generate):
+            result = _run_operation(client, provider, model, operation, monkeypatch)
+        if operation != "repair":
+            assert result.used_llm is expected, result.error
+>       assert bool(generated) is expected
+E       assert False is True
+E        +  where False = bool([])
+
+tests/scripts/test_native_capacity_recovery.py:495: AssertionError
+_ test_native_capacity_operations_matrix[openai-smaller-output-boundary-evaluate] _
+
+native = (ChatOpenAI(metadata={'lc_versions': {'langchain-core': '1.5.3', 'langchain': '1.3.14', 'langchain-openai': '1.4.1'}},...x_tokens=64000, stream_chunk_timeout=120.0), 'openai', 'gpt-5.6-terra', <Mock id='4515543280'>, <Mock id='4515539440'>)
+operation = 'evaluate', case = 'smaller-output-boundary'
+monkeypatch = <_pytest.monkeypatch.MonkeyPatch object at 0x103877e90>
+tmp_path = PosixPath('/Users/teacher/.codex/orchestrator/agent-runtime/codex/tmp/pytest-of-teacher/pytest-1891/test_native_capacity_operation9')
+
+    @pytest.mark.parametrize("operation", ["evaluate", "compare", "repair"])
+    @pytest.mark.parametrize(
+        "case",
+        [
+            "formerly-rejected-low",
+            "formerly-rejected-mid",
+            "boundary",
+            "input-overflow",
+            "context-overflow",
+            "smaller-output-boundary",
+            "smaller-output-overflow",
+            "output-overflow",
+            "metadata-smaller-input-boundary",
+            "metadata-smaller-input-overflow",
+            "metadata-larger-input-context-boundary",
+            "metadata-larger-input-context-overflow",
+        ],
+    )
+    def test_native_capacity_operations_matrix(native, operation, case, monkeypatch, tmp_path):
+        client, provider, model, counter, metadata = native
+        input_limit, context_limit, output = (
+            (922000, 1050000, 128000) if provider == "openai" else (1000000, 1000000, 128000)
+        )
+        if case.startswith("metadata-"):
+            if provider != "anthropic":
+                pytest.skip("Anthropic Models API contract")
+            input_limit = 800000 if "smaller" in case else 1100000
+            metadata.return_value.max_input_tokens = input_limit
+        if case.startswith("smaller-output"):
+            output = 64000
+            client.max_tokens = output
+        if case == "output-overflow":
+            output = 128001
+            client.max_tokens = output
+        tokens = min(input_limit, context_limit - output)
+        if case == "formerly-rejected-low":
+            tokens = 794001
+        elif case == "formerly-rejected-mid":
+            tokens = 858001
+        elif case == "input-overflow":
+            # Isolate the input-only constraint from combined context overflow.
+            client.max_tokens = output = 64000
+            if provider == "anthropic":
+                metadata.return_value.max_input_tokens = input_limit = 800000
+            tokens = input_limit + 1
+        elif case == "context-overflow":
+            # Terra's official input+maximum output equals its context; this crosses both.
+            tokens = context_limit - output + 1
+        elif case.endswith("overflow") and case != "output-overflow":
+            tokens += 1
+        counter.return_value.input_tokens = tokens
+        report = tmp_path / "capacity.jsonl"
+        monkeypatch.setenv("VERIFIER_CAPACITY_REPORT_PATH", str(report))
+        expected = "overflow" not in case
+        generated = []
+    
+        def generate(prepared, prompt, **kwargs):
+            payload = prepared._get_request_payload(prompt)
+            generated.append(payload)
+            key = "input" if provider == "openai" else "messages"
+            assert counter.call_args.kwargs[key] == payload[key]
+            assert counter.call_args.kwargs["model"] == payload["model"] == model
+            assert payload["max_output_tokens" if provider == "openai" else "max_tokens"] == output
+            return SimpleNamespace(content='{"verdict":"PASS"}')
+    
+        with mock.patch.object(type(client), "invoke", autospec=True, side_effect=generate):
+            result = _run_operation(client, provider, model, operation, monkeypatch)
+        if operation != "repair":
+>           assert result.used_llm is expected, result.error
+E           AssertionError: LLM invocation failed: Verifier input capacity blocked: input/context capacity overflow: input 922000 <= 922000 and input + output 922000 + 64000 <= 1050000 required
+E           assert False is True
+E            +  where False = EvaluationResult(verdict='CONCERNS', scores=None, confidence=None, concerns=['LLM evaluation could not run.'], summary...e_ratio': 0.0, 'context_truncated': False, 'reasons': ['Changed code is unavailable; completeness cannot be judged.']}).used_llm
+
+tests/scripts/test_native_capacity_recovery.py:494: AssertionError
+_ test_native_capacity_operations_matrix[openai-smaller-output-boundary-compare] _
+
+native = (ChatOpenAI(metadata={'lc_versions': {'langchain-core': '1.5.3', 'langchain': '1.3.14', 'langchain-openai': '1.4.1'}},...x_tokens=64000, stream_chunk_timeout=120.0), 'openai', 'gpt-5.6-terra', <Mock id='4515542704'>, <Mock id='4517051184'>)
+operation = 'compare', case = 'smaller-output-boundary'
+monkeypatch = <_pytest.monkeypatch.MonkeyPatch object at 0x10ccc4b00>
+tmp_path = PosixPath('/Users/teacher/.codex/orchestrator/agent-runtime/codex/tmp/pytest-of-teacher/pytest-1891/test_native_capacity_operation10')
+
+    @pytest.mark.parametrize("operation", ["evaluate", "compare", "repair"])
+    @pytest.mark.parametrize(
+        "case",
+        [
+            "formerly-rejected-low",
+            "formerly-rejected-mid",
+            "boundary",
+            "input-overflow",
+            "context-overflow",
+            "smaller-output-boundary",
+            "smaller-output-overflow",
+            "output-overflow",
+            "metadata-smaller-input-boundary",
+            "metadata-smaller-input-overflow",
+            "metadata-larger-input-context-boundary",
+            "metadata-larger-input-context-overflow",
+        ],
+    )
+    def test_native_capacity_operations_matrix(native, operation, case, monkeypatch, tmp_path):
+        client, provider, model, counter, metadata = native
+        input_limit, context_limit, output = (
+            (922000, 1050000, 128000) if provider == "openai" else (1000000, 1000000, 128000)
+        )
+        if case.startswith("metadata-"):
+            if provider != "anthropic":
+                pytest.skip("Anthropic Models API contract")
+            input_limit = 800000 if "smaller" in case else 1100000
+            metadata.return_value.max_input_tokens = input_limit
+        if case.startswith("smaller-output"):
+            output = 64000
+            client.max_tokens = output
+        if case == "output-overflow":
+            output = 128001
+            client.max_tokens = output
+        tokens = min(input_limit, context_limit - output)
+        if case == "formerly-rejected-low":
+            tokens = 794001
+        elif case == "formerly-rejected-mid":
+            tokens = 858001
+        elif case == "input-overflow":
+            # Isolate the input-only constraint from combined context overflow.
+            client.max_tokens = output = 64000
+            if provider == "anthropic":
+                metadata.return_value.max_input_tokens = input_limit = 800000
+            tokens = input_limit + 1
+        elif case == "context-overflow":
+            # Terra's official input+maximum output equals its context; this crosses both.
+            tokens = context_limit - output + 1
+        elif case.endswith("overflow") and case != "output-overflow":
+            tokens += 1
+        counter.return_value.input_tokens = tokens
+        report = tmp_path / "capacity.jsonl"
+        monkeypatch.setenv("VERIFIER_CAPACITY_REPORT_PATH", str(report))
+        expected = "overflow" not in case
+        generated = []
+    
+        def generate(prepared, prompt, **kwargs):
+            payload = prepared._get_request_payload(prompt)
+            generated.append(payload)
+            key = "input" if provider == "openai" else "messages"
+            assert counter.call_args.kwargs[key] == payload[key]
+            assert counter.call_args.kwargs["model"] == payload["model"] == model
+            assert payload["max_output_tokens" if provider == "openai" else "max_tokens"] == output
+            return SimpleNamespace(content='{"verdict":"PASS"}')
+    
+        with mock.patch.object(type(client), "invoke", autospec=True, side_effect=generate):
+            result = _run_operation(client, provider, model, operation, monkeypatch)
+        if operation != "repair":
+>           assert result.used_llm is expected, result.error
+E           AssertionError: LLM invocation failed: Verifier input capacity blocked: input/context capacity overflow: input 922000 <= 922000 and input + output 922000 + 64000 <= 1050000 required
+E           assert False is True
+E            +  where False = EvaluationResult(verdict='CONCERNS', scores=None, confidence=None, concerns=['LLM evaluation could not run.'], summary...+ 64000 <= 1050000 required', change_type=None, langsmith_trace_id=None, langsmith_trace_url=None, input_coverage=None).used_llm
+
+tests/scripts/test_native_capacity_recovery.py:494: AssertionError
+_ test_native_capacity_operations_matrix[openai-smaller-output-boundary-repair] _
+
+native = (ChatOpenAI(metadata={'lc_versions': {'langchain-core': '1.5.3', 'langchain': '1.3.14', 'langchain-openai': '1.4.1'}},...x_tokens=64000, stream_chunk_timeout=120.0), 'openai', 'gpt-5.6-terra', <Mock id='4517043408'>, <Mock id='4517043504'>)
+operation = 'repair', case = 'smaller-output-boundary'
+monkeypatch = <_pytest.monkeypatch.MonkeyPatch object at 0x10d3c8950>
+tmp_path = PosixPath('/Users/teacher/.codex/orchestrator/agent-runtime/codex/tmp/pytest-of-teacher/pytest-1891/test_native_capacity_operation11')
+
+    @pytest.mark.parametrize("operation", ["evaluate", "compare", "repair"])
+    @pytest.mark.parametrize(
+        "case",
+        [
+            "formerly-rejected-low",
+            "formerly-rejected-mid",
+            "boundary",
+            "input-overflow",
+            "context-overflow",
+            "smaller-output-boundary",
+            "smaller-output-overflow",
+            "output-overflow",
+            "metadata-smaller-input-boundary",
+            "metadata-smaller-input-overflow",
+            "metadata-larger-input-context-boundary",
+            "metadata-larger-input-context-overflow",
+        ],
+    )
+    def test_native_capacity_operations_matrix(native, operation, case, monkeypatch, tmp_path):
+        client, provider, model, counter, metadata = native
+        input_limit, context_limit, output = (
+            (922000, 1050000, 128000) if provider == "openai" else (1000000, 1000000, 128000)
+        )
+        if case.startswith("metadata-"):
+            if provider != "anthropic":
+                pytest.skip("Anthropic Models API contract")
+            input_limit = 800000 if "smaller" in case else 1100000
+            metadata.return_value.max_input_tokens = input_limit
+        if case.startswith("smaller-output"):
+            output = 64000
+            client.max_tokens = output
+        if case == "output-overflow":
+            output = 128001
+            client.max_tokens = output
+        tokens = min(input_limit, context_limit - output)
+        if case == "formerly-rejected-low":
+            tokens = 794001
+        elif case == "formerly-rejected-mid":
+            tokens = 858001
+        elif case == "input-overflow":
+            # Isolate the input-only constraint from combined context overflow.
+            client.max_tokens = output = 64000
+            if provider == "anthropic":
+                metadata.return_value.max_input_tokens = input_limit = 800000
+            tokens = input_limit + 1
+        elif case == "context-overflow":
+            # Terra's official input+maximum output equals its context; this crosses both.
+            tokens = context_limit - output + 1
+        elif case.endswith("overflow") and case != "output-overflow":
+            tokens += 1
+        counter.return_value.input_tokens = tokens
+        report = tmp_path / "capacity.jsonl"
+        monkeypatch.setenv("VERIFIER_CAPACITY_REPORT_PATH", str(report))
+        expected = "overflow" not in case
+        generated = []
+    
+        def generate(prepared, prompt, **kwargs):
+            payload = prepared._get_request_payload(prompt)
+            generated.append(payload)
+            key = "input" if provider == "openai" else "messages"
+            assert counter.call_args.kwargs[key] == payload[key]
+            assert counter.call_args.kwargs["model"] == payload["model"] == model
+            assert payload["max_output_tokens" if provider == "openai" else "max_tokens"] == output
+            return SimpleNamespace(content='{"verdict":"PASS"}')
+    
+        with mock.patch.object(type(client), "invoke", autospec=True, side_effect=generate):
+            result = _run_operation(client, provider, model, operation, monkeypatch)
+        if operation != "repair":
+            assert result.used_llm is expected, result.error
+>       assert bool(generated) is expected
+E       assert False is True
+E        +  where False = bool([])
+
+tests/scripts/test_native_capacity_recovery.py:495: AssertionError
+=========================== short test summary info ============================
+FAILED tests/scripts/test_native_capacity_recovery.py::test_native_capacity_operations_matrix[openai-formerly-rejected-low-evaluate]
+FAILED tests/scripts/test_native_capacity_recovery.py::test_native_capacity_operations_matrix[openai-formerly-rejected-low-compare]
+FAILED tests/scripts/test_native_capacity_recovery.py::test_native_capacity_operations_matrix[openai-formerly-rejected-low-repair]
+FAILED tests/scripts/test_native_capacity_recovery.py::test_native_capacity_operations_matrix[openai-formerly-rejected-mid-evaluate]
+FAILED tests/scripts/test_native_capacity_recovery.py::test_native_capacity_operations_matrix[openai-formerly-rejected-mid-compare]
+FAILED tests/scripts/test_native_capacity_recovery.py::test_native_capacity_operations_matrix[openai-formerly-rejected-mid-repair]
+FAILED tests/scripts/test_native_capacity_recovery.py::test_native_capacity_operations_matrix[openai-boundary-evaluate]
+FAILED tests/scripts/test_native_capacity_recovery.py::test_native_capacity_operations_matrix[openai-boundary-compare]
+FAILED tests/scripts/test_native_capacity_recovery.py::test_native_capacity_operations_matrix[openai-boundary-repair]
+FAILED tests/scripts/test_native_capacity_recovery.py::test_native_capacity_operations_matrix[openai-smaller-output-boundary-evaluate]
+FAILED tests/scripts/test_native_capacity_recovery.py::test_native_capacity_operations_matrix[openai-smaller-output-boundary-compare]
+FAILED tests/scripts/test_native_capacity_recovery.py::test_native_capacity_operations_matrix[openai-smaller-output-boundary-repair]
+12 failed, 284 deselected in 3.37s

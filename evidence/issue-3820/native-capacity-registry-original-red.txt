@@ -1,0 +1,48 @@
+FF                                                                       [100%]
+=================================== FAILURES ===================================
+____________ test_selected_entry_missing_blocks_generation[openai] _____________
+
+configured_native = (ChatOpenAI(metadata={'lc_versions': {'langchain-core': '1.5.3', 'langchain': '1.3.14', 'langchain-openai': '1.4.1'}},... max_retries=0, stream_chunk_timeout=120.0), 'openai', 'gpt-5.6-terra', <Mock id='4467972416'>, <Mock id='4573141504'>)
+tmp_path = PosixPath('/Users/teacher/.codex/orchestrator/agent-runtime/codex/tmp/pytest-of-teacher/pytest-1900/test_selected_entry_missing_bl0')
+monkeypatch = <_pytest.monkeypatch.MonkeyPatch object at 0x1095980e0>
+
+    def test_selected_entry_missing_blocks_generation(configured_native, tmp_path, monkeypatch):
+        client, provider, model, counter, metadata = configured_native
+        payload = json.loads(REGISTRY.read_text())
+        payload["models"] = [
+            row for row in payload["models"]
+            if (row["provider"], row["model_id"]) != (provider, model)
+        ]
+        path = tmp_path / "registry.json"
+        path.write_text(json.dumps(payload))
+        monkeypatch.setenv(llm_registry.ENV_MODEL_REGISTRY_CONFIG, str(path))
+        with mock.patch.object(type(client), "invoke") as generation:
+>           with pytest.raises(pr_verifier.InputCapacityError):
+E           Failed: DID NOT RAISE InputCapacityError
+
+tests/scripts/test_native_capacity_registry.py:55: Failed
+___________ test_selected_entry_missing_blocks_generation[anthropic] ___________
+
+configured_native = (ChatAnthropic(metadata={'lc_versions': {'langchain-core': '1.5.3', 'langchain': '1.3.14', 'langchain-anthropic': '1.5...thropic_proxy=None, model_kwargs={}), 'anthropic', 'claude-sonnet-5-5', <Mock id='4586873744'>, <Mock id='4586873840'>)
+tmp_path = PosixPath('/Users/teacher/.codex/orchestrator/agent-runtime/codex/tmp/pytest-of-teacher/pytest-1900/test_selected_entry_missing_bl1')
+monkeypatch = <_pytest.monkeypatch.MonkeyPatch object at 0x11159e180>
+
+    def test_selected_entry_missing_blocks_generation(configured_native, tmp_path, monkeypatch):
+        client, provider, model, counter, metadata = configured_native
+        payload = json.loads(REGISTRY.read_text())
+        payload["models"] = [
+            row for row in payload["models"]
+            if (row["provider"], row["model_id"]) != (provider, model)
+        ]
+        path = tmp_path / "registry.json"
+        path.write_text(json.dumps(payload))
+        monkeypatch.setenv(llm_registry.ENV_MODEL_REGISTRY_CONFIG, str(path))
+        with mock.patch.object(type(client), "invoke") as generation:
+>           with pytest.raises(pr_verifier.InputCapacityError):
+E           Failed: DID NOT RAISE InputCapacityError
+
+tests/scripts/test_native_capacity_registry.py:55: Failed
+=========================== short test summary info ============================
+FAILED tests/scripts/test_native_capacity_registry.py::test_selected_entry_missing_blocks_generation[openai]
+FAILED tests/scripts/test_native_capacity_registry.py::test_selected_entry_missing_blocks_generation[anthropic]
+2 failed in 2.30s

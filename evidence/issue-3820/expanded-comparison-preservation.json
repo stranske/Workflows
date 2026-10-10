@@ -1,0 +1,42 @@
+{
+  "head": "b94a4667b81ef1bf04ec01219fbe98be37ecb02e",
+  "baseline_file_count": 2681,
+  "changed_existing_paths": [
+    ".github/sync-manifest.yml",
+    ".github/workflows/reusable-agents-verifier.yml",
+    "config/template-drift-allowlist.txt",
+    "docs/WORKFLOW_GUIDE.md",
+    "docs/ops/CONSUMER_REPO_MAINTENANCE.md",
+    "scripts/langchain/pr_verifier.py",
+    "templates/consumer-repo/.github/workflows/agents-verifier.yml",
+    "templates/consumer-repo/scripts/langchain/pr_verifier.py",
+    "tests/workflows/test_verifier_evidence_profile.py"
+  ],
+  "preserved_prior_untracked": [
+    "capacity-recovery-brief.md",
+    "evidence/issue-3820/native-capacity-actionlint.txt",
+    "evidence/issue-3820/native-capacity-black.txt",
+    "evidence/issue-3820/native-capacity-focused-regression.xml",
+    "evidence/issue-3820/native-capacity-green.xml",
+    "evidence/issue-3820/native-capacity-regression.txt",
+    "evidence/issue-3820/native-capacity-regression.xml",
+    "evidence/issue-3820/native-capacity-ruff.txt",
+    "evidence/issue-3820/native-capacity-template-sync.txt",
+    "evidence/issue-3820/native-capacity-workflow.xml",
+    "evidence/issue-3820/native-context-window-actionlint.txt",
+    "evidence/issue-3820/native-context-window-black.txt",
+    "evidence/issue-3820/native-context-window-capture.xml",
+    "evidence/issue-3820/native-context-window-green.txt",
+    "evidence/issue-3820/native-context-window-green.xml",
+    "evidence/issue-3820/native-context-window-native.txt",
+    "evidence/issue-3820/native-context-window-native.xml",
+    "evidence/issue-3820/native-context-window-original-red.txt",
+    "evidence/issue-3820/native-context-window-original-red.xml",
+    "evidence/issue-3820/native-context-window-parity.txt",
+    "evidence/issue-3820/native-context-window-regression.xml",
+    "evidence/issue-3820/native-context-window-ruff.txt"
+  ],
+  "preserved_prior_untracked_count": 22,
+  "all_other_baseline_files_byte_identical": true,
+  "allowlist_prior_history_retained": true
+}

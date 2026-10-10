@@ -67,12 +67,7 @@ on:
       workflows_app_private_key:
         required: false
 
-permissions:
-  contents: read
-  pull-requests: write
-  issues: write
-  actions: read
-  models: read  # Required for GitHub Models API access
+permissions: {}
 
 # Use PR number in concurrency group to avoid cancelling runs for different PRs.
 # pull_request_target uses base branch for github.ref, so without PR number
@@ -91,6 +86,12 @@ concurrency:
 jobs:
   verifier:
     name: Run post-merge verifier
+    permissions:
+      contents: read
+      pull-requests: write
+      issues: read
+      actions: read
+      models: read
     runs-on: ubuntu-latest
     env:
       VERIFIER_CAPACITY_REPORT_PATH: verifier-capacity-checks.jsonl
@@ -130,20 +131,25 @@ jobs:
               ;;
             *) echo 'Unsupported verifier evidence profile' >&2; exit 1 ;;
           esac
-      # Mint GitHub App token early to use for API calls (avoids rate limits)
+      # Optional contents-only token for the caller checkout (no persisted credentials).
       - name: Mint GitHub App token
         id: app_token
         uses: actions/create-github-app-token@v3
         continue-on-error: true
         with:
-          client-id: ${{ secrets.WORKFLOWS_APP_ID || '0' }}
-          private-key: ${{ secrets.WORKFLOWS_APP_PRIVATE_KEY || 'dummy' }}
+          client-id: ${{ secrets.workflows_app_id || '0' }}
+          private-key: ${{ secrets.workflows_app_private_key || 'dummy' }}
           owner: ${{ github.repository_owner }}
+          repositories: ${{ github.event.repository.name }}
+          permission-contents: read
 
+      # github.sha is the trusted base SHA for pull_request_target, never the PR head.
       - name: Checkout caller repository
         uses: actions/checkout@v7
         with:
           token: ${{ steps.app_token.outputs.token || github.token }}
+          ref: ${{ github.sha }}
+          persist-credentials: false
           fetch-depth: 0
 
       - name: Setup API client
@@ -161,7 +167,8 @@ jobs:
       - name: Checkout Workflows scripts
         uses: actions/checkout@v7
         with:
-          token: ${{ steps.app_token.outputs.token || github.token }}
+          token: ${{ github.token }}
+          persist-credentials: false
           repository: stranske/Workflows
           ref: ${{ steps.workflows_ref.outputs.ref }}
           sparse-checkout: |
@@ -443,7 +450,11 @@ jobs:
               'chain_depth': int(os.environ['VERIFIER_CHAIN_DEPTH'] or 0),
               'ci_workflows': ci_workflows,
               'evidence_profile': os.environ['VERIFIER_EVIDENCE_PROFILE'],
-              'evidence_contract': 'bounded-native-capacity-v2',
+              'evidence_contract': (
+                  'bounded-native-capacity-v6'
+                  if os.environ['VERIFIER_EVIDENCE_PROFILE'] == 'expanded'
+                  else 'bounded-native-capacity-v2'
+              ),
               'input_limits': {
                   'comment_records': int(os.environ.get('VERIFIER_EVIDENCE_COMMENT_LIMIT', '50')),
                   'comment_chars': int(os.environ.get('VERIFIER_EVIDENCE_COMMENT_CHARS', '40000')),
@@ -1244,13 +1255,33 @@ jobs:
           except Exception:
             data = {}
 
-          results = data.get('results', [])
-          usable = [r for r in results if r.get('used_llm') and r.get('verdict')]
-          verdicts = [r.get('verdict') for r in (usable if usable else results) if r.get('verdict')]
-          if verdicts and all(v == 'PASS' for v in verdicts):
-            print('PASS')
+          import os
+
+          if os.environ.get('VERIFIER_EVIDENCE_PROFILE') == 'expanded':
+            import sys
+
+            # stdin puts caller cwd before PYTHONPATH. Require and prioritize
+            # the authoritative checkout, including before consumer sync lands.
+            source_root = os.path.abspath('.workflows-lib')
+            if not os.path.isfile(os.path.join(source_root, 'scripts/langchain/pr_verifier.py')):
+              raise ImportError('Authoritative Workflows verifier checkout unavailable')
+            sys.path.insert(0, source_root)
+            from scripts.langchain.pr_verifier import expanded_comparison_verdict
+
+            print(expanded_comparison_verdict(
+              data,
+              model1=os.environ.get('VERIFIER_MODEL') or None,
+              model2=os.environ.get('VERIFIER_MODEL2') or None,
+            ))
           else:
-            print('CONCERNS')
+            # Standard retains its existing aggregation contract.
+            results = data.get('results', [])
+            usable = [r for r in results if r.get('used_llm') and r.get('verdict')]
+            verdicts = [r.get('verdict') for r in (usable if usable else results) if r.get('verdict')]
+            if verdicts and all(v == 'PASS' for v in verdicts):
+              print('PASS')
+            else:
+              print('CONCERNS')
           PY
 
             verdict="$(cat verdict.txt 2>/dev/null || echo CONCERNS)"

@@ -9,7 +9,9 @@ from __future__ import annotations
 import json
 import logging
 import os
+import re
 from dataclasses import dataclass
+from datetime import date
 from pathlib import Path
 
 logger = logging.getLogger(__name__)
@@ -56,6 +58,155 @@ class SlotDefinition:
     name: str
     provider: str
     model: str
+
+
+@dataclass(frozen=True, slots=True)
+class NativeCapacityFacts:
+    """Reviewed exact-model facts; transport implementations remain code-owned."""
+
+    provider: str
+    model: str
+    transport: str
+    api_root: str
+    count_endpoint: str
+    max_input_tokens: int | None
+    max_context_tokens: int
+    max_output_tokens: int
+    provenance: str
+
+
+def native_capacity_facts_for(provider: str, model: str) -> NativeCapacityFacts:
+    """Strict expanded-only lookup, separate from legacy selection/filtering.
+
+    No aliases, inferred model families, SDK imports or arbitrary endpoints come
+    from configuration. Optional facts do not select or promote a model. Invalid
+    JSON, duplicate keys/identities or incomplete selected facts deny execution.
+    """
+    if type(provider) is not str or type(model) is not str:
+        raise ValueError("invalid exact native capacity identity")
+
+    def unique_object(pairs: list[tuple[str, object]]) -> dict[str, object]:
+        result = {}
+        for key, value in pairs:
+            if key in result:
+                raise ValueError("duplicate native capacity registry JSON key")
+            result[key] = value
+        return result
+
+    def reject_constant(value: str) -> object:
+        raise ValueError("non-finite native capacity registry JSON number")
+
+    path = _registry_path()
+    try:
+        payload = json.loads(
+            path.read_text(encoding="utf-8"),
+            object_pairs_hook=unique_object,
+            parse_constant=reject_constant,
+        )
+    except (AttributeError, OSError, UnicodeError, ValueError) as exc:
+        raise ValueError("native capacity registry unreadable or malformed") from exc
+    if not isinstance(payload, dict) or payload.get("schema_version") != "2.0.0":
+        raise ValueError("unsupported native capacity registry schema")
+    models = payload.get("models")
+    if not isinstance(models, list):
+        raise ValueError("native capacity registry models must be a list")
+    seen = set()
+    selected = None
+    for row in models:
+        if not isinstance(row, dict):
+            raise ValueError("malformed native capacity registry model entry")
+        key = (row.get("provider"), row.get("model_id"))
+        if any(type(value) is not str or not value or value != value.strip() for value in key):
+            raise ValueError("malformed exact registry model identity")
+        if key[0] not in {PROVIDER_OPENAI, PROVIDER_ANTHROPIC, PROVIDER_GITHUB}:
+            raise ValueError("noncanonical native capacity registry provider")
+        if key in seen:
+            raise ValueError("duplicate exact registry model identity")
+        seen.add(key)
+        if key == (provider, model):
+            selected = row
+    if selected is None or selected.get("blocked", False) is not False:
+        raise ValueError("unregistered or blocked exact native capacity model")
+    facts = selected.get("native_capacity")
+    if not isinstance(facts, dict):
+        raise ValueError("exact-model native capacity facts unavailable")
+    # This finite allowlist binds data to implemented SDK protocols. Config
+    # cannot choose a Python type, URL, counter method or input-count policy.
+    protocols = {
+        "openai": (
+            "openai-responses",
+            "https://api.openai.com/v1",
+            "https://api.openai.com/v1/responses/input_tokens",
+            "documented",
+        ),
+        "anthropic": (
+            "anthropic-messages",
+            "https://api.anthropic.com",
+            "https://api.anthropic.com/v1/messages/count_tokens",
+            "models-api",
+        ),
+    }
+    protocol = protocols.get(provider)
+    if (
+        protocol is None
+        or tuple(
+            facts.get(name)
+            for name in ("transport", "api_root", "count_endpoint", "input_limit_source")
+        )
+        != protocol
+    ):
+        raise ValueError("unsupported native capacity provider/transport metadata")
+    required = {
+        "transport",
+        "api_root",
+        "count_endpoint",
+        "input_limit_source",
+        "max_context_tokens",
+        "max_output_tokens",
+        "provenance",
+        "as_of",
+        "source_urls",
+    }
+    if provider == "openai":
+        required.add("max_input_tokens")
+    if set(facts) != required:
+        raise ValueError("missing or unknown native capacity facts")
+    limits = ["max_context_tokens", "max_output_tokens"]
+    if provider == "openai":
+        limits.append("max_input_tokens")
+    if any(type(facts[name]) is not int or facts[name] <= 0 for name in limits):
+        raise ValueError("native capacity limits must be positive integers")
+    if not re.fullmatch(r"[a-z0-9][a-z0-9.-]*", model):
+        raise ValueError("invalid exact native capacity model identifier")
+    as_of = facts["as_of"]
+    try:
+        if type(as_of) is not str or date.fromisoformat(as_of).isoformat() != as_of:
+            raise ValueError("invalid date")
+    except (TypeError, ValueError) as exc:
+        raise ValueError("native capacity provenance date invalid") from exc
+    if provider == "openai":
+        sources = [f"https://developers.openai.com/api/docs/models/{model}"]
+        provenance = f"openai-exact-model-docs:{as_of}"
+    else:
+        slug = model.removeprefix("claude-")
+        sources = [
+            f"https://platform.claude.com/docs/en/models/{slug}/overview",
+            "https://platform.claude.com/docs/en/api/http/models",
+        ]
+        provenance = f"anthropic-exact-model-api+{slug}-docs:{as_of}"
+    if facts["source_urls"] != sources or facts["provenance"] != provenance:
+        raise ValueError("native capacity official exact-model provenance mismatch")
+    return NativeCapacityFacts(
+        provider=provider,
+        model=model,
+        transport=protocol[0],
+        api_root=protocol[1],
+        count_endpoint=protocol[2],
+        max_input_tokens=facts.get("max_input_tokens"),
+        max_context_tokens=facts["max_context_tokens"],
+        max_output_tokens=facts["max_output_tokens"],
+        provenance=provenance,
+    )
 
 
 def normalize_provider(value: str | None) -> str | None:

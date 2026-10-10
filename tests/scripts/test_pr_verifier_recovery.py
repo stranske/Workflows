@@ -45,6 +45,17 @@ def configured_native_client(request, monkeypatch):
     assert "messages" in payload
     if provider == "openai":
         assert "input" not in payload  # Incumbent Terra uses Chat Completions.
+        monkeypatch.setattr(
+            client.root_client.responses.input_tokens,
+            "count",
+            mock.Mock(side_effect=RuntimeError("native transport unavailable")),
+        )
+    else:
+        monkeypatch.setattr(
+            client._client.models,
+            "retrieve",
+            mock.Mock(side_effect=RuntimeError("native transport unavailable")),
+        )
     # Control capacity facts explicitly: SDK releases may bundle model profiles.
     # These limits exercise the guard; they are not claims about model capacity.
     monkeypatch.setattr(
@@ -73,7 +84,7 @@ def test_configured_native_client_compatibility(
     configured_native_client, profile, operation, monkeypatch, tmp_path
 ):
     client, provider, model = configured_native_client
-    # Missing facts fail closed; a populated profile still needs a native counter.
+    # Neither absent nor populated SDK facts authorize unavailable native transport.
     if profile is None:
         monkeypatch.delenv("VERIFIER_EVIDENCE_PROFILE", raising=False)
     else:
@@ -97,11 +108,7 @@ def test_configured_native_client_compatibility(
         invoke.assert_not_called()
         record = json.loads(report.read_text())
         assert record["status"] == "unavailable"
-        if client.profile is None:
-            assert "model-specific capacity profile unavailable" in record["reason"]
-        else:
-            assert record["model"] == model
-            assert "native input capacity counter unavailable" in record["reason"]
+        assert "native transport unavailable" in record["reason"]
     else:
         invoke.assert_called_once()
         assert result.used_llm
@@ -188,6 +195,7 @@ def test_authenticated_capture_replay(monkeypatch):
 def capacity_client(input_tokens=100, window=120, output=20):
     counter = mock.Mock(return_value=SimpleNamespace(input_tokens=input_tokens))
     client = SimpleNamespace(
+        _unit_capacity_fake=True,
         profile={"max_input_tokens": window, "max_output_tokens": output},
         max_tokens=output,
         root_client=SimpleNamespace(

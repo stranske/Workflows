@@ -1,0 +1,374 @@
+{
+  "head": "fbb4e424d29f3f51058b247e2be390093dca299d",
+  "commands": [
+    {
+      "command": [
+        "uv",
+        "run",
+        "--offline",
+        "--isolated",
+        "--no-project",
+        "--python",
+        "/opt/anaconda3/bin/python3",
+        "--with-requirements",
+        "requirements.lock",
+        "python",
+        "-m",
+        "pytest",
+        "tests/workflows/test_verifier_expanded_comparison.py",
+        "tests/workflows/test_verifier_evidence_profile.py",
+        "tests/workflows/test_verifier_terminal_disposition.py",
+        "tests/scripts/test_native_capacity_recovery.py",
+        "tests/scripts/test_pr_verifier_recovery.py",
+        "tests/scripts/test_pr_verifier_compare.py",
+        "tests/scripts/test_pr_verifier_structured_output.py",
+        "tests/scripts/test_pr_verifier_sync_manifest.py",
+        "tests/scripts/test_template_drift_allowlist.py",
+        "tests/test_workflow_guide_verifier_sections.py",
+        "-q",
+        "-o",
+        "addopts=",
+        "--junitxml=evidence/issue-3820/native-capacity-registry-final-regression.xml"
+      ],
+      "exit_code": 0,
+      "summary": {
+        "name": "pytest",
+        "errors": "0",
+        "failures": "0",
+        "skipped": "19",
+        "tests": "571",
+        "time": "52.209",
+        "timestamp": "2026-10-10T12:39:30.300386-05:00",
+        "hostname": "server.trs.private"
+      },
+      "all_arms_cases": 70,
+      "registry_cases": 0,
+      "skips": [
+        {
+          "name": "test_anthropic_metadata_unavailable_or_invalid_blocks[openai-id-claude-sonnet-5-5-alias]",
+          "reason": "Anthropic Models API contract"
+        },
+        {
+          "name": "test_anthropic_metadata_unavailable_or_invalid_blocks[openai-max_input_tokens-None]",
+          "reason": "Anthropic Models API contract"
+        },
+        {
+          "name": "test_anthropic_metadata_unavailable_or_invalid_blocks[openai-max_input_tokens-True]",
+          "reason": "Anthropic Models API contract"
+        },
+        {
+          "name": "test_anthropic_metadata_unavailable_or_invalid_blocks[openai-max_input_tokens-0]",
+          "reason": "Anthropic Models API contract"
+        },
+        {
+          "name": "test_anthropic_metadata_unavailable_or_invalid_blocks[openai-max_tokens-128000]",
+          "reason": "Anthropic Models API contract"
+        },
+        {
+          "name": "test_anthropic_metadata_unavailable_or_invalid_blocks[openai-max_tokens-127999]",
+          "reason": "Anthropic Models API contract"
+        },
+        {
+          "name": "test_native_capacity_operations_matrix[openai-metadata-smaller-input-boundary-evaluate]",
+          "reason": "Anthropic Models API contract"
+        },
+        {
+          "name": "test_native_capacity_operations_matrix[openai-metadata-smaller-input-boundary-compare]",
+          "reason": "Anthropic Models API contract"
+        },
+        {
+          "name": "test_native_capacity_operations_matrix[openai-metadata-smaller-input-boundary-repair]",
+          "reason": "Anthropic Models API contract"
+        },
+        {
+          "name": "test_native_capacity_operations_matrix[openai-metadata-smaller-input-overflow-evaluate]",
+          "reason": "Anthropic Models API contract"
+        },
+        {
+          "name": "test_native_capacity_operations_matrix[openai-metadata-smaller-input-overflow-compare]",
+          "reason": "Anthropic Models API contract"
+        },
+        {
+          "name": "test_native_capacity_operations_matrix[openai-metadata-smaller-input-overflow-repair]",
+          "reason": "Anthropic Models API contract"
+        },
+        {
+          "name": "test_native_capacity_operations_matrix[openai-metadata-larger-input-context-boundary-evaluate]",
+          "reason": "Anthropic Models API contract"
+        },
+        {
+          "name": "test_native_capacity_operations_matrix[openai-metadata-larger-input-context-boundary-compare]",
+          "reason": "Anthropic Models API contract"
+        },
+        {
+          "name": "test_native_capacity_operations_matrix[openai-metadata-larger-input-context-boundary-repair]",
+          "reason": "Anthropic Models API contract"
+        },
+        {
+          "name": "test_native_capacity_operations_matrix[openai-metadata-larger-input-context-overflow-evaluate]",
+          "reason": "Anthropic Models API contract"
+        },
+        {
+          "name": "test_native_capacity_operations_matrix[openai-metadata-larger-input-context-overflow-compare]",
+          "reason": "Anthropic Models API contract"
+        },
+        {
+          "name": "test_native_capacity_operations_matrix[openai-metadata-larger-input-context-overflow-repair]",
+          "reason": "Anthropic Models API contract"
+        },
+        {
+          "name": "test_authenticated_capture_replay",
+          "reason": "immutable authenticated capture is owner-local; set VERIFIER_RECOVERY_CAPTURE_DIR"
+        }
+      ]
+    },
+    {
+      "command": [
+        "uv",
+        "run",
+        "--offline",
+        "--isolated",
+        "--no-project",
+        "--python",
+        "/opt/anaconda3/bin/python3",
+        "--with-requirements",
+        "requirements.lock",
+        "python",
+        "-m",
+        "pytest",
+        "tests/scripts/test_native_capacity_registry.py",
+        "tests/tools/test_llm_registry_selection.py",
+        "tests/test_llm_registry_malformed_input.py",
+        "tests/test_check_model_registry_freshness.py",
+        "tests/scripts/test_validate_template_sync.py",
+        "tests/scripts/test_sync_manifest_compiler.py",
+        "tests/workflows/test_workflow_llm_installs.py",
+        "-q",
+        "-o",
+        "addopts=",
+        "--junitxml=evidence/issue-3820/native-capacity-registry-final-config.xml"
+      ],
+      "exit_code": 0,
+      "summary": {
+        "name": "pytest",
+        "errors": "0",
+        "failures": "0",
+        "skipped": "2",
+        "tests": "360",
+        "time": "7.108",
+        "timestamp": "2026-10-10T12:39:30.298170-05:00",
+        "hostname": "server.trs.private"
+      },
+      "all_arms_cases": 0,
+      "registry_cases": 178,
+      "skips": [
+        {
+          "name": "test_agents_auto_pilot_pip_cache_is_configured",
+          "reason": "needs-human: workflow updates require agent-high-privilege"
+        },
+        {
+          "name": "test_reusable_agents_verifier_pip_cache_is_configured",
+          "reason": "needs-human: workflow updates require agent-high-privilege"
+        }
+      ]
+    },
+    {
+      "command": [
+        "uv",
+        "run",
+        "--offline",
+        "--isolated",
+        "--no-project",
+        "--python",
+        "/opt/anaconda3/bin/python3",
+        "--with-requirements",
+        "requirements.lock",
+        "python",
+        "-m",
+        "pytest",
+        "tests/scripts/test_template_drift_allowlist.py",
+        "-q",
+        "-o",
+        "addopts=",
+        "--junitxml=evidence/issue-3820/native-capacity-registry-allowlist.xml"
+      ],
+      "exit_code": 0,
+      "summary": {
+        "name": "pytest",
+        "errors": "0",
+        "failures": "0",
+        "skipped": "0",
+        "tests": "6",
+        "time": "0.066",
+        "timestamp": "2026-10-10T12:40:43.362409-05:00",
+        "hostname": "server.trs.private"
+      },
+      "all_arms_cases": 0,
+      "registry_cases": 0,
+      "skips": []
+    },
+    {
+      "command": [
+        "uv",
+        "run",
+        "--offline",
+        "--isolated",
+        "--no-project",
+        "--python",
+        "/opt/anaconda3/bin/python3",
+        "--with-requirements",
+        "requirements.lock",
+        "python",
+        "-m",
+        "ruff",
+        "check",
+        "tools/llm_registry.py",
+        "templates/consumer-repo/tools/llm_registry.py",
+        "scripts/langchain/pr_verifier.py",
+        "templates/consumer-repo/scripts/langchain/pr_verifier.py",
+        "tests/scripts/test_native_capacity_registry.py",
+        "tests/workflows/test_verifier_evidence_profile.py"
+      ],
+      "exit_code": 0,
+      "log": "evidence/issue-3820/native-capacity-registry-final-ruff.txt"
+    },
+    {
+      "command": [
+        "uv",
+        "run",
+        "--offline",
+        "--isolated",
+        "--no-project",
+        "--python",
+        "/opt/anaconda3/bin/python3",
+        "--with-requirements",
+        "requirements.lock",
+        "python",
+        "-m",
+        "black",
+        "--check",
+        "--target-version",
+        "py312",
+        "tools/llm_registry.py",
+        "templates/consumer-repo/tools/llm_registry.py",
+        "scripts/langchain/pr_verifier.py",
+        "templates/consumer-repo/scripts/langchain/pr_verifier.py",
+        "tests/scripts/test_native_capacity_registry.py",
+        "tests/workflows/test_verifier_evidence_profile.py"
+      ],
+      "exit_code": 0,
+      "log": "evidence/issue-3820/native-capacity-registry-black-final.txt"
+    },
+    {
+      "command": [
+        "uv",
+        "run",
+        "--offline",
+        "--isolated",
+        "--no-project",
+        "--python",
+        "/opt/anaconda3/bin/python3",
+        "--with-requirements",
+        "requirements.lock",
+        "python",
+        "scripts/validate_template_sync.py"
+      ],
+      "exit_code": 0,
+      "log": "evidence/issue-3820/native-capacity-registry-template-sync-final.txt"
+    },
+    {
+      "command": [
+        "uv",
+        "run",
+        "--offline",
+        "--isolated",
+        "--no-project",
+        "--python",
+        "/opt/anaconda3/bin/python3",
+        "--with-requirements",
+        "requirements.lock",
+        "python",
+        "scripts/check_template_drift.py",
+        "--allowlist",
+        "config/template-drift-allowlist.txt"
+      ],
+      "exit_code": 0,
+      "log": "evidence/issue-3820/native-capacity-registry-template-drift-final.txt"
+    },
+    {
+      "command": [
+        "actionlint",
+        "-shellcheck=",
+        "-pyflakes=",
+        ".github/workflows/reusable-agents-verifier.yml",
+        "templates/consumer-repo/.github/workflows/agents-verifier.yml"
+      ],
+      "exit_code": 0,
+      "log": "evidence/issue-3820/native-capacity-registry-actionlint.txt"
+    },
+    {
+      "command": [
+        "git",
+        "diff",
+        "--check"
+      ],
+      "exit_code": 0
+    }
+  ],
+  "production_hashes": {
+    ".github/sync-manifest.yml": "fa795817903c811054fdfc79c7b6f143e775a464fec6aaf6b6078f568cbe71cf",
+    "templates/consumer-repo/config/model_registry.json": "6f5dc7c505dde55565458f24d6f34b8a7dcda453e88dcddb75b732515f91e09d",
+    "config/model_registry.json": "6f5dc7c505dde55565458f24d6f34b8a7dcda453e88dcddb75b732515f91e09d",
+    "tests/workflows/test_verifier_evidence_profile.py": "65df02a2b529e2750400b637628591c3c96dbde4c68c8e9caad576f7f5a834a6",
+    "templates/consumer-repo/tools/llm_registry.py": "f6082dfa4269950828baf30a59301a559226899fc5a5d5e818be549921991a90",
+    "docs/WORKFLOW_GUIDE.md": "1c19a149681a7ef39b385414eba1a637f5fc70755f1bc5bff6cacf6a9d2b617c",
+    ".github/workflows/reusable-agents-verifier.yml": "89072bc208592c07f0d75b1dcd3cb80f057b1e14bc6ccc079d325e5e25f5a66d",
+    "docs/MODEL_SELECTION_POLICY.md": "b80c99d42f0cc8c7c215c4096a03c6a175148abdd8320329f8a6939c0555b828",
+    "scripts/langchain/pr_verifier.py": "892d992e8fe614a05373219eb5aaa9173e5ba8b92105774b62f070e2979264e5",
+    "templates/consumer-repo/.github/workflows/agents-verifier.yml": "74b2e312d363e612b786d3f43c62b4d4d9cd67ce04432e31345c64255fe2aada",
+    "docs/ops/CONSUMER_REPO_MAINTENANCE.md": "25d1d29e7a2d2f84e87e4a743160f830e9231fa6a9eb487e7598573cb2df47b6",
+    "templates/consumer-repo/scripts/langchain/pr_verifier.py": "892d992e8fe614a05373219eb5aaa9173e5ba8b92105774b62f070e2979264e5",
+    "tools/llm_registry.py": "f6082dfa4269950828baf30a59301a559226899fc5a5d5e818be549921991a90",
+    "config/template-drift-allowlist.txt": "4f7916f9809df7951ab24fbecb313558c8f2b85bdec34642722d275abe6ae5c2"
+  },
+  "new_test_sha256": "dd2b6d1fc8b4dcdec60540275474fb17ac9c3cb75d380890ead7114e90a767cc",
+  "artifacts": {
+    "evidence/issue-3820/native-capacity-registry-ruff.txt": "19424841fd6bcb78f971d51e20c7113de00e8d12a3b0fe05f5a630ef3ba42667",
+    "evidence/issue-3820/native-capacity-registry-original-red.txt": "fc2e6fcb4babd7c085e0fdd38022ac5fcd4e85fac9a1441bd16fbcc39c4e7a75",
+    "evidence/issue-3820/native-capacity-registry-final-mutation-red.xml": "1f5304e5dd751716e0760b84050a03dbb880de8bbd5353a571cb19ffe7938683",
+    "evidence/issue-3820/native-capacity-registry-initial-green.txt": "067c5d16b6f803e3a75e0037cc1b8bcde9a97d82c6456f2ab606639468aea26a",
+    "evidence/issue-3820/native-capacity-registry-allowlist.txt": "e3184752be711e1a9894f4e87ac586c9888a5cebd407de809432fd27354b8bcc",
+    "evidence/issue-3820/native-capacity-registry-preservation.json": "379c2e13edbb4d2baca9e19a00545336373b832df28516003e6a88d8dabcb395",
+    "evidence/issue-3820/native-capacity-registry-final-proof.json": "40696639593da803e2f46f1021d08efd56b9422525e27ffc1beb67706c36f6b9",
+    "evidence/issue-3820/native-capacity-registry-config.txt": "a90ce0facefa656e3197f6e529ce26071b3238934a59d00c68abc08381183b88",
+    "evidence/issue-3820/native-capacity-registry-final-restored-green.txt": "4efb36a3e584a893c085c2bbd8c9a38c9c3582987bb7e35a7684a89a1cc872c0",
+    "evidence/issue-3820/native-capacity-registry-original-red.xml": "aeccf1e51014293f540323009de6ef6fe29f7a98ccd732e7031ec3e209d9ffe5",
+    "evidence/issue-3820/native-capacity-registry-black.txt": "7657c5ec367da2c8d4deead1b5f1f8eca9c1b89120ad13df7f855ca4005696b6",
+    "evidence/issue-3820/native-capacity-registry-allowlist.xml": "32d534f8f9a4afe8e360347f152057b76908e1405f137ed6b4117c2c5fbe1a2d",
+    "evidence/issue-3820/native-capacity-registry-template-sync-final.txt": "e00bc56a4eb4ab5ca9c721c61262b90d9d55e74187fec23e1144d500af0fcc6b",
+    "evidence/issue-3820/native-capacity-registry-actionlint.txt": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+    "evidence/issue-3820/native-capacity-registry-final-mutation-red.txt": "1ce746d18bf41bd73e474e4e57193390e62ab4e46dfe41a50c6786235071caba",
+    "evidence/issue-3820/native-capacity-registry-initial-green.xml": "2dd377dcb852889e22f18cfa3c96be2ae9683169b420b5ac24f1a149316a1eb6",
+    "evidence/issue-3820/native-capacity-registry-black-final.txt": "7657c5ec367da2c8d4deead1b5f1f8eca9c1b89120ad13df7f855ca4005696b6",
+    "evidence/issue-3820/native-capacity-registry-final-restored-green.xml": "51dd92c9e493f9c96065e9b4f7513bd5c1ed3484fe758a2b1a692428625f72ea",
+    "evidence/issue-3820/native-capacity-registry-config.xml": "ffd23d0c7f993282406d12829bae37f1454460f0a6d9e03930209904ffff2856",
+    "evidence/issue-3820/native-capacity-registry-ruff-verified.txt": "82b3e6a6c090a57601d22943bd23fca9218d1031dbe5a7b754092f9a156b4f18",
+    "evidence/issue-3820/native-capacity-registry-restored-green.xml": "a40bf306507a4ffa7c84d848a3e3eea8a3343154ab38119c11ada5afb63bae18",
+    "evidence/issue-3820/native-capacity-registry-final-regression.xml": "2e606adaafaba77e74dc703db83c9d0879386059feb8fa88aff2795794f19295",
+    "evidence/issue-3820/native-capacity-registry-mutation-red.xml": "a80057f794c67fcd0e3b3f94c6d4cf630a1df38b5a74e6bbb25c5abb4d976281",
+    "evidence/issue-3820/native-capacity-registry-regression.txt": "bf1d41f8daefbb94af3b5875e586543fd3dc6f3b410f63fd78930017d6519c23",
+    "evidence/issue-3820/native-capacity-registry-template-drift.txt": "c12b9a44fb63fdf8b7b283eadc7bd1a9896d7be499e5df09dbbff453b7672687",
+    "evidence/issue-3820/native-capacity-registry-focused.xml": "964043b531f915b3b3887b2d1fd6c5077a0a66bfbe5248c172df5f5e2f4cf886",
+    "evidence/issue-3820/native-capacity-registry-final-config.xml": "593fde6e83610b39dfa1d73bba35941a241f5060201e770cb96ac7436fcbfce3",
+    "evidence/issue-3820/native-capacity-registry-template-sync.txt": "e00bc56a4eb4ab5ca9c721c61262b90d9d55e74187fec23e1144d500af0fcc6b",
+    "evidence/issue-3820/native-capacity-registry-final-ruff.txt": "82b3e6a6c090a57601d22943bd23fca9218d1031dbe5a7b754092f9a156b4f18",
+    "evidence/issue-3820/native-capacity-registry-mutation-red.txt": "7c356f5007b745e3b2962892ba6afa7fb8ed6f357626db1884709a264e99d2c6",
+    "evidence/issue-3820/native-capacity-registry-final-regression.txt": "db2b8c7fd9780d21337a76951f6fd34f73a6c7a48128fb86e51d1696f1311f49",
+    "evidence/issue-3820/native-capacity-registry-restored-green.txt": "b146b29b7d73968601feca0d53936f7f5288698dd91bcce670eb655e0185ee50",
+    "evidence/issue-3820/native-capacity-registry-final-config.txt": "71870892fa3222a37a4ef8706adf64a1e7d69fe97a1f6a9696837db1a0f28c9b",
+    "evidence/issue-3820/native-capacity-registry-focused.txt": "fa354362af6722a980cdf4c306260f602e32b584ae0e4112cfd4457f9ade7765",
+    "evidence/issue-3820/native-capacity-registry-regression.xml": "a8ec9cf27336d493517275881247edea40e6e037b3e12ed93fd19c3d272aeb38",
+    "evidence/issue-3820/native-capacity-registry-template-drift-final.txt": "767d8e9aa6829a5bda9a448b38c7053ff94bec7515e871d855a4373407e52565",
+    "evidence/issue-3820/native-capacity-registry-proof.json": "71c8717c12097040f3c86ee325ca1a06c461ae1c74b62d292c4139385436bf6d"
+  }
+}

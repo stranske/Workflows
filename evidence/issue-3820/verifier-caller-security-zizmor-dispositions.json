@@ -1,0 +1,370 @@
+[
+  {
+    "ident": "dangerous-triggers",
+    "desc": "use of fundamentally insecure workflow trigger",
+    "url": "https://docs.zizmor.sh/audits/#dangerous-triggers",
+    "determinations": {
+      "confidence": "Medium",
+      "severity": "High",
+      "persona": "Regular"
+    },
+    "locations": [
+      {
+        "symbolic": {
+          "key": {
+            "Local": {
+              "verbatim_path": ".github/workflows/agents-verifier.yml"
+            }
+          },
+          "annotation": "pull_request_target is almost always used insecurely",
+          "route": {
+            "route": [
+              {
+                "Key": "on"
+              }
+            ]
+          },
+          "feature_kind": "Normal",
+          "kind": "Primary"
+        },
+        "concrete": {
+          "location": {
+            "start_point": {
+              "row": 21,
+              "column": 0
+            },
+            "end_point": {
+              "row": 71,
+              "column": 23
+            },
+            "offset_span": {
+              "start": 1148,
+              "end": 2706
+            }
+          },
+          "feature": "on:\n  # Post-merge fork verification needs base-repo secrets. Only trusted github.sha\n  # is executed; PR head/diff/artifacts are data. See the maintenance trust boundary.\n  pull_request_target: # zizmor: ignore[dangerous-triggers]\n    types:\n      - labeled\n  workflow_dispatch:\n    inputs:\n      pr_number:\n        description: 'PR number to verify (must be merged)'\n        required: true\n        type: string\n      mode:\n        description: 'Verification mode'\n        required: true\n        type: choice\n        options:\n          - evaluate\n          - checkbox\n          - compare\n        default: 'evaluate'\n      model:\n        description: >-\n          Model override for evaluation. Leave empty to use slot 1.\n          For stricter evaluation, use compare mode with different providers.\n        required: false\n        type: string\n        default: ''\n      model2:\n        description: >-\n          Second model for compare mode (cross-provider verification).\n          Leave empty to use slot 2.\n        required: false\n        type: string\n        default: ''\n      evidence_profile:\n        description: 'Bounded input limits; expanded retries documented input truncation only'\n        required: false\n        type: choice\n        options: [standard, expanded]\n        default: 'standard'\n      provider:\n        description: 'LLM provider override (auto uses slot order)'\n        required: true\n        type: choice\n        options:\n          - auto\n          - github-models\n          - openai\n          - anthropic\n        default: 'auto'",
+          "comments": [
+            "# Post-merge fork verification needs base-repo secrets. Only trusted github.sha",
+            "# is executed; PR head/diff/artifacts are data. See the maintenance trust boundary.",
+            "# zizmor: ignore[dangerous-triggers]"
+          ]
+        }
+      }
+    ],
+    "ignored": true,
+    "fixes": []
+  },
+  {
+    "ident": "self-repository",
+    "desc": "use GitHub's dedicated self-repository syntax",
+    "url": "https://docs.zizmor.sh/audits/#self-repository",
+    "determinations": {
+      "confidence": "High",
+      "severity": "Low",
+      "persona": "Regular"
+    },
+    "locations": [
+      {
+        "symbolic": {
+          "key": {
+            "Local": {
+              "verbatim_path": ".github/workflows/agents-verifier.yml"
+            }
+          },
+          "annotation": "this step",
+          "route": {
+            "route": [
+              {
+                "Key": "jobs"
+              },
+              {
+                "Key": "check"
+              },
+              {
+                "Key": "steps"
+              },
+              {
+                "Index": 1
+              },
+              {
+                "Key": "name"
+              }
+            ]
+          },
+          "feature_kind": "Normal",
+          "kind": "Related"
+        },
+        "concrete": {
+          "location": {
+            "start_point": {
+              "row": 111,
+              "column": 8
+            },
+            "end_point": {
+              "row": 111,
+              "column": 30
+            },
+            "offset_span": {
+              "start": 4153,
+              "end": 4175
+            }
+          },
+          "feature": "name: Setup API client",
+          "comments": []
+        }
+      },
+      {
+        "symbolic": {
+          "key": {
+            "Local": {
+              "verbatim_path": ".github/workflows/agents-verifier.yml"
+            }
+          },
+          "annotation": "use '$/...' instead of './...'",
+          "route": {
+            "route": [
+              {
+                "Key": "jobs"
+              },
+              {
+                "Key": "check"
+              },
+              {
+                "Key": "steps"
+              },
+              {
+                "Index": 1
+              },
+              {
+                "Key": "uses"
+              }
+            ]
+          },
+          "feature_kind": {
+            "Subfeature": {
+              "after": 0,
+              "fragment": {
+                "Raw": "./.github/actions/setup-api-client"
+              }
+            }
+          },
+          "kind": "Primary"
+        },
+        "concrete": {
+          "location": {
+            "start_point": {
+              "row": 112,
+              "column": 14
+            },
+            "end_point": {
+              "row": 112,
+              "column": 48
+            },
+            "offset_span": {
+              "start": 4190,
+              "end": 4224
+            }
+          },
+          "feature": "./.github/actions/setup-api-client",
+          "comments": []
+        }
+      }
+    ],
+    "ignored": false,
+    "fixes": [
+      {
+        "title": "rewrite './...' to '$/...'",
+        "key": {
+          "Local": {
+            "verbatim_path": ".github/workflows/agents-verifier.yml"
+          }
+        },
+        "disposition": "unsafe"
+      }
+    ]
+  },
+  {
+    "ident": "dangerous-triggers",
+    "desc": "use of fundamentally insecure workflow trigger",
+    "url": "https://docs.zizmor.sh/audits/#dangerous-triggers",
+    "determinations": {
+      "confidence": "Medium",
+      "severity": "High",
+      "persona": "Regular"
+    },
+    "locations": [
+      {
+        "symbolic": {
+          "key": {
+            "Local": {
+              "verbatim_path": "templates/consumer-repo/.github/workflows/agents-verifier.yml"
+            }
+          },
+          "annotation": "pull_request_target is almost always used insecurely",
+          "route": {
+            "route": [
+              {
+                "Key": "on"
+              }
+            ]
+          },
+          "feature_kind": "Normal",
+          "kind": "Primary"
+        },
+        "concrete": {
+          "location": {
+            "start_point": {
+              "row": 20,
+              "column": 0
+            },
+            "end_point": {
+              "row": 70,
+              "column": 23
+            },
+            "offset_span": {
+              "start": 1062,
+              "end": 2620
+            }
+          },
+          "feature": "on:\n  # Post-merge fork verification needs base-repo secrets. Only trusted github.sha\n  # is executed; PR head/diff/artifacts are data. See the maintenance trust boundary.\n  pull_request_target: # zizmor: ignore[dangerous-triggers]\n    types:\n      - labeled\n  workflow_dispatch:\n    inputs:\n      pr_number:\n        description: 'PR number to verify (must be merged)'\n        required: true\n        type: string\n      mode:\n        description: 'Verification mode'\n        required: true\n        type: choice\n        options:\n          - evaluate\n          - checkbox\n          - compare\n        default: 'evaluate'\n      model:\n        description: >-\n          Model override for evaluation. Leave empty to use slot 1.\n          For stricter evaluation, use compare mode with different providers.\n        required: false\n        type: string\n        default: ''\n      model2:\n        description: >-\n          Second model for compare mode (cross-provider verification).\n          Leave empty to use slot 2.\n        required: false\n        type: string\n        default: ''\n      evidence_profile:\n        description: 'Bounded input limits; expanded retries documented input truncation only'\n        required: false\n        type: choice\n        options: [standard, expanded]\n        default: 'standard'\n      provider:\n        description: 'LLM provider override (auto uses slot order)'\n        required: true\n        type: choice\n        options:\n          - auto\n          - github-models\n          - openai\n          - anthropic\n        default: 'auto'",
+          "comments": [
+            "# Post-merge fork verification needs base-repo secrets. Only trusted github.sha",
+            "# is executed; PR head/diff/artifacts are data. See the maintenance trust boundary.",
+            "# zizmor: ignore[dangerous-triggers]"
+          ]
+        }
+      }
+    ],
+    "ignored": true,
+    "fixes": []
+  },
+  {
+    "ident": "self-repository",
+    "desc": "use GitHub's dedicated self-repository syntax",
+    "url": "https://docs.zizmor.sh/audits/#self-repository",
+    "determinations": {
+      "confidence": "High",
+      "severity": "Low",
+      "persona": "Regular"
+    },
+    "locations": [
+      {
+        "symbolic": {
+          "key": {
+            "Local": {
+              "verbatim_path": "templates/consumer-repo/.github/workflows/agents-verifier.yml"
+            }
+          },
+          "annotation": "this step",
+          "route": {
+            "route": [
+              {
+                "Key": "jobs"
+              },
+              {
+                "Key": "check"
+              },
+              {
+                "Key": "steps"
+              },
+              {
+                "Index": 1
+              },
+              {
+                "Key": "name"
+              }
+            ]
+          },
+          "feature_kind": "Normal",
+          "kind": "Related"
+        },
+        "concrete": {
+          "location": {
+            "start_point": {
+              "row": 110,
+              "column": 8
+            },
+            "end_point": {
+              "row": 110,
+              "column": 30
+            },
+            "offset_span": {
+              "start": 4259,
+              "end": 4281
+            }
+          },
+          "feature": "name: Setup API client",
+          "comments": []
+        }
+      },
+      {
+        "symbolic": {
+          "key": {
+            "Local": {
+              "verbatim_path": "templates/consumer-repo/.github/workflows/agents-verifier.yml"
+            }
+          },
+          "annotation": "use '$/...' instead of './...'",
+          "route": {
+            "route": [
+              {
+                "Key": "jobs"
+              },
+              {
+                "Key": "check"
+              },
+              {
+                "Key": "steps"
+              },
+              {
+                "Index": 1
+              },
+              {
+                "Key": "uses"
+              }
+            ]
+          },
+          "feature_kind": {
+            "Subfeature": {
+              "after": 0,
+              "fragment": {
+                "Raw": "./.github/actions/setup-api-client"
+              }
+            }
+          },
+          "kind": "Primary"
+        },
+        "concrete": {
+          "location": {
+            "start_point": {
+              "row": 111,
+              "column": 14
+            },
+            "end_point": {
+              "row": 111,
+              "column": 48
+            },
+            "offset_span": {
+              "start": 4296,
+              "end": 4330
+            }
+          },
+          "feature": "./.github/actions/setup-api-client",
+          "comments": []
+        }
+      }
+    ],
+    "ignored": false,
+    "fixes": [
+      {
+        "title": "rewrite './...' to '$/...'",
+        "key": {
+          "Local": {
+            "verbatim_path": "templates/consumer-repo/.github/workflows/agents-verifier.yml"
+          }
+        },
+        "disposition": "unsafe"
+      }
+    ]
+  }
+]

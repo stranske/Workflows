@@ -1,0 +1,4 @@
+would reformat evidence/issue-3820/verifier-caller-security-red-green.py
+
+Oh no! 💥 💔 💥
+1 file would be reformatted, 1 file would be left unchanged.

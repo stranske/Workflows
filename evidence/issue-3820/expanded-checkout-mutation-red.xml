@@ -1,0 +1,98 @@
+<?xml version="1.0" encoding="utf-8"?><testsuites name="pytest tests"><testsuite name="pytest" errors="0" failures="5" skipped="0" tests="5" time="2.581" timestamp="2026-10-10T13:04:55.672922-05:00" hostname="server.trs.private"><testcase classname="tests.workflows.test_verifier_expanded_checkout" name="test_fresh_workflows_helper_precedes_stale_consumer[&quot;&quot;&quot;Old consumer lacks the helper.&quot;&quot;&quot;\n]" time="0.430"><failure message="AssertionError: {'verdict': 'CONCERNS', 'has_results': 'true', 'unified': 'CONCERNS'}&#10;assert 'CONCERNS' == 'PASS'&#10;  &#10;  - PASS&#10;  + CONCERNS">tmp_path = PosixPath('/private/var/folders/qm/w0dtc0j132gd6ymf1hxtd2p00000gp/T/pytest-of-teacher/pytest-140/test_fresh_workflows_helper_pr0')
+body = '"""Old consumer lacks the helper."""\n'
+
+    @pytest.mark.parametrize(
+        "body",
+        [
+            '"""Old consumer lacks the helper."""\n',
+            'def expanded_comparison_verdict(*args, **kwargs): return "CONCERNS"\n',
+            'raise AssertionError("Caller verifier must never execute")\n',
+        ],
+    )
+    def test_fresh_workflows_helper_precedes_stale_consumer(tmp_path, body):
+        old_consumer(tmp_path, body)
+        outputs = authored.run_workflow(tmp_path, {"results": authored._arms()})
+&gt;       assert outputs["verdict"] == outputs["unified"] == "PASS", outputs
+E       AssertionError: {'verdict': 'CONCERNS', 'has_results': 'true', 'unified': 'CONCERNS'}
+E       assert 'CONCERNS' == 'PASS'
+E         
+E         - PASS
+E         + CONCERNS
+
+tests/workflows/test_verifier_expanded_checkout.py:35: AssertionError</failure></testcase><testcase classname="tests.workflows.test_verifier_expanded_checkout" name="test_fresh_workflows_helper_precedes_stale_consumer[def expanded_comparison_verdict(*args, **kwargs): return &quot;CONCERNS&quot;\n]" time="0.435"><failure message="AssertionError: {'verdict': 'CONCERNS', 'has_results': 'true', 'unified': 'CONCERNS'}&#10;assert 'CONCERNS' == 'PASS'&#10;  &#10;  - PASS&#10;  + CONCERNS">tmp_path = PosixPath('/private/var/folders/qm/w0dtc0j132gd6ymf1hxtd2p00000gp/T/pytest-of-teacher/pytest-140/test_fresh_workflows_helper_pr1')
+body = 'def expanded_comparison_verdict(*args, **kwargs): return "CONCERNS"\n'
+
+    @pytest.mark.parametrize(
+        "body",
+        [
+            '"""Old consumer lacks the helper."""\n',
+            'def expanded_comparison_verdict(*args, **kwargs): return "CONCERNS"\n',
+            'raise AssertionError("Caller verifier must never execute")\n',
+        ],
+    )
+    def test_fresh_workflows_helper_precedes_stale_consumer(tmp_path, body):
+        old_consumer(tmp_path, body)
+        outputs = authored.run_workflow(tmp_path, {"results": authored._arms()})
+&gt;       assert outputs["verdict"] == outputs["unified"] == "PASS", outputs
+E       AssertionError: {'verdict': 'CONCERNS', 'has_results': 'true', 'unified': 'CONCERNS'}
+E       assert 'CONCERNS' == 'PASS'
+E         
+E         - PASS
+E         + CONCERNS
+
+tests/workflows/test_verifier_expanded_checkout.py:35: AssertionError</failure></testcase><testcase classname="tests.workflows.test_verifier_expanded_checkout" name="test_fresh_workflows_helper_precedes_stale_consumer[raise AssertionError(&quot;Caller verifier must never execute&quot;)\n]" time="0.578"><failure message="AssertionError: {'verdict': 'CONCERNS', 'has_results': 'true', 'unified': 'CONCERNS'}&#10;assert 'CONCERNS' == 'PASS'&#10;  &#10;  - PASS&#10;  + CONCERNS">tmp_path = PosixPath('/private/var/folders/qm/w0dtc0j132gd6ymf1hxtd2p00000gp/T/pytest-of-teacher/pytest-140/test_fresh_workflows_helper_pr2')
+body = 'raise AssertionError("Caller verifier must never execute")\n'
+
+    @pytest.mark.parametrize(
+        "body",
+        [
+            '"""Old consumer lacks the helper."""\n',
+            'def expanded_comparison_verdict(*args, **kwargs): return "CONCERNS"\n',
+            'raise AssertionError("Caller verifier must never execute")\n',
+        ],
+    )
+    def test_fresh_workflows_helper_precedes_stale_consumer(tmp_path, body):
+        old_consumer(tmp_path, body)
+        outputs = authored.run_workflow(tmp_path, {"results": authored._arms()})
+&gt;       assert outputs["verdict"] == outputs["unified"] == "PASS", outputs
+E       AssertionError: {'verdict': 'CONCERNS', 'has_results': 'true', 'unified': 'CONCERNS'}
+E       assert 'CONCERNS' == 'PASS'
+E         
+E         - PASS
+E         + CONCERNS
+
+tests/workflows/test_verifier_expanded_checkout.py:35: AssertionError</failure></testcase><testcase classname="tests.workflows.test_verifier_expanded_checkout" name="test_stale_consumer_cannot_override_nonpass_arm" time="0.620"><failure message="AssertionError: {'verdict': 'PASS', 'has_results': 'true', 'unified': 'PASS'}&#10;assert 'PASS' == 'CONCERNS'&#10;  &#10;  - CONCERNS&#10;  + PASS">tmp_path = PosixPath('/private/var/folders/qm/w0dtc0j132gd6ymf1hxtd2p00000gp/T/pytest-of-teacher/pytest-140/test_stale_consumer_cannot_ove0')
+
+    def test_stale_consumer_cannot_override_nonpass_arm(tmp_path):
+        old_consumer(
+            tmp_path, 'def expanded_comparison_verdict(*args, **kwargs): return "PASS"\n'
+        )
+        arms = authored._arms()
+        arms[0].update(used_llm=False, verdict="CONCERNS")
+        outputs = authored.run_workflow(tmp_path, {"results": arms})
+&gt;       assert outputs["verdict"] == outputs["unified"] == "CONCERNS", outputs
+E       AssertionError: {'verdict': 'PASS', 'has_results': 'true', 'unified': 'PASS'}
+E       assert 'PASS' == 'CONCERNS'
+E         
+E         - CONCERNS
+E         + PASS
+
+tests/workflows/test_verifier_expanded_checkout.py:45: AssertionError</failure></testcase><testcase classname="tests.workflows.test_verifier_expanded_checkout" name="test_missing_authoritative_checkout_never_falls_back_to_caller" time="0.429"><failure message="AssertionError: {'verdict': 'PASS', 'has_results': 'true', 'unified': 'PASS'}&#10;assert 'PASS' == 'CONCERNS'&#10;  &#10;  - CONCERNS&#10;  + PASS">tmp_path = PosixPath('/private/var/folders/qm/w0dtc0j132gd6ymf1hxtd2p00000gp/T/pytest-of-teacher/pytest-140/test_missing_authoritative_che0')
+monkeypatch = &lt;_pytest.monkeypatch.MonkeyPatch object at 0x106f27b90&gt;
+
+    def test_missing_authoritative_checkout_never_falls_back_to_caller(tmp_path, monkeypatch):
+        old_consumer(
+            tmp_path, 'def expanded_comparison_verdict(*args, **kwargs): return "PASS"\n'
+        )
+        empty_source = tmp_path / "empty-source"
+        empty_source.mkdir()
+        monkeypatch.setattr(authored, "ROOT", empty_source)
+        outputs = authored.run_workflow(tmp_path, {"results": authored._arms()})
+&gt;       assert outputs["verdict"] == outputs["unified"] == "CONCERNS", outputs
+E       AssertionError: {'verdict': 'PASS', 'has_results': 'true', 'unified': 'PASS'}
+E       assert 'PASS' == 'CONCERNS'
+E         
+E         - CONCERNS
+E         + PASS
+
+tests/workflows/test_verifier_expanded_checkout.py:56: AssertionError</failure></testcase></testsuite></testsuites>

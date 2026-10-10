@@ -3,6 +3,7 @@
 import os
 import re
 import subprocess
+import sys
 from pathlib import Path
 
 import pytest
@@ -115,7 +116,34 @@ def test_profile_is_propagated_and_fingerprinted():
         assert "evidence_profile: ${{ inputs.evidence_profile || 'standard' }}" in text
     template = Path("templates/consumer-repo/.github/workflows/agents-verifier.yml").read_text()
     assert '"evidence_profile": os.environ.get("VERIFY_EVIDENCE_PROFILE", "standard")' in template
-    assert '"evidence_contract": "bounded-native-capacity-v2"' in template
+
+
+@pytest.mark.parametrize("profile", [None, "standard", "expanded"])
+@pytest.mark.parametrize("consumer", [False, True])
+def test_only_expanded_contract_fingerprint_changes(profile, consumer):
+    path = (
+        "templates/consumer-repo/.github/workflows/agents-verifier.yml"
+        if consumer
+        else ".github/workflows/reusable-agents-verifier.yml"
+    )
+    text = Path(path).read_text()
+    expression = re.search(r"['\"]evidence_contract['\"]:\s*(\(.*?\)),", text, re.S)[1]
+    env = {**os.environ}
+    name = "VERIFY_EVIDENCE_PROFILE" if consumer else "VERIFIER_EVIDENCE_PROFILE"
+    env.pop(name, None)
+    # The reusable worker's job env always resolves an absent input to standard.
+    if profile is not None or not consumer:
+        env[name] = profile or "standard"
+    result = subprocess.run(
+        [sys.executable, "-c", f"import os\nprint({expression})"],
+        env=env,
+        capture_output=True,
+        text=True,
+        check=True,
+    )
+    assert result.stdout.strip() == (
+        "bounded-native-capacity-v6" if profile == "expanded" else "bounded-native-capacity-v2"
+    )
 
 
 def test_input_snapshot_retains_profile_and_every_actual_limit():
@@ -323,3 +351,22 @@ def test_capacity_docs_do_not_assume_absent_sdk_profiles():
     contract = Path("docs/ops/CONSUMER_REPO_MAINTENANCE.md").read_text()
     assert "SDK-bundled profiles vary by installed version" in contract
     assert "selected Terra/Sonnet models currently have no capacity facts" not in contract
+
+
+def test_capacity_docs_keep_input_and_context_bounds_independent():
+    contract = Path("docs/ops/CONSUMER_REPO_MAINTENANCE.md").read_text()
+    assert "exceeds the input bound. This is conservative" not in contract
+    assert "input <= input limit, input + actual output <= context limit" in contract
+
+
+def test_workflow_inventory_names_current_expanded_fingerprint():
+    inventory = Path("docs/ci/WORKFLOWS.md").read_text()
+    workflow = Path(".github/workflows/reusable-agents-verifier.yml").read_text()
+    assert "`bounded-native-capacity-v6`" in inventory
+    assert "bounded-native-capacity-v6" in workflow
+
+
+def test_workflow_guide_distinguishes_verifier_checkout_tokens():
+    guide = Path("docs/WORKFLOW_GUIDE.md").read_text()
+    assert "App token is restricted to the caller checkout" in guide
+    assert "Workflows scripts checkout uses `github.token`" in guide

@@ -1,0 +1,30 @@
+<?xml version="1.0" encoding="utf-8"?><testsuites name="pytest tests"><testsuite name="pytest" errors="0" failures="1" skipped="0" tests="1" time="0.147" timestamp="2026-10-10T12:57:19.592078-05:00" hostname="server.trs.private"><testcase classname="tests.workflows.test_verifier_caller_security" name="test_fingerprint_shell_treats_outputs_as_data" time="0.028"><failure message="assert '${{' not in 'echo &quot;Skipp...s.reason }}&quot;'&#10;  &#10;  '${{' is contained here:&#10;    echo &quot;Skipped - ${{ steps.fingerprint.outputs.reason }}&quot;&#10;  ?                 +++">tmp_path = PosixPath('/Users/teacher/.codex/orchestrator/agent-runtime/codex/tmp/pytest-of-teacher/pytest-1914/test_fingerprint_shell_treats_0')
+
+    def test_fingerprint_shell_treats_outputs_as_data(tmp_path: Path) -&gt; None:
+        path = CALLERS[1]
+        report = step(path, "check", "Report unchanged state skip")
+        persist = step(path, "persist-fingerprint", "Persist state fingerprint")
+        assert report["env"]["FINGERPRINT_REASON"] == "${{ steps.fingerprint.outputs.reason }}"
+        assert persist["env"]["FINGERPRINT_HASH"] == (
+            "${{ needs.check.outputs.fingerprint_current_hash }}"
+        )
+        sentinel = tmp_path / "injected"
+        payload = f'$(touch {sentinel}); `touch {sentinel}`; " untrusted'
+        fake_python = tmp_path / "python"
+        fake_python.write_text('#!/bin/sh\nprintf "%s\\n" "$@"\n')
+        fake_python.chmod(0o755)
+        env = os.environ | {
+            "FINGERPRINT_REASON": payload,
+            "FINGERPRINT_HASH": payload,
+            "GITHUB_WORKFLOW": "Agents Verifier",
+            "PATH": f"{tmp_path}:/usr/bin:/bin",
+        }
+        for item in [report, persist]:
+&gt;           assert "${{" not in item["run"]
+E           assert '${{' not in 'echo "Skipp...s.reason }}"'
+E             
+E             '${{' is contained here:
+E               echo "Skipped - ${{ steps.fingerprint.outputs.reason }}"
+E             ?                 +++
+
+tests/workflows/test_verifier_caller_security.py:194: AssertionError</failure></testcase></testsuite></testsuites>

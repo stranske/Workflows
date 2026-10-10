@@ -11,6 +11,7 @@ Run with:
 from __future__ import annotations
 
 import argparse
+import hashlib
 import io
 import json
 import logging
@@ -38,6 +39,7 @@ from scripts.langchain.verifier_config import (
     VERIFIER_DIFF_BUDGET_TOKENS,
     SchemaRepairPolicy,
 )
+from tools.llm_registry import NativeCapacityFacts, native_capacity_facts_for
 
 # The shared client builder returns the ClientInfo ``provider_label`` for the
 # verifier (the historical ``_get_llm_client`` returned that field). Bound under
@@ -4764,38 +4766,161 @@ class InputCapacityError(ValueError):
     """No provider generation is authorized for an uncounted or oversized input."""
 
 
+def _capacity_facts_for(provider: str, model: str) -> NativeCapacityFacts:
+    try:
+        return native_capacity_facts_for(provider, model)
+    except ValueError as exc:
+        raise InputCapacityError(str(exc)) from exc
+
+
+def _prepare_capacity_client(client: object) -> object:
+    """Prepare a registry-authorized Responses copy without mutating its owner.
+
+    Standard never calls this helper. Registry facts cannot choose adapter/SDK
+    types or endpoints; the native contract independently checks those bindings.
+    """
+    try:
+        from langchain_openai import ChatOpenAI
+    except ImportError:
+        return client
+    if type(client) is ChatOpenAI:
+        facts = _capacity_facts_for("openai", client.model_name)
+        updates = {"use_responses_api": True}
+        if client.max_tokens is None:
+            updates["max_tokens"] = facts.max_output_tokens
+        return client.model_copy(update=updates)
+    return client
+
+
+def _native_capacity_contract(client: object) -> dict[str, object]:
+    """Bind validated exact registry facts to generation/count on the same SDK.
+
+    Capacity data and dated official provenance live in model_registry.json.
+    Transport implementations/types and payload validation remain code-owned.
+    """
+    try:
+        from langchain_openai import ChatOpenAI
+    except ImportError:
+        ChatOpenAI = None
+    try:
+        from langchain_anthropic import ChatAnthropic
+    except ImportError:
+        ChatAnthropic = None
+    if type(client) is ChatOpenAI:
+        from openai import OpenAI
+
+        provider, model = "openai", client.model_name
+        native = client.root_client
+        facts = _capacity_facts_for(provider, model)
+        if (
+            type(native) is not OpenAI
+            or str(native.base_url).rstrip("/") != facts.api_root
+            or native.responses._client is not native
+            or native.responses.input_tokens._client is not native
+            or not client.use_responses_api
+        ):
+            raise InputCapacityError("OpenAI native generation/count transport mismatch")
+        profile = {
+            "max_input_tokens": facts.max_input_tokens,
+            "max_context_tokens": facts.max_context_tokens,
+            "max_output_tokens": facts.max_output_tokens,
+        }
+    elif type(client) is ChatAnthropic:
+        from anthropic import Anthropic
+
+        provider, model = "anthropic", client.model
+        native = client._client
+        facts = _capacity_facts_for(provider, model)
+        if (
+            type(native) is not Anthropic
+            or str(native.base_url).rstrip("/") != facts.api_root
+            or native.messages._client is not native
+            or native.models._client is not native
+        ):
+            raise InputCapacityError("Anthropic native generation/count transport mismatch")
+        metadata = native.models.retrieve(model)
+        window = getattr(metadata, "max_input_tokens", None)
+        output = getattr(metadata, "max_tokens", None)
+        if getattr(metadata, "id", None) != model or any(
+            type(value) is not int or value <= 0 for value in (window, output)
+        ):
+            raise InputCapacityError("malformed or mismatched exact-model native metadata")
+        profile = {
+            "max_input_tokens": window,
+            "max_context_tokens": facts.max_context_tokens,
+            "max_output_tokens": min(output, facts.max_output_tokens),
+        }
+    else:
+        raise InputCapacityError("unsupported native capacity client/provider")
+    if native.default_query:
+        raise InputCapacityError("uncounted native transport query fields")
+    supplied = getattr(client, "profile", None)
+    if isinstance(supplied, dict) and (
+        supplied.get("model", model) != model or supplied.get("provider", provider) != provider
+    ):
+        raise InputCapacityError("capacity profile model/provider mismatch")
+    return {
+        "provider": provider,
+        "model": model,
+        "profile": profile,
+        "provenance": facts.provenance,
+        "endpoint": facts.count_endpoint,
+    }
+
+
 def _preflight_input_capacity(client: object, prompt: str) -> dict[str, object]:
     """Count the complete native request; never substitute four-character estimates.
 
-    Capacity comes from the resolved client's exact-model profile. No model aliases,
+    Capacity comes from the source-owned exact-model native contract. No model aliases,
     larger-model retry, tokenizer fallback or operator-supplied guessed limit is used.
-    Native SDK count endpoints include the request's instructions and metadata.
-    Older SDKs, unknown model profiles and chat-only counters remain NON_PASS.
+    Native SDK count endpoints include all supported model-visible request fields.
+    Older SDKs, unknown models and chat-only counters remain NON_PASS.
     """
     receipt: dict[str, object] = {"status": "unavailable", "prompt_chars": len(prompt)}
     try:
-        profile = getattr(client, "profile", None)
+        contract = _native_capacity_contract(client)
+        profile = contract["profile"]
         if not isinstance(profile, dict):
             raise InputCapacityError("model-specific capacity profile unavailable")
         window = profile.get("max_input_tokens")
-        output = getattr(client, "max_tokens", None) or profile.get("max_output_tokens")
-        if any(type(value) is not int or value <= 0 for value in (window, output)):
-            raise InputCapacityError("input capacity or output reserve unavailable")
+        context = profile.get("max_context_tokens")
+        # Only legacy synthetic fixtures may reuse the input bound as context.
+        # Every real native contract must establish all three independent facts.
+        if (
+            "max_context_tokens" not in profile
+            and contract.get("provenance") == "synthetic-unit-test-only"
+        ):
+            context = window
+        ceiling = profile.get("max_output_tokens")
+        if type(context) is not int or context <= 0:
+            raise InputCapacityError("native context capacity unavailable or invalid")
+        if any(type(value) is not int or value <= 0 for value in (window, ceiling)):
+            raise InputCapacityError("input capacity or output ceiling unavailable")
+        receipt.update({key: value for key, value in contract.items() if key != "profile"})
+        receipt.update(input_limit=window, context_limit=context, output_limit=ceiling)
         payload = client._get_request_payload(prompt)
         if not isinstance(payload, dict) or not isinstance(payload.get("model"), str):
             raise InputCapacityError("native request capacity binding unavailable")
+        if payload["model"] != contract["model"]:
+            raise InputCapacityError("native payload/model capacity mismatch")
+        output_limits = []
         for name in ("max_output_tokens", "max_tokens", "max_completion_tokens"):
             if payload.get(name) is not None:
                 value = payload[name]
                 if type(value) is not int or value <= 0:
                     raise InputCapacityError("native output capacity ceiling is invalid")
-                output = max(output, value)
-        receipt.update(model=payload["model"], input_limit=window, output_reserve=output)
+                output_limits.append(value)
+        if not output_limits:
+            raise InputCapacityError("actual native request output ceiling unavailable")
+        output = max(output_limits)
+        receipt.update(model=payload["model"], output_reserve=output)
+        if output > ceiling:
+            raise InputCapacityError("native output capacity exceeds exact-model ceiling")
         if payload.get("truncation") not in (None, "disabled"):
             raise InputCapacityError("automatic input truncation is forbidden by capacity policy")
         if payload.get("previous_response_id") or payload.get("conversation"):
             raise InputCapacityError("stateful input capacity cannot be established")
-        if "input" in payload:
+        if contract["provider"] == "openai" and "input" in payload and "messages" not in payload:
             root = getattr(client, "root_client", None)
             counter = getattr(
                 getattr(getattr(root, "responses", None), "input_tokens", None), "count", None
@@ -4809,9 +4934,12 @@ def _preflight_input_capacity(client: object, prompt: str) -> dict[str, object]:
                 "reasoning",
                 "text",
                 "parallel_tool_calls",
+                "truncation",
             }
             method = "native_response_input_tokens"
-        elif "messages" in payload:
+        elif (
+            contract["provider"] == "anthropic" and "messages" in payload and "input" not in payload
+        ):
             native = getattr(client, "_client", None)
             counter = getattr(getattr(native, "messages", None), "count_tokens", None)
             names = {
@@ -4821,11 +4949,13 @@ def _preflight_input_capacity(client: object, prompt: str) -> dict[str, object]:
                 "tools",
                 "tool_choice",
                 "thinking",
-                "context_management",
+                "output_config",
+                "output_format",
+                "cache_control",
             }
             method = "native_message_count_tokens"
         else:
-            raise InputCapacityError("native input capacity counter unavailable")
+            raise InputCapacityError("native provider/payload capacity mismatch")
         if not callable(counter):
             raise InputCapacityError("native input capacity counter unavailable")
         non_input = {
@@ -4847,17 +4977,24 @@ def _preflight_input_capacity(client: object, prompt: str) -> dict[str, object]:
         unknown = set(payload) - names - non_input
         if unknown:
             raise InputCapacityError(f"uncounted native capacity fields: {sorted(unknown)}")
+        request_bytes = json.dumps(payload, sort_keys=True, separators=(",", ":")).encode()
+        receipt["request_sha256"] = hashlib.sha256(request_bytes).hexdigest()
         counted = counter(**{key: value for key, value in payload.items() if key in names})
         tokens = getattr(counted, "input_tokens", None)
         if type(tokens) is not int or tokens <= 0:
             raise InputCapacityError("native capacity count returned invalid input_tokens")
-        # Reserve the complete configured output ceiling, including thinking tokens.
-        # max_input_tokens may itself be a conservative input-only bound; using
-        # input + output <= bound also protects a shared context window.
+        current = client._get_request_payload(prompt)
+        if json.dumps(current, sort_keys=True, separators=(",", ":")).encode() != request_bytes:
+            raise InputCapacityError("native generation payload changed during count")
+        # Reserve the actual request output ceiling, including thinking tokens,
+        # against context, independently of the exact model's input-only bound.
         receipt.update(input_tokens=tokens, counting_method=method)
-        if tokens + output > window:
+        if tokens > window or tokens + output > context:
             receipt["status"] = "overflow"
-            raise InputCapacityError(f"input capacity overflow: {tokens} + {output} > {window}")
+            raise InputCapacityError(
+                f"input/context capacity overflow: input {tokens} <= {window} and "
+                f"input + output {tokens} + {output} <= {context} required"
+            )
         receipt["status"] = "PASS"
         return receipt
     except Exception as exc:
@@ -4883,9 +5020,13 @@ class _CapacityCheckedRepairClient:
         self.client = client
 
     def invoke(self, prompt: str, **kwargs: Any) -> Any:
+        client = self.client
         if os.environ.get("VERIFIER_EVIDENCE_PROFILE") == "expanded":
-            _preflight_input_capacity(self.client, prompt)
-        return self.client.invoke(prompt, **kwargs)
+            client = _prepare_capacity_client(client)
+            if set(kwargs) - {"config"}:
+                raise InputCapacityError("uncounted schema repair generation kwargs")
+            _preflight_input_capacity(client, prompt)
+        return client.invoke(prompt, **kwargs)
 
 
 def _invoke_llm(
@@ -4905,6 +5046,7 @@ def _invoke_llm(
     # Native counting is an explicit expanded-recovery contract. Standard keeps
     # its existing adapter behavior without claiming native capacity proof.
     if os.environ.get("VERIFIER_EVIDENCE_PROFILE") == "expanded":
+        client = _prepare_capacity_client(client)
         _preflight_input_capacity(client, prompt)
     config = _build_llm_config(
         operation=operation,
@@ -5231,7 +5373,12 @@ def evaluate_pr(
         )
     except Exception as exc:  # pragma: no cover - exercised in integration
         # If auth error and not explicitly requesting a provider, try fallback
-        if not isinstance(exc, InputCapacityError) and _is_auth_error(exc) and provider is None:
+        if (
+            os.environ.get("VERIFIER_EVIDENCE_PROFILE") != "expanded"
+            and not isinstance(exc, InputCapacityError)
+            and _is_auth_error(exc)
+            and provider is None
+        ):
             fallback_provider = "openai" if "github-models" in provider_name else "github-models"
             fallback_resolved = _get_llm_client(model=model, provider=fallback_provider)
             if fallback_resolved is not None:
@@ -5304,6 +5451,51 @@ def evaluate_pr_multiple(
         result.change_type = change_type
         results.append(result)
     return results
+
+
+def expanded_comparison_verdict(
+    data: object, *, model1: str | None = None, model2: str | None = None
+) -> str:
+    """Require one complete PASS per configured comparison slot, without filtering.
+
+    Compare uses two slots. Resolve their identities before credential/client
+    availability filtering, so a missing native judge cannot be replaced by an
+    available fallback or hidden by the other judge's PASS. Model overrides
+    follow build_chat_clients; no client is constructed and no provider is called.
+    """
+    from tools.llm_registry import resolve_slots
+
+    slots = resolve_slots()[:2]
+    overrides = [model1 or os.environ.get("LANGCHAIN_MODEL"), model2 or model1]
+    expected = [
+        (slot.provider, override or slot.model)
+        for slot, override in zip(slots, overrides, strict=False)
+    ]
+    if len(expected) != 2 or len({provider for provider, _ in expected}) != 2:
+        return "CONCERNS"
+    if not isinstance(data, dict) or not isinstance(data.get("results"), list):
+        return "CONCERNS"
+    results = data["results"]
+    if len(results) != len(expected):
+        return "CONCERNS"
+    observed = []
+    for arm in results:
+        if (
+            not isinstance(arm, dict)
+            or not {"provider_used", "model", "verdict", "used_llm"} <= arm.keys()
+        ):
+            return "CONCERNS"
+        try:
+            result = EvaluationResult.model_validate(arm, strict=True, extra="forbid")
+        except ValueError:
+            return "CONCERNS"
+        if result.used_llm is not True or result.verdict != "PASS" or result.error:
+            return "CONCERNS"
+        identity = (result.provider_used, result.model)
+        if identity not in expected or identity in observed:
+            return "CONCERNS"
+        observed.append(identity)
+    return "PASS" if set(observed) == set(expected) else "CONCERNS"
 
 
 def _provider_family(provider: str) -> str:

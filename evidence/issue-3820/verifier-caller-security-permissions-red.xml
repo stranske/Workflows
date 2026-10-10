@@ -1,0 +1,13 @@
+<?xml version="1.0" encoding="utf-8"?><testsuites name="pytest tests"><testsuite name="pytest" errors="0" failures="1" skipped="0" tests="3" time="0.149" timestamp="2026-10-10T12:57:11.675308-05:00" hostname="server.trs.private"><testcase classname="tests.workflows.test_verifier_caller_security" name="test_job_scoped_permissions[.github/workflows/agents-verifier.yml]" time="0.007"><failure message="AssertionError: assert {'issues': 'write'} == {}&#10;  &#10;  Left contains 1 more item:&#10;  {'issues': 'write'}&#10;  Use -v to get more diff">path = '.github/workflows/agents-verifier.yml'
+
+    @pytest.mark.parametrize("path", CALLERS + [REUSABLE])
+    def test_job_scoped_permissions(path: str) -&gt; None:
+        data = workflow(path)
+&gt;       assert data["permissions"] == {}
+E       AssertionError: assert {'issues': 'write'} == {}
+E         
+E         Left contains 1 more item:
+E         {'issues': 'write'}
+E         Use -v to get more diff
+
+tests/workflows/test_verifier_caller_security.py:57: AssertionError</failure></testcase><testcase classname="tests.workflows.test_verifier_caller_security" name="test_job_scoped_permissions[templates/consumer-repo/.github/workflows/agents-verifier.yml]" time="0.012" /><testcase classname="tests.workflows.test_verifier_caller_security" name="test_job_scoped_permissions[.github/workflows/reusable-agents-verifier.yml]" time="0.039" /></testsuite></testsuites>

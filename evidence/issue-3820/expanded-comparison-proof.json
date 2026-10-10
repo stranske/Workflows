@@ -1,0 +1,71 @@
+{
+  "head": "b94a4667b81ef1bf04ec01219fbe98be37ecb02e",
+  "test_sha256": "398572a051b86fbad858f44cc07379dce11c3b0bc3351e4fbec861c05da6c071",
+  "repaired_workflow_sha256": "07f26802c94547fe245d3890e98a1eae4c21beba8f9a3bcacf7b35728936e5f0",
+  "original_workflow_sha256": "caac7552e8857597c395f30317fe99cedd720a374eb438fc15fe00fd1075bdb9",
+  "mutation": "Replace only the authored llm_compare expanded aggregation block with its original used_llm-filtered aggregation; fingerprint remains v5. CLI output is stubbed; parser and unified shell run unmodified.",
+  "mutated_workflow_sha256": "c62e9c9fd49cf4a73fbe9568108c14fa0b74f72bcaedd8f6dcdd7376dfb8d4b4",
+  "red": {
+    "command": [
+      "uv",
+      "run",
+      "--offline",
+      "--isolated",
+      "--no-project",
+      "--python",
+      "/opt/anaconda3/bin/python3",
+      "--with-requirements",
+      "requirements.lock",
+      "python",
+      "-m",
+      "pytest",
+      "tests/workflows/test_verifier_expanded_comparison.py",
+      "-k",
+      "each_arm_blocks_pass and used-false and not used-false-pass",
+      "-q",
+      "-o",
+      "addopts=",
+      "--junitxml=evidence/issue-3820/expanded-comparison-mutation-red.xml"
+    ],
+    "exit_code": 1
+  },
+  "restored_workflow_sha256": "07f26802c94547fe245d3890e98a1eae4c21beba8f9a3bcacf7b35728936e5f0",
+  "green": {
+    "command": [
+      "uv",
+      "run",
+      "--offline",
+      "--isolated",
+      "--no-project",
+      "--python",
+      "/opt/anaconda3/bin/python3",
+      "--with-requirements",
+      "requirements.lock",
+      "python",
+      "-m",
+      "pytest",
+      "tests/workflows/test_verifier_expanded_comparison.py",
+      "-k",
+      "each_arm_blocks_pass and used-false and not used-false-pass",
+      "-q",
+      "-o",
+      "addopts=",
+      "--junitxml=evidence/issue-3820/expanded-comparison-restored-green.xml"
+    ],
+    "exit_code": 0
+  },
+  "original-red_raw_sha256": {
+    "txt": "52d50aaf936a7d88427665d65670665221ea117e38c3cb338df72e3bb6ba0f88",
+    "xml": "52c71b632f2d0a01c65f5f7429ce5e9c10dc0dd489b3b15654c74e778ee6dfdd"
+  },
+  "mutation-red_raw_sha256": {
+    "txt": "957cc81c15925bb55937e439b934a915e981543753b6a5d9628a8780f51d3ecd",
+    "xml": "484334e82fc6928a04a1a75b206f58936c12e426e9be2065a3f59bab42a1c8c9"
+  },
+  "restored-green_raw_sha256": {
+    "txt": "5c3d2d2b7810ab4cce9237c5c3e0520b47141d5a1f92d54732769f787040f66c",
+    "xml": "725a7ae0e592bfbfbb3a84ace58dd7398b9f3b2c503b3dea31a9c69708b390fe"
+  },
+  "source_sha256": "5315ff4583dec4a3b461448c291b4354751f2afc145e20499382948582b10865",
+  "template_source_sha256": "5315ff4583dec4a3b461448c291b4354751f2afc145e20499382948582b10865"
+}

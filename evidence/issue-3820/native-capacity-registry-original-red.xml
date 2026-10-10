@@ -1,0 +1,37 @@
+<?xml version="1.0" encoding="utf-8"?><testsuites name="pytest tests"><testsuite name="pytest" errors="0" failures="2" skipped="0" tests="2" time="2.089" timestamp="2026-10-10T12:32:16.607537-05:00" hostname="server.trs.private"><testcase classname="tests.scripts.test_native_capacity_registry" name="test_selected_entry_missing_blocks_generation[openai]" time="1.802"><failure message="Failed: DID NOT RAISE InputCapacityError">configured_native = (ChatOpenAI(metadata={'lc_versions': {'langchain-core': '1.5.3', 'langchain': '1.3.14', 'langchain-openai': '1.4.1'}},... max_retries=0, stream_chunk_timeout=120.0), 'openai', 'gpt-5.6-terra', &lt;Mock id='4467972416'&gt;, &lt;Mock id='4573141504'&gt;)
+tmp_path = PosixPath('/Users/teacher/.codex/orchestrator/agent-runtime/codex/tmp/pytest-of-teacher/pytest-1900/test_selected_entry_missing_bl0')
+monkeypatch = &lt;_pytest.monkeypatch.MonkeyPatch object at 0x1095980e0&gt;
+
+    def test_selected_entry_missing_blocks_generation(configured_native, tmp_path, monkeypatch):
+        client, provider, model, counter, metadata = configured_native
+        payload = json.loads(REGISTRY.read_text())
+        payload["models"] = [
+            row for row in payload["models"]
+            if (row["provider"], row["model_id"]) != (provider, model)
+        ]
+        path = tmp_path / "registry.json"
+        path.write_text(json.dumps(payload))
+        monkeypatch.setenv(llm_registry.ENV_MODEL_REGISTRY_CONFIG, str(path))
+        with mock.patch.object(type(client), "invoke") as generation:
+&gt;           with pytest.raises(pr_verifier.InputCapacityError):
+E           Failed: DID NOT RAISE InputCapacityError
+
+tests/scripts/test_native_capacity_registry.py:55: Failed</failure></testcase><testcase classname="tests.scripts.test_native_capacity_registry" name="test_selected_entry_missing_blocks_generation[anthropic]" time="0.007"><failure message="Failed: DID NOT RAISE InputCapacityError">configured_native = (ChatAnthropic(metadata={'lc_versions': {'langchain-core': '1.5.3', 'langchain': '1.3.14', 'langchain-anthropic': '1.5...thropic_proxy=None, model_kwargs={}), 'anthropic', 'claude-sonnet-5-5', &lt;Mock id='4586873744'&gt;, &lt;Mock id='4586873840'&gt;)
+tmp_path = PosixPath('/Users/teacher/.codex/orchestrator/agent-runtime/codex/tmp/pytest-of-teacher/pytest-1900/test_selected_entry_missing_bl1')
+monkeypatch = &lt;_pytest.monkeypatch.MonkeyPatch object at 0x11159e180&gt;
+
+    def test_selected_entry_missing_blocks_generation(configured_native, tmp_path, monkeypatch):
+        client, provider, model, counter, metadata = configured_native
+        payload = json.loads(REGISTRY.read_text())
+        payload["models"] = [
+            row for row in payload["models"]
+            if (row["provider"], row["model_id"]) != (provider, model)
+        ]
+        path = tmp_path / "registry.json"
+        path.write_text(json.dumps(payload))
+        monkeypatch.setenv(llm_registry.ENV_MODEL_REGISTRY_CONFIG, str(path))
+        with mock.patch.object(type(client), "invoke") as generation:
+&gt;           with pytest.raises(pr_verifier.InputCapacityError):
+E           Failed: DID NOT RAISE InputCapacityError
+
+tests/scripts/test_native_capacity_registry.py:55: Failed</failure></testcase></testsuite></testsuites>

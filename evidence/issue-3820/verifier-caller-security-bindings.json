@@ -1,0 +1,42 @@
+{
+  "head": "e79e2c0fa7f9562f1283f8be62f2ce6d649672b4",
+  "origin_main_local_ref": "8ee9d8cd4b1016c85a169a2029ab9dc56ce298ad",
+  "source_sha256": {
+    ".github/sync-manifest.yml": "f3613ae04b26a8d982a215f5ae6385f85b5dfda2e5ddedae6665508c208fe82a",
+    ".github/workflows/agents-verifier.yml": "74b1c152d659810ddfd0dddc933ca9767ce938d21f34a8e921848539690499a0",
+    ".github/workflows/reusable-agents-verifier.yml": "2acf5ec350b0bea4fce74df9b0d470b84176d40146ae9028be1311853b72f904",
+    "config/template-drift-allowlist.txt": "1392560da21f8db154662042b8e9303d45b8de54e7008c1196d629bbcf709bdd",
+    "docs/ops/CONSUMER_REPO_MAINTENANCE.md": "ab79a2e66142af7f571d542b1becef00ba407849e3a9d010afc30b8aecc19fe2",
+    "templates/consumer-repo/.github/workflows/agents-verifier.yml": "97ab84a1aa55cb5b82c900efbfe8710c7815c75f1ef7fbb566e2c986d44fc31a",
+    "tests/workflows/test_verifier_caller_security.py": "5801f1327e6f877d0ae684cf089949290abcfcf93f7008b5e27ca101e53613bb",
+    "requirements.lock": "bcb8ec1960b67c94112ebfdc8dbe57f35f7c4b038e543482f63cc23d830be879",
+    ".github/zizmor.yml": "d393c68780e3e33469e028a64b1be1d2957792b43e64dcd6eab2cee898ff858a",
+    ".github/workflows/health-51-zizmor.yml": "bbe7b1bb37bfd3328d3cb7cbe63ce2164ebe242b2e78c944d2434d50177b1c13",
+    ".github/workflows/health-52-semgrep.yml": "fb7fafbafdb41d311ac49566ec53dd5c70e0d5b6ae13c2d9276d0a0917672b44"
+  },
+  "normalized_drift_sha256": {
+    ".github/workflows/agents-verifier.yml": "f034bf71112ced2a82d2d03aeaa6bcf10b8b4563cb134f0efa1baf1f309c1c33",
+    "templates/consumer-repo/.github/workflows/agents-verifier.yml": "a0f640189480811bb334a789eff917293c6e88575f9d602f22b4c2d1873aa695"
+  },
+  "reusable_executable_run_and_script_bodies_unchanged": true,
+  "consumer_compute_fingerprint_step_unchanged": true,
+  "prior_files_outside_six_changed_paths_unchanged": true,
+  "regression_suites": [
+    {
+      "name": "pytest",
+      "errors": "0",
+      "failures": "0",
+      "skipped": "19",
+      "tests": "888",
+      "time": "59.038",
+      "timestamp": "2026-10-10T12:57:46.849099-05:00",
+      "hostname": "server.trs.private"
+    }
+  ],
+  "skip_reasons": {
+    "Anthropic Models API contract": 18,
+    "immutable authenticated capture is owner-local; set VERIFIER_RECOVERY_CAPTURE_DIR": 1
+  },
+  "provider_acceptance": "UNKNOWN",
+  "source_capacity_acceptance": "UNKNOWN"
+}

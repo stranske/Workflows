@@ -2,6 +2,51 @@
 
 This document outlines the process for maintaining workflow system consistency across consumer repositories and debugging issues that may affect multiple repos.
 
+## Post-merge verifier security boundary
+
+The source and consumer `agents-verifier.yml` callers intentionally retain
+`pull_request_target: labeled`: verification of an already merged fork PR needs
+base-repository secrets. A job-level gate rejects unmerged PRs and every label
+except the exact `verify:checkbox`, `verify:evaluate`, and `verify:compare` set
+before checkout or secret use. Manual dispatch still rechecks the PR's merged
+state through the API. Applying these labels requires repository label permission;
+manual dispatch requires workflow authorization. A fork author's identity alone
+does not authorize verification.
+
+Caller helper checkouts and the reusable caller-repository checkout explicitly
+use `github.sha`, the base commit for `pull_request_target`, never a PR head ref.
+The separate Workflows helper checkout uses the existing resolved default branch.
+All these checkouts disable credential persistence. PR descriptions, diffs,
+comments and artifacts remain untrusted input data for verification, never a
+source of executable workflow helpers. Merging code admits it to the trusted
+base; this contract does not protect against malicious code a maintainer merges
+or a privileged user dispatches from a branch they control.
+
+Workflow defaults grant no permissions. The caller check job only reads contents
+and PRs, using its workflow token without PAT/App rotation. The verifier job
+reads contents, issues, Actions and Models and writes PR comments; the consumer
+fingerprint store alone also needs PR write. Issues write is unnecessary because
+the legacy automatic issue-creation step is disabled; enabling that behavior
+requires a separate permission review. The optional checkout App token is scoped
+to contents read on the caller repository; the public Workflows helper checkout
+uses the workflow token. Existing API retry plumbing still accepts the declared
+App credentials; installation permissions and credential rotation remain a
+separate shared-library contract.
+The reusable call passes exactly its six declared secrets, including the existing
+lowercase `workflows_app_id` and `workflows_app_private_key` keys. No repository
+secret inheritance is permitted. Fingerprint outputs enter shell steps through
+quoted environment variables; the standard v2 and expanded v6 fingerprint
+contracts and success-only persistence remain unchanged.
+
+The two inline `zizmor: ignore[dangerous-triggers]` comments disposition only
+the necessary trigger nodes on these callers. They do not waive injection,
+permissions, credentials, secret inheritance, or other workflows. The production
+YAML security tests exercise merged/fork/exact-label boundaries, reject manual
+verification of unmerged PRs, check the executable checkout refs and declared
+secret mapping, and execute shell injection payloads as inert data. Removing
+`pull_request_target` would prevent the intended post-merge fork secret access;
+expanding this exception requires an independent trust-boundary review.
+
 ## Verifier canary review recovery
 
 Named review-evidence destinations include both PR body and PR description.
@@ -70,10 +115,11 @@ estimated tokens (four characters per allocation unit). The existing 8 MiB diff
 fetch and 300,000-character context-diff ceiling remain. These allocation units
 are **not model token counts**. Only for explicit expanded recovery, before each
 evaluation, comparison arm and schema repair generation, the verifier counts the entire native request through the
-resolved client's SDK token-count endpoint and reserves its complete configured
-output ceiling (including thinking). It requires the exact-model client profile's
-positive `max_input_tokens` and output ceiling, and blocks when input plus output
-exceeds the input bound. This is conservative even for an input-only bound.
+resolved client's SDK token-count endpoint and reserves its complete actual request
+output ceiling (including thinking). It requires the source-owned exact-model contract's
+positive independent input, context and output limits, enforcing
+input <= input limit, input + actual output <= context limit, and actual output
+<= output limit. An input-only ceiling never reserves output a second time.
 No approximate tokenizer, automatic truncation, stateful unseen context or model
 replacement is allowed on capacity failure. Native counter or profile absence is
 NON_PASS, including authentication failure while counting; it never authorizes
@@ -97,25 +143,108 @@ profile exports or generation, including empty, mistyped and whitespace modes.
 The existing comparison verdict and CI/coverage floors remain authoritative.
 No human-only gate is introduced.
 
-SDK-bundled profiles vary by installed version. Hosted `langchain-openai==1.4.1`
-supplies Terra profile facts; the observed local Sonnet adapter profile is absent,
-which is not a claim about every SDK version. A populated profile alone does not
-establish native counting: the configured Terra Chat Completions adapter lacks
-the required native message counter, so expanded capacity remains UNKNOWN for
-that separate transport reason. This source repair does not invent missing facts
-or claim live provider capacity. A model-specific supported profile and native counter
-must be available before expanded generation. Standard remains the default profile
-and preserves its existing invocation and schema-repair behavior without claiming
-native capacity proof. In particular, the configured Terra adapter uses OpenAI Chat
-Completions, which does not expose the native counter required here. No guessed
-limits, model substitution or adapter changes are introduced. Retrieval completeness,
-required evidence and changed-code coverage floors apply unconditionally in both
-profiles. Inspect actual new retrieval,
-capacity receipts and both provider verdicts; workflow success alone is not acceptance.
+SDK-bundled profiles vary by installed version and do not establish the native
+counting contract by themselves. Hosted `langchain-openai==1.4.1` supplies Terra
+profile facts; the observed local Sonnet adapter profile is absent, which is not
+a claim about every SDK version. Terra's original Chat Completions adapter lacks
+the required native message counter independently of profile availability.
+Expanded recovery now prepares only
+exact `gpt-5.6-terra` as a shallow verifier-local copy with Responses enabled,
+retaining the authenticated SDK objects, credentials, endpoint, timeout and retry
+settings. An unset Terra output ceiling becomes the documented 128,000; explicit
+ceilings are preserved and checked against the model maximum. The source-owned
+[Terra facts](https://developers.openai.com/api/docs/models/gpt-5.6-terra)
+(owner-fetched 2026-10-10) are context 1,050,000, input 922,000, output 128,000.
+Expanded preflight independently requires native input <= 922,000, native input
++ the actual request output ceiling <= 1,050,000, and output <= 128,000.
+The input-only bound does not reserve output a second time: at the full output
+ceiling, 922,000 input tokens fit exactly. An explicitly smaller output ceiling
+is preserved without relaxing the independent input bound.
+
+Exact `claude-sonnet-5-5` retains its Messages adapter and 128,000 configured ceiling.
+Each preflight queries the same authenticated SDK's
+[Models API](https://platform.claude.com/docs/en/api/models/retrieve), requires an
+identical model ID and positive integer `max_input_tokens`/`max_tokens`. It enforces
+that exact native input bound independently of the
+[Sonnet nonbatch facts](https://platform.claude.com/docs/en/models/sonnet-5-5/overview)
+(context 1,000,000, output 128,000; owner-fetched 2026-10-10). Metadata failure is
+NON_PASS, never permission to guess a profile. Input + the actual request output
+ceiling must fit the documented 1,000,000 context, and output must fit both the
+native and documented output ceilings. All real native contracts supply explicit
+positive integer input/context/output facts; missing or malformed facts fail
+closed. Legacy synthetic unit fixtures without a context fact alone retain the
+old conservative input + output <= input-bound fallback.
+
+The existing managed `config/model_registry.json` v2 model rows now carry optional
+`native_capacity` facts for exactly these two provider/model pairs. The strict
+expanded-only `tools/llm_registry.py::native_capacity_facts_for` lookup uses
+`LANGCHAIN_MODEL_REGISTRY_CONFIG` (the existing empty-value default-path convention
+is retained). Missing/unreadable/malformed configuration, duplicate JSON keys or
+exact identities, blocked/unregistered selected entries, absent facts and invalid
+limits/provenance fail closed. Optional facts do not alter model selection, routing,
+shared builders or catalog promotion. Catalog entries without facts remain unsupported
+for expanded counting; future models require separately reviewed exact official facts
+and a compatible implemented native protocol, never a name/prefix guess.
+
+The closed facts object requires `transport`, `api_root`, `count_endpoint`,
+`input_limit_source`, `max_context_tokens`, `max_output_tokens`, `provenance`,
+`as_of` (ISO date) and `source_urls` (ordered exact official URLs).
+OpenAI additionally requires a positive integer
+`max_input_tokens`; Anthropic must obtain that independent positive integer from
+its exact native Models API response on every preflight and cannot substitute a
+configured input guess. Boolean, float, string, null, missing and nonpositive limits
+are invalid. Only the implemented `openai-responses`/`documented` and
+`anthropic-messages`/`models-api` combinations are accepted for their exact providers.
+The helper checks official roots/endpoints and model-bound source URLs against
+code-owned protocol constraints; configuration cannot import SDK types, select
+custom endpoints or invent counter methods. These checks validate configuration
+structure and provenance bindings, not the truth of new provider claims: capacity
+maintenance still requires official evidence and review. The existing facts and
+provenance were relocated unchanged; no new capacity assertion was introduced.
+
+Both contracts require the exact native adapter/SDK type and official API root;
+custom endpoints, counter/client mismatches, query extensions, mismatched payload
+models, stateful input, truncation and unsupported input fields fail closed. OpenAI
+messages can never be routed to Anthropic's counter. The native counters receive
+all supported input fields (including instructions/system, tools, reasoning/thinking
+and response formats). The receipt binds provider, exact model, provenance,
+endpoint, independent input/context/output limits, actual output reserve and full
+generation-request SHA256, and a changed request after counting
+blocks generation. Native metadata/count failures and expanded generation failures
+cannot trigger alternate-provider resolution. SDK retries keep their existing bound.
+
+Standard remains the default and preserves the original shared builders, request
+shape, invocation and schema repair without native capacity claims. No caller client
+is mutated. Unknown future models do not inherit these capabilities by prefix.
+Retrieval completeness, required evidence and changed-code coverage floors apply
+unconditionally in both profiles. Local simulated transport tests establish source
+behavior only. Inspect actual new retrieval, authenticated capacity receipts and
+both provider verdicts; workflow success alone is not acceptance.
 The input snapshot records every bound, and the consumer fingerprint includes the
-profile plus `bounded-native-capacity-v2`, so a previously fingerprinted expanded
-evaluation cannot suppress this changed input contract. Existing manifest entries already manage both repaired scripts; no file
+profile plus `bounded-native-capacity-v6` (standard retains `bounded-native-capacity-v2`), so a previously fingerprinted expanded
+evaluation cannot suppress this changed expanded contract. Existing manifest entries already manage the repaired verifier; no file
 addition, rename or delivery scope change requires a new manifest entry.
+
+Expanded comparison requires exactly one complete result for each of the first two
+configured comparison slots, resolved from the shared registry/slot configuration
+before credential or client availability filtering. Provider and exact model must
+match those slots (including explicit model overrides), each `used_llm` must be
+boolean `true`, each verdict must be `PASS`, and neither arm may carry an error.
+Missing, duplicate, extra, malformed or fallback-provider/model arms withhold PASS;
+so do native capacity/count failures and unsupported native inputs. An available
+judge's PASS cannot hide an unavailable judge. The existing standard aggregation
+and all CI, retrieval, acceptance-evidence and changed-code floors remain in force.
+The v6 fingerprint also invalidates expanded receipts predating registry validation; it does
+not turn local tests or prior capacity-function reviews into hosted acceptance.
+
+Expanded comparison loads its verdict helper from the checked-out Workflows
+source, not the caller's potentially older `scripts` package. Python stdin
+otherwise prioritizes caller cwd over `PYTHONPATH`. The reusable parser requires
+the authoritative verifier file and places that checkout first before importing
+the helper; a missing checkout stays CONCERNS rather than falling back to caller
+code. Relative comparison-result files remain in the caller workspace. This
+boundary is required because reusable source becomes active before consumer
+template deliveries are atomic; standard aggregation remains unchanged.
 
 Workflows#3802's immutable expanded capture reproduces 4/7 complete files and
 127,635/257,099 included code characters with the old allocation. The new expanded

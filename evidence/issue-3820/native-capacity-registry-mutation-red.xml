@@ -1,0 +1,203 @@
+<?xml version="1.0" encoding="utf-8"?><testsuites name="pytest tests"><testsuite name="pytest" errors="0" failures="6" skipped="0" tests="6" time="2.205" timestamp="2026-10-10T12:36:41.702930-05:00" hostname="server.trs.private"><testcase classname="tests.scripts.test_native_capacity_recovery" name="test_configured_native_expanded_reaches_count_and_generation[openai-evaluate]" time="1.446"><failure message="AssertionError: LLM invocation failed: exact-model native capacity facts unavailable&#10;assert False&#10; +  where False = EvaluationResult(verdict='CONCERNS', scores=None, confidence=None, concerns=['LLM evaluation could not run.'], summary...e_ratio': 0.0, 'context_truncated': False, 'reasons': ['Changed code is unavailable; completeness cannot be judged.']}).used_llm">native = (ChatOpenAI(metadata={'lc_versions': {'langchain-core': '1.5.3', 'langchain': '1.3.14', 'langchain-openai': '1.4.1'}},... max_retries=0, stream_chunk_timeout=120.0), 'openai', 'gpt-5.6-terra', &lt;Mock id='4461286784'&gt;, &lt;Mock id='4567943216'&gt;)
+operation = 'evaluate'
+monkeypatch = &lt;_pytest.monkeypatch.MonkeyPatch object at 0x1079d0260&gt;
+
+    @pytest.mark.parametrize("operation", ["evaluate", "compare", "repair"])
+    def test_configured_native_expanded_reaches_count_and_generation(native, operation, monkeypatch):
+        client, provider, model, counter, metadata = native
+        original = client._get_request_payload("full request")
+        monkeypatch.setattr(pr_verifier, "_get_llm_client", lambda **kwargs: (client, provider))
+        seen = []
+    
+        def generate(prepared, prompt, **kwargs):
+            seen.append((prepared, prepared._get_request_payload(prompt)))
+            return SimpleNamespace(content='{"verdict":"PASS"}')
+    
+        with mock.patch.object(type(client), "invoke", autospec=True, side_effect=generate):
+            if operation == "repair":
+                result = pr_verifier._parse_llm_response("invalid JSON", provider, client=client)
+            elif operation == "compare":
+                result = pr_verifier.ComparisonRunner("context", None, "full request", []).run_single(
+                    client, provider, model
+                )
+            else:
+                result = pr_verifier.evaluate_pr("context", provider=provider)
+&gt;       assert result.used_llm, result.error
+E       AssertionError: LLM invocation failed: exact-model native capacity facts unavailable
+E       assert False
+E        +  where False = EvaluationResult(verdict='CONCERNS', scores=None, confidence=None, concerns=['LLM evaluation could not run.'], summary...e_ratio': 0.0, 'context_truncated': False, 'reasons': ['Changed code is unavailable; completeness cannot be judged.']}).used_llm
+
+tests/scripts/test_native_capacity_recovery.py:65: AssertionError</failure></testcase><testcase classname="tests.scripts.test_native_capacity_recovery" name="test_configured_native_expanded_reaches_count_and_generation[openai-compare]" time="0.002"><failure message="AssertionError: LLM invocation failed: exact-model native capacity facts unavailable&#10;assert False&#10; +  where False = EvaluationResult(verdict='CONCERNS', scores=None, confidence=None, concerns=['LLM evaluation could not run.'], summary... capacity facts unavailable', change_type=None, langsmith_trace_id=None, langsmith_trace_url=None, input_coverage=None).used_llm">native = (ChatOpenAI(metadata={'lc_versions': {'langchain-core': '1.5.3', 'langchain': '1.3.14', 'langchain-openai': '1.4.1'}},... max_retries=0, stream_chunk_timeout=120.0), 'openai', 'gpt-5.6-terra', &lt;Mock id='4569748528'&gt;, &lt;Mock id='4569748336'&gt;)
+operation = 'compare'
+monkeypatch = &lt;_pytest.monkeypatch.MonkeyPatch object at 0x11060e120&gt;
+
+    @pytest.mark.parametrize("operation", ["evaluate", "compare", "repair"])
+    def test_configured_native_expanded_reaches_count_and_generation(native, operation, monkeypatch):
+        client, provider, model, counter, metadata = native
+        original = client._get_request_payload("full request")
+        monkeypatch.setattr(pr_verifier, "_get_llm_client", lambda **kwargs: (client, provider))
+        seen = []
+    
+        def generate(prepared, prompt, **kwargs):
+            seen.append((prepared, prepared._get_request_payload(prompt)))
+            return SimpleNamespace(content='{"verdict":"PASS"}')
+    
+        with mock.patch.object(type(client), "invoke", autospec=True, side_effect=generate):
+            if operation == "repair":
+                result = pr_verifier._parse_llm_response("invalid JSON", provider, client=client)
+            elif operation == "compare":
+                result = pr_verifier.ComparisonRunner("context", None, "full request", []).run_single(
+                    client, provider, model
+                )
+            else:
+                result = pr_verifier.evaluate_pr("context", provider=provider)
+&gt;       assert result.used_llm, result.error
+E       AssertionError: LLM invocation failed: exact-model native capacity facts unavailable
+E       assert False
+E        +  where False = EvaluationResult(verdict='CONCERNS', scores=None, confidence=None, concerns=['LLM evaluation could not run.'], summary... capacity facts unavailable', change_type=None, langsmith_trace_id=None, langsmith_trace_url=None, input_coverage=None).used_llm
+
+tests/scripts/test_native_capacity_recovery.py:65: AssertionError</failure></testcase><testcase classname="tests.scripts.test_native_capacity_recovery" name="test_configured_native_expanded_reaches_count_and_generation[openai-repair]" time="0.005"><failure message="AssertionError: Expected 'mock' to have been called once. Called 0 times.">native = (ChatOpenAI(metadata={'lc_versions': {'langchain-core': '1.5.3', 'langchain': '1.3.14', 'langchain-openai': '1.4.1'}},... max_retries=0, stream_chunk_timeout=120.0), 'openai', 'gpt-5.6-terra', &lt;Mock id='4569748960'&gt;, &lt;Mock id='4569749344'&gt;)
+operation = 'repair'
+monkeypatch = &lt;_pytest.monkeypatch.MonkeyPatch object at 0x11060e780&gt;
+
+    @pytest.mark.parametrize("operation", ["evaluate", "compare", "repair"])
+    def test_configured_native_expanded_reaches_count_and_generation(native, operation, monkeypatch):
+        client, provider, model, counter, metadata = native
+        original = client._get_request_payload("full request")
+        monkeypatch.setattr(pr_verifier, "_get_llm_client", lambda **kwargs: (client, provider))
+        seen = []
+    
+        def generate(prepared, prompt, **kwargs):
+            seen.append((prepared, prepared._get_request_payload(prompt)))
+            return SimpleNamespace(content='{"verdict":"PASS"}')
+    
+        with mock.patch.object(type(client), "invoke", autospec=True, side_effect=generate):
+            if operation == "repair":
+                result = pr_verifier._parse_llm_response("invalid JSON", provider, client=client)
+            elif operation == "compare":
+                result = pr_verifier.ComparisonRunner("context", None, "full request", []).run_single(
+                    client, provider, model
+                )
+            else:
+                result = pr_verifier.evaluate_pr("context", provider=provider)
+        assert result.used_llm, result.error
+&gt;       counter.assert_called_once()
+
+tests/scripts/test_native_capacity_recovery.py:66: 
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
+
+self = &lt;Mock id='4569748960'&gt;
+
+    def assert_called_once(self):
+        """assert that the mock was called only once.
+        """
+        if not self.call_count == 1:
+            msg = ("Expected '%s' to have been called once. Called %s times.%s"
+                   % (self._mock_name or 'mock',
+                      self.call_count,
+                      self._calls_repr()))
+&gt;           raise AssertionError(msg)
+E           AssertionError: Expected 'mock' to have been called once. Called 0 times.
+
+/opt/anaconda3/lib/python3.12/unittest/mock.py:923: AssertionError</failure></testcase><testcase classname="tests.scripts.test_native_capacity_recovery" name="test_configured_native_expanded_reaches_count_and_generation[anthropic-evaluate]" time="0.430"><failure message="AssertionError: LLM invocation failed: Verifier input capacity blocked: exact-model native capacity facts unavailable&#10;assert False&#10; +  where False = EvaluationResult(verdict='CONCERNS', scores=None, confidence=None, concerns=['LLM evaluation could not run.'], summary...e_ratio': 0.0, 'context_truncated': False, 'reasons': ['Changed code is unavailable; completeness cannot be judged.']}).used_llm">native = (ChatAnthropic(metadata={'lc_versions': {'langchain-core': '1.5.3', 'langchain': '1.3.14', 'langchain-anthropic': '1.5...thropic_proxy=None, model_kwargs={}), 'anthropic', 'claude-sonnet-5-5', &lt;Mock id='4582542896'&gt;, &lt;Mock id='4582542272'&gt;)
+operation = 'evaluate'
+monkeypatch = &lt;_pytest.monkeypatch.MonkeyPatch object at 0x1106185c0&gt;
+
+    @pytest.mark.parametrize("operation", ["evaluate", "compare", "repair"])
+    def test_configured_native_expanded_reaches_count_and_generation(native, operation, monkeypatch):
+        client, provider, model, counter, metadata = native
+        original = client._get_request_payload("full request")
+        monkeypatch.setattr(pr_verifier, "_get_llm_client", lambda **kwargs: (client, provider))
+        seen = []
+    
+        def generate(prepared, prompt, **kwargs):
+            seen.append((prepared, prepared._get_request_payload(prompt)))
+            return SimpleNamespace(content='{"verdict":"PASS"}')
+    
+        with mock.patch.object(type(client), "invoke", autospec=True, side_effect=generate):
+            if operation == "repair":
+                result = pr_verifier._parse_llm_response("invalid JSON", provider, client=client)
+            elif operation == "compare":
+                result = pr_verifier.ComparisonRunner("context", None, "full request", []).run_single(
+                    client, provider, model
+                )
+            else:
+                result = pr_verifier.evaluate_pr("context", provider=provider)
+&gt;       assert result.used_llm, result.error
+E       AssertionError: LLM invocation failed: Verifier input capacity blocked: exact-model native capacity facts unavailable
+E       assert False
+E        +  where False = EvaluationResult(verdict='CONCERNS', scores=None, confidence=None, concerns=['LLM evaluation could not run.'], summary...e_ratio': 0.0, 'context_truncated': False, 'reasons': ['Changed code is unavailable; completeness cannot be judged.']}).used_llm
+
+tests/scripts/test_native_capacity_recovery.py:65: AssertionError</failure></testcase><testcase classname="tests.scripts.test_native_capacity_recovery" name="test_configured_native_expanded_reaches_count_and_generation[anthropic-compare]" time="0.002"><failure message="AssertionError: LLM invocation failed: Verifier input capacity blocked: exact-model native capacity facts unavailable&#10;assert False&#10; +  where False = EvaluationResult(verdict='CONCERNS', scores=None, confidence=None, concerns=['LLM evaluation could not run.'], summary... capacity facts unavailable', change_type=None, langsmith_trace_id=None, langsmith_trace_url=None, input_coverage=None).used_llm">native = (ChatAnthropic(metadata={'lc_versions': {'langchain-core': '1.5.3', 'langchain': '1.3.14', 'langchain-anthropic': '1.5...thropic_proxy=None, model_kwargs={}), 'anthropic', 'claude-sonnet-5-5', &lt;Mock id='4574230096'&gt;, &lt;Mock id='4582550144'&gt;)
+operation = 'compare'
+monkeypatch = &lt;_pytest.monkeypatch.MonkeyPatch object at 0x110619970&gt;
+
+    @pytest.mark.parametrize("operation", ["evaluate", "compare", "repair"])
+    def test_configured_native_expanded_reaches_count_and_generation(native, operation, monkeypatch):
+        client, provider, model, counter, metadata = native
+        original = client._get_request_payload("full request")
+        monkeypatch.setattr(pr_verifier, "_get_llm_client", lambda **kwargs: (client, provider))
+        seen = []
+    
+        def generate(prepared, prompt, **kwargs):
+            seen.append((prepared, prepared._get_request_payload(prompt)))
+            return SimpleNamespace(content='{"verdict":"PASS"}')
+    
+        with mock.patch.object(type(client), "invoke", autospec=True, side_effect=generate):
+            if operation == "repair":
+                result = pr_verifier._parse_llm_response("invalid JSON", provider, client=client)
+            elif operation == "compare":
+                result = pr_verifier.ComparisonRunner("context", None, "full request", []).run_single(
+                    client, provider, model
+                )
+            else:
+                result = pr_verifier.evaluate_pr("context", provider=provider)
+&gt;       assert result.used_llm, result.error
+E       AssertionError: LLM invocation failed: Verifier input capacity blocked: exact-model native capacity facts unavailable
+E       assert False
+E        +  where False = EvaluationResult(verdict='CONCERNS', scores=None, confidence=None, concerns=['LLM evaluation could not run.'], summary... capacity facts unavailable', change_type=None, langsmith_trace_id=None, langsmith_trace_url=None, input_coverage=None).used_llm
+
+tests/scripts/test_native_capacity_recovery.py:65: AssertionError</failure></testcase><testcase classname="tests.scripts.test_native_capacity_recovery" name="test_configured_native_expanded_reaches_count_and_generation[anthropic-repair]" time="0.002"><failure message="AssertionError: Expected 'mock' to have been called once. Called 0 times.">native = (ChatAnthropic(metadata={'lc_versions': {'langchain-core': '1.5.3', 'langchain': '1.3.14', 'langchain-anthropic': '1.5...thropic_proxy=None, model_kwargs={}), 'anthropic', 'claude-sonnet-5-5', &lt;Mock id='4582543664'&gt;, &lt;Mock id='4582543184'&gt;)
+operation = 'repair'
+monkeypatch = &lt;_pytest.monkeypatch.MonkeyPatch object at 0x111242300&gt;
+
+    @pytest.mark.parametrize("operation", ["evaluate", "compare", "repair"])
+    def test_configured_native_expanded_reaches_count_and_generation(native, operation, monkeypatch):
+        client, provider, model, counter, metadata = native
+        original = client._get_request_payload("full request")
+        monkeypatch.setattr(pr_verifier, "_get_llm_client", lambda **kwargs: (client, provider))
+        seen = []
+    
+        def generate(prepared, prompt, **kwargs):
+            seen.append((prepared, prepared._get_request_payload(prompt)))
+            return SimpleNamespace(content='{"verdict":"PASS"}')
+    
+        with mock.patch.object(type(client), "invoke", autospec=True, side_effect=generate):
+            if operation == "repair":
+                result = pr_verifier._parse_llm_response("invalid JSON", provider, client=client)
+            elif operation == "compare":
+                result = pr_verifier.ComparisonRunner("context", None, "full request", []).run_single(
+                    client, provider, model
+                )
+            else:
+                result = pr_verifier.evaluate_pr("context", provider=provider)
+        assert result.used_llm, result.error
+&gt;       counter.assert_called_once()
+
+tests/scripts/test_native_capacity_recovery.py:66: 
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
+
+self = &lt;Mock id='4582543664'&gt;
+
+    def assert_called_once(self):
+        """assert that the mock was called only once.
+        """
+        if not self.call_count == 1:
+            msg = ("Expected '%s' to have been called once. Called %s times.%s"
+                   % (self._mock_name or 'mock',
+                      self.call_count,
+                      self._calls_repr()))
+&gt;           raise AssertionError(msg)
+E           AssertionError: Expected 'mock' to have been called once. Called 0 times.
+
+/opt/anaconda3/lib/python3.12/unittest/mock.py:923: AssertionError</failure></testcase></testsuite></testsuites>

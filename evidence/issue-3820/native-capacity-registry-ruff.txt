@@ -1,0 +1,40 @@
+SIM117 Use a single `with` statement with multiple contexts instead of nested `with` statements
+  --> tests/scripts/test_native_capacity_registry.py:53:5
+   |
+51 |       path.write_text(json.dumps(payload))
+52 |       monkeypatch.setenv(llm_registry.ENV_MODEL_REGISTRY_CONFIG, str(path))
+53 | /     with mock.patch.object(type(client), "invoke") as generation:
+54 | |         with pytest.raises(pr_verifier.InputCapacityError):
+   | |___________________________________________________________^
+55 |               pr_verifier._invoke_llm(client, "full request", operation="registry-test")
+56 |       generation.assert_not_called()
+   |
+help: Combine `with` statements
+
+SIM117 Use a single `with` statement with multiple contexts instead of nested `with` statements
+   --> tests/scripts/test_native_capacity_registry.py:174:5
+    |
+172 |           path.write_text(text)
+173 |       monkeypatch.setenv(llm_registry.ENV_MODEL_REGISTRY_CONFIG, str(path))
+174 | /     with mock.patch.object(type(client), "invoke") as generation:
+175 | |         with pytest.raises(pr_verifier.InputCapacityError):
+    | |___________________________________________________________^
+176 |               if operation == "repair":
+177 |                   pr_verifier._CapacityCheckedRepairClient(client).invoke("full request")
+    |
+help: Combine `with` statements
+
+SIM117 Use a single `with` statement with multiple contexts instead of nested `with` statements
+   --> tests/scripts/test_native_capacity_registry.py:211:5
+    |
+209 |       # Preserve explicit output and still reject it against configured ceilings.
+210 |       client.max_tokens = 64001
+211 | /     with mock.patch.object(type(client), "invoke") as generation:
+212 | |         with pytest.raises(pr_verifier.InputCapacityError):
+    | |___________________________________________________________^
+213 |               pr_verifier._invoke_llm(client, "full request", operation="registry-test")
+214 |       generation.assert_not_called()
+    |
+help: Combine `with` statements
+
+Found 3 errors.

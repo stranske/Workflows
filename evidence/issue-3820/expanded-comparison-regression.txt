@@ -1,0 +1,93 @@
+..................................................................FF.... [ 12%]
+........................................................................ [ 25%]
+........................................................................ [ 37%]
+.....ssssss............................................ssssssssssss..... [ 50%]
+........................................................................ [ 63%]
+........................................................................ [ 75%]
+..........s............................................................. [ 88%]
+...................................................................      [100%]
+=================================== FAILURES ===================================
+_ test_source_coverage_floor_survives_workflow_aggregation[evidence-evaluate] __
+
+tmp_path = PosixPath('/Users/teacher/.codex/orchestrator/agent-runtime/codex/tmp/pytest-of-teacher/pytest-1896/test_source_coverage_floor_sur2')
+monkeypatch = <_pytest.monkeypatch.MonkeyPatch object at 0x10429a120>
+mode = 'evaluate', gap = 'evidence'
+
+    
+    @pytest.mark.parametrize("mode", ["evaluate", "compare"])
+    @pytest.mark.parametrize("gap", ["code", "evidence"])
+    def test_source_coverage_floor_survives_workflow_aggregation(tmp_path, monkeypatch, mode, gap):
+        from types import SimpleNamespace
+    
+        from scripts.langchain import pr_verifier
+    
+        monkeypatch.setenv("VERIFIER_EVIDENCE_PROFILE", "expanded")
+        arms = _arms()
+        clients = [(object(), arm["provider_used"], arm["model"]) for arm in arms]
+        monkeypatch.setattr(
+            pr_verifier,
+            "_invoke_llm",
+            lambda *args, **kwargs: (SimpleNamespace(content='{"verdict":"PASS"}'), None, None),
+        )
+        context = "Review changed code."
+        diff = "diff --git a/src/a.py b/src/a.py\n--- a/src/a.py\n+++ b/src/a.py\n@@ -1 +1 @@\n-old\n+new\n"
+        if gap == "code":
+            diff = None
+        else:
+            context = "## Acceptance Criteria\n- [ ] Upload a test transcript as a workflow artifact.\n"
+        if mode == "compare":
+            monkeypatch.setattr(pr_verifier, "_get_llm_clients", lambda *args: clients)
+            results = pr_verifier.evaluate_pr_multiple(context, diff)
+            assert all(result.verdict == "CONCERNS" for result in results)
+            payload = {"results": [result.model_dump() for result in results]}
+        else:
+            monkeypatch.setattr(pr_verifier, "_get_llm_client", lambda **kwargs: clients[0][:2])
+            payload = pr_verifier.evaluate_pr(
+>               context, diff, provider=arms[0]["provider_used"]
+            ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+            ).model_dump()
+E           AssertionError: assert 'PASS' == 'CONCERNS'
+E             
+E             - CONCERNS
+E             + PASS
+
+tests/workflows/test_verifier_expanded_comparison.py:340: AssertionError
+__ test_source_coverage_floor_survives_workflow_aggregation[evidence-compare] __
+
+tmp_path = PosixPath('/Users/teacher/.codex/orchestrator/agent-runtime/codex/tmp/pytest-of-teacher/pytest-1896/test_source_coverage_floor_sur3')
+monkeypatch = <_pytest.monkeypatch.MonkeyPatch object at 0x10429a2d0>
+mode = 'compare', gap = 'evidence'
+
+    
+    @pytest.mark.parametrize("mode", ["evaluate", "compare"])
+    @pytest.mark.parametrize("gap", ["code", "evidence"])
+    def test_source_coverage_floor_survives_workflow_aggregation(tmp_path, monkeypatch, mode, gap):
+        from types import SimpleNamespace
+    
+        from scripts.langchain import pr_verifier
+    
+        monkeypatch.setenv("VERIFIER_EVIDENCE_PROFILE", "expanded")
+        arms = _arms()
+        clients = [(object(), arm["provider_used"], arm["model"]) for arm in arms]
+        monkeypatch.setattr(
+            pr_verifier,
+            "_invoke_llm",
+            lambda *args, **kwargs: (SimpleNamespace(content='{"verdict":"PASS"}'), None, None),
+        )
+        context = "Review changed code."
+        diff = "diff --git a/src/a.py b/src/a.py\n--- a/src/a.py\n+++ b/src/a.py\n@@ -1 +1 @@\n-old\n+new\n"
+        if gap == "code":
+            diff = None
+        else:
+            context = "## Acceptance Criteria\n- [ ] Upload a test transcript as a workflow artifact.\n"
+        if mode == "compare":
+>           monkeypatch.setattr(pr_verifier, "_get_llm_clients", lambda *args: clients)
+            ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+E           assert False
+E            +  where False = all(<generator object test_source_coverage_floor_survives_workflow_aggregation.<locals>.<genexpr> at 0x105991ff0>)
+
+tests/workflows/test_verifier_expanded_comparison.py:333: AssertionError
+=========================== short test summary info ============================
+FAILED tests/workflows/test_verifier_expanded_comparison.py::test_source_coverage_floor_survives_workflow_aggregation[evidence-evaluate]
+FAILED tests/workflows/test_verifier_expanded_comparison.py::test_source_coverage_floor_survives_workflow_aggregation[evidence-compare]
+2 failed, 550 passed, 19 skipped in 51.15s

@@ -1,0 +1,38 @@
+I001 [*] Import block is un-sorted or un-formatted
+   --> tests/workflows/test_verifier_expanded_comparison.py:244:5
+    |
+242 |       tmp_path, monkeypatch, provider_index, mode
+243 |   ):
+244 | /     from types import SimpleNamespace
+245 | |     from scripts.langchain import pr_verifier
+    | |_____________________________________________^
+246 |
+247 |       monkeypatch.setenv("VERIFIER_EVIDENCE_PROFILE", "expanded")
+    |
+help: Organize imports
+    |
+244 |     from types import SimpleNamespace
+245 +
+246 |     from scripts.langchain import pr_verifier
+    |
+
+I001 [*] Import block is un-sorted or un-formatted
+   --> tests/workflows/test_verifier_expanded_comparison.py:313:5
+    |
+311 |   @pytest.mark.parametrize("gap", ["code", "evidence"])
+312 |   def test_source_coverage_floor_survives_workflow_aggregation(tmp_path, monkeypatch, mode, gap):
+313 | /     from types import SimpleNamespace
+314 | |     from scripts.langchain import pr_verifier
+    | |_____________________________________________^
+315 |
+316 |       monkeypatch.setenv("VERIFIER_EVIDENCE_PROFILE", "expanded")
+    |
+help: Organize imports
+    |
+313 |     from types import SimpleNamespace
+314 +
+315 |     from scripts.langchain import pr_verifier
+    |
+
+Found 2 errors.
+[*] 2 fixable with the `--fix` option.
