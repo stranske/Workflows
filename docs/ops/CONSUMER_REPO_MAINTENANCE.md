@@ -39,6 +39,11 @@ cannot establish completeness. A failed later page preserves earlier findings.
 Reference-bearing body, comments and linked issues must all be complete before
 explicit exact-head references can skip unrelated associated-run discovery.
 Missing comment content cannot be replaced by associated jobs.
+Paginated comment records require positive stable identities, checked before
+body filtering. Each channel tracks its own IDs and observed monotonic direction;
+duplicate IDs, direction changes or missing paginated identities keep discovery
+unavailable while retaining earlier findings. Both ascending and descending
+stable listings are supported because endpoint ordering differs.
 
 Archives retain the 4 MiB compressed, 80-entry and 128,000-rendered-character
 per-archive bounds. Collection also has global 32 MiB downloaded, 64 MiB extracted

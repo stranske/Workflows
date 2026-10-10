@@ -569,6 +569,9 @@ async function fetchVerifierEvidence({
       const perPage = Math.min(commentLimit, 100);
       const maxPages = Math.min(commentPageLimit, Math.ceil(commentLimit / perPage));
       let truncated = false;
+      const seenCommentIds = new Set();
+      let lastCommentId;
+      let commentOrder;
       for (let page = 1; page <= maxPages; page += 1) {
         diagnostics.counters.comment_pages += 1;
         const response = await source.method({ ...source.params, per_page: perPage, page });
@@ -578,6 +581,24 @@ async function fetchVerifierEvidence({
         const hasNext = Boolean(response?.headers?.link?.includes('rel="next"'));
         for (const comment of response.data) {
           diagnostics.counters.comment_records += 1;
+          const id = comment?.id;
+          const positiveId = Number.isSafeInteger(id) && id > 0;
+          if (id !== undefined && !positiveId) throw new Error('invalid comment ID');
+          if ((page > 1 || (hasNext && page < maxPages)) && !positiveId) {
+            throw new Error('paginated comment ID unavailable');
+          }
+          if (positiveId) {
+            if (seenCommentIds.has(id)) throw new Error('duplicate paginated comment ID');
+            if (lastCommentId !== undefined) {
+              const order = Math.sign(id - lastCommentId);
+              if (commentOrder !== undefined && order !== commentOrder) {
+                throw new Error('invalid paginated comment ordering');
+              }
+              commentOrder = order;
+            }
+            seenCommentIds.add(id);
+            lastCommentId = id;
+          }
           if (comment?.body != null && typeof comment.body !== 'string') throw new Error('invalid comment body');
           if (typeof comment?.body !== 'string' || !comment.body.trim()) continue;
           if (comments.records.length >= commentLimit) {

@@ -28,8 +28,8 @@ test('expanded comment collection follows bounded pages across each channel', as
         issues: { listComments: async ({page = 1, per_page}) => {
           calls.push({page, per_page});
           return page === 1
-            ? {data: Array.from({length: 100}, (_, id) => ({id, body: `proof ${id}`})), headers: {link: '<next>; rel="next"'}}
-            : {data: [{id: 100, body: 'last complete proof'}], headers: {}};
+            ? {data: Array.from({length: 100}, (_, id) => ({id: id + 1, body: `proof ${id}`})), headers: {link: '<next>; rel="next"'}}
+            : {data: [{id: 101, body: 'last complete proof'}], headers: {}};
         }},
         pulls: {listReviewComments: async () => ({data: [], headers: {}}), listReviews: async () => ({data: [], headers: {}})},
       },
@@ -72,6 +72,47 @@ test('artifact extractor reads NDJSON proof but retains filtered-payload complet
   }
 });
 const prBodyFixture = fs.readFileSync(path.join(fixturesDir, 'pr-body.md'), 'utf8');
+
+test('comment pagination identity rejects duplicates, reversals and missing identities in every channel', async () => {
+  await withEnv('VERIFIER_EVIDENCE_COMMENT_LIMIT', '1000', async () => {
+    for (const channel of ['conversation', 'inline', 'reviews']) {
+      for (const defect of ['duplicate', 'reversal', 'bodyless', 'missing', 'invalid']) {
+        const empty = async () => ({data: [], headers: {}});
+        const github = {rest: {issues: {listComments: empty}, pulls: {listReviewComments: empty, listReviews: empty}}};
+        const last = defect === 'reversal' ? {id: 10, body: 'displaced proof'}
+          : defect === 'missing' ? {body: 'unbound proof'}
+          : defect === 'invalid' ? {id: 0, body: 'invalid identity'}
+          : {id: 8, body: defect === 'bodyless' ? '' : 'duplicate proof'};
+        const list = async ({page}) => page === 1
+          ? {data: [{id: 9, body: 'retained finding'}, {id: 8, body: 'retained proof'}], headers: {link: '<next>; rel="next"'}}
+          : {data: [last], headers: {}};
+        if (channel === 'conversation') github.rest.issues.listComments = list;
+        else if (channel === 'inline') github.rest.pulls.listReviewComments = list;
+        else github.rest.pulls.listReviews = list;
+        const result = await fetchVerifierEvidence({github, pullRequestBody: ''});
+        assert.equal(result.comments.complete, false, `${channel}:${defect}`);
+        assert.equal(result.comments.status, 'unavailable', `${channel}:${defect}`);
+        assert.ok(result.comments.records.some(r => r.body === 'retained finding'));
+        assert.equal(result.diagnostics.references.reference_sources_complete, false);
+        assert.equal(result.artifacts.complete, false);
+      }
+    }
+  });
+});
+
+test('comment pagination identity supports either stable order and channel-local IDs', async () => {
+  await withEnv('VERIFIER_EVIDENCE_COMMENT_LIMIT', '1000', async () => {
+    for (const ids of [[1, 2, 3], [3, 2, 1]]) {
+      const list = async ({page}) => page === 1
+        ? {data: ids.slice(0, 2).map(id => ({id, body: `proof ${id}`})), headers: {link: '<next>; rel="next"'}}
+        : {data: [{id: ids[2], body: 'last proof'}], headers: {}};
+      const github = {rest: {issues: {listComments: list}, pulls: {listReviewComments: list, listReviews: list}}};
+      const result = await fetchVerifierEvidence({github, pullRequestBody: ''});
+      assert.equal(result.comments.complete, true);
+      assert.equal(result.comments.records.length, 9);
+    }
+  });
+});
 const issueBodyOpen = fs.readFileSync(path.join(fixturesDir, 'issue-body-open.md'), 'utf8');
 const issueBodyClosed = fs.readFileSync(path.join(fixturesDir, 'issue-body-closed.md'), 'utf8');
 const release3769 = require('./fixtures/release-3769.json');
@@ -3466,7 +3507,7 @@ test('bounded recovery unions late review references and distinguishes character
       await withEnv('VERIFIER_EVIDENCE_COMMENT_CHARS', enough ? '1000' : '100', async () => {
         const {github, sha} = paginatedRecoveryGithub();
         let discovered = 0;
-        github.rest.issues.listComments = async ({page}) => ({data: [{body: page === 1 ? 'x'.repeat(101) : 'Evidence run: /actions/runs/1'}], headers: page === 1 ? {link: 'rel="next"'} : {}});
+        github.rest.issues.listComments = async ({page}) => ({data: [{id: page, body: page === 1 ? 'x'.repeat(101) : 'Evidence run: /actions/runs/1'}], headers: page === 1 ? {link: 'rel="next"'} : {}});
         github.rest.pulls.listReviews = async () => ({data: [{body: 'Validation run: /actions/runs/2'}]});
         github.rest.actions.getWorkflowRun = async ({run_id}) => ({data: {id: run_id, head_sha: sha}});
         const original = github.rest.actions.listWorkflowRunsForRepo;

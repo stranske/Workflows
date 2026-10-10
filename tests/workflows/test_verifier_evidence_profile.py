@@ -234,3 +234,74 @@ def test_evaluate_capacity_upload_uses_immutable_action():
         if step.get("name") == "Upload evaluation capacity receipts"
     )
     assert re.fullmatch(r"actions/upload-artifact@[0-9a-f]{40}", upload["uses"])
+
+
+@pytest.mark.parametrize(
+    ("mode", "expected"),
+    [
+        ("$(printf MODE_INTERPOLATION_EXECUTED >&2)", "pass"),
+        ('evaluate"; printf MODE_INTERPOLATION_EXECUTED >&2; #', "pass"),
+        ("evaluate", "pass"),
+        ("compare", "concerns"),
+        ("checkbox", "pass"),
+    ],
+)
+def test_unified_mode_is_literal_environment_transport(tmp_path, mode, expected):
+    workflow = yaml.load(
+        Path(".github/workflows/reusable-agents-verifier.yml").read_text(), Loader=yaml.BaseLoader
+    )
+    step = next(
+        s for s in workflow["jobs"]["verifier"]["steps"] if s.get("id") == "unified_verdict"
+    )
+    values = {
+        "inputs.mode": mode,
+        "steps.verdict.outputs.verdict": "pass",
+        "steps.llm_evaluate.outputs.verdict": "pass",
+        "steps.llm_compare.outputs.verdict": "concerns",
+        "steps.context.outputs.ci_failed": "false",
+    }
+
+    def render(value):
+        return re.sub(r"\$\{\{\s*(.*?)\s*\}\}", lambda m: values.get(m[1], ""), value)
+
+    env = {**os.environ, "GITHUB_OUTPUT": str(tmp_path / "output")}
+    env.update({key: render(value) for key, value in step.get("env", {}).items()})
+    run = subprocess.run(
+        ["bash", "-c", render(step["run"])], env=env, capture_output=True, text=True
+    )
+    assert run.returncode == 0, run.stderr
+    assert "MODE_INTERPOLATION_EXECUTED" not in run.stdout + run.stderr
+    assert Path(env["GITHUB_OUTPUT"]).read_text().strip() == f"verdict={expected}"
+
+
+@pytest.mark.parametrize(
+    "mode",
+    [
+        "$(printf MODE_INTERPOLATION_EXECUTED >&2)",
+        'checkbox"; printf MODE_INTERPOLATION_EXECUTED >&2; #',
+        "checkbox",
+        "compare",
+    ],
+)
+def test_auth_mode_is_literal_environment_transport(mode):
+    workflow = yaml.load(
+        Path(".github/workflows/reusable-agents-verifier.yml").read_text(), Loader=yaml.BaseLoader
+    )
+    step = next(
+        s
+        for s in workflow["jobs"]["verifier"]["steps"]
+        if s.get("name") == "Validate Codex auth for checkbox/compare modes"
+    )
+    values = {"inputs.mode": mode, "secrets.CODEX_AUTH_JSON": ""}
+
+    def render(value):
+        return re.sub(r"\$\{\{\s*(.*?)\s*\}\}", lambda m: values.get(m[1], ""), value)
+
+    env = {"PATH": os.environ.get("PATH", "")}
+    env.update({key: render(value) for key, value in step.get("env", {}).items()})
+    run = subprocess.run(
+        ["bash", "-c", render(step["run"])], env=env, capture_output=True, text=True
+    )
+    assert run.returncode == 1
+    assert not run.stderr
+    assert f"mode '{mode}'" in run.stdout

@@ -592,7 +592,7 @@ scripts:
     description: "Updates PR body while preserving authored descriptions; stable completed dependency-provenance results, observer exclusion, and exact-head Gate visibility"
 
   - source: .github/scripts/agents_verifier_context.js
-    description: "Verifier context with mandatory unavailable linked-issue discovery, known non-closing source-issue retrieval, independent body/comment/artifact evidence, safe NDJSON proof alongside JSONL, raw extraction byte accounting before UTF-8 decoding, complete exact-head typed/labelled explicit-union artifact scope selected before budgeting, incidental-only associated discovery, fail-closed aggregate availability, literal destination metadata, single-normalization filename-whitespace-preserving text/binary patch offsets and complete post-merge diffs"
+    description: "Verifier context with mandatory unavailable linked-issue discovery, known non-closing source-issue retrieval, independent body/comment/artifact evidence, positive channel-local paginated comment identities and stable ordering, safe NDJSON proof alongside JSONL, raw extraction byte accounting before UTF-8 decoding, complete exact-head typed/labelled explicit-union artifact scope selected before budgeting, incidental-only associated discovery, fail-closed aggregate availability, literal destination metadata, single-normalization filename-whitespace-preserving text/binary patch offsets and complete post-merge diffs"
 
   - source: .github/scripts/agents_dispatch_summary.js
     description: "Summarizes agent dispatch operations"

@@ -564,8 +564,9 @@ jobs:
         if: steps.context.outputs.should_run == 'true' && inputs.mode != 'evaluate' && inputs.evidence_profile != 'expanded'
         env:
           CODEX_AUTH_JSON: ${{ secrets.CODEX_AUTH_JSON }}
+          VERIFIER_MODE: ${{ inputs.mode }}
         run: |
-          mode="${{ inputs.mode }}"
+          mode="$VERIFIER_MODE"
           if [ -z "$CODEX_AUTH_JSON" ]; then
             echo "::error::CODEX_AUTH_JSON secret is required for mode '${mode}' but not provided"
             exit 1
@@ -1424,15 +1425,17 @@ jobs:
       - name: Set unified verdict
         id: unified_verdict
         if: steps.context.outputs.should_run == 'true'
+        env:
+          VERIFIER_MODE: ${{ inputs.mode }}
         run: |
           # Combine verdicts from all modes
           checkbox_verdict="${{ steps.verdict.outputs.verdict }}"
           llm_verdict="${{ steps.llm_evaluate.outputs.verdict }}"
           compare_verdict="${{ steps.llm_compare.outputs.verdict }}"
 
-          if [ "${{ inputs.mode }}" = "evaluate" ]; then
+          if [ "$VERIFIER_MODE" = "evaluate" ]; then
             final_verdict="${llm_verdict:-unknown}"
-          elif [ "${{ inputs.mode }}" = "compare" ]; then
+          elif [ "$VERIFIER_MODE" = "compare" ]; then
             final_verdict="${compare_verdict:-unknown}"
           else
             final_verdict="${checkbox_verdict:-unknown}"

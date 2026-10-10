@@ -413,9 +413,6 @@ REVIEWED_SCRIPT_INTERPOLATIONS = frozenset(
             "bridge/step-8/with.script",
             "inputs.post_agent_comment",
         ),
-        (".github/workflows/reusable-agents-verifier.yml", "verifier/step-13/run", "inputs.mode"),
-        (".github/workflows/reusable-agents-verifier.yml", "verifier/step-33/run", "inputs.mode"),
-        (".github/workflows/reusable-agents-verifier.yml", "verifier/step-33/run", "inputs.mode"),
         (
             ".github/workflows/reusable-backplane-conformance.yml",
             "conformance/step-6/run",
