@@ -207,3 +207,19 @@ The large focused/full-interrupted JUnit files and ancillary lint logs remain
 durable owner-local evidence, not committed acceptance deliverables. The committed
 focused transcript and this document retain their actual scope and interrupted
 full-suite status. No live provider PASS is claimed.
+
+The source owner then merged #3821's test-only head
+`6a4a5a13e7711bf51701fe06d86708a95902277c` without rewriting either history.
+The fixture conflict was resolved by retaining explicit absent/populated SDK
+profiles, mocked unavailable native metadata/counts, the no-network assertion,
+standard compatibility, and expanded fail-closed assertions. No production bytes
+changed during that reconciliation. Parent validation:
+
+```sh
+VERIFIER_RECOVERY_CAPTURE_DIR=/Users/teacher/.codex/automations/sync-dependency-pr-closer/worktrees/maint71-targeted-disposition-20261004/evidence/run-38059805990/comparison-results-38059805990 python3 -m pytest -q -o addopts= tests/scripts/test_pr_verifier_recovery.py tests/scripts/test_native_capacity_recovery.py tests/workflows/test_verifier_evidence_profile.py
+```
+
+Exit 0: **227 passed, 6 skipped in 15.79s**. The six skips are the same
+Anthropic-only metadata cases under OpenAI; authenticated capture replay ran.
+Ruff, Black with Python 3.12 AST checking, and current test diff whitespace
+validation all passed. This remains local source validation, not provider acceptance.

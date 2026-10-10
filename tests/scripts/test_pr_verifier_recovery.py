@@ -19,12 +19,12 @@ def expanded_recovery(monkeypatch):
     monkeypatch.setenv("VERIFIER_EVIDENCE_PROFILE", "expanded")
 
 
-@pytest.fixture(params=["openai", "anthropic"])
+@pytest.fixture(params=["openai", "anthropic", "openai-with-profile"])
 def configured_native_client(request, monkeypatch):
     """Construct the actual selected adapters without credentials or network calls."""
     from tools import langchain_client
 
-    provider = request.param
+    provider = request.param.split("-", 1)[0]
     registry = json.loads(Path("config/model_registry.json").read_text())
     selection = next(
         item
@@ -56,7 +56,26 @@ def configured_native_client(request, monkeypatch):
             "retrieve",
             mock.Mock(side_effect=RuntimeError("native transport unavailable")),
         )
-    return client, provider, selection["model_id"]
+    # Control capacity facts explicitly: SDK releases may bundle model profiles.
+    # These limits exercise the guard; they are not claims about model capacity.
+    monkeypatch.setattr(
+        client,
+        "profile",
+        (
+            {"max_input_tokens": 100000, "max_output_tokens": 1000}
+            if request.param == "openai-with-profile"
+            else None
+        ),
+    )
+    if request.param == "openai-with-profile":
+        assert not callable(
+            getattr(
+                getattr(getattr(client, "_client", None), "messages", None), "count_tokens", None
+            )
+        )
+    with mock.patch("httpx.Client.send") as send:
+        yield client, provider, selection["model_id"]
+        send.assert_not_called()
 
 
 @pytest.mark.parametrize("profile", [None, "standard", "expanded"])
@@ -65,8 +84,7 @@ def test_configured_native_client_compatibility(
     configured_native_client, profile, operation, monkeypatch, tmp_path
 ):
     client, provider, model = configured_native_client
-    # Standard still uses the original adapters without bundled profiles.
-    assert client.profile is None
+    # Neither absent nor populated SDK facts authorize unavailable native transport.
     if profile is None:
         monkeypatch.delenv("VERIFIER_EVIDENCE_PROFILE", raising=False)
     else:
