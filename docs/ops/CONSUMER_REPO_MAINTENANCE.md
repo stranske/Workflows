@@ -31,7 +31,8 @@ After inspecting an actual incomplete verifier report, manual `Agents Verifier`
 dispatch may select `evidence_profile=expanded`. Standard remains the default;
 this is not an automatic retry or a verdict override. Expanded permits 1,000
 retained review records and 1 MiB of combined comment text, with at most ten
-pages per comment endpoint. Associated-run discovery follows at most two pages
+collected pages per comment endpoint, plus one bounded re-read of those pages
+when pagination was needed. Associated-run discovery follows at most two pages
 per exact head/merge SHA, retaining at most 200 distinct runs globally. Artifact
 lists follow at most four pages per run, within a global 400-record ceiling.
 Later pages, changing/malformed totals, repeated IDs and empty nonterminal pages
@@ -44,6 +45,14 @@ body filtering. Each channel tracks its own IDs and observed monotonic direction
 duplicate IDs, direction changes or missing paginated identities keep discovery
 unavailable while retaining earlier findings. Both ascending and descending
 stable listings are supported because endpoint ordering differs.
+Duplicate-free ordering alone cannot detect deletion-induced boundary shifts.
+Before declaring a multi-page comment source complete, re-read every collected
+page once, including its terminal link boundary, and compare SHA-256 signatures
+of ordered identities, bodies, authors, URLs and next-page presence. Changes,
+malformed responses and transport failures retain earlier findings but mark
+the source unavailable and prevent an incomplete explicit reference union from
+suppressing associated-run discovery. This bounded stability observation is not
+a transactional API snapshot and performs no retry loop or unbounded recovery.
 
 Archives retain the 4 MiB compressed, 80-entry and 128,000-rendered-character
 per-archive bounds. Collection also has global 32 MiB downloaded, 64 MiB extracted
@@ -82,8 +91,11 @@ by the actual Python processes, not just the allocation and snapshot steps.
 
 Expanded recovery supports `evaluate` and `compare`. The ancillary checkbox CLI
 has no native input-count contract here, so expanded compare skips it and expanded
-checkbox dispatch rejects before invocation. The existing comparison verdict and
-CI/coverage floors remain authoritative. No human-only gate is introduced.
+checkbox dispatch rejects before invocation.
+Every expanded mode other than exact `evaluate` or `compare` rejects before
+profile exports or generation, including empty, mistyped and whitespace modes.
+The existing comparison verdict and CI/coverage floors remain authoritative.
+No human-only gate is introduced.
 
 The selected Terra/Sonnet models currently have no capacity facts in the installed
 client profiles. This source repair deliberately does not invent those facts or

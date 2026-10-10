@@ -3,6 +3,7 @@
 const fs = require('fs');
 const os = require('os');
 const path = require('path');
+const { createHash } = require('crypto');
 const { execFileSync } = require('child_process');
 const { ensureRateLimitWrapped } = require('./github-rate-limited-wrapper.js');
 
@@ -507,6 +508,18 @@ function appendBoundedText(records, candidate, maxChars, usedChars) {
   return { usedChars: usedChars + body.length, truncated: false };
 }
 
+function commentPageSignature(response) {
+  if (!Array.isArray(response?.data)) throw new Error('invalid comment snapshot list');
+  const records = response.data.map(comment => ({
+    id: comment?.id,
+    body: comment?.body,
+    author: comment?.user?.login || comment?.author?.login || 'unknown',
+    url: comment?.html_url || comment?.url || '',
+  }));
+  const hasNext = Boolean(response?.headers?.link?.includes('rel="next"'));
+  return createHash('sha256').update(JSON.stringify({ records, hasNext })).digest('hex');
+}
+
 async function fetchVerifierEvidence({
   github,
   core,
@@ -572,6 +585,7 @@ async function fetchVerifierEvidence({
       const seenCommentIds = new Set();
       let lastCommentId;
       let commentOrder;
+      const pageSnapshots = [];
       for (let page = 1; page <= maxPages; page += 1) {
         diagnostics.counters.comment_pages += 1;
         const response = await source.method({ ...source.params, per_page: perPage, page });
@@ -579,6 +593,7 @@ async function fetchVerifierEvidence({
           throw new Error(`${source.name} API returned an invalid comment list`);
         }
         const hasNext = Boolean(response?.headers?.link?.includes('rel="next"'));
+        pageSnapshots.push({ page, signature: commentPageSignature(response) });
         for (const comment of response.data) {
           diagnostics.counters.comment_records += 1;
           const id = comment?.id;
@@ -618,6 +633,18 @@ async function fetchVerifierEvidence({
         }
         if (truncated || !hasNext) break;
         if (page === maxPages) { truncated = true; fail("comments", "page", source.name); }
+      }
+      // Page-number deletion shifts need not repeat an ID. Re-read every
+      // collected page, including the terminal boundary, before trusting the
+      // reference union. This is one bounded stability pass, never a retry loop.
+      if (!truncated && pageSnapshots.length > 1) {
+        for (const snapshot of pageSnapshots) {
+          diagnostics.counters.comment_pages += 1;
+          const current = await source.method({ ...source.params, per_page: perPage, page: snapshot.page });
+          if (commentPageSignature(current) !== snapshot.signature) {
+            throw new Error('comment page snapshot changed during pagination');
+          }
+        }
       }
       if (truncated) {
         commentFailures.push(

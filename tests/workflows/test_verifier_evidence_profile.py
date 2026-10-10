@@ -70,7 +70,12 @@ def test_profile_executes_only_fixed_bounded_exports(tmp_path, profile):
     output = tmp_path / "env"
     result = subprocess.run(
         ["bash", "-c", profile_step()["run"]],
-        env={**os.environ, "VERIFIER_EVIDENCE_PROFILE": profile, "GITHUB_ENV": str(output)},
+        env={
+            **os.environ,
+            "VERIFIER_EVIDENCE_PROFILE": profile,
+            "VERIFIER_MODE": "compare",
+            "GITHUB_ENV": str(output),
+        },
         capture_output=True,
         text=True,
     )
@@ -143,14 +148,17 @@ def test_input_snapshot_retains_profile_and_every_actual_limit():
         assert f"os.environ.get('VERIFIER_{name}'" in workflow
 
 
-def test_expanded_checkbox_rejects_before_any_generation(tmp_path):
+@pytest.mark.parametrize(
+    "mode", ["checkbox", "typo", "", "EVALUATE", "compare ", "$(printf unsafe)"]
+)
+def test_expanded_checkbox_rejects_before_any_generation(tmp_path, mode):
     output = tmp_path / "env"
     result = subprocess.run(
         ["bash", "-c", profile_step()["run"]],
         env={
             **os.environ,
             "VERIFIER_EVIDENCE_PROFILE": "expanded",
-            "VERIFIER_MODE": "checkbox",
+            "VERIFIER_MODE": mode,
             "GITHUB_ENV": str(output),
         },
         capture_output=True,
@@ -184,7 +192,11 @@ def test_selected_profile_reaches_python_process(tmp_path, step_id, profile):
         resolved = {**env, **job.get("env", {}), **step.get("env", {})}
         for key, value in resolved.items():
             if "${{" in value:
-                resolved[key] = profile if value == "${{ inputs.evidence_profile }}" else ""
+                resolved[key] = (
+                    profile
+                    if value == "${{ inputs.evidence_profile }}"
+                    else step_id.removeprefix("llm_") if value == "${{ inputs.mode }}" else ""
+                )
         return resolved
 
     selected = subprocess.run(

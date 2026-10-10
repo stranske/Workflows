@@ -37,7 +37,7 @@ test('expanded comment collection follows bounded pages across each channel', as
     const evidence = await fetchVerifierEvidence({github, owner:'o', repo:'r', pullNumber:1, pullRequestBody:''});
     assert.equal(evidence.comments.complete, true);
     assert.equal(evidence.comments.records.length, 101);
-    assert.deepEqual(calls, [{page:1,per_page:100},{page:2,per_page:100}]);
+    assert.deepEqual(calls, [{page:1,per_page:100},{page:2,per_page:100}, {page:1,per_page:100},{page:2,per_page:100}]);
   });
 });
 test('expanded pagination retains bounded overflow and later-page failure gaps', async () => {
@@ -114,6 +114,36 @@ test('comment pagination identity supports either stable order and channel-local
   });
 });
 const issueBodyOpen = fs.readFileSync(path.join(fixturesDir, 'issue-body-open.md'), 'utf8');
+test('comment pagination detects deletion shifts and changed snapshots in every channel', async () => {
+  await withEnv('VERIFIER_EVIDENCE_COMMENT_LIMIT', '1000', async () => {
+    for (const channel of ['conversation', 'inline', 'reviews']) {
+      for (const change of ['deletion', 'body', 'terminal-link', 'transport']) {
+        const empty = async () => ({data: [], headers: {}});
+        const github = {rest: {issues: {listComments: empty}, pulls: {listReviewComments: empty, listReviews: empty}}};
+        const calls = new Map();
+        const list = async ({page}) => {
+          const count = (calls.get(page) || 0) + 1;
+          calls.set(page, count);
+          if (count > 1 && change === 'transport') throw new Error('snapshot unavailable');
+          const data = page === 1
+            ? (count > 1 && change === 'deletion' ? [8, 7] : [9, 8]).map(id => ({id, body: 'retained proof'}))
+            : [{id: 6, body: count > 1 && change === 'body' ? 'Evidence run: /actions/runs/999' : 'last proof'}];
+          const hasNext = page === 1 || (count > 1 && change === 'terminal-link');
+          return {data, headers: hasNext ? {link: '<next>; rel="next"'} : {}};
+        };
+        if (channel === 'conversation') github.rest.issues.listComments = list;
+        else if (channel === 'inline') github.rest.pulls.listReviewComments = list;
+        else github.rest.pulls.listReviews = list;
+        const result = await fetchVerifierEvidence({github, pullRequestBody: ''});
+        assert.equal(result.comments.complete, false, `${channel}:${change}`);
+        assert.equal(result.comments.status, 'unavailable', `${channel}:${change}`);
+        assert.ok(result.comments.records.some(r => r.body === 'retained proof'));
+        assert.equal(result.diagnostics.references.reference_sources_complete, false);
+        assert.equal(result.artifacts.complete, false);
+      }
+    }
+  });
+});
 const issueBodyClosed = fs.readFileSync(path.join(fixturesDir, 'issue-body-closed.md'), 'utf8');
 const release3769 = require('./fixtures/release-3769.json');
 const release3787 = require('./fixtures/release-3787.json');

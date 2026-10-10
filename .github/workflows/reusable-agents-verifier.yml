@@ -104,10 +104,10 @@ jobs:
           case "$VERIFIER_EVIDENCE_PROFILE" in
             standard) ;;
             expanded)
-              if [ "${VERIFIER_MODE:-compare}" = "checkbox" ]; then
-                echo 'Expanded recovery requires counted evaluate or compare mode' >&2
-                exit 1
-              fi
+              case "${VERIFIER_MODE:-}" in
+                evaluate|compare) ;;
+                *) echo 'Expanded recovery requires counted evaluate or compare mode' >&2; exit 1 ;;
+              esac
               # Explicit recovery after inspecting incomplete input evidence.
               # Retrieval failures and clipped code remain non-PASS.
               printf '%s\n' \
