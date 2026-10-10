@@ -1,0 +1,38 @@
+[
+  {
+    "command": [
+      "git",
+      "diff",
+      "--check"
+    ],
+    "exit_code": 0,
+    "whitespace_errors": false,
+    "note": "clean production diff"
+  },
+  {
+    "command": [
+      "git",
+      "diff",
+      "--no-index",
+      "--check",
+      "/dev/null",
+      "tests/workflows/test_verifier_caller_security.py"
+    ],
+    "exit_code": 1,
+    "whitespace_errors": false,
+    "note": "no-index exits 1 for added content"
+  },
+  {
+    "command": [
+      "git",
+      "diff",
+      "--no-index",
+      "--check",
+      "/dev/null",
+      "evidence/issue-3820/verifier-caller-security-red-green.py"
+    ],
+    "exit_code": 1,
+    "whitespace_errors": false,
+    "note": "no-index exits 1 for added content"
+  }
+]

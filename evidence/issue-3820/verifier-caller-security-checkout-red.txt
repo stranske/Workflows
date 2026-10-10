@@ -1,0 +1,31 @@
+.F.                                                                      [100%]
+=================================== FAILURES ===================================
+_ test_checkout_executes_trusted_source_without_credentials[templates/consumer-repo/.github/workflows/agents-verifier.yml] _
+
+path = 'templates/consumer-repo/.github/workflows/agents-verifier.yml'
+
+    @pytest.mark.parametrize("path", CALLERS + [REUSABLE])
+    def test_checkout_executes_trusted_source_without_credentials(path: str) -> None:
+        checkouts = [
+            s
+            for job in workflow(path)["jobs"].values()
+            for s in job.get("steps", [])
+            if s.get("uses", "").startswith("actions/checkout@")
+        ]
+        assert checkouts
+        for checkout in checkouts:
+            options = checkout["with"]
+            assert options["persist-credentials"] is False
+            if options.get("repository") == "stranske/Workflows":
+                assert options["ref"] == "${{ steps.workflows_ref.outputs.ref }}"
+            else:
+>               assert options["ref"] == "${{ github.sha }}"
+E               AssertionError: assert '${{ github.e...t.head.sha }}' == '${{ github.sha }}'
+E                 
+E                 - ${{ github.sha }}
+E                 + ${{ github.event.pull_request.head.sha }}
+
+tests/workflows/test_verifier_caller_security.py:86: AssertionError
+=========================== short test summary info ============================
+FAILED tests/workflows/test_verifier_caller_security.py::test_checkout_executes_trusted_source_without_credentials[templates/consumer-repo/.github/workflows/agents-verifier.yml]
+1 failed, 2 passed, 12 deselected in 0.44s

@@ -2,6 +2,51 @@
 
 This document outlines the process for maintaining workflow system consistency across consumer repositories and debugging issues that may affect multiple repos.
 
+## Post-merge verifier security boundary
+
+The source and consumer `agents-verifier.yml` callers intentionally retain
+`pull_request_target: labeled`: verification of an already merged fork PR needs
+base-repository secrets. A job-level gate rejects unmerged PRs and every label
+except the exact `verify:checkbox`, `verify:evaluate`, and `verify:compare` set
+before checkout or secret use. Manual dispatch still rechecks the PR's merged
+state through the API. Applying these labels requires repository label permission;
+manual dispatch requires workflow authorization. A fork author's identity alone
+does not authorize verification.
+
+Caller helper checkouts and the reusable caller-repository checkout explicitly
+use `github.sha`, the base commit for `pull_request_target`, never a PR head ref.
+The separate Workflows helper checkout uses the existing resolved default branch.
+All these checkouts disable credential persistence. PR descriptions, diffs,
+comments and artifacts remain untrusted input data for verification, never a
+source of executable workflow helpers. Merging code admits it to the trusted
+base; this contract does not protect against malicious code a maintainer merges
+or a privileged user dispatches from a branch they control.
+
+Workflow defaults grant no permissions. The caller check job only reads contents
+and PRs, using its workflow token without PAT/App rotation. The verifier job
+reads contents, issues, Actions and Models and writes PR comments; the consumer
+fingerprint store alone also needs PR write. Issues write is unnecessary because
+the legacy automatic issue-creation step is disabled; enabling that behavior
+requires a separate permission review. The optional checkout App token is scoped
+to contents read on the caller repository; the public Workflows helper checkout
+uses the workflow token. Existing API retry plumbing still accepts the declared
+App credentials; installation permissions and credential rotation remain a
+separate shared-library contract.
+The reusable call passes exactly its six declared secrets, including the existing
+lowercase `workflows_app_id` and `workflows_app_private_key` keys. No repository
+secret inheritance is permitted. Fingerprint outputs enter shell steps through
+quoted environment variables; the standard v2 and expanded v6 fingerprint
+contracts and success-only persistence remain unchanged.
+
+The two inline `zizmor: ignore[dangerous-triggers]` comments disposition only
+the necessary trigger nodes on these callers. They do not waive injection,
+permissions, credentials, secret inheritance, or other workflows. The production
+YAML security tests exercise merged/fork/exact-label boundaries, reject manual
+verification of unmerged PRs, check the executable checkout refs and declared
+secret mapping, and execute shell injection payloads as inert data. Removing
+`pull_request_target` would prevent the intended post-merge fork secret access;
+expanding this exception requires an independent trust-boundary review.
+
 ## Verifier canary review recovery
 
 Named review-evidence destinations include both PR body and PR description.
@@ -191,6 +236,15 @@ judge's PASS cannot hide an unavailable judge. The existing standard aggregation
 and all CI, retrieval, acceptance-evidence and changed-code floors remain in force.
 The v6 fingerprint also invalidates expanded receipts predating registry validation; it does
 not turn local tests or prior capacity-function reviews into hosted acceptance.
+
+Expanded comparison loads its verdict helper from the checked-out Workflows
+source, not the caller's potentially older `scripts` package. Python stdin
+otherwise prioritizes caller cwd over `PYTHONPATH`. The reusable parser requires
+the authoritative verifier file and places that checkout first before importing
+the helper; a missing checkout stays CONCERNS rather than falling back to caller
+code. Relative comparison-result files remain in the caller workspace. This
+boundary is required because reusable source becomes active before consumer
+template deliveries are atomic; standard aggregation remains unchanged.
 
 Workflows#3802's immutable expanded capture reproduces 4/7 complete files and
 127,635/257,099 included code characters with the old allocation. The new expanded

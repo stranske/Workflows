@@ -1,0 +1,39 @@
+{
+  "head": "e79e2c0fa7f9562f1283f8be62f2ce6d649672b4",
+  "original_untracked_count": 22,
+  "preserved_untracked": {
+    "capacity-recovery-brief.md": "461deca8a6d160b1bcbd5d49942f490c853ac027560e1277a9871fdc4a6cfe4b",
+    "evidence/issue-3820/native-capacity-actionlint.txt": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+    "evidence/issue-3820/native-capacity-black.txt": "0b479fee9c3c70313b9c5c7a6339ecd413b78bbea93f1ad5050f49bdd3a655af",
+    "evidence/issue-3820/native-capacity-focused-regression.xml": "ff0e6c5668ec4945c026e659fc234a1644fe70bbaa0bce21bcd483eb4537fe32",
+    "evidence/issue-3820/native-capacity-green.xml": "6033febda2b12bb9b6c1efbb683a05b9a1592678fb16003968c0a2829e2e0590",
+    "evidence/issue-3820/native-capacity-regression.txt": "c63716dd14350886b5038fb4ab665c8d5f5b8129c149b6978318f3bd8bf3c15a",
+    "evidence/issue-3820/native-capacity-regression.xml": "b6d7aab6bb40ac6efad5b33f7862e2b138078871575e0ebdcb090c1bf8286e44",
+    "evidence/issue-3820/native-capacity-ruff.txt": "82b3e6a6c090a57601d22943bd23fca9218d1031dbe5a7b754092f9a156b4f18",
+    "evidence/issue-3820/native-capacity-template-sync.txt": "e00bc56a4eb4ab5ca9c721c61262b90d9d55e74187fec23e1144d500af0fcc6b",
+    "evidence/issue-3820/native-capacity-workflow.xml": "c213612eccaa93964babcc9fd7868f12be01b85ffab612a1e6ca232523d9d665",
+    "evidence/issue-3820/native-context-window-actionlint.txt": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+    "evidence/issue-3820/native-context-window-black.txt": "26a5fd9505f2b5608a20c4fed4b4c4795e0783d03b72ade02a6af34dae8ad086",
+    "evidence/issue-3820/native-context-window-capture.xml": "678146772c77c337cdc494a2d658c099fb5d2314bbfc859488d553a90ff1ed96",
+    "evidence/issue-3820/native-context-window-green.txt": "026fdb64ef098b30e0cb3d041940694ec5a818442ed324f677f10ec5f9748084",
+    "evidence/issue-3820/native-context-window-green.xml": "c2539e86dbeb2ee44a96d8a71e2f5db6e910ff009c18a4dffffe50cc2707b0ff",
+    "evidence/issue-3820/native-context-window-native.txt": "53e98276a2c8a97dc73e7800b0876cfcb5e46a741688ea3af60be6fdd8966e87",
+    "evidence/issue-3820/native-context-window-native.xml": "dacef7bf001cc71770ab9f4a3a1b238601580b5338007ced42f137a5dcbd1e91",
+    "evidence/issue-3820/native-context-window-original-red.txt": "8aae59b39395abf1744e0bab4dcc0af45546f1bc8616e416b73bcc22479eeefd",
+    "evidence/issue-3820/native-context-window-original-red.xml": "02f619e4c362765d7af77516b7fa1339efb774704a109db97f6a1678b3cda01e",
+    "evidence/issue-3820/native-context-window-parity.txt": "e00bc56a4eb4ab5ca9c721c61262b90d9d55e74187fec23e1144d500af0fcc6b",
+    "evidence/issue-3820/native-context-window-regression.xml": "51019dc0e932e05480c748daa37a2329becfd807bc66601873c44d9c4ef6580d",
+    "evidence/issue-3820/native-context-window-ruff.txt": "82b3e6a6c090a57601d22943bd23fca9218d1031dbe5a7b754092f9a156b4f18"
+  },
+  "prior_evidence_file_count": 140,
+  "prior_evidence_manifest_sha256": "f09f1e67aa93e5f51276178300b3c145b5449200a7e2aaa98b910d3882d8272f",
+  "all_prior_evidence_unchanged": true,
+  "changed_preexisting_paths": [
+    ".github/sync-manifest.yml",
+    ".github/workflows/agents-verifier.yml",
+    ".github/workflows/reusable-agents-verifier.yml",
+    "config/template-drift-allowlist.txt",
+    "docs/ops/CONSUMER_REPO_MAINTENANCE.md",
+    "templates/consumer-repo/.github/workflows/agents-verifier.yml"
+  ]
+}

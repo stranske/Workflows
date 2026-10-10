@@ -1,0 +1,47 @@
+<?xml version="1.0" encoding="utf-8"?><testsuites name="pytest tests"><testsuite name="pytest" errors="0" failures="1" skipped="0" tests="2" time="0.883" timestamp="2026-10-10T12:57:15.789402-05:00" hostname="server.trs.private"><testcase classname="tests.workflows.test_verifier_caller_security" name="test_trigger_gate_runs_before_any_checkout_or_secret[.github/workflows/agents-verifier.yml]" time="0.728" /><testcase classname="tests.workflows.test_verifier_caller_security" name="test_trigger_gate_runs_before_any_checkout_or_secret[templates/consumer-repo/.github/workflows/agents-verifier.yml]" time="0.046"><failure message="assert True is False&#10; +  where True = &lt;function loads at 0x10586efc0&gt;('true')&#10; +    where &lt;function loads at 0x10586efc0&gt; = json.loads&#10; +    and   'true' = CompletedProcess(args=['node', '-e', &quot;\nconst [expression, github] = JSON.parse(process.argv[1]);\nconst result = Func..., &quot;head&quot;: {&quot;repo&quot;: {&quot;fork&quot;: false}}}, &quot;label&quot;: {&quot;name&quot;: &quot;verify:compare&quot;}}}]'], returncode=0, stdout='true', stderr='').stdout">path = 'templates/consumer-repo/.github/workflows/agents-verifier.yml'
+
+    @pytest.mark.parametrize("path", CALLERS)
+    def test_trigger_gate_runs_before_any_checkout_or_secret(path: str) -&gt; None:
+        data = workflow(path)
+        assert data[True]["pull_request_target"]["types"] == ["labeled"]
+        expression = data["jobs"]["check"]["if"]
+        # This Actions expression uses the JS-compatible boolean/property subset.
+        # Evaluate the exact authored expression, including its exact-label allowlist.
+        cases = [
+            ("pull_request_target", False, "verify:compare", False),
+            ("pull_request_target", True, "verify:create-issue", False),
+            ("pull_request_target", True, "verify:compare-extra", False),
+            ("pull_request_target", True, "unrelated", False),
+            ("pull_request_target", True, "verify:checkbox", True),
+            ("pull_request_target", True, "verify:evaluate", True),
+            ("pull_request_target", True, "verify:compare", True),
+            ("workflow_dispatch", False, "", True),
+        ]
+        for event, merged, label, expected in cases:
+            for fork in [False, True]:
+                github = {
+                    "event_name": event,
+                    "event": {
+                        "pull_request": {"merged": merged, "head": {"repo": {"fork": fork}}},
+                        "label": {"name": label},
+                    },
+                }
+                script = """
+    const [expression, github] = JSON.parse(process.argv[1]);
+    const result = Function('github', 'fromJSON', 'contains', 'return (' + expression + ')')(
+      github, JSON.parse, (values, value) =&gt; values.includes(value));
+    process.stdout.write(JSON.stringify(result));
+    """
+                result = subprocess.run(
+                    ["node", "-e", script, json.dumps([expression, github])],
+                    check=True,
+                    capture_output=True,
+                    text=True,
+                )
+&gt;               assert json.loads(result.stdout) is expected
+E               assert True is False
+E                +  where True = &lt;function loads at 0x10586efc0&gt;('true')
+E                +    where &lt;function loads at 0x10586efc0&gt; = json.loads
+E                +    and   'true' = CompletedProcess(args=['node', '-e', "\nconst [expression, github] = JSON.parse(process.argv[1]);\nconst result = Func..., "head": {"repo": {"fork": false}}}, "label": {"name": "verify:compare"}}}]'], returncode=0, stdout='true', stderr='').stdout
+
+tests/workflows/test_verifier_caller_security.py:137: AssertionError</failure></testcase></testsuite></testsuites>

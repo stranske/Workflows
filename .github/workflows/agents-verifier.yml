@@ -8,7 +8,7 @@
 # - Manual dispatch from Actions tab (allows model/provider selection)
 # Note: No longer runs automatically on every merge. Add a verify:* label to trigger.
 #
-# Required secrets (via secrets: inherit):
+# Explicit reusable secret allowlist (declared by workflow_call):
 # - CODEX_AUTH_JSON: Authentication for Codex API
 # - OPENAI_API_KEY: For OpenAI provider (optional, falls back to Claude/GitHub Models)
 # - CLAUDE_API_STRANSKE: For Claude provider (optional, falls back to GitHub Models)
@@ -20,7 +20,9 @@
 name: Agents Verifier
 
 on:
-  pull_request_target:
+  # Post-merge fork verification needs base-repo secrets. Only trusted github.sha
+  # is executed; PR head/diff/artifacts are data. See the maintenance trust boundary.
+  pull_request_target: # zizmor: ignore[dangerous-triggers]
     types:
       - labeled
   workflow_dispatch:
@@ -69,12 +71,7 @@ on:
           - anthropic
         default: 'auto'
 
-permissions:
-  contents: read
-  pull-requests: write
-  issues: write
-  actions: read
-  models: read  # Required for GitHub Models API access
+permissions: {}
 
 concurrency:
   group: agents-verifier-${{ github.event.pull_request.number || github.run_id }}
@@ -84,6 +81,14 @@ jobs:
   # Gate: only proceed if PR is merged AND has verify:* label (for label trigger)
   # Or if triggered manually via workflow_dispatch
   check:
+    # Before checkout or secrets: require an authorized merged-PR label or dispatch.
+    if: >-
+      github.event_name == 'workflow_dispatch' ||
+      (github.event.pull_request.merged == true &&
+       contains(fromJSON('["verify:checkbox", "verify:evaluate", "verify:compare"]'), github.event.label.name))
+    permissions:
+      contents: read
+      pull-requests: read
     runs-on: ubuntu-latest
     outputs:
       should_run: ${{ steps.check.outputs.should_run }}
@@ -96,6 +101,8 @@ jobs:
       - name: Checkout retry helpers
         uses: actions/checkout@v7
         with:
+          ref: ${{ github.sha }}
+          persist-credentials: false
           sparse-checkout: |
             .github/actions/setup-api-client
             .github/scripts/error_classifier.js
@@ -107,21 +114,6 @@ jobs:
         with:
           # named inputs, not the whole secrets context (see #3185)
           github_token: ${{ github.token }}
-          service_bot_pat: ${{ secrets.SERVICE_BOT_PAT }}
-          actions_bot_pat: ${{ secrets.ACTIONS_BOT_PAT }}
-          owner_pr_pat: ${{ secrets.OWNER_PR_PAT }}
-          agents_automation_pat: ${{ secrets.AGENTS_AUTOMATION_PAT }}
-          workflows_app_id: ${{ secrets.WORKFLOWS_APP_ID }}
-          workflows_app_private_key: ${{ secrets.WORKFLOWS_APP_PRIVATE_KEY }}
-          keepalive_app_id: ${{ secrets.KEEPALIVE_APP_ID }}
-          keepalive_app_private_key: ${{ secrets.KEEPALIVE_APP_PRIVATE_KEY }}
-          gh_app_id: ${{ secrets.GH_APP_ID }}
-          gh_app_private_key: ${{ secrets.GH_APP_PRIVATE_KEY }}
-          app_1_id: ${{ secrets.APP_1_ID }}
-          app_1_private_key: ${{ secrets.APP_1_PRIVATE_KEY }}
-          app_2_id: ${{ secrets.APP_2_ID }}
-          app_2_private_key: ${{ secrets.APP_2_PRIVATE_KEY }}
-
 
 
       - name: Check trigger conditions
@@ -230,6 +222,12 @@ jobs:
   verifier:
     needs: check
     if: needs.check.outputs.should_run == 'true'
+    permissions:
+      contents: read
+      pull-requests: write
+      issues: read
+      actions: read
+      models: read
     uses: stranske/Workflows/.github/workflows/reusable-agents-verifier.yml@main
     with:
       # CI workflows to wait for before running verifier (Gate + PR 11 + selftest CI)
@@ -245,4 +243,10 @@ jobs:
       # Second model for compare mode (empty string uses default)
       model2: ${{ needs.check.outputs.model2 }}
       evidence_profile: ${{ inputs.evidence_profile || 'standard' }}
-    secrets: inherit
+    secrets:
+      CODEX_AUTH_JSON: ${{ secrets.CODEX_AUTH_JSON }}
+      OPENAI_API_KEY: ${{ secrets.OPENAI_API_KEY }}
+      CLAUDE_API_STRANSKE: ${{ secrets.CLAUDE_API_STRANSKE }}
+      LANGSMITH_API_KEY: ${{ secrets.LANGSMITH_API_KEY }}
+      workflows_app_id: ${{ secrets.WORKFLOWS_APP_ID }}
+      workflows_app_private_key: ${{ secrets.WORKFLOWS_APP_PRIVATE_KEY }}

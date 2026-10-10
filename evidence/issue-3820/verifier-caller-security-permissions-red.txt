@@ -1,0 +1,20 @@
+F..                                                                      [100%]
+=================================== FAILURES ===================================
+______ test_job_scoped_permissions[.github/workflows/agents-verifier.yml] ______
+
+path = '.github/workflows/agents-verifier.yml'
+
+    @pytest.mark.parametrize("path", CALLERS + [REUSABLE])
+    def test_job_scoped_permissions(path: str) -> None:
+        data = workflow(path)
+>       assert data["permissions"] == {}
+E       AssertionError: assert {'issues': 'write'} == {}
+E         
+E         Left contains 1 more item:
+E         {'issues': 'write'}
+E         Use -v to get more diff
+
+tests/workflows/test_verifier_caller_security.py:57: AssertionError
+=========================== short test summary info ============================
+FAILED tests/workflows/test_verifier_caller_security.py::test_job_scoped_permissions[.github/workflows/agents-verifier.yml]
+1 failed, 2 passed, 12 deselected in 0.34s

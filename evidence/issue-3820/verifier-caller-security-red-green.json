@@ -1,0 +1,236 @@
+[
+  {
+    "name": "secrets",
+    "production_path": "templates/consumer-repo/.github/workflows/agents-verifier.yml",
+    "before_sha256": "97ab84a1aa55cb5b82c900efbfe8710c7815c75f1ef7fbb566e2c986d44fc31a",
+    "mutated_sha256": "b37c3915cd1dc5e1e99482f12f99c175f826687baca2f5bae5d98db142abe6c2",
+    "restored_sha256": "97ab84a1aa55cb5b82c900efbfe8710c7815c75f1ef7fbb566e2c986d44fc31a",
+    "red": {
+      "command": [
+        "/Users/teacher/.codex/orchestrator/agent-runtime/codex/.cache/uv/builds-v0/.tmpk75UvM/bin/python",
+        "-m",
+        "pytest",
+        "tests/workflows/test_verifier_caller_security.py",
+        "-k",
+        "secret_allowlist",
+        "-q",
+        "-o",
+        "addopts=",
+        "--junitxml=/Users/teacher/.codex/automations/sync-dependency-pr-closer/worktrees/provider-capacity-recovery-20261010/evidence/issue-3820/verifier-caller-security-secrets-red.xml"
+      ],
+      "exit_code": 1,
+      "executed_failure": true
+    },
+    "green": {
+      "command": [
+        "/Users/teacher/.codex/orchestrator/agent-runtime/codex/.cache/uv/builds-v0/.tmpk75UvM/bin/python",
+        "-m",
+        "pytest",
+        "tests/workflows/test_verifier_caller_security.py",
+        "-k",
+        "secret_allowlist",
+        "-q",
+        "-o",
+        "addopts=",
+        "--junitxml=/Users/teacher/.codex/automations/sync-dependency-pr-closer/worktrees/provider-capacity-recovery-20261010/evidence/issue-3820/verifier-caller-security-secrets-restored-green.xml"
+      ],
+      "exit_code": 0,
+      "executed_failure": false
+    }
+  },
+  {
+    "name": "permissions",
+    "production_path": ".github/workflows/agents-verifier.yml",
+    "before_sha256": "74b1c152d659810ddfd0dddc933ca9767ce938d21f34a8e921848539690499a0",
+    "mutated_sha256": "44d1e117b1de926c0d831a21fa5e8652c96f3edede659e5b7f92585f4fde6a9a",
+    "restored_sha256": "74b1c152d659810ddfd0dddc933ca9767ce938d21f34a8e921848539690499a0",
+    "red": {
+      "command": [
+        "/Users/teacher/.codex/orchestrator/agent-runtime/codex/.cache/uv/builds-v0/.tmpk75UvM/bin/python",
+        "-m",
+        "pytest",
+        "tests/workflows/test_verifier_caller_security.py",
+        "-k",
+        "job_scoped_permissions",
+        "-q",
+        "-o",
+        "addopts=",
+        "--junitxml=/Users/teacher/.codex/automations/sync-dependency-pr-closer/worktrees/provider-capacity-recovery-20261010/evidence/issue-3820/verifier-caller-security-permissions-red.xml"
+      ],
+      "exit_code": 1,
+      "executed_failure": true
+    },
+    "green": {
+      "command": [
+        "/Users/teacher/.codex/orchestrator/agent-runtime/codex/.cache/uv/builds-v0/.tmpk75UvM/bin/python",
+        "-m",
+        "pytest",
+        "tests/workflows/test_verifier_caller_security.py",
+        "-k",
+        "job_scoped_permissions",
+        "-q",
+        "-o",
+        "addopts=",
+        "--junitxml=/Users/teacher/.codex/automations/sync-dependency-pr-closer/worktrees/provider-capacity-recovery-20261010/evidence/issue-3820/verifier-caller-security-permissions-restored-green.xml"
+      ],
+      "exit_code": 0,
+      "executed_failure": false
+    }
+  },
+  {
+    "name": "checkout",
+    "production_path": "templates/consumer-repo/.github/workflows/agents-verifier.yml",
+    "before_sha256": "97ab84a1aa55cb5b82c900efbfe8710c7815c75f1ef7fbb566e2c986d44fc31a",
+    "mutated_sha256": "53f978ffed8ae357067e4da5af66ae3c14c10b4a1d954160f10c6a213ac2f6e6",
+    "restored_sha256": "97ab84a1aa55cb5b82c900efbfe8710c7815c75f1ef7fbb566e2c986d44fc31a",
+    "red": {
+      "command": [
+        "/Users/teacher/.codex/orchestrator/agent-runtime/codex/.cache/uv/builds-v0/.tmpk75UvM/bin/python",
+        "-m",
+        "pytest",
+        "tests/workflows/test_verifier_caller_security.py",
+        "-k",
+        "checkout_executes_trusted",
+        "-q",
+        "-o",
+        "addopts=",
+        "--junitxml=/Users/teacher/.codex/automations/sync-dependency-pr-closer/worktrees/provider-capacity-recovery-20261010/evidence/issue-3820/verifier-caller-security-checkout-red.xml"
+      ],
+      "exit_code": 1,
+      "executed_failure": true
+    },
+    "green": {
+      "command": [
+        "/Users/teacher/.codex/orchestrator/agent-runtime/codex/.cache/uv/builds-v0/.tmpk75UvM/bin/python",
+        "-m",
+        "pytest",
+        "tests/workflows/test_verifier_caller_security.py",
+        "-k",
+        "checkout_executes_trusted",
+        "-q",
+        "-o",
+        "addopts=",
+        "--junitxml=/Users/teacher/.codex/automations/sync-dependency-pr-closer/worktrees/provider-capacity-recovery-20261010/evidence/issue-3820/verifier-caller-security-checkout-restored-green.xml"
+      ],
+      "exit_code": 0,
+      "executed_failure": false
+    }
+  },
+  {
+    "name": "merged-gate",
+    "production_path": "templates/consumer-repo/.github/workflows/agents-verifier.yml",
+    "before_sha256": "97ab84a1aa55cb5b82c900efbfe8710c7815c75f1ef7fbb566e2c986d44fc31a",
+    "mutated_sha256": "05b7dc9a2e2a211b378fd588f7d7c6b2642e8e0f6e0c481e4e25c4fb437026b9",
+    "restored_sha256": "97ab84a1aa55cb5b82c900efbfe8710c7815c75f1ef7fbb566e2c986d44fc31a",
+    "red": {
+      "command": [
+        "/Users/teacher/.codex/orchestrator/agent-runtime/codex/.cache/uv/builds-v0/.tmpk75UvM/bin/python",
+        "-m",
+        "pytest",
+        "tests/workflows/test_verifier_caller_security.py",
+        "-k",
+        "trigger_gate_runs_before",
+        "-q",
+        "-o",
+        "addopts=",
+        "--junitxml=/Users/teacher/.codex/automations/sync-dependency-pr-closer/worktrees/provider-capacity-recovery-20261010/evidence/issue-3820/verifier-caller-security-merged-gate-red.xml"
+      ],
+      "exit_code": 1,
+      "executed_failure": true
+    },
+    "green": {
+      "command": [
+        "/Users/teacher/.codex/orchestrator/agent-runtime/codex/.cache/uv/builds-v0/.tmpk75UvM/bin/python",
+        "-m",
+        "pytest",
+        "tests/workflows/test_verifier_caller_security.py",
+        "-k",
+        "trigger_gate_runs_before",
+        "-q",
+        "-o",
+        "addopts=",
+        "--junitxml=/Users/teacher/.codex/automations/sync-dependency-pr-closer/worktrees/provider-capacity-recovery-20261010/evidence/issue-3820/verifier-caller-security-merged-gate-restored-green.xml"
+      ],
+      "exit_code": 0,
+      "executed_failure": false
+    }
+  },
+  {
+    "name": "shell",
+    "production_path": "templates/consumer-repo/.github/workflows/agents-verifier.yml",
+    "before_sha256": "97ab84a1aa55cb5b82c900efbfe8710c7815c75f1ef7fbb566e2c986d44fc31a",
+    "mutated_sha256": "d90017dc1b4a1f13f5bb54afe1f9f5918d895a71b2e7bdc14055fbdd78368472",
+    "restored_sha256": "97ab84a1aa55cb5b82c900efbfe8710c7815c75f1ef7fbb566e2c986d44fc31a",
+    "red": {
+      "command": [
+        "/Users/teacher/.codex/orchestrator/agent-runtime/codex/.cache/uv/builds-v0/.tmpk75UvM/bin/python",
+        "-m",
+        "pytest",
+        "tests/workflows/test_verifier_caller_security.py",
+        "-k",
+        "fingerprint_shell",
+        "-q",
+        "-o",
+        "addopts=",
+        "--junitxml=/Users/teacher/.codex/automations/sync-dependency-pr-closer/worktrees/provider-capacity-recovery-20261010/evidence/issue-3820/verifier-caller-security-shell-red.xml"
+      ],
+      "exit_code": 1,
+      "executed_failure": true
+    },
+    "green": {
+      "command": [
+        "/Users/teacher/.codex/orchestrator/agent-runtime/codex/.cache/uv/builds-v0/.tmpk75UvM/bin/python",
+        "-m",
+        "pytest",
+        "tests/workflows/test_verifier_caller_security.py",
+        "-k",
+        "fingerprint_shell",
+        "-q",
+        "-o",
+        "addopts=",
+        "--junitxml=/Users/teacher/.codex/automations/sync-dependency-pr-closer/worktrees/provider-capacity-recovery-20261010/evidence/issue-3820/verifier-caller-security-shell-restored-green.xml"
+      ],
+      "exit_code": 0,
+      "executed_failure": false
+    }
+  },
+  {
+    "name": "credentials",
+    "production_path": ".github/workflows/reusable-agents-verifier.yml",
+    "before_sha256": "2acf5ec350b0bea4fce74df9b0d470b84176d40146ae9028be1311853b72f904",
+    "mutated_sha256": "1408d637c78c7b07b23e13632fb87099760aa18fcbb4e4578d40137c797752d6",
+    "restored_sha256": "2acf5ec350b0bea4fce74df9b0d470b84176d40146ae9028be1311853b72f904",
+    "red": {
+      "command": [
+        "/Users/teacher/.codex/orchestrator/agent-runtime/codex/.cache/uv/builds-v0/.tmpk75UvM/bin/python",
+        "-m",
+        "pytest",
+        "tests/workflows/test_verifier_caller_security.py",
+        "-k",
+        "checkout_executes_trusted",
+        "-q",
+        "-o",
+        "addopts=",
+        "--junitxml=/Users/teacher/.codex/automations/sync-dependency-pr-closer/worktrees/provider-capacity-recovery-20261010/evidence/issue-3820/verifier-caller-security-credentials-red.xml"
+      ],
+      "exit_code": 1,
+      "executed_failure": true
+    },
+    "green": {
+      "command": [
+        "/Users/teacher/.codex/orchestrator/agent-runtime/codex/.cache/uv/builds-v0/.tmpk75UvM/bin/python",
+        "-m",
+        "pytest",
+        "tests/workflows/test_verifier_caller_security.py",
+        "-k",
+        "checkout_executes_trusted",
+        "-q",
+        "-o",
+        "addopts=",
+        "--junitxml=/Users/teacher/.codex/automations/sync-dependency-pr-closer/worktrees/provider-capacity-recovery-20261010/evidence/issue-3820/verifier-caller-security-credentials-restored-green.xml"
+      ],
+      "exit_code": 0,
+      "executed_failure": false
+    }
+  }
+]
