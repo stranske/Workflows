@@ -1,0 +1,310 @@
+{
+  "archive_sha256": "11b8e5ec536b15c2c0fcab7f7fc249cf07e8bdb0898c6534ffdf45e3aadf6715",
+  "members": [
+    {
+      "path": "baseline-command.json",
+      "bytes": 803,
+      "sha256": "4f75604188f003107b17236870488f9982699bb02ae64d6614485aca72baf3d3"
+    },
+    {
+      "path": "baseline-exit.json",
+      "bytes": 11,
+      "sha256": "bfdedf06596faa2042b0fedd9653ec1023d2e96ed56dc40b607985bc8438c1d5"
+    },
+    {
+      "path": "baseline.json",
+      "bytes": 45670,
+      "sha256": "b98bf879ec60f2bffbb7af97d504eba83d6aad5de8e94c7437645db6f74f1e8b"
+    },
+    {
+      "path": "baseline.log",
+      "bytes": 733,
+      "sha256": "0f06e20bdc8e6455e4be1f064b3ecd5e14a7526b7e6f6e20c0077ce29a018e80"
+    },
+    {
+      "path": "baseline.xml",
+      "bytes": 46967,
+      "sha256": "3b13e5c90a22140ecb7561e00250c7a79a10c9de38d1486d2cb1ed64432e51ec"
+    },
+    {
+      "path": "candidate-command.json",
+      "bytes": 869,
+      "sha256": "03e4aa5d7bc3e07511d77611717beb44816969613701210487a3b967f85964f7"
+    },
+    {
+      "path": "candidate-exit.json",
+      "bytes": 11,
+      "sha256": "bfdedf06596faa2042b0fedd9653ec1023d2e96ed56dc40b607985bc8438c1d5"
+    },
+    {
+      "path": "candidate.json",
+      "bytes": 45666,
+      "sha256": "f74799b51e826931409e7f525e71d1f7da3668f5c0c197c13af0c81272b4c1e0"
+    },
+    {
+      "path": "candidate.log",
+      "bytes": 734,
+      "sha256": "ae5aecfa7c90ec959bc2abca5fff800241bda485a2395660fccbd98a80c6198e"
+    },
+    {
+      "path": "candidate.xml",
+      "bytes": 48343,
+      "sha256": "1f965db8bc8e3ee9ca7c0301ad7671be21a4363811fb5b31d4d9aca6c98d0c50"
+    },
+    {
+      "path": "mutations/controls.json",
+      "bytes": 15339,
+      "sha256": "6cd502b20164a2dd4d5b61f001e4ff3f8e1be28a05dc215a80a4c7099d2f8d60"
+    },
+    {
+      "path": "mutations/root-pytest-empty/green.json",
+      "bytes": 643,
+      "sha256": "c451e661ac42fb5b6f04e3cc17e0fd05fe822275be7b27a13a8499f565af3d64"
+    },
+    {
+      "path": "mutations/root-pytest-empty/green.log",
+      "bytes": 98,
+      "sha256": "b6533422d1630740f5655134f45127452989eca69913155ff0cdf6331ecfe21d"
+    },
+    {
+      "path": "mutations/root-pytest-empty/green.xml",
+      "bytes": 423,
+      "sha256": "e0cffe6f85f4d715d7fc3fff8b5b62d117a9de7d6ba4a3cc28870c4ce49f95c0"
+    },
+    {
+      "path": "mutations/root-pytest-empty/red.json",
+      "bytes": 641,
+      "sha256": "0a6f98e5d2431988f32d1577452fac381ef7fdc9423daa5d40b7f545395f3fd2"
+    },
+    {
+      "path": "mutations/root-pytest-empty/red.log",
+      "bytes": 3845,
+      "sha256": "834828a23c606f80f05b50d9de4a4c5ac4b14ed8fdda2069f0d6fc15305f2521"
+    },
+    {
+      "path": "mutations/root-pytest-empty/red.xml",
+      "bytes": 3881,
+      "sha256": "4f725dff9b4be7e6a3c6a7e7877938b192d0dfa11cb6c192c3ea557e814d942e"
+    },
+    {
+      "path": "mutations/root-pytest-nonzero/green.json",
+      "bytes": 649,
+      "sha256": "e81c1048528a64efe95274862369b5edf6880c3b022f310ef019936039f4cc2b"
+    },
+    {
+      "path": "mutations/root-pytest-nonzero/green.log",
+      "bytes": 98,
+      "sha256": "b4eb7be9000651a3e89c6a77e8b346d05d1d706d620aa6f8193e574a39b3ced1"
+    },
+    {
+      "path": "mutations/root-pytest-nonzero/green.xml",
+      "bytes": 425,
+      "sha256": "3da774be208d49c770cf9ccd070e071fd7645da6d29860b9053cfd12d9c289ab"
+    },
+    {
+      "path": "mutations/root-pytest-nonzero/red.json",
+      "bytes": 647,
+      "sha256": "59173b3d76c09cc1e1f1996e529e49dd3e2ae8fea7206704b53ee65d50b8fb5a"
+    },
+    {
+      "path": "mutations/root-pytest-nonzero/red.log",
+      "bytes": 2865,
+      "sha256": "601b880afb4358187ef05d2edd1aff3ee19c8affb1f30cb4568586aa90e1043c"
+    },
+    {
+      "path": "mutations/root-pytest-nonzero/red.xml",
+      "bytes": 3420,
+      "sha256": "d413274412139c37989f55e8f28b2bf20f2a00e356a1c91e22cf4fa38f2c0a2e"
+    },
+    {
+      "path": "mutations/root-python-empty/green.json",
+      "bytes": 643,
+      "sha256": "67084e8c66f4310636e36b35d377704ec5cb3da2a42c89f7915b8fff13ff5f26"
+    },
+    {
+      "path": "mutations/root-python-empty/green.log",
+      "bytes": 98,
+      "sha256": "59b9466559aeabf218a54ec041fd83cd357cf9bf1d80a17c47aab62ed0c205bf"
+    },
+    {
+      "path": "mutations/root-python-empty/green.xml",
+      "bytes": 423,
+      "sha256": "fe7acf5c9a997b70a7b24d0be5e48521dd2d9f0db73ba13389b7225a49c63b74"
+    },
+    {
+      "path": "mutations/root-python-empty/red.json",
+      "bytes": 641,
+      "sha256": "43eb95c16e26fe0ee57d7b7ded0bf95fb978deaaee282dcdf59d5d4b72d36680"
+    },
+    {
+      "path": "mutations/root-python-empty/red.log",
+      "bytes": 3472,
+      "sha256": "9c956f4ac7b57a5a731327c6d2773ef4631a28bf170c93d1b3d2681fdcaf90cf"
+    },
+    {
+      "path": "mutations/root-python-empty/red.xml",
+      "bytes": 3505,
+      "sha256": "f0c0b57a57b4ab1f1734e7aaa85230b7226b59bcf596e21f0ecd0a54b2d9b821"
+    },
+    {
+      "path": "mutations/root-python-nonzero/green.json",
+      "bytes": 649,
+      "sha256": "c9413b239be1da420b104e3851bee917f5fe7c42827451ed9ce09f85e1a10140"
+    },
+    {
+      "path": "mutations/root-python-nonzero/green.log",
+      "bytes": 98,
+      "sha256": "791acbb2840ecff621592488f8e65512e312896e3865560d4000495c22ef5d13"
+    },
+    {
+      "path": "mutations/root-python-nonzero/green.xml",
+      "bytes": 425,
+      "sha256": "5cd8b3873b838871d7cda3d6536166fb200fb288f1bbc4d5a669a4826aa4cc45"
+    },
+    {
+      "path": "mutations/root-python-nonzero/red.json",
+      "bytes": 647,
+      "sha256": "e85a0adbe9eee6785b40cb2e1a627bafcefb99eab86d067679a675dd3bf34427"
+    },
+    {
+      "path": "mutations/root-python-nonzero/red.log",
+      "bytes": 2865,
+      "sha256": "51aa84da524dde006f22f010f2d6a1a8fbb7e7bca0ee609a58c6c8df5a1ab823"
+    },
+    {
+      "path": "mutations/root-python-nonzero/red.xml",
+      "bytes": 3420,
+      "sha256": "5cad75de261729292f053ee90ec7973fefdd19848642f3c4c26d4fee2a4083ed"
+    },
+    {
+      "path": "mutations/template-pytest-empty/green.json",
+      "bytes": 655,
+      "sha256": "ebb4407d79ae8efc95f3b189e19b7165458e5687471327874045d548799c3cd3"
+    },
+    {
+      "path": "mutations/template-pytest-empty/green.log",
+      "bytes": 98,
+      "sha256": "036bb9390fb408c39eb19a61d865bc4044aa29eeea8139e62a988a5a83930a4d"
+    },
+    {
+      "path": "mutations/template-pytest-empty/green.xml",
+      "bytes": 427,
+      "sha256": "b206a150c9802a6fd329afb8df31b114f0b256c47ff98436d70245cc733ed07f"
+    },
+    {
+      "path": "mutations/template-pytest-empty/red.json",
+      "bytes": 653,
+      "sha256": "9f6780f27e94d003d22ef18fb74be1d79b79e50b84217ecd4371a3ee88f2999a"
+    },
+    {
+      "path": "mutations/template-pytest-empty/red.log",
+      "bytes": 3897,
+      "sha256": "593ba86128e83ff4f37be7315a3aef47468344544a9203c72543bb6238656513"
+    },
+    {
+      "path": "mutations/template-pytest-empty/red.xml",
+      "bytes": 3933,
+      "sha256": "55d36a6d048816ea4ae15054af616162cb929b41c1de0d73045956a02aba1ed8"
+    },
+    {
+      "path": "mutations/template-pytest-nonzero/green.json",
+      "bytes": 661,
+      "sha256": "ef48d13067e23e0aa30b4a4dc15929620f0ebdeb0e829808196c95d96ae5a4d1"
+    },
+    {
+      "path": "mutations/template-pytest-nonzero/green.log",
+      "bytes": 98,
+      "sha256": "036bb9390fb408c39eb19a61d865bc4044aa29eeea8139e62a988a5a83930a4d"
+    },
+    {
+      "path": "mutations/template-pytest-nonzero/green.xml",
+      "bytes": 429,
+      "sha256": "35e38b5463a40f05d7311495990d636a5e29079a4625f051b59196ad25ede4d9"
+    },
+    {
+      "path": "mutations/template-pytest-nonzero/red.json",
+      "bytes": 659,
+      "sha256": "27401ee4d06865489f2ed470850bdaba8b7a5a892b219cca4bbc9cf0b71ed00a"
+    },
+    {
+      "path": "mutations/template-pytest-nonzero/red.log",
+      "bytes": 2869,
+      "sha256": "0fd28bdfd322f12663dca04c8182420676d5986fa38141911818f97c30869913"
+    },
+    {
+      "path": "mutations/template-pytest-nonzero/red.xml",
+      "bytes": 3424,
+      "sha256": "50853004d44dc41d352cad70a36b6b7e0947a5d9ca053fecf34505fef2215512"
+    },
+    {
+      "path": "mutations/template-python-empty/green.json",
+      "bytes": 655,
+      "sha256": "5f711e0466eaf823d64c6e84ed8df3ee1b52f57b421cc75d2d29d265a9d10b7b"
+    },
+    {
+      "path": "mutations/template-python-empty/green.log",
+      "bytes": 98,
+      "sha256": "791acbb2840ecff621592488f8e65512e312896e3865560d4000495c22ef5d13"
+    },
+    {
+      "path": "mutations/template-python-empty/green.xml",
+      "bytes": 427,
+      "sha256": "5e73da3aae90b985571a1014ca7790e67477585f5e1c51b08828e8a72eca1f52"
+    },
+    {
+      "path": "mutations/template-python-empty/red.json",
+      "bytes": 653,
+      "sha256": "75f12dd7aed61a7be80704cc4b90ad9a204a813b486e6125c32c0639cabf4415"
+    },
+    {
+      "path": "mutations/template-python-empty/red.log",
+      "bytes": 3572,
+      "sha256": "cedc86d01f159eafe1726d564f9352a4931cf5eeed571a583081d6262b16fb78"
+    },
+    {
+      "path": "mutations/template-python-empty/red.xml",
+      "bytes": 3605,
+      "sha256": "e83857008cc9402cfb48b1b865a1c70190f3e0ef03c167d3b94447c0801e50e9"
+    },
+    {
+      "path": "mutations/template-python-nonzero/green.json",
+      "bytes": 661,
+      "sha256": "86723a7e465079b2ab7a6c9af4e21bfdc0991cde40fade1606579cf1c3e28309"
+    },
+    {
+      "path": "mutations/template-python-nonzero/green.log",
+      "bytes": 98,
+      "sha256": "f6b6e232e0345fa742cf57cbc60c8884709a6f029bd43161ca6e812c9175f2a8"
+    },
+    {
+      "path": "mutations/template-python-nonzero/green.xml",
+      "bytes": 429,
+      "sha256": "9ca639bb17177235ef7fecee22e018e290861c2d3c258c3da48bab5b37667c8f"
+    },
+    {
+      "path": "mutations/template-python-nonzero/red.json",
+      "bytes": 659,
+      "sha256": "c0c785399e3946f3f5cbcd050c9a4b60c9c2bfaf970ae763244a275a8b489d64"
+    },
+    {
+      "path": "mutations/template-python-nonzero/red.log",
+      "bytes": 2869,
+      "sha256": "124cdc4e51a43f79cd572233ca1da57592b44aa407b6527c46bd9cedf62e5beb"
+    },
+    {
+      "path": "mutations/template-python-nonzero/red.xml",
+      "bytes": 3424,
+      "sha256": "362b2099cecf796232c4f9c53f62586b51af0a8ca0fc1f601ff5d9a95f887aad"
+    },
+    {
+      "path": "mutations-exit.json",
+      "bytes": 11,
+      "sha256": "bfdedf06596faa2042b0fedd9653ec1023d2e96ed56dc40b607985bc8438c1d5"
+    },
+    {
+      "path": "mutations.log",
+      "bytes": 85,
+      "sha256": "dfff7a11855a0554eec0f53b05c4053d61b544968c6f64de5b54c9c564461640"
+    }
+  ]
+}

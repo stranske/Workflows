@@ -64,6 +64,86 @@ test('task progress snapshot changes identity when task membership changes', () 
 
   assert.notEqual(after.fingerprint, before.fingerprint);
 });
+
+test('CodeRabbit release notes do not inflate unchecked keepalive checklist progress', () => {
+  const body = [
+    '### Tasks and acceptance for this chunk',
+    '- [x] Add eight named subprocess boundary cases across both checked-in helper copies.',
+    '',
+    '### Acceptance Criteria',
+    '- [x] **Tests**',
+    '  - [x] Added coverage for failed or blank `uv` lookups in both the root and template checks.',
+    '  - [x] Added replay tests for report paths containing spaces, invalid proof results, and restoration after failures or timeouts.',
+    '  - [x] Replay checks also verify test outcomes and confirm temporary changes are restored.',
+    '- [x] **Documentation**',
+    '  - [x] Added test evidence, coverage comparisons, replay instructions, and artifact integrity records.',
+    '  - [x] Repository-wide coverage remains unmeasured, and the evidence does not authorize merging or closing the issue.',
+    '',
+    '<!-- This is an auto-generated comment: release notes by coderabbit.ai -->',
+    '## Summary by CodeRabbit',
+    '',
+    '* **Bug Fixes**',
+    '  * Generated release-note text is now excluded when extracting issue criteria.',
+    '  * The change is applied consistently in the main repository and consumer template.',
+    '',
+    '* **Tests**',
+    '  * Added coverage for failed or blank `uv` lookups in both the root and template checks.',
+    '  * Added replay tests for report paths containing spaces, invalid proof results, and restoration after failures or timeouts.',
+    '  * Replay checks also verify test outcomes and confirm temporary changes are restored.',
+    '',
+    '* **Documentation**',
+    '  * Added test evidence, coverage comparisons, replay instructions, and artifact integrity records.',
+    '  * Repository-wide coverage remains unmeasured, and the evidence does not authorize merging or closing the issue.',
+    '<!-- end of auto-generated comment: release notes by coderabbit.ai -->',
+  ].join('\n');
+
+  const snapshot = buildTaskProgressSnapshot(body);
+  assert.deepEqual(
+    { total: snapshot.total, completed: snapshot.completed },
+    { total: 8, completed: 8 },
+  );
+});
+
+test('marker-less CodeRabbit Bug Fixes notes do not inflate keepalive progress', () => {
+  const body = [
+    '### Tasks and acceptance for this chunk',
+    '- [x] Add eight named subprocess boundary cases across both checked-in helper copies.',
+    '- [x] Prove every new case with a real production guard mutation RED and GREEN.',
+    '- [x] Compare an identical baseline/candidate suite: 300 → 308 PASS.',
+    '- [x] Retain transparent selection ranking under docs/evidence/issue-3743/uv-resolution/.',
+    '- [x] Whole-tree Black, focused Ruff, template completeness and diff whitespace checks pass.',
+    '',
+    '### Acceptance Criteria',
+    '- [x] **Tests**',
+    '  - [x] Added coverage for failed or blank `uv` lookups in both the root and template checks.',
+    '  - [x] Added replay tests for report paths containing spaces, invalid proof results, and restoration after failures or timeouts.',
+    '  - [x] Replay checks also verify test outcomes and confirm temporary changes are restored.',
+    '- [x] **Documentation**',
+    '  - [x] Added test evidence, coverage comparisons, replay instructions, and artifact integrity records.',
+    '  - [x] Repository-wide coverage remains unmeasured, and the evidence does not authorize merging or closing the issue.',
+    '',
+    '## Summary by CodeRabbit',
+    '',
+    '* **Bug Fixes**',
+    '  * Generated release-note text is now excluded when extracting issue criteria.',
+    '  * The change is applied consistently in the main repository and consumer template.',
+    '',
+    '* **Tests**',
+    '  * Added coverage for failed or blank `uv` lookups in both helper copies.',
+    '  * Added replay tests for report paths with spaces, invalid proof results, and restoration after failures or timeouts.',
+    '',
+    '* **Documentation**',
+    '  * Added test evidence, coverage comparisons, replay instructions, and artifact integrity records.',
+    '  * Repository-wide coverage remains unmeasured; the evidence does not authorize merging or closing the issue.',
+  ].join('\n');
+
+  const snapshot = buildTaskProgressSnapshot(body);
+  assert.deepEqual(
+    { total: snapshot.total, completed: snapshot.completed },
+    { total: 12, completed: 12 },
+  );
+});
+
 const { formatStateComment, parseStateComment } = require('../keepalive_state.js');
 const { signAuthorityChallengeClaim } = require('../keepalive_challenge_due.js');
 const { stripPrTemplateContent, upsertBlock } = require('../agents_pr_meta_update_body.js');

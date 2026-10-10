@@ -1116,7 +1116,7 @@ git_config:
   - source: .gitattributes
     description: "Git attributes - merge strategies to prevent pr_body.md conflicts"
   - source: .coderabbit.yaml
-    description: "CodeRabbit auto-review config - skips maintenance-bot PRs (renovate/dependabot/github-actions/keepalive) and generated sync/draft PRs, while keeping substantial agent-authored PR reviews enabled. Advisory/non-gating per fleet rule."
+    description: "CodeRabbit auto-review config - skips maintenance-bot PRs (renovate/dependabot/github-actions/keepalive) and generated sync/draft PRs, while keeping substantial agent-authored PR reviews enabled. High-level summaries stay in the walkthrough comment so release-note bullets cannot inflate keepalive checklists. Advisory/non-gating per fleet rule."
 
 
 # Workflows-owned runtime-fetched scripts (resolved: issue #2347)
