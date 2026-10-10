@@ -7011,3 +7011,12 @@ test('evaluateKeepaliveLoop disables dispatch for multiple concrete agent labels
     }
   }
 });
+
+for (const loopPath of ['../keepalive_loop', '../../../templates/consumer-repo/.github/scripts/keepalive_loop']) {
+  test(`marker-less summary retains real keepalive progress (${loopPath})`, () => {
+    const loop = require(loopPath);
+    const body = ['## Summary by CodeRabbit', '- [x] Delivered behavior', '- [ ] Owner-authored acceptance still pending'].join('\n');
+    const snapshot = loop.buildTaskProgressSnapshot(body);
+    assert.deepEqual({ total: snapshot.total, completed: snapshot.completed }, { total: 2, completed: 1 });
+  });
+}

@@ -274,3 +274,28 @@ Black fails at sandbox worker startup; standard single-file Black and sequential
 whole-tree Black pass, as do Ruff, template completeness and whitespace checks.
 No commit or push was made. Repository-wide coverage remains UNKNOWN; the
 evidence does not authorize merging or closing issue 3743.
+
+
+## October 10 current replay input refresh
+
+PR #3824 strengthened `test_check_deliberate_break_repair_failures.py` at
+`02ddf06f43cf0288b65a066b60a52b3f0808887c`. The current suite replay still
+pinned its earlier hash and therefore rejected that intentional change before
+launching either suite. Hosted Python 3.13 job 114288766200 reproduced the
+problem: one failure in 102,270 executed tests.
+
+`selection.json` now pins the strengthened current test and records the previous
+hash, source head and reason in `suite_input_refreshes`. Historical archives and
+indexes retain their original bytes and input bindings; their results are not
+relabelled as current results. The production helper and all other pinned suite
+inputs are unchanged. The input-drift guard remains mandatory.
+
+The exact failing CLI test is RED before the refresh and GREEN after it. A fresh
+production-data mutation reinstating the stale pin is also RED; byte-identical
+restoration is GREEN. The replay CLI plus repair-failure tests pass 19 cases; 29 restoration tests
+also pass. The real current replay passes 300 baseline and 308 candidate cases,
+with all baseline nodes preserved and no covered-line or branch regressions.
+Raw commands, hashes and consoles are in
+`docs/verification/pr-3824-replay-binding/`. Hosted CI and the exact new-head
+review window must complete before merge; this local receipt is not provider
+PASS or full repository CI acceptance.

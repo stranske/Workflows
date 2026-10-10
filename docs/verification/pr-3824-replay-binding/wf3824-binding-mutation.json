@@ -1,0 +1,18 @@
+{
+  "command": [
+    "/opt/anaconda3/bin/python3",
+    "-m",
+    "pytest",
+    "-q",
+    "--no-cov",
+    "tests/scripts/test_uv_resolution_replay_cli.py::test_replay_suite_cli_quotes_report_paths_with_spaces"
+  ],
+  "production_data": "docs/evidence/issue-3743/uv-resolution/selection.json",
+  "mutation": "restore stale historical hash as current replay input",
+  "red_exit": 1,
+  "restored_green_exit": 0,
+  "restoration_byte_identical": true,
+  "candidate_sha256": "90160039828439bdec67e850c1448a369982628f7ee913b10428714a5cf5d5fd",
+  "red_console_sha256": "7c545e7674c1bac83ec804a9bf0388ea65ca745fbf11ebd1030544638c424d84",
+  "green_console_sha256": "4237eb8d30ab4e25d028ca343d50bfba364b7f76a907b73390b9601a16e46fe1"
+}

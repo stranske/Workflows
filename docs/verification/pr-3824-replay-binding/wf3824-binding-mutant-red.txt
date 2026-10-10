@@ -1,0 +1,49 @@
+F                                                                        [100%]
+=================================== FAILURES ===================================
+____________ test_replay_suite_cli_quotes_report_paths_with_spaces _____________
+
+tmp_path = PosixPath('/private/var/folders/qm/w0dtc0j132gd6ymf1hxtd2p00000gp/T/pytest-of-teacher/pytest-185/test_replay_suite_cli_quotes_r0')
+
+    def test_replay_suite_cli_quotes_report_paths_with_spaces(tmp_path):
+        modules = tmp_path / "fake modules"
+        modules.mkdir()
+        # This stand-in checks only the CLI transport, not pytest or test outcomes.
+        (modules / "pytest.py").write_text(
+            """
+    import json, os, pathlib, shlex, sys
+    options = shlex.split(os.environ['PYTEST_ADDOPTS'])
+    if len(options) != 3 or options[2] != '--cov-report=term-missing':
+        raise SystemExit('report options split at a space')
+    coverage = pathlib.Path(options[0].removeprefix('--cov-report=json:'))
+    junit = pathlib.Path(options[1].removeprefix('--junitxml='))
+    coverage.write_text(json.dumps({'argv': sys.argv, 'cwd': os.getcwd(),
+                                  'coverage_file': os.environ['COVERAGE_FILE']}))
+    junit.write_text('<testsuite/>')
+    """,
+            encoding="utf-8",
+        )
+        output = tmp_path / "proof reports with spaces"
+        env = {**os.environ, "PYTHONPATH": str(modules)}
+        result = subprocess.run(
+            [sys.executable, str(EVIDENCE / "replay_suites.py"), "--output", str(output)],
+            cwd=tmp_path,
+            env=env,
+            capture_output=True,
+            text=True,
+            timeout=30,
+        )
+>       assert result.returncode == 0, result.stdout + result.stderr
+E       AssertionError: Traceback (most recent call last):
+E           File "/Users/teacher/.codex/automations/imi-merge-verify-closer/worktrees/wf3824-qualification-20261010T1919Z/docs/evidence/issue-3743/uv-resolution/replay_suites.py", line 87, in <module>
+E             main()
+E           File "/Users/teacher/.codex/automations/imi-merge-verify-closer/worktrees/wf3824-qualification-20261010T1919Z/docs/evidence/issue-3743/uv-resolution/replay_suites.py", line 35, in main
+E             raise ValueError(f"suite input drift: {relative}")
+E         ValueError: suite input drift: tests/scripts/test_check_deliberate_break_repair_failures.py
+E         
+E       assert 1 == 0
+E        +  where 1 = CompletedProcess(args=['/opt/anaconda3/bin/python3', '/Users/teacher/.codex/automations/imi-merge-verify-closer/worktr...ut drift: {relative}")\nValueError: suite input drift: tests/scripts/test_check_deliberate_break_repair_failures.py\n').returncode
+
+tests/scripts/test_uv_resolution_replay_cli.py:125: AssertionError
+=========================== short test summary info ============================
+FAILED tests/scripts/test_uv_resolution_replay_cli.py::test_replay_suite_cli_quotes_report_paths_with_spaces
+1 failed in 0.27s

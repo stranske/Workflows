@@ -1,7 +1,7 @@
 {
   "base": "9a0219f361e4ba4b9072a554362ef378ff47ec4c",
   "source_sha256": "cc97119ea26afec275be3c83d22bc75de0d452cd0f4764896cc9d037274ab25a",
-  "test_sha256": "40dc7a08d8e70591b898ce1d0ea11ce7b2ccb567b74f1a9afd1fdabe1adba095",
+  "test_sha256": "361d010bab1bcbedebc833503b927e70a4845772d259671f7379a755dd24de70",
   "driver_sha256": "c878e46ae7f66afa0dc1debc66cd99be6e267606344a916895a1b5c8147502e2",
   "baseline": {
     "covered_lines": 563,
@@ -106,5 +106,19 @@
     "dependency_provenance": "revalidation/dependency-provenance.json",
     "no_covered_branch_regressions": true,
     "suite_environment": "PYTHONPATH unset for both matched suites; parser dependency path only needed for repair replay."
+  },
+  "followup_20261010": {
+    "python": "3.14.8",
+    "interpreter": "/opt/hostedtoolcache/Python/3.14.8/x64/bin/python3",
+    "requested_interpreter_available": false,
+    "baseline_tests": 294,
+    "candidate_tests": 300,
+    "exactly_six_new_nodes": true,
+    "old_outcomes_unchanged": true,
+    "covered_line_regressions": [],
+    "covered_branch_regressions": [],
+    "supplemental_mutations": 4,
+    "supplemental_assertions": "Archive cleaned before reporting; no probe or rerun after failed repair.",
+    "evidence_prefix": "followup-20261010/"
   }
 }
