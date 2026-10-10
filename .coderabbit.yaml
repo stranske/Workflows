@@ -11,6 +11,10 @@ reviews:
   profile: assertive
   request_changes_workflow: false      # advisory: never auto-block a merge (fleet rule)
   high_level_summary: true
+  # Keep release notes out of the PR description. Bullets appended there are
+  # inferred as unchecked Acceptance Criteria by keepalive checklist parsing on
+  # older default-branch parsers and stall otherwise-complete agent PRs.
+  high_level_summary_in_walkthrough: true
   poem: false
   auto_review:
     enabled: true

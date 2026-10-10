@@ -1,0 +1,12 @@
+{
+  "archive_sha256": "36a8e8bc271a167530938b7f9c93088db160c710b16ce5b94c7e5e58b52352fb",
+  "members": {
+    "wf-hosted-dependency-red.log": "632a2b48b1a8f2e733b505e6788dd90a1501ff5fb4c947f152a954f9bed2d0c9",
+    "wf-hosted-dependency-red.xml": "51b5dcd280e85a0f4ebc3ecfe94900cf3e9e77dd64c5eb9d6f48bb4775e539bc",
+    "wf-hosted-dependency-green.log": "926a9d3ee502c45bd089561098793aba082428b9f01f8dfba3241a3d7781abcf",
+    "wf-hosted-dependency-green.xml": "24f4fdb4809cd12307fbf1d4b272b44e38dd51baef103bf2c7326eb8b15dfaeb",
+    "wf-ci-portability-proof.json": "94e513cf1334a52a72433e6ccb944424b6a804342b8d4dfcd36790870ece114f"
+  },
+  "base_head": "e3836e4bbcb7f69b238dbf54f8e3f33d7e1a06f7",
+  "scope": "-O -S child fixture portability; synthetic XML only; production replay retains defusedxml"
+}

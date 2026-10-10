@@ -1,0 +1,313 @@
+{
+  "archive_sha256": "f807533bf36cc9c6f8310aab6b7f35894098df61b290a854c26384a3efbea2de",
+  "members": [
+    {
+      "path": "optimized proof/controls.json",
+      "bytes": 15163,
+      "sha256": "c3db4b53a74139722545b851f1639eb81c8a6e67a7a047804011ba28190538b1"
+    },
+    {
+      "path": "optimized proof/root-pytest-empty/green.json",
+      "bytes": 632,
+      "sha256": "86aedbcb3af5dcb47d4e2ee6b72f9b334838630551eea44f89e8497753086d89"
+    },
+    {
+      "path": "optimized proof/root-pytest-empty/green.log",
+      "bytes": 672,
+      "sha256": "528a70ba9d662930a6cc1741784820031fee8ed5e395d3b8d8bc653db9fcf574"
+    },
+    {
+      "path": "optimized proof/root-pytest-empty/green.xml",
+      "bytes": 423,
+      "sha256": "db57720fbfe7f42127116cf768c8cc621c44e2add185f03d014e4b7fd5782e16"
+    },
+    {
+      "path": "optimized proof/root-pytest-empty/red.json",
+      "bytes": 630,
+      "sha256": "5bdfae0bade29afec0663d66467e962bc67b745cbf3e84bf4b68719b0f1a943d"
+    },
+    {
+      "path": "optimized proof/root-pytest-empty/red.log",
+      "bytes": 4419,
+      "sha256": "71fee6b433b8a48b15d2fa2e3cb577ddd6b89520cd9b4e6743005d485ed97f1c"
+    },
+    {
+      "path": "optimized proof/root-pytest-empty/red.xml",
+      "bytes": 3881,
+      "sha256": "f4e92346a40a2e64f1d0412acaade6744926b5dc025f109f4ec7c78fe113e9ca"
+    },
+    {
+      "path": "optimized proof/root-pytest-nonzero/green.json",
+      "bytes": 638,
+      "sha256": "b15f67146f70ed8fcbe3fa112e6223cdff4cfe5682cdc3bb851ccf2f5f1658fc"
+    },
+    {
+      "path": "optimized proof/root-pytest-nonzero/green.log",
+      "bytes": 672,
+      "sha256": "528a70ba9d662930a6cc1741784820031fee8ed5e395d3b8d8bc653db9fcf574"
+    },
+    {
+      "path": "optimized proof/root-pytest-nonzero/green.xml",
+      "bytes": 425,
+      "sha256": "b91a2d1e3dbd025a39421c5010e421e0e2817d0f8a7af4a580984e0a274e39bb"
+    },
+    {
+      "path": "optimized proof/root-pytest-nonzero/red.json",
+      "bytes": 636,
+      "sha256": "e48bebd9499f376d9b47313052b919a75ebf81c8fa61029c21e75aa6cf62ed34"
+    },
+    {
+      "path": "optimized proof/root-pytest-nonzero/red.log",
+      "bytes": 3439,
+      "sha256": "158b552a68e5594641a950bb9dbb1bd9ec277875c4faacf9a2fe3aea121479d4"
+    },
+    {
+      "path": "optimized proof/root-pytest-nonzero/red.xml",
+      "bytes": 3420,
+      "sha256": "67040e344685fc6593c6d71b11dbd51e46f8131804e26f963bd0e029cf7f8a76"
+    },
+    {
+      "path": "optimized proof/root-python-empty/green.json",
+      "bytes": 632,
+      "sha256": "15b3018e00d0ed5c87f6551eec23146c3a55acb3f08038981c1eddf4bb4d1731"
+    },
+    {
+      "path": "optimized proof/root-python-empty/green.log",
+      "bytes": 672,
+      "sha256": "a71b1739016a4ca75d5efb0ca1758595d5a9283532ddf045f04f283f99567a9b"
+    },
+    {
+      "path": "optimized proof/root-python-empty/green.xml",
+      "bytes": 423,
+      "sha256": "05a9cd4efffad283e17f7386149b755c1175343559e9d3515ccab72cc9ecc163"
+    },
+    {
+      "path": "optimized proof/root-python-empty/red.json",
+      "bytes": 630,
+      "sha256": "6e1e3d36406c7f785ae4f4f50ea516abf231879f355e1246ce63a2c304092808"
+    },
+    {
+      "path": "optimized proof/root-python-empty/red.log",
+      "bytes": 4046,
+      "sha256": "b79be9d9a1106c9dda10567e99ce85c679a6b7027fce37f1ea603f138db43872"
+    },
+    {
+      "path": "optimized proof/root-python-empty/red.xml",
+      "bytes": 3505,
+      "sha256": "1a70c69dd80979458cacf99752654e3cf5fc90cd0d273ee6d8452226ae535d89"
+    },
+    {
+      "path": "optimized proof/root-python-nonzero/green.json",
+      "bytes": 638,
+      "sha256": "937532d19327b1af3de8b6349be5b47b7468dbb74612afc672293b1271b8cd65"
+    },
+    {
+      "path": "optimized proof/root-python-nonzero/green.log",
+      "bytes": 672,
+      "sha256": "a71b1739016a4ca75d5efb0ca1758595d5a9283532ddf045f04f283f99567a9b"
+    },
+    {
+      "path": "optimized proof/root-python-nonzero/green.xml",
+      "bytes": 425,
+      "sha256": "f44ede923a1b882371631b4d16832d356870ba6e8742ab44795ad50731dc41f6"
+    },
+    {
+      "path": "optimized proof/root-python-nonzero/red.json",
+      "bytes": 636,
+      "sha256": "827a29ca06d3336800a6f891211aa2e1883e40718580f5c849018ef96ba23c63"
+    },
+    {
+      "path": "optimized proof/root-python-nonzero/red.log",
+      "bytes": 3439,
+      "sha256": "b2cbe3fb4b9d8faca46e79b082ecbc2fd8bd5d86698be6540a5c56b3f20315a0"
+    },
+    {
+      "path": "optimized proof/root-python-nonzero/red.xml",
+      "bytes": 3420,
+      "sha256": "df12bd7468069b894c5eeba25efc13126640c7ce8930c2f01a867d12c714ef6c"
+    },
+    {
+      "path": "optimized proof/template-pytest-empty/green.json",
+      "bytes": 644,
+      "sha256": "627a1d057a7ef454fbb286e85dbf43ce4db4a00940e8b979c2f7e8dc0c58f7d7"
+    },
+    {
+      "path": "optimized proof/template-pytest-empty/green.log",
+      "bytes": 672,
+      "sha256": "c15c3adcb96491223675e923958e46331d69f8b18fa72daad30596995ac351fb"
+    },
+    {
+      "path": "optimized proof/template-pytest-empty/green.xml",
+      "bytes": 427,
+      "sha256": "42896f07f1021408ca18802a914d81016869dede1bd6d39309c12fdc98436986"
+    },
+    {
+      "path": "optimized proof/template-pytest-empty/red.json",
+      "bytes": 642,
+      "sha256": "6f4743d673561cc381a996b76eb5990312b7d38967f917a614a4ab5844a2c918"
+    },
+    {
+      "path": "optimized proof/template-pytest-empty/red.log",
+      "bytes": 4471,
+      "sha256": "776b4e41c037ab88d76a71c43d332b8ffdea645a40732c9e65c7fff17ced1264"
+    },
+    {
+      "path": "optimized proof/template-pytest-empty/red.xml",
+      "bytes": 3933,
+      "sha256": "02664586800b6cf713a6061bf6ff7cbd7fc23ce37712d2b7dff69ce7d44177d2"
+    },
+    {
+      "path": "optimized proof/template-pytest-nonzero/green.json",
+      "bytes": 650,
+      "sha256": "7da057158f8b014181396458473515384daaaa79e3e25350dcd22610a82d5a9e"
+    },
+    {
+      "path": "optimized proof/template-pytest-nonzero/green.log",
+      "bytes": 672,
+      "sha256": "87c2af8be73cad5252367db22928ebab2798c0638da090734f25414f7fbfbee7"
+    },
+    {
+      "path": "optimized proof/template-pytest-nonzero/green.xml",
+      "bytes": 429,
+      "sha256": "7dfaf925d11588349e49c06709c473fac5f67b086f72175d472fbfa0c88abf16"
+    },
+    {
+      "path": "optimized proof/template-pytest-nonzero/red.json",
+      "bytes": 648,
+      "sha256": "86d2377632ea07f9b53d607ff6ec10298270f68c3b133714279a068468757a27"
+    },
+    {
+      "path": "optimized proof/template-pytest-nonzero/red.log",
+      "bytes": 3443,
+      "sha256": "2cb88863f646c78522cac8b2ebf52855900a2ec19ab07529ce6d45dddbdaf1dc"
+    },
+    {
+      "path": "optimized proof/template-pytest-nonzero/red.xml",
+      "bytes": 3424,
+      "sha256": "9d7f101a1e964f27ff87373a6b80002ee65cd3c2bcc1981d6be3602f42284f49"
+    },
+    {
+      "path": "optimized proof/template-python-empty/green.json",
+      "bytes": 644,
+      "sha256": "a896c05a5a88c4f4886f252e98a4a47ae07f1009fdf54d1e5b105badb4b5f2c0"
+    },
+    {
+      "path": "optimized proof/template-python-empty/green.log",
+      "bytes": 672,
+      "sha256": "a11b42e371883942013af64b1ab9ab06ce892a3254be041ccf5485e70f5270ed"
+    },
+    {
+      "path": "optimized proof/template-python-empty/green.xml",
+      "bytes": 427,
+      "sha256": "31da7b83c87eba649dc21abbc840dbfbdfd8dec4f48e3178147f096113168ad3"
+    },
+    {
+      "path": "optimized proof/template-python-empty/red.json",
+      "bytes": 642,
+      "sha256": "5751b4374efac692ef4552a9f742a6103f1449a29c3ce94680bf0f1e977ec323"
+    },
+    {
+      "path": "optimized proof/template-python-empty/red.log",
+      "bytes": 4146,
+      "sha256": "e037d9383234e6bab5fcc28924ea2b1102a74710e403c787cb50a9ff8c42edba"
+    },
+    {
+      "path": "optimized proof/template-python-empty/red.xml",
+      "bytes": 3605,
+      "sha256": "bac4f84a442a5ec052340fabb4fd17d6d338770fef3c7d840b61a6adf5b39c12"
+    },
+    {
+      "path": "optimized proof/template-python-nonzero/green.json",
+      "bytes": 650,
+      "sha256": "2cb4379e5327298f5dfe4dc40503df05326d1ef6aa15a1cb08c07657f790d0d2"
+    },
+    {
+      "path": "optimized proof/template-python-nonzero/green.log",
+      "bytes": 672,
+      "sha256": "9f6935990e453571a1f24263c2666e316c943c529e5352c49877899931d0417e"
+    },
+    {
+      "path": "optimized proof/template-python-nonzero/green.xml",
+      "bytes": 429,
+      "sha256": "9ce82e70cf7d92c62f5901fdab28469cb77b5fd911d0265a2655b818b1dc421b"
+    },
+    {
+      "path": "optimized proof/template-python-nonzero/red.json",
+      "bytes": 648,
+      "sha256": "ea4b9ca82d73785b2890e8f4731fe22c58a83d49fe178142a5f1f58b4dbd023b"
+    },
+    {
+      "path": "optimized proof/template-python-nonzero/red.log",
+      "bytes": 3443,
+      "sha256": "c9fb5f99c09804ea8ddb1959541871b00ccc9c8f5e7981e1abae776d1a90bf70"
+    },
+    {
+      "path": "optimized proof/template-python-nonzero/red.xml",
+      "bytes": 3424,
+      "sha256": "f99b238cebddb2e76ac779f13f88478fc9dd8bd0cfc562b1ea1a36b48ba731b8"
+    },
+    {
+      "path": "wf-optimized-green.log",
+      "bytes": 98,
+      "sha256": "01a500f809b9d9a3ea7f89f8c0701d3ed699d0c6f851f3ac4717a8596e4f46b5"
+    },
+    {
+      "path": "wf-optimized-green.xml",
+      "bytes": 1104,
+      "sha256": "6f8d8f4c4d1bb54310732072266a5a4af78af12347625044601b46198e5df161"
+    },
+    {
+      "path": "wf-optimized-red.log",
+      "bytes": 16669,
+      "sha256": "2bb70ce4249f0122601c7af738239f0f6b177c7dd2d1cb2313087a0942394ce9"
+    },
+    {
+      "path": "wf-optimized-red.xml",
+      "bytes": 19790,
+      "sha256": "a39c3ed99681d08f22c991338d2cc6f384c5c25713262a8d7c5f96fd6d8cf963"
+    },
+    {
+      "path": "wf-quoting-green.log",
+      "bytes": 98,
+      "sha256": "3a6504404ab639ac8fe2940ac1654603c072a999c0ae65ca7ef9701ab97a0954"
+    },
+    {
+      "path": "wf-quoting-green.xml",
+      "bytes": 396,
+      "sha256": "547858109722ebdf69dc78cb8e58b450ea4681464171e044189e4ab5f429a46f"
+    },
+    {
+      "path": "wf-quoting-red.log",
+      "bytes": 2331,
+      "sha256": "ead4b6af2de1a11fe98b216d3b89bc2adcebf28deaf1b7ad42563dcf01bec019"
+    },
+    {
+      "path": "wf-quoting-red.xml",
+      "bytes": 2674,
+      "sha256": "11104d88a802b054260120a2b9625084b669f520351d163c1637b970b46f6906"
+    },
+    {
+      "path": "wf-regression-controls.json",
+      "bytes": 1546,
+      "sha256": "6414c59247099e36d32bee5a6c627eaf47e84a5a5e89f567672d238dc20e371e"
+    },
+    {
+      "path": "wf-replay-tests.xml",
+      "bytes": 1246,
+      "sha256": "d828d26e631c1c697ff26750c99d3a3db07d223df41c50bbed216da43dec45cf"
+    }
+  ],
+  "current_files": {
+    "tests/scripts/test_uv_resolution_replay_cli.py": "76f2be7f1fe4bb68a6a5b0f93825c53b724e6d31cb7e63837f5a5ff2ae0e5df1",
+    "docs/evidence/issue-3743/uv-resolution/replay_uv_resolution.py": "31f72d3f63c56d63c709b8f20679ecfbc17bdaaed6d604913b0ff1eb9fd540e3",
+    "docs/evidence/issue-3743/uv-resolution/replay_suites.py": "43b37fe13ad0dc8851f5f861f34a786ccbf8af1292ef6c14ea726866256e1306"
+  },
+  "regressions": {
+    "optimized_original": "6 failed, exit 1",
+    "optimized_corrected": "6 passed, exit 0",
+    "quoting_mutation": "1 failed, exit 1",
+    "quoting_restored": "1 passed, exit 0",
+    "actual_optimized_replay": "8 named production RED1/restoration GREEN0 pairs; caller bytes unchanged"
+  },
+  "limitations": "CLI quoting test uses a stand-in pytest module only to verify command/environment transport. The real optimized eight-case replay runs actual pytest. Historical coverage/archive remain unchanged."
+}
