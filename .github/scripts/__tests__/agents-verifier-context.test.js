@@ -1560,7 +1560,7 @@ test('buildVerifierContext preserves exact-head artifacts when PR comment retrie
   });
   assert.equal(core.outputs.evidence_status, 'unavailable');
   assert.match(result.markdown, /PR comments: \*\*unavailable\*\*/);
-  assert.match(result.markdown, /Referenced workflow artifacts: \*\*present\*\*/);
+  assert.match(result.markdown, /Referenced workflow artifacts: \*\*unavailable\*\*/);
   assert.match(result.markdown, /proof from the exact PR head/);
   removeVerifierDiffArtifacts(result);
 });
@@ -2068,7 +2068,7 @@ test('buildVerifierContext reports retrieval failure as unavailable, never absen
   assert.equal(result.shouldRun, true);
   assert.equal(core.outputs.evidence_status, 'unavailable');
   assert.match(result.markdown, /PR comments: \*\*unavailable\*\*/);
-  assert.match(result.markdown, /Referenced workflow artifacts: \*\*absent\*\*/);
+  assert.match(result.markdown, /Referenced workflow artifacts: \*\*unavailable\*\*/);
   assert.doesNotMatch(result.markdown, /PR comments: \*\*absent\*\*/);
   removeVerifierDiffArtifacts(result);
 });
@@ -3373,4 +3373,149 @@ test('matching closing title and metadata retain known-source verifier acceptanc
       } finally { removeVerifierDiffArtifacts(result); }
     }
   }
+});
+
+
+// #3820: required evidence is allowed on later pages, never inferred from page one.
+function paginatedRecoveryGithub(defect = '') {
+  const sha = 'a'.repeat(40);
+  const calls = [];
+  const link = { link: '<https://api.example.test?page=2>; rel="next"' };
+  return { sha, calls, github: { rest: {
+    issues: { listComments: async () => ({ data: [] }) },
+    pulls: { listReviewComments: async () => ({ data: [] }), listReviews: async () => ({ data: [] }) },
+    actions: {
+      listWorkflowRunsForRepo: async ({page = 1}) => {
+        calls.push(`runs:${page}`);
+        if (page === 2 && defect === 'run-error') throw new Error('later run page failed');
+        return { data: { total_count: 2, workflow_runs: page === 1 ? [{id: 1, head_sha: sha}] :
+          defect === 'run-malformed' ? null : [{id: 2, head_sha: defect === 'wrong-head' ? 'b'.repeat(40) : sha}] },
+          headers: page === 1 || defect === 'run-pages' ? link : {} };
+      },
+      listWorkflowRunArtifacts: async ({run_id, page = 1}) => {
+        calls.push(`artifacts:${run_id}:${page}`);
+        if (run_id === 1) return { data: { total_count: 0, artifacts: [] } };
+        if (page === 2 && defect === 'artifact-error') throw new Error('later artifact page failed');
+        return { data: { total_count: 2, artifacts: page === 2 && defect === 'artifact-malformed' ? null :
+          [{id: page, name: `proof-${page}`, size_in_bytes: 3, expired: page === 2 && defect === 'expired'}] },
+          headers: page === 1 || defect === 'artifact-pages' ? link : {} };
+      },
+      downloadArtifact: async ({artifact_id}) => ({data: Buffer.from(`zip-${artifact_id}`)}),
+    },
+  } } };
+}
+
+test('bounded recovery retrieves late run and artifact pages and retains every finding', async () => {
+  await withEnv('VERIFIER_EVIDENCE_RUN_LIMIT', '200', async () => {
+    await withEnv('VERIFIER_EVIDENCE_ARTIFACT_LIMIT', '400', async () => {
+      const {github, sha, calls} = paginatedRecoveryGithub();
+      const result = await fetchVerifierEvidence({github, pullRequestBody: '', associatedCommitShas: [sha],
+        extractArtifactText: ({archiveBuffer}) => ({text: `finding-${archiveBuffer}`, entryCount: 1, truncated: false})});
+      assert.equal(result.artifacts.status, 'present');
+      assert.deepEqual(result.artifacts.records.map(r => r.text), ['finding-zip-1', 'finding-zip-2']);
+      assert.ok(calls.includes('runs:2'));
+      assert.ok(calls.includes('artifacts:2:2'));
+      assert.equal(result.diagnostics.counters.run_pages, 2);
+      assert.equal(result.diagnostics.counters.artifact_pages, 3);
+    });
+  });
+});
+
+test('bounded recovery keeps every later page gap unavailable alongside retained findings', async () => {
+  for (const defect of ['run-error', 'run-malformed', 'wrong-head', 'run-pages', 'artifact-error', 'artifact-malformed', 'artifact-pages', 'expired']) {
+    await withEnv('VERIFIER_EVIDENCE_RUN_LIMIT', '200', async () => {
+      await withEnv('VERIFIER_EVIDENCE_ARTIFACT_LIMIT', '400', async () => {
+        const {github, sha} = paginatedRecoveryGithub(defect);
+        const result = await fetchVerifierEvidence({github, pullRequestBody: '', associatedCommitShas: [sha],
+          extractArtifactText: ({archiveBuffer}) => ({text: `finding-${archiveBuffer}`, entryCount: 1, truncated: false})});
+        assert.equal(result.artifacts.status, 'unavailable', defect);
+        assert.ok(result.diagnostics.failures.length, defect);
+        if (['artifact-error', 'artifact-malformed', 'artifact-pages', 'expired'].includes(defect)) {
+          assert.equal(result.artifacts.records[0].text, 'finding-zip-1', defect);
+        }
+      });
+    });
+  }
+});
+
+test('bounded recovery unions late review references and distinguishes character exhaustion', async () => {
+  for (const enough of [false, true]) {
+    await withEnv('VERIFIER_EVIDENCE_COMMENT_LIMIT', '300', async () => {
+      await withEnv('VERIFIER_EVIDENCE_COMMENT_CHARS', enough ? '1000' : '100', async () => {
+        const {github, sha} = paginatedRecoveryGithub();
+        let discovered = 0;
+        github.rest.issues.listComments = async ({page}) => ({data: [{body: page === 1 ? 'x'.repeat(101) : 'Evidence run: /actions/runs/1'}], headers: page === 1 ? {link: 'rel="next"'} : {}});
+        github.rest.pulls.listReviews = async () => ({data: [{body: 'Validation run: /actions/runs/2'}]});
+        github.rest.actions.getWorkflowRun = async ({run_id}) => ({data: {id: run_id, head_sha: sha}});
+        const original = github.rest.actions.listWorkflowRunsForRepo;
+        github.rest.actions.listWorkflowRunsForRepo = async p => { discovered++; return original(p); };
+        const result = await fetchVerifierEvidence({github, pullRequestBody: '', associatedCommitShas: [sha],
+          extractArtifactText: () => ({text: 'retained proof', entryCount: 1, truncated: false})});
+        assert.equal(result.comments.complete, enough);
+        if (enough) {
+          assert.deepEqual(result.referencedRunIds, [1, 2]);
+          assert.equal(discovered, 0); // Entire explicit union, never a clean subset.
+        } else {
+          assert.equal(result.artifacts.status, 'unavailable');
+          assert.ok(result.diagnostics.failures.some(f => f.kind === 'character'));
+          assert.ok(discovered > 0);
+        }
+      });
+    });
+  }
+});
+
+test('bounded recovery archive ceilings preserve sibling findings and every distinct gap', async () => {
+  for (const defect of ['archive-bytes', 'download-bytes', 'global-download', 'global-extraction', 'unsupported', 'entry', 'character', 'extraction']) {
+    const {github, sha} = paginatedRecoveryGithub();
+    github.rest.issues.listComments = async () => ({data: [{body: 'Evidence run: /actions/runs/2'}]});
+    github.rest.actions.getWorkflowRun = async () => ({data: {id: 2, head_sha: sha}});
+    github.rest.actions.listWorkflowRunArtifacts = async () => ({data: {total_count: 2, artifacts: [
+      {id: 1, name: 'sibling', size_in_bytes: 3},
+      {id: 2, name: 'gap', size_in_bytes: defect === 'archive-bytes' ? 1e8 : 3},
+    ]}});
+    github.rest.actions.downloadArtifact = async ({artifact_id}) => ({data: Buffer.alloc(defect === 'download-bytes' && artifact_id === 2 ? 3 * 1024 * 1024 : 3)});
+    await withEnv('VERIFIER_EVIDENCE_TOTAL_ARCHIVE_BYTES', defect === 'global-download' ? '3' : undefined, async () => {
+      await withEnv('VERIFIER_EVIDENCE_TOTAL_EXTRACT_BYTES', defect === 'global-extraction' ? '1' : undefined, async () => {
+        let extracted = 0;
+        const result = await fetchVerifierEvidence({github, pullRequestBody: '', associatedCommitShas: [sha], extractArtifactText: () => {
+          extracted++;
+          return {text: extracted === 1 ? 'sibling finding' : 'partial gap', extractedBytes: 1, entryCount: 1,
+            truncated: extracted === 2, failures: extracted === 2 ? [defect] : [], unsupportedCount: defect === 'unsupported' && extracted === 2 ? 1 : 0};
+        }});
+        assert.equal(result.artifacts.status, 'unavailable', defect);
+        assert.equal(result.artifacts.records[0].text, 'sibling finding', defect);
+        assert.ok(result.diagnostics.failures.length, defect);
+        const kinds = { 'global-download': 'global_archive_byte', 'global-extraction': 'global_extraction_byte', 'archive-bytes': 'archive_byte_or_metadata', 'download-bytes': 'archive_byte' };
+        if (kinds[defect]) assert.ok(result.diagnostics.failures.some(f => f.kind === kinds[defect]), defect);
+      });
+    });
+  }
+});
+
+test('archive extractor independently records unsupported, entry, character and extraction bounds', () => {
+  for (const defect of ['unsupported_payload', 'entry', 'character', 'extraction_byte_or_read']) {
+    const result = extractArtifactArchiveText({archiveBuffer: Buffer.from('mock archive'), maxEntries: 1,
+      maxChars: defect === 'character' ? 1 : 100, maxBytes: 50,
+      execFile: (_cmd, args) => {
+        if (args[0] === '-Z1') return defect === 'unsupported_payload' ? 'proof.txt\nimage.png\n' : defect === 'entry' ? 'proof.txt\nother.txt\n' : 'proof.txt\n';
+        if (defect === 'extraction_byte_or_read') throw new Error('maxBuffer exceeded');
+        return 'complete sibling text';
+      }});
+    assert.equal(result.truncated, true, defect);
+    assert.ok(result.failures.includes(defect), defect);
+  }
+});
+
+test('bounded recovery retains the entire explicit reference union beyond its run budget', async () => {
+  await withEnv('VERIFIER_EVIDENCE_RUN_LIMIT', '1', async () => {
+    const {github, sha} = paginatedRecoveryGithub();
+    github.rest.actions.getWorkflowRun = async ({run_id}) => ({data: {id: run_id, head_sha: sha}});
+    const result = await fetchVerifierEvidence({github, pullRequestBody: 'Evidence runs: /actions/runs/1 /actions/runs/2', associatedCommitShas: [sha]});
+    assert.equal(result.artifacts.status, 'unavailable');
+    assert.deepEqual(result.diagnostics.references.explicit_run_ids, [1, 2]);
+    assert.deepEqual(result.diagnostics.references.requested_run_ids, [1, 2]);
+    assert.deepEqual(result.diagnostics.references.selected_run_ids, [1]);
+    assert.ok(result.diagnostics.failures.some(f => f.kind === 'reference_record'));
+  });
 });

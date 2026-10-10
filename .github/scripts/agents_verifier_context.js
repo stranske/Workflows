@@ -397,7 +397,47 @@ function safeArtifactEntries(listing) {
   return { entries, filteredPayloadEntries };
 }
 
-function extractArtifactArchiveText({ archiveBuffer, maxEntries, maxChars, execFile = execFileSync }) {
+// Page and record bounds are independent: bodyless/duplicate records still cost reads.
+async function boundedEvidencePages({ method, params, key, recordLimit, pageLimit, kind, diagnostics }) {
+  const items = [];
+  const perPage = Math.min(recordLimit, 100);
+  let expectedTotal;
+  const seenIds = new Set();
+  for (let page = 1; page <= pageLimit; page += 1) {
+    try {
+      diagnostics.counters[`${kind}_pages`] += 1;
+      const response = await method({ ...params, per_page: perPage, page });
+      const records = key ? response?.data?.[key] : response?.data;
+      if (!Array.isArray(records)) throw new Error(`${kind} API returned an invalid ${kind === 'run' ? 'run' : 'artifact'} list`);
+      const total = response?.data?.total_count;
+      if (total !== undefined && (!Number.isSafeInteger(total) || total < 0)) throw new Error('invalid total_count');
+      if (expectedTotal !== undefined && total !== expectedTotal) throw new Error('total_count changed during pagination');
+      expectedTotal = total;
+      diagnostics.counters[`${kind}_records`] += records.length;
+      const more = Boolean(response?.headers?.link?.includes('rel="next"')) || (total !== undefined && total > items.length + records.length);
+      if (total !== undefined && total < items.length + records.length) throw new Error('listing exceeds total_count');
+      if (items.length + records.length > recordLimit) {
+        items.push(...records.slice(0, Math.max(0, recordLimit - items.length)));
+        return { items, failure: 'record' };
+      }
+      for (const record of records) {
+        if (Number.isSafeInteger(record?.id) && record.id > 0) {
+          if (seenIds.has(record.id)) throw new Error('duplicate paginated record ID');
+          seenIds.add(record.id);
+        }
+      }
+      items.push(...records);
+      if (!more) return { items, failure: null };
+      if (!records.length) throw new Error('empty nonterminal page');
+      if (items.length >= recordLimit) return { items, failure: 'record' };
+    } catch (error) {
+      return { items, failure: 'retrieval', detail: error.message };
+    }
+  }
+  return { items, failure: 'page' };
+}
+
+function extractArtifactArchiveText({ archiveBuffer, maxEntries, maxChars, maxBytes = maxChars * 4, execFile = execFileSync }) {
   const tempDir = fs.mkdtempSync(path.join(os.tmpdir(), 'verifier-evidence-'));
   const archivePath = path.join(tempDir, 'artifact.zip');
   try {
@@ -409,33 +449,46 @@ function extractArtifactArchiveText({ archiveBuffer, maxEntries, maxChars, execF
     const { entries, filteredPayloadEntries } = safeArtifactEntries(listing);
     const selected = entries.slice(0, maxEntries);
     let remaining = maxChars;
+    let remainingBytes = maxBytes;
+    const failures = [];
+    if (entries.length > selected.length) failures.push("entry");
+    if (filteredPayloadEntries.length) failures.push("unsupported_payload");
     const parts = [];
     let truncated = entries.length > selected.length || filteredPayloadEntries.length > 0;
     for (const entry of selected) {
       const prefix = `### ${entry}\n\n`;
       const separator = parts.length ? '\n\n' : '';
       const contentBudget = remaining - prefix.length - separator.length;
-      if (contentBudget <= 0) {
+      if (contentBudget <= 0 || remainingBytes <= 0) {
+        failures.push(contentBudget <= 0 ? "character" : "extraction_byte");
         truncated = true;
         break;
       }
       try {
         const value = execFile('unzip', ['-p', archivePath, entry], {
           encoding: 'utf8',
-          maxBuffer: contentBudget * 3 + 1,
+          maxBuffer: Math.min(contentBudget * 4 + 1, remainingBytes),
         });
+        remainingBytes -= Buffer.byteLength(value, "utf8");
         const fragment = `${prefix}${value.trim()}`;
         if (fragment.length + separator.length > remaining) {
+          failures.push("character");
           truncated = true;
           break;
         }
         parts.push(fragment);
         remaining -= fragment.length + separator.length;
       } catch {
+        failures.push("extraction_byte_or_read");
+        // An interrupted extraction cannot establish how many bytes were read.
+        remainingBytes = 0;
         truncated = true;
       }
     }
     return {
+      extractedBytes: maxBytes - remainingBytes,
+      failures,
+      unsupportedCount: filteredPayloadEntries.length,
       text: parts.filter(Boolean).join('\n\n'),
       entryCount: entries.length,
       truncated,
@@ -467,6 +520,13 @@ async function fetchVerifierEvidence({
   associatedCommitShas = [],
   extractArtifactText = extractArtifactArchiveText,
 }) {
+  const diagnostics = { counters: { comment_pages: 0, comment_records: 0, comment_chars: 0, body_chars: 0, artifact_chars: 0, run_pages: 0, run_records: 0, artifact_pages: 0, artifact_records: 0, archive_bytes: 0, extracted_bytes: 0, entries: 0, unsupported_payloads: 0, provenance_failures: 0 }, failures: [] };
+  const fail = (channel, kind, detail) => diagnostics.failures.push({ channel, kind, detail });
+  const commentPageLimit = positiveLimit('VERIFIER_EVIDENCE_COMMENT_PAGES', 10);
+  const totalArchiveBytes = positiveLimit('VERIFIER_EVIDENCE_TOTAL_ARCHIVE_BYTES', 32 * 1024 * 1024);
+  const totalExtractBytes = positiveLimit('VERIFIER_EVIDENCE_TOTAL_EXTRACT_BYTES', 64 * 1024 * 1024);
+  const totalArtifactChars = positiveLimit('VERIFIER_EVIDENCE_TOTAL_ARTIFACT_CHARS', 4 * 1024 * 1024);
+  let usedArtifactChars = 0;
   const commentLimit = positiveLimit('VERIFIER_EVIDENCE_COMMENT_LIMIT', DEFAULT_EVIDENCE_COMMENT_LIMIT);
   const commentChars = positiveLimit('VERIFIER_EVIDENCE_COMMENT_CHARS', DEFAULT_EVIDENCE_COMMENT_CHARS);
   const bodyChars = positiveLimit('VERIFIER_EVIDENCE_BODY_CHARS', DEFAULT_EVIDENCE_COMMENT_CHARS);
@@ -476,6 +536,7 @@ async function fetchVerifierEvidence({
     if (text.length > bodyChars) body.reason = 'PR body character limit prevented complete inspection';
     else Object.assign(body, { status: text.trim() ? 'present' : 'absent', complete: true, text, reason: '' });
   }
+  diagnostics.counters.body_chars = body.text.length;
   const runLimit = positiveLimit('VERIFIER_EVIDENCE_RUN_LIMIT', DEFAULT_EVIDENCE_RUN_LIMIT);
   const artifactLimit = positiveLimit('VERIFIER_EVIDENCE_ARTIFACT_LIMIT', DEFAULT_EVIDENCE_ARTIFACT_LIMIT);
   const archiveBytes = positiveLimit('VERIFIER_EVIDENCE_ARCHIVE_BYTES', DEFAULT_EVIDENCE_ARCHIVE_BYTES);
@@ -506,18 +567,22 @@ async function fetchVerifierEvidence({
     try {
       if (!source.method) throw new Error(`${source.name} API is unavailable`);
       const perPage = Math.min(commentLimit, 100);
-      const maxPages = Math.ceil(commentLimit / perPage);
+      const maxPages = Math.min(commentPageLimit, Math.ceil(commentLimit / perPage));
       let truncated = false;
       for (let page = 1; page <= maxPages; page += 1) {
+        diagnostics.counters.comment_pages += 1;
         const response = await source.method({ ...source.params, per_page: perPage, page });
         if (!Array.isArray(response?.data)) {
           throw new Error(`${source.name} API returned an invalid comment list`);
         }
         const hasNext = Boolean(response?.headers?.link?.includes('rel="next"'));
         for (const comment of response.data) {
+          diagnostics.counters.comment_records += 1;
+          if (comment?.body != null && typeof comment.body !== 'string') throw new Error('invalid comment body');
           if (typeof comment?.body !== 'string' || !comment.body.trim()) continue;
           if (comments.records.length >= commentLimit) {
             truncated = true;
+            fail("comments", "record", source.name);
             break;
           }
           const result = appendBoundedText(comments.records, {
@@ -528,10 +593,10 @@ async function fetchVerifierEvidence({
           }, commentChars, usedCommentChars);
           usedCommentChars = result.usedChars;
           truncated = result.truncated;
-          if (truncated) break;
+          if (truncated) { fail("comments", "character", source.name); break; }
         }
         if (truncated || !hasNext) break;
-        if (page === maxPages) truncated = true;
+        if (page === maxPages) { truncated = true; fail("comments", "page", source.name); }
       }
       if (truncated) {
         commentFailures.push(
@@ -539,10 +604,13 @@ async function fetchVerifierEvidence({
         );
       }
     } catch (error) {
+      fail("comments", "retrieval", `${source.name}: ${error.message}`);
       commentFailures.push(`${source.name} retrieval failed: ${error.message}`);
       core?.warning?.(`Verifier ${source.name} evidence unavailable: ${error.message}`);
     }
   }
+  diagnostics.counters.comment_chars = usedCommentChars;
+  if (!body.complete) fail("body", "character_or_retrieval", body.reason);
   const commentBodies = comments.records.map((comment) => comment.body);
   if (commentFailures.length) {
     comments.status = 'unavailable';
@@ -575,10 +643,18 @@ async function fetchVerifierEvidence({
   const runIds = [];
   const seenRunIds = new Set();
   let artifactIncomplete = allRunIds.length > referencedRunIds.length;
+  if (artifactIncomplete) fail("artifacts", "reference_record", "explicit reference union exceeds run limit");
   const referenceInspectionComplete = body.complete && comments.complete && referenceSourcesComplete;
-  if (allRunIds.length && !referenceInspectionComplete) {
+  diagnostics.references = {
+    requested_run_ids: allRunIds,
+    explicit_run_ids: Array.from(explicitEvidenceRunIds),
+    selected_run_ids: referencedRunIds,
+    reference_sources_complete: referenceInspectionComplete,
+  };
+  if (!referenceInspectionComplete) {
     artifactIncomplete = true;
     artifacts.reason = 'reference-bearing body, comments, or linked issue sources were not completely inspected';
+    fail('artifacts', 'reference_source', artifacts.reason);
   }
 
   const commitShas = Array.from(new Set((associatedCommitShas || []).filter(Boolean)));
@@ -602,11 +678,15 @@ async function fetchVerifierEvidence({
       if (returnedRunId !== runId || !isValidSha(runHeadSha)) {
         artifactIncomplete = true;
         artifacts.reason = `referenced workflow run ${runId} returned invalid provenance`;
+        fail('artifacts', 'provenance', artifacts.reason);
+        diagnostics.counters.provenance_failures += 1;
         continue;
       }
       if (!exactCommitShas.has(runHeadSha)) {
         artifactIncomplete = true;
         artifacts.reason = `referenced workflow run ${runId} does not match the exact PR head or merge commit`;
+        fail('artifacts', 'provenance', artifacts.reason);
+        diagnostics.counters.provenance_failures += 1;
         continue;
       }
       seenRunIds.add(runId);
@@ -614,6 +694,8 @@ async function fetchVerifierEvidence({
     } catch (error) {
       artifactIncomplete = true;
       artifacts.reason = `workflow run provenance failed for referenced run ${runId}: ${error.message}`;
+      fail('artifacts', 'provenance', artifacts.reason);
+      diagnostics.counters.provenance_failures += 1;
       core?.warning?.(`Verifier referenced workflow-run provenance unavailable: ${error.message}`);
     }
   }
@@ -635,35 +717,33 @@ async function fetchVerifierEvidence({
       associatedRunDiscoveryComplete = false;
       artifactIncomplete = true;
       artifacts.reason = `associated workflow-run commit is invalid: ${commitSha}`;
+      fail('artifacts', 'provenance', artifacts.reason);
+      diagnostics.counters.provenance_failures += 1;
       continue;
     }
     try {
       if (!github?.rest?.actions?.listWorkflowRunsForRepo) {
         throw new Error('workflow run discovery API is unavailable');
       }
-      const response = await github.rest.actions.listWorkflowRunsForRepo({
-        owner,
-        repo,
-        head_sha: commitSha,
-        per_page: Math.min(runLimit, 100),
+      const listing = await boundedEvidencePages({
+        method: github.rest.actions.listWorkflowRunsForRepo,
+        params: { owner, repo, head_sha: commitSha }, key: 'workflow_runs', recordLimit: runLimit,
+        pageLimit: positiveLimit('VERIFIER_EVIDENCE_RUN_PAGES', Math.ceil(runLimit / 100)), kind: 'run', diagnostics,
       });
-      const workflowRuns = response?.data?.workflow_runs;
-      if (!Array.isArray(workflowRuns)) {
-        throw new Error('workflow run discovery API returned an invalid run list');
-      }
-      if (
-        response?.headers?.link?.includes('rel="next"')
-        || (Number.isFinite(response?.data?.total_count) && response.data.total_count > workflowRuns.length)
-      ) {
+      const workflowRuns = listing.items;
+      if (listing.failure) {
         associatedRunDiscoveryComplete = false;
         artifactIncomplete = true;
-        artifacts.reason = `workflow run discovery for commit ${commitSha} exceeded the bounded result limit`;
+        artifacts.reason = `workflow run discovery for commit ${commitSha} exceeded the bounded result limit${listing.detail ? `: ${listing.detail}` : ""}`;
+        fail('artifacts', `run_${listing.failure}`, artifacts.reason);
       }
       for (const workflowRun of workflowRuns) {
         if (String(workflowRun?.head_sha || '').toLowerCase() !== commitSha.toLowerCase()) {
           associatedRunDiscoveryComplete = false;
           artifactIncomplete = true;
           artifacts.reason ||= `workflow run discovery returned a run for a different commit than ${commitSha}`;
+          fail("artifacts", "provenance", `workflow run ${workflowRun?.id} returned a different commit than ${commitSha}`);
+          diagnostics.counters.provenance_failures += 1;
           continue;
         }
         const runId = Number(workflowRun?.id);
@@ -671,12 +751,16 @@ async function fetchVerifierEvidence({
           associatedRunDiscoveryComplete = false;
           artifactIncomplete = true;
           artifacts.reason = `workflow run discovery returned invalid evidence for commit ${commitSha}`;
+          fail('artifacts', 'provenance', artifacts.reason);
+          diagnostics.counters.provenance_failures += 1;
           continue;
         }
         if (!seenRunIds.has(runId)) {
           if (runIds.length >= runLimit) {
             artifactIncomplete = true;
             artifacts.reason = 'workflow run count limit prevented complete artifact inspection';
+            associatedRunDiscoveryComplete = false;
+            fail('artifacts', 'run_record', artifacts.reason);
             break;
           }
           seenRunIds.add(runId);
@@ -687,6 +771,7 @@ async function fetchVerifierEvidence({
       associatedRunDiscoveryComplete = false;
       artifactIncomplete = true;
       artifacts.reason = `workflow run discovery failed for commit ${commitSha}: ${error.message}`;
+      fail('artifacts', 'retrieval', artifacts.reason);
       core?.warning?.(`Verifier workflow-run discovery unavailable: ${error.message}`);
     }
   }
@@ -698,28 +783,23 @@ async function fetchVerifierEvidence({
   for (const runId of runIds) {
     if (inspectedArtifacts >= artifactLimit) {
       artifactIncomplete = true;
+      fail("artifacts", "artifact_record", "global artifact record bound");
       break;
     }
     try {
       if (!github?.rest?.actions?.listWorkflowRunArtifacts || !github?.rest?.actions?.downloadArtifact) {
         throw new Error('workflow artifact API is unavailable');
       }
-      const response = await github.rest.actions.listWorkflowRunArtifacts({
-        owner,
-        repo,
-        run_id: runId,
-        per_page: Math.min(artifactLimit, 100),
+      const listing = await boundedEvidencePages({
+        method: github.rest.actions.listWorkflowRunArtifacts,
+        params: { owner, repo, run_id: runId }, key: 'artifacts', recordLimit: artifactLimit - inspectedArtifacts,
+        pageLimit: positiveLimit('VERIFIER_EVIDENCE_ARTIFACT_PAGES', Math.ceil(artifactLimit / 100)), kind: 'artifact', diagnostics,
       });
-      const listedArtifacts = response?.data?.artifacts;
-      if (!Array.isArray(listedArtifacts)) {
-        throw new Error('workflow artifact API returned an invalid artifact list');
-      }
-      if (
-        response?.headers?.link?.includes('rel="next"')
-        || (Number.isFinite(response?.data?.total_count) && response.data.total_count > listedArtifacts.length)
-      ) {
+      const listedArtifacts = listing.items;
+      if (listing.failure) {
         artifactIncomplete = true;
-        artifacts.reason = `artifact discovery for run ${runId} exceeded the bounded result limit`;
+        artifacts.reason = `artifact discovery for run ${runId} exceeded the bounded result limit${listing.detail ? `: ${listing.detail}` : ""}`;
+        fail('artifacts', `artifact_${listing.failure}`, artifacts.reason);
       }
       for (const artifact of listedArtifacts) {
         if (inspectedArtifacts >= artifactLimit) {
@@ -728,11 +808,21 @@ async function fetchVerifierEvidence({
         }
         inspectedArtifacts += 1;
         if (artifact.expired) {
+          fail("artifacts", "expired", `artifact ${artifact.id}`);
           artifactIncomplete = true;
           continue;
         }
-        if (!Number.isFinite(artifact.size_in_bytes) || artifact.size_in_bytes > archiveBytes) {
+        if (!Number.isSafeInteger(artifact.id) || artifact.id <= 0 || !Number.isSafeInteger(artifact.size_in_bytes) || artifact.size_in_bytes < 0 || artifact.size_in_bytes > archiveBytes) {
+          fail("artifacts", "archive_byte_or_metadata", `artifact ${artifact.id}`);
           artifactIncomplete = true;
+          continue;
+        }
+        if (diagnostics.counters.archive_bytes + artifact.size_in_bytes > totalArchiveBytes
+          || diagnostics.counters.extracted_bytes >= totalExtractBytes || usedArtifactChars >= totalArtifactChars) {
+          artifactIncomplete = true;
+          if (diagnostics.counters.archive_bytes + artifact.size_in_bytes > totalArchiveBytes) fail('artifacts', 'global_archive_byte', `artifact ${artifact.id}`);
+          if (diagnostics.counters.extracted_bytes >= totalExtractBytes) fail('artifacts', 'global_extraction_byte', `artifact ${artifact.id}`);
+          if (usedArtifactChars >= totalArtifactChars) fail('artifacts', 'global_character', `artifact ${artifact.id}`);
           continue;
         }
         const download = await github.rest.actions.downloadArtifact({
@@ -742,11 +832,22 @@ async function fetchVerifierEvidence({
           archive_format: 'zip',
         });
         const archiveBuffer = Buffer.isBuffer(download?.data) ? download.data : Buffer.from(download?.data || []);
-        if (archiveBuffer.length > archiveBytes) {
+        diagnostics.counters.archive_bytes += archiveBuffer.length;
+        if (archiveBuffer.length > archiveBytes || diagnostics.counters.archive_bytes > totalArchiveBytes) {
+          fail("artifacts", "archive_byte", `artifact ${artifact.id}`);
           artifactIncomplete = true;
           continue;
         }
-        const extracted = await extractArtifactText({ archiveBuffer, maxEntries: entryLimit, maxChars: artifactChars });
+        const maxChars = Math.min(artifactChars, totalArtifactChars - usedArtifactChars);
+        const maxBytes = Math.min(maxChars * 4, totalExtractBytes - diagnostics.counters.extracted_bytes);
+        const extracted = await extractArtifactText({ archiveBuffer, maxEntries: entryLimit, maxChars, maxBytes });
+        diagnostics.counters.extracted_bytes += extracted?.extractedBytes ?? maxBytes;
+        diagnostics.counters.entries += extracted?.entryCount || 0;
+        diagnostics.counters.unsupported_payloads += extracted?.unsupportedCount || 0;
+        usedArtifactChars += extracted?.text?.length || 0;
+        diagnostics.counters.artifact_chars = usedArtifactChars;
+        for (const reason of extracted?.failures || []) fail('artifacts', reason, `artifact ${artifact.id}`);
+        if (extracted?.truncated || !extracted?.text) fail('artifacts', 'extraction_incomplete', `artifact ${artifact.id}`);
         if (extracted?.truncated || !extracted?.text) artifactIncomplete = true;
         if (extracted?.text) {
           artifacts.records.push({
@@ -761,6 +862,7 @@ async function fetchVerifierEvidence({
     } catch (error) {
       artifactIncomplete = true;
       artifacts.reason = `artifact retrieval failed for run ${runId}: ${error.message}`;
+      fail('artifacts', 'retrieval', artifacts.reason);
       core?.warning?.(`Verifier workflow-artifact evidence unavailable: ${error.message}`);
     }
   }
@@ -773,6 +875,9 @@ async function fetchVerifierEvidence({
     if (!runIds.length) artifacts.reason = 'no referenced or associated workflow run found';
   }
 
+  if (diagnostics.failures.some(f => f.channel === 'artifacts')) {
+    artifacts.reason = [...new Set(diagnostics.failures.filter(f => f.channel === 'artifacts').map(f => `${f.kind}: ${f.detail}`))].join('; ');
+  }
   const statuses = [body.status, comments.status, artifacts.status];
   // Availability is not identification of the required evidence. A present
   // requirement-only body cannot prove an obligation in an uninspected channel.
@@ -782,7 +887,7 @@ async function fetchVerifierEvidence({
     : statuses.includes('present')
       ? 'present'
       : 'absent';
-  return { status, body, comments, artifacts, referencedRunIds: runIds };
+  return { status, body, comments, artifacts, referencedRunIds: runIds, diagnostics };
 }
 
 function fenceUntrustedEvidence(value) {
@@ -804,6 +909,7 @@ function formatVerifierEvidence(evidence) {
     `- Referenced workflow artifacts: **${evidence.artifacts.status}**${evidence.artifacts.reason ? ` — ${evidence.artifacts.reason}` : ''}`,
     '',
   ];
+  if (evidence.diagnostics) lines.push('### Retrieval diagnostics', '', '```json', JSON.stringify(evidence.diagnostics, null, 2), '```', '');
   if (evidence.body?.text) {
     lines.push('### Bounded PR body', '', 'Untrusted PR body:', fenceUntrustedEvidence(evidence.body.text), '');
   }

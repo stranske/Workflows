@@ -1,0 +1,461 @@
+[
+  {
+    "mutation": "single-run-artifact-page",
+    "source": ".github/scripts/agents_verifier_context.js",
+    "before": "page <= pageLimit",
+    "after": "page <= 1",
+    "command": [
+      "node",
+      "--test",
+      "--test-name-pattern=bounded recovery retrieves late",
+      ".github/scripts/__tests__/agents-verifier-context.test.js"
+    ],
+    "source_sha256": {
+      ".github/scripts/agents_verifier_context.js": "9f4d5b1ac7ea6eeb78ba0a450ee010866259c55d3529deb228d7c7cd14e245d7",
+      "templates/consumer-repo/.github/scripts/agents_verifier_context.js": "9f4d5b1ac7ea6eeb78ba0a450ee010866259c55d3529deb228d7c7cd14e245d7"
+    },
+    "restoration_byte_identical": true,
+    "red": {
+      "exit": 1,
+      "output_sha256": "7c446d146e081dcf462bdfd1fbec489fbda95397189787a9b46404ebf08fb73e",
+      "tail": [
+        "",
+        "test at .github/scripts/__tests__/agents-verifier-context.test.js:3408:1",
+        "\u2716 bounded recovery retrieves late run and artifact pages and retains every finding (3.856292ms)",
+        "  AssertionError [ERR_ASSERTION]: Expected values to be strictly equal:",
+        "  + actual - expected",
+        "  ",
+        "  + 'unavailable'",
+        "  - 'present'",
+        "  ",
+        "      at /Users/teacher/.codex/orchestrator/worktrees/stranske__Workflows__3820__opener/.github/scripts/__tests__/agents-verifier-context.test.js:3414:14",
+        "      at async withEnv (/Users/teacher/.codex/orchestrator/worktrees/stranske__Workflows__3820__opener/.github/scripts/__tests__/agents-verifier-context.test.js:95:12)",
+        "      at async /Users/teacher/.codex/orchestrator/worktrees/stranske__Workflows__3820__opener/.github/scripts/__tests__/agents-verifier-context.test.js:3410:5",
+        "      at async withEnv (/Users/teacher/.codex/orchestrator/worktrees/stranske__Workflows__3820__opener/.github/scripts/__tests__/agents-verifier-context.test.js:95:12)",
+        "      at async TestContext.<anonymous> (/Users/teacher/.codex/orchestrator/worktrees/stranske__Workflows__3820__opener/.github/scripts/__tests__/agents-verifier-context.test.js:3409:3)",
+        "      at async Test.run (node:internal/test_runner/test:1069:7)",
+        "      at async startSubtestAfterBootstrap (node:internal/test_runner/harness:332:3) {",
+        "    generatedMessage: true,",
+        "    code: 'ERR_ASSERTION',",
+        "    actual: 'unavailable',",
+        "    expected: 'present',",
+        "    operator: 'strictEqual'",
+        "  }"
+      ]
+    },
+    "green": {
+      "exit": 0,
+      "output_sha256": "62b7a917401e09d5dfe29febe5be1f96bd0aec6699dcb2a007942d697cb68213",
+      "tail": [
+        "\u2714 bounded recovery retrieves late run and artifact pages and retains every finding (3.524458ms)",
+        "\u2139 tests 1",
+        "\u2139 suites 0",
+        "\u2139 pass 1",
+        "\u2139 fail 0",
+        "\u2139 cancelled 0",
+        "\u2139 skipped 0",
+        "\u2139 todo 0",
+        "\u2139 duration_ms 67.002542"
+      ]
+    }
+  },
+  {
+    "mutation": "ignore-incomplete-reference-sources",
+    "source": ".github/scripts/agents_verifier_context.js",
+    "before": "const referenceInspectionComplete = body.complete && comments.complete && referenceSourcesComplete;",
+    "after": "const referenceInspectionComplete = true;",
+    "command": [
+      "node",
+      "--test",
+      "--test-name-pattern=bounded recovery unions late",
+      ".github/scripts/__tests__/agents-verifier-context.test.js"
+    ],
+    "source_sha256": {
+      ".github/scripts/agents_verifier_context.js": "9f4d5b1ac7ea6eeb78ba0a450ee010866259c55d3529deb228d7c7cd14e245d7",
+      "templates/consumer-repo/.github/scripts/agents_verifier_context.js": "9f4d5b1ac7ea6eeb78ba0a450ee010866259c55d3529deb228d7c7cd14e245d7"
+    },
+    "restoration_byte_identical": true,
+    "red": {
+      "exit": 1,
+      "output_sha256": "57d6c81bbb6e218a0a3d40b445f011d04753dadf34007e72b71e4eb9ce6ccb77",
+      "tail": [
+        "",
+        "\u2716 failing tests:",
+        "",
+        "test at .github/scripts/__tests__/agents-verifier-context.test.js:3441:1",
+        "\u2716 bounded recovery unions late review references and distinguishes character exhaustion (15.595709ms)",
+        "  AssertionError [ERR_ASSERTION]: The expression evaluated to a falsy value:",
+        "  ",
+        "    assert.ok(discovered > 0)",
+        "  ",
+        "      at /Users/teacher/.codex/orchestrator/worktrees/stranske__Workflows__3820__opener/.github/scripts/__tests__/agents-verifier-context.test.js:3461:18",
+        "      at async withEnv (/Users/teacher/.codex/orchestrator/worktrees/stranske__Workflows__3820__opener/.github/scripts/__tests__/agents-verifier-context.test.js:95:12)",
+        "      at async /Users/teacher/.codex/orchestrator/worktrees/stranske__Workflows__3820__opener/.github/scripts/__tests__/agents-verifier-context.test.js:3444:7",
+        "      at async withEnv (/Users/teacher/.codex/orchestrator/worktrees/stranske__Workflows__3820__opener/.github/scripts/__tests__/agents-verifier-context.test.js:95:12)",
+        "      at async TestContext.<anonymous> (/Users/teacher/.codex/orchestrator/worktrees/stranske__Workflows__3820__opener/.github/scripts/__tests__/agents-verifier-context.test.js:3443:5)",
+        "      at async Test.run (node:internal/test_runner/test:1069:7)",
+        "      at async startSubtestAfterBootstrap (node:internal/test_runner/harness:332:3) {",
+        "    generatedMessage: true,",
+        "    code: 'ERR_ASSERTION',",
+        "    actual: false,",
+        "    expected: true,",
+        "    operator: '=='",
+        "  }"
+      ]
+    },
+    "green": {
+      "exit": 0,
+      "output_sha256": "e87b425295d7110f8827eb2da79e07c875037d2b32af7941febe8fc9b4b4dbbf",
+      "tail": [
+        "\u2714 bounded recovery unions late review references and distinguishes character exhaustion (3.720792ms)",
+        "\u2139 tests 1",
+        "\u2139 suites 0",
+        "\u2139 pass 1",
+        "\u2139 fail 0",
+        "\u2139 cancelled 0",
+        "\u2139 skipped 0",
+        "\u2139 todo 0",
+        "\u2139 duration_ms 85.711333"
+      ]
+    }
+  },
+  {
+    "mutation": "ignore-unsupported-archive-payload",
+    "source": ".github/scripts/agents_verifier_context.js",
+    "before": "entries.length > selected.length || filteredPayloadEntries.length > 0;",
+    "after": "entries.length > selected.length;",
+    "command": [
+      "node",
+      "--test",
+      "--test-name-pattern=archive extractor independently records",
+      ".github/scripts/__tests__/agents-verifier-context.test.js"
+    ],
+    "source_sha256": {
+      ".github/scripts/agents_verifier_context.js": "9f4d5b1ac7ea6eeb78ba0a450ee010866259c55d3529deb228d7c7cd14e245d7",
+      "templates/consumer-repo/.github/scripts/agents_verifier_context.js": "9f4d5b1ac7ea6eeb78ba0a450ee010866259c55d3529deb228d7c7cd14e245d7"
+    },
+    "restoration_byte_identical": true,
+    "red": {
+      "exit": 1,
+      "output_sha256": "9f4a11889ca2f9f90c631239188be0eaa16f0c4d0c8fec0af936033e5ee329b5",
+      "tail": [
+        "\u2139 todo 0",
+        "\u2139 duration_ms 115.8895",
+        "",
+        "\u2716 failing tests:",
+        "",
+        "test at .github/scripts/__tests__/agents-verifier-context.test.js:3496:1",
+        "\u2716 archive extractor independently records unsupported, entry, character and extraction bounds (4.125125ms)",
+        "  AssertionError [ERR_ASSERTION]: unsupported_payload",
+        "  ",
+        "  false !== true",
+        "  ",
+        "      at TestContext.<anonymous> (/Users/teacher/.codex/orchestrator/worktrees/stranske__Workflows__3820__opener/.github/scripts/__tests__/agents-verifier-context.test.js:3505:12)",
+        "      at Test.runInAsyncScope (node:async_hooks:214:14)",
+        "      at Test.run (node:internal/test_runner/test:1062:25)",
+        "      at Test.start (node:internal/test_runner/test:959:17)",
+        "      at startSubtestAfterBootstrap (node:internal/test_runner/harness:332:17) {",
+        "    generatedMessage: false,",
+        "    code: 'ERR_ASSERTION',",
+        "    actual: false,",
+        "    expected: true,",
+        "    operator: 'strictEqual'",
+        "  }"
+      ]
+    },
+    "green": {
+      "exit": 0,
+      "output_sha256": "2377ff4630b6e5ac8de3bc867f581593051d8add52861f1f8166b92c377dec8b",
+      "tail": [
+        "\u2714 archive extractor independently records unsupported, entry, character and extraction bounds (4.858583ms)",
+        "\u2139 tests 1",
+        "\u2139 suites 0",
+        "\u2139 pass 1",
+        "\u2139 fail 0",
+        "\u2139 cancelled 0",
+        "\u2139 skipped 0",
+        "\u2139 todo 0",
+        "\u2139 duration_ms 74.657167"
+      ]
+    }
+  },
+  {
+    "mutation": "remove-global-download-bound",
+    "source": ".github/scripts/agents_verifier_context.js",
+    "before": "diagnostics.counters.archive_bytes + artifact.size_in_bytes > totalArchiveBytes",
+    "after": "false",
+    "command": [
+      "node",
+      "--test",
+      "--test-name-pattern=bounded recovery archive ceilings",
+      ".github/scripts/__tests__/agents-verifier-context.test.js"
+    ],
+    "source_sha256": {
+      ".github/scripts/agents_verifier_context.js": "9f4d5b1ac7ea6eeb78ba0a450ee010866259c55d3529deb228d7c7cd14e245d7",
+      "templates/consumer-repo/.github/scripts/agents_verifier_context.js": "9f4d5b1ac7ea6eeb78ba0a450ee010866259c55d3529deb228d7c7cd14e245d7"
+    },
+    "restoration_byte_identical": true,
+    "red": {
+      "exit": 1,
+      "output_sha256": "57627d955ca799a6d76df72b9468328394b4eb4967d862ab12a848b632b5038e",
+      "tail": [
+        "\u2139 skipped 0",
+        "\u2139 todo 0",
+        "\u2139 duration_ms 168.65175",
+        "",
+        "\u2716 failing tests:",
+        "",
+        "test at .github/scripts/__tests__/agents-verifier-context.test.js:3468:1",
+        "\u2716 bounded recovery archive ceilings preserve sibling findings and every distinct gap (4.487542ms)",
+        "  AssertionError [ERR_ASSERTION]: global-download",
+        "      at /Users/teacher/.codex/orchestrator/worktrees/stranske__Workflows__3820__opener/.github/scripts/__tests__/agents-verifier-context.test.js:3490:35",
+        "      at async withEnv (/Users/teacher/.codex/orchestrator/worktrees/stranske__Workflows__3820__opener/.github/scripts/__tests__/agents-verifier-context.test.js:95:12)",
+        "      at async /Users/teacher/.codex/orchestrator/worktrees/stranske__Workflows__3820__opener/.github/scripts/__tests__/agents-verifier-context.test.js:3479:7",
+        "      at async withEnv (/Users/teacher/.codex/orchestrator/worktrees/stranske__Workflows__3820__opener/.github/scripts/__tests__/agents-verifier-context.test.js:95:12)",
+        "      at async TestContext.<anonymous> (/Users/teacher/.codex/orchestrator/worktrees/stranske__Workflows__3820__opener/.github/scripts/__tests__/agents-verifier-context.test.js:3478:5)",
+        "      at async Test.run (node:internal/test_runner/test:1069:7)",
+        "      at async startSubtestAfterBootstrap (node:internal/test_runner/harness:332:3) {",
+        "    generatedMessage: false,",
+        "    code: 'ERR_ASSERTION',",
+        "    actual: false,",
+        "    expected: true,",
+        "    operator: '=='",
+        "  }"
+      ]
+    },
+    "green": {
+      "exit": 0,
+      "output_sha256": "7fc6bc9c58eb6ffff87de71d03f9e6445daef002670ed26558abf09ae6a99bf5",
+      "tail": [
+        "\u2714 bounded recovery archive ceilings preserve sibling findings and every distinct gap (10.004417ms)",
+        "\u2139 tests 1",
+        "\u2139 suites 0",
+        "\u2139 pass 1",
+        "\u2139 fail 0",
+        "\u2139 cancelled 0",
+        "\u2139 skipped 0",
+        "\u2139 todo 0",
+        "\u2139 duration_ms 97.9075"
+      ]
+    }
+  },
+  {
+    "mutation": "old-expanded-diff-budget",
+    "source": ".github/workflows/reusable-agents-verifier.yml",
+    "before": "VERIFIER_DIFF_BUDGET_TOKENS=65536",
+    "after": "VERIFIER_DIFF_BUDGET_TOKENS=32000",
+    "command": [
+      "python3",
+      "-m",
+      "pytest",
+      "-q",
+      "--no-cov",
+      "tests/scripts/test_pr_verifier_recovery.py::test_authenticated_capture_replay"
+    ],
+    "source_sha256": {
+      ".github/workflows/reusable-agents-verifier.yml": "43b50a68a04edf0d085c6a9de3f01b95a7240444f6835a9c85e6b12ce930aa2a"
+    },
+    "restoration_byte_identical": true,
+    "red": {
+      "exit": 1,
+      "output_sha256": "3af7c6f0431f34a041c9f38d2457d5a8a99bb75784f88389993961003b6ef116",
+      "tail": [
+        "        assert old[\"code_total_chars\"] == 257099",
+        "        workflow = yaml.load(",
+        "            Path(\".github/workflows/reusable-agents-verifier.yml\").read_text(), Loader=yaml.BaseLoader",
+        "        )",
+        "        step = next(",
+        "            s",
+        "            for s in workflow[\"jobs\"][\"verifier\"][\"steps\"]",
+        "            if s.get(\"name\") == \"Select bounded verifier evidence profile\"",
+        "        )",
+        "        import re",
+        "    ",
+        "        for name, value in re.findall(r\"'(VERIFIER_\\w+)=(\\d+)'\", step[\"run\"]):",
+        "            monkeypatch.setenv(name, value)",
+        "        inputs = pr_verifier.build_prompt_inputs(context, diff)",
+        "        new = inputs.coverage.to_dict()",
+        ">       assert new[\"files_complete\"] == 7",
+        "E       assert 4 == 7",
+        "",
+        "tests/scripts/test_pr_verifier_recovery.py:54: AssertionError",
+        "=========================== short test summary info ============================",
+        "FAILED tests/scripts/test_pr_verifier_recovery.py::test_authenticated_capture_replay",
+        "1 failed in 1.21s"
+      ]
+    },
+    "green": {
+      "exit": 0,
+      "output_sha256": "320418a142dbb681dcc95cf0e2eab02616c1e2706712b2586cfb6de4b81dfb5b",
+      "tail": [
+        ".                                                                        [100%]",
+        "1 passed in 1.08s"
+      ]
+    }
+  },
+  {
+    "mutation": "remove-native-capacity-guard",
+    "source": "scripts/langchain/pr_verifier.py",
+    "before": "    _preflight_input_capacity(client, prompt)\n    config =",
+    "after": "    config =",
+    "command": [
+      "python3",
+      "-m",
+      "pytest",
+      "-q",
+      "--no-cov",
+      "tests/scripts/test_pr_verifier_recovery.py::test_actual_capacity_boundary_counts_entire_rendered_request"
+    ],
+    "source_sha256": {
+      "scripts/langchain/pr_verifier.py": "c200266958764f285d63b07162f9cd59990b048178e844d5109adc5d79cc7ca6",
+      "templates/consumer-repo/scripts/langchain/pr_verifier.py": "c200266958764f285d63b07162f9cd59990b048178e844d5109adc5d79cc7ca6"
+    },
+    "restoration_byte_identical": true,
+    "red": {
+      "exit": 1,
+      "output_sha256": "9eaab0efd07119ed8c0eb91fb3c111c00685624c2a330b42b1c10ceac5ad2c28",
+      "tail": [
+        "=================================== FAILURES ===================================",
+        "_________ test_actual_capacity_boundary_counts_entire_rendered_request _________",
+        "",
+        "    def test_actual_capacity_boundary_counts_entire_rendered_request():",
+        "        client, counter = capacity_client()",
+        "        prompt = pr_verifier._prepare_prompt(",
+        "            \"## Plan sources (scope, tasks, acceptance)\\n- [ ] Deliver evidence\\n\"",
+        "            \"## Acceptance evidence\\n- PR body: **present**\\nall required evidence\",",
+        "            \"diff --git a/a.py b/a.py\\n--- a/a.py\\n+++ b/a.py\\n@@ -1 +1 @@\\n-old\\n+new\\n\",",
+        "        )",
+        "        assert \"## Verifier input coverage\" in prompt",
+        "        assert \"all required evidence\" in prompt",
+        "        assert \"+new\" in prompt",
+        "        pr_verifier._invoke_llm(client, prompt, operation=\"test\")",
+        ">       assert counter.call_args.kwargs[\"input\"][0][\"content\"] == prompt",
+        "               ^^^^^^^^^^^^^^^^^^^^^^^^",
+        "E       AttributeError: 'NoneType' object has no attribute 'kwargs'",
+        "",
+        "tests/scripts/test_pr_verifier_recovery.py:98: AttributeError",
+        "=========================== short test summary info ============================",
+        "FAILED tests/scripts/test_pr_verifier_recovery.py::test_actual_capacity_boundary_counts_entire_rendered_request",
+        "1 failed in 0.84s"
+      ]
+    },
+    "green": {
+      "exit": 0,
+      "output_sha256": "c3015b35bbe497af98bf5a2b3ceb02f809f7f7feb0377d20d0fae299787ed553",
+      "tail": [
+        ".                                                                        [100%]",
+        "1 passed in 0.77s"
+      ]
+    }
+  },
+  {
+    "mutation": "remove-schema-repair-capacity-guard",
+    "source": "scripts/langchain/pr_verifier.py",
+    "before": "        _preflight_input_capacity(self.client, prompt)\n",
+    "after": "",
+    "command": [
+      "python3",
+      "-m",
+      "pytest",
+      "-q",
+      "--no-cov",
+      "tests/scripts/test_pr_verifier_recovery.py::test_native_message_capacity_and_schema_repair_are_checked"
+    ],
+    "source_sha256": {
+      "scripts/langchain/pr_verifier.py": "c200266958764f285d63b07162f9cd59990b048178e844d5109adc5d79cc7ca6",
+      "templates/consumer-repo/scripts/langchain/pr_verifier.py": "c200266958764f285d63b07162f9cd59990b048178e844d5109adc5d79cc7ca6"
+    },
+    "restoration_byte_identical": true,
+    "red": {
+      "exit": 1,
+      "output_sha256": "ef9fcdfb11fa5dd1d3ef5d62e713d3f0554e4c846b8b77961b7b49800d5f36f2",
+      "tail": [
+        "        client._client = SimpleNamespace(messages=SimpleNamespace(count_tokens=counter))",
+        "        client._get_request_payload = lambda prompt: {",
+        "            \"model\": \"configured-model\",",
+        "            \"messages\": [{\"role\": \"user\", \"content\": prompt}],",
+        "            \"system\": \"system instructions\",",
+        "            \"max_tokens\": 20,",
+        "        }",
+        "        receipt = pr_verifier._preflight_input_capacity(client, \"all evidence\")",
+        "        assert receipt[\"status\"] == \"PASS\"",
+        "        assert counter.call_args.kwargs[\"system\"] == \"system instructions\"",
+        "        assert counter.call_args.kwargs[\"messages\"][0][\"content\"] == \"all evidence\"",
+        "        client.invoke.reset_mock()",
+        "        counter.return_value.input_tokens = 101",
+        "        repair = pr_verifier._build_verifier_repair_callback(client)",
+        ">       assert repair(\"{}\", \"invalid\", \"all previous findings\") is None",
+        "E       assert '{\"verdict\":\"PASS\",\"concerns\":[\"retained\"]}' is None",
+        "E        +  where '{\"verdict\":\"PASS\",\"concerns\":[\"retained\"]}' = <function _build_verifier_repair_callback.<locals>._repair at 0x107272c00>('{}', 'invalid', 'all previous findings')",
+        "",
+        "tests/scripts/test_pr_verifier_recovery.py:183: AssertionError",
+        "=========================== short test summary info ============================",
+        "FAILED tests/scripts/test_pr_verifier_recovery.py::test_native_message_capacity_and_schema_repair_are_checked",
+        "1 failed in 0.32s"
+      ]
+    },
+    "green": {
+      "exit": 0,
+      "output_sha256": "59b9466559aeabf218a54ec041fd83cd357cf9bf1d80a17c47aab62ed0c205bf",
+      "tail": [
+        ".                                                                        [100%]",
+        "1 passed in 0.40s"
+      ]
+    }
+  },
+  {
+    "mutation": "disable-incomplete-coverage-floor",
+    "source": "scripts/langchain/pr_verifier.py",
+    "before": "if coverage.sufficient or result.verdict != \"PASS\" or not result.used_llm:",
+    "after": "if True:",
+    "command": [
+      "python3",
+      "-m",
+      "pytest",
+      "-q",
+      "--no-cov",
+      "tests/scripts/test_pr_verifier_recovery.py::test_authenticated_capture_replay"
+    ],
+    "source_sha256": {
+      "scripts/langchain/pr_verifier.py": "c200266958764f285d63b07162f9cd59990b048178e844d5109adc5d79cc7ca6",
+      "templates/consumer-repo/scripts/langchain/pr_verifier.py": "c200266958764f285d63b07162f9cd59990b048178e844d5109adc5d79cc7ca6"
+    },
+    "restoration_byte_identical": true,
+    "red": {
+      "exit": 1,
+      "output_sha256": "432b1c3f1e125892d7a2f18c3d3adcf2f772ad9242ee72573409274237ae3d5a",
+      "tail": [
+        "            monkeypatch.setenv(name, value)",
+        "        inputs = pr_verifier.build_prompt_inputs(context, diff)",
+        "        new = inputs.coverage.to_dict()",
+        "        assert new[\"files_complete\"] == 7",
+        "        assert new[\"code_included_chars\"] == new[\"code_total_chars\"] == 257099",
+        "        assert not inputs.coverage.sufficient  # Retrieval gaps are immutable in this capture.",
+        "        result = pr_verifier._apply_coverage_floor(",
+        "            pr_verifier.EvaluationResult(",
+        "                verdict=\"PASS\", used_llm=True, concerns=[\"independent finding\"]",
+        "            ),",
+        "            inputs.coverage,",
+        "        )",
+        ">       assert result.verdict == \"CONCERNS\"",
+        "E       AssertionError: assert 'PASS' == 'CONCERNS'",
+        "E         ",
+        "E         - CONCERNS",
+        "E         + PASS",
+        "",
+        "tests/scripts/test_pr_verifier_recovery.py:63: AssertionError",
+        "=========================== short test summary info ============================",
+        "FAILED tests/scripts/test_pr_verifier_recovery.py::test_authenticated_capture_replay",
+        "1 failed in 1.23s"
+      ]
+    },
+    "green": {
+      "exit": 0,
+      "output_sha256": "b099717b0f4a9f62539b63fe5a8ebc7ae0aa524d60e983fbf07d0b6e38a1bf22",
+      "tail": [
+        ".                                                                        [100%]",
+        "1 passed in 1.17s"
+      ]
+    }
+  }
+]

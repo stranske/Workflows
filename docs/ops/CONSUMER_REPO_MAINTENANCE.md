@@ -29,23 +29,65 @@ JavaScript lock changes still select no Python scenarios.
 
 After inspecting an actual incomplete verifier report, manual `Agents Verifier`
 dispatch may select `evidence_profile=expanded`. Standard remains the default;
-this is not an automatic retry or a verdict override. Expanded allows 300 total
-review records, 128,000 comment characters, 32,000 changed-code budget tokens and
-48,000 acceptance-evidence budget tokens. Comment retrieval follows at most
-three pages per channel within the shared record/character budget (bodyless
-reviews still consume bounded API pages). These are fixed limits, not arbitrary
-operator-provided numbers. Retrieval is bounded to 40 exact-head/merge runs,
-80 artifacts, 4 MiB per archive, 80 entries per archive and 128,000 characters
-per artifact. NDJSON proof is recognized as text alongside JSONL; unsafe entry
-names and unsupported payloads still make extraction incomplete. Explicit,
-complete exact-head validation references may select the existing scoped proof
-set instead of incidental associated jobs; do not remove genuine obligations
-to force completeness. The input snapshot records the selected profile and limits.
-Pagination, real API failures, missing required proof,
-oversized inputs and every existing CI/coverage floor remain non-PASS.
-The consumer state fingerprint includes the profile so a material input-limit
-repair is not skipped as an unchanged standard evaluation. Inspect the actual
-new coverage and both provider verdicts; workflow success alone is not acceptance.
+this is not an automatic retry or a verdict override. Expanded permits 1,000
+retained review records and 1 MiB of combined comment text, with at most ten
+pages per comment endpoint. Associated-run discovery follows at most two pages
+per exact head/merge SHA, retaining at most 200 distinct runs globally. Artifact
+lists follow at most four pages per run, within a global 400-record ceiling.
+Later pages, changing/malformed totals, repeated IDs and empty nonterminal pages
+cannot establish completeness. A failed later page preserves earlier findings.
+Reference-bearing body, comments and linked issues must all be complete before
+explicit exact-head references can skip unrelated associated-run discovery.
+Missing comment content cannot be replaced by associated jobs.
+
+Archives retain the 4 MiB compressed, 80-entry and 128,000-rendered-character
+per-archive bounds. Collection also has global 32 MiB downloaded, 64 MiB extracted
+and 4 MiB rendered-text ceilings. Declared sizes are checked before download and
+actual buffer sizes afterward; an oversize response fails closed. Extraction
+charges bytes before rendering, and headings/separators count toward characters.
+NDJSON is supported alongside JSONL. Unsupported payloads, expired artifacts,
+entry overflow and read/extraction failures remain actionable gaps alongside any
+complete siblings. The context records separate page, record, character, archive,
+entry, unsupported-payload and provenance counters and failure reasons.
+
+Expanded prompt allocation is 16,384 context, 65,536 diff and 65,536 evidence
+estimated tokens (four characters per allocation unit). The existing 8 MiB diff
+fetch and 300,000-character context-diff ceiling remain. These allocation units
+are **not model token counts**. Before each evaluation, comparison arm and schema
+repair generation, the verifier counts the entire native request through the
+resolved client's SDK token-count endpoint and reserves its complete configured
+output ceiling (including thinking). It requires the exact-model client profile's
+positive `max_input_tokens` and output ceiling, and blocks when input plus output
+exceeds the input bound. This is conservative even for an input-only bound.
+No approximate tokenizer, automatic truncation, stateful unseen context or model
+replacement is allowed on capacity failure. Native counter or profile absence is
+NON_PASS, including authentication failure while counting; it never authorizes
+an alternate judge. Capacity receipts are retained as `verifier-capacity-checks.jsonl`.
+A profile's absent output ceiling cannot make an unknown reserve zero.
+
+Expanded recovery supports `evaluate` and `compare`. The ancillary checkbox CLI
+has no native input-count contract here, so expanded compare skips it and expanded
+checkbox dispatch rejects before invocation. The existing comparison verdict and
+CI/coverage floors remain authoritative. No human-only gate is introduced.
+
+The selected Terra/Sonnet models currently have no capacity facts in the installed
+client profiles. This source repair deliberately does not invent those facts or
+claim live provider capacity. A model-specific supported profile and native counter
+must be available before generation. Standard remains the default profile; Python
+generation also applies the capacity guard there. Inspect actual new retrieval,
+capacity receipts and both provider verdicts; workflow success alone is not acceptance.
+The input snapshot records every bound, and the consumer fingerprint includes the
+profile plus `bounded-native-capacity-v2`, so a previously fingerprinted expanded
+evaluation cannot suppress this changed input contract. Existing manifest entries already manage both repaired scripts; no file
+addition, rename or delivery scope change requires a new manifest entry.
+
+Workflows#3802's immutable expanded capture reproduces 4/7 complete files and
+127,635/257,099 included code characters with the old allocation. The new expanded
+allocation represents 7/7 files and all 257,099 characters, while still withholding
+PASS for unavailable captured evidence. Proposed retrieval bounds do not prove
+that omitted comments, archives or live provider capacity fit. Unsupported archive
+entries remain unresolved; no exclusion or batching is introduced. Post-merge
+comparison and campaign regeneration remain separate owner work.
 
 For Workflows#3774, the standard report clipped 89,554 changed-code characters
 to 63,401 and exceeded the 40,000-character review collection limit. Its reported

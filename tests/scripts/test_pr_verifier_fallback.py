@@ -2,6 +2,8 @@
 
 import scripts.langchain.pr_verifier as pr_verifier
 
+from tests.scripts.verifier_capacity_fakes import with_capacity
+
 SAMPLE_DIFF = "diff --git a/example.py b/example.py\n--- a/example.py\n+++ b/example.py\n@@ -1 +1 @@\n-old\n+new\n"
 
 
@@ -12,6 +14,7 @@ class FakeResponse:
 
 class FakeClient:
     def __init__(self, name: str, succeed: bool = True) -> None:
+        with_capacity(self)
         self.name = name
         self.succeed = succeed
         self.invoked = False
@@ -100,7 +103,7 @@ def test_evaluate_pr_no_fallback_on_non_auth_error(monkeypatch) -> None:
             raise Exception("Rate limit exceeded")
 
     def mock_get_client(model=None, provider=None):
-        return (RateLimitClient(), "github-models/gpt-4o")
+        return (with_capacity(RateLimitClient()), "github-models/gpt-4o")
 
     monkeypatch.setattr(pr_verifier, "_get_llm_client", mock_get_client)
     monkeypatch.setattr(pr_verifier, "_prepare_prompt", lambda ctx, diff: "test prompt")

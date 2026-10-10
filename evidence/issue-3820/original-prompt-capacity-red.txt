@@ -1,0 +1,181 @@
+FFFFFFFFF                                                                [100%]
+=================================== FAILURES ===================================
+______________________ test_authenticated_capture_replay _______________________
+
+monkeypatch = <_pytest.monkeypatch.MonkeyPatch object at 0x1052c18e0>
+
+    def test_authenticated_capture_replay(monkeypatch):
+        capture = os.environ.get('VERIFIER_RECOVERY_CAPTURE_DIR')
+        if not capture:
+            pytest.skip('immutable authenticated capture is owner-local; set VERIFIER_RECOVERY_CAPTURE_DIR')
+        root = Path(capture)
+        hashes = {
+            'verifier-context.md': 'efefb70dcd4dff7c6751adecf4a8145854bbe716f306a2c8e18e731aeffd993c',
+            'verifier-pr-diff.patch': '21f504e512061b73e4a9bb226837ec5f325c9822779eed8a429a9274d5ccacf9',
+            'comparison.json': '5c266ffbbacb5fbc50bbcd87fc2c4ff1d85455656b2a53b7e8ed519298bb0051',
+        }
+        for name, digest in hashes.items():
+            assert hashlib.sha256((root / name).read_bytes()).hexdigest() == digest
+        context = (root / 'verifier-context.md').read_text()
+        diff = (root / 'verifier-pr-diff.patch').read_text()
+        monkeypatch.setenv('VERIFIER_DIFF_BUDGET_TOKENS', '32000')
+        monkeypatch.setenv('VERIFIER_ACCEPTANCE_EVIDENCE_BUDGET_TOKENS', '48000')
+        monkeypatch.setenv('VERIFIER_CONTEXT_BUDGET_TOKENS', '4000')
+        old = pr_verifier.build_prompt_inputs(context, diff).coverage.to_dict()
+        assert old['files_complete'] == 4
+        assert old['code_included_chars'] == 127635
+        assert old['code_total_chars'] == 257099
+        workflow = yaml.load(Path('.github/workflows/reusable-agents-verifier.yml').read_text(), Loader=yaml.BaseLoader)
+        step = next(s for s in workflow['jobs']['verifier']['steps'] if s.get('name') == 'Select bounded verifier evidence profile')
+        import re
+        for name, value in re.findall(r"'(VERIFIER_\w+)=(\d+)'", step['run']):
+            monkeypatch.setenv(name, value)
+        inputs = pr_verifier.build_prompt_inputs(context, diff)
+        new = inputs.coverage.to_dict()
+>       assert new['files_complete'] == 7
+E       assert 4 == 7
+
+tests/scripts/test_pr_verifier_recovery.py:44: AssertionError
+_________ test_actual_capacity_boundary_counts_entire_rendered_request _________
+
+    def test_actual_capacity_boundary_counts_entire_rendered_request():
+        client, counter = capacity_client()
+        prompt = 'instructions\ncoverage metadata\nall required evidence\nfull diff'
+        pr_verifier._invoke_llm(client, prompt, operation='test')
+>       assert counter.call_args.kwargs['input'][0]['content'] == prompt
+               ^^^^^^^^^^^^^^^^^^^^^^^^
+E       AttributeError: 'NoneType' object has no attribute 'kwargs'
+
+tests/scripts/test_pr_verifier_recovery.py:69: AttributeError
+__________ test_actual_capacity_unknowns_never_invoke[unknown-window] __________
+
+defect = 'unknown-window'
+
+    @pytest.mark.parametrize('defect', ['unknown-window', 'unknown-output', 'bad-count', 'counter-error', 'unsupported-counter', 'auto-truncation'])
+    def test_actual_capacity_unknowns_never_invoke(defect):
+        client, counter = capacity_client()
+        if defect == 'unknown-window': client.profile = None
+        if defect == 'unknown-output': client.max_tokens = None; client.profile.pop('max_output_tokens')
+        if defect == 'bad-count': counter.return_value.input_tokens = True
+        if defect == 'counter-error': counter.side_effect = RuntimeError('capacity count unavailable')
+        if defect == 'unsupported-counter': client.root_client = None
+        if defect == 'auto-truncation':
+            client._get_request_payload = lambda prompt: {'model': 'configured-model', 'input': prompt, 'truncation': 'auto'}
+>       with pytest.raises(Exception, match='capacity'):
+E       Failed: DID NOT RAISE Exception
+
+tests/scripts/test_pr_verifier_recovery.py:88: Failed
+__________ test_actual_capacity_unknowns_never_invoke[unknown-output] __________
+
+defect = 'unknown-output'
+
+    @pytest.mark.parametrize('defect', ['unknown-window', 'unknown-output', 'bad-count', 'counter-error', 'unsupported-counter', 'auto-truncation'])
+    def test_actual_capacity_unknowns_never_invoke(defect):
+        client, counter = capacity_client()
+        if defect == 'unknown-window': client.profile = None
+        if defect == 'unknown-output': client.max_tokens = None; client.profile.pop('max_output_tokens')
+        if defect == 'bad-count': counter.return_value.input_tokens = True
+        if defect == 'counter-error': counter.side_effect = RuntimeError('capacity count unavailable')
+        if defect == 'unsupported-counter': client.root_client = None
+        if defect == 'auto-truncation':
+            client._get_request_payload = lambda prompt: {'model': 'configured-model', 'input': prompt, 'truncation': 'auto'}
+>       with pytest.raises(Exception, match='capacity'):
+E       Failed: DID NOT RAISE Exception
+
+tests/scripts/test_pr_verifier_recovery.py:88: Failed
+____________ test_actual_capacity_unknowns_never_invoke[bad-count] _____________
+
+defect = 'bad-count'
+
+    @pytest.mark.parametrize('defect', ['unknown-window', 'unknown-output', 'bad-count', 'counter-error', 'unsupported-counter', 'auto-truncation'])
+    def test_actual_capacity_unknowns_never_invoke(defect):
+        client, counter = capacity_client()
+        if defect == 'unknown-window': client.profile = None
+        if defect == 'unknown-output': client.max_tokens = None; client.profile.pop('max_output_tokens')
+        if defect == 'bad-count': counter.return_value.input_tokens = True
+        if defect == 'counter-error': counter.side_effect = RuntimeError('capacity count unavailable')
+        if defect == 'unsupported-counter': client.root_client = None
+        if defect == 'auto-truncation':
+            client._get_request_payload = lambda prompt: {'model': 'configured-model', 'input': prompt, 'truncation': 'auto'}
+>       with pytest.raises(Exception, match='capacity'):
+E       Failed: DID NOT RAISE Exception
+
+tests/scripts/test_pr_verifier_recovery.py:88: Failed
+__________ test_actual_capacity_unknowns_never_invoke[counter-error] ___________
+
+defect = 'counter-error'
+
+    @pytest.mark.parametrize('defect', ['unknown-window', 'unknown-output', 'bad-count', 'counter-error', 'unsupported-counter', 'auto-truncation'])
+    def test_actual_capacity_unknowns_never_invoke(defect):
+        client, counter = capacity_client()
+        if defect == 'unknown-window': client.profile = None
+        if defect == 'unknown-output': client.max_tokens = None; client.profile.pop('max_output_tokens')
+        if defect == 'bad-count': counter.return_value.input_tokens = True
+        if defect == 'counter-error': counter.side_effect = RuntimeError('capacity count unavailable')
+        if defect == 'unsupported-counter': client.root_client = None
+        if defect == 'auto-truncation':
+            client._get_request_payload = lambda prompt: {'model': 'configured-model', 'input': prompt, 'truncation': 'auto'}
+>       with pytest.raises(Exception, match='capacity'):
+E       Failed: DID NOT RAISE Exception
+
+tests/scripts/test_pr_verifier_recovery.py:88: Failed
+_______ test_actual_capacity_unknowns_never_invoke[unsupported-counter] ________
+
+defect = 'unsupported-counter'
+
+    @pytest.mark.parametrize('defect', ['unknown-window', 'unknown-output', 'bad-count', 'counter-error', 'unsupported-counter', 'auto-truncation'])
+    def test_actual_capacity_unknowns_never_invoke(defect):
+        client, counter = capacity_client()
+        if defect == 'unknown-window': client.profile = None
+        if defect == 'unknown-output': client.max_tokens = None; client.profile.pop('max_output_tokens')
+        if defect == 'bad-count': counter.return_value.input_tokens = True
+        if defect == 'counter-error': counter.side_effect = RuntimeError('capacity count unavailable')
+        if defect == 'unsupported-counter': client.root_client = None
+        if defect == 'auto-truncation':
+            client._get_request_payload = lambda prompt: {'model': 'configured-model', 'input': prompt, 'truncation': 'auto'}
+>       with pytest.raises(Exception, match='capacity'):
+E       Failed: DID NOT RAISE Exception
+
+tests/scripts/test_pr_verifier_recovery.py:88: Failed
+_________ test_actual_capacity_unknowns_never_invoke[auto-truncation] __________
+
+defect = 'auto-truncation'
+
+    @pytest.mark.parametrize('defect', ['unknown-window', 'unknown-output', 'bad-count', 'counter-error', 'unsupported-counter', 'auto-truncation'])
+    def test_actual_capacity_unknowns_never_invoke(defect):
+        client, counter = capacity_client()
+        if defect == 'unknown-window': client.profile = None
+        if defect == 'unknown-output': client.max_tokens = None; client.profile.pop('max_output_tokens')
+        if defect == 'bad-count': counter.return_value.input_tokens = True
+        if defect == 'counter-error': counter.side_effect = RuntimeError('capacity count unavailable')
+        if defect == 'unsupported-counter': client.root_client = None
+        if defect == 'auto-truncation':
+            client._get_request_payload = lambda prompt: {'model': 'configured-model', 'input': prompt, 'truncation': 'auto'}
+>       with pytest.raises(Exception, match='capacity'):
+E       Failed: DID NOT RAISE Exception
+
+tests/scripts/test_pr_verifier_recovery.py:88: Failed
+__ test_capacity_overflow_floors_compare_arm_without_erasing_sibling_findings __
+
+    def test_capacity_overflow_floors_compare_arm_without_erasing_sibling_findings():
+        client, _ = capacity_client(input_tokens=101)
+        runner = pr_verifier.ComparisonRunner(context='context', diff=None, prompt='full prompt', clients=[])
+        failed = runner.run_single(client, 'configured-provider', 'configured-model')
+>       assert failed.verdict == 'CONCERNS'
+E       AssertionError: assert 'PASS' == 'CONCERNS'
+E
+E         - CONCERNS
+E         + PASS
+
+tests/scripts/test_pr_verifier_recovery.py:97: AssertionError
+=========================== short test summary info ============================
+FAILED tests/scripts/test_pr_verifier_recovery.py::test_authenticated_capture_replay
+FAILED tests/scripts/test_pr_verifier_recovery.py::test_actual_capacity_boundary_counts_entire_rendered_request
+FAILED tests/scripts/test_pr_verifier_recovery.py::test_actual_capacity_unknowns_never_invoke[unknown-window]
+FAILED tests/scripts/test_pr_verifier_recovery.py::test_actual_capacity_unknowns_never_invoke[unknown-output]
+FAILED tests/scripts/test_pr_verifier_recovery.py::test_actual_capacity_unknowns_never_invoke[bad-count]
+FAILED tests/scripts/test_pr_verifier_recovery.py::test_actual_capacity_unknowns_never_invoke[counter-error]
+FAILED tests/scripts/test_pr_verifier_recovery.py::test_actual_capacity_unknowns_never_invoke[unsupported-counter]
+FAILED tests/scripts/test_pr_verifier_recovery.py::test_actual_capacity_unknowns_never_invoke[auto-truncation]
+FAILED tests/scripts/test_pr_verifier_recovery.py::test_capacity_overflow_floors_compare_arm_without_erasing_sibling_findings
+9 failed in 1.36s

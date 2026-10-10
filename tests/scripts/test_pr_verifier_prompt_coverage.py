@@ -9,6 +9,8 @@ from unittest import mock
 import pytest
 from scripts.langchain import pr_verifier
 
+from tests.scripts.verifier_capacity_fakes import with_capacity
+
 ACCEPTANCE_SENTINEL = "ACCEPTANCE-SENTINEL: every changed module is wired"
 
 
@@ -165,7 +167,7 @@ def _pass_client() -> mock.MagicMock:
             "summary": "Looks complete.",
         }
     )
-    client = mock.MagicMock()
+    client = with_capacity(mock.MagicMock())
     client.invoke.return_value = response
     return client
 
@@ -2380,7 +2382,7 @@ def test_invocation_fallback_still_reports_input_coverage(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
     context, _ = _context(2, 2_000, 1_000)
-    client = mock.MagicMock()
+    client = with_capacity(mock.MagicMock())
     monkeypatch.setattr(
         pr_verifier, "_get_llm_client", lambda model=None, provider=None: (client, "openai")
     )
