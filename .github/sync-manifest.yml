@@ -332,7 +332,7 @@ scripts:
     description: "Computes coverage delta between runs - required by reusable CI workflow"
 
   - source: scripts/reusable_ci_scope.py
-    description: "Selects changed-input reusable CI scenarios - required by reusable CI workflows"
+    description: "Selects changed-input reusable CI scenarios including flat-layout/root Python modules and requirements lock files - required by reusable CI workflows"
 
   - source: scripts/sync_test_dependencies.py
     description: "Syncs test dependency pins - required by reusable CI workflow"
@@ -700,8 +700,42 @@ scripts:
   # PR verification and follow-up
   # Direct/pronoun/qualified proofs and CI/build/execution logs reuse shared governors;
   # bounded concrete destination ORs preserve every independent AND obligation.
+  # Body-component alternatives and checklist nouns share polarity/modality boundaries.
+  # Blank paragraphs end checklist inheritance; optional either-in alternatives stay optional.
+  # All supported list markers and structurally product-owned terminal components share those guards.
+  # Temporal/relative qualifiers terminate recognized components without suppressing bare review destinations.
+  # OR expansion shares independent review-predicate boundaries with channel classification.
+  # Named checklist destinations retain channels before temporal/relative continuations;
+  # attached destination availability keeps OR alternatives without erasing independent proof.
+  # Postposed conditional/negative checklist qualifiers retain shared governor semantics.
+  # Shared independent actor boundaries preserve relative polarity and copular availability.
+  # Canonical shared operations and contrast-aware negative governors retain required destinations.
+  # Product generation/structural destinations and always-qualified availability retain actor/OR boundaries.
+  # Canonical product operations and per-item coordination preserve bare sibling review obligations.
+  # Shared passive-agent normalization preserves actor, modality, aspect and review destinations in either word order.
+  # Shared progressive inflections and perfect aspects preserve product alternatives and independent relative body duties.
+  # Irregular left and channel-symmetric relative presence retain independent and parent alternative semantics.
+  # First/final relative attachments preserve the complete bounded parent destination tail and availability alternatives.
+  # Shared relative evidence conditions retain their own governor without consuming parent sibling destinations.
+  # Comma-relative attachments and qualified only-if/solely-when conditions share those parent-tail guards.
+  # Shared lexical aliases retain passive reviewer/product actors before channel and alternative classification.
+  # Component-qualified availability stays inside complete passive destination lists and preserves bare sibling floors.
+  # Shared presence relatives preserve parent lists; component content is not an extra review delivery, bare-channel duties remain independent.
+  # Parent trailing conditions and local relative conditions retain separate scope; availability metadata cannot obstruct either.
+  # Final availability metadata retains the trailing parent delivery condition in either voice and channel order.
+  # Passive both/either destination quantifiers preserve product actor binding and bare sibling obligations.
+  # Coordinated product destinations retain optional modality and independent reviewer obligations.
+  # Irregular perfect delivery and repeated product operations retain shared actor/polarity binding.
+  # Multi-operation chains inherit the latest explicit governor/aspect, never stale head state.
+  # Product-only AND/OR chains preserve latest state without changing genuine bare-destination alternatives.
+  # Passive agents respect unquoted criterion boundaries; object adjectives preserve mandatory governor and soft wraps.
+  # Component start/end guards reuse all destination prepositions, retaining bare review transport qualifiers.
+  # Criterion splitting protects multiline quoted literals, retaining only independent external delivery duties.
+  # Shared participial content boundaries preserve bare duties and terminate real product components symmetrically.
+  # Content-object negative adjectives share modality grammar without inventing overall proof obligations after passive agents.
+  # Passive quantifiers on either side of prepositions and blank-paragraph relative boundaries share both classifiers.
   - source: scripts/langchain/pr_verifier.py
-    description: "PR verifier - normalizes actor-bound common test-result/log/screenshot/recording proof objects with early canonical contracted governors, offset-preserving literal-free proof contexts, bounded active/passive object qualifiers and literal-safe explicit pronoun antecedents across finite actor clause separators and shared negative-governor actor boundaries and structurally bounded PR-contained comment nouns through shared polarity/modality/product/literal grammar and validates independent acceptance-list items and destination-specific evidence with clause-bound mandatory evidence/artifact comment-presence predicates with shared negative requirement governors for bare be-in destinations, subject-level no polarity and canonical comment destinations, product permit capability and shared share/put/place/submit/deliver/supply aliases with shared finite compound-role subjects and possession-safe verbal guards with bounded adverb-and-polarity-aware optional-inspection noun spans and prove operations, contracted and bare prohibition polarity with additive not-only/not-merely/not-just and negative embedded-auxiliary guards with complete passive/active-perfect negative requirement actions, shared adverb-aware active-perfect/passive contrast-aware elided actor/governors and prohibition-safe checklist fallback, complete product-response vocabulary, bounded product-capability spans, qualified recipients and evidence-object modifiers, bound product storage/client aspects, optional-modal polarity, named and elided actor governor and finite-past sentence boundaries, attached reviewer predicates through shared destinations, complete body predicates, non-PASS concerns and rename-safe diff coverage"
+    description: "PR verifier - normalizes actor-bound common test-result/log/screenshot/recording proof objects with early canonical contracted governors, offset-preserving literal-free proof contexts, bounded active/passive object qualifiers and literal-safe explicit pronoun antecedents across finite actor clause separators and shared negative-governor actor boundaries and structurally bounded PR-contained comment nouns through shared polarity/modality/product/literal grammar and validates independent acceptance-list items and destination-specific evidence with clause-bound mandatory evidence/artifact comment-presence predicates with shared negative requirement governors for bare be-in destinations, subject-level no polarity and canonical comment destinations, product permit capability and shared share/put/place/submit/deliver/supply aliases with shared finite compound-role subjects and possession-safe verbal guards with bounded adverb-and-polarity-aware optional-inspection noun spans and prove operations, contracted and bare prohibition polarity with additive not-only/not-merely/not-just and negative embedded-auxiliary guards with complete passive/active-perfect negative requirement actions, shared adverb-aware active-perfect/passive contrast-aware elided actor/governors and prohibition-safe checklist fallback, shared bounded multiword component and comma-availability grammar with order-symmetric single/coordinated destination OR options and actual floors and leading either alternatives, complete product-response vocabulary, bounded product-capability spans, qualified recipients and evidence-object modifiers, bound product storage/client aspects, optional-modal polarity, named and elided actor governor and finite-past sentence boundaries, attached reviewer predicates through shared destinations, complete body predicates, non-PASS concerns and rename-safe diff coverage"
     delivery: copy
 
   # NOTE (resolved: issue #2347): scripts/langchain/followup_issue_generator.py was MOVED

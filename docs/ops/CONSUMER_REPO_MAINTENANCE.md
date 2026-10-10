@@ -4,6 +4,27 @@ This document outlines the process for maintaining workflow system consistency a
 
 ## Verifier canary review recovery
 
+Named review-evidence destinations include both PR body and PR description.
+Their editor, field, textarea and preview suffixes use one shared grammar in
+channel recognition and destination alternatives: an explicit `or` permits
+either channel, while `and` retains both obligations. This does not turn UI
+product requirements into reviewer-delivery obligations.
+Optional presence predicates use the shared delivery-modality grammar before
+checklist fallback, so expanding alternatives cannot revive residual evidence
+nouns as mandatory overall evidence. Independent mandatory clauses still gate.
+Mandatory checklist noun phrases such as `Test evidence in a PR comment`
+retain their destination even without a delivery verb. Optional/prohibited
+evidence, product behavior and quoted examples remain subject to the shared
+polarity, modality and literal boundary rules.
+
+Reusable Python CI scope includes Python modules at the repository root and
+under arbitrary flat-layout package directories, not only `src/`, `scripts/`,
+`tools/` and `tests/`. This conservative language-level scope avoids silently
+skipping application changes in packages such as `pa_core/` or `dashboard/`;
+requirements*.lock inputs also select Python scenarios because lock-only
+dependency graph changes are test inputs. Documentation-only and unrelated
+JavaScript lock changes still select no Python scenarios.
+
 ### Bounded input-limit recovery
 
 After inspecting an actual incomplete verifier report, manual `Agents Verifier`
@@ -65,6 +86,24 @@ review-evidence instruction still applies.
 
 Common `submit` and `deliver` evidence verbs normalize through the same
 obligation, optionality, negation, literal and destination rules as `record`.
+The same shared alias mapping also precedes passive actor binding: supplied,
+shared, written, placed, submitted, delivered, pasted and put retain an explicit
+reviewer or product actor before or after the complete destination list.
+Human AND/OR deliveries and product-component alternatives retain independent
+reviewer/artifact obligations and actual missing/unavailable-channel floors;
+canonical recorded, optional, prohibited and quoted controls remain unchanged.
+Recognized availability relatives also stay attached to bounded product
+components while passive actor binding reads the complete destination list.
+Moving the qualifier after that list preserves a mandatory bare sibling in
+either order and with AND/OR, without turning the component into a delivery.
+An independent artifact duty cannot satisfy a missing bare review channel.
+Component content relatives use the same bounded presence grammar as bare
+channels, but do not create a separate review delivery: their parent governor
+and full destination list remain authoritative. Bare-channel relative duties
+remain independent. Passive binding reads both attachment kinds before channel
+classification, and independent reviewer/artifact clauses remain intact. This
+normalization changes only delivery classification, not the original criterion
+supplied to the substantive review prompt.
 Delivery recognition and product recipients share a bounded modifier grammar
 rather than an adjective allowlist. Active human/product past-tense subjects
 remain operations; participial evidence adjectives do not become new deliveries.
@@ -250,6 +289,78 @@ prohibited predicates and modifiers inside perfect passive auxiliaries. Definite
 future (`will`) attached delivery retains its obligation. Conditional body records
 (`if available`, `when present` and the declared availability conditions) are
 optional before channel accumulation; a separate required reviewer clause remains.
+This also applies after a structural product component and its coordinated review
+destination: leading `either` retains the mandatory alternative, while trailing
+`if available`/other declared availability conditions qualify the full list.
+Single, body-first and body-last structural destinations share that bounded
+availability binding for both product and human deliveries; an independent
+reviewer clause retains its own mandatory channels.
+Component spans are bounded to one through three same-line words and stop at
+shared clause/list/availability boundaries, not an expanding UI noun allowlist.
+Declared temporal qualifiers also terminate an already recognized component
+(for example, `settings panel before merge` or `field today`). A temporal
+qualifier alone after bare `PR description` does not create a product component;
+human and independent reviewer deliveries remain mandatory.
+Relative markers `that`, `which` and `where` likewise cannot start component
+names and terminate an already matched component before its relative clause.
+Named checklist shorthand accepts the same declared temporal and relative continuation
+after its destination (`Test evidence in a PR comment before merge` remains
+mandatory comment evidence). Optional and negative delivery governors keep
+their own polarity; an independent artifact cannot replace the named channel.
+Postposed `only`/`solely if`/`when` conditions do not become unconditional
+checklist deliveries. Postposed negative requirement adjectives reuse the shared
+negative-governor vocabulary, retaining their adverb qualifier rather than
+turning `currently not required` into a positive imperative.
+Qualified checklist continuations use the same independent-actor grammar as
+proof-object recognition, including `and`/`or`/`but` forms; a conditional or
+negative clause cannot govern a later mandatory reviewer. This normalization
+does not rewrite unrelated product clauses, and capability verbs cannot become
+recipient adjectives that split repeated product capabilities into deliveries.
+Relative optional/prohibited delivery predicates reuse shared adverbs before
+their governor as well as the shared governors and delivery operations. Attached simple
+copular availability (`that is available`) stays inside the destination branch.
+Simple copular qualifiers reuse the shared adverbs before and after `is`/`are`
+(`that now is available` and `that is now available` are equivalent).
+Both channel classification and destination-OR expansion use that same span.
+Body predicates reuse the shared delivery-operation grammar rather than a
+separate verb list: linking or generating proof has the same destination and
+polarity contract as posting it, and AND still requires both destinations.
+This is the canonical operation grammar after context-bound alias normalization,
+not the broader alias vocabulary that could mistake an evidence-object word for
+another actor. Shared negative adjective governors retain modifiers before the
+copula, after it, and after negation (`that is not currently required`), without
+turning an optional/prohibited relative checklist into an imperative.
+The existing additive contrasts `not only`, `not merely`, and `not just` are
+not negative adjective governors, even with supported intervening modifiers;
+they cannot erase a mandatory checklist destination.
+Product-side generation uses the same governing-actor classification as other
+delivery operations. A bounded structural body/description/comment component
+remains product-owned for generation, linking, posting and recording, while a
+bare explicit review destination and independent reviewer duties stay authoritative.
+The shared modifier grammar includes `always`, so `that must always remain available`
+stays attached to its existing OR destination rather than becoming a new duty.
+Governing product operations reuse the canonical delivery-operation grammar,
+including `prove`. Coordinated destinations are classified individually: a
+structural comment component cannot consume a bare body/description sibling,
+and a structural body component cannot require a bare comment's product channel.
+Both orders retain mandatory bare destinations, optional/prohibited governors,
+conditional suffixes and independent reviewer artifacts.
+OR expansion classifies each bounded structural member with its governing
+prefix before trailing independent duties are added. A product-only branch is
+not an alternative evidence delivery; an unrelated artifact duty cannot make
+that branch satisfy a missing bare review destination.
+Both paths also share the independent review-predicate exclusion: an actor
+such as `the PR description that must contain command output` is not consumed
+as another destination of an earlier prohibited delivery. OR expansion cannot
+invent an overall-evidence requirement by splitting that independent actor.
+An attached `that`/`which` availability qualifier using `remain`/`stay`/`be`
+and `available`/`accessible`/`present` is not a new delivery predicate. It keeps
+body/comment OR branches alternative; a relative requirement to contain proof
+remains independent and authoritative under the existing shared grammar.
+A comma may introduce a declared availability condition. Human body/comment ORs
+retain genuine alternatives; a product-only component cannot erase a coordinated
+mandatory review delivery, even when an independent artifact keeps every expanded
+variant nonempty.
 Independent-clause recognition uses those same bounded predicate modifiers, so
 availability cannot spill into a later named reviewer obligation. Bind attached
 delivery to the noun itself (including a coordinated object), not only an
@@ -1560,6 +1671,22 @@ copy its negation to the contrasting delivery; and/or retain the negative govern
 Checklist syntax cannot reclassify object nouns left by a recognized negative
 delivery as mandatory evidence. Explicit independent positive predicates and
 required body records remain authoritative, including their real evidence floor.
+An immediate single-line checklist continuation retains its delivery context;
+a blank paragraph ends that context. Bare allowed/permitted evidence-presence
+clauses remain nongating. Optional or negative presence alternatives also retain
+their governor when `either` precedes the destination preposition, including
+PR description components and independently required deliveries.
+Checklist shorthand uses the same `-`, `*`, `+`, and numbered `1.` / `1)`
+markers as criterion parsing. A terminal component noun after body/description
+is product-owned only when its governing subject and operation establish that
+ownership; an unlisted UI noun is not automatically an evidence destination.
+Human deliveries, prepositional continuations, and independent positive clauses
+remain authoritative.
+When a product-owned body component is followed by coordinated destinations,
+the shared governor remains authoritative: optional UI behavior cannot create a
+mandatory comment/artifact obligation. Structural component nouns consume the
+same coordinated destination grammar as named components; a separate mandatory
+reviewer delivery remains required.
 Active-perfect elided deliveries retain their bounded actor and complete governor,
 including optional/negative and contrastive paths, through the same splitting and
 inheritance predicate as passive delivery. Their explicit evidence objects are
@@ -1591,6 +1718,113 @@ cannot consume a predicate with a following review destination; passive-perfect
 body classification retains the shared aspect and polarity grammar.
 Regression controls independently cover negation, optional versus mandatory
 delivery, three storage predicates, governor resets, and all review channels.
+Explicit passive delivery agents are normalized before both destination and
+alternative classification. The same finite actor, operation, aspect, polarity,
+and destination grammar stops at unquoted list-item and paragraph boundaries.
+Soft wraps within one criterion and quoted multiline examples remain intact;
+criterion splitting protects complete quoted literals before recognizing list
+items or blank paragraphs. Embedded apparent duties cannot create an evidence
+requirement, while independent delivery clauses outside the literal still apply.
+bare list markers are not evidence-object adjectives. An adjective such as
+`optional` inside an explicitly mandatory delivery object does not change its
+governor, while optional modals and post-object availability conditions remain
+authoritative. The component start and terminal guards share the full
+destination-preposition vocabulary, so `via automation` is a qualifier of a
+bare review destination, not a component name. A real named product component
+can terminate before the same qualifier without inventing a review obligation.
+The component start and terminal guards also share the finite content-predicate
+vocabulary: containing, including, showing, displaying, summarizing, presenting,
+listing and describing. Such a predicate qualifies the destination's content,
+not its component name. Bare mandatory destinations retain their evidence duty;
+a real named component before the predicate remains product functionality.
+Polarity, passive agents and independent artifact duties retain their own scope.
+Both classifiers normalize the same bounded, literal-safe content-object spans
+before proof-alias and alternative expansion, so a qualifier cannot invent an
+additional overall obligation or hide a following destination alternative.
+Conditional and relative boundaries remain outside the content-object span.
+Content-object adjectives reuse the shared negative-modality grammar: `not
+expected`, `not supposed`, and `no longer required` describe that object, not
+the mandatory delivery governor. Passive agents after such content do not
+create an additional overall evidence obligation. Literal, conditional, and
+independently governed delivery boundaries remain authoritative.
+The same finite actor, operation, aspect, polarity,
+and destination grammar applies whether `by the reviewer` or `by the UI` occurs
+before or after the destination. Agent text cannot become a component name or
+detach a bare sibling review obligation. A bare explicit `in a PR comment`
+delivery remains review evidence even for a product linking operation; a named
+PR-comment settings panel remains product functionality. Regression cases cover
+ordinary, perfect, and progressive passive forms and the actual evidence floors.
+The explicit delivery guard requires a named evidence object after the operation:
+product functionality that merely links to PR comments remains nongating.
+Shared delivery operations include their ordinary progressive inflections,
+including dropped-e forms such as generating, providing and storing. Perfect
+aspect `have` is not a second product operation; possession of an evidence
+object remains distinct. An explicit body/description relative predicate with
+its own governor is classified independently of an enclosing optional or
+prohibited delivery, retaining its own polarity rather than inheriting the
+parent's. Product alternatives, bare sibling duties and independent artifacts
+are validated across ordinary, perfect, progressive and passive forms.
+The supported irregular `leave`/`left` operation shares those same guards.
+Active-perfect coordinated deliveries reuse the same supported participle guard,
+including irregular `left`, when inheriting a bounded actor and governor. A
+repeated operation does not reset product ownership: coordinated body/comment
+components retain their product actor and polarity, while bare review siblings
+and independently governed artifact duties remain distinct. Alternative review
+deliveries are not converted into conjunctive obligations by that inheritance.
+This bounded restoration also retains qualified product actors, repeated
+perfect/progressive aspects, and repeated capability predicates with qualified
+recipients. An explicit repeated aspect replaces only the inherited aspect,
+never its actor, modality, or negation. Tests reuse one coverage-fixture module
+and exercise the actual floor; caching does not remove destination assertions.
+Storage, qualified product recipients and named components use that same product
+actor grammar. A repeated explicit governor replaces the inherited governor but
+does not invent a new actor; bare destinations still require their own evidence.
+Chains of three or more operations carry forward the latest explicit governor
+and aspect, not the original head's stale state. A mandatory middle predicate
+cannot be made optional by an earlier `may`, nor can an optional middle
+predicate borrow an earlier `must` for a later bare review destination.
+Product-only AND/OR members preserve that state without inventing proof
+alternatives. Once a bare review destination participates, genuine destination
+OR still permits either channel; it is not converted to mandatory AND.
+Shared negative-governor controls include `not expected`, `not supposed`, and
+`no longer required`, alongside optional and direct prohibited deliveries.
+Product storage and qualified client/user destinations reuse the canonical
+delivery operations and passive agent binding in either position. They do not
+invent a generic overall-evidence duty; independently governed artifact and
+bare-comment deliveries remain required even when overall retrieval is absent
+or unavailable. Reviewer actors are not reclassified as product actors.
+Passive destination lists accept the shared `both` and `either` quantifiers
+on either side of their leading preposition before actor binding; a product
+component cannot erase a mandatory bare sibling.
+Bare body, description and comment relative presence duties are separated from
+their enclosing delivery before channel and alternative classification. Their
+independent governor retains polarity, while the parent's genuine AND/OR list
+retains its own semantics. Availability relatives and named product components
+are not independent presence deliveries; quoted parser examples stay opaque.
+Relative normalization stops at a blank paragraph, including CRLF and
+whitespace-only blank lines. Soft single-line wrapping remains supported and
+quoted examples spanning paragraphs remain opaque; a later paragraph cannot
+become a relative delivery or disappear as an earlier component property.
+First-member relative qualifiers preserve the complete bounded parent
+destination tail, including repeated prepositions, before independent presence
+duties are separated. Recognized attached availability is kept with that whole
+AND/OR list rather than hiding its following members. Availability metadata is
+removed only from delivery classification, never relocated across a trailing
+parent condition. A condition after the complete parent list stays on that
+delivery; it cannot migrate to an independently mandatory bare-channel relative
+predicate. A condition immediately attached to that relative retains its own
+scope. When availability metadata ends the destination list, its trailing
+condition remains on the parent delivery instead of disappearing with that
+nongating metadata. Both attachment positions
+are covered for nominal evidence, reviewer and product actors, channel aliases,
+independent artifact duties and actual missing-channel satisfaction.
+The same shared `if`/`when` evidence-condition vocabulary stays attached to a
+relative presence predicate before its parent destination tail is restored;
+comma-delimited conditions cannot sever or make optional a parent's sibling.
+Comma-delimited relative clauses use that same attachment path, including their
+closing comma before a following destination. Existing `only if`/`solely when`
+condition prefixes remain attached to the relative duty rather than consuming
+the parent's list. Both first/final positions retain actual AND/OR floors.
 Negated obligations use the same delivery-operation grammar as positive
 delivery. An explicitly excluded PR-comment destination (`outside`, `rather
 than`, `instead of`) is not a required comment channel; generic evidence and

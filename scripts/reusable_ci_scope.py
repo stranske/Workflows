@@ -81,9 +81,14 @@ def select_python_matrix(
                         "scripts/**",
                         "tools/**",
                         "src/**",
+                        # Flat-layout packages and repository-root modules are
+                        # Python inputs too; do not maintain a consumer-name list.
+                        "*.py",
+                        "**/*.py",
                         "tests/**",
                         "pyproject.toml",
                         "requirements*.txt",
+                        "requirements*.lock",
                     ],
                     "reason": "Python CI inputs changed",
                 },
