@@ -21,6 +21,48 @@ def profile_step():
     )
 
 
+@pytest.mark.parametrize("evidence_chars,complete", [(315_891, True), (524_289, False)])
+def test_expanded_profile_retains_captured_evidence_with_a_finite_ceiling(
+    tmp_path, monkeypatch, evidence_chars, complete
+):
+    from scripts.langchain import pr_verifier
+
+    output = tmp_path / "env"
+    subprocess.run(
+        ["bash", "-c", profile_step()["run"]],
+        env={
+            **os.environ,
+            "VERIFIER_EVIDENCE_PROFILE": "expanded",
+            "VERIFIER_MODE": "compare",
+            "GITHUB_ENV": str(output),
+        },
+        check=True,
+        capture_output=True,
+        text=True,
+    )
+    for line in output.read_text().splitlines():
+        name, value = line.split("=", 1)
+        monkeypatch.setenv(name, value)
+    prefix = (
+        "## Acceptance evidence\n\n- Overall retrieval status: **present**\n"
+        "- PR comments: **present**\n\n"
+    )
+    sentinel = "FINAL-BYTE-VALIDATION-RECEIPT"
+    evidence = prefix + "x" * (evidence_chars - len(prefix) - len(sentinel)) + sentinel
+    context = (
+        "# Verifier context\n\n## CI Information\n\nCI passed.\n\n"
+        "## Plan sources (scope, tasks, acceptance)\n\n"
+        "### Acceptance Criteria\n- Test evidence must be in a PR comment.\n\n"
+        + evidence
+        + "\n\n## PR Diff Summary\n\nOne changed file.\n"
+    )
+    diff = "diff --git a/example.py b/example.py\n--- a/example.py\n+++ b/example.py\n@@ -1 +1 @@\n-old\n+new\n"
+    inputs = pr_verifier.build_prompt_inputs(context, diff)
+    assert inputs.coverage.acceptance_evidence == ("complete" if complete else "truncated")
+    assert inputs.coverage.sufficient is complete
+    assert (sentinel in inputs.context_block) is complete
+
+
 @pytest.mark.parametrize("step_id", ["llm_evaluate", "llm_compare"])
 @pytest.mark.parametrize(
     "model", ["$(printf INTERPOLATION_EXECUTED)", 'name"; printf EXECUTED; #', "normal-model"]
@@ -100,7 +142,7 @@ def test_profile_executes_only_fixed_bounded_exports(tmp_path, profile):
             "VERIFIER_EVIDENCE_TOTAL_ARTIFACT_CHARS": "4194304",
             "VERIFIER_CONTEXT_BUDGET_TOKENS": "16384",
             "VERIFIER_DIFF_BUDGET_TOKENS": "65536",
-            "VERIFIER_ACCEPTANCE_EVIDENCE_BUDGET_TOKENS": "65536",
+            "VERIFIER_ACCEPTANCE_EVIDENCE_BUDGET_TOKENS": "131072",
         }
     else:
         assert result.returncode != 0 and not output.exists()
@@ -142,7 +184,7 @@ def test_only_expanded_contract_fingerprint_changes(profile, consumer):
         check=True,
     )
     assert result.stdout.strip() == (
-        "bounded-native-capacity-v6" if profile == "expanded" else "bounded-native-capacity-v2"
+        "bounded-native-capacity-v7" if profile == "expanded" else "bounded-native-capacity-v2"
     )
 
 
@@ -362,8 +404,8 @@ def test_capacity_docs_keep_input_and_context_bounds_independent():
 def test_workflow_inventory_names_current_expanded_fingerprint():
     inventory = Path("docs/ci/WORKFLOWS.md").read_text()
     workflow = Path(".github/workflows/reusable-agents-verifier.yml").read_text()
-    assert "`bounded-native-capacity-v6`" in inventory
-    assert "bounded-native-capacity-v6" in workflow
+    assert "`bounded-native-capacity-v7`" in inventory
+    assert "bounded-native-capacity-v7" in workflow
 
 
 def test_workflow_guide_distinguishes_verifier_checkout_tokens():
