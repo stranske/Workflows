@@ -98,7 +98,11 @@ The existing comparison verdict and CI/coverage floors remain authoritative.
 No human-only gate is introduced.
 
 SDK-bundled profiles vary by installed version and do not establish the native
-counting contract by themselves. Expanded recovery now prepares only
+counting contract by themselves. Hosted `langchain-openai==1.4.1` supplies Terra
+profile facts; the observed local Sonnet adapter profile is absent, which is not
+a claim about every SDK version. Terra's original Chat Completions adapter lacks
+the required native message counter independently of profile availability.
+Expanded recovery now prepares only
 exact `gpt-5.6-terra` as a shallow verifier-local copy with Responses enabled,
 retaining the authenticated SDK objects, credentials, endpoint, timeout and retry
 settings. An unset Terra output ceiling becomes the documented 128,000; explicit
