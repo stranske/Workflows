@@ -6,6 +6,15 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 Breaking changes are called out with a **BREAKING** marker and scheduled according to the policy in `COMPATIBILITY.md`.
 
+## [1.37.35](https://github.com/stranske/Workflows/compare/v1.37.34...v1.37.35) (2026-10-10)
+
+
+### Bug Fixes
+
+* **keepalive:** preserve authored checklists in ambiguous summaries ([#3824](https://github.com/stranske/Workflows/issues/3824)) ([653c14a](https://github.com/stranske/Workflows/commit/653c14a70a92705069f242aae6f5595bc7ba0889))
+* **maint78:** install planner dependencies before readiness report ([#3826](https://github.com/stranske/Workflows/issues/3826)) ([e11fc12](https://github.com/stranske/Workflows/commit/e11fc12c3bb35cc3ceb72dc34cdd634b9e8b5945))
+* recover exact native capacity for expanded verification ([#3822](https://github.com/stranske/Workflows/issues/3822)) ([ae4f0c8](https://github.com/stranske/Workflows/commit/ae4f0c8ac4ddbfd89b55112773d2917a1d4be5d6))
+
 ## [1.37.34](https://github.com/stranske/Workflows/compare/v1.37.33...v1.37.34) (2026-10-10)
 
 
