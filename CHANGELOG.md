@@ -11,6 +11,7 @@ Breaking changes are called out with a **BREAKING** marker and scheduled accordi
 
 ### Bug Fixes
 
+* **autofix:** classify Hypothesis as a test dependency in canonical and consumer/integration guidance ([#3834](https://github.com/stranske/Workflows/pull/3834)) ([af65422](https://github.com/stranske/Workflows/commit/af65422cdf606647c4d10890d444d00cdde00828))
 * **keepalive:** report why the reporter skipped instead of failing the run ([#3843](https://github.com/stranske/Workflows/issues/3843)) ([71d06db](https://github.com/stranske/Workflows/commit/71d06db4c6271bb762e54e21413d61cb9ae97302))
 
 ## [1.37.37](https://github.com/stranske/Workflows/compare/v1.37.36...v1.37.37) (2026-10-11)
