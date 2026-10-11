@@ -41,7 +41,10 @@ async function findFleetArtifact({ github, core, withRetry = defaultRetry, owner
           const run = await withRetry(() => github.rest.actions.getWorkflowRun({
             owner, repo, run_id: runId,
           }), { maxRetries: 2 });
-          runCache.set(runId, run.data.path);
+          // Workflow-run paths may include a ref; trust the filename, not that ref.
+          const workflowPath = run.data.path;
+          const refIndex = typeof workflowPath === 'string' ? workflowPath.lastIndexOf('@') : -1;
+          runCache.set(runId, refIndex >= 0 ? workflowPath.slice(0, refIndex) : workflowPath);
         }
         if (trustedWorkflowPaths.has(runCache.get(runId))) return candidate;
       }

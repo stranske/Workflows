@@ -47,3 +47,66 @@ test('no artifacts returns null after two bounded empty listings',async()=>{
  const f=fixture(async()=>({data:{total_count:0,artifacts:[]}}));
  assert.equal(await findFleetArtifact(f.options),null);assert.equal(f.calls.length,2);
 });
+
+test('exact discovery pages only matching names and stops at the first usable page', async () => {
+  const inventory = Array.from({ length: 31260 }, (_, id) =>
+    item(id, { name: `unrelated-${id}` }));
+  inventory.splice(0, 33, ...Array.from({ length: 33 }, (_, id) =>
+    item(id, { expired: id < 31, created_at: `2026-10-${id === 32 ? '09' : '10'}` })));
+  const f = fixture(async params => {
+    assert.equal(params.name, name, 'exact evidence must not trigger inventory discovery');
+    const matches = inventory.filter(artifact => artifact.name === params.name);
+    const offset = (params.page - 1) * params.per_page;
+    return { data: {
+      total_count: matches.length,
+      artifacts: matches.slice(offset, offset + params.per_page),
+    } };
+  });
+
+  assert.equal((await findFleetArtifact(f.options)).id, 31);
+  assert.deepEqual(f.calls.map(params => [params.name, params.per_page, params.page]), [
+    [name, 30, 1], [name, 30, 2],
+  ]);
+});
+
+test('legacy discovery stops in a large inventory after a trusted ref-qualified producer', async () => {
+  const inventory = Array.from({ length: 31260 }, (_, id) =>
+    item(id, { name: `unrelated-${id}` }));
+  inventory[0] = item(0, { expired: true });
+  inventory[61] = item(61, { name: `untrusted-${name}`, workflow_run: { id: 1 } });
+  inventory[62] = item(62, { name: `also-untrusted-${name}`, workflow_run: { id: 1 } });
+  inventory[63] = item(63, { name: `expired-${name}`, expired: true, workflow_run: { id: 2 } });
+  inventory[64] = item(64, { name: `trusted-${name}`, workflow_run: { id: 3 } });
+  const runCalls = [];
+  const f = fixture(async params => {
+    const matches = params.name
+      ? inventory.filter(artifact => artifact.name === params.name) : inventory;
+    const offset = (params.page - 1) * params.per_page;
+    return { data: {
+      total_count: matches.length,
+      artifacts: matches.slice(offset, offset + params.per_page),
+    } };
+  }, async params => {
+    runCalls.push(params.run_id);
+    return { data: { path: params.run_id === 3
+      ? 'trusted.yml@refs/heads/main' : 'untrusted.yml@refs/heads/main' } };
+  });
+
+  assert.equal((await findFleetArtifact(f.options)).id, 64);
+  assert.deepEqual(f.calls.map(params => [params.name, params.per_page, params.page]), [
+    [name, 30, 1], [undefined, 30, 1], [undefined, 30, 2], [undefined, 30, 3],
+  ]);
+  assert.deepEqual(runCalls, [1, 3], 'skip expired evidence and cache producer checks');
+});
+
+test('ref-qualified workflow paths still require an exact trusted filename', async () => {
+  for (const path of ['untrusted.yml@main', 'prefix/trusted.yml@main', 'trusted.yml.bak@main']) {
+    const f = fixture(async params => ({ data: {
+      total_count: params.name ? 0 : 1,
+      artifacts: params.name ? [] : [item(1, {
+        name: `legacy-${name}`, workflow_run: { id: 1 },
+      })],
+    } }), async () => ({ data: { path } }));
+    assert.equal(await findFleetArtifact(f.options), null, path);
+  }
+});

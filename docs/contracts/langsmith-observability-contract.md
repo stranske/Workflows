@@ -180,8 +180,9 @@ silently downgraded to `missing`.
 
 Conformance queries the exact artifact name server-side first. Legacy prefixed
 names use a bounded small-page fallback and still require a registered trusted
-producer workflow. Expired artifacts are excluded. Listing 500/502/503/504 errors
-reduce the page size from 30 to 10 to 1, preserving the offset rather than repeating
+producer workflow. Producer paths are matched by their exact filename after
+removing any trailing `@ref` suffix. Expired artifacts are excluded. Listing
+500/502/503/504 errors reduce the page size from 30 to 10 to 1, preserving the offset rather than repeating
 the same oversized request. Exhausting the 30-request discovery budget fails with
 UNKNOWN; it never establishes that evidence is absent or conformance passed.
 The first eligible page is sorted newest-first; this bounded discovery does not
