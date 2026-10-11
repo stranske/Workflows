@@ -5,7 +5,6 @@ from __future__ import annotations
 import json
 
 import pytest
-
 from scripts.langchain import pr_verifier
 
 
@@ -17,9 +16,7 @@ def _argv(monkeypatch, tmp_path, context: object, *args: str) -> None:
     )
 
 
-def test_invalid_utf8_context_emits_fail_without_evaluation(
-    tmp_path, monkeypatch, capsys
-) -> None:
+def test_invalid_utf8_context_emits_fail_without_evaluation(tmp_path, monkeypatch, capsys) -> None:
     context = tmp_path / "context.md"
     context.write_bytes(b"\xff\xfe")
     monkeypatch.setattr(
@@ -34,9 +31,7 @@ def test_invalid_utf8_context_emits_fail_without_evaluation(
     assert "Capture validation failed" in captured.out
 
 
-def test_corrupt_snapshot_emits_fail_without_evaluation(
-    tmp_path, monkeypatch, capsys
-) -> None:
+def test_corrupt_snapshot_emits_fail_without_evaluation(tmp_path, monkeypatch, capsys) -> None:
     context = tmp_path / "context.md"
     context.write_text("Pull request: [#7](https://x/pull/7)\n", encoding="utf-8")
     (tmp_path / "verifier-input-manifest.json").write_text("{not-json", encoding="utf-8")
