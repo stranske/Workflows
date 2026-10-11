@@ -1,0 +1,6 @@
+Warning: Python 3.12 cannot parse code formatted for Python 3.13. To fix this: run Black with Python 3.13, set --target-version to py312, or use --fast to skip the safety check. Black's safety check verifies equivalence by parsing the AST, which fails when the running Python is older than the target version.
+reformatted tests/scripts/test_verifier_capture_integration.py
+reformatted tests/tools/test_verifier_capture_obligation_manifest.py
+
+All done! ✨ 🍰 ✨
+2 files reformatted, 2 files left unchanged.
