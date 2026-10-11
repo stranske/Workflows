@@ -5069,3 +5069,38 @@ def test_qualified_common_proof_modifier_tokens_are_not_governor_prefixes(
         criterion += "; the reviewer must record evidence in a PR comment"
         expected.add("comments")
     assert verifier._required_evidence_channels(criterion) == expected
+
+
+@pytest.mark.parametrize(
+    "criterion,channel",
+    [
+        ("Attach evidence as an artifact", "artifacts"),
+        ("Upload the coverage report as an artifact", "artifacts"),
+        ("Evidence must be posted in a PR review comment", "comments"),
+        ("Evidence must be posted in an inline review comment", "comments"),
+        ("- [ ] Validation output in a PR comment", "comments"),
+    ],
+)
+def test_trip_planner_1885_destination_grammar_canaries(criterion, channel):
+    assert verifier._required_evidence_channels(criterion) == {channel}
+    for missing in ("absent", "unavailable"):
+        body = "present" if channel != "body" else missing
+        comments = missing if channel == "comments" else "present"
+        artifacts = missing if channel == "artifacts" else "present"
+        assert (
+            _floor_verdict(criterion, body=body, comments=comments, artifacts=artifacts)
+            == "CONCERNS"
+        )
+
+
+@pytest.mark.parametrize(
+    "criterion",
+    [
+        'The parser recognizes "Attach evidence as an artifact"',
+        "Attach evidence as an artifact may be skipped",
+        'The reviewer quotes "- [ ] Validation output in a PR comment"',
+    ],
+)
+def test_trip_planner_1885_destination_grammar_controls(criterion):
+    assert verifier._required_evidence_channels(criterion) == set()
+    assert _floor_verdict(criterion, body="absent", comments="absent", artifacts="absent") == "PASS"

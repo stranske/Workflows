@@ -1099,10 +1099,19 @@ _REVIEW_BODY_COMPONENT = (
 
 
 _EVIDENCE_ARTIFACT_DESTINATION = r"(?:workflow|ci|github actions)\s+artifacts?\b"
+_EVIDENCE_PR_COMMENT_DESTINATION = (
+    r"(?:(?:pr|pull request)\s+comments?|(?:inline\s+)?(?:pr\s+)?review comments?)"
+)
+_EVIDENCE_ACTIVE_AS_ARTIFACT_DELIVERY = (
+    r"\b(?:upload|attach|publish|post|record|capture|provide|include|document)\w*"
+    r"(?:\s+(?!(?:as|to|into|in|on|for|by|with)\b)\w+){0,10}\s+as\s+"
+    r"(?:(?:an?|the)\s+)?artifacts?\b"
+)
 _EVIDENCE_REVIEW_DESTINATION = (
     r"(?:(?:the|an?)\s+)?(?:"
     r"(?:pr|pull request)\s+(?:body|description)\b(?:\s+" + _REVIEW_BODY_COMPONENT + r")?|"
-    r"(?:pr|pull request)\s+comments?\b(?:\s+"
+    + _EVIDENCE_PR_COMMENT_DESTINATION
+    + r"\b(?:\s+"
     + _REVIEW_BODY_COMPONENT
     + r")?|"
     + _EVIDENCE_ARTIFACT_DESTINATION
@@ -1649,7 +1658,9 @@ def _required_evidence_channels(acceptance: str, *, _bind_attached: bool = True)
         r"(?P<literal>" + quoted_evidence_literal + r")|"
         r"(?P<checklist>^[ \t]*(?:[-*+]|\d+[.)])[ \t]*\[[ xX]\][ \t]*(?:\r?\n[ \t]*)?)"
         r"(?P<object>(?:(?:test|validation|CI|build|execution)\s+){0,3}"
-        r"(?:evidence|command outputs?|transcripts?))\s+"
+        r"(?:evidence|command outputs?|transcripts?|"
+        + _EVIDENCE_PROOF_ALIAS_NOUN
+        + r"))\s+"
         r"(?P<destinations>" + bound_review_destinations + r")"
         r"(?P<qualification>\s+(?:"
         r"(?:that|which)\s+(?P<relative_negative_adverbs>"
@@ -2568,12 +2579,16 @@ def _required_evidence_channels(acceptance: str, *, _bind_attached: bool = True)
             for item in re.finditer(
                 r"\b(?:pr|pull request)\s+(?P<channel>body|description|comments?)\b"
                 r"(?P<component>\s+" + body_component + r")?|"
+                r"\b(?P<reviewcomment>" + _EVIDENCE_PR_COMMENT_DESTINATION + r")\b|"
                 r"(?P<artifact>" + artifact_destination_object + r")",
                 clause,
                 re.I,
             ):
                 if item["artifact"]:
                     destinations.add("artifacts")
+                    continue
+                if item["reviewcomment"]:
+                    destinations.add("comments")
                     continue
                 if item["component"] and product_comment_object(
                     text[: match.start() + item.start()], item["component"]
@@ -3729,7 +3744,9 @@ def _required_evidence_channels(acceptance: str, *, _bind_attached: bool = True)
                         r"\b(?:pr|pull request)\s+(?:body|description)\b", destination, re.I
                     ):
                         destination_channels.add("body")
-                    if re.search(r"\b(?:pr|pull request)\s+comments?\b", destination, re.I):
+                    if re.search(
+                        r"\b" + _EVIDENCE_PR_COMMENT_DESTINATION + r"\b", destination, re.I
+                    ):
                         destination_channels.add("comments")
                     if re.search(artifact_destination_object, destination, re.I):
                         destination_channels.add("artifacts")
@@ -3879,8 +3896,26 @@ def _required_evidence_channels(acceptance: str, *, _bind_attached: bool = True)
             # PR content wins even when an API is the actor; otherwise a product
             # actor or product destination is application behavior, not evidence.
             if re.search(r"\b(?:workflow\s+)?artifacts?\b", lower):
+                active_as_artifact_match = re.search(
+                    _EVIDENCE_ACTIVE_AS_ARTIFACT_DELIVERY, requirement_text, re.I
+                )
+                active_as_artifact_delivery = bool(
+                    active_as_artifact_match
+                    and not re.search(
+                        rf"\b(?:{optional_delivery_modal})\s+(?:\w+\s+){{0,8}}$",
+                        requirement_text[: active_as_artifact_match.start()],
+                        re.I,
+                    )
+                    and not re.search(
+                        r"\b(?:may|can|could|would|should)\s+(?:be\s+)?"
+                        r"(?:skipped|omitted|optional)\b",
+                        requirement_text[active_as_artifact_match.end() :],
+                        re.I,
+                    )
+                )
                 explicit_artifact_delivery = bool(
-                    re.search(
+                    active_as_artifact_delivery
+                    or re.search(
                         r"\b(?:upload|attach|publish|post|record|capture|provide|include|document)"
                         r"(?:s)?\s+(?:(?:an?|the|any|workflow|validation|exact-head|evidence)\s+){0,4}"
                         r"artifacts?\b",
@@ -4032,7 +4067,7 @@ def _required_evidence_channels(acceptance: str, *, _bind_attached: bool = True)
                     continue
             comment_objects = list(
                 re.finditer(
-                    r"\b(?:pr comments?|pull request comments?)\b",
+                    r"\b" + _EVIDENCE_PR_COMMENT_DESTINATION + r"\b",
                     requirement_text,
                     re.I,
                 )
@@ -4056,21 +4091,28 @@ def _required_evidence_channels(acceptance: str, *, _bind_attached: bool = True)
                 (
                     explicit_review_destination
                     and re.search(
-                        r"\b(?:pr comments?|pull request comments?)\b", requirement_text, re.I
+                        r"\b" + _EVIDENCE_PR_COMMENT_DESTINATION + r"\b", requirement_text, re.I
                     )
                 )
                 or re.search(
                     r"\b(?:attach|upload|include|post|publish|record|capture|provide|document|add|leave|left|link)\w*\b"
-                    r"(?:\s+\w+){0,10}\s+\b(?:pr comments?|pull request comments?)\b",
+                    r"(?:\s+\w+){0,10}\s+\b" + _EVIDENCE_PR_COMMENT_DESTINATION + r"\b",
                     requirement_text,
                     re.I,
                 )
                 or re.search(
-                    r"\b(?:pr comments?|pull request comments?)\b.{0,40}"
+                    r"\b" + _EVIDENCE_PR_COMMENT_DESTINATION + r"\b.{0,40}"
                     r"\b(?:(?:is|are)\s+(?:required|mandatory|needed)|"
                     + mandatory_auxiliary
                     + r"\b|"
                     r"(?:is|are|must|shall|needs? to)\s+(?:be\s+)?(?:posted|published)\b)",
+                    requirement_text,
+                    re.I,
+                )
+                or re.search(
+                    r"\b(?:must|shall)\s+be\s+posted\s+in\s+(?:an?\s+|the\s+)?"
+                    + _EVIDENCE_PR_COMMENT_DESTINATION
+                    + r"\b",
                     requirement_text,
                     re.I,
                 )
@@ -4081,27 +4123,27 @@ def _required_evidence_channels(acceptance: str, *, _bind_attached: bool = True)
                     + r"\s+"
                     + passive_delivery_prefix
                     + r"(?:provided|posted|published|recorded|captured|returned|displayed))"
-                    r"\s+in\s+(?:an?\s+|the\s+)?(?:pr comments?|pull request comments?)\b",
+                    r"\s+in\s+(?:an?\s+|the\s+)?" + _EVIDENCE_PR_COMMENT_DESTINATION + r"\b",
                     requirement_text,
                     re.I,
                 )
                 or re.search(
                     r"\b(?:evidence|command outputs?|transcripts?)\b.{0,40}\b"
                     + mandatory_auxiliary
-                    + r"\s+be\s+in\s+(?:an?\s+|the\s+)?(?:pr comments?|pull request comments?)\b",
+                    + r"\s+be\s+in\s+(?:an?\s+|the\s+)?" + _EVIDENCE_PR_COMMENT_DESTINATION + r"\b",
                     requirement_text,
                     re.I,
                 )
                 or re.search(
-                    r"\bexact-head\s+(?:pr comments?|pull request comments?)\b",
+                    r"\bexact-head\s+" + _EVIDENCE_PR_COMMENT_DESTINATION + r"\b",
                     requirement_text,
                     re.I,
                 )
-                or (gate and bool(re.search(r"\b(?:pr comments?|pull request comments?)\b", lower)))
+                or (gate and bool(re.search(r"\b" + _EVIDENCE_PR_COMMENT_DESTINATION + r"\b", lower)))
                 or re.search(
                     r"\bthere\s+"
                     + mandatory_auxiliary
-                    + r"\s+be\s+(?:(?:an?|the)\s+)?(?:pr comments?|pull request comments?)\b",
+                    + r"\s+be\s+(?:(?:an?|the)\s+)?" + _EVIDENCE_PR_COMMENT_DESTINATION + r"\b",
                     requirement_text,
                     re.I,
                 )
@@ -4209,7 +4251,7 @@ def _required_evidence_channels(acceptance: str, *, _bind_attached: bool = True)
                 and not explicit_review_destination
             ):
                 continue
-            if re.search(r"\b(?:pr comments?|pull request comments?)\b", lower):
+            if re.search(r"\b" + _EVIDENCE_PR_COMMENT_DESTINATION + r"\b", lower):
                 if explicit_comment_delivery and not product_comment_behavior:
                     line_channels.add("comments")
                 elif not line_channels:

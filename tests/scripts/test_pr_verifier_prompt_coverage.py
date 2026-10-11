@@ -3674,3 +3674,42 @@ def test_attached_delivery_actor_qualifier_is_not_the_evidence_object(
         ).verdict
         == "CONCERNS"
     )
+
+
+@pytest.mark.parametrize(
+    "criterion,channel",
+    [
+        ("Attach evidence as an artifact", "artifacts"),
+        ("Upload the coverage report as an artifact", "artifacts"),
+        ("Evidence must be posted in a PR review comment", "comments"),
+    ],
+)
+def test_destination_specific_coverage_floor_blocks_missing_channel_with_present_body(
+    criterion: str, channel: str
+) -> None:
+    assert pr_verifier._required_evidence_channels(criterion) == {channel}
+    context, _ = _context(1, 1000, 1000)
+    evidence = (
+        "- Overall retrieval status: **present**\n"
+        "- PR body: **present**\n"
+        "- PR comments: **present**\n"
+        "- Referenced workflow artifacts: **present**\n"
+    )
+    if channel == "comments":
+        evidence = evidence.replace("PR comments: **present**", "PR comments: **absent**")
+    if channel == "artifacts":
+        evidence = evidence.replace(
+            "Referenced workflow artifacts: **present**", "Referenced workflow artifacts: **absent**"
+        )
+    context = context.replace(ACCEPTANCE_SENTINEL, criterion).replace(
+        "## PR Diff Summary",
+        "## Acceptance evidence\n\n" + evidence + "\n\n## PR Diff Summary",
+    )
+    coverage = pr_verifier.prompt_coverage(context, None)
+    assert not coverage.sufficient
+    assert (
+        pr_verifier._apply_coverage_floor(
+            pr_verifier.EvaluationResult(verdict="PASS", used_llm=True), coverage
+        ).verdict
+        == "CONCERNS"
+    )
