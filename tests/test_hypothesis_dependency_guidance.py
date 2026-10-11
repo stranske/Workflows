@@ -16,3 +16,18 @@ def test_canonical_runtime_example_excludes_hypothesis() -> None:
         dependencies = {dependency.strip().casefold() for dependency in example.split(",")}
         assert "hypothesis" not in dependencies, "Hypothesis is a test dependency, not runtime"
         assert {"pyyaml", "pydantic"} <= dependencies
+
+
+def test_canonical_guidance_explains_hypothesis_is_a_test_dependency() -> None:
+    guidance_path = Path(__file__).resolve().parents[1] / ".github/workflows/autofix-versions.env"
+    guidance = guidance_path.read_text(encoding="utf-8")
+    comments = " ".join(
+        line.removeprefix("#").strip() for line in guidance.splitlines() if line.startswith("#")
+    )
+
+    assert re.search(
+        r"\bHypothesis\s+is\s+a\s+test\s+dependency\b"
+        r"|\bTest\s+dependencies\s*\([^)]*\bHypothesis\b",
+        comments,
+        re.IGNORECASE,
+    ), "Canonical guidance must explain that Hypothesis is a test dependency"
