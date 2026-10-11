@@ -229,6 +229,15 @@ context character limit. This record describes generated-context availability;
 evaluate/compare prompt coverage separately records later model-budget reductions
 and withholds PASS when required evidence is incomplete.
 
+Run and artifact listings have independent finite page and record bounds. The
+collector follows `VERIFIER_EVIDENCE_RUN_PAGES` and `VERIFIER_EVIDENCE_ARTIFACT_PAGES`
+within their record ceilings (expanded uses two/four pages respectively). A full page
+without count or Link metadata requires another bounded read. Changing or
+disappearing counts, invalid/repeated IDs, oversized pages and later-page errors
+leave evidence unavailable while preserving earlier findings. Complete explicit
+references still require complete reference-bearing sources and exact-head
+provenance before they can skip associated-run discovery.
+
 Linked-issue discovery carries an explicit `required` flag for issue-backed plans.
 Evaluate and compare consume its builder-owned pre-CI record: unavailable or
 truncated required discovery prevents PASS even when the retained PR plan is complete.

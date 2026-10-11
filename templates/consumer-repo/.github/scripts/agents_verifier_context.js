@@ -412,20 +412,22 @@ async function boundedEvidencePages({ method, params, key, recordLimit, pageLimi
       if (!Array.isArray(records)) throw new Error(`${kind} API returned an invalid ${kind === 'run' ? 'run' : 'artifact'} list`);
       const total = response?.data?.total_count;
       if (total !== undefined && (!Number.isSafeInteger(total) || total < 0)) throw new Error('invalid total_count');
-      if (expectedTotal !== undefined && total !== expectedTotal) throw new Error('total_count changed during pagination');
+      if (page > 1 && total !== expectedTotal) throw new Error('total_count changed during pagination');
       expectedTotal = total;
       diagnostics.counters[`${kind}_records`] += records.length;
-      const more = Boolean(response?.headers?.link?.includes('rel="next"')) || (total !== undefined && total > items.length + records.length);
+      if (records.length > perPage) throw new Error('listing exceeds requested page size');
+      // Without metadata, a full REST page cannot prove that later proof is absent.
+      const more = Boolean(response?.headers?.link?.includes('rel="next"'))
+        || (total !== undefined ? total > items.length + records.length : records.length === perPage);
       if (total !== undefined && total < items.length + records.length) throw new Error('listing exceeds total_count');
+      for (const record of records) {
+        if (!Number.isSafeInteger(record?.id) || record.id <= 0) throw new Error('invalid paginated record ID');
+        if (seenIds.has(record.id)) throw new Error('duplicate paginated record ID');
+        seenIds.add(record.id);
+      }
       if (items.length + records.length > recordLimit) {
         items.push(...records.slice(0, Math.max(0, recordLimit - items.length)));
         return { items, failure: 'record' };
-      }
-      for (const record of records) {
-        if (Number.isSafeInteger(record?.id) && record.id > 0) {
-          if (seenIds.has(record.id)) throw new Error('duplicate paginated record ID');
-          seenIds.add(record.id);
-        }
       }
       items.push(...records);
       if (!more) return { items, failure: null };

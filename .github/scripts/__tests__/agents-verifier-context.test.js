@@ -1662,18 +1662,18 @@ test('buildVerifierContext fails closed when associated workflow run discovery f
   const limit = await buildEvidenceContext({
     listWorkflowRunsForRepoResponse: {
       data: {
-        total_count: 2,
-        workflow_runs: [{
-          id: 777,
+        total_count: 6,
+        workflow_runs: Array.from({length: 5}, (_, index) => ({
+          id: 777 + index,
           head_sha: 'bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb',
-        }],
+        })),
       },
       headers: {},
     },
     artifactsByRun: { 777: [] },
   });
   assert.equal(limit.core.outputs.evidence_status, 'unavailable');
-  assert.match(limit.result.markdown, /exceeded the bounded result limit/);
+  assert.match(limit.result.markdown, /run_record:.*exceeded the bounded result limit/);
   removeVerifierDiffArtifacts(limit.result);
 
   const invalid = await buildEvidenceContext({
@@ -1688,7 +1688,7 @@ test('buildVerifierContext fails closed when associated workflow run discovery f
     },
   });
   assert.equal(invalid.core.outputs.evidence_status, 'unavailable');
-  assert.match(invalid.result.markdown, /returned invalid evidence/);
+  assert.match(invalid.result.markdown, /invalid paginated record ID/);
   removeVerifierDiffArtifacts(invalid.result);
 });
 
@@ -3497,6 +3497,110 @@ function paginatedRecoveryGithub(defect = '') {
     },
   } } };
 }
+
+const evidenceCollectors = [
+  ['source', fetchVerifierEvidence],
+  ['template', require('../../../templates/consumer-repo/.github/scripts/agents_verifier_context.js').fetchVerifierEvidence],
+];
+
+test('bounded listing retrieves sparse late-page run and artifact proof within explicit bounds', async () => {
+  await withEnv('VERIFIER_EVIDENCE_RUN_PAGES', '2', async () => {
+    await withEnv('VERIFIER_EVIDENCE_ARTIFACT_PAGES', '2', async () => {
+      for (const [name, collect] of evidenceCollectors) {
+        const {github, sha, calls} = paginatedRecoveryGithub();
+        const result = await collect({github, pullRequestBody: '', associatedCommitShas: [sha],
+          extractArtifactText: ({archiveBuffer}) => ({text: `finding-${archiveBuffer}`, truncated: false})});
+        assert.equal(result.artifacts.status, 'present', name);
+        assert.deepEqual(result.artifacts.records.map(r => r.text), ['finding-zip-1', 'finding-zip-2'], name);
+        assert.ok(calls.includes('runs:2'), name);
+        assert.ok(calls.includes('artifacts:2:2'), name);
+      }
+    });
+  });
+});
+
+test('bounded listing follows full pages without count or link metadata', async () => {
+  await withEnv('VERIFIER_EVIDENCE_RUN_LIMIT', '101', async () => {
+    await withEnv('VERIFIER_EVIDENCE_ARTIFACT_LIMIT', '101', async () => {
+      for (const [name, collect] of evidenceCollectors) {
+        const {github, sha, calls} = paginatedRecoveryGithub();
+        github.rest.actions.listWorkflowRunsForRepo = async ({page}) => {
+          calls.push(`runs:${page}`);
+          return {data: {workflow_runs: page === 1
+            ? Array.from({length: 100}, (_, i) => ({id: i + 1, head_sha: sha}))
+            : [{id: 101, head_sha: sha}]}};
+        };
+        github.rest.actions.listWorkflowRunArtifacts = async ({run_id, page}) => {
+          calls.push(`artifacts:${run_id}:${page}`);
+          return {data: {artifacts: run_id !== 101 ? [] : page === 1
+            ? Array.from({length: 100}, (_, i) => ({id: i + 1, size_in_bytes: 3}))
+            : [{id: 101, size_in_bytes: 3}]}};
+        };
+        const result = await collect({github, pullRequestBody: '', associatedCommitShas: [sha],
+          extractArtifactText: ({archiveBuffer}) => ({text: `finding-${archiveBuffer}`, truncated: false})});
+        assert.equal(result.artifacts.status, 'present', name);
+        assert.equal(result.artifacts.records.length, 101, name);
+        assert.equal(result.artifacts.records.at(-1).text, 'finding-zip-101', name);
+        assert.ok(calls.includes('runs:2'), name);
+        assert.ok(calls.includes('artifacts:101:2'), name);
+      }
+    });
+  });
+});
+
+test('bounded listing rejects unstable totals and malformed later-page identities', async () => {
+  await withEnv('VERIFIER_EVIDENCE_RUN_PAGES', '2', async () => {
+    await withEnv('VERIFIER_EVIDENCE_ARTIFACT_PAGES', '2', async () => {
+      for (const [name, collect] of evidenceCollectors) {
+        for (const kind of ['run', 'artifact']) {
+          for (const defect of ['missing-total', 'appearing-total', 'changed-total', 'missing-id', 'duplicate-id', 'string-id', 'fractional-id', 'oversized-page']) {
+            const {github, sha} = paginatedRecoveryGithub();
+            const method = kind === 'run' ? 'listWorkflowRunsForRepo' : 'listWorkflowRunArtifacts';
+            const key = kind === 'run' ? 'workflow_runs' : 'artifacts';
+            github.rest.actions[method] = async ({run_id, page}) => {
+              if (kind === 'artifact' && run_id === 1) return {data: {total_count: 0, artifacts: []}};
+              const id = page === 1 ? 1 : defect === 'duplicate-id' ? 1 : defect === 'missing-id' ? undefined
+                : defect === 'string-id' ? '2' : defect === 'fractional-id' ? 2.5 : 2;
+              const total = defect === 'missing-total' && page === 2 || defect === 'appearing-total' && page === 1
+                ? undefined : defect === 'changed-total' && page === 2 ? 3 : 2;
+              const records = [{id, head_sha: sha, size_in_bytes: 3}];
+              if (defect === 'oversized-page' && page === 2) {
+                records.push(...Array.from({length: 10}, (_, i) => ({id: i + 10, head_sha: sha, size_in_bytes: 3})));
+              }
+              return {data: {total_count: total, [key]: records}, headers: page === 1 ? {link: 'rel="next"'} : {}};
+            };
+            const result = await collect({github, pullRequestBody: '', associatedCommitShas: [sha],
+              extractArtifactText: ({archiveBuffer}) => ({text: `finding-${archiveBuffer}`, truncated: false})});
+            const label = `${name}/${kind}/${defect}`;
+            assert.equal(result.artifacts.status, 'unavailable', label);
+            assert.ok(result.diagnostics.failures.some(f => f.kind === `${kind}_retrieval`), label);
+            if (kind === 'artifact') assert.equal(result.artifacts.records[0].text, 'finding-zip-1', label);
+          }
+        }
+      }
+    });
+  });
+});
+
+test('bounded listing page exhaustion never becomes complete or absent', async () => {
+  await withEnv('VERIFIER_EVIDENCE_RUN_PAGES', '2', async () => {
+    await withEnv('VERIFIER_EVIDENCE_ARTIFACT_PAGES', '2', async () => {
+      for (const kind of ['run', 'artifact']) {
+        await withEnv(`VERIFIER_EVIDENCE_${kind.toUpperCase()}_PAGES`, '1', async () => {
+          for (const [name, collect] of evidenceCollectors) {
+            const {github, sha, calls} = paginatedRecoveryGithub();
+            const result = await collect({github, pullRequestBody: '', associatedCommitShas: [sha],
+              extractArtifactText: () => ({text: 'retained first-page finding', truncated: false})});
+            assert.equal(result.artifacts.status, 'unavailable', `${name}/${kind}`);
+            assert.ok(result.diagnostics.failures.some(f => f.kind === `${kind}_page`), `${name}/${kind}`);
+            assert.equal(calls.filter(call => kind === 'run' ? call.startsWith('runs:') : call.startsWith('artifacts:2:')).length, 1);
+            if (kind === 'artifact') assert.equal(result.artifacts.records[0].text, 'retained first-page finding');
+          }
+        });
+      }
+    });
+  });
+});
 
 test('bounded recovery retrieves late run and artifact pages and retains every finding', async () => {
   await withEnv('VERIFIER_EVIDENCE_RUN_LIMIT', '200', async () => {

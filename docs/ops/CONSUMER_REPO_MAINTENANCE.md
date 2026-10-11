@@ -80,7 +80,10 @@ collected pages per comment endpoint, plus one bounded re-read of those pages
 when pagination was needed. Associated-run discovery follows at most two pages
 per exact head/merge SHA, retaining at most 200 distinct runs globally. Artifact
 lists follow at most four pages per run, within a global 400-record ceiling.
-Later pages, changing/malformed totals, repeated IDs and empty nonterminal pages
+A full page without count or Link metadata requires another bounded read to prove
+completeness. Short pages with a remaining count or next link also require another
+read. Changing, appearing, disappearing or malformed totals, missing IDs or IDs
+that are not positive safe integers, repeated IDs, oversized pages and empty nonterminal pages
 cannot establish completeness. A failed later page preserves earlier findings.
 Reference-bearing body, comments and linked issues must all be complete before
 explicit exact-head references can skip unrelated associated-run discovery.
