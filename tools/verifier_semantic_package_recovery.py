@@ -56,6 +56,7 @@ def _nodes(raw: bytes, *, red: bool) -> list[str]:
 def recover_package(folder: Path, resource_plan: Path) -> dict:
     """Validate recovered bytes against original proof; retain every global gap."""
     proof = json.loads(_read(folder, "proof.json"))
+    verification = json.loads(_read(folder, "verification.json"))
     provenance = json.loads(_read(folder, "provenance.json"))
     transform = json.loads(_read(folder, "historical-transform.json"))
     members = {}
@@ -68,6 +69,18 @@ def recover_package(folder: Path, resource_plan: Path) -> dict:
         "historical-template-source.py": "template_source_sha256",
     }
     raw_members = {}
+    governing = _read(folder, "governing-source.md")
+    if (
+        sha(governing)
+        != verification["sha256"]["evidence/issue-3820/expanded-comparison-all-arms-repair.md"]
+    ):
+        raise ValueError("governing historical source hash mismatch")
+    if (
+        sha(_read(folder, "proof.json"))
+        != verification["sha256"]["evidence/issue-3820/expanded-comparison-proof.json"]
+    ):
+        raise ValueError("historical proof receipt binding mismatch")
+    members["governing-source.md"] = sha(governing)
     for name, key in bindings.items():
         raw = _read(folder, name)
         if sha(raw) != proof[key]:
@@ -111,7 +124,7 @@ def recover_package(folder: Path, resource_plan: Path) -> dict:
         raise ValueError("global dependency contract changed")
     return {
         "schema": "workflows-verifier-historical-proof-package/v1",
-        "claim": "expanded comparison requires both configured used_llm arms",
+        "claim": "expanded comparison cannot PASS when either configured arm has used_llm=false",
         "historical_proof_chain_recovered": True,
         "acceptance_sufficient": False,
         "semantic_independence_proven": False,
@@ -120,6 +133,24 @@ def recover_package(folder: Path, resource_plan: Path) -> dict:
         "members": members,
         "selected_test_identities": selected[0],
         "provenance": provenance,
+        "related_original_obligations": [
+            item["id"]
+            for item in contract["obligations"]
+            if item["value"]["source"]
+            in {
+                ".github/workflows/reusable-agents-verifier.yml",
+                "scripts/langchain/pr_verifier.py",
+                "templates/consumer-repo/scripts/langchain/pr_verifier.py",
+                "tests/workflows/test_verifier_expanded_comparison.py",
+                "evidence/issue-3820/expanded-comparison-all-arms-repair.md",
+                "evidence/issue-3820/expanded-comparison-proof.json",
+                "evidence/issue-3820/expanded-comparison-mutation-red.txt",
+                "evidence/issue-3820/expanded-comparison-mutation-red.xml",
+                "evidence/issue-3820/expanded-comparison-restored-green.txt",
+                "evidence/issue-3820/expanded-comparison-restored-green.xml",
+            }
+        ],
+        "related_obligations_discharged": False,
         "global_dependency_contract": contract,
         "remaining": [
             "original unavailable evidence gaps remain unchanged",

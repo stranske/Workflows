@@ -1,4 +1,4 @@
-<?xml version="1.0" encoding="utf-8"?><testsuites name="pytest tests"><testsuite name="pytest" errors="0" failures="1" skipped="0" tests="1" time="0.221" timestamp="2026-10-11T17:42:06.632775-05:00" hostname="server.trs.private"><testcase classname="tests.tools.test_verifier_semantic_package_recovery" name="test_changed_historical_member_cannot_satisfy_package[historical-test.py]" time="0.121"><failure message="Failed: DID NOT RAISE ValueError">package = PosixPath('/private/var/folders/qm/w0dtc0j132gd6ymf1hxtd2p00000gp/T/pytest-of-teacher/pytest-719/test_changed_historical_member0/proof')
+<?xml version="1.0" encoding="utf-8"?><testsuites name="pytest tests"><testsuite name="pytest" errors="0" failures="1" skipped="0" tests="1" time="0.122" timestamp="2026-10-11T17:45:07.675851-05:00" hostname="server.trs.private"><testcase classname="tests.tools.test_verifier_semantic_package_recovery" name="test_changed_historical_member_cannot_satisfy_package[historical-test.py]" time="0.050"><failure message="Failed: DID NOT RAISE ValueError">package = PosixPath('/private/var/folders/qm/w0dtc0j132gd6ymf1hxtd2p00000gp/T/pytest-of-teacher/pytest-725/test_changed_historical_member0/proof')
 member = 'historical-test.py'
 
     @pytest.mark.parametrize(
@@ -15,6 +15,7 @@ member = 'historical-test.py'
             "restored-green.txt",
             "restored-green.xml",
             "original-transform-call.txt",
+            "governing-source.md",
         ],
     )
     def test_changed_historical_member_cannot_satisfy_package(package, member):
@@ -23,4 +24,4 @@ member = 'historical-test.py'
 &gt;       with pytest.raises(ValueError, match="mismatch|changed"):
 E       Failed: DID NOT RAISE ValueError
 
-tests/tools/test_verifier_semantic_package_recovery.py:54: Failed</failure></testcase></testsuite></testsuites>
+tests/tools/test_verifier_semantic_package_recovery.py:57: Failed</failure></testcase></testsuite></testsuites>

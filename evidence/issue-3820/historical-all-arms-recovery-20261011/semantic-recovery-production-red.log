@@ -2,7 +2,7 @@ F                                                                        [100%]
 =================================== FAILURES ===================================
 __ test_changed_historical_member_cannot_satisfy_package[historical-test.py] ___
 
-package = PosixPath('/private/var/folders/qm/w0dtc0j132gd6ymf1hxtd2p00000gp/T/pytest-of-teacher/pytest-719/test_changed_historical_member0/proof')
+package = PosixPath('/private/var/folders/qm/w0dtc0j132gd6ymf1hxtd2p00000gp/T/pytest-of-teacher/pytest-725/test_changed_historical_member0/proof')
 member = 'historical-test.py'
 
     @pytest.mark.parametrize(
@@ -19,6 +19,7 @@ member = 'historical-test.py'
             "restored-green.txt",
             "restored-green.xml",
             "original-transform-call.txt",
+            "governing-source.md",
         ],
     )
     def test_changed_historical_member_cannot_satisfy_package(package, member):
@@ -27,7 +28,7 @@ member = 'historical-test.py'
 >       with pytest.raises(ValueError, match="mismatch|changed"):
 E       Failed: DID NOT RAISE ValueError
 
-tests/tools/test_verifier_semantic_package_recovery.py:54: Failed
+tests/tools/test_verifier_semantic_package_recovery.py:57: Failed
 =========================== short test summary info ============================
 FAILED tests/tools/test_verifier_semantic_package_recovery.py::test_changed_historical_member_cannot_satisfy_package[historical-test.py]
-1 failed in 2.23s
+1 failed in 0.27s

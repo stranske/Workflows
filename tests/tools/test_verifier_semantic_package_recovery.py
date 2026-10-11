@@ -30,6 +30,8 @@ def test_actual_historical_source_recovery_preserves_global_floor(package):
     assert result["acceptance_sufficient"] is False
     assert result["semantic_independence_proven"] is False
     assert result["provider_calls"] == 0
+    assert result["related_original_obligations"]
+    assert result["related_obligations_discharged"] is False
 
 
 @pytest.mark.parametrize(
@@ -46,6 +48,7 @@ def test_actual_historical_source_recovery_preserves_global_floor(package):
         "restored-green.txt",
         "restored-green.xml",
         "original-transform-call.txt",
+        "governing-source.md",
     ],
 )
 def test_changed_historical_member_cannot_satisfy_package(package, member):
@@ -94,6 +97,10 @@ def test_even_rebound_fixture_or_collection_red_cannot_be_accepted(package, repl
     proof = json.loads(path.read_bytes())
     proof["mutation-red_raw_sha256"]["xml"] = sha(replacement)
     path.write_text(json.dumps(proof))
+    verification = package / "verification.json"
+    data = json.loads(verification.read_bytes())
+    data["sha256"]["evidence/issue-3820/expanded-comparison-proof.json"] = sha(path.read_bytes())
+    verification.write_text(json.dumps(data))
     with pytest.raises(ValueError, match="selected|declarations"):
         recover_package(package, PLAN)
 
@@ -103,5 +110,5 @@ def test_nonidentical_restoration_is_not_green(package):
     proof = json.loads(path.read_bytes())
     proof["restored_workflow_sha256"] = "0" * 64
     path.write_text(json.dumps(proof))
-    with pytest.raises(ValueError, match="restoration"):
+    with pytest.raises(ValueError, match="binding"):
         recover_package(package, PLAN)
