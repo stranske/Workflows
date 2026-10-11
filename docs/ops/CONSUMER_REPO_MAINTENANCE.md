@@ -148,6 +148,21 @@ provider requests or evidence-completeness claims. Truncated and unavailable
 proof remains insufficient even when every captured byte is indexed. Cross-proof
 obligation binding, complete partition execution and native acceptance remain
 outstanding.
+The CLI now also emits `verifier-capture-reassembly-contract.json` and embeds
+`capture_reassembly_contract` in existing input snapshots. This v1 contract binds
+the canonical obligation manifest and complete byte inventory by SHA-256. Every
+obligation and gap receives a stable identity tied to both hashes and its original
+position/value. The shared `required_range_ids` list is a conservative global
+dependency floor: every obligation and gap depends on **all captured inputs**.
+Changing any captured byte or gap changes the contract identity. An existing
+conflicting contract fails before any snapshot or sidecar is rewritten and before
+provider evaluation. JSON boolean and integer values are distinct during validation.
+This freezes the evidence floor without claiming semantic independence or
+recovering unavailable bytes. A later planner must prove any narrower package,
+including governing source, RED/restoration/GREEN evidence and cross-proof
+findings; it must not split arbitrary ranges into independently accepted proofs.
+The contract preserves capture insufficiency and all gaps. It does not authorize
+partition execution, alternate judges, reduced output reserves or partial-arm PASS.
 Expanded preflight derives obligations from the builder-owned pre-CI inventory,
 checks complete prompt coverage and exact prepared-prompt equality, and retains
 both inventories in the capacity receipt. Missing, malformed, unavailable,

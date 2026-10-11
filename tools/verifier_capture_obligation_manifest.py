@@ -255,6 +255,52 @@ def validate_capture_byte_inventory(inventory: Any, inputs: dict[str, bytes]) ->
         raise ValueError("capture byte inventory does not match the captured inputs")
 
 
+REASSEMBLY_CONTRACT_SCHEMA = "workflows-verifier-capture-reassembly-contract/v1"
+
+
+def _canonical_digest(value: Any) -> str:
+    return hashlib.sha256(
+        json.dumps(value, sort_keys=True, separators=(",", ":"), ensure_ascii=True).encode("utf-8")
+    ).hexdigest()
+
+
+def build_capture_reassembly_contract(
+    manifest: dict[str, Any], byte_inventory: dict[str, Any]
+) -> dict[str, Any]:
+    """Freeze the global evidence floor; never infer semantic independence.
+
+    Every obligation and gap depends on ALL captured ranges. A later semantic
+    planner must explicitly prove any narrower package, including governing
+    sources, RED/restoration/GREEN evidence and cross-proof findings. This
+    conservative contract is not a partition plan or a sufficiency upgrade.
+    """
+    binding = {
+        "obligation_manifest_sha256": _canonical_digest(manifest),
+        "byte_inventory_sha256": _canonical_digest(byte_inventory),
+    }
+    contract_id = _canonical_digest(binding)
+    entries = {}
+    for field in ("obligations", "gaps"):
+        entries[field] = [
+            {
+                "id": f"{contract_id}:{field}:{index}:{_canonical_digest(value)}",
+                "value": value,
+            }
+            for index, value in enumerate(manifest[field])
+        ]
+    return {
+        "schema": REASSEMBLY_CONTRACT_SCHEMA,
+        "id": contract_id,
+        **binding,
+        "dependency_policy": "all-captured-inputs",
+        "required_range_ids": [
+            item["id"] for source in byte_inventory["inputs"] for item in source["ranges"]
+        ],
+        "sufficient": manifest["sufficient"],
+        **entries,
+    }
+
+
 def record_capture_obligations(
     context_path: Path,
     *,
@@ -288,6 +334,7 @@ def record_capture_obligations(
     if diff_bytes is not None:
         raw_inputs["diff"] = diff_bytes
     byte_inventory = build_capture_byte_inventory(raw_inputs)
+    reassembly_contract = build_capture_reassembly_contract(manifest, byte_inventory)
     snapshot_path = context_path.with_name("verifier-input-manifest.json")
     if snapshot_path.exists():
         snapshot = json.loads(
@@ -308,6 +355,11 @@ def record_capture_obligations(
             raise ValueError("capture obligations do not match the verifier input snapshot")
         if "capture_byte_inventory" in snapshot:
             validate_capture_byte_inventory(snapshot["capture_byte_inventory"], raw_inputs)
+        if "capture_reassembly_contract" in snapshot and json.dumps(
+            snapshot["capture_reassembly_contract"], sort_keys=True
+        ) != json.dumps(reassembly_contract, sort_keys=True):
+            raise ValueError("capture reassembly contract does not match the captured inputs")
+        snapshot["capture_reassembly_contract"] = reassembly_contract
         snapshot["capture_obligations"] = manifest
         snapshot["capture_byte_inventory"] = byte_inventory
         snapshot_path.write_text(json.dumps(snapshot, indent=2) + "\n", encoding="utf-8")
@@ -316,5 +368,8 @@ def record_capture_obligations(
     )
     context_path.with_name("verifier-capture-byte-inventory.json").write_text(
         json.dumps(byte_inventory, indent=2) + "\n", encoding="utf-8"
+    )
+    context_path.with_name("verifier-capture-reassembly-contract.json").write_text(
+        json.dumps(reassembly_contract, indent=2) + "\n", encoding="utf-8"
     )
     return manifest

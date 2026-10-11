@@ -326,3 +326,110 @@ def test_incomplete_evidence_remains_insufficient_with_complete_raw_ranges(tmp_p
     assert "acceptance_evidence:late-proof:unavailable" in result["gaps"]
     byte_inventory = json.loads((tmp_path / "verifier-capture-byte-inventory.json").read_text())
     assert byte_inventory["inputs"][0]["bytes"] == len(context.read_bytes())
+
+
+def test_recorded_contract_binds_all_obligations_gaps_and_raw_ranges(tmp_path):
+    from tools.verifier_capture_obligation_manifest import record_capture_obligations
+
+    coverage = _complete_coverage()
+    coverage["acceptance_evidence_sources"] = [
+        {
+            "source": "original-proof",
+            "status": "truncated",
+            "included_chars": 7,
+            "total_chars": None,
+        },
+        {"source": "artifacts", "status": "unavailable", "reason": "archive_entry_limit"},
+    ]
+    context = tmp_path / "context.md"
+    raw = _context_block(coverage).replace("\n", "\r\n").encode() + b"x" * 70000
+    context.write_bytes(raw)
+    diff = tmp_path / "diff.patch"
+    diff.write_bytes("diff proof \u03bb\r\n".encode())
+    manifest = record_capture_obligations(context, diff_path=diff)
+    contract_path = tmp_path / "verifier-capture-reassembly-contract.json"
+    contract = json.loads(contract_path.read_text())
+    inventory = json.loads((tmp_path / "verifier-capture-byte-inventory.json").read_text())
+    expected_ranges = [r["id"] for item in inventory["inputs"] for r in item["ranges"]]
+    assert contract["dependency_policy"] == "all-captured-inputs"
+    assert contract["required_range_ids"] == expected_ranges
+    assert contract["sufficient"] is False
+    assert [entry["value"] for entry in contract["obligations"]] == manifest["obligations"]
+    assert [entry["value"] for entry in contract["gaps"]] == manifest["gaps"]
+    identities = [entry["id"] for field in ("obligations", "gaps") for entry in contract[field]]
+    assert len(identities) == len(set(identities))
+    record_capture_obligations(context, diff_path=diff)
+    assert json.loads(contract_path.read_text()) == contract
+    assert context.read_bytes() == raw
+    assert diff.read_bytes() == "diff proof \u03bb\r\n".encode()
+
+
+@pytest.mark.parametrize(
+    "change", ["gap", "obligation", "range", "capture", "sufficient", "identity"]
+)
+def test_conflicting_reassembly_contract_is_never_rewritten(tmp_path, change):
+    import hashlib
+
+    from tools.verifier_capture_obligation_manifest import record_capture_obligations
+
+    context = tmp_path / "context.md"
+    context.write_text(_context_block(_complete_coverage()))
+    snapshot = tmp_path / "verifier-input-manifest.json"
+    snapshot.write_text(
+        json.dumps(
+            {
+                "schema": "workflows-verifier-input-snapshot/v1",
+                "context_sha256": hashlib.sha256(context.read_bytes()).hexdigest(),
+            }
+        )
+    )
+    record_capture_obligations(context)
+    payload = json.loads(snapshot.read_text())
+    contract = payload["capture_reassembly_contract"]
+    if change == "gap":
+        contract["gaps"].append({"id": "invented", "value": "invented"})
+    elif change == "obligation":
+        contract["obligations"].pop()
+    elif change == "range":
+        contract["required_range_ids"].clear()
+    elif change == "capture":
+        contract["byte_inventory_sha256"] = "0" * 64
+    elif change == "sufficient":
+        contract["sufficient"] = 1  # JSON bool/int must remain distinct.
+    else:
+        contract["obligations"][0]["id"] = "stale"
+    snapshot.write_text(json.dumps(payload))
+    paths = [
+        snapshot,
+        context,
+        tmp_path / "verifier-capture-reassembly-contract.json",
+        tmp_path / "verifier-capture-byte-inventory.json",
+        tmp_path / "verifier-capture-obligation-manifest.json",
+    ]
+    before = {path: path.read_bytes() for path in paths}
+    with pytest.raises(ValueError, match="reassembly contract"):
+        record_capture_obligations(context)
+    assert {path: path.read_bytes() for path in paths} == before
+
+
+def test_reassembly_identity_changes_for_any_capture_or_gap_revision():
+    from tools.verifier_capture_obligation_manifest import (
+        build_capture_byte_inventory,
+        build_capture_reassembly_contract,
+    )
+
+    manifest = build_capture_obligation_manifest(_context_block(_complete_coverage()))
+    inventory = build_capture_byte_inventory({"context": b"governing source", "diff": b"code"})
+    original = build_capture_reassembly_contract(manifest, inventory)
+    changed_inputs = build_capture_byte_inventory({"context": b"governing source", "diff": b"Code"})
+    changed_manifest = copy.deepcopy(manifest)
+    changed_manifest["gaps"].append("acceptance_evidence:original-proof:unavailable")
+    changed_manifest["sufficient"] = False
+    for candidate in (
+        build_capture_reassembly_contract(manifest, changed_inputs),
+        build_capture_reassembly_contract(changed_manifest, inventory),
+    ):
+        assert candidate["id"] != original["id"]
+        assert {entry["id"] for entry in candidate["obligations"]}.isdisjoint(
+            entry["id"] for entry in original["obligations"]
+        )

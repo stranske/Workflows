@@ -231,6 +231,11 @@ and withholds PASS when required evidence is incomplete.
 
 The Python evaluate/compare entry point emits a
 `workflows-verifier-capture-obligation-manifest/v1` inventory before evaluation.
+The CLI also freezes obligation/gap identities and the complete raw range dependency
+floor in `verifier-capture-reassembly-contract.json`, embedded as
+`capture_reassembly_contract` in existing snapshots. All obligations conservatively
+depend on all captured inputs; conflicting frozen contracts block evaluation.
+This does not establish semantic partitions, missing-proof recovery or native fit.
 It embeds the inventory as `capture_obligations` in an existing
 `verifier-input-manifest.json`, preserving snapshot identity and checking its
 context hash first. It also writes `verifier-capture-obligation-manifest.json`
