@@ -216,6 +216,45 @@ def build_capture_obligation_manifest(
     }
 
 
+BYTE_INVENTORY_SCHEMA = "workflows-verifier-capture-byte-inventory/v1"
+BYTE_RANGE_SIZE = 65536
+
+
+def build_capture_byte_inventory(inputs: dict[str, bytes]) -> dict[str, Any]:
+    """Index every raw byte without interpreting ranges as semantic partitions.
+
+    Half-open offsets and hashes permit later planners to prove reassembly. A
+    range may bisect a UTF-8 character: consumers must reassemble raw bytes before
+    decoding. This inventory never certifies evidence sufficiency or native fit.
+    """
+    items: list[dict[str, Any]] = []
+    for name, raw in sorted(inputs.items()):
+        if not isinstance(name, str) or not name or not isinstance(raw, bytes):
+            raise ValueError("capture byte inventory input is malformed")
+        digest = hashlib.sha256(raw).hexdigest()
+        ranges = []
+        for start in range(0, len(raw), BYTE_RANGE_SIZE):
+            end = min(start + BYTE_RANGE_SIZE, len(raw))
+            ranges.append(
+                {
+                    "id": f"{name}:{digest}:{start}:{end}",
+                    "start": start,
+                    "end": end,
+                    "sha256": hashlib.sha256(raw[start:end]).hexdigest(),
+                }
+            )
+        items.append({"input": name, "bytes": len(raw), "sha256": digest, "ranges": ranges})
+    return {"schema": BYTE_INVENTORY_SCHEMA, "range_bytes": BYTE_RANGE_SIZE, "inputs": items}
+
+
+def validate_capture_byte_inventory(inventory: Any, inputs: dict[str, bytes]) -> None:
+    """Require exact coverage, identities, bounds and hashes of supplied bytes."""
+    expected = build_capture_byte_inventory(inputs)
+    # Canonical JSON also distinguishes bool from integer offsets/counts.
+    if json.dumps(inventory, sort_keys=True) != json.dumps(expected, sort_keys=True):
+        raise ValueError("capture byte inventory does not match the captured inputs")
+
+
 def record_capture_obligations(
     context_path: Path,
     *,
@@ -245,6 +284,10 @@ def record_capture_obligations(
         ):
             raise ValueError("loaded diff changed before snapshot recording")
     manifest = build_capture_obligation_manifest(captured_text)
+    raw_inputs = {"context": context_bytes}
+    if diff_bytes is not None:
+        raw_inputs["diff"] = diff_bytes
+    byte_inventory = build_capture_byte_inventory(raw_inputs)
     snapshot_path = context_path.with_name("verifier-input-manifest.json")
     if snapshot_path.exists():
         snapshot = json.loads(
@@ -263,9 +306,15 @@ def record_capture_obligations(
             raise ValueError("diff does not match the verifier input snapshot")
         if "capture_obligations" in snapshot and snapshot["capture_obligations"] != manifest:
             raise ValueError("capture obligations do not match the verifier input snapshot")
+        if "capture_byte_inventory" in snapshot:
+            validate_capture_byte_inventory(snapshot["capture_byte_inventory"], raw_inputs)
         snapshot["capture_obligations"] = manifest
+        snapshot["capture_byte_inventory"] = byte_inventory
         snapshot_path.write_text(json.dumps(snapshot, indent=2) + "\n", encoding="utf-8")
     context_path.with_name("verifier-capture-obligation-manifest.json").write_text(
         json.dumps(manifest, indent=2) + "\n", encoding="utf-8"
+    )
+    context_path.with_name("verifier-capture-byte-inventory.json").write_text(
+        json.dumps(byte_inventory, indent=2) + "\n", encoding="utf-8"
     )
     return manifest

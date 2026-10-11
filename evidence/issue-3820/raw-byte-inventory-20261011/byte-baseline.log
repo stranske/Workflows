@@ -1,0 +1,222 @@
+.......................................................FFFFFFFFFFFFFF    [100%]
+=================================== FAILURES ===================================
+______________ test_raw_byte_inventory_reassembles_every_byte[0] _______________
+
+size = 0
+
+    @pytest.mark.parametrize("size", [0, 1, 65535, 65536, 65537, 131079])
+    def test_raw_byte_inventory_reassembles_every_byte(size):
+>       from tools.verifier_capture_obligation_manifest import build_capture_byte_inventory
+E       ImportError: cannot import name 'build_capture_byte_inventory' from 'tools.verifier_capture_obligation_manifest' (/Users/teacher/.codex/automations/imi-merge-verify-closer/worktrees/wf3831-validation-20261011T0820Z/tools/verifier_capture_obligation_manifest.py)
+
+tests/tools/test_verifier_capture_obligation_manifest.py:239: ImportError
+______________ test_raw_byte_inventory_reassembles_every_byte[1] _______________
+
+size = 1
+
+    @pytest.mark.parametrize("size", [0, 1, 65535, 65536, 65537, 131079])
+    def test_raw_byte_inventory_reassembles_every_byte(size):
+>       from tools.verifier_capture_obligation_manifest import build_capture_byte_inventory
+E       ImportError: cannot import name 'build_capture_byte_inventory' from 'tools.verifier_capture_obligation_manifest' (/Users/teacher/.codex/automations/imi-merge-verify-closer/worktrees/wf3831-validation-20261011T0820Z/tools/verifier_capture_obligation_manifest.py)
+
+tests/tools/test_verifier_capture_obligation_manifest.py:239: ImportError
+____________ test_raw_byte_inventory_reassembles_every_byte[65535] _____________
+
+size = 65535
+
+    @pytest.mark.parametrize("size", [0, 1, 65535, 65536, 65537, 131079])
+    def test_raw_byte_inventory_reassembles_every_byte(size):
+>       from tools.verifier_capture_obligation_manifest import build_capture_byte_inventory
+E       ImportError: cannot import name 'build_capture_byte_inventory' from 'tools.verifier_capture_obligation_manifest' (/Users/teacher/.codex/automations/imi-merge-verify-closer/worktrees/wf3831-validation-20261011T0820Z/tools/verifier_capture_obligation_manifest.py)
+
+tests/tools/test_verifier_capture_obligation_manifest.py:239: ImportError
+____________ test_raw_byte_inventory_reassembles_every_byte[65536] _____________
+
+size = 65536
+
+    @pytest.mark.parametrize("size", [0, 1, 65535, 65536, 65537, 131079])
+    def test_raw_byte_inventory_reassembles_every_byte(size):
+>       from tools.verifier_capture_obligation_manifest import build_capture_byte_inventory
+E       ImportError: cannot import name 'build_capture_byte_inventory' from 'tools.verifier_capture_obligation_manifest' (/Users/teacher/.codex/automations/imi-merge-verify-closer/worktrees/wf3831-validation-20261011T0820Z/tools/verifier_capture_obligation_manifest.py)
+
+tests/tools/test_verifier_capture_obligation_manifest.py:239: ImportError
+____________ test_raw_byte_inventory_reassembles_every_byte[65537] _____________
+
+size = 65537
+
+    @pytest.mark.parametrize("size", [0, 1, 65535, 65536, 65537, 131079])
+    def test_raw_byte_inventory_reassembles_every_byte(size):
+>       from tools.verifier_capture_obligation_manifest import build_capture_byte_inventory
+E       ImportError: cannot import name 'build_capture_byte_inventory' from 'tools.verifier_capture_obligation_manifest' (/Users/teacher/.codex/automations/imi-merge-verify-closer/worktrees/wf3831-validation-20261011T0820Z/tools/verifier_capture_obligation_manifest.py)
+
+tests/tools/test_verifier_capture_obligation_manifest.py:239: ImportError
+____________ test_raw_byte_inventory_reassembles_every_byte[131079] ____________
+
+size = 131079
+
+    @pytest.mark.parametrize("size", [0, 1, 65535, 65536, 65537, 131079])
+    def test_raw_byte_inventory_reassembles_every_byte(size):
+>       from tools.verifier_capture_obligation_manifest import build_capture_byte_inventory
+E       ImportError: cannot import name 'build_capture_byte_inventory' from 'tools.verifier_capture_obligation_manifest' (/Users/teacher/.codex/automations/imi-merge-verify-closer/worktrees/wf3831-validation-20261011T0820Z/tools/verifier_capture_obligation_manifest.py)
+
+tests/tools/test_verifier_capture_obligation_manifest.py:239: ImportError
+______ test_byte_inventory_rejects_incomplete_or_conflicting_ranges[drop] ______
+
+damage = 'drop'
+
+    @pytest.mark.parametrize("damage", ["drop", "duplicate", "hash", "offset", "identity", "unknown"])
+    def test_byte_inventory_rejects_incomplete_or_conflicting_ranges(damage):
+>       from tools.verifier_capture_obligation_manifest import (
+            build_capture_byte_inventory,
+            validate_capture_byte_inventory,
+        )
+E       ImportError: cannot import name 'build_capture_byte_inventory' from 'tools.verifier_capture_obligation_manifest' (/Users/teacher/.codex/automations/imi-merge-verify-closer/worktrees/wf3831-validation-20261011T0820Z/tools/verifier_capture_obligation_manifest.py)
+
+tests/tools/test_verifier_capture_obligation_manifest.py:257: ImportError
+___ test_byte_inventory_rejects_incomplete_or_conflicting_ranges[duplicate] ____
+
+damage = 'duplicate'
+
+    @pytest.mark.parametrize("damage", ["drop", "duplicate", "hash", "offset", "identity", "unknown"])
+    def test_byte_inventory_rejects_incomplete_or_conflicting_ranges(damage):
+>       from tools.verifier_capture_obligation_manifest import (
+            build_capture_byte_inventory,
+            validate_capture_byte_inventory,
+        )
+E       ImportError: cannot import name 'build_capture_byte_inventory' from 'tools.verifier_capture_obligation_manifest' (/Users/teacher/.codex/automations/imi-merge-verify-closer/worktrees/wf3831-validation-20261011T0820Z/tools/verifier_capture_obligation_manifest.py)
+
+tests/tools/test_verifier_capture_obligation_manifest.py:257: ImportError
+______ test_byte_inventory_rejects_incomplete_or_conflicting_ranges[hash] ______
+
+damage = 'hash'
+
+    @pytest.mark.parametrize("damage", ["drop", "duplicate", "hash", "offset", "identity", "unknown"])
+    def test_byte_inventory_rejects_incomplete_or_conflicting_ranges(damage):
+>       from tools.verifier_capture_obligation_manifest import (
+            build_capture_byte_inventory,
+            validate_capture_byte_inventory,
+        )
+E       ImportError: cannot import name 'build_capture_byte_inventory' from 'tools.verifier_capture_obligation_manifest' (/Users/teacher/.codex/automations/imi-merge-verify-closer/worktrees/wf3831-validation-20261011T0820Z/tools/verifier_capture_obligation_manifest.py)
+
+tests/tools/test_verifier_capture_obligation_manifest.py:257: ImportError
+_____ test_byte_inventory_rejects_incomplete_or_conflicting_ranges[offset] _____
+
+damage = 'offset'
+
+    @pytest.mark.parametrize("damage", ["drop", "duplicate", "hash", "offset", "identity", "unknown"])
+    def test_byte_inventory_rejects_incomplete_or_conflicting_ranges(damage):
+>       from tools.verifier_capture_obligation_manifest import (
+            build_capture_byte_inventory,
+            validate_capture_byte_inventory,
+        )
+E       ImportError: cannot import name 'build_capture_byte_inventory' from 'tools.verifier_capture_obligation_manifest' (/Users/teacher/.codex/automations/imi-merge-verify-closer/worktrees/wf3831-validation-20261011T0820Z/tools/verifier_capture_obligation_manifest.py)
+
+tests/tools/test_verifier_capture_obligation_manifest.py:257: ImportError
+____ test_byte_inventory_rejects_incomplete_or_conflicting_ranges[identity] ____
+
+damage = 'identity'
+
+    @pytest.mark.parametrize("damage", ["drop", "duplicate", "hash", "offset", "identity", "unknown"])
+    def test_byte_inventory_rejects_incomplete_or_conflicting_ranges(damage):
+>       from tools.verifier_capture_obligation_manifest import (
+            build_capture_byte_inventory,
+            validate_capture_byte_inventory,
+        )
+E       ImportError: cannot import name 'build_capture_byte_inventory' from 'tools.verifier_capture_obligation_manifest' (/Users/teacher/.codex/automations/imi-merge-verify-closer/worktrees/wf3831-validation-20261011T0820Z/tools/verifier_capture_obligation_manifest.py)
+
+tests/tools/test_verifier_capture_obligation_manifest.py:257: ImportError
+____ test_byte_inventory_rejects_incomplete_or_conflicting_ranges[unknown] _____
+
+damage = 'unknown'
+
+    @pytest.mark.parametrize("damage", ["drop", "duplicate", "hash", "offset", "identity", "unknown"])
+    def test_byte_inventory_rejects_incomplete_or_conflicting_ranges(damage):
+>       from tools.verifier_capture_obligation_manifest import (
+            build_capture_byte_inventory,
+            validate_capture_byte_inventory,
+        )
+E       ImportError: cannot import name 'build_capture_byte_inventory' from 'tools.verifier_capture_obligation_manifest' (/Users/teacher/.codex/automations/imi-merge-verify-closer/worktrees/wf3831-validation-20261011T0820Z/tools/verifier_capture_obligation_manifest.py)
+
+tests/tools/test_verifier_capture_obligation_manifest.py:257: ImportError
+__________ test_record_binds_raw_ranges_and_rejects_tampered_snapshot __________
+
+tmp_path = PosixPath('/private/var/folders/qm/w0dtc0j132gd6ymf1hxtd2p00000gp/T/pytest-of-teacher/pytest-356/test_record_binds_raw_ranges_a0')
+
+    def test_record_binds_raw_ranges_and_rejects_tampered_snapshot(tmp_path):
+        import hashlib
+        from tools.verifier_capture_obligation_manifest import record_capture_obligations
+    
+        raw = _context_block(_complete_coverage()).replace("\n", "\r\n").encode()
+        context = tmp_path / "context.md"
+        context.write_bytes(raw)
+        diff = tmp_path / "diff.patch"
+        diff.write_bytes(b"proof\r\n")
+        snapshot_path = tmp_path / "verifier-input-manifest.json"
+        snapshot_path.write_text(json.dumps({
+            "schema": "workflows-verifier-input-snapshot/v1",
+            "context_sha256": hashlib.sha256(raw).hexdigest(),
+            "diff_sha256": hashlib.sha256(diff.read_bytes()).hexdigest(),
+        }))
+        record_capture_obligations(context, diff_path=diff)
+        snapshot = json.loads(snapshot_path.read_text())
+>       assert snapshot["capture_byte_inventory"]["inputs"][0]["sha256"] == hashlib.sha256(raw).hexdigest()
+               ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+E       KeyError: 'capture_byte_inventory'
+
+tests/tools/test_verifier_capture_obligation_manifest.py:299: KeyError
+____ test_incomplete_evidence_remains_insufficient_with_complete_raw_ranges ____
+
+tmp_path = PosixPath('/private/var/folders/qm/w0dtc0j132gd6ymf1hxtd2p00000gp/T/pytest-of-teacher/pytest-356/test_incomplete_evidence_remai0')
+
+    def test_incomplete_evidence_remains_insufficient_with_complete_raw_ranges(tmp_path):
+        from tools.verifier_capture_obligation_manifest import record_capture_obligations
+    
+        coverage = _complete_coverage()
+        coverage["acceptance_evidence_sources"] = [{"source": "late-proof", "status": "unavailable"}]
+        context = tmp_path / "context.md"
+        context.write_text(_context_block(coverage))
+        result = record_capture_obligations(context)
+        assert result["sufficient"] is False
+        assert "acceptance_evidence:late-proof:unavailable" in result["gaps"]
+>       byte_inventory = json.loads((tmp_path / "verifier-capture-byte-inventory.json").read_text())
+                                    ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+tests/tools/test_verifier_capture_obligation_manifest.py:320: 
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
+/opt/anaconda3/lib/python3.12/pathlib.py:1027: in read_text
+    with self.open(mode='r', encoding=encoding, errors=errors) as f:
+         ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
+
+self = PosixPath('/private/var/folders/qm/w0dtc0j132gd6ymf1hxtd2p00000gp/T/pytest-of-teacher/pytest-356/test_incomplete_evidence_remai0/verifier-capture-byte-inventory.json')
+mode = 'r', buffering = -1, encoding = 'locale', errors = None, newline = None
+
+    def open(self, mode='r', buffering=-1, encoding=None,
+             errors=None, newline=None):
+        """
+        Open the file pointed by this path and return a file object, as
+        the built-in open() function does.
+        """
+        if "b" not in mode:
+            encoding = io.text_encoding(encoding)
+>       return io.open(self, mode, buffering, encoding, errors, newline)
+               ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+E       FileNotFoundError: [Errno 2] No such file or directory: '/private/var/folders/qm/w0dtc0j132gd6ymf1hxtd2p00000gp/T/pytest-of-teacher/pytest-356/test_incomplete_evidence_remai0/verifier-capture-byte-inventory.json'
+
+/opt/anaconda3/lib/python3.12/pathlib.py:1013: FileNotFoundError
+=========================== short test summary info ============================
+FAILED tests/tools/test_verifier_capture_obligation_manifest.py::test_raw_byte_inventory_reassembles_every_byte[0]
+FAILED tests/tools/test_verifier_capture_obligation_manifest.py::test_raw_byte_inventory_reassembles_every_byte[1]
+FAILED tests/tools/test_verifier_capture_obligation_manifest.py::test_raw_byte_inventory_reassembles_every_byte[65535]
+FAILED tests/tools/test_verifier_capture_obligation_manifest.py::test_raw_byte_inventory_reassembles_every_byte[65536]
+FAILED tests/tools/test_verifier_capture_obligation_manifest.py::test_raw_byte_inventory_reassembles_every_byte[65537]
+FAILED tests/tools/test_verifier_capture_obligation_manifest.py::test_raw_byte_inventory_reassembles_every_byte[131079]
+FAILED tests/tools/test_verifier_capture_obligation_manifest.py::test_byte_inventory_rejects_incomplete_or_conflicting_ranges[drop]
+FAILED tests/tools/test_verifier_capture_obligation_manifest.py::test_byte_inventory_rejects_incomplete_or_conflicting_ranges[duplicate]
+FAILED tests/tools/test_verifier_capture_obligation_manifest.py::test_byte_inventory_rejects_incomplete_or_conflicting_ranges[hash]
+FAILED tests/tools/test_verifier_capture_obligation_manifest.py::test_byte_inventory_rejects_incomplete_or_conflicting_ranges[offset]
+FAILED tests/tools/test_verifier_capture_obligation_manifest.py::test_byte_inventory_rejects_incomplete_or_conflicting_ranges[identity]
+FAILED tests/tools/test_verifier_capture_obligation_manifest.py::test_byte_inventory_rejects_incomplete_or_conflicting_ranges[unknown]
+FAILED tests/tools/test_verifier_capture_obligation_manifest.py::test_record_binds_raw_ranges_and_rejects_tampered_snapshot
+FAILED tests/tools/test_verifier_capture_obligation_manifest.py::test_incomplete_evidence_remains_insufficient_with_complete_raw_ranges
+14 failed, 55 passed in 0.34s

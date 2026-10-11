@@ -232,3 +232,97 @@ def test_loaded_diff_change_is_rejected_without_snapshot_rebinding(tmp_path):
             context, context_text="context", diff_path=diff, diff_text="original loaded view"
         )
     assert not (tmp_path / "verifier-capture-obligation-manifest.json").exists()
+
+
+@pytest.mark.parametrize("size", [0, 1, 65535, 65536, 65537, 131079])
+def test_raw_byte_inventory_reassembles_every_byte(size):
+    from tools.verifier_capture_obligation_manifest import build_capture_byte_inventory
+
+    # Slice through UTF-8 code points and retain CRLF/whitespace exactly.
+    raw = ("é\r\n ".encode() * (size + 1))[:size]
+    inventory = build_capture_byte_inventory({"context": raw, "diff": b"diff\r\n"})
+    assert inventory["schema"] == "workflows-verifier-capture-byte-inventory/v1"
+    for item in inventory["inputs"]:
+        original = {"context": raw, "diff": b"diff\r\n"}[item["input"]]
+        chunks = [original[r["start"] : r["end"]] for r in item["ranges"]]
+        assert b"".join(chunks) == original
+        assert all(len(chunk) <= 65536 for chunk in chunks)
+        assert item["bytes"] == len(original)
+        assert len({r["id"] for r in item["ranges"]}) == len(chunks)
+    assert inventory == build_capture_byte_inventory({"diff": b"diff\r\n", "context": raw})
+
+
+@pytest.mark.parametrize("damage", ["drop", "duplicate", "hash", "offset", "identity", "unknown"])
+def test_byte_inventory_rejects_incomplete_or_conflicting_ranges(damage):
+    from tools.verifier_capture_obligation_manifest import (
+        build_capture_byte_inventory,
+        validate_capture_byte_inventory,
+    )
+
+    inputs = {"context": b"first\r\n" + b"x" * 70000, "diff": b"late proof"}
+    inventory = build_capture_byte_inventory(inputs)
+    validate_capture_byte_inventory(inventory, inputs)
+    ranges = inventory["inputs"][0]["ranges"]
+    if damage == "drop":
+        ranges.pop()
+    elif damage == "duplicate":
+        ranges.append(copy.deepcopy(ranges[0]))
+    elif damage == "hash":
+        ranges[0]["sha256"] = "0" * 64
+    elif damage == "offset":
+        ranges[0]["start"] = 1
+    elif damage == "identity":
+        ranges[0]["id"] = "substituted"
+    else:
+        inventory["schema"] = "unknown"
+    with pytest.raises(ValueError, match="byte inventory"):
+        validate_capture_byte_inventory(inventory, inputs)
+
+
+def test_record_binds_raw_ranges_and_rejects_tampered_snapshot(tmp_path):
+    import hashlib
+
+    from tools.verifier_capture_obligation_manifest import record_capture_obligations
+
+    raw = _context_block(_complete_coverage()).replace("\n", "\r\n").encode()
+    context = tmp_path / "context.md"
+    context.write_bytes(raw)
+    diff = tmp_path / "diff.patch"
+    diff.write_bytes(b"proof\r\n")
+    snapshot_path = tmp_path / "verifier-input-manifest.json"
+    snapshot_path.write_text(
+        json.dumps(
+            {
+                "schema": "workflows-verifier-input-snapshot/v1",
+                "context_sha256": hashlib.sha256(raw).hexdigest(),
+                "diff_sha256": hashlib.sha256(diff.read_bytes()).hexdigest(),
+            }
+        )
+    )
+    record_capture_obligations(context, diff_path=diff)
+    snapshot = json.loads(snapshot_path.read_text())
+    assert (
+        snapshot["capture_byte_inventory"]["inputs"][0]["sha256"] == hashlib.sha256(raw).hexdigest()
+    )
+    snapshot["capture_byte_inventory"]["inputs"][1]["ranges"].clear()
+    snapshot_path.write_text(json.dumps(snapshot))
+    before = snapshot_path.read_bytes()
+    with pytest.raises(ValueError, match="byte inventory"):
+        record_capture_obligations(context, diff_path=diff)
+    assert snapshot_path.read_bytes() == before
+    assert context.read_bytes() == raw
+    assert diff.read_bytes() == b"proof\r\n"
+
+
+def test_incomplete_evidence_remains_insufficient_with_complete_raw_ranges(tmp_path):
+    from tools.verifier_capture_obligation_manifest import record_capture_obligations
+
+    coverage = _complete_coverage()
+    coverage["acceptance_evidence_sources"] = [{"source": "late-proof", "status": "unavailable"}]
+    context = tmp_path / "context.md"
+    context.write_text(_context_block(coverage))
+    result = record_capture_obligations(context)
+    assert result["sufficient"] is False
+    assert "acceptance_evidence:late-proof:unavailable" in result["gaps"]
+    byte_inventory = json.loads((tmp_path / "verifier-capture-byte-inventory.json").read_text())
+    assert byte_inventory["inputs"][0]["bytes"] == len(context.read_bytes())

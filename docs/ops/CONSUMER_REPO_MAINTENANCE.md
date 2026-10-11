@@ -136,6 +136,18 @@ SHA-256 matches. Existing conflicting obligations or stale snapshot identity
 abort evaluation without repairing the identity. Context, diff and summary
 captures are not rewritten. A standalone manifest is emitted beside the context;
 the existing comparison snapshot upload retains the embedded inventory.
+The CLI also emits `verifier-capture-byte-inventory.json` and embeds
+`capture_byte_inventory` in existing snapshots. Its v1 contract indexes all raw
+context and supplied diff bytes in deterministic 65,536-byte ranges with half-open
+offsets, whole-input hashes and input/hash/offset range identities. Empty inputs
+have zero ranges and retain their whole-input hash. Existing conflicting range
+inventories fail closed before snapshot writes; they are never silently rebound.
+These binary ranges may split UTF-8 characters and must be reassembled before
+decoding. They are a reassembly foundation, not semantic obligation packages,
+provider requests or evidence-completeness claims. Truncated and unavailable
+proof remains insufficient even when every captured byte is indexed. Cross-proof
+obligation binding, complete partition execution and native acceptance remain
+outstanding.
 Expanded preflight derives obligations from the builder-owned pre-CI inventory,
 checks complete prompt coverage and exact prepared-prompt equality, and retains
 both inventories in the capacity receipt. Missing, malformed, unavailable,

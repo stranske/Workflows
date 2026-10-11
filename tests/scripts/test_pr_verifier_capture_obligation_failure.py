@@ -85,3 +85,40 @@ def test_capture_failure_json_payload(tmp_path, monkeypatch, capsys) -> None:
     payload = json.loads(capsys.readouterr().out)
     assert payload["verdict"] == "FAIL"
     assert payload["used_llm"] is False
+
+
+@pytest.mark.parametrize("extra_args", [[], ["--compare"]])
+def test_conflicting_byte_inventory_emits_fail_without_provider_calls(
+    tmp_path, monkeypatch, capsys, extra_args
+):
+    import hashlib
+
+    context = tmp_path / "context.md"
+    context.write_bytes(b"Pull request: [#7](https://x/pull/7)\r\n")
+    snapshot = tmp_path / "verifier-input-manifest.json"
+    snapshot.write_text(
+        json.dumps(
+            {
+                "schema": "workflows-verifier-input-snapshot/v1",
+                "context_sha256": hashlib.sha256(context.read_bytes()).hexdigest(),
+                "capture_byte_inventory": {"schema": "unknown", "inputs": []},
+            }
+        )
+    )
+    before = snapshot.read_bytes()
+
+    def forbidden(*args, **kwargs):
+        raise AssertionError("provider evaluation must not run")
+
+    monkeypatch.setattr(pr_verifier, "evaluate_pr", forbidden)
+    monkeypatch.setattr(pr_verifier, "evaluate_pr_multiple", forbidden)
+    _argv(monkeypatch, tmp_path, context, *extra_args, "--json")
+    pr_verifier.main()
+    payload = json.loads(capsys.readouterr().out)
+    if extra_args:
+        assert payload["results"][0]["verdict"] == "FAIL"
+        assert payload["results"][0]["used_llm"] is False
+    else:
+        assert payload["verdict"] == "FAIL"
+        assert payload["used_llm"] is False
+    assert snapshot.read_bytes() == before

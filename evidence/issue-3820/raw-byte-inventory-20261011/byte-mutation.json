@@ -1,0 +1,9 @@
+{
+  "production_mutation": "disable capture byte inventory equality guard only",
+  "red_exit": 1,
+  "restored_exit": 0,
+  "before_sha256": "ac565376d1a8d5ae474f019a7428622947566d44d3f1c68c6a9294329bf89cfc",
+  "restored_sha256": "ac565376d1a8d5ae474f019a7428622947566d44d3f1c68c6a9294329bf89cfc",
+  "scope": "raw byte indexing and CLI fail-closed only; no native generation or partition acceptance",
+  "initial_attempt": "CLI test used wrong compare JSON field; corrected to existing results[0] contract before qualified pair"
+}
