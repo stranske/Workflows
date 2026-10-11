@@ -5083,6 +5083,10 @@ def test_qualified_common_proof_modifier_tokens_are_not_governor_prefixes(
         ("Evidence must be posted in a pull request review comment", "comments"),
         ("- [ ] Validation output in a PR comment", "comments"),
         ("- [x] Validation output in a PR comment", "comments"),
+        ("- [X] Validation output in a PR comment", "comments"),
+        ("- [ ] Validation results in a PR comment", "comments"),
+        ("- [x] Validation results in a PR comment", "comments"),
+        ("- [X] Validation results in a PR comment", "comments"),
         ("- [ ] Validation results in a PR review comment", "comments"),
     ],
 )
@@ -5109,17 +5113,20 @@ def test_issue3835_delivery_destinations(criterion, channel):
         'The parser recognizes "- [ ] Validation output in a PR comment"',
     ],
 )
-@pytest.mark.parametrize("independent", [False, True])
-def test_issue3835_nongating_controls(criterion, independent):
-    """Exempt clauses cannot erase a separately governed artifact obligation."""
-    expected = set()
-    if independent:
-        criterion += "; the reviewer must attach evidence as an artifact"
-        expected.add("artifacts")
+@pytest.mark.parametrize("independent", [None, "comments", "artifacts"])
+@pytest.mark.parametrize("status", ["absent", "unavailable", "present"])
+def test_issue3835_nongating_controls(criterion, independent, status):
+    """Exempt clauses neither require evidence nor erase independent delivery."""
+    delivery = {
+        "comments": "; the reviewer must post evidence in a PR comment",
+        "artifacts": "; the reviewer must attach evidence as an artifact",
+    }
+    criterion += delivery.get(independent, "")
+    expected = {independent} if independent else set()
     assert verifier._required_evidence_channels(criterion) == expected
     assert verifier._required_evidence_options(criterion) == [expected]
-    assert _floor_verdict(criterion, body="present", comments="present", artifacts="absent") == (
-        "CONCERNS" if independent else "PASS"
+    assert _floor_verdict(criterion, body="present", comments=status, artifacts=status) == (
+        "CONCERNS" if independent and status != "present" else "PASS"
     )
 
 

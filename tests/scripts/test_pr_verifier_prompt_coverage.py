@@ -3685,6 +3685,10 @@ def test_attached_delivery_actor_qualifier_is_not_the_evidence_object(
         ("Evidence must be posted in an inline review comment", "comments"),
         ("- [ ] Validation output in a PR comment", "comments"),
         ("- [x] Validation output in a PR comment", "comments"),
+        ("- [X] Validation output in a PR comment", "comments"),
+        ("- [ ] Validation results in a PR comment", "comments"),
+        ("- [x] Validation results in a PR comment", "comments"),
+        ("- [X] Validation results in a PR comment", "comments"),
         ("- [ ] Validation results in a PR review comment", "comments"),
     ],
 )
