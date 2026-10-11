@@ -76,6 +76,21 @@ jobs:
                   (!Number.isSafeInteger(resolved) || resolved <= 0)) {
                 throw new Error('Reporter target did not resolve to a positive PR number');
               }
+              if (result.status === 'skip') {
+                // Say WHY, in the one place an operator looks. A silent skip and a skip that
+                // could not verify provenance are different facts; #3839 existed because the
+                // job reported neither, it just went red.
+                const why = result.reason || 'no reportable target';
+                core.notice(`Keepalive reporter skipped: ${why} ` +
+                  `(upstream run ${context.payload.workflow_run.id}, ` +
+                  `conclusion ${context.payload.workflow_run.conclusion})`);
+                await core.summary
+                  .addHeading('Keepalive reporter: no report produced', 3)
+                  .addRaw(`Reason: ${why}\n\n`)
+                  .addRaw(`Upstream run: ${context.payload.workflow_run.id} ` +
+                    `(${context.payload.workflow_run.conclusion})\n`)
+                  .write();
+              }
               core.setOutput('skip', result.status === 'skip' ? 'true' : 'false');
               core.setOutput('lock_pr_number', resolved > 0 ? String(resolved) : '');
               core.setOutput('pr_number', result.targetSource === 'ordinary-run-name' ?

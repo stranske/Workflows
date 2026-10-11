@@ -113,9 +113,14 @@ for (const source of sources) {
   });
 
   test(`${source}: authority candidate without index fails closed`, async () => {
+    // "Fails closed" is about AUTHORITY, not about the job's exit status: no index means no
+    // target is granted. It now skips with that reason rather than failing the run (#3839).
     const { github } = setup(source, 'keepalive-dispatch/v2 authority-candidate pr=1738');
-    await assert.rejects(classifyReporterRun({ github, owner: 'stranske', repo: 'repo', run,
-      lookupTarget: async () => null }), /no immutable attempt index/);
+    const result = await classifyReporterRun({ github, owner: 'stranske', repo: 'repo', run,
+      lookupTarget: async () => null });
+    assert.equal(result.status, 'skip');
+    assert.match(result.reason, /no immutable attempt index/);
+    assert.equal(result.prNumber, undefined, 'an authority candidate must grant no target');
   });
 
   test(`${source}: malformed or legacy binding cannot become ordinary`, async () => {
@@ -134,8 +139,11 @@ for (const source of sources) {
       'keepalive-dispatch/v2 ordinary pr=9007199254740992',
     ]) {
       const { github } = setup(source, title);
-      await assert.rejects(classifyReporterRun({ github, owner: 'stranske', repo: 'repo', run,
-        lookupTarget: async () => null }), /canonical versioned PR binding|non-canonical PR binding/);
+      const result = await classifyReporterRun({ github, owner: 'stranske', repo: 'repo', run,
+        lookupTarget: async () => null });
+      assert.equal(result.status, 'skip');
+      assert.match(result.reason, /canonical versioned PR binding|non-canonical PR binding/);
+      assert.equal(result.prNumber, undefined, 'a malformed binding must grant no target');
     }
   });
 }
@@ -158,8 +166,11 @@ test('wrong originating workflow or event cannot claim ordinary routing', async 
   for (const override of [{ path: '.github/workflows/other.yml' }, { event: 'push' },
     { run_attempt: 3 }, { head_sha: 'b'.repeat(40) }]) {
     const { github } = setup(sources[0], 'keepalive-dispatch/v2 ordinary pr=1738', override);
-    await assert.rejects(classifyReporterRun({ github, owner: 'stranske', repo: 'repo', run,
-      lookupTarget: async () => null }), /no verified dispatch classification/);
+    const result = await classifyReporterRun({ github, owner: 'stranske', repo: 'repo', run,
+      lookupTarget: async () => null });
+    assert.equal(result.status, 'skip');
+    assert.match(result.reason, /no verified dispatch classification/);
+    assert.equal(result.prNumber, undefined, 'a skip must grant no target');
   }
 });
 
@@ -168,8 +179,11 @@ test('originating revision without the classification contract fails closed', as
   github.rest.repos.getContent = async () => ({ data: {
     encoding: 'base64', content: Buffer.from('name: Agents Keepalive Loop\n').toString('base64'),
   } });
-  await assert.rejects(classifyReporterRun({ github, owner: 'stranske', repo: 'repo', run,
-    lookupTarget: async () => null }), /lacks the dispatch classification contract/);
+  const result = await classifyReporterRun({ github, owner: 'stranske', repo: 'repo', run,
+    lookupTarget: async () => null });
+  assert.equal(result.status, 'skip');
+  assert.match(result.reason, /lacks the dispatch classification contract/);
+  assert.equal(result.prNumber, undefined, 'a skip must grant no target');
 });
 
 test('contract-shaped text outside the top-level run-name cannot authorize a target', async () => {
@@ -182,8 +196,11 @@ test('contract-shaped text outside the top-level run-name cannot authorize a tar
   github.rest.repos.getContent = async () => ({ data: {
     encoding: 'base64', content: Buffer.from(producer).toString('base64'),
   } });
-  await assert.rejects(classifyReporterRun({ github, owner: 'stranske', repo: 'repo', run,
-    lookupTarget: async () => null }), /lacks the dispatch classification contract/);
+  const result = await classifyReporterRun({ github, owner: 'stranske', repo: 'repo', run,
+    lookupTarget: async () => null });
+  assert.equal(result.status, 'skip');
+  assert.match(result.reason, /lacks the dispatch classification contract/);
+  assert.equal(result.prNumber, undefined, 'a skip must grant no target');
 });
 
 test('associated runs avoid the unassociated locator altogether', async () => {
