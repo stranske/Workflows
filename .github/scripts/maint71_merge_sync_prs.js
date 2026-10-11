@@ -2069,8 +2069,9 @@ async function run({ github, context, core }) {
     // A rerun can turn Gate red without changing the head after the earlier
     // delivery classification. Recheck required contexts at the final merge
     // boundary rather than treating exact-head review evidence as sufficient.
+    let finalCheckEvidence = null;
     if (requireGeneratedDeliveryGate) {
-      const finalCheckEvidence = await classifyRequiredChecksForRef({
+      finalCheckEvidence = await classifyRequiredChecksForRef({
         owner,
         repo,
         branch: pr.base.ref,
@@ -2093,6 +2094,7 @@ async function run({ github, context, core }) {
       activeReviewThreads,
       freshHeadSha: freshPr.headRefOid,
       freshPr,
+      finalCheckEvidence,
     };
   }
   
@@ -3378,6 +3380,14 @@ async function run({ github, context, core }) {
         requireVerifiedHead: generatedDeliveryRequiresVerifiedHead(pr.head.ref),
         requireGeneratedDeliveryGate: !recoveredMergedCandidate,
       });
+      // The final recheck reads the checks afresh; every row from here on
+      // reports that reading, so it cannot contradict the decision it records.
+      if (finalGate.finalCheckEvidence) {
+        deliveryContext.consumer_declared_contexts = {
+          state: finalGate.finalCheckEvidence.declaredContexts.state,
+          ...(finalGate.finalCheckEvidence.classification.declared_contexts || {}),
+        };
+      }
       if (!finalGate.ok) {
         console.log(`Final exact-head review gate blocked delivery: ${finalGate.reason}`);
         if (finalGate.reason === 'review_window_pending') {

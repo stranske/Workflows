@@ -327,7 +327,7 @@ test('the declaration is read from the base branch, and only a 404 means none', 
 // The whole Maint 71 pass over #530 as it stood when it merged: its real
 // delivery record and check runs, Orchestrator's empty protection and
 // rulesets, and a base branch that does or does not declare its CI.
-async function runMaint71Over530(t, { declaration }) {
+async function runMaint71Over530(t, { declaration, checkReads = null }) {
   const os = require('node:os');
   const { run } = require('../maint71_merge_sync_prs.js');
   const tempDir = fs.mkdtempSync(path.join(os.tmpdir(), 'maint71-declared-'));
@@ -356,7 +356,11 @@ async function runMaint71Over530(t, { declaration }) {
   const github = {
     paginate: async (_method, params) => {
       if (params.state === 'open') return [pr530];
-      if (params.ref === headSha) return fixture.check_runs;
+      if (params.ref === headSha) {
+        // checkReads, when given, is the sequence of check-run lists each read returns.
+        if (checkReads) return checkReads.length > 1 ? checkReads.shift() : checkReads[0];
+        return fixture.check_runs;
+      }
       return [];
     },
     graphql: async () => ({
@@ -465,4 +469,22 @@ test('Maint 71 over #530: Orchestrator declaring its CI leaves the delivery open
   // A consumer's red CI is not a janitor failure (#2186).
   assert.deepEqual(failures, []);
   assert.deepEqual(warnings, []);
+});
+
+test('Maint 71 over #530: a declared check that fails before the final recheck is reported as failed', async (t) => {
+  const green = fixture.check_runs.map((check) => (ORCHESTRATOR_DECLARED.includes(check.name)
+    ? { ...check, conclusion: 'success' }
+    : check));
+  const { report } = await runMaint71Over530(t, {
+    declaration: { required_contexts: ORCHESTRATOR_DECLARED },
+    checkReads: [green, fixture.check_runs],
+  });
+  const row = report.results[0];
+  // The first classification passed; the final exact-head recheck read the red runs.
+  assert.equal(row.status, 'checks_failed');
+  assert.deepEqual(
+    row.consumer_declared_contexts.failed.sort(),
+    [...ORCHESTRATOR_DECLARED].sort(),
+  );
+  assert.deepEqual(row.consumer_declared_contexts.passed, []);
 });
