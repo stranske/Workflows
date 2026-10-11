@@ -28,3 +28,10 @@ Validation commands:
 - python3 scripts/validate_template_completeness.py
 
 Root-only maintenance: no consumer template or sync-manifest ownership changed.
+
+Hosted Maint52 run38179428768 exposed the new helper API-wrapper guard failure.
+The exact local guard reproduces RED then GREEN after routing listing reads
+through github-api-with-retry.js with maxRetries=0, preserving adaptive 500
+page reduction. Native run reads retain the shared wrapper and two retries.
+Full 88 Python / 8 Node controls and the production reversal/restoration were
+rerun after this change. See api-guard-red.log/api-guard-green.log.

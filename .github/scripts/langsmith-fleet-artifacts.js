@@ -1,6 +1,8 @@
+const { withRetry: defaultRetry } = require('./github-api-with-retry.js');
+
 // Bounded artifact discovery: exact-name query first, legacy suffixes second.
 // A search-limit result is UNKNOWN, never proof that no artifact exists.
-async function findFleetArtifact({ github, core, withRetry, owner, repo, name,
+async function findFleetArtifact({ github, core, withRetry = defaultRetry, owner, repo, name,
   trustedWorkflowPaths, maxRequests = 30 }) {
   let requests = 0;
   const runCache = new Map();
@@ -11,10 +13,10 @@ async function findFleetArtifact({ github, core, withRetry, owner, repo, name,
       requests += 1;
       let response;
       try {
-        response = await github.rest.actions.listArtifactsForRepo({
+        response = await withRetry(() => github.rest.actions.listArtifactsForRepo({
           owner, repo, per_page: pageSize, page: offset / pageSize + 1,
           ...(exact ? { name } : {}),
-        });
+        }), { maxRetries: 0 });
       } catch (error) {
         if (![500, 502, 503, 504].includes(Number(error.status)) || pageSize === 1) {
           throw error;
