@@ -6,7 +6,7 @@ output/results. Destination ORs, polarity, optional clauses, product capability
 and quoted literals continue through the existing shared grammar. Missing or
 unavailable named evidence cannot borrow a present PR body.
 
-The production source and consumer template are byte-identical at SHA256
+The initial implementation's production source and consumer template were byte-identical at SHA256
 `a743cbfed0bdd653a2a33ee3061650b75175d84ded1031604908343c12fc9c53`.
 Base commit: `6020028dec510c931364fb69f63dc2a2aa297689`.
 Runtime: Python 3.12.2 from `/opt/anaconda3/bin/python3`.
@@ -82,6 +82,28 @@ whole-repository coverage, or hosted runtime parity. Workflows #3820/#3831 and
 the ordinary source-to-consumer promotion/reconciliation remain separate owners.
 
 ## Follow-up acceptance checks
+
+The follow-up negative-governor repair uses the shared requirement grammar for
+`No need to`, `No requirement to`, and `No obligation to`, rather than an
+artifact-only exception. Its regression matrix covers artifact, comment and body
+destinations; absent/unavailable/present retrieval; and independent mandatory
+comment/artifact clauses. These controls exercise the actual prompt coverage
+floor as well as channel/options recognition. Positive delivery remains gating.
+
+The replay parses JUnit with standard-library Expat and rejects DTDs and entity
+declarations before accepting any counts. The focused security test accepts ordinary JUnit
+and deliberately rejects a document with an internal entity declaration.
+No scanner suppression or trust assumption about a local XML filename is used.
+
+Follow-up validation (2026-10-11): the original source failed 34 focused
+negative-governor/security cases, the fixed focused gate passed 220 cases, and
+the complete destination/prompt/security suite passed 93,014 cases. Independent
+reversal/restoration replay still discriminated all three original repaired
+rules (three assertion failures each, then three passes each). Source/template
+follow-up SHA256 is `d34fee79391c5c4c76a6c4117af988750fa50c36cbb913adaf9d73a971723a46`.
+The raw local proof bindings are retained in `follow-up-20261011.json`. The XML
+security gate additionally rejects external DTD and external entity declarations.
+These are bounded local proofs, not hosted CI or reviewer acceptance.
 
 The follow-up adds floor checks for coverage-report artifact delivery, inline
 review comments, checked validation-output items and validation results. Each

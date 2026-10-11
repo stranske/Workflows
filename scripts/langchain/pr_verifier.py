@@ -1032,7 +1032,8 @@ _NEGATIVE_EVIDENCE_ADJECTIVE_GOVERNOR = (
 _NEGATIVE_EVIDENCE_REQUIREMENT_GOVERNOR = (
     r"(?:" + _NEGATIVE_EVIDENCE_ADJECTIVE_GOVERNOR + r"\s+to|"
     r"(?:does|do|did)\s+(?:not|never)\s+(?:need|have)\s+to|"
-    r"(?:never|no\s+longer)\s+(?:has|have|needs?)\s+to|needs?\s+not)"
+    r"(?:never|no\s+longer)\s+(?:has|have|needs?)\s+to|needs?\s+not|"
+    r"no\s+(?:need|requirement|obligation)\s+to)"
 )
 _INDEPENDENT_REVIEW_PREDICATE = (
     r"(?:"
@@ -2507,6 +2508,7 @@ def _required_evidence_channels(acceptance: str, *, _bind_attached: bool = True)
             is_gate = gate and bool(re.match(r"(?:without|unless|until)\b", clause, re.I))
             prohibited = not is_gate and (
                 object_prohibited
+                or bool(re.search(negative_requirement_governor, polarity_clause, re.I))
                 or bool(
                     re.search(
                         r"\b(?:not|never|no\s+longer)\b",

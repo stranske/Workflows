@@ -8,6 +8,7 @@
 # Verifier destination grammar also binds artifact-provenance property delivery
 # without treating checked provenance enforcement as a new artifact obligation.
 # Exact quoted review destination names retain channel binding; parser examples stay opaque.
+# Nominal no-need/requirement/obligation governors share evidence polarity across channels.
 # Partial OR parsing fails closed; punctuated ORs and property storage retain their semantics.
 # Files not listed will NOT be synced, even if they exist in templates/consumer-repo/.
 #

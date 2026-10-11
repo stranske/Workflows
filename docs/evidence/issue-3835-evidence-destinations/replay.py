@@ -7,8 +7,8 @@ import hashlib
 import json
 import subprocess
 import sys
-import xml.etree.ElementTree as ET
 from pathlib import Path
+from xml.parsers import expat
 
 ROOT = Path(__file__).resolve().parents[3]
 SOURCES = (
@@ -26,6 +26,27 @@ CASES = (
 
 def digest(data: bytes) -> str:
     return hashlib.sha256(data).hexdigest()
+
+
+def junit_counts(path: Path) -> tuple[int, int, int]:
+    """Read generated JUnit without admitting DTDs or entity declarations."""
+    parser = expat.ParserCreate()
+    counts = {"testcase": 0, "failure": 0, "error": 0}
+
+    def reject(*_args):
+        raise ValueError("JUnit DTDs and entities are forbidden")
+
+    def start(tag, _attrs):
+        if tag in counts:
+            counts[tag] += 1
+
+    parser.StartDoctypeDeclHandler = reject
+    parser.EntityDeclHandler = reject
+    parser.ExternalEntityRefHandler = reject
+    parser.StartElementHandler = start
+    with path.open("rb") as source:
+        parser.ParseFile(source)
+    return counts["testcase"], counts["failure"], counts["error"]
 
 
 def mutations(fixed: bytes) -> dict[str, bytes]:
@@ -100,20 +121,18 @@ def run(output: Path) -> list[dict]:
                 )
                 (output / f"{name}-{phase}.stdout").write_bytes(result.stdout)
                 (output / f"{name}-{phase}.stderr").write_bytes(result.stderr)
-                tests = list(ET.parse(junit).iter("testcase"))
-                failures = sum(test.find("failure") is not None for test in tests)
-                errors = sum(test.find("error") is not None for test in tests)
+                tests, failures, errors = junit_counts(junit)
                 receipt[phase] = {
                     "argv": argv,
                     "cwd": str(ROOT),
                     "exit": result.returncode,
-                    "tests": len(tests),
+                    "tests": tests,
                     "failures": failures,
                     "errors": errors,
                 }
                 assert result.returncode == expected, receipt
                 assert (
-                    len(tests) == 3 and errors == 0 and failures == (3 if phase == "red" else 0)
+                    tests == 3 and errors == 0 and failures == (3 if phase == "red" else 0)
                 ), receipt
         finally:
             for source in SOURCES:

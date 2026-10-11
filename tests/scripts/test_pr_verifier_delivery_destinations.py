@@ -5099,6 +5099,11 @@ def test_issue3835_delivery_destinations(criterion, channel):
     "criterion",
     [
         "Do not attach evidence as an artifact",
+        "No need to attach evidence as an artifact",
+        "No requirement to upload the coverage report as an artifact",
+        "No obligation to publish validation output as a workflow artifact",
+        "No need to post evidence in a PR review comment",
+        "No requirement to record evidence in the PR body",
         "Evidence may be attached as an artifact",
         "The UI allows users to attach evidence as an artifact",
         "The service uploads evidence as an artifact to storage",
