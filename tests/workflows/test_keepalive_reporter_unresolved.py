@@ -22,14 +22,14 @@ const outputs = {};
 let summary = '';
 const core = {
   setOutput: (key, value) => { outputs[key] = value; },
-  setFailed: (message) => events.push(['failed', message]),
+  setFailed: (message) => events.push(['failed', message, {...outputs}]),
   error: (message) => events.push(['error', message]),
   summary: {
     addHeading(value) { summary += value + '\n'; return this; },
     addRaw(value) { summary += value; return this; },
     async write() {
       if (input.summaryError) throw new Error('summary storage unavailable');
-      events.push(['summary', summary]);
+      events.push(['summary', summary, {...outputs}]);
     },
   },
 };
@@ -39,7 +39,7 @@ const run = {
 };
 if (input.associated) run.pull_requests = [{number: 42}];
 const context = {
-  eventName: input.manual ? 'workflow_dispatch' : 'workflow_run',
+  eventName: Object.hasOwn(input, 'manual') ? 'workflow_dispatch' : 'workflow_run',
   repo: {owner: 'stranske', repo: 'example'},
   payload: {workflow_run: run, inputs: {pr_number: input.manual}},
 };
@@ -53,7 +53,7 @@ const wrappedRequire = (name) => {
     if (input.skip) return {status: 'skip'};
     return actual.classifyReporterRun({...args, lookupTarget: async () => {
       if (input.lookupError) throw Error(input.lookupError);
-      return null;
+      return input.indexedTarget || null;
     }});
   }};
 };
@@ -109,6 +109,7 @@ def test_unassociated_workflow_run_reports_attributed_failure_before_failing(
         "pr_number": "",
         "ordinary_target": "false",
     }
+    assert events[1][2] == events[2][2] == result["outputs"]
 
 
 @pytest.mark.parametrize("reporter", REPORTERS, ids=["root", "consumer"])
@@ -129,11 +130,25 @@ def test_summary_write_failure_keeps_both_diagnostic_and_resolution_errors(
     assert [event[0] for event in result["events"]] == ["read-origin", "error", "failed"]
     assert "summary storage unavailable" in result["events"][1][1]
     assert "no verified dispatch classification" in result["events"][2][1]
-    assert result["outputs"]["outcome"] == "unresolved"
+    assert (
+        result["events"][2][2]
+        == result["outputs"]
+        == {
+            "outcome": "unresolved",
+            "skip": "false",
+            "lock_pr_number": "",
+            "pr_number": "",
+            "ordinary_target": "false",
+        }
+    )
 
 
 @pytest.mark.parametrize("reporter", REPORTERS, ids=["root", "consumer"])
-@pytest.mark.parametrize("scenario", [{"associated": True}, {"manual": "42"}])
+@pytest.mark.parametrize(
+    "scenario",
+    [{"associated": True}, {"manual": "42"}, {"indexedTarget": {"prNumber": 42}}],
+    ids=["associated", "manual", "immutable-index"],
+)
 def test_resolved_target_retains_pr_lock_without_unresolved_report(
     reporter: Path,
     scenario: dict,
@@ -154,11 +169,87 @@ def test_no_report_needed_is_distinct_from_failed_resolution(reporter: Path) -> 
 
 
 @pytest.mark.parametrize("reporter", REPORTERS, ids=["root", "consumer"])
-def test_invalid_manual_input_does_not_authorize_pr_mutation(reporter: Path) -> None:
-    result = _resolve(reporter, manual="042")
+@pytest.mark.parametrize("manual", ["042", "", None, "0", "-1", "1.5", "42 ", "9007199254740992"])
+def test_invalid_manual_input_does_not_authorize_pr_mutation(
+    reporter: Path, manual: str | None
+) -> None:
+    result = _resolve(reporter, manual=manual)
     assert [event[0] for event in result["events"]] == ["summary", "failed"]
-    assert result["outputs"]["outcome"] == "invalid-input"
-    assert result["outputs"]["lock_pr_number"] == ""
+    assert "Authority replay requires a canonical positive PR number" in result["events"][0][1]
+    assert (
+        result["events"][0][2]
+        == result["events"][1][2]
+        == result["outputs"]
+        == {
+            "outcome": "invalid-input",
+            "skip": "false",
+            "lock_pr_number": "",
+            "pr_number": "",
+            "ordinary_target": "false",
+        }
+    )
+
+
+@pytest.mark.parametrize("reporter", REPORTERS, ids=["root", "consumer"])
+@pytest.mark.parametrize("pr_number", [0, -1, 1.5, "invalid", "9007199254740992"])
+def test_invalid_indexed_target_reports_without_granting_a_pr_lock(
+    reporter: Path, pr_number: int | float | str
+) -> None:
+    result = _resolve(reporter, indexedTarget={"prNumber": pr_number})
+    assert [event[0] for event in result["events"]] == ["summary", "failed"]
+    assert "Reporter target did not resolve to a positive PR number" in result["events"][0][1]
+    assert (
+        result["events"][0][2]
+        == result["events"][1][2]
+        == result["outputs"]
+        == {
+            "outcome": "unresolved",
+            "skip": "false",
+            "lock_pr_number": "",
+            "pr_number": "",
+            "ordinary_target": "false",
+        }
+    )
+
+
+@pytest.mark.parametrize("reporter", REPORTERS, ids=["root", "consumer"])
+@pytest.mark.parametrize(
+    "mismatch",
+    [
+        {"id": 99999},
+        {"run_attempt": 3},
+        {"head_sha": "b" * 40},
+        {"event": "workflow_run"},
+        {"path": ".github/workflows/unverified-producer.yml"},
+    ],
+    ids=["run", "attempt", "head", "event", "producer"],
+)
+def test_unverified_origin_title_cannot_authorize_a_pr_lock(reporter: Path, mismatch: dict) -> None:
+    origin = {
+        "event": "workflow_dispatch",
+        "path": ".github/workflows/agents-keepalive-loop.yml",
+        "display_title": "keepalive-dispatch/v2 ordinary pr=42",
+        **mismatch,
+    }
+    result = _resolve(reporter, origin=origin)
+    assert [event[0] for event in result["events"]] == ["read-origin", "summary", "failed"]
+    summary = result["events"][1][1]
+    assert "Upstream run: 12345" in summary
+    assert "Attempt: 2" in summary
+    assert "Head: " + "a" * 40 in summary
+    assert "Unassociated run has no verified dispatch classification" in summary
+    assert (
+        result["events"][1][2]
+        == result["events"][2][2]
+        == result["outputs"]
+        == {
+            "outcome": "unresolved",
+            "skip": "false",
+            "lock_pr_number": "",
+            "pr_number": "",
+            "ordinary_target": "false",
+        }
+    )
 
 
 @pytest.mark.parametrize("reporter", REPORTERS, ids=["root", "consumer"])
