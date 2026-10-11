@@ -1,0 +1,301 @@
+{
+  "source": "stranske/Orchestrator#530 head e57bc6b6292b4a18cb011e05c396251d034ad33e, read 2026-10-11 from GET /commits/{sha}/check-runs and /status; merged red by Maint 71 at 2026-10-11T21:54:44Z; check runs started after the merge (the pull_request closed event: gate, auto-pilot, format-pause-wakeup) removed so this is what Maint 71 read",
+  "check_runs": [
+    {
+      "name": "Bot comment handler",
+      "status": "completed",
+      "conclusion": "skipped",
+      "started_at": "2026-10-11T21:38:17Z",
+      "completed_at": "2026-10-11T21:38:17Z",
+      "app": {
+        "slug": "github-actions"
+      }
+    },
+    {
+      "name": "Cleanup bot comment label",
+      "status": "completed",
+      "conclusion": "skipped",
+      "started_at": "2026-10-11T21:38:17Z",
+      "completed_at": "2026-10-11T21:38:17Z",
+      "app": {
+        "slug": "github-actions"
+      }
+    },
+    {
+      "name": "Create issue from verification (enhanced)",
+      "status": "completed",
+      "conclusion": "skipped",
+      "started_at": "2026-10-11T21:36:44Z",
+      "completed_at": "2026-10-11T21:36:43Z",
+      "app": {
+        "slug": "github-actions"
+      }
+    },
+    {
+      "name": "Fetch PR context / Fetch PR Context",
+      "status": "completed",
+      "conclusion": "success",
+      "started_at": "2026-10-11T21:38:03Z",
+      "completed_at": "2026-10-11T21:38:16Z",
+      "app": {
+        "slug": "github-actions"
+      }
+    },
+    {
+      "name": "PR meta handler / Detect keepalive comments",
+      "status": "completed",
+      "conclusion": "skipped",
+      "started_at": "2026-10-11T21:38:17Z",
+      "completed_at": "2026-10-11T21:38:17Z",
+      "app": {
+        "slug": "github-actions"
+      }
+    },
+    {
+      "name": "PR meta handler / Dispatch keepalive orchestrator",
+      "status": "completed",
+      "conclusion": "skipped",
+      "started_at": "2026-10-11T21:38:17Z",
+      "completed_at": "2026-10-11T21:38:17Z",
+      "app": {
+        "slug": "github-actions"
+      }
+    },
+    {
+      "name": "PR meta handler / Resume keepalive after Gate",
+      "status": "completed",
+      "conclusion": "skipped",
+      "started_at": "2026-10-11T21:38:17Z",
+      "completed_at": "2026-10-11T21:38:17Z",
+      "app": {
+        "slug": "github-actions"
+      }
+    },
+    {
+      "name": "PR meta handler / Update PR body sections",
+      "status": "completed",
+      "conclusion": "success",
+      "started_at": "2026-10-11T21:39:06Z",
+      "completed_at": "2026-10-11T21:39:20Z",
+      "app": {
+        "slug": "github-actions"
+      }
+    },
+    {
+      "name": "Resolve event context",
+      "status": "completed",
+      "conclusion": "success",
+      "started_at": "2026-10-11T21:36:39Z",
+      "completed_at": "2026-10-11T21:36:43Z",
+      "app": {
+        "slug": "github-actions"
+      }
+    },
+    {
+      "name": "combined coverage (pytest + selftests, the honest number)",
+      "status": "completed",
+      "conclusion": "failure",
+      "started_at": "2026-10-11T21:36:15Z",
+      "completed_at": "2026-10-11T21:40:03Z",
+      "app": {
+        "slug": "github-actions"
+      }
+    },
+    {
+      "name": "contract",
+      "status": "completed",
+      "conclusion": "skipped",
+      "started_at": "2026-10-11T21:36:14Z",
+      "completed_at": "2026-10-11T21:36:13Z",
+      "app": {
+        "slug": "github-actions"
+      }
+    },
+    {
+      "name": "cross-repo smoke",
+      "status": "completed",
+      "conclusion": "skipped",
+      "started_at": "2026-10-11T21:36:23Z",
+      "completed_at": "2026-10-11T21:36:13Z",
+      "app": {
+        "slug": "github-actions"
+      }
+    },
+    {
+      "name": "detect changed files",
+      "status": "completed",
+      "conclusion": "success",
+      "started_at": "2026-10-11T21:36:59Z",
+      "completed_at": "2026-10-11T21:37:09Z",
+      "app": {
+        "slug": "github-actions"
+      }
+    },
+    {
+      "name": "docker smoke",
+      "status": "completed",
+      "conclusion": "skipped",
+      "started_at": "2026-10-11T21:37:40Z",
+      "completed_at": "2026-10-11T21:37:40Z",
+      "app": {
+        "slug": "github-actions"
+      }
+    },
+    {
+      "name": "docs guard",
+      "status": "completed",
+      "conclusion": "success",
+      "started_at": "2026-10-11T21:39:01Z",
+      "completed_at": "2026-10-11T21:39:06Z",
+      "app": {
+        "slug": "github-actions"
+      }
+    },
+    {
+      "name": "generated delivery seal",
+      "status": "completed",
+      "conclusion": "success",
+      "started_at": "2026-10-11T21:36:48Z",
+      "completed_at": "2026-10-11T21:36:55Z",
+      "app": {
+        "slug": "github-actions"
+      }
+    },
+    {
+      "name": "github scripts tests",
+      "status": "completed",
+      "conclusion": "success",
+      "started_at": "2026-10-11T21:38:31Z",
+      "completed_at": "2026-10-11T21:38:37Z",
+      "app": {
+        "slug": "github-actions"
+      }
+    },
+    {
+      "name": "guard",
+      "status": "completed",
+      "conclusion": "success",
+      "started_at": "2026-10-11T21:36:27Z",
+      "completed_at": "2026-10-11T21:36:32Z",
+      "app": {
+        "slug": "github-actions"
+      }
+    },
+    {
+      "name": "issue consistency",
+      "status": "completed",
+      "conclusion": "success",
+      "started_at": "2026-10-11T21:37:18Z",
+      "completed_at": "2026-10-11T21:37:24Z",
+      "app": {
+        "slug": "github-actions"
+      }
+    },
+    {
+      "name": "ledger validation",
+      "status": "completed",
+      "conclusion": "success",
+      "started_at": "2026-10-11T21:39:12Z",
+      "completed_at": "2026-10-11T21:39:24Z",
+      "app": {
+        "slug": "github-actions"
+      }
+    },
+    {
+      "name": "privilege environment gate",
+      "status": "completed",
+      "conclusion": "success",
+      "started_at": "2026-10-11T21:37:36Z",
+      "completed_at": "2026-10-11T21:37:40Z",
+      "app": {
+        "slug": "github-actions"
+      }
+    },
+    {
+      "name": "python ci",
+      "status": "completed",
+      "conclusion": "skipped",
+      "started_at": "2026-10-11T21:37:40Z",
+      "completed_at": "2026-10-11T21:37:40Z",
+      "app": {
+        "slug": "github-actions"
+      }
+    },
+    {
+      "name": "reconcile the collection floor (main only)",
+      "status": "completed",
+      "conclusion": "skipped",
+      "started_at": "2026-10-11T21:36:13Z",
+      "completed_at": "2026-10-11T21:36:13Z",
+      "app": {
+        "slug": "github-actions"
+      }
+    },
+    {
+      "name": "summary",
+      "status": "completed",
+      "conclusion": "success",
+      "started_at": "2026-10-11T21:39:30Z",
+      "completed_at": "2026-10-11T21:39:55Z",
+      "app": {
+        "slug": "github-actions"
+      }
+    },
+    {
+      "name": "test-quality",
+      "status": "completed",
+      "conclusion": "success",
+      "started_at": "2026-10-11T21:38:58Z",
+      "completed_at": "2026-10-11T21:39:10Z",
+      "app": {
+        "slug": "github-actions"
+      }
+    },
+    {
+      "name": "unauthorized-promotion-marker",
+      "status": "completed",
+      "conclusion": "skipped",
+      "started_at": "2026-10-11T21:36:22Z",
+      "completed_at": "2026-10-11T21:36:13Z",
+      "app": {
+        "slug": "github-actions"
+      }
+    },
+    {
+      "name": "verify.py (real pytest counts + selftests + capability gates)",
+      "status": "completed",
+      "conclusion": "failure",
+      "started_at": "2026-10-11T21:36:19Z",
+      "completed_at": "2026-10-11T21:39:02Z",
+      "app": {
+        "slug": "github-actions"
+      }
+    },
+    {
+      "name": "verify.py in the flat exec-mirror shape (the tree a sync ships)",
+      "status": "completed",
+      "conclusion": "failure",
+      "started_at": "2026-10-11T21:37:17Z",
+      "completed_at": "2026-10-11T21:40:04Z",
+      "app": {
+        "slug": "github-actions"
+      }
+    }
+  ],
+  "statuses": [
+    {
+      "context": "CodeRabbit",
+      "state": "success",
+      "updated_at": "2026-10-11T21:36:22Z",
+      "created_at": "2026-10-11T21:36:22Z",
+      "description": "Review rate limited"
+    },
+    {
+      "context": "Gate / gate",
+      "state": "success",
+      "updated_at": "2026-10-11T21:39:51Z",
+      "created_at": "2026-10-11T21:39:51Z",
+      "description": "All Gate checks succeeded."
+    }
+  ]
+}
