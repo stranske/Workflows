@@ -178,7 +178,9 @@ Models API supplies exact-model limits before its Messages count. Unsupported
 models/transports or unavailable counts remain NON_PASS. Native input limits and
 combined input/output context limits are independent; Terra no longer reserves
 output twice against its input-only bound. The expanded fingerprint uses
-`bounded-native-capacity-v7`; standard keeps `bounded-native-capacity-v2`.
+`bounded-native-capacity-v8`; standard keeps `bounded-native-capacity-v2`.
+Expanded diff allocation is bounded to 4,194,304 characters; this is not a native
+token limit or a capacity verdict. Complete retrieval and native counting still gate generation.
 See the bounded input-limit
 recovery contract in `docs/ops/CONSUMER_REPO_MAINTENANCE.md`.
 
