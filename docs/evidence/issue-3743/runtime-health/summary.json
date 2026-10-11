@@ -1,7 +1,13 @@
 {
   "base": "6020028dec510c931364fb69f63dc2a2aa297689",
-  "interpreter": "/opt/anaconda3/bin/python3",
-  "python": "3.12.2",
+  "environment": {
+    "python": "3.14.8 (main, Oct  1 2026, 02:38:33) [GCC 13.3.0]",
+    "interpreter": "/opt/hostedtoolcache/Python/3.14.8/x64/bin/python3",
+    "platform": "Linux-6.17.0-1022-azure-x86_64-with-glibc2.39",
+    "requested_interpreter_available": false
+  },
+  "interpreter": "/opt/hostedtoolcache/Python/3.14.8/x64/bin/python3",
+  "python": "3.14.8 (main, Oct  1 2026, 02:38:33) [GCC 13.3.0]",
   "baseline": {
     "covered_lines": 576,
     "num_statements": 591,
@@ -63,9 +69,6 @@
       340
     ]
   ],
-  "production_unchanged": true,
-  "root_template_identical": true,
-  "mutations": 8,
   "historical_reconciliation": {
     "old_repair_snapshot": {
       "tests": 6,
@@ -79,12 +82,112 @@
   "file_sha256": {
     "scripts/check_deliberate_break.py": "cc97119ea26afec275be3c83d22bc75de0d452cd0f4764896cc9d037274ab25a",
     "templates/consumer-repo/scripts/check_deliberate_break.py": "cc97119ea26afec275be3c83d22bc75de0d452cd0f4764896cc9d037274ab25a",
-    "tests/scripts/test_check_deliberate_break_runtime_health.py": "810fae3a05bc1c3f39933df7c31db40d9835ee8dc2f5bf8cc3fac9c2650d3f0f",
+    "tests/scripts/test_check_deliberate_break_runtime_health.py": "f27013701bbc1be89258d5e17fa0b9074bebc8d1beed593ea364ca9c72e16fcf",
     "docs/evidence/issue-3743/runtime-health/replay.py": "3d0b72a89acab50c3e38eab4acfd56f2a07a02320c931175d09cb14bad35c99a"
   },
   "limits": [
     "Root helper coverage only; template behavior has direct paired tests, no separate template coverage metric.",
     "No repository-wide90%, hosted/native/provider PASS or full source completion.",
-    "Prior3832 provider CONCERNS/CONCERNS retained; current count reconciliation is a bounded follow-up."
-  ]
+    "Prior3832 provider CONCERNS/CONCERNS retained; current count reconciliation is a bounded follow-up.",
+    "Requested /opt/anaconda3/bin/python3 is absent; fresh receipts use available Linux Python, with historical macOS packet preserved byte for byte."
+  ],
+  "production_unchanged": true,
+  "root_template_identical": true,
+  "mutations": 8,
+  "historical_files_unchanged": 558,
+  "validation": {
+    "full-black": {
+      "argv": [
+        "black",
+        "--check",
+        "--line-length",
+        "100",
+        "--exclude",
+        "(\\.workflows-lib|node_modules)",
+        "."
+      ],
+      "cwd": "/home/runner/work/Workflows/Workflows",
+      "env": {
+        "BLACK_NUM_WORKERS": "1",
+        "BLACK_CACHE_DIR": "/tmp/runtime-health-current-black-cache"
+      },
+      "exit": 0
+    },
+    "focused-ruff": {
+      "argv": [
+        "ruff",
+        "check",
+        "tests/scripts/test_check_deliberate_break_runtime_health.py",
+        "docs/evidence/issue-3743/runtime-health/replay.py"
+      ],
+      "cwd": "/home/runner/work/Workflows/Workflows",
+      "exit": 0
+    },
+    "templates": {
+      "argv": [
+        "python3",
+        "scripts/validate_template_completeness.py",
+        "--strict"
+      ],
+      "cwd": "/home/runner/work/Workflows/Workflows",
+      "env": {
+        "GITHUB_STEP_SUMMARY": "/tmp/runtime-health-current-receipts/templates-summary.md"
+      },
+      "exit": 0
+    },
+    "diff-check": {
+      "argv": [
+        "git",
+        "diff",
+        "--check"
+      ],
+      "cwd": "/home/runner/work/Workflows/Workflows",
+      "exit": 0
+    },
+    "black-serial": {
+      "argv": [
+        "python3",
+        "docs/evidence/issue-3743/runtime-probes/revalidation/black_serial.py"
+      ],
+      "env": {
+        "BLACK_CACHE_DIR": "/tmp/runtime-health-current-black-cache"
+      },
+      "cwd": "/home/runner/work/Workflows/Workflows",
+      "exit": 0
+    },
+    "full-black-worker-timeout": {
+      "argv": [
+        "black",
+        "--check",
+        "--line-length",
+        "100",
+        "--exclude",
+        "(\\.workflows-lib|node_modules)",
+        "."
+      ],
+      "env": {
+        "BLACK_NUM_WORKERS": "1"
+      },
+      "cwd": "/home/runner/work/Workflows/Workflows",
+      "exit": null,
+      "timeout_seconds": 300
+    },
+    "full-black-duplicate-interrupted": {
+      "argv": [
+        "black",
+        "--check",
+        "--line-length",
+        "100",
+        "--exclude",
+        "(\\.workflows-lib|node_modules)",
+        "."
+      ],
+      "env": {
+        "BLACK_NUM_WORKERS": "1"
+      },
+      "exit": 130,
+      "note": "Duplicate cache-less run interrupted after successful serial and required full Black command."
+    }
+  },
+  "previous_runtime_health_archive_sha256": "f9868d98185cc3fcfa7546a32a45a8c04e97838779e8acae8914c322e9bd8b83"
 }
