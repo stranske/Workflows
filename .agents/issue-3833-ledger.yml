@@ -9,7 +9,7 @@ tasks:
     status: done
     started_at: '2026-10-11T18:49:13Z'
     finished_at: '2026-10-11T19:50:00Z'
-    commit: ''
+    commit: 97c4683d077399fc3aa56b2a68c61b39b1876cba
     notes:
       - Canonical and template copies now use Runtime dependencies (PyYAML, Pydantic).
   - id: task-02
@@ -17,9 +17,9 @@ tasks:
     status: done
     started_at: '2026-10-11T19:50:00Z'
     finished_at: '2026-10-11T19:50:00Z'
-    commit: ''
+    commit: 97c4683d077399fc3aa56b2a68c61b39b1876cba
     notes:
-      - Added comment: Hypothesis is a test dependency and belongs in each consumer repo's test/dev extras.
+      - "Added comment: Hypothesis is a test dependency and belongs in each consumer repo's test/dev extras."
   - id: task-03
     title: Create `tests/test_hypothesis_dependency_guidance.py` to reject Hypothesis
       in the canonical runtime example.
@@ -36,7 +36,7 @@ tasks:
     status: done
     started_at: '2026-10-11T19:50:00Z'
     finished_at: '2026-10-11T19:50:00Z'
-    commit: ''
+    commit: 97c4683d077399fc3aa56b2a68c61b39b1876cba
     notes:
       - Inspected .github templates docs; corrected template copies; rg exit 1 (no matches).
   - id: task-05
@@ -45,9 +45,9 @@ tasks:
     status: done
     started_at: '2026-10-11T19:50:00Z'
     finished_at: '2026-10-11T19:50:00Z'
-    commit: ''
+    commit: 97c4683d077399fc3aa56b2a68c61b39b1876cba
     notes:
-      - Fixed: 6 passed; deliberately restored original: 2 failed, 4 passed; restored fix: 6 passed.
+      - "Fixed: 6 passed; deliberately restored original: 2 failed, 4 passed; restored fix: 6 passed."
   - id: task-06
     title: '`python -m pytest tests/test_hypothesis_dependency_guidance.py -q` fails
       when the original runtime example is deliberately restored, and passes after
@@ -55,7 +55,7 @@ tasks:
     status: done
     started_at: '2026-10-11T19:50:00Z'
     finished_at: '2026-10-11T19:50:00Z'
-    commit: ''
+    commit: 97c4683d077399fc3aa56b2a68c61b39b1876cba
     notes: []
   - id: task-07
     title: '`.github/workflows/autofix-versions.env` retains unchanged tool pin lines
@@ -63,7 +63,7 @@ tasks:
     status: done
     started_at: '2026-10-11T19:50:00Z'
     finished_at: '2026-10-11T19:50:00Z'
-    commit: ''
+    commit: 97c4683d077399fc3aa56b2a68c61b39b1876cba
     notes:
       - Pin lines identical to origin/main; comment-only change.
   - id: task-08
@@ -72,5 +72,5 @@ tasks:
     status: done
     started_at: '2026-10-11T19:50:00Z'
     finished_at: '2026-10-11T19:50:00Z'
-    commit: ''
+    commit: 97c4683d077399fc3aa56b2a68c61b39b1876cba
     notes: []
