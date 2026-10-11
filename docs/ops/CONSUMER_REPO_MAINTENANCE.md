@@ -110,7 +110,7 @@ entry overflow and read/extraction failures remain actionable gaps alongside any
 complete siblings. The context records separate page, record, character, archive,
 entry, unsupported-payload and provenance counters and failure reasons.
 
-Expanded prompt allocation is 16,384 context, 65,536 diff and 131,072 evidence
+Expanded prompt allocation is 16,384 context, 1,048,576 diff and 131,072 evidence
 estimated tokens (four characters per allocation unit). The existing 8 MiB diff
 fetch and 300,000-character context-diff ceiling remain. These allocation units
 are **not model token counts**. Only for explicit expanded recovery, before each
