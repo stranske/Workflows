@@ -218,3 +218,17 @@ def test_missing_trust_boundary_is_insufficient() -> None:
     text = _context_block(_complete_coverage()).split("## CI Information")[0]
     assert parse_context_source_coverage(text) is None
     assert build_capture_obligation_manifest(text)["sufficient"] is False
+
+
+def test_loaded_diff_change_is_rejected_without_snapshot_rebinding(tmp_path):
+    from tools.verifier_capture_obligation_manifest import record_capture_obligations
+
+    context = tmp_path / "context.md"
+    context.write_text("context")
+    diff = tmp_path / "diff.patch"
+    diff.write_text("changed after load")
+    with pytest.raises(ValueError, match="loaded diff changed"):
+        record_capture_obligations(
+            context, context_text="context", diff_path=diff, diff_text="original loaded view"
+        )
+    assert not (tmp_path / "verifier-capture-obligation-manifest.json").exists()

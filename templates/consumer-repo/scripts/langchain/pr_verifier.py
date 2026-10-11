@@ -5831,12 +5831,17 @@ def main() -> None:
     parser.add_argument("--json", action="store_true", help="Emit JSON payload to stdout.")
     args = parser.parse_args()
 
-    diff = _load_text(args.diff_file) if args.diff_file else None
     if args.context_file:
         context_path = Path(args.context_file)
         try:
             context = _load_text(args.context_file)
-            record_capture_obligations(context_path, context_text=context)
+            diff = _load_text(args.diff_file) if args.diff_file else None
+            record_capture_obligations(
+                context_path,
+                context_text=context,
+                diff_path=Path(args.diff_file) if args.diff_file else None,
+                diff_text=diff,
+            )
         except (UnicodeDecodeError, json.JSONDecodeError, ValueError) as exc:
             failure = _capture_validation_failure_result(exc)
             if args.compare:
@@ -5862,6 +5867,7 @@ def main() -> None:
             return
     else:
         context = _load_text(None)
+        diff = _load_text(args.diff_file) if args.diff_file else None
     if args.compare:
         results = evaluate_pr_multiple(context, diff=diff, model1=args.model, model2=args.model2)
         report = format_comparison_report(results)

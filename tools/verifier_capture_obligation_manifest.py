@@ -217,7 +217,11 @@ def build_capture_obligation_manifest(
 
 
 def record_capture_obligations(
-    context_path: Path, *, context_text: str | None = None
+    context_path: Path,
+    *,
+    context_text: str | None = None,
+    diff_path: Path | None = None,
+    diff_text: str | None = None,
 ) -> dict[str, Any]:
     """Enrich a local input snapshot without rewriting any captured source bytes.
 
@@ -233,6 +237,13 @@ def record_capture_obligations(
         "\r", "\n"
     ):
         raise ValueError("loaded context changed before snapshot recording")
+    diff_bytes = diff_path.read_bytes() if diff_path is not None else None
+    if diff_bytes is not None:
+        captured_diff = diff_bytes.decode("utf-8")
+        if diff_text is not None and diff_text != captured_diff.replace("\r\n", "\n").replace(
+            "\r", "\n"
+        ):
+            raise ValueError("loaded diff changed before snapshot recording")
     manifest = build_capture_obligation_manifest(captured_text)
     snapshot_path = context_path.with_name("verifier-input-manifest.json")
     if snapshot_path.exists():
@@ -245,6 +256,11 @@ def record_capture_obligations(
             or snapshot.get("context_sha256") != hashlib.sha256(context_bytes).hexdigest()
         ):
             raise ValueError("context does not match the verifier input snapshot")
+        if (
+            diff_bytes is not None
+            and snapshot.get("diff_sha256") != hashlib.sha256(diff_bytes).hexdigest()
+        ):
+            raise ValueError("diff does not match the verifier input snapshot")
         if "capture_obligations" in snapshot and snapshot["capture_obligations"] != manifest:
             raise ValueError("capture obligations do not match the verifier input snapshot")
         snapshot["capture_obligations"] = manifest

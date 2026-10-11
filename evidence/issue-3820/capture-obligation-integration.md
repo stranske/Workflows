@@ -87,3 +87,16 @@ The canonical `.git` directory is mounted read-only; `git add` and `git commit`
 cannot write its index lock. The reviewed source patch is committed in a writable
 `/tmp` clone and exported as `/tmp/verifier-capture-obligation-integration.bundle`
 for import. The canonical working-tree edits remain present and uncommitted.
+
+
+## 2026-10-11 supplied raw diff binding
+
+The capture CLI now binds a supplied diff to the existing snapshot's raw
+`diff_sha256` before snapshot enrichment or provider evaluation. Missing or
+mismatched hashes reject the capture without rewriting context, diff or snapshot.
+The already loaded normalized text must also match the newly read raw diff;
+CRLF raw hashes remain exact while the evaluator sees its usual LF text.
+Invalid UTF-8 in the supplied diff uses the same structured FAIL boundary in
+evaluate and compare. This completes a bounded missing snapshot guard, not
+partition/reassembly or unavailable-proof recovery. Standard stdin evaluation
+and standalone context/diff without a snapshot retain existing behavior.

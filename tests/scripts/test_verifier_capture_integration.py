@@ -236,3 +236,76 @@ def test_cli_without_snapshot_emits_standalone_inventory(tmp_path, monkeypatch):
     manifest = json.loads((tmp_path / "verifier-capture-obligation-manifest.json").read_text())
     assert manifest == build_capture_obligation_manifest(context.read_text())
     assert manifest["sufficient"]
+
+
+@pytest.mark.parametrize("compare", [False, True])
+@pytest.mark.parametrize("defect", ["changed-bytes", "invalid-utf8", "missing-hash"])
+def test_snapshot_diff_binding_blocks_before_evaluation(
+    tmp_path, monkeypatch, capsys, compare, defect
+):
+    context, snapshot, metadata = _captured_snapshot(tmp_path)
+    diff = tmp_path / "verifier-pr-diff.patch"
+    raw = b"diff --git a/a.py b/a.py\r\n+value = 1\r\n"
+    diff.write_bytes(raw)
+    metadata["diff_sha256"] = hashlib.sha256(raw).hexdigest()
+    if defect == "changed-bytes":
+        diff.write_bytes(raw.replace(b"value = 1", b"value = 2"))
+    elif defect == "invalid-utf8":
+        diff.write_bytes(b"\xff\xfe")
+    else:
+        del metadata["diff_sha256"]
+    snapshot.write_text(json.dumps(metadata))
+    original_snapshot, original_context, original_diff = (
+        snapshot.read_bytes(),
+        context.read_bytes(),
+        diff.read_bytes(),
+    )
+    evaluate = mock.Mock(side_effect=AssertionError("provider evaluation must not run"))
+    monkeypatch.setattr(pr_verifier, "evaluate_pr", evaluate)
+    monkeypatch.setattr(pr_verifier, "evaluate_pr_multiple", evaluate)
+    monkeypatch.setattr(
+        sys,
+        "argv",
+        ["verifier", "--context-file", str(context), "--diff-file", str(diff), "--json"]
+        + (["--compare"] if compare else []),
+    )
+    pr_verifier.main()
+    payload = json.loads(capsys.readouterr().out)
+    result = payload["results"][0] if compare else payload
+    assert result["verdict"] == "FAIL"
+    assert result["used_llm"] is False
+    assert "diff" in result["error"].lower() or "utf-8" in result["error"].lower()
+    evaluate.assert_not_called()
+    assert (snapshot.read_bytes(), context.read_bytes(), diff.read_bytes()) == (
+        original_snapshot,
+        original_context,
+        original_diff,
+    )
+
+
+@pytest.mark.parametrize("compare", [False, True])
+def test_snapshot_diff_binding_preserves_raw_crlf_hash_and_loaded_view(
+    tmp_path, monkeypatch, compare
+):
+    context, snapshot, metadata = _captured_snapshot(tmp_path)
+    diff = tmp_path / "verifier-pr-diff.patch"
+    raw = b"diff --git a/a.py b/a.py\r\n+value = 1\r\n"
+    diff.write_bytes(raw)
+    metadata["diff_sha256"] = hashlib.sha256(raw).hexdigest()
+    snapshot.write_text(json.dumps(metadata))
+
+    def evaluate(_context, **kwargs):
+        assert kwargs["diff"] == raw.decode().replace("\r\n", "\n")
+        assert json.loads(snapshot.read_text())["diff_sha256"] == metadata["diff_sha256"]
+        result = pr_verifier.EvaluationResult(verdict="CONCERNS")
+        return [result] if compare else result
+
+    monkeypatch.setattr(pr_verifier, "evaluate_pr_multiple" if compare else "evaluate_pr", evaluate)
+    monkeypatch.setattr(
+        sys,
+        "argv",
+        ["verifier", "--context-file", str(context), "--diff-file", str(diff), "--json"]
+        + (["--compare"] if compare else []),
+    )
+    pr_verifier.main()
+    assert diff.read_bytes() == raw
