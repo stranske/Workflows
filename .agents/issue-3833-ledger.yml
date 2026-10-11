@@ -1,0 +1,76 @@
+version: 1
+issue: 3833
+base: main
+branch: codex/issue-3833
+tasks:
+  - id: task-01
+    title: Remove Hypothesis from the runtime example in `.github/workflows/autofix-versions.env:5`
+      while retaining PyYAML and Pydantic.
+    status: done
+    started_at: '2026-10-11T18:49:13Z'
+    finished_at: '2026-10-11T19:50:00Z'
+    commit: 97c4683d077399fc3aa56b2a68c61b39b1876cba
+    notes:
+      - Canonical and template copies now use Runtime dependencies (PyYAML, Pydantic).
+  - id: task-02
+    title: Add a test-dependency explanation for Hypothesis to `.github/workflows/autofix-versions.env`.
+    status: done
+    started_at: '2026-10-11T19:50:00Z'
+    finished_at: '2026-10-11T19:50:00Z'
+    commit: 97c4683d077399fc3aa56b2a68c61b39b1876cba
+    notes:
+      - "Added comment: Hypothesis is a test dependency and belongs in each consumer repo's test/dev extras."
+  - id: task-03
+    title: Create `tests/test_hypothesis_dependency_guidance.py` to reject Hypothesis
+      in the canonical runtime example.
+    status: done
+    started_at: '2026-10-11T18:49:13Z'
+    finished_at: '2026-10-11T19:50:00Z'
+    commit: 8da75a9d
+    notes:
+      - Regression exists and passes against the fixed guidance.
+  - id: task-04
+    title: Run `rg -n 'Runtime dependencies.*Hypothesis' .github templates docs` and
+      correct authoritative duplicate guidance if any; report inspected scope in the
+      PR.
+    status: done
+    started_at: '2026-10-11T19:50:00Z'
+    finished_at: '2026-10-11T19:50:00Z'
+    commit: 97c4683d077399fc3aa56b2a68c61b39b1876cba
+    notes:
+      - Inspected .github templates docs; corrected template copies; rg exit 1 (no matches).
+  - id: task-05
+    title: Run `python -m pytest tests/test_hypothesis_dependency_guidance.py -q`
+      against the old and fixed comment; retain both command results in the PR.
+    status: done
+    started_at: '2026-10-11T19:50:00Z'
+    finished_at: '2026-10-11T19:50:00Z'
+    commit: 97c4683d077399fc3aa56b2a68c61b39b1876cba
+    notes:
+      - "Fixed: 6 passed; deliberately restored original: 2 failed, 4 passed; restored fix: 6 passed."
+  - id: task-06
+    title: '`python -m pytest tests/test_hypothesis_dependency_guidance.py -q` fails
+      when the original runtime example is deliberately restored, and passes after
+      byte-identical restoration of the fix.'
+    status: done
+    started_at: '2026-10-11T19:50:00Z'
+    finished_at: '2026-10-11T19:50:00Z'
+    commit: 97c4683d077399fc3aa56b2a68c61b39b1876cba
+    notes: []
+  - id: task-07
+    title: '`.github/workflows/autofix-versions.env` retains unchanged tool pin lines
+      and PyYAML/Pydantic runtime examples; no lock or requirements behavior changes.'
+    status: done
+    started_at: '2026-10-11T19:50:00Z'
+    finished_at: '2026-10-11T19:50:00Z'
+    commit: 97c4683d077399fc3aa56b2a68c61b39b1876cba
+    notes:
+      - Pin lines identical to origin/main; comment-only change.
+  - id: task-08
+    title: '`rg -n ''Runtime dependencies.*Hypothesis'' .github templates docs` finds
+      no authoritative runtime example classifying Hypothesis as runtime.'
+    status: done
+    started_at: '2026-10-11T19:50:00Z'
+    finished_at: '2026-10-11T19:50:00Z'
+    commit: 97c4683d077399fc3aa56b2a68c61b39b1876cba
+    notes: []
