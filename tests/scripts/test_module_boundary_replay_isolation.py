@@ -1,13 +1,15 @@
 """A failed evidence replay must preserve concurrent caller edits."""
 
 import runpy
+import shlex
 import shutil
 from pathlib import Path
 
 import pytest
 
 
-def test_failed_replay_preserves_concurrent_caller_edit(tmp_path, monkeypatch):
+@pytest.mark.parametrize("relative_output", [False, True], ids=["absolute", "relative"])
+def test_failed_replay_preserves_concurrent_caller_edit(tmp_path, monkeypatch, relative_output):
     root = Path(__file__).resolve().parents[2]
     relative = Path("docs/evidence/issue-3743/module-boundaries/replay.py")
     replay = runpy.run_path(str(root / relative))
@@ -27,7 +29,10 @@ def test_failed_replay_preserves_concurrent_caller_edit(tmp_path, monkeypatch):
     concurrent = original + b"\n# concurrent caller edit\n"
     private_roots = []
 
-    def interrupted_run(argv, *, cwd, capture_output, timeout):
+    def interrupted_run(argv, *, cwd, env, capture_output, timeout):
+        assert all("proof with spaces" not in arg for arg in argv)
+        options = shlex.split(env["PYTEST_ADDOPTS"])
+        assert len(options) == 1 and options[0].startswith(f"--junitxml={output}/")
         private_roots.append(cwd)
         assert cwd != caller
         assert (cwd / "scripts/check_deliberate_break.py").read_bytes() != original
@@ -37,8 +42,13 @@ def test_failed_replay_preserves_concurrent_caller_edit(tmp_path, monkeypatch):
 
     monkeypatch.setitem(replay["main"].__globals__, "__file__", str(caller / relative))
     monkeypatch.setattr(replay["subprocess"], "run", interrupted_run)
-    output = tmp_path / "proof"
-    monkeypatch.setattr(replay["sys"], "argv", [str(relative), "--output", str(output)])
+    output = tmp_path / "proof with spaces"
+    monkeypatch.chdir(tmp_path)
+    monkeypatch.setattr(
+        replay["sys"],
+        "argv",
+        [str(relative), "--output", output.name if relative_output else str(output)],
+    )
     with pytest.raises(RuntimeError, match="simulated failed replay"):
         replay["main"]()
     assert source.read_bytes() == concurrent

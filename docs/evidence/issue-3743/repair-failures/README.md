@@ -181,3 +181,7 @@ unavailable, leaving remote checkbox updates and PR readiness verification open.
 The repository's `.git` directory is mounted read-only: staging fails when Git
 creates `index.lock`. A temporary local checkout provides the commit handoff;
 this runner cannot advance the active repository branch.
+
+## PR3832 review refresh
+
+The result and reporter-error scenarios now have separate named tests sharing setup; result-only assertions do not gate the reporter test. The first call still establishes the failed-repair state required for retry/non-caching. Current replay runs eight named root/consumer mutation pairs, including both reporter cases, with raw proof in ../replay-isolation/validation.tar.gz. Original validation.tar.gz and its recorded matched-suite counts remain historical and unchanged. Current bindings below identify the refreshed test/replay/README without relabeling old receipts.

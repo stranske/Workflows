@@ -3,6 +3,8 @@
 import argparse
 import hashlib
 import json
+import os
+import shlex
 import shutil
 import subprocess
 import sys
@@ -40,6 +42,7 @@ def main():
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--output", type=Path, required=True)
     args = parser.parse_args()
+    args.output = args.output.resolve()
     root = Path(__file__).resolve().parents[4]
     # Refuse existing paths before reading or mutating production sources.
     args.output.mkdir(parents=True, exist_ok=False)
@@ -89,16 +92,23 @@ def main():
                             "-q",
                             "-o",
                             "addopts=",
-                            f"--junitxml={args.output / (name + '-' + phase + '.xml')}",
                         ]
-                        # argv uses the running interpreter and a constant, checked-in test node.
-                        # No shell is used; output paths are individual argv operands.
-                        run = subprocess.run(  # nosemgrep: python.lang.security.audit.dangerous-subprocess-use-tainted-env-args.dangerous-subprocess-use-tainted-env-args
-                            argv, cwd=replay_root, capture_output=True, timeout=60
+                        # pytest parses this environment option with shlex. Keep
+                        # user-selected report paths out of executable argv.
+                        env = os.environ.copy()
+                        env["PYTEST_ADDOPTS"] = shlex.join(
+                            [f"--junitxml={args.output / (name + '-' + phase + '.xml')}"]
+                        )
+                        run = subprocess.run(
+                            argv, cwd=replay_root, env=env, capture_output=True, timeout=60
                         )
                         (args.output / f"{name}-{phase}.stdout").write_bytes(run.stdout)
                         (args.output / f"{name}-{phase}.stderr").write_bytes(run.stderr)
-                        row[phase] = {"argv": argv, "exit": run.returncode}
+                        row[phase] = {
+                            "argv": argv,
+                            "env": {"PYTEST_ADDOPTS": env["PYTEST_ADDOPTS"]},
+                            "exit": run.returncode,
+                        }
                 finally:
                     source.write_bytes(original)
                     row["restored_sha256"] = digest(source.read_bytes())

@@ -84,10 +84,17 @@ def test_repaired_runtime_preserves_a_later_real_launch_failure(
         assert helper["PYYAML_PROBE_SENTINEL"] in calls[1]["result"].stdout
 
 
-@pytest.mark.parametrize("reporter_fails", [False, True], ids=["result", "reporter-error"])
 def test_base_dependency_failure_keeps_its_cause_and_cleans_real_archive(
-    tmp_path, monkeypatch, helper, reporter_fails
+    tmp_path, monkeypatch, helper
 ):
+    _exercise_base_dependency_failure(tmp_path, monkeypatch, helper, reporter_fails=False)
+
+
+def test_base_dependency_reporter_error_propagates_after_cleanup(tmp_path, monkeypatch, helper):
+    _exercise_base_dependency_failure(tmp_path, monkeypatch, helper, reporter_fails=True)
+
+
+def _exercise_base_dependency_failure(tmp_path, monkeypatch, helper, *, reporter_fails):
     repo = tmp_path / "repo"
     repo.mkdir()
 
@@ -162,23 +169,23 @@ def test_base_dependency_failure_keeps_its_cause_and_cleans_real_archive(
 
     result = helper["verify_spec"](spec, base=base, cwd=repo, enforce_tamper=False)
 
-    assert result == {
-        "verdict": "FAIL_BROKEN",
-        "reason": "dependency-import-failed",
-        "detail": "private dependency repair failed",
-        "cause": "private wheel storage unavailable",
-    }
-    assert repairs == [True]
-    assert reported_errors == [dependency_error]
-    assert reported_errors[0] is dependency_error
-    assert dependency_error.__cause__ is cause
-    assert len(archives) == 1
-    assert launches == [(command, repo, 0), (command, archives[0], 1)]
-    assert not archives[0].exists()
-    assert (repo / "phase.txt").read_text() == "head"
-    assert (repo / "proof.txt").read_bytes() == b"updated candidate test overlay\n"
-
     if not reporter_fails:
+        assert result == {
+            "verdict": "FAIL_BROKEN",
+            "reason": "dependency-import-failed",
+            "detail": "private dependency repair failed",
+            "cause": "private wheel storage unavailable",
+        }
+        assert repairs == [True]
+        assert reported_errors == [dependency_error]
+        assert reported_errors[0] is dependency_error
+        assert dependency_error.__cause__ is cause
+        assert len(archives) == 1
+        assert launches == [(command, repo, 0), (command, archives[0], 1)]
+        assert not archives[0].exists()
+        assert (repo / "phase.txt").read_text() == "head"
+        assert (repo / "proof.txt").read_bytes() == b"updated candidate test overlay\n"
+
         return
 
     # A failed repair must not become a cached result for a later independent check.

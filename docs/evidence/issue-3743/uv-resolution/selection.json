@@ -65,7 +65,7 @@
     "tests/scripts/test_check_deliberate_break_runtime_probes.py": "7dd93ef4dfddc7aca89eb6e1e4b4448335a6a12025b8e2c4d887dc7460f54ebc",
     "tests/scripts/test_launch_mutation_driver.py": "835dd55ce8682f2ee6bfa532b342389066e066e8c9ca5e082688742509a5783f",
     "tests/scripts/test_runtime_probe_replay.py": "62656876543b4346f93035507a57371dddc88ac9952e280a46cf155267260bd1",
-    "tests/scripts/test_check_deliberate_break_repair_failures.py": "fcf9de0de74dcf5bcea0c51122637a69a1010c7aa1f315ff81c19c8aabd4f4d4",
+    "tests/scripts/test_check_deliberate_break_repair_failures.py": "63001d63a10e2a75449117ccd96410dedbc588d44d7c225154270f0a02e59233",
     "tests/scripts/test_check_deliberate_break_uv_resolution.py": "7a5ad7cee37549cbbdc4feac00f53e535e31f691d0dcc3f26268fd28d3bbf934",
     "scripts/check_deliberate_break.py": "cc97119ea26afec275be3c83d22bc75de0d452cd0f4764896cc9d037274ab25a",
     "templates/consumer-repo/scripts/check_deliberate_break.py": "cc97119ea26afec275be3c83d22bc75de0d452cd0f4764896cc9d037274ab25a"
@@ -85,6 +85,14 @@
       "current_sha256": "fcf9de0de74dcf5bcea0c51122637a69a1010c7aa1f315ff81c19c8aabd4f4d4",
       "source_head": "0226f2c5c6ed248ea583b138b64ad6a041192fe5",
       "reason": "PR3832 keepalive strengthened retry cleanup and review now independently collects reporter-error scenario; historical archives unchanged."
+    },
+    {
+      "at": "2026-10-11T13:15:00.025287+00:00",
+      "path": "tests/scripts/test_check_deliberate_break_repair_failures.py",
+      "previous_sha256": "fcf9de0de74dcf5bcea0c51122637a69a1010c7aa1f315ff81c19c8aabd4f4d4",
+      "current_sha256": "63001d63a10e2a75449117ccd96410dedbc588d44d7c225154270f0a02e59233",
+      "source_head": "ffb410423",
+      "reason": "Separate named reporter-error test shares setup but omits result-only assertions before its second call; original replay node compatibility restored."
     }
   ]
 }

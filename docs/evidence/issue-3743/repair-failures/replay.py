@@ -1,4 +1,4 @@
-"""Replay six production mutations in a private tree; never mutate caller files."""
+"""Replay eight production mutations in a private tree; never mutate caller files."""
 
 import argparse
 import hashlib
@@ -45,6 +45,8 @@ MUTATIONS = {
         '        return _json_result(VERDICT_PASS, reason="mutated-base-repair")',
     ),
 }
+
+MUTATIONS["reporter"] = MUTATIONS["base"]
 
 
 def digest(data):
@@ -96,11 +98,15 @@ def main():
             for kind, (before, after) in MUTATIONS.items():
                 case = output / f"{copy}-{kind}"
                 case.mkdir()
-                suffix = f"[{copy}]" if kind == "base" else f"[{copy}-{kind}]"
+                suffix = f"[{copy}]" if kind in {"base", "reporter"} else f"[{copy}-{kind}]"
                 name = (
-                    "test_base_dependency_failure_keeps_its_cause_and_cleans_real_archive"
-                    if kind == "base"
-                    else "test_repaired_runtime_preserves_a_later_real_launch_failure"
+                    "test_base_dependency_reporter_error_propagates_after_cleanup"
+                    if kind == "reporter"
+                    else (
+                        "test_base_dependency_failure_keeps_its_cause_and_cleans_real_archive"
+                        if kind == "base"
+                        else "test_repaired_runtime_preserves_a_later_real_launch_failure"
+                    )
                 )
                 node = f"{TEST}::{name}{suffix}"
                 text = original.decode("utf-8")
@@ -124,13 +130,13 @@ def main():
                         "green": green,
                     }
                 )
-    assert len(controls) == 6
+    assert len(controls) == 8
     assert identities == {path: digest((root / path).read_bytes()) for path in identities}
     (output / "controls.json").write_text(
         json.dumps({"caller_identity": identities, "controls": controls}, indent=2),
         encoding="utf-8",
     )
-    print("6 named production mutations RED; 6 exact restorations GREEN; caller bytes unchanged")
+    print("8 named production mutations RED; 8 exact restorations GREEN; caller bytes unchanged")
 
 
 if __name__ == "__main__":

@@ -1587,17 +1587,26 @@
     }
   },
   "current_files": {
-    "replay.py": "c878e46ae7f66afa0dc1debc66cd99be6e267606344a916895a1b5c8147502e2",
+    "replay.py": "0eef028a569793b833c58e164d9bce670df3cac82b9518865b852754a7a37114",
     "comparison.json": "3d3519136ea140880940b00f1f4b134ad933da692678d3f793fddfcbdf161d1b",
-    "README.md": "8f635378a47c89b0efcb4150a4b33235bba5d7c43eafcb057db0d60edc176b6e"
+    "README.md": "8fa07ec23dcf19f3b4cb63f7019ce32cb36a3c8b8463c7c861ef54ec62816626"
   },
   "test_file": {
     "path": "tests/scripts/test_check_deliberate_break_repair_failures.py",
-    "sha256": "f872ac2d5770638901f016242c90bf7c15913ec5c079cdeadd8997e58ff10ff2"
+    "sha256": "63001d63a10e2a75449117ccd96410dedbc588d44d7c225154270f0a02e59233"
   },
   "production_files": {
     "scripts/check_deliberate_break.py": "cc97119ea26afec275be3c83d22bc75de0d452cd0f4764896cc9d037274ab25a",
     "templates/consumer-repo/scripts/check_deliberate_break.py": "cc97119ea26afec275be3c83d22bc75de0d452cd0f4764896cc9d037274ab25a"
   },
-  "preserved_members": 285
+  "preserved_members": 285,
+  "historical_current_files": {
+    "replay.py": "c878e46ae7f66afa0dc1debc66cd99be6e267606344a916895a1b5c8147502e2",
+    "comparison.json": "3d3519136ea140880940b00f1f4b134ad933da692678d3f793fddfcbdf161d1b",
+    "README.md": "8f635378a47c89b0efcb4150a4b33235bba5d7c43eafcb057db0d60edc176b6e"
+  },
+  "historical_test_file": {
+    "path": "tests/scripts/test_check_deliberate_break_repair_failures.py",
+    "sha256": "f872ac2d5770638901f016242c90bf7c15913ec5c079cdeadd8997e58ff10ff2"
+  }
 }
