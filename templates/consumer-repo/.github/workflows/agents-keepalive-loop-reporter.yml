@@ -78,9 +78,7 @@ jobs:
                   (!Number.isSafeInteger(resolved) || resolved <= 0)) {
                 throw new Error('Reporter target did not resolve to a positive PR number');
               }
-<<<<<<< HEAD
               core.setOutput('outcome', result.status === 'skip' ? 'no-report-needed' : 'resolved');
-=======
               if (result.status === 'skip') {
                 // Say WHY, in the one place an operator looks. A silent skip and a skip that
                 // could not verify provenance are different facts; #3839 existed because the
@@ -96,7 +94,6 @@ jobs:
                     `(${context.payload.workflow_run.conclusion})\n`)
                   .write();
               }
->>>>>>> origin/main
               core.setOutput('skip', result.status === 'skip' ? 'true' : 'false');
               core.setOutput('lock_pr_number', resolved > 0 ? String(resolved) : '');
               core.setOutput('pr_number', result.targetSource === 'ordinary-run-name' ?

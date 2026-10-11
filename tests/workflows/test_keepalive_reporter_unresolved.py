@@ -16,7 +16,7 @@ REPORTERS = [
 HARNESS = r"""
 const fs = require('node:fs');
 const input = JSON.parse(fs.readFileSync(0, 'utf8'));
-const actual = require(process.cwd() + '/.github/scripts/keepalive_reporter_applicability.js');
+const actual = require(process.cwd() + '/' + input.helper);
 const events = [];
 const outputs = {};
 let summary = '';
@@ -24,6 +24,7 @@ const core = {
   setOutput: (key, value) => { outputs[key] = value; },
   setFailed: (message) => events.push(['failed', message, {...outputs}]),
   error: (message) => events.push(['error', message]),
+  notice: (message) => events.push(['notice', message]),
   summary: {
     addHeading(value) { summary += value + '\n'; return this; },
     addRaw(value) { summary += value; return this; },
@@ -78,7 +79,13 @@ def _resolve(path: Path, **scenario: object) -> dict:
     )
     result = subprocess.run(
         [node, "-e", HARNESS],
-        input=json.dumps({"script": script, **scenario}),
+        input=json.dumps(
+            {
+                "script": script,
+                "helper": str(path.parent.parent / "scripts/keepalive_reporter_applicability.js"),
+                **scenario,
+            }
+        ),
         cwd=ROOT,
         text=True,
         capture_output=True,
@@ -89,27 +96,21 @@ def _resolve(path: Path, **scenario: object) -> dict:
 
 @pytest.mark.parametrize("reporter", REPORTERS, ids=["root", "consumer"])
 @pytest.mark.parametrize("conclusion", ["failure", "cancelled", "timed_out"])
-def test_unassociated_workflow_run_reports_attributed_failure_before_failing(
+def test_unassociated_workflow_run_reports_skip_without_granting_authority(
     reporter: Path, conclusion: str
 ) -> None:
     result = _resolve(reporter, conclusion=conclusion)
-    events = result["events"]
-    assert [event[0] for event in events] == ["read-origin", "summary", "failed"]
-    summary = events[1][1]
-    assert "Repository: stranske/example" in summary
-    assert "Upstream run: 12345" in summary
-    assert "Attempt: 2" in summary
-    assert f"Conclusion: {conclusion}" in summary
-    assert "Head: " + "a" * 40 in summary
-    assert "Unassociated run has no verified dispatch classification" in summary
+    assert [event[0] for event in result["events"]] == ["read-origin", "notice", "summary"]
+    summary = result["events"][2][1]
+    assert "unassociated run has no verified dispatch classification" in summary
+    assert f"Upstream run: 12345 ({conclusion})" in summary
     assert result["outputs"] == {
-        "outcome": "unresolved",
-        "skip": "false",
+        "outcome": "no-report-needed",
+        "skip": "true",
         "lock_pr_number": "",
         "pr_number": "",
         "ordinary_target": "false",
     }
-    assert events[1][2] == events[2][2] == result["outputs"]
 
 
 @pytest.mark.parametrize("reporter", REPORTERS, ids=["root", "consumer"])
@@ -126,12 +127,12 @@ def test_unavailable_lookup_reports_without_guessing_a_target(reporter: Path) ->
 def test_summary_write_failure_keeps_both_diagnostic_and_resolution_errors(
     reporter: Path,
 ) -> None:
-    result = _resolve(reporter, summaryError=True)
-    assert [event[0] for event in result["events"]] == ["read-origin", "error", "failed"]
-    assert "summary storage unavailable" in result["events"][1][1]
-    assert "no verified dispatch classification" in result["events"][2][1]
+    result = _resolve(reporter, summaryError=True, lookupError="index unavailable")
+    assert [event[0] for event in result["events"]] == ["error", "failed"]
+    assert "summary storage unavailable" in result["events"][0][1]
+    assert "index unavailable" in result["events"][1][1]
     assert (
-        result["events"][2][2]
+        result["events"][1][2]
         == result["outputs"]
         == {
             "outcome": "unresolved",
@@ -163,7 +164,7 @@ def test_resolved_target_retains_pr_lock_without_unresolved_report(
 @pytest.mark.parametrize("reporter", REPORTERS, ids=["root", "consumer"])
 def test_no_report_needed_is_distinct_from_failed_resolution(reporter: Path) -> None:
     result = _resolve(reporter, skip=True)
-    assert result["events"] == []
+    assert [event[0] for event in result["events"]] == ["notice", "summary"]
     assert result["outputs"]["outcome"] == "no-report-needed"
     assert result["outputs"]["skip"] == "true"
 
@@ -232,24 +233,15 @@ def test_unverified_origin_title_cannot_authorize_a_pr_lock(reporter: Path, mism
         **mismatch,
     }
     result = _resolve(reporter, origin=origin)
-    assert [event[0] for event in result["events"]] == ["read-origin", "summary", "failed"]
-    summary = result["events"][1][1]
-    assert "Upstream run: 12345" in summary
-    assert "Attempt: 2" in summary
-    assert "Head: " + "a" * 40 in summary
-    assert "Unassociated run has no verified dispatch classification" in summary
-    assert (
-        result["events"][1][2]
-        == result["events"][2][2]
-        == result["outputs"]
-        == {
-            "outcome": "unresolved",
-            "skip": "false",
-            "lock_pr_number": "",
-            "pr_number": "",
-            "ordinary_target": "false",
-        }
-    )
+    assert [event[0] for event in result["events"]] == ["read-origin", "notice", "summary"]
+    assert "unassociated run has no verified dispatch classification" in result["events"][2][1]
+    assert result["outputs"] == {
+        "outcome": "no-report-needed",
+        "skip": "true",
+        "lock_pr_number": "",
+        "pr_number": "",
+        "ordinary_target": "false",
+    }
 
 
 @pytest.mark.parametrize("reporter", REPORTERS, ids=["root", "consumer"])
