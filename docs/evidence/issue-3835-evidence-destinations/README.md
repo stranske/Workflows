@@ -70,12 +70,30 @@ repository-wide default addopts; it does not narrow the two selected modules.
 
 `raw-validation.tar.gz` retains the initial RED/fixed GREEN, interrupted serial
 run, complete four-worker run, and independent reversal/restoration receipts.
-`manifest.json` binds every archive member plus the archive and five current
+`manifest.json` binds every archive member plus the archive and five initial
 code/test/replay inputs by SHA256. Extract into a fresh directory and verify
-member hashes before reuse.
+member hashes before reuse. The five input hashes describe the initial
+implementation; subsequent test extensions have their own receipts below.
 
 These results prove the named grammar and deterministic coverage-floor behavior
 in the local two-module gate. They do not establish native provider acceptance,
 complete campaign/capture partitioning, downstream generated-consumer rollout,
 whole-repository coverage, or hosted runtime parity. Workflows #3820/#3831 and
 the ordinary source-to-consumer promotion/reconciliation remain separate owners.
+
+## Follow-up acceptance checks
+
+The follow-up adds floor checks for coverage-report artifact delivery, inline
+review comments, checked validation-output items and validation results. Each
+named channel is tested as present, absent and unavailable with the PR body
+present. Exempt negative/optional/product/literal clauses are also paired with
+an independent mandatory artifact delivery, and shared operation aliases are
+checked through the actual artifact floor.
+
+`followup-validation.json` records the current input hashes, commands and
+results. `followup-validation.tar.gz` retains the focused gate, targeted
+coverage, full gate and each independent RED/GREEN replay's raw outputs and
+receipts. The original archive and manifest remain historical evidence.
+The formatter cache is populated by serial Black CLI checks before the required
+whole-repository check; concurrent formatter workers stall in this sandbox.
+The serial bootstrap and both formatter logs are retained in the follow-up archive.

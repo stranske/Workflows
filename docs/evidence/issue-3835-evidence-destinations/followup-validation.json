@@ -1,0 +1,86 @@
+{
+  "runtime": "3.14.8",
+  "source_commit": "85f990cfcac9d44d537d35a4e14eadeda5183a42",
+  "inputs": {
+    "scripts/langchain/pr_verifier.py": "a743cbfed0bdd653a2a33ee3061650b75175d84ded1031604908343c12fc9c53",
+    "templates/consumer-repo/scripts/langchain/pr_verifier.py": "a743cbfed0bdd653a2a33ee3061650b75175d84ded1031604908343c12fc9c53",
+    "tests/scripts/test_pr_verifier_delivery_destinations.py": "f5a06bc78e6c0b19bd54c1d64f25cf69b7dc420fe181db10e9b191d39f9a8eaf",
+    "tests/scripts/test_pr_verifier_prompt_coverage.py": "a741aecc362a0a78adc937e5bde86bd3b091802c80f7334ce3458728fb36c83a",
+    "docs/evidence/issue-3835-evidence-destinations/replay.py": "cc20f7e1d91ec0481938d0c8e2af48a44631f6f7596173081689a881908ffcd4"
+  },
+  "archive_sha256": "2439cfc134d0ec0e9b71966c93f2c80577e9051276194e3eba8625d0481a110f",
+  "members": {
+    "black-serial.log": "1c13df3b5da6692a01cffaac7ef7faef7ee2afb1121e82f814b41522952b7f8a",
+    "black-serial.py": "228c14f5e458a8025fc34c73894a5b2f78c128bfcecdd74bc0c9ad0975431ed3",
+    "black.log": "c08924d8f62f9853a06fd3f90984a1b529d59c35b916b27ef75c225bf70815b8",
+    "coverage.log": "20db9c8ed433de8cc67f974ec0c9c9096dec138578f3cf1cc4fdc84ea1b2964d",
+    "focused.log": "fb3e7bd3234147aab7a1b964af8a1a60bf03f2917d0a55dc5dd9d030b9e0f660",
+    "focused.xml": "36b8713d44a6173008f7930039b5d358dfceee1af1f5e2b8f80575b585dd4611",
+    "full.log": "6553892a4ba36458eeb0a55cedcc9ad4dd4d80cee911d3fcdd6bab3da5873317",
+    "sync.log": "71564ccfdf82e9cd8a40a0f0ea44501dd062ff98be0f8a4de455e31a3da36874",
+    "templates.log": "571919c147488c55064046a0c64cf3a5919172b39a3d890dbad258b6d65c1018",
+    "three-rule-proof/artifact-green.stderr": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+    "three-rule-proof/artifact-green.stdout": "511a5eeb72084e8d482061e851ff4d8dc5591e1a8fca8df29fb02260bf331bdd",
+    "three-rule-proof/artifact-green.xml": "aa4d3be175a4feca8c741408de9e0604b40f49fbfc5fc918068cbc7dbd91c3f3",
+    "three-rule-proof/artifact-red.stderr": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+    "three-rule-proof/artifact-red.stdout": "35530979247479c77af4463d7e8827b1607e49f7a1f0c79d1c0e7d588f203230",
+    "three-rule-proof/artifact-red.xml": "5a9715bd200cdc6969858658af3ef6e859deb601d1055f0feaa25c5dea3307d8",
+    "three-rule-proof/manifest.json": "3d6b00edb05d60796ac1b243f0210a7bee6c092807797c2357b7f1813d720e04",
+    "three-rule-proof/receipts.json": "b8ce2e2d2de30ae68ba311f524044163bd2238c4e7ccfba755c240788afea2f9",
+    "three-rule-proof/review_comment-green.stderr": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+    "three-rule-proof/review_comment-green.stdout": "cc91cf395f56e35e26d3c20e01b5d6891a2c236e76554c13aa2f2a68f44427c4",
+    "three-rule-proof/review_comment-green.xml": "efcd083f050d7b0a8479e2de3d7384e69da6793c91676935df15149636d4f0d3",
+    "three-rule-proof/review_comment-red.stderr": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+    "three-rule-proof/review_comment-red.stdout": "9b92874f9f46a3f28a6fdd46d0e9dc5d352cea9b4f08b64346e9a5ece875602f",
+    "three-rule-proof/review_comment-red.xml": "b26dd0c3ad37985cc49bd3b98bb23272bb1c8dec1e6c08e8336a7a56cde7fc64",
+    "three-rule-proof/validation_output-green.stderr": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+    "three-rule-proof/validation_output-green.stdout": "952b69fe8c1ef7ae5bb0ee4a638633b5edb3ed88acb723c34beeeb117e382323",
+    "three-rule-proof/validation_output-green.xml": "eb0824a432931922e2927149b45a46cd24cfb103dafafb5e44e71a8f3c5fce88",
+    "three-rule-proof/validation_output-red.stderr": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+    "three-rule-proof/validation_output-red.stdout": "69080c62db6d116bd49f3fdf51829ff230b6d225f9349c9d103bb2ba2c117a86",
+    "three-rule-proof/validation_output-red.xml": "91929b10d34c966b5ccadabbcc91938cce081b41c7262e6bcf5f038fd1880294"
+  },
+  "focused_gate": {
+    "command": "python -m pytest tests/scripts/test_pr_verifier_delivery_destinations.py tests/scripts/test_pr_verifier_prompt_coverage.py -k issue3835 -q -m 'not slow' --junitxml=/tmp/issue3835-focused.xml",
+    "exit": 0,
+    "tests": 66,
+    "failures": 0,
+    "errors": 0,
+    "skipped": 0
+  },
+  "full_gate": {
+    "command": "python -m pytest tests/scripts/test_pr_verifier_delivery_destinations.py tests/scripts/test_pr_verifier_prompt_coverage.py -q -m 'not slow' -n 4 --junitxml=/tmp/issue3835-full.xml",
+    "exit": 0,
+    "tests": 92860,
+    "failures": 0,
+    "errors": 0,
+    "skipped": 0
+  },
+  "targeted_coverage": {
+    "command": "python -m pytest tests/scripts/test_pr_verifier_delivery_destinations.py tests/scripts/test_pr_verifier_prompt_coverage.py -k issue3835 -q -m 'not slow' --cov=scripts.langchain.pr_verifier --cov-report=term-missing --cov-report=json:/tmp/issue3835-coverage.json",
+    "exit": 0,
+    "module": "scripts/langchain/pr_verifier.py",
+    "cover_percent": "43.95",
+    "percentage_target": null
+  },
+  "independent_replay": {
+    "command": "PYTEST_ADDOPTS='-m \"not slow\"' python docs/evidence/issue-3835-evidence-destinations/replay.py --output /tmp/issue3835-followup-replay",
+    "exit": 0,
+    "rules": 3,
+    "failures_per_red": 3,
+    "passes_per_green": 3
+  },
+  "formatting": {
+    "command": "BLACK_CACHE_DIR=/tmp/issue3835-black-cache BLACK_NUM_WORKERS=1 black --check --line-length 100 --exclude '(\\.workflows-lib|node_modules)' .",
+    "exit": 0
+  },
+  "sync_tests": {
+    "command": "python -m pytest tests/scripts/test_pr_verifier_sync_manifest.py tests/scripts/test_sync_manifest_docs.py -q -m 'not slow'",
+    "exit": 0,
+    "passed": 24
+  },
+  "template_validation": {
+    "command": "GITHUB_STEP_SUMMARY=/tmp/issue3835-template-summary.md python scripts/validate_template_completeness.py",
+    "exit": 0
+  }
+}

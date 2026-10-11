@@ -5078,9 +5078,11 @@ def test_qualified_common_proof_modifier_tokens_are_not_governor_prefixes(
         ("Upload the coverage report as an artifact", "artifacts"),
         ("Publish validation output as a workflow artifact", "artifacts"),
         ("Evidence must be posted in a PR review comment", "comments"),
+        ("Evidence must be posted in a PR inline review comment", "comments"),
         ("Evidence must be posted in an inline review comment", "comments"),
         ("Evidence must be posted in a pull request review comment", "comments"),
         ("- [ ] Validation output in a PR comment", "comments"),
+        ("- [x] Validation output in a PR comment", "comments"),
         ("- [ ] Validation results in a PR review comment", "comments"),
     ],
 )
@@ -5107,9 +5109,31 @@ def test_issue3835_delivery_destinations(criterion, channel):
         'The parser recognizes "- [ ] Validation output in a PR comment"',
     ],
 )
-def test_issue3835_nongating_controls(criterion):
-    assert verifier._required_evidence_channels(criterion) == set()
-    assert verifier._required_evidence_options(criterion) == [set()]
+@pytest.mark.parametrize("independent", [False, True])
+def test_issue3835_nongating_controls(criterion, independent):
+    """Exempt clauses cannot erase a separately governed artifact obligation."""
+    expected = set()
+    if independent:
+        criterion += "; the reviewer must attach evidence as an artifact"
+        expected.add("artifacts")
+    assert verifier._required_evidence_channels(criterion) == expected
+    assert verifier._required_evidence_options(criterion) == [expected]
+    assert _floor_verdict(criterion, body="present", comments="present", artifacts="absent") == (
+        "CONCERNS" if independent else "PASS"
+    )
+
+
+@pytest.mark.parametrize(
+    "operation", ["Attach", "Upload", "Publish", "Record", "Provide", "Share", "Submit", "Deliver"]
+)
+def test_issue3835_as_artifact_reuses_shared_delivery_operations(operation):
+    """Canonical delivery operations and their aliases retain the artifact floor."""
+    criterion = f"{operation} evidence as an artifact"
+    assert verifier._required_evidence_channels(criterion) == {"artifacts"}
+    assert verifier._required_evidence_options(criterion) == [{"artifacts"}]
+    assert _floor_verdict(criterion, body="present", comments="present", artifacts="absent") == (
+        "CONCERNS"
+    )
 
 
 def test_issue3835_review_comment_alternative_keeps_shared_options():
