@@ -313,3 +313,59 @@ def test_blocked_plan_accounts_for_every_captured_range(recovery, monkeypatch, d
         assert plan["pending_ranges"][0] == attempt
     else:
         assert plan["planning_attempts"][-1]["capacity"]["status"] == "overflow"
+
+
+@pytest.mark.parametrize("defect", ["bytes", "capture-gap"])
+def test_early_blocked_plan_retains_full_input_identity(recovery, monkeypatch, defect):
+    client, _, _, counter, context = recovery
+    diff = "diff --git a/a.py b/a.py\r\n+🧪 café\r\n"
+    if defect == "bytes":
+        monkeypatch.setattr(pr_verifier, "PARTITION_MAX_CAPTURE_BYTES", 10)
+    else:
+        context = context.replace('"status": "included"', '"status": "truncated"', 1)
+    with pytest.raises(pr_verifier.InputCapacityError) as failure:
+        pr_verifier._plan_diagnostic_partitions(client, context, diff)
+    counter.assert_not_called()
+    plan = failure.value.receipt
+    assert plan and plan["status"] == "blocked"
+    assert plan["acceptance_sufficient"] is False
+    assert plan["planning_preflights"] == 0
+    assert plan["ranges"] == [] and plan["results"] == []
+    assert plan["planning_failure"]["reason"] == str(failure.value)
+    for name, source in {"context": context, "diff": diff}.items():
+        row = next(row for row in plan["pending_ranges"] if row["input"] == name)
+        assert (row["start"], row["end"]) == (0, len(source))
+        assert row["sha256"] == hashlib.sha256(source.encode()).hexdigest()
+        identity = next(row for row in plan["inputs"] if row["input"] == name)
+        assert identity["bytes"] == len(source.encode())
+        assert identity["sha256"] == row["sha256"]
+    if defect == "capture-gap":
+        assert plan["capture_obligations"]["sufficient"] is False
+        assert plan["capture_obligations"]["gaps"]
+
+
+@pytest.mark.parametrize("operation", ["evaluate", "compare"])
+def test_early_blocked_recovery_preserves_overflow_and_pending_inputs(
+    recovery, monkeypatch, operation
+):
+    client, _, _, counter, context = recovery
+    monkeypatch.setattr(pr_verifier, "PARTITION_MAX_CAPTURE_BYTES", 10)
+    with mock.patch.object(type(client), "invoke") as invoke:
+        result = _run(recovery, operation)
+    invoke.assert_not_called()
+    assert counter.call_count == 1  # Only the original whole-request preflight.
+    assert result.verdict == "CONCERNS" and not result.used_llm
+    plan = result.partition_recovery
+    assert plan["status"] == "blocked" and not plan["acceptance_sufficient"]
+    assert plan["overflow"]["status"] == "overflow"
+    assert plan["overflow"]["request_sha256"]
+    assert plan["pending_ranges"] == [
+        {
+            "input": "context",
+            "start": 0,
+            "end": len(context),
+            "sha256": hashlib.sha256(context.encode()).hexdigest(),
+        }
+    ]
+    assert plan["planning_preflights"] == 0
+    assert result.error == "diagnostic capture byte bound exceeded"

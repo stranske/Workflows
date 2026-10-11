@@ -2617,3 +2617,14 @@ runtime exports and licenses, and update the source and consumer template trees
 together before Maint 68/71 delivery. The current patched chain is minimatch
 10.2.6, brace-expansion 5.0.12 and balanced-match 4.0.4. Brace-expansion requires
 Node 20 or >=22; the current Actions runtime supports that floor, not Node 18.
+
+### Diagnostic partition admission failures
+
+An expanded diagnostic recovery rejected at its initial byte or capture-gap
+check retains a compact blocked receipt: loaded-input UTF-8 hashes and byte
+counts, pending character ranges, the failure reason, and zero planning counts.
+Capture-gap failures also retain the original obligation manifest. This avoids
+losing input identity before detailed partition planning starts; it does not
+raise the 8 MiB diagnostic bound, recover missing proof, establish semantic
+independence, or permit PASS. Evaluate and compare retain the original native
+overflow receipt alongside this admission failure without invoking generation.

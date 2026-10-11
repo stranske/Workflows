@@ -5074,14 +5074,49 @@ def _plan_diagnostic_partitions(
     inputs = {"context": context}
     if diff is not None:
         inputs["diff"] = diff
-    if sum(len(value) for value in inputs.values()) > PARTITION_MAX_CAPTURE_BYTES:
-        raise InputCapacityError("diagnostic capture byte bound exceeded")
-    raw = {name: value.encode("utf-8") for name, value in inputs.items()}
-    if sum(map(len, raw.values())) > PARTITION_MAX_CAPTURE_BYTES:
-        raise InputCapacityError("diagnostic capture byte bound exceeded")
+    # Identity accounting must survive admission failure. Keep this early
+    # receipt compact: one whole-input hash/range, without copying input text or
+    # building the potentially oversized fine-grained byte inventory.
+    identities = [
+        {
+            "input": name,
+            "bytes": len(value.encode("utf-8")),
+            "sha256": hashlib.sha256(value.encode("utf-8")).hexdigest(),
+        }
+        for name, value in inputs.items()
+    ]
+    early_plan: dict[str, Any] = {
+        "schema": "workflows-verifier-diagnostic-partitions/v1",
+        "binding_scope": "loaded-evaluation-inputs",
+        "status": "blocked",
+        "acceptance_sufficient": False,
+        "inputs": identities,
+        "ranges": [],
+        "results": [],
+        "planning_preflights": 0,
+        "planning_attempts": [],
+        "pending_ranges": [
+            {
+                "input": row["input"],
+                "start": 0,
+                "end": len(inputs[row["input"]]),
+                "sha256": row["sha256"],
+            }
+            for row in identities
+            if inputs[row["input"]]
+        ],
+    }
+    if sum(row["bytes"] for row in identities) > PARTITION_MAX_CAPTURE_BYTES:
+        reason = "diagnostic capture byte bound exceeded"
+        early_plan["planning_failure"] = {"reason": reason, "range": None}
+        raise InputCapacityError(reason, receipt=early_plan)
     manifest = build_capture_obligation_manifest(context)
     if not manifest["sufficient"]:
-        raise InputCapacityError("diagnostic capture obligation gaps")
+        reason = "diagnostic capture obligation gaps"
+        early_plan["capture_obligations"] = manifest
+        early_plan["planning_failure"] = {"reason": reason, "range": None}
+        raise InputCapacityError(reason, receipt=early_plan)
+    raw = {name: value.encode("utf-8") for name, value in inputs.items()}
     inventory = build_capture_byte_inventory(raw)
     contract = build_capture_reassembly_contract(manifest, inventory)
     plan: dict[str, Any] = {
