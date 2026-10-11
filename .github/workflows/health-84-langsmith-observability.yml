@@ -89,9 +89,12 @@ jobs:
             --failure-threshold 2 \
             --json-output .observability-health/report.json \
             --markdown-output .observability-health/report.md; then
-            cat > .observability-health/report.json <<'EOF'
+            missing_key=false
+            if [ -z "${LANGSMITH_API_KEY:-}" ]; then missing_key=true; fi
+            cat > .observability-health/report.json <<EOF
           {
             "schema_version": "langsmith-observability-health/v1",
+            "human_attention_required": ${missing_key},
             "status": "degraded",
             "components": [{
               "name": "sentinel_execution",

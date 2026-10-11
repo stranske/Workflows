@@ -110,3 +110,25 @@ test('ref-qualified workflow paths still require an exact trusted filename', asy
     assert.equal(await findFleetArtifact(f.options), null, path);
   }
 });
+
+for (const succeeds of [false, true]) {
+  test(`workflow retries count actual requests (success=${succeeds})`, async () => {
+    let runCalls = 0;
+    const f = fixture(async p => ({data:{total_count:p.name?0:1,
+      artifacts:p.name?[]:[item(1,{name:'legacy-'+name,workflow_run:{id:1}})]}}), async () => {
+      runCalls += 1;
+      if (!succeeds || runCalls < 2) throw Object.assign(new Error('503'),{status:503});
+      return {data:{path:'trusted.yml'}};
+    });
+    f.options.withRetry = async (fn, {maxRetries}) => {
+      for (let attempt=0;;attempt++) {
+        try { return await fn(); } catch (error) {
+          if (attempt >= maxRetries || error.status !== 503) throw error;
+        }
+      }
+    };
+    if (succeeds) assert.equal((await findFleetArtifact({...f.options,maxRequests:4})).id,1);
+    else await assert.rejects(findFleetArtifact({...f.options,maxRequests:3}),/UNKNOWN|503/);
+    assert.ok(f.calls.length + runCalls <= (succeeds?4:3), 'actual network attempts exceed cap');
+  });
+}

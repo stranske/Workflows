@@ -86,3 +86,31 @@ def test_health_issue_labels_follow_actual_remediation_owner(tmp_path, status, h
     assert added_human is (status == "degraded" and human)
     if status == "degraded" and not human:
         assert any("--remove-label" in c and "needs-human" in c for c in commands)
+
+
+@pytest.mark.parametrize("key", ["", "test-key"])
+def test_evaluator_failure_preserves_missing_key_ownership(tmp_path, key):
+    steps = yaml.safe_load(WORKFLOW.read_text())["jobs"]["health"]["steps"]
+    script = next(s["run"] for s in steps if s["name"] == "Evaluate observability health")
+    (tmp_path / ".observability-health").mkdir()
+    stub = tmp_path / "python"
+    stub.write_text("#!/bin/sh\nexit 1\n")
+    stub.chmod(0o755)
+    proc = subprocess.run(
+        ["bash", "-c", script],
+        cwd=tmp_path,
+        capture_output=True,
+        text=True,
+        env={
+            **os.environ,
+            "PATH": str(tmp_path) + os.pathsep + os.environ["PATH"],
+            "LANGSMITH_API_KEY": key,
+            "WORKFLOW_MAX_AGE_HOURS": "192",
+            "TRACE_MAX_AGE_HOURS": "24",
+            "GITHUB_ENV": str(tmp_path / "env"),
+            "GITHUB_STEP_SUMMARY": str(tmp_path / "summary"),
+        },
+    )
+    assert proc.returncode == 0, proc.stdout + proc.stderr
+    report = json.loads((tmp_path / ".observability-health/report.json").read_text())
+    assert report["human_attention_required"] is (not bool(key))

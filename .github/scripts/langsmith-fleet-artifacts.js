@@ -6,17 +6,21 @@ async function findFleetArtifact({ github, core, withRetry = defaultRetry, owner
   trustedWorkflowPaths, maxRequests = 30 }) {
   let requests = 0;
   const runCache = new Map();
+  async function request(operation) {
+    if (requests >= maxRequests) throw new Error(`Artifact discovery search limit reached for ${owner}/${repo}; result UNKNOWN`);
+    requests += 1;
+    return operation();
+  }
   async function search(exact) {
     let pageSize = 30;
     let offset = 0;
     while (requests < maxRequests) {
-      requests += 1;
       let response;
       try {
-        response = await withRetry(() => github.rest.actions.listArtifactsForRepo({
+        response = await withRetry(() => request(() => github.rest.actions.listArtifactsForRepo({
           owner, repo, per_page: pageSize, page: offset / pageSize + 1,
           ...(exact ? { name } : {}),
-        }), { maxRetries: 0 });
+        })), { maxRetries: 0 });
       } catch (error) {
         if (![500, 502, 503, 504].includes(Number(error.status)) || pageSize === 1) {
           throw error;
@@ -37,10 +41,9 @@ async function findFleetArtifact({ github, core, withRetry = defaultRetry, owner
         if (!runId) continue;
         if (!runCache.has(runId)) {
           if (requests >= maxRequests) throw new Error(`Artifact discovery search limit reached for ${owner}/${repo}; result UNKNOWN`);
-          requests += 1;
-          const run = await withRetry(() => github.rest.actions.getWorkflowRun({
+          const run = await withRetry(() => request(() => github.rest.actions.getWorkflowRun({
             owner, repo, run_id: runId,
-          }), { maxRetries: 2 });
+          })), { maxRetries: Math.min(2, maxRequests - requests - 1) });
           // Workflow-run paths may include a ref; trust the filename, not that ref.
           const workflowPath = run.data.path;
           const refIndex = typeof workflowPath === 'string' ? workflowPath.lastIndexOf('@') : -1;
