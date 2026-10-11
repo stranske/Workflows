@@ -3593,8 +3593,8 @@ test('bounded listing page exhaustion never becomes complete or absent', async (
               extractArtifactText: () => ({text: 'retained first-page finding', truncated: false})});
             assert.equal(result.artifacts.status, 'unavailable', `${name}/${kind}`);
             assert.ok(result.diagnostics.failures.some(f => f.kind === `${kind}_page`), `${name}/${kind}`);
-            assert.equal(calls.filter(call => kind === 'run' ? call.startsWith('runs:') : call.startsWith('artifacts:2:')).length, 1);
-            if (kind === 'artifact') assert.equal(result.artifacts.records[0].text, 'retained first-page finding');
+            assert.equal(calls.filter(call => kind === 'run' ? call.startsWith('runs:') : call.startsWith('artifacts:2:')).length, 1, `${name}/${kind}`);
+            if (kind === 'artifact') assert.equal(result.artifacts.records[0].text, 'retained first-page finding', `${name}/${kind}`);
           }
         });
       }

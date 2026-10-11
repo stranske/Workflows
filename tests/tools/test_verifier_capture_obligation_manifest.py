@@ -2,8 +2,10 @@
 
 from __future__ import annotations
 
+import copy
 import json
 
+import pytest
 from tools.verifier_capture_obligation_manifest import (
     SCHEMA,
     build_capture_obligation_manifest,
@@ -12,7 +14,11 @@ from tools.verifier_capture_obligation_manifest import (
 
 
 def _context_block(coverage: dict) -> str:
-    return "## Context source coverage\n\n```json\n" + json.dumps(coverage) + "\n```\n\n## CI Information\n"
+    return (
+        "## Context source coverage\n\n```json\n"
+        + json.dumps(coverage)
+        + "\n```\n\n## CI Information\n"
+    )
 
 
 def test_parse_context_source_coverage_extracts_json_block() -> None:
@@ -24,6 +30,10 @@ def test_parse_context_source_coverage_extracts_json_block() -> None:
 def test_manifest_marks_truncated_changed_code_insufficient() -> None:
     coverage = {
         "schema": "verifier-context-source-coverage/v1",
+        "stage": "generated-context",
+        "acceptance_sources": [
+            {"source": "issue:3820", "status": "included", "included_chars": 12, "total_chars": 12}
+        ],
         "changed_code_sources": [
             {
                 "source": "src/a.py",
@@ -33,7 +43,11 @@ def test_manifest_marks_truncated_changed_code_insufficient() -> None:
             }
         ],
         "acceptance_evidence_sources": [],
-        "full_diff_artifact": {"source": "verifier-pr-diff.patch", "chars": 100, "status": "included"},
+        "full_diff_artifact": {
+            "source": "verifier-pr-diff.patch",
+            "chars": 100,
+            "status": "included",
+        },
     }
     manifest = build_capture_obligation_manifest(_context_block(coverage))
     assert manifest["schema"] == SCHEMA
@@ -44,6 +58,10 @@ def test_manifest_marks_truncated_changed_code_insufficient() -> None:
 def test_manifest_passes_when_all_required_sources_included() -> None:
     coverage = {
         "schema": "verifier-context-source-coverage/v1",
+        "stage": "generated-context",
+        "acceptance_sources": [
+            {"source": "issue:3820", "status": "included", "included_chars": 12, "total_chars": 12}
+        ],
         "acceptance_source_discovery": {"required": True, "status": "included"},
         "changed_code_sources": [
             {"source": "src/a.py", "status": "included", "included_chars": 100, "total_chars": 100}
@@ -51,8 +69,152 @@ def test_manifest_passes_when_all_required_sources_included() -> None:
         "acceptance_evidence_sources": [
             {"source": "comments", "status": "included", "included_chars": 50, "total_chars": 50}
         ],
-        "full_diff_artifact": {"source": "verifier-pr-diff.patch", "chars": 100, "status": "included"},
+        "full_diff_artifact": {
+            "source": "verifier-pr-diff.patch",
+            "chars": 100,
+            "status": "included",
+        },
     }
     manifest = build_capture_obligation_manifest(_context_block(coverage))
     assert manifest["sufficient"] is True
     assert manifest["gaps"] == []
+
+
+def _complete_coverage() -> dict:
+    return {
+        "schema": "verifier-context-source-coverage/v1",
+        "stage": "generated-context",
+        "changed_code_sources": [
+            {"source": "a.py", "status": "included", "included_chars": 10, "total_chars": 10}
+        ],
+        "acceptance_sources": [
+            {"source": "issue:3820", "status": "included", "included_chars": 10, "total_chars": 10}
+        ],
+        "acceptance_evidence_sources": [],
+        "full_diff_artifact": {
+            "source": "verifier-pr-diff.patch",
+            "chars": 10,
+            "status": "included",
+        },
+    }
+
+
+def test_real_builder_prose_is_parsed() -> None:
+    coverage = _complete_coverage()
+    text = _context_block(coverage).replace(
+        "## Context source coverage\n\n",
+        "## Context source coverage\n\nComputed before model invocation. Status and character counts describe sources retained in this generated context.\n\n",
+    )
+    assert parse_context_source_coverage(text) == coverage
+    assert build_capture_obligation_manifest(text)["sufficient"] is True
+
+
+@pytest.mark.parametrize("prefix", ["## CI Information\n", "#", "quoted: "])
+def test_untrusted_or_unanchored_inventory_is_rejected(prefix: str) -> None:
+    text = prefix + _context_block(_complete_coverage())
+    assert parse_context_source_coverage(text) is None
+    assert build_capture_obligation_manifest(text)["sufficient"] is False
+
+
+@pytest.mark.parametrize(
+    "field",
+    [
+        "schema",
+        "stage",
+        "changed_code_sources",
+        "acceptance_sources",
+        "acceptance_evidence_sources",
+        "full_diff_artifact",
+    ],
+)
+def test_missing_required_inventory_field_is_insufficient(field: str) -> None:
+    coverage = _complete_coverage()
+    del coverage[field]
+    assert build_capture_obligation_manifest(_context_block(coverage))["sufficient"] is False
+
+
+@pytest.mark.parametrize(
+    "field,value",
+    [
+        ("schema", "future/v2"),
+        ("stage", "post-model"),
+        ("changed_code_sources", []),
+        ("acceptance_sources", []),
+        ("acceptance_evidence_sources", {}),
+        ("full_diff_artifact", {}),
+    ],
+)
+def test_invalid_inventory_is_insufficient(field: str, value: object) -> None:
+    coverage = _complete_coverage()
+    coverage[field] = value
+    assert build_capture_obligation_manifest(_context_block(coverage))["sufficient"] is False
+
+
+@pytest.mark.parametrize(
+    "kind", ["changed_code_sources", "acceptance_sources", "acceptance_evidence_sources"]
+)
+@pytest.mark.parametrize(
+    "change",
+    [
+        {"source": ""},
+        {"source": None},
+        {"status": "error"},
+        {"status": []},
+        {"included_chars": 1},
+        {"included_chars": -1},
+        {"included_chars": True},
+        {"included_chars": "10"},
+        {"total_chars": None},
+        {"total_chars": False},
+    ],
+)
+def test_invalid_record_cannot_authorize_capture(kind: str, change: dict) -> None:
+    coverage = _complete_coverage()
+    record = copy.deepcopy(coverage["changed_code_sources"][0])
+    record.update(change)
+    coverage[kind] = [record]
+    assert build_capture_obligation_manifest(_context_block(coverage))["sufficient"] is False
+
+
+def test_required_acceptance_source_gap_is_retained() -> None:
+    coverage = _complete_coverage()
+    coverage["acceptance_sources"][0]["status"] = "unavailable"
+    manifest = build_capture_obligation_manifest(_context_block(coverage))
+    assert manifest["sufficient"] is False
+    assert "acceptance_source:issue:3820:unavailable" in manifest["gaps"]
+
+
+def test_unknown_total_and_aggregate_unavailability_remain_gaps() -> None:
+    coverage = _complete_coverage()
+    coverage["acceptance_evidence_sources"] = [
+        {"source": "artifact:1", "status": "truncated", "included_chars": 10, "total_chars": None},
+        {"source": "artifacts", "status": "unavailable", "reason": "extraction_incomplete"},
+    ]
+    manifest = build_capture_obligation_manifest(_context_block(coverage))
+    assert manifest["sufficient"] is False
+    assert len(manifest["obligations"]) == 5
+    assert "acceptance_evidence:artifact:1:truncated" in manifest["gaps"]
+    assert "acceptance_evidence:artifacts:unavailable" in manifest["gaps"]
+
+
+def test_duplicate_json_keys_and_duplicate_inventories_are_rejected() -> None:
+    text = _context_block(_complete_coverage())
+    assert parse_context_source_coverage(text + text) is not None  # second is after CI boundary
+    assert (
+        parse_context_source_coverage(text.replace('"stage":', '"schema":"wrong", "stage":'))
+        is None
+    )
+    preamble = text.split("## CI Information")[0]
+    assert parse_context_source_coverage(preamble + preamble) is None
+
+
+def test_duplicate_source_identity_is_insufficient() -> None:
+    coverage = _complete_coverage()
+    coverage["changed_code_sources"] *= 2
+    assert build_capture_obligation_manifest(_context_block(coverage))["sufficient"] is False
+
+
+def test_missing_trust_boundary_is_insufficient() -> None:
+    text = _context_block(_complete_coverage()).split("## CI Information")[0]
+    assert parse_context_source_coverage(text) is None
+    assert build_capture_obligation_manifest(text)["sufficient"] is False
