@@ -39,3 +39,14 @@ This is local behavior and mutation evidence. It does not establish a deployed
 consumer cycle, successful live PR reconciliation, hosted CI completion, or
 provider acceptance. Current-head CI/review and post-merge comparison remain
 required before source issue closure.
+
+## First hosted-check recovery
+
+Health74 run38174980893 found the reporter pair's normalized drift fingerprints
+stale after the identical resolver edit. The exact local checker exited1 before
+metadata repair and0 after. Only `pair.12` fingerprints and its refresh note/date
+changed; the original divergence review date remains2026-09-28. Root subscriptions
+and consumer fingerprint/setup differences remain intentional. Thirty existing
+drift/allowlist control tests pass. Hosted failure and both full local outputs
+are retained; the changed workflow bytes and the six-case production mutation
+proof above are unchanged.
