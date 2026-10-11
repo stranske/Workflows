@@ -349,7 +349,7 @@ unconditionally in both profiles. Local simulated transport tests establish sour
 behavior only. Inspect actual new retrieval, authenticated capacity receipts and
 both provider verdicts; workflow success alone is not acceptance.
 The input snapshot records every bound, and the consumer fingerprint includes the
-profile plus `bounded-native-capacity-v8` (standard retains `bounded-native-capacity-v2`), so a previously fingerprinted expanded
+profile plus `bounded-native-capacity-v9` (standard retains `bounded-native-capacity-v2`), so a previously fingerprinted expanded
 evaluation cannot suppress this changed expanded contract. Existing manifest entries already manage the repaired verifier; no file
 addition, rename or delivery scope change requires a new manifest entry.
 
@@ -360,7 +360,12 @@ match those slots (including explicit model overrides), each `used_llm` must be
 boolean `true`, each verdict must be `PASS`, and neither arm may carry an error.
 Missing, duplicate, extra, malformed or fallback-provider/model arms withhold PASS;
 so do native capacity/count failures and unsupported native inputs. An available
-judge's PASS cannot hide an unavailable judge. The existing standard aggregation
+judge's PASS cannot hide an unavailable judge. A strictly valid, used result from
+a configured provider/exact-model slot with verdict `FAIL` remains `FAIL`, even
+when its sibling is absent, malformed, duplicated, unused or errored. Invalid,
+unbound or unused results still withhold PASS and cannot impersonate a configured
+judge. This is aggregation of captured results, not authentication of provider output
+or proof of semantic partition closure. The existing standard aggregation
 and all CI, retrieval, acceptance-evidence and changed-code floors remain in force.
 The v6 fingerprint also invalidates expanded receipts predating registry validation; it does
 not turn local tests or prior capacity-function reviews into hosted acceptance.

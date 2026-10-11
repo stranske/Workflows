@@ -5773,7 +5773,7 @@ def evaluate_pr_multiple(
 def expanded_comparison_verdict(
     data: object, *, model1: str | None = None, model2: str | None = None
 ) -> str:
-    """Require one complete PASS per configured comparison slot, without filtering.
+    """Preserve configured FAIL; require complete exact-slot coverage for PASS.
 
     Compare uses two slots. Resolve their identities before credential/client
     availability filtering, so a missing native judge cannot be replaced by an
@@ -5793,26 +5793,36 @@ def expanded_comparison_verdict(
     if not isinstance(data, dict) or not isinstance(data.get("results"), list):
         return "CONCERNS"
     results = data["results"]
-    if len(results) != len(expected):
-        return "CONCERNS"
+    complete = len(results) == len(expected)
     observed = []
+    failed = False
     for arm in results:
         if (
             not isinstance(arm, dict)
             or not {"provider_used", "model", "verdict", "used_llm"} <= arm.keys()
         ):
-            return "CONCERNS"
+            complete = False
+            continue
         try:
             result = EvaluationResult.model_validate(arm, strict=True, extra="forbid")
         except ValueError:
-            return "CONCERNS"
-        if result.used_llm is not True or result.verdict != "PASS" or result.error:
-            return "CONCERNS"
+            complete = False
+            continue
         identity = (result.provider_used, result.model)
-        if identity not in expected or identity in observed:
-            return "CONCERNS"
+        if identity not in expected or result.used_llm is not True:
+            complete = False
+            continue
+        # A valid configured judge's FAIL survives a missing, duplicate, errored
+        # or malformed sibling. Incompleteness blocks PASS; it cannot erase FAIL.
+        # Unbound/fallback/unused or invalid-schema arms cannot impersonate a judge.
+        if result.verdict == "FAIL":
+            failed = True
+        if identity in observed or result.verdict != "PASS" or result.error:
+            complete = False
         observed.append(identity)
-    return "PASS" if set(observed) == set(expected) else "CONCERNS"
+    if failed:
+        return "FAIL"
+    return "PASS" if complete and set(observed) == set(expected) else "CONCERNS"
 
 
 def _provider_family(provider: str) -> str:
