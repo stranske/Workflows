@@ -189,6 +189,13 @@ Adapter/SDK retry settings retain their existing transport behavior. No provider
 model or output reserve is changed, and schema repair/config fallback adds no
 extra generation calls. All requests must fit before the first generation; an
 unfittable header, exhausted bound or later planning failure blocks the whole plan.
+The JSON plan records `planning_attempts` with each native receipt, including
+overflow and counter failures, and `planning_preflights` with the attempted count.
+A plan blocked during native counting retains `planning_failure` and ordered
+`pending_ranges`: combined
+with fitted `ranges`, these cover every loaded input character exactly once.
+Overflowed parent ranges remain in the attempt history rather than duplicating
+the coverage inventory after bisection. No pending range is treated as reviewed.
 Each request is counted again immediately before generation and must match its
 planned request hash. Native receipt I/O retains its existing warning behavior.
 

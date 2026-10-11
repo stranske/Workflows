@@ -89,6 +89,10 @@ def test_partition_recovery_preflights_all_ranges_and_retains_every_finding(reco
         assert row["raw_content"]
     assert report["ranges"][0]["start"] == 0
     assert report["ranges"][-1]["end"] == len(context)
+    assert report["pending_ranges"] == []
+    assert report["planning_preflights"] == len(report["planning_attempts"])
+    assert report["planning_preflights"] <= pr_verifier.PARTITION_MAX_PLANNING_COUNTS
+    assert any(row["capacity"]["status"] == "overflow" for row in report["planning_attempts"])
     for left, right in zip(report["ranges"], report["ranges"][1:], strict=False):
         assert left["end"] == right["start"]
     assert all(row["capacity"]["status"] == "PASS" for row in report["ranges"])
@@ -252,3 +256,60 @@ def test_unexpected_planning_failure_is_structured_non_pass(recovery, monkeypatc
     invoke.assert_not_called()
     assert result.partition_recovery["status"] == "blocked"
     assert result.verdict == "CONCERNS" and result.error == "invalid input"
+
+
+@pytest.mark.parametrize("defect", ["range-bound", "count-bound", "late-count"])
+def test_blocked_plan_accounts_for_every_captured_range(recovery, monkeypatch, defect):
+    client, _, _, counter, context = recovery
+    diff = "diff --git a/a.py b/a.py\r\n" + ("+🧪 café\r\n" * 3000)
+    if defect == "range-bound":
+        monkeypatch.setattr(pr_verifier, "PARTITION_MAX_REQUESTS", 2)
+    elif defect == "count-bound":
+        monkeypatch.setattr(pr_verifier, "PARTITION_MAX_PLANNING_COUNTS", 1, raising=False)
+    else:
+        count = counter.side_effect
+        fitted = []
+
+        def fail_after_first_fit(**kwargs):
+            if fitted:
+                raise RuntimeError("later native count unavailable")
+            value = count(**kwargs)
+            if value.input_tokens <= 12000:
+                fitted.append(value)
+            return value
+
+        counter.side_effect = fail_after_first_fit
+
+    with (
+        mock.patch.object(type(client), "invoke") as invoke,
+        pytest.raises(pr_verifier.InputCapacityError) as failure,
+    ):
+        pr_verifier._plan_diagnostic_partitions(client, context, diff)
+    invoke.assert_not_called()
+    plan = failure.value.receipt
+    assert plan["status"] == "blocked"
+    assert plan["acceptance_sufficient"] is False
+    assert plan["planning_preflights"] == counter.call_count
+    assert len(plan["planning_attempts"]) == counter.call_count
+    assert plan["planning_failure"]["reason"] == str(failure.value)
+    assert plan["pending_ranges"]
+    for name, source in {"context": context, "diff": diff}.items():
+        rows = sorted(
+            (row for row in plan["ranges"] + plan["pending_ranges"] if row["input"] == name),
+            key=lambda row: row["start"],
+        )
+        assert rows[0]["start"] == 0 and rows[-1]["end"] == len(source)
+        for left, right in zip(rows, rows[1:], strict=False):
+            assert left["end"] == right["start"]
+        for row in rows:
+            piece = source[row["start"] : row["end"]]
+            assert hashlib.sha256(piece.encode()).hexdigest() == row["sha256"]
+    if defect == "late-count":
+        assert plan["ranges"]
+        attempt = plan["planning_attempts"][-1]
+        assert attempt["capacity"]["status"] == "unavailable"
+        assert "later native count unavailable" in attempt["capacity"]["reason"]
+        assert plan["planning_failure"]["range"] == attempt
+        assert plan["pending_ranges"][0] == attempt
+    else:
+        assert plan["planning_attempts"][-1]["capacity"]["status"] == "overflow"
