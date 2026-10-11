@@ -215,6 +215,12 @@ const pr = (number, ref, created_at) => ({
   head: { ref },
 });
 
+// Maint 71 reads a consumer's own declared delivery checks before classifying
+// a generated delivery; these fakes model a consumer that declares none.
+const consumerDeclarationAbsent = async () => {
+  throw Object.assign(new Error('Not Found'), { status: 404 });
+};
+
 const checkRun = ({
   name,
   status = 'completed',
@@ -955,6 +961,7 @@ test('maint71 accepts no-change canary evidence only while the exact base head i
       checks: { listForRef: () => {} },
       repos: {
         get: async () => ({ data: { default_branch: 'main' } }),
+        getContent: consumerDeclarationAbsent,
         getBranchProtection: async () => ({
           data: { required_status_checks: { contexts: requiredContexts, checks: [] } },
         }),
@@ -1125,6 +1132,7 @@ test('maint71 accepts exact-tree no-change delivery evidence without a redundant
       pulls: { list: async () => ({ data: [] }) },
       repos: {
         get: async () => ({ data: { default_branch: 'main' } }),
+        getContent: consumerDeclarationAbsent,
         getBranchProtection: async () => {
           requiredCheckReads += 1;
           throw new Error('campaign delivery no-change evidence must not read required checks');
@@ -1281,6 +1289,7 @@ test('maint71 recovers exact-head evidence from an already-merged candidate PR',
       checks: { listForRef: () => {} },
       git: { getCommit: async () => ({ data: { tree: { sha: 'tree-abc' } } }) },
       repos: {
+        getContent: consumerDeclarationAbsent,
         getBranchProtection: async () => {
           const error = new Error('Resource not accessible by integration');
           error.status = 403;
@@ -1433,6 +1442,7 @@ test('maint71 prepare pass recovers an already-merged campaign row', async () =>
       checks: { listForRef: () => {} },
       git: { getCommit: async () => ({ data: { tree: { sha: 'tree-abc' } } }) },
       repos: {
+        getContent: consumerDeclarationAbsent,
         getBranchProtection: async () => {
           const error = new Error('Resource not accessible by integration');
           error.status = 403;
@@ -2861,6 +2871,7 @@ test('maint71 execution preserves delivery-record precedence in the normal deliv
       checks: { listForRef: () => {} },
       git: { getCommit: async () => ({ data: { tree: { sha: 'tree-abc' } } }) },
       repos: {
+        getContent: consumerDeclarationAbsent,
         getBranchProtection: async () => ({
           data: { required_status_checks: { contexts: ['Gate / gate'], checks: [] } },
         }),
@@ -3497,6 +3508,7 @@ test('maint71 real execution never closes a candidate owned by a different plan'
       checks: { listForRef: () => {} },
       git: { getCommit: async () => ({ data: { tree: { sha: 'tree-abc' } } }) },
       repos: {
+        getContent: consumerDeclarationAbsent,
         getBranchProtection: async () => ({
           data: { required_status_checks: { contexts: ['Gate / gate'], checks: [] } },
         }),
@@ -3625,6 +3637,7 @@ test('maint71 starts review by clearing stale ready labels while retaining the s
       checks: { listForRef: () => {} },
       git: { getCommit: async () => ({ data: { tree: { sha: 'tree-abc' } } }) },
       repos: {
+        getContent: consumerDeclarationAbsent,
         getBranchProtection: async () => ({
           data: { required_status_checks: { contexts: ['Gate / gate'], checks: [] } },
         }),

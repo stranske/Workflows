@@ -22,6 +22,36 @@ function enforceGeneratedDeliveryRequiredContexts(contexts = []) {
   return enforced;
 }
 
+// Read from the BASE branch: the consumer's merged declaration binds its
+// deliveries, and a delivery's own head can never loosen it.
+async function readConsumerDeclaredContexts({ withRetry, owner, repo, branch }) {
+  const {
+    CONSUMER_REQUIRED_CONTEXTS_PATH,
+    parseConsumerRequiredContexts,
+  } = require('./sync_pr_merge_contract.js');
+  let file;
+  try {
+    ({ data: file } = await withRetry((client) => client.rest.repos.getContent({
+      owner,
+      repo,
+      path: CONSUMER_REQUIRED_CONTEXTS_PATH,
+      ref: branch,
+    })));
+  } catch (error) {
+    const status = error?.status || error?.response?.status;
+    if (status === 404) return { state: 'none', contexts: new Set(), error: '' };
+    throw error;
+  }
+  if (Array.isArray(file) || file?.type !== 'file' || typeof file?.content !== 'string') {
+    return { state: 'unparseable', contexts: new Set(), error: 'not a readable file' };
+  }
+  const encoding = String(file.encoding || 'base64');
+  const text = encoding === 'base64'
+    ? Buffer.from(file.content, 'base64').toString('utf8')
+    : file.content;
+  return parseConsumerRequiredContexts(text);
+}
+
 function hasCompleteReviewThreadEvidence(connection) {
   return Boolean(
     connection
@@ -971,6 +1001,7 @@ async function run({ github, context, core }) {
     buildMarkdownSummary,
     buildMergeReport,
     classifyReviewBlockedDisposition,
+    describeConsumerDeclaredContexts,
     hasCampaignCommitAuthorization,
     campaignAuthorizationAllowsMerge,
     campaignAuthorizationRowForRepository,
@@ -1221,7 +1252,16 @@ async function run({ github, context, core }) {
     const requiredContexts = enforceGeneratedDeliveryGate
       ? enforceGeneratedDeliveryRequiredContexts(requiredCheckPolicy.contexts)
       : requiredCheckPolicy.contexts;
-    let classification = classifySyncPrChecks({ checkRuns: allChecks, requiredContexts });
+    // Only a generated delivery is gated on the consumer's own declaration;
+    // no-change canary baselines keep the protection-only contract.
+    const declared = enforceGeneratedDeliveryGate
+      ? await readConsumerDeclaredContexts({ withRetry, owner, repo, branch })
+      : { state: 'none', contexts: new Set(), error: '' };
+    let classification = classifySyncPrChecks({
+      checkRuns: allChecks,
+      requiredContexts,
+      declaredContexts: declared.contexts,
+    });
     if (classification.status === 'ready') {
       const seenNames = new Set(
         allChecks.map((check) => String(check?.name || '').trim()).filter(Boolean),
@@ -1232,13 +1272,25 @@ async function run({ github, context, core }) {
           status: 'checks_pending',
           failed: [],
           pending: missingRequired.map((name) => ({ name, status: 'queued' })),
+          declared_contexts: classification.declared_contexts,
         };
+      }
+    }
+    if (enforceGeneratedDeliveryGate) {
+      const declaredSummary = describeConsumerDeclaredContexts({ declared, classification });
+      console.log(`${owner}/${repo}@${String(ref).slice(0, 12)}: ${declaredSummary}`);
+      if (
+        declared.state === 'unparseable'
+        || (classification.declared_contexts?.never_started || []).length > 0
+      ) {
+        core.warning(`${owner}/${repo}: ${declaredSummary}`);
       }
     }
     return {
       allChecks,
       checkGateMode: requiredCheckPolicy.source,
       classification,
+      declaredContexts: declared,
       gatingChecks: requiredContexts.size > 0
         ? selectSyncPrGatingChecks({ checkRuns: allChecks, requiredContexts })
         : [],
@@ -2806,6 +2858,12 @@ async function run({ github, context, core }) {
         review_resolution_thread_ids: reviewResolution.resolved,
         review_resolution_would_resolve_thread_ids: reviewResolution.wouldResolve,
         review_resolution_errors: reviewResolution.errors,
+        // The consumer's declared checks, by outcome, on every row this PR
+        // produces, so the merge report shows what blocked or went unenforced.
+        consumer_declared_contexts: {
+          state: checkEvidence.declaredContexts.state,
+          ...(classification.declared_contexts || {}),
+        },
       };
   
       console.log(
@@ -3757,6 +3815,7 @@ module.exports = {
   mergeMethodPolicyAllowsFallback,
   normalizeReviewPolicy,
   parseReviewReassessmentRequest,
+  readConsumerDeclaredContexts,
   reviewReassessmentMarker,
   runReviewReassessment,
   reviewRequestMarker,

@@ -686,10 +686,113 @@ function isSharedSourceFailedCheck(check = {}) {
     (Boolean(name) && SHARED_SOURCE_CHECK_RE.test(name));
 }
 
+// A consumer declares the checks every generated delivery must pass in the file
+// its Gate summary already reads for "required contexts". Branch protection is
+// the owner's setting and also binds direct pushes to main; this file is the
+// consumer's own, so it is the place a repo opts its CI into delivery gating.
+const CONSUMER_REQUIRED_CONTEXTS_PATH = '.github/config/required-contexts.json';
+
+// Three states, never one sentinel for two meanings: no file is "none", a file
+// that cannot be read as a list of names is "unparseable", and a readable file
+// is "declared" even when its list is empty.
+function parseConsumerRequiredContexts(text) {
+  let payload;
+  try {
+    payload = JSON.parse(String(text || ''));
+  } catch (error) {
+    return { state: 'unparseable', contexts: new Set(), error: `invalid JSON: ${error.message}` };
+  }
+  let names = payload;
+  if (payload && typeof payload === 'object' && !Array.isArray(payload)) {
+    names = Array.isArray(payload.required_contexts) ? payload.required_contexts : payload.contexts;
+  }
+  if (!Array.isArray(names) || names.some((name) => typeof name !== 'string')) {
+    return {
+      state: 'unparseable',
+      contexts: new Set(),
+      error: 'expected a list of check names, or an object with a required_contexts list',
+    };
+  }
+  return { state: 'declared', contexts: normalizeStringSet(names), error: '' };
+}
+
+// GitHub enforces neither presence nor success of a declared context, so this
+// is Maint 71's own rule. A declared check that FAILED blocks, and one still
+// running is awaited. A declared check with no run at all is awaited only while
+// some GitHub Actions run on the head is unfinished, because a job is created
+// with its workflow run and a workflow may still be starting jobs; once every
+// Actions run has finished it never started (path filter, renamed job, held
+// workflow) and must not hold the delivery forever, so it is reported instead.
+function isGitHubActionsCheckRun(check) {
+  return String(check?.app?.slug || '').trim() === 'github-actions';
+}
+
+function classifyDeclaredContexts({ checkRuns = [], declaredContexts = [] } = {}) {
+  const latestChecks = latestCheckRunsByName(checkRuns);
+  const latestByName = new Map(
+    latestChecks.map((check) => [String(check?.name || '').trim(), check]),
+  );
+  const actionsStillRunning = latestChecks.some(
+    (check) => isGitHubActionsCheckRun(check) && check?.status !== 'completed',
+  );
+  const allowedConclusions = new Set(['success', 'skipped', 'neutral']);
+  const failed = [];
+  const pending = [];
+  const neverStarted = [];
+  const passed = [];
+  for (const name of [...normalizeStringSet(declaredContexts)].sort()) {
+    const check = latestByName.get(name);
+    if (!check) {
+      if (actionsStillRunning) {
+        pending.push({ name, status: 'not_started' });
+      } else {
+        neverStarted.push(name);
+      }
+    } else if (check.status !== 'completed') {
+      pending.push(check);
+    } else if (!allowedConclusions.has(String(check.conclusion || '').toLowerCase())) {
+      failed.push(check);
+    } else {
+      passed.push(name);
+    }
+  }
+  return { passed, failed, pending, neverStarted };
+}
+
+function describeConsumerDeclaredContexts({ declared = {}, classification = {} } = {}) {
+  const where = CONSUMER_REQUIRED_CONTEXTS_PATH;
+  if (declared.state === 'none') return `Consumer-declared delivery checks: none (${where} absent)`;
+  if (declared.state === 'unparseable') {
+    return `Consumer-declared delivery checks: NOT ENFORCED, ${where} is unreadable ` +
+      `(${declared.error || 'unknown error'})`;
+  }
+  const outcome = classification.declared_contexts || {};
+  const passed = outcome.passed || [];
+  const failed = outcome.failed || [];
+  const pending = outcome.pending || [];
+  const neverStarted = outcome.never_started || [];
+  const alsoRequired = outcome.also_required || [];
+  const total = passed.length + failed.length + pending.length + neverStarted.length;
+  const parts = [];
+  if (failed.length) parts.push(`${failed.length} failed: ${failed.join(', ')}`);
+  if (pending.length) parts.push(`${pending.length} running: ${pending.join(', ')}`);
+  if (neverStarted.length) {
+    parts.push(`${neverStarted.length} never started, not enforced: ${neverStarted.join(', ')}`);
+  }
+  if (alsoRequired.length) parts.push(`${alsoRequired.length} also required, gated as required`);
+  const verdict = total === 0
+    ? `${where} declares 0 beyond the required checks`
+    : `${passed.length} of ${total} passed`;
+  const tail = failed.length || pending.length || neverStarted.length ? '' : ' (all satisfied)';
+  return `Consumer-declared delivery checks: ${verdict}${tail}` +
+    (parts.length ? `; ${parts.join('; ')}` : '');
+}
+
 function classifySyncPrChecks({
   checkRuns = [],
   requiredContexts = [],
   fallbackDenylist = [],
+  declaredContexts = [],
 } = {}) {
   const gatingChecks = selectSyncPrGatingChecks({
     checkRuns,
@@ -697,22 +800,43 @@ function classifySyncPrChecks({
     fallbackDenylist,
   });
   const allowedConclusions = new Set(['success', 'skipped', 'neutral']);
+  // A declared name that the required set already gates keeps the required
+  // rule. Only the rest is judged by the declared rule, and the decision and
+  // the report both read that one result, so they cannot disagree.
+  const gatedNames = new Set([
+    ...normalizeStringSet(requiredContexts),
+    ...gatingChecks.map((check) => String(check?.name || '').trim()),
+  ]);
+  const declaredNames = [...normalizeStringSet(declaredContexts)].sort();
+  const declared = classifyDeclaredContexts({
+    checkRuns,
+    declaredContexts: declaredNames.filter((name) => !gatedNames.has(name)),
+  });
   const failed = gatingChecks.filter((check) => {
     if (check?.status !== 'completed') {
       return false;
     }
     return !allowedConclusions.has(String(check?.conclusion || '').toLowerCase());
-  });
-  const pending = gatingChecks.filter((check) => check?.status !== 'completed');
+  }).concat(declared.failed);
+  const pending = gatingChecks
+    .filter((check) => check?.status !== 'completed')
+    .concat(declared.pending);
+  const declared_contexts = {
+    passed: declared.passed,
+    failed: declared.failed.map((check) => check.name),
+    pending: declared.pending.map((check) => check.name),
+    never_started: declared.neverStarted,
+    also_required: declaredNames.filter((name) => gatedNames.has(name)),
+  };
 
   if (failed.length > 0) {
     const failure_scope = failed.some(isSharedSourceFailedCheck) ? 'shared-source' : 'repo-local';
-    return { status: 'checks_failed', failure_scope, failed, pending: [] };
+    return { status: 'checks_failed', failure_scope, failed, pending: [], declared_contexts };
   }
   if (pending.length > 0) {
-    return { status: 'checks_pending', failed: [], pending };
+    return { status: 'checks_pending', failed: [], pending, declared_contexts };
   }
-  return { status: 'ready', failed: [], pending: [] };
+  return { status: 'ready', failed: [], pending: [], declared_contexts };
 }
 
 function sortSyncPrs(prs) {
@@ -1632,7 +1756,11 @@ module.exports = {
   parseManifestSyncedSources,
   resolveManifestSyncedSource,
   syncBotReviewerLogins,
+  CONSUMER_REQUIRED_CONTEXTS_PATH,
+  classifyDeclaredContexts,
   classifySyncPrChecks,
+  describeConsumerDeclaredContexts,
+  parseConsumerRequiredContexts,
   candidateEvidenceAllowsMutation,
   buildCampaignCommitAuthorization,
   hasCampaignCommitAuthorization,

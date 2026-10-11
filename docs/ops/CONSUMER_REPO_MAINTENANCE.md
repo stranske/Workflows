@@ -1257,6 +1257,24 @@ when the consumer ruleset is empty, and Maint 71 rechecks that context on the
 exact head immediately before every merge attempt. Cancelled informational
 jobs therefore do not become invented required failures, while the shared
 delivery contract cannot merge around a failed or missing Gate.
+A consumer whose own CI runs outside Gate declares it in
+`.github/config/required-contexts.json` on its default branch, the same file
+the Gate summary reads (`{"required_contexts": ["<check run name>", ...]}`;
+the file is repo-owned and never synced). Maint 71 reads it from the
+delivery's base branch, so a delivery cannot loosen it, and applies it to
+generated deliveries only. A declared check that failed, was cancelled or
+timed out blocks the merge as a `repo-local-failure`; one still running is
+awaited. A declared check with no run on the exact head is awaited only while
+some GitHub Actions run on that head is unfinished; once every Actions run has
+finished it never started (path filter, renamed job, held workflow), so it is
+reported as `never started, not enforced` with a warning rather than holding
+the delivery forever. An unreadable file is reported as `NOT ENFORCED` with a
+warning; any read error other than a 404 fails that repository's pass. Every
+delivery row in the merge report carries `consumer_declared_contexts` with the
+declared checks by outcome. Undeclared checks still never block, so agent
+event jobs that fail on sync PRs stay non-blocking. Added after
+stranske/Orchestrator#530 merged with its own `verify.py` red, because that
+repository has no branch protection and `Gate / gate` was green.
 Review-thread and final exact-head GraphQL reads use a separate read-only
 token-aware path, selecting the service-bot quota by its GraphQL (not REST-core)
 budget when it is eligible and rotating away from an exhausted identity.
