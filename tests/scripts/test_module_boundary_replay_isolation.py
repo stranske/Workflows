@@ -29,7 +29,8 @@ def test_failed_replay_preserves_concurrent_caller_edit(tmp_path, monkeypatch, r
     concurrent = original + b"\n# concurrent caller edit\n"
     private_roots = []
 
-    def interrupted_run(argv, *, cwd, env, capture_output, timeout):
+    def interrupted_run(argv, *, cwd, env, capture_output, timeout, check):
+        assert check is False
         assert all("proof with spaces" not in arg for arg in argv)
         options = shlex.split(env["PYTEST_ADDOPTS"])
         assert len(options) == 1 and options[0].startswith(f"--junitxml={output}/")

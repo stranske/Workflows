@@ -100,7 +100,12 @@ def main():
                             [f"--junitxml={args.output / (name + '-' + phase + '.xml')}"]
                         )
                         run = subprocess.run(
-                            argv, cwd=replay_root, env=env, capture_output=True, timeout=60
+                            argv,
+                            cwd=replay_root,
+                            env=env,
+                            capture_output=True,
+                            timeout=60,
+                            check=False,
                         )
                         (args.output / f"{name}-{phase}.stdout").write_bytes(run.stdout)
                         (args.output / f"{name}-{phase}.stderr").write_bytes(run.stderr)

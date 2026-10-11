@@ -1,10 +1,11 @@
 {
-  "archive_sha256": "cbe9a2c44582967d04fd0cab6a217bc73a05fc1bd1b01cce87bf0096d60103af",
+  "archive_sha256": "51cfb0e7336950f1b1e7532acc41bfc4c794f217ddea23344c8db62fc5a620c4",
   "members_sha256": {
     "3832-recovery.xml": "2885b1f97baf70ad7173fc27c605c624a04b84c9d291a20c2ea72925bc6ff01a",
     "3832-recovery-final.xml": "94323e6851704f9ab6b9129113fa79e5b9b1aeaba2d3a4ba7ab26553f1c42526",
     "3832-split-final.xml": "0df11b3d0a60cc22d7ef742df29863396f015d65bef54c49b25a6b70a5f68f66",
     "3832-all-final.xml": "7a1ca2b4e19b828634870215afe05a2d063d43a551522cef4d9ff99ace126f23",
+    "3832-check-false.xml": "0b910d6224a5f6b43ed6e7e98ce12af1f7d3238ca2a51ba830a3e4dc221c9b25",
     "module-replay/results.json": "2ff6cc56a1d4208f62425c1eae332ab84effea965e06dbd36ceabdd920493439",
     "module-replay/root-test_python_nonpytest_module_does_not_consume_trailing_pytest-green.stderr": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
     "module-replay/root-test_python_nonpytest_module_does_not_consume_trailing_pytest-green.stdout": "e596cce97643441f2f2c7ef01ee068b6705ce1e028a07a32ba3bd3b3d35d7353",
@@ -130,11 +131,11 @@
     "repair-replay-final/template-rerun/red.xml": "a0fed077d4ab56fc9853a65733023f4f18e8762eee79eb850698909de13611e9"
   },
   "files_sha256": {
-    "docs/evidence/issue-3743/module-boundaries/replay.py": "9a7024a62c42063a97769068516ab800120b6ca5a93fa5f45d4756b9d8be89a3",
-    "tests/scripts/test_module_boundary_replay_isolation.py": "f43f1954a4dbce4da900f83ce7465c9e86cfbb18e7d90ba1c7c1136fae3403ef",
+    "docs/evidence/issue-3743/module-boundaries/replay.py": "9019dc4f200117b4aa4402acba073e0ae2b0bb472eb6a3d7d8a45217e54a3a3b",
+    "tests/scripts/test_module_boundary_replay_isolation.py": "c9f7b3fd2cff4ba1403c8b198c0131399ee684cbaeb63ab2dc4b087d37407e53",
     "tests/scripts/test_check_deliberate_break_repair_failures.py": "63001d63a10e2a75449117ccd96410dedbc588d44d7c225154270f0a02e59233",
     "docs/evidence/issue-3743/uv-resolution/selection.json": "91d2a8a482ac01229524580fcecfb6f447090f79799fe82da7310198e177725f",
     "docs/evidence/issue-3743/repair-failures/replay.py": "0eef028a569793b833c58e164d9bce670df3cac82b9518865b852754a7a37114",
-    "docs/evidence/issue-3743/replay-isolation/README.md": "e98ce4467c7815d504322d9d83fcb51874f0d5710a2223f68969850f6d4a9199"
+    "docs/evidence/issue-3743/replay-isolation/README.md": "7601cc86ae4c8e43a13111ae94eb91e7031f78e8169cb1f4c2b3000bd3a95e2c"
   }
 }
