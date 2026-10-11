@@ -113,14 +113,12 @@ for (const source of sources) {
   });
 
   test(`${source}: authority candidate without index fails closed`, async () => {
-    // "Fails closed" is about AUTHORITY, not about the job's exit status: no index means no
-    // target is granted. It now skips with that reason rather than failing the run (#3839).
+    // Stays a THROW. docs/keepalive/Agents.md: "A missing index for `authority-candidate` ...
+    // fails closed for owner follow-up" -- the receipt is left unreconciled and that must
+    // escalate, not go quiet. Only the not-our-dispatch case was downgraded in #3839.
     const { github } = setup(source, 'keepalive-dispatch/v2 authority-candidate pr=1738');
-    const result = await classifyReporterRun({ github, owner: 'stranske', repo: 'repo', run,
-      lookupTarget: async () => null });
-    assert.equal(result.status, 'skip');
-    assert.match(result.reason, /no immutable attempt index/);
-    assert.equal(result.prNumber, undefined, 'an authority candidate must grant no target');
+    await assert.rejects(classifyReporterRun({ github, owner: 'stranske', repo: 'repo', run,
+      lookupTarget: async () => null }), /no immutable attempt index/);
   });
 
   test(`${source}: malformed or legacy binding cannot become ordinary`, async () => {
@@ -139,11 +137,8 @@ for (const source of sources) {
       'keepalive-dispatch/v2 ordinary pr=9007199254740992',
     ]) {
       const { github } = setup(source, title);
-      const result = await classifyReporterRun({ github, owner: 'stranske', repo: 'repo', run,
-        lookupTarget: async () => null });
-      assert.equal(result.status, 'skip');
-      assert.match(result.reason, /canonical versioned PR binding|non-canonical PR binding/);
-      assert.equal(result.prNumber, undefined, 'a malformed binding must grant no target');
+      await assert.rejects(classifyReporterRun({ github, owner: 'stranske', repo: 'repo', run,
+        lookupTarget: async () => null }), /canonical versioned PR binding|non-canonical PR binding/);
     }
   });
 }
@@ -179,11 +174,8 @@ test('originating revision without the classification contract fails closed', as
   github.rest.repos.getContent = async () => ({ data: {
     encoding: 'base64', content: Buffer.from('name: Agents Keepalive Loop\n').toString('base64'),
   } });
-  const result = await classifyReporterRun({ github, owner: 'stranske', repo: 'repo', run,
-    lookupTarget: async () => null });
-  assert.equal(result.status, 'skip');
-  assert.match(result.reason, /lacks the dispatch classification contract/);
-  assert.equal(result.prNumber, undefined, 'a skip must grant no target');
+  await assert.rejects(classifyReporterRun({ github, owner: 'stranske', repo: 'repo', run,
+    lookupTarget: async () => null }), /lacks the dispatch classification contract/);
 });
 
 test('contract-shaped text outside the top-level run-name cannot authorize a target', async () => {
@@ -196,11 +188,8 @@ test('contract-shaped text outside the top-level run-name cannot authorize a tar
   github.rest.repos.getContent = async () => ({ data: {
     encoding: 'base64', content: Buffer.from(producer).toString('base64'),
   } });
-  const result = await classifyReporterRun({ github, owner: 'stranske', repo: 'repo', run,
-    lookupTarget: async () => null });
-  assert.equal(result.status, 'skip');
-  assert.match(result.reason, /lacks the dispatch classification contract/);
-  assert.equal(result.prNumber, undefined, 'a skip must grant no target');
+  await assert.rejects(classifyReporterRun({ github, owner: 'stranske', repo: 'repo', run,
+    lookupTarget: async () => null }), /lacks the dispatch classification contract/);
 });
 
 test('associated runs avoid the unassociated locator altogether', async () => {

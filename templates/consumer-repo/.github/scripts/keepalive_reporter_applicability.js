@@ -36,12 +36,15 @@ async function classifyReporterRun({ github, owner, repo, run, lookupTarget = fi
       Number(origin.run_attempt) !== Number(run.run_attempt || 1) ||
       String(origin.head_sha) !== String(run.head_sha) ||
       origin.event !== 'workflow_dispatch' || !PRODUCERS.has(origin.path)) {
-    // NOT an error: this run simply cannot be tied to a PR with the provenance the
-    // reporter requires. Throwing here failed the whole job, which both suppressed the
-    // report AND painted main red with a signal indistinguishable from a real breakage --
-    // and the reporter only runs when an upstream round already failed, so the alarm was
-    // broken exactly when it had something to say (#3839). Granting no authority is the
-    // security property and it is preserved: a skip hands back no PR number at all.
+    // This run is not one of OUR dispatches at all: a different workflow path, a non-dispatch
+    // event, or a different attempt/sha. docs/keepalive/Agents.md requires fail-closed only for
+    // the authority-relevant cases below -- a missing authority-candidate index, an
+    // unrecognized/legacy binding, a corrupt index or an unavailable lookup -- and this is none
+    // of them. Throwing here failed the whole job, and it is the case that actually fires:
+    // 50 failures in six hours in stranske/Workflows, all of them this one (#3839). The
+    // reporter runs only after an upstream round already failed, so that turned the alarm into
+    // noise exactly when it mattered. No authority is granted either way: a skip hands back no
+    // PR number at all.
     return { status: 'skip', reason: 'unassociated run has no verified dispatch classification' };
   }
   const { data: producer } = await withRetry((client) => client.rest.repos.getContent({
@@ -53,27 +56,21 @@ async function classifyReporterRun({ github, owner, repo, run, lookupTarget = fi
   const producerLines = producerText.split(/\r?\n/);
   if (!producerText || !CONTRACT.test(producerLines[1] || '') ||
       producerLines.filter((line) => CONTRACT.test(line)).length !== 1) {
-    return {
-      status: 'skip',
-      reason: 'originating workflow revision lacks the dispatch classification contract',
-    };
+    throw new Error('Originating workflow revision lacks the dispatch classification contract');
   }
   const title = String(origin.display_title || '');
   const titleMatch = TITLE_CONTRACT.exec(title);
   if (!titleMatch) {
-    return { status: 'skip', reason: 'unassociated dispatch has no canonical versioned PR binding' };
+    throw new Error('Unassociated dispatch has no canonical versioned PR binding');
   }
   const classification = titleMatch[1];
   const prText = titleMatch[2];
   const prNumber = Number(prText);
   if (!Number.isSafeInteger(prNumber) || prNumber <= 0 || String(prNumber) !== prText) {
-    return { status: 'skip', reason: 'unassociated dispatch has a non-canonical PR binding' };
+    throw new Error('Unassociated dispatch has a non-canonical PR binding');
   }
   if (classification === 'authority-candidate') {
-    return {
-      status: 'skip',
-      reason: 'authority-candidate dispatch has no immutable attempt index',
-    };
+    throw new Error('Authority-candidate dispatch has no immutable attempt index');
   }
   return { status: 'continue', prNumber, targetSource: 'ordinary-run-name' };
 }
