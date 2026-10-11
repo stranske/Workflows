@@ -434,3 +434,19 @@ def test_partitioning_without_a_governing_plan_blocks_before_counting(recovery):
     counter.assert_not_called()
     assert failure.value.receipt["status"] == "blocked"
     assert failure.value.receipt["pending_ranges"][0]["end"] == len(context)
+
+
+def test_byte_rejection_retains_original_capture_gaps(recovery, monkeypatch):
+    client, _, _, counter, context = recovery
+    context = context.replace('"status": "included"', '"status": "truncated"')
+    expected = pr_verifier.build_capture_obligation_manifest(context)
+    assert expected["gaps"]
+    monkeypatch.setattr(pr_verifier, "PARTITION_MAX_CAPTURE_BYTES", 10)
+    with (
+        mock.patch.object(type(client), "invoke") as invoke,
+        pytest.raises(pr_verifier.InputCapacityError, match="capture byte") as failure,
+    ):
+        pr_verifier._plan_diagnostic_partitions(client, context, None)
+    assert failure.value.receipt["capture_obligations"] == expected
+    assert counter.call_count == 0
+    invoke.assert_not_called()

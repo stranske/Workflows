@@ -3759,3 +3759,104 @@ test('artifact extractor reads its own real archived verifier patch', () => {
     fs.rmSync(directory, {recursive: true, force: true});
   }
 });
+
+
+test('archive inventory retains every occurrence and exact raw bindings after a bounded stop', () => {
+  const raw = Buffer.from('  proof café\r\n');
+  const archive = Buffer.from('original archive');
+  const calls = [];
+  const result = extractArtifactArchiveText({archiveBuffer: archive, maxEntries: 2,
+    maxChars: 1000, maxBytes: raw.length,
+    execFile: (_cmd, args) => {
+      if (args[0] === '-Z1') return 'proof.txt\nlater.txt\nlast.txt\nimage.png\n';
+      calls.push(args.at(-1));
+      return raw;
+    }});
+  const digest = value => require('crypto').createHash('sha256').update(value).digest('hex');
+  assert.equal(result.archiveSha256, digest(archive));
+  assert.deepEqual(result.members.map(m => m.name), ['proof.txt', 'later.txt', 'last.txt', 'image.png']);
+  assert.deepEqual(result.members.map(m => m.status), ['included', 'unavailable', 'entry_bound', 'unsupported']);
+  assert.equal(result.members[0].raw_bytes, raw.length);
+  assert.equal(result.members[0].raw_sha256, digest(raw));
+  assert.equal(result.members[1].reason, 'extraction_byte');
+  assert.deepEqual(calls, ['proof.txt']);
+  assert.equal(result.truncated, true);
+});
+
+test('duplicate ZIP names never concatenate distinct proof occurrences', () => {
+  const calls = [];
+  const result = extractArtifactArchiveText({archiveBuffer: Buffer.from('archive'),
+    maxEntries: 10, maxChars: 1000, maxBytes: 1000,
+    execFile: (_cmd, args) => {
+      if (args[0] === '-Z1') return 'proof.txt\nproof.txt\nsibling.txt\n';
+      calls.push(args.at(-1));
+      return Buffer.from('sibling proof');
+    }});
+  assert.equal(result.truncated, true);
+  assert.ok(result.failures.includes('duplicate_member'));
+  assert.deepEqual(calls, ['sibling.txt']);
+  assert.deepEqual(result.members.map(m => m.occurrence), [0, 1, 2]);
+  assert.deepEqual(result.members.map(m => m.status), ['duplicate', 'duplicate', 'included']);
+  assert.match(result.text, /sibling proof/);
+});
+
+
+test('artifact capture ledger binds authenticated run, archive and incomplete member identities', async () => {
+  const {github, sha} = paginatedRecoveryGithub();
+  github.rest.actions.getWorkflowRun = async ({run_id}) => ({data: {id: run_id, head_sha: sha}});
+  github.rest.actions.listWorkflowRunArtifacts = async () => ({data: {total_count: 2, artifacts: [
+    {id: 1, name: 'expired-proof', expired: true, size_in_bytes: 3},
+    {id: 2, name: 'original-proof', size_in_bytes: 5},
+  ]}});
+  const result = await fetchVerifierEvidence({github, owner: 'owner', repo: 'repo',
+    pullRequestBody: 'Evidence: /actions/runs/1', associatedCommitShas: [sha],
+    extractArtifactText: args => extractArtifactArchiveText({...args,
+      execFile: (_cmd, argv) => argv[0] === '-Z1' ? 'proof.txt\nimage.png\n' : Buffer.from('proof')})});
+  assert.equal(result.artifacts.complete, false);
+  const [expired, capture] = result.diagnostics.archive_inventory;
+  assert.equal(expired.artifact_id, 1);
+  assert.equal(expired.reason, 'expired');
+  assert.equal(expired.members, null);
+  assert.equal(capture.repository, 'owner/repo');
+  assert.equal(capture.run_id, 1);
+  assert.equal(capture.head_sha, sha);
+  assert.equal(capture.artifact_id, 2);
+  assert.equal(capture.status, 'incomplete');
+  assert.equal(capture.member_inventory_complete, true);
+  assert.equal(capture.archive_sha256, require('crypto').createHash('sha256').update('zip-2').digest('hex'));
+  assert.deepEqual(capture.members.map(m => m.status), ['included', 'unsupported']);
+  const coverage = buildContextSourceCoverage({planSources: [], diffText: '', evidence: result});
+  assert.deepEqual(coverage.artifact_capture_inventory, result.diagnostics.archive_inventory);
+  assert.match(formatVerifierEvidence(result), /archive_inventory/);
+});
+
+test('archive member metadata ceiling retains an explicit unresolved suffix', () => {
+  const listing = Array.from({length: 4100}, (_, i) => `proof${i}.txt`).join('\n');
+  const result = extractArtifactArchiveText({archiveBuffer: Buffer.from('archive'), maxEntries: 1,
+    maxChars: 1000, maxBytes: 1000,
+    execFile: (_cmd, args) => args[0] === '-Z1' ? listing : Buffer.from('proof')});
+  assert.equal(result.memberCount, 4100);
+  assert.equal(result.members.length, 4096);
+  assert.equal(result.memberInventoryComplete, false);
+  assert.equal(result.truncated, true);
+  assert.ok(result.failures.includes('member_inventory'));
+  assert.equal(result.listingSha256, require('crypto').createHash('sha256').update(listing).digest('hex'));
+});
+
+
+test('real archive keeps duplicate and whitespace names distinct from valid proof', () => {
+  const directory = fs.mkdtempSync(path.join(os.tmpdir(), 'verifier-member-proof-'));
+  try {
+    const archive = path.join(directory, 'proof.zip');
+    execFileSync('python3', ['-c',
+      'import sys,zipfile,warnings; warnings.simplefilter("ignore"); z=zipfile.ZipFile(sys.argv[1],"w"); z.writestr("duplicate.txt",b"first"); z.writestr("duplicate.txt",b"second"); z.writestr(" proof.txt",b"decoy"); z.writestr("proof.txt",b"  raw proof\\r\\n"); z.close()', archive]);
+    const result = extractArtifactArchiveText({archiveBuffer: fs.readFileSync(archive),
+      maxEntries: 10, maxChars: 1000, maxBytes: 1000});
+    assert.equal(result.truncated, true);
+    assert.deepEqual(result.members.map(m => m.status), ['duplicate', 'duplicate', 'unsupported', 'included']);
+    const raw = Buffer.from('  raw proof\r\n');
+    assert.equal(result.members[3].raw_sha256, require('crypto').createHash('sha256').update(raw).digest('hex'));
+    assert.equal(result.members[3].raw_bytes, raw.length);
+    assert.equal(result.text, '### proof.txt\n\nraw proof');
+  } finally { fs.rmSync(directory, {recursive: true, force: true}); }
+});

@@ -2637,3 +2637,28 @@ losing input identity before detailed partition planning starts; it does not
 raise the 8 MiB diagnostic bound, recover missing proof, establish semantic
 independence, or permit PASS. Evaluate and compare retain the original native
 overflow receipt alongside this admission failure without invoking generation.
+
+
+### Archive identity receipts during verifier recovery
+
+The context builder retains `diagnostics.archive_inventory` and the same
+`artifact_capture_inventory` in source coverage. Each enumerated artifact binds
+repository, authenticated run/head, artifact ID and, when downloaded, raw archive
+SHA256/byte count. Expired or budget-rejected artifacts stay unavailable. A read
+failure does not remove the already enumerated identity.
+
+Archive extraction retains member occurrences in listing order, raw byte counts
+and SHA256 for successfully read members, and separate unsupported, duplicate,
+entry-bound, rendering-omitted and unavailable statuses. Duplicate names are not
+passed to `unzip -p`, which would concatenate occurrences. Raw hashes describe
+bytes before UTF-8 decoding or whitespace trimming; rendered text is not claimed
+to be a lossless raw member copy. The expanded metadata ledger has a 4096-member
+ceiling per archive within the existing bounded listing: its full listing digest,
+total count and explicit incomplete suffix remain recorded. This ceiling blocks
+completeness; it does not relax extraction or generation limits.
+
+Native diagnostic byte-limit rejection also retains the original obligation
+manifest and every known gap before range planning. None of these receipts proves
+semantic independence, restores unavailable proof, authorizes provider PASS, or
+resets cumulative archive/extraction limits. Source3820 still requires semantic
+closure and complete original-proof/native acceptance on the existing key PR.

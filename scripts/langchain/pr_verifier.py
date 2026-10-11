@@ -5109,14 +5109,16 @@ def _plan_diagnostic_partitions(
             if inputs[row["input"]]
         ],
     }
+    # The byte ceiling limits planning work, not retention of known evidence
+    # gaps. Keep the original manifest even when no fine ranges can be built.
+    manifest = build_capture_obligation_manifest(context)
+    early_plan["capture_obligations"] = manifest
     if sum(row["bytes"] for row in identities) > PARTITION_MAX_CAPTURE_BYTES:
         reason = "diagnostic capture byte bound exceeded"
         early_plan["planning_failure"] = {"reason": reason, "range": None}
         raise InputCapacityError(reason, receipt=early_plan)
-    manifest = build_capture_obligation_manifest(context)
     if not manifest["sufficient"]:
         reason = "diagnostic capture obligation gaps"
-        early_plan["capture_obligations"] = manifest
         early_plan["planning_failure"] = {"reason": reason, "range": None}
         raise InputCapacityError(reason, receipt=early_plan)
     # Source identities alone do not tell a range reviewer what the governing
