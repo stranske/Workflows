@@ -113,6 +113,9 @@ for (const source of sources) {
   });
 
   test(`${source}: authority candidate without index fails closed`, async () => {
+    // Stays a THROW. docs/keepalive/Agents.md: "A missing index for `authority-candidate` ...
+    // fails closed for owner follow-up" -- the receipt is left unreconciled and that must
+    // escalate, not go quiet. Only the not-our-dispatch case was downgraded in #3839.
     const { github } = setup(source, 'keepalive-dispatch/v2 authority-candidate pr=1738');
     await assert.rejects(classifyReporterRun({ github, owner: 'stranske', repo: 'repo', run,
       lookupTarget: async () => null }), /no immutable attempt index/);
@@ -158,8 +161,11 @@ test('wrong originating workflow or event cannot claim ordinary routing', async 
   for (const override of [{ path: '.github/workflows/other.yml' }, { event: 'push' },
     { run_attempt: 3 }, { head_sha: 'b'.repeat(40) }]) {
     const { github } = setup(sources[0], 'keepalive-dispatch/v2 ordinary pr=1738', override);
-    await assert.rejects(classifyReporterRun({ github, owner: 'stranske', repo: 'repo', run,
-      lookupTarget: async () => null }), /no verified dispatch classification/);
+    const result = await classifyReporterRun({ github, owner: 'stranske', repo: 'repo', run,
+      lookupTarget: async () => null });
+    assert.equal(result.status, 'skip');
+    assert.match(result.reason, /no verified dispatch classification/);
+    assert.equal(result.prNumber, undefined, 'a skip must grant no target');
   }
 });
 
