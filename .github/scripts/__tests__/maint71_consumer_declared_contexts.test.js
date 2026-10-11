@@ -327,7 +327,7 @@ test('the declaration is read from the base branch, and only a 404 means none', 
 // The whole Maint 71 pass over #530 as it stood when it merged: its real
 // delivery record and check runs, Orchestrator's empty protection and
 // rulesets, and a base branch that does or does not declare its CI.
-async function runMaint71Over530(t, { declaration, checkReads = null }) {
+async function runMaint71Over530(t, { declaration, checkReads = null, merge = null }) {
   const os = require('node:os');
   const { run } = require('../maint71_merge_sync_prs.js');
   const tempDir = fs.mkdtempSync(path.join(os.tmpdir(), 'maint71-declared-'));
@@ -370,7 +370,14 @@ async function runMaint71Over530(t, { declaration, checkReads = null }) {
       } },
     }),
     rest: {
-      pulls: { list: async () => ({ data: [pr530] }), get: async () => ({ data: pr530 }) },
+      pulls: {
+        list: async () => ({ data: [pr530] }),
+        get: async () => ({ data: pr530 }),
+        // Present only when a test drives a real merge; otherwise a merge call fails the run.
+        ...(merge ? { merge } : {}),
+      },
+      // Read-only: the runtime AC guard reads labels before any real merge.
+      issues: { listLabelsOnIssue: async () => ({ data: [] }) },
       checks: { listForRef: () => {} },
       git: { getCommit: async () => ({ data: { tree: { sha: record.desired_tree_hash } } }) },
       repos: {
@@ -401,7 +408,9 @@ async function runMaint71Over530(t, { declaration, checkReads = null }) {
   };
   const env = {
     REGISTERED_REPOS_INPUT: repository, REPOS_INPUT: repository,
-    CLEANUP_BRANCHES_INPUT: 'false', DRY_RUN_INPUT: 'true', AUTO_MERGE_INPUT: 'false',
+    CLEANUP_BRANCHES_INPUT: 'false',
+    DRY_RUN_INPUT: merge ? 'false' : 'true',
+    AUTO_MERGE_INPUT: merge ? 'true' : 'false',
     ACTIVE_SYNC_HASH_INPUT: 'dev-tool', SYNC_HASH_INPUT: '',
     EXPECTED_PLAN_ID_INPUT: '', EXPECTED_PLAN_SCOPE_INPUT: '',
     EXPECTED_SCOPE_BASE_SHA_INPUT: '', EXPECTED_SOURCE_COMMIT_INPUT: '',
@@ -482,6 +491,31 @@ test('Maint 71 over #530: a declared check that fails before the final recheck i
   const row = report.results[0];
   // The first classification passed; the final exact-head recheck read the red runs.
   assert.equal(row.status, 'checks_failed');
+  assert.deepEqual(
+    row.consumer_declared_contexts.failed.sort(),
+    [...ORCHESTRATOR_DECLARED].sort(),
+  );
+  assert.deepEqual(row.consumer_declared_contexts.passed, []);
+});
+
+test('Maint 71 over #530: a merge-method retry gate that reads red reports what it read', async (t) => {
+  const green = fixture.check_runs.map((check) => (ORCHESTRATOR_DECLARED.includes(check.name)
+    ? { ...check, conclusion: 'success' }
+    : check));
+  const merges = [];
+  const { report } = await runMaint71Over530(t, {
+    declaration: { required_contexts: ORCHESTRATOR_DECLARED },
+    // classification, final gate: green; the retry gate before the second method: red.
+    checkReads: [green, green, fixture.check_runs],
+    merge: async (params) => {
+      merges.push(params.merge_method);
+      throw new Error('Merge method is not allowed on this repository');
+    },
+  });
+  const row = report.results[0];
+  assert.deepEqual(merges, ['merge']);
+  assert.equal(row.status, 'merge_failed');
+  assert.match(row.error, /merge retry gate blocked: checks_failed/);
   assert.deepEqual(
     row.consumer_declared_contexts.failed.sort(),
     [...ORCHESTRATOR_DECLARED].sort(),

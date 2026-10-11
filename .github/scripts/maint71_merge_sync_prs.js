@@ -52,6 +52,18 @@ async function readConsumerDeclaredContexts({ withRetry, owner, repo, branch }) 
   return parseConsumerRequiredContexts(text);
 }
 
+// Every exact-head gate reads the checks afresh. The row adopts the latest
+// reading, so a declared check that changed between gates is reported as the
+// gate that decided saw it, never as an earlier snapshot.
+function adoptFinalCheckEvidence(deliveryContext, gate) {
+  const evidence = gate?.finalCheckEvidence;
+  if (!evidence) return;
+  deliveryContext.consumer_declared_contexts = {
+    state: evidence.declaredContexts?.state || 'none',
+    ...(evidence.classification?.declared_contexts || {}),
+  };
+}
+
 function hasCompleteReviewThreadEvidence(connection) {
   return Boolean(
     connection
@@ -3380,14 +3392,7 @@ async function run({ github, context, core }) {
         requireVerifiedHead: generatedDeliveryRequiresVerifiedHead(pr.head.ref),
         requireGeneratedDeliveryGate: !recoveredMergedCandidate,
       });
-      // The final recheck reads the checks afresh; every row from here on
-      // reports that reading, so it cannot contradict the decision it records.
-      if (finalGate.finalCheckEvidence) {
-        deliveryContext.consumer_declared_contexts = {
-          state: finalGate.finalCheckEvidence.declaredContexts.state,
-          ...(finalGate.finalCheckEvidence.classification.declared_contexts || {}),
-        };
-      }
+      adoptFinalCheckEvidence(deliveryContext, finalGate);
       if (!finalGate.ok) {
         console.log(`Final exact-head review gate blocked delivery: ${finalGate.reason}`);
         if (finalGate.reason === 'review_window_pending') {
@@ -3566,6 +3571,7 @@ async function run({ github, context, core }) {
                 requireVerifiedHead: generatedDeliveryRequiresVerifiedHead(pr.head.ref),
                 requireGeneratedDeliveryGate: true,
               });
+              adoptFinalCheckEvidence(deliveryContext, retryGate);
               if (!retryGate.ok) {
                 throw new Error(`merge retry gate blocked: ${retryGate.reason}`);
               }
@@ -3812,6 +3818,7 @@ async function run({ github, context, core }) {
 }
 
 module.exports = {
+  adoptFinalCheckEvidence,
   confirmedClosedPrIdentity,
   devToolBaseRefreshResult,
   campaignNoChangeRequiresLiveGate,
