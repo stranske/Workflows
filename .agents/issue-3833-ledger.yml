@@ -1,0 +1,70 @@
+version: 1
+issue: 3833
+base: main
+branch: codex/issue-3833
+tasks:
+  - id: task-01
+    title: Remove Hypothesis from the runtime example in `.github/workflows/autofix-versions.env:5`
+      while retaining PyYAML and Pydantic.
+    status: doing
+    started_at: '2026-10-11T18:49:13Z'
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-02
+    title: Add a test-dependency explanation for Hypothesis to `.github/workflows/autofix-versions.env`.
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-03
+    title: Create `tests/test_hypothesis_dependency_guidance.py` to reject Hypothesis
+      in the canonical runtime example.
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-04
+    title: Run `rg -n 'Runtime dependencies.*Hypothesis' .github templates docs` and
+      correct authoritative duplicate guidance if any; report inspected scope in the
+      PR.
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-05
+    title: Run `python -m pytest tests/test_hypothesis_dependency_guidance.py -q`
+      against the old and fixed comment; retain both command results in the PR.
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-06
+    title: '`python -m pytest tests/test_hypothesis_dependency_guidance.py -q` fails
+      when the original runtime example is deliberately restored, and passes after
+      byte-identical restoration of the fix.'
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-07
+    title: '`.github/workflows/autofix-versions.env` retains unchanged tool pin lines
+      and PyYAML/Pydantic runtime examples; no lock or requirements behavior changes.'
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-08
+    title: '`rg -n ''Runtime dependencies.*Hypothesis'' .github templates docs` finds
+      no authoritative runtime example classifying Hypothesis as runtime.'
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
