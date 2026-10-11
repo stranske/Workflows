@@ -302,6 +302,8 @@ Complete omitted paths remain in coverage metadata. Binary descriptors and
 diff summaries cannot provide sufficient changed-code coverage. This file is
 copy-delivered from `scripts/langchain/pr_verifier.py` to the same consumer path
 by the `scripts` entry in `.github/sync-manifest.yml`, which includes Doc-Lineage.
+Active `as an artifact` deliveries and explicit `PR review comment` / `inline review comment`
+destinations share the same channel grammar as workflow artifacts and PR comments.
 
 For merged PRs, the context builder retrieves original first-commit metadata
 and uses the historical merge parent to anchor the local full diff. An unchanged
