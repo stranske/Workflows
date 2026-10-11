@@ -1,0 +1,33 @@
+F                                                                        [100%]
+=================================== FAILURES ===================================
+__ test_changed_historical_member_cannot_satisfy_package[historical-test.py] ___
+
+package = PosixPath('/private/var/folders/qm/w0dtc0j132gd6ymf1hxtd2p00000gp/T/pytest-of-teacher/pytest-719/test_changed_historical_member0/proof')
+member = 'historical-test.py'
+
+    @pytest.mark.parametrize(
+        "member",
+        [
+            "original-workflow.yml",
+            "repaired-workflow.yml",
+            "mutant-workflow.yml",
+            "historical-test.py",
+            "historical-source.py",
+            "historical-template-source.py",
+            "mutation-red.txt",
+            "mutation-red.xml",
+            "restored-green.txt",
+            "restored-green.xml",
+            "original-transform-call.txt",
+        ],
+    )
+    def test_changed_historical_member_cannot_satisfy_package(package, member):
+        path = package / member
+        path.write_bytes(path.read_bytes() + b"\n")
+>       with pytest.raises(ValueError, match="mismatch|changed"):
+E       Failed: DID NOT RAISE ValueError
+
+tests/tools/test_verifier_semantic_package_recovery.py:54: Failed
+=========================== short test summary info ============================
+FAILED tests/tools/test_verifier_semantic_package_recovery.py::test_changed_historical_member_cannot_satisfy_package[historical-test.py]
+1 failed in 2.23s

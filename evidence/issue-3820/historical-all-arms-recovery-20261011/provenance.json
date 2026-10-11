@@ -1,0 +1,11 @@
+{
+  "base_commit": "b94a4667b81ef1bf04ec01219fbe98be37ecb02e",
+  "proof_commit": "b52a38a34280fe2fd5b8747d0946b101000a9ee1",
+  "execution_rollout_id": "01a126cf-6a0e-70c1-a7c3-aa87d0697d14",
+  "event_line": 138,
+  "event_sha256": "0879b61a00ccd2647473271268e3193b730096ed938221e618a5ca6a298cb270",
+  "transform_call_sha256": "ec90d0b966e53c3a04938a4afc21dab8513a316984f993c8c8a1814d0e8c733e",
+  "recovery": "Replayed only literal old/new aggregation substitution and v4-to-v5 fingerprint change from retained original execution tool call; both resulting bytes match independently committed historical proof hashes. No historical execution rerun, fabricated mutation or fresh provider call.",
+  "source_recovery": "Same original tool-call literal addition applied to original b94a466 parser blob, followed by original Black line-length100 formatting; resultant source and template bytes match committed receipt5315ff4583dec4a3b461448c291b4354751f2afc145e20499382948582b10865",
+  "formatter_observed": "26.5.1"
+}
