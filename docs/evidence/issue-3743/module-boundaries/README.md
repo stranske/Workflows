@@ -18,8 +18,10 @@ Coverage metrics deliberately describe only the root helper. Repository `.covera
 
 ## Reproduce
 
+Use Python 3.12 or newer with pytest installed. Replay mutates only a private temporary copy of the two sources and test module, then removes it; caller edits are never restored or overwritten.
+
 ```sh
-/opt/anaconda3/bin/python3 -m pytest tests/scripts/test_check_deliberate_break_module_boundaries.py -q -o addopts=
+python3 -m pytest tests/scripts/test_check_deliberate_break_module_boundaries.py -q -o addopts=
 python3 docs/evidence/issue-3743/module-boundaries/replay.py --output /tmp/fresh-module-boundary-proof
 ```
 

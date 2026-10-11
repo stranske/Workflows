@@ -84,8 +84,9 @@ def test_repaired_runtime_preserves_a_later_real_launch_failure(
         assert helper["PYYAML_PROBE_SENTINEL"] in calls[1]["result"].stdout
 
 
+@pytest.mark.parametrize("reporter_fails", [False, True], ids=["result", "reporter-error"])
 def test_base_dependency_failure_keeps_its_cause_and_cleans_real_archive(
-    tmp_path, monkeypatch, helper
+    tmp_path, monkeypatch, helper, reporter_fails
 ):
     repo = tmp_path / "repo"
     repo.mkdir()
@@ -176,6 +177,9 @@ def test_base_dependency_failure_keeps_its_cause_and_cleans_real_archive(
     assert not archives[0].exists()
     assert (repo / "phase.txt").read_text() == "head"
     assert (repo / "proof.txt").read_bytes() == b"updated candidate test overlay\n"
+
+    if not reporter_fails:
+        return
 
     # A failed repair must not become a cached result for a later independent check.
     # Reporting can fail too; its exception must escape after private archive cleanup.
