@@ -122,6 +122,7 @@ def test_base_dependency_failure_keeps_its_cause_and_cleans_real_archive(
     reported_errors = []
     cause = OSError("private wheel storage unavailable")
     dependency_error = ImportError("private dependency repair failed")
+    reporter_error = None
 
     def observed_archive(ref, target, cwd):
         archives.append(target)
@@ -137,15 +138,17 @@ def test_base_dependency_failure_keeps_its_cause_and_cleans_real_archive(
 
     def observed_dependency_result(error):
         # Cleanup must precede reporting, including when the reporter itself fails.
-        assert len(archives) == 1
-        assert not archives[0].exists()
+        assert len(archives) == len(reported_errors) + 1
+        assert all(not target.exists() for target in archives)
         reported_errors.append(error)
+        if reporter_error is not None:
+            raise reporter_error
         return dependency_result(error)
 
     def failed_repair():
-        assert archives[0].is_dir()
-        assert (archives[0] / "phase.txt").read_text() == "base"
-        assert (archives[0] / "proof.txt").read_bytes() == b"updated candidate test overlay\n"
+        assert archives[-1].is_dir()
+        assert (archives[-1] / "phase.txt").read_text() == "base"
+        assert (archives[-1] / "proof.txt").read_bytes() == b"updated candidate test overlay\n"
         repairs.append(True)
         raise dependency_error from cause
 
@@ -171,5 +174,31 @@ def test_base_dependency_failure_keeps_its_cause_and_cleans_real_archive(
     assert len(archives) == 1
     assert launches == [(command, repo, 0), (command, archives[0], 1)]
     assert not archives[0].exists()
+    assert (repo / "phase.txt").read_text() == "head"
+    assert (repo / "proof.txt").read_bytes() == b"updated candidate test overlay\n"
+
+    # A failed repair must not become a cached result for a later independent check.
+    # Reporting can fail too; its exception must escape after private archive cleanup.
+    reporter_error = RuntimeError("private failure reporter unavailable")
+    with pytest.raises(RuntimeError) as caught:
+        helper["verify_spec"](spec, base=base, cwd=repo, enforce_tamper=False)
+
+    assert caught.value is reporter_error
+    assert isinstance(caught.value.__context__, helper["RuntimeDependencyError"])
+    assert caught.value.__context__.error is dependency_error
+    assert caught.value.__context__.__cause__ is dependency_error
+    assert dependency_error.__cause__ is cause
+    assert repairs == [True, True]
+    assert len(reported_errors) == 2
+    assert all(error is dependency_error for error in reported_errors)
+    assert len(archives) == 2
+    assert archives[0] != archives[1]
+    assert all(not target.exists() for target in archives)
+    assert launches == [
+        (command, repo, 0),
+        (command, archives[0], 1),
+        (command, repo, 0),
+        (command, archives[1], 1),
+    ]
     assert (repo / "phase.txt").read_text() == "head"
     assert (repo / "proof.txt").read_bytes() == b"updated candidate test overlay\n"
