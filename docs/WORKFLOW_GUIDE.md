@@ -242,8 +242,15 @@ context hash first. It also writes `verifier-capture-obligation-manifest.json`
 locally. Expanded native preflight derives the same inventory from the supplied
 context, retains it in capacity receipts, and blocks capture gaps or prompt
 clipping before token counting or generation. Standard retains its existing
-invocation behavior. Over-capacity inputs still require lossless recovery;
-this integration does not implement partitioning or restore unavailable evidence.
+invocation behavior. For explicit expanded invocations,
+`VERIFIER_PARTITION_RECOVERY=diagnostic` enables bounded diagnostic review after
+an exact native overflow. It losslessly partitions the loaded context and supplied
+diff, counts every planned request before generation and checks it again before
+invocation. JSON results retain the global dependency contract, range identities,
+native receipts and all findings/raw outputs. Diagnostic completion always remains
+NON_PASS: cross-range obligations still depend on all captured inputs. This does
+not restore unavailable evidence or establish semantic independence. See
+[consumer maintenance](ops/CONSUMER_REPO_MAINTENANCE.md) for bounds and binding limits.
 
 Run and artifact listings have independent finite page and record bounds. The
 collector follows `VERIFIER_EVIDENCE_RUN_PAGES` and `VERIFIER_EVIDENCE_ARTIFACT_PAGES`

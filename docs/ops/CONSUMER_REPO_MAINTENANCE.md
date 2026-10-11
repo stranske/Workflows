@@ -150,7 +150,7 @@ These binary ranges may split UTF-8 characters and must be reassembled before
 decoding. They are a reassembly foundation, not semantic obligation packages,
 provider requests or evidence-completeness claims. Truncated and unavailable
 proof remains insufficient even when every captured byte is indexed. Cross-proof
-obligation binding, complete partition execution and native acceptance remain
+obligation binding, semantic partition acceptance and live native acceptance remain
 outstanding.
 The CLI now also emits `verifier-capture-reassembly-contract.json` and embeds
 `capture_reassembly_contract` in existing input snapshots. This v1 contract binds
@@ -166,14 +166,45 @@ recovering unavailable bytes. A later planner must prove any narrower package,
 including governing source, RED/restoration/GREEN evidence and cross-proof
 findings; it must not split arbitrary ranges into independently accepted proofs.
 The contract preserves capture insufficiency and all gaps. It does not authorize
-partition execution, alternate judges, reduced output reserves or partial-arm PASS.
+acceptance-bearing partition execution, alternate judges, reduced output reserves
+or partial-arm PASS.
 Expanded preflight derives obligations from the builder-owned pre-CI inventory,
 checks complete prompt coverage and exact prepared-prompt equality, and retains
 both inventories in the capacity receipt. Missing, malformed, unavailable,
 omitted or truncated required sources block before native counting or generation.
 An exact-model overflow retains the obligations and full counted request outcome;
-bounded lossless partitioning remains unimplemented. Neither this manifest nor
+semantic partition acceptance remains unimplemented. Neither this manifest nor
 ordinary workflow success closes the unresolved authenticated live-capture gaps.
+
+For local diagnostic recovery, set `VERIFIER_EVIDENCE_PROFILE=expanded` and
+`VERIFIER_PARTITION_RECOVERY=diagnostic` on the existing evaluate/compare CLI,
+and use `--json` to retain the complete `partition_recovery` report. Recovery
+starts only after a complete captured request has an exact native overflow;
+capture gaps, prompt clipping and unavailable counters still block immediately.
+Each range repeats the complete global obligation/gap dependency contract.
+Native counts, including those instructions and the actual output reserve, drive
+bisection. Bounds are 8 MiB of loaded UTF-8 input, 64 ranges, 127 planning counts
+and one additional count per generation (at most 64 generation calls per arm).
+Adapter/SDK retry settings retain their existing transport behavior. No provider,
+model or output reserve is changed, and schema repair/config fallback adds no
+extra generation calls. All requests must fit before the first generation; an
+unfittable header, exhausted bound or later planning failure blocks the whole plan.
+Each request is counted again immediately before generation and must match its
+planned request hash. Native receipt I/O retains its existing warning behavior.
+
+Diagnostic range offsets index loaded Unicode strings; SHA-256 binds their UTF-8
+bytes. This explicitly uses `binding_scope=loaded-evaluation-inputs`: CLI newline
+normalization may differ from the independently frozen raw-byte snapshot, which
+is never rewritten or claimed to have the same identity. Every input character
+is assigned to an ordered, contiguous range, including context and supplied diff
+copies of code. Ranges may split proofs or code and are **not** independently
+accepted obligations. Complete diagnostic execution retains every concern,
+summary and raw output, preserves any FAIL and always withholds PASS. Malformed
+outputs remain in the report with errors; a generation failure retains prior
+findings and all planned but unreviewed ranges. All cross-range obligations remain
+unresolved, so this advances recovery without completing semantic partitioning or
+the owner-local live-capture acceptance task. Standard and default expanded
+invocations keep their current behavior.
 The expanded v7 evidence allocation retains the observed 315,891-character
 acceptance-evidence capture that v6 clipped at 262,144 characters. Its finite
 524,288-character ceiling still reports larger evidence as truncated and
