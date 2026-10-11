@@ -142,3 +142,46 @@ nothing. Full-repository Black, focused Ruff, template completeness, base parity
 and diff checks pass. All earlier evidence members are preserved byte-for-byte.
 Hosted checks, review settlement, guarded merge, and actual comparison remain
 unchecked until independently completed.
+
+## October 11 independent retry and reporting failure
+
+The paired base-repair cases now run a second independent verification after the
+first failed repair. They require another repair attempt and a distinct private
+archive, rejecting negative caching of the earlier failure. The second failure
+reporter deliberately raises: the exact reporting exception must propagate with
+the original dependency exception and cause in its context, after both archives
+have been deleted. Candidate repository bytes remain unchanged. The six test
+node IDs are unchanged, and production files were not modified.
+
+- [x] Verify all six root/template repair-failure cases, including independent
+  retries and archive cleanup when failure reporting raises.
+- [x] Replay all six required production mutations and four supplemental
+  root/template mutations for negative caching and swallowed reporting errors;
+  each yields RED exit 1 and exact-restoration GREEN exit 0.
+- [x] Compare the same six existing modules plus the repair-failure test file:
+  294 baseline PASS, 300 candidate PASS, exactly six new nodes, unchanged old
+  outcomes, and no covered-line or covered-branch regressions.
+
+Fresh receipts under `followup-20261011/` preserve the 591-statement,
+262-branch scope with zero exclusions: covered statements increase 563 to 568
+and covered branches remain 241. All 37 replay-output files and caller hashes
+stay unchanged when output reuse is rejected before mutation. The archive
+preserves every earlier member byte-for-byte; the manifest binds each decoded
+member and the current source, test, driver, and documentation files.
+
+Full-repository Black checks 696 files unchanged; focused Ruff, template
+completeness, parity against the recorded base, and `git diff --check` exit 0.
+The initial uncached Black process did not finish before a serial check populated
+its cache; it was interrupted after the exact required Black command passed
+using that cache. Both attempts and the serial result are retained.
+
+Python 3.14.8 was used. `/opt/anaconda3/bin/python3` remains absent, so the literal
+interpreter-specific acceptance command is unverified. GitHub API access is
+unavailable, leaving remote checkbox updates and PR readiness verification open.
+The repository's `.git` directory is mounted read-only: staging fails when Git
+creates `index.lock`. A temporary local checkout provides the commit handoff;
+this runner cannot advance the active repository branch.
+
+## PR3832 review refresh
+
+The result and reporter-error scenarios now have separate named tests sharing setup; result-only assertions do not gate the reporter test. The first call still establishes the failed-repair state required for retry/non-caching. Current replay runs eight named root/consumer mutation pairs, including both reporter cases, with raw proof in ../replay-isolation/validation.tar.gz. Original validation.tar.gz and its recorded matched-suite counts remain historical and unchanged. Current bindings below identify the refreshed test/replay/README without relabeling old receipts.

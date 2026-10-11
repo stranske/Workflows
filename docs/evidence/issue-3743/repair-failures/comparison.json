@@ -120,5 +120,95 @@
     "supplemental_mutations": 4,
     "supplemental_assertions": "Archive cleaned before reporting; no probe or rerun after failed repair.",
     "evidence_prefix": "followup-20261010/"
+  },
+  "followup_20261011": {
+    "interpreter": {
+      "available": "/opt/hostedtoolcache/Python/3.14.8/x64/bin/python3",
+      "version": "3.14.8 (main, Oct  1 2026, 02:38:33) [GCC 13.3.0]",
+      "requested": "/opt/anaconda3/bin/python3",
+      "requested_available": false
+    },
+    "baseline_tests": 294,
+    "candidate_tests": 300,
+    "new_nodes": [
+      [
+        "tests.scripts.test_check_deliberate_break_repair_failures",
+        "test_base_dependency_failure_keeps_its_cause_and_cleans_real_archive[root]"
+      ],
+      [
+        "tests.scripts.test_check_deliberate_break_repair_failures",
+        "test_base_dependency_failure_keeps_its_cause_and_cleans_real_archive[template]"
+      ],
+      [
+        "tests.scripts.test_check_deliberate_break_repair_failures",
+        "test_repaired_runtime_preserves_a_later_real_launch_failure[root-probe]"
+      ],
+      [
+        "tests.scripts.test_check_deliberate_break_repair_failures",
+        "test_repaired_runtime_preserves_a_later_real_launch_failure[root-rerun]"
+      ],
+      [
+        "tests.scripts.test_check_deliberate_break_repair_failures",
+        "test_repaired_runtime_preserves_a_later_real_launch_failure[template-probe]"
+      ],
+      [
+        "tests.scripts.test_check_deliberate_break_repair_failures",
+        "test_repaired_runtime_preserves_a_later_real_launch_failure[template-rerun]"
+      ]
+    ],
+    "removed_nodes": [],
+    "old_outcome_changes": [],
+    "covered_line_regressions": [],
+    "covered_branch_regressions": [],
+    "baseline": {
+      "covered_lines": 563,
+      "num_statements": 591,
+      "percent_covered": 94.25556858147714,
+      "percent_covered_display": "94.26",
+      "missing_lines": 28,
+      "excluded_lines": 0,
+      "percent_statements_covered": 95.26226734348562,
+      "percent_statements_covered_display": "95.26",
+      "num_branches": 262,
+      "num_partial_branches": 21,
+      "covered_branches": 241,
+      "missing_branches": 21,
+      "percent_branches_covered": 91.98473282442748,
+      "percent_branches_covered_display": "91.98"
+    },
+    "candidate": {
+      "covered_lines": 568,
+      "num_statements": 591,
+      "percent_covered": 94.84173505275498,
+      "percent_covered_display": "94.84",
+      "missing_lines": 23,
+      "excluded_lines": 0,
+      "percent_statements_covered": 96.1082910321489,
+      "percent_statements_covered_display": "96.11",
+      "num_branches": 262,
+      "num_partial_branches": 21,
+      "covered_branches": 241,
+      "missing_branches": 21,
+      "percent_branches_covered": 91.98473282442748,
+      "percent_branches_covered_display": "91.98"
+    },
+    "new_covered_lines": [
+      785,
+      786,
+      792,
+      793,
+      1062
+    ],
+    "production_mutations": 6,
+    "supplemental_mutations": 4,
+    "output_reuse_unchanged_files": 37,
+    "assertions": "Independent retries do not cache failed repairs; reporting exceptions propagate with the original repair exception chain after archive cleanup.",
+    "caller_bindings": {
+      "tests/scripts/test_check_deliberate_break_repair_failures.py": "f872ac2d5770638901f016242c90bf7c15913ec5c079cdeadd8997e58ff10ff2",
+      "scripts/check_deliberate_break.py": "cc97119ea26afec275be3c83d22bc75de0d452cd0f4764896cc9d037274ab25a",
+      "templates/consumer-repo/scripts/check_deliberate_break.py": "cc97119ea26afec275be3c83d22bc75de0d452cd0f4764896cc9d037274ab25a",
+      "docs/evidence/issue-3743/repair-failures/replay.py": "c878e46ae7f66afa0dc1debc66cd99be6e267606344a916895a1b5c8147502e2"
+    },
+    "evidence_prefix": "followup-20261011/"
   }
 }
