@@ -110,7 +110,7 @@ entry overflow and read/extraction failures remain actionable gaps alongside any
 complete siblings. The context records separate page, record, character, archive,
 entry, unsupported-payload and provenance counters and failure reasons.
 
-Expanded prompt allocation is 16,384 context, 65,536 diff and 131,072 evidence
+Expanded prompt allocation is 16,384 context, 1,048,576 diff and 131,072 evidence
 estimated tokens (four characters per allocation unit). The existing 8 MiB diff
 fetch and 300,000-character context-diff ceiling remain. These allocation units
 are **not model token counts**. Only for explicit expanded recovery, before each
@@ -228,7 +228,7 @@ unconditionally in both profiles. Local simulated transport tests establish sour
 behavior only. Inspect actual new retrieval, authenticated capacity receipts and
 both provider verdicts; workflow success alone is not acceptance.
 The input snapshot records every bound, and the consumer fingerprint includes the
-profile plus `bounded-native-capacity-v7` (standard retains `bounded-native-capacity-v2`), so a previously fingerprinted expanded
+profile plus `bounded-native-capacity-v8` (standard retains `bounded-native-capacity-v2`), so a previously fingerprinted expanded
 evaluation cannot suppress this changed expanded contract. Existing manifest entries already manage the repaired verifier; no file
 addition, rename or delivery scope change requires a new manifest entry.
 
@@ -260,6 +260,24 @@ PASS for unavailable captured evidence. Proposed retrieval bounds do not prove
 that omitted comments, archives or live provider capacity fit. Unsupported archive
 entries remain unresolved; no exclusion or batching is introduced. Post-merge
 comparison and campaign regeneration remain separate owner work.
+
+Workflows#3822's actual standard post-merge report retained only 17,867 of
+3,185,288 changed-code characters: 31 complete, 37 truncated and 115 omitted
+files out of 183. The former expanded allocation still truncated 92 files.
+Expanded v8 raises only the diff allocation to 1,048,576 four-character budgeting
+units (4,194,304 characters), retaining every proof XML/log/JSON/Markdown file
+rather than filtering required evidence. This is a finite prompt allocation, not
+a native token count, model-capacity assertion or permission to generate.
+Full diff inclusion is required; meeting the 50-percent minimum alone cannot
+override truncated-code NON_PASS. Standard defaults remain unchanged.
+The existing input manifest records the actual allocation. Fresh collection must
+also repair the captured unavailable review/reference/run discovery; replaying
+old unavailable evidence with a larger budget remains NON_PASS. Count the full
+fresh request for each configured judge with its actual output reservation;
+overflow, unavailable counting, payload drift and either non-PASS provider result
+still block acceptance. A source assessment or offline complete-diff replay is
+not a whole-PR provider verdict. A separate partitioning design is considered
+only if actual complete native requests cannot fit, not assumed in advance.
 
 For Workflows#3774, the standard report clipped 89,554 changed-code characters
 to 63,401 and exceeded the 40,000-character review collection limit. Its reported

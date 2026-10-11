@@ -21,6 +21,64 @@ def profile_step():
     )
 
 
+@pytest.mark.parametrize(
+    "diff_chars,evidence_available,complete",
+    [(3_185_288, True, True), (4_194_306, True, False), (3_185_288, False, False)],
+)
+def test_expanded_profile_retains_large_multifile_diff_without_waiving_evidence(
+    tmp_path, monkeypatch, diff_chars, evidence_available, complete
+):
+    from scripts.langchain import pr_verifier
+
+    output = tmp_path / "env"
+    subprocess.run(
+        ["bash", "-c", profile_step()["run"]],
+        env={
+            **os.environ,
+            "VERIFIER_EVIDENCE_PROFILE": "expanded",
+            "VERIFIER_MODE": "compare",
+            "GITHUB_ENV": str(output),
+        },
+        check=True,
+        capture_output=True,
+        text=True,
+    )
+    for line in output.read_text().splitlines():
+        name, value = line.split("=", 1)
+        monkeypatch.setenv(name, value)
+    sections = []
+    for index in range(183):
+        header = (
+            f"diff --git a/proof-{index}.xml b/proof-{index}.xml\n"
+            f"--- a/proof-{index}.xml\n+++ b/proof-{index}.xml\n@@ -1 +1 @@\n-old\n+"
+        )
+        size = diff_chars // 183 + (index < diff_chars % 183)
+        sections.append(header + "x" * (size - len(header) - 1) + "\n")
+    diff = "".join(sections)
+    assert len(diff) == diff_chars
+    evidence_status = "present" if evidence_available else "unavailable"
+    context = (
+        "# Verifier context\n\n## CI Information\n\nCI passed.\n\n"
+        "## Plan sources (scope, tasks, acceptance)\n\n"
+        "### Acceptance Criteria\n- Test evidence must be in a PR comment.\n\n"
+        f"## Acceptance evidence\n\n- Overall retrieval status: **{evidence_status}**\n"
+        f"- PR comments: **{evidence_status}**\n\n"
+        "## PR Diff Summary\n\n183 changed proof files.\n"
+    )
+    inputs = pr_verifier.build_prompt_inputs(context, diff)
+    assert len(inputs.coverage.files) == 183
+    assert inputs.coverage.sufficient is complete
+    code_complete = len(diff.strip()) <= 4_194_304
+    assert inputs.coverage.code == ("complete" if code_complete else "truncated")
+    if code_complete:
+        assert all(item.status == "complete" for item in inputs.coverage.files)
+        assert inputs.diff_block == diff.strip()
+    if not evidence_available:
+        assert any(
+            "Required acceptance evidence is unavailable" in r for r in inputs.coverage.reasons
+        )
+
+
 @pytest.mark.parametrize("evidence_chars,complete", [(315_891, True), (524_289, False)])
 def test_expanded_profile_retains_captured_evidence_with_a_finite_ceiling(
     tmp_path, monkeypatch, evidence_chars, complete
@@ -141,7 +199,7 @@ def test_profile_executes_only_fixed_bounded_exports(tmp_path, profile):
             "VERIFIER_EVIDENCE_TOTAL_EXTRACT_BYTES": "67108864",
             "VERIFIER_EVIDENCE_TOTAL_ARTIFACT_CHARS": "4194304",
             "VERIFIER_CONTEXT_BUDGET_TOKENS": "16384",
-            "VERIFIER_DIFF_BUDGET_TOKENS": "65536",
+            "VERIFIER_DIFF_BUDGET_TOKENS": "1048576",
             "VERIFIER_ACCEPTANCE_EVIDENCE_BUDGET_TOKENS": "131072",
         }
     else:
@@ -184,7 +242,7 @@ def test_only_expanded_contract_fingerprint_changes(profile, consumer):
         check=True,
     )
     assert result.stdout.strip() == (
-        "bounded-native-capacity-v7" if profile == "expanded" else "bounded-native-capacity-v2"
+        "bounded-native-capacity-v8" if profile == "expanded" else "bounded-native-capacity-v2"
     )
 
 
@@ -404,8 +462,8 @@ def test_capacity_docs_keep_input_and_context_bounds_independent():
 def test_workflow_inventory_names_current_expanded_fingerprint():
     inventory = Path("docs/ci/WORKFLOWS.md").read_text()
     workflow = Path(".github/workflows/reusable-agents-verifier.yml").read_text()
-    assert "`bounded-native-capacity-v7`" in inventory
-    assert "bounded-native-capacity-v7" in workflow
+    assert "`bounded-native-capacity-v8`" in inventory
+    assert "bounded-native-capacity-v8" in workflow
 
 
 def test_workflow_guide_distinguishes_verifier_checkout_tokens():
