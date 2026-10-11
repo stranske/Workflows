@@ -83,7 +83,7 @@ the ordinary source-to-consumer promotion/reconciliation remain separate owners.
 
 ## Follow-up acceptance checks
 
-The follow-up negative-governor repair uses the shared requirement grammar for
+The initial follow-up negative-governor repair uses the shared requirement grammar for
 `No need to`, `No requirement to`, and `No obligation to`, rather than an
 artifact-only exception. Its regression matrix covers artifact, comment and body
 destinations; absent/unavailable/present retrieval; and independent mandatory
@@ -104,6 +104,14 @@ follow-up SHA256 is `d34fee79391c5c4c76a6c4117af988750fa50c36cbb913adaf9d73a9717
 The raw local proof bindings are retained in `follow-up-20261011.json`. The XML
 security gate additionally rejects external DTD and external entity declarations.
 These are bounded local proofs, not hosted CI or reviewer acceptance.
+
+The review follow-up at `review-follow-up-20261011.json` retains the next
+deliberate RED (45 failures / 225 tests), focused GREEN (285 tests) and full
+two-module GREEN (93,075 tests) for `No requirement exists to` and review-comment
+UI/API/renderer product subjects. Source/template bytes remain identical at
+SHA256 `e8054dc2748a318cc8c9f1ca2055eb4c68f309d3c2aab10cca257e44462d7b18`.
+The new matrix preserves mandatory independent comment/artifact deliveries and
+actual absent/unavailable/present prompt floors; it is not whole-PR acceptance.
 
 The follow-up adds floor checks for coverage-report artifact delivery, inline
 review comments, checked validation-output items and validation results. Each

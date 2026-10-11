@@ -1033,7 +1033,7 @@ _NEGATIVE_EVIDENCE_REQUIREMENT_GOVERNOR = (
     r"(?:" + _NEGATIVE_EVIDENCE_ADJECTIVE_GOVERNOR + r"\s+to|"
     r"(?:does|do|did)\s+(?:not|never)\s+(?:need|have)\s+to|"
     r"(?:never|no\s+longer)\s+(?:has|have|needs?)\s+to|needs?\s+not|"
-    r"no\s+(?:need|requirement|obligation)\s+to)"
+    r"no\s+(?:need|requirement|obligation)\s+(?:exists?\s+)?to)"
 )
 _INDEPENDENT_REVIEW_PREDICATE = (
     r"(?:"
@@ -2673,6 +2673,16 @@ def _required_evidence_channels(acceptance: str, *, _bind_attached: bool = True)
 
     def product_comment_object(prefix: str, destination: str) -> bool:
         """Classify the governing operation's subject, not domain words anywhere."""
+        # A review-comment UI/API can itself be the product subject. Its
+        # component noun and finite operation occur after the channel-shaped
+        # name, not before it as they do for an object/destination. Restrict
+        # this to a bare qualified subject, preserving earlier deliveries.
+        if re.fullmatch(r"\s*" + recipient_prefix, prefix, re.I) and re.match(
+            r"\s+" + product_actor + r"\s+" + product_auxiliary + response_operation,
+            destination,
+            re.I,
+        ):
+            return True
         prefix = normalize_product_capability(prefix)
         operations = list(
             re.finditer(

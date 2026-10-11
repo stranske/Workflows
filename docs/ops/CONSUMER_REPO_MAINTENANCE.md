@@ -2057,6 +2057,11 @@ Comma-delimited relative clauses use that same attachment path, including their
 closing comma before a following destination. Existing `only if`/`solely when`
 condition prefixes remain attached to the relative duty rather than consuming
 the parent's list. Both first/final positions retain actual AND/OR floors.
+Nominal negation includes `No need exists to`, `No requirement exists to`, and
+`No obligation exists to` in the same shared governor as the forms without
+`exists`. A PR/inline review-comment UI, API or renderer acting as the product
+subject does not itself require reviewing-PR evidence. Independent positive
+delivery clauses remain authoritative in both cases.
 Negated obligations use the same delivery-operation grammar as positive
 delivery. An explicitly excluded PR-comment destination (`outside`, `rather
 than`, `instead of`) is not a required comment channel; generic evidence and

@@ -1,0 +1,45 @@
+{
+  "scope": "Finding-specific exists-negative governors and product review-comment UI/API/renderer subjects; independent positive delivery preserved",
+  "pre_fix_head": "99f4fddd228306f607b3b29d4393aa03990ba6c0",
+  "pre_fix_source_sha256": "d34fee79391c5c4c76a6c4117af988750fa50c36cbb913adaf9d73a971723a46",
+  "fixed_source_sha256": "e8054dc2748a318cc8c9f1ca2055eb4c68f309d3c2aab10cca257e44462d7b18",
+  "fixed_test_sha256": "4bd8af239f757432ba8435aefb98a962cfc230cdd59fb56e9bebe2519ee51e75",
+  "proofs": [
+    {
+      "path": "/Users/teacher/.codex/automations/sync-dependency-pr-closer/evidence/20261011-3836-review-red.xml",
+      "sha256": "0bd5121c32a74feb181f1632163423a779347b75e0e1a324694650a6c61493f7",
+      "name": "pytest",
+      "errors": "0",
+      "failures": "45",
+      "skipped": "0",
+      "tests": "225",
+      "time": "9.610",
+      "timestamp": "2026-10-11T16:46:12.852681-05:00",
+      "hostname": "server.trs.private"
+    },
+    {
+      "path": "/Users/teacher/.codex/automations/sync-dependency-pr-closer/evidence/20261011-3836-review-green.xml",
+      "sha256": "cef055492851609dda882ed466dc1bbd1f1fc8ea1201b5019782e458eb71558f",
+      "name": "pytest",
+      "errors": "0",
+      "failures": "0",
+      "skipped": "0",
+      "tests": "285",
+      "time": "7.764",
+      "timestamp": "2026-10-11T16:46:43.204120-05:00",
+      "hostname": "server.trs.private"
+    },
+    {
+      "path": "/Users/teacher/.codex/automations/sync-dependency-pr-closer/evidence/20261011-3836-review-full.xml",
+      "sha256": "532155aed99a9b13d72edeefa30572c2f2d959c14dcc7c738044b522e483baeb",
+      "name": "pytest",
+      "errors": "0",
+      "failures": "0",
+      "skipped": "0",
+      "tests": "93075",
+      "time": "383.744",
+      "timestamp": "2026-10-11T16:50:31.634046-05:00",
+      "hostname": "server.trs.private"
+    }
+  ]
+}
