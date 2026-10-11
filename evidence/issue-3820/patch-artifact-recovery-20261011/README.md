@@ -33,3 +33,6 @@ hashes/sizes and member listings; metadata files are original authenticated API
 responses. `original-artifact-extraction.json` binds each resulting text hash and
 records the offline bounds. Raw member bytes remain in their original local ZIPs.
 The bounded download script preserves the original API failure rather than retrying.
+
+Original/mutant raw console is retained byte-identically inside raw-console.tar.gz
+to preserve its whitespace without introducing trailing-whitespace source lines.
