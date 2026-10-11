@@ -815,6 +815,10 @@ scripts:
     description: "Capture obligation inventory and context-bound verifier input snapshot emission"
     template_sync: exact
 
+  - source: tools/verifier_proof_resource_plan.py
+    description: "Offline full-capture archive resource accounting; no semantic/native admission"
+    template_sync: exact
+
   - source: tools/embedding_provider.py
     description: "Embedding provider registry used by synced semantic matching helpers"
     template_sync: exact

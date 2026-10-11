@@ -168,6 +168,31 @@ findings; it must not split arbitrary ranges into independently accepted proofs.
 The contract preserves capture insufficiency and all gaps. It does not authorize
 acceptance-bearing partition execution, alternate judges, reduced output reserves
 or partial-arm PASS.
+
+The offline `python3 -m tools.verifier_proof_resource_plan` diagnostic takes
+`--context`, optional `--diff`, `--inventory`, and a fresh `--output` path.
+The inventory contains `expected_archives`, `archive_paths`, and `metadata_paths`.
+Each expected archive binds its artifact ID, repository, run ID, head SHA, raw
+archive SHA-256/byte count, and retained authenticated metadata SHA-256. Paths are
+keyed by artifact ID. Metadata identities and raw archive hashes are checked
+before every member occurrence is listed in original directory order. Duplicate
+names/content remain separate provenance occurrences. This function does not
+authenticate GitHub; its caller must retain the authenticated collection packet.
+
+The planner charges all ZIP member sizes against one unchanged cumulative 64 MiB
+extraction ceiling, including repeated content and unsupported members. It never
+decompresses members, resets counters per package, renders proof, or calls a
+provider. CRCs and sizes are declared ZIP metadata, not verified member-content
+hashes. The complete capture contract (including all original gaps) remains
+global. Output is always `admitted=false`, with explicit semantic-closure and
+native-result-matrix blockers even when resource accounting fits. A resource
+plan is not a semantic package; it adds an executable admission boundary before
+the still-outstanding governing/code/RED-restoration-GREEN cross-proof planner.
+Finite archive/member metadata bounds reject the whole plan rather than returning
+a clean subset. Existing output receipts are never overwritten. Native fit,
+exact judge execution, proof sufficiency, and whole-source acceptance remain
+unproven; the verifier execution path and its NON_PASS floor are unchanged.
+
 Expanded preflight derives obligations from the builder-owned pre-CI inventory,
 checks complete prompt coverage and exact prepared-prompt equality, and retains
 both inventories in the capacity receipt. Missing, malformed, unavailable,
