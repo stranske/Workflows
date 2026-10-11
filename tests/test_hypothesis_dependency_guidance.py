@@ -6,6 +6,8 @@ import subprocess
 import sys
 from pathlib import Path
 
+import pytest
+
 GUIDANCE_PATH = Path(__file__).resolve().parents[1] / ".github/workflows/autofix-versions.env"
 
 
@@ -36,18 +38,47 @@ def test_canonical_guidance_explains_hypothesis_is_a_test_dependency() -> None:
     ), "Canonical guidance must explain that Hypothesis is a test dependency"
 
 
-def test_regression_discriminates_original_and_fixed_guidance(tmp_path: Path) -> None:
+@pytest.mark.parametrize(
+    ("before", "after", "failed_check"),
+    [
+        (
+            b"# Runtime dependencies (PyYAML, Pydantic)",
+            b"# Runtime dependencies (PyYAML, Pydantic, Hypothesis)",
+            "test_canonical_runtime_example_excludes_hypothesis",
+        ),
+        (
+            b"# Runtime dependencies (PyYAML, Pydantic)",
+            b"# Runtime dependencies (Pydantic)",
+            "test_canonical_runtime_example_excludes_hypothesis",
+        ),
+        (
+            b"# Runtime dependencies (PyYAML, Pydantic)",
+            b"# Runtime dependencies (PyYAML)",
+            "test_canonical_runtime_example_excludes_hypothesis",
+        ),
+        (
+            b"Hypothesis is a test dependency",
+            b"Hypothesis is a dependency",
+            "test_canonical_guidance_explains_hypothesis_is_a_test_dependency",
+        ),
+    ],
+    ids=["original-runtime", "missing-pyyaml", "missing-pydantic", "missing-test-explanation"],
+)
+def test_regression_discriminates_original_and_fixed_guidance(
+    tmp_path: Path, before: bytes, after: bytes, failed_check: str
+) -> None:
     """Run pytest against full-file copies without mutating protected guidance."""
     guidance_path = tmp_path / "guidance.env"
     canonical_bytes = GUIDANCE_PATH.read_bytes()
-    original = re.sub(
+    fixed_bytes = re.sub(
         rb"(?m)^# Runtime dependencies \([^)]*\)",
-        b"# Runtime dependencies (PyYAML, Pydantic, Hypothesis)",
+        b"# Runtime dependencies (PyYAML, Pydantic)",
         canonical_bytes,
     )
-    fixed_bytes = original.replace(b"PyYAML, Pydantic, Hypothesis", b"PyYAML, Pydantic") + (
-        b"# Hypothesis is a test dependency and belongs in each consumer repo's test/dev extras.\n"
-    )
+    if b"Hypothesis is a test dependency" not in fixed_bytes:
+        fixed_bytes += b"# Hypothesis is a test dependency and belongs in each consumer repo's test/dev extras.\n"
+    assert fixed_bytes.count(before) == 1, "Each mutation must target exactly one guidance example"
+    original = fixed_bytes.replace(before, after, 1)
 
     # Copy the actual assertions, redirecting only their input to the isolated fixture.
     test_path = tmp_path / Path(__file__).name
@@ -100,8 +131,8 @@ def test_regression_discriminates_original_and_fixed_guidance(tmp_path: Path) ->
         guidance_path.write_bytes(original)
         original_result = run_checks()
         assert original_result.returncode == 1, original_result.stdout + original_result.stderr
-        assert "Hypothesis is a test dependency, not runtime" in original_result.stdout
-        assert "FAILED test_hypothesis_dependency_guidance.py::" in original_result.stdout
+        assert "1 failed, 1 passed" in original_result.stdout
+        assert f"FAILED {test_path.name}::{failed_check}" in original_result.stdout
         assert pin_lines(guidance_path.read_bytes()) == pin_lines(canonical_bytes)
     finally:
         guidance_path.write_bytes(fixed_bytes)
