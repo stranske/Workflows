@@ -4,15 +4,17 @@ Source issue #3820 requires an auditable contract for which evidence must be
 present before expanded native provider invocation. This module reads the
 builder-emitted context source coverage inventory and names per-source
 obligations without mutating captured artifacts. This helper validates generated
-capture coverage only; snapshot emission, downstream prompt retention, native
-capacity checks and lossless partitioning remain separate integration obligations.
+capture coverage and records it in input snapshots. Expanded native preflight
+consumes the same manifest; lossless partitioning remains a separate obligation.
 """
 
 from __future__ import annotations
 
+import hashlib
 import json
 import re
 from dataclasses import dataclass
+from pathlib import Path
 from typing import Any
 
 SCHEMA = "workflows-verifier-capture-obligation-manifest/v1"
@@ -212,3 +214,42 @@ def build_capture_obligation_manifest(
         "gaps": gaps,
         "obligations": [item.to_dict() for item in obligations],
     }
+
+
+def record_capture_obligations(
+    context_path: Path, *, context_text: str | None = None
+) -> dict[str, Any]:
+    """Enrich a local input snapshot without rewriting any captured source bytes.
+
+    Existing snapshots must bind the exact context. Never repair a stale identity
+    or replace an already recorded, conflicting inventory. A standalone manifest
+    is also emitted for evaluate runs that do not create comparison snapshots.
+    """
+    context_bytes = context_path.read_bytes()
+    captured_text = context_bytes.decode("utf-8")
+    # Path.read_text normalizes line endings. Compare that same view to the
+    # already loaded evaluation input, while binding snapshots to raw bytes.
+    if context_text is not None and context_text != captured_text.replace("\r\n", "\n").replace(
+        "\r", "\n"
+    ):
+        raise ValueError("loaded context changed before snapshot recording")
+    manifest = build_capture_obligation_manifest(captured_text)
+    snapshot_path = context_path.with_name("verifier-input-manifest.json")
+    if snapshot_path.exists():
+        snapshot = json.loads(
+            snapshot_path.read_text(encoding="utf-8"), object_pairs_hook=_unique_object
+        )
+        if (
+            not isinstance(snapshot, dict)
+            or snapshot.get("schema") != "workflows-verifier-input-snapshot/v1"
+            or snapshot.get("context_sha256") != hashlib.sha256(context_bytes).hexdigest()
+        ):
+            raise ValueError("context does not match the verifier input snapshot")
+        if "capture_obligations" in snapshot and snapshot["capture_obligations"] != manifest:
+            raise ValueError("capture obligations do not match the verifier input snapshot")
+        snapshot["capture_obligations"] = manifest
+        snapshot_path.write_text(json.dumps(snapshot, indent=2) + "\n", encoding="utf-8")
+    context_path.with_name("verifier-capture-obligation-manifest.json").write_text(
+        json.dumps(manifest, indent=2) + "\n", encoding="utf-8"
+    )
+    return manifest

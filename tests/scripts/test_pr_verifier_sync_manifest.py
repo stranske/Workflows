@@ -52,6 +52,12 @@ def test_pr_verifier_source_and_consumer_template_are_identical() -> None:
     assert template.read_bytes() == PR_VERIFIER.read_bytes()
 
 
+def test_capture_obligation_dependency_is_managed_and_identical() -> None:
+    source = "tools/verifier_capture_obligation_manifest.py"
+    assert source in _manifest_sources()
+    assert (ROOT / "templates/consumer-repo" / source).read_bytes() == (ROOT / source).read_bytes()
+
+
 def test_pr_verifier_copy_delivery_includes_doc_lineage() -> None:
     manifest = yaml.safe_load(MANIFEST.read_text(encoding="utf-8"))
     entry = next(

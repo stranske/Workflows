@@ -40,6 +40,10 @@ from scripts.langchain.verifier_config import (
     SchemaRepairPolicy,
 )
 from tools.llm_registry import NativeCapacityFacts, native_capacity_facts_for
+from tools.verifier_capture_obligation_manifest import (
+    build_capture_obligation_manifest,
+    record_capture_obligations,
+)
 
 # The shared client builder returns the ClientInfo ``provider_label`` for the
 # verifier (the historical ``_get_llm_client`` returned that field). Bound under
@@ -330,6 +334,7 @@ class ComparisonRunner:
                 self.prompt,
                 operation="evaluate_pr_compare",
                 context=self.context,
+                diff=self.diff,
             )
         except Exception as exc:  # pragma: no cover - exercised in integration
             return _apply_coverage_floor(
@@ -4868,7 +4873,9 @@ def _native_capacity_contract(client: object) -> dict[str, object]:
     }
 
 
-def _preflight_input_capacity(client: object, prompt: str) -> dict[str, object]:
+def _preflight_input_capacity(
+    client: object, prompt: str, *, context: str | None = None, diff: str | None = None
+) -> dict[str, object]:
     """Count the complete native request; never substitute four-character estimates.
 
     Capacity comes from the source-owned exact-model native contract. No model aliases,
@@ -4878,6 +4885,17 @@ def _preflight_input_capacity(client: object, prompt: str) -> dict[str, object]:
     """
     receipt: dict[str, object] = {"status": "unavailable", "prompt_chars": len(prompt)}
     try:
+        if context is not None:
+            manifest = build_capture_obligation_manifest(context)
+            receipt["capture_obligations"] = manifest
+            coverage = prompt_coverage(context, diff)
+            receipt["prompt_coverage"] = coverage.to_dict()
+            if not manifest["sufficient"]:
+                raise InputCapacityError("capture obligation gaps: " + json.dumps(manifest["gaps"]))
+            if not coverage.sufficient:
+                raise InputCapacityError("prompt obligation gaps: " + json.dumps(coverage.reasons))
+            if prompt != _prepare_prompt(context, diff):
+                raise InputCapacityError("prompt does not match the complete captured obligations")
         contract = _native_capacity_contract(client)
         profile = contract["profile"]
         if not isinstance(profile, dict):
@@ -5035,6 +5053,7 @@ def _invoke_llm(
     *,
     operation: str,
     context: str | None = None,
+    diff: str | None = None,
     pr_number: int | None = None,
     issue_number: int | None = None,
 ) -> tuple[object, str | None, str | None]:
@@ -5047,7 +5066,7 @@ def _invoke_llm(
     # its existing adapter behavior without claiming native capacity proof.
     if os.environ.get("VERIFIER_EVIDENCE_PROFILE") == "expanded":
         client = _prepare_capacity_client(client)
-        _preflight_input_capacity(client, prompt)
+        _preflight_input_capacity(client, prompt, context=context, diff=diff)
     config = _build_llm_config(
         operation=operation,
         context=context,
@@ -5369,6 +5388,7 @@ def evaluate_pr(
             prompt,
             operation="evaluate_pr",
             context=context,
+            diff=diff,
             pr_number=pr_number,
         )
     except Exception as exc:  # pragma: no cover - exercised in integration
@@ -5389,6 +5409,7 @@ def evaluate_pr(
                         prompt,
                         operation="evaluate_pr_fallback",
                         context=context,
+                        diff=diff,
                         pr_number=pr_number,
                     )
                     content = getattr(response, "content", None) or str(response)
@@ -5794,6 +5815,8 @@ def main() -> None:
 
     context = _load_text(args.context_file)
     diff = _load_text(args.diff_file) if args.diff_file else None
+    if args.context_file:
+        record_capture_obligations(Path(args.context_file), context_text=context)
     if args.compare:
         results = evaluate_pr_multiple(context, diff=diff, model1=args.model, model2=args.model2)
         report = format_comparison_report(results)

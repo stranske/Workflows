@@ -128,6 +128,21 @@ replacement is allowed on capacity failure. Native counter or profile absence is
 NON_PASS, including authentication failure while counting; it never authorizes
 an alternate judge. Capacity receipts are retained as `verifier-capacity-checks.jsonl`
 for both evaluate and compare, including failed generation attempts.
+The managed `tools/verifier_capture_obligation_manifest.py` dependency names
+every captured changed-code and acceptance source in a v1 obligation manifest.
+The Python CLI records this manifest before evaluation, embedding it as
+`capture_obligations` in an existing input snapshot only after its raw context
+SHA-256 matches. Existing conflicting obligations or stale snapshot identity
+abort evaluation without repairing the identity. Context, diff and summary
+captures are not rewritten. A standalone manifest is emitted beside the context;
+the existing comparison snapshot upload retains the embedded inventory.
+Expanded preflight derives obligations from the builder-owned pre-CI inventory,
+checks complete prompt coverage and exact prepared-prompt equality, and retains
+both inventories in the capacity receipt. Missing, malformed, unavailable,
+omitted or truncated required sources block before native counting or generation.
+An exact-model overflow retains the obligations and full counted request outcome;
+bounded lossless partitioning remains unimplemented. Neither this manifest nor
+ordinary workflow success closes the unresolved authenticated live-capture gaps.
 The expanded v7 evidence allocation retains the observed 315,891-character
 acceptance-evidence capture that v6 clipped at 262,144 characters. Its finite
 524,288-character ceiling still reports larger evidence as truncated and

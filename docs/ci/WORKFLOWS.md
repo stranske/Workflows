@@ -173,6 +173,12 @@ is required only for explicit expanded evaluate/compare recovery, including sche
 repair. Standard retains existing client behavior without capacity claims; evidence
 and coverage floors remain unconditional. Both Python modes retain expanded capacity
 receipts even when generation fails.
+The Python entry point records capture obligations inside the existing input
+snapshot, after validating its context hash. Expanded preflight retains this
+inventory alongside prompt coverage in capacity receipts and rejects incomplete
+capture or clipped prompts before native counting and generation. Standalone
+manifest emission is local; comparison uploads retain the embedded inventory
+through their existing snapshot path.
 Expanded Terra alone uses a verifier-local Responses adapter copy; Sonnet's native
 Models API supplies exact-model limits before its Messages count. Unsupported
 models/transports or unavailable counts remain NON_PASS. Native input limits and

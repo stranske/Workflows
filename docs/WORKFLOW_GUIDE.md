@@ -229,6 +229,17 @@ context character limit. This record describes generated-context availability;
 evaluate/compare prompt coverage separately records later model-budget reductions
 and withholds PASS when required evidence is incomplete.
 
+The Python evaluate/compare entry point emits a
+`workflows-verifier-capture-obligation-manifest/v1` inventory before evaluation.
+It embeds the inventory as `capture_obligations` in an existing
+`verifier-input-manifest.json`, preserving snapshot identity and checking its
+context hash first. It also writes `verifier-capture-obligation-manifest.json`
+locally. Expanded native preflight derives the same inventory from the supplied
+context, retains it in capacity receipts, and blocks capture gaps or prompt
+clipping before token counting or generation. Standard retains its existing
+invocation behavior. Over-capacity inputs still require lossless recovery;
+this integration does not implement partitioning or restore unavailable evidence.
+
 Run and artifact listings have independent finite page and record bounds. The
 collector follows `VERIFIER_EVIDENCE_RUN_PAGES` and `VERIFIER_EVIDENCE_ARTIFACT_PAGES`
 within their record ceilings (expanded uses two/four pages respectively). A full page
