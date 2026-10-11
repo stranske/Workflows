@@ -5194,6 +5194,24 @@ def _create_followup_issue(
     return None
 
 
+def _capture_validation_failure_result(exc: BaseException) -> EvaluationResult:
+    """Structured verifier output when capture obligations cannot be recorded."""
+    detail = str(exc) or exc.__class__.__name__
+    return EvaluationResult(
+        verdict="FAIL",
+        scores=None,
+        concerns=[f"Capture validation failed before evaluation: {detail}"],
+        summary=(
+            "Verifier inputs could not be validated from the captured context file. "
+            "No provider evaluation ran."
+        ),
+        provider_used=None,
+        model=None,
+        used_llm=False,
+        error=detail,
+    )
+
+
 def _fallback_evaluation(
     message: str, provider: str | None = None, model: str | None = None
 ) -> EvaluationResult:
@@ -5813,10 +5831,37 @@ def main() -> None:
     parser.add_argument("--json", action="store_true", help="Emit JSON payload to stdout.")
     args = parser.parse_args()
 
-    context = _load_text(args.context_file)
     diff = _load_text(args.diff_file) if args.diff_file else None
     if args.context_file:
-        record_capture_obligations(Path(args.context_file), context_text=context)
+        context_path = Path(args.context_file)
+        try:
+            context = _load_text(args.context_file)
+            record_capture_obligations(context_path, context_text=context)
+        except (UnicodeDecodeError, json.JSONDecodeError, ValueError) as exc:
+            failure = _capture_validation_failure_result(exc)
+            if args.compare:
+                report = format_comparison_report([failure])
+                if args.output_file:
+                    Path(args.output_file).write_text(report, encoding="utf-8")
+                if args.json:
+                    payload = {
+                        "results": [failure.model_dump()],
+                        "report": report,
+                    }
+                    print(json.dumps(payload, ensure_ascii=True))
+                else:
+                    print(report)
+                return
+            output_text = _evaluation_output_text(failure)
+            if args.output_file:
+                Path(args.output_file).write_text(output_text, encoding="utf-8")
+            if args.json:
+                print(json.dumps(failure.model_dump(), ensure_ascii=True))
+            else:
+                print(output_text)
+            return
+    else:
+        context = _load_text(None)
     if args.compare:
         results = evaluate_pr_multiple(context, diff=diff, model1=args.model, model2=args.model2)
         report = format_comparison_report(results)

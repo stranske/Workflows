@@ -128,15 +128,27 @@ def test_native_receipt_retains_manifest_and_exact_capacity_outcome(
     assert receipt["prompt_chars"] == len(prompt)
 
 
-def test_snapshot_identity_mismatch_blocks_without_overwriting(tmp_path, monkeypatch):
+@pytest.mark.parametrize("compare", [False, True])
+def test_snapshot_identity_mismatch_blocks_without_overwriting(
+    tmp_path, monkeypatch, capsys, compare
+):
     context, snapshot, _ = _captured_snapshot(tmp_path)
     context.write_text(context.read_text() + "changed after capture\n")
     original = snapshot.read_bytes()
     evaluate = mock.Mock()
     monkeypatch.setattr(pr_verifier, "evaluate_pr", evaluate)
-    monkeypatch.setattr(sys, "argv", ["verifier", "--context-file", str(context)])
-    with pytest.raises(ValueError, match="context.*snapshot"):
-        pr_verifier.main()
+    monkeypatch.setattr(pr_verifier, "evaluate_pr_multiple", evaluate)
+    monkeypatch.setattr(
+        sys,
+        "argv",
+        ["verifier", "--context-file", str(context), "--json"] + (["--compare"] if compare else []),
+    )
+    pr_verifier.main()
+    payload = json.loads(capsys.readouterr().out)
+    result = payload["results"][0] if compare else payload
+    assert result["verdict"] == "FAIL"
+    assert result["used_llm"] is False
+    assert "context" in result["error"] and "snapshot" in result["error"]
     evaluate.assert_not_called()
     assert snapshot.read_bytes() == original
 
@@ -180,7 +192,8 @@ def test_capture_receipt_retains_all_gaps_and_actionable_reasons(tmp_path, monke
 
 
 @pytest.mark.parametrize("defect", ["wrong-schema", "duplicate-key", "conflicting-obligations"])
-def test_ambiguous_snapshot_blocks_without_repair(tmp_path, monkeypatch, defect):
+@pytest.mark.parametrize("compare", [False, True])
+def test_ambiguous_snapshot_blocks_without_repair(tmp_path, monkeypatch, capsys, defect, compare):
     context, snapshot, metadata = _captured_snapshot(tmp_path)
     if defect == "wrong-schema":
         metadata["schema"] = "unknown/v2"
@@ -193,9 +206,19 @@ def test_ambiguous_snapshot_blocks_without_repair(tmp_path, monkeypatch, defect)
     original = snapshot.read_bytes()
     evaluate = mock.Mock()
     monkeypatch.setattr(pr_verifier, "evaluate_pr", evaluate)
-    monkeypatch.setattr(sys, "argv", ["verifier", "--context-file", str(context)])
-    with pytest.raises(ValueError):
-        pr_verifier.main()
+    monkeypatch.setattr(pr_verifier, "evaluate_pr_multiple", evaluate)
+    monkeypatch.setattr(
+        sys,
+        "argv",
+        ["verifier", "--context-file", str(context), "--json"] + (["--compare"] if compare else []),
+    )
+    pr_verifier.main()
+    payload = json.loads(capsys.readouterr().out)
+    result = payload["results"][0] if compare else payload
+    assert result["verdict"] == "FAIL"
+    assert result["used_llm"] is False
+    assert result["error"]
+    assert "Capture validation failed" in result["concerns"][0]
     evaluate.assert_not_called()
     assert snapshot.read_bytes() == original
 
