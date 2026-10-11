@@ -114,3 +114,21 @@ Do not mark checklist items complete or dispatch new keepalive rounds until the 
 ## Implementation-Level Details
 
 For the technical patterns inside each agent runner workflow — CLI invocation flags, unpushed commit detection, artifact filtering, commit/push retry logic — see the **[Agent Runner Implementation Guide](../guides/AGENT_RUNNER_IMPLEMENTATION.md)**. That guide covers the mechanics that this document intentionally omits.
+
+### Agent commit staging and pre-timeout checkpoints
+
+All four reusable agent runners stage through
+`scripts/stage_agent_changes.py` from their trusted `.workflows-lib` scripts
+checkout. Codex's pre-timeout watchdog uses that same executable contract and
+commits only when eligible staged changes remain. The helper is supplied by the
+Workflows checkout, so consumers do not need a new synced script or template.
+
+The contract excludes root runner outputs, dependency/cache directories at any
+depth, root coverage reports, and auxiliary Workflows checkouts. It unstages
+previously staged runtime artifacts without deleting working files. Existing
+staged source blobs, including partial staging, remain intact; other eligible
+changes and deletions are staged. Intentional source, tests, docs, and
+`docs/evidence` proof remain eligible. Keep new exclusions in this helper and
+validate them with its disposable Git regression tests. A checkpoint with only
+excluded artifacts creates no commit; unpushed existing commits retain their
+existing push path.

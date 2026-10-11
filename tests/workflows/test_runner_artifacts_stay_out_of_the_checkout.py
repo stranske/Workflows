@@ -113,17 +113,16 @@ def upload_artifact_paths(rel: str) -> list[str]:
 
 
 def commit_step_exclusions(rel: str) -> list[str]:
-    """The `git reset HEAD --` denylist the commit step subtracts from `git add -A`."""
-    match = re.search(r"git reset HEAD -- \\\n(.*?)\n\s*2>/dev/null", workflow_text(rel), re.S)
-    assert match, (
-        "could not locate the commit step's `git reset HEAD --` exclusion list in "
-        f"{rel}; this guard can no longer tell which artifacts are excluded"
+    """Read the same executable contract used by all runner commit paths."""
+    import runpy
+
+    assert "python3 .workflows-lib/scripts/stage_agent_changes.py" in workflow_text(rel)
+    contract = runpy.run_path(str(ROOT / "scripts/stage_agent_changes.py"))
+    return (
+        list(contract["ARTIFACT_PATTERNS"])
+        + list(contract["ROOT_CHECKOUTS"])
+        + list(contract["ARTIFACT_DIRECTORIES"])
     )
-    return [
-        line.strip().rstrip("\\").strip()
-        for line in match.group(1).splitlines()
-        if line.strip() and line.strip() != "\\"
-    ]
 
 
 def template_ignore_patterns() -> list[str]:
