@@ -127,7 +127,7 @@ jobs:
                 'VERIFIER_EVIDENCE_TOTAL_ARTIFACT_CHARS=4194304' \
                 'VERIFIER_CONTEXT_BUDGET_TOKENS=16384' \
                 'VERIFIER_DIFF_BUDGET_TOKENS=65536' \
-                'VERIFIER_ACCEPTANCE_EVIDENCE_BUDGET_TOKENS=65536' >> "$GITHUB_ENV"
+                'VERIFIER_ACCEPTANCE_EVIDENCE_BUDGET_TOKENS=131072' >> "$GITHUB_ENV"
               ;;
             *) echo 'Unsupported verifier evidence profile' >&2; exit 1 ;;
           esac
@@ -451,7 +451,7 @@ jobs:
               'ci_workflows': ci_workflows,
               'evidence_profile': os.environ['VERIFIER_EVIDENCE_PROFILE'],
               'evidence_contract': (
-                  'bounded-native-capacity-v6'
+                  'bounded-native-capacity-v7'
                   if os.environ['VERIFIER_EVIDENCE_PROFILE'] == 'expanded'
                   else 'bounded-native-capacity-v2'
               ),

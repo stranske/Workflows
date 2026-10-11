@@ -35,7 +35,7 @@ separate shared-library contract.
 The reusable call passes exactly its six declared secrets, including the existing
 lowercase `workflows_app_id` and `workflows_app_private_key` keys. No repository
 secret inheritance is permitted. Fingerprint outputs enter shell steps through
-quoted environment variables; the standard v2 and expanded v6 fingerprint
+quoted environment variables; the standard v2 and expanded v7 fingerprint
 contracts and success-only persistence remain unchanged.
 
 The two inline `zizmor: ignore[dangerous-triggers]` comments disposition only
@@ -110,7 +110,7 @@ entry overflow and read/extraction failures remain actionable gaps alongside any
 complete siblings. The context records separate page, record, character, archive,
 entry, unsupported-payload and provenance counters and failure reasons.
 
-Expanded prompt allocation is 16,384 context, 65,536 diff and 65,536 evidence
+Expanded prompt allocation is 16,384 context, 65,536 diff and 131,072 evidence
 estimated tokens (four characters per allocation unit). The existing 8 MiB diff
 fetch and 300,000-character context-diff ceiling remain. These allocation units
 are **not model token counts**. Only for explicit expanded recovery, before each
@@ -125,6 +125,13 @@ replacement is allowed on capacity failure. Native counter or profile absence is
 NON_PASS, including authentication failure while counting; it never authorizes
 an alternate judge. Capacity receipts are retained as `verifier-capacity-checks.jsonl`
 for both evaluate and compare, including failed generation attempts.
+The expanded v7 evidence allocation retains the observed 315,891-character
+acceptance-evidence capture that v6 clipped at 262,144 characters. Its finite
+524,288-character ceiling still reports larger evidence as truncated and
+NON_PASS; it does not discard older comments or weaken collection completeness.
+Raising this allocation is not a capacity receipt or an acceptance verdict: the
+unchanged native preflight must count the resulting complete request again, and
+both comparison arms must independently produce their actual verdicts.
 The evaluate receipt upload uses a full action commit pin; its regression rejects
 mutable tags without changing upload eligibility or retention.
 Receipt open, write or close failures emit a warning without replacing the
@@ -221,7 +228,7 @@ unconditionally in both profiles. Local simulated transport tests establish sour
 behavior only. Inspect actual new retrieval, authenticated capacity receipts and
 both provider verdicts; workflow success alone is not acceptance.
 The input snapshot records every bound, and the consumer fingerprint includes the
-profile plus `bounded-native-capacity-v6` (standard retains `bounded-native-capacity-v2`), so a previously fingerprinted expanded
+profile plus `bounded-native-capacity-v7` (standard retains `bounded-native-capacity-v2`), so a previously fingerprinted expanded
 evaluation cannot suppress this changed expanded contract. Existing manifest entries already manage the repaired verifier; no file
 addition, rename or delivery scope change requires a new manifest entry.
 
