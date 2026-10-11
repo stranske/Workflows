@@ -1,0 +1,21 @@
+{
+  "files": {
+    "broader.xml": "c756e784a294fc33485c96fc548ed32c077fc4983de8b2604b41d0d5f7cddc25",
+    "red.log": "d855826b81d88671e3ff79b49424225b73e15cabee59e11e88124387cb299cc3",
+    "node.log": "37797a0074906802803280832c510a523f7d48cc47a11d66043c165ae325074c",
+    "live-exact-artifacts.json": "e75ab939af0df165856f202f456a7693c4eafbe7807258ddbd4ebb9d2587ec46",
+    "restored-green.log": "8989a153a4f265bdf8bf8abfcbf7ce96cf91c69ee66d543244ebf0fc2c9d041d",
+    "README.md": "871c5b3791298fc00a3a0e217b0f7e254386586fc9b4f94247eb5ec9eed4e6e7",
+    "restored-green.xml": "b2975a0d805e515cf505e6b4bfb7f1abd5a10935018e1d9dacc319d4400eb13c",
+    "broader.log": "7afd45d623b87444e19b8ab4abc1064cd976b5f62aa1dc62b18f52cfd608a12c",
+    "red.xml": "fca51211c491ae28fe8e54cea5d8cca9f2bab5ec3ef6814a0539ff7b36155a8f",
+    "proof.json": "2ccb7b2965a1a60ab9cbf8fe3572d5eeca23a847f09f27f209a769835339075d"
+  },
+  "source_sha256": {
+    ".github/scripts/langsmith-fleet-artifacts.js": "027102215568029adfcdc931077177179d8a53708fb5e2772ac828b10f837dfe",
+    ".github/scripts/__tests__/langsmith-fleet-artifacts.test.js": "2c2bb050be4acfea1b3fb5d4fd49545d40471705a78abb36d9069ea67622e1fd",
+    ".github/workflows/maint-81-langsmith-fleet-conformance.yml": "899aeec391632a518b4a553df9d431d0dcb1d12690da71aa78f5ae6957d317ab",
+    "scripts/langsmith_observability_health.py": "d21a4d2f7af101ba2e07dfa87fe4164422c850fb079a7e4e7418fe48080eebb6",
+    "tests/workflows/test_langsmith_fleet_conformance_workflow.py": "52833dc4481fa4299108e8914b3daa78a973c7ba3fc1e63d080cc0f7641f8ba3"
+  }
+}

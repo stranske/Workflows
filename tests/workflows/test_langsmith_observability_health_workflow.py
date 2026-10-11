@@ -1,4 +1,10 @@
+import json
+import os
+import subprocess
 from pathlib import Path
+
+import pytest
+import yaml
 
 WORKFLOW = Path(".github/workflows/health-84-langsmith-observability.yml")
 
@@ -30,3 +36,53 @@ def test_observability_health_has_visible_durable_escalation() -> None:
     assert "gh issue create" in source
     assert "gh issue comment" in source
     assert "LANGSMITH_API_KEY: ${{ secrets.LANGSMITH_API_KEY }}" in source
+
+
+@pytest.mark.parametrize(
+    "status,human", [("degraded", False), ("degraded", True), ("healthy", False)]
+)
+@pytest.mark.parametrize("existing", [False, True])
+def test_health_issue_labels_follow_actual_remediation_owner(tmp_path, status, human, existing):
+    steps = yaml.safe_load(WORKFLOW.read_text())["jobs"]["health"]["steps"]
+    script = next(
+        s["run"] for s in steps if s["name"] == "Upsert durable observability health issue"
+    )
+    report_dir = tmp_path / ".observability-health"
+    report_dir.mkdir()
+    (report_dir / "report.md").write_text("health report")
+    (report_dir / "report.json").write_text(json.dumps({"human_attention_required": human}))
+    gh = tmp_path / "gh"
+    gh.write_text(
+        "#!/usr/bin/env python3\nimport json,os,sys\nfrom pathlib import Path\na=sys.argv[1:]\nwith open(os.environ['CALLS'],'a') as f: f.write(json.dumps(a)+'\\n')\nif a[:2]==['issue','list']: print(json.dumps([{'number':3123,'title':'🔭 LangSmith Observability Health','body':''}] if os.environ['EXISTING']=='1' else []))\nif a[:2]==['issue','create']: print('https://github.com/o/r/issues/3123')\n"
+    )
+    gh.chmod(0o755)
+    calls = tmp_path / "calls.jsonl"
+    proc = subprocess.run(
+        ["bash", "-c", script],
+        cwd=tmp_path,
+        env={
+            **os.environ,
+            "PATH": str(tmp_path) + os.pathsep + os.environ["PATH"],
+            "CALLS": str(calls),
+            "EXISTING": "1" if existing else "0",
+            "HEALTH_STATUS": status,
+            "GITHUB_SERVER_URL": "https://github.com",
+            "GITHUB_REPOSITORY": "o/r",
+            "GITHUB_RUN_ID": "1",
+        },
+        capture_output=True,
+        text=True,
+    )
+    assert proc.returncode == 0, proc.stdout + proc.stderr
+    commands = [json.loads(line) for line in calls.read_text().splitlines()]
+    added_human = any(
+        (
+            "--add-label" in c
+            and any(c[i : i + 2] == ["--add-label", "needs-human"] for i in range(len(c)))
+        )
+        or ("--label" in c and "needs-human" in c[c.index("--label") + 1].split(","))
+        for c in commands
+    )
+    assert added_human is (status == "degraded" and human)
+    if status == "degraded" and not human:
+        assert any("--remove-label" in c and "needs-human" in c for c in commands)
