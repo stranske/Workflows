@@ -104,7 +104,7 @@ workflows:
 
   # Post-merge trusted-base execution, job-scoped permissions and declared secrets.
   - source: .github/workflows/agents-verifier.yml
-    description: "Verifier - validates acceptance criteria with standard or bounded expanded evidence recovery; profile participates in consumer state fingerprint"
+    description: "Verifier - validates acceptance criteria with standard or bounded expanded evidence/full-diff recovery; profile participates in consumer state fingerprint"
 
   - source: .github/workflows/list-llm-models.yml
     description: "List LLM Models - helper to show available models for verifier"
