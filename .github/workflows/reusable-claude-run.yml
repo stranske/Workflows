@@ -1029,40 +1029,8 @@ jobs:
             exit 0
           fi
 
-          git add -A
-          # Unstage non-agent artifacts to prevent committing workflow noise.
-          # Mirrors the exclusion list from reusable-codex-run.yml.
-          git reset HEAD -- \
-            claude-output*.md \
-            claude-prompt*.md \
-            claude-session*.log \
-            claude-session*.jsonl \
-            claude-analysis*.json \
-            codex-output*.md \
-            codex-prompt*.md \
-            codex-session-*.jsonl \
-            codex-analysis-*.json \
-            cursor-output*.md \
-            cursor-prompt*.md \
-            cursor-session*.log \
-            cursor-session*.jsonl \
-            cursor-analysis*.json \
-            gemini-output*.md \
-            gemini-prompt*.md \
-            gemini-session*.log \
-            gemini-session*.jsonl \
-            gemini-analysis*.json \
-            .coverage \
-            .workflows-lib \
-            .workflows-actions \
-            .github/scripts/node_modules \
-            .workflows-lib/.github/scripts/node_modules \
-            node_modules \
-            coverage.xml \
-            pr_body.md \
-            autofix_report_enriched.json \
-            poetry.lock \
-            2>/dev/null || true
+          # Shared artifact contract also used by the pre-timeout checkpoint.
+          python3 .workflows-lib/scripts/stage_agent_changes.py
 
           # Bail if all changes were artifacts — but still check for unpushed
           # commits from Claude (it may have committed via Bash tool).
@@ -1534,8 +1502,8 @@ jobs:
           set -euo pipefail
           # Written OUTSIDE the checkout. This directory only ever feeds the
           # upload-artifact step below, and a staging directory in the working tree is a
-          # liability: the commit step earlier in this job runs `git add -A` minus a
-          # hand-curated exclusion list this path is not on. It has been safe only because
+          # liability: the shared staging helper excludes known artifact paths, but
+          # this diagnostic directory is not a source change. It had been safe only because
           # that step happens to run FIRST -- ordering, not a safety property. Reorder the
           # steps or add a later commit step and it becomes the
           # langsmith-fleet-worker-attempt.json defect (PR #3210), which reached six

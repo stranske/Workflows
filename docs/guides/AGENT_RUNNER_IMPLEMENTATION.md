@@ -120,7 +120,7 @@ fi
 The runner has **two** points where it might exit early without pushing:
 
 1. **Zero uncommitted changes** — `git status --porcelain` is empty. Check for unpushed commits here.
-2. **All changes are artifacts** — After `git add -A` and artifact filtering (`git reset HEAD --`), `git diff --cached --quiet` is true. Check for unpushed commits here too.
+2. **All changes are artifacts** — After the shared staging helper runs, `git diff --cached --quiet` is true. Check for unpushed commits here too.
 
 Missing either check means agent work gets silently discarded.
 
@@ -133,40 +133,42 @@ Missing either check means agent work gets silently discarded.
 
 ## 3. Artifact Filtering
 
-Agent runs produce temporary files that must not be committed. Use `git add -A` followed by `git reset HEAD --` to unstage known artifacts. This keeps the files on disk (available for upload as workflow artifacts) while preventing them from entering the commit.
-
-### Exclusion List
+Agent runs produce temporary files that must not be committed. Every normal
+runner and Codex's pre-timeout watchdog use the same executable contract:
 
 ```bash
-git add -A
-git reset HEAD -- \
-  claude-output*.md \
-  claude-prompt*.md \
-  claude-session*.jsonl \
-  claude-analysis*.json \
-  codex-output*.md \
-  codex-prompt*.md \
-  codex-session-*.jsonl \
-  codex-analysis-*.json \
-  .coverage \
-  .workflows-lib \
-  .github/scripts/node_modules \
-  .workflows-lib/.github/scripts/node_modules \
-  node_modules \
-  coverage.xml \
-  pr_body.md \
-  autofix_report_enriched.json \
-  poetry.lock \
-  2>/dev/null || true
+python3 .workflows-lib/scripts/stage_agent_changes.py
 ```
+
+The existing trusted Workflows scripts checkout supplies this helper, including
+for consumer repositories. Keep `scripts` in that checkout's sparse paths. A
+consumer-local helper or separately synced exclusion list is unnecessary.
 
 ### Rules
 
-- **Agent-specific artifacts** (e.g., `claude-output*.md`, `codex-session*.jsonl`) — always exclude. These are captured as workflow artifacts separately.
-- **Build artifacts** (`.coverage`, `coverage.xml`, `node_modules`) — always exclude. These come from test runs during the agent session.
-- **Submodule checkouts** (`.workflows-lib`) — always exclude. This is a separate sparse checkout, not part of the consumer repo.
-- **When adding a new agent**, add its output files to this list in **both** runners (Claude and Codex) so cross-agent artifacts from shared workspaces don't leak.
-- Use `2>/dev/null || true` because some globs may not match — that's expected.
+- Maintain exclusions once in `scripts/stage_agent_changes.py`. Add a new agent's
+  root output patterns there so every runner receives the same filtering.
+- Root runner outputs, root coverage reports, and auxiliary checkouts are
+  excluded. Dependency and cache directories such as `node_modules` are excluded
+  at any depth. Intentional source, tests, documentation, and `docs/evidence`
+  proof remain eligible; a document under `docs/coverage` is still source.
+- Already staged artifacts are unstaged without changing or deleting working
+  files. Already staged source blobs retain their original content, including
+  partially staged changes. Other eligible modifications, deletions, and
+  untracked files are staged with literal, null-delimited Git paths.
+- Treat helper failure as a staging failure. Do not fall back to unrestricted
+  staging. New runtime outputs should normally be written under `RUNNER_TEMP`
+  and uploaded from there instead of extending the exclusion contract.
+- Validate changes with `tests/scripts/test_stage_agent_changes.py`, which uses
+  real disposable Git repositories, and the runner artifact/wiring guards.
+
+### Pre-timeout checkpoint
+
+The Codex watchdog invokes the same helper and commits only if
+`git diff --cached --quiet` reports eligible staged changes. A checkpoint with
+only excluded artifacts creates no commit and leaves those artifacts on disk.
+Existing unpushed commits retain their push path. A future runner watchdog must
+use this contract too.
 
 ### Post-Filter Validation
 
@@ -192,8 +194,8 @@ The full commit step follows this sequence:
 1. Count uncommitted changes (git status --porcelain)
 2. If zero → check for unpushed commits → push or exit
 3. Verify push token is available
-4. git add -A
-5. Unstage artifacts (git reset HEAD --)
+4. Run python3 .workflows-lib/scripts/stage_agent_changes.py
+5. Stop on staging failure; preserve staged source blobs and working files
 6. If nothing staged → check for unpushed commits → push or exit
 7. Show staged diff (::group:: for CI log folding)
 8. git commit -m "$message" || exit 1    ← fail loudly, never || true
@@ -337,8 +339,8 @@ only validates and relays it. Downstream promotion remains Orchestrator-owned.
 ### Artifact files committed
 
 **Symptom:** `codex-output-42.md` or `.coverage` appears in the commit diff.
-**Cause:** `git add -A` staged everything, and artifact filtering (`git reset HEAD --`) didn't cover the file.
-**Fix:** Add the file pattern to the exclusion list in §3. Update **all** runner workflows, not just the one that hit the issue.
+**Cause:** A commit path bypassed the shared staging helper, or a new runtime output was written inside the checkout without a matching exclusion.
+**Fix:** Route the commit path through `scripts/stage_agent_changes.py` (§3). Prefer moving new runtime output to `RUNNER_TEMP`; if an exclusion is needed, update the shared helper and its disposable Git regression.
 
 ### `git commit || true` hiding failures
 
@@ -349,8 +351,8 @@ only validates and relays it. Downstream promotion remains Orchestrator-owned.
 ### `.workflows-lib` submodule staged
 
 **Symptom:** Commit includes changes to `.workflows-lib` directory (a sparse checkout of the Workflows repo used for shared scripts).
-**Cause:** `git add -A` stages everything, including the separate checkout.
-**Fix:** Already in the artifact exclusion list (§3). Verify it's present if you see this.
+**Cause:** A commit path bypassed the shared staging helper.
+**Fix:** Use the helper in §3, which excludes auxiliary checkouts even when previously staged.
 
 ### Agent CLI not found
 
@@ -366,8 +368,8 @@ When building a new `reusable-<agent>-run.yml`:
 
 - [ ] CLI invocation captures structured session logs (JSONL or equivalent)
 - [ ] Unpushed commit detection at **both** early-exit points (zero-changes and post-filter)
-- [ ] Artifact exclusion list includes new agent's output files
-- [ ] Existing runners' exclusion lists updated with new agent's artifacts
+- [ ] Shared staging helper includes the new agent's root output patterns
+- [ ] Normal and watchdog commit paths invoke the shared helper; scripts checkout includes it
 - [ ] Commit failures fail loudly (no `|| true`)
 - [ ] Pre-push fetch + rebase handles concurrent branch updates
 - [ ] Push retry loop (3 attempts, exponential backoff)
