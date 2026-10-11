@@ -1,0 +1,163 @@
+{
+  "base": "c15e5eb8e588e3a36e1941bf8384913f09e01d52",
+  "ranking": [
+    {
+      "path": "scripts/check_deliberate_break.py",
+      "repair_subject_proxy": 73,
+      "touches": 82
+    },
+    {
+      "path": "scripts/langchain/pr_verifier.py",
+      "repair_subject_proxy": 32,
+      "touches": 39
+    },
+    {
+      "path": "scripts/runner_lib/core.py",
+      "repair_subject_proxy": 28,
+      "touches": 37
+    },
+    {
+      "path": "scripts/sync_test_dependencies.py",
+      "repair_subject_proxy": 16,
+      "touches": 17
+    },
+    {
+      "path": "scripts/langchain/issue_formatter.py",
+      "repair_subject_proxy": 16,
+      "touches": 17
+    },
+    {
+      "path": "scripts/docs_drift_fix_agent.py",
+      "repair_subject_proxy": 13,
+      "touches": 13
+    },
+    {
+      "path": "scripts/langchain/followup_issue_generator.py",
+      "repair_subject_proxy": 11,
+      "touches": 12
+    },
+    {
+      "path": "scripts/sync_dev_dependencies.py",
+      "repair_subject_proxy": 9,
+      "touches": 9
+    },
+    {
+      "path": "scripts/validate_run_contract.py",
+      "repair_subject_proxy": 8,
+      "touches": 18
+    },
+    {
+      "path": "scripts/check_docs_drift.py",
+      "repair_subject_proxy": 8,
+      "touches": 9
+    },
+    {
+      "path": "scripts/check_consumer_sync_drift.py",
+      "repair_subject_proxy": 7,
+      "touches": 9
+    },
+    {
+      "path": "scripts/repo_review_coordinator.py",
+      "repair_subject_proxy": 6,
+      "touches": 10
+    }
+  ],
+  "ranking_scope": "last400 scripts-touching commits; repair/fix/regression/recover subject proxy, not verified escaped defects",
+  "coverage_scope": "root scripts/check_deliberate_break.py only; consumer behavior tested separately, no consumer coverage metric",
+  "baseline": {
+    "covered_lines": 570,
+    "num_statements": 591,
+    "percent_covered": 95.31066822977726,
+    "percent_covered_display": "95.31",
+    "missing_lines": 21,
+    "excluded_lines": 0,
+    "percent_statements_covered": 96.44670050761421,
+    "percent_statements_covered_display": "96.45",
+    "num_branches": 262,
+    "num_partial_branches": 19,
+    "covered_branches": 243,
+    "missing_branches": 19,
+    "percent_branches_covered": 92.74809160305344,
+    "percent_branches_covered_display": "92.75"
+  },
+  "candidate": {
+    "covered_lines": 576,
+    "num_statements": 591,
+    "percent_covered": 96.60023446658852,
+    "percent_covered_display": "96.60",
+    "missing_lines": 15,
+    "excluded_lines": 0,
+    "percent_statements_covered": 97.46192893401015,
+    "percent_statements_covered_display": "97.46",
+    "num_branches": 262,
+    "num_partial_branches": 14,
+    "covered_branches": 248,
+    "missing_branches": 14,
+    "percent_branches_covered": 94.65648854961832,
+    "percent_branches_covered_display": "94.66"
+  },
+  "newly_covered_lines": [
+    476,
+    478,
+    551,
+    615,
+    617,
+    618
+  ],
+  "newly_covered_branches": [
+    [
+      474,
+      476
+    ],
+    [
+      477,
+      478
+    ],
+    [
+      544,
+      551
+    ],
+    [
+      614,
+      615
+    ],
+    [
+      616,
+      617
+    ]
+  ],
+  "covered_line_regressions": [],
+  "baseline_pass": 294,
+  "candidate_pass": 300,
+  "new_nodes": [
+    [
+      "tests.scripts.test_check_deliberate_break_module_boundaries",
+      "test_python_nonpytest_module_does_not_consume_trailing_pytest[root]"
+    ],
+    [
+      "tests.scripts.test_check_deliberate_break_module_boundaries",
+      "test_python_nonpytest_module_does_not_consume_trailing_pytest[template]"
+    ],
+    [
+      "tests.scripts.test_check_deliberate_break_module_boundaries",
+      "test_uv_module_named_python_is_not_a_nested_interpreter[root]"
+    ],
+    [
+      "tests.scripts.test_check_deliberate_break_module_boundaries",
+      "test_uv_module_named_python_is_not_a_nested_interpreter[template]"
+    ],
+    [
+      "tests.scripts.test_check_deliberate_break_module_boundaries",
+      "test_uv_option_terminator_keeps_the_selected_python_runtime[root]"
+    ],
+    [
+      "tests.scripts.test_check_deliberate_break_module_boundaries",
+      "test_uv_option_terminator_keeps_the_selected_python_runtime[template]"
+    ]
+  ],
+  "old_outcome_changes": [],
+  "production_unchanged": true,
+  "root_template_identical": true,
+  "mutations": 6,
+  "reuse_refused_without_changes": true
+}
