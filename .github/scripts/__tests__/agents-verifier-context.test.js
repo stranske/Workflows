@@ -3716,3 +3716,46 @@ test('bounded recovery retains the entire explicit reference union beyond its ru
     assert.ok(result.diagnostics.failures.some(f => f.kind === 'reference_record'));
   });
 });
+
+
+test('artifact extractor retains patch proof and unsafe sibling gaps', () => {
+  const proof = 'diff --git a/x.py b/x.py\n--- a/x.py\n+++ b/x.py\n@@ -1 +1 @@\n-old\n+new\n';
+  for (const extension of ['patch', 'diff']) {
+    const name = `verifier-pr-diff.${extension}`;
+    const run = (listing, maxChars = 1000) => extractArtifactArchiveText({
+      archiveBuffer: Buffer.from('mock archive'), maxEntries: 10, maxChars,
+      execFile: (_command, args) => args[0] === '-Z1' ? listing : Buffer.from(proof),
+    });
+    const complete = run(`${name}\n`);
+    assert.equal(complete.truncated, false);
+    assert.equal(complete.unsupportedCount, 0);
+    assert.equal(complete.text, `### ${name}\n\n${proof.trim()}`);
+    const bounded = run(`${name}\n`, 50);
+    assert.equal(bounded.truncated, true);
+    assert.ok(bounded.failures.includes('character'));
+    for (const unsafe of ['-injected.patch', 'wild*.diff', 'binary.png']) {
+      const partial = run(`${name}\n${unsafe}\n`);
+      assert.equal(partial.truncated, true);
+      assert.ok(partial.failures.includes('unsupported_payload'));
+      assert.match(partial.text, /diff --git/);
+    }
+  }
+});
+
+test('artifact extractor reads its own real archived verifier patch', () => {
+  const directory = fs.mkdtempSync(path.join(os.tmpdir(), 'verifier-patch-test-'));
+  const proof = 'diff --git a/a.py b/a.py\n--- a/a.py\n+++ b/a.py\n@@ -1 +1 @@\n-old\n+new\n';
+  try {
+    fs.writeFileSync(path.join(directory, 'verifier-pr-diff.patch'), proof);
+    execFileSync('zip', ['-q', 'proof.zip', 'verifier-pr-diff.patch'], {cwd: directory});
+    const result = extractArtifactArchiveText({
+      archiveBuffer: fs.readFileSync(path.join(directory, 'proof.zip')),
+      maxEntries: 10, maxChars: 1000,
+    });
+    assert.equal(result.truncated, false);
+    assert.equal(result.unsupportedCount, 0);
+    assert.equal(result.text, `### verifier-pr-diff.patch\n\n${proof.trim()}`);
+  } finally {
+    fs.rmSync(directory, {recursive: true, force: true});
+  }
+});

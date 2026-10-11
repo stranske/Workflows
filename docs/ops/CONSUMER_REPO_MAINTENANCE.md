@@ -128,6 +128,10 @@ replacement is allowed on capacity failure. Native counter or profile absence is
 NON_PASS, including authentication failure while counting; it never authorizes
 an alternate judge. Capacity receipts are retained as `verifier-capacity-checks.jsonl`
 for both evaluate and compare, including failed generation attempts.
+Workflow artifact extraction accepts `.patch` and `.diff` as untrusted text,
+including the verifier's own `verifier-pr-diff.patch` in comparison archives.
+The existing filename safety checks and finite entry, byte and character limits
+still apply; oversized patches and unsupported siblings remain incomplete.
 The managed `tools/verifier_capture_obligation_manifest.py` dependency names
 every captured changed-code and acceptance source in a v1 obligation manifest.
 The Python CLI records this manifest before evaluation, embedding it as

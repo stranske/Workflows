@@ -1,0 +1,14 @@
+{
+  "argv": [
+    "node",
+    "--test",
+    "--test-name-pattern=artifact extractor.*patch",
+    ".github/scripts/__tests__/agents-verifier-context.test.js"
+  ],
+  "cwd": "/Users/teacher/.codex/automations/imi-merge-verify-closer/worktrees/wf3831-validation-20261011T0820Z",
+  "original_sha256": "89e1e67eaca3dcf56e0b8d412ef9b1eee1aabf6c6a3bb05c46c3c88706e6ac61",
+  "mutant_sha256": "122af7ea59de8931b7ff254c3e7cbe804c3e05696b6a85f690715971627f6461",
+  "red_exit": 1,
+  "restored_sha256": "89e1e67eaca3dcf56e0b8d412ef9b1eee1aabf6c6a3bb05c46c3c88706e6ac61",
+  "green_exit": 0
+}
