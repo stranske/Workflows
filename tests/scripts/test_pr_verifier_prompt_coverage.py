@@ -3699,7 +3699,8 @@ def test_destination_specific_coverage_floor_blocks_missing_channel_with_present
         evidence = evidence.replace("PR comments: **present**", "PR comments: **absent**")
     if channel == "artifacts":
         evidence = evidence.replace(
-            "Referenced workflow artifacts: **present**", "Referenced workflow artifacts: **absent**"
+            "Referenced workflow artifacts: **present**",
+            "Referenced workflow artifacts: **absent**",
         )
     context = context.replace(ACCEPTANCE_SENTINEL, criterion).replace(
         "## PR Diff Summary",

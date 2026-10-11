@@ -5099,8 +5099,25 @@ def test_trip_planner_1885_destination_grammar_canaries(criterion, channel):
         'The parser recognizes "Attach evidence as an artifact"',
         "Attach evidence as an artifact may be skipped",
         'The reviewer quotes "- [ ] Validation output in a PR comment"',
+        "- [ ] Validation output in a PR comment is optional",
+        "- [ ] Validation output in a PR comment is not required",
+        "- [ ] Validation output in a PR comment may be skipped",
+        "The product can show Validation output in a PR comment",
+        "The UI must allow Validation output in a PR comment",
     ],
 )
 def test_trip_planner_1885_destination_grammar_controls(criterion):
     assert verifier._required_evidence_channels(criterion) == set()
     assert _floor_verdict(criterion, body="absent", comments="absent", artifacts="absent") == "PASS"
+
+
+def test_trip_planner_1885_optional_validation_output_keeps_independent_mandatory():
+    """Post-destination optionality must not invent overall or mask a sibling delivery."""
+    optional = "- [ ] Validation output in a PR comment is optional"
+    assert verifier._required_evidence_channels(optional) == set()
+    assert verifier._required_evidence_channels(
+        optional + "; provide command output in a PR comment"
+    ) == {"comments"}
+    assert verifier._required_evidence_channels(
+        optional + "; the reviewer must record evidence in the PR body"
+    ) == {"body"}

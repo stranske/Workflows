@@ -1109,7 +1109,9 @@ _EVIDENCE_ACTIVE_AS_ARTIFACT_DELIVERY = (
 )
 _EVIDENCE_REVIEW_DESTINATION = (
     r"(?:(?:the|an?)\s+)?(?:"
-    r"(?:pr|pull request)\s+(?:body|description)\b(?:\s+" + _REVIEW_BODY_COMPONENT + r")?|"
+    r"(?:pr|pull request)\s+(?:body|description)\b(?:\s+"
+    + _REVIEW_BODY_COMPONENT
+    + r")?|"
     + _EVIDENCE_PR_COMMENT_DESTINATION
     + r"\b(?:\s+"
     + _REVIEW_BODY_COMPONENT
@@ -1658,9 +1660,7 @@ def _required_evidence_channels(acceptance: str, *, _bind_attached: bool = True)
         r"(?P<literal>" + quoted_evidence_literal + r")|"
         r"(?P<checklist>^[ \t]*(?:[-*+]|\d+[.)])[ \t]*\[[ xX]\][ \t]*(?:\r?\n[ \t]*)?)"
         r"(?P<object>(?:(?:test|validation|CI|build|execution)\s+){0,3}"
-        r"(?:evidence|command outputs?|transcripts?|"
-        + _EVIDENCE_PROOF_ALIAS_NOUN
-        + r"))\s+"
+        r"(?:evidence|command outputs?|transcripts?|" + _EVIDENCE_PROOF_ALIAS_NOUN + r"))\s+"
         r"(?P<destinations>" + bound_review_destinations + r")"
         r"(?P<qualification>\s+(?:"
         r"(?:that|which)\s+(?P<relative_negative_adverbs>"
@@ -3547,11 +3547,17 @@ def _required_evidence_channels(acceptance: str, *, _bind_attached: bool = True)
             # explanation (for example, "a PR comment must explain why
             # artifacts are optional"). Remove only that optional subject;
             # do not discard a separate required channel in the same clause.
+            # Destination-governed tails keep their polarity so checklist
+            # phrasing such as "Validation output in a PR comment is optional"
+            # cannot collapse into residual overall after the noun rewrite.
             requirement_text = re.sub(
+                r"(?P<destination_optional>"
+                + bound_review_destinations
+                + r"\s+(?:is|are)\s+optional\b)|"
                 r"\b(?:evidence|artifacts?|transcripts?|command outputs?|workflow runs?|"
                 r"pr comments?|pull request comments?)(?:\s+(?:upload|attachment|publication|"
                 r"posting|capture|recording|generation))?\s+(?:is|are)\s+optional\b",
-                " ",
+                lambda match: match["destination_optional"] or " ",
                 requirement_text,
                 flags=re.I,
             )
@@ -4130,7 +4136,9 @@ def _required_evidence_channels(acceptance: str, *, _bind_attached: bool = True)
                 or re.search(
                     r"\b(?:evidence|command outputs?|transcripts?)\b.{0,40}\b"
                     + mandatory_auxiliary
-                    + r"\s+be\s+in\s+(?:an?\s+|the\s+)?" + _EVIDENCE_PR_COMMENT_DESTINATION + r"\b",
+                    + r"\s+be\s+in\s+(?:an?\s+|the\s+)?"
+                    + _EVIDENCE_PR_COMMENT_DESTINATION
+                    + r"\b",
                     requirement_text,
                     re.I,
                 )
@@ -4139,11 +4147,16 @@ def _required_evidence_channels(acceptance: str, *, _bind_attached: bool = True)
                     requirement_text,
                     re.I,
                 )
-                or (gate and bool(re.search(r"\b" + _EVIDENCE_PR_COMMENT_DESTINATION + r"\b", lower)))
+                or (
+                    gate
+                    and bool(re.search(r"\b" + _EVIDENCE_PR_COMMENT_DESTINATION + r"\b", lower))
+                )
                 or re.search(
                     r"\bthere\s+"
                     + mandatory_auxiliary
-                    + r"\s+be\s+(?:(?:an?|the)\s+)?" + _EVIDENCE_PR_COMMENT_DESTINATION + r"\b",
+                    + r"\s+be\s+(?:(?:an?|the)\s+)?"
+                    + _EVIDENCE_PR_COMMENT_DESTINATION
+                    + r"\b",
                     requirement_text,
                     re.I,
                 )
