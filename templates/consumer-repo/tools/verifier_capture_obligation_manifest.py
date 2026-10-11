@@ -163,25 +163,27 @@ def build_capture_obligation_manifest(
                     gaps.append(f"{kind}:{obligation.source}:{obligation.status}")
 
         discovery = coverage.get("acceptance_source_discovery")
-        if isinstance(discovery, dict) and type(discovery.get("required")) is not bool:
-            gaps.append("acceptance_source_discovery_required_malformed")
-        if isinstance(discovery, dict) and discovery.get("required"):
-            status = str(discovery.get("status") or "unavailable")
-            obligations.append(
-                SourceObligation(
-                    source="acceptance_source_discovery",
-                    kind="discovery",
-                    status=status,
-                    included_chars=None,
-                    total_chars=None,
-                    reason=discovery.get("reason"),
-                )
-            )
+        # The builder always emits this record. Absence cannot establish that
+        # linked acceptance sources were unnecessary or fully discovered.
+        if not isinstance(discovery, dict):
+            gaps.append("acceptance_source_discovery_missing_or_malformed")
+        else:
+            if type(discovery.get("required")) is not bool:
+                gaps.append("acceptance_source_discovery_required_malformed")
+            status = discovery.get("status")
             if status != "included":
                 gaps.append(f"acceptance_source_discovery:{status}")
-
-        elif discovery is not None and not isinstance(discovery, dict):
-            gaps.append("acceptance_source_discovery_malformed")
+            if discovery.get("required") is True:
+                obligations.append(
+                    SourceObligation(
+                        source="acceptance_source_discovery",
+                        kind="discovery",
+                        status=str(status or "unavailable"),
+                        included_chars=None,
+                        total_chars=None,
+                        reason=discovery.get("reason"),
+                    )
+                )
 
         artifact = coverage.get("full_diff_artifact")
         if not isinstance(artifact, dict):

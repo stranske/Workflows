@@ -242,7 +242,7 @@ def test_only_expanded_contract_fingerprint_changes(profile, consumer):
         check=True,
     )
     assert result.stdout.strip() == (
-        "bounded-native-capacity-v9" if profile == "expanded" else "bounded-native-capacity-v2"
+        "bounded-native-capacity-v10" if profile == "expanded" else "bounded-native-capacity-v2"
     )
 
 
@@ -462,8 +462,8 @@ def test_capacity_docs_keep_input_and_context_bounds_independent():
 def test_workflow_inventory_names_current_expanded_fingerprint():
     inventory = Path("docs/ci/WORKFLOWS.md").read_text()
     workflow = Path(".github/workflows/reusable-agents-verifier.yml").read_text()
-    assert "`bounded-native-capacity-v9`" in inventory
-    assert "bounded-native-capacity-v9" in workflow
+    assert "`bounded-native-capacity-v10`" in inventory
+    assert "bounded-native-capacity-v10" in workflow
 
 
 def test_workflow_guide_distinguishes_verifier_checkout_tokens():

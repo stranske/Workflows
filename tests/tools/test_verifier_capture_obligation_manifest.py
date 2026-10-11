@@ -84,6 +84,7 @@ def _complete_coverage() -> dict:
     return {
         "schema": "verifier-context-source-coverage/v1",
         "stage": "generated-context",
+        "acceptance_source_discovery": {"required": False, "status": "included"},
         "changed_code_sources": [
             {"source": "a.py", "status": "included", "included_chars": 10, "total_chars": 10}
         ],
@@ -433,3 +434,37 @@ def test_reassembly_identity_changes_for_any_capture_or_gap_revision():
         assert {entry["id"] for entry in candidate["obligations"]}.isdisjoint(
             entry["id"] for entry in original["obligations"]
         )
+
+
+@pytest.mark.parametrize(
+    "discovery",
+    [
+        None,
+        {},
+        False,
+        [],
+        {"required": False},
+        {"required": True},
+        {"required": 0, "status": "included"},
+        {"required": "false", "status": "included"},
+        {"required": False, "status": "unavailable"},
+        {"required": False, "status": "truncated"},
+        {"required": False, "status": "future"},
+    ],
+)
+def test_missing_or_invalid_discovery_cannot_establish_complete_capture(discovery):
+    coverage = _complete_coverage()
+    if discovery is None:
+        del coverage["acceptance_source_discovery"]
+    else:
+        coverage["acceptance_source_discovery"] = discovery
+    manifest = build_capture_obligation_manifest(_context_block(coverage))
+    assert manifest["sufficient"] is False
+    assert any("acceptance_source_discovery" in gap for gap in manifest["gaps"])
+
+
+@pytest.mark.parametrize("required", [False, True])
+def test_explicit_complete_discovery_retains_valid_capture(required):
+    coverage = _complete_coverage()
+    coverage["acceptance_source_discovery"] = {"required": required, "status": "included"}
+    assert build_capture_obligation_manifest(_context_block(coverage))["sufficient"] is True

@@ -349,7 +349,7 @@ unconditionally in both profiles. Local simulated transport tests establish sour
 behavior only. Inspect actual new retrieval, authenticated capacity receipts and
 both provider verdicts; workflow success alone is not acceptance.
 The input snapshot records every bound, and the consumer fingerprint includes the
-profile plus `bounded-native-capacity-v9` (standard retains `bounded-native-capacity-v2`), so a previously fingerprinted expanded
+profile plus `bounded-native-capacity-v10` (standard retains `bounded-native-capacity-v2`), so a previously fingerprinted expanded
 evaluation cannot suppress this changed expanded contract. Existing manifest entries already manage the repaired verifier; no file
 addition, rename or delivery scope change requires a new manifest entry.
 

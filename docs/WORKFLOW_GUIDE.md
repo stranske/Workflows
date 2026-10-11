@@ -241,7 +241,11 @@ It embeds the inventory as `capture_obligations` in an existing
 context hash first. It also writes `verifier-capture-obligation-manifest.json`
 locally. Expanded native preflight derives the same inventory from the supplied
 context, retains it in capacity receipts, and blocks capture gaps or prompt
-clipping before token counting or generation. Standard retains its existing
+clipping before token counting or generation. The builder-emitted acceptance-source
+discovery record must be present with an explicit Boolean `required` and
+`status: included`, including when linked issues were not required. Missing or
+malformed discovery cannot establish that the acceptance set is complete.
+Standard retains its existing
 invocation behavior. For explicit expanded invocations,
 `VERIFIER_PARTITION_RECOVERY=diagnostic` enables bounded diagnostic review after
 an exact native overflow. It losslessly partitions the loaded context and supplied

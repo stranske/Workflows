@@ -309,3 +309,34 @@ def test_snapshot_diff_binding_preserves_raw_crlf_hash_and_loaded_view(
     )
     pr_verifier.main()
     assert diff.read_bytes() == raw
+
+
+@pytest.mark.parametrize("compare", [False, True])
+@pytest.mark.parametrize(
+    "discovery", [None, {"required": False}, {"required": False, "status": "unavailable"}]
+)
+def test_incomplete_discovery_blocks_native_count_and_generation(monkeypatch, compare, discovery):
+    monkeypatch.setenv("VERIFIER_EVIDENCE_PROFILE", "expanded")
+    context = complete_capture_context()
+    original = '"acceptance_source_discovery": {"required": false, "status": "included"}, '
+    replacement = (
+        ""
+        if discovery is None
+        else '"acceptance_source_discovery": ' + json.dumps(discovery) + ", "
+    )
+    assert original in context
+    context = context.replace(original, replacement)
+    client = with_capacity(mock.Mock())
+    monkeypatch.setattr(pr_verifier, "_get_llm_client", lambda **kwargs: (client, "unit"))
+    if compare:
+        runner = pr_verifier.ComparisonRunner(
+            context, None, pr_verifier._prepare_prompt(context, None), []
+        )
+        result = runner.run_single(client, "unit", "unit-test-model")
+    else:
+        result = pr_verifier.evaluate_pr(context)
+    assert result.verdict == "CONCERNS"
+    assert "capture" in result.error.lower()
+    assert not result.used_llm
+    client.root_client.responses.input_tokens.count.assert_not_called()
+    client.invoke.assert_not_called()
