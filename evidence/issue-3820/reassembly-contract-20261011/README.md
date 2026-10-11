@@ -42,3 +42,6 @@ run the same focused suite, restore the exact original source bytes in finally,
 and run again. Do this in an isolated checkout. Raw execution argv/cwd/exits and
 before/mutant/restored SHA256 are in contract-mutation.json. Manifest.json binds
 all retained evidence; original authenticated capture was read only.
+
+Original/mutant console and JUnit are preserved byte-identically in
+raw-red-evidence.tar.gz; archived member hashes retain their original identities.
