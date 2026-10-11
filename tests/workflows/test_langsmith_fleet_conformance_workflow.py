@@ -1,6 +1,9 @@
+import re
 import subprocess
+import sys
 from pathlib import Path
 
+import pytest
 import yaml
 
 WORKFLOW = Path(".github/workflows/maint-81-langsmith-fleet-conformance.yml")
@@ -21,7 +24,10 @@ def test_production_download_handles_large_repository_without_inventory_scan():
 const assert = require('node:assert/strict');
 const calls = [], writes = [];
 const registry = {repos:[{repo:'o/r',artifact_name:'langsmith-fleet.ndjson'}]};
-const github = {paginate:async()=>{throw Object.assign(new Error('large inventory 500'),{status:500});},
+const github = {paginate:async(method,p)=>{
+ assert.equal(method,github.rest.actions.listArtifactsForRepo);
+ assert.deepEqual(p,{owner:'o',repo:'r',per_page:100});
+ throw Object.assign(new Error('large inventory 500'),{status:500});},
  rest:{actions:{listArtifactsForRepo:async p=>{
  calls.push(p); assert.equal(p.name,'langsmith-fleet.ndjson');
  return {data:{total_count:1,artifacts:[{id:7,name:p.name,created_at:'2026-10-11',expired:false}]}};
@@ -45,6 +51,36 @@ const AsyncFunction = Object.getPrototypeOf(async function(){}).constructor;
         text=True,
     )
     assert proc.returncode == 0, proc.stdout + proc.stderr
+
+
+def test_deliberate_break_unfiltered_enumeration_fails_then_restoration_passes(monkeypatch):
+    original_workflow = WORKFLOW.read_bytes()
+    original_script = download_script()
+    # Reintroduce the original listing request only in the existing harness input.
+    # The protected workflow and production helper remain untouched.
+    broken_script, replacements = re.subn(
+        r"const artifact = await findFleetArtifact\(\{.*?\n\s*\}\);",
+        """const artifacts = await withRetry(() =>
+      github.paginate(github.rest.actions.listArtifactsForRepo, {
+        owner,
+        repo: repoName,
+        per_page: 100,
+      })
+    );
+    const artifact = artifacts.find((item) => item.name === entry.artifact_name);""",
+        original_script,
+        flags=re.DOTALL,
+    )
+    assert replacements == 1, "mutation must replace the production discovery call exactly once"
+
+    with monkeypatch.context() as mutation:
+        mutation.setattr(sys.modules[__name__], "download_script", lambda: broken_script)
+        with pytest.raises(AssertionError, match="large inventory 500"):
+            test_production_download_handles_large_repository_without_inventory_scan()
+
+    assert WORKFLOW.read_bytes() == original_workflow
+    assert download_script() == original_script
+    test_production_download_handles_large_repository_without_inventory_scan()
 
 
 def test_conformance_skips_direct_evidence_entries():

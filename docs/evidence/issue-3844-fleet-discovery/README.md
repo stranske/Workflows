@@ -35,3 +35,30 @@ through github-api-with-retry.js with maxRetries=0, preserving adaptive 500
 page reduction. Native run reads retain the shared wrapper and two retries.
 Full 88 Python / 8 Node controls and the production reversal/restoration were
 rerun after this change. See api-guard-red.log/api-guard-green.log.
+
+The standard-environment deliberate-break gate is now repeatable in
+`test_deliberate_break_unfiltered_enumeration_fails_then_restoration_passes`.
+It substitutes the original unfiltered `paginate(per_page=100)` request in the
+existing production harness input, requires the regression assertion to fail
+with the simulated listing HTTP 500, removes the substitution, and requires the
+production download to pass. The workflow bytes are checked unchanged.
+No protected workflow file is edited, even temporarily.
+
+The standalone production regression was also run under that in-memory
+substitution: exit 1, one assertion failure, zero errors or skips. Removing the
+temporary pytest plugin gave exit 0 and one passing test. Raw logs, JUnit, and
+matching workflow hashes are retained in `standard-gate/`. This control remains
+local simulated transport evidence; it adds no hosted conformance claim.
+
+- [x] Deliberate-break gate: original unfiltered `per_page=100` enumeration fails
+  the production regression, then unchanged production code passes.
+
+Validation: `pytest tests/workflows/test_langsmith_fleet_conformance_workflow.py
+tests/workflows/test_langsmith_observability_health_workflow.py
+tests/scripts/test_langsmith_observability_health.py -m "not slow" -q` passed
+28 tests; `node .github/scripts/__tests__/langsmith-fleet-artifacts.test.js`
+passed 11 tests. Focused Ruff passed.
+The required full-repository Black check passed: 698 files unchanged. The
+installed Black 26.10.0 formatter ran with a local serial executor adapter after
+sandbox process creation failed and the thread executor stalled; the formatter,
+file selection, line length, and check mode were unchanged.
