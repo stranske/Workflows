@@ -82,7 +82,7 @@ workflows:
 
   # Agent system - execution
   - source: .github/workflows/agents-keepalive-loop-reporter.yml
-    description: "Keepalive reporter - posts summary when keepalive run fails or cancels"
+    description: "Keepalive reporter - posts PR completion or an attributed run diagnostic when target resolution fails"
 
   - source: .github/workflows/agents-71-codex-belt-dispatcher.yml
     description: "Codex belt dispatcher - selects issues and creates agent branches for work"

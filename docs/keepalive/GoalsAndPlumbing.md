@@ -127,6 +127,18 @@ After a failed or cancelled originating run, the workflow-run reporter reads tha
 
 Reporter concurrency is only a mutual-exclusion boundary; GitHub may replace an older pending job when several runs share one group. Every reporter wake therefore reconciles the PR ledger's current `receipt`, `released_receipt`, and `recovered_receipt` obligations before handling its triggering event. Each owner attempt is verified through its immutable index, exact run attempt, originating-head registry, and exact worker evidence. The hourly sweep independently dispatches a PR-bound reporter replay before ordinary keepalive evaluation, so a cancelled last reporter or a crash before projection does not require another producer completion. Replay is bounded to three ledger rereads. Only when a ledger is missing, it scans the immutable attempt-index directory from a pinned commit using complete non-recursive trees and SHA-bound blobs to prove whether the PR has any prior attempts; truncated trees, unreadable blobs, or invalid indexes fail closed. Replay does not scan historical indexes for other purposes. It resolves the authority branch to one commit, walks complete non-recursive trees to the PR path, and treats the path's verified absence from that pinned snapshot as a potential no-op. Every tree entry and every present receipt must be structurally valid and repository-bound before absence or replay can be concluded. A confirmed missing ledger is only accepted as a successful no-op after verifying the PR has no attempt indexes (i.e., it is ordinary); a PR with attempt indexes fails closed to prevent silently abandoning reconciliation for one that previously entered the challenge path. A missing or inaccessible branch, commit, tree, or present blob, as well as a truncated or malformed tree, fails closed instead of impersonating absence. A receipt whose exact indexed workflow attempt is still queued or running returns `deferred-active-attempt` without worker-evidence reads, reconciliation, projection, or state writes. Missing runs, unknown worker evidence, unsupported run states, changed heads, hard human holds, inaccessible storage, and an `uncertain` reconciliation fail the replay rather than completing successfully. Consumer fingerprint debounce cannot suppress this manual replay path. The guarantee is eventual reconciliation of current ledger obligations, not an audit acknowledgment for every superseded historical completion.
 
+A target-resolution failure publishes an attributed diagnostic in the reporter run's
+job summary before marking resolution failed. It names the repository, originating
+run ID/attempt, conclusion, event, head and lookup failure. The resolver's `outcome`
+output distinguishes `unresolved` (failed upstream run), `invalid-input` (manual
+replay input), `resolved`, and `no-report-needed`. An unresolved target leaves the
+PR lock empty, so no writer token or PR-state mutation is permitted. The workflow
+remains red; a summary is reporting evidence, not successful PR reconciliation.
+If writing the summary itself fails, the error annotation and original resolution
+failure remain visible. Successful/skipped upstream runs still skip the resolver.
+Recover the verified target and retry the reporter; do not guess a PR from a branch
+or display title that lacks the existing classification contract.
+
 Reporter mutation is serialized by the resolved PR, including for unassociated
 `workflow_dispatch` runs. A read-only resolver job classifies the originating
 attempt and derives the PR lock before the reporter job can mint writer tokens,

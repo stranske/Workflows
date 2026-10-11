@@ -1,0 +1,103 @@
+<?xml version="1.0" encoding="utf-8"?><testsuites name="pytest tests"><testsuite name="pytest" errors="0" failures="6" skipped="0" tests="6" time="0.467" timestamp="2026-10-11T16:03:06.599615-05:00" hostname="server.trs.private"><testcase classname="tests.workflows.test_keepalive_reporter_unresolved" name="test_unassociated_workflow_run_reports_attributed_failure_before_failing[failure-root]" time="0.085"><failure message="AssertionError: assert ['read-origin', 'failed'] == ['read-origin...ry', 'failed']&#10;  &#10;  At index 1 diff: 'failed' != 'summary'&#10;  Right contains one more item: 'failed'&#10;  Use -v to get more diff">reporter = PosixPath('.github/workflows/agents-keepalive-loop-reporter.yml')
+conclusion = 'failure'
+
+    @pytest.mark.parametrize("reporter", REPORTERS, ids=["root", "consumer"])
+    @pytest.mark.parametrize("conclusion", ["failure", "cancelled", "timed_out"])
+    def test_unassociated_workflow_run_reports_attributed_failure_before_failing(
+        reporter: Path, conclusion: str
+    ) -&gt; None:
+        result = _resolve(reporter, conclusion=conclusion)
+        events = result["events"]
+&gt;       assert [event[0] for event in events] == ["read-origin", "summary", "failed"]
+E       AssertionError: assert ['read-origin', 'failed'] == ['read-origin...ry', 'failed']
+E         
+E         At index 1 diff: 'failed' != 'summary'
+E         Right contains one more item: 'failed'
+E         Use -v to get more diff
+
+tests/workflows/test_keepalive_reporter_unresolved.py:97: AssertionError</failure></testcase><testcase classname="tests.workflows.test_keepalive_reporter_unresolved" name="test_unassociated_workflow_run_reports_attributed_failure_before_failing[failure-consumer]" time="0.051"><failure message="AssertionError: assert ['read-origin', 'failed'] == ['read-origin...ry', 'failed']&#10;  &#10;  At index 1 diff: 'failed' != 'summary'&#10;  Right contains one more item: 'failed'&#10;  Use -v to get more diff">reporter = PosixPath('templates/consumer-repo/.github/workflows/agents-keepalive-loop-reporter.yml')
+conclusion = 'failure'
+
+    @pytest.mark.parametrize("reporter", REPORTERS, ids=["root", "consumer"])
+    @pytest.mark.parametrize("conclusion", ["failure", "cancelled", "timed_out"])
+    def test_unassociated_workflow_run_reports_attributed_failure_before_failing(
+        reporter: Path, conclusion: str
+    ) -&gt; None:
+        result = _resolve(reporter, conclusion=conclusion)
+        events = result["events"]
+&gt;       assert [event[0] for event in events] == ["read-origin", "summary", "failed"]
+E       AssertionError: assert ['read-origin', 'failed'] == ['read-origin...ry', 'failed']
+E         
+E         At index 1 diff: 'failed' != 'summary'
+E         Right contains one more item: 'failed'
+E         Use -v to get more diff
+
+tests/workflows/test_keepalive_reporter_unresolved.py:97: AssertionError</failure></testcase><testcase classname="tests.workflows.test_keepalive_reporter_unresolved" name="test_unassociated_workflow_run_reports_attributed_failure_before_failing[cancelled-root]" time="0.052"><failure message="AssertionError: assert ['read-origin', 'failed'] == ['read-origin...ry', 'failed']&#10;  &#10;  At index 1 diff: 'failed' != 'summary'&#10;  Right contains one more item: 'failed'&#10;  Use -v to get more diff">reporter = PosixPath('.github/workflows/agents-keepalive-loop-reporter.yml')
+conclusion = 'cancelled'
+
+    @pytest.mark.parametrize("reporter", REPORTERS, ids=["root", "consumer"])
+    @pytest.mark.parametrize("conclusion", ["failure", "cancelled", "timed_out"])
+    def test_unassociated_workflow_run_reports_attributed_failure_before_failing(
+        reporter: Path, conclusion: str
+    ) -&gt; None:
+        result = _resolve(reporter, conclusion=conclusion)
+        events = result["events"]
+&gt;       assert [event[0] for event in events] == ["read-origin", "summary", "failed"]
+E       AssertionError: assert ['read-origin', 'failed'] == ['read-origin...ry', 'failed']
+E         
+E         At index 1 diff: 'failed' != 'summary'
+E         Right contains one more item: 'failed'
+E         Use -v to get more diff
+
+tests/workflows/test_keepalive_reporter_unresolved.py:97: AssertionError</failure></testcase><testcase classname="tests.workflows.test_keepalive_reporter_unresolved" name="test_unassociated_workflow_run_reports_attributed_failure_before_failing[cancelled-consumer]" time="0.052"><failure message="AssertionError: assert ['read-origin', 'failed'] == ['read-origin...ry', 'failed']&#10;  &#10;  At index 1 diff: 'failed' != 'summary'&#10;  Right contains one more item: 'failed'&#10;  Use -v to get more diff">reporter = PosixPath('templates/consumer-repo/.github/workflows/agents-keepalive-loop-reporter.yml')
+conclusion = 'cancelled'
+
+    @pytest.mark.parametrize("reporter", REPORTERS, ids=["root", "consumer"])
+    @pytest.mark.parametrize("conclusion", ["failure", "cancelled", "timed_out"])
+    def test_unassociated_workflow_run_reports_attributed_failure_before_failing(
+        reporter: Path, conclusion: str
+    ) -&gt; None:
+        result = _resolve(reporter, conclusion=conclusion)
+        events = result["events"]
+&gt;       assert [event[0] for event in events] == ["read-origin", "summary", "failed"]
+E       AssertionError: assert ['read-origin', 'failed'] == ['read-origin...ry', 'failed']
+E         
+E         At index 1 diff: 'failed' != 'summary'
+E         Right contains one more item: 'failed'
+E         Use -v to get more diff
+
+tests/workflows/test_keepalive_reporter_unresolved.py:97: AssertionError</failure></testcase><testcase classname="tests.workflows.test_keepalive_reporter_unresolved" name="test_unassociated_workflow_run_reports_attributed_failure_before_failing[timed_out-root]" time="0.052"><failure message="AssertionError: assert ['read-origin', 'failed'] == ['read-origin...ry', 'failed']&#10;  &#10;  At index 1 diff: 'failed' != 'summary'&#10;  Right contains one more item: 'failed'&#10;  Use -v to get more diff">reporter = PosixPath('.github/workflows/agents-keepalive-loop-reporter.yml')
+conclusion = 'timed_out'
+
+    @pytest.mark.parametrize("reporter", REPORTERS, ids=["root", "consumer"])
+    @pytest.mark.parametrize("conclusion", ["failure", "cancelled", "timed_out"])
+    def test_unassociated_workflow_run_reports_attributed_failure_before_failing(
+        reporter: Path, conclusion: str
+    ) -&gt; None:
+        result = _resolve(reporter, conclusion=conclusion)
+        events = result["events"]
+&gt;       assert [event[0] for event in events] == ["read-origin", "summary", "failed"]
+E       AssertionError: assert ['read-origin', 'failed'] == ['read-origin...ry', 'failed']
+E         
+E         At index 1 diff: 'failed' != 'summary'
+E         Right contains one more item: 'failed'
+E         Use -v to get more diff
+
+tests/workflows/test_keepalive_reporter_unresolved.py:97: AssertionError</failure></testcase><testcase classname="tests.workflows.test_keepalive_reporter_unresolved" name="test_unassociated_workflow_run_reports_attributed_failure_before_failing[timed_out-consumer]" time="0.069"><failure message="AssertionError: assert ['read-origin', 'failed'] == ['read-origin...ry', 'failed']&#10;  &#10;  At index 1 diff: 'failed' != 'summary'&#10;  Right contains one more item: 'failed'&#10;  Use -v to get more diff">reporter = PosixPath('templates/consumer-repo/.github/workflows/agents-keepalive-loop-reporter.yml')
+conclusion = 'timed_out'
+
+    @pytest.mark.parametrize("reporter", REPORTERS, ids=["root", "consumer"])
+    @pytest.mark.parametrize("conclusion", ["failure", "cancelled", "timed_out"])
+    def test_unassociated_workflow_run_reports_attributed_failure_before_failing(
+        reporter: Path, conclusion: str
+    ) -&gt; None:
+        result = _resolve(reporter, conclusion=conclusion)
+        events = result["events"]
+&gt;       assert [event[0] for event in events] == ["read-origin", "summary", "failed"]
+E       AssertionError: assert ['read-origin', 'failed'] == ['read-origin...ry', 'failed']
+E         
+E         At index 1 diff: 'failed' != 'summary'
+E         Right contains one more item: 'failed'
+E         Use -v to get more diff
+
+tests/workflows/test_keepalive_reporter_unresolved.py:97: AssertionError</failure></testcase></testsuite></testsuites>

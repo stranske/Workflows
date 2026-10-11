@@ -1,0 +1,21 @@
+{
+  "source_sha256": {
+    ".github/workflows/agents-keepalive-loop-reporter.yml": "13e6c0cd9434c29a2b3b44882f3e59aceb4fff75836e2cbe42fb4d14745811ce",
+    "templates/consumer-repo/.github/workflows/agents-keepalive-loop-reporter.yml": "c3366bffacc10e2591476c91124b1ccef842049e487a867b2554f2f1c83070a4",
+    "tests/workflows/test_keepalive_reporter_unresolved.py": "3d5fa1cbf30363038ebee92ab1d6f7754e15e251cfa2bf29750709d23d99d33e",
+    "tests/workflows/test_keepalive_authority_delivery.py": "7f3dd3999a5c24ae32dbaf6def4b5c3245ef805701942c0ecd0dd7c4ecaa1ec0"
+  },
+  "files_sha256": {
+    "README.md": "3bb1dfa82d3fdd7669fd0c64fd2198eab3231cc4b80994b6be99cc23da14373e",
+    "byte-identical-fix-restored-green.log": "c6d88cabd45bb56945545a34b3ad0da1cbc47318e073e6e98e913c682037a2b9",
+    "byte-identical-fix-restored-green.xml": "ab9efb8f824b06544e191ed76e6de79fd7f15c45d88f1f467134c4aad972f078",
+    "classifier-replay-green.log": "161e2c0a78e55227d47c057faed033bf8a30862aa2a1b6c477f25540bc25262a",
+    "focused-green.log": "c8fb122c28c3d3473ac4bb57df2b7a780d20df21c086c7e48b68bc1136118458",
+    "focused-green.xml": "1cdd81f6497d926b6ed304436f298a3f86f1e0e597e5153a570494468ef499d9",
+    "mutation-receipt.json": "7395812c22335fd0c3e47dcaec17f18771235e1c7a5cec3663836da546345163",
+    "observed-reporter-failure.log": "d091392dbaa2741b459a9eb857eb1811d6885324f7a8a83c2f579dcde4e1d865",
+    "production-catch-restored-red.log": "ed5ce621ea8cfbbf3482491e09f82db436670a73b550b25a5b3e7069daf337a7",
+    "production-catch-restored-red.xml": "16eea61c107195f46cf4eb74ae4f5ce6981f743c14108bbb1df0028e7c14d941",
+    "sampled-origin-run.json": "1aac83296b1de940222334254ae15b1dd64fcb0b3669095b992d1dbf1fcc2af1"
+  }
+}

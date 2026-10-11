@@ -1,0 +1,46 @@
+Resolve reporter target	Classify unassociated dispatch	﻿2026-10-11T20:18:38.7555084Z ##[group]Run actions/github-script@3a2844b7e9c422d3c10d287c895573f7108da1b3
+Resolve reporter target	Classify unassociated dispatch	2026-10-11T20:18:38.7555559Z with:
+Resolve reporter target	Classify unassociated dispatch	2026-10-11T20:18:38.7558446Z   github-token: ***
+Resolve reporter target	Classify unassociated dispatch	2026-10-11T20:18:38.7563852Z   script: const { classifyReporterRun } =
+Resolve reporter target	Classify unassociated dispatch	  require('./.github/scripts/keepalive_reporter_applicability.js');
+Resolve reporter target	Classify unassociated dispatch	try {
+Resolve reporter target	Classify unassociated dispatch	  if (context.eventName === 'workflow_dispatch') {
+Resolve reporter target	Classify unassociated dispatch	    const resolved = Number(context.payload.inputs?.pr_number || 0);
+Resolve reporter target	Classify unassociated dispatch	    if (!Number.isSafeInteger(resolved) || resolved <= 0 ||
+Resolve reporter target	Classify unassociated dispatch	        String(resolved) !== String(context.payload.inputs?.pr_number || '')) {
+Resolve reporter target	Classify unassociated dispatch	      throw new Error('Authority replay requires a canonical positive PR number');
+Resolve reporter target	Classify unassociated dispatch	    }
+Resolve reporter target	Classify unassociated dispatch	    core.setOutput('skip', 'false');
+Resolve reporter target	Classify unassociated dispatch	    core.setOutput('lock_pr_number', String(resolved));
+Resolve reporter target	Classify unassociated dispatch	    core.setOutput('pr_number', String(resolved));
+Resolve reporter target	Classify unassociated dispatch	    core.setOutput('ordinary_target', 'false');
+Resolve reporter target	Classify unassociated dispatch	    return;
+Resolve reporter target	Classify unassociated dispatch	  }
+Resolve reporter target	Classify unassociated dispatch	  const result = await classifyReporterRun({
+Resolve reporter target	Classify unassociated dispatch	    github, owner: context.repo.owner, repo: context.repo.repo,
+Resolve reporter target	Classify unassociated dispatch	    run: context.payload.workflow_run,
+Resolve reporter target	Classify unassociated dispatch	  });
+Resolve reporter target	Classify unassociated dispatch	  const associated = Number(context.payload.workflow_run.pull_requests?.[0]?.number || 0);
+Resolve reporter target	Classify unassociated dispatch	  const resolved = Number(result.prNumber || associated || 0);
+Resolve reporter target	Classify unassociated dispatch	  if (result.status !== 'skip' &&
+Resolve reporter target	Classify unassociated dispatch	      (!Number.isSafeInteger(resolved) || resolved <= 0)) {
+Resolve reporter target	Classify unassociated dispatch	    throw new Error('Reporter target did not resolve to a positive PR number');
+Resolve reporter target	Classify unassociated dispatch	  }
+Resolve reporter target	Classify unassociated dispatch	  core.setOutput('skip', result.status === 'skip' ? 'true' : 'false');
+Resolve reporter target	Classify unassociated dispatch	  core.setOutput('lock_pr_number', resolved > 0 ? String(resolved) : '');
+Resolve reporter target	Classify unassociated dispatch	  core.setOutput('pr_number', result.targetSource === 'ordinary-run-name' ?
+Resolve reporter target	Classify unassociated dispatch	    String(result.prNumber) : '');
+Resolve reporter target	Classify unassociated dispatch	  core.setOutput('ordinary_target',
+Resolve reporter target	Classify unassociated dispatch	    result.targetSource === 'ordinary-run-name' ? 'true' : 'false');
+Resolve reporter target	Classify unassociated dispatch	} catch (error) {
+Resolve reporter target	Classify unassociated dispatch	  core.setFailed(`Reporter applicability unavailable: ${error.message}`);
+Resolve reporter target	Classify unassociated dispatch	}
+Resolve reporter target	Classify unassociated dispatch	
+Resolve reporter target	Classify unassociated dispatch	2026-10-11T20:18:38.7569862Z   debug: false
+Resolve reporter target	Classify unassociated dispatch	2026-10-11T20:18:38.7570102Z   user-agent: actions/github-script
+Resolve reporter target	Classify unassociated dispatch	2026-10-11T20:18:38.7570394Z   result-encoding: json
+Resolve reporter target	Classify unassociated dispatch	2026-10-11T20:18:38.7570621Z   retries: 0
+Resolve reporter target	Classify unassociated dispatch	2026-10-11T20:18:38.7570857Z   retry-exempt-status-codes: 400,401,403,404,422
+Resolve reporter target	Classify unassociated dispatch	2026-10-11T20:18:38.7571175Z ##[endgroup]
+Resolve reporter target	Classify unassociated dispatch	2026-10-11T20:18:39.0482977Z GET /repos/stranske/workflows/contents/.github/keepalive-authority-attempts/677ab1f2cf13ce852b21916ec4f4ba993826cb5f868da98502ae1f5ccb80e4ad.json?ref=keepalive-authority-state - 404 with id 1C30:383EDD:4D2A047:FE3CE22:6ACBEF1E in 179ms
+Resolve reporter target	Classify unassociated dispatch	2026-10-11T20:18:39.2481253Z ##[error]Reporter applicability unavailable: Unassociated run has no verified dispatch classification

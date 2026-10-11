@@ -1,0 +1,128 @@
+{
+  "captured_at": "2026-10-11T21:03:08.655708+00:00",
+  "scope": "Authored root and consumer resolver catch only; local behavioral proof, no live deployment or PR reconciliation claim.",
+  "mutation": "Replace diagnostic catch with the pre-fix unconditional core.setFailed catch in both production workflows.",
+  "fixed_and_restored_sha256": {
+    ".github/workflows/agents-keepalive-loop-reporter.yml": "13e6c0cd9434c29a2b3b44882f3e59aceb4fff75836e2cbe42fb4d14745811ce",
+    "templates/consumer-repo/.github/workflows/agents-keepalive-loop-reporter.yml": "c3366bffacc10e2591476c91124b1ccef842049e487a867b2554f2f1c83070a4"
+  },
+  "mutated_sha256": {
+    ".github/workflows/agents-keepalive-loop-reporter.yml": "7698122d79776a6db1e7ca331b7eeb7761174d71075a5c516ae047d0f3f286c5",
+    "templates/consumer-repo/.github/workflows/agents-keepalive-loop-reporter.yml": "87c66588458399409af4e69063d56956c28ccd66a7af8fedabc165d2ca2817ef"
+  },
+  "restored_byte_identical": true,
+  "results": [
+    {
+      "phase": "production-catch-restored-red",
+      "command": [
+        "python3",
+        "-m",
+        "pytest",
+        "tests/workflows/test_keepalive_reporter_unresolved.py::test_unassociated_workflow_run_reports_attributed_failure_before_failing",
+        "-q",
+        "--junitxml=/Users/teacher/.codex/automations/pd-workloop-resume/worktrees/Workflows-3839-reporter-20261011/docs/evidence/issue-3839-reporter/production-catch-restored-red.xml"
+      ],
+      "exit": 1,
+      "cases": [
+        {
+          "classname": "tests.workflows.test_keepalive_reporter_unresolved",
+          "name": "test_unassociated_workflow_run_reports_attributed_failure_before_failing[failure-root]",
+          "failures": 1,
+          "errors": 0,
+          "skips": 0
+        },
+        {
+          "classname": "tests.workflows.test_keepalive_reporter_unresolved",
+          "name": "test_unassociated_workflow_run_reports_attributed_failure_before_failing[failure-consumer]",
+          "failures": 1,
+          "errors": 0,
+          "skips": 0
+        },
+        {
+          "classname": "tests.workflows.test_keepalive_reporter_unresolved",
+          "name": "test_unassociated_workflow_run_reports_attributed_failure_before_failing[cancelled-root]",
+          "failures": 1,
+          "errors": 0,
+          "skips": 0
+        },
+        {
+          "classname": "tests.workflows.test_keepalive_reporter_unresolved",
+          "name": "test_unassociated_workflow_run_reports_attributed_failure_before_failing[cancelled-consumer]",
+          "failures": 1,
+          "errors": 0,
+          "skips": 0
+        },
+        {
+          "classname": "tests.workflows.test_keepalive_reporter_unresolved",
+          "name": "test_unassociated_workflow_run_reports_attributed_failure_before_failing[timed_out-root]",
+          "failures": 1,
+          "errors": 0,
+          "skips": 0
+        },
+        {
+          "classname": "tests.workflows.test_keepalive_reporter_unresolved",
+          "name": "test_unassociated_workflow_run_reports_attributed_failure_before_failing[timed_out-consumer]",
+          "failures": 1,
+          "errors": 0,
+          "skips": 0
+        }
+      ]
+    },
+    {
+      "phase": "byte-identical-fix-restored-green",
+      "command": [
+        "python3",
+        "-m",
+        "pytest",
+        "tests/workflows/test_keepalive_reporter_unresolved.py::test_unassociated_workflow_run_reports_attributed_failure_before_failing",
+        "-q",
+        "--junitxml=/Users/teacher/.codex/automations/pd-workloop-resume/worktrees/Workflows-3839-reporter-20261011/docs/evidence/issue-3839-reporter/byte-identical-fix-restored-green.xml"
+      ],
+      "exit": 0,
+      "cases": [
+        {
+          "classname": "tests.workflows.test_keepalive_reporter_unresolved",
+          "name": "test_unassociated_workflow_run_reports_attributed_failure_before_failing[failure-root]",
+          "failures": 0,
+          "errors": 0,
+          "skips": 0
+        },
+        {
+          "classname": "tests.workflows.test_keepalive_reporter_unresolved",
+          "name": "test_unassociated_workflow_run_reports_attributed_failure_before_failing[failure-consumer]",
+          "failures": 0,
+          "errors": 0,
+          "skips": 0
+        },
+        {
+          "classname": "tests.workflows.test_keepalive_reporter_unresolved",
+          "name": "test_unassociated_workflow_run_reports_attributed_failure_before_failing[cancelled-root]",
+          "failures": 0,
+          "errors": 0,
+          "skips": 0
+        },
+        {
+          "classname": "tests.workflows.test_keepalive_reporter_unresolved",
+          "name": "test_unassociated_workflow_run_reports_attributed_failure_before_failing[cancelled-consumer]",
+          "failures": 0,
+          "errors": 0,
+          "skips": 0
+        },
+        {
+          "classname": "tests.workflows.test_keepalive_reporter_unresolved",
+          "name": "test_unassociated_workflow_run_reports_attributed_failure_before_failing[timed_out-root]",
+          "failures": 0,
+          "errors": 0,
+          "skips": 0
+        },
+        {
+          "classname": "tests.workflows.test_keepalive_reporter_unresolved",
+          "name": "test_unassociated_workflow_run_reports_attributed_failure_before_failing[timed_out-consumer]",
+          "failures": 0,
+          "errors": 0,
+          "skips": 0
+        }
+      ]
+    }
+  ]
+}

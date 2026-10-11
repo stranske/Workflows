@@ -1,0 +1,13 @@
+{
+  "id": 38171612527,
+  "run_attempt": 1,
+  "event": "workflow_run",
+  "path": ".github/workflows/agents-keepalive-loop.yml",
+  "conclusion": "cancelled",
+  "head_sha": "6020028dec510c931364fb69f63dc2a2aa297689",
+  "pull_requests": [],
+  "display_title": "Agents Keepalive Loop",
+  "html_url": "https://github.com/stranske/Workflows/actions/runs/38171612527",
+  "created_at": "2026-10-11T20:17:59Z",
+  "updated_at": "2026-10-11T20:18:31Z"
+}
