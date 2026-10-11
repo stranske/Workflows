@@ -2061,6 +2061,14 @@ Negated obligations use the same delivery-operation grammar as positive
 delivery. An explicitly excluded PR-comment destination (`outside`, `rather
 than`, `instead of`) is not a required comment channel; generic evidence and
 independent positive deliveries still retain their coverage floors.
+Active proof delivery also recognizes `as an artifact`, including evidence,
+coverage reports and common validation outputs. PR review comments and inline
+review comments share the ordinary PR-comment destination grammar before both
+channel classification and destination-OR expansion; quoted input stays literal.
+Checklist shorthand accepts the common test/validation proof nouns, so
+`Validation output in a PR comment` retains comments as its required channel.
+Negative, optional and product-capability clauses keep their existing semantics.
+A present PR body cannot satisfy missing or unavailable comments or artifacts.
 The four fresh canary findings are tested through the actual coverage floor with
 present, absent and unavailable evidence plus independent reviewer-delivery controls.
 

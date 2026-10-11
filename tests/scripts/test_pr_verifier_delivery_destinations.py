@@ -5069,3 +5069,49 @@ def test_qualified_common_proof_modifier_tokens_are_not_governor_prefixes(
         criterion += "; the reviewer must record evidence in a PR comment"
         expected.add("comments")
     assert verifier._required_evidence_channels(criterion) == expected
+
+
+@pytest.mark.parametrize(
+    "criterion,channel",
+    [
+        ("Attach evidence as an artifact", "artifacts"),
+        ("Upload the coverage report as an artifact", "artifacts"),
+        ("Publish validation output as a workflow artifact", "artifacts"),
+        ("Evidence must be posted in a PR review comment", "comments"),
+        ("Evidence must be posted in an inline review comment", "comments"),
+        ("Evidence must be posted in a pull request review comment", "comments"),
+        ("- [ ] Validation output in a PR comment", "comments"),
+        ("- [ ] Validation results in a PR review comment", "comments"),
+    ],
+)
+def test_issue3835_delivery_destinations(criterion, channel):
+    assert verifier._required_evidence_channels(criterion) == {channel}
+    assert verifier._required_evidence_options(criterion) == [{channel}]
+
+
+@pytest.mark.parametrize(
+    "criterion",
+    [
+        "Do not attach evidence as an artifact",
+        "Evidence may be attached as an artifact",
+        "The UI allows users to attach evidence as an artifact",
+        "The service uploads evidence as an artifact to storage",
+        'The parser recognizes "Attach evidence as an artifact"',
+        "Evidence must not be posted in a PR review comment",
+        "Evidence may be posted in an inline review comment",
+        "The UI allows users to post evidence in a PR review comment",
+        'The parser recognizes "Evidence must be posted in a PR review comment"',
+        "- [ ] Validation output in a PR comment is not required",
+        "- [ ] Validation results in a PR comment only if available",
+        "The UI allows users to record validation output in a PR comment",
+        'The parser recognizes "- [ ] Validation output in a PR comment"',
+    ],
+)
+def test_issue3835_nongating_controls(criterion):
+    assert verifier._required_evidence_channels(criterion) == set()
+    assert verifier._required_evidence_options(criterion) == [set()]
+
+
+def test_issue3835_review_comment_alternative_keeps_shared_options():
+    criterion = "Evidence must be posted in a PR review comment or in the PR body"
+    assert verifier._required_evidence_options(criterion) == [{"comments"}, {"body"}]

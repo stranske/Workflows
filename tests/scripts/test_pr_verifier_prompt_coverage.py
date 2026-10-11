@@ -3674,3 +3674,32 @@ def test_attached_delivery_actor_qualifier_is_not_the_evidence_object(
         ).verdict
         == "CONCERNS"
     )
+
+
+@pytest.mark.parametrize(
+    "criterion,channel",
+    [
+        ("Attach evidence as an artifact", "artifacts"),
+        ("Evidence must be posted in a PR review comment", "comments"),
+        ("- [ ] Validation output in a PR comment", "comments"),
+    ],
+)
+@pytest.mark.parametrize("missing", ["absent", "unavailable"])
+def test_issue3835_named_destination_cannot_borrow_present_body(criterion, channel, missing):
+    context, _ = _context(1, 1000, 1000)
+    status = {"comments": "present", "artifacts": "present"}
+    status[channel] = missing
+    context = context.replace("- " + ACCEPTANCE_SENTINEL, criterion).replace(
+        "## PR Diff Summary",
+        "## Acceptance evidence\n\n"
+        "- Overall retrieval status: **present**\n"
+        "- PR body: **present**\n"
+        f"- PR comments: **{status['comments']}**\n"
+        f"- Referenced workflow artifacts: **{status['artifacts']}**\n\n"
+        "## PR Diff Summary",
+    )
+    result = pr_verifier._apply_coverage_floor(
+        pr_verifier.EvaluationResult(verdict="PASS", used_llm=True),
+        pr_verifier.prompt_coverage(context, None),
+    )
+    assert result.verdict == "CONCERNS"

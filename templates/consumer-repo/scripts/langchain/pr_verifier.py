@@ -1098,6 +1098,24 @@ _REVIEW_BODY_COMPONENT = (
 )
 
 
+# Review comments share the ordinary PR-comment destination grammar. Normalize
+# before either classifier so polarity, product components and ORs stay shared.
+_EVIDENCE_REVIEW_COMMENT_DESTINATION = (
+    r"(?:(?:pr|pull request)\s+(?:inline\s+)?review\s+comments?|"
+    r"inline\s+(?:review\s+)?comments?)\b"
+)
+
+
+def _normalize_review_comment_destinations(acceptance: str) -> str:
+    return re.sub(
+        r"(?P<literal>" + _QUOTED_EVIDENCE_LITERAL + r")|"
+        r"\b" + _EVIDENCE_REVIEW_COMMENT_DESTINATION,
+        lambda match: match[0] if match["literal"] else "PR comment",
+        acceptance,
+        flags=re.I,
+    )
+
+
 _EVIDENCE_ARTIFACT_DESTINATION = r"(?:workflow|ci|github actions)\s+artifacts?\b"
 _EVIDENCE_REVIEW_DESTINATION = (
     r"(?:(?:the|an?)\s+)?(?:"
@@ -1445,6 +1463,7 @@ def _normalize_review_content_qualifiers(acceptance: str) -> str:
 def _required_evidence_channels(acceptance: str, *, _bind_attached: bool = True) -> set[str]:
     """Identify explicit evidence deliverables without treating negations as requirements."""
 
+    acceptance = _normalize_review_comment_destinations(acceptance)
     acceptance = _normalize_review_content_qualifiers(acceptance)
     acceptance = _normalize_passive_review_agents(acceptance)
     acceptance = _normalize_relative_review_presence(acceptance)
@@ -1649,7 +1668,7 @@ def _required_evidence_channels(acceptance: str, *, _bind_attached: bool = True)
         r"(?P<literal>" + quoted_evidence_literal + r")|"
         r"(?P<checklist>^[ \t]*(?:[-*+]|\d+[.)])[ \t]*\[[ xX]\][ \t]*(?:\r?\n[ \t]*)?)"
         r"(?P<object>(?:(?:test|validation|CI|build|execution)\s+){0,3}"
-        r"(?:evidence|command outputs?|transcripts?))\s+"
+        r"(?:evidence|command outputs?|transcripts?|" + _EVIDENCE_PROOF_ALIAS_NOUN + r"))\s+"
         r"(?P<destinations>" + bound_review_destinations + r")"
         r"(?P<qualification>\s+(?:"
         r"(?:that|which)\s+(?P<relative_negative_adverbs>"
@@ -3889,6 +3908,18 @@ def _required_evidence_channels(acceptance: str, *, _bind_attached: bool = True)
                     )
                     or re.search(
                         r"\b"
+                        + delivery_operation
+                        + r"\s+"
+                        + evidence_modifiers
+                        + r"(?:evidence|command outputs?|transcripts?|coverage reports?|"
+                        + _EVIDENCE_PROOF_ALIAS_NOUN
+                        + r")\s+as\s+(?:(?:an?|the)\s+)?"
+                        r"(?:(?:workflow|validation|exact-head|evidence)\s+)?artifacts?\b",
+                        requirement_text,
+                        re.I,
+                    )
+                    or re.search(
+                        r"\b"
                         + mandatory_auxiliary
                         + r"\s+"
                         + passive_delivery_prefix
@@ -4279,6 +4310,7 @@ def _required_evidence_options(acceptance: str) -> list[set[str]]:
     Ambiguous mixed conjunctions or excessive expansion retain the strict legacy
     requirement rather than dropping an obligation.
     """
+    acceptance = _normalize_review_comment_destinations(acceptance)
     acceptance = _normalize_review_content_qualifiers(acceptance)
     acceptance = _normalize_passive_review_agents(acceptance)
     acceptance = _normalize_relative_review_presence(acceptance)
