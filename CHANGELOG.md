@@ -6,6 +6,14 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 Breaking changes are called out with a **BREAKING** marker and scheduled according to the policy in `COMPATIBILITY.md`.
 
+## [1.37.38](https://github.com/stranske/Workflows/compare/v1.37.37...v1.37.38) (2026-10-11)
+
+
+### Bug Fixes
+
+* **autofix:** classify Hypothesis as a test dependency in canonical and consumer/integration guidance ([#3834](https://github.com/stranske/Workflows/pull/3834)) ([af65422](https://github.com/stranske/Workflows/commit/af65422cdf606647c4d10890d444d00cdde00828))
+* **keepalive:** report why the reporter skipped instead of failing the run ([#3843](https://github.com/stranske/Workflows/issues/3843)) ([71d06db](https://github.com/stranske/Workflows/commit/71d06db4c6271bb762e54e21413d61cb9ae97302))
+
 ## [1.37.37](https://github.com/stranske/Workflows/compare/v1.37.36...v1.37.37) (2026-10-11)
 
 
