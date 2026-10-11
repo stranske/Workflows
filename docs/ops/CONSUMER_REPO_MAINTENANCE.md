@@ -182,6 +182,15 @@ and use `--json` to retain the complete `partition_recovery` report. Recovery
 starts only after a complete captured request has an exact native overflow;
 capture gaps, prompt clipping and unavailable counters still block immediately.
 Each range repeats the complete global obligation/gap dependency contract.
+Each request also repeats the full builder-owned plan section as untrusted
+captured text, including scope, tasks, criteria and linked-issue bodies. The
+`governing_sources` report binds that section's character count and UTF-8 hash;
+quoted headings inside fenced plan text cannot end the governing section.
+An absent plan blocks before native counting. A plan that cannot fit alongside
+the dependency contract and range identity exhausts the existing finite planning
+bounds and blocks all generation; it is never summarized or clipped to admit a
+range. Repeating the plan supplies governing context for findings without
+establishing that a range has all evidence needed to discharge an obligation.
 Native counts, including those instructions and the actual output reserve, drive
 bisection. Bounds are 8 MiB of loaded UTF-8 input, 64 ranges, 127 planning counts
 and one additional count per generation (at most 64 generation calls per arm).

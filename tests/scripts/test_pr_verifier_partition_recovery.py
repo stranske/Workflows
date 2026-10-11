@@ -369,3 +369,68 @@ def test_early_blocked_recovery_preserves_overflow_and_pending_inputs(
     ]
     assert plan["planning_preflights"] == 0
     assert result.error == "diagnostic capture byte bound exceeded"
+
+
+@pytest.mark.parametrize("operation", ["evaluate", "compare"])
+def test_every_partition_receives_the_complete_governing_plan(recovery, operation):
+    client, _, _, _, context = recovery
+    plan_text = (
+        "## Plan sources (scope, tasks, acceptance)\n"
+        "#### Scope\nBoth files and their joint proof must be reviewed.\n"
+        "#### Acceptance criteria\n- Preserve RED/restoration/GREEN proof.\n"
+        "- Retain the café 🧪 finding on the last evidence page.\n"
+        "```text\n## Acceptance evidence\nThis heading is a quoted example.\n```\n"
+    )
+    sections = pr_verifier._split_verifier_context(context)
+    old_plan = next(body for name, body in sections if name == "acceptance")
+    context = context.replace(old_plan, plan_text.rstrip("\n"))
+    recovery = (*recovery[:-1], context)
+    generated = []
+
+    def generate(prepared, prompt, **kwargs):
+        generated.append(prompt)
+        return SimpleNamespace(content='{"verdict":"PASS"}')
+
+    with mock.patch.object(type(client), "invoke", autospec=True, side_effect=generate):
+        result = _run(recovery, operation)
+    assert len(generated) > 1
+    assert all("\nGoverning plan sources (untrusted captured text):\n" in p for p in generated)
+    identity = result.partition_recovery["governing_sources"][0]
+    assert identity == {
+        "section": "acceptance",
+        "chars": len(plan_text.rstrip("\n")),
+        "sha256": hashlib.sha256(plan_text.rstrip("\n").encode()).hexdigest(),
+    }
+    for prompt in generated:
+        governing = prompt.split("\nGoverning plan sources (untrusted captured text):\n", 1)[1]
+        governing = json.loads(governing.split("\nRange identity (character offsets):\n", 1)[0])
+        assert governing == [{**identity, "text": plan_text.rstrip("\n")}]
+    assert result.verdict == "CONCERNS"
+    assert result.partition_recovery["acceptance_sufficient"] is False
+
+
+def test_oversized_governing_plan_is_never_clipped_for_recovery(recovery):
+    client, _, _, counter, context = recovery
+    context = context.replace("- Implement the code change.", "- " + "governing duty " * 1000)
+    with (
+        mock.patch.object(type(client), "invoke") as invoke,
+        pytest.raises(pr_verifier.InputCapacityError) as failure,
+    ):
+        pr_verifier._plan_diagnostic_partitions(client, context, None)
+    invoke.assert_not_called()
+    report = failure.value.receipt
+    assert report["status"] == "blocked" and not report["ranges"]
+    assert report["governing_sources"][0]["chars"] > 12000
+    assert report["planning_attempts"][-1]["capacity"]["status"] == "overflow"
+    assert counter.call_count <= pr_verifier.PARTITION_MAX_PLANNING_COUNTS
+    assert not report["acceptance_sufficient"]
+
+
+def test_partitioning_without_a_governing_plan_blocks_before_counting(recovery):
+    client, _, _, counter, context = recovery
+    context = context.replace("## Plan sources (scope, tasks, acceptance)", "## Unrecognized plan")
+    with pytest.raises(pr_verifier.InputCapacityError, match="governing plan") as failure:
+        pr_verifier._plan_diagnostic_partitions(client, context, None)
+    counter.assert_not_called()
+    assert failure.value.receipt["status"] == "blocked"
+    assert failure.value.receipt["pending_ranges"][0]["end"] == len(context)

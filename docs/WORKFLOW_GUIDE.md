@@ -247,7 +247,10 @@ invocation behavior. For explicit expanded invocations,
 an exact native overflow. It losslessly partitions the loaded context and supplied
 diff, counts every planned request before generation and checks it again before
 invocation. JSON results retain the global dependency contract, range identities,
-native receipts and all findings/raw outputs. Diagnostic completion always remains
+native receipts and all findings/raw outputs. Every range also receives the full
+governing plan, bound by its character count and UTF-8 hash. Missing plans or
+plans that cannot fit within the exact-model request prevent recovery generation.
+Diagnostic completion always remains
 NON_PASS: cross-range obligations still depend on all captured inputs. This does
 not restore unavailable evidence or establish semantic independence. See
 [consumer maintenance](ops/CONSUMER_REPO_MAINTENANCE.md) for bounds and binding limits.
