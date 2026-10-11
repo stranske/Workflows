@@ -57,6 +57,34 @@ The candidate includes the runtime-health module; the baseline does not.
 `summary.json` binds the measured source, test and driver bytes, and
 `comparison.json` retains the computed count, outcome and coverage comparison.
 
+The committed collector now reproduces and validates this measurement directly:
+
+```bash
+python docs/evidence/issue-3743/runtime-health/measure.py --output /tmp/runtime-health-measure-NEW
+```
+
+It requires pytest, pytest-cov and defusedxml, fixes the exact eight baseline
+modules, and adds only the runtime-health module to the candidate. It retains
+raw commands, console, coverage JSON and JUnit, verifies the exact eight added
+node IDs and unchanged old outcomes, rejects line/branch regressions and a
+changed coverage universe, and checks source/test/evidence hashes before and
+after collection. Its checks remain active under optimized Python. Reports must
+go to a fresh directory outside the repository; output reuse is refused before
+collection. The collector also retains separate current eight-case runtime-health
+and repair receipts and explicitly identifies the historical six-case snapshots.
+
+Fresh receipts in `collector-measurement/` reproduce 304/312 PASS, 576/581
+covered statements and 248/249 covered branches. `collector-replay/` retains a
+fresh eight-mutation replay. `collector-validation/` records nine rejected
+corrupt private packets, output-reuse checks, and successful full Black (700
+files), focused Ruff, template completeness and diff checks. The absent
+defusedxml dependency was staged from hash-verified, already archived source;
+its provenance and three source modules are retained, with no network access
+or package installation. Child pytest commands clear that staging import path.
+Every one of the prior archive's 108 decoded members is preserved byte-for-byte;
+its compressed archive, manifest, README and summary are also retained as
+`collector-validation/previous-*`. Older repair/module archives remain unchanged.
+
 `proof.tar.gz` stores the raw run packet. `manifest.json` binds its compressed
 bytes and every decoded member, plus this README, summary, driver, test and both
 production sources. All earlier issue-3743 evidence outside this directory
@@ -69,7 +97,10 @@ Commands and unsuccessful initial attempts are retained in the archive.
 
 This evidence proves a bounded helper improvement; repository-wide 90%, the
 requested Anaconda interpreter rerun, hosted/native acceptance, provider PASS
-and whole-source completion remain unproven. The checkout's Git metadata is
-read-only and GitHub is unreachable, so this run cannot advance the checkout's
-branch or update PR checkboxes. A verified commit is prepared in a private local
-clone and exported as a Git bundle.
+and whole-source completion remain unproven. Both literal Anaconda commands are
+recorded as unavailable. The checkout's Git metadata is read-only, so local
+staging fails. The GitHub connector confirms PR #3838 is open and ready, but
+blocks blob creation because approval is required and this run's approval policy
+is `never`. The verified source/evidence commit is exported from a writable
+temporary repository as a Git bundle. Remote publication and PR checkbox updates
+remain blocked; local task reconciliation is retained in the archive.
