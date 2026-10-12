@@ -2774,7 +2774,9 @@ async function evaluateKeepaliveLoop({ github: rawGithub, context, core, payload
         const routeWeights = await loadRouteWeights({ url: routeWeightsUrl });
         const roundKind = resolveRoundKind({ labels, state });
         const decision = decideNextAgent({
-          state,
+          // Include PR identity so empty/legacy keepalive state still seeds
+          // exploration from the live PR rather than the degenerate seed 0.
+          state: { ...state, pr_number: prNumber },
           labels: labels.map(String),
           secrets,
           registry,
@@ -4458,7 +4460,8 @@ async function updateKeepaliveLoopSummary({ github: rawGithub, context, core, in
       newState.current_agent = agentType;
       newState.delegation_reason = delegationReason || previousState?.delegation_reason || '';
       newState.delegation_source = delegationSource || previousState?.delegation_source || '';
-      newState.policy_version = policyVersion || previousState?.policy_version || '';
+      // Do not retain a prior exploration policy_version when this decision has none.
+      newState.policy_version = policyVersion || '';
       newState.effectiveness_history = effectivenessHistory;
 
       if (delegationShouldSwitch) {

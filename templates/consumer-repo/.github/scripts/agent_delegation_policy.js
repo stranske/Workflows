@@ -169,7 +169,9 @@ function getRouteWeightReserveAgents(reserve, taskType) {
  * @returns {number}
  */
 function explorationDraw(seed) {
-  let t = Number(seed) >>> 0;
+  // Seed 0 is the empty-state fallback; map it away so a zero seed cannot force
+  // exploration for every positive rate (draw(0) would otherwise be exactly 0).
+  let t = (Number(seed) >>> 0) || 0xa5a5a5a5;
   t = Math.imul(t ^ (t >>> 15), t | 1);
   t ^= t + Math.imul(t ^ (t >>> 7), t | 61);
   return ((t ^ (t >>> 14)) >>> 0) / 4294967296;

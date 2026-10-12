@@ -18,6 +18,7 @@ const {
   resolveRoundKind,
   pickAgent,
   selectAgentFromRouteWeights,
+  explorationSeedFromState,
 } = require('../agent_delegation_policy.js');
 
 const routeWeightsWithExploration = require(
@@ -690,6 +691,26 @@ test('pickAgent CLI helper reports exploration delegation for a seeded draw', ()
   assert.equal(picked.agent, 'gemini');
   assert.equal(picked.delegationSource, 'route_weights_exploration');
   assert.equal(picked.policy_version, 'exploration-2026-10-06');
+});
+
+test('zero seed does not force exploration for every positive rate', () => {
+  const weighted = selectAgentFromRouteWeights({
+    routeWeights: routeWeightsWithExploration,
+    taskType: 'implement',
+    currentAgent: '',
+    availableAgents: ['cursor', 'codex', 'claude', 'gemini'],
+    agents: mockRegistry.agents,
+    seed: 0,
+  });
+
+  assert.equal(weighted.agent, 'cursor');
+  assert.equal(weighted.delegationSource, 'route_weights');
+  assert.equal(weighted.policy_version, undefined);
+});
+
+test('exploration seed incorporates pr_number so empty state is not shared', () => {
+  assert.notEqual(explorationSeedFromState({}), explorationSeedFromState({ pr_number: 3840 }));
+  assert.equal(explorationSeedFromState({ pr_number: 3840, iteration: 2 }), Math.imul(3840, 10007) + 2);
 });
 
 test('ignoring the exploration block restores ranking selection', () => {
