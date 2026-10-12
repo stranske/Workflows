@@ -10,16 +10,26 @@ conclusion = 'failure'
     def test_unassociated_workflow_run_reports_attributed_failure_before_failing(
         reporter: Path, conclusion: str
     ) -> None:
+        """Unassociated non-dispatch runs must not go silent (#3839).
+    
+        After #3843 they classify as skip/`no-report-needed` with an attributed
+        notice+summary (not a red catch). The empty PR lock still denies mutation.
+        Node id kept for the issue-3839 acceptance / mutation evidence command.
+        """
         result = _resolve(reporter, conclusion=conclusion)
-        events = result["events"]
->       assert [event[0] for event in events] == ["read-origin", "summary", "failed"]
-E       AssertionError: assert ['read-origin', 'failed'] == ['read-origin...ry', 'failed']
+>       assert [event[0] for event in result["events"]] == ["read-origin", "notice", "summary"]
+E       AssertionError: assert ['read-origin'] == ['read-origin...e', 'summary']
 E         
-E         At index 1 diff: 'failed' != 'summary'
-E         Right contains one more item: 'failed'
-E         Use -v to get more diff
+E         Right contains 2 more items, first extra item: 'notice'
+E         
+E         Full diff:
+E           [
+E               'read-origin',
+E         -     'notice',
+E         -     'summary',
+E           ]
 
-tests/workflows/test_keepalive_reporter_unresolved.py:97: AssertionError
+tests/workflows/test_keepalive_reporter_unresolved.py:109: AssertionError
 _ test_unassociated_workflow_run_reports_attributed_failure_before_failing[failure-consumer] _
 
 reporter = PosixPath('templates/consumer-repo/.github/workflows/agents-keepalive-loop-reporter.yml')
@@ -30,16 +40,26 @@ conclusion = 'failure'
     def test_unassociated_workflow_run_reports_attributed_failure_before_failing(
         reporter: Path, conclusion: str
     ) -> None:
+        """Unassociated non-dispatch runs must not go silent (#3839).
+    
+        After #3843 they classify as skip/`no-report-needed` with an attributed
+        notice+summary (not a red catch). The empty PR lock still denies mutation.
+        Node id kept for the issue-3839 acceptance / mutation evidence command.
+        """
         result = _resolve(reporter, conclusion=conclusion)
-        events = result["events"]
->       assert [event[0] for event in events] == ["read-origin", "summary", "failed"]
-E       AssertionError: assert ['read-origin', 'failed'] == ['read-origin...ry', 'failed']
+>       assert [event[0] for event in result["events"]] == ["read-origin", "notice", "summary"]
+E       AssertionError: assert ['read-origin'] == ['read-origin...e', 'summary']
 E         
-E         At index 1 diff: 'failed' != 'summary'
-E         Right contains one more item: 'failed'
-E         Use -v to get more diff
+E         Right contains 2 more items, first extra item: 'notice'
+E         
+E         Full diff:
+E           [
+E               'read-origin',
+E         -     'notice',
+E         -     'summary',
+E           ]
 
-tests/workflows/test_keepalive_reporter_unresolved.py:97: AssertionError
+tests/workflows/test_keepalive_reporter_unresolved.py:109: AssertionError
 _ test_unassociated_workflow_run_reports_attributed_failure_before_failing[cancelled-root] _
 
 reporter = PosixPath('.github/workflows/agents-keepalive-loop-reporter.yml')
@@ -50,16 +70,26 @@ conclusion = 'cancelled'
     def test_unassociated_workflow_run_reports_attributed_failure_before_failing(
         reporter: Path, conclusion: str
     ) -> None:
+        """Unassociated non-dispatch runs must not go silent (#3839).
+    
+        After #3843 they classify as skip/`no-report-needed` with an attributed
+        notice+summary (not a red catch). The empty PR lock still denies mutation.
+        Node id kept for the issue-3839 acceptance / mutation evidence command.
+        """
         result = _resolve(reporter, conclusion=conclusion)
-        events = result["events"]
->       assert [event[0] for event in events] == ["read-origin", "summary", "failed"]
-E       AssertionError: assert ['read-origin', 'failed'] == ['read-origin...ry', 'failed']
+>       assert [event[0] for event in result["events"]] == ["read-origin", "notice", "summary"]
+E       AssertionError: assert ['read-origin'] == ['read-origin...e', 'summary']
 E         
-E         At index 1 diff: 'failed' != 'summary'
-E         Right contains one more item: 'failed'
-E         Use -v to get more diff
+E         Right contains 2 more items, first extra item: 'notice'
+E         
+E         Full diff:
+E           [
+E               'read-origin',
+E         -     'notice',
+E         -     'summary',
+E           ]
 
-tests/workflows/test_keepalive_reporter_unresolved.py:97: AssertionError
+tests/workflows/test_keepalive_reporter_unresolved.py:109: AssertionError
 _ test_unassociated_workflow_run_reports_attributed_failure_before_failing[cancelled-consumer] _
 
 reporter = PosixPath('templates/consumer-repo/.github/workflows/agents-keepalive-loop-reporter.yml')
@@ -70,16 +100,26 @@ conclusion = 'cancelled'
     def test_unassociated_workflow_run_reports_attributed_failure_before_failing(
         reporter: Path, conclusion: str
     ) -> None:
+        """Unassociated non-dispatch runs must not go silent (#3839).
+    
+        After #3843 they classify as skip/`no-report-needed` with an attributed
+        notice+summary (not a red catch). The empty PR lock still denies mutation.
+        Node id kept for the issue-3839 acceptance / mutation evidence command.
+        """
         result = _resolve(reporter, conclusion=conclusion)
-        events = result["events"]
->       assert [event[0] for event in events] == ["read-origin", "summary", "failed"]
-E       AssertionError: assert ['read-origin', 'failed'] == ['read-origin...ry', 'failed']
+>       assert [event[0] for event in result["events"]] == ["read-origin", "notice", "summary"]
+E       AssertionError: assert ['read-origin'] == ['read-origin...e', 'summary']
 E         
-E         At index 1 diff: 'failed' != 'summary'
-E         Right contains one more item: 'failed'
-E         Use -v to get more diff
+E         Right contains 2 more items, first extra item: 'notice'
+E         
+E         Full diff:
+E           [
+E               'read-origin',
+E         -     'notice',
+E         -     'summary',
+E           ]
 
-tests/workflows/test_keepalive_reporter_unresolved.py:97: AssertionError
+tests/workflows/test_keepalive_reporter_unresolved.py:109: AssertionError
 _ test_unassociated_workflow_run_reports_attributed_failure_before_failing[timed_out-root] _
 
 reporter = PosixPath('.github/workflows/agents-keepalive-loop-reporter.yml')
@@ -90,16 +130,26 @@ conclusion = 'timed_out'
     def test_unassociated_workflow_run_reports_attributed_failure_before_failing(
         reporter: Path, conclusion: str
     ) -> None:
+        """Unassociated non-dispatch runs must not go silent (#3839).
+    
+        After #3843 they classify as skip/`no-report-needed` with an attributed
+        notice+summary (not a red catch). The empty PR lock still denies mutation.
+        Node id kept for the issue-3839 acceptance / mutation evidence command.
+        """
         result = _resolve(reporter, conclusion=conclusion)
-        events = result["events"]
->       assert [event[0] for event in events] == ["read-origin", "summary", "failed"]
-E       AssertionError: assert ['read-origin', 'failed'] == ['read-origin...ry', 'failed']
+>       assert [event[0] for event in result["events"]] == ["read-origin", "notice", "summary"]
+E       AssertionError: assert ['read-origin'] == ['read-origin...e', 'summary']
 E         
-E         At index 1 diff: 'failed' != 'summary'
-E         Right contains one more item: 'failed'
-E         Use -v to get more diff
+E         Right contains 2 more items, first extra item: 'notice'
+E         
+E         Full diff:
+E           [
+E               'read-origin',
+E         -     'notice',
+E         -     'summary',
+E           ]
 
-tests/workflows/test_keepalive_reporter_unresolved.py:97: AssertionError
+tests/workflows/test_keepalive_reporter_unresolved.py:109: AssertionError
 _ test_unassociated_workflow_run_reports_attributed_failure_before_failing[timed_out-consumer] _
 
 reporter = PosixPath('templates/consumer-repo/.github/workflows/agents-keepalive-loop-reporter.yml')
@@ -110,21 +160,85 @@ conclusion = 'timed_out'
     def test_unassociated_workflow_run_reports_attributed_failure_before_failing(
         reporter: Path, conclusion: str
     ) -> None:
+        """Unassociated non-dispatch runs must not go silent (#3839).
+    
+        After #3843 they classify as skip/`no-report-needed` with an attributed
+        notice+summary (not a red catch). The empty PR lock still denies mutation.
+        Node id kept for the issue-3839 acceptance / mutation evidence command.
+        """
         result = _resolve(reporter, conclusion=conclusion)
-        events = result["events"]
->       assert [event[0] for event in events] == ["read-origin", "summary", "failed"]
-E       AssertionError: assert ['read-origin', 'failed'] == ['read-origin...ry', 'failed']
+>       assert [event[0] for event in result["events"]] == ["read-origin", "notice", "summary"]
+E       AssertionError: assert ['read-origin'] == ['read-origin...e', 'summary']
 E         
-E         At index 1 diff: 'failed' != 'summary'
-E         Right contains one more item: 'failed'
-E         Use -v to get more diff
+E         Right contains 2 more items, first extra item: 'notice'
+E         
+E         Full diff:
+E           [
+E               'read-origin',
+E         -     'notice',
+E         -     'summary',
+E           ]
 
-tests/workflows/test_keepalive_reporter_unresolved.py:97: AssertionError
+tests/workflows/test_keepalive_reporter_unresolved.py:109: AssertionError
 =========================== short test summary info ============================
-FAILED tests/workflows/test_keepalive_reporter_unresolved.py::test_unassociated_workflow_run_reports_attributed_failure_before_failing[failure-root]
-FAILED tests/workflows/test_keepalive_reporter_unresolved.py::test_unassociated_workflow_run_reports_attributed_failure_before_failing[failure-consumer]
-FAILED tests/workflows/test_keepalive_reporter_unresolved.py::test_unassociated_workflow_run_reports_attributed_failure_before_failing[cancelled-root]
-FAILED tests/workflows/test_keepalive_reporter_unresolved.py::test_unassociated_workflow_run_reports_attributed_failure_before_failing[cancelled-consumer]
-FAILED tests/workflows/test_keepalive_reporter_unresolved.py::test_unassociated_workflow_run_reports_attributed_failure_before_failing[timed_out-root]
-FAILED tests/workflows/test_keepalive_reporter_unresolved.py::test_unassociated_workflow_run_reports_attributed_failure_before_failing[timed_out-consumer]
-6 failed in 0.56s
+FAILED tests/workflows/test_keepalive_reporter_unresolved.py::test_unassociated_workflow_run_reports_attributed_failure_before_failing[failure-root] - AssertionError: assert ['read-origin'] == ['read-origin...e', 'summary']
+  
+  Right contains 2 more items, first extra item: 'notice'
+  
+  Full diff:
+    [
+        'read-origin',
+  -     'notice',
+  -     'summary',
+    ]
+FAILED tests/workflows/test_keepalive_reporter_unresolved.py::test_unassociated_workflow_run_reports_attributed_failure_before_failing[failure-consumer] - AssertionError: assert ['read-origin'] == ['read-origin...e', 'summary']
+  
+  Right contains 2 more items, first extra item: 'notice'
+  
+  Full diff:
+    [
+        'read-origin',
+  -     'notice',
+  -     'summary',
+    ]
+FAILED tests/workflows/test_keepalive_reporter_unresolved.py::test_unassociated_workflow_run_reports_attributed_failure_before_failing[cancelled-root] - AssertionError: assert ['read-origin'] == ['read-origin...e', 'summary']
+  
+  Right contains 2 more items, first extra item: 'notice'
+  
+  Full diff:
+    [
+        'read-origin',
+  -     'notice',
+  -     'summary',
+    ]
+FAILED tests/workflows/test_keepalive_reporter_unresolved.py::test_unassociated_workflow_run_reports_attributed_failure_before_failing[cancelled-consumer] - AssertionError: assert ['read-origin'] == ['read-origin...e', 'summary']
+  
+  Right contains 2 more items, first extra item: 'notice'
+  
+  Full diff:
+    [
+        'read-origin',
+  -     'notice',
+  -     'summary',
+    ]
+FAILED tests/workflows/test_keepalive_reporter_unresolved.py::test_unassociated_workflow_run_reports_attributed_failure_before_failing[timed_out-root] - AssertionError: assert ['read-origin'] == ['read-origin...e', 'summary']
+  
+  Right contains 2 more items, first extra item: 'notice'
+  
+  Full diff:
+    [
+        'read-origin',
+  -     'notice',
+  -     'summary',
+    ]
+FAILED tests/workflows/test_keepalive_reporter_unresolved.py::test_unassociated_workflow_run_reports_attributed_failure_before_failing[timed_out-consumer] - AssertionError: assert ['read-origin'] == ['read-origin...e', 'summary']
+  
+  Right contains 2 more items, first extra item: 'notice'
+  
+  Full diff:
+    [
+        'read-origin',
+  -     'notice',
+  -     'summary',
+    ]
+6 failed in 0.55s

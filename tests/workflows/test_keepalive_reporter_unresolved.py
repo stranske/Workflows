@@ -96,14 +96,24 @@ def _resolve(path: Path, **scenario: object) -> dict:
 
 @pytest.mark.parametrize("reporter", REPORTERS, ids=["root", "consumer"])
 @pytest.mark.parametrize("conclusion", ["failure", "cancelled", "timed_out"])
-def test_unassociated_workflow_run_reports_skip_without_granting_authority(
+def test_unassociated_workflow_run_reports_attributed_failure_before_failing(
     reporter: Path, conclusion: str
 ) -> None:
+    """Unassociated non-dispatch runs must not go silent (#3839).
+
+    After #3843 they classify as skip/`no-report-needed` with an attributed
+    notice+summary (not a red catch). The empty PR lock still denies mutation.
+    Node id kept for the issue-3839 acceptance / mutation evidence command.
+    """
     result = _resolve(reporter, conclusion=conclusion)
     assert [event[0] for event in result["events"]] == ["read-origin", "notice", "summary"]
+    notice = result["events"][1][1]
     summary = result["events"][2][1]
+    assert "unassociated run has no verified dispatch classification" in notice
     assert "unassociated run has no verified dispatch classification" in summary
     assert f"Upstream run: 12345 ({conclusion})" in summary
+    assert f"upstream run 12345" in notice
+    assert f"conclusion {conclusion}" in notice
     assert result["outputs"] == {
         "outcome": "no-report-needed",
         "skip": "true",

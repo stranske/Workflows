@@ -11,11 +11,18 @@ class; the reporter log does not identify its exact upstream run, so the pair is
 not claimed as a proven trigger linkage. Missing associations are not permission
 to infer PR ownership.
 
-The root and consumer resolver now publish an attributed job summary **before**
-marking resolution failed. Both clear the PR lock and distinguish `unresolved`
-from a resolved or no-report-needed outcome. No classifier, authority replay,
-writer permission, or PR mutation gate was weakened. A summary-writing failure
-preserves both its own error annotation and the original classification failure.
+The root and consumer resolver publish attributed diagnostics for two classes:
+
+- **Unassociated non-dispatch / non-producer runs** (`#3839` + `#3843`): classify
+  as skip with `outcome=no-report-needed`, emit notice+job summary naming the
+  upstream run/conclusion/reason, leave the PR lock empty, and do **not** fail
+  the resolver (avoids the prior red-run noise).
+- **Authority-relevant resolution failures**: publish an attributed job summary
+  **before** `setFailed`. Both clear the PR lock and distinguish `unresolved` /
+  `invalid-input` from resolved or no-report-needed. No classifier, authority
+  replay, writer permission, or PR mutation gate was weakened. A summary-writing
+  failure preserves both its own error annotation and the original classification
+  failure.
 
 ## Validation
 
@@ -29,11 +36,13 @@ preserves both its own error annotation and the original classification failure.
 
 `mutation-receipt.json` names the actual test command, exact source hashes,
 mutation hashes, six selected-node outcomes and exits. Replacing both production
-resolver catches with the old unconditional `core.setFailed` catch produced
-**6 assertion failures**, no errors or skips, exit 1. Byte-identical restoration
-produced **6 clean passes**, exit 0. The tests parse the authored YAML and execute
-its JavaScript against the real classifier with read-only mocked GitHub data;
-they require the attributed summary event to precede the failure event.
+resolver skip diagnostics with a silent skip branch produced **6 assertion
+failures** on
+`test_unassociated_workflow_run_reports_attributed_failure_before_failing`, no
+errors or skips, exit 1. Byte-identical restoration produced **6 clean passes**,
+exit 0. The tests parse the authored YAML and execute its JavaScript against the
+real classifier with read-only mocked GitHub data; they require the attributed
+notice+summary events for unassociated skips.
 
 This is local behavior and mutation evidence. It does not establish a deployed
 consumer cycle, successful live PR reconciliation, hosted CI completion, or

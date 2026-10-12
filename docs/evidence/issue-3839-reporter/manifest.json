@@ -1,26 +1,32 @@
 {
   "source_sha256": {
-    ".github/workflows/agents-keepalive-loop-reporter.yml": "13e6c0cd9434c29a2b3b44882f3e59aceb4fff75836e2cbe42fb4d14745811ce",
-    "templates/consumer-repo/.github/workflows/agents-keepalive-loop-reporter.yml": "c3366bffacc10e2591476c91124b1ccef842049e487a867b2554f2f1c83070a4",
-    "tests/workflows/test_keepalive_reporter_unresolved.py": "3d5fa1cbf30363038ebee92ab1d6f7754e15e251cfa2bf29750709d23d99d33e",
+    ".github/workflows/agents-keepalive-loop-reporter.yml": "444038a97cbf18e8d6cebf9b11dae383241d0d23accf1a396592a245a0dd0516",
+    "templates/consumer-repo/.github/workflows/agents-keepalive-loop-reporter.yml": "b197db6fd38df80b5e47c17b42358df866ea6255109584e2eebc8b94b73232bc",
+    "tests/workflows/test_keepalive_reporter_unresolved.py": "e090f3c06e67660b658d3bbf5339d3168340c89207a130fdb652060d9f956d68",
     "tests/workflows/test_keepalive_authority_delivery.py": "7f3dd3999a5c24ae32dbaf6def4b5c3245ef805701942c0ecd0dd7c4ecaa1ec0",
-    "config/template-drift-allowlist.txt": "c7cebaf461ef316beb0c277f7f0c187e344580b1f6e8c077d6d457a3a5befaf4"
+    "config/template-drift-allowlist.txt": "17c7a33293ea3d6243f737791e6bca3eb9983ca93451c595672e57aafba82925",
+    "docs/keepalive/GoalsAndPlumbing.md": "61707c65fd1e70de81b75ac03704ea7c8f70333f9b56a646533d9e09a3a5c5c6"
   },
   "files_sha256": {
     "3841-drift-hosted-failure.log": "302b86eb357cd9016e36ee050070cab4db0403e69195b0027d69031265c52d24",
-    "README.md": "f90be448bea0616065f60d926cbca33905237a1fe37ed206008b844962e4b724",
-    "byte-identical-fix-restored-green.log": "c6d88cabd45bb56945545a34b3ad0da1cbc47318e073e6e98e913c682037a2b9",
-    "byte-identical-fix-restored-green.xml": "ab9efb8f824b06544e191ed76e6de79fd7f15c45d88f1f467134c4aad972f078",
-    "classifier-replay-green.log": "161e2c0a78e55227d47c057faed033bf8a30862aa2a1b6c477f25540bc25262a",
+    "README.md": "eed64a486db7a73e3ddf4c78164498ed3e86636e375f34c7889ebc8f46f0d022",
+    "byte-identical-fix-restored-green.log": "0f18846f02505ee432787dbe3891961c1d8a1fbe2c82d1b7deb7e21dde073c5c",
+    "byte-identical-fix-restored-green.xml": "7dfd5c0957ec7156fb45feaeb6897cf1ac073c46532961232d9f4147fdbfdca9",
+    "classifier-replay-green.log": "aba5d3f9eae219a56afb4f0209cd306a7c8b3d021d2a38a62157bfbb60becad5",
     "drift-controls.log": "cc46a0a9cdd46d6a73ca5828016edd8b4afad5880dd8d1d1a105624f54b96aa8",
     "drift-green.log": "f8a4c4ff2f22974f607d34e1846f06927f463c98c3412da0f1d61bc5369104c0",
     "drift-red.log": "cc974716549c03547a7e4c55492dfda95249b726f0b4d87412e9ee40199b901b",
-    "focused-green.log": "c8fb122c28c3d3473ac4bb57df2b7a780d20df21c086c7e48b68bc1136118458",
-    "focused-green.xml": "1cdd81f6497d926b6ed304436f298a3f86f1e0e597e5153a570494468ef499d9",
-    "mutation-receipt.json": "7395812c22335fd0c3e47dcaec17f18771235e1c7a5cec3663836da546345163",
+    "focused-green.log": "81e611e102cbc6a9f88f65cbadf7c7d6c319c5b4f6820349c7339ab189fb46a3",
+    "focused-green.xml": "4bad58913f969e29f89041d05af0baa60d5e5d451ffd38ebda1575a0e34cad2e",
+    "mutation-receipt.json": "283d1e68ad48e5d4ee206972cf45f05a3b791b8695a94208a463b3a4941265ef",
     "observed-reporter-failure.log": "d091392dbaa2741b459a9eb857eb1811d6885324f7a8a83c2f579dcde4e1d865",
-    "production-catch-restored-red.log": "ed5ce621ea8cfbbf3482491e09f82db436670a73b550b25a5b3e7069daf337a7",
-    "production-catch-restored-red.xml": "16eea61c107195f46cf4eb74ae4f5ce6981f743c14108bbb1df0028e7c14d941",
-    "sampled-origin-run.json": "1aac83296b1de940222334254ae15b1dd64fcb0b3669095b992d1dbf1fcc2af1"
+    "production-catch-restored-red.log": "7b7b5d4b53d5c6b844e14d30f598ffdf8de06b569e604049d16a17df0daed169",
+    "production-catch-restored-red.xml": "9c5b9dd311d0b191630c9bb7df4939e2f7066c9abf5d0446490c02ccfa633579",
+    "sampled-origin-run.json": "1aac83296b1de940222334254ae15b1dd64fcb0b3669095b992d1dbf1fcc2af1",
+    "round-focused-green.xml": "1c9e85a06cfe86a0f20de8e3924df5a481146238485eb22953a9b54fff43b63c",
+    "round-handoff.md": "7e1e5998844fed5b9e0617906cc0fa18cbb7adde21dbd4a5463ab93ba7e5f7d0",
+    "round-resolver-green.xml": "af23fe76fdabcfc85beeb3ddc1388411646cb8f42b36b9e108d062fc624678ac",
+    "round-validation.json": "95c548ccbebb004542a16a276b33f2bfbcd0e1680607aa64488aa07fe10f2a88",
+    "round-validation.md": "baf6b95ea0ee82750ac5c13cf4f436cf63c251bd5d487930e436f4b03388a008"
   }
 }

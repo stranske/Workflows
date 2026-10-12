@@ -1,14 +1,14 @@
 {
-  "captured_at": "2026-10-11T21:03:08.655708+00:00",
-  "scope": "Authored root and consumer resolver catch only; local behavioral proof, no live deployment or PR reconciliation claim.",
-  "mutation": "Replace diagnostic catch with the pre-fix unconditional core.setFailed catch in both production workflows.",
+  "captured_at": "2026-10-12T04:24:15.835443+00:00",
+  "scope": "Authored root and consumer resolver skip-diagnostic only; local behavioral proof, no live deployment or PR reconciliation claim.",
+  "mutation": "Replace attributed skip notice+summary with a silent skip branch in both production workflows (the pre-#3839/#3843 silence).",
   "fixed_and_restored_sha256": {
-    ".github/workflows/agents-keepalive-loop-reporter.yml": "13e6c0cd9434c29a2b3b44882f3e59aceb4fff75836e2cbe42fb4d14745811ce",
-    "templates/consumer-repo/.github/workflows/agents-keepalive-loop-reporter.yml": "c3366bffacc10e2591476c91124b1ccef842049e487a867b2554f2f1c83070a4"
+    ".github/workflows/agents-keepalive-loop-reporter.yml": "444038a97cbf18e8d6cebf9b11dae383241d0d23accf1a396592a245a0dd0516",
+    "templates/consumer-repo/.github/workflows/agents-keepalive-loop-reporter.yml": "b197db6fd38df80b5e47c17b42358df866ea6255109584e2eebc8b94b73232bc"
   },
   "mutated_sha256": {
-    ".github/workflows/agents-keepalive-loop-reporter.yml": "7698122d79776a6db1e7ca331b7eeb7761174d71075a5c516ae047d0f3f286c5",
-    "templates/consumer-repo/.github/workflows/agents-keepalive-loop-reporter.yml": "87c66588458399409af4e69063d56956c28ccd66a7af8fedabc165d2ca2817ef"
+    ".github/workflows/agents-keepalive-loop-reporter.yml": "db714ef1f16fe0e87aa3b9b09558da8e80e0fb09ed28e77b7f8e98d1c6631a97",
+    "templates/consumer-repo/.github/workflows/agents-keepalive-loop-reporter.yml": "8d4b444a0dec150afa34644c01712bf79804dc8dfaa2958db1be13660c63691b"
   },
   "restored_byte_identical": true,
   "results": [
@@ -20,7 +20,7 @@
         "pytest",
         "tests/workflows/test_keepalive_reporter_unresolved.py::test_unassociated_workflow_run_reports_attributed_failure_before_failing",
         "-q",
-        "--junitxml=/Users/teacher/.codex/automations/pd-workloop-resume/worktrees/Workflows-3839-reporter-20261011/docs/evidence/issue-3839-reporter/production-catch-restored-red.xml"
+        "--junitxml=/home/runner/work/Workflows/Workflows/docs/evidence/issue-3839-reporter/production-catch-restored-red.xml"
       ],
       "exit": 1,
       "cases": [
@@ -76,7 +76,7 @@
         "pytest",
         "tests/workflows/test_keepalive_reporter_unresolved.py::test_unassociated_workflow_run_reports_attributed_failure_before_failing",
         "-q",
-        "--junitxml=/Users/teacher/.codex/automations/pd-workloop-resume/worktrees/Workflows-3839-reporter-20261011/docs/evidence/issue-3839-reporter/byte-identical-fix-restored-green.xml"
+        "--junitxml=/home/runner/work/Workflows/Workflows/docs/evidence/issue-3839-reporter/byte-identical-fix-restored-green.xml"
       ],
       "exit": 0,
       "cases": [
