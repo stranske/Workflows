@@ -101,3 +101,9 @@ Hosted CI, expected-check topology, review-thread disposition, seven-minute
 exact-head floor, merge and actual provider comparison remain future delivery
 gates. Earlier3832/3838 CONCERNS remain unchanged. This chunk proves no native
 acceptance, installed deployment, providerPASS or whole-source completion.
+
+## Current macOS acceptance after merge3856
+
+The independent closer reran both exact `/opt/anaconda3/bin/python3` acceptance commands against merged8876a21b bytes: four named launcher casesPASS and four production assertionRED / byte-identical restoredGREEN pairs. The final launcher/replay suite passes33 cases, including both nested-testcase rejection controls. No provider call was used for this proof. `macos-revalidation.json` records commands, exits, hashes and receipts; `macos-revalidation.tar.gz` retains the raw console and JUnit. `summary.json` remains the historical Linux record; its unavailable-interpreter fields are not a claim about this later macOS run.
+
+All200 members of the existing proof archive independently match their recorded hashes. Matched original312/candidate316 JUnit nodes have exactly four newPASS nodes and no old outcome changes. Helper coverage moves581→583/591 statements and249→251/262 branches, with no exclusions. The original35-member and prior112-member counts above describe successive historical archives; the current archive has200 members. The old manifest's replay-test hash predates the nested-case/Black recovery; this follow-up corrects that one hash against merged bytes. Original proof.tar.gz, production helpers, tests and summary bytes are unchanged. Broader source3743 remains open; actual providerCONCERNS/CONCERNS is retained.
