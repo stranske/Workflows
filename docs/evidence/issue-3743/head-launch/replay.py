@@ -19,6 +19,7 @@ ROOT = Path(__file__).resolve().parents[4]
 SOURCE = "scripts/check_deliberate_break.py"
 TEST = "tests/scripts/test_check_deliberate_break_head_launch.py"
 NAME = "test_unavailable_head_command_is_reported_without_base_or_repair"
+VERDICT_ASSERTION = "assert 'PASS' == 'FAIL_BROKEN'"
 MUTATIONS = dict.fromkeys(
     ("missing", "not-executable"),
     (
@@ -80,10 +81,15 @@ def validate_junit(report, label, phase):
     failure = case.find("failure")
     require((failure is not None) == (phase == "red"), "wrong assertion outcome")
     if failure is not None:
+        message = failure.get("message", "").splitlines()
+        assertion_lines = {
+            line.removeprefix("E").strip() for line in (failure.text or "").splitlines()
+        }
         require(
             failure.get("type") in {None, "AssertionError"}
-            and failure.get("message", "").startswith(("assert ", "AssertionError: assert "))
-            and "FAIL_BROKEN" in (failure.text or ""),
+            and message
+            and message[0].removeprefix("AssertionError: ") == VERDICT_ASSERTION
+            and "AssertionError: " + VERDICT_ASSERTION in assertion_lines,
             "mutation must fail the intended admission assertion",
         )
     return case.attrib

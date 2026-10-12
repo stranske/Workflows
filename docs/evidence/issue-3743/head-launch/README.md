@@ -73,6 +73,28 @@ all original archive members remain unchanged.
 that require that exact interpreter remain pending for the strengthened tests.
 The original macOS measurements above describe the earlier test version.
 
+## Verdict assertion validation
+
+Replay now requires both the JUnit failure message and traceback to identify the
+exact `assert 'PASS' == 'FAIL_BROKEN'` mismatch. An unrelated assertion containing
+`FAIL_BROKEN`, a reversed comparison, or a longer assertion cannot establish
+mutation detection. The new replay controls first exposed five accepted false
+reports (five FAIL, four PASS), then all nine controls passed after the fix.
+The four head launch tests retain their existing nodes and source bytes.
+The nine replay controls run separately from the matched ten-module baseline
+and candidate containing only the additional head launch module.
+
+`summary.json.assertion_validation_run` records the new replay and control test
+hashes. The archive's `assertion-validation/` members retain this round's raw
+commands, console/JUnit, four real assertion RED/restored GREEN pairs, source
+bytes, output reuse hashes, matched coverage inputs, and validation logs. Every
+previous archive member remains byte-identical, with the previous archive and
+metadata retained separately. The exact Anaconda commands remain unavailable.
+Installed Black's normal CLI file selection and single-file checker pass for
+all 713 files through a retained serial adapter; the same adapter rejects an
+unformatted control without changing it. The native worker failure and the
+initial matched-suite timeout are retained as unsuccessful attempts.
+
 This is focused helper coverage, not repository-wide90%, hosted parity, provider
 PASS or completion of broader source3743. Prior3856/3865 CONCERNS dispositions and
 all historical proof remain unchanged. Keepalive owns fresh hosted CI/review;
