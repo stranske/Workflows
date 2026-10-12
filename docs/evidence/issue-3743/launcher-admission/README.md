@@ -31,11 +31,21 @@ Initial validation used /opt/anaconda3/bin/python3 (Python3.12.2, macOS26.6.2):
 - Full repositoryBlack (708files), focusedRuff, strict template completeness and
   git diff --check passed.
 
-Replay from the repository or any working directory:
+Replay from the repository root with an available Python interpreter:
 
 ```bash
-/opt/anaconda3/bin/python3 docs/evidence/issue-3743/launcher-admission/replay.py   --output /tmp/new-launcher-admission-proof
+python3 docs/evidence/issue-3743/launcher-admission/replay.py --output /tmp/new-launcher-admission-proof
 ```
+
+From another working directory, supply the absolute path to the repository:
+
+```bash
+repo=/absolute/path/to/Workflows
+python3 "$repo/docs/evidence/issue-3743/launcher-admission/replay.py" --output /tmp/new-launcher-admission-proof
+```
+
+These commands run a new replay with the selected interpreter; they do not
+reproduce the historical macOS interpreter identity by themselves.
 
 The initial archive retained35 raw members: matched command argv/cwd/exits, full console,
 JUnit and coverageJSON plus raw coverage databases; four mutation-pair receipts

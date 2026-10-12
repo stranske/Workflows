@@ -4,7 +4,7 @@
     "tests/scripts/test_launcher_admission_replay.py": "390478d1b61106a692ad914637496a6dba18c9e59566399b09c5ca76a7694b85",
     "scripts/check_deliberate_break.py": "cc97119ea26afec275be3c83d22bc75de0d452cd0f4764896cc9d037274ab25a",
     "templates/consumer-repo/scripts/check_deliberate_break.py": "cc97119ea26afec275be3c83d22bc75de0d452cd0f4764896cc9d037274ab25a",
-    "docs/evidence/issue-3743/launcher-admission/README.md": "1f14bb53028e9569cf95baf3a4d4ba2fbf21712de106c16425229ad579b67239",
+    "docs/evidence/issue-3743/launcher-admission/README.md": "6610ab4071e5f80ce994bf4244de960a419f09bd06ecf898069b77000ef4736e",
     "docs/evidence/issue-3743/launcher-admission/replay.py": "8dafa5f45aba47ca58b3697d6af1f2cef6eb1b8751508ad062ec72529fcccb92",
     "docs/evidence/issue-3743/launcher-admission/summary.json": "f87a51d888bb2e8e4518eac4a6317c33a6dbd1b347d647a77eeccbdf8a254d66",
     "docs/evidence/issue-3743/launcher-admission/proof.tar.gz": "13f26ebc12a4625c9ba769242625a8def9a577ced8f1f48333a4bb6958e9812c"
