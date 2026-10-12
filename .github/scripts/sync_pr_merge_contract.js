@@ -718,11 +718,9 @@ function parseConsumerRequiredContexts(text) {
 
 // GitHub enforces neither presence nor success of a declared context, so this
 // is Maint 71's own rule. A declared check that FAILED blocks, and one still
-// running is awaited. A declared check with no run at all is awaited only while
-// some GitHub Actions run on the head is unfinished, because a job is created
-// with its workflow run and a workflow may still be starting jobs; once every
-// Actions run has finished it never started (path filter, renamed job, held
-// workflow) and must not hold the delivery forever, so it is reported instead.
+// running is awaited. A declared check with no run blocks even after every
+// Actions run settles. The never-started diagnosis identifies a path filter,
+// renamed job or held workflow for owner repair; it never waives presence.
 function isGitHubActionsCheckRun(check) {
   return String(check?.app?.slug || '').trim() === 'github-actions';
 }
@@ -763,7 +761,7 @@ function describeConsumerDeclaredContexts({ declared = {}, classification = {} }
   const where = CONSUMER_REQUIRED_CONTEXTS_PATH;
   if (declared.state === 'none') return `Consumer-declared delivery checks: none (${where} absent)`;
   if (declared.state === 'unparseable') {
-    return `Consumer-declared delivery checks: NOT ENFORCED, ${where} is unreadable ` +
+    return `Consumer-declared delivery checks: MERGE BLOCKED, ${where} is unreadable ` +
       `(${declared.error || 'unknown error'})`;
   }
   const outcome = classification.declared_contexts || {};
@@ -777,7 +775,7 @@ function describeConsumerDeclaredContexts({ declared = {}, classification = {} }
   if (failed.length) parts.push(`${failed.length} failed: ${failed.join(', ')}`);
   if (pending.length) parts.push(`${pending.length} running: ${pending.join(', ')}`);
   if (neverStarted.length) {
-    parts.push(`${neverStarted.length} never started, not enforced: ${neverStarted.join(', ')}`);
+    parts.push(`${neverStarted.length} never started, merge blocked: ${neverStarted.join(', ')}`);
   }
   if (alsoRequired.length) parts.push(`${alsoRequired.length} also required, gated as required`);
   const verdict = total === 0
@@ -835,6 +833,13 @@ function classifySyncPrChecks({
   }
   if (pending.length > 0) {
     return { status: 'checks_pending', failed: [], pending, declared_contexts };
+  }
+  // A settled workflow with a missing declared result is UNKNOWN, not PASS.
+  // Retain never_started as durable diagnosis; only an actual result clears it.
+  if (declared.neverStarted.length > 0) {
+    return { status: 'checks_pending', failed: [],
+      pending: declared.neverStarted.map((name) => ({ name, status: 'not_started' })),
+      declared_contexts };
   }
   return { status: 'ready', failed: [], pending: [], declared_contexts };
 }

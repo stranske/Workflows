@@ -1292,6 +1292,11 @@ async function run({ github, context, core }) {
       requiredContexts,
       declaredContexts: declared.contexts,
     });
+    // A malformed declaration cannot establish an empty mandatory set.
+    if (declared.state === 'unparseable' && classification.status === 'ready') {
+      classification = { ...classification, status: 'checks_pending',
+        pending: [{ name: '.github/config/required-contexts.json', status: 'unknown' }] };
+    }
     if (classification.status === 'ready') {
       const seenNames = new Set(
         allChecks.map((check) => String(check?.name || '').trim()).filter(Boolean),

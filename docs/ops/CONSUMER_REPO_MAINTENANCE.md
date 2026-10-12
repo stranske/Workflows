@@ -1267,14 +1267,35 @@ timed out blocks the merge as a `repo-local-failure`; one still running is
 awaited. A declared check with no run on the exact head is awaited only while
 some GitHub Actions run on that head is unfinished; once every Actions run has
 finished it never started (path filter, renamed job, held workflow), so it is
-reported as `never started, not enforced` with a warning rather than holding
-the delivery forever. An unreadable file is reported as `NOT ENFORCED` with a
-warning; any read error other than a 404 fails that repository's pass. Every
+reported as `never started, merge blocked` and remains `checks_pending`.
+An absent mandatory result is UNKNOWN, never PASS: repair the producer or
+correct the consumer-owned declaration through its source owner, then obtain
+fresh exact-head evidence. An unreadable declaration is `MERGE BLOCKED`, not
+an empty mandatory set; any read error other than a 404 fails that repository's pass. Every
 delivery row in the merge report carries `consumer_declared_contexts` with the
 declared checks by outcome. Undeclared checks still never block, so agent
 event jobs that fail on sync PRs stay non-blocking. Added after
 stranske/Orchestrator#530 merged with its own `verify.py` red, because that
 repository has no branch protection and `Gate / gate` was green.
+
+Health 45 publishes `Health 45 Agents Guard / guard` on the event PR's full
+head SHA independently of agent-label eligibility for normal PR events.
+Ineligible normal PR events initialize an explicit successful no-op only after
+the eligibility action succeeds and a complete paginated exact-head status read
+proves no guard verdict exists. Reopened/ready events preserve an existing
+same-head verdict; failed or incomplete lookup fails closed.
+Ineligible privileged label/unlabel events publish
+nothing, preserving the existing same-head verdict (including failure); an absent
+verdict remains missing and blocks delivery. Removing the last agent label must
+never clear an evaluated failure. Failed
+evaluation, missing eligibility, cancellation or blocked changes publish failure.
+The independent `guard` job remains mandatory where declared: its successful
+base-bound label-event result cannot replace a failed or absent PR-head status.
+The inline publisher uses only the workflow token and never imports checked-out
+code or pooled secrets. A denied status write fails the job; fork/token restrictions
+do not authorize bypassing a missing result. The existing privileged-event
+base checkout and safety validator are unchanged. Source and consumer template
+carry the same publisher; delivery stays with Maint 68/71.
 Review-thread and final exact-head GraphQL reads use a separate read-only
 token-aware path, selecting the service-bot quota by its GraphQL (not REST-core)
 budget when it is eligible and rotating away from an exhausted identity.

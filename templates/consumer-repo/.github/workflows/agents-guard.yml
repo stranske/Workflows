@@ -657,38 +657,49 @@ jobs:
             );
 
       - name: Report agents guard commit status
-        if: always() && steps.eligibility.outputs.should-run == 'true'
+        if: always()
         uses: actions/github-script@3a2844b7e9c422d3c10d287c895573f7108da1b3 # v9
         env:
-          BLOCKED: ${{ steps.evaluate.outputs.blocked || 'false' }}
+          ELIGIBLE: ${{ steps.eligibility.outputs.should-run }}
+          EVALUATE_OUTCOME: ${{ steps.evaluate.outcome }}
+          JOB_STATUS: ${{ job.status }}
+          BLOCKED: ${{ steps.evaluate.outputs.blocked }}
           SUMMARY: ${{ steps.evaluate.outputs.summary }}
           TARGET_URL: >-
             ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
         with:
+          # The publisher executes no checkout code and needs no pooled secrets.
+          github-token: ${{ github.token }}
           script: |
-            const gh = github;
-            const { createTokenAwareRetry } = require('./.github/scripts/github-api-with-retry.js');
-            const { withRetry } = await createTokenAwareRetry({
-              github: gh,
-              core,
-              env: process.env,
-              task: 'agents-guard',
-              capabilities: ['statuses:write'],
-            });
             const owner = context.repo.owner;
             const repo = context.repo.repo;
             const pullRequest = context.payload.pull_request;
-            const sha = pullRequest?.head?.sha || context.sha;
+            const sha = pullRequest?.head?.sha;
 
             if (!sha) {
-              core.info('Head SHA unavailable; skipping commit status update.');
+              core.setFailed('PR head SHA unavailable; cannot publish authoritative guard result.');
+              return;
+            }
+
+            // Label removal must not replace an evaluated same-head failure
+            // with an ineligible no-op. Keep the last authoritative verdict;
+            // an absent verdict remains absent and blocks mandatory checks.
+            if (context.eventName === 'pull_request_target'
+                && process.env.ELIGIBLE === 'false') {
+              core.info('Ineligible label event: preserving existing PR-head guard status.');
               return;
             }
 
             const blocked = (process.env.BLOCKED || '').toLowerCase() === 'true';
             const summary = process.env.SUMMARY || '';
-            let state = blocked ? 'failure' : 'success';
-            let description = summary || (blocked
+            const evaluated = process.env.ELIGIBLE === 'true'
+              && process.env.EVALUATE_OUTCOME === 'success'
+              && process.env.BLOCKED === 'false';
+            const safelySkipped = process.env.ELIGIBLE === 'false';
+            const passed = process.env.JOB_STATUS === 'success'
+              && (safelySkipped || evaluated) && !blocked;
+            const state = passed ? 'success' : 'failure';
+            let description = summary || (!passed
               ? 'Health 45 Agents Guard blocked this pull request.'
               : 'Health 45 Agents Guard passed.');
 
@@ -707,7 +718,7 @@ jobs:
             ) {
               for (let attempt = 1; attempt <= maxAttempts; attempt += 1) {
                 try {
-                  return await withRetry(fn);
+                  return await fn(github);
                 } catch (error) {
                   const status = error?.status || error?.response?.status;
                   const headers = error?.response?.headers || {};
@@ -754,6 +765,21 @@ jobs:
             }
 
             try {
+              if (process.env.ELIGIBLE === 'false') {
+                const statuses = await withApiRetry(
+                  (client) => client.paginate(client.rest.repos.listCommitStatusesForRef, {
+                    owner, repo, ref: sha, per_page: 100,
+                  }),
+                  { label: 'read existing exact-head guard status' },
+                );
+                if (!Array.isArray(statuses)) {
+                  throw new Error('Incomplete exact-head status inventory.');
+                }
+                if (statuses.some((status) => status.context === 'Health 45 Agents Guard / guard')) {
+                  core.info('Ineligible PR event: preserving existing exact-head guard verdict.');
+                  return;
+                }
+              }
               await withApiRetry(
                 (client) => client.rest.repos.createCommitStatus({
                   owner,
@@ -768,7 +794,7 @@ jobs:
               );
               core.info(`Updated Health 45 Agents Guard commit status to ${state}.`);
             } catch (error) {
-              core.warning(
+              core.setFailed(
                 `Failed to update Health 45 Agents Guard commit status: ${error.message}`
               );
             }

@@ -5,7 +5,7 @@
 // gated only on 'Gate / gate' and Orchestrator has no branch protection. These
 // tests pin the consumer-declared contexts that close that hole, using the
 // check runs #530 actually had, and the absence rule that keeps a declared
-// check which never started from holding a delivery forever.
+// check which never started from being silently counted as passing.
 
 const test = require('node:test');
 const assert = require('node:assert/strict');
@@ -147,7 +147,7 @@ test('a declared check still running is awaited, and a re-run that passes clears
   assert.equal(rerun.status, 'ready');
 });
 
-test('a declared check with no run waits only while an Actions run on the head is unfinished', () => {
+test('a declared check with no run blocks even after all Actions runs finish', () => {
   const starting = classifySyncPrChecks({
     checkRuns: [
       actionsRun({ name: 'Gate / gate' }),
@@ -163,9 +163,8 @@ test('a declared check with no run waits only while an Actions run on the head i
   );
   assert.deepEqual(starting.declared_contexts.pending, [VERIFY]);
 
-  // Every Actions run finished and the declared job never ran (path filter,
-  // renamed job, held workflow). A pending legacy status from another app,
-  // which nothing times out, must not keep the delivery waiting.
+  // Every Actions run finished, but path filters or a renamed/held producer
+  // cannot turn a declared mandatory result into a successful absence.
   const settled = classifySyncPrChecks({
     checkRuns: [
       actionsRun({ name: 'Gate / gate' }),
@@ -174,15 +173,49 @@ test('a declared check with no run waits only while an Actions run on the head i
     requiredContexts: ['Gate / gate'],
     declaredContexts: [VERIFY],
   });
-  assert.equal(settled.status, 'ready');
+  assert.equal(settled.status, 'checks_pending');
   assert.deepEqual(settled.declared_contexts.never_started, [VERIFY]);
   assert.match(
     describeConsumerDeclaredContexts({
       declared: { state: 'declared', contexts: new Set([VERIFY]) },
       classification: settled,
     }),
-    /0 of 1 passed; 1 never started, not enforced: verify\.py/,
+    /0 of 1 passed; 1 never started, merge blocked: verify\.py/,
   );
+});
+
+test('missing mandatory head guard cannot pass a successful stale job or Gate', () => {
+  const result = classifySyncPrChecks({
+    checkRuns: [actionsRun({ name: 'Gate / gate' }), actionsRun({ name: 'guard' })],
+    requiredContexts: ['Gate / gate'],
+    declaredContexts: ['guard', 'Health 45 Agents Guard / guard'],
+  });
+  assert.equal(result.status, 'checks_pending');
+  assert.deepEqual(result.declared_contexts.never_started, ['Health 45 Agents Guard / guard']);
+});
+
+test('exact-head status failure beats a separate successful guard job; complete evidence passes', () => {
+  for (const state of ['failure', 'error', 'success']) {
+    const result = classifySyncPrChecks({
+      checkRuns: [actionsRun({ name: 'Gate / gate' }), actionsRun({ name: 'guard' }),
+        legacyStatusAsCheck({ context: 'Health 45 Agents Guard / guard', state })],
+      requiredContexts: ['Gate / gate'],
+      declaredContexts: ['guard', 'Health 45 Agents Guard / guard'],
+    });
+    assert.equal(result.status, state === 'success' ? 'ready' : 'checks_failed', state);
+  }
+});
+
+test('Maint 71 cannot merge a delivery with an absent mandatory declared guard', async (t) => {
+  const merges = [];
+  const { report } = await runMaint71Over530(t, {
+    declaration: { required_contexts: ['Health 45 Agents Guard / guard'] },
+    merge: async () => { merges.push(true); return { data: { merged: true } }; },
+  });
+  assert.deepEqual(merges, []);
+  assert.equal(report.results[0].status, 'checks_pending');
+  assert.deepEqual(report.results[0].consumer_declared_contexts.never_started,
+    ['Health 45 Agents Guard / guard']);
 });
 
 test('a declared name the required set already gates keeps the required rule', () => {
@@ -247,7 +280,7 @@ test('every declared-contexts state renders, including the drained one', () => {
       declared: { state: 'unparseable', error: 'invalid JSON: x' },
       classification: green,
     }),
-    /NOT ENFORCED, .* is unreadable \(invalid JSON: x\)/,
+    /MERGE BLOCKED, .* is unreadable \(invalid JSON: x\)/,
   );
   assert.equal(
     describeConsumerDeclaredContexts({
@@ -454,6 +487,17 @@ test('Maint 71 over #530: without a declaration the red head is merge-ready (the
   assert.deepEqual(failures, []);
 });
 
+test('Maint 71 blocks malformed declarations instead of silently treating them as empty', async (t) => {
+  const merges = [];
+  const { report } = await runMaint71Over530(t, {
+    declaration: { required_contexts: 'guard' },
+    merge: async () => { merges.push(true); return { data: { merged: true } }; },
+  });
+  assert.deepEqual(merges, []);
+  assert.equal(report.results[0].status, 'checks_pending');
+  assert.equal(report.results[0].consumer_declared_contexts.state, 'unparseable');
+});
+
 test('Maint 71 over #530: Orchestrator declaring its CI leaves the delivery open', async (t) => {
   const { report, logs, warnings, failures, contentReads } = await runMaint71Over530(t, {
     declaration: { required_contexts: ORCHESTRATOR_DECLARED },
@@ -496,6 +540,20 @@ test('Maint 71 over #530: a declared check that fails before the final recheck i
     [...ORCHESTRATOR_DECLARED].sort(),
   );
   assert.deepEqual(row.consumer_declared_contexts.passed, []);
+});
+
+test('Maint 71 final exact-head recheck cannot merge after declared guard evidence disappears', async (t) => {
+  const name = 'Health 45 Agents Guard / guard';
+  const merges = [];
+  const green = [...fixture.check_runs, actionsRun({ name })];
+  const { report } = await runMaint71Over530(t, {
+    declaration: { required_contexts: [name] },
+    checkReads: [green, fixture.check_runs],
+    merge: async () => { merges.push(true); return { data: { merged: true } }; },
+  });
+  assert.deepEqual(merges, []);
+  assert.equal(report.results[0].status, 'checks_pending');
+  assert.deepEqual(report.results[0].consumer_declared_contexts.never_started, [name]);
 });
 
 test('Maint 71 over #530: a merge-method retry gate that reads red reports what it read', async (t) => {
