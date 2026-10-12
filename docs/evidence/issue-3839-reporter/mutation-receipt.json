@@ -1,0 +1,128 @@
+{
+  "captured_at": "2026-10-12T04:24:15.835443+00:00",
+  "scope": "Authored root and consumer resolver skip-diagnostic only; local behavioral proof, no live deployment or PR reconciliation claim.",
+  "mutation": "Replace attributed skip notice+summary with a silent skip branch in both production workflows (the pre-#3839/#3843 silence).",
+  "fixed_and_restored_sha256": {
+    ".github/workflows/agents-keepalive-loop-reporter.yml": "444038a97cbf18e8d6cebf9b11dae383241d0d23accf1a396592a245a0dd0516",
+    "templates/consumer-repo/.github/workflows/agents-keepalive-loop-reporter.yml": "b197db6fd38df80b5e47c17b42358df866ea6255109584e2eebc8b94b73232bc"
+  },
+  "mutated_sha256": {
+    ".github/workflows/agents-keepalive-loop-reporter.yml": "db714ef1f16fe0e87aa3b9b09558da8e80e0fb09ed28e77b7f8e98d1c6631a97",
+    "templates/consumer-repo/.github/workflows/agents-keepalive-loop-reporter.yml": "8d4b444a0dec150afa34644c01712bf79804dc8dfaa2958db1be13660c63691b"
+  },
+  "restored_byte_identical": true,
+  "results": [
+    {
+      "phase": "production-catch-restored-red",
+      "command": [
+        "python3",
+        "-m",
+        "pytest",
+        "tests/workflows/test_keepalive_reporter_unresolved.py::test_unassociated_workflow_run_reports_attributed_failure_before_failing",
+        "-q",
+        "--junitxml=/home/runner/work/Workflows/Workflows/docs/evidence/issue-3839-reporter/production-catch-restored-red.xml"
+      ],
+      "exit": 1,
+      "cases": [
+        {
+          "classname": "tests.workflows.test_keepalive_reporter_unresolved",
+          "name": "test_unassociated_workflow_run_reports_attributed_failure_before_failing[failure-root]",
+          "failures": 1,
+          "errors": 0,
+          "skips": 0
+        },
+        {
+          "classname": "tests.workflows.test_keepalive_reporter_unresolved",
+          "name": "test_unassociated_workflow_run_reports_attributed_failure_before_failing[failure-consumer]",
+          "failures": 1,
+          "errors": 0,
+          "skips": 0
+        },
+        {
+          "classname": "tests.workflows.test_keepalive_reporter_unresolved",
+          "name": "test_unassociated_workflow_run_reports_attributed_failure_before_failing[cancelled-root]",
+          "failures": 1,
+          "errors": 0,
+          "skips": 0
+        },
+        {
+          "classname": "tests.workflows.test_keepalive_reporter_unresolved",
+          "name": "test_unassociated_workflow_run_reports_attributed_failure_before_failing[cancelled-consumer]",
+          "failures": 1,
+          "errors": 0,
+          "skips": 0
+        },
+        {
+          "classname": "tests.workflows.test_keepalive_reporter_unresolved",
+          "name": "test_unassociated_workflow_run_reports_attributed_failure_before_failing[timed_out-root]",
+          "failures": 1,
+          "errors": 0,
+          "skips": 0
+        },
+        {
+          "classname": "tests.workflows.test_keepalive_reporter_unresolved",
+          "name": "test_unassociated_workflow_run_reports_attributed_failure_before_failing[timed_out-consumer]",
+          "failures": 1,
+          "errors": 0,
+          "skips": 0
+        }
+      ]
+    },
+    {
+      "phase": "byte-identical-fix-restored-green",
+      "command": [
+        "python3",
+        "-m",
+        "pytest",
+        "tests/workflows/test_keepalive_reporter_unresolved.py::test_unassociated_workflow_run_reports_attributed_failure_before_failing",
+        "-q",
+        "--junitxml=/home/runner/work/Workflows/Workflows/docs/evidence/issue-3839-reporter/byte-identical-fix-restored-green.xml"
+      ],
+      "exit": 0,
+      "cases": [
+        {
+          "classname": "tests.workflows.test_keepalive_reporter_unresolved",
+          "name": "test_unassociated_workflow_run_reports_attributed_failure_before_failing[failure-root]",
+          "failures": 0,
+          "errors": 0,
+          "skips": 0
+        },
+        {
+          "classname": "tests.workflows.test_keepalive_reporter_unresolved",
+          "name": "test_unassociated_workflow_run_reports_attributed_failure_before_failing[failure-consumer]",
+          "failures": 0,
+          "errors": 0,
+          "skips": 0
+        },
+        {
+          "classname": "tests.workflows.test_keepalive_reporter_unresolved",
+          "name": "test_unassociated_workflow_run_reports_attributed_failure_before_failing[cancelled-root]",
+          "failures": 0,
+          "errors": 0,
+          "skips": 0
+        },
+        {
+          "classname": "tests.workflows.test_keepalive_reporter_unresolved",
+          "name": "test_unassociated_workflow_run_reports_attributed_failure_before_failing[cancelled-consumer]",
+          "failures": 0,
+          "errors": 0,
+          "skips": 0
+        },
+        {
+          "classname": "tests.workflows.test_keepalive_reporter_unresolved",
+          "name": "test_unassociated_workflow_run_reports_attributed_failure_before_failing[timed_out-root]",
+          "failures": 0,
+          "errors": 0,
+          "skips": 0
+        },
+        {
+          "classname": "tests.workflows.test_keepalive_reporter_unresolved",
+          "name": "test_unassociated_workflow_run_reports_attributed_failure_before_failing[timed_out-consumer]",
+          "failures": 0,
+          "errors": 0,
+          "skips": 0
+        }
+      ]
+    }
+  ]
+}

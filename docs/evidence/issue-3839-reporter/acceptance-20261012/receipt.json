@@ -1,0 +1,46 @@
+{
+  "scope": "actual root/consumer workflow guard removed; classifier unchanged; six failed/cancelled/timed-out runs",
+  "fixed_sha256": {
+    ".github/workflows/agents-keepalive-loop-reporter.yml": "e49c2d5c17b45684a371cb5a526d5810430e0af7589e0aac2b8f50e85a28e4e8",
+    "templates/consumer-repo/.github/workflows/agents-keepalive-loop-reporter.yml": "9f724ee11052c02642dbc3a9ad1470ee17d54f0e53eaa16b9304c5bbc24b4bee"
+  },
+  "byte_identical_restoration": true,
+  "results": [
+    {
+      "phase": "production-skip-red",
+      "argv": [
+        "/opt/anaconda3/bin/python3",
+        "-m",
+        "pytest",
+        "tests/workflows/test_keepalive_reporter_unresolved.py::test_unassociated_workflow_run_reports_attributed_failure_before_failing",
+        "-q",
+        "-o",
+        "addopts=",
+        "--junitxml=/Users/teacher/.codex/automations/imi-merge-verify-closer/worktrees/wf3841-conflicts-20261011T2232Z/docs/evidence/issue-3839-reporter/acceptance-20261012/production-skip-red.xml"
+      ],
+      "exit": 1,
+      "cases": 6,
+      "failures": 6,
+      "errors": 0,
+      "skips": 0
+    },
+    {
+      "phase": "exact-restoration-green",
+      "argv": [
+        "/opt/anaconda3/bin/python3",
+        "-m",
+        "pytest",
+        "tests/workflows/test_keepalive_reporter_unresolved.py::test_unassociated_workflow_run_reports_attributed_failure_before_failing",
+        "-q",
+        "-o",
+        "addopts=",
+        "--junitxml=/Users/teacher/.codex/automations/imi-merge-verify-closer/worktrees/wf3841-conflicts-20261011T2232Z/docs/evidence/issue-3839-reporter/acceptance-20261012/exact-restoration-green.xml"
+      ],
+      "exit": 0,
+      "cases": 6,
+      "failures": 0,
+      "errors": 0,
+      "skips": 0
+    }
+  ]
+}

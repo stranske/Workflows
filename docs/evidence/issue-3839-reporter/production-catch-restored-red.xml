@@ -1,0 +1,163 @@
+<?xml version="1.0" encoding="utf-8"?><testsuites name="pytest tests"><testsuite name="pytest" errors="0" failures="6" skipped="0" tests="6" time="0.422" timestamp="2026-10-12T04:24:13.761839+00:00" hostname="runnervmmprz5"><testcase classname="tests.workflows.test_keepalive_reporter_unresolved" name="test_unassociated_workflow_run_reports_attributed_failure_before_failing[failure-root]" time="0.047"><failure message="AssertionError: assert ['read-origin'] == ['read-origin...e', 'summary']&#10;  &#10;  Right contains 2 more items, first extra item: 'notice'&#10;  &#10;  Full diff:&#10;    [&#10;        'read-origin',&#10;  -     'notice',&#10;  -     'summary',&#10;    ]">reporter = PosixPath('.github/workflows/agents-keepalive-loop-reporter.yml')
+conclusion = 'failure'
+
+    @pytest.mark.parametrize("reporter", REPORTERS, ids=["root", "consumer"])
+    @pytest.mark.parametrize("conclusion", ["failure", "cancelled", "timed_out"])
+    def test_unassociated_workflow_run_reports_attributed_failure_before_failing(
+        reporter: Path, conclusion: str
+    ) -&gt; None:
+        """Unassociated non-dispatch runs must not go silent (#3839).
+    
+        After #3843 they classify as skip/`no-report-needed` with an attributed
+        notice+summary (not a red catch). The empty PR lock still denies mutation.
+        Node id kept for the issue-3839 acceptance / mutation evidence command.
+        """
+        result = _resolve(reporter, conclusion=conclusion)
+&gt;       assert [event[0] for event in result["events"]] == ["read-origin", "notice", "summary"]
+E       AssertionError: assert ['read-origin'] == ['read-origin...e', 'summary']
+E         
+E         Right contains 2 more items, first extra item: 'notice'
+E         
+E         Full diff:
+E           [
+E               'read-origin',
+E         -     'notice',
+E         -     'summary',
+E           ]
+
+tests/workflows/test_keepalive_reporter_unresolved.py:109: AssertionError</failure></testcase><testcase classname="tests.workflows.test_keepalive_reporter_unresolved" name="test_unassociated_workflow_run_reports_attributed_failure_before_failing[failure-consumer]" time="0.048"><failure message="AssertionError: assert ['read-origin'] == ['read-origin...e', 'summary']&#10;  &#10;  Right contains 2 more items, first extra item: 'notice'&#10;  &#10;  Full diff:&#10;    [&#10;        'read-origin',&#10;  -     'notice',&#10;  -     'summary',&#10;    ]">reporter = PosixPath('templates/consumer-repo/.github/workflows/agents-keepalive-loop-reporter.yml')
+conclusion = 'failure'
+
+    @pytest.mark.parametrize("reporter", REPORTERS, ids=["root", "consumer"])
+    @pytest.mark.parametrize("conclusion", ["failure", "cancelled", "timed_out"])
+    def test_unassociated_workflow_run_reports_attributed_failure_before_failing(
+        reporter: Path, conclusion: str
+    ) -&gt; None:
+        """Unassociated non-dispatch runs must not go silent (#3839).
+    
+        After #3843 they classify as skip/`no-report-needed` with an attributed
+        notice+summary (not a red catch). The empty PR lock still denies mutation.
+        Node id kept for the issue-3839 acceptance / mutation evidence command.
+        """
+        result = _resolve(reporter, conclusion=conclusion)
+&gt;       assert [event[0] for event in result["events"]] == ["read-origin", "notice", "summary"]
+E       AssertionError: assert ['read-origin'] == ['read-origin...e', 'summary']
+E         
+E         Right contains 2 more items, first extra item: 'notice'
+E         
+E         Full diff:
+E           [
+E               'read-origin',
+E         -     'notice',
+E         -     'summary',
+E           ]
+
+tests/workflows/test_keepalive_reporter_unresolved.py:109: AssertionError</failure></testcase><testcase classname="tests.workflows.test_keepalive_reporter_unresolved" name="test_unassociated_workflow_run_reports_attributed_failure_before_failing[cancelled-root]" time="0.047"><failure message="AssertionError: assert ['read-origin'] == ['read-origin...e', 'summary']&#10;  &#10;  Right contains 2 more items, first extra item: 'notice'&#10;  &#10;  Full diff:&#10;    [&#10;        'read-origin',&#10;  -     'notice',&#10;  -     'summary',&#10;    ]">reporter = PosixPath('.github/workflows/agents-keepalive-loop-reporter.yml')
+conclusion = 'cancelled'
+
+    @pytest.mark.parametrize("reporter", REPORTERS, ids=["root", "consumer"])
+    @pytest.mark.parametrize("conclusion", ["failure", "cancelled", "timed_out"])
+    def test_unassociated_workflow_run_reports_attributed_failure_before_failing(
+        reporter: Path, conclusion: str
+    ) -&gt; None:
+        """Unassociated non-dispatch runs must not go silent (#3839).
+    
+        After #3843 they classify as skip/`no-report-needed` with an attributed
+        notice+summary (not a red catch). The empty PR lock still denies mutation.
+        Node id kept for the issue-3839 acceptance / mutation evidence command.
+        """
+        result = _resolve(reporter, conclusion=conclusion)
+&gt;       assert [event[0] for event in result["events"]] == ["read-origin", "notice", "summary"]
+E       AssertionError: assert ['read-origin'] == ['read-origin...e', 'summary']
+E         
+E         Right contains 2 more items, first extra item: 'notice'
+E         
+E         Full diff:
+E           [
+E               'read-origin',
+E         -     'notice',
+E         -     'summary',
+E           ]
+
+tests/workflows/test_keepalive_reporter_unresolved.py:109: AssertionError</failure></testcase><testcase classname="tests.workflows.test_keepalive_reporter_unresolved" name="test_unassociated_workflow_run_reports_attributed_failure_before_failing[cancelled-consumer]" time="0.048"><failure message="AssertionError: assert ['read-origin'] == ['read-origin...e', 'summary']&#10;  &#10;  Right contains 2 more items, first extra item: 'notice'&#10;  &#10;  Full diff:&#10;    [&#10;        'read-origin',&#10;  -     'notice',&#10;  -     'summary',&#10;    ]">reporter = PosixPath('templates/consumer-repo/.github/workflows/agents-keepalive-loop-reporter.yml')
+conclusion = 'cancelled'
+
+    @pytest.mark.parametrize("reporter", REPORTERS, ids=["root", "consumer"])
+    @pytest.mark.parametrize("conclusion", ["failure", "cancelled", "timed_out"])
+    def test_unassociated_workflow_run_reports_attributed_failure_before_failing(
+        reporter: Path, conclusion: str
+    ) -&gt; None:
+        """Unassociated non-dispatch runs must not go silent (#3839).
+    
+        After #3843 they classify as skip/`no-report-needed` with an attributed
+        notice+summary (not a red catch). The empty PR lock still denies mutation.
+        Node id kept for the issue-3839 acceptance / mutation evidence command.
+        """
+        result = _resolve(reporter, conclusion=conclusion)
+&gt;       assert [event[0] for event in result["events"]] == ["read-origin", "notice", "summary"]
+E       AssertionError: assert ['read-origin'] == ['read-origin...e', 'summary']
+E         
+E         Right contains 2 more items, first extra item: 'notice'
+E         
+E         Full diff:
+E           [
+E               'read-origin',
+E         -     'notice',
+E         -     'summary',
+E           ]
+
+tests/workflows/test_keepalive_reporter_unresolved.py:109: AssertionError</failure></testcase><testcase classname="tests.workflows.test_keepalive_reporter_unresolved" name="test_unassociated_workflow_run_reports_attributed_failure_before_failing[timed_out-root]" time="0.047"><failure message="AssertionError: assert ['read-origin'] == ['read-origin...e', 'summary']&#10;  &#10;  Right contains 2 more items, first extra item: 'notice'&#10;  &#10;  Full diff:&#10;    [&#10;        'read-origin',&#10;  -     'notice',&#10;  -     'summary',&#10;    ]">reporter = PosixPath('.github/workflows/agents-keepalive-loop-reporter.yml')
+conclusion = 'timed_out'
+
+    @pytest.mark.parametrize("reporter", REPORTERS, ids=["root", "consumer"])
+    @pytest.mark.parametrize("conclusion", ["failure", "cancelled", "timed_out"])
+    def test_unassociated_workflow_run_reports_attributed_failure_before_failing(
+        reporter: Path, conclusion: str
+    ) -&gt; None:
+        """Unassociated non-dispatch runs must not go silent (#3839).
+    
+        After #3843 they classify as skip/`no-report-needed` with an attributed
+        notice+summary (not a red catch). The empty PR lock still denies mutation.
+        Node id kept for the issue-3839 acceptance / mutation evidence command.
+        """
+        result = _resolve(reporter, conclusion=conclusion)
+&gt;       assert [event[0] for event in result["events"]] == ["read-origin", "notice", "summary"]
+E       AssertionError: assert ['read-origin'] == ['read-origin...e', 'summary']
+E         
+E         Right contains 2 more items, first extra item: 'notice'
+E         
+E         Full diff:
+E           [
+E               'read-origin',
+E         -     'notice',
+E         -     'summary',
+E           ]
+
+tests/workflows/test_keepalive_reporter_unresolved.py:109: AssertionError</failure></testcase><testcase classname="tests.workflows.test_keepalive_reporter_unresolved" name="test_unassociated_workflow_run_reports_attributed_failure_before_failing[timed_out-consumer]" time="0.048"><failure message="AssertionError: assert ['read-origin'] == ['read-origin...e', 'summary']&#10;  &#10;  Right contains 2 more items, first extra item: 'notice'&#10;  &#10;  Full diff:&#10;    [&#10;        'read-origin',&#10;  -     'notice',&#10;  -     'summary',&#10;    ]">reporter = PosixPath('templates/consumer-repo/.github/workflows/agents-keepalive-loop-reporter.yml')
+conclusion = 'timed_out'
+
+    @pytest.mark.parametrize("reporter", REPORTERS, ids=["root", "consumer"])
+    @pytest.mark.parametrize("conclusion", ["failure", "cancelled", "timed_out"])
+    def test_unassociated_workflow_run_reports_attributed_failure_before_failing(
+        reporter: Path, conclusion: str
+    ) -&gt; None:
+        """Unassociated non-dispatch runs must not go silent (#3839).
+    
+        After #3843 they classify as skip/`no-report-needed` with an attributed
+        notice+summary (not a red catch). The empty PR lock still denies mutation.
+        Node id kept for the issue-3839 acceptance / mutation evidence command.
+        """
+        result = _resolve(reporter, conclusion=conclusion)
+&gt;       assert [event[0] for event in result["events"]] == ["read-origin", "notice", "summary"]
+E       AssertionError: assert ['read-origin'] == ['read-origin...e', 'summary']
+E         
+E         Right contains 2 more items, first extra item: 'notice'
+E         
+E         Full diff:
+E           [
+E               'read-origin',
+E         -     'notice',
+E         -     'summary',
+E           ]
+
+tests/workflows/test_keepalive_reporter_unresolved.py:109: AssertionError</failure></testcase></testsuite></testsuites>
