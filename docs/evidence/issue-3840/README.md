@@ -44,3 +44,25 @@ test also failed with exploration disabled and passed after restoring the
 production source; see `rate-mutation-proof.txt`. That proof uses
 `--test-isolation=none` and the full acceptance test name as
 `--test-name-pattern`, so the wrapper alone cannot supply the result.
+
+The canonical delegation suite now automates the green/red/restored-green proof
+in an isolated temporary tree. It runs the named acceptance test directly,
+requires the disabled exploration read to fail with the `cursor` vs. `gemini`
+assertion, and requires restoration to pass. The test also checks the named TAP
+result, so an empty or file-only report cannot count as acceptance. No checkout
+source is mutated, and temporary files are removed after the test.
+
+Verified locally on 2026-10-12:
+
+- [x] Seeded exploration selects an eligible, non-reserved published challenger and otherwise retains ranking.
+- [x] Exploration returns `route_weights_exploration` and the published `policy_version`.
+- [x] The keepalive summary prints the exploration policy version.
+- [x] The documented `node --test` command exits 0; direct execution confirms the named case runs.
+- [x] The documented seed-7 command returns `gemini`, `route_weights_exploration`, and `exploration-2026-10-06`.
+- [x] Disabling exploration fails the named test; restoring it passes, now checked automatically.
+
+Validation: 42 tests pass with `node --test --test-isolation=none
+.github/scripts/agent_delegation_policy.test.js`. Another 226 pass with
+`node --test --test-isolation=none
+.github/scripts/__tests__/agent-delegation-policy.test.js
+.github/scripts/__tests__/keepalive-loop.test.js`.

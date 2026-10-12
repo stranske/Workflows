@@ -10,6 +10,9 @@
 const test = require('node:test');
 const assert = require('node:assert/strict');
 
+const { spawnSync } = require('node:child_process');
+const fs = require('node:fs');
+const os = require('node:os');
 const path = require('node:path');
 
 const {
@@ -976,4 +979,70 @@ test('ignoring the exploration block restores ranking selection', () => {
 
   assert.equal(weighted.agent, 'cursor');
   assert.equal(weighted.delegationSource, 'route_weights');
+});
+
+test('named exploration acceptance test fails when exploration is disabled and passes after restoration', (t) => {
+  const testName = 'exploration branch delegates to the published challenger at the published rate and reports the policy version';
+  const sourceRoot = path.resolve(__dirname, '../../..');
+  const isolatedRoot = fs.mkdtempSync(path.join(os.tmpdir(), 'delegation-exploration-'));
+  t.after(() => fs.rmSync(isolatedRoot, { recursive: true, force: true }));
+
+  // Copy only the acceptance entry point and its inputs; never mutate the checkout.
+  for (const relativePath of [
+    '.github/scripts/agent_delegation_policy.js',
+    '.github/scripts/agent_delegation_policy.test.js',
+    '.github/scripts/__tests__/agent_delegation_policy.test.js',
+    'tests/fixtures/route-weights-with-exploration.json',
+  ]) {
+    const destination = path.join(isolatedRoot, relativePath);
+    fs.mkdirSync(path.dirname(destination), { recursive: true });
+    fs.copyFileSync(path.join(sourceRoot, relativePath), destination);
+  }
+
+  const policyPath = path.join(isolatedRoot, '.github/scripts/agent_delegation_policy.js');
+  const original = fs.readFileSync(policyPath, 'utf8');
+  const explorationRead = 'const exploration = routeWeights.exploration;';
+  assert.equal(original.split(explorationRead).length, 2, 'mutate exactly one exploration read');
+
+  function runAcceptance(expectedStatus) {
+    // Run directly to retain named test results even when child-test isolation
+    // in the outer Node runner reports only a file-level pass.
+    const env = { ...process.env };
+    delete env.NODE_TEST_CONTEXT;
+    // File-backed output also works where the sandbox restricts child pipes.
+    const outputPath = path.join(isolatedRoot, 'acceptance.tap');
+    const outputFd = fs.openSync(outputPath, 'w');
+    let result;
+    try {
+      result = spawnSync(process.execPath, [
+        `--test-name-pattern=^${testName}$`,
+        '--test-reporter=tap',
+        '.github/scripts/agent_delegation_policy.test.js',
+      ], {
+        cwd: isolatedRoot,
+        timeout: 10000,
+        env,
+        stdio: ['ignore', outputFd, outputFd],
+      });
+    } finally {
+      fs.closeSync(outputFd);
+    }
+    const output = fs.readFileSync(outputPath, 'utf8');
+    assert.ifError(result.error);
+    assert.equal(result.signal, null);
+    assert.equal(result.status, expectedStatus, output);
+    assert.ok(output.includes(`# Subtest: ${testName}`), output);
+    assert.ok(output.includes(`${expectedStatus === 0 ? 'ok' : 'not ok'} 1 - ${testName}`), output);
+    if (expectedStatus === 1) {
+      // Require a behavioral assertion failure, rather than a load/runner error.
+      assert.match(output, /ERR_ASSERTION/);
+      assert.match(output, /'cursor' !== 'gemini'/);
+    }
+  }
+
+  runAcceptance(0);
+  fs.writeFileSync(policyPath, original.replace(explorationRead, 'const exploration = undefined;'));
+  runAcceptance(1);
+  fs.writeFileSync(policyPath, original);
+  runAcceptance(0);
 });
