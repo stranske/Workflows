@@ -33,7 +33,8 @@ def test_replay_requires_selected_assertion_failure(tmp_path, defect):
         outcome = '<failure type="RuntimeError" message="RuntimeError: assert True is False">assert True is False</failure>'
     report = tmp_path / "junit.xml"
     report.write_text(
-        f'<testsuites><testsuite><testcase classname="{module}" name="{name}">'
+        f'<testsuites><testsuite tests="1" failures="1" errors="0" skipped="0">'
+        f'<testcase classname="{module}" name="{name}">'
         f"{outcome}</testcase></testsuite></testsuites>"
     )
     if defect:
@@ -75,3 +76,51 @@ def test_output_reuse_fails_before_any_mutation(tmp_path, monkeypatch):
         replay["main"]()
     assert retained.read_bytes() == original
     assert list(output.iterdir()) == [retained]
+
+
+@pytest.mark.parametrize("phase", ["red", "green"])
+@pytest.mark.parametrize(
+    "defect",
+    [
+        None,
+        "tests",
+        "failures",
+        "errors",
+        "skipped",
+        "missing-count",
+        "extra-suite",
+        "misplaced",
+        "duplicate",
+    ],
+)
+def test_replay_requires_consistent_suite_and_outcomes(tmp_path, phase, defect):
+    replay = runpy.run_path(str(REPLAY))
+    module = replay["TEST"][:-3].replace("/", ".")
+    name = f"{replay['NAME']}[template-opaque]"
+    counts = {"tests": "1", "failures": str(int(phase == "red")), "errors": "0", "skipped": "0"}
+    if defect in counts:
+        counts[defect] = str(int(counts[defect]) + 1)
+    elif defect == "missing-count":
+        del counts["tests"]
+    failure = '<failure message="assert True is False">assert True is False</failure>'
+    outcome = failure if phase == "red" else ""
+    if defect == "duplicate":
+        outcome += failure
+    attributes = " ".join(f'{key}="{value}"' for key, value in counts.items())
+    outside = "<skipped />" if defect == "misplaced" else ""
+    extra = (
+        '<testsuite tests="0" failures="0" errors="0" skipped="0" />'
+        if defect == "extra-suite"
+        else ""
+    )
+    report = tmp_path / "junit.xml"
+    report.write_text(
+        f"<testsuites><testsuite {attributes}>"
+        f'<testcase classname="{module}" name="{name}">{outcome}</testcase>'
+        f"{outside}</testsuite>{extra}</testsuites>"
+    )
+    if defect:
+        with pytest.raises(ValueError):
+            replay["validate_junit"](report, "template-opaque", phase)
+    else:
+        assert replay["validate_junit"](report, "template-opaque", phase)["name"] == name

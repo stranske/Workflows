@@ -54,9 +54,26 @@ def validate_junit(report, label, phase):
     parser.ExternalEntityRefHandler = reject
     parser.Parse(text, True)
     tree = ElementTree.fromstring(text)
+    suites = list(tree.iter("testsuite"))
+    require(len(suites) == 1, "expected exactly one suite")
+    suite = suites[0]
+    expected_counts = {"tests": 1, "failures": int(phase == "red"), "errors": 0, "skipped": 0}
+    require(
+        {key: int(suite.get(key, "-1")) for key in expected_counts} == expected_counts,
+        "suite totals contradict the selected outcome",
+    )
     cases = list(tree.iter("testcase"))
     require(len(cases) == 1, "expected exactly one selected case")
     case = cases[0]
+    require(case in list(suite), "selected case must be directly inside the suite")
+    outcomes = [
+        element for element in tree.iter() if element.tag in {"failure", "error", "skipped"}
+    ]
+    require(
+        [element.tag for element in outcomes] == (["failure"] if phase == "red" else [])
+        and all(element in list(case) for element in outcomes),
+        "unexpected or misplaced JUnit outcomes",
+    )
     require(case.get("classname") == TEST[:-3].replace("/", "."), "wrong test module")
     require(case.get("name") == f"{NAME}[{label}]", "wrong selected case")
     require(

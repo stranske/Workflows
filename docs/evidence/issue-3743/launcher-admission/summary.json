@@ -82,9 +82,9 @@
     "tests/scripts/test_module_boundary_replay_isolation.py",
     "tests/scripts/test_check_deliberate_break_runtime_health.py"
   ],
-  "template_validation_summary_override": "/tmp/launcher-admission-revalidation-2/template-step-summary.md",
-  "prior_archive_sha256": "066c6a5303ede1b70b07d775c1d3b8036aa9079d4b03650cb51ad903316887fa",
-  "prior_raw_members_unchanged": 35,
+  "template_validation_summary_override": "/tmp/launcher-admission-suite-proof/template-step-summary.md",
+  "prior_archive_sha256": "984b32fa0bd341b58cb16057434547918c3f51d99b8acbb7f22bc27ec4946d66",
+  "prior_raw_members_unchanged": 112,
   "requested_interpreter_commands_repeated": false,
   "verified_tasks": [
     "Four paired root/template missing and opaque launcher cases.",
@@ -98,10 +98,19 @@
     "diff-check",
     "replay-tests"
   ],
+  "replay_validation_tests": 27,
+  "new_receipt_validation_cases": 18,
+  "receipt_regressions_detected_against_previous_validator": 15,
+  "pr_body_update_applied": false,
+  "pr_body_update_blocker": "MCP tool call requires approval, but approval policy is never",
+  "pr_verified_state": "open",
+  "pr_verified_isDraft": false,
+  "pending_acceptance": "Revised replay with /opt/anaconda3/bin/python3; interpreter absent on this runner.",
   "black_scheduler": "Serial Black cache population, then required Black CLI with BLACK_NUM_WORKERS=1.",
   "limits": [
-    "Coverage is for the root helper; paired template behavior is tested separately.",
-    "The specified /opt/anaconda3/bin/python3 interpreter is absent; this run uses the recorded Linux interpreter.",
-    "The checkout Git directory is read-only; the new commit and patch are retained in /tmp."
+    "Coverage measures the root helper; paired template behavior is tested separately.",
+    "The requested Anaconda interpreter is absent; Linux interpreter recorded in raw receipts.",
+    "The checkout Git directory is read-only; an isolated commit and patch are retained in /tmp.",
+    "Automatic approval review rejected the live PR-body update; reconciled body is retained for handoff."
   ]
 }

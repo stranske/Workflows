@@ -64,6 +64,21 @@ cache in `/tmp`; the required `black --check --line-length 100 --exclude
 The supplemental replay tests are validated separately from the matched coverage
 comparison, which adds only the four-case launcher admission module.
 
+The next Linux revalidation is retained under `suite-validation/`. The replay
+now requires exactly one suite with one test, the expected failure count, zero
+errors/skips, and a single direct assertion outcome for RED. Contradictory totals,
+missing totals, extra suites, misplaced outcomes and duplicate failures are
+rejected. The 18 new RED/GREEN receipt cases expose 15 failures against the
+previous validator; all 27 replay tests pass with the revision. The four launcher
+tests and production files are unchanged. All 112 previous raw archive members
+are retained byte-identically.
+
+PR reconciliation is retained as `suite-validation/reconciled-pr-body.md` in
+the archive. The live update was rejected because this run's approval policy is
+`never`; the PR was verified open and ready for review. Six checkboxes have
+supporting evidence. The revised replay's exact Anaconda command remains pending
+because that interpreter is absent here; its Linux replay is verified separately.
+
 Verified implementation tasks:
 
 - [x] Four paired root/template missing and opaque launcher rejection cases.
