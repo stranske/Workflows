@@ -6,7 +6,7 @@ changed production selection behavior:
 
 ```sh
 node --test .github/scripts/agent_delegation_policy.test.js
-node -e "const p=require('./.github/scripts/agent_delegation_policy.js'); console.txt(JSON.stringify(p.pickAgent({taskType:'implement', routeWeights: require('./tests/fixtures/route-weights-with-exploration.json'), seed: 7})))"
+node -e "const p=require('./.github/scripts/agent_delegation_policy.js'); console.log(JSON.stringify(p.pickAgent({taskType:'implement', routeWeights: require('./tests/fixtures/route-weights-with-exploration.json'), seed: 7})))"
 ```
 
 The second command prints agent `gemini`, `delegationSource` equal to
