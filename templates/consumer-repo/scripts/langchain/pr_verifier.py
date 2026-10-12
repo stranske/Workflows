@@ -4555,7 +4555,17 @@ def _required_evidence_options(acceptance: str) -> list[set[str]]:
         clause_start = (
             max(masked.rfind(";", 0, match.start()), masked.rfind("\n", 0, match.start())) + 1
         )
-        governing_prefix = acceptance[clause_start : match.start()] + match["prep"] + " "
+        governing_prefix = acceptance[clause_start : match.start()]
+
+        def destination_member(item: str, inherited: str = match["prep"]) -> str:
+            # An explicit member preposition is semantic (as an artifact vs
+            # in PR content), not decoration inherited from the first member.
+            return (
+                item
+                if re.match(r"^" + preposition + r"\s+", item, re.I)
+                else inherited + " " + item
+            )
+
         deliveries = []
         for item in alternatives:
             component = re.search(
@@ -4568,9 +4578,7 @@ def _required_evidence_options(acceptance: str) -> list[set[str]]:
                 channel = (
                     "comments" if component["channel"].lower().startswith("comment") else "body"
                 )
-                isolated = governing_prefix + re.sub(
-                    r"^" + preposition + r"\s+", "", item, flags=re.I
-                )
+                isolated = governing_prefix + destination_member(item)
                 if channel not in _required_evidence_channels(isolated):
                     continue
             deliveries.append(item)
@@ -4579,11 +4587,7 @@ def _required_evidence_options(acceptance: str) -> list[set[str]]:
         if len(variants) * len(alternatives) > 32:
             return [_required_evidence_channels(acceptance)]
         variants = [
-            variant[: match.start()]
-            + match["prep"]
-            + " "
-            + re.sub(r"^" + preposition + r"\s+", "", item, flags=re.I)
-            + variant[match.end() :]
+            variant[: match.start()] + destination_member(item) + variant[match.end() :]
             for variant in variants
             for item in alternatives
         ]

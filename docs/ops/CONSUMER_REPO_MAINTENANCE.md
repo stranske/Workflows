@@ -2142,6 +2142,8 @@ same product governor rather than inventing a mandatory artifact or overall floo
 Mandatory OR destination lists accept both plain `an artifact` and qualified
 workflow artifacts, in either order with a PR-body/comment alternative. At least
 one allowed delivery and every independent mandatory clause must remain present.
+Each OR member retains its explicit preposition; `as an artifact` is not
+rewritten to `in an artifact` merely because the first member uses `in`.
 Checklist shorthand accepts the common test/validation proof nouns, so
 `Validation output in a PR comment` retains comments as its required channel.
 Negative, optional and product-capability clauses keep their existing semantics.
