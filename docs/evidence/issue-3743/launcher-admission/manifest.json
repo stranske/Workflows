@@ -1,13 +1,15 @@
 {
   "files": {
     "tests/scripts/test_check_deliberate_break_launcher_admission.py": "842b4f9427a14f406fdc075db55c91e66a3c51fe448324c44e16efe14d94ceca",
-    "tests/scripts/test_launcher_admission_replay.py": "390478d1b61106a692ad914637496a6dba18c9e59566399b09c5ca76a7694b85",
+    "tests/scripts/test_launcher_admission_replay.py": "37b19a7c0508c6a1567d4f84a56e17bd4df108d8ce6c31ced4a3a857fa50ef16",
     "scripts/check_deliberate_break.py": "cc97119ea26afec275be3c83d22bc75de0d452cd0f4764896cc9d037274ab25a",
     "templates/consumer-repo/scripts/check_deliberate_break.py": "cc97119ea26afec275be3c83d22bc75de0d452cd0f4764896cc9d037274ab25a",
-    "docs/evidence/issue-3743/launcher-admission/README.md": "6610ab4071e5f80ce994bf4244de960a419f09bd06ecf898069b77000ef4736e",
+    "docs/evidence/issue-3743/launcher-admission/README.md": "ea1577073bfc20ca6299f2f3b538483394c5239b4259c55479dc244a904ffe14",
     "docs/evidence/issue-3743/launcher-admission/replay.py": "8dafa5f45aba47ca58b3697d6af1f2cef6eb1b8751508ad062ec72529fcccb92",
     "docs/evidence/issue-3743/launcher-admission/summary.json": "f87a51d888bb2e8e4518eac4a6317c33a6dbd1b347d647a77eeccbdf8a254d66",
-    "docs/evidence/issue-3743/launcher-admission/proof.tar.gz": "13f26ebc12a4625c9ba769242625a8def9a577ced8f1f48333a4bb6958e9812c"
+    "docs/evidence/issue-3743/launcher-admission/proof.tar.gz": "13f26ebc12a4625c9ba769242625a8def9a577ced8f1f48333a4bb6958e9812c",
+    "docs/evidence/issue-3743/launcher-admission/macos-revalidation.json": "331d1dc3ca1b482c0d2a3bd374a73397dcf1d7d2e6521df2d30b3f9480fb5333",
+    "docs/evidence/issue-3743/launcher-admission/macos-revalidation.tar.gz": "f821ca4bdbefdf7b965b101621a73552b8c1fd5ece745a3afadaa0bdb5e6fdbe"
   },
   "proof_members": {
     "matched/baseline-command.json": "7ae49a0cce7584a9272ec52d4a5d6730bb89e531d4f4d1c6a94530817d2f1f15",
