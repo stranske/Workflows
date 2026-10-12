@@ -36,6 +36,8 @@ test('dev-tool optional observation must agree; workflow deliveries require an o
   assert.equal(verify(conflict, conflict), false);
   assert.equal(verify(record, record, { branch: 'sync/workflows-candidate' }), false);
   assert.equal(verify(observed, observed, { branch: 'sync/workflows-candidate' }), true);
+  assert.equal(verify(observed, observed, { branch: 'sync/workflows-legacy-generation' }), true);
+  assert.equal(verify(record, record, { branch: 'sync/workflows-legacy-generation' }), false);
   assert.equal(verify(record, record, { branch: 'ordinary-feature' }), false);
   assert.equal(verify(record, record, { head: '' }), false);
 });

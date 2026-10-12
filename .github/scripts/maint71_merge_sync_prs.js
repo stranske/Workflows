@@ -77,12 +77,13 @@ function hasCompleteReviewThreadEvidence(connection) {
 
 // Keep the last delivery read bound to the selected record and exact PR head.
 function independentVerificationDeliveryUnchanged({ previous, current, head, branch, now = Date.now() }) {
-  const { generatedDeliveryLane, isStableSyncBranchName } = require('./sync_pr_merge_contract');
+  const { generatedDeliveryLane } = require('./sync_pr_merge_contract');
   const { isDeepStrictEqual } = require('node:util');
-  const devTool = generatedDeliveryLane(branch) === 'dev-tool-sync';
+  const lane = generatedDeliveryLane(branch);
+  const devTool = lane === 'dev-tool-sync';
   return Boolean(previous && current
     && /^[a-f0-9]{40}$/.test(head || '')
-    && (devTool || isStableSyncBranchName(branch))
+    && (devTool || lane === 'sync')
     && isDeepStrictEqual(previous, current)
     && Date.parse(current.lease_expires_at) > now
     // Maint52 does not emit an observation pair; its fresh REST/GraphQL PR
