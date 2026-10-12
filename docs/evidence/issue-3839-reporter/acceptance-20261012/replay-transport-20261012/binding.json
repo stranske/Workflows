@@ -1,0 +1,13 @@
+{
+  "at": "2026-10-12T05:29:24.468584+00:00",
+  "base_head": "46005a758e9c80c5416ab580136e61e5603a84c5",
+  "driver_sha256": "6cd22670da2a5c3b9b29a4f59d5fdbc20784f6159c506d518b321373a4cf8a7b",
+  "artifact_sha256": {
+    "exact-restoration-green.xml": "f22aa5f4d4dda1b7813574332285637e8214733ea6fe80cc24a519b7eabdf134",
+    "production-skip-red.xml": "44781a8eeec98628b8b367444dc53b3c9b4ee56f6988289026111c93dbda8898",
+    "exact-restoration-green.log": "c6d88cabd45bb56945545a34b3ad0da1cbc47318e073e6e98e913c682037a2b9",
+    "production-skip-red.log": "7ed81ec4a497122d41dc8a0560a659b9acbab0a2cc9cd8d287e96d20be44af07",
+    "receipt.json": "9879c5b70676028cfdc7b013c1781f583aac63dcaf8b4e03ab0dfa67593ceaaf"
+  },
+  "scope": "fresh tempfile child JUnit argv; external output used only after subprocess returns; production bytes restored exactly; original acceptance packet remains historical"
+}

@@ -1,0 +1,14 @@
+{
+  "scope": "current replay.py only; local scan is not hosted check acceptance",
+  "semgrep_version": "1.180.0",
+  "configs": [
+    "p/python",
+    "p/default",
+    "p/github-actions",
+    "p/secrets"
+  ],
+  "findings": 0,
+  "errors": 0,
+  "suppression": false,
+  "driver_sha256": "6cd22670da2a5c3b9b29a4f59d5fdbc20784f6159c506d518b321373a4cf8a7b"
+}

@@ -74,3 +74,27 @@ and consumer fingerprint/setup differences remain intentional. Thirty existing
 drift/allowlist control tests pass. Hosted failure and both full local outputs
 are retained; the changed workflow bytes and the six-case production mutation
 proof above are unchanged.
+
+
+## Current replay transport (2026-10-12)
+
+The acceptance-20261012 replay uses a fresh tempfile-owned JUnit path for the
+pytest subprocess, then copies the XML to the caller's external output directory.
+The caller's output path never enters the child argv. No scanner suppression or
+shell quoting is used. The previous explicit-list argv did not invoke a shell;
+this change removes the taint boundary that the scanner flagged.
+
+For a portable replay, install the repository dev environment and its replay
+parser dependency, then run from the checkout root:
+
+```bash
+python3 -m pip install -e '.[dev]' defusedxml==0.7.1
+python3 docs/evidence/issue-3839-reporter/acceptance-20261012/replay.py --output /tmp/reporter-replay-NEW
+```
+
+The output directory must be fresh and outside the checkout. The current source
+contract promotes unverified targetless classifier skips to an attributed failure;
+the earlier skip description and original proof above describe historical behavior.
+Current raw six-assertion RED, byte-identical restoration and six GREEN are bound
+separately in acceptance-20261012/replay-transport-20261012. Hosted scan/checks,
+review dispositions and post-merge comparison remain required.

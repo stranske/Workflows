@@ -1,0 +1,124 @@
+FFFFFF                                                                   [100%]
+=================================== FAILURES ===================================
+_ test_unassociated_workflow_run_reports_attributed_failure_before_failing[failure-root] _
+
+reporter = PosixPath('.github/workflows/agents-keepalive-loop-reporter.yml')
+conclusion = 'failure'
+
+    @pytest.mark.parametrize("reporter", REPORTERS, ids=["root", "consumer"])
+    @pytest.mark.parametrize("conclusion", ["failure", "cancelled", "timed_out"])
+    def test_unassociated_workflow_run_reports_attributed_failure_before_failing(
+        reporter: Path, conclusion: str
+    ) -> None:
+        """Failed unassociated runs publish full attribution before visible failure."""
+        result = _resolve(reporter, conclusion=conclusion)
+>       assert [event[0] for event in result["events"]] == ["read-origin", "summary", "failed"]
+E       AssertionError: assert ['read-origin...e', 'summary'] == ['read-origin...ry', 'failed']
+E         
+E         At index 1 diff: 'notice' != 'summary'
+E         Use -v to get more diff
+
+tests/workflows/test_keepalive_reporter_unresolved.py:104: AssertionError
+_ test_unassociated_workflow_run_reports_attributed_failure_before_failing[failure-consumer] _
+
+reporter = PosixPath('templates/consumer-repo/.github/workflows/agents-keepalive-loop-reporter.yml')
+conclusion = 'failure'
+
+    @pytest.mark.parametrize("reporter", REPORTERS, ids=["root", "consumer"])
+    @pytest.mark.parametrize("conclusion", ["failure", "cancelled", "timed_out"])
+    def test_unassociated_workflow_run_reports_attributed_failure_before_failing(
+        reporter: Path, conclusion: str
+    ) -> None:
+        """Failed unassociated runs publish full attribution before visible failure."""
+        result = _resolve(reporter, conclusion=conclusion)
+>       assert [event[0] for event in result["events"]] == ["read-origin", "summary", "failed"]
+E       AssertionError: assert ['read-origin...e', 'summary'] == ['read-origin...ry', 'failed']
+E         
+E         At index 1 diff: 'notice' != 'summary'
+E         Use -v to get more diff
+
+tests/workflows/test_keepalive_reporter_unresolved.py:104: AssertionError
+_ test_unassociated_workflow_run_reports_attributed_failure_before_failing[cancelled-root] _
+
+reporter = PosixPath('.github/workflows/agents-keepalive-loop-reporter.yml')
+conclusion = 'cancelled'
+
+    @pytest.mark.parametrize("reporter", REPORTERS, ids=["root", "consumer"])
+    @pytest.mark.parametrize("conclusion", ["failure", "cancelled", "timed_out"])
+    def test_unassociated_workflow_run_reports_attributed_failure_before_failing(
+        reporter: Path, conclusion: str
+    ) -> None:
+        """Failed unassociated runs publish full attribution before visible failure."""
+        result = _resolve(reporter, conclusion=conclusion)
+>       assert [event[0] for event in result["events"]] == ["read-origin", "summary", "failed"]
+E       AssertionError: assert ['read-origin...e', 'summary'] == ['read-origin...ry', 'failed']
+E         
+E         At index 1 diff: 'notice' != 'summary'
+E         Use -v to get more diff
+
+tests/workflows/test_keepalive_reporter_unresolved.py:104: AssertionError
+_ test_unassociated_workflow_run_reports_attributed_failure_before_failing[cancelled-consumer] _
+
+reporter = PosixPath('templates/consumer-repo/.github/workflows/agents-keepalive-loop-reporter.yml')
+conclusion = 'cancelled'
+
+    @pytest.mark.parametrize("reporter", REPORTERS, ids=["root", "consumer"])
+    @pytest.mark.parametrize("conclusion", ["failure", "cancelled", "timed_out"])
+    def test_unassociated_workflow_run_reports_attributed_failure_before_failing(
+        reporter: Path, conclusion: str
+    ) -> None:
+        """Failed unassociated runs publish full attribution before visible failure."""
+        result = _resolve(reporter, conclusion=conclusion)
+>       assert [event[0] for event in result["events"]] == ["read-origin", "summary", "failed"]
+E       AssertionError: assert ['read-origin...e', 'summary'] == ['read-origin...ry', 'failed']
+E         
+E         At index 1 diff: 'notice' != 'summary'
+E         Use -v to get more diff
+
+tests/workflows/test_keepalive_reporter_unresolved.py:104: AssertionError
+_ test_unassociated_workflow_run_reports_attributed_failure_before_failing[timed_out-root] _
+
+reporter = PosixPath('.github/workflows/agents-keepalive-loop-reporter.yml')
+conclusion = 'timed_out'
+
+    @pytest.mark.parametrize("reporter", REPORTERS, ids=["root", "consumer"])
+    @pytest.mark.parametrize("conclusion", ["failure", "cancelled", "timed_out"])
+    def test_unassociated_workflow_run_reports_attributed_failure_before_failing(
+        reporter: Path, conclusion: str
+    ) -> None:
+        """Failed unassociated runs publish full attribution before visible failure."""
+        result = _resolve(reporter, conclusion=conclusion)
+>       assert [event[0] for event in result["events"]] == ["read-origin", "summary", "failed"]
+E       AssertionError: assert ['read-origin...e', 'summary'] == ['read-origin...ry', 'failed']
+E         
+E         At index 1 diff: 'notice' != 'summary'
+E         Use -v to get more diff
+
+tests/workflows/test_keepalive_reporter_unresolved.py:104: AssertionError
+_ test_unassociated_workflow_run_reports_attributed_failure_before_failing[timed_out-consumer] _
+
+reporter = PosixPath('templates/consumer-repo/.github/workflows/agents-keepalive-loop-reporter.yml')
+conclusion = 'timed_out'
+
+    @pytest.mark.parametrize("reporter", REPORTERS, ids=["root", "consumer"])
+    @pytest.mark.parametrize("conclusion", ["failure", "cancelled", "timed_out"])
+    def test_unassociated_workflow_run_reports_attributed_failure_before_failing(
+        reporter: Path, conclusion: str
+    ) -> None:
+        """Failed unassociated runs publish full attribution before visible failure."""
+        result = _resolve(reporter, conclusion=conclusion)
+>       assert [event[0] for event in result["events"]] == ["read-origin", "summary", "failed"]
+E       AssertionError: assert ['read-origin...e', 'summary'] == ['read-origin...ry', 'failed']
+E         
+E         At index 1 diff: 'notice' != 'summary'
+E         Use -v to get more diff
+
+tests/workflows/test_keepalive_reporter_unresolved.py:104: AssertionError
+=========================== short test summary info ============================
+FAILED tests/workflows/test_keepalive_reporter_unresolved.py::test_unassociated_workflow_run_reports_attributed_failure_before_failing[failure-root]
+FAILED tests/workflows/test_keepalive_reporter_unresolved.py::test_unassociated_workflow_run_reports_attributed_failure_before_failing[failure-consumer]
+FAILED tests/workflows/test_keepalive_reporter_unresolved.py::test_unassociated_workflow_run_reports_attributed_failure_before_failing[cancelled-root]
+FAILED tests/workflows/test_keepalive_reporter_unresolved.py::test_unassociated_workflow_run_reports_attributed_failure_before_failing[cancelled-consumer]
+FAILED tests/workflows/test_keepalive_reporter_unresolved.py::test_unassociated_workflow_run_reports_attributed_failure_before_failing[timed_out-root]
+FAILED tests/workflows/test_keepalive_reporter_unresolved.py::test_unassociated_workflow_run_reports_attributed_failure_before_failing[timed_out-consumer]
+6 failed in 0.71s

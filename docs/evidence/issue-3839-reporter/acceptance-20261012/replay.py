@@ -1,8 +1,10 @@
 import argparse
 import hashlib
 import json
+import shutil
 import subprocess
 import sys
+import tempfile
 from pathlib import Path
 
 from defusedxml import ElementTree as ET
@@ -30,17 +32,22 @@ block = """              // An unverified failed run still needs an attributed v
 
 
 def run(phase):
-    cmd = [
-        sys.executable,
-        "-m",
-        "pytest",
-        "tests/workflows/test_keepalive_reporter_unresolved.py::test_unassociated_workflow_run_reports_attributed_failure_before_failing",
-        "-q",
-        "-o",
-        "addopts=",
-        f'--junitxml={out/(phase+".xml")}',
-    ]
-    proc = subprocess.run(cmd, stdout=subprocess.PIPE, stderr=subprocess.STDOUT)
+    # Keep caller-controlled output paths out of the child argument list.
+    # Copy the result after pytest exits; the retained proof still uses --output.
+    with tempfile.TemporaryDirectory(prefix="reporter-replay-") as scratch:
+        junit = Path(scratch) / "pytest.xml"
+        cmd = [
+            sys.executable,
+            "-m",
+            "pytest",
+            "tests/workflows/test_keepalive_reporter_unresolved.py::test_unassociated_workflow_run_reports_attributed_failure_before_failing",
+            "-q",
+            "-o",
+            "addopts=",
+            f"--junitxml={junit}",
+        ]
+        proc = subprocess.run(cmd, stdout=subprocess.PIPE, stderr=subprocess.STDOUT)
+        shutil.copyfile(junit, out / (phase + ".xml"))
     (out / (phase + ".log")).write_bytes(proc.stdout)
     cases = list(ET.parse(out / (phase + ".xml")).iter("testcase"))
     return {
