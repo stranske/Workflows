@@ -104,3 +104,22 @@ blocks blob creation because approval is required and this run's approval policy
 is `never`. The verified source/evidence commit is exported from a writable
 temporary repository as a Git bundle. Remote publication and PR checkbox updates
 remain blocked; local task reconciliation is retained in the archive.
+
+## Current replay binding after review recovery
+
+The matched `summary.json`, `manifest.json` and `proof.tar.gz` above are the
+immutable original Linux measurement packet. Their replay hash names the original
+driver used by that run. The selected-JUnit and optimized-Python review recovery
+subsequently changed the current driver. Its current hash, all original decoded
+archive members and the later proof artifacts are reconciled in
+`current-binding-20261012.json`; historical summaries are not rebound to new bytes.
+`closer-guard-20261011/guard-proof.json` binds the current driver and its actual
+macOS Anaconda optimized eight-mutation RED/restored-GREEN execution. The Linux
+interpreter-unavailable record remains true for its original environment.
+
+`tests/scripts/test_runtime_health_replay.py` is the direct regression suite for
+the two accepted review findings, not unrelated coverage expansion. Run it with
+the runtime-health and repair-failure modules before closer acceptance. Current
+command receipts are retained in `binding-validation-20261012/`. Hosted complete
+topology, zero active threads, a new seven-minute floor after this documentation
+push and actual post-merge comparison remain separate gates.
