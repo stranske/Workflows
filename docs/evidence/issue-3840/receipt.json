@@ -1,0 +1,11 @@
+{
+  "command": "node --test .github/scripts/agent_delegation_policy.test.js",
+  "candidate_exit": 0,
+  "red_exit": 1,
+  "restored_green_exit": 0,
+  "original_sha256": "1fc9d42e27b68f2b4fc76579951ec210dd08a26d1b19423242c05ccc23b6b206",
+  "restored_sha256": "1fc9d42e27b68f2b4fc76579951ec210dd08a26d1b19423242c05ccc23b6b206",
+  "source_pr": 3857,
+  "mutation": "Disable actual production routeWeights.exploration; unchanged seeded challenger assertion must fail",
+  "scope": "local production path; no deployed worker cycle or provider PASS claim"
+}
