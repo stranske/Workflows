@@ -7,6 +7,10 @@ helper suite. Four root/template controls now launch a real absent executable
 JSON serializability, unchanged proof/launcher bytes, and no dependency repair or
 base archive extraction. Production root/template bytes are unchanged.
 
+The controls also require exactly one command attempt, forbid runtime probes,
+and preserve the candidate `app.py` bytes, including CRLF line endings. Recording
+all attempts prevents an extra successful command from escaping the assertions.
+
 ## Reproduce
 
 ```sh
@@ -41,6 +45,33 @@ At base fdc18a19314492ce3b78623b4acfb75c00f6227e on macOS, Anaconda Python3.12:
 JUnit, argv/cwd/exits, coverageJSON/databases, replay receipts/source bytes, reuse
 preservation hashes, validation logs, and ranking inputs. `manifest.json` binds
 current files and every regular archive member by SHA256.
+
+## Current Linux verification
+
+Hosted Python 3.14.8 reran the strengthened tests: four PASS, four assertion RED
+exit 1 / restored GREEN exit 0 mutation pairs, and rejected output reuse with all
+29 proof files preserved. The identical ten-module comparison again measured
+316 to 320 PASS, exactly four new nodes, no changed or removed old outcomes,
+583 to 585 covered statements out of 591, and 251 covered branches out of 262.
+There are zero exclusions and no covered-line or branch regressions. Production
+and all 783 historical evidence files tracked at the base remain byte-identical.
+Focused Ruff, strict template completeness, and diff validation pass. The full
+Black check passes for all 712 files using a retained temporary serial adapter
+that invokes installed Black's single-file checker with the normal CLI's file
+selection and formatting rules. Its worker pool cannot start in this sandbox;
+the single-worker fallback timed out. Both failed attempts are retained. Template
+validation writes its summary to `/tmp` because the inherited summary path is
+read-only.
+
+`summary.json.current_run` records this interpreter and the current test hash.
+The archive's `linux/` members retain its raw inputs, console/JUnit, coverage
+databases/JSON, commands/exits, replay and reuse receipts, and validation logs.
+The original macOS archive and metadata are retained under `linux/previous/`;
+all original archive members remain unchanged.
+
+`/opt/anaconda3/bin/python3` is absent in this runner. The two acceptance commands
+that require that exact interpreter remain pending for the strengthened tests.
+The original macOS measurements above describe the earlier test version.
 
 This is focused helper coverage, not repository-wide90%, hosted parity, provider
 PASS or completion of broader source3743. Prior3856/3865 CONCERNS dispositions and

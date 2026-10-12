@@ -67,5 +67,98 @@
   "historical_files_unchanged": 640,
   "mutation_pairs": 4,
   "reuse_preserved_files": 29,
-  "limitations": "Focused helper scope only. No repository-wide90%, hosted parity, provider PASS or whole-source completion."
+  "limitations": "Focused helper scope only. No repository-wide90%, hosted parity, provider PASS or whole-source completion.",
+  "current_run": {
+    "base": "fdc18a19314492ce3b78623b4acfb75c00f6227e",
+    "python": "3.14.8 (main, Oct  1 2026, 02:38:33) [GCC 13.3.0]",
+    "executable": "/opt/hostedtoolcache/Python/3.14.8/x64/bin/python",
+    "platform": "Linux-6.17.0-1022-azure-x86_64-with-glibc2.39",
+    "requested_executable_available": false,
+    "matched_modules": [
+      "tests/scripts/test_check_deliberate_break.py",
+      "tests/scripts/test_check_deliberate_break_archive.py",
+      "tests/scripts/test_check_deliberate_break_launch_boundaries.py",
+      "tests/scripts/test_check_deliberate_break_module_boundaries.py",
+      "tests/scripts/test_check_deliberate_break_repair_failures.py",
+      "tests/scripts/test_check_deliberate_break_runtime_probes.py",
+      "tests/scripts/test_check_deliberate_break_uv_resolution.py",
+      "tests/scripts/test_module_boundary_replay_isolation.py",
+      "tests/scripts/test_check_deliberate_break_runtime_health.py",
+      "tests/scripts/test_check_deliberate_break_launcher_admission.py"
+    ],
+    "baseline_tests": 316,
+    "candidate_tests": 320,
+    "new_nodes": [
+      "tests.scripts.test_check_deliberate_break_head_launch::test_unavailable_head_command_is_reported_without_base_or_repair[root-missing]",
+      "tests.scripts.test_check_deliberate_break_head_launch::test_unavailable_head_command_is_reported_without_base_or_repair[root-not-executable]",
+      "tests.scripts.test_check_deliberate_break_head_launch::test_unavailable_head_command_is_reported_without_base_or_repair[template-missing]",
+      "tests.scripts.test_check_deliberate_break_head_launch::test_unavailable_head_command_is_reported_without_base_or_repair[template-not-executable]"
+    ],
+    "removed_nodes": [],
+    "changed_old_outcomes": {},
+    "baseline": {
+      "covered_lines": 583,
+      "num_statements": 591,
+      "percent_covered": 97.7725674091442,
+      "percent_covered_display": "97.77",
+      "missing_lines": 8,
+      "excluded_lines": 0,
+      "percent_statements_covered": 98.64636209813875,
+      "percent_statements_covered_display": "98.65",
+      "num_branches": 262,
+      "num_partial_branches": 11,
+      "covered_branches": 251,
+      "missing_branches": 11,
+      "percent_branches_covered": 95.80152671755725,
+      "percent_branches_covered_display": "95.80"
+    },
+    "candidate": {
+      "covered_lines": 585,
+      "num_statements": 591,
+      "percent_covered": 98.00703399765533,
+      "percent_covered_display": "98.01",
+      "missing_lines": 6,
+      "excluded_lines": 0,
+      "percent_statements_covered": 98.98477157360406,
+      "percent_statements_covered_display": "98.98",
+      "num_branches": 262,
+      "num_partial_branches": 11,
+      "covered_branches": 251,
+      "missing_branches": 11,
+      "percent_branches_covered": 95.80152671755725,
+      "percent_branches_covered_display": "95.80"
+    },
+    "newly_covered_lines": [
+      995,
+      996
+    ],
+    "newly_covered_branches": [],
+    "production_unchanged": true,
+    "root_template_identical": true,
+    "matched_input_sha256": {
+      "tests/scripts/test_check_deliberate_break.py": "ea511f9830b946074103d5ef315df606043cc6f70f2bb509e5b831ff4fcef0f7",
+      "tests/scripts/test_check_deliberate_break_archive.py": "b6387a191078d8d33d4efefecc8ec7256ddf4901e7901187f764a7f0f983b5db",
+      "tests/scripts/test_check_deliberate_break_launch_boundaries.py": "7839e44f89a2335205c0337c7271ae710a8c6b81a0a0d7789cdc29187c55ea48",
+      "tests/scripts/test_check_deliberate_break_module_boundaries.py": "0ac37107d479e081a7eecb4d396b2639dc237ef4adaebba35afe2ea9a471ee9b",
+      "tests/scripts/test_check_deliberate_break_repair_failures.py": "63001d63a10e2a75449117ccd96410dedbc588d44d7c225154270f0a02e59233",
+      "tests/scripts/test_check_deliberate_break_runtime_probes.py": "7dd93ef4dfddc7aca89eb6e1e4b4448335a6a12025b8e2c4d887dc7460f54ebc",
+      "tests/scripts/test_check_deliberate_break_uv_resolution.py": "7a5ad7cee37549cbbdc4feac00f53e535e31f691d0dcc3f26268fd28d3bbf934",
+      "tests/scripts/test_module_boundary_replay_isolation.py": "c9f7b3fd2cff4ba1403c8b198c0131399ee684cbaeb63ab2dc4b087d37407e53",
+      "tests/scripts/test_check_deliberate_break_runtime_health.py": "f27013701bbc1be89258d5e17fa0b9074bebc8d1beed593ea364ca9c72e16fcf",
+      "tests/scripts/test_check_deliberate_break_launcher_admission.py": "842b4f9427a14f406fdc075db55c91e66a3c51fe448324c44e16efe14d94ceca",
+      "scripts/check_deliberate_break.py": "cc97119ea26afec275be3c83d22bc75de0d452cd0f4764896cc9d037274ab25a",
+      "templates/consumer-repo/scripts/check_deliberate_break.py": "cc97119ea26afec275be3c83d22bc75de0d452cd0f4764896cc9d037274ab25a"
+    },
+    "historical_files_unchanged": 783,
+    "mutation_pairs": 4,
+    "reuse_preserved_files": 29,
+    "new_test_sha256": "9ddaeb3f4b923679335de449703d58773ca7e502765952a5cac4f3ee2d2edf44",
+    "raw_records_prefix": "linux/",
+    "limitations": "Current Anaconda-path acceptance commands cannot run: /opt/anaconda3/bin/python3 is absent. Current commands use the recorded hosted Python interpreter. Original macOS proof is preserved separately.",
+    "black": {
+      "adapter_sha256": "6de7b436911a9bc94e872b40af203df71e64f3c75c42bd3c29e8f5c272797cf5",
+      "implementation": "Original installed Black CLI source selection; original Black reformat_one called serially for every selected source.",
+      "selected_files": 712
+    }
+  }
 }
