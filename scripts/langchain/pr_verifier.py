@@ -4519,7 +4519,7 @@ def _required_evidence_options(acceptance: str) -> list[set[str]]:
         r"(?:(?:the|an?)\s+)?(?:(?:pr|pull request)\s+(?:(?:body|description)\b"
         r"(?:\s+" + _REVIEW_BODY_COMPONENT + r")?|comments?\b"
         r"(?:\s+" + _REVIEW_BODY_COMPONENT + r")?)|"
-        r"(?:workflow|ci|github actions)\s+artifacts?\b)"
+        r"(?:(?:workflow|ci|github actions)\s+)?artifacts?\b)"
     )
     member = r"(?:" + preposition + r"\s+)?" + destination
     destination_list = re.compile(

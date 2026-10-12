@@ -2139,6 +2139,9 @@ neither boundary can suppress an independent reviewer delivery. An attached
 Passive product-capability complements are canonicalized before both channel
 classification and OR expansion, so mixed artifact/PR alternatives retain the
 same product governor rather than inventing a mandatory artifact or overall floor.
+Mandatory OR destination lists accept both plain `an artifact` and qualified
+workflow artifacts, in either order with a PR-body/comment alternative. At least
+one allowed delivery and every independent mandatory clause must remain present.
 Checklist shorthand accepts the common test/validation proof nouns, so
 `Validation output in a PR comment` retains comments as its required channel.
 Negative, optional and product-capability clauses keep their existing semantics.

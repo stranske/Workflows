@@ -5363,3 +5363,36 @@ def test_issue3835_passive_capability_destination_or_is_nongating(
     assert verifier._required_evidence_channels(text) == expected
     assert verifier._required_evidence_options(text) == [expected]
     assert _floor_verdict(text, body="present", comments="present", artifacts="absent") == "PASS"
+
+
+@pytest.mark.parametrize("artifact", ["an artifact", "a workflow artifact"])
+@pytest.mark.parametrize(
+    "destination,channel", [("the PR body", "body"), ("a PR review comment", "comments")]
+)
+@pytest.mark.parametrize("reverse", [False, True])
+@pytest.mark.parametrize("independent", [False, True])
+def test_issue3835_bare_artifact_or_retains_all_mandatory_alternatives(
+    artifact, destination, channel, reverse, independent
+):
+    choices = [f"as {artifact}", f"in {destination}"]
+    if reverse:
+        choices.reverse()
+    text = "Evidence must be attached " + " or ".join(choices)
+    extra = {"comments"} if independent else set()
+    if independent:
+        text += "; the reviewer must post evidence in a PR comment"
+    assert {frozenset(option) for option in verifier._required_evidence_options(text)} == {
+        frozenset({"artifacts"} | extra),
+        frozenset({channel} | extra),
+    }
+    assert _floor_verdict(text, body="present", comments="present", artifacts="absent") == "PASS"
+    assert (
+        _floor_verdict(
+            text,
+            body="absent",
+            comments="present" if independent else "absent",
+            artifacts="present",
+        )
+        == "PASS"
+    )
+    assert _floor_verdict(text, body="absent", comments="absent", artifacts="absent") == "CONCERNS"
