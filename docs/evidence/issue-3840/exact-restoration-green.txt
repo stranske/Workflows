@@ -1,0 +1,34 @@
+✔ initial selection seeds from a co-present concrete label (1.131167ms)
+✔ initial selection uses route weights without a concrete label (0.2795ms)
+✔ initial selection falls back to the default agent without evidence (0.1245ms)
+✔ initial selection skips an unavailable concrete label (0.093916ms)
+✔ agent:auto rejects multiple distinct concrete labels before selection (0.413417ms)
+✔ agent:auto treats duplicate normalized concrete labels as one seed (0.075125ms)
+✔ fixture document → evidence-ranked choice (0.230667ms)
+✔ evidence_ok: false → static choice (0.094792ms)
+✔ evidence_ok: false keeps static preference exactly (0.161084ms)
+✔ unreachable URL → static choice (0.953666ms)
+✔ malformed JSON → static choice (0.269708ms)
+✔ stale generated_at → static choice (0.157333ms)
+✔ future-dated generated_at beyond clock skew → static choice (0.088291ms)
+✔ reserve never chosen (0.155875ms)
+✔ static fallback never chooses a reserved agent when weighted choices are unavailable (0.066375ms)
+✔ resolveRoundKind maps the testgen label ahead of the keepalive action state (0.055625ms)
+✔ resolveRoundKind falls back to the keepalive action state without the testgen label (0.03125ms)
+✔ resolveRoundKind defaults to implement with no label or action state (0.029666ms)
+✔ stalled agent never re-chosen (0.071208ms)
+✔ decideNextAgent always returns delegationSource on static return paths (0.165125ms)
+✔ stalled-no-alternatives preserves computed delegationSource (0.075584ms)
+✔ exploration branch delegates to the published challenger at the published rate and reports the policy version (0.071208ms)
+✔ pickAgent CLI helper reports exploration delegation for a seeded draw (0.072458ms)
+✔ zero seed does not force exploration for every positive rate (0.042792ms)
+✔ exploration seed incorporates pr_number so empty state is not shared (0.054084ms)
+✔ ignoring the exploration block restores ranking selection (0.0375ms)
+ℹ tests 26
+ℹ suites 0
+ℹ pass 26
+ℹ fail 0
+ℹ cancelled 0
+ℹ skipped 0
+ℹ todo 0
+ℹ duration_ms 60.808666
