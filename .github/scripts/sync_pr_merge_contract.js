@@ -718,11 +718,9 @@ function parseConsumerRequiredContexts(text) {
 
 // GitHub enforces neither presence nor success of a declared context, so this
 // is Maint 71's own rule. A declared check that FAILED blocks, and one still
-// running is awaited. A declared check with no run at all is awaited only while
-// some GitHub Actions run on the head is unfinished, because a job is created
-// with its workflow run and a workflow may still be starting jobs; once every
-// Actions run has finished it never started (path filter, renamed job, held
-// workflow) and must not hold the delivery forever, so it is reported instead.
+// running is awaited. A declared check with no run blocks even after every
+// Actions run settles. The never-started diagnosis identifies a path filter,
+// renamed job or held workflow for owner repair; it never waives presence.
 function isGitHubActionsCheckRun(check) {
   return String(check?.app?.slug || '').trim() === 'github-actions';
 }

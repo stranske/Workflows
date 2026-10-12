@@ -1279,8 +1279,12 @@ stranske/Orchestrator#530 merged with its own `verify.py` red, because that
 repository has no branch protection and `Gate / gate` was green.
 
 Health 45 publishes `Health 45 Agents Guard / guard` on the event PR's full
-head SHA independently of agent-label eligibility. Ineligible events are an
-explicit successful no-op only after the eligibility action succeeds; failed
+head SHA independently of agent-label eligibility for normal PR events.
+Ineligible normal PR events are an explicit successful no-op only after the
+eligibility action succeeds. Ineligible privileged label/unlabel events publish
+nothing, preserving the existing same-head verdict (including failure); an absent
+verdict remains missing and blocks delivery. Removing the last agent label must
+never clear an evaluated failure. Failed
 evaluation, missing eligibility, cancellation or blocked changes publish failure.
 The independent `guard` job remains mandatory where declared: its successful
 base-bound label-event result cannot replace a failed or absent PR-head status.

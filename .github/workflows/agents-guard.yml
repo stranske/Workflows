@@ -672,6 +672,15 @@ jobs:
               return;
             }
 
+            // Label removal must not replace an evaluated same-head failure
+            // with an ineligible no-op. Keep the last authoritative verdict;
+            // an absent verdict remains absent and blocks mandatory checks.
+            if (context.eventName === 'pull_request_target'
+                && process.env.ELIGIBLE === 'false') {
+              core.info('Ineligible label event: preserving existing PR-head guard status.');
+              return;
+            }
+
             const blocked = (process.env.BLOCKED || '').toLowerCase() === 'true';
             const summary = process.env.SUMMARY || '';
             const evaluated = process.env.ELIGIBLE === 'true'

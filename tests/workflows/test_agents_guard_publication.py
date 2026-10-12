@@ -36,6 +36,14 @@ def test_guard_publisher_is_manifest_managed_and_template_aligned():
 
 @pytest.mark.parametrize("template", [False, True])
 @pytest.mark.parametrize(
+    "event,action",
+    [
+        ("pull_request", "synchronize"),
+        ("pull_request_target", "labeled"),
+        ("pull_request_target", "unlabeled"),
+    ],
+)
+@pytest.mark.parametrize(
     "eligible,outcome,blocked,job,expected",
     [
         ("false", "skipped", "", "success", "success"),
@@ -48,7 +56,7 @@ def test_guard_publisher_is_manifest_managed_and_template_aligned():
         ("true", "cancelled", "", "cancelled", "failure"),
     ],
 )
-def test_actual_head_publisher(template, eligible, outcome, blocked, job, expected):
+def test_actual_head_publisher(template, event, action, eligible, outcome, blocked, job, expected):
     prefix = ROOT / "templates/consumer-repo" if template else ROOT
     workflow = yaml.safe_load((prefix / ".github/workflows/agents-guard.yml").read_text())
     step = next(
@@ -66,7 +74,8 @@ Object.assign(process.env, input.env);
 const calls = [];
 const github = {rest: {repos: {createCommitStatus: async p => calls.push(p)}}};
 const context = {repo: {owner: 'owner', repo: 'repo'},
-  payload: {pull_request: {head: {sha: 'a'.repeat(40)}}},
+  eventName: input.event,
+  payload: {action: input.action, pull_request: {head: {sha: 'a'.repeat(40)}}},
   sha: 'b'.repeat(40), serverUrl: 'https://github.com', runId: 42};
 const core = {info() {}, setFailed(m) {throw Error(m)}};
 const AsyncFunction = Object.getPrototypeOf(async function(){}).constructor;
@@ -79,6 +88,8 @@ new AsyncFunction('github', 'context', 'core', input.script)(github, context, co
         input=json.dumps(
             {
                 "script": script,
+                "event": event,
+                "action": action,
                 "env": {
                     "ELIGIBLE": eligible,
                     "EVALUATE_OUTCOME": outcome,
@@ -92,6 +103,11 @@ new AsyncFunction('github', 'context', 'core', input.script)(github, context, co
         check=True,
     )
     calls = json.loads(result.stdout)
+    if event == "pull_request_target" and eligible == "false":
+        # A removed last routing label must preserve the previous evaluated
+        # verdict (including failure) rather than replacing it with a no-op.
+        assert calls == []
+        return
     assert len(calls) == 1
     assert calls[0]["sha"] == "a" * 40
     assert calls[0]["context"] == "Health 45 Agents Guard / guard"
