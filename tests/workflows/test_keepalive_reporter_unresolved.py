@@ -112,7 +112,7 @@ def test_unassociated_workflow_run_reports_attributed_failure_before_failing(
     assert "unassociated run has no verified dispatch classification" in notice
     assert "unassociated run has no verified dispatch classification" in summary
     assert f"Upstream run: 12345 ({conclusion})" in summary
-    assert f"upstream run 12345" in notice
+    assert "upstream run 12345" in notice
     assert f"conclusion {conclusion}" in notice
     assert result["outputs"] == {
         "outcome": "no-report-needed",
