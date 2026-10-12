@@ -103,8 +103,11 @@ test('generic review, forged publisher, stale receipt, missing regression, and p
 
 // Exercise the actual controller closure with API doubles, including both race
 // checkpoints. Extracting the closure avoids a test-only production export.
-for (const race of ['none', 'expired', 'rest-head', 'graphql-head', 'graphql-plan', 'attestation-edited', 'attestation-deleted']) {
-  test(`controller resolves only unchanged live verification: ${race}`, async () => {
+for (const lane of ['sync', 'dev-tool']) {
+for (const race of ['none', 'expired', 'rest-head', 'rest-branch', 'graphql-head', 'graphql-branch',
+  'graphql-plan', 'graphql-tree', 'graphql-lease', 'graphql-repository',
+  'attestation-edited', 'attestation-deleted']) {
+  test(`controller resolves only unchanged live verification: ${lane}:${race}`, async () => {
     const f = fixture();
     const { args } = f;
     if (race === 'expired') args.now += 25 * 60 * 60 * 1000;
@@ -112,6 +115,13 @@ for (const race of ['none', 'expired', 'rest-head', 'graphql-head', 'graphql-pla
       repository: args.proof.repository, head_observed_sha: args.proof.head_sha,
       head_observed_at: '2026-10-04T00:00:00Z', desired_tree_hash: 'tree',
       lease_expires_at: '2099-01-01T00:00:00Z' });
+    const branch = lane === 'dev-tool' ? 'deps/sync-dev-versions-ab725abacde7'
+      : 'sync/workflows-candidate';
+    if (lane === 'dev-tool') {
+      delete args.record.head_observed_sha;
+      delete args.record.head_observed_at;
+    }
+    args.record = require('../sync_pr_lease_contract').normalizeRecord(args.record);
     args.thread.isOutdated = false;
     f.finish();
     let reads = 0;
@@ -128,15 +138,20 @@ for (const race of ['none', 'expired', 'rest-head', 'graphql-head', 'graphql-pla
         } },
         pulls: { get: async ({ repo }) => ({ data: repo === 'Workflows'
           ? { merged_at: '2026-10-04T00:00:00Z', merge_commit_sha: args.proof.source_fix_sha }
-          : { state: 'open', head: { sha: race === 'rest-head' ? 'changed' : args.proof.head_sha },
+          : { state: 'open', head: { ref: race === 'rest-branch' ? 'other-branch' : branch,
+            sha: race === 'rest-head' ? 'changed' : args.proof.head_sha },
             body: body(args.record) } }) } },
       graphql: async (query) => {
         if (query.includes('resolveReviewThread')) { resolutions++; return {}; }
         reads++;
         const record = { ...args.record };
         if (reads === 2 && race === 'graphql-plan') record.plan_id = 'changed-plan';
+        if (reads === 2 && race === 'graphql-tree') record.desired_tree_hash = 'changed-tree';
+        if (reads === 2 && race === 'graphql-lease') record.lease_expires_at = '2098-01-01T00:00:00Z';
+        if (reads === 2 && race === 'graphql-repository') record.repository = 'stranske/Other';
         return { repository: { pullRequest: {
           headRefOid: reads === 2 && race === 'graphql-head' ? 'changed' : args.proof.head_sha,
+          headRefName: reads === 2 && race === 'graphql-branch' ? 'unknown-renamed-lane' : branch,
           body: body(record), reviewThreads: args.threads,
         } } };
       },
@@ -165,7 +180,7 @@ for (const race of ['none', 'expired', 'rest-head', 'graphql-head', 'graphql-pla
     };
     const resolve = vm.runInNewContext(`(function() { ${source.slice(start, end)} return resolveProvenReviewDebt; })()`, sandbox);
     const result = await resolve({ owner: 'stranske', repo: 'Ready',
-      pr: { number: 1, head: { sha: args.proof.head_sha } }, deliveryRecord: args.record });
+      pr: { number: 1, head: { sha: args.proof.head_sha, ref: branch } }, deliveryRecord: args.record });
     assert.equal(resolutions, race === 'none' ? 1 : 0, JSON.stringify(result));
     assert.equal(result.errors.length, race === 'none' ? 0 : 1);
     if (race === 'expired') {
@@ -173,6 +188,7 @@ for (const race of ['none', 'expired', 'rest-head', 'graphql-head', 'graphql-pla
         `${args.proof.thread_id}:failed_transport_or_freshness_unproven`);
     }
   });
+}
 }
 
 test('stock top-level completion resolves its short ref to the exact full head', async () => {
@@ -197,7 +213,7 @@ test('stock top-level completion resolves its short ref to the exact full head',
 
 test('collect all outer thread and inner comment pages, rejecting interrupted or changed pages', async () => {
   const { collectFindingReviewState } = require('../maint71_finding_verification');
-  for (const variant of ['complete', 'head-changed', 'cursor-missing']) {
+  for (const variant of ['complete', 'head-changed', 'branch-changed', 'branch-missing', 'cursor-missing']) {
     const calls = [];
     const github = { graphql: async (_query, vars) => {
       calls.push(vars);
@@ -207,6 +223,8 @@ test('collect all outer thread and inner comment pages, rejecting interrupted or
       const second = Boolean(vars.after);
       return { repository: { pullRequest: {
         headRefOid: second && variant === 'head-changed' ? 'changed' : 'head',
+        headRefName: variant === 'branch-missing' ? undefined
+          : second && variant === 'branch-changed' ? 'renamed' : 'sync/workflows-candidate',
         body: 'stable-body', reviewThreads: {
           pageInfo: { hasNextPage: !second, endCursor: variant === 'cursor-missing' ? null : 'outer-cursor' },
           nodes: [{ id: second ? 'thread2' : 'thread1', isResolved: false, isOutdated: false,
