@@ -24,3 +24,23 @@ The retained logs record the same unchanged command against three states:
 This is local production-path acceptance. It does not claim an observed deployed
 worker cycle or a provider PASS. The original comparison remains CONCERNS/PASS;
 this follow-up requires its own exact-head review, checks, merge and comparison.
+
+On 2026-10-12, the named acceptance test was extended to check 100,000 fixed
+seeds against the published rate with a 0.3 percentage-point tolerance. It
+observed 5,062 exploration selections (5.062%), and checked the challenger,
+delegation source and policy version for every selection.
+
+The current sandbox's default Node v24.21.0 test runner reports only a passing
+file wrapper. To verify execution of the individual tests, these additional
+commands were run:
+
+```sh
+node --test --test-isolation=none .github/scripts/agent_delegation_policy.test.js
+node --test --test-isolation=none .github/scripts/__tests__/keepalive-loop.test.js
+```
+
+All 41 delegation tests and 189 keepalive tests passed. The named acceptance
+test also failed with exploration disabled and passed after restoring the
+production source; see `rate-mutation-proof.txt`. That proof uses
+`--test-isolation=none` and the full acceptance test name as
+`--test-name-pattern`, so the wrapper alone cannot supply the result.

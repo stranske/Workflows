@@ -715,6 +715,33 @@ test('exploration branch delegates to the published challenger at the published 
       agent === 'gemini' ? 'exploration-2026-10-06' : undefined
     );
   }
+
+  // Verify the published rate over a fixed population as well as individual draws.
+  // A 0.3 percentage-point tolerance is over four standard deviations at 5%.
+  const populationSize = 100000;
+  let explorationSelections = 0;
+  for (let seed = 1; seed <= populationSize; seed++) {
+    const decision = pickAgent({
+      taskType: 'implement',
+      routeWeights: routeWeightsWithExploration,
+      agents: mockRegistry.agents,
+      seed,
+    });
+    if (decision.delegationSource === 'route_weights_exploration') {
+      explorationSelections++;
+      assert.equal(decision.agent, routeWeightsWithExploration.exploration.challengers.implement);
+      assert.equal(decision.policy_version, routeWeightsWithExploration.exploration.policy_version);
+    } else {
+      assert.equal(decision.agent, 'cursor');
+      assert.equal(decision.delegationSource, 'route_weights');
+      assert.equal(decision.policy_version, undefined);
+    }
+  }
+  const observedRate = explorationSelections / populationSize;
+  assert.ok(
+    Math.abs(observedRate - routeWeightsWithExploration.exploration.rate) < 0.003,
+    `observed exploration rate ${observedRate} must match the published rate`,
+  );
 });
 
 for (const policyPath of [
