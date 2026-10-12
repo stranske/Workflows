@@ -272,7 +272,7 @@ jobs:
           else
             echo "python_tests=false" >> "$GITHUB_OUTPUT"
           fi
-      - uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7
+      - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7
         if: ${{ steps.script_tests.outputs.node_tests == 'true' }}
         with:
           node-version: '24'
@@ -581,7 +581,7 @@ jobs:
 
 
       - name: Set up Node
-        uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7
+        uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7
         with:
           node-version: '24'
       - name: Install GitHub API dependencies
@@ -645,7 +645,7 @@ jobs:
       - name: Download Gate artifacts
         if: ${{ needs.detect.outputs.doc_only != 'true' && needs.python-ci.result != 'skipped' }}
         continue-on-error: true
-        uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c # v8
+        uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333 # v8
         with:
           pattern: gate-*
           merge-multiple: true
@@ -1032,7 +1032,7 @@ jobs:
 
       - name: Upload Gate summary artifact
         if: always()
-        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7
         with:
           name: gate-summary.md
           path: gate-summary.md
@@ -1042,7 +1042,7 @@ jobs:
 
       - name: Upload coverage stats artifact
         if: ${{ always() && steps.coverage_stats.outputs.stats_json != '' }}
-        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7
         with:
           name: gate-coverage.json
           path: gate-coverage.json
@@ -1052,7 +1052,7 @@ jobs:
 
       - name: Upload coverage delta artifact
         if: ${{ always() && steps.coverage_stats.outputs.delta_json != '' }}
-        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7
         with:
           name: gate-coverage-delta.json
           path: gate-coverage-delta.json
@@ -1062,7 +1062,7 @@ jobs:
 
       - name: Upload coverage summary artifact copy
         if: ${{ always() && steps.coverage_summary.outputs.body != '' }}
-        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7
         with:
           name: gate-coverage-summary.md
           path: gate-coverage-summary.md
