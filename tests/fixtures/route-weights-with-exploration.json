@@ -1,0 +1,31 @@
+{
+  "schema": "orchestrator.route-weights/v1",
+  "generated_at": "2026-10-10T14:59:39Z",
+  "exploration": {
+    "mode": "epsilon-greedy",
+    "rate": 0.05,
+    "week_start": "2026-10-06",
+    "policy_version": "exploration-2026-10-06",
+    "challengers": {
+      "implement": "gemini",
+      "review": "gemini",
+      "testgen": "gemini",
+      "codemod": "gemini",
+      "cross_repo": "codex",
+      "mechanical": "codex"
+    }
+  },
+  "task_types": {
+    "implement": {
+      "evidence_ok": true,
+      "ranking": [
+        { "agent": "cursor", "posterior": 0.76, "n_obs": 305 },
+        { "agent": "codex", "posterior": 0.67, "n_obs": 282 },
+        { "agent": "claude", "posterior": 0.55, "n_obs": 120 }
+      ]
+    }
+  },
+  "reserve": {
+    "implement": [{ "agent": "claude", "n_obs": 120, "posterior": 0.55 }]
+  }
+}
