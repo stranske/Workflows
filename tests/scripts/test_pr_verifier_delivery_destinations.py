@@ -5174,3 +5174,118 @@ def test_issue3835_optional_validation_output_keeps_independent_mandatory():
     assert verifier._required_evidence_channels(
         optional + "; the reviewer must record evidence in the PR body"
     ) == {"body"}
+
+
+@pytest.mark.parametrize(
+    "destination",
+    ["PR review comment", "pull request review comment", "inline review comment", "review comment"],
+)
+@pytest.mark.parametrize(
+    "criterion",
+    [
+        "A {destination} is required",
+        "The reviewer must leave a {destination}",
+        "Test results must be posted in a {destination}",
+    ],
+)
+def test_issue3835_review_alias_discovery_and_missing_floor(destination, criterion):
+    text = criterion.format(destination=destination)
+    assert verifier._required_evidence_channels(text) == {"comments"}
+    assert verifier._required_evidence_options(text) == [{"comments"}]
+    for missing in ("absent", "unavailable"):
+        assert _floor_verdict(text, body="present", comments=missing) == "CONCERNS"
+
+
+@pytest.mark.parametrize(
+    "destination",
+    ["PR review comment", "pull request review comment", "inline review comment", "review comment"],
+)
+@pytest.mark.parametrize("reverse", [False, True])
+@pytest.mark.parametrize("independent", [False, True])
+def test_issue3835_review_alias_or_destinations(destination, reverse, independent):
+    choices = ["the PR body", "a " + destination]
+    if reverse:
+        choices.reverse()
+    text = "Evidence must be posted in either " + " or ".join(choices)
+    suffix = "; the auditor must upload evidence in a workflow artifact" if independent else ""
+    options = verifier._required_evidence_options(text + suffix)
+    extra = {"artifacts"} if independent else set()
+    assert {frozenset(option) for option in options} == {
+        frozenset({"body"} | extra),
+        frozenset({"comments"} | extra),
+    }
+    assert _floor_verdict(text + suffix, body="present", comments="absent") == "PASS"
+    assert _floor_verdict(text + suffix, body="absent", comments="present") == "PASS"
+    assert _floor_verdict(text + suffix, body="absent", comments="absent") == "CONCERNS"
+    if independent:
+        assert (
+            _floor_verdict(text + suffix, body="present", comments="present", artifacts="absent")
+            == "CONCERNS"
+        )
+
+
+@pytest.mark.parametrize(
+    "destination", ["PR review comment", "inline review comment", "review comment"]
+)
+@pytest.mark.parametrize(
+    "text",
+    [
+        "A {destination} is not required",
+        "A {destination} is no longer required",
+        "The reviewer is not expected to leave a {destination}",
+        "The reviewer is not supposed to leave a {destination}",
+        "No {destination} is required",
+        "The UI allows users to leave a {destination}",
+        'The parser recognizes "A {destination} is required"',
+    ],
+)
+@pytest.mark.parametrize("independent", [False, True])
+def test_issue3835_review_alias_polarity_and_product_controls(destination, text, independent):
+    criterion = text.format(destination=destination)
+    if independent:
+        criterion += "; the auditor must post evidence in the PR body"
+    expected = {"body"} if independent else set()
+    assert verifier._required_evidence_channels(criterion) == expected
+    assert verifier._required_evidence_options(criterion) == [expected]
+
+
+@pytest.mark.parametrize(
+    "text",
+    [
+        "Copy the command output into a PR comment",
+        "The reviewer must copy optional archived evidence into a PR comment",
+        "Evidence must be copied into a PR comment",
+        "- [ ] PR comment with test evidence",
+    ],
+)
+def test_issue3835_retained_canary_counterexamples(text):
+    assert verifier._required_evidence_channels(text) == {"comments"}
+    assert verifier._required_evidence_options(text) == [{"comments"}]
+    assert _floor_verdict(text, body="present", comments="absent") == "CONCERNS"
+
+
+@pytest.mark.parametrize(
+    "text",
+    [
+        "Do not copy command output into a PR comment",
+        "No need to copy evidence into a PR comment",
+        "The reviewer is not expected to copy evidence into a PR comment",
+        "The reviewer is not supposed to copy evidence into a PR comment",
+        "Evidence must not be copied into a PR comment",
+        "Evidence may be copied into a PR comment",
+        "The UI allows users to copy evidence into a PR comment",
+        "The UI allows users to copy and copy evidence into a PR comment",
+        "Evidence can be copied into a PR comment by the application",
+        "- [ ] PR comment with test evidence is optional",
+        "- [ ] PR comment with test evidence is no longer required",
+        "- [ ] PR comment with test evidence only if available",
+        'The parser recognizes "Copy the command output into a PR comment"',
+    ],
+)
+@pytest.mark.parametrize("independent", [False, True])
+def test_issue3835_copy_and_destination_first_controls(text, independent):
+    if independent:
+        text += "; the reviewer must record evidence in the PR body"
+    expected = {"body"} if independent else set()
+    assert verifier._required_evidence_channels(text) == expected
+    assert verifier._required_evidence_options(text) == [expected]

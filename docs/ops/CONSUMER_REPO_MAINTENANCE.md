@@ -2123,6 +2123,12 @@ Active proof delivery also recognizes `as an artifact`, including evidence,
 coverage reports and common validation outputs. PR review comments and inline
 review comments share the ordinary PR-comment destination grammar before both
 channel classification and destination-OR expansion; quoted input stays literal.
+Bare `review comment` has the same discovery and OR semantics as qualified
+PR/inline aliases, including standalone required comments. Copy/copied/copying
+use the shared record-delivery grammar rather than a separate positive matcher.
+Destination-first `- [ ] PR comment with test evidence` is normalized to the
+existing noun-first checklist grammar, retaining trailing optionality, negation,
+product-capability boundaries and independent reviewer obligations.
 Checklist shorthand accepts the common test/validation proof nouns, so
 `Validation output in a PR comment` retains comments as its required channel.
 Negative, optional and product-capability clauses keep their existing semantics.
