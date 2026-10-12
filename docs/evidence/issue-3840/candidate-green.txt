@@ -1,0 +1,34 @@
+✔ initial selection seeds from a co-present concrete label (1.001041ms)
+✔ initial selection uses route weights without a concrete label (0.257583ms)
+✔ initial selection falls back to the default agent without evidence (0.118708ms)
+✔ initial selection skips an unavailable concrete label (0.093958ms)
+✔ agent:auto rejects multiple distinct concrete labels before selection (0.436458ms)
+✔ agent:auto treats duplicate normalized concrete labels as one seed (0.076709ms)
+✔ fixture document → evidence-ranked choice (0.224833ms)
+✔ evidence_ok: false → static choice (0.088875ms)
+✔ evidence_ok: false keeps static preference exactly (0.15175ms)
+✔ unreachable URL → static choice (0.892917ms)
+✔ malformed JSON → static choice (0.209666ms)
+✔ stale generated_at → static choice (0.171792ms)
+✔ future-dated generated_at beyond clock skew → static choice (0.087542ms)
+✔ reserve never chosen (0.137666ms)
+✔ static fallback never chooses a reserved agent when weighted choices are unavailable (0.065375ms)
+✔ resolveRoundKind maps the testgen label ahead of the keepalive action state (0.05325ms)
+✔ resolveRoundKind falls back to the keepalive action state without the testgen label (0.03125ms)
+✔ resolveRoundKind defaults to implement with no label or action state (0.029917ms)
+✔ stalled agent never re-chosen (0.073666ms)
+✔ decideNextAgent always returns delegationSource on static return paths (0.169667ms)
+✔ stalled-no-alternatives preserves computed delegationSource (0.076125ms)
+✔ exploration branch delegates to the published challenger at the published rate and reports the policy version (0.06975ms)
+✔ pickAgent CLI helper reports exploration delegation for a seeded draw (0.073083ms)
+✔ zero seed does not force exploration for every positive rate (0.04225ms)
+✔ exploration seed incorporates pr_number so empty state is not shared (0.054375ms)
+✔ ignoring the exploration block restores ranking selection (0.037916ms)
+ℹ tests 26
+ℹ suites 0
+ℹ pass 26
+ℹ fail 0
+ℹ cancelled 0
+ℹ skipped 0
+ℹ todo 0
+ℹ duration_ms 67.032458

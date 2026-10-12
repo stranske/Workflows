@@ -1,0 +1,42 @@
+DISABLED
+✖ exploration branch delegates to the published challenger at the published rate and reports the policy version (2.726394ms)
+ℹ tests 1
+ℹ suites 0
+ℹ pass 0
+ℹ fail 1
+ℹ cancelled 0
+ℹ skipped 0
+ℹ todo 0
+ℹ duration_ms 19.594088
+
+✖ failing tests:
+
+test at .github/scripts/__tests__/agent_delegation_policy.test.js:670:1
+✖ exploration branch delegates to the published challenger at the published rate and reports the policy version (2.726394ms)
+  AssertionError [ERR_ASSERTION]: Expected values to be strictly equal:
+  
+  'cursor' !== 'gemini'
+  
+      at TestContext.<anonymous> (/home/runner/work/Workflows/Workflows/.github/scripts/__tests__/agent_delegation_policy.test.js:680:10)
+      at Test.runInAsyncScope (node:async_hooks:227:14)
+      at Test.run (node:internal/test_runner/test:1402:25)
+      at Test.start (node:internal/test_runner/test:1262:17)
+      at startSubtestAfterBootstrap (node:internal/test_runner/harness:387:17) {
+    generatedMessage: true,
+    code: 'ERR_ASSERTION',
+    actual: 'cursor',
+    expected: 'gemini',
+    operator: 'strictEqual',
+    diff: 'simple'
+  }
+
+RESTORED
+✔ exploration branch delegates to the published challenger at the published rate and reports the policy version (50.280238ms)
+ℹ tests 1
+ℹ suites 0
+ℹ pass 1
+ℹ fail 0
+ℹ cancelled 0
+ℹ skipped 0
+ℹ todo 0
+ℹ duration_ms 67.39827
