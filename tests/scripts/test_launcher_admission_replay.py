@@ -91,6 +91,7 @@ def test_output_reuse_fails_before_any_mutation(tmp_path, monkeypatch):
         "extra-suite",
         "misplaced",
         "duplicate",
+        "nested-case",
     ],
 )
 def test_replay_requires_consistent_suite_and_outcomes(tmp_path, phase, defect):
@@ -113,11 +114,13 @@ def test_replay_requires_consistent_suite_and_outcomes(tmp_path, phase, defect):
         if defect == "extra-suite"
         else ""
     )
+    case = f'<testcase classname="{module}" name="{name}">{outcome}</testcase>'
+    if defect == "nested-case":
+        case = f"<intermediate>{case}</intermediate>"
     report = tmp_path / "junit.xml"
     report.write_text(
         f"<testsuites><testsuite {attributes}>"
-        f'<testcase classname="{module}" name="{name}">{outcome}</testcase>'
-        f"{outside}</testsuite>{extra}</testsuites>"
+        f"{case}{outside}</testsuite>{extra}</testsuites>"
     )
     if defect:
         with pytest.raises(ValueError):
