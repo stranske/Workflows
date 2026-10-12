@@ -99,24 +99,22 @@ def _resolve(path: Path, **scenario: object) -> dict:
 def test_unassociated_workflow_run_reports_attributed_failure_before_failing(
     reporter: Path, conclusion: str
 ) -> None:
-    """Unassociated non-dispatch runs must not go silent (#3839).
-
-    After #3843 they classify as skip/`no-report-needed` with an attributed
-    notice+summary (not a red catch). The empty PR lock still denies mutation.
-    Node id kept for the issue-3839 acceptance / mutation evidence command.
-    """
+    """Failed unassociated runs publish full attribution before visible failure."""
     result = _resolve(reporter, conclusion=conclusion)
-    assert [event[0] for event in result["events"]] == ["read-origin", "notice", "summary"]
-    notice = result["events"][1][1]
-    summary = result["events"][2][1]
-    assert "unassociated run has no verified dispatch classification" in notice
-    assert "unassociated run has no verified dispatch classification" in summary
-    assert f"Upstream run: 12345 ({conclusion})" in summary
-    assert "upstream run 12345" in notice
-    assert f"conclusion {conclusion}" in notice
+    assert [event[0] for event in result["events"]] == ["read-origin", "summary", "failed"]
+    summary = result["events"][1][1]
+    for value in (
+        "Repository: stranske/example",
+        "Upstream run: 12345",
+        "Attempt: 2",
+        f"Conclusion: {conclusion}",
+        "Head: " + "a" * 40,
+        "unassociated run has no verified dispatch classification",
+    ):
+        assert value in summary
     assert result["outputs"] == {
-        "outcome": "no-report-needed",
-        "skip": "true",
+        "outcome": "unresolved",
+        "skip": "false",
         "lock_pr_number": "",
         "pr_number": "",
         "ordinary_target": "false",
@@ -243,11 +241,11 @@ def test_unverified_origin_title_cannot_authorize_a_pr_lock(reporter: Path, mism
         **mismatch,
     }
     result = _resolve(reporter, origin=origin)
-    assert [event[0] for event in result["events"]] == ["read-origin", "notice", "summary"]
-    assert "unassociated run has no verified dispatch classification" in result["events"][2][1]
+    assert [event[0] for event in result["events"]] == ["read-origin", "summary", "failed"]
+    assert "unassociated run has no verified dispatch classification" in result["events"][1][1]
     assert result["outputs"] == {
-        "outcome": "no-report-needed",
-        "skip": "true",
+        "outcome": "unresolved",
+        "skip": "false",
         "lock_pr_number": "",
         "pr_number": "",
         "ordinary_target": "false",

@@ -1,3 +1,18 @@
+## Current acceptance correction — 2026-10-12
+
+The retained 04:24 packet below is historical skip-diagnostic evidence. It does not
+prove issue #3839's visible-failure acceptance. Current workflows promote the
+classifier's unverified-unassociated skip into the existing attributed failure
+catch, retaining an empty PR lock. The current tests require repository, run,
+attempt, conclusion and head, followed by `setFailed`, for six root/consumer
+failed/cancelled/timed-out cases. Valid no-report-needed skips are unchanged.
+
+`acceptance-20261012/receipt.json`, raw logs and JUnit prove the actual production
+guard removed: six assertion failures, no errors/skips; byte-identical restoration:
+six passes. This is local authored-workflow proof, not a hosted consumer cycle or
+provider PASS. The historical manifest remains the binding for its original bytes;
+the new receipt binds current workflow bytes separately.
+
 # Issue 3839 reporter diagnostics
 
 Observed reporter run [38171655290](https://github.com/stranske/Workflows/actions/runs/38171655290)

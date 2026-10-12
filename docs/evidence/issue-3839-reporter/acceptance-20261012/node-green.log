@@ -1,0 +1,37 @@
+✔ .github/workflows/agents-keepalive-loop.yml: ordinary unassociated dispatch recovers its canonical PR target (3.048458ms)
+✔ .github/workflows/agents-keepalive-loop.yml: authority candidate without index fails closed (0.799583ms)
+✔ .github/workflows/agents-keepalive-loop.yml: malformed or legacy binding cannot become ordinary (7.772125ms)
+✔ templates/consumer-repo/.github/workflows/agents-81-gate-followups.yml: ordinary unassociated dispatch recovers its canonical PR target (0.910125ms)
+✔ templates/consumer-repo/.github/workflows/agents-81-gate-followups.yml: authority candidate without index fails closed (0.722292ms)
+✔ templates/consumer-repo/.github/workflows/agents-81-gate-followups.yml: malformed or legacy binding cannot become ordinary (7.490916ms)
+✔ verified index wins over an ordinary title and needs no title lookup (0.20575ms)
+✔ unavailable or corrupt index lookup never becomes an ordinary skip (0.167834ms)
+✔ wrong originating workflow or event cannot claim ordinary routing (0.386459ms)
+✔ originating revision without the classification contract fails closed (0.252916ms)
+✔ contract-shaped text outside the top-level run-name cannot authorize a target (0.186375ms)
+✔ associated runs avoid the unassociated locator altogether (0.067917ms)
+✔ delayed released recovery is located, reconciled, and projected after summary retry (19.716708ms)
+✔ delayed reopened recovery is located, reconciled, and projected after summary retry (0.252625ms)
+✔ 404 reconciliation preserves the owner-attempt binding for normal reporting (1.788167ms)
+✔ non-released reconciliation preserves the owner-attempt binding for normal reporting (0.114042ms)
+✔ non-released delayed reporter stops when a newer attempt owns the running summary (0.119417ms)
+✔ recovery rejects unknown worker evidence before authority mutation (0.078083ms)
+✔ recovery rejects a delayed summary marker for a different attempt or generation (0.158375ms)
+✔ superseded recovery stops reporter processing without comment mutation (0.188208ms)
+✔ owner attempt parsing is repository-bound and canonical (0.227042ms)
+✔ a later replay wake recovers a dropped middle reporter from the current receipt (0.401666ms)
+✔ replay is a no-op when an ordinary PR has no authority ledger (0.090584ms)
+✔ replay still fails closed when an authority ledger read fails (0.083334ms)
+✔ replay fails closed when an authority candidate PR has a missing ledger but has attempt indexes (0.077042ms)
+✔ replay rejects a present receipt with an invalid owner attempt (0.05925ms)
+✔ replay fails closed when reconciliation remains uncertain (0.18575ms)
+✔ replay fails closed when exact-attempt worker evidence is unknown (0.137458ms)
+✔ replay defers an exact active attempt without worker reads or state writes (0.128792ms)
+ℹ tests 29
+ℹ suites 0
+ℹ pass 29
+ℹ fail 0
+ℹ cancelled 0
+ℹ skipped 0
+ℹ todo 0
+ℹ duration_ms 121.9675

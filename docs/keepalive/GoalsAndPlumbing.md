@@ -135,12 +135,10 @@ replay input), `resolved`, and `no-report-needed`. An unresolved target leaves t
 PR lock empty, so no writer token or PR-state mutation is permitted. The workflow
 remains red; a summary is reporting evidence, not successful PR reconciliation.
 If writing the summary itself fails, the error annotation and original resolution
-failure remain visible. Unassociated non-dispatch / non-producer runs are different:
-classification returns skip with reason `unassociated run has no verified dispatch
-classification`, `outcome=no-report-needed`, and an attributed notice+summary naming
-the upstream run and conclusion — without failing the resolver or granting a PR lock
-(#3839 visibility without the red-run noise fixed in #3843). Successful/skipped
-upstream runs still skip the resolver. Recover the verified target and retry the
+failure remain visible. Unassociated non-dispatch / non-producer failures also
+publish the full attribution and remain red with `outcome=unresolved`; a targetless
+classifier skip cannot waive this reporter contract. Successful/skipped upstream
+runs still skip the resolver. Recover the verified target and retry the
 reporter; do not guess a PR from a branch or display title that lacks the existing
 classification contract.
 
