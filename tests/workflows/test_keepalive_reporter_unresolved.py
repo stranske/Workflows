@@ -115,7 +115,7 @@ def test_unassociated_workflow_run_reports_attributed_failure_before_failing(
         "No PR state was changed. Recover the verified target, then retry the reporter.",
     ):
         assert value in summary
-    assert "failed" == result["events"][2][0]
+    assert result["events"][2][0] == "failed"
     assert "Reporter applicability unavailable:" in result["events"][2][1]
     assert result["outputs"] == {
         "outcome": "unresolved",
