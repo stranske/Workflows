@@ -826,6 +826,53 @@ test('exploration reports the current published policy version for each keepaliv
   }
 });
 
+test('exploration selects distinct published challengers and scopes reservations to the task type', () => {
+  const challengers = { implement: 'gemini', review: 'cursor', testgen: 'claude' };
+  const reserve = {
+    implement: [{ agent: 'claude' }],
+    review: [{ agent: 'gemini' }],
+    testgen: [{ agent: 'cursor' }],
+  };
+  const routeWeights = {
+    ...routeWeightsWithExploration,
+    task_types: Object.fromEntries(Object.keys(challengers).map((taskType) => [
+      taskType, routeWeightsWithExploration.task_types.implement,
+    ])),
+    exploration: { ...routeWeightsWithExploration.exploration, challengers },
+    reserve,
+  };
+
+  for (const [taskType, challenger] of Object.entries(challengers)) {
+    const options = {
+      state: { iteration: 7 },
+      labels: ['agent:auto'],
+      secrets: mockSecrets,
+      registry: mockRegistry,
+      routeWeights,
+      roundKind: taskType,
+    };
+    // Each challenger is reserved for another task, which must not disqualify it here.
+    const selected = decideNextAgent(options);
+    assert.equal(selected.agent, challenger, taskType);
+    assert.equal(selected.delegationSource, 'route_weights_exploration', taskType);
+    assert.equal(selected.policy_version, routeWeights.exploration.policy_version, taskType);
+
+    const blocked = decideNextAgent({
+      ...options,
+      routeWeights: {
+        ...routeWeights,
+        reserve: {
+          ...reserve,
+          [taskType]: [...reserve[taskType], { agent: challenger }],
+        },
+      },
+    });
+    assert.equal(blocked.agent, taskType === 'implement' ? 'cursor' : 'codex', taskType);
+    assert.equal(blocked.delegationSource, 'route_weights', taskType);
+    assert.equal(blocked.policy_version, undefined, taskType);
+  }
+});
+
 test('zero seed does not force exploration for every positive rate', () => {
   const weighted = selectAgentFromRouteWeights({
     routeWeights: routeWeightsWithExploration,
