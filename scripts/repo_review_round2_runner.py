@@ -40,6 +40,7 @@ from __future__ import annotations
 
 import argparse
 import concurrent.futures
+import hashlib
 import json
 import os
 import re
@@ -55,6 +56,7 @@ from typing import Any
 from zoneinfo import ZoneInfo, ZoneInfoNotFoundError
 
 try:
+    from scripts.repo_review_evaluator import load_registry
     from scripts.repo_review_round2_schema import (
         validate_converged_set,
         validate_turn_output,
@@ -68,6 +70,7 @@ try:
         transition,
     )
 except ModuleNotFoundError:  # pragma: no cover - direct script execution
+    from repo_review_evaluator import load_registry  # type: ignore[no-redef]
     from repo_review_round2_schema import (  # type: ignore[no-redef]
         validate_converged_set,
         validate_turn_output,
@@ -187,6 +190,178 @@ def round2_converged_path(output_dir: Path, repo: str) -> Path:
     return output_dir / "round2" / safe_repo_name(repo) / "converged.json"
 
 
+def round2_input_manifest_path(turn_path: Path) -> Path:
+    """Return the attestation sidecar for one agent's round-2 turn output."""
+    return (
+        turn_path.parent.parent
+        / "input-manifests"
+        / f"{turn_path.parent.name}-{turn_path.stem}.json"
+    )
+
+
+def _sha256_file(path: Path) -> str:
+    return hashlib.sha256(path.read_bytes()).hexdigest()
+
+
+def round2_input_manifest(
+    *,
+    repo: str,
+    turn: int,
+    agent: str,
+    round1_paths: dict[str, Path],
+    prior_turn_paths: tuple[Path, ...] | list[Path] = (),
+) -> tuple[dict[str, Any] | None, str]:
+    """Bind a reusable turn to exact round-1 and protocol inputs.
+
+    A turn is valid only for the findings/provenance bytes and the canonical
+    negotiation documents the agent was asked to read.  The provenance payload
+    additionally establishes that both round-1 agents reviewed one source
+    commit, rather than merely hashing an arbitrary sidecar.
+    """
+    round1_inputs: dict[str, dict[str, str]] = {}
+    source_commits: set[str] = set()
+    for round1_agent, findings_path in sorted(round1_paths.items()):
+        provenance_path = findings_path.with_name("findings.provenance.json")
+        try:
+            provenance = json.loads(provenance_path.read_text(encoding="utf-8"))
+        except (OSError, json.JSONDecodeError) as exc:
+            return None, f"cannot read {round1_agent} findings provenance: {exc}"
+        if not isinstance(provenance, dict):
+            return None, f"{round1_agent} findings provenance must be an object"
+        for key, expected in (
+            ("schema", "repo-review-round1-provenance/v1"),
+            ("repo", repo),
+            ("agent", round1_agent),
+        ):
+            if provenance.get(key) != expected:
+                return None, (
+                    f"{round1_agent} findings provenance {key}={provenance.get(key)!r}, "
+                    f"expected {expected!r}"
+                )
+        source_commit = provenance.get("source_commit")
+        if not isinstance(source_commit, str) or not source_commit:
+            return None, f"{round1_agent} findings provenance source_commit is missing"
+        try:
+            round1_inputs[round1_agent] = {
+                "findings_sha256": _sha256_file(findings_path),
+                "provenance_sha256": _sha256_file(provenance_path),
+                "source_commit": source_commit,
+            }
+        except OSError as exc:
+            return None, f"cannot read {round1_agent} findings input: {exc}"
+        source_commits.add(source_commit)
+    if len(source_commits) != 1:
+        return None, "round-1 findings provenance source commits do not match"
+
+    canonical_paths = {
+        "prompt_sha256": PROMPT_FILE,
+        "protocol_sha256": PROTOCOL_FILE,
+        "schema_sha256": SCHEMA_FILE,
+    }
+    try:
+        canonical_inputs = {key: _sha256_file(path) for key, path in canonical_paths.items()}
+    except OSError as exc:
+        return None, f"cannot read canonical round-2 input: {exc}"
+    try:
+        prior_turn_inputs = [
+            {"path": f"{path.parent.name}/{path.name}", "sha256": _sha256_file(path)}
+            for path in prior_turn_paths
+        ]
+    except OSError as exc:
+        return None, f"cannot read prior turn input: {exc}"
+    return (
+        {
+            "schema": "repo-review-round2-inputs/v1",
+            "repo": repo,
+            "turn": turn,
+            "agent": agent,
+            "round1": round1_inputs,
+            "prior_turns": prior_turn_inputs,
+            "canonical": canonical_inputs,
+            "prompt_preamble_sha256": hashlib.sha256(PROMPT_PREAMBLE.encode("utf-8")).hexdigest(),
+        },
+        "",
+    )
+
+
+def reusable_turn_output(*, out_path: Path, expected_manifest: dict[str, Any]) -> tuple[bool, str]:
+    """Return whether an existing output has an exact, valid input binding."""
+    manifest_path = round2_input_manifest_path(out_path)
+    try:
+        saved = json.loads(manifest_path.read_text(encoding="utf-8"))
+    except (OSError, json.JSONDecodeError) as exc:
+        return False, f"missing or malformed input manifest: {exc}"
+    if not isinstance(saved, dict):
+        return False, "input manifest must be an object"
+    output_sha256 = saved.pop("output_sha256", None)
+    if saved != expected_manifest:
+        return False, "input manifest does not match current round-1/protocol inputs"
+    if not isinstance(output_sha256, str) or not output_sha256:
+        return False, "input manifest is missing output_sha256"
+    try:
+        current_output_sha256 = _sha256_file(out_path)
+    except OSError as exc:
+        return False, f"cannot read cached turn output: {exc}"
+    if output_sha256 != current_output_sha256:
+        return False, "cached turn output does not match its input manifest receipt"
+    return True, ""
+
+
+def verify_turn_input_binding(
+    *,
+    repo: str,
+    turn: int,
+    agent: str,
+    out_path: Path,
+    round1_paths: dict[str, Path],
+    prior_turn_paths: tuple[Path, ...] | list[Path] = (),
+) -> list[str]:
+    """Return cache-binding errors without mutating outputs or manifests."""
+    expected_manifest, manifest_error = round2_input_manifest(
+        repo=repo,
+        turn=turn,
+        agent=agent,
+        round1_paths=round1_paths,
+        prior_turn_paths=prior_turn_paths,
+    )
+    if expected_manifest is None:
+        return [manifest_error]
+    reusable, reuse_error = reusable_turn_output(
+        out_path=out_path,
+        expected_manifest=expected_manifest,
+    )
+    return [] if reusable else [reuse_error]
+
+
+def write_turn_input_manifest(*, out_path: Path, input_manifest: dict[str, Any]) -> None:
+    """Record the exact inputs and output bytes that make a turn reusable."""
+    receipt = {**input_manifest, "output_sha256": _sha256_file(out_path)}
+    manifest_path = round2_input_manifest_path(out_path)
+    manifest_path.parent.mkdir(parents=True, exist_ok=True)
+    manifest_path.write_text(json.dumps(receipt, indent=2) + "\n", encoding="utf-8")
+
+
+def preserve_stale_turn_output(*, output_dir: Path, repo: str, out_path: Path) -> str:
+    """Move stale turn artifacts out of the active negotiation path."""
+    timestamp = datetime.now(UTC).strftime("%Y%m%dT%H%M%S.%fZ")
+    destination = (
+        output_dir
+        / "repairs"
+        / "round2-stale"
+        / safe_repo_name(repo)
+        / timestamp
+        / out_path.parent.name
+    )
+    try:
+        destination.mkdir(parents=True, exist_ok=True)
+        for path in (out_path, round2_input_manifest_path(out_path)):
+            if path.is_file():
+                path.replace(destination / path.name)
+    except OSError as exc:
+        return f"cannot preserve stale turn artifacts: {exc}"
+    return ""
+
+
 # ---------------------------------------------------------------------------
 # Round-1 findings discovery
 # ---------------------------------------------------------------------------
@@ -251,6 +426,33 @@ def resolve_negotiation_agents(
     return resolved
 
 
+def validate_reviewed_source_commit(repo_path: Path, round1_paths: dict[str, Path]) -> str:
+    """Ensure round 2 negotiates the same checkout attested by round 1."""
+    try:
+        result = subprocess.run(
+            ["git", "-C", str(repo_path), "rev-parse", "HEAD"],
+            check=False,
+            capture_output=True,
+            text=True,
+            timeout=30,
+        )
+    except (OSError, subprocess.TimeoutExpired) as exc:
+        return f"cannot resolve reviewed repo HEAD: {exc}"
+    head = result.stdout.strip()
+    if result.returncode != 0 or not head:
+        return "cannot resolve reviewed repo HEAD"
+    for agent, findings_path in round1_paths.items():
+        try:
+            provenance = json.loads(
+                findings_path.with_name("findings.provenance.json").read_text(encoding="utf-8")
+            )
+        except (OSError, json.JSONDecodeError) as exc:
+            return f"cannot read {agent} round-1 provenance: {exc}"
+        if not isinstance(provenance, dict) or provenance.get("source_commit") != head:
+            return f"{agent} round-1 source commit does not match reviewed repo HEAD {head}"
+    return ""
+
+
 # ---------------------------------------------------------------------------
 # Prompt construction
 # ---------------------------------------------------------------------------
@@ -273,6 +475,7 @@ Your variables for this run:
 - `<MY_AGENT>` = `{my_agent}`
 - `<OTHER_AGENT>` = `{other_agent}`
 - `<TURN_OUTPUT_PATH>` = `{turn_output_path}`
+- `<REVIEWED_REPO_PATH>` = `{repo_path}`
 
 Inputs you must read in order:
 
@@ -280,7 +483,7 @@ Inputs you must read in order:
 2. Your own round-1 findings: `{my_findings}`
 3. The counterpart's round-1 findings: `{other_findings}`
 {prior_turns_section}
-4. The repo at the local path named in your round-1 findings, plus the GitNexus map (use `gitnexus query` and Cypher fallbacks per the canonical prompt's GitNexus section). Verify any `disagree-*` mark with concrete evidence from the actual files, not the counterpart's claims about them.
+4. The repo at `<REVIEWED_REPO_PATH>`, plus the GitNexus map (use `gitnexus query` and Cypher fallbacks per the canonical prompt's GitNexus section). The runner starts at the workspace root: inspect and cite only `<REVIEWED_REPO_PATH>`, and use `git -C <REVIEWED_REPO_PATH>` for git commands. Verify any `disagree-*` mark with concrete evidence from its actual files, not the counterpart's claims about them.
 
 Procedure:
 
@@ -302,6 +505,7 @@ def build_prompt(
     other_agent: str,
     my_findings: Path,
     other_findings: Path,
+    repo_path: Path,
     turn_output_path: Path,
     prior_turn_paths: list[Path],
 ) -> str:
@@ -319,6 +523,7 @@ def build_prompt(
         other_agent=other_agent,
         my_findings=my_findings,
         other_findings=other_findings,
+        repo_path=repo_path.resolve(),
         turn_output_path=turn_output_path,
         prompt_file=PROMPT_FILE,
         protocol_file=PROTOCOL_FILE,
@@ -884,6 +1089,8 @@ def run_one_turn(
     repo: str,
     turn: int,
     output_dir: Path,
+    repo_path: Path,
+    workspace_root: Path,
     agents: dict[str, Path],
     additional_dirs: list[Path],
     timeout: int,
@@ -896,17 +1103,69 @@ def run_one_turn(
     prior_turn_paths = sorted(
         path
         for path in (output_dir / "round2" / safe_repo_name(repo)).glob("turn-*/*.json")
-        if "turn-" in path.parts[-2] and int(path.parts[-2].rsplit("-", 1)[-1]) < turn
+        if (
+            path.name in {f"{agent}.json" for agent in agents}
+            and "turn-" in path.parts[-2]
+            and int(path.parts[-2].rsplit("-", 1)[-1]) < turn
+        )
     )
 
     def task(agent_label: str) -> AgentTurnResult:
         agent_other = next(other for other in agents if other != agent_label)
         out_path = round2_turn_path(output_dir, repo, turn, agent_label)
         out_path.parent.mkdir(parents=True, exist_ok=True)
-        if out_path.is_file():
+        expected_manifest, manifest_error = round2_input_manifest(
+            repo=repo,
+            turn=turn,
+            agent=agent_label,
+            round1_paths=agents,
+            prior_turn_paths=prior_turn_paths,
+        )
+        if expected_manifest is None:
             return AgentTurnResult(
-                agent=agent_label, turn=turn, output_path=out_path, succeeded=True, spawned=False
+                agent=agent_label,
+                turn=turn,
+                output_path=out_path,
+                succeeded=False,
+                spawned=False,
+                error=manifest_error,
             )
+        if out_path.is_file():
+            reusable, reuse_error = reusable_turn_output(
+                out_path=out_path,
+                expected_manifest=expected_manifest,
+            )
+            if reusable:
+                return AgentTurnResult(
+                    agent=agent_label,
+                    turn=turn,
+                    output_path=out_path,
+                    succeeded=True,
+                    spawned=False,
+                )
+            if dry_run:
+                return AgentTurnResult(
+                    agent=agent_label,
+                    turn=turn,
+                    output_path=out_path,
+                    succeeded=False,
+                    spawned=False,
+                    error=f"dry-run: existing turn output is not reusable: {reuse_error}",
+                )
+            preserve_error = preserve_stale_turn_output(
+                output_dir=output_dir,
+                repo=repo,
+                out_path=out_path,
+            )
+            if preserve_error:
+                return AgentTurnResult(
+                    agent=agent_label,
+                    turn=turn,
+                    output_path=out_path,
+                    succeeded=False,
+                    spawned=False,
+                    error=preserve_error,
+                )
         if dry_run:
             return AgentTurnResult(
                 agent=agent_label,
@@ -923,6 +1182,7 @@ def run_one_turn(
             other_agent=agent_other,
             my_findings=agents[agent_label],
             other_findings=agents[agent_other],
+            repo_path=repo_path,
             turn_output_path=out_path,
             prior_turn_paths=prior_turn_paths,
         )
@@ -932,13 +1192,51 @@ def run_one_turn(
             ok, info = invoke_agent(
                 agent_label,
                 prompt,
-                cwd=WORKFLOWS_STEWARD,
+                cwd=workspace_root,
                 additional_dirs=additional_dirs,
                 log_file=log_file,
                 timeout=timeout,
                 progress_files=(out_path,),
             )
             if ok and out_path.is_file():
+                current_manifest, current_manifest_error = round2_input_manifest(
+                    repo=repo,
+                    turn=turn,
+                    agent=agent_label,
+                    round1_paths=agents,
+                    prior_turn_paths=prior_turn_paths,
+                )
+                if current_manifest is None:
+                    last_error = current_manifest_error
+                    preserve_error = preserve_stale_turn_output(
+                        output_dir=output_dir,
+                        repo=repo,
+                        out_path=out_path,
+                    )
+                    if preserve_error:
+                        last_error = preserve_error
+                        break
+                    continue
+                if current_manifest != expected_manifest:
+                    last_error = "round-1/protocol inputs changed while agent was running"
+                    preserve_error = preserve_stale_turn_output(
+                        output_dir=output_dir,
+                        repo=repo,
+                        out_path=out_path,
+                    )
+                    if preserve_error:
+                        last_error = preserve_error
+                        break
+                    expected_manifest = current_manifest
+                    continue
+                try:
+                    write_turn_input_manifest(
+                        out_path=out_path,
+                        input_manifest=current_manifest,
+                    )
+                except OSError as exc:
+                    last_error = f"cannot write round-2 input manifest: {exc}"
+                    continue
                 return AgentTurnResult(
                     agent=agent_label,
                     turn=turn,
@@ -962,6 +1260,54 @@ def run_one_turn(
         for future in concurrent.futures.as_completed(futures):
             label = futures[future]
             results[label] = future.result()
+
+    # A peer may retry against changed inputs after an earlier worker has already
+    # returned success. Validate every consumed receipt against one shared final
+    # generation, rather than allowing independent successful worker generations.
+    shared_agent = next(iter(agents))
+    shared_manifest, shared_error = round2_input_manifest(
+        repo=repo,
+        turn=turn,
+        agent=shared_agent,
+        round1_paths=agents,
+        prior_turn_paths=prior_turn_paths,
+    )
+    binding_errors: dict[str, str] = {}
+    for label, result in results.items():
+        if not result.succeeded:
+            continue
+        if shared_manifest is None:
+            binding_errors[label] = shared_error
+            continue
+        reusable, error = reusable_turn_output(
+            out_path=result.output_path,
+            expected_manifest={**shared_manifest, "agent": label},
+        )
+        if not reusable:
+            binding_errors[label] = error
+    final_manifest, final_error = round2_input_manifest(
+        repo=repo,
+        turn=turn,
+        agent=shared_agent,
+        round1_paths=agents,
+        prior_turn_paths=prior_turn_paths,
+    )
+    if final_manifest is None or final_manifest != shared_manifest:
+        for label, result in results.items():
+            if result.succeeded:
+                binding_errors[label] = final_error or "inputs changed during pair validation"
+    for label, error in binding_errors.items():
+        result = results[label]
+        result.succeeded = False
+        result.error = f"pair input binding: {error}"
+        if not dry_run:
+            preserve_error = preserve_stale_turn_output(
+                output_dir=output_dir,
+                repo=repo,
+                out_path=result.output_path,
+            )
+            if preserve_error:
+                result.error += f"; {preserve_error}"
     return results
 
 
@@ -1511,11 +1857,24 @@ def synthesize_converged(
 def run(args: argparse.Namespace) -> int:
     output_dir = Path(args.output_dir).resolve()
     repo = args.repo
+    workspace_root, _excluded, registry_repos, _archive_paths = load_registry(Path(args.registry))
+    repo_config = next((item for item in registry_repos if item.repo == repo), None)
+    if repo_config is None:
+        print(f"[round2] {repo}: repo is missing from registry", file=sys.stderr)
+        return 2
+    repo_path = (workspace_root / repo_config.local_path).resolve()
+    if not repo_path.is_dir():
+        print(f"[round2] {repo}: reviewed repo path is missing: {repo_path}", file=sys.stderr)
+        return 2
     requested_agents = tuple(a.strip() for a in args.agents.split(",") if a.strip())
     if len(requested_agents) != 2:
         raise SystemExit("--agents must list exactly two labels (e.g. codex,claude)")
 
     round1_paths = resolve_negotiation_agents(output_dir, repo, requested_agents)
+    source_error = validate_reviewed_source_commit(repo_path, round1_paths)
+    if source_error:
+        print(f"[round2] {repo}: {source_error}", file=sys.stderr)
+        return 2
     expected_marker_agents = set(round1_paths.keys())
     print(
         f"[round2] {repo}: round-1 findings resolved → "
@@ -1528,6 +1887,8 @@ def run(args: argparse.Namespace) -> int:
     additional_dirs = sorted(
         {
             output_dir,
+            repo_path,
+            WORKFLOWS_STEWARD,
             *(p.parent.parent.parent.parent for p in round1_paths.values()),
         }
     )
@@ -1563,6 +1924,8 @@ def run(args: argparse.Namespace) -> int:
             repo=repo,
             turn=turn,
             output_dir=output_dir,
+            repo_path=repo_path,
+            workspace_root=workspace_root,
             agents=round1_paths,
             additional_dirs=additional_dirs,
             timeout=args.turn_timeout,
@@ -1583,9 +1946,10 @@ def run(args: argparse.Namespace) -> int:
                 file=sys.stderr,
             )
             if args.dry_run:
-                # In dry-run we tolerate missing turn outputs and synthesize
-                # whatever's on disk.
-                break
+                # A dry-run may inspect only runner-attested matching outputs.
+                # In particular, it must not synthesize a result from an old
+                # turn after round-1 or protocol inputs changed.
+                return 2
             return 2
 
         turns_completed = turn
@@ -1682,6 +2046,11 @@ def parse_args(argv: list[str] | None = None) -> argparse.Namespace:
         "--output-dir",
         required=True,
         help="evaluator output directory containing round1/ and round2/ subtrees",
+    )
+    parser.add_argument(
+        "--registry",
+        default=str(WORKFLOWS_STEWARD / "config/repo_review_registry.json"),
+        help="registry used to resolve the exact local checkout",
     )
     parser.add_argument(
         "--agents",

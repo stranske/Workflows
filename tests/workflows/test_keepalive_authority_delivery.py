@@ -134,6 +134,7 @@ def test_gate_paths_deny_invalid_claims_and_reporters_can_persist_generation() -
             "lock_pr_number",
             "pr_number",
             "ordinary_target",
+            "outcome",
         }
         resolver_names = [step["name"] for step in resolver["steps"]]
         assert resolver_names == [
