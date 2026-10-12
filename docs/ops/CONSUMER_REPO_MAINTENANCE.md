@@ -1280,8 +1280,11 @@ repository has no branch protection and `Gate / gate` was green.
 
 Health 45 publishes `Health 45 Agents Guard / guard` on the event PR's full
 head SHA independently of agent-label eligibility for normal PR events.
-Ineligible normal PR events are an explicit successful no-op only after the
-eligibility action succeeds. Ineligible privileged label/unlabel events publish
+Ineligible normal PR events initialize an explicit successful no-op only after
+the eligibility action succeeds and a complete paginated exact-head status read
+proves no guard verdict exists. Reopened/ready events preserve an existing
+same-head verdict; failed or incomplete lookup fails closed.
+Ineligible privileged label/unlabel events publish
 nothing, preserving the existing same-head verdict (including failure); an absent
 verdict remains missing and blocks delivery. Removing the last agent label must
 never clear an evaluated failure. Failed

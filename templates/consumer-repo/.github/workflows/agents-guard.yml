@@ -765,6 +765,21 @@ jobs:
             }
 
             try {
+              if (process.env.ELIGIBLE === 'false') {
+                const statuses = await withApiRetry(
+                  (client) => client.paginate(client.rest.repos.listCommitStatusesForRef, {
+                    owner, repo, ref: sha, per_page: 100,
+                  }),
+                  { label: 'read existing exact-head guard status' },
+                );
+                if (!Array.isArray(statuses)) {
+                  throw new Error('Incomplete exact-head status inventory.');
+                }
+                if (statuses.some((status) => status.context === 'Health 45 Agents Guard / guard')) {
+                  core.info('Ineligible PR event: preserving existing exact-head guard verdict.');
+                  return;
+                }
+              }
               await withApiRetry(
                 (client) => client.rest.repos.createCommitStatus({
                   owner,
