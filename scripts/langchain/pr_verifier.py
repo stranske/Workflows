@@ -1135,6 +1135,45 @@ def _normalize_destination_first_checklist(acceptance: str) -> str:
     )
 
 
+def _normalize_passive_product_capabilities(acceptance: str) -> str:
+    """Give both classifiers the same bounded product-capability governor."""
+    operations = {
+        "attached": "attach",
+        "provided": "provide",
+        "uploaded": "upload",
+        "published": "publish",
+        "posted": "post",
+        "recorded": "record",
+        "captured": "capture",
+        "included": "include",
+        "documented": "document",
+        "copied": "copy",
+    }
+    return re.sub(
+        r"(?P<literal>" + _QUOTED_EVIDENCE_LITERAL + r")|"
+        r"(?P<prefix>\b" + _EVIDENCE_PRODUCT_ACTOR + r"\s+"
+        r"(?:(?:" + _MANDATORY_EVIDENCE_AUXILIARY + r"|will|" + _EVIDENCE_OPTIONAL_MODAL + r")\s+)?"
+        r"(?:allow|enable|support|permit)\w*\s+)"
+        r"(?P<object>"
+        + _EVIDENCE_OBJECT_MODIFIERS
+        + r"(?:evidence|artifacts?|transcripts?|command outputs?)\b)"
+        r"\s+to\s+be\s+(?P<operation>" + "|".join(operations) + r")\b",
+        lambda match: (
+            match[0]
+            if match["literal"]
+            else (
+                match["prefix"]
+                + "users to "
+                + operations[match["operation"].lower()]
+                + " "
+                + match["object"]
+            )
+        ),
+        acceptance,
+        flags=re.I,
+    )
+
+
 _EVIDENCE_ARTIFACT_DESTINATION = r"(?:workflow|ci|github actions)\s+artifacts?\b"
 _EVIDENCE_PR_COMMENT_DESTINATION = (
     r"(?:(?:pr|pull request)\s+comments?|(?:inline\s+)?(?:pr\s+)?review comments?)"
@@ -1499,6 +1538,7 @@ def _required_evidence_channels(acceptance: str, *, _bind_attached: bool = True)
 
     acceptance = _normalize_review_comment_destinations(acceptance)
     acceptance = _normalize_destination_first_checklist(acceptance)
+    acceptance = _normalize_passive_product_capabilities(acceptance)
     acceptance = _normalize_review_content_qualifiers(acceptance)
     acceptance = _normalize_passive_review_agents(acceptance)
     acceptance = _normalize_relative_review_presence(acceptance)
@@ -4130,7 +4170,7 @@ def _required_evidence_channels(acceptance: str, *, _bind_attached: bool = True)
                         re.I,
                     )
                 )
-                product_artifact_actor = product_artifact_actor or bool(
+                passive_product_capability = bool(
                     re.search(
                         r"\b"
                         + product_actor
@@ -4147,6 +4187,7 @@ def _required_evidence_channels(acceptance: str, *, _bind_attached: bool = True)
                         re.I,
                     )
                 )
+                product_artifact_actor = product_artifact_actor or passive_product_capability
                 evidence_named_artifact = bool(
                     re.search(artifact_destination_object, lower)
                     or re.search(
@@ -4174,6 +4215,13 @@ def _required_evidence_channels(acceptance: str, *, _bind_attached: bool = True)
                         lower,
                     )
                 )
+                # A passive capability governs its complete destination list,
+                # including mixed artifact/PR alternatives. A PR-shaped member
+                # must not override that actor boundary as an artifact delivery.
+                artifact_delivery_into_pr = (
+                    artifact_delivery_into_pr and not passive_product_capability
+                )
+                evidence_named_artifact = evidence_named_artifact and not passive_product_capability
                 if (
                     artifact_delivery_into_pr
                     or evidence_named_artifact
@@ -4462,6 +4510,7 @@ def _required_evidence_options(acceptance: str) -> list[set[str]]:
     """
     acceptance = _normalize_review_comment_destinations(acceptance)
     acceptance = _normalize_destination_first_checklist(acceptance)
+    acceptance = _normalize_passive_product_capabilities(acceptance)
     acceptance = _normalize_review_content_qualifiers(acceptance)
     acceptance = _normalize_passive_review_agents(acceptance)
     acceptance = _normalize_relative_review_presence(acceptance)

@@ -742,6 +742,7 @@ scripts:
     # copy delivery and destination-first checklists retain shared polarity floors.
     # Repeated governors, object polarity, passive capabilities and channel-symmetric
     # product coordination preserve independent mandatory delivery clauses.
+    # Passive capability normalization is shared before mixed artifact/PR ORs.
     # Expanded v5 comparison requires every configured provider/model arm to be
     # complete, used_llm=true, error-free and PASS; no availability filtering.
     # Expanded-only exact Terra Responses and Sonnet native Models/count binding;

@@ -5347,3 +5347,19 @@ def test_issue3835_bare_capability_coordination_is_channel_symmetric(first, seco
     assert verifier._required_evidence_channels(
         text + "; the reviewer must post evidence in a PR comment"
     ) == {"comments"}
+
+
+@pytest.mark.parametrize("operation", ["attached", "provided"])
+@pytest.mark.parametrize("artifact", ["an artifact", "a workflow artifact"])
+@pytest.mark.parametrize("destination", ["the PR body", "a PR comment"])
+@pytest.mark.parametrize("independent", [False, True])
+def test_issue3835_passive_capability_destination_or_is_nongating(
+    operation, artifact, destination, independent
+):
+    text = f"The UI must allow evidence to be {operation} as {artifact} or in {destination}"
+    if independent:
+        text += "; the reviewer must post evidence in a PR comment"
+    expected = {"comments"} if independent else set()
+    assert verifier._required_evidence_channels(text) == expected
+    assert verifier._required_evidence_options(text) == [expected]
+    assert _floor_verdict(text, body="present", comments="present", artifacts="absent") == "PASS"

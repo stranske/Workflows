@@ -2136,6 +2136,9 @@ capability complements include passive proof objects (`allow evidence to be
 attached as an artifact`) and coordinated bare PR destinations in either order;
 neither boundary can suppress an independent reviewer delivery. An attached
 `which may be skipped` qualifier keeps that delivery optional, not its siblings.
+Passive product-capability complements are canonicalized before both channel
+classification and OR expansion, so mixed artifact/PR alternatives retain the
+same product governor rather than inventing a mandatory artifact or overall floor.
 Checklist shorthand accepts the common test/validation proof nouns, so
 `Validation output in a PR comment` retains comments as its required channel.
 Negative, optional and product-capability clauses keep their existing semantics.
