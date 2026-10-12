@@ -6,6 +6,15 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 Breaking changes are called out with a **BREAKING** marker and scheduled according to the policy in `COMPATIBILITY.md`.
 
+## [1.38.2](https://github.com/stranske/Workflows/compare/v1.38.1...v1.38.2) (2026-10-12)
+
+
+### Bug Fixes
+
+* **evidence:** refresh pair-generation README hash ([#3869](https://github.com/stranske/Workflows/issues/3869)) ([3d3adf9](https://github.com/stranske/Workflows/commit/3d3adf980b63f7027e393f7efb2d262ff7e80733))
+* **repo-review:** bind source evidence and validate issue bodies ([#3852](https://github.com/stranske/Workflows/issues/3852)) ([6de1fdf](https://github.com/stranske/Workflows/commit/6de1fdf9d46a611a8c30d9ff76a3ea6856957841))
+* report unresolved keepalive rounds before target failure ([#3841](https://github.com/stranske/Workflows/issues/3841)) ([1cefedd](https://github.com/stranske/Workflows/commit/1cefedd44b599645a78b7b1035fe57cf33345c67))
+
 ## [1.38.1](https://github.com/stranske/Workflows/compare/v1.38.0...v1.38.1) (2026-10-12)
 
 
