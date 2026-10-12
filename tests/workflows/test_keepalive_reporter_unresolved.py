@@ -190,6 +190,34 @@ def test_summary_write_failure_keeps_both_diagnostic_and_resolution_errors(
 
 
 @pytest.mark.parametrize("reporter", REPORTERS, ids=["root", "consumer"])
+@pytest.mark.parametrize("conclusion", ["failure", "cancelled", "timed_out"])
+def test_unassociated_summary_write_failure_still_fails_without_authorizing_mutation(
+    reporter: Path, conclusion: str
+) -> None:
+    """The original unassociated-run alarm stays red even if its summary cannot persist."""
+    result = _resolve(reporter, conclusion=conclusion, summaryError=True)
+    assert [event[0] for event in result["events"]] == ["read-origin", "error", "failed"]
+    assert result["events"][1][1] == (
+        "Reporter diagnostic summary unavailable: summary storage unavailable"
+    )
+    assert result["events"][2][1] == (
+        "Reporter applicability unavailable: "
+        "unassociated run has no verified dispatch classification"
+    )
+    assert (
+        result["events"][2][2]
+        == result["outputs"]
+        == {
+            "outcome": "unresolved",
+            "skip": "false",
+            "lock_pr_number": "",
+            "pr_number": "",
+            "ordinary_target": "false",
+        }
+    )
+
+
+@pytest.mark.parametrize("reporter", REPORTERS, ids=["root", "consumer"])
 @pytest.mark.parametrize(
     "scenario",
     [{"associated": True}, {"manual": "42"}, {"indexedTarget": {"prNumber": 42}}],
