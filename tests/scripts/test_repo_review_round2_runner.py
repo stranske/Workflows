@@ -363,6 +363,70 @@ def _write_round1_findings(
     )
 
 
+def _write_round1_provenance(
+    path: Path,
+    *,
+    agent: str,
+    repo: str = "stranske/Example",
+    source_commit: str = "a" * 40,
+) -> None:
+    path.with_name("findings.provenance.json").write_text(
+        json.dumps(
+            {
+                "schema": "repo-review-round1-provenance/v1",
+                "repo": repo,
+                "agent": agent,
+                "source_commit": source_commit,
+            }
+        )
+        + "\n",
+        encoding="utf-8",
+    )
+
+
+def _round2_cache_inputs(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> tuple[str, Path, dict[str, Path]]:
+    repo = "stranske/Example"
+    output_dir = tmp_path / "review"
+    agents = {
+        "codex": output_dir / "round1" / "codex" / "stranske__Example" / "findings.json",
+        "claude": output_dir / "round1" / "claude" / "stranske__Example" / "findings.json",
+    }
+    for agent, path in agents.items():
+        _write_round1_findings(path, agent=agent, repo=repo)
+        _write_round1_provenance(path, agent=agent, repo=repo)
+    for name in ("prompt", "protocol", "schema"):
+        path = tmp_path / f"{name}.md"
+        path.write_text(f"{name} v1\n", encoding="utf-8")
+        monkeypatch.setattr(runner, f"{name.upper()}_FILE", path)
+    return repo, output_dir, agents
+
+
+def _write_attested_turn_cache(
+    *,
+    repo: str,
+    output_dir: Path,
+    agents: dict[str, Path],
+    turn: int = 1,
+    prior_turn_paths: list[Path] | None = None,
+) -> None:
+    for agent in agents:
+        out_path = runner.round2_turn_path(output_dir, repo, turn, agent)
+        out_path.parent.mkdir(parents=True, exist_ok=True)
+        out_path.write_text("{}\n", encoding="utf-8")
+        manifest, error = runner.round2_input_manifest(
+            repo=repo,
+            turn=turn,
+            agent=agent,
+            round1_paths=agents,
+            prior_turn_paths=prior_turn_paths or [],
+        )
+        assert error == ""
+        assert manifest is not None
+        runner.write_turn_input_manifest(out_path=out_path, input_manifest=manifest)
+
+
 @pytest.mark.parametrize(
     ("contents", "exists", "expected"),
     [
@@ -655,9 +719,12 @@ def test_run_one_turn_tracks_turn_output_as_progress(
     repo = "stranske/Example"
     output_dir = tmp_path / "review"
     agents = {
-        "codex": tmp_path / "codex-findings.json",
-        "claude": tmp_path / "claude-findings.json",
+        "codex": tmp_path / "codex" / "findings.json",
+        "claude": tmp_path / "claude" / "findings.json",
     }
+    for agent, findings_path in agents.items():
+        _write_round1_findings(findings_path, agent=agent, repo=repo)
+        _write_round1_provenance(findings_path, agent=agent, repo=repo)
     captured: dict[str, tuple[Path, ...]] = {}
     monkeypatch.setattr(runner, "WORKFLOWS_STEWARD", tmp_path)
     monkeypatch.setattr(runner, "build_prompt", lambda **_kwargs: "prompt")
@@ -686,3 +753,177 @@ def test_run_one_turn_tracks_turn_output_as_progress(
     assert all(result.succeeded for result in results.values())
     for agent_label, progress_files in captured.items():
         assert progress_files == (runner.round2_turn_path(output_dir, repo, 1, agent_label),)
+
+
+def test_run_one_turn_reuses_only_attested_matching_inputs(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    repo, output_dir, agents = _round2_cache_inputs(tmp_path, monkeypatch)
+    _write_attested_turn_cache(repo=repo, output_dir=output_dir, agents=agents)
+    monkeypatch.setattr(
+        runner,
+        "invoke_agent",
+        lambda *_args, **_kwargs: pytest.fail("matching cache must be reused"),
+    )
+
+    results = runner.run_one_turn(
+        repo=repo,
+        turn=1,
+        output_dir=output_dir,
+        agents=agents,
+        additional_dirs=[tmp_path],
+        timeout=30,
+        retries=0,
+        dry_run=False,
+        log_dir=tmp_path / "logs",
+    )
+
+    assert all(result.succeeded and not result.spawned for result in results.values())
+
+
+@pytest.mark.parametrize("change", ["findings", "source_commit"])
+def test_run_one_turn_regenerates_cache_when_round1_inputs_change(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch, change: str
+) -> None:
+    repo, output_dir, agents = _round2_cache_inputs(tmp_path, monkeypatch)
+    _write_attested_turn_cache(repo=repo, output_dir=output_dir, agents=agents)
+    if change == "findings":
+        data = json.loads(agents["codex"].read_text(encoding="utf-8"))
+        data["design_summary"] = "Changed after the cached turn."
+        agents["codex"].write_text(json.dumps(data) + "\n", encoding="utf-8")
+    else:
+        _write_round1_provenance(agents["codex"], agent="codex", repo=repo, source_commit="b" * 40)
+        _write_round1_provenance(
+            agents["claude"], agent="claude", repo=repo, source_commit="b" * 40
+        )
+
+    invoked: list[str] = []
+
+    def fake_invoke(agent_label, _prompt, **kwargs):
+        invoked.append(agent_label)
+        kwargs["progress_files"][0].write_text("{}\n", encoding="utf-8")
+        return True, "ok"
+
+    monkeypatch.setattr(runner, "WORKFLOWS_STEWARD", tmp_path)
+    monkeypatch.setattr(runner, "build_prompt", lambda **_kwargs: "prompt")
+    monkeypatch.setattr(runner, "invoke_agent", fake_invoke)
+
+    results = runner.run_one_turn(
+        repo=repo,
+        turn=1,
+        output_dir=output_dir,
+        agents=agents,
+        additional_dirs=[tmp_path],
+        timeout=30,
+        retries=0,
+        dry_run=False,
+        log_dir=tmp_path / "logs",
+    )
+
+    assert set(invoked) == set(agents)
+    assert all(result.succeeded and result.spawned for result in results.values())
+    assert list((output_dir / "repairs" / "round2-stale").glob("**/codex.json"))
+    assert list((output_dir / "repairs" / "round2-stale").glob("**/claude.json"))
+
+
+@pytest.mark.parametrize("manifest_contents", [None, "{not json"])
+def test_run_one_turn_dry_run_rejects_unattested_or_malformed_cache(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch, manifest_contents: str | None
+) -> None:
+    repo, output_dir, agents = _round2_cache_inputs(tmp_path, monkeypatch)
+    _write_attested_turn_cache(repo=repo, output_dir=output_dir, agents=agents)
+    for agent in agents:
+        manifest_path = runner.round2_input_manifest_path(
+            runner.round2_turn_path(output_dir, repo, 1, agent)
+        )
+        if manifest_contents is None:
+            manifest_path.unlink()
+        else:
+            manifest_path.write_text(manifest_contents, encoding="utf-8")
+    monkeypatch.setattr(
+        runner,
+        "invoke_agent",
+        lambda *_args, **_kwargs: pytest.fail("dry-run must not spawn an agent"),
+    )
+
+    results = runner.run_one_turn(
+        repo=repo,
+        turn=1,
+        output_dir=output_dir,
+        agents=agents,
+        additional_dirs=[tmp_path],
+        timeout=30,
+        retries=0,
+        dry_run=True,
+        log_dir=tmp_path / "logs",
+    )
+
+    assert all(not result.succeeded and not result.spawned for result in results.values())
+    assert all(
+        "dry-run: existing turn output is not reusable" in result.error
+        for result in results.values()
+    )
+
+
+def test_verify_turn_input_binding_fails_closed_for_changed_inputs(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    repo, output_dir, agents = _round2_cache_inputs(tmp_path, monkeypatch)
+    _write_attested_turn_cache(repo=repo, output_dir=output_dir, agents=agents)
+    agents["codex"].write_text("changed findings\n", encoding="utf-8")
+
+    errors = runner.verify_turn_input_binding(
+        repo=repo,
+        turn=1,
+        agent="codex",
+        out_path=runner.round2_turn_path(output_dir, repo, 1, "codex"),
+        round1_paths=agents,
+    )
+
+    assert errors == ["input manifest does not match current round-1/protocol inputs"]
+
+
+def test_verify_turn_input_binding_rejects_changed_prior_turn(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    repo, output_dir, agents = _round2_cache_inputs(tmp_path, monkeypatch)
+    _write_attested_turn_cache(repo=repo, output_dir=output_dir, agents=agents, turn=1)
+    prior_turn_paths = [runner.round2_turn_path(output_dir, repo, 1, agent) for agent in agents]
+    _write_attested_turn_cache(
+        repo=repo,
+        output_dir=output_dir,
+        agents=agents,
+        turn=2,
+        prior_turn_paths=prior_turn_paths,
+    )
+    prior_turn_paths[0].write_text('{"changed": true}\n', encoding="utf-8")
+
+    errors = runner.verify_turn_input_binding(
+        repo=repo,
+        turn=2,
+        agent="codex",
+        out_path=runner.round2_turn_path(output_dir, repo, 2, "codex"),
+        round1_paths=agents,
+        prior_turn_paths=prior_turn_paths,
+    )
+
+    assert errors == ["input manifest does not match current round-1/protocol inputs"]
+
+
+def test_verify_turn_input_binding_rejects_replaced_cached_output(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    repo, output_dir, agents = _round2_cache_inputs(tmp_path, monkeypatch)
+    _write_attested_turn_cache(repo=repo, output_dir=output_dir, agents=agents)
+    out_path = runner.round2_turn_path(output_dir, repo, 1, "codex")
+    out_path.write_text('{"replaced": true}\n', encoding="utf-8")
+
+    errors = runner.verify_turn_input_binding(
+        repo=repo,
+        turn=1,
+        agent="codex",
+        out_path=out_path,
+        round1_paths=agents,
+    )
+
+    assert errors == ["cached turn output does not match its input manifest receipt"]
