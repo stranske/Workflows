@@ -63,7 +63,7 @@ def test_langsmith_endpoint_normalizes_trailing_slash() -> None:
     )
 
 
-def test_overdue_pause_requires_attention() -> None:
+def test_overdue_pause_is_advisory() -> None:
     registry = {
         "repos": [
             {
@@ -80,9 +80,10 @@ def test_overdue_pause_requires_attention() -> None:
 
     component = health.evaluate_pauses(registry, now=NOW)
 
-    assert component["status"] == "degraded"
+    assert component["status"] == "healthy"
     assert component["paused_entries"][0]["pause_owner"] == "stranske/Workflows#2150"
-    assert component["reasons"] == ["stranske/Workflows pause review was due 2026-08-01"]
+    assert component["reasons"] == []
+    assert component["advisories"] == ["stranske/Workflows pause review was due 2026-08-01"]
 
 
 @pytest.mark.parametrize(
@@ -132,3 +133,34 @@ def test_workflow_run_loader_preserves_fetch_failure(tmp_path) -> None:
 
     assert runs == []
     assert error == "GitHub API unavailable"
+
+
+@pytest.mark.parametrize("has_key", [True, False])
+def test_stale_workflows_remain_code_owned_unless_cloud_key_unavailable(
+    tmp_path, monkeypatch, has_key
+):
+    from argparse import Namespace
+
+    runs = tmp_path / "runs.json"
+    runs.write_text(json.dumps({"workflow_runs": [_run("2026-07-01T00:00:00Z", "failure")]}))
+    registry = tmp_path / "registry.json"
+    registry.write_text(json.dumps({"repos": []}))
+    monkeypatch.setenv("LANGSMITH_API_KEY", "test-key" if has_key else "")
+    monkeypatch.setattr(
+        health, "query_latest_trace", lambda **kwargs: {"start_time": NOW.isoformat()}
+    )
+    report = health.build_report(
+        Namespace(
+            now=NOW.isoformat(),
+            dashboard_runs=runs,
+            conformance_runs=runs,
+            registry=registry,
+            endpoint=health.DEFAULT_ENDPOINT,
+            project=health.DEFAULT_PROJECT,
+            workflow_max_age_hours=192,
+            failure_threshold=2,
+            trace_max_age_hours=24,
+        )
+    )
+    assert report["status"] == "degraded"
+    assert report["human_attention_required"] is not has_key

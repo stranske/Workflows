@@ -1,0 +1,16 @@
+✔ large repository uses server-side exact name and never scans unrelated records (0.629375ms)
+✔ exact artifact wins even when a newer suffix exists (0.099333ms)
+✔ expired exact artifacts do not hide a trusted suffix; untrusted and absent runs skipped (0.176333ms)
+✔ 500 reduces page size without retrying the identical request (0.494875ms)
+✔ reduced later page retains offset and does not skip records (0.175458ms)
+✔ authorization errors fail immediately (0.879875ms)
+✔ listing budget exhaustion is UNKNOWN, not a missing-artifact success (0.155584ms)
+✔ no artifacts returns null after two bounded empty listings (0.086625ms)
+ℹ tests 8
+ℹ suites 0
+ℹ pass 8
+ℹ fail 0
+ℹ cancelled 0
+ℹ skipped 0
+ℹ todo 0
+ℹ duration_ms 52.320167
