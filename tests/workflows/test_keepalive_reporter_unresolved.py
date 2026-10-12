@@ -46,6 +46,9 @@ const context = {
 };
 const github = {rest: {actions: {getWorkflowRun: async () => {
   events.push(['read-origin']);
+  if (input.originError) {
+    throw Object.assign(new Error('originating run unavailable'), {status: 404});
+  }
   return {data: {...run, ...(input.origin || {})}};
 }}}};
 const wrappedRequire = (name) => {
@@ -166,6 +169,51 @@ def test_unavailable_lookup_reports_without_guessing_a_target(reporter: Path) ->
     assert "index 503 &lt;script&gt; &amp; &quot;unsafe&quot;" in summary
     assert "<script>" not in summary
     assert result["outputs"]["lock_pr_number"] == ""
+
+
+@pytest.mark.parametrize("reporter", REPORTERS, ids=["root", "consumer"])
+@pytest.mark.parametrize("summary_error", [False, True], ids=["summary-written", "summary-failed"])
+def test_unavailable_origin_run_fails_without_authorizing_mutation(
+    reporter: Path, summary_error: bool
+) -> None:
+    """A missing origin API response cannot suppress the alarm or grant a PR lock."""
+    result = _resolve(reporter, originError=True, summaryError=summary_error)
+    diagnostic_event = "error" if summary_error else "summary"
+    assert [event[0] for event in result["events"]] == [
+        "read-origin",
+        diagnostic_event,
+        "failed",
+    ]
+    if summary_error:
+        assert result["events"][1][1] == (
+            "Reporter diagnostic summary unavailable: summary storage unavailable"
+        )
+    else:
+        summary = result["events"][1][1]
+        for value in (
+            "Repository: stranske/example",
+            "Upstream run: 12345",
+            "Attempt: 2",
+            "Conclusion: failure",
+            "Head: " + "a" * 40,
+            "Target resolution: originating run unavailable",
+        ):
+            assert value in summary
+        assert result["events"][1][2]["lock_pr_number"] == ""
+    assert result["events"][2][1] == (
+        "Reporter applicability unavailable: originating run unavailable"
+    )
+    assert (
+        result["events"][2][2]
+        == result["outputs"]
+        == {
+            "outcome": "unresolved",
+            "skip": "false",
+            "lock_pr_number": "",
+            "pr_number": "",
+            "ordinary_target": "false",
+        }
+    )
 
 
 @pytest.mark.parametrize("reporter", REPORTERS, ids=["root", "consumer"])
