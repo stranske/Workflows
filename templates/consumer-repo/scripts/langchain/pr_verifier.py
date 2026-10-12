@@ -1032,7 +1032,8 @@ _NEGATIVE_EVIDENCE_ADJECTIVE_GOVERNOR = (
 _NEGATIVE_EVIDENCE_REQUIREMENT_GOVERNOR = (
     r"(?:" + _NEGATIVE_EVIDENCE_ADJECTIVE_GOVERNOR + r"\s+to|"
     r"(?:does|do|did)\s+(?:not|never)\s+(?:need|have)\s+to|"
-    r"(?:never|no\s+longer)\s+(?:has|have|needs?)\s+to|needs?\s+not)"
+    r"(?:never|no\s+longer)\s+(?:has|have|needs?)\s+to|needs?\s+not|"
+    r"no\s+(?:need|requirement|obligation)\s+(?:exists?\s+)?to)"
 )
 _INDEPENDENT_REVIEW_PREDICATE = (
     r"(?:"
@@ -1096,6 +1097,24 @@ _REVIEW_BODY_COMPONENT = (
     + _REVIEW_BODY_COMPONENT_TEMPORAL
     + r")\b))"
 )
+
+
+# Review comments share the ordinary PR-comment destination grammar. Normalize
+# before either classifier so polarity, product components and ORs stay shared.
+_EVIDENCE_REVIEW_COMMENT_DESTINATION = (
+    r"(?:(?:pr|pull request)\s+(?:inline\s+)?review\s+comments?|"
+    r"inline\s+(?:review\s+)?comments?)\b"
+)
+
+
+def _normalize_review_comment_destinations(acceptance: str) -> str:
+    return re.sub(
+        r"(?P<literal>" + _QUOTED_EVIDENCE_LITERAL + r")|"
+        r"\b" + _EVIDENCE_REVIEW_COMMENT_DESTINATION,
+        lambda match: match[0] if match["literal"] else "PR comment",
+        acceptance,
+        flags=re.I,
+    )
 
 
 _EVIDENCE_ARTIFACT_DESTINATION = r"(?:workflow|ci|github actions)\s+artifacts?\b"
@@ -1445,6 +1464,7 @@ def _normalize_review_content_qualifiers(acceptance: str) -> str:
 def _required_evidence_channels(acceptance: str, *, _bind_attached: bool = True) -> set[str]:
     """Identify explicit evidence deliverables without treating negations as requirements."""
 
+    acceptance = _normalize_review_comment_destinations(acceptance)
     acceptance = _normalize_review_content_qualifiers(acceptance)
     acceptance = _normalize_passive_review_agents(acceptance)
     acceptance = _normalize_relative_review_presence(acceptance)
@@ -1649,7 +1669,7 @@ def _required_evidence_channels(acceptance: str, *, _bind_attached: bool = True)
         r"(?P<literal>" + quoted_evidence_literal + r")|"
         r"(?P<checklist>^[ \t]*(?:[-*+]|\d+[.)])[ \t]*\[[ xX]\][ \t]*(?:\r?\n[ \t]*)?)"
         r"(?P<object>(?:(?:test|validation|CI|build|execution)\s+){0,3}"
-        r"(?:evidence|command outputs?|transcripts?))\s+"
+        r"(?:evidence|command outputs?|transcripts?|" + _EVIDENCE_PROOF_ALIAS_NOUN + r"))\s+"
         r"(?P<destinations>" + bound_review_destinations + r")"
         r"(?P<qualification>\s+(?:"
         r"(?:that|which)\s+(?P<relative_negative_adverbs>"
@@ -2488,6 +2508,7 @@ def _required_evidence_channels(acceptance: str, *, _bind_attached: bool = True)
             is_gate = gate and bool(re.match(r"(?:without|unless|until)\b", clause, re.I))
             prohibited = not is_gate and (
                 object_prohibited
+                or bool(re.search(negative_requirement_governor, polarity_clause, re.I))
                 or bool(
                     re.search(
                         r"\b(?:not|never|no\s+longer)\b",
@@ -2652,6 +2673,16 @@ def _required_evidence_channels(acceptance: str, *, _bind_attached: bool = True)
 
     def product_comment_object(prefix: str, destination: str) -> bool:
         """Classify the governing operation's subject, not domain words anywhere."""
+        # A review-comment UI/API can itself be the product subject. Its
+        # component noun and finite operation occur after the channel-shaped
+        # name, not before it as they do for an object/destination. Restrict
+        # this to a bare qualified subject, preserving earlier deliveries.
+        if re.fullmatch(r"\s*" + recipient_prefix, prefix, re.I) and re.match(
+            r"\s+" + product_actor + r"\s+" + product_auxiliary + response_operation,
+            destination,
+            re.I,
+        ):
+            return True
         prefix = normalize_product_capability(prefix)
         operations = list(
             re.finditer(
@@ -3889,6 +3920,18 @@ def _required_evidence_channels(acceptance: str, *, _bind_attached: bool = True)
                     )
                     or re.search(
                         r"\b"
+                        + delivery_operation
+                        + r"\s+"
+                        + evidence_modifiers
+                        + r"(?:evidence|command outputs?|transcripts?|coverage reports?|"
+                        + _EVIDENCE_PROOF_ALIAS_NOUN
+                        + r")\s+as\s+(?:(?:an?|the)\s+)?"
+                        r"(?:(?:workflow|validation|exact-head|evidence)\s+)?artifacts?\b",
+                        requirement_text,
+                        re.I,
+                    )
+                    or re.search(
+                        r"\b"
                         + mandatory_auxiliary
                         + r"\s+"
                         + passive_delivery_prefix
@@ -4279,6 +4322,7 @@ def _required_evidence_options(acceptance: str) -> list[set[str]]:
     Ambiguous mixed conjunctions or excessive expansion retain the strict legacy
     requirement rather than dropping an obligation.
     """
+    acceptance = _normalize_review_comment_destinations(acceptance)
     acceptance = _normalize_review_content_qualifiers(acceptance)
     acceptance = _normalize_passive_review_agents(acceptance)
     acceptance = _normalize_relative_review_presence(acceptance)
