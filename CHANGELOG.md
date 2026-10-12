@@ -6,6 +6,13 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 Breaking changes are called out with a **BREAKING** marker and scheduled according to the policy in `COMPATIBILITY.md`.
 
+## [1.38.1](https://github.com/stranske/Workflows/compare/v1.38.0...v1.38.1) (2026-10-12)
+
+
+### Bug Fixes
+
+* **guard:** publish exact-head status and block missing declared checks ([#3860](https://github.com/stranske/Workflows/issues/3860)) ([e34814e](https://github.com/stranske/Workflows/commit/e34814e667eb9018c3a5e93ba0dfe4191936ec5a))
+
 ## [1.38.0](https://github.com/stranske/Workflows/compare/v1.37.40...v1.38.0) (2026-10-12)
 
 
