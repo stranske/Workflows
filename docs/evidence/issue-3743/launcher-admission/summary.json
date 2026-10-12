@@ -1,10 +1,11 @@
 {
   "base": "71f89d431dc65873db189cb6fcf1a4405422c4c7",
   "environment": {
-    "interpreter": "/opt/anaconda3/bin/python3",
-    "python": "3.12.2 | packaged by conda-forge | (main, Feb 16 2024, 20:54:21) [Clang 16.0.6 ]",
-    "platform": "macOS-26.6.2-arm64-arm-64bit"
+    "interpreter": "/opt/hostedtoolcache/Python/3.14.8/x64/bin/python",
+    "python": "3.14.8 (main, Oct  1 2026, 02:38:33) [GCC 13.3.0]",
+    "platform": "Linux-6.17.0-1022-azure-x86_64-with-glibc2.39"
   },
+  "requested_interpreter_available": false,
   "baseline": {
     "covered_lines": 581,
     "num_statements": 591,
@@ -66,13 +67,41 @@
   "production_sha256": "cc97119ea26afec275be3c83d22bc75de0d452cd0f4764896cc9d037274ab25a",
   "production_unchanged": true,
   "root_template_identical": true,
-  "historical_tracked_evidence_diff_exit": 0,
   "historical_tracked_files": 633,
+  "historical_unchanged": true,
   "mutation_pairs": 4,
   "reuse_unchanged_files": 17,
+  "matched_modules": [
+    "tests/scripts/test_check_deliberate_break.py",
+    "tests/scripts/test_check_deliberate_break_archive.py",
+    "tests/scripts/test_check_deliberate_break_launch_boundaries.py",
+    "tests/scripts/test_check_deliberate_break_module_boundaries.py",
+    "tests/scripts/test_check_deliberate_break_repair_failures.py",
+    "tests/scripts/test_check_deliberate_break_runtime_probes.py",
+    "tests/scripts/test_check_deliberate_break_uv_resolution.py",
+    "tests/scripts/test_module_boundary_replay_isolation.py",
+    "tests/scripts/test_check_deliberate_break_runtime_health.py"
+  ],
+  "template_validation_summary_override": "/tmp/launcher-admission-revalidation-2/template-step-summary.md",
+  "prior_archive_sha256": "066c6a5303ede1b70b07d775c1d3b8036aa9079d4b03650cb51ad903316887fa",
+  "prior_raw_members_unchanged": 35,
+  "requested_interpreter_commands_repeated": false,
+  "verified_tasks": [
+    "Four paired root/template missing and opaque launcher cases.",
+    "Four assertion RED/byte-identical restored GREEN pairs with source/test hashes; output reuse rejected.",
+    "Nine identical existing modules, four new PASS nodes, no outcome or coverage regressions."
+  ],
+  "validation_commands": [
+    "black-exact",
+    "ruff",
+    "template-completeness",
+    "diff-check",
+    "replay-tests"
+  ],
+  "black_scheduler": "Serial Black cache population, then required Black CLI with BLACK_NUM_WORKERS=1.",
   "limits": [
-    "Root helper coverage only; paired template behavior tested separately.",
-    "No repository-wide90%, authentic hosted/native/provider PASS or whole-source acceptance.",
-    "Prior3832 and3838 CONCERNS dispositions retained; source3743 staysOPEN."
+    "Coverage is for the root helper; paired template behavior is tested separately.",
+    "The specified /opt/anaconda3/bin/python3 interpreter is absent; this run uses the recorded Linux interpreter.",
+    "The checkout Git directory is read-only; the new commit and patch are retained in /tmp."
   ]
 }

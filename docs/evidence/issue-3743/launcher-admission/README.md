@@ -14,7 +14,7 @@ executable shell script, real shutil.which and real shebang parsing. Production
 code, consumer template, workflow/routing settings, exclusions and633 tracked
 historical evidence files are unchanged.
 
-Validation used /opt/anaconda3/bin/python3 (Python3.12.2, macOS26.6.2):
+Initial validation used /opt/anaconda3/bin/python3 (Python3.12.2, macOS26.6.2):
 
 - Named new module:4PASS.
 - Identical nine existing helper/replay modules:312PASS baseline; with only the
@@ -37,11 +37,40 @@ Replay from the repository or any working directory:
 /opt/anaconda3/bin/python3 docs/evidence/issue-3743/launcher-admission/replay.py   --output /tmp/new-launcher-admission-proof
 ```
 
-proof.tar.gz retains35 raw members: matched command argv/cwd/exits, full console,
+The initial archive retained35 raw members: matched command argv/cwd/exits, full console,
 JUnit and coverageJSON plus raw coverage databases; four mutation-pair receipts
 and logs/JUnit; reuse, focused and validation records; fresh ranking. manifest.json
 binds every decoded member and committed source/test/proof file with SHA256.
 summary.json records the exact baseline/environment/counts/coverage universe.
+
+The current replay additionally binds each phase to the selected JUnit module
+and node, the admission assertion, and the test SHA256. Each pair records an
+explicit restored SHA256 and verifies all three private inputs after restoration.
+Its standard-library XML parser rejects declarations and external entities;
+`tests/scripts/test_launcher_admission_replay.py` exercises wrong nodes, wrong
+modules, errors, skips, non-assertion failures, XML declarations and output reuse.
+
+The October 12 Linux revalidation is retained under `revalidation/` in the same
+archive. The original 35 raw members remain byte-identical; the original archive,
+summary, manifest, README and replay are also retained there. The current
+`summary.json` identifies the new interpreter and exact measurements. This runner
+does not have `/opt/anaconda3/bin/python3`, so it cannot repeat the two acceptance
+commands with that exact interpreter. Their historical macOS evidence is retained.
+
+Full-repository Black checks 709 files. A serial scheduler populates a writable
+cache in `/tmp`; the required `black --check --line-length 100 --exclude
+'(\.workflows-lib|node_modules)' .` command then passes with that cache and
+`BLACK_NUM_WORKERS=1`. No formatter or repository configuration is changed.
+The supplemental replay tests are validated separately from the matched coverage
+comparison, which adds only the four-case launcher admission module.
+
+Verified implementation tasks:
+
+- [x] Four paired root/template missing and opaque launcher rejection cases.
+- [x] Four production assertion RED/restored GREEN pairs with complete receipts,
+  test/source hashes, byte-identical restoration and rejected output reuse.
+- [x] Matched nine-module comparison: 312 to 316 PASS, exactly four new nodes,
+  no old outcome changes or coverage regressions, unchanged production and history.
 
 Hosted CI, expected-check topology, review-thread disposition, seven-minute
 exact-head floor, merge and actual provider comparison remain future delivery
