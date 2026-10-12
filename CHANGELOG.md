@@ -6,6 +6,16 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 Breaking changes are called out with a **BREAKING** marker and scheduled according to the policy in `COMPATIBILITY.md`.
 
+## [1.37.39](https://github.com/stranske/Workflows/compare/v1.37.38...v1.37.39) (2026-10-12)
+
+
+### Bug Fixes
+
+* keep timeout checkpoints free of runtime artifacts ([#3842](https://github.com/stranske/Workflows/issues/3842)) ([3386b2f](https://github.com/stranske/Workflows/commit/3386b2fee49fbd478b2791f3f3b921359e607864))
+* **maint-71:** block generated deliveries on consumer-declared failed checks ([#3847](https://github.com/stranske/Workflows/issues/3847)) ([19ab61a](https://github.com/stranske/Workflows/commit/19ab61a1e281791e915e512407fffa20515600bb))
+* **sync:** preserve dev-tool final finding verification bindings ([#3850](https://github.com/stranske/Workflows/issues/3850)) ([c4a8d16](https://github.com/stranske/Workflows/commit/c4a8d16d5d48464ea5a9108a129f3c634eb0b6ed))
+* **verifier:** retain artifact and review-comment evidence destinations ([#3836](https://github.com/stranske/Workflows/issues/3836)) ([fe15da5](https://github.com/stranske/Workflows/commit/fe15da509a833c5c838a5d3c675e8503873d17e2))
+
 ## [1.37.38](https://github.com/stranske/Workflows/compare/v1.37.37...v1.37.38) (2026-10-11)
 
 
