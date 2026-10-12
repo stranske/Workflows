@@ -7002,6 +7002,86 @@ test('updateKeepaliveLoopSummary replaces exploration policy versions and clears
   }
 });
 
+for (const loopPath of ['../keepalive_loop', '../../../templates/consumer-repo/.github/scripts/keepalive_loop']) {
+  test(`seeded exploration policy_version reaches the keepalive summary (${loopPath})`, async (t) => {
+    const loop = require(loopPath);
+    const routeWeights = {
+      ...require('../../../tests/fixtures/route-weights-with-exploration.json'),
+      // Exercise export validation without making this regression expire.
+      generated_at: new Date().toISOString(),
+    };
+    const envKeys = ['HAS_CODEX_AUTH', 'HAS_CLAUDE_OAUTH', 'HAS_CURSOR_AUTH', 'HAS_GEMINI_AUTH'];
+    const previousEnv = Object.fromEntries(envKeys.map((key) => [key, process.env[key]]));
+    const previousFetch = global.fetch;
+    t.after(() => {
+      global.fetch = previousFetch;
+      for (const [key, value] of Object.entries(previousEnv)) {
+        if (value === undefined) delete process.env[key];
+        else process.env[key] = value;
+      }
+    });
+    for (const key of envKeys) process.env[key] = 'true';
+    let fetchCount = 0;
+    global.fetch = async () => {
+      fetchCount += 1;
+      return { status: 200, json: async () => routeWeights };
+    };
+
+    // Live PR seeds land on opposite sides of the published 5% rate.
+    for (const { prNumber, agent, source } of [
+      { prNumber: 3844, agent: 'gemini', source: 'route_weights_exploration' },
+      { prNumber: 3845, agent: 'cursor', source: 'route_weights' },
+    ]) {
+      const pr = {
+        number: prNumber,
+        head: { ref: `agent/issue-${prNumber}`, sha: `sha-${prNumber}` },
+        labels: [{ name: 'agent:auto' }, { name: 'agents:keepalive' }],
+        body: prBodyFixture,
+      };
+      const github = buildGithubStub({
+        pr,
+        workflowRuns: [{ head_sha: pr.head.sha, conclusion: 'success' }],
+      });
+      github.rest.actions.listWorkflowRunsForRepo = async () => ({
+        data: { workflow_runs: [] },
+      });
+      const context = buildContext(prNumber);
+      const core = buildCore();
+      const result = await loop.evaluateKeepaliveLoop({ github, context, core });
+      const expectedVersion = source === 'route_weights_exploration'
+        ? routeWeights.exploration.policy_version : '';
+      assert.equal(result.agentType, agent);
+      assert.equal(result.delegationSource, source);
+      assert.equal(result.policyVersion, expectedVersion);
+
+      await loop.updateKeepaliveLoopSummary({
+        github,
+        context,
+        core,
+        inputs: {
+          ...result,
+          runResult: 'success',
+          tasksTotal: result.checkboxCounts.total,
+          tasksUnchecked: result.checkboxCounts.unchecked,
+          autofixEnabled: false,
+        },
+      });
+      const comment = github.actions.find((entry) => entry.body && parseStateComment(entry.body));
+      assert.ok(comment, 'evaluation must publish a summary with durable state');
+      assert.ok(comment.body.includes(`| Delegation source | ${source} |`));
+      const state = parseStateComment(comment.body).data;
+      assert.equal(state.delegation_source, source);
+      assert.equal(state.policy_version, expectedVersion);
+      if (expectedVersion) {
+        assert.ok(comment.body.includes(`| Policy version | ${expectedVersion} |`));
+      } else {
+        assert.doesNotMatch(comment.body, /\| Policy version \|/);
+      }
+    }
+    assert.equal(fetchCount, 2, 'each evaluation must consume the published export');
+  });
+}
+
 test('evaluateKeepaliveLoop resolves agent:auto via delegation policy with delegationSource', async () => {
   const previousEnv = {
     HAS_CODEX_AUTH: process.env.HAS_CODEX_AUTH,
