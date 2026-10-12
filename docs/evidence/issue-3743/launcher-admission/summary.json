@@ -1,0 +1,116 @@
+{
+  "base": "71f89d431dc65873db189cb6fcf1a4405422c4c7",
+  "environment": {
+    "interpreter": "/opt/hostedtoolcache/Python/3.14.8/x64/bin/python",
+    "python": "3.14.8 (main, Oct  1 2026, 02:38:33) [GCC 13.3.0]",
+    "platform": "Linux-6.17.0-1022-azure-x86_64-with-glibc2.39"
+  },
+  "requested_interpreter_available": false,
+  "baseline": {
+    "covered_lines": 581,
+    "num_statements": 591,
+    "percent_covered": 97.30363423212192,
+    "percent_covered_display": "97.30",
+    "missing_lines": 10,
+    "excluded_lines": 0,
+    "percent_statements_covered": 98.30795262267344,
+    "percent_statements_covered_display": "98.31",
+    "num_branches": 262,
+    "num_partial_branches": 13,
+    "covered_branches": 249,
+    "missing_branches": 13,
+    "percent_branches_covered": 95.0381679389313,
+    "percent_branches_covered_display": "95.04"
+  },
+  "candidate": {
+    "covered_lines": 583,
+    "num_statements": 591,
+    "percent_covered": 97.7725674091442,
+    "percent_covered_display": "97.77",
+    "missing_lines": 8,
+    "excluded_lines": 0,
+    "percent_statements_covered": 98.64636209813875,
+    "percent_statements_covered_display": "98.65",
+    "num_branches": 262,
+    "num_partial_branches": 11,
+    "covered_branches": 251,
+    "missing_branches": 11,
+    "percent_branches_covered": 95.80152671755725,
+    "percent_branches_covered_display": "95.80"
+  },
+  "baseline_tests": 312,
+  "candidate_tests": 316,
+  "new_nodes": [
+    "tests.scripts.test_check_deliberate_break_launcher_admission::test_unavailable_or_non_python_pytest_does_not_admit_active_runtime[root-missing]",
+    "tests.scripts.test_check_deliberate_break_launcher_admission::test_unavailable_or_non_python_pytest_does_not_admit_active_runtime[root-opaque]",
+    "tests.scripts.test_check_deliberate_break_launcher_admission::test_unavailable_or_non_python_pytest_does_not_admit_active_runtime[template-missing]",
+    "tests.scripts.test_check_deliberate_break_launcher_admission::test_unavailable_or_non_python_pytest_does_not_admit_active_runtime[template-opaque]"
+  ],
+  "removed_nodes": [],
+  "changed_old_outcomes": {},
+  "covered_line_regressions": [],
+  "covered_branch_regressions": [],
+  "newly_covered_lines": [
+    355,
+    358
+  ],
+  "newly_covered_branches": [
+    [
+      354,
+      355
+    ],
+    [
+      357,
+      358
+    ]
+  ],
+  "production_sha256": "cc97119ea26afec275be3c83d22bc75de0d452cd0f4764896cc9d037274ab25a",
+  "production_unchanged": true,
+  "root_template_identical": true,
+  "historical_tracked_files": 633,
+  "historical_unchanged": true,
+  "mutation_pairs": 4,
+  "reuse_unchanged_files": 17,
+  "matched_modules": [
+    "tests/scripts/test_check_deliberate_break.py",
+    "tests/scripts/test_check_deliberate_break_archive.py",
+    "tests/scripts/test_check_deliberate_break_launch_boundaries.py",
+    "tests/scripts/test_check_deliberate_break_module_boundaries.py",
+    "tests/scripts/test_check_deliberate_break_repair_failures.py",
+    "tests/scripts/test_check_deliberate_break_runtime_probes.py",
+    "tests/scripts/test_check_deliberate_break_uv_resolution.py",
+    "tests/scripts/test_module_boundary_replay_isolation.py",
+    "tests/scripts/test_check_deliberate_break_runtime_health.py"
+  ],
+  "template_validation_summary_override": "/tmp/launcher-admission-suite-proof/template-step-summary.md",
+  "prior_archive_sha256": "984b32fa0bd341b58cb16057434547918c3f51d99b8acbb7f22bc27ec4946d66",
+  "prior_raw_members_unchanged": 112,
+  "requested_interpreter_commands_repeated": false,
+  "verified_tasks": [
+    "Four paired root/template missing and opaque launcher cases.",
+    "Four assertion RED/byte-identical restored GREEN pairs with source/test hashes; output reuse rejected.",
+    "Nine identical existing modules, four new PASS nodes, no outcome or coverage regressions."
+  ],
+  "validation_commands": [
+    "black-exact",
+    "ruff",
+    "template-completeness",
+    "diff-check",
+    "replay-tests"
+  ],
+  "replay_validation_tests": 27,
+  "new_receipt_validation_cases": 18,
+  "receipt_regressions_detected_against_previous_validator": 15,
+  "pr_body_update_applied": false,
+  "pr_body_update_blocker": "MCP tool call requires approval, but approval policy is never",
+  "pr_verified_state": "open",
+  "pr_verified_isDraft": false,
+  "pending_acceptance": "Revised replay with /opt/anaconda3/bin/python3; interpreter absent on this runner.",
+  "black_scheduler": "Serial Black cache population, then required Black CLI with BLACK_NUM_WORKERS=1.",
+  "limits": [
+    "Coverage measures the root helper; paired template behavior is tested separately.",
+    "The requested Anaconda interpreter is absent; Linux interpreter recorded in raw receipts.",
+    "The checkout Git directory is read-only; an isolated commit and patch are retained in /tmp.",
+    "Automatic approval review rejected the live PR-body update; reconciled body is retained for handoff."
+  ]
+}
