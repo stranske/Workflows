@@ -19,6 +19,7 @@ const {
   pickAgent,
   selectAgentFromRouteWeights,
   explorationSeedFromState,
+  formatDelegationSummary,
 } = require('../agent_delegation_policy.js');
 
 const routeWeightsWithExploration = require(
@@ -667,6 +668,7 @@ test('stalled-no-alternatives preserves computed delegationSource', () => {
 });
 
 test('exploration branch delegates to the published challenger at the published rate and reports the policy version', () => {
+  assert.equal(routeWeightsWithExploration.exploration.rate, 0.05);
   const result = decideNextAgent({
     state: { iteration: 7 },
     labels: ['agent:auto'],
@@ -679,6 +681,108 @@ test('exploration branch delegates to the published challenger at the published 
   assert.equal(result.delegationSource, 'route_weights_exploration');
   assert.equal(result.policy_version, 'exploration-2026-10-06');
   assert.equal(result.shouldSwitch, false);
+
+  const summary = formatDelegationSummary({ decision: result });
+  assert.match(summary, /\*\*Delegation source:\*\* route_weights_exploration/);
+  assert.match(summary, /\*\*Policy version:\*\* exploration-2026-10-06/);
+
+  // Seed 100 draws between 1% and the published 5%; seed 500 draws above 5%.
+  // These fixed cases reject both always-explore and hard-coded-rate routing.
+  for (const { seed, rate, agent } of [
+    { seed: 100, rate: 0.05, agent: 'gemini' },
+    { seed: 100, rate: 0.01, agent: 'cursor' },
+    { seed: 500, rate: 0.05, agent: 'cursor' },
+    { seed: 500, rate: 1, agent: 'gemini' },
+    { seed: 7, rate: 0, agent: 'cursor' },
+  ]) {
+    const decision = decideNextAgent({
+      state: { iteration: seed },
+      labels: ['agent:auto'],
+      secrets: mockSecrets,
+      registry: mockRegistry,
+      routeWeights: {
+        ...routeWeightsWithExploration,
+        exploration: { ...routeWeightsWithExploration.exploration, rate },
+      },
+    });
+    assert.equal(decision.agent, agent, `seed=${seed}, rate=${rate}`);
+    assert.equal(
+      decision.delegationSource,
+      agent === 'gemini' ? 'route_weights_exploration' : 'route_weights'
+    );
+    assert.equal(
+      decision.policy_version,
+      agent === 'gemini' ? 'exploration-2026-10-06' : undefined
+    );
+  }
+});
+
+test('exploration retains the ranking pick when the challenger is ineligible or reserved', async (t) => {
+  const cases = [
+    { name: 'reserved by task type', reserve: { implement: [{ agent: 'gemini' }] } },
+    { name: 'reserved by legacy list', reserve: ['GEMINI'] },
+    { name: 'missing prerequisites', secrets: { ...mockSecrets, GEMINI_API_KEY: false } },
+    { name: 'runner absent from current tree', runnableAgents: ['codex', 'claude', 'cursor'] },
+    { name: 'disabled in registry', agentConfig: { enabled: false } },
+    { name: 'no runner workflow', agentConfig: { runner_workflow: '' } },
+    { name: 'no keepalive capability', agentConfig: { capabilities: { pr_keepalive: false } } },
+    { name: 'unknown challenger', challengers: { implement: 'unregistered-agent' } },
+    { name: 'challenger missing for task type', challengers: { review: 'gemini' } },
+  ];
+
+  for (const scenario of cases) {
+    await t.test(scenario.name, () => {
+      const decision = decideNextAgent({
+        state: { iteration: 7 },
+        labels: ['agent:auto'],
+        secrets: scenario.secrets || mockSecrets,
+        runnableAgents: scenario.runnableAgents,
+        registry: {
+          ...mockRegistry,
+          agents: {
+            ...mockRegistry.agents,
+            gemini: { ...mockRegistry.agents.gemini, ...scenario.agentConfig },
+          },
+        },
+        routeWeights: {
+          ...routeWeightsWithExploration,
+          reserve: scenario.reserve || routeWeightsWithExploration.reserve,
+          exploration: {
+            ...routeWeightsWithExploration.exploration,
+            challengers: scenario.challengers || routeWeightsWithExploration.exploration.challengers,
+          },
+        },
+      });
+
+      assert.equal(decision.agent, 'cursor');
+      assert.equal(decision.delegationSource, 'route_weights');
+      assert.equal(decision.policy_version, undefined);
+    });
+  }
+});
+
+test('stalled delegation propagates exploration metadata and never reselects the current challenger', () => {
+  // This live PR/iteration identity produces an exploration draw below 5%.
+  const state = { ...stalledStateCodex, pr_number: 3840, iteration: 99 };
+  const options = {
+    state,
+    labels: ['agent:auto'],
+    secrets: mockSecrets,
+    registry: mockRegistry,
+    routeWeights: routeWeightsWithExploration,
+  };
+  const exploration = decideNextAgent(options);
+  assert.equal(exploration.agent, 'gemini');
+  assert.equal(exploration.shouldSwitch, true);
+  assert.equal(exploration.previousAgent, 'codex');
+  assert.equal(exploration.delegationSource, 'route_weights_exploration');
+  assert.equal(exploration.policy_version, 'exploration-2026-10-06');
+
+  const ranking = decideNextAgent({ ...options, state: { ...state, current_agent: 'gemini' } });
+  assert.equal(ranking.agent, 'cursor');
+  assert.equal(ranking.shouldSwitch, true);
+  assert.equal(ranking.delegationSource, 'route_weights');
+  assert.equal(ranking.policy_version, undefined);
 });
 
 test('pickAgent CLI helper reports exploration delegation for a seeded draw', () => {
