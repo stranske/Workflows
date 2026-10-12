@@ -763,7 +763,7 @@ function describeConsumerDeclaredContexts({ declared = {}, classification = {} }
   const where = CONSUMER_REQUIRED_CONTEXTS_PATH;
   if (declared.state === 'none') return `Consumer-declared delivery checks: none (${where} absent)`;
   if (declared.state === 'unparseable') {
-    return `Consumer-declared delivery checks: NOT ENFORCED, ${where} is unreadable ` +
+    return `Consumer-declared delivery checks: MERGE BLOCKED, ${where} is unreadable ` +
       `(${declared.error || 'unknown error'})`;
   }
   const outcome = classification.declared_contexts || {};
@@ -777,7 +777,7 @@ function describeConsumerDeclaredContexts({ declared = {}, classification = {} }
   if (failed.length) parts.push(`${failed.length} failed: ${failed.join(', ')}`);
   if (pending.length) parts.push(`${pending.length} running: ${pending.join(', ')}`);
   if (neverStarted.length) {
-    parts.push(`${neverStarted.length} never started, not enforced: ${neverStarted.join(', ')}`);
+    parts.push(`${neverStarted.length} never started, merge blocked: ${neverStarted.join(', ')}`);
   }
   if (alsoRequired.length) parts.push(`${alsoRequired.length} also required, gated as required`);
   const verdict = total === 0
@@ -835,6 +835,13 @@ function classifySyncPrChecks({
   }
   if (pending.length > 0) {
     return { status: 'checks_pending', failed: [], pending, declared_contexts };
+  }
+  // A settled workflow with a missing declared result is UNKNOWN, not PASS.
+  // Retain never_started as durable diagnosis; only an actual result clears it.
+  if (declared.neverStarted.length > 0) {
+    return { status: 'checks_pending', failed: [],
+      pending: declared.neverStarted.map((name) => ({ name, status: 'not_started' })),
+      declared_contexts };
   }
   return { status: 'ready', failed: [], pending: [], declared_contexts };
 }
