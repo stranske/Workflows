@@ -6906,6 +6906,43 @@ test('updateKeepaliveLoopSummary shows regex fallback warning', async () => {
   assert.match(github.actions[0].body, /Primary provider.*was unavailable/);
 });
 
+test('updateKeepaliveLoopSummary prints policy_version when exploration delegation fires', async () => {
+  const github = buildGithubStub({
+    comments: [],
+  });
+  await updateKeepaliveLoopSummary({
+    github,
+    context: buildContext(3840),
+    core: buildCore(),
+    inputs: {
+      prNumber: 3840,
+      action: 'run',
+      runResult: 'success',
+      gateConclusion: 'success',
+      tasksTotal: 3,
+      tasksUnchecked: 2,
+      keepaliveEnabled: true,
+      autofixEnabled: false,
+      iteration: 1,
+      maxIterations: 10,
+      failureThreshold: 3,
+      agent_type: 'gemini',
+      agent_routing_mode: 'auto',
+      delegation_reason: 'initial-selection-route-weights',
+      delegation_should_switch: 'false',
+      delegation_source: 'route_weights_exploration',
+      policy_version: 'exploration-2026-10-06',
+      trace: 'trace-exploration',
+    },
+  });
+
+  assert.ok(github.actions.length >= 1);
+  const body = github.actions[0].body;
+  assert.match(body, /### Agent Delegation \(auto mode\)/);
+  assert.match(body, /\| Delegation source \| route_weights_exploration \|/);
+  assert.match(body, /\| Policy version \| exploration-2026-10-06 \|/);
+});
+
 test('evaluateKeepaliveLoop resolves agent:auto via delegation policy with delegationSource', async () => {
   const previousEnv = {
     HAS_CODEX_AUTH: process.env.HAS_CODEX_AUTH,
