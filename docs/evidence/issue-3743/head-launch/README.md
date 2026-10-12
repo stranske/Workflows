@@ -1,0 +1,49 @@
+# Head command launch failure proof
+
+The existing helper's head-command error reporter was uncovered in the matched
+helper suite. Four root/template controls now launch a real absent executable
+(ENOENT) or a real non-executable file (EACCES) through `verify_spec`. They require
+`FAIL_BROKEN`, `command-unavailable`, exact command and original OS error detail,
+JSON serializability, unchanged proof/launcher bytes, and no dependency repair or
+base archive extraction. Production root/template bytes are unchanged.
+
+## Reproduce
+
+```sh
+python3 -m pytest tests/scripts/test_check_deliberate_break_head_launch.py -q -o addopts=
+python3 docs/evidence/issue-3743/head-launch/replay.py --output /tmp/new-head-launch-proof
+```
+
+Use a fresh output directory. Replay mutates only private source copies. Each
+case changes only the head error verdict from FAIL_BROKEN to PASS, requires the
+selected verdict assertion to fail (exit1), restores exact original bytes, then
+requires the same selected case to pass (exit0). XML validation rejects errors,
+skips, unexpected nodes, and invalid assertion outcomes. Existing output is
+rejected before source copies or mutations. This run verified29 retained files
+remain byte-identical after rejected reuse.
+
+## Observed validation
+
+At base fdc18a19314492ce3b78623b4acfb75c00f6227e on macOS, Anaconda Python3.12:
+
+- Identical ten-module baseline316PASS and candidate320PASS: exactly4 new PASS
+  nodes, no removed nodes or changed old outcomes.
+- Root helper583→585/591 statements,251/262 branches unchanged, zero exclusions;
+  no covered-line or branch regression. Newly covered lines995–996.
+- Four genuine production assertionRED/restoredGREEN pairs, zero errors/skips,
+  equal original/restored hashes. Original/mutant/restored source bytes retained.
+- Full-repositoryBlack, focusedRuff, strict template completeness and diff-check
+  exit0. All640 tracked historical evidence files remain byte-identical.
+- Fresh last400 scripts-touching commits rank this helper first:72 repair-subject
+  proxy matches/82 touches. The proxy is not a verified escaped-defect count.
+
+`summary.json` binds exact measured counts. `proof.tar.gz` retains raw console,
+JUnit, argv/cwd/exits, coverageJSON/databases, replay receipts/source bytes, reuse
+preservation hashes, validation logs, and ranking inputs. `manifest.json` binds
+current files and every regular archive member by SHA256.
+
+This is focused helper coverage, not repository-wide90%, hosted parity, provider
+PASS or completion of broader source3743. Prior3856/3865 CONCERNS dispositions and
+all historical proof remain unchanged. Keepalive owns fresh hosted CI/review;
+closer owns exact topology, unchanged head, full threads, seven-minute review
+floor, guarded merge, actual comparison and bounded acceptance disposition.
