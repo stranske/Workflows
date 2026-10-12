@@ -63,9 +63,14 @@ const AsyncFunction = Object.getPrototypeOf(async function() {}).constructor;
   await new AsyncFunction('require', 'github', 'context', 'core', input.script)(
     wrappedRequire, github, context, core,
   );
-  console.log(JSON.stringify({events, outputs}));
+  console.log(JSON.stringify({events, outputs, helper: input.helper}));
 })().catch(error => {console.error(error); process.exit(1);});
 """
+
+
+def _helper_for(reporter: Path) -> str:
+    """Classifier path checked out beside the reporter workflow under test."""
+    return str(reporter.parent.parent / "scripts/keepalive_reporter_applicability.js")
 
 
 def _resolve(path: Path, **scenario: object) -> dict:
@@ -77,12 +82,13 @@ def _resolve(path: Path, **scenario: object) -> dict:
     script = next(
         step["with"]["script"] for step in resolver["steps"] if step.get("id") == "applicability"
     )
+    helper = _helper_for(path)
     result = subprocess.run(
         [node, "-e", HARNESS],
         input=json.dumps(
             {
                 "script": script,
-                "helper": str(path.parent.parent / "scripts/keepalive_reporter_applicability.js"),
+                "helper": helper,
                 **scenario,
             }
         ),
@@ -91,7 +97,30 @@ def _resolve(path: Path, **scenario: object) -> dict:
         capture_output=True,
         check=True,
     )
-    return json.loads(result.stdout)
+    payload = json.loads(result.stdout)
+    # Consumer scenarios must not silently bind the root classifier copy.
+    assert payload["helper"] == helper
+    return payload
+
+
+def test_root_and_consumer_classifier_paths_are_distinct() -> None:
+    root_helper, consumer_helper = (_helper_for(path) for path in REPORTERS)
+    assert root_helper != consumer_helper
+    assert (ROOT / root_helper).is_file()
+    assert (ROOT / consumer_helper).is_file()
+
+
+@pytest.mark.parametrize("reporter", REPORTERS, ids=["root", "consumer"])
+def test_resolver_binds_classifier_from_reporter_tree(reporter: Path) -> None:
+    """Root and consumer scenarios must load their own checked-out classifier."""
+    helper = _helper_for(reporter)
+    assert (ROOT / helper).is_file()
+    result = _resolve(reporter, conclusion="failure")
+    assert result["helper"] == helper
+    if reporter.parts[0] == "templates":
+        assert helper.startswith("templates/consumer-repo/.github/scripts/")
+    else:
+        assert helper == ".github/scripts/keepalive_reporter_applicability.js"
 
 
 @pytest.mark.parametrize("reporter", REPORTERS, ids=["root", "consumer"])
