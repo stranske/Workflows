@@ -1577,6 +1577,17 @@ Only Maint 71 resolves generated threads. Successful resolution still cannot
 waive exact-head checks, the seven-minute review floor, canary staging, sealing,
 promotion or full-fleet/Health 83 evidence.
 
+The immediately-pre-resolution record guard is lane-aware: Maint 52 dev-tool
+records need not invent a workflow-delivery head-observation pair. Their fresh
+REST and GraphQL PR heads must still equal the selected full head, the REST
+branch must be unchanged, and the entire parsed delivery record (including
+desired tree, repository, durable issue, source, plan, generation and lease)
+must remain identical across both reads with a live lease. A present observed
+head must agree even for dev-tool deliveries. Stable workflow deliveries still
+require that observation; unknown branches, changed bindings, incomplete review
+evidence and changed/withdrawn attestation are not recoverable through this
+exception. This is a record-schema distinction, never a merge or review waiver.
+
 The operator continues through those owning stages in the same run when evidence
 becomes ready; the recurring two-hour schedule is recovery, not the normal
 continuation mechanism. A failed assessment causes a concrete repair or explicit

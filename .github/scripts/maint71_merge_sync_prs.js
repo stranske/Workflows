@@ -75,6 +75,23 @@ function hasCompleteReviewThreadEvidence(connection) {
   );
 }
 
+// Keep the last delivery read bound to the selected record and exact PR head.
+function independentVerificationDeliveryUnchanged({ previous, current, head, branch, now = Date.now() }) {
+  const { generatedDeliveryLane, isStableSyncBranchName } = require('./sync_pr_merge_contract');
+  const { isDeepStrictEqual } = require('node:util');
+  const devTool = generatedDeliveryLane(branch) === 'dev-tool-sync';
+  return Boolean(previous && current
+    && /^[a-f0-9]{40}$/.test(head || '')
+    && (devTool || isStableSyncBranchName(branch))
+    && isDeepStrictEqual(previous, current)
+    && Date.parse(current.lease_expires_at) > now
+    // Maint52 does not emit an observation pair; its fresh REST/GraphQL PR
+    // heads are checked by the caller. Never accept a conflicting observation.
+    && (current.head_observed_sha
+      ? current.head_observed_sha === head
+      : devTool));
+}
+
 function confirmedClosedPrIdentity(closedResponse, selectedPr) {
   const closed = closedResponse?.data;
   return closed?.state === 'closed'
@@ -1441,10 +1458,11 @@ async function run({ github, context, core }) {
           }));
           const currentRecord = parseDeliveryRecord(currentPr.body || '');
           if (currentPr.state !== 'open' || currentPr.head?.sha !== pr.head.sha
-            || !currentRecord || ['plan_id', 'generation', 'source_commit',
-              'head_observed_sha', 'lease_expires_at'].some((key) =>
-              currentRecord[key] !== deliveryRecord[key])
-            || !(Date.parse(currentRecord.lease_expires_at) > Date.now())) {
+            || currentPr.head?.ref !== pr.head.ref
+            || !independentVerificationDeliveryUnchanged({
+              previous: deliveryRecord, current: currentRecord,
+              head: pr.head.sha, branch: pr.head.ref, now: Date.now(),
+            })) {
             errors.push(`${proof.thread_id}:head_changed`);
             continue;
           }
@@ -1466,8 +1484,10 @@ async function run({ github, context, core }) {
             topLevelComments: latestCompletions,
           });
           if (latest?.headRefOid !== pr.head.sha || !finalVerification.ok
-            || latestRecord?.head_observed_sha !== pr.head.sha
-            || latestRecord?.lease_expires_at !== currentRecord.lease_expires_at) {
+            || !independentVerificationDeliveryUnchanged({
+              previous: currentRecord, current: latestRecord,
+              head: pr.head.sha, branch: pr.head.ref, now: Date.now(),
+            })) {
             errors.push(`${proof.thread_id}:verification_changed_before_resolution`);
             continue;
           }
@@ -3818,6 +3838,7 @@ async function run({ github, context, core }) {
 }
 
 module.exports = {
+  independentVerificationDeliveryUnchanged,
   adoptFinalCheckEvidence,
   confirmedClosedPrIdentity,
   devToolBaseRefreshResult,
