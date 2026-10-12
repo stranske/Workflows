@@ -21,6 +21,7 @@ from __future__ import annotations
 
 import argparse
 import json
+import shlex
 import subprocess
 from pathlib import Path
 from types import SimpleNamespace
@@ -501,6 +502,49 @@ def test_build_prompt_uses_resolved_custom_registry_path(tmp_path: Path, monkeyp
     )
 
     assert f"--registry '{custom_registry.resolve()}'" in prompt
+
+
+def test_build_prompt_keeps_validator_checkout_and_quotes_commands(tmp_path, monkeypatch):
+    tooling_root = tmp_path / "executing tools; safe"
+    foreign_root = tmp_path / "registry checkout"
+    fake_prompt = tmp_path / "prompt.md"
+    fake_prompt.write_text("PROMPT_TEMPLATE_BODY\n", encoding="utf-8")
+    monkeypatch.setattr(body_writer, "canonical_body_writer_prompt", lambda: fake_prompt)
+    monkeypatch.setattr(body_writer, "__file__", str(tooling_root / "scripts/body_writer.py"))
+    output_dir = tmp_path / "output space; safe"
+    registry = foreign_root / "config/custom registry.json"
+    repo = "stranske/Workflows"
+    prompt = body_writer.build_prompt(
+        repo=repo,
+        output_dir=output_dir,
+        repo_path=tmp_path / "repo",
+        registry_path=registry,
+        workflows_steward_root=foreign_root,
+    )
+    commands = [
+        shlex.split(line.strip()) for line in prompt.splitlines() if line.startswith("  python ")
+    ]
+    assert len(commands) == 2
+    assert commands[0] == [
+        "python",
+        str(tooling_root / "scripts/repo_review_round2_schema.py"),
+        "--converged",
+        str(body_writer.converged_path(output_dir, repo)),
+        "--expected-repo",
+        repo,
+    ]
+    assert commands[1] == [
+        "python",
+        str(tooling_root / "scripts/repo_review_body_writer.py"),
+        "--repo",
+        repo,
+        "--output-dir",
+        str(output_dir),
+        "--registry",
+        str(registry),
+        "--validate-only",
+        "--skip-sync-check",
+    ]
 
 
 def test_build_prompt_replaces_invalid_utf8_in_repair_feedback(tmp_path: Path, monkeypatch) -> None:

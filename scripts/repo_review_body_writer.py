@@ -426,7 +426,9 @@ def build_prompt(
     registry_path: Path | None = None,
     workflows_steward_root: Path | None = None,
 ) -> str:
-    tooling_root = (workflows_steward_root or Path(__file__).resolve().parent.parent).resolve()
+    # Use the same checkout as canonical_body_writer_prompt and the outer gate.
+    # The registry may live elsewhere; it selects inputs, not executable validators.
+    tooling_root = Path(__file__).resolve().parent.parent
     template = canonical_body_writer_prompt().read_text(encoding="utf-8")
     safe = repo.replace("/", "__")
     cj = converged_path(output_dir, repo)
@@ -488,10 +490,10 @@ def build_prompt(
         'record `body: "INSUFFICIENT_EVIDENCE: <reason>"` rather than '
         "fabricating. INSUFFICIENT_EVIDENCE is a legitimate outcome.\n\n"
         "After writing, validate:\n\n"
-        f"  python {tooling_root / 'scripts/repo_review_round2_schema.py'} --converged {cj} --expected-repo {repo}\n\n"
+        f"  python {shlex.quote(str(tooling_root / 'scripts/repo_review_round2_schema.py'))} --converged {shlex.quote(str(cj))} --expected-repo {shlex.quote(repo)}\n\n"
         "Then run the stricter body/path validator. Do not report success unless it "
         "exits zero:\n\n"
-        f"  python {tooling_root / 'scripts/repo_review_body_writer.py'} --repo {shlex.quote(repo)} "
+        f"  python {shlex.quote(str(tooling_root / 'scripts/repo_review_body_writer.py'))} --repo {shlex.quote(repo)} "
         f"--output-dir {shlex.quote(str(output_dir))} --registry "
         f"{shlex.quote(str(registry_path or Path('config/repo_review_registry.json')))} "
         "--validate-only --skip-sync-check\n\n"

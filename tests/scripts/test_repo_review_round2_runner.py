@@ -765,6 +765,7 @@ def test_run_one_turn_rejects_receipt_stale_after_peer_retry(
 ) -> None:
     repo, output_dir, agents = _round2_cache_inputs(tmp_path, monkeypatch)
     first_receipt_written = threading.Event()
+    first_receipt: str | None = None
     original_write = runner.write_turn_input_manifest
     calls = dict.fromkeys(agents, 0)
     prior = runner.round2_turn_path(output_dir, repo, 1, "codex")
@@ -772,8 +773,12 @@ def test_run_one_turn_rejects_receipt_stale_after_peer_retry(
     prior.write_text("{}\n", encoding="utf-8")
 
     def write_receipt(**kwargs):
+        nonlocal first_receipt
         original_write(**kwargs)
         if kwargs["out_path"].stem == "codex":
+            first_receipt = runner.round2_input_manifest_path(kwargs["out_path"]).read_text(
+                encoding="utf-8"
+            )
             first_receipt_written.set()
 
     def invoke(agent_label, _prompt, **kwargs):
@@ -823,7 +828,12 @@ def test_run_one_turn_rejects_receipt_stale_after_peer_retry(
     assert not results["codex"].output_path.exists()
     preserved = list((output_dir / "repairs" / "round2-stale").glob("**/codex.json"))
     assert preserved, "stale output and its original receipt must be recoverable"
-    assert list((output_dir / "repairs" / "round2-stale").glob("**/turn-2-codex.json"))
+    preserved_receipts = list(
+        (output_dir / "repairs" / "round2-stale").glob("**/turn-2-codex.json")
+    )
+    assert preserved_receipts
+    assert first_receipt is not None
+    assert preserved_receipts[0].read_text(encoding="utf-8") == first_receipt
 
 
 def test_run_one_turn_reuses_only_attested_matching_inputs(
