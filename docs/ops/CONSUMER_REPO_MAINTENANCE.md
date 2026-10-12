@@ -2129,6 +2129,13 @@ use the shared record-delivery grammar rather than a separate positive matcher.
 Destination-first `- [ ] PR comment with test evidence` is normalized to the
 existing noun-first checklist grammar, retaining trailing optionality, negation,
 product-capability boundaries and independent reviewer obligations.
+This normalization precedes destination-OR expansion too. Repeated identical
+delivery verbs retain their shared optional or negative governor, while negative
+adjectives on the evidence object do not erase a mandatory delivery. Product
+capability complements include passive proof objects (`allow evidence to be
+attached as an artifact`) and coordinated bare PR destinations in either order;
+neither boundary can suppress an independent reviewer delivery. An attached
+`which may be skipped` qualifier keeps that delivery optional, not its siblings.
 Checklist shorthand accepts the common test/validation proof nouns, so
 `Validation output in a PR comment` retains comments as its required channel.
 Negative, optional and product-capability clauses keep their existing semantics.

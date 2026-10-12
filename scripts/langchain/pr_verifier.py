@@ -1117,6 +1117,24 @@ def _normalize_review_comment_destinations(acceptance: str) -> str:
     )
 
 
+def _normalize_destination_first_checklist(acceptance: str) -> str:
+    """Normalize shorthand before both channel discovery and OR expansion."""
+    return re.sub(
+        r"(?P<literal>" + _QUOTED_EVIDENCE_LITERAL + r")|"
+        r"(?P<checklist>^[ \t]*(?:[-*+]|\d+[.)])[ \t]*\[[ xX]\][ \t]*)"
+        r"(?P<destination>(?:(?:an?|the)\s+)?(?:pr|pull request)\s+comments?)"
+        r"\s+with\s+(?P<proof>(?:(?:test|validation|CI|build|execution)\s+){0,3}"
+        r"(?:evidence|command outputs?|transcripts?|" + _EVIDENCE_PROOF_ALIAS_NOUN + r"))\b",
+        lambda match: (
+            match[0]
+            if match["literal"]
+            else match["checklist"] + match["proof"] + " in " + match["destination"]
+        ),
+        acceptance,
+        flags=re.I | re.M,
+    )
+
+
 _EVIDENCE_ARTIFACT_DESTINATION = r"(?:workflow|ci|github actions)\s+artifacts?\b"
 _EVIDENCE_PR_COMMENT_DESTINATION = (
     r"(?:(?:pr|pull request)\s+comments?|(?:inline\s+)?(?:pr\s+)?review comments?)"
@@ -1480,6 +1498,7 @@ def _required_evidence_channels(acceptance: str, *, _bind_attached: bool = True)
     """Identify explicit evidence deliverables without treating negations as requirements."""
 
     acceptance = _normalize_review_comment_destinations(acceptance)
+    acceptance = _normalize_destination_first_checklist(acceptance)
     acceptance = _normalize_review_content_qualifiers(acceptance)
     acceptance = _normalize_passive_review_agents(acceptance)
     acceptance = _normalize_relative_review_presence(acceptance)
@@ -1524,6 +1543,35 @@ def _required_evidence_channels(acceptance: str, *, _bind_attached: bool = True)
     # Lexical aliases share obligation, negation, destination and product rules,
     # including the earlier proof-pronoun antecedent path.
     record_aliases = _EVIDENCE_RECORD_ALIASES
+    # Identical coordinated verbs share one governor and object. Coalesce
+    # before aliasing/clause splitting so a later bare verb cannot lose may/not.
+    acceptance = re.sub(
+        r"(?P<literal>" + quoted_evidence_literal + r")|"
+        r"\b(?P<operation>" + delivery_operation + r")\s+(?:and|or)\s+"
+        r"(?P=operation)\b",
+        lambda match: match[0] if match["literal"] else match["operation"],
+        acceptance,
+        flags=re.I,
+    )
+    # Object-level polarity is not a delivery governor. Preserve its bytes in
+    # the prompt, but use the shared bounded adjective grammar for classification.
+    acceptance = re.sub(
+        r"(?P<literal>" + quoted_evidence_literal + r")|"
+        r"(?P<operation>\b(?:"
+        + delivery_operation
+        + r"|"
+        + "|".join(record_aliases)
+        + r")\s+)"
+        + _NEGATIVE_EVIDENCE_ADJECTIVE_TAIL
+        + r"\s+(?="
+        + evidence_modifiers
+        + r"(?:evidence|artifacts?|transcripts?|command outputs?|"
+        + _EVIDENCE_PROOF_ALIAS_NOUN
+        + r")\b)",
+        lambda match: match[0] if match["literal"] else match["operation"],
+        acceptance,
+        flags=re.I,
+    )
     shared_proof_delivery_operation = (
         r"(?:" + delivery_operation + r"|" + "|".join(record_aliases) + r"\b)"
     )
@@ -1625,24 +1673,6 @@ def _required_evidence_channels(acceptance: str, *, _bind_attached: bool = True)
 
     # Checklist shorthand is a bounded delivery predicate. Reuse the normal
     # destination grammar so AND/OR lists retain their established semantics.
-    # Destination-first shorthand is the same obligation, not a separate
-    # positive-only recognizer. Keep trailing polarity and independent clauses
-    # intact for the existing noun-first governor pass below.
-    acceptance = re.sub(
-        r"(?P<literal>" + quoted_evidence_literal + r")|"
-        r"(?P<checklist>^[ \t]*(?:[-*+]|\d+[.)])[ \t]*\[[ xX]\][ \t]*)"
-        r"(?P<destination>(?:(?:an?|the)\s+)?(?:pr|pull request)\s+comments?)"
-        r"\s+with\s+(?P<proof>(?:(?:test|validation|CI|build|execution)\s+){0,3}"
-        r"(?:evidence|command outputs?|transcripts?|" + _EVIDENCE_PROOF_ALIAS_NOUN + r"))\b",
-        lambda match: (
-            match[0]
-            if match["literal"]
-            else match["checklist"] + match["proof"] + " in " + match["destination"]
-        ),
-        acceptance,
-        flags=re.I | re.M,
-    )
-
     def normalize_checklist_delivery(match: re.Match) -> str:
         if match["literal"] or re.search(r"\r?\n[ \t]*\r?\n", match[0]):
             return match[0]
@@ -2816,6 +2846,13 @@ def _required_evidence_channels(acceptance: str, *, _bind_attached: bool = True)
                         count=1,
                         flags=re.I,
                     )
+                    between = re.sub(
+                        r"^\s*" + bound_review_destinations,
+                        "",
+                        between,
+                        count=1,
+                        flags=re.I,
+                    )
                     recognized = re.fullmatch(
                         r"\s*,?\s*(?:and|or)\s+"
                         + delivery_adverbs
@@ -3457,6 +3494,7 @@ def _required_evidence_channels(acceptance: str, *, _bind_attached: bool = True)
                 fragments
                 and re.fullmatch(r"\s*,?\s*and\s+", boundary, re.I)
                 and not re.match(r"\s*" + delivery_governor_auxiliary + r"\s+", fragment, re.I)
+                and not re.match(r"\s*" + delivery_operation, fragment, re.I)
                 and re.fullmatch(
                     r"\s*(?:(?!(?:and|or|but|must|shall|is|are|not|never)\b)[\w/-]+\s+){0,4}"
                     r"(?:evidence|artifacts?|transcripts?|command outputs?)\s+"
@@ -3643,6 +3681,9 @@ def _required_evidence_channels(acceptance: str, *, _bind_attached: bool = True)
             optional_evidence = bool(
                 re.search(
                     r"\boptional(?:ly)?\b(?![-/])|"
+                    r"\b(?:artifacts?|pr comments?|pull request comments?)\s*,?\s+"
+                    r"which\s+(?:may|can|could|would|should)\s+be\s+"
+                    r"(?:skipped|omitted)\s*[.!]?\s*$|"
                     r"\b"
                     + optional_delivery_modal
                     + r"\s+"
@@ -4089,6 +4130,23 @@ def _required_evidence_channels(acceptance: str, *, _bind_attached: bool = True)
                         re.I,
                     )
                 )
+                product_artifact_actor = product_artifact_actor or bool(
+                    re.search(
+                        r"\b"
+                        + product_actor
+                        + r"\s+(?:"
+                        + product_auxiliary
+                        + r")?"
+                        + capability_operation
+                        + r"\s+"
+                        + product_evidence_object
+                        + r"to\s+"
+                        + passive_delivery_prefix
+                        + delivery_operation,
+                        normalize_product_capability(requirement_text),
+                        re.I,
+                    )
+                )
                 evidence_named_artifact = bool(
                     re.search(artifact_destination_object, lower)
                     or re.search(
@@ -4403,6 +4461,7 @@ def _required_evidence_options(acceptance: str) -> list[set[str]]:
     requirement rather than dropping an obligation.
     """
     acceptance = _normalize_review_comment_destinations(acceptance)
+    acceptance = _normalize_destination_first_checklist(acceptance)
     acceptance = _normalize_review_content_qualifiers(acceptance)
     acceptance = _normalize_passive_review_agents(acceptance)
     acceptance = _normalize_relative_review_presence(acceptance)

@@ -5289,3 +5289,61 @@ def test_issue3835_copy_and_destination_first_controls(text, independent):
     expected = {"body"} if independent else set()
     assert verifier._required_evidence_channels(text) == expected
     assert verifier._required_evidence_options(text) == [expected]
+
+
+@pytest.mark.parametrize(
+    "text",
+    [
+        "The reviewer may copy and copy evidence into a PR comment",
+        "Do not copy and copy evidence into a PR comment",
+        "The UI must allow evidence to be provided as an artifact",
+        "The UI must allow evidence to be attached as an artifact",
+        "The UI allows reviewers to copy evidence into a PR comment and copy evidence into the PR body",
+        "The UI allows reviewers to record evidence into a PR comment and record evidence into the PR body",
+        "Attach evidence as an artifact, which may be skipped",
+    ],
+)
+@pytest.mark.parametrize("independent", [False, True])
+def test_issue3835_assessment_nongating_counterexamples(text, independent):
+    if independent:
+        text += "; the auditor must upload evidence in a workflow artifact"
+    expected = {"artifacts"} if independent else set()
+    assert verifier._required_evidence_channels(text) == expected
+    assert verifier._required_evidence_options(text) == [expected]
+    assert _floor_verdict(text, body="present", comments="present", artifacts="absent") == (
+        "CONCERNS" if independent else "PASS"
+    )
+
+
+@pytest.mark.parametrize("qualifier", ["not expected", "not supposed", "no longer required"])
+def test_issue3835_copy_object_polarity_is_not_governor(qualifier):
+    text = f"The reviewer must copy {qualifier} validation output into a PR comment"
+    assert verifier._required_evidence_channels(text) == {"comments"}
+    assert _floor_verdict(text, body="present", comments="absent") == "CONCERNS"
+
+
+def test_issue3835_destination_first_alternative_uses_shared_normalization():
+    text = "- [ ] PR comment with test evidence or in the PR body"
+    assert verifier._required_evidence_options(text) == [{"comments"}, {"body"}]
+    assert _floor_verdict(text, body="present", comments="absent") == "PASS"
+    assert _floor_verdict(text, body="absent", comments="present") == "PASS"
+    assert _floor_verdict(text, body="absent", comments="absent") == "CONCERNS"
+
+
+@pytest.mark.parametrize("operation", ["copy", "record", "post", "provide"])
+@pytest.mark.parametrize("governor,required", [("must", True), ("may", False), ("must not", False)])
+def test_issue3835_repeated_operation_preserves_governor(operation, governor, required):
+    text = f"The reviewer {governor} {operation} and {operation} evidence into a PR comment"
+    expected = {"comments"} if required else set()
+    assert verifier._required_evidence_channels(text) == expected
+    assert verifier._required_evidence_options(text) == [expected]
+
+
+@pytest.mark.parametrize("first,second", [("PR comment", "PR body"), ("PR body", "PR comment")])
+@pytest.mark.parametrize("operation", ["copy", "record", "post", "provide"])
+def test_issue3835_bare_capability_coordination_is_channel_symmetric(first, second, operation):
+    text = f"The UI allows reviewers to {operation} evidence into a {first} and {operation} evidence into the {second}"
+    assert verifier._required_evidence_channels(text) == set()
+    assert verifier._required_evidence_channels(
+        text + "; the reviewer must post evidence in a PR comment"
+    ) == {"comments"}
