@@ -717,6 +717,45 @@ test('exploration branch delegates to the published challenger at the published 
   }
 });
 
+for (const policyPath of [
+  '../agent_delegation_policy.js',
+  '../../../templates/consumer-repo/.github/scripts/agent_delegation_policy.js',
+]) {
+  test(`exploration retains ranking at the exact seeded rate boundary (${policyPath})`, () => {
+    const policy = require(policyPath);
+    // Seed 100 has this fixed draw. Pin the boundary independently of the draw helper.
+    const drawNumerator = 101522310;
+    const denominator = 4294967296;
+    for (const offset of [-1, 0, 1]) {
+      const result = policy.pickAgent({
+        taskType: 'implement',
+        seed: 100,
+        agents: mockRegistry.agents,
+        routeWeights: {
+          ...routeWeightsWithExploration,
+          exploration: {
+            ...routeWeightsWithExploration.exploration,
+            rate: (drawNumerator + offset) / denominator,
+          },
+        },
+      });
+
+      const explores = offset > 0;
+      assert.equal(result.agent, explores ? 'gemini' : 'cursor', `offset=${offset}`);
+      assert.equal(
+        result.delegationSource,
+        explores ? 'route_weights_exploration' : 'route_weights',
+        `offset=${offset}`
+      );
+      assert.equal(
+        result.policy_version,
+        explores ? routeWeightsWithExploration.exploration.policy_version : undefined,
+        `offset=${offset}`
+      );
+    }
+  });
+}
+
 test('exploration retains the ranking pick when the challenger is ineligible or reserved', async (t) => {
   const cases = [
     { name: 'reserved by task type', reserve: { implement: [{ agent: 'gemini' }] } },
