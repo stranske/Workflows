@@ -56,6 +56,7 @@ from typing import Any
 from zoneinfo import ZoneInfo, ZoneInfoNotFoundError
 
 try:
+    from scripts.repo_review_evaluator import load_registry
     from scripts.repo_review_round2_schema import (
         validate_converged_set,
         validate_turn_output,
@@ -69,6 +70,7 @@ try:
         transition,
     )
 except ModuleNotFoundError:  # pragma: no cover - direct script execution
+    from repo_review_evaluator import load_registry  # type: ignore[no-redef]
     from repo_review_round2_schema import (  # type: ignore[no-redef]
         validate_converged_set,
         validate_turn_output,
@@ -262,7 +264,8 @@ def round2_input_manifest(
         return None, f"cannot read canonical round-2 input: {exc}"
     try:
         prior_turn_inputs = [
-            {"path": str(path.resolve()), "sha256": _sha256_file(path)} for path in prior_turn_paths
+            {"path": f"{path.parent.name}/{path.name}", "sha256": _sha256_file(path)}
+            for path in prior_turn_paths
         ]
     except OSError as exc:
         return None, f"cannot read prior turn input: {exc}"
@@ -423,6 +426,33 @@ def resolve_negotiation_agents(
     return resolved
 
 
+def validate_reviewed_source_commit(repo_path: Path, round1_paths: dict[str, Path]) -> str:
+    """Ensure round 2 negotiates the same checkout attested by round 1."""
+    try:
+        result = subprocess.run(
+            ["git", "-C", str(repo_path), "rev-parse", "HEAD"],
+            check=False,
+            capture_output=True,
+            text=True,
+            timeout=30,
+        )
+    except (OSError, subprocess.TimeoutExpired) as exc:
+        return f"cannot resolve reviewed repo HEAD: {exc}"
+    head = result.stdout.strip()
+    if result.returncode != 0 or not head:
+        return "cannot resolve reviewed repo HEAD"
+    for agent, findings_path in round1_paths.items():
+        try:
+            provenance = json.loads(
+                findings_path.with_name("findings.provenance.json").read_text(encoding="utf-8")
+            )
+        except (OSError, json.JSONDecodeError) as exc:
+            return f"cannot read {agent} round-1 provenance: {exc}"
+        if not isinstance(provenance, dict) or provenance.get("source_commit") != head:
+            return f"{agent} round-1 source commit does not match reviewed repo HEAD {head}"
+    return ""
+
+
 # ---------------------------------------------------------------------------
 # Prompt construction
 # ---------------------------------------------------------------------------
@@ -445,6 +475,7 @@ Your variables for this run:
 - `<MY_AGENT>` = `{my_agent}`
 - `<OTHER_AGENT>` = `{other_agent}`
 - `<TURN_OUTPUT_PATH>` = `{turn_output_path}`
+- `<REVIEWED_REPO_PATH>` = `{repo_path}`
 
 Inputs you must read in order:
 
@@ -452,7 +483,7 @@ Inputs you must read in order:
 2. Your own round-1 findings: `{my_findings}`
 3. The counterpart's round-1 findings: `{other_findings}`
 {prior_turns_section}
-4. The repo at the local path named in your round-1 findings, plus the GitNexus map (use `gitnexus query` and Cypher fallbacks per the canonical prompt's GitNexus section). Verify any `disagree-*` mark with concrete evidence from the actual files, not the counterpart's claims about them.
+4. The repo at `<REVIEWED_REPO_PATH>`, plus the GitNexus map (use `gitnexus query` and Cypher fallbacks per the canonical prompt's GitNexus section). The runner starts at the workspace root: inspect and cite only `<REVIEWED_REPO_PATH>`, and use `git -C <REVIEWED_REPO_PATH>` for git commands. Verify any `disagree-*` mark with concrete evidence from its actual files, not the counterpart's claims about them.
 
 Procedure:
 
@@ -474,6 +505,7 @@ def build_prompt(
     other_agent: str,
     my_findings: Path,
     other_findings: Path,
+    repo_path: Path,
     turn_output_path: Path,
     prior_turn_paths: list[Path],
 ) -> str:
@@ -491,6 +523,7 @@ def build_prompt(
         other_agent=other_agent,
         my_findings=my_findings,
         other_findings=other_findings,
+        repo_path=repo_path.resolve(),
         turn_output_path=turn_output_path,
         prompt_file=PROMPT_FILE,
         protocol_file=PROTOCOL_FILE,
@@ -1056,6 +1089,8 @@ def run_one_turn(
     repo: str,
     turn: int,
     output_dir: Path,
+    repo_path: Path,
+    workspace_root: Path,
     agents: dict[str, Path],
     additional_dirs: list[Path],
     timeout: int,
@@ -1147,6 +1182,7 @@ def run_one_turn(
             other_agent=agent_other,
             my_findings=agents[agent_label],
             other_findings=agents[agent_other],
+            repo_path=repo_path,
             turn_output_path=out_path,
             prior_turn_paths=prior_turn_paths,
         )
@@ -1156,7 +1192,7 @@ def run_one_turn(
             ok, info = invoke_agent(
                 agent_label,
                 prompt,
-                cwd=WORKFLOWS_STEWARD,
+                cwd=workspace_root,
                 additional_dirs=additional_dirs,
                 log_file=log_file,
                 timeout=timeout,
@@ -1773,11 +1809,24 @@ def synthesize_converged(
 def run(args: argparse.Namespace) -> int:
     output_dir = Path(args.output_dir).resolve()
     repo = args.repo
+    workspace_root, _excluded, registry_repos, _archive_paths = load_registry(Path(args.registry))
+    repo_config = next((item for item in registry_repos if item.repo == repo), None)
+    if repo_config is None:
+        print(f"[round2] {repo}: repo is missing from registry", file=sys.stderr)
+        return 2
+    repo_path = (workspace_root / repo_config.local_path).resolve()
+    if not repo_path.is_dir():
+        print(f"[round2] {repo}: reviewed repo path is missing: {repo_path}", file=sys.stderr)
+        return 2
     requested_agents = tuple(a.strip() for a in args.agents.split(",") if a.strip())
     if len(requested_agents) != 2:
         raise SystemExit("--agents must list exactly two labels (e.g. codex,claude)")
 
     round1_paths = resolve_negotiation_agents(output_dir, repo, requested_agents)
+    source_error = validate_reviewed_source_commit(repo_path, round1_paths)
+    if source_error:
+        print(f"[round2] {repo}: {source_error}", file=sys.stderr)
+        return 2
     expected_marker_agents = set(round1_paths.keys())
     print(
         f"[round2] {repo}: round-1 findings resolved → "
@@ -1790,6 +1839,8 @@ def run(args: argparse.Namespace) -> int:
     additional_dirs = sorted(
         {
             output_dir,
+            repo_path,
+            WORKFLOWS_STEWARD,
             *(p.parent.parent.parent.parent for p in round1_paths.values()),
         }
     )
@@ -1825,6 +1876,8 @@ def run(args: argparse.Namespace) -> int:
             repo=repo,
             turn=turn,
             output_dir=output_dir,
+            repo_path=repo_path,
+            workspace_root=workspace_root,
             agents=round1_paths,
             additional_dirs=additional_dirs,
             timeout=args.turn_timeout,
@@ -1945,6 +1998,11 @@ def parse_args(argv: list[str] | None = None) -> argparse.Namespace:
         "--output-dir",
         required=True,
         help="evaluator output directory containing round1/ and round2/ subtrees",
+    )
+    parser.add_argument(
+        "--registry",
+        default=str(WORKFLOWS_STEWARD / "config/repo_review_registry.json"),
+        help="registry used to resolve the exact local checkout",
     )
     parser.add_argument(
         "--agents",

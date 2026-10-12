@@ -424,7 +424,9 @@ def build_prompt(
     output_dir: Path,
     repo_path: Path,
     registry_path: Path | None = None,
+    workflows_steward_root: Path | None = None,
 ) -> str:
+    tooling_root = (workflows_steward_root or Path(__file__).resolve().parent.parent).resolve()
     template = canonical_body_writer_prompt().read_text(encoding="utf-8")
     safe = repo.replace("/", "__")
     cj = converged_path(output_dir, repo)
@@ -477,6 +479,7 @@ def build_prompt(
         f"- `<REPO>` = `{repo}`\n"
         f"- `<REPO_SAFE>` = `{safe}`\n"
         f"- `<LOCAL_REPO_PATH>` = `{repo_path}`\n"
+        f"- `<TOOLING_ROOT>` = `{tooling_root}`\n\n"
         f"- Converged.json: `{cj}`\n\n"
         "The local repo has been synced to origin head before this pass; cite "
         "files and line numbers from the current checkout. If a candidate's "
@@ -485,10 +488,10 @@ def build_prompt(
         'record `body: "INSUFFICIENT_EVIDENCE: <reason>"` rather than '
         "fabricating. INSUFFICIENT_EVIDENCE is a legitimate outcome.\n\n"
         "After writing, validate:\n\n"
-        f"  python scripts/repo_review_round2_schema.py --converged {cj} --expected-repo {repo}\n\n"
+        f"  python {tooling_root / 'scripts/repo_review_round2_schema.py'} --converged {cj} --expected-repo {repo}\n\n"
         "Then run the stricter body/path validator. Do not report success unless it "
         "exits zero:\n\n"
-        f"  python scripts/repo_review_body_writer.py --repo {shlex.quote(repo)} "
+        f"  python {tooling_root / 'scripts/repo_review_body_writer.py'} --repo {shlex.quote(repo)} "
         f"--output-dir {shlex.quote(str(output_dir))} --registry "
         f"{shlex.quote(str(registry_path or Path('config/repo_review_registry.json')))} "
         "--validate-only --skip-sync-check\n\n"
@@ -562,6 +565,7 @@ def run_body_writer(
     output_dir: Path,
     registry_path: Path,
     workflows_steward_root: Path,
+    workspace_root: Path,
     log_dir: Path,
     timeout: int,
     agent: str,
@@ -572,12 +576,13 @@ def run_body_writer(
         output_dir=output_dir,
         repo_path=repo_path,
         registry_path=registry_path,
+        workflows_steward_root=workflows_steward_root,
     )
     additional_dirs = sorted({workflows_steward_root, output_dir, repo_path})
     return invoke_agent(
         agent,
         prompt,
-        cwd=workflows_steward_root,
+        cwd=workspace_root,
         additional_dirs=additional_dirs,
         log_file=log_path,
         timeout=timeout,
@@ -676,6 +681,7 @@ def run(args: argparse.Namespace) -> int:
         output_dir=output_dir,
         registry_path=registry_path,
         workflows_steward_root=workflows_steward_root,
+        workspace_root=workspace_root,
         log_dir=log_dir,
         timeout=args.timeout,
         agent=args.agent,

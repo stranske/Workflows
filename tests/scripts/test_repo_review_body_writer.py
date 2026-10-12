@@ -551,6 +551,7 @@ def test_run_body_writer_tracks_converged_json_as_progress(
         output_dir=output_dir,
         registry_path=tmp_path / "registry.json",
         workflows_steward_root=tmp_path,
+        workspace_root=tmp_path,
         log_dir=tmp_path / "logs",
         timeout=30,
         agent="claude",
@@ -558,6 +559,7 @@ def test_run_body_writer_tracks_converged_json_as_progress(
 
     assert ok is True
     assert captured["progress_files"] == (converged,)
+    assert captured["cwd"] == tmp_path
 
 
 def test_restore_non_body_fields_keeps_only_agent_body_changes() -> None:

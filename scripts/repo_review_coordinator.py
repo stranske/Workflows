@@ -1092,6 +1092,8 @@ def coordinate_repo(
         repo,
         "--output-dir",
         str(output_dir),
+        "--registry",
+        str(registry_path),
         "--agents",
         ",".join(agents),
         "--turn-timeout",

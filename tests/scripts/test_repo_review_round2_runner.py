@@ -158,6 +158,7 @@ def test_body_writer_routes_codex_with_writing_purpose(
         output_dir=tmp_path / "out",
         registry_path=tmp_path / "registry.json",
         workflows_steward_root=tmp_path,
+        workspace_root=tmp_path,
         log_dir=tmp_path / "logs",
         timeout=30,
         agent="codex",
@@ -740,6 +741,8 @@ def test_run_one_turn_tracks_turn_output_as_progress(
         repo=repo,
         turn=1,
         output_dir=output_dir,
+        repo_path=tmp_path / "repo",
+        workspace_root=tmp_path,
         agents=agents,
         additional_dirs=[tmp_path],
         timeout=30,
@@ -770,6 +773,8 @@ def test_run_one_turn_reuses_only_attested_matching_inputs(
         repo=repo,
         turn=1,
         output_dir=output_dir,
+        repo_path=tmp_path / "repo",
+        workspace_root=tmp_path,
         agents=agents,
         additional_dirs=[tmp_path],
         timeout=30,
@@ -812,6 +817,8 @@ def test_run_one_turn_regenerates_cache_when_round1_inputs_change(
         repo=repo,
         turn=1,
         output_dir=output_dir,
+        repo_path=tmp_path / "repo",
+        workspace_root=tmp_path,
         agents=agents,
         additional_dirs=[tmp_path],
         timeout=30,
@@ -850,6 +857,8 @@ def test_run_one_turn_dry_run_rejects_unattested_or_malformed_cache(
         repo=repo,
         turn=1,
         output_dir=output_dir,
+        repo_path=tmp_path / "repo",
+        workspace_root=tmp_path,
         agents=agents,
         additional_dirs=[tmp_path],
         timeout=30,
@@ -927,3 +936,37 @@ def test_verify_turn_input_binding_rejects_replaced_cached_output(
     )
 
     assert errors == ["cached turn output does not match its input manifest receipt"]
+
+
+def test_verify_turn_input_binding_survives_output_relocation(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    repo, output_dir, agents = _round2_cache_inputs(tmp_path, monkeypatch)
+    _write_attested_turn_cache(repo=repo, output_dir=output_dir, agents=agents, turn=1)
+    prior_turn_paths = [runner.round2_turn_path(output_dir, repo, 1, agent) for agent in agents]
+    _write_attested_turn_cache(
+        repo=repo,
+        output_dir=output_dir,
+        agents=agents,
+        turn=2,
+        prior_turn_paths=prior_turn_paths,
+    )
+    moved_output_dir = tmp_path / "moved-review"
+    output_dir.rename(moved_output_dir)
+    moved_agents = {
+        agent: moved_output_dir / path.relative_to(output_dir) for agent, path in agents.items()
+    }
+    moved_prior_turns = [
+        moved_output_dir / path.relative_to(output_dir) for path in prior_turn_paths
+    ]
+
+    errors = runner.verify_turn_input_binding(
+        repo=repo,
+        turn=2,
+        agent="codex",
+        out_path=runner.round2_turn_path(moved_output_dir, repo, 2, "codex"),
+        round1_paths=moved_agents,
+        prior_turn_paths=moved_prior_turns,
+    )
+
+    assert errors == []

@@ -113,7 +113,8 @@ def test_invoke_round1_tracks_findings_as_progress(
     captured: dict[str, object] = {}
     monkeypatch.setattr(runner, "_validate_findings_file", lambda *_args, **_kwargs: [])
 
-    def fake_invoke(*_args, **kwargs):
+    def fake_invoke(*args, **kwargs):
+        captured["prompt"] = args[1]
         captured.update(kwargs)
         findings.parent.mkdir(parents=True, exist_ok=True)
         findings.write_text("{}\n", encoding="utf-8")
@@ -136,6 +137,8 @@ def test_invoke_round1_tracks_findings_as_progress(
 
     assert result.succeeded is True
     assert captured["progress_files"] == (findings,)
+    assert captured["cwd"] == tmp_path
+    assert str((tmp_path / "repo").resolve()) in captured["prompt"]
 
 
 def test_findings_provenance_requires_current_schema(tmp_path: Path) -> None:

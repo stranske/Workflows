@@ -490,9 +490,11 @@ def build_agent_prompt(
     *,
     agent: str,
     repo: str,
+    repo_path: Path,
     review_inputs: Path,
     findings_out: Path,
     template_path: Path,
+    workflows_steward_root: Path,
 ) -> str:
     """Render the round-1 prompt by appending the per-run variables.
 
@@ -512,10 +514,16 @@ def build_agent_prompt(
         f"**{repo}**.\n\n"
         f"Variables for this run:\n\n"
         f"- `<REPO>` = `{repo}`\n"
+        f"- `<REVIEWED_REPO_PATH>` = `{repo_path.resolve()}`\n"
         f"- `<REVIEW_INPUTS_PATH>` = `{review_inputs}`\n"
         f"- `<FINDINGS_OUT_PATH>` = `{findings_out}`\n"
         f"- Your agent identifier: `{agent}` (use exactly this in the JSON `agent` field).\n\n"
-        "Read your canonical procedure (the rest of this prompt) carefully. "
+        f"- `<TOOLING_ROOT>` = `{workflows_steward_root.resolve()}`\n"
+        f"- Round-1 schema: `{(workflows_steward_root / 'docs/ops/REPO_REVIEW_ROUND1_SCHEMA.md').resolve()}`\n\n"
+        "The runner starts at the workspace root. Inspect only `<REVIEWED_REPO_PATH>` "
+        "for every citation; use `git -C <REVIEWED_REPO_PATH>` for git commands and do not "
+        "substitute the tooling checkout. Read your canonical "
+        "procedure (the rest of this prompt) carefully. "
         "Apply defensive-write semantics: produce a substantive draft "
         "findings.json early and refine in place; do not leave the write for "
         "the end. The runner enforces a hard timeout; defensive writes ensure "
@@ -555,13 +563,15 @@ def invoke_round1_agent(
     prompt = build_agent_prompt(
         agent=agent,
         repo=repo,
+        repo_path=repo_path,
         review_inputs=review_inputs,
         findings_out=findings_path,
         template_path=template_path,
+        workflows_steward_root=workflows_steward_root,
     )
     prompt = (
-        f"Runner-attested review source commit: `{source_commit}`. Base every citation and "
-        "conclusion on this checkout.\n\n" + prompt
+        f"Runner-attested review source commit for `{repo_path.resolve()}`: `{source_commit}`. "
+        f"Base every citation and conclusion on `{repo_path.resolve()}`.\n\n" + prompt
     )
 
     additional_dirs = sorted(
@@ -611,7 +621,7 @@ def invoke_round1_agent(
         ok, message = invoke_agent(
             agent,
             prompt,
-            cwd=workflows_steward_root,
+            cwd=workspace_root,
             additional_dirs=additional_dirs,
             log_file=log_path,
             timeout=timeout,
