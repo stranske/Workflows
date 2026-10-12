@@ -1,5 +1,6 @@
 import importlib
 import json
+import threading
 from datetime import UTC, datetime, timedelta
 from pathlib import Path
 from types import SimpleNamespace
@@ -756,6 +757,73 @@ def test_run_one_turn_tracks_turn_output_as_progress(
     assert all(result.succeeded for result in results.values())
     for agent_label, progress_files in captured.items():
         assert progress_files == (runner.round2_turn_path(output_dir, repo, 1, agent_label),)
+
+
+@pytest.mark.parametrize("change", ["findings", "provenance", "protocol", "prior_turn", "output"])
+def test_run_one_turn_rejects_receipt_stale_after_peer_retry(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch, change: str
+) -> None:
+    repo, output_dir, agents = _round2_cache_inputs(tmp_path, monkeypatch)
+    first_receipt_written = threading.Event()
+    original_write = runner.write_turn_input_manifest
+    calls = dict.fromkeys(agents, 0)
+    prior = runner.round2_turn_path(output_dir, repo, 1, "codex")
+    prior.parent.mkdir(parents=True)
+    prior.write_text("{}\n", encoding="utf-8")
+
+    def write_receipt(**kwargs):
+        original_write(**kwargs)
+        if kwargs["out_path"].stem == "codex":
+            first_receipt_written.set()
+
+    def invoke(agent_label, _prompt, **kwargs):
+        calls[agent_label] += 1
+        if agent_label == "claude":
+            assert first_receipt_written.wait(timeout=5), "first production receipt missing"
+            if calls[agent_label] == 1:
+                if change == "findings":
+                    agents["codex"].write_text("changed findings\n", encoding="utf-8")
+                elif change == "provenance":
+                    for agent, path in agents.items():
+                        _write_round1_provenance(
+                            path, agent=agent, repo=repo, source_commit="b" * 40
+                        )
+                elif change == "protocol":
+                    runner.PROTOCOL_FILE.write_text("protocol v2\n", encoding="utf-8")
+                elif change == "prior_turn":
+                    prior.write_text('{"revised": true}\n', encoding="utf-8")
+                else:
+                    runner.round2_turn_path(output_dir, repo, 2, "codex").write_text(
+                        '{"tampered": true}\n', encoding="utf-8"
+                    )
+        kwargs["progress_files"][0].write_text("{}\n", encoding="utf-8")
+        return True, "ok"
+
+    monkeypatch.setattr(runner, "write_turn_input_manifest", write_receipt)
+    monkeypatch.setattr(runner, "build_prompt", lambda **_kwargs: "prompt")
+    monkeypatch.setattr(runner, "invoke_agent", invoke)
+    results = runner.run_one_turn(
+        repo=repo,
+        turn=2,
+        output_dir=output_dir,
+        repo_path=tmp_path / "repo",
+        workspace_root=tmp_path,
+        agents=agents,
+        additional_dirs=[tmp_path],
+        timeout=30,
+        retries=1,
+        dry_run=False,
+        log_dir=tmp_path / "logs",
+    )
+
+    assert calls == {"codex": 1, "claude": 1 if change == "output" else 2}
+    assert not results["codex"].succeeded
+    assert "pair input binding" in results["codex"].error
+    assert results["claude"].succeeded
+    assert not results["codex"].output_path.exists()
+    preserved = list((output_dir / "repairs" / "round2-stale").glob("**/codex.json"))
+    assert preserved, "stale output and its original receipt must be recoverable"
+    assert list((output_dir / "repairs" / "round2-stale").glob("**/turn-2-codex.json"))
 
 
 def test_run_one_turn_reuses_only_attested_matching_inputs(

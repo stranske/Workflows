@@ -1260,6 +1260,54 @@ def run_one_turn(
         for future in concurrent.futures.as_completed(futures):
             label = futures[future]
             results[label] = future.result()
+
+    # A peer may retry against changed inputs after an earlier worker has already
+    # returned success. Validate every consumed receipt against one shared final
+    # generation, rather than allowing independent successful worker generations.
+    shared_agent = next(iter(agents))
+    shared_manifest, shared_error = round2_input_manifest(
+        repo=repo,
+        turn=turn,
+        agent=shared_agent,
+        round1_paths=agents,
+        prior_turn_paths=prior_turn_paths,
+    )
+    binding_errors: dict[str, str] = {}
+    for label, result in results.items():
+        if not result.succeeded:
+            continue
+        if shared_manifest is None:
+            binding_errors[label] = shared_error
+            continue
+        reusable, error = reusable_turn_output(
+            out_path=result.output_path,
+            expected_manifest={**shared_manifest, "agent": label},
+        )
+        if not reusable:
+            binding_errors[label] = error
+    final_manifest, final_error = round2_input_manifest(
+        repo=repo,
+        turn=turn,
+        agent=shared_agent,
+        round1_paths=agents,
+        prior_turn_paths=prior_turn_paths,
+    )
+    if final_manifest is None or final_manifest != shared_manifest:
+        for label, result in results.items():
+            if result.succeeded:
+                binding_errors[label] = final_error or "inputs changed during pair validation"
+    for label, error in binding_errors.items():
+        result = results[label]
+        result.succeeded = False
+        result.error = f"pair input binding: {error}"
+        if not dry_run:
+            preserve_error = preserve_stale_turn_output(
+                output_dir=output_dir,
+                repo=repo,
+                out_path=result.output_path,
+            )
+            if preserve_error:
+                result.error += f"; {preserve_error}"
     return results
 
 
