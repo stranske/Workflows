@@ -12,7 +12,7 @@
     "exact-restoration-green.xml": "6c05492af5035458047691a1b644c084e0a046ad79e533b8114b434795162bd4",
     "production-skip-red.xml": "ea57f82d03ad47f0f8252dc71869dad97170063a4bf99e0df133e2e3b409c28a",
     "node-green.log": "a6dd8321d76c9a2de468c46e7e6782b5bd1517c69d30079ff1d4655bf07274c9",
-    "replay.py": "280f3d7e87077c69456c277e65115e2d8038ee693273b35abc1e7fc7de841025",
+    "replay.py": "830eee0bc573ed81bd1677e42b8cdfa3f14063ab8faeff6d612c524c189a0637",
     "focused-green.log": "2f4f4887c0856db3a2cf2bc508944310e8d38b448148f05a81d9605f061d09bd",
     "exact-restoration-green.log": "0f18846f02505ee432787dbe3891961c1d8a1fbe2c82d1b7deb7e21dde073c5c",
     "production-skip-red.log": "18a81c3010456f5192d6da17e4fa64d2ce9dad558c648b513888c4255a2c6f0c",
@@ -21,5 +21,6 @@
     "drift.log": "f6197a0634eeca4dee42e21a4f2574f35e32d73c31874813a5b5404c4b0611d0"
   },
   "validation": "139 focused PASS,29 Node PASS; actionlint external shellcheck/pyflakes disabled; template sync/completeness/drift exit0",
-  "historical_binding": "Parent manifest and earlier mutation-receipt bind historical skip behavior only; this current receipt does not rebind them."
+  "historical_binding": "Parent manifest and earlier mutation-receipt bind historical skip behavior only; this current receipt does not rebind them.",
+  "replay_revision": "Formatted replay uses defusedxml and requires a fresh external --output; actual external rerun3841-replay-final observes six assertionRED/exactrestoreGREEN; original logs/JUnit/receipt retained byte-identical."
 }
