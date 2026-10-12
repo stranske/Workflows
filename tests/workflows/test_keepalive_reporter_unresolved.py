@@ -108,10 +108,15 @@ def test_unassociated_workflow_run_reports_attributed_failure_before_failing(
         "Upstream run: 12345",
         "Attempt: 2",
         f"Conclusion: {conclusion}",
+        "Event: workflow_run",
         "Head: " + "a" * 40,
+        "Reporter outcome: unresolved",
         "unassociated run has no verified dispatch classification",
+        "No PR state was changed. Recover the verified target, then retry the reporter.",
     ):
         assert value in summary
+    assert "failed" == result["events"][2][0]
+    assert "Reporter applicability unavailable:" in result["events"][2][1]
     assert result["outputs"] == {
         "outcome": "unresolved",
         "skip": "false",
@@ -119,6 +124,9 @@ def test_unassociated_workflow_run_reports_attributed_failure_before_failing(
         "pr_number": "",
         "ordinary_target": "false",
     }
+    # Empty lock forbids the mutating report job; diagnostic is not reconciliation.
+    assert result["events"][1][2]["lock_pr_number"] == ""
+    assert result["events"][2][2]["lock_pr_number"] == ""
 
 
 @pytest.mark.parametrize("reporter", REPORTERS, ids=["root", "consumer"])

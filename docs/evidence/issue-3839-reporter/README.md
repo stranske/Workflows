@@ -26,18 +26,20 @@ class; the reporter log does not identify its exact upstream run, so the pair is
 not claimed as a proven trigger linkage. Missing associations are not permission
 to infer PR ownership.
 
-The root and consumer resolver publish attributed diagnostics for two classes:
+The root and consumer resolver publish attributed diagnostics as follows:
 
-- **Unassociated non-dispatch / non-producer runs** (`#3839` + `#3843`): classify
-  as skip with `outcome=no-report-needed`, emit notice+job summary naming the
-  upstream run/conclusion/reason, leave the PR lock empty, and do **not** fail
-  the resolver (avoids the prior red-run noise).
-- **Authority-relevant resolution failures**: publish an attributed job summary
-  **before** `setFailed`. Both clear the PR lock and distinguish `unresolved` /
-  `invalid-input` from resolved or no-report-needed. No classifier, authority
-  replay, writer permission, or PR mutation gate was weakened. A summary-writing
-  failure preserves both its own error annotation and the original classification
-  failure.
+- **Unassociated non-dispatch / non-producer classification failures** (`#3839`):
+  the classifier may return skip, but the resolver rethrows that reason into the
+  attributed failure catch. It writes repository/run/attempt/conclusion/event/head
+  plus `Reporter outcome: unresolved`, leaves the PR lock empty, and **remains
+  red** via `setFailed`. A targetless classifier skip cannot waive this contract.
+- **Other verified classifier skips** (`#3843`): `outcome=no-report-needed`,
+  notice+job summary naming why, empty PR lock, resolver succeeds (no false red).
+- **Other authority-relevant resolution failures**: same attributed summary
+  **before** `setFailed`, with `unresolved` or `invalid-input`. No classifier,
+  authority replay, writer permission, or PR mutation gate was weakened. A
+  summary-writing failure preserves both its own error annotation and the
+  original classification failure.
 
 ## Validation
 
@@ -56,8 +58,9 @@ failures** on
 `test_unassociated_workflow_run_reports_attributed_failure_before_failing`, no
 errors or skips, exit 1. Byte-identical restoration produced **6 clean passes**,
 exit 0. The tests parse the authored YAML and execute its JavaScript against the
-real classifier with read-only mocked GitHub data; they require the attributed
-notice+summary events for unassociated skips.
+real classifier with read-only mocked GitHub data; they require
+`summary` then `failed` (with an empty PR lock) for unassociated
+failed/cancelled/timed_out runs.
 
 This is local behavior and mutation evidence. It does not establish a deployed
 consumer cycle, successful live PR reconciliation, hosted CI completion, or
