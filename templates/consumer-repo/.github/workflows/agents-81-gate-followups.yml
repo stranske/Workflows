@@ -104,6 +104,7 @@ jobs:
       delegation_reason: ${{ steps.evaluate.outputs.delegation_reason }}
       delegation_should_switch: ${{ steps.evaluate.outputs.delegation_should_switch }}
       delegation_source: ${{ steps.evaluate.outputs.delegation_source }}
+      policy_version: ${{ steps.evaluate.outputs.policy_version }}
       agent_routing_mode: ${{ steps.evaluate.outputs.agent_routing_mode }}
       security_blocked: ${{ steps.security_gate.outputs.blocked }}
       security_reason: ${{ steps.security_gate.outputs.reason }}
@@ -357,6 +358,7 @@ jobs:
               delegation_reason: String(result.delegationReason || ''),
               delegation_should_switch: String(result.delegationShouldSwitch || 'false'),
               delegation_source: String(result.delegationSource || ''),
+              policy_version: String(result.policyVersion || ''),
               agent_routing_mode: String(result.agentRoutingMode || ''),
             };
             for (const [key, value] of Object.entries(output)) {
@@ -1352,6 +1354,7 @@ jobs:
             }}
           PREFLIGHT_FAILURE_SUMMARY: ${{ needs.preflight.outputs.failure_summary || '' }}
           DELEGATION_SOURCE: ${{ needs.evaluate.outputs.delegation_source }}
+          POLICY_VERSION: ${{ needs.evaluate.outputs.policy_version }}
           EVALUATE_PR_NUMBER: ${{ needs.evaluate.outputs.pr_number }}
           EVALUATE_HEAD_SHA: ${{ needs.evaluate.outputs.head_sha }}
           EVALUATE_ACTION: ${{ needs.evaluate.outputs.action }}
@@ -1476,6 +1479,7 @@ jobs:
               delegation_reason: process.env.EVALUATE_DELEGATION_REASON || '',
               delegation_should_switch: process.env.EVALUATE_DELEGATION_SHOULD_SWITCH || '',
               delegation_source: process.env.DELEGATION_SOURCE || '',
+              policy_version: process.env.POLICY_VERSION || '',
               agent_routing_mode: process.env.EVALUATE_AGENT_ROUTING_MODE || '',
               // Agent run result - check which agent ran
               run_result: runResult,
