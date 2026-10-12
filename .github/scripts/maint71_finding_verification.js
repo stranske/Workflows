@@ -99,7 +99,7 @@ async function collectFindingReviewState({ owner, repo, number, read }) {
     const data = await read((client) => client.graphql(`
       query($owner:String!,$repo:String!,$number:Int!,$after:String) {
         repository(owner:$owner,name:$repo) { pullRequest(number:$number) {
-          headRefOid body reviewThreads(first:100,after:$after) {
+          headRefOid headRefName body reviewThreads(first:100,after:$after) {
             pageInfo { hasNextPage endCursor } nodes { id isResolved isOutdated
               comments(first:100) { pageInfo { hasNextPage endCursor } nodes { ${fields} } }
             }
@@ -107,11 +107,12 @@ async function collectFindingReviewState({ owner, repo, number, read }) {
         } }
       }`, { owner, repo, number, after }));
     const fresh = data?.repository?.pullRequest;
-    if (!fresh?.headRefOid || !Array.isArray(fresh.reviewThreads?.nodes)
+    if (!fresh?.headRefOid || !fresh?.headRefName || !Array.isArray(fresh.reviewThreads?.nodes)
       || typeof fresh.reviewThreads?.pageInfo?.hasNextPage !== 'boolean') {
       throw new Error('Incomplete review-thread inventory');
     }
-    if (snapshot && (snapshot.headRefOid !== fresh.headRefOid || snapshot.body !== fresh.body)) {
+    if (snapshot && (snapshot.headRefOid !== fresh.headRefOid
+      || snapshot.headRefName !== fresh.headRefName || snapshot.body !== fresh.body)) {
       throw new Error('Delivery changed during review pagination');
     }
     snapshot = fresh;

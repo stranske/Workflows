@@ -1579,8 +1579,9 @@ promotion or full-fleet/Health 83 evidence.
 
 The immediately-pre-resolution record guard is lane-aware: Maint 52 dev-tool
 records need not invent a workflow-delivery head-observation pair. Their fresh
-REST and GraphQL PR heads must still equal the selected full head, the REST
-branch must be unchanged, and the entire parsed delivery record (including
+REST and GraphQL PR heads must still equal the selected full head, their current
+branch names must be unchanged (including every review-pagination snapshot),
+and the entire parsed delivery record (including
 desired tree, repository, durable issue, source, plan, generation and lease)
 must remain identical across both reads with a live lease. A present observed
 head must agree even for dev-tool deliveries. Stable workflow deliveries still

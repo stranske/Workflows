@@ -104,7 +104,7 @@ test('generic review, forged publisher, stale receipt, missing regression, and p
 // Exercise the actual controller closure with API doubles, including both race
 // checkpoints. Extracting the closure avoids a test-only production export.
 for (const lane of ['sync', 'dev-tool']) {
-for (const race of ['none', 'expired', 'rest-head', 'rest-branch', 'graphql-head',
+for (const race of ['none', 'expired', 'rest-head', 'rest-branch', 'graphql-head', 'graphql-branch',
   'graphql-plan', 'graphql-tree', 'graphql-lease', 'graphql-repository',
   'attestation-edited', 'attestation-deleted']) {
   test(`controller resolves only unchanged live verification: ${lane}:${race}`, async () => {
@@ -151,6 +151,7 @@ for (const race of ['none', 'expired', 'rest-head', 'rest-branch', 'graphql-head
         if (reads === 2 && race === 'graphql-repository') record.repository = 'stranske/Other';
         return { repository: { pullRequest: {
           headRefOid: reads === 2 && race === 'graphql-head' ? 'changed' : args.proof.head_sha,
+          headRefName: reads === 2 && race === 'graphql-branch' ? 'unknown-renamed-lane' : branch,
           body: body(record), reviewThreads: args.threads,
         } } };
       },
@@ -212,7 +213,7 @@ test('stock top-level completion resolves its short ref to the exact full head',
 
 test('collect all outer thread and inner comment pages, rejecting interrupted or changed pages', async () => {
   const { collectFindingReviewState } = require('../maint71_finding_verification');
-  for (const variant of ['complete', 'head-changed', 'cursor-missing']) {
+  for (const variant of ['complete', 'head-changed', 'branch-changed', 'branch-missing', 'cursor-missing']) {
     const calls = [];
     const github = { graphql: async (_query, vars) => {
       calls.push(vars);
@@ -222,6 +223,8 @@ test('collect all outer thread and inner comment pages, rejecting interrupted or
       const second = Boolean(vars.after);
       return { repository: { pullRequest: {
         headRefOid: second && variant === 'head-changed' ? 'changed' : 'head',
+        headRefName: variant === 'branch-missing' ? undefined
+          : second && variant === 'branch-changed' ? 'renamed' : 'sync/workflows-candidate',
         body: 'stable-body', reviewThreads: {
           pageInfo: { hasNextPage: !second, endCursor: variant === 'cursor-missing' ? null : 'outer-cursor' },
           nodes: [{ id: second ? 'thread2' : 'thread1', isResolved: false, isOutdated: false,

@@ -1421,7 +1421,7 @@ async function run({ github, context, core }) {
           owner, repo, number: pr.number, read: withReviewReadRetry,
         });
         const threads = fresh?.reviewThreads;
-        if (fresh?.headRefOid !== pr.head.sha) {
+        if (fresh?.headRefOid !== pr.head.sha || fresh?.headRefName !== pr.head.ref) {
           errors.push(`${proof.thread_id}:head_changed`);
           continue;
         }
@@ -1485,9 +1485,10 @@ async function run({ github, context, core }) {
             topLevelComments: latestCompletions,
           });
           if (latest?.headRefOid !== pr.head.sha || !finalVerification.ok
+            || latest?.headRefName !== pr.head.ref
             || !independentVerificationDeliveryUnchanged({
               previous: currentRecord, current: latestRecord,
-              head: pr.head.sha, branch: pr.head.ref, now: Date.now(),
+              head: pr.head.sha, branch: latest.headRefName, now: Date.now(),
             })) {
             errors.push(`${proof.thread_id}:verification_changed_before_resolution`);
             continue;
