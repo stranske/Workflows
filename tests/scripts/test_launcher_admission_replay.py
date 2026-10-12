@@ -119,8 +119,7 @@ def test_replay_requires_consistent_suite_and_outcomes(tmp_path, phase, defect):
         case = f"<intermediate>{case}</intermediate>"
     report = tmp_path / "junit.xml"
     report.write_text(
-        f"<testsuites><testsuite {attributes}>"
-        f"{case}{outside}</testsuite>{extra}</testsuites>"
+        f"<testsuites><testsuite {attributes}>" f"{case}{outside}</testsuite>{extra}</testsuites>"
     )
     if defect:
         with pytest.raises(ValueError):
