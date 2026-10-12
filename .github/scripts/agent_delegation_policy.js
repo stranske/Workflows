@@ -163,8 +163,35 @@ function getRouteWeightReserveAgents(reserve, taskType) {
 }
 
 /**
+ * Deterministic unit interval draw for exploration routing (tests pass an explicit seed).
+ *
+ * @param {number} seed
+ * @returns {number}
+ */
+function explorationDraw(seed) {
+  // Seed 0 is the empty-state fallback; map it away so a zero seed cannot force
+  // exploration for every positive rate (draw(0) would otherwise be exactly 0).
+  let t = (Number(seed) >>> 0) || 0xa5a5a5a5;
+  t = Math.imul(t ^ (t >>> 15), t | 1);
+  t ^= t + Math.imul(t ^ (t >>> 7), t | 61);
+  return ((t ^ (t >>> 14)) >>> 0) / 4294967296;
+}
+
+/**
+ * Stable exploration draw seed from keepalive state (PR + iteration).
+ *
+ * @param {Object} [state]
+ * @returns {number}
+ */
+function explorationSeedFromState(state = {}) {
+  const pr = Number(state.pr_number) || 0;
+  const iteration = Number(state.iteration) || 0;
+  return Math.imul(pr, 10007) + iteration;
+}
+
+/**
  * @param {Object} options
- * @returns {{ agent: string|null, delegationSource: 'route_weights'|'static', staticReason?: string }}
+ * @returns {{ agent: string|null, delegationSource: 'route_weights'|'route_weights_exploration'|'static', staticReason?: string, policy_version?: string }}
  */
 function selectAgentFromRouteWeights({
   routeWeights,
@@ -173,6 +200,7 @@ function selectAgentFromRouteWeights({
   availableAgents,
   agents,
   reserve = routeWeights?.reserve,
+  seed,
 }) {
   const reserveSet = new Set(getRouteWeightReserveAgents(reserve, taskType));
   const taskEntry = routeWeights?.task_types?.[taskType];
@@ -184,6 +212,28 @@ function selectAgentFromRouteWeights({
       delegationSource: 'static',
       staticReason: !routeWeights ? 'route-weights-unavailable' : 'route-weights-insufficient-evidence',
     };
+  }
+
+  const exploration = routeWeights.exploration;
+  const explorationRate = Number(exploration?.rate);
+  if (exploration && Number.isFinite(explorationRate) && explorationRate > 0) {
+    const draw = explorationDraw(seed ?? 0);
+    if (draw < explorationRate) {
+      const challenger = String(exploration.challengers?.[taskType] || '').toLowerCase();
+      if (
+        challenger &&
+        challenger !== normalizedCurrentAgent &&
+        !reserveSet.has(challenger) &&
+        availableAgents.includes(challenger) &&
+        hasKeepaliveRunner(agents[challenger])
+      ) {
+        return {
+          agent: challenger,
+          delegationSource: 'route_weights_exploration',
+          policy_version: exploration.policy_version,
+        };
+      }
+    }
   }
 
   const ranking = Array.isArray(taskEntry.ranking) ? taskEntry.ranking : [];
@@ -325,15 +375,21 @@ function decideNextAgent({
       availableAgents,
       agents,
       reserve: routeWeights?.reserve,
+      seed: explorationSeedFromState(state),
     });
     if (weighted.agent) {
-      core?.info?.(`Initial agent selection from route weights: ${weighted.agent}`);
+      const sourceLabel = weighted.delegationSource || 'route_weights';
+      core?.info?.(`Initial agent selection from route weights: ${weighted.agent} (${sourceLabel})`);
+      if (weighted.policy_version) {
+        core?.info?.(`Route-weights policy version: ${weighted.policy_version}`);
+      }
       return {
         agent: weighted.agent,
         reason: 'initial-selection-route-weights',
         shouldSwitch: false,
         alternatives: availableAgents.filter((agent) => agent !== weighted.agent),
-        delegationSource: 'route_weights',
+        delegationSource: sourceLabel,
+        policy_version: weighted.policy_version,
       };
     }
 
@@ -403,6 +459,7 @@ function decideNextAgent({
       availableAgents,
       agents,
       reserve: routeWeights?.reserve,
+      seed: explorationSeedFromState(state),
     });
 
     // A valid evidence-bearing export may never be bypassed to select one of
@@ -415,8 +472,8 @@ function decideNextAgent({
     const delegationSource = weighted.agent ? weighted.delegationSource : 'static';
 
     const sourceSuffix =
-      delegationSource === 'route_weights'
-        ? 'delegation_source: route_weights'
+      delegationSource === 'route_weights' || delegationSource === 'route_weights_exploration'
+        ? `delegation_source: ${delegationSource}`
         : `delegation_source: static (${weighted.staticReason || 'preference-order'})`;
 
     if (nextAgent === currentAgent) {
@@ -430,6 +487,9 @@ function decideNextAgent({
       };
     }
     core?.info?.(`Switching from ${currentAgent} to ${nextAgent} due to stall (${sourceSuffix})`);
+    if (weighted.policy_version) {
+      core?.info?.(`Route-weights policy version: ${weighted.policy_version}`);
+    }
     return {
       agent: nextAgent,
       reason: `${currentAgent}-stalled (${stall.reason}; ${sourceSuffix})`,
@@ -437,6 +497,7 @@ function decideNextAgent({
       previousAgent: currentAgent,
       alternatives: alternatives.filter((a) => a !== nextAgent),
       delegationSource,
+      policy_version: weighted.policy_version,
     };
   }
 
@@ -686,6 +747,9 @@ function formatDelegationSummary({ decision, effectiveness, state = {} }) {
   if (decision.delegationSource) {
     lines.push(`**Delegation source:** ${decision.delegationSource}`);
   }
+  if (decision.policy_version) {
+    lines.push(`**Policy version:** ${decision.policy_version}`);
+  }
 
   if (decision.alternatives && decision.alternatives.length > 0) {
     lines.push(`**Alternatives considered:** ${decision.alternatives.join(', ')} (not selected: ${decision.reason})`);
@@ -718,12 +782,47 @@ function formatDelegationSummary({ decision, effectiveness, state = {} }) {
   return lines.join('\n');
 }
 
+/**
+ * Lightweight helper for tests and CLI checks of route-weights exploration routing.
+ *
+ * @param {Object} options
+ * @returns {ReturnType<typeof selectAgentFromRouteWeights>}
+ */
+function pickAgent({
+  taskType = 'implement',
+  routeWeights,
+  seed = 0,
+  currentAgent = '',
+  availableAgents,
+  agents,
+}) {
+  const registryAgents = agents || {
+    codex: { runner_workflow: '.github/workflows/reusable-codex-run.yml', capabilities: { pr_keepalive: true } },
+    claude: { runner_workflow: '.github/workflows/reusable-claude-run.yml', capabilities: { pr_keepalive: true } },
+    cursor: { runner_workflow: '.github/workflows/reusable-cursor-run.yml', capabilities: { pr_keepalive: true } },
+    gemini: { runner_workflow: '.github/workflows/reusable-gemini-run.yml', capabilities: { pr_keepalive: true } },
+  };
+  const eligible = availableAgents || Object.keys(registryAgents);
+  return selectAgentFromRouteWeights({
+    routeWeights,
+    taskType,
+    currentAgent,
+    availableAgents: eligible,
+    agents: registryAgents,
+    reserve: routeWeights?.reserve,
+    seed,
+  });
+}
+
 module.exports = {
   DEFAULT_ROUTE_WEIGHTS_URL,
   ROUTE_WEIGHT_TASK_TYPES,
   resolveRoundKind,
   loadRouteWeights,
+  explorationDraw,
+  explorationSeedFromState,
   selectAgentFromRouteWeights,
+  pickAgent,
   getRouteWeightReserveAgents,
   decideNextAgent,
   checkPrerequisites,

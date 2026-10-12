@@ -10,11 +10,20 @@
 const test = require('node:test');
 const assert = require('node:assert/strict');
 
+const path = require('node:path');
+
 const {
   decideNextAgent,
   loadRouteWeights,
   resolveRoundKind,
+  pickAgent,
+  selectAgentFromRouteWeights,
+  explorationSeedFromState,
 } = require('../agent_delegation_policy.js');
+
+const routeWeightsWithExploration = require(
+  path.join(__dirname, '../../../tests/fixtures/route-weights-with-exploration.json')
+);
 
 const mockRegistry = {
   default_agent: 'codex',
@@ -34,6 +43,11 @@ const mockRegistry = {
       runner_workflow: '.github/workflows/reusable-cursor-run.yml',
       capabilities: { pr_keepalive: true },
     },
+    gemini: {
+      required_secrets: ['GEMINI_API_KEY'],
+      runner_workflow: '.github/workflows/reusable-gemini-run.yml',
+      capabilities: { pr_keepalive: true },
+    },
   },
 };
 
@@ -41,6 +55,7 @@ const mockSecrets = {
   CODEX_AUTH_JSON: true,
   CLAUDE_CODE_OAUTH_TOKEN: true,
   CURSOR_API_KEY: true,
+  GEMINI_API_KEY: true,
 };
 
 const stalledStateCodex = {
@@ -649,4 +664,70 @@ test('stalled-no-alternatives preserves computed delegationSource', () => {
   assert.equal(evidenceNoAlternate.delegationSource, 'static');
   assert.equal(evidenceNoAlternate.shouldSwitch, false);
   assert.equal(evidenceNoAlternate.agent, 'codex');
+});
+
+test('exploration branch delegates to the published challenger at the published rate and reports the policy version', () => {
+  const result = decideNextAgent({
+    state: { iteration: 7 },
+    labels: ['agent:auto'],
+    secrets: mockSecrets,
+    registry: mockRegistry,
+    routeWeights: routeWeightsWithExploration,
+  });
+
+  assert.equal(result.agent, 'gemini');
+  assert.equal(result.delegationSource, 'route_weights_exploration');
+  assert.equal(result.policy_version, 'exploration-2026-10-06');
+  assert.equal(result.shouldSwitch, false);
+});
+
+test('pickAgent CLI helper reports exploration delegation for a seeded draw', () => {
+  const picked = pickAgent({
+    taskType: 'implement',
+    routeWeights: routeWeightsWithExploration,
+    seed: 7,
+  });
+
+  assert.equal(picked.agent, 'gemini');
+  assert.equal(picked.delegationSource, 'route_weights_exploration');
+  assert.equal(picked.policy_version, 'exploration-2026-10-06');
+});
+
+test('zero seed does not force exploration for every positive rate', () => {
+  const weighted = selectAgentFromRouteWeights({
+    routeWeights: routeWeightsWithExploration,
+    taskType: 'implement',
+    currentAgent: '',
+    availableAgents: ['cursor', 'codex', 'claude', 'gemini'],
+    agents: mockRegistry.agents,
+    seed: 0,
+  });
+
+  assert.equal(weighted.agent, 'cursor');
+  assert.equal(weighted.delegationSource, 'route_weights');
+  assert.equal(weighted.policy_version, undefined);
+});
+
+test('exploration seed incorporates pr_number so empty state is not shared', () => {
+  assert.notEqual(explorationSeedFromState({}), explorationSeedFromState({ pr_number: 3840 }));
+  assert.equal(explorationSeedFromState({ pr_number: 3840, iteration: 2 }), Math.imul(3840, 10007) + 2);
+});
+
+test('ignoring the exploration block restores ranking selection', () => {
+  const withoutExploration = {
+    ...routeWeightsWithExploration,
+    exploration: undefined,
+  };
+
+  const weighted = selectAgentFromRouteWeights({
+    routeWeights: withoutExploration,
+    taskType: 'implement',
+    currentAgent: '',
+    availableAgents: ['cursor', 'codex', 'claude', 'gemini'],
+    agents: mockRegistry.agents,
+    seed: 7,
+  });
+
+  assert.equal(weighted.agent, 'cursor');
+  assert.equal(weighted.delegationSource, 'route_weights');
 });
