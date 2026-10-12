@@ -2791,6 +2791,9 @@ async function evaluateKeepaliveLoop({ github: rawGithub, context, core, payload
             `Delegation policy: ${decision.agent} (${decision.reason}, ` +
             `switch=${decision.shouldSwitch}, source=${delegationSource})`
           );
+          if (decision.policy_version) {
+            core?.info?.(`Route-weights policy version: ${decision.policy_version}`);
+          }
         } else {
           core?.warning?.(`Delegation policy returned no agent: ${decision.reason}`);
           if (decision.reason === 'multiple-agent-labels') {
