@@ -5353,10 +5353,14 @@ def test_issue3835_bare_capability_coordination_is_channel_symmetric(first, seco
 @pytest.mark.parametrize("artifact", ["an artifact", "a workflow artifact"])
 @pytest.mark.parametrize("destination", ["the PR body", "a PR comment"])
 @pytest.mark.parametrize("independent", [False, True])
+@pytest.mark.parametrize("reverse", [False, True])
 def test_issue3835_passive_capability_destination_or_is_nongating(
-    operation, artifact, destination, independent
+    operation, artifact, destination, independent, reverse
 ):
-    text = f"The UI must allow evidence to be {operation} as {artifact} or in {destination}"
+    choices = [f"as {artifact}", f"in {destination}"]
+    if reverse:
+        choices.reverse()
+    text = f"The UI must allow evidence to be {operation} " + " or ".join(choices)
     if independent:
         text += "; the reviewer must post evidence in a PR comment"
     expected = {"comments"} if independent else set()
@@ -5396,3 +5400,25 @@ def test_issue3835_bare_artifact_or_retains_all_mandatory_alternatives(
         == "PASS"
     )
     assert _floor_verdict(text, body="absent", comments="absent", artifacts="absent") == "CONCERNS"
+
+
+@pytest.mark.parametrize("artifact", ["an artifact", "a workflow artifact"])
+@pytest.mark.parametrize("reverse", [False, True])
+@pytest.mark.parametrize("independent", [False, True])
+def test_issue3835_artifact_and_keeps_both_destinations(artifact, reverse, independent):
+    choices = [f"as {artifact}", "in the PR body"]
+    if reverse:
+        choices.reverse()
+    text = "Evidence must be attached " + " and ".join(choices)
+    expected = {"artifacts", "body"}
+    if independent:
+        text += "; the reviewer must post evidence in a PR comment"
+        expected.add("comments")
+    assert verifier._required_evidence_channels(text) == expected
+    assert verifier._required_evidence_options(text) == [expected]
+    assert (
+        _floor_verdict(text, body="present", comments="present", artifacts="absent") == "CONCERNS"
+    )
+    assert (
+        _floor_verdict(text, body="absent", comments="present", artifacts="present") == "CONCERNS"
+    )

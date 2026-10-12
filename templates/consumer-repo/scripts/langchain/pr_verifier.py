@@ -1174,6 +1174,46 @@ def _normalize_passive_product_capabilities(acceptance: str) -> str:
     )
 
 
+def _normalize_plain_artifact_destinations(acceptance: str) -> str:
+    """Canonicalize bounded bare artifact destinations, never product fields."""
+    return re.sub(
+        r"(?P<literal>" + _QUOTED_EVIDENCE_LITERAL + r")|"
+        r"(?P<prefix>\b" + _EVIDENCE_DESTINATION_PREPOSITION + r"\s+"
+        r"(?:(?:the|an?)\s+)?)artifacts?\b"
+        r"(?=\s*(?:$|[;,.!?\n]|(?:and|or|but|which|that|is|are|must|shall|may|can|only|solely)\b))",
+        lambda match: match[0] if match["literal"] else match["prefix"] + "workflow artifact",
+        acceptance,
+        flags=re.I,
+    )
+
+
+def _normalize_product_destination_lists(acceptance: str) -> str:
+    """A complete bounded product capability list creates no review delivery."""
+    member = _EVIDENCE_DESTINATION_PREPOSITION + r"\s+" + _EVIDENCE_REVIEW_DESTINATION
+    return re.sub(
+        r"(?P<literal>" + _QUOTED_EVIDENCE_LITERAL + r")|"
+        r"\b" + _EVIDENCE_PRODUCT_ACTOR + r"\s+"
+        r"(?:(?:" + _MANDATORY_EVIDENCE_AUXILIARY + r"|will|" + _EVIDENCE_OPTIONAL_MODAL + r")\s+)?"
+        r"(?:allow|enable|support|permit)\w*\s+"
+        + _EVIDENCE_RECIPIENT_PREFIX
+        + _EVIDENCE_ACTOR_NOUN
+        + _EVIDENCE_ACTOR_QUALIFIER
+        + r"\s+to\s+"
+        + _EVIDENCE_DELIVERY_OPERATION
+        + r"\s+"
+        + _EVIDENCE_OBJECT_MODIFIERS
+        + r"(?:evidence|artifacts?|transcripts?|command outputs?)\s+"
+        + member
+        + r"(?:\s+(?:and|or)\s+"
+        + member
+        + r")+"
+        r"(?=\s*(?:$|[;.!?\n]))",
+        lambda match: match[0] if match["literal"] else "product capability",
+        acceptance,
+        flags=re.I,
+    )
+
+
 _EVIDENCE_ARTIFACT_DESTINATION = r"(?:workflow|ci|github actions)\s+artifacts?\b"
 _EVIDENCE_PR_COMMENT_DESTINATION = (
     r"(?:(?:pr|pull request)\s+comments?|(?:inline\s+)?(?:pr\s+)?review comments?)"
@@ -1537,11 +1577,13 @@ def _required_evidence_channels(acceptance: str, *, _bind_attached: bool = True)
     """Identify explicit evidence deliverables without treating negations as requirements."""
 
     acceptance = _normalize_review_comment_destinations(acceptance)
+    acceptance = _normalize_plain_artifact_destinations(acceptance)
     acceptance = _normalize_destination_first_checklist(acceptance)
     acceptance = _normalize_passive_product_capabilities(acceptance)
     acceptance = _normalize_review_content_qualifiers(acceptance)
     acceptance = _normalize_passive_review_agents(acceptance)
     acceptance = _normalize_relative_review_presence(acceptance)
+    acceptance = _normalize_product_destination_lists(acceptance)
     channels: set[str] = set()
     response_operation = (
         r"(?:include|contain|have|return|display|show|store|emit|render|expose|provide)\w*\b"
@@ -4509,11 +4551,13 @@ def _required_evidence_options(acceptance: str) -> list[set[str]]:
     requirement rather than dropping an obligation.
     """
     acceptance = _normalize_review_comment_destinations(acceptance)
+    acceptance = _normalize_plain_artifact_destinations(acceptance)
     acceptance = _normalize_destination_first_checklist(acceptance)
     acceptance = _normalize_passive_product_capabilities(acceptance)
     acceptance = _normalize_review_content_qualifiers(acceptance)
     acceptance = _normalize_passive_review_agents(acceptance)
     acceptance = _normalize_relative_review_presence(acceptance)
+    acceptance = _normalize_product_destination_lists(acceptance)
     preposition = _EVIDENCE_DESTINATION_PREPOSITION
     destination = (
         r"(?:(?:the|an?)\s+)?(?:(?:pr|pull request)\s+(?:(?:body|description)\b"

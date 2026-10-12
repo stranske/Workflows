@@ -2144,6 +2144,10 @@ workflow artifacts, in either order with a PR-body/comment alternative. At least
 one allowed delivery and every independent mandatory clause must remain present.
 Each OR member retains its explicit preposition; `as an artifact` is not
 rewritten to `in an artifact` merely because the first member uses `in`.
+Bounded plain artifact destinations normalize before both classifiers, so AND
+lists retain both required destinations too. A complete product-capability
+destination list remains nongating in either order; independently governed
+reviewer duties and relative presence predicates are not consumed by that list.
 Checklist shorthand accepts the common test/validation proof nouns, so
 `Validation output in a PR comment` retains comments as its required channel.
 Negative, optional and product-capability clauses keep their existing semantics.
