@@ -87,6 +87,70 @@ def test_body_quality_errors_clean_body() -> None:
     assert body_writer.body_quality_errors(CLEAN_BODY) == []
 
 
+def test_body_quality_errors_rejects_task_without_concrete_target() -> None:
+    """The legacy depth checks accepted this otherwise complete vague task."""
+    body = CLEAN_BODY.replace(
+        "- [ ] Add the missing-source assertion in `tests/test_findings_chains.py`.",
+        "- [ ] Verify that the implementation behaves correctly.",
+    )
+
+    errors = body_writer.body_quality_errors(body)
+
+    assert any("canonical issue-format failure" in error for error in errors), errors
+    assert any("Tasks` item must name a concrete" in error for error in errors), errors
+
+
+def test_body_quality_errors_accepts_canonical_missing_path_advisory(tmp_path: Path) -> None:
+    """Canonical advisory-only citations do not become body-writer failures."""
+    for relative in (
+        "out/extraction.json",
+        "out/readiness.json",
+        "scripts/reviewable_findings.py",
+        "src/reviewable_findings/extract.py",
+        "tests/test_findings_chains.py",
+        "tests/fixtures/findings.json",
+        "docs/reviewable-findings.md",
+        "README.md",
+    ):
+        path = tmp_path / relative
+        path.parent.mkdir(parents=True, exist_ok=True)
+        path.write_text("ok\n", encoding="utf-8")
+    body = CLEAN_BODY.replace(
+        "- [ ] `pytest tests/test_findings_chains.py -q` stays green on the wire-through.",
+        "- [ ] `pytest tests/test_findings_chains.py -q` stays green on the wire-through; "
+        "afterward create `generated/new_module.py` for the parser boundary.",
+    )
+
+    errors = body_writer.body_quality_errors(body, repo_path=tmp_path)
+
+    assert errors == []
+
+
+def test_body_quality_errors_rejects_legacy_only_acceptance_gate() -> None:
+    """A bare tests directory satisfied the old regex but not the canonical gate."""
+    body = _body_with_acceptance("- [ ] Inspect `tests/` during the release review.")
+
+    assert body_writer.acceptance_has_verification_gate(body) is True
+    errors = body_writer.body_quality_errors(body)
+
+    assert any("canonical issue-format failure" in error for error in errors), errors
+    assert any("Acceptance Criteria` names no test" in error for error in errors), errors
+
+
+def test_canonical_issue_format_loader_failure_fails_closed(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """A broken source validator must reject a body instead of silently skipping it."""
+    body_writer._issue_format_validator.cache_clear()
+    monkeypatch.setattr(body_writer.importlib.util, "spec_from_file_location", lambda *_args: None)
+
+    errors = body_writer.canonical_issue_format_errors(CLEAN_BODY, repo_path=None)
+
+    assert len(errors) == 1
+    assert "canonical issue-format validator could not run" in errors[0]
+    body_writer._issue_format_validator.cache_clear()
+
+
 def test_body_quality_errors_empty_body() -> None:
     assert body_writer.body_quality_errors("") == ["body is empty"]
     assert body_writer.body_quality_errors("   \n  ") == ["body is empty"]
@@ -807,9 +871,9 @@ def test_sync_check_not_required_for_executing_steward(tmp_path: Path) -> None:
 def test_each_generic_boilerplate_phrase_is_flagged(phrase: str) -> None:
     body = CLEAN_BODY + f"\n\nNote: {phrase}.\n"
     errors = body_writer.body_quality_errors(body)
-    assert any(
-        repr(phrase) in e or phrase in e for e in errors
-    ), f"phrase {phrase!r} should be flagged by body_quality_errors"
+    assert any(repr(phrase) in e or phrase in e for e in errors), (
+        f"phrase {phrase!r} should be flagged by body_quality_errors"
+    )
 
 
 # ---------------------------------------------------------------------------

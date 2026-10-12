@@ -28,7 +28,7 @@ as failing the deterministic quality gate:
 
    - **`## Non-Goals`** — 3-5 bullets. Each must be a SPECIFIC exclusion that someone could plausibly think is in scope but isn't (e.g. "Do not bundle the M4 24h digest work — covered by #910"). NOT generic catch-alls ("Do not do unrelated refactors", "Do not bundle Workflows-template-sync work"). If the candidate's structured `non_goals` field already has good ones, use them as-is.
 
-   - **`## Tasks`** — 5-8 checkboxes. Each task starts with a verb, names specific files (with line numbers when load-bearing), and describes a concrete change. If the candidate has structured `tasks`, those are your starting point — refine them to the standard. Add any tasks needed to round out the work (e.g. doc updates, test additions). Avoid generic tasks ("Add or update repo-local tests" by itself is too vague — say WHICH test).
+   - **`## Tasks`** — 5-8 checkboxes. Each task starts with a verb, names a concrete file, path, symbol, config key, job, workflow, or command (with line numbers when load-bearing), and describes a concrete change. A checkbox such as "verify the implementation" or "update tests" without that target is invalid even if the surrounding body cites files. If the candidate has structured `tasks`, those are your starting point — refine them to the standard. Add any tasks needed to round out the work (e.g. doc updates, test additions). Avoid generic tasks ("Add or update repo-local tests" by itself is too vague — say WHICH test).
 
    - **`## Acceptance Criteria`** — 4-6 checkboxes. Each must be independently verifiable. At least one must reference a specific test path, smoke command, verifier run, or CI gate. Generic criteria ("the gap is implemented in repo-local code") fail the bar. Use named tests, command invocations, or `rg` queries with expected output.
 
@@ -47,6 +47,10 @@ A body PASSES only when:
 - Implementation Notes lists ≥6 specific files.
 - No generic boilerplate phrases: "no completed semantic review is recorded", "Implement the approved review gap", "The reviewed design/readiness gap is implemented", "At least one targeted automated test", "Approved weekly-review candidate".
 - File refs use the actual files in this repo (paths that resolve in `<LOCAL_REPO_PATH>`).
+- Every task checkbox independently names a concrete target. Required headings and
+  acceptance wording must also pass the canonical `.github/scripts/issue_format.py`
+  validator. Canonical advisories do not add failures; the existing depth and
+  repository-path checks above still apply.
 
 If you can't meet this bar for a candidate (e.g. the structured fields are too thin to expand), record `"body": "INSUFFICIENT_EVIDENCE: <one-line reason>"` and continue. Do NOT write a low-quality body. The coordinator will route INSUFFICIENT_EVIDENCE candidates to deeper-review.
 

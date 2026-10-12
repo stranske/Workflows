@@ -37,6 +37,7 @@ Usage:
 from __future__ import annotations
 
 import argparse
+import importlib.util
 import json
 import re
 import shlex
@@ -44,6 +45,7 @@ import subprocess
 import sys
 from contextlib import suppress
 from copy import deepcopy
+from functools import lru_cache
 from pathlib import Path
 from typing import Any
 
@@ -111,6 +113,49 @@ _PATH_RE = re.compile(
     r"(?<![A-Za-z0-9_.-])(?:AGENTS|CLAUDE|README)\.md|"
     r"(?<![A-Za-z0-9_.-])pyproject\.toml"
 )
+
+
+@lru_cache(maxsize=1)
+def _issue_format_validator() -> Any:
+    """Load the fleet's single issue-format definition without copying its rules.
+
+    The body writer runs from Workflows-steward while validating bodies for
+    consumer repositories. Passing the consumer checkout as ``repo_root``
+    keeps the canonical validator's addressability check accurate without
+    creating a second, inevitably drifting set of task rules.
+    """
+    validator_path = (
+        Path(__file__).resolve().parent.parent / ".github" / "scripts" / "issue_format.py"
+    )
+    spec = importlib.util.spec_from_file_location("_repo_review_issue_format", validator_path)
+    if spec is None or spec.loader is None:  # pragma: no cover - repository invariant
+        raise RuntimeError(f"Cannot load canonical issue-format validator: {validator_path}")
+    module = importlib.util.module_from_spec(spec)
+    sys.modules[spec.name] = module
+    try:
+        spec.loader.exec_module(module)
+    except Exception:
+        sys.modules.pop(spec.name, None)
+        raise
+    return module
+
+
+def canonical_issue_format_errors(body: str, *, repo_path: Path | None) -> list[str]:
+    """Return only blocking errors from the canonical issue-format validator.
+
+    Its unresolved-path messages are advisories by design: a task may correctly
+    create a new file. The body writer rejects a body only when the canonical
+    validator marks it non-agent-processable, while retaining the local depth
+    and current-checkout path checks below.
+    """
+    try:
+        report = _issue_format_validator().validate(body, repo_root=repo_path)
+    except Exception as exc:
+        return [f"canonical issue-format validator could not run: {exc}"]
+    if report.ok:
+        return []
+    details = [*report.missing_required, *report.problems]
+    return [f"canonical issue-format failure: {detail}" for detail in details]
 
 
 # ---------------------------------------------------------------------------
@@ -264,6 +309,11 @@ def body_quality_errors(
         return []  # legitimate routing, not a quality failure
 
     errors: list[str] = []
+    # AGENT_ISSUE_FORMAT.md has one canonical executable implementation. Keep
+    # its task-addressability, heading, acceptance, and subjective-word rules
+    # authoritative here rather than approximating them with another regex set.
+    # Advisories remain non-blocking in that validator.
+    errors.extend(canonical_issue_format_errors(body, repo_path=repo_path))
     lowered = body.lower()
     for phrase in GENERIC_BODY_PHRASES:
         if phrase in lowered:
