@@ -472,6 +472,22 @@ test('formatDelegationSummary formats decision with metrics', () => {
   assert.ok(summary.includes('Commits (last 3 rounds): 2'));
 });
 
+test('formatDelegationSummary prints policy_version for exploration delegation', () => {
+  const summary = formatDelegationSummary({
+    decision: {
+      agent: 'gemini',
+      reason: 'initial-selection-route-weights',
+      delegationSource: 'route_weights_exploration',
+      policy_version: 'exploration-2026-10-06',
+      alternatives: ['cursor', 'codex'],
+    },
+    state: { iteration: 7 },
+  });
+
+  assert.match(summary, /\*\*Delegation source:\*\* route_weights_exploration/);
+  assert.match(summary, /\*\*Policy version:\*\* exploration-2026-10-06/);
+});
+
 const routeWeightsRegistry = {
   default_agent: 'codex',
   agents: {

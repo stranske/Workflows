@@ -3682,35 +3682,33 @@ def test_attached_delivery_actor_qualifier_is_not_the_evidence_object(
         ("Attach evidence as an artifact", "artifacts"),
         ("Upload the coverage report as an artifact", "artifacts"),
         ("Evidence must be posted in a PR review comment", "comments"),
+        ("Evidence must be posted in an inline review comment", "comments"),
+        ("- [ ] Validation output in a PR comment", "comments"),
+        ("- [x] Validation output in a PR comment", "comments"),
+        ("- [X] Validation output in a PR comment", "comments"),
+        ("- [ ] Validation results in a PR comment", "comments"),
+        ("- [x] Validation results in a PR comment", "comments"),
+        ("- [X] Validation results in a PR comment", "comments"),
+        ("- [ ] Validation results in a PR review comment", "comments"),
     ],
 )
-def test_destination_specific_coverage_floor_blocks_missing_channel_with_present_body(
-    criterion: str, channel: str
-) -> None:
-    assert pr_verifier._required_evidence_channels(criterion) == {channel}
+@pytest.mark.parametrize("missing", ["absent", "unavailable", "present"])
+def test_issue3835_named_destination_cannot_borrow_present_body(criterion, channel, missing):
+    """Only the named evidence channel can satisfy its mandatory delivery."""
     context, _ = _context(1, 1000, 1000)
-    evidence = (
+    status = {"comments": "present", "artifacts": "present"}
+    status[channel] = missing
+    context = context.replace("- " + ACCEPTANCE_SENTINEL, criterion).replace(
+        "## PR Diff Summary",
+        "## Acceptance evidence\n\n"
         "- Overall retrieval status: **present**\n"
         "- PR body: **present**\n"
-        "- PR comments: **present**\n"
-        "- Referenced workflow artifacts: **present**\n"
-    )
-    if channel == "comments":
-        evidence = evidence.replace("PR comments: **present**", "PR comments: **absent**")
-    if channel == "artifacts":
-        evidence = evidence.replace(
-            "Referenced workflow artifacts: **present**",
-            "Referenced workflow artifacts: **absent**",
-        )
-    context = context.replace(ACCEPTANCE_SENTINEL, criterion).replace(
+        f"- PR comments: **{status['comments']}**\n"
+        f"- Referenced workflow artifacts: **{status['artifacts']}**\n\n"
         "## PR Diff Summary",
-        "## Acceptance evidence\n\n" + evidence + "\n\n## PR Diff Summary",
     )
-    coverage = pr_verifier.prompt_coverage(context, None)
-    assert not coverage.sufficient
-    assert (
-        pr_verifier._apply_coverage_floor(
-            pr_verifier.EvaluationResult(verdict="PASS", used_llm=True), coverage
-        ).verdict
-        == "CONCERNS"
+    result = pr_verifier._apply_coverage_floor(
+        pr_verifier.EvaluationResult(verdict="PASS", used_llm=True),
+        pr_verifier.prompt_coverage(context, None),
     )
+    assert result.verdict == ("PASS" if missing == "present" else "CONCERNS")

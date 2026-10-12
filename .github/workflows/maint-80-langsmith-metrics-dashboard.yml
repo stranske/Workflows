@@ -351,7 +351,7 @@ jobs:
             .metrics-tmp/fleet/fleet_errors.log
           include-hidden-files: true
           if-no-files-found: ignore
-          retention-days: 90
+          retention-days: 30
 
       - name: Upload fleet rollup artifact
         if: always()
@@ -361,7 +361,7 @@ jobs:
           path: .metrics-tmp/fleet/combined-fleet.ndjson
           include-hidden-files: true
           if-no-files-found: ignore
-          retention-days: 90
+          retention-days: 30
 
       - name: Upload report artifact
         if: env.REPORT_AVAILABLE == 'true'
@@ -377,7 +377,7 @@ jobs:
             .metrics-tmp/fleet/fleet-status.json
           include-hidden-files: true
           if-no-files-found: ignore
-          retention-days: 90
+          retention-days: 30
 
       - name: Upsert dashboard issue
         if: >

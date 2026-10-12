@@ -1,0 +1,40 @@
+{
+  "scope": "actual authored production download script; simulated large-inventory server failure, not hosted acceptance",
+  "original_restored_sha256": "899aeec391632a518b4a553df9d431d0dcb1d12690da71aa78f5ae6957d317ab",
+  "phases": [
+    {
+      "phase": "red",
+      "command": [
+        "/opt/anaconda3/bin/python3",
+        "-m",
+        "pytest",
+        "tests/workflows/test_langsmith_fleet_conformance_workflow.py::test_production_download_handles_large_repository_without_inventory_scan",
+        "-q",
+        "-o",
+        "addopts=",
+        "--junitxml=/Users/teacher/.codex/automations/pd-workloop-resume/worktrees/wf3844-artifacts-20261011/docs/evidence/issue-3844-fleet-discovery/red.xml"
+      ],
+      "exit": 1,
+      "tests": 1,
+      "assertion_failures": 1,
+      "sha256": "9167542c0e53770405a7a960ac129ac9f1ba4051ad289bf62fa27d01206cc5e8"
+    },
+    {
+      "phase": "restored-green",
+      "command": [
+        "/opt/anaconda3/bin/python3",
+        "-m",
+        "pytest",
+        "tests/workflows/test_langsmith_fleet_conformance_workflow.py::test_production_download_handles_large_repository_without_inventory_scan",
+        "-q",
+        "-o",
+        "addopts=",
+        "--junitxml=/Users/teacher/.codex/automations/pd-workloop-resume/worktrees/wf3844-artifacts-20261011/docs/evidence/issue-3844-fleet-discovery/restored-green.xml"
+      ],
+      "exit": 0,
+      "tests": 1,
+      "assertion_failures": 0,
+      "sha256": "899aeec391632a518b4a553df9d431d0dcb1d12690da71aa78f5ae6957d317ab"
+    }
+  ]
+}

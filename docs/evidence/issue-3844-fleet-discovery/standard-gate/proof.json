@@ -1,0 +1,37 @@
+{
+  "scope": "Original unfiltered per_page=100 enumeration substituted in memory into the existing production download gate; simulated listing HTTP 500.",
+  "selector": "tests/workflows/test_langsmith_fleet_conformance_workflow.py::test_production_download_handles_large_repository_without_inventory_scan",
+  "command": [
+    "python",
+    "-m",
+    "pytest",
+    "tests/workflows/test_langsmith_fleet_conformance_workflow.py::test_production_download_handles_large_repository_without_inventory_scan",
+    "-m",
+    "not slow",
+    "-q",
+    "-o",
+    "addopts="
+  ],
+  "mutation": "Temporary pytest collection plugin replaces only the discovery call; protected workflow files are never written.",
+  "workflow_sha256_before": "899aeec391632a518b4a553df9d431d0dcb1d12690da71aa78f5ae6957d317ab",
+  "workflow_sha256_after": "899aeec391632a518b4a553df9d431d0dcb1d12690da71aa78f5ae6957d317ab",
+  "workflow_byte_identical": true,
+  "phases": [
+    {
+      "phase": "red",
+      "exit_code": 1,
+      "tests": 1,
+      "failures": 1,
+      "errors": 0,
+      "skipped": 0
+    },
+    {
+      "phase": "restored-green",
+      "exit_code": 0,
+      "tests": 1,
+      "failures": 0,
+      "errors": 0,
+      "skipped": 0
+    }
+  ]
+}

@@ -1,0 +1,50 @@
+[
+  {
+    "argv": [
+      "/opt/anaconda3/bin/python3",
+      "-m",
+      "pytest",
+      "tests/scripts/test_check_deliberate_break_runtime_health.py",
+      "-q",
+      "-o",
+      "addopts=",
+      "--junitxml=/Users/teacher/.codex/automations/pd-workloop-resume/worktrees/wf3838-binding-20261012/docs/evidence/issue-3743/runtime-health/binding-validation-20261012/gate-0.xml"
+    ],
+    "cwd": "/Users/teacher/.codex/automations/pd-workloop-resume/worktrees/wf3838-binding-20261012",
+    "exit": 0,
+    "console": "gate-0.log",
+    "junit": "gate-0.xml"
+  },
+  {
+    "argv": [
+      "/opt/anaconda3/bin/python3",
+      "-m",
+      "pytest",
+      "tests/scripts/test_check_deliberate_break_repair_failures.py",
+      "-q",
+      "-o",
+      "addopts=",
+      "--junitxml=/Users/teacher/.codex/automations/pd-workloop-resume/worktrees/wf3838-binding-20261012/docs/evidence/issue-3743/runtime-health/binding-validation-20261012/gate-1.xml"
+    ],
+    "cwd": "/Users/teacher/.codex/automations/pd-workloop-resume/worktrees/wf3838-binding-20261012",
+    "exit": 0,
+    "console": "gate-1.log",
+    "junit": "gate-1.xml"
+  },
+  {
+    "argv": [
+      "/opt/anaconda3/bin/python3",
+      "-m",
+      "pytest",
+      "tests/scripts/test_runtime_health_replay.py",
+      "-q",
+      "-o",
+      "addopts=",
+      "--junitxml=/Users/teacher/.codex/automations/pd-workloop-resume/worktrees/wf3838-binding-20261012/docs/evidence/issue-3743/runtime-health/binding-validation-20261012/gate-2.xml"
+    ],
+    "cwd": "/Users/teacher/.codex/automations/pd-workloop-resume/worktrees/wf3838-binding-20261012",
+    "exit": 0,
+    "console": "gate-2.log",
+    "junit": "gate-2.xml"
+  }
+]

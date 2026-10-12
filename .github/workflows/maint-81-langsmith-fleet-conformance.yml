@@ -60,6 +60,7 @@ jobs:
             const fs = require('fs');
             const path = require('path');
             const { withRetry } = require('./.github/scripts/github-api-with-retry.js');
+            const { findFleetArtifact } = require('./.github/scripts/langsmith-fleet-artifacts.js');
 
             const registry = JSON.parse(
               fs.readFileSync('config/langsmith_fleet_registry.json', 'utf8')
@@ -78,45 +79,10 @@ jobs:
               const outDir = path.join('.metrics-tmp/fleet', safeRepo);
               fs.mkdirSync(outDir, { recursive: true });
 
-              const artifacts = await withRetry(() =>
-                github.paginate(github.rest.actions.listArtifactsForRepo, {
-                  owner,
-                  repo: repoName,
-                  per_page: 100,
-                })
-              );
-              const candidates = artifacts.filter((item) =>
-                !item.expired &&
-                (item.name === entry.artifact_name || item.name.endsWith(entry.artifact_name))
-              );
-              const exactCandidates = candidates.filter(
-                (item) => item.name === entry.artifact_name
-              );
-              let artifact = exactCandidates.sort(
-                (left, right) => new Date(right.created_at) - new Date(left.created_at)
-              )[0];
-              if (!artifact) {
-                const suffixCandidates = candidates
-                  .filter((item) => item.name !== entry.artifact_name)
-                  .sort((left, right) => new Date(right.created_at) - new Date(left.created_at));
-                for (const candidate of suffixCandidates) {
-                  const runId = candidate.workflow_run && candidate.workflow_run.id;
-                  if (!runId) {
-                    continue;
-                  }
-                  const run = await withRetry(() =>
-                    github.rest.actions.getWorkflowRun({
-                      owner,
-                      repo: repoName,
-                      run_id: runId,
-                    })
-                  );
-                  if (trustedWorkflowPaths.has(run.data.path)) {
-                    artifact = candidate;
-                    break;
-                  }
-                }
-              }
+              const artifact = await findFleetArtifact({
+                github, core, withRetry, owner, repo: repoName,
+                name: entry.artifact_name, trustedWorkflowPaths,
+              });
               if (!artifact) {
                 core.warning(`No ${entry.artifact_name} artifact found for ${entry.repo}`);
                 continue;
@@ -192,7 +158,7 @@ jobs:
             .metrics-tmp/langsmith-fleet-conformance.md
             .metrics-tmp/fleet
           if-no-files-found: ignore
-          retention-days: 90
+          retention-days: 30
 
       - name: Enforce conformance
         if: >

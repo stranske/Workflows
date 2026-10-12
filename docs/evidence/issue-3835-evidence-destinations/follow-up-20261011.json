@@ -1,0 +1,175 @@
+{
+  "proofs": [
+    {
+      "path": "/Users/teacher/.codex/automations/sync-dependency-pr-closer/evidence/20261011-3836-red.xml",
+      "sha256": "95ec605ef1b66643ec8c1753cf951398a3564099062f987d2fbf5669fe85be34",
+      "tests": 164,
+      "failures": 34,
+      "errors": 0
+    },
+    {
+      "path": "/Users/teacher/.codex/automations/sync-dependency-pr-closer/evidence/20261011-3836-green-final.xml",
+      "sha256": "f636e00a78d839213367a35854e41719370db3d5f6464b2433b0245dd3ac50c2",
+      "tests": 220,
+      "failures": 0,
+      "errors": 0
+    },
+    {
+      "path": "/Users/teacher/.codex/automations/sync-dependency-pr-closer/evidence/20261011-3836-full.xml",
+      "sha256": "2af728245c42c73a8d433b35e75dbd68fe729cb844b9ce9423766ba7d826d9b0",
+      "tests": 93014,
+      "failures": 0,
+      "errors": 0
+    },
+    {
+      "path": "/Users/teacher/.codex/automations/sync-dependency-pr-closer/evidence/20261011-3836-security-final.xml",
+      "sha256": "ec123a35ddc7f7f18dfcefadd0a28cd54bed9ef9df9a6f42385ff268713587ba",
+      "tests": 4,
+      "failures": 0,
+      "errors": 0
+    }
+  ],
+  "replay": [
+    {
+      "case": "artifact",
+      "fixed_sha256": "d34fee79391c5c4c76a6c4117af988750fa50c36cbb913adaf9d73a971723a46",
+      "mutant_sha256": "68c6ccbcfc47d975e8f63cd220e8333eb2c1961ae9bb751cf3fc532ac109fe12",
+      "red": {
+        "argv": [
+          "/opt/anaconda3/bin/python3",
+          "-m",
+          "pytest",
+          "tests/scripts/test_pr_verifier_delivery_destinations.py::test_issue3835_delivery_destinations[Attach evidence as an artifact-artifacts]",
+          "tests/scripts/test_pr_verifier_prompt_coverage.py::test_issue3835_named_destination_cannot_borrow_present_body[absent-Attach evidence as an artifact-artifacts]",
+          "tests/scripts/test_pr_verifier_prompt_coverage.py::test_issue3835_named_destination_cannot_borrow_present_body[unavailable-Attach evidence as an artifact-artifacts]",
+          "-q",
+          "-o",
+          "addopts=",
+          "--junitxml=/Users/teacher/.codex/automations/sync-dependency-pr-closer/evidence/20261011-3836-replay/artifact-red.xml"
+        ],
+        "cwd": "/Users/teacher/.codex/automations/sync-dependency-pr-closer/worktrees/pr3836-checkpoint-cleanup-20261011",
+        "exit": 1,
+        "tests": 3,
+        "failures": 3,
+        "errors": 0
+      },
+      "green": {
+        "argv": [
+          "/opt/anaconda3/bin/python3",
+          "-m",
+          "pytest",
+          "tests/scripts/test_pr_verifier_delivery_destinations.py::test_issue3835_delivery_destinations[Attach evidence as an artifact-artifacts]",
+          "tests/scripts/test_pr_verifier_prompt_coverage.py::test_issue3835_named_destination_cannot_borrow_present_body[absent-Attach evidence as an artifact-artifacts]",
+          "tests/scripts/test_pr_verifier_prompt_coverage.py::test_issue3835_named_destination_cannot_borrow_present_body[unavailable-Attach evidence as an artifact-artifacts]",
+          "-q",
+          "-o",
+          "addopts=",
+          "--junitxml=/Users/teacher/.codex/automations/sync-dependency-pr-closer/evidence/20261011-3836-replay/artifact-green.xml"
+        ],
+        "cwd": "/Users/teacher/.codex/automations/sync-dependency-pr-closer/worktrees/pr3836-checkpoint-cleanup-20261011",
+        "exit": 0,
+        "tests": 3,
+        "failures": 0,
+        "errors": 0
+      },
+      "restored_sha256": [
+        "d34fee79391c5c4c76a6c4117af988750fa50c36cbb913adaf9d73a971723a46",
+        "d34fee79391c5c4c76a6c4117af988750fa50c36cbb913adaf9d73a971723a46"
+      ]
+    },
+    {
+      "case": "review_comment",
+      "fixed_sha256": "d34fee79391c5c4c76a6c4117af988750fa50c36cbb913adaf9d73a971723a46",
+      "mutant_sha256": "95b86a98fbb29676d1ad52d3c90fd2848f408aaacf972592661fe973028fe71a",
+      "red": {
+        "argv": [
+          "/opt/anaconda3/bin/python3",
+          "-m",
+          "pytest",
+          "tests/scripts/test_pr_verifier_delivery_destinations.py::test_issue3835_delivery_destinations[Evidence must be posted in a PR review comment-comments]",
+          "tests/scripts/test_pr_verifier_prompt_coverage.py::test_issue3835_named_destination_cannot_borrow_present_body[absent-Evidence must be posted in a PR review comment-comments]",
+          "tests/scripts/test_pr_verifier_prompt_coverage.py::test_issue3835_named_destination_cannot_borrow_present_body[unavailable-Evidence must be posted in a PR review comment-comments]",
+          "-q",
+          "-o",
+          "addopts=",
+          "--junitxml=/Users/teacher/.codex/automations/sync-dependency-pr-closer/evidence/20261011-3836-replay/review_comment-red.xml"
+        ],
+        "cwd": "/Users/teacher/.codex/automations/sync-dependency-pr-closer/worktrees/pr3836-checkpoint-cleanup-20261011",
+        "exit": 1,
+        "tests": 3,
+        "failures": 3,
+        "errors": 0
+      },
+      "green": {
+        "argv": [
+          "/opt/anaconda3/bin/python3",
+          "-m",
+          "pytest",
+          "tests/scripts/test_pr_verifier_delivery_destinations.py::test_issue3835_delivery_destinations[Evidence must be posted in a PR review comment-comments]",
+          "tests/scripts/test_pr_verifier_prompt_coverage.py::test_issue3835_named_destination_cannot_borrow_present_body[absent-Evidence must be posted in a PR review comment-comments]",
+          "tests/scripts/test_pr_verifier_prompt_coverage.py::test_issue3835_named_destination_cannot_borrow_present_body[unavailable-Evidence must be posted in a PR review comment-comments]",
+          "-q",
+          "-o",
+          "addopts=",
+          "--junitxml=/Users/teacher/.codex/automations/sync-dependency-pr-closer/evidence/20261011-3836-replay/review_comment-green.xml"
+        ],
+        "cwd": "/Users/teacher/.codex/automations/sync-dependency-pr-closer/worktrees/pr3836-checkpoint-cleanup-20261011",
+        "exit": 0,
+        "tests": 3,
+        "failures": 0,
+        "errors": 0
+      },
+      "restored_sha256": [
+        "d34fee79391c5c4c76a6c4117af988750fa50c36cbb913adaf9d73a971723a46",
+        "d34fee79391c5c4c76a6c4117af988750fa50c36cbb913adaf9d73a971723a46"
+      ]
+    },
+    {
+      "case": "validation_output",
+      "fixed_sha256": "d34fee79391c5c4c76a6c4117af988750fa50c36cbb913adaf9d73a971723a46",
+      "mutant_sha256": "f08be30011dfd441d59d72646abc53a7669411511711420eb314e25db52536ed",
+      "red": {
+        "argv": [
+          "/opt/anaconda3/bin/python3",
+          "-m",
+          "pytest",
+          "tests/scripts/test_pr_verifier_delivery_destinations.py::test_issue3835_delivery_destinations[- [ ] Validation output in a PR comment-comments]",
+          "tests/scripts/test_pr_verifier_prompt_coverage.py::test_issue3835_named_destination_cannot_borrow_present_body[absent-- [ ] Validation output in a PR comment-comments]",
+          "tests/scripts/test_pr_verifier_prompt_coverage.py::test_issue3835_named_destination_cannot_borrow_present_body[unavailable-- [ ] Validation output in a PR comment-comments]",
+          "-q",
+          "-o",
+          "addopts=",
+          "--junitxml=/Users/teacher/.codex/automations/sync-dependency-pr-closer/evidence/20261011-3836-replay/validation_output-red.xml"
+        ],
+        "cwd": "/Users/teacher/.codex/automations/sync-dependency-pr-closer/worktrees/pr3836-checkpoint-cleanup-20261011",
+        "exit": 1,
+        "tests": 3,
+        "failures": 3,
+        "errors": 0
+      },
+      "green": {
+        "argv": [
+          "/opt/anaconda3/bin/python3",
+          "-m",
+          "pytest",
+          "tests/scripts/test_pr_verifier_delivery_destinations.py::test_issue3835_delivery_destinations[- [ ] Validation output in a PR comment-comments]",
+          "tests/scripts/test_pr_verifier_prompt_coverage.py::test_issue3835_named_destination_cannot_borrow_present_body[absent-- [ ] Validation output in a PR comment-comments]",
+          "tests/scripts/test_pr_verifier_prompt_coverage.py::test_issue3835_named_destination_cannot_borrow_present_body[unavailable-- [ ] Validation output in a PR comment-comments]",
+          "-q",
+          "-o",
+          "addopts=",
+          "--junitxml=/Users/teacher/.codex/automations/sync-dependency-pr-closer/evidence/20261011-3836-replay/validation_output-green.xml"
+        ],
+        "cwd": "/Users/teacher/.codex/automations/sync-dependency-pr-closer/worktrees/pr3836-checkpoint-cleanup-20261011",
+        "exit": 0,
+        "tests": 3,
+        "failures": 0,
+        "errors": 0
+      },
+      "restored_sha256": [
+        "d34fee79391c5c4c76a6c4117af988750fa50c36cbb913adaf9d73a971723a46",
+        "d34fee79391c5c4c76a6c4117af988750fa50c36cbb913adaf9d73a971723a46"
+      ]
+    }
+  ]
+}

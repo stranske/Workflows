@@ -6,6 +6,45 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 Breaking changes are called out with a **BREAKING** marker and scheduled according to the policy in `COMPATIBILITY.md`.
 
+## [1.38.1](https://github.com/stranske/Workflows/compare/v1.38.0...v1.38.1) (2026-10-12)
+
+
+### Bug Fixes
+
+* **guard:** publish exact-head status and block missing declared checks ([#3860](https://github.com/stranske/Workflows/issues/3860)) ([e34814e](https://github.com/stranske/Workflows/commit/e34814e667eb9018c3a5e93ba0dfe4191936ec5a))
+
+## [1.38.0](https://github.com/stranske/Workflows/compare/v1.37.40...v1.38.0) (2026-10-12)
+
+
+### Features
+
+* **delegation:** consume route-weights exploration challengers ([#3857](https://github.com/stranske/Workflows/issues/3857)) ([aceb2f8](https://github.com/stranske/Workflows/commit/aceb2f869bd5b38f810b19b1a7c401936f91a106))
+
+## [1.37.40](https://github.com/stranske/Workflows/compare/v1.37.39...v1.37.40) (2026-10-12)
+
+
+### Bug Fixes
+
+* bound LangSmith fleet artifact discovery ([#3846](https://github.com/stranske/Workflows/issues/3846)) ([62e278c](https://github.com/stranske/Workflows/commit/62e278cdfcd8cae23159626be5e124e594e07e83))
+
+## [1.37.39](https://github.com/stranske/Workflows/compare/v1.37.38...v1.37.39) (2026-10-12)
+
+
+### Bug Fixes
+
+* keep timeout checkpoints free of runtime artifacts ([#3842](https://github.com/stranske/Workflows/issues/3842)) ([3386b2f](https://github.com/stranske/Workflows/commit/3386b2fee49fbd478b2791f3f3b921359e607864))
+* **maint-71:** block generated deliveries on consumer-declared failed checks ([#3847](https://github.com/stranske/Workflows/issues/3847)) ([19ab61a](https://github.com/stranske/Workflows/commit/19ab61a1e281791e915e512407fffa20515600bb))
+* **sync:** preserve dev-tool final finding verification bindings ([#3850](https://github.com/stranske/Workflows/issues/3850)) ([c4a8d16](https://github.com/stranske/Workflows/commit/c4a8d16d5d48464ea5a9108a129f3c634eb0b6ed))
+* **verifier:** retain artifact and review-comment evidence destinations ([#3836](https://github.com/stranske/Workflows/issues/3836)) ([fe15da5](https://github.com/stranske/Workflows/commit/fe15da509a833c5c838a5d3c675e8503873d17e2))
+
+## [1.37.38](https://github.com/stranske/Workflows/compare/v1.37.37...v1.37.38) (2026-10-11)
+
+
+### Bug Fixes
+
+* **autofix:** classify Hypothesis as a test dependency in canonical and consumer/integration guidance ([#3834](https://github.com/stranske/Workflows/pull/3834)) ([af65422](https://github.com/stranske/Workflows/commit/af65422cdf606647c4d10890d444d00cdde00828))
+* **keepalive:** report why the reporter skipped instead of failing the run ([#3843](https://github.com/stranske/Workflows/issues/3843)) ([71d06db](https://github.com/stranske/Workflows/commit/71d06db4c6271bb762e54e21413d61cb9ae97302))
+
 ## [1.37.37](https://github.com/stranske/Workflows/compare/v1.37.36...v1.37.37) (2026-10-11)
 
 

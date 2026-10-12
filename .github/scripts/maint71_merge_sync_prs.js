@@ -22,6 +22,48 @@ function enforceGeneratedDeliveryRequiredContexts(contexts = []) {
   return enforced;
 }
 
+// Read from the BASE branch: the consumer's merged declaration binds its
+// deliveries, and a delivery's own head can never loosen it.
+async function readConsumerDeclaredContexts({ withRetry, owner, repo, branch }) {
+  const {
+    CONSUMER_REQUIRED_CONTEXTS_PATH,
+    parseConsumerRequiredContexts,
+  } = require('./sync_pr_merge_contract.js');
+  let file;
+  try {
+    ({ data: file } = await withRetry((client) => client.rest.repos.getContent({
+      owner,
+      repo,
+      path: CONSUMER_REQUIRED_CONTEXTS_PATH,
+      ref: branch,
+    })));
+  } catch (error) {
+    const status = error?.status || error?.response?.status;
+    if (status === 404) return { state: 'none', contexts: new Set(), error: '' };
+    throw error;
+  }
+  if (Array.isArray(file) || file?.type !== 'file' || typeof file?.content !== 'string') {
+    return { state: 'unparseable', contexts: new Set(), error: 'not a readable file' };
+  }
+  const encoding = String(file.encoding || 'base64');
+  const text = encoding === 'base64'
+    ? Buffer.from(file.content, 'base64').toString('utf8')
+    : file.content;
+  return parseConsumerRequiredContexts(text);
+}
+
+// Every exact-head gate reads the checks afresh. The row adopts the latest
+// reading, so a declared check that changed between gates is reported as the
+// gate that decided saw it, never as an earlier snapshot.
+function adoptFinalCheckEvidence(deliveryContext, gate) {
+  const evidence = gate?.finalCheckEvidence;
+  if (!evidence) return;
+  deliveryContext.consumer_declared_contexts = {
+    state: evidence.declaredContexts?.state || 'none',
+    ...(evidence.classification?.declared_contexts || {}),
+  };
+}
+
 function hasCompleteReviewThreadEvidence(connection) {
   return Boolean(
     connection
@@ -31,6 +73,24 @@ function hasCompleteReviewThreadEvidence(connection) {
       typeof thread?.isResolved === 'boolean' && typeof thread?.isOutdated === 'boolean'
     )
   );
+}
+
+// Keep the last delivery read bound to the selected record and exact PR head.
+function independentVerificationDeliveryUnchanged({ previous, current, head, branch, now = Date.now() }) {
+  const { generatedDeliveryLane } = require('./sync_pr_merge_contract');
+  const { isDeepStrictEqual } = require('node:util');
+  const lane = generatedDeliveryLane(branch);
+  const devTool = lane === 'dev-tool-sync';
+  return Boolean(previous && current
+    && /^[a-f0-9]{40}$/.test(head || '')
+    && (devTool || lane === 'sync')
+    && isDeepStrictEqual(previous, current)
+    && Date.parse(current.lease_expires_at) > now
+    // Maint52 does not emit an observation pair; its fresh REST/GraphQL PR
+    // heads are checked by the caller. Never accept a conflicting observation.
+    && (current.head_observed_sha
+      ? current.head_observed_sha === head
+      : devTool));
 }
 
 function confirmedClosedPrIdentity(closedResponse, selectedPr) {
@@ -971,6 +1031,7 @@ async function run({ github, context, core }) {
     buildMarkdownSummary,
     buildMergeReport,
     classifyReviewBlockedDisposition,
+    describeConsumerDeclaredContexts,
     hasCampaignCommitAuthorization,
     campaignAuthorizationAllowsMerge,
     campaignAuthorizationRowForRepository,
@@ -1221,7 +1282,21 @@ async function run({ github, context, core }) {
     const requiredContexts = enforceGeneratedDeliveryGate
       ? enforceGeneratedDeliveryRequiredContexts(requiredCheckPolicy.contexts)
       : requiredCheckPolicy.contexts;
-    let classification = classifySyncPrChecks({ checkRuns: allChecks, requiredContexts });
+    // Only a generated delivery is gated on the consumer's own declaration;
+    // no-change canary baselines keep the protection-only contract.
+    const declared = enforceGeneratedDeliveryGate
+      ? await readConsumerDeclaredContexts({ withRetry, owner, repo, branch })
+      : { state: 'none', contexts: new Set(), error: '' };
+    let classification = classifySyncPrChecks({
+      checkRuns: allChecks,
+      requiredContexts,
+      declaredContexts: declared.contexts,
+    });
+    // A malformed declaration cannot establish an empty mandatory set.
+    if (declared.state === 'unparseable' && classification.status === 'ready') {
+      classification = { ...classification, status: 'checks_pending',
+        pending: [{ name: '.github/config/required-contexts.json', status: 'unknown' }] };
+    }
     if (classification.status === 'ready') {
       const seenNames = new Set(
         allChecks.map((check) => String(check?.name || '').trim()).filter(Boolean),
@@ -1232,13 +1307,25 @@ async function run({ github, context, core }) {
           status: 'checks_pending',
           failed: [],
           pending: missingRequired.map((name) => ({ name, status: 'queued' })),
+          declared_contexts: classification.declared_contexts,
         };
+      }
+    }
+    if (enforceGeneratedDeliveryGate) {
+      const declaredSummary = describeConsumerDeclaredContexts({ declared, classification });
+      console.log(`${owner}/${repo}@${String(ref).slice(0, 12)}: ${declaredSummary}`);
+      if (
+        declared.state === 'unparseable'
+        || (classification.declared_contexts?.never_started || []).length > 0
+      ) {
+        core.warning(`${owner}/${repo}: ${declaredSummary}`);
       }
     }
     return {
       allChecks,
       checkGateMode: requiredCheckPolicy.source,
       classification,
+      declaredContexts: declared,
       gatingChecks: requiredContexts.size > 0
         ? selectSyncPrGatingChecks({ checkRuns: allChecks, requiredContexts })
         : [],
@@ -1339,7 +1426,7 @@ async function run({ github, context, core }) {
           owner, repo, number: pr.number, read: withReviewReadRetry,
         });
         const threads = fresh?.reviewThreads;
-        if (fresh?.headRefOid !== pr.head.sha) {
+        if (fresh?.headRefOid !== pr.head.sha || fresh?.headRefName !== pr.head.ref) {
           errors.push(`${proof.thread_id}:head_changed`);
           continue;
         }
@@ -1377,10 +1464,11 @@ async function run({ github, context, core }) {
           }));
           const currentRecord = parseDeliveryRecord(currentPr.body || '');
           if (currentPr.state !== 'open' || currentPr.head?.sha !== pr.head.sha
-            || !currentRecord || ['plan_id', 'generation', 'source_commit',
-              'head_observed_sha', 'lease_expires_at'].some((key) =>
-              currentRecord[key] !== deliveryRecord[key])
-            || !(Date.parse(currentRecord.lease_expires_at) > Date.now())) {
+            || currentPr.head?.ref !== pr.head.ref
+            || !independentVerificationDeliveryUnchanged({
+              previous: deliveryRecord, current: currentRecord,
+              head: pr.head.sha, branch: pr.head.ref, now: Date.now(),
+            })) {
             errors.push(`${proof.thread_id}:head_changed`);
             continue;
           }
@@ -1402,8 +1490,11 @@ async function run({ github, context, core }) {
             topLevelComments: latestCompletions,
           });
           if (latest?.headRefOid !== pr.head.sha || !finalVerification.ok
-            || latestRecord?.head_observed_sha !== pr.head.sha
-            || latestRecord?.lease_expires_at !== currentRecord.lease_expires_at) {
+            || latest?.headRefName !== pr.head.ref
+            || !independentVerificationDeliveryUnchanged({
+              previous: currentRecord, current: latestRecord,
+              head: pr.head.sha, branch: latest.headRefName, now: Date.now(),
+            })) {
             errors.push(`${proof.thread_id}:verification_changed_before_resolution`);
             continue;
           }
@@ -2017,8 +2108,9 @@ async function run({ github, context, core }) {
     // A rerun can turn Gate red without changing the head after the earlier
     // delivery classification. Recheck required contexts at the final merge
     // boundary rather than treating exact-head review evidence as sufficient.
+    let finalCheckEvidence = null;
     if (requireGeneratedDeliveryGate) {
-      const finalCheckEvidence = await classifyRequiredChecksForRef({
+      finalCheckEvidence = await classifyRequiredChecksForRef({
         owner,
         repo,
         branch: pr.base.ref,
@@ -2041,6 +2133,7 @@ async function run({ github, context, core }) {
       activeReviewThreads,
       freshHeadSha: freshPr.headRefOid,
       freshPr,
+      finalCheckEvidence,
     };
   }
   
@@ -2806,6 +2899,12 @@ async function run({ github, context, core }) {
         review_resolution_thread_ids: reviewResolution.resolved,
         review_resolution_would_resolve_thread_ids: reviewResolution.wouldResolve,
         review_resolution_errors: reviewResolution.errors,
+        // The consumer's declared checks, by outcome, on every row this PR
+        // produces, so the merge report shows what blocked or went unenforced.
+        consumer_declared_contexts: {
+          state: checkEvidence.declaredContexts.state,
+          ...(classification.declared_contexts || {}),
+        },
       };
   
       console.log(
@@ -3320,6 +3419,7 @@ async function run({ github, context, core }) {
         requireVerifiedHead: generatedDeliveryRequiresVerifiedHead(pr.head.ref),
         requireGeneratedDeliveryGate: !recoveredMergedCandidate,
       });
+      adoptFinalCheckEvidence(deliveryContext, finalGate);
       if (!finalGate.ok) {
         console.log(`Final exact-head review gate blocked delivery: ${finalGate.reason}`);
         if (finalGate.reason === 'review_window_pending') {
@@ -3498,6 +3598,7 @@ async function run({ github, context, core }) {
                 requireVerifiedHead: generatedDeliveryRequiresVerifiedHead(pr.head.ref),
                 requireGeneratedDeliveryGate: true,
               });
+              adoptFinalCheckEvidence(deliveryContext, retryGate);
               if (!retryGate.ok) {
                 throw new Error(`merge retry gate blocked: ${retryGate.reason}`);
               }
@@ -3744,6 +3845,8 @@ async function run({ github, context, core }) {
 }
 
 module.exports = {
+  independentVerificationDeliveryUnchanged,
+  adoptFinalCheckEvidence,
   confirmedClosedPrIdentity,
   devToolBaseRefreshResult,
   campaignNoChangeRequiresLiveGate,
@@ -3757,6 +3860,7 @@ module.exports = {
   mergeMethodPolicyAllowsFallback,
   normalizeReviewPolicy,
   parseReviewReassessmentRequest,
+  readConsumerDeclaredContexts,
   reviewReassessmentMarker,
   runReviewReassessment,
   reviewRequestMarker,

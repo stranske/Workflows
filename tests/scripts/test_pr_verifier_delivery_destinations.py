@@ -5076,42 +5076,95 @@ def test_qualified_common_proof_modifier_tokens_are_not_governor_prefixes(
     [
         ("Attach evidence as an artifact", "artifacts"),
         ("Upload the coverage report as an artifact", "artifacts"),
+        ("Publish validation output as a workflow artifact", "artifacts"),
         ("Evidence must be posted in a PR review comment", "comments"),
+        ("Evidence must be posted in a PR inline review comment", "comments"),
         ("Evidence must be posted in an inline review comment", "comments"),
+        ("Evidence must be posted in a pull request review comment", "comments"),
         ("- [ ] Validation output in a PR comment", "comments"),
+        ("- [x] Validation output in a PR comment", "comments"),
+        ("- [X] Validation output in a PR comment", "comments"),
+        ("- [ ] Validation results in a PR comment", "comments"),
+        ("- [x] Validation results in a PR comment", "comments"),
+        ("- [X] Validation results in a PR comment", "comments"),
+        ("- [ ] Validation results in a PR review comment", "comments"),
     ],
 )
-def test_trip_planner_1885_destination_grammar_canaries(criterion, channel):
+def test_issue3835_delivery_destinations(criterion, channel):
     assert verifier._required_evidence_channels(criterion) == {channel}
-    for missing in ("absent", "unavailable"):
-        body = "present" if channel != "body" else missing
-        comments = missing if channel == "comments" else "present"
-        artifacts = missing if channel == "artifacts" else "present"
-        assert (
-            _floor_verdict(criterion, body=body, comments=comments, artifacts=artifacts)
-            == "CONCERNS"
-        )
+    assert verifier._required_evidence_options(criterion) == [{channel}]
 
 
 @pytest.mark.parametrize(
     "criterion",
     [
+        "Do not attach evidence as an artifact",
+        "No need to attach evidence as an artifact",
+        "No requirement to upload the coverage report as an artifact",
+        "No obligation to publish validation output as a workflow artifact",
+        "No need to post evidence in a PR review comment",
+        "No requirement to record evidence in the PR body",
+        "No requirement exists to attach evidence as an artifact",
+        "No need exists to post evidence in a PR review comment",
+        "No obligation exists to record evidence in the PR body",
+        "The inline review comment UI must display evidence",
+        "The PR review comment API must return evidence",
+        "The PR comment UI must display evidence",
+        "The inline comment renderer must show evidence",
+        "Evidence may be attached as an artifact",
+        "The UI allows users to attach evidence as an artifact",
+        "The service uploads evidence as an artifact to storage",
         'The parser recognizes "Attach evidence as an artifact"',
-        "Attach evidence as an artifact may be skipped",
-        'The reviewer quotes "- [ ] Validation output in a PR comment"',
+        "Evidence must not be posted in a PR review comment",
+        "Evidence may be posted in an inline review comment",
+        "The UI allows users to post evidence in a PR review comment",
+        'The parser recognizes "Evidence must be posted in a PR review comment"',
         "- [ ] Validation output in a PR comment is optional",
         "- [ ] Validation output in a PR comment is not required",
         "- [ ] Validation output in a PR comment may be skipped",
+        "- [ ] Validation results in a PR comment only if available",
         "The product can show Validation output in a PR comment",
         "The UI must allow Validation output in a PR comment",
+        "The UI allows users to record validation output in a PR comment",
+        'The parser recognizes "- [ ] Validation output in a PR comment"',
     ],
 )
-def test_trip_planner_1885_destination_grammar_controls(criterion):
-    assert verifier._required_evidence_channels(criterion) == set()
-    assert _floor_verdict(criterion, body="absent", comments="absent", artifacts="absent") == "PASS"
+@pytest.mark.parametrize("independent", [None, "comments", "artifacts"])
+@pytest.mark.parametrize("status", ["absent", "unavailable", "present"])
+def test_issue3835_nongating_controls(criterion, independent, status):
+    """Exempt clauses neither require evidence nor erase independent delivery."""
+    delivery = {
+        "comments": "; the reviewer must post evidence in a PR comment",
+        "artifacts": "; the reviewer must attach evidence as an artifact",
+    }
+    criterion += delivery.get(independent, "")
+    expected = {independent} if independent else set()
+    assert verifier._required_evidence_channels(criterion) == expected
+    assert verifier._required_evidence_options(criterion) == [expected]
+    assert _floor_verdict(criterion, body="present", comments=status, artifacts=status) == (
+        "CONCERNS" if independent and status != "present" else "PASS"
+    )
 
 
-def test_trip_planner_1885_optional_validation_output_keeps_independent_mandatory():
+@pytest.mark.parametrize(
+    "operation", ["Attach", "Upload", "Publish", "Record", "Provide", "Share", "Submit", "Deliver"]
+)
+def test_issue3835_as_artifact_reuses_shared_delivery_operations(operation):
+    """Canonical delivery operations and their aliases retain the artifact floor."""
+    criterion = f"{operation} evidence as an artifact"
+    assert verifier._required_evidence_channels(criterion) == {"artifacts"}
+    assert verifier._required_evidence_options(criterion) == [{"artifacts"}]
+    assert _floor_verdict(criterion, body="present", comments="present", artifacts="absent") == (
+        "CONCERNS"
+    )
+
+
+def test_issue3835_review_comment_alternative_keeps_shared_options():
+    criterion = "Evidence must be posted in a PR review comment or in the PR body"
+    assert verifier._required_evidence_options(criterion) == [{"comments"}, {"body"}]
+
+
+def test_issue3835_optional_validation_output_keeps_independent_mandatory():
     """Post-destination optionality must not invent overall or mask a sibling delivery."""
     optional = "- [ ] Validation output in a PR comment is optional"
     assert verifier._required_evidence_channels(optional) == set()

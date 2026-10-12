@@ -1,0 +1,49 @@
+<?xml version="1.0" encoding="utf-8"?><testsuites name="pytest tests"><testsuite name="pytest" errors="0" failures="1" skipped="0" tests="1" time="0.083" timestamp="2026-10-11T16:29:31.712174-05:00" hostname="server.trs.private"><testcase classname="tests.scripts.test_check_deliberate_break_runtime_health" name="test_active_runtime_health_requires_distribution_version_and_real_import[root-healthy]" time="0.045"><failure message="AssertionError: assert True is ('healthy' != 'healthy')&#10; +  where True = &lt;function _pyyaml_runtime_needs_repair at 0x107930400&gt;()">tmp_path = PosixPath('/private/var/folders/qm/w0dtc0j132gd6ymf1hxtd2p00000gp/T/pytest-of-teacher/pytest-608/test_active_runtime_health_req0')
+monkeypatch = &lt;_pytest.monkeypatch.MonkeyPatch object at 0x10778a9c0&gt;
+helper = {'__name__': '&lt;run_path&gt;', '__doc__': 'Opt-in execution check for deliberate-break acceptance criteria.', '__package__': '', '__loader__': None, ...}
+health = 'healthy'
+
+    @pytest.mark.parametrize("health", ["missing", "stale", "broken", "healthy"])
+    def test_active_runtime_health_requires_distribution_version_and_real_import(
+        tmp_path, monkeypatch, helper, health
+    ):
+        namespace = helper["_pyyaml_runtime_needs_repair"].__globals__
+        imported = tmp_path / "imported"
+        name = f"private_yaml_health_{health}"
+        module = tmp_path / f"{name}.py"
+        module.write_text(
+            "from pathlib import Path\n"
+            f"Path({str(imported)!r}).write_text('attempted')\n"
+            + ("raise ImportError('private YAML runtime is broken')\n" if health == "broken" else ""),
+            encoding="utf-8",
+        )
+        monkeypatch.syspath_prepend(str(tmp_path))
+        monkeypatch.delitem(sys.modules, name, raising=False)
+        calls = []
+        import_results = []
+    
+        def version(distribution):
+            calls.append(("version", distribution))
+            if health == "missing":
+                raise namespace["metadata"].PackageNotFoundError(distribution)
+            return "5.4.1" if health == "stale" else "6.0.3"
+    
+        def real_import(requested):
+            calls.append(("import", requested))
+            try:
+                result = importlib.import_module(name)
+            except ImportError as error:
+                import_results.append(error)
+                raise
+            import_results.append(result)
+            return result
+    
+        monkeypatch.setattr(namespace["metadata"], "version", version)
+        monkeypatch.setitem(namespace, "import_module", real_import)
+    
+        try:
+&gt;           assert helper["_pyyaml_runtime_needs_repair"]() is (health != "healthy")
+E           AssertionError: assert True is ('healthy' != 'healthy')
+E            +  where True = &lt;function _pyyaml_runtime_needs_repair at 0x107930400&gt;()
+
+tests/scripts/test_check_deliberate_break_runtime_health.py:56: AssertionError</failure></testcase></testsuite></testsuites>

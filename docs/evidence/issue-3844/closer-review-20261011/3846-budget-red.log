@@ -1,0 +1,25 @@
+✖ workflow retries count actual requests (success=false) (2.148458ms)
+✔ workflow retries count actual requests (success=true) (0.338917ms)
+ℹ tests 2
+ℹ suites 0
+ℹ pass 1
+ℹ fail 1
+ℹ cancelled 0
+ℹ skipped 0
+ℹ todo 0
+ℹ duration_ms 87.052917
+
+✖ failing tests:
+
+test at .github/scripts/__tests__/langsmith-fleet-artifacts.test.js:115:3
+✖ workflow retries count actual requests (success=false) (2.148458ms)
+  AssertionError [ERR_ASSERTION]: actual network attempts exceed cap
+      at TestContext.<anonymous> (/Users/teacher/.codex/automations/imi-merge-verify-closer/worktrees/wf3846-budget-20261011T2249Z/.github/scripts/__tests__/langsmith-fleet-artifacts.test.js:132:12)
+      at async Test.run (node:internal/test_runner/test:1069:7)
+      at async startSubtestAfterBootstrap (node:internal/test_runner/harness:332:3) {
+    generatedMessage: false,
+    code: 'ERR_ASSERTION',
+    actual: false,
+    expected: true,
+    operator: '=='
+  }

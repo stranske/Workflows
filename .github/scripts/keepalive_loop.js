@@ -2650,6 +2650,7 @@ async function evaluateKeepaliveLoop({ github: rawGithub, context, core, payload
     let delegationReason = '';
     let delegationShouldSwitch = false;
     let delegationSource = '';
+    let policyVersion = '';
     if (hasAgentLabel) {
       try {
         const { resolveAgentRoutingFromLabels } = require('./agent_registry.js');
@@ -2773,7 +2774,9 @@ async function evaluateKeepaliveLoop({ github: rawGithub, context, core, payload
         const routeWeights = await loadRouteWeights({ url: routeWeightsUrl });
         const roundKind = resolveRoundKind({ labels, state });
         const decision = decideNextAgent({
-          state,
+          // Include PR identity so empty/legacy keepalive state still seeds
+          // exploration from the live PR rather than the degenerate seed 0.
+          state: { ...state, pr_number: prNumber },
           labels: labels.map(String),
           secrets,
           registry,
@@ -2787,10 +2790,14 @@ async function evaluateKeepaliveLoop({ github: rawGithub, context, core, payload
           delegationReason = decision.reason;
           delegationShouldSwitch = Boolean(decision.shouldSwitch);
           delegationSource = decision.delegationSource || 'static';
+          policyVersion = decision.policy_version || '';
           core?.info?.(
             `Delegation policy: ${decision.agent} (${decision.reason}, ` +
             `switch=${decision.shouldSwitch}, source=${delegationSource})`
           );
+          if (policyVersion) {
+            core?.info?.(`Route-weights policy version: ${policyVersion}`);
+          }
         } else {
           core?.warning?.(`Delegation policy returned no agent: ${decision.reason}`);
           if (decision.reason === 'multiple-agent-labels') {
@@ -2800,6 +2807,7 @@ async function evaluateKeepaliveLoop({ github: rawGithub, context, core, payload
             delegationReason = decision.reason;
             delegationShouldSwitch = false;
             delegationSource = decision.delegationSource || 'static';
+            policyVersion = '';
           }
         }
       } catch (err) {
@@ -3219,6 +3227,7 @@ async function evaluateKeepaliveLoop({ github: rawGithub, context, core, payload
       delegationReason,
       delegationShouldSwitch,
       delegationSource,
+      policyVersion,
       taskAppendix,
       keepaliveEnabled,
       stateCommentId: stateResult.commentId || 0,
@@ -3334,6 +3343,7 @@ async function updateKeepaliveLoopSummary({ github: rawGithub, context, core, in
     const delegationReason = normalise(inputs.delegation_reason ?? inputs.delegationReason);
     const delegationShouldSwitch = toBool(inputs.delegation_should_switch ?? inputs.delegationShouldSwitch, false);
     const delegationSource = normalise(inputs.delegation_source ?? inputs.delegationSource);
+    const policyVersion = normalise(inputs.policy_version ?? inputs.policyVersion);
     const agentRoutingMode = normalise(inputs.agent_routing_mode ?? inputs.agentRoutingMode);
 
     const {
@@ -3999,6 +4009,9 @@ async function updateKeepaliveLoopSummary({ github: rawGithub, context, core, in
       if (delegationSource) {
         summaryLines.push(`| Delegation source | ${delegationSource} |`);
       }
+      if (policyVersion) {
+        summaryLines.push(`| Policy version | ${policyVersion} |`);
+      }
       if (delegationShouldSwitch) {
         const prevAgent = previousState?.current_agent || 'unknown';
         summaryLines.push(`| Switch | ${prevAgent} → ${agentType} |`);
@@ -4447,6 +4460,8 @@ async function updateKeepaliveLoopSummary({ github: rawGithub, context, core, in
       newState.current_agent = agentType;
       newState.delegation_reason = delegationReason || previousState?.delegation_reason || '';
       newState.delegation_source = delegationSource || previousState?.delegation_source || '';
+      // Do not retain a prior exploration policy_version when this decision has none.
+      newState.policy_version = policyVersion || '';
       newState.effectiveness_history = effectivenessHistory;
 
       if (delegationShouldSwitch) {

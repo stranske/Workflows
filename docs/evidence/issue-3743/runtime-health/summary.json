@@ -1,0 +1,201 @@
+{
+  "base": "6020028dec510c931364fb69f63dc2a2aa297689",
+  "environment": {
+    "python": "3.14.8 (main, Oct  1 2026, 02:38:33) [GCC 13.3.0]",
+    "interpreter": "/opt/hostedtoolcache/Python/3.14.8/x64/bin/python3",
+    "platform": "Linux-6.17.0-1022-azure-x86_64-with-glibc2.39",
+    "requested_interpreter_available": false
+  },
+  "interpreter": "/opt/hostedtoolcache/Python/3.14.8/x64/bin/python3",
+  "python": "3.14.8 (main, Oct  1 2026, 02:38:33) [GCC 13.3.0]",
+  "baseline": {
+    "covered_lines": 576,
+    "num_statements": 591,
+    "percent_covered": 96.60023446658852,
+    "percent_covered_display": "96.60",
+    "missing_lines": 15,
+    "excluded_lines": 0,
+    "percent_statements_covered": 97.46192893401015,
+    "percent_statements_covered_display": "97.46",
+    "num_branches": 262,
+    "num_partial_branches": 14,
+    "covered_branches": 248,
+    "missing_branches": 14,
+    "percent_branches_covered": 94.65648854961832,
+    "percent_branches_covered_display": "94.66"
+  },
+  "candidate": {
+    "covered_lines": 581,
+    "num_statements": 591,
+    "percent_covered": 97.30363423212192,
+    "percent_covered_display": "97.30",
+    "missing_lines": 10,
+    "excluded_lines": 0,
+    "percent_statements_covered": 98.30795262267344,
+    "percent_statements_covered_display": "98.31",
+    "num_branches": 262,
+    "num_partial_branches": 13,
+    "covered_branches": 249,
+    "missing_branches": 13,
+    "percent_branches_covered": 95.0381679389313,
+    "percent_branches_covered_display": "95.04"
+  },
+  "baseline_tests": 304,
+  "candidate_tests": 312,
+  "new_nodes": [
+    "tests.scripts.test_check_deliberate_break_runtime_health::test_active_runtime_health_requires_distribution_version_and_real_import[root-broken]",
+    "tests.scripts.test_check_deliberate_break_runtime_health::test_active_runtime_health_requires_distribution_version_and_real_import[root-healthy]",
+    "tests.scripts.test_check_deliberate_break_runtime_health::test_active_runtime_health_requires_distribution_version_and_real_import[root-missing]",
+    "tests.scripts.test_check_deliberate_break_runtime_health::test_active_runtime_health_requires_distribution_version_and_real_import[root-stale]",
+    "tests.scripts.test_check_deliberate_break_runtime_health::test_active_runtime_health_requires_distribution_version_and_real_import[template-broken]",
+    "tests.scripts.test_check_deliberate_break_runtime_health::test_active_runtime_health_requires_distribution_version_and_real_import[template-healthy]",
+    "tests.scripts.test_check_deliberate_break_runtime_health::test_active_runtime_health_requires_distribution_version_and_real_import[template-missing]",
+    "tests.scripts.test_check_deliberate_break_runtime_health::test_active_runtime_health_requires_distribution_version_and_real_import[template-stale]"
+  ],
+  "removed_nodes": [],
+  "changed_old_outcomes": {},
+  "covered_line_regressions": [],
+  "covered_branch_regressions": [],
+  "newly_covered_lines": [
+    337,
+    338,
+    340,
+    343,
+    344
+  ],
+  "newly_covered_branches": [
+    [
+      339,
+      340
+    ]
+  ],
+  "historical_reconciliation": {
+    "old_repair_snapshot": {
+      "tests": 6,
+      "baseline": 294,
+      "candidate": 300,
+      "status": "historical; unchanged"
+    },
+    "current_repair_tests": 8,
+    "current_matched_scope": "eight existing test modules, plus runtime-health only for candidate"
+  },
+  "file_sha256": {
+    "scripts/check_deliberate_break.py": "cc97119ea26afec275be3c83d22bc75de0d452cd0f4764896cc9d037274ab25a",
+    "templates/consumer-repo/scripts/check_deliberate_break.py": "cc97119ea26afec275be3c83d22bc75de0d452cd0f4764896cc9d037274ab25a",
+    "tests/scripts/test_check_deliberate_break_runtime_health.py": "f27013701bbc1be89258d5e17fa0b9074bebc8d1beed593ea364ca9c72e16fcf",
+    "docs/evidence/issue-3743/runtime-health/replay.py": "3d0b72a89acab50c3e38eab4acfd56f2a07a02320c931175d09cb14bad35c99a",
+    "docs/evidence/issue-3743/runtime-health/measure.py": "9b9ac91567e41d73e2850c495a76f116dcd33e87b2c86ed3c5b359f3e71fd44b"
+  },
+  "limits": [
+    "Root helper coverage only; template behavior has direct paired tests, no separate template coverage metric.",
+    "No repository-wide90%, hosted/native/provider PASS or full source completion.",
+    "Prior3832 provider CONCERNS/CONCERNS retained; current count reconciliation is a bounded follow-up.",
+    "Requested /opt/anaconda3/bin/python3 is absent; fresh receipts use available Linux Python, with historical macOS packet preserved byte for byte."
+  ],
+  "production_unchanged": true,
+  "root_template_identical": true,
+  "mutations": 8,
+  "historical_files_unchanged": 558,
+  "validation": {
+    "black-serial": {
+      "argv": [
+        "/opt/hostedtoolcache/Python/3.14.8/x64/bin/python3",
+        "docs/evidence/issue-3743/runtime-probes/revalidation/black_serial.py"
+      ],
+      "cwd": "/home/runner/work/Workflows/Workflows",
+      "env": {
+        "BLACK_CACHE_DIR": "/tmp/runtime-health-measure-black-cache"
+      },
+      "exit": 0
+    },
+    "full-black": {
+      "argv": [
+        "black",
+        "--check",
+        "--line-length",
+        "100",
+        "--exclude",
+        "(\\.workflows-lib|node_modules)",
+        "."
+      ],
+      "cwd": "/home/runner/work/Workflows/Workflows",
+      "env": {
+        "BLACK_CACHE_DIR": "/tmp/runtime-health-measure-black-cache",
+        "BLACK_NUM_WORKERS": "1"
+      },
+      "exit": 0
+    },
+    "focused-ruff": {
+      "argv": [
+        "ruff",
+        "check",
+        "tests/scripts/test_check_deliberate_break_runtime_health.py",
+        "docs/evidence/issue-3743/runtime-health/replay.py",
+        "docs/evidence/issue-3743/runtime-health/measure.py"
+      ],
+      "cwd": "/home/runner/work/Workflows/Workflows",
+      "env": {},
+      "exit": 0
+    },
+    "templates": {
+      "argv": [
+        "/opt/hostedtoolcache/Python/3.14.8/x64/bin/python3",
+        "scripts/validate_template_completeness.py",
+        "--strict"
+      ],
+      "cwd": "/home/runner/work/Workflows/Workflows",
+      "env": {
+        "GITHUB_STEP_SUMMARY": "/tmp/runtime-health-validation-3838/template-summary.md"
+      },
+      "exit": 0
+    },
+    "diff-check": {
+      "argv": [
+        "git",
+        "diff",
+        "--check"
+      ],
+      "cwd": "/home/runner/work/Workflows/Workflows",
+      "env": {},
+      "exit": 0
+    },
+    "collector-controls": {
+      "argv": [
+        "/opt/hostedtoolcache/Python/3.14.8/x64/bin/python3",
+        "/tmp/runtime-health-validation-3838/check_collector.py",
+        "/tmp/runtime-health-validation-3838/collector-controls.json"
+      ],
+      "cwd": "/home/runner/work/Workflows/Workflows",
+      "env": {
+        "PYTHONPATH": "/tmp/runtime-health-measure-deps"
+      },
+      "exit": 0
+    }
+  },
+  "previous_runtime_health_archive_sha256": "f9868d98185cc3fcfa7546a32a45a8c04e97838779e8acae8914c322e9bd8b83",
+  "collector": {
+    "comparison_member": "collector-measurement/comparison.json",
+    "baseline_modules": 8,
+    "candidate_additions": [
+      "tests/scripts/test_check_deliberate_break_runtime_health.py"
+    ],
+    "controls": {
+      "valid_packet_accepted": true,
+      "corrupt_packets_rejected": 9
+    },
+    "prior_archive_sha256": "20287fef8ceb1d5c27a6f55a5b6e4d60d197ca6e1d0a0133e1331ddf01da121c",
+    "preserved_decoded_members": 108,
+    "fresh_replay_mutations": 8,
+    "replay_output_reuse_files_unchanged": 49,
+    "requested_interpreter_available": false
+  },
+  "task_reconciliation": {
+    "matched_measurement_verified": true,
+    "replay_and_reuse_verified": true,
+    "production_validation_and_bindings_verified": true,
+    "literal_anaconda_runtime_health_verified": false,
+    "literal_anaconda_repair_verified": false,
+    "remote_publication_blocked": "GitHub write requires approval; approval policy is never",
+    "local_reconciliation_member": "collector-validation/task-reconciliation.md"
+  }
+}

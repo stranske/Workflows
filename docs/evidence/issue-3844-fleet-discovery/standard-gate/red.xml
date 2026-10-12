@@ -1,0 +1,52 @@
+<?xml version="1.0" encoding="utf-8"?><testsuites name="pytest tests"><testsuite name="pytest" errors="0" failures="1" skipped="0" tests="1" time="0.152" timestamp="2026-10-11T22:27:19.553661+00:00" hostname="runnervmmprz5"><testcase classname="tests.workflows.test_langsmith_fleet_conformance_workflow" name="test_production_download_handles_large_repository_without_inventory_scan" time="0.037"><failure message="AssertionError: Error: large inventory 500&#10;      at Object.paginate ([eval]:8:22)&#10;      at eval (eval at &lt;anonymous&gt; ([eval]:19:18), &lt;anonymous&gt;:26:24)&#10;      at withRetry ([eval]:16:64)&#10;      at eval (eval at &lt;anonymous&gt; ([eval]:19:18), &lt;anonymous&gt;:25:27)&#10;      at [eval]:19:81&#10;      at [eval]:21:3&#10;      at runScriptInThisContext (node:internal/vm:219:10)&#10;      at node:internal/process/execution:451:12&#10;      at [eval]-wrapper:6:24&#10;      at runScriptInContext (node:internal/process/execution:449:60) {&#10;    status: 500&#10;  }&#10;  &#10;assert 1 == 0&#10; +  where 1 = CompletedProcess(args=['node', '-e', &quot;\nconst assert = require('node:assert/strict');\nconst calls = [], writes = [];\...n    at [eval]-wrapper:6:24\n    at runScriptInContext (node:internal/process/execution:449:60) {\n  status: 500\n}\n').returncode">def test_production_download_handles_large_repository_without_inventory_scan():
+        # Execute the actual authored workflow with &gt;30k unrelated artifacts.
+        # Reintroducing the old unfiltered paginate(per_page=100) throws a 500.
+        harness = r"""
+    const assert = require('node:assert/strict');
+    const calls = [], writes = [];
+    const registry = {repos:[{repo:'o/r',artifact_name:'langsmith-fleet.ndjson'}]};
+    const github = {paginate:async(method,p)=&gt;{
+     assert.equal(method,github.rest.actions.listArtifactsForRepo);
+     assert.deepEqual(p,{owner:'o',repo:'r',per_page:100});
+     throw Object.assign(new Error('large inventory 500'),{status:500});},
+     rest:{actions:{listArtifactsForRepo:async p=&gt;{
+     calls.push(p); assert.equal(p.name,'langsmith-fleet.ndjson');
+     return {data:{total_count:1,artifacts:[{id:7,name:p.name,created_at:'2026-10-11',expired:false}]}};
+     },downloadArtifact:async p=&gt;({data:Buffer.from('zip')}),getWorkflowRun:async()=&gt;{throw Error('unexpected');}}}};
+    const realRequire = require;
+    const fakeRequire = name =&gt; name==='fs' ? {
+     readFileSync:()=&gt;JSON.stringify(registry),mkdirSync:()=&gt;{},writeFileSync:(p,b)=&gt;writes.push(p)
+    } : name.endsWith('github-api-with-retry.js') ? {withRetry:fn=&gt;fn()} :
+     name.endsWith('langsmith-fleet-artifacts.js') ? realRequire(process.env.HELPER) : realRequire(name);
+    const AsyncFunction = Object.getPrototypeOf(async function(){}).constructor;
+    (async()=&gt;{await new AsyncFunction('github','core','require',process.env.SCRIPT)(github,{warning:()=&gt;{}},fakeRequire);
+     assert.equal(calls.length,1); assert.equal(writes.length,1); console.log('production large-inventory download PASS');
+    })().catch(e=&gt;{console.error(e);process.exitCode=1;});
+    """
+        import os
+    
+        proc = subprocess.run(
+            ["node", "-e", harness],
+            env={**os.environ, "SCRIPT": download_script(), "HELPER": str(HELPER)},
+            capture_output=True,
+            text=True,
+        )
+&gt;       assert proc.returncode == 0, proc.stdout + proc.stderr
+E       AssertionError: Error: large inventory 500
+E             at Object.paginate ([eval]:8:22)
+E             at eval (eval at &lt;anonymous&gt; ([eval]:19:18), &lt;anonymous&gt;:26:24)
+E             at withRetry ([eval]:16:64)
+E             at eval (eval at &lt;anonymous&gt; ([eval]:19:18), &lt;anonymous&gt;:25:27)
+E             at [eval]:19:81
+E             at [eval]:21:3
+E             at runScriptInThisContext (node:internal/vm:219:10)
+E             at node:internal/process/execution:451:12
+E             at [eval]-wrapper:6:24
+E             at runScriptInContext (node:internal/process/execution:449:60) {
+E           status: 500
+E         }
+E         
+E       assert 1 == 0
+E        +  where 1 = CompletedProcess(args=['node', '-e', "\nconst assert = require('node:assert/strict');\nconst calls = [], writes = [];\...n    at [eval]-wrapper:6:24\n    at runScriptInContext (node:internal/process/execution:449:60) {\n  status: 500\n}\n').returncode
+
+tests/workflows/test_langsmith_fleet_conformance_workflow.py:53: AssertionError</failure></testcase></testsuite></testsuites>
