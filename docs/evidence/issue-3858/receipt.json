@@ -1,0 +1,24 @@
+{
+  "schema": "repo-review-pair-generation-proof/v1",
+  "at": "2026-10-12T11:32:31.592077+00:00",
+  "baseline_head": "8169698e98e5e782228ba4c71d688432a373963a",
+  "baseline_source_sha256": "048fa02ab99c1cb03c6ec8dc975b0f40f38c74a6637e694ac2a540dffb995c55",
+  "fixed_source_sha256": "74d94474c7263109e5f09dbd55223b69aba3dba87c0490682debfc0b87381087",
+  "provider_calls": 0,
+  "regression_command": "/opt/anaconda3/bin/python -m pytest -q tests/scripts/test_repo_review_round2_runner.py -k receipt_stale_after_peer_retry -o addopts=",
+  "baseline": {
+    "exit": 1,
+    "assertion_failures": 5,
+    "errors": 0
+  },
+  "fixed": {
+    "exit": 0,
+    "passed": 5
+  },
+  "focused_command": "/opt/anaconda3/bin/python -m pytest -q tests/scripts/test_repo_review_round2_runner.py tests/scripts/test_repo_review_coordinator.py tests/scripts/test_repo_review_round2_schema.py -o addopts=",
+  "focused": {
+    "exit": 0,
+    "passed": 108
+  },
+  "scope": "Production runner and filesystem receipts; only provider invocation/prompt construction mocked. No weekly-cycle or provider verdict claimed."
+}

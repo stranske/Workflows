@@ -1,0 +1,19 @@
+{
+  "scope": "same executing checkout for template, generated validators and outer gate; shell-token preservation; original stale receipt byte comparison",
+  "baseline_head": "b0e34fbba92d4e8973466a1884bc1cfb3790ac4b",
+  "regression": {
+    "baseline_exit": 1,
+    "baseline_assertion_failures": 1,
+    "restored_exit": 0,
+    "passed": 1
+  },
+  "focused": {
+    "passed": 161,
+    "exit": 0
+  },
+  "current_file_sha256": {
+    "scripts/repo_review_body_writer.py": "96af20bd88c8858e732825b178d6bd40ea17f997277ed4868ca81feeba40dcbb",
+    "tests/scripts/test_repo_review_body_writer.py": "6475bb1a00f8af6d1629bdff5bce717c169bcadfbe79804f76c1e3b2752d27b6",
+    "tests/scripts/test_repo_review_round2_runner.py": "7dd0142fcec30cc4e4dea7862c4b19452ce6451c60526c6aceaa9d52af194bb6"
+  }
+}

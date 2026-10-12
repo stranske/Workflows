@@ -74,6 +74,14 @@ before a final evaluator pass renders `human-decision-packet.md`. Pass
 `--repos <repo> [<repo> ...]` to run the full Phase-4 flow against only the
 named subset of `active` repos:
 
+After parallel round-two workers finish, the runner checks every successful
+output receipt against one shared current input manifest before convergence.
+If a peer retried after findings, provenance, protocol, or prior-turn inputs
+changed, an earlier stale success is rejected and its output and receipt are
+preserved under `repairs/round2-stale/`. Output-byte changes also invalidate the
+receipt. Matching outputs remain reusable on retry; dry-run reports stale
+bindings without relocating artifacts or invoking providers.
+
 ```bash
 python scripts/repo_review_coordinator.py \
     --output-dir docs/reports/repo-review \

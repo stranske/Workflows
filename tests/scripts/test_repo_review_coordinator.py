@@ -293,9 +293,11 @@ repos:
     )
 
     calls: list[tuple[str, int]] = []
+    commands: dict[str, list[str]] = {}
 
     def fake_run_subprocess(cmd, *, cwd, log_path, name, timeout):
         calls.append((name, timeout))
+        commands[name] = cmd
         if name == "docs-drift-scan":
             assert cmd[cmd.index("--timeout") + 1] == "600"
             assert cmd[cmd.index("--repos") + 1 :] == ["stranske/Example"]
@@ -332,6 +334,9 @@ repos:
     assert dict(calls)["docs-drift-scan"] == 2100
     assert dict(calls)["backlog-scan"] == 300
     assert dict(calls)["scorecard-scan"] == 300
+    for name in ("preflight", "final-evaluator"):
+        command = commands[name]
+        assert command[command.index("--registry") + 1] == str(registry_path)
 
 
 def test_run_filters_explicit_repo_subset_to_active_registry_entries(

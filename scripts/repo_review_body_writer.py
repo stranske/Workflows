@@ -37,6 +37,7 @@ Usage:
 from __future__ import annotations
 
 import argparse
+import importlib.util
 import json
 import re
 import shlex
@@ -44,6 +45,7 @@ import subprocess
 import sys
 from contextlib import suppress
 from copy import deepcopy
+from functools import lru_cache
 from pathlib import Path
 from typing import Any
 
@@ -111,6 +113,49 @@ _PATH_RE = re.compile(
     r"(?<![A-Za-z0-9_.-])(?:AGENTS|CLAUDE|README)\.md|"
     r"(?<![A-Za-z0-9_.-])pyproject\.toml"
 )
+
+
+@lru_cache(maxsize=1)
+def _issue_format_validator() -> Any:
+    """Load the fleet's single issue-format definition without copying its rules.
+
+    The body writer runs from Workflows-steward while validating bodies for
+    consumer repositories. Passing the consumer checkout as ``repo_root``
+    keeps the canonical validator's addressability check accurate without
+    creating a second, inevitably drifting set of task rules.
+    """
+    validator_path = (
+        Path(__file__).resolve().parent.parent / ".github" / "scripts" / "issue_format.py"
+    )
+    spec = importlib.util.spec_from_file_location("_repo_review_issue_format", validator_path)
+    if spec is None or spec.loader is None:  # pragma: no cover - repository invariant
+        raise RuntimeError(f"Cannot load canonical issue-format validator: {validator_path}")
+    module = importlib.util.module_from_spec(spec)
+    sys.modules[spec.name] = module
+    try:
+        spec.loader.exec_module(module)
+    except Exception:
+        sys.modules.pop(spec.name, None)
+        raise
+    return module
+
+
+def canonical_issue_format_errors(body: str, *, repo_path: Path | None) -> list[str]:
+    """Return only blocking errors from the canonical issue-format validator.
+
+    Its unresolved-path messages are advisories by design: a task may correctly
+    create a new file. The body writer rejects a body only when the canonical
+    validator marks it non-agent-processable, while retaining the local depth
+    and current-checkout path checks below.
+    """
+    try:
+        report = _issue_format_validator().validate(body, repo_root=repo_path)
+    except Exception as exc:
+        return [f"canonical issue-format validator could not run: {exc}"]
+    if report.ok:
+        return []
+    details = [*report.missing_required, *report.problems]
+    return [f"canonical issue-format failure: {detail}" for detail in details]
 
 
 # ---------------------------------------------------------------------------
@@ -264,6 +309,11 @@ def body_quality_errors(
         return []  # legitimate routing, not a quality failure
 
     errors: list[str] = []
+    # AGENT_ISSUE_FORMAT.md has one canonical executable implementation. Keep
+    # its task-addressability, heading, acceptance, and subjective-word rules
+    # authoritative here rather than approximating them with another regex set.
+    # Advisories remain non-blocking in that validator.
+    errors.extend(canonical_issue_format_errors(body, repo_path=repo_path))
     lowered = body.lower()
     for phrase in GENERIC_BODY_PHRASES:
         if phrase in lowered:
@@ -374,7 +424,11 @@ def build_prompt(
     output_dir: Path,
     repo_path: Path,
     registry_path: Path | None = None,
+    workflows_steward_root: Path | None = None,
 ) -> str:
+    # Use the same checkout as canonical_body_writer_prompt and the outer gate.
+    # The registry may live elsewhere; it selects inputs, not executable validators.
+    tooling_root = Path(__file__).resolve().parent.parent
     template = canonical_body_writer_prompt().read_text(encoding="utf-8")
     safe = repo.replace("/", "__")
     cj = converged_path(output_dir, repo)
@@ -427,6 +481,7 @@ def build_prompt(
         f"- `<REPO>` = `{repo}`\n"
         f"- `<REPO_SAFE>` = `{safe}`\n"
         f"- `<LOCAL_REPO_PATH>` = `{repo_path}`\n"
+        f"- `<TOOLING_ROOT>` = `{tooling_root}`\n\n"
         f"- Converged.json: `{cj}`\n\n"
         "The local repo has been synced to origin head before this pass; cite "
         "files and line numbers from the current checkout. If a candidate's "
@@ -435,10 +490,10 @@ def build_prompt(
         'record `body: "INSUFFICIENT_EVIDENCE: <reason>"` rather than '
         "fabricating. INSUFFICIENT_EVIDENCE is a legitimate outcome.\n\n"
         "After writing, validate:\n\n"
-        f"  python scripts/repo_review_round2_schema.py --converged {cj} --expected-repo {repo}\n\n"
+        f"  python {shlex.quote(str(tooling_root / 'scripts/repo_review_round2_schema.py'))} --converged {shlex.quote(str(cj))} --expected-repo {shlex.quote(repo)}\n\n"
         "Then run the stricter body/path validator. Do not report success unless it "
         "exits zero:\n\n"
-        f"  python scripts/repo_review_body_writer.py --repo {shlex.quote(repo)} "
+        f"  python {shlex.quote(str(tooling_root / 'scripts/repo_review_body_writer.py'))} --repo {shlex.quote(repo)} "
         f"--output-dir {shlex.quote(str(output_dir))} --registry "
         f"{shlex.quote(str(registry_path or Path('config/repo_review_registry.json')))} "
         "--validate-only --skip-sync-check\n\n"
@@ -512,6 +567,7 @@ def run_body_writer(
     output_dir: Path,
     registry_path: Path,
     workflows_steward_root: Path,
+    workspace_root: Path,
     log_dir: Path,
     timeout: int,
     agent: str,
@@ -522,12 +578,13 @@ def run_body_writer(
         output_dir=output_dir,
         repo_path=repo_path,
         registry_path=registry_path,
+        workflows_steward_root=workflows_steward_root,
     )
     additional_dirs = sorted({workflows_steward_root, output_dir, repo_path})
     return invoke_agent(
         agent,
         prompt,
-        cwd=workflows_steward_root,
+        cwd=workspace_root,
         additional_dirs=additional_dirs,
         log_file=log_path,
         timeout=timeout,
@@ -626,6 +683,7 @@ def run(args: argparse.Namespace) -> int:
         output_dir=output_dir,
         registry_path=registry_path,
         workflows_steward_root=workflows_steward_root,
+        workspace_root=workspace_root,
         log_dir=log_dir,
         timeout=args.timeout,
         agent=args.agent,
