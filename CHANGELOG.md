@@ -6,6 +6,13 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 Breaking changes are called out with a **BREAKING** marker and scheduled according to the policy in `COMPATIBILITY.md`.
 
+## [1.38.0](https://github.com/stranske/Workflows/compare/v1.37.40...v1.38.0) (2026-10-12)
+
+
+### Features
+
+* **delegation:** consume route-weights exploration challengers ([#3857](https://github.com/stranske/Workflows/issues/3857)) ([aceb2f8](https://github.com/stranske/Workflows/commit/aceb2f869bd5b38f810b19b1a7c401936f91a106))
+
 ## [1.37.40](https://github.com/stranske/Workflows/compare/v1.37.39...v1.37.40) (2026-10-12)
 
 
