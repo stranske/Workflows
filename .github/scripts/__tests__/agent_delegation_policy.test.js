@@ -797,6 +797,35 @@ test('pickAgent CLI helper reports exploration delegation for a seeded draw', ()
   assert.equal(picked.policy_version, 'exploration-2026-10-06');
 });
 
+test('exploration reports the current published policy version for each keepalive task type', () => {
+  const policyVersion = 'exploration-2026-10-13';
+  for (const taskType of ['implement', 'review', 'testgen']) {
+    const routeWeights = {
+      ...routeWeightsWithExploration,
+      task_types: { [taskType]: routeWeightsWithExploration.task_types.implement },
+      exploration: {
+        ...routeWeightsWithExploration.exploration,
+        policy_version: policyVersion,
+      },
+    };
+    const decision = decideNextAgent({
+      state: { iteration: 7 },
+      labels: ['agent:auto'],
+      secrets: mockSecrets,
+      registry: mockRegistry,
+      routeWeights,
+      roundKind: taskType,
+    });
+
+    assert.equal(decision.agent, routeWeights.exploration.challengers[taskType], taskType);
+    assert.equal(decision.delegationSource, 'route_weights_exploration', taskType);
+    assert.equal(decision.policy_version, policyVersion, taskType);
+    const summary = formatDelegationSummary({ decision });
+    assert.ok(summary.includes(`**Policy version:** ${policyVersion}`), taskType);
+    assert.ok(!summary.includes(routeWeightsWithExploration.exploration.policy_version), taskType);
+  }
+});
+
 test('zero seed does not force exploration for every positive rate', () => {
   const weighted = selectAgentFromRouteWeights({
     routeWeights: routeWeightsWithExploration,

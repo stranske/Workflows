@@ -6943,6 +6943,65 @@ test('updateKeepaliveLoopSummary prints policy_version when exploration delegati
   assert.match(body, /\| Policy version \| exploration-2026-10-06 \|/);
 });
 
+test('updateKeepaliveLoopSummary replaces exploration policy versions and clears them on ranking rounds', async () => {
+  const oldVersion = 'exploration-2026-10-06';
+  const newVersion = 'exploration-2026-10-13';
+  let previousBody = formatStateComment({
+    trace: 'trace-policy-rollover',
+    iteration: 1,
+    current_agent: 'gemini',
+    delegation_source: 'route_weights_exploration',
+    policy_version: oldVersion,
+    tasks: { total: 3, unchecked: 2 },
+  });
+
+  for (const { source, policyVersion } of [
+    { source: 'route_weights_exploration', policyVersion: newVersion },
+    { source: 'route_weights', policyVersion: undefined },
+  ]) {
+    const github = buildGithubStub({ comments: [{ id: 101, body: previousBody }] });
+    await updateKeepaliveLoopSummary({
+      github,
+      context: buildContext(3840),
+      core: buildCore(),
+      inputs: {
+        prNumber: 3840,
+        action: 'run',
+        runResult: 'success',
+        gateConclusion: 'success',
+        tasksTotal: 3,
+        tasksUnchecked: 2,
+        keepaliveEnabled: true,
+        autofixEnabled: false,
+        maxIterations: 10,
+        failureThreshold: 3,
+        agent_type: 'gemini',
+        agent_routing_mode: 'auto',
+        delegation_reason: 'initial-selection-route-weights',
+        delegation_should_switch: 'false',
+        delegation_source: source,
+        policy_version: policyVersion,
+        trace: 'trace-policy-rollover',
+      },
+    });
+
+    const comment = github.actions.find((entry) => entry.body && parseStateComment(entry.body));
+    assert.ok(comment, 'the updated summary must contain durable state');
+    const state = parseStateComment(comment.body).data;
+    assert.equal(state.delegation_source, source);
+    assert.equal(state.policy_version, policyVersion || '');
+    assert.ok(comment.body.includes(`| Delegation source | ${source} |`));
+    assert.ok(!comment.body.includes(oldVersion));
+    if (policyVersion) {
+      assert.ok(comment.body.includes(`| Policy version | ${policyVersion} |`));
+    } else {
+      assert.doesNotMatch(comment.body, /\| Policy version \|/);
+      assert.ok(!comment.body.includes(newVersion));
+    }
+    previousBody = comment.body;
+  }
+});
+
 test('evaluateKeepaliveLoop resolves agent:auto via delegation policy with delegationSource', async () => {
   const previousEnv = {
     HAS_CODEX_AUTH: process.env.HAS_CODEX_AUTH,
