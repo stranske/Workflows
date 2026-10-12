@@ -20,13 +20,13 @@ SOURCE = "scripts/check_deliberate_break.py"
 TEST = "tests/scripts/test_check_deliberate_break_fallback_target_selection.py"
 NAME = "test_fallback_selects_the_implementation_target"
 FAILURE_ASSERTIONS = {
-    "blank-target": "assert 'wrong.py' == 'config/policy.yaml'",
+    "blank-target": "assert None is not None",
     "yaml-target": "assert 'tests/test_proof.py' == 'config/policy.yaml'",
 }
 MUTATIONS = {
     "blank-target": (
         "            if not normalized:\n                continue",
-        '            if not normalized:\n                return ["wrong.py"]',
+        '            if not normalized:\n                return [""]',
     ),
     "yaml-target": (
         "    if yaml_paths:\n        return yaml_paths[0]",
@@ -98,8 +98,12 @@ def validate_junit(report, label, phase):
             failure.get("type") in {None, "AssertionError"}
             and message
             and message[0].removeprefix("AssertionError: ") == verdict_assertion
-            and "AssertionError: " + verdict_assertion in assertion_lines,
-            "mutation must fail the intended admission assertion",
+            and (
+                verdict_assertion in assertion_lines
+                or "AssertionError: " + verdict_assertion in assertion_lines
+            )
+            and any(line.endswith(": AssertionError") for line in assertion_lines),
+            "mutation must fail the intended target-selection assertion",
         )
     return case.attrib
 
@@ -111,8 +115,8 @@ def main():
     output.mkdir(parents=True, exist_ok=False)
     receipts = []
     for variant, prefix in (("root", ""), ("template", "templates/consumer-repo/")):
-        for launcher, (old, new) in MUTATIONS.items():
-            label = f"{variant}-{launcher}"
+        for selection, (old, new) in MUTATIONS.items():
+            label = f"{variant}-{selection}"
             with tempfile.TemporaryDirectory(prefix="fallback-target-selection-") as private:
                 work = Path(private)
                 for relative in (SOURCE, "templates/consumer-repo/" + SOURCE, TEST):

@@ -12,3 +12,37 @@ Identical eleven baseline modules:320PASS; candidate adds only this module:324PA
 ```
 
 Full-repositoryBlack (701 files), focusedRuff, strict template completeness and whitespace checks pass. All53 raw archive members verify; summary.json and manifest.json retain exact totals and current-input bindings. Broader source#3743 stays OPEN. Keepalive owns hosted CI/review; closer owns complete exact-head checks, all active review findings, seven-minute floor, guarded merge and actual compare.
+
+The original `proof.tar.gz` and `manifest.json` are retained byte-identically as
+historical evidence. The current test checks the entire command tuple, including
+the interpreter and `-m pytest` prefix. The current blank-target mutation returns
+the empty normalized target directly; its named case fails `assert None is not
+None`, while the YAML mutation fails the implementation-path assertion. Each
+private production copy is restored byte-identically before its GREEN run.
+
+Current Linux revalidation is recorded separately in `revalidation.tar.gz` and
+`revalidation-manifest.json`, with exact commands, console/JUnit, coverage JSON,
+original/mutant/restored bytes, current input bytes and hashes, and output-reuse
+hash comparisons. `summary.json.revalidation` records the current measurements;
+the original top-level measurements describe the retained macOS proof.
+
+The requested `/opt/anaconda3/bin/python3` is absent in this checkout. Current
+commands use the installed Python 3.14.8 interpreter. Black uses one worker and a
+temporary 50ms event-loop timer to observe thread completion in this sandbox;
+its formatting rules and full-repository check are unchanged. The archive
+retains that runtime adapter and its environment settings. Strict template
+validation writes its GitHub step summary to a writable temporary path.
+The local GitHub CLI cannot reach the API. The GitHub connector independently
+verified PR #3871 is open and ready for review (`draft=false`).
+The workspace's `.git` is read-only, and GitHub write tools require approval
+unavailable under this run's `never` policy. The verified changes are committed
+in an isolated local checkout; publishing and PR checkbox updates remain pending.
+
+Verified local tasks:
+
+- [x] Check whitespace-only quoted targets, contextual YAML preference, named
+  test identity, and the complete command tuple for root and template.
+- [x] Replay four exact named assertion RED/restored GREEN pairs and reject
+  output reuse without changing existing proof bytes.
+- [x] Preserve the matched eleven-module baseline, add only the new module,
+  and verify unchanged incumbent outcomes and coverage with complete raw evidence.

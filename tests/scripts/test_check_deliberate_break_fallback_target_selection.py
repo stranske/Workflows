@@ -1,6 +1,7 @@
 """Fallback proof metadata must select an implementation file, not an empty token."""
 
 import runpy
+import sys
 from pathlib import Path
 
 import pytest
@@ -30,4 +31,12 @@ def test_fallback_selects_the_implementation_target(helper, kind):
     assert spec.break_file == "config/policy.yaml"
     assert spec.test_file == "tests/test_proof.py"
     assert spec.test_id == "tests/test_proof.py::test_policy"
-    assert spec.command[-4:] == ("tests/test_proof.py::test_policy", "-o", "addopts=", "-q")
+    assert spec.command == (
+        sys.executable,
+        "-m",
+        "pytest",
+        "tests/test_proof.py::test_policy",
+        "-o",
+        "addopts=",
+        "-q",
+    )
