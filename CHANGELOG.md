@@ -6,6 +6,13 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 Breaking changes are called out with a **BREAKING** marker and scheduled according to the policy in `COMPATIBILITY.md`.
 
+## [1.38.3](https://github.com/stranske/Workflows/compare/v1.38.2...v1.38.3) (2026-10-13)
+
+
+### Bug Fixes
+
+* skip receipt-free cancelled keepalive reports ([#3874](https://github.com/stranske/Workflows/issues/3874)) ([690ecd3](https://github.com/stranske/Workflows/commit/690ecd34cff68f29c50f65b2ae4ae4dd76970142))
+
 ## [1.38.2](https://github.com/stranske/Workflows/compare/v1.38.1...v1.38.2) (2026-10-12)
 
 
