@@ -2103,6 +2103,9 @@ condition remains on the parent delivery instead of disappearing with that
 nongating metadata. Both attachment positions
 are covered for nominal evidence, reviewer and product actors, channel aliases,
 independent artifact duties and actual missing-channel satisfaction.
+Negative content normalization consumes a condition attached to that discarded
+content; it must not migrate onto the parent's mandatory destination list.
+Conditions after the complete parent list retain their original scope.
 The same shared `if`/`when` evidence-condition vocabulary stays attached to a
 relative presence predicate before its parent destination tail is restored;
 comma-delimited conditions cannot sever or make optional a parent's sibling.

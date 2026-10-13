@@ -1364,6 +1364,29 @@ def test_relative_presence_preserves_parent_mandatory_alternatives(
         )
 
 
+def test_negative_content_condition_does_not_migrate_to_parent_delivery():
+    criterion = (
+        "The reviewer must record evidence in a PR comment and the PR body "
+        "that must not contain command output if available"
+    )
+    assert verifier._normalize_review_content_qualifiers(criterion) == (
+        "The reviewer must record evidence in a PR comment and the PR body"
+    )
+    assert verifier._required_evidence_options(criterion) == [{"body", "comments"}]
+    assert _floor_verdict(criterion, body="present", comments="absent") == "CONCERNS"
+
+
+def test_negative_content_keeps_condition_after_complete_parent_list():
+    criterion = (
+        "The reviewer must record evidence in the PR body that must not contain "
+        "command output and in a PR comment if available"
+    )
+    assert verifier._normalize_review_content_qualifiers(criterion) == (
+        "The reviewer must record evidence in the PR body and in a PR comment if available"
+    )
+    assert verifier._required_evidence_options(criterion) == [set()]
+
+
 @pytest.mark.parametrize(
     "qualifier",
     [

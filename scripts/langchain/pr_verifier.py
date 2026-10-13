@@ -1712,7 +1712,9 @@ def _normalize_review_content_qualifiers(acceptance: str) -> str:
         + _EVIDENCE_DELIVERY_ADVERBS.replace(r"\s+", r"[ \t]+")
         + r"(?:contain|include|have)\w*[ \t]+"
         + content
-        + r")"
+        # A condition attached to discarded negative content belongs to that
+        # content, not to the parent's mandatory destination or its siblings.
+        + r"(?:[ \t]*,?[ \t]*" + _EVIDENCE_CONDITIONAL + r")?)"
     )
     return re.sub(
         r"(?P<literal>" + _QUOTED_EVIDENCE_LITERAL + r")|" + destination + content_tail,

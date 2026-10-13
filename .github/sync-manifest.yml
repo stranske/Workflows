@@ -749,6 +749,7 @@ scripts:
     # prefixes, preserving product-domain nouns and genuine review delivery.
     # Same-subject predicate boundaries retain real destination lists/delivery
     # pronouns; hyphenated qualified review aliases keep mandatory comment floors.
+    # Negative-content conditions cannot migrate onto mandatory parent deliveries.
     # Expanded v5 comparison requires every configured provider/model arm to be
     # complete, used_llm=true, error-free and PASS; no availability filtering.
     # Expanded-only exact Terra Responses and Sonnet native Models/count binding;
