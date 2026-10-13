@@ -2,6 +2,7 @@
 
 from pathlib import Path
 
+import pytest
 import yaml
 
 ROOT = Path(__file__).resolve().parents[2]
@@ -36,3 +37,32 @@ def test_every_upload_artifact_step_sets_retention_days():
                     )
     assert uploads > 0, "No actions/upload-artifact steps were inspected"
     assert not missing, "\n".join(missing)
+
+
+def test_codex_retention_deletion_reports_file_and_line(tmp_path, monkeypatch):
+    """Exercise the named scanner against a copy of the production workflow."""
+    relative_path = Path(".github/workflows/reusable-codex-run.yml")
+    source_path = ROOT / relative_path
+    original = source_path.read_bytes()
+    retention_line = b"          retention-days: 14\n"
+    assert original.count(retention_line) == 1, "Expected one Codex output retention setting"
+
+    copied_path = tmp_path / relative_path
+    copied_path.parent.mkdir(parents=True)
+    copied_path.write_bytes(original)
+    monkeypatch.setitem(globals(), "ROOT", tmp_path)
+
+    # The unchanged production copy must pass before exercising the deletion.
+    test_every_upload_artifact_step_sets_retention_days()
+    copied_path.write_bytes(original.replace(retention_line, b"", 1))
+    with pytest.raises(AssertionError) as failure:
+        test_every_upload_artifact_step_sets_retention_days()
+    assert str(failure.value).splitlines()[0] == (
+        ".github/workflows/reusable-codex-run.yml:1818: "
+        "actions/upload-artifact must set retention-days"
+    )
+
+    copied_path.write_bytes(original)
+    assert copied_path.read_bytes() == original
+    test_every_upload_artifact_step_sets_retention_days()
+    assert source_path.read_bytes() == original, "Production workflow must remain unchanged"
