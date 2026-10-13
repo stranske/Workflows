@@ -5750,6 +5750,50 @@ def test_issue3835_hyphenated_qualified_review_destination(destination, governor
         assert _floor_verdict(alternative, body="present", comments="absent") == "PASS"
 
 
+@pytest.mark.parametrize(
+    "criterion",
+    [
+        "The application must attach evidence metadata to an artifact",
+        "The application must store evidence records in an artifact",
+        "The application must record evidence provenance in an artifact",
+        "The validator must record review comment state",
+        "The parser must include review comment fields",
+    ],
+)
+def test_issue3835_compound_objects_are_product_fields(criterion):
+    assert verifier._required_evidence_channels(criterion) == set()
+    assert verifier._required_evidence_options(criterion) == [set()]
+    assert _floor_verdict(criterion, body="absent", comments="absent", artifacts="absent") == "PASS"
+    independent = criterion + "; the reviewer must record evidence in a PR comment"
+    assert verifier._required_evidence_options(independent) == [{"comments"}]
+    assert _floor_verdict(independent, body="present", comments="absent") == "CONCERNS"
+
+
+@pytest.mark.parametrize(
+    "criterion,expected",
+    [
+        ("The reviewer must attach evidence to an artifact", {"artifacts"}),
+        ("The reviewer must record evidence internally in an artifact", {"artifacts"}),
+        ("The reviewer must record a review comment", {"comments"}),
+        ("The reviewer must record a detailed review comment with test evidence", {"comments"}),
+        (
+            "Evidence must be posted in a review comment or in an artifact",
+            {"comments", "artifacts"},
+        ),
+    ],
+)
+def test_issue3835_complete_objects_retain_deliveries(criterion, expected):
+    assert verifier._required_evidence_channels(criterion) == expected
+    assert all(
+        verifier._required_evidence_is_missing(
+            "- Overall retrieval status: **present**\n- PR body: **absent**\n"
+            "- PR comments: **absent**\n- Referenced workflow artifacts: **absent**",
+            option,
+        )
+        for option in verifier._required_evidence_options(criterion)
+    )
+
+
 def test_issue3835_hyphenated_review_api_and_quoted_literal_are_not_delivery():
     for text in (
         "The pull-request review comment API is required",

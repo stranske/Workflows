@@ -750,6 +750,7 @@ scripts:
     # Same-subject predicate boundaries retain real destination lists/delivery
     # pronouns; hyphenated qualified review aliases keep mandatory comment floors.
     # Negative-content conditions cannot migrate onto mandatory parent deliveries.
+    # Shared complete-object boundaries reject evidence/review-comment product compounds.
     # Expanded v5 comparison requires every configured provider/model arm to be
     # complete, used_llm=true, error-free and PASS; no availability filtering.
     # Expanded-only exact Terra Responses and Sonnet native Models/count binding;

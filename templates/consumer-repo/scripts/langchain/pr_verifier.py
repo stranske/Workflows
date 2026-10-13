@@ -1106,6 +1106,19 @@ _EVIDENCE_REVIEW_COMMENT_DESTINATION = (
     r"(?:inline\s+)?review\s+comments?|inline\s+comments?)\b"
 )
 
+# Delivery aliases must finish the object, not prefix a product compound such
+# as "evidence metadata" or "review comment fields". Keep bounded adverbs,
+# content qualifiers, real destination prepositions and independent clauses.
+_DELIVERED_EVIDENCE_OBJECT_END = (
+    r"(?=(?:\s+" + _EVIDENCE_DELIVERY_ADVERB + r"){0,3}\s*"
+    r"(?:$|[;:,.!?\n]|(?:and|or|but|while|that|which|where|is|are|must|shall|"
+    r"may|can|only|solely|if|when|on|at|by|with|from|using|"
+    + _EVIDENCE_DESTINATION_PREPOSITION
+    + r"|"
+    + _REVIEW_CONTENT_PARTICIPLE
+    + r")\b))"
+)
+
 
 def _normalize_review_comment_destinations(acceptance: str) -> str:
     # Rewrite bare aliases only under review-delivery or standalone-requirement
@@ -1142,6 +1155,8 @@ def _normalize_review_comment_destinations(acceptance: str) -> str:
             return match[0]
         before = acceptance[max(0, match.start() - 160) : match.start()]
         after = acceptance[match.end() : match.end() + 96]
+        if not re.match(_DELIVERED_EVIDENCE_OBJECT_END, after, re.I):
+            return match[0]
         if (
             standalone_requirement.match(after)
             or destination_governor.search(before)
@@ -1253,7 +1268,8 @@ def _normalize_plain_artifact_destinations(acceptance: str) -> str:
         + r"(?:(?:the|an?|all|any|this|that|these|those)\s+)?"
         + _EVIDENCE_OBJECT_MODIFIERS
         + evidence_object
-        + r"\b",
+        + r"\b"
+        + _DELIVERED_EVIDENCE_OBJECT_END,
         re.I,
     )
 
