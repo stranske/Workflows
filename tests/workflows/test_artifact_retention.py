@@ -29,14 +29,111 @@ def test_every_upload_artifact_step_sets_retention_days():
                     continue
                 uploads += 1
                 settings = step.get("with")
-                retention = _mapping(settings).get("retention-days") if settings else None
-                if not isinstance(retention, yaml.ScalarNode) or not retention.value.strip():
+                retention = (
+                    _mapping(settings).get("retention-days")
+                    if isinstance(settings, yaml.MappingNode)
+                    else None
+                )
+                if (
+                    not isinstance(retention, yaml.ScalarNode)
+                    or retention.tag == "tag:yaml.org,2002:null"
+                    or not retention.value.strip()
+                ):
                     missing.append(
                         f"{path.relative_to(ROOT)}:{uses.start_mark.line + 1}: "
                         "actions/upload-artifact must set retention-days"
                     )
     assert uploads > 0, "No actions/upload-artifact steps were inspected"
     assert not missing, "\n".join(missing)
+
+
+@pytest.mark.parametrize(
+    "settings",
+    [
+        "",
+        "        with: {}\n",
+        "        with: null\n",
+        "        with:\n          name: output\n",
+        "        with:\n          retention-days:\n",
+        "        with:\n          retention-days: null\n",
+        "        with:\n          retention-days: ~\n",
+        "        with:\n          retention-days: ''\n",
+        "        with:\n          retention-days: '   '\n",
+        "        with:\n          retention-days: []\n",
+        "        with:\n          retention-days: {}\n",
+    ],
+    ids=[
+        "no-with",
+        "empty-with",
+        "null-with",
+        "missing-key",
+        "implicit-null",
+        "explicit-null",
+        "tilde-null",
+        "empty-string",
+        "blank-string",
+        "sequence",
+        "mapping",
+    ],
+)
+def test_missing_retention_value_reports_upload_location(tmp_path, monkeypatch, settings):
+    workflow = tmp_path / ".github/workflows/missing-retention.yml"
+    workflow.parent.mkdir(parents=True)
+    workflow.write_text(
+        "jobs:\n  upload:\n    steps:\n      - uses: actions/upload-artifact@v7\n" + settings,
+        encoding="utf-8",
+    )
+    monkeypatch.setitem(globals(), "ROOT", tmp_path)
+
+    with pytest.raises(AssertionError) as failure:
+        test_every_upload_artifact_step_sets_retention_days()
+
+    assert str(failure.value).splitlines()[0] == (
+        ".github/workflows/missing-retention.yml:4: "
+        "actions/upload-artifact must set retention-days"
+    )
+
+
+def test_retention_scanner_checks_every_file_job_and_upload(tmp_path, monkeypatch):
+    workflows = tmp_path / ".github/workflows"
+    workflows.mkdir(parents=True)
+    (workflows / "a.yml").write_text(
+        "jobs:\n"
+        "  reusable:\n"
+        "    uses: example/workflows/.github/workflows/build.yml@main\n"
+        "  build:\n"
+        "    steps:\n"
+        "      - run: echo actions/upload-artifact\n"
+        "      - uses: example/upload-artifact@v7\n"
+        "      - uses: actions/upload-artifact@v7\n"
+        "        with:\n"
+        "          retention-days: 30\n"
+        "  publish:\n"
+        "    steps:\n"
+        "      - uses: actions/upload-artifact@v7\n",
+        encoding="utf-8",
+    )
+    (workflows / "z.yml").write_text(
+        "jobs:\n"
+        "  upload:\n"
+        "    steps:\n"
+        "      - uses: actions/upload-artifact@0123456789abcdef0123456789abcdef01234567\n"
+        "        with:\n"
+        "          name: missing-retention\n"
+        "      - uses: actions/upload-artifact@v7\n"
+        "        with:\n"
+        "          retention-days: '14'\n",
+        encoding="utf-8",
+    )
+    monkeypatch.setitem(globals(), "ROOT", tmp_path)
+
+    with pytest.raises(AssertionError) as failure:
+        test_every_upload_artifact_step_sets_retention_days()
+
+    assert [line.strip() for line in str(failure.value).splitlines()[:2]] == [
+        ".github/workflows/a.yml:13: actions/upload-artifact must set retention-days",
+        ".github/workflows/z.yml:4: actions/upload-artifact must set retention-days",
+    ]
 
 
 def test_codex_retention_deletion_reports_file_and_line(tmp_path, monkeypatch):
