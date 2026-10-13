@@ -5493,6 +5493,7 @@ def test_issue3835_negative_artifact_content_stays_product_capability(
         "Command output validation in an artifact is required",
         "The schema must contain a property in an artifact",
         "The application must record a checksum in an artifact",
+        "The application must validate stored values in an artifact",
         "Evidence must be posted in the PR body. The application must validate a field in an artifact.",
     ],
 )
@@ -5566,3 +5567,19 @@ def test_issue3835_review_comment_product_surface_is_not_delivery(text, independ
     expected = {"body"} if independent else set()
     assert verifier._required_evidence_channels(text) == expected
     assert verifier._required_evidence_options(text) == [expected]
+
+
+@pytest.mark.parametrize(
+    "text",
+    [
+        "PR body that must include validation evidence",
+        "A PR body that must include validation evidence is required",
+        "Evidence must be posted in a PR body that must include validation evidence",
+    ],
+)
+def test_issue3835_affirmative_relative_presence_keeps_body_duty(text):
+    """Affirmative relative content predicates must not be stripped before presence."""
+    normalized = verifier._normalize_review_content_qualifiers(text)
+    assert "must include validation evidence" in normalized.lower()
+    assert verifier._required_evidence_channels(text) == {"body"}
+    assert verifier._required_evidence_options(text) == [{"body"}]

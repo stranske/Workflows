@@ -1677,7 +1677,7 @@ def _normalize_review_content_qualifiers(acceptance: str) -> str:
         + _EVIDENCE_DELIVERY_ADVERBS.replace(r"\s+", r"[ \t]+")
         + r"(?:must|shall|will|"
         + _EVIDENCE_OPTIONAL_MODAL
-        + r")[ \t]+(?:not[ \t]+)?"
+        + r")[ \t]+not[ \t]+"
         + _EVIDENCE_DELIVERY_ADVERBS.replace(r"\s+", r"[ \t]+")
         + r"(?:contain|include|have)\w*[ \t]+"
         + content
