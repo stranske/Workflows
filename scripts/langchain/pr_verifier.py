@@ -1190,6 +1190,15 @@ def _normalize_plain_artifact_destinations(acceptance: str) -> str:
 def _normalize_product_destination_lists(acceptance: str) -> str:
     """A complete bounded product capability list creates no review delivery."""
     member = _EVIDENCE_DESTINATION_PREPOSITION + r"\s+" + _EVIDENCE_REVIEW_DESTINATION
+    # An independently governed review actor after and/while is a separate
+    # obligation, not another product destination member.
+    independent_actor = (
+        r"(?:and|while)\s+"
+        + _EVIDENCE_RECIPIENT_PREFIX
+        + r"\b(?:reviewers?|auditors?|maintainers?|authors?|operators?|"
+        r"verifiers?|testers?|agents?|bots?|runners?|developers?|"
+        r"engineers?|teams?)\b"
+    )
     return re.sub(
         r"(?P<literal>" + _QUOTED_EVIDENCE_LITERAL + r")|"
         r"\b" + _EVIDENCE_PRODUCT_ACTOR + r"\s+"
@@ -1207,7 +1216,7 @@ def _normalize_product_destination_lists(acceptance: str) -> str:
         + r"(?:\s+(?:and|or)\s+"
         + member
         + r")+"
-        r"(?=\s*(?:$|[;.!?\n]))",
+        r"(?=\s*(?:$|[;.!?\n]|" + independent_actor + r"))",
         lambda match: match[0] if match["literal"] else "product capability",
         acceptance,
         flags=re.I,
@@ -1562,11 +1571,29 @@ def _normalize_review_content_qualifiers(acceptance: str) -> str:
         + _EVIDENCE_PROOF_ALIAS_NOUN
         + r"|evidence|artifacts?|transcripts?|command outputs?|logs?|failures?|results?)\b"
     )
-    return re.sub(
-        r"(?P<literal>" + _QUOTED_EVIDENCE_LITERAL + r")|"
+    destination = (
         r"(?P<destination>\b(?:pr|pull request)\s+(?:body|description|comments?)\b"
-        r"(?:[ \t]+" + _REVIEW_BODY_COMPONENT + r")?)"
-        r"[ \t]+(?:" + _REVIEW_CONTENT_PARTICIPLE + r")[ \t]+" + content,
+        r"(?:[ \t]+" + _REVIEW_BODY_COMPONENT + r")?|"
+        r"(?:(?:the|an?)\s+)?(?:(?:workflow|ci|github actions)\s+)?artifacts?\b)"
+    )
+    # Participles and relative content predicates describe payload shape, not a
+    # separate evidence channel. Strip them from PR and artifact destinations so
+    # product lists and OR expansion keep their established governors.
+    content_tail = (
+        r"(?:"
+        r"[ \t]+(?:" + _REVIEW_CONTENT_PARTICIPLE + r")[ \t]+" + content + r"|"
+        r"[ \t]+(?:that|which)[ \t]+"
+        + _EVIDENCE_DELIVERY_ADVERBS.replace(r"\s+", r"[ \t]+")
+        + r"(?:must|shall|will|"
+        + _EVIDENCE_OPTIONAL_MODAL
+        + r")[ \t]+(?:not[ \t]+)?"
+        + _EVIDENCE_DELIVERY_ADVERBS.replace(r"\s+", r"[ \t]+")
+        + r"(?:contain|include|have)\w*[ \t]+"
+        + content
+        + r")"
+    )
+    return re.sub(
+        r"(?P<literal>" + _QUOTED_EVIDENCE_LITERAL + r")|" + destination + content_tail,
         lambda match: match["literal"] or match["destination"],
         acceptance,
         flags=re.I,

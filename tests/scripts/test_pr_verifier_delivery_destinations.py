@@ -5422,3 +5422,60 @@ def test_issue3835_artifact_and_keeps_both_destinations(artifact, reverse, indep
     assert (
         _floor_verdict(text, body="absent", comments="present", artifacts="present") == "CONCERNS"
     )
+
+
+@pytest.mark.parametrize("coordination", ["and", "or"])
+@pytest.mark.parametrize("artifact", ["an artifact", "a workflow artifact"])
+@pytest.mark.parametrize("reverse", [False, True])
+@pytest.mark.parametrize("joiner", [" and ", "; "])
+def test_issue3835_product_list_keeps_independent_reviewer_only(
+    coordination, artifact, reverse, joiner
+):
+    """Product destination lists must not invent artifact duty beside a reviewer."""
+    choices = ["in the PR body", f"as {artifact}"]
+    if reverse:
+        choices.reverse()
+    text = (
+        "The UI must allow evidence to be attached "
+        + f" {coordination} ".join(choices)
+        + f"{joiner}the reviewer must post evidence in a PR review comment"
+    )
+    assert verifier._required_evidence_channels(text) == {"comments"}
+    assert verifier._required_evidence_options(text) == [{"comments"}]
+    assert (
+        _floor_verdict(text, body="present", comments="absent", artifacts="present") == "CONCERNS"
+    )
+    assert _floor_verdict(text, body="absent", comments="present", artifacts="absent") == "PASS"
+
+
+@pytest.mark.parametrize(
+    "qualifier",
+    [
+        "that must not contain command output",
+        "which must not contain command output",
+        "that must not include command output",
+        "containing command output",
+    ],
+)
+@pytest.mark.parametrize("artifact", ["an artifact", "a workflow artifact"])
+@pytest.mark.parametrize("reverse", [False, True])
+@pytest.mark.parametrize("independent", [False, True])
+def test_issue3835_negative_artifact_content_stays_product_capability(
+    qualifier, artifact, reverse, independent
+):
+    """Artifact-content qualifiers under a product OR invent no artifact duty."""
+    choices = ["in the PR body", f"as {artifact} {qualifier}"]
+    if reverse:
+        choices.reverse()
+    text = "The UI must allow evidence to be attached " + " or ".join(choices)
+    if independent:
+        text += "; the reviewer must post evidence in a PR review comment"
+    expected = {"comments"} if independent else set()
+    assert verifier._required_evidence_channels(text) == expected
+    assert verifier._required_evidence_options(text) == [expected]
+    assert _floor_verdict(text, body="present", comments="present", artifacts="absent") == "PASS"
+    if independent:
+        assert (
+            _floor_verdict(text, body="present", comments="absent", artifacts="present")
+            == "CONCERNS"
+        )
