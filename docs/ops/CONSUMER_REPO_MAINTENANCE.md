@@ -2148,6 +2148,14 @@ Bounded plain artifact destinations normalize before both classifiers, so AND
 lists retain both required destinations too. A complete product-capability
 destination list remains nongating in either order; independently governed
 reviewer duties and relative presence predicates are not consumed by that list.
+Independent coordinated clauses use the shared bounded recipient-prefix grammar,
+including possessive determiners and qualified actors. Comma-separated `and`,
+`but` and `while` preserve the boundary in both directions: a product capability
+cannot invent an artifact duty beside a reviewer, and an independent product
+clause cannot inherit an earlier evidence-delivery governor. Bare artifact and
+review-comment aliases still require evidence-delivery or standalone requirement
+context; API/component domain nouns are not review evidence. Negative content
+qualifiers do not impose presence, while affirmative relative presence survives.
 Checklist shorthand accepts the common test/validation proof nouns, so
 `Validation output in a PR comment` retains comments as its required channel.
 Negative, optional and product-capability clauses keep their existing semantics.

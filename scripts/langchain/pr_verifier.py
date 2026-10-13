@@ -1260,10 +1260,9 @@ def _normalize_plain_artifact_destinations(acceptance: str) -> str:
     # Coordinated product clauses ("..., and the application must ...") are not
     # the same delivery scope as a preceding evidence destination list.
     independent_clause = re.compile(
-        r"(?:,\s*)?\b(?:and|but|while)\s+"
-        r"(?:(?:the|an?|this|that)\s+)?"
+        r"(?:,\s*)?\b(?:and|but|while)\s+" + _EVIDENCE_RECIPIENT_PREFIX + r"\b"
         r"(?:application|app|service|api|endpoint|ui|interface|cli|renderer|"
-        r"schema|pipeline|parser|product|system|component|module)\b",
+        r"schema|pipeline|parser|product|system|component|module)\b" + _EVIDENCE_ACTOR_QUALIFIER,
         re.I,
     )
 
@@ -1302,7 +1301,7 @@ def _normalize_product_destination_lists(acceptance: str) -> str:
     # An independently governed review actor after and/while is a separate
     # obligation, not another product destination member.
     independent_actor = (
-        r"(?:and|while)\s+"
+        r"(?:,\s*)?\b(?:and|but|while)\s+"
         + _EVIDENCE_RECIPIENT_PREFIX
         + r"\b(?:reviewers?|auditors?|maintainers?|authors?|operators?|"
         r"verifiers?|testers?|agents?|bots?|runners?|developers?|"

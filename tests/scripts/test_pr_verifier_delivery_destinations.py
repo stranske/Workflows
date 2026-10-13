@@ -5620,3 +5620,32 @@ def test_issue3835_affirmative_relative_presence_keeps_body_duty(text):
     assert "must include validation evidence" in normalized.lower()
     assert verifier._required_evidence_channels(text) == {"body"}
     assert verifier._required_evidence_options(text) == [{"body"}]
+
+
+@pytest.mark.parametrize("prefix", ["the", "our", "their", "each appointed"])
+@pytest.mark.parametrize("boundary", [" and ", ", and ", " but ", " while "])
+@pytest.mark.parametrize("artifact", ["an artifact", "a workflow artifact"])
+def test_issue3835_independent_clause_boundary_shares_actor_grammar(prefix, boundary, artifact):
+    """One shared bounded actor grammar governs both kinds of independent duty."""
+    product = (
+        "The UI must allow evidence to be attached in the PR body or as "
+        + artifact
+        + boundary
+        + prefix
+        + " reviewer must post evidence in a PR review comment"
+    )
+    domain = (
+        "Provide evidence in the PR body"
+        + boundary
+        + prefix
+        + " application must validate a field in an artifact."
+    )
+    for criterion, expected in ((product, {"comments"}), (domain, {"body"})):
+        assert verifier._required_evidence_channels(criterion) == expected
+        assert verifier._required_evidence_options(criterion) == [expected]
+        for missing in ("absent", "unavailable"):
+            assert (
+                _floor_verdict(criterion, body="present", comments="present", artifacts=missing)
+                == "PASS"
+            )
+            assert _floor_verdict(criterion, body=missing, comments=missing) == "CONCERNS"

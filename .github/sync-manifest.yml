@@ -745,6 +745,8 @@ scripts:
     # Passive capability normalization is shared before mixed artifact/PR ORs.
     # Plain and qualified artifact OR members retain mandatory alternative floors.
     # Bare artifact AND lists and reverse product ORs share destination normalization.
+    # Independent comma/and/but/while boundaries reuse shared qualified recipient
+    # prefixes, preserving product-domain nouns and genuine review delivery.
     # Expanded v5 comparison requires every configured provider/model arm to be
     # complete, used_llm=true, error-free and PASS; no availability filtering.
     # Expanded-only exact Terra Responses and Sonnet native Models/count binding;
