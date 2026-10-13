@@ -78,10 +78,11 @@ jobs:
                   (!Number.isSafeInteger(resolved) || resolved <= 0)) {
                 throw new Error('Reporter target did not resolve to a positive PR number');
               }
-              // An unverified failed run still needs an attributed visible failure.
-              // A targetless classifier skip cannot waive the reporter's source contract.
+              // A cancelled run with a verified absent index prepared no receipt.
+              // Indexed cancellations still resolve; failed runs retain their alarm.
               if (result.status === 'skip' && result.reason ===
-                  'unassociated run has no verified dispatch classification') {
+                  'unassociated run has no verified dispatch classification' &&
+                  context.payload.workflow_run.conclusion !== 'cancelled') {
                 throw new Error(result.reason);
               }
               core.setOutput('outcome', result.status === 'skip' ? 'no-report-needed' : 'resolved');

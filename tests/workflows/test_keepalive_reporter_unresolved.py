@@ -124,7 +124,7 @@ def test_resolver_binds_classifier_from_reporter_tree(reporter: Path) -> None:
 
 
 @pytest.mark.parametrize("reporter", REPORTERS, ids=["root", "consumer"])
-@pytest.mark.parametrize("conclusion", ["failure", "cancelled", "timed_out"])
+@pytest.mark.parametrize("conclusion", ["failure", "timed_out"])
 def test_unassociated_workflow_run_reports_attributed_failure_before_failing(
     reporter: Path, conclusion: str
 ) -> None:
@@ -238,10 +238,11 @@ def test_invalid_manual_input_does_not_authorize_pr_mutation(
 
 @pytest.mark.parametrize("reporter", REPORTERS, ids=["root", "consumer"])
 @pytest.mark.parametrize("pr_number", [0, -1, 1.5, "invalid", "9007199254740992"])
+@pytest.mark.parametrize("conclusion", ["failure", "cancelled"])
 def test_invalid_indexed_target_reports_without_granting_a_pr_lock(
-    reporter: Path, pr_number: int | float | str
+    reporter: Path, pr_number: int | float | str, conclusion: str
 ) -> None:
-    result = _resolve(reporter, indexedTarget={"prNumber": pr_number})
+    result = _resolve(reporter, conclusion=conclusion, indexedTarget={"prNumber": pr_number})
     assert [event[0] for event in result["events"]] == ["summary", "failed"]
     assert "Reporter target did not resolve to a positive PR number" in result["events"][0][1]
     assert (
@@ -298,3 +299,50 @@ def test_successful_and_skipped_upstream_runs_remain_outside_resolver(reporter: 
     report = workflow["jobs"]["report"]
     assert "needs.resolve-target.result == 'success'" in report["if"]
     assert "needs.resolve-target.outputs.lock_pr_number != ''" in report["if"]
+    assert "conclusion != 'cancelled'" not in condition
+    assert "conclusion != 'cancelled'" not in report["if"]
+
+
+@pytest.mark.parametrize("reporter", REPORTERS, ids=["root", "consumer"])
+def test_cancelled_unresolvable_run_skips_with_notice(reporter: Path) -> None:
+    """A successful null index lookup proves this cancellation prepared no receipt."""
+    result = _resolve(reporter, conclusion="cancelled")
+    assert [event[0] for event in result["events"]] == ["read-origin", "notice", "summary"]
+    assert "unassociated run has no verified dispatch classification" in result["events"][1][1]
+    assert "12345" in result["events"][1][1]
+    assert "cancelled" in result["events"][2][1]
+    assert result["outputs"] == {
+        "outcome": "no-report-needed",
+        "skip": "true",
+        "lock_pr_number": "",
+        "pr_number": "",
+        "ordinary_target": "false",
+    }
+
+
+@pytest.mark.parametrize("reporter", REPORTERS, ids=["root", "consumer"])
+def test_failed_unresolvable_run_still_fails_visibly(reporter: Path) -> None:
+    result = _resolve(reporter, conclusion="failure")
+    assert [event[0] for event in result["events"]] == ["read-origin", "summary", "failed"]
+    assert "Conclusion: failure" in result["events"][1][1]
+    assert "unassociated run has no verified dispatch classification" in result["events"][2][1]
+    assert result["outputs"]["skip"] == "false"
+    assert result["outputs"]["lock_pr_number"] == ""
+
+
+@pytest.mark.parametrize("reporter", REPORTERS, ids=["root", "consumer"])
+def test_cancelled_indexed_run_still_reconciles(reporter: Path) -> None:
+    result = _resolve(reporter, conclusion="cancelled", indexedTarget={"prNumber": 42})
+    assert result["events"] == []
+    assert result["outputs"]["outcome"] == "resolved"
+    assert result["outputs"]["skip"] == "false"
+    assert result["outputs"]["lock_pr_number"] == "42"
+
+
+@pytest.mark.parametrize("reporter", REPORTERS, ids=["root", "consumer"])
+def test_cancelled_unavailable_index_lookup_still_fails(reporter: Path) -> None:
+    result = _resolve(reporter, conclusion="cancelled", lookupError="index unavailable")
+    assert [event[0] for event in result["events"]] == ["summary", "failed"]
+    assert "index unavailable" in result["events"][1][1]
+    assert result["outputs"]["skip"] == "false"
+    assert result["outputs"]["lock_pr_number"] == ""
