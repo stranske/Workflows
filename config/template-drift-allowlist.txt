@@ -43,11 +43,11 @@
 [pair.1]
 main = .github/workflows/agents-63-issue-intake.yml
 template = templates/consumer-repo/.github/workflows/agents-issue-intake.yml
-main_sha256 = 756b0e4deaf5efd4138f785b857d57ed271bd30f9facc3daa4a6125db14edbb2
+main_sha256 = 12f633ac57ad548de6da35a24ab9909fabaa39b0148b89d2a99534595e9a98e7
 template_sha256 = 9176b7cffc68dba50fa7ff9c6a2386383c237433ac5a656053eccdd202628c6d
-divergence = Named-secrets rollout 2026-08-23: both surfaces now pass named setup-api-client secret inputs instead of the whole-secrets-context blob, applied identically to root and consumer, and scoped to each workflow's DECLARED workflow_call secrets where that context is a closed set. Removing that handoff is the demonstrated remedy for GitHub's suspicious-workflow hold (agents-dedup then ran at run_attempt 1 with nothing approved after 22 days held). Prior divergence unchanged: Intentional divergence re-reviewed 2026-08-16: root and consumer intake surfaces both remove the operator draft toggle and always hand off ready-for-review automation PRs; root retains its richer failure summary while the consumer remains a pinned, minimal bridge contract.
-divergence_reviewed = 2026-08-16
-fingerprint_refreshed = 2026-08-23
+divergence = Workflows-only artifact retention reviewed 2026-10-13 for issue3844: root intake debug uploads now retain30days; consumer wrappers retain their repository-specific settings. Prior divergence: Named-secrets rollout 2026-08-23: both surfaces now pass named setup-api-client secret inputs instead of the whole-secrets-context blob, applied identically to root and consumer, and scoped to each workflow's DECLARED workflow_call secrets where that context is a closed set. Removing that handoff is the demonstrated remedy for GitHub's suspicious-workflow hold (agents-dedup then ran at run_attempt 1 with nothing approved after 22 days held). Prior divergence unchanged: Intentional divergence re-reviewed 2026-08-16: root and consumer intake surfaces both remove the operator draft toggle and always hand off ready-for-review automation PRs; root retains its richer failure summary while the consumer remains a pinned, minimal bridge contract.
+divergence_reviewed = 2026-10-13
+fingerprint_refreshed = 2026-10-13
 
 [pair.2]
 main = .github/workflows/agents-71-codex-belt-dispatcher.yml

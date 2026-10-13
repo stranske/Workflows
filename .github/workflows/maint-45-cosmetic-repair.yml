@@ -113,6 +113,7 @@ jobs:
         if: always()
         uses: actions/upload-artifact@v7
         with:
+          retention-days: 30
           name: cosmetic-repair-artifacts
           path: |
             pytest-report.xml

@@ -1216,6 +1216,7 @@ jobs:
         if: always()
         uses: actions/upload-artifact@v7
         with:
+          retention-days: 30
           name: repo-health-selfcheck-${{ github.run_id }}
           path: repo-health-artifacts
           if-no-files-found: warn

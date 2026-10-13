@@ -1,0 +1,9 @@
+{
+  "path": ".github/workflows/reusable-codex-run.yml",
+  "restored_sha256": "85384a5f2c021791879374405543bd25bc503e2e7bc92a6c16619fa41bece3c5",
+  "command": "python3 -m pytest tests/workflows/test_artifact_retention.py -q",
+  "mutated_sha256": "63f8d9c615282764f564cdca3e7ce130928715c3d5feca0a8bd472716669c67d",
+  "red_exit": 1,
+  "green_exit": 0,
+  "restored_identical": true
+}

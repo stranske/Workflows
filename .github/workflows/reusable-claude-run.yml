@@ -1160,6 +1160,7 @@ jobs:
         if: always()
         uses: actions/upload-artifact@v7
         with:
+          retention-days: 14
           name: claude-output-${{ inputs.pr_number || github.run_id }}
           path: |
             claude-output*.md
