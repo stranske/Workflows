@@ -26,7 +26,10 @@ other uploads that previously inherited the repository default retain artifacts
 for 30 days. Existing explicit retention values, including 90-day evidence
 exceptions, remain unchanged. The repository default stays at 90 days; this policy
 does not expire historical artifacts or change workflow-run/check/status retention.
-Consumer wrappers retain their existing repository-specific settings.
+Consumer wrappers retain their existing repository-specific settings. These are
+requested durations: `actions/upload-artifact@v7` clamps them to the caller's
+`GITHUB_RETENTION_DAYS` maximum, so a caller with a seven-day limit retains these
+artifacts for seven days. See the [caller-policy review proof](evidence/artifact-retention-3844/caller-policy-review.md).
 
 Run `python3 -m pytest tests/workflows/test_artifact_retention.py -q` to check every
 direct workflow upload. Failures identify the workflow file and upload line.

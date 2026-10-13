@@ -163,3 +163,109 @@ def test_codex_retention_deletion_reports_file_and_line(tmp_path, monkeypatch):
     assert copied_path.read_bytes() == original
     test_every_upload_artifact_step_sets_retention_days()
     assert source_path.read_bytes() == original, "Production workflow must remain unchanged"
+
+
+# These policy values are independent of the mutable evidence inventory.
+@pytest.mark.parametrize(
+    "workflow_path, artifact_name, expected_days",
+    [
+        (".github/workflows/agents-63-issue-intake.yml", "chatgpt-sync-debug", 30),
+        (
+            ".github/workflows/health-40-repo-selfcheck.yml",
+            "repo-health-selfcheck-${{ github.run_id }}",
+            30,
+        ),
+        (
+            ".github/workflows/health-44-gate-branch-protection.yml",
+            "gate-branch-protection-${{ github.run_id }}",
+            30,
+        ),
+        (".github/workflows/health-70-validate-sync-manifest.yml", "workflow-action-pins", 30),
+        (".github/workflows/health-78-backplane-contract.yml", "backplane-contract-integrity", 30),
+        (
+            ".github/workflows/health-83-dependency-sync-efficiency.yml",
+            "dependency-sync-efficiency-${{ github.run_id }}",
+            30,
+        ),
+        (".github/workflows/maint-45-cosmetic-repair.yml", "cosmetic-repair-artifacts", 30),
+        (".github/workflows/maint-71-merge-sync-prs.yml", "sync-canary-evidence-premerge", 30),
+        (".github/workflows/maint-71-merge-sync-prs.yml", "sync-pr-merge-and-canary-evidence", 30),
+        (
+            ".github/workflows/maint-77-model-registry-freshness.yml",
+            "model-catalog-discovery-${{ github.run_id }}",
+            30,
+        ),
+        (
+            ".github/workflows/maint-77-model-registry-freshness.yml",
+            "maint-77-pilot-candidates",
+            30,
+        ),
+        (
+            ".github/workflows/maint-78-model-evaluation-pilot.yml",
+            "maint-78-decision-readiness-${{ github.run_id }}",
+            30,
+        ),
+        (".github/workflows/pr-11-ci-smoke.yml", "pr-source-context", 30),
+        (
+            ".github/workflows/reusable-18-autofix.yml",
+            "autofix-patch-pr-${{ inputs.pr_number }}",
+            30,
+        ),
+        (
+            ".github/workflows/reusable-18-autofix.yml",
+            "autofix-history-pr-${{ inputs.pr_number }}",
+            30,
+        ),
+        (
+            ".github/workflows/reusable-18-autofix.yml",
+            "autofix-report-pr-${{ inputs.pr_number }}",
+            30,
+        ),
+        (
+            ".github/workflows/reusable-backplane-conformance.yml",
+            "backplane-conformance-report",
+            30,
+        ),
+        (
+            ".github/workflows/reusable-claude-run.yml",
+            "claude-output-${{ inputs.pr_number || github.run_id }}",
+            14,
+        ),
+        (
+            ".github/workflows/reusable-codex-run.yml",
+            "codex-output-${{ inputs.pr_number || github.run_id }}",
+            14,
+        ),
+        (
+            ".github/workflows/reusable-cursor-run.yml",
+            "cursor-output-${{ inputs.pr_number || github.run_id }}",
+            14,
+        ),
+        (
+            ".github/workflows/reusable-gemini-run.yml",
+            "gemini-output-${{ inputs.pr_number || github.run_id }}",
+            14,
+        ),
+        (".github/workflows/selftest-reusable-ci.yml", "selftest-report", 30),
+    ],
+)
+def test_new_uploads_keep_required_retention(workflow_path, artifact_name, expected_days):
+    workflow = _mapping(yaml.compose((ROOT / workflow_path).read_text(encoding="utf-8")))
+    matches = []
+    for job in _mapping(workflow["jobs"]).values():
+        steps = _mapping(job).get("steps")
+        if steps is None:
+            continue
+        for node in steps.value:
+            step = _mapping(node)
+            uses = step.get("uses")
+            if uses is None or uses.value.split("@", 1)[0] != "actions/upload-artifact":
+                continue
+            settings = _mapping(step["with"])
+            name = settings.get("name")
+            if name is not None and name.value == artifact_name:
+                matches.append(settings["retention-days"].value)
+    assert matches == [str(expected_days)], (
+        f"{workflow_path}: {artifact_name} must uniquely request {expected_days} days; "
+        f"found {matches}"
+    )
