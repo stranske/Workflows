@@ -73,15 +73,19 @@ def _helper_for(reporter: Path) -> str:
     return str(reporter.parent.parent / "scripts/keepalive_reporter_applicability.js")
 
 
+def _resolver_script(path: Path) -> str:
+    workflow = yaml.safe_load((ROOT / path).read_text())
+    resolver = workflow["jobs"]["resolve-target"]
+    return next(
+        step["with"]["script"] for step in resolver["steps"] if step.get("id") == "applicability"
+    )
+
+
 def _resolve(path: Path, **scenario: object) -> dict:
     node = shutil.which("node")
     if node is None:
         pytest.skip("Node.js is required to execute the authored resolver")
-    workflow = yaml.safe_load((ROOT / path).read_text())
-    resolver = workflow["jobs"]["resolve-target"]
-    script = next(
-        step["with"]["script"] for step in resolver["steps"] if step.get("id") == "applicability"
-    )
+    script = _resolver_script(path)
     helper = _helper_for(path)
     result = subprocess.run(
         [node, "-e", HARNESS],
@@ -318,6 +322,32 @@ def test_cancelled_unresolvable_run_skips_with_notice(reporter: Path) -> None:
         "pr_number": "",
         "ordinary_target": "false",
     }
+
+
+@pytest.mark.parametrize("reporter", REPORTERS, ids=["root", "consumer"])
+def test_cancelled_regression_detects_removed_guard(
+    reporter: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """Prove the named regression detects a broken authored script without file edits."""
+    original_loader = _resolver_script
+    original_script = original_loader(reporter)
+    guard = " &&\n      context.payload.workflow_run.conclusion !== 'cancelled'"
+    assert original_script.count(guard) == 1
+    broken_script = original_script.replace(guard, "", 1)
+
+    with monkeypatch.context() as mutation:
+        mutation.setattr(
+            __name__ + "._resolver_script",
+            lambda path: broken_script if path == reporter else original_loader(path),
+        )
+        with pytest.raises(AssertionError) as failure:
+            test_cancelled_unresolvable_run_skips_with_notice(reporter)
+        # A real visible-failure versus skip mismatch, not a harness execution error.
+        assert "failed" in str(failure.value)
+        assert "notice" in str(failure.value)
+
+    assert _resolver_script(reporter) == original_script
+    test_cancelled_unresolvable_run_skips_with_notice(reporter)
 
 
 @pytest.mark.parametrize("reporter", REPORTERS, ids=["root", "consumer"])
