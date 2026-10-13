@@ -1102,7 +1102,7 @@ _REVIEW_BODY_COMPONENT = (
 # Review comments share the ordinary PR-comment destination grammar. Normalize
 # before either classifier so polarity, product components and ORs stay shared.
 _EVIDENCE_REVIEW_COMMENT_DESTINATION = (
-    r"(?:(?:pr|pull request)\s+(?:inline\s+)?review\s+comments?|"
+    r"(?:(?:pr|pull[ -]request)\s+(?:inline\s+)?review\s+comments?|"
     r"(?:inline\s+)?review\s+comments?|inline\s+comments?)\b"
 )
 
@@ -1265,6 +1265,15 @@ def _normalize_plain_artifact_destinations(acceptance: str) -> str:
         r"schema|pipeline|parser|product|system|component|module)\b" + _EVIDENCE_ACTOR_QUALIFIER,
         re.I,
     )
+    # A coordinated predicate with an elided subject is not a destination-list
+    # member. Only a fresh evidence delivery (selected below), a destination
+    # preposition, or a delivery of the same evidence pronoun can retain scope.
+    coordinated_predicate = re.compile(
+        r"\b(?:and|but|while)\s+"
+        r"(?!(?:(?:either|both)\s+)?(?:" + _EVIDENCE_DESTINATION_PREPOSITION + r")\b)"
+        r"(?!(?:" + _EVIDENCE_DELIVERY_OPERATION + r")\s+(?:it|them)\b)",
+        re.I,
+    )
 
     def replace(match: re.Match[str]) -> str:
         if match["literal"]:
@@ -1280,14 +1289,19 @@ def _normalize_plain_artifact_destinations(acceptance: str) -> str:
             + 1
         )
         before = acceptance[clause_start : match.start()]
-        delivery = evidence_head.search(before) or delivery_of_evidence.search(before)
+        delivery = max(
+            [*evidence_head.finditer(before), *delivery_of_evidence.finditer(before)],
+            key=lambda candidate: candidate.start(),
+            default=None,
+        )
         if not delivery:
             # Domain uses such as "validate a field in an artifact" are not
             # evidence-delivery destinations and must not invent a channel.
             return match[0]
         # A later independently governed product clause must not inherit the
         # earlier evidence delivery when deciding whether to canonicalize.
-        if independent_clause.search(before[delivery.end() :]):
+        tail = before[delivery.end() :] + match["prefix"]
+        if independent_clause.search(tail) or coordinated_predicate.search(tail):
             return match[0]
         prefix = re.sub(r"\ban\s+$", "a ", match["prefix"], flags=re.I)
         return prefix + "workflow artifact"

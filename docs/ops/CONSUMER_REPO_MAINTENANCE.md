@@ -2152,7 +2152,13 @@ Independent coordinated clauses use the shared bounded recipient-prefix grammar,
 including possessive determiners and qualified actors. Comma-separated `and`,
 `but` and `while` preserve the boundary in both directions: a product capability
 cannot invent an artifact duty beside a reviewer, and an independent product
-clause cannot inherit an earlier evidence-delivery governor. Bare artifact and
+clause cannot inherit an earlier evidence-delivery governor. Same-subject
+product predicates likewise do not borrow an earlier delivery:
+destination-list prepositions, fresh evidence deliveries and explicit delivery
+pronouns retain their scope, but a following domain operation does not. Qualified
+`pull-request review comment` aliases normalize atomically with their unhyphenated
+counterparts; bare-alias rewriting cannot discard their mandatory comment floor.
+Product API nouns and quoted literals remain nongating. Bare artifact and
 review-comment aliases still require evidence-delivery or standalone requirement
 context; API/component domain nouns are not review evidence. Negative content
 qualifiers do not impose presence, while affirmative relative presence survives.

@@ -5649,3 +5649,88 @@ def test_issue3835_independent_clause_boundary_shares_actor_grammar(prefix, boun
                 == "PASS"
             )
             assert _floor_verdict(criterion, body=missing, comments=missing) == "CONCERNS"
+
+
+@pytest.mark.parametrize("boundary", [" and ", ", and ", " but ", " while "])
+@pytest.mark.parametrize("predicate", ["validate a field", "parse a value", "record a checksum"])
+def test_issue3835_same_subject_product_predicate_cannot_borrow_delivery(boundary, predicate):
+    criterion = (
+        "The application must record evidence internally" + boundary + predicate + " in an artifact"
+    )
+    assert verifier._normalize_plain_artifact_destinations(criterion) == criterion
+    # This boundary must not invent artifact duty. Generic overall-evidence
+    # classification is outside this repair; test the exact reported case too.
+    baseline = verifier._required_evidence_channels(criterion)
+    assert baseline <= {"overall"}
+    if boundary == " and " and predicate == "validate a field":
+        assert baseline == set()
+    for text, expected in (
+        (criterion, baseline),
+        (
+            criterion + "; the reviewer must post evidence in a PR review comment",
+            baseline | {"comments"},
+        ),
+    ):
+        assert verifier._required_evidence_channels(text) == expected
+        assert verifier._required_evidence_options(text) == [expected]
+        for missing in ("absent", "unavailable"):
+            assert (
+                _floor_verdict(text, body="present", comments="present", artifacts=missing)
+                == "PASS"
+            )
+            if "comments" in expected:
+                assert _floor_verdict(text, body="present", comments=missing) == "CONCERNS"
+
+
+@pytest.mark.parametrize(
+    "text",
+    [
+        "Record evidence in the PR body and in an artifact",
+        "Record evidence in the PR body and post evidence in an artifact",
+        "Record evidence in the PR body and attach it in an artifact",
+        "Record evidence in the PR body and validation results in an artifact",
+    ],
+)
+def test_issue3835_same_subject_real_artifact_delivery_retains_floor(text):
+    assert verifier._required_evidence_channels(text) == {"body", "artifacts"}
+    assert verifier._required_evidence_options(text) == [{"body", "artifacts"}]
+    for missing in ("absent", "unavailable"):
+        assert (
+            _floor_verdict(text, body="present", comments="present", artifacts=missing)
+            == "CONCERNS"
+        )
+
+
+@pytest.mark.parametrize(
+    "destination",
+    [
+        "pull-request review comment",
+        "pull-request inline review comment",
+        "pull request review comment",
+    ],
+)
+@pytest.mark.parametrize("governor", ["must", "may", "must not"])
+def test_issue3835_hyphenated_qualified_review_destination(destination, governor):
+    text = f"Evidence {governor} be posted in a {destination}"
+    expected = {"comments"} if governor == "must" else set()
+    assert verifier._required_evidence_channels(text) == expected
+    assert verifier._required_evidence_options(text) == [expected]
+    for missing in ("absent", "unavailable"):
+        assert _floor_verdict(text, body="present", comments=missing) == (
+            "CONCERNS" if expected else "PASS"
+        )
+    if expected:
+        alternative = text + " or in the PR body"
+        assert {
+            frozenset(option) for option in verifier._required_evidence_options(alternative)
+        } == {frozenset({"comments"}), frozenset({"body"})}
+        assert _floor_verdict(alternative, body="present", comments="absent") == "PASS"
+
+
+def test_issue3835_hyphenated_review_api_and_quoted_literal_are_not_delivery():
+    for text in (
+        "The pull-request review comment API is required",
+        "`Evidence must be posted in a pull-request review comment`",
+    ):
+        assert verifier._normalize_review_comment_destinations(text) == text
+        assert verifier._required_evidence_channels(text) == set()
