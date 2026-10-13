@@ -1108,9 +1108,16 @@ _EVIDENCE_REVIEW_COMMENT_DESTINATION = (
 
 
 def _normalize_review_comment_destinations(acceptance: str) -> str:
+    # Product UI/API/component nouns keep their bare alias so "is required"
+    # cannot invent a review-delivery channel for an implementation surface.
+    product_surface = (
+        r"(?!\s+(?:api|apis|ui|uis|endpoint|endpoints|component|components|"
+        r"renderer|renderers|panel|panels|widget|widgets|surface|surfaces|"
+        r"schema|schemas|parser|parsers)\b)"
+    )
     return re.sub(
         r"(?P<literal>" + _QUOTED_EVIDENCE_LITERAL + r")|"
-        r"\b" + _EVIDENCE_REVIEW_COMMENT_DESTINATION,
+        r"\b" + _EVIDENCE_REVIEW_COMMENT_DESTINATION + product_surface,
         lambda match: match[0] if match["literal"] else "PR comment",
         acceptance,
         flags=re.I,
@@ -1175,16 +1182,39 @@ def _normalize_passive_product_capabilities(acceptance: str) -> str:
 
 
 def _normalize_plain_artifact_destinations(acceptance: str) -> str:
-    """Canonicalize bounded bare artifact destinations, never product fields."""
-    return re.sub(
+    """Canonicalize bare artifact destinations only under delivery predicates."""
+    destination = re.compile(
         r"(?P<literal>" + _QUOTED_EVIDENCE_LITERAL + r")|"
         r"(?P<prefix>\b" + _EVIDENCE_DESTINATION_PREPOSITION + r"\s+"
         r"(?:(?:the|an?)\s+)?)artifacts?\b"
         r"(?=\s*(?:$|[;,.!?\n]|(?:and|or|but|which|that|is|are|must|shall|may|can|only|solely)\b))",
-        lambda match: match[0] if match["literal"] else match["prefix"] + "workflow artifact",
-        acceptance,
-        flags=re.I,
+        re.I,
     )
+    delivery_clause = re.compile(
+        r"\b(?:"
+        + _EVIDENCE_DELIVERY_OPERATION
+        + r"|attached|provided|uploaded|published|posted|recorded|captured|"
+        r"included|documented|copied|copying)\b|"
+        r"\b(?:evidence|transcripts?|command outputs?|validation(?:\s+results?)?|"
+        r"test(?:\s+results?)?)\b",
+        re.I,
+    )
+
+    def replace(match: re.Match[str]) -> str:
+        if match["literal"]:
+            return match[0]
+        clause_start = (
+            max(acceptance.rfind(";", 0, match.start()), acceptance.rfind("\n", 0, match.start()))
+            + 1
+        )
+        if not delivery_clause.search(acceptance[clause_start : match.start()]):
+            # Domain uses such as "validate a field in an artifact" are not
+            # evidence-delivery destinations and must not invent a channel.
+            return match[0]
+        prefix = re.sub(r"\ban\s+$", "a ", match["prefix"], flags=re.I)
+        return prefix + "workflow artifact"
+
+    return destination.sub(replace, acceptance)
 
 
 def _normalize_product_destination_lists(acceptance: str) -> str:

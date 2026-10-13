@@ -5479,3 +5479,63 @@ def test_issue3835_negative_artifact_content_stays_product_capability(
             _floor_verdict(text, body="present", comments="absent", artifacts="present")
             == "CONCERNS"
         )
+
+
+@pytest.mark.parametrize(
+    "text",
+    [
+        "The application must validate a field in an artifact",
+        "The service must parse a value in an artifact",
+        "The schema must describe a property in an artifact",
+    ],
+)
+@pytest.mark.parametrize("independent", [False, True])
+def test_issue3835_bare_artifact_normalize_requires_delivery_predicate(text, independent):
+    """Product-domain 'in an artifact' must not become workflow-artifact duty."""
+    if independent:
+        text += "; the reviewer must post evidence in a PR review comment"
+    expected = {"comments"} if independent else set()
+    assert verifier._required_evidence_channels(text) == expected
+    assert verifier._required_evidence_options(text) == [expected]
+    assert verifier._normalize_plain_artifact_destinations(text.split(";")[0]) == text.split(";")[0]
+
+
+@pytest.mark.parametrize(
+    "text,expected",
+    [
+        ("Evidence must be attached as an artifact", {"artifacts"}),
+        ("Evidence must be attached in the PR body and as an artifact", {"artifacts", "body"}),
+        ("Evidence must be attached in the PR body or as an artifact", None),
+    ],
+)
+def test_issue3835_bare_artifact_delivery_still_canonicalizes(text, expected):
+    normalized = verifier._normalize_plain_artifact_destinations(text)
+    assert "workflow artifact" in normalized
+    assert " an workflow " not in normalized
+    if expected is None:
+        assert {frozenset(option) for option in verifier._required_evidence_options(text)} == {
+            frozenset({"body"}),
+            frozenset({"artifacts"}),
+        }
+    else:
+        assert verifier._required_evidence_channels(text) == expected
+
+
+@pytest.mark.parametrize(
+    "text",
+    [
+        "The review comment API is required",
+        "The review comment component is required",
+        "The inline review comment UI is required",
+        "The review comment endpoint is required",
+    ],
+)
+@pytest.mark.parametrize("independent", [False, True])
+def test_issue3835_review_comment_product_surface_is_not_delivery(text, independent):
+    """Bare review aliases beside API/UI/component nouns stay non-gating."""
+    assert text == verifier._normalize_review_comment_destinations(text)
+    if independent:
+        text += "; the auditor must record evidence in the PR body"
+    expected = {"body"} if independent else set()
+    assert verifier._required_evidence_channels(text) == expected
+    assert verifier._required_evidence_options(text) == [expected]
