@@ -1108,20 +1108,46 @@ _EVIDENCE_REVIEW_COMMENT_DESTINATION = (
 
 
 def _normalize_review_comment_destinations(acceptance: str) -> str:
-    # Product UI/API/component nouns keep their bare alias so "is required"
-    # cannot invent a review-delivery channel for an implementation surface.
-    product_surface = (
-        r"(?!\s+(?:api|apis|ui|uis|endpoint|endpoints|component|components|"
-        r"renderer|renderers|panel|panels|widget|widgets|surface|surfaces|"
-        r"schema|schemas|parser|parsers)\b)"
-    )
-    return re.sub(
+    # Rewrite bare aliases only under review-delivery or standalone-requirement
+    # context. Product surfaces ("review comment REST API", "validator",
+    # "data model") keep their wording and invent no comments channel.
+    alias = re.compile(
         r"(?P<literal>" + _QUOTED_EVIDENCE_LITERAL + r")|"
-        r"\b" + _EVIDENCE_REVIEW_COMMENT_DESTINATION + product_surface,
-        lambda match: match[0] if match["literal"] else "PR comment",
-        acceptance,
-        flags=re.I,
+        r"\b" + _EVIDENCE_REVIEW_COMMENT_DESTINATION,
+        re.I,
     )
+    standalone_requirement = re.compile(
+        r"\s+(?:is|are)\s+(?:required|needed|mandatory)\b|"
+        r"\s+(?:must|shall)\s+be\s+(?:present|provided|included|attached|posted|"
+        r"required|needed|mandatory)\b",
+        re.I,
+    )
+    destination_governor = re.compile(
+        r"(?:\b"
+        + _EVIDENCE_DESTINATION_PREPOSITION
+        + r"|\b(?:and|or)\b)\s+(?:(?:either|both)\s+)?(?:(?:the|an?)\s+)?$",
+        re.I,
+    )
+    # "leave/post a review comment" — the alias is the delivered object itself.
+    delivered_object = re.compile(
+        r"\b(?:" + _EVIDENCE_DELIVERY_OPERATION + r"|leave|left|leaving)\b\s+(?:(?:the|an?)\s+)?$",
+        re.I,
+    )
+
+    def replace(match: re.Match[str]) -> str:
+        if match["literal"]:
+            return match[0]
+        before = acceptance[max(0, match.start() - 160) : match.start()]
+        after = acceptance[match.end() : match.end() + 96]
+        if (
+            standalone_requirement.match(after)
+            or destination_governor.search(before)
+            or delivered_object.search(before)
+        ):
+            return "PR comment"
+        return match[0]
+
+    return alias.sub(replace, acceptance)
 
 
 def _normalize_destination_first_checklist(acceptance: str) -> str:
@@ -1190,22 +1216,41 @@ def _normalize_plain_artifact_destinations(acceptance: str) -> str:
         r"(?=\s*(?:$|[;,.!?\n]|(?:and|or|but|which|that|is|are|must|shall|may|can|only|solely)\b))",
         re.I,
     )
-    # Delivery verbs remain sufficient. Evidence nouns only count when they are
-    # the clause head immediately before the artifact preposition — not when
-    # they modify another domain noun ("schema validation", "command output
-    # validation") or appear as a bare process word ("run validation").
-    delivery_operation = re.compile(
-        r"\b(?:"
-        + _EVIDENCE_DELIVERY_OPERATION
-        + r"|attached|provided|uploaded|published|posted|recorded|captured|"
-        r"included|documented|copied|copying)\b",
+    evidence_object = (
+        r"(?:evidence|transcripts?|command outputs?|validation\s+results?|"
+        r"tests?(?:\s+results?)?)"
+    )
+    delivery_participle = (
+        r"attached|provided|uploaded|published|posted|recorded|captured|"
+        r"included|documented|copied|copying"
+    )
+    # Evidence subject of a location/requirement/delivery clause
+    # ("Evidence is required in an artifact", "... in the PR body and as an
+    # artifact"). Require the object to be the clause head — not a modifier in
+    # compounds such as "command output validation".
+    evidence_head = re.compile(
+        r"\b" + evidence_object + r"\b"
+        r"(?:\s+(?:must|shall|may|can|should|is|are|to|be|present|available|"
+        r"included|only|solely|required|needed|mandatory|" + delivery_participle + r"))*"
+        r"(?=\s*(?:$|(?:and|or)\s+"
+        + _EVIDENCE_DESTINATION_PREPOSITION
+        + r"\b|"
+        + _EVIDENCE_DESTINATION_PREPOSITION
+        + r"\b))",
         re.I,
     )
-    evidence_head = re.compile(
-        r"\b(?:evidence|transcripts?|command outputs?|validation\s+results?|"
-        r"tests?(?:\s+results?)?)\b"
-        r"(?:\s+(?:must|shall|may|can|should|is|are|to|be|present|available|"
-        r"included|only|solely))*\s*$",
+    # Delivery verb must govern an evidence object — not an arbitrary product
+    # noun such as "property" or "checksum".
+    delivery_of_evidence = re.compile(
+        r"\b(?:"
+        + _EVIDENCE_DELIVERY_OPERATION
+        + r"|"
+        + delivery_participle
+        + r")\b\s+"
+        + r"(?:(?:the|an?|all|any|this|that|these|those)\s+)?"
+        + _EVIDENCE_OBJECT_MODIFIERS
+        + evidence_object
+        + r"\b",
         re.I,
     )
 
@@ -1213,11 +1258,17 @@ def _normalize_plain_artifact_destinations(acceptance: str) -> str:
         if match["literal"]:
             return match[0]
         clause_start = (
-            max(acceptance.rfind(";", 0, match.start()), acceptance.rfind("\n", 0, match.start()))
+            max(
+                acceptance.rfind(";", 0, match.start()),
+                acceptance.rfind("\n", 0, match.start()),
+                acceptance.rfind(".", 0, match.start()),
+                acceptance.rfind("!", 0, match.start()),
+                acceptance.rfind("?", 0, match.start()),
+            )
             + 1
         )
         before = acceptance[clause_start : match.start()]
-        if not (delivery_operation.search(before) or evidence_head.search(before)):
+        if not (evidence_head.search(before) or delivery_of_evidence.search(before)):
             # Domain uses such as "validate a field in an artifact" are not
             # evidence-delivery destinations and must not invent a channel.
             return match[0]

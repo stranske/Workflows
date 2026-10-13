@@ -5491,6 +5491,9 @@ def test_issue3835_negative_artifact_content_stays_product_capability(
         "The pipeline must run validation in an artifact",
         "The application requires validation of a field in an artifact",
         "Command output validation in an artifact is required",
+        "The schema must contain a property in an artifact",
+        "The application must record a checksum in an artifact",
+        "Evidence must be posted in the PR body. The application must validate a field in an artifact.",
     ],
 )
 @pytest.mark.parametrize("independent", [False, True])
@@ -5498,10 +5501,19 @@ def test_issue3835_bare_artifact_normalize_requires_delivery_predicate(text, ind
     """Product-domain 'in an artifact' must not become workflow-artifact duty."""
     if independent:
         text += "; the reviewer must post evidence in a PR review comment"
-    expected = {"comments"} if independent else set()
+    artifact_clause = text
+    if ". " in text:
+        # Prior sentence may already require body; only the product clause is free.
+        expected = {"body", "comments"} if independent else {"body"}
+        artifact_clause = text.rsplit(". ", 1)[-1]
+    else:
+        expected = {"comments"} if independent else set()
     assert verifier._required_evidence_channels(text) == expected
     assert verifier._required_evidence_options(text) == [expected]
-    assert verifier._normalize_plain_artifact_destinations(text.split(";")[0]) == text.split(";")[0]
+    assert (
+        verifier._normalize_plain_artifact_destinations(artifact_clause.split(";")[0])
+        == artifact_clause.split(";")[0]
+    )
 
 
 @pytest.mark.parametrize(
@@ -5511,9 +5523,11 @@ def test_issue3835_bare_artifact_normalize_requires_delivery_predicate(text, ind
         ("Evidence must be attached in the PR body and as an artifact", {"artifacts", "body"}),
         ("Evidence must be attached in the PR body or as an artifact", None),
         ("Evidence in an artifact is required", {"artifacts"}),
+        ("Evidence is required in an artifact", {"artifacts"}),
         ("Validation results must be in an artifact", {"artifacts"}),
         ("Test results in an artifact are required", {"artifacts"}),
         ("Command output in an artifact is required", {"artifacts"}),
+        ("Copy the transcript into an artifact", {"artifacts"}),
     ],
 )
 def test_issue3835_bare_artifact_delivery_still_canonicalizes(text, expected):
@@ -5536,6 +5550,11 @@ def test_issue3835_bare_artifact_delivery_still_canonicalizes(text, expected):
         "The review comment component is required",
         "The inline review comment UI is required",
         "The review comment endpoint is required",
+        "The review comment validator is required",
+        "The review comment service is required",
+        "The review comment REST API is required",
+        "The review comment management UI is required",
+        "The review comment data model is required",
     ],
 )
 @pytest.mark.parametrize("independent", [False, True])
