@@ -1129,8 +1129,11 @@ def _normalize_review_comment_destinations(acceptance: str) -> str:
         re.I,
     )
     # "leave/post a review comment" — the alias is the delivered object itself.
+    # Bounded object modifiers ("at least one", "detailed") may sit between the
+    # delivery verb/article and the alias without dropping delivery context.
     delivered_object = re.compile(
-        r"\b(?:" + _EVIDENCE_DELIVERY_OPERATION + r"|leave|left|leaving)\b\s+(?:(?:the|an?)\s+)?$",
+        r"\b(?:" + _EVIDENCE_DELIVERY_OPERATION + r"|leave|left|leaving)\b\s+"
+        r"(?:(?:the|an?)\s+)?" + _EVIDENCE_OBJECT_MODIFIERS + r"$",
         re.I,
     )
 
@@ -1254,6 +1257,16 @@ def _normalize_plain_artifact_destinations(acceptance: str) -> str:
         re.I,
     )
 
+    # Coordinated product clauses ("..., and the application must ...") are not
+    # the same delivery scope as a preceding evidence destination list.
+    independent_clause = re.compile(
+        r"(?:,\s*)?\b(?:and|but|while)\s+"
+        r"(?:(?:the|an?|this|that)\s+)?"
+        r"(?:application|app|service|api|endpoint|ui|interface|cli|renderer|"
+        r"schema|pipeline|parser|product|system|component|module)\b",
+        re.I,
+    )
+
     def replace(match: re.Match[str]) -> str:
         if match["literal"]:
             return match[0]
@@ -1268,9 +1281,14 @@ def _normalize_plain_artifact_destinations(acceptance: str) -> str:
             + 1
         )
         before = acceptance[clause_start : match.start()]
-        if not (evidence_head.search(before) or delivery_of_evidence.search(before)):
+        delivery = evidence_head.search(before) or delivery_of_evidence.search(before)
+        if not delivery:
             # Domain uses such as "validate a field in an artifact" are not
             # evidence-delivery destinations and must not invent a channel.
+            return match[0]
+        # A later independently governed product clause must not inherit the
+        # earlier evidence delivery when deciding whether to canonicalize.
+        if independent_clause.search(before[delivery.end() :]):
             return match[0]
         prefix = re.sub(r"\ban\s+$", "a ", match["prefix"], flags=re.I)
         return prefix + "workflow artifact"

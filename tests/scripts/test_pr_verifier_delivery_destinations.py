@@ -5185,6 +5185,8 @@ def test_issue3835_optional_validation_output_keeps_independent_mandatory():
     [
         "A {destination} is required",
         "The reviewer must leave a {destination}",
+        "The reviewer must leave at least one {destination}",
+        "The reviewer must leave a detailed {destination}",
         "Test results must be posted in a {destination}",
     ],
 )
@@ -5515,6 +5517,41 @@ def test_issue3835_bare_artifact_normalize_requires_delivery_predicate(text, ind
         verifier._normalize_plain_artifact_destinations(artifact_clause.split(";")[0])
         == artifact_clause.split(";")[0]
     )
+
+
+@pytest.mark.parametrize(
+    "text,expected",
+    [
+        (
+            "Provide evidence in the PR body, and the application must validate a field in an artifact.",
+            {"body"},
+        ),
+        (
+            "Provide evidence in the PR body and the application must validate a field in an artifact.",
+            {"body"},
+        ),
+        (
+            "Attach evidence as an artifact, but the service must parse a value in an artifact.",
+            {"artifacts"},
+        ),
+        (
+            "Provide evidence in the PR body while the application must validate a field in an artifact.",
+            {"body"},
+        ),
+    ],
+)
+def test_issue3835_coordinated_product_clause_does_not_inherit_artifact_duty(text, expected):
+    """Independent product clauses after and/but/while must not borrow delivery."""
+    normalized = verifier._normalize_plain_artifact_destinations(text)
+    # Delivery-side artifacts may canonicalize; product-domain uses must not.
+    assert "validate a field in a workflow artifact" not in normalized
+    assert "parse a value in a workflow artifact" not in normalized
+    assert verifier._required_evidence_channels(text) == expected
+    assert verifier._required_evidence_options(text) == [expected]
+    # Destination-list coordination under one delivery still canonicalizes.
+    keep = "Provide evidence in the PR body and in an artifact"
+    assert "workflow artifact" in verifier._normalize_plain_artifact_destinations(keep)
+    assert verifier._required_evidence_channels(keep) == {"body", "artifacts"}
 
 
 @pytest.mark.parametrize(
