@@ -1190,13 +1190,22 @@ def _normalize_plain_artifact_destinations(acceptance: str) -> str:
         r"(?=\s*(?:$|[;,.!?\n]|(?:and|or|but|which|that|is|are|must|shall|may|can|only|solely)\b))",
         re.I,
     )
-    delivery_clause = re.compile(
+    # Delivery verbs remain sufficient. Evidence nouns only count when they are
+    # the clause head immediately before the artifact preposition — not when
+    # they modify another domain noun ("schema validation", "command output
+    # validation") or appear as a bare process word ("run validation").
+    delivery_operation = re.compile(
         r"\b(?:"
         + _EVIDENCE_DELIVERY_OPERATION
         + r"|attached|provided|uploaded|published|posted|recorded|captured|"
-        r"included|documented|copied|copying)\b|"
-        r"\b(?:evidence|transcripts?|command outputs?|validation(?:\s+results?)?|"
-        r"test(?:\s+results?)?)\b",
+        r"included|documented|copied|copying)\b",
+        re.I,
+    )
+    evidence_head = re.compile(
+        r"\b(?:evidence|transcripts?|command outputs?|validation\s+results?|"
+        r"tests?(?:\s+results?)?)\b"
+        r"(?:\s+(?:must|shall|may|can|should|is|are|to|be|present|available|"
+        r"included|only|solely))*\s*$",
         re.I,
     )
 
@@ -1207,7 +1216,8 @@ def _normalize_plain_artifact_destinations(acceptance: str) -> str:
             max(acceptance.rfind(";", 0, match.start()), acceptance.rfind("\n", 0, match.start()))
             + 1
         )
-        if not delivery_clause.search(acceptance[clause_start : match.start()]):
+        before = acceptance[clause_start : match.start()]
+        if not (delivery_operation.search(before) or evidence_head.search(before)):
             # Domain uses such as "validate a field in an artifact" are not
             # evidence-delivery destinations and must not invent a channel.
             return match[0]

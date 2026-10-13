@@ -5487,6 +5487,10 @@ def test_issue3835_negative_artifact_content_stays_product_capability(
         "The application must validate a field in an artifact",
         "The service must parse a value in an artifact",
         "The schema must describe a property in an artifact",
+        "Schema validation in an artifact is mandatory",
+        "The pipeline must run validation in an artifact",
+        "The application requires validation of a field in an artifact",
+        "Command output validation in an artifact is required",
     ],
 )
 @pytest.mark.parametrize("independent", [False, True])
@@ -5506,6 +5510,10 @@ def test_issue3835_bare_artifact_normalize_requires_delivery_predicate(text, ind
         ("Evidence must be attached as an artifact", {"artifacts"}),
         ("Evidence must be attached in the PR body and as an artifact", {"artifacts", "body"}),
         ("Evidence must be attached in the PR body or as an artifact", None),
+        ("Evidence in an artifact is required", {"artifacts"}),
+        ("Validation results must be in an artifact", {"artifacts"}),
+        ("Test results in an artifact are required", {"artifacts"}),
+        ("Command output in an artifact is required", {"artifacts"}),
     ],
 )
 def test_issue3835_bare_artifact_delivery_still_canonicalizes(text, expected):
