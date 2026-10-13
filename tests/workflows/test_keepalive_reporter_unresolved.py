@@ -73,15 +73,19 @@ def _helper_for(reporter: Path) -> str:
     return str(reporter.parent.parent / "scripts/keepalive_reporter_applicability.js")
 
 
+def _resolver_script(path: Path) -> str:
+    workflow = yaml.safe_load((ROOT / path).read_text())
+    resolver = workflow["jobs"]["resolve-target"]
+    return next(
+        step["with"]["script"] for step in resolver["steps"] if step.get("id") == "applicability"
+    )
+
+
 def _resolve(path: Path, **scenario: object) -> dict:
     node = shutil.which("node")
     if node is None:
         pytest.skip("Node.js is required to execute the authored resolver")
-    workflow = yaml.safe_load((ROOT / path).read_text())
-    resolver = workflow["jobs"]["resolve-target"]
-    script = next(
-        step["with"]["script"] for step in resolver["steps"] if step.get("id") == "applicability"
-    )
+    script = _resolver_script(path)
     helper = _helper_for(path)
     result = subprocess.run(
         [node, "-e", HARNESS],
@@ -124,7 +128,7 @@ def test_resolver_binds_classifier_from_reporter_tree(reporter: Path) -> None:
 
 
 @pytest.mark.parametrize("reporter", REPORTERS, ids=["root", "consumer"])
-@pytest.mark.parametrize("conclusion", ["failure", "cancelled", "timed_out"])
+@pytest.mark.parametrize("conclusion", ["failure", "timed_out"])
 def test_unassociated_workflow_run_reports_attributed_failure_before_failing(
     reporter: Path, conclusion: str
 ) -> None:
@@ -238,10 +242,11 @@ def test_invalid_manual_input_does_not_authorize_pr_mutation(
 
 @pytest.mark.parametrize("reporter", REPORTERS, ids=["root", "consumer"])
 @pytest.mark.parametrize("pr_number", [0, -1, 1.5, "invalid", "9007199254740992"])
+@pytest.mark.parametrize("conclusion", ["failure", "cancelled"])
 def test_invalid_indexed_target_reports_without_granting_a_pr_lock(
-    reporter: Path, pr_number: int | float | str
+    reporter: Path, pr_number: int | float | str, conclusion: str
 ) -> None:
-    result = _resolve(reporter, indexedTarget={"prNumber": pr_number})
+    result = _resolve(reporter, conclusion=conclusion, indexedTarget={"prNumber": pr_number})
     assert [event[0] for event in result["events"]] == ["summary", "failed"]
     assert "Reporter target did not resolve to a positive PR number" in result["events"][0][1]
     assert (
@@ -298,3 +303,76 @@ def test_successful_and_skipped_upstream_runs_remain_outside_resolver(reporter: 
     report = workflow["jobs"]["report"]
     assert "needs.resolve-target.result == 'success'" in report["if"]
     assert "needs.resolve-target.outputs.lock_pr_number != ''" in report["if"]
+    assert "conclusion != 'cancelled'" not in condition
+    assert "conclusion != 'cancelled'" not in report["if"]
+
+
+@pytest.mark.parametrize("reporter", REPORTERS, ids=["root", "consumer"])
+def test_cancelled_unresolvable_run_skips_with_notice(reporter: Path) -> None:
+    """A successful null index lookup proves this cancellation prepared no receipt."""
+    result = _resolve(reporter, conclusion="cancelled")
+    assert [event[0] for event in result["events"]] == ["read-origin", "notice", "summary"]
+    assert "unassociated run has no verified dispatch classification" in result["events"][1][1]
+    assert "12345" in result["events"][1][1]
+    assert "cancelled" in result["events"][2][1]
+    assert result["outputs"] == {
+        "outcome": "no-report-needed",
+        "skip": "true",
+        "lock_pr_number": "",
+        "pr_number": "",
+        "ordinary_target": "false",
+    }
+
+
+@pytest.mark.parametrize("reporter", REPORTERS, ids=["root", "consumer"])
+def test_cancelled_regression_detects_removed_guard(
+    reporter: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """Prove the named regression detects a broken authored script without file edits."""
+    original_loader = _resolver_script
+    original_script = original_loader(reporter)
+    guard = " &&\n      context.payload.workflow_run.conclusion !== 'cancelled'"
+    assert original_script.count(guard) == 1
+    broken_script = original_script.replace(guard, "", 1)
+
+    with monkeypatch.context() as mutation:
+        mutation.setattr(
+            __name__ + "._resolver_script",
+            lambda path: broken_script if path == reporter else original_loader(path),
+        )
+        with pytest.raises(AssertionError) as failure:
+            test_cancelled_unresolvable_run_skips_with_notice(reporter)
+        # A real visible-failure versus skip mismatch, not a harness execution error.
+        assert "failed" in str(failure.value)
+        assert "notice" in str(failure.value)
+
+    assert _resolver_script(reporter) == original_script
+    test_cancelled_unresolvable_run_skips_with_notice(reporter)
+
+
+@pytest.mark.parametrize("reporter", REPORTERS, ids=["root", "consumer"])
+def test_failed_unresolvable_run_still_fails_visibly(reporter: Path) -> None:
+    result = _resolve(reporter, conclusion="failure")
+    assert [event[0] for event in result["events"]] == ["read-origin", "summary", "failed"]
+    assert "Conclusion: failure" in result["events"][1][1]
+    assert "unassociated run has no verified dispatch classification" in result["events"][2][1]
+    assert result["outputs"]["skip"] == "false"
+    assert result["outputs"]["lock_pr_number"] == ""
+
+
+@pytest.mark.parametrize("reporter", REPORTERS, ids=["root", "consumer"])
+def test_cancelled_indexed_run_still_reconciles(reporter: Path) -> None:
+    result = _resolve(reporter, conclusion="cancelled", indexedTarget={"prNumber": 42})
+    assert result["events"] == []
+    assert result["outputs"]["outcome"] == "resolved"
+    assert result["outputs"]["skip"] == "false"
+    assert result["outputs"]["lock_pr_number"] == "42"
+
+
+@pytest.mark.parametrize("reporter", REPORTERS, ids=["root", "consumer"])
+def test_cancelled_unavailable_index_lookup_still_fails(reporter: Path) -> None:
+    result = _resolve(reporter, conclusion="cancelled", lookupError="index unavailable")
+    assert [event[0] for event in result["events"]] == ["summary", "failed"]
+    assert "index unavailable" in result["events"][1][1]
+    assert result["outputs"]["skip"] == "false"
+    assert result["outputs"]["lock_pr_number"] == ""
