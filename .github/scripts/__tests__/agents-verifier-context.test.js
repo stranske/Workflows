@@ -3860,3 +3860,26 @@ test('real archive keeps duplicate and whitespace names distinct from valid proo
     assert.equal(result.text, '### proof.txt\n\nraw proof');
   } finally { fs.rmSync(directory, {recursive: true, force: true}); }
 });
+
+
+for (const bound of ['character', 'extraction_byte']) {
+  test(`archive bounded stop finalizes every eligible suffix member: ${bound}`, () => {
+    let reads = 0;
+    const first = '### a.txt\n\np';
+    const result = extractArtifactArchiveText({ archiveBuffer: Buffer.from('archive'),
+      maxEntries: 3, maxChars: bound === 'character' ? first.length : 500,
+      maxBytes: bound === 'extraction_byte' ? 1 : 500,
+      execFile: (_command, args) => {
+        if (args[0] === '-Z1') return 'a.txt\nb.txt\nc.txt\n';
+        reads++; return Buffer.from('p');
+      } });
+    assert.equal(reads, 1);
+    assert.deepEqual(result.members.map(item => item.status), ['included', 'unavailable', 'unavailable']);
+    assert.equal(result.members[1].reason, bound);
+    assert.equal(result.members[2].reason, bound);
+    assert.equal(result.memberInventoryComplete, true);
+    assert.equal(result.memberCount, 3);
+    assert.equal(result.extractedBytes, 1);
+    assert.equal(result.truncated, true);
+  });
+}

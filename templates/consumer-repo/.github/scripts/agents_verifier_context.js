@@ -512,6 +512,13 @@ function extractArtifactArchiveText({ archiveBuffer, maxEntries, maxChars, maxBy
         truncated = true;
       }
     }
+    // A bounded stop classifies every inventoried eligible suffix member;
+    // provisional planning state must never escape as complete capture data.
+    const stopReason = failures.at(-1);
+    for (const member of members.filter(item => item.status === 'pending')) {
+      member.status = 'unavailable';
+      member.reason = stopReason;
+    }
     return {
       archiveSha256: createHash('sha256').update(archiveBuffer).digest('hex'),
       listingSha256: createHash('sha256').update(listing).digest('hex'),

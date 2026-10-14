@@ -2741,6 +2741,8 @@ repository, authenticated run/head, artifact ID and, when downloaded, raw archiv
 SHA256/byte count. Expired or budget-rejected artifacts stay unavailable. A read
 failure does not remove the already enumerated identity.
 
+Every eligible member after a character or extraction-byte stop is explicitly
+unavailable with that stop reason; no enumerated member remains pending.
 Archive extraction retains member occurrences in listing order, raw byte counts
 and SHA256 for successfully read members, and separate unsupported, duplicate,
 entry-bound, rendering-omitted and unavailable statuses. Duplicate names are not
@@ -2756,3 +2758,30 @@ manifest and every known gap before range planning. None of these receipts prove
 semantic independence, restores unavailable proof, authorizes provider PASS, or
 resets cumulative archive/extraction limits. Source3820 still requires semantic
 closure and complete original-proof/native acceptance on the existing key PR.
+
+
+### Acceptance-bearing semantic comparison
+
+Expanded compare uses a source-owned semantic rule registry, frozen configured
+judge slots and a complete slot-by-package request matrix. Captured flags and
+provider JSON cannot authorize decomposition or execution. Rules bind complete
+governing hashes and raw capture identities. Unknown governing text retains an
+all-input residual joint obligation; transitive dependencies, cycles and n-way
+joint groups remain together. Byte ranges alone never establish independence.
+
+All matrix requests must pass actual native input/output capacity preflight
+before any generation. The runner binds request/response identities and count
+receipts separately from provider text, with no fallback generation or schema
+repair. Synthetic test receipts cannot establish native acceptance. Missing,
+duplicate, malformed, untrusted or incomplete cells retain CONCERNS; a valid
+configured FAIL survives incomplete siblings. Historical unavailable inputs and
+global resource denials remain NON_PASS.
+
+The comparison CLI emits a versioned semantic acceptance envelope. Expanded
+semantic workflow admission authenticates that envelope with an ephemeral
+32-byte runner key held outside provider input and uploaded artifacts. The key
+is deleted when the comparison step ends; modified, unsigned or replayed JSON
+cannot establish native acceptance. Admission cannot fall back to an
+arm-only PASS when it is missing. Native execution and the complete original
+proof still require actual observed evidence; helper tests alone do not satisfy
+provider acceptance or campaign completion.

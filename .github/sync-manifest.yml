@@ -818,6 +818,14 @@ scripts:
     description: "Capture obligation inventory and context-bound verifier input snapshot emission"
     template_sync: exact
 
+  - source: tools/verifier_semantic_acceptance.py
+    description: "Reviewed semantic closure, proof joins and exact judge matrix admission"
+    template_sync: exact
+
+  - source: tools/verifier_semantic_execution.py
+    description: "Frozen all-cell native preflight and runner-owned semantic execution ledger"
+    template_sync: exact
+
   - source: tools/verifier_proof_resource_plan.py
     description: "Offline full-capture archive resource accounting; no semantic/native admission"
     template_sync: exact

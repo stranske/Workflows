@@ -12,6 +12,7 @@ from __future__ import annotations
 
 import argparse
 import hashlib
+import hmac
 import io
 import json
 import logging
@@ -46,6 +47,8 @@ from tools.verifier_capture_obligation_manifest import (
     build_capture_reassembly_contract,
     record_capture_obligations,
 )
+from tools.verifier_semantic_acceptance import canonical_digest
+from tools.verifier_semantic_execution import SourceRuleRegistry, execute_semantic_matrix
 
 # The shared client builder returns the ClientInfo ``provider_label`` for the
 # verifier (the historical ``_get_llm_client`` returned that field). Bound under
@@ -284,6 +287,17 @@ class EvaluationPayload(BaseModel):
     confidence: float | None = Field(default=None, ge=0, le=1)
     concerns: list[str] = Field(default_factory=list)
     summary: str | None = None
+
+
+SEMANTIC_ENVELOPE_SCHEMA = "workflows-verifier-semantic-acceptance-envelope/v1"
+
+
+class SemanticComparisonResults(list[EvaluationResult]):
+    """List-compatible comparison output carrying the required semantic envelope."""
+
+    def __init__(self, values: list[EvaluationResult], envelope: dict[str, Any]) -> None:
+        super().__init__(values)
+        self.semantic_acceptance = envelope
 
 
 def _ensure_prompt_rubric(prompt: str) -> str:
@@ -5796,9 +5810,240 @@ def evaluate_pr(
     return _apply_coverage_floor(result, coverage)
 
 
+def _semantic_mode() -> bool:
+    return os.environ.get("VERIFIER_SEMANTIC_MODE") == "1"
+
+
+def _semantic_envelope_signature(envelope: dict[str, Any]) -> str:
+    """Bind the producer to the separate workflow parser, never provider JSON."""
+    key_path = os.environ.get("VERIFIER_SEMANTIC_KEY_PATH")
+    if not key_path:
+        raise ValueError("semantic runner authentication key is unavailable")
+    key = Path(key_path).read_bytes()
+    if len(key) != 32:
+        raise ValueError("semantic runner authentication key is malformed")
+    return hmac.new(key, canonical_digest(envelope).encode(), hashlib.sha256).hexdigest()
+
+
+def _semantic_capture(context: str, diff: str | None) -> dict[str, Any]:
+    """Create the complete-capture identity used by the semantic execution path."""
+    head = os.environ.get("PR_HEAD_SHA", "")
+    raw_inputs = {"context": hashlib.sha256(context.encode()).hexdigest()}
+    gaps: list[str] = []
+    if diff is None:
+        gaps.append("full_diff_missing")
+    else:
+        raw_inputs["diff"] = hashlib.sha256(diff.encode()).hexdigest()
+    if not re.fullmatch(r"[0-9a-f]{40}", head):
+        gaps.append("pr_head_sha_missing_or_malformed")
+    manifest = build_capture_obligation_manifest(context)
+    gaps.extend(str(item) for item in manifest["gaps"])
+    coverage = prompt_coverage(context, diff)
+    gaps.extend(f"prompt:{item}" for item in coverage.reasons)
+    governing = hashlib.sha256(context.encode()).hexdigest()
+    capture_id = canonical_digest({"head": head, "governing": governing, "raw_inputs": raw_inputs})
+    return {
+        "id": capture_id,
+        "implementation_head": head if re.fullmatch(r"[0-9a-f]{40}", head) else "0" * 40,
+        "governing_sha256": governing,
+        "raw_inputs": raw_inputs,
+        "gaps": sorted(set(gaps)),
+        "resource_admitted": not gaps,
+        "manifest": manifest,
+    }
+
+
+def _semantic_rule_loader(capture: dict[str, Any]) -> tuple[dict[str, Any], set[str]]:
+    """Source-owned conservative fallback: one residual over all raw evidence."""
+    rule = {
+        "schema": "workflows-verifier-semantic-rule/v1",
+        "capture_id": capture["id"],
+        "governing_sha256": capture["governing_sha256"],
+        "clauses": [
+            {
+                "id": "complete-capture-residual",
+                "predicate": "provenance",
+                "raw_dependencies": sorted(capture["raw_inputs"]),
+                "requires": [],
+                "joint_groups": ["complete-capture-joint"],
+                "residual": True,
+            }
+        ],
+    }
+    # The registry is created in code, not read from capture/provider JSON.
+    return SourceRuleRegistry({(capture["id"], capture["governing_sha256"]): rule}).load(capture)
+
+
+def _semantic_slots_and_clients(
+    clients: list[tuple[object, str, str]],
+    model1: str | None,
+    model2: str | None,
+    configured: list[Any] | None = None,
+) -> tuple[list[dict[str, Any]], dict[str, object], bool]:
+    """Freeze configured slots before client availability can change the matrix."""
+    from tools.llm_registry import resolve_slots
+
+    configured = resolve_slots()[:2] if configured is None else configured
+    overrides = [model1 or os.environ.get("LANGCHAIN_MODEL"), model2 or model1]
+    expected = [
+        (slot.provider, override or slot.model)
+        for slot, override in zip(configured, overrides, strict=False)
+    ]
+    if len(expected) != 2 or len(clients) != 2:
+        raise InputCapacityError("semantic mode requires both configured native judge slots")
+    slots: list[dict[str, Any]] = []
+    clients_by_slot: dict[str, object] = {}
+    authentic = True
+    for index, ((client, _label, _model), (provider, model)) in enumerate(
+        zip(clients, expected, strict=True)
+    ):
+        prepared = _prepare_capacity_client(client)
+        if hasattr(prepared, "model_copy"):
+            prepared = prepared.model_copy(update={"max_retries": 0})
+        contract = _native_capacity_contract(prepared)
+        if contract["provider"] != provider or contract["model"] != model:
+            raise InputCapacityError(
+                "available native client does not match frozen configured slot"
+            )
+        slot_id = f"slot-{index + 1}"
+        slots.append(
+            {
+                "slot_id": slot_id,
+                "provider": provider,
+                "model": model,
+                "transport": str(contract["endpoint"]),
+                "config_sha256": canonical_digest(
+                    {"provider": provider, "model": model, "contract": contract}
+                ),
+            }
+        )
+        clients_by_slot[slot_id] = prepared
+        authentic = authentic and contract.get("provenance") != "synthetic-unit-test-only"
+    return slots, clients_by_slot, authentic
+
+
+def _evaluate_pr_multiple_semantic(
+    context: str, diff: str | None, model1: str | None, model2: str | None
+) -> SemanticComparisonResults:
+    """Run the full semantic matrix without legacy recovery, retries, or repair."""
+    capture = _semantic_capture(context, diff)
+    execution = None
+    try:
+        from tools.llm_registry import resolve_slots
+
+        if capture["gaps"] or not capture["resource_admitted"]:
+            raise InputCapacityError(
+                "complete capture is unavailable: " + json.dumps(capture["gaps"])
+            )
+        configured = resolve_slots()[:2]
+        runner = ComparisonRunner.from_environment(context, diff, model1, model2)
+        slots, clients, authenticated = _semantic_slots_and_clients(
+            runner.clients, model1, model2, configured
+        )
+        prompt = _prepare_prompt(context, diff)
+        package_specs = [
+            {
+                "id": "complete-capture",
+                "clause_ids": ["complete-capture-residual"],
+                "raw_inputs": sorted(capture["raw_inputs"]),
+            }
+        ]
+        native_preflights: dict[str, str] = {}
+
+        def build_request(
+            slot: dict[str, Any], package: dict[str, Any], contract: dict[str, Any]
+        ) -> dict[str, Any]:
+            return {
+                "prompt": prompt,
+                "slot": slot["slot_id"],
+                "package": package["id"],
+                "contract": contract["id"],
+            }
+
+        def preflight(
+            slot: dict[str, Any], _package: dict[str, Any], request: dict[str, Any]
+        ) -> dict[str, Any]:
+            receipt = _preflight_input_capacity(clients[slot["slot_id"]], request["prompt"])
+            native_preflights[slot["slot_id"]] = str(receipt["request_sha256"])
+            return {
+                "accepted": receipt.get("status") == "PASS",
+                "request_sha256": canonical_digest(request),
+                "input_tokens": receipt["input_tokens"],
+                "context_limit": receipt["context_limit"],
+                "output_reserve": receipt["output_reserve"],
+                "native_payload_sha256": receipt["request_sha256"],
+            }
+
+        def invoke(slot: dict[str, Any], request: dict[str, Any]) -> str | bytes:
+            # Re-count immediately before each generation and require its real
+            # native payload identity to match the all-cells preflight receipt.
+            receipt = _preflight_input_capacity(clients[slot["slot_id"]], request["prompt"])
+            if receipt.get("request_sha256") != native_preflights.get(slot["slot_id"]):
+                raise InputCapacityError("native payload changed after matrix preflight")
+            response = clients[slot["slot_id"]].invoke(request["prompt"])
+            return getattr(response, "content", None) or str(response)
+
+        def parse(
+            raw: str | bytes, _slot: dict[str, Any], _package: dict[str, Any]
+        ) -> dict[str, Any]:
+            content = raw.decode() if isinstance(raw, bytes) else raw
+            payload = EvaluationPayload.model_validate(
+                json.loads(content), strict=True, extra="forbid"
+            )
+            return {"verdict": payload.verdict, "findings": list(payload.concerns)}
+
+        execution = execute_semantic_matrix(
+            capture,
+            _semantic_rule_loader,
+            package_specs,
+            slots,
+            build_request,
+            preflight,
+            invoke,
+            parse,
+            authenticated_native=authenticated,
+        )
+        admission = execution.admit()
+        values = [
+            EvaluationResult(
+                verdict=item["verdict"],
+                concerns=list(item.get("findings", [])),
+                provider_used=next(
+                    slot["provider"] for slot in slots if slot["slot_id"] == item["slot_id"]
+                ),
+                model=next(slot["model"] for slot in slots if slot["slot_id"] == item["slot_id"]),
+                used_llm=authenticated and item.get("execution_error") is None,
+                error=item.get("execution_error"),
+            )
+            for item in execution.results
+        ]
+    except Exception as exc:
+        admission = {"verdict": "CONCERNS", "errors": [str(exc)], "findings": []}
+        values = [_fallback_evaluation(f"semantic native verification blocked: {exc}")]
+    envelope = {"schema": SEMANTIC_ENVELOPE_SCHEMA, "capture": capture, "admission": admission}
+    if execution is not None:
+        envelope["execution"] = {
+            "contract": execution.contract,
+            "plan": execution.plan,
+            "slots": execution.slots,
+            "ledger": execution.ledger,
+        }
+    try:
+        envelope["signature"] = _semantic_envelope_signature(envelope)
+    except (OSError, ValueError) as exc:
+        # An unsigned JSON object cannot establish native acceptance in another
+        # process. Preserve a real FAIL, but withhold unauthenticated PASS.
+        if admission["verdict"] == "PASS":
+            admission["verdict"] = "CONCERNS"
+        admission.setdefault("errors", []).append(str(exc))
+    return SemanticComparisonResults(values, envelope)
+
+
 def evaluate_pr_multiple(
     context: str, diff: str | None = None, model1: str | None = None, model2: str | None = None
 ) -> list[EvaluationResult]:
+    if _semantic_mode():
+        return _evaluate_pr_multiple_semantic(context, diff, model1, model2)
     change_type = _classify_change_type(_bounded_diff_for_classification(diff))
     runner = ComparisonRunner.from_environment(context, diff, model1, model2)
     is_valid, error_message = _validate_comparison_clients(runner.clients)
@@ -5824,6 +6069,30 @@ def expanded_comparison_verdict(
     available fallback or hidden by the other judge's PASS. Model overrides
     follow build_chat_clients; no client is constructed and no provider is called.
     """
+    if _semantic_mode():
+        if not isinstance(data, dict):
+            return "CONCERNS"
+        envelope = data.get("semantic_acceptance")
+        if not isinstance(envelope, dict) or envelope.get("schema") != SEMANTIC_ENVELOPE_SCHEMA:
+            return "CONCERNS"
+        unsigned = {key: value for key, value in envelope.items() if key != "signature"}
+        try:
+            signature = envelope.get("signature")
+            if not isinstance(signature, str) or not hmac.compare_digest(
+                signature, _semantic_envelope_signature(unsigned)
+            ):
+                return "CONCERNS"
+        except (OSError, ValueError):
+            return "CONCERNS"
+        admission = envelope.get("admission")
+        if not isinstance(admission, dict) or admission.get("verdict") not in {
+            "PASS",
+            "CONCERNS",
+            "FAIL",
+        }:
+            return "CONCERNS"
+        return str(admission["verdict"])
+
     from tools.llm_registry import resolve_slots
 
     slots = resolve_slots()[:2]
@@ -6185,6 +6454,15 @@ def main() -> None:
                         "results": [failure.model_dump()],
                         "report": report,
                     }
+                    if _semantic_mode():
+                        payload["semantic_acceptance"] = {
+                            "schema": SEMANTIC_ENVELOPE_SCHEMA,
+                            "admission": {
+                                "verdict": "CONCERNS",
+                                "errors": [str(exc)],
+                                "findings": [],
+                            },
+                        }
                     print(json.dumps(payload, ensure_ascii=True))
                 else:
                     print(report)
@@ -6210,6 +6488,9 @@ def main() -> None:
                 "results": [result.model_dump() for result in results],
                 "report": report,
             }
+            semantic = getattr(results, "semantic_acceptance", None)
+            if semantic is not None:
+                payload["semantic_acceptance"] = semantic
             print(json.dumps(payload, ensure_ascii=True))
         else:
             print(report)
