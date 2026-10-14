@@ -6,36 +6,56 @@
   "maximum_wait_minutes": 15,
   "finding_verification_fallback": {
     "enabled": true,
-    "trusted_publishers": ["stranske", "stranske-automation-bot"],
-    "verifier_profiles": ["codex-6.1-sol-medium"]
+    "trusted_publishers": [
+      "stranske",
+      "stranske-automation-bot"
+    ],
+    "verifier_profiles": [
+      "codex-6.1-sol-medium"
+    ]
   },
   "reviewers": [
     {
       "id": "copilot",
-      "logins": ["copilot-pull-request-reviewer", "copilot-pull-request-reviewer[bot]"],
+      "logins": [
+        "copilot-pull-request-reviewer",
+        "copilot-pull-request-reviewer[bot]"
+      ],
       "check_names": []
     },
     {
       "id": "codex",
-      "logins": ["chatgpt-codex-connector", "chatgpt-codex-connector[bot]"],
+      "logins": [
+        "chatgpt-codex-connector",
+        "chatgpt-codex-connector[bot]"
+      ],
       "check_names": [],
       "request_comment": "@codex review",
       "reassessment_comment": "@codex please reassess this specific finding",
       "reassessment_failure_summary": {
         "marker": "<!-- codex-pull-request-review-summary -->",
-        "row_pattern": "^\\| 📝 \\*\\*Code Review\\*\\* \\| ⚠️ \\*\\*Failed\\*\\* <relative-time datetime=\"(?<time>[^\"]+)\">[^<]+</relative-time> \\| `(?<head>[0-9a-f]{7,40})` \\| Manual request \\|$"
+        "row_pattern": "^\\| \ud83d\udcdd \\*\\*Code Review\\*\\* \\| \u26a0\ufe0f \\*\\*Failed\\*\\* <relative-time datetime=\"(?<time>[^\"]+)\">[^<]+</relative-time> \\| `(?<head>[0-9a-f]{7,40})` \\| Manual request \\|$"
       },
       "disposition_comment": "@codex address that feedback",
       "disposition_task_transport": "pr-conversation",
       "disposition_task_comment": "@codex answer this specific finding",
-      "disposition_completion_prefixes": ["Codex Review: Didn't find any major issues."],
+      "disposition_completion_prefixes": [
+        "Codex Review: Didn't find any major issues."
+      ],
       "disposition_reviewed_commit_prefix": "**Reviewed commit:** "
     },
     {
       "id": "coderabbit",
-      "logins": ["coderabbitai", "coderabbitai[bot]"],
-      "check_names": ["CodeRabbit"],
-      "reassessment_comment": "@coderabbitai full review"
+      "logins": [
+        "coderabbitai",
+        "coderabbitai[bot]"
+      ],
+      "check_names": [
+        "CodeRabbit"
+      ],
+      "reassessment_comment": "@coderabbitai please reassess this specific finding",
+      "reassessment_task_transport": "pr-conversation",
+      "reassessment_task_comment": "@coderabbitai please answer this specific finding"
     }
   ],
   "capacity_patterns": [

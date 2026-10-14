@@ -2165,6 +2165,20 @@ resolves a thread, seals, merges, closes, or otherwise reconciles the PR. The
 ordinary Maint 71 run later rechecks the same head, reviewer disposition,
 checks, and merge gates. A reviewer request is not itself thread acceptance.
 
+A reviewer profile may configure `reassessment_task_transport=pr-conversation`
+and `reassessment_task_comment` to deliver the initial finding task through a
+supported conversation channel. The bound inline request remains the readable
+authority. Re-dispatch recovers an existing unanswered inline request and creates
+at most one `maint71-reassessment-task:v1` conversation task for its canonical
+plan/generation/head/thread/request binding. Discovery is paginated and the current
+head, live lease and original inline request are revalidated before POST; an
+ambiguous POST requires marker reconciliation. This initial bridge does not
+require a completed general review. It requests only an exact finding answer,
+never edits, resolution, sealing or merge, and grants no reviewer acceptance.
+The CodeRabbit profile uses this finding-only conversation path instead of a
+full-review command. Existing Codex disposition/retry preconditions are unchanged.
+
+
 If the originating provider reports a terminal failure instead of completing
 the targeted request, the same binding may use `request_stage=retry` once.
 The source-owned request-only job requires exactly one trusted original request
