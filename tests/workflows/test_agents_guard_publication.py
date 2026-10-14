@@ -103,12 +103,24 @@ const AsyncFunction = Object.getPrototypeOf(async function(){}).constructor;
 """
     result = subprocess.run(
         ["node", "-e", harness],
-        input=json.dumps({"condition": step["if"], "script": step["with"]["script"], "eventName": event_name, "headFullName": head_full_name, "env": {"ELIGIBLE": eligible}}),
-        text=True, capture_output=True, check=True,
+        input=json.dumps(
+            {
+                "condition": step["if"],
+                "script": step["with"]["script"],
+                "eventName": event_name,
+                "headFullName": head_full_name,
+                "env": {"ELIGIBLE": eligible},
+            }
+        ),
+        text=True,
+        capture_output=True,
+        check=True,
     )
     evidence = json.loads(result.stdout)
     assert evidence["writes"] == expected_writes
-    assert evidence["conditionPasses"] is (expected_writes == 1 or event_name == "pull_request_target")
+    assert evidence["conditionPasses"] is (
+        expected_writes == 1 or event_name == "pull_request_target"
+    )
 
 
 @pytest.mark.parametrize("template", [False, True])
