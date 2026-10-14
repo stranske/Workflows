@@ -2172,7 +2172,10 @@ completion rule. Evidence files, bundles and packages are delivery payloads;
 review-comment content introduced by `about`, `regarding` or `concerning` remains
 content rather than a product component. Genuine prepositions, adverbs, content
 qualifiers, alternatives and independent reviewer deliveries retain their evidence
-floors, including mandatory, optional and negative delivery polarity.
+floors, including mandatory, optional and negative delivery polarity. Payload
+nouns use the shared proof-object aliases, and bounded review-content qualifiers
+are consumed before destination lists: every AND sibling retains its floor and
+each OR alternative remains independently sufficient in either destination order.
 Checklist shorthand accepts the common test/validation proof nouns, so
 `Validation output in a PR comment` retains comments as its required channel.
 Negative, optional and product-capability clauses keep their existing semantics.

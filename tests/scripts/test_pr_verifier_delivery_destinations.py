@@ -5833,3 +5833,53 @@ def test_issue3835_review_content_preposition_preserves_floor(qualifier, governo
         _floor_verdict(independent, body="present", comments="present", artifacts="absent")
         == "CONCERNS"
     )
+
+
+@pytest.mark.parametrize("qualifier", ["about", "regarding", "concerning"])
+@pytest.mark.parametrize("conjunction", ["and", "or"])
+@pytest.mark.parametrize("reverse", [False, True])
+@pytest.mark.parametrize("governor", ["must", "may", "must not"])
+def test_issue3835_content_qualified_destination_lists(qualifier, conjunction, reverse, governor):
+    comment = f"in a review comment {qualifier} test results"
+    artifact = "in a workflow artifact"
+    first, second = (artifact, comment) if reverse else (comment, artifact)
+    criterion = f"Evidence {governor} be posted {first} {conjunction} {second}"
+    expected = {"comments", "artifacts"} if governor == "must" else set()
+    assert verifier._required_evidence_channels(criterion) == expected
+    options = (
+        [{"comments"}, {"artifacts"}] if governor == "must" and conjunction == "or" else [expected]
+    )
+    assert {frozenset(x) for x in verifier._required_evidence_options(criterion)} == {
+        frozenset(x) for x in options
+    }
+    for comments, artifacts in [("present", "absent"), ("absent", "present"), ("absent", "absent")]:
+        missing = governor == "must" and (
+            conjunction == "and" or (comments == artifacts == "absent")
+        )
+        assert _floor_verdict(
+            criterion, body="present", comments=comments, artifacts=artifacts
+        ) == ("CONCERNS" if missing else "PASS")
+
+
+@pytest.mark.parametrize("payload", ["files", "bundle", "package"])
+@pytest.mark.parametrize("conjunction", ["and", "or"])
+@pytest.mark.parametrize("reverse", [False, True])
+@pytest.mark.parametrize("governor", ["must", "may", "must not"])
+def test_issue3835_payload_destination_lists(payload, conjunction, reverse, governor):
+    first, second = (
+        ("to the PR body", "to an artifact") if reverse else ("to an artifact", "the PR body")
+    )
+    criterion = f"The reviewer {governor} upload evidence {payload} {first} {conjunction} {second}"
+    expected = {"body", "artifacts"} if governor == "must" else set()
+    assert verifier._required_evidence_channels(criterion) == expected
+    options = (
+        [{"body"}, {"artifacts"}] if governor == "must" and conjunction == "or" else [expected]
+    )
+    assert {frozenset(x) for x in verifier._required_evidence_options(criterion)} == {
+        frozenset(x) for x in options
+    }
+    for body, artifacts in [("present", "absent"), ("absent", "present"), ("absent", "absent")]:
+        missing = governor == "must" and (conjunction == "and" or (body == artifacts == "absent"))
+        assert _floor_verdict(criterion, body=body, comments="present", artifacts=artifacts) == (
+            "CONCERNS" if missing else "PASS"
+        )

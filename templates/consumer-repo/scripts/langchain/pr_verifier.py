@@ -1010,7 +1010,7 @@ _EVIDENCE_ACTOR_QUALIFIER = (
     r"(?:(?!(?:and|or|but|must|shall|is|are|not|never|may|can|has|have)\b)[\w/-]+\s+){0,4}"
     r"(?!(?:and|or|but|must|shall|is|are|not|never|may|can|has|have)\b)[\w/-]+)?"
 )
-_EVIDENCE_PROOF_ALIAS_NOUN = r"(?:(?:test|validation)\s+(?:results?|logs?|outputs?)|(?:ci|build|execution)\s+logs?|(?:(?:workflow|ci|github actions)\s+)?artifacts?\s+provenance|screenshots?|recordings)"
+_EVIDENCE_PROOF_ALIAS_NOUN = r"(?:evidence\s+(?:files?|bundles?|packages?)|(?:test|validation)\s+(?:results?|logs?|outputs?)|(?:ci|build|execution)\s+logs?|(?:(?:workflow|ci|github actions)\s+)?artifacts?\s+provenance|screenshots?|recordings)"
 _EVIDENCE_OPTIONAL_MODAL = r"(?:may|can|could|would|should)"
 _EVIDENCE_PASSIVE_PREFIX = (
     r"(?:be|been|being|have\s+" + _EVIDENCE_DELIVERY_ADVERBS + r"been)"
@@ -1725,7 +1725,13 @@ def _normalize_review_content_qualifiers(acceptance: str) -> str:
     # product lists and OR expansion keep their established governors.
     content_tail = (
         r"(?:"
-        r"[ \t]+(?:" + _REVIEW_CONTENT_PARTICIPLE + r")[ \t]+" + content + r"|"
+        r"[ \t]+(?:"
+        + _REVIEW_CONTENT_PARTICIPLE
+        + r"|"
+        + _REVIEW_CONTENT_PREPOSITION
+        + r")[ \t]+"
+        + content
+        + r"|"
         r"[ \t]+(?:that|which)[ \t]+"
         + _EVIDENCE_DELIVERY_ADVERBS.replace(r"\s+", r"[ \t]+")
         + r"(?:must|shall|will|"
