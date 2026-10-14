@@ -617,7 +617,7 @@ async function runReviewReassessment({
           : 'This is a bounded finding-reassessment conversation task. Do not start another general review.',
         `Answer only the original finding in existing thread ${request.thread_id}: ${comment.html_url}`,
         `The authenticated in-thread request above is the authority and contains the exact finding. Inspect its source fix at Workflows commit ${request.source_commit} and generated head ${request.head_sha}.`,
-        nativeConversation ? `Reply in this PR conversation with a plain unquoted line beginning ACCEPT or REJECT. An ACCEPT must include <!-- sync-review-accepted:${request.head_sha} --> and ${taskMarker} after that ACCEPT line, outside quoted text, code fences and details blocks; it is valid only after this task and only under the configured native protocol.` :
+        nativeConversation ? `Reply in this PR conversation with a plain unquoted standalone line exactly equal to ACCEPT or REJECT. An ACCEPT must put <!-- sync-review-accepted:${request.head_sha} --> and ${taskMarker} each on their own later plain line, outside quoted text, code fences and details blocks; it is valid only after this task and only under the configured native protocol.` :
           'Reply in that existing thread with explicit ACCEPT and the exact acceptance token requested there if satisfied, or REJECT with concrete evidence if not. A top-level answer cannot authorize disposition.',
         'No file edits, branch pushes, new finding threads, thread resolution, seal, close or merge actions. If replying there is unsupported, report that limitation explicitly; do not substitute a generic no-issues summary.',
         taskMarker].join('\n\n');

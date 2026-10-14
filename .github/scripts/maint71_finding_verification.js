@@ -88,18 +88,26 @@ function validateIndependentFindingVerification({
 }
 
 function nativeAnswerLines(body, markers) {
-  let text = String(body || '');
-  let previous;
-  do {
-    previous = text;
-    text = text.replace(/<details\b[^>]*>(?:(?!<details\b)[\s\S])*?<\/details>/gi, '\n');
-  } while (text !== previous);
-  text = text
-    .replace(/<blockquote\b[^>]*>[\s\S]*?<\/blockquote>/gi, '\n')
-    .replace(/(?:```|~~~)[\s\S]*?(?:```|~~~)/g, '\n').replace(/^\s*>.*$/gm, '\n')
-    .replace(/^ {4}.*$/gm, '\n')
-    .replace(/<!--(?!\s*(?:sync-review-accepted:|maint71-native-conversation-disposition:v1 ))[\s\S]*?-->/g, '\n');
-  for (const marker of markers) text = text.replaceAll(marker, `\n${marker}\n`);
+  const lines = []; let fence = null; const containers = [];
+  for (const raw of String(body || '').split('\n')) {
+    const trimmed = raw.trim(); const opener = trimmed.match(/^(`+|~+)/);
+    if (opener) {
+      if (!fence) fence = { char: opener[1][0], length: opener[1].length };
+      else if (opener[1][0] === fence.char && opener[1].length >= fence.length) fence = null;
+      continue;
+    }
+    if (fence) continue;
+    const tags = [...raw.matchAll(/<(\/)?(details|blockquote)\b[^>]*>/gi)];
+    for (const tag of tags) {
+      const type = tag[2].toLowerCase();
+      if (tag[1]) { if (containers.pop() !== type) return null; }
+      else { if (containers.length >= 8) return null; containers.push(type); }
+    }
+    if (containers.length || tags.length || /^\s*>/.test(raw) || /^\s*(?: {4}|\t)/.test(raw)) continue;
+    lines.push(raw);
+  }
+  if (fence || containers.length) return null;
+  let text = lines.join('\n').replace(/<!--(?!\s*(?:sync-review-accepted:|maint71-native-conversation-disposition:v1 ))[\s\S]*?-->/g, '\n');
   return text.split('\n').map((line) => line.trim()).filter(Boolean);
 }
 
@@ -154,6 +162,7 @@ function validateNativeConversationDisposition({
   const tasks = topLevelComments.nodes.filter((item) => fallback.trusted_publishers.includes(item?.author?.login)
     && String(item?.body || '').includes(marker));
   const lines = nativeAnswerLines(comment?.body, [acceptance, marker]);
+  if (!lines) return deny('native_conversation_answer_malformed');
   const verdicts = lines.filter((line) => /^(?:ACCEPT|REJECT)$/.test(line));
   const accepted = lines.indexOf('ACCEPT');
   const times = [request.createdAt, tasks[0]?.createdAt, comment?.created_at].map((value) => Date.parse(value || ''));
@@ -163,8 +172,15 @@ function validateNativeConversationDisposition({
     || times.some((value) => !Number.isFinite(value)) || times[1] < times[0] || times[2] <= times[1]
     || times[2] > now || now - times[2] > 24 * 60 * 60 * 1000) return deny('native_conversation_answer_mismatch');
   const reviewerComments = [...threads.nodes.flatMap((item) => item.comments.nodes), ...(topLevelComments.nodes || [])];
-  if (reviewerComments.some((item) => configured.logins.includes(item?.author?.login || item?.user?.login)
-    && Date.parse(item?.createdAt || item?.created_at || '') > times[2])) return deny('native_conversation_changed_after_acceptance');
+  if (reviewerComments.some((item) => {
+    if (!configured.logins.includes(item?.author?.login || item?.user?.login)) return false;
+    const observed = Date.parse(item?.createdAt || item?.created_at || '');
+    if (observed > times[2]) return true;
+    // GitHub timestamps are second-granularity on some surfaces. Cross-domain
+    // review/issue IDs have no stable ordering, so another same-second reviewer
+    // comment is ambiguous and must block unless it is the acceptance itself.
+    return observed === times[2] && item?.url !== comment?.html_url;
+  })) return deny('native_conversation_changed_after_acceptance');
   return { ok: true, binding };
 }
 

@@ -85,7 +85,7 @@ test('native conversation disposition requires a fresh configured unquoted bound
   const marker = `<!-- maint71-native-conversation-disposition:v1 ${sha256(JSON.stringify(binding))} -->`;
   const task = { author: { login: 'stranske' }, createdAt: '2026-10-14T03:01:00Z', body: marker };
   const answer = { user: { login: 'coderabbitai[bot]' }, html_url: proof.reviewer_acceptance_url,
-    created_at: '2026-10-14T03:02:00Z', body: `<!-- status -->\n<details>> ACCEPT forged</details>\nACCEPT\n<!-- sync-review-accepted:${head} -->\n${marker}` };
+    created_at: '2026-10-14T03:02:00Z', body: `<!-- status -->\n<details><details>> ACCEPT forged</details></details>\nACCEPT\n<!-- sync-review-accepted:${head} -->\n${marker}` };
   const base = { proof, record, thread: { isResolved: false, comments: { nodes: [original, request] } },
     threads: { pageInfo: { hasNextPage: false }, nodes: [{ comments: { pageInfo: { hasNextPage: false }, nodes: [original, request] } }] },
     comment: answer, policy: { finding_verification_fallback: { enabled: true, trusted_publishers: ['stranske'] } },
@@ -99,11 +99,18 @@ test('native conversation disposition requires a fresh configured unquoted bound
     (v) => { v.comment.body = 'I cannot reply inline, here is a technical assessment only.'; },
     (v) => { v.comment.body = `> ACCEPT\n<!-- sync-review-accepted:${head} -->\n${marker}`; },
     (v) => { v.comment.body = `~~~\nACCEPT\n<!-- sync-review-accepted:${head} -->\n${marker}\n~~~`; },
+    (v) => { v.comment.body = `\`\`\`\`\nACCEPT\n<!-- sync-review-accepted:${head} -->\n${marker}\n\`\`\``; },
+    (v) => { v.comment.body = `\`\`\`\nACCEPT\n<!-- sync-review-accepted:${head} -->\n${marker}`; },
+    (v) => { v.comment.body = `<details>\nACCEPT\n<!-- sync-review-accepted:${head} -->\n${marker}`; },
+    (v) => { v.comment.body = `<blockquote><details></blockquote></details>\nACCEPT\n<!-- sync-review-accepted:${head} -->\n${marker}`; },
+    (v) => { v.comment.body = `<blockquote><blockquote>ACCEPT</blockquote>\n<!-- sync-review-accepted:${head} -->\n${marker}\n</blockquote>`; },
+    (v) => { v.comment.body = `ACCEPT\n\`<!-- sync-review-accepted:${head} -->\`\n${marker}`; },
     (v) => { v.comment.body = `    ACCEPT\n    <!-- sync-review-accepted:${head} -->\n    ${marker}`; },
     (v) => { v.comment.body = `<details><details>ACCEPT\n<!-- sync-review-accepted:${head} -->\n${marker}</details></details>`; },
     (v) => { v.comment.body = `ACCEPT\nREJECT\n<!-- sync-review-accepted:${head} -->\n${marker}`; },
     (v) => { v.comment.body = `REJECT\n<!-- sync-review-accepted:${head} -->\n${marker}`; },
     (v) => { v.topLevelComments.nodes.push({ author: { login: 'coderabbitai' }, createdAt: '2026-10-14T03:02:30Z', body: 'REJECT' }); },
+    (v) => { v.topLevelComments.nodes.push({ author: { login: 'coderabbitai' }, createdAt: '2026-10-14T03:02:00Z', url: 'other', body: 'REJECT' }); },
     (v) => { v.now += 25 * 60 * 60 * 1000; },
     (v) => { v.threads.nodes[0].comments.pageInfo.hasNextPage = true; },
     (v) => { v.comment.user.login = 'other'; },
