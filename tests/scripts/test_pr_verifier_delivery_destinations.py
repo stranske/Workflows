@@ -6696,6 +6696,20 @@ def test_issue3835_capability_owned_coordinated_deliveries_keep_only_independent
     )
 
 
+def test_issue3835_capability_marker_keeps_a_prior_unlocated_delivery_duty():
+    criterion = (
+        "The reviewer must provide evidence and allow users to upload evidence in a PR comment"
+    )
+    assert verifier._required_evidence_channels(criterion) == {"overall"}
+    assert verifier._required_evidence_options(criterion) == [{"overall"}]
+    assert (
+        _floor_verdict(
+            criterion, body="present", comments="present", artifacts="present", overall="absent"
+        )
+        == "CONCERNS"
+    )
+
+
 def test_issue3835_capability_coordination_preserves_separate_reviewer_delivery():
     criterion = (
         "The application must allow users to upload evidence in a PR comment and then post evidence as an artifact; "

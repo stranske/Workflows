@@ -5154,7 +5154,10 @@ def _classify_evidence_channels(acceptance: str, *, _bind_attached: bool = True)
                 # The capability normalizer leaves this internal marker as an
                 # antecedent for a later independent pronoun delivery.  Alone,
                 # it must not become an overall evidence floor.
-                if re.fullmatch(r"[^;.!?\n]*\bproduct capability evidence\s*", lower):
+                marker_stripped = re.sub(r"\bproduct capability evidence\b", " ", lower)
+                if re.fullmatch(
+                    r"[^;.!?\n]*\bproduct capability evidence\s*", lower
+                ) and not remaining_delivery(marker_stripped):
                     continue
                 command_behavior = bool(
                     re.search(
