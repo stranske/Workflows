@@ -42,13 +42,27 @@ function policyReceipt(labels) {
   return ` [guard-policy-sha256:${policyFingerprint(policyLabelNames(labels))}]`;
 }
 
-function withPolicyReceipt(description, labels) {
+function prReceipt(prNumber) {
+  if (!Number.isSafeInteger(Number(prNumber)) || Number(prNumber) <= 0) {
+    throw new Error('Pull request number is missing or invalid');
+  }
+  return `[guard-pr:${Number(prNumber)}] `;
+}
+
+function hasCurrentReceipt(description, labels, prNumber) {
+  return typeof description === 'string' &&
+    description.startsWith(prReceipt(prNumber)) &&
+    description.endsWith(policyReceipt(labels));
+}
+
+function withPolicyReceipt(description, labels, prNumber) {
+  const prefix = prReceipt(prNumber);
   const receipt = policyReceipt(labels);
-  const maximum = 140 - receipt.length;
+  const maximum = 140 - prefix.length - receipt.length;
   const summary = description.length > maximum
     ? `${description.slice(0, maximum - 3)}...`
     : description;
-  return `${summary}${receipt}`;
+  return `${prefix}${summary}${receipt}`;
 }
 
 function runSnapshot(run) {
@@ -280,7 +294,6 @@ async function publishGuardForkStatus({ github, context, core }) {
   });
 
   let run = await getFreshRun({ retry, owner, repo, runId: payloadRun.id });
-  if (run.status !== 'completed') throw new Error('Agents Guard run is not completed');
   const workflow = (await retry.withRetry(client =>
     client.rest.actions.getWorkflow({ owner, repo, workflow_id: run.workflow_id })
   )).data;
@@ -322,7 +335,7 @@ async function publishGuardForkStatus({ github, context, core }) {
   let result;
   if (current?.state === 'success' && (
     typeof current.description !== 'string' ||
-    !current.description.endsWith(policyReceipt(pr.labels))
+    !hasCurrentReceipt(current.description, pr.labels, pr.number)
   )) {
     result = {
       state: 'failure',
@@ -330,6 +343,9 @@ async function publishGuardForkStatus({ github, context, core }) {
       evaluated: false,
     };
     reconciliationFailure = true;
+  }
+  if (!reconciliationFailure && run.status !== 'completed') {
+    throw new Error('Agents Guard run is not completed');
   }
   if (sameRepository && !reconciliationFailure) {
     core.info('Same-repository reconciliation preserves the current exact-head verdict.');
@@ -341,8 +357,7 @@ async function publishGuardForkStatus({ github, context, core }) {
     ? await canonicalDirectGuardStatus({ current, github, retry, owner, repo, repository, context })
     : false;
   const directSuccess = directAuthority === true && current.state === 'success' &&
-    typeof current.description === 'string' &&
-    current.description.endsWith(policyReceipt(pr.labels));
+    hasCurrentReceipt(current.description, pr.labels, pr.number);
   const directFailure = ['failure', 'error'].includes(current?.state) &&
     (directAuthority === true || directAuthority === null);
   if (directSuccess || directFailure) {
@@ -378,7 +393,7 @@ async function publishGuardForkStatus({ github, context, core }) {
     }
     await assertLatestAttempt({ github, retry, owner, repo, run });
     if (result.state === 'success') {
-      result = { ...result, description: withPolicyReceipt(result.description, pr.labels) };
+      result = { ...result, description: withPolicyReceipt(result.description, pr.labels, pr.number) };
     }
     if (result.state === 'success' && result.evaluated === false) {
       if (!current && policyLabelNames(pr.labels).some(label => ROUTING_LABELS.has(label))) {

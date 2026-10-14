@@ -322,105 +322,140 @@ new AsyncFunction('github','context','core',input.script)(github,context,core).t
     assert [write["state"] for write in writes] == [expected_state]
 
 
-def test_guard_status_writers_share_only_canonical_writer_group():
-    direct = yaml.safe_load((ROOT / ".github/workflows/agents-guard.yml").read_text())
-    fork = yaml.safe_load((ROOT / ".github/workflows/agents-guard-fork-status.yml").read_text())
-    direct_template = yaml.safe_load(
-        (ROOT / "templates/consumer-repo/.github/workflows/agents-guard.yml").read_text()
-    )
-    fork_template = yaml.safe_load(
+def test_guard_status_writer_classifies_before_joining_the_shared_group():
+    workflow = yaml.safe_load((ROOT / ".github/workflows/agents-guard-fork-status.yml").read_text())
+    template = yaml.safe_load(
         (
             ROOT / "templates/consumer-repo/.github/workflows/agents-guard-fork-status.yml"
         ).read_text()
     )
+    assert workflow["permissions"] == template["permissions"]
+    assert workflow["jobs"]["classify"]["permissions"] == {"actions": "read"}
+    assert "concurrency" not in workflow
+    assert "concurrency" not in template
+    assert workflow["jobs"]["publish"]["needs"] == "classify"
+    assert workflow["jobs"]["publish"]["if"] == "${{ needs.classify.outputs.canonical == 'true' }}"
     assert (
-        direct["concurrency"]
-        == direct_template["concurrency"]
+        workflow["jobs"]["publish"]["concurrency"]
+        == template["jobs"]["publish"]["concurrency"]
         == {
-            "group": "agents-guard-status-${{ github.event.pull_request.head.sha || github.run_id }}",
+            "group": "${{ needs.classify.outputs.canonical == 'true' && format('agents-guard-status-{0}', needs.classify.outputs.head_sha) || format('agents-guard-fork-status-{0}', github.run_id) }}",
             "cancel-in-progress": False,
         }
     )
-    assert (
-        fork["concurrency"]
-        == fork_template["concurrency"]
-        == {
-            "group": "${{ github.event.workflow_run.event == 'pull_request' && github.event.workflow.path == '.github/workflows/agents-guard.yml' && github.event.workflow.id > 0 && github.event.workflow_run.workflow_id > 0 && github.event.workflow.id == github.event.workflow_run.workflow_id && format('agents-guard-status-{0}', github.event.workflow_run.head_sha) || format('agents-guard-fork-status-{0}', github.run_id) }}",
-            "cancel-in-progress": False,
-        }
-    )
-    publisher_if = "${{ github.event.workflow_run.event == 'pull_request' && github.event.workflow.path == '.github/workflows/agents-guard.yml' && github.event.workflow.id > 0 && github.event.workflow_run.workflow_id > 0 && github.event.workflow.id == github.event.workflow_run.workflow_id }}"
-    assert fork["jobs"]["publish"]["if"] == fork_template["jobs"]["publish"]["if"] == publisher_if
 
 
-def test_guard_status_writer_group_binds_the_canonical_workflow_object():
+def test_guard_status_writer_classifies_canonical_runs_before_shared_queue():
     workflow = yaml.safe_load((ROOT / ".github/workflows/agents-guard-fork-status.yml").read_text())
-    group_expression = workflow["concurrency"]["group"]
+    classifier = workflow["jobs"]["classify"]["steps"][0]["with"]["script"]
+    group_expression = workflow["jobs"]["publish"]["concurrency"]["group"]
     publish_expression = workflow["jobs"]["publish"]["if"]
 
-    def evaluate(event, run_path, top_workflow, workflow_id):
+    def classify(payload_run, payload_workflow, fresh_run, fresh_workflow, *, raises=False):
         payload = {
-            "group": group_expression,
-            "publish": publish_expression,
-            "github": {
-                "event": {
-                    "workflow_run": {
-                        "event": event,
-                        "path": run_path,
-                        "workflow_id": workflow_id,
-                        "head_sha": "a" * 40,
-                    },
-                    "workflow": top_workflow,
-                },
-                "run_id": "99",
-            },
+            "script": classifier,
+            "payloadRun": payload_run,
+            "payloadWorkflow": payload_workflow,
+            "freshRun": fresh_run,
+            "freshWorkflow": fresh_workflow,
+            "raises": raises,
         }
         source = r"""
 const fs = require('fs');
 const input = JSON.parse(fs.readFileSync(0, 'utf8'));
-const expression = value => value.trim()
-  .replace(/^\$\{\{\s*/, '')
-  .replace(/\s*\}\}$/, '');
-const evaluate = value => Function('github', 'format', 'return (' + expression(value) + ');');
-const format = (template, ...values) => template.replace(/\{(\d+)\}/g, (_, index) => String(values[Number(index)]));
-const group = evaluate(input.group)(input.github, format);
-const publish = evaluate(input.publish)(input.github, format);
-process.stdout.write(JSON.stringify({group, publish: Boolean(publish)}));
+const outputs = {};
+const core = {setOutput: (key, value) => { outputs[key] = String(value); }, warning() {}};
+const github = {rest: {actions: {
+  async getWorkflowRun() { if (input.raises) throw new Error('unavailable'); return {data: input.freshRun}; },
+  async getWorkflow() { if (input.raises) throw new Error('unavailable'); return {data: input.freshWorkflow}; },
+}}};
+const context = {repo: {owner: 'owner', repo: 'repo'}, payload: {
+  repository: {id: 9}, workflow_run: input.payloadRun, workflow: input.payloadWorkflow,
+}};
+const AsyncFunction = Object.getPrototypeOf(async function(){}).constructor;
+new AsyncFunction('github', 'context', 'core', input.script)(github, context, core)
+  .then(() => process.stdout.write(JSON.stringify(outputs)))
+  .catch(error => { console.error(error); process.exitCode = 1; });
 """
         completed = subprocess.run(
             ["node", "-e", source],
             input=json.dumps(payload),
-            check=True,
-            capture_output=True,
             text=True,
+            capture_output=True,
+            check=True,
         )
         return json.loads(completed.stdout)
 
-    canonical = {"id": 45, "path": ".github/workflows/agents-guard.yml"}
-    for run_path in (
-        ".github/workflows/agents-guard.yml",
-        ".github/workflows/agents-guard.yml@main",
-        ".github/workflows/agents-guard.yml@refs/heads/main",
+    canonical_run = {
+        "id": 31,
+        "workflow_id": 45,
+        "event": "pull_request",
+        "status": "completed",
+        "repository": {"id": 9},
+        "head_sha": "a" * 40,
+        "path": ".github/workflows/agents-guard.yml@refs/heads/main",
+    }
+    canonical_workflow = {
+        "id": 45,
+        "path": ".github/workflows/agents-guard.yml",
+        "name": "Health 45 Agents Guard",
+    }
+    assert classify(canonical_run, {"id": 45}, canonical_run, canonical_workflow) == {
+        "canonical": "true",
+        "head_sha": "a" * 40,
+    }
+    for payload_workflow, fresh_workflow, fresh_run, raises in (
+        (
+            {"id": 45},
+            {**canonical_workflow, "path": ".github/workflows/AGENTS-GUARD.yml"},
+            canonical_run,
+            False,
+        ),
+        ({"id": 45}, {**canonical_workflow, "name": "Other"}, canonical_run, False),
+        ({"id": 45}, canonical_workflow, {**canonical_run, "event": "pull_request_target"}, False),
+        ({"id": 45}, canonical_workflow, {**canonical_run, "status": "in_progress"}, False),
+        ({"id": 45}, canonical_workflow, {**canonical_run, "repository": {"id": 10}}, False),
+        ({"id": 45}, canonical_workflow, canonical_run, True),
+        ({"id": 0}, canonical_workflow, canonical_run, False),
+        ({"id": None}, canonical_workflow, canonical_run, False),
     ):
-        assert evaluate("pull_request", run_path, canonical, 45) == {
-            "group": "agents-guard-status-" + "a" * 40,
-            "publish": True,
-        }
+        assert classify(
+            canonical_run, payload_workflow, fresh_run, fresh_workflow, raises=raises
+        ) == {"canonical": "false", "head_sha": ""}
 
-    for event, top_workflow, workflow_id in (
-        ("pull_request_target", canonical, 45),
-        ("pull_request", {"id": 45, "path": ".github/workflows/agents-guard.yml@evil.yml"}, 45),
-        ("pull_request", canonical, 46),
-        ("pull_request", {"id": 0, "path": ".github/workflows/agents-guard.yml"}, 0),
-        ("pull_request", {"id": None, "path": ".github/workflows/agents-guard.yml"}, None),
-        ("pull_request", canonical, 0),
-        ("pull_request", canonical, None),
-        ("pull_request", {}, 45),
-    ):
-        result = evaluate(
-            event, ".github/workflows/agents-guard.yml@main", top_workflow, workflow_id
+    def evaluate_queue(canonical, head_sha):
+        payload = {
+            "group": group_expression,
+            "publish": publish_expression,
+            "canonical": canonical,
+            "head": head_sha,
+        }
+        source = r"""
+const fs = require('fs'); const input = JSON.parse(fs.readFileSync(0, 'utf8'));
+const expression = value => value.trim().replace(/^\$\{\{\s*/, '').replace(/\s*\}\}$/, '');
+const evaluate = value => Function('github', 'needs', 'format', 'return (' + expression(value) + ');');
+const format = (template, ...values) => template.replace(/\{(\d+)\}/g, (_, index) => String(values[Number(index)]));
+const github = {run_id: '99'};
+const needs = {classify: {outputs: {canonical: input.canonical, head_sha: input.head}}};
+process.stdout.write(JSON.stringify({group: evaluate(input.group)(github, needs, format), publish: Boolean(evaluate(input.publish)(github, needs, format))}));
+"""
+        completed = subprocess.run(
+            ["node", "-e", source],
+            input=json.dumps(payload),
+            text=True,
+            capture_output=True,
+            check=True,
         )
-        assert result == {"group": "agents-guard-fork-status-99", "publish": False}
+        return json.loads(completed.stdout)
+
+    assert evaluate_queue("true", "a" * 40) == {
+        "group": "agents-guard-status-" + "a" * 40,
+        "publish": True,
+    }
+    assert evaluate_queue("false", "a" * 40) == {
+        "group": "agents-guard-fork-status-99",
+        "publish": False,
+    }
 
 
 def test_canonical_publisher_joins_label_group_while_skipped_events_cannot_cancel_it():
@@ -564,8 +599,7 @@ new AsyncFunction('github', 'context', 'core', input.script)(github, context, co
                 "snapshotLabels": [{"name": label} for label in current_labels],
                 "currentLabels": [{"name": label} for label in current_labels],
                 "description": (
-                    "Trusted Agents Guard completed successfully "
-                    f"[guard-policy-sha256:{fingerprint}]"
+                    f"[guard-pr:4] Trusted Agents Guard completed successfully [guard-policy-sha256:{fingerprint}]"
                 ),
             }
         ),

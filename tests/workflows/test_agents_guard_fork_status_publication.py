@@ -107,7 +107,7 @@ def _publish_scenario(
                     {
                         "context": "Health 45 Agents Guard / guard",
                         "state": "success",
-                        "description": "Trusted Agents Guard completed successfully [guard-policy-sha256:e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855]",
+                        "description": "[guard-pr:4] Trusted Agents Guard completed succes... [guard-policy-sha256:e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855]",
                         "target_url": "https://example.test/runs/9",
                     }
                 ]
@@ -330,7 +330,7 @@ def test_agents_guard_fork_status_revalidates_replayed_status_before_returning()
         "pull_requests": [{"number": 4}],
     }
     outcome = _publish_scenario(final_run=final_run, replay=True)
-    assert outcome["error"] == "Agents Guard run attempt changed before publication"
+    assert outcome["error"] == "Agents Guard run is not completed"
     assert outcome["writes"] == []
 
 
@@ -345,7 +345,10 @@ def test_agents_guard_fork_status_revalidates_replayed_status_before_returning()
 )
 def test_agents_guard_fork_status_revalidates_after_status_pagination(replay, drift, message):
     outcome = _publish_scenario(replay=replay, status_read_drift=drift)
-    assert outcome["error"] == message
+    if drift == "same-run-attempt":
+        assert outcome["error"] == "Agents Guard run is not completed"
+    else:
+        assert outcome["error"] == message
     assert outcome["writes"] == []
 
 
@@ -624,7 +627,7 @@ def test_agents_guard_fork_noop_requires_current_ineligible_policy_when_context_
                 "context": "Health 45 Agents Guard / guard",
                 "state": "success",
                 "description": (
-                    "Trusted Agents Guard completed successfully "
+                    "[guard-pr:4] Trusted Agents Guard completed successfully "
                     "[guard-policy-sha256:c452d2e1354da626e39606d53f8d0a7ed810181ce30d59b21051fed08695779b]"
                 ),
                 "target_url": "https://example.test/runs/B",
@@ -795,7 +798,7 @@ def test_evaluated_fork_success_preserves_only_canonical_direct_corrective_failu
                 "context": "Health 45 Agents Guard / guard",
                 "state": "success",
                 "description": (
-                    "Health 45 Agents Guard passed. "
+                    "[guard-pr:4] Health 45 Agents Guard passed. "
                     "[guard-policy-sha256:e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855]"
                 ),
                 "target_url": "https://github.com/stranske/Workflows/actions/runs/10",
@@ -830,15 +833,13 @@ def test_evaluated_fork_success_preserves_only_canonical_direct_corrective_failu
 
 
 def test_old_protected_fork_run_preserves_newer_authoritative_guard_verdict():
-    receipt = (
-        " [guard-policy-sha256:e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855]"
-    )
+    receipt = "[guard-pr:4] Health 45 Agents Guard passed. [guard-policy-sha256:e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855]"
     protected_files = [{"filename": ".github/workflows/agents-guard.yml", "status": "modified"}]
     later_direct_success = [
         {
             "context": "Health 45 Agents Guard / guard",
             "state": "success",
-            "description": "Health 45 Agents Guard passed." + receipt,
+            "description": receipt,
             "target_url": "https://github.com/stranske/Workflows/actions/runs/10",
         }
     ]
@@ -917,14 +918,12 @@ def test_old_protected_fork_run_preserves_newer_authoritative_guard_verdict():
 
 
 def test_reconciliation_uses_policy_receipt_not_writer_description_and_corrects_stale_noop():
-    receipt = (
-        " [guard-policy-sha256:e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855]"
-    )
+    receipt = "[guard-pr:4] Health 45 Agents Guard passed. [guard-policy-sha256:e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855]"
     direct_success = [
         {
             "context": "Health 45 Agents Guard / guard",
             "state": "success",
-            "description": "Health 45 Agents Guard passed." + receipt,
+            "description": receipt,
             "target_url": "https://example.test/runs/direct",
         }
     ]
@@ -961,3 +960,60 @@ def test_agents_guard_fork_status_rejects_same_run_higher_attempt_before_write()
     outcome = _publish_scenario(status_read_drift="same-id-newer-attempt")
     assert "superseded" in outcome["error"]
     assert outcome["writes"] == []
+
+
+def test_queued_run_reconciles_invalid_current_success_before_stale_result_rejection():
+    # A direct corrective B is pending when old fork publisher P observes the
+    # queued rerun. P must still replace an unbound green context with failure.
+    outcome = _publish_scenario(
+        final_run={
+            "id": 9,
+            "workflow_id": 7,
+            "event": "pull_request",
+            "name": "Health 45 Agents Guard",
+            "repository": {"id": 1},
+            "head_repository": {"id": 2},
+            "head_sha": "abc",
+            "run_attempt": 2,
+            "run_number": 5,
+            "status": "in_progress",
+            "conclusion": None,
+            "html_url": "https://example.test/runs/9",
+            "pull_requests": [{"number": 4}],
+        },
+        statuses=[
+            {
+                "context": "Health 45 Agents Guard / guard",
+                "state": "success",
+                "description": "legacy green without a PR receipt",
+                "target_url": "https://example.test/runs/A",
+            }
+        ],
+    )
+    assert outcome["result"]["state"] == "failure"
+    assert [write["state"] for write in outcome["writes"]] == ["failure"]
+
+
+def test_same_sha_other_pr_direct_success_cannot_authorize_resolved_pr():
+    # PR A and B can share a commit SHA but have different reviews/author.
+    # The current status from A carries guard-pr:3 while P resolved PR B (4).
+    outcome = _publish_scenario(
+        statuses=[
+            {
+                "context": "Health 45 Agents Guard / guard",
+                "state": "success",
+                "description": "[guard-pr:3] Health 45 Agents Guard passed. [guard-policy-sha256:e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855]",
+                "target_url": "https://github.com/stranske/Workflows/actions/runs/10",
+            }
+        ],
+        target_run={
+            "id": 10,
+            "workflow_id": 7,
+            "event": "pull_request_target",
+            "name": "Health 45 Agents Guard",
+            "repository": {"id": 1},
+            "html_url": "https://github.com/stranske/Workflows/actions/runs/10",
+        },
+    )
+    assert outcome["result"]["state"] == "failure"
+    assert [write["state"] for write in outcome["writes"]] == ["failure"]

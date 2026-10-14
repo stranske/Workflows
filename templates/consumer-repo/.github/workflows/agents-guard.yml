@@ -736,14 +736,18 @@ jobs:
             }
 
             function finalizeDescription(fingerprint) {
+              if (!Number.isSafeInteger(pullRequest.number) || pullRequest.number <= 0) {
+                throw new Error('Current pull request number is missing or invalid.');
+              }
+              const prefix = `[guard-pr:${pullRequest.number}] `;
               const receipt = state === 'success'
                 ? ` [guard-policy-sha256:${fingerprint}]`
                 : '';
-              const maximum = 140 - receipt.length;
+              const maximum = 140 - prefix.length - receipt.length;
               if (description.length > maximum) {
                 description = `${description.slice(0, maximum - 3)}...`;
               }
-              description += receipt;
+              description = `${prefix}${description}${receipt}`;
             }
 
             const targetUrl =
@@ -850,10 +854,9 @@ jobs:
                 );
                 if (existing) {
                   if (context.eventName === 'pull_request_target' && existing.state === 'success') {
-                    const expectedReceipt =
-                      ` [guard-policy-sha256:${currentPolicyFingerprint}]`;
                     if (typeof existing.description === 'string'
-                        && existing.description.endsWith(expectedReceipt)) {
+                        && existing.description.startsWith(`[guard-pr:${pullRequest.number}] `)
+                        && existing.description.endsWith(` [guard-policy-sha256:${currentPolicyFingerprint}]`)) {
                       core.info('Ineligible PR event: preserving policy-bound exact-head success.');
                       return;
                     }

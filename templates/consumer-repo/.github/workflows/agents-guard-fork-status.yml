@@ -14,15 +14,81 @@ permissions:
   pull-requests: read
   statuses: write
 
-concurrency:
-  group: >-
-    ${{ github.event.workflow_run.event == 'pull_request' && github.event.workflow.path == '.github/workflows/agents-guard.yml' && github.event.workflow.id > 0 && github.event.workflow_run.workflow_id > 0 && github.event.workflow.id == github.event.workflow_run.workflow_id && format('agents-guard-status-{0}', github.event.workflow_run.head_sha) || format('agents-guard-fork-status-{0}', github.run_id) }}
-  cancel-in-progress: false
-
 jobs:
+  classify:
+    name: classify canonical Agents Guard run
+    permissions:
+      actions: read
+    runs-on: ubuntu-latest
+    outputs:
+      canonical: ${{ steps.classify.outputs.canonical }}
+      head_sha: ${{ steps.classify.outputs.head_sha }}
+    steps:
+      - id: classify
+        uses: actions/github-script@3a2844b7e9c422d3c10d287c895573f7108da1b3 # v9
+        with:
+          script: |
+            const WORKFLOW_PATH = '.github/workflows/agents-guard.yml';
+            const WORKFLOW_NAME = 'Health 45 Agents Guard';
+            const payloadRun = context.payload.workflow_run || {};
+            const positiveInteger = value => Number.isSafeInteger(value) && value > 0;
+            const reject = () => {
+              core.setOutput('canonical', 'false');
+              core.setOutput('head_sha', '');
+            };
+
+            if (
+              !positiveInteger(payloadRun.id) ||
+              !positiveInteger(payloadRun.workflow_id) ||
+              !positiveInteger(context.payload.workflow?.id) ||
+              context.payload.workflow.id !== payloadRun.workflow_id
+            ) {
+              reject();
+              return;
+            }
+
+            try {
+              const { data: run } = await github.rest.actions.getWorkflowRun({
+                owner: context.repo.owner,
+                repo: context.repo.repo,
+                run_id: payloadRun.id,
+              });
+              const { data: workflow } = await github.rest.actions.getWorkflow({
+                owner: context.repo.owner,
+                repo: context.repo.repo,
+                workflow_id: payloadRun.workflow_id,
+              });
+              const repositoryId = context.payload.repository?.id;
+              if (
+                run.id !== payloadRun.id ||
+                run.workflow_id !== payloadRun.workflow_id ||
+                run.event !== 'pull_request' ||
+                run.status !== 'completed' ||
+                run.repository?.id !== repositoryId ||
+                workflow.id !== payloadRun.workflow_id ||
+                workflow.path !== WORKFLOW_PATH ||
+                workflow.name !== WORKFLOW_NAME ||
+                typeof run.head_sha !== 'string' ||
+                !run.head_sha
+              ) {
+                reject();
+                return;
+              }
+              core.setOutput('canonical', 'true');
+              core.setOutput('head_sha', run.head_sha);
+            } catch (error) {
+              core.warning(`Unable to classify Agents Guard workflow run: ${error.message}`);
+              reject();
+            }
+
   publish:
     name: publish trusted fork Agents Guard status
-    if: ${{ github.event.workflow_run.event == 'pull_request' && github.event.workflow.path == '.github/workflows/agents-guard.yml' && github.event.workflow.id > 0 && github.event.workflow_run.workflow_id > 0 && github.event.workflow.id == github.event.workflow_run.workflow_id }}
+    needs: classify
+    if: ${{ needs.classify.outputs.canonical == 'true' }}
+    concurrency:
+      group: >-
+        ${{ needs.classify.outputs.canonical == 'true' && format('agents-guard-status-{0}', needs.classify.outputs.head_sha) || format('agents-guard-fork-status-{0}', github.run_id) }}
+      cancel-in-progress: false
     runs-on: ubuntu-latest
     steps:
       - name: Checkout trusted publisher
