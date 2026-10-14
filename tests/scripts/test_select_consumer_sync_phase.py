@@ -52,6 +52,19 @@ def test_canary_phase_selects_only_representative_repos() -> None:
     assert all(item["desired_hash"] == result["plan_id"] for item in result["prospective_diffs"])
 
 
+def test_owner_excluded_repositories_never_enter_phase_matrix_or_canaries() -> None:
+    excluded = "STRANSKE/cOLLAB-aDMIN"
+    result = select_phase(
+        plan(),
+        phase="canary",
+        registered_repos=[*REGISTERED, excluded],
+        canaries=[*CANARIES, {"repo": excluded, "capabilities": ["manual"]}],
+        selected_repos=[*(item["repo"] for item in CANARIES), excluded],
+    )
+    assert result["selected_repos"] == [item["repo"] for item in CANARIES]
+    assert all("collab-admin" not in item.casefold() for item in result["matrix"]["repo"])
+
+
 def test_preview_never_constructs_a_write_matrix() -> None:
     result = select_phase(plan(), phase="preview", registered_repos=REGISTERED, canaries=CANARIES)
 
@@ -235,3 +248,17 @@ def test_checked_in_canary_config_covers_distinct_consumer_shapes() -> None:
     assert any(
         "codex-review" in canary["capabilities"] for canary in config["canaries"]
     ), "At least one canary must exercise the fleet's Codex review profile before promotion"
+
+
+@pytest.mark.parametrize("phase", ["preview", "canary", "promote"])
+def test_owner_exclusion_applies_to_implicit_registered_targets(phase):
+    compiled = plan()
+    result = select_phase(
+        compiled,
+        phase=phase,
+        registered_repos=[*REGISTERED, "STRANSKE/cOLLAB-aDMIN"],
+        canaries=CANARIES,
+        evidence=green_evidence(compiled["plan_id"]),
+    )
+    assert all("collab-admin" not in repo.casefold() for repo in result["selected_repos"])
+    assert all("collab-admin" not in row["repo"].casefold() for row in result["prospective_diffs"])

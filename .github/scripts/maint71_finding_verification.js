@@ -162,7 +162,7 @@ function validateNativeConversationDisposition({
   if (!record || !thread || thread.isResolved !== false || !Array.isArray(threads?.nodes)
     || threads.pageInfo?.hasNextPage !== false || topLevelComments?.complete !== true
     || threads.nodes.some((item) => item.comments?.pageInfo?.hasNextPage !== false || !Array.isArray(item.comments?.nodes))
-    || configured?.protocol !== 'maint71-native-conversation-disposition/v1'
+    || !['maint71-native-conversation-disposition/v1', 'maint71-native-conversation-disposition/v2'].includes(configured?.protocol)
     || !Array.isArray(configured.logins) || configured.logins.length === 0
     || configured.logins.some((login) => !profile.logins?.includes(login))) return deny('native_conversation_binding_incomplete');
   const original = thread.comments?.nodes?.[0];
@@ -185,7 +185,7 @@ function validateNativeConversationDisposition({
   const findingId = String(original?.fullDatabaseId || original?.id || '');
   if (!profile.logins?.includes(original?.author?.login) || !/^[1-9]\d*$/.test(requestId)
     || !/^[1-9]\d*$/.test(findingId) || !requestUrl) return deny('native_conversation_request_missing');
-  const binding = { protocol: 'maint71-native-conversation-disposition/v1', repository: proof.repository, pr: proof.pr,
+  const binding = { protocol: configured.protocol, repository: proof.repository, pr: proof.pr,
     head_sha: proof.head_sha, thread_id: proof.thread_id, plan_id: record.plan_id, generation: record.generation,
     source_commit: record.source_commit, originating_reviewer: proof.originating_reviewer, inline_request_id: requestId,
     inline_request_url: requestUrl, finding_id: findingId, finding_sha256: sha256(String(original.body || '')) };
@@ -197,7 +197,8 @@ function validateNativeConversationDisposition({
       if (parsed[key] !== binding[key]) return deny('native_conversation_request_binding_mismatch');
     }
   } catch (_) { return deny('native_conversation_request_malformed'); }
-  const marker = `<!-- maint71-native-conversation-disposition:v1 ${sha256(JSON.stringify(binding))} -->`;
+  const markerVersion = configured.protocol === 'maint71-native-conversation-disposition/v2' ? 'v2' : 'v1';
+  const marker = `<!-- maint71-native-conversation-disposition:${markerVersion} ${sha256(JSON.stringify(binding))} -->`;
   const acceptance = `<!-- sync-review-accepted:${proof.head_sha} -->`;
   const tasks = topLevelComments.nodes.filter((item) => fallback.trusted_publishers.includes(item?.author?.login)
     && String(item?.body || '').includes(marker));
@@ -205,10 +206,15 @@ function validateNativeConversationDisposition({
   if (!lines) return deny('native_conversation_answer_malformed');
   const verdicts = lines.filter((line) => /^(?:ACCEPT|REJECT)$/.test(line));
   const accepted = lines.indexOf('ACCEPT');
-  const times = [request.createdAt, tasks[0]?.createdAt, comment?.created_at].map((value) => Date.parse(value || ''));
+  const taskAuthor = String(tasks[0]?.user?.login || tasks[0]?.author?.login || '');
+  const taskMention = `@${taskAuthor}`;
+  const v2 = configured.protocol === 'maint71-native-conversation-disposition/v2';
+  const exactTaskMention = (line) => line === taskMention || line === `\`${taskMention}\``;
+  const times = [request.createdAt, tasks[0]?.createdAt || tasks[0]?.created_at, comment?.created_at].map((value) => Date.parse(value || ''));
   if (tasks.length !== 1 || comment?.html_url !== proof.reviewer_acceptance_url
-    || !configured.logins.includes(comment?.user?.login) || accepted !== 0 || verdicts.length !== 1
-    || lines[1] !== acceptance || lines[2] !== marker
+    || !configured.logins.includes(comment?.user?.login) || !taskAuthor || verdicts.length !== 1
+    || (v2 ? (accepted !== 1 || !exactTaskMention(lines[0]) || lines[2] !== acceptance || lines[3] !== marker)
+      : (accepted !== 0 || lines[1] !== acceptance || lines[2] !== marker))
     || !lines.slice(accepted).includes(acceptance) || !lines.slice(accepted).includes(marker)
     || times.some((value) => !Number.isFinite(value)) || times[1] < times[0] || times[2] <= times[1]
     || times[2] > now || now - times[2] > 24 * 60 * 60 * 1000) return deny('native_conversation_answer_mismatch');

@@ -6,6 +6,16 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 Breaking changes are called out with a **BREAKING** marker and scheduled according to the policy in `COMPATIBILITY.md`.
 
+## [1.38.5](https://github.com/stranske/Workflows/compare/v1.38.4...v1.38.5) (2026-10-14)
+
+
+### Bug Fixes
+
+* **maint71:** bind native acceptance to required task-author mention ([#3888](https://github.com/stranske/Workflows/issues/3888)) ([0b56dea](https://github.com/stranske/Workflows/commit/0b56deae99e69730522536be1e42655714176a7d))
+* **maint71:** prefer browser permalink for REST review binding ([#3887](https://github.com/stranske/Workflows/issues/3887)) ([6ada8aa](https://github.com/stranske/Workflows/commit/6ada8aa207676aac237a78706eb7448603c0d591))
+* **maint71:** verify bound native conversation dispositions ([#3885](https://github.com/stranske/Workflows/issues/3885)) ([78eaf71](https://github.com/stranske/Workflows/commit/78eaf7184f6f94fb75ef8262d7e384bbb180618a))
+* **verifier:** derive capture obligation manifest from context coverage ([#3831](https://github.com/stranske/Workflows/issues/3831)) ([62f615e](https://github.com/stranske/Workflows/commit/62f615e61d2e2d5b2c1f47ed276c1c577b68ad09))
+
 ## [1.38.4](https://github.com/stranske/Workflows/compare/v1.38.3...v1.38.4) (2026-10-14)
 
 

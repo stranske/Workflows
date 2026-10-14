@@ -15,8 +15,10 @@ from pathlib import Path
 from typing import Any
 
 try:
+    from scripts.list_registered_consumer_repos import is_owner_excluded
     from scripts.sync_manifest_compiler import PLAN_SCHEMA
 except ImportError:
+    from list_registered_consumer_repos import is_owner_excluded  # type: ignore[no-redef]
     from sync_manifest_compiler import PLAN_SCHEMA  # type: ignore[no-redef]
 
 CANARY_SCHEMA = "workflows.consumer-sync-canaries/v1"
@@ -35,7 +37,9 @@ def _read_json(path: Path) -> Any:
 
 
 def _parse_repos(raw: str) -> list[str]:
-    repos = [repo.strip() for repo in raw.split(",") if repo.strip()]
+    repos = [
+        repo.strip() for repo in raw.split(",") if repo.strip() and not is_owner_excluded(repo)
+    ]
     if not repos or len(repos) != len(set(repos)):
         raise PhaseSelectionError("registered_repos_must_be_nonempty_and_unique")
     return repos
@@ -46,7 +50,7 @@ def _load_canaries(path: Path, registered_repos: list[str]) -> list[dict[str, An
     if not isinstance(config, dict) or config.get("schema") != CANARY_SCHEMA:
         raise PhaseSelectionError("unsupported_canary_config_schema")
     canaries = config.get("canaries")
-    if not isinstance(canaries, list) or not 2 <= len(canaries) <= 3:
+    if not isinstance(canaries, list):
         raise PhaseSelectionError("canary_config_requires_two_or_three_repos")
     repos: list[str] = []
     normalized: list[dict[str, Any]] = []
@@ -55,6 +59,8 @@ def _load_canaries(path: Path, registered_repos: list[str]) -> list[dict[str, An
             raise PhaseSelectionError("invalid_canary_entry")
         repo = item.get("repo")
         capabilities = item.get("capabilities")
+        if isinstance(repo, str) and is_owner_excluded(repo):
+            continue
         if (
             not isinstance(repo, str)
             or repo not in registered_repos
@@ -65,6 +71,8 @@ def _load_canaries(path: Path, registered_repos: list[str]) -> list[dict[str, An
             raise PhaseSelectionError("invalid_canary_entry")
         repos.append(repo)
         normalized.append({"repo": repo, "capabilities": sorted(capabilities)})
+    if not 2 <= len(normalized) <= 3:
+        raise PhaseSelectionError("canary_config_requires_two_or_three_repos")
     if len(repos) != len(set(repos)):
         raise PhaseSelectionError("duplicate_canary_repo")
     return normalized
@@ -90,7 +98,7 @@ def validate_registered_scopes(plan: Any, registered_repos: list[str]) -> None:
             repo
             for entry in entries
             for repo in entry.get("include_repos", [])
-            if repo not in registered_repos
+            if repo not in registered_repos and not is_owner_excluded(repo)
         }
     )
     if unregistered_scopes:
@@ -151,8 +159,14 @@ def select_phase(
     if phase not in PHASES:
         raise PhaseSelectionError("unsupported_sync_phase")
     plan = _validate_plan(plan)
+    registered_repos = [repo for repo in registered_repos if not is_owner_excluded(repo)]
     validate_registered_scopes(plan, registered_repos)
-    canary_repos = [item["repo"] for item in canaries]
+    canary_repos = [item["repo"] for item in canaries if not is_owner_excluded(item["repo"])]
+    canaries = [item for item in canaries if not is_owner_excluded(item["repo"])]
+    if len(canaries) < 2:
+        raise PhaseSelectionError("canary_config_requires_two_or_three_repos")
+    if selected_repos is not None:
+        selected_repos = [repo for repo in selected_repos if not is_owner_excluded(repo)]
     if selected_repos is not None and not set(selected_repos) <= set(registered_repos):
         raise PhaseSelectionError("selected_repos_must_be_registered")
     target_repos = selected_repos if selected_repos is not None else registered_repos

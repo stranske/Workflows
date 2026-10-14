@@ -41,7 +41,6 @@ def test_every_maintained_consumer_has_an_observability_state() -> None:
     assert {entry["repo"] for entry in allowlist["repos"]} == {
         "stranske/Template",
         "stranske/Ready",
-        "stranske/Collab-Admin",
         "stranske/Orchestrator",
         "stranske/Doc-Lineage",
         "stranske/Deliverable-Render",

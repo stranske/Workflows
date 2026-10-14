@@ -51,7 +51,7 @@ See [the supported context and evidence contract](docs/ops/EXPECTED_CHECK_RECEIP
 
 ### First-party Consumers
 
-17 repos are currently registered as first-party consumers (synced via [`.github/workflows/maint-68-sync-consumer-repos.yml`](.github/workflows/maint-68-sync-consumer-repos.yml)):
+16 repos are currently registered as first-party consumers (synced via [`.github/workflows/maint-68-sync-consumer-repos.yml`](.github/workflows/maint-68-sync-consumer-repos.yml)):
 
 - [Travel-Plan-Permission](https://github.com/stranske/Travel-Plan-Permission)
 - [Template](https://github.com/stranske/Template)
@@ -59,7 +59,6 @@ See [the supported context and evidence contract](docs/ops/EXPECTED_CHECK_RECEIP
 - [Manager-Database](https://github.com/stranske/Manager-Database)
 - [Portable-Alpha-Extension-Model](https://github.com/stranske/Portable-Alpha-Extension-Model)
 - [Trend_Model_Project](https://github.com/stranske/Trend_Model_Project)
-- [Collab-Admin](https://github.com/stranske/Collab-Admin)
 - [Counter_Risk](https://github.com/stranske/Counter_Risk)
 - [Pension-Data](https://github.com/stranske/Pension-Data)
 - [Inv-Man-Intake](https://github.com/stranske/Inv-Man-Intake)
@@ -71,7 +70,7 @@ See [the supported context and evidence contract](docs/ops/EXPECTED_CHECK_RECEIP
 - [Deliverable-Render](https://github.com/stranske/Deliverable-Render)
 - [Manager-Mosaic](https://github.com/stranske/Manager-Mosaic)
 
-[`.github/workflows/maint-68-sync-consumer-repos.yml`](.github/workflows/maint-68-sync-consumer-repos.yml) is the authoritative list — `REGISTERED_CONSUMER_REPOS` env var. The [Workflows-Integration-Tests](https://github.com/stranske/Workflows-Integration-Tests) harness validates the consumer surface separately.
+[`.github/workflows/maint-68-sync-consumer-repos.yml`](.github/workflows/maint-68-sync-consumer-repos.yml) is the authoritative list — `REGISTERED_CONSUMER_REPOS` env var. Direct owner exclusions are applied before discovery, delivery, and campaign accounting; excluded repositories resume only after explicit owner reinstatement. The [Workflows-Integration-Tests](https://github.com/stranske/Workflows-Integration-Tests) harness validates the consumer surface separately.
 
 Consumer delivery is coalesced into one stable PR per repository and lane:
 configured canaries use `sync/workflows-candidate`, while promoted consumers use

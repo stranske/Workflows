@@ -57,7 +57,7 @@
       "reassessment_task_transport": "pr-conversation",
       "reassessment_task_comment": "@coderabbitai please answer this specific finding",
       "conversation_disposition": {
-        "protocol": "maint71-native-conversation-disposition/v1",
+        "protocol": "maint71-native-conversation-disposition/v2",
         "logins": [
           "coderabbitai",
           "coderabbitai[bot]"

@@ -100,6 +100,16 @@ timeout), and never waives active review threads. It seals the exact head,
 triggers a fresh Gate, and merges only after that Gate succeeds. The staging
 label blocks shared merge lanes until Maint 71 completes the merge.
 
+For a configured native conversation disposition, CodeRabbit uses protocol v2.
+Maint 71 posts a fresh task whose binding includes v2, so a v1 task or answer
+cannot be replayed. The response must start with the exact task-author mention
+(`@login` or that exact mention in backticks), followed by standalone `ACCEPT`,
+the exact-head acceptance token, and the bound v2 marker. A normal PR
+conversation reply is sufficient; inline reply capability is not required.
+This acknowledgement only supplies reviewed finding evidence: Maint 71 still
+revalidates the live thread, exact head, lease, and merge gates before any
+resolution or merge action.
+
 ### Reconcile the stable lanes
 ```bash
 gh workflow run maint-71-merge-sync-prs.yml \

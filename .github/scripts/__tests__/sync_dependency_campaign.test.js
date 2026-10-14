@@ -16,6 +16,7 @@ const {
   formatCampaignRunSummaryMarkdown,
   formatDryRunSummary,
   isDependabotPullRequest,
+  isOwnerExcludedRepository,
   isSyncPullRequest,
   mergeCampaignState,
   mergeDeliveryHandoffs,
@@ -27,6 +28,7 @@ const {
   planMaint71Continuations,
   selectMaint71ContinuationRepos,
   replaceCampaignMarker,
+  runCampaign,
   verboseDryRunLoggingEnabled,
   validateCampaignState,
 } = require('../sync_dependency_campaign.js');
@@ -194,6 +196,230 @@ test('closed delivery reconciliation terminalizes only matching retained identit
     handoff_reconciliation_errors: unknown.errors });
   assert.equal(warning.status, 'warning');
   assert.ok(warning.blockers.includes('handoff-reconciliation-error'));
+});
+
+test('owner-excluded cached and incoming handoffs never reach reconciliation APIs', async () => {
+  const handoff = {
+    schema: 'workflows-generated-delivery-handoff/v1', repository: 'STRANSKE/cOLLAB-aDMIN',
+    pr: 19, branch: 'sync/workflows-delivery', head_sha: 'exact-head',
+    delivery_generation: 'generation-1', plan_id: 'immutable-plan', source_commit: 'source-commit',
+    disposition: 'review-blocked', blocker_owner: 'maint-71', next_command: 'resolve-active-review-threads',
+    check_state: 'ready', review_state: 'blocked',
+    continuation: { class: 'transient', lane: 'delivery', reason: 'waiting', resume_after: '2026-10-12T00:00:00Z' },
+  };
+  let calls = 0;
+  const api = { rest: { pulls: { get: async () => { calls += 1; return { data: {} }; } } } };
+  const retry = (operation) => operation(api);
+  assert.equal(isOwnerExcludedRepository(handoff.repository), true);
+  assert.deepEqual(await verifyIncomingDeliveryHandoffs([handoff], api, retry), {
+    records: [], errors: [], blockedKeys: [],
+  });
+  assert.deepEqual(await reconcileClosedDeliveryHandoffs([handoff], [], api, retry), {
+    records: [], errors: [], blockedKeys: [],
+  });
+  assert.equal(calls, 0);
+});
+
+test('eligible cached handoffs still reconcile through the API', async () => {
+  const handoff = {
+    schema: 'workflows-generated-delivery-handoff/v1', repository: 'stranske/Ready',
+    pr: 21, branch: 'sync/workflows-delivery', head_sha: 'exact-head',
+    delivery_generation: 'generation-1', plan_id: 'immutable-plan', source_commit: 'source-commit',
+    disposition: 'review-blocked', blocker_owner: 'maint-71', next_command: 'resolve-active-review-threads',
+    check_state: 'ready', review_state: 'blocked',
+    continuation: { class: 'transient', lane: 'delivery', reason: 'waiting', resume_after: '2026-10-12T00:00:00Z' },
+  };
+  let calls = 0;
+  const api = { rest: { pulls: { get: async () => {
+    calls += 1;
+    return { data: { state: 'closed', merged_at: null, head: { sha: 'exact-head', ref: 'sync/workflows-delivery' } } };
+  } } } };
+  const result = await reconcileClosedDeliveryHandoffs([handoff], [], api, (operation) => operation(api));
+  assert.equal(calls, 1);
+  assert.equal(result.records[0].repository, 'stranske/Ready');
+});
+
+test('public formatter removes cached excluded rows and does not reuse their aggregate counts', () => {
+  const body = formatCampaignBody({
+    updated_at: '2026-10-13T00:00:00Z',
+    items: [{ repo: 'stranske/Collab-Admin', pr_number: 4, status: 'local-codex-claimed', lease: { owner: 'x' } }],
+    delivery_handoffs: [{ repository: 'stranske/Collab-Admin', pr: 4 }],
+    errors: [{ repo: 'stranske/Collab-Admin', error: 'cached failure' }],
+    source_review_history: [{ repo: 'STRANSKE/collab-admin', source_review_key: 'cached' }],
+    handoff_reconciliation_errors: ['STRANSKE/collab-admin#4: cached'],
+    handoff_verification_blocked_keys: ['stranske/Collab-Admin#4'],
+    stats: {
+      repos_checked: 1, repos_requested: 1, sync_prs_open: 1, dependabot_prs_open: 1,
+      local_codex_claims: { count: 1, items: [{ repo: 'stranske/Collab-Admin' }] },
+    },
+  });
+  assert.equal(body.includes('Collab-Admin'), false);
+  assert.equal(body.includes('unavailable-after-owner-exclusion'), true);
+  const marker = formatCampaignMarker({
+    items: [], source_review_history: [{ repo: 'stranske/Collab-Admin' }],
+    handoff_reconciliation_errors: ['stranske/Collab-Admin#4: cached'],
+    handoff_verification_blocked_keys: ['stranske/Collab-Admin#4'],
+    stats: { local_codex_claims: { count: 1, items: [{ repo: 'stranske/Collab-Admin' }] } },
+  });
+  assert.equal(marker.includes('Collab-Admin'), false);
+  const claimsOnly = formatCampaignMarker({ items: [], stats: {
+    local_codex_claims: { count: 1, items: [{ repo: 'STRANSKE/collab-admin' }] },
+  } });
+  assert.equal(claimsOnly.toLowerCase().includes('collab-admin'), false);
+  assert.equal(claimsOnly.includes('unavailable-after-owner-exclusion'), true);
+  for (const history of [
+    { source_review_key: 'stranske/Workflows:sync:hash', matching_item_id: 'sync-review-comments:STRANSKE/Collab-Admin#4:hash' },
+    { source_review_key: 'stranske/Workflows:sync:hash', matching_pr_url: 'https://github.com/stranske/Collab-Admin/pull/4' },
+  ]) {
+    const compact = formatCampaignMarker({ items: [], source_review_history: [history] });
+    assert.equal(compact.toLowerCase().includes('collab-admin'), false);
+  }
+});
+
+test('failed eligible scan projects an excluded nested source-fix candidate back to a claimable queue item', () => {
+  const cached = {
+    id: 'sync-review-comments:stranske/Ready#9:new', repo: 'stranske/Ready', pr_number: 9,
+    pr_url: 'https://github.com/stranske/Ready/pull/9', status: 'local-codex-source-fixed-candidate',
+    lease: null,
+    source_fixed_candidate: {
+      matching_item_id: 'sync-review-comments:STRANSKE/Collab-Admin#4:old',
+      matching_pr_url: 'https://github.com/stranske/Collab-Admin/pull/4', finished_at: '2026-10-13T00:00:00Z',
+    },
+  };
+  // Discovery failed for the eligible repository, so mergeCampaignState deliberately
+  // retains its active cached record. The public marker must still remove the excluded
+  // nested candidate and make the retained eligible work claimable again.
+  const retained = mergeCampaignState({ items: [cached] }, [], '2026-10-14T00:00:00Z', {
+    failedRepos: ['stranske/Ready'], reposRequested: 1, reposChecked: 0, reposFailed: 1,
+  });
+  assert.equal(retained.items[0].status, 'local-codex-source-fixed-candidate');
+  const body = formatCampaignBody(retained);
+  const marker = parseCampaignMarker(formatCampaignMarker(retained));
+  const projected = marker.items.find((item) => item.id === cached.id);
+  assert.match(body, /stranske\/Ready#9/);
+  assert.doesNotMatch(`${body}\n${JSON.stringify(marker)}`, /Collab-Admin/i);
+  assert.equal(projected.status, 'needs-local-codex');
+  assert.equal(projected.source_fixed_candidate, null);
+  assert.equal(marker.stats.items_source_fixed_candidates, 0);
+  assert.equal(marker.stats.items_claimable_local_codex, 1);
+});
+
+test('owner projection only restores candidate-derived queue status', () => {
+  const marker = parseCampaignMarker(formatCampaignMarker({ items: [
+    {
+      id: 'ready-finished', repo: 'stranske/Ready', pr_number: 1, status: 'local-codex-finished',
+      source_fixed_candidate: { matching_item_id: 'sync-review-comments:stranske/Collab-Admin#4:old' },
+    },
+    {
+      id: 'ready-blocked', repo: 'stranske/Ready', pr_number: 2, status: 'blocked',
+      source_fixed_candidate: { matching_item_id: 'sync-review-comments:stranske/Collab-Admin#4:old' },
+    },
+    {
+      id: 'ready-leased', repo: 'stranske/Ready', pr_number: 3, status: 'local-codex-claimed',
+      lease: { owner: 'maint-71', expires_at: '2026-10-14T02:00:00Z' },
+      source_fixed_candidate: { matching_item_id: 'sync-review-comments:stranske/Collab-Admin#4:old' },
+    },
+  ] }));
+  assert.equal(marker.stats.status_counts['local-codex-finished'], 1);
+  assert.equal(marker.items.find((item) => item.id === 'ready-blocked').status, 'blocked');
+  const leased = marker.items.find((item) => item.id === 'ready-leased');
+  assert.equal(leased.status, 'local-codex-claimed');
+  assert.equal(leased.lease.owner, 'maint-71');
+});
+
+test('runCampaign excludes owner-blocked case variants before max-repository discovery', async () => {
+  const pullCalls = [];
+  const github = {
+    paginate: async (method, params) => method === github.rest.pulls.list
+      ? (pullCalls.push(`${params.owner}/${params.repo}`), []) : [],
+    rest: {
+      issues: { listForRepo: async () => ({ data: [] }) },
+      pulls: { list: async () => ({ data: [] }) },
+    },
+  };
+  const result = await runCampaign({
+    github,
+    context: { repo: { owner: 'stranske', repo: 'Workflows' }, runId: 'test-run' },
+    repos: ['STRANSKE/cOLLAB-aDMIN', 'stranske/Ready'],
+    maxRepos: 1,
+    dryRun: true,
+    core: { info() {}, warning() {}, setOutput() {} },
+  });
+  assert.deepEqual(pullCalls, ['stranske/Ready']);
+  assert.equal(result.state.stats.repos_requested, 1);
+  assert.equal(result.state.stats.repos_checked, 1);
+});
+
+test('runCampaign projects failed-scan nested exclusions into state, watcher outputs, labels, and artifacts', async () => {
+  const outputs = {};
+  const labelCalls = [];
+  const cachedItem = {
+    id: 'sync-review-comments:stranske/Ready#9:cached', repo: 'stranske/Ready', pr_number: 9,
+    pr_url: 'https://github.com/stranske/Ready/pull/9', status: 'local-codex-source-fixed-candidate',
+    local_codex_queue_state: 'source-fixed-candidate',
+    local_codex_actionable: false,
+    local_codex_claimable: false,
+    source_fixed_candidate: {
+      matching_item_id: 'sync-review-comments:STRANSKE/Collab-Admin#4:old',
+      matching_pr_url: 'https://github.com/stranske/Collab-Admin/pull/4',
+    },
+  };
+  const priorMarker = `<!-- sync-dependabot-campaign:v1 ${JSON.stringify({
+    schema: 'sync-dependabot-campaign/v1', items: [cachedItem], stats: {
+      items_needing_local_codex: 0, items_actionable_local_codex: 0,
+      items_claimable_local_codex: 0, items_source_fixed_candidates: 1,
+      status_counts: { 'local-codex-source-fixed-candidate': 1 },
+    },
+  })} -->`;
+  const tracker = {
+    number: 1836, title: CAMPAIGN_TITLE, body: priorMarker,
+    labels: [{ name: 'campaign:sync-dependabot' }],
+    html_url: 'https://github.test/stranske/Workflows/issues/1836',
+  };
+  const github = {
+    paginate: async (method) => {
+      if (method === github.rest.issues.listForRepo) return [tracker];
+      if (method === github.rest.pulls.list) throw new Error('eligible discovery failed');
+      throw new Error('unexpected pagination request');
+    },
+    rest: {
+      issues: {
+        listForRepo: async () => ({ data: [tracker] }),
+        get: async () => ({ data: tracker }),
+        getLabel: async ({ name }) => ({ data: {
+          color: name === 'campaign:needs-local-codex' ? 'b60205' :
+            name === 'campaign:active' ? '1d76db' : '0e8a16',
+          description: name === 'campaign:needs-local-codex' ? 'Local Codex watcher should claim queued work' :
+            name === 'campaign:active' ? 'Active campaign controller issue' : 'Sync/dependency campaign queue',
+        } }),
+        addLabels: async (params) => { labelCalls.push(params); return { data: {} }; },
+        update: async ({ body }) => ({ data: { ...tracker, body } }),
+        removeLabel: async () => { throw new Error('claimable work must keep its watcher label'); },
+      },
+      pulls: { list: async () => { throw new Error('eligible discovery failed'); } },
+    },
+  };
+  const result = await runCampaign({
+    github,
+    context: { repo: { owner: 'stranske', repo: 'Workflows' }, runId: 'projected-run' },
+    repos: ['stranske/Ready'],
+    core: { info() {}, warning() {}, setOutput: (name, value) => { outputs[name] = value; } },
+    now: '2026-10-14T00:00:00Z',
+  });
+  const item = result.state.items.find((entry) => entry.id === cachedItem.id);
+  const artifact = JSON.stringify(result.state);
+  const signal = formatCampaignRunSummaryMarkdown(result.state, result.issue);
+  assert.equal(item.status, 'needs-local-codex');
+  assert.equal(item.local_codex_queue_state, 'actionable');
+  assert.equal(item.local_codex_actionable, true);
+  assert.equal(item.local_codex_claimable, true);
+  assert.equal(item.source_fixed_candidate, undefined);
+  assert.equal(result.state.validation.status, 'pass');
+  assert.equal(outputs.needs_local_codex, 'true');
+  assert.equal(outputs.items_claimable_local_codex, '1');
+  assert.ok(labelCalls.some((call) => call.labels.includes('campaign:needs-local-codex')));
+  assert.doesNotMatch(`${artifact}\n${signal}\n${result.body}`, /Collab-Admin/i);
+  assert.match(signal, /Items needing local Codex: 1/);
 });
 
 test('terminal handoff revival requires the current PR to be open on the incoming head', async () => {
@@ -1755,4 +1981,15 @@ test('formatCampaignBody omits inactive superseded details from issue marker', (
   assert.equal(marker.stats.marker_items_retained, 0);
   assert.equal(marker.stats.marker_items_omitted, 120);
   assert.deepEqual(marker.items, []);
+});
+
+ test('cached validation is discarded when owner exclusions prune records', () => {
+  const state = { items: [{ repo: 'stranske/Collab-Admin', status: 'local-codex-claimed' }], stats: {},
+    validation: { status: 'warning', blockers: ['stale-excluded-warning'],
+      derived_item_stats: { local_codex_claims: { items: [{ repo: 'stranske/Collab-Admin' }] } } } };
+  const marker = formatCampaignMarker(state);
+  assert.equal(marker.toLowerCase().includes('collab-admin'), false);
+  assert.equal(marker.includes('stale-excluded-warning'), false);
+  const summary = formatCampaignRunSummaryMarkdown(state);
+  assert.equal(summary.includes('stale-excluded-warning'), false);
 });
