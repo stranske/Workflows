@@ -807,6 +807,17 @@ _COLLECTION_ERROR_RE = re.compile(
 _TEST_RESULT_RE = re.compile(r"(?m)^(?:PASSED|FAILED)\s+(\S+)|^(\S+)\s+(?:PASSED|FAILED)(?:\s|$)")
 
 
+def _pytest_node_id_matches_selected(selected: str, executed: str) -> bool:
+    """Return whether an executed pytest node is the selected test identity.
+
+    A base-function selector runs all of that function's parametrized cases, so
+    ``test_case`` legitimately selects ``test_case[param]``.  An explicitly
+    selected parametrized node remains exact: another parameter, function, or
+    file cannot establish deliberate-break proof.
+    """
+    return executed == selected or ("[" not in selected and executed.startswith(f"{selected}["))
+
+
 def _missing_module_from_pytest_output(
     *streams: str | None, executed_test_id: str | None = None
 ) -> str | None:
@@ -821,7 +832,7 @@ def _missing_module_from_pytest_output(
         return None
     if executed_test_id is not None:
         executed = {match.group(1) or match.group(2) for match in _TEST_RESULT_RE.finditer(joined)}
-        if executed_test_id in executed:
+        if any(_pytest_node_id_matches_selected(executed_test_id, node) for node in executed):
             return None
     match = _MISSING_MODULE_RE.search(joined)
     return match.group(1) if match else None
@@ -1124,7 +1135,7 @@ def verify_spec(
     # collection-like text printed inside a failing test remains behavioral RED.
     base_output = "\n".join(stream for stream in (base_run.stdout, base_run.stderr) if stream)
     unexecuted_collection = _COLLECTION_ERROR_RE.search(base_output) and not any(
-        (match.group(1) or match.group(2)) == spec.test_id
+        _pytest_node_id_matches_selected(spec.test_id, match.group(1) or match.group(2))
         for match in _TEST_RESULT_RE.finditer(base_output)
     )
     if _is_pytest_command(spec.command) and (base_run.returncode != 1 or unexecuted_collection):

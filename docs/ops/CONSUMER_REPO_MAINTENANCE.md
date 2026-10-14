@@ -970,6 +970,12 @@ named head/base test proof. Other repository pytest configuration remains active
 and explicit author-provided commands are unchanged. Full-suite CI retains its
 normal coverage and plugin options; this does not weaken that separate gate.
 
+For pytest deliberate-break proof, a base-function marker such as
+`tests/test_x.py::test_case` accepts an executed parametrized node of that same
+function, such as `tests/test_x.py::test_case[param]`. A marker that explicitly
+names a parameter remains exact: another parameter, function, or file cannot
+qualify. Collection diagnostics still require evidence that the selected node ran.
+
 The deliberate-break assertion-tamper check rejects removed assertions,
 including an old assertion replaced by a stronger one. The former temporary
 Deliverable-Render issue #36 exception is retired now that the stronger

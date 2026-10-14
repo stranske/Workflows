@@ -2490,6 +2490,61 @@ def test_base_missing_import_inside_a_test_still_proves_red(
     assert ("ERROR collecting" in result["base_stdout"] + result["base_stderr"]) == collection_text
 
 
+@pytest.mark.parametrize("prefix", ["", "templates/consumer-repo/"])
+def test_base_parametrized_execution_proves_red_despite_collection_text(tmp_path, prefix):
+    """A base-function marker covers its executed parametrized pytest node.
+
+    The collection-looking text models a second diagnostic emitted in the same pytest
+    run.  It must not erase proof that the selected case actually ran and failed.
+    """
+    helper = runpy.run_path(
+        str(Path(__file__).resolve().parents[2] / prefix / "scripts/check_deliberate_break.py")
+    )
+    repo = tmp_path / "repo"
+    repo.mkdir()
+    _init_repo(repo)
+    (repo / "app.py").write_text("VALUE = 0\n", encoding="utf-8")
+    base = _commit(repo, "base behavior")
+    (repo / "app.py").write_text("VALUE = 1\n", encoding="utf-8")
+    (repo / "test_candidate.py").write_text(
+        "import pytest\nimport app\n\n"
+        "@pytest.mark.parametrize('expected', [1])\n"
+        "def test_value(expected):\n"
+        "    print('ERROR collecting unrelated.py')\n"
+        "    assert app.VALUE == expected\n",
+        encoding="utf-8",
+    )
+    _commit(repo, "candidate implementation and parametrized test")
+    spec = helper["DeliberateBreakSpec"](
+        "test_candidate.py::test_value",
+        "test_candidate.py",
+        "app.py",
+        (sys.executable, "-m", "pytest", "-q", "-o", "addopts=", "test_candidate.py::test_value"),
+    )
+
+    result = helper["verify_spec"](spec, base=base, cwd=repo, enforce_tamper=False)
+
+    assert result["verdict"] == VERDICT_PASS
+    assert result["reason"] == "head-passed-base-failed"
+    assert "FAILED test_candidate.py::test_value[1]" in result["base_stdout"]
+
+
+@pytest.mark.parametrize("prefix", ["", "templates/consumer-repo/"])
+def test_pytest_node_identity_requires_the_selected_parameter(prefix):
+    helper = runpy.run_path(
+        str(Path(__file__).resolve().parents[2] / prefix / "scripts/check_deliberate_break.py")
+    )
+    matches = helper["_pytest_node_id_matches_selected"]
+
+    assert matches("tests/test_x.py::test_case", "tests/test_x.py::test_case[param]")
+    assert matches("tests/test_x.py::test_case[param]", "tests/test_x.py::test_case[param]")
+    assert not matches("tests/test_x.py::test_case[param]", "tests/test_x.py::test_case[other]")
+    assert not matches(
+        "tests/test_x.py::test_case[param]", "tests/test_x.py::test_case_extra[param]"
+    )
+    assert not matches("tests/test_x.py::test_case[param]", "tests/test_y.py::test_case[param]")
+
+
 @pytest.mark.parametrize(
     "command",
     [
