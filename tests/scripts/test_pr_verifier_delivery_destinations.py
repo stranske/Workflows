@@ -5873,6 +5873,41 @@ def test_issue3835_count_modifier_cannot_create_empty_destination_option():
     )
 
 
+@pytest.mark.parametrize(
+    "criterion",
+    [
+        "- [ ] A PR review comment is required",
+        "A PR review comment must be left",
+        "A PR review comment needs to be posted",
+        "A PR review comment has to be posted",
+    ],
+)
+def test_issue3835_standalone_comment_duties_keep_the_comment_floor(criterion):
+    assert verifier._required_evidence_channels(criterion) == {"comments"}
+    assert verifier._required_evidence_options(criterion) == [{"comments"}]
+    assert _floor_verdict(criterion, body="present", comments="absent") == "CONCERNS"
+
+
+@pytest.mark.parametrize(
+    "criterion",
+    [
+        "The parser must record review comments",
+        "The API must publish review comments",
+    ],
+)
+def test_issue3835_product_comment_objects_without_pr_destinations_are_not_delivery(criterion):
+    assert verifier._required_evidence_channels(criterion) == set()
+    assert verifier._required_evidence_options(criterion) == [set()]
+    assert _floor_verdict(criterion, body="absent", comments="absent", artifacts="absent") == "PASS"
+
+
+def test_issue3835_product_comment_object_with_pr_destination_keeps_comment_floor():
+    criterion = "The API must publish review comments in the PR"
+    assert verifier._required_evidence_channels(criterion) == {"comments"}
+    assert verifier._required_evidence_options(criterion) == [{"comments"}]
+    assert _floor_verdict(criterion, body="present", comments="absent") == "CONCERNS"
+
+
 @pytest.mark.parametrize("prefix", ["the", "our", "their", "each appointed"])
 @pytest.mark.parametrize("boundary", [" and ", ", and ", " but ", " while "])
 @pytest.mark.parametrize("artifact", ["an artifact", "a workflow artifact"])

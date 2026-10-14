@@ -1142,7 +1142,7 @@ _EVIDENCE_REVIEW_COMMENT_DESTINATION = (
 _DELIVERED_EVIDENCE_OBJECT_END = (
     r"(?=(?:\s+" + _EVIDENCE_DELIVERY_ADVERB + r"){0,3}\s*"
     r"(?:$|[;:,.!?\n]|(?:and|or|but|while|that|which|where|is|are|must|shall|"
-    r"may|can|only|solely|if|when|on|at|by|with|from|using|"
+    r"needs?|has|may|can|only|solely|if|when|on|at|by|with|from|using|"
     + _EVIDENCE_DESTINATION_PREPOSITION
     + r"|"
     + _REVIEW_CONTENT_PARTICIPLE
@@ -1192,15 +1192,19 @@ def _normalize_review_comment_destinations(acceptance: str) -> str:
         + r"|\s+(?:is|are)\s+(?:required|needed|mandatory)\b"
         + standalone_predicate_end
         + r"|"
-        r"\s+(?:must|shall)\s+be\s+(?:present|provided|included|attached|posted|"
-        r"required|needed|mandatory)\b" + standalone_predicate_end,
+        r"\s+(?:(?:must|shall)\s+be|(?:needs?|has)\s+to(?:\s+be)?)\s+"
+        r"(?:present|provided|included|attached|posted|left|required|needed|mandatory)\b"
+        + standalone_predicate_end,
         re.I,
     )
     standalone_modifier = (
         r"(?!(?:for|of|in|into|to|on|with|by|from)\b)" + _EVIDENCE_OBJECT_MODIFIER_WORD
     )
     standalone_subject = re.compile(
-        r"(?:^|[;.!?\n]\s*|(?:[-*+]\s+))" + r"(?:" + _EVIDENCE_COUNT_MODIFIER + r")?"
+        r"(?:^|[;.!?\n]\s*|(?:[-*+]\s+(?:\[[ xX]\]\s+)?))"
+        + r"(?:"
+        + _EVIDENCE_COUNT_MODIFIER
+        + r")?"
         r"(?:(?:the|an?)\s+)?" + r"(?:" + standalone_modifier + r"\s+){0,6}$",
         re.I,
     )
@@ -1225,7 +1229,7 @@ def _normalize_review_comment_destinations(acceptance: str) -> str:
         after = acceptance[match.end() : match.end() + 96]
         if not re.match(_DELIVERED_EVIDENCE_OBJECT_END, after, re.I):
             return match[0]
-        if re.search(
+        product_delivery = re.search(
             r"\b"
             + _EVIDENCE_PRODUCT_ACTOR
             + r"\s+(?:(?:"
@@ -1239,7 +1243,10 @@ def _normalize_review_comment_destinations(acceptance: str) -> str:
             + r"$",
             before,
             re.I,
-        ) and re.match(r"\s+(?:to|for)\s+" + _EVIDENCE_PRODUCT_RECIPIENT, after, re.I):
+        )
+        if product_delivery and not re.match(
+            r"\s+(?:in|into|on)\s+(?:(?:the|an?)\s+)?(?:pr|pull request)\b", after, re.I
+        ):
             return match[0]
         if (
             standalone_requirement.match(after)
