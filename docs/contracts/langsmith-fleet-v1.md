@@ -118,10 +118,12 @@ block or reopen the original merge path.
 
 `config/langsmith_fleet_allowlist.json` covers registered maintenance consumers
 where runtime observability is intentionally not applicable. The current
-allowlist is Template, Ready, and Collab-Admin. A repository created from one
-of those templates must move into the registry when it gains a substantive
-runtime; that activation condition is recorded in each allowlist entry and is
-validated alongside Maint 68 consumer coverage.
+allowlist is Template, Ready, Orchestrator, Doc-Lineage, Deliverable-Render,
+and Manager-Mosaic. A repository must move into the registry when it gains a
+substantive traced runtime; that activation condition is recorded in each
+allowlist entry and is validated alongside Maint 68 consumer coverage. Direct
+owner exclusions are removed from both consumer coverage and observability
+exemptions until explicitly reinstated.
 
 Dashboard status is computed per registry entry:
 

@@ -11,6 +11,12 @@ from __future__ import annotations
 import argparse
 from pathlib import Path
 
+OWNER_EXCLUDED_REPOSITORIES = frozenset({"stranske/collab-admin"})
+
+
+def is_owner_excluded(repo: str) -> bool:
+    return repo.strip().casefold() in OWNER_EXCLUDED_REPOSITORIES
+
 
 def extract_repos(manifest: Path) -> list[str]:
     lines = manifest.read_text(encoding="utf-8").splitlines()
@@ -30,7 +36,7 @@ def extract_repos(manifest: Path) -> list[str]:
             break
 
         value = stripped
-        if value:
+        if value and not is_owner_excluded(value):
             repos.append(value)
 
     return repos

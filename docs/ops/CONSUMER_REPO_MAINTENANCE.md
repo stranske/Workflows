@@ -1335,8 +1335,12 @@ withheld from continuation until its owner publishes a matching handoff.
 `campaign_prepared` delivery records are stored as terminal evidence but
 schedule campaign authorization; Maint 82 therefore verifies their live open
 PR and reconciles closure before scheduling that continuation.
-Scheduled Maint 82 continuations exclude the manual Collab-Admin exception.
-Its `delivery` selector targets only registered `sync/workflows-delivery`
+The owner exclusion for `stranske/Collab-Admin` is case-insensitive and applies
+before registered or explicit campaign discovery, limits, API calls, cached
+items, handoffs, reconciliation errors, blocker keys, counts and reports.
+Historical receipts remain append-only; only the active campaign projection is
+pruned. Scheduled Maint 82 continuations therefore exclude that repository.
+The `delivery` selector targets only registered `sync/workflows-delivery`
 handoffs with the selected immutable plan, scope, base and source; candidate-only
 repositories are not sent to that lane as false `target_missing` failures.
 Maint 68 and Maint 71 share one repository-scoped GitHub Actions concurrency
@@ -2762,6 +2766,12 @@ runtime exports and licenses, and update the source and consumer template trees
 together before Maint 68/71 delivery. The current patched chain is minimatch
 10.2.6, brace-expansion 5.0.12 and balanced-match 4.0.4. Brace-expansion requires
 Node 20 or >=22; the current Actions runtime supports that floor, not Node 18.
+
+Maint68 removes owner-excluded repositories from its authoritative registered
+consumer list and filters direct phase-selection inputs and canaries before
+constructing matrices. Excluded manifest include scopes do not become eligible
+through unregistered-scope validation. Compact source-history records are
+filtered using their matching item identity or PR URL, even without a repo field.
 
 ### Diagnostic partition admission failures
 
