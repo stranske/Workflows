@@ -1,7 +1,9 @@
 """Exercise the evidence CLIs across interpreter and report-path boundaries."""
 
+import hashlib
 import json
 import os
+import shutil
 import subprocess
 import sys
 from pathlib import Path
@@ -95,6 +97,29 @@ else:
 
 
 def test_replay_suite_cli_quotes_report_paths_with_spaces(tmp_path):
+    fixture_root = tmp_path / "frozen replay fixture"
+    fixture_evidence = fixture_root / "docs/evidence/issue-3743/uv-resolution"
+    fixture_evidence.mkdir(parents=True)
+    shutil.copy2(EVIDENCE / "replay_suites.py", fixture_evidence / "replay_suites.py")
+    suite_inputs = {}
+    for name in (
+        "test_check_deliberate_break.py",
+        "test_check_deliberate_break_archive.py",
+        "test_check_deliberate_break_launch_boundaries.py",
+        "test_check_deliberate_break_runtime_probes.py",
+        "test_launch_mutation_driver.py",
+        "test_runtime_probe_replay.py",
+        "test_check_deliberate_break_repair_failures.py",
+        "test_check_deliberate_break_uv_resolution.py",
+    ):
+        relative = f"tests/scripts/{name}"
+        snapshot = fixture_root / relative
+        snapshot.parent.mkdir(parents=True, exist_ok=True)
+        snapshot.write_text(f"# frozen CLI transport fixture: {name}\n", encoding="utf-8")
+        suite_inputs[relative] = hashlib.sha256(snapshot.read_bytes()).hexdigest()
+    (fixture_evidence / "selection.json").write_text(
+        json.dumps({"suite_inputs": suite_inputs}), encoding="utf-8"
+    )
     modules = tmp_path / "fake modules"
     modules.mkdir()
     # This stand-in checks only the CLI transport, not pytest or test outcomes.
@@ -115,7 +140,7 @@ junit.write_text('<testsuite/>')
     output = tmp_path / "proof reports with spaces"
     env = {**os.environ, "PYTHONPATH": str(modules)}
     result = subprocess.run(
-        [sys.executable, str(EVIDENCE / "replay_suites.py"), "--output", str(output)],
+        [sys.executable, str(fixture_evidence / "replay_suites.py"), "--output", str(output)],
         cwd=tmp_path,
         env=env,
         capture_output=True,
@@ -125,7 +150,7 @@ junit.write_text('<testsuite/>')
     assert result.returncode == 0, result.stdout + result.stderr
     for phase in ("baseline", "candidate"):
         report = json.loads((output / f"{phase}.json").read_text())
-        assert report["cwd"] == str(ROOT)
+        assert report["cwd"] == str(fixture_root)
         assert report["coverage_file"] == str(output / f".coverage-{phase}")
         assert all(str(output) not in arg for arg in report["argv"])
         assert report["argv"][report["argv"].index("-m", 3) + 1] == "not slow"
