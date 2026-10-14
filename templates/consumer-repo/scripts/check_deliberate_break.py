@@ -804,7 +804,11 @@ _COLLECTION_ERROR_RE = re.compile(
 )
 
 
-_TEST_RESULT_RE = re.compile(r"(?m)^(?:(PASSED|FAILED)\s+(\S+)|(\S+)\s+(PASSED|FAILED)(?:\s|$))")
+_TEST_RESULT_RE = re.compile(r"""(?mx)
+    ^(?:(?P<summary_status>PASSED|FAILED)\s+(?P<summary_tail>.+)
+      |(?P<verbose_node>.+)\s+
+       (?P<verbose_status>PASSED|FAILED)(?:\s+\[\d+%\])?\s*)$
+    """)
 
 
 def _pytest_node_id_matches_selected(selected: str, executed: str) -> bool:
@@ -818,13 +822,45 @@ def _pytest_node_id_matches_selected(selected: str, executed: str) -> bool:
     return executed == selected or ("[" not in selected and executed.startswith(f"{selected}["))
 
 
+def _pytest_summary_node(summary_tail: str) -> str | None:
+    """Extract a node ID from pytest's ``FAILED node - detail`` summary record."""
+    separator = summary_tail.find("::")
+    if separator < 0:
+        return None
+    parameter_start = summary_tail.find("[", separator + 2)
+    if parameter_start < 0:
+        detail = summary_tail.find(" - ", separator + 2)
+        return summary_tail if detail < 0 else summary_tail[:detail]
+    boundary = None
+    index = summary_tail.find(" - ", parameter_start)
+    saw_separator = index >= 0
+    while index >= 0:
+        if summary_tail[index - 1] == "]":
+            if boundary is not None:
+                return None
+            boundary = index
+        index = summary_tail.find(" - ", index + 3)
+    if summary_tail.endswith("]"):
+        return summary_tail if boundary is None else None
+    if not saw_separator:
+        return summary_tail
+    return summary_tail[:boundary] if boundary is not None else None
+
+
 def _pytest_results_from_output(*streams: str | None) -> list[tuple[str, str]]:
     """Return pytest result status and node ID pairs from its terminal output."""
     joined = "\n".join(stream for stream in streams if stream)
-    return [
-        (match.group(1) or match.group(4), match.group(2) or match.group(3))
-        for match in _TEST_RESULT_RE.finditer(joined)
-    ]
+    results = []
+    for match in _TEST_RESULT_RE.finditer(joined):
+        status = match["summary_status"] or match["verbose_status"]
+        node = (
+            _pytest_summary_node(match["summary_tail"])
+            if match["summary_status"]
+            else match["verbose_node"]
+        )
+        if node is not None and "::" in node:
+            results.append((status, node))
+    return results
 
 
 def _missing_module_from_pytest_output(

@@ -2546,6 +2546,26 @@ def test_pytest_node_identity_requires_the_selected_parameter(prefix):
 
 
 @pytest.mark.parametrize("prefix", ["", "templates/consumer-repo/"])
+def test_pytest_result_parser_retains_supported_spaced_and_punctuated_node_ids(prefix):
+    helper = runpy.run_path(
+        str(Path(__file__).resolve().parents[2] / prefix / "scripts/check_deliberate_break.py")
+    )
+    node = 'tests/тест file.py::test_Δ[has - space, "quote"(brace){%}\\path]'
+
+    assert helper["_pytest_results_from_output"](
+        f"{node} FAILED [100%]\nFAILED {node} - assert left - right\nPASSED {node}"
+    ) == [("FAILED", node), ("FAILED", node), ("PASSED", node)]
+    assert helper["_pytest_results_from_output"]("FAILED unrelated diagnostic") == []
+    opaque = "tests/test_x.py::test_case[unbalanced]tail["
+    assert helper["_pytest_results_from_output"](f"FAILED {opaque}") == [("FAILED", opaque)]
+    ambiguous = "tests/test_x.py::test_case[has] - other]"
+    assert helper["_pytest_results_from_output"](f"FAILED {ambiguous}") == []
+    assert helper["_pytest_results_from_output"](
+        f"FAILED {ambiguous} - assert left - right\n{ambiguous} FAILED"
+    ) == [("FAILED", ambiguous)]
+
+
+@pytest.mark.parametrize("prefix", ["", "templates/consumer-repo/"])
 @pytest.mark.parametrize("selected_passes_base", [True, False])
 def test_real_collection_error_requires_selected_failed_node(
     tmp_path, prefix, selected_passes_base
@@ -2599,6 +2619,54 @@ def test_real_collection_error_requires_selected_failed_node(
         assert result["verdict"] == VERDICT_PASS
         assert result["reason"] == "head-passed-base-failed"
         assert "test_candidate.py::test_value[1] FAILED" in result["base_stdout"]
+
+
+@pytest.mark.parametrize("prefix", ["", "templates/consumer-repo/"])
+def test_collection_error_accepts_explicit_parametrized_node_with_space_and_punctuation(
+    tmp_path, prefix
+):
+    """A selected parametrized ID remains exact when pytest prints its supported spacing."""
+    helper = runpy.run_path(
+        str(Path(__file__).resolve().parents[2] / prefix / "scripts/check_deliberate_break.py")
+    )
+    repo = tmp_path / "repo"
+    repo.mkdir()
+    _init_repo(repo)
+    (repo / "app.py").write_text("VALUE = 0\n", encoding="utf-8")
+    (repo / "test_unrelated.py").write_text("import missing_only_on_base\n", encoding="utf-8")
+    base = _commit(repo, "base behavior with unrelated collection error")
+    (repo / "app.py").write_text("VALUE = 1\n", encoding="utf-8")
+    (repo / "test_unrelated.py").unlink()
+    (repo / "test_candidate.py").write_text(
+        "import pytest\nimport app\n\n"
+        "@pytest.mark.parametrize('expected', [1], ids=['has space,case-1'])\n"
+        "def test_value(expected):\n"
+        "    assert app.VALUE == expected\n",
+        encoding="utf-8",
+    )
+    _commit(repo, "candidate implementation and spaced parametrized test")
+    selected = "test_candidate.py::test_value[has space,case-1]"
+    spec = helper["DeliberateBreakSpec"](
+        selected,
+        "test_candidate.py",
+        "app.py",
+        (
+            sys.executable,
+            "-m",
+            "pytest",
+            "-v",
+            "-o",
+            "addopts=",
+            "--continue-on-collection-errors",
+            ".",
+        ),
+    )
+
+    result = helper["verify_spec"](spec, base=base, cwd=repo, enforce_tamper=False)
+
+    assert result["verdict"] == VERDICT_PASS
+    assert result["reason"] == "head-passed-base-failed"
+    assert f"{selected} FAILED" in result["base_stdout"]
 
 
 @pytest.mark.parametrize(
