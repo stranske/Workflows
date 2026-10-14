@@ -1461,6 +1461,42 @@ def _normalize_relative_review_presence(acceptance: str) -> str:
     return acceptance
 
 
+def _normalize_bare_artifact_destinations(acceptance: str) -> str:
+    """Map bare artifact destinations to the shared workflow-artifact channel."""
+    return re.sub(
+        r"(?P<literal>" + _QUOTED_EVIDENCE_LITERAL + r")|"
+        r"\b(?P<prep>in|into|to|within)\s+(?P<article>an?\s+)artifacts?\b(?!\s+provenance)",
+        lambda match: (
+            match[0]
+            if match["literal"]
+            else f"{match['prep']} {match['article']}workflow artifact"
+        ),
+        acceptance,
+        flags=re.I,
+    )
+
+
+def _normalize_evidence_source_filename_qualifiers(acceptance: str) -> str:
+    """Retain quantified destinations after a bounded evidence-source filename."""
+    filename = r"(?:" + _QUOTED_EVIDENCE_LITERAL + r"|[A-Za-z0-9][\w./-]*)"
+    destination_head = (
+        r"(?:(?:both|either)\s+)?(?:(?:in|into|to|within|on|as)\s+)?(?:an?\s+)?"
+        + _EVIDENCE_DESTINATION_PREPOSITION
+        + r"\s+"
+    )
+    return re.sub(
+        r"(?P<literal>" + _QUOTED_EVIDENCE_LITERAL + r")|"
+        r"(?P<object>\bevidence)\s+from\s+"
+        + filename
+        + r"(?=\s+"
+        + destination_head
+        + r")",
+        lambda match: match[0] if match["literal"] else match["object"],
+        acceptance,
+        flags=re.I,
+    )
+
+
 def _normalize_review_content_qualifiers(acceptance: str) -> str:
     """Keep bounded destination content from becoming a second proof delivery."""
     modifier = (
@@ -1494,6 +1530,8 @@ def _required_evidence_channels(acceptance: str, *, _bind_attached: bool = True)
     """Identify explicit evidence deliverables without treating negations as requirements."""
 
     acceptance = _normalize_review_comment_destinations(acceptance)
+    acceptance = _normalize_bare_artifact_destinations(acceptance)
+    acceptance = _normalize_evidence_source_filename_qualifiers(acceptance)
     acceptance = _normalize_review_content_qualifiers(acceptance)
     acceptance = _normalize_passive_review_agents(acceptance)
     acceptance = _normalize_relative_review_presence(acceptance)
@@ -4352,6 +4390,8 @@ def _required_evidence_options(acceptance: str) -> list[set[str]]:
     requirement rather than dropping an obligation.
     """
     acceptance = _normalize_review_comment_destinations(acceptance)
+    acceptance = _normalize_bare_artifact_destinations(acceptance)
+    acceptance = _normalize_evidence_source_filename_qualifiers(acceptance)
     acceptance = _normalize_review_content_qualifiers(acceptance)
     acceptance = _normalize_passive_review_agents(acceptance)
     acceptance = _normalize_relative_review_presence(acceptance)

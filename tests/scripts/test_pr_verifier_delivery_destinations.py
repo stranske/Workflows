@@ -5158,3 +5158,52 @@ def test_issue3835_as_artifact_reuses_shared_delivery_operations(operation):
 def test_issue3835_review_comment_alternative_keeps_shared_options():
     criterion = "Evidence must be posted in a PR review comment or in the PR body"
     assert verifier._required_evidence_options(criterion) == [{"comments"}, {"body"}]
+
+
+@pytest.mark.parametrize(
+    "criterion,expected_channels,expected_options",
+    [
+        (
+            "The reviewer must upload evidence from results.json both in a PR comment and in an artifact",
+            {"comments", "artifacts"},
+            [{"comments", "artifacts"}],
+        ),
+        (
+            "The reviewer must upload evidence from results.json either in a PR comment or in an artifact",
+            {"comments", "artifacts"},
+            [{"comments"}, {"artifacts"}],
+        ),
+    ],
+)
+def test_issue3883_filename_qualified_quantified_destinations(
+    criterion, expected_channels, expected_options
+):
+    assert verifier._required_evidence_channels(criterion) == expected_channels
+    assert verifier._required_evidence_options(criterion) == expected_options
+
+
+def test_issue3883_filename_qualified_both_requires_every_destination():
+    criterion = (
+        "The reviewer must upload evidence from results.json both in a PR comment and in an artifact"
+    )
+    assert (
+        _floor_verdict(criterion, body="present", comments="absent", artifacts="present")
+        == "CONCERNS"
+    )
+    assert (
+        _floor_verdict(criterion, body="present", comments="present", artifacts="absent")
+        == "CONCERNS"
+    )
+
+
+def test_issue3883_filename_qualified_either_accepts_one_destination():
+    criterion = (
+        "The reviewer must upload evidence from results.json either in a PR comment or in an artifact"
+    )
+    assert _floor_verdict(criterion, body="absent", comments="present", artifacts="absent") == "PASS"
+    assert (
+        _floor_verdict(criterion, body="present", comments="absent", artifacts="present") == "PASS"
+    )
+    assert (
+        _floor_verdict(criterion, body="absent", comments="absent", artifacts="absent") == "CONCERNS"
+    )
