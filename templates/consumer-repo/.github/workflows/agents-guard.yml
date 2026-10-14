@@ -683,14 +683,26 @@ jobs:
               return;
             }
 
-            const policyLabels = new Set([
+            const routingLabels = new Set([
               'agent:auto', 'agent:codex', 'agent:claude', 'agent:copilot',
-              'agents:auto-pilot', 'agents:keepalive', 'agents:allow-change',
+              'agents:auto-pilot', 'agents:keepalive',
             ]);
-            const policyLabelNames = (labels) => (labels || [])
-              .map((label) => typeof label?.name === 'string' ? label.name : '')
-              .filter((label) => policyLabels.has(label))
-              .sort();
+            const permissionLabel = 'agents:allow-change';
+            const policyLabelNames = (labels) => {
+              if (!Array.isArray(labels)) {
+                throw new Error('PR label evidence is incomplete.');
+              }
+              const names = labels.map((label) => {
+                if (typeof label?.name !== 'string') {
+                  throw new Error('PR label evidence is malformed.');
+                }
+                const raw = label.name;
+                const routing = raw.trim().toLowerCase();
+                if (routingLabels.has(routing)) return routing;
+                return raw.toLowerCase() === permissionLabel ? permissionLabel : '';
+              }).filter(Boolean);
+              return [...new Set(names)].sort();
+            };
             const snapshotLabels = policyLabelNames(pullRequest?.labels);
 
             const blocked = (process.env.BLOCKED || '').toLowerCase() === 'true';
@@ -711,10 +723,25 @@ jobs:
               description = reason;
             }
 
-            function truncateDescription() {
-              if (description.length > 140) {
-                description = `${description.slice(0, 137)}...`;
+            async function policyFingerprint(labels) {
+              const canonical = labels.join('\n');
+              const digest = await crypto.subtle.digest(
+                'SHA-256', new TextEncoder().encode(canonical),
+              );
+              return Array.from(new Uint8Array(digest))
+                .map((byte) => byte.toString(16).padStart(2, '0'))
+                .join('');
+            }
+
+            function finalizeDescription(fingerprint) {
+              const receipt = state === 'success'
+                ? ` [guard-policy-sha256:${fingerprint}]`
+                : '';
+              const maximum = 140 - receipt.length;
+              if (description.length > maximum) {
+                description = `${description.slice(0, maximum - 3)}...`;
               }
+              description += receipt;
             }
 
             const targetUrl =
@@ -785,6 +812,7 @@ jobs:
                 throw new Error('Current PR label evidence is incomplete.');
               }
               const currentLabelNames = policyLabelNames(currentLabels);
+              const currentPolicyFingerprint = await policyFingerprint(currentLabelNames);
               const labelsChanged =
                 JSON.stringify(currentLabelNames) !== JSON.stringify(snapshotLabels);
               if (labelsChanged) {
@@ -807,9 +835,16 @@ jobs:
                 );
                 if (existing) {
                   if (context.eventName === 'pull_request_target' && existing.state === 'success') {
-                    // A removed routing label must invalidate a previously green
-                    // context. A fresh eligible evaluation may recover it.
-                    setFailure('Health 45 Agents Guard routing changed; fresh evaluation required.');
+                    const expectedReceipt =
+                      ` [guard-policy-sha256:${currentPolicyFingerprint}]`;
+                    if (typeof existing.description === 'string'
+                        && existing.description.endsWith(expectedReceipt)) {
+                      core.info('Ineligible PR event: preserving policy-bound exact-head success.');
+                      return;
+                    }
+                    // A changed, missing, or malformed policy receipt cannot
+                    // retain a green context. A fresh eligible run may recover it.
+                    setFailure('Health 45 Agents Guard policy changed; fresh evaluation required.');
                   } else {
                     core.info('Ineligible PR event: preserving existing exact-head guard verdict.');
                     return;
@@ -819,7 +854,7 @@ jobs:
                   return;
                 }
               }
-              truncateDescription();
+              finalizeDescription(currentPolicyFingerprint);
               await withApiRetry(
                 (client) => client.rest.repos.createCommitStatus({
                   owner,

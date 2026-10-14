@@ -215,7 +215,7 @@ new AsyncFunction('github', 'context', 'core', input.script)(github, context, co
             # green verdict. A fresh eligible event supplies recovery.
             assert len(calls) == 1
             assert calls[0]["state"] == "failure"
-            assert "routing changed" in calls[0]["description"]
+            assert "policy changed" in calls[0]["description"]
             return
         # An ineligible event cannot clear a non-success terminal verdict.
         assert calls == []
@@ -403,3 +403,84 @@ new AsyncFunction('github', 'context', 'core', input.script)(github, context, co
     assert writes[0]["context"] == "Health 45 Agents Guard / guard"
     if expected_state == "failure":
         assert "labels changed" in writes[0]["description"]
+
+
+@pytest.mark.parametrize(
+    "prior_labels,current_labels,expected_writes",
+    [
+        # A queued unrelated seal event preserves a policy-bound green status.
+        (["agent:codex"], ["agent:codex", "sync:delivery-sealed"], 0),
+        # A later ineligible event cannot preserve a green receipt from revoked policy.
+        (["agent:codex", "agents:allow-change"], [], 1),
+        # The guard lowercases routing and permission labels before evaluation.
+        (["AGENT:CODEX", "AGENTS:ALLOW-CHANGE"], [], 1),
+    ],
+)
+def test_ineligible_label_event_requires_matching_policy_receipt(
+    prior_labels, current_labels, expected_writes
+):
+    import hashlib
+
+    workflow = yaml.safe_load((ROOT / ".github/workflows/agents-guard.yml").read_text())
+    script = next(
+        step["with"]["script"]
+        for step in workflow["jobs"]["guard"]["steps"]
+        if step.get("name") == "Report agents guard commit status"
+    )
+    routing = {
+        "agent:auto",
+        "agent:codex",
+        "agent:claude",
+        "agent:copilot",
+        "agents:auto-pilot",
+        "agents:keepalive",
+    }
+    canonical = sorted(
+        {label.strip().lower() for label in prior_labels if label.strip().lower() in routing}
+        | {label.lower() for label in prior_labels if label.lower() == "agents:allow-change"}
+    )
+    fingerprint = hashlib.sha256("\n".join(canonical).encode()).hexdigest()
+    harness = r"""
+const input = JSON.parse(require('fs').readFileSync(0, 'utf8'));
+Object.assign(process.env, {ELIGIBLE: 'false', JOB_STATUS: 'success'});
+const writes = [];
+const github = {rest: {repos: {createCommitStatus: async p => writes.push(p), listCommitStatusesForRef() {}}, issues: {listLabelsOnIssue() {}}}, paginate: async method => method === github.rest.issues.listLabelsOnIssue ? input.currentLabels : [{context: 'Health 45 Agents Guard / guard', state: 'success', description: input.description}]};
+const context = {repo: {owner: 'owner', repo: 'repo'}, eventName: 'pull_request_target', payload: {pull_request: {number: 4, labels: input.snapshotLabels, head: {sha: 'a'.repeat(40)}}}, serverUrl: 'https://github.com', runId: 42};
+const core = {info() {}, error() {}, setFailed(message) { throw Error(message); }};
+const AsyncFunction = Object.getPrototypeOf(async function(){}).constructor;
+new AsyncFunction('github', 'context', 'core', input.script)(github, context, core).then(() => process.stdout.write(JSON.stringify(writes)));
+"""
+    result = subprocess.run(
+        ["node", "-e", harness],
+        input=json.dumps(
+            {
+                "script": script,
+                "snapshotLabels": [{"name": label} for label in current_labels],
+                "currentLabels": [{"name": label} for label in current_labels],
+                "description": (
+                    "Trusted Agents Guard completed successfully "
+                    f"[guard-policy-sha256:{fingerprint}]"
+                ),
+            }
+        ),
+        text=True,
+        capture_output=True,
+        check=True,
+    )
+    writes = json.loads(result.stdout)
+    assert len(writes) == expected_writes
+    if expected_writes:
+        assert writes[0]["state"] == "failure"
+        assert "policy changed" in writes[0]["description"]
+
+
+def test_policy_receipt_uses_guard_label_normalization_contract():
+    source = (ROOT / ".github/workflows/agents-guard.yml").read_text()
+    helper = (ROOT / ".github/scripts/agents-guard-fork-status-publication.js").read_text()
+    for value in (source, helper):
+        assert "raw.trim().toLowerCase()" in value
+        assert (
+            "raw.toLowerCase() === permissionLabel" in value
+            or "raw.toLowerCase() === PERMISSION_LABEL" in value
+        )
+        assert "Array.isArray(labels)" in value

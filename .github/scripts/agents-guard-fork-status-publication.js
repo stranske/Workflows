@@ -1,5 +1,7 @@
 'use strict';
 
+const crypto = require('crypto');
+
 const GUARD_CONTEXT = 'Health 45 Agents Guard / guard';
 const GUARD_PATH = '.github/workflows/agents-guard.yml';
 const GUARD_JOB_NAMES = new Set(['guard']);
@@ -14,6 +16,36 @@ const BLOCKED_FILES = new Set([
   '.github/path-classification.yml',
   'tools/post_ci_summary.py',
 ]);
+const ROUTING_LABELS = new Set([
+  'agent:auto', 'agent:codex', 'agent:claude', 'agent:copilot',
+  'agents:auto-pilot', 'agents:keepalive',
+]);
+const PERMISSION_LABEL = 'agents:allow-change';
+
+function policyLabelNames(labels) {
+  if (!Array.isArray(labels)) throw new Error('PR label evidence is incomplete');
+  const names = labels.map(label => {
+    if (typeof label?.name !== 'string') throw new Error('PR label evidence is malformed');
+    const raw = label.name;
+    const routing = raw.trim().toLowerCase();
+    if (ROUTING_LABELS.has(routing)) return routing;
+    return raw.toLowerCase() === PERMISSION_LABEL ? PERMISSION_LABEL : '';
+  }).filter(Boolean);
+  return [...new Set(names)].sort();
+}
+
+function policyFingerprint(labels) {
+  return crypto.createHash('sha256').update(labels.join('\n')).digest('hex');
+}
+
+function withPolicyReceipt(description, labels) {
+  const receipt = ` [guard-policy-sha256:${policyFingerprint(policyLabelNames(labels))}]`;
+  const maximum = 140 - receipt.length;
+  const summary = description.length > maximum
+    ? `${description.slice(0, maximum - 3)}...`
+    : description;
+  return `${summary}${receipt}`;
+}
 
 function runSnapshot(run) {
   const attempt = Number(run?.run_attempt);
@@ -229,7 +261,7 @@ async function publishGuardForkStatus({ github, context, core }) {
   const jobs = run.status === 'completed'
     ? await jobsForAttempt({ github, retry, owner, repo, run })
     : [];
-  const result = publicationState({ run, jobs, changedFiles: changedPaths });
+  let result = publicationState({ run, jobs, changedFiles: changedPaths });
 
   // Pagination can outlive a rerun, so read statuses before the final binding
   // checks for both replay suppression and a new write.
@@ -255,6 +287,9 @@ async function publishGuardForkStatus({ github, context, core }) {
   }
   await assertLatestAttempt({ github, retry, owner, repo, run });
 
+  if (result.state === 'success') {
+    result = { ...result, description: withPolicyReceipt(result.description, pr.labels) };
+  }
   if (!Array.isArray(statuses)) throw new Error('Exact-head status inventory is incomplete');
   const existing = statuses.filter(status => status?.context === GUARD_CONTEXT);
   if (existing.some(status => !['success', 'failure', 'error', 'pending'].includes(status.state) || typeof status.target_url !== 'string')) {
@@ -271,7 +306,8 @@ async function publishGuardForkStatus({ github, context, core }) {
   // listCommitStatusesForRef is newest-first. Only the latest status for this
   // context can suppress a replay: older attempts may share the same run URL.
   const current = existing[0];
-  if (current?.state === result.state && current.target_url === run.html_url) {
+  if (current?.state === result.state && current.target_url === run.html_url
+      && current.description === result.description) {
     core.info(`Agents Guard status already ${result.state} for ${pr.head.sha}; no write needed.`);
     return result;
   }

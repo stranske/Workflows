@@ -87,6 +87,7 @@ def _publish_scenario(
         "number": 4,
         "state": "open",
         "changed_files": 1,
+        "labels": [],
         "base": {"repo": {"id": 1}, "ref": base_ref},
         "head": {"repo": {"id": 1 if same_repo else 2}, "sha": "abc"},
     }
@@ -102,6 +103,7 @@ def _publish_scenario(
                     {
                         "context": "Health 45 Agents Guard / guard",
                         "state": "success",
+                        "description": "Trusted Agents Guard completed successfully [guard-policy-sha256:e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855]",
                         "target_url": "https://example.test/runs/9",
                     }
                 ]
@@ -514,6 +516,9 @@ def test_publisher_receipt_binds_status_and_both_run_attempts():
             "status_id": 123,
         }
     ]
+    assert result["writes"][0]["description"].endswith(
+        "[guard-policy-sha256:e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855]"
+    )
     assert _publish_scenario(replay=True)["receipts"] == []
 
 
