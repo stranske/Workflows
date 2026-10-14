@@ -7146,6 +7146,44 @@ def test_issue3883_filename_qualified_retains_independent_reviewer_body_duty():
     )
 
 
+@pytest.mark.parametrize(
+    "filename", ["results.json", "./out/results.json", "/tmp/results.json", '"results.json"']
+)
+@pytest.mark.parametrize(
+    "body,comments,artifacts,expected_verdict",
+    [
+        ("present", "present", "present", "PASS"),
+        ("present", "present", "absent", "PASS"),
+        ("present", "absent", "present", "PASS"),
+        ("present", "absent", "absent", "CONCERNS"),
+        ("absent", "present", "present", "CONCERNS"),
+        ("absent", "present", "absent", "CONCERNS"),
+        ("absent", "absent", "present", "CONCERNS"),
+        ("absent", "absent", "absent", "CONCERNS"),
+        ("unavailable", "present", "present", "CONCERNS"),
+        ("present", "unavailable", "absent", "CONCERNS"),
+        ("present", "absent", "unavailable", "CONCERNS"),
+    ],
+)
+def test_issue3883_filename_qualified_either_retains_independent_body_floor(
+    filename, body, comments, artifacts, expected_verdict
+):
+    """An alternative delivery cannot waive a separate reviewer's body obligation."""
+    criterion = (
+        f"The reviewer must upload evidence from {filename} either in a PR comment or in an artifact; "
+        "an independent reviewer must include evidence in the PR body"
+    )
+    assert verifier._required_evidence_channels(criterion) == {"comments", "artifacts", "body"}
+    assert verifier._required_evidence_options(criterion) == [
+        {"comments", "body"},
+        {"artifacts", "body"},
+    ]
+    assert (
+        _floor_verdict(criterion, body=body, comments=comments, artifacts=artifacts)
+        == expected_verdict
+    )
+
+
 def test_issue3883_quoted_filename_still_retains_quantified_destinations():
     criterion = 'Upload evidence from "results.json" both in a PR comment and in an artifact'
     assert verifier._required_evidence_channels(criterion) == {"comments", "artifacts"}
