@@ -6379,7 +6379,15 @@ def test_issue3835_product_modified_comment_state_is_not_delivery(actor, state):
             [{"body", "artifacts"}],
         ),
         (
+            "Evidence must be posted both in the PR body and as an artifact",
+            [{"body", "artifacts"}],
+        ),
+        (
             "Evidence must be posted either in the PR description or in an artifact",
+            [{"body"}, {"artifacts"}],
+        ),
+        (
+            "Evidence must be posted either in the PR description or as an artifact",
             [{"body"}, {"artifacts"}],
         ),
     ],

@@ -1699,9 +1699,11 @@ def _normalize_leading_review_destination_quantifier(acceptance: str) -> str:
     body_or_description = r"(?:(?:the|an?)\s+)?(?:pr|pull request)\s+(?:body|description)\b"
     return re.sub(
         r"(?P<literal>" + _QUOTED_EVIDENCE_LITERAL + r")|"
-        r"\b(?P<quantifier>both|either)\s+(?P<preposition>in|into|to)\s+"
+        r"\b(?P<quantifier>both|either)\s+(?P<preposition>"
+        + _EVIDENCE_DESTINATION_PREPOSITION
+        + r")\s+"
         r"(?P<destination>" + body_or_description + r")"
-        r"(?=\s+(?:and|or)\s+(?:in|into|to)\b)",
+        r"(?=\s+(?:and|or)\s+" + _EVIDENCE_DESTINATION_PREPOSITION + r"\b)",
         lambda match: (
             match[0]
             if match["literal"]
