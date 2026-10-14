@@ -1025,6 +1025,15 @@ _EVIDENCE_DELIVERY_ADVERBS = r"(?:" + _EVIDENCE_DELIVERY_ADVERB + r"\s+){0,3}"
 _EVIDENCE_DELIVERY_OPERATION = r"(?:prov(?:e|ing)|provid(?:e|ing)|return|display|show|emit|render|expos(?:e|ing)|stor(?:e|ing)|upload|attach|publish|post|record|copy|copies|copied|copying|captur(?:e|ing)|includ(?:e|ing)|contain|hav(?:e|ing)|document|generat(?:e|ing)|link|add|leav(?:e|ing)|left)\w*\b"
 _EVIDENCE_DELIVERY_PARTICIPLE_START = r"(?=(?:\w*(?:ed|en)|left)\b)"
 _EVIDENCE_DELIVERY_IRREGULAR_STATE = r"(?:made|sent|shown|put)"
+_EVIDENCE_PASSIVE_DELIVERY_OPERATION = (
+    r"(?:"
+    + _EVIDENCE_DELIVERY_OPERATION
+    + r"|"
+    + _EVIDENCE_DELIVERY_IRREGULAR_STATE
+    + r"|"
+    + _EVIDENCE_DELIVERY_PARTICIPLE_START
+    + r"\w*)"
+)
 _EVIDENCE_OBJECT_MODIFIER_WORD = (
     r"(?!(?:and|or|but|must|shall|is|are|not|never|may|can)\b)" r"(?=[\w/-]*\w)[\w/-]+"
 )
@@ -1169,7 +1178,10 @@ _INDEPENDENT_REVIEW_CLAUSE = (
 )
 
 _EVIDENCE_DESTINATION_PREPOSITION = r"(?:in|into|to|within|for|as|through|via)"
-_EVIDENCE_TEMPORAL_TAIL = r"(?:under|during|after|before|due\s+to)"
+_EVIDENCE_TEMPORAL_TAIL = (
+    r"(?:under|during|after|before|prior\s+to|until|once|throughout|"
+    r"when|while|since|following|due\s+to)"
+)
 _REVIEW_BODY_COMPONENT_TEMPORAL = (
     r"before|after|now|today|tomorrow|again|here|there|soon|always|daily|weekly|[\w-]+ly"
 )
@@ -1335,7 +1347,7 @@ def _normalize_review_comment_destinations(acceptance: str) -> str:
             return match[0]
         passive_product_producer = re.match(
             r"\s+(?:(?:must|shall)(?:\s+be)?|(?:needs?|has)\s+to(?:\s+be)?|is|are)\s+"
-            + _EVIDENCE_DELIVERY_OPERATION
+            + _EVIDENCE_PASSIVE_DELIVERY_OPERATION
             + r"\s+(?:by|from)\s+"
             + _EVIDENCE_RECIPIENT_PREFIX
             + _EVIDENCE_PRODUCT_ACTOR_NOUN

@@ -6478,7 +6478,22 @@ def test_issue3835_product_actor_before_relative_qualifier_remains_non_delivery(
     assert verifier._required_evidence_options(criterion) == [set()]
 
 
-@pytest.mark.parametrize("tail", ["before merge", "after CI passes", "during release"])
+@pytest.mark.parametrize(
+    "tail",
+    [
+        "before merge",
+        "after CI passes",
+        "during release",
+        "prior to merge",
+        "until merge",
+        "once CI passes",
+        "throughout release",
+        "when approved",
+        "while release runs",
+        "since CI passed",
+        "following review",
+    ],
+)
 def test_issue3835_delivered_comment_temporal_tail_keeps_comment_floor(tail):
     criterion = f"The reviewer must post a PR review comment {tail}"
     assert verifier._required_evidence_channels(criterion) == {"comments"}
@@ -6489,8 +6504,9 @@ def test_issue3835_delivered_comment_temporal_tail_keeps_comment_floor(tail):
     )
 
 
-def test_issue3835_passive_product_producer_is_not_comment_delivery():
-    criterion = "Review comments must be returned by the API"
+@pytest.mark.parametrize("operation", ["returned", "serialized"])
+def test_issue3835_passive_product_producer_is_not_comment_delivery(operation):
+    criterion = f"Review comments must be {operation} by the API"
     assert verifier._required_evidence_channels(criterion) == set()
     assert verifier._required_evidence_options(criterion) == [set()]
     assert (
@@ -6508,9 +6524,20 @@ def test_issue3835_comment_content_provenance_is_not_passive_product_producer():
     )
 
 
+@pytest.mark.parametrize("operation", ["returned", "serialized"])
 @pytest.mark.parametrize("actor", ["reviewer", "maintainer"])
-def test_issue3835_passive_human_producer_keeps_comment_delivery(actor):
-    criterion = f"Review comments must be returned by the {actor}"
+def test_issue3835_passive_human_producer_keeps_comment_delivery(actor, operation):
+    criterion = f"Review comments must be {operation} by the {actor}"
+    assert verifier._required_evidence_channels(criterion) == {"comments"}
+    assert verifier._required_evidence_options(criterion) == [{"comments"}]
+    assert (
+        _floor_verdict(criterion, body="present", comments="absent", artifacts="present")
+        == "CONCERNS"
+    )
+
+
+def test_issue3835_passive_serialized_product_with_explicit_pr_destination_keeps_comment_delivery():
+    criterion = "Review comments must be serialized by the API in the PR"
     assert verifier._required_evidence_channels(criterion) == {"comments"}
     assert verifier._required_evidence_options(criterion) == [{"comments"}]
     assert (
