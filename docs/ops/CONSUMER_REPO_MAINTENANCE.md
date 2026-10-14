@@ -2366,6 +2366,26 @@ unqualified until actual originating-reviewer evidence demonstrates it.
 This source-owned request-only transport grants no generated mutation authority
 beyond posting the bound request and never introduces a mandatory human reply.
 
+Some configured native reviewers cannot reply to an inline review thread but can
+write a normal PR-conversation comment.  Such a provider may opt into the
+separate `request_stage=conversation-disposition` protocol only through its
+source-owned `conversation_disposition` policy entry.  Maint 71 posts a new,
+idempotent in-thread authority and one bound conversation task.  Its SHA-256
+marker covers the repository, PR, exact head, active thread, plan, generation,
+source commit, original finding ID and digest, and the new inline-request ID
+and URL.  A later resolution proof can name a native top-level answer only when
+the configured originating login posts it after the trusted task, with a plain
+unquoted `ACCEPT` line as the first visible answer line, immediately followed
+by the exact-head acceptance token and that same marker as the next two
+nonempty plain lines. Automatic hidden/status wrappers may precede this
+three-line prefix; explanations may follow it.  Provider status HTML, quoted text, fenced text, details blocks,
+generic summaries, unsupported transport notices, stale heads, other authors,
+and replayed comments are not acceptance.  `REJECT` remains a blocker and can
+only prevent duplicate task delivery; neither outcome resolves, seals, or
+merges during this request-only dispatch.  The ordinary resolution path
+re-reads the lease, head, task, answer, and complete thread inventory before it
+can resolve the separately supplied proof.
+
 A non-empty workflow-sync selector applies only to the `sync/workflows-*` lane.
 An open sibling `deps/sync-dev-versions-*` delivery is therefore ignored for
 the selector's expected-branch check instead of producing a false

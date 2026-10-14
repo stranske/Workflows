@@ -7,8 +7,15 @@ const os = require('node:os');
 const path = require('node:path');
 const {
   devToolBaseRefreshResult, ensureExactHeadReviewRequest, hasCompleteReviewThreadEvidence,
-  parseReviewReassessmentRequest, runReviewReassessment, run,
+  parseReviewReassessmentRequest, runReviewReassessment, run, acceptanceCommentLocation,
 } = require('../maint71_merge_sync_prs');
+
+test('native proof comments are read from the consumer while independent proof comments stay in Workflows', () => {
+  const consumer = { owner: 'stranske', repo: 'Ready' };
+  const source = { owner: 'stranske', repo: 'Workflows' };
+  assert.deepEqual(acceptanceCommentLocation({ acceptance_mode: 'native-conversation-disposition' }, consumer, source), consumer);
+  assert.deepEqual(acceptanceCommentLocation({ acceptance_mode: 'independent-verification' }, consumer, source), source);
+});
 
 test('failed reviewer retry is exact-head, terminal-only, once per binding and request-only', async (t) => {
   const request = { schema: 'maint71-review-reassessment/v1',
@@ -784,4 +791,38 @@ test('initial reviewer conversation task recovers an unanswered inline request o
   tasks.length = 0; race = true; pages = 0;
   await assert.rejects(runReviewReassessment(args), /delivery changed or lease is invalid/);
   assert.equal(posts, 5, 'changed head during task discovery must suppress POST');
+});
+
+test('native conversation task marker is consumable by the consumer-bound verifier and REJECT reuses it', async () => {
+  const { validateNativeConversationDisposition } = require('../maint71_finding_verification');
+  const request = { schema: 'maint71-review-reassessment/v1', repository: 'stranske/Ready', pr: 9,
+    head_sha: 'a'.repeat(40), thread_id: 'PRRT_native_e2e', plan_id: 'plan', generation: 'gen',
+    source_commit: 'b'.repeat(40), originating_reviewer: 'coderabbit', request_stage: 'conversation-disposition' };
+  const record = { schema: 'sync-pr-delivery-record/v1', repository: request.repository,
+    durable_issue_url: 'https://github.com/stranske/Workflows/issues/1836', plan_id: 'plan', generation: 'gen',
+    source_commit: request.source_commit, desired_tree_hash: 'tree', lease_expires_at: '2099-01-01T00:00:00Z' };
+  const origin = { fullDatabaseId: '41', author: { login: 'coderabbitai' }, body: 'Native finding', commit: { oid: request.head_sha } };
+  const nodes = [origin], tasks = []; let replies = 0, taskPosts = 0, commentReads = [];
+  const pr = { state: 'open', draft: false, auto_merge: null, user: { login: 'stranske-automation-bot' },
+    head: { ref: 'sync/workflows-candidate', sha: request.head_sha }, body: `<!-- sync-pr-delivery-record:v1 ${JSON.stringify(record)} -->` };
+  const github = { paginate: async () => structuredClone(tasks), rest: {
+    users: { getAuthenticated: async () => ({ data: { login: 'stranske' } }) },
+    pulls: { get: async () => ({ data: structuredClone(pr) }), createReplyForReviewComment: async ({ body }) => {
+      replies++; const item = { id: 42, fullDatabaseId: '42', author: { login: 'stranske' }, user: { login: 'stranske' }, body,
+        createdAt: '2026-10-14T03:00:00Z', created_at: '2026-10-14T03:00:00Z', url: 'https://github.com/stranske/Ready/pull/9#discussion_r42', html_url: 'https://github.com/stranske/Ready/pull/9#discussion_r42' };
+      nodes.push(item); return { data: item };
+    } },
+    issues: { createComment: async ({ body }) => { taskPosts++; const item = { id: 43, user: { login: 'stranske' }, author: { login: 'stranske' }, body,
+      created_at: '2026-10-14T03:01:00Z', createdAt: '2026-10-14T03:01:00Z', html_url: 'https://github.com/stranske/Ready/pull/9#issuecomment-43' }; tasks.push(item); return { data: item }; },
+      getComment: async ({ owner, repo }) => { commentReads.push(`${owner}/${repo}`); return { data: {} }; } },
+  }, graphql: async () => ({ repository: { pullRequest: { reviewThreads: { pageInfo: { hasNextPage: false }, nodes: [{ id: request.thread_id, isResolved: false, isOutdated: false, comments: { pageInfo: { hasNextPage: false }, nodes: structuredClone(nodes) } }] } } } }) };
+  const policyPath = path.join(os.tmpdir(), `native-policy-${Date.now()}.json`); const policy = JSON.parse(fs.readFileSync(path.join(__dirname, '../../../config/consumer_sync_review_policy.json'), 'utf8')); fs.writeFileSync(policyPath, JSON.stringify(policy));
+  const args = { context: { eventName: 'repository_dispatch', ref: 'refs/heads/main', actor: 'stranske', payload: { action: 'maint71-review-reassessment' } }, withRetry: (fn) => fn(github), rawRequest: JSON.stringify(request), registeredRepos: [request.repository], policyPath };
+  const result = await runReviewReassessment(args); assert.equal(replies, 1); assert.equal(taskPosts, 1); assert.match(tasks[0].body, /maint71-native-conversation-disposition:v1 [a-f0-9]{64}/);
+  const marker = tasks[0].body.match(/<!-- maint71-native-conversation-disposition:v1 [a-f0-9]{64} -->/)[0];
+  const answer = { user: { login: 'coderabbitai' }, html_url: 'https://github.com/stranske/Ready/pull/9#issuecomment-44', created_at: '2026-10-14T03:02:00Z', body: `ACCEPT\n<!-- sync-review-accepted:${request.head_sha} -->\n${marker}` };
+  const verify = validateNativeConversationDisposition({ proof: { ...request, reviewer_acceptance_url: answer.html_url }, record,
+    thread: { isResolved: false, comments: { nodes } }, threads: { pageInfo: { hasNextPage: false }, nodes: [{ comments: { pageInfo: { hasNextPage: false }, nodes } }] }, comment: answer, policy, reviewerProfiles: policy.reviewers, topLevelComments: { complete: true, nodes: tasks }, now: Date.parse('2026-10-14T03:03:00Z') });
+  assert.equal(verify.ok, true); tasks.push({ user: { login: 'coderabbitai' }, author: { login: 'coderabbitai' }, body: `REJECT\n${marker}`, created_at: '2026-10-14T03:02:30Z' });
+  await runReviewReassessment(args); assert.equal(taskPosts, 1); assert.equal(replies, 1); assert.equal(result.task_status, 'native-conversation-disposition_task_requested'); assert.deepEqual(commentReads, []); fs.rmSync(policyPath, { force: true });
 });
