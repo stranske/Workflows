@@ -20,8 +20,15 @@ limit for each measure:
 - review-start-to-seal and observed-head-to-seal convergence from each stable
   PR's `sync-pr-delivery-record:v1` lifecycle marker.
 
-`stranske/Collab-Admin` is reported separately and excluded from primary fleet
-SLOs because its generated work originates in the administration surface.
+The owner-excluded administration repository is omitted before any API discovery.
+It is excluded from collection, routing, counts and reports until explicit owner
+reinstatement, even if a registered-consumer input contains its name. Eligible
+source and consumer repositories remain deduplicated and collected normally.
+The offline metric calculator also drops cached excluded PR/run/timeline rows,
+and emits no repository-specific exclusion count or report row. Cached collection
+failures for excluded targets are removed too. A window becomes complete only
+when its complete known failure list consisted entirely of excluded failures;
+eligible failures and unexplained incomplete windows remain advisory `unknown`.
 
 ## Advisory thresholds
 

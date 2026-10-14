@@ -52,3 +52,22 @@ def test_dedicated_health83_contract_retains_unknown_collection_boundary():
     assert "dense or inconsistent workflow-run intervals" in contract
     assert "advisory `unknown`" in contract
     assert "cannot guarantee an atomic snapshot" in contract
+
+
+def test_collection_selection_excludes_owner_blocked_repositories_before_api_calls():
+    import json
+    import subprocess
+
+    text = WORKFLOW.read_text(encoding="utf-8")
+    start_marker = "const registered = "
+    end_marker = "const pulls = []"
+    assert start_marker in text, "Health83 repository selection start marker is missing"
+    assert end_marker in text, "Health83 repository selection end marker is missing"
+    selection = text.split(start_marker, 1)[1].split(end_marker, 1)[0]
+    script = (
+        "const context = {repo: {owner: 'stranske', repo: 'Workflows'}};"
+        "const process = {env: {REGISTERED_REPOS: 'stranske/Template,stranske/Collab-Admin,STRANSKE/COLLAB-ADMIN,stranske/Template'}};"
+        "const registered = " + selection + "\nconsole.log(JSON.stringify(repos));"
+    )
+    result = subprocess.run(["node", "-e", script], check=True, capture_output=True, text=True)
+    assert json.loads(result.stdout) == ["stranske/Workflows", "stranske/Template"]
