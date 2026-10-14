@@ -6,6 +6,15 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 Breaking changes are called out with a **BREAKING** marker and scheduled according to the policy in `COMPATIBILITY.md`.
 
+## [1.38.9](https://github.com/stranske/Workflows/compare/v1.38.8...v1.38.9) (2026-10-14)
+
+
+### Bug Fixes
+
+* recognize report evidence delivery ([#3902](https://github.com/stranske/Workflows/issues/3902)) ([5d0a45e](https://github.com/stranske/Workflows/commit/5d0a45e49297b13968e402020a8b26284bd1907b))
+* satisfy synced verifier mypy checks ([#3899](https://github.com/stranske/Workflows/issues/3899)) ([1589f25](https://github.com/stranske/Workflows/commit/1589f25af32ac1b31ea1ac44f7399f8d46b565ee))
+* **verifier:** retain filename-qualified quantified comment destinations ([#3890](https://github.com/stranske/Workflows/issues/3890)) ([b087737](https://github.com/stranske/Workflows/commit/b087737e696bc965ae8c933bd8d511eb1d686613))
+
 ## [1.38.8](https://github.com/stranske/Workflows/compare/v1.38.7...v1.38.8) (2026-10-14)
 
 
