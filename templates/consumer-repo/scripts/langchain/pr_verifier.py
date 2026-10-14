@@ -2277,7 +2277,7 @@ def _normalize_review_content_qualifiers(acceptance: str) -> str:
     # keep the mandatory channel instead of inventing overall or dropping it.
     delivered_proof_object = (
         r"(?:evidence(?:\s+(?:files?|bundles?|packages?))?|transcripts?|command outputs?|"
-        r"coverage reports?|" + _EVIDENCE_PROOF_ALIAS_NOUN + r")"
+        r"coverage reports?|logs?|" + _EVIDENCE_PROOF_ALIAS_NOUN + r")"
     )
     interposed_payload = (
         r"(?:(?!(?:as|in|into|to)\b)[\w/-]+[ \t]+){0,6}(?!(?:as|in|into|to)\b)[\w/-]+"
@@ -3236,7 +3236,7 @@ def _classify_evidence_channels(acceptance: str, *, _bind_attached: bool = True)
         """Classify complete, bounded body predicates before residual evidence gating."""
         body = r"(?:pr|pull request)\s+(?:body|description)\b"
         qualified_object = (
-            evidence_modifiers + r"(?:evidence|artifacts?|transcripts?|command outputs?)\b"
+            evidence_modifiers + r"(?:evidence|artifacts?|transcripts?|command outputs?|logs?)\b"
         )
         noun = r"(?:(?:the|an?|any|no)\s+)?" + qualified_object
         noun = r"(?:" + noun + r")(?:\s+(?:and|or)\s+(?:" + noun + r")){0,3}"
@@ -4749,7 +4749,7 @@ def _classify_evidence_channels(acceptance: str, *, _bind_attached: bool = True)
             # not a later prohibited pronoun clause such as 'do not attach it'.
             explicit_review_destination = bool(
                 re.search(
-                    r"\b(?:provide|upload|attach|publish|post|record|capture|document)\w*\b\s+"
+                    r"\b" + delivery_operation + r"\s+"
                     r"(?:(?:the|an?|any)\s+)?" + artifact_destination_object + "|"
                     r"\b" + delivery_operation + r"\s+"
                     r"(?:(?!(?:and|or|but|must|shall|is|are|not|never)\b)[\w/-]+\s+){0,4}"
@@ -4818,8 +4818,9 @@ def _classify_evidence_channels(acceptance: str, *, _bind_attached: bool = True)
                 re.I,
             )
             review_delivery = re.search(
-                r"\b(?:attach|upload|publish|post|record|capture|provide|include|document)\w*"
-                r"\b.{0,80}\b(?:in|into|to)\s+(?:the\s+)?(?:pr|pull request)\b",
+                r"\b"
+                + delivery_operation
+                + r".{0,80}\b(?:in|into|to)\s+(?:the\s+)?(?:pr|pull request)\b",
                 requirement_text,
                 re.I,
             )
@@ -4851,8 +4852,9 @@ def _classify_evidence_channels(acceptance: str, *, _bind_attached: bool = True)
                 explicit_artifact_delivery = bool(
                     active_as_artifact_delivery
                     or re.search(
-                        r"\b(?:upload|attach|publish|post|record|capture|provide|include|document)"
-                        r"(?:s)?\s+(?:(?:an?|the|any|workflow|validation|exact-head|evidence)\s+){0,4}"
+                        r"\b"
+                        + delivery_operation
+                        + r"\s+(?:(?:an?|the|any|workflow|validation|exact-head|evidence)\s+){0,4}"
                         r"artifacts?\b",
                         requirement_text,
                         re.I,
@@ -4958,7 +4960,8 @@ def _classify_evidence_channels(acceptance: str, *, _bind_attached: bool = True)
                     + recipient_noun
                     + r"\s+(?:to\s+)?)?)?"
                     + delivery_operation
-                    + r".{0,60}\bartifacts?\b",
+                    + r".{0,60}\bas\s+(?:(?:an?|the)\s+)?"
+                    + r"(?:(?:workflow|validation|exact-head|evidence)\s+)?artifacts?\b",
                     normalize_product_capability(requirement_text),
                     re.I,
                 )
@@ -4978,15 +4981,6 @@ def _classify_evidence_channels(acceptance: str, *, _bind_attached: bool = True)
                         + delivery_operation,
                         normalize_product_capability(requirement_text),
                         re.I,
-                    )
-                )
-                independent_artifact_delivery = bool(
-                    product_artifact_actor_match
-                    and any(
-                        active_match.start() > product_artifact_actor_match.end()
-                        for active_match in re.finditer(
-                            _EVIDENCE_ACTIVE_AS_ARTIFACT_DELIVERY, requirement_text, re.I
-                        )
                     )
                 )
                 product_artifact_actor = product_artifact_actor or passive_product_capability
@@ -5024,8 +5018,7 @@ def _classify_evidence_channels(acceptance: str, *, _bind_attached: bool = True)
                     artifact_delivery_into_pr and not passive_product_capability
                 )
                 evidence_named_artifact = evidence_named_artifact and not (
-                    passive_product_capability
-                    or (product_artifact_actor and not independent_artifact_delivery)
+                    passive_product_capability or product_artifact_actor
                 )
                 if (
                     artifact_delivery_into_pr
@@ -5080,7 +5073,7 @@ def _classify_evidence_channels(acceptance: str, *, _bind_attached: bool = True)
                     )
                 )
                 or re.search(
-                    r"\b(?:attach|upload|include|post|publish|record|capture|provide|document|add|leave|left|link)\w*\b"
+                    r"\b(?:" + delivery_operation + r"|add|leave|left|link)\w*\b"
                     r"(?:\s+\w+){0,10}\s+\b" + _EVIDENCE_PR_COMMENT_DESTINATION + r"\b",
                     requirement_text,
                     re.I,

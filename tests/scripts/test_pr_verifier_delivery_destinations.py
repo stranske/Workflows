@@ -7008,6 +7008,22 @@ def test_issue3835_reviewer_send_logs_artifact_remains_required():
     )
 
 
+@pytest.mark.parametrize(
+    "subject", ["The reviewer", "The API is sending command output as an artifact; the reviewer"]
+)
+@pytest.mark.parametrize("payload", ["logs", "command output"])
+@pytest.mark.parametrize(
+    "destination,channel",
+    [("in a PR comment", "comments"), ("in the PR body", "body"), ("as an artifact", "artifacts")],
+)
+def test_issue3835_shared_send_operation_keeps_required_destination(
+    subject, payload, destination, channel
+):
+    criterion = f"{subject} must send {payload} {destination}"
+    assert verifier._required_evidence_channels(criterion) == {channel}
+    assert verifier._required_evidence_options(criterion) == [{channel}]
+
+
 def test_issue3835_author_command_output_send_artifact_remains_required():
     criterion = "The author must send command output as an artifact"
     assert verifier._required_evidence_channels(criterion) == {"artifacts"}
