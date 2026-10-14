@@ -1023,6 +1023,9 @@ _MANDATORY_EVIDENCE_AUXILIARY = (
 _EVIDENCE_DELIVERY_ADVERB = r"(?:also|then|now|still|already|yet|always|[\w-]+ly)"
 _EVIDENCE_DELIVERY_ADVERBS = r"(?:" + _EVIDENCE_DELIVERY_ADVERB + r"\s+){0,3}"
 _EVIDENCE_DELIVERY_OPERATION = r"(?:prov(?:e|ing)|provid(?:e|ing)|return|display|show|emit|render|expos(?:e|ing)|stor(?:e|ing)|upload|attach|publish|post|record|copy|copies|copied|copying|captur(?:e|ing)|includ(?:e|ing)|contain|hav(?:e|ing)|document|generat(?:e|ing)|link|add|leav(?:e|ing)|left|send(?:s|ing)?)\w*\b"
+_EVIDENCE_ACTIVE_DELIVERY_OPERATION = (
+    r"(?:provide|upload|attach|publish|post|record|capture|include|document|send(?:s|ing)?)\w*\b"
+)
 _EVIDENCE_DELIVERY_PARTICIPLE_START = r"(?=(?:\w*(?:ed|en)|left)\b)"
 _EVIDENCE_DELIVERY_IRREGULAR_STATE = r"(?:made|sent|shown|put)"
 _EVIDENCE_PASSIVE_DELIVERY_OPERATION = (
@@ -1714,7 +1717,7 @@ def _normalize_capability_deliveries(acceptance: str) -> str:
     )
     proof_object = (
         _EVIDENCE_OBJECT_MODIFIERS
-        + r"(?:evidence(?:\s+(?:files?|bundles?|packages?))?|transcripts?|command outputs?|"
+        + r"(?:evidence(?:\s+(?:files?|bundles?|packages?))?|transcripts?|command outputs?|logs?|"
         + _EVIDENCE_PROOF_ALIAS_NOUN
         + r")\b"
     )
@@ -2277,7 +2280,7 @@ def _normalize_review_content_qualifiers(acceptance: str) -> str:
     # keep the mandatory channel instead of inventing overall or dropping it.
     delivered_proof_object = (
         r"(?:evidence(?:\s+(?:files?|bundles?|packages?))?|transcripts?|command outputs?|"
-        r"coverage reports?|logs?|" + _EVIDENCE_PROOF_ALIAS_NOUN + r")"
+        r"coverage reports?|" + _EVIDENCE_PROOF_ALIAS_NOUN + r")"
     )
     interposed_payload = (
         r"(?:(?!(?:as|in|into|to)\b)[\w/-]+[ \t]+){0,6}(?!(?:as|in|into|to)\b)[\w/-]+"
@@ -3236,7 +3239,7 @@ def _classify_evidence_channels(acceptance: str, *, _bind_attached: bool = True)
         """Classify complete, bounded body predicates before residual evidence gating."""
         body = r"(?:pr|pull request)\s+(?:body|description)\b"
         qualified_object = (
-            evidence_modifiers + r"(?:evidence|artifacts?|transcripts?|command outputs?|logs?)\b"
+            evidence_modifiers + r"(?:evidence|artifacts?|transcripts?|command outputs?)\b"
         )
         noun = r"(?:(?:the|an?|any|no)\s+)?" + qualified_object
         noun = r"(?:" + noun + r")(?:\s+(?:and|or)\s+(?:" + noun + r")){0,3}"
@@ -4749,7 +4752,7 @@ def _classify_evidence_channels(acceptance: str, *, _bind_attached: bool = True)
             # not a later prohibited pronoun clause such as 'do not attach it'.
             explicit_review_destination = bool(
                 re.search(
-                    r"\b" + delivery_operation + r"\s+"
+                    r"\b" + _EVIDENCE_ACTIVE_DELIVERY_OPERATION + r"\s+"
                     r"(?:(?:the|an?|any)\s+)?" + artifact_destination_object + "|"
                     r"\b" + delivery_operation + r"\s+"
                     r"(?:(?!(?:and|or|but|must|shall|is|are|not|never)\b)[\w/-]+\s+){0,4}"
@@ -4819,7 +4822,7 @@ def _classify_evidence_channels(acceptance: str, *, _bind_attached: bool = True)
             )
             review_delivery = re.search(
                 r"\b"
-                + delivery_operation
+                + _EVIDENCE_ACTIVE_DELIVERY_OPERATION
                 + r".{0,80}\b(?:in|into|to)\s+(?:the\s+)?(?:pr|pull request)\b",
                 requirement_text,
                 re.I,
@@ -4853,7 +4856,7 @@ def _classify_evidence_channels(acceptance: str, *, _bind_attached: bool = True)
                     active_as_artifact_delivery
                     or re.search(
                         r"\b"
-                        + delivery_operation
+                        + _EVIDENCE_ACTIVE_DELIVERY_OPERATION
                         + r"\s+(?:(?:an?|the|any|workflow|validation|exact-head|evidence)\s+){0,4}"
                         r"artifacts?\b",
                         requirement_text,
@@ -4960,12 +4963,37 @@ def _classify_evidence_channels(acceptance: str, *, _bind_attached: bool = True)
                     + recipient_noun
                     + r"\s+(?:to\s+)?)?)?"
                     + delivery_operation
-                    + r".{0,60}\bas\s+(?:(?:an?|the)\s+)?"
-                    + r"(?:(?:workflow|validation|exact-head|evidence)\s+)?artifacts?\b",
+                    + r".{0,60}\bartifacts?\b",
                     normalize_product_capability(requirement_text),
                     re.I,
                 )
                 product_artifact_actor = bool(product_artifact_actor_match)
+                product_artifact_review_delivery = bool(
+                    re.search(
+                        r"\b(?:pr|pull request)\s+(?:body|description)\b.{0,100}"
+                        r"\b(?:workflow|ci|github actions)\s+artifacts?\b"
+                        r"|\b(?:pr|pull request)\s+comments?\b.{0,100}"
+                        r"\b(?:workflow|ci|github actions)\s+artifacts?\b"
+                        r"|\b"
+                        + product_evidence_object
+                        + r"\b.{0,80}(?:\b(?:and|or)\s+|,\s*)"
+                        + r"(?:in\s+)?(?:(?:the|an?)\s+)?"
+                        + r"(?:workflow|ci|github actions)\s+artifacts?\b"
+                        r"|\b"
+                        + delivery_operation
+                        + r"\s+"
+                        + evidence_modifiers
+                        + r"(?:evidence|command outputs?|transcripts?|coverage reports?|"
+                        + _EVIDENCE_PROOF_ALIAS_NOUN
+                        + r")\b.{0,60}\b(?:in|into|to)\s+"
+                        + r"(?:(?:the|an?)\s+)?(?:workflow|ci|github actions)\s+artifacts?\b"
+                        r"|\b"
+                        + _EVIDENCE_ACTIVE_DELIVERY_OPERATION
+                        + r"\s+(?:(?:the|an?)\s+)?(?:workflow|ci|github actions)\s+artifacts?\b",
+                        requirement_text,
+                        re.I,
+                    )
+                )
                 passive_product_capability = bool(
                     re.search(
                         r"\b"
@@ -5018,7 +5046,8 @@ def _classify_evidence_channels(acceptance: str, *, _bind_attached: bool = True)
                     artifact_delivery_into_pr and not passive_product_capability
                 )
                 evidence_named_artifact = evidence_named_artifact and not (
-                    passive_product_capability or product_artifact_actor
+                    passive_product_capability
+                    or (product_artifact_actor and not product_artifact_review_delivery)
                 )
                 if (
                     artifact_delivery_into_pr
@@ -5073,7 +5102,7 @@ def _classify_evidence_channels(acceptance: str, *, _bind_attached: bool = True)
                     )
                 )
                 or re.search(
-                    r"\b(?:" + delivery_operation + r"|add|leave|left|link)\w*\b"
+                    r"\b(?:" + _EVIDENCE_ACTIVE_DELIVERY_OPERATION + r"|add|leave|left|link)\w*\b"
                     r"(?:\s+\w+){0,10}\s+\b" + _EVIDENCE_PR_COMMENT_DESTINATION + r"\b",
                     requirement_text,
                     re.I,

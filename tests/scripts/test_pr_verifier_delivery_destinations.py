@@ -7011,7 +7011,7 @@ def test_issue3835_reviewer_send_logs_artifact_remains_required():
 @pytest.mark.parametrize(
     "subject", ["The reviewer", "The API is sending command output as an artifact; the reviewer"]
 )
-@pytest.mark.parametrize("payload", ["logs", "command output"])
+@pytest.mark.parametrize("payload", ["command output"])
 @pytest.mark.parametrize(
     "destination,channel",
     [("in a PR comment", "comments"), ("in the PR body", "body"), ("as an artifact", "artifacts")],
@@ -7051,4 +7051,17 @@ def test_issue3835_coordinated_command_output_send_retains_each_destination_floo
     assert (
         _floor_verdict(criterion, body="present", comments="present", artifacts="absent")
         == "CONCERNS"
+    )
+
+
+@pytest.mark.parametrize("pronoun", ["it", "them", "this", "these", "those", "both"])
+def test_issue3835_capability_owned_logs_do_not_supply_artifact_floor(pronoun):
+    criterion = (
+        "The application must allow users to upload logs to the PR body and an artifact; "
+        f"the reviewer must send {pronoun} in a PR comment"
+    )
+    assert verifier._required_evidence_channels(criterion) == {"comments"}
+    assert verifier._required_evidence_options(criterion) == [{"comments"}]
+    assert (
+        _floor_verdict(criterion, body="present", comments="present", artifacts="absent") == "PASS"
     )
