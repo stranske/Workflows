@@ -1,0 +1,19 @@
+<?xml version="1.0" encoding="utf-8"?><testsuites name="pytest tests"><testsuite name="pytest" errors="0" failures="1" skipped="0" tests="1" time="0.149" timestamp="2026-10-11T14:37:50.998391-05:00" hostname="server.trs.private"><testcase classname="tests.tools.test_verifier_proof_resource_plan" name="test_counter_is_global_across_archives_without_deduplication" time="0.072"><failure message="assert 4 == 22">packet = ({'context': b'original incomplete capture'}, [{'artifact_id': 1, 'repository': 'owner/repo', 'run_id': 2, 'head_sha':...ders/qm/w0dtc0j132gd6ymf1hxtd2p00000gp/T/pytest-of-teacher/pytest-409/test_counter_is_global_across_0/metadata.json')})
+monkeypatch = &lt;_pytest.monkeypatch.MonkeyPatch object at 0x1048dbf80&gt;
+
+    def test_counter_is_global_across_archives_without_deduplication(packet, monkeypatch):
+        inputs, records, paths, metadata_paths = packet
+        second = {**records[0], "artifact_id": 3}
+        metadata = json.loads(metadata_paths[1].read_text())
+        metadata.update(id=3, url="https://api.github.com/repos/owner/repo/actions/artifacts/3")
+        second_metadata = metadata_paths[1].with_name("second-metadata.json")
+        second_metadata.write_text(json.dumps(metadata))
+        second["metadata_sha256"] = hashlib.sha256(second_metadata.read_bytes()).hexdigest()
+        monkeypatch.setattr(planner, "TOTAL_EXTRACT_BYTES", 15)
+        plan = planner.build_resource_plan(
+            inputs, records + [second], {**paths, 3: paths[1]}, {**metadata_paths, 3: second_metadata}
+        )
+&gt;       assert plan["required_extraction_bytes"] == 22
+E       assert 4 == 22
+
+tests/tools/test_verifier_proof_resource_plan.py:68: AssertionError</failure></testcase></testsuite></testsuites>

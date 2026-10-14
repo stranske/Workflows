@@ -1,0 +1,329 @@
+{
+  "base": "2ac3feafcd9a186518adfc3bce89bdc46be2e6ea",
+  "interpreter": "/opt/anaconda3/bin/python3",
+  "python": "3.12.2 | packaged by conda-forge | (main, Feb 16 2024, 20:54:21) [Clang 16.0.6 ]",
+  "platform": "macOS-26.6.2-arm64-arm-64bit",
+  "baseline_tests": 320,
+  "candidate_tests": 324,
+  "baseline": {
+    "covered_lines": 585,
+    "num_statements": 591,
+    "percent_covered": 98.00703399765533,
+    "percent_covered_display": "98.01",
+    "missing_lines": 6,
+    "excluded_lines": 0,
+    "percent_statements_covered": 98.98477157360406,
+    "percent_statements_covered_display": "98.98",
+    "num_branches": 262,
+    "num_partial_branches": 11,
+    "covered_branches": 251,
+    "missing_branches": 11,
+    "percent_branches_covered": 95.80152671755725,
+    "percent_branches_covered_display": "95.80"
+  },
+  "candidate": {
+    "covered_lines": 587,
+    "num_statements": 591,
+    "percent_covered": 98.4759671746776,
+    "percent_covered_display": "98.48",
+    "missing_lines": 4,
+    "excluded_lines": 0,
+    "percent_statements_covered": 99.32318104906938,
+    "percent_statements_covered_display": "99.32",
+    "num_branches": 262,
+    "num_partial_branches": 9,
+    "covered_branches": 253,
+    "missing_branches": 9,
+    "percent_branches_covered": 96.56488549618321,
+    "percent_branches_covered_display": "96.56"
+  },
+  "new_nodes": [
+    "tests.scripts.test_check_deliberate_break_fallback_target_selection::test_fallback_selects_the_implementation_target[root-blank-target]",
+    "tests.scripts.test_check_deliberate_break_fallback_target_selection::test_fallback_selects_the_implementation_target[root-yaml-target]",
+    "tests.scripts.test_check_deliberate_break_fallback_target_selection::test_fallback_selects_the_implementation_target[template-blank-target]",
+    "tests.scripts.test_check_deliberate_break_fallback_target_selection::test_fallback_selects_the_implementation_target[template-yaml-target]"
+  ],
+  "removed_nodes": [],
+  "changed_old_outcomes": {},
+  "covered_line_regressions": [],
+  "covered_branch_regressions": [],
+  "newly_covered_lines": [
+    200,
+    235
+  ],
+  "newly_covered_branches": [
+    [
+      199,
+      200
+    ],
+    [
+      234,
+      235
+    ]
+  ],
+  "source_sha256": "cc97119ea26afec275be3c83d22bc75de0d452cd0f4764896cc9d037274ab25a",
+  "production_unchanged": true,
+  "root_template_identical": true,
+  "historical_tracked_files_unchanged": 645,
+  "mutation_pairs": 4,
+  "reuse_unchanged_files": 29,
+  "matched_modules": [
+    "tests/scripts/test_check_deliberate_break.py",
+    "tests/scripts/test_check_deliberate_break_archive.py",
+    "tests/scripts/test_check_deliberate_break_launch_boundaries.py",
+    "tests/scripts/test_check_deliberate_break_module_boundaries.py",
+    "tests/scripts/test_check_deliberate_break_repair_failures.py",
+    "tests/scripts/test_check_deliberate_break_runtime_probes.py",
+    "tests/scripts/test_check_deliberate_break_uv_resolution.py",
+    "tests/scripts/test_module_boundary_replay_isolation.py",
+    "tests/scripts/test_check_deliberate_break_runtime_health.py",
+    "tests/scripts/test_check_deliberate_break_launcher_admission.py",
+    "tests/scripts/test_check_deliberate_break_head_launch.py"
+  ],
+  "ranking": [
+    {
+      "path": "scripts/check_deliberate_break.py",
+      "repair_subject_proxy": 73,
+      "touches": 82
+    },
+    {
+      "path": "scripts/langchain/pr_verifier.py",
+      "repair_subject_proxy": 33,
+      "touches": 40
+    },
+    {
+      "path": "scripts/runner_lib/core.py",
+      "repair_subject_proxy": 27,
+      "touches": 37
+    },
+    {
+      "path": "scripts/langchain/issue_formatter.py",
+      "repair_subject_proxy": 16,
+      "touches": 17
+    },
+    {
+      "path": "scripts/sync_test_dependencies.py",
+      "repair_subject_proxy": 16,
+      "touches": 17
+    }
+  ],
+  "limits": [
+    "Helper-only statement/branch scope; no repository-wide 90 percent claim.",
+    "No production, package, workflow, template or exclusion changes.",
+    "Hosted CI, exact-head review topology, native/provider acceptance and deployment remain separate."
+  ],
+  "revalidation": {
+    "interpreter": "/opt/hostedtoolcache/Python/3.14.8/x64/bin/python",
+    "python": "3.14.8 (main, Oct  1 2026, 02:38:33) [GCC 13.3.0]",
+    "platform": "Linux-6.17.0-1022-azure-x86_64-with-glibc2.39",
+    "baseline_tests": 320,
+    "candidate_tests": 324,
+    "baseline": {
+      "covered_lines": 585,
+      "num_statements": 591,
+      "percent_covered": 98.00703399765533,
+      "percent_covered_display": "98.01",
+      "missing_lines": 6,
+      "excluded_lines": 0,
+      "percent_statements_covered": 98.98477157360406,
+      "percent_statements_covered_display": "98.98",
+      "num_branches": 262,
+      "num_partial_branches": 11,
+      "covered_branches": 251,
+      "missing_branches": 11,
+      "percent_branches_covered": 95.80152671755725,
+      "percent_branches_covered_display": "95.80"
+    },
+    "candidate": {
+      "covered_lines": 587,
+      "num_statements": 591,
+      "percent_covered": 98.4759671746776,
+      "percent_covered_display": "98.48",
+      "missing_lines": 4,
+      "excluded_lines": 0,
+      "percent_statements_covered": 99.32318104906938,
+      "percent_statements_covered_display": "99.32",
+      "num_branches": 262,
+      "num_partial_branches": 9,
+      "covered_branches": 253,
+      "missing_branches": 9,
+      "percent_branches_covered": 96.56488549618321,
+      "percent_branches_covered_display": "96.56"
+    },
+    "new_nodes": [
+      "tests.scripts.test_check_deliberate_break_fallback_target_selection::test_fallback_selects_the_implementation_target[root-blank-target]",
+      "tests.scripts.test_check_deliberate_break_fallback_target_selection::test_fallback_selects_the_implementation_target[root-yaml-target]",
+      "tests.scripts.test_check_deliberate_break_fallback_target_selection::test_fallback_selects_the_implementation_target[template-blank-target]",
+      "tests.scripts.test_check_deliberate_break_fallback_target_selection::test_fallback_selects_the_implementation_target[template-yaml-target]"
+    ],
+    "removed_nodes": [],
+    "changed_old_outcomes": {},
+    "covered_line_regressions": [],
+    "covered_branch_regressions": [],
+    "source_universe": [
+      "scripts/check_deliberate_break.py"
+    ],
+    "excluded_lines": [],
+    "commands": {
+      "baseline": {
+        "argv": [
+          "/opt/hostedtoolcache/Python/3.14.8/x64/bin/python",
+          "-m",
+          "pytest",
+          "tests/scripts/test_check_deliberate_break.py",
+          "tests/scripts/test_check_deliberate_break_archive.py",
+          "tests/scripts/test_check_deliberate_break_launch_boundaries.py",
+          "tests/scripts/test_check_deliberate_break_module_boundaries.py",
+          "tests/scripts/test_check_deliberate_break_repair_failures.py",
+          "tests/scripts/test_check_deliberate_break_runtime_probes.py",
+          "tests/scripts/test_check_deliberate_break_uv_resolution.py",
+          "tests/scripts/test_module_boundary_replay_isolation.py",
+          "tests/scripts/test_check_deliberate_break_runtime_health.py",
+          "tests/scripts/test_check_deliberate_break_launcher_admission.py",
+          "tests/scripts/test_check_deliberate_break_head_launch.py",
+          "-q",
+          "-o",
+          "addopts=",
+          "-m",
+          "not slow",
+          "--cov=scripts.check_deliberate_break",
+          "--cov-branch",
+          "--cov-report=term-missing",
+          "--cov-report=json:/tmp/fallback-current-evidence/baseline-coverage.json",
+          "--junitxml=/tmp/fallback-current-evidence/baseline.xml"
+        ],
+        "cwd": "/home/runner/work/Workflows/Workflows",
+        "exit": 0
+      },
+      "candidate": {
+        "argv": [
+          "/opt/hostedtoolcache/Python/3.14.8/x64/bin/python",
+          "-m",
+          "pytest",
+          "tests/scripts/test_check_deliberate_break.py",
+          "tests/scripts/test_check_deliberate_break_archive.py",
+          "tests/scripts/test_check_deliberate_break_launch_boundaries.py",
+          "tests/scripts/test_check_deliberate_break_module_boundaries.py",
+          "tests/scripts/test_check_deliberate_break_repair_failures.py",
+          "tests/scripts/test_check_deliberate_break_runtime_probes.py",
+          "tests/scripts/test_check_deliberate_break_uv_resolution.py",
+          "tests/scripts/test_module_boundary_replay_isolation.py",
+          "tests/scripts/test_check_deliberate_break_runtime_health.py",
+          "tests/scripts/test_check_deliberate_break_launcher_admission.py",
+          "tests/scripts/test_check_deliberate_break_head_launch.py",
+          "tests/scripts/test_check_deliberate_break_fallback_target_selection.py",
+          "-q",
+          "-o",
+          "addopts=",
+          "-m",
+          "not slow",
+          "--cov=scripts.check_deliberate_break",
+          "--cov-branch",
+          "--cov-report=term-missing",
+          "--cov-report=json:/tmp/fallback-current-evidence/candidate-coverage.json",
+          "--junitxml=/tmp/fallback-current-evidence/candidate.xml"
+        ],
+        "cwd": "/home/runner/work/Workflows/Workflows",
+        "exit": 0
+      },
+      "fallback-focused": {
+        "argv": [
+          "/opt/hostedtoolcache/Python/3.14.8/x64/bin/python",
+          "-m",
+          "pytest",
+          "tests/scripts/test_check_deliberate_break_fallback_target_selection.py",
+          "-q",
+          "-o",
+          "addopts=",
+          "-m",
+          "not slow",
+          "--junitxml=/tmp/fallback-current-evidence/fallback-focused.xml"
+        ],
+        "cwd": "/home/runner/work/Workflows/Workflows",
+        "exit": 0
+      },
+      "replay": {
+        "argv": [
+          "/opt/hostedtoolcache/Python/3.14.8/x64/bin/python",
+          "docs/evidence/issue-3743/fallback-target-selection/replay.py",
+          "--output",
+          "/tmp/new-fallback-target-proof-v2"
+        ],
+        "cwd": "/home/runner/work/Workflows/Workflows",
+        "exit": 0
+      },
+      "black": {
+        "argv": [
+          "black",
+          "--check",
+          "--line-length",
+          "100",
+          "--exclude",
+          "(\\.workflows-lib|node_modules)",
+          "."
+        ],
+        "cwd": "/home/runner/work/Workflows/Workflows",
+        "exit": 0,
+        "env": {
+          "BLACK_NUM_WORKERS": "1",
+          "PYTHONPATH": "/tmp/fallback-current-evidence/black-runtime"
+        },
+        "runtime_note": "A 50ms loop timer lets Black observe completed thread futures when sandbox wakeup sockets do not work; formatting checks are unchanged."
+      },
+      "ruff": {
+        "argv": [
+          "ruff",
+          "check",
+          "tests/scripts/test_check_deliberate_break_fallback_target_selection.py",
+          "docs/evidence/issue-3743/fallback-target-selection/replay.py"
+        ],
+        "cwd": "/home/runner/work/Workflows/Workflows",
+        "exit": 0
+      },
+      "template": {
+        "argv": [
+          "/opt/hostedtoolcache/Python/3.14.8/x64/bin/python",
+          "scripts/validate_template_completeness.py",
+          "--strict"
+        ],
+        "cwd": "/home/runner/work/Workflows/Workflows",
+        "exit": 0,
+        "env": {
+          "GITHUB_STEP_SUMMARY": "/tmp/fallback-current-evidence/template-summary.md"
+        }
+      },
+      "diff": {
+        "argv": [
+          "git",
+          "diff",
+          "--check"
+        ],
+        "cwd": "/home/runner/work/Workflows/Workflows",
+        "exit": 0,
+        "env": {
+          "GITHUB_STEP_SUMMARY": "/tmp/fallback-current-evidence/template-summary.md"
+        }
+      }
+    },
+    "mutation_pairs": 4,
+    "reuse_unchanged_files": 29,
+    "historical_files_verified_unchanged": 851,
+    "original_archive_unchanged": true,
+    "historical_target_coverage_identical": true,
+    "original_manifest_unchanged": true,
+    "production_unchanged_from_base": true,
+    "root_template_identical": true,
+    "environment": {
+      "requested_interpreter": "/opt/anaconda3/bin/python3",
+      "requested_interpreter_present": false,
+      "pr_readiness_verified": true,
+      "pr_readiness_reason": "GitHub connector get_pr_info verified PR #3871 open and draft=false",
+      "pr_url": "https://github.com/stranske/Workflows/pull/3871",
+      "local_git_readonly": true,
+      "commit_method": "Isolated local checkout under /tmp; workspace .git is read-only and GitHub writes require unavailable approval",
+      "github_write_blocker": "MCP tool call requires approval, but approval policy is never"
+    },
+    "archive": "revalidation.tar.gz",
+    "manifest": "revalidation-manifest.json"
+  }
+}

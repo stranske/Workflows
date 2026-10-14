@@ -281,6 +281,20 @@ function reviewReassessmentMarker(request) {
   return `<!-- maint71-review-${kind}:v1 ${JSON.stringify(canonical)} -->`;
 }
 
+function hasSubsequentExactHeadReviewerAnswer(thread, request, profiles, requestCreatedAt,
+  reviewerProfileForLogin) {
+  const requestedAt = Date.parse(requestCreatedAt || '');
+  if (!Number.isFinite(requestedAt) || thread?.comments?.pageInfo?.hasNextPage
+    || !Array.isArray(thread?.comments?.nodes)) return false;
+  return thread.comments.nodes.some((item) =>
+    reviewerProfileForLogin(item?.author?.login, profiles) === request.originating_reviewer
+    && item?.commit?.oid === request.head_sha
+    && Date.parse(item?.createdAt || '') > requestedAt
+    && ((/^\s*(?:\*\*)?ACCEPT\b/i.test(String(item?.body || ''))
+      && String(item?.body || '').includes(`<!-- sync-review-accepted:${request.head_sha} -->`))
+      || /^\s*(?:\*\*)?REJECT\b/i.test(String(item?.body || ''))));
+}
+
 // A separate workflow job calls this function only for an explicit trusted
 // repository_dispatch. It never enters the ordinary resolution/merge/cleanup run.
 async function runReviewReassessment({
@@ -531,11 +545,15 @@ async function runReviewReassessment({
   }
   let task = null;
   let taskReused = false;
-  if (dispositionOnly && profile.disposition_task_transport) {
-    const taskCommand = String(profile.disposition_task_comment || '').trim();
-    if (profile.disposition_task_transport !== 'pr-conversation'
+  let taskSuppressed = false;
+  const taskKind = dispositionOnly ? 'disposition' : 'reassessment';
+  const taskTransport = profile[`${taskKind}_task_transport`];
+  const initialTask = !dispositionOnly && !retryFailed;
+  if ((dispositionOnly || initialTask) && taskTransport) {
+    const taskCommand = String(profile[`${taskKind}_task_comment`] || '').trim();
+    if (taskTransport !== 'pr-conversation'
       || !/^@[A-Za-z0-9-]+(?:\s+[A-Za-z0-9-]+)*$/.test(taskCommand)) {
-      throw new Error('Originating reviewer has no supported disposition task transport');
+      throw new Error(`Originating reviewer has no supported ${taskKind} task transport`);
     }
     const taskBinding = {
       ...Object.fromEntries(REASSESSMENT_FIELDS.map((field) => [field, request[field]])),
@@ -546,14 +564,14 @@ async function runReviewReassessment({
     // binding; the existing inline request remains the readable authority.
     const taskDigest = require('crypto').createHash('sha256')
       .update(JSON.stringify(taskBinding)).digest('hex');
-    const taskMarker = `<!-- maint71-disposition-task:v1 ${taskDigest} -->`;
+    const taskMarker = `<!-- maint71-${taskKind}-task:v1 ${taskDigest} -->`;
     const findTask = async () => {
       const items = await withRetry((client) => client.paginate(client.rest.issues.listComments,
         { owner, repo, issue_number: request.pr, per_page: 100 }));
-      if (!Array.isArray(items)) throw new Error('Disposition task inventory is incomplete');
+      if (!Array.isArray(items)) throw new Error(`${taskKind} task inventory is incomplete`);
       const matches = items.filter((item) => trustedWriters.has(item?.user?.login)
         && String(item?.body || '').includes(taskMarker));
-      if (matches.length > 1) throw new Error('Duplicate bound disposition task requests exist');
+      if (matches.length > 1) throw new Error(`Duplicate bound ${taskKind} task requests exist`);
       return matches[0] || null;
     };
     task = await findTask();
@@ -565,10 +583,15 @@ async function runReviewReassessment({
       && String(item?.body || '').includes(marker)
       && String(item.fullDatabaseId) === String(comment.id)
       && item.url === comment.html_url);
-    if (!originalRequest) throw new Error('Bound in-thread disposition request changed before task');
-    if (!task) {
+    if (!originalRequest) throw new Error(`Bound in-thread ${taskKind} request changed before task`);
+    if (initialTask && hasSubsequentExactHeadReviewerAnswer(
+      fresh.thread, request, profiles, comment.created_at || comment.createdAt, reviewerProfileForLogin,
+    )) taskSuppressed = true;
+    if (!task && !taskSuppressed) {
       const body = [`${taskCommand} on exact head ${request.head_sha}`,
-        'This is a bounded disposition-only cloud task. Do not inspect unrelated changes or start another general pass.',
+        dispositionOnly
+          ? 'This is a bounded disposition-only cloud task. Do not inspect unrelated changes or start another general pass.'
+          : 'This is a bounded finding-reassessment conversation task. Do not start another general review.',
         `Answer only the original finding in existing thread ${request.thread_id}: ${comment.html_url}`,
         `The authenticated in-thread request above is the authority and contains the exact finding. Inspect its source fix at Workflows commit ${request.source_commit} and generated head ${request.head_sha}.`,
         'Reply in that existing thread with explicit ACCEPT and the exact acceptance token requested there if satisfied, or REJECT with concrete evidence if not. A top-level answer cannot authorize disposition.',
@@ -579,14 +602,14 @@ async function runReviewReassessment({
           owner, repo, issue_number: request.pr, body,
         }), { maxRetries: 0 }));
       } catch (error) {
-        throw new Error(`Disposition task POST uncertain; inspect exact task marker before retry: ${error.message}`);
+        throw new Error(`${taskKind} task POST uncertain; inspect exact task marker before retry: ${error.message}`);
       }
     }
-    if (!task?.id || !trustedWriters.has(task.user?.login)
+    if (!taskSuppressed && (!task?.id || !trustedWriters.has(task.user?.login)
       || !Number.isFinite(Date.parse(task.created_at || ''))
       || !String(task.html_url || '').startsWith(
-        `https://github.com/${request.repository}/pull/${request.pr}#issuecomment-`)) {
-      throw new Error('Disposition task lacks durable URL, ID, timestamp or trusted author');
+        `https://github.com/${request.repository}/pull/${request.pr}#issuecomment-`))) {
+      throw new Error(`${taskKind} task lacks durable URL, ID, timestamp or trusted author`);
     }
   }
   await readBoundState();
@@ -598,9 +621,9 @@ async function runReviewReassessment({
     requested_at: comment.created_at,
     writer: comment.user?.login || '',
     ...(task ? {
-      task_status: taskReused ? 'disposition_task_reused' : 'disposition_task_requested',
+      task_status: taskReused ? `${taskKind}_task_reused` : `${taskKind}_task_requested`,
       task_id: task.id, task_url: task.html_url, task_requested_at: task.created_at,
-    } : {}),
+    } : taskSuppressed ? { task_status: `${taskKind}_task_suppressed_reviewer_answered` } : {}),
   };
 }
 

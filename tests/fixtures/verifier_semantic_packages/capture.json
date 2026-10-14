@@ -1,0 +1,11 @@
+{
+  "id": "reviewed-span-fixture-1",
+  "implementation_head": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+  "governing_sha256": "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+  "raw_inputs": {
+    "context": "609415d558b3cf8e9f09f948b088044ca903dc1086a1f76d00d8df2a81485c03",
+    "diff": "d0b2c59d7aca952678574929551dc88900a08f642b09d890d30657f794b5f825"
+  },
+  "gaps": [],
+  "resource_admitted": true
+}

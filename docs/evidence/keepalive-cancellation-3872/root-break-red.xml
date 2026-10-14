@@ -1,0 +1,13 @@
+<?xml version="1.0" encoding="utf-8"?><testsuites name="pytest tests"><testsuite name="pytest" errors="0" failures="1" skipped="0" tests="1" time="0.258" timestamp="2026-10-13T01:02:25.333685-05:00" hostname="server.trs.private"><testcase classname="tests.workflows.test_keepalive_reporter_unresolved" name="test_cancelled_unresolvable_run_skips_with_notice[root]" time="0.176"><failure message="AssertionError: assert ['read-origin...ry', 'failed'] == ['read-origin...e', 'summary']&#10;  &#10;  At index 1 diff: 'summary' != 'notice'&#10;  Use -v to get more diff">reporter = PosixPath('.github/workflows/agents-keepalive-loop-reporter.yml')
+
+    @pytest.mark.parametrize("reporter", REPORTERS, ids=["root", "consumer"])
+    def test_cancelled_unresolvable_run_skips_with_notice(reporter: Path) -&gt; None:
+        """A successful null index lookup proves this cancellation prepared no receipt."""
+        result = _resolve(reporter, conclusion="cancelled")
+&gt;       assert [event[0] for event in result["events"]] == ["read-origin", "notice", "summary"]
+E       AssertionError: assert ['read-origin...ry', 'failed'] == ['read-origin...e', 'summary']
+E         
+E         At index 1 diff: 'summary' != 'notice'
+E         Use -v to get more diff
+
+tests/workflows/test_keepalive_reporter_unresolved.py:307: AssertionError</failure></testcase></testsuite></testsuites>

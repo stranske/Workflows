@@ -612,12 +612,13 @@ def test_real_manifest_compiles_every_declared_copy_entry() -> None:
         ],
     }
     Draft202012Validator(schema).validate(legacy_plan)
-    assert len(plan["entries"]) == 246
+    assert len(plan["entries"]) == 252
     assert {
         "docs/CI_FAILURE_PLAYBOOK.md",
         "docs/contracts/document-identity-conventions.md",
         "docs/contracts/document-mirror-v1.md",
         "docs/contracts/schemas/document-mirror-v1.schema.json",
+        "tools/verifier_proof_resource_plan.py",
     } <= {entry["target"] for entry in plan["entries"]}
     evidence_entries = [
         entry

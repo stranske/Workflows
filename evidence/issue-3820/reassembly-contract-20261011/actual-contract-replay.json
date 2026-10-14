@@ -1,0 +1,12 @@
+{
+  "source_run": 38118258124,
+  "context_sha256": "f2f8732903e50b8cf4827dfe89a015efc6d4f2c66db8c01f4b090b41853c5223",
+  "diff_sha256": "f5eab2e67c4edf491357365b37cdc75b25cafb196012a641dc9be78c7ecd5c08",
+  "contract_id": "64f7c7ebf72ab50615b7d85a15220ebe784a95b716e882ed424ae63934518b4c",
+  "obligations": 277,
+  "gaps": 163,
+  "ranges": 60,
+  "sufficient": false,
+  "provider_generation": false,
+  "limit": "Conservative all-captured-input dependency floor; semantic independence/proof recovery/native acceptance unproved"
+}

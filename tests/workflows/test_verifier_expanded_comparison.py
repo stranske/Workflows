@@ -176,8 +176,8 @@ def test_expanded_each_arm_blocks_pass(tmp_path, provider_index, case):
     elif case == "wrong-model":
         arm["model"] = "unexpected-model"
     outputs = run_workflow(tmp_path, {"results": arms})
-    assert outputs["verdict"] == "CONCERNS", outputs
-    assert outputs["unified"] == "CONCERNS", outputs
+    expected = "FAIL" if case == "FAIL" else "CONCERNS"
+    assert outputs["verdict"] == outputs["unified"] == expected, outputs
 
 
 @pytest.mark.parametrize(
@@ -361,3 +361,47 @@ def test_evaluate_pass_and_ci_floor_preserved(tmp_path, ci_failed):
     outputs = run_workflow(tmp_path, _arms()[0], mode="evaluate", ci_failed=ci_failed)
     assert outputs["verdict"] == "PASS"
     assert outputs["unified"] == ("concerns" if ci_failed == "true" else "PASS")
+
+
+@pytest.mark.parametrize("provider_index", [0, 1])
+@pytest.mark.parametrize(
+    "other", ["missing", "malformed", "error", "unused", "duplicate", "extra", "pass", "self-error"]
+)
+def test_expanded_preserves_configured_fail_despite_incomplete_matrix(
+    tmp_path, provider_index, other
+):
+    arms = _arms()
+    arms[provider_index]["verdict"] = "FAIL"
+    peer = 1 - provider_index
+    if other == "self-error":
+        arms[provider_index]["error"] = "later diagnostic partition unavailable"
+    elif other == "missing":
+        arms.pop(peer)
+    elif other == "malformed":
+        arms[peer] = None
+    elif other == "error":
+        arms[peer]["error"] = "native count unavailable"
+    elif other == "unused":
+        arms[peer]["used_llm"] = False
+    elif other == "duplicate":
+        arms[peer] = copy.deepcopy(arms[provider_index])
+    elif other == "extra":
+        arms.append(None)
+    outputs = run_workflow(tmp_path, {"results": arms})
+    assert outputs["verdict"] == outputs["unified"] == "FAIL"
+
+
+@pytest.mark.parametrize("defect", ["foreign-provider", "foreign-model", "unused", "malformed"])
+def test_expanded_unbound_fail_cannot_impersonate_configured_judge(tmp_path, defect):
+    arms = _arms()
+    arms[0]["verdict"] = "FAIL"
+    if defect == "foreign-provider":
+        arms[0]["provider_used"] = "foreign"
+    elif defect == "foreign-model":
+        arms[0]["model"] = "foreign"
+    elif defect == "unused":
+        arms[0]["used_llm"] = False
+    else:
+        arms[0]["scores"] = "malformed"
+    outputs = run_workflow(tmp_path, {"results": arms})
+    assert outputs["verdict"] == outputs["unified"] == "CONCERNS"

@@ -1,0 +1,3527 @@
+{
+  "schema": "workflows-verifier-historical-proof-package/v1",
+  "claim": "expanded comparison requires both configured used_llm arms",
+  "historical_proof_chain_recovered": true,
+  "acceptance_sufficient": false,
+  "semantic_independence_proven": false,
+  "provider_calls": 0,
+  "scope": "historical stubbed-CLI workflow proof, not current-head/native acceptance",
+  "members": {
+    "original-workflow.yml": "caac7552e8857597c395f30317fe99cedd720a374eb438fc15fe00fd1075bdb9",
+    "repaired-workflow.yml": "07f26802c94547fe245d3890e98a1eae4c21beba8f9a3bcacf7b35728936e5f0",
+    "mutant-workflow.yml": "c62e9c9fd49cf4a73fbe9568108c14fa0b74f72bcaedd8f6dcdd7376dfb8d4b4",
+    "historical-test.py": "398572a051b86fbad858f44cc07379dce11c3b0bc3351e4fbec861c05da6c071",
+    "historical-source.py": "5315ff4583dec4a3b461448c291b4354751f2afc145e20499382948582b10865",
+    "historical-template-source.py": "5315ff4583dec4a3b461448c291b4354751f2afc145e20499382948582b10865",
+    "mutation-red.txt": "957cc81c15925bb55937e439b934a915e981543753b6a5d9628a8780f51d3ecd",
+    "mutation-red.xml": "484334e82fc6928a04a1a75b206f58936c12e426e9be2065a3f59bab42a1c8c9",
+    "restored-green.txt": "5c3d2d2b7810ab4cce9237c5c3e0520b47141d5a1f92d54732769f787040f66c",
+    "restored-green.xml": "725a7ae0e592bfbfbb3a84ace58dd7398b9f3b2c503b3dea31a9c69708b390fe"
+  },
+  "selected_test_identities": [
+    "tests.workflows.test_verifier_expanded_comparison::test_expanded_each_arm_blocks_pass[used-false-anthropic]",
+    "tests.workflows.test_verifier_expanded_comparison::test_expanded_each_arm_blocks_pass[used-false-openai]"
+  ],
+  "provenance": {
+    "base_commit": "b94a4667b81ef1bf04ec01219fbe98be37ecb02e",
+    "proof_commit": "b52a38a34280fe2fd5b8747d0946b101000a9ee1",
+    "execution_rollout_id": "01a126cf-6a0e-70c1-a7c3-aa87d0697d14",
+    "event_line": 138,
+    "event_sha256": "0879b61a00ccd2647473271268e3193b730096ed938221e618a5ca6a298cb270",
+    "transform_call_sha256": "ec90d0b966e53c3a04938a4afc21dab8513a316984f993c8c8a1814d0e8c733e",
+    "recovery": "Replayed only literal old/new aggregation substitution and v4-to-v5 fingerprint change from retained original execution tool call; both resulting bytes match independently committed historical proof hashes. No historical execution rerun, fabricated mutation or fresh provider call.",
+    "source_recovery": "Same original tool-call literal addition applied to original b94a466 parser blob, followed by original Black line-length100 formatting; resultant source and template bytes match committed receipt5315ff4583dec4a3b461448c291b4354751f2afc145e20499382948582b10865",
+    "formatter_observed": "26.5.1"
+  },
+  "global_dependency_contract": {
+    "schema": "workflows-verifier-capture-reassembly-contract/v1",
+    "id": "64f7c7ebf72ab50615b7d85a15220ebe784a95b716e882ed424ae63934518b4c",
+    "obligation_manifest_sha256": "da7434386e9334841f28634ac9ac77e3ccbe59ad2161e9b2b1d975c0356ffb9c",
+    "byte_inventory_sha256": "ffdc4ce5b97a6ec08dbcd666ebfbbc35dca4faa32e774d25f20af5667024ae0a",
+    "dependency_policy": "all-captured-inputs",
+    "required_range_ids": [
+      "context:f2f8732903e50b8cf4827dfe89a015efc6d4f2c66db8c01f4b090b41853c5223:0:65536",
+      "context:f2f8732903e50b8cf4827dfe89a015efc6d4f2c66db8c01f4b090b41853c5223:65536:131072",
+      "context:f2f8732903e50b8cf4827dfe89a015efc6d4f2c66db8c01f4b090b41853c5223:131072:196608",
+      "context:f2f8732903e50b8cf4827dfe89a015efc6d4f2c66db8c01f4b090b41853c5223:196608:262144",
+      "context:f2f8732903e50b8cf4827dfe89a015efc6d4f2c66db8c01f4b090b41853c5223:262144:327680",
+      "context:f2f8732903e50b8cf4827dfe89a015efc6d4f2c66db8c01f4b090b41853c5223:327680:393216",
+      "context:f2f8732903e50b8cf4827dfe89a015efc6d4f2c66db8c01f4b090b41853c5223:393216:458752",
+      "context:f2f8732903e50b8cf4827dfe89a015efc6d4f2c66db8c01f4b090b41853c5223:458752:524288",
+      "context:f2f8732903e50b8cf4827dfe89a015efc6d4f2c66db8c01f4b090b41853c5223:524288:589824",
+      "context:f2f8732903e50b8cf4827dfe89a015efc6d4f2c66db8c01f4b090b41853c5223:589824:655360",
+      "context:f2f8732903e50b8cf4827dfe89a015efc6d4f2c66db8c01f4b090b41853c5223:655360:695510",
+      "diff:f5eab2e67c4edf491357365b37cdc75b25cafb196012a641dc9be78c7ecd5c08:0:65536",
+      "diff:f5eab2e67c4edf491357365b37cdc75b25cafb196012a641dc9be78c7ecd5c08:65536:131072",
+      "diff:f5eab2e67c4edf491357365b37cdc75b25cafb196012a641dc9be78c7ecd5c08:131072:196608",
+      "diff:f5eab2e67c4edf491357365b37cdc75b25cafb196012a641dc9be78c7ecd5c08:196608:262144",
+      "diff:f5eab2e67c4edf491357365b37cdc75b25cafb196012a641dc9be78c7ecd5c08:262144:327680",
+      "diff:f5eab2e67c4edf491357365b37cdc75b25cafb196012a641dc9be78c7ecd5c08:327680:393216",
+      "diff:f5eab2e67c4edf491357365b37cdc75b25cafb196012a641dc9be78c7ecd5c08:393216:458752",
+      "diff:f5eab2e67c4edf491357365b37cdc75b25cafb196012a641dc9be78c7ecd5c08:458752:524288",
+      "diff:f5eab2e67c4edf491357365b37cdc75b25cafb196012a641dc9be78c7ecd5c08:524288:589824",
+      "diff:f5eab2e67c4edf491357365b37cdc75b25cafb196012a641dc9be78c7ecd5c08:589824:655360",
+      "diff:f5eab2e67c4edf491357365b37cdc75b25cafb196012a641dc9be78c7ecd5c08:655360:720896",
+      "diff:f5eab2e67c4edf491357365b37cdc75b25cafb196012a641dc9be78c7ecd5c08:720896:786432",
+      "diff:f5eab2e67c4edf491357365b37cdc75b25cafb196012a641dc9be78c7ecd5c08:786432:851968",
+      "diff:f5eab2e67c4edf491357365b37cdc75b25cafb196012a641dc9be78c7ecd5c08:851968:917504",
+      "diff:f5eab2e67c4edf491357365b37cdc75b25cafb196012a641dc9be78c7ecd5c08:917504:983040",
+      "diff:f5eab2e67c4edf491357365b37cdc75b25cafb196012a641dc9be78c7ecd5c08:983040:1048576",
+      "diff:f5eab2e67c4edf491357365b37cdc75b25cafb196012a641dc9be78c7ecd5c08:1048576:1114112",
+      "diff:f5eab2e67c4edf491357365b37cdc75b25cafb196012a641dc9be78c7ecd5c08:1114112:1179648",
+      "diff:f5eab2e67c4edf491357365b37cdc75b25cafb196012a641dc9be78c7ecd5c08:1179648:1245184",
+      "diff:f5eab2e67c4edf491357365b37cdc75b25cafb196012a641dc9be78c7ecd5c08:1245184:1310720",
+      "diff:f5eab2e67c4edf491357365b37cdc75b25cafb196012a641dc9be78c7ecd5c08:1310720:1376256",
+      "diff:f5eab2e67c4edf491357365b37cdc75b25cafb196012a641dc9be78c7ecd5c08:1376256:1441792",
+      "diff:f5eab2e67c4edf491357365b37cdc75b25cafb196012a641dc9be78c7ecd5c08:1441792:1507328",
+      "diff:f5eab2e67c4edf491357365b37cdc75b25cafb196012a641dc9be78c7ecd5c08:1507328:1572864",
+      "diff:f5eab2e67c4edf491357365b37cdc75b25cafb196012a641dc9be78c7ecd5c08:1572864:1638400",
+      "diff:f5eab2e67c4edf491357365b37cdc75b25cafb196012a641dc9be78c7ecd5c08:1638400:1703936",
+      "diff:f5eab2e67c4edf491357365b37cdc75b25cafb196012a641dc9be78c7ecd5c08:1703936:1769472",
+      "diff:f5eab2e67c4edf491357365b37cdc75b25cafb196012a641dc9be78c7ecd5c08:1769472:1835008",
+      "diff:f5eab2e67c4edf491357365b37cdc75b25cafb196012a641dc9be78c7ecd5c08:1835008:1900544",
+      "diff:f5eab2e67c4edf491357365b37cdc75b25cafb196012a641dc9be78c7ecd5c08:1900544:1966080",
+      "diff:f5eab2e67c4edf491357365b37cdc75b25cafb196012a641dc9be78c7ecd5c08:1966080:2031616",
+      "diff:f5eab2e67c4edf491357365b37cdc75b25cafb196012a641dc9be78c7ecd5c08:2031616:2097152",
+      "diff:f5eab2e67c4edf491357365b37cdc75b25cafb196012a641dc9be78c7ecd5c08:2097152:2162688",
+      "diff:f5eab2e67c4edf491357365b37cdc75b25cafb196012a641dc9be78c7ecd5c08:2162688:2228224",
+      "diff:f5eab2e67c4edf491357365b37cdc75b25cafb196012a641dc9be78c7ecd5c08:2228224:2293760",
+      "diff:f5eab2e67c4edf491357365b37cdc75b25cafb196012a641dc9be78c7ecd5c08:2293760:2359296",
+      "diff:f5eab2e67c4edf491357365b37cdc75b25cafb196012a641dc9be78c7ecd5c08:2359296:2424832",
+      "diff:f5eab2e67c4edf491357365b37cdc75b25cafb196012a641dc9be78c7ecd5c08:2424832:2490368",
+      "diff:f5eab2e67c4edf491357365b37cdc75b25cafb196012a641dc9be78c7ecd5c08:2490368:2555904",
+      "diff:f5eab2e67c4edf491357365b37cdc75b25cafb196012a641dc9be78c7ecd5c08:2555904:2621440",
+      "diff:f5eab2e67c4edf491357365b37cdc75b25cafb196012a641dc9be78c7ecd5c08:2621440:2686976",
+      "diff:f5eab2e67c4edf491357365b37cdc75b25cafb196012a641dc9be78c7ecd5c08:2686976:2752512",
+      "diff:f5eab2e67c4edf491357365b37cdc75b25cafb196012a641dc9be78c7ecd5c08:2752512:2818048",
+      "diff:f5eab2e67c4edf491357365b37cdc75b25cafb196012a641dc9be78c7ecd5c08:2818048:2883584",
+      "diff:f5eab2e67c4edf491357365b37cdc75b25cafb196012a641dc9be78c7ecd5c08:2883584:2949120",
+      "diff:f5eab2e67c4edf491357365b37cdc75b25cafb196012a641dc9be78c7ecd5c08:2949120:3014656",
+      "diff:f5eab2e67c4edf491357365b37cdc75b25cafb196012a641dc9be78c7ecd5c08:3014656:3080192",
+      "diff:f5eab2e67c4edf491357365b37cdc75b25cafb196012a641dc9be78c7ecd5c08:3080192:3145728",
+      "diff:f5eab2e67c4edf491357365b37cdc75b25cafb196012a641dc9be78c7ecd5c08:3145728:3186662"
+    ],
+    "sufficient": false,
+    "obligations": [
+      {
+        "id": "64f7c7ebf72ab50615b7d85a15220ebe784a95b716e882ed424ae63934518b4c:obligations:0:cec420fec6c49887aeea2db4a4cb6526e9f84355e8792c86e866fbd0d0fa7c53",
+        "value": {
+          "source": ".github/sync-manifest.yml",
+          "kind": "changed_code",
+          "status": "included",
+          "included_chars": 4850,
+          "total_chars": 4850
+        }
+      },
+      {
+        "id": "64f7c7ebf72ab50615b7d85a15220ebe784a95b716e882ed424ae63934518b4c:obligations:1:6c72f6faa2ac33c978f3f2f6cb3a4f3cb363fd65ab70a21d0406b90189d64225",
+        "value": {
+          "source": ".github/workflows/agents-verifier.yml",
+          "kind": "changed_code",
+          "status": "included",
+          "included_chars": 4455,
+          "total_chars": 4455
+        }
+      },
+      {
+        "id": "64f7c7ebf72ab50615b7d85a15220ebe784a95b716e882ed424ae63934518b4c:obligations:2:94f4a6d379ce588db80b92d959efda9db5b693a6d3171b374f917f3db3bfc139",
+        "value": {
+          "source": ".github/workflows/reusable-agents-verifier.yml",
+          "kind": "changed_code",
+          "status": "included",
+          "included_chars": 5263,
+          "total_chars": 5263
+        }
+      },
+      {
+        "id": "64f7c7ebf72ab50615b7d85a15220ebe784a95b716e882ed424ae63934518b4c:obligations:3:dc9662b5ca94adff24f56be2b8b8cbc3f755ae144af0f0485d7d96ed9b8384e1",
+        "value": {
+          "source": "config/model_registry.json",
+          "kind": "changed_code",
+          "status": "included",
+          "included_chars": 1680,
+          "total_chars": 1680
+        }
+      },
+      {
+        "id": "64f7c7ebf72ab50615b7d85a15220ebe784a95b716e882ed424ae63934518b4c:obligations:4:2c7fd7a1df27e821db0f42865aa7418d993cd95a3871d3913b8554147310a073",
+        "value": {
+          "source": "config/template-drift-allowlist.txt",
+          "kind": "changed_code",
+          "status": "included",
+          "included_chars": 5621,
+          "total_chars": 5621
+        }
+      },
+      {
+        "id": "64f7c7ebf72ab50615b7d85a15220ebe784a95b716e882ed424ae63934518b4c:obligations:5:3b9fbd8e6544c9a8ebcd1c5da941f0c43c0a3d3f4a79dd79a76bbd672262ef3c",
+        "value": {
+          "source": "docs/MODEL_SELECTION_POLICY.md",
+          "kind": "changed_code",
+          "status": "included",
+          "included_chars": 1372,
+          "total_chars": 1372
+        }
+      },
+      {
+        "id": "64f7c7ebf72ab50615b7d85a15220ebe784a95b716e882ed424ae63934518b4c:obligations:6:ddf67145ff5005cc091aa0b638729e4461502954c290809f7b349f7921b4f0bd",
+        "value": {
+          "source": "docs/WORKFLOW_GUIDE.md",
+          "kind": "changed_code",
+          "status": "included",
+          "included_chars": 4913,
+          "total_chars": 4913
+        }
+      },
+      {
+        "id": "64f7c7ebf72ab50615b7d85a15220ebe784a95b716e882ed424ae63934518b4c:obligations:7:c19076ec34c644b4e704f9efa3bef36fbcd1e66c151eb14b404e1250d9175fe4",
+        "value": {
+          "source": "docs/ci/WORKFLOWS.md",
+          "kind": "changed_code",
+          "status": "included",
+          "included_chars": 1254,
+          "total_chars": 1254
+        }
+      },
+      {
+        "id": "64f7c7ebf72ab50615b7d85a15220ebe784a95b716e882ed424ae63934518b4c:obligations:8:0cf5caab9d3b60ac47795906d74e36d93234a6f6f8d8498d51411864b9faca18",
+        "value": {
+          "source": "docs/ops/CONSUMER_REPO_MAINTENANCE.md",
+          "kind": "changed_code",
+          "status": "included",
+          "included_chars": 14420,
+          "total_chars": 14420
+        }
+      },
+      {
+        "id": "64f7c7ebf72ab50615b7d85a15220ebe784a95b716e882ed424ae63934518b4c:obligations:9:c5b2d7a045b4c4cb4cf85c8d2aea0fdeee97ae79f9a6b44757ba689904f62b7a",
+        "value": {
+          "source": "evidence/issue-3820/20261010-source-merge-green.xml",
+          "kind": "changed_code",
+          "status": "included",
+          "included_chars": 108299,
+          "total_chars": 108299
+        }
+      },
+      {
+        "id": "64f7c7ebf72ab50615b7d85a15220ebe784a95b716e882ed424ae63934518b4c:obligations:10:d47f9b641b20b4a82a369266dcf08544b5ba6dd02c221e6213d42d11f58bea0f",
+        "value": {
+          "source": "evidence/issue-3820/20261010-source-merge-recovery.md",
+          "kind": "changed_code",
+          "status": "included",
+          "included_chars": 3560,
+          "total_chars": 3560
+        }
+      },
+      {
+        "id": "64f7c7ebf72ab50615b7d85a15220ebe784a95b716e882ed424ae63934518b4c:obligations:11:7f298fed6936d4905889b4f3031b9fffe76525b1e73ca139b53aa89f2a3f3249",
+        "value": {
+          "source": "evidence/issue-3820/expanded-checkout-formatted-green.xml",
+          "kind": "changed_code",
+          "status": "included",
+          "included_chars": 1503,
+          "total_chars": 1503
+        }
+      },
+      {
+        "id": "64f7c7ebf72ab50615b7d85a15220ebe784a95b716e882ed424ae63934518b4c:obligations:12:44b764e34a48712d0929eb3f9a2dac496e7cfa7769e1f24289d6993e62fbedce",
+        "value": {
+          "source": "evidence/issue-3820/expanded-checkout-integration.xml",
+          "kind": "changed_code",
+          "status": "included",
+          "included_chars": 25760,
+          "total_chars": 25760
+        }
+      },
+      {
+        "id": "64f7c7ebf72ab50615b7d85a15220ebe784a95b716e882ed424ae63934518b4c:obligations:13:5261ba196480194f5d22012cf2dbc303e67c7bfb2e9e88483d05de1e344b57cd",
+        "value": {
+          "source": "evidence/issue-3820/expanded-checkout-mutation-red.xml",
+          "kind": "changed_code",
+          "status": "included",
+          "included_chars": 7392,
+          "total_chars": 7392
+        }
+      },
+      {
+        "id": "64f7c7ebf72ab50615b7d85a15220ebe784a95b716e882ed424ae63934518b4c:obligations:14:01deeb1f0c08c51eec5f981aa2cd11140e083ccbf62317be4dc84403b7675bac",
+        "value": {
+          "source": "evidence/issue-3820/expanded-checkout-repair.md",
+          "kind": "changed_code",
+          "status": "included",
+          "included_chars": 4144,
+          "total_chars": 4144
+        }
+      },
+      {
+        "id": "64f7c7ebf72ab50615b7d85a15220ebe784a95b716e882ed424ae63934518b4c:obligations:15:a1237344f22acd61d60cfae45ccd9eaaca52377f67bb42fb6bdab64a90db15f5",
+        "value": {
+          "source": "evidence/issue-3820/expanded-checkout-restored-green.xml",
+          "kind": "changed_code",
+          "status": "included",
+          "included_chars": 1500,
+          "total_chars": 1500
+        }
+      },
+      {
+        "id": "64f7c7ebf72ab50615b7d85a15220ebe784a95b716e882ed424ae63934518b4c:obligations:16:d29691e5c669a4b23381f3741edcc0fa4f38e84453ac968f96cb7634b482e26d",
+        "value": {
+          "source": "evidence/issue-3820/expanded-comparison-actionlint.txt",
+          "kind": "changed_code",
+          "status": "included",
+          "included_chars": 171,
+          "total_chars": 171
+        }
+      },
+      {
+        "id": "64f7c7ebf72ab50615b7d85a15220ebe784a95b716e882ed424ae63934518b4c:obligations:17:80141f336c3c29603a8e76565863ddb20d59207260b5bd8a8357a64663db5614",
+        "value": {
+          "source": "evidence/issue-3820/expanded-comparison-all-arms-repair.md",
+          "kind": "changed_code",
+          "status": "included",
+          "included_chars": 8631,
+          "total_chars": 8631
+        }
+      },
+      {
+        "id": "64f7c7ebf72ab50615b7d85a15220ebe784a95b716e882ed424ae63934518b4c:obligations:18:6fb6ad0ff95b7d896e08e7dfde3c42fcc726528c9c9c3005957f28072060f584",
+        "value": {
+          "source": "evidence/issue-3820/expanded-comparison-black-final.txt",
+          "kind": "changed_code",
+          "status": "included",
+          "included_chars": 317,
+          "total_chars": 317
+        }
+      },
+      {
+        "id": "64f7c7ebf72ab50615b7d85a15220ebe784a95b716e882ed424ae63934518b4c:obligations:19:d815328f949111eb7dfc27c8c0bbca7ef163eec0132ac417f8a1c92b157f84cc",
+        "value": {
+          "source": "evidence/issue-3820/expanded-comparison-black.txt",
+          "kind": "changed_code",
+          "status": "included",
+          "included_chars": 299,
+          "total_chars": 299
+        }
+      },
+      {
+        "id": "64f7c7ebf72ab50615b7d85a15220ebe784a95b716e882ed424ae63934518b4c:obligations:20:553c52bdffcc30e873482593dbcee055492b0cccf32d6013d2368e6714cc5985",
+        "value": {
+          "source": "evidence/issue-3820/expanded-comparison-diff-check.txt",
+          "kind": "changed_code",
+          "status": "included",
+          "included_chars": 171,
+          "total_chars": 171
+        }
+      },
+      {
+        "id": "64f7c7ebf72ab50615b7d85a15220ebe784a95b716e882ed424ae63934518b4c:obligations:21:6e26399b9d97374f84eb192d2553cc945efa82adcff6c42b89589e12670577f1",
+        "value": {
+          "source": "evidence/issue-3820/expanded-comparison-green.txt",
+          "kind": "changed_code",
+          "status": "included",
+          "included_chars": 349,
+          "total_chars": 349
+        }
+      },
+      {
+        "id": "64f7c7ebf72ab50615b7d85a15220ebe784a95b716e882ed424ae63934518b4c:obligations:22:5159699dddbfbad2d03905d258c939ec9b77d828291343bf72b56f8880b59c6d",
+        "value": {
+          "source": "evidence/issue-3820/expanded-comparison-green.xml",
+          "kind": "changed_code",
+          "status": "included",
+          "included_chars": 9437,
+          "total_chars": 9437
+        }
+      },
+      {
+        "id": "64f7c7ebf72ab50615b7d85a15220ebe784a95b716e882ed424ae63934518b4c:obligations:23:531f8f6259d70d3a22bf0dbb578c0bb4bfa76e883e9b75d18902261ce39341c8",
+        "value": {
+          "source": "evidence/issue-3820/expanded-comparison-mutation-red.txt",
+          "kind": "changed_code",
+          "status": "included",
+          "included_chars": 6022,
+          "total_chars": 6022
+        }
+      },
+      {
+        "id": "64f7c7ebf72ab50615b7d85a15220ebe784a95b716e882ed424ae63934518b4c:obligations:24:86a3b1165837afd306882c3e6794dd87daeedc5e41b9bfe7841b9fb5c633063c",
+        "value": {
+          "source": "evidence/issue-3820/expanded-comparison-mutation-red.xml",
+          "kind": "changed_code",
+          "status": "included",
+          "included_chars": 6295,
+          "total_chars": 6295
+        }
+      },
+      {
+        "id": "64f7c7ebf72ab50615b7d85a15220ebe784a95b716e882ed424ae63934518b4c:obligations:25:6ea6b41e7dad82d4fed28a204a2fa06b9a8dacca68d8d151ac85b627f07d1b91",
+        "value": {
+          "source": "evidence/issue-3820/expanded-comparison-original-red.txt",
+          "kind": "changed_code",
+          "status": "included",
+          "included_chars": 5483,
+          "total_chars": 5483
+        }
+      },
+      {
+        "id": "64f7c7ebf72ab50615b7d85a15220ebe784a95b716e882ed424ae63934518b4c:obligations:26:e565eb092c4a1e01b8bdf1719516540dc3768e7aa9016fc69e92fbca5491b006",
+        "value": {
+          "source": "evidence/issue-3820/expanded-comparison-original-red.xml",
+          "kind": "changed_code",
+          "status": "included",
+          "included_chars": 5756,
+          "total_chars": 5756
+        }
+      },
+      {
+        "id": "64f7c7ebf72ab50615b7d85a15220ebe784a95b716e882ed424ae63934518b4c:obligations:27:5dd25a315eadc81d6e71569f1be65b550093b3607ec2b7b52421875cf896cc72",
+        "value": {
+          "source": "evidence/issue-3820/expanded-comparison-preservation.json",
+          "kind": "changed_code",
+          "status": "included",
+          "included_chars": 2329,
+          "total_chars": 2329
+        }
+      },
+      {
+        "id": "64f7c7ebf72ab50615b7d85a15220ebe784a95b716e882ed424ae63934518b4c:obligations:28:4997ba1a30dabab429013bf853770fc01425eb2a11fc7ec384f2ad8a44454fd3",
+        "value": {
+          "source": "evidence/issue-3820/expanded-comparison-proof.json",
+          "kind": "changed_code",
+          "status": "included",
+          "included_chars": 2962,
+          "total_chars": 2962
+        }
+      },
+      {
+        "id": "64f7c7ebf72ab50615b7d85a15220ebe784a95b716e882ed424ae63934518b4c:obligations:29:b775926a7b9eb8a8b1e03290976ed24c2a5b68efaed7e63934d24ca2b01deee7",
+        "value": {
+          "source": "evidence/issue-3820/expanded-comparison-regression-final.txt",
+          "kind": "changed_code",
+          "status": "included",
+          "included_chars": 962,
+          "total_chars": 962
+        }
+      },
+      {
+        "id": "64f7c7ebf72ab50615b7d85a15220ebe784a95b716e882ed424ae63934518b4c:obligations:30:fa015d6108180066cd963bf099df752dd2513271c44743f35bfc78c04fe8957d",
+        "value": {
+          "source": "evidence/issue-3820/expanded-comparison-regression-final.xml",
+          "kind": "changed_code",
+          "status": "truncated",
+          "included_chars": 54830,
+          "total_chars": 95905
+        }
+      },
+      {
+        "id": "64f7c7ebf72ab50615b7d85a15220ebe784a95b716e882ed424ae63934518b4c:obligations:31:7be40644be4ee3d0bf8c603952724d8b45952b809159a5b486642653c8aababb",
+        "value": {
+          "source": "evidence/issue-3820/expanded-comparison-regression.txt",
+          "kind": "changed_code",
+          "status": "omitted",
+          "included_chars": 0,
+          "total_chars": 5429
+        }
+      },
+      {
+        "id": "64f7c7ebf72ab50615b7d85a15220ebe784a95b716e882ed424ae63934518b4c:obligations:32:c96692f1d6661e912415905935ed930bc798d62a3fd9f6154f0ac26e459feb9c",
+        "value": {
+          "source": "evidence/issue-3820/expanded-comparison-regression.xml",
+          "kind": "changed_code",
+          "status": "omitted",
+          "included_chars": 0,
+          "total_chars": 100114
+        }
+      },
+      {
+        "id": "64f7c7ebf72ab50615b7d85a15220ebe784a95b716e882ed424ae63934518b4c:obligations:33:e06f14a410d607b83e630b40fb349c85cddd2594943eb2318fd37bbbb620f0ad",
+        "value": {
+          "source": "evidence/issue-3820/expanded-comparison-restored-green.txt",
+          "kind": "changed_code",
+          "status": "omitted",
+          "included_chars": 0,
+          "total_chars": 389
+        }
+      },
+      {
+        "id": "64f7c7ebf72ab50615b7d85a15220ebe784a95b716e882ed424ae63934518b4c:obligations:34:08673ab5405322010d974217fd4b33f41af7fc5db228708bfa66a155b76d95ac",
+        "value": {
+          "source": "evidence/issue-3820/expanded-comparison-restored-green.xml",
+          "kind": "changed_code",
+          "status": "omitted",
+          "included_chars": 0,
+          "total_chars": 855
+        }
+      },
+      {
+        "id": "64f7c7ebf72ab50615b7d85a15220ebe784a95b716e882ed424ae63934518b4c:obligations:35:6b79ef5793e18914ed96f70055d69fbd65f9280a1d02dd037c128cc96f3fd342",
+        "value": {
+          "source": "evidence/issue-3820/expanded-comparison-ruff-final.txt",
+          "kind": "changed_code",
+          "status": "omitted",
+          "included_chars": 0,
+          "total_chars": 280
+        }
+      },
+      {
+        "id": "64f7c7ebf72ab50615b7d85a15220ebe784a95b716e882ed424ae63934518b4c:obligations:36:0d0af9c479906303e1850ade409d7db13791c4a25e22e6feb4582f3c3989dd9a",
+        "value": {
+          "source": "evidence/issue-3820/expanded-comparison-ruff-verified.txt",
+          "kind": "changed_code",
+          "status": "omitted",
+          "included_chars": 0,
+          "total_chars": 289
+        }
+      },
+      {
+        "id": "64f7c7ebf72ab50615b7d85a15220ebe784a95b716e882ed424ae63934518b4c:obligations:37:dbed529380699b4c3edc63da1157ce3dd52e9c4133c234b590af3aea3e7bf49f",
+        "value": {
+          "source": "evidence/issue-3820/expanded-comparison-ruff.txt",
+          "kind": "changed_code",
+          "status": "omitted",
+          "included_chars": 0,
+          "total_chars": 1569
+        }
+      },
+      {
+        "id": "64f7c7ebf72ab50615b7d85a15220ebe784a95b716e882ed424ae63934518b4c:obligations:38:d8c5f8133b057e402c4c1825b143717fcb09da43ae4dfd16fd5137baf414a762",
+        "value": {
+          "source": "evidence/issue-3820/expanded-comparison-template-drift.txt",
+          "kind": "changed_code",
+          "status": "omitted",
+          "included_chars": 0,
+          "total_chars": 38766
+        }
+      },
+      {
+        "id": "64f7c7ebf72ab50615b7d85a15220ebe784a95b716e882ed424ae63934518b4c:obligations:39:2a1e05e1226b46d02b2dfc79074bcf5f7608e535bd2530460519b784321620d7",
+        "value": {
+          "source": "evidence/issue-3820/expanded-comparison-verification.json",
+          "kind": "changed_code",
+          "status": "omitted",
+          "included_chars": 0,
+          "total_chars": 4635
+        }
+      },
+      {
+        "id": "64f7c7ebf72ab50615b7d85a15220ebe784a95b716e882ed424ae63934518b4c:obligations:40:0e27909c8c43b0a2abb65ed51dc818f8a1f03102fbc4a0483e58803d6d565751",
+        "value": {
+          "source": "evidence/issue-3820/native-capacity-focused-regression.txt",
+          "kind": "changed_code",
+          "status": "omitted",
+          "included_chars": 0,
+          "total_chars": 5458
+        }
+      },
+      {
+        "id": "64f7c7ebf72ab50615b7d85a15220ebe784a95b716e882ed424ae63934518b4c:obligations:41:2cd0382ce858e3120e8dcfed22c91939d618b3a7e3f3d91b01dfee91c0663548",
+        "value": {
+          "source": "evidence/issue-3820/native-capacity-green.txt",
+          "kind": "changed_code",
+          "status": "omitted",
+          "included_chars": 0,
+          "total_chars": 430
+        }
+      },
+      {
+        "id": "64f7c7ebf72ab50615b7d85a15220ebe784a95b716e882ed424ae63934518b4c:obligations:42:7c29cc201c81c28582e6266d7740034a2f3952a14fc2c270f1947e345f2f2bf4",
+        "value": {
+          "source": "evidence/issue-3820/native-capacity-mutation-red.txt",
+          "kind": "changed_code",
+          "status": "omitted",
+          "included_chars": 0,
+          "total_chars": 14711
+        }
+      },
+      {
+        "id": "64f7c7ebf72ab50615b7d85a15220ebe784a95b716e882ed424ae63934518b4c:obligations:43:79ad06d934c843656d063f678a405a6eee611bc7c04dbce27a652f01dc81190a",
+        "value": {
+          "source": "evidence/issue-3820/native-capacity-mutation-red.xml",
+          "kind": "changed_code",
+          "status": "omitted",
+          "included_chars": 0,
+          "total_chars": 16537
+        }
+      },
+      {
+        "id": "64f7c7ebf72ab50615b7d85a15220ebe784a95b716e882ed424ae63934518b4c:obligations:44:23b23b6a55592d88e1ba26f74892d64bb4e38ee07cae022446af255acd4043dd",
+        "value": {
+          "source": "evidence/issue-3820/native-capacity-recovery.md",
+          "kind": "changed_code",
+          "status": "omitted",
+          "included_chars": 0,
+          "total_chars": 14891
+        }
+      },
+      {
+        "id": "64f7c7ebf72ab50615b7d85a15220ebe784a95b716e882ed424ae63934518b4c:obligations:45:4db37d613a4236777472ad45366dd6620f1ae7b865f0fd385160f02cf430c9bb",
+        "value": {
+          "source": "evidence/issue-3820/native-capacity-red.txt",
+          "kind": "changed_code",
+          "status": "omitted",
+          "included_chars": 0,
+          "total_chars": 14684
+        }
+      },
+      {
+        "id": "64f7c7ebf72ab50615b7d85a15220ebe784a95b716e882ed424ae63934518b4c:obligations:46:8214b5133269cc3903b3a07e62870ec10342651c008377ee1958ad521e6dc573",
+        "value": {
+          "source": "evidence/issue-3820/native-capacity-red.xml",
+          "kind": "changed_code",
+          "status": "omitted",
+          "included_chars": 0,
+          "total_chars": 16510
+        }
+      },
+      {
+        "id": "64f7c7ebf72ab50615b7d85a15220ebe784a95b716e882ed424ae63934518b4c:obligations:47:3d712e8ac733fb647d50595c13f54e90a5b199f6a967c2f0935098ee49dced65",
+        "value": {
+          "source": "evidence/issue-3820/native-capacity-registry-actionlint.txt",
+          "kind": "changed_code",
+          "status": "omitted",
+          "included_chars": 0,
+          "total_chars": 181
+        }
+      },
+      {
+        "id": "64f7c7ebf72ab50615b7d85a15220ebe784a95b716e882ed424ae63934518b4c:obligations:48:9a127fa7e3197d4c8dacc085120f1ff4b05aab6450cdba584bb1b143516ea7a4",
+        "value": {
+          "source": "evidence/issue-3820/native-capacity-registry-allowlist.txt",
+          "kind": "changed_code",
+          "status": "omitted",
+          "included_chars": 0,
+          "total_chars": 374
+        }
+      },
+      {
+        "id": "64f7c7ebf72ab50615b7d85a15220ebe784a95b716e882ed424ae63934518b4c:obligations:49:b7150919d07ad337530c9771855a8ea496e72dccf02266e547e174667704cafb",
+        "value": {
+          "source": "evidence/issue-3820/native-capacity-registry-allowlist.xml",
+          "kind": "changed_code",
+          "status": "omitted",
+          "included_chars": 0,
+          "total_chars": 1411
+        }
+      },
+      {
+        "id": "64f7c7ebf72ab50615b7d85a15220ebe784a95b716e882ed424ae63934518b4c:obligations:50:dea0ed21fd41506f0f2811d519ede8b5630e69fdcd9eadb2f38632ca2eef63f3",
+        "value": {
+          "source": "evidence/issue-3820/native-capacity-registry-black-final.txt",
+          "kind": "changed_code",
+          "status": "omitted",
+          "included_chars": 0,
+          "total_chars": 332
+        }
+      },
+      {
+        "id": "64f7c7ebf72ab50615b7d85a15220ebe784a95b716e882ed424ae63934518b4c:obligations:51:b62def03aeb0a25814f6a5e799bc94eedee6d5961c0a386b32b106a82c282a55",
+        "value": {
+          "source": "evidence/issue-3820/native-capacity-registry-black.txt",
+          "kind": "changed_code",
+          "status": "omitted",
+          "included_chars": 0,
+          "total_chars": 314
+        }
+      },
+      {
+        "id": "64f7c7ebf72ab50615b7d85a15220ebe784a95b716e882ed424ae63934518b4c:obligations:52:272e9d77734066a7548968e7a8ea611b5937c91064e2764cd666461130926f30",
+        "value": {
+          "source": "evidence/issue-3820/native-capacity-registry-config.txt",
+          "kind": "changed_code",
+          "status": "omitted",
+          "included_chars": 0,
+          "total_chars": 702
+        }
+      },
+      {
+        "id": "64f7c7ebf72ab50615b7d85a15220ebe784a95b716e882ed424ae63934518b4c:obligations:53:e2b2b709b3f4609dc5d5ca2700f74d7a6066d6747335341ddc7a51d04434836a",
+        "value": {
+          "source": "evidence/issue-3820/native-capacity-registry-config.xml",
+          "kind": "changed_code",
+          "status": "omitted",
+          "included_chars": 0,
+          "total_chars": 56629
+        }
+      },
+      {
+        "id": "64f7c7ebf72ab50615b7d85a15220ebe784a95b716e882ed424ae63934518b4c:obligations:54:21c95602273c71ee01245dc87e80a10acc84baa51dd254eb933229e3c3853f1a",
+        "value": {
+          "source": "evidence/issue-3820/native-capacity-registry-final-config.txt",
+          "kind": "changed_code",
+          "status": "omitted",
+          "included_chars": 0,
+          "total_chars": 720
+        }
+      },
+      {
+        "id": "64f7c7ebf72ab50615b7d85a15220ebe784a95b716e882ed424ae63934518b4c:obligations:55:6718558fbc39e6273c8505a3be309382c5efd5b1c50acf11ba8ee9e785bc6e6c",
+        "value": {
+          "source": "evidence/issue-3820/native-capacity-registry-final-config.xml",
+          "kind": "changed_code",
+          "status": "omitted",
+          "included_chars": 0,
+          "total_chars": 57278
+        }
+      },
+      {
+        "id": "64f7c7ebf72ab50615b7d85a15220ebe784a95b716e882ed424ae63934518b4c:obligations:56:036503f2a5e9a3d2042671aea620edf680b8a1f2a87f6c62c3a80bd52344419f",
+        "value": {
+          "source": "evidence/issue-3820/native-capacity-registry-final-mutation-red.txt",
+          "kind": "changed_code",
+          "status": "omitted",
+          "included_chars": 0,
+          "total_chars": 14714
+        }
+      },
+      {
+        "id": "64f7c7ebf72ab50615b7d85a15220ebe784a95b716e882ed424ae63934518b4c:obligations:57:43f38fb46b7813a6d264be2d75530bc6d74fdb2222ee202775baac07a4cacbf0",
+        "value": {
+          "source": "evidence/issue-3820/native-capacity-registry-final-mutation-red.xml",
+          "kind": "changed_code",
+          "status": "omitted",
+          "included_chars": 0,
+          "total_chars": 16466
+        }
+      },
+      {
+        "id": "64f7c7ebf72ab50615b7d85a15220ebe784a95b716e882ed424ae63934518b4c:obligations:58:738c8d0e6528fe4be04e6b705f0cc95cb8d02597dba47b1afea12557a3b9af8f",
+        "value": {
+          "source": "evidence/issue-3820/native-capacity-registry-final-proof.json",
+          "kind": "changed_code",
+          "status": "omitted",
+          "included_chars": 0,
+          "total_chars": 5030
+        }
+      },
+      {
+        "id": "64f7c7ebf72ab50615b7d85a15220ebe784a95b716e882ed424ae63934518b4c:obligations:59:0fe9ddaa4f595c3e7458739983f4f3b90ac5003804e52e07f454601298b9d54c",
+        "value": {
+          "source": "evidence/issue-3820/native-capacity-registry-final-regression.txt",
+          "kind": "changed_code",
+          "status": "omitted",
+          "included_chars": 0,
+          "total_chars": 977
+        }
+      },
+      {
+        "id": "64f7c7ebf72ab50615b7d85a15220ebe784a95b716e882ed424ae63934518b4c:obligations:60:e88deb6d4c7e52fb99dfa8cc4e43ae4d2cf62f59c66734dbeff93d5acca6d305",
+        "value": {
+          "source": "evidence/issue-3820/native-capacity-registry-final-regression.xml",
+          "kind": "changed_code",
+          "status": "omitted",
+          "included_chars": 0,
+          "total_chars": 95920
+        }
+      },
+      {
+        "id": "64f7c7ebf72ab50615b7d85a15220ebe784a95b716e882ed424ae63934518b4c:obligations:61:6374a83917f66af9a6896ed2ecb8f87ac68b243166b0d8b2d32328296fe09767",
+        "value": {
+          "source": "evidence/issue-3820/native-capacity-registry-final-restored-green.txt",
+          "kind": "changed_code",
+          "status": "omitted",
+          "included_chars": 0,
+          "total_chars": 423
+        }
+      },
+      {
+        "id": "64f7c7ebf72ab50615b7d85a15220ebe784a95b716e882ed424ae63934518b4c:obligations:62:7d50c373b9a5601c04065af63c5c872e7c16684430244b34226c29d264fcc0ac",
+        "value": {
+          "source": "evidence/issue-3820/native-capacity-registry-final-restored-green.xml",
+          "kind": "changed_code",
+          "status": "omitted",
+          "included_chars": 0,
+          "total_chars": 1588
+        }
+      },
+      {
+        "id": "64f7c7ebf72ab50615b7d85a15220ebe784a95b716e882ed424ae63934518b4c:obligations:63:c738d02a410720c170fc0dc4c10a6ba789d20cc2f3fb636d6b467bb9a877dc5b",
+        "value": {
+          "source": "evidence/issue-3820/native-capacity-registry-final-ruff.txt",
+          "kind": "changed_code",
+          "status": "omitted",
+          "included_chars": 0,
+          "total_chars": 295
+        }
+      },
+      {
+        "id": "64f7c7ebf72ab50615b7d85a15220ebe784a95b716e882ed424ae63934518b4c:obligations:64:4cde33b21158f6ccc7d124b85964eafc8d09a0291d5551f67b40be82d49157bc",
+        "value": {
+          "source": "evidence/issue-3820/native-capacity-registry-focused.txt",
+          "kind": "changed_code",
+          "status": "omitted",
+          "included_chars": 0,
+          "total_chars": 868
+        }
+      },
+      {
+        "id": "64f7c7ebf72ab50615b7d85a15220ebe784a95b716e882ed424ae63934518b4c:obligations:65:cb08e31d2f27d85f4fa6501af55cddc3d5b94fca1f70ad9c609408bd84680405",
+        "value": {
+          "source": "evidence/issue-3820/native-capacity-registry-focused.xml",
+          "kind": "changed_code",
+          "status": "omitted",
+          "included_chars": 0,
+          "total_chars": 83725
+        }
+      },
+      {
+        "id": "64f7c7ebf72ab50615b7d85a15220ebe784a95b716e882ed424ae63934518b4c:obligations:66:c42a5fa6eccdea06f09787d5a342df17d8704b54cae3af36dc925f85e414486a",
+        "value": {
+          "source": "evidence/issue-3820/native-capacity-registry-initial-green.txt",
+          "kind": "changed_code",
+          "status": "omitted",
+          "included_chars": 0,
+          "total_chars": 724
+        }
+      },
+      {
+        "id": "64f7c7ebf72ab50615b7d85a15220ebe784a95b716e882ed424ae63934518b4c:obligations:67:139f33245bd7de81c14c074f0c9791687f2dab355f636ae7fb0433402de0ffa5",
+        "value": {
+          "source": "evidence/issue-3820/native-capacity-registry-initial-green.xml",
+          "kind": "changed_code",
+          "status": "omitted",
+          "included_chars": 0,
+          "total_chars": 53584
+        }
+      },
+      {
+        "id": "64f7c7ebf72ab50615b7d85a15220ebe784a95b716e882ed424ae63934518b4c:obligations:68:af2bb9d87576d0364b2b7fe0c8f51f3e9df37f6c06635b83dd49b447640c45cd",
+        "value": {
+          "source": "evidence/issue-3820/native-capacity-registry-mutation-red.txt",
+          "kind": "changed_code",
+          "status": "omitted",
+          "included_chars": 0,
+          "total_chars": 14696
+        }
+      },
+      {
+        "id": "64f7c7ebf72ab50615b7d85a15220ebe784a95b716e882ed424ae63934518b4c:obligations:69:d80ff7513cd52d7623b0f4e704181b292222eaffd7f27da9273cf9901630ed76",
+        "value": {
+          "source": "evidence/issue-3820/native-capacity-registry-mutation-red.xml",
+          "kind": "changed_code",
+          "status": "omitted",
+          "included_chars": 0,
+          "total_chars": 16448
+        }
+      },
+      {
+        "id": "64f7c7ebf72ab50615b7d85a15220ebe784a95b716e882ed424ae63934518b4c:obligations:70:d875fdeccf981840b49a188701c624bd0deafc3d23da0c67f5fb7c60e058fdbc",
+        "value": {
+          "source": "evidence/issue-3820/native-capacity-registry-original-red.txt",
+          "kind": "changed_code",
+          "status": "omitted",
+          "included_chars": 0,
+          "total_chars": 3503
+        }
+      },
+      {
+        "id": "64f7c7ebf72ab50615b7d85a15220ebe784a95b716e882ed424ae63934518b4c:obligations:71:a6ad95d1cce8f47bcbe241b11459a18f4227dd53b02e1ee057a57d0f68fd9ed0",
+        "value": {
+          "source": "evidence/issue-3820/native-capacity-registry-original-red.xml",
+          "kind": "changed_code",
+          "status": "omitted",
+          "included_chars": 0,
+          "total_chars": 3615
+        }
+      },
+      {
+        "id": "64f7c7ebf72ab50615b7d85a15220ebe784a95b716e882ed424ae63934518b4c:obligations:72:e5e6f4abcadb69919c171dc7d9eefcb208865f349177a003a627ac664b65d938",
+        "value": {
+          "source": "evidence/issue-3820/native-capacity-registry-preservation.json",
+          "kind": "changed_code",
+          "status": "omitted",
+          "included_chars": 0,
+          "total_chars": 362845
+        }
+      },
+      {
+        "id": "64f7c7ebf72ab50615b7d85a15220ebe784a95b716e882ed424ae63934518b4c:obligations:73:1884fb7727b2ebd49a1d83a780a646bd833d520a3a06924d20f9e9e91bef0cd6",
+        "value": {
+          "source": "evidence/issue-3820/native-capacity-registry-proof.json",
+          "kind": "changed_code",
+          "status": "omitted",
+          "included_chars": 0,
+          "total_chars": 4976
+        }
+      },
+      {
+        "id": "64f7c7ebf72ab50615b7d85a15220ebe784a95b716e882ed424ae63934518b4c:obligations:74:cb84a23092c5fe44eb29ccfd23cbe933cc2a470107931ba72d9d2a0dc640aa02",
+        "value": {
+          "source": "evidence/issue-3820/native-capacity-registry-regression.txt",
+          "kind": "changed_code",
+          "status": "omitted",
+          "included_chars": 0,
+          "total_chars": 959
+        }
+      },
+      {
+        "id": "64f7c7ebf72ab50615b7d85a15220ebe784a95b716e882ed424ae63934518b4c:obligations:75:7a5adb4fc1af840cb0e5a019d6df94c64f6783220614d3a078eedcf1fcd82826",
+        "value": {
+          "source": "evidence/issue-3820/native-capacity-registry-regression.xml",
+          "kind": "changed_code",
+          "status": "omitted",
+          "included_chars": 0,
+          "total_chars": 95902
+        }
+      },
+      {
+        "id": "64f7c7ebf72ab50615b7d85a15220ebe784a95b716e882ed424ae63934518b4c:obligations:76:69f352a71658d8ec8868c413261a78451b453665a4f886a22b81d99010ba0852",
+        "value": {
+          "source": "evidence/issue-3820/native-capacity-registry-repair.md",
+          "kind": "changed_code",
+          "status": "omitted",
+          "included_chars": 0,
+          "total_chars": 11499
+        }
+      },
+      {
+        "id": "64f7c7ebf72ab50615b7d85a15220ebe784a95b716e882ed424ae63934518b4c:obligations:77:902595000bcd962fe3a008375beaa7bec70328e8e5807f1d7c272bfc420811cc",
+        "value": {
+          "source": "evidence/issue-3820/native-capacity-registry-restored-green.txt",
+          "kind": "changed_code",
+          "status": "omitted",
+          "included_chars": 0,
+          "total_chars": 405
+        }
+      },
+      {
+        "id": "64f7c7ebf72ab50615b7d85a15220ebe784a95b716e882ed424ae63934518b4c:obligations:78:db244525f7cc58f756287d864b9573bd99ca5003ced4ddfa29fb5281769f8698",
+        "value": {
+          "source": "evidence/issue-3820/native-capacity-registry-restored-green.xml",
+          "kind": "changed_code",
+          "status": "omitted",
+          "included_chars": 0,
+          "total_chars": 1570
+        }
+      },
+      {
+        "id": "64f7c7ebf72ab50615b7d85a15220ebe784a95b716e882ed424ae63934518b4c:obligations:79:7074d7dccca4c56ccda4ae201957d0afb32b477a64cb89aacff89955cbdc9b75",
+        "value": {
+          "source": "evidence/issue-3820/native-capacity-registry-ruff-verified.txt",
+          "kind": "changed_code",
+          "status": "omitted",
+          "included_chars": 0,
+          "total_chars": 304
+        }
+      },
+      {
+        "id": "64f7c7ebf72ab50615b7d85a15220ebe784a95b716e882ed424ae63934518b4c:obligations:80:3b3f66110ef441e65fc160d6980f20cda2a01a2069aee2fa7a645dafa0e6d668",
+        "value": {
+          "source": "evidence/issue-3820/native-capacity-registry-ruff.txt",
+          "kind": "changed_code",
+          "status": "omitted",
+          "included_chars": 0,
+          "total_chars": 2333
+        }
+      },
+      {
+        "id": "64f7c7ebf72ab50615b7d85a15220ebe784a95b716e882ed424ae63934518b4c:obligations:81:565b6b197f70414731223d1464ee27e25b1a5d80c4d960864c36fdcf29763e20",
+        "value": {
+          "source": "evidence/issue-3820/native-capacity-registry-template-drift-final.txt",
+          "kind": "changed_code",
+          "status": "omitted",
+          "included_chars": 0,
+          "total_chars": 39024
+        }
+      },
+      {
+        "id": "64f7c7ebf72ab50615b7d85a15220ebe784a95b716e882ed424ae63934518b4c:obligations:82:d3c4475b8c8b69f8fc3c7e4038e2cb2b85e65e154ef08e98741313f24bd34e0d",
+        "value": {
+          "source": "evidence/issue-3820/native-capacity-registry-template-drift.txt",
+          "kind": "changed_code",
+          "status": "omitted",
+          "included_chars": 0,
+          "total_chars": 36833
+        }
+      },
+      {
+        "id": "64f7c7ebf72ab50615b7d85a15220ebe784a95b716e882ed424ae63934518b4c:obligations:83:f4eb89d31e53679e6b9d08e8fb439c6577b41fe6dcfb4814fafb1c8d087db939",
+        "value": {
+          "source": "evidence/issue-3820/native-capacity-registry-template-sync-final.txt",
+          "kind": "changed_code",
+          "status": "omitted",
+          "included_chars": 0,
+          "total_chars": 332
+        }
+      },
+      {
+        "id": "64f7c7ebf72ab50615b7d85a15220ebe784a95b716e882ed424ae63934518b4c:obligations:84:83cf9a39274ee5f090c13e52dfd47c1d033c27d9a1496acf038ebf97218a5b05",
+        "value": {
+          "source": "evidence/issue-3820/native-capacity-registry-template-sync.txt",
+          "kind": "changed_code",
+          "status": "omitted",
+          "included_chars": 0,
+          "total_chars": 314
+        }
+      },
+      {
+        "id": "64f7c7ebf72ab50615b7d85a15220ebe784a95b716e882ed424ae63934518b4c:obligations:85:19fbbfe6504d94a33e9aee704d3594b57bbee3c52b5da23a86707779a6902ac1",
+        "value": {
+          "source": "evidence/issue-3820/native-capacity-registry-verification.json",
+          "kind": "changed_code",
+          "status": "omitted",
+          "included_chars": 0,
+          "total_chars": 17705
+        }
+      },
+      {
+        "id": "64f7c7ebf72ab50615b7d85a15220ebe784a95b716e882ed424ae63934518b4c:obligations:86:ca2d0361bd1b3c10075f01d5f2060345b0f0a44e3536aeb64fc4175d1b2f304f",
+        "value": {
+          "source": "evidence/issue-3820/native-capacity-restored-green.txt",
+          "kind": "changed_code",
+          "status": "omitted",
+          "included_chars": 0,
+          "total_chars": 362
+        }
+      },
+      {
+        "id": "64f7c7ebf72ab50615b7d85a15220ebe784a95b716e882ed424ae63934518b4c:obligations:87:e51bd8fd463d065279841013d2f02d59ca032da0c6bf4b3b1b338b52db157301",
+        "value": {
+          "source": "evidence/issue-3820/native-capacity-restored-green.xml",
+          "kind": "changed_code",
+          "status": "omitted",
+          "included_chars": 0,
+          "total_chars": 1543
+        }
+      },
+      {
+        "id": "64f7c7ebf72ab50615b7d85a15220ebe784a95b716e882ed424ae63934518b4c:obligations:88:2e54baa2a0a28152643bfb52f49033deb7016385de4d0fd76f3994391ce8658c",
+        "value": {
+          "source": "evidence/issue-3820/native-capacity-workflow.txt",
+          "kind": "changed_code",
+          "status": "omitted",
+          "included_chars": 0,
+          "total_chars": 345
+        }
+      },
+      {
+        "id": "64f7c7ebf72ab50615b7d85a15220ebe784a95b716e882ed424ae63934518b4c:obligations:89:a69750deb78c0c97f85cee04747ee87a973e096696f2a5a1b7194427b5f31922",
+        "value": {
+          "source": "evidence/issue-3820/native-context-summary-doc-repair.md",
+          "kind": "changed_code",
+          "status": "omitted",
+          "included_chars": 0,
+          "total_chars": 1456
+        }
+      },
+      {
+        "id": "64f7c7ebf72ab50615b7d85a15220ebe784a95b716e882ed424ae63934518b4c:obligations:90:4705ec838cfc4cc085d601d9687526351bb382ee5d545d09e010d11fe3429cb9",
+        "value": {
+          "source": "evidence/issue-3820/native-context-window-capture.txt",
+          "kind": "changed_code",
+          "status": "omitted",
+          "included_chars": 0,
+          "total_chars": 359
+        }
+      },
+      {
+        "id": "64f7c7ebf72ab50615b7d85a15220ebe784a95b716e882ed424ae63934518b4c:obligations:91:6517624b638814ad61901723c63c2d37bc63cbc99a96dc2bb08cfcf70da7b172",
+        "value": {
+          "source": "evidence/issue-3820/native-context-window-mutation-red.txt",
+          "kind": "changed_code",
+          "status": "omitted",
+          "included_chars": 0,
+          "total_chars": 54731
+        }
+      },
+      {
+        "id": "64f7c7ebf72ab50615b7d85a15220ebe784a95b716e882ed424ae63934518b4c:obligations:92:23d394692d28db871397c0a71c48206237b7771ba1ee910fc66a5086d8322fbf",
+        "value": {
+          "source": "evidence/issue-3820/native-context-window-mutation-red.xml",
+          "kind": "changed_code",
+          "status": "omitted",
+          "included_chars": 0,
+          "total_chars": 58954
+        }
+      },
+      {
+        "id": "64f7c7ebf72ab50615b7d85a15220ebe784a95b716e882ed424ae63934518b4c:obligations:93:7f84eaf5542a10113d880e658777a85e1a384babde491edc839c583c8ddf4e95",
+        "value": {
+          "source": "evidence/issue-3820/native-context-window-regression.txt",
+          "kind": "changed_code",
+          "status": "omitted",
+          "included_chars": 0,
+          "total_chars": 1194
+        }
+      },
+      {
+        "id": "64f7c7ebf72ab50615b7d85a15220ebe784a95b716e882ed424ae63934518b4c:obligations:94:7212827ac66263617081932419540fdab9990df0b347b4238f074be189d72198",
+        "value": {
+          "source": "evidence/issue-3820/native-context-window-repair.md",
+          "kind": "changed_code",
+          "status": "omitted",
+          "included_chars": 0,
+          "total_chars": 7943
+        }
+      },
+      {
+        "id": "64f7c7ebf72ab50615b7d85a15220ebe784a95b716e882ed424ae63934518b4c:obligations:95:516c8a7bffa7efee7ff07cc5b66271b889359b00fa5f5d6bfd0ca4d0463134ee",
+        "value": {
+          "source": "evidence/issue-3820/native-context-window-restored-green.txt",
+          "kind": "changed_code",
+          "status": "omitted",
+          "included_chars": 0,
+          "total_chars": 397
+        }
+      },
+      {
+        "id": "64f7c7ebf72ab50615b7d85a15220ebe784a95b716e882ed424ae63934518b4c:obligations:96:7ce894523650d7be9b433cb291b6aa003eb8f624fb2803b0caf338fe9525f26d",
+        "value": {
+          "source": "evidence/issue-3820/native-context-window-restored-green.xml",
+          "kind": "changed_code",
+          "status": "omitted",
+          "included_chars": 0,
+          "total_chars": 2510
+        }
+      },
+      {
+        "id": "64f7c7ebf72ab50615b7d85a15220ebe784a95b716e882ed424ae63934518b4c:obligations:97:113a024ae1f7f0d826414303e69eea436d35f2ba1f9a2289f11fd328bb59bd15",
+        "value": {
+          "source": "evidence/issue-3820/verifier-caller-security-actionlint-final.txt",
+          "kind": "changed_code",
+          "status": "omitted",
+          "included_chars": 0,
+          "total_chars": 193
+        }
+      },
+      {
+        "id": "64f7c7ebf72ab50615b7d85a15220ebe784a95b716e882ed424ae63934518b4c:obligations:98:cac51843a010af69b58ecae2f5477822da5b80ce9d62b6941db16ab9425cebe8",
+        "value": {
+          "source": "evidence/issue-3820/verifier-caller-security-actionlint.txt",
+          "kind": "changed_code",
+          "status": "omitted",
+          "included_chars": 0,
+          "total_chars": 181
+        }
+      },
+      {
+        "id": "64f7c7ebf72ab50615b7d85a15220ebe784a95b716e882ed424ae63934518b4c:obligations:99:759aeddb1ce471f6d585b72caa37c323a1c45f807272fa5e8123707bb16fe7ba",
+        "value": {
+          "source": "evidence/issue-3820/verifier-caller-security-artifacts.json",
+          "kind": "changed_code",
+          "status": "omitted",
+          "included_chars": 0,
+          "total_chars": 9619
+        }
+      },
+      {
+        "id": "64f7c7ebf72ab50615b7d85a15220ebe784a95b716e882ed424ae63934518b4c:obligations:100:f40bdd06af92fbb36d29fc37f35d6c14db05ceb28423666e3fcfcbbb69540755",
+        "value": {
+          "source": "evidence/issue-3820/verifier-caller-security-bindings.json",
+          "kind": "changed_code",
+          "status": "omitted",
+          "included_chars": 0,
+          "total_chars": 2678
+        }
+      },
+      {
+        "id": "64f7c7ebf72ab50615b7d85a15220ebe784a95b716e882ed424ae63934518b4c:obligations:101:8368f611a8c338bedcef078931c43a026d412b9699281d9f7698794a62e00475",
+        "value": {
+          "source": "evidence/issue-3820/verifier-caller-security-black-final.txt",
+          "kind": "changed_code",
+          "status": "omitted",
+          "included_chars": 0,
+          "total_chars": 332
+        }
+      },
+      {
+        "id": "64f7c7ebf72ab50615b7d85a15220ebe784a95b716e882ed424ae63934518b4c:obligations:102:4fc23c2e777c43caae82ba6d633ee43e30d574ec73cb08baeea8758bbf9c3f1c",
+        "value": {
+          "source": "evidence/issue-3820/verifier-caller-security-black.txt",
+          "kind": "changed_code",
+          "status": "omitted",
+          "included_chars": 0,
+          "total_chars": 417
+        }
+      },
+      {
+        "id": "64f7c7ebf72ab50615b7d85a15220ebe784a95b716e882ed424ae63934518b4c:obligations:103:8fd1f7c4f0560547399a543bfddf964382ee183b74024ce38b1f03baf509719d",
+        "value": {
+          "source": "evidence/issue-3820/verifier-caller-security-checkout-red.txt",
+          "kind": "changed_code",
+          "status": "omitted",
+          "included_chars": 0,
+          "total_chars": 1995
+        }
+      },
+      {
+        "id": "64f7c7ebf72ab50615b7d85a15220ebe784a95b716e882ed424ae63934518b4c:obligations:104:93b5e1c351d05d60fb473f2bee27a58c1080d05944870a1fe897d8cd5777412a",
+        "value": {
+          "source": "evidence/issue-3820/verifier-caller-security-checkout-red.xml",
+          "kind": "changed_code",
+          "status": "omitted",
+          "included_chars": 0,
+          "total_chars": 2479
+        }
+      },
+      {
+        "id": "64f7c7ebf72ab50615b7d85a15220ebe784a95b716e882ed424ae63934518b4c:obligations:105:86a506c913e60b3b7fe0f25478e6f362999712193e2dd2c95ae34a1dbf3576c0",
+        "value": {
+          "source": "evidence/issue-3820/verifier-caller-security-checkout-restored-green.txt",
+          "kind": "changed_code",
+          "status": "omitted",
+          "included_chars": 0,
+          "total_chars": 431
+        }
+      },
+      {
+        "id": "64f7c7ebf72ab50615b7d85a15220ebe784a95b716e882ed424ae63934518b4c:obligations:106:ad8727baa05fcc834bab695fe2f2a2198e329a7dc73be06cfb7cafd958d0723c",
+        "value": {
+          "source": "evidence/issue-3820/verifier-caller-security-checkout-restored-green.xml",
+          "kind": "changed_code",
+          "status": "omitted",
+          "included_chars": 0,
+          "total_chars": 1192
+        }
+      },
+      {
+        "id": "64f7c7ebf72ab50615b7d85a15220ebe784a95b716e882ed424ae63934518b4c:obligations:107:5cca4e1ed0f196678776fd4ae7715d3b13b9dff61208216fd2be8d192f4c6fd9",
+        "value": {
+          "source": "evidence/issue-3820/verifier-caller-security-commands.json",
+          "kind": "changed_code",
+          "status": "omitted",
+          "included_chars": 0,
+          "total_chars": 4349
+        }
+      },
+      {
+        "id": "64f7c7ebf72ab50615b7d85a15220ebe784a95b716e882ed424ae63934518b4c:obligations:108:ced8bb20c1070d39e26d31422d536ec08eca3db3eb5ea893b0bcb613dc7e8ad1",
+        "value": {
+          "source": "evidence/issue-3820/verifier-caller-security-credentials-red.txt",
+          "kind": "changed_code",
+          "status": "omitted",
+          "included_chars": 0,
+          "total_chars": 1546
+        }
+      },
+      {
+        "id": "64f7c7ebf72ab50615b7d85a15220ebe784a95b716e882ed424ae63934518b4c:obligations:109:caba8481690d28f9d9b6f2a9ba455ce29747a6b06f56ced4c9a56c08dc1ad816",
+        "value": {
+          "source": "evidence/issue-3820/verifier-caller-security-credentials-red.xml",
+          "kind": "changed_code",
+          "status": "omitted",
+          "included_chars": 0,
+          "total_chars": 1921
+        }
+      },
+      {
+        "id": "64f7c7ebf72ab50615b7d85a15220ebe784a95b716e882ed424ae63934518b4c:obligations:110:fc055b807e3ee317b8e65f93c292421fa54490fa87d6443dc9035eeb8b2304cb",
+        "value": {
+          "source": "evidence/issue-3820/verifier-caller-security-credentials-restored-green.txt",
+          "kind": "changed_code",
+          "status": "omitted",
+          "included_chars": 0,
+          "total_chars": 440
+        }
+      },
+      {
+        "id": "64f7c7ebf72ab50615b7d85a15220ebe784a95b716e882ed424ae63934518b4c:obligations:111:311b9c35ae5d0294a0c654edf238f131e166f4692cca680d76a8ab890425e199",
+        "value": {
+          "source": "evidence/issue-3820/verifier-caller-security-credentials-restored-green.xml",
+          "kind": "changed_code",
+          "status": "omitted",
+          "included_chars": 0,
+          "total_chars": 1201
+        }
+      },
+      {
+        "id": "64f7c7ebf72ab50615b7d85a15220ebe784a95b716e882ed424ae63934518b4c:obligations:112:4d2f4ae59b159abd64b1e0261326afe39c56667e364b0df243734e10c86f2c11",
+        "value": {
+          "source": "evidence/issue-3820/verifier-caller-security-drift-final.txt",
+          "kind": "changed_code",
+          "status": "omitted",
+          "included_chars": 0,
+          "total_chars": 39491
+        }
+      },
+      {
+        "id": "64f7c7ebf72ab50615b7d85a15220ebe784a95b716e882ed424ae63934518b4c:obligations:113:89aecd1307656425220fe4778487caa72cad1208666d40570d25b945b2f500e7",
+        "value": {
+          "source": "evidence/issue-3820/verifier-caller-security-drift.txt",
+          "kind": "changed_code",
+          "status": "omitted",
+          "included_chars": 0,
+          "total_chars": 39473
+        }
+      },
+      {
+        "id": "64f7c7ebf72ab50615b7d85a15220ebe784a95b716e882ed424ae63934518b4c:obligations:114:efdc0e2bccf6cdcffd1ff7d29b92e0649fbc591803f63dc9dcdff7c1bd76c12d",
+        "value": {
+          "source": "evidence/issue-3820/verifier-caller-security-final-diff-check.json",
+          "kind": "changed_code",
+          "status": "omitted",
+          "included_chars": 0,
+          "total_chars": 1061
+        }
+      },
+      {
+        "id": "64f7c7ebf72ab50615b7d85a15220ebe784a95b716e882ed424ae63934518b4c:obligations:115:0cd632a0bee57d0a0db2186defc0ed2300f33ee9324c86b2bb114f77ae4a48c0",
+        "value": {
+          "source": "evidence/issue-3820/verifier-caller-security-green.txt",
+          "kind": "changed_code",
+          "status": "omitted",
+          "included_chars": 0,
+          "total_chars": 363
+        }
+      },
+      {
+        "id": "64f7c7ebf72ab50615b7d85a15220ebe784a95b716e882ed424ae63934518b4c:obligations:116:d5fded274cae7f8286e5e6f8f40bb893dd67af9111da2ab1f1fbdafc1686b011",
+        "value": {
+          "source": "evidence/issue-3820/verifier-caller-security-green.xml",
+          "kind": "changed_code",
+          "status": "omitted",
+          "included_chars": 0,
+          "total_chars": 3303
+        }
+      },
+      {
+        "id": "64f7c7ebf72ab50615b7d85a15220ebe784a95b716e882ed424ae63934518b4c:obligations:117:91e7e563fe0b5682d8bae6586103ad02f4541096b157db319722d7e8d79c3721",
+        "value": {
+          "source": "evidence/issue-3820/verifier-caller-security-merged-gate-red.txt",
+          "kind": "changed_code",
+          "status": "omitted",
+          "included_chars": 0,
+          "total_chars": 3537
+        }
+      },
+      {
+        "id": "64f7c7ebf72ab50615b7d85a15220ebe784a95b716e882ed424ae63934518b4c:obligations:118:2f9488cf4226271156b253ddc9ff1ac59d9c629035f8a6fddd8438f3c381b151",
+        "value": {
+          "source": "evidence/issue-3820/verifier-caller-security-merged-gate-red.xml",
+          "kind": "changed_code",
+          "status": "omitted",
+          "included_chars": 0,
+          "total_chars": 4173
+        }
+      },
+      {
+        "id": "64f7c7ebf72ab50615b7d85a15220ebe784a95b716e882ed424ae63934518b4c:obligations:119:92fa5abe7520cf049068b3d8218a4e23042331db2645adaf807cb518d43d89f0",
+        "value": {
+          "source": "evidence/issue-3820/verifier-caller-security-merged-gate-restored-green.txt",
+          "kind": "changed_code",
+          "status": "omitted",
+          "included_chars": 0,
+          "total_chars": 440
+        }
+      },
+      {
+        "id": "64f7c7ebf72ab50615b7d85a15220ebe784a95b716e882ed424ae63934518b4c:obligations:120:3571e63a7a8c26a37905a6e09d1cc7ce44260fcc470336dd2885211717dbf18a",
+        "value": {
+          "source": "evidence/issue-3820/verifier-caller-security-merged-gate-restored-green.xml",
+          "kind": "changed_code",
+          "status": "omitted",
+          "included_chars": 0,
+          "total_chars": 995
+        }
+      },
+      {
+        "id": "64f7c7ebf72ab50615b7d85a15220ebe784a95b716e882ed424ae63934518b4c:obligations:121:b70b1917d7d3fbfc7ece58ed288b5f2bd5f04c3889ee788c7cc3026cfed570fa",
+        "value": {
+          "source": "evidence/issue-3820/verifier-caller-security-permissions-red.txt",
+          "kind": "changed_code",
+          "status": "omitted",
+          "included_chars": 0,
+          "total_chars": 1276
+        }
+      },
+      {
+        "id": "64f7c7ebf72ab50615b7d85a15220ebe784a95b716e882ed424ae63934518b4c:obligations:122:ec017be2960ae204557da90f9b65cb35daeee8877d3f4a3584cde348f5b4c69c",
+        "value": {
+          "source": "evidence/issue-3820/verifier-caller-security-permissions-red.xml",
+          "kind": "changed_code",
+          "status": "omitted",
+          "included_chars": 0,
+          "total_chars": 1753
+        }
+      },
+      {
+        "id": "64f7c7ebf72ab50615b7d85a15220ebe784a95b716e882ed424ae63934518b4c:obligations:123:623ff3f0c9cd841dcc8ec0be577c5cbcfd1c727a887acab4784bae33387c97a4",
+        "value": {
+          "source": "evidence/issue-3820/verifier-caller-security-permissions-restored-green.txt",
+          "kind": "changed_code",
+          "status": "omitted",
+          "included_chars": 0,
+          "total_chars": 440
+        }
+      },
+      {
+        "id": "64f7c7ebf72ab50615b7d85a15220ebe784a95b716e882ed424ae63934518b4c:obligations:124:d9d6e0fb4af9eb251d8124d3e7117e0286bc6498bda9d574136b14eafae1d448",
+        "value": {
+          "source": "evidence/issue-3820/verifier-caller-security-permissions-restored-green.xml",
+          "kind": "changed_code",
+          "status": "omitted",
+          "included_chars": 0,
+          "total_chars": 1111
+        }
+      },
+      {
+        "id": "64f7c7ebf72ab50615b7d85a15220ebe784a95b716e882ed424ae63934518b4c:obligations:125:2eea578ca7d6596a64dbf8cb1ef48433823aa18e4538bb0c7cf29a90ea8fb819",
+        "value": {
+          "source": "evidence/issue-3820/verifier-caller-security-preservation.json",
+          "kind": "changed_code",
+          "status": "omitted",
+          "included_chars": 0,
+          "total_chars": 3735
+        }
+      },
+      {
+        "id": "64f7c7ebf72ab50615b7d85a15220ebe784a95b716e882ed424ae63934518b4c:obligations:126:dfa550f21070e52eb4cba62ffcced3f509f8e0e22d798cf19c09e90a9ec9b48e",
+        "value": {
+          "source": "evidence/issue-3820/verifier-caller-security-red-green-final.txt",
+          "kind": "changed_code",
+          "status": "omitted",
+          "included_chars": 0,
+          "total_chars": 370
+        }
+      },
+      {
+        "id": "64f7c7ebf72ab50615b7d85a15220ebe784a95b716e882ed424ae63934518b4c:obligations:127:374b1b8ec71bf752488d4ff9aefda8c52b46c94fdc9942126c2b1b8bcec515af",
+        "value": {
+          "source": "evidence/issue-3820/verifier-caller-security-red-green.json",
+          "kind": "changed_code",
+          "status": "omitted",
+          "included_chars": 0,
+          "total_chars": 9944
+        }
+      },
+      {
+        "id": "64f7c7ebf72ab50615b7d85a15220ebe784a95b716e882ed424ae63934518b4c:obligations:128:e187104607150f42ae954bf220e634082b1304240023c2e6af27f05cf73c1b50",
+        "value": {
+          "source": "evidence/issue-3820/verifier-caller-security-red-green.py",
+          "kind": "changed_code",
+          "status": "omitted",
+          "included_chars": 0,
+          "total_chars": 4180
+        }
+      },
+      {
+        "id": "64f7c7ebf72ab50615b7d85a15220ebe784a95b716e882ed424ae63934518b4c:obligations:129:b569a10c8b125b84cb87f5421797c46eeccf1b04a6113d6a073338f9155aa502",
+        "value": {
+          "source": "evidence/issue-3820/verifier-caller-security-red-green.txt",
+          "kind": "changed_code",
+          "status": "omitted",
+          "included_chars": 0,
+          "total_chars": 352
+        }
+      },
+      {
+        "id": "64f7c7ebf72ab50615b7d85a15220ebe784a95b716e882ed424ae63934518b4c:obligations:130:310c355a9a3b9e7194606a76cb52601ad9ba1c748e808ea370545be6d0e10da5",
+        "value": {
+          "source": "evidence/issue-3820/verifier-caller-security-regression-final.txt",
+          "kind": "changed_code",
+          "status": "omitted",
+          "included_chars": 0,
+          "total_chars": 1383
+        }
+      },
+      {
+        "id": "64f7c7ebf72ab50615b7d85a15220ebe784a95b716e882ed424ae63934518b4c:obligations:131:5c17f9861e943cbe31f27b367303d9a8e82d70f8f6577dfd9482dd68afdaadea",
+        "value": {
+          "source": "evidence/issue-3820/verifier-caller-security-regression-final.xml",
+          "kind": "changed_code",
+          "status": "omitted",
+          "included_chars": 0,
+          "total_chars": 146792
+        }
+      },
+      {
+        "id": "64f7c7ebf72ab50615b7d85a15220ebe784a95b716e882ed424ae63934518b4c:obligations:132:8e541aa8ce407c91355ddfb4b9b6c80e71e38bdc307ca98f7ee26b78710a07a7",
+        "value": {
+          "source": "evidence/issue-3820/verifier-caller-security-regression.txt",
+          "kind": "changed_code",
+          "status": "omitted",
+          "included_chars": 0,
+          "total_chars": 1375
+        }
+      },
+      {
+        "id": "64f7c7ebf72ab50615b7d85a15220ebe784a95b716e882ed424ae63934518b4c:obligations:133:e29d39d3e50c7526b3eacb1344b0cdf6699c181db53b2f4a61f8fd8603c2236e",
+        "value": {
+          "source": "evidence/issue-3820/verifier-caller-security-regression.xml",
+          "kind": "changed_code",
+          "status": "omitted",
+          "included_chars": 0,
+          "total_chars": 146774
+        }
+      },
+      {
+        "id": "64f7c7ebf72ab50615b7d85a15220ebe784a95b716e882ed424ae63934518b4c:obligations:134:bb42266280501c4cf84898247dc8473c358207d60725aff5d760a07e97ba473c",
+        "value": {
+          "source": "evidence/issue-3820/verifier-caller-security-repair.md",
+          "kind": "changed_code",
+          "status": "omitted",
+          "included_chars": 0,
+          "total_chars": 9581
+        }
+      },
+      {
+        "id": "64f7c7ebf72ab50615b7d85a15220ebe784a95b716e882ed424ae63934518b4c:obligations:135:b2b5fc057a5300e6f8d5352db4d66dc619488b76ce44256f46e50776392bc130",
+        "value": {
+          "source": "evidence/issue-3820/verifier-caller-security-ruff-final.txt",
+          "kind": "changed_code",
+          "status": "omitted",
+          "included_chars": 0,
+          "total_chars": 295
+        }
+      },
+      {
+        "id": "64f7c7ebf72ab50615b7d85a15220ebe784a95b716e882ed424ae63934518b4c:obligations:136:03388f095f0ba8db28362f6d5b05e7c5c85dd210221c9b3b7f91c3d2f9a640f6",
+        "value": {
+          "source": "evidence/issue-3820/verifier-caller-security-ruff.txt",
+          "kind": "changed_code",
+          "status": "omitted",
+          "included_chars": 0,
+          "total_chars": 277
+        }
+      },
+      {
+        "id": "64f7c7ebf72ab50615b7d85a15220ebe784a95b716e882ed424ae63934518b4c:obligations:137:25a1a86477ab500e9a677272b2fa3dfa3d6fe2b01a6d4d3058ea60b5bdb6eb05",
+        "value": {
+          "source": "evidence/issue-3820/verifier-caller-security-secrets-red.txt",
+          "kind": "changed_code",
+          "status": "omitted",
+          "included_chars": 0,
+          "total_chars": 1605
+        }
+      },
+      {
+        "id": "64f7c7ebf72ab50615b7d85a15220ebe784a95b716e882ed424ae63934518b4c:obligations:138:fe9e5bab642a25b288689747d610ea66632ae4340a64ba88d7135688ee81ea29",
+        "value": {
+          "source": "evidence/issue-3820/verifier-caller-security-secrets-red.xml",
+          "kind": "changed_code",
+          "status": "omitted",
+          "included_chars": 0,
+          "total_chars": 1997
+        }
+      },
+      {
+        "id": "64f7c7ebf72ab50615b7d85a15220ebe784a95b716e882ed424ae63934518b4c:obligations:139:a3b0f107896418c03209ce682dcdf579471f83777d377ce19cf772b8a4f5b36e",
+        "value": {
+          "source": "evidence/issue-3820/verifier-caller-security-secrets-restored-green.txt",
+          "kind": "changed_code",
+          "status": "omitted",
+          "included_chars": 0,
+          "total_chars": 428
+        }
+      },
+      {
+        "id": "64f7c7ebf72ab50615b7d85a15220ebe784a95b716e882ed424ae63934518b4c:obligations:140:99358140bce795d0da5b0efa23d6fa6387a099d3766eda5ff7480734f99080ab",
+        "value": {
+          "source": "evidence/issue-3820/verifier-caller-security-secrets-restored-green.xml",
+          "kind": "changed_code",
+          "status": "omitted",
+          "included_chars": 0,
+          "total_chars": 973
+        }
+      },
+      {
+        "id": "64f7c7ebf72ab50615b7d85a15220ebe784a95b716e882ed424ae63934518b4c:obligations:141:256ac5075a410e0379489a1571649b564f075d7be31975a2cbbcb8c222b0948e",
+        "value": {
+          "source": "evidence/issue-3820/verifier-caller-security-semgrep-after.json",
+          "kind": "changed_code",
+          "status": "omitted",
+          "included_chars": 0,
+          "total_chars": 39687
+        }
+      },
+      {
+        "id": "64f7c7ebf72ab50615b7d85a15220ebe784a95b716e882ed424ae63934518b4c:obligations:142:525825994d29c1336a05d36cbf08e25d46a14b9ae6d9a795e78ef8b1479b64d8",
+        "value": {
+          "source": "evidence/issue-3820/verifier-caller-security-semgrep-after.txt",
+          "kind": "changed_code",
+          "status": "omitted",
+          "included_chars": 0,
+          "total_chars": 762
+        }
+      },
+      {
+        "id": "64f7c7ebf72ab50615b7d85a15220ebe784a95b716e882ed424ae63934518b4c:obligations:143:3528c7ac45756634829c159212b19c0669b446db92a558ac607962211b7ae66a",
+        "value": {
+          "source": "evidence/issue-3820/verifier-caller-security-semgrep-final.json",
+          "kind": "changed_code",
+          "status": "omitted",
+          "included_chars": 0,
+          "total_chars": 39680
+        }
+      },
+      {
+        "id": "64f7c7ebf72ab50615b7d85a15220ebe784a95b716e882ed424ae63934518b4c:obligations:144:5848e5276edf90998cfb365eeef924a600b0838924dd7dabedfffcddde296c06",
+        "value": {
+          "source": "evidence/issue-3820/verifier-caller-security-semgrep-final.txt",
+          "kind": "changed_code",
+          "status": "omitted",
+          "included_chars": 0,
+          "total_chars": 1456
+        }
+      },
+      {
+        "id": "64f7c7ebf72ab50615b7d85a15220ebe784a95b716e882ed424ae63934518b4c:obligations:145:d05e3a0062961f61fa6385f9d11bfef2417c514dbb6e3d66a64ec6aaf2a8ddd4",
+        "value": {
+          "source": "evidence/issue-3820/verifier-caller-security-semgrep-hosted-config-after.json",
+          "kind": "changed_code",
+          "status": "omitted",
+          "included_chars": 0,
+          "total_chars": 39721
+        }
+      },
+      {
+        "id": "64f7c7ebf72ab50615b7d85a15220ebe784a95b716e882ed424ae63934518b4c:obligations:146:84db23ada60cf76c8616845b10ccf6cef298a0ce6a24ba2e091468918deaccdf",
+        "value": {
+          "source": "evidence/issue-3820/verifier-caller-security-semgrep-hosted-config-after.txt",
+          "kind": "changed_code",
+          "status": "omitted",
+          "included_chars": 0,
+          "total_chars": 1498
+        }
+      },
+      {
+        "id": "64f7c7ebf72ab50615b7d85a15220ebe784a95b716e882ed424ae63934518b4c:obligations:147:5e4d436ff380f65b4cac8276e2a98ddbccc5eb8f09f59b188b695830b04a4686",
+        "value": {
+          "source": "evidence/issue-3820/verifier-caller-security-semgrep-hosted-config-before.json",
+          "kind": "changed_code",
+          "status": "omitted",
+          "included_chars": 0,
+          "total_chars": 50281
+        }
+      },
+      {
+        "id": "64f7c7ebf72ab50615b7d85a15220ebe784a95b716e882ed424ae63934518b4c:obligations:148:69a330ea1c78be5388f2f080e4ce128863b014faece8960a00bf78158d9f9d97",
+        "value": {
+          "source": "evidence/issue-3820/verifier-caller-security-semgrep-hosted-config-before.txt",
+          "kind": "changed_code",
+          "status": "omitted",
+          "included_chars": 0,
+          "total_chars": 1501
+        }
+      },
+      {
+        "id": "64f7c7ebf72ab50615b7d85a15220ebe784a95b716e882ed424ae63934518b4c:obligations:149:df0d49312c874765acc95e654c0fe23037f51f9bb3fc5a5759b98b609be28003",
+        "value": {
+          "source": "evidence/issue-3820/verifier-caller-security-semgrep-template-final.json",
+          "kind": "changed_code",
+          "status": "omitted",
+          "included_chars": 0,
+          "total_chars": 1778
+        }
+      },
+      {
+        "id": "64f7c7ebf72ab50615b7d85a15220ebe784a95b716e882ed424ae63934518b4c:obligations:150:02be62af396446f9c7d67a6391e823cbeffa09badf88b986cc7919ea425366fd",
+        "value": {
+          "source": "evidence/issue-3820/verifier-caller-security-semgrep-template-final.txt",
+          "kind": "changed_code",
+          "status": "omitted",
+          "included_chars": 0,
+          "total_chars": 1559
+        }
+      },
+      {
+        "id": "64f7c7ebf72ab50615b7d85a15220ebe784a95b716e882ed424ae63934518b4c:obligations:151:db3d8c301f7968b01cb1de9bd9837e86268b6b96662d2f88ed6ed7c7e135cba3",
+        "value": {
+          "source": "evidence/issue-3820/verifier-caller-security-shell-red.txt",
+          "kind": "changed_code",
+          "status": "omitted",
+          "included_chars": 0,
+          "total_chars": 2255
+        }
+      },
+      {
+        "id": "64f7c7ebf72ab50615b7d85a15220ebe784a95b716e882ed424ae63934518b4c:obligations:152:1d28f3272eeb8bf42ea7e432dae9f84ad80cd95dab2feef0c58ef2593061c96a",
+        "value": {
+          "source": "evidence/issue-3820/verifier-caller-security-shell-red.xml",
+          "kind": "changed_code",
+          "status": "omitted",
+          "included_chars": 0,
+          "total_chars": 2450
+        }
+      },
+      {
+        "id": "64f7c7ebf72ab50615b7d85a15220ebe784a95b716e882ed424ae63934518b4c:obligations:153:06b9010c7676c6dc6a2f8be8347d3cde868463dddc5dcbdbb5a2fd7c73f174c1",
+        "value": {
+          "source": "evidence/issue-3820/verifier-caller-security-shell-restored-green.txt",
+          "kind": "changed_code",
+          "status": "omitted",
+          "included_chars": 0,
+          "total_chars": 422
+        }
+      },
+      {
+        "id": "64f7c7ebf72ab50615b7d85a15220ebe784a95b716e882ed424ae63934518b4c:obligations:154:d01dcd46c4537535e03b038b1935193ad8af8a14dd91de9cc86ecf3af2c438bd",
+        "value": {
+          "source": "evidence/issue-3820/verifier-caller-security-shell-restored-green.xml",
+          "kind": "changed_code",
+          "status": "omitted",
+          "included_chars": 0,
+          "total_chars": 725
+        }
+      },
+      {
+        "id": "64f7c7ebf72ab50615b7d85a15220ebe784a95b716e882ed424ae63934518b4c:obligations:155:ffe0b93504e0dec3a4219a56725a9832151d1ed6150001db4afeb3ca1b0e0f5a",
+        "value": {
+          "source": "evidence/issue-3820/verifier-caller-security-template-sync-final.txt",
+          "kind": "changed_code",
+          "status": "omitted",
+          "included_chars": 0,
+          "total_chars": 332
+        }
+      },
+      {
+        "id": "64f7c7ebf72ab50615b7d85a15220ebe784a95b716e882ed424ae63934518b4c:obligations:156:dc2eef2a781955c2329032135359ebf60b84c84a1e185063bdece68b98090fd2",
+        "value": {
+          "source": "evidence/issue-3820/verifier-caller-security-template-sync.txt",
+          "kind": "changed_code",
+          "status": "omitted",
+          "included_chars": 0,
+          "total_chars": 314
+        }
+      },
+      {
+        "id": "64f7c7ebf72ab50615b7d85a15220ebe784a95b716e882ed424ae63934518b4c:obligations:157:a8fb648ed09531012d31e801cff4bf6aceeca54737cdc82d1d252a0282da8989",
+        "value": {
+          "source": "evidence/issue-3820/verifier-caller-security-zizmor-after.json",
+          "kind": "changed_code",
+          "status": "omitted",
+          "included_chars": 0,
+          "total_chars": 215714
+        }
+      },
+      {
+        "id": "64f7c7ebf72ab50615b7d85a15220ebe784a95b716e882ed424ae63934518b4c:obligations:158:0c85542e572aaf64cb48c8579abe3b777293cf9b5ccb8a4895967a8360762fa6",
+        "value": {
+          "source": "evidence/issue-3820/verifier-caller-security-zizmor-after.txt",
+          "kind": "changed_code",
+          "status": "omitted",
+          "included_chars": 0,
+          "total_chars": 185
+        }
+      },
+      {
+        "id": "64f7c7ebf72ab50615b7d85a15220ebe784a95b716e882ed424ae63934518b4c:obligations:159:9a1b6264bedb54087573e6414122c91abe64c61268af6dc51985f5cc8c64ef9b",
+        "value": {
+          "source": "evidence/issue-3820/verifier-caller-security-zizmor-before.json",
+          "kind": "changed_code",
+          "status": "omitted",
+          "included_chars": 0,
+          "total_chars": 258096
+        }
+      },
+      {
+        "id": "64f7c7ebf72ab50615b7d85a15220ebe784a95b716e882ed424ae63934518b4c:obligations:160:754ea72dc625e7270553814a697c49236e5348cbfa050c27fc807646d6d377c8",
+        "value": {
+          "source": "evidence/issue-3820/verifier-caller-security-zizmor-before.txt",
+          "kind": "changed_code",
+          "status": "omitted",
+          "included_chars": 0,
+          "total_chars": 187
+        }
+      },
+      {
+        "id": "64f7c7ebf72ab50615b7d85a15220ebe784a95b716e882ed424ae63934518b4c:obligations:161:e0730b550e31a03f27c19672a4ed536b707f09b6eac33bb203d3a5cf2378b7d6",
+        "value": {
+          "source": "evidence/issue-3820/verifier-caller-security-zizmor-dispositions.json",
+          "kind": "changed_code",
+          "status": "omitted",
+          "included_chars": 0,
+          "total_chars": 12944
+        }
+      },
+      {
+        "id": "64f7c7ebf72ab50615b7d85a15220ebe784a95b716e882ed424ae63934518b4c:obligations:162:0d557662e23c55f60c70f6ad0c3583f8af1584010eb087518dc6ccc3ba2db926",
+        "value": {
+          "source": "evidence/issue-3820/verifier-caller-security-zizmor-dispositions.txt",
+          "kind": "changed_code",
+          "status": "omitted",
+          "included_chars": 0,
+          "total_chars": 199
+        }
+      },
+      {
+        "id": "64f7c7ebf72ab50615b7d85a15220ebe784a95b716e882ed424ae63934518b4c:obligations:163:379a07fc1b3bce0a2411b05c988501dfe48da52efdd41619e08a55ff8bc7d4cf",
+        "value": {
+          "source": "evidence/issue-3820/verifier-caller-security-zizmor-final.json",
+          "kind": "changed_code",
+          "status": "omitted",
+          "included_chars": 0,
+          "total_chars": 212681
+        }
+      },
+      {
+        "id": "64f7c7ebf72ab50615b7d85a15220ebe784a95b716e882ed424ae63934518b4c:obligations:164:d889a2bf34c5da9fa6a5a1938c72e4dc0bd7f2e4860932da68fadb52f336c5b6",
+        "value": {
+          "source": "evidence/issue-3820/verifier-caller-security-zizmor-final.txt",
+          "kind": "changed_code",
+          "status": "omitted",
+          "included_chars": 0,
+          "total_chars": 185
+        }
+      },
+      {
+        "id": "64f7c7ebf72ab50615b7d85a15220ebe784a95b716e882ed424ae63934518b4c:obligations:165:2284c0ad631a879e8aa6cf64abfa763ee45f638e96359fbcd5fea52f06e5998a",
+        "value": {
+          "source": "evidence/native-capacity-recovery.md",
+          "kind": "changed_code",
+          "status": "omitted",
+          "included_chars": 0,
+          "total_chars": 3280
+        }
+      },
+      {
+        "id": "64f7c7ebf72ab50615b7d85a15220ebe784a95b716e882ed424ae63934518b4c:obligations:166:a420b05575a3b81560799fed05d016de904ebc4743041d0fe13052f225078707",
+        "value": {
+          "source": "pyproject.toml",
+          "kind": "changed_code",
+          "status": "omitted",
+          "included_chars": 0,
+          "total_chars": 381
+        }
+      },
+      {
+        "id": "64f7c7ebf72ab50615b7d85a15220ebe784a95b716e882ed424ae63934518b4c:obligations:167:491789b67a27558b11720fa98e1d91ef1a136fe1d65e9cc89b423261f776df3a",
+        "value": {
+          "source": "requirements.lock",
+          "kind": "changed_code",
+          "status": "omitted",
+          "included_chars": 0,
+          "total_chars": 305
+        }
+      },
+      {
+        "id": "64f7c7ebf72ab50615b7d85a15220ebe784a95b716e882ed424ae63934518b4c:obligations:168:bf4e112fdf04e5468ba6f56a51968a5b611d1c992027e784531357342543a52b",
+        "value": {
+          "source": "scripts/langchain/pr_verifier.py",
+          "kind": "changed_code",
+          "status": "omitted",
+          "included_chars": 0,
+          "total_chars": 16620
+        }
+      },
+      {
+        "id": "64f7c7ebf72ab50615b7d85a15220ebe784a95b716e882ed424ae63934518b4c:obligations:169:f94c9ca682dec7878e492a9aa3192c84b9d6747bf37a4aa77d75cef6b3375cbc",
+        "value": {
+          "source": "templates/consumer-repo/.github/workflows/agents-verifier.yml",
+          "kind": "changed_code",
+          "status": "omitted",
+          "included_chars": 0,
+          "total_chars": 6628
+        }
+      },
+      {
+        "id": "64f7c7ebf72ab50615b7d85a15220ebe784a95b716e882ed424ae63934518b4c:obligations:170:1f647cd02d5338b37f32986d4196970688a520b2a5d263452ddaa8afb6cce626",
+        "value": {
+          "source": "templates/consumer-repo/config/model_registry.json",
+          "kind": "changed_code",
+          "status": "omitted",
+          "included_chars": 0,
+          "total_chars": 1776
+        }
+      },
+      {
+        "id": "64f7c7ebf72ab50615b7d85a15220ebe784a95b716e882ed424ae63934518b4c:obligations:171:a29000675b2d685c02b4bbc838ddf83d965187e1168b111443195844492eaf29",
+        "value": {
+          "source": "templates/consumer-repo/scripts/langchain/pr_verifier.py",
+          "kind": "changed_code",
+          "status": "omitted",
+          "included_chars": 0,
+          "total_chars": 16716
+        }
+      },
+      {
+        "id": "64f7c7ebf72ab50615b7d85a15220ebe784a95b716e882ed424ae63934518b4c:obligations:172:323193512ed30a90a5bccf1578e41cc5cf344be600157c5a50d7c957d438781e",
+        "value": {
+          "source": "templates/consumer-repo/tools/llm_registry.py",
+          "kind": "changed_code",
+          "status": "omitted",
+          "included_chars": 0,
+          "total_chars": 6831
+        }
+      },
+      {
+        "id": "64f7c7ebf72ab50615b7d85a15220ebe784a95b716e882ed424ae63934518b4c:obligations:173:278692ac6c57d351ac083c64fc5f1adb43522fade447d8d35a730e038fac1d77",
+        "value": {
+          "source": "tests/scripts/conftest.py",
+          "kind": "changed_code",
+          "status": "omitted",
+          "included_chars": 0,
+          "total_chars": 1166
+        }
+      },
+      {
+        "id": "64f7c7ebf72ab50615b7d85a15220ebe784a95b716e882ed424ae63934518b4c:obligations:174:a878de4c30c9c46e1d904d153fac08a3814f1a5ad72086830ca6fba51b0551f3",
+        "value": {
+          "source": "tests/scripts/test_native_capacity_recovery.py",
+          "kind": "changed_code",
+          "status": "omitted",
+          "included_chars": 0,
+          "total_chars": 26307
+        }
+      },
+      {
+        "id": "64f7c7ebf72ab50615b7d85a15220ebe784a95b716e882ed424ae63934518b4c:obligations:175:1a93c24f506bdf9c71b4371fe4a0fba11258acd334f573111db17d7f9535a779",
+        "value": {
+          "source": "tests/scripts/test_native_capacity_registry.py",
+          "kind": "changed_code",
+          "status": "omitted",
+          "included_chars": 0,
+          "total_chars": 13638
+        }
+      },
+      {
+        "id": "64f7c7ebf72ab50615b7d85a15220ebe784a95b716e882ed424ae63934518b4c:obligations:176:edac584159dcbb76ba2502ebc05ef73f72ba82bb4548bd6ffae76a3d5eeb58fd",
+        "value": {
+          "source": "tests/scripts/test_pr_verifier_recovery.py",
+          "kind": "changed_code",
+          "status": "omitted",
+          "included_chars": 0,
+          "total_chars": 2553
+        }
+      },
+      {
+        "id": "64f7c7ebf72ab50615b7d85a15220ebe784a95b716e882ed424ae63934518b4c:obligations:177:0c87ad57bd161cdce00a1463e68cb4c69e359388ce45d0722ca1f8d51f2d5e79",
+        "value": {
+          "source": "tests/scripts/verifier_capacity_fakes.py",
+          "kind": "changed_code",
+          "status": "omitted",
+          "included_chars": 0,
+          "total_chars": 499
+        }
+      },
+      {
+        "id": "64f7c7ebf72ab50615b7d85a15220ebe784a95b716e882ed424ae63934518b4c:obligations:178:5df2bd67cc7d8cb005948c83b5f47a1596ccd63db66a03dc81ee6f677a2dd47e",
+        "value": {
+          "source": "tests/workflows/test_verifier_caller_security.py",
+          "kind": "changed_code",
+          "status": "omitted",
+          "included_chars": 0,
+          "total_chars": 8676
+        }
+      },
+      {
+        "id": "64f7c7ebf72ab50615b7d85a15220ebe784a95b716e882ed424ae63934518b4c:obligations:179:9abdf1d9b221e9284c4bcf703345f9dd0923708c9c1d33a6d57a1e91277ee6cb",
+        "value": {
+          "source": "tests/workflows/test_verifier_evidence_profile.py",
+          "kind": "changed_code",
+          "status": "omitted",
+          "included_chars": 0,
+          "total_chars": 3238
+        }
+      },
+      {
+        "id": "64f7c7ebf72ab50615b7d85a15220ebe784a95b716e882ed424ae63934518b4c:obligations:180:fc0b5c64cc3ce3eb0cd72ea3b715682fa453e9c17cf3644100abc038e01ef6d7",
+        "value": {
+          "source": "tests/workflows/test_verifier_expanded_checkout.py",
+          "kind": "changed_code",
+          "status": "omitted",
+          "included_chars": 0,
+          "total_chars": 2342
+        }
+      },
+      {
+        "id": "64f7c7ebf72ab50615b7d85a15220ebe784a95b716e882ed424ae63934518b4c:obligations:181:1d8d1c8fecf16865f81e3786c90b44d1fbbcafe85b38937d5fddb5c67db9c6c8",
+        "value": {
+          "source": "tests/workflows/test_verifier_expanded_comparison.py",
+          "kind": "changed_code",
+          "status": "omitted",
+          "included_chars": 0,
+          "total_chars": 14621
+        }
+      },
+      {
+        "id": "64f7c7ebf72ab50615b7d85a15220ebe784a95b716e882ed424ae63934518b4c:obligations:182:3bb308044d77feefe5fabe454bba032570aa05e7e56d4a6c97ddee0fa91cfc93",
+        "value": {
+          "source": "tools/llm_registry.py",
+          "kind": "changed_code",
+          "status": "omitted",
+          "included_chars": 0,
+          "total_chars": 6734
+        }
+      },
+      {
+        "id": "64f7c7ebf72ab50615b7d85a15220ebe784a95b716e882ed424ae63934518b4c:obligations:183:1169feeb6fd1de7cf9d25997913e97aba4f3cca287dab0a349b33da13fcfb27c",
+        "value": {
+          "source": "Pull request #3822",
+          "kind": "acceptance_source",
+          "status": "included",
+          "included_chars": 1376,
+          "total_chars": 1376
+        }
+      },
+      {
+        "id": "64f7c7ebf72ab50615b7d85a15220ebe784a95b716e882ed424ae63934518b4c:obligations:184:73137122ee7c66d79de2446b22946b6411d42201934b55e6cbd4606f62f273bf",
+        "value": {
+          "source": "conversation comments: https://github.com/stranske/Workflows/pull/3822#issuecomment-6099866207",
+          "kind": "acceptance_evidence",
+          "status": "included",
+          "included_chars": 14032,
+          "total_chars": 14032
+        }
+      },
+      {
+        "id": "64f7c7ebf72ab50615b7d85a15220ebe784a95b716e882ed424ae63934518b4c:obligations:185:cefffa89bd6112e5b6661d436a7f7066d39d9cc6c2906bf2740cfadeef0c0e33",
+        "value": {
+          "source": "conversation comments: https://github.com/stranske/Workflows/pull/3822#issuecomment-6099866780",
+          "kind": "acceptance_evidence",
+          "status": "included",
+          "included_chars": 863,
+          "total_chars": 863
+        }
+      },
+      {
+        "id": "64f7c7ebf72ab50615b7d85a15220ebe784a95b716e882ed424ae63934518b4c:obligations:186:3fecb3cb9f19f51791ccb425236a57cfab13b2f395bad5bac854b4e99a3cdf8c",
+        "value": {
+          "source": "conversation comments: https://github.com/stranske/Workflows/pull/3822#issuecomment-6099883369",
+          "kind": "acceptance_evidence",
+          "status": "included",
+          "included_chars": 2453,
+          "total_chars": 2453
+        }
+      },
+      {
+        "id": "64f7c7ebf72ab50615b7d85a15220ebe784a95b716e882ed424ae63934518b4c:obligations:187:d481c536740e6d313025689e1d3a52093134ab52f768d73ad8ec574afbd85437",
+        "value": {
+          "source": "conversation comments: https://github.com/stranske/Workflows/pull/3822#issuecomment-6100003098",
+          "kind": "acceptance_evidence",
+          "status": "included",
+          "included_chars": 661,
+          "total_chars": 661
+        }
+      },
+      {
+        "id": "64f7c7ebf72ab50615b7d85a15220ebe784a95b716e882ed424ae63934518b4c:obligations:188:d7444ad515d680f6942bb983baa8779347f1f149920831f96103972807e87226",
+        "value": {
+          "source": "conversation comments: https://github.com/stranske/Workflows/pull/3822#issuecomment-6100084059",
+          "kind": "acceptance_evidence",
+          "status": "included",
+          "included_chars": 571,
+          "total_chars": 571
+        }
+      },
+      {
+        "id": "64f7c7ebf72ab50615b7d85a15220ebe784a95b716e882ed424ae63934518b4c:obligations:189:a9536fff7de8865efbb1f39adce65adbc7177fafb93b861673f5fcbf991fc324",
+        "value": {
+          "source": "conversation comments: https://github.com/stranske/Workflows/pull/3822#issuecomment-6100118379",
+          "kind": "acceptance_evidence",
+          "status": "included",
+          "included_chars": 1113,
+          "total_chars": 1113
+        }
+      },
+      {
+        "id": "64f7c7ebf72ab50615b7d85a15220ebe784a95b716e882ed424ae63934518b4c:obligations:190:3c8062a6070bbc5d48b66c456a690ca3bf122ede89f23c250486c4f8bcac7ce6",
+        "value": {
+          "source": "conversation comments: https://github.com/stranske/Workflows/pull/3822#issuecomment-6100232091",
+          "kind": "acceptance_evidence",
+          "status": "included",
+          "included_chars": 644,
+          "total_chars": 644
+        }
+      },
+      {
+        "id": "64f7c7ebf72ab50615b7d85a15220ebe784a95b716e882ed424ae63934518b4c:obligations:191:b9afe55873124ad61448427dd06277c1b8bc1458c330d6fd32443d199d6713f4",
+        "value": {
+          "source": "conversation comments: https://github.com/stranske/Workflows/pull/3822#issuecomment-6100397540",
+          "kind": "acceptance_evidence",
+          "status": "included",
+          "included_chars": 767,
+          "total_chars": 767
+        }
+      },
+      {
+        "id": "64f7c7ebf72ab50615b7d85a15220ebe784a95b716e882ed424ae63934518b4c:obligations:192:2c4bb9d7333591d53a95a133df56b70596b8df3fcd4124f1e8d03677832da445",
+        "value": {
+          "source": "conversation comments: https://github.com/stranske/Workflows/pull/3822#issuecomment-6100614089",
+          "kind": "acceptance_evidence",
+          "status": "included",
+          "included_chars": 1103,
+          "total_chars": 1103
+        }
+      },
+      {
+        "id": "64f7c7ebf72ab50615b7d85a15220ebe784a95b716e882ed424ae63934518b4c:obligations:193:06e05e89e2a0e2915f4dc4777d3e3235a4be5fb9d0e954f93e19e137238943a3",
+        "value": {
+          "source": "conversation comments: https://github.com/stranske/Workflows/pull/3822#issuecomment-6101477248",
+          "kind": "acceptance_evidence",
+          "status": "included",
+          "included_chars": 1263,
+          "total_chars": 1263
+        }
+      },
+      {
+        "id": "64f7c7ebf72ab50615b7d85a15220ebe784a95b716e882ed424ae63934518b4c:obligations:194:fb911f90555ec8ae8ceb45a9a2a6981d246cfedbad51329b884c48d167e8b62f",
+        "value": {
+          "source": "conversation comments: https://github.com/stranske/Workflows/pull/3822#issuecomment-6101862747",
+          "kind": "acceptance_evidence",
+          "status": "included",
+          "included_chars": 1146,
+          "total_chars": 1146
+        }
+      },
+      {
+        "id": "64f7c7ebf72ab50615b7d85a15220ebe784a95b716e882ed424ae63934518b4c:obligations:195:0b81938dc4ec2d2b50c35d1aabaaaf29f3419944746379c3522c6986cf21cb9a",
+        "value": {
+          "source": "conversation comments: https://github.com/stranske/Workflows/pull/3822#issuecomment-6101907445",
+          "kind": "acceptance_evidence",
+          "status": "included",
+          "included_chars": 581,
+          "total_chars": 581
+        }
+      },
+      {
+        "id": "64f7c7ebf72ab50615b7d85a15220ebe784a95b716e882ed424ae63934518b4c:obligations:196:92ed971fe5297e5522c0c7df7dcb8c910cc66bc94a13ed692baf2288a285f829",
+        "value": {
+          "source": "conversation comments: https://github.com/stranske/Workflows/pull/3822#issuecomment-6102852363",
+          "kind": "acceptance_evidence",
+          "status": "included",
+          "included_chars": 1878,
+          "total_chars": 1878
+        }
+      },
+      {
+        "id": "64f7c7ebf72ab50615b7d85a15220ebe784a95b716e882ed424ae63934518b4c:obligations:197:f5417c25ebaba36b9402314b2cd0e9593cb3cf8d151a3cc14d69db0a84233840",
+        "value": {
+          "source": "conversation comments: https://github.com/stranske/Workflows/pull/3822#issuecomment-6103017272",
+          "kind": "acceptance_evidence",
+          "status": "included",
+          "included_chars": 11074,
+          "total_chars": 11074
+        }
+      },
+      {
+        "id": "64f7c7ebf72ab50615b7d85a15220ebe784a95b716e882ed424ae63934518b4c:obligations:198:16a468f1374f8566c8f24f12898311f4b8fbd9f7e11e54077b8bfb1a8ece512d",
+        "value": {
+          "source": "inline review comments: https://github.com/stranske/Workflows/pull/3822#discussion_r4238740902",
+          "kind": "acceptance_evidence",
+          "status": "included",
+          "included_chars": 1475,
+          "total_chars": 1475
+        }
+      },
+      {
+        "id": "64f7c7ebf72ab50615b7d85a15220ebe784a95b716e882ed424ae63934518b4c:obligations:199:8ec6ba7c20533aa8584db6336519a4d4bf1ac61741f73fc1c7205ea9b5c218bf",
+        "value": {
+          "source": "inline review comments: https://github.com/stranske/Workflows/pull/3822#discussion_r4238718973",
+          "kind": "acceptance_evidence",
+          "status": "included",
+          "included_chars": 1244,
+          "total_chars": 1244
+        }
+      },
+      {
+        "id": "64f7c7ebf72ab50615b7d85a15220ebe784a95b716e882ed424ae63934518b4c:obligations:200:a7ae52c4c48ea05f7f47a1670dc4af6abf065048fe0c276568a18ac5a017a654",
+        "value": {
+          "source": "inline review comments: https://github.com/stranske/Workflows/pull/3822#discussion_r4238691918",
+          "kind": "acceptance_evidence",
+          "status": "included",
+          "included_chars": 581,
+          "total_chars": 581
+        }
+      },
+      {
+        "id": "64f7c7ebf72ab50615b7d85a15220ebe784a95b716e882ed424ae63934518b4c:obligations:201:95516a931e99e56c88171a0626c8b702d6f57327beff10d3149c77e1c4bf52bf",
+        "value": {
+          "source": "inline review comments: https://github.com/stranske/Workflows/pull/3822#discussion_r4238686718",
+          "kind": "acceptance_evidence",
+          "status": "included",
+          "included_chars": 1149,
+          "total_chars": 1149
+        }
+      },
+      {
+        "id": "64f7c7ebf72ab50615b7d85a15220ebe784a95b716e882ed424ae63934518b4c:obligations:202:16fe5fb88f71534a03148008a408a70d5368caf297c860737c1993f5b8638a96",
+        "value": {
+          "source": "inline review comments: https://github.com/stranske/Workflows/pull/3822#discussion_r4238676003",
+          "kind": "acceptance_evidence",
+          "status": "included",
+          "included_chars": 1127,
+          "total_chars": 1127
+        }
+      },
+      {
+        "id": "64f7c7ebf72ab50615b7d85a15220ebe784a95b716e882ed424ae63934518b4c:obligations:203:d0e4d54b661e9033ca7cbef0c4d8079df672b8e4612b9792e76a41521b2c680e",
+        "value": {
+          "source": "inline review comments: https://github.com/stranske/Workflows/pull/3822#discussion_r4238620802",
+          "kind": "acceptance_evidence",
+          "status": "included",
+          "included_chars": 707,
+          "total_chars": 707
+        }
+      },
+      {
+        "id": "64f7c7ebf72ab50615b7d85a15220ebe784a95b716e882ed424ae63934518b4c:obligations:204:fb29607d14f73a98784f84c2814fbc7b38db03449318a7c906c09285df4ab89b",
+        "value": {
+          "source": "inline review comments: https://github.com/stranske/Workflows/pull/3822#discussion_r4238614191",
+          "kind": "acceptance_evidence",
+          "status": "included",
+          "included_chars": 982,
+          "total_chars": 982
+        }
+      },
+      {
+        "id": "64f7c7ebf72ab50615b7d85a15220ebe784a95b716e882ed424ae63934518b4c:obligations:205:669e015ed03114cb9590c1184fbb584ba03d8ca11b02bd9054412c6b43443fc5",
+        "value": {
+          "source": "inline review comments: https://github.com/stranske/Workflows/pull/3822#discussion_r4238602852",
+          "kind": "acceptance_evidence",
+          "status": "included",
+          "included_chars": 1172,
+          "total_chars": 1172
+        }
+      },
+      {
+        "id": "64f7c7ebf72ab50615b7d85a15220ebe784a95b716e882ed424ae63934518b4c:obligations:206:d901e3d0913df319ee135d5a5a33d30e5a91a7f8a217af63a76d1db42d1a8576",
+        "value": {
+          "source": "inline review comments: https://github.com/stranske/Workflows/pull/3822#discussion_r4238561752",
+          "kind": "acceptance_evidence",
+          "status": "included",
+          "included_chars": 786,
+          "total_chars": 786
+        }
+      },
+      {
+        "id": "64f7c7ebf72ab50615b7d85a15220ebe784a95b716e882ed424ae63934518b4c:obligations:207:5b71a2cf1c3636407128c4a98e1fe25aff05cb880b5fbbd96ce1e1f2a6722430",
+        "value": {
+          "source": "inline review comments: https://github.com/stranske/Workflows/pull/3822#discussion_r4238556720",
+          "kind": "acceptance_evidence",
+          "status": "included",
+          "included_chars": 922,
+          "total_chars": 922
+        }
+      },
+      {
+        "id": "64f7c7ebf72ab50615b7d85a15220ebe784a95b716e882ed424ae63934518b4c:obligations:208:d244407b6d01554e3e398661afce1cc09a500a69c94b5e4e97ce076d4eaad38e",
+        "value": {
+          "source": "inline review comments: https://github.com/stranske/Workflows/pull/3822#discussion_r4238547085",
+          "kind": "acceptance_evidence",
+          "status": "included",
+          "included_chars": 1223,
+          "total_chars": 1223
+        }
+      },
+      {
+        "id": "64f7c7ebf72ab50615b7d85a15220ebe784a95b716e882ed424ae63934518b4c:obligations:209:084af47cadc7b8e27f8e56518b97fc8e99badd25604e62d97e4a85bfd78187b9",
+        "value": {
+          "source": "inline review comments: https://github.com/stranske/Workflows/pull/3822#discussion_r4238496010",
+          "kind": "acceptance_evidence",
+          "status": "included",
+          "included_chars": 916,
+          "total_chars": 916
+        }
+      },
+      {
+        "id": "64f7c7ebf72ab50615b7d85a15220ebe784a95b716e882ed424ae63934518b4c:obligations:210:ffe4d8c9d6e61f435b5939fb92e016ddb87809c4d49a49394e8b245738b08564",
+        "value": {
+          "source": "inline review comments: https://github.com/stranske/Workflows/pull/3822#discussion_r4238486236",
+          "kind": "acceptance_evidence",
+          "status": "included",
+          "included_chars": 988,
+          "total_chars": 988
+        }
+      },
+      {
+        "id": "64f7c7ebf72ab50615b7d85a15220ebe784a95b716e882ed424ae63934518b4c:obligations:211:8f72c93798e8c765a80341f3ddad61e12373293f1dce3d59d0ba5a757b2df638",
+        "value": {
+          "source": "inline review comments: https://github.com/stranske/Workflows/pull/3822#discussion_r4238466577",
+          "kind": "acceptance_evidence",
+          "status": "included",
+          "included_chars": 958,
+          "total_chars": 958
+        }
+      },
+      {
+        "id": "64f7c7ebf72ab50615b7d85a15220ebe784a95b716e882ed424ae63934518b4c:obligations:212:018c625e1a709363444ba9d4c40aafc429101063c86f15dfa9710f2efc50987b",
+        "value": {
+          "source": "inline review comments: https://github.com/stranske/Workflows/pull/3822#discussion_r4238453470",
+          "kind": "acceptance_evidence",
+          "status": "included",
+          "included_chars": 1132,
+          "total_chars": 1132
+        }
+      },
+      {
+        "id": "64f7c7ebf72ab50615b7d85a15220ebe784a95b716e882ed424ae63934518b4c:obligations:213:985ac1f71b1c47bf9fb05ebc19a732ab097bc63113d3cf4784edb665fb3de28e",
+        "value": {
+          "source": "inline review comments: https://github.com/stranske/Workflows/pull/3822#discussion_r4238407535",
+          "kind": "acceptance_evidence",
+          "status": "included",
+          "included_chars": 1028,
+          "total_chars": 1028
+        }
+      },
+      {
+        "id": "64f7c7ebf72ab50615b7d85a15220ebe784a95b716e882ed424ae63934518b4c:obligations:214:2f94977b180d11ee6ef39dd5365ecd0479c592c7feffac475c96f22239a97650",
+        "value": {
+          "source": "submitted reviews: https://github.com/stranske/Workflows/pull/3822#pullrequestreview-5479935405",
+          "kind": "acceptance_evidence",
+          "status": "included",
+          "included_chars": 623,
+          "total_chars": 623
+        }
+      },
+      {
+        "id": "64f7c7ebf72ab50615b7d85a15220ebe784a95b716e882ed424ae63934518b4c:obligations:215:e89bfb675371468fe237839aa39e60c5291fc7b8698161e4d78c2e9c7d4396b9",
+        "value": {
+          "source": "submitted reviews: https://github.com/stranske/Workflows/pull/3822#pullrequestreview-5480001909",
+          "kind": "acceptance_evidence",
+          "status": "included",
+          "included_chars": 623,
+          "total_chars": 623
+        }
+      },
+      {
+        "id": "64f7c7ebf72ab50615b7d85a15220ebe784a95b716e882ed424ae63934518b4c:obligations:216:bc49f903bb1ce9c959aa142034d395714fcf9e6dca0204628e6e6f2983f0b4ee",
+        "value": {
+          "source": "submitted reviews: https://github.com/stranske/Workflows/pull/3822#pullrequestreview-5480036325",
+          "kind": "acceptance_evidence",
+          "status": "included",
+          "included_chars": 623,
+          "total_chars": 623
+        }
+      },
+      {
+        "id": "64f7c7ebf72ab50615b7d85a15220ebe784a95b716e882ed424ae63934518b4c:obligations:217:d8d4f4e3f21d52888dd47cba717c4abbd4a8809c0cca396613989ad3b4eb0d11",
+        "value": {
+          "source": "submitted reviews: https://github.com/stranske/Workflows/pull/3822#pullrequestreview-5480112542",
+          "kind": "acceptance_evidence",
+          "status": "included",
+          "included_chars": 623,
+          "total_chars": 623
+        }
+      },
+      {
+        "id": "64f7c7ebf72ab50615b7d85a15220ebe784a95b716e882ed424ae63934518b4c:obligations:218:f4fe0647cbaa96761e2f23887e4daa7cb6e6ff88e2be9c035b7aebdeeb80e4ee",
+        "value": {
+          "source": "submitted reviews: https://github.com/stranske/Workflows/pull/3822#pullrequestreview-5480177124",
+          "kind": "acceptance_evidence",
+          "status": "included",
+          "included_chars": 623,
+          "total_chars": 623
+        }
+      },
+      {
+        "id": "64f7c7ebf72ab50615b7d85a15220ebe784a95b716e882ed424ae63934518b4c:obligations:219:79f30345a2fef7018ab9e5c40a0014bf348584fcd13d7eadf6c7ac37e0749dad",
+        "value": {
+          "source": "Run 38092427199: review-thread-terminal-disposition-38092427199",
+          "kind": "acceptance_evidence",
+          "status": "included",
+          "included_chars": 585,
+          "total_chars": 585
+        }
+      },
+      {
+        "id": "64f7c7ebf72ab50615b7d85a15220ebe784a95b716e882ed424ae63934518b4c:obligations:220:6ba8c10a8735926e32afc6ad3fbc361c2938da7d7cdc8302f642a8016e4612ab",
+        "value": {
+          "source": "Run 38092427199: bot-comment-auth-coverage-wrapper-38092427199",
+          "kind": "acceptance_evidence",
+          "status": "included",
+          "included_chars": 635,
+          "total_chars": 635
+        }
+      },
+      {
+        "id": "64f7c7ebf72ab50615b7d85a15220ebe784a95b716e882ed424ae63934518b4c:obligations:221:798350dfa209053e8c9a44d5f288e0e7b1c6dd8917d82d96d0f0160b5c52f76d",
+        "value": {
+          "source": "Run 38092426986: verifier-terminal-disposition-38092426986",
+          "kind": "acceptance_evidence",
+          "status": "included",
+          "included_chars": 1944,
+          "total_chars": 1944
+        }
+      },
+      {
+        "id": "64f7c7ebf72ab50615b7d85a15220ebe784a95b716e882ed424ae63934518b4c:obligations:222:8f5c3c901e6c6b29de6e3cb58c6ccf95f217c4a7a9997f505ab063f39346494b",
+        "value": {
+          "source": "Run 38092426986: agents-verifier-metrics",
+          "kind": "acceptance_evidence",
+          "status": "included",
+          "included_chars": 1040,
+          "total_chars": 1040
+        }
+      },
+      {
+        "id": "64f7c7ebf72ab50615b7d85a15220ebe784a95b716e882ed424ae63934518b4c:obligations:223:7d6dfbfe6a196a6c02c2900e77a4e7c76ad29541d408e1ffb52af46327ea5f13",
+        "value": {
+          "source": "Run 38092426986: comparison-results-38092426986",
+          "kind": "acceptance_evidence",
+          "status": "truncated",
+          "included_chars": 38680
+        }
+      },
+      {
+        "id": "64f7c7ebf72ab50615b7d85a15220ebe784a95b716e882ed424ae63934518b4c:obligations:224:46e6f372a48c3f849a4328ceb007a26d2d5167ac521398f25b1adc3845a74b50",
+        "value": {
+          "source": "Run 38092427103: gate-summary.md",
+          "kind": "acceptance_evidence",
+          "status": "included",
+          "included_chars": 2474,
+          "total_chars": 2474
+        }
+      },
+      {
+        "id": "64f7c7ebf72ab50615b7d85a15220ebe784a95b716e882ed424ae63934518b4c:obligations:225:7e89431043ad194ab5a736914dfd82dfd6a05a37f9bd77bfe2be216b766cff21",
+        "value": {
+          "source": "Run 38092427103: gate-coverage-summary",
+          "kind": "acceptance_evidence",
+          "status": "included",
+          "included_chars": 1748,
+          "total_chars": 1748
+        }
+      },
+      {
+        "id": "64f7c7ebf72ab50615b7d85a15220ebe784a95b716e882ed424ae63934518b4c:obligations:226:e43d1f70151a8e6bf7655adf86b315402106fbc9faad569d86db8cc2a64a07bb",
+        "value": {
+          "source": "Run 38092427103: gate-coverage-3.12-1",
+          "kind": "acceptance_evidence",
+          "status": "truncated",
+          "included_chars": 313
+        }
+      },
+      {
+        "id": "64f7c7ebf72ab50615b7d85a15220ebe784a95b716e882ed424ae63934518b4c:obligations:227:90d02cf4dd11d5e99da4806f6e820e88e2fc19ed822e411651ed2d9498a3acce",
+        "value": {
+          "source": "Run 38092427103: gate-coverage-trend",
+          "kind": "acceptance_evidence",
+          "status": "included",
+          "included_chars": 4381,
+          "total_chars": 4381
+        }
+      },
+      {
+        "id": "64f7c7ebf72ab50615b7d85a15220ebe784a95b716e882ed424ae63934518b4c:obligations:228:68516b891e8a0b58f74d66f3a4e4690459f3a6ba5c7785d090f97b23157d8f4b",
+        "value": {
+          "source": "Run 38092427103: gate-coverage-trend-history",
+          "kind": "acceptance_evidence",
+          "status": "included",
+          "included_chars": 3467,
+          "total_chars": 3467
+        }
+      },
+      {
+        "id": "64f7c7ebf72ab50615b7d85a15220ebe784a95b716e882ed424ae63934518b4c:obligations:229:1c3fcc74629d9a62612595f7dd8ef7eaec4e131117e4c63169121e562ab56277",
+        "value": {
+          "source": "Run 38092427103: gate-coverage-summary.md",
+          "kind": "acceptance_evidence",
+          "status": "included",
+          "included_chars": 1753,
+          "total_chars": 1753
+        }
+      },
+      {
+        "id": "64f7c7ebf72ab50615b7d85a15220ebe784a95b716e882ed424ae63934518b4c:obligations:230:18f2a0b3c427736298e72236ccd034a56814e0a7f71749535b7cb8fc964c5ac8",
+        "value": {
+          "source": "Run 38092427103: gate-coverage.json",
+          "kind": "acceptance_evidence",
+          "status": "included",
+          "included_chars": 186,
+          "total_chars": 186
+        }
+      },
+      {
+        "id": "64f7c7ebf72ab50615b7d85a15220ebe784a95b716e882ed424ae63934518b4c:obligations:231:70ee4585e80ae80e94fef1f1bb7287cc169621bb6950e528649068dd9ac99fa5",
+        "value": {
+          "source": "Run 38092427103: gate-coverage-3.13-1",
+          "kind": "acceptance_evidence",
+          "status": "truncated",
+          "included_chars": 312
+        }
+      },
+      {
+        "id": "64f7c7ebf72ab50615b7d85a15220ebe784a95b716e882ed424ae63934518b4c:obligations:232:499c629fd1acbc3aa8b8e0e0c550841bac2116a995d6fde46bde1e6368d76db2",
+        "value": {
+          "source": "Run 38083864753: workflow-action-pins",
+          "kind": "acceptance_evidence",
+          "status": "included",
+          "included_chars": 3052,
+          "total_chars": 3052
+        }
+      },
+      {
+        "id": "64f7c7ebf72ab50615b7d85a15220ebe784a95b716e882ed424ae63934518b4c:obligations:233:e104c00786a02b7f46c56f300149eb5e8a9beb5c2a11d8ab79fe86bfe18cbc00",
+        "value": {
+          "source": "Run 38083864758: consumer-sync-shadow-evidence-38083864758-1",
+          "kind": "acceptance_evidence",
+          "status": "truncated",
+          "included_chars": 1152
+        }
+      },
+      {
+        "id": "64f7c7ebf72ab50615b7d85a15220ebe784a95b716e882ed424ae63934518b4c:obligations:234:71d9ee57b29c1d1a1d0428f25617831c87b2a7e5a88945aa2fade9c54fe0d5a8",
+        "value": {
+          "source": "Run 38083864918: selftest-report",
+          "kind": "acceptance_evidence",
+          "status": "included",
+          "included_chars": 151,
+          "total_chars": 151
+        }
+      },
+      {
+        "id": "64f7c7ebf72ab50615b7d85a15220ebe784a95b716e882ed424ae63934518b4c:obligations:235:7011dc7e10b275270eafaee75cdba37747ee1b047dfbf779ef05c878f2b77b8e",
+        "value": {
+          "source": "Run 38083864739: gate-branch-protection-38083864739",
+          "kind": "acceptance_evidence",
+          "status": "included",
+          "included_chars": 1245,
+          "total_chars": 1245
+        }
+      },
+      {
+        "id": "64f7c7ebf72ab50615b7d85a15220ebe784a95b716e882ed424ae63934518b4c:obligations:236:a3cc944f99eb383e1218dc1de4af70dd9dd9365397f78255b8d69338a94645ac",
+        "value": {
+          "source": "Run 38083864751: pr-source-context",
+          "kind": "acceptance_evidence",
+          "status": "included",
+          "included_chars": 1615,
+          "total_chars": 1615
+        }
+      },
+      {
+        "id": "64f7c7ebf72ab50615b7d85a15220ebe784a95b716e882ed424ae63934518b4c:obligations:237:36c2463d7283661b9437f17e1d19886a3e56beafd73cc7b2d4df21cd252c3c6c",
+        "value": {
+          "source": "Run 38083864927: gate-coverage-summary",
+          "kind": "acceptance_evidence",
+          "status": "included",
+          "included_chars": 1748,
+          "total_chars": 1748
+        }
+      },
+      {
+        "id": "64f7c7ebf72ab50615b7d85a15220ebe784a95b716e882ed424ae63934518b4c:obligations:238:b91bf7e0eb47773056e8bf04a3baf38fd0a5520a37579c10bd9740e92a534652",
+        "value": {
+          "source": "Run 38083864927: gate-coverage-trend-history",
+          "kind": "acceptance_evidence",
+          "status": "included",
+          "included_chars": 3468,
+          "total_chars": 3468
+        }
+      },
+      {
+        "id": "64f7c7ebf72ab50615b7d85a15220ebe784a95b716e882ed424ae63934518b4c:obligations:239:e4caffbd437e17ff214276f8215b67827f512f5272876ed14d69985deffe0a1c",
+        "value": {
+          "source": "Run 38083864927: gate-coverage-3.12-1",
+          "kind": "acceptance_evidence",
+          "status": "truncated",
+          "included_chars": 609
+        }
+      },
+      {
+        "id": "64f7c7ebf72ab50615b7d85a15220ebe784a95b716e882ed424ae63934518b4c:obligations:240:428e0efccd6cd5a2b42552eb88184e2fd2d256fdaae3db48d82d2669bbfa9782",
+        "value": {
+          "source": "Run 38083864927: gate-summary.md",
+          "kind": "acceptance_evidence",
+          "status": "included",
+          "included_chars": 2474,
+          "total_chars": 2474
+        }
+      },
+      {
+        "id": "64f7c7ebf72ab50615b7d85a15220ebe784a95b716e882ed424ae63934518b4c:obligations:241:0567177be6f6be92ef8f41fd6efffcfec3e708edd24a9f77767b8c9cfaabdbb2",
+        "value": {
+          "source": "Run 38083864927: gate-coverage.json",
+          "kind": "acceptance_evidence",
+          "status": "included",
+          "included_chars": 186,
+          "total_chars": 186
+        }
+      },
+      {
+        "id": "64f7c7ebf72ab50615b7d85a15220ebe784a95b716e882ed424ae63934518b4c:obligations:242:578d5f57609f884c9ee5296e591773d9f8d591156b03cf3c67edbcc0715de05b",
+        "value": {
+          "source": "Run 38083864927: gate-coverage-summary.md",
+          "kind": "acceptance_evidence",
+          "status": "included",
+          "included_chars": 1753,
+          "total_chars": 1753
+        }
+      },
+      {
+        "id": "64f7c7ebf72ab50615b7d85a15220ebe784a95b716e882ed424ae63934518b4c:obligations:243:218900584b963dc6077e673277a1048a643db1b534b83ad556890a8b26ea96c4",
+        "value": {
+          "source": "Run 38083864927: gate-coverage-trend",
+          "kind": "acceptance_evidence",
+          "status": "included",
+          "included_chars": 4382,
+          "total_chars": 4382
+        }
+      },
+      {
+        "id": "64f7c7ebf72ab50615b7d85a15220ebe784a95b716e882ed424ae63934518b4c:obligations:244:e70a19afc9a2c9526ff20e36c41a7624d164bce72a0f947991dd48f62d6485a9",
+        "value": {
+          "source": "Run 38083864927: gate-coverage-3.13-1",
+          "kind": "acceptance_evidence",
+          "status": "truncated",
+          "included_chars": 607
+        }
+      },
+      {
+        "id": "64f7c7ebf72ab50615b7d85a15220ebe784a95b716e882ed424ae63934518b4c:obligations:245:0b5ea88dc8900c35c51a502ac796e61f404e84251484c55606a2d4cd4045b361",
+        "value": {
+          "source": "Run 38092075356: consumer-sync-run-report",
+          "kind": "acceptance_evidence",
+          "status": "included",
+          "included_chars": 1418,
+          "total_chars": 1418
+        }
+      },
+      {
+        "id": "64f7c7ebf72ab50615b7d85a15220ebe784a95b716e882ed424ae63934518b4c:obligations:246:67f74d132bfc30e07989ee77abf597b1874ac59313e7f1a854470464542ae3bc",
+        "value": {
+          "source": "Run 38091990133: verifier-terminal-disposition-38091990133",
+          "kind": "acceptance_evidence",
+          "status": "included",
+          "included_chars": 1845,
+          "total_chars": 1845
+        }
+      },
+      {
+        "id": "64f7c7ebf72ab50615b7d85a15220ebe784a95b716e882ed424ae63934518b4c:obligations:247:935f48c926ad2f50bafb4e9415027f686491baa837e71f4888e421e0de665357",
+        "value": {
+          "source": "Run 38091990133: comparison-results-38091990133",
+          "kind": "acceptance_evidence",
+          "status": "truncated",
+          "included_chars": 28288
+        }
+      },
+      {
+        "id": "64f7c7ebf72ab50615b7d85a15220ebe784a95b716e882ed424ae63934518b4c:obligations:248:b239732225770f8f60de24496029841b5676bfa9829c34347520e1b7e93def9a",
+        "value": {
+          "source": "Run 38091990133: agents-verifier-metrics",
+          "kind": "acceptance_evidence",
+          "status": "included",
+          "included_chars": 1041,
+          "total_chars": 1041
+        }
+      },
+      {
+        "id": "64f7c7ebf72ab50615b7d85a15220ebe784a95b716e882ed424ae63934518b4c:obligations:249:cc7c756700c273c7b02159a7e7a8ff9c801f28473f2edf2554a2a94061dde2bc",
+        "value": {
+          "source": "Run 38091774637: review-thread-terminal-disposition-38091774637",
+          "kind": "acceptance_evidence",
+          "status": "included",
+          "included_chars": 811,
+          "total_chars": 811
+        }
+      },
+      {
+        "id": "64f7c7ebf72ab50615b7d85a15220ebe784a95b716e882ed424ae63934518b4c:obligations:250:4a9981d0b9e6fe8be85b3da78b6228e12545e23f03a81a80586f23cdea9ed007",
+        "value": {
+          "source": "Run 38091774637: bot-comment-auth-coverage-wrapper-38091774637",
+          "kind": "acceptance_evidence",
+          "status": "included",
+          "included_chars": 641,
+          "total_chars": 641
+        }
+      },
+      {
+        "id": "64f7c7ebf72ab50615b7d85a15220ebe784a95b716e882ed424ae63934518b4c:obligations:251:ecfb2640dca9fb021b41f7e187832a4ae12dcc5f746ba693d376e2960dc481ad",
+        "value": {
+          "source": "Run 38091774586: agents-autofix-metrics",
+          "kind": "acceptance_evidence",
+          "status": "included",
+          "included_chars": 429,
+          "total_chars": 429
+        }
+      },
+      {
+        "id": "64f7c7ebf72ab50615b7d85a15220ebe784a95b716e882ed424ae63934518b4c:obligations:252:f982719c31539bcea55cf9876539e5f0a84b4ba716a02f00d6884b9f96471d24",
+        "value": {
+          "source": "Run 38091750781: keepalive-metrics",
+          "kind": "acceptance_evidence",
+          "status": "included",
+          "included_chars": 208,
+          "total_chars": 208
+        }
+      },
+      {
+        "id": "64f7c7ebf72ab50615b7d85a15220ebe784a95b716e882ed424ae63934518b4c:obligations:253:ac75831aefc6ae2b10f4e8a4e2a27800c1b248e46d3beddbe1951763e849f791",
+        "value": {
+          "source": "Run 38091675611: review-thread-terminal-disposition-38091675611",
+          "kind": "acceptance_evidence",
+          "status": "included",
+          "included_chars": 828,
+          "total_chars": 828
+        }
+      },
+      {
+        "id": "64f7c7ebf72ab50615b7d85a15220ebe784a95b716e882ed424ae63934518b4c:obligations:254:58d6039dc7698ee0782d1130f71e94ebd23253b9eed70b1ae191e7e69a29b72a",
+        "value": {
+          "source": "Run 38091675611: bot-comment-auth-coverage-wrapper-38091675611",
+          "kind": "acceptance_evidence",
+          "status": "included",
+          "included_chars": 641,
+          "total_chars": 641
+        }
+      },
+      {
+        "id": "64f7c7ebf72ab50615b7d85a15220ebe784a95b716e882ed424ae63934518b4c:obligations:255:778aca2fdbf7479780b304e4dd1708c780806ce73464a66256165caa3d94bdfe",
+        "value": {
+          "source": "Run 38091675665: agents-autofix-metrics",
+          "kind": "acceptance_evidence",
+          "status": "included",
+          "included_chars": 429,
+          "total_chars": 429
+        }
+      },
+      {
+        "id": "64f7c7ebf72ab50615b7d85a15220ebe784a95b716e882ed424ae63934518b4c:obligations:256:981f62ba332418faf05303a4f878119215a08ef2fb9867c52b321bca93307eeb",
+        "value": {
+          "source": "Run 38091667621: maint-46-post-ci-summary.md",
+          "kind": "acceptance_evidence",
+          "status": "included",
+          "included_chars": 1990,
+          "total_chars": 1990
+        }
+      },
+      {
+        "id": "64f7c7ebf72ab50615b7d85a15220ebe784a95b716e882ed424ae63934518b4c:obligations:257:b9c8c9b5fa5239bbd73fc30f6ecb1b4b9c9360aa84cbba2c63c8cc36bbcf1ee4",
+        "value": {
+          "source": "Run 38091667864: agents-autofix-metrics",
+          "kind": "acceptance_evidence",
+          "status": "included",
+          "included_chars": 433,
+          "total_chars": 433
+        }
+      },
+      {
+        "id": "64f7c7ebf72ab50615b7d85a15220ebe784a95b716e882ed424ae63934518b4c:obligations:258:f3a6d612734bc446af4437183d4eae57e0e00f9aca1671b7831f61dd5b8c53db",
+        "value": {
+          "source": "Run 38091667899: bot-comment-auth-coverage-wrapper-38091667899",
+          "kind": "acceptance_evidence",
+          "status": "included",
+          "included_chars": 635,
+          "total_chars": 635
+        }
+      },
+      {
+        "id": "64f7c7ebf72ab50615b7d85a15220ebe784a95b716e882ed424ae63934518b4c:obligations:259:ebf7b1eae007c5854122d572b5528751c61d2256297fb8b865bcbc0eba9a250b",
+        "value": {
+          "source": "Run 38091667899: review-thread-terminal-disposition-38091667899",
+          "kind": "acceptance_evidence",
+          "status": "included",
+          "included_chars": 585,
+          "total_chars": 585
+        }
+      },
+      {
+        "id": "64f7c7ebf72ab50615b7d85a15220ebe784a95b716e882ed424ae63934518b4c:obligations:260:8fb014dea544b706f62b71126044db6d0f20e936723e3f534f11887af90ef569",
+        "value": {
+          "source": "Run 38091631873: bot-comment-auth-coverage-wrapper-38091631873",
+          "kind": "acceptance_evidence",
+          "status": "included",
+          "included_chars": 635,
+          "total_chars": 635
+        }
+      },
+      {
+        "id": "64f7c7ebf72ab50615b7d85a15220ebe784a95b716e882ed424ae63934518b4c:obligations:261:6756ac02b473ed98165731da39db21d3461893396dfb1048ff265a00715b5936",
+        "value": {
+          "source": "Run 38091631873: review-thread-terminal-disposition-38091631873",
+          "kind": "acceptance_evidence",
+          "status": "included",
+          "included_chars": 585,
+          "total_chars": 585
+        }
+      },
+      {
+        "id": "64f7c7ebf72ab50615b7d85a15220ebe784a95b716e882ed424ae63934518b4c:obligations:262:89849fc68f0bbb29af9bccf0e7065018ef5408cfc38c61d3f42f5dfaaf34e759",
+        "value": {
+          "source": "Run 38091631650: maint-46-post-ci-summary.md",
+          "kind": "acceptance_evidence",
+          "status": "included",
+          "included_chars": 524,
+          "total_chars": 524
+        }
+      },
+      {
+        "id": "64f7c7ebf72ab50615b7d85a15220ebe784a95b716e882ed424ae63934518b4c:obligations:263:718b53306aba844ad568913dbe5cbdbea1c45efaf71b41b64a61e28cd47e4d85",
+        "value": {
+          "source": "Run 38091631864: agents-autofix-metrics",
+          "kind": "acceptance_evidence",
+          "status": "included",
+          "included_chars": 433,
+          "total_chars": 433
+        }
+      },
+      {
+        "id": "64f7c7ebf72ab50615b7d85a15220ebe784a95b716e882ed424ae63934518b4c:obligations:264:ca0b8cb09b2af852e51c6295e30395f344fa27f48cebd2fd7fe5f4e47e2b87c4",
+        "value": {
+          "source": "Run 38091562183: bot-comment-auth-coverage-wrapper-38091562183",
+          "kind": "acceptance_evidence",
+          "status": "included",
+          "included_chars": 635,
+          "total_chars": 635
+        }
+      },
+      {
+        "id": "64f7c7ebf72ab50615b7d85a15220ebe784a95b716e882ed424ae63934518b4c:obligations:265:c4008d482ffa9bd2de42c30fc63c83fc0dd9289c5ba3b5d0f1a6fe9b9329d213",
+        "value": {
+          "source": "Run 38091562183: review-thread-terminal-disposition-38091562183",
+          "kind": "acceptance_evidence",
+          "status": "included",
+          "included_chars": 602,
+          "total_chars": 602
+        }
+      },
+      {
+        "id": "64f7c7ebf72ab50615b7d85a15220ebe784a95b716e882ed424ae63934518b4c:obligations:266:e90b3241106ffcde828a8f907724a122cfdebba0c44b6fbf16cfbeea37213469",
+        "value": {
+          "source": "Run 38091562294: agents-autofix-metrics",
+          "kind": "acceptance_evidence",
+          "status": "included",
+          "included_chars": 433,
+          "total_chars": 433
+        }
+      },
+      {
+        "id": "64f7c7ebf72ab50615b7d85a15220ebe784a95b716e882ed424ae63934518b4c:obligations:267:a919fde15eac2d0de82b6a3b9436d1f5897062b5dc4992a5f0c1be2ba1eaf515",
+        "value": {
+          "source": "Run 38091562067: maint-46-post-ci-summary.md",
+          "kind": "acceptance_evidence",
+          "status": "included",
+          "included_chars": 2145,
+          "total_chars": 2145
+        }
+      },
+      {
+        "id": "64f7c7ebf72ab50615b7d85a15220ebe784a95b716e882ed424ae63934518b4c:obligations:268:7dd0828c0e2360739538878867d1f9c50df6cdd33e3a9922d15e502d18a33eef",
+        "value": {
+          "source": "Run 38091523385: comparison-results-38091523385",
+          "kind": "acceptance_evidence",
+          "status": "truncated",
+          "included_chars": 31074
+        }
+      },
+      {
+        "id": "64f7c7ebf72ab50615b7d85a15220ebe784a95b716e882ed424ae63934518b4c:obligations:269:7882bad39ed049ae8ffee093e90b71a36ecd8e2f08f3535ddf75b3b10071d92b",
+        "value": {
+          "source": "Run 38091523385: agents-verifier-metrics",
+          "kind": "acceptance_evidence",
+          "status": "included",
+          "included_chars": 1041,
+          "total_chars": 1041
+        }
+      },
+      {
+        "id": "64f7c7ebf72ab50615b7d85a15220ebe784a95b716e882ed424ae63934518b4c:obligations:270:b7bbdcd1965d0cb23542b6a57a6678489cb9bdebcf62574f6a0ce6500edf7514",
+        "value": {
+          "source": "Run 38091523385: verifier-terminal-disposition-38091523385",
+          "kind": "acceptance_evidence",
+          "status": "included",
+          "included_chars": 1845,
+          "total_chars": 1845
+        }
+      },
+      {
+        "id": "64f7c7ebf72ab50615b7d85a15220ebe784a95b716e882ed424ae63934518b4c:obligations:271:427d79bcec2c45259f14a10bc01a0db209e63fb357f5159b5f3a78b34fef912f",
+        "value": {
+          "source": "Run 38091507220: workflow-action-pins",
+          "kind": "acceptance_evidence",
+          "status": "included",
+          "included_chars": 3052,
+          "total_chars": 3052
+        }
+      },
+      {
+        "id": "64f7c7ebf72ab50615b7d85a15220ebe784a95b716e882ed424ae63934518b4c:obligations:272:1bb3d87d07702ef5ecae942afb0151909eeae441bc6c7f470366bc8d65d1c63c",
+        "value": {
+          "source": "Run 38091507244: pr-source-context",
+          "kind": "acceptance_evidence",
+          "status": "included",
+          "included_chars": 891,
+          "total_chars": 891
+        }
+      },
+      {
+        "id": "64f7c7ebf72ab50615b7d85a15220ebe784a95b716e882ed424ae63934518b4c:obligations:273:4b1cc29a1a5653e598229c1d7ef8ba5c5970a66419cc360c1393b2db121abb68",
+        "value": {
+          "source": "Run 38091507245: consumer-sync-shadow-evidence-38091507245-1",
+          "kind": "acceptance_evidence",
+          "status": "truncated",
+          "included_chars": 1152
+        }
+      },
+      {
+        "id": "64f7c7ebf72ab50615b7d85a15220ebe784a95b716e882ed424ae63934518b4c:obligations:274:58e33b39951b6d42290ba1e6c0065c80a41354236a7bbd2d9d8bc04cddc9b470",
+        "value": {
+          "source": "Run 38091507219: consumer-sync-drift-report",
+          "kind": "acceptance_evidence",
+          "status": "included",
+          "included_chars": 60369,
+          "total_chars": 60369
+        }
+      },
+      {
+        "id": "64f7c7ebf72ab50615b7d85a15220ebe784a95b716e882ed424ae63934518b4c:obligations:275:87c6e2f3e7e0985434f1470c254ed24cbcab612a4f782ea14545078d55b84de8",
+        "value": {
+          "source": "artifacts",
+          "kind": "acceptance_evidence",
+          "status": "unavailable",
+          "reason": "unsupported_payload: artifact 11684074470; extraction_byte_or_read: artifact 11684074470; extraction_byte: artifact 11684074470; extraction_incomplete: artifact 11684074470; extraction_byte_or_read: artifact 11686279259; extraction_byte: artifact 11686279259; extraction_incomplete: artifact 11686279259; extraction_byte_or_read: artifact 11685965922; extraction_byte: artifact 11685965922; extraction_incomplete: artifact 11685965922; character: artifact 11680614727; extraction_incomplete: artifact 11680614727; extraction_byte_or_read: artifact 11683408355; extraction_byte: artifact 11683408355; extraction_incomplete: artifact 11683408355; extraction_byte_or_read: artifact 11682581591; extraction_byte: artifact 11682581591; extraction_incomplete: artifact 11682581591; character: artifact 11684716836; extraction_incomplete: artifact 11684716836; unsupported_payload: artifact 11684107947; extraction_byte_or_read: artifact 11684107947; extraction_byte: artifact 11684107947; extraction_incomplete: artifact 11684107947; character: artifact 11683559354; extraction_incomplete: artifact 11683559354; unsupported_payload: artifact 11684381692; extraction_byte_or_read: artifact 11684381692; extraction_byte: artifact 11684381692; extraction_incomplete: artifact 11684381692; character: artifact 11684511268; extraction_incomplete: artifact 11684511268"
+        }
+      },
+      {
+        "id": "64f7c7ebf72ab50615b7d85a15220ebe784a95b716e882ed424ae63934518b4c:obligations:276:79afe019f5942b735056c13e33f0cc19b73a3d07ddc74e198202dbb951bb23ef",
+        "value": {
+          "source": "verifier-pr-diff.patch",
+          "kind": "full_diff_artifact",
+          "status": "included",
+          "included_chars": 3185308,
+          "total_chars": 3185308
+        }
+      }
+    ],
+    "gaps": [
+      {
+        "id": "64f7c7ebf72ab50615b7d85a15220ebe784a95b716e882ed424ae63934518b4c:gaps:0:9fba248e03039eb45e8dcca761cabab966ec380a96e93a09fa2c83f320d3e892",
+        "value": "changed_code:evidence/issue-3820/expanded-comparison-regression-final.xml:truncated"
+      },
+      {
+        "id": "64f7c7ebf72ab50615b7d85a15220ebe784a95b716e882ed424ae63934518b4c:gaps:1:74775d980b6be996e76a2a94da61792d0f54378354eaf9f5306b38f435bb91db",
+        "value": "changed_code:evidence/issue-3820/expanded-comparison-regression.txt:omitted"
+      },
+      {
+        "id": "64f7c7ebf72ab50615b7d85a15220ebe784a95b716e882ed424ae63934518b4c:gaps:2:2a56e159a017dc45ef72b93225540b82d7be165f072c7c610a6651d97257af8a",
+        "value": "changed_code:evidence/issue-3820/expanded-comparison-regression.xml:omitted"
+      },
+      {
+        "id": "64f7c7ebf72ab50615b7d85a15220ebe784a95b716e882ed424ae63934518b4c:gaps:3:5d01cd12de69a7f90b34f5d370bc865eacb941e86b5e3bfbcbd74cae649a3e85",
+        "value": "changed_code:evidence/issue-3820/expanded-comparison-restored-green.txt:omitted"
+      },
+      {
+        "id": "64f7c7ebf72ab50615b7d85a15220ebe784a95b716e882ed424ae63934518b4c:gaps:4:62bdcf85500c97fe3ba0d12357960e06a2b62f979f9e872617d5f840e604549a",
+        "value": "changed_code:evidence/issue-3820/expanded-comparison-restored-green.xml:omitted"
+      },
+      {
+        "id": "64f7c7ebf72ab50615b7d85a15220ebe784a95b716e882ed424ae63934518b4c:gaps:5:09c3743842b48fb50c2da041dde6346e34d0977f8fd3e0c33c24dc3aa0ed9ed6",
+        "value": "changed_code:evidence/issue-3820/expanded-comparison-ruff-final.txt:omitted"
+      },
+      {
+        "id": "64f7c7ebf72ab50615b7d85a15220ebe784a95b716e882ed424ae63934518b4c:gaps:6:28d6ec3b9d9bccf1f1cb87cc73a9a54ce2727f414ccc2fbb1ff57768a5c8eb61",
+        "value": "changed_code:evidence/issue-3820/expanded-comparison-ruff-verified.txt:omitted"
+      },
+      {
+        "id": "64f7c7ebf72ab50615b7d85a15220ebe784a95b716e882ed424ae63934518b4c:gaps:7:c7ce3086084fcd76de9a8b99da5e40c2cf7fcea3433147203c580a6ac944f2b8",
+        "value": "changed_code:evidence/issue-3820/expanded-comparison-ruff.txt:omitted"
+      },
+      {
+        "id": "64f7c7ebf72ab50615b7d85a15220ebe784a95b716e882ed424ae63934518b4c:gaps:8:f39e1a62924f02c74691d79af031a4c3298505e9df6046546b0ec867f5d1a2bc",
+        "value": "changed_code:evidence/issue-3820/expanded-comparison-template-drift.txt:omitted"
+      },
+      {
+        "id": "64f7c7ebf72ab50615b7d85a15220ebe784a95b716e882ed424ae63934518b4c:gaps:9:b712721e436fcceb7bfb2d1ed8cc46fc487550e04a14b6916d7fe7ffb664f798",
+        "value": "changed_code:evidence/issue-3820/expanded-comparison-verification.json:omitted"
+      },
+      {
+        "id": "64f7c7ebf72ab50615b7d85a15220ebe784a95b716e882ed424ae63934518b4c:gaps:10:1cead3a2b7f2913613ba7840ff27f579c69b47506dbc5140d04ca29c74d862e5",
+        "value": "changed_code:evidence/issue-3820/native-capacity-focused-regression.txt:omitted"
+      },
+      {
+        "id": "64f7c7ebf72ab50615b7d85a15220ebe784a95b716e882ed424ae63934518b4c:gaps:11:9fd3099e540e19dbcd6ef8047dfdd0a949caa2fe4acaebbcee4a0a44cee2f8c1",
+        "value": "changed_code:evidence/issue-3820/native-capacity-green.txt:omitted"
+      },
+      {
+        "id": "64f7c7ebf72ab50615b7d85a15220ebe784a95b716e882ed424ae63934518b4c:gaps:12:cb9cbfedcf99c9f2df4c667b0824d62add6caa4de4310f156360e9d1e5d1328f",
+        "value": "changed_code:evidence/issue-3820/native-capacity-mutation-red.txt:omitted"
+      },
+      {
+        "id": "64f7c7ebf72ab50615b7d85a15220ebe784a95b716e882ed424ae63934518b4c:gaps:13:b0ff63731d1ac6ecd3f6b7873405fbd843a9d9aeaffa2614b8be8f03ef194dd5",
+        "value": "changed_code:evidence/issue-3820/native-capacity-mutation-red.xml:omitted"
+      },
+      {
+        "id": "64f7c7ebf72ab50615b7d85a15220ebe784a95b716e882ed424ae63934518b4c:gaps:14:8b36132675205f3e9fe292fcfb176f019f641637f99476e4d3fd330f48c42142",
+        "value": "changed_code:evidence/issue-3820/native-capacity-recovery.md:omitted"
+      },
+      {
+        "id": "64f7c7ebf72ab50615b7d85a15220ebe784a95b716e882ed424ae63934518b4c:gaps:15:4f4124419b72fac0a59473152eb4466f9f4ae7700ac90fd2891344d4586106fe",
+        "value": "changed_code:evidence/issue-3820/native-capacity-red.txt:omitted"
+      },
+      {
+        "id": "64f7c7ebf72ab50615b7d85a15220ebe784a95b716e882ed424ae63934518b4c:gaps:16:a7ab6b18fc9edf1717abe797901277f419810830ee1dd1cf535ad4d87782b16f",
+        "value": "changed_code:evidence/issue-3820/native-capacity-red.xml:omitted"
+      },
+      {
+        "id": "64f7c7ebf72ab50615b7d85a15220ebe784a95b716e882ed424ae63934518b4c:gaps:17:03acb24c40bfa8a9d4c7761e180d87d79966306b0c27b1c4e90b71e348ba4832",
+        "value": "changed_code:evidence/issue-3820/native-capacity-registry-actionlint.txt:omitted"
+      },
+      {
+        "id": "64f7c7ebf72ab50615b7d85a15220ebe784a95b716e882ed424ae63934518b4c:gaps:18:6dc8151f2c719cdd8ee822c92c723c6b92f7121c25e8b66cf05f99005218142a",
+        "value": "changed_code:evidence/issue-3820/native-capacity-registry-allowlist.txt:omitted"
+      },
+      {
+        "id": "64f7c7ebf72ab50615b7d85a15220ebe784a95b716e882ed424ae63934518b4c:gaps:19:0875c9269f22e41ce089a25e90073bd75f24dc6944ef3b247478c30659638ccb",
+        "value": "changed_code:evidence/issue-3820/native-capacity-registry-allowlist.xml:omitted"
+      },
+      {
+        "id": "64f7c7ebf72ab50615b7d85a15220ebe784a95b716e882ed424ae63934518b4c:gaps:20:b7e70021d3f54abcd980fcd59ffa12b1101b9edfc4bb70f09c80b8f92c731391",
+        "value": "changed_code:evidence/issue-3820/native-capacity-registry-black-final.txt:omitted"
+      },
+      {
+        "id": "64f7c7ebf72ab50615b7d85a15220ebe784a95b716e882ed424ae63934518b4c:gaps:21:eb9679519e1a452ea9525ab18714cd8f7999cb53046911d3ec76e2826ead7e8a",
+        "value": "changed_code:evidence/issue-3820/native-capacity-registry-black.txt:omitted"
+      },
+      {
+        "id": "64f7c7ebf72ab50615b7d85a15220ebe784a95b716e882ed424ae63934518b4c:gaps:22:f0d7b3a6b0f897a36c4911dd003c5e93a3e30c641e399fb8cdaedc650c270aab",
+        "value": "changed_code:evidence/issue-3820/native-capacity-registry-config.txt:omitted"
+      },
+      {
+        "id": "64f7c7ebf72ab50615b7d85a15220ebe784a95b716e882ed424ae63934518b4c:gaps:23:dcfdd96a4a9e4d9b7023c108039658fc8e6bbba930f9e2db0571c941d78a3b11",
+        "value": "changed_code:evidence/issue-3820/native-capacity-registry-config.xml:omitted"
+      },
+      {
+        "id": "64f7c7ebf72ab50615b7d85a15220ebe784a95b716e882ed424ae63934518b4c:gaps:24:c01574861a8c6a1d211646c3e7c0d62efe0813855e5c7ea1d41b6a248ae48268",
+        "value": "changed_code:evidence/issue-3820/native-capacity-registry-final-config.txt:omitted"
+      },
+      {
+        "id": "64f7c7ebf72ab50615b7d85a15220ebe784a95b716e882ed424ae63934518b4c:gaps:25:dbe4725275eedffba174724b5165310f418615f76eced26f82e91a5ef66a30b7",
+        "value": "changed_code:evidence/issue-3820/native-capacity-registry-final-config.xml:omitted"
+      },
+      {
+        "id": "64f7c7ebf72ab50615b7d85a15220ebe784a95b716e882ed424ae63934518b4c:gaps:26:194004f0fbc02f91b7eefc95eaff227c643817398d478d1df6a1c63a2a95238a",
+        "value": "changed_code:evidence/issue-3820/native-capacity-registry-final-mutation-red.txt:omitted"
+      },
+      {
+        "id": "64f7c7ebf72ab50615b7d85a15220ebe784a95b716e882ed424ae63934518b4c:gaps:27:e9b3fef0adfe78e332eb1e7c079f1bb1f4ec78d826919feac12514f0c032d503",
+        "value": "changed_code:evidence/issue-3820/native-capacity-registry-final-mutation-red.xml:omitted"
+      },
+      {
+        "id": "64f7c7ebf72ab50615b7d85a15220ebe784a95b716e882ed424ae63934518b4c:gaps:28:7f351979cec2b8945dac529d68ef07f9ea029257ce63c082d2bf28976ae42a2e",
+        "value": "changed_code:evidence/issue-3820/native-capacity-registry-final-proof.json:omitted"
+      },
+      {
+        "id": "64f7c7ebf72ab50615b7d85a15220ebe784a95b716e882ed424ae63934518b4c:gaps:29:1a8041b7e6588195317016b1441eefad1bc35666173ea589c2a8b67a9e73c6e0",
+        "value": "changed_code:evidence/issue-3820/native-capacity-registry-final-regression.txt:omitted"
+      },
+      {
+        "id": "64f7c7ebf72ab50615b7d85a15220ebe784a95b716e882ed424ae63934518b4c:gaps:30:6872fa2580cefeaf9e8f9f63d0bcb56cc7e194cf10cb04d8869e933bdee7ac74",
+        "value": "changed_code:evidence/issue-3820/native-capacity-registry-final-regression.xml:omitted"
+      },
+      {
+        "id": "64f7c7ebf72ab50615b7d85a15220ebe784a95b716e882ed424ae63934518b4c:gaps:31:b1f93f57500a18704d04f74cadeeb59d93be55d7da6b986a521f357a0d128009",
+        "value": "changed_code:evidence/issue-3820/native-capacity-registry-final-restored-green.txt:omitted"
+      },
+      {
+        "id": "64f7c7ebf72ab50615b7d85a15220ebe784a95b716e882ed424ae63934518b4c:gaps:32:caf04c0582bbad7b2d9853cc60a2ccf4a85a6d8dd2b8a3848c1b06d9e7c9a7ee",
+        "value": "changed_code:evidence/issue-3820/native-capacity-registry-final-restored-green.xml:omitted"
+      },
+      {
+        "id": "64f7c7ebf72ab50615b7d85a15220ebe784a95b716e882ed424ae63934518b4c:gaps:33:8550943cb8b6e79faa010d875a07d8f831012080369d8141bdb7ad934fe1d8f8",
+        "value": "changed_code:evidence/issue-3820/native-capacity-registry-final-ruff.txt:omitted"
+      },
+      {
+        "id": "64f7c7ebf72ab50615b7d85a15220ebe784a95b716e882ed424ae63934518b4c:gaps:34:369ea7e02fe47394c8eef492378e6316ff67f5e4d1706c58061411df1efcfcd0",
+        "value": "changed_code:evidence/issue-3820/native-capacity-registry-focused.txt:omitted"
+      },
+      {
+        "id": "64f7c7ebf72ab50615b7d85a15220ebe784a95b716e882ed424ae63934518b4c:gaps:35:760ea2246b93d741d6f39cbdfa9ef35295dc45a06593aa05be70c7babe0c12db",
+        "value": "changed_code:evidence/issue-3820/native-capacity-registry-focused.xml:omitted"
+      },
+      {
+        "id": "64f7c7ebf72ab50615b7d85a15220ebe784a95b716e882ed424ae63934518b4c:gaps:36:196c1adf7ef8707170923b8ab4c1359a24a6274c93b9e4935d135c26ddbbdcaa",
+        "value": "changed_code:evidence/issue-3820/native-capacity-registry-initial-green.txt:omitted"
+      },
+      {
+        "id": "64f7c7ebf72ab50615b7d85a15220ebe784a95b716e882ed424ae63934518b4c:gaps:37:afddbbe7f0e8498c5a4301eebd608066bf75b70481b2860f798c4256bb8a16e3",
+        "value": "changed_code:evidence/issue-3820/native-capacity-registry-initial-green.xml:omitted"
+      },
+      {
+        "id": "64f7c7ebf72ab50615b7d85a15220ebe784a95b716e882ed424ae63934518b4c:gaps:38:5d60158d0733d5117b1aeb450049346a776006fbe0010d5af07deb3698c8b0bc",
+        "value": "changed_code:evidence/issue-3820/native-capacity-registry-mutation-red.txt:omitted"
+      },
+      {
+        "id": "64f7c7ebf72ab50615b7d85a15220ebe784a95b716e882ed424ae63934518b4c:gaps:39:99c2d57a9acf7cf7af9837525b5ce5eaaa432bdd1d471148e6b9d178a7306ef1",
+        "value": "changed_code:evidence/issue-3820/native-capacity-registry-mutation-red.xml:omitted"
+      },
+      {
+        "id": "64f7c7ebf72ab50615b7d85a15220ebe784a95b716e882ed424ae63934518b4c:gaps:40:a1ca2b110abfcb694e521178ac2c9f0116ca165a48fd1bda2b58f252b8baf1b6",
+        "value": "changed_code:evidence/issue-3820/native-capacity-registry-original-red.txt:omitted"
+      },
+      {
+        "id": "64f7c7ebf72ab50615b7d85a15220ebe784a95b716e882ed424ae63934518b4c:gaps:41:a35b7c7dad688ed94fa5dccb4eb8a4009032425396be1b443dfa4e86ea6bebf5",
+        "value": "changed_code:evidence/issue-3820/native-capacity-registry-original-red.xml:omitted"
+      },
+      {
+        "id": "64f7c7ebf72ab50615b7d85a15220ebe784a95b716e882ed424ae63934518b4c:gaps:42:820113d185f2bf142a8fce8a1eb7a67ff28a76df69dec2dfcb71a820388dfae0",
+        "value": "changed_code:evidence/issue-3820/native-capacity-registry-preservation.json:omitted"
+      },
+      {
+        "id": "64f7c7ebf72ab50615b7d85a15220ebe784a95b716e882ed424ae63934518b4c:gaps:43:dfe7b2408746ae82812fe260c6d594c85c676ba05074ad69df45038d69178e09",
+        "value": "changed_code:evidence/issue-3820/native-capacity-registry-proof.json:omitted"
+      },
+      {
+        "id": "64f7c7ebf72ab50615b7d85a15220ebe784a95b716e882ed424ae63934518b4c:gaps:44:1206ea28a254759e684ad4bc1a24ad7d0c9f47c3135a4e9bea46e614c11bb888",
+        "value": "changed_code:evidence/issue-3820/native-capacity-registry-regression.txt:omitted"
+      },
+      {
+        "id": "64f7c7ebf72ab50615b7d85a15220ebe784a95b716e882ed424ae63934518b4c:gaps:45:00e8f279b3b758bf67c53c405fee165994c9e7549c4ac634a303949d2284750a",
+        "value": "changed_code:evidence/issue-3820/native-capacity-registry-regression.xml:omitted"
+      },
+      {
+        "id": "64f7c7ebf72ab50615b7d85a15220ebe784a95b716e882ed424ae63934518b4c:gaps:46:82c12ad398882263e094640b20a13a1f7b74cab1ec2e1db6992b8903f9802ad5",
+        "value": "changed_code:evidence/issue-3820/native-capacity-registry-repair.md:omitted"
+      },
+      {
+        "id": "64f7c7ebf72ab50615b7d85a15220ebe784a95b716e882ed424ae63934518b4c:gaps:47:8967ba6eab0aa7fa24e5996318a3f036bf8a7de48954289f7c61468e923e4d1b",
+        "value": "changed_code:evidence/issue-3820/native-capacity-registry-restored-green.txt:omitted"
+      },
+      {
+        "id": "64f7c7ebf72ab50615b7d85a15220ebe784a95b716e882ed424ae63934518b4c:gaps:48:d144c192e04e4652ed4a30912009af4a1ebe444c43e3dd34103d534b83f9b18e",
+        "value": "changed_code:evidence/issue-3820/native-capacity-registry-restored-green.xml:omitted"
+      },
+      {
+        "id": "64f7c7ebf72ab50615b7d85a15220ebe784a95b716e882ed424ae63934518b4c:gaps:49:93d2d7e09667b6c903abae221de5589212498d36625db92cce326dd225dbd1b2",
+        "value": "changed_code:evidence/issue-3820/native-capacity-registry-ruff-verified.txt:omitted"
+      },
+      {
+        "id": "64f7c7ebf72ab50615b7d85a15220ebe784a95b716e882ed424ae63934518b4c:gaps:50:009f2695c1b3abe65e4f63a500393f6db093bf8d99f3a57a9681716506a8b53b",
+        "value": "changed_code:evidence/issue-3820/native-capacity-registry-ruff.txt:omitted"
+      },
+      {
+        "id": "64f7c7ebf72ab50615b7d85a15220ebe784a95b716e882ed424ae63934518b4c:gaps:51:99a0b43eb90f9b96f8966d7421fe53d95ee4fb70344aa2e79bfc06cb1ac99540",
+        "value": "changed_code:evidence/issue-3820/native-capacity-registry-template-drift-final.txt:omitted"
+      },
+      {
+        "id": "64f7c7ebf72ab50615b7d85a15220ebe784a95b716e882ed424ae63934518b4c:gaps:52:14ad9994d9ef95600246f81dd44bb77cad003a1ab5f9706d3d0a81837f4e3f4d",
+        "value": "changed_code:evidence/issue-3820/native-capacity-registry-template-drift.txt:omitted"
+      },
+      {
+        "id": "64f7c7ebf72ab50615b7d85a15220ebe784a95b716e882ed424ae63934518b4c:gaps:53:b483df1062becb89f7448f51350eb5606b29aa47d3916d84fe06b81b99f17b58",
+        "value": "changed_code:evidence/issue-3820/native-capacity-registry-template-sync-final.txt:omitted"
+      },
+      {
+        "id": "64f7c7ebf72ab50615b7d85a15220ebe784a95b716e882ed424ae63934518b4c:gaps:54:20f4e72424b21f99a239f81e0da87133a379345b748cdff9149a61dc2f94a5b8",
+        "value": "changed_code:evidence/issue-3820/native-capacity-registry-template-sync.txt:omitted"
+      },
+      {
+        "id": "64f7c7ebf72ab50615b7d85a15220ebe784a95b716e882ed424ae63934518b4c:gaps:55:9f9f3d9364696251e844232ef5f4842b67bda1eccc65247b160ad8ed2108b9e3",
+        "value": "changed_code:evidence/issue-3820/native-capacity-registry-verification.json:omitted"
+      },
+      {
+        "id": "64f7c7ebf72ab50615b7d85a15220ebe784a95b716e882ed424ae63934518b4c:gaps:56:6d863df230dc4d5ad1302b6a933021897e677862a99547bc0b3e6074c7437267",
+        "value": "changed_code:evidence/issue-3820/native-capacity-restored-green.txt:omitted"
+      },
+      {
+        "id": "64f7c7ebf72ab50615b7d85a15220ebe784a95b716e882ed424ae63934518b4c:gaps:57:2c32bfc09a56cd3cc83f61e053500249f4d52cca12bab2ac2bde4828c8e5506f",
+        "value": "changed_code:evidence/issue-3820/native-capacity-restored-green.xml:omitted"
+      },
+      {
+        "id": "64f7c7ebf72ab50615b7d85a15220ebe784a95b716e882ed424ae63934518b4c:gaps:58:2a3ee6a4d0fdeab7d996fca48633b7a03c945caaa5c3e5112ca75540f61d4b29",
+        "value": "changed_code:evidence/issue-3820/native-capacity-workflow.txt:omitted"
+      },
+      {
+        "id": "64f7c7ebf72ab50615b7d85a15220ebe784a95b716e882ed424ae63934518b4c:gaps:59:3eb57d3c3addcade74ceafce9d3d7b55cf6272703afc0706e56aaafc372a67f8",
+        "value": "changed_code:evidence/issue-3820/native-context-summary-doc-repair.md:omitted"
+      },
+      {
+        "id": "64f7c7ebf72ab50615b7d85a15220ebe784a95b716e882ed424ae63934518b4c:gaps:60:1fc39c4c9fe021758cf6f1a55f70f586c3147907ef891ddde55ed4118b754618",
+        "value": "changed_code:evidence/issue-3820/native-context-window-capture.txt:omitted"
+      },
+      {
+        "id": "64f7c7ebf72ab50615b7d85a15220ebe784a95b716e882ed424ae63934518b4c:gaps:61:285b29e3b7915e9138fe8fed714a4a531ec00aa7ccdf14de80ac7d4551fe3749",
+        "value": "changed_code:evidence/issue-3820/native-context-window-mutation-red.txt:omitted"
+      },
+      {
+        "id": "64f7c7ebf72ab50615b7d85a15220ebe784a95b716e882ed424ae63934518b4c:gaps:62:416932c4f963e2f12ed9a549ef2c6a4bd9a098177f0b8cc101a41b792c687156",
+        "value": "changed_code:evidence/issue-3820/native-context-window-mutation-red.xml:omitted"
+      },
+      {
+        "id": "64f7c7ebf72ab50615b7d85a15220ebe784a95b716e882ed424ae63934518b4c:gaps:63:c2beabf082dc333e5572ed6f0b48aeef1d5230570d747bd9a7489012545f1684",
+        "value": "changed_code:evidence/issue-3820/native-context-window-regression.txt:omitted"
+      },
+      {
+        "id": "64f7c7ebf72ab50615b7d85a15220ebe784a95b716e882ed424ae63934518b4c:gaps:64:541780acb82899067fca67738f574feaef3a21e653f77a41a382227eac34db94",
+        "value": "changed_code:evidence/issue-3820/native-context-window-repair.md:omitted"
+      },
+      {
+        "id": "64f7c7ebf72ab50615b7d85a15220ebe784a95b716e882ed424ae63934518b4c:gaps:65:f0338b0e62c7f94bb60fdf72d72fa7d14b360d8a653ef99d9c06d2789152f803",
+        "value": "changed_code:evidence/issue-3820/native-context-window-restored-green.txt:omitted"
+      },
+      {
+        "id": "64f7c7ebf72ab50615b7d85a15220ebe784a95b716e882ed424ae63934518b4c:gaps:66:323d3c8d8a7cb249c6403f62d72e2ed5a3d4c50c760b83150ee400e2b13fd58d",
+        "value": "changed_code:evidence/issue-3820/native-context-window-restored-green.xml:omitted"
+      },
+      {
+        "id": "64f7c7ebf72ab50615b7d85a15220ebe784a95b716e882ed424ae63934518b4c:gaps:67:b655d1966fdfbb5daf12667ebdf7dcf572eff2743a7540d16766ae1a53dcedd3",
+        "value": "changed_code:evidence/issue-3820/verifier-caller-security-actionlint-final.txt:omitted"
+      },
+      {
+        "id": "64f7c7ebf72ab50615b7d85a15220ebe784a95b716e882ed424ae63934518b4c:gaps:68:5784e44abaf866435d826d1f67e0735cab75629f024810c84ba80926fbf49052",
+        "value": "changed_code:evidence/issue-3820/verifier-caller-security-actionlint.txt:omitted"
+      },
+      {
+        "id": "64f7c7ebf72ab50615b7d85a15220ebe784a95b716e882ed424ae63934518b4c:gaps:69:6c8e289b17798540161f26c9c1e40c8dcd4620c7f1d8d8c28cc22d51fd072ad2",
+        "value": "changed_code:evidence/issue-3820/verifier-caller-security-artifacts.json:omitted"
+      },
+      {
+        "id": "64f7c7ebf72ab50615b7d85a15220ebe784a95b716e882ed424ae63934518b4c:gaps:70:cb47b3cd010e97ef161d5eceedbaed8f81111cba4464923538c5d20c47917b69",
+        "value": "changed_code:evidence/issue-3820/verifier-caller-security-bindings.json:omitted"
+      },
+      {
+        "id": "64f7c7ebf72ab50615b7d85a15220ebe784a95b716e882ed424ae63934518b4c:gaps:71:305953d2e3e9a894015d9af3a2aa7d13183361c81e76312e5e475abbe9301f60",
+        "value": "changed_code:evidence/issue-3820/verifier-caller-security-black-final.txt:omitted"
+      },
+      {
+        "id": "64f7c7ebf72ab50615b7d85a15220ebe784a95b716e882ed424ae63934518b4c:gaps:72:bf8148d61350ed6ab1892d99f96602e2cbadf2adfb56bcfd19cbfe04b11364ee",
+        "value": "changed_code:evidence/issue-3820/verifier-caller-security-black.txt:omitted"
+      },
+      {
+        "id": "64f7c7ebf72ab50615b7d85a15220ebe784a95b716e882ed424ae63934518b4c:gaps:73:a4e36b6d11ac55f11092d9857d57412771703a7825fd84a92a5a0e5564c4c37f",
+        "value": "changed_code:evidence/issue-3820/verifier-caller-security-checkout-red.txt:omitted"
+      },
+      {
+        "id": "64f7c7ebf72ab50615b7d85a15220ebe784a95b716e882ed424ae63934518b4c:gaps:74:fd7882c3d47179c7ce62d832fc0f9022c8ca4ed98ae6d156e1f20ac976566a66",
+        "value": "changed_code:evidence/issue-3820/verifier-caller-security-checkout-red.xml:omitted"
+      },
+      {
+        "id": "64f7c7ebf72ab50615b7d85a15220ebe784a95b716e882ed424ae63934518b4c:gaps:75:5899075aee0ce4fa8ba6e4b44d72f1b6e6d0cb0a9ea15b079c66f28d9cf56f29",
+        "value": "changed_code:evidence/issue-3820/verifier-caller-security-checkout-restored-green.txt:omitted"
+      },
+      {
+        "id": "64f7c7ebf72ab50615b7d85a15220ebe784a95b716e882ed424ae63934518b4c:gaps:76:05ac5d358d519e61137ae1880e6d7c3b94ef6849913c4dfffba4e610d29fb367",
+        "value": "changed_code:evidence/issue-3820/verifier-caller-security-checkout-restored-green.xml:omitted"
+      },
+      {
+        "id": "64f7c7ebf72ab50615b7d85a15220ebe784a95b716e882ed424ae63934518b4c:gaps:77:e34fbee4e467a98ff78e8280b0e1b53f678f5442bd12873e694edd70a92c0825",
+        "value": "changed_code:evidence/issue-3820/verifier-caller-security-commands.json:omitted"
+      },
+      {
+        "id": "64f7c7ebf72ab50615b7d85a15220ebe784a95b716e882ed424ae63934518b4c:gaps:78:2572ece4b08ae5240d26ad5d06d519c26c1159a06ac24f2d0ab28c12703e9741",
+        "value": "changed_code:evidence/issue-3820/verifier-caller-security-credentials-red.txt:omitted"
+      },
+      {
+        "id": "64f7c7ebf72ab50615b7d85a15220ebe784a95b716e882ed424ae63934518b4c:gaps:79:198ea434348707a56bb34c211317070dd16743bb3bd968b8da8d9d905c8e6e93",
+        "value": "changed_code:evidence/issue-3820/verifier-caller-security-credentials-red.xml:omitted"
+      },
+      {
+        "id": "64f7c7ebf72ab50615b7d85a15220ebe784a95b716e882ed424ae63934518b4c:gaps:80:ee76f60cec8e8534dd699c9ded497681ed5f68c96584f6a2d1d0312676d00c9e",
+        "value": "changed_code:evidence/issue-3820/verifier-caller-security-credentials-restored-green.txt:omitted"
+      },
+      {
+        "id": "64f7c7ebf72ab50615b7d85a15220ebe784a95b716e882ed424ae63934518b4c:gaps:81:b558fcdb77b34b4c152b3e4415f8257f0dfdef563be4b819525ce2977d48c576",
+        "value": "changed_code:evidence/issue-3820/verifier-caller-security-credentials-restored-green.xml:omitted"
+      },
+      {
+        "id": "64f7c7ebf72ab50615b7d85a15220ebe784a95b716e882ed424ae63934518b4c:gaps:82:04beee3a52b34acf9495b39139879e709e59b21f4e6bbc0173a8967aa44b5521",
+        "value": "changed_code:evidence/issue-3820/verifier-caller-security-drift-final.txt:omitted"
+      },
+      {
+        "id": "64f7c7ebf72ab50615b7d85a15220ebe784a95b716e882ed424ae63934518b4c:gaps:83:ad904fa6a6cbece6888d260ba39e0c60773841a562f352cdc235f061407eca55",
+        "value": "changed_code:evidence/issue-3820/verifier-caller-security-drift.txt:omitted"
+      },
+      {
+        "id": "64f7c7ebf72ab50615b7d85a15220ebe784a95b716e882ed424ae63934518b4c:gaps:84:7f185ce869a393a6a3dcc7781ab2c899974aa803ba7c2d77b4e3e453018b9a59",
+        "value": "changed_code:evidence/issue-3820/verifier-caller-security-final-diff-check.json:omitted"
+      },
+      {
+        "id": "64f7c7ebf72ab50615b7d85a15220ebe784a95b716e882ed424ae63934518b4c:gaps:85:8f95514dfd24b998a6a7c6e813b9917cffb5534c3013074d19b060a905e1f364",
+        "value": "changed_code:evidence/issue-3820/verifier-caller-security-green.txt:omitted"
+      },
+      {
+        "id": "64f7c7ebf72ab50615b7d85a15220ebe784a95b716e882ed424ae63934518b4c:gaps:86:74f2f6b0f1aa3d9eaa5fb825272fa16f6e405cc492952da03fac802030bca304",
+        "value": "changed_code:evidence/issue-3820/verifier-caller-security-green.xml:omitted"
+      },
+      {
+        "id": "64f7c7ebf72ab50615b7d85a15220ebe784a95b716e882ed424ae63934518b4c:gaps:87:76effe89437888acedea338b34f4c428b6a7f46c3b660b5c9b6da686931004a1",
+        "value": "changed_code:evidence/issue-3820/verifier-caller-security-merged-gate-red.txt:omitted"
+      },
+      {
+        "id": "64f7c7ebf72ab50615b7d85a15220ebe784a95b716e882ed424ae63934518b4c:gaps:88:7b9826bbb36b5ad4b49fa677c1645a6c30a692695f2198aec5049ab98a9dcbc2",
+        "value": "changed_code:evidence/issue-3820/verifier-caller-security-merged-gate-red.xml:omitted"
+      },
+      {
+        "id": "64f7c7ebf72ab50615b7d85a15220ebe784a95b716e882ed424ae63934518b4c:gaps:89:425fb1d4b547d6bf702b560cd868d2bf721e8c49fb9f901f52385eb0dabfe97a",
+        "value": "changed_code:evidence/issue-3820/verifier-caller-security-merged-gate-restored-green.txt:omitted"
+      },
+      {
+        "id": "64f7c7ebf72ab50615b7d85a15220ebe784a95b716e882ed424ae63934518b4c:gaps:90:da0c14c17bcbc5d3dc429a5abf27ab34e134c255e0044f36327be73dc6fe7431",
+        "value": "changed_code:evidence/issue-3820/verifier-caller-security-merged-gate-restored-green.xml:omitted"
+      },
+      {
+        "id": "64f7c7ebf72ab50615b7d85a15220ebe784a95b716e882ed424ae63934518b4c:gaps:91:9616fc27c1098bb03a53dfdac56f0a203b527bf2414ea5daf7443ed40278c84e",
+        "value": "changed_code:evidence/issue-3820/verifier-caller-security-permissions-red.txt:omitted"
+      },
+      {
+        "id": "64f7c7ebf72ab50615b7d85a15220ebe784a95b716e882ed424ae63934518b4c:gaps:92:bb5384f9ea3c78e8009ae315c1148a9c0e835f5b4d1067e373f9dbf08ec049ee",
+        "value": "changed_code:evidence/issue-3820/verifier-caller-security-permissions-red.xml:omitted"
+      },
+      {
+        "id": "64f7c7ebf72ab50615b7d85a15220ebe784a95b716e882ed424ae63934518b4c:gaps:93:85da8a8f7a9ff5e6d27e01420c4f17cb971ec88d90f23b82e6248eaf8899ad7d",
+        "value": "changed_code:evidence/issue-3820/verifier-caller-security-permissions-restored-green.txt:omitted"
+      },
+      {
+        "id": "64f7c7ebf72ab50615b7d85a15220ebe784a95b716e882ed424ae63934518b4c:gaps:94:d77f4aae88fd7e7e5829bb827827c3100f1b394ee8b566277356f819367039b2",
+        "value": "changed_code:evidence/issue-3820/verifier-caller-security-permissions-restored-green.xml:omitted"
+      },
+      {
+        "id": "64f7c7ebf72ab50615b7d85a15220ebe784a95b716e882ed424ae63934518b4c:gaps:95:ca47895bf97b40c10855a5b4c4ce0c57a4b2cf8d79e7be83b3bad76adeb75eb6",
+        "value": "changed_code:evidence/issue-3820/verifier-caller-security-preservation.json:omitted"
+      },
+      {
+        "id": "64f7c7ebf72ab50615b7d85a15220ebe784a95b716e882ed424ae63934518b4c:gaps:96:73d9d75754c8850e4419cfc2c79e494b3dde5a9ff0b0779a84c33844c51caea4",
+        "value": "changed_code:evidence/issue-3820/verifier-caller-security-red-green-final.txt:omitted"
+      },
+      {
+        "id": "64f7c7ebf72ab50615b7d85a15220ebe784a95b716e882ed424ae63934518b4c:gaps:97:0d2a351249b887176bfa2e4e1d1003428e9b8c986007b911ce6a1cb5787ddaef",
+        "value": "changed_code:evidence/issue-3820/verifier-caller-security-red-green.json:omitted"
+      },
+      {
+        "id": "64f7c7ebf72ab50615b7d85a15220ebe784a95b716e882ed424ae63934518b4c:gaps:98:0f319158bfe6920bb8b8143201425aafd6d603331bc61dc451daa34fe5edc005",
+        "value": "changed_code:evidence/issue-3820/verifier-caller-security-red-green.py:omitted"
+      },
+      {
+        "id": "64f7c7ebf72ab50615b7d85a15220ebe784a95b716e882ed424ae63934518b4c:gaps:99:1d79bcbfb1a2f8f78fc36f0135e9f1084112868ef7441c6483a7870c1d9b4d91",
+        "value": "changed_code:evidence/issue-3820/verifier-caller-security-red-green.txt:omitted"
+      },
+      {
+        "id": "64f7c7ebf72ab50615b7d85a15220ebe784a95b716e882ed424ae63934518b4c:gaps:100:ce366b704283048676688a8202ccaec0270caebd59a498334cc6a7e3aec19fba",
+        "value": "changed_code:evidence/issue-3820/verifier-caller-security-regression-final.txt:omitted"
+      },
+      {
+        "id": "64f7c7ebf72ab50615b7d85a15220ebe784a95b716e882ed424ae63934518b4c:gaps:101:bdaac138d25dbf210ebc7e491d72386728a9ec3761829842b1897d7380a75cd9",
+        "value": "changed_code:evidence/issue-3820/verifier-caller-security-regression-final.xml:omitted"
+      },
+      {
+        "id": "64f7c7ebf72ab50615b7d85a15220ebe784a95b716e882ed424ae63934518b4c:gaps:102:b8f7168b33c32f2443e3fbc150595225b02cc9af43b2f354cd2ce99dc3d150cc",
+        "value": "changed_code:evidence/issue-3820/verifier-caller-security-regression.txt:omitted"
+      },
+      {
+        "id": "64f7c7ebf72ab50615b7d85a15220ebe784a95b716e882ed424ae63934518b4c:gaps:103:3a6daf9abd670486c9e7db328df844a63f9e829883e808e88d040b82fa310147",
+        "value": "changed_code:evidence/issue-3820/verifier-caller-security-regression.xml:omitted"
+      },
+      {
+        "id": "64f7c7ebf72ab50615b7d85a15220ebe784a95b716e882ed424ae63934518b4c:gaps:104:a10808f1bd5c53bf621f20b7a75de389f565851dbfbda7afc7c24ea3509734bb",
+        "value": "changed_code:evidence/issue-3820/verifier-caller-security-repair.md:omitted"
+      },
+      {
+        "id": "64f7c7ebf72ab50615b7d85a15220ebe784a95b716e882ed424ae63934518b4c:gaps:105:5cbe5ce702d7c0b5e98b01c3956864f524d7a3b00647d00f2a3b9a697d707691",
+        "value": "changed_code:evidence/issue-3820/verifier-caller-security-ruff-final.txt:omitted"
+      },
+      {
+        "id": "64f7c7ebf72ab50615b7d85a15220ebe784a95b716e882ed424ae63934518b4c:gaps:106:069f39801cfd8b8ca44bb69173715c093c550d5ba6f30f86a87bb7e030ea2060",
+        "value": "changed_code:evidence/issue-3820/verifier-caller-security-ruff.txt:omitted"
+      },
+      {
+        "id": "64f7c7ebf72ab50615b7d85a15220ebe784a95b716e882ed424ae63934518b4c:gaps:107:a2a13f56a6d5ab57186dc1216239d9b29abb7e71f6a6b5e46ef84dd2e87be21c",
+        "value": "changed_code:evidence/issue-3820/verifier-caller-security-secrets-red.txt:omitted"
+      },
+      {
+        "id": "64f7c7ebf72ab50615b7d85a15220ebe784a95b716e882ed424ae63934518b4c:gaps:108:204792ae0776d28e8bdea906b7854ced7196e77aa4071042858a7fcc480461cf",
+        "value": "changed_code:evidence/issue-3820/verifier-caller-security-secrets-red.xml:omitted"
+      },
+      {
+        "id": "64f7c7ebf72ab50615b7d85a15220ebe784a95b716e882ed424ae63934518b4c:gaps:109:a237ea6ca73bb2545c4caee550ce0bdd49878f78b8d1441c9304c0f31b4e46ee",
+        "value": "changed_code:evidence/issue-3820/verifier-caller-security-secrets-restored-green.txt:omitted"
+      },
+      {
+        "id": "64f7c7ebf72ab50615b7d85a15220ebe784a95b716e882ed424ae63934518b4c:gaps:110:5f1330ad72a0fb4d01b6f03c3c3df86dbd97bd27b9593f426cb5e160bbc409dc",
+        "value": "changed_code:evidence/issue-3820/verifier-caller-security-secrets-restored-green.xml:omitted"
+      },
+      {
+        "id": "64f7c7ebf72ab50615b7d85a15220ebe784a95b716e882ed424ae63934518b4c:gaps:111:0e05c9dc0017e3817a122b4083b4f3558f7dab20dcf7b2f18530dc2103d7a2dd",
+        "value": "changed_code:evidence/issue-3820/verifier-caller-security-semgrep-after.json:omitted"
+      },
+      {
+        "id": "64f7c7ebf72ab50615b7d85a15220ebe784a95b716e882ed424ae63934518b4c:gaps:112:1c90bfd481d54a65244894fcbdf7436d7ba3b91fb53f80066749401017a53d6d",
+        "value": "changed_code:evidence/issue-3820/verifier-caller-security-semgrep-after.txt:omitted"
+      },
+      {
+        "id": "64f7c7ebf72ab50615b7d85a15220ebe784a95b716e882ed424ae63934518b4c:gaps:113:7d808b1b779c23fd56564be2963bffea58ba8472538a116b743977611e4a5cf1",
+        "value": "changed_code:evidence/issue-3820/verifier-caller-security-semgrep-final.json:omitted"
+      },
+      {
+        "id": "64f7c7ebf72ab50615b7d85a15220ebe784a95b716e882ed424ae63934518b4c:gaps:114:2a5fd3fd3f85c8df6d6e7f12554f2760d5e90fa39c32f7c958820e512bfb7c29",
+        "value": "changed_code:evidence/issue-3820/verifier-caller-security-semgrep-final.txt:omitted"
+      },
+      {
+        "id": "64f7c7ebf72ab50615b7d85a15220ebe784a95b716e882ed424ae63934518b4c:gaps:115:0924bba2f6fcb82f130a6317a954083406690a86a24bcf186f9e192678b57328",
+        "value": "changed_code:evidence/issue-3820/verifier-caller-security-semgrep-hosted-config-after.json:omitted"
+      },
+      {
+        "id": "64f7c7ebf72ab50615b7d85a15220ebe784a95b716e882ed424ae63934518b4c:gaps:116:e4cd8e244732670f2a7b4a404aed5bc8b5ba1dfad76e1ebea345ea81dbda0daf",
+        "value": "changed_code:evidence/issue-3820/verifier-caller-security-semgrep-hosted-config-after.txt:omitted"
+      },
+      {
+        "id": "64f7c7ebf72ab50615b7d85a15220ebe784a95b716e882ed424ae63934518b4c:gaps:117:eb377246408bd75928f37f0380caff5cd6ce347c5fed626aea05d545e6470a26",
+        "value": "changed_code:evidence/issue-3820/verifier-caller-security-semgrep-hosted-config-before.json:omitted"
+      },
+      {
+        "id": "64f7c7ebf72ab50615b7d85a15220ebe784a95b716e882ed424ae63934518b4c:gaps:118:73992407c135d71bf593d99d519307dd88a2348f3763c93d3185916c960b930e",
+        "value": "changed_code:evidence/issue-3820/verifier-caller-security-semgrep-hosted-config-before.txt:omitted"
+      },
+      {
+        "id": "64f7c7ebf72ab50615b7d85a15220ebe784a95b716e882ed424ae63934518b4c:gaps:119:e4d99f405535b501d882fa454d155cced49540e365d1606156e1a2600c7998fe",
+        "value": "changed_code:evidence/issue-3820/verifier-caller-security-semgrep-template-final.json:omitted"
+      },
+      {
+        "id": "64f7c7ebf72ab50615b7d85a15220ebe784a95b716e882ed424ae63934518b4c:gaps:120:98db0384c938c82a0e068540c4442a2c9b05c92b853e99760d3bb328eb2135db",
+        "value": "changed_code:evidence/issue-3820/verifier-caller-security-semgrep-template-final.txt:omitted"
+      },
+      {
+        "id": "64f7c7ebf72ab50615b7d85a15220ebe784a95b716e882ed424ae63934518b4c:gaps:121:a244309a91435e1aa14d25bd7b4417a96c85d411e3efb43b8cfe8e08c830bd62",
+        "value": "changed_code:evidence/issue-3820/verifier-caller-security-shell-red.txt:omitted"
+      },
+      {
+        "id": "64f7c7ebf72ab50615b7d85a15220ebe784a95b716e882ed424ae63934518b4c:gaps:122:fd4011c1de0770a204a1a19e1f6d0d1fd3687d9500b292f7d4ec5bbb4245b273",
+        "value": "changed_code:evidence/issue-3820/verifier-caller-security-shell-red.xml:omitted"
+      },
+      {
+        "id": "64f7c7ebf72ab50615b7d85a15220ebe784a95b716e882ed424ae63934518b4c:gaps:123:7d56770e86df103056b4917eb7e2e77d2100ae4e97eb305cb01d763e5bd0f0b0",
+        "value": "changed_code:evidence/issue-3820/verifier-caller-security-shell-restored-green.txt:omitted"
+      },
+      {
+        "id": "64f7c7ebf72ab50615b7d85a15220ebe784a95b716e882ed424ae63934518b4c:gaps:124:62a71b8a84ac1e8ee4af771889ce04ebd204ee968bd60149be98edcec674e357",
+        "value": "changed_code:evidence/issue-3820/verifier-caller-security-shell-restored-green.xml:omitted"
+      },
+      {
+        "id": "64f7c7ebf72ab50615b7d85a15220ebe784a95b716e882ed424ae63934518b4c:gaps:125:d5404d29866b0660296101b8e3f32b871cd09d4fda4c6673f9b5e697bfd8ddc5",
+        "value": "changed_code:evidence/issue-3820/verifier-caller-security-template-sync-final.txt:omitted"
+      },
+      {
+        "id": "64f7c7ebf72ab50615b7d85a15220ebe784a95b716e882ed424ae63934518b4c:gaps:126:e50404b6a545af7bbf0fd42f2ff0b91711e86f50aa8b73eb156582d491c365cb",
+        "value": "changed_code:evidence/issue-3820/verifier-caller-security-template-sync.txt:omitted"
+      },
+      {
+        "id": "64f7c7ebf72ab50615b7d85a15220ebe784a95b716e882ed424ae63934518b4c:gaps:127:607a8e5fcad1e2bd625e613b7d4e579fe301bbf82fdb4e612570f6e37f0c87aa",
+        "value": "changed_code:evidence/issue-3820/verifier-caller-security-zizmor-after.json:omitted"
+      },
+      {
+        "id": "64f7c7ebf72ab50615b7d85a15220ebe784a95b716e882ed424ae63934518b4c:gaps:128:8161149ac04d748f7fb16c76ef16c2f58aeae3623c33c45b52735f5109903129",
+        "value": "changed_code:evidence/issue-3820/verifier-caller-security-zizmor-after.txt:omitted"
+      },
+      {
+        "id": "64f7c7ebf72ab50615b7d85a15220ebe784a95b716e882ed424ae63934518b4c:gaps:129:5c9e163f5ec058edd58cd516e99343831ec2a7533ce462ee9a51fe098b5ba272",
+        "value": "changed_code:evidence/issue-3820/verifier-caller-security-zizmor-before.json:omitted"
+      },
+      {
+        "id": "64f7c7ebf72ab50615b7d85a15220ebe784a95b716e882ed424ae63934518b4c:gaps:130:3b6765cb2b753964dc15b691b5fd939ac703b9f5e39d2260d126fefaae77e9b3",
+        "value": "changed_code:evidence/issue-3820/verifier-caller-security-zizmor-before.txt:omitted"
+      },
+      {
+        "id": "64f7c7ebf72ab50615b7d85a15220ebe784a95b716e882ed424ae63934518b4c:gaps:131:a2deb92395953f60a9690f806108e2002eb1a5fe697dcb0d3e1e6f5111f502b6",
+        "value": "changed_code:evidence/issue-3820/verifier-caller-security-zizmor-dispositions.json:omitted"
+      },
+      {
+        "id": "64f7c7ebf72ab50615b7d85a15220ebe784a95b716e882ed424ae63934518b4c:gaps:132:b4cda19b301cb51251dff8d017ac0a050fbb31b16a82ed9feb917dd4ffaeadc1",
+        "value": "changed_code:evidence/issue-3820/verifier-caller-security-zizmor-dispositions.txt:omitted"
+      },
+      {
+        "id": "64f7c7ebf72ab50615b7d85a15220ebe784a95b716e882ed424ae63934518b4c:gaps:133:baa9e935c9d482845ec0323ac578813720c73dba9f40f3696412370b6d85e5d9",
+        "value": "changed_code:evidence/issue-3820/verifier-caller-security-zizmor-final.json:omitted"
+      },
+      {
+        "id": "64f7c7ebf72ab50615b7d85a15220ebe784a95b716e882ed424ae63934518b4c:gaps:134:32d5aca60a71c0bc374b918577465d627ff6a0d77220ff5d965275102f4356d8",
+        "value": "changed_code:evidence/issue-3820/verifier-caller-security-zizmor-final.txt:omitted"
+      },
+      {
+        "id": "64f7c7ebf72ab50615b7d85a15220ebe784a95b716e882ed424ae63934518b4c:gaps:135:292a71c8d6637b62a7adcf7ca80cd48b1f4e18ed5382cb9a4b1d4053c48b2e05",
+        "value": "changed_code:evidence/native-capacity-recovery.md:omitted"
+      },
+      {
+        "id": "64f7c7ebf72ab50615b7d85a15220ebe784a95b716e882ed424ae63934518b4c:gaps:136:9d8993aea7b1ffe0d4fa31813dff2429436b1adf66cbdba1bd0ac81f291c4f7b",
+        "value": "changed_code:pyproject.toml:omitted"
+      },
+      {
+        "id": "64f7c7ebf72ab50615b7d85a15220ebe784a95b716e882ed424ae63934518b4c:gaps:137:475d9d90e888df2b0595b5ee39a73d361e3651c0c236a9e599124a7a69d5a303",
+        "value": "changed_code:requirements.lock:omitted"
+      },
+      {
+        "id": "64f7c7ebf72ab50615b7d85a15220ebe784a95b716e882ed424ae63934518b4c:gaps:138:fc7252a73b0d03952f96e47348b56c4677213b91b66dcb44cd18fa2fb271f984",
+        "value": "changed_code:scripts/langchain/pr_verifier.py:omitted"
+      },
+      {
+        "id": "64f7c7ebf72ab50615b7d85a15220ebe784a95b716e882ed424ae63934518b4c:gaps:139:9b7f3169bdbabfe4de5ed2c236048dd439903b1eee7f62bcd5aa179cdbafa10d",
+        "value": "changed_code:templates/consumer-repo/.github/workflows/agents-verifier.yml:omitted"
+      },
+      {
+        "id": "64f7c7ebf72ab50615b7d85a15220ebe784a95b716e882ed424ae63934518b4c:gaps:140:2676afdb28a9f7d25aaeddcd87582a74bb1bd65d66ba5a3fed02dec16cefde94",
+        "value": "changed_code:templates/consumer-repo/config/model_registry.json:omitted"
+      },
+      {
+        "id": "64f7c7ebf72ab50615b7d85a15220ebe784a95b716e882ed424ae63934518b4c:gaps:141:78b8b593215838caefbaaaf49d3424d953651d233d21a60e6ce0d4caf9f4cdd7",
+        "value": "changed_code:templates/consumer-repo/scripts/langchain/pr_verifier.py:omitted"
+      },
+      {
+        "id": "64f7c7ebf72ab50615b7d85a15220ebe784a95b716e882ed424ae63934518b4c:gaps:142:d85597a13fcec16e3dac02276e23398d14a6e1a07346235423751ab28e965754",
+        "value": "changed_code:templates/consumer-repo/tools/llm_registry.py:omitted"
+      },
+      {
+        "id": "64f7c7ebf72ab50615b7d85a15220ebe784a95b716e882ed424ae63934518b4c:gaps:143:058868dfc6addf9b65efe3894c66bd6612a2a285ec5d3662ef1ac652fa9dbe7f",
+        "value": "changed_code:tests/scripts/conftest.py:omitted"
+      },
+      {
+        "id": "64f7c7ebf72ab50615b7d85a15220ebe784a95b716e882ed424ae63934518b4c:gaps:144:624a863234891be07cb980d4234d44eb7aa24e0399a688dd6659b44d6439d16e",
+        "value": "changed_code:tests/scripts/test_native_capacity_recovery.py:omitted"
+      },
+      {
+        "id": "64f7c7ebf72ab50615b7d85a15220ebe784a95b716e882ed424ae63934518b4c:gaps:145:12a4a8a2a5fa60ab3e83f31924a517c3b712b200e887e2ca3a338925fcdb8204",
+        "value": "changed_code:tests/scripts/test_native_capacity_registry.py:omitted"
+      },
+      {
+        "id": "64f7c7ebf72ab50615b7d85a15220ebe784a95b716e882ed424ae63934518b4c:gaps:146:0e8e348eb14b8286fe8bb07bb92eb2e00e8ee88a904926c321d9b3e64a4830ca",
+        "value": "changed_code:tests/scripts/test_pr_verifier_recovery.py:omitted"
+      },
+      {
+        "id": "64f7c7ebf72ab50615b7d85a15220ebe784a95b716e882ed424ae63934518b4c:gaps:147:cce9f8db4b26fe34f4e83d2e1141cab2aefad2515760fe951fe728c6a2ef5329",
+        "value": "changed_code:tests/scripts/verifier_capacity_fakes.py:omitted"
+      },
+      {
+        "id": "64f7c7ebf72ab50615b7d85a15220ebe784a95b716e882ed424ae63934518b4c:gaps:148:b6573353646b2f0d69a2950b5c31e77c0d31bc23868e68dd421e5592291f497f",
+        "value": "changed_code:tests/workflows/test_verifier_caller_security.py:omitted"
+      },
+      {
+        "id": "64f7c7ebf72ab50615b7d85a15220ebe784a95b716e882ed424ae63934518b4c:gaps:149:2428e8abc72825cd7bcc5d2811b49ee92404d6301366b78bd26d4c469b6f846c",
+        "value": "changed_code:tests/workflows/test_verifier_evidence_profile.py:omitted"
+      },
+      {
+        "id": "64f7c7ebf72ab50615b7d85a15220ebe784a95b716e882ed424ae63934518b4c:gaps:150:c0cd6080c96ec50cc453a8d0e854c4922da475295e336e3c542e75d4bdef2726",
+        "value": "changed_code:tests/workflows/test_verifier_expanded_checkout.py:omitted"
+      },
+      {
+        "id": "64f7c7ebf72ab50615b7d85a15220ebe784a95b716e882ed424ae63934518b4c:gaps:151:4980f263fa24a885b65cce4f9710e575bb2eb2ad07309640dd56e1fe1712f982",
+        "value": "changed_code:tests/workflows/test_verifier_expanded_comparison.py:omitted"
+      },
+      {
+        "id": "64f7c7ebf72ab50615b7d85a15220ebe784a95b716e882ed424ae63934518b4c:gaps:152:c839fea47b1c61d63591c1c8a551403dde61e159eb64c0670aa9bebf0c7af7b5",
+        "value": "changed_code:tools/llm_registry.py:omitted"
+      },
+      {
+        "id": "64f7c7ebf72ab50615b7d85a15220ebe784a95b716e882ed424ae63934518b4c:gaps:153:642247d7217ef0ede55494c540984980476cec385e918f98f6ffd97abe326f63",
+        "value": "acceptance_evidence:Run 38092426986: comparison-results-38092426986:truncated"
+      },
+      {
+        "id": "64f7c7ebf72ab50615b7d85a15220ebe784a95b716e882ed424ae63934518b4c:gaps:154:f4599745bdb4474e49e29999d41144083e44bae992bd6e3f0b9265dccbbe4d7a",
+        "value": "acceptance_evidence:Run 38092427103: gate-coverage-3.12-1:truncated"
+      },
+      {
+        "id": "64f7c7ebf72ab50615b7d85a15220ebe784a95b716e882ed424ae63934518b4c:gaps:155:8336f57b1d5b810a847a036da8bae4a9b1e34eb6d86d568a5b8c7b639825f4cf",
+        "value": "acceptance_evidence:Run 38092427103: gate-coverage-3.13-1:truncated"
+      },
+      {
+        "id": "64f7c7ebf72ab50615b7d85a15220ebe784a95b716e882ed424ae63934518b4c:gaps:156:c269c9aaa1b750f473f02afcdd435066ed72f53b9b4b3e0ec82d650795a5509a",
+        "value": "acceptance_evidence:Run 38083864758: consumer-sync-shadow-evidence-38083864758-1:truncated"
+      },
+      {
+        "id": "64f7c7ebf72ab50615b7d85a15220ebe784a95b716e882ed424ae63934518b4c:gaps:157:ec09082351a3a2cc729e927bd35c23b02b8676b34e7b415925f331781dc9e0f9",
+        "value": "acceptance_evidence:Run 38083864927: gate-coverage-3.12-1:truncated"
+      },
+      {
+        "id": "64f7c7ebf72ab50615b7d85a15220ebe784a95b716e882ed424ae63934518b4c:gaps:158:0e9b700b8b2ce85fbe1685d526bf4f4df8ac4d83f01c374278b0ebf91b5b4cc5",
+        "value": "acceptance_evidence:Run 38083864927: gate-coverage-3.13-1:truncated"
+      },
+      {
+        "id": "64f7c7ebf72ab50615b7d85a15220ebe784a95b716e882ed424ae63934518b4c:gaps:159:511d1a53221fb2cc5c19ddbc8705bca244cea648e8bc52437434f2fb45b91285",
+        "value": "acceptance_evidence:Run 38091990133: comparison-results-38091990133:truncated"
+      },
+      {
+        "id": "64f7c7ebf72ab50615b7d85a15220ebe784a95b716e882ed424ae63934518b4c:gaps:160:60f63ce43c70d5fb43acc13be4d6bec24046275cedc3d3e0f69acc5f591c4acc",
+        "value": "acceptance_evidence:Run 38091523385: comparison-results-38091523385:truncated"
+      },
+      {
+        "id": "64f7c7ebf72ab50615b7d85a15220ebe784a95b716e882ed424ae63934518b4c:gaps:161:604f24ebeff9e4669e34fd9e30cf1315210887cee21033c8963ce3a675b4b490",
+        "value": "acceptance_evidence:Run 38091507245: consumer-sync-shadow-evidence-38091507245-1:truncated"
+      },
+      {
+        "id": "64f7c7ebf72ab50615b7d85a15220ebe784a95b716e882ed424ae63934518b4c:gaps:162:4b7b9bbc5a9805e515e9630659e79ebc24112a4e973174550fe2c046f4b94b2e",
+        "value": "acceptance_evidence:artifacts:unavailable"
+      }
+    ]
+  },
+  "remaining": [
+    "original unavailable evidence gaps remain unchanged",
+    "governing acceptance and cross-proof semantic closure",
+    "cumulative resource admission and exact native full result matrix"
+  ]
+}

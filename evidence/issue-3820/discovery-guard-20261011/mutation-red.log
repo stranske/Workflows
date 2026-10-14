@@ -1,0 +1,392 @@
+F...F...FFF..FFFFFF                                                      [100%]
+=================================== FAILURES ===================================
+__ test_missing_or_invalid_discovery_cannot_establish_complete_capture[None] ___
+
+discovery = None
+
+    @pytest.mark.parametrize(
+        "discovery",
+        [
+            None,
+            {},
+            False,
+            [],
+            {"required": False},
+            {"required": True},
+            {"required": 0, "status": "included"},
+            {"required": "false", "status": "included"},
+            {"required": False, "status": "unavailable"},
+            {"required": False, "status": "truncated"},
+            {"required": False, "status": "future"},
+        ],
+    )
+    def test_missing_or_invalid_discovery_cannot_establish_complete_capture(discovery):
+        coverage = _complete_coverage()
+        if discovery is None:
+            del coverage["acceptance_source_discovery"]
+        else:
+            coverage["acceptance_source_discovery"] = discovery
+        manifest = build_capture_obligation_manifest(_context_block(coverage))
+>       assert manifest["sufficient"] is False
+E       assert True is False
+
+tests/tools/test_verifier_capture_obligation_manifest.py:462: AssertionError
+_ test_missing_or_invalid_discovery_cannot_establish_complete_capture[discovery4] _
+
+discovery = {'required': False}
+
+    @pytest.mark.parametrize(
+        "discovery",
+        [
+            None,
+            {},
+            False,
+            [],
+            {"required": False},
+            {"required": True},
+            {"required": 0, "status": "included"},
+            {"required": "false", "status": "included"},
+            {"required": False, "status": "unavailable"},
+            {"required": False, "status": "truncated"},
+            {"required": False, "status": "future"},
+        ],
+    )
+    def test_missing_or_invalid_discovery_cannot_establish_complete_capture(discovery):
+        coverage = _complete_coverage()
+        if discovery is None:
+            del coverage["acceptance_source_discovery"]
+        else:
+            coverage["acceptance_source_discovery"] = discovery
+        manifest = build_capture_obligation_manifest(_context_block(coverage))
+>       assert manifest["sufficient"] is False
+E       assert True is False
+
+tests/tools/test_verifier_capture_obligation_manifest.py:462: AssertionError
+_ test_missing_or_invalid_discovery_cannot_establish_complete_capture[discovery8] _
+
+discovery = {'required': False, 'status': 'unavailable'}
+
+    @pytest.mark.parametrize(
+        "discovery",
+        [
+            None,
+            {},
+            False,
+            [],
+            {"required": False},
+            {"required": True},
+            {"required": 0, "status": "included"},
+            {"required": "false", "status": "included"},
+            {"required": False, "status": "unavailable"},
+            {"required": False, "status": "truncated"},
+            {"required": False, "status": "future"},
+        ],
+    )
+    def test_missing_or_invalid_discovery_cannot_establish_complete_capture(discovery):
+        coverage = _complete_coverage()
+        if discovery is None:
+            del coverage["acceptance_source_discovery"]
+        else:
+            coverage["acceptance_source_discovery"] = discovery
+        manifest = build_capture_obligation_manifest(_context_block(coverage))
+>       assert manifest["sufficient"] is False
+E       assert True is False
+
+tests/tools/test_verifier_capture_obligation_manifest.py:462: AssertionError
+_ test_missing_or_invalid_discovery_cannot_establish_complete_capture[discovery9] _
+
+discovery = {'required': False, 'status': 'truncated'}
+
+    @pytest.mark.parametrize(
+        "discovery",
+        [
+            None,
+            {},
+            False,
+            [],
+            {"required": False},
+            {"required": True},
+            {"required": 0, "status": "included"},
+            {"required": "false", "status": "included"},
+            {"required": False, "status": "unavailable"},
+            {"required": False, "status": "truncated"},
+            {"required": False, "status": "future"},
+        ],
+    )
+    def test_missing_or_invalid_discovery_cannot_establish_complete_capture(discovery):
+        coverage = _complete_coverage()
+        if discovery is None:
+            del coverage["acceptance_source_discovery"]
+        else:
+            coverage["acceptance_source_discovery"] = discovery
+        manifest = build_capture_obligation_manifest(_context_block(coverage))
+>       assert manifest["sufficient"] is False
+E       assert True is False
+
+tests/tools/test_verifier_capture_obligation_manifest.py:462: AssertionError
+_ test_missing_or_invalid_discovery_cannot_establish_complete_capture[discovery10] _
+
+discovery = {'required': False, 'status': 'future'}
+
+    @pytest.mark.parametrize(
+        "discovery",
+        [
+            None,
+            {},
+            False,
+            [],
+            {"required": False},
+            {"required": True},
+            {"required": 0, "status": "included"},
+            {"required": "false", "status": "included"},
+            {"required": False, "status": "unavailable"},
+            {"required": False, "status": "truncated"},
+            {"required": False, "status": "future"},
+        ],
+    )
+    def test_missing_or_invalid_discovery_cannot_establish_complete_capture(discovery):
+        coverage = _complete_coverage()
+        if discovery is None:
+            del coverage["acceptance_source_discovery"]
+        else:
+            coverage["acceptance_source_discovery"] = discovery
+        manifest = build_capture_obligation_manifest(_context_block(coverage))
+>       assert manifest["sufficient"] is False
+E       assert True is False
+
+tests/tools/test_verifier_capture_obligation_manifest.py:462: AssertionError
+___ test_incomplete_discovery_blocks_native_count_and_generation[None-False] ___
+
+monkeypatch = <_pytest.monkeypatch.MonkeyPatch object at 0x115813f20>
+compare = False, discovery = None
+
+    @pytest.mark.parametrize("compare", [False, True])
+    @pytest.mark.parametrize(
+        "discovery", [None, {"required": False}, {"required": False, "status": "unavailable"}]
+    )
+    def test_incomplete_discovery_blocks_native_count_and_generation(monkeypatch, compare, discovery):
+        monkeypatch.setenv("VERIFIER_EVIDENCE_PROFILE", "expanded")
+        context = complete_capture_context()
+        original = '"acceptance_source_discovery": {"required": false, "status": "included"}, '
+        replacement = (
+            ""
+            if discovery is None
+            else '"acceptance_source_discovery": ' + json.dumps(discovery) + ", "
+        )
+        assert original in context
+        context = context.replace(original, replacement)
+        client = with_capacity(mock.Mock())
+        monkeypatch.setattr(pr_verifier, "_get_llm_client", lambda **kwargs: (client, "unit"))
+        if compare:
+            runner = pr_verifier.ComparisonRunner(
+                context, None, pr_verifier._prepare_prompt(context, None), []
+            )
+            result = runner.run_single(client, "unit", "unit-test-model")
+        else:
+            result = pr_verifier.evaluate_pr(context)
+        assert result.verdict == "CONCERNS"
+>       assert "capture" in result.error.lower()
+E       assert 'capture' in 'schema repair policy escalated verifier output: failed to parse json response: [\n  {\n    "type": "model_type",\n   ...{\n      "class_name": "evaluationpayload"\n    },\n    "url": "https://errors.pydantic.dev/2.13/v/model_type"\n  }\n]'
+E        +  where 'schema repair policy escalated verifier output: failed to parse json response: [\n  {\n    "type": "model_type",\n   ...{\n      "class_name": "evaluationpayload"\n    },\n    "url": "https://errors.pydantic.dev/2.13/v/model_type"\n  }\n]' = <built-in method lower of str object at 0x162566740>()
+E        +    where <built-in method lower of str object at 0x162566740> = 'Schema repair policy escalated verifier output: Failed to parse JSON response: [\n  {\n    "type": "model_type",\n   ...{\n      "class_name": "EvaluationPayload"\n    },\n    "url": "https://errors.pydantic.dev/2.13/v/model_type"\n  }\n]'.lower
+E        +      where 'Schema repair policy escalated verifier output: Failed to parse JSON response: [\n  {\n    "type": "model_type",\n   ...{\n      "class_name": "EvaluationPayload"\n    },\n    "url": "https://errors.pydantic.dev/2.13/v/model_type"\n  }\n]' = EvaluationResult(verdict='CONCERNS', scores=None, confidence=None, concerns=[], summary=None, provider_used='unit', mo...s': 68, 'code_total_chars': 68, 'code_ratio': 1.0, 'context_truncated': False, 'reasons': []}, partition_recovery=None).error
+
+tests/scripts/test_verifier_capture_integration.py:339: AssertionError
+___ test_incomplete_discovery_blocks_native_count_and_generation[None-True] ____
+
+monkeypatch = <_pytest.monkeypatch.MonkeyPatch object at 0x1625faea0>
+compare = True, discovery = None
+
+    @pytest.mark.parametrize("compare", [False, True])
+    @pytest.mark.parametrize(
+        "discovery", [None, {"required": False}, {"required": False, "status": "unavailable"}]
+    )
+    def test_incomplete_discovery_blocks_native_count_and_generation(monkeypatch, compare, discovery):
+        monkeypatch.setenv("VERIFIER_EVIDENCE_PROFILE", "expanded")
+        context = complete_capture_context()
+        original = '"acceptance_source_discovery": {"required": false, "status": "included"}, '
+        replacement = (
+            ""
+            if discovery is None
+            else '"acceptance_source_discovery": ' + json.dumps(discovery) + ", "
+        )
+        assert original in context
+        context = context.replace(original, replacement)
+        client = with_capacity(mock.Mock())
+        monkeypatch.setattr(pr_verifier, "_get_llm_client", lambda **kwargs: (client, "unit"))
+        if compare:
+            runner = pr_verifier.ComparisonRunner(
+                context, None, pr_verifier._prepare_prompt(context, None), []
+            )
+            result = runner.run_single(client, "unit", "unit-test-model")
+        else:
+            result = pr_verifier.evaluate_pr(context)
+        assert result.verdict == "CONCERNS"
+>       assert "capture" in result.error.lower()
+E       assert 'capture' in 'schema repair policy escalated verifier output: failed to parse json response: [\n  {\n    "type": "model_type",\n   ...{\n      "class_name": "evaluationpayload"\n    },\n    "url": "https://errors.pydantic.dev/2.13/v/model_type"\n  }\n]'
+E        +  where 'schema repair policy escalated verifier output: failed to parse json response: [\n  {\n    "type": "model_type",\n   ...{\n      "class_name": "evaluationpayload"\n    },\n    "url": "https://errors.pydantic.dev/2.13/v/model_type"\n  }\n]' = <built-in method lower of str object at 0x1625673c0>()
+E        +    where <built-in method lower of str object at 0x1625673c0> = 'Schema repair policy escalated verifier output: Failed to parse JSON response: [\n  {\n    "type": "model_type",\n   ...{\n      "class_name": "EvaluationPayload"\n    },\n    "url": "https://errors.pydantic.dev/2.13/v/model_type"\n  }\n]'.lower
+E        +      where 'Schema repair policy escalated verifier output: Failed to parse JSON response: [\n  {\n    "type": "model_type",\n   ...{\n      "class_name": "EvaluationPayload"\n    },\n    "url": "https://errors.pydantic.dev/2.13/v/model_type"\n  }\n]' = EvaluationResult(verdict='CONCERNS', scores=None, confidence=None, concerns=[], summary=None, provider_used='unit', mo...n]', change_type=None, langsmith_trace_id=None, langsmith_trace_url=None, input_coverage=None, partition_recovery=None).error
+
+tests/scripts/test_verifier_capture_integration.py:339: AssertionError
+_ test_incomplete_discovery_blocks_native_count_and_generation[discovery1-False] _
+
+monkeypatch = <_pytest.monkeypatch.MonkeyPatch object at 0x1625f9bb0>
+compare = False, discovery = {'required': False}
+
+    @pytest.mark.parametrize("compare", [False, True])
+    @pytest.mark.parametrize(
+        "discovery", [None, {"required": False}, {"required": False, "status": "unavailable"}]
+    )
+    def test_incomplete_discovery_blocks_native_count_and_generation(monkeypatch, compare, discovery):
+        monkeypatch.setenv("VERIFIER_EVIDENCE_PROFILE", "expanded")
+        context = complete_capture_context()
+        original = '"acceptance_source_discovery": {"required": false, "status": "included"}, '
+        replacement = (
+            ""
+            if discovery is None
+            else '"acceptance_source_discovery": ' + json.dumps(discovery) + ", "
+        )
+        assert original in context
+        context = context.replace(original, replacement)
+        client = with_capacity(mock.Mock())
+        monkeypatch.setattr(pr_verifier, "_get_llm_client", lambda **kwargs: (client, "unit"))
+        if compare:
+            runner = pr_verifier.ComparisonRunner(
+                context, None, pr_verifier._prepare_prompt(context, None), []
+            )
+            result = runner.run_single(client, "unit", "unit-test-model")
+        else:
+            result = pr_verifier.evaluate_pr(context)
+        assert result.verdict == "CONCERNS"
+>       assert "capture" in result.error.lower()
+E       assert 'capture' in 'schema repair policy escalated verifier output: failed to parse json response: [\n  {\n    "type": "model_type",\n   ...{\n      "class_name": "evaluationpayload"\n    },\n    "url": "https://errors.pydantic.dev/2.13/v/model_type"\n  }\n]'
+E        +  where 'schema repair policy escalated verifier output: failed to parse json response: [\n  {\n    "type": "model_type",\n   ...{\n      "class_name": "evaluationpayload"\n    },\n    "url": "https://errors.pydantic.dev/2.13/v/model_type"\n  }\n]' = <built-in method lower of str object at 0x162567870>()
+E        +    where <built-in method lower of str object at 0x162567870> = 'Schema repair policy escalated verifier output: Failed to parse JSON response: [\n  {\n    "type": "model_type",\n   ...{\n      "class_name": "EvaluationPayload"\n    },\n    "url": "https://errors.pydantic.dev/2.13/v/model_type"\n  }\n]'.lower
+E        +      where 'Schema repair policy escalated verifier output: Failed to parse JSON response: [\n  {\n    "type": "model_type",\n   ...{\n      "class_name": "EvaluationPayload"\n    },\n    "url": "https://errors.pydantic.dev/2.13/v/model_type"\n  }\n]' = EvaluationResult(verdict='CONCERNS', scores=None, confidence=None, concerns=[], summary=None, provider_used='unit', mo...s': 68, 'code_total_chars': 68, 'code_ratio': 1.0, 'context_truncated': False, 'reasons': []}, partition_recovery=None).error
+
+tests/scripts/test_verifier_capture_integration.py:339: AssertionError
+_ test_incomplete_discovery_blocks_native_count_and_generation[discovery1-True] _
+
+monkeypatch = <_pytest.monkeypatch.MonkeyPatch object at 0x162622ae0>
+compare = True, discovery = {'required': False}
+
+    @pytest.mark.parametrize("compare", [False, True])
+    @pytest.mark.parametrize(
+        "discovery", [None, {"required": False}, {"required": False, "status": "unavailable"}]
+    )
+    def test_incomplete_discovery_blocks_native_count_and_generation(monkeypatch, compare, discovery):
+        monkeypatch.setenv("VERIFIER_EVIDENCE_PROFILE", "expanded")
+        context = complete_capture_context()
+        original = '"acceptance_source_discovery": {"required": false, "status": "included"}, '
+        replacement = (
+            ""
+            if discovery is None
+            else '"acceptance_source_discovery": ' + json.dumps(discovery) + ", "
+        )
+        assert original in context
+        context = context.replace(original, replacement)
+        client = with_capacity(mock.Mock())
+        monkeypatch.setattr(pr_verifier, "_get_llm_client", lambda **kwargs: (client, "unit"))
+        if compare:
+            runner = pr_verifier.ComparisonRunner(
+                context, None, pr_verifier._prepare_prompt(context, None), []
+            )
+            result = runner.run_single(client, "unit", "unit-test-model")
+        else:
+            result = pr_verifier.evaluate_pr(context)
+        assert result.verdict == "CONCERNS"
+>       assert "capture" in result.error.lower()
+E       assert 'capture' in 'schema repair policy escalated verifier output: failed to parse json response: [\n  {\n    "type": "model_type",\n   ...{\n      "class_name": "evaluationpayload"\n    },\n    "url": "https://errors.pydantic.dev/2.13/v/model_type"\n  }\n]'
+E        +  where 'schema repair policy escalated verifier output: failed to parse json response: [\n  {\n    "type": "model_type",\n   ...{\n      "class_name": "evaluationpayload"\n    },\n    "url": "https://errors.pydantic.dev/2.13/v/model_type"\n  }\n]' = <built-in method lower of str object at 0x1626484e0>()
+E        +    where <built-in method lower of str object at 0x1626484e0> = 'Schema repair policy escalated verifier output: Failed to parse JSON response: [\n  {\n    "type": "model_type",\n   ...{\n      "class_name": "EvaluationPayload"\n    },\n    "url": "https://errors.pydantic.dev/2.13/v/model_type"\n  }\n]'.lower
+E        +      where 'Schema repair policy escalated verifier output: Failed to parse JSON response: [\n  {\n    "type": "model_type",\n   ...{\n      "class_name": "EvaluationPayload"\n    },\n    "url": "https://errors.pydantic.dev/2.13/v/model_type"\n  }\n]' = EvaluationResult(verdict='CONCERNS', scores=None, confidence=None, concerns=[], summary=None, provider_used='unit', mo...n]', change_type=None, langsmith_trace_id=None, langsmith_trace_url=None, input_coverage=None, partition_recovery=None).error
+
+tests/scripts/test_verifier_capture_integration.py:339: AssertionError
+_ test_incomplete_discovery_blocks_native_count_and_generation[discovery2-False] _
+
+monkeypatch = <_pytest.monkeypatch.MonkeyPatch object at 0x1626235f0>
+compare = False, discovery = {'required': False, 'status': 'unavailable'}
+
+    @pytest.mark.parametrize("compare", [False, True])
+    @pytest.mark.parametrize(
+        "discovery", [None, {"required": False}, {"required": False, "status": "unavailable"}]
+    )
+    def test_incomplete_discovery_blocks_native_count_and_generation(monkeypatch, compare, discovery):
+        monkeypatch.setenv("VERIFIER_EVIDENCE_PROFILE", "expanded")
+        context = complete_capture_context()
+        original = '"acceptance_source_discovery": {"required": false, "status": "included"}, '
+        replacement = (
+            ""
+            if discovery is None
+            else '"acceptance_source_discovery": ' + json.dumps(discovery) + ", "
+        )
+        assert original in context
+        context = context.replace(original, replacement)
+        client = with_capacity(mock.Mock())
+        monkeypatch.setattr(pr_verifier, "_get_llm_client", lambda **kwargs: (client, "unit"))
+        if compare:
+            runner = pr_verifier.ComparisonRunner(
+                context, None, pr_verifier._prepare_prompt(context, None), []
+            )
+            result = runner.run_single(client, "unit", "unit-test-model")
+        else:
+            result = pr_verifier.evaluate_pr(context)
+        assert result.verdict == "CONCERNS"
+>       assert "capture" in result.error.lower()
+E       assert 'capture' in 'schema repair policy escalated verifier output: failed to parse json response: [\n  {\n    "type": "model_type",\n   ...{\n      "class_name": "evaluationpayload"\n    },\n    "url": "https://errors.pydantic.dev/2.13/v/model_type"\n  }\n]'
+E        +  where 'schema repair policy escalated verifier output: failed to parse json response: [\n  {\n    "type": "model_type",\n   ...{\n      "class_name": "evaluationpayload"\n    },\n    "url": "https://errors.pydantic.dev/2.13/v/model_type"\n  }\n]' = <built-in method lower of str object at 0x162648b20>()
+E        +    where <built-in method lower of str object at 0x162648b20> = 'Schema repair policy escalated verifier output: Failed to parse JSON response: [\n  {\n    "type": "model_type",\n   ...{\n      "class_name": "EvaluationPayload"\n    },\n    "url": "https://errors.pydantic.dev/2.13/v/model_type"\n  }\n]'.lower
+E        +      where 'Schema repair policy escalated verifier output: Failed to parse JSON response: [\n  {\n    "type": "model_type",\n   ...{\n      "class_name": "EvaluationPayload"\n    },\n    "url": "https://errors.pydantic.dev/2.13/v/model_type"\n  }\n]' = EvaluationResult(verdict='CONCERNS', scores=None, confidence=None, concerns=[], summary=None, provider_used='unit', mo...s': 68, 'code_total_chars': 68, 'code_ratio': 1.0, 'context_truncated': False, 'reasons': []}, partition_recovery=None).error
+
+tests/scripts/test_verifier_capture_integration.py:339: AssertionError
+_ test_incomplete_discovery_blocks_native_count_and_generation[discovery2-True] _
+
+monkeypatch = <_pytest.monkeypatch.MonkeyPatch object at 0x162623b30>
+compare = True, discovery = {'required': False, 'status': 'unavailable'}
+
+    @pytest.mark.parametrize("compare", [False, True])
+    @pytest.mark.parametrize(
+        "discovery", [None, {"required": False}, {"required": False, "status": "unavailable"}]
+    )
+    def test_incomplete_discovery_blocks_native_count_and_generation(monkeypatch, compare, discovery):
+        monkeypatch.setenv("VERIFIER_EVIDENCE_PROFILE", "expanded")
+        context = complete_capture_context()
+        original = '"acceptance_source_discovery": {"required": false, "status": "included"}, '
+        replacement = (
+            ""
+            if discovery is None
+            else '"acceptance_source_discovery": ' + json.dumps(discovery) + ", "
+        )
+        assert original in context
+        context = context.replace(original, replacement)
+        client = with_capacity(mock.Mock())
+        monkeypatch.setattr(pr_verifier, "_get_llm_client", lambda **kwargs: (client, "unit"))
+        if compare:
+            runner = pr_verifier.ComparisonRunner(
+                context, None, pr_verifier._prepare_prompt(context, None), []
+            )
+            result = runner.run_single(client, "unit", "unit-test-model")
+        else:
+            result = pr_verifier.evaluate_pr(context)
+        assert result.verdict == "CONCERNS"
+>       assert "capture" in result.error.lower()
+E       assert 'capture' in 'schema repair policy escalated verifier output: failed to parse json response: [\n  {\n    "type": "model_type",\n   ...{\n      "class_name": "evaluationpayload"\n    },\n    "url": "https://errors.pydantic.dev/2.13/v/model_type"\n  }\n]'
+E        +  where 'schema repair policy escalated verifier output: failed to parse json response: [\n  {\n    "type": "model_type",\n   ...{\n      "class_name": "evaluationpayload"\n    },\n    "url": "https://errors.pydantic.dev/2.13/v/model_type"\n  }\n]' = <built-in method lower of str object at 0x1626492f0>()
+E        +    where <built-in method lower of str object at 0x1626492f0> = 'Schema repair policy escalated verifier output: Failed to parse JSON response: [\n  {\n    "type": "model_type",\n   ...{\n      "class_name": "EvaluationPayload"\n    },\n    "url": "https://errors.pydantic.dev/2.13/v/model_type"\n  }\n]'.lower
+E        +      where 'Schema repair policy escalated verifier output: Failed to parse JSON response: [\n  {\n    "type": "model_type",\n   ...{\n      "class_name": "EvaluationPayload"\n    },\n    "url": "https://errors.pydantic.dev/2.13/v/model_type"\n  }\n]' = EvaluationResult(verdict='CONCERNS', scores=None, confidence=None, concerns=[], summary=None, provider_used='unit', mo...n]', change_type=None, langsmith_trace_id=None, langsmith_trace_url=None, input_coverage=None, partition_recovery=None).error
+
+tests/scripts/test_verifier_capture_integration.py:339: AssertionError
+=========================== short test summary info ============================
+FAILED tests/tools/test_verifier_capture_obligation_manifest.py::test_missing_or_invalid_discovery_cannot_establish_complete_capture[None]
+FAILED tests/tools/test_verifier_capture_obligation_manifest.py::test_missing_or_invalid_discovery_cannot_establish_complete_capture[discovery4]
+FAILED tests/tools/test_verifier_capture_obligation_manifest.py::test_missing_or_invalid_discovery_cannot_establish_complete_capture[discovery8]
+FAILED tests/tools/test_verifier_capture_obligation_manifest.py::test_missing_or_invalid_discovery_cannot_establish_complete_capture[discovery9]
+FAILED tests/tools/test_verifier_capture_obligation_manifest.py::test_missing_or_invalid_discovery_cannot_establish_complete_capture[discovery10]
+FAILED tests/scripts/test_verifier_capture_integration.py::test_incomplete_discovery_blocks_native_count_and_generation[None-False]
+FAILED tests/scripts/test_verifier_capture_integration.py::test_incomplete_discovery_blocks_native_count_and_generation[None-True]
+FAILED tests/scripts/test_verifier_capture_integration.py::test_incomplete_discovery_blocks_native_count_and_generation[discovery1-False]
+FAILED tests/scripts/test_verifier_capture_integration.py::test_incomplete_discovery_blocks_native_count_and_generation[discovery1-True]
+FAILED tests/scripts/test_verifier_capture_integration.py::test_incomplete_discovery_blocks_native_count_and_generation[discovery2-False]
+FAILED tests/scripts/test_verifier_capture_integration.py::test_incomplete_discovery_blocks_native_count_and_generation[discovery2-True]
+11 failed, 8 passed, 111 deselected in 4.17s

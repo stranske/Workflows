@@ -1,0 +1,10 @@
+✔ artifact extractor retains patch proof and unsafe sibling gaps (6.082917ms)
+✔ artifact extractor reads its own real archived verifier patch (11.411917ms)
+ℹ tests 2
+ℹ suites 0
+ℹ pass 2
+ℹ fail 0
+ℹ cancelled 0
+ℹ skipped 0
+ℹ todo 0
+ℹ duration_ms 83.084625

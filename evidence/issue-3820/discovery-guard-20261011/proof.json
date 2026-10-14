@@ -1,0 +1,73 @@
+{
+  "command": [
+    "/opt/anaconda3/bin/python3",
+    "-m",
+    "pytest",
+    "tests/tools/test_verifier_capture_obligation_manifest.py",
+    "tests/scripts/test_verifier_capture_integration.py",
+    "-k",
+    "discovery_cannot or incomplete_discovery_blocks or explicit_complete_discovery",
+    "-q",
+    "-o",
+    "addopts="
+  ],
+  "before_sha256": "b88745738d51190d1eb36ffec4d1e68d3f8ed51809238bbbd8c4847f1602973c",
+  "mutant_sha256": "0b612361149dde59c3fbb5d6b3705cfe130b8bd5bad83c06242842d6e620f54b",
+  "phases": [
+    {
+      "phase": "production mutation",
+      "returncode": 1
+    },
+    {
+      "phase": "byte-identical restoration",
+      "returncode": 0
+    }
+  ],
+  "restored_sha256": "b88745738d51190d1eb36ffec4d1e68d3f8ed51809238bbbd8c4847f1602973c",
+  "original-red": {
+    "tests": 19,
+    "failures": 11,
+    "errors": 0,
+    "skipped": 0
+  },
+  "mutation-red": {
+    "tests": 19,
+    "failures": 11,
+    "errors": 0,
+    "skipped": 0
+  },
+  "restored-green": {
+    "tests": 19,
+    "failures": 0,
+    "errors": 0,
+    "skipped": 0
+  },
+  "green": {
+    "tests": 202,
+    "failures": 0,
+    "errors": 0,
+    "skipped": 0
+  },
+  "final-green": {
+    "tests": 844,
+    "failures": 0,
+    "errors": 0,
+    "skipped": 18
+  },
+  "artifact_sha256": {
+    "evidence/issue-3820/discovery-guard-20261011/final-green.log": "da0d9b20f004b72b596cdb8a14d7d0758dac4b4eb65cac69798f27f0c1262767",
+    "evidence/issue-3820/discovery-guard-20261011/template-drift.log": "4ef716323b512cd3db673b39233cfd539a866bbbc721f87723ec13899e70a9b8",
+    "evidence/issue-3820/discovery-guard-20261011/template-sync.log": "e00bc56a4eb4ab5ca9c721c61262b90d9d55e74187fec23e1144d500af0fcc6b",
+    "evidence/issue-3820/discovery-guard-20261011/green.log": "98641e18864100dc7d1735883dc2d8ae5f4acbe62f3e737986045db976042bd6",
+    "evidence/issue-3820/discovery-guard-20261011/restored-green.log": "c86ea7e24e47d610602c9944351961841f325c7337dada4c98f7c9173a97f9e0",
+    "evidence/issue-3820/discovery-guard-20261011/original-red.xml": "58c7144c865bfb57453d788b02ea56625fada3b377a6260db722dd86f4c27bf5",
+    "evidence/issue-3820/discovery-guard-20261011/mutation-red.log": "fa61cf74e7670af9894c428390d9f828411ba2eb68a01e42a565dd1eeb5e328d",
+    "evidence/issue-3820/discovery-guard-20261011/green.xml": "f92285e788b194170729dae3964f04e53a10ae1d809f4b23cc06b1e2c13f9972",
+    "evidence/issue-3820/discovery-guard-20261011/restored-green.xml": "af60b05bc9e0f7dbcf3dded653ed3672716ffcc38e7f051158244837cbbf4af9",
+    "evidence/issue-3820/discovery-guard-20261011/ruff.log": "82b3e6a6c090a57601d22943bd23fca9218d1031dbe5a7b754092f9a156b4f18",
+    "evidence/issue-3820/discovery-guard-20261011/original-red.log": "99277887182b1a85f014d5c83bed00cf71937e3cce42cc6d4f818510afa5ff29",
+    "evidence/issue-3820/discovery-guard-20261011/black.log": "ddb81fe7ae604b92e2d8f7d86313dc946995a8141b7b3123eda5487d52508e71",
+    "evidence/issue-3820/discovery-guard-20261011/mutation-red.xml": "a88c683fb0d7b1c988537998c76e368895f361ba81acce4ca0f93643e6909645",
+    "evidence/issue-3820/discovery-guard-20261011/final-green.xml": "a3f70509d2ae926871b800eace64992b998f90ea05636dbe48e36fecab177b4a"
+  }
+}

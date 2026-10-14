@@ -1,0 +1,34 @@
+[
+  {
+    "defect": "invalid-utf8",
+    "mode": "evaluate",
+    "exit": 0,
+    "verdict": "FAIL",
+    "used_llm": false,
+    "report_sha256": "eb5f5193cdfbe9540869fa99d5245d0ba661aa3f1b22163d440dcdccac797027"
+  },
+  {
+    "defect": "invalid-utf8",
+    "mode": "compare",
+    "exit": 0,
+    "verdict": "FAIL",
+    "used_llm": false,
+    "report_sha256": "000fb9771e7aec7ab343927c580216266162f55086a1af2bd65bd666f27c5c9e"
+  },
+  {
+    "defect": "corrupt-snapshot",
+    "mode": "evaluate",
+    "exit": 0,
+    "verdict": "FAIL",
+    "used_llm": false,
+    "report_sha256": "6a2bba2675ce0a569ec6411d5eb925446bc8a182fe7b4a687845dca8e2524579"
+  },
+  {
+    "defect": "corrupt-snapshot",
+    "mode": "compare",
+    "exit": 0,
+    "verdict": "FAIL",
+    "used_llm": false,
+    "report_sha256": "268d5bf85ed1f2eb8210f47ba3fde8d7617c74b1d9847cf43aeff9b81e89ead2"
+  }
+]

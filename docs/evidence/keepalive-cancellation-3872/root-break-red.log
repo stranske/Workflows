@@ -1,0 +1,20 @@
+F                                                                        [100%]
+=================================== FAILURES ===================================
+___________ test_cancelled_unresolvable_run_skips_with_notice[root] ____________
+
+reporter = PosixPath('.github/workflows/agents-keepalive-loop-reporter.yml')
+
+    @pytest.mark.parametrize("reporter", REPORTERS, ids=["root", "consumer"])
+    def test_cancelled_unresolvable_run_skips_with_notice(reporter: Path) -> None:
+        """A successful null index lookup proves this cancellation prepared no receipt."""
+        result = _resolve(reporter, conclusion="cancelled")
+>       assert [event[0] for event in result["events"]] == ["read-origin", "notice", "summary"]
+E       AssertionError: assert ['read-origin...ry', 'failed'] == ['read-origin...e', 'summary']
+E         
+E         At index 1 diff: 'summary' != 'notice'
+E         Use -v to get more diff
+
+tests/workflows/test_keepalive_reporter_unresolved.py:307: AssertionError
+=========================== short test summary info ============================
+FAILED tests/workflows/test_keepalive_reporter_unresolved.py::test_cancelled_unresolvable_run_skips_with_notice[root]
+1 failed in 0.38s

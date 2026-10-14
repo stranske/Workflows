@@ -1,0 +1,18 @@
+[
+  {
+    "surface": "root",
+    "path": ".github/workflows/agents-keepalive-loop-reporter.yml",
+    "corrected_sha256": "85b76b35f94532c60580f9b8adbfce49e7077c0ebc3734bc5a189ff3aa3a8ca8",
+    "broken_sha256": "a75cc29ca1e5341fa37848cf092d1bfacedb82125155924002d4cdb49312951a",
+    "red_exit": 1,
+    "green_exit": 0
+  },
+  {
+    "surface": "consumer",
+    "path": "templates/consumer-repo/.github/workflows/agents-keepalive-loop-reporter.yml",
+    "corrected_sha256": "b6e34f7d7d23ee645aff5a3c1a6feaf606c731f09f31887e46375c5e082a9845",
+    "broken_sha256": "2d42628eee5eab0be5013f5aceb4630dcdb79c7566fdf4a06fd5d4d928bc3f38",
+    "red_exit": 1,
+    "green_exit": 0
+  }
+]

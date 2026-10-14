@@ -1,0 +1,28 @@
+{
+  "scope": "capture ledger only; semantic/native acceptance incomplete",
+  "source_sha256": {
+    ".github/scripts/agents_verifier_context.js": "3b001d1e3c4b234f5d695e4d8d3c0f5e75c391343eb6df22958d2037a7422efb",
+    "templates/consumer-repo/.github/scripts/agents_verifier_context.js": "3b001d1e3c4b234f5d695e4d8d3c0f5e75c391343eb6df22958d2037a7422efb",
+    "scripts/langchain/pr_verifier.py": "cf6b48dd26886a83ef44dc24a8cd0c3624f9448bf2795ca2b7e5871396c5f4ed",
+    "templates/consumer-repo/scripts/langchain/pr_verifier.py": "cf6b48dd26886a83ef44dc24a8cd0c3624f9448bf2795ca2b7e5871396c5f4ed",
+    "tests/scripts/test_pr_verifier_partition_recovery.py": "e4f1ed084629e1140f5ef12b588443846215ac4d0f08b172decd12baea4ad035",
+    ".github/scripts/__tests__/agents-verifier-context.test.js": "7ac6f5e8280ad9a5e13dc5c70f1937350e2c2fbcac71762460a69b520be8a73a"
+  },
+  "archive_sha256": "320690cda1c18807d22d72751135618d1b82fb5e4029a66e886811796f8a8056",
+  "members": {
+    "final-mutation-proof.json": "59639f0dcde977e041aa27e25dec984c9bbbbbe79827053b3a92b5a7786de7b9",
+    "final-production-red-0.log": "00e514608ae8a7d8a612b09434d3dec9e61dd6d5d0f396df019ece0c81f81c92",
+    "final-production-red-1.log": "4e941aad8c49564bf7c1883e13a691569ae73aec26da1006e77e3117724f8c26",
+    "final-restored-green-0.log": "d15656fba3a3ea9d1f64991ce64ddc2facf5b510fe3ce3165d3097b9c2734f59",
+    "final-restored-green-1.log": "4b80fd1c9ccd1cedd3c55cf05707e709661915443c332cf35858d467777db3fd",
+    "prove-final.py": "5913189c59ab54c58534542a1a001a173d6e1041a069ba32a9f830a24d663111",
+    "integrated-related-green.log": "b019d94c4e0de17ec559860ff443a9343d89b092a45448f1bb93ced742dd4d13",
+    "context-green.log": "e2095a60eadaf6929530cb5ebf4c3447f3281ba28efd162e23001bbb7394110a",
+    "final-gap-green.log": "5978375f852cee570e122ee38871e011bc17a303f356027f0ace926f1cacf071",
+    "integrated-black.log": "3bfb7489e0e806705325ae354245d3ca0cc2bd3b0790f31ba1eed648b316588e",
+    "template-parity.log": "e00bc56a4eb4ab5ca9c721c61262b90d9d55e74187fec23e1144d500af0fcc6b",
+    "original-archive-ledger-replay.json": "aacdc25ecadd4fe297997957d73d54c6b4b093cd50d4b9470d8256317e78e5f9",
+    "replay-original-archives.cjs": "63cf5bf03793f3fe5dde1e0ef607e52b9a5eaf9bc208284ac2314d3e00b50cf5"
+  },
+  "integrated_base": "a42303eefa60c419bd6c55c0f363ed9555df70ec"
+}

@@ -13,6 +13,8 @@ import pytest
 import yaml
 from scripts.langchain import pr_verifier
 
+from tests.scripts.verifier_capacity_fakes import complete_capture_context
+
 
 @pytest.fixture(autouse=True)
 def expanded_recovery(monkeypatch):
@@ -98,11 +100,14 @@ def test_configured_native_client_compatibility(
         if operation == "repair":
             result = pr_verifier._parse_llm_response("invalid JSON", provider, client=client)
         elif operation == "compare":
-            result = pr_verifier.ComparisonRunner("context", None, "full request", []).run_single(
-                client, provider, model
-            )
+            result = pr_verifier.ComparisonRunner(
+                complete_capture_context(),
+                None,
+                pr_verifier._prepare_prompt(complete_capture_context(), None),
+                [],
+            ).run_single(client, provider, model)
         else:
-            result = pr_verifier.evaluate_pr("context", provider=provider)
+            result = pr_verifier.evaluate_pr(complete_capture_context(), provider=provider)
     if profile == "expanded":
         assert result.verdict == "CONCERNS"
         invoke.assert_not_called()
@@ -136,9 +141,13 @@ def test_evidence_floor_is_unconditional(profile, gap, monkeypatch):
     client, _ = capacity_client(window=1_000_000)
     monkeypatch.setattr(pr_verifier, "_get_llm_client", lambda **kwargs: (client, "configured"))
     result = pr_verifier.evaluate_pr(context)
-    client.invoke.assert_called_once()
+    if profile == "expanded":
+        client.invoke.assert_not_called()
+        assert "capture" in result.error.lower()
+    else:
+        client.invoke.assert_called_once()
+        assert "retained" in result.concerns
     assert result.verdict == "CONCERNS"
-    assert "retained" in result.concerns
     assert not result.input_coverage["sufficient"]
 
 
@@ -280,7 +289,10 @@ def test_actual_capacity_unknowns_never_invoke(defect, operation):
 def test_capacity_overflow_floors_compare_arm_without_erasing_sibling_findings():
     client, _ = capacity_client(input_tokens=101)
     runner = pr_verifier.ComparisonRunner(
-        context="context", diff=None, prompt="full prompt", clients=[]
+        context=complete_capture_context(),
+        diff=None,
+        prompt=pr_verifier._prepare_prompt(complete_capture_context(), None),
+        clients=[],
     )
     failed = runner.run_single(client, "configured-provider", "configured-model")
     assert failed.verdict == "CONCERNS"
@@ -294,7 +306,7 @@ def test_counting_auth_failure_cannot_switch_models(monkeypatch):
     counter.side_effect = RuntimeError("401 Unauthorized")
     resolver = mock.Mock(return_value=(client, "configured-provider"))
     monkeypatch.setattr(pr_verifier, "_get_llm_client", resolver)
-    result = pr_verifier.evaluate_pr("full context")
+    result = pr_verifier.evaluate_pr(complete_capture_context())
     assert result.verdict == "CONCERNS"
     assert "capacity" in result.error.lower()
     assert resolver.call_count == 1
@@ -384,7 +396,7 @@ def test_capacity_receipt_permission_error_never_switches_provider(outcome, monk
         return original_open(path, *args, **kwargs)
 
     with mock.patch.object(Path, "open", autospec=True, side_effect=open_report):
-        result = pr_verifier.evaluate_pr("full context")
+        result = pr_verifier.evaluate_pr(complete_capture_context())
     assert resolver.call_count == 1
     if outcome == "PASS":
         client.invoke.assert_called_once()

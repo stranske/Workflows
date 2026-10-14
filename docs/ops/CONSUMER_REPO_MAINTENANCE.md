@@ -80,7 +80,10 @@ collected pages per comment endpoint, plus one bounded re-read of those pages
 when pagination was needed. Associated-run discovery follows at most two pages
 per exact head/merge SHA, retaining at most 200 distinct runs globally. Artifact
 lists follow at most four pages per run, within a global 400-record ceiling.
-Later pages, changing/malformed totals, repeated IDs and empty nonterminal pages
+A full page without count or Link metadata requires another bounded read to prove
+completeness. Short pages with a remaining count or next link also require another
+read. Changing, appearing, disappearing or malformed totals, missing IDs or IDs
+that are not positive safe integers, repeated IDs, oversized pages and empty nonterminal pages
 cannot establish completeness. A failed later page preserves earlier findings.
 Reference-bearing body, comments and linked issues must all be complete before
 explicit exact-head references can skip unrelated associated-run discovery.
@@ -125,6 +128,124 @@ replacement is allowed on capacity failure. Native counter or profile absence is
 NON_PASS, including authentication failure while counting; it never authorizes
 an alternate judge. Capacity receipts are retained as `verifier-capacity-checks.jsonl`
 for both evaluate and compare, including failed generation attempts.
+Workflow artifact extraction accepts `.patch` and `.diff` as untrusted text,
+including the verifier's own `verifier-pr-diff.patch` in comparison archives.
+The existing filename safety checks and finite entry, byte and character limits
+still apply; oversized patches and unsupported siblings remain incomplete.
+The managed `tools/verifier_capture_obligation_manifest.py` dependency names
+every captured changed-code and acceptance source in a v1 obligation manifest.
+The Python CLI records this manifest before evaluation, embedding it as
+`capture_obligations` in an existing input snapshot only after its raw context
+SHA-256 matches. Existing conflicting obligations or stale snapshot identity
+abort evaluation without repairing the identity. Context, diff and summary
+captures are not rewritten. A standalone manifest is emitted beside the context;
+the existing comparison snapshot upload retains the embedded inventory.
+The CLI also emits `verifier-capture-byte-inventory.json` and embeds
+`capture_byte_inventory` in existing snapshots. Its v1 contract indexes all raw
+context and supplied diff bytes in deterministic 65,536-byte ranges with half-open
+offsets, whole-input hashes and input/hash/offset range identities. Empty inputs
+have zero ranges and retain their whole-input hash. Existing conflicting range
+inventories fail closed before snapshot writes; they are never silently rebound.
+These binary ranges may split UTF-8 characters and must be reassembled before
+decoding. They are a reassembly foundation, not semantic obligation packages,
+provider requests or evidence-completeness claims. Truncated and unavailable
+proof remains insufficient even when every captured byte is indexed. Cross-proof
+obligation binding, semantic partition acceptance and live native acceptance remain
+outstanding.
+The CLI now also emits `verifier-capture-reassembly-contract.json` and embeds
+`capture_reassembly_contract` in existing input snapshots. This v1 contract binds
+the canonical obligation manifest and complete byte inventory by SHA-256. Every
+obligation and gap receives a stable identity tied to both hashes and its original
+position/value. The shared `required_range_ids` list is a conservative global
+dependency floor: every obligation and gap depends on **all captured inputs**.
+Changing any captured byte or gap changes the contract identity. An existing
+conflicting contract fails before any snapshot or sidecar is rewritten and before
+provider evaluation. JSON boolean and integer values are distinct during validation.
+This freezes the evidence floor without claiming semantic independence or
+recovering unavailable bytes. A later planner must prove any narrower package,
+including governing source, RED/restoration/GREEN evidence and cross-proof
+findings; it must not split arbitrary ranges into independently accepted proofs.
+The contract preserves capture insufficiency and all gaps. It does not authorize
+acceptance-bearing partition execution, alternate judges, reduced output reserves
+or partial-arm PASS.
+
+The offline `python3 -m tools.verifier_proof_resource_plan` diagnostic takes
+`--context`, optional `--diff`, `--inventory`, and a fresh `--output` path.
+The inventory contains `expected_archives`, `archive_paths`, and `metadata_paths`.
+Each expected archive binds its artifact ID, repository, run ID, head SHA, raw
+archive SHA-256/byte count, and retained authenticated metadata SHA-256. Paths are
+keyed by artifact ID. Metadata identities and raw archive hashes are checked
+before every member occurrence is listed in original directory order. Duplicate
+names/content remain separate provenance occurrences. This function does not
+authenticate GitHub; its caller must retain the authenticated collection packet.
+
+The planner charges all ZIP member sizes against one unchanged cumulative 64 MiB
+extraction ceiling, including repeated content and unsupported members. It never
+decompresses members, resets counters per package, renders proof, or calls a
+provider. CRCs and sizes are declared ZIP metadata, not verified member-content
+hashes. The complete capture contract (including all original gaps) remains
+global. Output is always `admitted=false`, with explicit semantic-closure and
+native-result-matrix blockers even when resource accounting fits. A resource
+plan is not a semantic package; it adds an executable admission boundary before
+the still-outstanding governing/code/RED-restoration-GREEN cross-proof planner.
+Finite archive/member metadata bounds reject the whole plan rather than returning
+a clean subset. Existing output receipts are never overwritten. Native fit,
+exact judge execution, proof sufficiency, and whole-source acceptance remain
+unproven; the verifier execution path and its NON_PASS floor are unchanged.
+
+Expanded preflight derives obligations from the builder-owned pre-CI inventory,
+checks complete prompt coverage and exact prepared-prompt equality, and retains
+both inventories in the capacity receipt. Missing, malformed, unavailable,
+omitted or truncated required sources block before native counting or generation.
+An exact-model overflow retains the obligations and full counted request outcome;
+semantic partition acceptance remains unimplemented. Neither this manifest nor
+ordinary workflow success closes the unresolved authenticated live-capture gaps.
+
+For local diagnostic recovery, set `VERIFIER_EVIDENCE_PROFILE=expanded` and
+`VERIFIER_PARTITION_RECOVERY=diagnostic` on the existing evaluate/compare CLI,
+and use `--json` to retain the complete `partition_recovery` report. Recovery
+starts only after a complete captured request has an exact native overflow;
+capture gaps, prompt clipping and unavailable counters still block immediately.
+Each range repeats the complete global obligation/gap dependency contract.
+Each request also repeats the full builder-owned plan section as untrusted
+captured text, including scope, tasks, criteria and linked-issue bodies. The
+`governing_sources` report binds that section's character count and UTF-8 hash;
+quoted headings inside fenced plan text cannot end the governing section.
+An absent plan blocks before native counting. A plan that cannot fit alongside
+the dependency contract and range identity exhausts the existing finite planning
+bounds and blocks all generation; it is never summarized or clipped to admit a
+range. Repeating the plan supplies governing context for findings without
+establishing that a range has all evidence needed to discharge an obligation.
+Native counts, including those instructions and the actual output reserve, drive
+bisection. Bounds are 8 MiB of loaded UTF-8 input, 64 ranges, 127 planning counts
+and one additional count per generation (at most 64 generation calls per arm).
+Adapter/SDK retry settings retain their existing transport behavior. No provider,
+model or output reserve is changed, and schema repair/config fallback adds no
+extra generation calls. All requests must fit before the first generation; an
+unfittable header, exhausted bound or later planning failure blocks the whole plan.
+The JSON plan records `planning_attempts` with each native receipt, including
+overflow and counter failures, and `planning_preflights` with the attempted count.
+A plan blocked during native counting retains `planning_failure` and ordered
+`pending_ranges`: combined
+with fitted `ranges`, these cover every loaded input character exactly once.
+Overflowed parent ranges remain in the attempt history rather than duplicating
+the coverage inventory after bisection. No pending range is treated as reviewed.
+Each request is counted again immediately before generation and must match its
+planned request hash. Native receipt I/O retains its existing warning behavior.
+
+Diagnostic range offsets index loaded Unicode strings; SHA-256 binds their UTF-8
+bytes. This explicitly uses `binding_scope=loaded-evaluation-inputs`: CLI newline
+normalization may differ from the independently frozen raw-byte snapshot, which
+is never rewritten or claimed to have the same identity. Every input character
+is assigned to an ordered, contiguous range, including context and supplied diff
+copies of code. Ranges may split proofs or code and are **not** independently
+accepted obligations. Complete diagnostic execution retains every concern,
+summary and raw output, preserves any FAIL and always withholds PASS. Malformed
+outputs remain in the report with errors; a generation failure retains prior
+findings and all planned but unreviewed ranges. All cross-range obligations remain
+unresolved, so this advances recovery without completing semantic partitioning or
+the owner-local live-capture acceptance task. Standard and default expanded
+invocations keep their current behavior.
 The expanded v7 evidence allocation retains the observed 315,891-character
 acceptance-evidence capture that v6 clipped at 262,144 characters. Its finite
 524,288-character ceiling still reports larger evidence as truncated and
@@ -228,7 +349,7 @@ unconditionally in both profiles. Local simulated transport tests establish sour
 behavior only. Inspect actual new retrieval, authenticated capacity receipts and
 both provider verdicts; workflow success alone is not acceptance.
 The input snapshot records every bound, and the consumer fingerprint includes the
-profile plus `bounded-native-capacity-v8` (standard retains `bounded-native-capacity-v2`), so a previously fingerprinted expanded
+profile plus `bounded-native-capacity-v10` (standard retains `bounded-native-capacity-v2`), so a previously fingerprinted expanded
 evaluation cannot suppress this changed expanded contract. Existing manifest entries already manage the repaired verifier; no file
 addition, rename or delivery scope change requires a new manifest entry.
 
@@ -239,7 +360,12 @@ match those slots (including explicit model overrides), each `used_llm` must be
 boolean `true`, each verdict must be `PASS`, and neither arm may carry an error.
 Missing, duplicate, extra, malformed or fallback-provider/model arms withhold PASS;
 so do native capacity/count failures and unsupported native inputs. An available
-judge's PASS cannot hide an unavailable judge. The existing standard aggregation
+judge's PASS cannot hide an unavailable judge. A strictly valid, used result from
+a configured provider/exact-model slot with verdict `FAIL` remains `FAIL`, even
+when its sibling is absent, malformed, duplicated, unused or errored. Invalid,
+unbound or unused results still withhold PASS and cannot impersonate a configured
+judge. This is aggregation of captured results, not authentication of provider output
+or proof of semantic partition closure. The existing standard aggregation
 and all CI, retrieval, acceptance-evidence and changed-code floors remain in force.
 The v6 fingerprint also invalidates expanded receipts predating registry validation; it does
 not turn local tests or prior capacity-function reviews into hosted acceptance.
@@ -2235,6 +2361,20 @@ resolves a thread, seals, merges, closes, or otherwise reconciles the PR. The
 ordinary Maint 71 run later rechecks the same head, reviewer disposition,
 checks, and merge gates. A reviewer request is not itself thread acceptance.
 
+A reviewer profile may configure `reassessment_task_transport=pr-conversation`
+and `reassessment_task_comment` to deliver the initial finding task through a
+supported conversation channel. The bound inline request remains the readable
+authority. Re-dispatch recovers an existing unanswered inline request and creates
+at most one `maint71-reassessment-task:v1` conversation task for its canonical
+plan/generation/head/thread/request binding. Discovery is paginated and the current
+head, live lease and original inline request are revalidated before POST; an
+ambiguous POST requires marker reconciliation. This initial bridge does not
+require a completed general review. It requests only an exact finding answer,
+never edits, resolution, sealing or merge, and grants no reviewer acceptance.
+The CodeRabbit profile uses this finding-only conversation path instead of a
+full-review command. Existing Codex disposition/retry preconditions are unchanged.
+
+
 If the originating provider reports a terminal failure instead of completing
 the targeted request, the same binding may use `request_stage=retry` once.
 The source-owned request-only job requires exactly one trusted original request
@@ -2682,3 +2822,90 @@ comment duty and are not destination alternatives. Bounded maintainer
 attributions before a standalone predicate retain that duty. Active bare
 artifact delivery must govern a recognized proof payload; product publications
 to product recipients stay nongating unless a separate reviewer duty exists.
+
+### Diagnostic partition admission failures
+
+An expanded diagnostic recovery rejected at its initial byte or capture-gap
+check retains a compact blocked receipt: loaded-input UTF-8 hashes and byte
+counts, pending character ranges, the failure reason, and zero planning counts.
+Capture-gap failures also retain the original obligation manifest. This avoids
+losing input identity before detailed partition planning starts; it does not
+raise the 8 MiB diagnostic bound, recover missing proof, establish semantic
+independence, or permit PASS. Evaluate and compare retain the original native
+overflow receipt alongside this admission failure without invoking generation.
+
+
+### Archive identity receipts during verifier recovery
+
+The context builder retains `diagnostics.archive_inventory` and the same
+`artifact_capture_inventory` in source coverage. Each enumerated artifact binds
+repository, authenticated run/head, artifact ID and, when downloaded, raw archive
+SHA256/byte count. Expired or budget-rejected artifacts stay unavailable. A read
+failure does not remove the already enumerated identity.
+
+Every eligible member after a character or extraction-byte stop is explicitly
+unavailable with that stop reason; no enumerated member remains pending.
+Archive extraction retains member occurrences in listing order, raw byte counts
+and SHA256 for successfully read members, and separate unsupported, duplicate,
+entry-bound, rendering-omitted and unavailable statuses. Duplicate names are not
+passed to `unzip -p`, which would concatenate occurrences. Raw hashes describe
+bytes before UTF-8 decoding or whitespace trimming; rendered text is not claimed
+to be a lossless raw member copy. The expanded metadata ledger has a 4096-member
+ceiling per archive within the existing bounded listing: its full listing digest,
+total count and explicit incomplete suffix remain recorded. This ceiling blocks
+completeness; it does not relax extraction or generation limits.
+
+Native diagnostic byte-limit rejection also retains the original obligation
+manifest and every known gap before range planning. None of these receipts proves
+semantic independence, restores unavailable proof, authorizes provider PASS, or
+resets cumulative archive/extraction limits. Source3820 still requires semantic
+closure and complete original-proof/native acceptance on the existing key PR.
+
+
+### Acceptance-bearing semantic comparison
+
+Expanded compare uses a source-owned semantic rule registry, frozen configured
+judge slots and a complete slot-by-package request matrix. Captured flags and
+provider JSON cannot authorize decomposition or execution. Rules bind complete
+governing hashes and raw capture identities. Unknown governing text retains an
+all-input residual joint obligation; transitive dependencies, cycles and n-way
+joint groups remain together. Byte ranges alone never establish independence.
+
+Reviewed decompositions load only from `config/verifier_semantic_rules.json`
+in the authoritative source checkout. Entries bind the complete capture/head,
+governing hash and raw hashes, account for every byte exactly once, declare
+shared-span joins and copy global governing clauses into each affected package.
+Each closed package receives its complete dependency bytes, without the legacy
+character-budget clipping. Unknown captures retain the all-input residual and
+may remain over capacity; the registry never infers English independence.
+The native matrix has a16-cell and20-minute bound. SDK clients are constructed
+with zero retries, and the underlying SDK setting is verified before invocation.
+
+All matrix requests must pass actual native input/output capacity preflight
+before any generation. The runner binds request/response identities and count
+receipts separately from provider text, with no fallback generation or schema
+repair. Synthetic test receipts cannot establish native acceptance. Missing,
+duplicate, malformed, untrusted or incomplete cells retain CONCERNS; a valid
+configured FAIL survives incomplete siblings. Historical unavailable inputs and
+global resource denials remain NON_PASS.
+
+The comparison CLI emits a versioned semantic acceptance envelope. Expanded
+semantic workflow admission authenticates that envelope with an ephemeral
+32-byte runner key held outside provider input and uploaded artifacts. The key
+is deleted when the comparison step ends; modified, unsigned or replayed JSON
+cannot establish native acceptance. Admission cannot fall back to an
+arm-only PASS when it is missing. Native execution and the complete original
+proof still require actual observed evidence; helper tests alone do not satisfy
+provider acceptance or campaign completion.
+
+
+The generated Renovate ownership preset must be regenerated whenever managed
+manifest paths change. Owner-excluded targets are removed before ownership
+routing; the preset carries no path rules for them, including cached registration
+entries. Manifest/compiler and generated-preset checks validate the same eligible
+consumer contract.
+
+Verifier input files are decoded from their exact UTF-8 bytes without universal
+newline conversion. Semantic hashes, package inputs and capture inventories
+retain CRLF, including line-ending-only changes. Snapshot recording rejects
+byte changes between loading and recording even when normalized text matches.

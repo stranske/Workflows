@@ -1,0 +1,6 @@
+{
+  "scripts/langchain/pr_verifier.py": "c407cba503d0fa1dd8e0db234bcfe57ddff094c3b1b5d7bf8a4c71e9eaa285dc",
+  "templates/consumer-repo/scripts/langchain/pr_verifier.py": "c407cba503d0fa1dd8e0db234bcfe57ddff094c3b1b5d7bf8a4c71e9eaa285dc",
+  "tests/scripts/test_pr_verifier_partition_recovery.py": "9c3040a91839e44c4e04ab7682f2eacf6442d540df07b0c35e16f6618ce4b679",
+  "evidence/issue-3820/early-partition-admission-20261011/raw-proof.tar.gz": "329fe99f1c1e5599e8b89f6098c6e4de687686be047df1c7fc54632675c55db1"
+}

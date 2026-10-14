@@ -26,6 +26,9 @@ SKIP_FILES = {
     ROOT / "scripts" / "check_api_wrapper_guard.py",
     ROOT / "scripts" / "check_consumer_sync_drift.py",
     ROOT / "scripts" / "api_client.py",
+    # Offline provenance validation compares frozen URL strings; it performs no API calls.
+    ROOT / "tools" / "verifier_proof_resource_plan.py",
+    ROOT / "templates" / "consumer-repo" / "tools" / "verifier_proof_resource_plan.py",
     ROOT / "templates" / "consumer-repo" / "scripts" / "api_client.py",
     ROOT / "tools" / "enforce_gate_branch_protection.py",
     ROOT / ".github" / "workflows" / "maint-80-langsmith-metrics-dashboard.yml",

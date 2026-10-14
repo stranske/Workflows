@@ -1662,18 +1662,18 @@ test('buildVerifierContext fails closed when associated workflow run discovery f
   const limit = await buildEvidenceContext({
     listWorkflowRunsForRepoResponse: {
       data: {
-        total_count: 2,
-        workflow_runs: [{
-          id: 777,
+        total_count: 6,
+        workflow_runs: Array.from({length: 5}, (_, index) => ({
+          id: 777 + index,
           head_sha: 'bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb',
-        }],
+        })),
       },
       headers: {},
     },
     artifactsByRun: { 777: [] },
   });
   assert.equal(limit.core.outputs.evidence_status, 'unavailable');
-  assert.match(limit.result.markdown, /exceeded the bounded result limit/);
+  assert.match(limit.result.markdown, /run_record:.*exceeded the bounded result limit/);
   removeVerifierDiffArtifacts(limit.result);
 
   const invalid = await buildEvidenceContext({
@@ -1688,7 +1688,7 @@ test('buildVerifierContext fails closed when associated workflow run discovery f
     },
   });
   assert.equal(invalid.core.outputs.evidence_status, 'unavailable');
-  assert.match(invalid.result.markdown, /returned invalid evidence/);
+  assert.match(invalid.result.markdown, /invalid paginated record ID/);
   removeVerifierDiffArtifacts(invalid.result);
 });
 
@@ -3498,6 +3498,110 @@ function paginatedRecoveryGithub(defect = '') {
   } } };
 }
 
+const evidenceCollectors = [
+  ['source', fetchVerifierEvidence],
+  ['template', require('../../../templates/consumer-repo/.github/scripts/agents_verifier_context.js').fetchVerifierEvidence],
+];
+
+test('bounded listing retrieves sparse late-page run and artifact proof within explicit bounds', async () => {
+  await withEnv('VERIFIER_EVIDENCE_RUN_PAGES', '2', async () => {
+    await withEnv('VERIFIER_EVIDENCE_ARTIFACT_PAGES', '2', async () => {
+      for (const [name, collect] of evidenceCollectors) {
+        const {github, sha, calls} = paginatedRecoveryGithub();
+        const result = await collect({github, pullRequestBody: '', associatedCommitShas: [sha],
+          extractArtifactText: ({archiveBuffer}) => ({text: `finding-${archiveBuffer}`, truncated: false})});
+        assert.equal(result.artifacts.status, 'present', name);
+        assert.deepEqual(result.artifacts.records.map(r => r.text), ['finding-zip-1', 'finding-zip-2'], name);
+        assert.ok(calls.includes('runs:2'), name);
+        assert.ok(calls.includes('artifacts:2:2'), name);
+      }
+    });
+  });
+});
+
+test('bounded listing follows full pages without count or link metadata', async () => {
+  await withEnv('VERIFIER_EVIDENCE_RUN_LIMIT', '101', async () => {
+    await withEnv('VERIFIER_EVIDENCE_ARTIFACT_LIMIT', '101', async () => {
+      for (const [name, collect] of evidenceCollectors) {
+        const {github, sha, calls} = paginatedRecoveryGithub();
+        github.rest.actions.listWorkflowRunsForRepo = async ({page}) => {
+          calls.push(`runs:${page}`);
+          return {data: {workflow_runs: page === 1
+            ? Array.from({length: 100}, (_, i) => ({id: i + 1, head_sha: sha}))
+            : [{id: 101, head_sha: sha}]}};
+        };
+        github.rest.actions.listWorkflowRunArtifacts = async ({run_id, page}) => {
+          calls.push(`artifacts:${run_id}:${page}`);
+          return {data: {artifacts: run_id !== 101 ? [] : page === 1
+            ? Array.from({length: 100}, (_, i) => ({id: i + 1, size_in_bytes: 3}))
+            : [{id: 101, size_in_bytes: 3}]}};
+        };
+        const result = await collect({github, pullRequestBody: '', associatedCommitShas: [sha],
+          extractArtifactText: ({archiveBuffer}) => ({text: `finding-${archiveBuffer}`, truncated: false})});
+        assert.equal(result.artifacts.status, 'present', name);
+        assert.equal(result.artifacts.records.length, 101, name);
+        assert.equal(result.artifacts.records.at(-1).text, 'finding-zip-101', name);
+        assert.ok(calls.includes('runs:2'), name);
+        assert.ok(calls.includes('artifacts:101:2'), name);
+      }
+    });
+  });
+});
+
+test('bounded listing rejects unstable totals and malformed later-page identities', async () => {
+  await withEnv('VERIFIER_EVIDENCE_RUN_PAGES', '2', async () => {
+    await withEnv('VERIFIER_EVIDENCE_ARTIFACT_PAGES', '2', async () => {
+      for (const [name, collect] of evidenceCollectors) {
+        for (const kind of ['run', 'artifact']) {
+          for (const defect of ['missing-total', 'appearing-total', 'changed-total', 'missing-id', 'duplicate-id', 'string-id', 'fractional-id', 'oversized-page']) {
+            const {github, sha} = paginatedRecoveryGithub();
+            const method = kind === 'run' ? 'listWorkflowRunsForRepo' : 'listWorkflowRunArtifacts';
+            const key = kind === 'run' ? 'workflow_runs' : 'artifacts';
+            github.rest.actions[method] = async ({run_id, page}) => {
+              if (kind === 'artifact' && run_id === 1) return {data: {total_count: 0, artifacts: []}};
+              const id = page === 1 ? 1 : defect === 'duplicate-id' ? 1 : defect === 'missing-id' ? undefined
+                : defect === 'string-id' ? '2' : defect === 'fractional-id' ? 2.5 : 2;
+              const total = defect === 'missing-total' && page === 2 || defect === 'appearing-total' && page === 1
+                ? undefined : defect === 'changed-total' && page === 2 ? 3 : 2;
+              const records = [{id, head_sha: sha, size_in_bytes: 3}];
+              if (defect === 'oversized-page' && page === 2) {
+                records.push(...Array.from({length: 10}, (_, i) => ({id: i + 10, head_sha: sha, size_in_bytes: 3})));
+              }
+              return {data: {total_count: total, [key]: records}, headers: page === 1 ? {link: 'rel="next"'} : {}};
+            };
+            const result = await collect({github, pullRequestBody: '', associatedCommitShas: [sha],
+              extractArtifactText: ({archiveBuffer}) => ({text: `finding-${archiveBuffer}`, truncated: false})});
+            const label = `${name}/${kind}/${defect}`;
+            assert.equal(result.artifacts.status, 'unavailable', label);
+            assert.ok(result.diagnostics.failures.some(f => f.kind === `${kind}_retrieval`), label);
+            if (kind === 'artifact') assert.equal(result.artifacts.records[0].text, 'finding-zip-1', label);
+          }
+        }
+      }
+    });
+  });
+});
+
+test('bounded listing page exhaustion never becomes complete or absent', async () => {
+  await withEnv('VERIFIER_EVIDENCE_RUN_PAGES', '2', async () => {
+    await withEnv('VERIFIER_EVIDENCE_ARTIFACT_PAGES', '2', async () => {
+      for (const kind of ['run', 'artifact']) {
+        await withEnv(`VERIFIER_EVIDENCE_${kind.toUpperCase()}_PAGES`, '1', async () => {
+          for (const [name, collect] of evidenceCollectors) {
+            const {github, sha, calls} = paginatedRecoveryGithub();
+            const result = await collect({github, pullRequestBody: '', associatedCommitShas: [sha],
+              extractArtifactText: () => ({text: 'retained first-page finding', truncated: false})});
+            assert.equal(result.artifacts.status, 'unavailable', `${name}/${kind}`);
+            assert.ok(result.diagnostics.failures.some(f => f.kind === `${kind}_page`), `${name}/${kind}`);
+            assert.equal(calls.filter(call => kind === 'run' ? call.startsWith('runs:') : call.startsWith('artifacts:2:')).length, 1, `${name}/${kind}`);
+            if (kind === 'artifact') assert.equal(result.artifacts.records[0].text, 'retained first-page finding', `${name}/${kind}`);
+          }
+        });
+      }
+    });
+  });
+});
+
 test('bounded recovery retrieves late run and artifact pages and retains every finding', async () => {
   await withEnv('VERIFIER_EVIDENCE_RUN_LIMIT', '200', async () => {
     await withEnv('VERIFIER_EVIDENCE_ARTIFACT_LIMIT', '400', async () => {
@@ -3612,3 +3716,170 @@ test('bounded recovery retains the entire explicit reference union beyond its ru
     assert.ok(result.diagnostics.failures.some(f => f.kind === 'reference_record'));
   });
 });
+
+
+test('artifact extractor retains patch proof and unsafe sibling gaps', () => {
+  const proof = 'diff --git a/x.py b/x.py\n--- a/x.py\n+++ b/x.py\n@@ -1 +1 @@\n-old\n+new\n';
+  for (const extension of ['patch', 'diff']) {
+    const name = `verifier-pr-diff.${extension}`;
+    const run = (listing, maxChars = 1000) => extractArtifactArchiveText({
+      archiveBuffer: Buffer.from('mock archive'), maxEntries: 10, maxChars,
+      execFile: (_command, args) => args[0] === '-Z1' ? listing : Buffer.from(proof),
+    });
+    const complete = run(`${name}\n`);
+    assert.equal(complete.truncated, false);
+    assert.equal(complete.unsupportedCount, 0);
+    assert.equal(complete.text, `### ${name}\n\n${proof.trim()}`);
+    const bounded = run(`${name}\n`, 50);
+    assert.equal(bounded.truncated, true);
+    assert.ok(bounded.failures.includes('character'));
+    for (const unsafe of ['-injected.patch', 'wild*.diff', 'binary.png']) {
+      const partial = run(`${name}\n${unsafe}\n`);
+      assert.equal(partial.truncated, true);
+      assert.ok(partial.failures.includes('unsupported_payload'));
+      assert.match(partial.text, /diff --git/);
+    }
+  }
+});
+
+test('artifact extractor reads its own real archived verifier patch', () => {
+  const directory = fs.mkdtempSync(path.join(os.tmpdir(), 'verifier-patch-test-'));
+  const proof = 'diff --git a/a.py b/a.py\n--- a/a.py\n+++ b/a.py\n@@ -1 +1 @@\n-old\n+new\n';
+  try {
+    fs.writeFileSync(path.join(directory, 'verifier-pr-diff.patch'), proof);
+    execFileSync('zip', ['-q', 'proof.zip', 'verifier-pr-diff.patch'], {cwd: directory});
+    const result = extractArtifactArchiveText({
+      archiveBuffer: fs.readFileSync(path.join(directory, 'proof.zip')),
+      maxEntries: 10, maxChars: 1000,
+    });
+    assert.equal(result.truncated, false);
+    assert.equal(result.unsupportedCount, 0);
+    assert.equal(result.text, `### verifier-pr-diff.patch\n\n${proof.trim()}`);
+  } finally {
+    fs.rmSync(directory, {recursive: true, force: true});
+  }
+});
+
+
+test('archive inventory retains every occurrence and exact raw bindings after a bounded stop', () => {
+  const raw = Buffer.from('  proof café\r\n');
+  const archive = Buffer.from('original archive');
+  const calls = [];
+  const result = extractArtifactArchiveText({archiveBuffer: archive, maxEntries: 2,
+    maxChars: 1000, maxBytes: raw.length,
+    execFile: (_cmd, args) => {
+      if (args[0] === '-Z1') return 'proof.txt\nlater.txt\nlast.txt\nimage.png\n';
+      calls.push(args.at(-1));
+      return raw;
+    }});
+  const digest = value => require('crypto').createHash('sha256').update(value).digest('hex');
+  assert.equal(result.archiveSha256, digest(archive));
+  assert.deepEqual(result.members.map(m => m.name), ['proof.txt', 'later.txt', 'last.txt', 'image.png']);
+  assert.deepEqual(result.members.map(m => m.status), ['included', 'unavailable', 'entry_bound', 'unsupported']);
+  assert.equal(result.members[0].raw_bytes, raw.length);
+  assert.equal(result.members[0].raw_sha256, digest(raw));
+  assert.equal(result.members[1].reason, 'extraction_byte');
+  assert.deepEqual(calls, ['proof.txt']);
+  assert.equal(result.truncated, true);
+});
+
+test('duplicate ZIP names never concatenate distinct proof occurrences', () => {
+  const calls = [];
+  const result = extractArtifactArchiveText({archiveBuffer: Buffer.from('archive'),
+    maxEntries: 10, maxChars: 1000, maxBytes: 1000,
+    execFile: (_cmd, args) => {
+      if (args[0] === '-Z1') return 'proof.txt\nproof.txt\nsibling.txt\n';
+      calls.push(args.at(-1));
+      return Buffer.from('sibling proof');
+    }});
+  assert.equal(result.truncated, true);
+  assert.ok(result.failures.includes('duplicate_member'));
+  assert.deepEqual(calls, ['sibling.txt']);
+  assert.deepEqual(result.members.map(m => m.occurrence), [0, 1, 2]);
+  assert.deepEqual(result.members.map(m => m.status), ['duplicate', 'duplicate', 'included']);
+  assert.match(result.text, /sibling proof/);
+});
+
+
+test('artifact capture ledger binds authenticated run, archive and incomplete member identities', async () => {
+  const {github, sha} = paginatedRecoveryGithub();
+  github.rest.actions.getWorkflowRun = async ({run_id}) => ({data: {id: run_id, head_sha: sha}});
+  github.rest.actions.listWorkflowRunArtifacts = async () => ({data: {total_count: 2, artifacts: [
+    {id: 1, name: 'expired-proof', expired: true, size_in_bytes: 3},
+    {id: 2, name: 'original-proof', size_in_bytes: 5},
+  ]}});
+  const result = await fetchVerifierEvidence({github, owner: 'owner', repo: 'repo',
+    pullRequestBody: 'Evidence: /actions/runs/1', associatedCommitShas: [sha],
+    extractArtifactText: args => extractArtifactArchiveText({...args,
+      execFile: (_cmd, argv) => argv[0] === '-Z1' ? 'proof.txt\nimage.png\n' : Buffer.from('proof')})});
+  assert.equal(result.artifacts.complete, false);
+  const [expired, capture] = result.diagnostics.archive_inventory;
+  assert.equal(expired.artifact_id, 1);
+  assert.equal(expired.reason, 'expired');
+  assert.equal(expired.members, null);
+  assert.equal(capture.repository, 'owner/repo');
+  assert.equal(capture.run_id, 1);
+  assert.equal(capture.head_sha, sha);
+  assert.equal(capture.artifact_id, 2);
+  assert.equal(capture.status, 'incomplete');
+  assert.equal(capture.member_inventory_complete, true);
+  assert.equal(capture.archive_sha256, require('crypto').createHash('sha256').update('zip-2').digest('hex'));
+  assert.deepEqual(capture.members.map(m => m.status), ['included', 'unsupported']);
+  const coverage = buildContextSourceCoverage({planSources: [], diffText: '', evidence: result});
+  assert.deepEqual(coverage.artifact_capture_inventory, result.diagnostics.archive_inventory);
+  assert.match(formatVerifierEvidence(result), /archive_inventory/);
+});
+
+test('archive member metadata ceiling retains an explicit unresolved suffix', () => {
+  const listing = Array.from({length: 4100}, (_, i) => `proof${i}.txt`).join('\n');
+  const result = extractArtifactArchiveText({archiveBuffer: Buffer.from('archive'), maxEntries: 1,
+    maxChars: 1000, maxBytes: 1000,
+    execFile: (_cmd, args) => args[0] === '-Z1' ? listing : Buffer.from('proof')});
+  assert.equal(result.memberCount, 4100);
+  assert.equal(result.members.length, 4096);
+  assert.equal(result.memberInventoryComplete, false);
+  assert.equal(result.truncated, true);
+  assert.ok(result.failures.includes('member_inventory'));
+  assert.equal(result.listingSha256, require('crypto').createHash('sha256').update(listing).digest('hex'));
+});
+
+
+test('real archive keeps duplicate and whitespace names distinct from valid proof', () => {
+  const directory = fs.mkdtempSync(path.join(os.tmpdir(), 'verifier-member-proof-'));
+  try {
+    const archive = path.join(directory, 'proof.zip');
+    execFileSync('python3', ['-c',
+      'import sys,zipfile,warnings; warnings.simplefilter("ignore"); z=zipfile.ZipFile(sys.argv[1],"w"); z.writestr("duplicate.txt",b"first"); z.writestr("duplicate.txt",b"second"); z.writestr(" proof.txt",b"decoy"); z.writestr("proof.txt",b"  raw proof\\r\\n"); z.close()', archive]);
+    const result = extractArtifactArchiveText({archiveBuffer: fs.readFileSync(archive),
+      maxEntries: 10, maxChars: 1000, maxBytes: 1000});
+    assert.equal(result.truncated, true);
+    assert.deepEqual(result.members.map(m => m.status), ['duplicate', 'duplicate', 'unsupported', 'included']);
+    const raw = Buffer.from('  raw proof\r\n');
+    assert.equal(result.members[3].raw_sha256, require('crypto').createHash('sha256').update(raw).digest('hex'));
+    assert.equal(result.members[3].raw_bytes, raw.length);
+    assert.equal(result.text, '### proof.txt\n\nraw proof');
+  } finally { fs.rmSync(directory, {recursive: true, force: true}); }
+});
+
+
+for (const bound of ['character', 'extraction_byte']) {
+  test(`archive bounded stop finalizes every eligible suffix member: ${bound}`, () => {
+    let reads = 0;
+    const first = '### a.txt\n\np';
+    const result = extractArtifactArchiveText({ archiveBuffer: Buffer.from('archive'),
+      maxEntries: 3, maxChars: bound === 'character' ? first.length : 500,
+      maxBytes: bound === 'extraction_byte' ? 1 : 500,
+      execFile: (_command, args) => {
+        if (args[0] === '-Z1') return 'a.txt\nb.txt\nc.txt\n';
+        reads++; return Buffer.from('p');
+      } });
+    assert.equal(reads, 1);
+    assert.deepEqual(result.members.map(item => item.status), ['included', 'unavailable', 'unavailable']);
+    assert.equal(result.members[1].reason, bound);
+    assert.equal(result.members[2].reason, bound);
+    assert.equal(result.memberInventoryComplete, true);
+    assert.equal(result.memberCount, 3);
+    assert.equal(result.extractedBytes, 1);
+    assert.equal(result.truncated, true);
+  });
+}
