@@ -3,6 +3,8 @@
 const GUARD_CONTEXT = 'Health 45 Agents Guard / guard';
 const GUARD_PATH = '.github/workflows/agents-guard.yml';
 const GUARD_JOB_NAMES = new Set(['guard']);
+const ELIGIBILITY_STEP = 'Check event eligibility';
+const EVALUATE_STEP = 'Evaluate protected file changes';
 const BLOCKED_PREFIXES = [
   '.github/actions/',
   '.github/scripts/',
@@ -70,23 +72,38 @@ function collectChangedPaths(pr, files) {
 
 function publicationState({ run, jobs, changedFiles }) {
   if (changedFiles.some(path => BLOCKED_FILES.has(path) || BLOCKED_PREFIXES.some(prefix => path.startsWith(prefix)))) {
-    return { state: 'error', description: 'Agents Guard controls changed; trusted review required' };
+    return { state: 'error', description: 'Agents Guard controls changed; trusted review required', evaluated: false };
   }
   if (run.status !== 'completed') {
-    return { state: 'pending', description: 'Trusted Agents Guard run is in progress' };
+    return { state: 'error', description: 'Agents Guard run is not completed', evaluated: false };
   }
   const guards = jobs.filter(job => GUARD_JOB_NAMES.has(job.name));
   if (jobs.length !== 1 || guards.length !== 1 || jobs.some(job => job.status !== 'completed')) {
-    return { state: 'error', description: 'Agents Guard job set is missing or incomplete' };
+    return { state: 'error', description: 'Agents Guard job set is missing or incomplete', evaluated: false };
   }
   const failed = new Set(['failure', 'cancelled', 'timed_out', 'action_required', 'startup_failure']);
-  if (run.conclusion === 'success' && guards[0].conclusion === 'success' && !jobs.some(job => failed.has(job.conclusion))) {
-    return { state: 'success', description: 'Trusted Agents Guard completed successfully' };
-  }
   if (failed.has(run.conclusion) || jobs.some(job => failed.has(job.conclusion))) {
-    return { state: 'failure', description: 'Trusted Agents Guard reported a failing job' };
+    return { state: 'failure', description: 'Trusted Agents Guard reported a failing job', evaluated: false };
   }
-  return { state: 'error', description: 'Agents Guard conclusion is not an explicit success' };
+  const steps = Array.isArray(guards[0].steps) ? guards[0].steps : [];
+  const eligibilitySteps = steps.filter(step => step?.name === ELIGIBILITY_STEP);
+  const evaluateSteps = steps.filter(step => step?.name === EVALUATE_STEP);
+  if (
+    eligibilitySteps.length !== 1 ||
+    eligibilitySteps[0].status !== 'completed' ||
+    eligibilitySteps[0].conclusion !== 'success' ||
+    evaluateSteps.length !== 1 ||
+    evaluateSteps[0].status !== 'completed' ||
+    !['success', 'skipped'].includes(evaluateSteps[0].conclusion)
+  ) {
+    return { state: 'error', description: 'Agents Guard evaluation evidence is missing or ambiguous', evaluated: false };
+  }
+  const evaluated = evaluateSteps[0].status === 'completed' && evaluateSteps[0].conclusion === 'success';
+  const noOp = evaluateSteps[0].status === 'completed' && evaluateSteps[0].conclusion === 'skipped';
+  if (run.conclusion === 'success' && guards[0].conclusion === 'success' && (evaluated || noOp)) {
+    return { state: 'success', description: evaluated ? 'Trusted Agents Guard completed successfully' : 'Trusted Agents Guard was ineligible; preserving any existing verdict', evaluated };
+  }
+  return { state: 'error', description: 'Agents Guard conclusion is not an explicit success', evaluated: false };
 }
 
 async function paginate(retry, method, params) {
@@ -101,12 +118,17 @@ async function getFreshRun({ retry, owner, repo, runId }) {
 
 async function resolvePullRequest({ github, retry, owner, repo, run }) {
   const associated = Array.isArray(run.pull_requests) ? run.pull_requests : [];
+  const associatedMatches = [];
   for (const item of associated) {
     if (!item || !Number(item.number)) continue;
     const pr = (await retry.withRetry(client =>
       client.rest.pulls.get({ owner, repo, pull_number: Number(item.number) })
     )).data;
-    if (pr.state === 'open' && pr.head?.sha === run.head_sha) return pr;
+    if (pr.state === 'open' && pr.head?.sha === run.head_sha) associatedMatches.push(pr);
+  }
+  if (associatedMatches.length === 1) return associatedMatches[0];
+  if (associatedMatches.length > 1) {
+    throw new Error(`Expected one associated open PR at Agents Guard head ${run.head_sha}; found ${associatedMatches.length}`);
   }
 
   const candidates = await paginate(retry, github.rest.pulls.list, { owner, repo, state: 'open' });
@@ -181,6 +203,7 @@ async function publishGuardForkStatus({ github, context, core }) {
   });
 
   let run = await getFreshRun({ retry, owner, repo, runId: payloadRun.id });
+  if (run.status !== 'completed') throw new Error('Agents Guard run is not completed');
   const workflow = (await retry.withRetry(client =>
     client.rest.actions.getWorkflow({ owner, repo, workflow_id: run.workflow_id })
   )).data;
@@ -232,8 +255,23 @@ async function publishGuardForkStatus({ github, context, core }) {
   }
   await assertLatestAttempt({ github, retry, owner, repo, run });
 
-  const current = statuses.find(status => status.context === GUARD_CONTEXT);
-  if (current?.state === result.state && current?.target_url === run.html_url) {
+  if (!Array.isArray(statuses)) throw new Error('Exact-head status inventory is incomplete');
+  const existing = statuses.filter(status => status?.context === GUARD_CONTEXT);
+  if (existing.some(status => !['success', 'failure', 'error', 'pending'].includes(status.state) || typeof status.target_url !== 'string')) {
+    throw new Error('Exact-head guard status evidence is malformed');
+  }
+  const terminal = existing.filter(status => ['success', 'failure', 'error'].includes(status.state));
+  // An ineligible completed pull_request run may establish a missing required
+  // check, but must never replace a terminal verdict already recorded for this
+  // head. A completed, step-proven evaluation is the only success allowed to do so.
+  if (result.state === 'success' && result.evaluated === false && terminal.length > 0) {
+    core.info(`Agents Guard preserves ${terminal.length} terminal exact-head verdict(s); no write needed.`);
+    return result;
+  }
+  // listCommitStatusesForRef is newest-first. Only the latest status for this
+  // context can suppress a replay: older attempts may share the same run URL.
+  const current = existing[0];
+  if (current?.state === result.state && current.target_url === run.html_url) {
     core.info(`Agents Guard status already ${result.state} for ${pr.head.sha}; no write needed.`);
     return result;
   }
@@ -263,6 +301,8 @@ async function publishGuardForkStatus({ github, context, core }) {
 }
 
 module.exports = {
+  ELIGIBILITY_STEP,
+  EVALUATE_STEP,
   GUARD_CONTEXT,
   GUARD_PATH,
   assertRunUnchanged,

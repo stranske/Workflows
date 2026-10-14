@@ -6,10 +6,7 @@ name: Agents Guard Fork Status Publisher
   workflow_run:
     workflows:
       - Health 45 Agents Guard
-    types:
-      - requested
-      - in_progress
-      - completed
+    types: [completed]
 
 permissions:
   actions: read

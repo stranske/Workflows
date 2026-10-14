@@ -16,6 +16,16 @@ SUPPORTED_GUARD_NAMES = ("guard",)
 
 
 def _decide(run, jobs, changed_files):
+    for job in jobs:
+        if job.get("name") == "guard" and "steps" not in job:
+            job["steps"] = [
+                {"name": "Check event eligibility", "status": "completed", "conclusion": "success"},
+                {
+                    "name": "Evaluate protected file changes",
+                    "status": "completed",
+                    "conclusion": "success",
+                },
+            ]
     source = f"""
 const helper = require({json.dumps(str(HELPER))});
 const result = helper.publicationState({json.dumps({"run": run, "jobs": jobs, "changedFiles": changed_files})});
@@ -42,6 +52,7 @@ try {{
 def _publish_scenario(
     *,
     final_run=None,
+    initial_run_override=None,
     same_repo=False,
     replay=False,
     guard_name="guard",
@@ -51,6 +62,11 @@ def _publish_scenario(
     deny_write=False,
     run_pull_requests=None,
     open_prs=None,
+    statuses=None,
+    evaluate_status="completed",
+    evaluate_conclusion="success",
+    run_conclusion="success",
+    job_conclusion="success",
 ):
     initial_run = {
         "id": 9,
@@ -63,7 +79,7 @@ def _publish_scenario(
         "run_attempt": 1,
         "run_number": 5,
         "status": "completed",
-        "conclusion": "success",
+        "conclusion": run_conclusion,
         "html_url": "https://example.test/runs/9",
         "pull_requests": run_pull_requests if run_pull_requests is not None else [{"number": 4}],
     }
@@ -75,21 +91,44 @@ def _publish_scenario(
         "head": {"repo": {"id": 1 if same_repo else 2}, "sha": "abc"},
     }
     scenario = {
-        "initialRun": initial_run,
-        "finalRun": final_run or initial_run,
+        "initialRun": initial_run_override or initial_run,
+        "finalRun": final_run or initial_run_override or initial_run,
         "pr": pr,
         "statuses": (
-            [
-                {
-                    "context": "Health 45 Agents Guard / guard",
-                    "state": "success",
-                    "target_url": "https://example.test/runs/9",
-                }
-            ]
-            if replay
-            else []
+            statuses
+            if statuses is not None
+            else (
+                [
+                    {
+                        "context": "Health 45 Agents Guard / guard",
+                        "state": "success",
+                        "target_url": "https://example.test/runs/9",
+                    }
+                ]
+                if replay
+                else []
+            )
         ),
         "statusReadDrift": status_read_drift,
+        "jobs": [
+            {
+                "name": guard_name,
+                "status": "completed",
+                "conclusion": job_conclusion,
+                "steps": [
+                    {
+                        "name": "Check event eligibility",
+                        "status": "completed",
+                        "conclusion": "success",
+                    },
+                    {
+                        "name": "Evaluate protected file changes",
+                        "status": evaluate_status,
+                        "conclusion": evaluate_conclusion,
+                    },
+                ],
+            }
+        ],
         "denyWrite": deny_write,
         "openPrs": open_prs,
     }
@@ -110,7 +149,7 @@ const github = {{
     actions: {{
       getWorkflowRun: async () => ({{data: runReads++ === 0 ? scenario.initialRun : currentRun}}),
       getWorkflow: endpoint({{id: 7, path: '.github/workflows/agents-guard.yml'}}),
-      listJobsForWorkflowRunAttempt: endpoint([{{name: {json.dumps(guard_name)}, status: 'completed', conclusion: 'success'}}]),
+      listJobsForWorkflowRunAttempt: endpoint(scenario.jobs),
       listWorkflowRuns: async () => ({{data: statusRead && scenario.statusReadDrift === 'newer-run'
         ? [scenario.initialRun, {{...scenario.initialRun, id: 10, run_number: 6}}]
         : [scenario.initialRun]}}),
@@ -249,10 +288,8 @@ def test_agents_guard_fork_status_publishes_success_once_for_bound_evidence(guar
 )
 def test_agents_guard_fork_status_rejects_missing_ambiguous_or_lookalike_guard(jobs):
     result = _decide({"status": "completed", "conclusion": "success"}, jobs, ["src/app.py"])
-    assert result == {
-        "state": "error",
-        "description": "Agents Guard job set is missing or incomplete",
-    }
+    assert result["state"] == "error"
+    assert result["description"] == "Agents Guard job set is missing or incomplete"
 
 
 def test_agents_guard_fork_status_source_and_template_helpers_match():
@@ -486,3 +523,126 @@ def test_publisher_requires_real_environment_attempt_before_writing(publisher_at
     assert "error" in result
     assert "Publisher run attempt is missing or invalid" in result["error"]
     assert result["writes"] == []
+
+
+def test_agents_guard_fork_status_noop_preserves_existing_failure_but_evaluated_success_can_replace_it():
+    previous_failure = [
+        {
+            "context": "Health 45 Agents Guard / guard",
+            "state": "failure",
+            "target_url": "https://example.test/runs/old",
+        }
+    ]
+    no_op = _publish_scenario(
+        statuses=previous_failure, evaluate_status="completed", evaluate_conclusion="skipped"
+    )
+    assert no_op["result"]["state"] == "success"
+    assert no_op["writes"] == []
+
+    evaluated = _publish_scenario(statuses=previous_failure)
+    assert evaluated["result"]["state"] == "success"
+    assert len(evaluated["writes"]) == 1
+
+
+def test_agents_guard_fork_status_noop_creates_missing_required_status():
+    no_op = _publish_scenario(evaluate_status="completed", evaluate_conclusion="skipped")
+    assert no_op["result"]["state"] == "success"
+    assert len(no_op["writes"]) == 1
+
+
+@pytest.mark.parametrize(
+    "steps",
+    [
+        [],
+        [{"name": "Check event eligibility", "status": "completed", "conclusion": "success"}],
+        [
+            {"name": "Check event eligibility", "status": "completed", "conclusion": "success"},
+            {
+                "name": "Evaluate protected file changes",
+                "status": "completed",
+                "conclusion": "success",
+            },
+            {
+                "name": "Evaluate protected file changes",
+                "status": "completed",
+                "conclusion": "success",
+            },
+        ],
+        [
+            {"name": "Check event eligibility", "status": "skipped", "conclusion": "skipped"},
+            {
+                "name": "Evaluate protected file changes",
+                "status": "completed",
+                "conclusion": "success",
+            },
+        ],
+    ],
+)
+def test_agents_guard_fork_status_requires_unambiguous_step_evidence(steps):
+    result = _decide(
+        {"status": "completed", "conclusion": "success"},
+        [{"name": "guard", "status": "completed", "conclusion": "success", "steps": steps}],
+        ["src/app.py"],
+    )
+    assert result["state"] == "error"
+    assert "evaluation evidence" in result["description"]
+
+
+def test_agents_guard_fork_status_rejects_noncompleted_run_before_status_write():
+    run = {
+        "id": 9,
+        "workflow_id": 7,
+        "event": "pull_request",
+        "name": "Health 45 Agents Guard",
+        "repository": {"id": 1},
+        "head_repository": {"id": 2},
+        "head_sha": "abc",
+        "run_attempt": 1,
+        "run_number": 5,
+        "status": "in_progress",
+        "conclusion": None,
+        "html_url": "https://example.test/runs/9",
+        "pull_requests": [{"number": 4}],
+    }
+    outcome = _publish_scenario(initial_run_override=run, final_run=run)
+    assert outcome["error"] == "Agents Guard run is not completed"
+    assert outcome["writes"] == []
+
+
+def test_agents_guard_fork_status_replays_only_the_newest_context_status_for_reruns():
+    same_run = "https://example.test/runs/9"
+    failure_after_success = _publish_scenario(
+        run_conclusion="failure",
+        job_conclusion="failure",
+        statuses=[
+            {
+                "context": "Health 45 Agents Guard / guard",
+                "state": "success",
+                "target_url": same_run,
+            },
+            {
+                "context": "Health 45 Agents Guard / guard",
+                "state": "failure",
+                "target_url": same_run,
+            },
+        ],
+    )
+    assert failure_after_success["result"]["state"] == "failure"
+    assert [write["state"] for write in failure_after_success["writes"]] == ["failure"]
+
+    success_after_failure = _publish_scenario(
+        statuses=[
+            {
+                "context": "Health 45 Agents Guard / guard",
+                "state": "failure",
+                "target_url": same_run,
+            },
+            {
+                "context": "Health 45 Agents Guard / guard",
+                "state": "success",
+                "target_url": same_run,
+            },
+        ]
+    )
+    assert success_after_failure["result"]["state"] == "success"
+    assert [write["state"] for write in success_after_failure["writes"]] == ["success"]
