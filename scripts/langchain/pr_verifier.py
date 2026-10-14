@@ -19,6 +19,7 @@ import logging
 import os
 import re
 import sys
+from time import monotonic
 from collections.abc import Callable, Mapping
 from dataclasses import dataclass
 from functools import partial
@@ -48,7 +49,8 @@ from tools.verifier_capture_obligation_manifest import (
     record_capture_obligations,
 )
 from tools.verifier_semantic_acceptance import canonical_digest
-from tools.verifier_semantic_execution import SourceRuleRegistry, execute_semantic_matrix
+from tools.verifier_semantic_execution import MAX_NATIVE_SECONDS, execute_semantic_matrix
+from tools.verifier_semantic_rules import prepare_residual_all_input, prepare_reviewed_execution
 
 # The shared client builder returns the ClientInfo ``provider_label`` for the
 # verifier (the historical ``_get_llm_client`` returned that field). Bound under
@@ -4501,7 +4503,7 @@ def _acceptance_discovery_coverage(
         return "unavailable"
 
 
-def build_prompt_inputs(context: str, diff: str | None) -> PromptInputs:
+def build_prompt_inputs(context: str, diff: str | None, *, lossless: bool = False) -> PromptInputs:
     """Bound the context and diff blocks and report what reaches the model."""
     context_budget = (
         _budget_from_env("VERIFIER_CONTEXT_BUDGET_TOKENS", VERIFIER_CONTEXT_BUDGET_TOKENS)
@@ -4516,6 +4518,11 @@ def build_prompt_inputs(context: str, diff: str | None) -> PromptInputs:
     diff_budget = (
         _budget_from_env("VERIFIER_DIFF_BUDGET_TOKENS", VERIFIER_DIFF_BUDGET_TOKENS) * TOKEN_CHARS
     )
+    if lossless:
+        # Semantic packages account for the complete raw capture separately.
+        # Retain the shared availability/format checks without legacy clipping.
+        context_budget = evidence_budget = 2 * len(context) + 1
+        diff_budget = 2 * max(len(context), len(diff or "")) + 1
     context_text = context.strip() if context and context.strip() else ""
     diff_text = diff.strip() if diff and diff.strip() else ""
     sections = _split_verifier_context(context_text) if context_text else None
@@ -5838,7 +5845,7 @@ def _semantic_capture(context: str, diff: str | None) -> dict[str, Any]:
         gaps.append("pr_head_sha_missing_or_malformed")
     manifest = build_capture_obligation_manifest(context)
     gaps.extend(str(item) for item in manifest["gaps"])
-    coverage = prompt_coverage(context, diff)
+    coverage = build_prompt_inputs(context, diff, lossless=True).coverage
     gaps.extend(f"prompt:{item}" for item in coverage.reasons)
     governing = hashlib.sha256(context.encode()).hexdigest()
     capture_id = canonical_digest({"head": head, "governing": governing, "raw_inputs": raw_inputs})
@@ -5851,27 +5858,6 @@ def _semantic_capture(context: str, diff: str | None) -> dict[str, Any]:
         "resource_admitted": not gaps,
         "manifest": manifest,
     }
-
-
-def _semantic_rule_loader(capture: dict[str, Any]) -> tuple[dict[str, Any], set[str]]:
-    """Source-owned conservative fallback: one residual over all raw evidence."""
-    rule = {
-        "schema": "workflows-verifier-semantic-rule/v1",
-        "capture_id": capture["id"],
-        "governing_sha256": capture["governing_sha256"],
-        "clauses": [
-            {
-                "id": "complete-capture-residual",
-                "predicate": "provenance",
-                "raw_dependencies": sorted(capture["raw_inputs"]),
-                "requires": [],
-                "joint_groups": ["complete-capture-joint"],
-                "residual": True,
-            }
-        ],
-    }
-    # The registry is created in code, not read from capture/provider JSON.
-    return SourceRuleRegistry({(capture["id"], capture["governing_sha256"]): rule}).load(capture)
 
 
 def _semantic_slots_and_clients(
@@ -5898,13 +5884,18 @@ def _semantic_slots_and_clients(
         zip(clients, expected, strict=True)
     ):
         prepared = _prepare_capacity_client(client)
-        if hasattr(prepared, "model_copy"):
-            prepared = prepared.model_copy(update={"max_retries": 0})
         contract = _native_capacity_contract(prepared)
         if contract["provider"] != provider or contract["model"] != model:
             raise InputCapacityError(
                 "available native client does not match frozen configured slot"
             )
+        native_sdk = (
+            getattr(prepared, "root_client", None)
+            if provider == "openai"
+            else getattr(prepared, "_client", None)
+        )
+        if getattr(native_sdk, "max_retries", None) != 0:
+            raise InputCapacityError("native SDK retries must be disabled at construction")
         slot_id = f"slot-{index + 1}"
         slots.append(
             {
@@ -5922,6 +5913,19 @@ def _semantic_slots_and_clients(
     return slots, clients_by_slot, authentic
 
 
+def _build_semantic_clients(
+    model1: str | None, model2: str | None
+) -> list[tuple[object, str, str]]:
+    from tools.langchain_client import build_chat_clients
+
+    # Rebuild initialized SDK clients with the native retry policy. A Pydantic
+    # model copy would retain SDK instances constructed with their old retries.
+    return [
+        (item.client, item.provider, item.model)
+        for item in build_chat_clients(model1=model1, model2=model2, max_retries=0)
+    ]
+
+
 def _evaluate_pr_multiple_semantic(
     context: str, diff: str | None, model1: str | None, model2: str | None
 ) -> SemanticComparisonResults:
@@ -5936,23 +5940,49 @@ def _evaluate_pr_multiple_semantic(
                 "complete capture is unavailable: " + json.dumps(capture["gaps"])
             )
         configured = resolve_slots()[:2]
-        runner = ComparisonRunner.from_environment(context, diff, model1, model2)
         slots, clients, authenticated = _semantic_slots_and_clients(
-            runner.clients, model1, model2, configured
+            _build_semantic_clients(model1, model2), model1, model2, configured
         )
-        prompt = _prepare_prompt(context, diff)
-        package_specs = [
-            {
-                "id": "complete-capture",
-                "clause_ids": ["complete-capture-residual"],
-                "raw_inputs": sorted(capture["raw_inputs"]),
-            }
-        ]
-        native_preflights: dict[str, str] = {}
+        raw_bytes = {"context": context.encode()}
+        if diff is not None:
+            raw_bytes["diff"] = diff.encode()
+        prepared = prepare_reviewed_execution(capture, raw_bytes)
+        if prepared is None:
+            prepared = prepare_residual_all_input(capture, raw_bytes)
+        execution_capture = prepared["capture"]
+        checked_contract = prepared["contract"]
+        package_specs = prepared["plan"]["packages"]
+        checked_rule = {
+            "schema": "workflows-verifier-semantic-rule/v1",
+            "capture_id": execution_capture["id"],
+            "governing_sha256": execution_capture["governing_sha256"],
+            "clauses": checked_contract["clauses"],
+        }
+        native_preflights: dict[tuple[str, str], str] = {}
+        native_deadline = monotonic() + MAX_NATIVE_SECONDS
 
         def build_request(
             slot: dict[str, Any], package: dict[str, Any], contract: dict[str, Any]
         ) -> dict[str, Any]:
+            package_bytes = prepared["prompts"][package["id"]]["bytes"]
+            # This path never calls the legacy character-budget prompt builder.
+            # Every reviewed dependency byte is preserved in the counted prompt.
+            text = package_bytes.decode("utf-8")
+            obligations = [
+                clause for clause in contract["clauses"] if clause["id"] in package["clause_ids"]
+            ]
+            text = (
+                "Reviewed closed obligations: "
+                + json.dumps(obligations, sort_keys=True)
+                + "\n"
+                + text
+            )
+            prompt = _load_prompt().format(
+                context=text,
+                diff="Complete changed-code dependencies are included in the reviewed spans above.",
+            )
+            if _get_chain_depth() > 0:
+                prompt += "\n" + CHAIN_DEPTH_ADDENDUM.format(depth=_get_chain_depth())
             return {
                 "prompt": prompt,
                 "slot": slot["slot_id"],
@@ -5964,7 +5994,9 @@ def _evaluate_pr_multiple_semantic(
             slot: dict[str, Any], _package: dict[str, Any], request: dict[str, Any]
         ) -> dict[str, Any]:
             receipt = _preflight_input_capacity(clients[slot["slot_id"]], request["prompt"])
-            native_preflights[slot["slot_id"]] = str(receipt["request_sha256"])
+            native_preflights[(slot["slot_id"], request["package"])] = str(
+                receipt["request_sha256"]
+            )
             return {
                 "accepted": receipt.get("status") == "PASS",
                 "request_sha256": canonical_digest(request),
@@ -5978,10 +6010,16 @@ def _evaluate_pr_multiple_semantic(
             # Re-count immediately before each generation and require its real
             # native payload identity to match the all-cells preflight receipt.
             receipt = _preflight_input_capacity(clients[slot["slot_id"]], request["prompt"])
-            if receipt.get("request_sha256") != native_preflights.get(slot["slot_id"]):
+            if monotonic() >= native_deadline:
+                raise InputCapacityError(
+                    "semantic native elapsed bound exhausted before generation"
+                )
+            if receipt.get("request_sha256") != native_preflights.get(
+                (slot["slot_id"], request["package"])
+            ):
                 raise InputCapacityError("native payload changed after matrix preflight")
             response = clients[slot["slot_id"]].invoke(request["prompt"])
-            return getattr(response, "content", None) or str(response)
+            return _coerce_response_content(getattr(response, "content", None) or str(response))
 
         def parse(
             raw: str | bytes, _slot: dict[str, Any], _package: dict[str, Any]
@@ -5990,11 +6028,16 @@ def _evaluate_pr_multiple_semantic(
             payload = EvaluationPayload.model_validate(
                 json.loads(content), strict=True, extra="forbid"
             )
-            return {"verdict": payload.verdict, "findings": list(payload.concerns)}
+            return {
+                "verdict": payload.verdict,
+                "findings": list(payload.concerns),
+                "evaluation": payload.model_dump(),
+                "raw_content": content,
+            }
 
         execution = execute_semantic_matrix(
-            capture,
-            _semantic_rule_loader,
+            execution_capture,
+            lambda _capture: (checked_rule, {canonical_digest(checked_rule)}),
             package_specs,
             slots,
             build_request,
@@ -6008,6 +6051,10 @@ def _evaluate_pr_multiple_semantic(
             EvaluationResult(
                 verdict=item["verdict"],
                 concerns=list(item.get("findings", [])),
+                scores=(item.get("evaluation") or {}).get("scores"),
+                confidence=(item.get("evaluation") or {}).get("confidence"),
+                summary=(item.get("evaluation") or {}).get("summary"),
+                raw_content=item.get("raw_content"),
                 provider_used=next(
                     slot["provider"] for slot in slots if slot["slot_id"] == item["slot_id"]
                 ),

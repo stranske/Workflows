@@ -227,3 +227,51 @@ def test_preflight_must_bind_exact_serialized_request():
             _parse,
             authenticated_native=True,
         )
+
+
+@pytest.mark.parametrize("bound", ["cells", "elapsed"])
+def test_finite_native_bounds_block_before_any_provider_callback(monkeypatch, bound):
+    from tools import verifier_semantic_execution as execution
+
+    if bound == "cells":
+        monkeypatch.setattr(execution, "MAX_NATIVE_CELLS", 1)
+    else:
+        ticks = iter([0, 1201])
+        monkeypatch.setattr(execution, "monotonic", lambda: next(ticks))
+    called = []
+    with pytest.raises(ValueError, match="finite cell|elapsed bound"):
+        execute_semantic_matrix(
+            _capture(),
+            _loader(),
+            _packages(),
+            _slots(),
+            _request,
+            lambda *args: called.append("count"),
+            lambda *args: called.append("invoke"),
+            _parse,
+            authenticated_native=False,
+        )
+    assert called == []
+
+
+def test_parse_failure_retains_exact_provider_detail_without_repair_or_pass():
+    text = "Cannot verify: required artifact is unavailable"
+
+    def parse(*args):
+        raise ValueError("invalid provider schema")
+
+    run = execute_semantic_matrix(
+        _capture(),
+        _loader(),
+        _packages(),
+        _slots(),
+        _request,
+        _preflight,
+        lambda *args: text,
+        parse,
+        authenticated_native=True,
+    )
+    assert run.admit()["verdict"] == "CONCERNS"
+    assert all(result["raw_content"] == text for result in run.results)
+    assert all(receipt["completed"] is False for receipt in run.ledger["cells"])
+    assert all(receipt["response_sha256"] != "0" * 64 for receipt in run.ledger["cells"])

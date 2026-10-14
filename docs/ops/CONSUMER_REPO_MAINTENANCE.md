@@ -2769,6 +2769,16 @@ governing hashes and raw capture identities. Unknown governing text retains an
 all-input residual joint obligation; transitive dependencies, cycles and n-way
 joint groups remain together. Byte ranges alone never establish independence.
 
+Reviewed decompositions load only from `config/verifier_semantic_rules.json`
+in the authoritative source checkout. Entries bind the complete capture/head,
+governing hash and raw hashes, account for every byte exactly once, declare
+shared-span joins and copy global governing clauses into each affected package.
+Each closed package receives its complete dependency bytes, without the legacy
+character-budget clipping. Unknown captures retain the all-input residual and
+may remain over capacity; the registry never infers English independence.
+The native matrix has a16-cell and20-minute bound. SDK clients are constructed
+with zero retries, and the underlying SDK setting is verified before invocation.
+
 All matrix requests must pass actual native input/output capacity preflight
 before any generation. The runner binds request/response identities and count
 receipts separately from provider text, with no fallback generation or schema

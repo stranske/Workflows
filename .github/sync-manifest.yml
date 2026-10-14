@@ -822,6 +822,14 @@ scripts:
     description: "Reviewed semantic closure, proof joins and exact judge matrix admission"
     template_sync: exact
 
+  - source: tools/verifier_semantic_rules.py
+    description: "Fixed source-owned reviewed byte-span rules and complete per-package prompt construction"
+    template_sync: exact
+
+  - source: config/verifier_semantic_rules.json
+    description: "Reviewed immutable semantic decomposition registry; unknown captures retain an all-input residual"
+    template_sync: exact
+
   - source: tools/verifier_semantic_execution.py
     description: "Frozen all-cell native preflight and runner-owned semantic execution ledger"
     template_sync: exact

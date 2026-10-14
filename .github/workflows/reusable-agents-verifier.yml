@@ -1217,7 +1217,7 @@ jobs:
         run: |
           set -euo pipefail
           context_file="$VERIFIER_CONTEXT_PATH"
-          if [ "$VERIFIER_SEMANTIC_MODE" = "1" ]; then
+          if [ "${VERIFIER_SEMANTIC_MODE:-0}" = "1" ]; then
             VERIFIER_SEMANTIC_KEY_PATH="$(mktemp)"
             export VERIFIER_SEMANTIC_KEY_PATH
             trap 'rm -f "$VERIFIER_SEMANTIC_KEY_PATH"' EXIT

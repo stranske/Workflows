@@ -328,6 +328,7 @@ def admit_results(
     if not isinstance(receipts, list):
         raise ValueError("execution ledger cells are malformed")
     receipt_by_cell: dict[tuple[str, str], dict[str, Any]] = {}
+    bound_receipts: dict[tuple[str, str], dict[str, Any]] = {}
     errors: list[str] = []
     for receipt in receipts:
         if not isinstance(receipt, dict):
@@ -336,14 +337,16 @@ def admit_results(
         cell = (receipt.get("slot_id"), receipt.get("package_id"))
         if (
             not all(isinstance(item, str) and item for item in cell)
-            or cell in receipt_by_cell
-            or receipt.get("completed") is not True
-            or receipt.get("synthetic") is not False
+            or cell in bound_receipts
             or not _is_hex(receipt.get("request_sha256"), 64)
             or not _is_hex(receipt.get("response_sha256"), 64)
             or not _is_hex(receipt.get("result_sha256"), 64)
         ):
             errors.append("invalid trusted receipt")
+            continue
+        bound_receipts[cell] = receipt
+        if receipt.get("completed") is not True or receipt.get("synthetic") is not False:
+            errors.append("non-native or incomplete trusted receipt")
             continue
         receipt_by_cell[cell] = receipt
     result_by_cell: dict[tuple[str, str], dict[str, Any]] = {}
@@ -360,7 +363,7 @@ def admit_results(
             or result.get("verdict") not in _VERDICTS
             or not isinstance(result.get("findings", []), list)
             or result.get("clause_ids") != package_clauses.get(cell[1])
-            or canonical_digest(result) != receipt_by_cell.get(cell, {}).get("result_sha256")
+            or canonical_digest(result) != bound_receipts.get(cell, {}).get("result_sha256")
         ):
             errors.append("invalid provider result")
             continue

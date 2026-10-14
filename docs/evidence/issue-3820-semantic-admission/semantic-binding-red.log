@@ -1,5 +1,5 @@
-original_sha256=8ef51374f2e00f47866657682515d07083a7c5c0b8ac715b7a72149c1c7eaa46
-mutant_sha256=c219ea099b676a60f7c838b327162648d44bc00d232c500d40d0e52d4b989b3d
+original_sha256=7a11a4dfd88b26b36e0506be6a0fa35fd296ae91a14bd1db0e0753aa1bf79fbe
+mutant_sha256=0569a1b9ebc6e927cee6d4523cc6fc33236ed79b02b70be9329ddc5149e2580a
 exit=1
 F                                                                        [100%]
 =================================== FAILURES ===================================
@@ -12,5 +12,5 @@ E     - CONCERNS
 E     + FAIL
 =========================== short test summary info ============================
 FAILED tests/tools/test_verifier_semantic_acceptance.py::test_runner_receipt_binds_exact_result_clause_coverage_and_capture[result]
-1 failed in 0.19s
-restored_sha256=8ef51374f2e00f47866657682515d07083a7c5c0b8ac715b7a72149c1c7eaa46
+1 failed in 0.18s
+restored_sha256=7a11a4dfd88b26b36e0506be6a0fa35fd296ae91a14bd1db0e0753aa1bf79fbe

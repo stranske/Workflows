@@ -11,6 +11,7 @@ from __future__ import annotations
 from collections.abc import Callable, Iterable
 from copy import deepcopy
 from dataclasses import dataclass
+from time import monotonic
 from typing import Any
 
 from tools.verifier_semantic_acceptance import (
@@ -23,6 +24,9 @@ from tools.verifier_semantic_acceptance import (
     freeze_judge_slots,
     plan_request_matrix,
 )
+
+MAX_NATIVE_CELLS = 16
+MAX_NATIVE_SECONDS = 1200
 
 
 @dataclass(frozen=True)
@@ -106,10 +110,20 @@ def _valid_preflight(facts: Any, request: dict[str, Any]) -> dict[str, Any]:
     for name in ("input_tokens", "context_limit", "output_reserve"):
         if type(facts.get(name)) is not int or facts[name] < 0:
             raise ValueError("native capacity preflight facts are malformed")
-    return {
+    bound = {
         name: facts[name]
         for name in ("request_sha256", "input_tokens", "context_limit", "output_reserve")
     }
+    if "native_payload_sha256" in facts:
+        digest = facts["native_payload_sha256"]
+        if (
+            not isinstance(digest, str)
+            or len(digest) != 64
+            or any(char not in "0123456789abcdef" for char in digest)
+        ):
+            raise ValueError("native payload identity is malformed")
+        bound["native_payload_sha256"] = digest
+    return bound
 
 
 def execute_semantic_matrix(
@@ -136,6 +150,14 @@ def execute_semantic_matrix(
     plan = build_package_plan(contract, package_specs)
     frozen_slots = freeze_judge_slots(slots)
     expected_cells = plan_request_matrix(plan, list(frozen_slots))
+    if len(expected_cells) > MAX_NATIVE_CELLS:
+        raise ValueError("semantic native matrix exceeds the finite cell bound")
+    deadline = monotonic() + MAX_NATIVE_SECONDS
+
+    def check_deadline() -> None:
+        if monotonic() >= deadline:
+            raise ValueError("semantic native execution elapsed bound exhausted")
+
     if capture["gaps"] or not capture["resource_admitted"]:
         ledger = {
             "schema": LEDGER_SCHEMA,
@@ -160,6 +182,7 @@ def execute_semantic_matrix(
     prepared: dict[tuple[str, str], tuple[dict[str, Any], dict[str, Any]]] = {}
     # This whole loop completes before invoke_native appears below.
     for slot_id, package_id in sorted(expected_cells):
+        check_deadline()
         slot, package = slot_by_id[slot_id], packages[package_id]
         request = build_request(slot, package, contract)
         if not isinstance(request, dict):
@@ -168,14 +191,18 @@ def execute_semantic_matrix(
             request,
             _valid_preflight(preflight_request(slot, package, request), request),
         )
+        check_deadline()
 
     results: list[dict[str, Any]] = []
     receipts: list[dict[str, Any]] = []
     for slot_id, package_id in sorted(expected_cells):
         slot, package = slot_by_id[slot_id], packages[package_id]
         request, counts = prepared[(slot_id, package_id)]
+        raw_response = None
         try:
+            check_deadline()
             raw_response = invoke_native(slot, request)
+            check_deadline()
             if not isinstance(raw_response, (str, bytes)):
                 raise ValueError("native adapter returned a non-text response")
             parsed = parse_response(raw_response, slot, package)
@@ -210,21 +237,30 @@ def execute_semantic_matrix(
                 }
             )
         except Exception as error:  # A failed cell is evidence; never retry or replace it.
-            results.append(
-                {
-                    "slot_id": slot_id,
-                    "package_id": package_id,
-                    "verdict": "CONCERNS",
-                    "findings": [],
-                    "execution_error": str(error),
-                }
+            detail = (
+                raw_response.decode("utf-8", errors="replace")
+                if isinstance(raw_response, bytes)
+                else raw_response if isinstance(raw_response, str) else None
             )
+            failed_result = {
+                "slot_id": slot_id,
+                "package_id": package_id,
+                "clause_ids": list(package["clause_ids"]),
+                "verdict": "CONCERNS",
+                "findings": [],
+                "execution_error": str(error),
+                "raw_content": detail,
+            }
+            results.append(failed_result)
             receipts.append(
                 {
                     "slot_id": slot_id,
                     "package_id": package_id,
                     "request_sha256": counts["request_sha256"],
-                    "response_sha256": "0" * 64,
+                    "response_sha256": (
+                        canonical_digest({"raw": detail}) if detail is not None else "0" * 64
+                    ),
+                    "result_sha256": canonical_digest(failed_result),
                     "completed": False,
                     "synthetic": not authenticated_native,
                     "counts": counts,
