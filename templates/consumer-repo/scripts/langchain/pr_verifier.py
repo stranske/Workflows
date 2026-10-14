@@ -1672,8 +1672,9 @@ _EVIDENCE_PR_COMMENT_DESTINATION = (
     r"(?:(?:pr|pull request)\s+comments?|(?:inline\s+)?(?:pr\s+)?review comments?)"
 )
 _EVIDENCE_ACTIVE_AS_ARTIFACT_DELIVERY = (
-    r"\b(?:upload|attach|publish|post|record|capture|provide|include|document)\w*"
-    r"\s+(?:(?:the|an?|any|this|that|these|those)\s+)?"
+    r"\b"
+    + _EVIDENCE_DELIVERY_OPERATION
+    + r"\s+(?:(?:the|an?|any|this|that|these|those)\s+)?"
     + _EVIDENCE_OBJECT_MODIFIERS
     + r"(?:evidence(?:\s+(?:files?|bundles?|packages?))?|transcripts?|command outputs?|"
     r"coverage reports?|logs?|" + _EVIDENCE_PROOF_ALIAS_NOUN + r")\s+as\s+"
@@ -4182,8 +4183,9 @@ def _classify_evidence_channels(acceptance: str, *, _bind_attached: bool = True)
         )
         clause_evidence_antecedent: str | None = None
         proof_pronoun_delivery = re.compile(
-            r"\b(?:attach|upload|publish|post|record|capture|provide|include|document|link)\w*\b"
-            r".{0,40}\b(?:it|them|this|they|these|those|both)\b.{0,40}\b(?:pr|pull request|(?:(?:workflow|ci|github actions)\s+)?artifacts?)\b"
+            r"\b"
+            + _EVIDENCE_DELIVERY_OPERATION
+            + r".{0,40}\b(?:it|them|this|they|these|those|both)\b.{0,40}\b(?:pr|pull request|(?:(?:workflow|ci|github actions)\s+)?artifacts?)\b"
             r"|\b(?:it|them|this|they|these|those|both)\b.{0,40}"
             r"\b(?:attached|uploaded|published|posted|recorded|captured|provided|"
             r"included|documented|linked)\b.{0,40}\b(?:pr|pull request|(?:(?:workflow|ci|github actions)\s+)?artifacts?)\b",
