@@ -5507,6 +5507,79 @@ def test_issue3835_negative_artifact_content_stays_product_capability(
 
 
 @pytest.mark.parametrize(
+    "criterion",
+    [
+        "The reviewer must upload evidence without secret content as an artifact",
+        "Attach evidence without secrets as an artifact",
+        "The reviewer must upload evidence that must not contain secrets as an artifact",
+        "The reviewer must upload evidence which must not contain command output as an artifact",
+        "The reviewer must upload evidence as an artifact that must not contain secrets",
+    ],
+)
+def test_issue3835_negative_artifact_content_keeps_mandatory_human_delivery(criterion):
+    """Payload exclusions do not erase a mandatory human artifact duty."""
+    assert verifier._required_evidence_channels(criterion) == {"artifacts"}
+    assert verifier._required_evidence_options(criterion) == [{"artifacts"}]
+    assert (
+        _floor_verdict(criterion, body="present", comments="present", artifacts="absent")
+        == "CONCERNS"
+    )
+    assert (
+        _floor_verdict(criterion, body="absent", comments="absent", artifacts="present") == "PASS"
+    )
+
+
+@pytest.mark.parametrize(
+    "criterion",
+    [
+        "Do not attach secret content as an artifact",
+        "The reviewer must not upload credential content as an artifact",
+        "Evidence must not include private content as an artifact",
+        "The UI must allow evidence to be attached as a workflow artifact that must not contain command output",
+        "The UI must allow evidence to be attached in the PR body or as a workflow artifact that must not contain command output",
+    ],
+)
+def test_issue3835_negative_artifact_content_controls_stay_nongating(criterion):
+    assert verifier._required_evidence_channels(criterion) == set()
+    assert verifier._required_evidence_options(criterion) == [set()]
+    assert (
+        _floor_verdict(criterion, body="present", comments="present", artifacts="absent") == "PASS"
+    )
+
+
+@pytest.mark.parametrize(
+    "criterion,expected",
+    [
+        (
+            "The UI must allow evidence to be attached in the PR body and as a workflow artifact "
+            "and the reviewer must post evidence in a PR review comment",
+            {"comments"},
+        ),
+        (
+            "The UI must allow evidence to be attached in the PR body or as a workflow artifact "
+            "and the reviewer must post evidence in a PR review comment",
+            {"comments"},
+        ),
+        (
+            "The application must allow users to upload evidence as an artifact "
+            "and the reviewer must post a PR comment",
+            {"comments"},
+        ),
+    ],
+)
+def test_issue3835_coordinated_product_reviewer_keeps_only_reviewer_duty(criterion, expected):
+    assert verifier._required_evidence_channels(criterion) == expected
+    assert verifier._required_evidence_options(criterion) == [expected]
+    assert (
+        _floor_verdict(criterion, body="present", comments="absent", artifacts="present")
+        == "CONCERNS"
+    )
+    assert (
+        _floor_verdict(criterion, body="absent", comments="present", artifacts="absent") == "PASS"
+    )
+
+
+@pytest.mark.parametrize(
     "text",
     [
         "The application must validate a field in an artifact",
