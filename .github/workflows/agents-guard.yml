@@ -674,10 +674,15 @@ jobs:
               return;
             }
 
-            const snapshotLabels = (pullRequest?.labels || [])
+            const policyLabels = new Set([
+              'agent:auto', 'agent:codex', 'agent:claude', 'agent:copilot',
+              'agents:auto-pilot', 'agents:keepalive', 'agents:allow-change',
+            ]);
+            const policyLabelNames = (labels) => (labels || [])
               .map((label) => typeof label?.name === 'string' ? label.name : '')
-              .filter(Boolean)
+              .filter((label) => policyLabels.has(label))
               .sort();
+            const snapshotLabels = policyLabelNames(pullRequest?.labels);
 
             const blocked = (process.env.BLOCKED || '').toLowerCase() === 'true';
             const summary = process.env.SUMMARY || '';
@@ -687,13 +692,20 @@ jobs:
             const safelySkipped = process.env.ELIGIBLE === 'false';
             const passed = process.env.JOB_STATUS === 'success'
               && (safelySkipped || evaluated) && !blocked;
-            const state = passed ? 'success' : 'failure';
+            let state = passed ? 'success' : 'failure';
             let description = summary || (!passed
               ? 'Health 45 Agents Guard blocked this pull request.'
               : 'Health 45 Agents Guard passed.');
 
-            if (description.length > 140) {
-              description = `${description.slice(0, 137)}...`;
+            function setFailure(reason) {
+              state = 'failure';
+              description = reason;
+            }
+
+            function truncateDescription() {
+              if (description.length > 140) {
+                description = `${description.slice(0, 137)}...`;
+              }
             }
 
             const targetUrl =
@@ -763,23 +775,15 @@ jobs:
               if (!Array.isArray(currentLabels)) {
                 throw new Error('Current PR label evidence is incomplete.');
               }
-              const currentLabelNames = currentLabels
-                .map((label) => typeof label?.name === 'string' ? label.name : '')
-                .filter(Boolean)
-                .sort();
-              if (JSON.stringify(currentLabelNames) !== JSON.stringify(snapshotLabels)) {
-                core.info('PR labels changed after guard evaluation; preserving existing exact-head status.');
-                return;
+              const currentLabelNames = policyLabelNames(currentLabels);
+              const labelsChanged =
+                JSON.stringify(currentLabelNames) !== JSON.stringify(snapshotLabels);
+              if (labelsChanged) {
+                // Never let a stale eligible evaluation retain a green required
+                // context after its routing labels have changed.
+                setFailure('PR labels changed after guard evaluation; fresh evaluation required.');
               }
-              // Label removal must not replace an evaluated same-head failure
-              // with an ineligible no-op. Keep the last authoritative verdict;
-              // an absent verdict remains absent and blocks mandatory checks.
-              if (context.eventName === 'pull_request_target'
-                  && process.env.ELIGIBLE === 'false') {
-                core.info('Ineligible label event: preserving existing PR-head guard status.');
-                return;
-              }
-              if (process.env.ELIGIBLE === 'false') {
+              if (!labelsChanged && process.env.ELIGIBLE === 'false') {
                 const statuses = await withApiRetry(
                   (client) => client.paginate(client.rest.repos.listCommitStatusesForRef, {
                     owner, repo, ref: sha, per_page: 100,
@@ -789,11 +793,24 @@ jobs:
                 if (!Array.isArray(statuses)) {
                   throw new Error('Incomplete exact-head status inventory.');
                 }
-                if (statuses.some((status) => status.context === 'Health 45 Agents Guard / guard')) {
-                  core.info('Ineligible PR event: preserving existing exact-head guard verdict.');
+                const existing = statuses.find(
+                  (status) => status.context === 'Health 45 Agents Guard / guard',
+                );
+                if (existing) {
+                  if (context.eventName === 'pull_request_target' && existing.state === 'success') {
+                    // A removed routing label must invalidate a previously green
+                    // context. A fresh eligible evaluation may recover it.
+                    setFailure('Health 45 Agents Guard routing changed; fresh evaluation required.');
+                  } else {
+                    core.info('Ineligible PR event: preserving existing exact-head guard verdict.');
+                    return;
+                  }
+                } else if (context.eventName === 'pull_request_target') {
+                  core.info('Ineligible PR event: leaving absent exact-head guard verdict absent.');
                   return;
                 }
               }
+              truncateDescription();
               await withApiRetry(
                 (client) => client.rest.repos.createCommitStatus({
                   owner,

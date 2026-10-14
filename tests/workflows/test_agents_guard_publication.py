@@ -209,9 +209,19 @@ new AsyncFunction('github', 'context', 'core', input.script)(github, context, co
         check=True,
     )
     calls = json.loads(result.stdout)
-    if eligible == "false" and (event == "pull_request_target" or prior_state is not None):
-        # A removed last routing label must preserve the previous evaluated
-        # verdict (including failure) rather than replacing it with a no-op.
+    if eligible == "false" and prior_state is not None:
+        if event == "pull_request_target" and prior_state == "success":
+            # A final routing-label removal must invalidate a prior same-head
+            # green verdict. A fresh eligible event supplies recovery.
+            assert len(calls) == 1
+            assert calls[0]["state"] == "failure"
+            assert "routing changed" in calls[0]["description"]
+            return
+        # An ineligible event cannot clear a non-success terminal verdict.
+        assert calls == []
+        return
+    if eligible == "false" and event == "pull_request_target":
+        # An absent required context remains absent until an eligible run creates it.
         assert calls == []
         return
     assert len(calls) == 1
@@ -325,7 +335,32 @@ def test_shared_head_group_closes_label_writer_noop_publisher_race():
     assert render(current_direct) == render(current_publisher) == f"agents-guard-status-{sha}"
 
 
-def test_guard_publisher_fails_closed_when_labels_change_after_evaluation():
+@pytest.mark.parametrize(
+    "prior,snapshot,current,expected_state",
+    [
+        (
+            None,
+            [{"name": "agent:codex"}, {"name": "agents:allow-change"}],
+            [{"name": "agent:codex"}],
+            "failure",
+        ),
+        (
+            "success",
+            [{"name": "agent:codex"}, {"name": "agents:allow-change"}],
+            [{"name": "agent:codex"}],
+            "failure",
+        ),
+        (
+            "success",
+            [{"name": "agent:codex"}],
+            [{"name": "agent:codex"}, {"name": "sync:delivery-sealed"}],
+            "success",
+        ),
+    ],
+)
+def test_guard_publisher_fails_closed_only_when_policy_labels_change(
+    prior, snapshot, current, expected_state
+):
     workflow = yaml.safe_load((ROOT / ".github/workflows/agents-guard.yml").read_text())
     script = next(
         step["with"]["script"]
@@ -336,7 +371,7 @@ def test_guard_publisher_fails_closed_when_labels_change_after_evaluation():
 const input = JSON.parse(require('fs').readFileSync(0, 'utf8'));
 Object.assign(process.env, input.env);
 const writes = [];
-const github = {rest: {repos: {createCommitStatus: async p => writes.push(p), listCommitStatusesForRef() {}}, issues: {listLabelsOnIssue() {}}}, paginate: async method => method === github.rest.issues.listLabelsOnIssue ? input.current : []};
+const github = {rest: {repos: {createCommitStatus: async p => writes.push(p), listCommitStatusesForRef() {}}, issues: {listLabelsOnIssue() {}}}, paginate: async method => method === github.rest.issues.listLabelsOnIssue ? input.current : [{context: 'Health 45 Agents Guard / guard', state: input.prior}].filter(Boolean)};
 const context = {repo: {owner: 'owner', repo: 'repo'}, eventName: 'pull_request_target', payload: {pull_request: {number: 4, labels: input.snapshot, head: {sha: 'a'.repeat(40)}}}, serverUrl: 'https://github.com', runId: 42};
 const core = {info() {}, error() {}, setFailed(message) { throw Error(message); }};
 const AsyncFunction = Object.getPrototypeOf(async function(){}).constructor;
@@ -347,8 +382,9 @@ new AsyncFunction('github', 'context', 'core', input.script)(github, context, co
         input=json.dumps(
             {
                 "script": script,
-                "snapshot": [{"name": "agent:codex"}, {"name": "agents:allow-change"}],
-                "current": [{"name": "agent:codex"}],
+                "snapshot": snapshot,
+                "current": current,
+                "prior": prior,
                 "env": {
                     "ELIGIBLE": "true",
                     "EVALUATE_OUTCOME": "success",
@@ -361,4 +397,9 @@ new AsyncFunction('github', 'context', 'core', input.script)(github, context, co
         capture_output=True,
         check=True,
     )
-    assert json.loads(result.stdout) == []
+    writes = json.loads(result.stdout)
+    assert len(writes) == 1
+    assert writes[0]["state"] == expected_state
+    assert writes[0]["context"] == "Health 45 Agents Guard / guard"
+    if expected_state == "failure":
+        assert "labels changed" in writes[0]["description"]

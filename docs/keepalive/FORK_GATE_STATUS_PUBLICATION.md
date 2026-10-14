@@ -96,6 +96,6 @@ protection. Existing Gate behavior remains the fallback while the publisher is
 `create_only`.
 
 
-Health 45 direct label-event publishing and its trusted fork publisher share a non-cancelling, head-SHA concurrency group. This serializes their status writes so an ineligible completed fork run reads any label-event verdict before deciding whether it may initialize a missing required context.
+Health 45 direct label-event publishing and its trusted fork publisher share a non-cancelling, head-SHA concurrency group. This serializes status writes for a shared head; each direct label-event writer also rechecks its current labels before publication.
 
-Before the direct Health 45 publisher writes, it reads the current PR label set and requires an exact match with the event snapshot. A label change makes that run a no-op, preserving an existing context or its absence until a fresh guard evaluation can publish a current verdict.
+Before the direct Health 45 publisher writes, it reads the current PR policy labels (`agent:*`, `agents:auto-pilot`, `agents:keepalive`, and `agents:allow-change`) and requires an exact match with the event snapshot. Unrelated sync and seal metadata labels do not affect that comparison. A label change writes a blocking failure so a stale eligible evaluation cannot retain a green required context. An ineligible label event likewise replaces an existing same-head success with a blocking failure, while preserving an existing non-success verdict or an absent context. A fresh eligible evaluation is the only path that recovers success.
