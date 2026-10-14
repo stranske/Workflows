@@ -1825,6 +1825,56 @@ def _normalize_review_content_qualifiers(acceptance: str) -> str:
         # content, not to the parent's mandatory destination or its siblings.
         + r"(?:[ \t]*,?[ \t]*" + _EVIDENCE_CONDITIONAL + r")?)"
     )
+    # A positive relative predicate can be payload content when it modifies one
+    # member of a shared destination list. Keep that content, but make it a
+    # modifier so the child's modal cannot replace the list's shared governor.
+    # Standalone relative presence remains untouched below.
+    shared_relative_content = (
+        r"[ \t]+(?:that|which)[ \t]+"
+        + _EVIDENCE_DELIVERY_ADVERBS.replace(r"\s+", r"[ \t]+")
+        + r"(?:"
+        + _MANDATORY_EVIDENCE_AUXILIARY
+        + r"|will|"
+        + _EVIDENCE_OPTIONAL_MODAL
+        + r")[ \t]+"
+        + _EVIDENCE_DELIVERY_ADVERBS.replace(r"\s+", r"[ \t]+")
+        + r"(?:contain|include|have)\w*(?P<content>"
+        + r"[ \t]+(?:[\w/-]+[ \t]+){0,6}[\w/-]+)"
+    )
+    artifact_content_destination = (
+        r"(?:(?:the|an?)\s+)?(?:(?:workflow|ci|github actions)\s+)?artifacts?\b"
+    )
+    shared_list_prefix = r"\b(?:and|or)[ \t]+(?:in|into|to|as)[ \t]+"
+    shared_list_suffix = r"[ \t]+(?:and|or)[ \t]+(?:in|into|to|as)[ \t]+" + content_destination
+    acceptance = re.sub(
+        r"(?P<literal>"
+        + _QUOTED_EVIDENCE_LITERAL
+        + r")|(?P<prefix>"
+        + shared_list_prefix
+        + r")(?P<destination>"
+        + artifact_content_destination
+        + r")"
+        + shared_relative_content,
+        lambda match: match["literal"]
+        or match["prefix"] + match["destination"] + " with" + match["content"],
+        acceptance,
+        flags=re.I,
+    )
+    acceptance = re.sub(
+        r"(?P<literal>"
+        + _QUOTED_EVIDENCE_LITERAL
+        + r")|(?P<destination>"
+        + artifact_content_destination
+        + r")"
+        + shared_relative_content
+        + r"(?P<suffix>"
+        + shared_list_suffix
+        + r")",
+        lambda match: match["literal"]
+        or match["destination"] + match["suffix"] + " with" + match["content"],
+        acceptance,
+        flags=re.I,
+    )
     return re.sub(
         r"(?P<literal>" + _QUOTED_EVIDENCE_LITERAL + r")|" + destination + content_tail,
         lambda match: match["literal"] or match["destination"],

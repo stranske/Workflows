@@ -5645,6 +5645,41 @@ def test_issue3835_affirmative_relative_presence_keeps_body_duty(text):
     assert verifier._required_evidence_options(text) == [{"body"}]
 
 
+@pytest.mark.parametrize(
+    "modal,expected", [("may", set()), ("must not", set()), ("must", {"body", "artifacts"})]
+)
+@pytest.mark.parametrize("operator", ["and", "or"])
+@pytest.mark.parametrize("artifact", ["an artifact", "a workflow artifact"])
+@pytest.mark.parametrize("artifact_first", [False, True])
+def test_issue3835_relative_artifact_content_preserves_parent_delivery_governor(
+    modal, expected, operator, artifact, artifact_first
+):
+    """A child artifact-content duty cannot promote its optional/prohibited parent."""
+    artifact_destination = f"as {artifact} that must include logs"
+    destinations = ["in the PR body", artifact_destination]
+    if artifact_first:
+        destinations.reverse()
+    criterion = f"Evidence {modal} be posted " + f" {operator} ".join(destinations)
+    assert verifier._required_evidence_channels(criterion) == expected
+    options = verifier._required_evidence_options(criterion)
+    if operator == "or" and expected:
+        assert {frozenset(option) for option in options} == {
+            frozenset({"body"}),
+            frozenset({"artifacts"}),
+        }
+    else:
+        assert options == [expected]
+
+
+def test_issue3835_relative_artifact_content_keeps_independent_reviewer_floor():
+    criterion = (
+        "Evidence may be posted in the PR body and as an artifact that must include logs; "
+        "an independent reviewer must deliver evidence in a PR comment"
+    )
+    assert verifier._required_evidence_channels(criterion) == {"comments"}
+    assert verifier._required_evidence_options(criterion) == [{"comments"}]
+
+
 @pytest.mark.parametrize("prefix", ["the", "our", "their", "each appointed"])
 @pytest.mark.parametrize("boundary", [" and ", ", and ", " but ", " while "])
 @pytest.mark.parametrize("artifact", ["an artifact", "a workflow artifact"])

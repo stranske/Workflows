@@ -2185,6 +2185,9 @@ for an independent reviewer pronoun delivery to a PR or artifact destination.
 Destination nouns cannot replace that proof antecedent. Product actors use one
 shared grammar in normalization and channel suppression, including app, parser,
 schema and module capabilities; independent reviewer deliveries remain binding.
+Artifact payload relatives in destination lists keep the parent delivery modality;
+mandatory content does not invent presence under an optional or negative parent.
+PR-body/comment relative-presence conditions keep their independent semantics.
 Pure grammar results use
 a bounded 512-entry cache for criteria up to 8192 characters; callers receive
 fresh containers, and evidence availability and provider results are never cached.

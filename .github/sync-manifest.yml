@@ -737,6 +737,7 @@ scripts:
   # Shared participial content boundaries preserve bare duties and terminate real product components symmetrically.
   # Content-object negative adjectives share modality grammar without inventing overall proof obligations after passive agents.
   # Passive quantifiers on either side of prepositions and blank-paragraph relative boundaries share both classifiers.
+  # Artifact payload relatives retain shared parent modality; PR presence relatives remain independent.
   # Product actor normalization and channel suppression share one grammar.
   # Proof pronouns retain artifact destinations; bounded pure grammar caching returns fresh containers.
   - source: scripts/langchain/pr_verifier.py
