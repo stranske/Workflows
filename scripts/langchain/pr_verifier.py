@@ -1042,6 +1042,10 @@ _EVIDENCE_RECIPIENT_PREFIX = (
     r"(?:(?!(?:and|or|but|must|shall|is|are|not|never|may|can|to|of|for|by|with|who|that|which|lets?|allows?|enables?)\b)[\w/-]+\s+){0,4}"
 )
 _EVIDENCE_ACTOR_NOUN = r"\b(?:reviewers?|maintainers?|authors?|operators?|agents?|bots?|runners?|developers?|engineers?|testers?|auditors?|verifiers?|teams?|users?|ui|api|application|service|endpoint)"
+_EVIDENCE_DELIVERY_ACTOR_NOUN = (
+    r"(?:reviewers?|maintainers?|authors?|operators?|agents?|bots?|runners?|"
+    r"developers?|engineers?|testers?|auditors?|verifiers?|teams?|users?)"
+)
 _EVIDENCE_PRODUCT_ACTOR_WORDS = (
     "application",
     "app",
@@ -1242,6 +1246,7 @@ def _normalize_review_comment_destinations(acceptance: str) -> str:
         + r"(?:"
         + _EVIDENCE_COUNT_MODIFIER
         + r")?"
+        r"(?:(?:[-*+]|\d+[.)])\s+)?(?:\[[ xX]\]\s+)?"
         r"(?:(?:the|an?)\s+)?" + r"(?:" + standalone_modifier + r"\s+){0,6}$",
         re.I,
     )
@@ -1254,7 +1259,11 @@ def _normalize_review_comment_destinations(acceptance: str) -> str:
     # Bounded object modifiers ("at least one", "detailed") may sit between the
     # delivery verb/article and the alias without dropping delivery context.
     delivered_object = re.compile(
-        r"\b(?:" + _EVIDENCE_DELIVERY_OPERATION + r"|leave|left|leaving)\b\s+"
+        r"\b(?:"
+        + _EVIDENCE_DELIVERY_OPERATION
+        + r"|leave|left|leaving|"
+        + "|".join(_EVIDENCE_RECORD_ALIASES)
+        + r")\b\s+"
         r"(?:(?:the|an?)\s+)?" + _EVIDENCE_OBJECT_COUNTED_MODIFIERS + r"$",
         re.I,
     )
@@ -1283,6 +1292,29 @@ def _normalize_review_comment_destinations(acceptance: str) -> str:
         )
         if product_delivery and not re.match(
             r"\s+(?:in|into|on)\s+(?:(?:the|an?)\s+)?(?:pr|pull request)\b", after, re.I
+        ):
+            return match[0]
+        # An active comment object requires a delivery actor (or an imperative),
+        # rather than treating every component noun as a reviewer. This keeps
+        # arbitrary product subjects out without extending a product-noun list.
+        active_subject = re.search(
+            r"(?:^|[;.!?\n])\s*(?P<subject>[^;.!?\n]{0,100}?)\s+"
+            + _MANDATORY_EVIDENCE_AUXILIARY
+            + r"\s+(?:"
+            + _EVIDENCE_DELIVERY_OPERATION
+            + r"|"
+            + "|".join(_EVIDENCE_RECORD_ALIASES)
+            + r"|leave|left|leaving)\s+"
+            + r"(?:(?:the|an?)\s+)?"
+            + _EVIDENCE_OBJECT_COUNTED_MODIFIERS
+            + r"$",
+            before,
+            re.I,
+        )
+        if active_subject and not re.search(
+            r"\b" + _EVIDENCE_DELIVERY_ACTOR_NOUN + r"\b",
+            active_subject["subject"],
+            re.I,
         ):
             return match[0]
         if (
@@ -1356,6 +1388,31 @@ def _normalize_passive_product_capabilities(acceptance: str) -> str:
 
 def _normalize_plain_artifact_destinations(acceptance: str) -> str:
     """Canonicalize bare artifact destinations only under delivery predicates."""
+    # A named component is product behavior unless its subject is an explicit
+    # delivery actor. This keeps the grammar open to new component names while
+    # preserving actual reviewer/maintainer/team duties.
+    component_delivery = re.compile(
+        r"(?P<literal>" + _QUOTED_EVIDENCE_LITERAL + r")|"
+        r"(?P<boundary>(?:^|[;.!?\n])\s*)"
+        r"(?P<subject>(?:(?:the|an?)\s+)?(?:[\w/-]+\s+){0,4}[\w/-]+)\s+"
+        r"(?:" + _MANDATORY_EVIDENCE_AUXILIARY + r")\s+"
+        r"(?:" + _EVIDENCE_DELIVERY_OPERATION + r")\s+"
+        r"(?:(?:the|an?|any|this|that|these|those)\s+)?"
+        + _EVIDENCE_OBJECT_MODIFIERS
+        + r"(?:evidence(?:\s+(?:files?|bundles?|packages?))?|transcripts?|command outputs?|"
+        r"validation\s+results?|tests?(?:\s+results?)?)\s+"
+        r"(?:in|into|to|as)\s+(?:(?:the|an?)\s+)?artifacts?\b",
+        re.I,
+    )
+    acceptance = component_delivery.sub(
+        lambda match: (
+            match[0]
+            if match["literal"]
+            or re.search(r"\b" + _EVIDENCE_DELIVERY_ACTOR_NOUN + r"\b", match["subject"], re.I)
+            else match["boundary"] + match["subject"] + " product behavior"
+        ),
+        acceptance,
+    )
     destination = re.compile(
         r"(?P<literal>" + _QUOTED_EVIDENCE_LITERAL + r")|"
         r"(?P<prefix>(?:\b"

@@ -6314,6 +6314,39 @@ def test_issue3835_irregular_standalone_delivery_states_preserve_main(state):
     assert _floor_verdict(criterion, body="present", comments="absent") == "CONCERNS"
 
 
+@pytest.mark.parametrize(
+    "criterion",
+    [
+        "1. [ ] A PR review comment is required",
+        "[ ] A PR review comment is required",
+    ],
+)
+def test_issue3835_numbered_and_bare_checkbox_comment_duties(criterion):
+    assert verifier._required_evidence_channels(criterion) == {"comments"}
+    assert verifier._required_evidence_options(criterion) == [{"comments"}]
+    assert _floor_verdict(criterion, body="present", comments="absent") == "CONCERNS"
+
+
+@pytest.mark.parametrize("operation", ["submit", "write", "deliver", "supply"])
+def test_issue3835_active_comment_delivery_aliases_keep_the_comment_floor(operation):
+    criterion = f"The reviewer must {operation} a PR review comment"
+    assert verifier._required_evidence_channels(criterion) == {"comments"}
+    assert verifier._required_evidence_options(criterion) == [{"comments"}]
+    assert _floor_verdict(criterion, body="present", comments="absent") == "CONCERNS"
+
+
+@pytest.mark.parametrize(
+    "criterion",
+    [
+        "The background worker must upload evidence to an artifact",
+        "The controller must record review comments",
+    ],
+)
+def test_issue3835_component_subjects_are_not_review_delivery_actors(criterion):
+    assert verifier._required_evidence_channels(criterion) == set()
+    assert verifier._required_evidence_options(criterion) == [set()]
+
+
 @pytest.mark.parametrize("actor", ["parser", "schema", "module", "API"])
 @pytest.mark.parametrize("state", ["made", "ignored"])
 def test_issue3835_product_modified_comment_state_is_not_delivery(actor, state):
