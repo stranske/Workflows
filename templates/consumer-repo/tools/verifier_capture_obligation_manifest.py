@@ -123,13 +123,114 @@ def _valid_sha256(value: Any) -> bool:
     return isinstance(value, str) and re.fullmatch(r"[0-9a-f]{64}", value) is not None
 
 
+def _decode_git_quoted_path(value: bytes) -> tuple[bytes, bytes] | None:
+    """Decode Git's C-style quoted path form without guessing ambiguous headers."""
+    if not value.startswith(b'"'):
+        return None
+    chunks: list[bytes] = []
+    index = 1
+    simple = {
+        ord("a"): b"\a",
+        ord("b"): b"\b",
+        ord("f"): b"\f",
+        ord("n"): b"\n",
+        ord("r"): b"\r",
+        ord("t"): b"\t",
+        ord("v"): b"\v",
+        ord("\\"): b"\\",
+        ord('"'): b'"',
+    }
+    while index < len(value):
+        byte = value[index]
+        if byte == ord('"'):
+            decoded = b"".join(chunks)
+            try:
+                decoded.decode("utf-8")
+            except UnicodeDecodeError:
+                return None
+            return decoded, value[index + 1 :]
+        if byte != ord("\\"):
+            chunks.append(bytes([byte]))
+            index += 1
+            continue
+        if index + 1 >= len(value):
+            return None
+        escaped = value[index + 1]
+        if ord("0") <= escaped <= ord("7"):
+            octal = value[index + 1 : index + 4]
+            if len(octal) != 3 or any(char < ord("0") or char > ord("7") for char in octal):
+                return None
+            chunks.append(bytes([int(octal, 8)]))
+            index += 4
+            continue
+        replacement = simple.get(escaped)
+        if replacement is None:
+            return None
+        chunks.append(replacement)
+        index += 2
+    return None
+
+
+def _parse_git_path(value: bytes) -> bytes | None:
+    """Parse exactly one Git header path, preserving its decoded raw identity."""
+    if not value:
+        return None
+    if not value.startswith(b'"'):
+        return value if b'"' not in value else None
+    parsed = _decode_git_quoted_path(value)
+    if parsed is None or parsed[1].strip():
+        return None
+    return parsed[0]
+
+
+def _parse_git_diff_header(line: bytes) -> tuple[bytes, bytes] | None:
+    """Match the source collector's unambiguous Git diff-header grammar."""
+    prefix = b"diff --git "
+    if not line.startswith(prefix):
+        return None
+    payload = line[len(prefix) :]
+
+    def pair(source: bytes, destination: bytes | None) -> tuple[bytes, bytes] | None:
+        if destination is None or not source.startswith(b"a/") or not destination.startswith(b"b/"):
+            return None
+        return source[2:], destination[2:]
+
+    if payload.startswith(b'"'):
+        decoded = _decode_git_quoted_path(payload)
+        if decoded is None or not decoded[1].startswith(b" "):
+            return None
+        return pair(decoded[0], _parse_git_path(decoded[1].lstrip(b" ")))
+
+    candidates: list[tuple[bytes, bytes]] = []
+    for index in range(len(payload) - 2):
+        if payload[index : index + 1] != b" ":
+            continue
+        remainder = payload[index + 1 :]
+        if not (remainder.startswith(b"b/") or remainder.startswith(b'"b/')):
+            continue
+        source = payload[:index]
+        if b'"' in source:
+            continue
+        destination = _parse_git_path(remainder)
+        candidate = pair(source, destination)
+        if candidate is not None:
+            candidates.append(candidate)
+    identical = [candidate for candidate in candidates if candidate[0] == candidate[1]]
+    if len(identical) == 1:
+        return identical[0]
+    return candidates[0] if len(candidates) == 1 else None
+
+
+def _metadata_git_path(value: bytes) -> bytes | None:
+    """Read the path portion of a ---/+++ metadata line using Git path grammar."""
+    return _parse_git_path(value.split(b"\t", 1)[0])
+
+
 def _full_patch_file_records(raw: bytes) -> list[dict[str, Any]] | None:
     """Parse only complete, unambiguous raw Git file spans for recovery binding."""
     starts = [match.start() for match in re.finditer(rb"(?m)^diff --git ", raw)]
     if not starts:
         return None
-    # Validate hunk counts and legal empty/mode/rename forms without applying
-    # anything or writing to the checkout.
     try:
         syntax = subprocess.run(
             ["git", "apply", "--numstat", "-"],
@@ -151,13 +252,18 @@ def _full_patch_file_records(raw: bytes) -> list[dict[str, Any]] | None:
         end = starts[index + 1] if index + 1 < len(starts) else len(raw)
         span = raw[start:end]
         lines = span.splitlines()
-        if not lines or not lines[0].startswith(b"diff --git "):
+        if not lines:
+            return None
+        header_paths = _parse_git_diff_header(lines[0])
+        if header_paths is None:
             return None
         payload = lines[1:]
-        hunk_indexes = [index for index, line in enumerate(payload) if line.startswith(b"@@ ")]
+        hunk_indexes = [
+            position for position, line in enumerate(payload) if line.startswith(b"@@ ")
+        ]
         has_hunk = any(
-            any(line.startswith((b"+", b"-", b" ")) for line in payload[index + 1 :])
-            for index in hunk_indexes
+            any(line.startswith((b"+", b"-", b" ")) for line in payload[position + 1 :])
+            for position in hunk_indexes
         )
         has_binary = any(
             line == b"GIT binary patch" or line.startswith(b"Binary files ") for line in payload
@@ -183,36 +289,25 @@ def _full_patch_file_records(raw: bytes) -> list[dict[str, Any]] | None:
             if line.startswith(b"@@"):
                 break
             if line.startswith(b"--- "):
-                from_path = line[4:].split(b"\t", 1)[0]
+                from_path = _metadata_git_path(line[4:])
             elif line.startswith(b"+++ "):
-                to_path = line[4:].split(b"\t", 1)[0]
+                to_path = _metadata_git_path(line[4:])
+        declared_from, source_bytes = header_paths
         if from_path is not None or to_path is not None:
             if from_path is None or to_path is None:
                 return None
-            if from_path == b"/dev/null":
-                source_bytes = to_path
-            elif to_path == b"/dev/null":
-                source_bytes = from_path
-            else:
-                source_bytes = to_path
-            if source_bytes.startswith(b"a/") or source_bytes.startswith(b"b/"):
-                source_bytes = source_bytes[2:]
-            if from_path == b"/dev/null":
-                declared_from = source_bytes
-            else:
-                declared_from = from_path[2:] if from_path.startswith(b"a/") else from_path
-            # Metadata cannot rename a file independently of the authoritative
-            # diff header. Ordinary unquoted paths, including spaces, compare as
-            # raw bytes; quoted/ambiguous headers fail closed below.
-            if lines[0][len(b"diff --git ") :] != b"a/" + declared_from + b" b/" + source_bytes:
+            metadata_from = (
+                source_bytes
+                if from_path == b"/dev/null"
+                else (from_path[2:] if from_path.startswith(b"a/") else from_path)
+            )
+            metadata_to = (
+                declared_from
+                if to_path == b"/dev/null"
+                else (to_path[2:] if to_path.startswith(b"b/") else to_path)
+            )
+            if metadata_from != declared_from or metadata_to != source_bytes:
                 return None
-        else:
-            # A header-only parse is accepted only for ordinary unquoted paths.
-            header = lines[0][len(b"diff --git ") :]
-            match = re.fullmatch(rb"a/([^ ]+) b/([^ ]+)", header)
-            if match is None:
-                return None
-            declared_from, source_bytes = match.group(1), match.group(2)
         try:
             source = source_bytes.decode("utf-8")
             from_source = declared_from.decode("utf-8")
@@ -227,6 +322,7 @@ def _full_patch_file_records(raw: bytes) -> list[dict[str, Any]] | None:
                 "start": start,
                 "end": end,
                 "sha256": hashlib.sha256(span).hexdigest(),
+                "binary": has_binary,
             }
         )
     return records
@@ -265,6 +361,8 @@ def _verified_full_diff_changed_code(
     expected_records = _full_patch_file_records(full_diff_bytes)
     if expected_records is None:
         return False, ["full_diff_artifact:file_inventory_malformed"]
+    if any(record["binary"] for record in expected_records):
+        return False, []
     if len(changed_records) != len(expected_records):
         return False, ["changed_code:full_patch_record_count_mismatch"]
     expected_by_span = {(item["start"], item["end"]): item for item in expected_records}
@@ -316,6 +414,13 @@ def build_capture_obligation_manifest(
             gaps.append("context_source_coverage_stage_unknown")
         changed_records = coverage.get("changed_code_sources")
         full_patch_covers_changed_code = False
+        artifact_for_binary = coverage.get("full_diff_artifact")
+        if isinstance(artifact_for_binary, dict) and full_diff_bytes is not None:
+            raw_file_records = _full_patch_file_records(full_diff_bytes)
+            if raw_file_records is not None and any(
+                record["binary"] for record in raw_file_records
+            ):
+                gaps.append("changed_code:full_patch_binary_unavailable")
         if isinstance(changed_records, list) and any(
             isinstance(record, dict)
             and isinstance(record.get("status"), str)

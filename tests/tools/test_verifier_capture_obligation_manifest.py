@@ -686,3 +686,90 @@ def test_explicit_complete_discovery_retains_valid_capture(required):
     coverage = _complete_coverage()
     coverage["acceptance_source_discovery"] = {"required": required, "status": "included"}
     assert build_capture_obligation_manifest(_context_block(coverage))["sufficient"] is True
+
+
+def _coverage_for_raw_file_records(raw_patch: bytes) -> dict:
+    from tools.verifier_capture_obligation_manifest import _full_patch_file_records
+
+    records = _full_patch_file_records(raw_patch)
+    assert records is not None
+    canonical = raw_patch[:-1] if raw_patch.endswith(b"\n") else raw_patch
+    coverage = _complete_coverage()
+    coverage["changed_code_sources"] = [
+        {
+            "source": record["source"],
+            "from_path": record["from_path"],
+            "status": "truncated",
+            "included_chars": 0,
+            "total_chars": len(canonical),
+            "start": record["start"],
+            "end": record["end"],
+            "sha256": record["sha256"],
+        }
+        for record in records
+    ]
+    coverage["full_diff_artifact"] = {
+        "source": "verifier-pr-diff.patch",
+        "status": "included",
+        "chars": len(canonical.decode("utf-8")),
+        "bytes": len(raw_patch),
+        "sha256": hashlib.sha256(raw_patch).hexdigest(),
+        "encoding": "utf-8",
+    }
+    return coverage
+
+
+def test_full_patch_recovery_accepts_git_quoted_and_spaced_mode_only_paths() -> None:
+    from tools.verifier_capture_obligation_manifest import _full_patch_file_records
+
+    quoted_hunk = (
+        b'diff --git "a/space name.py" "b/space name.py"\n'
+        b'--- "a/space name.py"\n+++ "b/space name.py"\n'
+        b"@@ -1 +1 @@\n-old\n+new\n"
+    )
+    mode_only = (
+        b'diff --git "a/mode only name" "b/mode only name"\n' b"old mode 100644\nnew mode 100755\n"
+    )
+    assert _full_patch_file_records(quoted_hunk)[0]["source"] == "space name.py"
+    assert _full_patch_file_records(mode_only)[0]["source"] == "mode only name"
+    assert _full_patch_file_records(mode_only)[0]["from_path"] == "mode only name"
+    assert (
+        build_capture_obligation_manifest(
+            _context_block(_coverage_for_raw_file_records(quoted_hunk)), full_diff_bytes=quoted_hunk
+        )["sufficient"]
+        is True
+    )
+
+
+def test_raw_binary_patch_never_waives_truncated_changed_code(tmp_path) -> None:
+    import subprocess
+
+    subprocess.run(["git", "init", "-q"], cwd=tmp_path, check=True)
+    subprocess.run(
+        ["git", "config", "user.email", "capture@example.test"], cwd=tmp_path, check=True
+    )
+    subprocess.run(["git", "config", "user.name", "Capture"], cwd=tmp_path, check=True)
+    binary = tmp_path / "evidence.bin"
+    binary.write_bytes(b"\x00before\xff")
+    subprocess.run(["git", "add", "evidence.bin"], cwd=tmp_path, check=True)
+    subprocess.run(["git", "commit", "-qm", "base"], cwd=tmp_path, check=True)
+    binary.write_bytes(b"\x00after\xfe")
+    raw_patch = subprocess.run(
+        ["git", "diff", "--binary"], cwd=tmp_path, check=True, capture_output=True
+    ).stdout
+    coverage = _coverage_for_raw_file_records(raw_patch)
+    manifest = build_capture_obligation_manifest(
+        _context_block(coverage), full_diff_bytes=raw_patch
+    )
+    assert manifest["sufficient"] is False
+    assert "changed_code:full_patch_binary_unavailable" in manifest["gaps"]
+    assert "changed_code:evidence.bin:truncated" in manifest["gaps"]
+    coverage["changed_code_sources"][0]["status"] = "included"
+    coverage["changed_code_sources"][0]["included_chars"] = coverage["changed_code_sources"][0][
+        "total_chars"
+    ]
+    included_manifest = build_capture_obligation_manifest(
+        _context_block(coverage), full_diff_bytes=raw_patch
+    )
+    assert included_manifest["sufficient"] is False
+    assert "changed_code:full_patch_binary_unavailable" in included_manifest["gaps"]
