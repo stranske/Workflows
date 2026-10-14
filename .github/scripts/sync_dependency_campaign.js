@@ -94,7 +94,13 @@ function excludeOwnerBlockedRecords(records = [], excludedRepos = OWNER_EXCLUDED
 }
 
 function projectOwnerExclusions(state = {}) {
-  const items = excludeOwnerBlockedRecords(state.items);
+  let nestedCandidatePruned = false;
+  const items = excludeOwnerBlockedRecords(state.items).map((item) => {
+    if (!item?.source_fixed_candidate || !isOwnerExcludedRepository(item.source_fixed_candidate)) return item;
+    nestedCandidatePruned = true;
+    const { source_fixed_candidate: _candidate, ...eligibleItem } = item;
+    return eligibleItem;
+  });
   const handoffs = excludeOwnerBlockedRecords(state.delivery_handoffs);
   const errors = excludeOwnerBlockedRecords(state.errors);
   const history = excludeOwnerBlockedRecords(state.source_review_history);
@@ -102,7 +108,7 @@ function projectOwnerExclusions(state = {}) {
   const blockedKeys = excludeOwnerBlockedRecords(state.handoff_verification_blocked_keys);
   const cachedClaims = cleanArray(state.stats?.local_codex_claims?.items);
   const claims = excludeOwnerBlockedRecords(cachedClaims);
-  const pruned = items.length !== cleanArray(state.items).length
+  const pruned = nestedCandidatePruned || items.length !== cleanArray(state.items).length
     || handoffs.length !== cleanArray(state.delivery_handoffs).length
     || errors.length !== cleanArray(state.errors).length
     || history.length !== cleanArray(state.source_review_history).length

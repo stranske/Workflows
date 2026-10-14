@@ -276,6 +276,22 @@ test('public formatter removes cached excluded rows and does not reuse their agg
   }
 });
 
+test('owner projection invalidates an excluded nested source-fix candidate but retains its eligible item', () => {
+  const state = { updated_at: '2026-10-14T00:00:00Z', items: [{
+    id: 'sync-review-comments:stranske/Ready#9:new', repo: 'stranske/Ready', pr_number: 9,
+    pr_url: 'https://github.com/stranske/Ready/pull/9', status: 'needs-local-codex',
+    source_fixed_candidate: {
+      matching_item_id: 'sync-review-comments:STRANSKE/Collab-Admin#4:old',
+      matching_pr_url: 'https://github.com/stranske/Collab-Admin/pull/4', finished_at: '2026-10-13T00:00:00Z',
+    },
+  }], stats: { items_source_fixed_candidates: 1, items_needing_local_codex: 1 } };
+  const body = formatCampaignBody(state);
+  const marker = formatCampaignMarker(state);
+  assert.match(body, /stranske\/Ready#9/);
+  assert.doesNotMatch(`${body}\n${marker}`, /Collab-Admin/i);
+  assert.equal(parseCampaignMarker(marker).stats.items_source_fixed_candidates, 0);
+});
+
 test('runCampaign excludes owner-blocked case variants before max-repository discovery', async () => {
   const pullCalls = [];
   const github = {
