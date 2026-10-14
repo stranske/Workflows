@@ -5941,3 +5941,73 @@ def test_issue3835_product_payload_list_retains_independent_proof_pronoun(pronou
         _floor_verdict(criterion, body="present", comments="absent", artifacts="present")
         == "CONCERNS"
     )
+
+
+@pytest.mark.parametrize("pronoun", ["it", "them", "this", "they", "these", "those", "both"])
+@pytest.mark.parametrize(
+    "destination,channel",
+    [
+        ("in an artifact", "artifacts"),
+        ("as an artifact", "artifacts"),
+        ("in a workflow artifact", "artifacts"),
+        ("in a PR comment", "comments"),
+        ("in the PR body", "body"),
+    ],
+)
+@pytest.mark.parametrize("governor", ["must", "may", "must not"])
+def test_issue3835_independent_proof_pronoun_destination_floor(
+    pronoun, destination, channel, governor
+):
+    criterion = (
+        "The application must allow users to upload evidence files to the PR body and an artifact; "
+        + f"the reviewer {governor} record {pronoun} {destination}"
+    )
+    expected = {channel} if governor == "must" else set()
+    assert verifier._required_evidence_channels(criterion) == expected
+    assert verifier._required_evidence_options(criterion) == [expected]
+    availability = {"body": "present", "comments": "present", "artifacts": "present"}
+    availability[channel] = "absent"
+    assert _floor_verdict(criterion, **availability) == ("CONCERNS" if expected else "PASS")
+
+
+@pytest.mark.parametrize(
+    "prefix",
+    ["The validator stores a checksum", "`The application uploads evidence files`", "Tests pass"],
+)
+def test_issue3835_unbound_product_or_quoted_pronoun_is_not_evidence(prefix):
+    criterion = prefix + "; the reviewer must record it in an artifact"
+    assert verifier._required_evidence_channels(criterion) == set()
+    assert verifier._required_evidence_options(criterion) == [set()]
+
+
+def test_evidence_classification_cache_cannot_leak_mutated_containers():
+    criterion = "Evidence must be posted in a PR comment or in a workflow artifact"
+    channels = verifier._required_evidence_channels(criterion)
+    channels.clear()
+    channels.add("bogus")
+    assert verifier._required_evidence_channels(criterion) == {"comments", "artifacts"}
+    options = verifier._required_evidence_options(criterion)
+    options[0].add("bogus")
+    options.clear()
+    assert {frozenset(x) for x in verifier._required_evidence_options(criterion)} == {
+        frozenset({"comments"}),
+        frozenset({"artifacts"}),
+    }
+
+
+def test_evidence_options_cache_respects_classifier_substitution(monkeypatch):
+    criterion = "Evidence must be posted in the PR body"
+    assert verifier._required_evidence_options(criterion) == [{"body"}]
+    monkeypatch.setattr(verifier, "_required_evidence_channels", lambda text: {"comments"})
+    assert verifier._required_evidence_options(criterion) == [{"comments"}]
+
+
+def test_evidence_classifier_caches_are_bounded_and_skip_large_criteria():
+    channels = verifier._cached_evidence_channels
+    options = verifier._cached_evidence_options
+    assert channels.cache_info().maxsize == options.cache_info().maxsize == 512
+    large = " " * (verifier._EVIDENCE_CACHE_MAX_CHARS + 1)
+    before = (channels.cache_info().currsize, options.cache_info().currsize)
+    assert verifier._required_evidence_channels(large) == set()
+    assert verifier._required_evidence_options(large) == [set()]
+    assert (channels.cache_info().currsize, options.cache_info().currsize) == before

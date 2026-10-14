@@ -2181,7 +2181,10 @@ destination, never from object conjunctions such as `evidence and artifacts`.
 Prepositional content consumes up to16words through the next concrete destination
 or independent clause, including ordinary `test coverage` and `implementation
 details` descriptions. Product capability normalization retains a proof antecedent
-for an independent reviewer pronoun delivery.
+for an independent reviewer pronoun delivery to a PR or artifact destination.
+Destination nouns cannot replace that proof antecedent. Pure grammar results use
+a bounded 512-entry cache for criteria up to 8192 characters; callers receive
+fresh containers, and evidence availability and provider results are never cached.
 Checklist shorthand accepts the common test/validation proof nouns, so
 `Validation output in a PR comment` retains comments as its required channel.
 Negative, optional and product-capability clauses keep their existing semantics.

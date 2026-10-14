@@ -20,7 +20,7 @@ import re
 import sys
 from collections.abc import Callable, Mapping
 from dataclasses import dataclass
-from functools import partial
+from functools import lru_cache, partial
 from pathlib import Path
 from typing import Any, Literal
 
@@ -1813,7 +1813,7 @@ def _normalize_review_content_qualifiers(acceptance: str) -> str:
     )
 
 
-def _required_evidence_channels(acceptance: str, *, _bind_attached: bool = True) -> set[str]:
+def _classify_evidence_channels(acceptance: str, *, _bind_attached: bool = True) -> set[str]:
     """Identify explicit evidence deliverables without treating negations as requirements."""
 
     acceptance = _normalize_review_comment_destinations(acceptance)
@@ -3682,12 +3682,12 @@ def _required_evidence_channels(acceptance: str, *, _bind_attached: bool = True)
             r"))"
         )
         clause_evidence_antecedent: str | None = None
-        pronoun_pr_delivery = re.compile(
+        proof_pronoun_delivery = re.compile(
             r"\b(?:attach|upload|publish|post|record|capture|provide|include|document|link)\w*\b"
-            r".{0,40}\b(?:it|them|this|they|these|those|both)\b.{0,40}\b(?:pr|pull request)\b"
+            r".{0,40}\b(?:it|them|this|they|these|those|both)\b.{0,40}\b(?:pr|pull request|(?:(?:workflow|ci|github actions)\s+)?artifacts?)\b"
             r"|\b(?:it|them|this|they|these|those|both)\b.{0,40}"
             r"\b(?:attached|uploaded|published|posted|recorded|captured|provided|"
-            r"included|documented|linked)\b.{0,40}\b(?:pr|pull request)\b",
+            r"included|documented|linked)\b.{0,40}\b(?:pr|pull request|(?:(?:workflow|ci|github actions)\s+)?artifacts?)\b",
             re.I,
         )
         fragments = []
@@ -3904,20 +3904,27 @@ def _required_evidence_channels(acceptance: str, *, _bind_attached: bool = True)
             else:
                 fragments.append(fragment)
         for line in fragments:
+            # Destination nouns do not replace the proof antecedent. This keeps
+            # an independent "record it in an artifact" bound to prior proof.
+            object_line = re.sub(
+                destination_preposition
+                + r"(?:"
+                + review_destination_noun
+                + r"|(?:(?:the|an?)\s+)?artifacts?\b)",
+                lambda match: " " * len(match[0]),
+                line,
+                flags=re.I,
+            )
             objects = [
                 m.group(0)
-                for m in evidence_term.finditer(line)
+                for m in evidence_term.finditer(object_line)
                 if not re.search(r"(?:pr|pull request) comments?", m.group(0), re.I)
             ]
             if objects:
                 clause_evidence_antecedent = " and ".join(objects)
             resolved_antecedent = None
             working_line = line
-            if (
-                clause_evidence_antecedent
-                and not evidence_term.search(line)
-                and pronoun_pr_delivery.search(line)
-            ):
+            if clause_evidence_antecedent and not objects and proof_pronoun_delivery.search(line):
                 working_line = re.sub(
                     r"\b(?:it|them|this|they|these|those|both)\b",
                     clause_evidence_antecedent,
@@ -3926,6 +3933,7 @@ def _required_evidence_channels(acceptance: str, *, _bind_attached: bool = True)
                     flags=re.I,
                 )
                 resolved_antecedent = clause_evidence_antecedent
+                working_line = _normalize_plain_artifact_destinations(working_line)
             # Excluded destinations are not delivery targets. Keep the
             # generic evidence object and other independent deliveries.
             # Optional inspection of a possession noun is not a delivery.
@@ -4782,7 +4790,23 @@ def _required_evidence_channels(acceptance: str, *, _bind_attached: bool = True)
     return channels
 
 
-def _required_evidence_options(acceptance: str) -> list[set[str]]:
+# Grammar classification is pure within this module. Retain only small criteria;
+# every caller receives fresh mutable containers, never the cached values.
+_EVIDENCE_CACHE_MAX_CHARS = 8192
+
+
+@lru_cache(maxsize=512)
+def _cached_evidence_channels(acceptance: str, bind_attached: bool) -> frozenset[str]:
+    return frozenset(_classify_evidence_channels(acceptance, _bind_attached=bind_attached))
+
+
+def _required_evidence_channels(acceptance: str, *, _bind_attached: bool = True) -> set[str]:
+    if len(acceptance) > _EVIDENCE_CACHE_MAX_CHARS:
+        return _classify_evidence_channels(acceptance, _bind_attached=_bind_attached)
+    return set(_cached_evidence_channels(acceptance, _bind_attached))
+
+
+def _classify_evidence_options(acceptance: str) -> list[set[str]]:
     """Bounded destination ORs; every variant retains all independent clauses.
 
     Expand only concrete destination lists outside literals, then use the same
@@ -4892,6 +4916,22 @@ def _required_evidence_options(acceptance: str) -> list[set[str]]:
     # Preserve original obligations absent from the union of recognized options.
     unrepresented = _required_evidence_channels(acceptance) - set().union(*options)
     return [option | unrepresented for option in options]
+
+
+@lru_cache(maxsize=512)
+def _cached_evidence_options(
+    acceptance: str, classifier: Callable[..., set[str]]
+) -> tuple[frozenset[str], ...]:
+    # The classifier identity invalidates results if a caller substitutes it.
+    return tuple(frozenset(option) for option in _classify_evidence_options(acceptance))
+
+
+def _required_evidence_options(acceptance: str) -> list[set[str]]:
+    if len(acceptance) > _EVIDENCE_CACHE_MAX_CHARS:
+        return _classify_evidence_options(acceptance)
+    return [
+        set(option) for option in _cached_evidence_options(acceptance, _required_evidence_channels)
+    ]
 
 
 def _required_evidence_is_missing(evidence: str, channels: set[str]) -> bool:
