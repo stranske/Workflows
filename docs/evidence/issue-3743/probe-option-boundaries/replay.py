@@ -9,8 +9,9 @@ import shutil
 import subprocess
 import sys
 import tempfile
-import xml.etree.ElementTree as ET
 from pathlib import Path
+
+from defusedxml import ElementTree as ET
 
 TEST = "tests/scripts/test_check_deliberate_break_probe_option_boundaries.py"
 HELPER = "scripts/check_deliberate_break.py"
