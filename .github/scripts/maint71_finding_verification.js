@@ -87,11 +87,152 @@ function validateIndependentFindingVerification({
   return { ok: true, assessment_id: result.assessment_id, binding };
 }
 
+function nativeAnswerLines(body, markers) {
+  if (String(body || '').includes('__MAINT71_MARKER_')) return null;
+  const protectedLines = new Map(); let serial = 0;
+  let input = String(body || '').split('\n').map((line) => {
+    const marker = markers.find((value) => line.trim() === value);
+    if (!marker) return line;
+    const token = `__MAINT71_MARKER_${serial++}__`; protectedLines.set(token, marker);
+    return line.replace(marker, token);
+  }).join('\n');
+  if (/<!--/.test(input) && !/-->/s.test(input.slice(input.indexOf('<!--')))) return null;
+  input = input.replace(/<!--[\s\S]*?-->/g, '\n');
+  if (/<!--|-->/.test(input)) return null;
+  const lines = []; let fence = null; let quotedParagraph = false; const containers = [];
+  for (const raw of input.split('\n')) {
+    if (/`.*<!--/.test(raw) || /<!--.*`/.test(raw)) return null;
+    if (!fence && containers.length === 0) {
+      if (!raw.trim()) quotedParagraph = false;
+      else if (/^\s*>/.test(raw)) quotedParagraph = true;
+      if (quotedParagraph) continue;
+    }
+    if (fence) {
+      const closer = raw.match(/^ {0,3}(`{3,}|~{3,})[ \t]*$/);
+      if (closer && closer[1][0] === fence.char && closer[1].length >= fence.length) fence = null;
+      continue;
+    }
+    const opener = raw.match(/^ {0,3}(`{3,}|~{3,})(.*)$/);
+    if (opener && !(opener[1][0] === '`' && opener[2].includes('`'))) {
+      fence = { char: opener[1][0], length: opener[1].length };
+      continue;
+    }
+    // The protocol permits known balanced containers, never raw processing,
+    // declaration or CDATA blocks (CommonMark HTML block types 3-5).
+    if (containers.length === 0 && /^(?: {4}|\t)/.test(raw)) continue;
+    if (/<[!?]/.test(raw) || /<\/?[A-Za-z][^>]*$/.test(raw)) return null;
+    const tags = [...raw.matchAll(/<(\/)?([A-Za-z][\w:-]*)\b[^>]*>/g)];
+    const residual = tags.reduce((text, tag) => text.replace(tag[0], ''), raw);
+    if (/<|(?<!-)>(?=\s*$)/.test(residual)) return null;
+    let cursor = 0; let visible = '';
+    for (const tag of tags) {
+      if (containers.length === 0) visible += raw.slice(cursor, tag.index);
+      const type = tag[2].toLowerCase();
+      const valid = tag[1]
+        ? new RegExp(`^</${type}\\s*>$`, 'i').test(tag[0])
+        : new RegExp(`^<${type}(?:\\s+[A-Za-z_:][\\w:.-]*(?:\\s*=\\s*(?:"[^"]*"|'[^']*'|[^\\s"'=<>\\x60]+))?)*\\s*>$`, 'i').test(tag[0]);
+      if (!valid) return null;
+      if (!['details', 'blockquote', 'pre', 'code', 'script', 'style', 'textarea'].includes(type)) {
+        if (containers.length === 0) return null;
+        continue;
+      }
+      if (tag[1]) { if (containers.pop() !== type) return null; }
+      else { if (containers.length >= 8) return null; containers.push(type); }
+      cursor = tag.index + tag[0].length;
+    }
+    if (containers.length === 0) visible += raw.slice(cursor);
+    // Keep every outside segment, even when this line opens a container.
+    // Its Markdown delimiters must remain visible to the leading-prefix gate.
+    if (visible) lines.push(visible);
+  }
+  if (fence || containers.length) return null;
+  let text = lines.join('\n');
+  for (const [token, marker] of protectedLines) text = text.replaceAll(token, marker);
+  return text.split('\n').map((line) => line.trim()).filter(Boolean);
+}
+
+function validateNativeConversationDisposition({
+  proof, record, thread, threads, comment, policy, reviewerProfiles, topLevelComments, now = Date.now(),
+}) {
+  const deny = (reason) => ({ ok: false, reason });
+  const fallback = policy?.finding_verification_fallback;
+  if (fallback?.enabled !== true || !Array.isArray(fallback.trusted_publishers)) return deny('native_conversation_disabled');
+  const profile = reviewerProfiles.find((item) => item.id === proof?.originating_reviewer);
+  const configured = profile?.conversation_disposition;
+  if (!record || !thread || thread.isResolved !== false || !Array.isArray(threads?.nodes)
+    || threads.pageInfo?.hasNextPage !== false || topLevelComments?.complete !== true
+    || threads.nodes.some((item) => item.comments?.pageInfo?.hasNextPage !== false || !Array.isArray(item.comments?.nodes))
+    || configured?.protocol !== 'maint71-native-conversation-disposition/v1'
+    || !Array.isArray(configured.logins) || configured.logins.length === 0
+    || configured.logins.some((login) => !profile.logins?.includes(login))) return deny('native_conversation_binding_incomplete');
+  const original = thread.comments?.nodes?.[0];
+  const expectedRequest = { repository: proof.repository, pr: proof.pr, head_sha: proof.head_sha,
+    thread_id: proof.thread_id, plan_id: record.plan_id, generation: record.generation,
+    source_commit: record.source_commit, originating_reviewer: proof.originating_reviewer };
+  const candidates = [];
+  for (const item of thread.comments?.nodes || []) {
+    if (!fallback.trusted_publishers.includes(item?.author?.login)) continue;
+    const matches = [...String(item?.body || '').matchAll(/<!-- maint71-review-conversation-disposition:v1 ([\s\S]*?) -->/g)];
+    if (matches.length > 1) return deny('native_conversation_request_malformed');
+    if (matches.length === 0) continue;
+    let parsed; try { parsed = JSON.parse(matches[0][1]); } catch (_) { return deny('native_conversation_request_malformed'); }
+    if (Object.keys(expectedRequest).every((key) => parsed[key] === expectedRequest[key])) candidates.push(item);
+  }
+  if (candidates.length !== 1) return deny('native_conversation_request_missing');
+  const request = candidates[0];
+  const requestId = String(request?.fullDatabaseId || request?.id || '');
+  const requestUrl = String(request?.url || request?.html_url || '');
+  const findingId = String(original?.fullDatabaseId || original?.id || '');
+  if (!profile.logins?.includes(original?.author?.login) || !/^[1-9]\d*$/.test(requestId)
+    || !/^[1-9]\d*$/.test(findingId) || !requestUrl) return deny('native_conversation_request_missing');
+  const binding = { protocol: 'maint71-native-conversation-disposition/v1', repository: proof.repository, pr: proof.pr,
+    head_sha: proof.head_sha, thread_id: proof.thread_id, plan_id: record.plan_id, generation: record.generation,
+    source_commit: record.source_commit, originating_reviewer: proof.originating_reviewer, inline_request_id: requestId,
+    inline_request_url: requestUrl, finding_id: findingId, finding_sha256: sha256(String(original.body || '')) };
+  const requestJson = [...String(request.body || '').matchAll(/<!-- maint71-review-conversation-disposition:v1 ([\s\S]*?) -->/g)];
+  if (requestJson.length !== 1) return deny('native_conversation_request_malformed');
+  try {
+    const parsed = JSON.parse(requestJson[0][1]);
+    for (const key of Object.keys(expectedRequest)) {
+      if (parsed[key] !== binding[key]) return deny('native_conversation_request_binding_mismatch');
+    }
+  } catch (_) { return deny('native_conversation_request_malformed'); }
+  const marker = `<!-- maint71-native-conversation-disposition:v1 ${sha256(JSON.stringify(binding))} -->`;
+  const acceptance = `<!-- sync-review-accepted:${proof.head_sha} -->`;
+  const tasks = topLevelComments.nodes.filter((item) => fallback.trusted_publishers.includes(item?.author?.login)
+    && String(item?.body || '').includes(marker));
+  const lines = nativeAnswerLines(comment?.body, [acceptance, marker]);
+  if (!lines) return deny('native_conversation_answer_malformed');
+  const verdicts = lines.filter((line) => /^(?:ACCEPT|REJECT)$/.test(line));
+  const accepted = lines.indexOf('ACCEPT');
+  const times = [request.createdAt, tasks[0]?.createdAt, comment?.created_at].map((value) => Date.parse(value || ''));
+  if (tasks.length !== 1 || comment?.html_url !== proof.reviewer_acceptance_url
+    || !configured.logins.includes(comment?.user?.login) || accepted !== 0 || verdicts.length !== 1
+    || lines[1] !== acceptance || lines[2] !== marker
+    || !lines.slice(accepted).includes(acceptance) || !lines.slice(accepted).includes(marker)
+    || times.some((value) => !Number.isFinite(value)) || times[1] < times[0] || times[2] <= times[1]
+    || times[2] > now || now - times[2] > 24 * 60 * 60 * 1000) return deny('native_conversation_answer_mismatch');
+  const reviewerComments = [...threads.nodes.flatMap((item) => item.comments.nodes), ...(topLevelComments.nodes || [])];
+  if (reviewerComments.some((item) => {
+    if (!configured.logins.includes(item?.author?.login || item?.user?.login)) return false;
+    if (item?.url === comment?.html_url) return false;
+    const created = Date.parse(item?.createdAt || item?.created_at || '');
+    const updated = Date.parse(item?.updatedAt || item?.updated_at || '');
+    const observed = Math.max(Number.isFinite(created) ? created : -Infinity, Number.isFinite(updated) ? updated : -Infinity);
+    if (observed > times[2]) return true;
+    // GitHub timestamps are second-granularity on some surfaces. Cross-domain
+    // review/issue IDs have no stable ordering, so another same-second reviewer
+    // comment is ambiguous and must block unless it is the acceptance itself.
+    return observed === times[2] && item?.url !== comment?.html_url;
+  })) return deny('native_conversation_changed_after_acceptance');
+  return { ok: true, binding };
+}
+
 async function collectFindingReviewState({ owner, repo, number, read }) {
   // The controller supplies read from createTokenAwareRetry; helpers never
   // create an unwrapped client or bypass the caller's capability/token policy.
   if (typeof read !== 'function') throw new TypeError('Wrapped review read is required');
-  const fields = 'url body createdAt author { login } commit { oid }';
+  const fields = 'fullDatabaseId url body createdAt updatedAt author { login } commit { oid }';
   let after = null;
   let snapshot;
   const nodes = [];
@@ -147,7 +288,7 @@ async function collectFindingReviewState({ owner, repo, number, read }) {
   return { ...snapshot, reviewThreads: { pageInfo: { hasNextPage: false }, nodes } };
 }
 
-async function collectOriginatingCompletions({ owner, repo, number, head, profiles, read }) {
+async function collectOriginatingCompletions({ owner, repo, number, head, profiles, read, includeAuthors = [] }) {
   // read is the owner's withRetry from createTokenAwareRetry.
   if (typeof read !== 'function') throw new TypeError('Wrapped completion read is required');
   const comments = await read((client) => client.paginate(client.rest.issues.listComments,
@@ -156,11 +297,11 @@ async function collectOriginatingCompletions({ owner, repo, number, head, profil
   const nodes = [];
   for (const comment of comments) {
     const profile = profiles.find((item) => item.logins.includes(comment.user?.login));
-    if (!profile) continue;
-    const node = { url: comment.html_url, body: comment.body, createdAt: comment.created_at,
+    if (!profile && !includeAuthors.includes(comment.user?.login)) continue;
+    const node = { id: comment.id, url: comment.html_url, body: comment.body, createdAt: comment.created_at, updatedAt: comment.updated_at,
       author: comment.user };
     nodes.push(node);
-    if (!profile.disposition_completion_prefixes?.some((prefix) => comment.body?.startsWith(prefix))) continue;
+    if (!profile || !profile.disposition_completion_prefixes?.some((prefix) => comment.body?.startsWith(prefix))) continue;
     const prefix = profile.disposition_reviewed_commit_prefix;
     if (!prefix) continue;
     const line = String(comment.body || '').split('\n').find((value) => value.startsWith(prefix));
@@ -179,5 +320,5 @@ async function collectOriginatingCompletions({ owner, repo, number, head, profil
   return { complete: true, nodes };
 }
 
-module.exports = { sha256, validateIndependentFindingVerification,
+module.exports = { sha256, nativeAnswerLines, validateIndependentFindingVerification, validateNativeConversationDisposition,
   collectFindingReviewState, collectOriginatingCompletions };
