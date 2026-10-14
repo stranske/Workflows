@@ -10,7 +10,7 @@ const {
   parseReviewReassessmentRequest, runReviewReassessment, run,
 } = require('../maint71_merge_sync_prs');
 
-test('failed reviewer retry is exact-head, terminal-only, once per binding and request-only', async () => {
+test('failed reviewer retry is exact-head, terminal-only, once per binding and request-only', async (t) => {
   const request = { schema: 'maint71-review-reassessment/v1',
     repository: 'stranske/Ready', pr: 592, head_sha: 'a'.repeat(40),
     thread_id: 'PRRT_retry', plan_id: 'plan-1', generation: 'gen-1',
@@ -76,6 +76,15 @@ test('failed reviewer retry is exact-head, terminal-only, once per binding and r
     rawRequest: JSON.stringify({ ...request, request_stage: 'retry' }),
     registeredRepos: [request.repository],
     policyPath: path.join(__dirname, '..', '..', '..', 'config', 'consumer_sync_review_policy.json') };
+  const temporaryPolicy = fs.mkdtempSync(path.join(os.tmpdir(), 'maint71-retry-transport-'));
+  t.after(() => fs.rmSync(temporaryPolicy, { recursive: true, force: true }));
+  const policy = JSON.parse(fs.readFileSync(args.policyPath, 'utf8'));
+  Object.assign(policy.reviewers.find((item) => item.id === 'codex'), {
+    reassessment_task_transport: 'pr-conversation',
+    reassessment_task_comment: '@codex please answer this specific finding',
+  });
+  args.policyPath = path.join(temporaryPolicy, 'policy.json');
+  fs.writeFileSync(args.policyPath, JSON.stringify(policy));
   for (const defect of ['missing-summary', 'duplicate-summary', 'forged-summary', 'pending',
     'completed', 'wrong-head', 'ambiguous-commit', 'stale-failure', 'future-failure',
     'stale-update', 'multiple-rows', 'missing-prior', 'duplicate-prior', 'changed-head',
@@ -135,6 +144,7 @@ test('failed reviewer retry is exact-head, terminal-only, once per binding and r
   summaries = [summary]; resolvedSha = request.head_sha;
   const first = await runReviewReassessment(args);
   assert.equal(first.status, 'review_blocked_reassessment_requested');
+  assert.equal(first.task_status, undefined, 'retry must skip the initial conversation transport');
   assert.equal(posts, 1);
   assert.match(nodes.at(-1).body, /maint71-review-retry:v1/);
   assert.match(nodes.at(-1).body, /No unrelated edits, resolution or merge actions/);

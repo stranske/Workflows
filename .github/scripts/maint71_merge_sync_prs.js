@@ -533,12 +533,12 @@ async function runReviewReassessment({
   let taskReused = false;
   const taskKind = dispositionOnly ? 'disposition' : 'reassessment';
   const taskTransport = profile[`${taskKind}_task_transport`];
-  const initialTask = !dispositionOnly && !retryFailed && Boolean(taskTransport);
+  const initialTask = !dispositionOnly && !retryFailed;
   if ((dispositionOnly || initialTask) && taskTransport) {
     const taskCommand = String(profile[`${taskKind}_task_comment`] || '').trim();
     if (taskTransport !== 'pr-conversation'
       || !/^@[A-Za-z0-9-]+(?:\s+[A-Za-z0-9-]+)*$/.test(taskCommand)) {
-      throw new Error('Originating reviewer has no supported disposition task transport');
+      throw new Error(`Originating reviewer has no supported ${taskKind} task transport`);
     }
     const taskBinding = {
       ...Object.fromEntries(REASSESSMENT_FIELDS.map((field) => [field, request[field]])),
@@ -553,10 +553,10 @@ async function runReviewReassessment({
     const findTask = async () => {
       const items = await withRetry((client) => client.paginate(client.rest.issues.listComments,
         { owner, repo, issue_number: request.pr, per_page: 100 }));
-      if (!Array.isArray(items)) throw new Error('Disposition task inventory is incomplete');
+      if (!Array.isArray(items)) throw new Error(`${taskKind} task inventory is incomplete`);
       const matches = items.filter((item) => trustedWriters.has(item?.user?.login)
         && String(item?.body || '').includes(taskMarker));
-      if (matches.length > 1) throw new Error('Duplicate bound disposition task requests exist');
+      if (matches.length > 1) throw new Error(`Duplicate bound ${taskKind} task requests exist`);
       return matches[0] || null;
     };
     task = await findTask();
@@ -568,7 +568,7 @@ async function runReviewReassessment({
       && String(item?.body || '').includes(marker)
       && String(item.fullDatabaseId) === String(comment.id)
       && item.url === comment.html_url);
-    if (!originalRequest) throw new Error('Bound in-thread disposition request changed before task');
+    if (!originalRequest) throw new Error(`Bound in-thread ${taskKind} request changed before task`);
     if (!task) {
       const body = [`${taskCommand} on exact head ${request.head_sha}`,
         dispositionOnly
@@ -584,14 +584,14 @@ async function runReviewReassessment({
           owner, repo, issue_number: request.pr, body,
         }), { maxRetries: 0 }));
       } catch (error) {
-        throw new Error(`Disposition task POST uncertain; inspect exact task marker before retry: ${error.message}`);
+        throw new Error(`${taskKind} task POST uncertain; inspect exact task marker before retry: ${error.message}`);
       }
     }
     if (!task?.id || !trustedWriters.has(task.user?.login)
       || !Number.isFinite(Date.parse(task.created_at || ''))
       || !String(task.html_url || '').startsWith(
         `https://github.com/${request.repository}/pull/${request.pr}#issuecomment-`)) {
-      throw new Error('Disposition task lacks durable URL, ID, timestamp or trusted author');
+      throw new Error(`${taskKind} task lacks durable URL, ID, timestamp or trusted author`);
     }
   }
   await readBoundState();
