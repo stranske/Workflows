@@ -1098,6 +1098,8 @@ def _is_evidence_delivery_actor_subject(subject: str) -> bool:
             re.I,
         )
     )
+
+
 _EVIDENCE_PROOF_ALIAS_NOUN = r"(?:evidence\s+(?:files?|bundles?|packages?)|(?:test|validation)\s+(?:results?|logs?|outputs?)|(?:ci|build|execution)\s+logs?|(?:(?:workflow|ci|github actions)\s+)?artifacts?\s+provenance|screenshots?|recordings)"
 _EVIDENCE_OPTIONAL_MODAL = r"(?:may|can|could|would|should)"
 _EVIDENCE_PASSIVE_PREFIX = (
@@ -1262,9 +1264,7 @@ def _normalize_review_comment_destinations(acceptance: str) -> str:
         r"(?=\s*"
         + _EVIDENCE_DELIVERY_ADVERBS
         + r"(?:$|[;,.!?\n]|(?:and|or|but|if|when|only|solely)\b|"
-        r"(?:for|by|with|without|"
-        + _EVIDENCE_TEMPORAL_TAIL
-        + r")\b|"
+        r"(?:for|by|with|without|" + _EVIDENCE_TEMPORAL_TAIL + r")\b|"
         r"(?:in|on)\s+(?:(?:this|the)\s+)?(?:pr|pull request)\b))"
     )
     standalone_qualifier = (
@@ -1476,8 +1476,7 @@ def _normalize_plain_artifact_destinations(acceptance: str) -> str:
     acceptance = component_delivery.sub(
         lambda match: (
             match[0]
-            if match["literal"]
-            or _is_evidence_delivery_actor_subject(match["subject"])
+            if match["literal"] or _is_evidence_delivery_actor_subject(match["subject"])
             else match["boundary"] + match["subject"] + " product behavior"
         ),
         acceptance,
@@ -1685,20 +1684,22 @@ def _normalize_leading_review_destination_quantifier(acceptance: str) -> str:
     ``both in the PR body`` to ``in both the PR body`` only when it starts a
     concrete destination list, rather than rewriting arbitrary product prose.
     """
-    body_or_description = (
-        r"(?:(?:the|an?)\s+)?(?:pr|pull request)\s+(?:body|description)\b"
-    )
+    body_or_description = r"(?:(?:the|an?)\s+)?(?:pr|pull request)\s+(?:body|description)\b"
     return re.sub(
         r"(?P<literal>" + _QUOTED_EVIDENCE_LITERAL + r")|"
         r"\b(?P<quantifier>both|either)\s+(?P<preposition>in|into|to)\s+"
         r"(?P<destination>" + body_or_description + r")"
         r"(?=\s+(?:and|or)\s+(?:in|into|to)\b)",
-        lambda match: match[0]
-        if match["literal"]
-        else match["preposition"] + " " + match["quantifier"] + " " + match["destination"],
+        lambda match: (
+            match[0]
+            if match["literal"]
+            else match["preposition"] + " " + match["quantifier"] + " " + match["destination"]
+        ),
         acceptance,
         flags=re.I,
     )
+
+
 _EVIDENCE_PRODUCT_ACTOR = (
     _EVIDENCE_RECIPIENT_PREFIX + _EVIDENCE_PRODUCT_ACTOR_NOUN + r"\b" + _EVIDENCE_ACTOR_QUALIFIER
 )

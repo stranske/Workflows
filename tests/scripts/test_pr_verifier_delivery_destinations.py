@@ -6392,12 +6392,27 @@ def test_issue3835_leading_destination_quantifiers_preserve_body_and_description
         frozenset(option) for option in expected_options
     }
     if len(expected_options) == 1:
-        assert _floor_verdict(criterion, body="absent", comments="present", artifacts="present") == "CONCERNS"
-        assert _floor_verdict(criterion, body="present", comments="present", artifacts="absent") == "CONCERNS"
+        assert (
+            _floor_verdict(criterion, body="absent", comments="present", artifacts="present")
+            == "CONCERNS"
+        )
+        assert (
+            _floor_verdict(criterion, body="present", comments="present", artifacts="absent")
+            == "CONCERNS"
+        )
     else:
-        assert _floor_verdict(criterion, body="present", comments="present", artifacts="absent") == "PASS"
-        assert _floor_verdict(criterion, body="absent", comments="present", artifacts="present") == "PASS"
-        assert _floor_verdict(criterion, body="absent", comments="present", artifacts="absent") == "CONCERNS"
+        assert (
+            _floor_verdict(criterion, body="present", comments="present", artifacts="absent")
+            == "PASS"
+        )
+        assert (
+            _floor_verdict(criterion, body="absent", comments="present", artifacts="present")
+            == "PASS"
+        )
+        assert (
+            _floor_verdict(criterion, body="absent", comments="present", artifacts="absent")
+            == "CONCERNS"
+        )
 
 
 @pytest.mark.parametrize("connector", ["then", "also", "must be", "then must also be"])
@@ -6409,8 +6424,14 @@ def test_issue3835_content_qualified_comment_keeps_coordinated_artifact_delivery
     )
     assert verifier._required_evidence_channels(criterion) == {"comments", "artifacts"}
     assert verifier._required_evidence_options(criterion) == [{"comments", "artifacts"}]
-    assert _floor_verdict(criterion, body="present", comments="absent", artifacts="present") == "CONCERNS"
-    assert _floor_verdict(criterion, body="present", comments="present", artifacts="absent") == "CONCERNS"
+    assert (
+        _floor_verdict(criterion, body="present", comments="absent", artifacts="present")
+        == "CONCERNS"
+    )
+    assert (
+        _floor_verdict(criterion, body="present", comments="present", artifacts="absent")
+        == "CONCERNS"
+    )
 
 
 @pytest.mark.parametrize("qualifier", ["with test results", "for audit"])
@@ -6418,7 +6439,10 @@ def test_issue3835_standalone_comment_qualifiers_keep_delivery_duty(qualifier):
     criterion = f"A PR review comment {qualifier} is required"
     assert verifier._required_evidence_channels(criterion) == {"comments"}
     assert verifier._required_evidence_options(criterion) == [{"comments"}]
-    assert _floor_verdict(criterion, body="present", comments="absent", artifacts="present") == "CONCERNS"
+    assert (
+        _floor_verdict(criterion, body="present", comments="absent", artifacts="present")
+        == "CONCERNS"
+    )
 
 
 @pytest.mark.parametrize("subject", ["reviewer service", "maintainer dashboard"])
@@ -6432,14 +6456,20 @@ def test_issue3835_product_compounds_do_not_borrow_human_delivery_actor(subject)
 def test_issue3835_human_delivery_actor_head_remains_a_real_duty(subject):
     criterion = f"The {subject} must upload evidence to an artifact"
     assert verifier._required_evidence_channels(criterion) == {"artifacts"}
-    assert _floor_verdict(criterion, body="present", comments="present", artifacts="absent") == "CONCERNS"
+    assert (
+        _floor_verdict(criterion, body="present", comments="present", artifacts="absent")
+        == "CONCERNS"
+    )
 
 
 def test_issue3835_human_actor_relative_qualifier_remains_a_delivery_duty():
     criterion = "The reviewer who owns the PR must submit a PR review comment"
     assert verifier._required_evidence_channels(criterion) == {"comments"}
     assert verifier._required_evidence_options(criterion) == [{"comments"}]
-    assert _floor_verdict(criterion, body="present", comments="absent", artifacts="present") == "CONCERNS"
+    assert (
+        _floor_verdict(criterion, body="present", comments="absent", artifacts="present")
+        == "CONCERNS"
+    )
 
 
 def test_issue3835_product_actor_before_relative_qualifier_remains_non_delivery():
@@ -6453,21 +6483,29 @@ def test_issue3835_delivered_comment_temporal_tail_keeps_comment_floor(tail):
     criterion = f"The reviewer must post a PR review comment {tail}"
     assert verifier._required_evidence_channels(criterion) == {"comments"}
     assert verifier._required_evidence_options(criterion) == [{"comments"}]
-    assert _floor_verdict(criterion, body="present", comments="absent", artifacts="present") == "CONCERNS"
+    assert (
+        _floor_verdict(criterion, body="present", comments="absent", artifacts="present")
+        == "CONCERNS"
+    )
 
 
 def test_issue3835_passive_product_producer_is_not_comment_delivery():
     criterion = "Review comments must be returned by the API"
     assert verifier._required_evidence_channels(criterion) == set()
     assert verifier._required_evidence_options(criterion) == [set()]
-    assert _floor_verdict(criterion, body="present", comments="absent", artifacts="present") == "PASS"
+    assert (
+        _floor_verdict(criterion, body="present", comments="absent", artifacts="present") == "PASS"
+    )
 
 
 def test_issue3835_comment_content_provenance_is_not_passive_product_producer():
     criterion = "A PR review comment with output from API is required"
     assert verifier._required_evidence_channels(criterion) == {"comments"}
     assert verifier._required_evidence_options(criterion) == [{"comments"}]
-    assert _floor_verdict(criterion, body="present", comments="absent", artifacts="present") == "CONCERNS"
+    assert (
+        _floor_verdict(criterion, body="present", comments="absent", artifacts="present")
+        == "CONCERNS"
+    )
 
 
 @pytest.mark.parametrize("actor", ["reviewer", "maintainer"])
@@ -6475,4 +6513,7 @@ def test_issue3835_passive_human_producer_keeps_comment_delivery(actor):
     criterion = f"Review comments must be returned by the {actor}"
     assert verifier._required_evidence_channels(criterion) == {"comments"}
     assert verifier._required_evidence_options(criterion) == [{"comments"}]
-    assert _floor_verdict(criterion, body="present", comments="absent", artifacts="present") == "CONCERNS"
+    assert (
+        _floor_verdict(criterion, body="present", comments="absent", artifacts="present")
+        == "CONCERNS"
+    )
