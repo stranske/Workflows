@@ -99,7 +99,9 @@ function projectOwnerExclusions(state = {}) {
     if (!item?.source_fixed_candidate || !isOwnerExcludedRepository(item.source_fixed_candidate)) return item;
     nestedCandidatePruned = true;
     const { source_fixed_candidate: _candidate, ...eligibleItem } = item;
-    return eligibleItem;
+    return item.status === 'local-codex-source-fixed-candidate'
+      ? { ...eligibleItem, status: 'needs-local-codex' }
+      : eligibleItem;
   });
   const handoffs = excludeOwnerBlockedRecords(state.delivery_handoffs);
   const errors = excludeOwnerBlockedRecords(state.errors);

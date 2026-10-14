@@ -276,20 +276,55 @@ test('public formatter removes cached excluded rows and does not reuse their agg
   }
 });
 
-test('owner projection invalidates an excluded nested source-fix candidate but retains its eligible item', () => {
-  const state = { updated_at: '2026-10-14T00:00:00Z', items: [{
+test('failed eligible scan projects an excluded nested source-fix candidate back to a claimable queue item', () => {
+  const cached = {
     id: 'sync-review-comments:stranske/Ready#9:new', repo: 'stranske/Ready', pr_number: 9,
-    pr_url: 'https://github.com/stranske/Ready/pull/9', status: 'needs-local-codex',
+    pr_url: 'https://github.com/stranske/Ready/pull/9', status: 'local-codex-source-fixed-candidate',
+    lease: null,
     source_fixed_candidate: {
       matching_item_id: 'sync-review-comments:STRANSKE/Collab-Admin#4:old',
       matching_pr_url: 'https://github.com/stranske/Collab-Admin/pull/4', finished_at: '2026-10-13T00:00:00Z',
     },
-  }], stats: { items_source_fixed_candidates: 1, items_needing_local_codex: 1 } };
-  const body = formatCampaignBody(state);
-  const marker = formatCampaignMarker(state);
+  };
+  // Discovery failed for the eligible repository, so mergeCampaignState deliberately
+  // retains its active cached record. The public marker must still remove the excluded
+  // nested candidate and make the retained eligible work claimable again.
+  const retained = mergeCampaignState({ items: [cached] }, [], '2026-10-14T00:00:00Z', {
+    failedRepos: ['stranske/Ready'], reposRequested: 1, reposChecked: 0, reposFailed: 1,
+  });
+  assert.equal(retained.items[0].status, 'local-codex-source-fixed-candidate');
+  const body = formatCampaignBody(retained);
+  const marker = parseCampaignMarker(formatCampaignMarker(retained));
+  const projected = marker.items.find((item) => item.id === cached.id);
   assert.match(body, /stranske\/Ready#9/);
-  assert.doesNotMatch(`${body}\n${marker}`, /Collab-Admin/i);
-  assert.equal(parseCampaignMarker(marker).stats.items_source_fixed_candidates, 0);
+  assert.doesNotMatch(`${body}\n${JSON.stringify(marker)}`, /Collab-Admin/i);
+  assert.equal(projected.status, 'needs-local-codex');
+  assert.equal(projected.source_fixed_candidate, null);
+  assert.equal(marker.stats.items_source_fixed_candidates, 0);
+  assert.equal(marker.stats.items_claimable_local_codex, 1);
+});
+
+test('owner projection only restores candidate-derived queue status', () => {
+  const marker = parseCampaignMarker(formatCampaignMarker({ items: [
+    {
+      id: 'ready-finished', repo: 'stranske/Ready', pr_number: 1, status: 'local-codex-finished',
+      source_fixed_candidate: { matching_item_id: 'sync-review-comments:stranske/Collab-Admin#4:old' },
+    },
+    {
+      id: 'ready-blocked', repo: 'stranske/Ready', pr_number: 2, status: 'blocked',
+      source_fixed_candidate: { matching_item_id: 'sync-review-comments:stranske/Collab-Admin#4:old' },
+    },
+    {
+      id: 'ready-leased', repo: 'stranske/Ready', pr_number: 3, status: 'local-codex-claimed',
+      lease: { owner: 'maint-71', expires_at: '2026-10-14T02:00:00Z' },
+      source_fixed_candidate: { matching_item_id: 'sync-review-comments:stranske/Collab-Admin#4:old' },
+    },
+  ] }));
+  assert.equal(marker.stats.status_counts['local-codex-finished'], 1);
+  assert.equal(marker.items.find((item) => item.id === 'ready-blocked').status, 'blocked');
+  const leased = marker.items.find((item) => item.id === 'ready-leased');
+  assert.equal(leased.status, 'local-codex-claimed');
+  assert.equal(leased.lease.owner, 'maint-71');
 });
 
 test('runCampaign excludes owner-blocked case variants before max-repository discovery', async () => {
