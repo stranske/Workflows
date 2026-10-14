@@ -1,0 +1,47 @@
+{
+  "command": [
+    "uv",
+    "run",
+    "--offline",
+    "--isolated",
+    "--no-project",
+    "--python",
+    "/opt/anaconda3/bin/python3",
+    "--with-requirements",
+    "requirements.lock",
+    "python",
+    "-m",
+    "pytest",
+    "tests/workflows/test_verifier_expanded_comparison.py",
+    "-k",
+    "preserves_configured_fail",
+    "-q",
+    "-o",
+    "addopts="
+  ],
+  "restored_hashes": {
+    "scripts/langchain/pr_verifier.py": "45f9019b9b77d55dd45ccf320b5ab6dd38a6271c0b5325f98b3077e55d634cb9",
+    "templates/consumer-repo/scripts/langchain/pr_verifier.py": "45f9019b9b77d55dd45ccf320b5ab6dd38a6271c0b5325f98b3077e55d634cb9"
+  },
+  "red_exit": 1,
+  "byte_identical_restoration": true,
+  "green_exit": 0,
+  "test_sha256": "8e915d8cdd135e19d79eaac38c297aaaca712eaefc5667967b5b12626d8840da",
+  "artifact_hashes": {
+    "final-green.log": "a946494f48bdb9320e94743e11b5064ed7895be71cfe088781fafc3fea3a1b7b",
+    "template-drift.log": "4ef716323b512cd3db673b39233cfd539a866bbbc721f87723ec13899e70a9b8",
+    "green.log": "6690ae7e4345ae58958aac30122488386a80657a40f7d064497e726150bff6f9",
+    "restored-green.log": "beba13226d1a9137dbd55548ab1051f0539559aa7612bd0973c30f6a09aa2424",
+    "original-red.xml": "c86988ab16ec972ff4ce55efd5c2f8b1115f9faaa3cad51a7a10405591f0bc5a",
+    "mutation-red.log": "bfa9ab0244fe8f12d44d971e28ae5a320457f1e3da2e372c5437d979c6578faa",
+    "README.md": "39efaec55b8d8a1210c254322920e4ca393157b259e6e7bd0cf7de5cb23ebf91",
+    "green.xml": "bc0c6cdcaefae24b7829d2fe7d5d97bd105ceb1a5dfaf4410c2eab191220f7c7",
+    "restored-green.xml": "b1cd4e288f7cb2dfb1eebb7c38416aff70ba00b022b8639b7ac5a5909d82a763",
+    "ruff.log": "82b3e6a6c090a57601d22943bd23fca9218d1031dbe5a7b754092f9a156b4f18",
+    "original-red.log": "70b325fcbaeebe15cd3ed484b380d9b6d2b8969aa39682177731df64d75e9d06",
+    "black.log": "26a5fd9505f2b5608a20c4fed4b4c4795e0783d03b72ade02a6af34dae8ad086",
+    "mutation-red.xml": "1c71dc642b4a291c8e53f2a9197271c9078c010d0a5dce939caeadd6feeb6e0f",
+    "final-green.xml": "124bd8af54445a35f0f34a294e2797c16001ca0a37211f21c86668288621e108",
+    "actionlint.log": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+  }
+}

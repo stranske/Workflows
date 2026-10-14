@@ -173,12 +173,18 @@ is required only for explicit expanded evaluate/compare recovery, including sche
 repair. Standard retains existing client behavior without capacity claims; evidence
 and coverage floors remain unconditional. Both Python modes retain expanded capacity
 receipts even when generation fails.
+The Python entry point records capture obligations inside the existing input
+snapshot, after validating its context hash. Expanded preflight retains this
+inventory alongside prompt coverage in capacity receipts and rejects incomplete
+capture or clipped prompts before native counting and generation. Standalone
+manifest emission is local; comparison uploads retain the embedded inventory
+through their existing snapshot path.
 Expanded Terra alone uses a verifier-local Responses adapter copy; Sonnet's native
 Models API supplies exact-model limits before its Messages count. Unsupported
 models/transports or unavailable counts remain NON_PASS. Native input limits and
 combined input/output context limits are independent; Terra no longer reserves
 output twice against its input-only bound. The expanded fingerprint uses
-`bounded-native-capacity-v8`; standard keeps `bounded-native-capacity-v2`.
+`bounded-native-capacity-v10`; standard keeps `bounded-native-capacity-v2`.
 Expanded diff allocation is bounded to 4,194,304 characters; this is not a native
 token limit or a capacity verdict. Complete retrieval and native counting still gate generation.
 See the bounded input-limit

@@ -1,0 +1,2010 @@
+# Reusable Agents Verifier workflow
+# Runs post-merge to verify acceptance criteria were met
+#
+# This workflow:
+# 1. Builds context from merged PR and linked issues
+# 2. Runs the agent verifier to check acceptance criteria
+# 3. Opens a follow-up issue if criteria weren't met
+name: Reusable Agents Verifier
+
+on:
+  workflow_call:
+    inputs:
+      pr_number:
+        description: 'Pull request number to verify (required when called from another workflow)'
+        required: false
+        type: string
+      ci_workflows:
+        description: 'JSON array of CI workflow filenames to wait for'
+        required: false
+        type: string
+        default: '["ci.yml", "pr-00-gate.yml"]'
+      ci_wait_timeout_ms:
+        description: 'Max time to wait for CI workflows (ms)'
+        required: false
+        type: number
+        default: 300000
+      mode:
+        description: 'Verification mode: checkbox (default), evaluate, or compare'
+        required: false
+        type: string
+        default: 'checkbox'
+      model:
+        description: 'LLM model override (default uses slot 1)'
+        required: false
+        type: string
+        default: ''
+      provider:
+        description: 'LLM provider override (auto uses slot order)'
+        required: false
+        type: string
+        default: ''
+      evidence_profile:
+        description: 'Input coverage profile: standard or bounded expanded recovery'
+        required: false
+        type: string
+        default: 'standard'
+      model2:
+        description: 'Second model for compare mode (defaults to slot 2)'
+        required: false
+        type: string
+        default: ''
+    secrets:
+      CODEX_AUTH_JSON:
+        required: false
+        description: 'Codex auth JSON (required for checkbox/compare modes)'
+      OPENAI_API_KEY:
+        required: false
+        description: 'OpenAI API key for evaluate/compare modes'
+      CLAUDE_API_STRANSKE:
+        required: false
+        description: 'Anthropic API key for evaluate/compare modes (enables Claude slot)'
+      LANGSMITH_API_KEY:
+        required: false
+        description: 'LangSmith API key for tracing LLM calls (optional)'
+      workflows_app_id:
+        required: false
+      workflows_app_private_key:
+        required: false
+
+permissions:
+  contents: read
+  pull-requests: write
+  issues: write
+  actions: read
+  models: read  # Required for GitHub Models API access
+
+# Use PR number in concurrency group to avoid cancelling runs for different PRs.
+# pull_request_target uses base branch for github.ref, so without PR number
+# all verifier runs targeting the same branch would share a concurrency group.
+concurrency:
+  group: >-
+    ${{
+      format(
+        '{0}-pr-{1}',
+        github.workflow,
+        inputs.pr_number || github.event.pull_request.number || github.ref
+      )
+    }}
+  cancel-in-progress: true
+
+jobs:
+  verifier:
+    name: Run post-merge verifier
+    runs-on: ubuntu-latest
+    env:
+      VERIFIER_CAPACITY_REPORT_PATH: verifier-capacity-checks.jsonl
+      VERIFIER_EVIDENCE_PROFILE: ${{ inputs.evidence_profile }}
+    steps:
+      - name: Select bounded verifier evidence profile
+        env:
+          VERIFIER_MODE: ${{ inputs.mode }}
+        run: |
+          set -euo pipefail
+          case "$VERIFIER_EVIDENCE_PROFILE" in
+            standard) ;;
+            expanded)
+              case "${VERIFIER_MODE:-}" in
+                evaluate|compare) ;;
+                *) echo 'Expanded recovery requires counted evaluate or compare mode' >&2; exit 1 ;;
+              esac
+              # Explicit recovery after inspecting incomplete input evidence.
+              # Retrieval failures and clipped code remain non-PASS.
+              printf '%s\n' \
+                'VERIFIER_EVIDENCE_COMMENT_LIMIT=1000' \
+                'VERIFIER_EVIDENCE_COMMENT_CHARS=1048576' \
+                'VERIFIER_EVIDENCE_RUN_LIMIT=200' \
+                'VERIFIER_EVIDENCE_ARTIFACT_LIMIT=400' \
+                'VERIFIER_EVIDENCE_ARCHIVE_BYTES=4194304' \
+                'VERIFIER_EVIDENCE_ENTRY_LIMIT=80' \
+                'VERIFIER_EVIDENCE_ARTIFACT_CHARS=128000' \
+                'VERIFIER_EVIDENCE_COMMENT_PAGES=10' \
+                'VERIFIER_EVIDENCE_RUN_PAGES=2' \
+                'VERIFIER_EVIDENCE_ARTIFACT_PAGES=4' \
+                'VERIFIER_EVIDENCE_TOTAL_ARCHIVE_BYTES=33554432' \
+                'VERIFIER_EVIDENCE_TOTAL_EXTRACT_BYTES=67108864' \
+                'VERIFIER_EVIDENCE_TOTAL_ARTIFACT_CHARS=4194304' \
+                'VERIFIER_CONTEXT_BUDGET_TOKENS=16384' \
+                'VERIFIER_DIFF_BUDGET_TOKENS=65536' \
+                'VERIFIER_ACCEPTANCE_EVIDENCE_BUDGET_TOKENS=65536' >> "$GITHUB_ENV"
+              ;;
+            *) echo 'Unsupported verifier evidence profile' >&2; exit 1 ;;
+          esac
+      # Mint GitHub App token early to use for API calls (avoids rate limits)
+      - name: Mint GitHub App token
+        id: app_token
+        uses: actions/create-github-app-token@v3
+        continue-on-error: true
+        with:
+          client-id: ${{ secrets.WORKFLOWS_APP_ID || '0' }}
+          private-key: ${{ secrets.WORKFLOWS_APP_PRIVATE_KEY || 'dummy' }}
+          owner: ${{ github.repository_owner }}
+
+      - name: Checkout caller repository
+        uses: actions/checkout@v7
+        with:
+          token: ${{ steps.app_token.outputs.token || github.token }}
+          fetch-depth: 0
+
+      - name: Setup API client
+        uses: ./.github/actions/setup-api-client
+        with:
+          # named inputs, not the whole secrets context (see #3185)
+          github_token: ${{ github.token }}
+          workflows_app_id: ${{ secrets.workflows_app_id }}
+          workflows_app_private_key: ${{ secrets.workflows_app_private_key }}
+
+      - name: Resolve Workflows ref
+        id: workflows_ref
+        uses: ./.github/actions/resolve-default-branch
+
+      - name: Checkout Workflows scripts
+        uses: actions/checkout@v7
+        with:
+          token: ${{ steps.app_token.outputs.token || github.token }}
+          repository: stranske/Workflows
+          ref: ${{ steps.workflows_ref.outputs.ref }}
+          sparse-checkout: |
+            .github/actions/setup-api-client
+            .github/actions/verifier-codex-cli
+            .github/agents/registry.yml
+            .github/scripts
+            .github/codex/prompts
+            config
+            scripts
+            tools
+          sparse-checkout-cone-mode: false
+          path: .workflows-lib
+          fetch-depth: 1
+
+      - name: Link node_modules for Workflows scripts
+        run: |
+          # ESM import() resolves relative to file location, not NODE_PATH.
+          # Symlink node_modules so token_load_balancer.js can find @octokit/rest.
+          SRC="${GITHUB_WORKSPACE}/.github/scripts/node_modules"
+          DST="${GITHUB_WORKSPACE}/.workflows-lib/.github/scripts/node_modules"
+          if [ -d "$SRC" ] && [ ! -d "$DST" ]; then
+            ln -sfn "$SRC" "$DST"
+            echo "✅ Linked node_modules → .workflows-lib scripts path"
+          elif [ ! -d "$SRC" ]; then
+            echo "::warning::node_modules not found at $SRC — token rotation may fail"
+          fi
+
+      - name: Wait for CI workflows to complete
+        id: wait_ci
+        uses: actions/github-script@v9
+        env:
+          CI_WORKFLOWS: ${{ inputs.ci_workflows }}
+          CI_WAIT_TIMEOUT_MS: ${{ inputs.ci_wait_timeout_ms }}
+        with:
+          github-token: ${{ secrets.GITHUB_TOKEN }}
+          script: |
+            // # best-effort: this ancillary API failure is logged; reconciliation or the primary workflow result remains authoritative.
+            const fs = require('fs');
+            const retryHelperPath = './.workflows-lib/.github/scripts/github-api-with-retry.js';
+            const retryHelpers = fs.existsSync(retryHelperPath)
+              ? require(retryHelperPath)
+              : {
+                  withRetry: (fn) => fn(),
+                  paginateWithRetry: (githubInstance, method, params) =>
+                    githubInstance.paginate(method, params),
+                };
+            const { withRetry } = retryHelpers;
+
+            const pr = context.payload.pull_request;
+            if (!pr || !pr.merged) {
+              core.info('PR not merged; skipping CI wait.');
+              return;
+            }
+
+            const ciWorkflows = JSON.parse(process.env.CI_WORKFLOWS || '[]');
+            if (!Array.isArray(ciWorkflows) || ciWorkflows.length === 0) {
+              core.info('No CI workflows configured; skipping wait.');
+              return;
+            }
+
+            // Verifier context only evaluates merged PRs that target the default branch.
+            // Skip CI polling early for stacked/feature-branch merges to avoid dead time.
+            const defaultBranch = context.payload.repository?.default_branch || 'main';
+            const baseRef = pr.base?.ref || '';
+            if (baseRef && baseRef !== defaultBranch) {
+              core.info(
+                `PR base ref ${baseRef} does not match default branch ` +
+                  `${defaultBranch}; skipping CI wait.`,
+              );
+              return;
+            }
+
+            const targetShas = Array.from(
+              new Set(
+                [pr.merge_commit_sha, pr.head?.sha]
+                  .map((value) => String(value || '').trim())
+                  .filter(Boolean),
+              ),
+            );
+            if (targetShas.length === 0) {
+              core.setFailed('Merged PR is missing merge/head SHAs.');
+              return;
+            }
+
+            const maxWaitMs = Number(process.env.CI_WAIT_TIMEOUT_MS) || 300000;
+            const pollIntervalMs = 15000;
+            const startTime = Date.now();
+            let rateLimitHits = 0;
+            const maxRateLimitHits = 3;  // Give up after 3 consecutive rate limits
+            let emptyPolls = 0;
+            const workflowState = new Map(
+              ciWorkflows.map((workflow) => [
+                workflow,
+                { found: false, completed: false },
+              ]),
+            );
+
+            core.info(
+              `Waiting for CI workflows to complete for SHAs: ${targetShas.join(', ')}...`,
+            );
+
+            while (Date.now() - startTime < maxWaitMs) {
+              let hitRateLimit = false;
+
+              for (const workflowFile of ciWorkflows) {
+                const state = workflowState.get(workflowFile) || {
+                  found: false,
+                  completed: false,
+                };
+                try {
+                  const runCandidates = [];
+                  for (const headSha of targetShas) {
+                    const { data: runs } = await withRetry(() =>
+                      github.rest.actions.listWorkflowRuns({
+                        ...context.repo,
+                        workflow_id: workflowFile,
+                        head_sha: headSha,
+                        per_page: 1,
+                      }),
+                    );
+                    if (runs.workflow_runs.length > 0) {
+                      runCandidates.push(runs.workflow_runs[0]);
+                    }
+                  }
+
+                  if (runCandidates.length > 0) {
+                    runCandidates.sort((a, b) => {
+                      const aTs = Date.parse(a.updated_at || a.created_at || 0);
+                      const bTs = Date.parse(b.updated_at || b.created_at || 0);
+                      return bTs - aTs;
+                    });
+                    const run = runCandidates[0];
+                    state.found = true;
+                    const conclusion = run.conclusion || 'pending';
+                    core.info(
+                      `${workflowFile}: status=${run.status}, conclusion=${conclusion}, ` +
+                        `sha=${run.head_sha}`,
+                    );
+                    state.completed = run.status === 'completed';
+                  }
+
+                  workflowState.set(workflowFile, state);
+                  rateLimitHits = 0;  // Reset on success
+                } catch (err) {
+                  // Check for rate limit error
+                  if (err.message && err.message.includes('rate limit')) {
+                    hitRateLimit = true;
+                    core.warning(
+                      `Rate limited checking ${workflowFile}; skipping CI wait.`,
+                    );
+                  } else {
+                    core.warning(`Failed to check ${workflowFile}: ${err.message}`);
+                  }
+                  workflowState.set(workflowFile, state);
+                }
+              }
+
+              // If rate limited, skip CI wait - verifier runs on merged PRs, CI is already done
+              if (hitRateLimit) {
+                rateLimitHits++;
+                if (rateLimitHits >= maxRateLimitHits) {
+                  core.info(`Rate limited ${rateLimitHits} times; skipping CI wait.`);
+                  return;
+                }
+              }
+
+              const foundWorkflows = ciWorkflows.filter(
+                (workflow) => workflowState.get(workflow)?.found,
+              );
+              const missingWorkflows = ciWorkflows.filter(
+                (workflow) => !workflowState.get(workflow)?.found,
+              );
+              const pendingFoundWorkflows = ciWorkflows.filter((workflow) => {
+                const state = workflowState.get(workflow);
+                return state?.found && !state.completed;
+              });
+              const allFoundAndComplete =
+                missingWorkflows.length === 0 && pendingFoundWorkflows.length === 0;
+
+              if (allFoundAndComplete) {
+                core.info('All CI workflows have completed.');
+                return;
+              }
+
+              if (foundWorkflows.length === 0) {
+                emptyPolls += 1;
+                if (emptyPolls >= 2) {
+                  core.info(
+                    `No CI runs matched configured workflows ` +
+                      `(${ciWorkflows.join(', ')}) for SHAs ` +
+                      `${targetShas.join(', ')}; skipping CI wait.`,
+                  );
+                  return;
+                }
+              } else {
+                emptyPolls = 0;
+              }
+
+              let waitReason = 'waiting for workflows to start';
+              if (pendingFoundWorkflows.length > 0 && missingWorkflows.length > 0) {
+                waitReason =
+                  `waiting for running workflows (${pendingFoundWorkflows.join(', ')}) ` +
+                  `and missing workflows (${missingWorkflows.join(', ')})`;
+              } else if (pendingFoundWorkflows.length > 0) {
+                waitReason =
+                  `waiting for workflows still running: ` +
+                  pendingFoundWorkflows.join(', ');
+              } else if (missingWorkflows.length > 0) {
+                waitReason = `waiting for workflows to start: ${missingWorkflows.join(', ')}`;
+              }
+              core.info(
+                `Waiting ${pollIntervalMs / 1000}s for CI to complete (${waitReason})...`,
+              );
+              await new Promise((resolve) =>
+                setTimeout(resolve, pollIntervalMs),
+              );
+            }
+
+            core.warning(`CI wait timed out after ${maxWaitMs / 1000}s.`);
+
+      - name: Build verifier context
+        id: context
+        uses: actions/github-script@v9
+        env:
+          CI_WORKFLOWS: ${{ inputs.ci_workflows }}
+          VERIFIER_PR_NUMBER: ${{ inputs.pr_number }}
+        with:
+          github-token: ${{ secrets.GITHUB_TOKEN }}
+          script: |
+            const verifierContextPath =
+              './.workflows-lib/.github/scripts/agents_verifier_context.js';
+            const { buildVerifierContext } = require(verifierContextPath);
+            const ciWorkflows = process.env.CI_WORKFLOWS || '[]';
+            try {
+              await buildVerifierContext({ github, context, core, ciWorkflows });
+            } catch (err) {
+              if (err.message && err.message.includes('rate limit')) {
+                core.warning(`Rate limited while building context: ${err.message}`);
+                core.setOutput('should_run', 'false');
+                core.setOutput('skip_reason', 'Rate limited - retry later');
+              } else {
+                throw err;
+              }
+            }
+
+      - name: Record verifier input identity for model evaluation
+        if: steps.context.outputs.should_run == 'true' && inputs.mode == 'compare'
+        env:
+          VERIFIER_TARGET_SHA: ${{ steps.context.outputs.target_sha }}
+          VERIFIER_CHAIN_DEPTH: ${{ steps.context.outputs.chain_depth }}
+          VERIFIER_PR_NUMBER: ${{ steps.context.outputs.pr_number }}
+          VERIFIER_CI_WORKFLOWS: ${{ inputs.ci_workflows }}
+          VERIFIER_EVIDENCE_PROFILE: ${{ inputs.evidence_profile }}
+        run: |
+          python3 - <<'PY'
+          import hashlib
+          import json
+          import os
+          from pathlib import Path
+
+          context = Path('verifier-context.md').read_bytes()
+          diff_summary = Path('verifier-diff-summary.md').read_bytes()
+          diff = Path('verifier-pr-diff.patch').read_bytes()
+          raw_workflows = os.environ.get('VERIFIER_CI_WORKFLOWS', '')
+          try:
+              ci_workflows = json.loads(raw_workflows)
+          except json.JSONDecodeError:
+              ci_workflows = [raw_workflows] if raw_workflows else []
+          if not isinstance(ci_workflows, list):
+              ci_workflows = [str(ci_workflows)]
+          manifest = {
+              'schema': 'workflows-verifier-input-snapshot/v1',
+              'capture_kind': 'production',
+              'repository': os.environ['GITHUB_REPOSITORY'],
+              'pr': int(os.environ['VERIFIER_PR_NUMBER']),
+              'merge_sha': os.environ['VERIFIER_TARGET_SHA'],
+              'source_run_id': os.environ['GITHUB_RUN_ID'],
+              'chain_depth': int(os.environ['VERIFIER_CHAIN_DEPTH'] or 0),
+              'ci_workflows': ci_workflows,
+              'evidence_profile': os.environ['VERIFIER_EVIDENCE_PROFILE'],
+              'evidence_contract': (
+                  'bounded-native-capacity-v5'
+                  if os.environ['VERIFIER_EVIDENCE_PROFILE'] == 'expanded'
+                  else 'bounded-native-capacity-v2'
+              ),
+              'input_limits': {
+                  'comment_records': int(os.environ.get('VERIFIER_EVIDENCE_COMMENT_LIMIT', '50')),
+                  'comment_chars': int(os.environ.get('VERIFIER_EVIDENCE_COMMENT_CHARS', '40000')),
+                  'workflow_runs': int(os.environ.get('VERIFIER_EVIDENCE_RUN_LIMIT', '5')),
+                  'artifacts': int(os.environ.get('VERIFIER_EVIDENCE_ARTIFACT_LIMIT', '10')),
+                  'archive_bytes': int(os.environ.get('VERIFIER_EVIDENCE_ARCHIVE_BYTES', '2097152')),
+                  'archive_entries': int(os.environ.get('VERIFIER_EVIDENCE_ENTRY_LIMIT', '20')),
+                  'artifact_chars': int(os.environ.get('VERIFIER_EVIDENCE_ARTIFACT_CHARS', '60000')),
+                  'body_chars': int(os.environ.get('VERIFIER_EVIDENCE_BODY_CHARS', '40000')),
+                  'comment_pages': int(os.environ.get('VERIFIER_EVIDENCE_COMMENT_PAGES', '10')),
+                  'run_pages': int(os.environ.get('VERIFIER_EVIDENCE_RUN_PAGES', '1')),
+                  'artifact_pages': int(os.environ.get('VERIFIER_EVIDENCE_ARTIFACT_PAGES', '1')),
+                  'total_archive_bytes': int(os.environ.get('VERIFIER_EVIDENCE_TOTAL_ARCHIVE_BYTES', '33554432')),
+                  'total_extract_bytes': int(os.environ.get('VERIFIER_EVIDENCE_TOTAL_EXTRACT_BYTES', '67108864')),
+                  'total_artifact_chars': int(os.environ.get('VERIFIER_EVIDENCE_TOTAL_ARTIFACT_CHARS', '4194304')),
+                  'diff_fetch_bytes': int(os.environ.get('VERIFIER_DIFF_MAX_BYTES', '8388608')),
+                  'diff_fetch_chars': int(os.environ.get('VERIFIER_DIFF_MAX_CHARS', '300000')),
+                  'context_budget_tokens': int(os.environ.get('VERIFIER_CONTEXT_BUDGET_TOKENS', '4000')),
+                  'diff_budget_tokens': int(os.environ.get('VERIFIER_DIFF_BUDGET_TOKENS', '16000')),
+                  'acceptance_evidence_budget_tokens': int(os.environ.get('VERIFIER_ACCEPTANCE_EVIDENCE_BUDGET_TOKENS', '4000')),
+              },
+              'context_sha256': hashlib.sha256(context).hexdigest(),
+              'diff_summary_sha256': hashlib.sha256(diff_summary).hexdigest(),
+              'diff_sha256': hashlib.sha256(diff).hexdigest(),
+          }
+          Path('verifier-input-manifest.json').write_text(json.dumps(manifest, indent=2) + '\n')
+          PY
+
+      - name: Resolve agent key from PR labels
+        id: agent
+        if: steps.context.outputs.should_run == 'true'
+        uses: actions/github-script@v9
+        with:
+          github-token: ${{ secrets.GITHUB_TOKEN }}
+          script: |
+            // # best-effort: this ancillary API failure is logged; reconciliation or the primary workflow result remains authoritative.
+            const fs = require('fs');
+            const retryHelperPath = './.workflows-lib/.github/scripts/github-api-with-retry.js';
+            const retryHelpers = fs.existsSync(retryHelperPath)
+              ? require(retryHelperPath)
+              : { withRetry: (fn) => fn() };
+            const { withRetry } = retryHelpers;
+
+            const registryPath = './.workflows-lib/.github/agents/registry.yml';
+            const resolverPath = './.workflows-lib/.github/scripts/agent_registry.js';
+
+            // Resolve agent from PR labels; fall back to registry default
+            let _defaultAgent = 'codex';
+            try {
+              const { loadAgentRegistry } = require(resolverPath);
+              _defaultAgent = loadAgentRegistry({ registryPath }).default_agent || 'codex';
+            } catch (_) {}
+            let agentKey = _defaultAgent;
+            try {
+              const { resolveAgentFromLabels } = require(resolverPath);
+              const rawPrNumber = Number('${{ steps.context.outputs.pr_number }}');
+              const prNumber = !Number.isNaN(rawPrNumber) && rawPrNumber > 0 ? rawPrNumber : null;
+
+              let labels = [];
+              if (prNumber) {
+                const { data: pr } = await withRetry(() => github.rest.pulls.get({
+                  ...context.repo,
+                  pull_number: prNumber,
+                }));
+                labels = Array.isArray(pr.labels) ? pr.labels : [];
+              }
+
+              agentKey = resolveAgentFromLabels(labels, { registryPath });
+            } catch (err) {
+                core.warning(
+                  [
+                    `Failed to resolve agent from PR labels; defaulting to ${_defaultAgent}:`,
+                    err.message,
+                  ].join(' '),
+                );
+              agentKey = _defaultAgent;
+            }
+
+            const normalized =
+              String(agentKey || _defaultAgent).trim().toLowerCase() ||
+              _defaultAgent;
+            core.setOutput('agent_key', normalized);
+            core.setOutput('agent_label', `agent:${normalized}`);
+            core.setOutput('from_label', `from:${normalized}`);
+
+      - name: Stop when verifier is skipped
+        if: steps.context.outputs.should_run != 'true'
+        run: |
+          echo "Verifier skipped: ${{ steps.context.outputs.skip_reason || 'no reason provided' }}"
+
+      - name: Prepare verifier prompt
+        if: steps.context.outputs.should_run == 'true'
+        id: prepare
+        run: |
+          set -euo pipefail
+          # Use prompt from Workflows repo
+          base_prompt=".workflows-lib/.github/codex/prompts/verifier_acceptance_check.md"
+          context_file="${{ steps.context.outputs.context_path }}"
+          combined="verifier-prompt.md"
+
+          if [ ! -f "$base_prompt" ]; then
+            echo "::error::Base prompt file missing: $base_prompt"
+            exit 1
+          fi
+          if [ ! -f "$context_file" ]; then
+            echo "::error::Context file missing: $context_file"
+            exit 1
+          fi
+
+          {
+            cat "$base_prompt"
+            printf '\n\n---\n\n'
+            cat "$context_file"
+          } > "$combined"
+          echo "prompt_file=$combined" >> "$GITHUB_OUTPUT"
+
+      - name: Validate Codex auth for checkbox/compare modes
+        if: steps.context.outputs.should_run == 'true' && inputs.mode != 'evaluate' && inputs.evidence_profile != 'expanded'
+        env:
+          CODEX_AUTH_JSON: ${{ secrets.CODEX_AUTH_JSON }}
+          VERIFIER_MODE: ${{ inputs.mode }}
+        run: |
+          mode="$VERIFIER_MODE"
+          if [ -z "$CODEX_AUTH_JSON" ]; then
+            echo "::error::CODEX_AUTH_JSON secret is required for mode '${mode}' but not provided"
+            exit 1
+          fi
+
+      - name: Setup Codex auth
+        if: steps.context.outputs.should_run == 'true' && inputs.mode != 'evaluate' && inputs.evidence_profile != 'expanded'
+        env:
+          CODEX_AUTH_JSON: ${{ secrets.CODEX_AUTH_JSON }}
+          CODEX_HOME: ${{ runner.temp }}/.codex-verifier
+        run: |
+          set -euo pipefail
+          mkdir -p ~/.codex "$CODEX_HOME"
+          echo "$CODEX_AUTH_JSON" > ~/.codex/auth.json
+          chmod 600 ~/.codex/auth.json
+          cp ~/.codex/auth.json "$CODEX_HOME/auth.json"
+          chmod 600 "$CODEX_HOME/auth.json"
+          echo "Codex auth configured"
+
+      - name: Install Codex CLI
+        id: codex_cli
+        if: steps.context.outputs.should_run == 'true' && inputs.mode != 'evaluate' && inputs.evidence_profile != 'expanded'
+        env:
+          CODEX_CLI_PACKAGE: "@openai/codex@0.153.2"
+        run: |
+          set -euo pipefail
+          # Install from the Workflows sparse checkout so consumer callers (whose
+          # workspace lacks this package) still get the locked CLI.
+          codex_cli_prefix=".workflows-lib/.github/actions/verifier-codex-cli"
+          package_json="${codex_cli_prefix}/package.json"
+          if [ ! -f "$package_json" ]; then
+            echo "::error::Missing locked Codex CLI package at ${package_json}" \
+              "(expected in Workflows sparse-checkout)."
+            exit 1
+          fi
+          # Keep CODEX_CLI_PACKAGE in lockstep with package.json (avoids unused-env drift).
+          expected_version="${CODEX_CLI_PACKAGE##*@}"
+          locked_version="$(
+            sed -n 's/.*"@openai\/codex": "\([^"]*\)".*/\1/p' "$package_json" | head -1
+          )"
+          if [ -z "$locked_version" ]; then
+            echo "::error::Could not read @openai/codex from ${package_json}"
+            exit 1
+          fi
+          if [ "$locked_version" != "$expected_version" ]; then
+            echo "::error::CODEX_CLI_PACKAGE=${CODEX_CLI_PACKAGE} but" \
+              "${package_json} locks @openai/codex@${locked_version}"
+            exit 1
+          fi
+          npm ci --prefix "$codex_cli_prefix" --ignore-scripts
+          codex_bin_dir="${codex_cli_prefix}/node_modules/.bin"
+          codex_cli="${codex_bin_dir}/codex"
+          if [ ! -x "$codex_cli" ]; then
+            echo "::error::Pinned Codex CLI binary missing at ${codex_cli}"
+            exit 1
+          fi
+          # Export PATH + absolute CLI path so Run verifier cannot fall back to bare `codex`.
+          echo "$codex_bin_dir" >> "$GITHUB_PATH"
+          echo "CODEX_CLI=${codex_cli}" >> "$GITHUB_ENV"
+          codex_cli_version="$("$codex_cli" --version | tr '\n' ' ' | sed -e 's/[[:space:]]*$//')"
+          echo "version=$codex_cli_version" >> "$GITHUB_OUTPUT"
+          echo "Installed Codex CLI version: $codex_cli_version" >> "$GITHUB_STEP_SUMMARY"
+
+      - name: Resolve Codex verifier model
+        id: codex_model
+        if: steps.context.outputs.should_run == 'true' && inputs.mode != 'evaluate' && inputs.evidence_profile != 'expanded'
+        env:
+          DEFAULT_CODEX_MODEL: gpt-6-astra
+          FALLBACK_CODEX_MODELS: gpt-5.5
+          REQUESTED_MODEL: ${{ inputs.model }}
+          VERIFIER_MODE: ${{ inputs.mode }}
+        run: |
+          set -euo pipefail
+          if [ "${VERIFIER_MODE:-}" = "checkbox" ]; then
+            requested="$(
+              printf '%s' "${REQUESTED_MODEL:-}" |
+                sed -e 's/^[[:space:]]*//' -e 's/[[:space:]]*$//'
+            )"
+          else
+            requested=""
+          fi
+          model="$requested"
+          reason="input"
+
+          if [ -z "$model" ] || [ "$model" = "undefined" ] || [ "$model" = "null" ]; then
+            model="$DEFAULT_CODEX_MODEL"
+            reason="default"
+          fi
+
+          candidates="$model"
+          if [ "$model" = "$DEFAULT_CODEX_MODEL" ]; then
+            candidates="$DEFAULT_CODEX_MODEL $FALLBACK_CODEX_MODELS"
+          fi
+
+          case "$model" in
+            *-codex*)
+              echo "::warning::Codex model '$model' is not compatible" \
+                "with the configured ChatGPT auth; trying '$DEFAULT_CODEX_MODEL' first."
+              model="$DEFAULT_CODEX_MODEL"
+              reason="fallback-unsupported-chatgpt-codex-model"
+              candidates="$DEFAULT_CODEX_MODEL $FALLBACK_CODEX_MODELS"
+              ;;
+          esac
+
+          {
+            echo "model=$model"
+            echo "selection_reason=$reason"
+            echo "candidates=$candidates"
+          } >> "$GITHUB_OUTPUT"
+
+          {
+            echo "## Codex verifier model"
+            echo ""
+            echo "- Model: \`$model\`"
+            echo "- Selection reason: \`$reason\`"
+            echo "- Candidate order: \`$candidates\`"
+          } >> "$GITHUB_STEP_SUMMARY"
+
+      - name: Run verifier (checkbox mode)
+        id: codex
+        if: steps.context.outputs.should_run == 'true' && inputs.mode != 'evaluate' && inputs.evidence_profile != 'expanded'
+        continue-on-error: true
+        env:
+          CODEX_HOME: ${{ runner.temp }}/.codex-verifier
+          CODEX_MODEL_CANDIDATES: ${{ steps.codex_model.outputs.candidates }}
+          CODEX_MODEL_SELECTION_REASON: ${{ steps.codex_model.outputs.selection_reason }}
+        run: |
+          set -euo pipefail
+          PROMPT_FILE="${{ steps.prepare.outputs.prompt_file }}"
+          if [ -z "${CODEX_CLI:-}" ] || [ ! -x "${CODEX_CLI}" ]; then
+            echo "::error::CODEX_CLI unset/not executable" \
+              "(expected pinned node_modules/.bin/codex from Install Codex CLI)"
+            exit 1
+          fi
+
+          selected_model=""
+          selected_reason="${CODEX_MODEL_SELECTION_REASON:-input}"
+          codex_exit_code=1
+          attempt=0
+          IFS=' ' read -r -a codex_models <<< "${CODEX_MODEL_CANDIDATES:-}"
+          model_count="${#codex_models[@]}"
+
+          for codex_model in "${codex_models[@]}"; do
+            attempt=$((attempt + 1))
+            rm -f codex-output.md codex-stdout.log codex-stderr.log
+            echo "Running Codex verifier with model '${codex_model}' (${attempt}/${model_count})..."
+
+            set +e
+            # Invoke the pinned local binary exported by Install Codex CLI (not bare PATH `codex`).
+            "$CODEX_CLI" exec \
+              --sandbox read-only \
+              --skip-git-repo-check \
+              --model "$codex_model" \
+              -c 'model_reasoning_effort="medium"' \
+              --output-last-message codex-output.md \
+              "$(cat "$PROMPT_FILE")" \
+              > codex-stdout.log 2> codex-stderr.log
+            codex_exit_code=$?
+            set -euo pipefail
+
+            if [ -s codex-stdout.log ]; then
+              echo "=== Codex stdout (${codex_model}) ==="
+              cat codex-stdout.log
+            fi
+            if [ -s codex-stderr.log ]; then
+              echo "=== Codex stderr (${codex_model}) ===" >&2
+              cat codex-stderr.log >&2
+            fi
+
+            selected_model="$codex_model"
+            if [ "$codex_exit_code" -eq 0 ]; then
+              if [ "$attempt" -gt 1 ]; then
+                selected_reason="runtime-fallback-model-unavailable"
+              fi
+              break
+            fi
+
+            unsupported_model_pattern="$(
+              printf '%s' \
+                'model.*(not supported|not available|unsupported|' \
+                'unavailable)|not compatible'
+            )"
+            if [ "$attempt" -lt "$model_count" ] &&
+              grep -Eiq "$unsupported_model_pattern" \
+                codex-stdout.log codex-stderr.log; then
+              echo "::warning::Codex model '${codex_model}' was unavailable; " \
+                "trying the next verifier model."
+              selected_reason="runtime-fallback-model-unavailable"
+              continue
+            fi
+
+            break
+          done
+
+          if [ -z "$selected_model" ]; then
+            selected_model="${{ steps.codex_model.outputs.model }}"
+          fi
+
+          {
+            echo "model=$selected_model"
+            echo "selection_reason=$selected_reason"
+          } >> "$GITHUB_OUTPUT"
+
+          echo "Codex verifier completed (exit code: ${codex_exit_code})"
+          echo "Codex verifier model: ${selected_model}"
+          echo "Codex verifier model selection reason: ${selected_reason}"
+          if [ -f codex-output.md ]; then
+            echo "=== Verifier Output ==="
+            cat codex-output.md
+          fi
+          exit "${codex_exit_code}"
+
+      - name: Parse verifier verdict (checkbox mode)
+        id: verdict
+        if: steps.context.outputs.should_run == 'true' && inputs.mode != 'evaluate' && inputs.evidence_profile != 'expanded'
+        run: |
+          set -euo pipefail
+          verdict="unknown"
+          needs_attention="false"
+          verdict_json="${RUNNER_TEMP}/verdict.json"
+
+          # Check if the codex step failed (continue-on-error means we still get here)
+          codex_outcome="${{ steps.codex.outcome }}"
+          if [ "$codex_outcome" = "failure" ]; then
+            # Codex crashed - treat as error verdict for follow-up
+            verdict="error"
+            needs_attention="true"
+            printf '%s\n' \
+              '{"verdict":"error","source":"codex-step-failure","needs_attention":true}' \
+              > "$verdict_json"
+          elif [ -f "codex-output.md" ]; then
+            python .workflows-lib/.github/scripts/verifier_verdict_json.py \
+              --output codex-output.md \
+              --json "$verdict_json"
+            verdict="$(
+              python -c \
+                'import json,sys; print(json.load(open(sys.argv[1])).get("verdict","unknown"))' \
+                "$verdict_json"
+            )"
+            needs_attention="$(
+              python -c \
+                'import json,sys; print(json.load(open(sys.argv[1]))["needs_attention"])' \
+                "$verdict_json" | tr '[:upper:]' '[:lower:]'
+            )"
+          else
+            needs_attention="true"
+            printf '%s\n' \
+              '{"verdict":"unknown","source":"missing-output","needs_attention":true}' \
+              > "$verdict_json"
+          fi
+          if [ "$verdict" = "needs-review" ] || [ "${needs_attention:-false}" = "true" ]; then
+            echo "needs_human=true" >> "$GITHUB_OUTPUT"
+          fi
+          echo "verdict_json=$verdict_json" >> "$GITHUB_OUTPUT"
+          echo "verdict=$verdict" >> "$GITHUB_OUTPUT"
+
+      # === LLM Evaluation Mode (when mode=evaluate) ===
+      - name: Setup Python for LLM evaluation
+        id: setup-python-evaluate
+        if: >-
+          ${{
+            steps.context.outputs.should_run == 'true' &&
+            inputs.mode == 'evaluate'
+          }}
+        uses: actions/setup-python@v7
+        with:
+          python-version: '3.14'
+
+      - name: Cache pip (LLM evaluation requirements)
+        if: >-
+          ${{
+            steps.context.outputs.should_run == 'true' &&
+            inputs.mode == 'evaluate'
+          }}
+        uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6
+        with:
+          path: |
+            ~/.cache/pip
+          key: >-
+            ${{
+              format(
+                'pip-{0}-{1}-{2}',
+                runner.os,
+                steps.setup-python-evaluate.outputs.python-version,
+                hashFiles('.workflows-lib/tools/requirements-llm.txt')
+              )
+            }}
+          restore-keys: |
+            pip-${{ runner.os }}-${{ steps.setup-python-evaluate.outputs.python-version }}-
+            pip-${{ runner.os }}-
+
+      - name: Install LLM evaluation dependencies
+        if: >-
+          ${{
+            steps.context.outputs.should_run == 'true' &&
+            inputs.mode == 'evaluate'
+          }}
+        run: |
+          python -m pip install --upgrade pip
+          pip install -r .workflows-lib/tools/requirements-llm.txt
+
+      - name: Check provider secrets
+        id: openai_key
+        if: >-
+          ${{
+            steps.context.outputs.should_run == 'true' &&
+            (inputs.mode == 'evaluate' || inputs.mode == 'compare')
+          }}
+        env:
+          OPENAI_API_KEY: ${{ secrets.OPENAI_API_KEY }}
+          CLAUDE_API_STRANSKE: ${{ secrets.CLAUDE_API_STRANSKE }}
+          PROVIDER: ${{ inputs.provider }}
+          MODE: ${{ inputs.mode }}
+        run: |
+          requires_openai=false
+          requires_claude=false
+
+          if [ "${MODE}" = "evaluate" ] && [ "${PROVIDER}" = "openai" ]; then
+            requires_openai=true
+          fi
+          if [ "${MODE}" = "evaluate" ] && [ "${PROVIDER}" = "anthropic" ]; then
+            requires_claude=true
+          fi
+
+          if [ "${requires_openai}" = "true" ] && [ -z "${OPENAI_API_KEY:-}" ]; then
+            {
+              echo "OPENAI_API_KEY is not set."
+              echo "Skipping verifier LLM step that requires OpenAI."
+            } >> "$GITHUB_STEP_SUMMARY"
+            echo "available=false" >> "$GITHUB_OUTPUT"
+          elif [ "${requires_claude}" = "true" ] && [ -z "${CLAUDE_API_STRANSKE:-}" ]; then
+            {
+              echo "CLAUDE_API_STRANSKE is not set."
+              echo "Skipping verifier LLM step that requires Claude."
+            } >> "$GITHUB_STEP_SUMMARY"
+            echo "available=false" >> "$GITHUB_OUTPUT"
+          else
+            echo "available=true" >> "$GITHUB_OUTPUT"
+          fi
+
+          if [ "${MODE}" = "compare" ] && [ -z "${OPENAI_API_KEY:-}" ]; then
+            {
+              echo "OPENAI_API_KEY is not set."
+              echo "Compare will fall back to Claude/GitHub Models."
+            } >> "$GITHUB_STEP_SUMMARY"
+          fi
+          if [ "${MODE}" = "compare" ] && [ -z "${CLAUDE_API_STRANSKE:-}" ]; then
+            {
+              echo "CLAUDE_API_STRANSKE is not set."
+              echo "Compare will fall back to OpenAI/GitHub Models."
+            } >> "$GITHUB_STEP_SUMMARY"
+          fi
+
+      - name: Run LLM evaluation
+        id: llm_evaluate
+        if: >-
+          ${{
+            steps.context.outputs.should_run == 'true' &&
+            inputs.mode == 'evaluate' &&
+            steps.openai_key.outputs.available == 'true'
+          }}
+        continue-on-error: true
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          OPENAI_API_KEY: ${{ secrets.OPENAI_API_KEY }}
+          CLAUDE_API_STRANSKE: ${{ secrets.CLAUDE_API_STRANSKE }}
+          LANGSMITH_API_KEY: ${{ secrets.LANGSMITH_API_KEY }}
+          PYTHONPATH: .workflows-lib
+          CHAIN_DEPTH: ${{ steps.context.outputs.chain_depth || '0' }}
+          VERIFIER_CONTEXT_PATH: ${{ steps.context.outputs.context_path }}
+          VERIFIER_DIFF_PATH: ${{ steps.context.outputs.diff_path }}
+          VERIFIER_MODEL: ${{ inputs.model }}
+          VERIFIER_PROVIDER: ${{ inputs.provider }}
+        run: |
+          set -euo pipefail
+          context_file="$VERIFIER_CONTEXT_PATH"
+          diff_file="$VERIFIER_DIFF_PATH"
+          model="$VERIFIER_MODEL"
+          provider="$VERIFIER_PROVIDER"
+          if [ "$provider" = "auto" ]; then
+            provider=""
+          fi
+
+          # Build args array
+          args=(--context-file "$context_file" --json)
+          if [ -n "$diff_file" ] && [ -f "$diff_file" ]; then
+            args+=(--diff-file "$diff_file")
+          fi
+          if [ -n "$model" ]; then
+            args+=(--model "$model")
+          fi
+          if [ -n "$provider" ] && [ "$provider" != "github-models" ]; then
+            args+=(--provider "$provider")
+          fi
+          agent_label="${{ steps.agent.outputs.agent_label || '' }}"
+          from_label="${{ steps.agent.outputs.from_label || '' }}"
+          args+=(--create-issue)
+          if [ -n "$agent_label" ]; then
+            args+=(--issue-label "$agent_label")
+          fi
+          if [ -n "$from_label" ]; then
+            args+=(--issue-label "$from_label")
+          fi
+          args+=(--issue-label verify:evaluate)
+
+          # Run evaluator (stderr to separate file to avoid corrupting JSON)
+          python .workflows-lib/scripts/langchain/pr_verifier.py "${args[@]}" \
+            > evaluation.json 2> evaluation-stderr.log || true
+
+          # Parse result
+          if [ -f evaluation.json ]; then
+          python3 - <<'PY' > evaluation-outputs.env 2>/dev/null || true
+          import json
+
+          try:
+            with open('evaluation.json', encoding='utf-8') as handle:
+              data = json.load(handle)
+          except Exception:
+            data = {}
+
+          print(f"verdict={data.get('verdict', 'CONCERNS')}")
+          print(f"trace_id={data.get('langsmith_trace_id', '')}")
+          print(f"trace_url={data.get('langsmith_trace_url', '')}")
+          PY
+
+            if [ -s evaluation-outputs.env ]; then
+              cat evaluation-outputs.env >> "$GITHUB_OUTPUT"
+              verdict="$(grep '^verdict=' evaluation-outputs.env | cut -d= -f2- || true)"
+              trace_id="$(grep '^trace_id=' evaluation-outputs.env | cut -d= -f2- || true)"
+              trace_url="$(grep '^trace_url=' evaluation-outputs.env | cut -d= -f2- || true)"
+            else
+              verdict="CONCERNS"
+              trace_id=""
+              trace_url=""
+            fi
+
+            echo "::debug::Evaluation verdict: $verdict"
+            if [ -n "$trace_id" ]; then
+              echo "::debug::LangSmith trace id: $trace_id"
+            fi
+
+            # Log trace URL for easy access from workflow logs
+            if [ -n "$trace_url" ]; then
+              echo "::notice title=LangSmith Trace::View trace: $trace_url"
+            fi
+
+            # Format output for comment
+            python3 - <<'PYFORMAT'
+          import json
+          import sys
+
+          try:
+              with open('evaluation.json') as f:
+                  data = json.load(f)
+
+              lines = ["## LLM Evaluation Report", ""]
+              lines.append(f"**Verdict:** {data.get('verdict', 'UNKNOWN')}")
+              lines.append("")
+
+              if data.get('summary'):
+                  lines.append(f"**Summary:** {data['summary']}")
+                  lines.append("")
+
+              scores = data.get('scores')
+              if scores:
+                  lines.append("### Scores")
+                  lines.append("| Criterion | Score |")
+                  lines.append("|-----------|-------|")
+                  for key in ['correctness', 'completeness', 'quality', 'testing', 'risks']:
+                      score = scores.get(key, 'N/A')
+                      lines.append(f"| {key.capitalize()} | {score}/10 |")
+                  lines.append("")
+
+              concerns = data.get('concerns', [])
+              if concerns:
+                  lines.append("### Concerns")
+                  for c in concerns:
+                      if c:
+                          lines.append(f"- {c}")
+                  lines.append("")
+
+              # Add LangSmith trace link if available
+              trace_url = data.get('langsmith_trace_url')
+              if trace_url:
+                  lines.append("### 🔍 LangSmith Trace")
+                  lines.append(f"[View detailed evaluation trace]({trace_url})")
+                  lines.append("")
+
+              if data.get('error'):
+                  lines.append(f"**Note:** {data['error']}")
+
+              with open('evaluation-comment.md', 'w') as f:
+                  f.write('\n'.join(lines))
+          except Exception as e:
+              with open('evaluation-comment.md', 'w') as f:
+                  f.write(f"## LLM Evaluation\n\nEvaluation encountered an error: {e}")
+          PYFORMAT
+
+            cat evaluation-comment.md
+          else
+            echo "verdict=CONCERNS" >> "$GITHUB_OUTPUT"
+            printf "%s\n" \
+              "## LLM Evaluation" \
+              "" \
+              "Evaluation could not run (missing output)." \
+              > evaluation-comment.md
+          fi
+
+      - name: Apply CI failure hard gate to LLM evaluation comment
+        if: >-
+          ${{
+            steps.context.outputs.should_run == 'true' &&
+            inputs.mode == 'evaluate' &&
+            steps.context.outputs.ci_failed == 'true' &&
+            (
+              steps.llm_evaluate.outputs.verdict == 'PASS' ||
+              steps.llm_evaluate.outputs.verdict == 'PASSED' ||
+              steps.llm_evaluate.outputs.verdict == 'pass' ||
+              steps.llm_evaluate.outputs.verdict == 'passed'
+            )
+          }}
+        run: |
+          set -euo pipefail
+          python3 - <<'PY'
+          import re
+          from pathlib import Path
+
+          path = Path('evaluation-comment.md')
+          text = path.read_text(encoding='utf-8') if path.exists() else '## LLM Evaluation Report\n'
+          banner = (
+              '> **CI failure hard gate:** CI concluded `failure` on the merge commit, '
+              'so the posted verifier verdict is floored to **CONCERNS** even though '
+              'the LLM evaluation returned PASS.\n\n'
+          )
+          text, count = re.subn(
+              r'^\*\*Verdict:\*\*.*$',
+              '**Verdict:** CONCERNS (CI failure hard gate)',
+              text,
+              count=1,
+              flags=re.MULTILINE,
+          )
+          if count == 0:
+              text = (
+                  '## LLM Evaluation Report\n\n'
+                  '**Verdict:** CONCERNS (CI failure hard gate)\n\n'
+                  + text
+              )
+          if '**CI failure hard gate:**' not in text:
+              text = text.replace('\n\n', '\n\n' + banner, 1)
+          path.write_text(text, encoding='utf-8')
+          PY
+
+      - name: Post LLM evaluation comment
+        if: >-
+          ${{
+            steps.context.outputs.should_run == 'true' &&
+            inputs.mode == 'evaluate' &&
+            steps.llm_evaluate.outcome == 'success'
+          }}
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          set -euo pipefail
+          pr_number="${{ steps.context.outputs.pr_number }}"
+          if [ -n "$pr_number" ] && [ -f "evaluation-comment.md" ]; then
+            gh pr comment "$pr_number" --body-file evaluation-comment.md || \
+              echo "Warning: Could not post comment"
+          fi
+
+
+      # === Multi-Provider Comparison Mode (when mode=compare) ===
+      - name: Setup Python for comparison
+        id: setup-python-compare
+        if: >-
+          ${{
+            steps.context.outputs.should_run == 'true' &&
+            inputs.mode == 'compare'
+          }}
+        uses: actions/setup-python@v7
+        with:
+          python-version: '3.14'
+
+      - name: Cache pip (LLM comparison requirements)
+        if: >-
+          ${{
+            steps.context.outputs.should_run == 'true' &&
+            inputs.mode == 'compare'
+          }}
+        uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6
+        with:
+          path: |
+            ~/.cache/pip
+          key: >-
+            ${{
+              format(
+                'pip-{0}-{1}-{2}',
+                runner.os,
+                steps.setup-python-compare.outputs.python-version,
+                hashFiles('.workflows-lib/tools/requirements-llm.txt')
+              )
+            }}
+          restore-keys: |
+            pip-${{ runner.os }}-${{ steps.setup-python-compare.outputs.python-version }}-
+            pip-${{ runner.os }}-
+
+      - name: Install comparison dependencies
+        if: >-
+          ${{
+            steps.context.outputs.should_run == 'true' &&
+            inputs.mode == 'compare'
+          }}
+        run: |
+          python -m pip install --upgrade pip
+          pip install -r .workflows-lib/tools/requirements-llm.txt
+
+      - name: Run multi-provider comparison
+        id: llm_compare
+        if: >-
+          ${{
+            steps.context.outputs.should_run == 'true' &&
+            inputs.mode == 'compare'
+          }}
+        continue-on-error: true
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          OPENAI_API_KEY: ${{ secrets.OPENAI_API_KEY }}
+          CLAUDE_API_STRANSKE: ${{ secrets.CLAUDE_API_STRANSKE }}
+          LANGSMITH_API_KEY: ${{ secrets.LANGSMITH_API_KEY }}
+          PYTHONPATH: .workflows-lib
+          CHAIN_DEPTH: ${{ steps.context.outputs.chain_depth || '0' }}
+          VERIFIER_CONTEXT_PATH: ${{ steps.context.outputs.context_path }}
+          VERIFIER_DIFF_PATH: ${{ steps.context.outputs.diff_path }}
+          VERIFIER_MODEL: ${{ inputs.model }}
+          VERIFIER_MODEL2: ${{ inputs.model2 }}
+        run: |
+          set -euo pipefail
+          context_file="$VERIFIER_CONTEXT_PATH"
+          # The summary is navigation, not proof of the changed code. Missing
+          # full-diff input must remain unavailable to the coverage floor.
+          diff_file="$VERIFIER_DIFF_PATH"
+
+          # Build args array
+          args=(--context-file "$context_file" --compare --json)
+          if [ -n "$diff_file" ] && [ -f "$diff_file" ]; then
+            args+=(--diff-file "$diff_file")
+          fi
+
+          # Add model parameters if provided
+          if [ -n "$VERIFIER_MODEL" ]; then
+            args+=(--model "$VERIFIER_MODEL")
+          fi
+          if [ -n "$VERIFIER_MODEL2" ]; then
+            args+=(--model2 "$VERIFIER_MODEL2")
+          fi
+
+          # Run comparison (stderr to separate file to avoid corrupting JSON)
+          python .workflows-lib/scripts/langchain/pr_verifier.py "${args[@]}" \
+            > comparison.json 2> comparison-stderr.log || true
+
+          # Display stderr if present (for debugging)
+          if [ -f comparison-stderr.log ] && [ -s comparison-stderr.log ]; then
+            echo "::group::Comparison stderr output"
+            cat comparison-stderr.log
+            echo "::endgroup::"
+          fi
+
+          # Parse result
+          if [ -f comparison.json ] && [ -s comparison.json ]; then
+          python3 - <<'PY' > verdict.txt 2>/dev/null || printf '%s' "CONCERNS" > verdict.txt
+          import json
+
+          try:
+            with open('comparison.json', encoding='utf-8') as handle:
+              data = json.load(handle)
+          except Exception:
+            data = {}
+
+          results = data.get('results', [])
+          usable = [r for r in results if r.get('used_llm') and r.get('verdict')]
+          verdicts = [r.get('verdict') for r in (usable if usable else results) if r.get('verdict')]
+          if verdicts and all(v == 'PASS' for v in verdicts):
+            print('PASS')
+          else:
+            print('CONCERNS')
+          PY
+
+            verdict="$(cat verdict.txt 2>/dev/null || echo CONCERNS)"
+            echo "verdict=$verdict" >> "$GITHUB_OUTPUT"
+
+          python3 - <<'PY' 2>/dev/null || true
+          import json
+
+          try:
+            with open('comparison.json', encoding='utf-8') as handle:
+              data = json.load(handle)
+          except Exception:
+            data = {}
+
+          results = data.get('results', [])
+          for idx, result in enumerate(results):
+            trace_url = result.get('langsmith_trace_url')
+            provider = result.get('provider', f'provider-{idx}')
+            if trace_url:
+              print(f"::notice title=LangSmith Trace ({provider})::View trace: {trace_url}")
+          PY
+
+          python3 - <<'PY' > has_results.txt 2>/dev/null || printf '%s' "false" > has_results.txt
+          import json
+
+          try:
+            with open('comparison.json', encoding='utf-8') as handle:
+              data = json.load(handle)
+          except Exception:
+            data = {}
+
+          results = data.get('results', [])
+          usable = any(r.get('used_llm') for r in results)
+          print('true' if usable else 'false')
+          PY
+
+            has_results="$(cat has_results.txt 2>/dev/null || echo false)"
+            echo "has_results=$has_results" >> "$GITHUB_OUTPUT"
+
+            if [ ! -f comparison-comment.md ]; then
+              python3 - <<'PY' > comparison-comment.md 2>/dev/null || \
+              printf '%s\n' \
+                "## Comparison Report" \
+                "" \
+                "No report generated." \
+                > comparison-comment.md
+          import json
+
+          try:
+            with open('comparison.json', encoding='utf-8') as handle:
+              data = json.load(handle)
+            report = data.get('report')
+          except Exception:
+            report = None
+
+          print(report or '## Comparison Report\n\nNo report generated.')
+          PY
+            fi
+
+            cat comparison-comment.md
+          else
+            echo "::warning::comparison.json is missing or empty"
+            if [ -f comparison-stderr.log ] && [ -s comparison-stderr.log ]; then
+              echo "::error::Comparison script failed. Check stderr output above."
+            fi
+            echo "verdict=CONCERNS" >> "$GITHUB_OUTPUT"
+            echo "has_results=false" >> "$GITHUB_OUTPUT"
+            printf "%s\n" \
+              "## Multi-Provider Comparison" \
+              "" \
+              "Comparison could not run (missing output)." \
+              > comparison-comment.md
+          fi
+
+      - name: Apply CI failure hard gate to comparison comment
+        if: >-
+          ${{
+            steps.context.outputs.should_run == 'true' &&
+            inputs.mode == 'compare' &&
+            steps.context.outputs.ci_failed == 'true' &&
+            (
+              steps.llm_compare.outputs.verdict == 'PASS' ||
+              steps.llm_compare.outputs.verdict == 'PASSED' ||
+              steps.llm_compare.outputs.verdict == 'pass' ||
+              steps.llm_compare.outputs.verdict == 'passed'
+            )
+          }}
+        run: |
+          set -euo pipefail
+          python3 - <<'PY'
+          from pathlib import Path
+
+          path = Path('comparison-comment.md')
+          text = (
+              path.read_text(encoding='utf-8')
+              if path.exists()
+              else '## Provider Comparison Report\n'
+          )
+          banner = (
+              '> **CI failure hard gate:** CI concluded `failure` on the merge commit. '
+              'Provider rows below are preserved for auditability, but the posted '
+              'verifier disposition is floored to **CONCERNS** and must not be '
+              'treated as PASS.\n\n'
+          )
+          if 'CI failure hard gate' not in text:
+              if '\n\n' in text:
+                  text = text.replace('\n\n', '\n\n' + banner, 1)
+              else:
+                  text += '\n\n' + banner
+          path.write_text(text, encoding='utf-8')
+          PY
+
+      - name: Post comparison report comment
+        if: >-
+          ${{
+            steps.context.outputs.should_run == 'true' &&
+            inputs.mode == 'compare' &&
+            steps.llm_compare.outputs.has_results == 'true'
+          }}
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          PR_NUMBER: ${{ steps.context.outputs.pr_number }}
+          PR_HEAD_SHA: ${{ steps.context.outputs.pr_head_sha }}
+          EVALUATED_SHA: ${{ steps.context.outputs.target_sha }}
+          CI_FAILED: ${{ steps.context.outputs.ci_failed }}
+        run: |
+          set -euo pipefail
+          verifier_pr="$PR_NUMBER"
+          if [ -n "$verifier_pr" ] && [ -f "comparison-comment.md" ]; then
+            python .workflows-lib/tools/verifier_corpus_evidence.py \
+              --comparison comparison.json --comment comparison-comment.md
+            gh pr comment "$verifier_pr" --body-file comparison-comment.md || \
+              echo "Warning: Could not post comment"
+          fi
+
+      - name: Upload comparison artifacts
+        if: >-
+          ${{
+            always() &&
+            steps.context.outputs.should_run == 'true' &&
+            inputs.mode == 'compare'
+          }}
+        uses: actions/upload-artifact@v7
+        with:
+          name: comparison-results-${{ github.run_id }}
+          path: |
+            comparison.json
+            comparison-stderr.log
+            comparison-comment.md
+            verifier-context.md
+            verifier-diff-summary.md
+            verifier-pr-diff.patch
+            verifier-input-manifest.json
+            verifier-capacity-checks.jsonl
+          if-no-files-found: ignore
+          retention-days: 7
+
+      - name: Upload evaluation capacity receipts
+        if: >-
+          ${{
+            always() &&
+            steps.context.outputs.should_run == 'true' &&
+            inputs.mode == 'evaluate'
+          }}
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7
+        with:
+          name: evaluation-capacity-${{ github.run_id }}
+          path: verifier-capacity-checks.jsonl
+          if-no-files-found: ignore
+          retention-days: 7
+
+      - name: Set unified verdict
+        id: unified_verdict
+        if: steps.context.outputs.should_run == 'true'
+        env:
+          VERIFIER_MODE: ${{ inputs.mode }}
+        run: |
+          # Combine verdicts from all modes
+          checkbox_verdict="${{ steps.verdict.outputs.verdict }}"
+          llm_verdict="${{ steps.llm_evaluate.outputs.verdict }}"
+          compare_verdict="${{ steps.llm_compare.outputs.verdict }}"
+
+          if [ "$VERIFIER_MODE" = "evaluate" ]; then
+            final_verdict="${llm_verdict:-unknown}"
+          elif [ "$VERIFIER_MODE" = "compare" ]; then
+            final_verdict="${compare_verdict:-unknown}"
+          else
+            final_verdict="${checkbox_verdict:-unknown}"
+          fi
+
+          # CI-failure hard gate (issue #2271): a CI workflow concluding
+          # `failure` on the merge commit disqualifies a PASS verdict. Floor
+          # the unified verdict at CONCERNS so a merge that breaks main can
+          # never verify PASS, regardless of the LLM's acceptance review.
+          ci_failed="${{ steps.context.outputs.ci_failed }}"
+          lc_verdict="$(printf '%s' "$final_verdict" | tr '[:upper:]' '[:lower:]')"
+          if [ "$ci_failed" = "true" ] && {
+            [ "$lc_verdict" = "pass" ] || [ "$lc_verdict" = "passed" ];
+          }; then
+            echo "::warning::CI concluded failure on the merge commit; " \
+              "overriding ${final_verdict} verdict to CONCERNS (issue #2271)."
+            final_verdict="concerns"
+          fi
+
+          echo "verdict=$final_verdict" >> "$GITHUB_OUTPUT"
+          echo "Final verdict: $final_verdict"
+
+      # DISABLED: Automatic follow-up issue creation
+      # Use verify:create-issue label on PRs with CONCERNS to manually create follow-up issues
+      - name: Open follow-up issue on verifier failure
+        id: failure_issue
+        # Disabled: use agents-verify-to-issue-v2.yml with verify:create-issue label instead
+        if: ${{ github.run_id == 0 }}
+        uses: actions/github-script@v9
+        env:
+          PR_URL: ${{ steps.context.outputs.pr_html_url }}
+          RUN_URL: >-
+            ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
+          ISSUE_NUMBERS_JSON: ${{ steps.context.outputs.issue_numbers || '[]' }}
+        with:
+          github-token: ${{ secrets.GITHUB_TOKEN }}
+          script: |
+            // # best-effort: this disabled legacy path cannot alter the active verifier disposition.
+            const fs = require('fs');
+            const retryHelperPath = './.workflows-lib/.github/scripts/github-api-with-retry.js';
+            const retryHelpers = fs.existsSync(retryHelperPath)
+              ? require(retryHelperPath)
+              : {
+                  withRetry: (fn) => fn(),
+                  paginateWithRetry: (githubInstance, method, params) =>
+                    githubInstance.paginate(method, params),
+                };
+            const { withRetry } = retryHelpers;
+            const {
+              formatFollowUpIssue,
+              formatSimpleFollowUpIssue,
+            } = require('./.workflows-lib/.github/scripts/verifier_issue_formatter.js');
+
+            const rawPrNumber = Number('${{ steps.context.outputs.pr_number }}');
+            const prNumber = !Number.isNaN(rawPrNumber) && rawPrNumber > 0 ? rawPrNumber : null;
+            const issueNumbers = JSON.parse(process.env.ISSUE_NUMBERS_JSON || '[]');
+            const verdict = '${{ steps.verdict.outputs.verdict }}';
+            const prUrl = process.env.PR_URL || '';
+            const runUrl = process.env.RUN_URL || '';
+
+            // Agent labels resolved in the 'agent' step; derive from agent_key
+            // when the label output is missing.
+            const agentKey = '${{ steps.agent.outputs.agent_key }}' || 'codex';
+            const agentLabel = '${{ steps.agent.outputs.agent_label }}' || `agent:${agentKey}`;
+            const fromLabel = '${{ steps.agent.outputs.from_label }}' || `from:${agentKey}`;
+
+            // Handle agent crash/error case
+            if (verdict === 'error') {
+              const title = prNumber
+                ? `[Verifier Error] PR #${prNumber} verification failed`
+                : '[Verifier Error] Verification failed';
+              const body = [
+                '## Verifier Error',
+                '',
+                'The verifier encountered an error while checking acceptance criteria.',
+                '',
+                `**PR:** ${prUrl || `#${prNumber}` || 'unknown'}`,
+                `**Run:** ${runUrl}`,
+                '',
+                'Please review the workflow run logs for details.',
+              ].join('\n');
+              const { data: issue } = await withRetry(() => github.rest.issues.create({
+                ...context.repo,
+                title,
+                body,
+                labels: [agentLabel, fromLabel, 'bug'],
+              }));
+              core.setOutput('issue_number', issue?.number ? String(issue.number) : '');
+              core.info(`Created error follow-up issue #${issue.number}: ${title}`);
+              return;
+            }
+
+            // Normal failure case - verifier ran but criteria weren't met
+            let verifierOutput = '';
+            try {
+              verifierOutput = fs.readFileSync('codex-output.md', 'utf8');
+            } catch (err) {
+              core.warning(`Could not read codex-output.md: ${err.message}`);
+              verifierOutput = '_Verifier output not available_';
+            }
+
+            let prBody = '';
+            if (prNumber) {
+              try {
+                const { data: pr } = await withRetry(() => github.rest.pulls.get({
+                  ...context.repo,
+                  pull_number: prNumber,
+                }));
+                prBody = pr.body || '';
+              } catch (err) {
+                core.warning(`Failed to fetch PR body: ${err.message}`);
+              }
+            }
+
+            const issues = [];
+            for (const issueNum of issueNumbers) {
+              try {
+                const { data: issue } = await withRetry(() => github.rest.issues.get({
+                  ...context.repo,
+                  issue_number: issueNum,
+                }));
+                issues.push({
+                  number: issue.number,
+                  title: issue.title || '',
+                  body: issue.body || '',
+                });
+              } catch (err) {
+                core.warning(`Failed to fetch issue #${issueNum}: ${err.message}`);
+              }
+            }
+
+            let result;
+            if (prBody || issues.length > 0) {
+              result = formatFollowUpIssue({
+                verifierOutput,
+                prBody,
+                issues,
+                prNumber,
+                prUrl,
+                runUrl,
+              });
+            } else {
+              result = formatSimpleFollowUpIssue({
+                verifierOutput,
+                prNumber,
+                prUrl,
+                issueNumbers,
+                runUrl,
+              });
+            }
+
+            // Skip issue creation if there's no substantive content
+            // (e.g., all sections are placeholder text or empty)
+            if (!result.hasSubstantiveContent) {
+              core.info(
+                [
+                  "Skipping issue creation: no substantive content to act on",
+                  "(all placeholder sections).",
+                ].join(' '),
+              );
+              core.setOutput('issue_number', '');
+              core.setOutput('skipped', 'true');
+              return;
+            }
+
+            const { data: issue } = await withRetry(() => github.rest.issues.create({
+              ...context.repo,
+              title: result.title,
+              body: result.body,
+              labels: [agentLabel, fromLabel],
+            }));
+            core.setOutput('issue_number', issue?.number ? String(issue.number) : '');
+            core.setOutput('skipped', 'false');
+            core.info(`Created follow-up issue #${issue.number}: ${result.title}`);
+
+      - name: Collect verifier metrics
+        if: always()
+        id: collect_metrics
+        env:
+          SHOULD_RUN: ${{ steps.context.outputs.should_run }}
+          PR_NUMBER: ${{ steps.context.outputs.pr_number }}
+          VERDICT: >-
+            ${{
+              steps.unified_verdict.outputs.verdict ||
+              steps.verdict.outputs.verdict ||
+              steps.llm_evaluate.outputs.verdict ||
+              steps.llm_compare.outputs.verdict
+            }}
+          CONTEXT_PATH: ${{ steps.context.outputs.context_path }}
+          ISSUE_NUMBER: ${{ steps.failure_issue.outputs.issue_number }}
+          SKIP_REASON: ${{ steps.context.outputs.skip_reason }}
+          CODEX_MODEL: ${{ steps.codex.outputs.model || steps.codex_model.outputs.model }}
+          CODEX_MODEL_SELECTION_REASON: >-
+            ${{ steps.codex.outputs.selection_reason ||
+                steps.codex_model.outputs.selection_reason }}
+          CODEX_CLI_VERSION: ${{ steps.codex_cli.outputs.version }}
+          VERIFIER_MODE: ${{ inputs.mode }}
+          CHAIN_DEPTH: ${{ steps.context.outputs.chain_depth || '0' }}
+        run: |
+          set -euo pipefail
+          python3 - <<'PY'
+          import json, os, re
+          from pathlib import Path
+          from datetime import datetime, timezone
+
+          def count_checkboxes(text):
+              return sum(1 for line in text.splitlines() if re.match(r"^\s*[-*]\s+\[[ xX]\]", line))
+
+          should_run = (os.environ.get("SHOULD_RUN") or "").lower() == "true"
+          pr_number = int(os.environ.get("PR_NUMBER") or 0)
+          verdict = os.environ.get("VERDICT") or "unknown"
+          context_path = Path(os.environ.get("CONTEXT_PATH") or "")
+          skip_reason = os.environ.get("SKIP_REASON") or ""
+          issue_number = os.environ.get("ISSUE_NUMBER") or ""
+          codex_model = os.environ.get("CODEX_MODEL") or ""
+          codex_model_selection_reason = os.environ.get("CODEX_MODEL_SELECTION_REASON") or ""
+          codex_cli_version = os.environ.get("CODEX_CLI_VERSION") or ""
+          verifier_mode = os.environ.get("VERIFIER_MODE") or ""
+          chain_depth = int(os.environ.get("CHAIN_DEPTH") or 0)
+
+          if not should_run:
+              verdict = "skipped"
+
+          issues_created = 1 if issue_number else 0
+          issue_numbers = [issue_number] if issue_number else []
+
+          acceptance_criteria_count = 0
+          if context_path.is_file():
+              acceptance_criteria_count = count_checkboxes(context_path.read_text(encoding="utf-8"))
+
+          checks_run = 0
+          codex_output = Path("codex-output.md")
+          if codex_output.is_file():
+              content = codex_output.read_text(encoding="utf-8")
+              # Count checkbox items (e.g., "- [x] ..." or "- [ ] ...") in verifier output
+              for line in content.splitlines():
+                  if re.match(r"^\s*[-*]\s+\[[ xX]\]", line):
+                      checks_run += 1
+
+          langsmith_traces = []
+          evaluation_json = Path("evaluation.json")
+          comparison_json = Path("comparison.json")
+          if evaluation_json.is_file():
+              try:
+                  data = json.loads(evaluation_json.read_text(encoding="utf-8"))
+              except json.JSONDecodeError:
+                  data = {}
+              trace_id = data.get("langsmith_trace_id")
+              trace_url = data.get("langsmith_trace_url")
+              if trace_id or trace_url:
+                  langsmith_traces.append(
+                      {
+                          "operation": "evaluation",
+                          "provider": data.get("provider") or "",
+                          "trace_id": trace_id or "",
+                          "trace_url": trace_url or "",
+                      }
+                  )
+          if comparison_json.is_file():
+              try:
+                  data = json.loads(comparison_json.read_text(encoding="utf-8"))
+              except json.JSONDecodeError:
+                  data = {}
+              for index, result in enumerate(data.get("results", [])):
+                  if not isinstance(result, dict):
+                      continue
+                  trace_id = result.get("langsmith_trace_id")
+                  trace_url = result.get("langsmith_trace_url")
+                  if trace_id or trace_url:
+                      langsmith_traces.append(
+                          {
+                              "operation": "comparison",
+                              "provider": result.get("provider") or f"provider-{index}",
+                              "trace_id": trace_id or "",
+                              "trace_url": trace_url or "",
+                          }
+                      )
+
+          metrics = {
+              "metric_type": "evaluation",
+              "pr_number": pr_number,
+              "verdict": verdict,
+              "issues_created": issues_created,
+              "issue_numbers": issue_numbers,
+              "acceptance_criteria_count": acceptance_criteria_count,
+              "checks_run": checks_run,
+              "skip_reason": skip_reason,
+              "codex_model": codex_model,
+              "codex_model_selection_reason": codex_model_selection_reason,
+              "codex_cli_version": codex_cli_version,
+              "verifier_mode": verifier_mode,
+              "chain_depth": chain_depth,
+              "recorded_at": datetime.now(timezone.utc).isoformat(),
+          }
+          if langsmith_traces:
+              metrics["langsmith_trace_id"] = langsmith_traces[0].get("trace_id", "")
+              metrics["langsmith_trace_url"] = langsmith_traces[0].get("trace_url", "")
+              metrics["langsmith_traces"] = langsmith_traces
+
+          print(json.dumps(metrics, indent=2))
+          with open(os.environ["GITHUB_OUTPUT"], "a") as fp:
+              fp.write(f"metrics_json={json.dumps(metrics)}\n")
+          PY
+
+      - name: Write verifier terminal disposition
+        if: always()
+        env:
+          METRICS_JSON: ${{ steps.collect_metrics.outputs.metrics_json }}
+          SOURCE_ISSUE_NUMBERS_JSON: ${{ steps.context.outputs.issue_numbers || '[]' }}
+          FOLLOWUP_ISSUE_NUMBER: ${{ steps.failure_issue.outputs.issue_number }}
+          SHOULD_RUN: ${{ steps.context.outputs.should_run }}
+          PR_NUMBER: ${{ steps.context.outputs.pr_number }}
+          PR_URL: ${{ steps.context.outputs.pr_html_url }}
+          SKIP_REASON: ${{ steps.context.outputs.skip_reason }}
+          CODEX_MODEL: ${{ steps.codex.outputs.model || steps.codex_model.outputs.model }}
+          CODEX_MODEL_SELECTION_REASON: >-
+            ${{ steps.codex.outputs.selection_reason ||
+                steps.codex_model.outputs.selection_reason }}
+          CODEX_CLI_VERSION: ${{ steps.codex_cli.outputs.version }}
+          VERIFIER_MODE: ${{ inputs.mode }}
+          CHAIN_DEPTH: ${{ steps.context.outputs.chain_depth || '0' }}
+          FINAL_VERDICT: >-
+            ${{
+              steps.unified_verdict.outputs.verdict ||
+              steps.verdict.outputs.verdict ||
+              steps.llm_evaluate.outputs.verdict ||
+              steps.llm_compare.outputs.verdict
+            }}
+        run: |
+          set -euo pipefail
+          mkdir -p agent-metrics
+          node <<'NODE'
+          const fs = require('fs');
+          const crypto = require('crypto');
+          const helperPath = './.workflows-lib/.github/scripts/terminal_disposition.js';
+          const fallback = {
+            normalizeTerminalDisposition: (value) => value,
+            normalizeVerifierFollowupLedger: (value) => value,
+            formatTerminalDispositionMarkdown: (records) =>
+              records
+                .map((record) => (
+                  `- ${record.source_type}:${record.source_id} ` +
+                  record.disposition
+                ))
+                .join('\n'),
+          };
+          const {
+            normalizeTerminalDisposition,
+            normalizeVerifierFollowupLedger,
+            formatTerminalDispositionMarkdown,
+          } = fs.existsSync(helperPath) ? require(helperPath) : fallback;
+
+          function parseJson(value, fallbackValue) {
+            try {
+              return JSON.parse(value || '');
+            } catch (_) {
+              return fallbackValue;
+            }
+          }
+
+          function normalizeVerdict(value) {
+            return String(value || '').trim().toLowerCase();
+          }
+
+          const metrics = parseJson(process.env.METRICS_JSON, {});
+          const sourceIssueNumbers = parseJson(process.env.SOURCE_ISSUE_NUMBERS_JSON, [])
+            .map((value) => Number.parseInt(String(value), 10))
+            .filter((value) => Number.isFinite(value) && value > 0);
+          const shouldRun = String(process.env.SHOULD_RUN || '').toLowerCase() === 'true';
+          const prNumber =
+            Number.parseInt(process.env.PR_NUMBER || metrics.pr_number || '0', 10) || null;
+          const verdict = normalizeVerdict(process.env.FINAL_VERDICT || metrics.verdict);
+          const followupIssueNumber =
+            Number.parseInt(process.env.FOLLOWUP_ISSUE_NUMBER || '', 10) || null;
+          const skipReason = process.env.SKIP_REASON || metrics.skip_reason || '';
+          const codexModel = process.env.CODEX_MODEL || metrics.codex_model || '';
+          const codexModelSelectionReason =
+            process.env.CODEX_MODEL_SELECTION_REASON || metrics.codex_model_selection_reason || '';
+          const codexCliVersion = process.env.CODEX_CLI_VERSION || metrics.codex_cli_version || '';
+          const verifierMode = process.env.VERIFIER_MODE || metrics.verifier_mode || '';
+          const chainDepth =
+            Number.parseInt(process.env.CHAIN_DEPTH || metrics.chain_depth || '0', 10) || 0;
+
+          let disposition = 'unknown';
+          let reason = 'Verifier terminal state captured for coverage monitoring.';
+          if (!shouldRun) {
+            disposition = 'skipped';
+            reason = skipReason || 'Verifier did not have an eligible source to evaluate.';
+          } else if (['pass', 'passed'].includes(verdict)) {
+            disposition = 'verified-pass';
+            reason = 'Verifier completed and reported a passing verdict.';
+          } else if (followupIssueNumber || Number(metrics.issues_created || 0) > 0) {
+            disposition = 'follow-up-created';
+            reason = 'Verifier reported concerns and created a follow-up issue.';
+          } else if (['fail', 'failed', 'concerns', 'error'].includes(verdict)) {
+            disposition = verdict === 'error' ? 'verifier-error' : 'needs-human';
+            reason = 'Verifier reported a non-passing verdict without creating a follow-up issue.';
+          }
+
+          let policyAction = 'skip-follow-up';
+          let policyTrigger = 'verifier-policy';
+          if (['pass', 'passed'].includes(verdict)) {
+            policyAction = 'no-op';
+            policyTrigger = 'verifier-pass';
+          } else if (followupIssueNumber || Number(metrics.issues_created || 0) > 0) {
+            policyAction = 'create-follow-up';
+            policyTrigger = 'verifier-concerns';
+          } else if (disposition === 'needs-human' || disposition === 'verifier-error') {
+            policyAction = 'needs-human';
+            policyTrigger = disposition === 'verifier-error'
+              ? 'verifier-error'
+              : 'verifier-concerns';
+          } else if (!shouldRun) {
+            policyTrigger = 'verifier-skipped';
+          }
+
+          const sourceTargets = sourceIssueNumbers.length
+            ? sourceIssueNumbers.map((issueNumber) => ({
+                source_type: 'source-issue',
+                source_id: issueNumber,
+                issue_number: issueNumber,
+              }))
+            : [{
+                source_type: 'pull-request',
+                source_id: prNumber || process.env.GITHUB_RUN_ID || 'unknown',
+              }];
+
+          const records = sourceTargets.map((source) => normalizeTerminalDisposition({
+            ...source,
+            pr_number: prNumber,
+            disposition,
+            verdict: verdict || metrics.verdict || 'unknown',
+            reason,
+            workflow: process.env.GITHUB_WORKFLOW || '',
+            run_id: process.env.GITHUB_RUN_ID || '',
+            run_attempt: process.env.GITHUB_RUN_ATTEMPT || '',
+            artifact_name: `verifier-terminal-disposition-${process.env.GITHUB_RUN_ID || ''}`,
+            artifact_family: 'verifier-terminal-disposition',
+            actor: process.env.GITHUB_ACTOR || '',
+            comment_url: process.env.PR_URL || '',
+            followup_issue_number: followupIssueNumber || undefined,
+            needs_human: disposition === 'needs-human' || disposition === 'verifier-error',
+            dispatch_outcome: shouldRun ? 'verifier-ran' : 'verifier-skipped',
+            llm_model: codexModel || undefined,
+            model_selection_reason: codexModelSelectionReason || undefined,
+            llm_cli_version: codexCliVersion || undefined,
+            verifier_mode: verifierMode || undefined,
+          }));
+
+          fs.writeFileSync(
+            'agent-metrics/verifier-terminal-disposition.ndjson',
+            `${records.map((record) => JSON.stringify(record)).join('\n')}\n`
+          );
+
+          const concernInputs = [
+            'codex-output.md',
+            'evaluation.json',
+            'comparison.json',
+            'comparison-comment.md',
+          ]
+            .filter((file) => fs.existsSync(file))
+            .map((file) => fs.readFileSync(file, 'utf8'))
+            .filter((value) => value.trim());
+          const concernsHash = concernInputs.length
+            ? crypto.createHash('sha256').update(concernInputs.join('\n---\n')).digest('hex')
+            : '';
+          const ledgerRecord = normalizeVerifierFollowupLedger({
+            pr_number: prNumber,
+            verification_run_id: process.env.GITHUB_RUN_ID || '',
+            verification_run_attempt: process.env.GITHUB_RUN_ATTEMPT || '',
+            verdict: verdict || metrics.verdict || 'unknown',
+            terminal_state: disposition,
+            concerns_hash: concernsHash || undefined,
+            followup_issue_number: followupIssueNumber || undefined,
+            source_issue_numbers: sourceIssueNumbers,
+            chain_depth: chainDepth,
+            followup_policy: {
+              action: policyAction,
+              trigger: policyTrigger,
+              reason,
+              chain_depth: chainDepth,
+              next_chain_depth: policyAction === 'create-follow-up' ? chainDepth + 1 : undefined,
+              depth_limit_exceeded: false,
+            },
+            workflow: process.env.GITHUB_WORKFLOW || '',
+            actor: process.env.GITHUB_ACTOR || '',
+            terminal_disposition_artifact:
+              `verifier-terminal-disposition-${process.env.GITHUB_RUN_ID || ''}`,
+            dispatch_outcome: shouldRun ? 'verifier-ran' : 'verifier-skipped',
+            needs_human: disposition === 'needs-human' || disposition === 'verifier-error',
+          });
+          fs.writeFileSync(
+            'agent-metrics/verifier-followup-ledger.ndjson',
+            `${JSON.stringify(ledgerRecord)}\n`
+          );
+          fs.writeFileSync(
+            'terminal-disposition-summary.md',
+            `${formatTerminalDispositionMarkdown(records)}\n`
+          );
+          NODE
+
+      - name: Post verifier terminal disposition summary
+        if: always()
+        run: |
+          if [ -f terminal-disposition-summary.md ]; then
+            {
+              echo "## Verifier Terminal Disposition"
+              cat terminal-disposition-summary.md
+            } >> "$GITHUB_STEP_SUMMARY"
+          fi
+
+      - name: Upload verifier terminal disposition
+        if: always()
+        uses: actions/upload-artifact@v7
+        with:
+          name: verifier-terminal-disposition-${{ github.run_id }}
+          path: |
+            agent-metrics/verifier-terminal-disposition.ndjson
+            agent-metrics/verifier-followup-ledger.ndjson
+            terminal-disposition-summary.md
+          if-no-files-found: error
+          retention-days: 14
+
+      - name: Write verifier summary
+        if: always()
+        env:
+          METRICS_JSON: ${{ steps.collect_metrics.outputs.metrics_json }}
+        run: |
+          set -euo pipefail
+          if [ -z "${METRICS_JSON:-}" ]; then
+            echo "No verifier metrics captured."
+            exit 0
+          fi
+          python3 - <<'PY'
+          import json, os
+          metrics = json.loads(os.environ["METRICS_JSON"])
+          lines = ["## Verifier metrics", "", "| Field | Value |", "| --- | --- |"]
+          keys = [
+            "pr_number",
+            "verdict",
+            "issues_created",
+            "acceptance_criteria_count",
+            "checks_run",
+            "skip_reason",
+            "codex_model",
+            "codex_model_selection_reason",
+            "verifier_mode",
+            "chain_depth",
+          ]
+          for key in keys:
+            lines.append(f"| {key} | `{metrics.get(key, '')}` |")
+
+          summary_path = os.environ.get("GITHUB_STEP_SUMMARY")
+          if summary_path:
+              with open(summary_path, "a") as fp:
+                  fp.write("\n".join(lines) + "\n")
+
+          with open("verifier-metrics.ndjson", "a") as fp:
+              fp.write(json.dumps(metrics) + "\n")
+          PY
+
+      - name: Upload verifier metrics
+        if: always()
+        uses: actions/upload-artifact@v7
+        with:
+          name: agents-verifier-metrics
+          path: verifier-metrics.ndjson
+          retention-days: 30

@@ -1,0 +1,19 @@
+{
+  "contract-candidate.log": "e5140b4c089ee289ee4815f95ec8d89ebddefc22d9e08ddecd58ce1c01b1657f",
+  "contract-candidate.xml": "bca07d55e6f576b0d7ebb5da4305b5375d6666dccb10c270739df0d2c8df16bf",
+  "contract-restored.log": "6e523ebc605cb22e07527e5056d623163965ea5e4c810d7ba453e4deddaa3f30",
+  "contract-restored.xml": "2b52b84f970796defac6c9668b914c217292d7c33886cfb778175d5defca14ba",
+  "contract-mutation.json": "cd10e391965cd6d638e0eb93bbaac85b5eb2e7b41a223dc7bdbcdc0ab33cb60f",
+  "contract-related.log": "e30c81cec1c1f4d9aad4cf37f36acbf00bf3daf24ba22248a3317b7bd222985a",
+  "contract-related.xml": "16d00b2efff24efc89aad4d9fcbd7874ca4002a592c6c6d28629a2f35fdcc118",
+  "actual-reassembly-contract.json": "4f3559aa581a58c587e3b839702e09b6198dbb1ff8c6c1b61411e1ea8dcd5218",
+  "actual-contract-replay.json": "c7c9cff5ab0c4a83c6fc27fd62379ce5ae86e0ac803751d141789730ed21ac13",
+  "black.log": "76b1c82590e3796153021b04a7e3778b34c6365801f480b4645a1d3521f08312",
+  "raw-red-evidence.tar.gz": "adc13970c8d441fd97455b22359069f9f77a4b6af1cf47d3b9b86b7105a9d05d",
+  "archived_members_sha256": {
+    "contract-original.log": "a3050a6188a861d83224aaf1743055ce25fccc22e8096f19a790e019208c169e",
+    "contract-original.xml": "808d39c1d1bca92accd5971fa6687a4a4a9dbf4290336839384094058836628e",
+    "contract-mutant.log": "6fd5e8da3e409a3e1d34466f6fef7bedf1cd21805be7f51c95b4187882aabeba",
+    "contract-mutant.xml": "ebd9aff37ebc91198c127ede6f98e28e45b0531896a283ab69b126d6b3ca4767"
+  }
+}

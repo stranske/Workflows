@@ -1,0 +1,15 @@
+........................................................................ [ 52%]
+...............................................................F.        [100%]
+=================================== FAILURES ===================================
+__________ test_workflow_inventory_names_current_expanded_fingerprint __________
+
+    def test_workflow_inventory_names_current_expanded_fingerprint():
+        inventory = Path("docs/ci/WORKFLOWS.md").read_text()
+        workflow = Path(".github/workflows/reusable-agents-verifier.yml").read_text()
+>       assert "`bounded-native-capacity-v9`" in inventory
+E       AssertionError: assert '`bounded-native-capacity-v9`' in '# CI Workflow Layout\n\nThis page captures the target layout for the automation that protects pull requests, heals sm...s. Staging-only PRs do not change\napproval metrics. See `docs/MODEL_SELECTION_POLICY.md` for the evidence contract.\n'
+
+tests/workflows/test_verifier_evidence_profile.py:465: AssertionError
+=========================== short test summary info ============================
+FAILED tests/workflows/test_verifier_evidence_profile.py::test_workflow_inventory_names_current_expanded_fingerprint
+1 failed, 136 passed in 60.23s (0:01:00)

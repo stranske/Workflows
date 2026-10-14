@@ -1,0 +1,764 @@
+FFFFF...............FF..FFFFFF.                                          [100%]
+=================================== FAILURES ===================================
+___________ test_invalid_utf8_context_emits_fail_without_evaluation ____________
+
+tmp_path = PosixPath('/private/var/folders/qm/w0dtc0j132gd6ymf1hxtd2p00000gp/T/pytest-of-teacher/pytest-273/test_invalid_utf8_context_emit0')
+monkeypatch = <_pytest.monkeypatch.MonkeyPatch object at 0x108f05ca0>
+capsys = <_pytest.capture.CaptureFixture object at 0x108f05730>
+
+    def test_invalid_utf8_context_emits_fail_without_evaluation(tmp_path, monkeypatch, capsys) -> None:
+        context = tmp_path / "context.md"
+        context.write_bytes(b"\xff\xfe")
+        monkeypatch.setattr(
+            pr_verifier,
+            "evaluate_pr",
+            lambda *a, **k: (_ for _ in ()).throw(AssertionError("evaluate_pr must not run")),
+        )
+        _argv(monkeypatch, tmp_path, context)
+>       pr_verifier.main()
+
+tests/scripts/test_pr_verifier_capture_obligation_failure.py:28: 
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
+scripts/langchain/pr_verifier.py:5838: in main
+    context = _load_text(args.context_file)
+              ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+scripts/langchain/pr_verifier.py:5790: in _load_text
+    return Path(path).read_text(encoding="utf-8")
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+/opt/anaconda3/lib/python3.12/pathlib.py:1028: in read_text
+    return f.read()
+           ^^^^^^^^
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
+
+self = <encodings.utf_8.IncrementalDecoder object at 0x108f2f410>
+input = b'\xff\xfe', final = True
+
+>   ???
+E   UnicodeDecodeError: 'utf-8' codec can't decode byte 0xff in position 0: invalid start byte
+
+<frozen codecs>:322: UnicodeDecodeError
+_____________ test_corrupt_snapshot_emits_fail_without_evaluation ______________
+
+tmp_path = PosixPath('/private/var/folders/qm/w0dtc0j132gd6ymf1hxtd2p00000gp/T/pytest-of-teacher/pytest-273/test_corrupt_snapshot_emits_fa0')
+monkeypatch = <_pytest.monkeypatch.MonkeyPatch object at 0x108f3b0b0>
+capsys = <_pytest.capture.CaptureFixture object at 0x108f3a420>
+
+    def test_corrupt_snapshot_emits_fail_without_evaluation(tmp_path, monkeypatch, capsys) -> None:
+        context = tmp_path / "context.md"
+        context.write_text("Pull request: [#7](https://x/pull/7)\n", encoding="utf-8")
+        (tmp_path / "verifier-input-manifest.json").write_text("{not-json", encoding="utf-8")
+        monkeypatch.setattr(
+            pr_verifier,
+            "evaluate_pr",
+            lambda *a, **k: (_ for _ in ()).throw(AssertionError("evaluate_pr must not run")),
+        )
+        _argv(monkeypatch, tmp_path, context)
+>       pr_verifier.main()
+
+tests/scripts/test_pr_verifier_capture_obligation_failure.py:44: 
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
+scripts/langchain/pr_verifier.py:5839: in main
+    record_capture_obligations(context_path, context_text=context)
+tools/verifier_capture_obligation_manifest.py:239: in record_capture_obligations
+    snapshot = json.loads(
+/opt/anaconda3/lib/python3.12/json/__init__.py:359: in loads
+    return cls(**kw).decode(s)
+           ^^^^^^^^^^^^^^^^^^^
+/opt/anaconda3/lib/python3.12/json/decoder.py:337: in decode
+    obj, end = self.raw_decode(s, idx=_w(s, 0).end())
+               ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
+
+self = <json.decoder.JSONDecoder object at 0x108f3a0f0>, s = '{not-json'
+idx = 0
+
+    def raw_decode(self, s, idx=0):
+        """Decode a JSON document from ``s`` (a ``str`` beginning with
+        a JSON document) and return a 2-tuple of the Python
+        representation and the index in ``s`` where the document ended.
+    
+        This can be used to decode a JSON document from a string that may
+        have extraneous data at the end.
+    
+        """
+        try:
+>           obj, end = self.scan_once(s, idx)
+                       ^^^^^^^^^^^^^^^^^^^^^^
+E           json.decoder.JSONDecodeError: Expecting property name enclosed in double quotes: line 1 column 2 (char 1)
+
+/opt/anaconda3/lib/python3.12/json/decoder.py:353: JSONDecodeError
+___ test_capture_failure_compare_mode_skips_provider_evaluation[extra_args0] ___
+
+tmp_path = PosixPath('/private/var/folders/qm/w0dtc0j132gd6ymf1hxtd2p00000gp/T/pytest-of-teacher/pytest-273/test_capture_failure_compare_m0')
+monkeypatch = <_pytest.monkeypatch.MonkeyPatch object at 0x108f3bdd0>
+capsys = <_pytest.capture.CaptureFixture object at 0x108f3b8f0>, extra_args = []
+
+    @pytest.mark.parametrize("extra_args", [[], ["--compare"]])
+    def test_capture_failure_compare_mode_skips_provider_evaluation(
+        tmp_path, monkeypatch, capsys, extra_args: list[str]
+    ) -> None:
+        context = tmp_path / "context.md"
+        context.write_bytes(b"\xff\xfe")
+        monkeypatch.setattr(
+            pr_verifier,
+            "evaluate_pr",
+            lambda *a, **k: (_ for _ in ()).throw(AssertionError("evaluate_pr must not run")),
+        )
+        monkeypatch.setattr(
+            pr_verifier,
+            "evaluate_pr_multiple",
+            lambda *a, **k: (_ for _ in ()).throw(AssertionError("evaluate_pr_multiple must not run")),
+        )
+        _argv(monkeypatch, tmp_path, context, *extra_args)
+>       pr_verifier.main()
+
+tests/scripts/test_pr_verifier_capture_obligation_failure.py:66: 
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
+scripts/langchain/pr_verifier.py:5838: in main
+    context = _load_text(args.context_file)
+              ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+scripts/langchain/pr_verifier.py:5790: in _load_text
+    return Path(path).read_text(encoding="utf-8")
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+/opt/anaconda3/lib/python3.12/pathlib.py:1028: in read_text
+    return f.read()
+           ^^^^^^^^
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
+
+self = <encodings.utf_8.IncrementalDecoder object at 0x108f3bda0>
+input = b'\xff\xfe', final = True
+
+>   ???
+E   UnicodeDecodeError: 'utf-8' codec can't decode byte 0xff in position 0: invalid start byte
+
+<frozen codecs>:322: UnicodeDecodeError
+___ test_capture_failure_compare_mode_skips_provider_evaluation[extra_args1] ___
+
+tmp_path = PosixPath('/private/var/folders/qm/w0dtc0j132gd6ymf1hxtd2p00000gp/T/pytest-of-teacher/pytest-273/test_capture_failure_compare_m1')
+monkeypatch = <_pytest.monkeypatch.MonkeyPatch object at 0x108dd8860>
+capsys = <_pytest.capture.CaptureFixture object at 0x108dd8980>
+extra_args = ['--compare']
+
+    @pytest.mark.parametrize("extra_args", [[], ["--compare"]])
+    def test_capture_failure_compare_mode_skips_provider_evaluation(
+        tmp_path, monkeypatch, capsys, extra_args: list[str]
+    ) -> None:
+        context = tmp_path / "context.md"
+        context.write_bytes(b"\xff\xfe")
+        monkeypatch.setattr(
+            pr_verifier,
+            "evaluate_pr",
+            lambda *a, **k: (_ for _ in ()).throw(AssertionError("evaluate_pr must not run")),
+        )
+        monkeypatch.setattr(
+            pr_verifier,
+            "evaluate_pr_multiple",
+            lambda *a, **k: (_ for _ in ()).throw(AssertionError("evaluate_pr_multiple must not run")),
+        )
+        _argv(monkeypatch, tmp_path, context, *extra_args)
+>       pr_verifier.main()
+
+tests/scripts/test_pr_verifier_capture_obligation_failure.py:66: 
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
+scripts/langchain/pr_verifier.py:5838: in main
+    context = _load_text(args.context_file)
+              ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+scripts/langchain/pr_verifier.py:5790: in _load_text
+    return Path(path).read_text(encoding="utf-8")
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+/opt/anaconda3/lib/python3.12/pathlib.py:1028: in read_text
+    return f.read()
+           ^^^^^^^^
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
+
+self = <encodings.utf_8.IncrementalDecoder object at 0x108dd96a0>
+input = b'\xff\xfe', final = True
+
+>   ???
+E   UnicodeDecodeError: 'utf-8' codec can't decode byte 0xff in position 0: invalid start byte
+
+<frozen codecs>:322: UnicodeDecodeError
+______________________ test_capture_failure_json_payload _______________________
+
+tmp_path = PosixPath('/private/var/folders/qm/w0dtc0j132gd6ymf1hxtd2p00000gp/T/pytest-of-teacher/pytest-273/test_capture_failure_json_payl0')
+monkeypatch = <_pytest.monkeypatch.MonkeyPatch object at 0x108ddb050>
+capsys = <_pytest.capture.CaptureFixture object at 0x108ddac60>
+
+    def test_capture_failure_json_payload(tmp_path, monkeypatch, capsys) -> None:
+        context = tmp_path / "context.md"
+        context.write_bytes(b"\xff\xfe")
+        monkeypatch.setattr(
+            pr_verifier,
+            "evaluate_pr",
+            lambda *a, **k: (_ for _ in ()).throw(AssertionError("evaluate_pr must not run")),
+        )
+        _argv(monkeypatch, tmp_path, context, "--json")
+>       pr_verifier.main()
+
+tests/scripts/test_pr_verifier_capture_obligation_failure.py:84: 
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
+scripts/langchain/pr_verifier.py:5838: in main
+    context = _load_text(args.context_file)
+              ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+scripts/langchain/pr_verifier.py:5790: in _load_text
+    return Path(path).read_text(encoding="utf-8")
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+/opt/anaconda3/lib/python3.12/pathlib.py:1028: in read_text
+    return f.read()
+           ^^^^^^^^
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
+
+self = <encodings.utf_8.IncrementalDecoder object at 0x108dda510>
+input = b'\xff\xfe', final = True
+
+>   ???
+E   UnicodeDecodeError: 'utf-8' codec can't decode byte 0xff in position 0: invalid start byte
+
+<frozen codecs>:322: UnicodeDecodeError
+______ test_snapshot_identity_mismatch_blocks_without_overwriting[False] _______
+
+tmp_path = PosixPath('/private/var/folders/qm/w0dtc0j132gd6ymf1hxtd2p00000gp/T/pytest-of-teacher/pytest-273/test_snapshot_identity_mismatc0')
+monkeypatch = <_pytest.monkeypatch.MonkeyPatch object at 0x114bbf470>
+capsys = <_pytest.capture.CaptureFixture object at 0x114bbe960>, compare = False
+
+    @pytest.mark.parametrize("compare", [False, True])
+    def test_snapshot_identity_mismatch_blocks_without_overwriting(
+        tmp_path, monkeypatch, capsys, compare
+    ):
+        context, snapshot, _ = _captured_snapshot(tmp_path)
+        context.write_text(context.read_text() + "changed after capture\n")
+        original = snapshot.read_bytes()
+        evaluate = mock.Mock()
+        monkeypatch.setattr(pr_verifier, "evaluate_pr", evaluate)
+        monkeypatch.setattr(pr_verifier, "evaluate_pr_multiple", evaluate)
+        monkeypatch.setattr(
+            sys,
+            "argv",
+            ["verifier", "--context-file", str(context), "--json"] + (["--compare"] if compare else []),
+        )
+>       pr_verifier.main()
+
+tests/scripts/test_verifier_capture_integration.py:146: 
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
+scripts/langchain/pr_verifier.py:5839: in main
+    record_capture_obligations(context_path, context_text=context)
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
+
+context_path = PosixPath('/private/var/folders/qm/w0dtc0j132gd6ymf1hxtd2p00000gp/T/pytest-of-teacher/pytest-273/test_snapshot_identity_mismatc0/verifier-context.md')
+context_text = '# Verifier context\n\n## Context source coverage\n\n```json\n{"schema": "verifier-context-source-coverage/v1", "stage...l)\n\n```diff\ndiff --git a/a.py b/a.py\n--- a/a.py\n+++ b/a.py\n@@ -1 +1 @@\n-old\n+new\n```\nchanged after capture\n'
+
+    def record_capture_obligations(
+        context_path: Path, *, context_text: str | None = None
+    ) -> dict[str, Any]:
+        """Enrich a local input snapshot without rewriting any captured source bytes.
+    
+        Existing snapshots must bind the exact context. Never repair a stale identity
+        or replace an already recorded, conflicting inventory. A standalone manifest
+        is also emitted for evaluate runs that do not create comparison snapshots.
+        """
+        context_bytes = context_path.read_bytes()
+        captured_text = context_bytes.decode("utf-8")
+        # Path.read_text normalizes line endings. Compare that same view to the
+        # already loaded evaluation input, while binding snapshots to raw bytes.
+        if context_text is not None and context_text != captured_text.replace("\r\n", "\n").replace(
+            "\r", "\n"
+        ):
+            raise ValueError("loaded context changed before snapshot recording")
+        manifest = build_capture_obligation_manifest(captured_text)
+        snapshot_path = context_path.with_name("verifier-input-manifest.json")
+        if snapshot_path.exists():
+            snapshot = json.loads(
+                snapshot_path.read_text(encoding="utf-8"), object_pairs_hook=_unique_object
+            )
+            if (
+                not isinstance(snapshot, dict)
+                or snapshot.get("schema") != "workflows-verifier-input-snapshot/v1"
+                or snapshot.get("context_sha256") != hashlib.sha256(context_bytes).hexdigest()
+            ):
+>               raise ValueError("context does not match the verifier input snapshot")
+E               ValueError: context does not match the verifier input snapshot
+
+tools/verifier_capture_obligation_manifest.py:247: ValueError
+_______ test_snapshot_identity_mismatch_blocks_without_overwriting[True] _______
+
+tmp_path = PosixPath('/private/var/folders/qm/w0dtc0j132gd6ymf1hxtd2p00000gp/T/pytest-of-teacher/pytest-273/test_snapshot_identity_mismatc1')
+monkeypatch = <_pytest.monkeypatch.MonkeyPatch object at 0x114d88ef0>
+capsys = <_pytest.capture.CaptureFixture object at 0x114d8b410>, compare = True
+
+    @pytest.mark.parametrize("compare", [False, True])
+    def test_snapshot_identity_mismatch_blocks_without_overwriting(
+        tmp_path, monkeypatch, capsys, compare
+    ):
+        context, snapshot, _ = _captured_snapshot(tmp_path)
+        context.write_text(context.read_text() + "changed after capture\n")
+        original = snapshot.read_bytes()
+        evaluate = mock.Mock()
+        monkeypatch.setattr(pr_verifier, "evaluate_pr", evaluate)
+        monkeypatch.setattr(pr_verifier, "evaluate_pr_multiple", evaluate)
+        monkeypatch.setattr(
+            sys,
+            "argv",
+            ["verifier", "--context-file", str(context), "--json"] + (["--compare"] if compare else []),
+        )
+>       pr_verifier.main()
+
+tests/scripts/test_verifier_capture_integration.py:146: 
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
+scripts/langchain/pr_verifier.py:5839: in main
+    record_capture_obligations(context_path, context_text=context)
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
+
+context_path = PosixPath('/private/var/folders/qm/w0dtc0j132gd6ymf1hxtd2p00000gp/T/pytest-of-teacher/pytest-273/test_snapshot_identity_mismatc1/verifier-context.md')
+context_text = '# Verifier context\n\n## Context source coverage\n\n```json\n{"schema": "verifier-context-source-coverage/v1", "stage...l)\n\n```diff\ndiff --git a/a.py b/a.py\n--- a/a.py\n+++ b/a.py\n@@ -1 +1 @@\n-old\n+new\n```\nchanged after capture\n'
+
+    def record_capture_obligations(
+        context_path: Path, *, context_text: str | None = None
+    ) -> dict[str, Any]:
+        """Enrich a local input snapshot without rewriting any captured source bytes.
+    
+        Existing snapshots must bind the exact context. Never repair a stale identity
+        or replace an already recorded, conflicting inventory. A standalone manifest
+        is also emitted for evaluate runs that do not create comparison snapshots.
+        """
+        context_bytes = context_path.read_bytes()
+        captured_text = context_bytes.decode("utf-8")
+        # Path.read_text normalizes line endings. Compare that same view to the
+        # already loaded evaluation input, while binding snapshots to raw bytes.
+        if context_text is not None and context_text != captured_text.replace("\r\n", "\n").replace(
+            "\r", "\n"
+        ):
+            raise ValueError("loaded context changed before snapshot recording")
+        manifest = build_capture_obligation_manifest(captured_text)
+        snapshot_path = context_path.with_name("verifier-input-manifest.json")
+        if snapshot_path.exists():
+            snapshot = json.loads(
+                snapshot_path.read_text(encoding="utf-8"), object_pairs_hook=_unique_object
+            )
+            if (
+                not isinstance(snapshot, dict)
+                or snapshot.get("schema") != "workflows-verifier-input-snapshot/v1"
+                or snapshot.get("context_sha256") != hashlib.sha256(context_bytes).hexdigest()
+            ):
+>               raise ValueError("context does not match the verifier input snapshot")
+E               ValueError: context does not match the verifier input snapshot
+
+tools/verifier_capture_obligation_manifest.py:247: ValueError
+______ test_ambiguous_snapshot_blocks_without_repair[False-wrong-schema] _______
+
+tmp_path = PosixPath('/private/var/folders/qm/w0dtc0j132gd6ymf1hxtd2p00000gp/T/pytest-of-teacher/pytest-273/test_ambiguous_snapshot_blocks0')
+monkeypatch = <_pytest.monkeypatch.MonkeyPatch object at 0x114d8ba70>
+capsys = <_pytest.capture.CaptureFixture object at 0x114d8a6c0>
+defect = 'wrong-schema', compare = False
+
+    @pytest.mark.parametrize("defect", ["wrong-schema", "duplicate-key", "conflicting-obligations"])
+    @pytest.mark.parametrize("compare", [False, True])
+    def test_ambiguous_snapshot_blocks_without_repair(tmp_path, monkeypatch, capsys, defect, compare):
+        context, snapshot, metadata = _captured_snapshot(tmp_path)
+        if defect == "wrong-schema":
+            metadata["schema"] = "unknown/v2"
+            snapshot.write_text(json.dumps(metadata))
+        elif defect == "conflicting-obligations":
+            metadata["capture_obligations"] = {"sufficient": True}
+            snapshot.write_text(json.dumps(metadata))
+        else:
+            snapshot.write_text(snapshot.read_text()[:-1] + ', "schema": "unknown/v2"}')
+        original = snapshot.read_bytes()
+        evaluate = mock.Mock()
+        monkeypatch.setattr(pr_verifier, "evaluate_pr", evaluate)
+        monkeypatch.setattr(pr_verifier, "evaluate_pr_multiple", evaluate)
+        monkeypatch.setattr(
+            sys,
+            "argv",
+            ["verifier", "--context-file", str(context), "--json"] + (["--compare"] if compare else []),
+        )
+>       pr_verifier.main()
+
+tests/scripts/test_verifier_capture_integration.py:215: 
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
+scripts/langchain/pr_verifier.py:5839: in main
+    record_capture_obligations(context_path, context_text=context)
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
+
+context_path = PosixPath('/private/var/folders/qm/w0dtc0j132gd6ymf1hxtd2p00000gp/T/pytest-of-teacher/pytest-273/test_ambiguous_snapshot_blocks0/verifier-context.md')
+context_text = '# Verifier context\n\n## Context source coverage\n\n```json\n{"schema": "verifier-context-source-coverage/v1", "stage.../-1)\n\n## PR Diff (full)\n\n```diff\ndiff --git a/a.py b/a.py\n--- a/a.py\n+++ b/a.py\n@@ -1 +1 @@\n-old\n+new\n```\n'
+
+    def record_capture_obligations(
+        context_path: Path, *, context_text: str | None = None
+    ) -> dict[str, Any]:
+        """Enrich a local input snapshot without rewriting any captured source bytes.
+    
+        Existing snapshots must bind the exact context. Never repair a stale identity
+        or replace an already recorded, conflicting inventory. A standalone manifest
+        is also emitted for evaluate runs that do not create comparison snapshots.
+        """
+        context_bytes = context_path.read_bytes()
+        captured_text = context_bytes.decode("utf-8")
+        # Path.read_text normalizes line endings. Compare that same view to the
+        # already loaded evaluation input, while binding snapshots to raw bytes.
+        if context_text is not None and context_text != captured_text.replace("\r\n", "\n").replace(
+            "\r", "\n"
+        ):
+            raise ValueError("loaded context changed before snapshot recording")
+        manifest = build_capture_obligation_manifest(captured_text)
+        snapshot_path = context_path.with_name("verifier-input-manifest.json")
+        if snapshot_path.exists():
+            snapshot = json.loads(
+                snapshot_path.read_text(encoding="utf-8"), object_pairs_hook=_unique_object
+            )
+            if (
+                not isinstance(snapshot, dict)
+                or snapshot.get("schema") != "workflows-verifier-input-snapshot/v1"
+                or snapshot.get("context_sha256") != hashlib.sha256(context_bytes).hexdigest()
+            ):
+>               raise ValueError("context does not match the verifier input snapshot")
+E               ValueError: context does not match the verifier input snapshot
+
+tools/verifier_capture_obligation_manifest.py:247: ValueError
+______ test_ambiguous_snapshot_blocks_without_repair[False-duplicate-key] ______
+
+tmp_path = PosixPath('/private/var/folders/qm/w0dtc0j132gd6ymf1hxtd2p00000gp/T/pytest-of-teacher/pytest-273/test_ambiguous_snapshot_blocks1')
+monkeypatch = <_pytest.monkeypatch.MonkeyPatch object at 0x114c1f0e0>
+capsys = <_pytest.capture.CaptureFixture object at 0x114c1e060>
+defect = 'duplicate-key', compare = False
+
+    @pytest.mark.parametrize("defect", ["wrong-schema", "duplicate-key", "conflicting-obligations"])
+    @pytest.mark.parametrize("compare", [False, True])
+    def test_ambiguous_snapshot_blocks_without_repair(tmp_path, monkeypatch, capsys, defect, compare):
+        context, snapshot, metadata = _captured_snapshot(tmp_path)
+        if defect == "wrong-schema":
+            metadata["schema"] = "unknown/v2"
+            snapshot.write_text(json.dumps(metadata))
+        elif defect == "conflicting-obligations":
+            metadata["capture_obligations"] = {"sufficient": True}
+            snapshot.write_text(json.dumps(metadata))
+        else:
+            snapshot.write_text(snapshot.read_text()[:-1] + ', "schema": "unknown/v2"}')
+        original = snapshot.read_bytes()
+        evaluate = mock.Mock()
+        monkeypatch.setattr(pr_verifier, "evaluate_pr", evaluate)
+        monkeypatch.setattr(pr_verifier, "evaluate_pr_multiple", evaluate)
+        monkeypatch.setattr(
+            sys,
+            "argv",
+            ["verifier", "--context-file", str(context), "--json"] + (["--compare"] if compare else []),
+        )
+>       pr_verifier.main()
+
+tests/scripts/test_verifier_capture_integration.py:215: 
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
+scripts/langchain/pr_verifier.py:5839: in main
+    record_capture_obligations(context_path, context_text=context)
+tools/verifier_capture_obligation_manifest.py:239: in record_capture_obligations
+    snapshot = json.loads(
+/opt/anaconda3/lib/python3.12/json/__init__.py:359: in loads
+    return cls(**kw).decode(s)
+           ^^^^^^^^^^^^^^^^^^^
+/opt/anaconda3/lib/python3.12/json/decoder.py:337: in decode
+    obj, end = self.raw_decode(s, idx=_w(s, 0).end())
+               ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+/opt/anaconda3/lib/python3.12/json/decoder.py:353: in raw_decode
+    obj, end = self.scan_once(s, idx)
+               ^^^^^^^^^^^^^^^^^^^^^^
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
+
+pairs = [('schema', 'workflows-verifier-input-snapshot/v1'), ('repository', 'owner/repo'), ('merge_sha', 'aaaaaaaaaaaaaaaaaaaa...ff_sha256', 'bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb'), ('evidence_profile', 'expanded'), ...]
+
+    def _unique_object(pairs: list[tuple[str, Any]]) -> dict[str, Any]:
+        """Reject ambiguous duplicate JSON keys rather than choosing a winner."""
+        result: dict[str, Any] = {}
+        for key, value in pairs:
+            if key in result:
+>               raise ValueError("duplicate coverage key")
+E               ValueError: duplicate coverage key
+
+tools/verifier_capture_obligation_manifest.py:68: ValueError
+_ test_ambiguous_snapshot_blocks_without_repair[False-conflicting-obligations] _
+
+tmp_path = PosixPath('/private/var/folders/qm/w0dtc0j132gd6ymf1hxtd2p00000gp/T/pytest-of-teacher/pytest-273/test_ambiguous_snapshot_blocks2')
+monkeypatch = <_pytest.monkeypatch.MonkeyPatch object at 0x114c1f710>
+capsys = <_pytest.capture.CaptureFixture object at 0x114c1dbb0>
+defect = 'conflicting-obligations', compare = False
+
+    @pytest.mark.parametrize("defect", ["wrong-schema", "duplicate-key", "conflicting-obligations"])
+    @pytest.mark.parametrize("compare", [False, True])
+    def test_ambiguous_snapshot_blocks_without_repair(tmp_path, monkeypatch, capsys, defect, compare):
+        context, snapshot, metadata = _captured_snapshot(tmp_path)
+        if defect == "wrong-schema":
+            metadata["schema"] = "unknown/v2"
+            snapshot.write_text(json.dumps(metadata))
+        elif defect == "conflicting-obligations":
+            metadata["capture_obligations"] = {"sufficient": True}
+            snapshot.write_text(json.dumps(metadata))
+        else:
+            snapshot.write_text(snapshot.read_text()[:-1] + ', "schema": "unknown/v2"}')
+        original = snapshot.read_bytes()
+        evaluate = mock.Mock()
+        monkeypatch.setattr(pr_verifier, "evaluate_pr", evaluate)
+        monkeypatch.setattr(pr_verifier, "evaluate_pr_multiple", evaluate)
+        monkeypatch.setattr(
+            sys,
+            "argv",
+            ["verifier", "--context-file", str(context), "--json"] + (["--compare"] if compare else []),
+        )
+>       pr_verifier.main()
+
+tests/scripts/test_verifier_capture_integration.py:215: 
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
+scripts/langchain/pr_verifier.py:5839: in main
+    record_capture_obligations(context_path, context_text=context)
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
+
+context_path = PosixPath('/private/var/folders/qm/w0dtc0j132gd6ymf1hxtd2p00000gp/T/pytest-of-teacher/pytest-273/test_ambiguous_snapshot_blocks2/verifier-context.md')
+context_text = '# Verifier context\n\n## Context source coverage\n\n```json\n{"schema": "verifier-context-source-coverage/v1", "stage.../-1)\n\n## PR Diff (full)\n\n```diff\ndiff --git a/a.py b/a.py\n--- a/a.py\n+++ b/a.py\n@@ -1 +1 @@\n-old\n+new\n```\n'
+
+    def record_capture_obligations(
+        context_path: Path, *, context_text: str | None = None
+    ) -> dict[str, Any]:
+        """Enrich a local input snapshot without rewriting any captured source bytes.
+    
+        Existing snapshots must bind the exact context. Never repair a stale identity
+        or replace an already recorded, conflicting inventory. A standalone manifest
+        is also emitted for evaluate runs that do not create comparison snapshots.
+        """
+        context_bytes = context_path.read_bytes()
+        captured_text = context_bytes.decode("utf-8")
+        # Path.read_text normalizes line endings. Compare that same view to the
+        # already loaded evaluation input, while binding snapshots to raw bytes.
+        if context_text is not None and context_text != captured_text.replace("\r\n", "\n").replace(
+            "\r", "\n"
+        ):
+            raise ValueError("loaded context changed before snapshot recording")
+        manifest = build_capture_obligation_manifest(captured_text)
+        snapshot_path = context_path.with_name("verifier-input-manifest.json")
+        if snapshot_path.exists():
+            snapshot = json.loads(
+                snapshot_path.read_text(encoding="utf-8"), object_pairs_hook=_unique_object
+            )
+            if (
+                not isinstance(snapshot, dict)
+                or snapshot.get("schema") != "workflows-verifier-input-snapshot/v1"
+                or snapshot.get("context_sha256") != hashlib.sha256(context_bytes).hexdigest()
+            ):
+                raise ValueError("context does not match the verifier input snapshot")
+            if "capture_obligations" in snapshot and snapshot["capture_obligations"] != manifest:
+>               raise ValueError("capture obligations do not match the verifier input snapshot")
+E               ValueError: capture obligations do not match the verifier input snapshot
+
+tools/verifier_capture_obligation_manifest.py:249: ValueError
+_______ test_ambiguous_snapshot_blocks_without_repair[True-wrong-schema] _______
+
+tmp_path = PosixPath('/private/var/folders/qm/w0dtc0j132gd6ymf1hxtd2p00000gp/T/pytest-of-teacher/pytest-273/test_ambiguous_snapshot_blocks3')
+monkeypatch = <_pytest.monkeypatch.MonkeyPatch object at 0x114bbf590>
+capsys = <_pytest.capture.CaptureFixture object at 0x114bbf890>
+defect = 'wrong-schema', compare = True
+
+    @pytest.mark.parametrize("defect", ["wrong-schema", "duplicate-key", "conflicting-obligations"])
+    @pytest.mark.parametrize("compare", [False, True])
+    def test_ambiguous_snapshot_blocks_without_repair(tmp_path, monkeypatch, capsys, defect, compare):
+        context, snapshot, metadata = _captured_snapshot(tmp_path)
+        if defect == "wrong-schema":
+            metadata["schema"] = "unknown/v2"
+            snapshot.write_text(json.dumps(metadata))
+        elif defect == "conflicting-obligations":
+            metadata["capture_obligations"] = {"sufficient": True}
+            snapshot.write_text(json.dumps(metadata))
+        else:
+            snapshot.write_text(snapshot.read_text()[:-1] + ', "schema": "unknown/v2"}')
+        original = snapshot.read_bytes()
+        evaluate = mock.Mock()
+        monkeypatch.setattr(pr_verifier, "evaluate_pr", evaluate)
+        monkeypatch.setattr(pr_verifier, "evaluate_pr_multiple", evaluate)
+        monkeypatch.setattr(
+            sys,
+            "argv",
+            ["verifier", "--context-file", str(context), "--json"] + (["--compare"] if compare else []),
+        )
+>       pr_verifier.main()
+
+tests/scripts/test_verifier_capture_integration.py:215: 
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
+scripts/langchain/pr_verifier.py:5839: in main
+    record_capture_obligations(context_path, context_text=context)
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
+
+context_path = PosixPath('/private/var/folders/qm/w0dtc0j132gd6ymf1hxtd2p00000gp/T/pytest-of-teacher/pytest-273/test_ambiguous_snapshot_blocks3/verifier-context.md')
+context_text = '# Verifier context\n\n## Context source coverage\n\n```json\n{"schema": "verifier-context-source-coverage/v1", "stage.../-1)\n\n## PR Diff (full)\n\n```diff\ndiff --git a/a.py b/a.py\n--- a/a.py\n+++ b/a.py\n@@ -1 +1 @@\n-old\n+new\n```\n'
+
+    def record_capture_obligations(
+        context_path: Path, *, context_text: str | None = None
+    ) -> dict[str, Any]:
+        """Enrich a local input snapshot without rewriting any captured source bytes.
+    
+        Existing snapshots must bind the exact context. Never repair a stale identity
+        or replace an already recorded, conflicting inventory. A standalone manifest
+        is also emitted for evaluate runs that do not create comparison snapshots.
+        """
+        context_bytes = context_path.read_bytes()
+        captured_text = context_bytes.decode("utf-8")
+        # Path.read_text normalizes line endings. Compare that same view to the
+        # already loaded evaluation input, while binding snapshots to raw bytes.
+        if context_text is not None and context_text != captured_text.replace("\r\n", "\n").replace(
+            "\r", "\n"
+        ):
+            raise ValueError("loaded context changed before snapshot recording")
+        manifest = build_capture_obligation_manifest(captured_text)
+        snapshot_path = context_path.with_name("verifier-input-manifest.json")
+        if snapshot_path.exists():
+            snapshot = json.loads(
+                snapshot_path.read_text(encoding="utf-8"), object_pairs_hook=_unique_object
+            )
+            if (
+                not isinstance(snapshot, dict)
+                or snapshot.get("schema") != "workflows-verifier-input-snapshot/v1"
+                or snapshot.get("context_sha256") != hashlib.sha256(context_bytes).hexdigest()
+            ):
+>               raise ValueError("context does not match the verifier input snapshot")
+E               ValueError: context does not match the verifier input snapshot
+
+tools/verifier_capture_obligation_manifest.py:247: ValueError
+______ test_ambiguous_snapshot_blocks_without_repair[True-duplicate-key] _______
+
+tmp_path = PosixPath('/private/var/folders/qm/w0dtc0j132gd6ymf1hxtd2p00000gp/T/pytest-of-teacher/pytest-273/test_ambiguous_snapshot_blocks4')
+monkeypatch = <_pytest.monkeypatch.MonkeyPatch object at 0x114d88470>
+capsys = <_pytest.capture.CaptureFixture object at 0x114d8b170>
+defect = 'duplicate-key', compare = True
+
+    @pytest.mark.parametrize("defect", ["wrong-schema", "duplicate-key", "conflicting-obligations"])
+    @pytest.mark.parametrize("compare", [False, True])
+    def test_ambiguous_snapshot_blocks_without_repair(tmp_path, monkeypatch, capsys, defect, compare):
+        context, snapshot, metadata = _captured_snapshot(tmp_path)
+        if defect == "wrong-schema":
+            metadata["schema"] = "unknown/v2"
+            snapshot.write_text(json.dumps(metadata))
+        elif defect == "conflicting-obligations":
+            metadata["capture_obligations"] = {"sufficient": True}
+            snapshot.write_text(json.dumps(metadata))
+        else:
+            snapshot.write_text(snapshot.read_text()[:-1] + ', "schema": "unknown/v2"}')
+        original = snapshot.read_bytes()
+        evaluate = mock.Mock()
+        monkeypatch.setattr(pr_verifier, "evaluate_pr", evaluate)
+        monkeypatch.setattr(pr_verifier, "evaluate_pr_multiple", evaluate)
+        monkeypatch.setattr(
+            sys,
+            "argv",
+            ["verifier", "--context-file", str(context), "--json"] + (["--compare"] if compare else []),
+        )
+>       pr_verifier.main()
+
+tests/scripts/test_verifier_capture_integration.py:215: 
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
+scripts/langchain/pr_verifier.py:5839: in main
+    record_capture_obligations(context_path, context_text=context)
+tools/verifier_capture_obligation_manifest.py:239: in record_capture_obligations
+    snapshot = json.loads(
+/opt/anaconda3/lib/python3.12/json/__init__.py:359: in loads
+    return cls(**kw).decode(s)
+           ^^^^^^^^^^^^^^^^^^^
+/opt/anaconda3/lib/python3.12/json/decoder.py:337: in decode
+    obj, end = self.raw_decode(s, idx=_w(s, 0).end())
+               ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+/opt/anaconda3/lib/python3.12/json/decoder.py:353: in raw_decode
+    obj, end = self.scan_once(s, idx)
+               ^^^^^^^^^^^^^^^^^^^^^^
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
+
+pairs = [('schema', 'workflows-verifier-input-snapshot/v1'), ('repository', 'owner/repo'), ('merge_sha', 'aaaaaaaaaaaaaaaaaaaa...ff_sha256', 'bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb'), ('evidence_profile', 'expanded'), ...]
+
+    def _unique_object(pairs: list[tuple[str, Any]]) -> dict[str, Any]:
+        """Reject ambiguous duplicate JSON keys rather than choosing a winner."""
+        result: dict[str, Any] = {}
+        for key, value in pairs:
+            if key in result:
+>               raise ValueError("duplicate coverage key")
+E               ValueError: duplicate coverage key
+
+tools/verifier_capture_obligation_manifest.py:68: ValueError
+_ test_ambiguous_snapshot_blocks_without_repair[True-conflicting-obligations] __
+
+tmp_path = PosixPath('/private/var/folders/qm/w0dtc0j132gd6ymf1hxtd2p00000gp/T/pytest-of-teacher/pytest-273/test_ambiguous_snapshot_blocks5')
+monkeypatch = <_pytest.monkeypatch.MonkeyPatch object at 0x114d8bfb0>
+capsys = <_pytest.capture.CaptureFixture object at 0x114d89490>
+defect = 'conflicting-obligations', compare = True
+
+    @pytest.mark.parametrize("defect", ["wrong-schema", "duplicate-key", "conflicting-obligations"])
+    @pytest.mark.parametrize("compare", [False, True])
+    def test_ambiguous_snapshot_blocks_without_repair(tmp_path, monkeypatch, capsys, defect, compare):
+        context, snapshot, metadata = _captured_snapshot(tmp_path)
+        if defect == "wrong-schema":
+            metadata["schema"] = "unknown/v2"
+            snapshot.write_text(json.dumps(metadata))
+        elif defect == "conflicting-obligations":
+            metadata["capture_obligations"] = {"sufficient": True}
+            snapshot.write_text(json.dumps(metadata))
+        else:
+            snapshot.write_text(snapshot.read_text()[:-1] + ', "schema": "unknown/v2"}')
+        original = snapshot.read_bytes()
+        evaluate = mock.Mock()
+        monkeypatch.setattr(pr_verifier, "evaluate_pr", evaluate)
+        monkeypatch.setattr(pr_verifier, "evaluate_pr_multiple", evaluate)
+        monkeypatch.setattr(
+            sys,
+            "argv",
+            ["verifier", "--context-file", str(context), "--json"] + (["--compare"] if compare else []),
+        )
+>       pr_verifier.main()
+
+tests/scripts/test_verifier_capture_integration.py:215: 
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
+scripts/langchain/pr_verifier.py:5839: in main
+    record_capture_obligations(context_path, context_text=context)
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
+
+context_path = PosixPath('/private/var/folders/qm/w0dtc0j132gd6ymf1hxtd2p00000gp/T/pytest-of-teacher/pytest-273/test_ambiguous_snapshot_blocks5/verifier-context.md')
+context_text = '# Verifier context\n\n## Context source coverage\n\n```json\n{"schema": "verifier-context-source-coverage/v1", "stage.../-1)\n\n## PR Diff (full)\n\n```diff\ndiff --git a/a.py b/a.py\n--- a/a.py\n+++ b/a.py\n@@ -1 +1 @@\n-old\n+new\n```\n'
+
+    def record_capture_obligations(
+        context_path: Path, *, context_text: str | None = None
+    ) -> dict[str, Any]:
+        """Enrich a local input snapshot without rewriting any captured source bytes.
+    
+        Existing snapshots must bind the exact context. Never repair a stale identity
+        or replace an already recorded, conflicting inventory. A standalone manifest
+        is also emitted for evaluate runs that do not create comparison snapshots.
+        """
+        context_bytes = context_path.read_bytes()
+        captured_text = context_bytes.decode("utf-8")
+        # Path.read_text normalizes line endings. Compare that same view to the
+        # already loaded evaluation input, while binding snapshots to raw bytes.
+        if context_text is not None and context_text != captured_text.replace("\r\n", "\n").replace(
+            "\r", "\n"
+        ):
+            raise ValueError("loaded context changed before snapshot recording")
+        manifest = build_capture_obligation_manifest(captured_text)
+        snapshot_path = context_path.with_name("verifier-input-manifest.json")
+        if snapshot_path.exists():
+            snapshot = json.loads(
+                snapshot_path.read_text(encoding="utf-8"), object_pairs_hook=_unique_object
+            )
+            if (
+                not isinstance(snapshot, dict)
+                or snapshot.get("schema") != "workflows-verifier-input-snapshot/v1"
+                or snapshot.get("context_sha256") != hashlib.sha256(context_bytes).hexdigest()
+            ):
+                raise ValueError("context does not match the verifier input snapshot")
+            if "capture_obligations" in snapshot and snapshot["capture_obligations"] != manifest:
+>               raise ValueError("capture obligations do not match the verifier input snapshot")
+E               ValueError: capture obligations do not match the verifier input snapshot
+
+tools/verifier_capture_obligation_manifest.py:249: ValueError
+=========================== short test summary info ============================
+FAILED tests/scripts/test_pr_verifier_capture_obligation_failure.py::test_invalid_utf8_context_emits_fail_without_evaluation
+FAILED tests/scripts/test_pr_verifier_capture_obligation_failure.py::test_corrupt_snapshot_emits_fail_without_evaluation
+FAILED tests/scripts/test_pr_verifier_capture_obligation_failure.py::test_capture_failure_compare_mode_skips_provider_evaluation[extra_args0]
+FAILED tests/scripts/test_pr_verifier_capture_obligation_failure.py::test_capture_failure_compare_mode_skips_provider_evaluation[extra_args1]
+FAILED tests/scripts/test_pr_verifier_capture_obligation_failure.py::test_capture_failure_json_payload
+FAILED tests/scripts/test_verifier_capture_integration.py::test_snapshot_identity_mismatch_blocks_without_overwriting[False]
+FAILED tests/scripts/test_verifier_capture_integration.py::test_snapshot_identity_mismatch_blocks_without_overwriting[True]
+FAILED tests/scripts/test_verifier_capture_integration.py::test_ambiguous_snapshot_blocks_without_repair[False-wrong-schema]
+FAILED tests/scripts/test_verifier_capture_integration.py::test_ambiguous_snapshot_blocks_without_repair[False-duplicate-key]
+FAILED tests/scripts/test_verifier_capture_integration.py::test_ambiguous_snapshot_blocks_without_repair[False-conflicting-obligations]
+FAILED tests/scripts/test_verifier_capture_integration.py::test_ambiguous_snapshot_blocks_without_repair[True-wrong-schema]
+FAILED tests/scripts/test_verifier_capture_integration.py::test_ambiguous_snapshot_blocks_without_repair[True-duplicate-key]
+FAILED tests/scripts/test_verifier_capture_integration.py::test_ambiguous_snapshot_blocks_without_repair[True-conflicting-obligations]
+13 failed, 18 passed in 5.68s
