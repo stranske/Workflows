@@ -2374,11 +2374,19 @@ idempotent in-thread authority and one bound conversation task.  Its SHA-256
 marker covers the repository, PR, exact head, active thread, plan, generation,
 source commit, original finding ID and digest, and the new inline-request ID
 and URL.  A later resolution proof can name a native top-level answer only when
-the configured originating login posts it after the trusted task, with a plain
-unquoted `ACCEPT` line as the first visible answer line, immediately followed
-by the exact-head acceptance token and that same marker as the next two
-nonempty plain lines. Automatic hidden/status wrappers may precede this
-three-line prefix; explanations may follow it.  Provider status HTML, quoted text, fenced text, details blocks,
+the configured originating login posts it after the trusted task using the
+registry-selected protocol. For v1, the first three visible nonempty lines are
+plain `ACCEPT`, the exact-head acceptance token, and the v1 task marker. The
+configured CodeRabbit entry now uses v2: its first four visible nonempty lines
+are the exact task-author mention (plain `@login` or exact backtick-wrapped
+`@login`), plain `ACCEPT`, the exact-head acceptance token, and the v2 task marker.
+No other author mention or introductory prose is allowed. Automatic hidden/status
+wrappers may precede either prefix; explanations may follow it. The protocol
+version is included in both the binding hash and marker, so a v1 task or earlier
+unsupported answer cannot satisfy v2. An ordinary PR-conversation reply is
+sufficient; inline posting is not required. If the finding is not satisfied,
+the reviewer must instead provide `REJECT` with concrete evidence and no
+acceptance tokens. Provider status HTML, quoted text, fenced text, details blocks,
 generic summaries, unsupported transport notices, stale heads, other authors,
 and replayed comments are not acceptance.  `REJECT` remains a blocker and can
 only prevent duplicate task delivery; neither outcome resolves, seals, or
