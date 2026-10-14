@@ -1,9 +1,6 @@
-# Trusted Fork Gate Status Publication
+# Trusted Fork Required Status Publication
 
-Fork pull requests run `Gate` with a read-only token. The Gate run therefore cannot
-write the required `Gate / gate` commit status itself. The
-`Gate Fork Status Publisher` is a default-branch `workflow_run` subscriber that
-publishes that status without executing or checking out pull-request code.
+Fork pull requests run required workflows with a read-only token. `Gate` and Health 45 Agents Guard therefore cannot publish their required PR-head statuses directly. Their default-branch `workflow_run` publishers publish those statuses without executing or checking out pull-request code.
 
 ## Trust and exact-head contract
 
@@ -48,6 +45,10 @@ checkout, PAT rotation, or App credentials. `Maint 46 Post CI` classifies forks
 from `workflow_run.head_repository.id`; missing repository identity fails closed,
 and fork recovery is skipped before checkout or status propagation so there is
 one writer for fork `Gate / gate` statuses.
+
+## Health 45 Agents Guard bridge
+
+`agents-guard-fork-status.yml` is centrally managed (not `create_only`) so existing consumers receive the required `Health 45 Agents Guard / guard` context. It subscribes only to `Health 45 Agents Guard` runs and uses immutable default-branch code. It re-fetches and binds the workflow identity/path, open fork PR, default base, exact head, latest attempt, and exactly one completed `guard` job before publishing. Same-repository PRs retain the normal publisher; base-bound `pull_request_target` label events never satisfy the PR-head result. Missing, duplicate, cancelled, incomplete, stale, or untrusted evidence fails closed. The publisher uses only the workflow token, no PR checkout, artifacts, caches, pooled credentials, or automatic write retry; its `agents-guard-fork-status/v1` receipt records guard/publisher attempts and the returned status ID.
 
 ## Live protection audit (2026-09-28)
 
