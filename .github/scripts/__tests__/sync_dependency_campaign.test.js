@@ -267,6 +267,13 @@ test('public formatter removes cached excluded rows and does not reuse their agg
   } });
   assert.equal(claimsOnly.toLowerCase().includes('collab-admin'), false);
   assert.equal(claimsOnly.includes('unavailable-after-owner-exclusion'), true);
+  for (const history of [
+    { source_review_key: 'stranske/Workflows:sync:hash', matching_item_id: 'sync-review-comments:STRANSKE/Collab-Admin#4:hash' },
+    { source_review_key: 'stranske/Workflows:sync:hash', matching_pr_url: 'https://github.com/stranske/Collab-Admin/pull/4' },
+  ]) {
+    const compact = formatCampaignMarker({ items: [], source_review_history: [history] });
+    assert.equal(compact.toLowerCase().includes('collab-admin'), false);
+  }
 });
 
 test('runCampaign excludes owner-blocked case variants before max-repository discovery', async () => {

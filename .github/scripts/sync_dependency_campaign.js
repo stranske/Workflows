@@ -67,7 +67,15 @@ function normaliseLogin(value) {
 
 function repositoryIdentity(value) {
   if (typeof value === 'object' && value) {
-    value = value.repository || value.repo || value.fullName || value.full_name;
+    const record = value;
+    value = record.repository || record.repo || record.fullName || record.full_name;
+    if (!value) {
+      const itemId = cleanString(record.matching_item_id);
+      const match = itemId.match(/^[^:]+:([^#]+)#\d+:/);
+      const pullUrl = cleanString(record.matching_pr_url).match(/^https:\/\/github\.com\/([^/]+\/[^/]+)\/pull\/\d+/i);
+      const sourceKey = cleanString(record.source_review_key).match(/^([^:]+\/[^:]+):/);
+      value = match ? match[1] : pullUrl ? pullUrl[1] : sourceKey ? sourceKey[1] : '';
+    }
   }
   return cleanString(value).split('#', 1)[0].toLowerCase();
 }
