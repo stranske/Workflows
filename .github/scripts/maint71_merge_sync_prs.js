@@ -531,9 +531,12 @@ async function runReviewReassessment({
   }
   let task = null;
   let taskReused = false;
-  if (dispositionOnly && profile.disposition_task_transport) {
-    const taskCommand = String(profile.disposition_task_comment || '').trim();
-    if (profile.disposition_task_transport !== 'pr-conversation'
+  const taskKind = dispositionOnly ? 'disposition' : 'reassessment';
+  const taskTransport = profile[`${taskKind}_task_transport`];
+  const initialTask = !dispositionOnly && !retryFailed && Boolean(taskTransport);
+  if ((dispositionOnly || initialTask) && taskTransport) {
+    const taskCommand = String(profile[`${taskKind}_task_comment`] || '').trim();
+    if (taskTransport !== 'pr-conversation'
       || !/^@[A-Za-z0-9-]+(?:\s+[A-Za-z0-9-]+)*$/.test(taskCommand)) {
       throw new Error('Originating reviewer has no supported disposition task transport');
     }
@@ -546,7 +549,7 @@ async function runReviewReassessment({
     // binding; the existing inline request remains the readable authority.
     const taskDigest = require('crypto').createHash('sha256')
       .update(JSON.stringify(taskBinding)).digest('hex');
-    const taskMarker = `<!-- maint71-disposition-task:v1 ${taskDigest} -->`;
+    const taskMarker = `<!-- maint71-${taskKind}-task:v1 ${taskDigest} -->`;
     const findTask = async () => {
       const items = await withRetry((client) => client.paginate(client.rest.issues.listComments,
         { owner, repo, issue_number: request.pr, per_page: 100 }));
@@ -568,7 +571,9 @@ async function runReviewReassessment({
     if (!originalRequest) throw new Error('Bound in-thread disposition request changed before task');
     if (!task) {
       const body = [`${taskCommand} on exact head ${request.head_sha}`,
-        'This is a bounded disposition-only cloud task. Do not inspect unrelated changes or start another general pass.',
+        dispositionOnly
+          ? 'This is a bounded disposition-only cloud task. Do not inspect unrelated changes or start another general pass.'
+          : 'This is a bounded finding-reassessment conversation task. Do not start another general review.',
         `Answer only the original finding in existing thread ${request.thread_id}: ${comment.html_url}`,
         `The authenticated in-thread request above is the authority and contains the exact finding. Inspect its source fix at Workflows commit ${request.source_commit} and generated head ${request.head_sha}.`,
         'Reply in that existing thread with explicit ACCEPT and the exact acceptance token requested there if satisfied, or REJECT with concrete evidence if not. A top-level answer cannot authorize disposition.',
@@ -598,7 +603,7 @@ async function runReviewReassessment({
     requested_at: comment.created_at,
     writer: comment.user?.login || '',
     ...(task ? {
-      task_status: taskReused ? 'disposition_task_reused' : 'disposition_task_requested',
+      task_status: taskReused ? `${taskKind}_task_reused` : `${taskKind}_task_requested`,
       task_id: task.id, task_url: task.html_url, task_requested_at: task.created_at,
     } : {}),
   };

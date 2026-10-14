@@ -678,3 +678,70 @@ test('Maint 71 empty-hash dispatch still selects a candidate with a valid delive
   assert.doesNotMatch(JSON.stringify(report), /no_active_sync_pr|missing_delivery_record/);
   assert.doesNotMatch(logs, /no_active_sync_pr|missing_delivery_record/);
 });
+
+
+test('initial reviewer conversation task recovers an unanswered inline request once without merge authority', async () => {
+  const request = { schema: 'maint71-review-reassessment/v1', repository: 'stranske/Ready', pr: 592,
+    head_sha: 'a'.repeat(40), thread_id: 'PRRT_conversation', plan_id: 'plan-1',
+    generation: 'gen-1', source_commit: 'b'.repeat(40), originating_reviewer: 'coderabbit' };
+  const record = { schema: 'sync-pr-delivery-record/v1', repository: request.repository,
+    durable_issue_url: 'https://github.com/stranske/Workflows/issues/1836', plan_id: request.plan_id,
+    generation: request.generation, source_commit: request.source_commit, desired_tree_hash: 'tree-1',
+    lease_expires_at: '2099-01-01T00:00:00Z' };
+  const prior = { fullDatabaseId: '22', author: { login: 'stranske' },
+    createdAt: '2026-10-11T22:00:00Z', url: 'https://github.com/stranske/Ready/pull/592#discussion_r22',
+    body: '<!-- maint71-review-reassessment:v1 ' + JSON.stringify(request) + ' -->' };
+  const thread = { id: request.thread_id, isResolved: false, isOutdated: false,
+    comments: { pageInfo: { hasNextPage: false }, nodes: [
+      { fullDatabaseId: '21', author: { login: 'coderabbitai' }, body: 'Check the dependency group',
+        commit: { oid: request.head_sha } }, prior] } };
+  const pr = { state: 'open', draft: false, auto_merge: null, user: { login: 'stranske-automation-bot' },
+    head: { ref: 'deps/sync-dev-versions-test', sha: request.head_sha },
+    body: '<!-- sync-pr-delivery-record:v1 ' + JSON.stringify(record) + ' -->' };
+  const tasks = [];
+  let posts = 0, race = false, pages = 0;
+  const github = { paginate: async () => {
+    if (race && ++pages === 2) pr.head.sha = 'c'.repeat(40);
+    return structuredClone(tasks);
+  }, rest: {
+    users: { getAuthenticated: async () => ({ data: { login: 'stranske' } }) },
+    pulls: { get: async () => ({ data: structuredClone(pr) }),
+      createReplyForReviewComment: async () => { throw new Error('must reuse the existing inline authority'); },
+      merge: async () => { throw new Error('request-only task cannot merge'); } },
+    issues: { createComment: async ({ body }) => {
+      posts++;
+      const item = { id: 100 + posts, user: { login: 'stranske' }, body,
+        created_at: '2026-10-14T00:00:00Z',
+        html_url: 'https://github.com/stranske/Ready/pull/592#issuecomment-' + (100 + posts) };
+      tasks.push(item); return { data: item };
+    } },
+  }, graphql: async (query) => {
+    assert.doesNotMatch(query, /resolveReviewThread/);
+    return { repository: { pullRequest: { reviewThreads: {
+      pageInfo: { hasNextPage: false }, nodes: [structuredClone(thread)] } } } };
+  } };
+  const args = { context: { eventName: 'repository_dispatch', ref: 'refs/heads/main', actor: 'stranske',
+    payload: { action: 'maint71-review-reassessment' } }, withRetry: async (fn) => fn(github),
+    rawRequest: JSON.stringify(request), registeredRepos: [request.repository],
+    policyPath: path.join(__dirname, '../../../config/consumer_sync_review_policy.json') };
+  const first = await runReviewReassessment(args);
+  assert.equal(first.task_status, 'reassessment_task_requested');
+  assert.equal(posts, 1);
+  assert.match(tasks[0].body, /@coderabbitai please answer this specific finding/);
+  assert.match(tasks[0].body, /discussion_r22/);
+  assert.match(tasks[0].body, /No file edits/);
+  assert.doesNotMatch(tasks[0].body, /full review/);
+  const again = await runReviewReassessment(args);
+  assert.equal(again.task_status, 'reassessment_task_reused');
+  assert.equal(posts, 1);
+  pr.head.sha = 'c'.repeat(40);
+  await assert.rejects(runReviewReassessment(args), /delivery changed or lease is invalid/);
+  pr.head.sha = request.head_sha;
+  pr.body = '<!-- sync-pr-delivery-record:v1 ' + JSON.stringify({ ...record,
+    lease_expires_at: '2000-01-01T00:00:00Z' }) + ' -->';
+  await assert.rejects(runReviewReassessment(args), /delivery changed or lease is invalid/);
+  pr.body = '<!-- sync-pr-delivery-record:v1 ' + JSON.stringify(record) + ' -->';
+  tasks.length = 0; race = true; pages = 0;
+  await assert.rejects(runReviewReassessment(args), /delivery changed or lease is invalid/);
+  assert.equal(posts, 1, 'changed head during task discovery must suppress POST');
+});
