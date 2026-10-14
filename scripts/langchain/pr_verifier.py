@@ -1043,7 +1043,7 @@ _EVIDENCE_RECIPIENT_PREFIX = (
 )
 _EVIDENCE_ACTOR_NOUN = r"\b(?:reviewers?|maintainers?|authors?|operators?|agents?|bots?|runners?|developers?|engineers?|testers?|auditors?|verifiers?|teams?|users?|ui|api|application|service|endpoint)"
 _EVIDENCE_DELIVERY_ACTOR_NOUN = (
-    r"(?:reviewers?|maintainers?|authors?|operators?|agents?|bots?|runners?|"
+    r"(?:i|we|you|reviewers?|maintainers?|authors?|operators?|agents?|bots?|runners?|"
     r"developers?|engineers?|testers?|auditors?|verifiers?|teams?|users?)"
 )
 _EVIDENCE_PRODUCT_ACTOR_WORDS = (

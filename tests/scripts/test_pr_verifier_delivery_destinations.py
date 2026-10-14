@@ -6336,6 +6336,22 @@ def test_issue3835_active_comment_delivery_aliases_keep_the_comment_floor(operat
 
 
 @pytest.mark.parametrize(
+    ("criterion", "channel"),
+    [
+        ("I must submit a PR review comment", "comments"),
+        ("You must supply a PR review comment", "comments"),
+        ("We must upload evidence to an artifact", "artifacts"),
+    ],
+)
+def test_issue3835_pronoun_delivery_actors_keep_required_channel(criterion, channel):
+    assert verifier._required_evidence_channels(criterion) == {channel}
+    assert verifier._required_evidence_options(criterion) == [{channel}]
+    kwargs = {"body": "present", "comments": "present", "artifacts": "present"}
+    kwargs[channel] = "absent"
+    assert _floor_verdict(criterion, **kwargs) == "CONCERNS"
+
+
+@pytest.mark.parametrize(
     "criterion",
     [
         "The background worker must upload evidence to an artifact",
