@@ -2785,6 +2785,127 @@ def test_finite_share_actor_and_nonverbal_share_objects(predicate):
     )
 
 
+@pytest.mark.parametrize(
+    "predicate",
+    [
+        "The reviewer must report test results in {destination}",
+        "The reviewer reports test results in {destination}",
+        "The reviewer reported test results in {destination}",
+        "Test results must be reported by the reviewer in {destination}",
+        "The reviewer must be reporting test results in {destination}",
+    ],
+)
+@pytest.mark.parametrize(
+    "destination,channel",
+    [
+        ("a PR comment", "comments"),
+        ("the PR body", "body"),
+        ("workflow artifacts", "artifacts"),
+    ],
+)
+def test_report_alias_reuses_delivery_polarity_destinations_and_floor(
+    predicate, destination, channel
+):
+    """Reporting test results is a delivery obligation, not a product capability."""
+    positive = predicate.format(destination=destination)
+    assert verifier._required_evidence_channels(positive) == {channel}
+    assert verifier._required_evidence_options(positive) == [{channel}]
+    for missing in ("absent", "unavailable"):
+        assert (
+            _floor_verdict(
+                positive,
+                body=missing if channel == "body" else "present",
+                comments=missing if channel == "comments" else "present",
+                artifacts=missing if channel == "artifacts" else "present",
+            )
+            == "CONCERNS"
+        )
+
+    assert (
+        verifier._required_evidence_channels(
+            f"The reviewer may report test results in {destination}"
+        )
+        == set()
+    )
+    assert (
+        verifier._required_evidence_channels(
+            f"The reviewer must not report test results in {destination}"
+        )
+        == set()
+    )
+    assert (
+        verifier._required_evidence_channels(
+            f"The API must allow users to report test results in {destination}"
+        )
+        == set()
+    )
+    assert (
+        verifier._required_evidence_channels("The API must report test results to its users")
+        == set()
+    )
+    for predicate in ("may inspect", "must not inspect"):
+        assert (
+            verifier._required_evidence_channels(
+                f"The reviewer {predicate} reported test results in a PR comment"
+            )
+            == set()
+        )
+        assert (
+            verifier._required_evidence_channels(
+                f"The reviewer {predicate} reports in a PR comment"
+            )
+            == set()
+        )
+    for governor in ("may", "must not"):
+        assert (
+            verifier._required_evidence_channels(
+                f"The reviewer {governor} report and report test results in a PR comment"
+            )
+            == set()
+        )
+        assert (
+            verifier._required_evidence_channels(
+                f"The reviewer {governor} report and report and report test results in a PR comment"
+            )
+            == set()
+        )
+        for operations in ("submit and report", "report and submit"):
+            criterion = f"The reviewer {governor} {operations} test results in a PR comment"
+            assert verifier._required_evidence_channels(criterion) == set()
+            assert verifier._required_evidence_options(criterion) == [set()]
+            assert _floor_verdict(criterion, body="present", comments="absent") == "PASS"
+
+    noun_then_delivery = (
+        "The reviewer must inspect a report and submit test results in a PR comment"
+    )
+    assert verifier._required_evidence_channels(noun_then_delivery) == {"comments"}
+    assert verifier._required_evidence_options(noun_then_delivery) == [{"comments"}]
+    assert _floor_verdict(noun_then_delivery, body="present", comments="absent") == "CONCERNS"
+    assert verifier._required_evidence_channels(
+        "The reviewer must inspect a report; the reviewer must submit test results in a PR comment"
+    ) == {"comments"}
+
+
+def test_report_alias_keeps_coordinated_channels_and_independent_reviewer_duty():
+    criterion = "The reviewer must report test results in a PR comment and workflow artifacts"
+    assert verifier._required_evidence_channels(criterion) == {"comments", "artifacts"}
+    assert verifier._required_evidence_options(criterion) == [{"comments", "artifacts"}]
+    assert (
+        _floor_verdict(criterion, body="present", comments="present", artifacts="absent")
+        == "CONCERNS"
+    )
+
+    product_then_reviewer = (
+        "The API must allow users to report test results in a PR comment; "
+        "the reviewer must report test results in workflow artifacts"
+    )
+    assert verifier._required_evidence_channels(product_then_reviewer) == {"artifacts"}
+    assert (
+        _floor_verdict(product_then_reviewer, body="present", comments="absent", artifacts="absent")
+        == "CONCERNS"
+    )
+
+
 def test_optional_actor_cannot_suppress_prove_delivery():
     """Keep the existing prove operation in the shared actor grammar."""
     assert verifier._required_evidence_channels(
