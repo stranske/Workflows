@@ -252,9 +252,8 @@ async function assertLatestAttempt({ github, retry, owner, repo, run }) {
     owner, repo, workflow_id: run.workflow_id, event: 'pull_request', head_sha: run.head_sha,
   });
   const newer = runs.find(candidate =>
-    candidate.id !== run.id &&
-    (Number(candidate.run_number) > Number(run.run_number) ||
-      (Number(candidate.run_number) === Number(run.run_number) && Number(candidate.run_attempt) > Number(run.run_attempt)))
+    Number(candidate.run_number) > Number(run.run_number) ||
+      (Number(candidate.run_number) === Number(run.run_number) && Number(candidate.run_attempt) > Number(run.run_attempt))
   );
   if (newer) throw new Error(`Agents Guard run ${run.id} was superseded by ${newer.id}`);
 }

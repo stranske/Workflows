@@ -166,7 +166,9 @@ const github = {{
       listJobsForWorkflowRunAttempt: endpoint(scenario.jobs),
       listWorkflowRuns: async () => ({{data: statusRead && scenario.statusReadDrift === 'newer-run'
         ? [scenario.initialRun, {{...scenario.initialRun, id: 10, run_number: 6}}]
-        : [scenario.initialRun]}}),
+        : statusRead && scenario.statusReadDrift === 'same-id-newer-attempt'
+          ? [scenario.initialRun, {{...scenario.initialRun, run_attempt: 2}}]
+          : [scenario.initialRun]}}),
     }},
     pulls: {{
       get: async () => ({{data: currentPr}}),
@@ -953,3 +955,9 @@ def test_reconciliation_uses_policy_receipt_not_writer_description_and_corrects_
     )
     assert "superseded" in stale_matched["error"]
     assert stale_matched["writes"] == []
+
+
+def test_agents_guard_fork_status_rejects_same_run_higher_attempt_before_write():
+    outcome = _publish_scenario(status_read_drift="same-id-newer-attempt")
+    assert "superseded" in outcome["error"]
+    assert outcome["writes"] == []

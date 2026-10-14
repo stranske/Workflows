@@ -483,6 +483,7 @@ jobs:
             });
 
             core.setOutput('blocked', result.blocked ? 'true' : 'false');
+            core.setOutput('evaluated_labels', JSON.stringify(labels));
             let summary = result.summary;
             if (rateLimitNotes.length) {
               const noteBlock = `\n\nRate limit notices:\n${rateLimitNotes.join('\n')}`;
@@ -666,6 +667,7 @@ jobs:
           EVALUATE_OUTCOME: ${{ steps.evaluate.outcome }}
           JOB_STATUS: ${{ job.status }}
           BLOCKED: ${{ steps.evaluate.outputs.blocked }}
+          EVALUATED_LABELS: ${{ steps.evaluate.outputs.evaluated_labels }}
           SUMMARY: ${{ steps.evaluate.outputs.summary }}
           TARGET_URL: >-
             ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
@@ -815,6 +817,19 @@ jobs:
               const currentPolicyFingerprint = await policyFingerprint(currentLabelNames);
               const labelsChanged =
                 JSON.stringify(currentLabelNames) !== JSON.stringify(snapshotLabels);
+              if (evaluated && state === 'success') {
+                let evaluatedLabelNames;
+                try {
+                  const evaluatedLabels = JSON.parse(process.env.EVALUATED_LABELS || '');
+                  evaluatedLabelNames = policyLabelNames(evaluatedLabels);
+                } catch (error) {
+                  setFailure('Agents Guard evaluated label evidence is missing or malformed; fresh evaluation required.');
+                }
+                if (evaluatedLabelNames &&
+                    JSON.stringify(evaluatedLabelNames) !== JSON.stringify(currentLabelNames)) {
+                  setFailure('PR labels changed after guard evaluation; fresh evaluation required.');
+                }
+              }
               if (labelsChanged) {
                 // Never let a stale eligible evaluation retain a green required
                 // context after its routing labels have changed.

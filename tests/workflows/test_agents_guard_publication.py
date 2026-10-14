@@ -198,6 +198,7 @@ new AsyncFunction('github', 'context', 'core', input.script)(github, context, co
                 "currentLabels": [],
                 "env": {
                     "ELIGIBLE": eligible,
+                    "EVALUATED_LABELS": "[]",
                     "EVALUATE_OUTCOME": outcome,
                     "BLOCKED": blocked,
                     "JOB_STATUS": job,
@@ -277,6 +278,50 @@ new AsyncFunction('github', 'context', 'core', input.script)(github, context, co
     assert evidence["writes"] == (1 if mode == "denied_write" else 0)
 
 
+@pytest.mark.parametrize(
+    "evaluated_labels,expected_state",
+    [
+        ('[{"name":"agents:allow-change"}]', "failure"),
+        ("", "failure"),
+        ("not-json", "failure"),
+        ("[]", "success"),
+    ],
+)
+def test_actual_head_publisher_binds_evaluated_label_evidence(evaluated_labels, expected_state):
+    workflow = yaml.safe_load((ROOT / ".github/workflows/agents-guard.yml").read_text())
+    script = next(
+        s
+        for s in workflow["jobs"]["guard"]["steps"]
+        if s.get("name") == "Report agents guard commit status"
+    )["with"]["script"]
+    harness = r"""
+const input = JSON.parse(require('fs').readFileSync(0, 'utf8')); Object.assign(process.env, input.env);
+const writes = []; const github = {rest: {repos: {createCommitStatus: async p => writes.push(p)}, issues: {listLabelsOnIssue() {}}}, paginate: async method => method === github.rest.issues.listLabelsOnIssue ? [] : []};
+const context = {repo: {owner:'owner', repo:'repo'}, eventName:'pull_request_target', runId:42, serverUrl:'https://github.com', payload:{pull_request:{number:4, labels:[], head:{sha:'a'.repeat(40)}}}};
+const core = {info(){}, error(){}, setFailed(m){throw Error(m)}}; const AsyncFunction = Object.getPrototypeOf(async function(){}).constructor;
+new AsyncFunction('github','context','core',input.script)(github,context,core).then(()=>process.stdout.write(JSON.stringify(writes))).catch(e=>{console.error(e);process.exitCode=1});
+"""
+    payload = {
+        "script": script,
+        "env": {
+            "ELIGIBLE": "true",
+            "EVALUATE_OUTCOME": "success",
+            "BLOCKED": "false",
+            "JOB_STATUS": "success",
+            "EVALUATED_LABELS": evaluated_labels,
+        },
+    }
+    completed = subprocess.run(
+        ["node", "-e", harness],
+        input=json.dumps(payload),
+        text=True,
+        capture_output=True,
+        check=True,
+    )
+    writes = json.loads(completed.stdout)
+    assert [write["state"] for write in writes] == [expected_state]
+
+
 def test_guard_status_writers_share_only_canonical_writer_group():
     direct = yaml.safe_load((ROOT / ".github/workflows/agents-guard.yml").read_text())
     fork = yaml.safe_load((ROOT / ".github/workflows/agents-guard-fork-status.yml").read_text())
@@ -300,11 +345,11 @@ def test_guard_status_writers_share_only_canonical_writer_group():
         fork["concurrency"]
         == fork_template["concurrency"]
         == {
-            "group": "${{ github.event.workflow_run.event == 'pull_request' && github.event.workflow.path == '.github/workflows/agents-guard.yml' && github.event.workflow.id == github.event.workflow_run.workflow_id && format('agents-guard-status-{0}', github.event.workflow_run.head_sha) || format('agents-guard-fork-status-{0}', github.run_id) }}",
+            "group": "${{ github.event.workflow_run.event == 'pull_request' && github.event.workflow.path == '.github/workflows/agents-guard.yml' && github.event.workflow.id > 0 && github.event.workflow_run.workflow_id > 0 && github.event.workflow.id == github.event.workflow_run.workflow_id && format('agents-guard-status-{0}', github.event.workflow_run.head_sha) || format('agents-guard-fork-status-{0}', github.run_id) }}",
             "cancel-in-progress": False,
         }
     )
-    publisher_if = "${{ github.event.workflow_run.event == 'pull_request' && github.event.workflow.path == '.github/workflows/agents-guard.yml' && github.event.workflow.id == github.event.workflow_run.workflow_id }}"
+    publisher_if = "${{ github.event.workflow_run.event == 'pull_request' && github.event.workflow.path == '.github/workflows/agents-guard.yml' && github.event.workflow.id > 0 && github.event.workflow_run.workflow_id > 0 && github.event.workflow.id == github.event.workflow_run.workflow_id }}"
     assert fork["jobs"]["publish"]["if"] == fork_template["jobs"]["publish"]["if"] == publisher_if
 
 
@@ -366,6 +411,10 @@ process.stdout.write(JSON.stringify({group, publish: Boolean(publish)}));
         ("pull_request_target", canonical, 45),
         ("pull_request", {"id": 45, "path": ".github/workflows/agents-guard.yml@evil.yml"}, 45),
         ("pull_request", canonical, 46),
+        ("pull_request", {"id": 0, "path": ".github/workflows/agents-guard.yml"}, 0),
+        ("pull_request", {"id": None, "path": ".github/workflows/agents-guard.yml"}, None),
+        ("pull_request", canonical, 0),
+        ("pull_request", canonical, None),
         ("pull_request", {}, 45),
     ):
         result = evaluate(
@@ -446,6 +495,7 @@ new AsyncFunction('github', 'context', 'core', input.script)(github, context, co
                     "EVALUATE_OUTCOME": "success",
                     "BLOCKED": "false",
                     "JOB_STATUS": "success",
+                    "EVALUATED_LABELS": json.dumps(snapshot),
                 },
             }
         ),
