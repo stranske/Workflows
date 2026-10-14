@@ -87,11 +87,92 @@ function validateIndependentFindingVerification({
   return { ok: true, assessment_id: result.assessment_id, binding };
 }
 
+function nativeAnswerLines(body, markers) {
+  let text = String(body || '');
+  let previous;
+  do {
+    previous = text;
+    text = text.replace(/<details\b[^>]*>(?:(?!<details\b)[\s\S])*?<\/details>/gi, '\n');
+  } while (text !== previous);
+  text = text
+    .replace(/<blockquote\b[^>]*>[\s\S]*?<\/blockquote>/gi, '\n')
+    .replace(/(?:```|~~~)[\s\S]*?(?:```|~~~)/g, '\n').replace(/^\s*>.*$/gm, '\n')
+    .replace(/^ {4}.*$/gm, '\n')
+    .replace(/<!--(?!\s*(?:sync-review-accepted:|maint71-native-conversation-disposition:v1 ))[\s\S]*?-->/g, '\n');
+  for (const marker of markers) text = text.replaceAll(marker, `\n${marker}\n`);
+  return text.split('\n').map((line) => line.trim()).filter(Boolean);
+}
+
+function validateNativeConversationDisposition({
+  proof, record, thread, threads, comment, policy, reviewerProfiles, topLevelComments, now = Date.now(),
+}) {
+  const deny = (reason) => ({ ok: false, reason });
+  const fallback = policy?.finding_verification_fallback;
+  if (fallback?.enabled !== true || !Array.isArray(fallback.trusted_publishers)) return deny('native_conversation_disabled');
+  const profile = reviewerProfiles.find((item) => item.id === proof?.originating_reviewer);
+  const configured = profile?.conversation_disposition;
+  if (!record || !thread || thread.isResolved !== false || !Array.isArray(threads?.nodes)
+    || threads.pageInfo?.hasNextPage !== false || topLevelComments?.complete !== true
+    || threads.nodes.some((item) => item.comments?.pageInfo?.hasNextPage !== false || !Array.isArray(item.comments?.nodes))
+    || configured?.protocol !== 'maint71-native-conversation-disposition/v1'
+    || !Array.isArray(configured.logins) || configured.logins.length === 0
+    || configured.logins.some((login) => !profile.logins?.includes(login))) return deny('native_conversation_binding_incomplete');
+  const original = thread.comments?.nodes?.[0];
+  const expectedRequest = { repository: proof.repository, pr: proof.pr, head_sha: proof.head_sha,
+    thread_id: proof.thread_id, plan_id: record.plan_id, generation: record.generation,
+    source_commit: record.source_commit, originating_reviewer: proof.originating_reviewer };
+  const candidates = [];
+  for (const item of thread.comments?.nodes || []) {
+    if (!fallback.trusted_publishers.includes(item?.author?.login)) continue;
+    const matches = [...String(item?.body || '').matchAll(/<!-- maint71-review-conversation-disposition:v1 ([\s\S]*?) -->/g)];
+    if (matches.length > 1) return deny('native_conversation_request_malformed');
+    if (matches.length === 0) continue;
+    let parsed; try { parsed = JSON.parse(matches[0][1]); } catch (_) { return deny('native_conversation_request_malformed'); }
+    if (Object.keys(expectedRequest).every((key) => parsed[key] === expectedRequest[key])) candidates.push(item);
+  }
+  if (candidates.length !== 1) return deny('native_conversation_request_missing');
+  const request = candidates[0];
+  const requestId = String(request?.fullDatabaseId || request?.id || '');
+  const requestUrl = String(request?.url || request?.html_url || '');
+  const findingId = String(original?.fullDatabaseId || original?.id || '');
+  if (!profile.logins?.includes(original?.author?.login) || !/^[1-9]\d*$/.test(requestId)
+    || !/^[1-9]\d*$/.test(findingId) || !requestUrl) return deny('native_conversation_request_missing');
+  const binding = { protocol: 'maint71-native-conversation-disposition/v1', repository: proof.repository, pr: proof.pr,
+    head_sha: proof.head_sha, thread_id: proof.thread_id, plan_id: record.plan_id, generation: record.generation,
+    source_commit: record.source_commit, originating_reviewer: proof.originating_reviewer, inline_request_id: requestId,
+    inline_request_url: requestUrl, finding_id: findingId, finding_sha256: sha256(String(original.body || '')) };
+  const requestJson = [...String(request.body || '').matchAll(/<!-- maint71-review-conversation-disposition:v1 ([\s\S]*?) -->/g)];
+  if (requestJson.length !== 1) return deny('native_conversation_request_malformed');
+  try {
+    const parsed = JSON.parse(requestJson[0][1]);
+    for (const key of Object.keys(expectedRequest)) {
+      if (parsed[key] !== binding[key]) return deny('native_conversation_request_binding_mismatch');
+    }
+  } catch (_) { return deny('native_conversation_request_malformed'); }
+  const marker = `<!-- maint71-native-conversation-disposition:v1 ${sha256(JSON.stringify(binding))} -->`;
+  const acceptance = `<!-- sync-review-accepted:${proof.head_sha} -->`;
+  const tasks = topLevelComments.nodes.filter((item) => fallback.trusted_publishers.includes(item?.author?.login)
+    && String(item?.body || '').includes(marker));
+  const lines = nativeAnswerLines(comment?.body, [acceptance, marker]);
+  const verdicts = lines.filter((line) => /^(?:ACCEPT|REJECT)$/.test(line));
+  const accepted = lines.indexOf('ACCEPT');
+  const times = [request.createdAt, tasks[0]?.createdAt, comment?.created_at].map((value) => Date.parse(value || ''));
+  if (tasks.length !== 1 || comment?.html_url !== proof.reviewer_acceptance_url
+    || !configured.logins.includes(comment?.user?.login) || accepted < 0 || verdicts.length !== 1
+    || !lines.slice(accepted).includes(acceptance) || !lines.slice(accepted).includes(marker)
+    || times.some((value) => !Number.isFinite(value)) || times[1] < times[0] || times[2] <= times[1]
+    || times[2] > now || now - times[2] > 24 * 60 * 60 * 1000) return deny('native_conversation_answer_mismatch');
+  const reviewerComments = [...threads.nodes.flatMap((item) => item.comments.nodes), ...(topLevelComments.nodes || [])];
+  if (reviewerComments.some((item) => configured.logins.includes(item?.author?.login || item?.user?.login)
+    && Date.parse(item?.createdAt || item?.created_at || '') > times[2])) return deny('native_conversation_changed_after_acceptance');
+  return { ok: true, binding };
+}
+
 async function collectFindingReviewState({ owner, repo, number, read }) {
   // The controller supplies read from createTokenAwareRetry; helpers never
   // create an unwrapped client or bypass the caller's capability/token policy.
   if (typeof read !== 'function') throw new TypeError('Wrapped review read is required');
-  const fields = 'url body createdAt author { login } commit { oid }';
+  const fields = 'fullDatabaseId url body createdAt author { login } commit { oid }';
   let after = null;
   let snapshot;
   const nodes = [];
@@ -147,7 +228,7 @@ async function collectFindingReviewState({ owner, repo, number, read }) {
   return { ...snapshot, reviewThreads: { pageInfo: { hasNextPage: false }, nodes } };
 }
 
-async function collectOriginatingCompletions({ owner, repo, number, head, profiles, read }) {
+async function collectOriginatingCompletions({ owner, repo, number, head, profiles, read, includeAuthors = [] }) {
   // read is the owner's withRetry from createTokenAwareRetry.
   if (typeof read !== 'function') throw new TypeError('Wrapped completion read is required');
   const comments = await read((client) => client.paginate(client.rest.issues.listComments,
@@ -156,11 +237,11 @@ async function collectOriginatingCompletions({ owner, repo, number, head, profil
   const nodes = [];
   for (const comment of comments) {
     const profile = profiles.find((item) => item.logins.includes(comment.user?.login));
-    if (!profile) continue;
-    const node = { url: comment.html_url, body: comment.body, createdAt: comment.created_at,
+    if (!profile && !includeAuthors.includes(comment.user?.login)) continue;
+    const node = { id: comment.id, url: comment.html_url, body: comment.body, createdAt: comment.created_at,
       author: comment.user };
     nodes.push(node);
-    if (!profile.disposition_completion_prefixes?.some((prefix) => comment.body?.startsWith(prefix))) continue;
+    if (!profile || !profile.disposition_completion_prefixes?.some((prefix) => comment.body?.startsWith(prefix))) continue;
     const prefix = profile.disposition_reviewed_commit_prefix;
     if (!prefix) continue;
     const line = String(comment.body || '').split('\n').find((value) => value.startsWith(prefix));
@@ -179,5 +260,5 @@ async function collectOriginatingCompletions({ owner, repo, number, head, profil
   return { complete: true, nodes };
 }
 
-module.exports = { sha256, validateIndependentFindingVerification,
+module.exports = { sha256, nativeAnswerLines, validateIndependentFindingVerification, validateNativeConversationDisposition,
   collectFindingReviewState, collectOriginatingCompletions };

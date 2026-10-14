@@ -1,7 +1,7 @@
 'use strict';
 
 const { validateIndependentFindingVerification, collectFindingReviewState,
-  collectOriginatingCompletions } = require('./maint71_finding_verification');
+  validateNativeConversationDisposition, collectOriginatingCompletions } = require('./maint71_finding_verification');
 
 const DEFAULT_REVIEW_POLICY = Object.freeze({
   minimum_responses: 1,
@@ -266,7 +266,7 @@ function parseReviewReassessmentRequest(raw = '') {
     || typeof request.originating_reviewer !== 'string'
     || !/^[a-z][a-z0-9-]*$/.test(request.originating_reviewer)
     || (request.request_stage !== undefined
-      && !['disposition', 'retry'].includes(request.request_stage))) {
+      && !['disposition', 'retry', 'conversation-disposition'].includes(request.request_stage))) {
     throw new Error('Reviewer reassessment input has invalid identity fields');
   }
   return request;
@@ -277,9 +277,24 @@ function reviewReassessmentMarker(request) {
     REASSESSMENT_FIELDS.map((field) => [field, request[field]]),
   );
   const kind = request.request_stage === 'retry' ? 'retry'
-    : request.request_stage === 'disposition' ? 'disposition' : 'reassessment';
+    : request.request_stage === 'disposition' ? 'disposition'
+      : request.request_stage === 'conversation-disposition' ? 'conversation-disposition'
+        : 'reassessment';
   return `<!-- maint71-review-${kind}:v1 ${JSON.stringify(canonical)} -->`;
 }
+
+function nativeConversationBinding(request, inlineRequest, origin) {
+  const requestId = String(inlineRequest?.fullDatabaseId || inlineRequest?.id || '');
+  const requestUrl = String(inlineRequest?.url || inlineRequest?.html_url || '');
+  const originId = String(origin?.fullDatabaseId || origin?.id || '');
+  if (!/^[1-9][0-9]*$/.test(requestId) || !/^https:\/\/github\.com\//.test(requestUrl)
+    || !/^[1-9][0-9]*$/.test(originId)) throw new Error('Native conversation disposition requires durable inline request and finding identities');
+  return { protocol: 'maint71-native-conversation-disposition/v1', repository: request.repository, pr: request.pr,
+    head_sha: request.head_sha, thread_id: request.thread_id, plan_id: request.plan_id, generation: request.generation,
+    source_commit: request.source_commit, originating_reviewer: request.originating_reviewer, inline_request_id: requestId,
+    inline_request_url: requestUrl, finding_id: originId, finding_sha256: require('crypto').createHash('sha256').update(String(origin?.body || '')).digest('hex') };
+}
+function nativeConversationMarker(binding) { return `<!-- maint71-native-conversation-disposition:v1 ${require('crypto').createHash('sha256').update(JSON.stringify(binding)).digest('hex')} -->`; }
 
 function hasSubsequentExactHeadReviewerAnswer(thread, request, profiles, requestCreatedAt,
   reviewerProfileForLogin) {
@@ -318,9 +333,12 @@ async function runReviewReassessment({
   const profile = profiles.find((item) => item.id === request.originating_reviewer);
   const dispositionOnly = request.request_stage === 'disposition';
   const retryFailed = request.request_stage === 'retry';
-  const command = String((dispositionOnly ? profile?.disposition_comment
+  const nativeConversation = request.request_stage === 'conversation-disposition';
+  const nativePolicy = profile?.conversation_disposition;
+  const command = String((nativeConversation ? nativePolicy?.inline_comment : dispositionOnly ? profile?.disposition_comment
     : profile?.reassessment_comment) || '').trim();
-  if (!profile || !/^@[A-Za-z0-9-]+(?:\s+[A-Za-z0-9-]+)*$/.test(command)) {
+  if (!profile || !/^@[A-Za-z0-9-]+(?:\s+[A-Za-z0-9-]+)*$/.test(command)
+    || (nativeConversation && (!nativePolicy || nativePolicy.protocol !== 'maint71-native-conversation-disposition/v1' || !Array.isArray(nativePolicy.logins) || nativePolicy.logins.some((login) => !profile.logins?.includes(login)) || !/^@[A-Za-z0-9-]+(?:\s+[A-Za-z0-9-]+)*$/.test(String(nativePolicy.task_comment || ''))))) {
     throw new Error('Originating reviewer has no configured reassessment command');
   }
   const [owner, repo] = request.repository.split('/');
@@ -516,6 +534,7 @@ async function runReviewReassessment({
     const body = [`${command} on exact head ${request.head_sha}`,
       ...(retryFailed ? ['One bounded retry after the originating provider reported a verified terminal failure on this exact head. This is not acceptance and grants no resolution or merge authority.'] : []),
       ...(dispositionOnly ? ['This is a disposition-only task, not another general review. Answer the original finding with explicit ACCEPT or REJECT in this existing thread; do not create a separate finding thread.'] : []),
+      ...(nativeConversation ? ['This is a native-conversation disposition request. A configured native conversation response may be used only when it supplies the exact protocol marker and exact acceptance token below; it grants no resolution or merge authority.'] : []),
       `Maint 71 requests ${request.originating_reviewer} to reassess active thread ` +
         `${request.thread_id} on exact generated head ${request.head_sha}. ` +
         `The thread remains merge-blocking until reviewer disposition.`,
@@ -546,16 +565,18 @@ async function runReviewReassessment({
   let task = null;
   let taskReused = false;
   let taskSuppressed = false;
-  const taskKind = dispositionOnly ? 'disposition' : 'reassessment';
-  const taskTransport = profile[`${taskKind}_task_transport`];
-  const initialTask = !dispositionOnly && !retryFailed;
-  if ((dispositionOnly || initialTask) && taskTransport) {
-    const taskCommand = String(profile[`${taskKind}_task_comment`] || '').trim();
+  const taskKind = nativeConversation ? 'native-conversation-disposition' : dispositionOnly ? 'disposition' : 'reassessment';
+  const taskTransport = nativeConversation ? nativePolicy.task_transport : profile[`${taskKind}_task_transport`];
+  const initialTask = !dispositionOnly && !retryFailed && !nativeConversation;
+  if ((dispositionOnly || initialTask || nativeConversation) && taskTransport) {
+    const taskCommand = String(nativeConversation ? nativePolicy.task_comment : profile[`${taskKind}_task_comment`] || '').trim();
     if (taskTransport !== 'pr-conversation'
       || !/^@[A-Za-z0-9-]+(?:\s+[A-Za-z0-9-]+)*$/.test(taskCommand)) {
       throw new Error(`Originating reviewer has no supported ${taskKind} task transport`);
     }
-    const taskBinding = {
+    const taskBinding = nativeConversation ? nativeConversationBinding(
+      request, comment, current.thread.comments.nodes[0],
+    ) : {
       ...Object.fromEntries(REASSESSMENT_FIELDS.map((field) => [field, request[field]])),
       request_id: String(comment.id), request_url: comment.html_url,
     };
@@ -564,7 +585,7 @@ async function runReviewReassessment({
     // binding; the existing inline request remains the readable authority.
     const taskDigest = require('crypto').createHash('sha256')
       .update(JSON.stringify(taskBinding)).digest('hex');
-    const taskMarker = `<!-- maint71-${taskKind}-task:v1 ${taskDigest} -->`;
+    const taskMarker = nativeConversation ? nativeConversationMarker(taskBinding) : `<!-- maint71-${taskKind}-task:v1 ${taskDigest} -->`;
     const findTask = async () => {
       const items = await withRetry((client) => client.paginate(client.rest.issues.listComments,
         { owner, repo, issue_number: request.pr, per_page: 100 }));
@@ -589,12 +610,15 @@ async function runReviewReassessment({
     )) taskSuppressed = true;
     if (!task && !taskSuppressed) {
       const body = [`${taskCommand} on exact head ${request.head_sha}`,
-        dispositionOnly
+        nativeConversation
+          ? 'This is a bounded native-conversation disposition task. Do not inspect unrelated changes or start another general pass.'
+          : dispositionOnly
           ? 'This is a bounded disposition-only cloud task. Do not inspect unrelated changes or start another general pass.'
           : 'This is a bounded finding-reassessment conversation task. Do not start another general review.',
         `Answer only the original finding in existing thread ${request.thread_id}: ${comment.html_url}`,
         `The authenticated in-thread request above is the authority and contains the exact finding. Inspect its source fix at Workflows commit ${request.source_commit} and generated head ${request.head_sha}.`,
-        'Reply in that existing thread with explicit ACCEPT and the exact acceptance token requested there if satisfied, or REJECT with concrete evidence if not. A top-level answer cannot authorize disposition.',
+        nativeConversation ? `Reply in this PR conversation with a plain unquoted line beginning ACCEPT or REJECT. An ACCEPT must include <!-- sync-review-accepted:${request.head_sha} --> and ${taskMarker} after that ACCEPT line, outside quoted text, code fences and details blocks; it is valid only after this task and only under the configured native protocol.` :
+          'Reply in that existing thread with explicit ACCEPT and the exact acceptance token requested there if satisfied, or REJECT with concrete evidence if not. A top-level answer cannot authorize disposition.',
         'No file edits, branch pushes, new finding threads, thread resolution, seal, close or merge actions. If replying there is unsupported, report that limitation explicitly; do not substitute a generic no-issues summary.',
         taskMarker].join('\n\n');
       try {
@@ -771,10 +795,13 @@ function validateReviewResolutionProof(proof = {}, {
   )) errors.push('invalid_evidence_url');
   if (!String(proof.originating_reviewer || '').trim()) errors.push('missing_originating_reviewer');
   const independent = proof.acceptance_mode === 'independent-verification';
-  if (proof.acceptance_mode && !independent) errors.push('unsupported_acceptance_mode');
+  const nativeConversation = proof.acceptance_mode === 'native-conversation-disposition';
+  if (proof.acceptance_mode && !independent && !nativeConversation) errors.push('unsupported_acceptance_mode');
   if (independent ? !/^https:\/\/github\.com\/stranske\/Workflows\/issues\/[1-9]\d*#issuecomment-[1-9]\d*$/.test(
     String(proof.reviewer_acceptance_url || ''),
-  ) : !new RegExp(
+  ) : nativeConversation ? !new RegExp(
+    `^https://github\\.com/${owner}/${repo}/pull/${prNumber}#issuecomment-[1-9]\\d*$`,
+  ).test(String(proof.reviewer_acceptance_url || '')) : !new RegExp(
     `^https://github\\.com/${owner}/${repo}/pull/${prNumber}#discussion_r[1-9]\\d*$`,
   ).test(String(proof.reviewer_acceptance_url || ''))) {
     errors.push('invalid_reviewer_acceptance_url');
@@ -801,6 +828,12 @@ function hasExplicitSameHeadReviewerAcceptance(thread, proof, headSha, reviewerP
     && comment.commit?.oid === headSha
     && String(comment.body || '').includes(marker)
   );
+}
+
+function acceptanceCommentLocation(proof, consumer, source) {
+  return proof?.acceptance_mode === 'native-conversation-disposition'
+    ? { owner: consumer.owner, repo: consumer.repo }
+    : { owner: source.owner, repo: source.repo };
 }
 
 function selectReconciliationTargets({
@@ -1463,19 +1496,21 @@ async function run({ github, context, core }) {
           continue;
         }
         let accepted = hasExplicitSameHeadReviewerAcceptance(thread, proof, pr.head.sha, reviewerProfiles);
-        if (proof.acceptance_mode === 'independent-verification') {
+        if (proof.acceptance_mode === 'independent-verification' || proof.acceptance_mode === 'native-conversation-disposition') {
           const commentId = proof.reviewer_acceptance_url.split('#issuecomment-')[1];
+          const commentLocation = acceptanceCommentLocation(proof, { owner, repo }, context.repo);
           const { data: comment } = await withRetry((client) => client.rest.issues.getComment({
-            owner: context.repo.owner, repo: context.repo.repo, comment_id: commentId,
+            ...commentLocation, comment_id: commentId,
           }));
           const topLevelComments = await collectOriginatingCompletions({
             owner, repo, number: pr.number, head: pr.head.sha,
             profiles: reviewerProfiles, read: withRetry,
+            includeAuthors: proof.acceptance_mode === 'native-conversation-disposition' ? reviewPolicy.finding_verification_fallback?.trusted_publishers || [] : [],
           });
-          const verification = validateIndependentFindingVerification({
+          const verification = proof.acceptance_mode === 'independent-verification' ? validateIndependentFindingVerification({
             proof, record: deliveryRecord, thread, threads, comment,
             policy: reviewPolicy, reviewerProfiles, topLevelComments,
-          });
+          }) : validateNativeConversationDisposition({ proof, record: deliveryRecord, thread, threads, comment, policy: reviewPolicy, reviewerProfiles, topLevelComments });
           accepted = verification.ok;
           if (!accepted) {
             errors.push(`${proof.thread_id}:${verification.reason}`);
@@ -1501,17 +1536,17 @@ async function run({ github, context, core }) {
           const latestCompletions = await collectOriginatingCompletions({
             owner, repo, number: pr.number, head: pr.head.sha,
             profiles: reviewerProfiles, read: withRetry,
+            includeAuthors: proof.acceptance_mode === 'native-conversation-disposition' ? reviewPolicy.finding_verification_fallback?.trusted_publishers || [] : [],
           });
           const { data: latestComment } = await withRetry((client) => client.rest.issues.getComment({
-            owner: context.repo.owner, repo: context.repo.repo, comment_id: commentId,
+            ...commentLocation, comment_id: commentId,
           }));
           const latestRecord = parseDeliveryRecord(latest?.body || '');
           const latestThread = latest?.reviewThreads?.nodes?.find((item) => item.id === proof.thread_id);
-          const finalVerification = validateIndependentFindingVerification({
+          const finalVerification = proof.acceptance_mode === 'independent-verification' ? validateIndependentFindingVerification({
             proof, record: latestRecord, thread: latestThread, threads: latest?.reviewThreads,
-            comment: latestComment, policy: reviewPolicy, reviewerProfiles,
-            topLevelComments: latestCompletions,
-          });
+            comment: latestComment, policy: reviewPolicy, reviewerProfiles, topLevelComments: latestCompletions,
+          }) : validateNativeConversationDisposition({ proof, record: latestRecord, thread: latestThread, threads: latest?.reviewThreads, comment: latestComment, policy: reviewPolicy, reviewerProfiles, topLevelComments: latestCompletions });
           if (latest?.headRefOid !== pr.head.sha || !finalVerification.ok
             || latest?.headRefName !== pr.head.ref
             || !independentVerificationDeliveryUnchanged({
@@ -3882,6 +3917,9 @@ module.exports = {
   listMaint71PullRequests,
   mergeMethodPolicyAllowsFallback,
   normalizeReviewPolicy,
+  nativeConversationBinding,
+  nativeConversationMarker,
+  acceptanceCommentLocation,
   parseReviewReassessmentRequest,
   readConsumerDeclaredContexts,
   reviewReassessmentMarker,

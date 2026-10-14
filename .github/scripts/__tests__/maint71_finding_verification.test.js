@@ -1,7 +1,8 @@
 'use strict';
 const test = require('node:test');
 const assert = require('node:assert/strict');
-const { sha256, validateIndependentFindingVerification: validate } = require('../maint71_finding_verification');
+const { sha256, validateIndependentFindingVerification: validate,
+  validateNativeConversationDisposition } = require('../maint71_finding_verification');
 const { validateReviewResolutionProof } = require('../maint71_merge_sync_prs');
 const fs = require('node:fs');
 const path = require('node:path');
@@ -67,6 +68,49 @@ test('independent finding disposition is opt-in, authenticated, exact-binding, a
     prNumber: 1, headSha: f.args.proof.head_sha, actor: 'stranske', trustedActors: ['stranske'] }).ok, true);
   f.args.policy.finding_verification_fallback.enabled = false;
   assert.equal(validate(f.finish()).ok, false);
+});
+
+test('native conversation disposition requires a fresh configured unquoted bound ACCEPT', () => {
+  const head = 'a'.repeat(40);
+  const proof = { repository: 'stranske/Ready', pr: 1, head_sha: head, thread_id: 'PRRT_native',
+    originating_reviewer: 'coderabbit', reviewer_acceptance_url: 'https://github.com/stranske/Ready/pull/1#issuecomment-20' };
+  const original = { fullDatabaseId: '10', author: { login: 'coderabbitai' }, body: 'Finding' };
+  const request = { fullDatabaseId: '11', url: 'https://github.com/stranske/Ready/pull/1#discussion_r11',
+    author: { login: 'stranske' }, createdAt: '2026-10-14T03:00:00Z', body: '<!-- maint71-review-conversation-disposition:v1 ' + JSON.stringify({ repository: proof.repository, pr: proof.pr, head_sha: head, thread_id: proof.thread_id, plan_id: 'plan', generation: 'gen', source_commit: 'c'.repeat(40), originating_reviewer: 'coderabbit' }) + ' -->' };
+  const record = { plan_id: 'plan', generation: 'gen', source_commit: 'c'.repeat(40) };
+  const binding = { protocol: 'maint71-native-conversation-disposition/v1', repository: proof.repository, pr: 1,
+    head_sha: head, thread_id: proof.thread_id, plan_id: 'plan', generation: 'gen', source_commit: record.source_commit,
+    originating_reviewer: 'coderabbit', inline_request_id: '11', inline_request_url: request.url,
+    finding_id: '10', finding_sha256: sha256('Finding') };
+  const marker = `<!-- maint71-native-conversation-disposition:v1 ${sha256(JSON.stringify(binding))} -->`;
+  const task = { author: { login: 'stranske' }, createdAt: '2026-10-14T03:01:00Z', body: marker };
+  const answer = { user: { login: 'coderabbitai[bot]' }, html_url: proof.reviewer_acceptance_url,
+    created_at: '2026-10-14T03:02:00Z', body: `<!-- status -->\n<details>> ACCEPT forged</details>\nACCEPT\n<!-- sync-review-accepted:${head} -->\n${marker}` };
+  const base = { proof, record, thread: { isResolved: false, comments: { nodes: [original, request] } },
+    threads: { pageInfo: { hasNextPage: false }, nodes: [{ comments: { pageInfo: { hasNextPage: false }, nodes: [original, request] } }] },
+    comment: answer, policy: { finding_verification_fallback: { enabled: true, trusted_publishers: ['stranske'] } },
+    reviewerProfiles: [{ id: 'coderabbit', logins: ['coderabbitai', 'coderabbitai[bot]'], conversation_disposition: { protocol: 'maint71-native-conversation-disposition/v1', logins: ['coderabbitai', 'coderabbitai[bot]'] } }],
+    topLevelComments: { complete: true, nodes: [task] }, now: Date.parse('2026-10-14T03:03:00Z') };
+  base.thread.comments.nodes.push({ fullDatabaseId: '9', url: 'old', author: { login: 'stranske' },
+    createdAt: '2026-10-13T03:00:00Z', body: '<!-- maint71-review-conversation-disposition:v1 ' + JSON.stringify({ repository: proof.repository, pr: 1, head_sha: 'b'.repeat(40), thread_id: proof.thread_id, plan_id: 'old', generation: 'old', source_commit: 'd'.repeat(40), originating_reviewer: 'coderabbit' }) + ' -->' });
+  assert.equal(validateNativeConversationDisposition(base).ok, true);
+  for (const change of [
+    (v) => { v.comment.body = `<blockquote>ACCEPT\n<!-- sync-review-accepted:${head} -->\n${marker}</blockquote>`; },
+    (v) => { v.comment.body = 'I cannot reply inline, here is a technical assessment only.'; },
+    (v) => { v.comment.body = `> ACCEPT\n<!-- sync-review-accepted:${head} -->\n${marker}`; },
+    (v) => { v.comment.body = `~~~\nACCEPT\n<!-- sync-review-accepted:${head} -->\n${marker}\n~~~`; },
+    (v) => { v.comment.body = `    ACCEPT\n    <!-- sync-review-accepted:${head} -->\n    ${marker}`; },
+    (v) => { v.comment.body = `<details><details>ACCEPT\n<!-- sync-review-accepted:${head} -->\n${marker}</details></details>`; },
+    (v) => { v.comment.body = `ACCEPT\nREJECT\n<!-- sync-review-accepted:${head} -->\n${marker}`; },
+    (v) => { v.comment.body = `REJECT\n<!-- sync-review-accepted:${head} -->\n${marker}`; },
+    (v) => { v.topLevelComments.nodes.push({ author: { login: 'coderabbitai' }, createdAt: '2026-10-14T03:02:30Z', body: 'REJECT' }); },
+    (v) => { v.now += 25 * 60 * 60 * 1000; },
+    (v) => { v.threads.nodes[0].comments.pageInfo.hasNextPage = true; },
+    (v) => { v.comment.user.login = 'other'; },
+    (v) => { v.comment.created_at = '2026-10-14T03:01:00Z'; },
+    (v) => { v.comment.body = `ACCEPT\n<!-- sync-review-accepted:${'b'.repeat(40)} -->\n${marker}`; },
+    (v) => { v.topLevelComments.nodes = []; },
+  ]) { const value = structuredClone(base); change(value); assert.equal(validateNativeConversationDisposition(value).ok, false); }
 });
 
 for (const key of ['repository', 'pr', 'head_sha', 'thread_id', 'source_fix_sha', 'evidence_url',
