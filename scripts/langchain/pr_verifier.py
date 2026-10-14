@@ -2382,6 +2382,66 @@ def _classify_evidence_channels(acceptance: str, *, _bind_attached: bool = True)
     # Lexical aliases share obligation, negation, destination and product rules,
     # including the earlier proof-pronoun antecedent path.
     record_aliases = _EVIDENCE_RECORD_ALIASES
+
+    def record_alias_has_delivery_governor(
+        alias: str, prefix: str, *, allow_actor: bool = False
+    ) -> bool:
+        """Distinguish ambiguous record-alias verbs from noun phrases."""
+        if alias.lower() not in {
+            "supply",
+            "supplies",
+            "supplying",
+            "share",
+            "shares",
+            "sharing",
+            "report",
+            "reports",
+            "reporting",
+        }:
+            return True
+        prefix = re.split(
+            r"[;,.!?\n]|\b(?:and|or|but|while|whereas)\b",
+            prefix,
+            flags=re.I,
+        )[-1]
+        prefix = re.sub(
+            r"^\s*(?:(?:[-*+]|\d+[.)])\s*(?:\[[ xX]\]\s*)?|\[[ xX]\]\s*)?",
+            "",
+            prefix,
+        )
+        imperative = not prefix.strip()
+        # Alias recognition precedes clause-level contraction expansion.
+        # Normalize only the inspected governor, never quoted input bytes.
+        prefix = re.sub(
+            r"\b(does|do|did)n['’]t\b",
+            lambda match: match[1] + " not",
+            prefix,
+            flags=re.I,
+        )
+        verbal_governor = mandatory_auxiliary + r"|will|may|can|could|would|should|do|does|did"
+        if alias.lower() in {"supplying", "sharing", "reporting"}:
+            verbal_governor += r"|is|are|was|were|be|been|being"
+        governed = bool(
+            re.search(
+                r"\b(?:" + verbal_governor + r")\s+"
+                r"(?:(?:not|never|no\s+longer|" + delivery_adverb + r")\s+)*$",
+                prefix,
+                re.I,
+            )
+        )
+        actor = allow_actor and bool(
+            re.fullmatch(
+                r"\s*"
+                + qualified_delivery_actor
+                + r"(?:(?:never|no\s+longer)\s+"
+                + delivery_adverbs
+                + r")?",
+                prefix,
+                re.I,
+            )
+        )
+        return imperative or governed or actor
+
     # Identical coordinated verbs share one governor and object. Coalesce
     # before aliasing/clause splitting so a later bare verb cannot lose may/not.
     acceptance = re.sub(
@@ -2391,7 +2451,34 @@ def _classify_evidence_channels(acceptance: str, *, _bind_attached: bool = True)
         + r"|"
         + "|".join(record_aliases)
         + r"))\s+(?:and|or)\s+(?P=operation)(?:\s+(?:and|or)\s+(?P=operation))*\b",
-        lambda match: match[0] if match["literal"] else match["operation"],
+        lambda match: (
+            match[0]
+            if match["literal"]
+            or not record_alias_has_delivery_governor(
+                match["operation"], acceptance[: match.start("operation")]
+            )
+            else match["operation"]
+        ),
+        acceptance,
+        flags=re.I,
+    )
+    # Record aliases normalize to one delivery category, so a bounded mixed
+    # chain shares the preceding governor before a bare alias can lose may/not.
+    acceptance = re.sub(
+        r"(?P<literal>" + quoted_evidence_literal + r")|"
+        r"\b(?P<operation>(?:"
+        + "|".join(record_aliases)
+        + r"))(?:\s+(?:and|or)\s+(?:"
+        + "|".join(record_aliases)
+        + r"))+\b",
+        lambda match: (
+            match[0]
+            if match["literal"]
+            or not record_alias_has_delivery_governor(
+                match["operation"], acceptance[: match.start("operation")]
+            )
+            else match["operation"]
+        ),
         acceptance,
         flags=re.I,
     )
@@ -2831,62 +2918,10 @@ def _classify_evidence_channels(acceptance: str, *, _bind_attached: bool = True)
         alias = match["alias"]
         if not alias:
             return match[0]
-        if alias.lower() in {
-            "supply",
-            "supplies",
-            "supplying",
-            "share",
-            "shares",
-            "sharing",
-            "report",
-            "reports",
-            "reporting",
-        }:
-            prefix = re.split(
-                r"[;,.!?\n]|\b(?:and|or|but|while|whereas)\b",
-                acceptance[: match.start()],
-                flags=re.I,
-            )[-1]
-            prefix = re.sub(
-                r"^\s*(?:(?:[-*+]|\d+[.)])\s*(?:\[[ xX]\]\s*)?|\[[ xX]\]\s*)?",
-                "",
-                prefix,
-            )
-            imperative = not prefix.strip()
-            # Alias recognition precedes clause-level contraction expansion.
-            # Normalize only the inspected governor, never quoted input bytes.
-            prefix = re.sub(
-                r"\b(does|do|did)n['’]t\b",
-                lambda match: match[1] + " not",
-                prefix,
-                flags=re.I,
-            )
-            # Base supply/supplies following bare possession auxiliaries is a
-            # noun phrase, not perfect delivery (which requires supplied).
-            verbal_governor = mandatory_auxiliary + r"|will|may|can|could|would|should|do|does|did"
-            if alias.lower() in {"supplying", "sharing", "reporting"}:
-                verbal_governor += r"|is|are|was|were|be|been|being"
-            governed = bool(
-                re.search(
-                    r"\b(?:" + verbal_governor + r")\s+"
-                    r"(?:(?:not|never|no\s+longer|" + delivery_adverb + r")\s+)*$",
-                    prefix,
-                    re.I,
-                )
-            )
-            actor = bool(
-                re.fullmatch(
-                    r"\s*"
-                    + qualified_delivery_actor
-                    + r"(?:(?:never|no\s+longer)\s+"
-                    + delivery_adverbs
-                    + r")?",
-                    prefix,
-                    re.I,
-                )
-            )
-            if not (imperative or governed or actor):
-                return match[0]
+        if not record_alias_has_delivery_governor(
+            alias, acceptance[: match.start()], allow_actor=True
+        ):
+            return match[0]
         if alias.lower() in {
             "written",
             "pasted",

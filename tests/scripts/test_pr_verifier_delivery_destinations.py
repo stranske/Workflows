@@ -2869,6 +2869,21 @@ def test_report_alias_reuses_delivery_polarity_destinations_and_floor(
             )
             == set()
         )
+        for operations in ("submit and report", "report and submit"):
+            criterion = f"The reviewer {governor} {operations} test results in a PR comment"
+            assert verifier._required_evidence_channels(criterion) == set()
+            assert verifier._required_evidence_options(criterion) == [set()]
+            assert _floor_verdict(criterion, body="present", comments="absent") == "PASS"
+
+    noun_then_delivery = (
+        "The reviewer must inspect a report and submit test results in a PR comment"
+    )
+    assert verifier._required_evidence_channels(noun_then_delivery) == {"comments"}
+    assert verifier._required_evidence_options(noun_then_delivery) == [{"comments"}]
+    assert _floor_verdict(noun_then_delivery, body="present", comments="absent") == "CONCERNS"
+    assert verifier._required_evidence_channels(
+        "The reviewer must inspect a report; the reviewer must submit test results in a PR comment"
+    ) == {"comments"}
 
 
 def test_report_alias_keeps_coordinated_channels_and_independent_reviewer_duty():
