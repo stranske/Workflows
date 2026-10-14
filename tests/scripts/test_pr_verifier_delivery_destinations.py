@@ -6889,6 +6889,22 @@ def test_issue3835_active_command_output_send_optional_or_prohibited_is_not_requ
     )
 
 
+@pytest.mark.parametrize(
+    "criterion",
+    [
+        "The application must not allow users to upload evidence to an artifact and allow users to send command output in a PR comment",
+        "The application must not allow users to upload evidence to an artifact, but the application prevents authenticated users from sending command output in a PR comment",
+        "The application must not allow users to upload evidence to an artifact, but the application disallows authenticated users from sending command output in a PR comment",
+    ],
+)
+def test_issue3835_negative_capability_chain_is_not_delivery(criterion):
+    assert verifier._required_evidence_channels(criterion) == set()
+    assert verifier._required_evidence_options(criterion) == [set()]
+    assert (
+        _floor_verdict(criterion, body="present", comments="absent", artifacts="absent") == "PASS"
+    )
+
+
 @pytest.mark.parametrize("governor", ["must prevent", "prevents", "must disallow", "disallows"])
 @pytest.mark.parametrize("recipient", ["users", "authenticated users", "all users", "operators"])
 def test_issue3835_prohibitive_command_output_send_capability_is_not_delivery(governor, recipient):
