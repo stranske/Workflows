@@ -2676,3 +2676,9 @@ modifiers and a complete obligation predicate. Product complements such as
 required schema fields remain product requirements. Destination list quantifiers
 `both` and `either` may precede the first preposition; existing AND/OR evidence
 floors remain authoritative for each destination.
+
+Coordinated count modifiers such as `one or more` retain the same required
+comment duty and are not destination alternatives. Bounded maintainer
+attributions before a standalone predicate retain that duty. Active bare
+artifact delivery must govern a recognized proof payload; product publications
+to product recipients stay nongating unless a separate reviewer duty exists.

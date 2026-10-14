@@ -999,6 +999,13 @@ _EVIDENCE_OBJECT_MODIFIER_WORD = (
     r"(?!(?:and|or|but|must|shall|is|are|not|never|may|can)\b)" r"(?=[\w/-]*\w)[\w/-]+"
 )
 _EVIDENCE_OBJECT_MODIFIERS = r"(?:" + _EVIDENCE_OBJECT_MODIFIER_WORD + r"\s+){0,6}"
+_EVIDENCE_COUNT_MODIFIER = (
+    r"(?:(?:at\s+(?:least|most)|exactly)\s+(?:one|two|\d+)|"
+    r"(?:one|two|\d+)(?:\s+or\s+more|-or-more|ormore))\s+"
+)
+_EVIDENCE_OBJECT_COUNTED_MODIFIERS = (
+    r"(?:(?:" + _EVIDENCE_COUNT_MODIFIER + r")|(?:" + _EVIDENCE_OBJECT_MODIFIER_WORD + r"\s+)){0,6}"
+)
 _EVIDENCE_RECIPIENT_PREFIX = (
     r"(?:(?:all|any|some|each|every)\s+)?"
     r"(?:(?:the|its|our|their|your|an?)\s+)?"
@@ -1145,10 +1152,22 @@ _DELIVERED_EVIDENCE_OBJECT_END = (
 )
 
 
+def _normalize_evidence_count_modifiers(acceptance: str) -> str:
+    """Keep a bounded count's internal ``or`` out of destination DNF parsing."""
+    return re.sub(
+        r"(?P<literal>" + _QUOTED_EVIDENCE_LITERAL + r")|"
+        r"\b(?P<count>one|two|\d+)\s+or\s+more\b",
+        lambda match: match[0] if match["literal"] else match["count"] + "ormore",
+        acceptance,
+        flags=re.I,
+    )
+
+
 def _normalize_review_comment_destinations(acceptance: str) -> str:
     # Rewrite bare aliases only under review-delivery or standalone-requirement
     # context. Product surfaces ("review comment REST API", "validator",
     # "data model") keep their wording and invent no comments channel.
+    acceptance = _normalize_evidence_count_modifiers(acceptance)
     alias = re.compile(
         r"(?P<literal>" + _QUOTED_EVIDENCE_LITERAL + r")|"
         r"\b" + _EVIDENCE_REVIEW_COMMENT_DESTINATION,
@@ -1165,7 +1184,14 @@ def _normalize_review_comment_destinations(acceptance: str) -> str:
         r"(?:in|on)\s+(?:(?:this|the)\s+)?(?:pr|pull request)\b))"
     )
     standalone_requirement = re.compile(
-        r"\s+(?:is|are)\s+(?:required|needed|mandatory)\b" + standalone_predicate_end + r"|"
+        r"\s+(?:by|from)\s+(?:(?:the|an?)\s+)?"
+        + _EVIDENCE_ACTOR_NOUN
+        + _EVIDENCE_ACTOR_QUALIFIER
+        + r"\s+(?:is|are)\s+(?:required|needed|mandatory)\b"
+        + standalone_predicate_end
+        + r"|\s+(?:is|are)\s+(?:required|needed|mandatory)\b"
+        + standalone_predicate_end
+        + r"|"
         r"\s+(?:must|shall)\s+be\s+(?:present|provided|included|attached|posted|"
         r"required|needed|mandatory)\b" + standalone_predicate_end,
         re.I,
@@ -1174,8 +1200,7 @@ def _normalize_review_comment_destinations(acceptance: str) -> str:
         r"(?!(?:for|of|in|into|to|on|with|by|from)\b)" + _EVIDENCE_OBJECT_MODIFIER_WORD
     )
     standalone_subject = re.compile(
-        r"(?:^|[;.!?\n]\s*|(?:[-*+]\s+))"
-        r"(?:(?:at\s+(?:least|most)|exactly)\s+(?:one|two|\d+)\s+)?"
+        r"(?:^|[;.!?\n]\s*|(?:[-*+]\s+))" + r"(?:" + _EVIDENCE_COUNT_MODIFIER + r")?"
         r"(?:(?:the|an?)\s+)?" + r"(?:" + standalone_modifier + r"\s+){0,6}$",
         re.I,
     )
@@ -1189,7 +1214,7 @@ def _normalize_review_comment_destinations(acceptance: str) -> str:
     # delivery verb/article and the alias without dropping delivery context.
     delivered_object = re.compile(
         r"\b(?:" + _EVIDENCE_DELIVERY_OPERATION + r"|leave|left|leaving)\b\s+"
-        r"(?:(?:the|an?)\s+)?" + _EVIDENCE_OBJECT_MODIFIERS + r"$",
+        r"(?:(?:the|an?)\s+)?" + _EVIDENCE_OBJECT_COUNTED_MODIFIERS + r"$",
         re.I,
     )
 
@@ -1199,6 +1224,22 @@ def _normalize_review_comment_destinations(acceptance: str) -> str:
         before = acceptance[max(0, match.start() - 160) : match.start()]
         after = acceptance[match.end() : match.end() + 96]
         if not re.match(_DELIVERED_EVIDENCE_OBJECT_END, after, re.I):
+            return match[0]
+        if re.search(
+            r"\b"
+            + _EVIDENCE_PRODUCT_ACTOR
+            + r"\s+(?:(?:"
+            + _MANDATORY_EVIDENCE_AUXILIARY
+            + r"|will|"
+            + _EVIDENCE_OPTIONAL_MODAL
+            + r")\s+)?"
+            + _EVIDENCE_DELIVERY_OPERATION
+            + r"\s+(?:(?:the|an?)\s+)?"
+            + _EVIDENCE_OBJECT_COUNTED_MODIFIERS
+            + r"$",
+            before,
+            re.I,
+        ) and re.match(r"\s+(?:to|for)\s+" + _EVIDENCE_PRODUCT_RECIPIENT, after, re.I):
             return match[0]
         if (
             standalone_requirement.match(after)
@@ -1444,7 +1485,10 @@ _EVIDENCE_PR_COMMENT_DESTINATION = (
 )
 _EVIDENCE_ACTIVE_AS_ARTIFACT_DELIVERY = (
     r"\b(?:upload|attach|publish|post|record|capture|provide|include|document)\w*"
-    r"(?:\s+(?!(?:as|to|into|in|on|for|by|with)\b)\w+){0,10}\s+as\s+"
+    r"\s+(?:(?:the|an?|any|this|that|these|those)\s+)?"
+    + _EVIDENCE_OBJECT_MODIFIERS
+    + r"(?:evidence(?:\s+(?:files?|bundles?|packages?))?|transcripts?|command outputs?|"
+    r"coverage reports?|" + _EVIDENCE_PROOF_ALIAS_NOUN + r")\s+as\s+"
     r"(?:(?:an?|the)\s+)?artifacts?\b"
 )
 _EVIDENCE_REVIEW_DESTINATION = (
@@ -4901,6 +4945,31 @@ def _required_evidence_channels(acceptance: str, *, _bind_attached: bool = True)
     return set(_cached_evidence_channels(acceptance, _bind_attached))
 
 
+def _normalize_standalone_review_comment_alternatives(acceptance: str) -> str:
+    """Express a counted standalone comment duty as a destination DNF list."""
+    return re.sub(
+        r"(?P<literal>" + _QUOTED_EVIDENCE_LITERAL + r")|"
+        r"(?:\b(?:one|two|\d+)ormore\s+)?(?:the\s+|an?\s+)?"
+        r"pr comments?\s+(?:is|are)\s+(?:required|needed|mandatory)\s+or\s+"
+        r"evidence\s+(?P<governor>must|shall)\s+(?:be\s+)?"
+        r"(?:posted|recorded|uploaded|attached|provided|published)\s+"
+        r"(?P<preposition>in|into|to|as)\s+"
+        r"(?P<destination>(?:(?:an?|the)\s+)?(?:(?:workflow|ci|github actions)\s+)?artifacts?)\b",
+        lambda match: (
+            match[0]
+            if match["literal"]
+            else "Evidence "
+            + match["governor"]
+            + " be posted in PR comment or "
+            + match["preposition"]
+            + " "
+            + match["destination"]
+        ),
+        acceptance,
+        flags=re.I,
+    )
+
+
 def _classify_evidence_options(acceptance: str) -> list[set[str]]:
     """Bounded destination ORs; every variant retains all independent clauses.
 
@@ -4919,6 +4988,7 @@ def _classify_evidence_options(acceptance: str) -> list[set[str]]:
     acceptance = _normalize_passive_review_agents(acceptance)
     acceptance = _normalize_relative_review_presence(acceptance)
     acceptance = _normalize_product_destination_lists(acceptance)
+    acceptance = _normalize_standalone_review_comment_alternatives(acceptance)
     preposition = _EVIDENCE_DESTINATION_PREPOSITION
     destination = (
         r"(?:(?:the|an?)\s+)?(?:(?:pr|pull request)\s+(?:(?:body|description)\b"

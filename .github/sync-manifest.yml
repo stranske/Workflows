@@ -740,6 +740,7 @@ scripts:
   # Artifact payload relatives retain shared parent modality; PR presence relatives remain independent.
   # Filename dots and opaque prose payload punctuation preserve siblings; embedded product nouns do not create channel duties.
   # Counted standalone duties and pre-preposition both/either share the guarded channel and destination grammars.
+  # Coordinated counts retain real duties; proof-object and product-recipient guards prevent domain artifacts becoming evidence.
   # Product actor normalization and channel suppression share one grammar.
   # Proof pronouns retain artifact destinations; bounded pure grammar caching returns fresh containers.
   - source: scripts/langchain/pr_verifier.py

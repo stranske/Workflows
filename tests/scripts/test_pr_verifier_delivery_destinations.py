@@ -5803,6 +5803,76 @@ def test_issue3835_quantifier_before_destination_preposition(quantifier, operato
         )
 
 
+@pytest.mark.parametrize(
+    "criterion,expected",
+    [
+        ("The reviewer must leave one or more PR review comments", {"comments"}),
+        ("A PR review comment by the maintainer is required", {"comments"}),
+        ("A PR review comment from the maintainer is required", {"comments"}),
+        ("The document management system must upload a user file as an artifact", set()),
+        ("The API must publish review comments to clients", set()),
+    ],
+)
+def test_issue3835_preserves_main_delivery_boundaries(criterion, expected):
+    """Bounded review aliases retain duties but ignore product capabilities."""
+    assert verifier._required_evidence_channels(criterion) == expected
+    assert verifier._required_evidence_options(criterion) == [expected]
+    availability = {"body": "present", "comments": "present", "artifacts": "present"}
+    if expected:
+        channel = next(iter(expected))
+        availability[channel] = "absent"
+        assert _floor_verdict(criterion, **availability) == "CONCERNS"
+    else:
+        assert (
+            _floor_verdict(criterion, body="absent", comments="absent", artifacts="absent")
+            == "PASS"
+        )
+
+
+@pytest.mark.parametrize(
+    "criterion,channel",
+    [
+        (
+            "The document management system must upload a user file as an artifact; "
+            "the reviewer must post evidence in a PR comment",
+            "comments",
+        ),
+        (
+            "The API must publish review comments to clients; "
+            "the reviewer must upload evidence as an artifact",
+            "artifacts",
+        ),
+    ],
+)
+def test_issue3835_product_capabilities_do_not_erase_independent_delivery(criterion, channel):
+    assert verifier._required_evidence_channels(criterion) == {channel}
+    assert verifier._required_evidence_options(criterion) == [{channel}]
+    availability = {"body": "present", "comments": "present", "artifacts": "present"}
+    availability[channel] = "absent"
+    assert _floor_verdict(criterion, **availability) == "CONCERNS"
+
+
+def test_issue3835_count_modifier_cannot_create_empty_destination_option():
+    criterion = (
+        "One or more PR review comments are required or evidence must be posted in an artifact"
+    )
+    options = verifier._required_evidence_options(criterion)
+    assert {frozenset(option) for option in options} == {
+        frozenset({"comments"}),
+        frozenset({"artifacts"}),
+    }
+    assert (
+        _floor_verdict(criterion, body="present", comments="present", artifacts="absent") == "PASS"
+    )
+    assert (
+        _floor_verdict(criterion, body="present", comments="absent", artifacts="present") == "PASS"
+    )
+    assert (
+        _floor_verdict(criterion, body="present", comments="absent", artifacts="absent")
+        == "CONCERNS"
+    )
+
+
 @pytest.mark.parametrize("prefix", ["the", "our", "their", "each appointed"])
 @pytest.mark.parametrize("boundary", [" and ", ", and ", " but ", " while "])
 @pytest.mark.parametrize("artifact", ["an artifact", "a workflow artifact"])
