@@ -122,6 +122,7 @@ test('native conversation disposition requires a fresh configured unquoted bound
     (v) => { v.comment.body = `<pre\nACCEPT\n<!-- sync-review-accepted:${head} -->\n${marker}`; },
     (v) => { v.comment.body = `<marquee>ACCEPT</marquee>\n<!-- sync-review-accepted:${head} -->\n${marker}`; },
     (v) => { v.comment.body = `<details\\>\nREJECT\nACCEPT\n<!-- sync-review-accepted:${head} -->\n${marker}`; },
+    (v) => { v.comment.body = `<details\\>\nREJECT\n</details>\nACCEPT\n<!-- sync-review-accepted:${head} -->\n${marker}`; },
     (v) => { v.comment.body = `<details/\>\nREJECT\nACCEPT\n<!-- sync-review-accepted:${head} -->\n${marker}`; },
     (v) => { v.comment.body = `</details\\>\nREJECT\nACCEPT\n<!-- sync-review-accepted:${head} -->\n${marker}`; },
     (v) => { v.comment.body = `> quoted context\nACCEPT\n<!-- sync-review-accepted:${head} -->\n${marker}`; },

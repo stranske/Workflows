@@ -128,6 +128,10 @@ function nativeAnswerLines(body, markers) {
     for (const tag of tags) {
       if (containers.length === 0) visible += raw.slice(cursor, tag.index);
       const type = tag[2].toLowerCase();
+      const valid = tag[1]
+        ? new RegExp(`^</${type}\\s*>$`, 'i').test(tag[0])
+        : new RegExp(`^<${type}(?:\\s+[A-Za-z_:][\\w:.-]*(?:\\s*=\\s*(?:"[^"]*"|'[^']*'|[^\\s"'=<>\\x60]+))?)*\\s*>$`, 'i').test(tag[0]);
+      if (!valid) return null;
       if (!['details', 'blockquote', 'pre', 'code', 'script', 'style', 'textarea'].includes(type)) {
         if (containers.length === 0) return null;
         continue;
