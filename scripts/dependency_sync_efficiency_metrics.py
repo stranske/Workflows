@@ -12,6 +12,7 @@ from __future__ import annotations
 import argparse
 import hashlib
 import json
+import re
 from collections import Counter, defaultdict
 from datetime import UTC, datetime, timedelta
 from pathlib import Path
@@ -363,7 +364,18 @@ def calculate(snapshot: dict[str, Any], now: datetime) -> dict[str, Any]:
         "stable_median_review_settlement_minutes": median_review_settlement is not None
         and median_review_settlement > THRESHOLDS["stable_median_review_settlement_minutes"],
     }
-    collection = snapshot.get("collection", {})
+    collection = dict(snapshot.get("collection", {}))
+    original_failures = list(collection.get("failures", []))
+    collection["failures"] = [
+        failure
+        for failure in original_failures
+        if not re.match(r"^stranske/collab-admin(?:#\d+)?:", str(failure), re.I)
+    ]
+    # The collector defines window completeness from its complete failure list.
+    # Only removal of every known excluded failure can restore that window;
+    # an unexplained incomplete window or any eligible failure stays unknown.
+    if original_failures and not collection["failures"]:
+        collection["window_complete"] = True
     return {
         "schema": "dependency-sync-efficiency/v1",
         "generated_at": now.isoformat().replace("+00:00", "Z"),

@@ -1,6 +1,8 @@
 import importlib.util
 from datetime import UTC, datetime
 
+import pytest
+
 SPEC = importlib.util.spec_from_file_location(
     "dependency_sync_efficiency_metrics", "scripts/dependency_sync_efficiency_metrics.py"
 )
@@ -411,3 +413,31 @@ def test_cached_excluded_rows_cannot_contaminate_metrics_or_report():
     assert report["metrics"]["actions_runs_per_source_change"] == {}
     assert "collab_admin_excluded" not in report["metrics"]
     assert "Collab-Admin" not in metrics.markdown(report)
+
+
+@pytest.mark.parametrize("eligible_failure", [None, "stranske/Template: workflow runs: timeout"])
+def test_cached_excluded_failures_do_not_control_collection_state(eligible_failure):
+    failures = [
+        "STRANSKE/COLLAB-ADMIN: workflow runs: timeout",
+        "stranske/Collab-Admin#42: timeline: unavailable",
+    ]
+    if eligible_failure:
+        failures.append(eligible_failure)
+    report = metrics.calculate(
+        {"collection": {"history_complete": False, "window_complete": False, "failures": failures}},
+        datetime(2026, 1, 10, tzinfo=UTC),
+    )
+    assert report["collection"]["failures"] == ([eligible_failure] if eligible_failure else [])
+    assert report["collection"]["window_complete"] is (eligible_failure is None)
+    assert report["collection"]["history_complete"] is False
+    assert report["advisory_slo"]["state"] == ("unknown" if eligible_failure else "baseline-pass")
+    assert "collab-admin" not in metrics.markdown(report).casefold()
+
+
+def test_unexplained_incomplete_cached_window_stays_unknown():
+    report = metrics.calculate(
+        {"collection": {"window_complete": False, "failures": []}},
+        datetime(2026, 1, 10, tzinfo=UTC),
+    )
+    assert report["collection"]["window_complete"] is False
+    assert report["advisory_slo"]["state"] == "unknown"

@@ -25,7 +25,10 @@ It is excluded from collection, routing, counts and reports until explicit owner
 reinstatement, even if a registered-consumer input contains its name. Eligible
 source and consumer repositories remain deduplicated and collected normally.
 The offline metric calculator also drops cached excluded PR/run/timeline rows,
-and emits no repository-specific exclusion count or report row.
+and emits no repository-specific exclusion count or report row. Cached collection
+failures for excluded targets are removed too. A window becomes complete only
+when its complete known failure list consisted entirely of excluded failures;
+eligible failures and unexplained incomplete windows remain advisory `unknown`.
 
 ## Advisory thresholds
 
