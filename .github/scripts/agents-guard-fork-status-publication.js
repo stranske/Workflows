@@ -325,11 +325,19 @@ async function publishGuardForkStatus({ github, context, core }) {
     if (result.state === 'success') {
       result = { ...result, description: withPolicyReceipt(result.description, pr.labels) };
     }
-    if (result.state === 'success' && result.evaluated === false && current) {
-      // A fork no-op preserves a current terminal verdict. Current success was
-      // already receipt-validated above; non-success remains authoritative.
-      core.info('Fork no-op preserves existing exact-head guard verdict.');
-      return result;
+    if (result.state === 'success' && result.evaluated === false) {
+      if (!current && policyLabelNames(pr.labels).some(label => ROUTING_LABELS.has(label))) {
+        result = {
+          state: 'failure',
+          description: 'Health 45 Agents Guard routing is now eligible; fresh evaluation required.',
+          evaluated: false,
+        };
+      } else if (current) {
+        // A fork no-op preserves a current terminal verdict. Current success was
+        // already receipt-validated above; non-success remains authoritative.
+        core.info('Fork no-op preserves existing exact-head guard verdict.');
+        return result;
+      }
     }
   }
   // Only the latest status for this context can suppress a replay.

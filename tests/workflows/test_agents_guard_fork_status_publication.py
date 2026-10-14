@@ -63,6 +63,7 @@ def _publish_scenario(
     run_pull_requests=None,
     open_prs=None,
     statuses=None,
+    labels=None,
     evaluate_status="completed",
     evaluate_conclusion="success",
     run_conclusion="success",
@@ -87,7 +88,7 @@ def _publish_scenario(
         "number": 4,
         "state": "open",
         "changed_files": 1,
-        "labels": [],
+        "labels": [] if labels is None else labels,
         "base": {"repo": {"id": 1}, "ref": base_ref},
         "head": {"repo": {"id": 1 if same_repo else 2}, "sha": "abc"},
     }
@@ -555,6 +556,52 @@ def test_agents_guard_fork_status_noop_creates_missing_required_status():
     assert no_op["result"]["state"] == "success"
     # A trusted fork no-op establishes the initially missing required context.
     assert len(no_op["writes"]) == 1
+
+
+def test_agents_guard_fork_noop_requires_current_ineligible_policy_when_context_is_absent():
+    routing_labels = [{"name": "agent:codex"}]
+    newly_eligible = _publish_scenario(
+        labels=routing_labels,
+        evaluate_status="completed",
+        evaluate_conclusion="skipped",
+    )
+    assert newly_eligible["result"]["state"] == "failure"
+    assert [write["state"] for write in newly_eligible["writes"]] == ["failure"]
+    assert "routing is now eligible" in newly_eligible["writes"][0]["description"]
+
+    still_ineligible = _publish_scenario(
+        labels=[], evaluate_status="completed", evaluate_conclusion="skipped"
+    )
+    assert still_ineligible["result"]["state"] == "success"
+    assert [write["state"] for write in still_ineligible["writes"]] == ["success"]
+
+    current_failure = _publish_scenario(
+        labels=routing_labels,
+        statuses=[{
+            "context": "Health 45 Agents Guard / guard",
+            "state": "failure",
+            "target_url": "https://example.test/runs/B",
+        }],
+        evaluate_status="completed",
+        evaluate_conclusion="skipped",
+    )
+    assert current_failure["writes"] == []
+
+    matched_current_success = _publish_scenario(
+        labels=routing_labels,
+        statuses=[{
+            "context": "Health 45 Agents Guard / guard",
+            "state": "success",
+            "description": (
+                "Trusted Agents Guard completed successfully "
+                "[guard-policy-sha256:c452d2e1354da626e39606d53f8d0a7ed810181ce30d59b21051fed08695779b]"
+            ),
+            "target_url": "https://example.test/runs/B",
+        }],
+        evaluate_status="completed",
+        evaluate_conclusion="skipped",
+    )
+    assert matched_current_success["writes"] == []
 
 
 @pytest.mark.parametrize(
