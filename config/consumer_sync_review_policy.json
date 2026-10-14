@@ -55,7 +55,17 @@
       ],
       "reassessment_comment": "@coderabbitai please reassess this specific finding",
       "reassessment_task_transport": "pr-conversation",
-      "reassessment_task_comment": "@coderabbitai please answer this specific finding"
+      "reassessment_task_comment": "@coderabbitai please answer this specific finding",
+      "conversation_disposition": {
+        "protocol": "maint71-native-conversation-disposition/v1",
+        "logins": [
+          "coderabbitai",
+          "coderabbitai[bot]"
+        ],
+        "inline_comment": "@coderabbitai please provide a native disposition for this specific finding",
+        "task_transport": "pr-conversation",
+        "task_comment": "@coderabbitai provide the bound native disposition"
+      }
     }
   ],
   "capacity_patterns": [
