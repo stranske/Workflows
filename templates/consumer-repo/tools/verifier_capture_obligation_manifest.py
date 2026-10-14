@@ -134,6 +134,26 @@ def _full_patch_file_records(raw: bytes) -> list[dict[str, Any]] | None:
         lines = span.splitlines()
         if not lines or not lines[0].startswith(b"diff --git "):
             return None
+        payload = lines[1:]
+        hunk_indexes = [index for index, line in enumerate(payload) if line.startswith(b"@@ ")]
+        has_hunk = any(
+            any(line.startswith((b"+", b"-", b" ")) for line in payload[index + 1 :])
+            for index in hunk_indexes
+        )
+        has_binary = any(
+            line == b"GIT binary patch" or line.startswith(b"Binary files ") for line in payload
+        )
+        has_mode_change = any(line.startswith(b"old mode ") for line in payload) and any(
+            line.startswith(b"new mode ") for line in payload
+        )
+        has_rename = any(line.startswith(b"rename from ") for line in payload) and any(
+            line.startswith(b"rename to ") for line in payload
+        )
+        has_copy = any(line.startswith(b"copy from ") for line in payload) and any(
+            line.startswith(b"copy to ") for line in payload
+        )
+        if not (has_hunk or has_binary or has_mode_change or has_rename or has_copy):
+            return None
         from_path = to_path = None
         for line in lines[1:]:
             if line.startswith(b"@@"):

@@ -198,6 +198,23 @@ def test_full_patch_recovery_requires_every_exact_file_identity_once() -> None:
         assert any("full_patch_" in gap for gap in manifest["gaps"]), mutation
 
 
+def test_full_patch_recovery_rejects_header_only_section_even_with_matching_record() -> None:
+    from tools.verifier_capture_obligation_manifest import _full_patch_file_records
+
+    header = b"diff --git a/a.py b/a.py\n"
+    assert _full_patch_file_records(header) is None
+    assert _full_patch_file_records(header + b"index 123..456 100644\n") is None
+    assert _full_patch_file_records(header + b"@@ -1 +1 @@\n") is None
+    assert _full_patch_file_records(header + b"@@ -1 +1 @@\n-old\n+new\n") is not None
+    assert _full_patch_file_records(header + b"old mode 100644\nnew mode 100755\n") is not None
+    assert (
+        _full_patch_file_records(
+            b"diff --git a/a.py b/b.py\nsimilarity index 100%\nrename from a.py\nrename to b.py\n"
+        )
+        is not None
+    )
+
+
 def test_full_patch_recovery_rejects_metadata_identity_not_in_diff_header() -> None:
     from tools.verifier_capture_obligation_manifest import _full_patch_file_records
 
