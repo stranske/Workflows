@@ -5836,11 +5836,22 @@ def test_issue3835_review_content_preposition_preserves_floor(qualifier, governo
 
 
 @pytest.mark.parametrize("qualifier", ["about", "regarding", "concerning"])
+@pytest.mark.parametrize(
+    "content",
+    [
+        "test results",
+        "test coverage",
+        "implementation details",
+        "test coverage and implementation details",
+    ],
+)
 @pytest.mark.parametrize("conjunction", ["and", "or"])
 @pytest.mark.parametrize("reverse", [False, True])
 @pytest.mark.parametrize("governor", ["must", "may", "must not"])
-def test_issue3835_content_qualified_destination_lists(qualifier, conjunction, reverse, governor):
-    comment = f"in a review comment {qualifier} test results"
+def test_issue3835_content_qualified_destination_lists(
+    qualifier, content, conjunction, reverse, governor
+):
+    comment = f"in a review comment {qualifier} {content}"
     artifact = "in a workflow artifact"
     first, second = (artifact, comment) if reverse else (comment, artifact)
     criterion = f"Evidence {governor} be posted {first} {conjunction} {second}"
@@ -5862,13 +5873,16 @@ def test_issue3835_content_qualified_destination_lists(qualifier, conjunction, r
 
 
 @pytest.mark.parametrize("payload", ["files", "bundle", "package"])
+@pytest.mark.parametrize("elided", [False, True])
 @pytest.mark.parametrize("conjunction", ["and", "or"])
 @pytest.mark.parametrize("reverse", [False, True])
 @pytest.mark.parametrize("governor", ["must", "may", "must not"])
-def test_issue3835_payload_destination_lists(payload, conjunction, reverse, governor):
+def test_issue3835_payload_destination_lists(payload, elided, conjunction, reverse, governor):
     first, second = (
         ("to the PR body", "to an artifact") if reverse else ("to an artifact", "the PR body")
     )
+    if reverse and elided:
+        second = "an artifact"
     criterion = f"The reviewer {governor} upload evidence {payload} {first} {conjunction} {second}"
     expected = {"body", "artifacts"} if governor == "must" else set()
     assert verifier._required_evidence_channels(criterion) == expected
@@ -5883,3 +5897,47 @@ def test_issue3835_payload_destination_lists(payload, conjunction, reverse, gove
         assert _floor_verdict(criterion, body=body, comments="present", artifacts=artifacts) == (
             "CONCERNS" if missing else "PASS"
         )
+
+
+@pytest.mark.parametrize(
+    "criterion",
+    [
+        "The application must allow users to upload evidence files to the PR body and an artifact",
+        "The application must allow users to upload evidence files to an artifact and the PR body",
+        "The application must allow users to upload evidence files to the PR body or an artifact",
+        "The application must allow users to upload evidence files to an artifact or the PR body",
+        "`Evidence must be posted in a PR comment about test coverage and in an artifact`",
+    ],
+)
+def test_issue3835_payload_and_content_lists_preserve_product_and_literal_boundaries(criterion):
+    assert verifier._required_evidence_channels(criterion) == set()
+    assert verifier._required_evidence_options(criterion) == [set()]
+    independent = criterion + "; the auditor must record evidence in a workflow artifact"
+    assert verifier._required_evidence_channels(independent) == {"artifacts"}
+    assert (
+        _floor_verdict(independent, body="present", comments="present", artifacts="absent")
+        == "CONCERNS"
+    )
+
+
+def test_issue3835_elided_artifact_cannot_borrow_domain_predicate():
+    criterion = "The reviewer must upload evidence files to the PR body and record a checksum in an artifact"
+    assert verifier._required_evidence_channels(criterion) == {"body"}
+    assert verifier._required_evidence_options(criterion) == [{"body"}]
+    assert (
+        _floor_verdict(criterion, body="present", comments="absent", artifacts="absent") == "PASS"
+    )
+
+
+@pytest.mark.parametrize("pronoun", ["it", "them", "these", "those", "both"])
+def test_issue3835_product_payload_list_retains_independent_proof_pronoun(pronoun):
+    criterion = (
+        "The application must allow users to upload evidence files to the PR body and an artifact; "
+        + f"the reviewer must record {pronoun} in a PR comment"
+    )
+    assert verifier._required_evidence_channels(criterion) == {"comments"}
+    assert verifier._required_evidence_options(criterion) == [{"comments"}]
+    assert (
+        _floor_verdict(criterion, body="present", comments="absent", artifacts="present")
+        == "CONCERNS"
+    )

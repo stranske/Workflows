@@ -2176,6 +2176,12 @@ floors, including mandatory, optional and negative delivery polarity. Payload
 nouns use the shared proof-object aliases, and bounded review-content qualifiers
 are consumed before destination lists: every AND sibling retains its floor and
 each OR alternative remains independently sufficient in either destination order.
+Bare trailing artifacts inherit a preposition only after an actual review
+destination, never from object conjunctions such as `evidence and artifacts`.
+Prepositional content consumes up to16words through the next concrete destination
+or independent clause, including ordinary `test coverage` and `implementation
+details` descriptions. Product capability normalization retains a proof antecedent
+for an independent reviewer pronoun delivery.
 Checklist shorthand accepts the common test/validation proof nouns, so
 `Validation output in a PR comment` retains comments as its required channel.
 Negative, optional and product-capability clauses keep their existing semantics.

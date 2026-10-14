@@ -1235,7 +1235,9 @@ def _normalize_plain_artifact_destinations(acceptance: str) -> str:
     """Canonicalize bare artifact destinations only under delivery predicates."""
     destination = re.compile(
         r"(?P<literal>" + _QUOTED_EVIDENCE_LITERAL + r")|"
-        r"(?P<prefix>\b" + _EVIDENCE_DESTINATION_PREPOSITION + r"\s+"
+        r"(?P<prefix>(?:\b"
+        + _EVIDENCE_DESTINATION_PREPOSITION
+        + r"|,\s*(?:(?:and|or)\b)?|\b(?:and|or))\s+"
         r"(?:(?:the|an?)\s+)?)artifacts?\b"
         r"(?=\s*(?:$|[;,.!?\n]|(?:and|or|but|which|that|is|are|must|shall|may|can|only|solely)\b))",
         re.I,
@@ -1293,6 +1295,7 @@ def _normalize_plain_artifact_destinations(acceptance: str) -> str:
     coordinated_predicate = re.compile(
         r"\b(?:and|but|while)\s+"
         r"(?!(?:(?:either|both)\s+)?(?:" + _EVIDENCE_DESTINATION_PREPOSITION + r")\b)"
+        r"(?!(?:(?:the|an?)\s+)?artifacts?\b)"
         r"(?!(?:" + _EVIDENCE_DELIVERY_OPERATION + r")\s+(?:it|them)\b)",
         re.I,
     )
@@ -1320,9 +1323,22 @@ def _normalize_plain_artifact_destinations(acceptance: str) -> str:
             # Domain uses such as "validate a field in an artifact" are not
             # evidence-delivery destinations and must not invent a channel.
             return match[0]
+        if not re.match(r"\b" + _EVIDENCE_DESTINATION_PREPOSITION + r"\s+", match["prefix"], re.I):
+            # Elision inherits an actual preceding review destination, never
+            # an object conjunction such as "upload evidence and artifacts".
+            if not re.search(
+                r"\b"
+                + _EVIDENCE_DESTINATION_PREPOSITION
+                + r"\s+"
+                + r"(?:(?:either|both)\s+)?"
+                + _EVIDENCE_REVIEW_DESTINATION,
+                before[delivery.end() :],
+                re.I,
+            ):
+                return match[0]
         # A later independently governed product clause must not inherit the
         # earlier evidence delivery when deciding whether to canonicalize.
-        tail = before[delivery.end() :] + match["prefix"]
+        tail = before[delivery.end() :] + match["prefix"] + "artifact"
         if independent_clause.search(tail) or coordinated_predicate.search(tail):
             return match[0]
         prefix = re.sub(r"\ban\s+$", "a ", match["prefix"], flags=re.I)
@@ -1334,6 +1350,7 @@ def _normalize_plain_artifact_destinations(acceptance: str) -> str:
 def _normalize_product_destination_lists(acceptance: str) -> str:
     """A complete bounded product capability list creates no review delivery."""
     member = _EVIDENCE_DESTINATION_PREPOSITION + r"\s+" + _EVIDENCE_REVIEW_DESTINATION
+    sibling = r"(?:" + _EVIDENCE_DESTINATION_PREPOSITION + r"\s+)?" + _EVIDENCE_REVIEW_DESTINATION
     # An independently governed review actor after and/while is a separate
     # obligation, not another product destination member.
     independent_actor = (
@@ -1355,13 +1372,15 @@ def _normalize_product_destination_lists(acceptance: str) -> str:
         + _EVIDENCE_DELIVERY_OPERATION
         + r"\s+"
         + _EVIDENCE_OBJECT_MODIFIERS
-        + r"(?:evidence|artifacts?|transcripts?|command outputs?)\s+"
+        + r"(?:evidence|artifacts?|transcripts?|command outputs?|"
+        + _EVIDENCE_PROOF_ALIAS_NOUN
+        + r")\s+"
         + member
         + r"(?:\s+(?:and|or)\s+"
-        + member
+        + sibling
         + r")+"
         r"(?=\s*(?:$|[;.!?\n]|" + independent_actor + r"))",
-        lambda match: match[0] if match["literal"] else "product capability",
+        lambda match: match[0] if match["literal"] else "product capability evidence",
         acceptance,
         flags=re.I,
     )
@@ -1720,15 +1739,56 @@ def _normalize_review_content_qualifiers(acceptance: str) -> str:
         r"(?:[ \t]+" + _REVIEW_BODY_COMPONENT + r")?|"
         r"(?:(?:the|an?)\s+)?(?:(?:workflow|ci|github actions)\s+)?artifacts?\b)"
     )
+    # Content is bounded by the next actual destination/independent clause,
+    # not by a proof-noun vocabulary. Conjunctions inside the content are data.
+    content_destination = (
+        r"(?:" + _EVIDENCE_REVIEW_DESTINATION + r"|(?:(?:the|an?)\s+)?artifacts?\b)"
+    )
+    independent_actor = (
+        _EVIDENCE_RECIPIENT_PREFIX
+        + r"(?:"
+        + _EVIDENCE_ACTOR_NOUN
+        + r"|app|interface|cli|renderer|schema|pipeline|parser|product|system|component|module)\b"
+        + _EVIDENCE_ACTOR_QUALIFIER
+        + r"\s+"
+        + _INDEPENDENT_REVIEW_PREDICATE
+    )
+    content_boundary = (
+        r"(?:$|[;.!?\n]|(?:only|solely|if|when|that|which|where|before|after)\b|"
+        + _EVIDENCE_DESTINATION_SEPARATOR_BASE
+        + r"(?:"
+        + _EVIDENCE_DESTINATION_PREPOSITION
+        + r"\s+)?"
+        + content_destination
+        + r"|(?:,?\s*)(?:and|or|but|while)\s+"
+        + independent_actor
+        + r")"
+    )
+    content_word = (
+        r"(?!(?:if|when|only|solely|that|which|where|before|after|must|shall|may|can)\b)"
+        r"[\w/-]+,?"
+    )
+    prepositional_content = (
+        r"[ \t]+(?:" + _REVIEW_CONTENT_PREPOSITION + r")[ \t]+"
+        r"(?:"
+        + content_word
+        + r"[ \t]+){0,15}?"
+        + content_word
+        + r"(?="
+        + content_boundary
+        + r"|[ \t]+"
+        + content_boundary
+        + r")"
+    )
     # Participles and relative content predicates describe payload shape, not a
     # separate evidence channel. Strip them from PR and artifact destinations so
     # product lists and OR expansion keep their established governors.
     content_tail = (
         r"(?:"
-        r"[ \t]+(?:"
-        + _REVIEW_CONTENT_PARTICIPLE
+        + prepositional_content
         + r"|"
-        + _REVIEW_CONTENT_PREPOSITION
+        + r"[ \t]+(?:"
+        + _REVIEW_CONTENT_PARTICIPLE
         + r")[ \t]+"
         + content
         + r"|"
@@ -1760,6 +1820,7 @@ def _required_evidence_channels(acceptance: str, *, _bind_attached: bool = True)
     acceptance = _normalize_destination_first_checklist(acceptance)
     acceptance = _normalize_passive_product_capabilities(acceptance)
     acceptance = _normalize_review_content_qualifiers(acceptance)
+    acceptance = _normalize_plain_artifact_destinations(acceptance)
     acceptance = _normalize_passive_review_agents(acceptance)
     acceptance = _normalize_relative_review_presence(acceptance)
     acceptance = _normalize_product_destination_lists(acceptance)
@@ -4734,6 +4795,7 @@ def _required_evidence_options(acceptance: str) -> list[set[str]]:
     acceptance = _normalize_destination_first_checklist(acceptance)
     acceptance = _normalize_passive_product_capabilities(acceptance)
     acceptance = _normalize_review_content_qualifiers(acceptance)
+    acceptance = _normalize_plain_artifact_destinations(acceptance)
     acceptance = _normalize_passive_review_agents(acceptance)
     acceptance = _normalize_relative_review_presence(acceptance)
     acceptance = _normalize_product_destination_lists(acceptance)
