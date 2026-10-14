@@ -1,0 +1,30 @@
+{
+  "schema": "runtime-health-evidence-binding/v1",
+  "reviewed_head": "d3d0468bd25dfc0e7bcf2afd5c1d41cce9c0d4db",
+  "historical_packet": {
+    "summary": "summary.json",
+    "summary_sha256": "e073cd361181c0972c4ccdbfca4e93151ee9458abc5c8034a3d2880bf05c6563",
+    "manifest_sha256": "8c0dd7c405cbcbd9f1c476ad4d97d5ef3d6e2475eef373ea5d9dc3f5538539b6",
+    "archive_sha256": "4e36a3d5398b19afdda896735c9b4d0bc67ec0ec5c50d1a94157790e3dba76fe",
+    "decoded_members_verified": 226,
+    "replay_sha256": "3d0b72a89acab50c3e38eab4acfd56f2a07a02320c931175d09cb14bad35c99a",
+    "meaning": "Original Linux matched coverage and replay, before selected-JUnit review recovery. Historical bytes are retained unchanged."
+  },
+  "current_replay": {
+    "sha256": "eeafd22b806d18409bd8a256c9502784a504b70ea03f41cd6cefb055fd7eb5c3",
+    "proof": "closer-guard-20261011/guard-proof.json",
+    "proof_sha256": "6ea0350747e1f2ce2c7610ec73279f8e049bca86671ce1ea306b131891e96745",
+    "verified_artifacts": 58,
+    "meaning": "Reviewed selected-JUnit/-O-safe driver. The original summary hash is historical, not its current binding."
+  },
+  "scope": {
+    "added_guard_test": "tests/scripts/test_runtime_health_replay.py",
+    "reason": "Direct regression coverage for Codex4243073150 and CodeRabbit4243180993 selected-assertion, XML and optimized-Python findings; accepted in existing PR3838 scope."
+  },
+  "limits": [
+    "Original provider CONCERNS/CONCERNS and broad source3743 remain unchanged.",
+    "No repository-wide90%, provider PASS or merge authority.",
+    "Original Linux Anaconda-unavailable receipt is historical; later authentic macOS optimized run is in closer-guard-20261011."
+  ],
+  "documentation_sha256": "89dde4dfec23e68a656b3c76bde7491d9b1ad38b498189c86fea9e609c9eba4c"
+}

@@ -21,6 +21,7 @@ from __future__ import annotations
 
 import argparse
 import json
+import shlex
 import subprocess
 from pathlib import Path
 from types import SimpleNamespace
@@ -85,6 +86,70 @@ the wired-up reviewer runs against real source artifacts.
 
 def test_body_quality_errors_clean_body() -> None:
     assert body_writer.body_quality_errors(CLEAN_BODY) == []
+
+
+def test_body_quality_errors_rejects_task_without_concrete_target() -> None:
+    """The legacy depth checks accepted this otherwise complete vague task."""
+    body = CLEAN_BODY.replace(
+        "- [ ] Add the missing-source assertion in `tests/test_findings_chains.py`.",
+        "- [ ] Verify that the implementation behaves correctly.",
+    )
+
+    errors = body_writer.body_quality_errors(body)
+
+    assert any("canonical issue-format failure" in error for error in errors), errors
+    assert any("Tasks` item must name a concrete" in error for error in errors), errors
+
+
+def test_body_quality_errors_accepts_canonical_missing_path_advisory(tmp_path: Path) -> None:
+    """Canonical advisory-only citations do not become body-writer failures."""
+    for relative in (
+        "out/extraction.json",
+        "out/readiness.json",
+        "scripts/reviewable_findings.py",
+        "src/reviewable_findings/extract.py",
+        "tests/test_findings_chains.py",
+        "tests/fixtures/findings.json",
+        "docs/reviewable-findings.md",
+        "README.md",
+    ):
+        path = tmp_path / relative
+        path.parent.mkdir(parents=True, exist_ok=True)
+        path.write_text("ok\n", encoding="utf-8")
+    body = CLEAN_BODY.replace(
+        "- [ ] `pytest tests/test_findings_chains.py -q` stays green on the wire-through.",
+        "- [ ] `pytest tests/test_findings_chains.py -q` stays green on the wire-through; "
+        "afterward create `generated/new_module.py` for the parser boundary.",
+    )
+
+    errors = body_writer.body_quality_errors(body, repo_path=tmp_path)
+
+    assert errors == []
+
+
+def test_body_quality_errors_rejects_legacy_only_acceptance_gate() -> None:
+    """A bare tests directory satisfied the old regex but not the canonical gate."""
+    body = _body_with_acceptance("- [ ] Inspect `tests/` during the release review.")
+
+    assert body_writer.acceptance_has_verification_gate(body) is True
+    errors = body_writer.body_quality_errors(body)
+
+    assert any("canonical issue-format failure" in error for error in errors), errors
+    assert any("Acceptance Criteria` names no test" in error for error in errors), errors
+
+
+def test_canonical_issue_format_loader_failure_fails_closed(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """A broken source validator must reject a body instead of silently skipping it."""
+    body_writer._issue_format_validator.cache_clear()
+    monkeypatch.setattr(body_writer.importlib.util, "spec_from_file_location", lambda *_args: None)
+
+    errors = body_writer.canonical_issue_format_errors(CLEAN_BODY, repo_path=None)
+
+    assert len(errors) == 1
+    assert "canonical issue-format validator could not run" in errors[0]
+    body_writer._issue_format_validator.cache_clear()
 
 
 def test_body_quality_errors_empty_body() -> None:
@@ -439,6 +504,49 @@ def test_build_prompt_uses_resolved_custom_registry_path(tmp_path: Path, monkeyp
     assert f"--registry '{custom_registry.resolve()}'" in prompt
 
 
+def test_build_prompt_keeps_validator_checkout_and_quotes_commands(tmp_path, monkeypatch):
+    tooling_root = tmp_path / "executing tools; safe"
+    foreign_root = tmp_path / "registry checkout"
+    fake_prompt = tmp_path / "prompt.md"
+    fake_prompt.write_text("PROMPT_TEMPLATE_BODY\n", encoding="utf-8")
+    monkeypatch.setattr(body_writer, "canonical_body_writer_prompt", lambda: fake_prompt)
+    monkeypatch.setattr(body_writer, "__file__", str(tooling_root / "scripts/body_writer.py"))
+    output_dir = tmp_path / "output space; safe"
+    registry = foreign_root / "config/custom registry.json"
+    repo = "stranske/Workflows"
+    prompt = body_writer.build_prompt(
+        repo=repo,
+        output_dir=output_dir,
+        repo_path=tmp_path / "repo",
+        registry_path=registry,
+        workflows_steward_root=foreign_root,
+    )
+    commands = [
+        shlex.split(line.strip()) for line in prompt.splitlines() if line.startswith("  python ")
+    ]
+    assert len(commands) == 2
+    assert commands[0] == [
+        "python",
+        str(tooling_root / "scripts/repo_review_round2_schema.py"),
+        "--converged",
+        str(body_writer.converged_path(output_dir, repo)),
+        "--expected-repo",
+        repo,
+    ]
+    assert commands[1] == [
+        "python",
+        str(tooling_root / "scripts/repo_review_body_writer.py"),
+        "--repo",
+        repo,
+        "--output-dir",
+        str(output_dir),
+        "--registry",
+        str(registry),
+        "--validate-only",
+        "--skip-sync-check",
+    ]
+
+
 def test_build_prompt_replaces_invalid_utf8_in_repair_feedback(tmp_path: Path, monkeypatch) -> None:
     """Binary-corrupted diagnostics must remain promptable without crashing."""
     fake_prompt = tmp_path / "prompt.md"
@@ -487,6 +595,7 @@ def test_run_body_writer_tracks_converged_json_as_progress(
         output_dir=output_dir,
         registry_path=tmp_path / "registry.json",
         workflows_steward_root=tmp_path,
+        workspace_root=tmp_path,
         log_dir=tmp_path / "logs",
         timeout=30,
         agent="claude",
@@ -494,6 +603,7 @@ def test_run_body_writer_tracks_converged_json_as_progress(
 
     assert ok is True
     assert captured["progress_files"] == (converged,)
+    assert captured["cwd"] == tmp_path
 
 
 def test_restore_non_body_fields_keeps_only_agent_body_changes() -> None:

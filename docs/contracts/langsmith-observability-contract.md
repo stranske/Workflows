@@ -99,11 +99,14 @@ dispatch. It independently checks:
 - the dashboard and conformance workflows have a success within 192 hours,
 - neither workflow has two consecutive non-successful completed runs,
 - `workflows-agents` has a cloud trace within 24 hours, and
-- every intentional pause is owned and not past `review_by`.
+- every intentional pause has valid ownership and resumption metadata. An overdue
+  `review_by` remains visible as an advisory and does not degrade health.
 
 The sentinel uploads its JSON/markdown evidence and upserts one durable health
-issue. A degraded transition adds `needs-human` and `agent:needs-attention`; a
-recovery removes them. This turns a pull-only warning or red scheduled run into
+issue. Code-owned degradation adds `agent:needs-attention`; only an unavailable
+cloud credential adds `needs-human`. Workflow listing failures, stale conformance,
+and sentinel execution failures remain automation-owned. Recovery removes the
+labels; an owned degradation removes a stale `needs-human` label. This turns a pull-only warning or red scheduled run into
 a durable surface consumed by normal triage.
 
 Current tracked implementation issues:
@@ -171,3 +174,35 @@ uploaded artifact with malformed records is reported as `invalid` for the
 owning repo/surface even when the malformed rows omit routing fields such as
 `surface`, `run_id`, or `github_issue`; missing routing fields must not be
 silently downgraded to `missing`.
+
+
+## Bounded artifact discovery and retention
+
+Conformance queries the exact artifact name server-side first. Legacy prefixed
+names use a bounded small-page fallback and still require a registered trusted
+producer workflow. Producer paths are matched by their exact filename after
+removing any trailing `@ref` suffix. Expired artifacts are excluded. Listing
+500/502/503/504 errors reduce the page size from 30 to 10 to 1, preserving the offset rather than repeating
+the same oversized request. Exhausting the 30-request discovery budget fails with
+UNKNOWN; it never establishes that evidence is absent or conformance passed.
+The first eligible page is sorted newest-first; this bounded discovery does not
+claim a complete historical repository inventory. Exact-name artifacts retain
+the existing preference over legacy suffix matches.
+
+Workflows retention policy for new uploads: routine CI diagnostics keep their
+existing seven-day retention; daily/weekly LangSmith dashboard, conformance and
+health snapshots retain 30 days (more than three weekly cycles). Durable verifier,
+trial and coverage proof retain their explicitly declared 90-day exceptions.
+These upload-level limits do not delete existing artifacts or change repository
+settings, LangSmith storage, source archives or local metrics rollups. Future
+artifact callers must use filtered/bounded discovery even when retention is set.
+
+Validation: `node --test .github/scripts/__tests__/langsmith-fleet-artifacts.test.js`
+and `python3 -m pytest tests/workflows/test_langsmith_fleet_conformance_workflow.py
+ tests/workflows/test_langsmith_observability_health_workflow.py
+ tests/scripts/test_langsmith_observability_health.py -q -o addopts=`. The authored
+workflow test executes the production download script against a >30k-inventory
+simulation; restoring the old unfiltered `paginate(per_page=100)` must fail.
+Raw RED/restored GREEN logs, JUnit and hashes are retained under
+`docs/evidence/issue-3844-fleet-discovery/`. Actual hosted conformance against the
+live large repository remains a separate required gate after PR creation.

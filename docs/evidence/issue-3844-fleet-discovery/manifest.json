@@ -1,0 +1,23 @@
+{
+  "files": {
+    "broader.xml": "47d9892866c82df79651c7850aee401169da6847d1cb821a59a1ae9ea6e1df65",
+    "red.log": "7ff40f9a12df1574e8f2453718bb119ce43a0f9494e2751443b9be08cb653626",
+    "node.log": "06af15a75309297e31c55ed17c8ed621369e62ec83fa1cfbe9afe368b233245c",
+    "live-exact-artifacts.json": "e75ab939af0df165856f202f456a7693c4eafbe7807258ddbd4ebb9d2587ec46",
+    "restored-green.log": "016a4093788648644b08006f7d1d171ca7639313677f5aa929f004d4a3e52465",
+    "api-guard-green.log": "50c9b1b9286473d9188afbfa79fb835cab7c75a60952a73ca0035cc4d1ac2631",
+    "README.md": "b12928c32698523de9e7443c6c03637e074e59dea1f362046de1c562fb24d63a",
+    "restored-green.xml": "6bac30964ad6104fa05f087932f5742b50b567b8c5aaecadb0115319a88f51a3",
+    "broader.log": "fb95240423de5e5e97d80cdcd24fc26a3915b6737770b43548b6560b0a7c71fc",
+    "api-guard-red.log": "1ef4f0885597448e06532ea2e322192cf56035d75b4533e66e3059c72b9e15bb",
+    "red.xml": "8aa8d542ea3e19d1a5ca1446b210525f856bc1d468fb4ad383ed36935cac0ca7",
+    "proof.json": "2ccb7b2965a1a60ab9cbf8fe3572d5eeca23a847f09f27f209a769835339075d"
+  },
+  "source_sha256": {
+    ".github/scripts/langsmith-fleet-artifacts.js": "1aa6e984e828eb33e8bb6de5994a25cb974062009475e358f96ba6063382f978",
+    ".github/scripts/__tests__/langsmith-fleet-artifacts.test.js": "2c2bb050be4acfea1b3fb5d4fd49545d40471705a78abb36d9069ea67622e1fd",
+    ".github/workflows/maint-81-langsmith-fleet-conformance.yml": "899aeec391632a518b4a553df9d431d0dcb1d12690da71aa78f5ae6957d317ab",
+    "scripts/langsmith_observability_health.py": "d21a4d2f7af101ba2e07dfa87fe4164422c850fb079a7e4e7418fe48080eebb6",
+    "tests/workflows/test_langsmith_fleet_conformance_workflow.py": "52833dc4481fa4299108e8914b3daa78a973c7ba3fc1e63d080cc0f7641f8ba3"
+  }
+}

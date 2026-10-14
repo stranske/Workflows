@@ -110,6 +110,7 @@ jobs:
       delegation_reason: ${{ steps.evaluate.outputs.delegation_reason }}
       delegation_should_switch: ${{ steps.evaluate.outputs.delegation_should_switch }}
       delegation_source: ${{ steps.evaluate.outputs.delegation_source }}
+      policy_version: ${{ steps.evaluate.outputs.policy_version }}
       # task_appendix is delivered via artifact upload (keepalive-task-appendix-<pr>)
       # to avoid GitHub's secret scanner censoring the job output.
       trace: ${{ steps.evaluate.outputs.trace }}
@@ -522,6 +523,7 @@ jobs:
               delegation_reason: String(result.delegationReason || ''),
               delegation_should_switch: String(result.delegationShouldSwitch ?? 'false'),
               delegation_source: String(result.delegationSource || ''),
+              policy_version: String(result.policyVersion || ''),
               trace: String(result.config?.trace || result.state?.trace || ''),
               prompt_mode: String(result.promptMode || 'normal'),
                 prompt_file: String(
@@ -1838,6 +1840,7 @@ jobs:
             }}
           PREFLIGHT_FAILURE_SUMMARY: ${{ needs.preflight.outputs.failure_summary || '' }}
           DELEGATION_SOURCE: ${{ needs.evaluate.outputs.delegation_source }}
+          POLICY_VERSION: ${{ needs.evaluate.outputs.policy_version }}
           EVALUATE_PR_NUMBER: ${{ needs.evaluate.outputs.pr_number }}
           EVALUATE_HEAD_SHA: ${{ needs.evaluate.outputs.head_sha }}
           EVALUATE_ACTION: ${{ needs.evaluate.outputs.action }}
@@ -1974,6 +1977,7 @@ jobs:
               delegation_reason: process.env.EVALUATE_DELEGATION_REASON || '',
               delegation_should_switch: process.env.EVALUATE_DELEGATION_SHOULD_SWITCH || '',
               delegation_source: process.env.DELEGATION_SOURCE || '',
+              policy_version: process.env.POLICY_VERSION || '',
               trace: process.env.EVALUATE_TRACE || '',
               // Agent run result - check which agent ran
               run_result: runResult,

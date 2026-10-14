@@ -35,6 +35,7 @@ jobs:
       lock_pr_number: ${{ steps.applicability.outputs.lock_pr_number }}
       pr_number: ${{ steps.applicability.outputs.pr_number }}
       ordinary_target: ${{ steps.applicability.outputs.ordinary_target }}
+      outcome: ${{ steps.applicability.outputs.outcome }}
     steps:
       - name: Checkout reporter classifier
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
@@ -64,6 +65,7 @@ jobs:
                 core.setOutput('lock_pr_number', String(resolved));
                 core.setOutput('pr_number', String(resolved));
                 core.setOutput('ordinary_target', 'false');
+                core.setOutput('outcome', 'resolved');
                 return;
               }
               const result = await classifyReporterRun({
@@ -76,6 +78,29 @@ jobs:
                   (!Number.isSafeInteger(resolved) || resolved <= 0)) {
                 throw new Error('Reporter target did not resolve to a positive PR number');
               }
+              // A cancelled run with a verified absent index prepared no receipt.
+              // Indexed cancellations still resolve; failed runs retain their alarm.
+              if (result.status === 'skip' && result.reason ===
+                  'unassociated run has no verified dispatch classification' &&
+                  context.payload.workflow_run.conclusion !== 'cancelled') {
+                throw new Error(result.reason);
+              }
+              core.setOutput('outcome', result.status === 'skip' ? 'no-report-needed' : 'resolved');
+              if (result.status === 'skip') {
+                // Say WHY, in the one place an operator looks. A silent skip and a skip that
+                // could not verify provenance are different facts; #3839 existed because the
+                // job reported neither, it just went red.
+                const why = result.reason || 'no reportable target';
+                core.notice(`Keepalive reporter skipped: ${why} ` +
+                  `(upstream run ${context.payload.workflow_run.id}, ` +
+                  `conclusion ${context.payload.workflow_run.conclusion})`);
+                await core.summary
+                  .addHeading('Keepalive reporter: no report produced', 3)
+                  .addRaw(`Reason: ${why}\n\n`)
+                  .addRaw(`Upstream run: ${context.payload.workflow_run.id} ` +
+                    `(${context.payload.workflow_run.conclusion})\n`)
+                  .write();
+              }
               core.setOutput('skip', result.status === 'skip' ? 'true' : 'false');
               core.setOutput('lock_pr_number', resolved > 0 ? String(resolved) : '');
               core.setOutput('pr_number', result.targetSource === 'ordinary-run-name' ?
@@ -83,7 +108,36 @@ jobs:
               core.setOutput('ordinary_target',
                 result.targetSource === 'ordinary-run-name' ? 'true' : 'false');
             } catch (error) {
-              core.setFailed(`Reporter applicability unavailable: ${error.message}`);
+              // A missing target denies all PR mutation, but must not silence the alarm.
+              const upstream = context.payload.workflow_run || {};
+              const outcome = context.eventName === 'workflow_run' ? 'unresolved' : 'invalid-input';
+              core.setOutput('outcome', outcome);
+              core.setOutput('skip', 'false');
+              core.setOutput('lock_pr_number', '');
+              core.setOutput('pr_number', '');
+              core.setOutput('ordinary_target', 'false');
+              const reason = String(error.message || error).slice(0, 2000);
+              const details = [
+                `Repository: ${context.repo.owner}/${context.repo.repo}`,
+                `Upstream run: ${upstream.id || 'unavailable'}`,
+                `Attempt: ${upstream.run_attempt || 'unavailable'}`,
+                `Conclusion: ${upstream.conclusion || upstream.status || 'unavailable'}`,
+                `Event: ${upstream.event || 'unavailable'}`,
+                `Head: ${upstream.head_sha || 'unavailable'}`,
+                `Reporter outcome: ${outcome}`,
+                `Target resolution: ${reason}`,
+                'No PR state was changed. Recover the verified target, then retry the reporter.',
+              ].join('\n');
+              const escaped = details.replace(/&/g, '&amp;').replace(/</g, '&lt;')
+                .replace(/>/g, '&gt;').replace(/"/g, '&quot;').replace(/'/g, '&#39;');
+              try {
+                await core.summary.addHeading('Keepalive report could not resolve its target', 2)
+                  .addRaw(`<pre>${escaped}</pre>`).write();
+              } catch (summaryError) {
+                core.error(`Reporter diagnostic summary unavailable: ${summaryError.message}`);
+              }
+              // Keep the run red after publishing the diagnostic; never invent a PR binding.
+              core.setFailed(`Reporter applicability unavailable: ${reason}`);
             }
 
   report:

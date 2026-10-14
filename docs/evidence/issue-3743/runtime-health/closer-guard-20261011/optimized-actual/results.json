@@ -1,0 +1,410 @@
+[
+  {
+    "name": "root-missing",
+    "source": "scripts/check_deliberate_break.py",
+    "original_sha256": "cc97119ea26afec275be3c83d22bc75de0d452cd0f4764896cc9d037274ab25a",
+    "mutation_sha256": "a197afd8a06afeadb510a2ef6a83aceef0d08f513f8df0298df7813b1a96bb62",
+    "test_sha256": "f27013701bbc1be89258d5e17fa0b9074bebc8d1beed593ea364ca9c72e16fcf",
+    "cwd": "/var/folders/qm/w0dtc0j132gd6ymf1hxtd2p00000gp/T/runtime-health-replay-l659def2",
+    "red": {
+      "argv": [
+        "/opt/anaconda3/bin/python3",
+        "-m",
+        "pytest",
+        "tests/scripts/test_check_deliberate_break_runtime_health.py::test_active_runtime_health_requires_distribution_version_and_real_import[root-missing]",
+        "-q",
+        "-o",
+        "addopts="
+      ],
+      "env": {
+        "PYTEST_ADDOPTS": "--junitxml=/Users/teacher/.codex/automations/imi-merge-verify-closer/worktrees/wf3838-replay-guard-20261011T2128Z/docs/evidence/issue-3743/runtime-health/closer-guard-20261011/optimized-actual/root-missing-red.xml"
+      },
+      "exit": 1,
+      "junit_counts": {
+        "tests": 1,
+        "failures": 1,
+        "errors": 0,
+        "skipped": 0
+      }
+    },
+    "green": {
+      "argv": [
+        "/opt/anaconda3/bin/python3",
+        "-m",
+        "pytest",
+        "tests/scripts/test_check_deliberate_break_runtime_health.py::test_active_runtime_health_requires_distribution_version_and_real_import[root-missing]",
+        "-q",
+        "-o",
+        "addopts="
+      ],
+      "env": {
+        "PYTEST_ADDOPTS": "--junitxml=/Users/teacher/.codex/automations/imi-merge-verify-closer/worktrees/wf3838-replay-guard-20261011T2128Z/docs/evidence/issue-3743/runtime-health/closer-guard-20261011/optimized-actual/root-missing-green.xml"
+      },
+      "exit": 0,
+      "junit_counts": {
+        "tests": 1,
+        "failures": 0,
+        "errors": 0,
+        "skipped": 0
+      }
+    },
+    "restored_sha256": "cc97119ea26afec275be3c83d22bc75de0d452cd0f4764896cc9d037274ab25a"
+  },
+  {
+    "name": "root-stale",
+    "source": "scripts/check_deliberate_break.py",
+    "original_sha256": "cc97119ea26afec275be3c83d22bc75de0d452cd0f4764896cc9d037274ab25a",
+    "mutation_sha256": "5a97608ff694f91dfe9e9b7513ec581780e3c03ddcff61f571818c301eecb1a3",
+    "test_sha256": "f27013701bbc1be89258d5e17fa0b9074bebc8d1beed593ea364ca9c72e16fcf",
+    "cwd": "/var/folders/qm/w0dtc0j132gd6ymf1hxtd2p00000gp/T/runtime-health-replay-l659def2",
+    "red": {
+      "argv": [
+        "/opt/anaconda3/bin/python3",
+        "-m",
+        "pytest",
+        "tests/scripts/test_check_deliberate_break_runtime_health.py::test_active_runtime_health_requires_distribution_version_and_real_import[root-stale]",
+        "-q",
+        "-o",
+        "addopts="
+      ],
+      "env": {
+        "PYTEST_ADDOPTS": "--junitxml=/Users/teacher/.codex/automations/imi-merge-verify-closer/worktrees/wf3838-replay-guard-20261011T2128Z/docs/evidence/issue-3743/runtime-health/closer-guard-20261011/optimized-actual/root-stale-red.xml"
+      },
+      "exit": 1,
+      "junit_counts": {
+        "tests": 1,
+        "failures": 1,
+        "errors": 0,
+        "skipped": 0
+      }
+    },
+    "green": {
+      "argv": [
+        "/opt/anaconda3/bin/python3",
+        "-m",
+        "pytest",
+        "tests/scripts/test_check_deliberate_break_runtime_health.py::test_active_runtime_health_requires_distribution_version_and_real_import[root-stale]",
+        "-q",
+        "-o",
+        "addopts="
+      ],
+      "env": {
+        "PYTEST_ADDOPTS": "--junitxml=/Users/teacher/.codex/automations/imi-merge-verify-closer/worktrees/wf3838-replay-guard-20261011T2128Z/docs/evidence/issue-3743/runtime-health/closer-guard-20261011/optimized-actual/root-stale-green.xml"
+      },
+      "exit": 0,
+      "junit_counts": {
+        "tests": 1,
+        "failures": 0,
+        "errors": 0,
+        "skipped": 0
+      }
+    },
+    "restored_sha256": "cc97119ea26afec275be3c83d22bc75de0d452cd0f4764896cc9d037274ab25a"
+  },
+  {
+    "name": "root-broken",
+    "source": "scripts/check_deliberate_break.py",
+    "original_sha256": "cc97119ea26afec275be3c83d22bc75de0d452cd0f4764896cc9d037274ab25a",
+    "mutation_sha256": "9593926e69e8b2684c871cb3f3eb30be3a53c74705d1c4da423f423902b07ba7",
+    "test_sha256": "f27013701bbc1be89258d5e17fa0b9074bebc8d1beed593ea364ca9c72e16fcf",
+    "cwd": "/var/folders/qm/w0dtc0j132gd6ymf1hxtd2p00000gp/T/runtime-health-replay-l659def2",
+    "red": {
+      "argv": [
+        "/opt/anaconda3/bin/python3",
+        "-m",
+        "pytest",
+        "tests/scripts/test_check_deliberate_break_runtime_health.py::test_active_runtime_health_requires_distribution_version_and_real_import[root-broken]",
+        "-q",
+        "-o",
+        "addopts="
+      ],
+      "env": {
+        "PYTEST_ADDOPTS": "--junitxml=/Users/teacher/.codex/automations/imi-merge-verify-closer/worktrees/wf3838-replay-guard-20261011T2128Z/docs/evidence/issue-3743/runtime-health/closer-guard-20261011/optimized-actual/root-broken-red.xml"
+      },
+      "exit": 1,
+      "junit_counts": {
+        "tests": 1,
+        "failures": 1,
+        "errors": 0,
+        "skipped": 0
+      }
+    },
+    "green": {
+      "argv": [
+        "/opt/anaconda3/bin/python3",
+        "-m",
+        "pytest",
+        "tests/scripts/test_check_deliberate_break_runtime_health.py::test_active_runtime_health_requires_distribution_version_and_real_import[root-broken]",
+        "-q",
+        "-o",
+        "addopts="
+      ],
+      "env": {
+        "PYTEST_ADDOPTS": "--junitxml=/Users/teacher/.codex/automations/imi-merge-verify-closer/worktrees/wf3838-replay-guard-20261011T2128Z/docs/evidence/issue-3743/runtime-health/closer-guard-20261011/optimized-actual/root-broken-green.xml"
+      },
+      "exit": 0,
+      "junit_counts": {
+        "tests": 1,
+        "failures": 0,
+        "errors": 0,
+        "skipped": 0
+      }
+    },
+    "restored_sha256": "cc97119ea26afec275be3c83d22bc75de0d452cd0f4764896cc9d037274ab25a"
+  },
+  {
+    "name": "root-healthy",
+    "source": "scripts/check_deliberate_break.py",
+    "original_sha256": "cc97119ea26afec275be3c83d22bc75de0d452cd0f4764896cc9d037274ab25a",
+    "mutation_sha256": "9932072a6851f301dc26a13b27b671dd6e2a69046cddbf7662f5bd429934ca43",
+    "test_sha256": "f27013701bbc1be89258d5e17fa0b9074bebc8d1beed593ea364ca9c72e16fcf",
+    "cwd": "/var/folders/qm/w0dtc0j132gd6ymf1hxtd2p00000gp/T/runtime-health-replay-l659def2",
+    "red": {
+      "argv": [
+        "/opt/anaconda3/bin/python3",
+        "-m",
+        "pytest",
+        "tests/scripts/test_check_deliberate_break_runtime_health.py::test_active_runtime_health_requires_distribution_version_and_real_import[root-healthy]",
+        "-q",
+        "-o",
+        "addopts="
+      ],
+      "env": {
+        "PYTEST_ADDOPTS": "--junitxml=/Users/teacher/.codex/automations/imi-merge-verify-closer/worktrees/wf3838-replay-guard-20261011T2128Z/docs/evidence/issue-3743/runtime-health/closer-guard-20261011/optimized-actual/root-healthy-red.xml"
+      },
+      "exit": 1,
+      "junit_counts": {
+        "tests": 1,
+        "failures": 1,
+        "errors": 0,
+        "skipped": 0
+      }
+    },
+    "green": {
+      "argv": [
+        "/opt/anaconda3/bin/python3",
+        "-m",
+        "pytest",
+        "tests/scripts/test_check_deliberate_break_runtime_health.py::test_active_runtime_health_requires_distribution_version_and_real_import[root-healthy]",
+        "-q",
+        "-o",
+        "addopts="
+      ],
+      "env": {
+        "PYTEST_ADDOPTS": "--junitxml=/Users/teacher/.codex/automations/imi-merge-verify-closer/worktrees/wf3838-replay-guard-20261011T2128Z/docs/evidence/issue-3743/runtime-health/closer-guard-20261011/optimized-actual/root-healthy-green.xml"
+      },
+      "exit": 0,
+      "junit_counts": {
+        "tests": 1,
+        "failures": 0,
+        "errors": 0,
+        "skipped": 0
+      }
+    },
+    "restored_sha256": "cc97119ea26afec275be3c83d22bc75de0d452cd0f4764896cc9d037274ab25a"
+  },
+  {
+    "name": "template-missing",
+    "source": "templates/consumer-repo/scripts/check_deliberate_break.py",
+    "original_sha256": "cc97119ea26afec275be3c83d22bc75de0d452cd0f4764896cc9d037274ab25a",
+    "mutation_sha256": "a197afd8a06afeadb510a2ef6a83aceef0d08f513f8df0298df7813b1a96bb62",
+    "test_sha256": "f27013701bbc1be89258d5e17fa0b9074bebc8d1beed593ea364ca9c72e16fcf",
+    "cwd": "/var/folders/qm/w0dtc0j132gd6ymf1hxtd2p00000gp/T/runtime-health-replay-l659def2",
+    "red": {
+      "argv": [
+        "/opt/anaconda3/bin/python3",
+        "-m",
+        "pytest",
+        "tests/scripts/test_check_deliberate_break_runtime_health.py::test_active_runtime_health_requires_distribution_version_and_real_import[template-missing]",
+        "-q",
+        "-o",
+        "addopts="
+      ],
+      "env": {
+        "PYTEST_ADDOPTS": "--junitxml=/Users/teacher/.codex/automations/imi-merge-verify-closer/worktrees/wf3838-replay-guard-20261011T2128Z/docs/evidence/issue-3743/runtime-health/closer-guard-20261011/optimized-actual/template-missing-red.xml"
+      },
+      "exit": 1,
+      "junit_counts": {
+        "tests": 1,
+        "failures": 1,
+        "errors": 0,
+        "skipped": 0
+      }
+    },
+    "green": {
+      "argv": [
+        "/opt/anaconda3/bin/python3",
+        "-m",
+        "pytest",
+        "tests/scripts/test_check_deliberate_break_runtime_health.py::test_active_runtime_health_requires_distribution_version_and_real_import[template-missing]",
+        "-q",
+        "-o",
+        "addopts="
+      ],
+      "env": {
+        "PYTEST_ADDOPTS": "--junitxml=/Users/teacher/.codex/automations/imi-merge-verify-closer/worktrees/wf3838-replay-guard-20261011T2128Z/docs/evidence/issue-3743/runtime-health/closer-guard-20261011/optimized-actual/template-missing-green.xml"
+      },
+      "exit": 0,
+      "junit_counts": {
+        "tests": 1,
+        "failures": 0,
+        "errors": 0,
+        "skipped": 0
+      }
+    },
+    "restored_sha256": "cc97119ea26afec275be3c83d22bc75de0d452cd0f4764896cc9d037274ab25a"
+  },
+  {
+    "name": "template-stale",
+    "source": "templates/consumer-repo/scripts/check_deliberate_break.py",
+    "original_sha256": "cc97119ea26afec275be3c83d22bc75de0d452cd0f4764896cc9d037274ab25a",
+    "mutation_sha256": "5a97608ff694f91dfe9e9b7513ec581780e3c03ddcff61f571818c301eecb1a3",
+    "test_sha256": "f27013701bbc1be89258d5e17fa0b9074bebc8d1beed593ea364ca9c72e16fcf",
+    "cwd": "/var/folders/qm/w0dtc0j132gd6ymf1hxtd2p00000gp/T/runtime-health-replay-l659def2",
+    "red": {
+      "argv": [
+        "/opt/anaconda3/bin/python3",
+        "-m",
+        "pytest",
+        "tests/scripts/test_check_deliberate_break_runtime_health.py::test_active_runtime_health_requires_distribution_version_and_real_import[template-stale]",
+        "-q",
+        "-o",
+        "addopts="
+      ],
+      "env": {
+        "PYTEST_ADDOPTS": "--junitxml=/Users/teacher/.codex/automations/imi-merge-verify-closer/worktrees/wf3838-replay-guard-20261011T2128Z/docs/evidence/issue-3743/runtime-health/closer-guard-20261011/optimized-actual/template-stale-red.xml"
+      },
+      "exit": 1,
+      "junit_counts": {
+        "tests": 1,
+        "failures": 1,
+        "errors": 0,
+        "skipped": 0
+      }
+    },
+    "green": {
+      "argv": [
+        "/opt/anaconda3/bin/python3",
+        "-m",
+        "pytest",
+        "tests/scripts/test_check_deliberate_break_runtime_health.py::test_active_runtime_health_requires_distribution_version_and_real_import[template-stale]",
+        "-q",
+        "-o",
+        "addopts="
+      ],
+      "env": {
+        "PYTEST_ADDOPTS": "--junitxml=/Users/teacher/.codex/automations/imi-merge-verify-closer/worktrees/wf3838-replay-guard-20261011T2128Z/docs/evidence/issue-3743/runtime-health/closer-guard-20261011/optimized-actual/template-stale-green.xml"
+      },
+      "exit": 0,
+      "junit_counts": {
+        "tests": 1,
+        "failures": 0,
+        "errors": 0,
+        "skipped": 0
+      }
+    },
+    "restored_sha256": "cc97119ea26afec275be3c83d22bc75de0d452cd0f4764896cc9d037274ab25a"
+  },
+  {
+    "name": "template-broken",
+    "source": "templates/consumer-repo/scripts/check_deliberate_break.py",
+    "original_sha256": "cc97119ea26afec275be3c83d22bc75de0d452cd0f4764896cc9d037274ab25a",
+    "mutation_sha256": "9593926e69e8b2684c871cb3f3eb30be3a53c74705d1c4da423f423902b07ba7",
+    "test_sha256": "f27013701bbc1be89258d5e17fa0b9074bebc8d1beed593ea364ca9c72e16fcf",
+    "cwd": "/var/folders/qm/w0dtc0j132gd6ymf1hxtd2p00000gp/T/runtime-health-replay-l659def2",
+    "red": {
+      "argv": [
+        "/opt/anaconda3/bin/python3",
+        "-m",
+        "pytest",
+        "tests/scripts/test_check_deliberate_break_runtime_health.py::test_active_runtime_health_requires_distribution_version_and_real_import[template-broken]",
+        "-q",
+        "-o",
+        "addopts="
+      ],
+      "env": {
+        "PYTEST_ADDOPTS": "--junitxml=/Users/teacher/.codex/automations/imi-merge-verify-closer/worktrees/wf3838-replay-guard-20261011T2128Z/docs/evidence/issue-3743/runtime-health/closer-guard-20261011/optimized-actual/template-broken-red.xml"
+      },
+      "exit": 1,
+      "junit_counts": {
+        "tests": 1,
+        "failures": 1,
+        "errors": 0,
+        "skipped": 0
+      }
+    },
+    "green": {
+      "argv": [
+        "/opt/anaconda3/bin/python3",
+        "-m",
+        "pytest",
+        "tests/scripts/test_check_deliberate_break_runtime_health.py::test_active_runtime_health_requires_distribution_version_and_real_import[template-broken]",
+        "-q",
+        "-o",
+        "addopts="
+      ],
+      "env": {
+        "PYTEST_ADDOPTS": "--junitxml=/Users/teacher/.codex/automations/imi-merge-verify-closer/worktrees/wf3838-replay-guard-20261011T2128Z/docs/evidence/issue-3743/runtime-health/closer-guard-20261011/optimized-actual/template-broken-green.xml"
+      },
+      "exit": 0,
+      "junit_counts": {
+        "tests": 1,
+        "failures": 0,
+        "errors": 0,
+        "skipped": 0
+      }
+    },
+    "restored_sha256": "cc97119ea26afec275be3c83d22bc75de0d452cd0f4764896cc9d037274ab25a"
+  },
+  {
+    "name": "template-healthy",
+    "source": "templates/consumer-repo/scripts/check_deliberate_break.py",
+    "original_sha256": "cc97119ea26afec275be3c83d22bc75de0d452cd0f4764896cc9d037274ab25a",
+    "mutation_sha256": "9932072a6851f301dc26a13b27b671dd6e2a69046cddbf7662f5bd429934ca43",
+    "test_sha256": "f27013701bbc1be89258d5e17fa0b9074bebc8d1beed593ea364ca9c72e16fcf",
+    "cwd": "/var/folders/qm/w0dtc0j132gd6ymf1hxtd2p00000gp/T/runtime-health-replay-l659def2",
+    "red": {
+      "argv": [
+        "/opt/anaconda3/bin/python3",
+        "-m",
+        "pytest",
+        "tests/scripts/test_check_deliberate_break_runtime_health.py::test_active_runtime_health_requires_distribution_version_and_real_import[template-healthy]",
+        "-q",
+        "-o",
+        "addopts="
+      ],
+      "env": {
+        "PYTEST_ADDOPTS": "--junitxml=/Users/teacher/.codex/automations/imi-merge-verify-closer/worktrees/wf3838-replay-guard-20261011T2128Z/docs/evidence/issue-3743/runtime-health/closer-guard-20261011/optimized-actual/template-healthy-red.xml"
+      },
+      "exit": 1,
+      "junit_counts": {
+        "tests": 1,
+        "failures": 1,
+        "errors": 0,
+        "skipped": 0
+      }
+    },
+    "green": {
+      "argv": [
+        "/opt/anaconda3/bin/python3",
+        "-m",
+        "pytest",
+        "tests/scripts/test_check_deliberate_break_runtime_health.py::test_active_runtime_health_requires_distribution_version_and_real_import[template-healthy]",
+        "-q",
+        "-o",
+        "addopts="
+      ],
+      "env": {
+        "PYTEST_ADDOPTS": "--junitxml=/Users/teacher/.codex/automations/imi-merge-verify-closer/worktrees/wf3838-replay-guard-20261011T2128Z/docs/evidence/issue-3743/runtime-health/closer-guard-20261011/optimized-actual/template-healthy-green.xml"
+      },
+      "exit": 0,
+      "junit_counts": {
+        "tests": 1,
+        "failures": 0,
+        "errors": 0,
+        "skipped": 0
+      }
+    },
+    "restored_sha256": "cc97119ea26afec275be3c83d22bc75de0d452cd0f4764896cc9d037274ab25a"
+  }
+]

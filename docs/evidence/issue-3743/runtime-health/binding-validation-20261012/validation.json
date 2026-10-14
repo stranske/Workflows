@@ -1,0 +1,25 @@
+{
+  "base_head": "d3d0468bd25dfc0e7bcf2afd5c1d41cce9c0d4db",
+  "interpreter": "3.12.2 | packaged by conda-forge | (main, Feb 16 2024, 20:54:21) [Clang 16.0.6 ]",
+  "preserved_files": {
+    "docs/evidence/issue-3743/runtime-health/summary.json": "e073cd361181c0972c4ccdbfca4e93151ee9458abc5c8034a3d2880bf05c6563",
+    "docs/evidence/issue-3743/runtime-health/manifest.json": "8c0dd7c405cbcbd9f1c476ad4d97d5ef3d6e2475eef373ea5d9dc3f5538539b6",
+    "docs/evidence/issue-3743/runtime-health/proof.tar.gz": "4e36a3d5398b19afdda896735c9b4d0bc67ec0ec5c50d1a94157790e3dba76fe",
+    "docs/evidence/issue-3743/runtime-health/replay.py": "eeafd22b806d18409bd8a256c9502784a504b70ea03f41cd6cefb055fd7eb5c3",
+    "docs/evidence/issue-3743/runtime-health/measure.py": "9b9ac91567e41d73e2850c495a76f116dcd33e87b2c86ed3c5b359f3e71fd44b",
+    "scripts/check_deliberate_break.py": "cc97119ea26afec275be3c83d22bc75de0d452cd0f4764896cc9d037274ab25a",
+    "templates/consumer-repo/scripts/check_deliberate_break.py": "cc97119ea26afec275be3c83d22bc75de0d452cd0f4764896cc9d037274ab25a",
+    "tests/scripts/test_check_deliberate_break_runtime_health.py": "f27013701bbc1be89258d5e17fa0b9074bebc8d1beed593ea364ca9c72e16fcf",
+    "tests/scripts/test_runtime_health_replay.py": "765da53a381cfdf3c8e4b20e7d81ed1431a04da5c02f9ee6e9c8adc2bb5b6fda"
+  },
+  "gates": "8 runtime-health + 8 repair + 14 replay guards PASS",
+  "new_artifacts": {
+    "binding-validation-20261012/gate-2.xml": "a0cdd32786f4355f47f8d95fb45350905539879e01fb729d4aab8627ce1a2087",
+    "binding-validation-20261012/gate-0.xml": "8d06c5977d49469baebe715bd805b874ab53fe52335b20c8585cdcf966f9bc32",
+    "binding-validation-20261012/gate-1.xml": "b9955dba24f7de571dac8348acd5a472a8123b21ae173c7d0bef84bf9bbdcf64",
+    "binding-validation-20261012/commands.json": "f4e050e05da638630f32bbd398931f738bf026ad52515debad253006e898a6e8",
+    "binding-validation-20261012/gate-2.log": "ac3c0c064f943d1cd0a7205ed51cd07be50d1135b870ca3ce299f824d3234db0",
+    "binding-validation-20261012/gate-0.log": "1da86f31fc86a3d17f9384a446f9a48244186e9d2603f2ca69b7c6c681a19768",
+    "binding-validation-20261012/gate-1.log": "0fc4f5b8a7f97cd4a8e36ad0afab6e147d0ae54f1cd061ebe8597dd29733d192"
+  }
+}

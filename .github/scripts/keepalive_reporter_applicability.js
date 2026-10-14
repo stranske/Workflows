@@ -36,7 +36,16 @@ async function classifyReporterRun({ github, owner, repo, run, lookupTarget = fi
       Number(origin.run_attempt) !== Number(run.run_attempt || 1) ||
       String(origin.head_sha) !== String(run.head_sha) ||
       origin.event !== 'workflow_dispatch' || !PRODUCERS.has(origin.path)) {
-    throw new Error('Unassociated run has no verified dispatch classification');
+    // This run is not one of OUR dispatches at all: a different workflow path, a non-dispatch
+    // event, or a different attempt/sha. docs/keepalive/Agents.md requires fail-closed only for
+    // the authority-relevant cases below -- a missing authority-candidate index, an
+    // unrecognized/legacy binding, a corrupt index or an unavailable lookup -- and this is none
+    // of them. Throwing here failed the whole job, and it is the case that actually fires:
+    // 50 failures in six hours in stranske/Workflows, all of them this one (#3839). The
+    // reporter runs only after an upstream round already failed, so that turned the alarm into
+    // noise exactly when it mattered. No authority is granted either way: a skip hands back no
+    // PR number at all.
+    return { status: 'skip', reason: 'unassociated run has no verified dispatch classification' };
   }
   const { data: producer } = await withRetry((client) => client.rest.repos.getContent({
     owner, repo, path: origin.path, ref: origin.head_sha,

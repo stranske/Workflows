@@ -1,0 +1,62 @@
+{
+  "archive_sha256": "bad720ee300d3adc00dad09563879b7390ec8d78b48af218652a233e32786eaf",
+  "members": {
+    "three-rule-proof/artifact-green.stderr": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+    "three-rule-proof/artifact-green.stdout": "2cfb0da4ba027d2cdaa04078c44fd4db74c7052bbd5fe76fcf7a33641a4bf839",
+    "three-rule-proof/artifact-green.xml": "cb81728117e9b215c2c92fa75a72b9c2d64e3ef98e969d0a1989a675db1b4cc7",
+    "three-rule-proof/artifact-red.stderr": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+    "three-rule-proof/artifact-red.stdout": "70db0c16be4ab6a8c951f13ad9a1e878cace211e4d0a75db8d708e6d77f48468",
+    "three-rule-proof/artifact-red.xml": "1e8de719f4ea3d64d9fe97ebbc59fc25cfca701a72a82703496d57c036622d62",
+    "three-rule-proof/manifest.json": "acd4ec0427a43b70d9592e2d10be1a38f6de7d1d3182d945cd476fda63cab7ac",
+    "three-rule-proof/receipts.json": "3b62c0c28c73d3a37a0f7626a166f9c3c56b053bc1f5eb3e244822774706859a",
+    "three-rule-proof/review_comment-green.stderr": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+    "three-rule-proof/review_comment-green.stdout": "0c4c55554da226c22fb0fbd382f97e95c84201385bb104b3c0e87490ce0efb92",
+    "three-rule-proof/review_comment-green.xml": "e01a13e51b0849a6f66e16f18b2e03b2c7124f6315ee684ba4eb6f26fc7dc8ec",
+    "three-rule-proof/review_comment-red.stderr": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+    "three-rule-proof/review_comment-red.stdout": "0acfb63aba7a3e44b55feca6d8ceae480ce4ead81216cffeca22a6ffc575fd60",
+    "three-rule-proof/review_comment-red.xml": "ab7b4c510a68f7a4b013654f5af84ad779ef6c4d30ba60195bd7774c3d92c850",
+    "three-rule-proof/validation_output-green.stderr": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+    "three-rule-proof/validation_output-green.stdout": "9ca6e9aadecd2bd74b5dc40211b4e4236114d80deb1bc928c3998b744eeab43c",
+    "three-rule-proof/validation_output-green.xml": "de7402a60ffa84b7d7d93f78ad10983d5ba532a3f9af9fac2f3c27bfbdc5cec6",
+    "three-rule-proof/validation_output-red.stderr": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+    "three-rule-proof/validation_output-red.stdout": "5cd77007361e59b3834a9fe1fa95202494589be4d5fee45d85dabba40f883d33",
+    "three-rule-proof/validation_output-red.xml": "2a8286a2811bd68fcddd65fac1f197fa49b0897c107dc95e47ee500572380976",
+    "original-red.log": "d7004be1eda3f9a96dd6a0d99fc0270ad165072c08dbb3e5badbe742446912b1",
+    "fixed-green.log": "8772975d094791c7ff4547961c628a1690c5855a89434e06429a0c4182853afe",
+    "full.log": "9f42fbb6a1a303fde40a152f958f7ac7279ee8e742bb408078227424976a179d",
+    "full.xml": "5db6bdf0a5dc2a7f4541a6d4668c970ffee9b14d829251e41221c69777ed8a77",
+    "full-parallel.log": "c13d5b64135c932bc37234c8a99e1d3f83039e7dc398d79a73d0a7de0a4fc4b5",
+    "full-parallel.xml": "5b169efb1b0b731cccd28e6eee0ff664420a434c918ef0705c1ee57134f05e20",
+    "three-rule-proof.log": "3b62c0c28c73d3a37a0f7626a166f9c3c56b053bc1f5eb3e244822774706859a",
+    "manifest-docs.log": "a86479862f9959a8fcea4192e5d3d8b8c5c558a7479a3027452cbebc0de2df71"
+  },
+  "inputs": {
+    "scripts/langchain/pr_verifier.py": "a743cbfed0bdd653a2a33ee3061650b75175d84ded1031604908343c12fc9c53",
+    "templates/consumer-repo/scripts/langchain/pr_verifier.py": "a743cbfed0bdd653a2a33ee3061650b75175d84ded1031604908343c12fc9c53",
+    "tests/scripts/test_pr_verifier_delivery_destinations.py": "f9bed36f9f0c7d339e492eadf630df2553c0af6289a26ab31ed3dd722eb92a10",
+    "tests/scripts/test_pr_verifier_prompt_coverage.py": "5f200459f4828184666a28772a1a6c40c0c34a543c0d8c2cb176a267cdf804a0",
+    "docs/evidence/issue-3835-evidence-destinations/replay.py": "cc20f7e1d91ec0481938d0c8e2af48a44631f6f7596173081689a881908ffcd4"
+  },
+  "base_commit": "6020028dec510c931364fb69f63dc2a2aa297689",
+  "runtime": "Python 3.12.2 (/opt/anaconda3/bin/python3)",
+  "full_suite": {
+    "exit": 0,
+    "tests": 92822,
+    "failures": 0,
+    "errors": 0,
+    "skipped": 0,
+    "argv": [
+      "/opt/anaconda3/bin/python3",
+      "-m",
+      "pytest",
+      "tests/scripts/test_pr_verifier_delivery_destinations.py",
+      "tests/scripts/test_pr_verifier_prompt_coverage.py",
+      "-q",
+      "-o",
+      "addopts=",
+      "-n",
+      "4",
+      "--junitxml=/tmp/opener3835-full-parallel.xml"
+    ]
+  }
+}

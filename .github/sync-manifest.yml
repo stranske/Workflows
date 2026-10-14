@@ -8,6 +8,7 @@
 # Verifier destination grammar also binds artifact-provenance property delivery
 # without treating checked provenance enforcement as a new artifact obligation.
 # Exact quoted review destination names retain channel binding; parser examples stay opaque.
+# Nominal no-need/requirement/obligation governors share evidence polarity across channels.
 # Partial OR parsing fails closed; punctuated ORs and property storage retain their semantics.
 # Files not listed will NOT be synced, even if they exist in templates/consumer-repo/.
 #
@@ -82,7 +83,7 @@ workflows:
 
   # Agent system - execution
   - source: .github/workflows/agents-keepalive-loop-reporter.yml
-    description: "Keepalive reporter - posts summary when keepalive run fails or cancels"
+    description: "Keepalive reporter - posts PR completion or an attributed run diagnostic when target resolution fails"
 
   - source: .github/workflows/agents-71-codex-belt-dispatcher.yml
     description: "Codex belt dispatcher - selects issues and creates agent branches for work"
@@ -711,6 +712,7 @@ scripts:
   # Postposed conditional/negative checklist qualifiers retain shared governor semantics.
   # Shared independent actor boundaries preserve relative polarity and copular availability.
   # Canonical shared operations and contrast-aware negative governors retain required destinations.
+  # Nominal exists-negation and review-comment product subjects preserve independent delivery floors.
   # Product generation/structural destinations and always-qualified availability retain actor/OR boundaries.
   # Canonical product operations and per-item coordination preserve bare sibling review obligations.
   # Shared passive-agent normalization preserves actor, modality, aspect and review destinations in either word order.
@@ -749,7 +751,7 @@ scripts:
     # Opt-in expanded diagnostic partitions preserve all loaded input ranges and
     # findings within native-count bounds; global dependencies always withhold PASS.
     # Every diagnostic request repeats the complete governing plan without clipping.
-    description: "PR verifier - normalizes actor-bound common test-result/log/screenshot/recording proof objects with early canonical contracted governors, offset-preserving literal-free proof contexts, bounded active/passive object qualifiers and literal-safe explicit pronoun antecedents across finite actor clause separators and shared negative-governor actor boundaries and structurally bounded PR-contained comment nouns through shared polarity/modality/product/literal grammar and validates independent acceptance-list items and destination-specific evidence with clause-bound mandatory evidence/artifact comment-presence predicates with shared negative requirement governors for bare be-in destinations, subject-level no polarity and canonical comment destinations, product permit capability and shared share/put/place/submit/deliver/supply aliases with shared finite compound-role subjects and possession-safe verbal guards with bounded adverb-and-polarity-aware optional-inspection noun spans and prove operations, contracted and bare prohibition polarity with additive not-only/not-merely/not-just and negative embedded-auxiliary guards with complete passive/active-perfect negative requirement actions, shared adverb-aware active-perfect/passive contrast-aware elided actor/governors and prohibition-safe checklist fallback, shared bounded multiword component and comma-availability grammar with order-symmetric single/coordinated destination OR options and actual floors and leading either alternatives, complete product-response vocabulary, bounded product-capability spans, qualified recipients and evidence-object modifiers, bound product storage/client aspects, optional-modal polarity, named and elided actor governor and finite-past sentence boundaries, attached reviewer predicates through shared destinations, complete body predicates, non-PASS concerns and rename-safe diff coverage; native capacity required only for explicit expanded invocation and schema repair, with unconditional evidence floors and isolated receipt I/O warnings preserving capacity outcomes"
+    description: "PR verifier - retains active as-artifact proof delivery, literal-safe PR/inline review-comment destinations and common-proof checklist nouns through shared polarity/product/OR grammar; normalizes actor-bound common test-result/log/screenshot/recording proof objects with early canonical contracted governors, offset-preserving literal-free proof contexts, bounded active/passive object qualifiers and literal-safe explicit pronoun antecedents across finite actor clause separators and shared negative-governor actor boundaries and structurally bounded PR-contained comment nouns through shared polarity/modality/product/literal grammar and validates independent acceptance-list items and destination-specific evidence with clause-bound mandatory evidence/artifact comment-presence predicates with shared negative requirement governors for bare be-in destinations, subject-level no polarity and canonical comment destinations, product permit capability and shared share/put/place/submit/deliver/supply aliases with shared finite compound-role subjects and possession-safe verbal guards with bounded adverb-and-polarity-aware optional-inspection noun spans and prove operations, contracted and bare prohibition polarity with additive not-only/not-merely/not-just and negative embedded-auxiliary guards with complete passive/active-perfect negative requirement actions, shared adverb-aware active-perfect/passive contrast-aware elided actor/governors and prohibition-safe checklist fallback, shared bounded multiword component and comma-availability grammar with order-symmetric single/coordinated destination OR options and actual floors and leading either alternatives, complete product-response vocabulary, bounded product-capability spans, qualified recipients and evidence-object modifiers, bound product storage/client aspects, optional-modal polarity, named and elided actor governor and finite-past sentence boundaries, attached reviewer predicates through shared destinations, complete body predicates, non-PASS concerns and rename-safe diff coverage; native capacity required only for explicit expanded invocation and schema repair, with unconditional evidence floors and isolated receipt I/O warnings preserving capacity outcomes"
     delivery: copy
 
   # NOTE (resolved: issue #2347): scripts/langchain/followup_issue_generator.py was MOVED

@@ -1076,10 +1076,12 @@ jobs:
                 git config user.name  "github-actions[bot]"
                 git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
                 if [ "$CHANGED" -gt 0 ]; then
-                  git add -A
-                  git commit \
-                    -m "chore(codex-keepalive): pre-timeout checkpoint (PR #${PR_NUM:-})" \
-                    --no-verify || true
+                  if python3 .workflows-lib/scripts/stage_agent_changes.py && \
+                    ! git diff --cached --quiet; then
+                    git commit \
+                      -m "chore(codex-keepalive): pre-timeout checkpoint (PR #${PR_NUM:-})" \
+                      --no-verify || true
+                  fi
                 fi
                 # Rebase onto remote before pushing to avoid non-fast-forward rejection
                 if git rev-parse FETCH_HEAD >/dev/null 2>&1; then
@@ -1304,9 +1306,9 @@ jobs:
           }
           # Write OUTSIDE the checkout. This file exists only to feed the upload-artifact
           # step below, and a staging file in the working tree is a liability: the commit
-          # step later in this job runs `git add -A` and then subtracts a hand-curated
-          # exclusion list, so any artifact not on that list is committed onto whatever PR
-          # is open. This one was not, so it landed in six consumer repos and collided
+          # staging helper excludes known artifacts, but new runtime outputs should live
+          # outside the repository. Before that contract, this output was committed onto
+          # open PRs: it landed in six consumer repos and collided
           # there with the copy the previous merge had left on main. RUNNER_TEMP is wiped
           # between jobs and is never part of the repository, which removes the class
           # rather than adding entry N+1 to the list.
@@ -1757,48 +1759,8 @@ jobs:
             # Define REMOTE_URL early since it is used in multiple code paths
             REMOTE_URL="https://x-access-token:${PUSH_TOKEN}@github.com/${{ github.repository }}"
 
-          git add -A
-          # Exclude generated artifacts that cause merge conflicts between concurrent PRs.
-          # These files are auto-generated and should never be committed:
-          # - codex-*/claude-*: Agent workflow artifacts (cross-agent exclusion)
-          # - coverage.xml, .coverage: CI test coverage reports
-          # - pr_body.md: Agent-generated PR metadata
-          # - autofix_report_enriched.json: Autofix workflow artifact
-          # - poetry.lock: Defense against wrong package manager
-          # - .workflows-lib: Separate checkout (git treats as submodule)
-          # - .workflows-actions: Local action checkout needed for post-job cleanup
-          # This may unstage all changes if only artifacts were modified.
-          git reset HEAD -- \
-            codex-output*.md \
-            codex-prompt*.md \
-            codex-session*.jsonl \
-            codex-analysis*.json \
-            claude-output*.md \
-            claude-prompt*.md \
-            claude-session*.log \
-            claude-session*.jsonl \
-            claude-analysis*.json \
-            cursor-output*.md \
-            cursor-prompt*.md \
-            cursor-session*.log \
-            cursor-session*.jsonl \
-            cursor-analysis*.json \
-            gemini-output*.md \
-            gemini-prompt*.md \
-            gemini-session*.log \
-            gemini-session*.jsonl \
-            gemini-analysis*.json \
-            .coverage \
-            .workflows-lib \
-            .workflows-actions \
-            .github/scripts/node_modules \
-            .workflows-lib/.github/scripts/node_modules \
-            node_modules \
-            coverage.xml \
-            pr_body.md \
-            autofix_report_enriched.json \
-            poetry.lock \
-            2>/dev/null || true
+          # Shared artifact contract also used by the pre-timeout checkpoint.
+          python3 .workflows-lib/scripts/stage_agent_changes.py
 
           # Check if there are any staged changes remaining after reset
           if git diff --cached --quiet; then
@@ -2003,8 +1965,8 @@ jobs:
           set -euo pipefail
           # Written OUTSIDE the checkout. This directory only ever feeds the
           # upload-artifact step below, and a staging directory in the working tree is a
-          # liability: the commit step earlier in this job runs `git add -A` minus a
-          # hand-curated exclusion list this path is not on. It has been safe only because
+          # liability: the shared staging helper excludes known artifact paths, but
+          # this diagnostic directory is not a source change. It had been safe only because
           # that step happens to run FIRST -- ordering, not a safety property. Reorder the
           # steps or add a later commit step and it becomes the
           # langsmith-fleet-worker-attempt.json defect (PR #3210), which reached six

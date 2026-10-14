@@ -1,0 +1,7 @@
+# Literal original-catch acceptance for issue 3839
+
+This packet supplements the historical skip/promotion-guard proofs without changing them. It restores the exact unconditional resolver catch from commit **6020028dec510c931364fb69f63dc2a2aa297689** in both current production workflows, while retaining the current classifier and promotion guard. The six original named attribution tests fail their event-order assertion (exit 1, six failures, zero errors/skips). Byte-identical restoration passes all six (exit 0).
+
+`proof.tar.gz` contains the actual mutant workflow bytes, complete raw console and JUnit, exact commands/exits, original catch text, current source/test/classifier hashes, and byte-restoration result. `manifest.json` binds every archive member and the current delivered inputs. Fresh full resolver tests: 59 passed; Node classifier tests: 29 passed. Their raw console is included. No production change or test change is made by this evidence follow-up.
+
+The earlier packets bind their historical bytes and intermediate semantics. This packet binds the final merged reporter workflows and strengthened tests, resolving the literal mutation and final-byte visibility questions in PR3841 report6126537724. Provider verdicts remain CONCERNS/CONCERNS; local authored-resolver evidence does not establish an observed hosted consumer cycle, improved live failure rate or provider PASS. Source3839 stays open through this PR's exact-head CI/review/floor/merge and actual comparison/disposition.

@@ -1,0 +1,26 @@
+{
+  "base_head": "0f8bf59e66496ca02ee3c411e8a15bf53ea908d8",
+  "source_sha256": {
+    ".github/workflows/agents-keepalive-loop-reporter.yml": "e49c2d5c17b45684a371cb5a526d5810430e0af7589e0aac2b8f50e85a28e4e8",
+    "templates/consumer-repo/.github/workflows/agents-keepalive-loop-reporter.yml": "9f724ee11052c02642dbc3a9ad1470ee17d54f0e53eaa16b9304c5bbc24b4bee",
+    "tests/workflows/test_keepalive_reporter_unresolved.py": "889f8797155c6f21a9df2c159e2f8a4a6a89d1ee923b92472bca5d907301afe5",
+    "docs/keepalive/GoalsAndPlumbing.md": "ed3eb006ed39791e16f29a661bc95aab09d5b4ab3718ff9123baff3995383bf3",
+    "config/template-drift-allowlist.txt": "e3ec358627b7931f5ba4a6b5d2605f90c905d3334a4b989ee5b70c2311d8ccd2"
+  },
+  "artifact_sha256": {
+    "focused-green.xml": "86f1d19324bf42c66ecec16878dde38c21ef470273e799868327df3558fef05f",
+    "exact-restoration-green.xml": "6c05492af5035458047691a1b644c084e0a046ad79e533b8114b434795162bd4",
+    "production-skip-red.xml": "ea57f82d03ad47f0f8252dc71869dad97170063a4bf99e0df133e2e3b409c28a",
+    "node-green.log": "a6dd8321d76c9a2de468c46e7e6782b5bd1517c69d30079ff1d4655bf07274c9",
+    "replay.py": "830eee0bc573ed81bd1677e42b8cdfa3f14063ab8faeff6d612c524c189a0637",
+    "focused-green.log": "2f4f4887c0856db3a2cf2bc508944310e8d38b448148f05a81d9605f061d09bd",
+    "exact-restoration-green.log": "0f18846f02505ee432787dbe3891961c1d8a1fbe2c82d1b7deb7e21dde073c5c",
+    "production-skip-red.log": "18a81c3010456f5192d6da17e4fa64d2ce9dad558c648b513888c4255a2c6f0c",
+    "actionlint.log": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+    "receipt.json": "420b505b9e4eb00884d59a7dd1eabdc96e805431256ed07d909486b8a15ed398",
+    "drift.log": "f6197a0634eeca4dee42e21a4f2574f35e32d73c31874813a5b5404c4b0611d0"
+  },
+  "validation": "139 focused PASS,29 Node PASS; actionlint external shellcheck/pyflakes disabled; template sync/completeness/drift exit0",
+  "historical_binding": "Parent manifest and earlier mutation-receipt bind historical skip behavior only; this current receipt does not rebind them.",
+  "replay_revision": "Formatted replay uses defusedxml and requires a fresh external --output; actual external rerun3841-replay-final observes six assertionRED/exactrestoreGREEN; original logs/JUnit/receipt retained byte-identical."
+}

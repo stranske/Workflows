@@ -1,0 +1,151 @@
+<?xml version="1.0" encoding="utf-8"?><testsuites name="pytest tests"><testsuite name="pytest" errors="0" failures="6" skipped="0" tests="7" time="0.162" timestamp="2026-10-11T16:29:23.212958-05:00" hostname="server.trs.private"><testcase classname="tests.scripts.test_runtime_health_replay" name="test_main_requires_selected_assertion_outcome_and_restores[None]" time="0.038" /><testcase classname="tests.scripts.test_runtime_health_replay" name="test_main_requires_selected_assertion_outcome_and_restores[error]" time="0.006"><failure message="Failed: DID NOT RAISE RuntimeError">tmp_path = PosixPath('/private/var/folders/qm/w0dtc0j132gd6ymf1hxtd2p00000gp/T/pytest-of-teacher/pytest-599/test_main_requires_selected_as1')
+monkeypatch = &lt;_pytest.monkeypatch.MonkeyPatch object at 0x1059a2a50&gt;
+defect = 'error'
+
+    @pytest.mark.parametrize(
+        "defect", [None, "error", "exception", "skip", "wrong-node", "wrong-module", "inconsistent"]
+    )
+    def test_main_requires_selected_assertion_outcome_and_restores(tmp_path, monkeypatch, defect):
+        module = load()
+        module.CASES = module.CASES[:1]
+        out = tmp_path / "proof"
+        monkeypatch.setattr(sys, "argv", [str(REPLAY), "--output", str(out)])
+    
+        def run(argv, **kwargs):
+            target = Path(shlex.split(kwargs["env"]["PYTEST_ADDOPTS"])[0].split("=", 1)[1])
+            phase = "red" if target.stem.endswith("red") else "green"
+            variant = "template" if "[template-" in argv[3] else "root"
+            target.write_text(report(phase, defect if phase == "red" else None, variant))
+            return SimpleNamespace(returncode=1 if phase == "red" else 0, stdout=b"", stderr=b"")
+    
+        monkeypatch.setattr(module.subprocess, "run", run)
+        if defect:
+&gt;           with pytest.raises(RuntimeError):
+E           Failed: DID NOT RAISE RuntimeError
+
+tests/scripts/test_runtime_health_replay.py:63: Failed</failure></testcase><testcase classname="tests.scripts.test_runtime_health_replay" name="test_main_requires_selected_assertion_outcome_and_restores[exception]" time="0.007"><failure message="Failed: DID NOT RAISE RuntimeError">tmp_path = PosixPath('/private/var/folders/qm/w0dtc0j132gd6ymf1hxtd2p00000gp/T/pytest-of-teacher/pytest-599/test_main_requires_selected_as2')
+monkeypatch = &lt;_pytest.monkeypatch.MonkeyPatch object at 0x105a43a10&gt;
+defect = 'exception'
+
+    @pytest.mark.parametrize(
+        "defect", [None, "error", "exception", "skip", "wrong-node", "wrong-module", "inconsistent"]
+    )
+    def test_main_requires_selected_assertion_outcome_and_restores(tmp_path, monkeypatch, defect):
+        module = load()
+        module.CASES = module.CASES[:1]
+        out = tmp_path / "proof"
+        monkeypatch.setattr(sys, "argv", [str(REPLAY), "--output", str(out)])
+    
+        def run(argv, **kwargs):
+            target = Path(shlex.split(kwargs["env"]["PYTEST_ADDOPTS"])[0].split("=", 1)[1])
+            phase = "red" if target.stem.endswith("red") else "green"
+            variant = "template" if "[template-" in argv[3] else "root"
+            target.write_text(report(phase, defect if phase == "red" else None, variant))
+            return SimpleNamespace(returncode=1 if phase == "red" else 0, stdout=b"", stderr=b"")
+    
+        monkeypatch.setattr(module.subprocess, "run", run)
+        if defect:
+&gt;           with pytest.raises(RuntimeError):
+E           Failed: DID NOT RAISE RuntimeError
+
+tests/scripts/test_runtime_health_replay.py:63: Failed</failure></testcase><testcase classname="tests.scripts.test_runtime_health_replay" name="test_main_requires_selected_assertion_outcome_and_restores[skip]" time="0.006"><failure message="Failed: DID NOT RAISE RuntimeError">tmp_path = PosixPath('/private/var/folders/qm/w0dtc0j132gd6ymf1hxtd2p00000gp/T/pytest-of-teacher/pytest-599/test_main_requires_selected_as3')
+monkeypatch = &lt;_pytest.monkeypatch.MonkeyPatch object at 0x1059ecfb0&gt;
+defect = 'skip'
+
+    @pytest.mark.parametrize(
+        "defect", [None, "error", "exception", "skip", "wrong-node", "wrong-module", "inconsistent"]
+    )
+    def test_main_requires_selected_assertion_outcome_and_restores(tmp_path, monkeypatch, defect):
+        module = load()
+        module.CASES = module.CASES[:1]
+        out = tmp_path / "proof"
+        monkeypatch.setattr(sys, "argv", [str(REPLAY), "--output", str(out)])
+    
+        def run(argv, **kwargs):
+            target = Path(shlex.split(kwargs["env"]["PYTEST_ADDOPTS"])[0].split("=", 1)[1])
+            phase = "red" if target.stem.endswith("red") else "green"
+            variant = "template" if "[template-" in argv[3] else "root"
+            target.write_text(report(phase, defect if phase == "red" else None, variant))
+            return SimpleNamespace(returncode=1 if phase == "red" else 0, stdout=b"", stderr=b"")
+    
+        monkeypatch.setattr(module.subprocess, "run", run)
+        if defect:
+&gt;           with pytest.raises(RuntimeError):
+E           Failed: DID NOT RAISE RuntimeError
+
+tests/scripts/test_runtime_health_replay.py:63: Failed</failure></testcase><testcase classname="tests.scripts.test_runtime_health_replay" name="test_main_requires_selected_assertion_outcome_and_restores[wrong-node]" time="0.006"><failure message="Failed: DID NOT RAISE RuntimeError">tmp_path = PosixPath('/private/var/folders/qm/w0dtc0j132gd6ymf1hxtd2p00000gp/T/pytest-of-teacher/pytest-599/test_main_requires_selected_as4')
+monkeypatch = &lt;_pytest.monkeypatch.MonkeyPatch object at 0x105978fb0&gt;
+defect = 'wrong-node'
+
+    @pytest.mark.parametrize(
+        "defect", [None, "error", "exception", "skip", "wrong-node", "wrong-module", "inconsistent"]
+    )
+    def test_main_requires_selected_assertion_outcome_and_restores(tmp_path, monkeypatch, defect):
+        module = load()
+        module.CASES = module.CASES[:1]
+        out = tmp_path / "proof"
+        monkeypatch.setattr(sys, "argv", [str(REPLAY), "--output", str(out)])
+    
+        def run(argv, **kwargs):
+            target = Path(shlex.split(kwargs["env"]["PYTEST_ADDOPTS"])[0].split("=", 1)[1])
+            phase = "red" if target.stem.endswith("red") else "green"
+            variant = "template" if "[template-" in argv[3] else "root"
+            target.write_text(report(phase, defect if phase == "red" else None, variant))
+            return SimpleNamespace(returncode=1 if phase == "red" else 0, stdout=b"", stderr=b"")
+    
+        monkeypatch.setattr(module.subprocess, "run", run)
+        if defect:
+&gt;           with pytest.raises(RuntimeError):
+E           Failed: DID NOT RAISE RuntimeError
+
+tests/scripts/test_runtime_health_replay.py:63: Failed</failure></testcase><testcase classname="tests.scripts.test_runtime_health_replay" name="test_main_requires_selected_assertion_outcome_and_restores[wrong-module]" time="0.006"><failure message="Failed: DID NOT RAISE RuntimeError">tmp_path = PosixPath('/private/var/folders/qm/w0dtc0j132gd6ymf1hxtd2p00000gp/T/pytest-of-teacher/pytest-599/test_main_requires_selected_as5')
+monkeypatch = &lt;_pytest.monkeypatch.MonkeyPatch object at 0x105978680&gt;
+defect = 'wrong-module'
+
+    @pytest.mark.parametrize(
+        "defect", [None, "error", "exception", "skip", "wrong-node", "wrong-module", "inconsistent"]
+    )
+    def test_main_requires_selected_assertion_outcome_and_restores(tmp_path, monkeypatch, defect):
+        module = load()
+        module.CASES = module.CASES[:1]
+        out = tmp_path / "proof"
+        monkeypatch.setattr(sys, "argv", [str(REPLAY), "--output", str(out)])
+    
+        def run(argv, **kwargs):
+            target = Path(shlex.split(kwargs["env"]["PYTEST_ADDOPTS"])[0].split("=", 1)[1])
+            phase = "red" if target.stem.endswith("red") else "green"
+            variant = "template" if "[template-" in argv[3] else "root"
+            target.write_text(report(phase, defect if phase == "red" else None, variant))
+            return SimpleNamespace(returncode=1 if phase == "red" else 0, stdout=b"", stderr=b"")
+    
+        monkeypatch.setattr(module.subprocess, "run", run)
+        if defect:
+&gt;           with pytest.raises(RuntimeError):
+E           Failed: DID NOT RAISE RuntimeError
+
+tests/scripts/test_runtime_health_replay.py:63: Failed</failure></testcase><testcase classname="tests.scripts.test_runtime_health_replay" name="test_main_requires_selected_assertion_outcome_and_restores[inconsistent]" time="0.006"><failure message="Failed: DID NOT RAISE RuntimeError">tmp_path = PosixPath('/private/var/folders/qm/w0dtc0j132gd6ymf1hxtd2p00000gp/T/pytest-of-teacher/pytest-599/test_main_requires_selected_as6')
+monkeypatch = &lt;_pytest.monkeypatch.MonkeyPatch object at 0x105956300&gt;
+defect = 'inconsistent'
+
+    @pytest.mark.parametrize(
+        "defect", [None, "error", "exception", "skip", "wrong-node", "wrong-module", "inconsistent"]
+    )
+    def test_main_requires_selected_assertion_outcome_and_restores(tmp_path, monkeypatch, defect):
+        module = load()
+        module.CASES = module.CASES[:1]
+        out = tmp_path / "proof"
+        monkeypatch.setattr(sys, "argv", [str(REPLAY), "--output", str(out)])
+    
+        def run(argv, **kwargs):
+            target = Path(shlex.split(kwargs["env"]["PYTEST_ADDOPTS"])[0].split("=", 1)[1])
+            phase = "red" if target.stem.endswith("red") else "green"
+            variant = "template" if "[template-" in argv[3] else "root"
+            target.write_text(report(phase, defect if phase == "red" else None, variant))
+            return SimpleNamespace(returncode=1 if phase == "red" else 0, stdout=b"", stderr=b"")
+    
+        monkeypatch.setattr(module.subprocess, "run", run)
+        if defect:
+&gt;           with pytest.raises(RuntimeError):
+E           Failed: DID NOT RAISE RuntimeError
+
+tests/scripts/test_runtime_health_replay.py:63: Failed</failure></testcase></testsuite></testsuites>

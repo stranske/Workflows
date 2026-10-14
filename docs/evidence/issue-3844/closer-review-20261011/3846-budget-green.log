@@ -1,0 +1,21 @@
+✔ large repository uses server-side exact name and never scans unrelated records (0.763417ms)
+✔ exact artifact wins even when a newer suffix exists (0.109625ms)
+✔ expired exact artifacts do not hide a trusted suffix; untrusted and absent runs skipped (0.230375ms)
+✔ 500 reduces page size without retrying the identical request (4.484333ms)
+✔ reduced later page retains offset and does not skip records (0.750625ms)
+✔ authorization errors fail immediately (0.327292ms)
+✔ listing budget exhaustion is UNKNOWN, not a missing-artifact success (0.275041ms)
+✔ no artifacts returns null after two bounded empty listings (0.13825ms)
+✔ exact discovery pages only matching names and stops at the first usable page (6.113667ms)
+✔ legacy discovery stops in a large inventory after a trusted ref-qualified producer (5.545625ms)
+✔ ref-qualified workflow paths still require an exact trusted filename (0.276833ms)
+✔ workflow retries count actual requests (success=false) (0.2685ms)
+✔ workflow retries count actual requests (success=true) (0.070209ms)
+ℹ tests 13
+ℹ suites 0
+ℹ pass 13
+ℹ fail 0
+ℹ cancelled 0
+ℹ skipped 0
+ℹ todo 0
+ℹ duration_ms 83.875083

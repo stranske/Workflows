@@ -1,0 +1,6 @@
+{
+  ".github/workflows/agents-keepalive-loop-reporter.yml": "444038a97cbf18e8d6cebf9b11dae383241d0d23accf1a396592a245a0dd0516",
+  "templates/consumer-repo/.github/workflows/agents-keepalive-loop-reporter.yml": "b197db6fd38df80b5e47c17b42358df866ea6255109584e2eebc8b94b73232bc",
+  "config/template-drift-allowlist.txt": "17c7a33293ea3d6243f737791e6bca3eb9983ca93451c595672e57aafba82925",
+  "tests/workflows/test_keepalive_reporter_unresolved.py": "98fa28d807f61289712d3a702a77afe4ac464542681d3d7ba8a6d7eb31342a5f"
+}

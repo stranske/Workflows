@@ -1383,6 +1383,45 @@ when the consumer ruleset is empty, and Maint 71 rechecks that context on the
 exact head immediately before every merge attempt. Cancelled informational
 jobs therefore do not become invented required failures, while the shared
 delivery contract cannot merge around a failed or missing Gate.
+A consumer whose own CI runs outside Gate declares it in
+`.github/config/required-contexts.json` on its default branch, the same file
+the Gate summary reads (`{"required_contexts": ["<check run name>", ...]}`;
+the file is repo-owned and never synced). Maint 71 reads it from the
+delivery's base branch, so a delivery cannot loosen it, and applies it to
+generated deliveries only. A declared check that failed, was cancelled or
+timed out blocks the merge as a `repo-local-failure`; one still running is
+awaited. A declared check with no run on the exact head is awaited only while
+some GitHub Actions run on that head is unfinished; once every Actions run has
+finished it never started (path filter, renamed job, held workflow), so it is
+reported as `never started, merge blocked` and remains `checks_pending`.
+An absent mandatory result is UNKNOWN, never PASS: repair the producer or
+correct the consumer-owned declaration through its source owner, then obtain
+fresh exact-head evidence. An unreadable declaration is `MERGE BLOCKED`, not
+an empty mandatory set; any read error other than a 404 fails that repository's pass. Every
+delivery row in the merge report carries `consumer_declared_contexts` with the
+declared checks by outcome. Undeclared checks still never block, so agent
+event jobs that fail on sync PRs stay non-blocking. Added after
+stranske/Orchestrator#530 merged with its own `verify.py` red, because that
+repository has no branch protection and `Gate / gate` was green.
+
+Health 45 publishes `Health 45 Agents Guard / guard` on the event PR's full
+head SHA independently of agent-label eligibility for normal PR events.
+Ineligible normal PR events initialize an explicit successful no-op only after
+the eligibility action succeeds and a complete paginated exact-head status read
+proves no guard verdict exists. Reopened/ready events preserve an existing
+same-head verdict; failed or incomplete lookup fails closed.
+Ineligible privileged label/unlabel events publish
+nothing, preserving the existing same-head verdict (including failure); an absent
+verdict remains missing and blocks delivery. Removing the last agent label must
+never clear an evaluated failure. Failed
+evaluation, missing eligibility, cancellation or blocked changes publish failure.
+The independent `guard` job remains mandatory where declared: its successful
+base-bound label-event result cannot replace a failed or absent PR-head status.
+The inline publisher uses only the workflow token and never imports checked-out
+code or pooled secrets. A denied status write fails the job; fork/token restrictions
+do not authorize bypassing a missing result. The existing privileged-event
+base checkout and safety validator are unchanged. Source and consumer template
+carry the same publisher; delivery stays with Maint 68/71.
 Review-thread and final exact-head GraphQL reads use a separate read-only
 token-aware path, selecting the service-bot quota by its GraphQL (not REST-core)
 budget when it is eligible and rotating away from an exhausted identity.
@@ -1684,6 +1723,18 @@ attestation again (including publisher withdrawal or deletion), and validates ag
 Only Maint 71 resolves generated threads. Successful resolution still cannot
 waive exact-head checks, the seven-minute review floor, canary staging, sealing,
 promotion or full-fleet/Health 83 evidence.
+
+The immediately-pre-resolution record guard is lane-aware: Maint 52 dev-tool
+records need not invent a workflow-delivery head-observation pair. Their fresh
+REST and GraphQL PR heads must still equal the selected full head, their current
+branch names must be unchanged (including every review-pagination snapshot),
+and the entire parsed delivery record (including
+desired tree, repository, durable issue, source, plan, generation and lease)
+must remain identical across both reads with a live lease. A present observed
+head must agree even for dev-tool deliveries. Stable workflow deliveries still
+require that observation; unknown branches, changed bindings, incomplete review
+evidence and changed/withdrawn attestation are not recoverable through this
+exception. This is a record-schema distinction, never a merge or review waiver.
 
 The operator continues through those owning stages in the same run when evidence
 becomes ready; the recurring two-hour schedule is recovery, not the normal
@@ -2183,10 +2234,23 @@ Comma-delimited relative clauses use that same attachment path, including their
 closing comma before a following destination. Existing `only if`/`solely when`
 condition prefixes remain attached to the relative duty rather than consuming
 the parent's list. Both first/final positions retain actual AND/OR floors.
+Nominal negation includes `No need exists to`, `No requirement exists to`, and
+`No obligation exists to` in the same shared governor as the forms without
+`exists`. A PR/inline review-comment UI, API or renderer acting as the product
+subject does not itself require reviewing-PR evidence. Independent positive
+delivery clauses remain authoritative in both cases.
 Negated obligations use the same delivery-operation grammar as positive
 delivery. An explicitly excluded PR-comment destination (`outside`, `rather
 than`, `instead of`) is not a required comment channel; generic evidence and
 independent positive deliveries still retain their coverage floors.
+Active proof delivery also recognizes `as an artifact`, including evidence,
+coverage reports and common validation outputs. PR review comments and inline
+review comments share the ordinary PR-comment destination grammar before both
+channel classification and destination-OR expansion; quoted input stays literal.
+Checklist shorthand accepts the common test/validation proof nouns, so
+`Validation output in a PR comment` retains comments as its required channel.
+Negative, optional and product-capability clauses keep their existing semantics.
+A present PR body cannot satisfy missing or unavailable comments or artifacts.
 The four fresh canary findings are tested through the actual coverage floor with
 present, absent and unavailable evidence plus independent reviewer-delivery controls.
 

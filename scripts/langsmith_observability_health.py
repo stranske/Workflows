@@ -140,6 +140,7 @@ def evaluate_workflow_runs(
 def evaluate_pauses(registry: dict[str, Any], *, now: datetime) -> dict[str, Any]:
     """Require intentional pauses to remain owned, reviewable, and resumable."""
     paused_entries: list[dict[str, Any]] = []
+    advisories: list[str] = []
     reasons: list[str] = []
     for entry in registry.get("repos", []):
         if not isinstance(entry, dict) or entry.get("rollout_status") != "paused":
@@ -175,7 +176,7 @@ def evaluate_pauses(registry: dict[str, Any], *, now: datetime) -> dict[str, Any
         if paused_at and review_by and review_by < paused_at.date():
             reasons.append(f"{repo} review_by cannot predate paused_at")
         if review_by and review_by < now.date():
-            reasons.append(f"{repo} pause review was due {review_by.isoformat()}")
+            advisories.append(f"{repo} pause review was due {review_by.isoformat()}")
         paused_entries.append(
             {
                 "repo": repo,
@@ -189,6 +190,7 @@ def evaluate_pauses(registry: dict[str, Any], *, now: datetime) -> dict[str, Any
         "name": "intentional_pauses",
         "status": "degraded" if reasons else "healthy",
         "paused_entries": paused_entries,
+        "advisories": advisories,
         "reasons": reasons,
     }
 
@@ -297,7 +299,10 @@ def render_markdown(report: dict[str, Any]) -> str:
     ]
     for component in report["components"]:
         latest = component.get("latest_trace_at") or component.get("last_success_at") or "n/a"
-        details = "; ".join(component.get("reasons", [])) or "within freshness policy"
+        details = (
+            "; ".join(component.get("reasons", []) + component.get("advisories", []))
+            or "within freshness policy"
+        )
         lines.append(f"| {component['name']} | {component['status']} | {latest} | {details} |")
     lines.extend(
         [
@@ -371,6 +376,9 @@ def build_report(args: argparse.Namespace) -> dict[str, Any]:
             else "healthy"
         ),
         "components": components,
+        # A stale workflow or overdue review is owned by automation. Only the
+        # unavailable cloud credential requires an external access action.
+        "human_attention_required": not bool(api_key),
     }
 
 

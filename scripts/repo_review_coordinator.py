@@ -1092,6 +1092,8 @@ def coordinate_repo(
         repo,
         "--output-dir",
         str(output_dir),
+        "--registry",
+        str(registry_path),
         "--agents",
         ",".join(agents),
         "--turn-timeout",
@@ -1380,6 +1382,8 @@ def run(args: argparse.Namespace) -> int:
         preflight_cmd = [
             sys.executable,
             str(workflows_steward_root / "scripts" / "repo_review_evaluator.py"),
+            "--registry",
+            str(registry_path),
             "--output-dir",
             str(output_dir),
         ]
@@ -1557,6 +1561,8 @@ def run(args: argparse.Namespace) -> int:
     final_cmd = [
         sys.executable,
         str(workflows_steward_root / "scripts" / "repo_review_evaluator.py"),
+        "--registry",
+        str(registry_path),
         "--output-dir",
         str(output_dir),
         "--skip-gitnexus-preflight",  # maps already refreshed by round-1

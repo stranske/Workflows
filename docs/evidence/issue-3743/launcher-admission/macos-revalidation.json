@@ -1,0 +1,310 @@
+{
+  "schema": "launcher-admission-macos-revalidation/v1",
+  "at": "2026-10-12T11:41:47.092928+00:00",
+  "merged_sha": "8876a21bddcb82a6230d1783ab720d225867d99d",
+  "interpreter": "/opt/anaconda3/bin/python3",
+  "requested_interpreter_commands_repeated": true,
+  "pytest_command": "/opt/anaconda3/bin/python3 -m pytest tests/scripts/test_check_deliberate_break_launcher_admission.py -q -o addopts=",
+  "pytest_exit": 0,
+  "pytest_passed": 4,
+  "replay_command": "/opt/anaconda3/bin/python3 docs/evidence/issue-3743/launcher-admission/replay.py --output <new-empty-output-path>",
+  "replay_exit": 0,
+  "assertion_red_restored_green_pairs": 4,
+  "replay_receipts": [
+    {
+      "case": "root-missing",
+      "original_sha256": "cc97119ea26afec275be3c83d22bc75de0d452cd0f4764896cc9d037274ab25a",
+      "restored_sha256": "cc97119ea26afec275be3c83d22bc75de0d452cd0f4764896cc9d037274ab25a",
+      "input_sha256": {
+        "scripts/check_deliberate_break.py": "cc97119ea26afec275be3c83d22bc75de0d452cd0f4764896cc9d037274ab25a",
+        "templates/consumer-repo/scripts/check_deliberate_break.py": "cc97119ea26afec275be3c83d22bc75de0d452cd0f4764896cc9d037274ab25a",
+        "tests/scripts/test_check_deliberate_break_launcher_admission.py": "842b4f9427a14f406fdc075db55c91e66a3c51fe448324c44e16efe14d94ceca"
+      },
+      "mutant_sha256": "75681555e908b5d7ab308ff88dd597066f009ad162ded7664abefa7faa9e9460",
+      "phases": {
+        "red": {
+          "argv": [
+            "/opt/anaconda3/bin/python3",
+            "-m",
+            "pytest",
+            "tests/scripts/test_check_deliberate_break_launcher_admission.py::test_unavailable_or_non_python_pytest_does_not_admit_active_runtime[root-missing]",
+            "-q",
+            "-o",
+            "addopts=",
+            "-m",
+            "not slow",
+            "--junitxml=/Users/teacher/.codex/automations/imi-merge-verify-closer/work/20261012T1121Z/3856-fresh-replay/root-missing-red.xml"
+          ],
+          "cwd": "/var/folders/qm/w0dtc0j132gd6ymf1hxtd2p00000gp/T/launcher-admission-znjl_b65",
+          "exit": 1,
+          "node": {
+            "classname": "tests.scripts.test_check_deliberate_break_launcher_admission",
+            "name": "test_unavailable_or_non_python_pytest_does_not_admit_active_runtime[root-missing]",
+            "time": "0.038"
+          },
+          "source_sha256": "75681555e908b5d7ab308ff88dd597066f009ad162ded7664abefa7faa9e9460",
+          "test_sha256": "842b4f9427a14f406fdc075db55c91e66a3c51fe448324c44e16efe14d94ceca"
+        },
+        "green": {
+          "argv": [
+            "/opt/anaconda3/bin/python3",
+            "-m",
+            "pytest",
+            "tests/scripts/test_check_deliberate_break_launcher_admission.py::test_unavailable_or_non_python_pytest_does_not_admit_active_runtime[root-missing]",
+            "-q",
+            "-o",
+            "addopts=",
+            "-m",
+            "not slow",
+            "--junitxml=/Users/teacher/.codex/automations/imi-merge-verify-closer/work/20261012T1121Z/3856-fresh-replay/root-missing-green.xml"
+          ],
+          "cwd": "/var/folders/qm/w0dtc0j132gd6ymf1hxtd2p00000gp/T/launcher-admission-znjl_b65",
+          "exit": 0,
+          "node": {
+            "classname": "tests.scripts.test_check_deliberate_break_launcher_admission",
+            "name": "test_unavailable_or_non_python_pytest_does_not_admit_active_runtime[root-missing]",
+            "time": "0.037"
+          },
+          "source_sha256": "cc97119ea26afec275be3c83d22bc75de0d452cd0f4764896cc9d037274ab25a",
+          "test_sha256": "842b4f9427a14f406fdc075db55c91e66a3c51fe448324c44e16efe14d94ceca"
+        }
+      }
+    },
+    {
+      "case": "root-opaque",
+      "original_sha256": "cc97119ea26afec275be3c83d22bc75de0d452cd0f4764896cc9d037274ab25a",
+      "restored_sha256": "cc97119ea26afec275be3c83d22bc75de0d452cd0f4764896cc9d037274ab25a",
+      "input_sha256": {
+        "scripts/check_deliberate_break.py": "cc97119ea26afec275be3c83d22bc75de0d452cd0f4764896cc9d037274ab25a",
+        "templates/consumer-repo/scripts/check_deliberate_break.py": "cc97119ea26afec275be3c83d22bc75de0d452cd0f4764896cc9d037274ab25a",
+        "tests/scripts/test_check_deliberate_break_launcher_admission.py": "842b4f9427a14f406fdc075db55c91e66a3c51fe448324c44e16efe14d94ceca"
+      },
+      "mutant_sha256": "6d79610623d831bc512af87a00c06293abfc993babbd0ac76efe32e41fea6deb",
+      "phases": {
+        "red": {
+          "argv": [
+            "/opt/anaconda3/bin/python3",
+            "-m",
+            "pytest",
+            "tests/scripts/test_check_deliberate_break_launcher_admission.py::test_unavailable_or_non_python_pytest_does_not_admit_active_runtime[root-opaque]",
+            "-q",
+            "-o",
+            "addopts=",
+            "-m",
+            "not slow",
+            "--junitxml=/Users/teacher/.codex/automations/imi-merge-verify-closer/work/20261012T1121Z/3856-fresh-replay/root-opaque-red.xml"
+          ],
+          "cwd": "/var/folders/qm/w0dtc0j132gd6ymf1hxtd2p00000gp/T/launcher-admission-7cxiwhkc",
+          "exit": 1,
+          "node": {
+            "classname": "tests.scripts.test_check_deliberate_break_launcher_admission",
+            "name": "test_unavailable_or_non_python_pytest_does_not_admit_active_runtime[root-opaque]",
+            "time": "0.037"
+          },
+          "source_sha256": "6d79610623d831bc512af87a00c06293abfc993babbd0ac76efe32e41fea6deb",
+          "test_sha256": "842b4f9427a14f406fdc075db55c91e66a3c51fe448324c44e16efe14d94ceca"
+        },
+        "green": {
+          "argv": [
+            "/opt/anaconda3/bin/python3",
+            "-m",
+            "pytest",
+            "tests/scripts/test_check_deliberate_break_launcher_admission.py::test_unavailable_or_non_python_pytest_does_not_admit_active_runtime[root-opaque]",
+            "-q",
+            "-o",
+            "addopts=",
+            "-m",
+            "not slow",
+            "--junitxml=/Users/teacher/.codex/automations/imi-merge-verify-closer/work/20261012T1121Z/3856-fresh-replay/root-opaque-green.xml"
+          ],
+          "cwd": "/var/folders/qm/w0dtc0j132gd6ymf1hxtd2p00000gp/T/launcher-admission-7cxiwhkc",
+          "exit": 0,
+          "node": {
+            "classname": "tests.scripts.test_check_deliberate_break_launcher_admission",
+            "name": "test_unavailable_or_non_python_pytest_does_not_admit_active_runtime[root-opaque]",
+            "time": "0.039"
+          },
+          "source_sha256": "cc97119ea26afec275be3c83d22bc75de0d452cd0f4764896cc9d037274ab25a",
+          "test_sha256": "842b4f9427a14f406fdc075db55c91e66a3c51fe448324c44e16efe14d94ceca"
+        }
+      }
+    },
+    {
+      "case": "template-missing",
+      "original_sha256": "cc97119ea26afec275be3c83d22bc75de0d452cd0f4764896cc9d037274ab25a",
+      "restored_sha256": "cc97119ea26afec275be3c83d22bc75de0d452cd0f4764896cc9d037274ab25a",
+      "input_sha256": {
+        "scripts/check_deliberate_break.py": "cc97119ea26afec275be3c83d22bc75de0d452cd0f4764896cc9d037274ab25a",
+        "templates/consumer-repo/scripts/check_deliberate_break.py": "cc97119ea26afec275be3c83d22bc75de0d452cd0f4764896cc9d037274ab25a",
+        "tests/scripts/test_check_deliberate_break_launcher_admission.py": "842b4f9427a14f406fdc075db55c91e66a3c51fe448324c44e16efe14d94ceca"
+      },
+      "mutant_sha256": "75681555e908b5d7ab308ff88dd597066f009ad162ded7664abefa7faa9e9460",
+      "phases": {
+        "red": {
+          "argv": [
+            "/opt/anaconda3/bin/python3",
+            "-m",
+            "pytest",
+            "tests/scripts/test_check_deliberate_break_launcher_admission.py::test_unavailable_or_non_python_pytest_does_not_admit_active_runtime[template-missing]",
+            "-q",
+            "-o",
+            "addopts=",
+            "-m",
+            "not slow",
+            "--junitxml=/Users/teacher/.codex/automations/imi-merge-verify-closer/work/20261012T1121Z/3856-fresh-replay/template-missing-red.xml"
+          ],
+          "cwd": "/var/folders/qm/w0dtc0j132gd6ymf1hxtd2p00000gp/T/launcher-admission-_cpfkjrt",
+          "exit": 1,
+          "node": {
+            "classname": "tests.scripts.test_check_deliberate_break_launcher_admission",
+            "name": "test_unavailable_or_non_python_pytest_does_not_admit_active_runtime[template-missing]",
+            "time": "0.038"
+          },
+          "source_sha256": "75681555e908b5d7ab308ff88dd597066f009ad162ded7664abefa7faa9e9460",
+          "test_sha256": "842b4f9427a14f406fdc075db55c91e66a3c51fe448324c44e16efe14d94ceca"
+        },
+        "green": {
+          "argv": [
+            "/opt/anaconda3/bin/python3",
+            "-m",
+            "pytest",
+            "tests/scripts/test_check_deliberate_break_launcher_admission.py::test_unavailable_or_non_python_pytest_does_not_admit_active_runtime[template-missing]",
+            "-q",
+            "-o",
+            "addopts=",
+            "-m",
+            "not slow",
+            "--junitxml=/Users/teacher/.codex/automations/imi-merge-verify-closer/work/20261012T1121Z/3856-fresh-replay/template-missing-green.xml"
+          ],
+          "cwd": "/var/folders/qm/w0dtc0j132gd6ymf1hxtd2p00000gp/T/launcher-admission-_cpfkjrt",
+          "exit": 0,
+          "node": {
+            "classname": "tests.scripts.test_check_deliberate_break_launcher_admission",
+            "name": "test_unavailable_or_non_python_pytest_does_not_admit_active_runtime[template-missing]",
+            "time": "0.039"
+          },
+          "source_sha256": "cc97119ea26afec275be3c83d22bc75de0d452cd0f4764896cc9d037274ab25a",
+          "test_sha256": "842b4f9427a14f406fdc075db55c91e66a3c51fe448324c44e16efe14d94ceca"
+        }
+      }
+    },
+    {
+      "case": "template-opaque",
+      "original_sha256": "cc97119ea26afec275be3c83d22bc75de0d452cd0f4764896cc9d037274ab25a",
+      "restored_sha256": "cc97119ea26afec275be3c83d22bc75de0d452cd0f4764896cc9d037274ab25a",
+      "input_sha256": {
+        "scripts/check_deliberate_break.py": "cc97119ea26afec275be3c83d22bc75de0d452cd0f4764896cc9d037274ab25a",
+        "templates/consumer-repo/scripts/check_deliberate_break.py": "cc97119ea26afec275be3c83d22bc75de0d452cd0f4764896cc9d037274ab25a",
+        "tests/scripts/test_check_deliberate_break_launcher_admission.py": "842b4f9427a14f406fdc075db55c91e66a3c51fe448324c44e16efe14d94ceca"
+      },
+      "mutant_sha256": "6d79610623d831bc512af87a00c06293abfc993babbd0ac76efe32e41fea6deb",
+      "phases": {
+        "red": {
+          "argv": [
+            "/opt/anaconda3/bin/python3",
+            "-m",
+            "pytest",
+            "tests/scripts/test_check_deliberate_break_launcher_admission.py::test_unavailable_or_non_python_pytest_does_not_admit_active_runtime[template-opaque]",
+            "-q",
+            "-o",
+            "addopts=",
+            "-m",
+            "not slow",
+            "--junitxml=/Users/teacher/.codex/automations/imi-merge-verify-closer/work/20261012T1121Z/3856-fresh-replay/template-opaque-red.xml"
+          ],
+          "cwd": "/var/folders/qm/w0dtc0j132gd6ymf1hxtd2p00000gp/T/launcher-admission-bl_dx_e9",
+          "exit": 1,
+          "node": {
+            "classname": "tests.scripts.test_check_deliberate_break_launcher_admission",
+            "name": "test_unavailable_or_non_python_pytest_does_not_admit_active_runtime[template-opaque]",
+            "time": "0.037"
+          },
+          "source_sha256": "6d79610623d831bc512af87a00c06293abfc993babbd0ac76efe32e41fea6deb",
+          "test_sha256": "842b4f9427a14f406fdc075db55c91e66a3c51fe448324c44e16efe14d94ceca"
+        },
+        "green": {
+          "argv": [
+            "/opt/anaconda3/bin/python3",
+            "-m",
+            "pytest",
+            "tests/scripts/test_check_deliberate_break_launcher_admission.py::test_unavailable_or_non_python_pytest_does_not_admit_active_runtime[template-opaque]",
+            "-q",
+            "-o",
+            "addopts=",
+            "-m",
+            "not slow",
+            "--junitxml=/Users/teacher/.codex/automations/imi-merge-verify-closer/work/20261012T1121Z/3856-fresh-replay/template-opaque-green.xml"
+          ],
+          "cwd": "/var/folders/qm/w0dtc0j132gd6ymf1hxtd2p00000gp/T/launcher-admission-bl_dx_e9",
+          "exit": 0,
+          "node": {
+            "classname": "tests.scripts.test_check_deliberate_break_launcher_admission",
+            "name": "test_unavailable_or_non_python_pytest_does_not_admit_active_runtime[template-opaque]",
+            "time": "0.037"
+          },
+          "source_sha256": "cc97119ea26afec275be3c83d22bc75de0d452cd0f4764896cc9d037274ab25a",
+          "test_sha256": "842b4f9427a14f406fdc075db55c91e66a3c51fe448324c44e16efe14d94ceca"
+        }
+      }
+    }
+  ],
+  "independent_original_archive_inspection": {
+    "manifest_files": 8,
+    "bad_files": [
+      "tests/scripts/test_launcher_admission_replay.py"
+    ],
+    "manifest_members": 200,
+    "archive_members": 200,
+    "bad_members": [],
+    "baseline_nodes": 312,
+    "candidate_nodes": 316,
+    "old_outcome_changes": {},
+    "new_nodes": {
+      "('tests.scripts.test_check_deliberate_break_launcher_admission', 'test_unavailable_or_non_python_pytest_does_not_admit_active_runtime[root-missing]')": "pass",
+      "('tests.scripts.test_check_deliberate_break_launcher_admission', 'test_unavailable_or_non_python_pytest_does_not_admit_active_runtime[root-opaque]')": "pass",
+      "('tests.scripts.test_check_deliberate_break_launcher_admission', 'test_unavailable_or_non_python_pytest_does_not_admit_active_runtime[template-missing]')": "pass",
+      "('tests.scripts.test_check_deliberate_break_launcher_admission', 'test_unavailable_or_non_python_pytest_does_not_admit_active_runtime[template-opaque]')": "pass"
+    },
+    "coverage": {
+      "baseline": {
+        "covered_lines": 581,
+        "num_statements": 591,
+        "percent_covered": 97.30363423212192,
+        "percent_covered_display": "97.30",
+        "missing_lines": 10,
+        "excluded_lines": 0,
+        "percent_statements_covered": 98.30795262267344,
+        "percent_statements_covered_display": "98.31",
+        "num_branches": 262,
+        "num_partial_branches": 13,
+        "covered_branches": 249,
+        "missing_branches": 13,
+        "percent_branches_covered": 95.0381679389313,
+        "percent_branches_covered_display": "95.04"
+      },
+      "candidate": {
+        "covered_lines": 583,
+        "num_statements": 591,
+        "percent_covered": 97.7725674091442,
+        "percent_covered_display": "97.77",
+        "missing_lines": 8,
+        "excluded_lines": 0,
+        "percent_statements_covered": 98.64636209813875,
+        "percent_statements_covered_display": "98.65",
+        "num_branches": 262,
+        "num_partial_branches": 11,
+        "covered_branches": 251,
+        "missing_branches": 11,
+        "percent_branches_covered": 95.80152671755725,
+        "percent_branches_covered_display": "95.80"
+      }
+    },
+    "merged_sha": "8876a21bddcb82a6230d1783ab720d225867d99d"
+  },
+  "corrected_test_manifest": {
+    "path": "tests/scripts/test_launcher_admission_replay.py",
+    "historical_hash": "390478d1b61106a692ad914637496a6dba18c9e59566399b09c5ca76a7694b85",
+    "current_hash": "37b19a7c0508c6a1567d4f84a56e17bd4df108d8ce6c31ced4a3a857fa50ef16"
+  },
+  "scope": "Independent exact-merged-byte acceptance. Existing summary.json describes historical Linux execution; its false interpreter fields remain truthful historical data. Provider CONCERNS/CONCERNS and overall3743 coverage source stay unchanged."
+}

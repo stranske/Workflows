@@ -1,0 +1,138 @@
+{
+  "captured_at": "2026-10-11T21:12:42.710349+00:00",
+  "scope": "Fresh local authored-resolver regressions; production workflow files were only read. Historical production mutation evidence was not rerun.",
+  "results": [
+    {
+      "command": [
+        "python3",
+        "-m",
+        "pytest",
+        "tests/workflows/test_keepalive_reporter_unresolved.py",
+        "-q",
+        "-m",
+        "not slow",
+        "--junitxml=/home/runner/work/Workflows/Workflows/docs/evidence/issue-3839-reporter/round-resolver-green.xml"
+      ],
+      "exit": 0,
+      "log": "round-resolver-green.log"
+    },
+    {
+      "command": [
+        "python3",
+        "-m",
+        "pytest",
+        "tests/workflows/test_keepalive_reporter_unresolved.py",
+        "tests/workflows/test_keepalive_authority_delivery.py",
+        "tests/workflows/test_workflow_agents_consolidation.py",
+        "-q",
+        "-m",
+        "not slow",
+        "--junitxml=/home/runner/work/Workflows/Workflows/docs/evidence/issue-3839-reporter/round-focused-green.xml"
+      ],
+      "exit": 0,
+      "log": "round-focused-green.log"
+    },
+    {
+      "command": [
+        "node",
+        "--test",
+        ".github/scripts/__tests__/keepalive-reporter-applicability.test.js"
+      ],
+      "exit": 0,
+      "log": "round-classifier-green.log"
+    },
+    {
+      "command": [
+        "node",
+        "--test",
+        "--test-isolation=none",
+        ".github/scripts/__tests__/keepalive-reporter-applicability.test.js"
+      ],
+      "exit": 0,
+      "log": "round-classifier-cases-green.log"
+    },
+    {
+      "command": [
+        "ruff",
+        "check",
+        "tests/workflows/test_keepalive_reporter_unresolved.py"
+      ],
+      "environment_overrides": {},
+      "exit": 0,
+      "log": "round-ruff-green.log"
+    },
+    {
+      "command": [
+        "python3",
+        "scripts/validate_template_sync.py"
+      ],
+      "environment_overrides": {},
+      "exit": 0,
+      "log": "round-template-sync-green.log"
+    },
+    {
+      "command": [
+        "python3",
+        "scripts/validate_template_completeness.py"
+      ],
+      "environment_overrides": {
+        "GITHUB_STEP_SUMMARY": "/tmp/issue-3839-template-completeness-summary.md"
+      },
+      "exit": 0,
+      "log": "round-template-completeness-green.log"
+    },
+    {
+      "command": [
+        "/tmp/issue-3839-black-bin/black",
+        "--check",
+        "--line-length",
+        "100",
+        "--exclude",
+        "(\\.workflows-lib|node_modules)",
+        "."
+      ],
+      "environment_overrides": {
+        "BLACK_NUM_WORKERS": "1"
+      },
+      "exit": 0,
+      "log": "round-black-green.log",
+      "sandbox_workaround": "Installed Black 26.10.0 CLI with periodic event-loop wakeups; formatting rules, source selection and checks unchanged.",
+      "launcher": "#!/opt/hostedtoolcache/Python/3.14.8/x64/bin/python3\n\"\"\"Run Black unchanged with periodic event-loop wakeups for this sandbox.\"\"\"\n\nimport black\nimport black.concurrency\n\noriginal_loop_factory = black.concurrency.maybe_use_uvloop\n\n\ndef responsive_loop():\n    loop = original_loop_factory()\n\n    def tick():\n        loop.call_later(0.05, tick)\n\n    loop.call_later(0.05, tick)\n    return loop\n\n\nblack.concurrency.maybe_use_uvloop = responsive_loop\nblack.patched_main()\n"
+    }
+  ],
+  "source_sha256": {
+    ".github/workflows/agents-keepalive-loop-reporter.yml": "13e6c0cd9434c29a2b3b44882f3e59aceb4fff75836e2cbe42fb4d14745811ce",
+    "templates/consumer-repo/.github/workflows/agents-keepalive-loop-reporter.yml": "c3366bffacc10e2591476c91124b1ccef842049e487a867b2554f2f1c83070a4",
+    "tests/workflows/test_keepalive_reporter_unresolved.py": "258ba586f5752eecb8c4400b0011b82ae4ac1b4ff15688ed783ceab4783f980d"
+  },
+  "files_sha256": {
+    "round-black-green.log": "c08924d8f62f9853a06fd3f90984a1b529d59c35b916b27ef75c225bf70815b8",
+    "round-classifier-cases-green.log": "1700a306b7140233c03950377473ce80f6089950bfca3ca5a3baf96bf5c6ce0d",
+    "round-classifier-green.log": "1114f19206e071225ef208423d8e88049c7823c36edf13e9b74c5327a94a50e4",
+    "round-focused-green.log": "30043b79ec90a80ddef20b404f7106cf8ce535f8e57aad6da14901f74600d126",
+    "round-focused-green.xml": "1c9e85a06cfe86a0f20de8e3924df5a481146238485eb22953a9b54fff43b63c",
+    "round-resolver-green.log": "6e86ae8c548f1b73cfbb06ac03005dbd67afa130102491789967ff575da0180f",
+    "round-resolver-green.xml": "af23fe76fdabcfc85beeb3ddc1388411646cb8f42b36b9e108d062fc624678ac",
+    "round-ruff-green.log": "82b3e6a6c090a57601d22943bd23fca9218d1031dbe5a7b754092f9a156b4f18",
+    "round-template-completeness-green.log": "571919c147488c55064046a0c64cf3a5919172b39a3d890dbad258b6d65c1018",
+    "round-template-sync-green.log": "e00bc56a4eb4ab5ca9c721c61262b90d9d55e74187fec23e1144d500af0fcc6b",
+    "round-validation.md": "baf6b95ea0ee82750ac5c13cf4f436cf63c251bd5d487930e436f4b03388a008"
+  },
+  "historical_mutation_verification": {
+    "retained_artifact_hashes_match": true,
+    "current_workflows_match_restored_hashes": true,
+    "red_junit": {
+      "cases": 6,
+      "failures": 6,
+      "errors": 0,
+      "skipped": 0
+    },
+    "restored_junit": {
+      "cases": 6,
+      "failures": 0,
+      "errors": 0,
+      "skipped": 0
+    },
+    "rerun": false
+  }
+}

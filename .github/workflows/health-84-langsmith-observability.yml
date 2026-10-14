@@ -89,9 +89,12 @@ jobs:
             --failure-threshold 2 \
             --json-output .observability-health/report.json \
             --markdown-output .observability-health/report.md; then
-            cat > .observability-health/report.json <<'EOF'
+            missing_key=false
+            if [ -z "${LANGSMITH_API_KEY:-}" ]; then missing_key=true; fi
+            cat > .observability-health/report.json <<EOF
           {
             "schema_version": "langsmith-observability-health/v1",
+            "human_attention_required": ${missing_key},
             "status": "degraded",
             "components": [{
               "name": "sentinel_execution",
@@ -119,7 +122,7 @@ jobs:
           path: .observability-health
           include-hidden-files: true
           if-no-files-found: warn
-          retention-days: 90
+          retention-days: 30
 
       - name: Upsert durable observability health issue
         if: always()
@@ -132,6 +135,8 @@ jobs:
           title="🔭 LangSmith Observability Health"
           marker="<!-- langsmith-observability-health:v1 status=${HEALTH_STATUS} -->"
           report_file=.observability-health/report.md
+          human_attention=$(jq -r '.human_attention_required // false' \
+            .observability-health/report.json 2>/dev/null || printf 'false')
           if [ ! -f "$report_file" ]; then
             printf '%s\n' \
               '# LangSmith Observability Health' \
@@ -154,8 +159,8 @@ jobs:
           - [Observability contract](${contract_url})
 
           This durable issue is updated by an independent daily and manual
-          sentinel. A degraded transition adds
-          \`needs-human\` and \`agent:needs-attention\`; recovery removes them.
+          sentinel. Code-owned degradation adds \`agent:needs-attention\`.
+          Only unavailable cloud credentials add \`needs-human\`; recovery removes them.
           EOF
 
           issue_json=$(gh issue list \
@@ -179,7 +184,10 @@ jobs:
           else
             labels="metrics,automated,tracker:durable"
             if [ "$HEALTH_STATUS" != "healthy" ]; then
-              labels="${labels},needs-human,agent:needs-attention"
+              labels="${labels},agent:needs-attention"
+              if [ "$human_attention" = "true" ]; then
+                labels="${labels},needs-human"
+              fi
             fi
             issue_url=$(gh issue create \
               --title "$title" \
@@ -193,9 +201,12 @@ jobs:
             gh issue edit "$issue_number" --remove-label "needs-human" 2>/dev/null || true
             gh issue edit "$issue_number" --remove-label "agent:needs-attention" 2>/dev/null || true
           else
-            gh issue edit "$issue_number" \
-              --add-label "needs-human" \
-              --add-label "agent:needs-attention"
+            gh issue edit "$issue_number" --add-label "agent:needs-attention"
+            if [ "$human_attention" = "true" ]; then
+              gh issue edit "$issue_number" --add-label "needs-human"
+            else
+              gh issue edit "$issue_number" --remove-label "needs-human" 2>/dev/null || true
+            fi
           fi
 
           if [ -n "${previous_status:-}" ] && [ "$previous_status" != "$HEALTH_STATUS" ]; then

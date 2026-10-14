@@ -29,6 +29,17 @@ Each agent writes one file per turn to:
 
 The schema is defined in `REPO_REVIEW_ROUND2_SCHEMA.md` and validated by `scripts/repo_review_round2_schema.py`.
 
+### Reuse binding
+
+A completed turn is reusable only with the runner-written input receipt at
+`<output_dir>/round2/<repo_safe>/input-manifests/turn-<N>-<agent>.json`. The
+receipt binds the exact bytes of both round-1 findings and their provenance,
+the canonical prompt/protocol/schema, every prior-turn output supplied to the
+agent, and the turn-output bytes themselves. Missing, malformed, or mismatched
+receipts make a cached output stale: a normal run preserves it under
+`<output_dir>/repairs/round2-stale/` and regenerates it. A `--dry-run` fails
+closed instead; it may only synthesize from matching runner-written receipts.
+
 ## Per-candidate marks
 
 For each round-1 candidate (whether your own or the other agent's), each agent records exactly one mark:

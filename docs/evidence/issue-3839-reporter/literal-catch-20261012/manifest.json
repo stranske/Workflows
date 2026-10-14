@@ -1,0 +1,50 @@
+{
+  "archive_sha256": "1fb8a42c9640561cc6e85bd085b742560e7c1cf6ba9a6ba8f68259e47f3c2d14",
+  "members": {
+    "literal-original-catch-red.xml": {
+      "sha256": "5b7f376c62b42fda07b5414f113647d9015da223c7442e8fc43e22f00a59c3f7",
+      "bytes": 8664
+    },
+    "agents-keepalive-loop-reporter.yml-consumer.mutant": {
+      "sha256": "872d82a2ed80dfe57bd3129b5a36df460dce9804ab15cbcb4b4e6c268c42d3da",
+      "bytes": 18160
+    },
+    "byte-identical-restoration-green.log": {
+      "sha256": "c6d88cabd45bb56945545a34b3ad0da1cbc47318e073e6e98e913c682037a2b9",
+      "bytes": 98
+    },
+    "agents-keepalive-loop-reporter.yml-root.mutant": {
+      "sha256": "874e22014f5688f56561611e9439ff9f64db44d4ff536526ad1ca1ed59c9ee61",
+      "bytes": 16439
+    },
+    "byte-identical-restoration-green.xml": {
+      "sha256": "8c5f3db137a37cde243e5411cf6ff05395f8b6a719ba15e3762892d55d30b71d",
+      "bytes": 1366
+    },
+    "literal-original-catch-red.log": {
+      "sha256": "d210e0b19783005ffe1a5dddbbe55af22e2ca13d51c14b106c7471d8bde5025d",
+      "bytes": 7526
+    },
+    "receipt.json": {
+      "sha256": "e5b5c44c3f1f3b59e7a4a84fe0743d37d80d484095187192a96920d858fb7be8",
+      "bytes": 3278
+    },
+    "focused59.log": {
+      "sha256": "350a0206febde0c2ba59d7b646e60ec751091f7a16c9fc6f325fbb91f05a631d",
+      "bytes": 99
+    },
+    "node29.log": {
+      "sha256": "596bebecc83e7e86de643f52afaae77b04f17098c17d1aca68856bfc966f2b06",
+      "bytes": 2927
+    }
+  },
+  "current_inputs": {
+    ".github/workflows/agents-keepalive-loop-reporter.yml": "e49c2d5c17b45684a371cb5a526d5810430e0af7589e0aac2b8f50e85a28e4e8",
+    "templates/consumer-repo/.github/workflows/agents-keepalive-loop-reporter.yml": "9f724ee11052c02642dbc3a9ad1470ee17d54f0e53eaa16b9304c5bbc24b4bee",
+    "tests/workflows/test_keepalive_reporter_unresolved.py": "77fe37bc77d7431a13648755ead5f4f389ce0c1b87968f8d1f9e3a8b97906eba",
+    ".github/scripts/keepalive_reporter_applicability.js": "287de779862277e58c318d16a78f26384115391bde8c41316c02df7e4e703f18",
+    "templates/consumer-repo/.github/scripts/keepalive_reporter_applicability.js": "287de779862277e58c318d16a78f26384115391bde8c41316c02df7e4e703f18",
+    "config/template-drift-allowlist.txt": "dbc47ed3f2b1e1bc929771ef5bac73ef969e5fc5f26510dba427dd2f1b252997"
+  },
+  "scope": "Literal original unconditional catch restored in both authored workflows; promotion guard and classifier retained; six original named attribution assertions"
+}
