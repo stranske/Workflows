@@ -219,7 +219,7 @@ def test_agents_guard_fork_status_publisher_has_trusted_minimal_permissions():
     ):
         assert dependency in source
     helper = HELPER.read_text(encoding="utf-8")
-    assert "is not from a fork; the Agents Guard remains its status writer" in helper
+    assert "Same-repository PR reconciliation" in helper
     assert "createTokenAwareRetry" in helper
     assert "env: {}" in helper
     assert "maxRetries: 0" in helper
@@ -359,8 +359,9 @@ def test_agents_guard_fork_status_skips_same_repo_and_reuses_identical_status():
     same_repo = _publish_scenario(same_repo=True)
     assert same_repo["result"] == {
         "state": "skipped",
-        "description": "Same-repository PR",
+        "description": "Same-repository PR reconciliation",
     }
+    # Reconciliation must not manufacture a required success when none exists.
     assert same_repo["writes"] == []
 
     replay = _publish_scenario(replay=True)
@@ -552,6 +553,7 @@ def test_agents_guard_fork_status_noop_preserves_existing_failure_but_evaluated_
 def test_agents_guard_fork_status_noop_creates_missing_required_status():
     no_op = _publish_scenario(evaluate_status="completed", evaluate_conclusion="skipped")
     assert no_op["result"]["state"] == "success"
+    # A trusted fork no-op establishes the initially missing required context.
     assert len(no_op["writes"]) == 1
 
 
@@ -684,3 +686,44 @@ def test_native_pending_label_corrective_survives_same_repo_or_fork_noop_publish
         "description": "Agents Guard controls changed; trusted review required",
         "evaluated": False,
     }
+
+
+def test_reconciliation_uses_policy_receipt_not_writer_description_and_corrects_stale_noop():
+    receipt = (
+        " [guard-policy-sha256:e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855]"
+    )
+    direct_success = [
+        {
+            "context": "Health 45 Agents Guard / guard",
+            "state": "success",
+            "description": "Health 45 Agents Guard passed." + receipt,
+            "target_url": "https://example.test/runs/direct",
+        }
+    ]
+    matched = _publish_scenario(same_repo=True, statuses=direct_success)
+    assert matched["writes"] == []
+
+    for conclusion, job_conclusion in (
+        ("success", "success"),
+        ("failure", "failure"),
+        ("cancelled", "cancelled"),
+    ):
+        stale_mismatch = _publish_scenario(
+            statuses=[{**direct_success[0], "description": "old success without receipt"}],
+            evaluate_status="completed",
+            evaluate_conclusion="skipped",
+            run_conclusion=conclusion,
+            job_conclusion=job_conclusion,
+            status_read_drift="newer-run",
+        )
+        assert [write["state"] for write in stale_mismatch["writes"]] == ["failure"]
+        assert "policy changed" in stale_mismatch["writes"][0]["description"]
+
+    stale_matched = _publish_scenario(
+        statuses=direct_success,
+        evaluate_status="completed",
+        evaluate_conclusion="skipped",
+        status_read_drift="newer-run",
+    )
+    assert "superseded" in stale_matched["error"]
+    assert stale_matched["writes"] == []

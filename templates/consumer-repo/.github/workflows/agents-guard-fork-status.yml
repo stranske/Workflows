@@ -15,7 +15,8 @@ permissions:
   statuses: write
 
 concurrency:
-  group: agents-guard-fork-status-${{ github.event.workflow_run.head_sha || github.run_id }}
+  group: >-
+    ${{ github.event.workflow_run.event == 'pull_request' && github.event.workflow_run.path == '.github/workflows/agents-guard.yml' && format('agents-guard-status-{0}', github.event.workflow_run.head_sha) || format('agents-guard-fork-status-{0}', github.run_id) }}
   cancel-in-progress: false
 
 jobs:

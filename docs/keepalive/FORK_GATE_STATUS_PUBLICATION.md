@@ -96,7 +96,7 @@ protection. Existing Gate behavior remains the fallback while the publisher is
 `create_only`.
 
 
-Health 45 direct label-event publishing uses a non-cancelling, head-SHA concurrency group. The trusted fork publisher uses a separate head-SHA group so a completed publisher cannot replace a pending direct label-event corrective under GitHub's one-pending scheduler. Each direct label-event writer rechecks current policy labels before publication.
+Health 45 direct label-event publishing and canonical completed `pull_request` guard publishers share a non-cancelling, head-SHA concurrency group. A skipped or noncanonical `workflow_run` uses a unique non-writer group, so it cannot replace a pending direct label-event corrective under GitHub's one-pending scheduler. The publisher reconciles current policy receipts before trusting an old guard result; each direct label-event writer also rechecks current policy labels before publication.
 
 Before the direct Health 45 publisher writes, it reads the current PR policy labels (`agent:*`, `agents:auto-pilot`, `agents:keepalive`, and `agents:allow-change`) and requires an exact match with the event snapshot. Unrelated sync and seal metadata labels do not affect that comparison. A label change writes a blocking failure so a stale eligible evaluation cannot retain a green required context. An ineligible label event likewise replaces an existing same-head success with a blocking failure, while preserving an existing non-success verdict or an absent context. A fresh eligible evaluation is the only path that recovers success.
 

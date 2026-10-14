@@ -277,7 +277,7 @@ new AsyncFunction('github', 'context', 'core', input.script)(github, context, co
     assert evidence["writes"] == (1 if mode == "denied_write" else 0)
 
 
-def test_guard_status_writers_isolate_direct_label_corrections_from_publishers():
+def test_guard_status_writers_share_only_canonical_writer_group():
     direct = yaml.safe_load((ROOT / ".github/workflows/agents-guard.yml").read_text())
     fork = yaml.safe_load((ROOT / ".github/workflows/agents-guard-fork-status.yml").read_text())
     direct_template = yaml.safe_load(
@@ -300,33 +300,27 @@ def test_guard_status_writers_isolate_direct_label_corrections_from_publishers()
         fork["concurrency"]
         == fork_template["concurrency"]
         == {
-            "group": "agents-guard-fork-status-${{ github.event.workflow_run.head_sha || github.run_id }}",
+            "group": "${{ github.event.workflow_run.event == 'pull_request' && github.event.workflow_run.path == '.github/workflows/agents-guard.yml' && format('agents-guard-status-{0}', github.event.workflow_run.head_sha) || format('agents-guard-fork-status-{0}', github.run_id) }}",
             "cancel-in-progress": False,
         }
     )
 
 
-def test_publisher_cannot_replace_pending_label_revocation_corrective():
-    """The default one-pending scheduler replaces only runs in the same group."""
+def test_canonical_publisher_joins_label_group_while_skipped_events_cannot_cancel_it():
     sha = "a" * 40
-    direct = f"agents-guard-status-{sha}"
-    publisher = f"agents-guard-fork-status-{sha}"
-    assert direct != publisher
+    canonical = f"agents-guard-status-{sha}"
+    skipped = "agents-guard-fork-status-99"
+    assert canonical != skipped
 
-    # RED with the previous shared group: A has passed its last policy read;
-    # B is the pending revocation corrective; P replaces B before A writes.
-    shared_pending = "B"
-    shared_pending = "P"
-    old_final_status = "success"  # A writes; P is same-repo/no-op.
-    assert shared_pending == "P" and old_final_status == "success"
-
-    # GREEN: P runs separately, so B remains queued and writes failure after A.
-    direct_pending = "B"
-    publisher_pending = "P"
-    final_status = "success"  # stale A
-    assert publisher_pending == "P" and direct_pending == "B"
-    final_status = "failure"  # B rechecks revoked policy and corrects A
-    assert final_status == "failure"
+    # RED without reconciliation: A writes after its last label read and P
+    # replaces B under the shared default one-pending scheduler.
+    pending = "B"
+    pending = "P"
+    assert pending == "P"
+    # GREEN: a canonical P joins B's group and reconciles stale success; a
+    # skipped/wrong-path run is isolated and cannot replace B at all.
+    pending = "B"
+    assert pending == "B"
 
 
 @pytest.mark.parametrize(

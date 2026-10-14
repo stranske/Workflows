@@ -38,8 +38,12 @@ function policyFingerprint(labels) {
   return crypto.createHash('sha256').update(labels.join('\n')).digest('hex');
 }
 
+function policyReceipt(labels) {
+  return ` [guard-policy-sha256:${policyFingerprint(policyLabelNames(labels))}]`;
+}
+
 function withPolicyReceipt(description, labels) {
-  const receipt = ` [guard-policy-sha256:${policyFingerprint(policyLabelNames(labels))}]`;
+  const receipt = policyReceipt(labels);
   const maximum = 140 - receipt.length;
   const summary = description.length > maximum
     ? `${description.slice(0, maximum - 3)}...`
@@ -185,7 +189,7 @@ function validateBinding({ run, workflow, pr, repository }) {
     throw new Error('PR base is not the trusted default branch');
   }
   if (pr.head?.sha !== run.head_sha) throw new Error('PR head no longer matches Agents Guard head');
-  if (!pr.head?.repo?.id || pr.head.repo.id === repository.id) throw new Error('Publisher only handles fork pull requests');
+  if (!pr.head?.repo?.id) throw new Error('PR head repository is missing');
   if (Number(run.head_repository?.id) !== Number(pr.head.repo.id)) {
     throw new Error('Agents Guard head repository does not match pull request head repository');
   }
@@ -240,11 +244,8 @@ async function publishGuardForkStatus({ github, context, core }) {
     client.rest.actions.getWorkflow({ owner, repo, workflow_id: run.workflow_id })
   )).data;
   let pr = await resolvePullRequest({ github, retry, owner, repo, run });
-  if (pr.head?.repo?.id === repository.id) {
-    core.info(`PR #${pr.number} is not from a fork; the Agents Guard remains its status writer.`);
-    return { state: 'skipped', description: 'Same-repository PR' };
-  }
   validateBinding({ run, workflow, pr, repository });
+  const sameRepository = pr.head.repo.id === repository.id;
   const evaluatedRun = runSnapshot(run);
   const evaluatedPr = {
     headSha: pr.head.sha,
@@ -252,60 +253,86 @@ async function publishGuardForkStatus({ github, context, core }) {
     baseRef: pr.base.ref,
     changedFiles: Number(pr.changed_files),
   };
-  await assertLatestAttempt({ github, retry, owner, repo, run });
 
-  const files = await paginate(retry, github.rest.pulls.listFiles, {
-    owner, repo, pull_number: pr.number,
-  });
-  const changedPaths = collectChangedPaths(pr, files);
-  const jobs = run.status === 'completed'
-    ? await jobsForAttempt({ github, retry, owner, repo, run })
-    : [];
-  let result = publicationState({ run, jobs, changedFiles: changedPaths });
-
-  // Pagination can outlive a rerun, so read statuses before the final binding
-  // checks for both replay suppression and a new write.
+  // Reconcile policy before reading or trusting the old guard result. This is
+  // the only safe action a stale publisher may take.
   const statuses = await paginate(retry, github.rest.repos.listCommitStatusesForRef, {
     owner, repo, ref: pr.head.sha,
   });
-
-  // Re-read both resources after pagination. A force-push or rerun between the
-  // earlier inspection and this point must never bless a stale SHA.
   run = await getFreshRun({ retry, owner, repo, runId: payloadRun.id });
   pr = (await retry.withRetry(client =>
     client.rest.pulls.get({ owner, repo, pull_number: pr.number })
   )).data;
   validateBinding({ run, workflow, pr, repository });
-  assertRunUnchanged(evaluatedRun, run);
   if (
     pr.head.sha !== evaluatedPr.headSha ||
     Number(pr.base?.repo?.id) !== Number(evaluatedPr.baseRepoId) ||
-    pr.base?.ref !== evaluatedPr.baseRef ||
-    Number(pr.changed_files) !== evaluatedPr.changedFiles
+    pr.base?.ref !== evaluatedPr.baseRef
   ) {
-    throw new Error('Pull request binding changed before publication');
-  }
-  await assertLatestAttempt({ github, retry, owner, repo, run });
-
-  if (result.state === 'success') {
-    result = { ...result, description: withPolicyReceipt(result.description, pr.labels) };
+    throw new Error('Pull request binding changed before policy reconciliation');
   }
   if (!Array.isArray(statuses)) throw new Error('Exact-head status inventory is incomplete');
   const existing = statuses.filter(status => status?.context === GUARD_CONTEXT);
   if (existing.some(status => !['success', 'failure', 'error', 'pending'].includes(status.state) || typeof status.target_url !== 'string')) {
     throw new Error('Exact-head guard status evidence is malformed');
   }
-  const terminal = existing.filter(status => ['success', 'failure', 'error'].includes(status.state));
-  // An ineligible completed pull_request run may establish a missing required
-  // check, but must never replace a terminal verdict already recorded for this
-  // head. A completed, step-proven evaluation is the only success allowed to do so.
-  if (result.state === 'success' && result.evaluated === false && terminal.length > 0) {
-    core.info(`Agents Guard preserves ${terminal.length} terminal exact-head verdict(s); no write needed.`);
-    return result;
-  }
-  // listCommitStatusesForRef is newest-first. Only the latest status for this
-  // context can suppress a replay: older attempts may share the same run URL.
   const current = existing[0];
+  let reconciliationFailure = false;
+  let result;
+  if (current?.state === 'success' && (
+    typeof current.description !== 'string' ||
+    !current.description.endsWith(policyReceipt(pr.labels))
+  )) {
+    result = {
+      state: 'failure',
+      description: 'Health 45 Agents Guard policy changed; fresh evaluation required.',
+      evaluated: false,
+    };
+    reconciliationFailure = true;
+  }
+  if (sameRepository && !reconciliationFailure) {
+    core.info('Same-repository reconciliation preserves the current exact-head verdict.');
+    return { state: 'skipped', description: 'Same-repository PR reconciliation' };
+  }
+
+  if (!reconciliationFailure) {
+    const files = await paginate(retry, github.rest.pulls.listFiles, {
+      owner, repo, pull_number: pr.number,
+    });
+    const changedPaths = collectChangedPaths(pr, files);
+    const jobs = run.status === 'completed'
+      ? await jobsForAttempt({ github, retry, owner, repo, run })
+      : [];
+    result = publicationState({ run, jobs, changedFiles: changedPaths });
+
+    // A force-push or rerun after file pagination must never bless a stale
+    // success. Reconciliation failure above intentionally remains writable.
+    run = await getFreshRun({ retry, owner, repo, runId: payloadRun.id });
+    pr = (await retry.withRetry(client =>
+      client.rest.pulls.get({ owner, repo, pull_number: pr.number })
+    )).data;
+    validateBinding({ run, workflow, pr, repository });
+    assertRunUnchanged(evaluatedRun, run);
+    if (
+      pr.head.sha !== evaluatedPr.headSha ||
+      Number(pr.base?.repo?.id) !== Number(evaluatedPr.baseRepoId) ||
+      pr.base?.ref !== evaluatedPr.baseRef ||
+      Number(pr.changed_files) !== evaluatedPr.changedFiles
+    ) {
+      throw new Error('Pull request binding changed before publication');
+    }
+    await assertLatestAttempt({ github, retry, owner, repo, run });
+    if (result.state === 'success') {
+      result = { ...result, description: withPolicyReceipt(result.description, pr.labels) };
+    }
+    if (result.state === 'success' && result.evaluated === false && current) {
+      // A fork no-op preserves a current terminal verdict. Current success was
+      // already receipt-validated above; non-success remains authoritative.
+      core.info('Fork no-op preserves existing exact-head guard verdict.');
+      return result;
+    }
+  }
+  // Only the latest status for this context can suppress a replay.
   if (current?.state === result.state && current.target_url === run.html_url
       && current.description === result.description) {
     core.info(`Agents Guard status already ${result.state} for ${pr.head.sha}; no write needed.`);
