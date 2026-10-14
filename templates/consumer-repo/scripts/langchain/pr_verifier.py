@@ -1020,7 +1020,7 @@ _MANDATORY_EVIDENCE_AUXILIARY = (
     r"(?:(?:is|are)\s+)?(?:required|needed|mandated|expected|supposed|obliged)\s+to|"
     r"(?:has|have)\s+to)"
 )
-_EVIDENCE_DELIVERY_ADVERB = r"(?:also|now|still|already|yet|always|[\w-]+ly)"
+_EVIDENCE_DELIVERY_ADVERB = r"(?:also|then|now|still|already|yet|always|[\w-]+ly)"
 _EVIDENCE_DELIVERY_ADVERBS = r"(?:" + _EVIDENCE_DELIVERY_ADVERB + r"\s+){0,3}"
 _EVIDENCE_DELIVERY_OPERATION = r"(?:prov(?:e|ing)|provid(?:e|ing)|return|display|show|emit|render|expos(?:e|ing)|stor(?:e|ing)|upload|attach|publish|post|record|copy|copies|copied|copying|captur(?:e|ing)|includ(?:e|ing)|contain|hav(?:e|ing)|document|generat(?:e|ing)|link|add|leav(?:e|ing)|left)\w*\b"
 _EVIDENCE_DELIVERY_PARTICIPLE_START = r"(?=(?:\w*(?:ed|en)|left)\b)"
@@ -1070,11 +1070,56 @@ _EVIDENCE_ACTOR_QUALIFIER = (
     r"(?:(?!(?:and|or|but|must|shall|is|are|not|never|may|can|has|have)\b)[\w/-]+\s+){0,4}"
     r"(?!(?:and|or|but|must|shall|is|are|not|never|may|can|has|have)\b)[\w/-]+)?"
 )
+_EVIDENCE_DELIVERY_ACTOR_RELATIVE_QUALIFIER = (
+    r"(?:\s+(?:who|that)\s+"
+    r"(?:(?!(?:and|or|but|must|shall|is|are|not|never|may|can)\b)[\w/-]+\s*){1,6})?"
+)
+
+
+def _is_evidence_delivery_actor_subject(subject: str) -> bool:
+    """Whether a complete active subject names a person/team that can deliver proof.
+
+    Matching an actor word anywhere in a component name (``reviewer service``)
+    turns product behavior into a reviewer duty.  Keep the human actor as the
+    subject head and allow only its established, bounded qualifier tail.
+    """
+    return bool(
+        re.fullmatch(
+            r"\s*(?:"
+            r"(?:i|we|you)"
+            r"|"
+            + _EVIDENCE_RECIPIENT_PREFIX
+            + _EVIDENCE_DELIVERY_ACTOR_NOUN
+            + r"\b"
+            + _EVIDENCE_ACTOR_QUALIFIER
+            + _EVIDENCE_DELIVERY_ACTOR_RELATIVE_QUALIFIER
+            + r")\s*",
+            subject,
+            re.I,
+        )
+    )
 _EVIDENCE_PROOF_ALIAS_NOUN = r"(?:evidence\s+(?:files?|bundles?|packages?)|(?:test|validation)\s+(?:results?|logs?|outputs?)|(?:ci|build|execution)\s+logs?|(?:(?:workflow|ci|github actions)\s+)?artifacts?\s+provenance|screenshots?|recordings)"
 _EVIDENCE_OPTIONAL_MODAL = r"(?:may|can|could|would|should)"
 _EVIDENCE_PASSIVE_PREFIX = (
     r"(?:be|been|being|have\s+" + _EVIDENCE_DELIVERY_ADVERBS + r"been)"
     r"(?:\s+" + _EVIDENCE_DELIVERY_ADVERBS + r"being)?\s+"
+)
+_EVIDENCE_COORDINATED_DELIVERY_PREDICATE = (
+    _EVIDENCE_DELIVERY_ADVERBS
+    + r"(?:"
+    + _EVIDENCE_DELIVERY_OPERATION
+    + r"|"
+    + _EVIDENCE_DELIVERY_IRREGULAR_STATE
+    + r"|"
+    + _EVIDENCE_DELIVERY_PARTICIPLE_START
+    + r"\w*"
+    + r"|"
+    + _MANDATORY_EVIDENCE_AUXILIARY
+    + r"\s+"
+    + _EVIDENCE_DELIVERY_ADVERBS
+    + _EVIDENCE_PASSIVE_PREFIX
+    + _EVIDENCE_DELIVERY_OPERATION
+    + r")\b"
 )
 _EVIDENCE_ADDITIVE_CONTRAST = r"(?:only|merely|just)"
 _NEGATIVE_EVIDENCE_ADJECTIVE_TAIL = (
@@ -1217,16 +1262,23 @@ def _normalize_review_comment_destinations(acceptance: str) -> str:
         r"(?:for|by|with|without|under|during|after|before|due\s+to)\b|"
         r"(?:in|on)\s+(?:(?:this|the)\s+)?(?:pr|pull request)\b))"
     )
-    standalone_requirement = re.compile(
-        r"\s+(?:by|from)\s+(?:(?:the|an?)\s+)?"
+    standalone_qualifier = (
+        r"(?:\s+(?:(?:by|from)\s+(?:(?:the|an?)\s+)?"
         + _EVIDENCE_ACTOR_NOUN
         + _EVIDENCE_ACTOR_QUALIFIER
+        + r"|(?:with|for)\s+"
+        + _EVIDENCE_OBJECT_MODIFIER_WORD
+        + r"(?:\s+"
+        + _EVIDENCE_OBJECT_MODIFIER_WORD
+        + r"){0,3})){0,2}"
+    )
+    standalone_requirement = re.compile(
+        standalone_qualifier
         + r"\s+(?:is|are)\s+(?:required|needed|mandatory)\b"
         + standalone_predicate_end
-        + r"|\s+(?:is|are)\s+(?:required|needed|mandatory)\b"
-        + standalone_predicate_end
         + r"|"
-        r"\s+(?:(?:must|shall)(?:\s+be)?|(?:needs?|has)\s+to(?:\s+be)?)\s+"
+        + standalone_qualifier
+        + r"\s+(?:(?:must|shall)(?:\s+be)?|(?:needs?|has)\s+to(?:\s+be)?)\s+"
         r"(?:exist|present|mandatory|"
         + _EVIDENCE_DELIVERY_IRREGULAR_STATE
         + r"|"
@@ -1311,11 +1363,7 @@ def _normalize_review_comment_destinations(acceptance: str) -> str:
             before,
             re.I,
         )
-        if active_subject and not re.search(
-            r"\b" + _EVIDENCE_DELIVERY_ACTOR_NOUN + r"\b",
-            active_subject["subject"],
-            re.I,
-        ):
+        if active_subject and not _is_evidence_delivery_actor_subject(active_subject["subject"]):
             return match[0]
         if (
             standalone_requirement.match(after)
@@ -1408,7 +1456,7 @@ def _normalize_plain_artifact_destinations(acceptance: str) -> str:
         lambda match: (
             match[0]
             if match["literal"]
-            or re.search(r"\b" + _EVIDENCE_DELIVERY_ACTOR_NOUN + r"\b", match["subject"], re.I)
+            or _is_evidence_delivery_actor_subject(match["subject"])
             else match["boundary"] + match["subject"] + " product behavior"
         ),
         acceptance,
@@ -1485,7 +1533,9 @@ def _normalize_plain_artifact_destinations(acceptance: str) -> str:
         r"\b(?:and|but|while)\s+"
         r"(?!(?:(?:either|both)\s+)?(?:" + _EVIDENCE_DESTINATION_PREPOSITION + r")\b)"
         r"(?!(?:(?:the|an?)\s+)?artifacts?\b)"
-        r"(?!(?:" + _EVIDENCE_DELIVERY_OPERATION + r")\s+(?:it|them)\b)",
+        r"(?!"
+        + _EVIDENCE_COORDINATED_DELIVERY_PREDICATE
+        + r"\s+(?:(?:it|them)\s+)?(?:in|into|to|as)\b)",
         re.I,
     )
 
@@ -1605,6 +1655,29 @@ _EVIDENCE_REVIEW_DESTINATION = (
     + r"|(?:pr|pull request)\b)"
 )
 _EVIDENCE_DESTINATION_SEPARATOR_BASE = r"(?:\s*,\s*(?:(?:and|or)\s+)?|\s+(?:and|or)\s+)"
+
+
+def _normalize_leading_review_destination_quantifier(acceptance: str) -> str:
+    """Put a list quantifier where the shared destination grammar expects it.
+
+    This is deliberately limited to PR body/description members.  It converts
+    ``both in the PR body`` to ``in both the PR body`` only when it starts a
+    concrete destination list, rather than rewriting arbitrary product prose.
+    """
+    body_or_description = (
+        r"(?:(?:the|an?)\s+)?(?:pr|pull request)\s+(?:body|description)\b"
+    )
+    return re.sub(
+        r"(?P<literal>" + _QUOTED_EVIDENCE_LITERAL + r")|"
+        r"\b(?P<quantifier>both|either)\s+(?P<preposition>in|into|to)\s+"
+        r"(?P<destination>" + body_or_description + r")"
+        r"(?=\s+(?:and|or)\s+(?:in|into|to)\b)",
+        lambda match: match[0]
+        if match["literal"]
+        else match["preposition"] + " " + match["quantifier"] + " " + match["destination"],
+        acceptance,
+        flags=re.I,
+    )
 _EVIDENCE_PRODUCT_ACTOR = (
     _EVIDENCE_RECIPIENT_PREFIX + _EVIDENCE_PRODUCT_ACTOR_NOUN + r"\b" + _EVIDENCE_ACTOR_QUALIFIER
 )
@@ -1957,11 +2030,9 @@ def _normalize_review_content_qualifiers(acceptance: str) -> str:
         + content_destination
         + r"|(?:,?\s*)(?:and|or|but|while)\s+"
         + independent_actor
-        + r"|(?:and|or)\s+(?:"
-        + _EVIDENCE_DELIVERY_OPERATION
-        + r"|"
-        + _EVIDENCE_DELIVERY_PARTICIPLE_START
-        + r"\w*)\s+(?:in|into|to|as)\s+"
+        + r"|(?:and|or)\s+"
+        + _EVIDENCE_COORDINATED_DELIVERY_PREDICATE
+        + r"\s+(?:in|into|to|as)\s+"
         + content_destination
         + r")"
     )
@@ -2071,6 +2142,7 @@ def _normalize_review_content_qualifiers(acceptance: str) -> str:
 def _classify_evidence_channels(acceptance: str, *, _bind_attached: bool = True) -> set[str]:
     """Identify explicit evidence deliverables without treating negations as requirements."""
 
+    acceptance = _normalize_leading_review_destination_quantifier(acceptance)
     acceptance = _normalize_review_comment_destinations(acceptance)
     acceptance = _normalize_plain_artifact_destinations(acceptance)
     acceptance = _normalize_destination_first_checklist(acceptance)
@@ -5086,6 +5158,7 @@ def _classify_evidence_options(acceptance: str) -> list[set[str]]:
     Ambiguous mixed conjunctions or excessive expansion retain the strict legacy
     requirement rather than dropping an obligation.
     """
+    acceptance = _normalize_leading_review_destination_quantifier(acceptance)
     acceptance = _normalize_review_comment_destinations(acceptance)
     acceptance = _normalize_plain_artifact_destinations(acceptance)
     acceptance = _normalize_destination_first_checklist(acceptance)
