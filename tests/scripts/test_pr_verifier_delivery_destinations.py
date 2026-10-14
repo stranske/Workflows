@@ -6842,3 +6842,226 @@ def test_issue3835_checkbox_unknown_component_capability_is_nongating():
     criterion = "- [ ] The novel engine may permit users to upload evidence to an artifact"
     assert verifier._required_evidence_channels(criterion) == set()
     assert verifier._required_evidence_options(criterion) == [set()]
+
+
+@pytest.mark.parametrize("operation", ["send"])
+@pytest.mark.parametrize(
+    "destination,channel",
+    [("in a PR comment", "comments"), ("in the PR body", "body"), ("as an artifact", "artifacts")],
+)
+def test_issue3835_active_command_output_send_requires_the_named_destination(
+    operation,
+    destination,
+    channel,
+):
+    criterion = f"The author must {operation} command output {destination}"
+    assert verifier._required_evidence_channels(criterion) == {channel}
+    assert verifier._required_evidence_options(criterion) == [{channel}]
+    statuses = {"body": "present", "comments": "present", "artifacts": "present"}
+    statuses[channel] = "absent"
+    assert _floor_verdict(criterion, **statuses) == "CONCERNS"
+
+
+@pytest.mark.parametrize(
+    "criterion",
+    [
+        "The author sends command output in a PR comment",
+        "The author is sending command output in a PR comment",
+        "The API sends command output in a PR comment",
+    ],
+)
+def test_issue3835_grammatical_active_command_output_send_requires_comment(criterion):
+    assert verifier._required_evidence_channels(criterion) == {"comments"}
+    assert verifier._required_evidence_options(criterion) == [{"comments"}]
+    assert (
+        _floor_verdict(criterion, body="present", comments="absent", artifacts="present")
+        == "CONCERNS"
+    )
+
+
+@pytest.mark.parametrize("governor", ["may", "must not"])
+def test_issue3835_active_command_output_send_optional_or_prohibited_is_not_required(governor):
+    criterion = f"The author {governor} send command output in a PR comment"
+    assert verifier._required_evidence_channels(criterion) == set()
+    assert verifier._required_evidence_options(criterion) == [set()]
+    assert (
+        _floor_verdict(criterion, body="present", comments="absent", artifacts="present") == "PASS"
+    )
+
+
+@pytest.mark.parametrize(
+    "criterion",
+    [
+        "The application must not allow users to upload evidence to an artifact and allow users to send command output in a PR comment",
+        "The application must not allow users to upload evidence to an artifact, but the application prevents authenticated users from sending command output in a PR comment",
+        "The application must not allow users to upload evidence to an artifact, but the application disallows authenticated users from sending command output in a PR comment",
+    ],
+)
+def test_issue3835_negative_capability_chain_is_not_delivery(criterion):
+    assert verifier._required_evidence_channels(criterion) == set()
+    assert verifier._required_evidence_options(criterion) == [set()]
+    assert (
+        _floor_verdict(criterion, body="present", comments="absent", artifacts="absent") == "PASS"
+    )
+
+
+@pytest.mark.parametrize("governor", ["must prevent", "prevents", "must disallow", "disallows"])
+@pytest.mark.parametrize("recipient", ["users", "authenticated users", "all users", "operators"])
+def test_issue3835_prohibitive_command_output_send_capability_is_not_delivery(governor, recipient):
+    criterion = (
+        f"The application {governor} {recipient} from sending command output in a PR comment"
+    )
+    assert verifier._required_evidence_channels(criterion) == set()
+    assert verifier._required_evidence_options(criterion) == [set()]
+    assert (
+        _floor_verdict(criterion, body="present", comments="absent", artifacts="present") == "PASS"
+    )
+
+
+@pytest.mark.parametrize("governor", ["must prevent", "prevents", "must disallow", "disallows"])
+@pytest.mark.parametrize("recipient", ["users", "authenticated users", "all users", "operators"])
+def test_issue3835_finite_prohibitive_command_output_send_preserves_independent_reviewer_delivery(
+    governor,
+    recipient,
+):
+    criterion = (
+        f"The application {governor} {recipient} from sending command output in a PR comment; "
+        "the reviewer must send command output in a PR comment"
+    )
+    assert verifier._required_evidence_channels(criterion) == {"comments"}
+    assert verifier._required_evidence_options(criterion) == [{"comments"}]
+    assert (
+        _floor_verdict(criterion, body="present", comments="absent", artifacts="present")
+        == "CONCERNS"
+    )
+
+
+def test_issue3835_product_owned_command_output_send_matches_shared_delivery_operation():
+    criterion = "The API must send command output in a PR comment"
+    assert verifier._required_evidence_channels(criterion) == {"comments"}
+    assert verifier._required_evidence_options(criterion) == [{"comments"}]
+    assert (
+        _floor_verdict(criterion, body="present", comments="absent", artifacts="present")
+        == "CONCERNS"
+    )
+
+
+@pytest.mark.parametrize(
+    "criterion",
+    [
+        "The API sends command output as an artifact",
+        "The API is sending command output as an artifact",
+        "The API must send command output as an artifact",
+    ],
+)
+def test_issue3835_product_command_output_send_artifact_is_not_delivery(criterion):
+    assert verifier._required_evidence_channels(criterion) == set()
+    assert verifier._required_evidence_options(criterion) == [set()]
+
+
+def test_issue3835_product_command_output_send_preserves_independent_reviewer_delivery():
+    criterion = (
+        "The API is sending command output as an artifact; "
+        "the reviewer must send command output in a PR comment"
+    )
+    assert verifier._required_evidence_channels(criterion) == {"comments"}
+    assert verifier._required_evidence_options(criterion) == [{"comments"}]
+    assert (
+        _floor_verdict(criterion, body="present", comments="absent", artifacts="present")
+        == "CONCERNS"
+    )
+
+
+def test_issue3835_product_command_output_send_preserves_later_reviewer_artifact_delivery():
+    criterion = (
+        "The API is sending command output as an artifact; "
+        "the reviewer must attach command output as an artifact"
+    )
+    assert verifier._required_evidence_channels(criterion) == {"artifacts"}
+    assert verifier._required_evidence_options(criterion) == [{"artifacts"}]
+    assert (
+        _floor_verdict(criterion, body="present", comments="present", artifacts="absent")
+        == "CONCERNS"
+    )
+
+
+def test_issue3835_product_command_output_send_preserves_pronoun_comment_delivery():
+    criterion = (
+        "The API is sending command output as an artifact; "
+        "the reviewer must send it in a PR comment"
+    )
+    assert verifier._required_evidence_channels(criterion) == {"comments"}
+    assert verifier._required_evidence_options(criterion) == [{"comments"}]
+    assert (
+        _floor_verdict(criterion, body="present", comments="absent", artifacts="present")
+        == "CONCERNS"
+    )
+
+
+def test_issue3835_reviewer_send_logs_artifact_remains_required():
+    criterion = "The reviewer must send logs as an artifact"
+    assert verifier._required_evidence_channels(criterion) == {"artifacts"}
+    assert verifier._required_evidence_options(criterion) == [{"artifacts"}]
+    assert (
+        _floor_verdict(criterion, body="present", comments="present", artifacts="absent")
+        == "CONCERNS"
+    )
+
+
+@pytest.mark.parametrize(
+    "subject", ["The reviewer", "The API is sending command output as an artifact; the reviewer"]
+)
+@pytest.mark.parametrize("payload", ["command output"])
+@pytest.mark.parametrize(
+    "destination,channel",
+    [("in a PR comment", "comments"), ("in the PR body", "body"), ("as an artifact", "artifacts")],
+)
+def test_issue3835_shared_send_operation_keeps_required_destination(
+    subject, payload, destination, channel
+):
+    criterion = f"{subject} must send {payload} {destination}"
+    assert verifier._required_evidence_channels(criterion) == {channel}
+    assert verifier._required_evidence_options(criterion) == [{channel}]
+
+
+def test_issue3835_author_command_output_send_artifact_remains_required():
+    criterion = "The author must send command output as an artifact"
+    assert verifier._required_evidence_channels(criterion) == {"artifacts"}
+    assert verifier._required_evidence_options(criterion) == [{"artifacts"}]
+    assert (
+        _floor_verdict(criterion, body="present", comments="present", artifacts="absent")
+        == "CONCERNS"
+    )
+
+
+def test_issue3835_product_command_output_send_explicit_pr_destination_remains_required():
+    criterion = "The API must send command output in a PR comment"
+    assert verifier._required_evidence_channels(criterion) == {"comments"}
+    assert verifier._required_evidence_options(criterion) == [{"comments"}]
+
+
+def test_issue3835_coordinated_command_output_send_retains_each_destination_floor():
+    criterion = "The author must send command output in a PR comment and attach command output as an artifact"
+    assert verifier._required_evidence_channels(criterion) == {"comments", "artifacts"}
+    assert verifier._required_evidence_options(criterion) == [{"comments", "artifacts"}]
+    assert (
+        _floor_verdict(criterion, body="present", comments="absent", artifacts="present")
+        == "CONCERNS"
+    )
+    assert (
+        _floor_verdict(criterion, body="present", comments="present", artifacts="absent")
+        == "CONCERNS"
+    )
+
+
+@pytest.mark.parametrize("pronoun", ["it", "them", "this", "these", "those", "both"])
+def test_issue3835_capability_owned_logs_do_not_supply_artifact_floor(pronoun):
+    criterion = (
+        "The application must allow users to upload logs to the PR body and an artifact; "
+        f"the reviewer must send {pronoun} in a PR comment"
+    )
+    assert verifier._required_evidence_channels(criterion) == {"comments"}
+    assert verifier._required_evidence_options(criterion) == [{"comments"}]
+    assert (
+        _floor_verdict(criterion, body="present", comments="present", artifacts="absent") == "PASS"
+    )

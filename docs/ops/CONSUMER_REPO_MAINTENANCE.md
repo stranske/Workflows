@@ -2864,6 +2864,19 @@ attributions before a standalone predicate retain that duty. Active bare
 artifact delivery must govern a recognized proof payload; product publications
 to product recipients stay nongating unless a separate reviewer duty exists.
 
+### Active command-output send delivery
+
+Active `send`/`sends`/`sending` shares the bounded evidence-delivery operation
+grammar with passive `sent`. A mandatory author or reviewer instruction to send
+command output to a PR comment, body, or artifact therefore creates the same
+channel floor; optional, direct prohibitions, quoted wording, and product capability
+wording without an explicit PR delivery do not. Capability clauses that prevent,
+disallow, or use their finite forms before users send delivery evidence are likewise
+nongating, while an
+independent reviewer delivery remains required. A direct product operation with
+an explicit PR destination follows the shared delivery grammar. Coordinated send
+and existing delivery predicates retain every explicitly named destination.
+
 Maint68 removes owner-excluded repositories from its authoritative registered
 consumer list and filters direct phase-selection inputs and canaries before
 constructing matrices. Excluded manifest include scopes do not become eligible
