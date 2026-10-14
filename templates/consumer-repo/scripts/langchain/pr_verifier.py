@@ -1236,7 +1236,7 @@ _EVIDENCE_REVIEW_COMMENT_DESTINATION = (
 _DELIVERED_EVIDENCE_OBJECT_END = (
     r"(?=(?:\s+" + _EVIDENCE_DELIVERY_ADVERB + r"){0,3}\s*"
     r"(?:$|[;:,.!?\n]|(?:and|or|but|while|that|which|where|is|are|must|shall|"
-    r"needs?|has|exist|may|can|only|solely|if|when|on|at|by|with|from|using|"
+    r"needs?|has|exist|may|can|only|solely|if|when|on|at|by|with|without|from|using|"
     + _EVIDENCE_TEMPORAL_TAIL
     + r"|"
     + _EVIDENCE_DESTINATION_PREPOSITION
@@ -2237,6 +2237,47 @@ def _normalize_review_content_qualifiers(acceptance: str) -> str:
         + r")",
         lambda match: match["literal"]
         or match["destination"] + match["suffix"] + " with" + match["content"],
+        acceptance,
+        flags=re.I,
+    )
+    # Relative/exclusion content may sit between a delivered proof object and its
+    # destination ("evidence that must not contain secrets as an artifact"). Move
+    # it after the destination so the shared content-tail strip and polarity pass
+    # keep the mandatory channel instead of inventing overall or dropping it.
+    delivered_proof_object = (
+        r"(?:evidence(?:\s+(?:files?|bundles?|packages?))?|transcripts?|command outputs?|"
+        r"coverage reports?|" + _EVIDENCE_PROOF_ALIAS_NOUN + r")"
+    )
+    interposed_payload = (
+        r"(?:(?!(?:as|in|into|to)\b)[\w/-]+[ \t]+){0,6}(?!(?:as|in|into|to)\b)[\w/-]+"
+    )
+    interposed_content = (
+        r"(?:"
+        r"[ \t]+(?:that|which)[ \t]+"
+        + _EVIDENCE_DELIVERY_ADVERBS.replace(r"\s+", r"[ \t]+")
+        + r"(?:must|shall|will|"
+        + _EVIDENCE_OPTIONAL_MODAL
+        + r")[ \t]+not[ \t]+"
+        + _EVIDENCE_DELIVERY_ADVERBS.replace(r"\s+", r"[ \t]+")
+        + r"(?:contain|include|have)\w*[ \t]+"
+        + interposed_payload
+        + r"(?:[ \t]*,?[ \t]*"
+        + _EVIDENCE_CONDITIONAL
+        + r")?"
+        + r"|"
+        r"[ \t]+without[ \t]+" + interposed_payload + r")"
+    )
+    acceptance = re.sub(
+        r"(?P<literal>"
+        + _QUOTED_EVIDENCE_LITERAL
+        + r")|(?P<object>\b"
+        + delivered_proof_object
+        + r"\b)(?P<content>"
+        + interposed_content
+        + r")(?P<link>[ \t]+(?:in|into|to|as)[ \t]+(?:"
+        + content_destination
+        + r"))",
+        lambda match: match["literal"] or match["object"] + match["link"] + match["content"],
         acceptance,
         flags=re.I,
     )
