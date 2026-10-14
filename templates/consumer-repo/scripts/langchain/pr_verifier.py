@@ -995,6 +995,7 @@ _EVIDENCE_DELIVERY_ADVERB = r"(?:also|now|still|already|yet|always|[\w-]+ly)"
 _EVIDENCE_DELIVERY_ADVERBS = r"(?:" + _EVIDENCE_DELIVERY_ADVERB + r"\s+){0,3}"
 _EVIDENCE_DELIVERY_OPERATION = r"(?:prov(?:e|ing)|provid(?:e|ing)|return|display|show|emit|render|expos(?:e|ing)|stor(?:e|ing)|upload|attach|publish|post|record|copy|copies|copied|copying|captur(?:e|ing)|includ(?:e|ing)|contain|hav(?:e|ing)|document|generat(?:e|ing)|link|add|leav(?:e|ing)|left)\w*\b"
 _EVIDENCE_DELIVERY_PARTICIPLE_START = r"(?=(?:\w*(?:ed|en)|left)\b)"
+_EVIDENCE_DELIVERY_IRREGULAR_STATE = r"(?:made|sent|shown|put)"
 _EVIDENCE_OBJECT_MODIFIER_WORD = (
     r"(?!(?:and|or|but|must|shall|is|are|not|never|may|can)\b)" r"(?=[\w/-]*\w)[\w/-]+"
 )
@@ -1142,7 +1143,7 @@ _EVIDENCE_REVIEW_COMMENT_DESTINATION = (
 _DELIVERED_EVIDENCE_OBJECT_END = (
     r"(?=(?:\s+" + _EVIDENCE_DELIVERY_ADVERB + r"){0,3}\s*"
     r"(?:$|[;:,.!?\n]|(?:and|or|but|while|that|which|where|is|are|must|shall|"
-    r"needs?|has|may|can|only|solely|if|when|on|at|by|with|from|using|"
+    r"needs?|has|exist|may|can|only|solely|if|when|on|at|by|with|from|using|"
     + _EVIDENCE_DESTINATION_PREPOSITION
     + r"|"
     + _REVIEW_CONTENT_PARTICIPLE
@@ -1192,13 +1193,20 @@ def _normalize_review_comment_destinations(acceptance: str) -> str:
         + r"|\s+(?:is|are)\s+(?:required|needed|mandatory)\b"
         + standalone_predicate_end
         + r"|"
-        r"\s+(?:(?:must|shall)\s+be|(?:needs?|has)\s+to(?:\s+be)?)\s+"
-        r"(?:present|provided|included|attached|posted|left|required|needed|mandatory)\b"
+        r"\s+(?:(?:must|shall)(?:\s+be)?|(?:needs?|has)\s+to(?:\s+be)?)\s+"
+        r"(?:exist|present|mandatory|"
+        + _EVIDENCE_DELIVERY_IRREGULAR_STATE
+        + r"|"
+        + _EVIDENCE_DELIVERY_PARTICIPLE_START
+        + r"\w*)\b"
         + standalone_predicate_end,
         re.I,
     )
     standalone_modifier = (
-        r"(?!(?:for|of|in|into|to|on|with|by|from)\b)" + _EVIDENCE_OBJECT_MODIFIER_WORD
+        r"(?!(?:for|of|in|into|to|on|with|by|from)\b|"
+        + _EVIDENCE_PRODUCT_ACTOR_NOUN
+        + r"\s)"
+        + _EVIDENCE_OBJECT_MODIFIER_WORD
     )
     standalone_subject = re.compile(
         r"(?:^|[;.!?\n]\s*|(?:[-*+]\s+(?:\[[ xX]\]\s+)?))"
@@ -1863,6 +1871,12 @@ def _normalize_review_content_qualifiers(acceptance: str) -> str:
         + content_destination
         + r"|(?:,?\s*)(?:and|or|but|while)\s+"
         + independent_actor
+        + r"|(?:and|or)\s+(?:"
+        + _EVIDENCE_DELIVERY_OPERATION
+        + r"|"
+        + _EVIDENCE_DELIVERY_PARTICIPLE_START
+        + r"\w*)\s+(?:in|into|to|as)\s+"
+        + content_destination
         + r")"
     )
     # Consume prose as opaque content until the established clause/destination

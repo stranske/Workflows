@@ -5908,6 +5908,36 @@ def test_issue3835_product_comment_object_with_pr_destination_keeps_comment_floo
     assert _floor_verdict(criterion, body="present", comments="absent") == "CONCERNS"
 
 
+@pytest.mark.parametrize(
+    "criterion",
+    [
+        "A PR review comment must be submitted",
+        "A PR review comment must be present",
+        "A PR review comment must be mandatory",
+        "A PR review comment must be added",
+        "A PR review comment must exist",
+    ],
+)
+def test_issue3835_standalone_comment_delivery_states_keep_the_comment_floor(criterion):
+    assert verifier._required_evidence_channels(criterion) == {"comments"}
+    assert verifier._required_evidence_options(criterion) == [{"comments"}]
+    assert _floor_verdict(criterion, body="present", comments="absent") == "CONCERNS"
+
+
+def test_issue3835_content_qualified_comment_retains_coordinated_artifact_delivery():
+    criterion = "Evidence must be posted in a PR comment about test coverage and uploaded to a workflow artifact"
+    assert verifier._required_evidence_channels(criterion) == {"comments", "artifacts"}
+    assert verifier._required_evidence_options(criterion) == [{"comments", "artifacts"}]
+    assert (
+        _floor_verdict(criterion, body="present", comments="present", artifacts="absent")
+        == "CONCERNS"
+    )
+    assert (
+        _floor_verdict(criterion, body="present", comments="absent", artifacts="present")
+        == "CONCERNS"
+    )
+
+
 @pytest.mark.parametrize("prefix", ["the", "our", "their", "each appointed"])
 @pytest.mark.parametrize("boundary", [" and ", ", and ", " but ", " while "])
 @pytest.mark.parametrize("artifact", ["an artifact", "a workflow artifact"])
@@ -6274,3 +6304,19 @@ def test_evidence_classifier_caches_are_bounded_and_skip_large_criteria():
     assert verifier._required_evidence_channels(large) == set()
     assert verifier._required_evidence_options(large) == [set()]
     assert (channels.cache_info().currsize, options.cache_info().currsize) == before
+
+
+@pytest.mark.parametrize("state", ["made", "sent", "shown", "put"])
+def test_issue3835_irregular_standalone_delivery_states_preserve_main(state):
+    criterion = f"A PR review comment must be {state}"
+    assert verifier._required_evidence_channels(criterion) == {"comments"}
+    assert verifier._required_evidence_options(criterion) == [{"comments"}]
+    assert _floor_verdict(criterion, body="present", comments="absent") == "CONCERNS"
+
+
+@pytest.mark.parametrize("actor", ["parser", "schema", "module", "API"])
+@pytest.mark.parametrize("state", ["made", "ignored"])
+def test_issue3835_product_modified_comment_state_is_not_delivery(actor, state):
+    criterion = f"A {actor} review comment must be {state}"
+    assert verifier._required_evidence_channels(criterion) == set()
+    assert verifier._required_evidence_options(criterion) == [set()]
