@@ -226,6 +226,14 @@ def _metadata_git_path(value: bytes) -> bytes | None:
     return _parse_git_path(value.split(b"\t", 1)[0])
 
 
+def _raw_patch_has_binary_section(raw: bytes) -> bool:
+    """Binary patch syntax is unavailable evidence even when its payload is malformed."""
+    return any(
+        line == b"GIT binary patch" or line.startswith(b"Binary files ")
+        for line in raw.splitlines()
+    )
+
+
 def _full_patch_file_records(raw: bytes) -> list[dict[str, Any]] | None:
     """Parse only complete, unambiguous raw Git file spans for recovery binding."""
     starts = [match.start() for match in re.finditer(rb"(?m)^diff --git ", raw)]
@@ -416,10 +424,7 @@ def build_capture_obligation_manifest(
         full_patch_covers_changed_code = False
         artifact_for_binary = coverage.get("full_diff_artifact")
         if isinstance(artifact_for_binary, dict) and full_diff_bytes is not None:
-            raw_file_records = _full_patch_file_records(full_diff_bytes)
-            if raw_file_records is not None and any(
-                record["binary"] for record in raw_file_records
-            ):
+            if _raw_patch_has_binary_section(full_diff_bytes):
                 gaps.append("changed_code:full_patch_binary_unavailable")
         if isinstance(changed_records, list) and any(
             isinstance(record, dict)

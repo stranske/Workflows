@@ -773,3 +773,30 @@ def test_raw_binary_patch_never_waives_truncated_changed_code(tmp_path) -> None:
     )
     assert included_manifest["sufficient"] is False
     assert "changed_code:full_patch_binary_unavailable" in included_manifest["gaps"]
+
+
+def test_raw_binary_marker_blocks_even_malformed_binary_payload() -> None:
+    raw_patch = b"diff --git a/evidence.bin b/evidence.bin\nBinary files a/evidence.bin and b/evidence.bin differ\n"
+    canonical = raw_patch[:-1]
+    coverage = _complete_coverage()
+    coverage["changed_code_sources"] = [
+        {
+            "source": "evidence.bin",
+            "status": "included",
+            "included_chars": 1,
+            "total_chars": 1,
+        }
+    ]
+    coverage["full_diff_artifact"] = {
+        "source": "verifier-pr-diff.patch",
+        "status": "included",
+        "chars": len(canonical.decode("utf-8")),
+        "bytes": len(raw_patch),
+        "sha256": hashlib.sha256(raw_patch).hexdigest(),
+        "encoding": "utf-8",
+    }
+    manifest = build_capture_obligation_manifest(
+        _context_block(coverage), full_diff_bytes=raw_patch
+    )
+    assert manifest["sufficient"] is False
+    assert "changed_code:full_patch_binary_unavailable" in manifest["gaps"]
