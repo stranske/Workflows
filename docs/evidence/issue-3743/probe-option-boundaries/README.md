@@ -50,3 +50,32 @@ Keepalive owns asynchronous checks/review. Closer must revalidate current full
 head, complete topology, every active review body, zero active findings and the
 seven-minute floor before guarded merge and actual `verify:compare`. Historical
 provider CONCERNS and source-capture ownership remain unchanged.
+
+## Current-input revalidation (2026-10-14)
+
+The four existing cases now require an import receipt written by the private
+`yaml.py` module. The receipt confirms the child interpreter has interactive mode
+disabled and preserves the exact warning operand in `sys.warnoptions`. The fixture
+clears inherited `PYTHONWARNINGS` so these assertions measure the command options.
+The replay also explicitly excludes slow tests.
+
+- [x] Verify the four root/template tests, including exact argv, runtime
+  classification, sentinel, empty stderr, and private-module import receipts.
+- [x] Verify four exact named assertion RED/restored GREEN pairs and refuse reused
+  output before mutation, preserving all 49 proof files.
+- [x] Bind current source/test/replay inputs to matched coverage, raw commands,
+  console output, JUnit, and archive member hashes and lengths.
+
+Current validation uses Python 3.14.8 at the executable recorded in
+`revalidation/runtime.json`; `/opt/anaconda3/bin/python3` is unavailable on this
+runner. Both the 322-case baseline and 326-case candidate reproduce the historical
+covered-line and branch sets exactly. The original archive is retained byte for
+byte as `historical-proof.tar.gz`, and every original archive member is unchanged.
+New raw evidence is under `revalidation/`; its `manifest.json` covers every member
+except itself. The root `manifest.json` remains the historical member inventory.
+
+Full-repository Black checks all 745 Python files. Its recorded environment uses
+one worker and a temporary event-loop heartbeat to handle lost completion wakeups
+in this sandbox; formatter behavior and file checks are unchanged. Focused Ruff,
+strict template completeness with a writable summary path, and diff checks pass.
+All runtime adjustments and exact commands are archived.

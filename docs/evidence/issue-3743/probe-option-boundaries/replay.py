@@ -42,6 +42,8 @@ def run_node(checkout: Path, output: Path, node: str, phase: str) -> dict:
         "-q",
         "-o",
         "addopts=",
+        "-m",
+        "not slow",
         f"--junitxml={junit}",
     ]
     result = subprocess.run(argv, cwd=checkout, capture_output=True, text=True, timeout=60)

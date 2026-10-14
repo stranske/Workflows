@@ -1,5 +1,6 @@
 """Import probes must remove interactive flags without misreading option operands."""
 
+import json
 import runpy
 import sys
 from pathlib import Path
@@ -13,9 +14,26 @@ def helper(request):
     return runpy.run_path(str(root / request.param / "scripts/check_deliberate_break.py"))
 
 
-def test_repeated_interactive_flags_leave_no_empty_probe_option(tmp_path, helper):
+@pytest.fixture
+def import_receipt(tmp_path, monkeypatch):
+    """Prove the child imports our module and record its effective Python options."""
+    monkeypatch.delenv("PYTHONWARNINGS", raising=False)
+    receipt = tmp_path / "yaml.imported.json"
+    (tmp_path / "yaml.py").write_text(
+        "import json\n"
+        "import sys\n"
+        "from pathlib import Path\n"
+        "Path(__file__).with_suffix('.imported.json').write_text(\n"
+        "    json.dumps({'interactive': sys.flags.interactive, 'warnoptions': sys.warnoptions}),\n"
+        "    encoding='utf-8',\n"
+        ")\n",
+        encoding="utf-8",
+    )
+    return receipt
+
+
+def test_repeated_interactive_flags_leave_no_empty_probe_option(tmp_path, helper, import_receipt):
     command = (sys.executable, "-ii", "-m", "pytest", "tests/test_named.py::test_named")
-    (tmp_path / "yaml.py").write_text("VALUE = 'private import probe'\n", encoding="utf-8")
 
     probe = helper["_pyyaml_probe_command"](command, tmp_path)
 
@@ -25,9 +43,13 @@ def test_repeated_interactive_flags_leave_no_empty_probe_option(tmp_path, helper
     assert result.returncode == 0
     assert result.stdout == helper["PYYAML_PROBE_SENTINEL"] + "\n"
     assert result.stderr == ""
+    assert json.loads(import_receipt.read_text(encoding="utf-8")) == {
+        "interactive": 0,
+        "warnoptions": [],
+    }
 
 
-def test_warning_operand_is_not_an_import_context_flag(tmp_path, helper):
+def test_warning_operand_is_not_an_import_context_flag(tmp_path, helper, import_receipt):
     command = (
         sys.executable,
         "-W",
@@ -36,8 +58,6 @@ def test_warning_operand_is_not_an_import_context_flag(tmp_path, helper):
         "pytest",
         "tests/test_named.py::test_named",
     )
-    (tmp_path / "yaml.py").write_text("VALUE = 'private import probe'\n", encoding="utf-8")
-
     probe = helper["_pyyaml_probe_command"](command, tmp_path)
 
     assert probe == (
@@ -52,3 +72,7 @@ def test_warning_operand_is_not_an_import_context_flag(tmp_path, helper):
     assert result.returncode == 0
     assert result.stdout == helper["PYYAML_PROBE_SENTINEL"] + "\n"
     assert result.stderr == ""
+    assert json.loads(import_receipt.read_text(encoding="utf-8")) == {
+        "interactive": 0,
+        "warnoptions": ["ignore::ImportWarning"],
+    }

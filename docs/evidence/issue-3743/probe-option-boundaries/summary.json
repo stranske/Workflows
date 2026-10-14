@@ -158,9 +158,213 @@
   "pair_count": 4,
   "reuse_refused": true,
   "production_sha256": "cc97119ea26afec275be3c83d22bc75de0d452cd0f4764896cc9d037274ab25a",
-  "test_sha256": "ffcd3bcfd93a22871b0cc1b40d61e3f8e0e32848b1e4475b323c8d65151de8d0",
-  "replay_sha256": "cd6f15fa6e52c6ac995429072d8db703ae8d4a36c42f029ef7621d75e1aa0349",
+  "test_sha256": "fa7fa3c58a0258c89ba823f05b2f7e8ec0c88fb1a807715803603028cadad1a1",
+  "replay_sha256": "8922ca28449522cf9b54d9805b6c00b7e593be3aa79807570fe489eb95acee9b",
   "scope": "Two helper files only; not repository-wide coverage or provider/native acceptance.",
-  "archive_sha256": "f3106cc0a2cfe7456995b38456714a20bbfeac2f1b5fa1aeeb90428b7e1cde25",
-  "archive_bytes": 188285
+  "archive_sha256": "6c8d3afbc3fbe2dfc42f03d9274785865251953a1fd3cf5d10b6054fb28e6a89",
+  "archive_bytes": 583522,
+  "archive_manifest": "revalidation/manifest.json",
+  "archive_member_count": 167,
+  "historical_proof": {
+    "archive_sha256": "f3106cc0a2cfe7456995b38456714a20bbfeac2f1b5fa1aeeb90428b7e1cde25",
+    "archive_bytes": 188285,
+    "archive_member": "historical-proof.tar.gz",
+    "summary_member": "revalidation/historical-summary.json",
+    "all_original_members_unchanged": true
+  },
+  "current_validation": {
+    "baseline_pass": 322,
+    "candidate_pass": 326,
+    "focused_pass": 4,
+    "new_nodes": [
+      "tests.scripts.test_check_deliberate_break_probe_option_boundaries::test_repeated_interactive_flags_leave_no_empty_probe_option[root]",
+      "tests.scripts.test_check_deliberate_break_probe_option_boundaries::test_repeated_interactive_flags_leave_no_empty_probe_option[template]",
+      "tests.scripts.test_check_deliberate_break_probe_option_boundaries::test_warning_operand_is_not_an_import_context_flag[root]",
+      "tests.scripts.test_check_deliberate_break_probe_option_boundaries::test_warning_operand_is_not_an_import_context_flag[template]"
+    ],
+    "old_outcomes_unchanged": true,
+    "coverage_regressions": 0,
+    "coverage_matches_historical_exact_sets": true,
+    "metrics": {
+      "scripts/check_deliberate_break.py": {
+        "baseline": {
+          "covered_lines": 587,
+          "num_statements": 591,
+          "percent_covered": 98.4759671746776,
+          "percent_covered_display": "98",
+          "missing_lines": 4,
+          "excluded_lines": 0,
+          "percent_statements_covered": 99.32318104906938,
+          "percent_statements_covered_display": "99",
+          "num_branches": 262,
+          "num_partial_branches": 9,
+          "covered_branches": 253,
+          "missing_branches": 9,
+          "percent_branches_covered": 96.56488549618321,
+          "percent_branches_covered_display": "97"
+        },
+        "candidate": {
+          "covered_lines": 588,
+          "num_statements": 591,
+          "percent_covered": 98.71043376318875,
+          "percent_covered_display": "99",
+          "missing_lines": 3,
+          "excluded_lines": 0,
+          "percent_statements_covered": 99.49238578680203,
+          "percent_statements_covered_display": "99",
+          "num_branches": 262,
+          "num_partial_branches": 8,
+          "covered_branches": 254,
+          "missing_branches": 8,
+          "percent_branches_covered": 96.94656488549619,
+          "percent_branches_covered_display": "97"
+        },
+        "new_lines": [
+          528
+        ],
+        "new_branches": [
+          [
+            527,
+            528
+          ]
+        ]
+      },
+      "templates/consumer-repo/scripts/check_deliberate_break.py": {
+        "baseline": {
+          "covered_lines": 418,
+          "num_statements": 591,
+          "percent_covered": 67.40914419695193,
+          "percent_covered_display": "67",
+          "missing_lines": 173,
+          "excluded_lines": 0,
+          "percent_statements_covered": 70.72758037225043,
+          "percent_statements_covered_display": "71",
+          "num_branches": 262,
+          "num_partial_branches": 51,
+          "covered_branches": 157,
+          "missing_branches": 105,
+          "percent_branches_covered": 59.9236641221374,
+          "percent_branches_covered_display": "60"
+        },
+        "candidate": {
+          "covered_lines": 432,
+          "num_statements": 591,
+          "percent_covered": 70.45720984759672,
+          "percent_covered_display": "70",
+          "missing_lines": 159,
+          "excluded_lines": 0,
+          "percent_statements_covered": 73.09644670050761,
+          "percent_statements_covered_display": "73",
+          "num_branches": 262,
+          "num_partial_branches": 49,
+          "covered_branches": 169,
+          "missing_branches": 93,
+          "percent_branches_covered": 64.50381679389314,
+          "percent_branches_covered_display": "65"
+        },
+        "new_lines": [
+          494,
+          495,
+          496,
+          497,
+          499,
+          500,
+          521,
+          524,
+          525,
+          528,
+          531,
+          560,
+          565,
+          566
+        ],
+        "new_branches": [
+          [
+            492,
+            494
+          ],
+          [
+            494,
+            495
+          ],
+          [
+            494,
+            496
+          ],
+          [
+            496,
+            497
+          ],
+          [
+            497,
+            499
+          ],
+          [
+            499,
+            500
+          ],
+          [
+            516,
+            531
+          ],
+          [
+            520,
+            521
+          ],
+          [
+            523,
+            524
+          ],
+          [
+            527,
+            528
+          ],
+          [
+            559,
+            560
+          ],
+          [
+            560,
+            565
+          ]
+        ]
+      }
+    },
+    "pair_count": 4,
+    "reuse_refused": true,
+    "reuse_files_unchanged": 49,
+    "production_unchanged_from_base": true,
+    "historical_archive_members_unchanged": 63,
+    "current_inputs": {
+      "scripts/check_deliberate_break.py": {
+        "sha256": "cc97119ea26afec275be3c83d22bc75de0d452cd0f4764896cc9d037274ab25a",
+        "bytes": 43685
+      },
+      "templates/consumer-repo/scripts/check_deliberate_break.py": {
+        "sha256": "cc97119ea26afec275be3c83d22bc75de0d452cd0f4764896cc9d037274ab25a",
+        "bytes": 43685
+      },
+      "tests/scripts/test_check_deliberate_break_probe_option_boundaries.py": {
+        "sha256": "fa7fa3c58a0258c89ba823f05b2f7e8ec0c88fb1a807715803603028cadad1a1",
+        "bytes": 2604
+      },
+      "docs/evidence/issue-3743/probe-option-boundaries/replay.py": {
+        "sha256": "8922ca28449522cf9b54d9805b6c00b7e593be3aa79807570fe489eb95acee9b",
+        "bytes": 5277
+      }
+    },
+    "runtime": {
+      "python": "3.14.8 (main, Oct  1 2026, 02:38:33) [GCC 13.3.0]",
+      "executable": "/opt/hostedtoolcache/Python/3.14.8/x64/bin/python",
+      "packages": {
+        "black": "26.10.0",
+        "pytest": "9.1.1",
+        "pytest-cov": "7.1.0",
+        "coverage": "7.16.2",
+        "ruff": "0.16.10"
+      }
+    },
+    "requested_interpreter_available": false
+  },
+  "current_evidence_prefix": "revalidation/"
 }
