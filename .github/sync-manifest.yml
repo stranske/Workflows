@@ -737,7 +737,28 @@ scripts:
   # Shared participial content boundaries preserve bare duties and terminate real product components symmetrically.
   # Content-object negative adjectives share modality grammar without inventing overall proof obligations after passive agents.
   # Passive quantifiers on either side of prepositions and blank-paragraph relative boundaries share both classifiers.
+  # Artifact payload relatives retain shared parent modality; PR presence relatives remain independent.
+  # Filename dots and opaque prose payload punctuation preserve siblings; embedded product nouns do not create channel duties.
+  # Counted standalone duties and pre-preposition both/either share the guarded channel and destination grammars.
+  # Coordinated counts retain real duties; proof-object and product-recipient guards prevent domain artifacts becoming evidence.
+  # Product actor normalization and channel suppression share one grammar.
+  # Proof pronouns retain artifact destinations; bounded pure grammar caching returns fresh containers.
   - source: scripts/langchain/pr_verifier.py
+    # Bare/qualified review-comment discovery and ORs share literal-safe normalization;
+    # copy delivery and destination-first checklists retain shared polarity floors.
+    # Repeated governors, object polarity, passive capabilities and channel-symmetric
+    # product coordination preserve independent mandatory delivery clauses.
+    # Passive capability normalization is shared before mixed artifact/PR ORs.
+    # Plain and qualified artifact OR members retain mandatory alternative floors.
+    # Bare artifact AND lists and reverse product ORs share destination normalization.
+    # Independent comma/and/but/while boundaries reuse shared qualified recipient
+    # prefixes, preserving product-domain nouns and genuine review delivery.
+    # Same-subject predicate boundaries retain real destination lists/delivery
+    # pronouns; hyphenated qualified review aliases keep mandatory comment floors.
+    # Negative-content conditions cannot migrate onto mandatory parent deliveries.
+    # Shared complete-object boundaries reject evidence/review-comment product compounds
+    # while retaining shared proof payloads, bounded content, inherited destination
+    # prepositions and independent proof antecedents through AND/OR lists.
     # Expanded v5 comparison requires every configured provider/model arm to be
     # complete, used_llm=true, error-free and PASS; no availability filtering.
     # Expanded v9 preserves a valid configured FAIL despite incomplete sibling results.

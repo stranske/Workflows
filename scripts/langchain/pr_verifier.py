@@ -22,7 +22,7 @@ import sys
 from time import monotonic
 from collections.abc import Callable, Mapping
 from dataclasses import dataclass
-from functools import partial
+from functools import lru_cache, partial
 from pathlib import Path
 from typing import Any, Literal
 
@@ -1020,30 +1020,117 @@ _MANDATORY_EVIDENCE_AUXILIARY = (
     r"(?:(?:is|are)\s+)?(?:required|needed|mandated|expected|supposed|obliged)\s+to|"
     r"(?:has|have)\s+to)"
 )
-_EVIDENCE_DELIVERY_ADVERB = r"(?:also|now|still|already|yet|always|[\w-]+ly)"
+_EVIDENCE_DELIVERY_ADVERB = r"(?:also|then|now|still|already|yet|always|[\w-]+ly)"
 _EVIDENCE_DELIVERY_ADVERBS = r"(?:" + _EVIDENCE_DELIVERY_ADVERB + r"\s+){0,3}"
-_EVIDENCE_DELIVERY_OPERATION = r"(?:prov(?:e|ing)|provid(?:e|ing)|return|display|show|emit|render|expos(?:e|ing)|stor(?:e|ing)|upload|attach|publish|post|record|captur(?:e|ing)|includ(?:e|ing)|contain|hav(?:e|ing)|document|generat(?:e|ing)|link|add|leav(?:e|ing)|left)\w*\b"
+_EVIDENCE_DELIVERY_OPERATION = r"(?:prov(?:e|ing)|provid(?:e|ing)|return|display|show|emit|render|expos(?:e|ing)|stor(?:e|ing)|upload|attach|publish|post|record|copy|copies|copied|copying|captur(?:e|ing)|includ(?:e|ing)|contain|hav(?:e|ing)|document|generat(?:e|ing)|link|add|leav(?:e|ing)|left)\w*\b"
 _EVIDENCE_DELIVERY_PARTICIPLE_START = r"(?=(?:\w*(?:ed|en)|left)\b)"
+_EVIDENCE_DELIVERY_IRREGULAR_STATE = r"(?:made|sent|shown|put)"
+_EVIDENCE_PASSIVE_DELIVERY_OPERATION = (
+    r"(?:"
+    + _EVIDENCE_DELIVERY_OPERATION
+    + r"|"
+    + _EVIDENCE_DELIVERY_IRREGULAR_STATE
+    + r"|"
+    + _EVIDENCE_DELIVERY_PARTICIPLE_START
+    + r"\w*)"
+)
 _EVIDENCE_OBJECT_MODIFIER_WORD = (
     r"(?!(?:and|or|but|must|shall|is|are|not|never|may|can)\b)" r"(?=[\w/-]*\w)[\w/-]+"
 )
 _EVIDENCE_OBJECT_MODIFIERS = r"(?:" + _EVIDENCE_OBJECT_MODIFIER_WORD + r"\s+){0,6}"
+_EVIDENCE_COUNT_MODIFIER = (
+    r"(?:(?:at\s+(?:least|most)|exactly)\s+(?:one|two|\d+)|"
+    r"(?:one|two|\d+)(?:\s+or\s+more|-or-more|ormore))\s+"
+)
+_EVIDENCE_OBJECT_COUNTED_MODIFIERS = (
+    r"(?:(?:" + _EVIDENCE_COUNT_MODIFIER + r")|(?:" + _EVIDENCE_OBJECT_MODIFIER_WORD + r"\s+)){0,6}"
+)
 _EVIDENCE_RECIPIENT_PREFIX = (
     r"(?:(?:all|any|some|each|every)\s+)?"
     r"(?:(?:the|its|our|their|your|an?)\s+)?"
     r"(?:(?!(?:and|or|but|must|shall|is|are|not|never|may|can|to|of|for|by|with|who|that|which|lets?|allows?|enables?)\b)[\w/-]+\s+){0,4}"
 )
 _EVIDENCE_ACTOR_NOUN = r"\b(?:reviewers?|maintainers?|authors?|operators?|agents?|bots?|runners?|developers?|engineers?|testers?|auditors?|verifiers?|teams?|users?|ui|api|application|service|endpoint)"
+_EVIDENCE_DELIVERY_ACTOR_NOUN = (
+    r"(?:i|we|you|reviewers?|maintainers?|authors?|operators?|agents?|bots?|runners?|"
+    r"developers?|engineers?|testers?|auditors?|verifiers?|teams?|users?)"
+)
+_EVIDENCE_PRODUCT_ACTOR_WORDS = (
+    "application",
+    "app",
+    "service",
+    "api",
+    "endpoint",
+    "ui",
+    "interface",
+    "cli",
+    "renderer",
+    "schema",
+    "pipeline",
+    "parser",
+    "product",
+    "system",
+    "component",
+    "module",
+)
+_EVIDENCE_PRODUCT_ACTOR_NOUN = r"(?:" + "|".join(_EVIDENCE_PRODUCT_ACTOR_WORDS) + r")"
 _EVIDENCE_ACTOR_QUALIFIER = (
     r"(?:\s+(?:of|for|used\s+by|managed\s+by|using|testing|accessing|operating)\s+"
     r"(?:(?!(?:and|or|but|must|shall|is|are|not|never|may|can|has|have)\b)[\w/-]+\s+){0,4}"
     r"(?!(?:and|or|but|must|shall|is|are|not|never|may|can|has|have)\b)[\w/-]+)?"
 )
-_EVIDENCE_PROOF_ALIAS_NOUN = r"(?:(?:test|validation)\s+(?:results?|logs?|outputs?)|(?:ci|build|execution)\s+logs?|(?:(?:workflow|ci|github actions)\s+)?artifacts?\s+provenance|screenshots?|recordings)"
+_EVIDENCE_DELIVERY_ACTOR_RELATIVE_QUALIFIER = (
+    r"(?:\s+(?:who|that)\s+"
+    r"(?:(?!(?:and|or|but|must|shall|is|are|not|never|may|can)\b)[\w/-]+\s*){1,6})?"
+)
+
+
+def _is_evidence_delivery_actor_subject(subject: str) -> bool:
+    """Whether a complete active subject names a person/team that can deliver proof.
+
+    Matching an actor word anywhere in a component name (``reviewer service``)
+    turns product behavior into a reviewer duty.  Keep the human actor as the
+    subject head and allow only its established, bounded qualifier tail.
+    """
+    return bool(
+        re.fullmatch(
+            r"\s*(?:"
+            r"(?:i|we|you)"
+            r"|"
+            + _EVIDENCE_RECIPIENT_PREFIX
+            + _EVIDENCE_DELIVERY_ACTOR_NOUN
+            + r"\b"
+            + _EVIDENCE_ACTOR_QUALIFIER
+            + _EVIDENCE_DELIVERY_ACTOR_RELATIVE_QUALIFIER
+            + r")\s*",
+            subject,
+            re.I,
+        )
+    )
+
+
+_EVIDENCE_PROOF_ALIAS_NOUN = r"(?:evidence\s+(?:files?|bundles?|packages?)|(?:test|validation)\s+(?:results?|logs?|outputs?)|(?:ci|build|execution)\s+logs?|(?:(?:workflow|ci|github actions)\s+)?artifacts?\s+provenance|screenshots?|recordings)"
 _EVIDENCE_OPTIONAL_MODAL = r"(?:may|can|could|would|should)"
 _EVIDENCE_PASSIVE_PREFIX = (
     r"(?:be|been|being|have\s+" + _EVIDENCE_DELIVERY_ADVERBS + r"been)"
     r"(?:\s+" + _EVIDENCE_DELIVERY_ADVERBS + r"being)?\s+"
+)
+_EVIDENCE_COORDINATED_DELIVERY_PREDICATE = (
+    _EVIDENCE_DELIVERY_ADVERBS
+    + r"(?:"
+    + _EVIDENCE_DELIVERY_OPERATION
+    + r"|"
+    + _EVIDENCE_DELIVERY_IRREGULAR_STATE
+    + r"|"
+    + _EVIDENCE_DELIVERY_PARTICIPLE_START
+    + r"\w*"
+    + r"|"
+    + _MANDATORY_EVIDENCE_AUXILIARY
+    + r"\s+"
+    + _EVIDENCE_DELIVERY_ADVERBS
+    + _EVIDENCE_PASSIVE_PREFIX
+    + _EVIDENCE_DELIVERY_OPERATION
+    + r")\b"
 )
 _EVIDENCE_ADDITIVE_CONTRAST = r"(?:only|merely|just)"
 _NEGATIVE_EVIDENCE_ADJECTIVE_TAIL = (
@@ -1091,14 +1178,22 @@ _INDEPENDENT_REVIEW_CLAUSE = (
 )
 
 _EVIDENCE_DESTINATION_PREPOSITION = r"(?:in|into|to|within|for|as|through|via)"
+_EVIDENCE_TEMPORAL_TAIL = (
+    r"(?:under|during|after|before|prior\s+to|until|once|throughout|"
+    r"when|while|since|following|upon|due\s+to)"
+)
 _REVIEW_BODY_COMPONENT_TEMPORAL = (
     r"before|after|now|today|tomorrow|again|here|there|soon|always|daily|weekly|[\w-]+ly"
 )
 _REVIEW_CONTENT_PARTICIPLE = (
     r"containing|including|showing|displaying|summarizing|presenting|listing|describing"
 )
+_REVIEW_CONTENT_PREPOSITION = r"about|regarding|concerning"
 _REVIEW_BODY_COMPONENT_CONTENT = (
-    r"contains?|includes?|requires?|needs?|" + _REVIEW_CONTENT_PARTICIPLE
+    r"contains?|includes?|requires?|needs?|"
+    + _REVIEW_CONTENT_PARTICIPLE
+    + r"|"
+    + _REVIEW_CONTENT_PREPOSITION
 )
 _REVIEW_BODY_COMPONENT_WORD = (
     r"(?!(?:and|or|but|on|by|with|when|if|that|which|where|"
@@ -1131,36 +1226,569 @@ _REVIEW_BODY_COMPONENT = (
 # Review comments share the ordinary PR-comment destination grammar. Normalize
 # before either classifier so polarity, product components and ORs stay shared.
 _EVIDENCE_REVIEW_COMMENT_DESTINATION = (
-    r"(?:(?:pr|pull request)\s+(?:inline\s+)?review\s+comments?|"
-    r"inline\s+(?:review\s+)?comments?)\b"
+    r"(?:(?:pr|pull[ -]request)\s+(?:inline\s+)?review\s+comments?|"
+    r"(?:inline\s+)?review\s+comments?|inline\s+comments?)\b"
+)
+
+# Delivery aliases must finish the object, not prefix a product compound such
+# as "evidence metadata" or "review comment fields". Keep bounded adverbs,
+# content qualifiers, real destination prepositions and independent clauses.
+_DELIVERED_EVIDENCE_OBJECT_END = (
+    r"(?=(?:\s+" + _EVIDENCE_DELIVERY_ADVERB + r"){0,3}\s*"
+    r"(?:$|[;:,.!?\n]|(?:and|or|but|while|that|which|where|is|are|must|shall|"
+    r"needs?|has|exist|may|can|only|solely|if|when|on|at|by|with|without|from|using|"
+    + _EVIDENCE_TEMPORAL_TAIL
+    + r"|"
+    + _EVIDENCE_DESTINATION_PREPOSITION
+    + r"|"
+    + _REVIEW_CONTENT_PARTICIPLE
+    + r"|"
+    + _REVIEW_CONTENT_PREPOSITION
+    + r")\b))"
 )
 
 
-def _normalize_review_comment_destinations(acceptance: str) -> str:
+def _normalize_evidence_count_modifiers(acceptance: str) -> str:
+    """Keep a bounded count's internal ``or`` out of destination DNF parsing."""
     return re.sub(
         r"(?P<literal>" + _QUOTED_EVIDENCE_LITERAL + r")|"
+        r"\b(?P<count>one|two|\d+)\s+or\s+more\b",
+        lambda match: match[0] if match["literal"] else match["count"] + "ormore",
+        acceptance,
+        flags=re.I,
+    )
+
+
+def _normalize_review_comment_destinations(acceptance: str) -> str:
+    # Rewrite bare aliases only under review-delivery or standalone-requirement
+    # context. Product surfaces ("review comment REST API", "validator",
+    # "data model") keep their wording and invent no comments channel.
+    acceptance = _normalize_evidence_count_modifiers(acceptance)
+    alias = re.compile(
+        r"(?P<literal>" + _QUOTED_EVIDENCE_LITERAL + r")|"
         r"\b" + _EVIDENCE_REVIEW_COMMENT_DESTINATION,
-        lambda match: match[0] if match["literal"] else "PR comment",
+        re.I,
+    )
+    standalone_predicate_end = (
+        # A bare noun after the predicate is a product complement (for example
+        # "required fields"), while prepositional/conditional tails retain the
+        # ordinary standalone review-delivery duty.
+        r"(?=\s*"
+        + _EVIDENCE_DELIVERY_ADVERBS
+        + r"(?:$|[;,.!?\n]|(?:and|or|but|if|when|only|solely)\b|"
+        r"(?:for|by|with|without|" + _EVIDENCE_TEMPORAL_TAIL + r")\b|"
+        r"(?:in|on)\s+(?:(?:this|the)\s+)?(?:pr|pull request)\b))"
+    )
+    standalone_qualifier = (
+        r"(?:\s+(?:(?:by|from)\s+"
+        + _EVIDENCE_RECIPIENT_PREFIX
+        + _EVIDENCE_DELIVERY_ACTOR_NOUN
+        + _EVIDENCE_ACTOR_QUALIFIER
+        + r"|(?:with|for)\s+"
+        + _EVIDENCE_OBJECT_MODIFIER_WORD
+        + r"(?:\s+"
+        + _EVIDENCE_OBJECT_MODIFIER_WORD
+        + r"){0,3})){0,2}"
+    )
+    standalone_requirement = re.compile(
+        standalone_qualifier
+        + r"\s+(?:is|are)\s+(?:required|needed|mandatory)\b"
+        + standalone_predicate_end
+        + r"|"
+        + standalone_qualifier
+        + r"\s+(?:(?:must|shall)(?:\s+be)?|(?:needs?|has)\s+to(?:\s+be)?)\s+"
+        r"(?:exist|present|mandatory|"
+        + _EVIDENCE_DELIVERY_IRREGULAR_STATE
+        + r"|"
+        + _EVIDENCE_DELIVERY_PARTICIPLE_START
+        + r"\w*)\b"
+        + standalone_predicate_end,
+        re.I,
+    )
+    standalone_modifier = (
+        r"(?!(?:for|of|in|into|to|on|with|by|from)\b|"
+        + _EVIDENCE_PRODUCT_ACTOR_NOUN
+        + r"\s)"
+        + _EVIDENCE_OBJECT_MODIFIER_WORD
+    )
+    standalone_subject = re.compile(
+        r"(?:^|[;.!?\n]\s*|(?:[-*+]\s+(?:\[[ xX]\]\s+)?))"
+        + r"(?:"
+        + _EVIDENCE_COUNT_MODIFIER
+        + r")?"
+        r"(?:(?:[-*+]|\d+[.)])\s+)?(?:\[[ xX]\]\s+)?"
+        r"(?:(?:the|an?)\s+)?" + r"(?:" + standalone_modifier + r"\s+){0,6}$",
+        re.I,
+    )
+    destination_governor = re.compile(
+        r"(?:\b(?:in|into|to|on|as)\b|\b(?:and|or)\b)\s+"
+        r"(?:(?:either|both)\s+)?(?:(?:the|an?)\s+)?$",
+        re.I,
+    )
+    # "leave/post a review comment" — the alias is the delivered object itself.
+    # Bounded object modifiers ("at least one", "detailed") may sit between the
+    # delivery verb/article and the alias without dropping delivery context.
+    delivered_object = re.compile(
+        r"\b(?:"
+        + _EVIDENCE_DELIVERY_OPERATION
+        + r"|leave|left|leaving|"
+        + "|".join(_EVIDENCE_RECORD_ALIASES)
+        + r")\b\s+"
+        r"(?:(?:the|an?)\s+)?" + _EVIDENCE_OBJECT_COUNTED_MODIFIERS + r"$",
+        re.I,
+    )
+
+    def replace(match: re.Match[str]) -> str:
+        if match["literal"]:
+            return match[0]
+        before = acceptance[max(0, match.start() - 160) : match.start()]
+        after = acceptance[match.end() : match.end() + 96]
+        object_end = re.match(_DELIVERED_EVIDENCE_OBJECT_END, after, re.I)
+        # An active human delivery is complete at the review-comment object.
+        # Its trailing scheduling prose does not turn it into a product noun.
+        active_subject = re.search(
+            r"(?:^|[;.!?\n])\s*(?P<subject>[^;.!?\n]{0,100}?)\s+"
+            + _MANDATORY_EVIDENCE_AUXILIARY
+            + r"\s+(?:"
+            + _EVIDENCE_DELIVERY_OPERATION
+            + r"|"
+            + "|".join(_EVIDENCE_RECORD_ALIASES)
+            + r"|leave|left|leaving)\s+"
+            + r"(?:(?:the|an?)\s+)?"
+            + _EVIDENCE_OBJECT_COUNTED_MODIFIERS
+            + r"$",
+            before,
+            re.I,
+        )
+        if not object_end and not (
+            active_subject and _is_evidence_delivery_actor_subject(active_subject["subject"])
+        ):
+            return match[0]
+        passive_product_producer = re.match(
+            r"\s+(?:(?:must|shall)(?:\s+be)?|(?:needs?|has)\s+to(?:\s+be)?|is|are)\s+"
+            + _EVIDENCE_PASSIVE_DELIVERY_OPERATION
+            + r"\s+(?:by|from)\s+"
+            + _EVIDENCE_RECIPIENT_PREFIX
+            + _EVIDENCE_PRODUCT_ACTOR_NOUN
+            + r"\b"
+            + _EVIDENCE_ACTOR_QUALIFIER,
+            after,
+            re.I,
+        )
+        if passive_product_producer and not re.search(
+            r"\s+(?:in|into|on)\s+(?:(?:the|an?)\s+)?(?:pr|pull request)\b", after, re.I
+        ):
+            return match[0]
+        product_delivery = re.search(
+            r"\b"
+            + _EVIDENCE_PRODUCT_ACTOR
+            + r"\s+(?:(?:"
+            + _MANDATORY_EVIDENCE_AUXILIARY
+            + r"|will|"
+            + _EVIDENCE_OPTIONAL_MODAL
+            + r")\s+)?"
+            + _EVIDENCE_DELIVERY_OPERATION
+            + r"\s+(?:(?:the|an?)\s+)?"
+            + _EVIDENCE_OBJECT_COUNTED_MODIFIERS
+            + r"$",
+            before,
+            re.I,
+        )
+        if product_delivery and not re.match(
+            r"\s+(?:in|into|on)\s+(?:(?:the|an?)\s+)?(?:pr|pull request)\b", after, re.I
+        ):
+            return match[0]
+        # An active comment object requires a delivery actor (or an imperative),
+        # rather than treating every component noun as a reviewer. This keeps
+        # arbitrary product subjects out without extending a product-noun list.
+        if active_subject and not _is_evidence_delivery_actor_subject(active_subject["subject"]):
+            return match[0]
+        if (
+            standalone_requirement.match(after)
+            and standalone_subject.search(before)
+            or destination_governor.search(before)
+            or delivered_object.search(before)
+        ):
+            return "PR comment"
+        return match[0]
+
+    return alias.sub(replace, acceptance)
+
+
+def _normalize_destination_first_checklist(acceptance: str) -> str:
+    """Normalize shorthand before both channel discovery and OR expansion."""
+    return re.sub(
+        r"(?P<literal>" + _QUOTED_EVIDENCE_LITERAL + r")|"
+        r"(?P<checklist>^[ \t]*(?:[-*+]|\d+[.)])[ \t]*\[[ xX]\][ \t]*)"
+        r"(?P<destination>(?:(?:an?|the)\s+)?(?:pr|pull request)\s+comments?)"
+        r"\s+with\s+(?P<proof>(?:(?:test|validation|CI|build|execution)\s+){0,3}"
+        r"(?:evidence|command outputs?|transcripts?|" + _EVIDENCE_PROOF_ALIAS_NOUN + r"))\b",
+        lambda match: (
+            match[0]
+            if match["literal"]
+            else match["checklist"] + match["proof"] + " in " + match["destination"]
+        ),
+        acceptance,
+        flags=re.I | re.M,
+    )
+
+
+def _normalize_passive_product_capabilities(acceptance: str) -> str:
+    """Give both classifiers the same bounded product-capability governor."""
+    operations = {
+        "attached": "attach",
+        "provided": "provide",
+        "uploaded": "upload",
+        "published": "publish",
+        "posted": "post",
+        "recorded": "record",
+        "captured": "capture",
+        "included": "include",
+        "documented": "document",
+        "copied": "copy",
+    }
+    return re.sub(
+        r"(?P<literal>" + _QUOTED_EVIDENCE_LITERAL + r")|"
+        r"(?P<prefix>\b" + _EVIDENCE_PRODUCT_ACTOR + r"\s+"
+        r"(?:(?:" + _MANDATORY_EVIDENCE_AUXILIARY + r"|will|" + _EVIDENCE_OPTIONAL_MODAL + r")\s+)?"
+        r"(?:allow|enable|support|permit)\w*\s+)"
+        r"(?P<object>"
+        + _EVIDENCE_OBJECT_MODIFIERS
+        + r"(?:evidence|artifacts?|transcripts?|command outputs?)\b)"
+        r"\s+to\s+be\s+(?P<operation>" + "|".join(operations) + r")\b",
+        lambda match: (
+            match[0]
+            if match["literal"]
+            else (
+                match["prefix"]
+                + "users to "
+                + operations[match["operation"].lower()]
+                + " "
+                + match["object"]
+            )
+        ),
+        acceptance,
+        flags=re.I,
+    )
+
+
+def _normalize_plain_artifact_destinations(acceptance: str) -> str:
+    """Canonicalize bare artifact destinations only under delivery predicates."""
+    # A named component is product behavior unless its subject is an explicit
+    # delivery actor. This keeps the grammar open to new component names while
+    # preserving actual reviewer/maintainer/team duties.
+    component_delivery = re.compile(
+        r"(?P<literal>" + _QUOTED_EVIDENCE_LITERAL + r")|"
+        r"(?P<boundary>(?:^|[;.!?\n])\s*)"
+        r"(?P<subject>(?:(?:the|an?)\s+)?(?:[\w/-]+\s+){0,4}[\w/-]+)\s+"
+        r"(?:" + _MANDATORY_EVIDENCE_AUXILIARY + r")\s+"
+        r"(?:" + _EVIDENCE_DELIVERY_OPERATION + r")\s+"
+        r"(?:(?:the|an?|any|this|that|these|those)\s+)?"
+        + _EVIDENCE_OBJECT_MODIFIERS
+        + r"(?:evidence(?:\s+(?:files?|bundles?|packages?))?|transcripts?|command outputs?|"
+        r"validation\s+results?|tests?(?:\s+results?)?)\s+"
+        r"(?:in|into|to|as)\s+(?:(?:the|an?)\s+)?artifacts?\b",
+        re.I,
+    )
+    acceptance = component_delivery.sub(
+        lambda match: (
+            match[0]
+            if match["literal"] or _is_evidence_delivery_actor_subject(match["subject"])
+            else match["boundary"] + match["subject"] + " product behavior"
+        ),
+        acceptance,
+    )
+    destination = re.compile(
+        r"(?P<literal>" + _QUOTED_EVIDENCE_LITERAL + r")|"
+        r"(?P<prefix>(?:\b"
+        + _EVIDENCE_DESTINATION_PREPOSITION
+        + r"|,\s*(?:(?:and|or)\b)?|\b(?:and|or))\s+"
+        r"(?:(?:the|an?)\s+)?)artifacts?\b"
+        r"(?=\s*(?:$|[;,.!?\n]|(?:and|or|but|which|that|is|are|must|shall|may|can|only|solely)\b))",
+        re.I,
+    )
+    evidence_object = (
+        r"(?:evidence(?:\s+(?:files?|bundles?|packages?))?|transcripts?|command outputs?|validation\s+results?|"
+        r"tests?(?:\s+results?)?)"
+    )
+    delivery_participle = (
+        r"attached|provided|uploaded|published|posted|recorded|captured|"
+        r"included|documented|copied|copying"
+    )
+    # Evidence subject of a location/requirement/delivery clause
+    # ("Evidence is required in an artifact", "... in the PR body and as an
+    # artifact"). Require the object to be the clause head — not a modifier in
+    # compounds such as "command output validation".
+    evidence_head = re.compile(
+        r"\b" + evidence_object + r"\b"
+        r"(?:\s+(?:must|shall|may|can|should|is|are|to|be|present|available|"
+        r"included|only|solely|both|either|required|needed|mandatory|"
+        + delivery_participle
+        + r"))*"
+        r"(?=\s*(?:$|(?:and|or)\s+"
+        + _EVIDENCE_DESTINATION_PREPOSITION
+        + r"\b|"
+        + _EVIDENCE_DESTINATION_PREPOSITION
+        + r"\b))",
+        re.I,
+    )
+    # Delivery verb must govern an evidence object — not an arbitrary product
+    # noun such as "property" or "checksum".
+    delivery_of_evidence = re.compile(
+        r"\b(?:"
+        + _EVIDENCE_DELIVERY_OPERATION
+        + r"|"
+        + delivery_participle
+        + r")\b\s+"
+        + r"(?:(?:the|an?|all|any|this|that|these|those)\s+)?"
+        + _EVIDENCE_OBJECT_MODIFIERS
+        + evidence_object
+        + r"\b"
+        # Source filenames are payload qualifiers, not sentence boundaries.
+        # Keep them bounded and require the normal delivery boundary after the
+        # full filename so product/domain clauses cannot borrow this match.
+        + r"(?:\s+(?:from|using)\s+[\w/-]+(?:\.[\w/-]+){1,4}){0,2}"
+        + _DELIVERED_EVIDENCE_OBJECT_END,
+        re.I,
+    )
+
+    # Coordinated product clauses ("..., and the application must ...") are not
+    # the same delivery scope as a preceding evidence destination list.
+    independent_clause = re.compile(
+        r"(?:,\s*)?\b(?:and|but|while)\s+"
+        + _EVIDENCE_RECIPIENT_PREFIX
+        + r"\b"
+        + _EVIDENCE_PRODUCT_ACTOR_NOUN
+        + r"\b"
+        + _EVIDENCE_ACTOR_QUALIFIER,
+        re.I,
+    )
+    # A coordinated predicate with an elided subject is not a destination-list
+    # member. Only a fresh evidence delivery (selected below), a destination
+    # preposition, or a delivery of the same evidence pronoun can retain scope.
+    coordinated_predicate = re.compile(
+        r"\b(?:and|but|while)\s+"
+        r"(?!(?:(?:either|both)\s+)?(?:" + _EVIDENCE_DESTINATION_PREPOSITION + r")\b)"
+        r"(?!(?:(?:the|an?)\s+)?artifacts?\b)"
+        r"(?!"
+        + _EVIDENCE_COORDINATED_DELIVERY_PREDICATE
+        + r"\s+(?:(?:it|them)\s+)?(?:in|into|to|as)\b)",
+        re.I,
+    )
+
+    def replace(match: re.Match[str]) -> str:
+        if match["literal"]:
+            return match[0]
+        sentence_end = max(
+            (match.start() for match in re.finditer(r"\.(?=\s|$)", acceptance[: match.start()])),
+            default=-1,
+        )
+        clause_start = (
+            max(
+                acceptance.rfind(";", 0, match.start()),
+                acceptance.rfind("\n", 0, match.start()),
+                sentence_end,
+                acceptance.rfind("!", 0, match.start()),
+                acceptance.rfind("?", 0, match.start()),
+            )
+            + 1
+        )
+        before = acceptance[clause_start : match.start()]
+        delivery = max(
+            [*evidence_head.finditer(before), *delivery_of_evidence.finditer(before)],
+            key=lambda candidate: candidate.start(),
+            default=None,
+        )
+        if not delivery:
+            # Domain uses such as "validate a field in an artifact" are not
+            # evidence-delivery destinations and must not invent a channel.
+            return match[0]
+        # Elision inherits an actual preceding review destination, never
+        # an object conjunction such as "upload evidence and artifacts".
+        if not re.match(
+            r"\b" + _EVIDENCE_DESTINATION_PREPOSITION + r"\s+", match["prefix"], re.I
+        ) and not re.search(
+            r"\b"
+            + _EVIDENCE_DESTINATION_PREPOSITION
+            + r"\s+"
+            + r"(?:(?:either|both)\s+)?"
+            + _EVIDENCE_REVIEW_DESTINATION,
+            before[delivery.end() :],
+            re.I,
+        ):
+            return match[0]
+        # A later independently governed product clause must not inherit the
+        # earlier evidence delivery when deciding whether to canonicalize.
+        tail = before[delivery.end() :] + match["prefix"] + "artifact"
+        if independent_clause.search(tail) or coordinated_predicate.search(tail):
+            return match[0]
+        prefix = re.sub(r"\ban\s+$", "a ", match["prefix"], flags=re.I)
+        return prefix + "workflow artifact"
+
+    return destination.sub(replace, acceptance)
+
+
+def _normalize_product_destination_lists(acceptance: str) -> str:
+    """A complete bounded product capability list creates no review delivery."""
+    member = _EVIDENCE_DESTINATION_PREPOSITION + r"\s+" + _EVIDENCE_REVIEW_DESTINATION
+    sibling = r"(?:" + _EVIDENCE_DESTINATION_PREPOSITION + r"\s+)?" + _EVIDENCE_REVIEW_DESTINATION
+    # An independently governed review actor after and/while is a separate
+    # obligation, not another product destination member.
+    independent_actor = (
+        r"(?:,\s*)?\b(?:and|but|while)\s+"
+        + _EVIDENCE_RECIPIENT_PREFIX
+        + r"\b(?:reviewers?|auditors?|maintainers?|authors?|operators?|"
+        r"verifiers?|testers?|agents?|bots?|runners?|developers?|"
+        r"engineers?|teams?)\b"
+    )
+    return re.sub(
+        r"(?P<literal>" + _QUOTED_EVIDENCE_LITERAL + r")|"
+        r"\b" + _EVIDENCE_PRODUCT_ACTOR + r"\s+"
+        r"(?:(?:" + _MANDATORY_EVIDENCE_AUXILIARY + r"|will|" + _EVIDENCE_OPTIONAL_MODAL + r")\s+)?"
+        r"(?:allow|enable|support|permit)\w*\s+"
+        + _EVIDENCE_RECIPIENT_PREFIX
+        + _EVIDENCE_ACTOR_NOUN
+        + _EVIDENCE_ACTOR_QUALIFIER
+        + r"\s+to\s+"
+        + _EVIDENCE_DELIVERY_OPERATION
+        + r"\s+"
+        + _EVIDENCE_OBJECT_MODIFIERS
+        + r"(?:evidence|artifacts?|transcripts?|command outputs?|"
+        + _EVIDENCE_PROOF_ALIAS_NOUN
+        + r")\s+"
+        + member
+        + r"(?:\s+(?:and|or)\s+"
+        + sibling
+        + r")+"
+        r"(?=\s*(?:$|[;.!?\n]|" + independent_actor + r"))",
+        lambda match: match[0] if match["literal"] else "product capability evidence",
         acceptance,
         flags=re.I,
     )
 
 
 _EVIDENCE_ARTIFACT_DESTINATION = r"(?:workflow|ci|github actions)\s+artifacts?\b"
+_EVIDENCE_PR_COMMENT_DESTINATION = (
+    r"(?:(?:pr|pull request)\s+comments?|(?:inline\s+)?(?:pr\s+)?review comments?)"
+)
+_EVIDENCE_ACTIVE_AS_ARTIFACT_DELIVERY = (
+    r"\b(?:upload|attach|publish|post|record|capture|provide|include|document)\w*"
+    r"\s+(?:(?:the|an?|any|this|that|these|those)\s+)?"
+    + _EVIDENCE_OBJECT_MODIFIERS
+    + r"(?:evidence(?:\s+(?:files?|bundles?|packages?))?|transcripts?|command outputs?|"
+    r"coverage reports?|" + _EVIDENCE_PROOF_ALIAS_NOUN + r")\s+as\s+"
+    r"(?:(?:an?|the)\s+)?artifacts?\b"
+)
 _EVIDENCE_REVIEW_DESTINATION = (
     r"(?:(?:the|an?)\s+)?(?:"
-    r"(?:pr|pull request)\s+(?:body|description)\b(?:\s+" + _REVIEW_BODY_COMPONENT + r")?|"
-    r"(?:pr|pull request)\s+comments?\b(?:\s+"
+    r"(?:pr|pull request)\s+(?:body|description)\b(?:\s+"
+    + _REVIEW_BODY_COMPONENT
+    + r")?|"
+    + _EVIDENCE_PR_COMMENT_DESTINATION
+    + r"\b(?:\s+"
     + _REVIEW_BODY_COMPONENT
     + r")?|"
     + _EVIDENCE_ARTIFACT_DESTINATION
     + r"|(?:pr|pull request)\b)"
 )
 _EVIDENCE_DESTINATION_SEPARATOR_BASE = r"(?:\s*,\s*(?:(?:and|or)\s+)?|\s+(?:and|or)\s+)"
+
+
+def _normalize_capability_deliveries(acceptance: str) -> str:
+    """Prevent permission/capability clauses from becoming evidence delivery duties."""
+    capability_destination = (
+        r"(?:" + _EVIDENCE_REVIEW_DESTINATION + r"|(?:(?:the|an?)\s+)?artifacts?\b)"
+    )
+    destination_member = _EVIDENCE_DESTINATION_PREPOSITION + r"\s+" + capability_destination
+    inherited_destination_member = (
+        r"(?:" + destination_member + r"|" + capability_destination + r")"
+    )
+    destination_tail = (
+        r"(?:\s+(?:(?:both|either)\s+)?"
+        + destination_member
+        + r"(?:"
+        + _EVIDENCE_DESTINATION_SEPARATOR_BASE
+        + inherited_destination_member
+        + r")*)?"
+    )
+    proof_object = (
+        _EVIDENCE_OBJECT_MODIFIERS
+        + r"(?:evidence(?:\s+(?:files?|bundles?|packages?))?|transcripts?|command outputs?|"
+        + _EVIDENCE_PROOF_ALIAS_NOUN
+        + r")\b"
+    )
+    capability_delivery_operation = (
+        r"(?:" + _EVIDENCE_DELIVERY_OPERATION + r"|" + "|".join(_EVIDENCE_RECORD_ALIASES) + r"\b)"
+    )
+    coordinated_proof_operand = proof_object + r"|(?:it|them|this|these|those|both)\b"
+    coordinated_capability_predicate = (
+        r"(?:"
+        + _EVIDENCE_COORDINATED_DELIVERY_PREDICATE
+        + r"|"
+        + _EVIDENCE_DELIVERY_ADVERBS
+        + capability_delivery_operation
+        + r")"
+    )
+    coordinated_delivery = (
+        r"(?:"
+        + _EVIDENCE_DESTINATION_SEPARATOR_BASE
+        + coordinated_capability_predicate
+        + r"\s+(?:"
+        + coordinated_proof_operand
+        + r")"
+        + destination_tail
+        + r")*"
+    )
+    capability_delivery = re.compile(
+        r"(?P<literal>" + _QUOTED_EVIDENCE_LITERAL + r")|"
+        r"(?:(?:"
+        + _MANDATORY_EVIDENCE_AUXILIARY
+        + r"|"
+        + _EVIDENCE_OPTIONAL_MODAL
+        + r")|(?:and|or))\s+"
+        r"(?:allow|enable|support|permit)\w*\s+"
+        r"(?:users?|reviewers?|maintainers?|authors?)\s+to\s+"
+        + _EVIDENCE_DELIVERY_ADVERBS
+        + capability_delivery_operation
+        + r"\s+"
+        + proof_object
+        + destination_tail
+        + coordinated_delivery,
+        re.I,
+    )
+    return capability_delivery.sub(
+        lambda match: match[0] if match["literal"] else "product capability evidence",
+        acceptance,
+    )
+
+
+def _normalize_leading_review_destination_quantifier(acceptance: str) -> str:
+    """Put a list quantifier where the shared destination grammar expects it.
+
+    This converts ``both in the PR body`` to ``in both the PR body`` only
+    when it starts a concrete shared review-destination list, rather than
+    rewriting arbitrary product prose.
+    """
+    review_destination = _EVIDENCE_REVIEW_DESTINATION
+    return re.sub(
+        r"(?P<literal>" + _QUOTED_EVIDENCE_LITERAL + r")|"
+        r"\b(?P<quantifier>both|either)\s+(?P<preposition>"
+        + _EVIDENCE_DESTINATION_PREPOSITION
+        + r")\s+"
+        r"(?P<destination>" + review_destination + r")"
+        r"(?=\s+(?:and|or)\s+" + _EVIDENCE_DESTINATION_PREPOSITION + r"\b)",
+        lambda match: (
+            match[0]
+            if match["literal"]
+            else match["preposition"] + " " + match["quantifier"] + " " + match["destination"]
+        ),
+        acceptance,
+        flags=re.I,
+    )
+
+
 _EVIDENCE_PRODUCT_ACTOR = (
-    _EVIDENCE_RECIPIENT_PREFIX
-    + r"(?:application|app|service|api|endpoint|ui|interface|cli|renderer)\b"
-    + _EVIDENCE_ACTOR_QUALIFIER
+    _EVIDENCE_RECIPIENT_PREFIX + _EVIDENCE_PRODUCT_ACTOR_NOUN + r"\b" + _EVIDENCE_ACTOR_QUALIFIER
 )
 _EVIDENCE_PRODUCT_RECIPIENT = (
     _EVIDENCE_RECIPIENT_PREFIX + r"(?:clients?|users?|consumers?)\b" + _EVIDENCE_ACTOR_QUALIFIER
@@ -1183,6 +1811,10 @@ _EVIDENCE_CONDITIONAL = (
 
 
 _EVIDENCE_RECORD_ALIASES = {
+    "copy": "record",
+    "copies": "records",
+    "copied": "recorded",
+    "copying": "recording",
     "share": "record",
     "shares": "records",
     "shared": "recorded",
@@ -1516,26 +2148,199 @@ def _normalize_review_content_qualifiers(acceptance: str) -> str:
         + _EVIDENCE_PROOF_ALIAS_NOUN
         + r"|evidence|artifacts?|transcripts?|command outputs?|logs?|failures?|results?)\b"
     )
-    return re.sub(
-        r"(?P<literal>" + _QUOTED_EVIDENCE_LITERAL + r")|"
+    destination = (
         r"(?P<destination>\b(?:pr|pull request)\s+(?:body|description|comments?)\b"
-        r"(?:[ \t]+" + _REVIEW_BODY_COMPONENT + r")?)"
-        r"[ \t]+(?:" + _REVIEW_CONTENT_PARTICIPLE + r")[ \t]+" + content,
+        r"(?:[ \t]+" + _REVIEW_BODY_COMPONENT + r")?|"
+        r"(?:(?:the|an?)\s+)?(?:(?:workflow|ci|github actions)\s+)?artifacts?\b)"
+    )
+    # Content is bounded by the next actual destination/independent clause,
+    # not by a proof-noun vocabulary. Conjunctions inside the content are data.
+    content_destination = (
+        r"(?:" + _EVIDENCE_REVIEW_DESTINATION + r"|(?:(?:the|an?)\s+)?artifacts?\b)"
+    )
+    independent_actor = (
+        _EVIDENCE_RECIPIENT_PREFIX
+        + r"(?:"
+        + _EVIDENCE_ACTOR_NOUN
+        + r"|app|interface|cli|renderer|schema|pipeline|parser|product|system|component|module)\b"
+        + _EVIDENCE_ACTOR_QUALIFIER
+        + r"\s+"
+        + _INDEPENDENT_REVIEW_PREDICATE
+    )
+    content_boundary = (
+        r"(?:$|[;.!?\n]|(?:only|solely|if|when|that|which|where|before|after)\b|"
+        + _EVIDENCE_DESTINATION_SEPARATOR_BASE
+        + r"(?:"
+        + _EVIDENCE_DESTINATION_PREPOSITION
+        + r"\s+)?"
+        + content_destination
+        + r"|(?:,?\s*)(?:and|or|but|while)\s+"
+        + independent_actor
+        + r"|(?:and|or)\s+"
+        + _EVIDENCE_COORDINATED_DELIVERY_PREDICATE
+        + r"\s+(?:in|into|to|as)\s+"
+        + content_destination
+        + r")"
+    )
+    # Consume prose as opaque content until the established clause/destination
+    # boundary. A quoted literal is one atom, so a destination-shaped example
+    # inside it cannot terminate a real sibling destination.
+    prose_content_boundary = content_boundary.replace(r"[;.!?\n]", r"(?:[;!?\n]|\.(?=\s|$))")
+    content_atom = (
+        r"(?:" + _QUOTED_EVIDENCE_LITERAL + r"|"
+        r"(?![ \t]+" + prose_content_boundary + r")[^\r\n])"
+    )
+    prepositional_content = (
+        r"[ \t]+(?:"
+        + _REVIEW_CONTENT_PREPOSITION
+        + r")[ \t]+"
+        + r"(?:"
+        + content_atom
+        + r")+?"
+        + r"(?="
+        + prose_content_boundary
+        + r"|[ \t]+"
+        + prose_content_boundary
+        + r")"
+    )
+    # Participles and relative content predicates describe payload shape, not a
+    # separate evidence channel. Strip them from PR and artifact destinations so
+    # product lists and OR expansion keep their established governors.
+    content_tail = (
+        r"(?:"
+        + prepositional_content
+        + r"|"
+        + r"[ \t]+(?:"
+        + _REVIEW_CONTENT_PARTICIPLE
+        + r")[ \t]+"
+        + content
+        + r"|"
+        r"[ \t]+(?:that|which)[ \t]+"
+        + _EVIDENCE_DELIVERY_ADVERBS.replace(r"\s+", r"[ \t]+")
+        + r"(?:must|shall|will|"
+        + _EVIDENCE_OPTIONAL_MODAL
+        + r")[ \t]+not[ \t]+"
+        + _EVIDENCE_DELIVERY_ADVERBS.replace(r"\s+", r"[ \t]+")
+        + r"(?:contain|include|have)\w*[ \t]+"
+        + content
+        # A condition attached to discarded negative content belongs to that
+        # content, not to the parent's mandatory destination or its siblings.
+        + r"(?:[ \t]*,?[ \t]*" + _EVIDENCE_CONDITIONAL + r")?)"
+    )
+    # A positive relative predicate can be payload content when it modifies one
+    # member of a shared destination list. Keep that content, but make it a
+    # modifier so the child's modal cannot replace the list's shared governor.
+    # Standalone relative presence remains untouched below.
+    shared_relative_content = (
+        r"[ \t]+(?:that|which)[ \t]+"
+        + _EVIDENCE_DELIVERY_ADVERBS.replace(r"\s+", r"[ \t]+")
+        + r"(?:"
+        + _MANDATORY_EVIDENCE_AUXILIARY
+        + r"|will|"
+        + _EVIDENCE_OPTIONAL_MODAL
+        + r")[ \t]+"
+        + _EVIDENCE_DELIVERY_ADVERBS.replace(r"\s+", r"[ \t]+")
+        + r"(?:contain|include|have)\w*(?P<content>"
+        + r"[ \t]+(?:[\w/-]+[ \t]+){0,6}[\w/-]+)"
+    )
+    artifact_content_destination = (
+        r"(?:(?:the|an?)\s+)?(?:(?:workflow|ci|github actions)\s+)?artifacts?\b"
+    )
+    shared_list_prefix = r"\b(?:and|or)[ \t]+(?:in|into|to|as)[ \t]+"
+    shared_list_suffix = r"[ \t]+(?:and|or)[ \t]+(?:in|into|to|as)[ \t]+" + content_destination
+    acceptance = re.sub(
+        r"(?P<literal>"
+        + _QUOTED_EVIDENCE_LITERAL
+        + r")|(?P<prefix>"
+        + shared_list_prefix
+        + r")(?P<destination>"
+        + artifact_content_destination
+        + r")"
+        + shared_relative_content,
+        lambda match: match["literal"]
+        or match["prefix"] + match["destination"] + " with" + match["content"],
+        acceptance,
+        flags=re.I,
+    )
+    acceptance = re.sub(
+        r"(?P<literal>"
+        + _QUOTED_EVIDENCE_LITERAL
+        + r")|(?P<destination>"
+        + artifact_content_destination
+        + r")"
+        + shared_relative_content
+        + r"(?P<suffix>"
+        + shared_list_suffix
+        + r")",
+        lambda match: match["literal"]
+        or match["destination"] + match["suffix"] + " with" + match["content"],
+        acceptance,
+        flags=re.I,
+    )
+    # Relative/exclusion content may sit between a delivered proof object and its
+    # destination ("evidence that must not contain secrets as an artifact"). Move
+    # it after the destination so the shared content-tail strip and polarity pass
+    # keep the mandatory channel instead of inventing overall or dropping it.
+    delivered_proof_object = (
+        r"(?:evidence(?:\s+(?:files?|bundles?|packages?))?|transcripts?|command outputs?|"
+        r"coverage reports?|" + _EVIDENCE_PROOF_ALIAS_NOUN + r")"
+    )
+    interposed_payload = (
+        r"(?:(?!(?:as|in|into|to)\b)[\w/-]+[ \t]+){0,6}(?!(?:as|in|into|to)\b)[\w/-]+"
+    )
+    interposed_content = (
+        r"(?:"
+        r"[ \t]+(?:that|which)[ \t]+"
+        + _EVIDENCE_DELIVERY_ADVERBS.replace(r"\s+", r"[ \t]+")
+        + r"(?:must|shall|will|"
+        + _EVIDENCE_OPTIONAL_MODAL
+        + r")[ \t]+not[ \t]+"
+        + _EVIDENCE_DELIVERY_ADVERBS.replace(r"\s+", r"[ \t]+")
+        + r"(?:contain|include|have)\w*[ \t]+"
+        + interposed_payload
+        + r"(?:[ \t]*,?[ \t]*"
+        + _EVIDENCE_CONDITIONAL
+        + r")?"
+        + r"|"
+        r"[ \t]+without[ \t]+" + interposed_payload + r")"
+    )
+    acceptance = re.sub(
+        r"(?P<literal>"
+        + _QUOTED_EVIDENCE_LITERAL
+        + r")|(?P<object>\b"
+        + delivered_proof_object
+        + r"\b)(?P<content>"
+        + interposed_content
+        + r")(?P<link>[ \t]+(?:in|into|to|as)[ \t]+(?:"
+        + content_destination
+        + r"))",
+        lambda match: match["literal"] or match["object"] + match["link"] + match["content"],
+        acceptance,
+        flags=re.I,
+    )
+    return re.sub(
+        r"(?P<literal>" + _QUOTED_EVIDENCE_LITERAL + r")|" + destination + content_tail,
         lambda match: match["literal"] or match["destination"],
         acceptance,
         flags=re.I,
     )
 
 
-def _required_evidence_channels(acceptance: str, *, _bind_attached: bool = True) -> set[str]:
+def _classify_evidence_channels(acceptance: str, *, _bind_attached: bool = True) -> set[str]:
     """Identify explicit evidence deliverables without treating negations as requirements."""
 
+    acceptance = _normalize_capability_deliveries(acceptance)
+    acceptance = _normalize_leading_review_destination_quantifier(acceptance)
     acceptance = _normalize_review_comment_destinations(acceptance)
-    acceptance = _normalize_bare_artifact_destinations(acceptance)
+    acceptance = _normalize_plain_artifact_destinations(acceptance)
+    acceptance = _normalize_destination_first_checklist(acceptance)
+    acceptance = _normalize_passive_product_capabilities(acceptance)
     acceptance = _normalize_evidence_source_filename_qualifiers(acceptance)
     acceptance = _normalize_review_content_qualifiers(acceptance)
+    acceptance = _normalize_plain_artifact_destinations(acceptance)
     acceptance = _normalize_passive_review_agents(acceptance)
     acceptance = _normalize_relative_review_presence(acceptance)
+    acceptance = _normalize_product_destination_lists(acceptance)
     channels: set[str] = set()
     response_operation = (
         r"(?:include|contain|have|return|display|show|store|emit|render|expose|provide)\w*\b"
@@ -1577,6 +2382,35 @@ def _required_evidence_channels(acceptance: str, *, _bind_attached: bool = True)
     # Lexical aliases share obligation, negation, destination and product rules,
     # including the earlier proof-pronoun antecedent path.
     record_aliases = _EVIDENCE_RECORD_ALIASES
+    # Identical coordinated verbs share one governor and object. Coalesce
+    # before aliasing/clause splitting so a later bare verb cannot lose may/not.
+    acceptance = re.sub(
+        r"(?P<literal>" + quoted_evidence_literal + r")|"
+        r"\b(?P<operation>" + delivery_operation + r")\s+(?:and|or)\s+"
+        r"(?P=operation)\b",
+        lambda match: match[0] if match["literal"] else match["operation"],
+        acceptance,
+        flags=re.I,
+    )
+    # Object-level polarity is not a delivery governor. Preserve its bytes in
+    # the prompt, but use the shared bounded adjective grammar for classification.
+    acceptance = re.sub(
+        r"(?P<literal>" + quoted_evidence_literal + r")|"
+        r"(?P<operation>\b(?:"
+        + delivery_operation
+        + r"|"
+        + "|".join(record_aliases)
+        + r")\s+)"
+        + _NEGATIVE_EVIDENCE_ADJECTIVE_TAIL
+        + r"\s+(?="
+        + evidence_modifiers
+        + r"(?:evidence|artifacts?|transcripts?|command outputs?|"
+        + _EVIDENCE_PROOF_ALIAS_NOUN
+        + r")\b)",
+        lambda match: match[0] if match["literal"] else match["operation"],
+        acceptance,
+        flags=re.I,
+    )
     shared_proof_delivery_operation = (
         r"(?:" + delivery_operation + r"|" + "|".join(record_aliases) + r"\b)"
     )
@@ -2048,6 +2882,7 @@ def _required_evidence_channels(acceptance: str, *, _bind_attached: bool = True)
             "delivered",
             "supplied",
             "shared",
+            "copied",
         }:
             prefix = re.split(
                 r"[;,.!?\n]|\b(?:and|or|but|that|which|who|while|after|once|before|when|until|unless|if|since|because|whereas|although)\b",
@@ -2061,7 +2896,8 @@ def _required_evidence_channels(acceptance: str, *, _bind_attached: bool = True)
                 prefix,
             )
             active_delivery_subject = (
-                alias.lower() in {"placed", "submitted", "delivered", "supplied", "shared"}
+                alias.lower()
+                in {"placed", "submitted", "delivered", "supplied", "shared", "copied"}
                 and bool(
                     re.fullmatch(
                         r"\s*" + qualified_delivery_actor + r"\s*",
@@ -2657,12 +3493,16 @@ def _required_evidence_channels(acceptance: str, *, _bind_attached: bool = True)
             for item in re.finditer(
                 r"\b(?:pr|pull request)\s+(?P<channel>body|description|comments?)\b"
                 r"(?P<component>\s+" + body_component + r")?|"
+                r"\b(?P<reviewcomment>" + _EVIDENCE_PR_COMMENT_DESTINATION + r")\b|"
                 r"(?P<artifact>" + artifact_destination_object + r")",
                 clause,
                 re.I,
             ):
                 if item["artifact"]:
                     destinations.add("artifacts")
+                    continue
+                if item["reviewcomment"]:
+                    destinations.add("comments")
                     continue
                 if item["component"] and product_comment_object(
                     text[: match.start() + item.start()], item["component"]
@@ -2806,6 +3646,7 @@ def _required_evidence_channels(acceptance: str, *, _bind_attached: bool = True)
                 "provide",
                 "document",
                 "record",
+                "copy",
                 "capture",
                 "generate",
                 "prove",
@@ -2839,6 +3680,13 @@ def _required_evidence_channels(acceptance: str, *, _bind_attached: bool = True)
                         r"^\s*"
                         + evidence_modifiers
                         + r"(?:evidence|artifacts?|transcripts?|command outputs?|pr comments?|pull request comments?)\b",
+                        "",
+                        between,
+                        count=1,
+                        flags=re.I,
+                    )
+                    between = re.sub(
+                        r"^\s*" + bound_review_destinations,
                         "",
                         between,
                         count=1,
@@ -2926,7 +3774,7 @@ def _required_evidence_channels(acceptance: str, *, _bind_attached: bool = True)
             subject = fronted["subject"]
         actor_head = re.search(
             r"\b(?:(?:api|ui)\s+)?(?:reviewers?|maintainers?|authors?|operators?)\b"
-            r"|\b(?:ui|api|application|interface|service|cli|endpoint|renderer)\b",
+            r"|\b" + _EVIDENCE_PRODUCT_ACTOR_NOUN + r"\b",
             subject,
             re.I,
         )
@@ -2941,8 +3789,9 @@ def _required_evidence_channels(acceptance: str, *, _bind_attached: bool = True)
         # discard a later subject merely because the introduction uses a verb.
         for qualifier in re.finditer(r"\b(?:using|testing|accessing|operating)\b", subject, re.I):
             if re.search(
-                r"\b(?:reviewers?|maintainers?|authors?|operators?|ui|api|application|"
-                r"interface|service|cli|endpoint|renderer)\b",
+                r"\b(?:reviewers?|maintainers?|authors?|operators?|"
+                + _EVIDENCE_PRODUCT_ACTOR_NOUN
+                + r")\b",
                 subject[: qualifier.start()],
                 re.I,
             ):
@@ -2998,17 +3847,7 @@ def _required_evidence_channels(acceptance: str, *, _bind_attached: bool = True)
         )
         return bool(
             words
-            and words[-1]
-            in {
-                "ui",
-                "api",
-                "application",
-                "interface",
-                "service",
-                "cli",
-                "endpoint",
-                "renderer",
-            }
+            and words[-1] in _EVIDENCE_PRODUCT_ACTOR_WORDS
             and (capability or product_destination or (field_operation and not review_destination))
         )
 
@@ -3350,12 +4189,12 @@ def _required_evidence_channels(acceptance: str, *, _bind_attached: bool = True)
             r"))"
         )
         clause_evidence_antecedent: str | None = None
-        pronoun_pr_delivery = re.compile(
+        proof_pronoun_delivery = re.compile(
             r"\b(?:attach|upload|publish|post|record|capture|provide|include|document|link)\w*\b"
-            r".{0,40}\b(?:it|them|this|they|these|those|both)\b.{0,40}\b(?:pr|pull request)\b"
+            r".{0,40}\b(?:it|them|this|they|these|those|both)\b.{0,40}\b(?:pr|pull request|(?:(?:workflow|ci|github actions)\s+)?artifacts?)\b"
             r"|\b(?:it|them|this|they|these|those|both)\b.{0,40}"
             r"\b(?:attached|uploaded|published|posted|recorded|captured|provided|"
-            r"included|documented|linked)\b.{0,40}\b(?:pr|pull request)\b",
+            r"included|documented|linked)\b.{0,40}\b(?:pr|pull request|(?:(?:workflow|ci|github actions)\s+)?artifacts?)\b",
             re.I,
         )
         fragments = []
@@ -3485,6 +4324,7 @@ def _required_evidence_channels(acceptance: str, *, _bind_attached: bool = True)
                 fragments
                 and re.fullmatch(r"\s*,?\s*and\s+", boundary, re.I)
                 and not re.match(r"\s*" + delivery_governor_auxiliary + r"\s+", fragment, re.I)
+                and not re.match(r"\s*" + delivery_operation, fragment, re.I)
                 and re.fullmatch(
                     r"\s*(?:(?!(?:and|or|but|must|shall|is|are|not|never)\b)[\w/-]+\s+){0,4}"
                     r"(?:evidence|artifacts?|transcripts?|command outputs?)\s+"
@@ -3571,20 +4411,27 @@ def _required_evidence_channels(acceptance: str, *, _bind_attached: bool = True)
             else:
                 fragments.append(fragment)
         for line in fragments:
+            # Destination nouns do not replace the proof antecedent. This keeps
+            # an independent "record it in an artifact" bound to prior proof.
+            object_line = re.sub(
+                destination_preposition
+                + r"(?:"
+                + review_destination_noun
+                + r"|(?:(?:the|an?)\s+)?artifacts?\b)",
+                lambda match: " " * len(match[0]),
+                line,
+                flags=re.I,
+            )
             objects = [
                 m.group(0)
-                for m in evidence_term.finditer(line)
+                for m in evidence_term.finditer(object_line)
                 if not re.search(r"(?:pr|pull request) comments?", m.group(0), re.I)
             ]
             if objects:
                 clause_evidence_antecedent = " and ".join(objects)
             resolved_antecedent = None
             working_line = line
-            if (
-                clause_evidence_antecedent
-                and not evidence_term.search(line)
-                and pronoun_pr_delivery.search(line)
-            ):
+            if clause_evidence_antecedent and not objects and proof_pronoun_delivery.search(line):
                 working_line = re.sub(
                     r"\b(?:it|them|this|they|these|those|both)\b",
                     clause_evidence_antecedent,
@@ -3593,6 +4440,7 @@ def _required_evidence_channels(acceptance: str, *, _bind_attached: bool = True)
                     flags=re.I,
                 )
                 resolved_antecedent = clause_evidence_antecedent
+                working_line = _normalize_plain_artifact_destinations(working_line)
             # Excluded destinations are not delivery targets. Keep the
             # generic evidence object and other independent deliveries.
             # Optional inspection of a possession noun is not a delivery.
@@ -3631,11 +4479,17 @@ def _required_evidence_channels(acceptance: str, *, _bind_attached: bool = True)
             # explanation (for example, "a PR comment must explain why
             # artifacts are optional"). Remove only that optional subject;
             # do not discard a separate required channel in the same clause.
+            # Destination-governed tails keep their polarity so checklist
+            # phrasing such as "Validation output in a PR comment is optional"
+            # cannot collapse into residual overall after the noun rewrite.
             requirement_text = re.sub(
+                r"(?P<destination_optional>"
+                + bound_review_destinations
+                + r"\s+(?:is|are)\s+optional\b)|"
                 r"\b(?:evidence|artifacts?|transcripts?|command outputs?|workflow runs?|"
                 r"pr comments?|pull request comments?)(?:\s+(?:upload|attachment|publication|"
                 r"posting|capture|recording|generation))?\s+(?:is|are)\s+optional\b",
-                " ",
+                lambda match: match["destination_optional"] or " ",
                 requirement_text,
                 flags=re.I,
             )
@@ -3665,6 +4519,9 @@ def _required_evidence_channels(acceptance: str, *, _bind_attached: bool = True)
             optional_evidence = bool(
                 re.search(
                     r"\boptional(?:ly)?\b(?![-/])|"
+                    r"\b(?:artifacts?|pr comments?|pull request comments?)\s*,?\s+"
+                    r"which\s+(?:may|can|could|would|should)\s+be\s+"
+                    r"(?:skipped|omitted)\s*[.!]?\s*$|"
                     r"\b"
                     + optional_delivery_modal
                     + r"\s+"
@@ -3828,7 +4685,9 @@ def _required_evidence_channels(acceptance: str, *, _bind_attached: bool = True)
                         r"\b(?:pr|pull request)\s+(?:body|description)\b", destination, re.I
                     ):
                         destination_channels.add("body")
-                    if re.search(r"\b(?:pr|pull request)\s+comments?\b", destination, re.I):
+                    if re.search(
+                        r"\b" + _EVIDENCE_PR_COMMENT_DESTINATION + r"\b", destination, re.I
+                    ):
                         destination_channels.add("comments")
                     if re.search(artifact_destination_object, destination, re.I):
                         destination_channels.add("artifacts")
@@ -3978,8 +4837,26 @@ def _required_evidence_channels(acceptance: str, *, _bind_attached: bool = True)
             # PR content wins even when an API is the actor; otherwise a product
             # actor or product destination is application behavior, not evidence.
             if re.search(r"\b(?:workflow\s+)?artifacts?\b", lower):
+                active_as_artifact_match = re.search(
+                    _EVIDENCE_ACTIVE_AS_ARTIFACT_DELIVERY, requirement_text, re.I
+                )
+                active_as_artifact_delivery = bool(
+                    active_as_artifact_match
+                    and not re.search(
+                        rf"\b(?:{optional_delivery_modal})\s+(?:\w+\s+){{0,8}}$",
+                        requirement_text[: active_as_artifact_match.start()],
+                        re.I,
+                    )
+                    and not re.search(
+                        r"\b(?:may|can|could|would|should)\s+(?:be\s+)?"
+                        r"(?:skipped|omitted|optional)\b",
+                        requirement_text[active_as_artifact_match.end() :],
+                        re.I,
+                    )
+                )
                 explicit_artifact_delivery = bool(
-                    re.search(
+                    active_as_artifact_delivery
+                    or re.search(
                         r"\b(?:upload|attach|publish|post|record|capture|provide|include|document)"
                         r"(?:s)?\s+(?:(?:an?|the|any|workflow|validation|exact-head|evidence)\s+){0,4}"
                         r"artifacts?\b",
@@ -4091,6 +4968,24 @@ def _required_evidence_channels(acceptance: str, *, _bind_attached: bool = True)
                         re.I,
                     )
                 )
+                passive_product_capability = bool(
+                    re.search(
+                        r"\b"
+                        + product_actor
+                        + r"\s+(?:"
+                        + product_auxiliary
+                        + r")?"
+                        + capability_operation
+                        + r"\s+"
+                        + product_evidence_object
+                        + r"to\s+"
+                        + passive_delivery_prefix
+                        + delivery_operation,
+                        normalize_product_capability(requirement_text),
+                        re.I,
+                    )
+                )
+                product_artifact_actor = product_artifact_actor or passive_product_capability
                 evidence_named_artifact = bool(
                     re.search(artifact_destination_object, lower)
                     or re.search(
@@ -4118,6 +5013,13 @@ def _required_evidence_channels(acceptance: str, *, _bind_attached: bool = True)
                         lower,
                     )
                 )
+                # A passive capability governs its complete destination list,
+                # including mixed artifact/PR alternatives. A PR-shaped member
+                # must not override that actor boundary as an artifact delivery.
+                artifact_delivery_into_pr = (
+                    artifact_delivery_into_pr and not passive_product_capability
+                )
+                evidence_named_artifact = evidence_named_artifact and not passive_product_capability
                 if (
                     artifact_delivery_into_pr
                     or evidence_named_artifact
@@ -4143,7 +5045,7 @@ def _required_evidence_channels(acceptance: str, *, _bind_attached: bool = True)
                     continue
             comment_objects = list(
                 re.finditer(
-                    r"\b(?:pr comments?|pull request comments?)\b",
+                    r"\b" + _EVIDENCE_PR_COMMENT_DESTINATION + r"\b",
                     requirement_text,
                     re.I,
                 )
@@ -4167,21 +5069,28 @@ def _required_evidence_channels(acceptance: str, *, _bind_attached: bool = True)
                 (
                     explicit_review_destination
                     and re.search(
-                        r"\b(?:pr comments?|pull request comments?)\b", requirement_text, re.I
+                        r"\b" + _EVIDENCE_PR_COMMENT_DESTINATION + r"\b", requirement_text, re.I
                     )
                 )
                 or re.search(
                     r"\b(?:attach|upload|include|post|publish|record|capture|provide|document|add|leave|left|link)\w*\b"
-                    r"(?:\s+\w+){0,10}\s+\b(?:pr comments?|pull request comments?)\b",
+                    r"(?:\s+\w+){0,10}\s+\b" + _EVIDENCE_PR_COMMENT_DESTINATION + r"\b",
                     requirement_text,
                     re.I,
                 )
                 or re.search(
-                    r"\b(?:pr comments?|pull request comments?)\b.{0,40}"
+                    r"\b" + _EVIDENCE_PR_COMMENT_DESTINATION + r"\b.{0,40}"
                     r"\b(?:(?:is|are)\s+(?:required|mandatory|needed)|"
                     + mandatory_auxiliary
                     + r"\b|"
                     r"(?:is|are|must|shall|needs? to)\s+(?:be\s+)?(?:posted|published)\b)",
+                    requirement_text,
+                    re.I,
+                )
+                or re.search(
+                    r"\b(?:must|shall)\s+be\s+posted\s+in\s+(?:an?\s+|the\s+)?"
+                    + _EVIDENCE_PR_COMMENT_DESTINATION
+                    + r"\b",
                     requirement_text,
                     re.I,
                 )
@@ -4192,27 +5101,34 @@ def _required_evidence_channels(acceptance: str, *, _bind_attached: bool = True)
                     + r"\s+"
                     + passive_delivery_prefix
                     + r"(?:provided|posted|published|recorded|captured|returned|displayed))"
-                    r"\s+in\s+(?:an?\s+|the\s+)?(?:pr comments?|pull request comments?)\b",
+                    r"\s+in\s+(?:an?\s+|the\s+)?" + _EVIDENCE_PR_COMMENT_DESTINATION + r"\b",
                     requirement_text,
                     re.I,
                 )
                 or re.search(
                     r"\b(?:evidence|command outputs?|transcripts?)\b.{0,40}\b"
                     + mandatory_auxiliary
-                    + r"\s+be\s+in\s+(?:an?\s+|the\s+)?(?:pr comments?|pull request comments?)\b",
+                    + r"\s+be\s+in\s+(?:an?\s+|the\s+)?"
+                    + _EVIDENCE_PR_COMMENT_DESTINATION
+                    + r"\b",
                     requirement_text,
                     re.I,
                 )
                 or re.search(
-                    r"\bexact-head\s+(?:pr comments?|pull request comments?)\b",
+                    r"\bexact-head\s+" + _EVIDENCE_PR_COMMENT_DESTINATION + r"\b",
                     requirement_text,
                     re.I,
                 )
-                or (gate and bool(re.search(r"\b(?:pr comments?|pull request comments?)\b", lower)))
+                or (
+                    gate
+                    and bool(re.search(r"\b" + _EVIDENCE_PR_COMMENT_DESTINATION + r"\b", lower))
+                )
                 or re.search(
                     r"\bthere\s+"
                     + mandatory_auxiliary
-                    + r"\s+be\s+(?:(?:an?|the)\s+)?(?:pr comments?|pull request comments?)\b",
+                    + r"\s+be\s+(?:(?:an?|the)\s+)?"
+                    + _EVIDENCE_PR_COMMENT_DESTINATION
+                    + r"\b",
                     requirement_text,
                     re.I,
                 )
@@ -4320,12 +5236,20 @@ def _required_evidence_channels(acceptance: str, *, _bind_attached: bool = True)
                 and not explicit_review_destination
             ):
                 continue
-            if re.search(r"\b(?:pr comments?|pull request comments?)\b", lower):
+            if re.search(r"\b" + _EVIDENCE_PR_COMMENT_DESTINATION + r"\b", lower):
                 if explicit_comment_delivery and not product_comment_behavior:
                     line_channels.add("comments")
                 elif not line_channels:
                     continue
             if not line_channels:
+                # The capability normalizer leaves this internal marker as an
+                # antecedent for a later independent pronoun delivery.  Alone,
+                # it must not become an overall evidence floor.
+                marker_stripped = re.sub(r"\bproduct capability evidence\b", " ", lower)
+                if re.fullmatch(
+                    r"[^;.!?\n]*\bproduct capability evidence\s*", lower
+                ) and not remaining_delivery(marker_stripped):
+                    continue
                 command_behavior = bool(
                     re.search(
                         r"\b(?:cli\s+)?command\b\s+(?:(?:must|shall|will)\s+output|outputs)\b",
@@ -4381,7 +5305,48 @@ def _required_evidence_channels(acceptance: str, *, _bind_attached: bool = True)
     return channels
 
 
-def _required_evidence_options(acceptance: str) -> list[set[str]]:
+# Grammar classification is pure within this module. Retain only small criteria;
+# every caller receives fresh mutable containers, never the cached values.
+_EVIDENCE_CACHE_MAX_CHARS = 8192
+
+
+@lru_cache(maxsize=512)
+def _cached_evidence_channels(acceptance: str, bind_attached: bool) -> frozenset[str]:
+    return frozenset(_classify_evidence_channels(acceptance, _bind_attached=bind_attached))
+
+
+def _required_evidence_channels(acceptance: str, *, _bind_attached: bool = True) -> set[str]:
+    if len(acceptance) > _EVIDENCE_CACHE_MAX_CHARS:
+        return _classify_evidence_channels(acceptance, _bind_attached=_bind_attached)
+    return set(_cached_evidence_channels(acceptance, _bind_attached))
+
+
+def _normalize_standalone_review_comment_alternatives(acceptance: str) -> str:
+    """Express a counted standalone comment duty as a destination DNF list."""
+    return re.sub(
+        r"(?P<literal>" + _QUOTED_EVIDENCE_LITERAL + r")|"
+        r"(?:\b(?:one|two|\d+)ormore\s+)?(?:the\s+|an?\s+)?"
+        r"pr comments?\s+(?:is|are)\s+(?:required|needed|mandatory)\s+or\s+"
+        r"evidence\s+(?P<governor>must|shall)\s+(?:be\s+)?"
+        r"(?:posted|recorded|uploaded|attached|provided|published)\s+"
+        r"(?P<preposition>in|into|to|as)\s+"
+        r"(?P<destination>(?:(?:an?|the)\s+)?(?:(?:workflow|ci|github actions)\s+)?artifacts?)\b",
+        lambda match: (
+            match[0]
+            if match["literal"]
+            else "Evidence "
+            + match["governor"]
+            + " be posted in PR comment or "
+            + match["preposition"]
+            + " "
+            + match["destination"]
+        ),
+        acceptance,
+        flags=re.I,
+    )
+
+
+def _classify_evidence_options(acceptance: str) -> list[set[str]]:
     """Bounded destination ORs; every variant retains all independent clauses.
 
     Expand only concrete destination lists outside literals, then use the same
@@ -4390,18 +5355,25 @@ def _required_evidence_options(acceptance: str) -> list[set[str]]:
     Ambiguous mixed conjunctions or excessive expansion retain the strict legacy
     requirement rather than dropping an obligation.
     """
+    acceptance = _normalize_capability_deliveries(acceptance)
+    acceptance = _normalize_leading_review_destination_quantifier(acceptance)
     acceptance = _normalize_review_comment_destinations(acceptance)
-    acceptance = _normalize_bare_artifact_destinations(acceptance)
+    acceptance = _normalize_plain_artifact_destinations(acceptance)
+    acceptance = _normalize_destination_first_checklist(acceptance)
+    acceptance = _normalize_passive_product_capabilities(acceptance)
     acceptance = _normalize_evidence_source_filename_qualifiers(acceptance)
     acceptance = _normalize_review_content_qualifiers(acceptance)
+    acceptance = _normalize_plain_artifact_destinations(acceptance)
     acceptance = _normalize_passive_review_agents(acceptance)
     acceptance = _normalize_relative_review_presence(acceptance)
+    acceptance = _normalize_product_destination_lists(acceptance)
+    acceptance = _normalize_standalone_review_comment_alternatives(acceptance)
     preposition = _EVIDENCE_DESTINATION_PREPOSITION
     destination = (
         r"(?:(?:the|an?)\s+)?(?:(?:pr|pull request)\s+(?:(?:body|description)\b"
         r"(?:\s+" + _REVIEW_BODY_COMPONENT + r")?|comments?\b"
         r"(?:\s+" + _REVIEW_BODY_COMPONENT + r")?)|"
-        r"(?:workflow|ci|github actions)\s+artifacts?\b)"
+        r"(?:(?:workflow|ci|github actions)\s+)?artifacts?\b)"
     )
     member = r"(?:" + preposition + r"\s+)?" + destination
     destination_list = re.compile(
@@ -4437,7 +5409,17 @@ def _required_evidence_options(acceptance: str) -> list[set[str]]:
         clause_start = (
             max(masked.rfind(";", 0, match.start()), masked.rfind("\n", 0, match.start())) + 1
         )
-        governing_prefix = acceptance[clause_start : match.start()] + match["prep"] + " "
+        governing_prefix = acceptance[clause_start : match.start()]
+
+        def destination_member(item: str, inherited: str = match["prep"]) -> str:
+            # An explicit member preposition is semantic (as an artifact vs
+            # in PR content), not decoration inherited from the first member.
+            return (
+                item
+                if re.match(r"^" + preposition + r"\s+", item, re.I)
+                else inherited + " " + item
+            )
+
         deliveries = []
         for item in alternatives:
             component = re.search(
@@ -4450,9 +5432,7 @@ def _required_evidence_options(acceptance: str) -> list[set[str]]:
                 channel = (
                     "comments" if component["channel"].lower().startswith("comment") else "body"
                 )
-                isolated = governing_prefix + re.sub(
-                    r"^" + preposition + r"\s+", "", item, flags=re.I
-                )
+                isolated = governing_prefix + destination_member(item)
                 if channel not in _required_evidence_channels(isolated):
                     continue
             deliveries.append(item)
@@ -4461,11 +5441,7 @@ def _required_evidence_options(acceptance: str) -> list[set[str]]:
         if len(variants) * len(alternatives) > 32:
             return [_required_evidence_channels(acceptance)]
         variants = [
-            variant[: match.start()]
-            + match["prep"]
-            + " "
-            + re.sub(r"^" + preposition + r"\s+", "", item, flags=re.I)
-            + variant[match.end() :]
+            variant[: match.start()] + destination_member(item) + variant[match.end() :]
             for variant in variants
             for item in alternatives
         ]
@@ -4484,6 +5460,22 @@ def _required_evidence_options(acceptance: str) -> list[set[str]]:
     # Preserve original obligations absent from the union of recognized options.
     unrepresented = _required_evidence_channels(acceptance) - set().union(*options)
     return [option | unrepresented for option in options]
+
+
+@lru_cache(maxsize=512)
+def _cached_evidence_options(
+    acceptance: str, classifier: Callable[..., set[str]]
+) -> tuple[frozenset[str], ...]:
+    # The classifier identity invalidates results if a caller substitutes it.
+    return tuple(frozenset(option) for option in _classify_evidence_options(acceptance))
+
+
+def _required_evidence_options(acceptance: str) -> list[set[str]]:
+    if len(acceptance) > _EVIDENCE_CACHE_MAX_CHARS:
+        return _classify_evidence_options(acceptance)
+    return [
+        set(option) for option in _cached_evidence_options(acceptance, _required_evidence_channels)
+    ]
 
 
 def _required_evidence_is_missing(evidence: str, channels: set[str]) -> bool:

@@ -328,6 +328,31 @@ def test_permit_capability_and_share_delivery_use_actual_floor(status, kind):
     assert result.verdict == ("CONCERNS" if kind == "share" and status != "present" else "PASS")
 
 
+@pytest.mark.parametrize("actor", ["app", "parser", "schema", "module"])
+@pytest.mark.parametrize("status", ["absent", "unavailable", "present"])
+def test_product_actor_capability_to_upload_artifact_does_not_become_review_delivery(status, actor):
+    criterion = f"The {actor} must allow users to upload evidence to an artifact."
+    evidence = (
+        "Overall retrieval status: **present**\n- PR body: **present**\n"
+        f"- PR comments: **{status}**\n- Referenced workflow artifacts: **{status}**\n"
+    )
+    context, _ = _context(1, 1000, 1000)
+    context = context.replace(ACCEPTANCE_SENTINEL, criterion).replace(
+        "## PR Diff Summary",
+        "## Acceptance evidence\n\n- " + evidence + "\n## PR Diff Summary",
+    )
+    result = pr_verifier._apply_coverage_floor(
+        pr_verifier.EvaluationResult(verdict="PASS", used_llm=True),
+        pr_verifier.prompt_coverage(context, None),
+    )
+    assert result.verdict == "PASS"
+
+
+def test_independent_reviewer_upload_remains_a_real_artifact_delivery():
+    criterion = "The app must allow users to upload evidence to an artifact; the reviewer must upload evidence to an artifact."
+    assert pr_verifier._required_evidence_channels(criterion) == {"artifacts"}
+
+
 @pytest.mark.parametrize("status", ["absent", "unavailable", "present"])
 @pytest.mark.parametrize("position", ["none", "before", "after"])
 @pytest.mark.parametrize(

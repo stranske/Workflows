@@ -6,6 +6,13 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 Breaking changes are called out with a **BREAKING** marker and scheduled according to the policy in `COMPATIBILITY.md`.
 
+## [1.38.6](https://github.com/stranske/Workflows/compare/v1.38.5...v1.38.6) (2026-10-14)
+
+
+### Bug Fixes
+
+* **campaign:** enforce owner exclusion before discovery and reconciliation ([#3882](https://github.com/stranske/Workflows/issues/3882)) ([2ddebbb](https://github.com/stranske/Workflows/commit/2ddebbb8a6170cec1584c15f80bdcaef917d8d5a))
+
 ## [1.38.5](https://github.com/stranske/Workflows/compare/v1.38.4...v1.38.5) (2026-10-14)
 
 
