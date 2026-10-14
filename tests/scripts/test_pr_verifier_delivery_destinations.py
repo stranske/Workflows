@@ -6656,6 +6656,58 @@ def test_issue3835_capability_cannot_erase_independent_direct_reviewer_delivery(
     )
 
 
+@pytest.mark.parametrize(
+    "criterion,expected",
+    [
+        (
+            "The application must allow users to upload evidence in a PR comment and then post evidence as an artifact",
+            set(),
+        ),
+        (
+            "The application must allow users to upload evidence in a PR comment, then post evidence as an artifact",
+            set(),
+        ),
+        (
+            "The application must allow users to upload evidence in a PR comment, an artifact",
+            set(),
+        ),
+        (
+            "The application must allow users to upload test logs in a PR comment and then post test logs as an artifact",
+            set(),
+        ),
+        (
+            "The application must allow users to upload evidence in a PR comment and then post it as an artifact",
+            set(),
+        ),
+        (
+            "The application must allow users to upload evidence files to the PR body and an artifact; the reviewer must record it in a PR comment",
+            {"comments"},
+        ),
+    ],
+)
+def test_issue3835_capability_owned_coordinated_deliveries_keep_only_independent_duties(
+    criterion,
+    expected,
+):
+    assert verifier._required_evidence_channels(criterion) == expected
+    assert verifier._required_evidence_options(criterion) == [expected]
+    assert _floor_verdict(criterion, body="present", comments="absent", artifacts="absent") == (
+        "CONCERNS" if expected else "PASS"
+    )
+
+
+def test_issue3835_capability_coordination_preserves_separate_reviewer_delivery():
+    criterion = (
+        "The application must allow users to upload evidence in a PR comment and then post evidence as an artifact; "
+        "the reviewer must record evidence in a PR comment"
+    )
+    assert verifier._required_evidence_channels(criterion) == {"comments"}
+    assert (
+        _floor_verdict(criterion, body="present", comments="absent", artifacts="present")
+        == "CONCERNS"
+    )
+
+
 def test_issue3835_mandatory_capability_workflow_artifact_does_not_create_a_floor():
     criterion = "The reviewer must allow users to upload evidence in a workflow artifact"
     assert verifier._required_evidence_channels(criterion) == set()

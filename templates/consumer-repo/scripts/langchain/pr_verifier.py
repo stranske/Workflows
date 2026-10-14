@@ -1700,28 +1700,52 @@ def _normalize_capability_deliveries(acceptance: str) -> str:
         r"(?:" + _EVIDENCE_REVIEW_DESTINATION + r"|(?:(?:the|an?)\s+)?artifacts?\b)"
     )
     destination_member = _EVIDENCE_DESTINATION_PREPOSITION + r"\s+" + capability_destination
+    inherited_destination_member = (
+        r"(?:" + destination_member + r"|" + capability_destination + r")"
+    )
+    destination_tail = (
+        r"(?:\s+(?:(?:both|either)\s+)?"
+        + destination_member
+        + r"(?:"
+        + _EVIDENCE_DESTINATION_SEPARATOR_BASE
+        + inherited_destination_member
+        + r")*)?"
+    )
+    proof_object = (
+        _EVIDENCE_OBJECT_MODIFIERS
+        + r"(?:evidence(?:\s+(?:files?|bundles?|packages?))?|transcripts?|command outputs?|"
+        + _EVIDENCE_PROOF_ALIAS_NOUN
+        + r")\b"
+    )
+    coordinated_proof_operand = proof_object + r"|(?:it|them|this|these|those|both)\b"
+    coordinated_delivery = (
+        r"(?:"
+        + _EVIDENCE_DESTINATION_SEPARATOR_BASE
+        + _EVIDENCE_COORDINATED_DELIVERY_PREDICATE
+        + r"\s+(?:"
+        + coordinated_proof_operand
+        + r")"
+        + destination_tail
+        + r")*"
+    )
     capability_delivery = re.compile(
         r"(?P<literal>" + _QUOTED_EVIDENCE_LITERAL + r")|"
-        r"(?P<governor>(?:(?:"
+        r"(?:(?:"
         + _MANDATORY_EVIDENCE_AUXILIARY
         + r"|"
         + _EVIDENCE_OPTIONAL_MODAL
-        + r")|(?:and|or))\s+)"
+        + r")|(?:and|or))\s+"
         r"(?:allow|enable|support|permit)\w*\s+"
         r"(?:users?|reviewers?|maintainers?|authors?)\s+to\s+"
         + _EVIDENCE_DELIVERY_OPERATION
         + r"\s+"
-        + _EVIDENCE_OBJECT_MODIFIERS
-        + r"(?:evidence(?:\s+(?:files?|bundles?|packages?))?|transcripts?|command outputs?)\b"
-        r"(?:\s+(?:(?:both|either)\s+)?"
-        + destination_member
-        + r"(?:\s+(?:and|or)\s+"
-        + destination_member
-        + r")*)?",
+        + proof_object
+        + destination_tail
+        + coordinated_delivery,
         re.I,
     )
     return capability_delivery.sub(
-        lambda match: match[0] if match["literal"] else "product capability",
+        lambda match: match[0] if match["literal"] else "product capability evidence",
         acceptance,
     )
 
@@ -5127,6 +5151,11 @@ def _classify_evidence_channels(acceptance: str, *, _bind_attached: bool = True)
                 elif not line_channels:
                     continue
             if not line_channels:
+                # The capability normalizer leaves this internal marker as an
+                # antecedent for a later independent pronoun delivery.  Alone,
+                # it must not become an overall evidence floor.
+                if re.fullmatch(r"[^;.!?\n]*\bproduct capability evidence\s*", lower):
+                    continue
                 command_behavior = bool(
                     re.search(
                         r"\b(?:cli\s+)?command\b\s+(?:(?:must|shall|will)\s+output|outputs)\b",
