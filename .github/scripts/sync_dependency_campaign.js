@@ -38,6 +38,7 @@ const DEFAULT_BOT_AUTHORS = [
   'chatgpt-codex-connector[bot]',
 ];
 const DEFAULT_IGNORED_PATHS = ['.agents/'];
+const OWNER_EXCLUDED_REPOSITORIES = ['stranske/Collab-Admin'];
 
 const ACTIVE_STATUSES = new Set([
   'needs-local-codex',
@@ -62,6 +63,64 @@ function cleanArray(values) {
 
 function normaliseLogin(value) {
   return cleanString(value).toLowerCase();
+}
+
+function repositoryIdentity(value) {
+  if (typeof value === 'object' && value) {
+    value = value.repository || value.repo || value.fullName || value.full_name;
+  }
+  return cleanString(value).split('#', 1)[0].toLowerCase();
+}
+
+function excludedRepositorySet(excludedRepos = OWNER_EXCLUDED_REPOSITORIES) {
+  return new Set([...OWNER_EXCLUDED_REPOSITORIES, ...cleanArray(excludedRepos)]
+    .map(repositoryIdentity).filter(Boolean));
+}
+
+function isOwnerExcludedRepository(value, excludedRepos = OWNER_EXCLUDED_REPOSITORIES) {
+  return excludedRepositorySet(excludedRepos).has(repositoryIdentity(value));
+}
+
+function excludeOwnerBlockedRecords(records = [], excludedRepos = OWNER_EXCLUDED_REPOSITORIES) {
+  return cleanArray(records).filter((record) => !isOwnerExcludedRepository(record, excludedRepos));
+}
+
+function projectOwnerExclusions(state = {}) {
+  const items = excludeOwnerBlockedRecords(state.items);
+  const handoffs = excludeOwnerBlockedRecords(state.delivery_handoffs);
+  const errors = excludeOwnerBlockedRecords(state.errors);
+  const history = excludeOwnerBlockedRecords(state.source_review_history);
+  const reconciliationErrors = excludeOwnerBlockedRecords(state.handoff_reconciliation_errors);
+  const blockedKeys = excludeOwnerBlockedRecords(state.handoff_verification_blocked_keys);
+  const cachedClaims = cleanArray(state.stats?.local_codex_claims?.items);
+  const claims = excludeOwnerBlockedRecords(cachedClaims);
+  const pruned = items.length !== cleanArray(state.items).length
+    || handoffs.length !== cleanArray(state.delivery_handoffs).length
+    || errors.length !== cleanArray(state.errors).length
+    || history.length !== cleanArray(state.source_review_history).length
+    || reconciliationErrors.length !== cleanArray(state.handoff_reconciliation_errors).length
+    || blockedKeys.length !== cleanArray(state.handoff_verification_blocked_keys).length
+    || claims.length !== cachedClaims.length;
+  if (!pruned) return state;
+  return {
+    ...state,
+    items,
+    delivery_handoffs: handoffs,
+    errors,
+    source_review_history: history,
+    handoff_reconciliation_errors: reconciliationErrors,
+    handoff_verification_blocked_keys: blockedKeys,
+    stats: {
+      ...(state.stats || {}),
+      ...deriveItemStats(items),
+      repos_requested: 'unavailable-after-owner-exclusion',
+      repos_checked: 'unavailable-after-owner-exclusion',
+      repos_failed: 'unavailable-after-owner-exclusion',
+      sync_prs_open: 'unavailable-after-owner-exclusion',
+      dependabot_prs_open: 'unavailable-after-owner-exclusion',
+      active_review_threads: 'unavailable-after-owner-exclusion',
+    },
+  };
 }
 
 function labelsForPullRequest(pr = {}) {
@@ -452,7 +511,7 @@ function preparedDeliveryContinuation(record = {}) {
 function planMaint71Continuations(records = [], { now = new Date().toISOString() } = {}) {
   const nowMs = Date.parse(now);
   if (!Number.isFinite(nowMs)) throw new Error(`invalid continuation time: ${now}`);
-  const handoffs = cleanArray(records)
+  const handoffs = excludeOwnerBlockedRecords(records)
     .map((record) => normalizeDeliveryHandoff(record))
     .filter(Boolean);
   const deliveryActive = handoffs.some((record) => {
@@ -499,10 +558,10 @@ function selectMaint71ContinuationRepos(
   continuation = {}, records = [], registeredRepos = [],
   { excludedRepos = ['stranske/Collab-Admin'] } = {},
 ) {
-  const excluded = new Set(excludedRepos);
+  const excluded = excludedRepositorySet(excludedRepos);
   const allowed = cleanArray(registeredRepos)
     .map(cleanString)
-    .filter((repo) => repo && !excluded.has(repo));
+    .filter((repo) => repo && !excluded.has(repositoryIdentity(repo)));
   if (continuation.lane === 'campaign' || continuation.lane === 'dev-tool') {
     // Campaign authorization deliberately inspects the whole non-manual fleet.
     return allowed;
@@ -526,7 +585,7 @@ function selectMaint71ContinuationRepos(
 }
 
 function formatMaint71ContinuationPlannerRows(records = [], { now = new Date().toISOString() } = {}) {
-  const handoffs = cleanArray(records)
+  const handoffs = excludeOwnerBlockedRecords(records)
     .map((record) => normalizeDeliveryHandoff(record))
     .filter(Boolean);
   const plannedHandoffs = new Set(
@@ -599,8 +658,8 @@ async function reconcileClosedDeliveryHandoffs(previous = [], incoming = [], api
   const records = [];
   const errors = [];
   const blockedKeys = [];
-  const incomingKeys = new Set(cleanArray(incoming).map((row) => `${row.repository}#${row.pr}`));
-  for (const retained of cleanArray(previous).map((row) => normalizeDeliveryHandoff(row)).filter(Boolean)) {
+  const incomingKeys = new Set(excludeOwnerBlockedRecords(incoming).map((row) => `${row.repository}#${row.pr}`));
+  for (const retained of excludeOwnerBlockedRecords(previous).map((row) => normalizeDeliveryHandoff(row)).filter(Boolean)) {
     if (preparedDeliveryContinuation(retained).class === 'terminal') continue;
     const key = `${retained.repository}#${retained.pr}`;
     if (incomingKeys.has(key)) continue;
@@ -662,7 +721,7 @@ async function verifyIncomingDeliveryHandoffs(incoming = [], api, withRetry) {
   const records = [];
   const errors = [];
   const blockedKeys = [];
-  for (const record of cleanArray(incoming)) {
+  for (const record of excludeOwnerBlockedRecords(incoming)) {
     const normalized = normalizeDeliveryHandoff(record);
     if (!normalized) {
       // Do not let a malformed dispatch suppress live reconciliation of a
@@ -718,11 +777,12 @@ function mergeCampaignState(previousState = {}, discoveredItems = [], nowValue, 
   const now = cleanString(nowValue) || new Date().toISOString();
   const nowDate = new Date(now);
   const maxAttempts = Number(options.maxAttempts || DEFAULT_MAX_ATTEMPTS);
-  const previousItems = cleanArray(previousState.items);
+  const previousItems = excludeOwnerBlockedRecords(previousState.items);
+  discoveredItems = excludeOwnerBlockedRecords(discoveredItems);
   const previousById = new Map(previousItems.map((item) => [item.id, item]));
   const discoveredById = new Map(discoveredItems.map((item) => [item.id, item]));
   const sourceReviewHistory = buildSourceReviewHistory(
-    previousState,
+    { ...previousState, source_review_history: excludeOwnerBlockedRecords(previousState.source_review_history) },
     previousItems,
     options.maxSourceReviewHistory || DEFAULT_MAX_SOURCE_REVIEW_HISTORY
   );
@@ -830,11 +890,11 @@ function mergeCampaignState(previousState = {}, discoveredItems = [], nowValue, 
 
   const items = pruneItems(nextItems, options.maxRetainedItems || DEFAULT_MAX_RETAINED_ITEMS)
     .map(annotateLocalCodexQueueState);
-  const observedIncomingHandoffs = cleanArray(options.deliveryHandoffRecords)
+  const observedIncomingHandoffs = excludeOwnerBlockedRecords(options.deliveryHandoffRecords)
     .map((record) => normalizeDeliveryHandoff(record, now))
     .filter(Boolean);
   const deliveryHandoffs = mergeDeliveryHandoffs(
-    previousState.delivery_handoffs,
+    excludeOwnerBlockedRecords(previousState.delivery_handoffs),
     observedIncomingHandoffs,
     now,
     options.maxDeliveryHandoffs,
@@ -1165,6 +1225,7 @@ function validateCampaignState(state = {}) {
 }
 
 function formatCampaignMarker(state) {
+  state = projectOwnerExclusions(state);
   const safeJson = JSON.stringify(compactStateForMarker(state)).replace(/--/g, '\\u002d\\u002d');
   return `<!-- ${CAMPAIGN_MARKER} ${safeJson} -->`;
 }
@@ -1325,6 +1386,7 @@ function formatSourceSyncStatusCounts(counts = {}) {
 }
 
 function formatCampaignBody(state) {
+  state = projectOwnerExclusions(state);
   const stats = state.stats || {};
   const claims = stats.local_codex_claims || localCodexClaimSummary(state.items);
   const queueItems = cleanArray(state.items)
@@ -1891,6 +1953,7 @@ function verboseDryRunLoggingEnabled(env = process.env) {
 }
 
 function formatDryRunSummary(state = {}) {
+  state = projectOwnerExclusions(state);
   const stats = state.stats || {};
   return [
     '[dry-run] Campaign issue update suppressed from logs.',
@@ -1906,6 +1969,7 @@ function formatDryRunSummary(state = {}) {
 }
 
 function formatCampaignRunSummaryMarkdown(state = {}, issue = null) {
+  state = projectOwnerExclusions(state);
   const stats = state.stats || {};
   const claims = stats.local_codex_claims || localCodexClaimSummary(state.items);
   const errors = cleanArray(state.errors);
@@ -2002,11 +2066,20 @@ async function runCampaign({
   const campaignRepo = context.repo.repo;
   const repoEntries = parseCsv(repos)
     .map((entry) => normaliseRepoEntry(entry, campaignOwner))
-    .filter(Boolean);
+    .filter((entry) => entry && !isOwnerExcludedRepository(entry.fullName));
   const limitedRepoEntries = Number(maxRepos) > 0 ? repoEntries.slice(0, Number(maxRepos)) : repoEntries;
 
   let campaignIssue = await findCampaignIssue(api, campaignOwner, campaignRepo, core, withRetry);
   let previousState = parseCampaignMarker(campaignIssue?.body) || {};
+  previousState = {
+    ...previousState,
+    items: excludeOwnerBlockedRecords(previousState.items),
+    source_review_history: excludeOwnerBlockedRecords(previousState.source_review_history),
+    delivery_handoffs: excludeOwnerBlockedRecords(previousState.delivery_handoffs),
+    handoff_reconciliation_errors: excludeOwnerBlockedRecords(previousState.handoff_reconciliation_errors),
+    handoff_verification_blocked_keys: excludeOwnerBlockedRecords(previousState.handoff_verification_blocked_keys),
+    errors: excludeOwnerBlockedRecords(previousState.errors),
+  };
   const discoveredItems = [];
   const errors = [];
   let syncPrsOpen = 0;
@@ -2036,7 +2109,7 @@ async function runCampaign({
   }
 
   const verifiedIncoming = await verifyIncomingDeliveryHandoffs(
-    deliveryHandoffRecords, api, withRetry,
+    excludeOwnerBlockedRecords(deliveryHandoffRecords), api, withRetry,
   );
   const closureReconciliation = await reconcileClosedDeliveryHandoffs(
     previousState.delivery_handoffs, verifiedIncoming.records, api, withRetry, now,
@@ -2132,6 +2205,7 @@ module.exports = {
   LABEL_ACTIVE,
   LABEL_NEEDS_LOCAL_CODEX,
   DEFAULT_BOT_AUTHORS,
+  OWNER_EXCLUDED_REPOSITORIES,
   collectActiveBotThreads,
   buildQueueItem,
   classifyPullRequest,
@@ -2144,6 +2218,7 @@ module.exports = {
   formatMaint71ContinuationPlannerRows,
   formatDryRunSummary,
   isDependabotPullRequest,
+  isOwnerExcludedRepository,
   isSyncPullRequest,
   mergeCampaignState,
   mergeDeliveryHandoffs,

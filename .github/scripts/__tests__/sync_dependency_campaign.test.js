@@ -16,6 +16,7 @@ const {
   formatCampaignRunSummaryMarkdown,
   formatDryRunSummary,
   isDependabotPullRequest,
+  isOwnerExcludedRepository,
   isSyncPullRequest,
   mergeCampaignState,
   mergeDeliveryHandoffs,
@@ -27,6 +28,7 @@ const {
   planMaint71Continuations,
   selectMaint71ContinuationRepos,
   replaceCampaignMarker,
+  runCampaign,
   verboseDryRunLoggingEnabled,
   validateCampaignState,
 } = require('../sync_dependency_campaign.js');
@@ -194,6 +196,100 @@ test('closed delivery reconciliation terminalizes only matching retained identit
     handoff_reconciliation_errors: unknown.errors });
   assert.equal(warning.status, 'warning');
   assert.ok(warning.blockers.includes('handoff-reconciliation-error'));
+});
+
+test('owner-excluded cached and incoming handoffs never reach reconciliation APIs', async () => {
+  const handoff = {
+    schema: 'workflows-generated-delivery-handoff/v1', repository: 'STRANSKE/cOLLAB-aDMIN',
+    pr: 19, branch: 'sync/workflows-delivery', head_sha: 'exact-head',
+    delivery_generation: 'generation-1', plan_id: 'immutable-plan', source_commit: 'source-commit',
+    disposition: 'review-blocked', blocker_owner: 'maint-71', next_command: 'resolve-active-review-threads',
+    check_state: 'ready', review_state: 'blocked',
+    continuation: { class: 'transient', lane: 'delivery', reason: 'waiting', resume_after: '2026-10-12T00:00:00Z' },
+  };
+  let calls = 0;
+  const api = { rest: { pulls: { get: async () => { calls += 1; return { data: {} }; } } } };
+  const retry = (operation) => operation(api);
+  assert.equal(isOwnerExcludedRepository(handoff.repository), true);
+  assert.deepEqual(await verifyIncomingDeliveryHandoffs([handoff], api, retry), {
+    records: [], errors: [], blockedKeys: [],
+  });
+  assert.deepEqual(await reconcileClosedDeliveryHandoffs([handoff], [], api, retry), {
+    records: [], errors: [], blockedKeys: [],
+  });
+  assert.equal(calls, 0);
+});
+
+test('eligible cached handoffs still reconcile through the API', async () => {
+  const handoff = {
+    schema: 'workflows-generated-delivery-handoff/v1', repository: 'stranske/Ready',
+    pr: 21, branch: 'sync/workflows-delivery', head_sha: 'exact-head',
+    delivery_generation: 'generation-1', plan_id: 'immutable-plan', source_commit: 'source-commit',
+    disposition: 'review-blocked', blocker_owner: 'maint-71', next_command: 'resolve-active-review-threads',
+    check_state: 'ready', review_state: 'blocked',
+    continuation: { class: 'transient', lane: 'delivery', reason: 'waiting', resume_after: '2026-10-12T00:00:00Z' },
+  };
+  let calls = 0;
+  const api = { rest: { pulls: { get: async () => {
+    calls += 1;
+    return { data: { state: 'closed', merged_at: null, head: { sha: 'exact-head', ref: 'sync/workflows-delivery' } } };
+  } } } };
+  const result = await reconcileClosedDeliveryHandoffs([handoff], [], api, (operation) => operation(api));
+  assert.equal(calls, 1);
+  assert.equal(result.records[0].repository, 'stranske/Ready');
+});
+
+test('public formatter removes cached excluded rows and does not reuse their aggregate counts', () => {
+  const body = formatCampaignBody({
+    updated_at: '2026-10-13T00:00:00Z',
+    items: [{ repo: 'stranske/Collab-Admin', pr_number: 4, status: 'local-codex-claimed', lease: { owner: 'x' } }],
+    delivery_handoffs: [{ repository: 'stranske/Collab-Admin', pr: 4 }],
+    errors: [{ repo: 'stranske/Collab-Admin', error: 'cached failure' }],
+    source_review_history: [{ repo: 'STRANSKE/collab-admin', source_review_key: 'cached' }],
+    handoff_reconciliation_errors: ['STRANSKE/collab-admin#4: cached'],
+    handoff_verification_blocked_keys: ['stranske/Collab-Admin#4'],
+    stats: {
+      repos_checked: 1, repos_requested: 1, sync_prs_open: 1, dependabot_prs_open: 1,
+      local_codex_claims: { count: 1, items: [{ repo: 'stranske/Collab-Admin' }] },
+    },
+  });
+  assert.equal(body.includes('Collab-Admin'), false);
+  assert.equal(body.includes('unavailable-after-owner-exclusion'), true);
+  const marker = formatCampaignMarker({
+    items: [], source_review_history: [{ repo: 'stranske/Collab-Admin' }],
+    handoff_reconciliation_errors: ['stranske/Collab-Admin#4: cached'],
+    handoff_verification_blocked_keys: ['stranske/Collab-Admin#4'],
+    stats: { local_codex_claims: { count: 1, items: [{ repo: 'stranske/Collab-Admin' }] } },
+  });
+  assert.equal(marker.includes('Collab-Admin'), false);
+  const claimsOnly = formatCampaignMarker({ items: [], stats: {
+    local_codex_claims: { count: 1, items: [{ repo: 'STRANSKE/collab-admin' }] },
+  } });
+  assert.equal(claimsOnly.toLowerCase().includes('collab-admin'), false);
+  assert.equal(claimsOnly.includes('unavailable-after-owner-exclusion'), true);
+});
+
+test('runCampaign excludes owner-blocked case variants before max-repository discovery', async () => {
+  const pullCalls = [];
+  const github = {
+    paginate: async (method, params) => method === github.rest.pulls.list
+      ? (pullCalls.push(`${params.owner}/${params.repo}`), []) : [],
+    rest: {
+      issues: { listForRepo: async () => ({ data: [] }) },
+      pulls: { list: async () => ({ data: [] }) },
+    },
+  };
+  const result = await runCampaign({
+    github,
+    context: { repo: { owner: 'stranske', repo: 'Workflows' }, runId: 'test-run' },
+    repos: ['STRANSKE/cOLLAB-aDMIN', 'stranske/Ready'],
+    maxRepos: 1,
+    dryRun: true,
+    core: { info() {}, warning() {}, setOutput() {} },
+  });
+  assert.deepEqual(pullCalls, ['stranske/Ready']);
+  assert.equal(result.state.stats.repos_requested, 1);
+  assert.equal(result.state.stats.repos_checked, 1);
 });
 
 test('terminal handoff revival requires the current PR to be open on the incoming head', async () => {

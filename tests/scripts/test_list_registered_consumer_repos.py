@@ -34,6 +34,14 @@ def test_extract_repos_reads_literal_block(tmp_path) -> None:
     assert lrcr.extract_repos(manifest) == ["stranske/Foo", "stranske/Bar"]
 
 
+def test_extract_repos_excludes_owner_blocked_repository_case_insensitively(tmp_path) -> None:
+    manifest = tmp_path / "repos.yml"
+    manifest.write_text(
+        "REGISTERED_CONSUMER_REPOS: |\n  stranske/Foo\n  STRANSKE/cOLLAB-aDMIN\n  stranske/Bar\n"
+    )
+    assert lrcr.extract_repos(manifest) == ["stranske/Foo", "stranske/Bar"]
+
+
 def test_extract_repos_stops_at_next_top_level_key(tmp_path) -> None:
     manifest = _write_manifest(
         tmp_path,
