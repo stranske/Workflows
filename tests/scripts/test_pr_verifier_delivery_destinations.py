@@ -6972,6 +6972,19 @@ def test_issue3835_product_command_output_send_preserves_independent_reviewer_de
     )
 
 
+def test_issue3835_product_command_output_send_preserves_later_reviewer_artifact_delivery():
+    criterion = (
+        "The API is sending command output as an artifact; "
+        "the reviewer must attach command output as an artifact"
+    )
+    assert verifier._required_evidence_channels(criterion) == {"artifacts"}
+    assert verifier._required_evidence_options(criterion) == [{"artifacts"}]
+    assert (
+        _floor_verdict(criterion, body="present", comments="present", artifacts="absent")
+        == "CONCERNS"
+    )
+
+
 def test_issue3835_author_command_output_send_artifact_remains_required():
     criterion = "The author must send command output as an artifact"
     assert verifier._required_evidence_channels(criterion) == {"artifacts"}

@@ -1676,7 +1676,7 @@ _EVIDENCE_ACTIVE_AS_ARTIFACT_DELIVERY = (
     r"\s+(?:(?:the|an?|any|this|that|these|those)\s+)?"
     + _EVIDENCE_OBJECT_MODIFIERS
     + r"(?:evidence(?:\s+(?:files?|bundles?|packages?))?|transcripts?|command outputs?|"
-    r"coverage reports?|" + _EVIDENCE_PROOF_ALIAS_NOUN + r")\s+as\s+"
+    r"coverage reports?|logs?|" + _EVIDENCE_PROOF_ALIAS_NOUN + r")\s+as\s+"
     r"(?:(?:an?|the)\s+)?artifacts?\b"
 )
 _EVIDENCE_REVIEW_DESTINATION = (
@@ -4942,26 +4942,25 @@ def _classify_evidence_channels(acceptance: str, *, _bind_attached: bool = True)
                         and bool(re.search(r"\b(?:pr|pull request)\b", lower))
                     )
                 )
-                product_artifact_actor = bool(
-                    re.search(
-                        r"\b(?:ui|api|application|interface|service|worker|cli|database|"
-                        r"users?|endpoint|renderer)\b\s+"
-                        + "(?:"
-                        + product_auxiliary
-                        + r"|(?:is|are)\s+"
-                        + delivery_adverbs
-                        + ")?"
-                        + r"(?:(?:"
-                        + capability_operation
-                        + r")\s+(?:"
-                        + recipient_noun
-                        + r"\s+(?:to\s+)?)?)?"
-                        + delivery_operation
-                        + r".{0,60}\bartifacts?\b",
-                        normalize_product_capability(requirement_text),
-                        re.I,
-                    )
+                product_artifact_actor_match = re.search(
+                    r"\b(?:ui|api|application|interface|service|worker|cli|database|"
+                    r"users?|endpoint|renderer)\b\s+"
+                    + "(?:"
+                    + product_auxiliary
+                    + r"|(?:is|are)\s+"
+                    + delivery_adverbs
+                    + ")?"
+                    + r"(?:(?:"
+                    + capability_operation
+                    + r")\s+(?:"
+                    + recipient_noun
+                    + r"\s+(?:to\s+)?)?)?"
+                    + delivery_operation
+                    + r".{0,60}\bartifacts?\b",
+                    normalize_product_capability(requirement_text),
+                    re.I,
                 )
+                product_artifact_actor = bool(product_artifact_actor_match)
                 passive_product_capability = bool(
                     re.search(
                         r"\b"
@@ -4977,6 +4976,15 @@ def _classify_evidence_channels(acceptance: str, *, _bind_attached: bool = True)
                         + delivery_operation,
                         normalize_product_capability(requirement_text),
                         re.I,
+                    )
+                )
+                independent_artifact_delivery = bool(
+                    product_artifact_actor_match
+                    and any(
+                        active_match.start() > product_artifact_actor_match.end()
+                        for active_match in re.finditer(
+                            _EVIDENCE_ACTIVE_AS_ARTIFACT_DELIVERY, requirement_text, re.I
+                        )
                     )
                 )
                 product_artifact_actor = product_artifact_actor or passive_product_capability
@@ -5014,7 +5022,8 @@ def _classify_evidence_channels(acceptance: str, *, _bind_attached: bool = True)
                     artifact_delivery_into_pr and not passive_product_capability
                 )
                 evidence_named_artifact = evidence_named_artifact and not (
-                    passive_product_capability or product_artifact_actor
+                    passive_product_capability
+                    or (product_artifact_actor and not independent_artifact_delivery)
                 )
                 if (
                     artifact_delivery_into_pr
