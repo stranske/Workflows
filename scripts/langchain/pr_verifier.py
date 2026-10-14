@@ -1853,6 +1853,10 @@ _EVIDENCE_RECORD_ALIASES = {
     "shares": "records",
     "shared": "recorded",
     "sharing": "recording",
+    "report": "record",
+    "reports": "records",
+    "reported": "recorded",
+    "reporting": "recording",
     "paste": "record",
     "put": "record",
     "puts": "records",
@@ -2382,8 +2386,11 @@ def _classify_evidence_channels(acceptance: str, *, _bind_attached: bool = True)
     # before aliasing/clause splitting so a later bare verb cannot lose may/not.
     acceptance = re.sub(
         r"(?P<literal>" + quoted_evidence_literal + r")|"
-        r"\b(?P<operation>" + delivery_operation + r")\s+(?:and|or)\s+"
-        r"(?P=operation)\b",
+        r"\b(?P<operation>(?:"
+        + delivery_operation
+        + r"|"
+        + "|".join(record_aliases)
+        + r"))\s+(?:and|or)\s+(?P=operation)(?:\s+(?:and|or)\s+(?P=operation))*\b",
         lambda match: match[0] if match["literal"] else match["operation"],
         acceptance,
         flags=re.I,
@@ -2824,7 +2831,17 @@ def _classify_evidence_channels(acceptance: str, *, _bind_attached: bool = True)
         alias = match["alias"]
         if not alias:
             return match[0]
-        if alias.lower() in {"supply", "supplies", "supplying", "share", "shares", "sharing"}:
+        if alias.lower() in {
+            "supply",
+            "supplies",
+            "supplying",
+            "share",
+            "shares",
+            "sharing",
+            "report",
+            "reports",
+            "reporting",
+        }:
             prefix = re.split(
                 r"[;,.!?\n]|\b(?:and|or|but|while|whereas)\b",
                 acceptance[: match.start()],
@@ -2847,7 +2864,7 @@ def _classify_evidence_channels(acceptance: str, *, _bind_attached: bool = True)
             # Base supply/supplies following bare possession auxiliaries is a
             # noun phrase, not perfect delivery (which requires supplied).
             verbal_governor = mandatory_auxiliary + r"|will|may|can|could|would|should|do|does|did"
-            if alias.lower() in {"supplying", "sharing"}:
+            if alias.lower() in {"supplying", "sharing", "reporting"}:
                 verbal_governor += r"|is|are|was|were|be|been|being"
             governed = bool(
                 re.search(
@@ -2879,6 +2896,7 @@ def _classify_evidence_channels(acceptance: str, *, _bind_attached: bool = True)
             "supplied",
             "shared",
             "copied",
+            "reported",
         }:
             prefix = re.split(
                 r"[;,.!?\n]|\b(?:and|or|but|that|which|who|while|after|once|before|when|until|unless|if|since|because|whereas|although)\b",
@@ -2893,7 +2911,15 @@ def _classify_evidence_channels(acceptance: str, *, _bind_attached: bool = True)
             )
             active_delivery_subject = (
                 alias.lower()
-                in {"placed", "submitted", "delivered", "supplied", "shared", "copied"}
+                in {
+                    "placed",
+                    "submitted",
+                    "delivered",
+                    "supplied",
+                    "shared",
+                    "reported",
+                    "copied",
+                }
                 and bool(
                     re.fullmatch(
                         r"\s*" + qualified_delivery_actor + r"\s*",
