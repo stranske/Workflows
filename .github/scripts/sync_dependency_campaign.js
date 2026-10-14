@@ -112,6 +112,8 @@ function projectOwnerExclusions(state = {}) {
   if (!pruned) return state;
   return {
     ...state,
+    // Cached validation describes the unfiltered state and can retain excluded records.
+    validation: null,
     items,
     delivery_handoffs: handoffs,
     errors,

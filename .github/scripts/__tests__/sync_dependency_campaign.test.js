@@ -1859,3 +1859,14 @@ test('formatCampaignBody omits inactive superseded details from issue marker', (
   assert.equal(marker.stats.marker_items_omitted, 120);
   assert.deepEqual(marker.items, []);
 });
+
+ test('cached validation is discarded when owner exclusions prune records', () => {
+  const state = { items: [{ repo: 'stranske/Collab-Admin', status: 'local-codex-claimed' }], stats: {},
+    validation: { status: 'warning', blockers: ['stale-excluded-warning'],
+      derived_item_stats: { local_codex_claims: { items: [{ repo: 'stranske/Collab-Admin' }] } } } };
+  const marker = formatCampaignMarker(state);
+  assert.equal(marker.toLowerCase().includes('collab-admin'), false);
+  assert.equal(marker.includes('stale-excluded-warning'), false);
+  const summary = formatCampaignRunSummaryMarkdown(state);
+  assert.equal(summary.includes('stale-excluded-warning'), false);
+});
