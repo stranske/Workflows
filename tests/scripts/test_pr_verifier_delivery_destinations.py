@@ -5680,6 +5680,43 @@ def test_issue3835_relative_artifact_content_keeps_independent_reviewer_floor():
     assert verifier._required_evidence_options(criterion) == [{"comments"}]
 
 
+def test_issue3835_filename_payload_keeps_artifact_delivery():
+    criterion = "The reviewer must upload evidence from results.json in an artifact"
+    assert verifier._required_evidence_channels(criterion) == {"artifacts"}
+    assert verifier._required_evidence_options(criterion) == [{"artifacts"}]
+    assert verifier._required_evidence_channels(
+        criterion + "; the auditor must record evidence in a PR comment"
+    ) == {"artifacts", "comments"}
+
+
+@pytest.mark.parametrize(
+    "content",
+    [
+        "the implementation's test coverage",
+        "v1.2 coverage",
+        "(coverage)",
+        "coverage: detail",
+        '"coverage and in a workflow artifact"',
+    ],
+)
+def test_issue3835_bounded_prose_content_keeps_destination_sibling(content):
+    criterion = (
+        "Evidence must be posted in a PR comment about " + content + " "
+        "and in a workflow artifact"
+    )
+    assert verifier._required_evidence_channels(criterion) == {"comments", "artifacts"}
+    assert verifier._required_evidence_options(criterion) == [{"comments", "artifacts"}]
+
+
+@pytest.mark.parametrize(
+    "criterion",
+    ["A parser for review comments is required", "Support for review comments is required"],
+)
+def test_issue3835_review_comment_product_subject_is_not_delivery(criterion):
+    assert verifier._required_evidence_channels(criterion) == set()
+    assert verifier._required_evidence_options(criterion) == [set()]
+
+
 @pytest.mark.parametrize("prefix", ["the", "our", "their", "each appointed"])
 @pytest.mark.parametrize("boundary", [" and ", ", and ", " but ", " while "])
 @pytest.mark.parametrize("artifact", ["an artifact", "a workflow artifact"])

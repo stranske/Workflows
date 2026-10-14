@@ -1160,10 +1160,13 @@ def _normalize_review_comment_destinations(acceptance: str) -> str:
         r"required|needed|mandatory)\b",
         re.I,
     )
+    standalone_subject = re.compile(
+        r"(?:^|[;.!?\n]\s*|(?:[-*+]\s+))(?:(?:the|an?)\s+)?$",
+        re.I,
+    )
     destination_governor = re.compile(
-        r"(?:\b"
-        + _EVIDENCE_DESTINATION_PREPOSITION
-        + r"|\b(?:and|or)\b)\s+(?:(?:either|both)\s+)?(?:(?:the|an?)\s+)?$",
+        r"(?:\b(?:in|into|to|on|as)\b|\b(?:and|or)\b)\s+"
+        r"(?:(?:either|both)\s+)?(?:(?:the|an?)\s+)?$",
         re.I,
     )
     # "leave/post a review comment" — the alias is the delivered object itself.
@@ -1184,6 +1187,7 @@ def _normalize_review_comment_destinations(acceptance: str) -> str:
             return match[0]
         if (
             standalone_requirement.match(after)
+            and standalone_subject.search(before)
             or destination_governor.search(before)
             or delivered_object.search(before)
         ):
@@ -1296,6 +1300,10 @@ def _normalize_plain_artifact_destinations(acceptance: str) -> str:
         + _EVIDENCE_OBJECT_MODIFIERS
         + evidence_object
         + r"\b"
+        # Source filenames are payload qualifiers, not sentence boundaries.
+        # Keep them bounded and require the normal delivery boundary after the
+        # full filename so product/domain clauses cannot borrow this match.
+        + r"(?:\s+(?:from|using)\s+[\w/-]+(?:\.[\w/-]+){1,4}){0,2}"
         + _DELIVERED_EVIDENCE_OBJECT_END,
         re.I,
     )
@@ -1325,11 +1333,15 @@ def _normalize_plain_artifact_destinations(acceptance: str) -> str:
     def replace(match: re.Match[str]) -> str:
         if match["literal"]:
             return match[0]
+        sentence_end = max(
+            (match.start() for match in re.finditer(r"\.(?=\s|$)", acceptance[: match.start()])),
+            default=-1,
+        )
         clause_start = (
             max(
                 acceptance.rfind(";", 0, match.start()),
                 acceptance.rfind("\n", 0, match.start()),
-                acceptance.rfind(".", 0, match.start()),
+                sentence_end,
                 acceptance.rfind("!", 0, match.start()),
                 acceptance.rfind("?", 0, match.start()),
             )
@@ -1785,20 +1797,25 @@ def _normalize_review_content_qualifiers(acceptance: str) -> str:
         + independent_actor
         + r")"
     )
-    content_word = (
-        r"(?!(?:if|when|only|solely|that|which|where|before|after|must|shall|may|can)\b)"
-        r"[\w/-]+,?"
+    # Consume prose as opaque content until the established clause/destination
+    # boundary. A quoted literal is one atom, so a destination-shaped example
+    # inside it cannot terminate a real sibling destination.
+    prose_content_boundary = content_boundary.replace(r"[;.!?\n]", r"(?:[;!?\n]|\.(?=\s|$))")
+    content_atom = (
+        r"(?:" + _QUOTED_EVIDENCE_LITERAL + r"|"
+        r"(?![ \t]+" + prose_content_boundary + r")[^\r\n])"
     )
     prepositional_content = (
-        r"[ \t]+(?:" + _REVIEW_CONTENT_PREPOSITION + r")[ \t]+"
-        r"(?:"
-        + content_word
-        + r"[ \t]+){0,15}?"
-        + content_word
+        r"[ \t]+(?:"
+        + _REVIEW_CONTENT_PREPOSITION
+        + r")[ \t]+"
+        + r"(?:"
+        + content_atom
+        + r")+?"
         + r"(?="
-        + content_boundary
+        + prose_content_boundary
         + r"|[ \t]+"
-        + content_boundary
+        + prose_content_boundary
         + r")"
     )
     # Participles and relative content predicates describe payload shape, not a

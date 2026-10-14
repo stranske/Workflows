@@ -2664,3 +2664,9 @@ runtime exports and licenses, and update the source and consumer template trees
 together before Maint 68/71 delivery. The current patched chain is minimatch
 10.2.6, brace-expansion 5.0.12 and balanced-match 4.0.4. Brace-expansion requires
 Node 20 or >=22; the current Actions runtime supports that floor, not Node 18.
+
+Evidence destination parsing preserves non-sentence periods in filenames and
+versions. Bounded prose payloads retain punctuation and opaque quoted literals
+without hiding an independently required sibling destination. Standalone review
+comment requirements must govern the channel itself; product nouns such as a
+parser or support for review comments do not create reviewing-PR evidence duties.
